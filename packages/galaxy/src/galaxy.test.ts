@@ -77,6 +77,19 @@ describe('buildGalaxy', () => {
     expect(g.planets.map((p) => p.prd)).toEqual([7]);
   });
 
+  it('names in the feed who merged and who reviewed a pull request, and where (PRD 1975)', () => {
+    const on = { home: 'acme/app', region: 'acme/app', data: { pr: 12, kind: 'feat' } };
+    const g = buildGalaxy([
+      charted,
+      ev('pr:acme/app#12:merged', '2026-09-22T09:00:00Z', 'PR_MERGED', 0, { ...on, contributor: 'alice', team: 'octopod' }),
+      ev('pr:acme/app#12:reviewed:bob', '2026-09-22T09:01:00Z', 'PR_REVIEWED', 0, { ...on, contributor: 'bob', team: 'beaver' }),
+    ], { projects, now: NOW });
+    expect(g.feed.slice(0, 2)).toMatchObject([
+      { type: 'PR_REVIEWED', planet: 0, text: '@bob reviewed #12 in acme/app', contributor: 'bob', team: 'beaver' },
+      { type: 'PR_MERGED', planet: 0, text: '@alice merged #12 into acme/app', contributor: 'alice', team: 'octopod' },
+    ]);
+  });
+
   it('orders the planet state as the spec does: lost beats terraformed, locked beats distress', () => {
     const lost = buildGalaxy([charted, ev('planet:7:lost', '2026-09-20T08:00:00Z', 'PLANET_LOST', 7, { data: { reason: 'closed' } })], { projects, now: NOW });
     expect(lost.planets[0]?.state).toBe('lost');

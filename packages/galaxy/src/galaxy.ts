@@ -59,6 +59,7 @@ function logLine(e: LedgerEvent): string {
   const kind = LABEL_OF[named] ?? named;
   const blocker = String(numberOf(data, 'blocker'));
   const verdict = textOf(data, 'verdict');
+  const pr = String(numberOf(data, 'pr'));
   switch (e.type) {
     case 'PLANET_CHARTED': return `Planet charted by @${textOf(data, 'captain') ?? 'unknown'}`;
     case 'REGION_SURVEYED': return `Region surveyed: ${String(e.region)}`;
@@ -79,6 +80,8 @@ function logLine(e: LedgerEvent): string {
     case 'QUESTION_ANSWERED': return `${who ?? 'Someone'} answered a question`;
     case 'FEATURE_MERGED': return `${who ?? 'Someone'} merged the feature${where}`;
     case 'FEATURE_REVIEWED': return `${who ?? 'Someone'} approved the feature${where}`;
+    case 'PR_MERGED': return `${who ?? 'Someone'} merged #${pr} into ${String(e.region)}`;
+    case 'PR_REVIEWED': return `${who ?? 'Someone'} reviewed #${pr} in ${String(e.region)}`;
     default: return e.type;
   }
 }

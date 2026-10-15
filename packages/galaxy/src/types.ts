@@ -11,7 +11,13 @@ export type ZoneState = 'open' | 'claimed' | 'under-fire' | 'secured';
 export type WoundKind = 'transmission' | 'unconfirmed-ground' | 'beacon' | 'fault-line' | 'under-fire' | 'aftershock';
 
 export interface LedgerEvent {
-  id: string; at: string; type: string; planet: number;
+  id: string; at: string;
+  /**
+   * A type of `game/events.ts`. `PR_MERGED` and `PR_REVIEWED` (PRD 1975) belong to no planet (0):
+   * a merged pull request's author and each of its reviewers, `region` its repository, `data.pr` its number.
+   */
+  type: string;
+  planet: number;
   /** The PRD's home, `owner/name` (PRD 728); absent on the events written before it. */
   home?: string | undefined;
   region?: string | undefined; contributor?: string | undefined; team?: string | undefined; data: Record<string, unknown>;
