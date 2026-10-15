@@ -315,3 +315,545 @@ A constant: a fix text can be added to that finding in one line.
 ```
 
 <!-- /omni-outbox-settled: s1-04-worktree-behind-no-fix -->
+
+<!-- omni-outbox-settled: s2-01-signin-expired-means-unrenewable -->
+
+## s2-01-signin-expired-means-unrenewable — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-signin-expired-means-unrenewable
+prd: 1990
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-15
+wave: 2
+---
+
+## The question, in plain words
+
+When the Omni page sign-in on a computer is past its expiry date but can still be renewed automatically, should it count as signed in?
+
+## The decision, in plain words
+
+It counts as signed in, because the kit renews it on its next call; only a sign-in past its expiry with nothing to renew it counts as expired.
+
+## The intro, for fun
+
+A key past its date can still open the door, if it brings a spare.
+
+## The punchline, for fun
+
+Only the key with no spare gets the orange note.
+
+## The options, in plain words
+
+A. A. Expired only when nothing can renew it (as built)
+B. B. Expired as soon as the access token's expiry has passed
+
+## What I had to decide
+
+Pick A to keep the renewable sign-in green, or B to flag every sign-in past its hourly expiry.
+
+## What I did meanwhile
+
+A sign-in with an expiry date in the past and a refresh token reads as signed in; one with no refresh token reads as not signed in.
+
+## What it costs to change later
+
+Switching to B is one condition in the sign-in check and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the spec's "not expired" meant the access token's own hourly expiry (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-signin-expired-means-unrenewable -->
+
+<!-- omni-outbox-settled: s3-01-knowledge-page-edges -->
+
+## s3-01-knowledge-page-edges — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-knowledge-page-edges
+prd: 1990
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-15
+wave: 2
+---
+
+## The question, in plain words
+
+Three edges of the knowledge and page checks were not settled: a plan repository whose targets come from a product page, the knowledge files changed inside a skill's own working copy, and a sign-in whose short-lived key ran out but can be renewed. What should the sync status say for each?
+
+## The decision, in plain words
+
+A product's target list is skipped because reading it needs the page, and knowledge changes in a skill's working copy are not counted. A sign-in that can still be renewed counts as signed in until the page itself refuses it.
+
+## The intro, for fun
+
+Three small corner cases walked into the sync check and each asked to be counted.
+
+## The punchline, for fun
+
+For now none of them nags anyone; one line of code each undoes that.
+
+## The options, in plain words
+
+A. A. As built: skip a product's target list, skip knowledge edits in a skill's working copy, count a renewable sign-in as signed in.
+B. B. Count them: read the product's cached target list, judge skill working copies too, and call an expired key not signed in even when it can be renewed.
+
+## What I had to decide
+
+Confirm the three choices, or say which should count as a finding instead.
+
+## What I did meanwhile
+
+The checks stay quiet on these three, so a person is never nagged by a state the spec did not name.
+
+## What it costs to change later
+
+Each is one condition in the knowledge and page gatherers; changing one touches no stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a product's targets should be read from its cached list in the knowledge check (author)
+- Whether knowledge edits in a skill's working copy should count (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-knowledge-page-edges -->
+
+<!-- omni-outbox-settled: s4-01-fix-pulls-a-fresh-main-too -->
+
+## s4-01-fix-pulls-a-fresh-main-too — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-fix-pulls-a-fresh-main-too
+prd: 1990
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-15
+wave: 2
+---
+
+## The question, in plain words
+
+When a person asks the sync tool to fix their checkout and their main branch is only a few hours behind, should it pull those commits too, or leave them since the status still reads green?
+
+## The decision, in plain words
+
+It pulls them: whenever main is behind and the checkout is clean, the fix brings it up to date, whatever the colour. The status line only turns red after a day, but a pull asked for is never wasted.
+
+## The intro, for fun
+
+Main is a few commits behind, yet the light is still green.
+
+## The punchline, for fun
+
+Asked to tidy up, the fix picks up the crumbs as well.
+
+## The options, in plain words
+
+A. A. Fast-forward whenever main is behind on a clean tree, green or red.
+B. B. Fast-forward only while the main check is red, as the fix line suggests.
+C. C. Fast-forward whenever behind, and have the fix line name the fast-forward while green too (a change to s1's status rules).
+
+## What I had to decide
+
+Whether omni sync --fix fast-forwards the default branch whenever it is behind, or only when the main check is red (its oldest missing commit older than sync.mainRedAfter).
+
+## What I did meanwhile
+
+kit/lib/sync/fix.ts fastForwardStep runs whenever the behind count is above zero on a clean default branch with nothing of its own; spec section 1's example prints main green at 2 behind with the fix line 'fast-forwards main', which this follows. kit/lib/sync/status.ts (s1) leaves 'fast-forwards main' off the fix line while main is green, so the fix line can say less than --fix does.
+
+## What it costs to change later
+
+One condition in fastForwardStep: require the main check's red finding to be open, a change of one line and one test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Spec section 7 says each step runs when its finding is open; whether a green 'behind' finding counts as open is not settled (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-01-fix-pulls-a-fresh-main-too -->
+
+<!-- omni-outbox-settled: s4-02-help-sync-names-fix-later -->
+
+## s4-02-help-sync-names-fix-later — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-help-sync-names-fix-later
+prd: 1990
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-15
+wave: 2
+---
+
+## The question, in plain words
+
+The help page of the sync tool does not mention its new fix option yet, because another part of this work owns that page right now: who adds the line?
+
+## The decision, in plain words
+
+This part left the help page alone and the command's own usage line names the fix option; the sentence in the help page is left for the last, wording-only part of this work, or for the wave once its parts are merged.
+
+## The intro, for fun
+
+A new button arrived before its label did.
+
+## The punchline, for fun
+
+The label maker is busy next door until the next round.
+
+## The options, in plain words
+
+A. A. Leave it to s7 or to the wave: one usage line and one sentence after s5 merges.
+B. B. Widen this slice's territory to the sync help entry now, against s5's ownership of the file in wave 2.
+
+## What I had to decide
+
+Who adds --fix to omni help sync: the wording slice (s7) or the wave after merging, since kit/lib/help/entries.ts is s5's alone in wave 2 and outside s4's territory.
+
+## What I did meanwhile
+
+kit/bin/commands/sync.ts USAGE reads 'usage: omni sync [--json | --quiet | --background | --fix] [--strict]'; the sync entry in kit/lib/help/entries.ts still lists '[--json | --quiet | --background] [--strict]' and its detail says nothing of --fix.
+
+## What it costs to change later
+
+One usage line and one sentence in the sync help entry.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether s7's territory should gain kit/lib/help/entries.ts for this was not planned (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-02-help-sync-names-fix-later -->
+
+<!-- omni-outbox-settled: s4-03-first-sync-test-line-moved -->
+
+## s4-03-first-sync-test-line-moved — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-first-sync-test-line-moved
+prd: 1990
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-15
+wave: 2
+---
+
+## The question, in plain words
+
+One check written for the first part of this work said the fix option was refused as unknown; now that it exists, is it fine that this part changed that one check, outside its own files?
+
+## The decision, in plain words
+
+The check now asks that the fix option be refused when combined with another output option, so it still proves a wrong mix of options is refused. Nothing else in that file changed.
+
+## The intro, for fun
+
+A test kept insisting the new door was a wall.
+
+## The punchline, for fun
+
+It now checks that you cannot walk through two doors at once.
+
+## The options, in plain words
+
+A. A. Keep the one-line change: --fix combined with --json is the usage error now checked.
+B. B. Drop the line from the first part's test, and leave that refusal to this part's own tests.
+
+## What I had to decide
+
+Whether s4 may change one line of kit/bin/sync.test.ts (s1's file, in no wave-2 territory): the assertion that 'omni sync --fix' exits 2 now passes '--fix --json'.
+
+## What I did meanwhile
+
+kit/bin/sync.test.ts 'refuses two output flags at once, and an argument' asserts sync(root, ['--fix', '--json']) exits 2; kit/bin/sync-fix.test.ts also proves --fix refused with --json and --quiet.
+
+## What it costs to change later
+
+One line; reverting it alone would make the test fail against --fix.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan did not list kit/bin/sync.test.ts in s4's territory although its last assertion pinned --fix as unknown (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-03-first-sync-test-line-moved -->
+
+<!-- omni-outbox-settled: s5-01-session-hook-second-entry -->
+
+## s5-01-session-hook-second-entry — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-session-hook-second-entry
+prd: 1990
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-15
+wave: 2
+---
+
+## The question, in plain words
+
+The sync refresh needed a place in the session-start hook list, and an older test outside this slice's files pins that list to one entry. Where should the refresh go?
+
+## The decision, in plain words
+
+The refresh is its own second entry next to the constituents one, and the older test that pins the list now expects both. That keeps every other hook test as it was.
+
+## The intro, for fun
+
+Two things want to start with the session, and the door only had one hook.
+
+## The punchline, for fun
+
+Now each gets its own hook, and neither waits for the other.
+
+## The options, in plain words
+
+A. A. The refresh is its own second start-up hook, and the older hook test expects both.
+B. B. The refresh joins the first start-up hook, and two older hook tests change.
+
+## What I had to decide
+
+Add omni sync --background as a second SessionStart entry and update kit/bin/constituents.test.ts, one file outside the slice's territory, to expect both entries.
+
+## What I did meanwhile
+
+Sessions start the sync refresh in the background beside the constituents; nothing blocks.
+
+## What it costs to change later
+
+Moving the refresh into the constituents entry later is a two-line change in hooks.json and its three tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the plan meant the territory to include kit/bin/constituents.test.ts (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-session-hook-second-entry -->
+
+<!-- omni-outbox-settled: s6-01-hud-sync-row-on-nothing -->
+
+## s6-01-hud-sync-row-on-nothing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s6
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-hud-sync-row-on-nothing
+prd: 1990
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-15
+wave: 2
+---
+
+## The question, in plain words
+
+When a session is on no work at all, should the HUD band still show the sync badge on a row of its own?
+
+## The decision, in plain words
+
+Yes: the band now shows the sync badge as its first row even with no work, so a person sees a stale checkout before they start; with no sync record the band hides as before.
+
+## The intro, for fun
+
+The band used to say nothing when there was nothing to say.
+
+## The punchline, for fun
+
+Now it says whether the room is tidy before you walk in.
+
+## The options, in plain words
+
+A. A. Show the badge alone for a session on nothing, as built.
+B. B. Keep the band hidden on nothing, and draw the badge only above some work.
+C. C. Show the badge alone, and also say there is no work.
+
+## What I had to decide
+
+Whether the HUD stays hidden on a session with no work, as it was, or shows the badge alone.
+
+## What I did meanwhile
+
+The badge shows alone on a session with no work; one condition in the band undoes it.
+
+## What it costs to change later
+
+One condition in the band's rows to change; no stored data and nothing outside the HUD plugin depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the band's first row draws the sync status; it does not say what a session on nothing shows (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-01-hud-sync-row-on-nothing -->
