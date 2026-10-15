@@ -789,3 +789,69 @@ describe('the hop and the drift in the race (PRD 1963)', () => {
     expect(end.fx.charge).toBeUndefined();
   });
 });
+
+describe('the rocket start (PRD 1963)', () => {
+  /** The countdown played with GAS up for `idle` seconds then down, then GO's step and `after` more seconds of race. */
+  const launch = (idle: number, after = 0, seed = 7): Race => {
+    const counted = play(play(started(newRace({ seed })), NONE, idle), GAS, RULES.countdown - idle - 0.05);
+    const go = step(counted, GAS, 0.05).race;
+    return play(go, GAS, after);
+  };
+
+  it('gives a BOOST of 0.8 seconds, and TURBO under GO, to GAS pressed last during the 2', () => {
+    const go = launch(1.2);
+    expect(go.phase).toBe('race');
+    expect(go.fx.boost).toBe(RULES.rocketTime);
+    expect(hudOf(go).turbo).toBe(true);
+    expect(go.stall).toBeUndefined();
+    expect(launch(1.2, 0.5).fx.boost).toBeGreaterThan(0);
+    expect(launch(1.2, 0.85).fx.boost).toBe(0);
+  });
+
+  it('stalls the engine for 0.5 seconds when GAS goes down during the 3, or is held since the countdown began', () => {
+    for (const idle of [0.2, 0]) {
+      const go = launch(idle);
+      expect(go.stall).toBe(RULES.stallTime);
+      expect(go.fx.boost).toBe(0);
+      expect(hudOf(go).turbo).toBeUndefined();
+      const moved = play(go, GAS, 0.4);
+      expect(moved.player.speed).toBe(0);
+      expect([moved.player.x, moved.player.y]).toEqual([go.player.x, go.player.y]);
+      expect(play(go, GAS, 1).player.speed).toBeGreaterThan(0);
+    }
+  });
+
+  it('is a normal start for GAS pressed during the 1, or not held at GO', () => {
+    for (const go of [launch(2.2), step(play(started(), NONE, RULES.countdown - 0.05), NONE, 0.05).race]) {
+      expect(go.fx.boost).toBe(0);
+      expect(go.stall).toBeUndefined();
+      expect(hudOf(go).turbo).toBeUndefined();
+    }
+  });
+
+  it('counts only the last press: GAS pressed during the 3, let go and pressed during the 2, is a rocket start', () => {
+    const early = play(started(), GAS, 0.3);
+    const lifted = play(early, NONE, 1);
+    const counted = play(lifted, GAS, RULES.countdown - 1.3 - 0.05);
+    const go = step(counted, GAS, 0.05).race;
+    expect(go.fx.boost).toBe(RULES.rocketTime);
+    expect(go.stall).toBeUndefined();
+  });
+
+  it('draws the rivals\' rocket starts from the seed at 0.2, 0.4 and 0.7 by level, and a rival never stalls', () => {
+    const share = (difficulty: 'easy' | 'normal' | 'hard') => {
+      let all = 0;
+      let rockets = 0;
+      for (let seed = 1; seed <= 200; seed++) {
+        const go = step(play(started(newRace({ seed, difficulty })), NONE, RULES.countdown - 0.05), NONE, 0.05).race;
+        for (const r of go.rivals) { all++; if ((r.fx?.boost ?? 0) === RULES.rocketTime) rockets++; expect(r.fx?.spin ?? 0).toBe(0); }
+      }
+      return rockets / all;
+    };
+    expect(share('easy')).toBeCloseTo(0.2, 1);
+    expect(share('normal')).toBeCloseTo(0.4, 1);
+    expect(share('hard')).toBeCloseTo(0.7, 1);
+    const again = (seed: number) => step(play(started(newRace({ seed })), NONE, RULES.countdown - 0.05), NONE, 0.05).race.rivals.map((r) => r.fx?.boost);
+    expect(again(42)).toEqual(again(42));
+  });
+});

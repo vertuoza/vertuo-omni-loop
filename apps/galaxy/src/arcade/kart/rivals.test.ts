@@ -70,7 +70,7 @@ describe('the grid', () => {
 
 describe('the rivals\' levels (PRD 1762)', () => {
   it('holds today\'s numbers in NORMAL', () => {
-    expect(RULES.levels.normal).toEqual({ skillMin: RULES.skillMin, skillMax: 1, lineOffset: RULES.lineOffset, rubber: RULES.rubber, hold: 0 });
+    expect(RULES.levels.normal).toEqual({ skillMin: RULES.skillMin, skillMax: 1, lineOffset: RULES.lineOffset, rubber: RULES.rubber, hold: 0, rocket: 0.4 });
     expect(rivalTraits(1359, 5, 'normal')).toEqual(rivalTraits(1359, 5));
   });
 

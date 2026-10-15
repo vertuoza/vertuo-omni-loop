@@ -387,3 +387,14 @@ describe('a MULTI race on a line that crosses itself', () => {
     }
   });
 });
+
+describe('the rocket start in a MULTI race (PRD 1963)', () => {
+  it('is each player\'s own: theirs on their own countdown, and none for the others\' karts', () => {
+    const counted = play(play(press(multi(), 'start').race, NONE, 1.2), GAS, RULES.countdown - 1.25);
+    const go = step(counted, GAS, 0.05).race;
+    expect(go.fx.boost).toBe(RULES.rocketTime);
+    expect(go.rivals.every((r) => (r.fx?.boost ?? 0) === 0)).toBe(true);
+    const early = step(play(play(press(multi(), 'start').race, NONE, 0.2), GAS, RULES.countdown - 0.25), GAS, 0.05).race;
+    expect(early.stall).toBe(RULES.stallTime);
+  });
+});

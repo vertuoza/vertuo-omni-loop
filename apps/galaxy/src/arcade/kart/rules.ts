@@ -117,15 +117,18 @@ export const RULES = Object.freeze({
   orbLine: 0.18,
   /** The rivals' difficulty (PRD 1762): per level, the range of a rival's own pace (a share of the player's top speed, never above 1), how far off the line it drives, the rubber band, and how long a rival holds an item before it uses it (seconds). NORMAL is the numbers above, unchanged. */
   levels: {
-    easy: { skillMin: 0.8, skillMax: 0.88, lineOffset: 14, rubber: 0.1, hold: 2.5 },
-    normal: { skillMin: 0.92, skillMax: 1, lineOffset: 14, rubber: 0.05, hold: 0 },
-    hard: { skillMin: 0.97, skillMax: 1, lineOffset: 7, rubber: 0.05, hold: 0 },
+    easy: { skillMin: 0.8, skillMax: 0.88, lineOffset: 14, rubber: 0.1, hold: 2.5, rocket: 0.2 },
+    normal: { skillMin: 0.92, skillMax: 1, lineOffset: 14, rubber: 0.05, hold: 0, rocket: 0.4 },
+    hard: { skillMin: 0.97, skillMax: 1, lineOffset: 7, rubber: 0.05, hold: 0, rocket: 0.7 },
   },
   /** The tunnel's vault (PRD 1829): how far the ceiling falls from its height over the centre line (mode7.ts `ROOF`) to where it meets the walls; the eye stands 28 up, so the ceiling stays above it. */
   vault: 10,
   /** How long FINAL LAP shows once the third lap starts. */
   finalBanner: 2.5,
   countdown: 3,
+  /** PRD 1963, the rocket start: GAS last pressed during the 2 and held at GO gives a BOOST of `rocketTime` seconds; pressed during the 3 (or held since the countdown began) the engine stalls for `stallTime` seconds. */
+  rocketTime: 0.8,
+  stallTime: 0.5,
   goBanner: 0.75,
   /** MULTI (PRD 1572): how many players of a workspace hold a place on the grid, and the Realtime messages a second a race may cost (sent and delivered both count). */
   places: 4,

@@ -25,6 +25,8 @@
   font-size: 40px; letter-spacing: 2px; color: var(--yellow); text-shadow: 3px 3px 0 var(--red), 6px 6px 0 #0b0a26;
   animation: kt-pop 0.35s ease-out;
 }
+/* PRD 1963: TURBO under GO on a rocket start. */
+.kt-turbo { position: absolute; left: 50%; top: 52%; transform: translateX(-50%); margin: 0; font-size: 12px; letter-spacing: 2px; color: var(--cyan); text-shadow: 2px 2px 0 var(--navy-dark), 4px 4px 0 #0b0a26; }
 .kt-go { font-size: 56px; color: var(--green, var(--yellow)); }
 @keyframes kt-pop { from { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } 60% { transform: translate(-50%, -50%) scale(0.9); opacity: 1; } to { transform: translate(-50%, -50%) scale(1); } }
 @keyframes kt-flash { 50% { opacity: 0.25; } }
