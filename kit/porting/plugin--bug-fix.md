@@ -53,7 +53,7 @@ Bug section are PRD 556's spec, carried whole.
   `green.txt` (a component bug also films its story to `before.webm` and `after.webm`), and step 12
   runs `omni bug film` then `omni proof push --kind bug` before the PR, whose body gains `## Proof`
   right after **What was wrong**. A GIF not made opens the PR as a draft with
-  `GIF not produced - <reason>`.
+  `GIF not produced - <reason>`. Its tests are `kit/test/bug-fix-proof.test.ts`.
 
 - **Signing**, as every kit skill: the issue and the PR end with `omni sign footer`, every commit
   with `omni sign trailer`.
