@@ -181,6 +181,13 @@ describe('omni help', () => {
     expect(out.replace(/\s+/g, ' ')).toContain('show decisions lists the latest 20 decision records, and --all every one');
   });
 
+  it('names the two product knowledge verbs of omni kb (PRD 1795)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { out } = await run(['help', 'kb'], root);
+    expect(out).toContain('omni kb legal');
+    expect(out).toContain('omni kb glossary');
+  });
+
   it('takes a skill by its name or its slash command alike', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const byName = await run(['help', 'yolo'], root);
