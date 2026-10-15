@@ -7,7 +7,7 @@
 // workspace reads as missing. Every answer is parsed where it comes in (data/parse-rows.ts).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber, type ProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { orEmpty, orNull, parseRow, parseRows } from '../data/parse-rows';
 import { StoreError } from '../data/store-error';
 
@@ -102,6 +102,43 @@ export type RoadmapPush = {
   source: string | null; questions: RoadmapQuestion[]; document: string; prds: RoadmapPrdPush[]; humanWork?: HumanWorkPush[] | undefined;
   prerequisites?: RoadmapPrerequisitePush[] | undefined; prerequisiteResult?: RoadmapPrerequisiteResultPush | null | undefined;
 };
+
+/** One PRD of a pushed product roadmap (PRD 2011): a repository's number (`912`) or a product's id (`mobile-12`). */
+export type ProductRoadmapPrdPush = Omit<RoadmapPrdPush, 'prd'> & { prd: PrdNumber | ProductPrdId };
+
+/**
+ * One push of a roadmap born on the server, validated: what roadmap_product_push() takes. `key` is its
+ * product's, `roadmap` the number on that product (`mobile-R3` is 3), null to create the product's next;
+ * `repo` only chooses between two workspaces holding the key.
+ */
+export type ProductRoadmapPush = {
+  key: string; roadmap: number | null; repo: string | null; title: string; milestone: string; target: string | null; source: string | null;
+  questions: RoadmapQuestion[]; document: string; prds: ProductRoadmapPrdPush[]; humanWork?: HumanWorkPush[] | undefined;
+  prerequisites?: RoadmapPrerequisitePush[] | undefined; prerequisiteResult?: RoadmapPrerequisiteResultPush | null | undefined;
+};
+
+/** What roadmap_product_push() answers: the roadmap's row and dossier, its id `<key>-R<n>`, whether this
+ * push created it, its product, and the versions it added or left as they were. */
+const ProductPushAnswer = z.strictObject({
+  roadmapId: z.string(),
+  dossierId: z.string(),
+  roadmap: z.string(),
+  created: z.boolean(),
+  product: z.strictObject({ id: z.string(), name: z.string() }),
+  added: z.array(z.strictObject({ kind: z.string(), version: z.number().int() })),
+  unchanged: z.array(z.string()),
+});
+type ProductRoadmapPushAnswer = z.infer<typeof ProductPushAnswer>;
+
+/** A repository of a product, as the roadmap's rows are checked against: its `owner/name`, whether it is
+ * read-only, and the repositories it consumes (`owner/name`). */
+export type ProductRepository = { repository: string; readOnly: boolean; consumes: string[] };
+
+/** The product keyed `key` and its repositories. */
+export type ProductRepositories = { id: string; key: string; name: string; repositories: ProductRepository[] };
+
+const ProductRow = z.object({ id: z.string(), name: z.string() });
+const ProductRepositoryRow = z.object({ repository: z.string(), read_only: z.boolean(), consumes: z.array(z.string()) });
 
 /** What roadmap_push() answers: the roadmap, whether this push created it, the product it was filed
  * under, and the product named that matched none of the workspace's. */
@@ -228,6 +265,24 @@ function settled({ data, error }: { data: unknown; error: Failure | null }): Roa
   return parsed.value;
 }
 
+/** roadmap_product_push()'s answer, parsed; its refusal or an answer that does not parse, thrown. */
+function productSettled({ data, error }: { data: unknown; error: Failure | null }): ProductRoadmapPushAnswer {
+  if (error) throw new RoadmapStoreError('push the product roadmap', error);
+  const parsed = parseRow(ProductPushAnswer, data, 'roadmap/store: roadmap_product_push');
+  if (!parsed.ok) throw new RoadmapStoreError('push the product roadmap', { message: parsed.error });
+  return parsed.value;
+}
+
+/** The body roadmap_product_push() reads: the push without its key, number and repository. */
+function productBodyOf(push: ProductRoadmapPush): Record<string, unknown> {
+  const { title, milestone, target, source, questions, document, prds, humanWork, prerequisites, prerequisiteResult } = push;
+  return {
+    title, milestone, target, source, questions, document, prds,
+    ...(humanWork === undefined ? {} : { humanWork }),
+    ...(prerequisites === undefined ? {} : { prerequisites, prerequisiteResult: prerequisiteResult ?? null }),
+  };
+}
+
 /** roadmap_prerequisites_push()'s refusal, thrown; its answer is not needed. */
 function prerequisitesSettled({ error }: { error: Failure | null }): void {
   if (error) throw new RoadmapStoreError('store the roadmap\'s prerequisites', error);
@@ -235,6 +290,14 @@ function prerequisitesSettled({ error }: { error: Failure | null }): void {
 
 export function roadmapStore(db: Pick<SupabaseClient, 'rpc'>) {
   return {
+    /** Records one push of a roadmap born on the server: its product's next roadmap when `push.roadmap`
+     * is null, else a push to `<key>-R<n>`; its prerequisites travel in the same call. */
+    async pushProduct(push: ProductRoadmapPush): Promise<ProductRoadmapPushAnswer> {
+      return productSettled(await db.rpc('roadmap_product_push', {
+        p_key: push.key, p_roadmap: push.roadmap, p_body: productBodyOf(push), p_repo: push.repo,
+      }));
+    },
+
     /** Records one push of a roadmap, then its prerequisites when it carries them; answers the
      * roadmap, whether it is new, and its product. */
     async push(push: RoadmapPush): Promise<RoadmapPushAnswer> {
@@ -282,4 +345,24 @@ export function roadmapReader(db: Pick<SupabaseClient, 'from'>) {
       return [...rows.filter((h) => h.state === 'open'), ...rows.filter((h) => h.state === 'done')];
     },
   };
+}
+
+/**
+ * The product keyed `key` the caller reads and its repositories, as the rows of a product roadmap are
+ * checked against them. Two workspaces may hold the key: the one listing `repo` answers, else the first
+ * created. Null when the caller reads no such product; a failed read is thrown, never read as none.
+ */
+export async function readProductRepositories(db: Pick<SupabaseClient, 'from'>, key: string, repo: string | null): Promise<ProductRepositories | null> {
+  const products = await db.from('products').select('id, name').eq('key', key).order('created_at', { ascending: true });
+  if (products.error) throw new RoadmapStoreError('read the product', products.error);
+  const found = orEmpty(parseRows(ProductRow, products.data, 'roadmap/store: products'));
+  const withRepositories: ProductRepositories[] = [];
+  for (const product of found) {
+    const links = await db.from('product_repositories').select('repository, read_only, consumes').eq('product_id', product.id).order('repository', { ascending: true });
+    if (links.error) throw new RoadmapStoreError('read the product\'s repositories', links.error);
+    const rows = orEmpty(parseRows(ProductRepositoryRow, links.data, 'roadmap/store: product_repositories'));
+    withRepositories.push({ id: product.id, key, name: product.name, repositories: rows.map((r) => ({ repository: r.repository, readOnly: r.read_only, consumes: r.consumes })) });
+  }
+  const wanted = repo?.toLowerCase() ?? null;
+  return withRepositories.find((p) => wanted !== null && p.repositories.some((r) => r.repository.toLowerCase() === wanted)) ?? withRepositories[0] ?? null;
 }
