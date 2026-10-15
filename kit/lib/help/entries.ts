@@ -93,6 +93,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'through, 1 while an item is open, a drift is not reworked or a risky change is not accounted for.',
   },
   {
+    name: 'sync',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni sync [--json | --quiet | --background] [--strict]'],
+    label: 'omni sync',
+    summary: 'whether this checkout is in sync before you plan on it',
+    detail:
+      'Runs four checks and prints one line each, heaviest first: main (how far behind ' +
+      '{remote}/{defaultBranch} you are, and on which branch), kit (the kit and the plugins against ' +
+      "the latest release), knowledge (stale evidence, the targets' copies) and page (your sign-in, " +
+      "the Omni page's copy), then a fix line. Its status is 🟢 In sync; 🟠 Needs action; 🔴 Out of " +
+      'sync, which for main means a missing commit older than a day; or 🔵 Setting up, a newcomer\'s ' +
+      'four steps (the two plugins, the sign-in, main pulled), shown until they first all hold. The ' +
+      'sync block of the config sets the order, the highest colour each check may show, and when ' +
+      'main turns red. It keeps the result for the status line and the HUD. --json prints it as ' +
+      'kept, --quiet only refreshes it, --background refreshes it without waiting, and --strict ' +
+      'exits 1 on 🔴; otherwise it always exits 0.',
+  },
+  {
     name: 'prd',
     kind: 'command',
     who: 'you',
@@ -377,11 +396,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'proof',
     kind: 'command',
     who: 'skills',
-    usage: ['omni proof push <n> <dir>', 'omni proof session [<file>]'],
-    summary: "sends a proof run to a PRD's Proof tab, or signs its browser in",
+    usage: ['omni proof push [--kind bug] <n> <dir>', 'omni proof session [<file>]'],
+    summary: "sends a proof run to a PRD's Proof tab or a bug's page, or signs its browser in",
     detail:
       "Sends a proof run /omni:prove recorded to PRD n's dossier on the Omni page and prints its Proof " +
-      "tab's link. It reads " +
+      "tab's link; with --kind bug it sends the run to the bug dossier of issue n and prints the bug " +
+      "page's link, then the GIF's stable link. It reads " +
       'run.json in the folder, and refuses before sending anything a file that is not .webm, .gif, ' +
       '.ts or .txt, or one over 50 MB. Then it uploads each clip and script, and registers the run. ' +
       'It never holds up the skill that runs it: anything that stops it exits 1 with one line, as ' +
@@ -477,6 +497,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     summary: "a session's start and end, for any coding agent, with no hook",
     detail:
       'start is what an agent runs first: it prints the constituents (as omni constituents does), then ' +
+      'the sync block (as omni sync does: from the cache when it is under 15 minutes old, else after a ' +
+      'refresh of at most 15 seconds, else the cache with its age, or sync: not checked yet), then ' +
       'the briefing (as omni kb show briefing does), then a last line session: <id>. The id is ' +
       "OMNI_SESSION_ID, else CLAUDE_CODE_SESSION_ID, else the one stored for this checkout; with none, " +
       'it makes one and stores it, so every later omni command of the checkout uses the same session. ' +
@@ -893,15 +915,19 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'bug',
     kind: 'command',
     who: 'skills',
-    usage: ['omni bug <n> [--base <ref>]'],
-    summary: 'grade a bug fix branch',
+    usage: ['omni bug <n> [--base <ref>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]'],
+    summary: 'grade a bug fix branch, or film its before and after',
     detail:
       "The proof step of /omni:bug-fix, run on its fix branch: one folder for issue <n> under the " +
       "delivery folder's bugs/, holding a bug.md with its Triage, Reproduction, Fix, Guard and " +
       'Mutation sections, a risk of critical, high, medium or low, a reproduction file the branch ' +
       "changes and its red line, and every commit carrying the loop's signature, unless signing is " +
       'off. It runs no test. Prints ok, or not ok with one line per failed check. --base defaults ' +
-      'to {remote}/{defaultBranch}.',
+      'to {remote}/{defaultBranch}. omni bug film makes the fix\'s before/after GIF with ffmpeg: ' +
+      'from two .txt outputs of the reproduction (red, then green) or two .webm clips, 640 pixels ' +
+      'wide, looping. It writes preview.gif, the two inputs and a run.json that omni proof push ' +
+      '--kind bug sends, in --out (by default proof-bug-<n>/<time> under the worktrees folder), and ' +
+      'prints that folder. Without ffmpeg it exits 1 with ffmpeg not found.',
   },
   {
     name: 'concept',

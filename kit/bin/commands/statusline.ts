@@ -10,6 +10,10 @@
 // names when they are missing or a minute old, as the board's is started, unless one was just started
 // for it, and never for a shipped PRD or a merged fix.
 //
+// Line 2 starts with the sync badge (PRD 1990) when `omni sync` has kept a record: read from its cache
+// alone, and when that is absent or 15 minutes old it starts one `omni sync --background`, detached,
+// never a second while a run holds the lock beside the cache (`../../lib/statusline/sync-badge.ts`).
+//
 // It never breaks Claude Code: it always exits 0 and prints at least one line, never writes to
 // stderr, never fetches, never reads the loop and writes no file; what it cannot read leaves its part out.
 // JSON that cannot be read prints `omni`; a reader that fails prints line 1 from the JSON alone. Under
@@ -61,6 +65,7 @@ import { SHIPPED } from '../../lib/statusline/stage.ts';
 import type { ExecText } from '../../lib/context.ts';
 import { parseInput } from '../../lib/statusline/input.ts';
 import { renderLines, UNREADABLE_LINE } from '../../lib/statusline/render.ts';
+import { readSyncBadge } from '../../lib/statusline/sync-badge.ts';
 import type { ExecFileSyncOptions, ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import type { HookStdin } from '../../lib/ask/hook-input.ts';
 import type { IssueNumber, PrdNumber } from '../../lib/ids.ts';
@@ -125,6 +130,27 @@ type RefreshOptions = {
   callMs?: number | undefined;
 };
 
+/** What line 2 reads beyond the checkout's facts: `omni now`'s answer (its links' refresh started when due,
+ * unless the board's refresh just started it), the board of the PRD the facts name, and the sync badge's record. */
+function secondLineFacts({ input, facts, cwd, exec, now, spawn, seen, script, env, started }: {
+  input: NonNullable<ReturnType<typeof parseInput>>;
+  facts: ReturnType<typeof readCheckoutFacts>;
+  cwd: string;
+  exec: ExecText;
+  now: number;
+  spawn: Spawn;
+  seen: Spawn;
+  script: string | undefined;
+  env: Env;
+  started: ReadonlySet<string>;
+}) {
+  const folder = input.currentDir ?? cwd;
+  const answer = readNow({ cwd, folder: input.currentDir, sessionId: input.sessionId, exec, now });
+  if (answer.work && !started.has(String(answer.work.number))) refreshLinksOf(answer.work, { folder, now, spawn: seen, script, env }, exec);
+  const board = facts.prd ? { number: facts.prd.number, slices: facts.prd.slices, openItems: facts.prd.openItems } : null;
+  return { now: answer, board, sync: readSyncBadge({ folder, exec, now, spawn, script, env }) };
+}
+
 async function statusLines({
   cwd,
   exec,
@@ -144,11 +170,8 @@ async function statusLines({
     const { seen, started } = trackedSpawn(spawn);
     const facts = attempt(() => readFacts(input, { cwd, exec: remembered, now: instant, spawn: seen, script, env }));
     if (!facts?.installed) return renderLines({ input, facts, terminal, now: instant });
-    const answer = readNow({ cwd, folder: input.currentDir, sessionId: input.sessionId, exec: remembered, now: instant });
-    const refresh = { folder: input.currentDir ?? cwd, now: instant, spawn: seen, script, env };
-    if (answer.work && !started.has(String(answer.work.number))) refreshLinksOf(answer.work, refresh, remembered);
-    const board = facts.prd ? { number: facts.prd.number, slices: facts.prd.slices, openItems: facts.prd.openItems } : null;
-    return renderLines({ input, facts: { ...facts, now: answer, board }, terminal, now: instant });
+    const second = secondLineFacts({ input, facts, cwd, exec: remembered, now: instant, spawn, seen, script, env, started });
+    return renderLines({ input, facts: { ...facts, ...second }, terminal, now: instant });
   } catch {
     return [UNREADABLE_LINE];
   }

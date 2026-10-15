@@ -260,6 +260,25 @@ describe('runContributions', () => {
     expect(present(fake.tables.contributions, 'contributions').find((r) => r.workspace_id === ACME)).toEqual(theirs);
   });
 
+  it('also reads each repository the workspace tracks that no sector names, so its merges count on the People table (#2018)', async () => {
+    const vertuoBuild = { branch: 'main', merged: [{ number: 102, author: person('KevinVermeulen'), mergedAt: '2026-09-27T12:00:00Z' }] };
+    const fake = fakeSupabase({
+      ...tablesOf(),
+      repositories: [
+        { workspace_id: VERTUOZA, full_name: 'vertuoza/VertuoBuild', tracked: true },
+        { workspace_id: VERTUOZA, full_name: 'vertuoza/vertuo-core', tracked: true }, // a sector's: read once
+        { workspace_id: VERTUOZA, full_name: 'vertuoza/vertuo-old', tracked: false },
+        { workspace_id: ACME, full_name: 'acme/acme-web', tracked: true },
+      ],
+    });
+    const gh = fakeGh({ ...world(), 'vertuoza/VertuoBuild': vertuoBuild });
+    const report = await run(fake, gh);
+
+    expect(report.rows).toContainEqual({ workspace_id: VERTUOZA, kind: 'pr-merged', repo: 'VertuoBuild', number: 102, login: 'kevinvermeulen', at: '2026-09-27T12:00:00Z' });
+    expect(report.read.map((r) => r.repo)).toEqual(['vertuo-core', 'vertuo-flow', 'VertuoBuild']);
+    expect(gh.calls.join('\n')).not.toMatch(/vertuo-old|acme/);
+  });
+
   it('writes nothing when no repository holds anything within the window', async () => {
     const fake = fakeSupabase(tablesOf());
     const report = await run(fake, fakeGh({ 'vertuoza/vertuo-core': {}, 'vertuoza/vertuo-flow': {} }));
