@@ -37,9 +37,9 @@ describe('an owner’s view', () => {
   it('lists each key: its name, who made it and when, oma_… and its last four, its repositories, when last used, and Revoke', () => {
     const [qa, digest] = rows(html);
     expect(qa?.id).toBe('k-1');
-    expect(text(qa?.html ?? '')).toContain('QA dashboard @pierrederval · 15 Oct 2026 oma_…9fQe backend-php 2 min ago Revoke');
+    expect(text(qa?.html ?? '')).toContain('QA dashboard @pierrederval · 15 Oct 2026 oma_…9fQe backend-php Last used 2 min ago Revoke');
     expect(qa?.html).toContain('title="vertuoza/backend-php"');
-    expect(text(digest?.html ?? '')).toContain(`Weekly digest @irisa · 15 Oct 2026 oma_…A1c0 ${ALL_REPOSITORIES} Never Revoke`);
+    expect(text(digest?.html ?? '')).toContain(`Weekly digest @irisa · 15 Oct 2026 oma_…A1c0 ${ALL_REPOSITORIES} Last used Never Revoke`);
     expect(html).toContain(`aria-label="${REVOKE} QA dashboard"`);
     expect(html).not.toContain(ONLY_OWNERS);
   });
@@ -105,6 +105,12 @@ describe('the key just made', () => {
   it('leaves the secret out of the table, and out of a fresh page', () => {
     expect(rows(html).some((r) => r.html.includes(SECRET))).toBe(false);
     expect(view(initialApiKeysState(made.keys), true)).not.toContain(SECRET);
+  });
+
+  it('makes Copy the one primary action, New key quiet beside it', () => {
+    const primaries = [...html.matchAll(/<button type="button" class="ask-button"[^>]*>([^<]*)</g)].map((m) => m[1]);
+    expect(primaries).toEqual(['Copy']);
+    expect(html).toContain(`class="ask-button quiet">${NEW_KEY}<`);
   });
 
   it('says Copied once copied', () => {

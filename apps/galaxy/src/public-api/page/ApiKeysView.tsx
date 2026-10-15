@@ -118,7 +118,7 @@ function KeyRow({ apiKey, state, owner, now, on }: { apiKey: ApiKey; state: ApiK
       </td>
       <td><code className="api-keys-masked">{maskedKey(apiKey)}</code></td>
       <td><Repos repos={apiKey.repos} /></td>
-      <td className="ask-muted">{lastUsedOf(apiKey.lastUsedAt, now)}</td>
+      <td className="ask-muted"><span className="api-keys-label">Last used </span>{lastUsedOf(apiKey.lastUsedAt, now)}</td>
       {owner && (
         <td className="api-keys-revoke">
           {asking
@@ -155,7 +155,9 @@ export function ApiKeysView({ state, owner, tracked, now, demo = false, on = IDL
       <div className="api-keys-head">
         <h1 id="api-keys-title">{TITLE}</h1>
         {demo && <span className="ask-chip">Demo</span>}
-        {owner && !state.form.open && <button type="button" className="ask-button" onClick={() => { on.open(); }} disabled={state.busy}>{NEW_KEY}</button>}
+        {owner && !state.form.open && (
+          <button type="button" className={state.made ? 'ask-button quiet' : 'ask-button'} onClick={() => { on.open(); }} disabled={state.busy}>{NEW_KEY}</button>
+        )}
       </div>
       <p className="ask-muted api-keys-lead">{LEAD} <a href={API_REFERENCE_HREF}>{API_REFERENCE}</a></p>
       {!owner && <p className="api-keys-owners">{ONLY_OWNERS}</p>}

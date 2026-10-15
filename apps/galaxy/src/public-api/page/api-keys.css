@@ -3,7 +3,7 @@
    Ask's reading tokens only. Below 700 px a key's row stacks: its name and meta, then its key, its
    repositories, when it was last used and Revoke, each wrapping; the secret and the curl break anywhere,
    so nothing is wider than the screen. */
-.api-keys { display: grid; gap: 14px; min-width: 0; }
+.api-keys { width: 100%; justify-self: start; display: grid; gap: 14px; min-width: 0; }
 .api-keys-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .api-keys-head h1 { margin: 0; margin-right: auto; overflow-wrap: anywhere; }
 .api-keys-lead { margin: 0; max-width: 900px; }
@@ -13,6 +13,17 @@
 .api-keys-form { display: grid; gap: 12px; max-width: 900px; padding: 14px; border: 1.5px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
 .api-keys-field { display: grid; gap: 4px; min-width: 0; }
 .api-keys-field span { font-size: 14px; color: var(--ask-muted); }
+.api-keys-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  background: var(--ask-sunk);
+  color: var(--ask-ink);
+  font: 16px/1.3 var(--ask-body);
+}
 .api-keys-repos { display: grid; gap: 6px; min-width: 0; margin: 0; padding: 0; border: 0; }
 .api-keys-repos legend { padding: 0; margin-bottom: 4px; font-size: 14px; color: var(--ask-muted); }
 .api-keys-picks { list-style: none; margin: 0 0 0 24px; padding: 0; display: grid; gap: 4px; }
@@ -36,6 +47,7 @@
 .api-keys-chip { padding: 0 8px; border: 1px solid var(--ask-line-strong); border-radius: 999px; font-family: var(--ask-mono); font-size: 13px; }
 .api-keys-revoke { text-align: right; white-space: nowrap; }
 .api-keys-confirm { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.api-keys-label { display: none; }
 .api-keys-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .api-keys-empty { margin: 0; padding: 26px 16px; text-align: center; color: var(--ask-muted); border: 1.5px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
 
@@ -45,5 +57,6 @@
   .api-keys-table tr:first-child { border-top: 0; }
   .api-keys-table td { padding: 0; border-top: 0; }
   .api-keys-table td:first-child { grid-column: 1 / -1; }
+  .api-keys-label { display: inline; }
   .api-keys-revoke { grid-column: 1 / -1; text-align: left; white-space: normal; }
 }
