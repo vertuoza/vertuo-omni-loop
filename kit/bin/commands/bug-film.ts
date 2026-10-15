@@ -42,7 +42,7 @@ function hasFfmpeg(exec: Exec): boolean {
 
 /** The last non-empty line of what a failed ffmpeg wrote. */
 function lastLine(error: unknown): string {
-  const stderr = (error as { stderr?: unknown } | null)?.stderr;
+  const stderr: unknown = error instanceof Error && 'stderr' in error ? error.stderr : undefined;
   const text = typeof stderr === 'string' ? stderr : Buffer.isBuffer(stderr) ? stderr.toString('utf8') : errorMessage(error);
   return (
     text
