@@ -8,7 +8,8 @@
 -- a member, the owner of another workspace and anyone signed out are refused (42501), and nobody writes
 -- the table directly. Every member reads the workspace's links; a stranger reads none. A new repository
 -- is in no product. (Landing 3 dropped repositories.product_id and repository_set_product():
--- supabase/checks/repositories.sql proves them gone.) One transaction, rolled back at the end.
+-- supabase/checks/repositories.sql proves them gone.) Each link is at step 1 of the rollout ladder until an
+-- owner moves it, up or down, between 1 and 5 (PRD 2011). One transaction, rolled back at the end.
 -- Any `FAIL:` stops the run.
 
 begin;
@@ -95,7 +96,8 @@ insert into calls
 select format(c, pg_temp.made('mobile'))
   from unnest(array[
     'select public.product_repository_link(%L, ''vertuoza/vertuo-apps'', ''web'')',
-    'select public.product_repository_unlink(%L, ''vertuoza/pdf-builder'')'
+    'select public.product_repository_unlink(%L, ''vertuoza/pdf-builder'')',
+    'select public.product_repository_set_step(%L, ''vertuoza/pdf-builder'', 5)'
   ]) c;
 grant select on calls to anon, authenticated;
 create temporary table writes (stmt text);
@@ -253,6 +255,44 @@ begin
   -- A product links only the repositories of its own workspace.
   perform pg_temp.refused('select public.product_repository_link(' || quote_literal(pg_temp.made('mobile')) || ', ''acme-prodrepo/widgets'', ''web'')',
                           'P0002', 'a repository of another workspace');
+end $$;
+
+-- ── The rollout ladder (PRD 2011 s1): each link at a step from 1 to 5, moved by an owner ──
+do $$
+declare
+  l public.product_repositories;
+begin
+  if exists (select 1 from public.product_repositories x where x.ladder_step <> 1) then
+    raise exception 'FAIL: a link is not at step 1 until an owner moves it';
+  end if;
+  l := public.product_repository_set_step(pg_temp.made('mobile'), ' Vertuoza/Vertuo-Backend-PHP ', 5);
+  if l.ladder_step <> 5 or l.repository <> 'vertuoza/vertuo-backend-php' or l.role <> 'api' then
+    raise exception 'FAIL: moving a link to step 5 did not keep its other fields: %', l;
+  end if;
+  -- The step is the link's own: the same repository in Estimates stays at 1.
+  if (select ladder_step from public.product_repositories x
+       where x.product_id = pg_temp.made('estimates') and x.repository = 'vertuoza/vertuo-backend-php') <> 1 then
+    raise exception 'FAIL: moving a repository in Mobile moved it in Estimates';
+  end if;
+  -- Editing the link keeps its step; a step down is a step too.
+  l := public.product_repository_link(pg_temp.made('mobile'), 'vertuoza/vertuo-backend-php', 'backend', 'imported',
+                                      '0123456789abcdef0123456789abcdef01234567');
+  if l.ladder_step <> 5 then
+    raise exception 'FAIL: editing a link reset its step: %', l;
+  end if;
+  if (public.product_repository_set_step(pg_temp.made('mobile'), 'vertuoza/vertuo-backend-php', 3)).ladder_step <> 3 then
+    raise exception 'FAIL: an owner could not step a repository back down';
+  end if;
+  perform pg_temp.refused(format('select public.product_repository_set_step(%L, ''vertuoza/vertuo-backend-php'', 6)', pg_temp.made('mobile')),
+                          '22023', 'a step above 5');
+  perform pg_temp.refused(format('select public.product_repository_set_step(%L, ''vertuoza/vertuo-backend-php'', 0)', pg_temp.made('mobile')),
+                          '22023', 'a step below 1');
+  perform pg_temp.refused(format('select public.product_repository_set_step(%L, ''vertuoza/vertuo-backend-php'', null)', pg_temp.made('mobile')),
+                          '22023', 'no step');
+  perform pg_temp.refused(format('select public.product_repository_set_step(%L, ''vertuoza/vertuo-apps'', 2)', pg_temp.made('mobile')),
+                          'P0002', 'a repository the product does not link');
+  perform pg_temp.refused(format('update public.product_repositories set ladder_step = 5 where product_id = %L', pg_temp.made('mobile')),
+                          '42501', 'the owner, moving a step directly');
 end $$;
 
 -- ── A new repository is in no product ──
