@@ -303,37 +303,42 @@ export function engine(level: number | null) {
 }
 
 // The tyres' screech (PRD 1963): a second continuous voice under the music, beside the engine's hum, louder as `level` grows.
-const SCREECH_HZ = 1400;
-const SCREECH_GAIN = 0.05;
-let screeching: { osc: OscillatorNode; gain: GainNode } | null = null;
+// A tyre squeals as a narrow band of noise, not a tone (bug 2058: a square wave sounded like a buzzer), its band rising
+// with the level. It fades in and out, and 0 only fades it, so a slide that drops out for a frame never restarts it.
+const SCREECH_HZ = 1600;
+const SCREECH_Q = 6;
+const SCREECH_GAIN = 0.3;
+let screeching: { src: AudioBufferSourceNode; band: BiquadFilterNode; gain: GainNode } | null = null;
 
-/** The screech of the tyres, from 0 (silent) to 1 (loudest); `null` or 0 stops it. Muted, the master is silent, so it does not sound. */
+/** The screech of the tyres, from 0 (silent) to 1 (loudest); 0 fades it out, `null` stops it. Muted, the master is silent, so it does not sound. */
 export function screech(level: number | null) {
   if (!ac) return;
   const now = ac.currentTime;
-  if (level === null || level <= 0) {
+  if (level === null) {
     if (!screeching) return;
     const old = screeching;
     screeching = null;
     old.gain.gain.setTargetAtTime(0, now, 0.04);
-    old.osc.stop(now + 0.3);
-    setTimeout(() => { old.osc.disconnect(); old.gain.disconnect(); }, 400);
+    old.src.stop(now + 0.3);
+    setTimeout(() => { old.src.disconnect(); old.band.disconnect(); old.gain.disconnect(); }, 400);
     return;
   }
-  const loud = SCREECH_GAIN * Math.min(1, level);
-  const pitch = SCREECH_HZ * (1 + 0.3 * Math.min(1, level));
+  const l = Math.min(1, Math.max(0, level));
   if (!screeching) {
-    const osc = ac.createOscillator(), gain = ac.createGain();
-    osc.type = 'square';
-    osc.frequency.value = pitch;
-    gain.gain.value = loud;
-    osc.connect(gain); gain.connect(master);
-    osc.start(now);
-    screeching = { osc, gain };
-    return;
+    if (l === 0) return;
+    const src = ac.createBufferSource(), band = ac.createBiquadFilter(), gain = ac.createGain();
+    src.buffer = noise;
+    src.loop = true;
+    band.type = 'bandpass';
+    band.frequency.value = SCREECH_HZ * (1 + 0.3 * l);
+    band.Q.value = SCREECH_Q;
+    gain.gain.value = 0;
+    src.connect(band); band.connect(gain); gain.connect(master);
+    src.start(now, Math.random() * 0.5);
+    screeching = { src, band, gain };
   }
-  screeching.gain.gain.setTargetAtTime(loud, now, 0.04);
-  screeching.osc.frequency.setTargetAtTime(pitch, now, 0.05);
+  screeching.gain.gain.setTargetAtTime(SCREECH_GAIN * l, now, l > 0 ? 0.05 : 0.08);
+  if (l > 0) screeching.band.frequency.setTargetAtTime(SCREECH_HZ * (1 + 0.3 * l), now, 0.05);
 }
 
 /** One of OMNI KART's effects: written for the player, `p` times lower when it is a rival's. */
