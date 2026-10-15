@@ -617,9 +617,9 @@ describe('the OPTIONS panel (PRD 1762)', () => {
     expect(options).toEqual(defaultOptions());
   });
 
-  it('lists the five actions with their keys, and says PRESS A KEY while it waits', () => {
+  it('lists the six actions with their keys, HOP last, and says PRESS A KEY while it waits', () => {
     const keys: OptionsView = { screen: 'keys', cursor: 'gas', capture: false, refused: false };
-    expect(panel(keys)).toBe('KEYS ▶ GAS ▲ BRAKE ▼ LEFT ◀ RIGHT ▶ ITEM SPACE A CHANGE B BACK');
+    expect(panel(keys)).toBe('KEYS ▶ GAS ▲ BRAKE ▼ LEFT ◀ RIGHT ▶ ITEM SHIFT HOP SPACE A CHANGE B BACK');
     expect(panel({ ...keys, capture: true })).toContain(`▶ GAS ${PRESS_A_KEY} BRAKE ▼`);
   });
 
@@ -647,9 +647,9 @@ describe('the race names the player\'s keys (PRD 1762)', () => {
       .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
   it('shows the keys on the countdown, default and own', () => {
-    expect(race({ phase: 'countdown', beat: '3' })).toContain('▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE ITEM');
-    const own = { ...defaultOptions(), keys: { gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e' } };
-    expect(race({ phase: 'countdown', beat: '3' }, own)).toContain('W GAS A D STEER S BRAKE E ITEM');
+    expect(race({ phase: 'countdown', beat: '3' })).toContain('▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE HOP SHIFT ITEM');
+    const own = { ...defaultOptions(), keys: { gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e', hop: 'q' } };
+    expect(race({ phase: 'countdown', beat: '3' }, own)).toContain('W GAS A D STEER S BRAKE Q HOP E ITEM');
   });
 
   it('shows no keys line on the Game Boy, whose pad keeps A and B, nor once the race is on', () => {
@@ -659,8 +659,8 @@ describe('the race names the player\'s keys (PRD 1762)', () => {
 
   it('names the ITEM key on the item panel, empty or holding one', () => {
     const run = (item: KartItem | null) => race({ phase: 'race', beat: null, run: { place: 1, lap: 1, laps: 3, tenths: 12, final: false, item } });
-    expect(run(null)).toContain('SPACE');
-    expect(run('boost')).toContain('SPACE ITEM BOOST');
+    expect(run(null)).toContain('SHIFT');
+    expect(run('boost')).toContain('SHIFT ITEM BOOST');
     const own = { ...defaultOptions(), keys: { ...defaultOptions().keys, item: 'e' } };
     expect(race({ phase: 'race', beat: null, run: { place: 1, lap: 1, laps: 3, tenths: 12, final: false, item: 'orb' } }, own)).toContain('E ITEM ORB');
   });
