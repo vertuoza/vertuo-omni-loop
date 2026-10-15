@@ -1206,3 +1206,94 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
     });
   });
 });
+
+describe('omni kb legal | glossary (PRD 1795)', () => {
+  const HOST = 'omni.test';
+  const NOW = new Date('2026-10-15T08:00:00Z');
+  const LOCAL = '.omni-loop/local/product-knowledge.json';
+  const KNOWLEDGE_CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: https://omni.test\n';
+  const BUSINESS = {
+    state: 'ok',
+    business: { name: 'Acme' },
+    product: { name: 'Invoicing' },
+    claims: [],
+    personas: [],
+    legal: [{ id: 'L-INVOICING-1', statement: 'An invoice is kept ten years.', source: 'Code de commerce', owner: 'jane' }],
+    glossary: [{ term: 'Credit note', meaning: 'A document that cancels part of an invoice.', avoid: ['refund', 'rebate'] }],
+  };
+  const signedIn = { read: (host: string) => (host === HOST ? { access_token: 'a', refresh_token: 'r' } : null), write: () => {} };
+
+  /** A page answering `status` with `body`, recording each URL. */
+  function page(status: number, body: unknown = BUSINESS) {
+    const urls: string[] = [];
+    return {
+      urls,
+      fetch: (url: string) => {
+        urls.push(url);
+        return Promise.resolve(new Response(JSON.stringify(body), { status }));
+      },
+    };
+  }
+  const down = { fetch: () => Promise.reject(new TypeError('fetch failed')) };
+
+  function know(root: string, argv: string[], server: { fetch: unknown }, tokens: unknown = signedIn) {
+    return omni(root, argv, { env: {}, tokens, fetch: server.fetch, now: () => NOW });
+  }
+  const repo = () => makeRepo({ git: true, files: { '.omni-loop/config.yml': KNOWLEDGE_CONFIG } });
+
+  it('prints one line per active entry and per term, and keeps the read as the local copy', async () => {
+    const { root, read } = repo();
+    const server = page(200);
+    const legal = await know(root, ['kb', 'legal'], server);
+    expect(legal).toEqual({ code: 0, out: 'L-INVOICING-1  An invoice is kept ten years.  (source: Code de commerce; owner: @jane)\n', err: '' });
+    expect(server.urls).toEqual(['https://omni.test/api/business?repo=acme%2Fwidgets']);
+    const glossary = await know(root, ['kb', 'glossary'], page(200));
+    expect(glossary.out).toBe('Credit note: A document that cancels part of an invoice.  (avoid: refund, rebate)\n');
+    expect(JSON.parse(read(LOCAL))).toEqual({
+      product: 'Invoicing', readAt: NOW.toISOString(), legal: BUSINESS.legal, glossary: BUSINESS.glossary,
+    });
+  });
+
+  it('reads a server from before the page as empty lists', async () => {
+    const { root } = repo();
+    const old = { state: 'ok', business: { name: 'Acme' }, product: { name: 'Invoicing' }, claims: [], personas: [] };
+    expect(await know(root, ['kb', 'legal'], page(200, old))).toEqual({ code: 0, out: '', err: '' });
+  });
+
+  it.each([
+    ['a 5xx', () => page(503, { error: 'down' })],
+    ['a timeout', () => down],
+  ])('prints the copy under the unreachable line on %s', async (_, server) => {
+    const { root } = repo();
+    await know(root, ['kb', 'legal'], page(200));
+    const again = await know(root, ['kb', 'glossary'], server());
+    expect(again.code).toBe(0);
+    expect(again.out).toBe(
+      'last read 2026-10-15: the Omni page is unreachable\nCredit note: A document that cancels part of an invoice.  (avoid: refund, rebate)\n',
+    );
+  });
+
+  it('prints the server reason and exits 1 on a 4xx, whatever the copy', async () => {
+    const { root } = repo();
+    await know(root, ['kb', 'legal'], page(200));
+    const refused = await know(root, ['kb', 'legal'], page(403, { error: 'not a member of the workspace' }));
+    expect(refused.code).toBe(1);
+    expect(refused.out).toContain('not a member of the workspace');
+    expect(refused.out).not.toContain('L-INVOICING-1');
+  });
+
+  it('says nothing was read yet when the page is unreachable and there is no copy', async () => {
+    const { root } = repo();
+    expect(await know(root, ['kb', 'legal'], down)).toEqual({
+      code: 1, out: 'no product knowledge: the Omni page is unreachable and nothing was read yet\n', err: '',
+    });
+  });
+
+  it('exits 1 with the reason when there is no Omni page or no sign-in', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    expect((await know(root, ['kb', 'legal'], page(200))).code).toBe(1);
+    const { root: other } = repo();
+    const unsigned = await know(other, ['kb', 'glossary'], page(200), { read: () => null, write: () => {} });
+    expect(unsigned).toMatchObject({ code: 1, out: 'no product knowledge: no sign-in for omni.test (omni signin)\n' });
+  });
+});

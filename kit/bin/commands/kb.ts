@@ -1,4 +1,5 @@
-// `omni kb init | show <form> [--json] [--all] | status [--json] | graph [--json] | laws […]` — the playbook: one form
+// `omni kb legal | glossary` (PRD 1795) print the product's Legal entries or glossary terms from the Omni page, or
+// the local copy when it is unreachable. `omni kb init | show <form> [--json] [--all] | status [--json] | graph [--json] | laws […]` — the playbook: one form
 // per question an agent asks while delivering. `init` lays down every missing form, blank, and prints
 // what it wrote; it never changes a file that exists. `show` prints one form resolved section by
 // section (a pointer, then the repository's section, then the kit default), each section labelled
@@ -17,6 +18,11 @@
 // warning, and `omni check kb` grades.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
+import { credentialsHost, signedInClient } from '../../lib/ask/credentials.ts';
+import { loadContext } from '../../lib/context.ts';
+import { mainCheckout } from '../../lib/dossier/local.ts';
+import { glossaryLines, legalLines, productKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
 import { formShowText } from '../../lib/budgets/index.ts';
 import { ownerHandle } from '../../lib/codeowners.ts';
 import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
@@ -35,7 +41,7 @@ import { playbookStatus } from '../../lib/playbook/status.ts';
 import { formTemplate } from '../../lib/playbook/templates.ts';
 import { writeForms } from '../../lib/playbook/write-forms.ts';
 import { parseArgs, prdArg, println, sliceArg, usageError, type Flags } from '../args.ts';
-import type { Command, CommandIo, Exec } from '../io.ts';
+import type { CommandIo, Exec, FreeCommand, FreeIo } from '../io.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
 import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
@@ -49,7 +55,7 @@ export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnTyp
 
 const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] | --slice <prd> <slice> | --area <domain>] [--json]';
 const SHOW_USAGE = 'usage: omni kb show <form> [--json] [--all]';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json]`;
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json] | omni kb legal | omni kb glossary`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -299,17 +305,77 @@ function owners(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: C
   return 0;
 }
 
-export const kb: Command = {
-  run: synchronous((args: string[], io: CommandIo): number => {
-    if (args[0] === 'laws') return laws(args.slice(1), io);
-    const { positional, flags } = parseArgs('kb', args, { booleans: ['json', 'all'] });
-    const [sub, ...rest] = positional;
-    if (flags.all && sub !== 'show') throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE}`);
-    if (sub === 'init') return init(rest, flags, io);
-    if (sub === 'show') return show(rest, flags, io);
-    if (sub === 'status') return status(rest, flags, io);
-    if (sub === 'graph') return graph(rest, flags, io);
-    if (sub === 'owners') return owners(rest, flags, io);
-    throw usageError(USAGE);
-  }),
+/** What a test hands `omni kb legal | glossary` beyond `main()`'s own: the sign-in, the app and the clock. */
+type KbOptions = {
+  tokens?: TokenStore | undefined;
+  home?: string | undefined;
+  fetch?: Fetch | undefined;
+  callMs?: number | undefined;
+  now?: (() => Date) | undefined;
 };
+
+/** The repository's slug and a client signed in to its Omni page, or the one line saying why there is none. */
+function reachOf(ctx: Context, options: KbOptions): { repo: string; client: NonNullable<ReturnType<typeof signedInClient>> } | string {
+  const askUrl = ctx.config.ask.url;
+  const repo = ctx.config.repo.slug;
+  if (!askUrl) return 'no product knowledge: ask.url is not set, so there is no Omni page to read';
+  if (!repo) return 'no product knowledge: no repository slug — set repo.slug in the config';
+  const client = signedInClient({ askUrl, tokens: options.tokens, home: options.home, fetch: options.fetch ?? globalThis.fetch, callMs: options.callMs });
+  return client === null ? `no product knowledge: no sign-in for ${credentialsHost(askUrl)} (omni signin)` : { repo, client };
+}
+
+/**
+ * `omni kb legal | glossary` (PRD 1795): the product's active Legal entries, or its glossary terms,
+ * one line each, read through the business read with the computer's sign-in and kept in
+ * `.omni-loop/local/product-knowledge.json`. The page unreachable: the copy under
+ * `last read <date>: the Omni page is unreachable`, or exit 1 with no copy. A refusal prints the
+ * server's reason and exits 1, whatever the copy.
+ */
+async function productVerb(verb: 'legal' | 'glossary', positional: string[], { ctx, stdout, exec }: CommandIo, options: KbOptions, cwd: string): Promise<number> {
+  if (positional.length > 0) throw usageError(`usage: omni kb ${verb}`);
+  const refuse = (line: string): number => {
+    println(stdout, line);
+    return 1;
+  };
+  const reach = reachOf(ctx, options);
+  if (typeof reach === 'string') return refuse(reach);
+  const { repo, client } = reach;
+  try {
+    const read = await productKnowledge({
+      repo,
+      root: mainCheckout(cwd, exec) ?? ctx.root,
+      now: options.now ?? (() => new Date()),
+      fetchBusiness: () => client.readBusiness(repo),
+    });
+    if (read.from === 'copy') println(stdout, unreachableLine(read.readAt));
+    for (const line of verb === 'legal' ? legalLines(read.legal) : glossaryLines(read.glossary)) println(stdout, line);
+    return 0;
+  } catch (error) {
+    return refuse(messageOf(error));
+  }
+}
+
+const runSync = synchronous((args: string[], io: CommandIo): number => {
+  if (args[0] === 'laws') return laws(args.slice(1), io);
+  const { positional, flags } = parseArgs('kb', args, { booleans: ['json', 'all'] });
+  const [sub, ...rest] = positional;
+  if (flags.all && sub !== 'show') throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE}`);
+  if (sub === 'init') return init(rest, flags, io);
+  if (sub === 'show') return show(rest, flags, io);
+  if (sub === 'status') return status(rest, flags, io);
+  if (sub === 'graph') return graph(rest, flags, io);
+  if (sub === 'owners') return owners(rest, flags, io);
+  throw usageError(USAGE);
+});
+
+/** It runs before a context exists, like `targets`, so that a test can hand it `tokens`, `home`, `fetch`, `callMs` and `now`. */
+export const kb = {
+  withoutContext: true,
+  async run(args: string[], free: FreeIo & KbOptions): Promise<number> {
+    const { cwd, stdout, stderr, exec, env, vars } = free;
+    const io: CommandIo = { ctx: loadContext(cwd, { exec }), stdout, stderr, exec, env, vars };
+    const [sub, ...rest] = args;
+    if (sub === 'legal' || sub === 'glossary') return productVerb(sub, rest, io, free, cwd);
+    return runSync(args, io);
+  },
+} satisfies FreeCommand;
