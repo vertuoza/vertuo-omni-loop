@@ -1,0 +1,49 @@
+/* Settings › API keys (PRD 2022 s1; the `api-keys` screen of the design library): the title with New key,
+   the lead and the API reference link, the New key form, the key just made once, then the table of keys.
+   Ask's reading tokens only. Below 700 px a key's row stacks: its name and meta, then its key, its
+   repositories, when it was last used and Revoke, each wrapping; the secret and the curl break anywhere,
+   so nothing is wider than the screen. */
+.api-keys { display: grid; gap: 14px; min-width: 0; }
+.api-keys-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.api-keys-head h1 { margin: 0; margin-right: auto; overflow-wrap: anywhere; }
+.api-keys-lead { margin: 0; max-width: 900px; }
+.api-keys-owners { margin: 0; color: var(--ask-muted); font-style: italic; }
+.api-keys-refusal { margin: 0; color: var(--ask-red); }
+
+.api-keys-form { display: grid; gap: 12px; max-width: 900px; padding: 14px; border: 1.5px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
+.api-keys-field { display: grid; gap: 4px; min-width: 0; }
+.api-keys-field span { font-size: 14px; color: var(--ask-muted); }
+.api-keys-repos { display: grid; gap: 6px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.api-keys-repos legend { padding: 0; margin-bottom: 4px; font-size: 14px; color: var(--ask-muted); }
+.api-keys-picks { list-style: none; margin: 0 0 0 24px; padding: 0; display: grid; gap: 4px; }
+.api-keys-picks code { overflow-wrap: anywhere; }
+.api-keys-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.api-keys-made { display: grid; gap: 10px; min-width: 0; padding: 14px; border: 1.5px solid var(--ask-plasma); border-radius: 12px; background: var(--ask-plasma-soft); }
+.api-keys-made p { margin: 0; }
+.api-keys-secret { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.api-keys-secret code { flex: 1 1 240px; min-width: 0; padding: 8px 10px; border-radius: 8px; background: var(--ask-sunk); font-family: var(--ask-mono); overflow-wrap: anywhere; word-break: break-all; user-select: all; }
+.api-keys-made pre { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--ask-sunk); font-family: var(--ask-mono); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all; }
+
+.api-keys-table { width: 100%; border-collapse: collapse; border: 1.5px solid var(--ask-line-strong); border-radius: 12px; overflow: hidden; background: var(--ask-surface); font-size: 15px; }
+.api-keys-table th { padding: 8px 12px; text-align: left; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); }
+.api-keys-table td { padding: 10px 12px; border-top: 1px solid var(--ask-line); vertical-align: top; overflow-wrap: anywhere; }
+.api-keys-name { display: block; }
+.api-keys-meta { display: block; font-size: 14px; color: var(--ask-muted); }
+.api-keys-dead { display: block; font-size: 14px; color: var(--ask-muted); font-style: italic; }
+.api-keys-masked { font-family: var(--ask-mono); color: var(--ask-muted); white-space: nowrap; }
+.api-keys-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.api-keys-chip { padding: 0 8px; border: 1px solid var(--ask-line-strong); border-radius: 999px; font-family: var(--ask-mono); font-size: 13px; }
+.api-keys-revoke { text-align: right; white-space: nowrap; }
+.api-keys-confirm { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.api-keys-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.api-keys-empty { margin: 0; padding: 26px 16px; text-align: center; color: var(--ask-muted); border: 1.5px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
+
+@media (max-width: 700px) {
+  .api-keys-table thead { display: none; }
+  .api-keys-table tr { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 12px; border-top: 1px solid var(--ask-line); }
+  .api-keys-table tr:first-child { border-top: 0; }
+  .api-keys-table td { padding: 0; border-top: 0; }
+  .api-keys-table td:first-child { grid-column: 1 / -1; }
+  .api-keys-revoke { grid-column: 1 / -1; text-align: left; white-space: normal; }
+}
