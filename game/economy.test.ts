@@ -226,6 +226,41 @@ describe('score', () => {
     });
   });
 
+  describe('a pull request merged into a tracked repository\'s default branch (PRD 1975)', () => {
+    const pr = (n: number, kind: string, at = '2026-09-22T12:00:00Z') => [
+      E(`pr:acme/app#${String(n)}:merged`, at, 'PR_MERGED', { planet: 0, home: 'acme/app', region: 'acme/app', contributor: 'alice', team: 'octopod', data: { pr: n, kind } }),
+      E(`pr:acme/app#${String(n)}:reviewed:bob`, at, 'PR_REVIEWED', { planet: 0, home: 'acme/app', region: 'acme/app', contributor: 'bob', team: 'cia', data: { pr: n, kind } }),
+    ];
+
+    it('pays its author 30 and each reviewer 10 for a feat, 10 and 5 for a docs, in the season of the merge', () => {
+      const s = score([...pr(1, 'feat'), ...pr(2, 'docs')], { season: '2026-09', now: NOW });
+      expect(s.individuals).toEqual({ alice: 40, bob: 15 });
+      expect(s.teams).toEqual({ octopod: 40, cia: 15 });
+      expect(s.credits.map((c) => [c.to, c.reason, c.points])).toEqual([
+        ['alice', 'pr merged', 30], ['bob', 'pr reviewed', 10], ['alice', 'pr merged', 10], ['bob', 'pr reviewed', 5],
+      ]);
+      expect(s.planets).toEqual({});
+      expect(score(pr(1, 'feat'), { season: '2026-10', now: NOW }).individuals).toEqual({});
+    });
+
+    it('pays no night shift, and nothing for a kind it does not know', () => {
+      expect(score(pr(1, 'feat', '2026-09-21T22:00:00Z'), { season: '2026-09', now: NOW }).individuals).toEqual({ alice: 30, bob: 10 });
+      expect(score(pr(1, 'none'), { season: '2026-09', now: NOW }).credits).toEqual([]);
+    });
+
+    it('joins no crew and no planet: a terraform and a loss leave it as it was', () => {
+      const delivery = [
+        charted,
+        E('zone:r:2332:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', { contributor: 'eve', team: 'beaver' }),
+        E('planet:2332:terraformed', '2026-09-25T12:00:00Z', 'PLANET_TERRAFORMED', { data: { ownerTeam: 'beaver', class: 1 } }),
+      ];
+      const before = score(delivery, { season: '2026-09', now: NOW });
+      const after = score([...delivery, ...pr(1, 'feat')], { season: '2026-09', now: NOW });
+      expect(after.credits.filter((c) => !c.reason.startsWith('pr '))).toEqual(before.credits);
+      expect(after.planets).toEqual(before.planets);
+    });
+  });
+
   it('counts one person once, whatever case their login is spelt in', () => {
     // The ledger keeps a sub-PR author as GitHub spells it and a merger in lower case (BR-PRODUCT-79).
     const s = score([

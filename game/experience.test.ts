@@ -38,6 +38,7 @@ describe('experience', () => {
     expect(experience([charted, ...answers], { now: NOW, rules: rules({ weights: { questionAnswered: 0 } }) })).toEqual({ alice: 0 });
     expect(xpKindOf('question answered')).toBe('questionAnswered');
     expect([xpKindOf('feature merged'), xpKindOf('feature reviewed')]).toEqual(['featureMerged', 'featureReviewed']);
+    expect([xpKindOf('pr merged'), xpKindOf('pr reviewed')]).toEqual(['prMerged', 'prReviewed']);
   });
 
   it('counts the cross-fleet multiplier of a wound close, rounding once after summing', () => {
@@ -155,6 +156,8 @@ describe('xpKindOf', () => {
       E('ask:r1:answered', '2026-09-22T09:00:00Z', 'QUESTION_ANSWERED', { contributor: 'pm', team: 'beaver' }),
       E('merge:r#500:2332:merged', '2026-09-22T14:00:00Z', 'FEATURE_MERGED', { contributor: 'pm', team: 'beaver' }),
       E('merge:r#500:2332:approved:eve', '2026-09-22T14:00:00Z', 'FEATURE_REVIEWED', { contributor: 'eve', team: 'octopod' }),
+      E('pr:acme/app#12:merged', '2026-09-22T14:00:00Z', 'PR_MERGED', { planet: 0, home: 'acme/app', contributor: 'alice', team: 'octopod', data: { pr: 12, kind: 'feat' } }),
+      E('pr:acme/app#12:reviewed:bob', '2026-09-22T14:00:00Z', 'PR_REVIEWED', { planet: 0, home: 'acme/app', contributor: 'bob', team: 'cia', data: { pr: 12, kind: 'feat' } }),
     ];
     expect(new Set(events.map((e) => e.type))).toEqual(new Set(EVENT_TYPES));
 
