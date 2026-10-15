@@ -10933,6 +10933,7 @@ function testPaths(enforcedBy2) {
 }
 function lawOwnedPaths(ctx, knowledge = readKnowledge({ ctx })) {
   const registers = "The thesis and the registers: what the product promises, and its laws.";
+  const briefing = "The briefing: the rules every agent follows.";
   const layers = (dir, files2) => Object.keys(LAYER_FILES).filter((name) => files2.includes(name)).map((name) => `${dir}/${name}`);
   const files = [
     thesisPath(ctx),
@@ -10941,7 +10942,7 @@ function lawOwnedPaths(ctx, knowledge = readKnowledge({ ctx })) {
     ...knowledge.crossDomainFiles.map(({ file }) => file)
   ];
   const tests = knowledge.entries.filter((entry) => isLaw(entry) && entry.enforced && entry.enforcedBy !== null).flatMap((entry) => testPaths(entry.enforcedBy ?? "").map((path) => ({ path, why: `law ${entry.id}: its test.` })));
-  return [...files.map((path) => ({ path, why: registers })), ...tests];
+  return [...files.map((path) => ({ path, why: registers })), ...briefingFiles({ ctx }).map((path) => ({ path, why: briefing })), ...tests];
 }
 function expectedOwnersBlock(ctx, knowledge = readKnowledge({ ctx })) {
   return ownersBlock(lawOwnedPaths(ctx, knowledge), ctx.config.laws?.owners ?? []);
