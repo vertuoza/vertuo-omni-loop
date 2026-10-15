@@ -4,7 +4,8 @@ import '../../src/ask/ask.css';
 import '../../src/switch/home.css';
 import '../../src/ideas/ideas.css';
 import { ThemeScript } from '../../src/ask/theme-script';
-import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
+import { READING_VIEWPORT } from '../../src/ask/reading-viewport';
+import { themeCss } from '../../src/ask/theme-tokens';
 import { TopBar } from '../../src/nav/TopBar';
 import { IDEAS } from '../../src/ideas/words';
 
@@ -14,10 +15,7 @@ import { IDEAS } from '../../src/ideas/words';
 // is the app's one top bar (TopBar), its sub-title Ideas. Each board's title and preview are its page's
 // own metadata (./[owner]/[repo]/page.tsx).
 
-export const viewport: Viewport = {
-  themeColor: TOKENS.omni.ground,
-  colorScheme: 'light dark',
-};
+export const viewport: Viewport = READING_VIEWPORT;
 
 export default function IdeasLayout({ children }: { children: React.ReactNode }) {
   return (

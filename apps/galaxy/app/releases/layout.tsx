@@ -4,7 +4,8 @@ import '../../src/ask/ask.css';
 import '../../src/switch/home.css';
 import '../../src/releases/page/releases.css';
 import { ThemeScript } from '../../src/ask/theme-script';
-import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
+import { READING_VIEWPORT } from '../../src/ask/reading-viewport';
+import { themeCss } from '../../src/ask/theme-tokens';
 import { TopBar } from '../../src/nav/TopBar';
 import { RELEASES_URL } from '../../src/releases/page/address';
 import { RELEASES } from '../../src/releases/words';
@@ -28,12 +29,8 @@ export const metadata: Metadata = {
   },
 };
 
-// One colour for the browser's bar, Omni's ground: this metadata is static and cannot read the stored
-// choice, and Omni is the default (PRD 284).
-export const viewport: Viewport = {
-  themeColor: TOKENS.omni.ground,
-  colorScheme: 'light dark',
-};
+// The reading surface's viewport: Omni's ground for the browser's bar (PRD 284), and zoom (bug 1826).
+export const viewport: Viewport = READING_VIEWPORT;
 
 export default function ReleasesLayout({ children }: { children: React.ReactNode }) {
   return (

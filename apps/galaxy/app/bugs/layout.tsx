@@ -3,7 +3,7 @@ import '@omni/design/fonts.css';
 import '../../src/ask/ask.css';
 import '../../src/ask/page/share.css';
 import '../../src/dossier/page/dossier.css';
-import { TOKENS } from '../../src/ask/theme-tokens';
+import { READING_VIEWPORT } from '../../src/ask/reading-viewport';
 import { AppShell } from '../../src/nav/AppShell';
 import { viewerLive } from '../../src/nav/viewer';
 
@@ -20,12 +20,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// One colour for the browser's bar, Omni's ground: this metadata is static and cannot read the stored
-// choice, and Omni is the default (PRD 284).
-export const viewport: Viewport = {
-  themeColor: TOKENS.omni.ground,
-  colorScheme: 'light dark',
-};
+// The reading surface's viewport: Omni's ground for the browser's bar (PRD 284), and zoom (bug 1826).
+export const viewport: Viewport = READING_VIEWPORT;
 
 export default async function FixLayout({ children }: { children: React.ReactNode }) {
   return <AppShell viewer={await viewerLive()}>{children}</AppShell>;
