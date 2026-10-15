@@ -10,6 +10,9 @@ export const EVENT_TYPES = Object.freeze([
   'QUESTION_ANSWERED',
   // A region's feature PR merged into its default branch: its merger, and each person who approved it.
   'FEATURE_MERGED', 'FEATURE_REVIEWED',
+  // A pull request merged into a tracked repository's default branch (PRD 1975): its author, and each
+  // of its reviewers. Both belong to no planet.
+  'PR_MERGED', 'PR_REVIEWED',
 ] as const);
 
 export const WOUND_KINDS = Object.freeze(['transmission', 'unconfirmed-ground', 'beacon', 'fault-line', 'under-fire', 'aftershock'] as const);
@@ -18,8 +21,10 @@ export const WOUND_KINDS = Object.freeze(['transmission', 'unconfirmed-ground', 
 // spells it (PRD 728).
 const HOME = /^[a-z0-9-]{1,39}\/[a-z0-9._-]{1,100}$/;
 
-// The planet of an answer no PRD claims: never a planet, so the map and the season's planets leave it out.
+// The planet of an answer no PRD claims, and of a merged pull request's pay (PRD 1975): never a planet,
+// so the map and the season's planets leave it out.
 export const NO_PLANET = 0;
+const PLANETLESS = new Set<string>(['QUESTION_ANSWERED', 'PR_MERGED', 'PR_REVIEWED']);
 
 export const EventSchema = z.object({
   id: z.string().min(1),
@@ -32,7 +37,7 @@ export const EventSchema = z.object({
   contributor: z.string().optional(),
   team: z.string().optional(),
   data: z.record(z.string(), z.unknown()).default({}),
-}).strict().refine((e) => e.planet !== NO_PLANET || e.type === 'QUESTION_ANSWERED', { message: 'only an answer may belong to no planet', path: ['planet'] });
+}).strict().refine((e) => e.planet !== NO_PLANET || PLANETLESS.has(e.type), { message: 'only an answer or a merged pull request may belong to no planet', path: ['planet'] });
 
 export type EventType = (typeof EVENT_TYPES)[number];
 /** One ledger event, as the schema parses it. */
