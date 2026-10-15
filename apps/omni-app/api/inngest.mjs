@@ -1292,6 +1292,15 @@ var proofUrl = z8.string().refine((value) => {
 var envName = z8.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text3.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
 var lawOwner = z8.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
+var personLogin = z8.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, "a GitHub login, without @, never a team");
+var ownerWithDelegate = z8.preprocess(
+  (value) => isRecord(value) ? { login: "", delegate: "", ...value } : value,
+  z8.object({ login: personLogin, delegate: personLogin }).strict().refine((entry) => entry.login.toLowerCase() !== entry.delegate.toLowerCase(), {
+    message: "a delegate other than its own owner",
+    path: ["delegate"]
+  })
+);
+var lawOwnerEntry = z8.union([lawOwner, ownerWithDelegate]);
 var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
 var contractKind = z8.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
 var contractKinds = z8.array(contractKind).min(1, "at least one kind, such as api").superRefine((kinds, issues) => {
@@ -1506,7 +1515,11 @@ var ConfigSchema = z8.object({
     max: z8.number().int().positive().default(20),
     // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
     // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
-    owners: z8.array(lawOwner).default([])
+    // PRD 1794: an entry may be `{ login, delegate }` instead; the delegate is a CODEOWNER too.
+    owners: z8.array(lawOwnerEntry).default([]),
+    // PRD 1794: product leadership, GitHub logins asked last about what still waits on a person.
+    // Never written into CODEOWNERS, so its approval never clears a law.
+    leadership: z8.array(personLogin).default([])
   }),
   risk: section({
     storedShape: z8.array(regexSource).default([]),
@@ -1537,7 +1550,10 @@ var ConfigSchema = z8.object({
     parallelSteps: z8.number().int().min(1).max(6).default(3),
     // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
     // and a config that does not set it parses exactly as before.
-    hookMaxBytes: z8.number().int().positive().optional()
+    hookMaxBytes: z8.number().int().positive().optional(),
+    // PRD 1794: how many working days (Monday to Friday, UTC) a thing waits on a person before the
+    // next people are asked. Its own setting: `stallDays` is unchanged.
+    escalationWorkingDays: z8.number().int().min(1).max(10).default(2)
   }),
   // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
   // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
@@ -3933,8 +3949,18 @@ function ownerHandle(owner) {
 function exactPattern(path) {
   return `/${path.replace(/^\/+/, "").replace(/[\\\s#*?[\]!]/g, (char) => `\\${char}`)}`;
 }
+function lawCodeowners(owners) {
+  const named = owners.flatMap((entry) => typeof entry === "string" ? [entry] : [entry.login, entry.delegate]);
+  const seen = /* @__PURE__ */ new Set();
+  return named.filter((owner) => {
+    const key = owner.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 function ownersBlock(paths, owners) {
-  const handles = owners.map(ownerHandle).join(" ");
+  const handles = lawCodeowners(owners).map(ownerHandle).join(" ");
   const lines = [OWNERS_BEGIN, "# Written by `omni kb owners` from laws.owners and the locked laws (PRD 1726): run it again, never edit these lines."];
   const seen = /* @__PURE__ */ new Set();
   let why = null;
