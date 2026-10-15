@@ -623,7 +623,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'agents', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
+      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature', 'sync',
     ]);
   });
 
@@ -1016,5 +1016,63 @@ describe('laws.max and laws.owners (PRD 1726)', () => {
     ['an owner that is no text', 'laws:\n  owners: [3]\n', /c\.yml.*laws\.owners\.0/],
   ])('refuses %s, naming the key', (_what, section, message) => {
     expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
+  });
+});
+
+describe('the sync section (PRD 1990)', () => {
+  const firstLine = (source: string) => {
+    try {
+      parseConfig(source, 'c.yml');
+    } catch (error) {
+      return messageOf(error).split('\n')[0];
+    }
+    throw new Error('it parsed');
+  };
+  const DEFAULTS = {
+    order: ['main', 'kit', 'knowledge', 'page'],
+    levels: { main: 'red', kit: 'orange', knowledge: 'orange', page: 'orange' },
+    mainRedAfter: '24h',
+  };
+
+  it('fills the defaults of the spec when the file has no sync block', () => {
+    expect(parseConfig('kit: 1\n').sync).toEqual(DEFAULTS);
+  });
+
+  it('reads an order, a level and mainRedAfter the file sets, keeping the defaults it does not', () => {
+    const config = parseConfig('kit: 1\nsync:\n  order: [kit, main, page, knowledge]\n  levels:\n    kit: red\n    page: off\n  mainRedAfter: 720h\n');
+    expect(config.sync).toEqual({
+      order: ['kit', 'main', 'page', 'knowledge'],
+      levels: { main: 'red', kit: 'red', knowledge: 'orange', page: 'off' },
+      mainRedAfter: '720h',
+    });
+    expect(parseConfig('kit: 1\nsync:\n  mainRedAfter: 1h\n').sync.mainRedAfter).toBe('1h');
+  });
+
+  it('refuses an order that does not list each check exactly once, naming sync.order', () => {
+    expect(firstLine('kit: 1\nsync:\n  order: [main, kit, knowledge]\n')).toMatch(/^c\.yml .*: sync\.order: page is not listed/);
+    expect(firstLine('kit: 1\nsync:\n  order: [main, kit, knowledge, page, main]\n')).toMatch(/: sync\.order: main is listed twice/);
+    expect(firstLine('kit: 1\nsync:\n  order: [main, kit, knowledge, pages]\n')).toMatch(/: sync\.order\.3: pages is no check — one of main, kit, knowledge, page/);
+    expect(firstLine('kit: 1\nsync:\n  order: main\n')).toMatch(/: sync\.order: /);
+  });
+
+  it('refuses a level other than red, orange or off, and a check it does not know, naming the key', () => {
+    expect(firstLine('kit: 1\nsync:\n  levels:\n    kit: yellow\n')).toMatch(/: sync\.levels\.kit: yellow is no level — one of red, orange, off/);
+    expect(firstLine('kit: 1\nsync:\n  levels:\n    main: green\n')).toMatch(/: sync\.levels\.main: /);
+    expect(firstLine('kit: 1\nsync:\n  levels:\n    docs: red\n')).toMatch(/: sync\.levels: .*docs/);
+    expect(firstLine('kit: 1\nsync:\n  weights: {}\n')).toMatch(/: sync: .*weights/);
+  });
+
+  it('refuses a mainRedAfter that is not a whole number of hours from 1h to 720h, naming it', () => {
+    for (const value of ['0h', '721h', '24', '1.5h', '24 h', '1d', 'h', '-3h', '""', '024h']) {
+      expect(firstLine(`kit: 1\nsync:\n  mainRedAfter: ${value}\n`), value).toMatch(/: sync\.mainRedAfter: a whole number of hours, written <n>h from 1h to 720h/);
+    }
+  });
+
+  it('is printed by omni config sync, defaults included', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\n' } });
+    const out: string[] = [];
+    const code = await main(['config', 'sync'], { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => {} } });
+    expect(code).toBe(0);
+    expect(JSON.parse(out.join(''))).toEqual(DEFAULTS);
   });
 });
