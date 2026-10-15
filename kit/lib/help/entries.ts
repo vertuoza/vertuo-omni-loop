@@ -93,6 +93,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'through, 1 while an item is open, a drift is not reworked or a risky change is not accounted for.',
   },
   {
+    name: 'sync',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni sync [--json | --quiet | --background] [--strict]'],
+    label: 'omni sync',
+    summary: 'whether this checkout is in sync before you plan on it',
+    detail:
+      'Runs four checks and prints one line each, heaviest first: main (how far behind ' +
+      '{remote}/{defaultBranch} you are, and on which branch), kit (the kit and the plugins against ' +
+      "the latest release), knowledge (stale evidence, the targets' copies) and page (your sign-in, " +
+      "the Omni page's copy), then a fix line. Its status is 🟢 In sync; 🟠 Needs action; 🔴 Out of " +
+      'sync, which for main means a missing commit older than a day; or 🔵 Setting up, a newcomer\'s ' +
+      'four steps (the two plugins, the sign-in, main pulled), shown until they first all hold. The ' +
+      'sync block of the config sets the order, the highest colour each check may show, and when ' +
+      'main turns red. It keeps the result for the status line and the HUD. --json prints it as ' +
+      'kept, --quiet only refreshes it, --background refreshes it without waiting, and --strict ' +
+      'exits 1 on 🔴; otherwise it always exits 0.',
+  },
+  {
     name: 'prd',
     kind: 'command',
     who: 'you',
