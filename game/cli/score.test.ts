@@ -24,7 +24,9 @@ describe('pnpm game:score, as a process', () => {
         row('zone:r:88:s1:secured', '2026-09-21T12:00:00+00:00', 'ZONE_SECURED', { home: null, contributor: 'pierre', team: 'octopod' }),
         row('planet:88:terraformed', '2026-09-22T12:00:00+00:00', 'PLANET_TERRAFORMED', { home: null, data: { ownerTeam: 'beaver', class: 1, crossSector: false } }),
         row('planet:acme/plan#88:charted', '2026-09-23T08:00:00+00:00', 'PLANET_CHARTED', { data: { ownerTeam: 'octopod' } }),
+        // A secured zone earns nothing (PRD 1975): paul's merged feat PR is the credit.
         row('zone:acme/plan:acme/plan#88:s1:secured', '2026-09-23T12:00:00+00:00', 'ZONE_SECURED', { contributor: 'paul', team: 'octopod' }),
+        row('pr:acme/plan#90:merged', '2026-09-24T12:00:00+00:00', 'PR_MERGED', { planet: 0, region: 'acme/plan', contributor: 'paul', team: 'octopod', data: { pr: 90, kind: 'feat' } }),
       ],
     });
     const { stdout } = await promisify(execFile)(process.execPath, [join(here, 'score.ts'), '2026-09', '--workspace', 'vertuoza'], {

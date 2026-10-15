@@ -66,6 +66,30 @@ describe('buildGalaxy', () => {
     expect(g.planets.map((p) => p.prd)).toEqual([7]);
   });
 
+  it('pays a merged pull request\'s author and reviewers, and charts no planet for it (PRD 1975)', () => {
+    const on = { home: 'acme/app', region: 'acme/app', data: { pr: 12, kind: 'feat' } };
+    const g = buildGalaxy([
+      charted,
+      ev('pr:acme/app#12:merged', '2026-09-22T09:00:00Z', 'PR_MERGED', 0, { ...on, contributor: 'alice', team: 'octopod' }),
+      ev('pr:acme/app#12:reviewed:bob', '2026-09-22T09:00:00Z', 'PR_REVIEWED', 0, { ...on, contributor: 'bob', team: 'beaver' }),
+    ], { projects, now: NOW });
+    expect(g.heroes).toMatchObject([{ name: 'alice', points: RULEBOOK.prMerged.feat }, { name: 'bob', points: RULEBOOK.prReviewed.feat }]);
+    expect(g.planets.map((p) => p.prd)).toEqual([7]);
+  });
+
+  it('names in the feed who merged and who reviewed a pull request, and where (PRD 1975)', () => {
+    const on = { home: 'acme/app', region: 'acme/app', data: { pr: 12, kind: 'feat' } };
+    const g = buildGalaxy([
+      charted,
+      ev('pr:acme/app#12:merged', '2026-09-22T09:00:00Z', 'PR_MERGED', 0, { ...on, contributor: 'alice', team: 'octopod' }),
+      ev('pr:acme/app#12:reviewed:bob', '2026-09-22T09:01:00Z', 'PR_REVIEWED', 0, { ...on, contributor: 'bob', team: 'beaver' }),
+    ], { projects, now: NOW });
+    expect(g.feed.slice(0, 2)).toMatchObject([
+      { type: 'PR_REVIEWED', planet: 0, text: '@bob reviewed #12 in acme/app', contributor: 'bob', team: 'beaver' },
+      { type: 'PR_MERGED', planet: 0, text: '@alice merged #12 into acme/app', contributor: 'alice', team: 'octopod' },
+    ]);
+  });
+
   it('orders the planet state as the spec does: lost beats terraformed, locked beats distress', () => {
     const lost = buildGalaxy([charted, ev('planet:7:lost', '2026-09-20T08:00:00Z', 'PLANET_LOST', 7, { data: { reason: 'closed' } })], { projects, now: NOW });
     expect(lost.planets[0]?.state).toBe('lost');
@@ -129,7 +153,7 @@ describe('planets keyed by their home (PRD 728)', () => {
     ]);
     for (const p of g.planets) {
       expect(p.zones.map((z) => [z.id, z.region, z.state])).toEqual([['s1', p.home, 'secured'], ['s2', p.home, 'under-fire']]);
-      expect(p.earned).toBe(10 - 6); // its own zone, less its own open fire's decay (2 tranches × 3)
+      expect(p.earned).toBe(RULEBOOK.zoneSecured - 6); // its own zone (0, PRD 1975), less its own open fire's decay (2 tranches × 3)
     }
   });
 
@@ -148,7 +172,7 @@ describe('the rules the view carries', () => {
     const g = buildGalaxy([charted], { projects, now: NOW });
     expect(g.rules.xp).toBe(RULEBOOK.xp);
     expect(g.rules.xp).toEqual({
-      weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1 },
+      weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1, prMerged: 1, prReviewed: 1 },
       curve: { first: 1, step: 25 },
       cap: 99,
       unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 4 },
@@ -168,10 +192,13 @@ describe('fleets', () => {
       ev('zone:core-repo:7:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', 7, { region: 'core-repo', contributor: 'AuBrille', team: 'octopod' }),
       ev('zone:core-repo:7:s2:secured', '2026-09-22T12:00:00Z', 'ZONE_SECURED', 7, { region: 'core-repo', contributor: 'aubrille', team: 'octopod' }),
       ev('zone:core-repo:7:s3:secured', '2026-09-22T12:00:00Z', 'ZONE_SECURED', 7, { region: 'core-repo', contributor: 'Serghok', team: 'beaver' }),
+      // A secured zone earns nothing (PRD 1975): their merged pull requests do.
+      ...[['AuBrille', 'octopod'], ['aubrille', 'octopod'], ['Serghok', 'beaver']].map(([who, team], i) =>
+        ev(`pr:acme/app#${String(i + 1)}:merged`, '2026-09-22T12:00:00Z', 'PR_MERGED', 0, { home: 'acme/app', region: 'acme/app', contributor: who, team, data: { pr: i + 1, kind: 'feat' } })),
     ], { projects, now: NOW });
     expect(g.heroes).toMatchObject([
-      { name: 'aubrille', team: 'octopod', points: 2 * RULEBOOK.zoneSecured },
-      { name: 'serghok', team: 'beaver', points: RULEBOOK.zoneSecured },
+      { name: 'aubrille', team: 'octopod', points: 2 * RULEBOOK.prMerged.feat },
+      { name: 'serghok', team: 'beaver', points: RULEBOOK.prMerged.feat },
     ]);
     expect(g.teams.find((t) => t.name === 'octopod')?.members).toEqual(['aubrille']);
     expect(g.planets[0]?.expeditions).toEqual(['aubrille', 'serghok']);

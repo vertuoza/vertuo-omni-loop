@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merged PR Points</title>
+<style>
+:root { --bg:#fbfaf7; --fg:#1d1d1b; --muted:#6b6a65; --card:#ffffff; --line:#e4e1d9; --gain:#1f7a4d; --loss:#b3361f; --accent:#3b4bd8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#141413; --fg:#efede6; --muted:#a19f97; --card:#1d1d1b; --line:#33322e; --gain:#5cc58f; --loss:#f08a72; --accent:#8f9bff; } }
+:root[data-theme="dark"] { --bg:#141413; --fg:#efede6; --muted:#a19f97; --card:#1d1d1b; --line:#33322e; --gain:#5cc58f; --loss:#f08a72; --accent:#8f9bff; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width:980px; margin:0 auto; padding:32px 16px 64px; }
+h1 { font-size:24px; margin:0 0 4px; }
+h2 { font-size:18px; margin:36px 0 12px; }
+.sub { color:var(--muted); margin:0 0 24px; }
+.cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media (max-width:720px) { .cols { grid-template-columns:1fr; } }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; overflow-x:auto; }
+.card h3 { margin:0 0 10px; font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+table { border-collapse:collapse; width:100%; font-size:14px; }
+td, th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { color:var(--muted); font-weight:600; }
+td.n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.gain { color:var(--gain); font-weight:600; }
+.loss { color:var(--loss); font-weight:600; }
+code { font:13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.note { color:var(--muted); font-size:13px; margin-top:10px; }
+svg text { fill:var(--fg); font:12px system-ui, sans-serif; }
+svg .box { fill:var(--card); stroke:var(--line); }
+svg .hot { fill:var(--card); stroke:var(--accent); stroke-width:2; }
+svg .arrow { stroke:var(--muted); fill:none; }
+svg .muted { fill:var(--muted); }
+.earn { background:#10122a; color:#e8e6ff; border-radius:8px; padding:12px 14px; font:12px/1.8 ui-monospace, Menlo, monospace; }
+.earn ul { list-style:none; margin:0; padding:0; }
+.earn b { color:#ffd65a; }
+.gold { color:#ffd65a; font-weight:700; margin:0 0 6px; }
+.small { font-size:12px; opacity:.8; }
+section button { margin-top:10px; font:inherit; padding:4px 10px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
+</style>
+</head>
+<body>
+<main>
+<h1>Who earns points when work merges</h1>
+<p class="sub">PRD 1975 · every <code>feat</code> or <code>fix</code> PR merged into a tracked repository's default branch pays its author; a sub-PR never earns points.</p>
+
+<h2>Functional</h2>
+
+<div class="cols">
+  <div class="card">
+    <h3>Today</h3>
+    <table>
+      <tr><th>What merges</th><th>Who is paid</th><th class="n">Points</th></tr>
+      <tr><td>Sub-PR into a feature branch</td><td>its author (zone secured)</td><td class="n">10</td></tr>
+      <tr><td>PRD feature PR into main</td><td>who merged it</td><td class="n">30</td></tr>
+      <tr><td></td><td>each approver</td><td class="n">10</td></tr>
+      <tr><td></td><td>its author</td><td class="n">0</td></tr>
+      <tr><td>Second landing's feature PR</td><td>nobody</td><td class="n">0</td></tr>
+      <tr><td><code>feat:</code> / <code>fix:</code> PR into main, no PRD</td><td>nobody</td><td class="n">0</td></tr>
+      <tr><td>Retro or knowledge PR</td><td>nobody</td><td class="n">0</td></tr>
+      <tr><td>Planet terraformed</td><td>each sub-PR author (expedition)</td><td class="n">50</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>After</h3>
+    <table>
+      <tr><th>What merges</th><th>Who is paid</th><th class="n">Points</th></tr>
+      <tr><td>Sub-PR into a feature branch</td><td>nobody</td><td class="n loss">0</td></tr>
+      <tr><td>Phase-0 PR</td><td>nobody</td><td class="n">0</td></tr>
+      <tr><td><code>feat</code> / <code>fix</code> PR into main, PRD or not, every landing and every target repository</td><td>its author</td><td class="n gain">30</td></tr>
+      <tr><td></td><td>each approver and the merger, once each</td><td class="n">10</td></tr>
+      <tr><td>Retro or knowledge PR</td><td>its author</td><td class="n gain">10</td></tr>
+      <tr><td></td><td>each approver and the merger, once each</td><td class="n gain">5</td></tr>
+      <tr><td>Planet terraformed</td><td>each sub-PR author (expedition)</td><td class="n loss">10</td></tr>
+    </table>
+    <p class="note">Never paid: phase-0, <code>chore(release)</code>, plain <code>docs:</code>, <code>refactor:</code>…, titles with no type, bots. An author is never paid as their own reviewer. Repositories pay only once tracked in Settings › Repositories.</p>
+  </div>
+</div>
+
+<h2>The flow, after</h2>
+<div class="card">
+<svg viewBox="0 0 900 190" width="100%" role="img" aria-label="A merged PR is sorted by kind, then pays its author and its reviewers">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="muted"/></marker></defs>
+  <rect class="box" x="10" y="40" width="190" height="70" rx="8"/>
+  <text x="105" y="68" text-anchor="middle">PR merged into the</text>
+  <text x="105" y="86" text-anchor="middle">default branch</text>
+  <rect class="box" x="250" y="40" width="190" height="70" rx="8"/>
+  <text x="345" y="68" text-anchor="middle">kind: feat · docs · none</text>
+  <text x="345" y="86" text-anchor="middle">(phase-0, bots: none)</text>
+  <rect class="hot" x="490" y="40" width="190" height="70" rx="8"/>
+  <text x="585" y="68" text-anchor="middle">PR_MERGED + PR_REVIEWED</text>
+  <text x="585" y="86" text-anchor="middle" class="muted">pr:&lt;repo&gt;#&lt;n&gt;:…</text>
+  <rect class="box" x="730" y="40" width="160" height="70" rx="8"/>
+  <text x="810" y="68" text-anchor="middle">feat: 30 · 10 each</text>
+  <text x="810" y="86" text-anchor="middle">docs: 10 · 5 each</text>
+  <path class="arrow" d="M200 75H246" marker-end="url(#a)"/>
+  <path class="arrow" d="M440 75H486" marker-end="url(#a)"/>
+  <path class="arrow" d="M680 75H726" marker-end="url(#a)"/>
+  <path class="arrow" d="M345 110V150H300" marker-end="url(#a)"/>
+  <text x="170" y="155" class="muted">none: nothing written</text>
+  <text x="10" y="20" class="muted">A sub-PR merges into a feature branch: never read here.</text>
+</svg>
+</div>
+
+<h2>Retroactive</h2>
+<div class="cols">
+  <div class="card">
+    <h3>Today</h3>
+    <p>Every <code>ZONE_SECURED</code> pays 10 to the sub-PR's author; every <code>FEATURE_MERGED</code> 30 to the merger, <code>FEATURE_REVIEWED</code> 10 to each approver.</p>
+  </div>
+  <div class="card">
+    <h3>After</h3>
+    <p>The same rows stay in the ledger and pay <span class="loss">0</span>. The next <code>game:score</code> and <code>game:xp</code> recompute every player: sub-PR points and the old merge points disappear, and every merge since <code>game_since</code> pays by the table above.</p>
+  </div>
+</div>
+
+<h2>The galaxy's feed</h2>
+<div class="cols">
+  <div class="card"><h3>Today</h3><p>No line for a pull request into main outside a PRD.</p></div>
+  <div class="card"><h3>After</h3><p><code>kevin merged #412 into vertuoza/backend-php</code><br><code>ana reviewed #412 in vertuoza/backend-php</code></p></div>
+</div>
+
+<h2>Pixel perfect</h2>
+<p class="sub">screens: arcade-menu · home</p>
+<div class="cols">
+  <div class="card">
+    <h3>Today · arcade briefing, EARN</h3>
+    <section data-screen="arcade-menu-earn-today" class="earn">
+      <p class="gold">EARN</p>
+      <ul>
+        <li>SECURE A ZONE <b>+10</b></li>
+        <li>RESCUE ANOTHER FLEET <b>+20</b></li>
+        <li>FLEET TERRAFORMS <b>+100 × CLASS</b></li>
+        <li>EXPEDITION ON IT <b>+50</b></li>
+        <li class="small">ZONE SECURED AT NIGHT ×1.5 · ENTROPY CLEARED FOR ANOTHER FLEET ×1.5</li>
+      </ul>
+      <button data-primary>NEXT</button>
+    </section>
+  </div>
+  <div class="card">
+    <h3>After · arcade briefing, EARN</h3>
+    <section data-screen="arcade-menu-earn-after" class="earn">
+      <p class="gold">EARN</p>
+      <ul>
+        <li>SHIP A FEAT OR FIX <b>+30</b></li>
+        <li>REVIEW OR MERGE ONE <b>+10</b></li>
+        <li>RESCUE ANOTHER FLEET <b>+20</b></li>
+        <li>FLEET TERRAFORMS <b>+100 × CLASS</b></li>
+        <li>EXPEDITION ON IT <b>+10</b></li>
+        <li class="small">RETRO OR KNOWLEDGE +10 · ITS REVIEW +5 · ENTROPY CLEARED FOR ANOTHER FLEET ×1.5</li>
+      </ul>
+      <button data-primary>NEXT</button>
+    </section>
+  </div>
+</div>
+<div class="cols" style="margin-top:16px">
+  <div class="card">
+    <h3>Today · home, SHIP VALUE and the beaver's card</h3>
+    <section data-screen="home-ship-value-today">
+      <p><b>SHIP VALUE</b></p>
+      <p>A secured zone scores 10. A rescue scores 20.</p>
+      <p class="small">Beaver card: A secured zone scores 10.</p>
+      <button data-primary>Flip the card</button>
+    </section>
+  </div>
+  <div class="card">
+    <h3>After · home, SHIP VALUE, then the beaver's card</h3>
+    <section data-screen="home-ship-value-after">
+      <p><b>SHIP VALUE</b></p>
+      <p>A merged feat/fix PR scores 30.</p>
+      <p>A rescue scores 20.</p>
+      <p class="small">A merged feat/fix PR scores 30.</p>
+      <button data-primary>Flip the card</button>
+    </section>
+  </div>
+</div>
+<p class="note">The arcade's own pixel font, colours and sprites stay as they are: only these words and numbers change. The numbers are read from the rulebook, as today.</p>
+</main>
+</body>
+</html>

@@ -136,17 +136,20 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp =
 
 // ── How to play ──────────────────────────────────────────────────────────────
 
-/** The personal credits XP counts, by their key in the rulebook's `xp.weights`, as How to play names them. */
-const XP_CREDITS: Record<keyof XpRules['weights'], string> = {
-  zoneSecured: 'ZONE SECURED',
-  woundClosed: 'ENTROPY CLEARED',
-  rescue: 'RESCUE',
-  expedition: 'EXPEDITION BONUS',
-  closer: 'CLOSER BONUS',
-  questionAnswered: 'QUESTION ANSWERED',
-  featureMerged: 'FEATURE MERGED',
-  featureReviewed: 'FEATURE APPROVED',
-};
+/**
+ * The personal credits XP counts, by their key in the rulebook's `xp.weights`, as How to play names
+ * them. A secured zone and the old merge pay (`zoneSecured`, `featureMerged`, `featureReviewed`)
+ * credit no point since PRD 1975, so no XP, and LEVELS leaves them out.
+ */
+const XP_CREDITS: readonly (readonly [keyof XpRules['weights'], string])[] = [
+  ['woundClosed', 'ENTROPY CLEARED'],
+  ['rescue', 'RESCUE'],
+  ['expedition', 'EXPEDITION BONUS'],
+  ['closer', 'CLOSER BONUS'],
+  ['questionAnswered', 'QUESTION ANSWERED'],
+  ['prMerged', 'PR MERGED'],
+  ['prReviewed', 'PR REVIEWED'],
+];
 
 /** How many of the curve's first levels LEVELS shows (fewer when the cap comes sooner). */
 const CURVE_SHOWN = 5;
@@ -161,7 +164,7 @@ function briefingLevels(xp: XpRules, games: readonly Game[] = GAMES) {
   const weights: Readonly<Partial<XpRules['weights']>> = xp.weights;
   const titleOf = (id: string) => games.find((g) => g.id === id)?.title ?? id.replace(/-/g, ' ').toUpperCase();
   return {
-    credits: keysOf(XP_CREDITS).map((kind) => ({ kind, label: XP_CREDITS[kind], weight: weights[kind] ?? 0 })),
+    credits: XP_CREDITS.map(([kind, label]) => ({ kind, label, weight: weights[kind] ?? 0 })),
     curve: Array.from({ length: Math.min(CURVE_SHOWN, xp.cap) }, (_, i) => ({ level: i + 1, xp: xpForLevel(i + 1, xp) })),
     cap: xp.cap,
     unlocks: Object.entries(xp.unlocks).map(([id, level]) => ({ id, title: titleOf(id), level })).sort((a, b) => a.level - b.level),
@@ -186,11 +189,12 @@ export function BriefingOverlay({ view }: { view: GalaxyView }) {
       <section key="earn">
         <h3 className="gold">EARN</h3>
         <ul>
-          <li><Sprite name="flag" scale={1} /> SECURE A ZONE <b>+{r.zoneSecured}</b></li>
+          <li><Sprite name="flag" scale={1} /> SHIP A FEAT OR FIX <b>+{r.prMerged.feat}</b></li>
+          <li><Sprite name="check" scale={1} /> REVIEW OR MERGE ONE <b>+{r.prReviewed.feat}</b></li>
           <li><Sprite name="beacon" scale={1} /> RESCUE ANOTHER FLEET <b>+{r.rescue}</b></li>
           <li><Sprite name="star" scale={1} /> FLEET TERRAFORMS <b>+{r.terraformOwner} × CLASS</b></li>
           <li><Sprite name="ship" scale={1} /> EXPEDITION ON IT <b>+{r.terraformExpedition}</b></li>
-          <li className="note">ZONE SECURED AT NIGHT ×{r.nightShiftMultiplier} · ENTROPY CLEARED FOR ANOTHER FLEET ×{r.crossTeamMultiplier}</li>
+          <li className="note">RETRO OR KNOWLEDGE +{r.prMerged.docs} · ITS REVIEW +{r.prReviewed.docs} · ENTROPY CLEARED FOR ANOTHER FLEET ×{r.crossTeamMultiplier}</li>
         </ul>
       </section>
     ),
