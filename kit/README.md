@@ -308,3 +308,9 @@ only by `item <id>` naming an item ranked `high` or above: `spec <where>` is ref
 a `medium` item leaves the change unaccounted. `/omni:bug-fix` and `/omni:visual-fix` raise those
 items in a small `outbox/` of the fix's folder when their range touches a law, and `omni bug` and
 `omni visual` name what it needs.
+
+`/omni:bug-fix` also films every bug: it keeps the reproduction's red and green output (or, for a
+component bug in a repository with Storybook, the story before and after), makes a before/after GIF with
+`omni bug film`, stores it with `omni proof push --kind bug`, and opens the pull request with a `## Proof`
+section showing the bug before and after the fix. A GIF that cannot be made opens the pull request as a
+draft whose `## Proof` reads `GIF not produced - <reason>`. `/omni:mega-bug-fix` leaves `## Proof` out.
