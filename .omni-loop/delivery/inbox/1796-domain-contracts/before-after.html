@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 1796 — before and after</title>
+<style>
+:root{--bg:#ffffff;--fg:#1b1f24;--muted:#5b6670;--line:#d7dce1;--card:#f6f8fa;--code:#eef1f4;--ok:#1a7f37;--bad:#cf222e;--warn:#9a6700;--accent:#0969da}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1317;--fg:#e8ecef;--muted:#9aa5ae;--line:#2b333b;--card:#161b21;--code:#1d242c;--ok:#3fb950;--bad:#f85149;--warn:#d29922;--accent:#58a6ff}}
+*{box-sizing:border-box}
+body{margin:0;padding:24px 16px 48px;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1080px;margin:0 auto}
+h1{font-size:1.4rem;margin:0 0 4px}
+p.lead{color:var(--muted);margin:0 0 28px}
+h2{font-size:1.1rem;margin:32px 0 6px;border-bottom:1px solid var(--line);padding-bottom:6px}
+h3{font-size:.95rem;margin:24px 0 10px}
+p.note{color:var(--muted);margin:0 0 12px;font-size:.92rem}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+.card h4{font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 10px}
+.card.after h4{color:var(--accent)}
+pre{background:var(--code);border-radius:6px;padding:10px 12px;margin:0;overflow-x:auto;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}.dim{color:var(--muted)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--card);font-weight:600}
+code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code);padding:1px 4px;border-radius:4px}
+ul{margin:6px 0 0;padding-left:20px}
+li{margin:2px 0}
+p.pp{margin-top:36px;padding:12px 16px;border:1px dashed var(--line);border-radius:8px;font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<h1>PRD 1796 — before and after</h1>
+<p class="lead">PRD 1796 · P4 of the roadmap "Governed knowledge"</p>
+
+<h2>Functional</h2>
+<p class="note">A fourth kind of register entry, the domain contract: one plain line on an entity's structure or lifecycle, and a pointer to the file that enforces it.</p>
+
+<h3>1. The register folder</h3>
+<div class="cols">
+<section class="card" aria-label="Today">
+<h4>Today</h4>
+<pre>knowledge/
+  product/
+    principles.md   P-PRODUCT-n
+    rules.md        BR-PRODUCT-n
+    invariants.md   N-PRODUCT-n
+  domains/invoicing/
+    README.md
+    principles.md · rules.md · invariants.md
+  <span class="dim">contracts.md  ← never read</span></pre>
+<ul>
+<li>Three kinds, closed: <code>EntryKind</code>, <code>LAYER_FILES</code>, <code>ID_SOURCE</code>.</li>
+<li>A <code>## DC-…</code> heading is skipped as an unknown heading.</li>
+<li>How an entity moves through its states lives only in the code.</li>
+</ul>
+</section>
+<section class="card after" aria-label="After">
+<h4>After</h4>
+<pre>knowledge/
+  product/
+    principles.md · rules.md · invariants.md
+    <span class="ok">contracts.md    DC-PRODUCT-n   (optional)</span>
+  domains/invoicing/
+    README.md
+    principles.md · rules.md · invariants.md
+    <span class="ok">contracts.md    DC-INVOICING-n (optional)</span></pre>
+<ul>
+<li>Four kinds: <code>principle</code>, <code>rule</code>, <code>invariant</code>, <code>contract</code>.</li>
+<li>A folder without <code>contracts.md</code> stays green.</li>
+<li>Not in <code>cross-domain/</code>: a <code>DC-</code> id there is refused.</li>
+</ul>
+</section>
+</div>
+
+<h3>2. One entry</h3>
+<div class="cols">
+<section class="card" aria-label="Today">
+<h4>Today</h4>
+<p class="note">No place for it. At best, prose in a README that nothing checks, and that goes stale when the schema file moves.</p>
+<pre><span class="dim">Invoices go from draft to paid,
+see the invoicing module.</span></pre>
+</section>
+<section class="card after" aria-label="After">
+<h4>After: domains/invoicing/contracts.md</h4>
+<pre>## DC-INVOICING-1
+
+An invoice moves Draft → Sent → Partially paid → Paid,
+or is offset by a credit note. A project has many invoices.
+
+<span class="ok">Points to: src/invoicing/invoice-status.ts, src/invoicing/invoice.schema.ts</span>
+Source: PRD 412
+Stated: 2026-10-13</pre>
+<p class="note" style="margin-top:10px">A pointer, never a second copy: no field list. No <code>Enforced by:</code>, <code>Locked:</code>, <code>Proposed law:</code> or <code>Governs:</code>.</p>
+</section>
+</div>
+
+<h3>3. <code>omni check knowledge</code> after a schema file moved</h3>
+<div class="cols">
+<section class="card" aria-label="Today">
+<h4>Today</h4>
+<pre>$ omni check knowledge
+check knowledge — 81 principle(s), 96 rule(s),
+12 invariant(s) across 0 domain(s) and
+0 cross-domain file(s); 0 wish(es), 3 proposed.
+<span class="dim">$ echo $?
+0     ← the prose now points nowhere, silently</span></pre>
+</section>
+<section class="card after" aria-label="After">
+<h4>After</h4>
+<pre>$ omni check knowledge
+<span class="bad">…/domains/invoicing/contracts.md: DC-INVOICING-1 —
+claims "Points to: src/invoicing/invoice-status.ts"
+but that file does not exist.</span>
+check knowledge — 81 principle(s), 96 rule(s),
+12 invariant(s), 1 contract(s) across …
+$ echo $?
+<span class="bad">1</span></pre>
+<p class="note" style="margin-top:10px">Also refused: a directory, a glob, a missing <code>Points to:</code>, a <code>BR-</code> id in <code>contracts.md</code>, an id with another folder's code.</p>
+</section>
+</div>
+
+<h3>4. The outbox gate</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>A pull request that…</th><th>Today</th><th>After</th></tr></thead>
+<tbody>
+<tr><td>rewords, adds or removes a rule in <code>rules.md</code></td><td><code>law-text</code>: a high item any person answers</td><td>unchanged</td></tr>
+<tr><td>rewords, adds or removes a contract in <code>contracts.md</code></td><td><span class="dim">file not risky (not a register yet)</span></td><td><span class="warn"><code>law-text</code>: a high item any person answers</span></td></tr>
+<tr><td>changes a pointed schema file only</td><td>whatever fires today (e.g. <code>stored-shape</code> if configured)</td><td>the same, nothing new</td></tr>
+<tr><td>deletes or moves a pointed schema file</td><td>whatever fires today</td><td><code>omni check knowledge</code> red until the contract is fixed; that fix fires <code>law-text</code></td></tr>
+<tr><td>locks a contract</td><td><span class="dim">n/a</span></td><td><span class="bad">refused: a contract is never a law</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>5. Who reads it</h3>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Command</th><th>Today</th><th>After</th></tr></thead>
+<tbody>
+<tr><td><code>omni knowledge DC-INVOICING-1</code></td><td>"nothing … claims DC-INVOICING-1"</td><td>the contract, with its <code>Points to:</code> line</td></tr>
+<tr><td><code>omni kb laws [--paths …]</code></td><td>laws and rules</td><td>unchanged, no contract</td></tr>
+<tr><td>the knowledge graph</td><td>principles, rules, invariants</td><td>unchanged here; contracts and their links join it in P5 (#1797)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p class="pp">Pixel perfect: no screen changes</p>
+</main>
+</body>
+</html>

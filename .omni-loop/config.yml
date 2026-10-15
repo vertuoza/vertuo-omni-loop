@@ -80,3 +80,11 @@ design:
 budgets:
   context:
     enabled: true
+# Model tiers (PRD 1934): /omni:plan advises a tier per slice (deep, build, light), and /omni:wave starts
+# each slice's agent on the model and effort its tier maps to here, for the session's own agent. A tier
+# or an agent left out runs on the terminal's model, as before.
+tiers:
+  claude:
+    deep: { model: opus, effort: high }
+    build: { model: sonnet, effort: medium }
+    light: { model: haiku, effort: low }

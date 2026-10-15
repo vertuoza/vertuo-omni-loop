@@ -12,7 +12,13 @@ const SESSION_FILE = 'storage-state.json';
 /** A value that is obviously a placeholder, not a secret. */
 const PLACEHOLDER = /^(?:x+|\*+|\.+|<[^>]*>|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?|process\.env[.\w[\]'"]*|env\.\w+|null|undefined|true|false|changeme|password|secret|token|your[-_ ].*|example.*|redacted.*)$/i;
 
-const NAME = String.raw`[\w.-]*(?:pass(?:word|wd)?|pwd|secret|token|api[-_]?key|apikey|private[-_]?key|access[-_]?key|credential)[\w.-]*`;
+/** The name of an environment variable (`QA_PASSWORD`), upper case only so a lower-case secret with underscores still counts. */
+const ENV_NAME = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
+/** A version (`10.0.0`, `v2.1.3-beta.1`), as a lockfile writes one. */
+const VERSION = /^v?\d+(?:\.\d+){1,3}(?:[-+][\w.]+)?$/;
+const isPlaceholder = (value: string): boolean => PLACEHOLDER.test(value) || ENV_NAME.test(value) || VERSION.test(value);
+
+const NAME = String.raw`[\w.-]*(?:(?<!by)pass(?:word|wd)?|pwd|secret|token|api[-_]?key|apikey|private[-_]?key|access[-_]?key|credential)[\w.-]*`;
 /** `name = "value"`, `name: value`, `"name": "value"`: the value is group 1, 2 or 3. */
 const ASSIGNMENT = new RegExp(String.raw`(?:^|[^\w])${NAME}["']?\s*[:=]\s*(?:"([^"\n]{6,})"|'([^'\n]{6,})'|([^\s"'#,;{}()\[\]<>$]{6,}))`, 'i');
 
@@ -28,7 +34,7 @@ const SHAPES: readonly { kind: string; test: (line: string) => boolean }[] = [
     test: (l) => {
       const match = ASSIGNMENT.exec(l);
       const value = match?.[1] ?? match?.[2] ?? match?.[3];
-      return value !== undefined && !PLACEHOLDER.test(value);
+      return value !== undefined && !isPlaceholder(value);
     },
   },
 ];
