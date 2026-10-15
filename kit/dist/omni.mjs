@@ -51005,6 +51005,16 @@ function prerequisitesOf2(roadmap2, result2) {
     prerequisiteResult: result2
   };
 }
+function pushedQuestions(roadmap2, answers2) {
+  return roadmap2.questions.map((q) => ({
+    id: q.id,
+    question: q.question,
+    recommendation: NO_RECOMMENDATION2.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
+    blocks: [...q.blocks],
+    kind: q.kind,
+    answer: answers2.get(q.id) ?? null
+  }));
+}
 function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers: answers2, prdWork: prdWork2, result: result2 = null }) {
   const rows2 = rowStates(roadmap2, standings);
   const prds = [...rows2.values()].map(({ row, standing: standing2, state }) => ({
@@ -51018,14 +51028,7 @@ function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers
     ...state === "waiting" ? waitsOn(row, rows2) : { waitsOn: null, waitsOnUrl: null },
     ...prdTimes(standing2, state)
   }));
-  const questions2 = roadmap2.questions.map((q) => ({
-    id: q.id,
-    question: q.question,
-    recommendation: NO_RECOMMENDATION2.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
-    blocks: [...q.blocks],
-    kind: q.kind,
-    answer: answers2.get(q.id) ?? null
-  }));
+  const questions2 = pushedQuestions(roadmap2, answers2);
   const { title, milestone, product: product2, target: target3, source: source2 } = roadmap2;
   const body = { repo, roadmap: roadmap2.roadmap, title, milestone, product: product2, target: target3, source: source2, questions: questions2, document, prds, ...prerequisitesOf2(roadmap2, result2) };
   if (prdWork2 === null) return body;
@@ -51035,7 +51038,7 @@ function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers
 function productRoadmapPushBody({ key: key2, seq, repo, roadmap: roadmap2, document, check: check4 = false, result: result2 = null }) {
   const prds = roadmap2.prds.map((row) => ({
     id: row.id,
-    prd: String(row.prd),
+    prd: row.prd,
     title: row.title,
     repos: row.repos ?? [],
     blockers: [...row.blockedBy],
@@ -51046,14 +51049,7 @@ function productRoadmapPushBody({ key: key2, seq, repo, roadmap: roadmap2, docum
     startedAt: null,
     endedAt: null
   }));
-  const questions2 = roadmap2.questions.map((q) => ({
-    id: q.id,
-    question: q.question,
-    recommendation: NO_RECOMMENDATION2.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
-    blocks: [...q.blocks],
-    kind: q.kind,
-    answer: null
-  }));
+  const questions2 = pushedQuestions(roadmap2, /* @__PURE__ */ new Map());
   return {
     productKey: key2,
     ...seq === null ? { new: true } : { roadmap: seq },

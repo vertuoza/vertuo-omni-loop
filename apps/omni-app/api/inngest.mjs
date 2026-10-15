@@ -1743,6 +1743,11 @@ var ProductPrdIdSchema = z9.string().regex(PRODUCT_PRD).refine((id) => {
   const cut2 = id.lastIndexOf("-");
   return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
 }).brand();
+var PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
+var ProductRoadmapIdSchema = z9.string().regex(PRODUCT_ROADMAP).refine((id) => {
+  const cut2 = id.lastIndexOf("-R");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
+}).brand();
 var PrNumberSchema = z9.number().int().positive().brand();
 var CommentIdSchema = z9.number().int().positive().brand();
 var WorkSliceIdSchema = z9.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
@@ -4921,6 +4926,14 @@ var WAVE_CELL = /^[1-9]\d*$/;
 var NONE_CELL = /^(?:|-|–|—|none)$/i;
 var ID_CELL = /^[^\s,|]+$/;
 var optionalText = z18.string().trim().min(1).optional();
+var ProductFrontMatterSchema = z18.object({
+  roadmap: z18.string().optional(),
+  title: z18.string().trim().min(1),
+  milestone: z18.string().trim().min(1),
+  product: optionalText,
+  target: z18.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
+  source: optionalText
+}).strict();
 var FrontMatterSchema2 = z18.object({
   roadmap: z18.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
   title: z18.string().trim().min(1),
@@ -4929,10 +4942,10 @@ var FrontMatterSchema2 = z18.object({
   target: z18.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
   source: optionalText
 }).strict();
-function frontMatter(raw) {
+function frontMatter(raw, schema) {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
   const errors = lineErrors.map((message) => `front matter: ${message}.`);
-  const parsed2 = FrontMatterSchema2.safeParse(data, { error: KIT_MESSAGES });
+  const parsed2 = schema.safeParse(data, { error: KIT_MESSAGES });
   if (parsed2.success) return { data: parsed2.data, errors };
   for (const issue of parsed2.error.issues) {
     if (issue.code === "unrecognized_keys") {
@@ -4968,7 +4981,11 @@ function rowOpening(id, index, where) {
 function idListFaults(entries, where) {
   return entries.filter((entry) => !ID_CELL.test(entry)).map((entry) => `${where} "${entry}", which is no id.`);
 }
-function prdsOf(section4) {
+function repositoryPrd(cell3) {
+  const match = PRD_CELL.exec(cell3);
+  return match ? parsePrd(group(match, 1)) : null;
+}
+function prdsOf(section4, readPrd, cellWords) {
   if (!section4) return { rows: [], repos: false, faults: ['sections: no "## PRDs" section.'] };
   const table = firstTable(section4.lines);
   if (!table) return { rows: [], repos: false, faults: [`PRDs: no table; it holds one with the columns ${PRD_COLUMNS.join(", ")}.`] };
@@ -4979,8 +4996,8 @@ function prdsOf(section4) {
   table.rows.forEach((row, index) => {
     const id = cell3(row, "id");
     const { label: label2, rowFaults } = rowOpening(id, index, "PRDs");
-    const prdCell = PRD_CELL.exec(cell3(row, "PRD"));
-    if (!prdCell) rowFaults.push(`PRDs: ${label2} has the PRD cell "${cell3(row, "PRD")}", not #<number>.`);
+    const prd = readPrd(cell3(row, "PRD"));
+    if (prd === null) rowFaults.push(`PRDs: ${label2} has the PRD cell "${cell3(row, "PRD")}", not ${cellWords}.`);
     const title = cell3(row, "title");
     if (title === "") rowFaults.push(`PRDs: ${label2} has no title.`);
     const waveCell = cell3(row, "wave");
@@ -4989,10 +5006,10 @@ function prdsOf(section4) {
     rowFaults.push(...idListFaults(blockedBy, `PRDs: ${label2} is blocked by`));
     const why = cell3(row, "why");
     faults.push(...rowFaults);
-    if (rowFaults.length > 0 || !prdCell) return;
+    if (rowFaults.length > 0 || prd === null) return;
     rows.push({
       id,
-      prd: parsePrd(group(prdCell, 1)),
+      prd,
       title,
       repos: repos ? listCell(cell3(row, "repos")) : null,
       blockedBy,
@@ -5106,9 +5123,9 @@ function parseRoadmap(text14) {
   const block = FRONT_MATTER_BLOCK4.exec(text14);
   if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
   const [, raw = "", body = ""] = block;
-  const front = frontMatter(raw);
+  const front = frontMatter(raw, FrontMatterSchema2);
   const sections = sectionsOf(body);
-  const prds = prdsOf(sections.find((section4) => section4.name === "PRDs"));
+  const prds = prdsOf(sections.find((section4) => section4.name === "PRDs"), repositoryPrd, "#<number>");
   const questions = questionsOf(sections.find((section4) => section4.name === "Open questions"));
   const prerequisites = prerequisitesOf(sections.find((section4) => section4.name === "Prerequisites"));
   const errors = [...front.errors, ...prds.faults, ...questions.faults, ...prerequisites.faults];
@@ -5255,12 +5272,13 @@ function upstream(row, rows) {
   }
   return [...found.values()];
 }
-function rowRepoViolations(row, { names, readOnly }) {
+var PLAN_TARGETS = { is: (repo) => `${repo} is not a target of plan.targets`, readOnly: "read-only target" };
+function rowRepoViolations(row, { names, readOnly }, source) {
   const repos = row.repos ?? [];
   if (repos.length === 0) return [`${row.id}: names no repository.`];
   return repos.flatMap((repo) => {
-    if (!names.includes(repo)) return [`${row.id}: ${repo} is not a target of plan.targets (${names.join(", ")}).`];
-    return readOnly.has(repo) ? [`${row.id}: ${repo} is a read-only target \u2014 no roadmap row may name it.`] : [];
+    if (!names.includes(repo)) return [`${row.id}: ${source.is(repo)} (${names.join(", ")}).`];
+    return readOnly.has(repo) ? [`${row.id}: ${repo} is a ${source.readOnly} \u2014 no roadmap row may name it.`] : [];
   });
 }
 function consumerViolations(row, blocker, consumes) {
@@ -5273,15 +5291,15 @@ function consumerViolations(row, blocker, consumes) {
     ];
   });
 }
-function targetViolations(roadmap, rows, targets) {
-  if (!roadmap.repos) return ['PRDs: the table has no "repos" column; in a plan repository each row names its repositories.'];
+function targetViolations(roadmap, rows, targets, source = PLAN_TARGETS, where = "in a plan repository") {
+  if (!roadmap.repos) return [`PRDs: the table has no "repos" column; ${where} each row names its repositories.`];
   const rules = {
     names: targets.map((target2) => shortName(target2.repo)),
     readOnly: new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName(target2.repo))),
     consumes: new Map(targets.map((target2) => [shortName(target2.repo), target2.consumes ?? []]))
   };
   return roadmap.prds.flatMap((row) => [
-    ...rowRepoViolations(row, rules),
+    ...rowRepoViolations(row, rules, source),
     ...upstream(row, rows).flatMap((blocker) => consumerViolations(row, blocker, rules.consumes))
   ]);
 }
