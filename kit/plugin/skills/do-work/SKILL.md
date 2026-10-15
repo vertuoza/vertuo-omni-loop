@@ -308,8 +308,10 @@ After the last code commit, grade your own diff:
 node .omni-loop/bin/omni.mjs check coverage --base <repo.remote>/<feature branch> --prd <n>
 ```
 
-It names every risky change (stored shape, law proof, law text, a deleted test, a shared contract)
-that no account covers. Write `<outbox dir>/accounts/<slice>.md` (the outbox dir is the one
+It names every risky change (stored shape, law proof, law text, a deleted test, a shared contract,
+the briefing (`briefing-text`): its form, its `points-to` file or a file a `See:` line names) that
+no account covers. A law change and `briefing-text` are a person's to answer: only an item ranked
+high or human-action accounts for one, never a `spec` line or a medium item. Write `<outbox dir>/accounts/<slice>.md` (the outbox dir is the one
 `omni prd` printed) naming each one, commit it, and rerun until it is quiet:
 
 ```markdown
