@@ -180,6 +180,7 @@ jobs:
         # functions only; another workspace's member and anyone signed out are refused (42501), a bad
         # kind or value is refused (22023). Agents read confirmed claims only, region from the business
         # and the rest from the repository's product. Nothing is seeded, and no citation is rewritten.
+        # Agents and the App read the product's active Legal entries and live glossary terms (PRD 1795).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/business.sql
       - name: Who may read and write the personas
         # Any member of a workspace adds, edits, deletes and restores its products' personas through the
@@ -217,6 +218,14 @@ jobs:
         # terminal's read; the App's read is the service role's. The move turns confirmed `never`
         # claims into Never lines and leaves the claims rejected.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/constituents.sql
+      - name: Who may read and change a product's Legal entries and glossary
+        # A workspace owner names each kind's owner and delegate; they add, edit, retire (Legal) or remove
+        # (Glossary) directly and approve or reject proposals; while a kind names neither, the workspace's
+        # owners do; any other member proposes; anyone else, or signed out, reads and writes nothing
+        # (42501, P0002, 22023 with the field in `hint`). A Legal number is never reused, a retired entry
+        # and a removed term are kept, a live term is unique without case, every change logs exactly one
+        # event, and nobody writes the five tables directly (PRD 1795).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_knowledge.sql
       - name: Who may read and write the GitHub budget
         # The service role keeps ETags and budgets, refreshes them in place, keeps a pause through a
         # refresh and drops old ETags. Nobody signed in, nor signed out, reads or writes either table.
