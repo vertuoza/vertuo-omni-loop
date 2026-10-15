@@ -1,0 +1,116 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-15",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Fewer bug reports that turn out to be a stale checkout: the agent plans on the code that is really on main.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Another status line to ignore, unless it stays quiet when nothing is wrong.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "Useful, but if main moves with every release commit I would be red all day.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One answer for the whole team on whether they are current, and the levels are ours to set.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I do not master the harness; a status that says what to run, and runs the safe part, is what I need.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Paul - Product Manager",
+        "text": "I want to ship fast. main gets a release commit after every merge, so I'd be red several times an hour for nothing, and I'll learn to ignore red.",
+        "citations": [
+          "persona:Paul - Product Manager"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ once green stays quiet · persona:Paul - Product Manager ✓ once red waits a day · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-15",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Every rule is a test on fact objects, and --fix is proven on fixture repositories with a bare remote.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Green prints one badge and nothing else; red waits 24 hours. Fine.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "One pull each morning keeps me green, and the skills never stop me.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "sync.levels lets me make the kit red for the team when an update matters.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "The newcomer checklist tells me the next command, and --fix does the git part for me.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    }
+  ]
+}
