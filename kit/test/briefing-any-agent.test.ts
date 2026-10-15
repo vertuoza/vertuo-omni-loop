@@ -63,6 +63,13 @@ describe('the briefing\'s Any agent section', () => {
     expect(text).toContain('(in Claude: `/clear`)');
   });
 
+  it('says an agent that cannot choose a model per subagent runs every slice on the terminal\'s model (PRD 1934)', async () => {
+    const text = section((await omni(['kb', 'show', 'briefing'])).out);
+    expect(text).toContain('**Models.**');
+    expect(text).toContain('model per subagent');
+    expect(text).toContain('terminal\'s model');
+  });
+
   it(`holds at most ${String(MAX_BYTES)} bytes as printed`, async () => {
     const text = section((await omni(['kb', 'show', 'briefing'])).out);
     expect(Buffer.byteLength(text)).toBeLessThanOrEqual(MAX_BYTES);

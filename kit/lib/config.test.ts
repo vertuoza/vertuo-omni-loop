@@ -125,6 +125,36 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nagents: claude\n')).toThrow(/agents/);
   });
 
+  it('maps tiers to a model and an effort per agent, and has no tiers unless the file sets them (PRD 1934)', () => {
+    expect(parseConfig('kit: 1\n').tiers).toBeUndefined();
+    const text =
+      'kit: 1\nagents: [claude, codex]\ntiers:\n  claude:\n    deep: { model: opus, effort: high }\n' +
+      '    build: { model: sonnet, effort: medium }\n    light: { model: haiku, effort: low }\n  codex:\n    build: { model: gpt-x }\n';
+    const config = parseConfig(text);
+    expect(config.tiers).toEqual({
+      claude: { deep: { model: 'opus', effort: 'high' }, build: { model: 'sonnet', effort: 'medium' }, light: { model: 'haiku', effort: 'low' } },
+      codex: { build: { model: 'gpt-x' } },
+    });
+    expect({ ...config, tiers: undefined }).toEqual(parseConfig('kit: 1\nagents: [claude, codex]\n'));
+    for (const effort of ['low', 'medium', 'high', 'xhigh', 'max']) {
+      expect(parseConfig(`kit: 1\ntiers:\n  claude:\n    light: { model: haiku, effort: ${effort} }\n`).tiers?.claude?.light?.effort).toBe(effort);
+    }
+    expect(parseConfig('kit: 1\ntiers:\n  claude: {}\n').tiers).toEqual({ claude: {} });
+  });
+
+  it.each([
+    ['an agent the config does not list', 'agents: [claude]\ntiers:\n  codex:\n    build: { model: x }\n', /tiers\.codex: codex is not in agents/],
+    ['an agent the kit does not know', 'tiers:\n  copilot:\n    build: { model: x }\n', /tiers\.copilot: copilot is not in agents/],
+    ['a tier other than the three', 'tiers:\n  claude:\n    huge: { model: x }\n', /tiers\.claude\.huge: huge is no tier — one of deep, build, light/],
+    ['an empty model', 'tiers:\n  claude:\n    light: { model: "" }\n', /tiers\.claude\.light\.model/],
+    ['no model', 'tiers:\n  claude:\n    light: { effort: low }\n', /tiers\.claude\.light\.model/],
+    ['an unknown effort', 'tiers:\n  claude:\n    light: { model: haiku, effort: extreme }\n', /tiers\.claude\.light\.effort/],
+    ['an unknown key in a tier', 'tiers:\n  claude:\n    light: { model: haiku, speed: 3 }\n', /tiers\.claude\.light.*speed/],
+    ['a tier that is no mapping', 'tiers:\n  claude:\n    light: haiku\n', /tiers\.claude\.light/],
+  ])('refuses %s in tiers, naming its key (PRD 1934)', (_what, body, error) => {
+    expect(() => parseConfig(`kit: 1\n${body}`, 'c.yml')).toThrow(error);
+  });
+
   it('keeps the answers switch on unless the file switches it off, and refuses one that is not a boolean (PRD 251)', () => {
     expect(parseConfig('kit: 1\n').answers).toEqual({ enabled: true });
     expect(parseConfig('kit: 1\nanswers:\n  enabled: false\n').answers).toEqual({ enabled: false });
@@ -506,6 +536,14 @@ describe('omni config', () => {
     }
   });
 
+  it('prints a tiers row by its key, as any key prints (PRD 1934)', async () => {
+    const text = 'kit: 1\ntiers:\n  claude:\n    light: { model: haiku, effort: low }\n';
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': text } });
+    const s = io();
+    expect(await main(['config', 'tiers.claude'], { cwd: root, ...s })).toBe(0);
+    expect(JSON.parse(s.out.join(''))).toEqual({ light: { model: 'haiku', effort: 'low' } });
+  });
+
   it('omni check config refuses an unknown agent, naming it (PRD 1890)', async () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nagents: [claude, copilot]\n' } });
     const err: string[] = [];
@@ -585,7 +623,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'agents', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature',
+      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature', 'sync',
     ]);
   });
 
@@ -978,5 +1016,63 @@ describe('laws.max and laws.owners (PRD 1726)', () => {
     ['an owner that is no text', 'laws:\n  owners: [3]\n', /c\.yml.*laws\.owners\.0/],
   ])('refuses %s, naming the key', (_what, section, message) => {
     expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
+  });
+});
+
+describe('the sync section (PRD 1990)', () => {
+  const firstLine = (source: string) => {
+    try {
+      parseConfig(source, 'c.yml');
+    } catch (error) {
+      return messageOf(error).split('\n')[0];
+    }
+    throw new Error('it parsed');
+  };
+  const DEFAULTS = {
+    order: ['main', 'kit', 'knowledge', 'page'],
+    levels: { main: 'red', kit: 'orange', knowledge: 'orange', page: 'orange' },
+    mainRedAfter: '24h',
+  };
+
+  it('fills the defaults of the spec when the file has no sync block', () => {
+    expect(parseConfig('kit: 1\n').sync).toEqual(DEFAULTS);
+  });
+
+  it('reads an order, a level and mainRedAfter the file sets, keeping the defaults it does not', () => {
+    const config = parseConfig('kit: 1\nsync:\n  order: [kit, main, page, knowledge]\n  levels:\n    kit: red\n    page: off\n  mainRedAfter: 720h\n');
+    expect(config.sync).toEqual({
+      order: ['kit', 'main', 'page', 'knowledge'],
+      levels: { main: 'red', kit: 'red', knowledge: 'orange', page: 'off' },
+      mainRedAfter: '720h',
+    });
+    expect(parseConfig('kit: 1\nsync:\n  mainRedAfter: 1h\n').sync.mainRedAfter).toBe('1h');
+  });
+
+  it('refuses an order that does not list each check exactly once, naming sync.order', () => {
+    expect(firstLine('kit: 1\nsync:\n  order: [main, kit, knowledge]\n')).toMatch(/^c\.yml .*: sync\.order: page is not listed — the order names main, kit, knowledge, page, each once/);
+    expect(firstLine('kit: 1\nsync:\n  order: [main, kit, knowledge, page, main]\n')).toMatch(/: sync\.order: main is listed twice/);
+    expect(firstLine('kit: 1\nsync:\n  order: [main, kit, knowledge, pages]\n')).toMatch(/: sync\.order\.3: pages is no check — one of main, kit, knowledge, page/);
+    expect(firstLine('kit: 1\nsync:\n  order: main\n')).toMatch(/: sync\.order: /);
+  });
+
+  it('refuses a level other than red, orange or off, and a check it does not know, naming the key', () => {
+    expect(firstLine('kit: 1\nsync:\n  levels:\n    kit: yellow\n')).toMatch(/: sync\.levels\.kit: yellow is no level — one of red, orange, off/);
+    expect(firstLine('kit: 1\nsync:\n  levels:\n    main: green\n')).toMatch(/: sync\.levels\.main: /);
+    expect(firstLine('kit: 1\nsync:\n  levels:\n    docs: red\n')).toMatch(/: sync\.levels: .*docs/);
+    expect(firstLine('kit: 1\nsync:\n  weights: {}\n')).toMatch(/: sync: .*weights/);
+  });
+
+  it('refuses a mainRedAfter that is not a whole number of hours from 1h to 720h, naming it', () => {
+    for (const value of ['0h', '721h', '24', '1.5h', '24 h', '1d', 'h', '-3h', '""', '024h', '12h30', '24hh']) {
+      expect(firstLine(`kit: 1\nsync:\n  mainRedAfter: ${value}\n`), value).toMatch(/: sync\.mainRedAfter: a whole number of hours, written <n>h from 1h to 720h/);
+    }
+  });
+
+  it('is printed by omni config sync, defaults included', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\n' } });
+    const out: string[] = [];
+    const code = await main(['config', 'sync'], { cwd: root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => {} } });
+    expect(code).toBe(0);
+    expect(JSON.parse(out.join(''))).toEqual(DEFAULTS);
   });
 });

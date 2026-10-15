@@ -30,7 +30,7 @@ describe('the trading cards', () => {
   it('gives each card the rule its fleet\'s mascot carries, whatever the fleet is named, with the rulebook\'s number', () => {
     const cards = cardsOf(['beaver', 'octopod', 'picsou', 'cia', 'pirate'].map((m, i) => fleet(`fleet-${i}`, { mascot: m })));
     expect(cards.map((c) => c.rule)).toEqual([
-      `A secured zone scores ${RULEBOOK.zoneSecured}.`,
+      `A merged feat/fix PR scores ${RULEBOOK.prMerged.feat}.`,
       `Closing unconfirmed ground scores ${RULEBOOK.woundClose['unconfirmed-ground']}.`,
       `Closing a fault line scores ${RULEBOOK.woundClose['fault-line']}.`,
       `Closing a beacon scores ${RULEBOOK.woundClose.beacon}.`,
@@ -40,13 +40,13 @@ describe('the trading cards', () => {
 
   it('never deals a rule by a fleet\'s name: a fleet named after a mascot, without it, takes its turn', () => {
     const [card] = cardsOf([fleet('octopod', { mascot: 'beaver' })]);
-    expect(present(card, 'the card').rule).toBe(`A secured zone scores ${RULEBOOK.zoneSecured}.`);
+    expect(present(card, 'the card').rule).toBe(`A merged feat/fix PR scores ${RULEBOOK.prMerged.feat}.`);
     const [, second] = cardsOf([fleet('a'), fleet('beaver')]);
     expect(present(second, 'the second card').rule).toBe(item(RULES, 1).text);
   });
 
   it('states only numbers the rulebook holds, for a fleet it has no rule of its own for too', () => {
-    const held = new Set([RULEBOOK.zoneSecured, RULEBOOK.rescue, ...Object.values(RULEBOOK.woundClose)].map(String));
+    const held = new Set([RULEBOOK.prMerged.feat, RULEBOOK.rescue, ...Object.values(RULEBOOK.woundClose)].map(String));
     const cards = cardsOf(['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((n) => fleet(n)));
     for (const { rule } of cards) {
       const numbers = rule.match(/\d+/g) ?? [];

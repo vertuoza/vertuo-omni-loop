@@ -38,6 +38,7 @@ const slices = (rows: Row[]): Slice[] =>
     blockedBy: blockedBy.map(parseWorkSliceId),
     wave,
     landing,
+    tier: null,
     contract: null,
   }));
 

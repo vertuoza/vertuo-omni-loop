@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 1972 · bug-fix from a service · before/after</title>
+<style>
+  /* Layout: one column of today/after pairs, two columns from 820px; the galaxy's own tokens. */
+  :root { --ground: #03020f; --sunk: #0e0d33; --surface: #120f3a; --line: #5a60c4; --ink: #f2f4ff; --muted: #8a90d6; --plasma: #ffd84a; --on-plasma: #07061c; --green: #4ee08a; --red: #ff6b86;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, monospace; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .doc { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 26px; margin: 0 0 4px; text-wrap: balance; }
+  h3 { font-size: 17px; margin: 28px 0 10px; }
+  .lead { color: var(--muted); margin: 0 0 20px; max-width: 80ch; }
+  .part { margin: 28px 0 10px; font: 700 13px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--plasma); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .cols > div { min-width: 0; }
+  @media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+  .tag { display: inline-block; margin: 0 0 8px; font: 700 12px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 4px; }
+  .today { color: var(--muted); border: 1px solid var(--line); }
+  .after { color: var(--on-plasma); background: var(--plasma); }
+  pre { margin: 0; padding: 14px 16px; background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; font: 13px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  code { font: 13px var(--mono); }
+  .bad { color: var(--red); } .good { color: var(--green); } .dim { color: var(--muted); } .hi { color: var(--plasma); }
+  .cap { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+  .pr { padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
+  .pr h4 { margin: 14px 0 6px; font-size: 15px; } .pr h4:first-child { margin-top: 0; }
+  .pr ul { margin: 0; padding-left: 20px; } .pr p { margin: 0; }
+  .state { display: inline-block; font: 700 11px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; border-radius: 10px; margin-left: 6px; vertical-align: 2px; }
+  .open { color: var(--on-plasma); background: var(--green); } .draft { color: var(--ink); border: 1px solid var(--muted); }
+  svg { display: block; max-width: 100%; height: auto; margin: 4px 0 8px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="doc">
+<h1>A service starts /omni:bug-fix, and every bug-fix PR shows a before/after GIF</h1>
+<p class="lead">PRD 1972. vertuo-cleaner opens an <code>omni:bug</code> issue for an error group, then waits for a person to paste <code>/omni:bug-fix &lt;issue url&gt;</code>. After this PRD it queues the job itself, with Pierre's kit token, and the pull request the job opens shows the bug before and after the fix.</p>
+
+<h2 class="part">Functional</h2>
+
+<h3>1. The cleaner queues the fix</h3>
+<div class="cols">
+  <div><span class="tag today">Today</span>
+<pre><span class="dim"># the cleaner, with a kit token's access token</span>
+POST /api/runners/jobs
+Authorization: Bearer eyJhbGciOi…
+{"line": "/omni:bug-fix https://github.com/vertuoza/vertuo-backend-php/issues/123",
+ "repo": "vertuoza/vertuo-backend-php", "target": {"kind": "any"}}
+
+<span class="bad">401 {"error": "Sign in first."}</span>
+
+<span class="dim"># so the cleaner shows a person the line to paste</span>
+/omni:bug-fix https://github.com/vertuoza/vertuo-backend-php/issues/123</pre>
+    <p class="cap"><code>sendJob</code> reads the browser's session alone. The runner's own routes (register, next, report) already take the Bearer.</p>
+  </div>
+  <div><span class="tag after">After</span>
+<pre><span class="dim"># 1. once an hour: the kit token for an access token</span>
+POST /api/ask/token
+{"omni_token": "omk_…", "repo": "vertuoza/vertuo-backend-php"}
+<span class="good">200 {"access_token": "eyJhbGciOi…", "expires_at": …, "workspace": …}</span>
+
+<span class="dim"># 2. each bug</span>
+POST /api/runners/jobs
+Authorization: Bearer eyJhbGciOi…
+{"line": "/omni:bug-fix https://github.com/vertuoza/vertuo-backend-php/issues/123",
+ "repo": "vertuoza/vertuo-backend-php", "target": {"kind": "any"}}
+<span class="good">200 {"job": {…, "sentBy": "&lt;Pierre&gt;"}}</span>
+
+<span class="dim"># refused</span>
+<span class="bad">401</span> bad or expired Bearer, even beside a session
+<span class="bad">403</span> repository outside the workspace, or not a member</pre>
+    <p class="cap">The same service, line check and rules as the browser's call. The token is Pierre's, made by Pierre with <code>omni setup-token</code>: every job is sent by Pierre.</p>
+  </div>
+</div>
+
+<h3>2. A proof run for a bug</h3>
+<div class="cols">
+  <div><span class="tag today">Today</span>
+<pre>$ omni proof push --kind bug 123 ../proof-bug-123/20261014-101500
+<span class="bad">omni proof: unknown flag --kind.</span>
+<span class="dim">exit 2</span>
+
+<span class="dim"># the API looks a dossier up as a PRD's only</span>
+POST /api/proofs/uploads {"repo", "prd": 123, "files": […]}
+<span class="bad">404 {"error": "No dossier for PRD #123."}</span></pre>
+  </div>
+  <div><span class="tag after">After</span>
+<pre>$ omni proof push --kind bug 123 ../proof-bug-123/20261014-101500
+<span class="good">https://www.omni-loop.xyz/bugs/5d1c…</span>
+<span class="good">https://www.omni-loop.xyz/api/proofs/9b7e…/preview.gif</span>
+
+<span class="dim"># without --kind: exactly as today</span>
+$ omni proof push 1972 ../proof-1972/20261020-090000
+https://www.omni-loop.xyz/prd/a41f…?tab=proof
+https://www.omni-loop.xyz/api/proofs/03c2…/preview.gif</pre>
+    <p class="cap">The API's two calls take <code>kind</code>, <code>prd</code> when absent. No migration, and no Proof tab on the bug page.</p>
+  </div>
+</div>
+
+<h3>3. The bug-fix pull request</h3>
+<div class="cols">
+  <div><span class="tag today">Today</span>
+    <div class="pr">
+      <p><strong>fix(invoices): saving twice no longer duplicates the row (#123)</strong> <span class="state open">Open</span></p>
+      <h4>What was wrong</h4>
+      <p>A second save inserted a new row instead of updating the first.</p>
+      <h4>Bug</h4>
+      <ul>
+        <li><strong>Red proven:</strong> <code>InvoiceSaveTest::test_saving_twice_keeps_one_row</code>: Failed asserting that 2 matches expected 1.</li>
+        <li><strong>Guard:</strong> …</li>
+      </ul>
+    </div>
+    <p class="cap">One failing line. The reviewer never sees the bug, then the bug gone.</p>
+  </div>
+  <div><span class="tag after">After</span>
+    <div class="pr">
+      <p><strong>fix(invoices): saving twice no longer duplicates the row (#123)</strong> <span class="state open">Open</span></p>
+      <h4>What was wrong</h4>
+      <p>A second save inserted a new row instead of updating the first.</p>
+      <h4>Proof</h4>
+      <svg viewBox="0 0 640 200" role="img" aria-label="The GIF's two cards: before the fix, red; after the fix, green">
+        <rect x="0" y="0" width="316" height="200" rx="6" fill="#0e0d33" stroke="#ff6b86"/>
+        <text x="14" y="26" fill="#ff6b86" font-family="JetBrains Mono, ui-monospace, monospace" font-size="13" font-weight="700">Before the fix · red</text>
+        <text x="14" y="58" fill="#8a90d6" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">PHPUnit 10.5 by Sebastian Bergmann</text>
+        <text x="14" y="78" fill="#f2f4ff" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">F                       1 / 1 (100%)</text>
+        <text x="14" y="102" fill="#ff6b86" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">1) InvoiceSaveTest::test_saving_</text>
+        <text x="14" y="118" fill="#ff6b86" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">   twice_keeps_one_row</text>
+        <text x="14" y="138" fill="#f2f4ff" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">Failed asserting that 2 matches</text>
+        <text x="14" y="154" fill="#f2f4ff" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">expected 1.</text>
+        <text x="14" y="182" fill="#ff6b86" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">FAILURES! Tests: 1, Failures: 1.</text>
+        <rect x="324" y="0" width="316" height="200" rx="6" fill="#0e0d33" stroke="#4ee08a"/>
+        <text x="338" y="26" fill="#4ee08a" font-family="JetBrains Mono, ui-monospace, monospace" font-size="13" font-weight="700">After the fix · green</text>
+        <text x="338" y="58" fill="#8a90d6" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">PHPUnit 10.5 by Sebastian Bergmann</text>
+        <text x="338" y="78" fill="#f2f4ff" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">.                       1 / 1 (100%)</text>
+        <text x="338" y="102" fill="#8a90d6" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">Time: 00:00.041, Memory: 8.00 MB</text>
+        <text x="338" y="182" fill="#4ee08a" font-family="JetBrains Mono, ui-monospace, monospace" font-size="10.5">OK (1 test, 1 assertion)</text>
+      </svg>
+      <ul>
+        <li><strong>Before the fix</strong> (red): <code>Failed asserting that 2 matches expected 1.</code></li>
+        <li><strong>After the fix</strong> (green, <code>4e1a9c2</code>): <code>OK (1 test, 1 assertion)</code></li>
+      </ul>
+      <h4>Bug</h4>
+      <ul><li><strong>Red proven:</strong> … (as today)</li></ul>
+    </div>
+    <p class="cap">The GIF shows its two cards one after the other, 3 seconds each, 640 pixels wide; here they are drawn side by side. A component bug's GIF is its Storybook story filmed before and after, instead.</p>
+
+    <div class="pr" style="margin-top:12px">
+      <p><strong>fix(invoices): saving twice no longer duplicates the row (#123)</strong> <span class="state draft">Draft</span></p>
+      <h4>Proof</h4>
+      <p class="hi">GIF not produced - the pinned omni is too old: run omni update</p>
+    </div>
+    <p class="cap">No GIF, whatever the reason: the pull request opens as a draft, and says why in one line.</p>
+  </div>
+</div>
+
+<h2 class="part">Pixel perfect</h2>
+<p>Pixel perfect: no screen changes</p>
+</div>
+</body>
+</html>

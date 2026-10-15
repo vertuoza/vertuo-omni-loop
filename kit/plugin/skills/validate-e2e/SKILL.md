@@ -168,7 +168,8 @@ failure breaks that flow. A test with no `critical` tag is `standard`.
      cover, with the lines under it saying what its failure costs, in the format PRD #1737 parses.
      The person reads it in the sub-PR, and merging it is the review. Never edit an existing entry.
   2. **One item per candidate test.** For each test that plausibly covers a flow of the list,
-     record one medium outbox item with `omni item new` (`--slice e2e`, as step 8). A test that
+     record one medium outbox item with `omni item new` (`--slice e2e-s1`, as step 8; the item id must
+     hold an `s<number>`, so `--slice e2e` alone is refused). A test that
      covers no flow gets no item and stays `standard`. Its options are A, `standard` as written,
      and B, `critical` with the tag `flow-<id>` of the proposed flow. Its "What it costs to change
      later" names the test file in backticks, and no other path, so a rework's ground is exactly
@@ -203,7 +204,7 @@ stales the recordings: record again with step 6 before this strict replay, then 
 Run `node .omni-loop/bin/omni.mjs e2e status <n>`; a non-zero exit (a test with no recording) stops
 the run before any sub-PR. Then run `node .omni-loop/bin/omni.mjs e2e heals <n> --head <sub-PR branch>`, the branch step 9 pushes: it
 compares the feature branch's steps with that branch's, so on a first pass every step is new. On a later pass each healed step becomes an outbox item
-(`node .omni-loop/bin/omni.mjs item new --prd <n> --slice e2e --file <file> --json`, the JSON in a
+(`node .omni-loop/bin/omni.mjs item new --prd <n> --slice e2e-s1 --file <file> --json`, the JSON in a
 scratch file outside the repository) holding the action before and after and the before and after
 screenshots `heals` lists for it. When `heals` says none was kept, the item says so and says why, in
 the reason `heals` gives. None is taken as accepted until a person confirms it.

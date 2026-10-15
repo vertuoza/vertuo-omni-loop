@@ -22,8 +22,17 @@ describe('scanText', () => {
     'password: ${QA_PASSWORD}',
     "await page.fill('#password', process.env.QA_PASSWORD ?? '');",
     "await session.save('qa');",
+    '  bypassEnv: VERCEL_AUTOMATION_BYPASS_SECRET',
+    '      js-tokens: 10.0.0',
+    'passwordEnv: QA_LOGIN_PASSWORD',
   ])('lets %s through', (line) => {
     expect(scanText('f.ts', line)).toEqual([]);
+  });
+
+  it('still flags a secret that looks like neither a variable name nor a version', () => {
+    expect(scanText('f.ts', `bypassToken: ${SECRET}`)).toHaveLength(1);
+    expect(scanText('f.ts', `apiKey: "${SECRET}"`)).toHaveLength(1);
+    expect(scanText('f.ts', 'password: my_real_pass_phrase')).toHaveLength(1);
   });
 
   it('numbers lines from 1 and never carries the value', () => {

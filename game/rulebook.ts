@@ -1,6 +1,8 @@
 // Every number the economy uses that is not a fact of the delivery layer (spec §6).
 export const RULEBOOK = Object.freeze({
-  zoneSecured: 10,
+  // A secured zone is a sub-PR's work, merged into a feature branch: it never earns points (PRD 1975).
+  // ZONE_SECURED is still written; the zones, the planet's readiness and its crew read it.
+  zoneSecured: 0,
   woundClose: Object.freeze({
     transmission: 5, 'unconfirmed-ground': 15, beacon: 25,
     'fault-line': 20, 'under-fire': 10, aftershock: 20,
@@ -12,7 +14,7 @@ export const RULEBOOK = Object.freeze({
   classMultiplier: (regions: number): number => regions >= 4 ? 2.5 : regions === 3 ? 2 : regions === 2 ? 1.5 : 1,
   crossSectorMultiplier: 1.25,
   terraformOwner: 100,
-  terraformExpedition: 50,
+  terraformExpedition: 10, // the one credit a sub-PR's author still earns, at the terraform (PRD 1975)
   terraformCloser: 25,
   streakStep: 0.1,
   streakCap: 0.5,
@@ -23,9 +25,15 @@ export const RULEBOOK = Object.freeze({
   // asking many questions never outruns delivery work.
   questionAnswered: 2,
   // A feature PR merged into its default branch: the person who merged it, and each person who
-  // approved it (its author aside). Paid at the merge, once per region's feature PR.
-  featureMerged: 30,
-  featureReviewed: 10,
+  // approved it (its author aside). FEATURE_MERGED and FEATURE_REVIEWED are still written, and pay
+  // nothing since PRD 1975: PR_MERGED pays the feature PR's author, PR_REVIEWED its merger and approvers.
+  featureMerged: 0,
+  featureReviewed: 0,
+  // A pull request merged into a tracked repository's default branch (PRD 1975), by its kind: its
+  // author, and each of its reviewers (its approvers and its merger, its author aside). A sub-PR merges
+  // into a feature branch, never into the default branch, so it is never paid here.
+  prMerged: Object.freeze({ feat: 30, docs: 10 }),
+  prReviewed: Object.freeze({ feat: 10, docs: 5 }),
   trancheMinutes: 240,
   distressAfterWorkingMinutes: 480,      // 8 working hours
   lostAfterWorkingMinutes: 10 * 9 * 60,  // 10 working days
@@ -40,7 +48,7 @@ export const RULEBOOK = Object.freeze({
   // recomputes every player's XP from the whole ledger (`pnpm game:xp`).
   xp: Object.freeze({
     // Weight of each personal credit. 0 leaves a credit out.
-    weights: Object.freeze({ zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1 }),
+    weights: Object.freeze({ zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1, prMerged: 1, prReviewed: 1 }),
     // LV 1 at the first point; LV n (n ≥ 2) at step·n·(n−1).
     curve: Object.freeze({ first: 1, step: 25 }),
     cap: 99,

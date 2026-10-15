@@ -12,6 +12,10 @@
 // throws SnapshotBoundError naming the bound, which the outbox check reports as its failure reason.
 // The blobs are then fetched BLOB_CONCURRENCY at a time (issue 1087).
 //
+// A caller may fetch less than it lists (issue 1968): a file `fetchIf` refuses is written empty, so its
+// name is there for a caller that lists folders, its contents never fetched and never counted in the
+// bound. Its blob is never requested.
+//
 // The Octokit seam is `octokit.request(route, params)` alone, which every Octokit — the installation
 // client `@octokit/app` hands out included — carries, so a test stubs one function.
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
@@ -49,7 +53,14 @@ type TreeReader = (treeSha: string, recursive?: boolean) => Promise<TreeEntry[]>
  */
 export async function snapshot(
   octokit: GitHubClient,
-  { owner, repo, ref, paths, dest }: { owner: string; repo: string; ref: string; paths: string[]; dest?: string | undefined },
+  {
+    owner,
+    repo,
+    ref,
+    paths,
+    dest,
+    fetchIf = () => true,
+  }: { owner: string; repo: string; ref: string; paths: string[]; dest?: string | undefined; fetchIf?: (path: string) => boolean },
 ): Promise<string> {
   const segmentsOf = paths.map(repositoryPath);
   const trees = new Map<string, TreeEntry[]>();
@@ -72,7 +83,8 @@ export async function snapshot(
     for (const file of await filesUnder(tree, ref, segments)) files.set(file.path, file);
   }
 
-  const list = [...files.values()];
+  const listed = [...files.values()];
+  const list = listed.filter((file) => fetchIf(file.path));
   if (list.length > MAX_FILES) {
     throw new SnapshotBoundError(
       `The snapshot holds ${list.length.toLocaleString('en-US')} files, over the bound of ${MAX_FILES.toLocaleString('en-US')} files.`,
@@ -86,6 +98,12 @@ export async function snapshot(
   }
 
   const folder = dest ?? mkdtempSync(join(tmpdir(), 'omni-snapshot-'));
+  for (const file of listed) {
+    if (fetchIf(file.path)) continue;
+    const target = join(folder, ...repositoryPath(file.path));
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, '');
+  }
   const queue = [...list];
   const fetchNext = async (): Promise<void> => {
     for (let file = queue.shift(); file; file = queue.shift()) {

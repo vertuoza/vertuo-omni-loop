@@ -1362,6 +1362,33 @@ var agentList = z8.array(z8.enum(AGENTS, { error: (issue) => `${String(issue.inp
     if (agents.indexOf(agent) !== index) issues.addIssue({ code: "custom", path: [index], message: `${agent} is listed twice` });
   });
 }).default(["claude"]);
+var TIERS = Object.freeze(["deep", "build", "light"]);
+var EFFORTS = Object.freeze(["low", "medium", "high", "xhigh", "max"]);
+var tierEntry = z8.object({
+  model: text3,
+  effort: z8.enum(EFFORTS, { error: (issue) => `${String(issue.input)} is no effort \u2014 one of ${EFFORTS.join(", ")}` }).optional()
+}).strict();
+var tierRow = z8.record(z8.string(), tierEntry).superRefine((row, issues) => {
+  for (const tier of Object.keys(row)) {
+    if (!isOneOf(TIERS, tier)) {
+      issues.addIssue({ code: "custom", path: [tier], message: `${tier} is no tier \u2014 one of ${TIERS.join(", ")}` });
+    }
+  }
+});
+var SYNC_CHECKS = Object.freeze(["main", "kit", "knowledge", "page"]);
+var SYNC_LEVELS = Object.freeze(["red", "orange", "off"]);
+var SYNC_MAX_HOURS = 720;
+var syncCheck = z8.enum(SYNC_CHECKS, { error: (issue) => `${String(issue.input)} is no check \u2014 one of ${SYNC_CHECKS.join(", ")}` });
+var syncLevel = z8.enum(SYNC_LEVELS, { error: (issue) => `${String(issue.input)} is no level \u2014 one of ${SYNC_LEVELS.join(", ")}` });
+var syncOrder = z8.array(syncCheck).superRefine((order, issues) => {
+  const twice = order.find((check, index) => order.indexOf(check) !== index);
+  if (twice !== void 0) issues.addIssue({ code: "custom", message: `${twice} is listed twice` });
+  for (const check of SYNC_CHECKS) {
+    if (!order.includes(check)) issues.addIssue({ code: "custom", message: `${check} is not listed \u2014 the order names ${SYNC_CHECKS.join(", ")}, each once` });
+  }
+});
+var HOURS_MESSAGE = `a whole number of hours, written <n>h from 1h to ${SYNC_MAX_HOURS}h, such as 24h`;
+var syncHours = z8.string({ error: HOURS_MESSAGE }).refine((value) => /^[1-9]\d*h$/.test(value) && Number.parseInt(value, 10) <= SYNC_MAX_HOURS, HOURS_MESSAGE);
 var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
 var ConfigSchema = z8.object({
   kit: z8.literal(CONFIG_VERSION),
@@ -1397,6 +1424,9 @@ var ConfigSchema = z8.object({
   // PRD 1890: which coding agents the repository's people use. `[claude]` by default: a config
   // without the key installs for Claude Code alone, as before.
   agents: agentList,
+  // PRD 1934: the model and effort each tier runs on, one row per agent `agents` lists. Optional:
+  // a config without it parses with no `tiers` key, and every slice runs on the terminal's model.
+  tiers: z8.record(z8.string(), tierRow).optional(),
   paths: section({
     delivery: text3.default(".omni-loop/delivery"),
     knowledge: text3.default(".omni-loop/knowledge"),
@@ -1610,8 +1640,26 @@ var ConfigSchema = z8.object({
   // (`omni budget measure context`, `kit/lib/budgets/`) against the ceilings in `file`. Off by
   // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
   // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
-  budgets: z8.object({ context: section({ enabled: z8.boolean().default(false), file: text3.default(CONTEXT_BUDGET_FILE) }) }).strict().optional()
-}).strict().superRefine(({ pr, flow }, issues) => {
+  budgets: z8.object({ context: section({ enabled: z8.boolean().default(false), file: text3.default(CONTEXT_BUDGET_FILE) }) }).strict().optional(),
+  // PRD 1990: how `omni sync` weighs its checks. `order` decides the headline (the heaviest check
+  // first), `levels` the highest colour each check may show (`off` gathers nothing), `mainRedAfter`
+  // how old a missing commit of the default branch may be before the main check is red.
+  sync: section({
+    order: syncOrder.default(() => [...SYNC_CHECKS]),
+    levels: section({
+      main: syncLevel.default("red"),
+      kit: syncLevel.default("orange"),
+      knowledge: syncLevel.default("orange"),
+      page: syncLevel.default("orange")
+    }),
+    mainRedAfter: syncHours.default("24h")
+  })
+}).strict().superRefine(({ pr, flow, agents, tiers }, issues) => {
+  for (const agent of Object.keys(tiers ?? {})) {
+    if (!isOneOf(agents, agent)) {
+      issues.addIssue({ code: "custom", path: ["tiers", agent], message: `${agent} is not in agents (${agents.join(", ")})` });
+    }
+  }
   const hooks = flow?.hooks?.["pr.open"];
   if (pr.openWith !== null && hooks !== void 0 && hooksByMode(hooks).replace !== null) {
     issues.addIssue({
@@ -5868,7 +5916,14 @@ var SnapshotBoundError = class extends Error {
     this.name = "SnapshotBoundError";
   }
 };
-async function snapshot(octokit, { owner, repo, ref, paths, dest }) {
+async function snapshot(octokit, {
+  owner,
+  repo,
+  ref,
+  paths,
+  dest,
+  fetchIf = () => true
+}) {
   const segmentsOf = paths.map(repositoryPath);
   const trees = /* @__PURE__ */ new Map();
   const tree = async (treeSha, recursive = false) => {
@@ -5888,7 +5943,8 @@ async function snapshot(octokit, { owner, repo, ref, paths, dest }) {
   for (const segments of segmentsOf) {
     for (const file of await filesUnder(tree, ref, segments)) files.set(file.path, file);
   }
-  const list2 = [...files.values()];
+  const listed = [...files.values()];
+  const list2 = listed.filter((file) => fetchIf(file.path));
   if (list2.length > MAX_FILES) {
     throw new SnapshotBoundError(
       `The snapshot holds ${list2.length.toLocaleString("en-US")} files, over the bound of ${MAX_FILES.toLocaleString("en-US")} files.`
@@ -5901,6 +5957,12 @@ async function snapshot(octokit, { owner, repo, ref, paths, dest }) {
     );
   }
   const folder = dest ?? mkdtempSync(join16(tmpdir(), "omni-snapshot-"));
+  for (const file of listed) {
+    if (fetchIf(file.path)) continue;
+    const target2 = join16(folder, ...repositoryPath(file.path));
+    mkdirSync2(dirname4(target2), { recursive: true });
+    writeFileSync3(target2, "");
+  }
   const queue = [...list2];
   const fetchNext = async () => {
     for (let file = queue.shift(); file; file = queue.shift()) {
@@ -6946,6 +7008,28 @@ import { tmpdir as tmpdir6 } from "node:os";
 import { join as join27 } from "node:path";
 import { NonRetriableError, RetryAfterError as RetryAfterError2 } from "inngest";
 
+// apps/omni-app/src/outbox-check/delivery-scope.ts
+function deliveryFetched(config, pr) {
+  const kind = pullKind(pr, config);
+  if ("skip" in kind || kind.kind !== "feature" && kind.kind !== "fix") return () => true;
+  const own = kind.kind === "feature" ? featureFolder(kind.topic) : fixFolder(kind.topic);
+  const delivery2 = `${config.paths.delivery.replace(/\/+$/, "")}/`;
+  return (path) => {
+    if (!path.startsWith(delivery2)) return true;
+    const [, folder, ...rest] = path.slice(delivery2.length).split("/");
+    return folder === void 0 || rest.length === 0 || own(folder);
+  };
+}
+function featureFolder(topic) {
+  return (folder) => parseFolderName(folder)?.topic === topic;
+}
+function fixFolder(topic) {
+  const digits = /^(\d+)-/.exec(topic)?.[1];
+  if (digits === void 0 || Number(digits) === 0) return () => false;
+  const prefix = issuePrefix(parsePrd(digits));
+  return (folder) => folder.startsWith(prefix);
+}
+
 // apps/omni-app/src/outbox-check/law-locked.ts
 import { existsSync as existsSync20, readFileSync as readFileSync17 } from "node:fs";
 import { join as join26 } from "node:path";
@@ -7215,7 +7299,8 @@ async function evaluateAt(octokit, { owner, repo, prNumber, headSha }) {
     if (config) {
       const knowledge = config.laws.source === "knowledge" ? [config.paths.knowledge] : [];
       if (knowledge.length > 0) await snapshot(octokit, { owner, repo, ref: pr.baseSha, paths: knowledge, dest: base });
-      await snapshot(octokit, { owner, repo, ref: headSha, paths: [config.paths.delivery, ...knowledge], dest: head });
+      const fetchIf = deliveryFetched(config, pr);
+      await snapshot(octokit, { owner, repo, ref: headSha, paths: [config.paths.delivery, ...knowledge], dest: head, fetchIf });
       comments = await listComments(octokit, { owner, repo, prNumber });
       changes = await changedFiles(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
     }
@@ -7233,13 +7318,9 @@ async function evaluateAt(octokit, { owner, repo, prNumber, headSha }) {
     rmSync7(head, { recursive: true, force: true });
   }
 }
-function createFailureHandler({ octokitFor }) {
-  return onFailedRun(octokitFor, async ({ octokit, request: { owner, repo, prNumber, headSha }, reason: reason2 }) => {
-    let target2 = null;
-    try {
-      target2 = await checkTarget(octokit, { owner, repo, prNumber, headSha });
-    } catch {
-    }
+function createFailureHandler({ octokitFor, log: log2 = noteTo("outbox-check") }) {
+  return onFailedRun(octokitFor, ({ octokit, request: { owner, repo, prNumber, headSha }, reason: reason2 }) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log2, async () => {
+    const target2 = await targetOrUnknown(octokit, { owner, repo, prNumber, headSha });
     if (target2 && !target2.active) return { ...SILENT2 };
     if (target2 && !target2.gated) return completeUngated(octokit, { owner, repo, headSha, target: target2, reason: reason2 });
     if (target2) {
@@ -7247,14 +7328,26 @@ function createFailureHandler({ octokitFor }) {
       return { checkRunIds: checkRunIds2, name: target2.name, reason: reason2 };
     }
     const name = DEFAULT_CHECK_NAME;
-    let checkRunIds = [];
-    try {
-      checkRunIds = await completeAsFailure(octokit, { owner, repo, headSha, name, reason: reason2, create: false });
-    } catch {
-    }
+    const checkRunIds = await openRunsFailed(octokit, { owner, repo, headSha, name, reason: reason2 });
     if (checkRunIds.length === 0) return { posted: false, reason: UNKNOWN_PR };
     return { checkRunIds, name, reason: reason2 };
-  });
+  }));
+}
+async function targetOrUnknown(octokit, at3) {
+  try {
+    return await checkTarget(octokit, at3);
+  } catch (error) {
+    if (budgetRefusal(error)) throw error;
+    return null;
+  }
+}
+async function openRunsFailed(octokit, at3) {
+  try {
+    return await completeAsFailure(octokit, { ...at3, create: false });
+  } catch (error) {
+    if (budgetRefusal(error)) throw error;
+    return [];
+  }
 }
 async function completeUngated(octokit, { owner, repo, headSha, target: target2, reason: failed2 }) {
   const { name, reason: reason2, deferTo } = target2;
@@ -9504,6 +9597,29 @@ function bodyRows(lines, headerIndex) {
   return rows;
 }
 function parsePlanSlices(markdown) {
+  const { column, rows } = sliceTable(markdown);
+  const slices = [];
+  for (const row of rows) {
+    const id = row[column("id")];
+    if (!id) continue;
+    slices.push({
+      id: sliceIdOf(id),
+      repo: column("repo") === -1 ? null : plainCell(row[column("repo")]),
+      title: column("slice") === -1 ? "" : row[column("slice")] ?? "",
+      territory: territoryPrefixes(row[column("territory")]),
+      blockedBy: column("blocked by") === -1 ? [] : blockedByCell(row[column("blocked by")]),
+      wave: column("wave") === -1 ? null : Number(row[column("wave")]),
+      landing: column("landing") === -1 ? 1 : landingCell(row[column("landing")]),
+      contract: column("contract") === -1 ? null : contractCell(row[column("contract")]),
+      tier: column("tier") === -1 ? null : tierCell(row[column("tier")])
+    });
+  }
+  if (slices.length === 0) {
+    throw new Error("The slice table holds no slice; there is nothing to grade.");
+  }
+  return slices;
+}
+function sliceTable(markdown) {
   const lines = markdown.split("\n");
   let headerIndex = -1;
   let foundAnyIdTable = false;
@@ -9527,26 +9643,32 @@ function parsePlanSlices(markdown) {
     throw new Error("No slice table was found in this plan; its slices declare no territory.");
   }
   const header = cells2(lines[headerIndex] ?? "").map((name) => name.toLowerCase());
-  const column = (name) => header.indexOf(name);
-  const slices = [];
-  for (const row of bodyRows(lines, headerIndex)) {
-    const id = row[column("id")];
-    if (!id) continue;
-    slices.push({
-      id: sliceIdOf(id),
-      repo: column("repo") === -1 ? null : plainCell(row[column("repo")]),
-      title: column("slice") === -1 ? "" : row[column("slice")] ?? "",
-      territory: territoryPrefixes(row[column("territory")]),
-      blockedBy: column("blocked by") === -1 ? [] : blockedByCell(row[column("blocked by")]),
-      wave: column("wave") === -1 ? null : Number(row[column("wave")]),
-      landing: column("landing") === -1 ? 1 : landingCell(row[column("landing")]),
-      contract: column("contract") === -1 ? null : contractCell(row[column("contract")])
-    });
+  return { column: (name) => header.indexOf(name), rows: bodyRows(lines, headerIndex) };
+}
+var TIERS2 = ["deep", "build", "light"];
+function isTier(text14) {
+  return TIERS2.some((tier) => tier === text14);
+}
+function tierCell(cell3) {
+  const text14 = plainCell(cell3);
+  return isTier(text14) ? text14 : null;
+}
+function unknownTiers(markdown) {
+  let table;
+  try {
+    table = sliceTable(markdown);
+  } catch {
+    return [];
   }
-  if (slices.length === 0) {
-    throw new Error("The slice table holds no slice; there is nothing to grade.");
+  const { column, rows } = table;
+  if (column("tier") === -1) return [];
+  const unknown = [];
+  for (const row of rows) {
+    const id = WorkSliceIdSchema.safeParse(row[column("id")]);
+    const value = plainCell(row[column("tier")]);
+    if (id.success && !NOTHING.test(value) && !isTier(value)) unknown.push({ slice: id.data, value });
   }
-  return slices;
+  return unknown;
 }
 function landingCell(cell3) {
   const text14 = plainCell(cell3);
@@ -9875,6 +9997,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
     ...multi ? targetReachViolations(slices, planSection2.targets) : [],
     ...duplicateIds2(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...landingViolations(slices, landingRows),
+    ...unknownTiers(markdown).map(({ slice, value }) => `tier: ${slice} reads "${value}", not deep, build, light, a blank or \u2014.`),
     ...multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config)),
     ...blockedByViolations2(slices),
     ...slices.flatMap((slice) => contractViolations(slice, contractAsk(slice, { config, multi, targets }))),

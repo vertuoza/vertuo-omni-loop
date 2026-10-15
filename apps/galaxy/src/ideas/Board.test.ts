@@ -9,17 +9,19 @@ import { BoardPage } from './Board';
 import { ideasView, type ReadBoard } from './source';
 
 vi.mock('server-only', () => ({}));
+vi.mock('next/navigation', () => ({ usePathname: () => '/ideas/vertuoza/vertuo-omni-loop' }));
 
 // /ideas/<owner>/<repo> as the server renders it (PRD 1246, s1): what a visitor, a link preview and a
 // search engine read, with no script run. The route runs in the demo's mode (no Supabase, not
-// production); each state of the page is rendered from the board ideas_board() would answer.
+// production), where the viewer is the demo's signed-in hero, so the board sits in the app shell (issue
+// 1996); each state of the page is rendered from the board ideas_board() would answer.
 
 const { default: Page, generateMetadata } = await import('../../app/ideas/[owner]/[repo]/page.tsx');
 const { default: Layout } = await import('../../app/ideas/layout.tsx');
 
 const params = (owner: string, repo: string) => ({ params: Promise.resolve({ owner, repo }) });
 const route = async (owner: string, repo: string) =>
-  renderToStaticMarkup(createElement(Layout, null, (await Page(params(owner, repo))) as ReactElement));
+  renderToStaticMarkup(await Layout({ children: (await Page(params(owner, repo))) as ReactElement }));
 
 const decode = (s: string) => s.replace(/&quot;/g, '"').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 const text = (markup: string) => decode(markup.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
@@ -197,7 +199,8 @@ describe('a board that cannot be read', () => {
 describe('the route, on the demo board', () => {
   it('serves the demo board at /ideas/vertuoza/vertuo-omni-loop, archived idea left out', async () => {
     const markup = await route('vertuoza', 'vertuo-omni-loop');
-    expect(markup).toContain('<span class="ask-brand-sub">Ideas</span>');
+    expect(markup).toContain('<div class="ask app-shell">');
+    expect(markup).toContain('<a class="app-sidebar-item" title="Ideas" aria-current="page" href="/ideas/vertuoza/vertuo-omni-loop">');
     expect(lanes(markup).map(([lane]) => lane)).toEqual(['Now 2', 'Next 2', 'Later 3']);
     expect(markup).not.toContain('An idea we dropped');
   });

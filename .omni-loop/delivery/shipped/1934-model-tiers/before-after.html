@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model Tiers</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --panel: #ffffff; --ink: #1d1c1a; --muted: #6b6760; --line: #e3dfd6;
+    --today: #a5492f; --after: #2f6f4f; --code: #f3f0e9; --hl: #fff3c4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614; --panel: #1f1e1b; --ink: #ecebe6; --muted: #a29e95; --line: #34322d;
+      --today: #e08a6e; --after: #7cc49d; --code: #2a2925; --hl: #4a4220;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161614; --panel: #1f1e1b; --ink: #ecebe6; --muted: #a29e95; --line: #34322d;
+    --today: #e08a6e; --after: #7cc49d; --code: #2a2925; --hl: #4a4220;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 40px 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  h3 { font-size: 15px; margin: 0 0 8px; }
+  p.lead { color: var(--muted); margin: 0 0 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .pair { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 8px; }
+  .today .tag { color: var(--today); } .after .tag { color: var(--after); }
+  pre { background: var(--code); border-radius: 6px; padding: 10px 12px; overflow-x: auto; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 8px 0; }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code); padding: 1px 4px; border-radius: 4px; }
+  mark { background: var(--hl); color: inherit; padding: 0 2px; border-radius: 3px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border-bottom: 1px solid var(--line); padding: 5px 6px; text-align: left; }
+  .tw { overflow-x: auto; }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { fill: var(--ink); font: 12px system-ui, sans-serif; }
+  svg .box { fill: var(--panel); stroke: var(--line); }
+  svg .t { stroke: var(--today); fill: none; } svg .a { stroke: var(--after); fill: none; }
+  svg .tt { fill: var(--today); } svg .at { fill: var(--after); }
+  ul { padding-left: 20px; margin: 6px 0; }
+  .note { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Model tiers for slices</h1>
+  <p class="lead">PRD 1934 · The plan advises a model tier for each slice, and the wave runs it on that tier's model.</p>
+
+  <h2>Functional</h2>
+
+  <div class="pair">
+    <section class="card today">
+      <span class="tag">Today</span>
+      <h3>Every slice inherits the terminal's model</h3>
+      <svg viewBox="0 0 420 220" role="img" aria-label="Terminal on opus starts three slice agents, all on opus">
+        <rect class="box" x="140" y="10" width="140" height="40" rx="6"/>
+        <text x="210" y="35" text-anchor="middle">terminal · opus</text>
+        <path class="t" d="M210 50 V80 M70 80 H350 M70 80 V110 M210 80 V110 M350 80 V110" stroke-width="1.5"/>
+        <rect class="box" x="10" y="110" width="120" height="50" rx="6"/>
+        <text x="70" y="132" text-anchor="middle">s1 algorithm</text><text class="tt" x="70" y="150" text-anchor="middle">opus</text>
+        <rect class="box" x="150" y="110" width="120" height="50" rx="6"/>
+        <text x="210" y="132" text-anchor="middle">s2 endpoint</text><text class="tt" x="210" y="150" text-anchor="middle">opus</text>
+        <rect class="box" x="290" y="110" width="120" height="50" rx="6"/>
+        <text x="350" y="132" text-anchor="middle">s3 rename</text><text class="tt" x="350" y="150" text-anchor="middle">opus</text>
+        <text x="210" y="195" text-anchor="middle" class="tt">a rename costs what an algorithm costs</text>
+      </svg>
+      <div class="tw"><table>
+        <tr><th>id</th><th>slice</th><th>territory</th><th>blocked by</th><th>wave</th></tr>
+        <tr><td>s3</td><td>rename the field</td><td><code>kit/lib/x/</code></td><td>—</td><td>1</td></tr>
+      </table></div>
+      <p class="note">The sub-PR does not say which model built it.</p>
+    </section>
+
+    <section class="card after">
+      <span class="tag">After</span>
+      <h3>The plan advises, the config maps, the wave obeys</h3>
+      <svg viewBox="0 0 420 220" role="img" aria-label="Terminal on opus starts slice agents on opus, sonnet and haiku per their tier">
+        <rect class="box" x="140" y="10" width="140" height="40" rx="6"/>
+        <text x="210" y="35" text-anchor="middle">terminal · opus</text>
+        <path class="a" d="M210 50 V80 M70 80 H350 M70 80 V110 M210 80 V110 M350 80 V110" stroke-width="1.5"/>
+        <rect class="box" x="10" y="110" width="120" height="50" rx="6"/>
+        <text x="70" y="132" text-anchor="middle">s1 · deep</text><text class="at" x="70" y="150" text-anchor="middle">opus · high</text>
+        <rect class="box" x="150" y="110" width="120" height="50" rx="6"/>
+        <text x="210" y="132" text-anchor="middle">s2 · build</text><text class="at" x="210" y="150" text-anchor="middle">sonnet · medium</text>
+        <rect class="box" x="290" y="110" width="120" height="50" rx="6"/>
+        <text x="350" y="132" text-anchor="middle">s3 · light</text><text class="at" x="350" y="150" text-anchor="middle">haiku · low</text>
+        <text x="210" y="195" text-anchor="middle" class="at">each slice runs on what its work needs</text>
+      </svg>
+      <div class="tw"><table>
+        <tr><th>id</th><th>slice</th><th>territory</th><th>blocked by</th><th>wave</th><th><mark>tier</mark></th></tr>
+        <tr><td>s3</td><td>rename the field</td><td><code>kit/lib/x/</code></td><td>—</td><td>1</td><td><mark>light</mark></td></tr>
+      </table></div>
+      <p class="note">Sub-PR body: <code>Tier: light · claude haiku · low</code></p>
+    </section>
+  </div>
+
+  <div class="pair" style="margin-top:16px">
+    <section class="card today">
+      <span class="tag">Today</span>
+      <h3>The config has no word for a model</h3>
+      <pre>agents: [claude, codex]</pre>
+      <p class="note"><code>agents</code> only says where the skills are installed (PRD 1890).</p>
+    </section>
+    <section class="card after">
+      <span class="tag">After</span>
+      <h3>An optional mapping, one row per agent</h3>
+      <pre>agents: [claude, codex]
+<mark>tiers:</mark>
+<mark>  claude:</mark>
+<mark>    deep:  { model: opus,   effort: high }</mark>
+<mark>    build: { model: sonnet, effort: medium }</mark>
+<mark>    light: { model: haiku,  effort: low }</mark>
+<mark>  codex:</mark>
+<mark>    build: { model: &lt;id&gt; }</mark></pre>
+      <pre>$ omni tier light --agent claude
+model: haiku
+effort: low
+$ omni tier deep --agent codex
+inherit</pre>
+    </section>
+  </div>
+
+  <div class="pair" style="margin-top:16px">
+    <section class="card today">
+      <span class="tag">Stays the same</span>
+      <ul>
+        <li>No <code>tiers</code> key: every slice inherits the terminal's model, as today.</li>
+        <li>Brainstorm, plan, wave integration, pr-care, settle, the gate, yolo-fix: the terminal's model.</li>
+        <li><code>omni runner</code> keeps running <code>claude -p</code>.</li>
+        <li>Every slice passes the same tests, lint, mutation floor and CI.</li>
+      </ul>
+    </section>
+    <section class="card after">
+      <span class="tag">The person's say</span>
+      <ul>
+        <li>The tiers are in the plan reviewed on the PRD page, before anything is built.</li>
+        <li>Edit a cell to change a slice's tier; silence approves the advice.</li>
+        <li>A refused model retries once on the terminal's model: <code>inherited (claude refused haiku)</code>.</li>
+      </ul>
+    </section>
+  </div>
+
+  <h2>Pixel perfect</h2>
+  <p>Pixel perfect: no screen changes</p>
+</main>
+</body>
+</html>

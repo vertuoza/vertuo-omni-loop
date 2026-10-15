@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
-import { messageOf } from './narrow.ts';
+import { isOneOf, messageOf } from './narrow.ts';
 import { parseSelector } from './design/words/selector.ts';
 import { FlowSchema, hooksByMode, regexSource } from './flow/schema.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
@@ -195,6 +195,53 @@ const agentList = z
   })
   .default(['claude']);
 
+// PRD 1934: the tiers a plan advises a slice to run on, named for the capability it needs, and the
+// efforts an agent can run a model at. `kit/lib/tiers.ts` reads a slice's tier through them.
+export const TIERS = Object.freeze(['deep', 'build', 'light'] as const);
+export const EFFORTS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max'] as const);
+
+const tierEntry = z
+  .object({
+    model: text,
+    effort: z.enum(EFFORTS, { error: (issue) => `${String(issue.input)} is no effort — one of ${EFFORTS.join(', ')}` }).optional(),
+  })
+  .strict();
+
+// One agent's row: each tier optional. A record refused key by key, so an unknown tier is named by its
+// own path (`tiers.claude.huge`), not only listed under its row.
+const tierRow = z.record(z.string(), tierEntry).superRefine((row, issues) => {
+  for (const tier of Object.keys(row)) {
+    if (!isOneOf(TIERS, tier)) {
+      issues.addIssue({ code: 'custom', path: [tier], message: `${tier} is no tier — one of ${TIERS.join(', ')}` });
+    }
+  }
+});
+
+// PRD 1990: the four checks `omni sync` runs, heaviest first by default, and the highest colour each
+// may show. `kit/lib/sync/` reads them.
+export const SYNC_CHECKS = Object.freeze(['main', 'kit', 'knowledge', 'page'] as const);
+const SYNC_LEVELS = Object.freeze(['red', 'orange', 'off'] as const);
+/** The most hours `sync.mainRedAfter` may name: thirty days. */
+const SYNC_MAX_HOURS = 720;
+
+const syncCheck = z.enum(SYNC_CHECKS, { error: (issue) => `${String(issue.input)} is no check — one of ${SYNC_CHECKS.join(', ')}` });
+const syncLevel = z.enum(SYNC_LEVELS, { error: (issue) => `${String(issue.input)} is no level — one of ${SYNC_LEVELS.join(', ')}` });
+
+// The weight order: each of the four checks, exactly once.
+const syncOrder = z.array(syncCheck).superRefine((order, issues) => {
+  const twice = order.find((check, index) => order.indexOf(check) !== index);
+  if (twice !== undefined) issues.addIssue({ code: 'custom', message: `${twice} is listed twice` });
+  for (const check of SYNC_CHECKS) {
+    if (!order.includes(check)) issues.addIssue({ code: 'custom', message: `${check} is not listed — the order names ${SYNC_CHECKS.join(', ')}, each once` });
+  }
+});
+
+// How old a missing commit of the default branch may be before the main check is red: `<n>h`.
+const HOURS_MESSAGE = `a whole number of hours, written <n>h from 1h to ${SYNC_MAX_HOURS}h, such as 24h`;
+const syncHours = z
+  .string({ error: HOURS_MESSAGE })
+  .refine((value) => /^[1-9]\d*h$/.test(value) && Number.parseInt(value, 10) <= SYNC_MAX_HOURS, HOURS_MESSAGE);
+
 /** Where the context budget's ceilings live when `budgets.context.file` does not say (PRD 1679). */
 const CONTEXT_BUDGET_FILE = '.omni-loop/budgets/context.json';
 
@@ -233,6 +280,9 @@ export const ConfigSchema = z
     // PRD 1890: which coding agents the repository's people use. `[claude]` by default: a config
     // without the key installs for Claude Code alone, as before.
     agents: agentList,
+    // PRD 1934: the model and effort each tier runs on, one row per agent `agents` lists. Optional:
+    // a config without it parses with no `tiers` key, and every slice runs on the terminal's model.
+    tiers: z.record(z.string(), tierRow).optional(),
     paths: section({
       delivery: text.default('.omni-loop/delivery'),
       knowledge: text.default('.omni-loop/knowledge'),
@@ -459,9 +509,28 @@ export const ConfigSchema = z
     // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
     // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
     budgets: z.object({ context: section({ enabled: z.boolean().default(false), file: text.default(CONTEXT_BUDGET_FILE) }) }).strict().optional(),
+    // PRD 1990: how `omni sync` weighs its checks. `order` decides the headline (the heaviest check
+    // first), `levels` the highest colour each check may show (`off` gathers nothing), `mainRedAfter`
+    // how old a missing commit of the default branch may be before the main check is red.
+    sync: section({
+      order: syncOrder.default(() => [...SYNC_CHECKS]),
+      levels: section({
+        main: syncLevel.default('red'),
+        kit: syncLevel.default('orange'),
+        knowledge: syncLevel.default('orange'),
+        page: syncLevel.default('orange'),
+      }),
+      mainRedAfter: syncHours.default('24h'),
+    }),
   })
   .strict()
-  .superRefine(({ pr, flow }, issues) => {
+  .superRefine(({ pr, flow, agents, tiers }, issues) => {
+    // A row for an agent the repository does not use maps nothing anyone runs: refused, by its key.
+    for (const agent of Object.keys(tiers ?? {})) {
+      if (!isOneOf(agents, agent)) {
+        issues.addIssue({ code: 'custom', path: ['tiers', agent], message: `${agent} is not in agents (${agents.join(', ')})` });
+      }
+    }
     // `pr.openWith` reads as the default area's `pr.open` replace hook: two of them is one too many.
     const hooks = flow?.hooks?.['pr.open'];
     if (pr.openWith !== null && hooks !== undefined && hooksByMode(hooks).replace !== null) {
