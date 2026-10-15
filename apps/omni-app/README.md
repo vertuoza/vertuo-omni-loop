@@ -252,6 +252,31 @@ review, never its author).
   body carries `<!-- omni-loop:signed -->`, or `omni-loop-invader[bot]` opened it.
 - It writes only those two tables and the collection columns of `repositories`, and reads GitHub only.
 
+## Escalation (PRD 1794)
+
+When nobody answers what holds a pull request (a locked law `law-locked` still holds, or an open
+`high` or `human-action` item of a feature PR), the app asks more people, in working days (Monday to
+Friday, UTC), and never decides for them. It does nothing on a repository whose base config names no
+delegate in `laws.owners` and no `laws.leadership`.
+
+- **The record.** After each outbox check run, the check keeps one comment marked
+  `<!-- omni:escalation -->`, edited in place: one line per held thing, since when it holds, its step,
+  who is asked and when the next step falls due (`src/escalation/record.ts`). It mentions nobody.
+- **The sweep.** Every hour the Inngest function **escalation** (`escalation`, `src/escalation/sweep.ts`)
+  lists the App's installations as the App itself, then, through each installation, every open pull
+  request of its repositories carrying the record. Each held thing whose next step fell due
+  (`limits.escalationWorkingDays` after it was first held, then as many again) gets one new comment
+  marked `<!-- omni:escalation-ask <thing> <step> -->`, mentioning the people newly asked: at step 1
+  each owner's delegate for a law, each owner and delegate for an item; at step 2 `laws.leadership`.
+  The record is rewritten after it. A step some comment already announces is never posted again.
+- **It never decides.** The sweep reads and writes comments only: no review, answer, adoption, label,
+  check run or verdict. The record lists only what the last check run saw held, so an answer, an
+  approval that clears a law or a closed pull request asks nobody more. A delegate's approval clears
+  `law-locked` only because `omni kb owners` writes delegates into CODEOWNERS; leadership is not
+  written there, so its approval never does.
+- A pull request GitHub refuses to read is logged and swept again the next hour; the others are swept
+  all the same.
+
 ## How it runs
 
 ```
@@ -297,6 +322,10 @@ Inngest ──▶ /api/inngest   function "knowledge-harvest" (one at a time per
 Inngest ──▶ /api/inngest   function "pr-stats" (cron */15 * * * *, one run at a time)
               step "list-repositories"        the tracked repositories of installed workspaces
               steps "collect <ws>/<repo> <n>" at most 50 pull requests each: details, reviews, commits
+Inngest ──▶ /api/inngest   function "escalation" (cron 0 * * * *, one run at a time)
+              step "installations"          the App's installations, listed as the App
+              steps "repositories <id>"     each installation's repositories
+              steps "sweep <owner>/<repo>"  its open pull requests with a record: one ask per due step, the record rewritten
 ```
 
 Vercel serves the four functions from `api/github.mjs`, `api/inngest.mjs`, `api/server-event.mjs`
@@ -337,6 +366,7 @@ builds](../galaxy/README.md#8-when-vercel-builds), says how, and what to set up.
 | the harvest's GitHub reads — the merge, the tip, the ids other knowledge PRs take | `src/knowledge-harvest/github.ts` |
 | `render` — pure: the knowledge PR's title and body, the commit | `src/knowledge-harvest/render.ts` |
 | `pr-stats` — the Engineering board's collector, its GitHub reads and its store | `src/pr-stats/`, served at `api/inngest.mjs` |
+| `escalation` — the record kept after each outbox check run, and the hourly sweep that asks more people | `src/escalation/`, the sweep served at `api/inngest.mjs` |
 | `health` — alive, its commit, and whether its environment parses | `src/health/`, served at `api/health.mjs` (bundled from `entries/health.ts`) |
 
 The app only reads YAML, Markdown, JSON, patches and logs, as text; it never runs repository code. The

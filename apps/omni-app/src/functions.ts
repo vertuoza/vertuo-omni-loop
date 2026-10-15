@@ -1,12 +1,13 @@
-// The nine Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
+// The eleven Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
 // installation tokens signed with the GitHub App's key, and to the groups of the app's environment it
 // needs (./env.ts): the outbox check (PRD 28), the inbox check (PRD 675) with its canon gate (PRD 839),
 // the approved check (PRD 1548), reading a product PRD's record as the service role and, for a ◆ PRD of a repository,
 // asking galaxy's judge signed with `STAGE_EVENT_SECRET` (PRD 1612), with its rerun on the approved label (PRD 1612), the budgets
 // check (PRD 1679), reading a product PRD's raises as the service role,
 // the retro with its day-14 run (PRD 72), the knowledge harvest (PRD 82) with its law judge (PRD 1342),
-// the pr-stats collector (PRD 612), the canon buttons (PRD 839) and the server event (PRD 1548), which re-checks
-// a product PRD's open target pull requests, read from the database, once galaxy says it was approved or voided. Every installation call spends the
+// the pr-stats collector (PRD 612), the canon buttons (PRD 839), the server event (PRD 1548), which re-checks
+// a product PRD's open target pull requests, read from the database, once galaxy says it was approved or voided,
+// and the hourly escalation sweep (PRD 1794), which lists the App's installations as the App itself. Every installation call spends the
 // installation's budget through the shared client (PRD 902), on the store galaxy writes too; the retro also looks up its
 // installation on each target of a multi-repository PRD as the App itself (PRD 1130). A test hands `octokitFor` a
 // stubbed GitHub.
@@ -32,6 +33,7 @@ import { lawJudge, lawJudgeUrl } from './knowledge-harvest/law-judge.ts';
 import { appOctokitFor, githubStoreOf, installationOctokitFor } from './octokit-for.ts';
 import { createOutboxCheck } from './outbox-check/outbox-check.ts';
 import { productOutboxReader } from './outbox-check/product-outbox.ts';
+import { createEscalation } from './escalation/sweep.ts';
 import { createPrStats } from './pr-stats/pr-stats.ts';
 import { createRetro } from './retro/retro.ts';
 import { loggedClient, noteTo } from './run-log/run-log.ts';
@@ -72,5 +74,6 @@ export function appFunctions(
     prStats: createPrStats({ client: inngest, octokitFor, supabase: env.supabase }),
     canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl }),
     serverEvent: createServerEventRecheck({ client: inngest, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null }),
+    escalation: createEscalation({ client: inngest, octokitFor, appOctokit: appOctokitFor(env.githubApp) }),
   };
 }
