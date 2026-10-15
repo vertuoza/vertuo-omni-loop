@@ -461,16 +461,18 @@ function stepHeard(race: Race, held: ReadonlySet<Action>, t: number): Stepped {
   return { ...stepped, events: [...stepped.events, ...earsOf(race.fx, stepped.race.fx)] };
 }
 
-/** How loud the player's tyres screech, 0 (silent) to 1 (PRD 1963): from `RULES.skidGap` radian between the way the kart travels and the way it faces, or in a drift, louder as the gap grows, and nothing in the air, in a fall or at rest. */
+/** How loud the player's tyres screech, 0 (silent) to 1 (PRD 1963): rising from silence at `RULES.skidGap` radian between the way the kart travels and the way it faces (bug 2058: never leaping, so a kart on the edge of a slide does not stutter), at least `SKID_DRIFT` in a drift, and nothing in the air, in a fall or at rest. */
 export function skidOf(kart: Race['player'], fx: Race['fx']): number {
   if (fx.fall > 0 || (fx.hop ?? 0) > 0 || Math.abs(kart.speed) < 1) return 0;
   const off = kart.travel === undefined ? 0 : Math.abs(Math.atan2(Math.sin(kart.angle - kart.travel), Math.cos(kart.angle - kart.travel)));
-  if (off <= RULES.skidGap && fx.drift === undefined) return 0;
-  return Math.min(1, 0.25 + off / SKID_LOUD * 0.75);
+  const slide = Math.min(1, Math.max(0, (off - RULES.skidGap) / (SKID_LOUD - RULES.skidGap)));
+  return fx.drift === undefined ? slide : Math.max(SKID_DRIFT, slide);
 }
 
 /** The gap, in radians, at which the screech is at its loudest. */
 const SKID_LOUD = 0.6;
+/** The least a drift screeches, whatever its gap. */
+const SKID_DRIFT = 0.25;
 
 /** A race step in which an engine that stalls (PRD 1963) holds the kart still, whatever is held, until its seconds are out. */
 function stepStalled(race: Race, held: ReadonlySet<Action>, t: number): Stepped {
