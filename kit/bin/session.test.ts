@@ -10,6 +10,8 @@ import type { FakeAskServer } from '../test/fake-ask-server.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { readTerminal, writeTerminal } from '../lib/ask/local-state.ts';
 import { SESSION_FILE } from '../lib/dossier/session.ts';
+import { readSyncCache, writeSyncCache } from '../lib/sync/cache.ts';
+import type { SyncRecord } from '../lib/sync/schema.ts';
 import { dig } from './dig.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
@@ -52,7 +54,7 @@ async function checkout() {
 
 const offline: Fetch = () => Promise.reject(new TypeError('fetch failed'));
 
-async function run(args: string[], { root, tokens, fetch, env = {} }: { root: string; tokens: unknown; fetch: Fetch; env?: Record<string, string> }) {
+async function run(args: string[], { root, tokens, fetch, env = {}, extra = {} }: { root: string; tokens: unknown; fetch: Fetch; env?: Record<string, string>; extra?: Record<string, unknown> }) {
   const out: string[] = [];
   const err: string[] = [];
   const code = await main(['session', ...args], {
@@ -63,6 +65,7 @@ async function run(args: string[], { root, tokens, fetch, env = {} }: { root: st
     tokens,
     fetch,
     now: () => 1_000_000,
+    ...extra,
   });
   return { code, lines: out.join('').trimEnd().split('\n'), err: err.join('') };
 }
@@ -112,6 +115,62 @@ describe('omni session start', () => {
     const c = await checkout();
     expect((await run(['begin'], c)).code).toBe(2);
     expect((await run(['start', 'now'], c)).code).toBe(2);
+  });
+});
+
+const NOW = 1_000_000;
+
+/** A cache record checked `agoMs` before the session's clock, orange so the block shows a headline. */
+function record(agoMs: number): SyncRecord {
+  return {
+    checkedAt: new Date(NOW - agoMs).toISOString(),
+    status: 'orange',
+    headline: 'main is 3 behind',
+    setupDoneAt: new Date(0).toISOString(),
+    setup: null,
+    findings: [{ check: 'main', severity: 'orange', text: 'main is 3 behind', fix: 'omni sync --fix' }],
+    fix: 'omni sync --fix',
+  };
+}
+
+describe('omni session start: the sync block', () => {
+  it('prints it between the constituents and the briefing, from a cache under 15 minutes old', async () => {
+    const c = await checkout();
+    writeSyncCache(c.root, record(5 * 60_000));
+    const { code, lines } = await run(['start'], c);
+    expect(code).toBe(0);
+    const block = lines.indexOf('🟠 Needs action · main is 3 behind');
+    expect(block).toBeGreaterThan(lines.findIndex((line) => line.includes('Sells gadgets')));
+    expect(block).toBeLessThan(lines.indexOf('# Briefing'));
+    expect(lines.some((line) => line.startsWith('sync: checked'))).toBe(false);
+  });
+
+  it('refreshes a stale cache within the budget and prints the new block', async () => {
+    const c = await checkout();
+    writeSyncCache(c.root, record(2 * 3_600_000));
+    const { code, lines } = await run(['start'], c);
+    expect(code).toBe(0);
+    expect(readSyncCache(c.root)?.checkedAt).not.toBe(record(2 * 3_600_000).checkedAt);
+    expect(lines.some((line) => line.startsWith('sync: checked'))).toBe(false);
+    expect(lines.indexOf('# Briefing')).toBeGreaterThan(0);
+  });
+
+  it('prints the stale cache with its age when the budget is spent', async () => {
+    const c = await checkout();
+    writeSyncCache(c.root, record(2 * 3_600_000));
+    const { code, lines } = await run(['start'], { ...c, extra: { syncBudgetMs: 1 } });
+    expect(code).toBe(0);
+    expect(lines).toContain('sync: checked 2 h ago');
+    expect(lines).toContain('🟠 Needs action · main is 3 behind');
+    expect(lines.indexOf('sync: checked 2 h ago')).toBeLessThan(lines.indexOf('# Briefing'));
+  });
+
+  it('says it is not checked yet when there is no cache and the budget is spent', async () => {
+    const c = await checkout();
+    const { code, lines } = await run(['start'], { ...c, extra: { syncBudgetMs: 1 } });
+    expect(code).toBe(0);
+    expect(lines).toContain('sync: not checked yet');
+    expect(lines.at(-1)).toMatch(UUID);
   });
 });
 

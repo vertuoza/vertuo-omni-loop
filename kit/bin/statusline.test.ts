@@ -14,6 +14,8 @@ import { describe, expect, it } from 'vitest';
 import { writeMode } from '../lib/ask/local-state.ts';
 import { BOARD_DIR, boardFile, lockFile } from '../lib/statusline/board-cache.ts';
 import { writeRecord } from '../lib/statusline/sessions.ts';
+import { SYNC_LOCK, writeSyncCache } from '../lib/sync/cache.ts';
+import type { SyncRecord } from '../lib/sync/schema.ts';
 import { LOOP_FILE } from '../lib/loop/local.ts';
 import { assertDefined } from '../test/assert.ts';
 import { makeRepo } from '../test/fixture.ts';
@@ -61,22 +63,24 @@ function recordingExec() {
   return { calls, exec };
 }
 
-/** A spawn that starts nothing: it records each call as `{ command, args, options }`. */
+/** A spawn that starts nothing: it records each call as `{ command, args, options }`, the refreshes of
+ * `omni sync` (PRD 1990) apart in `syncSpawns`, so that the board's and the links' stay as they were. */
 function recordingSpawn() {
   const spawns: { command: string; args: readonly string[]; options: unknown }[] = [];
+  const syncSpawns: { command: string; args: readonly string[]; options: unknown }[] = [];
   const spawn = (command: string, args: readonly string[], options: unknown) => {
-    spawns.push({ command, args, options });
+    (args[1] === 'sync' ? syncSpawns : spawns).push({ command, args, options });
     return { unref() {}, on() { return this; } };
   };
-  return { spawns, spawn };
+  return { spawns, syncSpawns, spawn };
 }
 
-/** Runs `omni statusline` in `cwd` with `stdin` as its input: `{ code, out, err, calls, spawns }`. */
+/** Runs `omni statusline` in `cwd` with `stdin` as its input: `{ code, out, err, calls, spawns, syncSpawns }`. */
 async function statusline(cwd: string | undefined, stdin: string, options: Record<string, unknown> = {}, args: string[] = []) {
   const out: string[] = [];
   const err: string[] = [];
   const { calls, exec } = recordingExec();
-  const { spawns, spawn } = recordingSpawn();
+  const { spawns, syncSpawns, spawn } = recordingSpawn();
   const code = await main(['statusline', ...args], {
     cwd: cwd as string,
     stdout: { write: (s) => out.push(s) },
@@ -88,7 +92,7 @@ async function statusline(cwd: string | undefined, stdin: string, options: Recor
     spawn,
     ...options,
   });
-  return { code, out: out.join(''), err: err.join(''), calls, spawns };
+  return { code, out: out.join(''), err: err.join(''), calls, spawns, syncSpawns };
 }
 
 const neverFetches = (calls: readonly string[]) => calls.every((call) => !/^git\b.*\bfetch\b/.test(call) && !/^gh\b/.test(call));
@@ -577,6 +581,95 @@ describe('omni statusline: line 2 for every kind, and the links refresh', () => 
   it('prints no escape code under NO_COLOR, and fits 30 columns', async () => {
     const { line } = await run(onBug(), {}, { NO_COLOR: '1', COLUMNS: '30' });
     expect(line).toBe('bug #1180 login-r… · fix PR o…');
+  });
+});
+
+// PRD 1990, slice s6: the sync badge on line 2, read from the cache `omni sync` keeps, and the one
+// background refresh a stale or missing cache starts.
+describe('omni statusline: the sync badge', () => {
+  const WIDE = { ...PLAIN, COLUMNS: '200' };
+  const record = (over: Partial<SyncRecord> = {}): SyncRecord => ({
+    checkedAt: iso(NOW - 2 * MINUTE),
+    status: 'orange',
+    headline: 'main is 3 commits behind origin/main',
+    setupDoneAt: iso(NOW - 24 * 60 * MINUTE),
+    setup: null,
+    findings: [],
+    fix: null,
+    ...over,
+  });
+  const SYNC_ARGS = [CLI, 'sync', '--background'];
+
+  /** A checkout with the loop installed, and `omni sync`'s cache when given. */
+  function checkout(cache: SyncRecord | null) {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    if (cache) writeSyncCache(root, cache);
+    return root;
+  }
+  const line2 = async (root: string, env: Record<string, string> = WIDE) => {
+    const result = await statusline(root, payload(root), { env });
+    expect({ code: result.code, err: result.err }).toEqual({ code: 0, err: '' });
+    expect(neverFetches(result.calls)).toBe(true);
+    return { line: result.out.split('\n')[1], spawns: result.syncSpawns };
+  };
+
+  it('starts line 2 with each badge, then what it says today, and starts no refresh from a fresh cache', async () => {
+    expect(await line2(checkout(record({ status: 'green', headline: null })))).toEqual({ line: `🟢 in sync · ${NO_PRD}`, spawns: [] });
+    expect(await line2(checkout(record()))).toEqual({ line: `🟠 main is 3 commits behind origin/main · ${NO_PRD}`, spawns: [] });
+    expect(await line2(checkout(record({ status: 'red', headline: 'main is 2 d behind origin/main' })))).toEqual({
+      line: `🔴 main is 2 d behind origin/main · ${NO_PRD}`,
+      spawns: [],
+    });
+    expect(await line2(checkout(record({ status: 'blue', headline: 'omni-hud is not installed', setupDoneAt: null, setup: { done: 2, steps: [] } })))).toEqual({
+      line: `🔵 setting up 2/4 · ${NO_PRD}`,
+      spawns: [],
+    });
+  });
+
+  it('draws no badge without a cache, or with one that does not read, and starts one refresh', async () => {
+    const none = await line2(checkout(null));
+    expect(none.line).toBe(NO_PRD);
+    expect(none.spawns).toMatchObject([{ command: process.execPath, args: SYNC_ARGS, options: { detached: true, stdio: 'ignore' } }]);
+    const broken = checkout(null);
+    mkdirSync(join(broken, '.omni-loop', 'local'), { recursive: true });
+    writeFileSync(join(broken, '.omni-loop', 'local', 'sync.json'), '{"checkedAt": ');
+    expect(await line2(broken)).toMatchObject({ line: NO_PRD, spawns: [{ args: SYNC_ARGS }] });
+  });
+
+  it('draws what a cache 15 minutes old holds, and starts one refresh; a second younger starts none', async () => {
+    expect(await line2(checkout(record({ checkedAt: iso(NOW - 15 * MINUTE) })))).toMatchObject({
+      line: `🟠 main is 3 commits behind origin/main · ${NO_PRD}`,
+      spawns: [{ args: SYNC_ARGS }],
+    });
+    expect((await line2(checkout(record({ checkedAt: iso(NOW - 15 * MINUTE + SECOND) })))).spawns).toEqual([]);
+    expect((await line2(checkout(record({ checkedAt: iso(NOW + MINUTE) })))).spawns).toHaveLength(1);
+  });
+
+  it('starts none while a run holds the lock beside the cache, and one again once the lock is 2 minutes old', async () => {
+    const root = checkout(record({ checkedAt: iso(NOW - 30 * MINUTE) }));
+    writeFileSync(join(root, SYNC_LOCK), JSON.stringify({ at: iso(NOW - 30 * SECOND) }));
+    expect((await line2(root)).spawns).toEqual([]);
+    writeFileSync(join(root, SYNC_LOCK), JSON.stringify({ at: iso(NOW - 2 * MINUTE) }));
+    expect((await line2(root)).spawns).toHaveLength(1);
+  });
+
+  it('reads the cache of the main checkout from a linked worktree', async () => {
+    const fixture = originFixture();
+    writeSyncCache(fixture.root, record());
+    expect(await line2(fixture.on('feat/sync-wt', 'origin/main'))).toEqual({ line: `🟠 main is 3 commits behind origin/main · ${NO_PRD}`, spawns: [] });
+  });
+
+  it('cuts the headline first at narrow widths, keeping the dot and its first word', async () => {
+    const root = checkout(record());
+    expect((await line2(root, { ...PLAIN, COLUMNS: '60' })).line).toBe('🟠 main is 3 commits be… · no PRD · /omni:brainstorm to start');
+    expect((await line2(root, { ...PLAIN, COLUMNS: '43' })).line).toBe('🟠 main · no PRD · /omni:brainstorm to start');
+  });
+
+  it('prints no badge and starts no refresh outside an installed checkout', async () => {
+    const { root } = makeRepo({ git: true });
+    const result = await statusline(root, payload(root), { env: WIDE });
+    expect(result.out.split('\n')).toHaveLength(2);
+    expect(result.syncSpawns).toEqual([]);
   });
 });
 

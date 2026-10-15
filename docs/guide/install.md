@@ -20,6 +20,32 @@ in, and **GITHUB COMMENT** is a reply on a pull request. A terminal command that
 AGENT runs from your coding agent too (in Claude Code: type it with `!` before it, `!git pull`, and
 it runs it and shows what it prints).
 
+## Before you start: omni sync
+
+`omni sync` reads what this laptop and this repository need before you plan on them, and prints one
+block: each check on its own line, with its fix. Its status is the first line of the block:
+
+- 🟢 **In sync:** nothing to do.
+- 🟠 **Needs action:** something is behind or unset. The loop still runs; fix it when you can.
+- 🔴 **Out of sync:** the main branch or the kit is behind, and planning on it would go wrong.
+- 🔵 **Setting up:** a new laptop, with the four steps below still open.
+
+A newcomer sees the four steps in place of the checks, a done one with `✓`, an open one with its fix:
+
+1. Install the `omni` plugin in Claude Code.
+2. Install the HUD plugin.
+3. Sign in to the Omni page with `omni signin`.
+4. Pull the default branch.
+
+`omni sync --fix` runs the safe fixes in order (it fast-forwards main, updates the plugins and opens
+the kit's update pull request), prints what it left and why, then checks again. `omni session start`
+prints the same block at the top of every session.
+
+How each check is weighed lives in the `sync` block of `.omni-loop/config.yml`: `order` says
+which check decides the headline, `levels` sets the highest colour each check may show (`main`
+red, the others orange, or `off`), and `mainRedAfter` says after how many hours a main branch that
+is behind turns red.
+
 ## 1. Install omni globally
 
 In any folder:

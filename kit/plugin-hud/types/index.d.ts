@@ -15,8 +15,11 @@ export type HudHeadline = { kind: string; number?: number; progress?: string; li
 /** The approval wait's line (PRD 1322's s5), a toast until `until` (milliseconds since the epoch) when `toast`. */
 export type HudWait = { line: string; toast: boolean; until: number | null };
 
-/** `omni now --json`'s answer, as the band reads it; `wait` only while an approval wait shows something. */
-export type HudNow = { headline: HudHeadline | null; work: HudWork | null; doing: string | null; wait: HudWait | null };
+/** What `omni sync` last kept (PRD 1990); `setupDone`, the newcomer's steps done, only while `blue`. */
+export type HudSync = { status: 'blue' | 'red' | 'orange' | 'green'; headline: string | null; checkedAt: string; setupDone?: number };
+
+/** `omni now --json`'s answer, as the band reads it; `wait` only while an approval wait shows something, `sync` once `omni sync` has run. */
+export type HudNow = { headline: HudHeadline | null; work: HudWork | null; doing: string | null; wait: HudWait | null; sync: HudSync | null };
 
 declare module 'claude-code' {
   interface PluginState {
