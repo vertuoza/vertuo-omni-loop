@@ -12,7 +12,7 @@ import { stripesOf } from '../theme';
 import { H, nebulaFor, pedestal, sprite, stars, W, type FrameState } from '../scenes/common.ts';
 import { TILE } from './track';
 import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
-import { leanOf, NO_FX, type Kart } from './kart';
+import { hopLift, leanOf, NO_FX, type Kart } from './kart';
 import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } from './fx';
 import { chaseCamera, depthAt, project, renderTerrain, roofedOf, skyShift, spritesInView, viewOf, type Deck, type Projected, type Texture, type View } from './mode7';
 import { groundAt, heightsOf, reliefRange } from './relief';
@@ -321,17 +321,19 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race, sh
   const kart = race.player;
   const frame = s.reduced ? 0 : Math.floor(race.clock * Math.abs(kart.speed) * 0.12) % 2;
   const x = Math.round((s.grid.w - KART_W * scale) / 2), y = s.grid.h - 18 * scale - KART_FOOT + fallen * 18 * scale;
+  const hop = hopLift(race.fx); // PRD 1963: a hop is drawn up on the canvas, the shadow stays on the ground
   const half = scale / 2;
   // A kart in the air casts its shadow on the ground under it, where the camera sees that point: lower on the screen the higher it flies.
   if (race.fx.fall <= 0) shadow(ctx, shade ? shade.sx : x + (KART_W * scale) / 2, shade ? Math.min(s.grid.h - 2, shade.sy) : y + 16 * scale, KART_W * scale * 1.05); // a falling kart casts none
   const driver = spriteImage(look.sprite, { tint: look.tint, flat: stripesOf(s.theme), frame });
   const lean = kart.steer * half;
   const roll = rollOf(leanOf(race.track, kart), fallen, warningOf(race.fx, s));
-  rolled(ctx, roll, x + (KART_W * scale) / 2, y + 18 * scale, () => {
+  const up = y - Math.round(hop);
+  rolled(ctx, roll, x + (KART_W * scale) / 2, up + 18 * scale, () => {
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2 + lean), Math.round(y + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
+    ctx.drawImage(driver, 0, 0, DRIVER_W, DRIVER_ROWS, Math.round(x + (KART_W * scale - DRIVER_W * half) / 2 + lean), Math.round(up + SEAT * scale - DRIVER_ROWS * half), DRIVER_W * half, DRIVER_ROWS * half);
     const spin = race.fx.spin > 0 ? SPIN_VIEWS[Math.floor(s.t * 12) % SPIN_VIEWS.length] : undefined;
-    sprite(ctx, s, kartSprite(race.look ?? DEFAULT_LOOK, spin ?? viewOfKart(kart)), x, y, { scale, tint: kartTint(race.look ?? DEFAULT_LOOK, look.tint), frame });
+    sprite(ctx, s, kartSprite(race.look ?? DEFAULT_LOOK, spin ?? viewOfKart(kart)), x, up, { scale, tint: kartTint(race.look ?? DEFAULT_LOOK, look.tint), frame });
   });
 }
 
