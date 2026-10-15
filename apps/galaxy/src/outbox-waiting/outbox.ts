@@ -4,13 +4,17 @@
 // feature PR is open. PRD 657 (s5): those are read from prd_outbox, where the stages sync, the stage
 // events and the sends store them, in one read per workspace, so the route makes no GitHub request.
 // `unread` counts the dossiers whose workspace's outboxes could not be read. It reads as the person
-// (their cookie session), never with a service key (ADR-0032).
+// (their cookie session), never with a service key (ADR-0032). PRD 1794 (s5): it adds, from every PRD of
+// the person's workspaces, the waiting items whose escalation record asks their GitHub login (`asked`,
+// ../stages/outbox/escalation.ts), each under its PRD's dossier, so a delegate or a leader sees a PRD
+// they did not open; a PRD with no dossier gets the GitHub mention only.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { parseRows } from '../data/parse-rows';
-import type { OutboxCounts, PrdOutboxStore } from '../stages/outbox/store';
+import type { AskingRecord, OutboxCounts, PrdOutboxStore } from '../stages/outbox/store';
 import { prdKey } from '../stages/store';
 import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 
 /** The most dossiers one call reads. */
 export const MAX_DOSSIERS = 30;
@@ -35,9 +39,15 @@ export type WaitingDossier = { id: string; workspace_id: string; home_repo: stri
 export const DOSSIER_COLUMNS = 'id, workspace_id, home_repo, prd, title';
 export const WaitingDossierRow = z.object({ id: z.string(), workspace_id: z.string(), home_repo: z.string(), prd: PrdNumberSchema.nullable(), title: z.string() });
 
+/** What the route reads of the signed-in person: their id, and the identities their GitHub login is in. */
+export type WaitingUser = {
+  id: string;
+  identities?: ReadonlyArray<{ provider: string; identity_data?: Record<string, unknown> }>;
+};
+
 /** What the route needs of the Supabase client: who is signed in, and the dossiers table. */
 export type WaitingDb = {
-  auth: { getUser(): Promise<{ data: { user: { id: string } | null } }> };
+  auth: { getUser(): Promise<{ data: { user: WaitingUser | null } }> };
   from: SupabaseClient['from'];
 };
 
@@ -45,7 +55,9 @@ export type WaitingDeps = {
   /** The client acting as the signed-in person; throws when there is no database. */
   db: () => Promise<WaitingDb>;
   /** The stored outboxes, read through the person's client; null when there is none. */
-  outbox: (db: WaitingDb) => Pick<PrdOutboxStore, 'countsOf'> | null;
+  outbox: (db: WaitingDb) => (Pick<PrdOutboxStore, 'countsOf'> & Partial<Pick<PrdOutboxStore, 'asking'>>) | null;
+  /** The person's GitHub login; null when they did not sign in with GitHub. Left out, nothing asks them. */
+  login?: (user: WaitingUser) => string | null;
 };
 
 /** A dossier's waiting items from its stored counts, in the stored order; none without counts. */
@@ -65,14 +77,58 @@ const noItems = (): WaitingOutboxItem[] => [];
 
 const json = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 
-async function signedIn(deps: WaitingDeps): Promise<{ db: WaitingDb; user: string } | null> {
+async function signedIn(deps: WaitingDeps): Promise<{ db: WaitingDb; user: string; login: string | null } | null> {
   try {
     const db = await deps.db();
     const { data: { user } } = await db.auth.getUser();
-    return user ? { db, user: user.id } : null;
+    return user ? { db, user: user.id, login: deps.login?.(user) ?? null } : null;
   } catch (error) {
     console.error(`Waiting outbox: nobody can sign in: ${error instanceof Error ? error.message : String(error)}`);
     return null;
+  }
+}
+
+/** A PRD of a workspace, as one key. */
+const workspaceKey = (workspace: string, repository: string, prd: PrdNumber) => `${workspace} ${prdKey({ repository, prd })}`;
+
+/** The newest numbered dossier of each PRD of `records`, keyed by `workspaceKey`; throws when they cannot be read. */
+async function dossiersOf(db: WaitingDb, records: readonly AskingRecord[]): Promise<Map<string, WaitingDossier>> {
+  const { data, error } = await db.from('dossiers').select(DOSSIER_COLUMNS)
+    .in('workspace_id', [...new Set(records.map((r) => r.workspace_id))]).in('prd', [...new Set(records.map((r) => r.prd))])
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(`the dossiers could not be read: ${error.message}`);
+  const rows = parseRows(WaitingDossierRow, data, 'outbox-waiting: dossiers');
+  if (!rows.ok) throw new Error('the dossiers could not be read');
+  const byKey = new Map<string, WaitingDossier>();
+  for (const { prd, ...dossier } of rows.value) {
+    if (prd === null) continue;
+    const key = workspaceKey(dossier.workspace_id, dossier.home_repo, prd);
+    if (!byKey.has(key)) byKey.set(key, { ...dossier, prd });
+  }
+  return byKey;
+}
+
+/** One read of a dossier and its items. */
+type DossierItems = { dossier: WaitingDossier; items: WaitingOutboxItem[] };
+
+/**
+ * The items that ask `login` on PRDs whose dossier is not among `own`, each under its PRD's newest
+ * dossier, read as the person (row-level security keeps both reads to their workspaces); none when
+ * nothing asks them. A failed read is logged and gives none: the person's own items still answer.
+ */
+async function askedItems(db: WaitingDb, asking: PrdOutboxStore['asking'], login: string, own: readonly WaitingDossier[]): Promise<DossierItems[]> {
+  try {
+    const mine = new Set(own.map((d) => workspaceKey(d.workspace_id, d.home_repo, d.prd)));
+    const others = (await asking(login)).filter((r) => !mine.has(workspaceKey(r.workspace_id, r.repository, r.prd)));
+    if (others.length === 0) return [];
+    const dossierOf = await dossiersOf(db, others);
+    return others.flatMap((r): DossierItems[] => {
+      const dossier = dossierOf.get(workspaceKey(r.workspace_id, r.repository, r.prd));
+      return dossier ? [{ dossier, items: waitingItems(dossier, { open_questions: 0, waiting: r.waiting }) }] : [];
+    });
+  } catch (error) {
+    log.error({ event: 'waiting-outbox', outcome: 'failed', message: 'what asks the person could not be read', error });
+    return [];
   }
 }
 
@@ -106,8 +162,9 @@ export async function waitingOutbox(deps: WaitingDeps): Promise<Response> {
       return own.map((dossier) => ({ dossier, items: noItems(), unread: true }));
     }
   }))).flat();
+  const asked = who.login !== null && store.asking ? await askedItems(who.db, store.asking.bind(store), who.login, dossiers) : [];
 
-  const byPrd = [...read].sort((a, b) => a.dossier.prd - b.dossier.prd || a.dossier.home_repo.localeCompare(b.dossier.home_repo));
+  const byPrd = [...read, ...asked].sort((a, b) => a.dossier.prd - b.dossier.prd || a.dossier.home_repo.localeCompare(b.dossier.home_repo));
   const answer: WaitingOutbox = {
     items: byPrd.flatMap((r) => r.items),
     unread: read.filter((r) => r.unread).length,
