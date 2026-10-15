@@ -29355,10 +29355,10 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     readProductsOf: (repo) => call("GET", `/api/products/which?${new URLSearchParams({ repo })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
-    requestProofUploads: ({ repo, prd: prd2, files }) => call("POST", "/api/proofs/uploads", { body: { repo, prd: prd2, files } }),
+    requestProofUploads: ({ repo, prd: prd2, kind, files }) => call("POST", "/api/proofs/uploads", { body: { repo, prd: prd2, ...kind === void 0 ? {} : { kind }, files } }),
     /** PRD 798: stores a proof run once its files are up, and answers the Proof tab's link.
      * @returns {Promise<{ url: string }>} */
-    registerProof: ({ repo, prd: prd2, run: run2, commit, url: url2, criteria }) => call("POST", "/api/proofs", { body: { repo, prd: prd2, run: run2, commit, url: url2, criteria } }),
+    registerProof: ({ repo, prd: prd2, kind, run: run2, commit, url: url2, criteria }) => call("POST", "/api/proofs", { body: { repo, prd: prd2, ...kind === void 0 ? {} : { kind }, run: run2, commit, url: url2, criteria } }),
     /** PRD 859: a new pitch run's id and one signed upload link per file of the five; a 404 when PRD `prd`
      * has no dossier, a 422 when it is not shipped. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
     requestPitchUploads: ({ repo, prd: prd2, files }) => call("POST", "/api/pitches/uploads", { body: { repo, prd: prd2, files } }),
@@ -46781,9 +46781,9 @@ var ENTRIES = deepFreeze([
     name: "proof",
     kind: "command",
     who: "skills",
-    usage: ["omni proof push <n> <dir>", "omni proof session [<file>]"],
-    summary: "sends a proof run to a PRD's Proof tab, or signs its browser in",
-    detail: "Sends a proof run /omni:prove recorded to PRD n's dossier on the Omni page and prints its Proof tab's link. It reads run.json in the folder, and refuses before sending anything a file that is not .webm, .gif, .ts or .txt, or one over 50 MB. Then it uploads each clip and script, and registers the run. It never holds up the skill that runs it: anything that stops it exits 1 with one line, as omni dossier link does. omni proof session writes the signed-in browser session a run films with, from your omni signin, to <file> or PROOF_STORAGE_STATE: set proof.setup to it."
+    usage: ["omni proof push [--kind bug] <n> <dir>", "omni proof session [<file>]"],
+    summary: "sends a proof run to a PRD's Proof tab or a bug's page, or signs its browser in",
+    detail: "Sends a proof run /omni:prove recorded to PRD n's dossier on the Omni page and prints its Proof tab's link; with --kind bug it sends the run to the bug dossier of issue n and prints the bug page's link, then the GIF's stable link. It reads run.json in the folder, and refuses before sending anything a file that is not .webm, .gif, .ts or .txt, or one over 50 MB. Then it uploads each clip and script, and registers the run. It never holds up the skill that runs it: anything that stops it exits 1 with one line, as omni dossier link does. omni proof session writes the signed-in browser session a run films with, from your omni signin, to <file> or PROOF_STORAGE_STATE: set proof.setup to it."
   },
   {
     name: "pitch",
@@ -56100,20 +56100,22 @@ async function pushProof({
   client,
   repo,
   prd: prd2,
+  kind,
   run: run2,
   read: read2 = readFileSync92,
   newRunId = randomUUID3
 }) {
+  const kindOf5 = kind ? { kind } : {};
   let runId;
   if (run2.files.length) {
-    const reply = await client.requestProofUploads({ repo, prd: prd2, files: run2.files.map(({ name: name3, bytes, type }) => ({ name: name3, bytes, type })) });
+    const reply = await client.requestProofUploads({ repo, prd: prd2, ...kindOf5, files: run2.files.map(({ name: name3, bytes, type }) => ({ name: name3, bytes, type })) });
     const given = linksOf2(reply, run2.files);
     for (const [index, file2] of run2.files.entries()) await client.upload(at(given.links, index, `the upload link of ${file2.name}`), read2(file2.path), file2.type);
     runId = given.runId;
   } else {
     runId = newRunId();
   }
-  const registered = await client.registerProof({ repo, prd: prd2, run: runId, commit: run2.commit, url: run2.url, criteria: run2.criteria });
+  const registered = await client.registerProof({ repo, prd: prd2, ...kindOf5, run: runId, commit: run2.commit, url: run2.url, criteria: run2.criteria });
   const tab = isRecord8(registered) ? registered.url : void 0;
   if (!isText8(tab)) throw new ProofReplyError("no link in the reply");
   if (!run2.files.some(({ name: name3 }) => name3 === GIF)) return { tab };
@@ -56284,7 +56286,7 @@ function storageState(accessToken, { host, now: now2 = Date.now() }) {
 }
 
 // kit/bin/commands/proof.ts
-var USAGE30 = "usage: omni proof push <n> <dir> | omni proof session [<file>]";
+var USAGE30 = "usage: omni proof push [--kind bug] <n> <dir> | omni proof session [<file>]";
 var NO_SIGN_IN5 = "no sign-in (omni signin)";
 function skipLine5(error62) {
   if (error62 instanceof ProofReplyError) return `refused (${error62.message})`;
@@ -56293,16 +56295,22 @@ function skipLine5(error62) {
   if (error62.status === 404) return "none";
   return error62.status === 403 && error62.reason ? `refused (403): ${error62.reason}` : `refused (${error62.status})`;
 }
+function kindOf3(kind) {
+  if (kind === void 0 || kind === "prd") return void 0;
+  if (kind === "bug") return "bug";
+  throw usageError(`${USAGE30} (--kind is prd or bug, not ${kind})`);
+}
 function argsOf2(args, proof2) {
-  const { positional } = parseArgs("proof", args);
+  const { positional, flags } = parseArgs("proof", args, { values: ["kind"] });
   const [verb2, first, second, ...rest] = positional;
-  if (verb2 === "session") {
-    const file2 = first ?? proof2?.storageState;
-    if (!file2 || second !== void 0) throw usageError(`${USAGE30} (session needs <file> or PROOF_STORAGE_STATE)`);
-    return { verb: verb2, file: file2 };
-  }
+  const kind = kindOf3(flags.kind);
+  if (verb2 === "session") return { verb: verb2, file: sessionFile(first ?? proof2?.storageState, second, kind) };
   if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE30);
-  return { verb: verb2, prd: prdArg("proof push", "<n>", first), dir: second };
+  return { verb: verb2, prd: prdArg("proof push", "<n>", first), dir: second, kind };
+}
+function sessionFile(file2, extra, kind) {
+  if (!file2 || extra !== void 0 || kind !== void 0) throw usageError(`${USAGE30} (session needs <file> or PROOF_STORAGE_STATE)`);
+  return file2;
 }
 function localRun2(cwd, dir) {
   const folder = isAbsolute9(dir) ? dir : resolve9(cwd, dir);
@@ -56316,7 +56324,7 @@ function localRun2(cwd, dir) {
   if (!run2) throw usageError(`omni proof push: ${dir} holds no ${RUN_FILE}.`);
   return { run: run2 };
 }
-async function send2({ toggle, repo, prd: prd2, run: run2 }, { stdout, stderr, tokens: tokens2, home, fetch, callMs }) {
+async function send2({ toggle, repo, prd: prd2, kind, run: run2 }, { stdout, stderr, tokens: tokens2, home, fetch, callMs }) {
   const client = signedInClient({ askUrl: toggle.askUrl, tokens: tokens2, home, fetch, callMs });
   if (!client) {
     println(stderr, NO_SIGN_IN5);
@@ -56324,7 +56332,7 @@ async function send2({ toggle, repo, prd: prd2, run: run2 }, { stdout, stderr, t
   }
   let pushed;
   try {
-    pushed = await pushProof({ client, repo, prd: prd2, run: run2 });
+    pushed = await pushProof({ client, repo, prd: prd2, ...kind ? { kind } : {}, run: run2 });
   } catch (error62) {
     println(stderr, skipLine5(error62));
     return 1;
@@ -56375,7 +56383,7 @@ var proof = {
       const file2 = isAbsolute9(parsed2.file) ? parsed2.file : resolve9(cwd, parsed2.file);
       return writeSession({ askUrl: askUrl2, file: file2, target: targetHost(vars.proof?.url) }, { stdout, stderr, tokens: tokens2, home, fetch, callMs });
     }
-    const { prd: prd2, dir } = parsed2;
+    const { prd: prd2, dir, kind } = parsed2;
     const toggle = dossierSwitch(ctx.config);
     if (!toggle.on) {
       println(stderr, "off");
@@ -56388,7 +56396,7 @@ var proof = {
       println(stderr, local.line);
       return 1;
     }
-    return send2({ toggle, repo, prd: prd2, run: local.run }, { stdout, stderr, tokens: tokens2, home, fetch, callMs });
+    return send2({ toggle, repo, prd: prd2, kind, run: local.run }, { stdout, stderr, tokens: tokens2, home, fetch, callMs });
   }
 };
 
@@ -59306,7 +59314,7 @@ function withTimeout(exec) {
   }
   return timed;
 }
-function kindOf3(args) {
+function kindOf4(args) {
   if (!args.includes(KIND_FLAG2)) return null;
   const value = args[args.indexOf(KIND_FLAG2) + 1];
   return LINK_KINDS.find((kind) => kind === value);
@@ -59353,7 +59361,7 @@ async function refreshPrdBoard(root, prd2, io, timed, instant2) {
 }
 async function refresh(args, io) {
   const [, value] = args;
-  const kind = kindOf3(args);
+  const kind = kindOf4(args);
   if (kind === void 0) return;
   try {
     const root = mainCheckout(io.cwd, io.exec);
