@@ -50,8 +50,9 @@ A test outside them never runs.
 - A parser or a pure module: `kit/lib/playbook/forms.test.ts`.
 - The GitHub App end to end, against a stubbed GitHub: `apps/omni-app/src/outbox-check/end-to-end.test.ts`,
   with its fixture repositories under `apps/omni-app/test/fixtures/`.
-- A file that proves a law may gain tests of other behaviour beside the proof, as long as the
-  law's own checks stay as they are (PRD 1739, s2-01).
+- A file that proves a law stays its owner's: tests of other behaviour go in a test file of their
+  own, and the law's file is left untouched (PRD 1972, s4-01; it replaces PRD 1739, s2-01, which
+  let them sit beside the proof).
 
 ## Choosing the level
 <!-- slot: levels · optional -->

@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-14",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A service opening fix PRs on vertuo-apps with nobody watching worries me, but a story filmed before and after is something I can check in seconds.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A GIF of a terminal going green looks like decoration for a PHP fix: the red line is already in CI.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Bugs start being fixed the moment the cleaner sees them, with no one pasting a line.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Every job and PR in one person's name blurs who answers a review, but drafts that say why keep the board honest.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Customer bugs get fixed without me touching the harness, and the GIF shows the fix without reading code.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "A GIF of a terminal going green is decoration: the red line is already in the PR and in CI. If I have to watch an animation to review a PHP fix, I won't.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ once the lines sit under the GIF"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-14",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Component bugs are filmed from their own story, and a story that will not film falls back instead of faking a proof.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The failing and passing lines sit as text under the GIF, so I review without watching anything.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The cleaner queues the fix itself, and the runner's PR arrives with its proof.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One sign-in path for every runner route, the header winning, and the plugin-before-CLI drafts written down as a risk.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A draft that says why is a quick win I can still push forward.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits every persona ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-15",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A component bug comes with its story filmed before and after, and a story that will not film falls back to the two outputs and says so.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The failing and passing lines still sit as text under the GIF, so a PHP fix reviews without watching anything.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The cleaner queues the fix with a member's sign-in, and the pull request arrives with its before and after.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The header wins over the session and a bad token is refused even beside one; a GIF that is not made leaves a draft that says why.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The before and after also land on the bug's page, so I can show the fix without opening the code.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits every persona ✓"
+    }
+  ]
+}

@@ -486,11 +486,12 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     readProductsOf: (repo: string) => call('GET', `/api/products/which?${new URLSearchParams({ repo })}`),
     /** PRD 798: a new proof run's id and one signed upload link per file; a 404 when PRD `prd` has no
      * dossier. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
-    requestProofUploads: ({ repo, prd, files }: { repo: unknown; prd: unknown; files: unknown }) => call('POST', '/api/proofs/uploads', { body: { repo, prd, files } }),
+    requestProofUploads: ({ repo, prd, kind, files }: { repo: unknown; prd: unknown; kind?: unknown; files: unknown }) =>
+      call('POST', '/api/proofs/uploads', { body: { repo, prd, ...(kind === undefined ? {} : { kind }), files } }),
     /** PRD 798: stores a proof run once its files are up, and answers the Proof tab's link.
      * @returns {Promise<{ url: string }>} */
-    registerProof: ({ repo, prd, run, commit, url, criteria }: { repo: unknown; prd: unknown; run: unknown; commit: unknown; url: unknown; criteria: unknown }) =>
-      call('POST', '/api/proofs', { body: { repo, prd, run, commit, url, criteria } }),
+    registerProof: ({ repo, prd, kind, run, commit, url, criteria }: { repo: unknown; prd: unknown; kind?: unknown; run: unknown; commit: unknown; url: unknown; criteria: unknown }) =>
+      call('POST', '/api/proofs', { body: { repo, prd, ...(kind === undefined ? {} : { kind }), run, commit, url, criteria } }),
     /** PRD 859: a new pitch run's id and one signed upload link per file of the five; a 404 when PRD `prd`
      * has no dossier, a 422 when it is not shipped. @returns {Promise<{ run: string, files: Array<{ name: string, path: string, url: string }> }>} */
     requestPitchUploads: ({ repo, prd, files }: { repo: unknown; prd: unknown; files: unknown }) => call('POST', '/api/pitches/uploads', { body: { repo, prd, files } }),

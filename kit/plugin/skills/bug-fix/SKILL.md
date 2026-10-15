@@ -221,6 +221,15 @@ Run it **before any fix**:
 - **It cannot run in this session** (a harness or a service the session lacks): the evidence is the
   sentence `Red not proven here — <why>; CI is the proof`, and the skill carries on.
 
+**Film it.** The run folder is `<worktrees>/proof-bug-<n>/<run>/` (`<worktrees>` is
+`node .omni-loop/bin/omni.mjs config worktrees`, `<run>` is `<YYYYMMDD-HHMMSS>`), outside the tracked
+tree. The red output goes to `red.txt` in it. A *component bug* (a front-end bug that shows in one
+component, in a repository with Storybook, whose reproduction is a story and the test that renders
+it) also starts Storybook once and films the story headless with Playwright, at 1280×720, as
+`/omni:prove` films a criterion, to `before.webm`. Every other bug is filmed from its reproduction's
+output. A story that cannot be filmed (no Playwright, Storybook does not start, the story does not
+render) is no stop: keep the reason for step 12 and go on with the outputs alone.
+
 ## 8. Fix
 
 Before changing a line, when `laws.source` is `knowledge`, read the knowledge the fix touches, never
@@ -234,6 +243,9 @@ Test-first, the smallest change that turns the reproduction green, in the reposi
 failing unit test first, watch it fail, then make it pass. **Never edit the reproduction to make it
 pass.** Then run `commands.preflight` until it is green; when it is null, say so, and name it in the
 PR's **Verified** section. Each red run of the fix counts as an attempt (stop rule 5).
+
+**Film the fix.** The same reproduction, green, goes to `green.txt` in the run folder of step 7. A
+component bug films the same story again, after the fix, to `after.webm`, then stops Storybook.
 
 ## 9. Guard
 
@@ -408,7 +420,25 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
 3. **Push** the fix branch: `git push -u <remote> <fix branch>`.
 4. **Send the record to its page:** follow `/omni:dossier-push <n> --kind bug`, and carry on
    whatever it prints. Keep the link it printed for the hand-off.
-5. **Open the PR through `/omni:pr`**, as a standalone PR: base `repo.defaultBranch`, label
+5. **Film it:** run `node .omni-loop/bin/omni.mjs bug film <n> --before <red file> --after <green file>
+   --out <run folder>` (the two clips, `before.webm` and `after.webm`, for a component bug; `red.txt`
+   and `green.txt` otherwise), then
+   `node .omni-loop/bin/omni.mjs proof push --kind bug <n> <folder>`. The second prints the bug page's
+   link, then the GIF's stable link: keep that second line. A story that could not be filmed falls
+   back to the two outputs, and the body says `Storybook not filmed - <reason>` under the GIF. A GIF
+   that is not made never stops the skill: the PR opens as a **draft**, its `## Proof` holds the one
+   line `GIF not produced - <reason>`, and the reason is the row's:
+
+   | cause | reason |
+   |---|---|
+   | no `ffmpeg` on the PATH | `ffmpeg not found` |
+   | `omni bug film` or `omni proof push --kind` exits 2 (the pinned omni does not know them) | `the pinned omni is too old: run omni update` |
+   | `omni bug film` exits 1 otherwise | its line |
+   | `omni proof push` exits 1 (`off`, `no sign-in (omni signin)`, `unreachable`, `none`, `refused (…)`) | `proof push: <its line>` |
+   | red was not seen in this session (`Red not proven here`) | `red not proven here` |
+
+6. **Open the PR through `/omni:pr`**, as a standalone PR (a draft when no GIF was made): base
+   `repo.defaultBranch`, label
    `labels.bug` (subject to its **Labels** rules), title the commit's subject, and this body, signed
    (**Signing**):
 
@@ -418,6 +448,13 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
    ## What was wrong
 
    <what the user saw, and why, in plain words; the files touched>
+
+   ## Proof
+
+   ![Before and after the fix](<the GIF's stable link>)
+
+   - **Before the fix** (red): `<the failing line>`
+   - **After the fix** (green, `<short sha>`): `<the passing line>`
 
    ## Bug
 
@@ -442,6 +479,9 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
 
    <the line `omni sign footer` prints>
    ```
+
+   When no GIF was made, `## Proof` is the one line `GIF not produced - <reason>`; when a story could
+   not be filmed, it gains `Storybook not filmed - <reason>` under the GIF.
 
    The record line is a repository path, never a URL. `/omni:pr` watches it until it is green or
    stuck. A red CI run is one more attempt at the fix: back to step 8.
