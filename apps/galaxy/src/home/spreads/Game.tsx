@@ -74,7 +74,7 @@ export function Game({ scores }: { scores: Counts }) {
         <li className="home-game-beat">
           <h3 className="home-game-beat-head">SHIP VALUE</h3>
           <p>
-            A secured zone scores {RULEBOOK.zoneSecured}. A rescue scores {RULEBOOK.rescue}. Closing
+            A merged feat/fix PR scores {RULEBOOK.prMerged.feat}. A rescue scores {RULEBOOK.rescue}. Closing
             Entropy (an unanswered question, stuck work, a shipped bug) scores {Math.min(...closes)} to {Math.max(...closes)}, by
             its kind.
           </p>

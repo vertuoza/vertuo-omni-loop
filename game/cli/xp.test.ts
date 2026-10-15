@@ -18,15 +18,16 @@ const ACME = 'b0000000-0000-4000-8000-000000000002';
 const NOW = new Date('2026-09-30T16:00:00Z');
 
 const row = (workspace_id: string, id: string, at: string, type: string, over: Row = {}): Row => ({ workspace_id, id, at, type, planet: 2332, home: 'acme/plan', region: null, contributor: null, team: null, data: {}, ...over });
-// Alice (as GitHub spells her) secured two zones in working hours; Bob one at night; Carol only claimed one.
+// Alice (as GitHub spells her) rescued the planet twice, across two seasons; Bob once; Carol only
+// claimed a zone. A secured zone would earn nothing (PRD 1975); a rescue from another fleet pays 20.
 const ledger = () => [
   row(VERTUOZA, 'planet:2332:charted', '2026-09-01T08:00:00+00:00', 'PLANET_CHARTED', { data: { ownerTeam: 'beaver' } }),
-  row(VERTUOZA, 'zone:r:2332:s1:secured', '2026-08-17T12:00:00+00:00', 'ZONE_SECURED', { contributor: 'Alice', team: 'octopod' }),
-  row(VERTUOZA, 'zone:r:2332:s2:secured', '2026-09-21T12:00:00+00:00', 'ZONE_SECURED', { contributor: 'alice', team: 'octopod' }),
-  row(VERTUOZA, 'zone:r:2332:s3:secured', '2026-09-21T20:00:00+00:00', 'ZONE_SECURED', { contributor: 'bob', team: 'octopod' }),
+  row(VERTUOZA, 'planet:2332:rescue:a', '2026-08-17T12:00:00+00:00', 'RESCUE', { contributor: 'Alice', team: 'octopod' }),
+  row(VERTUOZA, 'planet:2332:rescue:b', '2026-09-21T12:00:00+00:00', 'RESCUE', { contributor: 'alice', team: 'octopod' }),
+  row(VERTUOZA, 'planet:2332:rescue:c', '2026-09-21T20:00:00+00:00', 'RESCUE', { contributor: 'bob', team: 'octopod' }),
   row(VERTUOZA, 'zone:r:2332:s4:claimed', '2026-09-22T12:00:00+00:00', 'ZONE_CLAIMED', { contributor: 'carol', team: 'beaver' }),
   // Acme's ledger names Alice too, and never counts for Vertuoza.
-  row(ACME, 'zone:r:2332:s1:secured', '2026-09-21T12:00:00+00:00', 'ZONE_SECURED', { contributor: 'alice', team: 'roadrunners' }),
+  row(ACME, 'planet:2332:rescue:a', '2026-09-21T12:00:00+00:00', 'RESCUE', { contributor: 'alice', team: 'roadrunners' }),
 ];
 const restOn = (fake: { fetch: (href: string, init?: Init) => Promise<Reply> }) => supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fake.fetch });
 const posts = (fake: { calls: Call[] }) => fake.calls.filter((c) => c.method === 'POST');
@@ -38,8 +39,8 @@ describe('runXp', () => {
 
     const at = NOW.toISOString();
     const expected = [
-      { workspace_id: VERTUOZA, github_login: 'alice', xp: 20, level: 1, unlocked: ['invaders'], computed_at: at },
-      { workspace_id: VERTUOZA, github_login: 'bob', xp: 15, level: 1, unlocked: ['invaders'], computed_at: at },
+      { workspace_id: VERTUOZA, github_login: 'alice', xp: 40, level: 1, unlocked: ['invaders'], computed_at: at },
+      { workspace_id: VERTUOZA, github_login: 'bob', xp: 20, level: 1, unlocked: ['invaders'], computed_at: at },
       { workspace_id: VERTUOZA, github_login: 'carol', xp: 0, level: 0, unlocked: [], computed_at: at },
     ];
     expect(rows).toEqual(expected);
@@ -68,7 +69,7 @@ describe('runXp', () => {
     const fake = fakeSupabase({ ledger_events: ledger(), player_xp: [] });
     await runXp({ rest: restOn(fake), workspaceId: VERTUOZA, now: NOW });
     const later = new Date('2026-10-01T08:00:00Z');
-    const nothingCounts = { ...RULEBOOK.xp, weights: { ...RULEBOOK.xp.weights, zoneSecured: 0 } };
+    const nothingCounts = { ...RULEBOOK.xp, weights: { ...RULEBOOK.xp.weights, rescue: 0 } };
     await runXp({ rest: restOn(fake), workspaceId: VERTUOZA, now: later, rules: nothingCounts });
 
     expect(fake.tables.player_xp).toHaveLength(3);
@@ -135,7 +136,7 @@ describe('pnpm game:xp, as a process', () => {
     const run = await xp([], { OMNI_LOOP_WORKSPACE: 'vertuoza' });
     expect(run.code, run.stderr).toBe(0);
     expect(run.stdout).toMatch(/vertuoza: 3 logins · 2 with a level · written to player_xp/);
-    expect(present(present(server, 'the fake server').tables.player_xp, 'player_xp').map((r) => [r.github_login, r.xp, r.level])).toEqual([['alice', 20, 1], ['bob', 15, 1], ['carol', 0, 0]]);
+    expect(present(present(server, 'the fake server').tables.player_xp, 'player_xp').map((r) => [r.github_login, r.xp, r.level])).toEqual([['alice', 40, 1], ['bob', 20, 1], ['carol', 0, 0]]);
   });
 
   it('exits non-zero and writes nothing when the ledger cannot be read', async () => {
