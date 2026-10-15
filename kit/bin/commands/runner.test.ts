@@ -6,6 +6,7 @@ import type { ChildProcess, ExecFileSyncOptions } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import { repoOfRemote } from '../../lib/runner/checkouts.ts';
@@ -174,7 +175,7 @@ function startRunner(
   f: ReturnType<typeof fixture>,
   app: ReturnType<typeof fakeApp>,
   { args = [], exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {}, tickMs = 50, now }: {
-    args?: string[]; exec?: ReturnType<typeof fakeExec>; tokens?: ReturnType<typeof memoryTokens>; sleep?: (ms: number) => Promise<void>; terminal?: ReturnType<typeof fakeTerminal>;
+    args?: string[]; exec?: ReturnType<typeof fakeExec>; tokens?: ReturnType<typeof memoryTokens>; sleep?: (ms: number, signal?: AbortSignal) => Promise<void>; terminal?: ReturnType<typeof fakeTerminal>;
     env?: Record<string, string>; tickMs?: number; now?: () => number;
   } = {},
 ) {
@@ -348,6 +349,18 @@ describe('omni runner', () => {
     const reports = (app: ReturnType<typeof fakeApp>) => app.updates() as Report[];
     const carrying = (app: ReturnType<typeof fakeApp>) => reports(app).filter((report) => report.lines !== undefined);
     const logLines = (f: ReturnType<typeof fixture>, id: number) => readFileSync(join(f.home, 'logs', `job-${String(id)}.log`), 'utf8').split('\n').filter((line, index, all) => index < all.length - 1 || line !== '');
+    /** A tick that comes once job `id` wrote its exit code, so every line it printed waits in its log at
+     * the runner's first look: a tick on the clock could catch the log half written under load, and cut
+     * the reports elsewhere. Every other wait is the clock's, cut short by the stop. */
+    const tickOnceEnded = (f: ReturnType<typeof fixture>, id: number) => {
+      const tickMs = 1500;
+      const exit = join(f.home, 'logs', `job-${String(id)}.exit`);
+      const sleep = async (ms: number, signal?: AbortSignal): Promise<void> => {
+        if (ms === tickMs) await until(() => existsSync(exit), `job ${String(id)} to write its exit code`);
+        else await delay(ms, undefined, { signal }).catch(() => undefined);
+      };
+      return { tickMs, sleep };
+    };
 
     it("sends a running job's lines after its cursor with from, never one already accepted, each report with its log tail", async () => {
       const f = fixture();
@@ -389,7 +402,7 @@ describe('omni runner', () => {
     it('sends 4,500 waiting lines in three reports of at most 2,000 lines and 256 KB, the last with the final status', async () => {
       const f = fixture();
       const app = fakeApp({ jobs: [{ id: 32, line: '/omni:yolo lines-4500', repo: 'acme/widgets', sentBy: 'ada' }] });
-      const run = startRunner(f, app, { tickMs: 1500 });
+      const run = startRunner(f, app, tickOnceEnded(f, 32));
       await until(ended(app), 'the job to end');
       run.stop.abort();
       await run.done;
@@ -412,7 +425,7 @@ describe('omni runner', () => {
       const f = fixture();
       writeFileSync(join(f.bin, 'claude'), '#!/bin/sh\ncat >/dev/null\nprintf "first\\nlast, no newline"\n');
       const app = fakeApp({ jobs: [{ id: 33, line: '/omni:yolo 1904', repo: 'acme/widgets', sentBy: 'ada' }] });
-      const run = startRunner(f, app, { tickMs: 1500 });
+      const run = startRunner(f, app, tickOnceEnded(f, 33));
       await until(ended(app), 'the job to end');
       run.stop.abort();
       await run.done;
