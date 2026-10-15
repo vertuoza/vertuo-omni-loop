@@ -58,9 +58,9 @@ export function stepParticles(p: Particles, spawns: readonly Spawn[], dt: number
 const BEHIND = 8;
 const WHEEL = 3;
 
-/** Where a kart's two rear wheels touch the floor. */
-const wheelsOf = (k: { x: number; y: number; angle: number }): [{ x: number; y: number }, { x: number; y: number }] => {
-  const bx = k.x - Math.cos(k.angle) * BEHIND, by = k.y - Math.sin(k.angle) * BEHIND;
+/** Where a kart's two rear wheels touch the floor, `behind` its middle (`BEHIND` unless told). */
+const wheelsOf = (k: { x: number; y: number; angle: number }, behind = BEHIND): [{ x: number; y: number }, { x: number; y: number }] => {
+  const bx = k.x - Math.cos(k.angle) * behind, by = k.y - Math.sin(k.angle) * behind;
   const sx = -Math.sin(k.angle) * WHEEL, sy = Math.cos(k.angle) * WHEEL;
   return [{ x: bx + sx, y: by + sy }, { x: bx - sx, y: by - sy }];
 };
@@ -81,7 +81,8 @@ function groundSpawns(k: Race['player'], fx: Race['fx'], behind: { x: number; y:
   const spark = sparkOf(fx.drift === undefined ? undefined : fx.charge);
   return [
     ...(surface(k.x, k.y) === 'powder' && k.speed > RULES.draftMin * RULES.topSpeed ? [{ kind: 'snow' as const, ...behind }] : []),
-    ...(spark ? wheelsOf(k).map((w) => ({ kind: spark, ...w })) : []),
+    // The sparks come from the rear wheels where a kart's sprite draws them: on the floor under its middle (issue 2057).
+    ...(spark ? wheelsOf(k, 0).map((w) => ({ kind: spark, ...w })) : []),
     ...((fx.draft ?? 0) > 0 ? [{ kind: 'wind' as const, ...behind }] : []),
   ];
 }

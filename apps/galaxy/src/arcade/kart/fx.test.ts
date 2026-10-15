@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
+import { sure } from '../test/sure';
 import { LOOK, MARK_LIFE, MAX_MARKS, MAX_PARTICLES, marksOf, newParticles, spawnsOf, stepMarks, stepParticles, type Mark, type Spawn } from './fx';
 import { newRace, press, step, type Race } from './race';
 import { RULES } from './rules';
@@ -103,6 +104,18 @@ describe('the snow, the marks, the sparks, the wind and the smoke', () => {
     expect(spawnsOf(race(), driving({ speed: fast }, { drift: 1, charge: RULES.chargeBlue - 0.01 }), [])).toEqual([]);
     expect(kinds(spawnsOf(race(), driving({ speed: fast }, { drift: 1, charge: RULES.chargeBlue }), []))).toEqual(['blue', 'blue']);
     expect(kinds(spawnsOf(race(), driving({ speed: fast }, { drift: 1, charge: RULES.chargeOrange }), []))).toEqual(['orange', 'orange']);
+  });
+
+  it('throws the sparks from the rear wheels where the kart is drawn: under its middle, one each side (issue 2057)', () => {
+    const k = { x: 300, y: 200, angle: 0.7 };
+    const sparks = spawnsOf(race(), driving({ speed: fast, ...k }, { drift: 1, charge: RULES.chargeBlue }), []);
+    const ahead = (s: Spawn) => (s.x - k.x) * Math.cos(k.angle) + (s.y - k.y) * Math.sin(k.angle);
+    const aside = (s: Spawn) => (s.y - k.y) * Math.cos(k.angle) - (s.x - k.x) * Math.sin(k.angle);
+    // Not behind it: the camera sits so close behind the player's kart that a spark born behind it starts under the kart or off the screen.
+    expect(sparks.map(ahead)).toEqual([expect.closeTo(0), expect.closeTo(0)]);
+    const [one, other] = sparks.map(aside);
+    expect(Math.abs(sure(one, 'a wheel'))).toBeGreaterThan(0);
+    expect(sure(other, 'the other wheel')).toBeCloseTo(-sure(one, 'a wheel'));
   });
 
   it('streams wind while a slipstream builds, and smoke on a stall', () => {

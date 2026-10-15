@@ -260,8 +260,11 @@ export const DRIVER_W = 32;
 /** How far above the screen's bottom the player's kart stands: the camera sits so the floor under its centre is on that row, where its wheels touch, as a rival's do. */
 const KART_FOOT = 6;
 
+/** How far ahead of the camera the player's kart stands on `grid`: the floor under its centre is where its sprite's wheels touch. */
+const kartDepth = (grid: { w: number; h: number }): number => depthAt(grid, grid.h - KART_FOOT);
+
 /** The camera behind the player's kart on `grid`: as far back as puts the floor under the kart's centre where its sprite's wheels touch, so it is drawn where it stands. */
-export const cameraFor = (grid: { w: number; h: number }, kart: Kart): { x: number; y: number; angle: number } => chaseCamera(kart, depthAt(grid, grid.h - KART_FOOT));
+export const cameraFor = (grid: { w: number; h: number }, kart: Kart): { x: number; y: number; angle: number } => chaseCamera(kart, kartDepth(grid));
 
 /** The camera's view of the race on `grid`: behind the player's kart, its eye 28 over the ground under it. */
 export const viewFor = (grid: { w: number; h: number }, track: Pick<Track, 'centre' | 'relief'>, kart: Kart): View => viewOf(grid, cameraFor(grid, kart), groundAt(track, kart.x, kart.y) + (kart.height ?? 0));
@@ -630,10 +633,10 @@ function sparkGlow(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
   for (const dx of [-5, 5]) ctx.fillRect(Math.round(x + dx * scale - scale), Math.round(y - scale), scale * 2, scale * 2);
 }
 
-/** The particles on the floor, near ones over far ones, each fading as it ages. None is drawn when motion is reduced: a frozen trail is noise. */
-function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, particles: Particles, track: Track) {
+/** The particles on the floor that `drawn` picks by how far ahead they are, near ones over far ones, each fading as it ages. None is drawn when motion is reduced: a frozen trail is noise. */
+function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, particles: Particles, track: Track, drawn: (z: number) => boolean) {
   if (s.reduced) return;
-  const seen = spritesInView(v, particles.list, (p) => groundAt(track, p.x, p.y));
+  const seen = spritesInView(v, particles.list, (p) => groundAt(track, p.x, p.y)).filter(({ at }) => drawn(at.z));
   for (const { sprite: p, at } of seen) {
     const look = PARTICLE[p.kind];
     const size = Math.max(1, Math.round(look.size * at.scale));
@@ -842,8 +845,11 @@ export function createKart({ seed, cast = [], circuit, track, live, held, laps, 
         if (hid) ctx.restore();
       }
       marksOnFloor(ctx, s, v, marks, track);
-      particlesOn(ctx, s, v, particles, track);
+      // The particles past the player's kart, the kart, then the ones nearer the camera over it: its own sparks, trail, snow, wind and smoke are born behind it (issue 2057).
+      const kart = kartDepth(s.grid);
+      particlesOn(ctx, s, v, particles, track, (z) => z > kart);
       playerKart(ctx, s, race, shadeUnder(v, track, race.player));
+      particlesOn(ctx, s, v, particles, track, (z) => z <= kart);
       sparkGlow(ctx, s, race);
       if (isSnow(track)) snowfall(ctx, s, v, seed);
       minimap(ctx, s, track, tilesOf(range), race);
