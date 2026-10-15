@@ -13,7 +13,7 @@ import type { RunningKit } from '../lib/init/bundle.ts';
 import { SYNC_FILE } from '../lib/sync/cache.ts';
 import type { FixActions, FixStep } from '../lib/sync/fix.ts';
 import { makeRepo } from '../test/fixture.ts';
-import { NOT_INSTALLED } from './commands/sync.ts';
+import { actionsFor, inKitRepo, NOT_INSTALLED } from './commands/sync.ts';
 import { main } from './omni.ts';
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\n', 'README.md': '# widgets\n' };
@@ -220,10 +220,99 @@ describe('omni sync --fix', () => {
     expect((await fix(repo.root, ['--strict'], { now: Date.now() + 2 * DAY })).code).toBe(0);
   });
 
+  it('runs no plugin, kit or page step on a checkout whose findings name none', async () => {
+    const repo = fixture();
+    repo.ahead();
+    expect((await fix(repo.root, [], { now: Date.now() + 2 * DAY })).calls).toEqual([]);
+  });
+
   it('refuses --fix with another mode, and says the loop is not installed outside it', async () => {
     const repo = fixture();
     expect((await fix(repo.root, ['--json'])).code).toBe(2);
     expect((await fix(repo.root, ['--quiet'])).code).toBe(2);
     expect(await fix(makeRepo({ git: true }).root)).toMatchObject({ code: 0, out: `${NOT_INSTALLED}\n` });
+  });
+});
+
+type Call = { file: string; args: readonly string[]; options: unknown };
+
+/** A fake `exec` that records each call and answers through `answer`, or throws what it returns as an `Error`. */
+function fakeExec(answer: (file: string, args: readonly string[]) => string | Error = () => '') {
+  const calls: Call[] = [];
+  const exec = (file: string, args: readonly string[], options: unknown): string => {
+    calls.push({ file, args, options });
+    const said = answer(file, args);
+    if (said instanceof Error) throw said;
+    return said;
+  };
+  return { exec, calls };
+}
+
+/** An error as `execFileSync` throws it, with what the process printed. */
+const failed = (stdout: string, stderr: string): Error => Object.assign(new Error('failed'), { stdout, stderr });
+
+describe("omni sync --fix, the kit's own repository", () => {
+  it('is the one omni runs from the kit source in, or the kit home, whatever its case', () => {
+    expect(inKitRepo('acme/widgets', { home: 'acme/kit', version: null, source: true })).toBe(true);
+    expect(inKitRepo('Acme/Kit', KIT)).toBe(true);
+    expect(inKitRepo('acme/widgets', KIT)).toBe(false);
+    expect(inKitRepo(null, KIT)).toBe(false);
+    expect(inKitRepo('acme/kit', { ...KIT, home: null })).toBe(false);
+  });
+});
+
+describe('omni sync --fix, the plugin, kit and page steps as they run for a person', () => {
+  const io = { cwd: '/repo', env: { HOME: '/home' }, script: '/kit/omni.mjs' };
+
+  it('updates the marketplace, the Omni plugin, then the HUD plugin through claude', () => {
+    const { exec, calls } = fakeExec();
+    expect(actionsFor({ ...io, exec }).plugins()).toEqual({ done: true, lines: [] });
+    expect(calls.map(({ file, args }) => [file, ...args].join(' '))).toEqual([
+      'claude plugin marketplace update omni-loop',
+      'claude plugin update omni@omni-loop',
+      'claude plugin update omni-hud@omni-loop',
+    ]);
+  });
+
+  it('says how to update the plugins by hand when claude will not, and touches no HUD', () => {
+    const { exec, calls } = fakeExec(() => new Error('no claude'));
+    const outcome = actionsFor({ ...io, exec }).plugins();
+    expect(outcome.done).toBe(false);
+    expect(outcome.lines).toEqual(['plugin   not updated from here; in Claude Code, type:', '/plugin marketplace update omni-loop', '/plugin update omni@omni-loop']);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('counts the plugins updated when the HUD plugin is not installed', () => {
+    const { exec } = fakeExec((_, args) => (args.includes('omni-hud@omni-loop') ? new Error('not installed') : ''));
+    expect(actionsFor({ ...io, exec }).plugins().done).toBe(true);
+  });
+
+  it('runs omni update with this omni, in the checkout, and prints what it said', () => {
+    const { exec, calls } = fakeExec(() => 'omni v0.0.423: update pull request opened\n\n  #12\n');
+    expect(actionsFor({ ...io, exec }).kit()).toMatchObject({ done: true, lines: ['omni v0.0.423: update pull request opened', '#12'] });
+    expect(calls[0]).toMatchObject({ file: process.execPath, args: ['/kit/omni.mjs', 'update'], options: { cwd: '/repo', env: { HOME: '/home' } } });
+  });
+
+  it('prints what omni update said when it stops', () => {
+    const { exec } = fakeExec(() => failed('checking\n', 'omni update: no release found\n'));
+    expect(actionsFor({ ...io, exec }).kit()).toMatchObject({ done: false, lines: ['checking', 'omni update: no release found'] });
+  });
+
+  it('asks a person to run omni update with no omni file to run', () => {
+    const { exec, calls } = fakeExec();
+    expect(actionsFor({ ...io, script: undefined, exec }).kit()).toMatchObject({ done: false, lines: ['run omni update yourself'] });
+    expect(calls).toEqual([]);
+  });
+
+  it("refreshes the page's copy with omni constituents --json, done when the page answered", () => {
+    const answered = (state: string) => fakeExec(() => JSON.stringify({ state }));
+    for (const state of ['ok', 'none']) {
+      const { exec, calls } = answered(state);
+      expect(actionsFor({ ...io, exec }).page()).toEqual({ done: true, lines: [] });
+      expect(calls[0]?.args).toEqual(['/kit/omni.mjs', 'constituents', '--json']);
+    }
+    expect(actionsFor({ ...io, exec: answered('unreachable').exec }).page()).toEqual({ done: false, lines: ['omni constituents: unreachable'] });
+    expect(actionsFor({ ...io, exec: fakeExec(() => 'not json').exec }).page()).toEqual({ done: false, lines: ['omni constituents: no answer'] });
+    expect(actionsFor({ ...io, exec: fakeExec(() => new Error('crashed')).exec }).page()).toEqual({ done: false, lines: ['omni constituents: no answer'] });
   });
 });

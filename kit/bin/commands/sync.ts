@@ -153,7 +153,7 @@ function updatePlugins(exec: Exec): FixOutcome {
 }
 
 /** The plugin, kit and page steps as they run for a person: `omni update`'s plugin step, `omni update`, `omni constituents`. */
-function actionsFor(io: OmniIo): FixActions {
+export function actionsFor(io: OmniIo): FixActions {
   return {
     plugins: () => updatePlugins(io.exec),
     kit: () => runOmni(io, ['update']),
@@ -162,9 +162,9 @@ function actionsFor(io: OmniIo): FixActions {
 }
 
 /** Whether this is the kit's own repository, where the kit is built, not installed: `omni` runs from the kit source, or the repository is the kit's home. */
-function inKitRepo(ctx: Context, running: RunningKit): boolean {
+export function inKitRepo(slug: string | null | undefined, running: RunningKit): boolean {
   if (running.source) return true;
-  return running.home !== null && running.home.toLowerCase() === ctx.config.repo.slug?.toLowerCase();
+  return running.home !== null && running.home.toLowerCase() === slug?.toLowerCase();
 }
 
 /** What one run needs beyond the context. */
@@ -175,7 +175,7 @@ async function fixed(ctx: Context, root: string, io: RunIo): Promise<{ lines: st
   const { cwd, exec } = io;
   const { repo, sync } = ctx.config;
   const before = await runSync({ cwd, root, config: ctx.config, exec, now: io.now() });
-  const kitRepo = inKitRepo(ctx, io.kit ?? runningKit({ exec }));
+  const kitRepo = inKitRepo(repo.slug, io.kit ?? runningKit({ exec }));
   const lines = [
     ...fixMain({ cwd, exec, remote: repo.remote, defaultBranch: repo.defaultBranch, level: sync.levels.main }),
     ...fixOthers({ record: before, kitRepo, actions: io.fixes ?? actionsFor(io) }),
