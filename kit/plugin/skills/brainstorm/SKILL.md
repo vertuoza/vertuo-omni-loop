@@ -49,6 +49,7 @@ rules bind every step below. Each `omni kb show <form>` prints one form of the r
 playbook, section by section: a section the repository left blank prints the kit default, and a
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
 never overrides this skill's rules.
+A sync status other than 🟢 in the output's `sync` block is said to the person in one line, with its fix, and the run carries on.
 
 **Where its phase 0 is approved.** Each repository's phase-0 flag is kept on the Omni page, never in
 the config: `pr`, a phase-0 PR a person merges, as always; or `server`, an approval on the PRD's
