@@ -43,16 +43,28 @@ export function turnRate(speed: number): number {
   return RULES.steer * Math.min(1, Math.abs(speed) / RULES.gripSpeed) * (1 - (1 - RULES.steerAtTop) * fast);
 }
 
-/** The speed after `dt` seconds of what the pad asks, on ground whose top speed is `top`. */
-function speedAfter(speed: number, pad: Pad, top: number, dt: number): number {
-  let next = speed;
-  if (pad.brake) {
-    next = speed > 0 ? Math.max(0, speed - RULES.brake * dt) : Math.max(-RULES.reverseSpeed, speed - RULES.reverseAccel * dt);
-  } else if (pad.accel) {
-    next = speed < 0 ? Math.min(0, speed + RULES.brake * dt) : speed < top ? Math.min(top, speed + RULES.accel * dt) : speed;
-  } else {
-    next = speed > 0 ? Math.max(0, speed - RULES.coast * dt) : Math.min(0, speed + RULES.coast * dt);
-  }
+/** What the gas adds, the brake takes off, and letting go takes off, per second (PRD 1963: on ice a share of the road's, `RULES.iceAccel`, `iceBrake` and `iceCoast`). */
+const ratesOf = (ice: boolean) => ice
+  ? { gas: RULES.iceAccel, stop: RULES.iceBrake, roll: RULES.iceCoast }
+  : { gas: 1, stop: 1, roll: 1 };
+
+/** The speed after `dt` seconds of ▼ (it brakes going forwards, reverses once stopped). */
+const braked = (speed: number, dt: number, r: ReturnType<typeof ratesOf>): number =>
+  speed > 0 ? Math.max(0, speed - RULES.brake * r.stop * dt) : Math.max(-RULES.reverseSpeed, speed - RULES.reverseAccel * r.gas * dt);
+
+/** The speed after `dt` seconds of the gas, on ground whose top speed is `top`. */
+const gassed = (speed: number, top: number, dt: number, r: ReturnType<typeof ratesOf>): number => {
+  if (speed < 0) return Math.min(0, speed + RULES.brake * r.stop * dt);
+  return speed < top ? Math.min(top, speed + RULES.accel * r.gas * dt) : speed;
+};
+
+/** The speed after `dt` seconds of what the pad asks, on ground whose top speed is `top`; `ice` scales the gas, the brake and the coast (PRD 1963), reversing included. */
+function speedAfter(speed: number, pad: Pad, top: number, dt: number, ice = false): number {
+  const r = ratesOf(ice);
+  let next: number;
+  if (pad.brake) next = braked(speed, dt, r);
+  else if (pad.accel) next = gassed(speed, top, dt, r);
+  else next = speed > 0 ? Math.max(0, speed - RULES.coast * r.roll * dt) : Math.min(0, speed + RULES.coast * r.roll * dt);
   return next > top ? Math.max(top, next - RULES.overspeedDrag * dt) : next;
 }
 
@@ -62,9 +74,15 @@ const climbOf = (slope: number): number => Math.min(1.33, Math.max(0.67, 1 - RUL
 /** `a` as an angle in (-PI, PI]. */
 const wrap = (a: number): number => a - Math.PI * 2 * Math.round(a / (Math.PI * 2));
 
-/** The direction of travel after `dt` seconds on `surface` (PRD 1923): the heading, except on ice, where it turns towards the heading at `RULES.iceGrip` and never lags it by more than `RULES.iceSlip`. Absent when it is the heading. */
+/** The direction of travel after `dt` seconds on `surface` (PRD 1923): the heading, except on ice, where it turns towards the heading at `RULES.iceGrip` and never lags it by more than `RULES.iceSlip`; off the ice it turns back at `RULES.grip`. Absent when it is the heading. */
 function travelAfter(k: Kart, angle: number, surface: Surface, dt: number): number | undefined {
-  if (surface !== 'ice') return undefined;
+  if (surface !== 'ice') {
+    // The way back (PRD 1963): off the ice a carried direction of travel turns back to the heading at `RULES.grip`, and is dropped within 0.01 radian of it.
+    if (k.travel === undefined) return undefined;
+    const back = wrap(angle - wrap(k.travel));
+    const next = k.travel + Math.max(-RULES.grip * dt, Math.min(RULES.grip * dt, back));
+    return Math.abs(wrap(angle - next)) < 0.01 ? undefined : next;
+  }
   const was = k.travel ?? k.angle;
   const gap = wrap(angle - wrap(was)), turn = Math.max(-RULES.iceGrip * dt, Math.min(RULES.iceGrip * dt, gap));
   const left = Math.max(-RULES.iceSlip, Math.min(RULES.iceSlip, gap - turn));
@@ -78,7 +96,7 @@ const gripOf = (surface: Surface): number => (surface === 'powder' ? RULES.powde
 function moveKart(k: Kart, pad: Pad, dt: number, pace: number, boost: boolean, slope = 0, map?: Ground): Kart {
   const surface = map ? surfaceAt(map, k.x, k.y) : 'road';
   const top = (boost ? RULES.topSpeed * RULES.boostFactor * pace : RULES.topSpeed * pace) * climbOf(slope) * gripOf(surface);
-  const speed = speedAfter(k.speed, boost ? { ...pad, accel: true, brake: false } : pad, top, dt);
+  const speed = speedAfter(k.speed, boost ? { ...pad, accel: true, brake: false } : pad, top, dt, surface === 'ice');
   const dir = dirOf(pad);
   const angle = k.angle + dir * Math.sign(speed) * turnRate(speed) * dt;
   const travel = travelAfter(k, angle, surface, dt);
