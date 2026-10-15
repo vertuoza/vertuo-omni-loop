@@ -841,6 +841,19 @@ describe('what the player hears of its own kart (PRD 1963)', () => {
     expect(skidOf(kart(0.5), { ...r.fx, hop: 0.1 })).toBe(0);
   });
 
+  // Bug 2058: the level leapt from 0 to 0.44 at the skid gap, so a kart sliding on its edge
+  // switched the screech on and off from one frame to the next.
+  it('rises from silence at the skid gap and never leaps, so a kart on the edge of a slide does not stutter', () => {
+    const r = racing();
+    const kart = (gap: number) => ({ ...r.player, speed: RULES.topSpeed, travel: r.player.angle - gap });
+    let before = skidOf(kart(0), r.fx);
+    for (let i = 1; i <= 100; i++) {
+      const now = skidOf(kart(i / 100), r.fx);
+      expect(Math.abs(now - before), `between ${String((i - 1) / 100)} and ${String(i / 100)} rad`).toBeLessThan(0.05);
+      before = now;
+    }
+  });
+
   it('turns each event into its cue', () => {
     expect(cuesOf({ kind: 'tick', color: 'blue' }, 0)).toEqual([{ kind: 'tick', color: 'blue' }]);
     expect(cuesOf({ kind: 'whoosh' }, 0)).toEqual([{ kind: 'whoosh' }]);
