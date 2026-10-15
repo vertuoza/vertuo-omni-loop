@@ -54,7 +54,7 @@ export function stepParticles(p: Particles, spawns: readonly Spawn[], dt: number
   return { list: list.slice(-MAX_PARTICLES), rng };
 }
 
-/** How far behind a kart its trail, snow and smoke are born, in world pixels, and how far from its middle each rear wheel is. */
+/** How far behind a rival its trail, snow and wind are born, and the player's smoke, in world pixels, and how far from its middle each rear wheel is. */
 const BEHIND = 8;
 const WHEEL = 3;
 
@@ -69,9 +69,9 @@ const wheelsOf = (k: { x: number; y: number; angle: number }, behind = BEHIND): 
 export const sparkOf = (charge: number | undefined): 'blue' | 'orange' | undefined =>
   charge === undefined ? undefined : charge >= RULES.chargeOrange ? 'orange' : charge >= RULES.chargeBlue ? 'blue' : undefined;
 
-/** What one racer throws this step: its trail on BOOST, and, on the ground, snow on powder, sparks of a drift's charge and wind in a slipstream. */
-function racerSpawns(k: Race['player'], fx: Race['fx'] | undefined, surface: (x: number, y: number) => Surface): Spawn[] {
-  const behind = { x: k.x - Math.cos(k.angle) * BEHIND, y: k.y - Math.sin(k.angle) * BEHIND };
+/** What one racer throws this step, `back` behind its middle: its trail on BOOST, and, on the ground, snow on powder, sparks of a drift's charge and wind in a slipstream. */
+function racerSpawns(k: Race['player'], fx: Race['fx'] | undefined, surface: (x: number, y: number) => Surface, back: number): Spawn[] {
+  const behind = { x: k.x - Math.cos(k.angle) * back, y: k.y - Math.sin(k.angle) * back };
   const trail: Spawn[] = (fx?.boost ?? 0) > 0 ? [{ kind: 'trail', ...behind }] : [];
   return fx && fx.fall <= 0 && (fx.hop ?? 0) <= 0 ? [...trail, ...groundSpawns(k, fx, behind, surface)] : trail;
 }
@@ -91,6 +91,7 @@ function groundSpawns(k: Race['player'], fx: Race['fx'], behind: { x: number; y:
  * What a step made happen, as spawns: a burst where a racer was hit, a flash where a box was taken (a box that was there and now waits
  * to come back), a trail behind every racer on BOOST (PRD 1963: and snow behind one fast on powder, sparks at the rear wheels of a drift
  * whose charge is blue or orange, wind behind one building a slipstream, smoke behind the player's stalled engine). `surface` says what is under a point.
+ * The player's own trail, snow and wind come from its middle, where its sprite draws its rear (issue 2061).
  */
 export function spawnsOf(before: Race, after: Race, events: readonly RaceEvent[], surface: (x: number, y: number) => Surface = () => 'road'): Spawn[] {
   const racers = [after.player, ...after.rivals.map((r) => r.kart)];
@@ -103,7 +104,8 @@ export function spawnsOf(before: Race, after: Race, events: readonly RaceEvent[]
     if (box.back > 0 && (before.items.boxes[i]?.back ?? 0) <= 0) out.push({ kind: 'flash', x: box.x, y: box.y });
   });
   const fxs = [after.fx, ...after.rivals.map((r) => r.fx)];
-  racers.forEach((k, i) => out.push(...racerSpawns(k, fxs[i], surface)));
+  // The camera sits so close behind the player's kart that a point behind it is under the kart or off the screen; a rival is seen from far enough.
+  racers.forEach((k, i) => out.push(...racerSpawns(k, fxs[i], surface, i === 0 ? 0 : BEHIND)));
   if (after.stall) out.push({ kind: 'smoke', x: after.player.x - Math.cos(after.player.angle) * BEHIND, y: after.player.y - Math.sin(after.player.angle) * BEHIND });
   return out;
 }

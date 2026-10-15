@@ -4,9 +4,12 @@ import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import type { Action } from '../keys';
 import { createKart, KART_W, minimapAt } from './art';
-import { parseTrack } from './track';
+import { newRace, press, step, type Race } from './race';
+import { RULES } from './rules';
+import { FROST_EIGHT, parseTrack, surfaceAt, type Track } from './track';
 
-// What the player sees of its own drift's sparks (issue 2057): a canvas that keeps, for every pixel, what was painted on it last.
+// What the player sees of what its own kart throws, the drift's sparks (issue 2057) and its trail, snow, wind and smoke (issue 2061):
+// a canvas that keeps, for every pixel, what was painted on it last.
 // The kart's sprite and the driver cover their whole rectangle; the designs' sprites are stubbed out, as art.test.ts does.
 type Paint = { kind: 'fill'; style: string; rect: number[] } | { kind: 'sprite'; name: string; x: number; y: number; scale: number } | { kind: 'image'; at: number[] };
 const paints = vi.hoisted(() => [] as unknown[]);
@@ -57,7 +60,10 @@ const KART_H = 18;
 const track = parseTrack();
 
 /** How many pixels of the screen show, at the end of a frame, a square of `colour` (a blue spark, or the still glow that stands for it); the minimap is left out. */
-function shownOf(grid: Grid, colour: string): number {
+const shownOf = (grid: Grid, colour: string): number => lastOf(grid, colour).reduce((n, v) => n + v, 0);
+
+/** For every pixel of the screen, 1 where it shows a square of `colour` at the end of a frame; the minimap of `on` is left out. */
+function lastOf(grid: Grid, colour: string, on: Track = track): Uint8Array {
   const last = new Uint8Array(grid.w * grid.h);
   const paint = (x0: number, y0: number, w: number, h: number, spark: boolean) => {
     const left = Math.max(0, Math.round(x0)), right = Math.min(grid.w, Math.round(x0 + w));
@@ -74,9 +80,25 @@ function shownOf(grid: Grid, colour: string): number {
       paint(x, y, w, h, false);
     }
   }
-  const map = minimapAt(grid, track);
+  const map = minimapAt(grid, on);
   paint(map.x, map.y, map.w, map.h, false);
-  return last.reduce((n, v) => n + v, 0);
+  return last;
+}
+
+/**
+ * How many pixels over the player's kart (the last kart painted) show a square of `colour` at the end of a frame: across its sprite
+ * and a sprite's width either side, from its top down to its wheels, where what it throws comes out of it. And the sprite's scale.
+ */
+function overKart(grid: Grid, colour: string, on: Track): { shown: number; scale: number } {
+  const kart = (paints as Paint[]).filter((p) => p.kind === 'sprite' && p.name.startsWith('kart')).at(-1);
+  if (kart?.kind !== 'sprite') throw new Error('no kart drawn');
+  const last = lastOf(grid, colour, on);
+  const w = KART_W * kart.scale;
+  let shown = 0;
+  for (let y = Math.max(0, Math.round(kart.y)); y < Math.min(grid.h, Math.round(kart.y + KART_H * kart.scale)); y++) {
+    for (let x = Math.max(0, Math.round(kart.x - w)); x < Math.min(grid.w, Math.round(kart.x + 2 * w)); x++) shown += last[y * grid.w + x] ?? 0;
+  }
+  return { shown, scale: kart.scale };
 }
 
 const frame = (grid: Grid, reduced: boolean): FrameState => ({
@@ -114,5 +136,50 @@ describe('the player\'s own drift sparks (issue 2057)', () => {
     const sum = (a: readonly number[]) => a.reduce((n, v) => n + v, 0);
     expect(sum(glow)).toBeGreaterThan(0);
     expect(sum(shown)).toBeGreaterThanOrEqual(sum(glow));
+  });
+});
+
+/** A drive that takes the player's kart where it throws one effect: the steps before (what is held, how long), then what is held while it is measured. */
+interface Drive { circuit?: string; track: Track; seed: number; colour: string; before: readonly (readonly [Action[], number])[]; held: Action[]; frames: number; throws: (race: Race) => boolean }
+
+const frost = parseTrack(FROST_EIGHT);
+const DRIVES: Readonly<Record<'trail' | 'snow' | 'wind' | 'smoke', Drive>> = {
+  // GAS pressed during the 2 and held at GO: a rocket start's BOOST. No rival of seed 3 rockets off, so the only trail is the player's.
+  trail: { seed: 3, track, colour: DEFAULT_THEME.cyan, before: [[[], 1.2], [['a'], 1.85]], held: ['a'], frames: 60, throws: (r) => r.fx.boost > 0 },
+  // The rivals drive off first; then the top speed on FROST EIGHT's road, and a turn to the right onto the powder.
+  snow: { circuit: 'frost-eight', seed: 5, track: frost, colour: DEFAULT_THEME.white, before: [[[], 6.05], [['a'], 2.5]], held: ['a', 'right'], frames: 90, throws: (r) => surfaceAt(frost, r.player.x, r.player.y) === 'powder' && r.player.speed > RULES.draftMin * RULES.topSpeed },
+  // GAS during the 1, a normal start, right behind the rival in front on the grid: the slipstream builds.
+  wind: { seed: 3, track, colour: DEFAULT_THEME.white, before: [[[], 2.2], [['a'], 0.85]], held: ['a'], frames: 90, throws: (r) => (r.fx.draft ?? 0) > 0 },
+  // GAS held from the 3: the engine stalls at GO.
+  smoke: { seed: 3, track, colour: DEFAULT_THEME.void, before: [[['a'], 3.05]], held: ['a'], frames: 60, throws: (r) => (r.stall ?? 0) > 0 },
+};
+
+describe('the player\'s own trail, snow, wind and smoke (issue 2061)', () => {
+  const cases = (['trail', 'snow', 'wind', 'smoke'] as const).flatMap((effect) => [[effect, 'wide', WIDE], [effect, 'tall', TALL]] as const);
+  it.each(cases)('the %s shows over the kart on the %s grid, frame after frame, while the kart throws it', (effect, _name, grid) => {
+    // The game, and the same race stepped beside it to say in which frames the kart throws the effect (60 frames a second).
+    const d = DRIVES[effect];
+    const kart = createKart({ seed: d.seed, difficulty: 'easy', ...(d.circuit ? { circuit: d.circuit } : {}) });
+    let race = press(newRace({ seed: d.seed, track: d.track, difficulty: 'easy' }), 'start').race;
+    kart.press('start');
+    const drive = (held: Action[]) => { kart.step(new Set(held), 1 / 60); race = step(race, new Set(held), 1 / 60).race; };
+    for (const [held, seconds] of d.before) for (let t = 0; t < seconds - 1e-9; t += 1 / 60) drive(held);
+    let thrown = 0, showing = 0, shown = 0, block = 0;
+    for (let i = 0; i < d.frames; i++) {
+      drive(d.held);
+      if (!d.throws(race)) continue;
+      paints.length = 0;
+      kart.draw(canvas(), frame(grid, false));
+      const over = overKart(grid, d.colour, d.track);
+      thrown++;
+      shown += over.shown;
+      if (over.shown > 0) showing++;
+      block = 16 * over.scale * over.scale; // a 4×4 block of the kart sprite's own pixels
+    }
+    // The drive made the kart throw it for a while.
+    expect(thrown).toBeGreaterThanOrEqual(10);
+    // In three frames out of four at least some of it shows, and on average at least a 4×4 block of the sprite's pixels.
+    expect(showing).toBeGreaterThanOrEqual(thrown * 0.75);
+    expect(shown).toBeGreaterThanOrEqual(thrown * block);
   });
 });

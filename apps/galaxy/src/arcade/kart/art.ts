@@ -845,7 +845,7 @@ export function createKart({ seed, cast = [], circuit, track, live, held, laps, 
         if (hid) ctx.restore();
       }
       marksOnFloor(ctx, s, v, marks, track);
-      // The particles past the player's kart, the kart, then the ones nearer the camera over it: its own sparks, trail, snow, wind and smoke are born behind it (issue 2057).
+      // The particles past the player's kart, the kart, then the ones nearer the camera over it: its own sparks, trail, snow and wind are born under its middle and fall behind it as it drives on, its smoke behind it (issues 2057, 2061).
       const kart = kartDepth(s.grid);
       particlesOn(ctx, s, v, particles, track, (z) => z > kart);
       playerKart(ctx, s, race, shadeUnder(v, track, race.player));

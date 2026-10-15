@@ -72,15 +72,12 @@ describe('what a step spawns', () => {
     expect(kinds(spawnsOf(taken, taken, []))).toEqual([]);
   });
 
-  it('a trail behind each racer on BOOST', () => {
+  it('a trail from each racer on BOOST', () => {
     const r = race();
     const boosting: Race = { ...r, fx: { ...r.fx, boost: 1 } };
     const [trail] = spawnsOf(r, boosting, []);
     expect(trail?.kind).toBe('trail');
     expect(spawnsOf(r, r, [])).toEqual([]);
-    // Behind: the kart faces `angle`, so the trail is on the opposite side of its position.
-    const ahead = Math.cos(r.player.angle) * ((trail?.x ?? 0) - r.player.x) + Math.sin(r.player.angle) * ((trail?.y ?? 0) - r.player.y);
-    expect(ahead).toBeLessThan(0);
   });
 });
 
@@ -116,6 +113,25 @@ describe('the snow, the marks, the sparks, the wind and the smoke', () => {
     const [one, other] = sparks.map(aside);
     expect(Math.abs(sure(one, 'a wheel'))).toBeGreaterThan(0);
     expect(sure(other, 'the other wheel')).toBeCloseTo(-sure(one, 'a wheel'));
+  });
+
+  it('throws the player\'s own trail, snow and wind from its middle, where its sprite draws its rear, and a rival\'s behind it (issue 2061)', () => {
+    const k = { x: 300, y: 200, angle: 0.7 };
+    const ahead = (s: Spawn) => (s.x - k.x) * Math.cos(k.angle) + (s.y - k.y) * Math.sin(k.angle);
+    const aside = (s: Spawn) => (s.y - k.y) * Math.cos(k.angle) - (s.x - k.x) * Math.sin(k.angle);
+    const own = spawnsOf(race(), driving({ speed: fast, ...k }, { boost: 1, draft: 0.5 }), [], () => 'powder');
+    expect(kinds(own)).toEqual(['trail', 'snow', 'wind']);
+    // Not behind it: the camera sits so close behind the player's kart that what is born behind it starts under the kart or off the screen.
+    expect(own.map(ahead)).toEqual([expect.closeTo(0), expect.closeTo(0), expect.closeTo(0)]);
+    expect(own.map(aside)).toEqual([expect.closeTo(0), expect.closeTo(0), expect.closeTo(0)]);
+    // A rival is seen from far behind: what it throws is born 8 behind its middle and shows under its sprite.
+    const r = race();
+    const [first, ...others] = r.rivals;
+    const rival = sure(first, 'a rival');
+    const boosting: Race = { ...r, rivals: [{ ...rival, kart: { ...rival.kart, ...k, speed: fast }, fx: { ...r.fx, boost: 1, draft: 0.5 } }, ...others] };
+    const thrown = spawnsOf(r, boosting, [], () => 'powder');
+    expect(kinds(thrown)).toEqual(['trail', 'snow', 'wind']);
+    expect(thrown.map(ahead)).toEqual([expect.closeTo(-8), expect.closeTo(-8), expect.closeTo(-8)]);
   });
 
   it('streams wind while a slipstream builds, and smoke on a stall', () => {
