@@ -30,24 +30,43 @@
 // (supabase/migrations/20261114090000_roadmap_prerequisites.sql). A body without the field, from a kit
 // before it or a roadmap without the section, leaves the stored prerequisites as they are.
 //
+// A roadmap born on the server (PRD 2011) is pushed by the same route, its body carrying `productKey`
+// in place of `repo` and `roadmap`:
+//
+//   POST /api/roadmaps {productKey, new: true | roadmap: <n>, repo?, check?, title, milestone, target?,
+//                       source?, questions?, document, prds: [{id, prd ('912' | 'mobile-12'), …}],
+//                       humanWork?, prerequisites?, prerequisiteResult?}
+//     → 201 the product's next roadmap, 200 a push to `<key>-R<n>`: {roadmapId, dossierId, roadmap,
+//       created, product: {id, name}, added: [{kind, version}], unchanged: [kind]}
+//
+// The roadmap is a dossier of its product, with no issue: roadmap_product_push()
+// (supabase/migrations/20261210090000_product_roadmaps.sql) numbers it from the product's own counter and
+// adds a version only of what changed. Its rows are checked here against the product's own repositories,
+// which the database does not do: a row naming one outside the product is refused 400 by name, and
+// nothing is written. With `check: true` nothing is written either: the answer is 200 {checked: true,
+// product: {key, name}, repositories: [{repo, readOnly, consumes}]} (short names, as `plan.targets` has
+// them), which `omni roadmap check --product` grades the rows against. A product the caller reads none of
+// is 404.
+//
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed body, 401 no valid bearer
 // token, 403 a repository no workspace of the caller owns (with the App's install link after its hint),
 // 413 a body over its cap, 503 no database here or the sign-in service down, 500 the database failed.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { IssueNumberSchema, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, ProductPrdIdSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { withInstallLink, type TokenCheck } from '../ask/auth';
 import { Line, receivePush, refuse, WebLink, When } from '../data/kit-push';
 import {
   HumanWorkKey, HumanWorkKind, HumanWorkSource, PrerequisiteCategory, PrerequisiteState, PrerequisiteWho, RoadmapPrdState, RoadmapQuestion,
-  RowIdSchema, roadmapStore, RoadmapStoreError, type RoadmapPush, type RoadmapPushAnswer,
+  readProductRepositories, RowIdSchema, roadmapStore, RoadmapStoreError, type ProductRepositories, type ProductRoadmapPush, type RoadmapPush,
+  type RoadmapPushAnswer,
 } from './store';
 
 /** The largest push: a roadmap.md of two hundred rows and its PRDs, with room to spare. */
 export const MAX_PUSH_BYTES = 256 * 1024;
 
 /** A Supabase client acting as one access token: the Auth server's check and the function. */
-export type RoadmapClient = TokenCheck & Pick<SupabaseClient, 'rpc'>;
+export type RoadmapClient = TokenCheck & Pick<SupabaseClient, 'rpc' | 'from'>;
 
 export type RoadmapDeps = {
   /** A client acting as the given access token, or null when no database is configured. */
@@ -64,9 +83,10 @@ export type RoadmapDeps = {
 
 const RepoName = z.string().regex(/^[A-Za-z0-9_.-]+$/, 'a target\'s short name');
 
-const Prd = z.strictObject({
+/** A PRD's row, whose PRD is read by `prd`: a repository's number, or a product roadmap's text. */
+const prdRow = <P extends z.ZodType>(prd: P) => z.strictObject({
   id: RowIdSchema,
-  prd: PrdNumberSchema,
+  prd,
   title: Line(200),
   repos: z.array(RepoName).max(20).default([]),
   blockers: z.array(RowIdSchema).max(50).default([]),
@@ -76,9 +96,25 @@ const Prd = z.strictObject({
   waitsOnUrl: WebLink.nullable().default(null),
   startedAt: When.nullable().default(null),
   endedAt: When.nullable().default(null),
-}).refine((prd) => prd.endedAt === null || prd.startedAt === null || Date.parse(prd.endedAt) >= Date.parse(prd.startedAt), {
+}).refine((row) => row.endedAt === null || row.startedAt === null || Date.parse(row.endedAt) >= Date.parse(row.startedAt), {
   message: 'it ends before it starts', path: ['endedAt'],
 });
+
+const Prd = prdRow(PrdNumberSchema);
+
+/** What a push lists by id or key, none of them twice. */
+type Listed = { prds: Array<{ id: string }>; humanWork?: Array<{ key: string }> | undefined; prerequisites?: Array<{ id: string }> | undefined };
+
+/** Refuses a row id, a key of human work or a prerequisite id used twice. */
+function noRepeats(push: Listed, ctx: z.RefinementCtx): void {
+  const twice = (ids: string[] | undefined) => ids !== undefined && new Set(ids).size !== ids.length;
+  const repeats: Array<[boolean, string, string]> = [
+    [twice(push.prds.map((p) => p.id)), 'prds', 'a row id is used twice'],
+    [twice(push.humanWork?.map((h) => h.key)), 'humanWork', 'a key is used twice'],
+    [twice(push.prerequisites?.map((p) => p.id)), 'prerequisites', 'a prerequisite id is used twice'],
+  ];
+  for (const [repeated, path, message] of repeats) if (repeated) ctx.addIssue({ code: 'custom', message, path: [path] });
+}
 
 /** A repository human work is in: the roadmap's own (owner/name) or a target's short name. */
 const WorkRepo = z.string().max(200).regex(/^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)?$/, 'a repository\'s name');
@@ -140,16 +176,89 @@ const Push = z.strictObject({
   humanWork: z.array(HumanWork).max(500).optional(),
   prerequisites: z.array(Prerequisite).max(100).optional(),
   prerequisiteResult: PrerequisiteResult.nullable().optional(),
-}).refine((push) => new Set(push.prds.map((p) => p.id)).size === push.prds.length, {
-  message: 'a row id is used twice', path: ['prds'],
-}).refine((push) => push.humanWork === undefined || new Set(push.humanWork.map((h) => h.key)).size === push.humanWork.length, {
-  message: 'a key is used twice', path: ['humanWork'],
-}).refine((push) => push.prerequisites === undefined || new Set(push.prerequisites.map((p) => p.id)).size === push.prerequisites.length, {
-  message: 'a prerequisite id is used twice', path: ['prerequisites'],
-});
+}).superRefine(noRepeats);
 
 /** The status each refusal of the database answers with; any other failure is a 500. */
-const REFUSAL_STATUS: Readonly<Record<string, number>> = { '42501': 403, '22023': 400, '23514': 400 };
+const REFUSAL_STATUS: Readonly<Record<string, number>> = { '42501': 403, '22023': 400, '23514': 400, P0002: 404 };
+
+// ── A roadmap born on the server ─────────────────────────────────────────────────────────────────
+
+/** A PRD of a row, as text: a repository's number (`912`) or a product's id (`mobile-12`). */
+const PrdIdText = z.string().refine((id) => /^[1-9]\d{0,8}$/.test(id) || ProductPrdIdSchema.safeParse(id).success, 'a PRD number such as 912 or a product PRD id such as mobile-12');
+
+const ProductPrd = prdRow(PrdIdText);
+
+const ProductPush = z.strictObject({
+  productKey: z.string().max(40).regex(/^[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$/, 'a product key such as mobile'),
+  new: z.literal(true).optional(),
+  roadmap: z.number().int().min(1).max(2 ** 31 - 1).optional(),
+  repo: z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/, 'owner/name').optional(),
+  check: z.literal(true).optional(),
+  title: Line(200),
+  milestone: Line(500),
+  target: z.iso.date().nullable().default(null),
+  source: Line(500).nullable().default(null),
+  questions: z.array(RoadmapQuestion).max(100).default([]),
+  document: z.string().min(1).max(200_000),
+  prds: z.array(ProductPrd).max(200),
+  humanWork: z.array(HumanWork).max(500).optional(),
+  prerequisites: z.array(Prerequisite).max(100).optional(),
+  prerequisiteResult: PrerequisiteResult.nullable().optional(),
+}).refine((push) => push.check === true || (push.new === true) !== (push.roadmap !== undefined), {
+  message: 'name where it goes: `new` for the next roadmap, or `roadmap` for one', path: ['roadmap'],
+}).superRefine(noRepeats);
+
+/** The product push a body carries, with its check flag, or the problem with it. */
+function productPushOf(sent: object): { push: ProductRoadmapPush; check: boolean } | { problem: string } {
+  const parsed = ProductPush.safeParse(sent);
+  if (!parsed.success) return { problem: problemOf(parsed.error) };
+  const { productKey, roadmap, repo, check, title, milestone, target, source, questions, document, prds, humanWork, prerequisites, prerequisiteResult } = parsed.data;
+  return {
+    push: { key: productKey, roadmap: roadmap ?? null, repo: repo ?? null, title, milestone, target, source, questions, document, prds, humanWork, prerequisites, prerequisiteResult },
+    check: check === true,
+  };
+}
+
+const shortOf = (slug: string): string => slug.slice(slug.indexOf('/') + 1).toLowerCase();
+
+/** Each row naming a repository outside the product, by name; the rows' names are short or whole. */
+function outsideProduct(push: ProductRoadmapPush, product: ProductRepositories): string[] {
+  const names = product.repositories.map((r) => shortOf(r.repository));
+  return push.prds.flatMap((row) =>
+    row.repos
+      .filter((repo) => !names.includes(shortOf(repo)) || (repo.includes('/') && !product.repositories.some((r) => r.repository.toLowerCase() === repo.toLowerCase())))
+      .map((repo) => `${row.id}: ${repo} is not a repository of product ${product.key} (${names.join(', ')}).`),
+  );
+}
+
+/** The product's repositories as the kit's check reads them, in short names. */
+function checked(product: ProductRepositories) {
+  return {
+    checked: true,
+    product: { key: product.key, name: product.name },
+    repositories: product.repositories.map((r) => ({ repo: shortOf(r.repository), readOnly: r.readOnly, consumes: r.consumes.map(shortOf) })),
+  };
+}
+
+/** A push to a roadmap born on the server, or its check. */
+async function productPush(sent: object, client: RoadmapClient, deps: RoadmapDeps): Promise<Response> {
+  const read = productPushOf(sent);
+  if ('problem' in read) return refuse(400, read.problem);
+  const { push, check } = read;
+  try {
+    const product = await readProductRepositories(client, push.key, push.repo);
+    if (product === null) return refuse(404, `No product keyed ${push.key} in your workspaces.`);
+    const outside = outsideProduct(push, product);
+    if (outside.length > 0) return refuse(400, `${outside.join(' ')} Nothing was written.`);
+    if (check) return Response.json(checked(product), { status: 200, headers: { 'cache-control': 'no-store' } });
+    const answer = await roadmapStore(client).pushProduct(push);
+    if (push.humanWork !== undefined) classifyAfter(deps, answer.roadmapId);
+    return Response.json(answer, { status: answer.created ? 201 : 200, headers: { 'cache-control': 'no-store' } });
+  } catch (error) {
+    if (!(error instanceof RoadmapStoreError)) throw error;
+    return refusal(error, deps);
+  }
+}
 
 /** The first problem zod found, in one line naming the field. */
 function problemOf(error: z.ZodError): string {
@@ -196,6 +305,9 @@ export async function roadmapPush(request: Request, deps: RoadmapDeps): Promise<
     maxBytes: MAX_PUSH_BYTES,
   });
   if (received instanceof Response) return received;
+  if (typeof received.sent === 'object' && received.sent !== null && !Array.isArray(received.sent) && 'productKey' in received.sent) {
+    return productPush(received.sent, received.client(), deps);
+  }
   const push = pushOf(received.sent);
   if ('problem' in push) return refuse(400, push.problem);
 
