@@ -171,6 +171,41 @@ the feature PR lists it already makes, so past merges since `game_since` are pai
 
 Rollback: set both numbers and their XP weights to 0; the events stay, paying nothing.
 
+## Merged pull requests
+
+A pull request merged into a tracked repository's default branch pays its author and its reviewers
+by its kind, in the season of the merge, with no multiplier (PRD 1975).
+
+- **What is read.** `game:project` lists, for each tracked repository, the pull requests merged into
+  its default branch (`gh pr list --base <default> --state merged --limit 1000`), with their title,
+  labels, author, `mergedBy`, `latestReviews` and merge time. A sub-PR merges into a feature branch,
+  never into the default branch, so it is never read. A repository that cannot be read reads as none;
+  a single-planet read (`game:banner`) reads none.
+- **The kind.** The first that matches:
+
+  | the pull request | kind | its author | each reviewer |
+  | --- | --- | --- | --- |
+  | its author a bot (`[bot]`, an app) or missing | none | 0 | 0 |
+  | labelled `omni:phase-0` | none | 0 | 0 |
+  | labelled `omni:retro` or `omni:knowledge` | `docs` | `prMerged.docs` (10) | `prReviewed.docs` (5) |
+  | labelled `omni:feature` or `omni:bug`, or its title's type is `feat` or `fix` | `feat` | `prMerged.feat` (30) | `prReviewed.feat` (10) |
+  | anything else (`chore(release): v0.0.N`, `docs:`, `refactor:`, no type) | none | 0 | 0 |
+
+  The title's type is read as Conventional Commits writes it, in any case: `feat: …`,
+  `fix(scope): …`, `feat!: …`. A pull request of kind none writes no event.
+- **Its reviewers** are its approvers (a reviewer whose latest review approves it) and its merger,
+  each login once: who approved and merged it is one reviewer, paid once. Its author is never its own
+  reviewer, and a bot never is.
+- **The ids.** One `PR_MERGED` for its author, id `pr:<owner>/<repo>#<n>:merged`, and one
+  `PR_REVIEWED` per reviewer, id `pr:<owner>/<repo>#<n>:reviewed:<login>`: `at` its merge, the login
+  in lower case, `home` and `region` its repository, `data: { pr, kind }`. Both are on planet 0, as
+  an answer no PRD claims is: they open no wound, join no crew, and no planet's loss claws them back.
+  A merge pays once, however many polls see it, and one before `game_since` is never written.
+
+Both earn XP (`xp.weights.prMerged`, `prReviewed`). Rollback: set `prMerged` and `prReviewed` to 0
+(and their XP weights); the next `game:score` and `game:xp` remove those points, and the events stay,
+paying nothing.
+
 ## The fresh start
 
 PRD 728 started the game again, once. `public.workspaces.game_since` is the moment a workspace's
@@ -210,7 +245,8 @@ call:
 
 - **XP** is the sum, over every season in the ledger, of a login's positive personal credits as
   `score()` pays them, each multiplied by its kind's weight in `xp.weights` (`zoneSecured`,
-  `woundClosed`, `rescue`, `expedition`, `closer`, `questionAnswered`, `featureMerged`, `featureReviewed`), rounded once after summing. Night-shift and
+  `woundClosed`, `rescue`, `expedition`, `closer`, `questionAnswered`, `featureMerged`, `featureReviewed`,
+  `prMerged`, `prReviewed`), rounded once after summing. Night-shift and
   cross-fleet multipliers count, as they do for points. A zone reverted and a clawback never lower
   it, and fleet credits (a terraform, a decay) are not personal. A weight of 0 leaves a kind out. A
   personal credit whose kind has no weight fails `game/experience.test.ts`, so a new kind of

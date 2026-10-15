@@ -97,6 +97,15 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
       case 'FEATURE_REVIEWED':
         credit(e, RULEBOOK.featureReviewed, 'feature reviewed');
         break;
+      case 'PR_MERGED':
+        // PRD 1975: a pull request merged into a tracked repository's default branch pays its author
+        // and each reviewer by its kind, in the season of the merge, with no multiplier. Neither
+        // belongs to a planet, so no crew, no terraform and no loss reads them.
+        credit(e, lookup(RULEBOOK.prMerged, e.data.kind) ?? 0, 'pr merged');
+        break;
+      case 'PR_REVIEWED':
+        credit(e, lookup(RULEBOOK.prReviewed, e.data.kind) ?? 0, 'pr reviewed');
+        break;
       case 'PLANET_TERRAFORMED': {
         const team = ownerFor(e);
         const prior = (team ? streak.get(team) : undefined) ?? 0;

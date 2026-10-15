@@ -14,6 +14,7 @@ describe('events', () => {
       'WOUND_OPENED', 'WOUND_CLOSED', 'DISTRESS', 'RESCUE',
       'PLANET_READY', 'PLANET_TERRAFORMED', 'PLANET_LOST', 'PLANET_DECOMMISSIONED',
       'QUESTION_ANSWERED', 'FEATURE_MERGED', 'FEATURE_REVIEWED',
+      'PR_MERGED', 'PR_REVIEWED',
     ]);
     expect(WOUND_KINDS).toEqual(['transmission', 'unconfirmed-ground', 'beacon', 'fault-line', 'under-fire', 'aftershock']);
   });
@@ -27,6 +28,15 @@ describe('events', () => {
     expect(makeEvent({ id: 'ask:r1:answered', at: '2026-09-01T08:00:00Z', type: 'QUESTION_ANSWERED', planet: 0 }).planet).toBe(0);
     expect(() => makeEvent({ id: 'planet:0:charted', at: '2026-09-01T08:00:00Z', type: 'PLANET_CHARTED', planet: 0 })).toThrow(/no planet/);
     expect(() => makeEvent({ id: 'ask:r1:answered', at: '2026-09-01T08:00:00Z', type: 'QUESTION_ANSWERED', planet: -1 })).toThrow();
+  });
+
+  it('takes planet 0 for a merged pull request\'s author and reviewers (PRD 1975), and still for no other type', () => {
+    const merged = makeEvent({ id: 'pr:acme/app#12:merged', at: '2026-09-01T08:00:00Z', type: 'PR_MERGED', planet: 0, home: 'acme/app', region: 'acme/app', contributor: 'alice', data: { pr: 12, kind: 'feat' } });
+    const reviewed = makeEvent({ id: 'pr:acme/app#12:reviewed:bob', at: '2026-09-01T08:00:00Z', type: 'PR_REVIEWED', planet: 0, home: 'acme/app', region: 'acme/app', contributor: 'bob', data: { pr: 12, kind: 'docs' } });
+    expect([merged.planet, reviewed.planet]).toEqual([0, 0]);
+    for (const type of EVENT_TYPES.filter((t) => !['QUESTION_ANSWERED', 'PR_MERGED', 'PR_REVIEWED'].includes(t))) {
+      expect(() => makeEvent({ id: 'x', at: '2026-09-01T08:00:00Z', type, planet: 0 })).toThrow(/no planet/);
+    }
   });
 
   it('refuses an unknown type', () => {

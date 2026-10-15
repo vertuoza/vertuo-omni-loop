@@ -26,6 +26,11 @@ export const RULEBOOK = Object.freeze({
   // approved it (its author aside). Paid at the merge, once per region's feature PR.
   featureMerged: 30,
   featureReviewed: 10,
+  // A pull request merged into a tracked repository's default branch (PRD 1975), by its kind: its
+  // author, and each of its reviewers (its approvers and its merger, its author aside). A sub-PR merges
+  // into a feature branch, never into the default branch, so it is never paid here.
+  prMerged: Object.freeze({ feat: 30, docs: 10 }),
+  prReviewed: Object.freeze({ feat: 10, docs: 5 }),
   trancheMinutes: 240,
   distressAfterWorkingMinutes: 480,      // 8 working hours
   lostAfterWorkingMinutes: 10 * 9 * 60,  // 10 working days
@@ -40,7 +45,7 @@ export const RULEBOOK = Object.freeze({
   // recomputes every player's XP from the whole ledger (`pnpm game:xp`).
   xp: Object.freeze({
     // Weight of each personal credit. 0 leaves a credit out.
-    weights: Object.freeze({ zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1 }),
+    weights: Object.freeze({ zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1, prMerged: 1, prReviewed: 1 }),
     // LV 1 at the first point; LV n (n ≥ 2) at step·n·(n−1).
     curve: Object.freeze({ first: 1, step: 25 }),
     cap: 99,

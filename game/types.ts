@@ -74,10 +74,20 @@ export type SnapshotPlanet = {
   bugs: Bug[];
 };
 
+/** What a merged pull request pays by (PRD 1975): `feat` (a feat or fix), `docs` (a retro or knowledge), or `none`. */
+export type MergedPrKind = 'feat' | 'docs' | 'none';
+
+/**
+ * A pull request merged into a tracked repository's default branch (PRD 1975). `author` and each
+ * reviewer are lower-case logins, never a bot; `author` null when it is a bot or no one.
+ */
+export type MergedPr = { repo: string; number: PrNumber; title: string; kind: MergedPrKind; author: string | null; mergedAt: string; reviewers: string[] };
+
 /** The world at one moment: every planet, and the roster (lower-cased login → fleet). */
 // `stopped` says why a read ended before every planet (a rate limit, the read budget): `planets` then
-// holds only the planets read in full before it.
-export type Snapshot = { at: string; teams: Record<string, string>; planets: SnapshotPlanet[]; stopped?: SnapshotStop };
+// holds only the planets read in full before it. `merged` are the pull requests merged into each
+// tracked repository's default branch (PRD 1975); absent from a single-planet read.
+export type Snapshot = { at: string; teams: Record<string, string>; planets: SnapshotPlanet[]; merged?: MergedPr[]; stopped?: SnapshotStop };
 export type SnapshotStop = { by: 'rate-limit' | 'budget'; message: string };
 
 export type DerivedZoneState = 'sealed' | 'secured' | 'under-fire' | 'claimed' | 'open';

@@ -4,7 +4,7 @@
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
 import { tranchesBetween } from 'vertuo-omni-plan/game/calendar.ts';
 import { score } from 'vertuo-omni-plan/game/economy.ts';
-import { EVENT_TYPES, oneSpelling, planetKeyOf, textOf, WOUND_KINDS, type EventType } from 'vertuo-omni-plan/game/events.ts';
+import { EVENT_TYPES, NO_PLANET, oneSpelling, planetKeyOf, textOf, WOUND_KINDS, type EventType } from 'vertuo-omni-plan/game/events.ts';
 import type {
   Fleet, FleetConfig, FleetLook, GalaxyView, Hero, LedgerEvent, LogLine, Planet, PlanetState, Projects, Wound, WoundKind, Zone,
 } from './types.ts';
@@ -250,8 +250,9 @@ export function buildGalaxy(events: readonly LedgerEvent[], { projects, now = ne
   const season_ = score(sorted.filter(isGameEvent), { season, now });
 
   // A planet is in the map only once it has an event other than an answer: an answer on planet 0
-  // belongs to no PRD, and one on a PRD of an untracked repository charts nothing.
-  const planets: Planet[] = [...byPlanet.entries()].filter(([, evs]) => evs.some((e) => e.type !== 'QUESTION_ANSWERED')).map(([key, evs]) => {
+  // belongs to no PRD, and one on a PRD of an untracked repository charts nothing. Planet 0 is never a
+  // planet: a merged pull request's pay (PRD 1975) lives there too.
+  const planets: Planet[] = [...byPlanet.entries()].filter(([, evs]) => evs.some((e) => e.planet !== NO_PLANET && e.type !== 'QUESTION_ANSWERED')).map(([key, evs]) => {
     const [first] = evs;
     if (!first) throw new Error(`planet ${key} has no event`);
     // The ledger's planet is a PRD number: the planet takes it as one.
