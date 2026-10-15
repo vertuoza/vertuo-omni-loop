@@ -377,11 +377,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'proof',
     kind: 'command',
     who: 'skills',
-    usage: ['omni proof push <n> <dir>', 'omni proof session [<file>]'],
-    summary: "sends a proof run to a PRD's Proof tab, or signs its browser in",
+    usage: ['omni proof push [--kind bug] <n> <dir>', 'omni proof session [<file>]'],
+    summary: "sends a proof run to a PRD's Proof tab or a bug's page, or signs its browser in",
     detail:
       "Sends a proof run /omni:prove recorded to PRD n's dossier on the Omni page and prints its Proof " +
-      "tab's link. It reads " +
+      "tab's link; with --kind bug it sends the run to the bug dossier of issue n and prints the bug " +
+      "page's link, then the GIF's stable link. It reads " +
       'run.json in the folder, and refuses before sending anything a file that is not .webm, .gif, ' +
       '.ts or .txt, or one over 50 MB. Then it uploads each clip and script, and registers the run. ' +
       'It never holds up the skill that runs it: anything that stops it exits 1 with one line, as ' +

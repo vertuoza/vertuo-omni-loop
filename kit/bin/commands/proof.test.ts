@@ -163,6 +163,34 @@ describe('omni proof push', () => {
     expect(await push(['7', DIR], { root, fetch })).toEqual({ code: 1, out: '', err: 'refused (no link in the reply)\n' });
   });
 
+  it('--kind bug sends kind: bug on both calls and prints the bug page\'s link, then the GIF\'s', async () => {
+    const BUG_PAGE = `${BASE}/bugs/0b7c-bug-dossier-7`;
+    const { root } = checkout();
+    const { calls, fetch } = fakeApp((href) => (href === `${BASE}/api/proofs` ? json(200, { url: BUG_PAGE }) : null));
+    expect(await push(['--kind', 'bug', '7', DIR], { root, fetch })).toEqual({ code: 0, out: `${BUG_PAGE}\n${BASE}/api/proofs/${RUN_ID}/preview.gif\n`, err: '' });
+    expect(JSON.parse(calls[0]?.body as string)).toMatchObject({ repo: 'acme/widgets', prd: 7, kind: 'bug' });
+    expect(JSON.parse(calls[4]?.body as string)).toEqual({ repo: 'acme/widgets', prd: 7, kind: 'bug', run: RUN_ID, commit: RUN.commit, url: RUN.url, criteria: RUN.criteria });
+  });
+
+  it('--kind prd sends and prints what no --kind does', async () => {
+    const { root } = checkout();
+    const plain = fakeApp();
+    const named = fakeApp();
+    const a = await push(['7', DIR], { root, fetch: plain.fetch });
+    const b = await push(['--kind', 'prd', '7', DIR], { root, fetch: named.fetch });
+    expect(b).toEqual(a);
+    expect(named.calls.map((c) => c.body)).toEqual(plain.calls.map((c) => c.body));
+    expect(JSON.parse(named.calls[0]?.body as string)).not.toHaveProperty('kind');
+  });
+
+  it('any other kind is a usage error, exit 2, and nothing is sent', async () => {
+    const { root } = checkout();
+    const { calls, fetch } = fakeApp();
+    expect((await push(['--kind', 'visual', '7', DIR], { root, fetch })).code).toBe(2);
+    expect((await push(['--kind', '7', DIR], { root, fetch })).code).toBe(2);
+    expect(calls).toEqual([]);
+  });
+
   it('a folder without run.json, or arguments it cannot run: exit 2', async () => {
     const { root } = checkout();
     const { calls, fetch } = fakeApp();

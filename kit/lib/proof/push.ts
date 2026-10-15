@@ -16,9 +16,9 @@ type UploadRequest = { name: string; bytes: number; type: string };
 
 /** The Omni page's three proof calls (`kit/lib/ask/client.ts`). Their replies are read as unknown. */
 export type ProofClient = {
-  requestProofUploads: (request: { repo: string; prd: PrdNumber; files: UploadRequest[] }) => Promise<unknown>;
+  requestProofUploads: (request: { repo: string; prd: PrdNumber; kind?: 'bug'; files: UploadRequest[] }) => Promise<unknown>;
   upload: (url: string, bytes: Uint8Array<ArrayBuffer>, type: string) => Promise<unknown>;
-  registerProof: (request: { repo: string; prd: PrdNumber; run: string; commit: string; url: string; criteria: ProofCriterion[] }) => Promise<unknown>;
+  registerProof: (request: { repo: string; prd: PrdNumber; kind?: 'bug'; run: string; commit: string; url: string; criteria: ProofCriterion[] }) => Promise<unknown>;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
@@ -57,6 +57,7 @@ export async function pushProof({
   client,
   repo,
   prd,
+  kind,
   run,
   read = readFileSync,
   newRunId = randomUUID,
@@ -64,20 +65,23 @@ export async function pushProof({
   client: ProofClient;
   repo: string;
   prd: PrdNumber;
+  /** `bug` sends the run to the bug dossier numbered `prd`; left out, it is the PRD's, and no `kind` is sent. */
+  kind?: 'bug';
   run: ProofRun;
   read?: (path: string) => Uint8Array<ArrayBuffer>;
   newRunId?: () => string;
 }): Promise<{ tab: string; gif?: string }> {
+  const kindOf = kind ? { kind } : {};
   let runId: string;
   if (run.files.length) {
-    const reply = await client.requestProofUploads({ repo, prd, files: run.files.map(({ name, bytes, type }) => ({ name, bytes, type })) });
+    const reply = await client.requestProofUploads({ repo, prd, ...kindOf, files: run.files.map(({ name, bytes, type }) => ({ name, bytes, type })) });
     const given = linksOf(reply, run.files);
     for (const [index, file] of run.files.entries()) await client.upload(at(given.links, index, `the upload link of ${file.name}`), read(file.path), file.type); // one link per file
     runId = given.runId;
   } else {
     runId = newRunId();
   }
-  const registered = await client.registerProof({ repo, prd, run: runId, commit: run.commit, url: run.url, criteria: run.criteria });
+  const registered = await client.registerProof({ repo, prd, ...kindOf, run: runId, commit: run.commit, url: run.url, criteria: run.criteria });
   const tab = isRecord(registered) ? registered.url : undefined;
   if (!isText(tab)) throw new ProofReplyError('no link in the reply');
   if (!run.files.some(({ name }) => name === GIF)) return { tab };
