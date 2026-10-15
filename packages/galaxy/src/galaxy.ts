@@ -4,7 +4,7 @@
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
 import { tranchesBetween } from 'vertuo-omni-plan/game/calendar.ts';
 import { score } from 'vertuo-omni-plan/game/economy.ts';
-import { EVENT_TYPES, oneSpelling, planetKeyOf, textOf, WOUND_KINDS, type EventType } from 'vertuo-omni-plan/game/events.ts';
+import { EVENT_TYPES, NO_PLANET, oneSpelling, planetKeyOf, textOf, WOUND_KINDS, type EventType } from 'vertuo-omni-plan/game/events.ts';
 import type {
   Fleet, FleetConfig, FleetLook, GalaxyView, Hero, LedgerEvent, LogLine, Planet, PlanetState, Projects, Wound, WoundKind, Zone,
 } from './types.ts';
@@ -59,6 +59,7 @@ function logLine(e: LedgerEvent): string {
   const kind = LABEL_OF[named] ?? named;
   const blocker = String(numberOf(data, 'blocker'));
   const verdict = textOf(data, 'verdict');
+  const pr = String(numberOf(data, 'pr'));
   switch (e.type) {
     case 'PLANET_CHARTED': return `Planet charted by @${textOf(data, 'captain') ?? 'unknown'}`;
     case 'REGION_SURVEYED': return `Region surveyed: ${String(e.region)}`;
@@ -79,6 +80,8 @@ function logLine(e: LedgerEvent): string {
     case 'QUESTION_ANSWERED': return `${who ?? 'Someone'} answered a question`;
     case 'FEATURE_MERGED': return `${who ?? 'Someone'} merged the feature${where}`;
     case 'FEATURE_REVIEWED': return `${who ?? 'Someone'} approved the feature${where}`;
+    case 'PR_MERGED': return `${who ?? 'Someone'} merged #${pr} into ${String(e.region)}`;
+    case 'PR_REVIEWED': return `${who ?? 'Someone'} reviewed #${pr} in ${String(e.region)}`;
     default: return e.type;
   }
 }
@@ -250,8 +253,9 @@ export function buildGalaxy(events: readonly LedgerEvent[], { projects, now = ne
   const season_ = score(sorted.filter(isGameEvent), { season, now });
 
   // A planet is in the map only once it has an event other than an answer: an answer on planet 0
-  // belongs to no PRD, and one on a PRD of an untracked repository charts nothing.
-  const planets: Planet[] = [...byPlanet.entries()].filter(([, evs]) => evs.some((e) => e.type !== 'QUESTION_ANSWERED')).map(([key, evs]) => {
+  // belongs to no PRD, and one on a PRD of an untracked repository charts nothing. Planet 0 is never a
+  // planet: a merged pull request's pay (PRD 1975) lives there too.
+  const planets: Planet[] = [...byPlanet.entries()].filter(([, evs]) => evs.some((e) => e.planet !== NO_PLANET && e.type !== 'QUESTION_ANSWERED')).map(([key, evs]) => {
     const [first] = evs;
     if (!first) throw new Error(`planet ${key} has no event`);
     // The ledger's planet is a PRD number: the planet takes it as one.
@@ -315,6 +319,8 @@ export function buildGalaxy(events: readonly LedgerEvent[], { projects, now = ne
       distressAfterHours: RULEBOOK.distressAfterWorkingMinutes / 60,
       lostAfterDays: RULEBOOK.lostAfterWorkingMinutes / 60 / 9,
       classMultipliers: [1, 2, 3, 4].map((n) => RULEBOOK.classMultiplier(n)),
+      prMerged: RULEBOOK.prMerged,
+      prReviewed: RULEBOOK.prReviewed,
       // The XP block as the ledger job applies it (game/experience.ts): How to play's LEVELS reads it.
       xp: RULEBOOK.xp,
     },

@@ -16,6 +16,10 @@
 // PR into its default branch whose body starts `Part of <owner>/<home>#<n>`; its sub-PRs secure that
 // region's slices, and the planet terraforms once every region's feature PR has merged.
 //
+// Beyond the PRDs (PRD 1975): each tracked repository's pull requests merged into its default branch,
+// with their kind (`kindOf`) and their reviewers, which pay their author and reviewers. A sub-PR merges
+// into a feature branch, so it is never among them. A single-planet read does not read them.
+//
 // Two known simplifications, both documented here rather than silently baked in:
 //   - `surveyedAt` / an open outbox item's `raisedAt` (its "first commit" date) reads
 //     `.[-1].commit.committer.date` off the first page of `gh api .../commits`, which the GitHub
@@ -40,7 +44,7 @@ import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber, type SliceId } from '../../kit/lib/ids.ts';
 import { parseSpec, parseOutboxItem, parseSettled, parsePlanSlices, parsePlanRepos, deliveryOf, prdOfFolder, type PlanSlice, type SettledEntry } from './parsers.ts';
 import type { GameConfig } from '../config.ts';
-import type { Bug, FeaturePr, NeedsFix, OutboxEntry, Region, Snapshot, SnapshotPlanet, SnapshotStop } from '../types.ts';
+import type { Bug, FeaturePr, MergedPr, MergedPrKind, NeedsFix, OutboxEntry, Region, Snapshot, SnapshotPlanet, SnapshotStop } from '../types.ts';
 
 /** How the game calls gh: its arguments in, its stdout out. */
 export type Exec = (args: string[]) => Promise<string>;
@@ -75,6 +79,16 @@ const PrRow = z.looseObject({
   latestReviews: z.array(z.looseObject({ author: Person, state: z.string().nullish() })).nullish(),
 });
 const PrRows = z.array(PrRow);
+const MergedRows = z.array(z.looseObject({
+  number: PrNumberSchema,
+  title: z.string(),
+  labels: Labels,
+  author: Person,
+  mergedBy: Person,
+  latestReviews: z.array(z.looseObject({ author: Person, state: z.string().nullish() })).nullish(),
+  mergedAt: z.string().nullish(),
+}));
+const MERGED_FIELDS = 'number,title,labels,author,mergedBy,latestReviews,mergedAt';
 // The fields every feature PR list reads: what PrRow parses.
 const FEATURE_FIELDS = 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt,labels,body,author,mergedBy,latestReviews';
 const SubRowSchema = z.looseObject({
@@ -154,13 +168,15 @@ export async function buildSnapshot(
   const wanted = prds ? new Set(prds) : null;
   const tracked = config.tracked ?? [];
   const planets: SnapshotPlanet[] = [];
-  const snapshot = (stopped?: SnapshotStop): Snapshot => ({ at: now.toISOString(), teams, planets, ...(stopped ? { stopped } : {}) });
+  const merged: MergedPr[] = [];
+  const snapshot = (stopped?: SnapshotStop): Snapshot => ({ at: now.toISOString(), teams, planets, ...(wanted ? {} : { merged }), ...(stopped ? { stopped } : {}) });
   const queue: Array<{ issue: IssueRow; read: () => Promise<SnapshotPlanet> }> = [];
   try {
     const homes: Array<{ home: string; issues: IssueRow[] }> = [];
     for (const home of tracked) {
       const issues = IssueRows.parse(json(await soft(exec(['issue', 'list', '-R', home, '--label', 'omni:prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,author,createdAt,closedAt']))));
       if (issues.length) homes.push({ home, issues });
+      if (!wanted) merged.push(...await readMerged(exec, home));
     }
     const regionsOf = partOfRegions(exec, tracked);
     for (const { home, issues } of homes) {
@@ -210,6 +226,38 @@ export async function buildSnapshot(
 // close, then by its birth. ISO times sort as text; an open PRD's sorts above every date.
 const recency = (issue: IssueRow): string => `${issue.closedAt ? toIso(issue.closedAt) ?? '' : '~'} ${toIso(issue.createdAt) ?? ''}`;
 const firstLine = (err: unknown): string => (err instanceof Error ? err.message : String(err)).split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('Command failed')).at(0) ?? 'refused';
+
+// PRD 1975: one tracked repository's pull requests merged into its default branch, each with its kind
+// and its reviewers. One that cannot be read has none; one with no readable merge time is skipped (F4).
+async function readMerged(exec: Exec, slug: string): Promise<MergedPr[]> {
+  const defaultBranch = lines(await soft(exec(['api', `repos/${slug}`, '--jq', '.default_branch'])))[0] ?? 'main';
+  const rows = MergedRows.parse(json(await soft(exec(['pr', 'list', '-R', slug, '--base', defaultBranch, '--state', 'merged', '--limit', '1000', '--json', MERGED_FIELDS]))));
+  return rows.flatMap((pr) => {
+    const mergedAt = toIso(pr.mergedAt);
+    if (!mergedAt) return [];
+    const author = personOf(pr.author);
+    const labels = (pr.labels ?? []).map((l) => l.name);
+    return [{ repo: slug, number: pr.number, title: pr.title, kind: author ? kindOf(pr.title, labels) : 'none', author, mergedAt, reviewers: reviewersOf(pr) }];
+  });
+}
+
+// What a merged pull request pays by, the first that matches: a phase-0 PR none; a retro or knowledge
+// PR docs; a feature or bug PR, or a title typed `feat` or `fix` as Conventional Commits writes it
+// (`feat: …`, `fix(scope)!: …`, any case), feat; anything else none. A bot's PR is none before this.
+const FEAT_TITLE = /^(?:feat|fix)(?:\([^)]*\))?!?:/i;
+function kindOf(title: string, labels: readonly string[]): MergedPrKind {
+  if (labels.includes('omni:phase-0')) return 'none';
+  if (labels.includes('omni:retro') || labels.includes('omni:knowledge')) return 'docs';
+  if (labels.includes('omni:feature') || labels.includes('omni:bug') || FEAT_TITLE.test(title.trim())) return 'feat';
+  return 'none';
+}
+
+// A merged pull request's reviewers: its approvers and its merger, each once, its author aside, no bot.
+function reviewersOf(pr: Pick<PrRow, 'author' | 'mergedBy' | 'latestReviews'>): string[] {
+  const merger = personOf(pr.mergedBy);
+  const author = personOf(pr.author);
+  return [...new Set([...approversOf(pr), ...(merger && merger !== author ? [merger] : [])])].sort();
+}
 
 // Multi-repository PRDs (PRD 728): in each tracked repository, the feature PRs into its default branch
 // whose body starts `Part of <owner>/<home>#<n>`. Each is one more region of that PRD. A repository is
@@ -405,7 +453,7 @@ function personOf(p: z.infer<typeof Person>): string | null {
 }
 
 // Who approved a feature PR: each reviewer whose latest review approves it, the PR's author aside.
-function approversOf(fp: PrRow): string[] {
+function approversOf(fp: Pick<PrRow, 'author' | 'latestReviews'>): string[] {
   const author = personOf(fp.author);
   const logins = (fp.latestReviews ?? []).filter((r) => r.state === 'APPROVED').map((r) => personOf(r.author));
   return [...new Set(logins.filter((l): l is string => Boolean(l) && l !== author))].sort();
