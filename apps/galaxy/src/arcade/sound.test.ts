@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MASCOTS } from '@omni/design';
-import { engine, engineHz, farOf, motif, setMuted, sfx, unlock, writtenMotif, type Sfx } from './sound';
+import { engine, engineHz, farOf, motif, screech, setMuted, sfx, unlock, writtenMotif, type Sfx } from './sound';
 import { sure } from './test/sure';
 
 // A fleet's motif is keyed by its mascot, never by its name (PRD 400): a workspace names its own
@@ -256,5 +256,43 @@ describe('the engine hum (PRD 1427)', () => {
     expect(master.target).toBe(0);
     engine(null);
     setMuted(false);
+  });
+});
+
+describe('the tyres\' screech (PRD 1963)', () => {
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal('window', { AudioContext: FakeAudio });
+    unlock();
+  });
+  afterAll(() => { screech(null); vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  it('is a second voice that follows the level, and stops on null or 0', () => {
+    audio.oscs = [];
+    screech(0.2);
+    screech(1);
+    expect(audio.oscs).toHaveLength(1);
+    const gain = sure(audio.gains.at(-1), 'the screech gain').gain;
+    const quiet = gain.value;
+    expect(gain.target).toBeGreaterThan(quiet);
+    screech(0);
+    expect(gain.target).toBe(0);
+    screech(null);
+    screech(0.5);
+    expect(audio.oscs).toHaveLength(2);
+    screech(null);
+  });
+
+  it('sounds nothing when muted: it goes through the master', () => {
+    const master = sure(audio.gains[0], 'the master gain').gain;
+    setMuted(true);
+    screech(1);
+    expect(master.target).toBe(0);
+    screech(null);
+    setMuted(false);
+  });
+
+  it('plays the new effects', () => {
+    for (const name of ['tickBlue', 'tickOrange', 'whoosh', 'sputter'] as const) expect(() => { sfx(name); }).not.toThrow();
   });
 });

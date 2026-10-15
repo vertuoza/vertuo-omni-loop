@@ -13,7 +13,9 @@ export type Sfx =
   // OMNI KART (PRD 1427): the countdown's beep and GO, one sound per item, a box, a hit, a spin-out, a fall into the void, the final lap.
   | KartSfx;
 
-type KartSfx = 'beep' | 'go' | 'boost' | 'blob' | 'orb' | 'box' | 'impact' | 'spin' | 'fall' | 'finalLap';
+type KartSfx = 'beep' | 'go' | 'boost' | 'blob' | 'orb' | 'box' | 'impact' | 'spin' | 'fall' | 'finalLap'
+  // PRD 1963: the sparks' ticks at blue and at orange, a whoosh at a mini-turbo, a rocket start or a slipstream, a sputter on a stall.
+  | 'tickBlue' | 'tickOrange' | 'whoosh' | 'sputter';
 
 type Wave = 'p25' | 'p12' | OscillatorType;
 
@@ -300,6 +302,40 @@ export function engine(level: number | null) {
   hum.osc.frequency.setTargetAtTime(engineHz(level), now, 0.08);
 }
 
+// The tyres' screech (PRD 1963): a second continuous voice under the music, beside the engine's hum, louder as `level` grows.
+const SCREECH_HZ = 1400;
+const SCREECH_GAIN = 0.05;
+let screeching: { osc: OscillatorNode; gain: GainNode } | null = null;
+
+/** The screech of the tyres, from 0 (silent) to 1 (loudest); `null` or 0 stops it. Muted, the master is silent, so it does not sound. */
+export function screech(level: number | null) {
+  if (!ac) return;
+  const now = ac.currentTime;
+  if (level === null || level <= 0) {
+    if (!screeching) return;
+    const old = screeching;
+    screeching = null;
+    old.gain.gain.setTargetAtTime(0, now, 0.04);
+    old.osc.stop(now + 0.3);
+    setTimeout(() => { old.osc.disconnect(); old.gain.disconnect(); }, 400);
+    return;
+  }
+  const loud = SCREECH_GAIN * Math.min(1, level);
+  const pitch = SCREECH_HZ * (1 + 0.3 * Math.min(1, level));
+  if (!screeching) {
+    const osc = ac.createOscillator(), gain = ac.createGain();
+    osc.type = 'square';
+    osc.frequency.value = pitch;
+    gain.gain.value = loud;
+    osc.connect(gain); gain.connect(master);
+    osc.start(now);
+    screeching = { osc, gain };
+    return;
+  }
+  screeching.gain.gain.setTargetAtTime(loud, now, 0.04);
+  screeching.osc.frequency.setTargetAtTime(pitch, now, 0.05);
+}
+
 /** One of OMNI KART's effects: written for the player, `p` times lower when it is a rival's. */
 type KartVoice = (o: AudioNode, t: number, p: number) => void;
 
@@ -322,6 +358,10 @@ const KART_SFX: Record<KartSfx, KartVoice> = {
   },
   spin: (o, t, p) => { note(o, 900 * p, t, 0.8, 'triangle', 0.06, { vib: 0.08, slideTo: 200 * p }); },
   fall: (o, t, p) => { note(o, 700 * p, t, 1, 'triangle', 0.06, { slideTo: 60 * p }); },
+  tickBlue: (o, t, p) => { note(o, 1100 * p, t, 0.04, 'p12', 0.04); },
+  tickOrange: (o, t, p) => { note(o, 1650 * p, t, 0.04, 'p12', 0.045); note(o, 1650 * p, t + 0.06, 0.04, 'p12', 0.04); },
+  whoosh: (o, t, p) => { hiss(o, t, 0.4, { type: 'bandpass', freq: 1800 * p, q: 0.7, gain: 0.3 }); note(o, 300 * p, t, 0.35, 'p25', 0.03, { slideTo: 1000 * p }); },
+  sputter: (o, t, p) => { [0, 0.09, 0.2, 0.34].forEach((d, i) => { note(o, (120 - i * 12) * p, t + d, 0.07, 'square', 0.05); hiss(o, t + d, 0.05, { type: 'lowpass', freq: 500 * p, gain: 0.3 }); }); },
   finalLap: (o, t, p) => { ['E5', 'G5', 'B5', 'E6', 'B5', 'E6'].forEach((n, i) => { note(o, hz(n) * p, t + i * 0.09, i > 4 ? 0.3 : 0.08, 'p25', 0.05); }); },
 };
 

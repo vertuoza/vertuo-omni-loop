@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
 import { NO_FX, tippedOver } from './kart';
-import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
+import { cuesOf, hudOf, newRace, pause, press, skidOf, step, type Race, type RaceEvent } from './race';
 import { advance, crossedAnyGate, progressOf, START_PACE } from './rivals';
 import { EIGHT, withFloor } from './track.fake';
 import { sure } from '../test/sure';
@@ -765,5 +765,166 @@ describe('a race with ice and powder', () => {
       for (let t = 0; t < 400 && !r.rivals.every((x) => x.pace.laps >= LAPS); t += 0.05) r = step(r, NONE, 0.05).race;
       expect(r.rivals.every((x) => x.pace.laps >= LAPS), difficulty).toBe(true);
     }
+  });
+});
+
+describe('the hop and the drift in the race (PRD 1963)', () => {
+  it('feeds the held up to the player\'s kart as HOP', () => {
+    const rolling = play(racing(), GAS, 3);
+    expect(rolling.fx.hop).toBeUndefined();
+    const hopped = play(rolling, new Set<Action>(['a', 'up']), 0.1);
+    expect(hopped.fx.hop).toBeGreaterThan(0);
+    expect(hopped.player.height ?? 0).toBe(0);
+  });
+
+  it('ends a drift when the race ends', () => {
+    const r = racing();
+    const drifting: Race = { ...r, player: { ...r.player, speed: RULES.topSpeed }, fx: { ...r.fx, drift: 1, charge: 1, hopHeld: true }, pace: { ...r.pace, laps: r.laps - 1 } };
+    const held = new Set<Action>(['a', 'up']);
+    expect(step(drifting, held, 0.05).race.fx.drift).toBe(1);
+    const done: Race = { ...drifting, pace: { ...drifting.pace, laps: r.laps } };
+    const end = step(done, held, 0.05).race;
+    expect(end.phase).toBe('finish');
+    expect(end.fx.drift).toBeUndefined();
+    expect(end.fx.charge).toBeUndefined();
+  });
+});
+
+describe('what the player hears of its own kart (PRD 1963)', () => {
+  const fast = (fx: Partial<Race['fx']>): Race => { const r = racing(); return { ...r, player: { ...r.player, speed: RULES.topSpeed }, fx: { ...r.fx, ...fx } }; };
+
+  it('ticks once as the charge turns blue and once as it turns orange', () => {
+    const held = new Set<Action>(['a', 'up']);
+    const ticks = (charge: number): unknown[] => {
+      const out: unknown[] = [];
+      let r = fast({ drift: 1, charge, hopHeld: true });
+      for (let i = 0; i < 6; i++) { const s = step(r, held, 0.05); out.push(...s.events.filter((e) => e.kind === 'tick')); r = s.race; }
+      return out;
+    };
+    expect(ticks(RULES.chargeBlue - 0.06)).toEqual([{ kind: 'tick', color: 'blue' }]);
+    expect(ticks(RULES.chargeOrange - 0.06)).toEqual([{ kind: 'tick', color: 'orange' }]);
+    expect(ticks(0.1)).toEqual([]);
+  });
+
+  it('whooshes when a drift is let go with a charge, and not when it is lost with none', () => {
+    const held = new Set<Action>(['a', 'up']);
+    const turbo = step(fast({ drift: 1, charge: RULES.chargeOrange + 0.1, hopHeld: true }), new Set<Action>(['a']), 0.05);
+    expect(turbo.events.filter((e) => e.kind === 'whoosh')).toHaveLength(1);
+    const none = step(fast({ drift: 1, charge: 0.1, hopHeld: true }), new Set<Action>(['a']), 0.05);
+    expect(none.events.some((e) => e.kind === 'whoosh')).toBe(false);
+    expect(step(fast({}), held, 0.05).events.some((e) => e.kind === 'whoosh')).toBe(false);
+  });
+
+  it('whooshes when a slipstream fires', () => {
+    const s = step(fast({ draft: RULES.draftTime - 0.01 }), GAS, 0.05);
+    const ahead = s.race.fx.draft === undefined && s.race.fx.boost > 0;
+    // The race has no kart ahead to draft behind: the count breaks, and a break with no BOOST is silent.
+    expect(s.events.some((e) => e.kind === 'whoosh')).toBe(ahead);
+  });
+
+  it('whooshes at a rocket start and sputters on a stall, each with GO', () => {
+    const counted = (idle: number) => play(play(started(newRace({ seed: 7 })), NONE, idle), GAS, RULES.countdown - idle - 0.05);
+    expect(step(counted(1.2), GAS, 0.05).events).toEqual([{ kind: 'go' }, { kind: 'whoosh' }]);
+    expect(step(counted(0.2), GAS, 0.05).events).toEqual([{ kind: 'go' }, { kind: 'sputter' }]);
+    expect(step(counted(2.2), GAS, 0.05).events).toEqual([{ kind: 'go' }]);
+  });
+
+  it('screeches over the skid gap or in a drift, louder as the gap grows, and not in the air or at rest', () => {
+    const r = racing();
+    const kart = (gap: number, speed: number = RULES.topSpeed) => ({ ...r.player, speed, travel: r.player.angle - gap });
+    expect(skidOf(kart(0.1), r.fx)).toBe(0);
+    expect(skidOf(kart(0.2), r.fx)).toBeGreaterThan(0);
+    expect(skidOf(kart(0.5), r.fx)).toBeGreaterThan(skidOf(kart(0.2), r.fx));
+    expect(skidOf(kart(5), r.fx)).toBeLessThanOrEqual(1);
+    expect(skidOf(kart(0), { ...r.fx, drift: 1, charge: 0 })).toBeGreaterThan(0);
+    expect(skidOf(kart(0.5, 0), r.fx)).toBe(0);
+    expect(skidOf(kart(0.5), { ...r.fx, hop: 0.1 })).toBe(0);
+  });
+
+  it('turns each event into its cue', () => {
+    expect(cuesOf({ kind: 'tick', color: 'blue' }, 0)).toEqual([{ kind: 'tick', color: 'blue' }]);
+    expect(cuesOf({ kind: 'whoosh' }, 0)).toEqual([{ kind: 'whoosh' }]);
+    expect(cuesOf({ kind: 'sputter' }, 0)).toEqual([{ kind: 'sputter' }]);
+  });
+});
+
+describe('the rocket start (PRD 1963)', () => {
+  /** The countdown played with GAS up for `idle` seconds then down, then GO's step and `after` more seconds of race. */
+  const launch = (idle: number, after = 0, seed = 7): Race => {
+    const counted = play(play(started(newRace({ seed })), NONE, idle), GAS, RULES.countdown - idle - 0.05);
+    const go = step(counted, GAS, 0.05).race;
+    return play(go, GAS, after);
+  };
+
+  it('gives a BOOST of 0.8 seconds, and TURBO under GO, to GAS pressed last during the 2', () => {
+    const go = launch(1.2);
+    expect(go.phase).toBe('race');
+    expect(go.fx.boost).toBe(RULES.rocketTime);
+    expect(hudOf(go).turbo).toBe(true);
+    expect(go.stall).toBeUndefined();
+    expect(launch(1.2, 0.5).fx.boost).toBeGreaterThan(0);
+    expect(launch(1.2, 0.85).fx.boost).toBe(0);
+  });
+
+  it('stalls the engine for 0.5 seconds when GAS goes down during the 3, or is held since the countdown began', () => {
+    for (const idle of [0.2, 0]) {
+      const go = launch(idle);
+      expect(go.stall).toBe(RULES.stallTime);
+      expect(go.fx.boost).toBe(0);
+      expect(hudOf(go).turbo).toBeUndefined();
+      const moved = play(go, GAS, 0.4);
+      expect(moved.player.speed).toBe(0);
+      expect([moved.player.x, moved.player.y]).toEqual([go.player.x, go.player.y]);
+      expect(play(go, GAS, 1).player.speed).toBeGreaterThan(0);
+    }
+  });
+
+  it('is a normal start for GAS pressed during the 1, or not held at GO', () => {
+    for (const go of [launch(2.2), step(play(started(), NONE, RULES.countdown - 0.05), NONE, 0.05).race]) {
+      expect(go.fx.boost).toBe(0);
+      expect(go.stall).toBeUndefined();
+      expect(hudOf(go).turbo).toBeUndefined();
+    }
+  });
+
+  it('counts only the last press: GAS pressed during the 3, let go and pressed during the 2, is a rocket start', () => {
+    const early = play(started(), GAS, 0.3);
+    const lifted = play(early, NONE, 1);
+    const counted = play(lifted, GAS, RULES.countdown - 1.3 - 0.05);
+    const go = step(counted, GAS, 0.05).race;
+    expect(go.fx.boost).toBe(RULES.rocketTime);
+    expect(go.stall).toBeUndefined();
+  });
+
+  it('draws the rivals\' rocket starts from the seed at 0.2, 0.4 and 0.7 by level, and a rival never stalls', () => {
+    const share = (difficulty: 'easy' | 'normal' | 'hard') => {
+      let all = 0;
+      let rockets = 0;
+      for (let seed = 1; seed <= 200; seed++) {
+        const go = step(play(started(newRace({ seed, difficulty })), NONE, RULES.countdown - 0.05), NONE, 0.05).race;
+        for (const r of go.rivals) { all++; if ((r.fx?.boost ?? 0) === RULES.rocketTime) rockets++; expect(r.fx?.spin ?? 0).toBe(0); }
+      }
+      return rockets / all;
+    };
+    expect(share('easy')).toBeCloseTo(0.2, 1);
+    expect(share('normal')).toBeCloseTo(0.4, 1);
+    expect(share('hard')).toBeCloseTo(0.7, 1);
+    const again = (seed: number) => step(play(started(newRace({ seed })), NONE, RULES.countdown - 0.05), NONE, 0.05).race.rivals.map((r) => r.fx?.boost);
+    expect(again(42)).toEqual(again(42));
+  });
+});
+
+describe('the slipstream in a race (PRD 1963)', () => {
+  it('builds for a rival behind the player, and for the player behind a rival', () => {
+    const r = racing();
+    const rival = first(r.rivals);
+    const lead = { ...r.player, speed: 100 };
+    const tail = { ...rival.kart, x: lead.x - Math.cos(lead.angle) * 20, y: lead.y - Math.sin(lead.angle) * 20, angle: lead.angle, speed: 100 };
+    const set: Race = { ...r, player: lead, rivals: [{ ...rival, kart: tail }, ...r.rivals.slice(1)] };
+    const next = step(set, NONE, 0.01).race;
+    expect(first(next.rivals).fx?.draft).toBeGreaterThan(0);
+    expect(next.fx.draft).toBeUndefined();
+    const flipped: Race = { ...r, rivals: [{ ...rival, kart: { ...lead, speed: 100 } }, ...r.rivals.slice(1)], player: { ...tail, speed: 100 } };
+    expect(step(flipped, NONE, 0.01).race.fx.draft).toBeGreaterThan(0);
   });
 });
