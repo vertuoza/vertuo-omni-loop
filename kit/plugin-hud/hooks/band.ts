@@ -79,18 +79,19 @@ function asWait(value: unknown): HudWait | null | undefined {
   return { line, toast, until }
 }
 
-const SYNC_STATUSES = ['blue', 'red', 'orange', 'green']
+const SYNC_STATUSES = ['blue', 'red', 'orange', 'green'] as const
+
+const asSyncStatus = (value: unknown): HudSync['status'] | null => SYNC_STATUSES.find((status) => status === value) ?? null
 
 function asSync(value: unknown): HudSync | null | undefined {
   if (value === null) return null
   if (!isRecord(value)) return undefined
   const { status, headline, checkedAt, setupDone } = value
-  if (typeof status !== 'string' || !SYNC_STATUSES.includes(status) || typeof checkedAt !== 'string') return undefined
+  const known = asSyncStatus(status)
+  if (known === null || typeof checkedAt !== 'string') return undefined
   if (headline !== null && typeof headline !== 'string') return undefined
   if (setupDone !== undefined && typeof setupDone !== 'number') return undefined
-  const sync = { status, headline, checkedAt } as HudSync
-  if (setupDone !== undefined) sync.setupDone = setupDone
-  return sync
+  return { status: known, headline, checkedAt, ...(setupDone === undefined ? {} : { setupDone }) }
 }
 
 /** `omni now --json`'s stdout as an answer, or `null` when it does not parse or has another shape. */
