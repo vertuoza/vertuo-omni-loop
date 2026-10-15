@@ -37,6 +37,8 @@ export const RULES = Object.freeze({
   driftWide: 0.9,
   driftGrip: 0.8,
   driftSlip: 0.45,
+  /** PRD 1963: a kart leaves skid marks once its travel is `skidGap` radian off its heading (or a drift runs). */
+  skidGap: 0.15,
   chargeBlue: 0.8,
   chargeOrange: 1.8,
   miniBlue: 0.5,

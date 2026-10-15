@@ -13,7 +13,7 @@ import { H, nebulaFor, pedestal, sprite, stars, W, type FrameState } from '../sc
 import { TILE } from './track';
 import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
 import { hopLift, leanOf, NO_FX, type Kart } from './kart';
-import { newParticles, spawnsOf, stepParticles, type Particle, type Particles } from './fx';
+import { marksOf, newParticles, sparkOf, spawnsOf, stepMarks, stepParticles, MARK_LIFE, type Mark, type Particle, type Particles } from './fx';
 import { chaseCamera, depthAt, project, renderTerrain, roofedOf, skyShift, spritesInView, viewOf, type Deck, type Projected, type Texture, type View } from './mode7';
 import { groundAt, heightsOf, reliefRange } from './relief';
 import type { GridSession, RaceStart } from './hub';
@@ -25,7 +25,7 @@ import { COLORS, DEFAULT_LOOK, kartSprite, kartTint, type KartLook, type KartVie
 import type { Driver, Rival } from './rivals';
 import { deckOf, paintTrack } from './texture';
 import { isSnow, lakeTiles, snowfall, snowProp, snowScenery, snowSky, woodArchLeg, type SnowKind } from './art.snow';
-import { parseTrack, roadAt, roofAt, tileAt, type PropKind, type Track } from './track';
+import { parseTrack, roadAt, roofAt, surfaceAt, tileAt, type PropKind, type Track } from './track';
 import { circuitOf } from './circuits';
 
 /** A buffer the floor is rendered into, how far each of its pixels is (Infinity where it shows no road), and the canvas it is drawn from. */
@@ -603,9 +603,32 @@ function thrownItem(ctx: CanvasRenderingContext2D, s: FrameState, at: Projected,
 }
 
 /** How a particle looks: its colour (a theme token, so it follows the theme) and its size in world pixels. */
-const PARTICLE: Readonly<Record<Particle['kind'], { token: 'yellow' | 'white' | 'cyan' | 'gold'; size: number }>> = {
+const PARTICLE: Readonly<Record<Particle['kind'], { token: 'yellow' | 'white' | 'cyan' | 'gold' | 'void'; size: number }>> = {
   trail: { token: 'cyan', size: 2.4 }, burst: { token: 'gold', size: 2.4 }, flash: { token: 'white', size: 3 },
+  snow: { token: 'white', size: 1.6 }, blue: { token: 'cyan', size: 1.8 }, orange: { token: 'gold', size: 1.8 }, wind: { token: 'white', size: 1.2 }, smoke: { token: 'void', size: 3 },
 };
+
+/** The skid marks on the floor, each fading out over `MARK_LIFE` seconds: white on ice and powder, dark on road. They do not move, so reduced motion keeps them. */
+function marksOnFloor(ctx: CanvasRenderingContext2D, s: FrameState, v: View, marks: readonly Mark[], track: Track) {
+  const seen = spritesInView(v, marks, (m) => groundAt(track, m.x, m.y));
+  for (const { sprite: m, at } of seen) {
+    const size = Math.max(1, Math.round(1.6 * at.scale));
+    ctx.globalAlpha = Math.max(0, 1 - m.age / MARK_LIFE) * 0.8;
+    ctx.fillStyle = m.pale ? s.theme.white : s.theme['navy-dark'];
+    ctx.fillRect(Math.round(at.sx - size / 2), Math.round(at.sy - size / 2), size, size);
+  }
+  ctx.globalAlpha = 1;
+}
+
+/** With motion reduced, a drifting kart's sparks stand as a still glow in their colour at its rear wheels: they tell the charge. */
+function sparkGlow(ctx: CanvasRenderingContext2D, s: FrameState, race: Race) {
+  const spark = sparkOf(race.fx.drift === undefined ? undefined : race.fx.charge);
+  if (!s.reduced || !spark) return;
+  const scale = s.grid.w >= W ? 4 : 2;
+  const y = s.grid.h - 18 * scale - KART_FOOT + 16 * scale, x = s.grid.w / 2;
+  ctx.fillStyle = s.theme[spark === 'blue' ? 'cyan' : 'gold'];
+  for (const dx of [-5, 5]) ctx.fillRect(Math.round(x + dx * scale - scale), Math.round(y - scale), scale * 2, scale * 2);
+}
 
 /** The particles on the floor, near ones over far ones, each fading as it ages. None is drawn when motion is reduced: a frozen trail is noise. */
 function particlesOn(ctx: CanvasRenderingContext2D, s: FrameState, v: View, particles: Particles, track: Track) {
@@ -635,6 +658,7 @@ export function createKart({ seed, cast = [], circuit, track, live, held, laps, 
   let race = held ? { ...first, fx: { ...first.fx, item: held } } : first;
   let texture: Texture | null = null;
   let particles = newParticles(seed);
+  let marks: Mark[] = [];
   let ground: Ground | null = null;
   let tiles: MinimapTile[] | null = null;
   const tilesOf = (range: { low: number; high: number }): MinimapTile[] => (tiles ??= minimapTiles(track, range));
@@ -754,7 +778,11 @@ export function createKart({ seed, cast = [], circuit, track, live, held, laps, 
       const before = race;
       const r = step(race, held, dt);
       race = r.race;
-      if (before.phase === 'race') particles = stepParticles(particles, spawnsOf(before, race, r.events), dt);
+      if (before.phase === 'race') {
+        const under = (x: number, y: number) => surfaceAt(track, x, y);
+        particles = stepParticles(particles, spawnsOf(before, race, r.events, under), dt);
+        marks = stepMarks(marks, marksOf(race, under), dt);
+      }
       tell(r.events);
       if (live) return speak(live, before.phase, dt, r.events);
       const done = r.events.find((e) => e.kind === 'finish');
@@ -812,8 +840,10 @@ export function createKart({ seed, cast = [], circuit, track, live, held, laps, 
         else scenery(ctx, s, v, track, looks, thing, at);
         if (hid) ctx.restore();
       }
+      marksOnFloor(ctx, s, v, marks, track);
       particlesOn(ctx, s, v, particles, track);
       playerKart(ctx, s, race, shadeUnder(v, track, race.player));
+      sparkGlow(ctx, s, race);
       if (isSnow(track)) snowfall(ctx, s, v, seed);
       minimap(ctx, s, track, tilesOf(range), race);
     },
