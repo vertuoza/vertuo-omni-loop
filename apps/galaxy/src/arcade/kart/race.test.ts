@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
 import { NO_FX, tippedOver } from './kart';
-import { cuesOf, hudOf, newRace, pause, press, step, type Race, type RaceEvent } from './race';
+import { cuesOf, hudOf, newRace, pause, press, skidOf, step, type Race, type RaceEvent } from './race';
 import { advance, crossedAnyGate, progressOf, START_PACE } from './rivals';
 import { EIGHT, withFloor } from './track.fake';
 import { sure } from '../test/sure';
@@ -787,6 +787,64 @@ describe('the hop and the drift in the race (PRD 1963)', () => {
     expect(end.phase).toBe('finish');
     expect(end.fx.drift).toBeUndefined();
     expect(end.fx.charge).toBeUndefined();
+  });
+});
+
+describe('what the player hears of its own kart (PRD 1963)', () => {
+  const fast = (fx: Partial<Race['fx']>): Race => { const r = racing(); return { ...r, player: { ...r.player, speed: RULES.topSpeed }, fx: { ...r.fx, ...fx } }; };
+
+  it('ticks once as the charge turns blue and once as it turns orange', () => {
+    const held = new Set<Action>(['a', 'up']);
+    const ticks = (charge: number): unknown[] => {
+      const out: unknown[] = [];
+      let r = fast({ drift: 1, charge, hopHeld: true });
+      for (let i = 0; i < 6; i++) { const s = step(r, held, 0.05); out.push(...s.events.filter((e) => e.kind === 'tick')); r = s.race; }
+      return out;
+    };
+    expect(ticks(RULES.chargeBlue - 0.06)).toEqual([{ kind: 'tick', color: 'blue' }]);
+    expect(ticks(RULES.chargeOrange - 0.06)).toEqual([{ kind: 'tick', color: 'orange' }]);
+    expect(ticks(0.1)).toEqual([]);
+  });
+
+  it('whooshes when a drift is let go with a charge, and not when it is lost with none', () => {
+    const held = new Set<Action>(['a', 'up']);
+    const turbo = step(fast({ drift: 1, charge: RULES.chargeOrange + 0.1, hopHeld: true }), new Set<Action>(['a']), 0.05);
+    expect(turbo.events.filter((e) => e.kind === 'whoosh')).toHaveLength(1);
+    const none = step(fast({ drift: 1, charge: 0.1, hopHeld: true }), new Set<Action>(['a']), 0.05);
+    expect(none.events.some((e) => e.kind === 'whoosh')).toBe(false);
+    expect(step(fast({}), held, 0.05).events.some((e) => e.kind === 'whoosh')).toBe(false);
+  });
+
+  it('whooshes when a slipstream fires', () => {
+    const s = step(fast({ draft: RULES.draftTime - 0.01 }), GAS, 0.05);
+    const ahead = s.race.fx.draft === undefined && s.race.fx.boost > 0;
+    // The race has no kart ahead to draft behind: the count breaks, and a break with no BOOST is silent.
+    expect(s.events.some((e) => e.kind === 'whoosh')).toBe(ahead);
+  });
+
+  it('whooshes at a rocket start and sputters on a stall, each with GO', () => {
+    const counted = (idle: number) => play(play(started(newRace({ seed: 7 })), NONE, idle), GAS, RULES.countdown - idle - 0.05);
+    expect(step(counted(1.2), GAS, 0.05).events).toEqual([{ kind: 'go' }, { kind: 'whoosh' }]);
+    expect(step(counted(0.2), GAS, 0.05).events).toEqual([{ kind: 'go' }, { kind: 'sputter' }]);
+    expect(step(counted(2.2), GAS, 0.05).events).toEqual([{ kind: 'go' }]);
+  });
+
+  it('screeches over the skid gap or in a drift, louder as the gap grows, and not in the air or at rest', () => {
+    const r = racing();
+    const kart = (gap: number, speed: number = RULES.topSpeed) => ({ ...r.player, speed, travel: r.player.angle - gap });
+    expect(skidOf(kart(0.1), r.fx)).toBe(0);
+    expect(skidOf(kart(0.2), r.fx)).toBeGreaterThan(0);
+    expect(skidOf(kart(0.5), r.fx)).toBeGreaterThan(skidOf(kart(0.2), r.fx));
+    expect(skidOf(kart(5), r.fx)).toBeLessThanOrEqual(1);
+    expect(skidOf(kart(0), { ...r.fx, drift: 1, charge: 0 })).toBeGreaterThan(0);
+    expect(skidOf(kart(0.5, 0), r.fx)).toBe(0);
+    expect(skidOf(kart(0.5), { ...r.fx, hop: 0.1 })).toBe(0);
+  });
+
+  it('turns each event into its cue', () => {
+    expect(cuesOf({ kind: 'tick', color: 'blue' }, 0)).toEqual([{ kind: 'tick', color: 'blue' }]);
+    expect(cuesOf({ kind: 'whoosh' }, 0)).toEqual([{ kind: 'whoosh' }]);
+    expect(cuesOf({ kind: 'sputter' }, 0)).toEqual([{ kind: 'sputter' }]);
   });
 });
 
