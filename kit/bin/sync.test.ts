@@ -92,8 +92,8 @@ describe('omni sync', () => {
       '🟢 In sync',
       '  main       🟢 on main, up to date with origin/main',
       '  kit        🟢 n/a · not checked yet',
-      '  knowledge  🟢 n/a · not checked yet',
-      '  page       🟢 n/a · not checked yet',
+      '  knowledge  🟢 in sync',
+      '  page       🟢 n/a · no Omni page',
       '',
     ].join('\n'));
     expect(cacheOf(root)).toMatchObject({ status: 'green', headline: null, setup: null, fix: null });
@@ -129,8 +129,8 @@ describe('omni sync', () => {
       '🔴 Out of sync · main is 1 behind, the oldest 2 d old',
       '  main       🔴 main is 1 behind, the oldest 2 d old → omni sync --fix',
       '  kit        🟢 n/a · not checked yet',
-      '  knowledge  🟢 n/a · not checked yet',
-      '  page       🟢 n/a · not checked yet',
+      '  knowledge  🟢 in sync',
+      '  page       🟢 n/a · no Omni page',
       'fix: omni sync --fix  (fast-forwards main)',
       '',
     ]);
