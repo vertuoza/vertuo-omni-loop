@@ -39,7 +39,7 @@ function featureGitHub() {
 
 /** Every call refused by the budget, unsent, the refusal wrapped as Octokit wraps it. */
 const refusedBy = (refusal: Error) => ({
-  request: (_route: string, _params?: Params) => Promise.reject(Object.assign(new Error(refusal.message), { status: 500, cause: refusal })),
+  request: () => Promise.reject(Object.assign(new Error(refusal.message), { status: 500, cause: refusal })),
 });
 
 /** A feature PR whose check the in-progress step opened, then whose evaluation failed. */
