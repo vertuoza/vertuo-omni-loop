@@ -271,15 +271,14 @@ async function evaluateAt(
  * `skipped` instead (issue 876), or `success` on a target feature PR (issue 1202), but `failure` on a
  * product PRD's target PR, whose outbox the check grades (PRD 1548 s8). Inngest hands it the original event under
  * `event.data.event` and the final error.
+ *
+ * A call the installation's budget refuses (PRD 902) is never swallowed: the handler waits for the
+ * budget as the check's steps do, retried once it allows the call, so the check run the step
+ * "in-progress" opened is completed then, never left `in_progress` (issue 1970).
  */
-export function createFailureHandler({ octokitFor }: { octokitFor: OctokitFor<GitHubClient> }) {
-  return onFailedRun(octokitFor, async ({ octokit, request: { owner, repo, prNumber, headSha }, reason }) => {
-    let target: CheckTarget | null = null;
-    try {
-      target = await checkTarget(octokit, { owner, repo, prNumber, headSha });
-    } catch {
-      // The failure may be GitHub itself: what the pull request is stays unknown.
-    }
+export function createFailureHandler({ octokitFor, log = noteTo('outbox-check') }: { octokitFor: OctokitFor<GitHubClient>; log?: (line: string) => void }) {
+  return onFailedRun(octokitFor, ({ octokit, request: { owner, repo, prNumber, headSha }, reason }) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log, async () => {
+    const target = await targetOrUnknown(octokit, { owner, repo, prNumber, headSha });
     if (target && !target.active) return { ...SILENT };
     if (target && !target.gated) return completeUngated(octokit, { owner, repo, headSha, target, reason });
     // Gated, or unknown: an open check run of this name was started by step "in-progress", on a gated
@@ -290,15 +289,35 @@ export function createFailureHandler({ octokitFor }: { octokitFor: OctokitFor<Gi
       return { checkRunIds, name: target.name, reason };
     }
     const name = DEFAULT_CHECK_NAME;
-    let checkRunIds: number[] = [];
-    try {
-      checkRunIds = await completeAsFailure(octokit, { owner, repo, headSha, name, reason, create: false });
-    } catch {
-      // GitHub still refuses: there is nothing this handler can safely write.
-    }
+    const checkRunIds = await openRunsFailed(octokit, { owner, repo, headSha, name, reason });
     if (checkRunIds.length === 0) return { posted: false, reason: UNKNOWN_PR };
     return { checkRunIds, name, reason };
-  });
+  }));
+}
+
+/** What the pull request is to the check, or null when GitHub cannot say; a budget's refusal is thrown, never swallowed. */
+async function targetOrUnknown(octokit: GitHubClient, at: { owner: string; repo: string; prNumber: PrNumber; headSha: string }): Promise<CheckTarget | null> {
+  try {
+    return await checkTarget(octokit, at);
+  } catch (error) {
+    if (budgetRefusal(error)) throw error;
+    // The failure may be GitHub itself: what the pull request is stays unknown.
+    return null;
+  }
+}
+
+/** The open check runs of `name` completed as failure, none created; `[]` when GitHub refuses, but a budget's refusal is thrown. */
+async function openRunsFailed(
+  octokit: GitHubClient,
+  at: { owner: string; repo: string; headSha: string; name: string; reason: unknown },
+): Promise<number[]> {
+  try {
+    return await completeAsFailure(octokit, { ...at, create: false });
+  } catch (error) {
+    if (budgetRefusal(error)) throw error;
+    // GitHub still refuses: there is nothing this handler can safely write.
+    return [];
+  }
 }
 
 /**
