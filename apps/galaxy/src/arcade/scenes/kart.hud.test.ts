@@ -45,3 +45,11 @@ describe('the HUD in game frames', () => {
     expect(reduced).toMatch(/\.kt-final[^{]*\{?[^}]*animation:\s*none/);
   });
 });
+
+describe('TURBO under GO (PRD 1963)', () => {
+  it('shows under GO on a rocket start, and not otherwise', () => {
+    expect(html({ phase: 'race', beat: 'GO', turbo: true })).toContain('>TURBO<');
+    expect(html({ phase: 'race', beat: 'GO' })).not.toContain('TURBO');
+    expect(html({ phase: 'countdown', beat: '2' })).not.toContain('TURBO');
+  });
+});

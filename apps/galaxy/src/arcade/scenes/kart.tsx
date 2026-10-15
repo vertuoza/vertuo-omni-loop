@@ -293,13 +293,24 @@ function RaceNotes({ hud, back }: { hud: KartHud; back: string }) {
 }
 
 /** The countdown, the race's line and the pause. */
+/** The countdown's number or GO over the road, and under GO on a rocket start (PRD 1963) TURBO. */
+function Beat({ hud }: { hud: KartHud }) {
+  if (!hud.beat) return null;
+  return (
+    <>
+      <p className={`kt-beat${hud.beat === 'GO' ? ' kt-go' : ''}`} key={hud.beat} role="status">{hud.beat}</p>
+      {hud.beat === 'GO' && hud.turbo && <p className="kt-turbo" role="status">TURBO</p>}
+    </>
+  );
+}
+
 function RaceScreen({ hud, back, keys }: { hud: KartHud; back: string; keys?: KartOptions['keys'] | undefined }) {
   const { form } = useScreen();
   // The player's keys drive on a keyboard; the Game Boy's pad keeps A and B.
   const own = form === 'full' ? keys : undefined;
   return (
     <div className="kt">
-      {hud.beat && <p className={`kt-beat${hud.beat === 'GO' ? ' kt-go' : ''}`} key={hud.beat} role="status">{hud.beat}</p>}
+      <Beat hud={hud} />
       {own && hud.phase === 'countdown' && <p className="kt-keys" data-keys="line">{driveLine(own)}</p>}
       {hud.run && <RaceLine run={hud.run} item={own?.item} />}
       <RaceNotes hud={hud} back={back} />

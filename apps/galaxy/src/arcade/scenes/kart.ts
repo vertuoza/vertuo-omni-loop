@@ -25,6 +25,8 @@ export interface KartHud {
   /** In a MULTI race (PRD 1572): whether the race's menu (BACK TO RACE / LEAVE RACE) is open over the race. Absent in a SINGLE race. */
   menu?: boolean;
   beat: '3' | '2' | '1' | 'GO' | null;
+  /** PRD 1963: `TURBO` shows under GO on a rocket start. */
+  turbo?: true;
   /** The race's own line, once it has begun: the player's place (1 to 6), the lap (1 to `laps`), the race time in tenths of a second and whether FINAL LAP shows. */
   run?: KartRun;
   /** The results table, once the player crossed the line at the end of the last lap. */

@@ -17,7 +17,7 @@ import { endDrift, fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart,
 import { slopeAt } from './relief';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
 import { RULES, type Difficulty } from './rules';
-import { advance, aimOf, approachesRamp, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
+import { advance, aimOf, draw, approachesRamp, comeBack, driveRival, lapOf, progressOf, pushApart, rivalTraits, START_PACE, type Driver, type Pace, type Rival } from './rivals';
 import { carryAlong, LAPS, parseTrack, PLACES, type Track } from './track';
 
 /** Frames add up to a countdown's end only to within what a float keeps. */
@@ -78,6 +78,14 @@ export interface Race {
   readonly podium?: boolean;
   /** MULTI: every other player's driver by id, kept after they cross the line, to draw them on the podium. */
   readonly drivers?: Readonly<Record<string, Driver>>;
+  /** PRD 1963, the rocket start: the countdown second (0 the 3, 1 the 2, 2 the 1) in which GAS last went down, and whether GAS was down at the last step; none before GAS is first held. */
+  readonly gasAt?: number;
+  readonly gasHeld?: boolean;
+  /** Whether each CPU rival's start is a rocket start, drawn from the seed (none in MULTI). */
+  readonly rockets?: readonly boolean[];
+  /** The player's start at GO: a rocket start (`TURBO` shows under GO), and the seconds the engine still stalls. */
+  readonly rocket?: true;
+  readonly stall?: number;
 }
 
 /**
@@ -124,8 +132,21 @@ export function newRace({ seed, track = parseTrack(), cast = [], field, difficul
     const trait = traits[i] ?? { skill: 1, offset: 0 };
     return { driver, kart: kartAt(place.x, place.y, track.heading), pace: START_PACE, fx: NO_FX, ...trait };
   });
-  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, difficulty, laps, ...(look ? { look } : {}), threeAt: null, finalAt: null, menu: false, slot: 0, gone: [], self: '', thrown: 0, finished: {}, names: {}, finish: null };
+  return { seed, mode: 'single', track, phase: 'ready', resume: 'race', clock: 0, player: kartAt(start.x, start.y, track.heading), fx: NO_FX, items: newWorld(track, seed), pace: START_PACE, rivals, rockets: rocketsOf(seed, rivals.length, difficulty), difficulty, laps, ...(look ? { look } : {}), threeAt: null, finalAt: null, menu: false, slot: 0, gone: [], self: '', thrown: 0, finished: {}, names: {}, finish: null };
 }
+
+/** Which rivals start with a rocket start, drawn from the race's seed on a stream of its own (the rivals' skills stay as they were): the level's chance each. */
+function rocketsOf(seed: number, count: number, level: Difficulty): boolean[] {
+  let state = (seed | 0) ^ 0x1f3a5c7;
+  return Array.from({ length: count }, () => {
+    const [u, next] = draw(state);
+    state = next;
+    return u < RULES.levels[level].rocket;
+  });
+}
+
+/** The countdown second a clock is in: 0 for the 3, 1 for the 2, 2 for the 1. */
+const secondOf = (clock: number): number => Math.min(RULES.countdown - 1, Math.floor(clock + EPSILON));
 
 /** The players of a MULTI race in their starting order, and which of them is the one at this screen. */
 export interface Field { me: string; order: readonly GridPlayer[]; /** How many laps the grid runs (PRD 1762); 3 when not given. */ laps?: number }
@@ -409,6 +430,26 @@ function stepRace(race: Race, held: ReadonlySet<Action>, t: number): Stepped {
   return { race: { ...next, fx: endDrift(next.fx), phase: 'finish', finish, podium: true }, events: [...events, { kind: 'finish', tenths: finish.threeLap }] };
 }
 
+/** A race step in which an engine that stalls (PRD 1963) holds the kart still, whatever is held, until its seconds are out. */
+function stepStalled(race: Race, held: ReadonlySet<Action>, t: number): Stepped {
+  if (!race.stall) return stepRace(race, held, t);
+  const stepped = stepRace(race, NONE, t);
+  return { ...stepped, race: { ...stepped.race, stall: Math.max(0, race.stall - t) } };
+}
+
+/** The countdown's GAS after a step: when it last went down (GAS already held at the first step counts as the 3), and whether it is down now. */
+function gasOf(race: Race, held: ReadonlySet<Action>, clock: number): Pick<Race, 'gasAt' | 'gasHeld'> {
+  const down = held.has('a');
+  const pressed = down && race.gasHeld !== true;
+  return { gasHeld: down, ...(pressed ? { gasAt: race.gasHeld === undefined ? 0 : secondOf(clock) } : race.gasAt === undefined ? {} : { gasAt: race.gasAt }) };
+}
+
+/** The player's start at GO (PRD 1963): GAS held and last pressed during the 2 is a rocket start, during the 3 a stall, during the 1 or not held a normal start. */
+function startOf(race: Race, held: ReadonlySet<Action>): { rocket: boolean; stall: boolean } {
+  const down = held.has('a');
+  return { rocket: down && race.gasAt === 1, stall: down && race.gasAt === 0 };
+}
+
 /** Plays `dt` seconds (no more than `RULES.maxDt` of them) with the buttons held. Before GO, and paused, nothing moves. */
 export function step(race: Race, held: ReadonlySet<Action>, dt: number): Stepped {
   const t = Math.min(Math.max(dt, 0), RULES.maxDt);
@@ -417,13 +458,17 @@ export function step(race: Race, held: ReadonlySet<Action>, dt: number): Stepped
     if (clock < RULES.countdown - EPSILON) {
       // Each second of the countdown names the next number: 3 is told by START, 2 and 1 here.
       const events = BEATS.flatMap((beat, i): RaceEvent[] => (i > 0 && race.clock < i - EPSILON && clock >= i - EPSILON ? [{ kind: 'beat', beat }] : []));
-      return { race: { ...race, clock }, events };
+      return { race: { ...race, clock, ...gasOf(race, held, clock) }, events };
     }
     // GO: the race clock starts at this player's own GO, so what is heard before it is heard at 0.
-    const rivals = race.rivals.map((r) => (r.heard ? { ...r, heard: { ...r.heard, at: 0 } } : r));
-    return { race: { ...race, phase: 'race', clock: 0, rivals }, events: [{ kind: 'go' }] };
+    const start = startOf({ ...race, ...gasOf(race, held, RULES.countdown) }, held);
+    const rivals = race.rivals.map((r, i) => {
+      const heard = r.heard ? { ...r, heard: { ...r.heard, at: 0 } } : r;
+      return race.rockets?.[i] ? { ...heard, fx: { ...(heard.fx ?? NO_FX), boost: RULES.rocketTime } } : heard;
+    });
+    return { race: { ...race, phase: 'race', clock: 0, rivals, fx: start.rocket ? { ...race.fx, boost: RULES.rocketTime } : race.fx, ...(start.rocket ? { rocket: true as const } : {}), ...(start.stall ? { stall: RULES.stallTime } : {}) }, events: [{ kind: 'go' }] };
   }
-  if (race.phase === 'race') return stepRace(race, held, t);
+  if (race.phase === 'race') return stepStalled(race, held, t);
   return { race: race.phase === 'finish' && race.mode === 'multi' ? waitOnResults(race, t) : race, events: [] };
 }
 
@@ -488,6 +533,9 @@ export function pause(race: Race): Race {
   return race.phase === 'countdown' || race.phase === 'race' ? { ...race, phase: 'paused', resume: race.phase } : race;
 }
 
+/** `TURBO` under GO on a rocket start (PRD 1963). */
+const turboOf = (race: Race, beat: string | null): { turbo?: true } => (race.rocket === true && beat === 'GO' ? { turbo: true } : {});
+
 /** What the text layer shows of the race: its phase, and the countdown's number or the GO that follows it. */
 export function hudOf(race: Race): KartHud {
   const { phase } = race;
@@ -500,7 +548,7 @@ export function hudOf(race: Race): KartHud {
   const beat = race.phase === 'race' && race.clock < RULES.goBanner ? 'GO' : null;
   if (race.phase !== 'race' && race.phase !== 'paused') return { phase, beat };
   const final = race.finalAt !== null && race.clock - race.finalAt < RULES.finalBanner;
-  return { phase, beat, ...(race.mode === 'multi' ? { menu: race.menu } : {}), run: { place: placeOf(race), lap: lapOf(race.pace, race.laps), laps: race.laps, tenths: Math.floor(race.clock * 10 + EPSILON), final, item: race.fx.item } };
+  return { phase, beat, ...turboOf(race, beat), ...(race.mode === 'multi' ? { menu: race.menu } : {}), run: { place: placeOf(race), lap: lapOf(race.pace, race.laps), laps: race.laps, tenths: Math.floor(race.clock * 10 + EPSILON), final, item: race.fx.item } };
 }
 
 /** One kind of race event, as the cues the arcade hears; `tiles` is how far the racer it names stands from the player. */
