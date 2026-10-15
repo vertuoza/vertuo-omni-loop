@@ -60,7 +60,16 @@ was closed for breaking the rule.
 7. **The ledger's types.** A migration adds `PR_MERGED` to `ledger_events_type_check`; the galaxy's
    feed (`packages/galaxy/src/galaxy.ts`) says `<login> merged #<number> into <repo>`, and the event
    types listed in `game/events.ts`, `packages/galaxy/src/types.ts` and the arcade's menu name it.
-8. **The docs.** `game/README.md` gains **Merged pull requests**, and its zone, expedition and
+8. **The arcade's words.** Every place the arcade tells a player how points are earned says the new
+   rules, reading the numbers from `RULEBOOK` as today:
+   - the menu's briefing, **EARN** (`apps/galaxy/src/arcade/scenes/menu.tsx`, screen
+     `arcade-menu`): `SECURE A ZONE +10` becomes `MERGE A FEAT OR FIX PR +30`; the note drops
+     `ZONE SECURED AT NIGHT ×1.5 ·`, which no longer pays anything; `EXPEDITION ON IT` shows `+10`;
+   - the home page's **SHIP VALUE** (`apps/galaxy/src/home/spreads/Game.tsx`, screen `home`): `A
+     secured zone scores 10.` becomes `A merged feat/fix PR scores 30.`;
+   - the home page's cards (`apps/galaxy/src/home/spreads/cards.ts`): the beaver's card carries
+     `A merged feat/fix PR scores 30.` in place of the secured zone's.
+9. **The docs.** `game/README.md` gains **Merged pull requests**, and its zone, expedition and
    scoring lines say the new numbers.
 
 ## Decisions
@@ -82,6 +91,9 @@ was closed for breaking the rule.
 - **The voice.** The Lead Engineer objected that 30 points per pull request rewards splitting one
   change into several pull requests into main. The person accepted the risk, the design unchanged:
   reviewers judge a pull request's size as today. Settled: `none`.
+- **The arcade's words** (taken without asking, the most reversible): the secured zone's line, card
+  and sentence are replaced by the merged pull request's, and the night-shift note loses its zone
+  part. The screens `arcade-menu` and `home` are drafts in the screen library, not locked.
 - **The law.** The rule is written and tested now; locking it needs a free law slot or a larger
   `laws.max`, which is for its owner to decide.
 
@@ -97,7 +109,7 @@ was closed for breaking the rule.
 ## Scope
 
 In: the read, the event, the pay, the sub-PR rule and its test, the expedition number, the migration,
-the galaxy's feed line, the README.
+the galaxy's feed line, the arcade's words (briefing, home page, cards), the README.
 
 Out: tracking repositories (a setting); a cap on paid pull requests per day; paying other types
 (`refactor`, `perf`, …); changing `FEATURE_MERGED` or `FEATURE_REVIEWED`; the dashboard's
@@ -150,3 +162,5 @@ Out: tracking repositories (a setting); a cap on paid pull requests per day; pay
 - A rule `A sub-PR never earns points` is in `rules.md`, its `Enforced by:` naming the test that
   proves it.
 - The galaxy's feed shows `<login> merged #<number> into <repo>` for a `PR_MERGED`.
+- The arcade's briefing, the home page's SHIP VALUE and the beaver's card name the merged feat or fix
+  PR and its 30 points, and no longer name a secured zone.

@@ -40,3 +40,4 @@ GALAXY MAP · STAR CHART · FLEETS · GAME ROOM · OUT OF REACH · NOT IN THIS B
 ## Source
 
 - /omni:brainstorm, PRD 1808: .omni-loop/delivery/shipped/1808-arcade-lazy-details/before-after.html
+- /omni:brainstorm, PRD 1975: .omni-loop/delivery/inbox/1975-merged-pr-points/before-after.html
