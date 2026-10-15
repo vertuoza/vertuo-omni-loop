@@ -125,6 +125,36 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nagents: claude\n')).toThrow(/agents/);
   });
 
+  it('maps tiers to a model and an effort per agent, and has no tiers unless the file sets them (PRD 1934)', () => {
+    expect(parseConfig('kit: 1\n').tiers).toBeUndefined();
+    const text =
+      'kit: 1\nagents: [claude, codex]\ntiers:\n  claude:\n    deep: { model: opus, effort: high }\n' +
+      '    build: { model: sonnet, effort: medium }\n    light: { model: haiku, effort: low }\n  codex:\n    build: { model: gpt-x }\n';
+    const config = parseConfig(text);
+    expect(config.tiers).toEqual({
+      claude: { deep: { model: 'opus', effort: 'high' }, build: { model: 'sonnet', effort: 'medium' }, light: { model: 'haiku', effort: 'low' } },
+      codex: { build: { model: 'gpt-x' } },
+    });
+    expect({ ...config, tiers: undefined }).toEqual(parseConfig('kit: 1\nagents: [claude, codex]\n'));
+    for (const effort of ['low', 'medium', 'high', 'xhigh', 'max']) {
+      expect(parseConfig(`kit: 1\ntiers:\n  claude:\n    light: { model: haiku, effort: ${effort} }\n`).tiers?.claude?.light?.effort).toBe(effort);
+    }
+    expect(parseConfig('kit: 1\ntiers:\n  claude: {}\n').tiers).toEqual({ claude: {} });
+  });
+
+  it.each([
+    ['an agent the config does not list', 'agents: [claude]\ntiers:\n  codex:\n    build: { model: x }\n', /tiers\.codex: codex is not in agents/],
+    ['an agent the kit does not know', 'tiers:\n  copilot:\n    build: { model: x }\n', /tiers\.copilot: copilot is not in agents/],
+    ['a tier other than the three', 'tiers:\n  claude:\n    huge: { model: x }\n', /tiers\.claude\.huge: huge is no tier — one of deep, build, light/],
+    ['an empty model', 'tiers:\n  claude:\n    light: { model: "" }\n', /tiers\.claude\.light\.model/],
+    ['no model', 'tiers:\n  claude:\n    light: { effort: low }\n', /tiers\.claude\.light\.model/],
+    ['an unknown effort', 'tiers:\n  claude:\n    light: { model: haiku, effort: extreme }\n', /tiers\.claude\.light\.effort/],
+    ['an unknown key in a tier', 'tiers:\n  claude:\n    light: { model: haiku, speed: 3 }\n', /tiers\.claude\.light.*speed/],
+    ['a tier that is no mapping', 'tiers:\n  claude:\n    light: haiku\n', /tiers\.claude\.light/],
+  ])('refuses %s in tiers, naming its key (PRD 1934)', (_what, body, error) => {
+    expect(() => parseConfig(`kit: 1\n${body}`, 'c.yml')).toThrow(error);
+  });
+
   it('keeps the answers switch on unless the file switches it off, and refuses one that is not a boolean (PRD 251)', () => {
     expect(parseConfig('kit: 1\n').answers).toEqual({ enabled: true });
     expect(parseConfig('kit: 1\nanswers:\n  enabled: false\n').answers).toEqual({ enabled: false });
@@ -504,6 +534,14 @@ describe('omni config', () => {
       expect(await main(['config', 'agents'], { cwd: root, ...s })).toBe(0);
       expect(JSON.parse(s.out.join(''))).toEqual(value);
     }
+  });
+
+  it('prints a tiers row by its key, as any key prints (PRD 1934)', async () => {
+    const text = 'kit: 1\ntiers:\n  claude:\n    light: { model: haiku, effort: low }\n';
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': text } });
+    const s = io();
+    expect(await main(['config', 'tiers.claude'], { cwd: root, ...s })).toBe(0);
+    expect(JSON.parse(s.out.join(''))).toEqual({ light: { model: 'haiku', effort: 'low' } });
   });
 
   it('omni check config refuses an unknown agent, naming it (PRD 1890)', async () => {

@@ -61,6 +61,7 @@ import {
   type GitHubClient,
 } from './github.ts';
 import { messageField } from './github-schema.ts';
+import { deliveryFetched } from './delivery-scope.ts';
 import { lawGateAt, withLawGate } from './law-locked.ts';
 import { productOutboxVerdict, type OutboxReading, type ProductOutboxReader } from './product-outbox.ts';
 import type { ProductPrdRef } from '../approved-check/state.ts';
@@ -244,7 +245,8 @@ async function evaluateAt(
       // law's proof at the head, a law demoted since the base. The rules still come from the base.
       const knowledge = config.laws.source === 'knowledge' ? [config.paths.knowledge] : [];
       if (knowledge.length > 0) await snapshot(octokit, { owner, repo, ref: pr.baseSha, paths: knowledge, dest: base });
-      await snapshot(octokit, { owner, repo, ref: headSha, paths: [config.paths.delivery, ...knowledge], dest: head });
+      const fetchIf = deliveryFetched(config, pr);
+      await snapshot(octokit, { owner, repo, ref: headSha, paths: [config.paths.delivery, ...knowledge], dest: head, fetchIf });
       comments = await listComments(octokit, { owner, repo, prNumber });
       changes = await changedFiles(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
     }

@@ -158,8 +158,9 @@ never run side by side. Each takes the next from the feature branch as the last 
    > `/omni:do-work --inline`. Do not spawn subagents. Return only do-work's result JSON: no diffs,
    > no logs.
 
-   Nesting is at most three levels, as in step 3, so the subagent never dispatches its own. Its
-   result is the shape step 3 names, with `branch` the feature branch and `prUrl` `null`. A subagent
+   The inline path stays on the terminal's model: start the agent with no model and no effort, and
+   resolve no tier; do-work stamps `inherited (inline)`. Nesting is at most three levels, as in
+   step 3, so the subagent never dispatches its own. Its result is the shape step 3 names, with `branch` the feature branch and `prUrl` `null`. A subagent
    that returns nothing usable counts as `red`, with "no result" as its summary.
 2. **Territory.** `git fetch <remote>`, then
    `git diff --name-only <the feature branch before the slice>..<remote>/<feature branch>` against
@@ -195,18 +196,42 @@ worktree can take its own slice branch.
 
 ## 3. Dispatch, one agent per slice, all at once
 
+**The tier.** Before any launch, resolve each claimed slice's model, once per wave: the config as it
+reads now holds for the whole wave, and a change to it takes effect at the next one. For each slice,
+read its `tier` from its board row and run, `<agent>` being your own agent as `agents` names it (in
+Claude: `claude`):
+
+```bash
+node .omni-loop/bin/omni.mjs tier <tier> --agent <agent>
+```
+
+It prints `model: <model>` and `effort: <effort>` (each line only when set), or `inherit`, and exits
+0. A `tier` of `null`, `inherit`, or an exit 2 (an agent or tier it does not know): the slice
+**inherits**, and its agent is started with no model and no effort, exactly as without tiers. Its
+`Tier:` line, the one do-work stamps on its sub-PR, is
+`Tier: <tier> · <agent> <model> · <effort>` (the effort part only when set), or
+`Tier: <tier> · inherited (no mapping)` (`inherited (no advice)`, `<tier>` being `—`, when the plan
+advises none).
+
 Start one agent per claimed slice, each in its own worktree, all at once (in Claude: one message
-with several Agent calls, each `isolation: "worktree"`, in the background). Keep the prompt this
-small:
+with several Agent calls, each `isolation: "worktree"`, in the background, each with the `model`
+and `effort` its tier resolved to, or neither when it inherits). Keep the prompt this small:
 
 > Build slice `<id>` of PRD <prd>, on feature branch `<feature branch>`: follow `/omni:do-work
-> --in-wave`. Its slice branch is already claimed. Do not spawn subagents. Return only do-work's
-> result JSON: no diffs, no logs.
+> --in-wave`. Its slice branch is already claimed. `<its Tier: line>`. Do not spawn subagents.
+> Return only do-work's result JSON: no diffs, no logs.
+
+**A refused launch.** The agent refuses to start a slice on its model (it does not know the model,
+or cannot set one per subagent): start that slice again, once, on the terminal's model (no model,
+no effort), its `Tier:` line now `Tier: <tier> · inherited (<agent> refused <model>)`. It is never a
+red slice, never an attempt and never a question. An agent that cannot set a model per subagent at
+all starts every slice that way, and the briefing's **Any agent** says so.
 
 Nesting is at most three levels (`/omni:yolo` → this skill → do-work), so a slice subagent never
-dispatches its own. Wait for every result. Each is
-`{ slice, status: done | red | stopped | blocked, branch, prUrl, preflight, summary, risks, items }`.
-A subagent that returns nothing usable counts as `red`, with "no result" as its summary.
+dispatches its own. Wait for every result. Each is `{ slice, status: done | red | stopped | blocked,
+branch, prUrl, preflight, summary, risks, items, tier }`.
+A subagent that returns nothing usable counts as `red`, with "no result" as its summary. Its `tier`
+is what do-work reports; a result without one takes the `Tier:` line its prompt carried.
 
 ## 4. Merge, one at a time
 
@@ -337,12 +362,15 @@ prints the page's link on one line, so the line is `PRD <n>: <link>`. Anything e
 verb) means it has no page to show: the line is
 `PRD <n>: no page yet, https://github.com/<owner>/<repo>/issues/<n>`. It never stops the report.
 
-| slice | sub-PR | outcome | territory | items | summary | risks |
-|---|---|---|---|---|---|---|
-| s1 | #12 | merged | inside | — | … | … |
-| s6 | #13 | merged | breach: `<path>` | `s6-01-…` (medium, adopted) | … | … |
-| s7 | #14 | stopped: `<law>` | — | — | … | … |
-| s8 | #15 | stuck (`labels.needsFix`) | — | — | … | … |
+| slice | sub-PR | outcome | tier | territory | items | summary | risks |
+|---|---|---|---|---|---|---|---|
+| s1 | #12 | merged, green first try | build · sonnet | inside | — | … | … |
+| s6 | #13 | merged, 2 attempts | light · haiku | breach: `<path>` | `s6-01-…` (medium, adopted) | … | … |
+| s7 | #14 | stopped: `<law>` | deep · inherited (no mapping) | — | — | … | … |
+| s8 | #15 | stuck (`labels.needsFix`) | light · inherited (claude refused haiku) | — | — | … | … |
+
+The outcome says whether a merged slice went green on its first try or after how many attempts;
+the tier column is each slice's tier and the model it ran on, from its `tier`.
 
 An inline wave has no sub-PR: its column reads `inline`, its outcome `built` (or, for a slice not
 built, `red`, `stopped` or `blocked`, with what it named).
