@@ -1,3 +1,36 @@
+# Settled outbox items — PRD 1972
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s4-01-plugin-test-beside-law-proofs -->
+
+## s4-01-plugin-test-beside-law-proofs — drifted
+
+- Verdict: drifted
+- Approved by: nicojustdev
+- Approved at: 2026-10-15T11:58:00Z
+- Channel: feature pull request #1973
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1973#issuecomment-6191494505
+- Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
+- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Rank: high
+- Bears on: BR-PRODUCT-3
+- Raised: 2026-10-15
+- Slice: s4
+- Wave: 3
+- Became: playbook/testing#layout
+
+### The answer, as it was given
+
+```text
+B. B. New tests in a separate test file, leaving the owner's file untouched
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s4-01-plugin-test-beside-law-proofs
 prd: 1972
@@ -46,3 +79,7 @@ Moving the new tests to a new file later costs one cut and paste, but the spec a
 (author) The PRD, the registers and the glossary do not settle this:
 
 - Whether @pierrederval prefers a separate test file was not asked (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-plugin-test-beside-law-proofs -->
