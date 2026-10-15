@@ -377,7 +377,9 @@ describe('How to play\'s LEVELS', () => {
   it('shows the weight of each personal credit, the curve\'s first levels and each game\'s unlock level, from the rulebook', () => {
     const text = levelsOf();
     expect(rules).toEqual({ weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1, prMerged: 1, prReviewed: 1 }, curve: { first: 1, step: 25 }, cap: 99, unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 4 } });
-    for (const label of ['ZONE SECURED', 'ENTROPY CLEARED', 'RESCUE', 'EXPEDITION BONUS', 'CLOSER BONUS', 'QUESTION ANSWERED', 'PR MERGED', 'PR REVIEWED']) expect(beside(text, label)).toBe('×1');
+    for (const label of ['ENTROPY CLEARED', 'RESCUE', 'EXPEDITION BONUS', 'CLOSER BONUS', 'QUESTION ANSWERED', 'PR MERGED', 'PR REVIEWED']) expect(beside(text, label)).toBe('×1');
+    // A secured zone and the old merge pay credit no point, so no XP: LEVELS leaves them out (PRD 1975).
+    for (const label of ['ZONE SECURED', 'FEATURE MERGED', 'FEATURE APPROVED']) expect(text).not.toContain(label);
     expect([1, 2, 3, 4, 5].map((n) => beside(text, `LV ${n}`))).toEqual(['1', '50', '150', '300', '500']);
     expect(text).not.toContain('LV 6');
     expect(beside(text, 'ENTROPY INVADERS')).toBe('LV 1');
@@ -389,12 +391,12 @@ describe('How to play\'s LEVELS', () => {
 
   it('shows the new value when a number in the rules changes', () => {
     const text = levelsOf({
-      weights: { ...rules.weights, zoneSecured: 2, rescue: 1.5, woundClosed: 0 },
+      weights: { ...rules.weights, questionAnswered: 2, rescue: 1.5, woundClosed: 0 },
       curve: { first: 5, step: 30 },
       cap: 40,
       unlocks: { invaders: 3 },
     });
-    expect(beside(text, 'ZONE SECURED')).toBe('×2');
+    expect(beside(text, 'QUESTION ANSWERED')).toBe('×2');
     expect(beside(text, 'RESCUE')).toBe('×1.5');
     expect(beside(text, 'ENTROPY CLEARED')).toBe('NOT COUNTED');
     expect(beside(text, 'CLOSER BONUS')).toBe('×1');

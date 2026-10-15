@@ -32,7 +32,9 @@ GALAXY MAP · STAR CHART · FLEETS · GAME ROOM · OUT OF REACH · NOT IN THIS B
 The briefing's **EARN** (PRD 1975), every number read from the rulebook: SHIP A FEAT OR FIX +30 ·
 REVIEW OR MERGE ONE +10 first, then RESCUE ANOTHER FLEET · FLEET TERRAFORMS · EXPEDITION ON IT +10,
 and the note RETRO OR KNOWLEDGE +10 · ITS REVIEW +5 · ENTROPY CLEARED FOR ANOTHER FLEET ×1.5. It
-names no secured zone: a sub-PR earns nothing.
+names no secured zone: a sub-PR earns nothing. LEVELS' XP PER POINT lists ENTROPY CLEARED · RESCUE ·
+EXPEDITION BONUS · CLOSER BONUS · QUESTION ANSWERED · PR MERGED · PR REVIEWED, and leaves out the
+credits that pay no point (a secured zone, the old feature merge and approval).
 
 ## Refusals
 

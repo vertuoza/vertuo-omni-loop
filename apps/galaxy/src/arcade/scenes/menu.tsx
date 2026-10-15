@@ -136,16 +136,17 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp =
 
 // ── How to play ──────────────────────────────────────────────────────────────
 
-/** The personal credits XP counts, by their key in the rulebook's `xp.weights`, as How to play names them. */
-const XP_CREDITS: Record<keyof XpRules['weights'], string> = {
-  zoneSecured: 'ZONE SECURED',
+/**
+ * The personal credits XP counts, by their key in the rulebook's `xp.weights`, as How to play names
+ * them. A secured zone and the old merge pay (`zoneSecured`, `featureMerged`, `featureReviewed`)
+ * credit no point since PRD 1975, so no XP, and LEVELS leaves them out.
+ */
+const XP_CREDITS: Readonly<Partial<Record<keyof XpRules['weights'], string>>> = {
   woundClosed: 'ENTROPY CLEARED',
   rescue: 'RESCUE',
   expedition: 'EXPEDITION BONUS',
   closer: 'CLOSER BONUS',
   questionAnswered: 'QUESTION ANSWERED',
-  featureMerged: 'FEATURE MERGED',
-  featureReviewed: 'FEATURE APPROVED',
   prMerged: 'PR MERGED',
   prReviewed: 'PR REVIEWED',
 };
@@ -163,7 +164,7 @@ function briefingLevels(xp: XpRules, games: readonly Game[] = GAMES) {
   const weights: Readonly<Partial<XpRules['weights']>> = xp.weights;
   const titleOf = (id: string) => games.find((g) => g.id === id)?.title ?? id.replace(/-/g, ' ').toUpperCase();
   return {
-    credits: keysOf(XP_CREDITS).map((kind) => ({ kind, label: XP_CREDITS[kind], weight: weights[kind] ?? 0 })),
+    credits: Object.entries(XP_CREDITS).map(([kind, label]) => ({ kind, label, weight: weights[kind as keyof XpRules['weights']] ?? 0 })),
     curve: Array.from({ length: Math.min(CURVE_SHOWN, xp.cap) }, (_, i) => ({ level: i + 1, xp: xpForLevel(i + 1, xp) })),
     cap: xp.cap,
     unlocks: Object.entries(xp.unlocks).map(([id, level]) => ({ id, title: titleOf(id), level })).sort((a, b) => a.level - b.level),
