@@ -451,16 +451,16 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
   ]);
   const now = new Date('2026-09-30T10:00:00Z');
 
-  it('pays 10 per zone to each sub-PR\'s author, the 50 expedition bonus at the merge, and the settler their wound and closer points', async () => {
+  it('pays a sub-PR\'s author nothing for its zone and the 10 expedition bonus at the merge, and the settler their wound and closer points (PRD 1975)', async () => {
     const s = await buildSnapshot({ config: cfg, exec, now });
     expect(s.planets.map((p) => [p.home, p.prd, p.captain, p.ownerTeam])).toEqual([[PLAN_REPO, 88, 'paul', 'beaver']]);
     const events = projectEvents(s, { config: cfg, now });
     expect(events.every((e) => e.home === PLAN_REPO)).toBe(true);
     expect(events.find((e) => e.type === 'PLANET_TERRAFORMED')).toMatchObject({ id: `planet:${PLAN_REPO}#88:terraformed`, at: '2026-09-29T14:00:00Z', data: { ownerTeam: 'beaver' } });
     const season = score(events, { season: '2026-09', now });
-    // paul: s1 (10) + expedition (50); alice: s2 (10) + expedition (50); pierre: the high item (15) + closer (25).
-    expect(season.individuals).toEqual({ paul: 60, alice: 60, pierre: 40 });
-    expect(season.teams.beaver).toBe(10 + 50 + 15 + 25 + 100); // paul's and pierre's credits, and the owner's terraform
+    // paul: s1 (0) + expedition (10); alice: s2 (0) + expedition (10); pierre: the high item (15) + closer (25).
+    expect(season.individuals).toEqual({ paul: 10, alice: 10, pierre: 40 });
+    expect(season.teams.beaver).toBe(10 + 15 + 25 + 100); // paul's and pierre's credits, and the owner's terraform
   });
 
   it('keeps two repositories\' PRD 88 apart: no shared id, owner, clawback or terraform', async () => {
@@ -488,8 +488,8 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
     const season = score(events, { season: '2026-09', now });
     expect(season.planets[`${PLAN_REPO}#88`]).toMatchObject({ ownerTeam: 'beaver', terraformed: true, lost: false });
     expect(season.planets[`${other}#88`]).toMatchObject({ ownerTeam: 'octopod', terraformed: false, lost: true });
-    // The lost twin claws back only its own zone: paul and alice keep what they earned on the terraformed 88.
-    expect(season.individuals).toEqual({ paul: 60, alice: 60, pierre: 40 });
+    // The lost twin claws back only its own: paul and alice keep what they earned on the terraformed 88.
+    expect(season.individuals).toEqual({ paul: 10, alice: 10, pierre: 40 });
   });
 });
 
@@ -551,8 +551,8 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
       [`zone:${APPS}:${PLAN_REPO}#88:s2:secured`, 'alice'],
     ]);
     expect(events.find((e) => e.type === 'PLANET_TERRAFORMED')).toMatchObject({ id: `planet:${PLAN_REPO}#88:terraformed`, at: '2026-09-29T15:00:00Z' });
-    // Each author: 10 for the zone and the 50 expedition bonus at the last region's merge.
-    expect(score(events, { season: '2026-09', now }).individuals).toEqual({ alice: 60, bob: 60 });
+    // Each author: 0 for the zone (PRD 1975) and the 10 expedition bonus at the last region's merge.
+    expect(score(events, { season: '2026-09', now }).individuals).toEqual({ alice: 10, bob: 10 });
   });
 
   it('terraforms only when every region\'s feature PR has merged', async () => {
