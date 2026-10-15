@@ -1120,6 +1120,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       // letters and arrows do not; ENTER and TAB keep the pause and the menu. On every other screen the arcade's keys hold.
       const kr = uiRef.current.scene === 'kart' ? kartRef.current : null;
       const own = api && kr?.game && kr.options ? kr.options.keys : null;
+      const shiftBound = !!own && !api.shiftSelects(own);
       if (api && own && kr) {
         const phase = kr.hud?.phase;
         if (phase === 'countdown' || (phase === 'race' && !kr.hud?.menu)) {
@@ -1130,11 +1131,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
             else if (!e.repeat) act('b');
             return;
           }
-          if (e.key !== 'Enter' && e.key !== 'Tab' && e.key !== 'Shift') return;
+          if (e.key !== 'Enter' && e.key !== 'Tab' && !(e.key === 'Shift' && !shiftBound)) return;
         }
       }
       const action = keyAction(e.key);
       if (!action) return;
+      if (shiftBound && e.key === 'Shift') return; // PRD 1963: in OMNI KART SHIFT is SELECT only when none of the player's keys is SHIFT, so ITEM on SHIFT never leaves a paused race
       e.preventDefault();
       if (!own) held.keyDown(e.key); // a kart screen outside the race reads presses only: a key held into the next screen does nothing
       if (e.repeat && (action === 'a' || action === 'b' || action === 'start')) return;

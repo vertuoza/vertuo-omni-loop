@@ -162,8 +162,8 @@ function OptionsPanel({ view, options, art }: { view: OptionsView; options: Kart
   );
 }
 
-/** The five actions the KEYS list names, in order. */
-const DRIVE_ROWS = [['gas', 'GAS'], ['brake', 'BRAKE'], ['left', 'LEFT'], ['right', 'RIGHT'], ['item', 'ITEM']] as const;
+/** The six actions the KEYS list names, in order, HOP last. */
+const DRIVE_ROWS = [['gas', 'GAS'], ['brake', 'BRAKE'], ['left', 'LEFT'], ['right', 'RIGHT'], ['item', 'ITEM'], ['hop', 'HOP']] as const;
 
 /** A grid row's kart in its look, small, when the game's look is loaded to draw it. */
 function kartArt(kartOf: ((row: KartGridRow) => KartArt | null) | undefined, row: KartGridRow) {
