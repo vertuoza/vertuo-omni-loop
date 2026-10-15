@@ -32,6 +32,13 @@
 -- lines included) and personas, never a proposed or rejected claim, and nothing for a repository no
 -- workspace tracks.
 --
+-- PRD 1795 (20261211090000_product_knowledge.sql): business_for_repo() (hence business_for_token()) and
+-- business_for_repo_app() answer `legal`, the repository's product's active Legal entries
+-- `{id: "L-<CODE>-<n>", statement, source, owner}` (the owner's login) by code then number, and `glossary`,
+-- its live terms `{term, meaning, avoid}` by term without case: never a retired entry or a removed term,
+-- never another product's, `[]` with none or no product. The App's read also answers `knowledgeEventId`,
+-- the product's newest knowledge event. Who may change them is supabase/checks/product_knowledge.sql's.
+--
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -147,7 +154,7 @@ do $$
 declare got jsonb;
 begin
   got := public.business_for_repo('vertuoza/vertuo-apps');
-  if got <> '{"state": "none", "business": null, "product": null, "claims": [], "personas": []}'::jsonb then
+  if got <> '{"state": "none", "business": null, "product": null, "claims": [], "personas": [], "legal": [], "glossary": []}'::jsonb then
     raise exception 'FAIL: business_for_repo with no business answered %', got;
   end if;
   begin
@@ -332,6 +339,59 @@ begin
   got := public.business_for_repo('vertuoza/pdf-builder');
   if got->'product' <> 'null'::jsonb or (select string_agg(c->>'id', ',') from jsonb_array_elements(got->'claims') c) <> 'region#1,region#2' then
     raise exception 'FAIL: a repository with no product: %', got;
+  end if;
+end $$;
+
+-- ── PRD 1795: agents read the product's Legal entries and glossary ──
+-- Olga owns Vertuoza and neither kind names an owner, so she writes directly.
+do $$
+declare
+  ws uuid := pg_temp.ws('vertuoza');
+  erp uuid := pg_temp.made('erp');
+  got jsonb;
+  retired public.product_legal;
+  removed public.product_glossary;
+begin
+  got := public.business_for_repo('vertuoza/vertuo-apps');
+  if got->'legal' <> '[]'::jsonb or got->'glossary' <> '[]'::jsonb then
+    raise exception 'FAIL: a product with no knowledge does not read [] and []: % %', got->'legal', got->'glossary';
+  end if;
+
+  perform public.product_legal_add(ws, erp, 'VAT', 'Every invoice shows the VAT rate it applies.', 'Belgian VAT Code, art. 53');
+  perform public.product_legal_add(ws, erp, 'INVOICING', 'Invoice numbers follow each other with no gaps.',
+                                   'Belgian VAT Code, art. 53', '00000000-0000-4000-8000-0000000074b1');
+  retired := public.product_legal_add(ws, erp, 'INVOICING', 'An invoice is printed on paper.', 'An old law');
+  perform public.product_legal_retire(ws, retired.id);
+  perform public.product_glossary_add(ws, erp, 'quote', 'A priced offer the customer may accept.');
+  perform public.product_glossary_add(ws, erp, 'Credit note', 'A document that cancels all or part of an invoice.', array['refund']);
+  removed := public.product_glossary_add(ws, erp, 'Bill', 'An invoice.');
+  perform public.product_glossary_remove(ws, removed.id);
+  perform public.product_legal_add(ws, pg_temp.made('omni'), 'LICENSE', 'Every release names its licence.', 'Copyright Act');
+
+  -- Active entries by code then number, the owner's login; live terms by term without case.
+  got := public.business_for_repo('vertuoza/vertuo-apps');
+  if got->'legal' <> jsonb_build_array(
+       jsonb_build_object('id', 'L-INVOICING-1', 'statement', 'Invoice numbers follow each other with no gaps.',
+                          'source', 'Belgian VAT Code, art. 53', 'owner', 'mo@vertuoza.com'),
+       jsonb_build_object('id', 'L-VAT-1', 'statement', 'Every invoice shows the VAT rate it applies.',
+                          'source', 'Belgian VAT Code, art. 53', 'owner', 'olga@vertuoza.com')) then
+    raise exception 'FAIL: business_for_repo''s legal on vertuo-apps: %', got->'legal';
+  end if;
+  if got->'glossary' <> jsonb_build_array(
+       jsonb_build_object('term', 'Credit note', 'meaning', 'A document that cancels all or part of an invoice.', 'avoid', jsonb_build_array('refund')),
+       jsonb_build_object('term', 'quote', 'meaning', 'A priced offer the customer may accept.', 'avoid', '[]'::jsonb)) then
+    raise exception 'FAIL: business_for_repo''s glossary on vertuo-apps: %', got->'glossary';
+  end if;
+  if got->>'state' <> 'ok' then raise exception 'FAIL: Legal entries changed the read''s state: %', got->>'state'; end if;
+
+  -- Another product reads its own; a repository in no product reads none.
+  got := public.business_for_repo('vertuoza/vertuo-omni-loop');
+  if (select string_agg(x->>'id', ',') from jsonb_array_elements(got->'legal') x) <> 'L-LICENSE-1' or got->'glossary' <> '[]'::jsonb then
+    raise exception 'FAIL: vertuo-omni-loop reads another product''s knowledge: % %', got->'legal', got->'glossary';
+  end if;
+  got := public.business_for_repo('vertuoza/pdf-builder');
+  if got->'legal' <> '[]'::jsonb or got->'glossary' <> '[]'::jsonb then
+    raise exception 'FAIL: a repository in no product reads knowledge: % %', got->'legal', got->'glossary';
   end if;
 end $$;
 
@@ -888,10 +948,21 @@ begin
   if got->'personas' <> '[{"name": "Marc", "stance": "skeptical", "trade": "plumber", "who": "Runs five plumbers", "usage": "The quotes"}]'::jsonb then
     raise exception 'FAIL: the App does not read the product''s personas: %', got->'personas';
   end if;
+  -- PRD 1795: the product's active Legal entries and live terms, as agents read them, and its newest
+  -- knowledge event.
+  if (select string_agg(x->>'id', ',') from jsonb_array_elements(got->'legal') x) <> 'L-INVOICING-1,L-VAT-1'
+     or got->'legal'->0->>'owner' <> 'mo@vertuoza.com'
+     or (select string_agg(x->>'term', ',') from jsonb_array_elements(got->'glossary') x) <> 'Credit note,quote'
+     or got->>'knowledgeEventId' is distinct from (select max(e.id)::text from public.product_knowledge_events e
+                                                    where e.product_id = (select l.product_id from public.product_repositories l
+                                                                           where l.repository = 'vertuoza/vertuo-apps')) then
+    raise exception 'FAIL: the App does not read the product''s knowledge: % % %', got->'legal', got->'glossary', got->>'knowledgeEventId';
+  end if;
 
   foreach repo in array array['vertuoza/nowhere', 'vertuoza/later-one', 'acme-biz/web'] loop
     got := public.business_for_repo_app(repo);
-    if got <> '{"state": "none", "business": null, "product": null, "claims": [], "personas": [], "updatedAt": null}'::jsonb then
+    if got <> '{"state": "none", "business": null, "product": null, "claims": [], "personas": [], "updatedAt": null,
+                "legal": [], "glossary": [], "knowledgeEventId": null}'::jsonb then
       raise exception 'FAIL: the App read something for % (untracked, or no business): %', repo, got;
     end if;
   end loop;
