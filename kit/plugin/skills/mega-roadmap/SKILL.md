@@ -1,6 +1,6 @@
 ---
 name: mega-roadmap
-description: The roadmap of a plan repository — turns a milestone plan whose items span several target repositories into a roadmap in one sitting. Surveys the targets through omni targets and reads each one the roadmap touches from a shallow read-only clone in the scratch folder (nothing runs in it), shows one map of its PRDs (the repositories of each, every blocker with its why, each wave, every read-only target and consumer order the check would refuse) and takes every answer in one message; then writes every PRD as /omni:mega-brainstorm writes one (issue, inbox folder, spec with its Repositories section and its blocked-by, before/after grouped by repository) with no plan, opens the roadmap issue, writes roadmap.md with its repos column, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR, pushes it to the roadmap's page with omni roadmap push, checks its prerequisites (each naming the targets it concerns) once with omni roadmap prereqs --fix in the plan repository, and hands off the /omni:mega-drive --roadmap line. Outside a plan repository it prints the /omni:roadmap line. Writes nothing in any target, merges nothing. Triggers on "mega-roadmap", "a roadmap across repositories", "turn the crew plan into PRDs across the repositories", "/omni:mega-roadmap".
+description: The roadmap of a plan repository — turns a milestone plan whose items span several target repositories into a roadmap in one sitting. Surveys the targets through omni targets and reads each one the roadmap touches from a shallow read-only clone in the scratch folder (nothing runs in it), shows one map of its PRDs (the repositories of each, every blocker with its why, each wave, every read-only target and consumer order the check would refuse) and takes every answer in one message; then writes every PRD as /omni:mega-brainstorm writes one (issue, inbox folder, spec with its Repositories section and its blocked-by, before/after grouped by repository) with no plan, opens the roadmap issue, writes roadmap.md with its repos column, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR, pushes it to the roadmap's page with omni roadmap push, checks its prerequisites (each naming the targets it concerns) once with omni roadmap prereqs --fix in the plan repository, and hands off the /omni:mega-drive --roadmap line. Outside a plan repository it prints the /omni:roadmap line. With --product <key>, runs from any kitted checkout of a product's repository and ends with a product roadmap on its page (<key>-R<n>), no issue and no phase-0 PR. Writes nothing in any target, merges nothing. Triggers on "mega-roadmap", "a roadmap across repositories", "turn the crew plan into PRDs across the repositories", "/omni:mega-roadmap".
 ---
 
 # Mega-roadmap: a milestone into PRDs across repositories
@@ -45,7 +45,7 @@ roadmap's number, `<prd>` one PRD's.
 
 1. Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the
    repository is not installed. Keep the JSON: everything `/omni:roadmap` step 0 keeps, plus `plan`.
-2. **A plan repository only.** When the JSON has no `plan` section (its `plan.targets`), this is a
+2. **A plan repository only,** unless this is a product run (**From a product** below). When the JSON has no `plan` section (its `plan.targets`), this is a
    repository of its own: stop in exactly one line, the source carried over, writing nothing:
 
    ```text
@@ -196,9 +196,38 @@ command on the reply's last line drives the roadmap across the repositories:
 /omni:mega-drive --roadmap <n>
 ```
 
+## From a product (`--product <key>`)
+
+As `/omni:roadmap`'s **From a product**, from any kitted checkout of a repository the product holds,
+a plan repository or not: `/omni:mega-roadmap --product <key>` writes a product roadmap
+(`<key>-R<n>`, PRD 2011) with no roadmap issue, no PRD issue, no branch, no commit and no phase-0 PR,
+and writes nothing in any repository. It follows that section step for step, with these differences.
+
+- **Step 0** does not stop on a missing `plan` section; the `not a plan repository:` line is for a run
+  without `--product` only. The product is remembered as `/omni:roadmap` remembers it
+  (`omni product use <key>`).
+- **The targets of step 1** are the product's repositories: when the config has `plan.product`,
+  `omni targets --json` reads them; otherwise the source's tags and the person name them on the map,
+  asked and never assumed. Each row's `repos` names only repositories of the product: the check
+  refuses one outside it, by name; a `readOnly` or `consumes` rule is a plan repository's and is not
+  checked. Clones are read and deleted as step 1 says; nothing runs in one.
+- **Every repository a row names is `phase0: server`.** Before step 3, run
+  `node .omni-loop/bin/omni.mjs product phase0 <owner/name>…` with every repository of every row, as
+  `/omni:mega-brainstorm`'s **From a product** does; a repository on `pr` is refused by name, and the
+  map is redrawn without it or the person switches it.
+- **Steps 3 to 5 go to the server,** as `/omni:roadmap` writes them: each PRD through
+  `omni dossier push --product <key> --new --from <folder>` (its spec with its `## Repositories`
+  section), `roadmap.md` with its `repos` column checked by
+  `omni roadmap check --product <key> <file>` and pushed with
+  `omni roadmap push --product <key> --new <file>`, whose first line is `<key>-R<n>`. `omni phase0`,
+  `omni check inbox` and `omni roadmap prereqs` do not run, and the hand-off says so.
+- **The hand-off** ends with `/omni:drive --roadmap <key>-R<n>` (from any kitted checkout;
+  `/omni:mega-drive --roadmap <key>-R<n>` does the same in a plan repository), once an approver of
+  the product approved the roadmap on its page.
+
 ## Guardrails
 
-- Runs only in a plan repository, and writes only there:
+- Runs in a plan repository, and writes only there (a product run, `--product`, writes in no repository):
   never a branch, a commit, a pull request, an issue or a comment in a target.
 - Nothing runs in a clone; every clone lives in the scratch folder and is deleted.
 - Which repository each PRD lands in is answered on the map, never assumed; no row names a target
