@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 1798 — before and after</title>
+<style>
+/* Layout: a single reading column; each exchange is a Today / After pair that stacks on a phone. */
+:root{--bg:#fbfbfd;--fg:#1a1d29;--muted:#5d6377;--line:#d9dbe6;--card:#f1f2f8;--term:#161927;--termfg:#dfe3f2;--accent:#3b4bc8;--ok:#1f7a4d;--warn:#9a5b00;
+--display:"IBM Plex Sans",system-ui,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f111a;--fg:#e6e8f2;--muted:#9aa0b6;--line:#2a2e40;--card:#171a27;--term:#0a0c13;--termfg:#d6dbec;--accent:#8f9bff;--ok:#5cc792;--warn:#e0a54a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f111a;--fg:#e6e8f2;--muted:#9aa0b6;--line:#2a2e40;--card:#171a27;--term:#0a0c13;--termfg:#d6dbec;--accent:#8f9bff;--ok:#5cc792;--warn:#e0a54a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 var(--display)}
+main{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:28px 48px;display:grid;gap:28px}
+h1{font-size:1.5rem;margin:0;text-wrap:balance}h2{font-size:1.15rem;margin:0 0 4px;text-wrap:balance}h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px}
+p{margin:0;max-width:68ch}.lead{color:var(--muted)}
+section{display:grid;gap:12px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.side{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px;display:grid;gap:10px;align-content:start}
+.side.after{border-color:var(--accent)}
+pre{margin:0;background:var(--term);color:var(--termfg);font:13px/1.5 var(--mono);padding:12px;border-radius:4px;overflow-x:auto;white-space:pre}
+.dim{color:#8b91a8}.okc{color:#7fd6a4}.warnc{color:#f0b866}.acc{color:#a9b3ff}
+table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:600}
+.wrap{overflow-x:auto}
+code{font:.88em var(--mono)}
+svg text{fill:var(--fg);font:12px var(--display)}svg .mut{fill:var(--muted)}
+.pp{border-top:1px solid var(--line);padding-top:16px;font-weight:600}
+ul{margin:0;padding-left:20px}
+</style></head><body><main>
+<header style="display:grid;gap:6px">
+<h1>PRD 1798 — before and after</h1>
+<p class="lead">PRD 1798 · P6 of the roadmap "Governed knowledge" · The knowledge graph API on the server · blocked by 1797 (P5)</p>
+</header>
+
+<section>
+<h2>Functional</h2>
+<p>Today a repository's graph lives only in its own terminal (P5). After, each repository pushes it, the server joins the product's repositories with its Legal and Glossary, and anyone in the workspace reads the whole.</p>
+</section>
+
+<section>
+<h3>Where the knowledge sits</h3>
+<div class="pair">
+<div class="side"><h3>Today</h3>
+<svg viewBox="0 0 320 170" role="img" aria-label="Two repositories and the product, unconnected">
+<rect x="10" y="20" width="120" height="50" rx="4" fill="none" stroke="currentColor" opacity=".5"/><text x="20" y="42">back-end</text><text x="20" y="60" class="mut">graph in its terminal</text>
+<rect x="10" y="100" width="120" height="50" rx="4" fill="none" stroke="currentColor" opacity=".5"/><text x="20" y="122">front-end</text><text x="20" y="140" class="mut">graph in its terminal</text>
+<rect x="190" y="55" width="120" height="60" rx="4" fill="none" stroke="currentColor" opacity=".5"/><text x="200" y="78">Omni page</text><text x="200" y="96" class="mut">Legal · Glossary</text>
+<text x="150" y="90" class="mut">no link</text>
+</svg>
+<p>Nothing says which back-end rule serves which Legal entry, or that both repositories use the term "credit note".</p>
+</div>
+<div class="side after"><h3>After</h3>
+<svg viewBox="0 0 320 170" role="img" aria-label="Both repositories push to the Omni page, which joins them with Legal and Glossary">
+<rect x="10" y="20" width="110" height="50" rx="4" fill="none" stroke="currentColor" opacity=".6"/><text x="20" y="42">back-end</text><text x="20" y="60" class="mut">@a1f03c2</text>
+<rect x="10" y="100" width="110" height="50" rx="4" fill="none" stroke="currentColor" opacity=".6"/><text x="20" y="122">front-end</text><text x="20" y="140" class="mut">@77be910</text>
+<line x1="120" y1="45" x2="185" y2="75" stroke="var(--accent)" stroke-width="2"/><line x1="120" y1="125" x2="185" y2="95" stroke="var(--accent)" stroke-width="2"/>
+<text x="128" y="62" class="mut">push</text><text x="128" y="122" class="mut">push</text>
+<rect x="185" y="50" width="128" height="70" rx="4" fill="none" stroke="var(--accent)" stroke-width="2"/><text x="195" y="72">Omni page</text><text x="195" y="90" class="mut">joined with Legal</text><text x="195" y="106" class="mut">and Glossary</text>
+</svg>
+<p>One graph per product: API, CLI and a read-only tab. Each repository shows the commit it was pushed at.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h3>Sending a repository's graph</h3>
+<div class="pair">
+<div class="side"><h3>Today</h3>
+<pre><span class="dim">$</span> omni kb graph push
+<span class="warnc">unknown command: kb graph push</span></pre>
+<p>The graph (P5) never leaves the checkout.</p>
+</div>
+<div class="side after"><h3>After</h3>
+<pre><span class="dim">$</span> omni kb graph push
+pushed vertuoza/vertuo-omni-loop@9086e70 · 412 nodes, 980 edges
+in products: omni-loop · see https://www.omni-loop.xyz/app/products/&lt;id&gt;/knowledge
+
+<span class="dim">$</span> omni kb graph push   <span class="dim"># knowledge edited, not committed</span>
+<span class="warnc">.omni-loop/knowledge has uncommitted changes: commit them, then push</span></pre>
+<p>Signed in like every other push (<code>omni signin</code> or <code>OMNI_TOKEN</code>). In this repository, a workflow also pushes after each merge to <code>main</code>.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h3>Asking the product's graph</h3>
+<div class="pair">
+<div class="side"><h3>Today</h3>
+<pre><span class="dim">$</span> omni kb graph --product omni-loop L-INVOICING-1
+<span class="warnc">unknown option: --product</span></pre>
+<p>An agent in the front-end cannot see the back-end's rules without a clone.</p>
+</div>
+<div class="side after"><h3>After</h3>
+<pre><span class="dim">GET</span> /api/products/omni-loop/knowledge/graph?id=L-INVOICING-1&amp;depth=1
+<span class="dim">Authorization: Bearer …</span>
+<span class="okc">200</span> {
+  "version": 2, "shape": "neighbourhood", "start": ["L-INVOICING-1"], "depth": 1,
+  "product": {"state":"server","key":"omni-loop","cachedOn":null},
+  "nodes": [ {"id":"L-INVOICING-1","kind":"legal","origin":"product","repo":null, …},
+             {"id":"back-end/BR-INVOICE-12","kind":"rule","repo":"back-end", …},
+             {"id":"front-end/BR-INVOICE-3","kind":"rule","repo":"front-end", …} ],
+  "edges": [ … ],
+  "unresolved": [],
+  "repositories": [
+    {"repo":"back-end","commit":"a1f03c2","pushedAt":"2026-10-13T14:02Z","pushedBy":"pierrederval","graph":"own"},
+    {"repo":"mobile","commit":null,"pushedAt":null,"pushedBy":null,"graph":"own"} ]
+}</pre>
+<pre><span class="dim">$</span> omni kb graph --product omni-loop L-INVOICING-1
+back-end  @a1f03c2 · pushed 2026-10-13 14:02 by @pierrederval
+front-end @77be910 · pushed 2026-10-12 09:40 by @irisa
+mobile    · never pushed
+L-INVOICING-1  legal  Invoice numbers follow each other with no gaps.
+  down  serves  back-end/BR-INVOICE-12   rule  …
+  down  serves  front-end/BR-INVOICE-3   rule  …
+product knowledge: server (omni-loop).</pre>
+<pre><span class="dim">MCP link (an editor's agent)</span>
+get_knowledge_graph {"id": "L-INVOICING-1", "depth": 1}
+<span class="okc">→</span> the same body as the route, for the link's product
+<span class="dim">today: get_business, get_claims, report_unknown only</span></pre>
+</div>
+</div>
+</section>
+
+<section>
+<h3>The cross-repository edges the join makes</h3>
+<div class="wrap"><table>
+<thead><tr><th>In a repository's graph</th><th>Today</th><th>After, in the product's graph</th></tr></thead>
+<tbody>
+<tr><td>A rule's <code>Serves: L-INVOICING-1</code>, and the product holds it</td><td>a dangling id in one checkout</td><td>a <code>serves</code> edge to the product's Legal node</td></tr>
+<tr><td>A rule's <code>Serves: L-INVOICING-9</code>, which the product does not hold</td><td>unnoticed</td><td>listed under <code>unresolved</code>, with repository and node</td></tr>
+<tr><td>back-end and front-end rules both use the Glossary term "credit note"</td><td>two unrelated nodes</td><td>one <code>term:credit note</code> node, a <code>uses-term</code> edge from each</td></tr>
+<tr><td>A term the Glossary no longer holds</td><td>unnoticed</td><td>listed under <code>unresolved</code></td></tr>
+<tr><td>The product's Never line <code>never#3</code></td><td>on the Business settings only</td><td>a <code>never</code> node beside the Legal entries, found by search</td></tr>
+<tr><td>A repository whose link says <code>imported</code> or <code>none</code></td><td>no graph</td><td>listed with <code>graph: "none"</code>, nothing served</td></tr>
+</tbody></table></div>
+</section>
+
+<section>
+<h3>Who reads and who writes</h3>
+<div class="wrap"><table>
+<thead><tr><th>Caller</th><th>Push</th><th>Read the product's graph</th></tr></thead>
+<tbody>
+<tr><td>Member of a workspace tracking the repository</td><td>stored (last 20 commits kept)</td><td>200</td></tr>
+<tr><td>Member of another workspace</td><td>403, nothing stored</td><td>404, as for an unknown key</td></tr>
+<tr><td>No valid token</td><td>401</td><td>401</td></tr>
+<tr><td>An agent's MCP link</td><td>cannot push</td><td>its own product only; a revoked link gets one line as a tool error</td></tr>
+<tr><td>Body over 2 MiB</td><td>413, naming the cap</td><td>n/a</td></tr>
+</tbody></table></div>
+</section>
+
+<section>
+<h3>The page</h3>
+<p>A new Knowledge tab on the product home, after Questions: the repositories with their commit and push time, a search and a node's neighbours, the unresolved list. Read-only. The existing <code>/knowledge</code> map stays as it is.</p>
+</section>
+
+<p class="pp">Pixel perfect: screens drawn when the PRD is planned</p>
+</main></body></html>
