@@ -90,7 +90,7 @@ function freshRecord(root: string, now: number): SyncRecord | null {
 function refresh(io: FreeIo, budgetMs: number): void {
   if (!io.script) return;
   try {
-    io.exec(process.execPath, [io.script, 'sync', '--quiet'], { cwd: io.cwd, encoding: 'utf8', timeout: budgetMs, stdio: 'ignore', env: { ...process.env, ...io.env } });
+    io.exec(process.execPath, [io.script, 'sync', '--quiet'], { cwd: io.cwd, encoding: 'utf8', timeout: budgetMs, stdio: 'ignore', env: io.env });
   } catch {
     // The budget ran out, or the run failed.
   }

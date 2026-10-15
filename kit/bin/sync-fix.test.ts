@@ -90,8 +90,8 @@ describe('omni sync --fix', () => {
       '🟢 In sync',
       '  main       🟢 on main, up to date with origin/main',
       '  kit        🟢 n/a · not checked yet',
-      '  knowledge  🟢 n/a · not checked yet',
-      '  page       🟢 n/a · not checked yet',
+      '  knowledge  🟢 in sync',
+      '  page       🟢 n/a · no Omni page',
       '',
     ]);
     expect(head(repo.root)).toBe(git(repo.bare, 'rev-parse', 'main'));
