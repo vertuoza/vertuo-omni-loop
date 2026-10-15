@@ -140,7 +140,7 @@ describe('planets keyed by their home (PRD 728)', () => {
     ]);
     for (const p of g.planets) {
       expect(p.zones.map((z) => [z.id, z.region, z.state])).toEqual([['s1', p.home, 'secured'], ['s2', p.home, 'under-fire']]);
-      expect(p.earned).toBe(10 - 6); // its own zone, less its own open fire's decay (2 tranches × 3)
+      expect(p.earned).toBe(RULEBOOK.zoneSecured - 6); // its own zone (0, PRD 1975), less its own open fire's decay (2 tranches × 3)
     }
   });
 
@@ -179,10 +179,13 @@ describe('fleets', () => {
       ev('zone:core-repo:7:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', 7, { region: 'core-repo', contributor: 'AuBrille', team: 'octopod' }),
       ev('zone:core-repo:7:s2:secured', '2026-09-22T12:00:00Z', 'ZONE_SECURED', 7, { region: 'core-repo', contributor: 'aubrille', team: 'octopod' }),
       ev('zone:core-repo:7:s3:secured', '2026-09-22T12:00:00Z', 'ZONE_SECURED', 7, { region: 'core-repo', contributor: 'Serghok', team: 'beaver' }),
+      // A secured zone earns nothing (PRD 1975): their merged pull requests do.
+      ...[['AuBrille', 'octopod'], ['aubrille', 'octopod'], ['Serghok', 'beaver']].map(([who, team], i) =>
+        ev(`pr:acme/app#${String(i + 1)}:merged`, '2026-09-22T12:00:00Z', 'PR_MERGED', 0, { home: 'acme/app', region: 'acme/app', contributor: who, team, data: { pr: i + 1, kind: 'feat' } })),
     ], { projects, now: NOW });
     expect(g.heroes).toMatchObject([
-      { name: 'aubrille', team: 'octopod', points: 2 * RULEBOOK.zoneSecured },
-      { name: 'serghok', team: 'beaver', points: RULEBOOK.zoneSecured },
+      { name: 'aubrille', team: 'octopod', points: 2 * RULEBOOK.prMerged.feat },
+      { name: 'serghok', team: 'beaver', points: RULEBOOK.prMerged.feat },
     ]);
     expect(g.teams.find((t) => t.name === 'octopod')?.members).toEqual(['aubrille']);
     expect(g.planets[0]?.expeditions).toEqual(['aubrille', 'serghok']);

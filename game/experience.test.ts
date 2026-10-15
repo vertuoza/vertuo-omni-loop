@@ -18,15 +18,17 @@ const closed = (id: string, at: string, contributor: string, team: string, kind:
   E(`${id}:opened`, '2026-09-21T09:00:00Z', 'WOUND_OPENED', { data: { kind, rank: 'high' } }),
   E(`${id}:closed`, at, 'WOUND_CLOSED', { contributor, team, data: { kind, rank: 'high', verdict: 'agreed' } }),
 ];
+// A rescue by a claimer from another fleet than the owner's pays 20 (a secured zone pays 0, PRD 1975).
+const rescued = (id: string, at: string, contributor: string, team = 'cia', planet = 2332) => E(`planet:${planet}:rescue:${id}`, at, 'RESCUE', { planet, contributor, team });
 const rules = (over: Partial<XpRules> = {}): XpRules => ({ ...RULEBOOK.xp, ...over, weights: { ...RULEBOOK.xp.weights, ...(over.weights ?? {}) } });
 
 describe('experience', () => {
-  it('gives 10 XP for one zone secured in working hours, and 15 at night', () => {
+  it('gives no XP for a secured zone, in working hours or at night: a sub-PR never earns points (PRD 1975)', () => {
     expect(experience([
       charted,
       secured('s1', '2026-09-21T12:00:00Z', 'alice'), // Monday 14:00 in Brussels
       secured('s2', '2026-09-21T20:00:00Z', 'bob'),   // Monday 22:00 in Brussels
-    ], { now: NOW })).toEqual({ alice: 10, bob: 15 });
+    ], { now: NOW })).toEqual({ alice: 0, bob: 0 });
   });
 
   it('counts each answered question at its weight, 1 by default (PRD 1180)', () => {
@@ -54,21 +56,21 @@ describe('experience', () => {
   it('multiplies each kind by its weight, and leaves out a kind weighted 0', () => {
     const events = [
       charted,
-      secured('s1', '2026-09-21T12:00:00Z', 'alice'),
-      E('planet:2332:rescue:a', '2026-09-22T12:00:00Z', 'RESCUE', { contributor: 'alice', team: 'cia' }),
+      ...closed('w1', '2026-09-21T11:00:00Z', 'alice', 'beaver', 'beacon'),
+      rescued('a', '2026-09-22T12:00:00Z', 'alice'),
     ];
-    expect(experience(events, { now: NOW })).toEqual({ alice: 30 });
-    expect(experience(events, { now: NOW, rules: rules({ weights: { zoneSecured: 2, rescue: 0 } }) })).toEqual({ alice: 20 });
-    expect(experience(events, { now: NOW, rules: rules({ weights: { zoneSecured: 0.25 } }) })).toEqual({ alice: 23 }); // 2.5 + 20 = 22.5 → 23
+    expect(experience(events, { now: NOW })).toEqual({ alice: 45 });
+    expect(experience(events, { now: NOW, rules: rules({ weights: { woundClosed: 2, rescue: 0 } }) })).toEqual({ alice: 50 });
+    expect(experience(events, { now: NOW, rules: rules({ weights: { woundClosed: 0.1 } }) })).toEqual({ alice: 23 }); // 2.5 + 20 = 22.5 → 23
   });
 
   it('adds up every season in the ledger', () => {
     expect(experience([
       charted,
-      secured('s1', '2026-07-14T12:00:00Z', 'alice'),
-      secured('s2', '2026-08-18T12:00:00Z', 'alice'),
-      secured('s3', '2026-09-21T12:00:00Z', 'alice'),
-    ], { now: NOW })).toEqual({ alice: 30 });
+      rescued('a', '2026-07-14T12:00:00Z', 'alice'),
+      rescued('b', '2026-08-18T12:00:00Z', 'alice'),
+      rescued('c', '2026-09-21T12:00:00Z', 'alice'),
+    ], { now: NOW })).toEqual({ alice: 60 });
   });
 
   it('never lowers XP for a revert or a clawback', () => {
@@ -78,13 +80,13 @@ describe('experience', () => {
       secured('s1', '2026-09-21T12:00:00Z', 'alice'),
       E('zone:r:2332:s1:reverted', '2026-09-22T12:00:00Z', 'ZONE_REVERTED', { contributor: 'alice', team: 'octopod' }),
       lostPlanet,
-      secured('s9', '2026-09-21T12:00:00Z', 'bob', 'octopod', 7),
+      rescued('s9', '2026-09-21T12:00:00Z', 'bob', 'cia', 7),
       E('planet:7:lost', '2026-09-25T12:00:00Z', 'PLANET_LOST', { planet: 7, data: { ownerTeam: 'beaver', reason: 'closed' } }),
     ];
-    // The season's points take both back…
-    expect(score(events, { season: '2026-09', now: NOW }).individuals).toEqual({ alice: 0, bob: 0 });
-    // …XP keeps them.
-    expect(experience(events, { now: NOW })).toEqual({ alice: 10, bob: 10 });
+    // The season's points take the rescue back, and the revert takes back nothing: the zone paid 0…
+    expect(score(events, { season: '2026-09', now: NOW }).individuals).toEqual({ bob: 0 });
+    // …XP keeps the rescue.
+    expect(experience(events, { now: NOW })).toEqual({ alice: 0, bob: 20 });
   });
 
   it('gives no XP for a fleet credit: a terraform or a decay', () => {
@@ -102,13 +104,13 @@ describe('experience', () => {
     expect(experience([
       charted,
       E('zone:r:2332:s1:claimed', '2026-09-20T12:00:00Z', 'ZONE_CLAIMED', { contributor: 'Claimer', team: 'octopod' }),
-      secured('s1', '2026-09-21T12:00:00Z', 'Alice'),
-      secured('s2', '2026-09-22T12:00:00Z', 'alice'),
-    ], { now: NOW })).toEqual({ alice: 20, claimer: 0 });
+      rescued('a', '2026-09-21T12:00:00Z', 'Alice'),
+      rescued('b', '2026-09-22T12:00:00Z', 'alice'),
+    ], { now: NOW })).toEqual({ alice: 40, claimer: 0 });
   });
 
   it('lists the logins it is also given, at 0 unless the events pay them (PRD 728)', () => {
-    expect(experience([charted, secured('s1', '2026-09-21T12:00:00Z', 'bob')], { now: NOW, logins: ['Alice', 'bob'] })).toEqual({ alice: 0, bob: 10 });
+    expect(experience([charted, rescued('a', '2026-09-21T12:00:00Z', 'bob')], { now: NOW, logins: ['Alice', 'bob'] })).toEqual({ alice: 0, bob: 20 });
   });
 
   it('reads only the xp block it is given, and the rulebook\'s by default', () => {
@@ -161,7 +163,10 @@ describe('xpKindOf', () => {
     ];
     expect(new Set(events.map((e) => e.type))).toEqual(new Set(EVENT_TYPES));
 
-    const personal = score(events, { season: '2026-09', now: NOW }).credits.filter((c) => c.to && c.points > 0);
+    // Scored by the rulebook before PRD 1975, its rollback, under which every kind pays: today a
+    // secured zone and a merged feature PR pay 0, and a credit of 0 is never written.
+    const paid = { ...RULEBOOK, zoneSecured: 10, terraformExpedition: 50, featureMerged: 30, featureReviewed: 10 };
+    const personal = score(events, { season: '2026-09', now: NOW, rules: paid }).credits.filter((c) => c.to && c.points > 0);
     const kinds = new Set();
     for (const { reason } of personal) {
       const kind = xpKindOf(reason);
@@ -249,13 +254,13 @@ describe('playerXp', () => {
   it('gives every login its XP, level and unlocked games, in login order', () => {
     expect(playerXp([
       charted,
-      secured('s1', '2026-09-21T12:00:00Z', 'Zed'),
-      ...Array.from({ length: 5 }, (_, i) => secured(`a${i}`, `2026-09-2${i + 1}T12:00:00Z`, 'alice')),
+      rescued('z', '2026-09-21T12:00:00Z', 'Zed'),
+      ...Array.from({ length: 3 }, (_, i) => rescued(`a${String(i)}`, `2026-09-2${String(i + 1)}T12:00:00Z`, 'alice')),
       E('zone:r:2332:c:claimed', '2026-09-20T12:00:00Z', 'ZONE_CLAIMED', { contributor: 'claimer', team: 'octopod' }),
     ], { now: NOW })).toEqual([
-      { login: 'alice', xp: 50, level: 2, unlocked: ['invaders', 'platformer'] },
+      { login: 'alice', xp: 60, level: 2, unlocked: ['invaders', 'platformer'] },
       { login: 'claimer', xp: 0, level: 0, unlocked: [] },
-      { login: 'zed', xp: 10, level: 1, unlocked: ['invaders'] },
+      { login: 'zed', xp: 20, level: 1, unlocked: ['invaders'] },
     ]);
   });
 

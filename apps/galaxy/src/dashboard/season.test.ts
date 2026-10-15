@@ -63,10 +63,16 @@ describe('the season the Points column reads', () => {
     expect(twinGalaxy().season).toBe(seasonBounds(TWIN_NOW).key);
   });
 
+  // A secured zone earns nothing (PRD 1975): each crew also settles a transmission, which pays 5.
+  const settled = (home: string, who: string, team: string, prd = 88) => twinEvents(home, team, who, prd, [
+    { id: `wound:${home}#${String(prd)}:w1:opened`, at: '2026-09-21T09:00:00Z', type: 'WOUND_OPENED', data: { kind: 'transmission', rank: 'medium' } },
+    { id: `wound:${home}#${String(prd)}:w1:closed`, at: '2026-09-21T10:00:00Z', type: 'WOUND_CLOSED', contributor: who, team, data: { kind: 'transmission', rank: 'medium', verdict: 'agreed' } },
+  ]);
+
   it('pays each of two repositories\' PRD 88 to its own crew, and nothing from the season before', () => {
-    const last = twinEvents('acme/plan', 'beaver', 'carol', 70).map((e) => ({ ...e, at: e.at.replace('2026-09-', '2026-08-') }));
-    const view = twinGalaxy([...twinEvents('acme/plan', 'beaver', 'bob'), ...twinEvents('acme/tools', 'octopod', 'alice'), ...last]);
-    expect(Object.fromEntries(view.heroes.map((h) => [h.name, h.points]))).toEqual({ alice: 10, bob: 10 });
-    expect(view.planets.filter((p) => p.prd === 88).map((p) => [p.key, p.earned])).toEqual([['acme/plan#88', 10], ['acme/tools#88', 10]]);
+    const last = settled('acme/plan', 'carol', 'beaver', 70).map((e) => ({ ...e, at: e.at.replace('2026-09-', '2026-08-') }));
+    const view = twinGalaxy([...settled('acme/plan', 'bob', 'beaver'), ...settled('acme/tools', 'alice', 'octopod'), ...last]);
+    expect(Object.fromEntries(view.heroes.map((h) => [h.name, h.points]))).toEqual({ alice: 5, bob: 5 });
+    expect(view.planets.filter((p) => p.prd === 88).map((p) => [p.key, p.earned])).toEqual([['acme/plan#88', 5], ['acme/tools#88', 5]]);
   });
 });

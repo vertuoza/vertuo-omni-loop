@@ -2,9 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { score, seasonsToScore } from './economy.ts';
 import type { EventType, GameEvent } from './events.ts';
 import { present } from './test/present.ts';
+import { RULEBOOK } from './rulebook.ts';
 
 const NOW = new Date('2026-09-30T16:00:00Z');
 const E = (id: string, at: string, type: EventType, over: Partial<GameEvent> = {}): GameEvent => ({ id, at, type, planet: 2332, data: {}, ...over });
+// The rulebook before PRD 1975, its rollback: a secured zone paid 10, the expedition bonus 50, a
+// merged feature PR 30 to its merger and 10 to each approver. The mechanics behind those numbers stay.
+const PAID = { ...RULEBOOK, zoneSecured: 10, terraformExpedition: 50, featureMerged: 30, featureReviewed: 10 };
 const charted = E('planet:2332:charted', '2026-09-01T08:00:00Z', 'PLANET_CHARTED', { data: { ownerTeam: 'beaver', captain: 'pm' } });
 
 describe('score', () => {
@@ -13,7 +17,7 @@ describe('score', () => {
       charted,
       E('z1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', { contributor: 'alice', team: 'octopod' }), // 14:00 local, working
       E('z2:secured', '2026-09-21T20:00:00Z', 'ZONE_SECURED', { contributor: 'alice', team: 'octopod' }), // 22:00 local, night
-    ], { season: '2026-09', now: NOW });
+    ], { season: '2026-09', now: NOW, rules: PAID });
     expect(s.individuals).toEqual({ alice: 25 });
     expect(s.teams).toEqual({ octopod: 25 });
   });
@@ -23,7 +27,7 @@ describe('score', () => {
       charted,
       E('zone:r:2332:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', { contributor: 'alice', team: 'octopod' }),
       E('zone:r:2332:s1:reverted', '2026-09-22T12:00:00Z', 'ZONE_REVERTED', { contributor: 'alice', team: 'octopod' }),
-    ], { season: '2026-09', now: NOW });
+    ], { season: '2026-09', now: NOW, rules: PAID });
     expect(s.individuals).toEqual({ alice: 0 });
   });
 
@@ -92,7 +96,7 @@ describe('score', () => {
       E('w1:opened', '2026-09-21T10:00:00Z', 'WOUND_OPENED', { data: { kind: 'transmission', rank: 'medium' } }),
       E('w1:closed', '2026-09-21T11:00:00Z', 'WOUND_CLOSED', { contributor: 'pm', team: 'beaver', data: { kind: 'transmission', rank: 'medium', verdict: 'agreed' } }),
       E('planet:2332:terraformed', '2026-09-22T12:00:00Z', 'PLANET_TERRAFORMED', { data: { ownerTeam: 'beaver', class: 2, crossSector: true } }),
-    ], { season: '2026-09', now: NOW });
+    ], { season: '2026-09', now: NOW, rules: PAID });
     // owner: 100 × 1.5 × 1.25 = 187.5 ; alice: 10 + 50 ; pm: 5 + 25
     expect(s.teams).toEqual({ beaver: 187.5 + 30, octopod: 60 });
     expect(s.individuals).toEqual({ alice: 60, pm: 30 });
@@ -119,7 +123,7 @@ describe('score', () => {
       E('zone:r:2332:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', { contributor: 'alice', team: 'octopod' }),
       E('zone:r:2332:s2:rescue', '2026-09-22T12:00:00Z', 'RESCUE', { contributor: 'bob', team: 'cia' }),
       E('planet:2332:lost', '2026-09-25T12:00:00Z', 'PLANET_LOST', { data: { ownerTeam: 'beaver', reason: 'closed' } }),
-    ], { season: '2026-09', now: NOW });
+    ], { season: '2026-09', now: NOW, rules: PAID });
     expect(s.individuals).toEqual({ alice: 0, bob: 0 });
     expect(s.teams).toEqual({ octopod: 0, cia: 0 });
     expect(s.credits.filter((c) => c.clawed)).toHaveLength(2);
@@ -145,7 +149,7 @@ describe('score', () => {
       E('zone:r:2332:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', { contributor: 'alice', team: 'octopod' }),
       E('w1:opened', '2026-09-21T07:00:00Z', 'WOUND_OPENED', { data: { kind: 'beacon', rank: 'human-action' } }),
       E('planet:2332:lost', '2026-09-23T16:00:00Z', 'PLANET_LOST', { data: { ownerTeam: 'beaver', reason: 'closed' } }),
-    ], { season: '2026-09', now: NOW });
+    ], { season: '2026-09', now: NOW, rules: PAID });
     expect(s.individuals).toEqual({ alice: 0 });
     expect(s.teams).toEqual({ octopod: 0, beaver: -30 });
   });
@@ -160,7 +164,7 @@ describe('score', () => {
       E('zone:acme/tools:acme/tools#88:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', { ...B, contributor: 'bob', team: 'beaver' }),
       E('planet:acme/plan#88:terraformed', '2026-09-22T12:00:00Z', 'PLANET_TERRAFORMED', { ...A, data: { class: 1 } }),
       E('planet:acme/tools#88:lost', '2026-09-23T12:00:00Z', 'PLANET_LOST', { ...B, data: { reason: 'closed' } }),
-    ], { season: '2026-09', now: NOW });
+    ], { season: '2026-09', now: NOW, rules: PAID });
     // acme/plan#88: alice's zone and expedition bonus, beaver's terraform. acme/tools#88: lost, bob's zone clawed.
     expect(s.individuals).toEqual({ alice: 60, bob: 0 });
     expect(s.teams).toEqual({ octopod: 60, beaver: 100 });
@@ -217,12 +221,12 @@ describe('score', () => {
       const terraformed = E('planet:2332:terraformed', '2026-09-25T21:00:00Z', 'PLANET_TERRAFORMED', { data: { ownerTeam: 'beaver', class: 1 } });
       const merged = E('merge:r#500:2332:merged', '2026-09-25T21:00:00Z', 'FEATURE_MERGED', { contributor: 'pm', team: 'beaver' });
       const approved = E('merge:r#500:2332:approved:eve', '2026-09-25T21:00:00Z', 'FEATURE_REVIEWED', { contributor: 'eve', team: 'cia' });
-      const before = score([charted, terraformed], { season: '2026-09', now: NOW });
-      const s = score([charted, terraformed, merged, approved], { season: '2026-09', now: NOW });
+      const before = score([charted, terraformed], { season: '2026-09', now: NOW, rules: PAID });
+      const s = score([charted, terraformed, merged, approved], { season: '2026-09', now: NOW, rules: PAID });
       expect(s.individuals).toEqual({ pm: 30, eve: 10 }); // 23:00 in Brussels: no night shift
       expect(s.credits.filter((c) => c.reason.startsWith('feature ')).map((c) => [c.to, c.reason])).toEqual([['eve', 'feature reviewed'], ['pm', 'feature merged']]);
       expect(s.streaks).toEqual(before.streaks);
-      expect(score([charted, merged, approved], { season: '2026-10', now: NOW }).individuals).toEqual({});
+      expect(score([charted, merged, approved], { season: '2026-10', now: NOW, rules: PAID }).individuals).toEqual({});
     });
   });
 
@@ -261,6 +265,41 @@ describe('score', () => {
     });
   });
 
+  describe('a sub-PR never earns points (PRD 1975)', () => {
+    // Each sub-PR merged into the feature branch secures one zone; the feature PR's merge terraforms.
+    const delivery = [
+      E('planet:2332:charted', '2026-08-01T08:00:00Z', 'PLANET_CHARTED', { data: { ownerTeam: 'beaver', captain: 'pm' } }),
+      E('zone:r:2332:s1:secured', '2026-08-20T12:00:00Z', 'ZONE_SECURED', { contributor: 'alice', team: 'octopod' }), // a past season
+      E('zone:r:2332:s2:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', { contributor: 'carol', team: 'cia' }),
+      E('zone:r:2332:s3:secured', '2026-09-21T20:00:00Z', 'ZONE_SECURED', { contributor: 'bob', team: 'octopod' }), // 22:00 in Brussels
+      E('zone:r:2332:s2:reverted', '2026-09-22T12:00:00Z', 'ZONE_REVERTED', { contributor: 'carol', team: 'cia' }),
+      E('planet:2332:terraformed', '2026-09-25T12:00:00Z', 'PLANET_TERRAFORMED', { data: { ownerTeam: 'beaver', class: 1 } }),
+    ];
+    const personal = (season: string) => score(delivery, { season, now: NOW }).credits.filter((c) => c.to).map((c) => [c.to, c.reason, c.points]);
+
+    it('credits a sub-PR\'s author only the expedition bonus of 10, at the terraform, past seasons included', () => {
+      expect(personal('2026-08')).toEqual([]);
+      expect(personal('2026-09')).toEqual([['alice', 'expedition bonus', 10], ['carol', 'expedition bonus', 10], ['bob', 'expedition bonus', 10]]);
+      expect(score(delivery, { season: '2026-09', now: NOW }).individuals).toEqual({ alice: 10, bob: 10, carol: 10 });
+    });
+
+    it('debits nothing for a reverted zone', () => {
+      const reverted = score(delivery.slice(0, 5), { season: '2026-09', now: NOW });
+      expect(reverted.credits).toEqual([]);
+      expect(reverted.individuals).toEqual({});
+    });
+
+    it('pays a merged feature PR\'s merger and approvers nothing, past seasons included: PR_REVIEWED pays them', () => {
+      const merges = [
+        charted,
+        E('merge:r#400:2332:merged', '2026-08-25T12:00:00Z', 'FEATURE_MERGED', { contributor: 'pm', team: 'beaver' }),
+        E('merge:r#500:2332:merged', '2026-09-25T12:00:00Z', 'FEATURE_MERGED', { contributor: 'pm', team: 'beaver' }),
+        E('merge:r#500:2332:approved:eve', '2026-09-25T12:00:00Z', 'FEATURE_REVIEWED', { contributor: 'eve', team: 'cia' }),
+      ];
+      for (const season of ['2026-08', '2026-09']) expect(score(merges, { season, now: NOW }).credits, season).toEqual([]);
+    });
+  });
+
   it('counts one person once, whatever case their login is spelt in', () => {
     // The ledger keeps a sub-PR author as GitHub spells it and a merger in lower case (BR-PRODUCT-79).
     const s = score([
@@ -270,7 +309,7 @@ describe('score', () => {
       E('w1:closed', '2026-09-21T11:00:00Z', 'WOUND_CLOSED', { contributor: 'aubrille', team: 'beaver', data: { kind: 'transmission', rank: 'medium', verdict: 'agreed' } }),
       E('planet:2332:terraformed', '2026-09-22T12:00:00Z', 'PLANET_TERRAFORMED', { data: { ownerTeam: 'beaver', class: 1 } }),
       E('merge:r#500:2332:merged', '2026-09-22T12:00:00Z', 'FEATURE_MERGED', { contributor: 'aubrille', team: 'beaver' }),
-    ], { season: '2026-09', now: NOW });
+    ], { season: '2026-09', now: NOW, rules: PAID });
     // zone 10 + wound 5 + expedition 50 + merge 30; no closer bonus, the closer is the crew
     expect(s.individuals).toEqual({ aubrille: 95 });
   });

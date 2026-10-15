@@ -4,6 +4,9 @@ import { isWorkingTime, tranchesBetween } from './calendar.ts';
 import { NO_PLANET, oneSpelling, planetKeyOf, textOf, type GameEvent } from './events.ts';
 import type { Credit, PlanetSeason, Season } from './types.ts';
 
+// The numbers score() pays by: RULEBOOK, unless a test hands it another (a rollback's numbers).
+export type Rulebook = { readonly [K in keyof typeof RULEBOOK]: (typeof RULEBOOK)[K] extends number ? number : (typeof RULEBOOK)[K] };
+
 // A rulebook table's number for a key read off an event's data, or undefined.
 const lookup = (table: Readonly<Record<string, number>>, key: unknown): number | undefined =>
   (typeof key === 'string' ? table[key] : undefined);
@@ -22,7 +25,7 @@ function seasonBounds(season: string): { start: Date; end: Date } {
   return { start: new Date(Date.UTC(y, m - 1, 1)), end: new Date(Date.UTC(y, m, 1)) };
 }
 
-export function score(events: readonly GameEvent[], { season, now }: { season: string; now: Date }): Season {
+export function score(events: readonly GameEvent[], { season, now, rules = RULEBOOK }: { season: string; now: Date; rules?: Rulebook }): Season {
   const { start, end } = seasonBounds(season);
   const inSeason = (at: string): boolean => at.slice(0, 7) === season;
   const sorted = events.map(oneSpelling).sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
@@ -56,7 +59,7 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
     if (e.planet !== NO_PLANET) planetOf(key);
     switch (e.type) {
       case 'ZONE_SECURED': {
-        const points = RULEBOOK.zoneSecured * (isWorkingTime(new Date(e.at)) ? 1 : RULEBOOK.nightShiftMultiplier);
+        const points = rules.zoneSecured * (isWorkingTime(new Date(e.at)) ? 1 : rules.nightShiftMultiplier);
         securedPoints.set(e.id.replace(/:secured$/, ''), { points, at: e.at });
         if (e.contributor) setOf(expeditions, key).add(e.contributor);
         credit(e, points, 'zone secured');
@@ -74,53 +77,54 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
         // score worse than a rubber-stamp `agreed`; the fault line a drift opens still decays the
         // owner until reworked. Any other verdict (e.g. `undetermined`) scores nothing.
         if (e.data.verdict !== undefined && !SETTLE_VERDICTS.has(e.data.verdict)) break;
-        const base = lookup(RULEBOOK.woundClose, e.data.kind) ?? 0;
+        const base = lookup(rules.woundClose, e.data.kind) ?? 0;
         const crossTeam = Boolean(e.team && ownerFor(e) && e.team !== ownerFor(e));
         if (e.contributor && base) setOf(closers, key).add(e.contributor);
-        credit(e, base * (crossTeam ? RULEBOOK.crossTeamMultiplier : 1), `wound closed: ${String(e.data.kind)}`, undefined, undefined, crossTeam ? { crossTeam: true } : {});
+        credit(e, base * (crossTeam ? rules.crossTeamMultiplier : 1), `wound closed: ${String(e.data.kind)}`, undefined, undefined, crossTeam ? { crossTeam: true } : {});
         break;
       }
       case 'RESCUE':
         // F5b: the RESCUE is a ledger fact whoever claims; it pays only a claimer from another team.
-        if (e.team && e.team !== ownerFor(e)) credit(e, RULEBOOK.rescue, 'rescue');
+        if (e.team && e.team !== ownerFor(e)) credit(e, rules.rescue, 'rescue');
         break;
       case 'QUESTION_ANSWERED':
         // PRD 1180: an answer pays its answerer, in the season it was answered, with no multiplier.
         // It opens no wound and joins no crew, so threat, decay and the terraform bonus ignore it.
-        credit(e, RULEBOOK.questionAnswered, 'question answered');
+        credit(e, rules.questionAnswered, 'question answered');
         break;
       case 'FEATURE_MERGED':
-        // A feature PR merged into its default branch pays who merged it, and each person who
-        // approved it, in the season of the merge, with no multiplier. Neither joins a crew.
-        credit(e, RULEBOOK.featureMerged, 'feature merged');
+        // A feature PR merged into its default branch, paid to who merged it and each person who
+        // approved it, in the season of the merge, with no multiplier. Neither joins a crew. Both
+        // pay 0 since PRD 1975: PR_MERGED and PR_REVIEWED pay the merge.
+        credit(e, rules.featureMerged, 'feature merged');
         break;
       case 'FEATURE_REVIEWED':
-        credit(e, RULEBOOK.featureReviewed, 'feature reviewed');
+        credit(e, rules.featureReviewed, 'feature reviewed');
         break;
       case 'PR_MERGED':
         // PRD 1975: a pull request merged into a tracked repository's default branch pays its author
         // and each reviewer by its kind, in the season of the merge, with no multiplier. Neither
         // belongs to a planet, so no crew, no terraform and no loss reads them.
-        credit(e, lookup(RULEBOOK.prMerged, e.data.kind) ?? 0, 'pr merged');
+        credit(e, lookup(rules.prMerged, e.data.kind) ?? 0, 'pr merged');
         break;
       case 'PR_REVIEWED':
-        credit(e, lookup(RULEBOOK.prReviewed, e.data.kind) ?? 0, 'pr reviewed');
+        credit(e, lookup(rules.prReviewed, e.data.kind) ?? 0, 'pr reviewed');
         break;
       case 'PLANET_TERRAFORMED': {
         const team = ownerFor(e);
         const prior = (team ? streak.get(team) : undefined) ?? 0;
         const regions = e.data.class ?? 1;
-        const mult = RULEBOOK.classMultiplier(typeof regions === 'number' ? regions : Number.NaN)
-          * (e.data.crossSector ? RULEBOOK.crossSectorMultiplier : 1)
-          * (1 + Math.min(RULEBOOK.streakCap, RULEBOOK.streakStep * prior));
+        const mult = rules.classMultiplier(typeof regions === 'number' ? regions : Number.NaN)
+          * (e.data.crossSector ? rules.crossSectorMultiplier : 1)
+          * (1 + Math.min(rules.streakCap, rules.streakStep * prior));
         if (team) {
-          credit(e, RULEBOOK.terraformOwner * mult, 'planet terraformed', null, team);
+          credit(e, rules.terraformOwner * mult, 'planet terraformed', null, team);
           if (inSeason(e.at)) streak.set(team, prior + 1); // season streak (§6.1): only this season's terraforms count
         }
         planetOf(key).terraformed = true;
         const crew = expeditions.get(key) ?? new Set<string>();
-        for (const login of crew) credit(e, RULEBOOK.terraformExpedition, 'expedition bonus', login, teamOfLogin.get(login) ?? null);
-        for (const login of closers.get(key) ?? []) if (!crew.has(login)) credit(e, RULEBOOK.terraformCloser, 'closer bonus', login, teamOfLogin.get(login) ?? null);
+        for (const login of crew) credit(e, rules.terraformExpedition, 'expedition bonus', login, teamOfLogin.get(login) ?? null);
+        for (const login of closers.get(key) ?? []) if (!crew.has(login)) credit(e, rules.terraformCloser, 'closer bonus', login, teamOfLogin.get(login) ?? null);
         break;
       }
       case 'PLANET_LOST': {
@@ -148,8 +152,8 @@ export function score(events: readonly GameEvent[], { season, now }: { season: s
     const closed = closedAt.get(e.id.replace(/:opened$/, ''));
     const lostAt = lostAtOf.get(planetKeyOf(e));
     const to = new Date(Math.min(closed ? new Date(closed).getTime() : now.getTime(), end.getTime(), now.getTime(), lostAt ? new Date(lostAt).getTime() : Infinity));
-    const tranches = tranchesBetween(from, to, RULEBOOK.trancheMinutes);
-    const points = -tranches * (lookup(RULEBOOK.decayPerTranche, e.data.kind) ?? 0);
+    const tranches = tranchesBetween(from, to, rules.trancheMinutes);
+    const points = -tranches * (lookup(rules.decayPerTranche, e.data.kind) ?? 0);
     if (points !== 0) credits.push({ at: from.toISOString(), to: null, team, ...where(e), points, reason: `decay: ${String(e.data.kind)}`, clawed: false });
   }
 
