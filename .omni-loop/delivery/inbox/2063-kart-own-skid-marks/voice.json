@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-15",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Two files, the player's marks moved and drawn after its shadow, the rivals' pinned by a test: a small change whose pixels are measured before and after, not a guess that ships a regression.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Seventh PRD on the kart, for marks six pixels tall under the player's own wheels: more game, still no tool.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "The person picked among four measured looks in one round and it goes straight into the loop: fast, and the choice is on record.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "It closes the third fix of the same root, the effects born 8 px behind a kart the camera cannot see, the way the sparks and the trail were closed: from the kart's middle.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A quick win a player feels at the wheel: their own drift now marks the road, and nothing else changes.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "Un PRD complet pour deux traces de 6 pixels sous un kart : c'est exactement le gadget que j'attendais de cet outil.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-15",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The spec names the two test files, what each measures and that both are red today; the rivals' marks and the cap are pinned, so the change cannot spread.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "The spec is honest that the marks show in six rows at the screen's edge, at half the contrast on road; that is a lot of process for it.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Every option measured, the pick and the ones ruled out are written down: the next person who asks why the kart is not raised has the answer.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One flag on a mark and one draw pass split in two, no camera change, no new cap: it fits how 2057 and 2061 were fixed.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Small, felt by the player, and rolled back by one revert: the kind of change I want to ship quickly.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✗"
+    }
+  ]
+}
