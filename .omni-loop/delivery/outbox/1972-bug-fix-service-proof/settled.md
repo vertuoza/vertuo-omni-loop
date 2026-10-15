@@ -14,7 +14,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Channel: feature pull request #1973
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1973#issuecomment-6191494505
 - Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #2013, the sub-pull request that brought the build back in line
 - Rank: high
 - Bears on: BR-PRODUCT-3
 - Raised: 2026-10-15
