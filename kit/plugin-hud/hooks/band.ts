@@ -2,15 +2,18 @@
 //
 // - **The answer** is read only when it parses and has the shape `omni now` prints; anything else
 //   is no answer, and the band hides.
-// - **At most four rows.** The headline (`roadmap 7 · 3/7 merged · roadmap page`), only with one;
+// - **At most five rows.** The headline (`roadmap 7 · 3/7 merged · roadmap page`), only with one;
 //   the work (`PRD 315 help-and-status · building · now: s3 tabs, s4 board`), with `doing` in place
 //   of the "now" part while a loop runs; the approval wait's line, below; the work's links, only
 //   with some.
 // - **The approval wait** (PRD 1322's spec, §6): while `omni wait approval` runs, its line, the
 //   `wait` row, after the work and before its links; the approved or voided line is the `toast` row,
 //   drawn highlighted, until the answer says it is over.
+// - **The sync row** (PRD 1990): `omni now`'s `sync` field, drawn first as the status line draws its
+//   badge (`🟢 in sync`, `🟠 <headline>`, `🔴 <headline>`, `🔵 setting up <k>/4`); no field, no row.
+//   It shows with the session on nothing too: the band is then this row alone.
 // - **Nothing** while the session is on nothing: no headline, no work and no wait.
-import type { HudHeadline, HudLink, HudNow, HudSlice, HudWait, HudWork } from '../types/index.d.ts'
+import type { HudHeadline, HudLink, HudNow, HudSlice, HudSync, HudWait, HudWork } from '../types/index.d.ts'
 
 /** One piece of a row: plain text, or a link. */
 export type BandPart = { text: string } | HudLink
@@ -76,6 +79,20 @@ function asWait(value: unknown): HudWait | null | undefined {
   return { line, toast, until }
 }
 
+const SYNC_STATUSES = ['blue', 'red', 'orange', 'green']
+
+function asSync(value: unknown): HudSync | null | undefined {
+  if (value === null) return null
+  if (!isRecord(value)) return undefined
+  const { status, headline, checkedAt, setupDone } = value
+  if (typeof status !== 'string' || !SYNC_STATUSES.includes(status) || typeof checkedAt !== 'string') return undefined
+  if (headline !== null && typeof headline !== 'string') return undefined
+  if (setupDone !== undefined && typeof setupDone !== 'number') return undefined
+  const sync = { status, headline, checkedAt } as HudSync
+  if (setupDone !== undefined) sync.setupDone = setupDone
+  return sync
+}
+
 /** `omni now --json`'s stdout as an answer, or `null` when it does not parse or has another shape. */
 export function parseNow(stdout: string): HudNow | null {
   let data: unknown
@@ -89,9 +106,10 @@ export function parseNow(stdout: string): HudNow | null {
   const work = asWork(data.work ?? null)
   const doing = data.doing ?? null
   const wait = asWait(data.wait ?? null)
-  if (headline === undefined || work === undefined || wait === undefined) return null
+  const sync = asSync(data.sync ?? null)
+  if (headline === undefined || work === undefined || wait === undefined || sync === undefined) return null
   if (doing !== null && typeof doing !== 'string') return null
-  return { headline, work, doing, wait }
+  return { headline, work, doing, wait, sync }
 }
 
 const slug = (kind: string, number: number): string =>
@@ -120,10 +138,18 @@ function workRow(now: HudNow): BandRow | null {
 const waitRow = ({ line, toast }: HudWait): BandRow =>
   toast ? { key: 'toast', parts: [{ text: line }], toast: true } : { key: 'wait', parts: [{ text: line }] }
 
-/** The band's rows for an answer: none while the session is on nothing. */
+/** The words of the sync row, as the status line words its badge. */
+function syncRow({ status, headline, setupDone }: HudSync): BandRow {
+  const dot = { green: '🟢', orange: '🟠', red: '🔴', blue: '🔵' }[status]
+  const words = status === 'blue' ? `setting up ${setupDone ?? 0}/4` : status === 'green' ? 'in sync' : (headline ?? status)
+  return { key: 'sync', parts: [{ text: `${dot} ${words}` }] }
+}
+
+/** The band's rows for an answer: the sync row first, then none while the session is on nothing. */
 export function bandRows(now: HudNow | null): BandRow[] {
-  if (!now || (!now.work && !now.headline && !now.wait)) return []
-  const rows: BandRow[] = []
+  if (!now) return []
+  const rows: BandRow[] = now.sync ? [syncRow(now.sync)] : []
+  if (!now.work && !now.headline && !now.wait) return rows
   if (now.headline) rows.push(headlineRow(now.headline))
   const work = workRow(now)
   if (work) rows.push(work)

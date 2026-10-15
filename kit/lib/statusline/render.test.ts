@@ -11,6 +11,8 @@ import {
   resetIn,
   secondLine,
   sessionLine,
+  syncBadge,
+  syncWords,
   usagePart,
   visibleLength,
   wavePart,
@@ -19,6 +21,7 @@ import { assertDefined } from '../../test/assert.ts';
 import { parseIssue, parsePrd } from '../ids.ts';
 import { NOTHING } from '../now/now.ts';
 import type { Now } from '../now/now.ts';
+import type { SyncRecord } from '../sync/schema.ts';
 import { readEnv } from '../env/read.ts';
 
 /** The terminal `main()` reads from `env`. */
@@ -318,5 +321,69 @@ describe('line 2, drawn from omni now (PRD 1208, s5)', () => {
     expect(plain).not.toContain('\x1b');
     expect(coloured.replace(/\x1b\[[0-9;]*m/g, '')).toBe(plain);
     if (columns === 200) expect(coloured).toContain(`${RED}stuck s5 pane${RESET}`);
+  });
+});
+
+// PRD 1990, slice s6: the sync badge that starts line 2, and how it gives way at narrow widths.
+describe('the sync badge', () => {
+  const record = (over: Partial<SyncRecord> = {}): SyncRecord => ({
+    checkedAt: '2026-09-28T11:58:00.000Z',
+    status: 'orange',
+    headline: 'main is 3 commits behind origin/main',
+    setupDoneAt: '2026-09-01T09:00:00.000Z',
+    setup: null,
+    findings: [],
+    fix: null,
+    ...over,
+  });
+  const BUILDING = { kind: 'prd' as const, number: parsePrd(315), topic: 'help-and-status', stage: 'building' as const, slices: [], links: [] };
+  const lineTwo = (sync: SyncRecord | null, columns: number, now: Now = { headline: null, work: BUILDING, doing: null }) => {
+    const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: false, now, sync }, terminal: t({ NO_COLOR: '1', COLUMNS: String(columns) }), now: NOW });
+    return lines[1];
+  };
+
+  it('reads each of the four badges', () => {
+    expect(syncBadge(record({ status: 'green', headline: null }))).toBe('🟢 in sync');
+    expect(syncBadge(record())).toBe('🟠 main is 3 commits behind origin/main');
+    expect(syncBadge(record({ status: 'red', headline: 'main is 2 d behind origin/main' }))).toBe('🔴 main is 2 d behind origin/main');
+    expect(syncBadge(record({ status: 'blue', headline: 'omni-hud is not installed', setupDoneAt: null, setup: { done: 1, steps: [] } }))).toBe('🔵 setting up 1/4');
+    expect(syncWords({ status: 'blue', headline: null, done: 0 })).toBe('setting up 0/4');
+  });
+
+  it('starts line 2 with the badge, then ` · ` and what it says today', () => {
+    expect(lineTwo(record({ status: 'green', headline: null }), 200)).toBe('🟢 in sync · PRD 315 help-and-status · building');
+    expect(lineTwo(record(), 200)).toBe('🟠 main is 3 commits behind origin/main · PRD 315 help-and-status · building');
+    expect(lineTwo(record(), 200, NOTHING)).toBe(`🟠 main is 3 commits behind origin/main · ${NO_PRD_LINE}`);
+  });
+
+  it('draws line 2 as it was with no record', () => {
+    expect(lineTwo(null, 200)).toBe('PRD 315 help-and-status · building');
+    expect(renderLines({ input: INPUT, facts: { installed: true, askOn: false, now: { headline: null, work: BUILDING, doing: null } }, terminal: t({ NO_COLOR: '1', COLUMNS: '200' }), now: NOW })[1]).toBe('PRD 315 help-and-status · building');
+  });
+
+  it('cuts the headline first, one character at a time, and keeps the dot and its first word', () => {
+    const rest = 'PRD 315 help-and-status · building';
+    expect(lineTwo(record(), 75)).toBe(`🟠 main is 3 commits behind origin/main · ${rest}`);
+    expect(lineTwo(record(), 74)).toBe(`🟠 main is 3 commits behind origin/ma… · ${rest}`);
+    expect(lineTwo(record(), 50)).toBe(`🟠 main is 3… · ${rest}`);
+    expect(lineTwo(record(), 43)).toBe(`🟠 main · ${rest}`);
+  });
+
+  it('gives the rest of the line room only once the headline is down to its first word', () => {
+    const line = lineTwo(record(), 30);
+    assertDefined(line, 'line');
+    expect(visibleLength(line)).toBeLessThanOrEqual(30);
+    expect(line.startsWith('🟠 main · PRD 315')).toBe(true);
+  });
+
+  it('never cuts a green or a blue badge below its first word either, and fits every width', () => {
+    for (const columns of [20, 30, 40, 60, 80, 200]) {
+      for (const sync of [record(), record({ status: 'green', headline: null }), record({ status: 'blue', setupDoneAt: null, setup: { done: 2, steps: [] } })]) {
+        const line = lineTwo(sync, columns);
+        assertDefined(line, 'line');
+        expect(visibleLength(line)).toBeLessThanOrEqual(columns);
+        expect(line.startsWith(syncBadge(sync).split(' ').slice(0, 2).join(' ').slice(0, columns))).toBe(true);
+      }
+    }
   });
 });
