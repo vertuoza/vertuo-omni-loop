@@ -50,6 +50,8 @@ with GitHub or to the game. Static: the same for every visitor, no cookie read, 
 - Works-with line, under the promises, one row of short items split by yellow dots: WORKS WITH ·
   CLAUDE CODE · CODEX · CURSOR · GEMINI CLI · ANY CODING AGENT, the last a link to `/docs/any-agent`.
 - Actions: SIGN UP WITH GITHUB, PRESS START, GETTING STARTED.
+- SHIP VALUE opens with "A merged feat/fix PR scores 30.", and the beaver's card carries the same
+  sentence (PRD 1975); every number is read from the rulebook, and no line names a secured zone.
 - Fine print: "Runs on your coding agent." "Free while in beta." "Leave any
   time: delete one folder and commit. Nothing to migrate."
 - The page's prose never says phase-0, worktree, sub-PR, dossier, territory or yolo, and glosses
