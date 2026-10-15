@@ -7291,13 +7291,9 @@ async function evaluateAt(octokit, { owner, repo, prNumber, headSha }) {
     rmSync7(head, { recursive: true, force: true });
   }
 }
-function createFailureHandler({ octokitFor }) {
-  return onFailedRun(octokitFor, async ({ octokit, request: { owner, repo, prNumber, headSha }, reason: reason2 }) => {
-    let target2 = null;
-    try {
-      target2 = await checkTarget(octokit, { owner, repo, prNumber, headSha });
-    } catch {
-    }
+function createFailureHandler({ octokitFor, log: log2 = noteTo("outbox-check") }) {
+  return onFailedRun(octokitFor, ({ octokit, request: { owner, repo, prNumber, headSha }, reason: reason2 }) => waitingOnBudget(`${owner}/${repo}#${prNumber}`, log2, async () => {
+    const target2 = await targetOrUnknown(octokit, { owner, repo, prNumber, headSha });
     if (target2 && !target2.active) return { ...SILENT2 };
     if (target2 && !target2.gated) return completeUngated(octokit, { owner, repo, headSha, target: target2, reason: reason2 });
     if (target2) {
@@ -7305,14 +7301,26 @@ function createFailureHandler({ octokitFor }) {
       return { checkRunIds: checkRunIds2, name: target2.name, reason: reason2 };
     }
     const name = DEFAULT_CHECK_NAME;
-    let checkRunIds = [];
-    try {
-      checkRunIds = await completeAsFailure(octokit, { owner, repo, headSha, name, reason: reason2, create: false });
-    } catch {
-    }
+    const checkRunIds = await openRunsFailed(octokit, { owner, repo, headSha, name, reason: reason2 });
     if (checkRunIds.length === 0) return { posted: false, reason: UNKNOWN_PR };
     return { checkRunIds, name, reason: reason2 };
-  });
+  }));
+}
+async function targetOrUnknown(octokit, at3) {
+  try {
+    return await checkTarget(octokit, at3);
+  } catch (error) {
+    if (budgetRefusal(error)) throw error;
+    return null;
+  }
+}
+async function openRunsFailed(octokit, at3) {
+  try {
+    return await completeAsFailure(octokit, { ...at3, create: false });
+  } catch (error) {
+    if (budgetRefusal(error)) throw error;
+    return [];
+  }
 }
 async function completeUngated(octokit, { owner, repo, headSha, target: target2, reason: failed2 }) {
   const { name, reason: reason2, deferTo } = target2;
