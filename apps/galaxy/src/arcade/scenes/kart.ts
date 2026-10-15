@@ -90,7 +90,9 @@ export type KartCue =
   | { kind: 'item'; item: KartItem; you: boolean; tiles: number }
   | { kind: 'box' }
   | { kind: 'hit'; item: 'blob' | 'orb'; you: boolean; tiles: number }
-  | { kind: 'spin' } | { kind: 'fall' } | { kind: 'finalLap' };
+  | { kind: 'spin' } | { kind: 'fall' } | { kind: 'finalLap' }
+  // PRD 1963, the player's own kart only: a tick as the sparks turn blue and orange, a whoosh at a mini-turbo, a rocket start or a slipstream, a sputter on a stall.
+  | { kind: 'tick'; color: 'blue' | 'orange' } | { kind: 'whoosh' } | { kind: 'sputter' };
 
 /** How far a rival's sound carries, in tiles: beyond it nothing is heard. */
 export const HEARD_TILES = 20;
@@ -107,6 +109,9 @@ export function soundOf(cue: KartCue): { sfx: Sfx; far: number } | null {
     case 'spin': return { sfx: 'spin', far: 0 };
     case 'fall': return { sfx: 'fall', far: 0 };
     case 'finalLap': return { sfx: 'finalLap', far: 0 };
+    case 'tick': return { sfx: cue.color === 'blue' ? 'tickBlue' : 'tickOrange', far: 0 };
+    case 'whoosh': return { sfx: 'whoosh', far: 0 };
+    case 'sputter': return { sfx: 'sputter', far: 0 };
     case 'item':
     case 'hit': {
       const effect: Sfx = cue.kind === 'hit' ? 'impact' : cue.item;
@@ -132,6 +137,15 @@ export function kartSong(hud: KartHud | null): SongName | null {
 /** Whether the race's engine hums: during the countdown and the race, not on the ready screen, the pause or the results. */
 export const kartEngineOn = (hud: KartHud | null): boolean => hud?.phase === 'countdown' || hud?.phase === 'race';
 
+/** The level the engine's hum rises to while GAS is held in the countdown (PRD 1963), a share of the top speed. */
+export const REV_LEVEL = 0.7;
+
+/** The engine's level, 0 to 1, or null when it does not hum: the speed on the road, and while GAS (A) is held in the countdown, the rev of a start. */
+export function kartEngineLevel(hud: KartHud | null, speed: number, held: ReadonlySet<Action>): number | null {
+  if (!kartEngineOn(hud)) return null;
+  return hud?.phase === 'countdown' && held.has('a') ? Math.max(speed, REV_LEVEL) : speed;
+}
+
 /**
  * The race itself, as the arcade drives it (PRD 1359, slice 2): stepped by the canvas loop with the
  * buttons held, answering presses, paused from outside, and read by the text layer through `hud()`.
@@ -152,6 +166,8 @@ export interface KartGame extends KartDraw {
   cues(): readonly KartCue[];
   /** The player's speed as a share of its top speed on the road, 0 to 1. */
   speed(): number;
+  /** How loud the player's tyres screech, 0 (silent) to 1 (PRD 1963). */
+  skid(): number;
 }
 
 /** Where the game's import stands: on its way, the game ready, or the import failed. */

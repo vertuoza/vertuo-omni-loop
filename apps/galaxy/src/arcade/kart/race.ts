@@ -99,6 +99,8 @@ export type RaceEvent =
   | { kind: 'item'; racer: number; item: Item } | { kind: 'box'; racer: number }
   | { kind: 'hit'; racer: number; item: 'blob' | 'orb'; spun: boolean; id?: string }
   | { kind: 'fell'; racer: number } | { kind: 'finalLap' }
+  // PRD 1963, what the player's own kart tells the ear: its sparks turn blue or orange, a mini-turbo, a rocket start or a slipstream gives its BOOST, a stalled start sputters.
+  | { kind: 'tick'; color: 'blue' | 'orange' } | { kind: 'whoosh' } | { kind: 'sputter' }
   | { kind: 'throw'; id: string; item: 'blob' | 'orb'; x: number; y: number; angle: number }
   | { kind: 'finish'; tenths: number } | { kind: 'quit' } | { kind: 'again' } | { kind: 'leave' };
 
@@ -437,6 +439,39 @@ function stepRace(race: Race, held: ReadonlySet<Action>, t: number): Stepped {
   return { race: { ...next, fx: endDrift(next.fx), phase: 'finish', finish, podium: true }, events: [...events, { kind: 'finish', tenths: finish.threeLap }] };
 }
 
+/** The colour of the sparks a drift's charge throws (PRD 1963): blue from `chargeBlue` seconds, orange from `chargeOrange`, none before or out of a drift. */
+const sparksOf = (fx: Race['fx']): 'blue' | 'orange' | undefined =>
+  fx.drift === undefined || fx.charge === undefined ? undefined : fx.charge >= RULES.chargeOrange ? 'orange' : fx.charge >= RULES.chargeBlue ? 'blue' : undefined;
+
+/** The tick of a step (PRD 1963): the sparks turned blue, or orange, in it. */
+function tickOf(before: Race['fx'], after: Race['fx']): RaceEvent[] {
+  const color = sparksOf(after);
+  return color && color !== sparksOf(before) ? [{ kind: 'tick', color }] : [];
+}
+
+/** Whether a drift was let go (a mini-turbo) or a slipstream's count ran out in a step: what can give a BOOST of its own. */
+const fires = (before: Race['fx'], after: Race['fx']): boolean => (before.drift !== undefined && after.drift === undefined) || ((before.draft ?? 0) > 0 && (after.draft ?? 0) === 0);
+
+/** What the player's own kart tells the ear in one step (PRD 1963): a tick as its sparks turn blue and again as they turn orange, and a whoosh when a mini-turbo or a slipstream adds to its BOOST. */
+const earsOf = (before: Race['fx'], after: Race['fx']): RaceEvent[] => [...tickOf(before, after), ...(fires(before, after) && after.boost > before.boost ? [{ kind: 'whoosh' } as const] : [])];
+
+/** A step of the race with what the player's kart tells the ear (PRD 1963). */
+function stepHeard(race: Race, held: ReadonlySet<Action>, t: number): Stepped {
+  const stepped = stepStalled(race, held, t);
+  return { ...stepped, events: [...stepped.events, ...earsOf(race.fx, stepped.race.fx)] };
+}
+
+/** How loud the player's tyres screech, 0 (silent) to 1 (PRD 1963): from `RULES.skidGap` radian between the way the kart travels and the way it faces, or in a drift, louder as the gap grows, and nothing in the air, in a fall or at rest. */
+export function skidOf(kart: Race['player'], fx: Race['fx']): number {
+  if (fx.fall > 0 || (fx.hop ?? 0) > 0 || Math.abs(kart.speed) < 1) return 0;
+  const off = kart.travel === undefined ? 0 : Math.abs(Math.atan2(Math.sin(kart.angle - kart.travel), Math.cos(kart.angle - kart.travel)));
+  if (off <= RULES.skidGap && fx.drift === undefined) return 0;
+  return Math.min(1, 0.25 + off / SKID_LOUD * 0.75);
+}
+
+/** The gap, in radians, at which the screech is at its loudest. */
+const SKID_LOUD = 0.6;
+
 /** A race step in which an engine that stalls (PRD 1963) holds the kart still, whatever is held, until its seconds are out. */
 function stepStalled(race: Race, held: ReadonlySet<Action>, t: number): Stepped {
   if (!race.stall) return stepRace(race, held, t);
@@ -473,11 +508,14 @@ export function step(race: Race, held: ReadonlySet<Action>, dt: number): Stepped
       const heard = r.heard ? { ...r, heard: { ...r.heard, at: 0 } } : r;
       return race.rockets?.[i] ? { ...heard, fx: { ...(heard.fx ?? NO_FX), boost: RULES.rocketTime } } : heard;
     });
-    return { race: { ...race, phase: 'race', clock: 0, rivals, fx: start.rocket ? { ...race.fx, boost: RULES.rocketTime } : race.fx, ...(start.rocket ? { rocket: true as const } : {}), ...(start.stall ? { stall: RULES.stallTime } : {}) }, events: [{ kind: 'go' }] };
+    return { race: { ...race, phase: 'race', clock: 0, rivals, fx: start.rocket ? { ...race.fx, boost: RULES.rocketTime } : race.fx, ...(start.rocket ? { rocket: true as const } : {}), ...(start.stall ? { stall: RULES.stallTime } : {}) }, events: goEvents(start) };
   }
-  if (race.phase === 'race') return stepStalled(race, held, t);
+  if (race.phase === 'race') return stepHeard(race, held, t);
   return { race: race.phase === 'finish' && race.mode === 'multi' ? waitOnResults(race, t) : race, events: [] };
 }
+
+/** What GO tells the ear (PRD 1963): GO, and a whoosh on a rocket start or a sputter on a stall. */
+const goEvents = (start: { rocket: boolean; stall: boolean }): RaceEvent[] => [{ kind: 'go' }, ...(start.rocket ? [{ kind: 'whoosh' } as const] : []), ...(start.stall ? [{ kind: 'sputter' } as const] : [])];
 
 /** On the results of a MULTI race the others race on: a player silent for too long is OUT, and the results fill in. */
 function waitOnResults(race: Race, t: number): Race {
@@ -568,6 +606,9 @@ const CUES: { [K in RaceEvent['kind']]: CueOf<K> } = {
   hit: (e, tiles) => [{ kind: 'hit', item: e.item, you: e.racer === 0, tiles }, ...(e.racer === 0 && e.spun ? [{ kind: 'spin' } as const] : [])],
   fell: (e) => (e.racer === 0 ? [{ kind: 'fall' }] : []),
   finalLap: () => [{ kind: 'finalLap' }],
+  tick: (e) => [{ kind: 'tick', color: e.color }],
+  whoosh: () => [{ kind: 'whoosh' }],
+  sputter: () => [{ kind: 'sputter' }],
   finish: () => [],
   quit: () => [],
   again: () => [],

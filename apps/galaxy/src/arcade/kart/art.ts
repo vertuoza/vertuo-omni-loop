@@ -19,7 +19,7 @@ import { groundAt, heightsOf, reliefRange } from './relief';
 import type { GridSession, RaceStart } from './hub';
 import type { Item } from './items';
 import { rateFor, readMessage, type GridPlayer, type ItemMessage, type RaceMessage } from './net';
-import { away, cuesOf, dropOut, finishOf, hear, hudOf, lift, newRace, pause, plant, press, step, whereIs, type Race, type RaceEvent } from './race';
+import { away, cuesOf, dropOut, finishOf, hear, hudOf, lift, newRace, pause, plant, press, skidOf, step, whereIs, type Race, type RaceEvent } from './race';
 import { RULES, type Difficulty } from './rules';
 import { COLORS, DEFAULT_LOOK, kartSprite, kartTint, type KartLook, type KartView } from './look';
 import type { Driver, Rival } from './rivals';
@@ -811,6 +811,7 @@ export function createKart({ seed, cast = [], circuit, track, live, held, laps, 
     },
     cues() { const out = told; told = []; return out; },
     speed: () => Math.min(1, Math.max(0, race.player.speed / RULES.topSpeed)),
+    skid: () => (race.phase === 'race' ? skidOf(race.player, race.fx) : 0),
     board: raced.board,
     hud: () => hudOf(race),
     draw(ctx, s) {

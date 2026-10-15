@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Action } from '../keys';
 import { gridFor, TALL, WIDE, type Grid } from '../grid';
 import { ScreenContext } from '../Screen';
 import { DEFAULT_THEME } from '../theme';
@@ -9,7 +10,7 @@ import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
-import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, KEY_RESERVED, OPTIONS_OPEN, PRESS_A_KEY, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, circuitName, circuitPress, type CircuitCard, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, readyLine, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
+import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, KEY_RESERVED, OPTIONS_OPEN, PRESS_A_KEY, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, circuitName, circuitPress, type CircuitCard, NOT_LOADED, kartEngineLevel, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, readyLine, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay, type KartArt } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 import { defaultOptions, optionsKey, optionsPress, type OptionsView } from '../kart/options';
@@ -23,7 +24,7 @@ const text = (status: KartStatus, grid: Grid = WIDE, form: 'full' | 'handheld' =
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** A game that does nothing, as the loader hands it over. */
-const stubGame = (): KartGame => ({ draw: () => {}, step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, away: () => {}, close: () => {}, hud: () => ({ phase: 'ready', beat: null }), cues: () => [], speed: () => 0, board: 'kart' });
+const stubGame = (): KartGame => ({ draw: () => {}, step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, away: () => {}, close: () => {}, hud: () => ({ phase: 'ready', beat: null }), cues: () => [], speed: () => 0, skid: () => 0, board: 'kart' });
 
 describe('the kart scene on its grids', () => {
   it('is laid out on the tall grid on the Game Boy held upright, and on the wide grid elsewhere', () => {
@@ -363,6 +364,25 @@ describe('the sound of a cue', () => {
     expect(soundOf({ kind: 'item', item: 'orb', you: false, tiles: 20.1 })).toBeNull();
     expect(soundOf({ kind: 'hit', item: 'orb', you: false, tiles: 40 })).toBeNull();
     expect(soundOf({ kind: 'hit', item: 'orb', you: true, tiles: 40 })).toEqual({ sfx: 'impact', far: 0 });
+  });
+});
+
+describe('the sounds of the drift (PRD 1963)', () => {
+  it('maps the ticks, the whoosh and the sputter to their own effects beside the player', () => {
+    expect(soundOf({ kind: 'tick', color: 'blue' })).toEqual({ sfx: 'tickBlue', far: 0 });
+    expect(soundOf({ kind: 'tick', color: 'orange' })).toEqual({ sfx: 'tickOrange', far: 0 });
+    expect(soundOf({ kind: 'whoosh' })).toEqual({ sfx: 'whoosh', far: 0 });
+    expect(soundOf({ kind: 'sputter' })).toEqual({ sfx: 'sputter', far: 0 });
+  });
+
+  it('revs the engine while GAS is held in the countdown, and follows the speed otherwise', () => {
+    const hud = (phase: KartHud['phase']): KartHud => ({ phase, beat: null });
+    const gas = new Set<Action>(['a']), none = new Set<Action>();
+    expect(kartEngineLevel(hud('countdown'), 0, none)).toBe(0);
+    expect(kartEngineLevel(hud('countdown'), 0, gas)).toBeGreaterThan(0.5);
+    expect(kartEngineLevel(hud('race'), 0.3, gas)).toBe(0.3);
+    expect(kartEngineLevel(hud('ready'), 0, gas)).toBeNull();
+    expect(kartEngineLevel(null, 0, gas)).toBeNull();
   });
 });
 
