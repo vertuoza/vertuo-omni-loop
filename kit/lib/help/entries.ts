@@ -496,6 +496,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     summary: "a session's start and end, for any coding agent, with no hook",
     detail:
       'start is what an agent runs first: it prints the constituents (as omni constituents does), then ' +
+      'the sync block (as omni sync does: from the cache when it is under 15 minutes old, else after a ' +
+      'refresh of at most 15 seconds, else the cache with its age, or sync: not checked yet), then ' +
       'the briefing (as omni kb show briefing does), then a last line session: <id>. The id is ' +
       "OMNI_SESSION_ID, else CLAUDE_CODE_SESSION_ID, else the one stored for this checkout; with none, " +
       'it makes one and stores it, so every later omni command of the checkout uses the same session. ' +

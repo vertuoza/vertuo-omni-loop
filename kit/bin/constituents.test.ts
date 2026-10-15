@@ -207,6 +207,9 @@ describe('the constituents read', () => {
 describe('the plugin\'s SessionStart hook', () => {
   it('runs omni constituents, never failing', () => {
     const hooks: unknown = JSON.parse(readFileSync(fileURLToPath(new URL('../plugin/hooks/hooks.json', import.meta.url)), 'utf8'));
-    expect(dig(hooks, 'hooks', 'SessionStart')).toEqual([{ hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" constituents || true', timeout: 10 }] }]);
+    expect(dig(hooks, 'hooks', 'SessionStart')).toEqual([
+      { hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" constituents || true', timeout: 10 }] },
+      { hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" sync --background || true', timeout: 10 }] },
+    ]);
   });
 });
