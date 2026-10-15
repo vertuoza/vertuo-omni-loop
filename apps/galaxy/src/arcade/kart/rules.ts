@@ -129,6 +129,12 @@ export const RULES = Object.freeze({
   /** PRD 1963, the rocket start: GAS last pressed during the 2 and held at GO gives a BOOST of `rocketTime` seconds; pressed during the 3 (or held since the countdown began) the engine stalls for `stallTime` seconds. */
   rocketTime: 0.8,
   stallTime: 0.5,
+  /** PRD 1963, the slipstream: a kart at `draftMin` of the top speed or more, within `draftRange` pixels behind another at `draftMin` or more and `draftLine` radians of the line straight back from its heading, gets a BOOST of `draftBoost` seconds after `draftTime` seconds of it in a row. */
+  draftMin: 0.6,
+  draftRange: 48,
+  draftLine: 0.3,
+  draftTime: 1.2,
+  draftBoost: 0.6,
   goBanner: 0.75,
   /** MULTI (PRD 1572): how many players of a workspace hold a place on the grid, and the Realtime messages a second a race may cost (sent and delivered both count). */
   places: 4,

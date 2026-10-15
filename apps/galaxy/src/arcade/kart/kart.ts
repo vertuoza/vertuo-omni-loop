@@ -130,7 +130,7 @@ export function driveKart(k: Kart, pad: Pad, dt: number, pace = 1, boost = false
 }
 
 /** What is on a kart besides its motion: the item it holds, the seconds of BOOST and of spin-out it has left, the seconds of falling left (PRD 1447) and the seconds it still blinks after the way back. */
-export interface Fx { readonly item: Item | null; readonly boost: number; readonly spin: number; readonly fall: number; readonly blink: number; /** PRD 1963: the seconds a hop has left, the side of the drift running (-1 left, 1 right), its charge in seconds, and whether HOP was down at the last step (a hop starts as HOP goes down); each is absent at rest. */ readonly hop?: number; readonly drift?: -1 | 1; readonly charge?: number; readonly hopHeld?: true; /** How long, in seconds, both wheels of one side have been over the void in a row (PRD 1775): the kart tips over once it reaches `RULES.tipGrace`. */ readonly tip: number }
+export interface Fx { readonly item: Item | null; readonly boost: number; readonly spin: number; readonly fall: number; readonly blink: number; /** PRD 1963: the seconds a hop has left, the side of the drift running (-1 left, 1 right), its charge in seconds, and whether HOP was down at the last step (a hop starts as HOP goes down); each is absent at rest. */ readonly hop?: number; readonly drift?: -1 | 1; readonly charge?: number; readonly hopHeld?: true; /** The seconds the kart has been in a slipstream in a row (PRD 1963); absent at 0. */ readonly draft?: number; /** How long, in seconds, both wheels of one side have been over the void in a row (PRD 1775): the kart tips over once it reaches `RULES.tipGrace`. */ readonly tip: number }
 
 /** A kart with nothing held and nothing on it. */
 export const NO_FX: Fx = Object.freeze({ item: null, boost: 0, spin: 0, fall: 0, blink: 0, tip: 0 });
@@ -316,4 +316,25 @@ function fly(map: Ground, k: Kart, pad: Pad, dt: number, fx: Fx, spinning: boole
   const height = (k.height ?? 0) + lift * dt;
   const ran: Fx = { ...fx, boost: Math.max(0, fx.boost - dt), spin: Math.max(0, fx.spin - dt), blink: Math.max(0, fx.blink - dt) };
   return height > 0 ? { kart: { ...aloft, height, lift }, fx: ran, landed: false } : { ...fallIfOver(map, aloft, ran, dt), landed: false };
+}
+
+/** Whether `me` builds a slipstream behind `other` (PRD 1963): both at `draftMin` of the top speed or more, on the ground and not falling, `me` within `draftRange` pixels and `draftLine` radians of the line straight back from `other`'s heading. */
+export function drafts(me: { kart: Kart; fx: Fx }, other: { kart: Kart; fx: Fx }): boolean {
+  const min = RULES.draftMin * RULES.topSpeed;
+  if (me.kart.speed < min || other.kart.speed < min) return false;
+  if (airborne(me.kart) || airborne(other.kart) || me.fx.fall > 0 || other.fx.fall > 0) return false;
+  const dx = me.kart.x - other.kart.x, dy = me.kart.y - other.kart.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist > RULES.draftRange || dist === 0) return false;
+  const off = Math.atan2(dy, dx) - (other.kart.angle + Math.PI);
+  return Math.abs(Math.atan2(Math.sin(off), Math.cos(off))) <= RULES.draftLine;
+}
+
+/** `fx` after `dt` seconds in (`on`) or out of a slipstream (PRD 1963): the count grows while it holds and starts again from 0 when it breaks; `draftTime` seconds of it give a BOOST of `draftBoost` seconds (never cutting a longer one) and start the count again. */
+export function draftAfter(fx: Fx, on: boolean, dt: number): Fx {
+  const { draft, ...rest } = fx;
+  if (!on) return rest;
+  const count = (draft ?? 0) + dt;
+  if (count >= RULES.draftTime) return { ...rest, boost: Math.max(fx.boost, RULES.draftBoost) };
+  return { ...rest, draft: count };
 }

@@ -855,3 +855,18 @@ describe('the rocket start (PRD 1963)', () => {
     expect(again(42)).toEqual(again(42));
   });
 });
+
+describe('the slipstream in a race (PRD 1963)', () => {
+  it('builds for a rival behind the player, and for the player behind a rival', () => {
+    const r = racing();
+    const rival = first(r.rivals);
+    const lead = { ...r.player, speed: 100 };
+    const tail = { ...rival.kart, x: lead.x - Math.cos(lead.angle) * 20, y: lead.y - Math.sin(lead.angle) * 20, angle: lead.angle, speed: 100 };
+    const set: Race = { ...r, player: lead, rivals: [{ ...rival, kart: tail }, ...r.rivals.slice(1)] };
+    const next = step(set, NONE, 0.01).race;
+    expect(first(next.rivals).fx?.draft).toBeGreaterThan(0);
+    expect(next.fx.draft).toBeUndefined();
+    const flipped: Race = { ...r, rivals: [{ ...rival, kart: { ...lead, speed: 100 } }, ...r.rivals.slice(1)], player: { ...tail, speed: 100 } };
+    expect(step(flipped, NONE, 0.01).race.fx.draft).toBeGreaterThan(0);
+  });
+});
