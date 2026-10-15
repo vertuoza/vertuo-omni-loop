@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 2011 · Before and after</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). Faces named first,
+     served by the app; here they fall back to system faces. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-cyan: #6ff0ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
+  .note { max-width: 1180px; margin: 0 auto; padding: 24px 16px 8px; font: 14px/1.55 system-ui, sans-serif; color: var(--ask-muted); }
+  .note h1 { margin: 0 0 6px; font-size: 22px; color: var(--ask-ink); }
+  .note p { margin: 0 0 6px; max-width: 86ch; }
+  .note b { color: var(--ask-ink); }
+  h2.part { max-width: 1180px; margin: 40px auto 0; padding: 0 16px; font: 700 18px/1.3 system-ui, sans-serif; color: var(--ask-plasma); }
+  .section { max-width: 1180px; margin: 22px auto 0; padding: 0 16px; }
+  .section > h3 { margin: 0 0 4px; font: 700 15px/1.3 system-ui, sans-serif; color: var(--ask-ink); }
+  .section > p { margin: 0 0 10px; font: 14px/1.5 system-ui, sans-serif; color: var(--ask-muted); max-width: 92ch; }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .side > .lab { font: 700 12px/1 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); margin: 0 0 6px; }
+  .side > .cap { font: 13px/1.5 system-ui, sans-serif; color: #6f75b8; margin: 8px 0 0; }
+  .after > .lab { color: var(--ask-green); }
+
+  /* Functional part */
+  .flow { display: grid; gap: 8px; padding: 14px 16px; background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 12px;
+    font: 14px/1.5 var(--ask-mono); color: var(--ask-ink); }
+  .flow .dim { color: var(--ask-muted); }
+  .flow .ok { color: var(--ask-green); }
+  .flow .no { color: var(--ask-red); }
+  .flow .hl { color: var(--ask-plasma); }
+
+  /* The page area, as the app draws it under its top bar (the app shell is its own shared screen). */
+  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong);
+    font: 600 14px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .bar b { color: var(--ask-ink); }
+  .page { padding: 20px; display: grid; gap: 14px; }
+  .page h1 { margin: 0; font-size: 22px; line-height: 1.25; }
+  .lede { margin: 0; color: var(--ask-muted); font-size: 15px; }
+  a { color: var(--ask-cyan); text-underline-offset: 3px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ask-line); }
+  .tab { padding: 6px 12px; font-size: 15px; color: var(--ask-muted); border-bottom: 2px solid transparent; }
+  .tab.on { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); }
+  .count { font: 600 12px/1 var(--ask-mono); padding: 2px 6px; border-radius: 999px; background: var(--ask-plasma-soft); color: var(--ask-ink); margin-left: 4px; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 14px; color: var(--ask-muted); }
+  .select { padding: 4px 10px; border: 1px solid var(--ask-line-strong); border-radius: 8px; background: var(--ask-surface); color: var(--ask-ink); }
+  .rows { display: grid; gap: 8px; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding: 12px 14px; background: var(--ask-surface);
+    border: 1px solid var(--ask-line-strong); border-radius: 10px; }
+  .row .t { font-size: 16px; }
+  .row .m { grid-column: 1 / -1; font-size: 13px; color: var(--ask-muted); }
+  .chip { display: inline-block; padding: 1px 8px; border: 1px solid var(--ask-line-strong); border-radius: 6px; font: 500 12px/1.6 var(--ask-mono); color: var(--ask-ink); white-space: nowrap; }
+  .chip.you { border-color: var(--ask-plasma); color: var(--ask-plasma); }
+  .chip.ok { border-color: var(--ask-green); color: var(--ask-green); }
+  .chip.no { border-color: var(--ask-red); color: var(--ask-red); }
+  .btn { display: inline-block; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--ask-line-strong); color: var(--ask-ink); background: transparent; font: 600 14px/1.3 var(--ask-body); }
+  .btn.primary { background: var(--ask-plasma); color: var(--ask-on-plasma); border-color: var(--ask-plasma); }
+  .btn.off { color: var(--ask-muted); border-style: dashed; }
+  .empty { padding: 18px; text-align: center; color: var(--ask-muted); border: 1px dashed var(--ask-line-strong); border-radius: 10px; font-size: 15px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--ask-line); vertical-align: top; }
+  th { color: var(--ask-muted); font-weight: 600; font-size: 13px; }
+  td code, .mono { font: 500 13px/1.5 var(--ask-mono); }
+  .refuse { padding: 10px 12px; border: 1px solid var(--ask-red); border-radius: 10px; color: var(--ask-ink); font-size: 14px; }
+  .refuse b { color: var(--ask-red); }
+  .ladder { display: grid; grid-template-columns: 9em repeat(5, 1fr); gap: 4px; font-size: 13px; align-items: center; }
+  .ladder .c { height: 14px; border-radius: 3px; background: var(--ask-sunk); border: 1px solid var(--ask-line); }
+  .ladder .c.on { background: var(--ask-green); border-color: var(--ask-green); }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <h1>PRD 2011 · Roadmaps, bugs and knowledge move into the product</h1>
+  <p>From concept #1269, area <b>product-records</b>. Once a repository reaches step 5 of the rollout ladder, its new roadmaps and bug
+  records are born on the server, in its product, and imported knowledge is served as packs. Everything stays visible across
+  products in one place: the Work pages list every product, with a product filter.</p>
+  <p>Two parts: <b>Functional</b> (the flows, today beside after) and <b>Pixel perfect</b> (the screens).
+  Screens: questions · prd-dossier · bug-record · product-repositories · app-shell.</p>
+</div>
+
+<h2 class="part">Functional</h2>
+
+<div class="section">
+  <h3>A roadmap</h3>
+  <p>Today a roadmap is a git file reviewed in a phase-0 PR, copied to the server on every push. After, it is born on its product, versioned, and approved on its page.</p>
+  <div class="pair">
+    <div class="side"><p class="lab">Today</p>
+      <div class="flow">
+        <div>/omni:mega-roadmap  <span class="dim">(in vertuo-plan)</span></div>
+        <div class="dim">→ issue #412 · inbox/roadmaps/0412-field-work/roadmap.md</div>
+        <div class="dim">→ phase-0 PR, a person merges it</div>
+        <div>omni roadmap push 412 <span class="dim">→ roadmaps.document overwritten</span></div>
+        <div class="no">row "mobile-12" refused: prd is a number</div>
+        <div class="no">under plan.product: plan.targets[] = [] · repos column fails</div>
+      </div></div>
+    <div class="side after"><p class="lab">After</p>
+      <div class="flow">
+        <div>/omni:roadmap --product mobile</div>
+        <div>omni roadmap push --product mobile --new <span class="ok">→ mobile-R3</span></div>
+        <div class="dim">→ version 1 of document, rows, prerequisites · no issue, no phase-0 PR</div>
+        <div>omni wait approval mobile-R3 <span class="ok">→ approved on its page · sealed</span></div>
+        <div>rows: <span class="hl">912</span> · <span class="hl">mobile-12</span> · checked against Mobile's repositories</div>
+        <div>/omni:drive --roadmap mobile-R3</div>
+      </div></div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>A bug record</h3>
+  <p>Today a Fixes table lives in markdown and a record PR closes the issue. After, each fix is a row the merge webhook stamps, and every fix PR carries the why.</p>
+  <div class="pair">
+    <div class="side"><p class="lab">Today</p>
+      <div class="flow">
+        <div>/omni:mega-bug-fix "photo upload stuck at 99%"</div>
+        <div class="dim">→ issue #77 in vertuo-plan · bugs/0077-photo-upload/bug.md</div>
+        <div class="dim">→ api#301, mobile#86 · "Merge after …"</div>
+        <div class="dim">→ record PR "Closes #77", merged last by a person</div>
+        <div class="no">omni bug 77 under plan.product: repository not in plan.targets[]</div>
+      </div></div>
+    <div class="side after"><p class="lab">After</p>
+      <div class="flow">
+        <div>/omni:mega-bug-fix --product mobile "photo upload stuck at 99%"</div>
+        <div>omni bug push --product mobile <span class="ok">→ mobile-B74 · 2 Fixes rows</span></div>
+        <div class="dim">api#301 body: Fixes mobile-B74 · &lt;link&gt; · repro … · guard …</div>
+        <div>webhook: api#301 merged <span class="ok">→ row 1 merged</span></div>
+        <div>webhook: mobile#86 merged <span class="ok">→ row 2 merged → mobile-B74 shipped</span></div>
+        <div class="dim">no record PR · no issue in vertuo-plan</div>
+      </div></div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Imported knowledge</h3>
+  <p>Today an imported target's knowledge is a copy in the plan repository. After, the server snapshots it on merge, and an agent fetches the pack at the link's read_at.</p>
+  <div class="pair">
+    <div class="side"><p class="lab">Today</p>
+      <div class="flow">
+        <div>/omni:mega-invade --sync</div>
+        <div class="dim">→ knowledge/repos/vertuo-web/  (copy)</div>
+        <div class="dim">→ knowledge/repos/vertuo-web/flow/  (copy)</div>
+        <div>/omni:do-work reads the copy <span class="no">· may be weeks old</span></div>
+      </div></div>
+    <div class="side after"><p class="lab">After</p>
+      <div class="flow">
+        <div>web#220 merged, touches .omni-loop/knowledge/ <span class="ok">→ pack 92c04aa</span></div>
+        <div>omni kb pack get vertuo-web</div>
+        <div class="dim">→ .omni-loop/local/packs/vertuo-web@92c04aa/  (read-only, not in git)</div>
+        <div>server down <span class="hl">→ held: newest fetched pack 92c04aa · 2 h old</span></div>
+        <div>pack older than read_at <span class="no">→ pack stale: 81aa < read_at 92c0 · slice stopped</span></div>
+      </div></div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>What stays the same</h3>
+  <p>A record born in git finishes in git: its roadmap.md, its issue, its bug.md and its record PR work as today. A repository below step 5 changes nothing. Visual fixes are untouched. Nothing here merges into a default branch.</p>
+</div>
+
+<h2 class="part">Pixel perfect</h2>
+<div class="section"><p>screens: questions · prd-dossier · bug-record · product-repositories · app-shell (the Questions entry keeps its place in the sidebar)</p></div>
+
+<div class="section">
+  <h3>Work › Questions</h3>
+  <p>Today it lists only the ask-mode questions. After, an Inbox tab holds them, and an Outbox tab lists every open decision of every product, those waiting on you first.</p>
+  <div class="pair">
+    <div class="side"><p class="lab">Today</p>
+      <div class="frame" data-screen="questions">
+        <div class="bar"><b>Questions</b></div>
+        <div class="page">
+          <h1>Questions</h1>
+          <div class="tabs"><span class="tab on">Shared with me</span><span class="tab">History</span></div>
+          <ul class="rows">
+            <li class="row"><span class="t">Which repository owns photo storage?</span><span class="chip">open</span><span class="m">from a terminal · 12 min ago</span></li>
+            <li class="row"><span class="t">Keep offline mode for the quote list?</span><span class="chip">open</span><span class="m">from a terminal · 1 h ago</span></li>
+          </ul>
+          <a class="btn primary" data-primary href="#">Answer</a>
+        </div>
+      </div>
+      <p class="cap">The outbox questions are not here: each one shows only in its product's Questions tab.</p>
+    </div>
+    <div class="side after"><p class="lab">After</p>
+      <div class="frame" data-screen="questions">
+        <div class="bar"><b>Questions</b></div>
+        <div class="page">
+          <h1>Questions</h1>
+          <div class="tabs"><span class="tab">Inbox<span class="count">2</span></span><span class="tab on">Outbox<span class="count">5</span></span><span class="tab">History</span></div>
+          <div class="filters">Product <span class="select">All products ▾</span></div>
+          <ul class="rows">
+            <li class="row"><span class="t">Keep the upload retry at 3 tries?</span><span class="chip you">waits on you</span><span class="m">Mobile · mobile-12 · high</span></li>
+            <li class="row"><span class="t">Round VAT per line or per quote?</span><span class="chip you">waits on you</span><span class="m">Estimates · 1402 · medium</span></li>
+            <li class="row"><span class="t">Show archived roadmaps on the product?</span><span class="chip">waits on Paul</span><span class="m">omni-loop · 2011 · low</span></li>
+          </ul>
+          <a class="btn primary" data-primary href="#">Answer</a>
+        </div>
+      </div>
+      <p class="cap">Inbox holds today's ask-mode questions. Answering in the Outbox records the same answer as the product's tab.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>A product PRD's Outbox tab</h3>
+  <p>Today the tab reads only GitHub, so a product PRD's decisions show on its product and not on its own page. After, the tab reads them from the server.</p>
+  <div class="pair">
+    <div class="side"><p class="lab">Today</p>
+      <div class="frame" data-screen="prd-dossier">
+        <div class="bar"><b>mobile-12</b> · Offline photo upload</div>
+        <div class="page">
+          <div class="tabs"><span class="tab">Before/after</span><span class="tab">Spec</span><span class="tab">Plan</span><span class="tab on">Outbox</span></div>
+          <div class="empty">No decision yet: the outbox fills while the PRD is built.</div>
+          <a class="btn primary" data-primary href="#">Open Mobile › Questions</a>
+        </div>
+      </div>
+      <p class="cap">Empty while 2 items are open on Mobile. Word pass on today: the empty line is 11 words at rest; the after replaces it with the items.</p>
+    </div>
+    <div class="side after"><p class="lab">After</p>
+      <div class="frame" data-screen="prd-dossier">
+        <div class="bar"><b>mobile-12</b> · Offline photo upload</div>
+        <div class="page">
+          <div class="tabs"><span class="tab">Before/after</span><span class="tab">Spec</span><span class="tab">Plan</span><span class="tab on">Outbox<span class="count">2</span></span></div>
+          <ul class="rows">
+            <li class="row"><span class="t">Keep the upload retry at 3 tries?</span><span class="chip you">waits on you</span><span class="m">s3 · vertuo-mobile · high</span></li>
+            <li class="row"><span class="t">Store thumbnails on the device?</span><span class="chip">open</span><span class="m">s4 · vertuo-api · medium</span></li>
+            <li class="row"><span class="t">Name the queue upload-jobs</span><span class="chip ok">settled</span><span class="m">s1 · adopted by Irisa</span></li>
+          </ul>
+          <a class="btn primary" data-primary href="#">Answer</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>A bug record</h3>
+  <p>Today the Fixes table is markdown in the record. After, each fix is a row with its state, and the record ships itself on the last merge.</p>
+  <div class="pair">
+    <div class="side"><p class="lab">Today</p>
+      <div class="frame" data-screen="bug-record">
+        <div class="bar"><b>Bug fix #77</b> · vertuoza/vertuo-plan</div>
+        <div class="page">
+          <h1>Photo upload stuck at 99%</h1>
+          <table><tr><th>order</th><th>repository</th><th>pull request</th><th>what changes</th></tr>
+            <tr><td>1</td><td>vertuo-api</td><td><code>api#301</code></td><td>Close the upload when the last part lands.</td></tr>
+            <tr><td>2</td><td>vertuo-mobile</td><td><code>mobile#86</code></td><td>Retry the last part.</td></tr></table>
+          <a class="btn primary" data-primary href="#">Open the record PR</a>
+        </div>
+      </div>
+      <p class="cap">Word pass on today: a row's "what changes" runs 8 words; it is the record's content, kept as written.</p>
+    </div>
+    <div class="side after"><p class="lab">After</p>
+      <div class="frame" data-screen="bug-record">
+        <div class="bar"><b>mobile-B74</b> · Mobile</div>
+        <div class="page">
+          <h1>Photo upload stuck at 99%</h1>
+          <table><tr><th>order</th><th>repository</th><th>pull request</th><th>state</th></tr>
+            <tr><td>1</td><td>vertuo-api</td><td><code>api#301</code></td><td><span class="chip ok">merged</span></td></tr>
+            <tr><td>2</td><td>vertuo-mobile</td><td><code>mobile#86</code></td><td><span class="chip">open</span></td></tr></table>
+          <p class="lede">Ships on the last merge.</p>
+          <p class="lede"><span class="chip no">unmatched</span> web#230</p>
+          <a class="btn primary" data-primary href="#">Open mobile#86</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>A product's Repositories tab: the archive</h3>
+  <p>Today there is no way to end the plan repository. After, Archive appears, refused with what still holds it until nothing does.</p>
+  <div class="pair">
+    <div class="side"><p class="lab">Today</p>
+      <div class="frame" data-screen="product-repositories">
+        <div class="bar"><b>Mobile</b> · Repositories</div>
+        <div class="page">
+          <ul class="rows">
+            <li class="row"><span class="t mono">vertuo-mobile</span><span class="chip">own knowledge</span></li>
+            <li class="row"><span class="t mono">vertuo-api</span><span class="chip">own knowledge</span></li>
+            <li class="row"><span class="t mono">vertuo-web</span><span class="chip">imported</span></li>
+          </ul>
+          <a class="btn primary" data-primary href="#">Add a repository</a>
+        </div>
+      </div>
+    </div>
+    <div class="side after"><p class="lab">After</p>
+      <div class="frame" data-screen="product-repositories">
+        <div class="bar"><b>Mobile</b> · Repositories</div>
+        <div class="page">
+          <div class="ladder">
+            <span></span><span class="mono">1</span><span class="mono">2</span><span class="mono">3</span><span class="mono">4</span><span class="mono">5</span>
+            <span class="mono">vertuo-mobile</span><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i>
+            <span class="mono">vertuo-api</span><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i>
+            <span class="mono">vertuo-web</span><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c"></i><i class="c"></i>
+          </div>
+          <div class="refuse"><b>Held by</b> vertuo-web · step 3</div>
+          <div class="refuse"><b>Held by</b> roadmap 0412 · in git</div>
+          <a class="btn primary" data-primary href="#">Archive vertuo-plan</a>
+        </div>
+      </div>
+      <p class="cap">The button stays refused while anything holds the plan repository. Archived, it reads Undo.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section"><p>Work › PRDs, Bug Fixes, Visual Updates and Roadmaps keep their look: product items (mobile-12, mobile-B74, mobile-R3) appear in them with their product, under the filter they already have. Concepts gains the same product filter.</p></div>
+
+</body>
+</html>
