@@ -24,7 +24,7 @@ export function briefingPath({ ctx }: { ctx: BriefingContext }): string {
   return posix.join(ctx.config.paths.playbook, 'briefing.md');
 }
 
-/** A path as a pointer may write it (`./docs/x.md`, `/docs/x/`), as a repository path. */
+/** A path as a pointer may write it (`./rules/x.md`, `/rules/x/`), as a repository path. */
 function repositoryPath(path: string): string {
   return posix.normalize(path).replace(/^(?:\.\/|\/)+/, '').replace(/\/+$/, '');
 }
