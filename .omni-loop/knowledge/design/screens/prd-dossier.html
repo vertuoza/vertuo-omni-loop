@@ -59,6 +59,34 @@
   .dossier-md h2 { font-size: 20px; margin: 20px 0 6px; }
   .dossier-md p { margin: 0 0 12px; max-width: 70ch; }
   @media (max-width: 900px) { :root { --ask-gutter: 16px; } }
+  /* Concept #1964: the Retro and Rewind tabs in anti-loop mode (anti-loop-mode, Rewind Light):
+     magenta takes the signal, the primary stays yellow, errors stay red. */
+  .anti { --ask-line: #3a1458; --ask-line-strong: #b0489a; --ask-plasma: #ff3ea5; --ask-plasma-soft: #3a1238; }
+  .anti .ask-button.primary { background: #ffd84a; border-color: #ffd84a; color: #07061c; }
+  .dossier-tab-new::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--ask-yellow); vertical-align: middle; }
+  .pane-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .pane-head h2 { margin: 0; font-size: 20px; }
+  .pane-head p { margin: 0; }
+  .lanes { margin: 0; display: grid; gap: 6px; padding: 12px; border: 1px solid var(--ask-line-strong); border-radius: 10px; background: var(--ask-sunk); font-size: 14px; }
+  .lane { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; }
+  .lane-lab { color: var(--ask-muted); font: 600 12px/1.6 var(--ask-mono); }
+  .lane-earlier { color: var(--ask-muted); font-style: italic; }
+  .red { color: #ff6b86; }
+  .echo { border: 1.5px solid var(--ask-plasma); border-radius: 12px; background: var(--ask-surface); padding: 14px 16px; display: grid; gap: 10px; }
+  .echo-head { display: flex; align-items: baseline; gap: 8px 12px; flex-wrap: wrap; }
+  .echo-head h3 { margin: 0; font-size: 17px; flex: 1 1 260px; }
+  .echo-kind { font: 600 12px/1 var(--ask-mono); color: var(--ask-muted); }
+  .echo-title { margin: 0; font-weight: 700; color: var(--ask-plasma); }
+  .echo-facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0; }
+  .echo-facts dt { font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .echo-facts dd { margin: 4px 0 0; font-size: 15px; }
+  .echo-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .empty-row { margin: 0; color: var(--ask-muted); }
+  .plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .plain li { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--ask-line-strong); border-radius: 10px; background: var(--ask-surface); }
+  .plain-k { font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-plasma); }
+  .claims { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+  .fold { justify-self: start; display: inline-flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 8px; border: 1.5px dashed var(--ask-line-strong); background: none; color: var(--ask-ink); font: 700 15px/1.2 var(--ask-body); }
 </style>
 </head>
 <body>
@@ -100,6 +128,7 @@
       <a class="dossier-tab" href="?tab=outbox">Outbox</a>
       <a class="dossier-tab" href="?tab=care">PR care</a>
       <a class="dossier-tab dossier-tab-empty" href="?tab=retro">Retro</a>
+      <a class="dossier-tab dossier-tab-new" href="?tab=rewind">Rewind</a>
     </nav>
   </header>
 
@@ -121,5 +150,95 @@
 </main>
 
 <p class="mock-note">Not drawn: the approve screen (shown under the head only while the PRD waits for approval or drifted, to a member who may approve), the other panes, the pinned head from 900 × 700, and the play dock. The primary mark is the stage's one button; whether it, Approve or an outbox answer leads stays the screen's open question.</p>
+<p class="mock-note"><b>Concept #1964: the Retro tab with its echo row, then the new Rewind tab, both in anti-loop mode (the shared screen <code>anti-loop-mode</code>; its lockup and token remap are drafted there).</b> PRD 1628 stands in, as in the vision tour (steps 4 and 5); every number is the repository's. The replay's lanes are abridged to text here.</p>
+
+<main class="ask anti" data-screen="prd-dossier-retro">
+  <header class="dossier-head">
+    <div class="dossier-head-top">
+      <h1 class="dossier-title"><a class="dossier-number" href="https://github.com/vertuoza/vertuo-omni-loop/issues/1628">PRD #1628 ↗</a> <span data-content>Sign in from a cloud session</span></h1>
+    </div>
+    <dl class="dossier-facts">
+      <div class="dossier-fact"><dt>Stage</dt><dd><strong>retro</strong></dd></div>
+      <div class="dossier-fact"><dt>Feature PR</dt><dd><a href="#">#1629</a> · 19 commits</dd></div>
+      <div class="dossier-fact"><dt>Merged</dt><dd>Oct 12 · 05:59</dd></div>
+    </dl>
+    <nav class="dossier-tabs" aria-label="Tabs">
+      <a class="dossier-tab" href="?tab=questions">Questions</a>
+      <a class="dossier-tab" href="?tab=before-after">Before/after</a>
+      <a class="dossier-tab" href="?tab=spec">Spec</a>
+      <a class="dossier-tab" href="?tab=plan">Plan</a>
+      <a class="dossier-tab" href="?tab=user-voice">User voice</a>
+      <a class="dossier-tab" href="?tab=outbox">Outbox</a>
+      <a class="dossier-tab" href="?tab=pr-care">PR care</a>
+      <a class="dossier-tab" href="?tab=retro" aria-current="page">Retro</a>
+      <a class="dossier-tab dossier-tab-new" href="?tab=rewind">Rewind</a>
+    </nav>
+  </header>
+
+  <section class="dossier-pane" aria-label="Retro">
+    <div class="pane-head"><h2>Replay</h2><p class="ask-hint">5 slices · 8 runs · 3 red</p></div>
+    <div class="lanes">
+      <div class="lane"><span class="lane-lab">1322 · Oct 9</span><span><span class="red">red on 7 commits</span> · <span>first seen · s2</span></span></div>
+      <div class="lane"><span class="lane-lab"></span><span class="lane-earlier">⋯ earlier · PRD 1322</span></div>
+      <div class="lane"><span class="lane-lab">check</span><span><span class="red">red on 3 commits</span> · <span>s1</span></span></div>
+      <div class="lane"><span class="lane-lab">review</span><span>0 threads</span></div>
+    </div>
+    <article class="echo">
+      <div class="echo-head"><span class="echo-kind" data-content>repeated-red:check</span><h3 data-content>F1 · Committed database types kept drifting from the migrations</h3><a href="#">#1649</a></div>
+      <p class="echo-title">Echo</p>
+      <dl class="echo-facts">
+        <div><dt>Seen before</dt><dd>1322 · <a href="#">#1349</a></dd></div>
+        <div><dt>Proposed</dt><dd>twice</dd></div>
+        <div><dt>KB rules</dt><dd>0</dd></div>
+        <div><dt>generated:</dt><dd>no</dd></div>
+        <div><dt>Guard</dt><dd>yes · since PRD 725</dd></div>
+      </dl>
+      <div class="echo-actions"><button type="button" class="ask-button primary" data-primary>Open the lesson</button><button type="button" class="ask-button">Not the same cause</button></div>
+    </article>
+    <div class="empty-row"><p><strong>0 human review threads</strong></p><p>6 pull requests · 0 reviews</p></div>
+  </section>
+</main>
+
+<main class="ask anti" data-screen="prd-dossier-rewind">
+  <header class="dossier-head">
+    <div class="dossier-head-top">
+      <h1 class="dossier-title"><a class="dossier-number" href="https://github.com/vertuoza/vertuo-omni-loop/issues/1628">PRD #1628 ↗</a> <span data-content>Sign in from a cloud session</span></h1>
+    </div>
+    <dl class="dossier-facts">
+      <div class="dossier-fact"><dt>Stage</dt><dd><strong>retro</strong></dd></div>
+      <div class="dossier-fact"><dt>Feature PR</dt><dd><a href="#">#1629</a> · 19 commits</dd></div>
+      <div class="dossier-fact"><dt>Merged</dt><dd>Oct 12 · 05:59</dd></div>
+    </dl>
+    <nav class="dossier-tabs" aria-label="Tabs">
+      <a class="dossier-tab" href="?tab=questions">Questions</a>
+      <a class="dossier-tab" href="?tab=before-after">Before/after</a>
+      <a class="dossier-tab" href="?tab=spec">Spec</a>
+      <a class="dossier-tab" href="?tab=plan">Plan</a>
+      <a class="dossier-tab" href="?tab=user-voice">User voice</a>
+      <a class="dossier-tab" href="?tab=outbox">Outbox</a>
+      <a class="dossier-tab" href="?tab=pr-care">PR care</a>
+      <a class="dossier-tab" href="?tab=retro">Retro</a>
+      <a class="dossier-tab dossier-tab-new" href="?tab=rewind" aria-current="page">Rewind</a>
+    </nav>
+  </header>
+
+  <section class="dossier-pane" aria-label="Rewind">
+    <ul class="plain">
+      <li><span class="plain-k">Lesson repeated</span> <strong>regenerate types</strong> <span class="ask-hint">first seen in 1322</span> <button type="button" class="ask-button primary" data-primary>Open the lesson</button></li>
+      <li><span class="plain-k">Lesson carried</span> <span class="ask-hint">none on this PRD</span></li>
+    </ul>
+    <div class="pane-head"><h2>Claims</h2><p class="ask-hint">10 criteria</p></div>
+    <ol class="claims" data-content>
+      <li>A member makes a kit token</li>
+      <li>OMNI_TOKEN works without credentials.json</li>
+      <li>A revoked or expired token fails</li>
+      <li>omni signout under a token deletes nothing</li>
+    </ol>
+    <p class="ask-hint">6 more criteria</p>
+    <button type="button" class="fold" aria-expanded="false">For the agents · 2 questions</button>
+  </section>
+</main>
+
+<p class="mock-note">Not drawn for concept #1964: the Retro tab of a PRD with no echo; the Rewind tab opened for the agents (each file question, e.g. <code>apps/galaxy/README.md</code> · s1 · outside its territory, with Ask s1's agent; "Questions, never deletions."), Nothing to ask (PRD 1904 · 52 files · 0 questions), This spec numbers no criteria, and No rewind yet (before the feature PR merges).</p>
 </body>
 </html>

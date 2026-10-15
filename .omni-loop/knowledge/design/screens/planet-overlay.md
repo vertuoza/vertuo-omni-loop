@@ -11,13 +11,14 @@ supersedes: null
 
 ## Purpose
 
-One planet of the galaxy, opened from the map or by its deep link: its title, state and caption, and five tabs, STATUS, ZONES, ENTROPY, LOG and DOSSIER. After PRD 1808 it opens at once from what the map knows; its LOG and DOSSIER tabs read the planet's details when it is opened.
+One planet of the galaxy, opened from the map or by its deep link: its title, state and caption, and five tabs, STATUS, ZONES, ENTROPY, LOG and DOSSIER, and a sixth, BREACH, beside ENTROPY on a planet whose lesson never landed (concept #1964). After PRD 1808 it opens at once from what the map knows; its LOG and DOSSIER tabs read the planet's details when it is opened.
 
 ## Regions
 
 - **The header:** `#<prd>`, the title in capitals, the state chip.
 - **The caption:** `ZONES <secured>/<n> · ENTROPY <open>`, or the SOS line for a planet in distress.
-- **The tabs:** STATUS, ZONES, ENTROPY (with its count), LOG, DOSSIER; ◀ ▶ moves between them.
+- **The tabs:** STATUS, ZONES, ENTROPY (with its count), BREACH (concept #1964, on a breachable planet only), LOG, DOSSIER; ◀ ▶ moves between them.
+- **The BREACH tab's body** is Breach Night's, drafted in `breach-night`, not here.
 - **The tab body:** the LOG tab's last 8 lines; the DOSSIER tab's versions (BEFORE/AFTER, SPEC, PLAN), answers and its last answers, and START to open the dossier's page.
 - **The hint:** `◀ ▶ TABS · ▲ ▼ NEXT PLANET · B MAP`.
 
@@ -42,6 +43,9 @@ LOADING… · DOSSIERS OUT OF REACH · NO DOSSIER YET. ONE OPENS WITH THE PRD'S 
 - The LOG tab's out-of-reach line is not written yet: `LOG OUT OF REACH` follows the arcade's pattern, but no copy names it.
 - Whether ▲ ▼ NEXT PLANET should show the next planet's tabs as loading or keep the last tab's content while it loads is not said.
 
+- Concept #1964: does BREACH show on every planet, saying NO BREACH, or only on a breachable one? The tour drew it only on a breachable planet.
+
 ## Source
 
 - /omni:brainstorm, PRD 1808: .omni-loop/delivery/shipped/1808-arcade-lazy-details/before-after.html
+- /omni:think-big, concept #1964, crowned M on 2026-10-14: .omni-loop/delivery/inbox/concepts/1964-anti-loop/vision.html
