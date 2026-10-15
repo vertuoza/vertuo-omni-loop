@@ -13,7 +13,7 @@ import type { KartCue, KartHud, KartResults, KartRow } from '../scenes/kart.ts';
 import { podiumOf } from './podium';
 import { carried, type GridPlayer, type ItemMessage, type StateMessage } from './net';
 import type { KartLook } from './look';
-import { fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart, type Pad } from './kart';
+import { endDrift, fallIfOver, kartAt, NO_FX, padOf, stepFx, type Fx, type Kart, type Pad } from './kart';
 import { slopeAt } from './relief';
 import { newWorld, stepItems, spendItem, wantsToUse, type Item, type World } from './items';
 import { RULES, type Difficulty } from './rules';
@@ -406,7 +406,7 @@ function stepRace(race: Race, held: ReadonlySet<Action>, t: number): Stepped {
   if (moved.pace.laps < race.laps) return { race: next, events };
   const finish = race.mode === 'multi' ? multiResults(next, tenthsOf(clock)) : resultsOf(next, clock);
   // The time sent is the clock at the third crossing: in a 3-lap race, the race time.
-  return { race: { ...next, phase: 'finish', finish, podium: true }, events: [...events, { kind: 'finish', tenths: finish.threeLap }] };
+  return { race: { ...next, fx: endDrift(next.fx), phase: 'finish', finish, podium: true }, events: [...events, { kind: 'finish', tenths: finish.threeLap }] };
 }
 
 /** Plays `dt` seconds (no more than `RULES.maxDt` of them) with the buttons held. Before GO, and paused, nothing moves. */

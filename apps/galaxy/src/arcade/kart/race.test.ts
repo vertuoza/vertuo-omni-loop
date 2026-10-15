@@ -767,3 +767,25 @@ describe('a race with ice and powder', () => {
     }
   });
 });
+
+describe('the hop and the drift in the race (PRD 1963)', () => {
+  it('feeds the held up to the player\'s kart as HOP', () => {
+    const rolling = play(racing(), GAS, 3);
+    expect(rolling.fx.hop).toBeUndefined();
+    const hopped = play(rolling, new Set<Action>(['a', 'up']), 0.1);
+    expect(hopped.fx.hop).toBeGreaterThan(0);
+    expect(hopped.player.height ?? 0).toBe(0);
+  });
+
+  it('ends a drift when the race ends', () => {
+    const r = racing();
+    const drifting: Race = { ...r, player: { ...r.player, speed: RULES.topSpeed }, fx: { ...r.fx, drift: 1, charge: 1, hopHeld: true }, pace: { ...r.pace, laps: r.laps - 1 } };
+    const held = new Set<Action>(['a', 'up']);
+    expect(step(drifting, held, 0.05).race.fx.drift).toBe(1);
+    const done: Race = { ...drifting, pace: { ...drifting.pace, laps: r.laps } };
+    const end = step(done, held, 0.05).race;
+    expect(end.phase).toBe('finish');
+    expect(end.fx.drift).toBeUndefined();
+    expect(end.fx.charge).toBeUndefined();
+  });
+});
