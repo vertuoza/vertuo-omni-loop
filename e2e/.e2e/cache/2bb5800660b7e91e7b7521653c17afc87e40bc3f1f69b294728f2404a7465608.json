@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "trace-1",
+  "createdAt": "2026-10-14T17:55:13.916Z",
+  "payload": {
+    "actions": [
+      {
+        "name": "tap",
+        "summary": "tap link \"OMNI LOOP\"",
+        "target": {
+          "role": "link",
+          "name": "OMNI LOOP"
+        }
+      }
+    ],
+    "executor": {
+      "name": "e2e-default-agent",
+      "version": "2"
+    },
+    "recordedFor": {
+      "testId": "tests/arcade-home-title.e2e.ts::the%20arcade%20home%20page%20shows%20the%20title%20OMNI%20LOOP",
+      "targetId": "web",
+      "instructionDigest": "db1dc0b93c2efabc654c725155fe9a70e3b736c880e305394814d1822341382f",
+      "paramsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "callIndex": 0,
+      "agent": "default"
+    },
+    "summary": "Tapped the OMNI LOOP logo link in the docs header; it navigated to /app, the app home (Dashboard > Home, still loading content).",
+    "startPath": "/docs",
+    "endPath": "/app",
+    "endAnchors": [
+      {
+        "role": "alert",
+        "name": "App · OMNI LOOP"
+      },
+      {
+        "role": "button",
+        "name": "Collapse the menu",
+        "text": "«",
+        "states": [
+          "expanded"
+        ]
+      },
+      {
+        "text": "Dashboard"
+      },
+      {
+        "text": "Home"
+      },
+      {
+        "text": "Fleet"
+      },
+      {
+        "text": "Loop"
+      },
+      {
+        "text": "Runners"
+      },
+      {
+        "text": "Workspace"
+      }
+    ],
+    "goneAnchors": [
+      {
+        "role": "link",
+        "name": "Release notes"
+      },
+      {
+        "role": "link",
+        "name": "Docs"
+      },
+      {
+        "role": "link",
+        "name": "Open the app →"
+      },
+      {
+        "text": "Search the docs"
+      },
+      {
+        "role": "searchbox",
+        "name": "Search the docs",
+        "placeholder": "Search"
+      },
+      {
+        "role": "link",
+        "name": "Getting started"
+      },
+      {
+        "role": "link",
+        "name": "Install"
+      },
+      {
+        "role": "link",
+        "name": "Join a team"
+      }
+    ],
+    "endWaitMs": 11941,
+    "keyedBy": {
+      "cacheSchema": "trace-1",
+      "policyVersion": "conservative/6",
+      "project": "c85ecc3ed6616c9278fc3e1f6f90927d6693876f65ffe464cea86f70bab44a3e",
+      "platform": "web",
+      "engineName": "web",
+      "engineSpiVersion": 1,
+      "appIdentity": "4dc386220e5ef4060112f28500cbe217a81b50620c36a6b1acd1227665681090",
+      "agentContextDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

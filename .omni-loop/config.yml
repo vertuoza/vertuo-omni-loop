@@ -80,3 +80,8 @@ design:
 budgets:
   context:
     enabled: true
+
+# TRIAL ONLY (PRD 1941 test, branch test/e2e-1941-trial): never merge.
+e2e:
+  enabled: true
+  url: https://vertuo-omni-loop-galaxy.vercel.app
