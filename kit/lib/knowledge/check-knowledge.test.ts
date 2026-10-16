@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -812,6 +812,20 @@ describe('a law is a locked entry (PRD 1726)', () => {
     expect(gradeWith(stale, { owners: ['someone-else'] }).violations).toEqual([
       '.github/CODEOWNERS: its "# BEGIN omni kb owners" block is out of date with the locked laws and laws.owners — run omni kb owners.',
     ]);
+    const unlocked = tree({ [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'), [ADVISOR_RULES]: rule('BR-ADVISOR-1') });
+    expect(gradeWith(unlocked).violations).toEqual([]);
+  });
+
+  it("refuses a block without the briefing's lines (PRD 1793, s2), and still asks nothing of a repository with no lock and no block, or no owner", () => {
+    const BRIEFING_LINES = ['# The briefing: the rules every agent follows.', '/.omni-loop/knowledge/playbook/briefing.md @pierrederval'];
+    const root = lawTree(law('BR-ADVISOR-1'));
+    const written = readFileSync(join(root, '.github/CODEOWNERS'), 'utf8');
+    expect(written.split('\n')).toEqual(expect.arrayContaining(BRIEFING_LINES));
+    writeFileSync(join(root, '.github/CODEOWNERS'), written.split('\n').filter((line) => !BRIEFING_LINES.includes(line)).join('\n'));
+    expect(gradeWith(root).violations).toEqual([
+      '.github/CODEOWNERS: its "# BEGIN omni kb owners" block is out of date with the locked laws and laws.owners — run omni kb owners.',
+    ]);
+    expect(gradeWith(root, { owners: [] }).violations).not.toContainEqual(expect.stringContaining('.github/CODEOWNERS'));
     const unlocked = tree({ [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'), [ADVISOR_RULES]: rule('BR-ADVISOR-1') });
     expect(gradeWith(unlocked).violations).toEqual([]);
   });
