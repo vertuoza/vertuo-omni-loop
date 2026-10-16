@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { readRun } from '../lib/proof/run.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
@@ -68,9 +68,38 @@ function fixBranch({ bug = record(), configText, signed }: { bug?: string; confi
   return { ...repo, sha };
 }
 
-async function run(root: string, base: string, issue: number | string = ISSUE) {
+const GIF_LINK = 'https://omni.example/api/proofs/9f0c1d2e-0000-4000-8000-000000000001/preview.gif';
+const PROOF = [
+  `![Before and after the fix](${GIF_LINK})`,
+  '',
+  '- **Before the fix** (red): `AssertionError: expected 2 to be 1`',
+  '- **After the fix** (green, `a1b2c3d`): `✓ saves once`',
+].join('\n');
+
+/** A pull request body in the skill's shape, its `## Proof` section replaced (a string) or left out (`null`). */
+function prBody(proof: string | null = PROOF) {
+  const proofSection = proof === null ? [] : ['## Proof', '', proof, ''];
+  return ['Closes #12', '', '## What was wrong', '', 'Saving twice wrote two rows.', '', ...proofSection, '## Bug', '', '- **Issue:** #12', ''].join('\n');
+}
+
+const bodies = mkdtempSync(join(tmpdir(), 'omni-bug-body-'));
+afterAll(() => {
+  rmSync(bodies, { recursive: true, force: true });
+});
+
+/** A file holding `text`, outside every repository: what `--body-file` names. */
+function bodyFile(text: string) {
+  const path = join(bodies, `body-${readdirSync(bodies).length}.md`);
+  writeFileSync(path, text);
+  return path;
+}
+
+/** The body most tests hand `--body-file`, so that they grade the branch and not the proof. */
+const PASSING_BODY = bodyFile(prBody());
+
+async function run(root: string, base: string, issue: number | string = ISSUE, extra: string[] = ['--body-file', PASSING_BODY]) {
   const s = io();
-  const code = await main(['bug', String(issue), '--base', base], { cwd: root, ...s });
+  const code = await main(['bug', String(issue), '--base', base, ...extra], { cwd: root, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };
 }
 
@@ -421,6 +450,215 @@ describe('omni bug — a change to a law needs the fix\'s outbox (PRD 1342)', ()
     const { code, out } = await run(root, base);
     expect(failures(out)).toEqual([]);
     expect(code).toBe(0);
+  });
+});
+
+describe('omni bug — the pull request carries its proof (PRD 2100)', () => {
+  const NO_PROOF = '- no ## Proof section';
+  const NO_IMAGE = '- ## Proof has no image and no "GIF not produced - <reason>" line';
+  const NO_LINES = '- ## Proof\'s image has no "Before the fix" or "After the fix" line';
+  const HOW_TO_PROCEED =
+    '- no pull request body to check: make the GIF (omni bug film 12 --before <red> --after <green>, then omni proof push --kind bug 12 <folder>), ' +
+    'write the body with its ## Proof section to a file, and rerun omni bug 12 --body-file <file>; ' +
+    'with no GIF, ## Proof is the line GIF not produced - <reason> and the pull request opens as a draft';
+  const NOT_PRODUCED = prBody('GIF not produced - ffmpeg not found');
+
+  /** A fake process runner: git is real; `gh` answers as told, and its calls are recorded. */
+  function withGh(answer: string | Error) {
+    const calls: { args: string[]; cwd: unknown }[] = [];
+    const exec = ((file: string, args: readonly string[], options?: { cwd?: unknown }) => {
+      if (file !== 'gh') return execFileSync(file, args, options as never);
+      calls.push({ args: [...args], cwd: options?.cwd });
+      if (answer instanceof Error) throw answer;
+      return answer;
+    }) as never;
+    return { exec, calls };
+  }
+
+  /** `omni bug 12` on a branch with `extra` arguments, `gh` answering as told (by default it must not be asked). */
+  async function check(extra: string[], gh: string | Error = new Error('gh must not be asked'), branch: { root: string; base: string } = fixBranch()) {
+    const s = io();
+    const fake = withGh(gh);
+    const code = await main(['bug', String(ISSUE), '--base', branch.base, ...extra], { cwd: branch.root, exec: fake.exec, ...s });
+    return { code, out: s.out.join(''), err: s.err.join(''), calls: fake.calls, root: branch.root };
+  }
+
+  const fromFile = (text: string, branch?: { root: string; base: string }) => check(['--body-file', bodyFile(text)], undefined, branch);
+  const viewed = (over: Record<string, unknown> = {}) => JSON.stringify({ body: prBody(), isDraft: false, state: 'OPEN', number: 34, ...over });
+  const noPullRequest = () => Object.assign(new Error('no pull requests found for branch "fix/saving"'), { status: 1 });
+
+  describe('with --body-file', () => {
+    it('is ok for a ## Proof holding an https image and its Before and After lines, and asks gh nothing', async () => {
+      const { code, out, calls } = await fromFile(prBody());
+      expect(out).toBe('ok\n');
+      expect(code).toBe(0);
+      expect(calls).toEqual([]);
+    });
+
+    it('is ok for the line GIF not produced - <reason>', async () => {
+      const { code, out } = await fromFile(NOT_PRODUCED);
+      expect(out).toBe('ok\n');
+      expect(code).toBe(0);
+    });
+
+    it('reads a relative path against the repository root', async () => {
+      const branch = fixBranch();
+      writeFileSync(join(branch.root, 'body.md'), prBody());
+      expect((await check(['--body-file', 'body.md'], undefined, branch)).code).toBe(0);
+    });
+
+    it.each([
+      ['has no ## Proof section', prBody(null), NO_PROOF],
+      ['has a ## Proof of prose only', prBody('The fix is in the handler.'), NO_IMAGE],
+      ['has a not-produced line with no reason', prBody('GIF not produced -'), NO_IMAGE],
+      ['has a not-produced line whose reason is blanks', prBody('GIF not produced -   '), NO_IMAGE],
+      ['has a not-produced line with a colon for its dash', prBody('GIF not produced: ffmpeg not found'), NO_IMAGE],
+      ['has an image that is not https', prBody(PROOF.replace('https://', 'http://')), NO_IMAGE],
+      ['has a link that is not an image', prBody(PROOF.replace('![', '[')), NO_IMAGE],
+      ['has an image and neither line', prBody(`![x](${GIF_LINK})`), NO_LINES],
+      ['has an image without its Before line', prBody(PROOF.replace('- **Before the fix**', '- Before the fix')), NO_LINES],
+      ['has an image without its After line', prBody(PROOF.replace('- **After the fix**', '- After the fix')), NO_LINES],
+    ])('is not ok when the body %s, with that one line', async (_name: string, text: string, line: string) => {
+      const { code, out } = await fromFile(text);
+      expect(out).toBe(`not ok\n${line}\n`);
+      expect(code).toBe(1);
+    });
+
+    it('reads only the ## Proof section: a not-produced line or an image under another heading does not count', async () => {
+      const elsewhere = `${prBody('The fix is in the handler.')}\nGIF not produced - ffmpeg not found\n![x](${GIF_LINK})\n`;
+      expect(failures((await fromFile(elsewhere)).out)).toEqual([NO_IMAGE]);
+    });
+
+    it('reads a ## Proof that runs to the end of the body, with CRLF line ends and a ### inside it', async () => {
+      const crlf = ['Closes #12', '', '## Proof', '', '### The GIF', '', PROOF, ''].join('\r\n');
+      expect((await fromFile(crlf)).code).toBe(0);
+      expect((await fromFile(['## Proof', 'GIF not produced - no ffmpeg', ''].join('\r\n'))).code).toBe(0);
+    });
+
+    it('grades the first ## Proof when the body has two', async () => {
+      const twice = `${prBody('The fix is in the handler.')}\n## Proof\n\n${PROOF}\n`;
+      expect(failures((await fromFile(twice)).out)).toEqual([NO_IMAGE]);
+    });
+
+    it('adds the proof fault to the faults of the branch, one line each', async () => {
+      const { code, out } = await fromFile(prBody(null), fixBranch({ signed: false }));
+      expect(code).toBe(1);
+      expect(failures(out)).toEqual([expect.stringMatching(/^- unsigned: /), NO_PROOF]);
+    });
+
+    it('is exit 2 for a file that cannot be read, and for a flag with no file', async () => {
+      const missing = await check(['--body-file', join(bodies, 'nope.md')]);
+      expect(missing.code).toBe(2);
+      expect(missing.err).toMatch(/omni bug: cannot read .*nope\.md \(ENOENT\)/);
+      expect(missing.out).toBe('');
+      const bare = await check(['--body-file']);
+      expect(bare.code).toBe(2);
+      expect(bare.err).toMatch(/--body-file needs a value/);
+    });
+
+    it('names the flag in its usage, exit 2, for no number or two', async () => {
+      const { root } = fixBranch();
+      for (const args of [['bug'], ['bug', '12', '13']]) {
+        const s = io();
+        expect(await main(args, { cwd: root, ...s })).toBe(2);
+        expect(s.err.join('')).toContain('usage: omni bug <n> [--base <ref>] [--body-file <file>]');
+      }
+    });
+  });
+
+  describe('with no flag, reading the open pull request of the branch', () => {
+    it('asks gh for the branch\'s pull request, in the repository root, and checks its body', async () => {
+      const { code, out, calls, root } = await check([], viewed());
+      expect(calls).toEqual([{ args: ['pr', 'view', '--json', 'body,isDraft,state,number'], cwd: realpathSync(root) }]);
+      expect(out).toBe('ok\n');
+      expect(code).toBe(0);
+    });
+
+    it('is not ok when the pull request\'s body has no proof, with the fault a file has', async () => {
+      const { code, out } = await check([], viewed({ body: prBody(null) }));
+      expect(out).toBe(`not ok\n${NO_PROOF}\n`);
+      expect(code).toBe(1);
+    });
+
+    it('reads a pull request with no body as one with no ## Proof', async () => {
+      expect(failures((await check([], viewed({ body: null }))).out)).toEqual([NO_PROOF]);
+      expect(failures((await check([], viewed({ body: '' }))).out)).toEqual([NO_PROOF]);
+    });
+
+    it('is not ok, asking for a draft, for a proof not produced on a pull request that is not one', async () => {
+      const { code, out } = await check([], viewed({ body: NOT_PRODUCED, isDraft: false, number: 34 }));
+      expect(out).toBe('not ok\n- the proof was not produced but #34 is not a draft: gh pr ready 34 --undo\n');
+      expect(code).toBe(1);
+    });
+
+    it('is ok for a proof not produced on a draft', async () => {
+      const { code, out } = await check([], viewed({ body: NOT_PRODUCED, isDraft: true }));
+      expect(out).toBe('ok\n');
+      expect(code).toBe(0);
+    });
+
+    it('asks for no draft when the proof has a fault of its own: an empty reason is no not-produced proof', async () => {
+      const { out } = await check([], viewed({ body: prBody('GIF not produced -'), isDraft: false }));
+      expect(failures(out)).toEqual([NO_IMAGE]);
+    });
+
+    it('asks for no draft when the proof was produced', async () => {
+      expect((await check([], viewed({ body: prBody(PROOF), isDraft: false }))).code).toBe(0);
+    });
+
+    it.each([
+      ['no open pull request, gh failing', noPullRequest()],
+      ['gh not installed', Object.assign(new Error('spawn gh ENOENT'), { code: 'ENOENT' })],
+      ['a pull request that was closed', viewed({ state: 'CLOSED' })],
+      ['a pull request that was merged', viewed({ state: 'MERGED' })],
+      ['an answer that is not JSON', 'to get started with GitHub CLI, please run: gh auth login'],
+      ['an answer that is no pull request', '{"body":"x"}'],
+      ['a pull request whose number is not one', viewed({ number: 0 })],
+    ])('prints the way to proceed, exit 1, for %s', async (_name: string, gh: string | Error) => {
+      const { code, out } = await check([], gh);
+      expect(out).toBe(`not ok\n${HOW_TO_PROCEED}\n`);
+      expect(code).toBe(1);
+    });
+
+    it('prints the way to proceed beside the faults of the record', async () => {
+      const { out } = await check([], noPullRequest(), fixBranch({ bug: record({ Fix: null }) }));
+      expect(failures(out)).toEqual([`- ${RECORD}: no "## Fix" section.`, HOW_TO_PROCEED]);
+    });
+
+    it('prints the way to proceed beside a folder that is missing', async () => {
+      const { out } = await check([], noPullRequest(), setup());
+      expect(failures(out)).toEqual([expect.stringMatching(/^- no folder /), HOW_TO_PROCEED]);
+    });
+
+    it('is exit 2 for a --base that does not resolve, before gh is asked', async () => {
+      const { code, calls } = await check(['--base', 'nope-ref'], viewed());
+      expect(code).toBe(2);
+      expect(calls).toEqual([]);
+    });
+  });
+
+  describe('a record with ## Fixes (PRD 1118)', () => {
+    it('passes with no ## Proof, with the flag or without it, and asks gh nothing', async () => {
+      const flagged = await fromFile(prBody(null), recordBranch());
+      expect(flagged.out).toBe('ok\n');
+      expect(flagged.code).toBe(0);
+      const bare = await check([], undefined, recordBranch());
+      expect(bare.out).toBe('ok\n');
+      expect(bare.code).toBe(0);
+      expect(bare.calls).toEqual([]);
+    });
+
+    it('is still graded by its own rows', async () => {
+      const { out } = await check([], undefined, recordBranch(multiRecord([])));
+      expect(failures(out)).toEqual([`- ${RECORD}: the "## Fixes" table has no rows.`]);
+    });
+
+    it('is no exemption for a folder with no bug.md', async () => {
+      const branch = setup(PLAN_CONFIG);
+      branch.write(`${DIR}/notes.md`, 'notes\n');
+      commit(branch.root, 'docs(delivery): notes (#12)');
+      expect(failures((await fromFile(prBody(null), branch)).out)).toEqual([`- ${RECORD}: missing.`, NO_PROOF]);
+    });
   });
 });
 

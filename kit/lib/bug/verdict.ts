@@ -17,6 +17,9 @@
  *    `outbox/`, and an account naming it: the lines `laws` gives for the folder.
  * 6. Every commit of the branch carries the trailer `omni sign trailer` prints, unless the config
  *    says `signature: null`.
+ * 7. When given a way to read it (PRD 2100), the pull request's body carries its proof
+ *    (`./proof-body.ts`), one more line per fault. A record with a `## Fixes` section is exempt:
+ *    its fixes live in other repositories, and the body is not read at all.
  *
  * It runs no test: the reproduction going green is CI's job.
  */
@@ -25,6 +28,8 @@ import { isAbsolute, join, normalize } from 'node:path';
 import { fixVerdict, issuePrefix, numberedFolders } from '../fix-verdict.ts';
 import { boldField, fixesViolations } from './fixes.ts';
 import type { FixesConfig } from './fixes.ts';
+import { proofFaults } from './proof-body.ts';
+import type { ProofSource } from './proof-body.ts';
 import type { Commit } from '../fix-verdict.ts';
 import type { TrailerSignature } from '../signature.ts';
 import type { IssueNumber } from '../ids.ts';
@@ -117,9 +122,14 @@ function reproductionsViolations(ctx: BugContext, record: string, sections: Read
   return reproduction ? reproductionViolations(ctx, record, reproduction, changed) : [];
 }
 
+/** The record's sections, or `undefined` when the file is not there. */
+function recordSections(ctx: { root: string }, record: string): ReadonlyMap<string, string> | undefined {
+  return isFile(ctx, record) ? parseSections(readFileSync(join(ctx.root, record), 'utf8')) : undefined;
+}
+
 function recordViolations(ctx: BugContext, record: string, changed: Set<string> | undefined): string[] {
-  if (!isFile(ctx, record)) return [`${record}: missing.`];
-  const sections = parseSections(readFileSync(join(ctx.root, record), 'utf8'));
+  const sections = recordSections(ctx, record);
+  if (sections === undefined) return [`${record}: missing.`];
   const triage = sections.get('Triage');
   return [
     ...sectionViolations(record, sections),
@@ -132,17 +142,22 @@ function recordViolations(ctx: BugContext, record: string, changed: Set<string> 
  * Grades one issue's bug fix on the working tree, the branch's changed files and its commits when
  * given.
  */
-export function bugVerdict({ ctx, issue, changed, commits, laws }: {
+export function bugVerdict({ ctx, issue, changed, commits, laws, proof }: {
   ctx: BugContext;
   issue: IssueNumber;
   changed?: Iterable<string> | undefined;
   commits?: readonly Commit[] | undefined;
   /** The changes to a law the range has not answered in the folder (PRD 1342), one line each. */
   laws?: ((folder: string) => string[]) | undefined;
+  /** Reads the pull request body to check (PRD 2100); called only when the record is not a `## Fixes` one. */
+  proof?: (() => ProofSource) | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   const changedSet = changed === undefined ? undefined : new Set([...changed].map((path) => normalize(path)));
-  return fixVerdict({
+  const verdict = fixVerdict({
     ctx, number: issue, commits, root: bugRoot(ctx), prefix: issuePrefix(issue), folders: numberedFolders(ctx, bugRoot(ctx), issuePrefix(issue)),
     grade: (folder) => [...recordViolations(ctx, `${folder}/${RECORD}`, changedSet), ...(laws?.(folder) ?? [])],
   });
+  const exempt = verdict.folder !== null && recordSections(ctx, `${verdict.folder}/${RECORD}`)?.has('Fixes') === true;
+  const failures = proof === undefined || exempt ? verdict.failures : [...verdict.failures, ...proofFaults(proof(), issue)];
+  return { ok: failures.length === 0, folder: verdict.folder, failures };
 }
