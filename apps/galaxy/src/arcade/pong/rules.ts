@@ -23,3 +23,34 @@ export const PITCH = Object.freeze({
   /** The first peak within this share of the highest is the period: a later one is an octave below. */
   peakShare: 0.9,
 });
+
+/**
+ * The match's numbers, chosen by eye so a follow-up tunes the feel without touching the engine. Lengths
+ * are the playfield's game pixels, speeds pixels a second, times seconds, angles radians from level.
+ */
+export const MATCH = Object.freeze({
+  field: Object.freeze({ w: 320, h: 288 }),
+  /** Each paddle's size, and how far its centre stands from its own edge of the field. */
+  paddle: Object.freeze({ w: 6, h: 40, inset: 14 }),
+  /** The ball's side: it is a square. */
+  ball: 6,
+  /** The one speed the voice moves the player's paddle at. */
+  playerSpeed: 220,
+  /** The ball's speed at each serve, the factor every return multiplies it by, and its cap. */
+  serveSpeed: 150,
+  speedUp: 1.07,
+  maxSpeed: 480,
+  /** The angles a serve is drawn between, either way up. */
+  serveAngle: Object.freeze({ min: 0.25, max: 0.6 }),
+  /** How far off level a return turns per half-paddle the ball struck off the centre, and the steepest it ever leaves. */
+  english: 0.35,
+  maxAngle: 1,
+  /** The AI sees the ball this late, and moves its paddle no faster than this. */
+  ai: Object.freeze({ delay: 0.25, speed: 160 }),
+  /** How long the ball waits at the centre before each serve. */
+  serveSeconds: 1,
+  lives: 3,
+  /** The fixed step the match is played in, and the longest frame played at once: the same match at 60 or 120 frames a second. */
+  subStep: 1 / 120,
+  maxDt: 0.05,
+});
