@@ -30,8 +30,14 @@ const CAST: Persona[] = [
   { name: 'Lea', stance: 'excited', trade: 'office', who: 'Keeps a builder\'s office', usage: 'The dashboard' },
 ];
 
-function world({ business = true, claims = CLAIMS, personas = [] as Persona[], database = true, answer }: {
-  business?: boolean; claims?: Row[]; personas?: Persona[]; database?: boolean; answer?: unknown;
+type Legal = { id: string; statement: string; source: string; owner: string };
+type Term = { term: string; meaning: string; avoid: string[] };
+
+const LEGAL: Legal[] = [{ id: 'L-INVOICING-1', statement: 'Invoice numbers follow each other with no gaps.', source: 'https://law.example/vat-53', owner: 'anna' }];
+const TERMS: Term[] = [{ term: 'Credit note', meaning: 'A document that cancels an invoice.', avoid: ['refund'] }];
+
+function world({ business = true, claims = CLAIMS, personas = [] as Persona[], legal = [] as Legal[], glossary = [] as Term[], database = true, answer }: {
+  business?: boolean; claims?: Row[]; personas?: Persona[]; legal?: Legal[]; glossary?: Term[]; database?: boolean; answer?: unknown;
 } = {}) {
   const calls: Array<{ fn: string; args: unknown }> = [];
   const users: Record<string, typeof ADA> = { 'ada-token': ADA, 'carl-token': CARL };
@@ -48,11 +54,11 @@ function world({ business = true, claims = CLAIMS, personas = [] as Persona[], d
       if (!sure(users[token], 'users[token]').member) {
         return Promise.resolve({ data: null, error: { code: '42501', message: 'no workspace owns other/thing yet — install the Omni App' } });
       }
-      if (!business) return Promise.resolve({ data: { state: 'none', business: null, product: null, claims: [], personas: [] }, error: null });
+      if (!business) return Promise.resolve({ data: { state: 'none', business: null, product: null, claims: [], personas: [], legal: [], glossary: [] }, error: null });
       const listed = claims.filter((c) => c.state === 'confirmed' || c.state === 'contradicted').map((c) => ({
         id: `${c.kind}#${c.seq}`, kind: c.kind, value: c.value, source: c.source, state: c.state, receipt: null, lastSeen: null,
       }));
-      return Promise.resolve({ data: { state: listed.length ? 'ok' : 'none', business: { name: 'Acme' }, product: null, claims: listed, personas }, error: null });
+      return Promise.resolve({ data: { state: listed.length ? 'ok' : 'none', business: { name: 'Acme' }, product: null, claims: listed, personas, legal, glossary }, error: null });
     },
   });
   const deps: BusinessDeps = { connect: database ? (client as unknown as NonNullable<BusinessDeps['connect']>) : null, installLink: INSTALL };
@@ -97,13 +103,13 @@ describe('GET /api/business', () => {
     const { status, body, cache } = await world({ business: false }).get('?repo=acme/widgets');
     expect(status).toBe(200);
     expect(cache).toBe('no-store');
-    expect(body).toEqual({ state: 'none', business: null, product: null, claims: [], personas: [] });
+    expect(body).toEqual({ state: 'none', business: null, product: null, claims: [], personas: [], legal: [], glossary: [] });
   });
 
   it('none when the business holds no confirmed claim', async () => {
     const claims = CLAIMS.filter((c) => c.state !== 'confirmed' && c.state !== 'contradicted');
     const { body } = await world({ claims }).get('?repo=acme/widgets');
-    expect(body).toEqual({ state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: [] });
+    expect(body).toEqual({ state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: [], legal: [], glossary: [] });
   });
 
   it('the decision-14 body, confirmed and contradicted claims with their state, never a proposed or rejected one', async () => {
@@ -122,12 +128,14 @@ describe('GET /api/business', () => {
         { id: 'size#6', kind: 'size', value: '2-50', source: 'pick', state: 'contradicted', receipt: null, lastSeen: null },
       ],
       personas: [],
+      legal: [],
+      glossary: [],
     });
     expect(JSON.stringify(body)).not.toMatch(/Guessed|Wrong One|5-10/);
   });
 
   it('an evidence claim carries its newest receipt and when it was last seen', async () => {
-    const seen = { state: 'ok', business: { name: 'Acme' }, product: null, personas: [], claims: [
+    const seen = { state: 'ok', business: { name: 'Acme' }, product: null, personas: [], legal: [], glossary: [], claims: [
       { id: 'region#8', kind: 'region', value: 'France', source: 'evidence', state: 'confirmed',
         receipt: 'acme/widgets:README.md — "offices in France"', lastSeen: '2026-09-28T22:00:00+00:00' },
     ] };
@@ -138,7 +146,7 @@ describe('GET /api/business', () => {
 
   it('carries a product\'s Never line as a claim of kind never, up to 200 characters (PRD 839)', async () => {
     const line = 'Build for groups of companies: '.padEnd(200, 'x');
-    const read = { state: 'ok', business: { name: 'Acme' }, product: null, personas: [], claims: [
+    const read = { state: 'ok', business: { name: 'Acme' }, product: null, personas: [], legal: [], glossary: [], claims: [
       { id: 'never#9', kind: 'never', value: line, source: 'pick', state: 'confirmed', receipt: null, lastSeen: null },
     ] };
     const { status, body } = await world({ answer: read }).get('?repo=acme/widgets');
@@ -166,7 +174,7 @@ describe('GET /api/business', () => {
   it('state is decided by claims only: personas without a confirmed claim still read none, and come back', async () => {
     const claims = CLAIMS.filter((c) => c.state !== 'confirmed' && c.state !== 'contradicted');
     const { body } = await world({ claims, personas: CAST }).get('?repo=acme/widgets');
-    expect(body).toEqual({ state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: CAST });
+    expect(body).toEqual({ state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: CAST, legal: [], glossary: [] });
     const without = await world({ personas: [] }).get('?repo=acme/widgets');
     const withCast = await world({ personas: CAST }).get('?repo=acme/widgets');
     expect(withCast.body.state).toBe(without.body.state);
@@ -182,6 +190,36 @@ describe('GET /api/business', () => {
   it('500 when a persona is outside the contract', async () => {
     for (const bad of [{ ...CAST[0], stance: 'angry' }, { ...CAST[0], name: '' }, { ...CAST[0], avatar: { v: 1 } }]) {
       const answer = { state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: [bad] };
+      expect((await world({ answer }).get('?repo=acme/widgets')).status).toBe(500);
+    }
+  });
+
+  it('carries the product\'s Legal entries and glossary, and [] for both when it has none (PRD 1795)', async () => {
+    const filled = await world({ legal: LEGAL, glossary: TERMS }).get('?repo=acme/widgets');
+    expect(filled.status).toBe(200);
+    expect(filled.body.legal).toEqual(LEGAL);
+    expect(filled.body.glossary).toEqual(TERMS);
+    const empty = await world().get('?repo=acme/widgets');
+    expect(empty.body.legal).toEqual([]);
+    expect(empty.body.glossary).toEqual([]);
+  });
+
+  it('legal and glossary read as [] from a database that sends neither', async () => {
+    const older = { state: 'none', business: null, product: null, claims: [] };
+    const { body } = await world({ answer: older }).get('?repo=acme/widgets');
+    expect(body.legal).toEqual([]);
+    expect(body.glossary).toEqual([]);
+  });
+
+  it('a stranger is refused the same way, so reads no Legal entry (BR-PRODUCT-28)', async () => {
+    const { status, body } = await world({ legal: LEGAL, glossary: TERMS }).get('?repo=acme/widgets', 'carl-token');
+    expect(status).toBe(403);
+    expect(JSON.stringify(body)).not.toContain('L-INVOICING-1');
+  });
+
+  it('500 when a Legal entry or a term is outside the contract', async () => {
+    for (const bad of [{ legal: [{ ...LEGAL[0], id: 'L-invoicing-1' }] }, { legal: [{ ...LEGAL[0], owner: '' }] }, { glossary: [{ ...TERMS[0], avoid: 'refund' }] }]) {
+      const answer = { state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: [], ...bad };
       expect((await world({ answer }).get('?repo=acme/widgets')).status).toBe(500);
     }
   });

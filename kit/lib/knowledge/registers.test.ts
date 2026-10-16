@@ -8,6 +8,7 @@ import {
   codeOf,
   diskSource,
   idParts,
+  ID_SHAPE,
   idsCitedIn,
   isConfirmedRule,
   isLaw,
@@ -52,6 +53,14 @@ describe('idParts — every id shape splits one way', () => {
   it('reads anything else as no id at all', () => {
     expect(idParts('ADR-0069')).toBeNull();
     expect(idParts('P-ADVISOR')).toBeNull();
+  });
+});
+
+describe('a Legal id (PRD 1795)', () => {
+  it('is recognised as an id, whole or cited, and never as an entry heading', () => {
+    expect(ID_SHAPE.test('L-INVOICING-1')).toBe(true);
+    expect(ID_SHAPE.test('L-invoicing-1')).toBe(false);
+    expect(idsCitedIn('serves L-INVOICING-1 and P-ADVISOR-2')).toEqual(['L-INVOICING-1', 'P-ADVISOR-2']);
   });
 });
 
