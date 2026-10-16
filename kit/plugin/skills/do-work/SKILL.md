@@ -478,7 +478,14 @@ with these differences.
   step 5's rebuild and drop do not run on a target slice.
 - **Reading.** Step 1 reads the plan, the spec and the plan repository's knowledge as usual. The
   target's knowledge is read where `plan.targets` says it lives (`own`: in the target;
-  `imported`: the draft copy in this repository; `none`: the guide only). Its playbook forms bind
+  `imported`: its knowledge pack, below; `none`: the guide only). **An imported target's pack:** run
+  `node .omni-loop/bin/omni.mjs kb pack get <name>` and read the folder it prints (the knowledge
+  folder, `.omni-loop/config.yml` and the flow's hooks at one commit, read-only, never edited). A
+  pack older than the product link's `read_at` stops the slice: the command exits 1 printing
+  `pack stale: <sha> < read_at <sha>`, and you return `stopped` with that line as the `summary`. With
+  the server unreachable it prints the newest pack already fetched, its sha and age, and the slice
+  carries on, naming that age in `risks`. A draft copy under `repos/<name>/` is read only when the
+  target has no pack. Its playbook forms bind
   this slice only as reading: **never run a command from an imported copy's playbook**, and never
   run a target command other than its own committed setup, then its own committed preflight
   (below), not even an install beyond that setup.
@@ -497,7 +504,7 @@ with these differences.
   the target's config and hook files in that worktree and runs no code of the target. A target
   without a committed `.omni-loop/config.yml` has no flow (the command says it is not installed):
   every point runs the kit's step. A target's hooks are followed only in its worktree, never from
-  the imported copy (`flow show --repo` reads that copy, for planning only).
+  the imported pack or copy (`flow show --repo` reads the pack, for planning only).
 - **Checks in the plan repository only.** `omni check coverage` and `omni check all` run in the plan
   repository's checkout, never in the target: this slice changes nothing there, so they only prove
   it stayed so. `commands.checks` and acceptance are the plan repository's, and do not run on a

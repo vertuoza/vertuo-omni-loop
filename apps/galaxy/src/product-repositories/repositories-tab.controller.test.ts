@@ -11,8 +11,8 @@ vi.mock('server-only', () => ({}));
 // service runs. Each refusal is `{error}` in plain words, its status by its kind.
 
 const PRODUCT = '22222222-2222-4222-8222-222222222221';
-const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own' as const, readAt: null, readOnly: false, consumes: [], addedBy: 'person' as const };
-const TAB: RepositoriesTab = { product: { id: PRODUCT, name: 'Mobile' }, owner: true, links: [LINK], addable: ['acme/web'], approvers: null };
+const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own' as const, readAt: null, readOnly: false, consumes: [], addedBy: 'person' as const, ladderStep: 5 };
+const TAB: RepositoriesTab = { product: { id: PRODUCT, name: 'Mobile' }, owner: true, links: [LINK], addable: ['acme/web'], approvers: null, plan: null };
 
 describe('the page\'s view', () => {
   const signedIn = { kind: 'signed-in', db: {}, env: { url: 'u', key: 'k' }, user: { id: 'u-1' } } as unknown as MemberSession;
@@ -125,4 +125,5 @@ describe('the routes', () => {
     expect((await h.removeLink(del('links', 'repo=acme/api'), PRODUCT)).status).toBe(500);
     expect(h.logs).toEqual([`product repositories: down (${PRODUCT})`]);
   });
+
 });

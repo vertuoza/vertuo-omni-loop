@@ -118,8 +118,70 @@ A PRD waits *on you* when it waits for your approval or for your answer; one und
 GitHub review*, and one being built or ready to build *on the agent*.
 
 The workspace's own lists stay as they are, each with a product filter: all, one product, or no
-product. They are the PRDs, the bug fixes and the visual fixes, and each repository's ideas board,
-whose filter only the workspace's members see.
+product. They are the PRDs, the roadmaps, the bug fixes and the visual fixes, and the concepts. Each
+item shows its product id beside its number: `mobile-12` for a product PRD, `mobile-R3` for a
+roadmap, `mobile-B74` for a bug fix. Each repository's ideas board stays as it was, and its filter
+only the workspace's members see.
+
+**Work › Questions** is the workspace's own list of questions, in two tabs. **Inbox** holds the
+questions the ask mode put to you. **Outbox** holds the open outbox items of the workspace's product
+PRDs, with their product, the ones waiting on you first, answered in place. For now the Outbox lists
+product PRDs only; a repository PRD's questions stay on its feature pull request and its PRD page.
+
+## The rollout ladder
+
+Each repository of a product climbs a **rollout ladder** of five steps, one at a time:
+
+| step | what the repository has |
+|---|---|
+| 1 | approval on the Omni page |
+| 2 | the gate, read from the Omni page |
+| 3 | the outbox, its open questions answered on the page |
+| 4 | phase 0 born on the server |
+| 5 | roadmaps and bug records born on the server |
+
+A repository at step 5 gets the new records: a roadmap is `<key>-R<n>` and a bug record is
+`<key>-B<n>`, both in its product (see [Roadmaps](/docs/roadmaps#in-a-product-on-the-server) and the
+bug records below). A repository below step 5 keeps working the way it always has, from git.
+
+A record keeps the place it was born in for life. A roadmap or bug record born in git finishes in
+git, and moving a repository back down the ladder changes only where its new records are born.
+
+### Bug records
+
+At step 5, a bug fix is a record on the product, `<key>-B<n>` (such as `mobile-B74`), with its own
+counter apart from the PRDs'. Its **Fixes** rows, one per fix (its repository, its pull request,
+what changes, its reproduction and its guard), are on its page, and `omni bug push --product mobile`
+writes them. Each row's repository must be one of the product's; a row naming another is refused by
+name, and nothing is written.
+
+Every fix pull request's description carries the record: `Fixes mobile-B74 · <link>`, then the
+reproduction and the guard, so `git log` and blame still lead to the why. The merge stamps each row
+as its pull request merges, and the record **ships** on the last merge. A pull request closed without
+merging leaves its row not merged and the record open. No record pull request is opened and no issue
+is made, in a plan repository either.
+
+### Knowledge packs
+
+Imported knowledge is served as a **pack** from the product, not copied into a repository. On a merge
+that touches a repository's knowledge folder or flow config, the Omni App takes a snapshot of those
+files at that commit, and the newest snapshot is the pack. `omni kb pack get <repo>` writes it to
+`.omni-loop/local/packs/` in your checkout, read-only and ignored by git, and prints the folder. When
+the server cannot be reached, it prints the newest pack already fetched, with its commit and its age.
+A pack older than the commit your product link was read at is refused, never used, and `/omni:do-work`
+stops the slice with `pack stale: <sha> < read_at <sha>`. A workspace's token reads only its own
+workspace's packs.
+
+### The Repositories tab
+
+A product's **Repositories & approvers** tab shows each repository's ladder step, and, under it, what
+still lives in the repository's plan repository: a repository below step 5 (`vertuo-web · step 3`),
+and any open roadmap or bug record that is still born in git (`roadmap 0412 · in git`). This is
+information only. The plan repository is kept: the loop never archives it, and the tab has no archive
+action. A plan repository keeps its roadmaps, bug records and imported knowledge copies working side
+by side with the product way.
+
+## A product PRD
 
 ## A product PRD
 

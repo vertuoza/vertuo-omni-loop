@@ -1461,6 +1461,34 @@ is the planet's PRD.
   single-file artifact shows them without the OPEN hint, since it has no page to open.
 - **In the demo**, a planet's OPEN opens the pages' demo dossier, whichever planet it was pressed on.
 
+### Records born on the product (PRD 2011)
+
+A repository at step 5 of its product's rollout ladder has its new roadmaps and bug records born on
+the server ([`docs/guide/products.md`](../../docs/guide/products.md#the-rollout-ladder)). The app
+shows them beside the rest of the workspace:
+
+- **Roadmaps** (`mobile-R3`) and **Bug fixes** (`mobile-B74`) are listed with their product id and
+  product, and filtered by product like PRDs. A product roadmap's page is approved on the page, has
+  no issue and no phase-0 pull request, and keeps every push as a version, as a PRD's dossier does.
+  Its PRD rows accept a repository's number or a product PRD's id.
+- **A bug record** shows its **Fixes** rows: each repository, pull request, what changes, its
+  reproduction and its guard, and the merge state of each. The record ships on its last merge; a merge
+  matching no row is listed on the page as `unmatched merge <repo>#<n>`, and a pull request closed
+  without merging leaves its row open.
+- **Knowledge packs** are kept per repository and per commit, snapshotted when a merge touches the
+  repository's knowledge folder or flow config. `GET /api/knowledge-packs` answers the newest one to an
+  agent link of the same workspace, and no other workspace's token reads it.
+
+**Work › Questions** has two tabs. **Inbox** lists the ask-mode questions put to you. **Outbox** lists
+every open outbox item of the workspace's product PRDs, across products, with a product filter and
+the viewer's own first; answering there writes the same answer as the product's Questions tab. A
+product PRD's own page has an Outbox tab that reads its rows from the server, open and settled, and
+answers need your sign-in. **Concepts** has the product filter too.
+
+A product's **Repositories & approvers** tab shows each repository's ladder step and, as information
+only, what still lives in its plan repository. The plan repository is kept, and the loop never
+archives it.
+
 ## PRD stages (PRD 587)
 
 Where each PRD is (PRD, inbox, building, outbox, shipped, retro) is stored in `public.prd_stages`,

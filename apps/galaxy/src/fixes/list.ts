@@ -25,6 +25,7 @@ import { readWho, whoParam, type HistoryWho, type Whom } from '../dossier/page/h
 import { one, type Query } from '../nav/query';
 import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { People } from '../people/load';
+import type { ProductLabels } from '../product-filter/product-filter.service';
 import type { Person } from '../people/types';
 
 /** A list of fixes: a visual fix's or a bug fix's. */
@@ -50,8 +51,10 @@ export type FixArtifact = { kind: ArtifactKind; label: string; badge: string };
 export type FixItem = {
   id: string;
   href: string;
-  /** `#548`: its issue's number. */
+  /** `#548`: its issue's number; a product bug's id (`mobile-B74`, PRD 2011). */
   heading: string;
+  /** The name of the product it carries (PRD 2011); null when it has none. */
+  product: string | null;
   title: string;
   repos: string[];
   artifacts: FixArtifact[];
@@ -138,7 +141,7 @@ export type FixFacts = ReadonlyMap<string, FixSummary | null>;
  * `who=<login>`, the account ids that login holds in the viewer's workspaces (PRD 698). */
 export function fixItems(
   rows: readonly DossierListRow[], kind: FixKind, filters: FixFilters, viewer: FixViewer | null, facts: FixFacts = new Map(),
-  peopleIn: PeopleIn = NOBODY, whom: Whom = new Set(),
+  peopleIn: PeopleIn = NOBODY, whom: Whom = new Set(), labels: ProductLabels = new Map(),
 ): FixItem[] {
   const factsOf = (row: DossierListRow) => facts.get(row.id) ?? null;
   const asker = askerOf(filters.who, viewer, whom);
@@ -147,7 +150,8 @@ export function fixItems(
     .sort(newestFirst).map((row): FixItem => ({
     id: row.id,
     href: workPath(kind, row.id),
-    heading: `#${row.prd}`,
+    heading: labels.get(row.id)?.item ?? `#${row.prd}`,
+    product: labels.get(row.id)?.product ?? null,
     title: row.title,
     repos: row.repos,
     artifacts: KIND_TABS[kind].flatMap((tab): FixArtifact[] => {
