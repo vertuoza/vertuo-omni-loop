@@ -36332,10 +36332,10 @@ import { randomBytes } from "node:crypto";
 
 // kit/lib/ask/device.ts
 init_define_OMNI_BUNDLE();
-function chooseFlow(session2, platform, forced = null) {
+function chooseFlow(session2, platform2, forced = null) {
   if (forced) return forced;
   if (session2.remote) return "device";
-  return platform === "linux" && !session2.display ? "device" : "loopback";
+  return platform2 === "linux" && !session2.display ? "device" : "loopback";
 }
 function deviceLink(askUrl2, userCode) {
   const link2 = new URL(askEndpoint(askUrl2, "/ask/device"));
@@ -36634,8 +36634,8 @@ function synchronous(run2) {
 
 // kit/bin/commands/signin.ts
 var ASK_URL_UNSET = "ask mode is not set up for this repository (ask.url)";
-function openInBrowser(url2, { platform = process.platform } = {}) {
-  const [command2, args] = platform === "darwin" ? ["open", [url2]] : platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url2]] : ["xdg-open", [url2]];
+function openInBrowser(url2, { platform: platform2 = process.platform } = {}) {
+  const [command2, args] = platform2 === "darwin" ? ["open", [url2]] : platform2 === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url2]] : ["xdg-open", [url2]];
   const child = spawn(command2, args, { detached: true, stdio: "ignore" });
   child.on("error", () => {
   });
@@ -36765,7 +36765,7 @@ var signin = {
     fetch = globalThis.fetch,
     waitMs = LOOPBACK_WAIT_MS,
     onSignedIn,
-    platform = process.platform
+    platform: platform2 = process.platform
   }) {
     const { positional, flags } = parseArgs("signin", args, { booleans: ["device", "loopback"] });
     if (positional.length > 0 || flags.device && flags.loopback) throw usageError("usage: omni signin [--device | --loopback]");
@@ -36785,7 +36785,7 @@ var signin = {
     }
     const run2 = { askUrl: askUrl2, repo, stdout, stderr, home, openBrowser, fetch, waitMs, onSignedIn };
     const forced = flags.device ? "device" : flags.loopback ? "loopback" : null;
-    if (chooseFlow(vars.session, platform, forced) === "device") {
+    if (chooseFlow(vars.session, platform2, forced) === "device") {
       const ended2 = await signInByDevice(run2);
       if (ended2 !== null) return ended2;
       println(stderr, NO_DEVICE_SIGN_IN);
@@ -57492,6 +57492,7 @@ init_define_OMNI_BUNDLE();
 var NO_SIGN_IN6 = "no sign-in (omni setup-token)";
 var CALL_MS2 = 1e4;
 var NEXT_MS = 65e3;
+var HEALTH_MS = 5e3;
 var RunnerUnreachable = class extends Error {
   constructor(message2) {
     super(message2);
@@ -57514,7 +57515,7 @@ var JobSchema = external_exports.object({
 var UpdatedSchema = external_exports.object({ cancel: external_exports.boolean().optional() }).loose();
 var timedOut4 = (error62) => typeof error62 === "object" && error62 !== null && "name" in error62 && error62.name === "TimeoutError";
 function checked3(response, what, allow) {
-  if (response.status === 401 || response.status === 403) throw new RunnerRefused(NO_SIGN_IN6);
+  if (response.status === 401 || response.status === 403 && allow !== 403) throw new RunnerRefused(NO_SIGN_IN6);
   if (response.status >= 500) throw new RunnerUnreachable(`${what}: ${String(response.status)}`);
   if (!response.ok && response.status !== allow) throw new RunnerRefused(`refused (${String(response.status)})`);
   return response;
@@ -57581,6 +57582,10 @@ function runnerApi({ askUrl: askUrl2, tokens: tokens2, fetch }) {
       if (response.status === 409) return { cancel: true };
       const reply = UpdatedSchema.safeParse(await json3(response));
       return { cancel: reply.success && reply.data.cancel === true };
+    },
+    async health(runner2, report7) {
+      const response = await call("POST", `/api/runners/${segment(runner2)}/health`, { body: report7, timeoutMs: HEALTH_MS, allow: 403 });
+      if (response.status === 403) throw new RunnerRefused("refused (403)");
     }
   };
 }
@@ -57862,8 +57867,97 @@ function parseDuration(text15) {
 
 // kit/lib/runner/runner.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync82, mkdirSync as mkdirSync33, readFileSync as readFileSync97, rmSync as rmSync19, writeFileSync as writeFileSync47 } from "node:fs";
-import { join as join125 } from "node:path";
+import { existsSync as existsSync83, mkdirSync as mkdirSync33, readFileSync as readFileSync98, rmSync as rmSync19, writeFileSync as writeFileSync47 } from "node:fs";
+import { join as join126 } from "node:path";
+
+// kit/lib/runner/health.ts
+init_define_OMNI_BUNDLE();
+import { availableParallelism, cpus, freemem, loadavg, platform, totalmem } from "node:os";
+import { existsSync as existsSync82, readFileSync as readFileSync97, statfsSync } from "node:fs";
+import { join as join124 } from "node:path";
+function figure(read2) {
+  try {
+    const value = read2();
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+function cpuTimes(reads) {
+  try {
+    const cores = reads.cpus();
+    if (cores.length === 0) return null;
+    let idle = 0;
+    let total = 0;
+    for (const { times } of cores) {
+      idle += times.idle;
+      total += times.user + times.nice + times.sys + times.idle + times.irq;
+    }
+    return Number.isFinite(total) ? { idle, total } : null;
+  } catch {
+    return null;
+  }
+}
+function busyShare(previous, now2) {
+  if (previous === null || now2 === null) return null;
+  const total = now2.total - previous.total;
+  const idle = now2.idle - previous.idle;
+  if (total <= 0 || idle < 0 || idle > total) return null;
+  return Math.round((1 - idle / total) * 1e3) / 10;
+}
+function memAvailable(meminfo) {
+  const kb3 = /^MemAvailable:\s+(\d+)\s*kB$/m.exec(meminfo)?.[1];
+  return kb3 === void 0 ? null : Number(kb3) * 1024;
+}
+function memoryUsed(reads, memTotal) {
+  if (memTotal === null) return null;
+  let available;
+  try {
+    const meminfo = reads.meminfo();
+    available = meminfo === null ? figure(() => reads.freemem()) : memAvailable(meminfo);
+  } catch {
+    available = null;
+  }
+  return available === null ? null : Math.max(0, memTotal - available);
+}
+function disk(reads) {
+  try {
+    const { bsize, blocks: blocks2, bavail } = reads.statfs();
+    return { diskFree: figure(() => bavail * bsize), diskTotal: figure(() => blocks2 * bsize) };
+  } catch {
+    return { diskFree: null, diskTotal: null };
+  }
+}
+function sample(reads, previous) {
+  const times = cpuTimes(reads);
+  const memTotal = figure(() => reads.totalmem());
+  return {
+    sample: {
+      cpu: busyShare(previous, times),
+      load1: figure(() => reads.loadavg()[0] ?? Number.NaN),
+      cores: figure(() => reads.cores()),
+      memUsed: memoryUsed(reads, memTotal),
+      memTotal,
+      ...disk(reads)
+    },
+    times
+  };
+}
+function machineReads(home) {
+  const linux = platform() === "linux";
+  return {
+    cpus,
+    loadavg,
+    cores: availableParallelism,
+    totalmem,
+    freemem,
+    meminfo: () => linux ? readFileSync97("/proc/meminfo", "utf8") : null,
+    statfs: () => {
+      const worktrees = join124(home, "wt");
+      return statfsSync(existsSync82(worktrees) ? worktrees : home);
+    }
+  };
+}
 
 // kit/lib/runner/line.ts
 init_define_OMNI_BUNDLE();
@@ -57885,7 +57979,7 @@ function checkLine2(line2) {
 // kit/lib/runner/sweep.ts
 init_define_OMNI_BUNDLE();
 import { lstatSync, readdirSync as readdirSync37, rmSync as rmSync18 } from "node:fs";
-import { join as join124 } from "node:path";
+import { join as join125 } from "node:path";
 var DAY_MS2 = 24 * 60 * 60 * 1e3;
 var QUIET13 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var ID3 = "[A-Za-z0-9_-]+";
@@ -57907,7 +58001,7 @@ function sizeOf(path) {
     return 0;
   }
   if (!stat.isDirectory()) return stat.size;
-  return namesIn(path).reduce((total, name3) => total + sizeOf(join124(path, name3)), stat.size);
+  return namesIn(path).reduce((total, name3) => total + sizeOf(join125(path, name3)), stat.size);
 }
 function worktreeJob(name3, repoNames) {
   for (const repo of repoNames) {
@@ -57953,13 +58047,13 @@ function dropJobBranch(exec, checkout, branch) {
   return !branchPushed(exec, checkout, branch) && deleteBranch(exec, checkout, branch);
 }
 function sweepWorktrees({ home, checkouts, running }) {
-  const wt = join124(home, "wt");
+  const wt = join125(home, "wt");
   const repoNames = [...checkouts.keys()].map((repo) => repo.split("/").at(-1) ?? repo);
   let count5 = 0;
   let bytes = 0;
   for (const name3 of namesIn(wt)) {
     const job2 = worktreeJob(name3, repoNames);
-    const path = join124(wt, name3);
+    const path = join125(wt, name3);
     if (job2 === null || running.has(job2) || !lstatSync(path).isDirectory()) continue;
     const size = sizeOf(path);
     rmSync18(path, { recursive: true, force: true });
@@ -57982,13 +58076,13 @@ function sweepBranches({ exec, running }, checkout) {
   return candidates.filter((name3) => !onOrigin.has(name3) && deleteBranch(exec, checkout, name3)).length;
 }
 function sweepLogs({ home, running, keepLogsDays, now: now2 }) {
-  const logs = join124(home, "logs");
+  const logs = join125(home, "logs");
   let count5 = 0;
   let bytes = 0;
   for (const name3 of namesIn(logs)) {
     const job2 = JOB_LOG.exec(name3)?.[1];
     if (job2 === void 0 || running.has(job2)) continue;
-    const path = join124(logs, name3);
+    const path = join125(logs, name3);
     const stat = lstatSync(path);
     if (!stat.isFile() || now2 - stat.mtimeMs <= keepLogsDays * DAY_MS2) continue;
     rmSync18(path, { force: true });
@@ -58025,6 +58119,7 @@ function sweptLine(swept) {
 var TICK_MS = 5e3;
 var BACKOFF = { firstMs: 5e3, maxMs: 6e4 };
 var FINAL_TRIES = 8;
+var HEALTH_EVERY_MS = 15e3;
 var SWEEP_MS = 60 * 60 * 1e3;
 var KEEP_LOGS_DAYS = 14;
 var sleepFor = (ms, signal) => new Promise((resolve15) => {
@@ -58043,7 +58138,7 @@ function withLines(update2, live, lines2) {
 var QUIET14 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var readText4 = (path) => {
   try {
-    return readFileSync97(path, "utf8");
+    return readFileSync98(path, "utf8");
   } catch {
     return "";
   }
@@ -58151,21 +58246,21 @@ function placeOf2(loop2, job2) {
   const checkout = loop2.checkouts.get(job2.repo);
   if (checkout === void 0) return { status: "failed", reason: `${job2.repo} is not held by this runner` };
   const repoName = job2.repo.split("/").at(-1) ?? job2.repo;
-  const logs = join125(loop2.home, "logs");
+  const logs = join126(loop2.home, "logs");
   return {
     checkout,
-    worktree: join125(loop2.home, "wt", `${repoName}-job-${job2.id}`),
+    worktree: join126(loop2.home, "wt", `${repoName}-job-${job2.id}`),
     session: `job-${job2.id}`,
-    line: join125(logs, `job-${job2.id}.line`),
-    log: join125(logs, `job-${job2.id}.log`),
-    exit: join125(logs, `job-${job2.id}.exit`)
+    line: join126(logs, `job-${job2.id}.line`),
+    log: join126(logs, `job-${job2.id}.log`),
+    exit: join126(logs, `job-${job2.id}.exit`)
   };
 }
 function makeWorktree(loop2, job2, place) {
   try {
     loop2.exec("git", ["-C", place.checkout, "fetch", "origin"], QUIET14);
     const base = defaultBranch(loop2.exec, place.checkout);
-    mkdirSync33(join125(loop2.home, "wt"), { recursive: true });
+    mkdirSync33(join126(loop2.home, "wt"), { recursive: true });
     loop2.exec("git", ["-C", place.checkout, "worktree", "add", "--no-track", "-b", `agent/job-${job2.id}`, place.worktree, `origin/${base}`], QUIET14);
     return true;
   } catch {
@@ -58183,7 +58278,7 @@ function cleanUp(loop2, job2, place) {
 }
 var WAIT_FOR_AGENTS = { CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: "0" };
 function startSession(loop2, job2, place) {
-  mkdirSync33(join125(loop2.home, "logs"), { recursive: true });
+  mkdirSync33(join126(loop2.home, "logs"), { recursive: true });
   writeFileSync47(place.line, `${job2.line}
 `);
   writeFileSync47(place.log, "");
@@ -58217,7 +58312,7 @@ async function watch2(loop2, job2, place, live) {
   for (; ; ) {
     await loop2.sleep(loop2.tickMs);
     const log = readText4(place.log);
-    if (existsSync82(place.exit)) return ended(log, readText4(place.exit), job2.repo);
+    if (existsSync83(place.exit)) return ended(log, readText4(place.exit), job2.repo);
     if (!loop2.terminal.alive(place.session)) return { status: "failed", logTail: logTail(log), reason: "the job stopped before it wrote its exit code" };
     if (loop2.now() - started > loop2.timeoutMs) return killed(loop2, place, { status: "failed", reason: "timeout" });
     if (await tick2(loop2, job2.id, { status: "running", logTail: logTail(log) }, live, log)) return killed(loop2, place, { status: "cancelled" });
@@ -58274,6 +58369,21 @@ async function slot(loop2, runner2) {
     }
   }
 }
+async function reporter(loop2, runner2) {
+  const reads = loop2.machine ?? machineReads(loop2.home);
+  let times = null;
+  while (!loop2.halt.aborted) {
+    const started = loop2.now();
+    const taken = sample(reads, times);
+    times = taken.times;
+    try {
+      await loop2.api.health(runner2, taken.sample);
+    } catch (error62) {
+      loop2.print(`health not sent: ${error62 instanceof Error ? error62.message : String(error62)}`);
+    }
+    await loop2.sleep(Math.max(0, HEALTH_EVERY_MS - (loop2.now() - started)), loop2.halt);
+  }
+}
 async function sweeper(loop2) {
   const keepLogsDays = loop2.keepLogsDays ?? KEEP_LOGS_DAYS;
   while (!loop2.halt.aborted) {
@@ -58292,7 +58402,7 @@ async function runRunner(options) {
       if (loop2.running > 0) loop2.print(`stopping: waiting for ${String(loop2.running)} running job${loop2.running === 1 ? "" : "s"}`);
     };
     options.stop.addEventListener("abort", onStop, { once: true });
-    await Promise.all([sweeper(loop2), ...Array.from({ length: loop2.slots }, () => slot(loop2, runner2))]).finally(() => {
+    await Promise.all([sweeper(loop2), reporter(loop2, runner2), ...Array.from({ length: loop2.slots }, () => slot(loop2, runner2))]).finally(() => {
       options.stop.removeEventListener("abort", onStop);
     });
   }
@@ -58478,8 +58588,8 @@ var runner = {
 
 // kit/bin/commands/rework.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync98, writeFileSync as writeFileSync48 } from "node:fs";
-import { join as join126 } from "node:path";
+import { readFileSync as readFileSync99, writeFileSync as writeFileSync48 } from "node:fs";
+import { join as join127 } from "node:path";
 
 // kit/lib/policy/rework.ts
 init_define_OMNI_BUNDLE();
@@ -58674,7 +58784,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync98(join126(ctx.root, path), "utf8");
+    return readFileSync99(join127(ctx.root, path), "utf8");
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") return "";
     throw error62;
@@ -58751,7 +58861,7 @@ function runClose(args, { ctx, stdout }) {
   } catch (error62) {
     throw usageError(errorMessage(error62).split("\n")[0] ?? "");
   }
-  writeFileSync48(join126(ctx.root, settledFile), closedText);
+  writeFileSync48(join127(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -59267,7 +59377,7 @@ var setupToken = {
     fetch = globalThis.fetch,
     waitMs = LOOPBACK_WAIT_MS,
     now: now2 = () => /* @__PURE__ */ new Date(),
-    platform = process.platform
+    platform: platform2 = process.platform
   }) {
     const { positional, flags } = parseArgs("setup-token", args, { values: ["name", "days"], booleans: ["device", "loopback"] });
     if (positional.length > 0 || flags.device && flags.loopback) throw usageError(USAGE37);
@@ -59280,7 +59390,7 @@ var setupToken = {
     }
     const run2 = { askUrl: askUrl2, name: name3, days, stdout, stderr, openBrowser, fetch, waitMs };
     const forced = flags.device ? "device" : flags.loopback ? "loopback" : null;
-    if (chooseFlow(vars.session, platform, forced) === "device") {
+    if (chooseFlow(vars.session, platform2, forced) === "device") {
       const ended2 = await tokenByDevice(run2);
       if (ended2 !== null) return ended2;
       println(stderr, NO_DEVICE_SIGN_IN2);
@@ -59668,9 +59778,9 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/product/checkout.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync99, writeFileSync as writeFileSync49 } from "node:fs";
-import { join as join127 } from "node:path";
-var PRODUCT_FILE = join127(LOCAL_DIR, "product.json");
+import { readFileSync as readFileSync100, writeFileSync as writeFileSync49 } from "node:fs";
+import { join as join128 } from "node:path";
+var PRODUCT_FILE = join128(LOCAL_DIR, "product.json");
 var isProductKey = (key2) => ProductPrdIdSchema.safeParse(`${key2}-1`).success;
 var RememberedSchema = external_exports.object({
   key: external_exports.string().refine(isProductKey),
@@ -59680,14 +59790,14 @@ function rememberProduct(root, key2, now2) {
   if (!isProductKey(key2)) throw new Error(`not a product key: ${key2} (lowercase kebab-case, as mobile)`);
   const remembered = { key: key2, usedAt: now2.toISOString() };
   ensureLocalDir(root);
-  writeFileSync49(join127(root, PRODUCT_FILE), `${JSON.stringify(remembered, null, 2)}
+  writeFileSync49(join128(root, PRODUCT_FILE), `${JSON.stringify(remembered, null, 2)}
 `);
   return remembered;
 }
 function rememberedProduct(root) {
   let value;
   try {
-    value = JSON.parse(readFileSync99(join127(root, PRODUCT_FILE), "utf8"));
+    value = JSON.parse(readFileSync100(join128(root, PRODUCT_FILE), "utf8"));
   } catch {
     return null;
   }
@@ -60387,8 +60497,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/sync/kit.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync100 } from "node:fs";
-import { join as join128 } from "node:path";
+import { readFileSync as readFileSync101 } from "node:fs";
+import { join as join129 } from "node:path";
 
 // kit/lib/sync/setup.ts
 init_define_OMNI_BUNDLE();
@@ -60462,7 +60572,7 @@ var setupFacts = (io) => Promise.resolve(processUnderTest() ? ALL_DONE : setupFa
 // kit/lib/sync/kit.ts
 var GH_BUDGET_MS = 5e3;
 var BIN_MAX_BYTES = 64 * 1024 * 1024;
-var TARGET_KITS_FILE = join128(".omni-loop", "local", "sync-targets.json");
+var TARGET_KITS_FILE = join129(".omni-loop", "local", "sync-targets.json");
 var TargetKitsSchema = external_exports.record(external_exports.string(), external_exports.object({ sha: external_exports.string(), version: external_exports.string().nullable() }));
 var ProductTargetsCopySchema = external_exports.looseObject({ targets: external_exports.array(external_exports.looseObject({ repo: external_exports.string() })) });
 function whyFailed(error62, command2) {
@@ -60511,7 +60621,7 @@ function targetRepos({ root, config: config3 }) {
   const planned = config3.plan?.targets ?? [];
   if (planned.length > 0) return planned.map((target3) => target3.repo);
   try {
-    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync100(join128(root, PRODUCT_TARGETS_FILE), "utf8")));
+    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync101(join129(root, PRODUCT_TARGETS_FILE), "utf8")));
     return copy.targets.map((target3) => target3.repo).filter((repo) => repo !== config3.repo.slug);
   } catch {
     return [];
@@ -60519,7 +60629,7 @@ function targetRepos({ root, config: config3 }) {
 }
 function readTargetKits(root) {
   try {
-    return TargetKitsSchema.parse(JSON.parse(readFileSync100(join128(root, TARGET_KITS_FILE), "utf8")));
+    return TargetKitsSchema.parse(JSON.parse(readFileSync101(join129(root, TARGET_KITS_FILE), "utf8")));
   } catch {
     return {};
   }
@@ -60550,7 +60660,7 @@ function targetsOf(io) {
   const facts = repos.map((repo) => targetKit(io, repo, kept, found2));
   try {
     ensureLocalDir(io.root);
-    writeJsonAt(join128(io.root, TARGET_KITS_FILE), found2);
+    writeJsonAt(join129(io.root, TARGET_KITS_FILE), found2);
   } catch {
   }
   return facts;
@@ -60848,12 +60958,12 @@ var sync2 = {
 
 // kit/bin/commands/update.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync83, mkdtempSync as mkdtempSync6, readFileSync as readFileSync101, rmSync as rmSync20 } from "node:fs";
+import { existsSync as existsSync84, mkdtempSync as mkdtempSync6, readFileSync as readFileSync102, rmSync as rmSync20 } from "node:fs";
 import { tmpdir as tmpdir6 } from "node:os";
-import { join as join129 } from "node:path";
+import { join as join130 } from "node:path";
 var USAGE44 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync6(join129(tmpdir6(), "omni-update-"));
+  const dir = mkdtempSync6(join130(tmpdir6(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
@@ -60876,10 +60986,10 @@ function rootOf(cwd, exec) {
   }
 }
 function claudeListed(root) {
-  const file2 = root ? join129(root, CONFIG_FILE) : null;
-  if (!file2 || !existsSync83(file2)) return true;
+  const file2 = root ? join130(root, CONFIG_FILE) : null;
+  if (!file2 || !existsSync84(file2)) return true;
   try {
-    return parseConfig(readFileSync101(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");
+    return parseConfig(readFileSync102(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");
   } catch {
     return true;
   }
