@@ -4,6 +4,10 @@
 // tail every few seconds until it ends, is cancelled or runs past the timeout. Then the worktree goes,
 // the branch too unless it was pushed, and `git worktree prune` runs in the checkout (PRD 1911).
 //
+// Once registered, it samples its machine every 15 s and sends the sample to the app (PRD 2102,
+// `health.ts`). A report the app refuses or never answers within 5 s prints one line, and nothing else
+// changes: the runner keeps taking and running jobs.
+//
 // A sweep (`sweep.ts`) runs once the runner has registered, then every hour while it runs: it removes
 // the worktrees, unpushed branches and old logs (`--keep-logs` days) of jobs no slot holds.
 //
@@ -21,6 +25,8 @@ import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { JobUpdate, RunnerApi, RunnerJob } from './api.ts';
+import { machineReads, sample } from './health.ts';
+import type { CpuTimes, MachineReads } from './health.ts';
 import { checkLine } from './line.ts';
 import { lastPullRequest, linesAfter, logTail, reportBatch } from './log.ts';
 import { dropJobBranch, pruneWorktrees, sweep, sweptLine } from './sweep.ts';
@@ -35,6 +41,8 @@ const TICK_MS = 5000;
 const BACKOFF = { firstMs: 5000, maxMs: 60_000 };
 /** How many times a job's last status is sent before the runner gives up on it. */
 const FINAL_TRIES = 8;
+/** How long the runner waits between two health samples (PRD 2102). */
+const HEALTH_EVERY_MS = 15_000;
 /** How long the runner waits between two sweeps. */
 const SWEEP_MS = 60 * 60 * 1000;
 /** How many days a stopped job's logs are kept, unless `--keep-logs` says otherwise. */
@@ -78,6 +86,8 @@ export type RunnerOptions = {
   backoff?: { firstMs: number; maxMs: number } | undefined;
   /** How many days a stopped job's logs are kept: `KEEP_LOGS_DAYS` unless given. */
   keepLogsDays?: number | undefined;
+  /** The machine's reads the health samples are taken from: the real machine unless given. */
+  machine?: MachineReads | undefined;
 };
 
 /** One runner's state while it runs: its options with their defaults, and whether it was refused. */
@@ -387,6 +397,26 @@ async function slot(loop: Loop, runner: string): Promise<void> {
   }
 }
 
+/**
+ * Samples the machine and sends its health, now and then every 15 s, until the runner stops or is
+ * refused. A report the app refuses or does not answer prints one line; the runner carries on.
+ */
+async function reporter(loop: Loop, runner: string): Promise<void> {
+  const reads = loop.machine ?? machineReads(loop.home);
+  let times: CpuTimes | null = null;
+  while (!loop.halt.aborted) {
+    const started = loop.now();
+    const taken = sample(reads, times);
+    times = taken.times;
+    try {
+      await loop.api.health(runner, taken.sample);
+    } catch (error) {
+      loop.print(`health not sent: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    await loop.sleep(Math.max(0, HEALTH_EVERY_MS - (loop.now() - started)), loop.halt);
+  }
+}
+
 /** Sweeps now, then every hour, until the runner stops or is refused. */
 async function sweeper(loop: Loop): Promise<void> {
   const keepLogsDays = loop.keepLogsDays ?? KEEP_LOGS_DAYS;
@@ -408,7 +438,7 @@ export async function runRunner(options: RunnerOptions): Promise<number> {
       if (loop.running > 0) loop.print(`stopping: waiting for ${String(loop.running)} running job${loop.running === 1 ? '' : 's'}`);
     };
     options.stop.addEventListener('abort', onStop, { once: true });
-    await Promise.all([sweeper(loop), ...Array.from({ length: loop.slots }, () => slot(loop, runner))]).finally(() => {
+    await Promise.all([sweeper(loop), reporter(loop, runner), ...Array.from({ length: loop.slots }, () => slot(loop, runner))]).finally(() => {
       options.stop.removeEventListener('abort', onStop);
     });
   }
