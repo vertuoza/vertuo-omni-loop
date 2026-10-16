@@ -129,6 +129,11 @@ This step is a conversation with the person who has the idea. Everything they de
 never assumed; nothing below it starts before the design is approved. Read-only exploration of the
 repository is allowed throughout.
 
+**Read the conventions first.** Run `node .omni-loop/bin/omni.mjs conventions`, which prints the index of the
+files where this repository writes its conventions, and read the pages the design bears on before the design
+is shown: a design that adds or renames a table or a column reads the pages on the database and its
+migrations, and one that changes a GraphQL schema reads the pages on the schema.
+
 **With `--concept`, the concept speaks first.** Before your first question, write back as your
 understanding the area's brief, the vision and the verdict (**From a concept**), and name the screens
 of `vision.html` you took as the area's. Keep what the concept settled apart from what you assume,
@@ -319,6 +324,8 @@ spec: file
 
 ## Solution
 
+## Conventions
+
 ## Decisions
 
 ## User stories
@@ -364,6 +371,11 @@ spec: file
   as a red check at the end. No locked law printed: the one line `The locked laws: none touched.`
   A rule it prints is read like the rest of the knowledge, and named in Risks only when the design
   changes it.
+- **`## Conventions`**, after `## Solution`: a table `| repo | layer | name | source |`, one row per name the
+  design picks, the source a path and line (`<name> ← <file>:<line>`). A name no page settles reads
+  `no written convention: follows <file>`, naming the neighbouring code it copies. When two conventions
+  coexist and no page says which one a new name follows, ask the person during the design and never pick
+  silently. A spec that names nothing writes the one line `No name chosen.`
 - Words come from `paths.glossary` when it is set, and from the files in `paths.context`.
 
 **Self-review,** before anyone reads it: no placeholder or "TBD", no two sections contradicting each

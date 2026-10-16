@@ -98,6 +98,53 @@
 .docs-search-results [data-type='text'] a { color: var(--ask-muted); }
 .docs-search-note { padding: 6px 8px; font-size: 14px; color: var(--ask-muted); }
 
+/* ── The API reference (#2092): Scalar's viewer under the API guide, on the docs tokens ──
+   Scalar's stylesheet draws it with its theme off (src/docs/ApiReference.tsx); its colours are mapped
+   here to the --ask-* tokens, on the wrapper and on whatever element Scalar marks light or dark, so it
+   follows the theme switch. It keeps its own line breaks, not the guide's (.docs-md). */
+
+.docs-api-reference,
+.docs-api-reference :is(.light-mode, .dark-mode) {
+  --scalar-font: var(--ask-body);
+  --scalar-font-code: var(--ask-mono);
+  --scalar-background-1: var(--ask-surface);
+  --scalar-background-2: var(--ask-sunk);
+  --scalar-background-3: var(--ask-ground);
+  --scalar-background-accent: var(--ask-plasma-soft);
+  --scalar-color-1: var(--ask-ink);
+  --scalar-color-2: var(--ask-muted);
+  --scalar-color-3: var(--ask-muted);
+  --scalar-color-accent: var(--ask-plasma);
+  --scalar-border-color: var(--ask-line-strong);
+  --scalar-link-color: var(--ask-cyan);
+  --scalar-link-color-hover: var(--ask-cyan);
+  --scalar-button-1: var(--ask-plasma);
+  --scalar-button-1-color: var(--ask-on-plasma);
+  --scalar-button-1-hover: var(--ask-plasma);
+  --scalar-focus-color: var(--ask-cyan);
+  --scalar-color-green: var(--ask-green);
+  --scalar-color-blue: var(--ask-cyan);
+  --scalar-color-red: var(--ask-red);
+  --scalar-color-danger: var(--ask-red);
+  --scalar-sidebar-background-1: var(--ask-surface);
+  --scalar-sidebar-color-1: var(--ask-ink);
+  --scalar-sidebar-color-2: var(--ask-muted);
+  --scalar-sidebar-color-active: var(--ask-ink);
+  --scalar-sidebar-item-active-background: var(--ask-sunk);
+  --scalar-sidebar-item-hover-background: var(--ask-sunk);
+  --scalar-sidebar-border-color: var(--ask-line-strong);
+  --scalar-sidebar-search-background: var(--ask-sunk);
+  --scalar-sidebar-search-border-color: var(--ask-line-strong);
+  --scalar-sidebar-search-color: var(--ask-muted);
+}
+.docs-api-reference {
+  margin-top: 40px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+  overflow: hidden;
+  overflow-wrap: normal;
+}
+
 /* ── The page ── */
 
 .docs-article { min-width: 0; max-width: 900px; }

@@ -618,6 +618,23 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'every row is ok, 1 otherwise, or 1 with not a plan repository.',
   },
   {
+    name: 'conventions',
+    kind: 'command',
+    who: 'you',
+    label: 'omni conventions',
+    usage: ['omni conventions [--root <dir>] [--json]'],
+    summary: 'where a directory writes its conventions',
+    detail:
+      'Prints an index of the files where a directory, this repository or a clone given with --root, ' +
+      'writes its conventions: CLAUDE.md and AGENTS.md with the files they import through @<path>, ' +
+      'the files its omni config lists under paths.context, the readme of its docs folder, the readme ' +
+      'of the adr folder inside it (else each ADR), and the Markdown pages those link to, one level deep and inside ' +
+      'the directory. One line each: its path, its title and the file that led to it; a link to a ' +
+      'file that does not exist reads missing. Read the pages that bear on a design before naming ' +
+      'anything. --json prints the same entries as an array of { path, title, from, missing }. It ' +
+      'reads files only and needs no omni config. Exit 1 when --root is not a directory.',
+  },
+  {
     name: 'product',
     kind: 'command',
     who: 'you',

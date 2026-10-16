@@ -57,6 +57,11 @@ What you see:
   plain words. For a bigger idea it proposes two or three approaches and recommends one.
 - **The design, for your approval.** Nothing is written until you say yes. For an architectural
   idea it shows the design section by section, then asks you to review the written spec too.
+- **Names that follow your conventions.** Before it names a table, a column or a field, the agent
+  reads the pages where your repository writes its conventions (`omni conventions` lists them:
+  `CLAUDE.md`, `AGENTS.md`, the readme of your `docs` folder and the pages they link to). The spec
+  lists every name it chose in a `## Conventions` table, each with the page it comes from
+  ([which pages are read](/docs/several-repositories#names-follow-each-repositorys-conventions)).
 
 A spike ends here, with an answer and no pull request. Anything else carries on by itself, and
 the agent opens, in your repository:

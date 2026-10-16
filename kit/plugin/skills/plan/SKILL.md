@@ -110,6 +110,11 @@ git merge <repo.remote>/<repo.defaultBranch>                 # inside the worktr
 
 Never commit on the default branch.
 
+In a plan repository, before the slices are cut, run `node .omni-loop/bin/omni.mjs conventions --root <clone>`
+on the clone of each target a slice may land in, and read the pages the names of that slice bear on, as
+`/omni:brainstorm` step 4 says. A slice that names a table, a column or a GraphQL field follows the
+convention its page states, and its `done when` names that page.
+
 A plan of more than one landing (step 4) has one branch per landing instead, cut once the plan is
 green (step 6). Start in the feature branch's worktree all the same: the plan is written there, and
 step 6 moves it onto landing 1's branch.
