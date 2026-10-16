@@ -32,7 +32,7 @@
 -- lines included) and personas, never a proposed or rejected claim, and nothing for a repository no
 -- workspace tracks.
 --
--- PRD 1795 (20261211100000_product_knowledge.sql): business_for_repo() (hence business_for_token()) and
+-- PRD 1795 (20261212100000_product_knowledge.sql): business_for_repo() (hence business_for_token()) and
 -- business_for_repo_app() answer `legal`, the repository's product's active Legal entries
 -- `{id: "L-<CODE>-<n>", statement, source, owner}` (the owner's login) by code then number, and `glossary`,
 -- its live terms `{term, meaning, avoid}` by term without case: never a retired entry or a removed term,

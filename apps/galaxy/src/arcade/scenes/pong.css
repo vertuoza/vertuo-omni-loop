@@ -1,0 +1,52 @@
+/* The pong group: OMNI PONG's ready screen (PRD 2101), over the arcade's canvas; its loading and
+   failure lines are OMNI DUET's (duet.css). Laid out on the wide grid (640×360) first; the rules at
+   the end rearrange it for the tall grid (320×288). */
+
+.pg { position: absolute; inset: 0; }
+
+/* The ready screen: the title, then its three lines down the middle of the court, the way back at the foot. */
+.pg-title {
+  position: absolute; top: 34px; left: 0; right: 0; margin: 0; text-align: center; font-size: 20px; letter-spacing: 2px;
+  color: var(--yellow); text-shadow: 2px 2px 0 #0b0a26;
+}
+.pg-lines { position: absolute; top: 96px; left: 0; right: 0; display: grid; justify-items: center; gap: 18px; font-size: 9px; }
+.pg-pitch { color: var(--white); white-space: nowrap; }
+.pg-pitch b { font-weight: 400; color: var(--cyan); }
+.pg-why { font-family: var(--txt); font-size: 18px; color: var(--dim); white-space: nowrap; }
+.pg-warn { color: var(--red); }
+/* The one call to act, lit as the room's PLAY button is. */
+.pg-key { padding: 6px 10px 5px; font-size: 8px; white-space: nowrap; color: var(--white); background: var(--red); }
+.pg-foot { position: absolute; bottom: 14px; left: 0; right: 0; margin: 0; text-align: center; }
+
+/* The pitch meter: the steering's sign, then the bar with the still band, the limit and the pitch heard. */
+.pg-meter { display: flex; align-items: center; gap: 10px; }
+.pg-dir { width: 14px; text-align: center; color: var(--cyan); }
+.pg-bar { position: relative; width: 160px; height: 10px; background: var(--navy-dark); box-shadow: inset 0 0 0 2px var(--navy); }
+.pg-band { position: absolute; top: 2px; bottom: 2px; background: var(--navy); }
+.pg-lim { position: absolute; top: -4px; bottom: -4px; left: calc(50% - 1px); width: 2px; background: var(--white); }
+.pg-hz { position: absolute; top: 2px; bottom: 2px; width: 6px; background: var(--cyan); }
+
+/* The match's HUD over the top of the court (x 120 to 520 on this grid): the score on its left, the
+   lives left on its right, each Entropy Invaders' own stat. */
+.pg-score { left: 132px; }
+.pg-lives { right: 132px; justify-items: end; }
+.pg-lives span { color: var(--red); letter-spacing: 2px; }
+/* The pause, MIC LOST and the game over, over the middle of the court. */
+.pg-panel {
+  left: 50%; top: 50%; transform: translate(-50%, -50%); gap: 6px; justify-items: center; text-align: center;
+  line-height: 1.4; white-space: nowrap;
+}
+.pg-head { font-size: 10px; }
+.pg-panel .hint { font-size: 8px; }
+.pg-lost { color: var(--red); }
+.pg-refused { color: var(--red); }
+
+/* ── On the tall grid (320×288) ───────────────────────────────────────────── */
+.grid-tall .pg-score { left: 10px; }
+.grid-tall .pg-lives { right: 10px; }
+.grid-tall .pg-panel { padding: 8px 10px; }
+.grid-tall .pg-head { font-size: 8px; }
+.grid-tall .pg-title { top: 26px; font-size: 16px; }
+.grid-tall .pg-lines { top: 82px; gap: 16px; font-size: 8px; }
+.grid-tall .pg-why { font-size: 16px; }
+.grid-tall .pg-bar { width: 140px; }
