@@ -15,10 +15,12 @@
     "shots": "node scripts/shots.ts"
   },
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
     "@modelcontextprotocol/sdk": "^1.31.0",
     "@omni/design": "workspace:*",
     "@omni/galaxy": "workspace:*",
     "@omni/github": "workspace:*",
+    "@scalar/api-reference-react": "^0.9.80",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.1",
     "fumadocs-core": "^16.15.15",

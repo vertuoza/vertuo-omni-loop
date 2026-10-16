@@ -174,7 +174,7 @@ describe('a product\'s page, for someone who may not edit the business', () => {
 
 describe('the screens', () => {
   const tabsOf = (html: string) => [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
-  const MARKED = [['Fleets', false], ['Repositories', false], ['Business', false], ['Products', true], ['Jev', false]];
+  const MARKED = [['Fleets', false], ['Repositories', false], ['Business', false], ['Products', true], ['API keys', false], ['Jev', false]];
 
   it('start with the Settings tabs in every situation, Products marked', () => {
     const lists: ProductsScreenView[] = [

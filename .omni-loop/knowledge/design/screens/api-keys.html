@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API keys mockup</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+  h2.part { font-size: 22px; margin: 40px 0 6px; border-bottom: 2px solid var(--ask-line-strong); padding-bottom: 6px; }
+  h3 { font-size: 17px; margin: 22px 0 8px; }
+  p.lead, .cap { color: var(--ask-muted); font-size: 15px; margin: 4px 0 10px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+  .label { font: 700 12px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); margin: 0 0 6px; }
+  .label.after { color: var(--ask-plasma); }
+  pre { margin: 0; padding: 12px 14px; background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 10px; font: 12.5px/1.55 var(--ask-mono); color: var(--ask-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre .c { color: var(--ask-muted); } pre .ok { color: var(--ask-green); } pre .no { color: var(--ask-red); } pre .k { color: var(--ask-cyan); }
+  table.routes { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 10px; overflow: hidden; }
+  table.routes th, table.routes td { text-align: left; padding: 8px 12px; border-top: 1px solid var(--ask-line); vertical-align: top; }
+  table.routes th { background: var(--ask-sunk); color: var(--ask-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; border-top: 0; }
+  table.routes code, p code, li code { font: 500 13px/1.5 var(--ask-mono); }
+  svg text { font-family: var(--ask-body); }
+
+  /* The app mockups */
+  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; }
+  .bar { padding: 10px 16px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong); font: 600 14px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .bar b { color: var(--ask-ink); }
+  .tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--ask-line); background: var(--ask-ground); flex-wrap: wrap; }
+  .tab { padding: 10px 10px 8px; font: 600 14px/1 var(--ask-body); color: var(--ask-muted); border-bottom: 2px solid transparent; }
+  .tab.on { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); }
+  .page { padding: 18px; display: grid; gap: 14px; }
+  .page h4 { margin: 0; font-size: 22px; line-height: 1.2; }
+  .muted { color: var(--ask-muted); font-size: 14px; }
+  .table { border: 1px solid var(--ask-line-strong); border-radius: 12px; overflow: hidden; background: var(--ask-surface); }
+  .row { display: grid; gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--ask-line); font-size: 14px; min-width: 0; }
+  .row:first-child { border-top: 0; }
+  .head { font: 700 11px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); }
+  .keys .row { grid-template-columns: minmax(0, 1.3fr) 96px minmax(0, 1.3fr) 82px 70px; }
+  .jobs .row { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.3fr) 76px; }
+  .name { font-weight: 700; }
+  code.k { font: 500 12.5px/1.4 var(--ask-mono); color: var(--ask-muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; font: 500 12px/1.6 var(--ask-mono); }
+  .chip { border: 1px solid var(--ask-line-strong); border-radius: 999px; padding: 0 7px; }
+  .btn { display: inline-flex; align-items: center; padding: 7px 12px; border-radius: 8px; font: 700 13px/1 var(--ask-body); border: 1px solid var(--ask-line-strong); color: var(--ask-ink); background: none; white-space: nowrap; justify-self: end; }
+  .btn.primary { background: var(--ask-plasma); color: var(--ask-on-plasma); border-color: var(--ask-plasma); }
+  .head-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .status { font: 700 12px/1 var(--ask-body); padding: 4px 8px; border-radius: 999px; border: 1px solid var(--ask-green); color: var(--ask-green); justify-self: start; }
+  .secret { border: 1px solid var(--ask-plasma); background: var(--ask-plasma-soft); border-radius: 12px; padding: 14px; display: grid; gap: 10px; }
+  .secret .val { display: flex; gap: 8px; align-items: center; }
+  .secret .val code { flex: 1; min-width: 0; overflow-wrap: anywhere; padding: 8px 10px; background: var(--ask-sunk); border-radius: 8px; font: 500 13px/1.4 var(--ask-mono); }
+  .empty { padding: 26px 16px; text-align: center; color: var(--ask-muted); font-size: 14px; }
+  @media (max-width: 700px) { .keys .row, .jobs .row { grid-template-columns: 1fr auto; } .head { display: none; } .hide-s { display: none; } }
+</style>
+</head>
+<body>
+<main>
+<p class="lead">Settings › API keys at /app/settings/api-keys (PRD 2022), drawn inside the app shell, which is its own shared screen. The names and keys are examples.</p>
+<div style="margin:16px 0"><div class="frame">
+        <div class="bar">Settings › <b>API keys</b></div>
+        <div class="tabs"><span class="tab">Fleets</span><span class="tab">Repositories</span><span class="tab">Business</span><span class="tab">Products</span><span class="tab">Jev</span><span class="tab on">API keys</span></div>
+        <div class="page" data-screen="api-keys">
+          <div class="head-row"><h4>API keys</h4><button class="btn primary" type="button" data-primary>New key</button></div>
+          <p class="muted"><a href="#" style="color:var(--ask-cyan)">API reference</a></p>
+          <div class="table keys">
+            <div class="row head"><span>Name</span><span>Key</span><span>Repositories</span><span>Last used</span><span></span></div>
+            <div class="row"><span><span class="name">QA dashboard</span><br><span class="muted">@pierrederval · Oct 15</span></span><code class="k">oma_…9fQe</code><span class="chips"><span class="chip">backend-php</span></span><span class="muted">2 min ago</span><button class="btn" type="button">Revoke</button></div>
+            <div class="row"><span><span class="name">Weekly digest</span><br><span class="muted">@irisa · Oct 12</span></span><code class="k">oma_…A1c0</code><span class="muted">All repositories</span><span class="muted">Never</span><button class="btn" type="button">Revoke</button></div>
+          </div>
+        </div></div><div style="margin:16px 0"><div class="frame">
+        <div class="bar">Settings › <b>API keys</b></div>
+        <div class="page" data-screen="api-keys">
+          <div class="head-row"><h4>API keys</h4><button class="btn primary" type="button" data-primary>New key</button></div>
+          <div class="table"><p class="empty">No key yet.</p></div>
+        </div>
+      </div></div><div style="margin:16px 0"><div class="frame">
+        <div class="bar">Settings › <b>API keys</b></div>
+        <div class="page" data-screen="api-keys">
+          <h4>API keys</h4>
+          <div class="secret">
+            <b>QA dashboard</b>
+            <div class="val"><code>oma_Xk3vQ2nB7tY0pLm4sWc8dR1hJ6uZ9fQe</code><button class="btn primary" type="button" data-primary>Copy</button></div>
+            <span class="muted">You will not see this key again.</span>
+            <pre>curl https://www.omni-loop.xyz/api/v1/prds \
+  -H "Authorization: Bearer oma_Xk3…9fQe"</pre>
+          </div>
+        </div>
+      </div></div>
+</main>
+</body>
+</html>
