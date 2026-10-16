@@ -107,6 +107,11 @@ export class FakeProofWorld {
         const run = this.runs.find((r) => r.id === runId);
         return run?.gif ? proofPath(run.dossier_id, run.id, run.gif) : null;
       }),
+      clipPath: (runId, clip) => settled(() => {
+        const run = this.runs.find((r) => r.id === runId);
+        const path = run ? proofPath(run.dossier_id, run.id, clip) : null;
+        return path && this.files.has(path) ? path : null;
+      }),
       link: (path, seconds) => settled(() => this.files.has(path) ? `https://storage.test/sign/${path}?ttl=${seconds}` : null),
     };
   }

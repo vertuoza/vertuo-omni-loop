@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { previewGif, registerRun, requestUploads, type ProofDeps } from './api';
+import { previewGif, proofClip, registerRun, requestUploads, type ProofDeps } from './api';
 import { FakeProofWorld } from './store.fake';
 import { sure } from '../arcade/test/sure';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
@@ -278,5 +278,96 @@ describe('GET /api/proofs/<run>/preview.gif', () => {
 
   it('answers 503 where there is no service key', async () => {
     expect((await previewGif(new Request(`${ORIGIN}/x`), DOSSIER, { connect: null, open: null })).status).toBe(503);
+  });
+});
+
+describe('GET /api/proofs/<run>/<clip> (PRD 2100)', () => {
+  const BEFORE = { name: 'before.webm', bytes: 2 * MB, type: 'video/webm' };
+  const AFTER = { name: 'after.webm', bytes: 2 * MB, type: 'video/webm' };
+  const RED = { name: 'red.txt', bytes: 300, type: 'text/plain' };
+  const GREEN = { name: 'green.txt', bytes: 300, type: 'text/plain' };
+
+  const clip = (run: string, name: string, over: ProofDeps = deps) =>
+    proofClip(new Request(`${ORIGIN}/api/proofs/${run}/${name}`), run, name, over);
+
+  /** A bug's run of `files`, registered: the id the app gave it. Its criteria name the clips the way `omni bug film` does. */
+  async function bugRun(files: Array<{ name: string; bytes: number; type: string }>): Promise<string> {
+    const res = await requestUploads(post('/api/proofs/uploads', { repo: 'acme/widgets', prd: 123, kind: 'bug', files }), deps);
+    expect(res.status).toBe(200);
+    const links = Links.parse(await res.json());
+    for (const f of links.files) world.put(f.path);
+    const criteria = files.map(({ name }) => ({ text: name, verdict: 'pass', ...(name.endsWith('.webm') ? { video: name } : { script: name }) }));
+    const done = await registerRun(post('/api/proofs', { repo: 'acme/widgets', prd: 123, kind: 'bug', run: links.run, commit: 'abc1234', url: 'https://github.test/i/123', criteria }), deps);
+    expect(done.status).toBe(200);
+    return links.run;
+  }
+
+  it('answers 302 to a fresh 5-minute signed link of before.webm and of after.webm, never cached', async () => {
+    const run = await bugRun([BEFORE, AFTER, GIF]);
+    for (const name of ['before.webm', 'after.webm']) {
+      const res = await clip(run, name);
+      expect(res.status).toBe(302);
+      expect(res.headers.get('location')).toBe(`https://storage.test/sign/${BUG_DOSSIER}/${run}/${name}?ttl=300`);
+      expect(res.headers.get('cache-control')).toBe('no-store');
+    }
+  });
+
+  it('needs no sign-in and no database: the service key alone answers', async () => {
+    const run = await bugRun([BEFORE, AFTER]);
+    const open = { connect: null, open: () => world.public() };
+    expect((await clip(run, 'before.webm', open)).status).toBe(302);
+  });
+
+  it('reads a run\'s id in capitals as the lower-case one', async () => {
+    const run = await bugRun([BEFORE]);
+    const res = await clip(run.toUpperCase(), 'before.webm');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe(`https://storage.test/sign/${BUG_DOSSIER}/${run}/before.webm?ttl=300`);
+  });
+
+  it('serves a clip of a PRD\'s run just the same, since it asks only that the run holds the file', async () => {
+    const run = await uploadAll([BEFORE]);
+    expect((await register({ run, criteria: [{ text: 'x', verdict: 'pass', video: BEFORE.name }] })).status).toBe(200);
+    expect((await clip(run, 'before.webm')).status).toBe(302);
+  });
+
+  it('answers 404 for a run without that clip, one of text, and a clip of a run it does not hold', async () => {
+    const onlyBefore = await bugRun([BEFORE, GIF]);
+    expect((await clip(onlyBefore, 'after.webm')).status).toBe(404);
+    const text = await bugRun([RED, GREEN, GIF]);
+    expect((await clip(text, 'before.webm')).status).toBe(404);
+    expect((await clip(text, 'after.webm')).status).toBe(404);
+    const other = await bugRun([BEFORE, AFTER]);
+    expect((await clip(text, 'before.webm')).headers.get('location')).toBeNull();
+    expect((await clip(other, 'before.webm')).headers.get('location')).toContain(`/${other}/`);
+  });
+
+  it('answers 404 for red.txt and green.txt, though the run holds them, and for any name outside the two', async () => {
+    const run = await bugRun([RED, GREEN, BEFORE, AFTER, GIF]);
+    for (const name of ['red.txt', 'green.txt', 'preview.gif', 'run.json', 'before.mp4', 'Before.webm', 'before.webm.txt', '..%2Fbefore.webm', 'x', '']) {
+      const res = await clip(run, name);
+      expect([name, res.status]).toEqual([name, 404]);
+      expect(res.headers.get('location')).toBeNull();
+    }
+  });
+
+  it('answers 404 for an id that is not a UUID, an unknown run, and an uploaded clip of a run never registered', async () => {
+    expect((await clip('nope', 'before.webm')).status).toBe(404);
+    expect((await clip('../../etc', 'before.webm')).status).toBe(404);
+    expect((await clip('00000000-0000-4000-8000-00000000ffff', 'before.webm')).status).toBe(404);
+    const unregistered = await uploadAll([BEFORE]);
+    expect((await clip(unregistered, 'before.webm')).status).toBe(404);
+  });
+
+  it('answers 404 for a clip the bucket cannot sign', async () => {
+    const run = await bugRun([BEFORE]);
+    const unsigned = { connect: null, open: () => ({ ...world.public(), link: () => Promise.resolve(null) }) };
+    expect((await clip(run, 'before.webm', unsigned)).status).toBe(404);
+  });
+
+  it('answers 503 where there is no service key, and 404 for a name outside the two even then', async () => {
+    const run = await bugRun([BEFORE]);
+    expect((await clip(run, 'before.webm', { connect: null, open: null })).status).toBe(503);
+    expect((await clip(run, 'red.txt', { connect: null, open: null })).status).toBe(404);
   });
 });

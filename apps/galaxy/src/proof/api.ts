@@ -8,27 +8,31 @@
 // `kind` is `prd` (when absent) or `bug` (PRD 1972): the dossier is the one numbered `(repo, prd, kind)`, a bug's
 // number being its issue's, and the register call answers the bug's page for a bug, the PRD's Proof tab for a PRD.
 //   GET  /api/proofs/<run>/preview.gif                                         → 302 to a 5-minute signed link
+//   GET  /api/proofs/<run>/before.webm | after.webm                            → 302 to a 5-minute signed link (PRD 2100)
 //
 // The first two take the kit's sign-in, as `omni dossier push` does. An upload call mints the run's id
 // (a random UUID) and signs one upload link per file, under `<dossier id>/<run id>/<name>` of the private
 // `proof-videos` bucket; each link takes one PUT. The register call stores the run once its files are
 // up, and a file named in it that the run's folder does not hold is refused. `preview.gif`, when the run
-// uploaded one, is its GIF. The GIF's link is the only one read without sign-in (GitHub's image proxy
-// cannot sign in): it is reached by the run's unguessable id alone.
+// uploaded one, is its GIF. The GIF's link, and the one of each of a bug's two clips (`before.webm` and
+// `after.webm`, a component bug's film: PRD 2100), are the only ones read without sign-in (GitHub's image
+// proxy cannot sign in, and a pull request links the clips): each is reached by the run's unguessable id
+// alone. No other name is served, `red.txt` and `green.txt` included.
 //
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed body (a file's type other than
 // video/webm, image/gif or text/plain, a name not of its type, more than 25 files, a verdict other than
 // the three, a file not uploaded), 401 no valid sign-in, 403 the database's refusal by membership, 404 a
-// PRD without a dossier the caller may read (or, for the GIF, no such run or no GIF), 409 a run registered
-// already, 413 a body over its cap or a file over 50 MB, 503 no database here.
+// PRD without a dossier the caller may read (or, for the GIF or a clip, no such run, no such file, or a name
+// that is not served), 409 a run registered already, 413 a body over its cap or a file over 50 MB, 503 no
+// database here.
 import 'server-only';
 import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { randomUUID } from 'node:crypto';
 import { authenticate, callerOrigin as origin, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import {
-  GIF_LINK_SECONDS, isProofType, isVerdict, PROOF_CRITERIA_MAX, PROOF_FILE_MAX_BYTES, PROOF_FILE_NAME, PROOF_FILES_MAX, PROOF_GIF_NAME,
-  PROOF_KINDS, PROOF_TYPES, ProofStoreError, VERDICTS, type ProofCriterion, type ProofKind, type ProofPublic, type ProofStore,
+  GIF_LINK_SECONDS, isProofType, isVerdict, PROOF_CLIP_NAMES, PROOF_CRITERIA_MAX, PROOF_FILE_MAX_BYTES, PROOF_FILE_NAME, PROOF_FILES_MAX,
+  PROOF_GIF_NAME, PROOF_KINDS, PROOF_TYPES, ProofStoreError, VERDICTS, type ProofCriterion, type ProofKind, type ProofPublic, type ProofStore,
 } from './store';
 import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
@@ -38,7 +42,7 @@ export type ProofClient = TokenCheck & { proofs: ProofStore };
 export type ProofDeps = {
   /** A client acting as the given access token, or null when no database is configured. */
   connect: ((token: string) => ProofClient) | null;
-  /** The service role's GIF store, or null when this deployment has no service key. */
+  /** The service role's store of the GIF and the two clips, or null when this deployment has no service key. */
   open: (() => ProofPublic) | null;
 };
 
@@ -279,6 +283,23 @@ export async function previewGif(_request: Request, runId: string, deps: ProofDe
   if (!UUID.test(runId)) return missing();
   const open = deps.open();
   const path = await open.gifPath(runId.toLowerCase());
+  if (!path) return missing();
+  const link = await open.link(path, GIF_LINK_SECONDS);
+  if (!link) return missing();
+  return new Response(null, { status: 302, headers: { location: link, ...noStore } });
+}
+
+/**
+ * A clip's stable link (PRD 2100): `before.webm` or `after.webm` of a run that holds it, as a redirect to a
+ * fresh signed link, or 404. It reads as `previewGif` does, with no sign-in. Any other name is a 404 before
+ * the store is asked, and so is a run without the file: a name outside the two is never joined into a path.
+ */
+export async function proofClip(_request: Request, runId: string, clip: string, deps: ProofDeps): Promise<Response> {
+  const missing = () => refuse(404, 'No such proof clip.');
+  if (!UUID.test(runId) || !isOneOf(PROOF_CLIP_NAMES, clip)) return missing();
+  if (!deps.open) return refuse(503, 'Proofs are not available here: this deployment has no service key.');
+  const open = deps.open();
+  const path = await open.clipPath(runId.toLowerCase(), clip);
   if (!path) return missing();
   const link = await open.link(path, GIF_LINK_SECONDS);
   if (!link) return missing();
