@@ -204,3 +204,10 @@ repository may ask every slice it receives to say what it changes for its caller
 
 None: the skill is prose, reviewed in the pull request that changes it; the column's parsing and
 its refusals are proved by the slices that build them (`territory.test.ts`, `plan-grade.test.ts`).
+
+## PRD 2049, slice s2 — the conventions of each target at step 2
+
+In a plan repository, step 2 gains a paragraph after the feature branch: `omni conventions --root <clone>`
+runs on the clone of each target a slice may land in, and the pages the slice's names bear on are read
+as `/omni:brainstorm` step 4 says. The one new verb, `conventions`, is recorded in
+`kit/test/skill-steps.snapshot.json`; no step is lost. Read by `kit/test/conventions-skills.test.ts`.

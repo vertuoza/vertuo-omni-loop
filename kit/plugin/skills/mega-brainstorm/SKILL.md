@@ -173,6 +173,12 @@ For each target repository the approved design touches, one at a time:
 3. Read the paths the design touches (`git -C <scratch>/<name> ls-files`, then the files), so every
    territory step 8 writes is a real path of that repository, and an `own` target's knowledge base
    where it lives in the clone.
+4. Run `node .omni-loop/bin/omni.mjs conventions --root <scratch>/<name>`: the index of the files where
+   that repository writes its conventions. Read the pages the design bears on: a design that adds or
+   renames a table or a column reads the pages on the database and its migrations, a design that
+   changes a GraphQL schema reads the pages on the schema, and the pages on use cases, services and
+   the repository layer are read when the design touches those layers. Keep what each page settles for
+   step 5's `## Conventions`.
 
 A clone that fails leaves that repository out of the design: tell the person in one line, and take
 the design back to step 2 for what it held. The clones stay until step 8 has written the plan, then
@@ -193,6 +199,8 @@ for an architectural design, the same written-spec review), with two additions:
 - **`## Repositories`**, after `## Solution`: one paragraph per repository a slice will name, in the
   order step 8's table lists them: its role, what changes there, and which knowledge it was read from
   (its own, the imported copy, or the guide alone).
+- **`## Conventions`**, after `## Repositories`: the table of `/omni:brainstorm` step 4, one row per name
+  the design picks in any repository, its source read from that repository's pages (step 3).
 - **Risks** also names every stale or drifted copy the design relied on (step 1), and what a merge
   publishes in each target: from that target's releasing form (its own `releasing` form in the
   clone, or the imported copy's), or `unknown: no knowledge base` for a `none` target.
