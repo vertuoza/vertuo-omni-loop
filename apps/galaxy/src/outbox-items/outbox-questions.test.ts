@@ -83,7 +83,49 @@ const ROWS: OutboxRows = {
   ],
   products: [{ id: MOBILE, name: 'Mobile', key: 'mobile' }, { id: OMNI, name: 'Omni', key: 'omni' }],
   authors: [{ user_id: PAUL, github_login: 'paul' }],
+  repoPrds: [], repoWaiting: [], repoLinks: [],
 };
+
+// PRD 2124: repository PRDs' waiting items, from prd_outbox, join the list.
+const REPO = 'acme/api';
+const WITH_REPO: OutboxRows = {
+  ...ROWS,
+  repoPrds: [
+    { id: 'd-r912', title: 'Rounding', workspace_id: 'w', home_repo: 'Acme/API', prd: 912, opened_by: ME },
+    { id: 'd-r5', title: 'Loose repo PRD', workspace_id: 'w', home_repo: 'acme/other', prd: 5, opened_by: PAUL },
+  ],
+  repoWaiting: [
+    { workspace_id: 'w', repository: REPO, prd: 912, waiting: [{ id: 's1-01-round', rank: 'high', question: 'Round up?' }], synced_at: '2026-10-16T14:05:30Z' },
+    { workspace_id: 'w', repository: 'acme/other', prd: 5, waiting: [{ id: 's1-01-act', rank: 'human-action', question: 'Grant access?' }], synced_at: '2026-10-16T14:00:00Z' },
+    { workspace_id: 'w', repository: 'acme/ghost', prd: 9, waiting: [{ id: 's1-01-x', rank: 'high', question: 'No dossier?' }], synced_at: '2026-10-16T14:00:00Z' },
+  ],
+  repoLinks: [{ product_id: OMNI, workspace_id: 'w', repository: REPO }],
+};
+
+describe('the Outbox rows with repository PRDs', () => {
+  it('list a repository PRD\'s waiting item beside the product items, the viewer\'s first, with its link and as-of time', () => {
+    const view = outboxViewOf(WITH_REPO);
+    expect(view.questions.map((q) => q.id)).toEqual(['s1-01-round', 's2-02-high-mine', 's2-01-medium-mine', 's1-01-act', 's2-02-act', 's2-01-high-paul', 's1-01-no-product']);
+    const repo = view.questions[0];
+    expect(repo).toMatchObject({
+      title: 'Omni · Rounding', prdLabel: '912', rank: 'high', question: 'Round up?', answerOn: null, outboxHref: '/prd/d-r912?tab=outbox',
+      forWhom: 'waits on you · as of 2026-10-16 14:05 UTC',
+    });
+    expect(view.questions.find((q) => q.id === 's2-02-high-mine')?.forWhom).toBe('waits on you');
+    expect(view.open).toBe(7);
+    expect(view.mine).toBe(3);
+  });
+
+  it('skip a stored outbox whose PRD has no dossier here', () => {
+    expect(outboxViewOf(WITH_REPO).questions.map((q) => q.id)).not.toContain('s1-01-x');
+  });
+
+  it('narrow both sources by product, and list the repositories in no product under No product', () => {
+    expect(outboxViewOf(WITH_REPO, { product: OMNI }).questions.map((q) => q.id)).toEqual(['s1-01-round', 's2-02-act', 's2-01-high-paul']);
+    expect(outboxViewOf(WITH_REPO, { product: MOBILE }).questions.map((q) => q.id)).toEqual(['s2-02-high-mine', 's2-01-medium-mine']);
+    expect(outboxViewOf(WITH_REPO, { product: 'none' }).questions.map((q) => q.id)).toEqual(['s1-01-act', 's1-01-no-product']);
+  });
+});
 
 describe('the Outbox rows', () => {
   it('list every open item, the viewer\'s first, the worst rank first inside each group', () => {
