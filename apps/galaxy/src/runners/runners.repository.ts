@@ -1,7 +1,7 @@
 // The runners' storage (PRD 1830 s1; ADR-0095), on the client it is given: the service role's, since
 // the routes alone write the tables (supabase/migrations/20261207100000_runners.sql, and a job's live
 // lines, supabase/migrations/20261208090000_runner_job_lines.sql, PRD 1904; a runner's health and
-// samples, supabase/migrations/20261211090000_runner_health.sql, PRD 2102) and the service holds the
+// samples, supabase/migrations/20261211100000_runner_health.sql, PRD 2102) and the service holds the
 // rules. Every answer is parsed where it comes in; it holds no rule. A refusal of the
 // database, or an answer out of shape, throws, naming the call: the controller answers 500 and logs it.
 import type { SupabaseClient } from '@supabase/supabase-js';

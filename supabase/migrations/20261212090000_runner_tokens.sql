@@ -9,7 +9,7 @@
 -- runner_jobs keeps its table-wide grants and its row-level security: a member of the workspace reads
 -- the column with the row, and only the service role, through the routes, writes it. The machine's
 -- tokens need no column: they ride in runners.health and in runner_samples.tokens_5h, which the
--- previous migration (20261211090000_runner_health.sql) added.
+-- previous migration (20261211100000_runner_health.sql) added.
 --
 -- Proved by supabase/checks/runner_samples.sql.
 -- Rollback: a follow-up migration drops runner_jobs.tokens. Nothing else reads it.

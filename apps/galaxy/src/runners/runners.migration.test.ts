@@ -64,7 +64,7 @@ describe('the runner_job_lines migration', () => {
   });
 });
 
-const HEALTH = read('supabase/migrations/20261211090000_runner_health.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+const HEALTH = read('supabase/migrations/20261211100000_runner_health.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
 const HEALTH_CHECK = read('supabase/checks/runner_samples.sql');
 
 describe('the runner health migration (PRD 2102)', () => {
