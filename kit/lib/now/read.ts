@@ -23,6 +23,7 @@
 // (`links.ts`): the work's, and a roadmap headline's; a file missing or 10 minutes old adds none.
 // The approval wait (PRD 1322's s5, `wait.ts`) is read from the checkout's waiting files, the work's
 // PRD first.
+// The sync status (PRD 1990, s6) is read from the cache `omni sync` keeps in the main checkout.
 // Nothing here prints, fetches, runs `gh`, writes a file or starts a process: the
 // board's background refresh is never started from here. Anything that cannot be read reads as the
 // session on nothing; it never throws.
@@ -41,11 +42,12 @@ import { readFacts } from '../statusline/facts.ts';
 import type { CachedSlice } from '../statusline/schema.ts';
 import { recordedWork } from '../statusline/sessions.ts';
 import type { RecordedWork } from '../statusline/sessions.ts';
+import { readSyncCache } from '../sync/cache.ts';
 import { visualRoot } from '../visual/verdict.ts';
 import { roadmapNamed, runningLoop } from './headline.ts';
 import { readLinks } from './links.ts';
-import { linked, NOTHING, nowOfFix, nowOfPrd, underHeadline, withWait } from './now.ts';
-import type { FixKind, Now } from './now.ts';
+import { linked, NOTHING, nowOfFix, nowOfPrd, underHeadline, withSync, withWait } from './now.ts';
+import type { FixKind, Now, NowSync } from './now.ts';
 import { attempt, baseOf, foldersAt, QUIET } from './tree.ts';
 import type { Folders } from './tree.ts';
 import { readWait } from './wait.ts';
@@ -124,6 +126,14 @@ function readSession(ctx: Context, reading: Reading): Now {
   return roadmap ? underHeadline(NOTHING, roadmap, null) : readWork(ctx, reading, recorded);
 }
 
+/** What `omni sync` last kept in the main checkout `main`, as the answer carries it; `null` for none. */
+function syncOf(main: string | null): NowSync | null {
+  const record = main ? readSyncCache(main) : null;
+  if (!record) return null;
+  const { status, headline, checkedAt } = record;
+  return { status, headline, checkedAt, ...(status === 'blue' ? { setupDone: record.setup?.done ?? 0 } : {}) };
+}
+
 /**
  * What the session in `folder` (else the process's own `cwd`), whose id is `sessionId`, is on now,
  * as of `now` (milliseconds): git is run through `exec`, as of the last fetch.
@@ -136,7 +146,8 @@ export function readNow({ cwd, folder, sessionId, exec, now }: { cwd: string; fo
     const answer = readSession(ctx, { folder: where, sessionId, exec, now, base: baseOf(ctx, exec) });
     const main = attempt(() => mainCheckout(where, exec), null);
     const withLinks = linked(answer, (kind, n) => (main ? readLinks(main, kind, n, now) : []));
-    return withWait(withLinks, readWait(ctx.root, answer.work?.kind === 'prd' ? answer.work.number : null, now));
+    const waited = withWait(withLinks, readWait(ctx.root, answer.work?.kind === 'prd' ? answer.work.number : null, now));
+    return withSync(waited, syncOf(main));
   } catch {
     return NOTHING;
   }

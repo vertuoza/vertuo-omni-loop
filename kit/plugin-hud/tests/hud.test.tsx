@@ -294,3 +294,43 @@ describe('the command', () => {
     expect(await ui.find({ key: 'work' })).toBeUndefined()
   })
 })
+
+// PRD 1990 s6: the sync row, `omni now`'s `sync` field drawn first as the status line draws its badge.
+const sync = (status: string, headline: string | null, more: Record<string, unknown> = {}) => ({ status, headline, checkedAt: '2026-10-15T11:50:00.000Z', ...more })
+
+describe('the sync row', () => {
+  for (const [name, field, text] of [
+    ['green', sync('green', null), '🟢 in sync'],
+    ['orange', sync('orange', 'main is 3 commits behind origin/main'), '🟠 main is 3 commits behind origin/main'],
+    ['red', sync('red', 'main is 2 d behind origin/main'), '🔴 main is 2 d behind origin/main'],
+    ['blue', sync('blue', 'omni-hud is not installed', { setupDone: 2 }), '🔵 setting up 2/4'],
+  ] as const) {
+    test(`draws the ${name} badge as the first row, above the work`, async ($, on) => {
+      world(on, json({ ...PRD, sync: field }))
+      await start($)
+      for (const surface of SURFACES) {
+        const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: BAND })
+        expect((await ui.find({ key: 'sync' }))?.text).toBe(text)
+        expect((await ui.find({ key: 'work' }))?.text).toBe('PRD 315 help-and-status · building · now: s3 tabs, s4 board')
+        await ui.unmount()
+      }
+    })
+  }
+
+  test('draws the badge alone for a session on nothing, and no row without the field', async ($, on) => {
+    const { answer } = world(on, json({ ...NOTHING, sync: sync('green', null) }))
+    await start($)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: BAND })
+    expect((await ui.find({ key: 'sync' }))?.text).toBe('🟢 in sync')
+    expect(await ui.find({ key: 'work' })).toBeUndefined()
+    answer(json(PRD))
+  })
+
+  test('draws nothing on a sync field of another shape', async ($, on) => {
+    world(on, json({ ...PRD, sync: { status: 'purple', headline: null, checkedAt: 'x' } }))
+    await start($)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: BAND })
+    expect(await ui.find({ key: 'sync' })).toBeUndefined()
+    expect(await ui.find({ key: 'work' })).toBeUndefined()
+  })
+})

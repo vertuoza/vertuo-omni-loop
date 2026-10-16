@@ -16,7 +16,11 @@
 //   - a fix: `bug #<n> <topic> · <stage>`, `visual #<n> <topic> · <stage>`;
 //   - a loop or a roadmap above the work: the headline (`roadmap <r> · <m>/<k> merged`, `loop`), then
 //     `now PRD <n>` (`now bug #<n>` for a fix) and the id of its first slice in flight;
-//   - the session on nothing: `no PRD · /omni:brainstorm to start`.
+//   - the session on nothing: `no PRD · /omni:brainstorm to start`;
+//   - with a sync record (PRD 1990, `omni sync`'s cache), the badge first, then ` · ` and the above:
+//     `🟢 in sync`, `🟠 <headline>`, `🔴 <headline>`, `🔵 setting up <k>/4`. Too wide, the badge's
+//     text is cut before anything else on the line, down to its first word, which always stays with
+//     the dot. No record, no badge.
 // - Every line fits `COLUMNS` (80 when it is unset or not a number), counting characters, never
 //   colour codes: a line too wide drops its slice names first (the ids stay), then cuts its topic,
 //   down to 8 characters ending in `…`, and a line still too wide is cut at its end with `…`.
@@ -29,6 +33,7 @@ import { isList } from '../outbox/plain-text.ts';
 import type { Terminal } from '../env/read.ts';
 import type { PrdNumber } from '../ids.ts';
 import type { Now, NowSlice, NowWork } from '../now/now.ts';
+import type { SyncRecord } from '../sync/schema.ts';
 
 /** The five-hour window, as `parseInput` reads it. */
 type FiveHour = { percent: number; resetsAt: number };
@@ -198,6 +203,38 @@ export function secondLine(answer: Now, board: BoardFacts | null, width: number 
   return workLine(work, work.kind === 'prd' && board?.number === work.number ? board : null, width, { color });
 }
 
+const SYNC_DOTS = { green: '🟢', orange: '🟠', red: '🔴', blue: '🔵' } as const;
+
+/** The words after a badge's dot: `setting up <k>/4` for a newcomer, `in sync` when green, else the headline. */
+export function syncWords({ status, headline, done }: { status: SyncRecord['status']; headline: string | null; done: number }): string {
+  if (status === 'blue') return `setting up ${done}/4`;
+  return status === 'green' ? 'in sync' : (headline ?? status);
+}
+
+const syncText = ({ status, headline, setup }: SyncRecord): string => syncWords({ status, headline, done: setup?.done ?? 0 });
+
+/** The sync badge, `<dot> <text>`, for a record the cache holds. */
+export function syncBadge(record: SyncRecord): string {
+  return `${SYNC_DOTS[record.status]} ${syncText(record)}`;
+}
+
+/**
+ * `record`'s badge, then the line `draw` gives for a width, within `width`: the badge's text is cut
+ * first, never below its first word; only past that does the line itself give way.
+ */
+function withBadge(record: SyncRecord, draw: (width: number) => string, width: number): string {
+  const dot = SYNC_DOTS[record.status];
+  const text = syncText(record);
+  const [first = ''] = text.split(' ');
+  const line = draw(width);
+  const room = width - visibleLength(`${dot} ${SEPARATOR}${line}`);
+  const length = Array.from(text).length;
+  if (room >= length) return `${dot} ${text}${SEPARATOR}${line}`;
+  if (room > Array.from(first).length) return `${dot} ${cutTo(text, room).replace(/ +…$/u, CUT)}${SEPARATOR}${line}`;
+  const prefix = `${dot} ${first}${SEPARATOR}`;
+  return `${prefix}${draw(Math.max(1, width - visibleLength(prefix)))}`;
+}
+
 /**
  * The lines to print. `input` is `parseInput`'s result (`null`: unreadable JSON); `facts` is what was
  * read beside it (`null`: it could not read, so line 1 comes from the JSON alone): whether the loop is
@@ -206,7 +243,7 @@ export function secondLine(answer: Now, board: BoardFacts | null, width: number 
  */
 export function renderLines({ input, facts, terminal, now }: {
   input: Pick<SessionInput, 'model' | 'contextPercent' | 'fiveHour'> | null;
-  facts: { installed: boolean; askOn: boolean; now?: Now | null; board?: BoardFacts | null } | null;
+  facts: { installed: boolean; askOn: boolean; now?: Now | null; board?: BoardFacts | null; sync?: SyncRecord | null } | null;
   terminal: Terminal;
   now: number;
 }): string[] {
@@ -214,7 +251,11 @@ export function renderLines({ input, facts, terminal, now }: {
   if (!input) return [fit(UNREADABLE_LINE, width)];
   const color = terminal.color;
   const lines = [sessionLine({ ...input, askOn: facts?.askOn === true }, { now, color })];
-  if (facts?.installed) lines.push(facts.now ? secondLine(facts.now, facts.board ?? null, width, { color }) : NO_PRD_LINE);
+  if (facts?.installed) {
+    const { now: answer, board = null, sync } = facts;
+    const draw = (columns: number): string => (answer ? secondLine(answer, board, columns, { color }) : fit(NO_PRD_LINE, columns));
+    lines.push(sync ? withBadge(sync, draw, width) : draw(width));
+  }
   return lines.map((line) => fit(line, width));
 }
 

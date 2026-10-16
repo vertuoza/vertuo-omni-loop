@@ -14,6 +14,8 @@ import { parsePrd } from '../lib/ids.ts';
 import { LOOP_FILE } from '../lib/loop/local.ts';
 import { BOARD_DIR, boardFile } from '../lib/statusline/board-cache.ts';
 import { SESSIONS_DIR } from '../lib/statusline/sessions.ts';
+import { writeSyncCache } from '../lib/sync/cache.ts';
+import type { SyncRecord } from '../lib/sync/schema.ts';
 import { makeRepo, realExec } from '../test/fixture.ts';
 import { COMMAND_TABLE } from './commands/index.ts';
 import { main } from './omni.ts';
@@ -225,6 +227,47 @@ describe('omni now', () => {
     const run = await now(outside, ['--json']);
     expect(run).toMatchObject({ code: 0, err: '' });
     expect(JSON.parse(run.out)).toEqual(NOTHING);
+  });
+
+  // PRD 1990, slice s6: the `sync` field, read from the cache `omni sync` keeps in the main checkout.
+  describe('the sync status', () => {
+    const record = (over: Partial<SyncRecord> = {}): SyncRecord => ({
+      checkedAt: '2026-10-08T11:50:00.000Z',
+      status: 'orange',
+      headline: 'main is 3 commits behind origin/main',
+      setupDoneAt: '2026-10-01T09:00:00.000Z',
+      setup: null,
+      findings: [],
+      fix: null,
+      ...over,
+    });
+
+    it('carries the cache status, headline and checkedAt beside the work, from a worktree too', async () => {
+      const sync = fixture();
+      writeSyncCache(sync.root, record());
+      const dir = sync.on('feat/bravo--s3');
+      expect(await nowJson(sync.root, sync.root)).toEqual({ ...NOTHING, sync: { status: 'orange', headline: 'main is 3 commits behind origin/main', checkedAt: '2026-10-08T11:50:00.000Z' } });
+      expect(await nowJson(dir, sync.root)).toMatchObject({ sync: { status: 'orange' } });
+    });
+
+    it('carries the steps done while the checkout is being set up, and a null headline when green', async () => {
+      const sync = fixture();
+      writeSyncCache(sync.root, record({ status: 'blue', setupDoneAt: null, setup: { done: 3, steps: [] } }));
+      expect(await nowJson(sync.root, sync.root)).toMatchObject({ sync: { status: 'blue', setupDone: 3 } });
+      writeSyncCache(sync.root, record({ status: 'green', headline: null }));
+      expect(await nowJson(sync.root, sync.root)).toEqual({ ...NOTHING, sync: { status: 'green', headline: null, checkedAt: '2026-10-08T11:50:00.000Z' } });
+    });
+
+    it('has no field without a cache or with one that does not read, and none where the loop is not installed', async () => {
+      const sync = fixture();
+      expect(await nowJson(sync.root, sync.root)).toEqual(NOTHING);
+      mkdirSync(join(sync.root, '.omni-loop', 'local'), { recursive: true });
+      writeFileSync(join(sync.root, '.omni-loop', 'local', 'sync.json'), '{"status": ');
+      expect(await nowJson(sync.root, sync.root)).toEqual(NOTHING);
+      const bare = makeRepo({ git: true });
+      writeSyncCache(bare.root, record());
+      expect(await nowJson(bare.root, bare.root)).toEqual(NOTHING);
+    });
   });
 
   it('exits 0 with nothing on stderr when run as a program outside any repository', async () => {
