@@ -2,7 +2,7 @@
 // It reads files only (no git, no process, no network, no omni config), so it runs on a read-only
 // clone. Found in order: `CLAUDE.md` and `AGENTS.md` with the files they import through `@<path>`;
 // the files `.omni-loop/config.yml` lists under `paths.context`, when there is one; the readme of
-// `docs/`; the readme of `docs/adr/`, else every ADR there; then every Markdown page those link to,
+// the docs folder; the readme of its adr folder, else every ADR there; then every Markdown page those link to,
 // one level only, inside the directory. Each file is listed once, in the order it was first found.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -13,6 +13,11 @@ import { propertyOf } from '../narrow.ts';
 export type ConventionEntry = { path: string; title: string; from: string; missing: boolean };
 
 const READMES = ['readme.md', 'index.md'];
+/** The docs folder and its ADR folder, the same names in every repository read (PRD 2049). */
+const DOCS = 'docs';
+const ADR = 'adr';
+const DOCS_FROM = `${DOCS}/`;
+const ADR_FROM = `${DOCS}/${ADR}/`;
 
 /** The path of `file` from `root`, with `/` whatever the platform. */
 function posix(root: string, file: string): string {
@@ -175,18 +180,18 @@ function addRootFiles(index: Index): void {
   }
 }
 
-/** Step 3 and 4: the readme of `docs/`, then the readme of `docs/adr/` or each ADR. */
+/** Step 3 and 4: the readme of the docs folder, then the readme of its adr folder or each ADR. */
 function addDocs(index: Index): void {
-  const docs = join(index.base, 'docs');
+  const docs = join(index.base, DOCS);
   const docsReadme = findFile(docs, READMES);
-  if (docsReadme !== null) add(index, docsReadme, 'docs/');
-  const adr = join(docs, 'adr');
+  if (docsReadme !== null) add(index, docsReadme, DOCS_FROM);
+  const adr = join(docs, ADR);
   const adrReadme = findFile(adr, READMES);
   if (adrReadme !== null) {
-    add(index, adrReadme, 'docs/adr/');
+    add(index, adrReadme, ADR_FROM);
     return;
   }
-  for (const name of listing(adr)) if (isMarkdown(name) && isFile(join(adr, name))) add(index, join(adr, name), 'docs/adr/');
+  for (const name of listing(adr)) if (isMarkdown(name) && isFile(join(adr, name))) add(index, join(adr, name), ADR_FROM);
 }
 
 /** Step 5: one level of links, from the files found above only. */

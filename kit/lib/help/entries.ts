@@ -627,8 +627,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       'Prints an index of the files where a directory, this repository or a clone given with --root, ' +
       'writes its conventions: CLAUDE.md and AGENTS.md with the files they import through @<path>, ' +
-      'the files its omni config lists under paths.context, the readme of docs/, the readme of ' +
-      'docs/adr/ (else each ADR), and the Markdown pages those link to, one level deep and inside ' +
+      'the files its omni config lists under paths.context, the readme of its docs folder, the readme ' +
+      'of the adr folder inside it (else each ADR), and the Markdown pages those link to, one level deep and inside ' +
       'the directory. One line each: its path, its title and the file that led to it; a link to a ' +
       'file that does not exist reads missing. Read the pages that bear on a design before naming ' +
       'anything. --json prints the same entries as an array of { path, title, from, missing }. It ' +
