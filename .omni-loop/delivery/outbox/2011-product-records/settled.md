@@ -1811,3 +1811,240 @@ Small: the state filter reads `row.prd`; B passes it the labels too.
 ```
 
 <!-- /omni-outbox-settled: s16-01-product-prd-is-no-draft-in-the-list -->
+
+<!-- omni-outbox-settled: s11-01-what-a-pack-holds -->
+
+## s11-01-what-a-pack-holds — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s11
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-01-what-a-pack-holds
+prd: 2011
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+When a team merges a change to its notes and rules, what exactly goes into the saved copy, and which merges make one?
+
+## The decision, in plain words
+
+Any merge into the main branch that touches the notes folder, the settings file or a step file the settings name makes a copy of all three, read at that merge; a picture or any file over one megabyte is left out and named in the log, never squeezed in.
+
+## The intro, for fun
+
+A snapshot that takes a photo of the whole library every time one page changes.
+
+## The punchline, for fun
+
+The photos skip the paintings: words only, please.
+
+## The options, in plain words
+
+A. Pack the knowledge folder, the whole config and its hook files on every merge touching any of them, leaving out and naming a file a pack cannot hold (as built)
+B. Pack only the planning keys of the config, as the copies did, and refuse the whole pack when one file cannot be held
+C. Also keep binary files, base64-encoded, so a pack holds every file of the folder
+
+## What I had to decide
+
+Which files a knowledge pack holds (the knowledge folder alone, or also the decision folder, the playbook and the glossary when they live outside it, the whole config or only its planning keys, the hook files the flow names); which merges make one (every merge into the default branch that touches any of them, a rename out of the folder counted by its old path); which date a pack carries (the pull request's merge time); and what happens to a file a text column cannot hold (binary, a NUL, over 1 MiB) or a knowledge base past the snapshot's bound (2000 files, 20 MB).
+
+## What I did meanwhile
+
+The `knowledge-pack` Inngest function (apps/omni-app/src/knowledge-pack/) runs on the merge event the webhook already sends for every pull request merged into the default branch, beside the knowledge harvest, so the webhook is unchanged. It first asks the database whether any product holds the repository, and reads nothing on GitHub when none does. It reads the config at the merge commit, packs `paths.knowledge` with `paths.adr`, `paths.playbook` and `paths.glossary` when outside it, the whole `.omni-loop/config.yml`, and every hook file the flow names (a slash command names none); a file that is not UTF-8 text, holds a NUL or is over 1 MiB is left out and logged; a commit with no config or one that does not parse makes no pack; a knowledge base past the snapshot's bound makes no pack and is not retried. The pack's date is the pull request's `merged_at`. It runs at Inngest's lowest priority (`-600`), one run per repository at a time, and every GitHub call goes through the installation's budgeted client at background priority. It posts nothing on the merged pull request, failure included.
+
+## What it costs to change later
+
+Small: the paths are one pure module (paths.ts), the date one field, and nothing reads packs before s12. A pack already kept stays as it is; a changed rule applies from the next merge.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says 'the knowledge folder or flow config' without saying whether the whole config or only its planning keys (flow, landings, pr, contracts, as /omni:mega-invade copies) is the flow config
+- (author) Nothing says what a pack does with a binary file such as a design mockup, which a text column cannot hold as it is
+- (author) The spec says the newest pack is picked by the commit's date; the merge time GitHub gives is used, which is the merge commit's date for a merge or a squash, but not for a rebase merge
+
+```
+
+<!-- /omni-outbox-settled: s11-01-what-a-pack-holds -->
+
+<!-- omni-outbox-settled: s11-02-pack-read-route -->
+
+## s11-02-pack-read-route — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s11
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-02-pack-read-route
+prd: 2011
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+How does a person's terminal fetch the latest saved copy of a repository's notes, and what happens when they belong to two teams that both hold it?
+
+## The decision, in plain words
+
+The terminal asks the web app with the person's own sign-in; it gets the newest copy their teams hold, or the copy of one named change, and a person in two teams gets the most recent of the two. Nobody reads another team's copy.
+
+## The intro, for fun
+
+Two teams, one shelf, and a librarian who only hands you books from your own shelf.
+
+## The punchline, for fun
+
+Ask for the newest and you get the newest, never the neighbour's.
+
+## The options, in plain words
+
+A. One read of the whole pack, as the caller, the latest commit's when several workspaces hold it (as built)
+B. A list of the pack's files first, then one read per file, so a large pack is never one answer
+C. Make the caller name the workspace or the product, and refuse when it is ambiguous
+
+## What I had to decide
+
+Where the read the kit's `omni kb pack get` (s12) calls lives and what it answers. s12's territory holds no web route, and this slice's holds `apps/galaxy/app/api/knowledge-packs/` and `apps/galaxy/src/knowledge-packs/`, so the read is built here: its query, its answer's shape, which pack a member of several workspaces gets, and how it refuses.
+
+## What I did meanwhile
+
+`GET /api/knowledge-packs?repo=<owner/name>[&sha=<commit>]` answers `{repository, sha, committedAt, madeAt, files: [{path, sha256, content}]}`, the files in path order, never cached. It reads as the caller's access token, never a service key, so row-level security decides: a pack of another workspace reads as none (404, BR-PRODUCT-63). With no `sha` it answers the newest pack; a member of several workspaces holding the repository gets the one of the latest commit. It refuses a malformed query (400), no valid sign-in (401), no pack (404), no database here (503), and a database failure (500, logged). It reads the tables, not knowledge_pack_for_token(), which serves agent links and stays unused here.
+
+## What it costs to change later
+
+Small before s12 ships: s12 reads this shape, so a change is one contract file and its reader. After s12, the route and the kit change together.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives s12 no web route, so the read is taken to be this slice's because its territory holds the knowledge-packs route folder
+- (author) A Vercel function answers at most about 4.5 MB, so a knowledge base larger than that once packed would not be served whole; this repository's is about 1.3 MB
+- (author) Nothing says which pack a member of two workspaces holding the same repository should get; the latest commit's is served
+
+```
+
+<!-- /omni-outbox-settled: s11-02-pack-read-route -->
+
+<!-- omni-outbox-settled: s15-01-product-outbox-wired-outside-territory -->
+
+## s15-01-product-outbox-wired-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s15
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s15-01-product-outbox-wired-outside-territory
+prd: 2011
+slice: s15
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+A product PRD's Outbox tab needed its rows handed to the page from two files the plan did not list for this slice. Is that wiring fine where it is?
+
+## The decision, in plain words
+
+I added one small read to the PRD page's route and one optional piece of input to the page itself, so a product PRD's Outbox tab can show its server items. A repository PRD's tab is untouched.
+
+## The intro, for fun
+
+The tab was built; somebody had to plug it in.
+
+## The punchline, for fun
+
+Two sockets, one plug, no sparks.
+
+## The options, in plain words
+
+A. A. Keep the read in the route and the optional input on the page (built).
+B. B. Move the read into the view builder so the tab badge counts the items too.
+
+## What I had to decide
+
+The slice territory names only the Outbox pane files, but the tab can only show server rows if the route reads them and the page passes them down. I touched DossierRoute.tsx (reads the rows only on a product PRD's Outbox tab) and DossierPage.tsx (an optional productOutbox input that picks the product pane). The other option was a client component fetching through a new API route, which is a bigger change outside the territory too.
+
+## What I did meanwhile
+
+Built the two edits as small and optional as possible: with no productOutbox the page renders exactly as before.
+
+## What it costs to change later
+
+Moving the read elsewhere later is a few lines in one route file and one prop.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The tab bar badge for a product PRD still reads from GitHub, so it shows no count of open items (author).
+
+```
+
+<!-- /omni-outbox-settled: s15-01-product-outbox-wired-outside-territory -->
