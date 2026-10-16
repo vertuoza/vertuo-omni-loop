@@ -28,6 +28,7 @@ const EMPTY: Home = {
   visuals: [],
   questions: [],
   repositories: [],
+  flights: [],
 };
 
 describe('the Ledger, filled', () => {

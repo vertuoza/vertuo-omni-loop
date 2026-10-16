@@ -265,6 +265,30 @@ describe('the product\'s repositories (PRD 2129)', () => {
   });
 });
 
+describe('the PRDs in flight, as the Constellation reads them (PRD 2129 s2)', () => {
+  it('gives every PRD its stage, its Ledger state and lane, the repositories of its stage rows and its open feature pull requests', () => {
+    const home = productHomeOf(base({
+      prds: [prd('d-2', 906, { birthplace: 'repo' }), prd('d-1', 905, { birthplace: 'repo' }), prd('d-0', 900)],
+      stages: [stage(906, 'building'), stage(905, 'outbox'), stage(900, 'shipped')],
+      topics: [{ repository: 'vertuo/api', prd: parsePrd(906), topic: 'reminders' }],
+      pulls: [{ repo: 'vertuo/mobile', number: parsePr(94), head: 'feat/reminders-2of3-code' }],
+    }));
+    expect(home.flights.map((f) => [f.dossier, f.stage, f.ledger, f.stageRepos, f.prs])).toEqual([
+      ['d-2', 'building', { state: 'building', lane: 'on-agent' }, ['vertuo/api'], [{ repo: 'vertuo/mobile', pr: 94 }]],
+      ['d-1', 'outbox', { state: 'review', lane: 'on-review' }, ['vertuo/api'], []],
+      ['d-0', 'shipped', null, ['vertuo/api'], []],
+    ]);
+  });
+
+  it('keeps a PRD waiting on another person, with no lane, and one not yet synced, with no stage row', () => {
+    const home = productHomeOf(base({ prds: [prd('d-1', 918), prd('d-2', 919, { birthplace: 'repo' })], stages: [stage(918, 'prd')] }));
+    expect(home.flights.map((f) => [f.dossier, f.ledger, f.stageRepos])).toEqual([
+      ['d-1', { state: 'approval', lane: null }, ['vertuo/api']],
+      ['d-2', { state: 'review', lane: 'on-review' }, []],
+    ]);
+  });
+});
+
 describe('the product home\'s service', () => {
   function store(over: Partial<ProductHomeRepository> = {}) {
     const calls: string[] = [];
