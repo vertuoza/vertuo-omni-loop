@@ -50,8 +50,9 @@ export function productHomeTabs(home: ProductHome): SectionTab[] {
     const count = COUNTS[tab];
     return count === undefined ? shown : { ...shown, count: count(home) };
   });
-  // Last, the Repositories & approvers tab (s11), which draws itself at its own static route.
-  return [...drawn, { href: `${productHomeHref(home.product.id)}/repositories`, label: 'Repositories & approvers' }];
+  // After Questions, the Knowledge tab (PRD 1795 s2), then the Repositories & approvers tab (s11): each
+  // draws itself at its own static route.
+  return [...drawn, { href: `${productHomeHref(home.product.id)}/knowledge`, label: 'Knowledge' }, { href: `${productHomeHref(home.product.id)}/repositories`, label: 'Repositories & approvers' }];
 }
 
 /** The line under the product's name on `tab`. */
