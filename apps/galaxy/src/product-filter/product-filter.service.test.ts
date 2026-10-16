@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Board } from '../ideas/model';
 import type { IdeasView } from '../ideas/source';
 import {
-  narrowByProduct, productFilterOf, readProductChoice, scopeBoard, scopeDossiers, type ProductFilterReads,
+  labelsOf, narrowByProduct, productFilterOf, readProductChoice, scopeBoard, scopeDossiers, type ProductFilterReads,
 } from './product-filter.service';
 
 // The product filter of /prd, /ideas, /bugs and /visual (PRD 1364 s12): `?product=` reads all, one
@@ -10,8 +10,8 @@ import {
 // (dossiers.product_id, ideas.product_id); the filter's links keep the list's other filters. Every read
 // is stubbed: no test calls Supabase.
 
-const MOBILE = { id: '0b8e7c2e-3f1a-4d5b-9c6e-1a2b3c4d5e6f', name: 'Mobile', workspace_id: 'ws-1' };
-const ESTIMATES = { id: '7d1f2a3b-4c5d-4e6f-8a9b-0c1d2e3f4a5b', name: 'Estimates', workspace_id: 'ws-1' };
+const MOBILE = { id: '0b8e7c2e-3f1a-4d5b-9c6e-1a2b3c4d5e6f', name: 'Mobile', workspace_id: 'ws-1', key: 'mobile' };
+const ESTIMATES = { id: '7d1f2a3b-4c5d-4e6f-8a9b-0c1d2e3f4a5b', name: 'Estimates', workspace_id: 'ws-1', key: null };
 
 /** A list's row as the list keeps it: its id and its workspace, and what the list itself reads. */
 const row = (id: string, kind: 'prd' | 'bug' | 'visual') => ({ id, kind, workspace_id: 'ws-1', title: `${kind} ${id}` });
@@ -26,6 +26,7 @@ function reads(over: Partial<ProductFilterReads> = {}): ProductFilterReads & { a
       asked.push(`dossiers ${workspaces.join(',')}`);
       return Promise.resolve(new Map([['d-mobile', MOBILE.id], ['d-estimates', ESTIMATES.id]]));
     },
+    dossierNumbers: () => Promise.resolve(new Map([['d-mobile', 12]])),
     boardWorkspaces: (repo) => { asked.push(`workspaces ${repo}`); return Promise.resolve(['ws-1']); },
     ideaProducts: (repo) => { asked.push(`ideas ${repo}`); return Promise.resolve(new Map([['i-mobile', MOBILE.id]])); },
     ...over,
@@ -99,12 +100,12 @@ describe('a list in workspaces with no product', () => {
   it('draws no filter and keeps every row', async () => {
     const stub = reads({ products: () => Promise.resolve([]) });
     const scope = await scopeDossiers(stub, [row('d-none', 'prd')], {}, '/prd');
-    expect(scope).toEqual({ rows: [row('d-none', 'prd')], filter: null, unreadable: false });
+    expect(scope).toEqual({ rows: [row('d-none', 'prd')], labels: new Map(), filter: null, unreadable: false });
   });
 
   it('reads nothing for an empty list', async () => {
     const stub = reads();
-    expect(await scopeDossiers(stub, [], {}, '/prd')).toEqual({ rows: [], filter: null, unreadable: false });
+    expect(await scopeDossiers(stub, [], {}, '/prd')).toEqual({ rows: [], labels: new Map(), filter: null, unreadable: false });
     expect(stub.asked).toEqual([]);
   });
 });
@@ -114,7 +115,7 @@ describe('a list whose products cannot be read', () => {
     const stub = reads({ products: () => Promise.reject(new Error('down')) });
     const rows = [row('d-mobile', 'bug')];
     const scope = await scopeDossiers(stub, rows, { product: MOBILE.id }, '/bugs', () => undefined);
-    expect(scope).toEqual({ rows, filter: null, unreadable: true });
+    expect(scope).toEqual({ rows, labels: new Map(), filter: null, unreadable: true });
   });
 });
 
@@ -152,5 +153,35 @@ describe('/ideas/<owner>/<repo>, filtered by product', () => {
 
   it('leaves a board that is none or unavailable as it is', async () => {
     expect((await scopeBoard(reads(), { kind: 'none' }, {}, '/ideas/a/b')).view).toEqual({ kind: 'none' });
+  });
+});
+
+describe('the product of each listed row (PRD 2011)', () => {
+  const products = [MOBILE, ESTIMATES];
+  const carriers = new Map([['prd', MOBILE.id], ['bug', MOBILE.id], ['road', MOBILE.id], ['vis', MOBILE.id], ['nokey', ESTIMATES.id], ['repo', MOBILE.id]]);
+  const numbers = new Map([['prd', 12], ['bug', 74], ['road', 3], ['vis', 5], ['nokey', 2]]);
+
+  it('names a product item by its product\'s key and its number: mobile-12, mobile-B74, mobile-R3', () => {
+    const labels = labelsOf([{ id: 'prd' }, { id: 'bug', kind: 'bug' }, { id: 'road', kind: 'roadmap' }], products, carriers, numbers);
+    expect(labels.get('prd')).toEqual({ product: 'Mobile', item: 'mobile-12' });
+    expect(labels.get('bug')).toEqual({ product: 'Mobile', item: 'mobile-B74' });
+    expect(labels.get('road')).toEqual({ product: 'Mobile', item: 'mobile-R3' });
+  });
+
+  it('gives a row born in a repository its product only, and a product without a key no id', () => {
+    const labels = labelsOf([{ id: 'repo', kind: 'bug' }, { id: 'nokey' }, { id: 'vis', kind: 'visual' }, { id: 'loose' }], products, carriers, numbers);
+    expect(labels.get('repo')).toEqual({ product: 'Mobile', item: null });
+    expect(labels.get('nokey')).toEqual({ product: 'Estimates', item: null });
+    expect(labels.get('vis')).toEqual({ product: 'Mobile', item: null });
+    expect(labels.has('loose')).toBe(false);
+  });
+
+  it('hands the labels of the kept rows with the scope, and none when the products could not be read', async () => {
+    const rows = [{ ...row('d-mobile', 'bug') }, { ...row('d-estimates', 'bug') }];
+    const kept = await scopeDossiers(reads(), rows, { product: MOBILE.id }, '/bugs');
+    expect(kept.rows.map((r) => r.id)).toEqual(['d-mobile']);
+    expect(kept.labels).toEqual(new Map([['d-mobile', { product: 'Mobile', item: 'mobile-B12' }]]));
+    const broken = await scopeDossiers(reads({ dossierNumbers: () => Promise.reject(new Error('denied')) }), rows, {}, '/bugs', () => undefined);
+    expect(broken).toMatchObject({ unreadable: true, labels: new Map() });
   });
 });

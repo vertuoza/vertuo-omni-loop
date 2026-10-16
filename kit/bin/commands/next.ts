@@ -102,6 +102,7 @@ import type { OutboxItem } from '../../lib/types.ts';
 import { planReplies } from '../../lib/outbox/replies.ts';
 import { issueArg, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
 import type { Env, Exec, FreeCommand } from '../io.ts';
+import { targetsOf } from '../../lib/plan-repo/target-list.ts';
 import { buildBoard, contextWithTargets } from './board.ts';
 import type { TargetsIo } from './board.ts';
 
@@ -353,7 +354,7 @@ const shortName = (slug: string): string => slug.slice(slug.indexOf('/') + 1);
 
 /** The whole `owner/name` slug of the target `plan.targets` names by its short name. */
 function targetSlug(name: string, reader: Reader): string {
-  return reader.ctx.config.plan?.targets.find((target) => shortName(target.repo) === name)?.repo ?? name;
+  return (targetsOf(reader.ctx) ?? []).find((target) => shortName(target.repo) === name)?.repo ?? name;
 }
 
 /** The repositories `slices` land in, by short name, sorted; none outside a plan repository. */
@@ -374,7 +375,7 @@ async function targetPr(branch: string, reader: Reader): Promise<{ pr: TargetPr[
 /** In a plan repository: its short name, and the feature PR of each target a slice lands in, in
  * `plan.targets` order, each also as listed; `undefined` in any other repository. */
 async function acrossFacts(branch: string, slices: readonly PlanSliceInput[] | null, reader: Reader): Promise<{ across: AcrossFacts; listed: { repo: string; pr: ListedPr }[] } | undefined> {
-  const targets = reader.ctx.config.plan?.targets;
+  const targets = targetsOf(reader.ctx);
   if (targets === undefined) return undefined;
   const repo = shortName(reader.slug);
   const named = new Set(reposOf(slices));

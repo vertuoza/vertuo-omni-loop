@@ -43,5 +43,5 @@ archived by the loop, and the old way keeps working beside the product way (PRD 
 
 ## Source
 
-/omni:brainstorm, PRD 2011: .omni-loop/delivery/inbox/2011-product-records/before-after.html (reworked
+/omni:brainstorm, PRD 2011: .omni-loop/delivery/shipped/2011-product-records/before-after.html (reworked
 2026-10-16: no archive, the plan repository is kept)

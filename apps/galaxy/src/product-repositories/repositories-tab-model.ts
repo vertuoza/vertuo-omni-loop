@@ -117,7 +117,7 @@ export function demoTabPort(initial: readonly Link[]): RepositoriesTabPort {
       const refusal = fieldRefusal(write) ?? consumesRefusal(repo, write.consumes, links);
       if (refusal) return refuse(refusal);
       const was = links.find((l) => l.repo === repo);
-      const link: Link = { ...write, repo, readAt: write.readAt?.toLowerCase() ?? null, addedBy: was?.addedBy ?? 'person' };
+      const link: Link = { ...write, repo, readAt: write.readAt?.toLowerCase() ?? null, addedBy: was?.addedBy ?? 'person', ladderStep: was?.ladderStep ?? 1 };
       links = [...links.filter((l) => l.repo !== repo), link];
       return Promise.resolve({ ok: true, link });
     },

@@ -1,5 +1,5 @@
 -- Who may read and change a product's knowledge, its Legal entries and its glossary (PRD 1795,
--- 20261212100000_product_knowledge.sql). The supabase workflow runs it on every pull request, after
+-- 20261212110000_product_knowledge.sql). The supabase workflow runs it on every pull request, after
 -- `supabase db start` has applied the migrations and the demo seed:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/product_knowledge.sql
 -- Each row of the spec's "Who changes it": a workspace owner names each kind's owner and delegate; the

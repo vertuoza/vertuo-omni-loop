@@ -20,9 +20,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { credentialsHost, signedInClient } from '../../lib/ask/credentials.ts';
-import { loadContext } from '../../lib/context.ts';
-import { mainCheckout } from '../../lib/dossier/local.ts';
-import { glossaryLines, legalLines, productKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
 import { formShowText } from '../../lib/budgets/index.ts';
 import { ownerHandle } from '../../lib/codeowners.ts';
 import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
@@ -30,9 +27,16 @@ import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
 import { disclose, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
+import { packGet } from '../../lib/knowledge/packs/get.ts';
+import type { PackOrder } from '../../lib/knowledge/packs/get.ts';
 import { readKnowledge } from '../../lib/knowledge/registers.ts';
 import { readThesis } from '../../lib/knowledge/thesis.ts';
+import { mainCheckout } from '../../lib/dossier/local.ts';
 import { messageOf } from '../../lib/narrow.ts';
+import { glossaryLines, legalLines, productKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
+import { ghReader } from '../../lib/plan-repo/targets.ts';
+import { productTargetList } from '../../lib/product/targets.ts';
+import { githubEnv } from '../github.ts';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.ts';
 import { readDecisions } from '../../lib/playbook/decisions.ts';
@@ -42,6 +46,7 @@ import { formTemplate } from '../../lib/playbook/templates.ts';
 import { writeForms } from '../../lib/playbook/write-forms.ts';
 import { parseArgs, prdArg, println, sliceArg, usageError, type Flags } from '../args.ts';
 import type { CommandIo, Exec, FreeCommand, FreeIo } from '../io.ts';
+import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
 import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
@@ -55,7 +60,8 @@ export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnTyp
 
 const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] | --slice <prd> <slice> | --area <domain>] [--json]';
 const SHOW_USAGE = 'usage: omni kb show <form> [--json] [--all]';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json] | omni kb legal | omni kb glossary`;
+const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -305,17 +311,86 @@ function owners(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: C
   return 0;
 }
 
-/** What a test hands `omni kb legal | glossary` beyond `main()`'s own: the sign-in, the app and the clock. */
-type KbOptions = {
+/** What a test hands `omni kb pack get | legal | glossary` beyond the command's own io: the sign-in, the app and the clock. */
+type PackOptions = {
   tokens?: TokenStore | undefined;
   home?: string | undefined;
   fetch?: Fetch | undefined;
   callMs?: number | undefined;
   now?: (() => Date) | undefined;
+  order?: ((repo: string, packSha: string, readAt: string) => PackOrder) | undefined;
 };
 
+/** `repo` as `owner/name`: as given, a plan target's short name, or a repository of this repository's owner. */
+function packSlug(ctx: Context, repo: string): string {
+  if (repo.includes('/')) return repo;
+  const target = (ctx.config.plan?.targets ?? []).find(({ repo: slug }) => slug.split('/')[1] === repo);
+  if (target !== undefined) return target.repo;
+  const owner = ctx.config.repo.slug?.split('/')[0];
+  if (owner === undefined) throw usageError(`omni kb pack get: ${repo} is not owner/name and this repository has no slug to take the owner from. ${PACK_USAGE}`);
+  return `${owner}/${repo}`;
+}
+
+/** The commit the link to `slug` was read at: `--read-at`, else the product's link, else the plan's target. */
+async function packReadAt(ctx: Context, slug: string, flag: string | undefined, io: CommandIo & PackOptions): Promise<string | null> {
+  if (flag !== undefined) return flag;
+  const plan = ctx.config.plan;
+  if (plan === undefined) return null;
+  const targets = plan.product === undefined
+    ? plan.targets
+    : await productTargetList({ ctx, product: plan.product, repo: ctx.config.repo.slug }, { cwd: ctx.root, ...io }, io.stderr);
+  return typeof targets === 'string' ? null : (targets.find(({ repo }) => repo === slug)?.readAt ?? null);
+}
+
+/** The arguments of `omni kb pack get`: the repository and the `--read-at` commit, validated. */
+function packArgs(args: string[]): { repo: string; readAtFlag: string | undefined } {
+  const { positional, flags } = parseArgs('kb pack', args, { values: ['read-at'] });
+  const [verb, repo, ...extra] = positional;
+  if (verb !== 'get' || repo === undefined || extra.length > 0) throw usageError(PACK_USAGE);
+  const readAtFlag = flags['read-at'];
+  if (readAtFlag !== undefined && !/^[0-9a-f]{40}$/.test(readAtFlag)) throw usageError(`omni kb pack get: --read-at takes a full commit sha. ${PACK_USAGE}`);
+  return { repo, readAtFlag };
+}
+
+/** Whether the pack at `packSha` is behind `readAt` of `slug`, as GitHub compares them (`unknown` when it cannot). */
+function packOrder(reader: ReturnType<typeof ghReader>, slug: string, packSha: string, readAt: string): PackOrder {
+  try {
+    // compare(base = read_at, head = pack): the pack is behind when GitHub says the head is.
+    const status = reader.compare(slug, readAt, packSha)?.status;
+    if (status === undefined) return 'unknown';
+    return status === 'behind' ? 'behind' : 'ok';
+  } catch {
+    return 'unknown';
+  }
+}
+
+/** `omni kb pack get <repo>` (PRD 2011, s12): see `../../lib/knowledge/packs/get.ts`. */
+async function pack(args: string[], io: CommandIo & PackOptions): Promise<number> {
+  const { ctx, stdout, stderr, exec } = io;
+  const { repo, readAtFlag } = packArgs(args);
+  const slug = packSlug(ctx, repo);
+  const askUrl = ctx.config.ask.url;
+  if (!askUrl) throw usageError('omni kb pack get: ask.url is not set — packs are served by the Omni page.');
+  const client = signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  const reader = ghReader({ exec, env: githubEnv(ctx, { exec, env: io.env }) });
+  const result = await packGet({
+    root: mainCheckout(ctx.root, exec) ?? ctx.root,
+    repo: slug,
+    readAt: await packReadAt(ctx, slug, readAtFlag, io),
+    now: io.now ?? (() => new Date()),
+    fetchPack: async () => {
+      if (client === null) throw new Error(`no sign-in for ${credentialsHost(askUrl)} (omni signin)`);
+      return client.readKnowledgePack({ repo: slug });
+    },
+    order: (packSha, at) => (io.order ? io.order(slug, packSha, at) : packOrder(reader, slug, packSha, at)),
+  });
+  for (const line of result.out) println(stdout, line);
+  for (const line of result.err) println(stderr, line);
+  return result.code;
+}
+
 /** The repository's slug and a client signed in to its Omni page, or the one line saying why there is none. */
-function reachOf(ctx: Context, options: KbOptions): { repo: string; client: NonNullable<ReturnType<typeof signedInClient>> } | string {
+function reachOf(ctx: Context, options: PackOptions): { repo: string; client: NonNullable<ReturnType<typeof signedInClient>> } | string {
   const askUrl = ctx.config.ask.url;
   const repo = ctx.config.repo.slug;
   if (!askUrl) return 'no product knowledge: ask.url is not set, so there is no Omni page to read';
@@ -331,7 +406,7 @@ function reachOf(ctx: Context, options: KbOptions): { repo: string; client: NonN
  * `last read <date>: the Omni page is unreachable`, or exit 1 with no copy. A refusal prints the
  * server's reason and exits 1, whatever the copy.
  */
-async function productVerb(verb: 'legal' | 'glossary', positional: string[], { ctx, stdout, exec }: CommandIo, options: KbOptions, cwd: string): Promise<number> {
+async function productVerb(verb: 'legal' | 'glossary', positional: string[], { ctx, stdout, exec }: CommandIo, options: PackOptions, cwd: string): Promise<number> {
   if (positional.length > 0) throw usageError(`usage: omni kb ${verb}`);
   const refuse = (line: string): number => {
     println(stdout, line);
@@ -355,7 +430,7 @@ async function productVerb(verb: 'legal' | 'glossary', positional: string[], { c
   }
 }
 
-const runSync = synchronous((args: string[], io: CommandIo): number => {
+const basic = synchronous((args: string[], io: CommandIo): number => {
   if (args[0] === 'laws') return laws(args.slice(1), io);
   const { positional, flags } = parseArgs('kb', args, { booleans: ['json', 'all'] });
   const [sub, ...rest] = positional;
@@ -368,14 +443,13 @@ const runSync = synchronous((args: string[], io: CommandIo): number => {
   throw usageError(USAGE);
 });
 
-/** It runs before a context exists, like `targets`, so that a test can hand it `tokens`, `home`, `fetch`, `callMs` and `now`. */
-export const kb = {
+export const kb: FreeCommand = {
   withoutContext: true,
-  async run(args: string[], free: FreeIo & KbOptions): Promise<number> {
-    const { cwd, stdout, stderr, exec, env, vars } = free;
-    const io: CommandIo = { ctx: loadContext(cwd, { exec }), stdout, stderr, exec, env, vars };
+  run: (args: string[], io: FreeIo & PackOptions): Promise<number> => {
+    const full = { ...io, ctx: loadContext(io.cwd, { exec: io.exec }) };
     const [sub, ...rest] = args;
-    if (sub === 'legal' || sub === 'glossary') return productVerb(sub, rest, io, free, cwd);
-    return runSync(args, io);
+    if (sub === 'pack') return pack(rest, full);
+    if (sub === 'legal' || sub === 'glossary') return productVerb(sub, rest, full, io, io.cwd);
+    return basic(args, full);
   },
-} satisfies FreeCommand;
+};
