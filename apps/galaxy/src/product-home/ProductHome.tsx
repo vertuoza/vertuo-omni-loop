@@ -9,7 +9,7 @@ import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { Filter } from './constellation';
 import { ConstellationTab } from './ConstellationTab';
 import { BugsTab, IdeasTab, QuestionsTab, RoadmapTab, VisualTab } from './HomeTabs';
-import type { Birthplace, HomePrd, LaneId, LedgerRow, ProductHome as Home, PrChip } from './product-home.service';
+import type { Birthplace, HomeFlight, HomePrd, HomeRepository, LaneId, LedgerRow, ProductHome as Home, PrChip } from './product-home.service';
 import { ledeOf, productHomeTabHref, productHomeTabs, type ProductHomeTab } from './tabs';
 
 // The product home, drawn (PRD 1364 s9): /app/products/<id>, the product's name, then its tabs. It opens on
@@ -56,6 +56,17 @@ export function demoProductHome(id: string): Home | null {
   const review = prd('demo-d-910', 910, 'Faster search', 'repo');
   const building = prd('demo-d-905', 905, 'Invoice reminders', 'server');
   const shipped = prd('demo-d-890', 890, 'Dark mode', 'repo');
+  const drifted: HomePrd = { dossier: 'demo-d-920', repo: 'acme/widgets-web', prd: parsePrd(920), title: 'Single sign-on', birthplace: 'server' };
+  const flight = (p: HomePrd, over: Partial<HomeFlight>): HomeFlight =>
+    ({ ...p, stage: 'building', ledger: { state: 'building', lane: 'on-agent' }, stageRepos: [], prs: [], ...over });
+  // The Constellation's four repositories (PRD 2129 s3): widgets-api builds, widgets waits on you, widgets-web
+  // is drifted and docked at its open phase-0 pull request, auth is also in a second product.
+  const repositories: HomeRepository[] = [
+    { repository: 'acme/widgets', role: 'web', consumes: ['acme/widgets-api', 'acme/auth'], phase0: 'server', alsoIn: [] },
+    { repository: 'acme/widgets-api', role: 'api', consumes: ['acme/auth'], phase0: 'server', alsoIn: [] },
+    { repository: 'acme/widgets-web', role: 'web', consumes: ['acme/widgets-api'], phase0: 'pr', alsoIn: [] },
+    { repository: 'acme/auth', role: 'auth', consumes: [], phase0: 'server', alsoIn: ['Payments'] },
+  ];
   return {
     product: { id, name: 'Widgets' },
     ledger: {
@@ -65,13 +76,13 @@ export function demoProductHome(id: string): Home | null {
           row(question, { state: 'question', question: 'Round per line or on the total?', questions: 1 }),
         ],
         'on-review': [row(review, { state: 'review', prs: [{ repo: 'acme/widgets', pr: parsePr(101) }] })],
-        'on-agent': [row(building, { state: 'building', sealed: true, prs: [{ repo: 'acme/api', pr: parsePr(447) }, { repo: 'acme/widgets', pr: parsePr(94) }] })],
+        'on-agent': [row(building, { state: 'building', sealed: true, prs: [{ repo: 'acme/widgets-api', pr: parsePr(447) }, { repo: 'acme/widgets', pr: parsePr(94) }] })],
       },
-      summary: { building: 2, waitingOnPerson: 2, drifted: 0 },
+      summary: { building: 2, waitingOnPerson: 3, drifted: 1 },
     },
     prds: [
       { ...approval, state: 'PRD' }, { ...question, state: 'building' }, { ...review, state: 'outbox' },
-      { ...building, state: 'building' }, { ...shipped, state: 'shipped' },
+      { ...building, state: 'building' }, { ...shipped, state: 'shipped' }, { ...drifted, state: 'inbox' },
     ],
     ideas: [
       { id: 'demo-i-2', repo: 'acme/widgets', title: 'Offline mode', pitch: 'Work on site without a signal.', lane: 'next', prd: null },
@@ -82,8 +93,16 @@ export function demoProductHome(id: string): Home | null {
     ],
     bugs: [{ dossier: 'demo-bug-1', repo: 'acme/widgets', title: 'Totals round twice', created: '2026-10-03T09:00:00Z' }],
     visuals: [],
-    repositories: [],
-    flights: [],
+    repositories,
+    flights: [
+      flight(approval, { stage: 'prd', ledger: { state: 'approval', lane: 'on-you' }, stageRepos: ['acme/widgets'] }),
+      flight(question, { ledger: { state: 'question', lane: 'on-you' }, stageRepos: ['acme/widgets'] }),
+      flight(review, { stage: 'outbox', ledger: { state: 'review', lane: 'on-review' }, stageRepos: ['acme/widgets'], prs: [{ repo: 'acme/widgets', pr: parsePr(101) }] }),
+      flight(building, { stageRepos: ['acme/widgets-api'], prs: [{ repo: 'acme/widgets-api', pr: parsePr(447) }, { repo: 'acme/widgets', pr: parsePr(94) }] }),
+      flight(shipped, { stage: 'shipped', ledger: null }),
+      flight(drifted, { stage: 'inbox', ledger: { state: 'drifted', lane: null }, stageRepos: ['acme/widgets-web'] }),
+    ],
+    tethers: [{ repo: 'acme/widgets-web', pr: parsePr(31) }],
     questions: [
       {
         dossier: approval.dossier, prdLabel: 'widgets-12', title: approval.title, repo: 'acme/mobile', id: 's2-01-upload-network', rank: 'high',

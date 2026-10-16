@@ -43,6 +43,9 @@
 .constellation-mark { fill: var(--ask-ink); font-size: 18px; }
 .constellation-name { fill: var(--ask-ink); font: 700 14px var(--ask-mono); }
 .constellation-role { fill: var(--ask-muted); font-size: 12px; }
+.constellation-tether-line { stroke: var(--ask-muted); stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }
+.constellation-tether-label { fill: var(--ask-ink); font-size: 12px; text-decoration: underline; }
+.constellation-tether a { cursor: pointer; }
 .constellation-docked { fill: var(--ask-muted); font: 700 11px var(--ask-mono); letter-spacing: 0.14em; }
 
 .constellation-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 20px; color: var(--ask-muted); font-size: 14px; }

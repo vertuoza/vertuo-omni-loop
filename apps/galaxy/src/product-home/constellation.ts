@@ -1,5 +1,5 @@
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { HomeFlight, HomeRepository, ProductHome } from './product-home.service';
+import type { HomeFlight, HomeRepository, PrChip, ProductHome } from './product-home.service';
 
 // The Constellation tab's map (PRD 2129 s1): one pure function from the product's linked repositories to the
 // stars, their edges and where each is placed. No rule lives in the reads or the drawing.
@@ -24,6 +24,8 @@ import type { HomeFlight, HomeRepository, ProductHome } from './product-home.ser
 // - an edge carries what crosses it now: the PRDs in flight touching both of its ends, newest first; it
 //   flows (its dots move) only between two building stars;
 // - *Now in* lists the PRDs in flight touching any star, worst first;
+// - a docked star carries one tether per open phase-0 pull request of the product's PRDs in its repository
+//   (s3); a star that is not docked never carries one;
 // - `?prd=<dossier>` keeps that PRD's stars and the edges between them lit and fades the rest, an unknown
 //   one (or one not in flight) reading as no filter; `?star=<owner/name>` selects one star, an unknown one
 //   none.
@@ -60,6 +62,8 @@ export interface Star {
   phase0: 'pr' | 'server';
   docked: boolean;
   alsoIn: string[];
+  /** The open phase-0 pull requests of the product's PRDs in it: only a docked star carries any. */
+  tethers: PrChip[];
   /** How many links consume it. */
   consumedBy: number;
   at: Point;
@@ -160,7 +164,7 @@ const rankOf = (state: StarState) => STAR_STATES.indexOf(state);
 const worst = (states: readonly StarState[]): StarState => states.reduce<StarState>((w, s) => (rankOf(s) < rankOf(w) ? s : w), 'quiet');
 
 /** The stars of the product, ranked and placed, before the Ledger is drawn on them. */
-function placedOf(repositories: readonly HomeRepository[]) {
+function placedOf(repositories: readonly HomeRepository[], tethers: readonly PrChip[]) {
   const consumedBy = new Map<string, number>();
   for (const r of repositories) for (const p of r.consumes) consumedBy.set(p, (consumedBy.get(p) ?? 0) + 1);
   const ranked = [...repositories].sort((a, b) =>
@@ -172,6 +176,7 @@ function placedOf(repositories: readonly HomeRepository[]) {
     phase0: r.phase0,
     docked: r.phase0 === 'pr',
     alsoIn: [...r.alsoIn].sort((a, b) => a.localeCompare(b)),
+    tethers: r.phase0 === 'pr' ? tethers.filter((t) => lower(t.repo) === lower(r.repository)) : [],
     consumedBy: consumedBy.get(r.repository) ?? 0,
     at: places[i] ?? CENTRE,
   }));
@@ -189,10 +194,10 @@ function flightsOf(flights: readonly HomeFlight[], starNames: readonly string[])
 }
 
 /** The product's constellation from its linked repositories and its PRDs, drawn with `filter`. */
-export function constellationOf(home: Pick<ProductHome, 'repositories' | 'flights'>, filter: Filter = {}): Constellation {
+export function constellationOf(home: Pick<ProductHome, 'repositories' | 'flights'> & Partial<Pick<ProductHome, 'tethers'>>, filter: Filter = {}): Constellation {
   const { repositories } = home;
   if (repositories.length === 0) return { kind: 'empty' };
-  const placed = placedOf(repositories);
+  const placed = placedOf(repositories, home.tethers ?? []);
   const flights = flightsOf(home.flights, placed.map((s) => s.repository));
   const lit = flights.find((f) => f.dossier === filter.dossier) ?? null;
   const touching = (name: string) => flights.filter((f) => f.stars.includes(name));

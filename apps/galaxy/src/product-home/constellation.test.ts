@@ -227,3 +227,20 @@ describe('the filters (s2)', () => {
     expect(stars(repos, flights).selected).toBeNull();
   });
 });
+
+describe('the tethers (s3)', () => {
+  const repos = [repo('a/api', { role: 'api' }), repo('a/web', { phase0: 'pr', consumes: ['a/api'] }), repo('a/app', { phase0: 'server' })];
+  const tethers = [pr('a/web', 31), pr('A/Web', 35), pr('a/api', 7), pr('a/app', 8), pr('a/gone', 9)];
+
+  it('gives a docked star one tether per open phase-0 pull request in its repository', () => {
+    const map = constellationOf({ repositories: repos, flights: [], tethers });
+    if (map.kind === 'empty') throw new Error('the map has stars');
+    expect(map.stars.find((s) => s.repository === 'a/web')?.tethers).toEqual([pr('a/web', 31), pr('A/Web', 35)]);
+  });
+
+  it('gives a docked star with none no tether, and a star that is not docked never one', () => {
+    const map = constellationOf({ repositories: repos, flights: [], tethers: [pr('a/api', 7), pr('a/app', 8)] });
+    if (map.kind === 'empty') throw new Error('the map has stars');
+    expect(map.stars.map((s) => [s.repository, s.tethers])).toEqual([['a/api', []], ['a/app', []], ['a/web', []]]);
+  });
+});
