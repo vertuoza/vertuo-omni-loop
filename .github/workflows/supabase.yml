@@ -308,6 +308,11 @@ jobs:
         # sent twice is stored once, retention keeps the listed jobs' lines, a deleted job takes its
         # lines with it (PRD 1904).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_job_lines.sql
+      - name: A runner's health and its samples
+        # Members read their workspace's samples and runners' last health, nobody else does, only the
+        # service role writes; a sample is one per runner and instant, a figure out of range is refused,
+        # the trim deletes one runner's old samples only, a deleted runner takes its samples (PRD 2102).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_samples.sql
       - name: Who may make, list and revoke an API key, and which key the API accepts
         # Only a workspace's owner makes or revokes a key; any member lists them, never the hash; a key's
         # repositories are ones the workspace tracks, its name unique among the live keys, 20 at most.

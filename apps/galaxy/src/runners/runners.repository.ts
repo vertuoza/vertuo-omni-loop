@@ -1,10 +1,12 @@
 // The runners' storage (PRD 1830 s1; ADR-0095), on the client it is given: the service role's, since
 // the routes alone write the tables (supabase/migrations/20261207100000_runners.sql, and a job's live
-// lines, supabase/migrations/20261208090000_runner_job_lines.sql, PRD 1904) and the service holds the
+// lines, supabase/migrations/20261208090000_runner_job_lines.sql, PRD 1904; a runner's health and
+// samples, supabase/migrations/20261211090000_runner_health.sql, PRD 2102) and the service holds the
 // rules. Every answer is parsed where it comes in; it holds no rule. A refusal of the
 // database, or an answer out of shape, throws, naming the call: the controller answers 500 and logs it.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { RunnerHealthSchema } from './runners.contract';
 
 /** What the reads and writes need: the tables, and the database's functions. */
 export type RunnersDb = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -19,6 +21,8 @@ const RunnerRow = z.object({
   repos: z.array(z.string()),
   version: z.string(),
   last_seen_at: z.string(),
+  /** Its last health report (PRD 2102); one out of shape reads as none, as a runner that never sent one. */
+  health: RunnerHealthSchema.nullable().catch(null),
 });
 export type RunnerRow = z.infer<typeof RunnerRow>;
 
@@ -46,13 +50,28 @@ const JobRow = z.object({
 export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
-const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at';
+const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health';
 const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, queued_at, claimed_at, running_at, ended_at';
 
 /** One line of a job's live log, as runner_job_lines holds it (its `at` is the database's). */
 export type JobLineRow = { job_id: string; workspace_id: string; seq: number; text: string };
 
 const JobLineRead = z.object({ seq: z.number(), text: z.string() });
+
+/** One of a runner's samples (PRD 2102), as runner_samples holds it. */
+const SampleRow = z.object({
+  runner_id: z.string(),
+  workspace_id: z.string(),
+  at: z.string(),
+  cpu: z.number().nullable(),
+  mem_used: z.number().nullable(),
+  mem_total: z.number().nullable(),
+  disk_free: z.number().nullable(),
+  tokens_5h: z.number().nullable(),
+});
+export type SampleRow = z.infer<typeof SampleRow>;
+
+const SAMPLE_COLUMNS = 'runner_id, workspace_id, at, cpu, mem_used, mem_total, disk_free, tokens_5h';
 
 /** A new runner's columns. */
 export type NewRunner = { workspaceId: string; owner: string; name: string; slots: number; repos: string[]; version: string; seenAt: string };
@@ -136,8 +155,24 @@ export function runnersRepository(db: RunnersDb) {
         version: runner.version, last_seen_at: runner.seenAt,
       }).select(RUNNER_COLUMNS).single(), RunnerRow, 'runners'),
 
-    updateRunner: async (id: string, patch: Partial<Pick<RunnerRow, 'fleet' | 'slots' | 'repos' | 'version' | 'last_seen_at'>>): Promise<RunnerRow> =>
+    updateRunner: async (id: string, patch: Partial<Pick<RunnerRow, 'fleet' | 'slots' | 'repos' | 'version' | 'last_seen_at' | 'health'>>): Promise<RunnerRow> =>
       parsed(db.from('runners').update(patch).eq('id', id).select(RUNNER_COLUMNS).single(), RunnerRow, 'runners'),
+
+    /** Adds one of a runner's samples; one it already holds at that instant stays as it is. */
+    insertSample: async (row: SampleRow): Promise<void> => {
+      await parsed(db.from('runner_samples').upsert(row, { onConflict: 'runner_id,at', ignoreDuplicates: true }), z.unknown(), 'runner_samples');
+    },
+
+    /** Deletes the runner's samples taken before `before`. */
+    trimSamples: async (runnerId: string, before: string): Promise<void> => {
+      await parsed(db.from('runner_samples').delete().eq('runner_id', runnerId).lt('at', before), z.unknown(), 'runner_samples');
+    },
+
+    /** These runners' samples taken at `since` or after, oldest first. */
+    samples: async (runnerIds: string[], since: string): Promise<SampleRow[]> => {
+      if (runnerIds.length === 0) return [];
+      return parsed(db.from('runner_samples').select(SAMPLE_COLUMNS).in('runner_id', runnerIds).gte('at', since).order('at'), z.array(SampleRow), 'runner_samples');
+    },
 
     /** Ends the claimed and running jobs of every runner silent since before `cutoff`: `runner lost`. */
     markLost: async (cutoff: string): Promise<number> =>
