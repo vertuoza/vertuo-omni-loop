@@ -2088,7 +2088,7 @@ var require_YAMLMap = __commonJS({
       static from(schema, obj, ctx) {
         const { keepUndefined, replacer } = ctx;
         const map2 = new this(schema);
-        const add2 = (key2, value) => {
+        const add3 = (key2, value) => {
           if (typeof replacer === "function")
             value = replacer.call(obj, key2, value);
           else if (Array.isArray(replacer) && !replacer.includes(key2))
@@ -2098,10 +2098,10 @@ var require_YAMLMap = __commonJS({
         };
         if (obj instanceof Map) {
           for (const [key2, value] of obj)
-            add2(key2, value);
+            add3(key2, value);
         } else if (obj && typeof obj === "object") {
           for (const key2 of Object.keys(obj))
-            add2(key2, obj[key2]);
+            add3(key2, obj[key2]);
         }
         if (typeof schema.sortMapEntries === "function") {
           map2.items.sort(schema.sortMapEntries);
@@ -42723,6 +42723,10 @@ var import_yaml6 = __toESM(require_dist(), 1);
 import { readdirSync as readdirSync22, readFileSync as readFileSync50, statSync as statSync12 } from "node:fs";
 import { basename as basename10, dirname as dirname13, isAbsolute as isAbsolute6, join as join65, relative as relative3, resolve as resolve4, sep } from "node:path";
 var READMES = ["readme.md", "index.md"];
+var DOCS = "docs";
+var ADR = "adr";
+var DOCS_FROM = `${DOCS}/`;
+var ADR_FROM = `${DOCS}/${ADR}/`;
 function posix7(root, file2) {
   return relative3(root, file2).split(sep).join("/");
 }
@@ -42822,50 +42826,57 @@ function inside(root, file2) {
   const from = relative3(root, file2);
   return from !== "" && !from.startsWith("..") && !isAbsolute6(from);
 }
-function readConventions(root) {
-  const base = resolve4(root);
-  const entries4 = [];
-  const seen = /* @__PURE__ */ new Set();
-  const found2 = [];
-  function add2(file2, from, missing = false) {
-    const path = posix7(base, file2);
-    if (seen.has(path)) return false;
-    seen.add(path);
-    entries4.push({ path, title: missing ? basename10(file2) : titleOf2(file2), from, missing });
-    if (!missing) found2.push(file2);
-    return true;
+function add(index, file2, from, missing = false) {
+  const path = posix7(index.base, file2);
+  if (index.seen.has(path)) return false;
+  index.seen.add(path);
+  index.entries.push({ path, title: missing ? basename10(file2) : titleOf2(file2), from, missing });
+  if (!missing) index.found.push(file2);
+  return true;
+}
+function addWithImports(index, file2, from) {
+  if (!add(index, file2, from)) return;
+  for (const target3 of importsOf(readText3(file2))) {
+    const imported = resolve4(dirname13(file2), target3);
+    if (inside(index.base, imported) && isFile2(imported)) addWithImports(index, imported, posix7(index.base, file2));
   }
-  function addWithImports(file2, from) {
-    if (!add2(file2, from)) return;
-    for (const target3 of importsOf(readText3(file2))) {
-      const imported = resolve4(dirname13(file2), target3);
-      if (inside(base, imported) && isFile2(imported)) addWithImports(imported, posix7(base, file2));
-    }
-  }
+}
+function addRootFiles(index) {
   for (const name3 of ["claude.md", "agents.md"]) {
-    const file2 = findFile(base, [name3]);
-    if (file2 !== null) addWithImports(file2, ".");
+    const file2 = findFile(index.base, [name3]);
+    if (file2 !== null) addWithImports(index, file2, ".");
   }
-  for (const listed2 of contextPaths(base)) {
-    const file2 = resolve4(base, listed2);
-    if (!isMarkdown(listed2) || !inside(base, file2)) continue;
-    add2(file2, ".omni-loop/config.yml", !isFile2(file2));
+  for (const listed2 of contextPaths(index.base)) {
+    const file2 = resolve4(index.base, listed2);
+    if (isMarkdown(listed2) && inside(index.base, file2)) add(index, file2, ".omni-loop/config.yml", !isFile2(file2));
   }
-  const docs = join65(base, "docs");
+}
+function addDocs(index) {
+  const docs = join65(index.base, DOCS);
   const docsReadme = findFile(docs, READMES);
-  if (docsReadme !== null) add2(docsReadme, "docs/");
-  const adr = join65(docs, "adr");
+  if (docsReadme !== null) add(index, docsReadme, DOCS_FROM);
+  const adr = join65(docs, ADR);
   const adrReadme = findFile(adr, READMES);
-  if (adrReadme !== null) add2(adrReadme, "docs/adr/");
-  else for (const name3 of listing(adr)) if (isMarkdown(name3) && isFile2(join65(adr, name3))) add2(join65(adr, name3), "docs/adr/");
-  for (const file2 of [...found2]) {
+  if (adrReadme !== null) {
+    add(index, adrReadme, ADR_FROM);
+    return;
+  }
+  for (const name3 of listing(adr)) if (isMarkdown(name3) && isFile2(join65(adr, name3))) add(index, join65(adr, name3), ADR_FROM);
+}
+function addLinks(index) {
+  for (const file2 of [...index.found]) {
     for (const target3 of linksOf(readText3(file2))) {
       const page2 = resolve4(dirname13(file2), target3);
-      if (!isMarkdown(target3) || !inside(base, page2)) continue;
-      add2(page2, posix7(base, file2), !isFile2(page2));
+      if (isMarkdown(target3) && inside(index.base, page2)) add(index, page2, posix7(index.base, file2), !isFile2(page2));
     }
   }
-  return entries4;
+}
+function readConventions(root) {
+  const index = { base: resolve4(root), entries: [], found: [], seen: /* @__PURE__ */ new Set() };
+  addRootFiles(index);
+  addDocs(index);
+  addLinks(index);
+  return index.entries;
 }
 
 // kit/bin/commands/conventions.ts
@@ -42947,7 +42958,7 @@ function creditItems({ prs, issues = [], commits, labels: labels2, signature, si
   const from = since ? time4(`${since}-01T00:00:00Z`) : null;
   const seen = /* @__PURE__ */ new Set();
   const items = [];
-  const add2 = (type, raw, { labelled: labelled3, merged, counted: counted5, kind }) => {
+  const add3 = (type, raw, { labelled: labelled3, merged, counted: counted5, kind }) => {
     const key2 = `${type}:${keyOf(raw.repo, raw.number)}`;
     if (seen.has(key2)) return;
     seen.add(key2);
@@ -42972,7 +42983,7 @@ function creditItems({ prs, issues = [], commits, labels: labels2, signature, si
     });
   };
   for (const pr of prs) {
-    add2("pr", pr, {
+    add3("pr", pr, {
       labelled: (name3) => loopLabels2.includes(name3),
       merged: mergedBySigned.has(keyOf(pr.repo, pr.number)),
       counted: ["merged", "open"],
@@ -42980,7 +42991,7 @@ function creditItems({ prs, issues = [], commits, labels: labels2, signature, si
     });
   }
   for (const issue2 of issues) {
-    add2("issue", issue2, {
+    add3("issue", issue2, {
       labelled: (name3) => name3 === labels2.prd,
       merged: false,
       counted: ["open", "closed"],
@@ -47288,7 +47299,7 @@ var ENTRIES = deepFreeze([
     label: "omni conventions",
     usage: ["omni conventions [--root <dir>] [--json]"],
     summary: "where a directory writes its conventions",
-    detail: "Prints an index of the files where a directory, this repository or a clone given with --root, writes its conventions: CLAUDE.md and AGENTS.md with the files they import through @<path>, the files its omni config lists under paths.context, the readme of docs/, the readme of docs/adr/ (else each ADR), and the Markdown pages those link to, one level deep and inside the directory. One line each: its path, its title and the file that led to it; a link to a file that does not exist reads missing. Read the pages that bear on a design before naming anything. --json prints the same entries as an array of { path, title, from, missing }. It reads files only and needs no omni config. Exit 1 when --root is not a directory."
+    detail: "Prints an index of the files where a directory, this repository or a clone given with --root, writes its conventions: CLAUDE.md and AGENTS.md with the files they import through @<path>, the files its omni config lists under paths.context, the readme of its docs folder, the readme of the adr folder inside it (else each ADR), and the Markdown pages those link to, one level deep and inside the directory. One line each: its path, its title and the file that led to it; a link to a file that does not exist reads missing. Read the pages that bear on a design before naming anything. --json prints the same entries as an array of { path, title, from, missing }. It reads files only and needs no omni config. Exit 1 when --root is not a directory."
   },
   {
     name: "product",
@@ -48346,7 +48357,7 @@ function connect({ cwd, exec, stderr, tokens: tokens2, home, fetch, callMs }) {
   }
   return { client, repo };
 }
-async function add({ client, repo }, idea2, { stdout, stderr }) {
+async function add2({ client, repo }, idea2, { stdout, stderr }) {
   const sent = await attempt5(stderr, () => client.addIdea({ repo, ...idea2 }));
   if (!sent) return;
   const url2 = field(sent.reply, "url");
@@ -48367,7 +48378,7 @@ var idea = {
     const asked = readArgs2(args);
     const connected = connect({ cwd, exec, stderr, tokens: tokens2, home, fetch, callMs });
     if (!connected) return 0;
-    if (asked.verb === "add") await add(connected, asked.idea, { stdout, stderr });
+    if (asked.verb === "add") await add2(connected, asked.idea, { stdout, stderr });
     else await list4(connected, asked.json, { stdout, stderr });
     return 0;
   }
