@@ -1,14 +1,20 @@
 // The runner's health reports (PRD 2102, s1): `runRunner()` on a fake app, a fake clock and a fixed
 // machine. A report goes right after registering, then every 15 s, and one the app refuses or never
 // answers prints one line while the runner keeps polling for jobs. Nothing here reads the real machine.
-import { mkdtempSync } from 'node:fs';
+//
+// The pause (s2): a machine under pressure opens no new `next`, a slot already waiting keeps its hold
+// and runs the job it gets, a running job is never touched, and two quiet samples in a row resume it.
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
-import type { HealthReport, RunnerApi } from './api.ts';
+import type { HealthReport, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
+import { DEFAULT_LIMITS } from './health.ts';
 import type { MachineReads } from './health.ts';
 import { runRunner } from './runner.ts';
+import type { RunnerOptions } from './runner.ts';
+import type { Terminal } from './terminal.ts';
 
 const GB = 1024 ** 3;
 const T0 = Date.parse('2026-10-16T12:00:00.000Z');
@@ -63,8 +69,11 @@ function fakeApp(answers: ('ok' | Error)[], { reportMs = 0 } = {}) {
   return { api, reports, nexts, clock, stop };
 }
 
+/** The fake app `run` drives: its routes, its clock and the stop it aborts once it has heard enough. */
+type App = { api: RunnerApi; clock: { now: number }; stop: AbortController };
+
 /** Runs the runner on `app` until it stops itself: its exit code, what it printed, and every wait the health loop took. */
-async function run(app: ReturnType<typeof fakeApp>) {
+async function run(app: App, over: Partial<RunnerOptions> = {}) {
   const printed: string[] = [];
   const waits: number[] = [];
   const code = await runRunner({
@@ -90,6 +99,7 @@ async function run(app: ReturnType<typeof fakeApp>) {
       setImmediate(resolve);
     }),
     machine: machine(),
+    ...over,
   });
   return { code, printed, waits };
 }
@@ -99,10 +109,11 @@ describe('the runner\'s health reports', () => {
     const app = fakeApp(['ok', 'ok', 'ok']);
     const { code, printed, waits } = await run(app);
     expect(code).toBe(0);
+    const quiet = { paused: null, limits: DEFAULT_LIMITS };
     expect(app.reports).toEqual([
-      { cpu: null, load1: 1.5, cores: 2, memUsed: 6 * GB, memTotal: 8 * GB, diskFree: 40 * GB, diskTotal: 100 * GB },
-      { cpu: 30, load1: 1.5, cores: 2, memUsed: 6 * GB, memTotal: 8 * GB, diskFree: 40 * GB, diskTotal: 100 * GB },
-      { cpu: 30, load1: 1.5, cores: 2, memUsed: 6 * GB, memTotal: 8 * GB, diskFree: 40 * GB, diskTotal: 100 * GB },
+      { cpu: null, load1: 1.5, cores: 2, memUsed: 6 * GB, memTotal: 8 * GB, diskFree: 40 * GB, diskTotal: 100 * GB, ...quiet },
+      { cpu: 30, load1: 1.5, cores: 2, memUsed: 6 * GB, memTotal: 8 * GB, diskFree: 40 * GB, diskTotal: 100 * GB, ...quiet },
+      { cpu: 30, load1: 1.5, cores: 2, memUsed: 6 * GB, memTotal: 8 * GB, diskFree: 40 * GB, diskTotal: 100 * GB, ...quiet },
     ]);
     expect(waits).toEqual([15_000, 15_000]);
     expect(printed.filter((line) => line.startsWith('health'))).toEqual([]);
@@ -134,5 +145,105 @@ describe('the runner\'s health reports', () => {
     expect(code).toBe(0);
     expect(printed).toContain('health not sent: fetch failed');
     expect(app.reports).toHaveLength(2);
+  });
+});
+
+/** A machine of 10 GB whose memory used is `percents[n]` percent at its nth sample, the last one after. */
+function memoryMachine(percents: readonly number[]): MachineReads {
+  let samples = 0;
+  return {
+    ...machine(),
+    totalmem: () => 10 * GB,
+    freemem: () => {
+      const percent = percents[Math.min(samples, percents.length - 1)] ?? 0;
+      samples += 1;
+      return ((100 - percent) / 100) * 10 * GB;
+    },
+  };
+}
+
+/**
+ * A fake app that holds every `next` until it is handed a job or the runner stops, records each job's
+ * reports, and stops the runner after `reports` health reports, calling `onReport` with each one's number.
+ */
+function holdingApp(reports: number, onReport: (n: number) => void = () => undefined) {
+  const heard: HealthReport[] = [];
+  const updates: JobUpdate[] = [];
+  const held: ((job: RunnerJob | null) => void)[] = [];
+  let nexts = 0;
+  const clock = { now: T0 };
+  const stop = new AbortController();
+  const api: RunnerApi = {
+    register: () => Promise.resolve({ id: 'r1' }),
+    next: (_runner, signal) => {
+      nexts += 1;
+      return new Promise((resolve) => {
+        held.push(resolve);
+        signal?.addEventListener('abort', () => {
+          resolve(null);
+        }, { once: true });
+      });
+    },
+    update: (_job, update) => {
+      updates.push(update);
+      return Promise.resolve({ cancel: false });
+    },
+    health: (_runner, report) => {
+      heard.push(report);
+      onReport(heard.length);
+      if (heard.length >= reports) stop.abort();
+      return Promise.resolve();
+    },
+  };
+  return { api, clock, stop, reports: heard, updates, held, nexts: () => nexts };
+}
+
+describe('the pause', () => {
+  it('opens no next while the machine is under pressure, stays paused on one quiet sample, and resumes on the second', async () => {
+    const nextsAt: number[] = [];
+    const app = holdingApp(4, () => nextsAt.push(app.nexts()));
+    const { code, printed } = await run(app, { machine: memoryMachine([91, 50, 50, 50]) });
+    expect(code).toBe(0);
+    // The resume is decided at the third sample; the two slots open their next right after it.
+    expect(nextsAt).toEqual([0, 0, 0, 2]);
+    expect(app.reports.map((report) => report.paused)).toEqual(['memory 91%', 'memory 91%', null, null]);
+    expect(app.reports.map((report) => report.limits)).toEqual(Array(4).fill(DEFAULT_LIMITS));
+    expect(printed.filter((line) => /^(paused|resumed)/.test(line))).toEqual(['paused: memory 91%', 'resumed']);
+  });
+
+  it('pauses at the limits it is given, and carries them in its report', async () => {
+    const limits = { maxMemory: 40, minDiskGb: 10, maxLoad: 1.5 };
+    const app = holdingApp(2);
+    const { printed } = await run(app, { machine: memoryMachine([50]), limits });
+    expect(app.nexts()).toBe(0);
+    expect(app.reports.map((report) => [report.paused, report.limits])).toEqual([['memory 50%', limits], ['memory 50%', limits]]);
+    expect(printed).toContain('paused: memory 50%');
+  });
+
+  it('lets a slot already waiting keep its hold and run the job it gets, never touching it, and opens no next after it while paused', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'omni-runner-pause-'));
+    const stopped: string[] = [];
+    const terminal: Terminal = { start: () => undefined, stop: (name) => stopped.push(name), alive: () => true };
+    const app = holdingApp(8, (n) => {
+      // The second sample is under pressure: the slot's next, held since the first, hands it a job.
+      if (n === 2) app.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null });
+      // The job runs through two more samples under pressure, then ends by itself.
+      if (n === 5) writeFileSync(join(home, 'logs', 'job-7.exit'), '0\n');
+    });
+    const { code, printed } = await run(app, {
+      slots: 1, timeoutMs: 24 * 60 * 60 * 1000, home, terminal,
+      checkouts: new Map([['acme/widgets', join(home, 'widgets')]]),
+      machine: memoryMachine([50, 91]),
+    });
+    expect(code).toBe(0);
+    expect(printed).toContain('paused: memory 91%');
+    expect(printed).toContain('job 7 claimed: /omni:yolo 7 (acme/widgets)');
+    expect(printed).toContain('job 7 done');
+    expect(app.updates.map((update) => update.status).at(-1)).toBe('done');
+    expect(app.updates.filter((update) => update.status === 'running').length).toBeGreaterThan(1);
+    expect(stopped).toEqual([]);
+    // The one next it held when the pause began, and none after the job, the machine still under pressure.
+    expect(app.nexts()).toBe(1);
+    expect(printed.at(-1)).toBe('runner box-1 stopped');
   });
 });
