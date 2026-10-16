@@ -1,7 +1,9 @@
-// The runner's machine sample (PRD 2102, s1): `sample()` on injected reads, never the real machine.
+// The runner's machine sample (PRD 2102, s1): `sample()` on injected reads, never the real machine. And
+// the pause (s2): `pressure()` on a sample and the runner's limits, and `nextPause()`, which pauses on one
+// sample under pressure and resumes on two quiet ones in a row.
 import { describe, expect, it } from 'vitest';
-import { sample } from './health.ts';
-import type { CoreTimes, MachineReads } from './health.ts';
+import { DEFAULT_LIMITS, nextPause, pressure, sample } from './health.ts';
+import type { CoreTimes, MachineReads, PauseState, Sample } from './health.ts';
 
 const GB = 1024 ** 3;
 
@@ -71,5 +73,86 @@ describe('sample()', () => {
     const odd = sample(reads({ loadavg: () => [], cores: () => Number.NaN, totalmem: () => -1, cpus: () => [] }), null);
     expect(odd.sample).toMatchObject({ load1: null, cores: null, memTotal: null, memUsed: null });
     expect(odd.times).toBeNull();
+  });
+});
+
+/** A quiet machine: 8 cores at load 4, 8 of 16 GB used, 39 GB free. */
+const quiet: Sample = { cpu: 50, load1: 4, cores: 8, memUsed: 8 * GB, memTotal: 16 * GB, diskFree: 39 * GB, diskTotal: 233 * GB };
+
+describe('pressure()', () => {
+  it('pauses at 85 % of memory, 10 GB of disk and 1.5 × the cores unless told otherwise', () => {
+    expect(DEFAULT_LIMITS).toEqual({ maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 });
+    expect(pressure(quiet, DEFAULT_LIMITS)).toBeNull();
+  });
+
+  it('names memory used above its limit, 85 % not pausing and 85.1 % pausing', () => {
+    expect(pressure({ ...quiet, memUsed: 0.91 * 16 * GB }, DEFAULT_LIMITS)).toBe('memory 91%');
+    expect(pressure({ ...quiet, memUsed: 0.85 * 16 * GB }, DEFAULT_LIMITS)).toBeNull();
+    expect(pressure({ ...quiet, memUsed: 0.851 * 16 * GB }, DEFAULT_LIMITS)).toBe('memory 85.1%');
+    expect(pressure({ ...quiet, memUsed: 16 * GB }, DEFAULT_LIMITS)).toBe('memory 100%');
+  });
+
+  it('names disk free below its limit, 10 GB not pausing', () => {
+    expect(pressure({ ...quiet, diskFree: 6 * GB }, DEFAULT_LIMITS)).toBe('disk 6 GB free');
+    expect(pressure({ ...quiet, diskFree: 10 * GB }, DEFAULT_LIMITS)).toBeNull();
+    expect(pressure({ ...quiet, diskFree: 9.96 * GB }, DEFAULT_LIMITS)).toBe('disk 9.96 GB free');
+    expect(pressure({ ...quiet, diskFree: 0 }, DEFAULT_LIMITS)).toBe('disk 0 GB free');
+  });
+
+  it('names a 1-minute load above its limit times the cores, 12 on 8 cores not pausing', () => {
+    expect(pressure({ ...quiet, load1: 14.23 }, DEFAULT_LIMITS)).toBe('load 14.2 on 8 cores');
+    expect(pressure({ ...quiet, load1: 12 }, DEFAULT_LIMITS)).toBeNull();
+    expect(pressure({ ...quiet, load1: 12.04 }, DEFAULT_LIMITS)).toBe('load 12.04 on 8 cores');
+    expect(pressure({ ...quiet, load1: 2.5, cores: 1 }, DEFAULT_LIMITS)).toBe('load 2.5 on 1 core');
+  });
+
+  it('answers the first reason that holds, in the order memory, disk, load', () => {
+    const all: Sample = { ...quiet, memUsed: 15 * GB, diskFree: 1 * GB, load1: 30 };
+    expect(pressure(all, DEFAULT_LIMITS)).toBe('memory 94%');
+    expect(pressure({ ...all, memUsed: 1 * GB }, DEFAULT_LIMITS)).toBe('disk 1 GB free');
+    expect(pressure({ ...all, memUsed: 1 * GB, diskFree: 50 * GB }, DEFAULT_LIMITS)).toBe('load 30 on 8 cores');
+  });
+
+  it('pauses at the limits it is given', () => {
+    const limits = { maxMemory: 70, minDiskGb: 20, maxLoad: 1 };
+    expect(pressure({ ...quiet, memUsed: 0.75 * 16 * GB }, limits)).toBe('memory 75%');
+    expect(pressure({ ...quiet, diskFree: 15 * GB }, limits)).toBe('disk 15 GB free');
+    expect(pressure({ ...quiet, load1: 9 }, limits)).toBe('load 9 on 8 cores');
+    expect(pressure({ ...quiet, memUsed: 16 * GB }, { ...limits, maxMemory: 100 })).toBeNull();
+    expect(pressure({ ...quiet, diskFree: 0 }, { ...limits, minDiskGb: 0 })).toBeNull();
+  });
+
+  it('never pauses on a figure it could not read', () => {
+    const blind: Sample = { cpu: null, load1: null, cores: null, memUsed: null, memTotal: null, diskFree: null, diskTotal: null };
+    expect(pressure(blind, { maxMemory: 1, minDiskGb: 1000, maxLoad: 0.01 })).toBeNull();
+    expect(pressure({ ...quiet, memUsed: 16 * GB, memTotal: null }, DEFAULT_LIMITS)).toBeNull();
+    expect(pressure({ ...quiet, memTotal: 0, memUsed: 0 }, DEFAULT_LIMITS)).toBeNull();
+    expect(pressure({ ...quiet, load1: 100, cores: null }, DEFAULT_LIMITS)).toBeNull();
+    expect(pressure({ ...quiet, load1: 100, cores: 0 }, DEFAULT_LIMITS)).toBeNull();
+  });
+});
+
+describe('nextPause()', () => {
+  const running: PauseState = { reason: null, quiet: 0 };
+
+  it('pauses on the first sample under pressure, and says so once', () => {
+    const paused = nextPause(running, 'memory 91%');
+    expect(paused).toEqual({ state: { reason: 'memory 91%', quiet: 0 }, change: 'paused' });
+    expect(nextPause(paused.state, 'memory 92%')).toEqual({ state: { reason: 'memory 92%', quiet: 0 }, change: null });
+    expect(nextPause(running, null)).toEqual({ state: running, change: null });
+  });
+
+  it('stays paused on one quiet sample, and resumes on the second in a row', () => {
+    const paused = nextPause(running, 'disk 6 GB free').state;
+    const once = nextPause(paused, null);
+    expect(once).toEqual({ state: { reason: 'disk 6 GB free', quiet: 1 }, change: null });
+    expect(nextPause(once.state, null)).toEqual({ state: { reason: null, quiet: 0 }, change: 'resumed' });
+  });
+
+  it('counts the quiet samples again after one under pressure', () => {
+    const once = nextPause(nextPause(running, 'memory 91%').state, null).state;
+    const again = nextPause(once, 'load 14.2 on 8 cores');
+    expect(again).toEqual({ state: { reason: 'load 14.2 on 8 cores', quiet: 0 }, change: null });
+    expect(nextPause(again.state, null).change).toBeNull();
   });
 });

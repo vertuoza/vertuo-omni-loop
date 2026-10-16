@@ -8,6 +8,12 @@
 // `health.ts`). A report the app refuses or never answers within 5 s prints one line, and nothing else
 // changes: the runner keeps taking and running jobs.
 //
+// A sample under pressure (memory, disk or load past the runner's limits) pauses the runner: it prints
+// `paused: <reason>` and its free slots open no new `next`. A slot already waiting on `next` keeps its
+// hold and runs the job it gets, and a running job is never touched. Two quiet samples in a row resume
+// it: it prints `resumed` and the free slots open their `next` again. Each report carries the reason
+// (`paused`, `null` when running) and the limits. The pause is decided here, whatever the app answers.
+//
 // A sweep (`sweep.ts`) runs once the runner has registered, then every hour while it runs: it removes
 // the worktrees, unpushed branches and old logs (`--keep-logs` days) of jobs no slot holds.
 //
@@ -24,9 +30,9 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
-import type { JobUpdate, RunnerApi, RunnerJob } from './api.ts';
-import { machineReads, sample } from './health.ts';
-import type { CpuTimes, MachineReads } from './health.ts';
+import type { HealthLimits, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
+import { DEFAULT_LIMITS, machineReads, nextPause, pressure, sample } from './health.ts';
+import type { CpuTimes, MachineReads, PauseState } from './health.ts';
 import { checkLine } from './line.ts';
 import { lastPullRequest, linesAfter, logTail, reportBatch } from './log.ts';
 import { dropJobBranch, pruneWorktrees, sweep, sweptLine } from './sweep.ts';
@@ -88,6 +94,8 @@ export type RunnerOptions = {
   keepLogsDays?: number | undefined;
   /** The machine's reads the health samples are taken from: the real machine unless given. */
   machine?: MachineReads | undefined;
+  /** The limits the runner pauses at: `DEFAULT_LIMITS` unless given. */
+  limits?: HealthLimits | undefined;
 };
 
 /** One runner's state while it runs: its options with their defaults, and whether it was refused. */
@@ -104,6 +112,11 @@ type Loop = RunnerOptions & {
   running: number;
   /** The ids of the jobs a slot holds: the sweep leaves everything of theirs alone. */
   jobs: Set<string>;
+  limits: HealthLimits;
+  /** Whether the machine is under pressure, and why: free slots open no `next` while it is. */
+  pause: PauseState;
+  /** The free slots waiting for the pause to end, woken on resume or once the runner halts. */
+  waiting: Set<() => void>;
 };
 
 /** A job's live lines: its log, and how many of its lines the app has accepted. */
@@ -146,7 +159,26 @@ function loopOf(options: RunnerOptions): Loop {
     refused: () => refused,
     running: 0,
     jobs: new Set(),
+    limits: options.limits ?? DEFAULT_LIMITS,
+    pause: { reason: null, quiet: 0 },
+    waiting: new Set(),
   };
+}
+
+/** Wakes every free slot waiting for the pause to end. */
+function wake(loop: Loop): void {
+  for (const resume of loop.waiting) resume();
+  loop.waiting.clear();
+}
+
+/** Waits while the runner is paused: whether a free slot may open its `next`, `false` once the runner halts. */
+async function unpaused(loop: Loop): Promise<boolean> {
+  if (loop.pause.reason !== null && !loop.halt.aborted) {
+    await new Promise<void>((resolve) => {
+      loop.waiting.add(resolve);
+    });
+  }
+  return !loop.halt.aborted;
 }
 
 /** Waits before the next try, after the app did not answer: answers the wait after this one. */
@@ -380,6 +412,7 @@ async function nextJob(loop: Loop, runner: string, wait: { ms: number }): Promis
 async function slot(loop: Loop, runner: string): Promise<void> {
   const wait = { ms: loop.firstMs };
   while (!loop.halt.aborted) {
+    if (!(await unpaused(loop))) return;
     const job = await nextJob(loop, runner, wait);
     if (job === 'stop') return;
     if (job === null) continue;
@@ -397,19 +430,37 @@ async function slot(loop: Loop, runner: string): Promise<void> {
   }
 }
 
+/** Pauses or resumes the runner on `reason`, printing the change once and waking the free slots on resume. */
+function decide(loop: Loop, reason: string | null): void {
+  const { state, change } = nextPause(loop.pause, reason);
+  loop.pause = state;
+  if (change === 'paused') loop.print(`paused: ${String(state.reason)}`);
+  if (change === 'resumed') {
+    loop.print('resumed');
+    wake(loop);
+  }
+}
+
 /**
- * Samples the machine and sends its health, now and then every 15 s, until the runner stops or is
- * refused. A report the app refuses or does not answer prints one line; the runner carries on.
+ * Samples the machine, pauses or resumes on it, and sends its health, now and then every 15 s, until
+ * the runner stops or is refused. A report the app refuses or does not answer prints one line; the
+ * runner carries on. The first sample is decided before the first `await`, and so before any slot
+ * opens its `next`: a machine already under pressure takes no job.
  */
 async function reporter(loop: Loop, runner: string): Promise<void> {
   const reads = loop.machine ?? machineReads(loop.home);
   let times: CpuTimes | null = null;
+  const halted = (): void => {
+    wake(loop);
+  };
+  loop.halt.addEventListener('abort', halted, { once: true });
   while (!loop.halt.aborted) {
     const started = loop.now();
     const taken = sample(reads, times);
     times = taken.times;
+    decide(loop, pressure(taken.sample, loop.limits));
     try {
-      await loop.api.health(runner, taken.sample);
+      await loop.api.health(runner, { ...taken.sample, paused: loop.pause.reason, limits: loop.limits });
     } catch (error) {
       loop.print(`health not sent: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -438,6 +489,7 @@ export async function runRunner(options: RunnerOptions): Promise<number> {
       if (loop.running > 0) loop.print(`stopping: waiting for ${String(loop.running)} running job${loop.running === 1 ? '' : 's'}`);
     };
     options.stop.addEventListener('abort', onStop, { once: true });
+    // The reporter starts before the slots, so its first sample pauses the runner before any `next`.
     await Promise.all([sweeper(loop), reporter(loop, runner), ...Array.from({ length: loop.slots }, () => slot(loop, runner))]).finally(() => {
       options.stop.removeEventListener('abort', onStop);
     });
