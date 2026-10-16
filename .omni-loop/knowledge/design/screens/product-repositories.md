@@ -12,34 +12,36 @@ supersedes: null
 ## Purpose
 
 A product's Repositories & approvers tab: its repositories, the rollout ladder step each one is at,
-and the archive of the plan repository once nothing is left in it (PRD 2011).
+and what still lives in its plan repository, as information only. The plan repository is never
+archived by the loop, and the old way keeps working beside the product way (PRD 2011).
 
 ## Regions
 
 - The ladder: one line per repository, five steps, the reached ones filled.
-- What still holds the plan repository, one line each (`Held by vertuo-web · step 3`).
-- The one primary action: Archive the plan repository, refused while anything holds it; Undo once
-  archived.
+- Still in the plan repository: one line each for a repository below step 5 (`vertuo-web · step 3`)
+  and for an open record born in git (`roadmap 0412 · in git`).
+- The one primary action: Add a repository, as PRD 1364 drew it.
 - Below, the repositories and approvers as PRD 1364 drew them.
 
 ## States
 
-- Nothing holds it: Archive is offered.
-- Archived: the plan repository reads read-only, with Undo.
+- Nothing left in the plan repository: the list says so.
+- No plan repository named for the product: the list is not shown.
 
 ## Words
 
-`Held by`, `step <n>`, `in git`, `Archive <repository>`, `Undo`.
+`Still in the plan repository`, `step <n>`, `in git`.
 
 ## Refusals
 
-- Only a person presses Archive; no agent does, and it never merges (N-PRODUCT-15).
-- The App's key stays on the server (N-PRODUCT-17).
+- No archive action: the loop never archives or deletes a plan repository, and the App holds no
+  administration permission.
 
 ## Open questions
 
-- Who may archive: a workspace owner only, or every approver of the product.
+- The words of the list when nothing is left in the plan repository.
 
 ## Source
 
-/omni:brainstorm, PRD 2011: .omni-loop/delivery/inbox/2011-product-records/before-after.html
+/omni:brainstorm, PRD 2011: .omni-loop/delivery/inbox/2011-product-records/before-after.html (reworked
+2026-10-16: no archive, the plan repository is kept)
