@@ -5042,6 +5042,7 @@ export type Database = {
           status: string
           to_fleet: string | null
           to_runner: string | null
+          tokens: Json | null
           workspace_id: string
         }[]
         SetofOptions: {
