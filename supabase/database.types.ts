@@ -158,6 +158,7 @@ export type Database = {
           last_used_at: string | null
           made_by: string
           name: string
+          repos: string[]
           revoked_at: string | null
           revoked_by: string | null
           scope: string
@@ -175,6 +176,7 @@ export type Database = {
           last_used_at?: string | null
           made_by: string
           name: string
+          repos?: string[]
           revoked_at?: string | null
           revoked_by?: string | null
           scope?: string
@@ -192,6 +194,7 @@ export type Database = {
           last_used_at?: string | null
           made_by?: string
           name?: string
+          repos?: string[]
           revoked_at?: string | null
           revoked_by?: string | null
           scope?: string
@@ -2881,6 +2884,7 @@ export type Database = {
           runner_id: string | null
           running_at: string | null
           sent_by: string
+          sent_by_key: string | null
           status: string
           to_fleet: string | null
           to_runner: string | null
@@ -2901,6 +2905,7 @@ export type Database = {
           runner_id?: string | null
           running_at?: string | null
           sent_by: string
+          sent_by_key?: string | null
           status?: string
           to_fleet?: string | null
           to_runner?: string | null
@@ -2921,6 +2926,7 @@ export type Database = {
           runner_id?: string | null
           running_at?: string | null
           sent_by?: string
+          sent_by_key?: string | null
           status?: string
           to_fleet?: string | null
           to_runner?: string | null
@@ -2932,6 +2938,13 @@ export type Database = {
             columns: ["runner_id"]
             isOneToOne: false
             referencedRelation: "runners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_jobs_sent_by_key_fkey"
+            columns: ["sent_by_key"]
+            isOneToOne: false
+            referencedRelation: "agent_tokens"
             referencedColumns: ["id"]
           },
           {
@@ -3378,6 +3391,7 @@ export type Database = {
           last_used_at: string | null
           made_by: string
           name: string
+          repos: string[]
           revoked_at: string | null
           revoked_by: string | null
           scope: string
@@ -3407,6 +3421,26 @@ export type Database = {
           user_id: string
         }[]
       }
+      api_key_listed: {
+        Args: { t: Database["public"]["Tables"]["agent_tokens"]["Row"] }
+        Returns: Json
+      }
+      api_key_make: {
+        Args: {
+          p_hash: string
+          p_last_four: string
+          p_name: string
+          p_repos: string[]
+          p_workspace: string
+        }
+        Returns: string
+      }
+      api_key_of: { Args: { p_hash: string }; Returns: Json }
+      api_key_revoke: {
+        Args: { p_key: string; p_workspace: string }
+        Returns: Json
+      }
+      api_keys_list: { Args: { p_workspace: string }; Returns: Json }
       approval_people: { Args: { p_dossier: string }; Returns: Json }
       approval_recipients: { Args: { p_request: string }; Returns: Json }
       approval_request: {
@@ -4760,6 +4794,7 @@ export type Database = {
           runner_id: string | null
           running_at: string | null
           sent_by: string
+          sent_by_key: string | null
           status: string
           to_fleet: string | null
           to_runner: string | null
