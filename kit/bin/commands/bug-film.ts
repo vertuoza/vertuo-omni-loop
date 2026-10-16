@@ -11,6 +11,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { copiedNames, filmArgs, filmGif, filmKind, runJson } from '../../lib/bug/film.ts';
+import type { IssueNumber } from '../../lib/ids.ts';
 import { errorMessage, inRoot, issueArg, parseArgs, println, repoSlug, usageError } from '../args.ts';
 import type { CommandIo, Exec } from '../io.ts';
 
@@ -65,7 +66,7 @@ function writing(path: string, write: () => void): void {
 }
 
 /** What `omni bug film` was asked for: the issue, the repository, the two inputs, what they are, and their text when they are text. */
-type Ask = { issue: number; slug: string; before: string; after: string; kind: 'text' | 'clips'; red: string; green: string; out: string | undefined };
+type Ask = { issue: IssueNumber; slug: string; before: string; after: string; kind: 'text' | 'clips'; red: string; green: string; out: string | undefined };
 
 /** The request in `args`, or a usage error. */
 function askOf(args: string[], { ctx }: CommandIo): Ask {
