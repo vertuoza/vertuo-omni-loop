@@ -12,7 +12,7 @@ supersedes: null
 
 The page to share for one PRD: its stage on top, then a tab per artifact (the before/after page, the
 spec, the plan, the User voice) and the tabs where people act on it (Questions, Outbox, PR care,
-Proof, Pitch, Retro). Rendered per request as the signed-in person, so row-level security decides
+Proof, Launch, Retro). Rendered per request as the signed-in person, so row-level security decides
 what each read returns (`apps/galaxy/src/dossier/page/DossierRoute.tsx`). It sits inside the app
 shell (`apps/galaxy/app/prd/layout.tsx`), a shared screen of its own, `app-shell`, with the bell its
 own `notifications`: their files are in `reads` here. The PRD's own text the page shows (its title,
@@ -33,7 +33,7 @@ its spec, its plan) is content, marked `data-content` in the mockup.
 - **The pane** of the tab shown (`?tab=`, its version by `?v=`): the before/after page framed on its
   sandboxed route; the spec and the plan rendered from Markdown with raw HTML off; Questions with the
   rounds that shaped it and an `N to answer` badge; Outbox (`OutboxPane.tsx`), PR care
-  (`CarePane.tsx`), Proof, Pitch, Retro; each artifact tab with a version picker.
+  (`CarePane.tsx`), Proof, Launch (its own screen, `launch`), Retro; each artifact tab with a version picker.
 - **The play dock** in the page's corner when the agent works on the dossier, saying "▶ Play while the agent works" (`LiveRefresh`).
 
 ## States
@@ -53,7 +53,7 @@ its spec, its plan) is content, marked `data-content` in the mockup.
 
 ## Words
 
-Tabs, in order: Questions, Before/after, Spec, Plan, User voice, Outbox, PR care, Proof, Pitch,
+Tabs, in order: Questions, Before/after, Spec, Plan, User voice, Outbox, PR care, Proof, Launch,
 Retro (`dossier/page/view.ts`). Actions: Copy link, Delete draft, Approve, Send to terminal (its picker: Any runner, each fleet,
 each runner, Send; then `Queued for <target>` and View job). Facts: Stage, Approval,
 Repo, Repos, On GitHub, Opened.
@@ -89,3 +89,4 @@ Repo, Repos, On GitHub, Opened.
 - /omni:invade 2026-10-10 (written by hand from its screen-library step, PRD 1407 s9)
 - /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html (Send to terminal)
 - /omni:brainstorm, PRD 1915: .omni-loop/delivery/shipped/1915-agent-words-website/before-after.html
+- /omni:think-big, concept #2024, crowned L on 2026-10-15: .omni-loop/delivery/inbox/concepts/2024-launch/vision.html (Launch replaces Pitch)

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kart race mockup</title>
+<style>
+  /* Tokens copied from packages/design/tokens.css; FROST EIGHT's scenery colours from PRD 1923's before/after page; the sparks new with PRD 1963. */
+  :root {
+    --void: #07061c; --deep: #0e0d33; --navy: #2f3fc4; --navy-dark: #1a2170; --white: #f2f4ff;
+    --plasma: #a45cff; --yellow: #ffd84a; --red: #ff3b5c; --cyan: #6ff0ff; --dim: #8a90d6; --magenta: #ff2bd6;
+    --font-pixel: "Press Start 2P", "Courier New", monospace;
+    --sky1: #6fa8dc; --sky2: #94c1e8; --sky3: #c4def3; --sky4: #e9f4fc; --peak: #8ea6c4; --peakSnow: #ffffff;
+    --powder: #eef4fa; --ice: #a6dcf2; --iceLine: #7fc3e2; --asphalt: #7c8197; --bank: #ffffff; --pine: #2e6a4e;
+    --orangeSpark: #ffa23a; --scratch: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #000; color: var(--white); font-family: var(--font-pixel); }
+  .mock-note { max-width: 1280px; margin: 0 auto; padding: 16px; font: 13px/1.5 system-ui, sans-serif; color: var(--dim); }
+  .mock-note b { color: var(--white); }
+
+  /* The wide grid, 640×360, drawn at 2× (whole-number scales only). */
+  .stage { width: 1280px; max-width: 100%; margin: 0 auto; overflow-x: auto; }
+  .screen { position: relative; width: 640px; height: 360px; transform: scale(2); transform-origin: 0 0; margin-bottom: 360px; background: var(--void); overflow: hidden; }
+  .screen > svg { position: absolute; inset: 0; width: 640px; height: 360px; display: block; }
+
+  /* scenes/common.css and scenes/kart.css, as written. */
+  .hint { font-size: 8px; color: var(--dim); letter-spacing: 1px; }
+  .j-key { color: var(--yellow); }
+  .kt-beat { position: absolute; left: 50%; top: 36%; transform: translate(-50%, -50%); margin: 0; font-size: 40px; letter-spacing: 2px; color: var(--yellow); text-shadow: 3px 3px 0 var(--red), 6px 6px 0 #0b0a26; }
+  .kt-go { font-size: 56px; }
+  .kt-keys { position: absolute; left: 50%; top: 56%; transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; }
+  .kt-foot { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); margin: 0; white-space: nowrap; font-size: 8px; }
+  .kt-run { position: absolute; top: 8px; left: 8px; right: 8px; margin: 0; display: flex; gap: 6px; align-items: stretch; font-size: 10px; letter-spacing: 1px; color: var(--white); text-shadow: 1px 1px 0 #0b0a26; }
+  .kt-panelbox { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; white-space: nowrap; background: rgba(11, 10, 38, 0.72); border: 2px solid var(--cyan); box-shadow: 2px 2px 0 #0b0a26, inset 0 0 0 1px #0b0a26; }
+  .kt-place { color: var(--yellow); border-color: var(--yellow); }
+  .kt-item { margin-left: auto; min-width: 26px; min-height: 16px; color: var(--cyan); border-color: var(--magenta, var(--cyan)); }
+  .kt-empty { opacity: 0.6; }
+  .kt-item-key { font-size: 7px; opacity: 0.8; margin-right: 3px; }
+  /* New with PRD 1963: TURBO under GO on a rocket start. */
+  .kt-turbo { position: absolute; left: 50%; top: 52%; transform: translateX(-50%); margin: 0; font-size: 12px; letter-spacing: 2px; color: var(--cyan); text-shadow: 2px 2px 0 var(--navy-dark), 4px 4px 0 #0b0a26; }
+</style>
+</head>
+<body>
+<p class="mock-note"><b>OMNI KART's race on FROST EIGHT, on the wide grid, in three moments: the 2 with the six keys named, GO on a rocket start, and a drift on the lake with an orange charge.</b> Drawn from PRD 1963's approved design, not from a screenshot: the drift is not built yet. The place and the time are examples.</p>
+
+<div class="stage">
+  <div class="screen" data-screen="kart-race">
+    <svg viewBox="0 0 640 360" aria-hidden="true">
+      <rect width="640" height="40" fill="var(--sky1)"/><rect y="40" width="640" height="36" fill="var(--sky2)"/><rect y="76" width="640" height="38" fill="var(--sky3)"/><rect y="114" width="640" height="36" fill="var(--sky4)"/>
+      <polygon points="0,150 80,104 150,150 230,96 330,150 420,108 520,150 600,112 640,140 640,150" fill="var(--peak)"/>
+      <polygon points="80,104 96,113 64,113" fill="var(--peakSnow)"/><polygon points="230,96 248,106 212,106" fill="var(--peakSnow)"/><polygon points="420,108 436,117 404,117" fill="var(--peakSnow)"/>
+      <rect y="150" width="640" height="210" fill="var(--powder)"/>
+      <polygon points="290,150 350,150 610,360 30,360" fill="var(--asphalt)"/>
+      <polygon points="290,150 294,150 42,360 30,360" fill="var(--bank)"/><polygon points="346,150 350,150 610,360 598,360" fill="var(--bank)"/>
+      <g fill="var(--pine)"><polygon points="70,190 82,220 58,220"/><polygon points="560,186 574,220 546,220"/></g>
+      <rect x="282" y="300" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="286" width="32" height="18" fill="#ff9b30"/><rect x="286" y="334" width="14" height="8" fill="#111"/><rect x="340" y="334" width="14" height="8" fill="#111"/>
+    </svg>
+    <p class="kt-beat">2</p>
+    <p class="kt-keys">▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE HOP SHIFT ITEM</p>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="screen" data-screen="kart-race">
+    <svg viewBox="0 0 640 360" aria-hidden="true">
+      <rect width="640" height="40" fill="var(--sky1)"/><rect y="40" width="640" height="36" fill="var(--sky2)"/><rect y="76" width="640" height="38" fill="var(--sky3)"/><rect y="114" width="640" height="36" fill="var(--sky4)"/>
+      <polygon points="0,150 80,104 150,150 230,96 330,150 420,108 520,150 600,112 640,140 640,150" fill="var(--peak)"/>
+      <rect y="150" width="640" height="210" fill="var(--powder)"/>
+      <polygon points="290,150 350,150 610,360 30,360" fill="var(--asphalt)"/>
+      <polygon points="290,150 294,150 42,360 30,360" fill="var(--bank)"/><polygon points="346,150 350,150 610,360 598,360" fill="var(--bank)"/>
+      <g fill="var(--yellow)" opacity=".85"><rect x="296" y="342" width="4" height="14"/><rect x="312" y="344" width="4" height="12"/><rect x="324" y="344" width="4" height="12"/><rect x="340" y="342" width="4" height="14"/></g>
+      <g fill="var(--white)" opacity=".8"><rect x="270" y="330" width="10" height="6"/><rect x="360" y="332" width="10" height="6"/><rect x="262" y="320" width="6" height="4"/><rect x="372" y="322" width="6" height="4"/></g>
+      <rect x="282" y="296" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="282" width="32" height="18" fill="#ff9b30"/><rect x="286" y="330" width="14" height="8" fill="#111"/><rect x="340" y="330" width="14" height="8" fill="#111"/>
+    </svg>
+    <div class="kt-run"><span class="kt-panelbox kt-place">1ST</span><span class="kt-panelbox">LAP 1/3</span><span class="kt-panelbox">0:00.0</span><span class="kt-panelbox kt-item kt-empty"><span class="kt-item-key">SHIFT</span></span></div>
+    <p class="kt-beat kt-go">GO</p>
+    <p class="kt-turbo">TURBO</p>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="screen" data-screen="kart-race">
+    <svg viewBox="0 0 640 360" aria-hidden="true">
+      <rect width="640" height="40" fill="var(--sky1)"/><rect y="40" width="640" height="36" fill="var(--sky2)"/><rect y="76" width="640" height="38" fill="var(--sky3)"/><rect y="114" width="640" height="36" fill="var(--sky4)"/>
+      <polygon points="0,150 80,104 150,150 230,96 330,150 420,108 520,150 600,112 640,140 640,150" fill="var(--peak)"/>
+      <rect y="150" width="640" height="210" fill="var(--powder)"/>
+      <ellipse cx="320" cy="300" rx="420" ry="150" fill="var(--ice)"/>
+      <g stroke="var(--iceLine)" stroke-width="2" opacity=".6"><line x1="120" y1="240" x2="190" y2="236"/><line x1="430" y1="230" x2="520" y2="236"/><line x1="200" y1="320" x2="260" y2="316"/></g>
+      <polygon points="270,150 330,150 560,360 10,360" fill="var(--asphalt)" opacity=".35"/>
+      <g fill="none" stroke="var(--scratch)" stroke-width="3" stroke-linecap="square" opacity=".9"><path d="M300 352 C 330 300, 380 250, 470 210"/><path d="M352 356 C 390 304, 440 262, 520 226"/></g>
+      <g transform="rotate(-24 320 320)"><rect x="282" y="300" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="286" width="32" height="18" fill="#ff9b30"/><rect x="286" y="334" width="14" height="8" fill="#111"/><rect x="340" y="334" width="14" height="8" fill="#111"/>
+        <g fill="var(--orangeSpark)"><rect x="280" y="342" width="4" height="4"/><rect x="274" y="348" width="3" height="3"/><rect x="290" y="346" width="3" height="3"/><rect x="352" y="342" width="4" height="4"/><rect x="360" y="348" width="3" height="3"/><rect x="346" y="350" width="3" height="3"/></g>
+        <g fill="var(--yellow)"><rect x="284" y="352" width="2" height="2"/><rect x="356" y="354" width="2" height="2"/></g>
+      </g>
+    </svg>
+    <div class="kt-run"><span class="kt-panelbox kt-place">3RD</span><span class="kt-panelbox">LAP 2/3</span><span class="kt-panelbox">0:51.7</span><span class="kt-panelbox kt-item kt-empty"><span class="kt-item-key">SHIFT</span></span></div>
+    <p class="hint kt-foot"><span class="j-key">ENTER</span> PAUSE</p>
+  </div>
+</div>
+
+<p class="mock-note">Not drawn: the 3 and the 1, a stall's smoke, blue sparks, snow on powder, wind lines in a slipstream, reduced motion (a still glow for the sparks), the Game Boy's pad (no keys line), and the tall grid (320×288). No primary mark: the race has no control on screen, only the keys the player holds.</p>
+</body>
+</html>
