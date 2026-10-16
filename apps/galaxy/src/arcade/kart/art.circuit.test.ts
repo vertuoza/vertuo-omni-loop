@@ -22,6 +22,13 @@ describe('the circuit cards', () => {
     expect(comet?.runs.some((r) => [SNOW.lake, SNOW.lakeRoad].some((c) => c === r.colour))).toBe(false);
   });
 
+  it('draws FROST EIGHT\'s two frozen patches on bends 4 and 8 in ice, as the lake', () => {
+    const [, frost] = circuitCards();
+    for (const [x, y] of [[16, 8], [16, 64]] as const) {
+      expect(frost?.runs.some((r) => r.y === y && r.x <= x && x < r.x + r.w && [SNOW.lake, SNOW.lakeRoad].some((c) => c === r.colour))).toBe(true);
+    }
+  });
+
   it('keeps every run inside the circuit and the start line white', () => {
     for (const card of circuitCards()) {
       expect(card.runs.length).toBeGreaterThan(0);
