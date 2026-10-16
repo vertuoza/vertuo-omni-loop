@@ -1,4 +1,4 @@
-// The eleven Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
+// The twelve Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
 // installation tokens signed with the GitHub App's key, and to the groups of the app's environment it
 // needs (./env.ts): the outbox check (PRD 28), the inbox check (PRD 675) with its canon gate (PRD 839),
 // the approved check (PRD 1548), reading a product PRD's record as the service role and, for a ◆ PRD of a repository,
@@ -7,8 +7,10 @@
 // the retro with its day-14 run (PRD 72), the knowledge harvest (PRD 82) with its law judge (PRD 1342),
 // the pr-stats collector (PRD 612), the canon buttons (PRD 839), the server event (PRD 1548), which re-checks
 // a product PRD's open target pull requests, read from the database, once galaxy says it was approved or voided,
-// and the fix row stamp (PRD 2011), which stamps a bug record's Fixes rows as the service role when their pull
-// request merges, closes or reopens, and is handed no GitHub. Every installation call spends the
+// the fix row stamp (PRD 2011), which stamps a bug record's Fixes rows as the service role when their pull
+// request merges, closes or reopens, and is handed no GitHub, and the knowledge pack (PRD 2011), which keeps a
+// repository's knowledge folder and flow config as a pack, as the service role, when a merge touches them, at
+// background priority. Every installation call spends the
 // installation's budget through the shared client (PRD 902), on the store galaxy writes too; the retro also looks up its
 // installation on each target of a multi-repository PRD as the App itself (PRD 1130). A test hands `octokitFor` a
 // stubbed GitHub.
@@ -32,6 +34,8 @@ import { createCanonAction } from './inbox-check/canon-action.ts';
 import { createInboxCheck } from './inbox-check/inbox-check.ts';
 import { inngest as appInngest } from './inngest-client.ts';
 import { createKnowledgeHarvest } from './knowledge-harvest/knowledge-harvest.ts';
+import { createKnowledgePack } from './knowledge-pack/knowledge-pack.ts';
+import { knowledgePackStore } from './knowledge-pack/store.ts';
 import { lawJudge, lawJudgeUrl } from './knowledge-harvest/law-judge.ts';
 import { appOctokitFor, githubStoreOf, installationOctokitFor } from './octokit-for.ts';
 import { createOutboxCheck } from './outbox-check/outbox-check.ts';
@@ -77,5 +81,6 @@ export function appFunctions(
     canonAction: createCanonAction({ client: inngest, octokitFor, galaxyUrl: env.galaxyUrl }),
     serverEvent: createServerEventRecheck({ client: inngest, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null }),
     fixRowStamp: createFixRowStamp({ client: inngest, stamp: env.supabase ? fixRowStamper(env.supabase) : null }),
+    knowledgePack: createKnowledgePack({ client: inngest, octokitFor, store: env.supabase ? knowledgePackStore(env.supabase) : null }),
   };
 }
