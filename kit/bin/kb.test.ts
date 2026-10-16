@@ -1239,7 +1239,7 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
 
     it('omni check knowledge counts the contract and exits 0, then exits 1 naming the contract and the path once its file is gone', async () => {
       const { root } = withContract();
-      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0, out: expect.stringContaining('5 path(s)') as unknown });
+      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0, out: expect.stringContaining('6 path(s)') as unknown });
       const passed = await omni(root, ['check', 'knowledge']);
       expect(passed.code).toBe(0);
       expect(passed.out).toContain('check knowledge — 1 principle(s), 4 rule(s), 0 invariant(s), 1 contract(s) across 0 domain(s)');
