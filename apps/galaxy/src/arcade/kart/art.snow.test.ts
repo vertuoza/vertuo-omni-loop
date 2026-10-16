@@ -162,10 +162,16 @@ describe('the minimap', () => {
   it('draws the lake in light blue, a disc of 12 tiles across on the crossing', () => {
     const lake = lakeTiles(track);
     expect(lake.length).toBeGreaterThan(100);
-    for (const t of lake) { expect(Math.hypot(t.x - 36, t.y - 36)).toBeLessThanOrEqual(6.8); expect([SNOW.lake, SNOW.lakeRoad]).toContain(t.colour); }
+    const discs = [[36, 36, 6.8], [16, 8, 3.8], [16, 64, 3.8]] as const;
+    for (const t of lake) { expect(discs.some(([cx, cy, r]) => Math.hypot(t.x - cx, t.y - cy) <= r)).toBe(true); expect([SNOW.lake, SNOW.lakeRoad]).toContain(t.colour); }
     const lit = tiles.filter((t) => t.colour === SNOW.lake || t.colour === SNOW.lakeRoad);
     expect(lit).toHaveLength(lake.length);
     expect(tiles.some((t) => t.x === 36 && t.y === 36 && t.colour === SNOW.lakeRoad)).toBe(true);
+  });
+
+  it('draws the two frozen patches on bend 4 and bend 8 in light blue as well', () => {
+    for (const [x, y] of [[16, 8], [16, 64]] as const) expect(lakeTiles(track).some((t) => t.x === x && t.y === y)).toBe(true);
+    expect(lakeTiles(track).filter((t) => Math.hypot(t.x - 36, t.y - 36) > 6.8)).not.toHaveLength(0);
   });
 
   it('draws each tile once, and the road outside the lake as before', () => {

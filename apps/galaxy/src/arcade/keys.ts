@@ -41,8 +41,8 @@ const LABELS: Record<string, string> = { ArrowUp: '▲', ArrowDown: '▼', Arrow
 /** How a key reads on screen: the arrows as ▲ ▼ ◀ ▶, the space bar as SPACE, a letter in capitals, any other key by its name in capitals. */
 export const keyLabel = (key: string): string => LABELS[key] ?? key.toUpperCase();
 
-/** The player's five race keys, one per action (OMNI KART's options). */
-export interface DriveKeys { gas: string; brake: string; left: string; right: string; item: string }
+/** The player's six race keys, one per action (OMNI KART's options). */
+export interface DriveKeys { gas: string; brake: string; left: string; right: string; item: string; hop: string }
 
-/** The line the countdown shows: `▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE ITEM`, with the player's own keys. */
-export const driveLine = (k: DriveKeys): string => `${keyLabel(k.gas)} GAS ${keyLabel(k.left)} ${keyLabel(k.right)} STEER ${keyLabel(k.brake)} BRAKE ${keyLabel(k.item)} ITEM`;
+/** The line the countdown shows: `▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE HOP SHIFT ITEM`, with the player's own keys. */
+export const driveLine = (k: DriveKeys): string => `${keyLabel(k.gas)} GAS ${keyLabel(k.left)} ${keyLabel(k.right)} STEER ${keyLabel(k.brake)} BRAKE ${keyLabel(k.hop)} HOP ${keyLabel(k.item)} ITEM`;

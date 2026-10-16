@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-15",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A measured rise beats a guessed 8th second, but a new verb and a new file in the run folder are more ways for a render to drift from what was checked.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Syncing a soundtrack to a drop is polish on a tool I already find a gimmick; one more question per pitch is in my way.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The music hitting the reveal is what makes a launch video feel finished, and I get to pick the track.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Scene ids stop the silent shift when a scene is inserted, and the old index still reads: existing pitches keep working.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Listening to three links and answering with a number is quick, and nothing changes for a product with no music.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "Syncing a soundtrack to a drop is polish on a tool I already find a gimmick; if it adds a download and a question to every pitch, it is more fluff in my way.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ~ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-15",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "One shared timeline for the check and the render, and a check that says when music.json is stale: the drift I feared is caught.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The energy measure is a pure function tested on generated samples and nothing changes under the default settings: small enough to live with.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Every criterion is something I hear or see in the run: the list, the pick, the rise on the reveal.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The clash with PRD 2030 is named, the scope is one plan, and a revert rolls it back.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One question, links I can open on my phone, and a pitch whose music finally lands where customers look.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
+    }
+  ]
+}

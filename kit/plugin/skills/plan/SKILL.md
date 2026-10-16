@@ -78,7 +78,14 @@ The input is a PRD number. It is also the PRD's issue number, which `{prd}` in a
    Keep its `contracts:` line: `contracts: declare <kinds>` means this repository asks every slice
    to declare its contract (step 4), `contracts: none` that it asks nothing. In a plan repository,
    run `node .omni-loop/bin/omni.mjs flow show --repo <name>` too, for each target a slice may land
-   in, and keep each target's line.
+   in, and keep each target's line. A target with no copied flow (`has no copied flow`, `stale` in
+   `omni targets`, `own` targets included) makes that command fail: its contracts are then
+   **unknown**, never `contracts: none`. Read the `contracts` key of the target's committed
+   `.omni-loop/config.yml` instead — from its clone when the design made one, else
+   `gh api repos/<owner>/<name>/contents/.omni-loop/config.yml -H 'Accept: application/vnd.github.raw'`
+   — and keep that as the target's line (`declare: true` with its `kinds`, the kit's default kinds
+   when it names none). Only a config with no `contracts.declare: true` is `contracts: none`. Say in
+   the plan's shared-ground note that the copy is missing and `/omni:mega-invade --sync` repairs it.
 
 **Stop with `needs clarification`** when the spec's acceptance criteria are missing, ambiguous, or
 contradict the spec itself or an ADR it cites. The criteria are the spec's acceptance section, or,

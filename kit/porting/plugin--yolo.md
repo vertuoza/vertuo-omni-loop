@@ -281,3 +281,10 @@ wave (issue 1179)`; `kit/bin/board.test.ts` gained `a feature branch behind the 
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.ts kit/bin/board.test.ts` and `pnpm test`, green.
+
+## PRD 1990, slice s7 — the sync status at step 0
+
+Step 0 gains one sentence after the briefing: a sync status other than 🟢 in the output's `sync`
+block is said to the person in one line, with its fix, and the run carries on. The sentence names
+no new `omni` command or guard, so `kit/test/skill-steps.snapshot.json` is unchanged. The same
+sentence is in `/omni:brainstorm`'s step 0, `/omni:mega-brainstorm`'s step 3 and `/omni:ultra-yolo`'s step 3.

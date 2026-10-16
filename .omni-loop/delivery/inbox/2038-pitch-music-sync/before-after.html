@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 2038 before and after</title>
+<style>
+/* Layout: one column of three comparisons, each "today" beside "after", stacking on phones. */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --ink: #18202b; --muted: #5b6676; --line: #d9dee6;
+  --today: #b4542f; --after: #1f7a5a; --track: #4865b8; --track-fill: rgba(72,101,184,.16);
+  --code: #eef1f5;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11151b; --panel: #181e26; --ink: #e6eaf0; --muted: #9aa5b4; --line: #2c3540;
+  --today: #e88a63; --after: #5cc79d; --track: #8aa3ee; --track-fill: rgba(138,163,238,.18);
+  --code: #222a34; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11151b; --panel: #181e26; --ink: #e6eaf0; --muted: #9aa5b4; --line: #2c3540;
+  --today: #e88a63; --after: #5cc79d; --track: #8aa3ee; --track-fill: rgba(138,163,238,.18);
+  --code: #222a34; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+main { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 40px; }
+header { display: grid; gap: 8px; max-width: 70ch; }
+.kicker { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: 28px; line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 19px; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.lede { color: var(--muted); }
+section { display: grid; gap: 14px; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 16px; }
+.side { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.tag { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.today .tag { color: var(--today); }
+.after .tag { color: var(--after); }
+.note { color: var(--muted); font-size: 14px; }
+svg { width: 100%; height: auto; display: block; }
+.svgtext { font: 11px var(--mono); fill: var(--muted); }
+.scenetext { font: 600 11px var(--sans); fill: var(--ink); }
+pre { margin: 0; background: var(--code); border-radius: 8px; padding: 12px; font: 12.5px/1.55 var(--mono); overflow-x: auto; white-space: pre; }
+.err { color: var(--today); }
+.ok { color: var(--after); }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.same { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <span class="kicker">PRD 2038 · /omni:pitch</span>
+  <h1>Pitch music that lands on a measured rise</h1>
+  <p class="lede">The same 30-second storyboard, its sync point 2 s into the before/after scene. Today the track's 8th second is assumed to be its key moment. After, the track is measured and its rise lands on the reveal.</p>
+</header>
+
+<section>
+  <h2>Where the music lands</h2>
+  <div class="pair">
+    <div class="side today">
+      <span class="tag">Today</span>
+      <svg viewBox="0 0 600 200" role="img" aria-label="Today: the track 8th second on the sync point, its rise 6 s later">
+<text class="svgtext" x="0" y="29">video</text><rect x="40.0" y="12" width="71.3" height="26" rx="4" fill="var(--panel)" stroke="var(--line)"/><text class="scenetext" x="46.0" y="29">intro</text><rect x="113.3" y="12" width="144.7" height="26" rx="4" fill="var(--panel)" stroke="var(--line)"/><text class="scenetext" x="119.3" y="29">wipe · beforeAfter</text><rect x="260.0" y="12" width="144.7" height="26" rx="4" fill="var(--panel)" stroke="var(--line)"/><text class="scenetext" x="266.0" y="29">feature</text><rect x="406.7" y="12" width="108.0" height="26" rx="4" fill="var(--panel)" stroke="var(--line)"/><text class="scenetext" x="412.7" y="29">steps</text><rect x="516.7" y="12" width="71.3" height="26" rx="4" fill="var(--panel)" stroke="var(--line)"/><text class="scenetext" x="522.7" y="29">outro</text>
+<text class="svgtext" x="0" y="100">track</text>
+<line x1="40" y1="150" x2="590" y2="150" stroke="var(--line)"/>
+<path d="M40.0,130.6 L44.6,132.2 L49.2,130.1 L53.8,126.1 L58.3,132.3 L62.9,139.6 L67.5,136.8 L72.1,134.6 L76.7,136.7 L81.3,131.6 L85.8,124.9 L90.4,129.4 L95.0,135.3 L99.6,133.9 L104.2,136.0 L108.8,140.6 L113.3,135.1 L117.9,127.3 L122.5,129.4 L127.1,131.6 L131.7,129.3 L136.3,134.0 L140.8,141.3 L145.4,137.6 L150.0,131.6 L154.6,132.8 L159.2,130.8 L163.8,125.7 L168.3,130.4 L172.9,138.5 L177.5,137.1 L182.1,134.9 L186.7,137.5 L191.3,133.3 L195.8,125.4 L200.4,128.2 L205.0,134.3 L209.6,133.3 L214.2,135.1 L218.8,140.8 L223.3,136.8 L227.9,128.5 L232.5,129.3 L237.1,131.4 L241.7,128.6 L246.3,132.3 L250.8,140.5 L255.4,138.6 L260.0,69.6 L264.6,70.4 L269.2,68.8 L273.8,62.7 L278.3,65.8 L282.9,74.3 L287.5,74.1 L292.1,72.0 L296.7,75.1 L301.3,72.0 L305.8,63.4 L310.4,64.4 L315.0,70.3 L319.6,69.7 L324.2,71.0 L328.8,77.6 L333.3,75.4 L337.9,66.9 L342.5,66.5 L347.1,68.4 L351.7,65.1 L356.3,67.6 L360.8,76.5 L365.4,76.4 L370.0,70.6 L374.6,71.1 L379.2,69.9 L383.8,63.1 L388.3,64.3 L392.9,72.8 L397.5,73.8 L402.1,71.9 L406.7,75.4 L411.3,73.6 L415.8,64.6 L420.4,63.8 L425.0,69.4 L429.6,69.0 L434.2,69.8 L438.8,77.0 L443.3,76.7 L447.9,68.3 L452.5,66.8 L457.1,68.7 L461.7,64.9 L466.3,66.0 L470.8,75.1 L475.4,76.7 L480.0,71.4 L484.6,71.7 L489.2,71.2 L493.7,63.8 L498.3,63.2 L502.9,71.3 L507.5,73.3 L512.1,71.5 L516.7,75.5 L521.3,75.1 L525.8,66.1 L530.4,63.6 L535.0,68.6 L539.6,68.4 L544.2,68.6 L548.8,76.1 L553.3,77.6 L557.9,69.8 L562.5,67.4 L567.1,69.1 L571.7,65.0 L576.3,64.6 L580.8,73.4 L585.4,76.7 L590.0,72.1 L590.0,150 L40,150 Z" fill="var(--track-fill)"/><path d="M40.0,130.6 L44.6,132.2 L49.2,130.1 L53.8,126.1 L58.3,132.3 L62.9,139.6 L67.5,136.8 L72.1,134.6 L76.7,136.7 L81.3,131.6 L85.8,124.9 L90.4,129.4 L95.0,135.3 L99.6,133.9 L104.2,136.0 L108.8,140.6 L113.3,135.1 L117.9,127.3 L122.5,129.4 L127.1,131.6 L131.7,129.3 L136.3,134.0 L140.8,141.3 L145.4,137.6 L150.0,131.6 L154.6,132.8 L159.2,130.8 L163.8,125.7 L168.3,130.4 L172.9,138.5 L177.5,137.1 L182.1,134.9 L186.7,137.5 L191.3,133.3 L195.8,125.4 L200.4,128.2 L205.0,134.3 L209.6,133.3 L214.2,135.1 L218.8,140.8 L223.3,136.8 L227.9,128.5 L232.5,129.3 L237.1,131.4 L241.7,128.6 L246.3,132.3 L250.8,140.5 L255.4,138.6 L260.0,69.6 L264.6,70.4 L269.2,68.8 L273.8,62.7 L278.3,65.8 L282.9,74.3 L287.5,74.1 L292.1,72.0 L296.7,75.1 L301.3,72.0 L305.8,63.4 L310.4,64.4 L315.0,70.3 L319.6,69.7 L324.2,71.0 L328.8,77.6 L333.3,75.4 L337.9,66.9 L342.5,66.5 L347.1,68.4 L351.7,65.1 L356.3,67.6 L360.8,76.5 L365.4,76.4 L370.0,70.6 L374.6,71.1 L379.2,69.9 L383.8,63.1 L388.3,64.3 L392.9,72.8 L397.5,73.8 L402.1,71.9 L406.7,75.4 L411.3,73.6 L415.8,64.6 L420.4,63.8 L425.0,69.4 L429.6,69.0 L434.2,69.8 L438.8,77.0 L443.3,76.7 L447.9,68.3 L452.5,66.8 L457.1,68.7 L461.7,64.9 L466.3,66.0 L470.8,75.1 L475.4,76.7 L480.0,71.4 L484.6,71.7 L489.2,71.2 L493.7,63.8 L498.3,63.2 L502.9,71.3 L507.5,73.3 L512.1,71.5 L516.7,75.5 L521.3,75.1 L525.8,66.1 L530.4,63.6 L535.0,68.6 L539.6,68.4 L544.2,68.6 L548.8,76.1 L553.3,77.6 L557.9,69.8 L562.5,67.4 L567.1,69.1 L571.7,65.0 L576.3,64.6 L580.8,73.4 L585.4,76.7 L590.0,72.1" fill="none" stroke="var(--track)" stroke-width="1.6"/>
+<line x1="260.0" y1="50" x2="260.0" y2="150" stroke="var(--track)" stroke-dasharray="3 3"/>
+<text class="svgtext" x="264.0" y="60">rise (track 14 s)</text>
+<line x1="150.0" y1="42" x2="150.0" y2="160" stroke="var(--today)" stroke-width="2"/>
+<text class="svgtext" x="146.0" y="174" text-anchor="end">sync point</text>
+<text class="svgtext" x="40" y="194">0 s</text><text class="svgtext" x="590" y="194" text-anchor="end">30 s of video · track from 2 s</text>
+</svg>
+      <p class="note">The track starts 2 s into itself so that its 8th second meets the sync point. The track is still quiet there; its rise arrives 6 s later, in the middle of another scene.</p>
+    </div>
+    <div class="side after">
+      <span class="tag">After</span>
+      <svg viewBox="0 0 600 200" role="img" aria-label="After: the measured rise on the sync point">
+<text class="svgtext" x="0" y="29">video</text><rect x="40.0" y="12" width="71.3" height="26" rx="4" fill="var(--panel)" stroke="var(--line)"/><text class="scenetext" x="46.0" y="29">intro</text><rect x="113.3" y="12" width="144.7" height="26" rx="4" fill="var(--panel)" stroke="var(--line)"/><text class="scenetext" x="119.3" y="29">wipe · beforeAfter</text><rect x="260.0" y="12" width="144.7" height="26" rx="4" fill="var(--panel)" stroke="var(--line)"/><text class="scenetext" x="266.0" y="29">feature</text><rect x="406.7" y="12" width="108.0" height="26" rx="4" fill="var(--panel)" stroke="var(--line)"/><text class="scenetext" x="412.7" y="29">steps</text><rect x="516.7" y="12" width="71.3" height="26" rx="4" fill="var(--panel)" stroke="var(--line)"/><text class="scenetext" x="522.7" y="29">outro</text>
+<text class="svgtext" x="0" y="100">track</text>
+<line x1="40" y1="150" x2="590" y2="150" stroke="var(--line)"/>
+<path d="M40.0,131.6 L44.6,132.8 L49.2,130.8 L53.8,125.7 L58.3,130.4 L62.9,138.5 L67.5,137.1 L72.1,134.9 L76.7,137.5 L81.3,133.3 L85.8,125.4 L90.4,128.2 L95.0,134.3 L99.6,133.3 L104.2,135.1 L108.8,140.8 L113.3,136.8 L117.9,128.5 L122.5,129.3 L127.1,131.4 L131.7,128.6 L136.3,132.3 L140.8,140.5 L145.4,138.6 L150.0,69.6 L154.6,70.4 L159.2,68.8 L163.8,62.7 L168.3,65.8 L172.9,74.3 L177.5,74.1 L182.1,72.0 L186.7,75.1 L191.3,72.0 L195.8,63.4 L200.4,64.4 L205.0,70.3 L209.6,69.7 L214.2,71.0 L218.8,77.6 L223.3,75.4 L227.9,66.9 L232.5,66.5 L237.1,68.4 L241.7,65.1 L246.3,67.6 L250.8,76.5 L255.4,76.4 L260.0,70.6 L264.6,71.1 L269.2,69.9 L273.8,63.1 L278.3,64.3 L282.9,72.8 L287.5,73.8 L292.1,71.9 L296.7,75.4 L301.3,73.6 L305.8,64.6 L310.4,63.8 L315.0,69.4 L319.6,69.0 L324.2,69.8 L328.8,77.0 L333.3,76.7 L337.9,68.3 L342.5,66.8 L347.1,68.7 L351.7,64.9 L356.3,66.0 L360.8,75.1 L365.4,76.7 L370.0,71.4 L374.6,71.7 L379.2,71.2 L383.8,63.8 L388.3,63.2 L392.9,71.3 L397.5,73.3 L402.1,71.5 L406.7,75.5 L411.3,75.1 L415.8,66.1 L420.4,63.6 L425.0,68.6 L429.6,68.4 L434.2,68.6 L438.8,76.1 L443.3,77.6 L447.9,69.8 L452.5,67.4 L457.1,69.1 L461.7,65.0 L466.3,64.6 L470.8,73.4 L475.4,76.7 L480.0,72.1 L484.6,72.2 L489.2,72.5 L493.7,64.9 L498.3,62.4 L502.9,69.8 L507.5,72.7 L512.1,71.0 L516.7,75.2 L521.3,76.4 L525.8,67.8 L530.4,63.8 L535.0,68.1 L539.6,68.0 L544.2,67.3 L548.8,74.8 L553.3,78.2 L557.9,71.3 L562.5,68.1 L567.1,69.7 L571.7,65.4 L576.3,63.4 L580.8,71.7 L585.4,76.4 L590.0,72.5 L590.0,150 L40,150 Z" fill="var(--track-fill)"/><path d="M40.0,131.6 L44.6,132.8 L49.2,130.8 L53.8,125.7 L58.3,130.4 L62.9,138.5 L67.5,137.1 L72.1,134.9 L76.7,137.5 L81.3,133.3 L85.8,125.4 L90.4,128.2 L95.0,134.3 L99.6,133.3 L104.2,135.1 L108.8,140.8 L113.3,136.8 L117.9,128.5 L122.5,129.3 L127.1,131.4 L131.7,128.6 L136.3,132.3 L140.8,140.5 L145.4,138.6 L150.0,69.6 L154.6,70.4 L159.2,68.8 L163.8,62.7 L168.3,65.8 L172.9,74.3 L177.5,74.1 L182.1,72.0 L186.7,75.1 L191.3,72.0 L195.8,63.4 L200.4,64.4 L205.0,70.3 L209.6,69.7 L214.2,71.0 L218.8,77.6 L223.3,75.4 L227.9,66.9 L232.5,66.5 L237.1,68.4 L241.7,65.1 L246.3,67.6 L250.8,76.5 L255.4,76.4 L260.0,70.6 L264.6,71.1 L269.2,69.9 L273.8,63.1 L278.3,64.3 L282.9,72.8 L287.5,73.8 L292.1,71.9 L296.7,75.4 L301.3,73.6 L305.8,64.6 L310.4,63.8 L315.0,69.4 L319.6,69.0 L324.2,69.8 L328.8,77.0 L333.3,76.7 L337.9,68.3 L342.5,66.8 L347.1,68.7 L351.7,64.9 L356.3,66.0 L360.8,75.1 L365.4,76.7 L370.0,71.4 L374.6,71.7 L379.2,71.2 L383.8,63.8 L388.3,63.2 L392.9,71.3 L397.5,73.3 L402.1,71.5 L406.7,75.5 L411.3,75.1 L415.8,66.1 L420.4,63.6 L425.0,68.6 L429.6,68.4 L434.2,68.6 L438.8,76.1 L443.3,77.6 L447.9,69.8 L452.5,67.4 L457.1,69.1 L461.7,65.0 L466.3,64.6 L470.8,73.4 L475.4,76.7 L480.0,72.1 L484.6,72.2 L489.2,72.5 L493.7,64.9 L498.3,62.4 L502.9,69.8 L507.5,72.7 L512.1,71.0 L516.7,75.2 L521.3,76.4 L525.8,67.8 L530.4,63.8 L535.0,68.1 L539.6,68.0 L544.2,67.3 L548.8,74.8 L553.3,78.2 L557.9,71.3 L562.5,68.1 L567.1,69.7 L571.7,65.4 L576.3,63.4 L580.8,71.7 L585.4,76.4 L590.0,72.5" fill="none" stroke="var(--track)" stroke-width="1.6"/>
+<line x1="150.0" y1="50" x2="150.0" y2="150" stroke="var(--track)" stroke-dasharray="3 3"/>
+<text class="svgtext" x="154.0" y="60">rise (track 14 s)</text>
+<line x1="150.0" y1="42" x2="150.0" y2="160" stroke="var(--after)" stroke-width="2"/>
+<text class="svgtext" x="146.0" y="174" text-anchor="end">sync point</text>
+<text class="svgtext" x="40" y="194">0 s</text><text class="svgtext" x="590" y="194" text-anchor="end">30 s of video · track from 8 s</text>
+</svg>
+      <p class="note">The track is measured: its rise is at 14 s. It starts 8 s into itself so that the rise meets the sync point, and lasts past the video's end. Lengthen a scene before it and the start is recomputed.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Choosing the track</h2>
+  <div class="pair">
+    <div class="side today">
+      <span class="tag">Today</span>
+<pre>$ omni pitch render &lt;dir&gt;
+<span class="note">(the mood's shortest track that covers
+ the video is downloaded and used;
+ nobody hears it before the render)</span></pre>
+      <p class="note">The person learns which track was used from the credit in <code>pitch.json</code>, after the render.</p>
+    </div>
+    <div class="side after">
+      <span class="tag">After</span>
+<pre>$ omni pitch music &lt;dir&gt; --list
+1. Advertime     · 2:14 · https://archive.org/download/freepd/upbeat/Advertime.mp3
+2. Inspiration   · 2:18 · https://archive.org/download/freepd/upbeat/Inspiration.mp3
+3. Funshine      · 2:45 · https://archive.org/download/freepd/upbeat/Funshine.mp3
+4. City Sunshine · 3:05 · https://archive.org/download/freepd/upbeat/City%20Sunshine.mp3
+
+<span class="note">Skill: Listen to these and pick one by its number,
+       or name another mood.
+Person: 3</span>
+
+$ omni pitch music &lt;dir&gt; --track "Funshine"
+Funshine · 2:45 · music.mp3, music.json
+rises: 14.00 s (+7.1 dB), 52.35 s (+4.0 dB)
+falls: 40.10 s (-6.2 dB)</pre>
+      <p class="note">Figures above are illustrative. The skill then takes the strongest rise that covers the video and writes <code>"sync": { "scene": "wipe", "at": 2, "cue": 14 }</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What the check says</h2>
+  <div class="pair">
+    <div class="side today">
+      <span class="tag">Today</span>
+<pre>$ omni pitch check &lt;dir&gt;
+<span class="ok">0 errors, 0 warnings</span>
+<span class="note">(a sync that starts the video before the
+ track, or a track that ends before the
+ video, is not seen; "scene": 1 follows
+ whatever scene is now second)</span></pre>
+    </div>
+    <div class="side after">
+      <span class="tag">After</span>
+<pre>$ omni pitch check &lt;dir&gt;
+<span class="err">error: meta.music.sync: the video would start 3.0 s
+  before the track begins: pick a later rise or a
+  later scene</span>
+<span class="err">error: meta.music.sync.scene: no scene has the id "wype"</span>
+warning: meta.music: the track ends 4.2 s before the video
+warning: meta.music.sync.cue: 20 s is not a measured rise
+warning: meta.music.sync.scene: name the scene by its id</pre>
+    </div>
+  </div>
+</section>
+
+<section class="same">
+  <h2>What stays the same</h2>
+  <ul>
+    <li>A product whose Pitch settings ask for no music (the default): no question, no download, no measure.</li>
+    <li>A storyboard written before this PRD passes the check with the same findings and renders.</li>
+    <li>The music sources: FreePD's pinned CC0 tracks and the product's own uploaded file.</li>
+    <li>Loudness normalisation, fades, and silence with one line when a track cannot be had.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>

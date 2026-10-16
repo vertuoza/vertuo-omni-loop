@@ -35,6 +35,9 @@ describe('paintTrack on FROST EIGHT', () => {
     expect(powder.has(pixel(5.5 * TILE, 40.5 * TILE))).toBe(true);
     expect(ice.has(pixel(36 * TILE, 36 * TILE))).toBe(true);
     expect(ice.has(pixel(33 * TILE, 33 * TILE))).toBe(true);
+    // The two frozen patches (PRD 1963), on the middle of bend 4's and bend 8's curves.
+    expect(ice.has(pixel(16.5 * TILE, 8.5 * TILE))).toBe(true);
+    expect(ice.has(pixel(16.5 * TILE, 64.5 * TILE))).toBe(true);
     // The start straight, off the line, is not powder and not ice.
     const road = pixel(40.5 * TILE, 64.5 * TILE);
     expect(powder.has(road) || ice.has(road)).toBe(false);
