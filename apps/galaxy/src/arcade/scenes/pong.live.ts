@@ -3,7 +3,8 @@
 // stepped by the canvas loop, the presses, the pause from outside, the microphone stopped when the
 // scene closes, and the text layer, set only when it changes. The import itself is handed in by
 // ArcadeApp, so the only way to the game's code stays its dynamic `import('./pong/index')` there
-// (pong/guard.test.ts).
+// (pong/guard.test.ts). The match tells its move into `over` once, whichever way it ended: then
+// `over` hands the score reached to the arcade, which sends it once; A playing again is `again`.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Action } from '../keys';
 import type { Grid } from '../grid';
@@ -11,6 +12,11 @@ import type { SceneName } from './common.ts';
 import { loadPong, pongPress, samePongHud, type ArcadePong, type PongGame, type PongModule } from './pong.ts';
 
 type Load = () => Promise<Pick<PongModule, 'createPong' | 'browserMic'>>;
+
+/** What the arcade does when the match ends (it sends the score reached, once) and when A plays again. */
+export interface PongHooks { over(score: number): void; again(): void }
+
+const NO_HOOKS: PongHooks = { over: () => {}, again: () => {} };
 
 /** The loaded game OMNI PONG draws with, while its scene shows. */
 export const pongDrawOf = (scene: SceneName, pong: ArcadePong | null): PongGame | null => (scene === 'pong' ? pong?.game ?? null : null);
@@ -29,16 +35,26 @@ export function withPongHud(p: ArcadePong, game: PongGame): ArcadePong {
 
 /**
  * What a press does on the pong scene, given the state the arcade holds: `back` to the room (with the
- * microphone stopped), or the next state (A retries a failed import; the rest go to the loaded game).
+ * microphone stopped), or the next state (A retries a failed import; the rest go to the loaded game,
+ * which may end the match, `on.over` with its score, or begin again, `on.again`).
  */
-export function pressedPong(p: ArcadePong | null, action: Action): 'back' | ArcadePong | null {
+export function pressedPong(p: ArcadePong | null, action: Action, on: PongHooks = NO_HOOKS): 'back' | ArcadePong | null {
   if (!p) return action === 'b' ? 'back' : null;
   const pressed = pongPress(p.status, action);
   if (pressed === 'back') return 'back';
   if (pressed === 'retry') return { ...p, status: 'loading', retry: p.retry + 1 };
   if (p.status !== 'ready' || !p.game) return p;
-  if (p.game.press(action).leave) { p.game.close(); return 'back'; }
+  const answer = p.game.press(action);
+  if (answer.leave) { p.game.close(); return 'back'; }
+  if (answer.over) on.over(p.game.hud().score);
+  if (answer.again) on.again();
   return withPongHud(p, p.game);
+}
+
+/** The canvas loop's step on the game: it plays `dt`, and a match that ended in it hands its score to `on.over`. */
+export function steppedPong(p: ArcadePong, game: PongGame, dt: number, on: PongHooks = NO_HOOKS): ArcadePong {
+  if (game.step(dt).over) on.over(game.hud().score);
+  return withPongHud(p, game);
 }
 
 /** The state after a pause from outside (a blurred window, a hidden tab): the game paused, its microphone stopped. */
@@ -48,12 +64,14 @@ export function pausedPong(p: ArcadePong | null): ArcadePong | null {
   return withPongHud(p, p.game);
 }
 
-export function usePong(load: Load) {
+export function usePong(load: Load, hooks: PongHooks = NO_HOOKS) {
   const [pong, setPong] = useState<ArcadePong | null>(null);
   const pongRef = useRef(pong);
   pongRef.current = pong;
   const loadRef = useRef(load);
   loadRef.current = load;
+  const hooksRef = useRef(hooks);
+  hooksRef.current = hooks;
   /** Sets the state at once, so the next press or frame reads it before React renders. */
   const show = useCallback((next: ArcadePong | null) => { pongRef.current = next; setPong(next); }, []);
   // The game's code is imported once its cabinet opens, and again on each retry.
@@ -82,18 +100,17 @@ export function usePong(load: Load) {
   }, [show]);
   /** A press on the scene: true when it leaves for the room (the state is cleared then). */
   const pressPong = useCallback((action: Action): boolean => {
-    const next = pressedPong(pongRef.current, action);
+    const next = pressedPong(pongRef.current, action, hooksRef.current);
     if (next === 'back') { show(null); return true; }
     if (next && next !== pongRef.current) show(next);
     return false;
   }, [show]);
-  /** The canvas loop's step: the game reads the microphone, and the text layer follows it. */
+  /** The canvas loop's step: the game reads the microphone and plays the match, and the text layer follows it. */
   const stepPong = useCallback((scene: SceneName, dt: number) => {
     const p = pongRef.current;
     const game = pongDrawOf(scene, p);
     if (!p || !game) return;
-    game.step(dt);
-    const next = withPongHud(p, game);
+    const next = steppedPong(p, game, dt, hooksRef.current);
     if (next !== p) show(next);
   }, [show]);
   /** A pause from outside, while the pong scene is up. */
