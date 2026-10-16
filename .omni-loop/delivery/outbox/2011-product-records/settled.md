@@ -718,7 +718,7 @@ A small kit and server change: the product-PRD id parser, the dossier get comman
 - Channel: feature pull request #2012
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2012#issuecomment-6208790553
 - Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #2071, the sub-pull request that brought the build back in line
 - Stays here: the answer decides when the rule is reworded, not what is true; its rework rewords BR-PRODUCT-81 in the rules register itself
 - Rank: high
 - Bears on: BR-PRODUCT-81
@@ -799,7 +799,7 @@ A constant: one line added to the rule's text in the register, in any later chan
 - Channel: feature pull request #2012
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2012#issuecomment-6208790553
 - Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #2072, the sub-pull request that brought the build back in line
 - Stays here: the answer decides when the rules are reworded, not what is true; its rework rewords BR-PRODUCT-84 and BR-PRODUCT-85 in the rules register itself
 - Rank: high
 - Bears on: BR-PRODUCT-84
