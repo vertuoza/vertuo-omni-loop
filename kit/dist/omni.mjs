@@ -27617,6 +27617,15 @@ var proofUrl = external_exports.string().refine((value) => {
 var envName = external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
 var lawOwner = external_exports.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
+var personLogin = external_exports.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, "a GitHub login, without @, never a team");
+var ownerWithDelegate = external_exports.preprocess(
+  (value) => isRecord(value) ? { login: "", delegate: "", ...value } : value,
+  external_exports.object({ login: personLogin, delegate: personLogin }).strict().refine((entry3) => entry3.login.toLowerCase() !== entry3.delegate.toLowerCase(), {
+    message: "a delegate other than its own owner",
+    path: ["delegate"]
+  })
+);
+var lawOwnerEntry = external_exports.union([lawOwner, ownerWithDelegate]);
 var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
 var contractKind = external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
 var contractKinds = external_exports.array(contractKind).min(1, "at least one kind, such as api").superRefine((kinds, issues) => {
@@ -27845,7 +27854,11 @@ var ConfigSchema = external_exports.object({
     max: external_exports.number().int().positive().default(20),
     // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
     // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
-    owners: external_exports.array(lawOwner).default([])
+    // PRD 1794: an entry may be `{ login, delegate }` instead; the delegate is a CODEOWNER too.
+    owners: external_exports.array(lawOwnerEntry).default([]),
+    // PRD 1794: product leadership, GitHub logins asked last about what still waits on a person.
+    // Never written into CODEOWNERS, so its approval never clears a law.
+    leadership: external_exports.array(personLogin).default([])
   }),
   risk: section({
     storedShape: external_exports.array(regexSource).default([]),
@@ -27876,7 +27889,10 @@ var ConfigSchema = external_exports.object({
     parallelSteps: external_exports.number().int().min(1).max(6).default(3),
     // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
     // and a config that does not set it parses exactly as before.
-    hookMaxBytes: external_exports.number().int().positive().optional()
+    hookMaxBytes: external_exports.number().int().positive().optional(),
+    // PRD 1794: how many working days (Monday to Friday, UTC) a thing waits on a person before the
+    // next people are asked. Its own setting: `stallDays` is unchanged.
+    escalationWorkingDays: external_exports.number().int().min(1).max(10).default(2)
   }),
   // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
   // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
@@ -32815,8 +32831,18 @@ function ownerHandle(owner) {
 function exactPattern2(path) {
   return `/${path.replace(/^\/+/, "").replace(/[\\\s#*?[\]!]/g, (char) => `\\${char}`)}`;
 }
+function lawCodeowners(owners2) {
+  const named4 = owners2.flatMap((entry3) => typeof entry3 === "string" ? [entry3] : [entry3.login, entry3.delegate]);
+  const seen = /* @__PURE__ */ new Set();
+  return named4.filter((owner) => {
+    const key2 = owner.toLowerCase();
+    if (seen.has(key2)) return false;
+    seen.add(key2);
+    return true;
+  });
+}
 function ownersBlock(paths, owners2) {
-  const handles = owners2.map(ownerHandle).join(" ");
+  const handles = lawCodeowners(owners2).map(ownerHandle).join(" ");
   const lines2 = [OWNERS_BEGIN, "# Written by `omni kb owners` from laws.owners and the locked laws (PRD 1726): run it again, never edit these lines."];
   const seen = /* @__PURE__ */ new Set();
   let why2 = null;
@@ -38668,8 +38694,9 @@ function disclose(entries4, thesis, what) {
   };
 }
 var handle = (owner) => owner.startsWith("@") ? owner : `@${owner}`;
+var ownerWords = (entry3) => typeof entry3 === "string" ? handle(entry3) : `${handle(entry3.login)} (or the delegate ${handle(entry3.delegate)})`;
 function lawLine({ id, sentence: sentence3 }, owners2) {
-  const who2 = owners2.length === 0 ? "its owner" : owners2.map(handle).join(" or ");
+  const who2 = owners2.length === 0 ? "its owner" : owners2.map(ownerWords).join(" or ");
   return `law ${id} \u2014 ${sentence3} Changing it needs ${who2} to approve the pull request.`;
 }
 function ruleLine({ id, kind, headline: text15, proposed }) {
@@ -49931,7 +49958,7 @@ function owners(positional, flags, { ctx, stdout, stderr }) {
     println(stderr, `omni kb owners: ${messageOf(error62)}`);
     return 1;
   }
-  const who2 = listed2.map(ownerHandle).join(", ");
+  const who2 = lawCodeowners(listed2).map(ownerHandle).join(", ");
   const line2 = written.wrote ? `kb owners \u2014 wrote ${written.file}: ${written.paths} path(s) owned by ${who2}; no line outside its markers changed.` : `kb owners \u2014 ${written.file} is up to date: ${written.paths} path(s) owned by ${who2}.`;
   println(stdout, flags.json ? JSON.stringify({ ...written, owners: listed2 }, null, 2) : line2);
   return 0;
