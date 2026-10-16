@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../data/parse-rows';
 
 // The workspace's open outbox items, read for Work › Questions › Outbox (PRD 2011 s14; ADR-0095): as the
@@ -52,7 +53,7 @@ export const StoredRepoPrd = z.object({
   title: z.string(),
   workspace_id: z.string(),
   home_repo: z.string(),
-  prd: z.number().int().positive(),
+  prd: PrdNumberSchema,
   opened_by: z.string().nullable(),
 });
 export type StoredRepoPrd = z.infer<typeof StoredRepoPrd>;
@@ -62,7 +63,7 @@ const WAITING_COLUMNS = 'workspace_id, repository, prd, waiting, synced_at';
 export const StoredRepoWaiting = z.object({
   workspace_id: z.string(),
   repository: z.string(),
-  prd: z.number().int().positive(),
+  prd: PrdNumberSchema,
   waiting: z.array(z.object({ id: z.string(), rank: z.enum(['human-action', 'high']), question: z.string() })),
   synced_at: z.string(),
 });

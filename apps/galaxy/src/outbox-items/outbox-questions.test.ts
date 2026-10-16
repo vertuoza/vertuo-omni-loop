@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { outboxViewOf, type OutboxRows } from './outbox-questions';
 import type { StoredItemPrd, StoredOpenItem } from './outbox-questions.repository';
 
@@ -91,13 +92,13 @@ const REPO = 'acme/api';
 const WITH_REPO: OutboxRows = {
   ...ROWS,
   repoPrds: [
-    { id: 'd-r912', title: 'Rounding', workspace_id: 'w', home_repo: 'Acme/API', prd: 912, opened_by: ME },
-    { id: 'd-r5', title: 'Loose repo PRD', workspace_id: 'w', home_repo: 'acme/other', prd: 5, opened_by: PAUL },
+    { id: 'd-r912', title: 'Rounding', workspace_id: 'w', home_repo: 'Acme/API', prd: parsePrd(912), opened_by: ME },
+    { id: 'd-r5', title: 'Loose repo PRD', workspace_id: 'w', home_repo: 'acme/other', prd: parsePrd(5), opened_by: PAUL },
   ],
   repoWaiting: [
-    { workspace_id: 'w', repository: REPO, prd: 912, waiting: [{ id: 's1-01-round', rank: 'high', question: 'Round up?' }], synced_at: '2026-10-16T14:05:30Z' },
-    { workspace_id: 'w', repository: 'acme/other', prd: 5, waiting: [{ id: 's1-01-act', rank: 'human-action', question: 'Grant access?' }], synced_at: '2026-10-16T14:00:00Z' },
-    { workspace_id: 'w', repository: 'acme/ghost', prd: 9, waiting: [{ id: 's1-01-x', rank: 'high', question: 'No dossier?' }], synced_at: '2026-10-16T14:00:00Z' },
+    { workspace_id: 'w', repository: REPO, prd: parsePrd(912), waiting: [{ id: 's1-01-round', rank: 'high', question: 'Round up?' }], synced_at: '2026-10-16T14:05:30Z' },
+    { workspace_id: 'w', repository: 'acme/other', prd: parsePrd(5), waiting: [{ id: 's1-01-act', rank: 'human-action', question: 'Grant access?' }], synced_at: '2026-10-16T14:00:00Z' },
+    { workspace_id: 'w', repository: 'acme/ghost', prd: parsePrd(9), waiting: [{ id: 's1-01-x', rank: 'high', question: 'No dossier?' }], synced_at: '2026-10-16T14:00:00Z' },
   ],
   repoLinks: [{ product_id: OMNI, workspace_id: 'w', repository: REPO }],
 };
