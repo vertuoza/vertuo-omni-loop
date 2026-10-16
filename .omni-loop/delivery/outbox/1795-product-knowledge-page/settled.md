@@ -775,3 +775,160 @@ One small follow-up slice; nothing stored changes.
 ```
 
 <!-- /omni-outbox-settled: s7-01-canon-change-the-entry-button -->
+
+<!-- omni-outbox-settled: s3-01-mcp-server-test-proves-br-product-66 -->
+
+## s3-01-mcp-server-test-proves-br-product-66 — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-16T07:13:21Z
+- Channel: feature pull request #2032
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2032#issuecomment-6210174090
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-66
+- Raised: 2026-10-16
+- Slice: s3
+- Wave: 2
+- Became: playbook/testing#layout
+
+### The answer, as it was given
+
+```text
+A. Keep the new tests in the same file as that rule's proof (what was built)
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-mcp-server-test-proves-br-product-66
+prd: 1795
+slice: s3
+rank: high
+bears-on: BR-PRODUCT-66
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+The agent link's tests now also check the legal entries and the glossary, in the same file that proves the rule "Jev judges an agent's question only on the report that first stores it". Is that all right?
+
+## The decision, in plain words
+
+The new tests sit beside that rule's own tests, and none of the rule's tests or the code it governs changed.
+
+## The intro, for fun
+
+A new shelf went up in the room where the rule's proof lives.
+
+## The punchline, for fun
+
+Nobody moved the rule's own furniture.
+
+## The options, in plain words
+
+A. Keep the new tests in the same file as that rule's proof (what was built)
+B. Move the new tests to a file of their own, so the rule's proof is left alone
+
+## What I had to decide
+
+Whether tests of the agent link's two new fields may live in the test file that also proves BR-PRODUCT-66.
+
+## What I did meanwhile
+
+Kept them in `apps/galaxy/src/agent-connect/mcp/server.test.ts`, next to the `get_business` tests already there. Every test of BR-PRODUCT-66 still passes unchanged.
+
+## What it costs to change later
+
+Moving the new tests to another file is a small follow-up change; nothing stored changes.
+
+## What I could not know
+
+(author) Whether the owner of BR-PRODUCT-66 wants its proof file to hold only that law's tests.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-mcp-server-test-proves-br-product-66 -->
+
+<!-- omni-outbox-settled: s7-02-canon-test-proves-br-product-68 -->
+
+## s7-02-canon-test-proves-br-product-68 — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-16T07:13:21Z
+- Channel: feature pull request #2032
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2032#issuecomment-6210174090
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-68
+- Raised: 2026-10-16
+- Slice: s7
+- Wave: 2
+- Stays here: the owner kept BR-PRODUCT-68's words as written; the canon gate already holds Legal entries to it in code and tests
+
+### The answer, as it was given
+
+```text
+A. Keep the rule's words, and hold legal entries to it in the code and its tests (what was built)
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-canon-test-proves-br-product-68
+prd: 1795
+slice: s7
+rank: high
+bears-on: BR-PRODUCT-68
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+The spec check now also judges a spec against the product's legal entries, under the rule "it turns red only when it quotes the spec and names the Never line or Statement broken". Should that rule's words also name legal entries?
+
+## The decision, in plain words
+
+A legal entry is held to the same rule: red only with a word-for-word quote and a live entry, never a retired one. The rule's words were left as they are.
+
+## The intro, for fun
+
+The guard learned a new rulebook to read from.
+
+## The punchline, for fun
+
+It still won't shout without a quote.
+
+## The options, in plain words
+
+A. Keep the rule's words, and hold legal entries to it in the code and its tests (what was built)
+B. Reword the rule to name legal entries beside Never lines and Statements, in a follow-up change
+C. Give legal entries a rule of their own
+
+## What I had to decide
+
+Whether judging a spec against Legal entries in the canon gate, proven in BR-PRODUCT-68's own test file (`apps/omni-app/src/canon/canon.test.ts`), needs that law's text to change.
+
+## What I did meanwhile
+
+Five new tests: a red finding needs a word-for-word quote and a live `L-<CODE>-<n>`, a retired entry is never cited, and a changed entry changes the cache key. No existing test was changed or removed.
+
+## What it costs to change later
+
+Rewording the law is a knowledge-only change; the code already follows the stricter reading.
+
+## What I could not know
+
+(author) Whether the law's owner wants its words to name Legal entries.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-canon-test-proves-br-product-68 -->
