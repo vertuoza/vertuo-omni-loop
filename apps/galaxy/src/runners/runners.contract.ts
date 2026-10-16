@@ -4,6 +4,7 @@
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
 //   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?} → {cancel}
+//   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser                               → JobLines
 //   POST  /api/runners/jobs                browser {line, repo, target}                      → {job}
 //   POST  /api/runners/jobs/<id>/cancel    browser                                           → {job}
@@ -124,6 +125,53 @@ export type JobUpdate = z.infer<typeof JobUpdateSchema>;
 /** What a report answers: whether a cancel waits, and the runner kills the job. */
 export const JobUpdateReplySchema = z.object({ cancel: z.boolean() });
 
+/** A runner's samples are kept one hour (PRD 2102): about 240 at one per 15 s. */
+export const SAMPLES_KEPT_MS = 60 * 60 * 1000;
+
+/** A figure of the machine: a finite non-negative number, or null when the runner could not read it. */
+const FigureSchema = z.number().nonnegative().nullable();
+/** A count of bytes, or of cores. */
+const CountSchema = z.number().int().nonnegative().nullable();
+
+/** The limits a runner pauses at: memory used above (percent), disk free below (GB), load above (× cores). */
+const HealthLimitsSchema = z.object({
+  maxMemory: z.number().gt(0).max(100),
+  minDiskGb: z.number().nonnegative(),
+  maxLoad: z.number().positive(),
+}).strict();
+
+/** A runner's health report (PRD 2102): its machine's sample, numbers only, and, from a runner that pauses,
+ * why it is paused (80 characters at most, or null) and the limits it pauses at. */
+export const HealthReportSchema = z.object({
+  cpu: z.number().min(0).max(100).nullable(),
+  load1: FigureSchema,
+  cores: CountSchema,
+  memUsed: CountSchema,
+  memTotal: CountSchema,
+  diskFree: CountSchema,
+  diskTotal: CountSchema,
+  paused: z.string().min(1).max(80).nullable().optional(),
+  limits: HealthLimitsSchema.optional(),
+}).strict();
+export type HealthReport = z.infer<typeof HealthReportSchema>;
+
+/** What a health report answers: when the server took it. */
+export const HealthReplySchema = z.object({ at: z.string() });
+
+/** A runner's last health report, as stored and read: the report and when the server took it. */
+export const RunnerHealthSchema = HealthReportSchema.extend({ at: z.string() });
+
+/** One of a runner's samples of the last hour, for the page's sparklines. */
+const RunnerSampleSchema = z.object({
+  at: z.string(),
+  cpu: z.number().nullable(),
+  memUsed: z.number().nullable(),
+  memTotal: z.number().nullable(),
+  diskFree: z.number().nullable(),
+  tokens5h: z.number().nullable(),
+});
+export type RunnerSample = z.infer<typeof RunnerSampleSchema>;
+
 // ── The browser's routes ────────────────────────────────────────────────────────
 
 /** Where a job goes: any runner of the workspace, a fleet's, or one runner. */
@@ -211,13 +259,17 @@ const RunnerSchema = z.object({
   version: z.string(),
   lastSeenAt: z.string(),
   state: RunnerStateSchema,
+  /** Its last health report (PRD 2102); null for a runner that never sent one. */
+  health: RunnerHealthSchema.nullable().optional(),
+  /** Its samples of the last hour, oldest first: on the Runners page's read only. */
+  samples: z.array(RunnerSampleSchema).optional(),
 });
 export type Runner = z.infer<typeof RunnerSchema>;
 
 export const RunnerReplySchema = z.object({ runner: RunnerSchema });
 
-/** The Runners page's read: the workspace's runners, its jobs (queued and running first, then the last
- * 50 that ended), and what the viewer may do there. */
+/** The Runners page's read: the workspace's runners, each with its health and its last hour of samples,
+ * its jobs (queued and running first, then the last 50 that ended), and what the viewer may do there. */
 export type Board = { runners: Runner[]; jobs: Job[]; viewer: { id: string; owner: boolean; fleet: string | null } };
 
 /** Why a call was refused, each with its status. */

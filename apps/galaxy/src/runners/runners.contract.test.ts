@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  checkLine, JobLinesQuerySchema, JobUpdateSchema, RegisterRequestSchema, RUNNER_SKILLS, SendRequestSchema, TargetSchema,
+  checkLine, HealthReportSchema, JobLinesQuerySchema, JobUpdateSchema, RegisterRequestSchema, RUNNER_SKILLS, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
 // The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines whose skill is on the
@@ -100,5 +100,46 @@ describe('a report\'s live lines (PRD 1904)', () => {
     expect(JobLinesQuerySchema.parse({})).toEqual({ after: 0 });
     expect(JobLinesQuerySchema.parse({ after: '1200' })).toEqual({ after: 1200 });
     for (const after of ['-1', 'x', '1.5']) expect(JobLinesQuerySchema.safeParse({ after }).success).toBe(false);
+  });
+});
+
+// A runner's health report (PRD 2102 s1): numbers only, each non-negative or null, strict; `paused` and
+// `limits` come from a runner that pauses, and a runner that does not sends neither.
+describe('the health report', () => {
+  const report = {
+    cpu: 63.5, load1: 7.9, cores: 8, memUsed: 13_958_643_712, memTotal: 17_179_869_184, diskFree: 41_875_931_136, diskTotal: 249_821_655_040,
+  };
+
+  it('takes a sample alone, and one with why the runner is paused and its limits', () => {
+    expect(HealthReportSchema.parse(report)).toEqual(report);
+    const paused = { ...report, paused: 'memory 91%', limits: { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 } };
+    expect(HealthReportSchema.parse(paused)).toEqual(paused);
+    expect(HealthReportSchema.safeParse({ ...report, paused: null, limits: { maxMemory: 100, minDiskGb: 0, maxLoad: 0.1 } }).success).toBe(true);
+  });
+
+  it('takes every figure the runner could not read as null', () => {
+    const blind = { cpu: null, load1: null, cores: null, memUsed: null, memTotal: null, diskFree: null, diskTotal: null };
+    expect(HealthReportSchema.safeParse(blind).success).toBe(true);
+  });
+
+  it.each([
+    ['a negative figure', { memUsed: -1 }],
+    ['a CPU above 100 %', { cpu: 100.1 }],
+    ['bytes that are no whole number', { diskFree: 1.5 }],
+    ['a figure that is no number', { load1: '7.9' }],
+    ['a missing figure', { cores: undefined }],
+    ['an unknown field', { hostname: 'box-1' }],
+    ['a reason of 81 characters', { paused: 'x'.repeat(81) }],
+    ['an empty reason', { paused: '' }],
+    ['a memory limit above 100 %', { limits: { maxMemory: 101, minDiskGb: 10, maxLoad: 1.5 } }],
+    ['a load limit of 0', { limits: { maxMemory: 85, minDiskGb: 10, maxLoad: 0 } }],
+    ['a limit missing', { limits: { maxMemory: 85, minDiskGb: 10 } }],
+    ['an unknown limit', { limits: { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5, maxSwap: 2 } }],
+  ])('refuses %s', (_, change) => {
+    expect(HealthReportSchema.safeParse({ ...report, ...change }).success).toBe(false);
+  });
+
+  it('refuses a number JSON cannot carry', () => {
+    for (const odd of [Number.POSITIVE_INFINITY, Number.NaN]) expect(HealthReportSchema.safeParse({ ...report, load1: odd }).success).toBe(false);
   });
 });

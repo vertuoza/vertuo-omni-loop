@@ -1,7 +1,8 @@
-// A job's live lines' migration (PRD 1904), read as text: the table and its columns, its keys and
-// limits, its reading rule, its one writer and the retention function the repository calls. What the
-// rules let through is the database's to prove (supabase/checks/runner_job_lines.sql); this pins that
-// each is there, and that the database's types name what the repository writes and reads.
+// A job's live lines' migration (PRD 1904), and a runner's health's (PRD 2102), read as text: the tables
+// and their columns, their keys and limits, their reading rule, their one writer and the retention
+// function the repository calls. What the rules let through is the database's to prove
+// (supabase/checks/runner_job_lines.sql, supabase/checks/runner_samples.sql); this pins that each is
+// there, and that the database's types name what the repository writes and reads.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -60,5 +61,48 @@ describe('the runner_job_lines migration', () => {
   it('is named in the database\'s types, with the retention function', () => {
     expect(TYPES).toMatch(/runner_job_lines: \{\n\s+Row: \{\n\s+at: string\n\s+job_id: string\n\s+seq: number\n\s+text: string\n\s+workspace_id: string\n/);
     expect(TYPES).toContain('runner_job_lines_retain: {\n        Args: { p_keep: number; p_workspace: string }\n        Returns: number\n      }');
+  });
+});
+
+const HEALTH = read('supabase/migrations/20261211090000_runner_health.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+const HEALTH_CHECK = read('supabase/checks/runner_samples.sql');
+
+describe('the runner health migration (PRD 2102)', () => {
+  it('adds the runner\'s last health, empty for a runner that never sent one', () => {
+    expect(HEALTH).toContain('alter table public.runners add column health jsonb;');
+  });
+
+  it('creates runner_samples with its figures, cascading with its runner and its workspace, keyed by runner and instant', () => {
+    const created = /create table public\.runner_samples \((.*?)\);/.exec(HEALTH)?.[1] ?? '';
+    expect(created).toContain('runner_id uuid not null references public.runners (id) on delete cascade');
+    expect(created).toContain('workspace_id uuid not null references public.workspaces (id) on delete cascade');
+    expect(created).toContain('at timestamptz not null default now()');
+    expect(created).toContain('cpu real check (cpu between 0 and 100)');
+    for (const column of ['mem_used', 'mem_total', 'disk_free', 'tokens_5h']) expect(created).toContain(`${column} bigint check (${column} >= 0)`);
+    expect(created).toContain('primary key (runner_id, at)');
+  });
+
+  it('lets a member of the workspace read the samples, and only the service role write them', () => {
+    expect(HEALTH).toContain('alter table public.runner_samples enable row level security;');
+    expect(HEALTH).toContain('on public.runner_samples for select to authenticated using (workspace_id in (select m.workspace_id from public.workspace_members m where m.user_id = (select auth.uid())));');
+    expect(HEALTH).toContain('revoke all on public.runner_samples from public, anon, authenticated, service_role;');
+    expect(HEALTH).toContain('grant select on public.runner_samples to authenticated;');
+    expect(HEALTH).toContain('grant select, insert, delete on public.runner_samples to service_role;');
+    expect(HEALTH).not.toMatch(/grant [^;]*(insert|update|delete|all)[^;]* on public\.runner_samples to (authenticated|anon|public)/);
+    // runners keeps its grants: members read it, health included, and only the service role writes it.
+    expect(HEALTH).not.toMatch(/grant [^;]* on public\.runners/);
+  });
+
+  it('is proved by supabase/checks/runner_samples.sql, which the supabase workflow runs', () => {
+    for (const fail of ['FAIL: a member did not read', 'FAIL: another workspace read the runner samples', 'FAIL: a member wrote a sample', 'FAIL: a member wrote a runner\'\'s health', 'FAIL: the trim deleted the wrong samples']) {
+      expect(HEALTH_CHECK).toContain(fail);
+    }
+    expect(HEALTH_CHECK).toContain("select 'runner_samples: every check passed' as result;");
+    expect(read('.github/workflows/supabase.yml')).toContain('-f supabase/checks/runner_samples.sql');
+  });
+
+  it('is named in the database\'s types', () => {
+    expect(TYPES).toMatch(/runner_samples: \{\n\s+Row: \{\n\s+at: string\n\s+cpu: number \| null\n\s+disk_free: number \| null\n\s+mem_total: number \| null\n\s+mem_used: number \| null\n\s+runner_id: string\n\s+tokens_5h: number \| null\n\s+workspace_id: string\n/);
+    expect(TYPES).toMatch(/runners: \{\n\s+Row: \{\n\s+created_at: string\n\s+fleet: string \| null\n\s+health: Json \| null\n/);
   });
 });

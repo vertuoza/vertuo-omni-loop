@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { JobLineRow, JobRow, RunnerRow } from './runners.repository';
+import type { JobLineRow, JobRow, RunnerRow, SampleRow } from './runners.repository';
 import { cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
   API_KEY, CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, runnerRow, RUNNERS, SAM, SHARED, T0,
@@ -12,12 +12,12 @@ import {
 const at = (seconds: number) => new Date(T0.getTime() + seconds * 1000);
 
 /** The service on the fake store, with a clock that a held `next` moves forward as it sleeps. */
-function world({ jobs = [], runners = RUNNERS, lines = [], start = T0, onSleep }: {
-  jobs?: JobRow[]; runners?: RunnerRow[]; lines?: JobLineRow[]; start?: Date; onSleep?: (jobs: JobRow[]) => void;
+function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], start = T0, onSleep }: {
+  jobs?: JobRow[]; runners?: RunnerRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; start?: Date; onSleep?: (jobs: JobRow[]) => void;
 } = {}) {
   let now = start;
   const slept: number[] = [];
-  const { store, state } = fakeStore({ jobs, runners, lines, now: () => now });
+  const { store, state } = fakeStore({ jobs, runners, lines, samples, now: () => now });
   const service = runnersService(store, {
     now: () => now,
     sleep: (ms) => {
@@ -546,5 +546,69 @@ describe('reading a job\'s live lines (PRD 1904)', () => {
     const w = world({ jobs: [job], lines: lineRows(job, 1, 2) });
     expect(await w.service.lines(EVE, job.id, 0)).toMatchObject({ ok: false, kind: 'missing', error: 'No such job.' });
     expect(await w.service.lines(MO, '00000000-0000-4000-8000-000001830fff', 0)).toMatchObject({ ok: false, kind: 'missing' });
+  });
+});
+
+// A runner's health (PRD 2102 s1): its owner's report becomes its last health with the server's time and
+// counts as a check-in, adds one sample, and drops the runner's samples older than an hour; the Runners
+// page reads each runner's last health and its hour of samples, oldest first.
+describe('a runner\'s health (PRD 2102)', () => {
+  const GB = 1024 ** 3;
+  const REPORT = { cpu: 63.5, load1: 7.9, cores: 8, memUsed: 13 * GB, memTotal: 16 * GB, diskFree: 39 * GB, diskTotal: 233 * GB };
+
+  /** A sample of `runner` taken `seconds` from T0. */
+  const sampleAt = (runner: string, seconds: number, cpu = 10): SampleRow => ({
+    runner_id: runner, workspace_id: RUNNERS[0]?.workspace_id ?? '', at: at(seconds).toISOString(), cpu, mem_used: GB, mem_total: 16 * GB, disk_free: 40 * GB, tokens_5h: null,
+  });
+
+  it('stores the report with the server\'s time as the runner\'s last health, and counts it as a check-in', async () => {
+    const w = world({ runners: [runnerRow({ id: SHARED, name: 'shared', last_seen_at: at(-60).toISOString() })] });
+    expect(value(await w.service.health(OLGA, SHARED, REPORT))).toEqual({ at: T0.toISOString() });
+    expect(w.state.runners[0]).toMatchObject({ health: { ...REPORT, at: T0.toISOString() }, last_seen_at: T0.toISOString() });
+  });
+
+  it('keeps why a runner is paused and its limits', async () => {
+    const w = world();
+    const paused = { ...REPORT, paused: 'memory 91%', limits: { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 } };
+    value(await w.service.health(OLGA, SHARED, paused));
+    expect(w.state.runners.find((r) => r.id === SHARED)?.health).toEqual({ ...paused, at: T0.toISOString() });
+  });
+
+  it('adds one sample of the report\'s figures, in the runner\'s workspace', async () => {
+    const w = world();
+    value(await w.service.health(OLGA, SHARED, { ...REPORT, cpu: null }));
+    expect(w.state.samples).toEqual([{
+      runner_id: SHARED, workspace_id: RUNNERS[0]?.workspace_id, at: T0.toISOString(), cpu: null, mem_used: 13 * GB, mem_total: 16 * GB, disk_free: 39 * GB, tokens_5h: null,
+    }]);
+  });
+
+  it('deletes that runner\'s samples older than an hour, and no other runner\'s', async () => {
+    const w = world({ samples: [sampleAt(SHARED, -3601), sampleAt(SHARED, -3600), sampleAt(SHARED, -15), sampleAt(CIA_BOX, -7200)] });
+    value(await w.service.health(OLGA, SHARED, REPORT));
+    expect(w.state.samples.map((row) => [row.runner_id, row.at])).toEqual([
+      [SHARED, at(-3600).toISOString()], [SHARED, at(-15).toISOString()], [CIA_BOX, at(-7200).toISOString()], [SHARED, T0.toISOString()],
+    ]);
+  });
+
+  it('refuses a runner someone else registered, and one that does not exist, writing nothing', async () => {
+    const w = world();
+    expect(await w.service.health(MO, SHARED, REPORT)).toMatchObject({ ok: false, kind: 'forbidden' });
+    expect(await w.service.health(OLGA, '00000000-0000-4000-8000-000001830fff', REPORT)).toMatchObject({ ok: false, kind: 'missing' });
+    expect(w.state.samples).toEqual([]);
+    expect(w.state.runners.every((r) => r.health === null)).toBe(true);
+  });
+
+  it('gives the Runners page each runner\'s last health, or null, and its samples of the last hour, oldest first', async () => {
+    const health = { ...REPORT, at: at(-15).toISOString() };
+    const w = world({
+      runners: [runnerRow({ id: SHARED, name: 'shared', health }), runnerRow({ id: CIA_BOX, name: 'cia-box', fleet: 'cia' })],
+      samples: [sampleAt(SHARED, -15, 63.5), sampleAt(SHARED, -4000), sampleAt(SHARED, -30, 40), sampleAt(OTHER, -15)],
+    });
+    const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
+    const shared = board.runners.find((r) => r.id === SHARED);
+    expect(shared?.health).toEqual(health);
+    expect(shared?.samples?.map((s) => [s.at, s.cpu])).toEqual([[at(-30).toISOString(), 40], [at(-15).toISOString(), 63.5]]);
+    expect(shared?.samples?.[0]).toEqual({ at: at(-30).toISOString(), cpu: 40, memUsed: GB, memTotal: 16 * GB, diskFree: 40 * GB, tokens5h: null });
+    expect(board.runners.find((r) => r.id === CIA_BOX)).toMatchObject({ health: null, samples: [] });
   });
 });
