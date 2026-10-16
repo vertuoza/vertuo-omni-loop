@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OMNI PONG match mockup</title>
+<style>
+  /* One dark arcade look, on purpose: the arcade has no light theme. Tokens copied from packages/design/tokens.css. */
+  :root {
+    color-scheme: dark;
+    --void: #07061c; --deep: #0e0d33; --navy: #2f3fc4; --navy-dark: #1a2170; --white: #f2f4ff;
+    --plasma: #a45cff; --yellow: #ffd84a; --red: #ff3b5c; --cyan: #6ff0ff; --dim: #8a90d6;
+    --cab: #0e0d2a; --cab-lit: #14123a; --edge: #2a2766; --ink: #0b0a26;
+    --font-pixel: "Press Start 2P", "Courier New", monospace;
+    --txt: "Jersey 10", "Courier New", monospace;
+    --read: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #000; color: var(--white); font: 15px/1.55 var(--read);
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 48px; }
+  main { max-width: 1340px; margin: 0 auto; display: grid; gap: 36px; }
+  header h1 { margin: 0 0 6px; font: 400 18px/1.4 var(--font-pixel); color: var(--yellow); text-wrap: balance; }
+  header p { margin: 0; max-width: 72ch; color: var(--dim); }
+  h2 { margin: 0 0 12px; font: 400 12px/1.4 var(--font-pixel); letter-spacing: 1px; color: var(--cyan); }
+  h3 { margin: 0 0 8px; font: 600 13px/1.4 var(--read); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  section { display: grid; gap: 14px; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); gap: 20px; }
+  .pair > div { min-width: 0; display: grid; gap: 8px; align-content: start; }
+  .cap { margin: 0; max-width: 75ch; font-size: 14px; color: var(--dim); }
+  .cap b { color: var(--white); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+  .note { margin: 0; font-size: 13px; color: var(--dim); }
+
+  /* Functional: the flow, today beside after. */
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px; background: var(--deep); border: 1px solid var(--edge); }
+  .flow span { padding: 6px 9px; font: 12px/1.3 ui-monospace, "JetBrains Mono", monospace; background: var(--void); border: 1px solid var(--navy); }
+  .flow span.new { border-color: var(--yellow); color: var(--yellow); }
+  .flow i { font-style: normal; color: var(--dim); }
+  table { border-collapse: collapse; font-size: 14px; min-width: 520px; }
+  th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; }
+  td code, .cap code { font: 12px ui-monospace, "JetBrains Mono", monospace; color: var(--cyan); }
+
+  /* The wide grid, 640×360 at 1×. */
+  .screen { position: relative; width: 640px; height: 360px; flex: none; background: var(--void); overflow: hidden; font-family: var(--font-pixel); image-rendering: pixelated; }
+  .games { position: absolute; inset: 0; padding: 26px 34px 0; }
+  .games h2 { color: var(--white); font-size: 16px; }
+  .xp { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 7px; }
+  .xp-level { padding: 5px 6px 4px; font-size: 8px; color: var(--ink); background: var(--yellow); }
+  .xp-bar { width: 240px; height: 10px; padding: 2px; background: var(--navy-dark); box-shadow: inset 0 0 0 2px var(--navy); }
+  .xp-bar i { display: block; height: 100%; width: 35%; background: linear-gradient(90deg, var(--cyan), var(--plasma)); }
+  .cabinets { position: absolute; left: 34px; right: 34px; top: 86px; display: flex; justify-content: space-between; }
+  .cabinet { display: flex; flex-direction: column; gap: 6px; width: 180px; height: 232px; padding: 4px; text-align: center; background: var(--cab); border: 2px solid var(--edge); }
+  .cabinet.lit { background: var(--cab-lit); }
+  .cabinet.active { border-color: var(--yellow); }
+  .marquee { display: grid; place-items: center; height: 36px; font-size: 8px; color: var(--yellow); letter-spacing: 1px; background: linear-gradient(180deg, #2a1f6e, #151045); border: 2px solid var(--navy); }
+  .cab-screen { height: 66px; margin: 0 4px; background: var(--void); border: 2px solid var(--edge); }
+  .cab-screen svg { display: block; width: 100%; height: 100%; }
+  .cab-top { display: grid; gap: 6px; margin: 6px 8px 0; padding: 0; list-style: none; font-size: 7px; text-align: left; }
+  .cab-top li { display: flex; justify-content: space-between; }
+  .cab-top li.mine { color: var(--yellow); }
+  .cab-play { align-self: center; margin: auto 0 6px; padding: 5px 12px 4px; font-size: 7px; background: var(--red); }
+  .cab-lock { margin: auto 8px; font-family: var(--txt); font-size: 16px; color: var(--dim); }
+  .foot { position: absolute; left: 34px; bottom: 10px; font-size: 7px; color: var(--dim); }
+  .foot b { font-weight: 400; color: var(--yellow); }
+
+  /* OMNI PONG's screens. */
+  .pong-title { position: absolute; top: 34px; left: 0; right: 0; text-align: center; font-size: 20px; color: var(--yellow); letter-spacing: 2px; }
+  .ready-lines { position: absolute; top: 96px; left: 0; right: 0; display: grid; justify-items: center; gap: 18px; font-size: 9px; }
+  .ready-lines .pitch b { font-weight: 400; color: var(--cyan); }
+  .ready-lines .why { font-family: var(--txt); font-size: 18px; color: var(--dim); }
+  .ready-lines .warn { color: var(--red); }
+  .key { padding: 6px 10px 5px; font-size: 8px; background: var(--red); }
+  .meter { display: flex; align-items: center; gap: 10px; font-size: 9px; }
+  .meter .bar { position: relative; width: 160px; height: 10px; background: var(--navy-dark); box-shadow: inset 0 0 0 2px var(--navy); }
+  .meter .bar .lim { position: absolute; top: -4px; bottom: -4px; left: 50%; width: 2px; background: var(--white); }
+  .meter .bar .band { position: absolute; top: 2px; bottom: 2px; left: 46%; width: 8%; background: #2f3fc455; }
+  .meter .bar .hz { position: absolute; top: 2px; bottom: 2px; width: 6px; background: var(--cyan); }
+  .meter .dir { width: 14px; color: var(--cyan); }
+  .hint { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; font-size: 7px; color: var(--dim); }
+  .court-line { position: absolute; top: 30px; bottom: 0; left: 319px; width: 2px; background: repeating-linear-gradient(var(--edge) 0 8px, transparent 8px 16px); }
+  .hud { position: absolute; top: 10px; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 20px; font-size: 8px; }
+  .hud .score { color: var(--yellow); }
+  .hud .lives { color: var(--red); letter-spacing: 2px; }
+  .paddle { position: absolute; width: 6px; height: 44px; background: var(--white); }
+  .paddle.you { left: 24px; top: 170px; background: var(--cyan); }
+  .paddle.ai { right: 24px; top: 120px; background: var(--plasma); }
+  .ball { position: absolute; left: 402px; top: 150px; width: 6px; height: 6px; background: var(--yellow); }
+  .side-meter { position: absolute; left: 8px; top: 150px; font-size: 8px; color: var(--cyan); }
+  .over { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 16px; background: #07061ccc; font-size: 9px; }
+  .over .big { font-size: 18px; color: var(--red); }
+  .over .best { color: var(--yellow); }
+</style>
+</head>
+<body>
+<main>
+<p class="note">Draft from /omni:brainstorm, PRD 2101 (.omni-loop/delivery/inbox/2101-omni-pong/before-after.html). Wide grid, 640×360 at 1×.</p>
+<div class="pair">
+<div><div class="scroll"><div class="screen" data-screen="pong-match">
+        <div class="hud"><span class="score">SCORE 7</span><span class="lives">♥♥·</span></div>
+        <div class="court-line"></div>
+        <span class="side-meter">▼</span>
+        <div class="paddle you"></div>
+        <div class="paddle ai"></div>
+        <div class="ball"></div>
+        <p class="hint" data-primary>ENTER PAUSE</p>
+      </div></div>
+      <p class="cap"><b>After, playing.</b> Your paddle at the left, the AI's at the right; ▼ beside your paddle is what the steering reads now.</p></div>
+<div><div class="scroll"><div class="screen" data-screen="pong-match">
+        <div class="hud"><span class="score">SCORE 12</span><span class="lives">···</span></div>
+        <div class="court-line"></div>
+        <div class="paddle you"></div>
+        <div class="paddle ai"></div>
+        <div class="over">
+          <span class="big">GAME OVER</span>
+          <span>SCORE 12</span>
+          <span class="best">NEW BEST</span>
+          <span class="key" data-primary>A · AGAIN</span>
+          <span>B · ROOM</span>
+        </div>
+      </div></div>
+      <p class="cap"><b>After, game over.</b> The third point conceded ends it; the score is sent once, then <code>SAVING…</code>, <code>NEW BEST</code>, the best, or <code>SCORE NOT SAVED · A TO RETRY</code>.</p></div>
+</div>
+</main>
+</body>
+</html>
