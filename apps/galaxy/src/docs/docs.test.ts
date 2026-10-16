@@ -93,6 +93,7 @@ describe('the sidebar', () => {
       { name: 'Install', url: '/docs/install' },
       { name: 'Join a team', url: '/docs/join' },
       { name: 'Cloud sessions', url: '/docs/cloud' },
+      { name: 'Runners', url: '/docs/runners' },
       { name: 'Any coding agent', url: '/docs/any-agent' },
       { name: 'Invade', url: '/docs/invade' },
       { name: 'How the loop works', url: '/docs/loop' },
@@ -121,6 +122,7 @@ describe('the sidebar', () => {
       '<a href="/docs/install" aria-current="page">Install</a>',
       '<a href="/docs/join">Join a team</a>',
       '<a href="/docs/cloud">Cloud sessions</a>',
+      '<a href="/docs/runners">Runners</a>',
       '<a href="/docs/any-agent">Any coding agent</a>',
       '<a href="/docs/invade">Invade</a>',
       '<a href="/docs/loop">How the loop works</a>',
@@ -145,7 +147,7 @@ describe('the sidebar', () => {
 describe('the pages', () => {
   it('serves Getting started at /docs, and each other page at /docs/<page>', () => {
     expect(guide.generateParams().map((p) => p.slug.join('/')).sort())
-      .toEqual(['', 'any-agent', 'api', 'cloud', 'design', 'drive', 'first-prd', 'flow', 'ideas', 'install', 'invade', 'join', 'landings', 'loop', 'observability', 'products', 'roadmaps', 'several-repositories', 'troubleshooting', 'use-cases', 'validate-e2e']);
+      .toEqual(['', 'any-agent', 'api', 'cloud', 'design', 'drive', 'first-prd', 'flow', 'ideas', 'install', 'invade', 'join', 'landings', 'loop', 'observability', 'products', 'roadmaps', 'runners', 'several-repositories', 'troubleshooting', 'use-cases', 'validate-e2e']);
     expect(guide.getPage([])?.data.title).toBe('Getting started');
     expect(guide.getPage(['nope'])).toBeUndefined();
   });
@@ -154,7 +156,8 @@ describe('the pages', () => {
     [[], 'Getting started', '/docs/install'],
     [['install'], 'Install', '/docs/join'],
     [['join'], 'Join a team', '/docs/loop'],
-    [['cloud'], 'Cloud sessions', '/docs/loop'],
+    [['cloud'], 'Cloud sessions', '/docs/runners'],
+    [['runners'], 'Runners', '/docs/loop'],
     [['any-agent'], 'Any coding agent', '/docs/loop'],
     [['invade'], 'Invade', '/docs/loop'],
     [['first-prd'], 'Your first PRD', '/docs/several-repositories'],
