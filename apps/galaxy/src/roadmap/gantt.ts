@@ -12,11 +12,10 @@
 // - the pull request a PRD waits on, on its bar, while it is not merged.
 //
 // Every x is a fraction of the chart's width, 0 to 1; every row is its index top to bottom.
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { prdPagePath } from '../dossier/page/history-at';
 import type { RoadmapPrdRow, RoadmapPrdState } from './store';
 
-export type GanttPrd = Pick<RoadmapPrdRow, 'row_id' | 'prd' | 'title' | 'repos' | 'blockers' | 'wave' | 'state' | 'waits_on' | 'waits_on_url' | 'started_at' | 'ended_at'>;
+export type GanttPrd = Pick<RoadmapPrdRow, 'row_id' | 'prd' | 'prd_id' | 'title' | 'repos' | 'blockers' | 'wave' | 'state' | 'waits_on' | 'waits_on_url' | 'started_at' | 'ended_at'>;
 
 /** A piece of a bar: `real` on dates that happened, `projected` dashed, `wave` a wave's column without dates. */
 export interface GanttSegment {
@@ -27,9 +26,11 @@ export interface GanttSegment {
 
 export interface GanttRow {
   id: string;
-  prd: PrdNumber;
+  /** The PRD's id as a person reads it: `912` for a repository's, `mobile-12` for a product's. */
+  prdLabel: string;
   title: string;
-  href: string;
+  /** The PRD's page; null for a product PRD, whose page is found by its dossier. */
+  href: string | null;
   wave: number;
   state: RoadmapPrdState;
   stateLabel: string;
@@ -139,8 +140,8 @@ function marksOf(start: number, end: number): Gantt['columns'] {
   });
 }
 
-/** The Gantt of a roadmap of `repo` (its slug), each row linking to its PRD's page. */
-export function ganttOf(prds: readonly GanttPrd[], now: number, repo: string): Gantt {
+/** The Gantt of a roadmap of `repo` (its slug; null for one born on the server), each row linking to its repository PRD's page. */
+export function ganttOf(prds: readonly GanttPrd[], now: number, repo: string | null): Gantt {
   const waves = [...new Set(prds.map((p) => p.wave))].sort((a, b) => a - b);
   const ordered = waves.flatMap((wave) => prds.filter((p) => p.wave === wave));
   const lanes = prds.some((p) => p.repos.length > 0);
@@ -165,9 +166,9 @@ export function ganttOf(prds: readonly GanttPrd[], now: number, repo: string): G
 
   const rows = ordered.map((p, index): GanttRow => ({
     id: p.row_id,
-    prd: p.prd,
+    prdLabel: p.prd_id ?? String(p.prd),
     title: p.title,
-    href: prdPagePath(repo, p.prd),
+    href: repo === null || p.prd === null ? null : prdPagePath(repo, p.prd),
     wave: p.wave,
     state: p.state,
     stateLabel: stateLabelOf(p.state),

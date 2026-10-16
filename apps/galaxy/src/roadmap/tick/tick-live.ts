@@ -17,7 +17,8 @@ function tickStore(reader: Pick<Reader, 'roadmap' | 'prerequisites'>): TickStore
   return {
     async target(roadmapId) {
       const row = await reader.roadmap(roadmapId);
-      if (!row) return null;
+      // A roadmap born on the server has no issue to comment on: nothing to mark there.
+      if (!row || row.repo === null || row.number === null) return null;
       const prerequisites = await reader.prerequisites(row.id);
       return { roadmapId: row.id, repo: row.repo, number: row.number, rows: Object.fromEntries(prerequisites.map((p) => [p.row_id, p.who])) };
     },

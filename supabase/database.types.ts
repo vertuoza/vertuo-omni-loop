@@ -2227,6 +2227,7 @@ export type Database = {
           added_by: string
           consumes: string[]
           knowledge: string
+          ladder_step: number
           product_id: string
           read_at: string | null
           read_only: boolean
@@ -2239,6 +2240,7 @@ export type Database = {
           added_by: string
           consumes?: string[]
           knowledge?: string
+          ladder_step?: number
           product_id: string
           read_at?: string | null
           read_only?: boolean
@@ -2251,6 +2253,7 @@ export type Database = {
           added_by?: string
           consumes?: string[]
           knowledge?: string
+          ladder_step?: number
           product_id?: string
           read_at?: string | null
           read_only?: boolean
@@ -2287,6 +2290,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         Insert: {
@@ -2300,6 +2304,7 @@ export type Database = {
           pitch?: Json
           pitch_look?: string
           prd_count?: number
+          roadmap_seq?: number
           workspace_id: string
         }
         Update: {
@@ -2313,6 +2318,7 @@ export type Database = {
           pitch?: Json
           pitch_look?: string
           prd_count?: number
+          roadmap_seq?: number
           workspace_id?: string
         }
         Relationships: [
@@ -2647,7 +2653,8 @@ export type Database = {
           blockers: string[]
           ended_at: string | null
           position: number
-          prd: number
+          prd: number | null
+          prd_id: string
           repos: string[]
           roadmap_id: string
           row_id: string
@@ -2662,7 +2669,8 @@ export type Database = {
           blockers?: string[]
           ended_at?: string | null
           position: number
-          prd: number
+          prd?: number | null
+          prd_id: string
           repos?: string[]
           roadmap_id: string
           row_id: string
@@ -2677,7 +2685,8 @@ export type Database = {
           blockers?: string[]
           ended_at?: string | null
           position?: number
-          prd?: number
+          prd?: number | null
+          prd_id?: string
           repos?: string[]
           roadmap_id?: string
           row_id?: string
@@ -2761,16 +2770,17 @@ export type Database = {
         Row: {
           created_at: string
           document: string
+          dossier_id: string | null
           id: string
           milestone: string
-          number: number
+          number: number | null
           prerequisites_checked_at: string | null
           prerequisites_machine: string | null
           product_id: string | null
           pushed_at: string
           pushed_by: string | null
           questions: Json
-          repo: string
+          repo: string | null
           source: string | null
           target_date: string | null
           title: string
@@ -2779,16 +2789,17 @@ export type Database = {
         Insert: {
           created_at?: string
           document: string
+          dossier_id?: string | null
           id?: string
           milestone: string
-          number: number
+          number?: number | null
           prerequisites_checked_at?: string | null
           prerequisites_machine?: string | null
           product_id?: string | null
           pushed_at?: string
           pushed_by?: string | null
           questions?: Json
-          repo: string
+          repo?: string | null
           source?: string | null
           target_date?: string | null
           title: string
@@ -2797,22 +2808,30 @@ export type Database = {
         Update: {
           created_at?: string
           document?: string
+          dossier_id?: string | null
           id?: string
           milestone?: string
-          number?: number
+          number?: number | null
           prerequisites_checked_at?: string | null
           prerequisites_machine?: string | null
           product_id?: string | null
           pushed_at?: string
           pushed_by?: string | null
           questions?: Json
-          repo?: string
+          repo?: string | null
           source?: string | null
           target_date?: string | null
           title?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "roadmaps_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: true
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "roadmaps_product_fkey"
             columns: ["product_id", "workspace_id"]
@@ -3732,6 +3751,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4577,6 +4597,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4607,6 +4628,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4630,6 +4652,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4654,6 +4677,7 @@ export type Database = {
           added_by: string
           consumes: string[]
           knowledge: string
+          ladder_step: number
           product_id: string
           read_at: string | null
           read_only: boolean
@@ -4681,11 +4705,34 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
           from: "*"
           to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_repository_set_step: {
+        Args: { p_product: string; p_repository: string; p_step: number }
+        Returns: {
+          added_at: string
+          added_by: string
+          consumes: string[]
+          knowledge: string
+          ladder_step: number
+          product_id: string
+          read_at: string | null
+          read_only: boolean
+          repository: string
+          role: string | null
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_repositories"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -4775,7 +4822,20 @@ export type Database = {
         Args: { p_key: string; p_kind: string; p_roadmap: string }
         Returns: boolean
       }
+      roadmap_id_of: {
+        Args: { p_product: string; p_seq: number }
+        Returns: string
+      }
       roadmap_prerequisites_push: { Args: { p_body: Json }; Returns: Json }
+      roadmap_product_push: {
+        Args: {
+          p_body: Json
+          p_key: string
+          p_repo?: string
+          p_roadmap: number
+        }
+        Returns: Json
+      }
       roadmap_push: { Args: { p_body: Json }; Returns: Json }
       runner_claim: {
         Args: { p_runner: string }
@@ -4861,6 +4921,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4883,6 +4944,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {

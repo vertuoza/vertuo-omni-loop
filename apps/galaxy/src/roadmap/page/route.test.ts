@@ -41,14 +41,14 @@ describe('roadmapPageView', () => {
   it('reads the workspace\'s roadmaps as the person signed in', async () => {
     given.session = { kind: 'signed-in', db: { from: () => null, rpc: () => null }, user: { id: 'u-1' } };
     expect(await roadmapPageView(LIST, NOW)).toEqual({ kind: 'no-workspace' });
-    expect(loadRoadmapPage).toHaveBeenCalledWith(expect.anything(), { ...LIST, tickable: false }, NOW);
+    expect(loadRoadmapPage).toHaveBeenCalledWith(expect.anything(), { ...LIST, tickable: false, me: 'u-1' }, NOW);
   });
 
   it('offers Mark as done to the person signed in only where marking is open (s7)', async () => {
     given.session = { kind: 'signed-in', db: { from: () => null, rpc: () => null }, user: { id: 'u-1' } };
     given.open = true;
     await roadmapPageView({ id: DEMO_ROADMAP, product: null, ticked: 'p6' }, NOW);
-    expect(loadRoadmapPage).toHaveBeenLastCalledWith(expect.anything(), { id: DEMO_ROADMAP, product: null, ticked: 'p6', tickable: true }, NOW);
+    expect(loadRoadmapPage).toHaveBeenLastCalledWith(expect.anything(), { id: DEMO_ROADMAP, product: null, ticked: 'p6', tickable: true, me: 'u-1' }, NOW);
     given.open = false;
   });
 
