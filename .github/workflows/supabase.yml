@@ -317,6 +317,12 @@ jobs:
         # sent twice is stored once, retention keeps the listed jobs' lines, a deleted job takes its
         # lines with it (PRD 1904).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_job_lines.sql
+      - name: Who may make, list and revoke an API key, and which key the API accepts
+        # Only a workspace's owner makes or revokes a key; any member lists them, never the hash; a key's
+        # repositories are ones the workspace tracks, its name unique among the live keys, 20 at most.
+        # api_key_of() runs for the service role only and answers nothing for a revoked key, a key whose
+        # maker left, a business link or a kit token; last used moves once a minute (PRD 2022).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/api_keys.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

@@ -4,7 +4,7 @@ import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, FleetPicker, Refresh, SendAgainButton } from './actions';
 import {
-  canCancel, canSendAgain, fleetCell, prWords, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  canCancel, canSendAgain, fleetCell, madeByWords, prWords, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Fleet, type RunnersPageView,
 } from './model';
 import { runnerJob, terminalOf } from './terminal-model';
@@ -71,7 +71,7 @@ function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; 
     <div className="runners-row runners-job" id={`job-${job.id}`}>
       <code data-content>{job.line}</code>
       <span className="runners-muted" data-content title={job.repo}>{repoName(job.repo)}</span>
-      <span data-content>{senderWords(job)}</span>
+      <span data-content>{senderWords(job)}{madeByWords(job) !== null && <small className="runners-muted runners-made-by"> {madeByWords(job)}</small>}</span>
       <span data-content>{whereWords(job, board.runners, fleets)}</span>
       <span className={`runners-status is-${statusTone(job.status)}`}>{statusWords(job, now)}</span>
       <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} /></span>
