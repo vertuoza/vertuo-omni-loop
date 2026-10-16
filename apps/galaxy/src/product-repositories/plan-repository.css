@@ -1,4 +1,4 @@
-/* The rollout ladder and the plan repository's archive (PRD 2011 s17, screen product-repositories). */
+/* The rollout ladder and what still lives in the plan repository (PRD 2011 s17, screen product-repositories). */
 .plan-ladder, .plan-holds { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .plan-ladder-row { display: grid; grid-template-columns: minmax(6em, 12em) auto auto; gap: 8px 12px; align-items: center; }
 .plan-ladder-name { font-family: var(--ask-mono); font-size: 14px; overflow-wrap: anywhere; }

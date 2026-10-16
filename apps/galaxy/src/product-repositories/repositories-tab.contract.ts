@@ -85,7 +85,7 @@ export interface RepositoriesTab {
   addable: string[];
   /** The Approvers list, or null when it could not be read. */
   approvers: Approvers | null;
-  /** The plan repository and its archive; null while the product names no plan repository. */
+  /** The plan repository and what still lives in it; null while the product names no plan repository. */
   plan: PlanRepository | null;
 }
 
