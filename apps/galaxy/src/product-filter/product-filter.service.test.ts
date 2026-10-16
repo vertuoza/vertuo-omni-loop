@@ -163,16 +163,16 @@ describe('the product of each listed row (PRD 2011)', () => {
 
   it('names a product item by its product\'s key and its number: mobile-12, mobile-B74, mobile-R3', () => {
     const labels = labelsOf([{ id: 'prd' }, { id: 'bug', kind: 'bug' }, { id: 'road', kind: 'roadmap' }], products, carriers, numbers);
-    expect(labels.get('prd')).toEqual({ product: 'Mobile', itemId: 'mobile-12' });
-    expect(labels.get('bug')).toEqual({ product: 'Mobile', itemId: 'mobile-B74' });
-    expect(labels.get('road')).toEqual({ product: 'Mobile', itemId: 'mobile-R3' });
+    expect(labels.get('prd')).toEqual({ product: 'Mobile', item: 'mobile-12' });
+    expect(labels.get('bug')).toEqual({ product: 'Mobile', item: 'mobile-B74' });
+    expect(labels.get('road')).toEqual({ product: 'Mobile', item: 'mobile-R3' });
   });
 
   it('gives a row born in a repository its product only, and a product without a key no id', () => {
     const labels = labelsOf([{ id: 'repo', kind: 'bug' }, { id: 'nokey' }, { id: 'vis', kind: 'visual' }, { id: 'loose' }], products, carriers, numbers);
-    expect(labels.get('repo')).toEqual({ product: 'Mobile', itemId: null });
-    expect(labels.get('nokey')).toEqual({ product: 'Estimates', itemId: null });
-    expect(labels.get('vis')).toEqual({ product: 'Mobile', itemId: null });
+    expect(labels.get('repo')).toEqual({ product: 'Mobile', item: null });
+    expect(labels.get('nokey')).toEqual({ product: 'Estimates', item: null });
+    expect(labels.get('vis')).toEqual({ product: 'Mobile', item: null });
     expect(labels.has('loose')).toBe(false);
   });
 
@@ -180,7 +180,7 @@ describe('the product of each listed row (PRD 2011)', () => {
     const rows = [{ ...row('d-mobile', 'bug') }, { ...row('d-estimates', 'bug') }];
     const kept = await scopeDossiers(reads(), rows, { product: MOBILE.id }, '/bugs');
     expect(kept.rows.map((r) => r.id)).toEqual(['d-mobile']);
-    expect(kept.labels).toEqual(new Map([['d-mobile', { product: 'Mobile', itemId: 'mobile-B12' }]]));
+    expect(kept.labels).toEqual(new Map([['d-mobile', { product: 'Mobile', item: 'mobile-B12' }]]));
     const broken = await scopeDossiers(reads({ dossierNumbers: () => Promise.reject(new Error('denied')) }), rows, {}, '/bugs', () => undefined);
     expect(broken).toMatchObject({ unreadable: true, labels: new Map() });
   });

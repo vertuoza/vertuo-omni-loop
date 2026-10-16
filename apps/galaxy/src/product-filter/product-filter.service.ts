@@ -95,19 +95,18 @@ export type ProductFilterReads = Pick<ProductFilterRepository, 'products' | 'dos
  * (`mobile-12` a PRD, `mobile-B74` a bug, `mobile-R3` a roadmap); null for a row born in a repository. */
 export interface ProductLabel {
   product: string;
-  itemId: string | null;
+  item: string | null;
 }
 
 /** The labels by dossier id: each row that carries a product. */
 export type ProductLabels = ReadonlyMap<string, ProductLabel>;
 
-const ITEM_PREFIX = { prd: '', bug: 'B', roadmap: 'R' } as const;
+const PREFIX = (kind: string): string | null => (kind === 'prd' ? '' : kind === 'bug' ? 'B' : kind === 'roadmap' ? 'R' : null);
 
 /** The id of a product item: `<key>-<n>`, `<key>-B<n>` or `<key>-R<n>`; null for any other kind, or without a key or a number. */
-function itemIdOf(kind: string | undefined, key: string | null, seq: number | undefined): string | null {
-  const k = kind ?? 'prd';
-  if (key === null || seq === undefined || !(k in ITEM_PREFIX)) return null;
-  return `${key}-${ITEM_PREFIX[k as keyof typeof ITEM_PREFIX]}${seq}`;
+function itemOf(kind: string | undefined, key: string | null, seq: number | undefined): string | null {
+  const prefix = PREFIX(kind ?? 'prd');
+  return key === null || seq === undefined || prefix === null ? null : `${key}-${prefix}${seq}`;
 }
 
 /** The label of each row that carries a product: the product's name and, when the row is numbered on it, its id. */
@@ -118,7 +117,7 @@ export function labelsOf(
   const labels = new Map<string, ProductLabel>();
   for (const row of rows) {
     const product = products.find((p) => p.id.toLowerCase() === carriers.get(row.id)?.toLowerCase());
-    if (product) labels.set(row.id, { product: product.name, itemId: itemIdOf(row.kind, product.key ?? null, numbers.get(row.id)) });
+    if (product) labels.set(row.id, { product: product.name, item: itemOf(row.kind, product.key ?? null, numbers.get(row.id)) });
   }
   return labels;
 }

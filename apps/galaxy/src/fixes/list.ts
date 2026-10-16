@@ -150,7 +150,7 @@ export function fixItems(
     .sort(newestFirst).map((row): FixItem => ({
     id: row.id,
     href: workPath(kind, row.id),
-    heading: labels.get(row.id)?.itemId ?? `#${row.prd}`,
+    heading: labels.get(row.id)?.item ?? `#${row.prd}`,
     product: labels.get(row.id)?.product ?? null,
     title: row.title,
     repos: row.repos,

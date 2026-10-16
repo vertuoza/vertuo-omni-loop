@@ -15,7 +15,7 @@ describe('the Concepts product filter', () => {
     const asked: unknown[] = [];
     const scope = (_db: unknown, rows: { id: string; workspace_id: string; kind: 'concept' }[], query: unknown) => {
       asked.push(rows, query);
-      return Promise.resolve({ rows: rows.slice(0, 1), above: 'above', labels: new Map([['a', { product: 'Mobile', itemId: null }]]) });
+      return Promise.resolve({ rows: rows.slice(0, 1), above: 'above', labels: new Map([['a', { product: 'Mobile', item: null }]]) });
     };
     const out = await withProducts(scope, { product: 'none' })({} as Db, cards);
     expect(asked).toEqual([[{ id: 'a', workspace_id: 'w-1', kind: 'concept' }, { id: 'b', workspace_id: 'w-1', kind: 'concept' }], { product: 'none' }]);

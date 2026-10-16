@@ -14,7 +14,7 @@ type ListScope = (
 
 /** `scope`, the product filter of the list at /concepts, as the Concepts list takes it. */
 export const withProducts = (scope: ListScope, query: Query): ConceptScope => async (db, cards) => {
-  const { rows, above, labels } = await scope(db as ProductFilterDb, cards.map((c) => ({ id: c.id, workspace_id: c.workspaceId, kind: 'concept' as const })), query);
+  const { rows, above, labels } = await scope(db, cards.map((c) => ({ id: c.id, workspace_id: c.workspaceId, kind: 'concept' as const })), query);
   const kept = new Set(rows.map((r) => r.id));
   return { cards: cards.filter((c) => kept.has(c.id)).map((c): ConceptCard => ({ ...c, product: labels.get(c.id)?.product ?? null })), above };
 };

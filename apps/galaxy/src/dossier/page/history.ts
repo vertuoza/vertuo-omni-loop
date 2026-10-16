@@ -320,8 +320,8 @@ export function historyItems(
     id: row.id,
     href: dossierPath(row.id),
     // A product PRD has no repository number and is no draft (PRD 2011): its id is its heading.
-    heading: labels.get(row.id)?.itemId ?? (row.prd === null ? 'DRAFT' : `#${row.prd}`),
-    draft: row.prd === null && !labels.get(row.id)?.itemId,
+    heading: labels.get(row.id)?.item ?? (row.prd === null ? 'DRAFT' : `#${row.prd}`),
+    draft: row.prd === null && !labels.get(row.id)?.item,
     product: labels.get(row.id)?.product ?? null,
     title: row.title,
     repos: row.repos,
