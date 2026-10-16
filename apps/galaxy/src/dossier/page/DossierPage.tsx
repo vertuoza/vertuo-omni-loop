@@ -13,6 +13,8 @@ import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
 import { MarkSeen } from './MarkSeen';
 import { OutboxPane } from './OutboxPane';
+import { OutboxPaneProduct } from './OutboxPaneProduct';
+import type { ProductOutboxView } from './outbox-product';
 import { QuestionsPane } from './QuestionsPane';
 import { RetroPane } from './RetroPane';
 import { seenSignature } from './seen';
@@ -81,6 +83,8 @@ type Props = {
   voice?: VoiceView | null | undefined;
   /** A product PRD's attestation (PRD 1548 s4); null or left out when nobody approved it, or for any other dossier. */
   attestation?: AttestationView | null | undefined;
+  /** A product PRD's outbox from the server's rows (PRD 2011 s15); null or left out for any other dossier, whose Outbox tab reads GitHub. */
+  productOutbox?: ProductOutboxView | null | undefined;
 };
 
 const EMPTY: Record<ArtifactKind, string> = {
@@ -92,7 +96,7 @@ const EMPTY: Record<ArtifactKind, string> = {
   voice: VOICE_EMPTY,
 };
 
-type PaneProps = Pick<Props, 'view' | 'markdown' | 'supabase' | 'voice'>;
+type PaneProps = Pick<Props, 'view' | 'markdown' | 'supabase' | 'voice' | 'productOutbox'>;
 type Shown = NonNullable<DossierView['shown']>;
 
 /** The User voice tab (PRD 822): its picker and the shown version drawn, or the spec's empty line. */
@@ -110,7 +114,9 @@ function VoiceTab({ view, voice = null }: PaneProps) {
 /** The tabs drawn by a pane of their own, not as an artifact's versions. */
 const OWN_PANES: Partial<Record<DossierView['tab'], (props: PaneProps) => ReactNode>> = {
   questions: ({ view, supabase }) => <QuestionsPane questions={view.questions} supabase={supabase} />,
-  outbox: ({ view, markdown }) => <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />,
+  outbox: ({ view, markdown, productOutbox }) => productOutbox
+    ? <OutboxPaneProduct outbox={productOutbox} />
+    : <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />,
   care: ({ view }) => <CarePane care={view.care} />,
   retro: ({ view }) => <RetroPane retro={view.retro} />,
   timeline: ({ view }) => <TimelinePane fix={view.fix} />,
@@ -249,7 +255,7 @@ function ProductFact({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
   return view.kind === 'prd' && supabase && !view.demo ? <ProductPicker dossier={view.id} /> : null;
 }
 
-export function DossierPage({ view, markdown, supabase, live, voice, attestation }: Props) {
+export function DossierPage({ view, markdown, supabase, live, voice, attestation, productOutbox }: Props) {
   const { stage, fix, approval } = view;
   return (
     <div className="dossier">
@@ -325,7 +331,7 @@ export function DossierPage({ view, markdown, supabase, live, voice, attestation
       <MarkSeen id={view.id} signature={seenSignature(view.tabs)} />
       {live}
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>
-        <Pane view={view} markdown={markdown} supabase={supabase} voice={voice} />
+        <Pane view={view} markdown={markdown} supabase={supabase} voice={voice} productOutbox={productOutbox} />
       </section>
     </div>
   );

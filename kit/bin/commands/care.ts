@@ -47,6 +47,7 @@ import type { Slice } from '../../lib/types.ts';
 import { CARE_VERDICTS, careReplyBody } from '../../lib/care/marker.ts';
 import { careState } from '../../lib/care/state.ts';
 import type { Context } from '../../lib/context.ts';
+import { targetsOf } from '../../lib/plan-repo/target-list.ts';
 import { fillBranch } from '../../lib/board.ts';
 import { parseFolderName } from '../../lib/layout.ts';
 import type { LoopChange } from '../../lib/loop-reads/contract.ts';
@@ -152,7 +153,7 @@ function shortName(slug: string): string {
 
 /** The target `--repo` names, in a plan repository; `null` anywhere else. */
 function targetOf(ctx: Context, flag: string | undefined): Target | null {
-  const found = ctx.config.plan?.targets.find((target) => target.repo === flag);
+  const found = (targetsOf(ctx) ?? []).find((target) => target.repo === flag);
   return found ? { name: shortName(found.repo), slug: found.repo } : null;
 }
 
@@ -359,7 +360,7 @@ function listLine(entry: CareListEntry, index: number): string {
 
 /** Every pull request of a mega care run of PRD `prd`, in merge order. */
 async function careList(prd: PrdNumber, { ctx, reads }: { ctx: Context; reads: LoopReads }): Promise<CareListEntry[]> {
-  const targets = ctx.config.plan?.targets ?? [];
+  const targets = targetsOf(ctx) ?? [];
   const planSlug = repoSlug('care', ctx, undefined);
   const plan = readPlanOf(prd, ctx);
   const known = new Map(targets.map((target) => [target.repo, shortName(target.repo)]));

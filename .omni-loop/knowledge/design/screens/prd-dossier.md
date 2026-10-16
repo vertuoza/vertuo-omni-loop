@@ -88,6 +88,6 @@ Repo, Repos, On GitHub, Opened.
 - apps/galaxy/src/page-width.test.ts@7302b0d
 - /omni:invade 2026-10-10 (written by hand from its screen-library step, PRD 1407 s9)
 - /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html (Send to terminal)
-- /omni:brainstorm, PRD 2011: .omni-loop/delivery/inbox/2011-product-records/before-after.html (a product PRD's Outbox tab reads the server's rows)
+- /omni:brainstorm, PRD 2011: .omni-loop/delivery/shipped/2011-product-records/before-after.html (a product PRD's Outbox tab reads the server's rows)
 - /omni:brainstorm, PRD 1915: .omni-loop/delivery/shipped/1915-agent-words-website/before-after.html
 - /omni:think-big, concept #2024, crowned L on 2026-10-15: .omni-loop/delivery/inbox/concepts/2024-launch/vision.html (Launch replaces Pitch)

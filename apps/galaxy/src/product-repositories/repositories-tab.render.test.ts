@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { APPROVERS_READ_ONLY } from '../products/approvers-section';
 import { ALL_LINKED, LINKS_READ_ONLY, NO_LINKS } from './LinksSection';
+import { NOTHING_LEFT } from './PlanRepositorySection';
 import type { RepositoriesTab } from './repositories-tab.contract';
 import { demoRepositoriesTab, RepositoriesTabScreen, TAB_LABEL, type RepositoriesTabView } from './RepositoriesTab';
 
@@ -76,7 +77,7 @@ describe('a member\'s tab', () => {
   });
 
   it('names an imported knowledge base by its commit, and a link with no role', () => {
-    const imported = render(live({ ...TAB, owner: false, links: [{ repo: 'acme/api', role: null, knowledge: 'imported', readAt: '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4', readOnly: false, consumes: [], addedBy: 'person' }] }));
+    const imported = render(live({ ...TAB, owner: false, links: [{ repo: 'acme/api', role: null, knowledge: 'imported', readAt: '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4', readOnly: false, consumes: [], addedBy: 'person', ladderStep: 1 }] }));
     expect(text(rowOf(imported, 'acme/api'))).toBe('acme/api no role yet · knowledge imported at 3f2a9c1 · added by a person');
   });
 });
@@ -92,5 +93,36 @@ describe('the situations', () => {
     const html = render(live({ ...TAB, approvers: null }));
     expect(html).toContain('data-repo="acme/widgets"');
     expect(text(html)).toContain('Couldn’t load this product’s approvers');
+  });
+});
+
+describe('the ladder and the plan repository (PRD 2011 s17)', () => {
+  const planned = (plan: RepositoriesTab['plan'], over: Partial<RepositoriesTab> = {}) => render(live({ ...TAB, plan, ...over }));
+
+  it('draws one line per repository with its step, five cells, the reached ones filled', () => {
+    const html = planned(null);
+    const from = html.indexOf('data-ladder-repo="acme/widgets"');
+    const row = html.slice(from, html.indexOf('</li>', from));
+    expect(text(row).replace(/^[^>]*> /, '')).toBe('widgets step 3');
+    expect(row).toContain('aria-label="acme/widgets: step 3 of 5"');
+    expect(row.match(/plan-ladder-cell on/g)).toHaveLength(3);
+    expect(row.match(/plan-ladder-cell"/g)).toHaveLength(2);
+    expect(html).not.toContain('id="plan-title"');
+  });
+
+  it('names what is still in the plan repository, with nothing to press', () => {
+    const html = planned({ repository: 'acme/plan', holds: [{ name: 'widgets', why: 'step 3' }, { name: 'roadmap 0412', why: 'in git' }] });
+    const section = html.slice(html.indexOf('id="plan-title"'), html.indexOf('id="links-title"'));
+    expect(text(section)).toContain('Still in the plan repository');
+    expect(text(section)).toContain('Held by widgets · step 3');
+    expect(text(section)).toContain('Held by roadmap 0412 · in git');
+    expect(section).not.toContain('<button');
+    expect(text(html).toLowerCase()).not.toContain('archive');
+  });
+
+  it('says when nothing open is left in it, the same to a member as to an owner', () => {
+    const plan = { repository: 'acme/plan', holds: [] };
+    expect(text(planned(plan))).toContain(`acme/plan ${NOTHING_LEFT}`);
+    expect(text(planned(plan, { owner: false, approvers: null }))).toContain(`acme/plan ${NOTHING_LEFT}`);
   });
 });

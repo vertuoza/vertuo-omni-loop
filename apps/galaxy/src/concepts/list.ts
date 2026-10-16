@@ -9,6 +9,7 @@
 // PRD 1272 (s4): each card carries the concept's state (./state.ts), read from its stored facts in fix_facts
 // as the signed-in person, one read per workspace: the list never reads GitHub. Facts that cannot be read,
 // or that the sync has not stored yet, leave the state unknown.
+import type { ReactNode } from 'react';
 import { z } from 'zod';
 import { IssueNumberSchema, type IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { parseConcept, type ConceptKind, type ConceptScale } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
@@ -50,6 +51,10 @@ export type ConceptCard = {
   recorded: string;
   /** In review, in the inbox or unknown, from its stored facts. */
   state: ConceptState;
+  /** The name of the product it carries (PRD 2011); null when it has none. */
+  product: string | null;
+  /** Its workspace, for the product filter. */
+  workspaceId: string;
 };
 
 /** The concept rows among dossier_list()'s, in their order: every other kind is left out. */
@@ -88,6 +93,8 @@ export function conceptCards(
       recordedAt: row.created_at,
       recorded: dated(row.created_at),
       state: conceptState(facts.get(row.id) ?? null),
+      product: null,
+      workspaceId: row.workspace_id,
     }))
     .sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt) || a.id.localeCompare(b.id));
 }
@@ -136,11 +143,16 @@ export type ConceptListState =
   | { kind: 'closed' }
   | { kind: 'signed-out' }
   | { kind: 'down' }
-  | { kind: 'listed'; cards: ConceptCard[] };
+  | { kind: 'listed'; cards: ConceptCard[]; above?: ReactNode };
 
 /** The session /concepts reads as: its database and the signed-in person, null when signed out; null
  * when this deployment keeps no dossier. */
 type Session = { db: Pick<Db, 'rpc' | 'from'>; user: object | null } | null;
+
+/** What narrows the cards by product (PRD 2011) and what to draw above them: the product filter. */
+export type ConceptScope = (
+  db: Pick<Db, 'rpc' | 'from'>, cards: ConceptCard[],
+) => Promise<{ cards: ConceptCard[]; above: ReactNode }>;
 
 /** What /concepts shows in `mode`: the demo holds no concept, a deployment with no database keeps none,
  * a signed-out person is asked to sign in, and a read that fails says so. */
@@ -148,13 +160,15 @@ export async function conceptListState(
   mode: ArcadeMode,
   session: (mode: ArcadeMode) => Promise<Session>,
   read: (db: Pick<Db, 'rpc' | 'from'>) => Promise<ConceptCard[]> = readConcepts,
+  scope?: ConceptScope,
 ): Promise<ConceptListState> {
   if (mode === 'demo') return { kind: 'listed', cards: [] };
   const seen = await session(mode);
   if (!seen) return { kind: 'closed' };
   if (!seen.user) return { kind: 'signed-out' };
   try {
-    return { kind: 'listed', cards: await read(seen.db) };
+    const cards = await read(seen.db);
+    return scope ? { kind: 'listed', ...await scope(seen.db, cards) } : { kind: 'listed', cards };
   } catch (error) {
     console.error(error);
     return { kind: 'down' };

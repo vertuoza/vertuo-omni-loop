@@ -20,7 +20,7 @@ const ANNA = { user_id: 'u-anna', name: 'Anna', github_login: 'anna', avatar_url
 const FLEETS = [{ name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod' }];
 
 const item = (askedBy: FixItem['askedBy']): FixItem => ({
-  id: 'f1', href: '/visual/f1', heading: '#548', title: 'Darker sidebar', repos: [], artifacts: [], activity: 'last activity', at: '2026-09-29T09:30:00Z',
+  id: 'f1', href: '/visual/f1', heading: '#548', product: null, title: 'Darker sidebar', repos: [], artifacts: [], activity: 'last activity', at: '2026-09-29T09:30:00Z',
   askedBy, state: 'asked', stateLabel: 'Asked', risk: null, regression: false,
 });
 const list = (items: FixItem[]) => renderToStaticMarkup(createElement(FixList, { kind: 'visual', items, choices: { repos: [] }, filters: { who: 'all' } }));

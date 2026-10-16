@@ -13,7 +13,8 @@
 //   one `contracts:` line (PRD 1870): `contracts: declare <kinds>` when the repository asks its plans
 //   to declare the contract each slice changes, else `contracts: none`. With `--json`, an object:
 //   `{ differences, contracts: { declare, kinds } }`.
-// - `show --repo <target>`, in a plan repository, reads a target's copied flow instead, whatever its
+// - `show --repo <target>`, in a plan repository, reads a target's flow instead (PRD 2011, s12: from its
+//   newest fetched knowledge pack, `omni kb pack get`; else from its copy), whatever its
 //   `knowledge` (`kit/lib/plan-repo/copy-flow.ts`), its hook files from the copy: what that target's
 //   flow is at planning time, its `contracts:` line the copy's (`contracts: none` for a copy without
 //   the key). A target with no copied flow is a usage error saying its contracts are unknown, never
@@ -160,7 +161,7 @@ function shownFlow(ctx: Context, repo: string | undefined): Shown {
   if (copy === null) {
     throw usageError(
       `omni flow show: ${repo} has no copied flow at ${join(copyFlowFolder(slug, ctx), COPY_FLOW_FILE)}, so its flow and its contracts are unknown, not the kit's defaults` +
-        " — /omni:mega-invade --sync copies every target's planning config there, `own` included.",
+        " — /omni:mega-invade --sync copies every target's planning config there, `own` included, and `omni kb pack get <repo>` fetches its knowledge pack, which is read first.",
     );
   }
   return { flow: resolveFlow(copy.config), readHook: copy.readHook, contracts: copy.config.contracts };
