@@ -46,4 +46,4 @@ the workspace, the decisions agents took alone (PRD 2011).
 ## Source
 
 /omni:brainstorm, PRD 2011: .omni-loop/delivery/shipped/2011-product-records/before-after.html
-/omni:brainstorm, PRD 2124: .omni-loop/delivery/inbox/2124-outbox-all-prds/before-after.html (repository PRDs' rows)
+/omni:brainstorm, PRD 2124: .omni-loop/delivery/shipped/2124-outbox-all-prds/before-after.html (repository PRDs' rows)
