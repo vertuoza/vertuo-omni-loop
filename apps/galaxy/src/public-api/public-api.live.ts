@@ -4,6 +4,8 @@ import { serviceDb } from '../data/sign-in-live';
 import { supabaseEnv } from '../data/supabase-server';
 import { serverEnv } from '../env';
 import type { PublicApiDeps } from './public-api.controller';
+import { runnersRepository } from '../runners/runners.repository';
+import { runnersService } from '../runners/runners.service';
 import { publicApiRepository } from './public-api.repository';
 import { publicApiService, type PublicApiService } from './public-api.service';
 
@@ -12,10 +14,17 @@ import { publicApiService, type PublicApiService } from './public-api.service';
 // api_key_of() is the service role's alone. Without Supabase or the service role key (the demo galaxy)
 // every call answers 500, said in its words.
 
+// The runners' rules, as the runners' own routes build them (a key only queues and reads; it never holds).
+const clock = {
+  now: () => new Date(),
+  sleep: (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); }),
+};
+
 /** The rules over the service role's client, or null when this deployment has none. */
 function liveService(): PublicApiService | null {
   if (!supabaseEnv() || serverEnv().serviceRole === null) return null;
-  return publicApiService(publicApiRepository(serviceDb()));
+  const db = serviceDb();
+  return publicApiService(publicApiRepository(db), runnersService(runnersRepository(db), clock));
 }
 
 export function publicApiDeps(): PublicApiDeps {

@@ -14,14 +14,14 @@ const ORIGIN = 'https://omni.example';
 const FIRST: ListQuery = { limit: 50 };
 
 async function caller(api: FakePublicApi, secret: string): Promise<ApiKeyCaller> {
-  const key = await publicApiService(api.repository).keyFor(secret);
+  const key = await publicApiService(api.repository, api.runners).keyFor(secret);
   if (!key) throw new Error('the fixture key is not live');
   return key;
 }
 
 /** Every row of a list, following next_cursor until it is null, with `between` run before each next page. */
 async function everyPrd(api: FakePublicApi, key: ApiKeyCaller, limit: number, between: () => void = () => {}) {
-  const service = publicApiService(api.repository);
+  const service = publicApiService(api.repository, api.runners);
   const seen: string[] = [];
   let cursor: string | undefined;
   for (let pages = 0; pages < 20; pages += 1) {
@@ -39,19 +39,19 @@ async function everyPrd(api: FakePublicApi, key: ApiKeyCaller, limit: number, be
 describe('a key', () => {
   it('is the live key its secret hashes to', async () => {
     const api = fakePublicApi();
-    expect(await publicApiService(api.repository).keyFor(SECRETS.backend)).toEqual({
+    expect(await publicApiService(api.repository, api.runners).keyFor(SECRETS.backend)).toEqual({
       id: 'k-backend', name: 'Backend bot', workspace: NORTHWIND, repos: ['northwind/backend'], maker: '00000000-0000-4000-8000-0000000000a1',
     });
   });
 
   it('is nobody when unknown, revoked, or its maker left', async () => {
-    const service = publicApiService(fakePublicApi().repository);
+    const service = publicApiService(fakePublicApi().repository, fakePublicApi().runners);
     for (const secret of [SECRETS.unknown, SECRETS.revoked, SECRETS.orphaned]) expect(await service.keyFor(secret)).toBeNull();
   });
 
   it('never looks up a secret of another shape', async () => {
     const api = fakePublicApi();
-    const service = publicApiService(api.repository);
+    const service = publicApiService(api.repository, api.runners);
     for (const secret of ['', 'omb_' + 'x'.repeat(43), 'omk_' + 'x'.repeat(43), SECRETS.all.slice(0, -1), `${SECRETS.all} `]) {
       expect(await service.keyFor(secret)).toBeNull();
     }
@@ -69,7 +69,7 @@ describe('the PRD list', () => {
     api.stage(NORTHWIND, 'northwind/backend', parsePrd(7), 'prd');
     const productPrd = api.add({ workspace: NORTHWIND, kind: 'prd', product_seq: 12, product_id: 'p-mobile', title: 'Offline mode' });
 
-    const page = await publicApiService(api.repository).prds(await caller(api, SECRETS.all), FIRST, ORIGIN);
+    const page = await publicApiService(api.repository, api.runners).prds(await caller(api, SECRETS.all), FIRST, ORIGIN);
 
     expect(page).toEqual({
       ok: true,
@@ -94,7 +94,7 @@ describe('the PRD list', () => {
   it('answers no product and no stage when none is known', async () => {
     const api = fakePublicApi();
     api.prd(NORTHWIND, 'northwind/web', 3);
-    const page = await publicApiService(api.repository).prds(await caller(api, SECRETS.all), FIRST, ORIGIN);
+    const page = await publicApiService(api.repository, api.runners).prds(await caller(api, SECRETS.all), FIRST, ORIGIN);
     expect(page.ok && page.value.data[0]).toMatchObject({ ref: '3', product: null, stage: null });
   });
 
@@ -105,7 +105,7 @@ describe('the PRD list', () => {
     api.add({ workspace: NORTHWIND, kind: 'visual', home_repo: 'northwind/web', prd: parsePrd(10) });
     api.add({ workspace: NORTHWIND, kind: 'concept', home_repo: 'northwind/web', prd: parsePrd(11) });
     const kept = api.prd(NORTHWIND, 'northwind/web', 12);
-    const page = await publicApiService(api.repository).prds(await caller(api, SECRETS.all), FIRST, ORIGIN);
+    const page = await publicApiService(api.repository, api.runners).prds(await caller(api, SECRETS.all), FIRST, ORIGIN);
     expect(page.ok && page.value.data.map((p) => p.id)).toEqual([kept.id]);
   });
 
@@ -113,7 +113,7 @@ describe('the PRD list', () => {
     const api = fakePublicApi();
     const north = [api.prd(NORTHWIND, 'northwind/backend', 1), api.prd(NORTHWIND, 'northwind/web', 2)];
     const south = [api.prd(SOUTHWIND, 'southwind/backend', 1), api.prd(SOUTHWIND, 'southwind/backend', 2)];
-    const service = publicApiService(api.repository);
+    const service = publicApiService(api.repository, api.runners);
     const ids = async (secret: string) => {
       const page = await service.prds(await caller(api, secret), FIRST, ORIGIN);
       return page.ok ? page.value.data.map((p) => p.id).sort() : [];
@@ -127,14 +127,14 @@ describe('the PRD list', () => {
     const backend = api.prd(NORTHWIND, 'northwind/backend', 1);
     api.prd(NORTHWIND, 'northwind/web', 2);
     api.add({ workspace: NORTHWIND, kind: 'prd', product_seq: 1, title: 'A product PRD' });
-    const page = await publicApiService(api.repository).prds(await caller(api, SECRETS.backend), FIRST, ORIGIN);
+    const page = await publicApiService(api.repository, api.runners).prds(await caller(api, SECRETS.backend), FIRST, ORIGIN);
     expect(page.ok && page.value.data.map((p) => p.id)).toEqual([backend.id]);
   });
 
   it('names a product PRD whose product is gone by its number alone', async () => {
     const api = fakePublicApi();
     api.add({ workspace: NORTHWIND, kind: 'prd', product_seq: 4, product_id: null });
-    const page = await publicApiService(api.repository).prds(await caller(api, SECRETS.all), FIRST, ORIGIN);
+    const page = await publicApiService(api.repository, api.runners).prds(await caller(api, SECRETS.all), FIRST, ORIGIN);
     expect(page.ok && page.value.data[0]).toMatchObject({ ref: '4', number: 4, product: null, repo: null });
   });
 });
@@ -172,7 +172,7 @@ describe('the cursor', () => {
   it('answers no cursor on the last page, and on an exactly full one', async () => {
     const api = fakePublicApi();
     for (let n = 1; n <= 4; n += 1) api.prd(NORTHWIND, 'northwind/backend', n);
-    const service = publicApiService(api.repository);
+    const service = publicApiService(api.repository, api.runners);
     const key = await caller(api, SECRETS.all);
     const full = await service.prds(key, { limit: 4 }, ORIGIN);
     expect(full.ok && full.value).toMatchObject({ next_cursor: null });
@@ -183,7 +183,7 @@ describe('the cursor', () => {
   it('refuses a cursor that is not this list’s, reading nothing', async () => {
     const api = fakePublicApi();
     const key = await caller(api, SECRETS.all);
-    const service = publicApiService(api.repository);
+    const service = publicApiService(api.repository, api.runners);
     const foreign = encodeCursor({ list: 'bug-fixes', createdAt: '2026-10-15T10:00:00+00:00', id: '00000000-0000-4000-8000-000000000001' });
     for (const cursor of [foreign, 'tampered', `${foreign}x`]) {
       expect(await service.prds(key, { limit: 50, cursor }, ORIGIN)).toEqual({ ok: false, code: 'invalid_request', message: BAD_CURSOR });
@@ -199,7 +199,7 @@ describe('the bug-fix list', () => {
     const web = api.bug(NORTHWIND, 'northwind/web', 549);
     api.bug(SOUTHWIND, 'southwind/backend', 1);
     api.prd(NORTHWIND, 'northwind/backend', 550);
-    const service = publicApiService(api.repository);
+    const service = publicApiService(api.repository, api.runners);
 
     const all = await service.bugFixes(await caller(api, SECRETS.all), FIRST, ORIGIN);
     expect(all.ok && all.value.data.map((b) => b.id)).toEqual([web.id, first.id]);
@@ -216,7 +216,7 @@ describe('the bug-fix list', () => {
   it('pages by its own cursor, and refuses the PRD list’s', async () => {
     const api = fakePublicApi();
     for (let n = 1; n <= 5; n += 1) api.bug(NORTHWIND, 'northwind/backend', n);
-    const service = publicApiService(api.repository);
+    const service = publicApiService(api.repository, api.runners);
     const key = await caller(api, SECRETS.all);
     const first = await service.bugFixes(key, { limit: 3 }, ORIGIN);
     const cursor = first.ok ? first.value.next_cursor ?? '' : '';
@@ -224,5 +224,41 @@ describe('the bug-fix list', () => {
     expect(second.ok && second.value).toMatchObject({ next_cursor: null });
     expect(second.ok && second.value.data.map((b) => b.number)).toEqual([2, 1]);
     expect(await service.prds(key, { limit: 3, cursor }, ORIGIN)).toMatchObject({ ok: false, code: 'invalid_request' });
+  });
+});
+
+describe('starting a bug fix (PRD 2022 s4)', () => {
+  const FIX = { repo: 'Vertuoza/App', description: 'Issue 548 totals' };
+
+  it('builds the line, sends as the key, and keeps the allow-list in front of the runners', async () => {
+    const api = fakePublicApi();
+    const service = publicApiService(api.repository, api.runners);
+    const all = await caller(api, SECRETS.runners);
+    const started = await service.startBugFix(all, FIX);
+    expect(started).toMatchObject({ ok: true, value: { status: 'queued', repo: 'vertuoza/app', line: '/omni:bug-fix Issue 548 totals' } });
+    expect(api.runnersState.jobs).toHaveLength(1);
+
+    const limited = await caller(api, SECRETS.runnersLimited);
+    expect(await service.startBugFix(limited, FIX)).toMatchObject({ ok: false, code: 'forbidden' });
+    expect(await service.startBugFix(limited, { ...FIX, repo: 'vertuoza/other' })).toMatchObject({ ok: true });
+    expect(api.runnersState.jobs).toHaveLength(2);
+  });
+
+  it('answers the runners’ own reason for a line they refuse, as 422 on the description', async () => {
+    const api = fakePublicApi();
+    const service = publicApiService(api.repository, api.runners);
+    const refused = await service.startBugFix(await caller(api, SECRETS.runners), { ...FIX, description: 'a; b' });
+    expect(refused).toMatchObject({ ok: false, code: 'invalid_request' });
+    expect(!refused.ok && refused.message).toMatch(/^description: .*arguments/);
+  });
+
+  it('follows only a job a key of its workspace queued', async () => {
+    const api = fakePublicApi();
+    const service = publicApiService(api.repository, api.runners);
+    const mine = await caller(api, SECRETS.runners);
+    const started = await service.startBugFix(mine, FIX);
+    const id = started.ok ? started.value.id : '';
+    expect(await service.job(mine, id)).toMatchObject({ ok: true, value: { id, status: 'queued' } });
+    expect(await service.job(await caller(api, SECRETS.all), id)).toMatchObject({ ok: false, code: 'not_found' });
   });
 });

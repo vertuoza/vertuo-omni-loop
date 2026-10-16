@@ -58,6 +58,15 @@ describe('the OpenAPI reference', () => {
     expect(prd).toContain('"example"');
   });
 
+  it('describes starting a bug fix and following its job (PRD 2022 s4)', () => {
+    const post = document.paths?.['/api/v1/bug-fixes']?.post;
+    expect(post?.requestBody).toBeDefined();
+    expect(Object.keys(post?.responses ?? {})).toEqual(expect.arrayContaining(['202', '401', '403', '422', '500']));
+    const job = document.paths?.['/api/v1/jobs/{id}']?.get;
+    expect(job?.parameters?.map((p) => ('name' in p ? p.name : ''))).toEqual(['id']);
+    expect(Object.keys(job?.responses ?? {})).toEqual(expect.arrayContaining(['200', '401', '404', '500']));
+  });
+
   it('is what GET /api/v1/openapi.json answers, with no key', async () => {
     const answer = GET();
     expect(answer.status).toBe(200);

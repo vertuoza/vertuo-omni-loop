@@ -6,6 +6,8 @@ import { z } from 'zod';
 //
 //   GET /api/v1/prds?limit=&cursor=        200 {data: Prd[], next_cursor}
 //   GET /api/v1/bug-fixes?limit=&cursor=   200 {data: BugFix[], next_cursor}
+//   POST /api/v1/bug-fixes                 202 Job: queues `/omni:bug-fix <description>` on the runners (s4)
+//   GET /api/v1/jobs/{id}                  200 Job: a job a key of this workspace queued (s4)
 //
 // Every refusal answers one shape, `{error: {code, message}}`, with the status PUBLIC_API_ERRORS names.
 
@@ -63,6 +65,43 @@ export type PrdList = z.infer<typeof PrdListSchema>;
 
 export const BugFixListSchema = z.object({ data: z.array(BugFixSchema), next_cursor: NextCursorSchema });
 export type BugFixList = z.infer<typeof BugFixListSchema>;
+
+/** The longest description a bug fix starts with: the runners' own line limit. */
+export const DESCRIPTION_MAX = 200;
+
+/** What starts a bug fix: the repository, what is wrong, and optionally where it runs. */
+export const StartBugFixSchema = z.object({
+  repo: z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/, 'owner/name')
+    .meta({ description: 'The repository to fix, `owner/name`. It must be one of the workspace and on the key’s allow-list.', example: 'acme/backend' }),
+  description: z.string().min(1).max(DESCRIPTION_MAX)
+    .meta({ description: `What is wrong, 1 to ${DESCRIPTION_MAX} characters of letters, digits, spaces and . _ / : # - only.`, example: 'Issue 548 the invoice total is off by a cent' }),
+  runner: z.string().min(1).max(40).optional()
+    .meta({ description: 'The name of the runner to run it on. Send at most one of `runner` and `fleet`; neither means any runner of the workspace.', example: 'mac-mini-office' }),
+  fleet: z.string().min(1).max(40).optional()
+    .meta({ description: 'The key of the fleet whose runners may run it.', example: 'comets' }),
+});
+export type StartBugFix = z.infer<typeof StartBugFixSchema>;
+
+const JOB_STATUSES = ['queued', 'claimed', 'running', 'done', 'failed', 'cancelled'] as const;
+
+const MaybeTimeSchema = z.string().nullable().meta({ description: 'When it happened, ISO 8601, or null while it has not.', example: '2026-10-15T13:42:10.000+00:00' });
+
+/** A runner job a key queued, as the key follows it. */
+export const JobSchema = z.object({
+  id: z.uuid(),
+  line: z.string().meta({ description: 'The line the runner runs.', example: '/omni:bug-fix Issue 548 the invoice total is off by a cent' }),
+  repo: z.string().meta({ example: 'acme/backend' }),
+  status: z.enum(JOB_STATUSES).meta({ description: 'queued, claimed, running, then done, failed or cancelled.', example: 'running' }),
+  runner: z.string().nullable().meta({ description: 'The name of the runner that took it, or null while it is queued.', example: 'mac-mini-office' }),
+  pr_url: z.string().nullable().meta({ description: 'The pull request it opened, or null. A person merges it; the job never does.', example: 'https://github.com/acme/backend/pull/549' }),
+  exit_code: z.number().int().nullable().meta({ description: 'How the run ended, 0 on success, or null while it runs.', example: 0 }),
+  reason: z.string().nullable().meta({ description: 'Why it failed or ended, or null.', example: 'runner lost' }),
+  queued_at: TimeSchema,
+  claimed_at: MaybeTimeSchema,
+  running_at: MaybeTimeSchema,
+  ended_at: MaybeTimeSchema,
+}).meta({ description: 'A runner job a key queued.' });
+export type ApiJob = z.infer<typeof JobSchema>;
 
 /** Each error's status. */
 export const PUBLIC_API_ERRORS = {
