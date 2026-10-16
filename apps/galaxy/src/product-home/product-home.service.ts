@@ -133,6 +133,16 @@ export interface HomeRepository {
   alsoIn: string[];
 }
 
+/** A PRD of the product as the Constellation reads it (PRD 2129 s2): its current stage, its place on the
+ * Ledger (null once shipped or at retro; its lane null when it waits on a person who is not you), the
+ * repositories where it has a stage row, and the open pull requests of its feature branch and landings. */
+export interface HomeFlight extends HomePrd {
+  stage: StoredStage | null;
+  ledger: { state: LedgerState; lane: LaneId | null } | null;
+  stageRepos: string[];
+  prs: PrChip[];
+}
+
 /** Everything the product home draws. */
 export interface ProductHome {
   product: { id: string; name: string };
@@ -145,6 +155,8 @@ export interface ProductHome {
   questions: HomeQuestion[];
   /** The product's linked repositories, by name. */
   repositories: HomeRepository[];
+  /** Every PRD of the product, newest first, as the Constellation reads it. */
+  flights: HomeFlight[];
 }
 
 /** What the product home is drawn from, as the repository reads it. */
@@ -265,6 +277,7 @@ function indexOf(rows: ProductHomeRows) {
   const waitingOnMe = new Set(rows.waitingOnMe);
   return {
     stage: (key: string) => currentStage(stages.get(key) ?? []),
+    stageRepos: (key: string) => [...new Set((stages.get(key) ?? []).map((s) => s.repository))],
     waiting: (key: string) => outbox.get(key) ?? [],
     approval: (dossier: string) => approvalOf(approvals.get(dossier) ?? [], voids.get(dossier) ?? []),
     topic: (key: string) => topics.get(key),
@@ -274,7 +287,7 @@ function indexOf(rows: ProductHomeRows) {
 
 type Index = ReturnType<typeof indexOf>;
 
-/** One PRD read: its PRDs tab row, and its place and row on the Ledger (null once shipped). */
+/** One PRD read: its PRDs tab row, its place and row on the Ledger (null once shipped), and its flight. */
 function readPrd(stored: StoredHomePrd, index: Index, rows: ProductHomeRows) {
   const prd = homePrdOf(stored);
   const key = keyOf(prd.repo, prd.prd);
@@ -284,15 +297,19 @@ function readPrd(stored: StoredHomePrd, index: Index, rows: ProductHomeRows) {
   const approval = server ? index.approval(prd.dossier) : 'none';
   const waiting = index.waiting(key);
   const place = placeOf({ stage, server, approval, waiting: waiting.length, onMe: index.onMe(prd.dossier), mine: stored.opened_by === rows.me });
+  const prs = chipsOf(index.topic(key), rows.pulls);
   const row = (state: LedgerState): LedgerRow => ({
     ...prd,
     sealed: server && approval === 'in-force',
     state,
     question: state === 'question' ? (waiting[0]?.question ?? null) : null,
     questions: waiting.length,
-    prs: chipsOf(index.topic(key), rows.pulls),
+    prs,
   });
-  return { tab, stage, place, row, waiting };
+  const flight: HomeFlight = {
+    ...prd, stage, ledger: place === null ? null : { state: place.state, lane: place.lane }, stageRepos: index.stageRepos(key), prs,
+  };
+  return { tab, stage, place, row, waiting, flight };
 }
 
 const ideaOf = (i: StoredIdea): HomeIdea => ({ id: i.id, repo: i.repo, title: i.title, pitch: i.pitch, lane: i.lane, prd: i.prd });
@@ -376,11 +393,13 @@ export function productHomeOf(rows: ProductHomeRows): ProductHome {
   const lanes: Record<LaneId, LedgerRow[]> = { 'on-you': [], 'on-review': [], 'on-agent': [] };
   const summary: LedgerSummary = { building: 0, waitingOnPerson: 0, drifted: 0 };
   const prds: PrdsTabRow[] = [];
+  const flights: HomeFlight[] = [];
   const who = whoIsFor(rows);
   const groups: QuestionGroup[] = productQuestionsOf(rows, who);
   for (const stored of rows.prds) {
-    const { tab, stage, place, row, waiting } = readPrd(stored, index, rows);
+    const { tab, stage, place, row, waiting, flight } = readPrd(stored, index, rows);
     prds.push(tab);
+    flights.push(flight);
     if (place === null) continue;
     groups.push({ created: stored.created_at, questions: repoQuestionsOf(tab, stored.opened_by, waiting, who) });
     count(summary, stage, place);
@@ -396,6 +415,7 @@ export function productHomeOf(rows: ProductHomeRows): ProductHome {
     visuals: fixesOf(rows.fixes, 'visual'),
     questions: newestFirst(groups),
     repositories: repositoriesOf(rows),
+    flights,
   };
 }
 

@@ -6,6 +6,7 @@ import { SectionTabs } from '../nav/SectionTabs';
 import { SituationNotice, type Situation } from '../products/ProductsScreen';
 import { DEMO_ROADMAP_ONE_REPO } from '../roadmap/page/demo';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Filter } from './constellation';
 import { ConstellationTab } from './ConstellationTab';
 import { BugsTab, IdeasTab, QuestionsTab, RoadmapTab, VisualTab } from './HomeTabs';
 import type { Birthplace, HomePrd, LaneId, LedgerRow, ProductHome as Home, PrChip } from './product-home.service';
@@ -82,6 +83,7 @@ export function demoProductHome(id: string): Home | null {
     bugs: [{ dossier: 'demo-bug-1', repo: 'acme/widgets', title: 'Totals round twice', created: '2026-10-03T09:00:00Z' }],
     visuals: [],
     repositories: [],
+    flights: [],
     questions: [
       {
         dossier: approval.dossier, prdLabel: 'widgets-12', title: approval.title, repo: 'acme/mobile', id: 's2-01-upload-network', rank: 'high',
@@ -171,11 +173,15 @@ function Prds({ home }: { home: Home }) {
   );
 }
 
-const PANELS: Readonly<Record<ProductHomeTab, (props: { home: Home; demo: boolean }) => ReactNode>> = {
+/** What a panel is drawn with: the home, whether it is the demo's, and the tab's query (the Constellation's
+ * `?prd=` and `?star=`, PRD 2129 s2). */
+type PanelProps = { home: Home; demo: boolean; query: Filter };
+
+const PANELS: Readonly<Record<ProductHomeTab, (props: PanelProps) => ReactNode>> = {
   ledger: Ledger, constellation: ConstellationTab, prds: Prds, ideas: IdeasTab, roadmap: RoadmapTab, bugs: BugsTab, visual: VisualTab, questions: QuestionsTab,
 };
 
-function HomeScreen({ home, tab, demo }: { home: Home; tab: ProductHomeTab; demo: boolean }) {
+function HomeScreen({ home, tab, demo, query }: { home: Home; tab: ProductHomeTab; demo: boolean; query: Filter }) {
   const Panel = PANELS[tab];
   return (
     <div className="ask-col products product-home">
@@ -185,13 +191,13 @@ function HomeScreen({ home, tab, demo }: { home: Home; tab: ProductHomeTab; demo
         <p className="ask-muted">{ledeOf(tab)}</p>
       </section>
       <SectionTabs label={home.product.name} tabs={productHomeTabs(home)} current={productHomeTabHref(home, tab)} />
-      <Panel home={home} demo={demo} />
+      <Panel home={home} demo={demo} query={query} />
     </div>
   );
 }
 
-export function ProductHome({ view, tab }: { view: ProductHomeView; tab: ProductHomeTab }) {
-  if (view.kind === 'home') return <HomeScreen home={view.home} tab={tab} demo={view.demo === true} />;
+export function ProductHome({ view, tab, query = {} }: { view: ProductHomeView; tab: ProductHomeTab; query?: Filter }) {
+  if (view.kind === 'home') return <HomeScreen home={view.home} tab={tab} demo={view.demo === true} query={query} />;
   if (view.kind === 'not-found') {
     return (
       <Notice title="No such product">

@@ -2,23 +2,31 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Filter } from './constellation';
 import { ConstellationTab, NO_EDGES, NO_REPOSITORIES } from './ConstellationTab';
-import type { HomeRepository, ProductHome as Home } from './product-home.service';
+import type { HomeFlight, HomeRepository, ProductHome as Home } from './product-home.service';
 
 // The Constellation tab as the server renders it (PRD 2129 s1): each star a link with its name and role,
 // DOCKED, the also-in halo, the legend, the as-of stamp, the read only chip, the edges, and the empty
-// states' words and links.
+// states' words and links. Since s2, the Ledger's states on it: the filter chips, the rings, the edge
+// labels and their dots, the Now in card, the star card, and the stylesheet's motion.
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const repo = (name: string, over: Partial<HomeRepository> = {}): HomeRepository =>
   ({ repository: name, role: null, consumes: [], phase0: 'server', alsoIn: [], ...over });
-const home = (repositories: HomeRepository[]): Home => ({
+const home = (repositories: HomeRepository[], flights: HomeFlight[] = []): Home => ({
   product: { id: 'p-1', name: 'Widgets' },
   ledger: { lanes: { 'on-you': [], 'on-review': [], 'on-agent': [] }, summary: { building: 0, waitingOnPerson: 0, drifted: 0 } },
-  prds: [], ideas: [], roadmaps: [], bugs: [], visuals: [], questions: [], repositories,
+  prds: [], ideas: [], roadmaps: [], bugs: [], visuals: [], questions: [], repositories, flights,
 });
 const NOW = new Date('2026-10-16T09:07:42Z');
-const render = (repositories: HomeRepository[]) => renderToStaticMarkup(createElement(ConstellationTab, { home: home(repositories), now: NOW }));
+const render = (repositories: HomeRepository[], flights: HomeFlight[] = [], query: Filter = {}) =>
+  renderToStaticMarkup(createElement(ConstellationTab, { home: home(repositories, flights), now: NOW, query }));
+const flight = (dossier: string, n: number, title: string, over: Partial<HomeFlight> = {}): HomeFlight => ({
+  dossier, repo: 'acme/widgets', prd: parsePrd(n), title, birthplace: 'repo',
+  stage: 'building', ledger: { state: 'building', lane: 'on-agent' }, stageRepos: [], prs: [], ...over,
+});
 
 const FULL = [
   repo('acme/widgets', { role: 'web', consumes: ['acme/widgets-api'] }),
@@ -83,12 +91,127 @@ describe('the Constellation tab, empty', () => {
   });
 });
 
+const LIVE = [
+  repo('acme/widgets', { role: 'mobile', consumes: ['acme/widgets-api'] }),
+  repo('acme/widgets-web', { role: 'web', phase0: 'pr', consumes: ['acme/widgets-api'] }),
+  repo('acme/widgets-api', { role: 'api', consumes: ['acme/auth'] }),
+  repo('acme/auth', { role: 'auth', alsoIn: ['Platform'] }),
+];
+const FLIGHTS = [
+  flight('d-918', 918, 'Offline photo upload', { ledger: { state: 'approval', lane: 'on-you' }, stage: 'prd', birthplace: 'server' }),
+  flight('d-912', 912, 'Quotes on the phone', { prs: [{ repo: 'acme/widgets-api', pr: parsePr(447) }, { repo: 'acme/widgets-web', pr: parsePr(12) }] }),
+  flight('d-905', 905, 'Single sign-on', { repo: 'acme/auth', stage: 'inbox', ledger: { state: 'drifted', lane: null }, birthplace: 'server' }),
+  flight('d-890', 890, 'Dark mode', { stage: 'shipped', ledger: null }),
+];
+/** The addresses of the links marked aria-current in `html`. */
+const current = (html: string) => [...html.matchAll(/<a [^>]*>/g)].map((m) => m[0]).filter((a) => a.includes('aria-current="true"')).map((a) => /href="([^"]*)"/.exec(a)?.[1]);
+/** The inside of the element of class `cls` (an element holding no other of its own tag). */
+const section = (html: string, cls: string) => new RegExp(`<([a-z]+) class="${cls}"[^>]*>([\\s\\S]*?)</\\1>`).exec(html)?.[2] ?? '';
+
+describe('the Constellation tab, live (s2)', () => {
+  const html = render(LIVE, FLIGHTS);
+
+  it('draws the filter chips, Everything first and in force, then each PRD in flight, newest first', () => {
+    const chips = section(html, 'constellation-chips');
+    expect(text(chips)).toBe('Everything 918 Offline photo upload 912 Quotes on the phone 905 Single sign-on');
+    expect(current(chips)).toEqual(['/app/products/p-1/constellation']);
+    expect(chips).toContain('href="/app/products/p-1/constellation?prd=d-912"');
+  });
+
+  it('marks the chip in force with ?prd=, and fades what that PRD does not touch', () => {
+    const lit = render(LIVE, FLIGHTS, { prd: 'd-905' });
+    expect(current(section(lit, 'constellation-chips'))).toEqual(['/app/products/p-1/constellation?prd=d-905']);
+    expect(lit.match(/data-faded="true"/g)).toHaveLength(3 + 3);
+    expect(/data-star="acme\/auth"[^>]*data-faded/.test(lit)).toBe(false);
+  });
+
+  it('rings each star in its state: building, waits on you, drifted', () => {
+    expect(/data-star="acme\/widgets"[^>]*data-state="on-you"/.test(html)).toBe(true);
+    expect(/data-star="acme\/widgets-api"[^>]*data-state="building"/.test(html)).toBe(true);
+    expect(/data-star="acme\/auth"[^>]*data-state="drifted"/.test(html)).toBe(true);
+    expect(html.match(/class="constellation-ring"/g)).toHaveLength(4);
+  });
+
+  it('labels each edge with what crosses it now', () => {
+    expect(text(html)).toContain('widgets → widgets-api · 1 PRD in flight');
+    expect(text(html)).toContain('widgets-web → widgets-api · 1 PRD in flight');
+    expect(text(html)).toContain('widgets-api → auth · nothing in flight');
+    const two = render(LIVE, [...FLIGHTS, flight('d-913', 913, 'More', { prs: [{ repo: 'acme/widgets-api', pr: parsePr(9) }] })]);
+    expect(text(two)).toContain('widgets → widgets-api · 2 PRDs in flight');
+  });
+
+  it('puts dots only on an edge between two building stars', () => {
+    expect(html.match(/class="constellation-flow"/g)).toHaveLength(1);
+    expect(html).toMatch(/class="constellation-flow"[^>]*data-consumer="acme\/widgets-web"/);
+  });
+
+  it('lists Now in the product worst first, each PRD linking to its page, and says it is read only', () => {
+    const card = section(html, 'constellation-card');
+    expect(text(card)).toContain('Now in Widgets');
+    expect(text(card)).toContain('905 drifted · auth 918 waits on you · widgets 912 building · 3 repositories');
+    expect(card).toContain('href="/prd/d-918"');
+    expect(text(card)).toContain('Read only. Links live on Repositories & approvers.');
+  });
+
+  it('opens a star\'s card with ?star=: role, phase 0, also in, consumes, consumed by, now, and its two links', () => {
+    const card = section(render(LIVE, FLIGHTS, { star: 'acme/widgets-api' }), 'constellation-card');
+    const words = text(card);
+    expect(words).toContain('acme/widgets-api');
+    expect(words).toContain('role api');
+    expect(words).toContain('phase 0 ◆ approved on the PRD page');
+    expect(words).toContain('also in no other product');
+    expect(words).toContain('consumes auth · nothing in flight');
+    expect(words).toContain('consumed by widgets · 1 PRD in flight widgets-web · 1 PRD in flight');
+    expect(words).toContain('now 912 building');
+    expect(card).toContain('href="/prd/d-912"');
+    expect(card).toContain('href="/app/products/p-1">Ledger rows →');
+    expect(card).toContain('href="/app/products/p-1/repositories">Its links →');
+    expect(words).toContain('Read only.');
+    expect(words).not.toContain('Now in Widgets');
+  });
+
+  it('names a docked star\'s phase 0 and the products a star is also in', () => {
+    expect(text(section(render(LIVE, FLIGHTS, { star: 'acme/widgets-web' }), 'constellation-card'))).toContain('phase 0 ◇ docs-only phase-0 pull request');
+    expect(text(section(render(LIVE, FLIGHTS, { star: 'acme/auth' }), 'constellation-card'))).toContain('also in Platform');
+  });
+
+  it('keeps the filter on a star\'s link and the star on a chip\'s', () => {
+    const both = render(LIVE, FLIGHTS, { prd: 'd-912', star: 'acme/auth' });
+    expect(both).toContain('href="/app/products/p-1/constellation?prd=d-912&amp;star=acme/widgets"');
+    expect(both).toContain('href="/app/products/p-1/constellation?prd=d-918&amp;star=acme/auth"');
+  });
+
+  it('reads an unknown ?prd= and ?star= as none', () => {
+    const unknown = render(LIVE, FLIGHTS, { prd: 'd-404', star: 'acme/gone' });
+    expect(unknown).not.toContain('data-faded');
+    expect(text(section(unknown, 'constellation-card'))).toContain('Now in Widgets');
+  });
+
+  it('draws the legend of the states', () => {
+    expect(text(section(html, 'constellation-legend'))).toContain('building waits on you drifted');
+  });
+});
+
 describe('the Constellation stylesheet', () => {
   const css = readFileSync(new URL('./constellation.css', import.meta.url), 'utf8');
 
   it('paints the sky with --ask-sunk and uses no colour of its own', () => {
     expect(css).toContain('background: var(--ask-sunk)');
     expect(/#[0-9a-f]{3,8}\b|\brgba?\(/i.test(css)).toBe(false);
+  });
+
+  it('rings building in --ask-green, waits on you in --ask-yellow, drifted in --ask-red', () => {
+    expect(css).toMatch(/\.constellation-ring\[data-state='building'\] \{[^}]*var\(--ask-green\)/);
+    expect(css).toMatch(/\.constellation-ring\[data-state='on-you'\] \{[^}]*var\(--ask-yellow\)/);
+    expect(css).toMatch(/\.constellation-ring\[data-state='drifted'\] \{[^}]*var\(--ask-red\)/);
+  });
+
+  it('pulses only an on-you ring, and stops the pulse and hides the dots under reduced motion', () => {
+    expect(css.match(/animation: constellation-pulse/g)).toHaveLength(1);
+    expect(css).toMatch(/\.constellation-ring\[data-state='on-you'\] \{[^}]*animation: constellation-pulse/);
+    const reduced = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+    expect(reduced).toMatch(/\.constellation-ring \{[^}]*animation: none/);
+    expect(reduced).toMatch(/\.constellation-flow \{[^}]*display: none/);
   });
 
   it('scrolls only the sky\'s frame, sideways, below 600 px', () => {
