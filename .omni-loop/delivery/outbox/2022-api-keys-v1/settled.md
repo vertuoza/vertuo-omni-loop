@@ -545,3 +545,157 @@ One route file and one client component; a separate address is a rename.
 ```
 
 <!-- /omni-outbox-settled: s3-02-docs-api-guide-and-reference-share-a-page -->
+
+<!-- omni-outbox-settled: s4-01-bug-fix-line-without-quotes -->
+
+## s4-01-bug-fix-line-without-quotes — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-bug-fix-line-without-quotes
+prd: 2022
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 4
+---
+
+## The question, in plain words
+
+The spec says the bug fix line reads with the description in single quotes, but the runners' own line check refuses a quote mark. How should the line be written?
+
+## The decision, in plain words
+
+The line is written without quotes, so the description follows the skill name directly and the runners accept it.
+
+## The intro, for fun
+
+A line wanted quotes, but the bouncer at the door turns quotes away.
+
+## The punchline, for fun
+
+So the description walks in bare, and the bouncer waves it through.
+
+## The options, in plain words
+
+A. A. Build the line without quotes and keep the runners' check as it is (built).
+B. B. Widen the runners' line check to accept quoted arguments, in a follow-up PRD, then quote the description.
+
+## What I had to decide
+
+The spec asks for `/omni:bug-fix '<description>'` and that it pass `checkLine`. `checkLine` allows only letters, digits, spaces and . _ / : # - in the arguments, so every quoted line is refused. The route builds `/omni:bug-fix <description>` and the runners' check stays untouched. Reversible by changing one constant in public-api.service.ts together with the runners' check.
+
+## What I did meanwhile
+
+Descriptions can hold letters, digits, spaces and . _ / : # - only; any other character answers 422 with the runners' reason.
+
+## What it costs to change later
+
+A description cannot carry punctuation such as commas or apostrophes until the runners' line rule widens.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the runners' line rule should accept quotes is not settled by the spec (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-01-bug-fix-line-without-quotes -->
+
+<!-- omni-outbox-settled: s4-02-pr-sender-line-needs-kit-change -->
+
+## s4-02-pr-sender-line-needs-kit-change — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-pr-sender-line-needs-kit-change
+prd: 2022
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 4
+---
+
+## The question, in plain words
+
+The pull request a key's job opens should say it was sent by the API key, but the line is written by the kit, which this feature may not change. Should the kit be changed to write it?
+
+## The decision, in plain words
+
+The runner now receives the sender as the key's name and its maker, but the kit still puts an at-sign in front of it, so the pull request line will read slightly wrong until the kit is changed.
+
+## The intro, for fun
+
+The job now signs its name with a key, but the stamp it uses was made before keys.
+
+## The punchline, for fun
+
+Until the stamp learns about keys, the pull request line wears a stray at-sign.
+
+## The options, in plain words
+
+A. A. Leave the kit as it is; the pull request line has a stray at-sign for a key's job (built).
+B. B. Change the kit's sender line to leave a sender that starts with API key unchanged, in a follow-up pull request.
+
+## What I had to decide
+
+The runner's `next` answers `sentBy` as `API key <name> (@<login>)` for a key's job, which the runner passes as OMNI_SENT_BY. `senderLine` in kit/lib/runner/sender.ts adds `@` in front of any sender, so the pull request would read `by @API key <name> (@<login>) on runner <runner>`. The kit is outside this feature's territory and the spec's scope, so it is left unchanged. The follow-up is one line in senderLine: keep a sender that already starts with `API key ` as it is.
+
+## What I did meanwhile
+
+The Runners page and the job route name the key correctly; only the pull request's sender line carries a stray at-sign.
+
+## What it costs to change later
+
+One small kit change and a rebuild of the kit bundle, in a follow-up pull request.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the kit may be changed for this is not settled by the spec (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-02-pr-sender-line-needs-kit-change -->
