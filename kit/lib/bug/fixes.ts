@@ -39,7 +39,7 @@ function cells(line: string): string[] {
 }
 
 /** The table's data rows: every `|` line after the header and its `---` separator. */
-function tableRows(body: string): string[][] {
+export function tableRows(body: string): string[][] {
   const lines = body.split(/\r?\n/).filter((line) => line.trim().startsWith('|'));
   return lines.slice(1).filter((line) => !/^\|?[\s:|-]+$/.test(line.trim())).map(cells);
 }

@@ -22,8 +22,8 @@
  */
 import { z } from 'zod';
 import { parseFrontMatterLines } from '../front-matter.ts';
-import { IssueNumberSchema, parsePrd } from '../ids.ts';
-import type { IssueNumber, PrdNumber } from '../ids.ts';
+import { IssueNumberSchema, parsePrd, ProductPrdIdSchema, ProductRoadmapIdSchema } from '../ids.ts';
+import type { IssueNumber, PrdNumber, ProductPrdId, ProductRoadmapId } from '../ids.ts';
 import { firstTable, sectionsOf } from '../markdown-body.ts';
 import type { MarkdownSection as Section, MarkdownTable as Table } from '../markdown-body.ts';
 import { group } from '../narrow.ts';
@@ -91,6 +91,10 @@ export type RoadmapRow = {
   wave: number;
 };
 
+/** A row of a roadmap born on the server (PRD 2011): its PRD is a repository's (`#912`) or a product's
+ * (`mobile-12`). */
+export type ProductRoadmapRow = Omit<RoadmapRow, 'prd'> & { prd: PrdNumber | ProductPrdId };
+
 /** One open question, and the rows it blocks. */
 export type RoadmapQuestion = { id: string; question: string; recommendation: string; blocks: string[]; kind: QuestionKind };
 
@@ -113,6 +117,12 @@ export type Roadmap = {
 
 export type RoadmapParse = { ok: true; roadmap: Roadmap } | { ok: false; errors: string[] };
 
+/** A roadmap.md born on the server (PRD 2011), parsed: it has no issue, so no number of its own; its id
+ * (`mobile-R3`) is the server's, and the file names it only once it was numbered. */
+export type ProductRoadmap = Omit<Roadmap, 'roadmap' | 'prds'> & { productId: ProductRoadmapId | null; prds: ProductRoadmapRow[] };
+
+export type ProductRoadmapParse = { ok: true; roadmap: ProductRoadmap } | { ok: false; errors: string[] };
+
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 const PRD_CELL = /^#([1-9]\d*)$/;
 const WAVE_CELL = /^[1-9]\d*$/;
@@ -121,6 +131,18 @@ const NONE_CELL = /^(?:|-|–|—|none)$/i;
 const ID_CELL = /^[^\s,|]+$/;
 
 const optionalText = z.string().trim().min(1).optional();
+/** A roadmap born on the server has no issue: its `roadmap` is left out, or is its product id (`mobile-R3`). */
+const ProductFrontMatterSchema = z
+  .object({
+    roadmap: z.string().optional(),
+    title: z.string().trim().min(1),
+    milestone: z.string().trim().min(1),
+    product: optionalText,
+    target: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'a YYYY-MM-DD date').optional(),
+    source: optionalText,
+  })
+  .strict();
+
 const FrontMatterSchema = z
   .object({
     roadmap: z.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
@@ -133,10 +155,10 @@ const FrontMatterSchema = z
   .strict();
 
 /** The front matter, typed (`null` when it fails), and its faults. */
-function frontMatter(raw: string): { data: z.infer<typeof FrontMatterSchema> | null; errors: string[] } {
+function frontMatter<T>(raw: string, schema: z.ZodType<T>): { data: T | null; errors: string[] } {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
   const errors = lineErrors.map((message) => `front matter: ${message}.`);
-  const parsed = FrontMatterSchema.safeParse(data, { error: KIT_MESSAGES });
+  const parsed = schema.safeParse(data, { error: KIT_MESSAGES });
   if (parsed.success) return { data: parsed.data, errors };
   for (const issue of parsed.error.issues) {
     if (issue.code === 'unrecognized_keys') {
@@ -183,19 +205,35 @@ function idListFaults(entries: readonly string[], where: string): string[] {
   return entries.filter((entry) => !ID_CELL.test(entry)).map((entry) => `${where} "${entry}", which is no id.`);
 }
 
-function prdsOf(section: Section | undefined): { rows: RoadmapRow[]; repos: boolean; faults: string[] } {
+/** A row's PRD cell, read as a repository's PRD (`#912`) only. */
+function repositoryPrd(cell: string): PrdNumber | null {
+  const match = PRD_CELL.exec(cell);
+  return match ? parsePrd(group(match, 1)) : null;
+}
+
+/** A roadmap born on the server's PRD cell: `#912` or a product's PRD id such as `mobile-12`. */
+function anyPrd(cell: string): PrdNumber | ProductPrdId | null {
+  const product = ProductPrdIdSchema.safeParse(cell);
+  return product.success ? product.data : repositoryPrd(cell);
+}
+
+function prdsOf<P extends PrdNumber | ProductPrdId>(
+  section: Section | undefined,
+  readPrd: (cell: string) => P | null,
+  cellWords: string,
+): { rows: (Omit<RoadmapRow, 'prd'> & { prd: P })[]; repos: boolean; faults: string[] } {
   if (!section) return { rows: [], repos: false, faults: ['sections: no "## PRDs" section.'] };
   const table = firstTable(section.lines);
   if (!table) return { rows: [], repos: false, faults: [`PRDs: no table; it holds one with the columns ${PRD_COLUMNS.join(', ')}.`] };
   const { faults, has, cell } = columns(table, PRD_COLUMNS, 'PRDs');
   if (faults.length > 0) return { rows: [], repos: false, faults };
   const repos = has('repos');
-  const rows: RoadmapRow[] = [];
+  const rows: (Omit<RoadmapRow, 'prd'> & { prd: P })[] = [];
   table.rows.forEach((row, index) => {
     const id = cell(row, 'id');
     const { label, rowFaults } = rowOpening(id, index, 'PRDs');
-    const prdCell = PRD_CELL.exec(cell(row, 'PRD'));
-    if (!prdCell) rowFaults.push(`PRDs: ${label} has the PRD cell "${cell(row, 'PRD')}", not #<number>.`);
+    const prd = readPrd(cell(row, 'PRD'));
+    if (prd === null) rowFaults.push(`PRDs: ${label} has the PRD cell "${cell(row, 'PRD')}", not ${cellWords}.`);
     const title = cell(row, 'title');
     if (title === '') rowFaults.push(`PRDs: ${label} has no title.`);
     const waveCell = cell(row, 'wave');
@@ -204,10 +242,10 @@ function prdsOf(section: Section | undefined): { rows: RoadmapRow[]; repos: bool
     rowFaults.push(...idListFaults(blockedBy, `PRDs: ${label} is blocked by`));
     const why = cell(row, 'why');
     faults.push(...rowFaults);
-    if (rowFaults.length > 0 || !prdCell) return;
+    if (rowFaults.length > 0 || prd === null) return;
     rows.push({
       id,
-      prd: parsePrd(group(prdCell, 1)),
+      prd,
       title,
       repos: repos ? listCell(cell(row, 'repos')) : null,
       blockedBy,
@@ -342,9 +380,9 @@ export function parseRoadmap(text: string): RoadmapParse {
   const block = FRONT_MATTER_BLOCK.exec(text);
   if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
   const [, raw = '', body = ''] = block;
-  const front = frontMatter(raw);
+  const front = frontMatter(raw, FrontMatterSchema);
   const sections = sectionsOf(body);
-  const prds = prdsOf(sections.find((section) => section.name === 'PRDs'));
+  const prds = prdsOf(sections.find((section) => section.name === 'PRDs'), repositoryPrd, '#<number>');
   const questions = questionsOf(sections.find((section) => section.name === 'Open questions'));
   const prerequisites = prerequisitesOf(sections.find((section) => section.name === 'Prerequisites'));
   const errors = [...front.errors, ...prds.faults, ...questions.faults, ...prerequisites.faults];
@@ -368,7 +406,44 @@ export function parseRoadmap(text: string): RoadmapParse {
 }
 
 /** The roadmap's waves, in order, each with its rows in table order. */
-export function roadmapWaves(roadmap: Pick<Roadmap, 'prds'>): { wave: number; rows: RoadmapRow[] }[] {
+export function roadmapWaves<R extends Pick<RoadmapRow, 'wave'>>(roadmap: { prds: R[] }): { wave: number; rows: R[] }[] {
   const waves = [...new Set(roadmap.prds.map((row) => row.wave))].sort((a, b) => a - b);
   return waves.map((wave) => ({ wave, rows: roadmap.prds.filter((row) => row.wave === wave) }));
+}
+
+/**
+ * Parses a roadmap.md born on the server (PRD 2011, `omni roadmap push --product`). As
+ * {@link parseRoadmap}, with these differences: the front matter has no issue number (`roadmap` is left
+ * out, or is the roadmap's id once the server numbered it, `mobile-R3`), and a `PRD` cell is `#<number>`
+ * for a repository's PRD or a product's PRD id such as `mobile-12`.
+ */
+export function parseProductRoadmap(text: string): ProductRoadmapParse {
+  const block = FRONT_MATTER_BLOCK.exec(text);
+  if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
+  const [, raw = '', body = ''] = block;
+  const front = frontMatter(raw, ProductFrontMatterSchema);
+  const sections = sectionsOf(body);
+  const prds = prdsOf(sections.find((section) => section.name === 'PRDs'), anyPrd, '#<number> or a product PRD id such as mobile-12');
+  const questions = questionsOf(sections.find((section) => section.name === 'Open questions'));
+  const prerequisites = prerequisitesOf(sections.find((section) => section.name === 'Prerequisites'));
+  const errors = [...front.errors, ...prds.faults, ...questions.faults, ...prerequisites.faults];
+  const id = front.data?.roadmap === undefined ? null : ProductRoadmapIdSchema.safeParse(front.data.roadmap);
+  if (id !== null && !id.success) errors.push(`front matter: roadmap is "${front.data?.roadmap}": it is left out, or is the roadmap's id such as mobile-R3.`);
+  if (errors.length > 0 || front.data === null) return { ok: false, errors };
+  const { title, milestone, product, target, source } = front.data;
+  return {
+    ok: true,
+    roadmap: {
+      productId: id?.success ? id.data : null,
+      title,
+      milestone,
+      product: product ?? null,
+      target: target ?? null,
+      source: source ?? null,
+      repos: prds.repos,
+      prds: prds.rows,
+      questions: questions.questions,
+      prerequisites: prerequisites.prerequisites,
+    },
+  };
 }
