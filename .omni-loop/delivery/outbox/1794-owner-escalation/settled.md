@@ -322,7 +322,7 @@ Moving the change elsewhere later is a copy of a few lines; nothing is stored an
 - Channel: feature pull request #1983
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1983#issuecomment-6209727495
 - Basis: contradiction-marker — the answer says "no", which reads as a change to the recorded choice
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #2082, the sub-pull request that brought the build back in line
 - Rank: human-action
 - Bears on: none
 - Raised: 2026-10-15
