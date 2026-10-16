@@ -26,7 +26,7 @@
 .constellation-flow { fill: none; stroke: var(--ask-cyan); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 0 100; animation: constellation-flow 3.4s linear infinite; }
 @keyframes constellation-flow { to { stroke-dashoffset: -100; } }
 .constellation-edge-label { fill: var(--ask-muted); font: 11px var(--ask-mono); paint-order: stroke; stroke: var(--ask-sunk); stroke-width: 4px; stroke-linejoin: round; }
-[data-faded] { opacity: 0.25; }
+.constellation-sky [data-faded] { opacity: 0.25; }
 
 .constellation-star { cursor: pointer; }
 .constellation-star:focus-visible { outline: none; }

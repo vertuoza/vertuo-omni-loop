@@ -117,8 +117,8 @@ function Chips({ map, base }: { map: Drawn; base: string }) {
     <nav className="constellation-chips" aria-label="Filter by PRD">
       <Link className="constellation-chip" href={hrefOf(base, null, star)} aria-current={map.lit === null ? true : undefined}>Everything</Link>
       {map.flights.map((f) => (
-        <Link key={f.dossier} className="constellation-chip" href={hrefOf(base, f.dossier, star)} aria-current={map.lit === f.dossier ? true : undefined} data-state={f.state}>
-          <b>{f.prd}</b> {f.title}
+        <Link key={f.dossier} className="constellation-chip" href={hrefOf(base, f.dossier, star)} aria-current={map.lit === f.dossier ? true : undefined}>
+          <span className="constellation-dot" data-state={f.state} /><b>{f.prd}</b> {f.title}
         </Link>
       ))}
     </nav>
