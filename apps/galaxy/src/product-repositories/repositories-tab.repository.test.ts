@@ -14,6 +14,10 @@ function db(answers: Record<string, Answer>) {
       select: (...a: unknown[]) => { calls.push(['select', ...a]); return q; },
       eq: (...a: unknown[]) => { calls.push(['eq', ...a]); return q; },
       order: (...a: unknown[]) => { calls.push(['order', ...a]); return q; },
+      in: (...a: unknown[]) => { calls.push(['in', ...a]); return q; },
+      or: (...a: unknown[]) => { calls.push(['or', ...a]); return q; },
+      not: (...a: unknown[]) => { calls.push(['not', ...a]); return q; },
+      is: (...a: unknown[]) => { calls.push(['is', ...a]); return q; },
       then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null }).then(ok, ko),
     };
     return q;
@@ -26,20 +30,20 @@ function db(answers: Record<string, Answer>) {
   return { fake, store: repositoriesTabRepository(fake as unknown as RepositoriesTabDb), calls };
 }
 
-const LINK = { product_id: 'p-1', workspace_id: 'w-1', repository: 'acme/api', role: 'api', knowledge: 'own', read_at: null, read_only: false, consumes: [], added_by: 'person', added_at: '2026-10-10T09:00:00Z' };
+const LINK = { product_id: 'p-1', workspace_id: 'w-1', repository: 'acme/api', role: 'api', knowledge: 'own', read_at: null, read_only: false, consumes: [], added_by: 'person', added_at: '2026-10-10T09:00:00Z', ladder_step: 4 };
 
 describe('the reads', () => {
   it('reads the product by its id, or none', async () => {
-    const { store, calls } = db({ products: { data: [{ id: 'p-1', workspace_id: 'w-1', name: 'Mobile' }] } });
-    expect(await store.product('p-1')).toEqual({ id: 'p-1', workspace_id: 'w-1', name: 'Mobile' });
+    const { store, calls } = db({ products: { data: [{ id: 'p-1', workspace_id: 'w-1', name: 'Mobile', plan_repository: 'acme/plan' }] } });
+    expect(await store.product('p-1')).toEqual({ id: 'p-1', workspace_id: 'w-1', name: 'Mobile', plan_repository: 'acme/plan' });
     expect(calls).toContainEqual(['eq', 'id', 'p-1']);
     expect(await db({ products: { data: [] } }).store.product('p-1')).toBeNull();
   });
 
   it('reads the product\'s links with who added each, by repository', async () => {
     const { store, calls } = db({ product_repositories: { data: [LINK] } });
-    expect(await store.links('p-1')).toEqual([{ repository: 'acme/api', role: 'api', knowledge: 'own', read_at: null, read_only: false, consumes: [], added_by: 'person' }]);
-    expect(calls).toContainEqual(['select', expect.stringContaining('added_by')]);
+    expect(await store.links('p-1')).toEqual([{ repository: 'acme/api', role: 'api', knowledge: 'own', read_at: null, read_only: false, consumes: [], added_by: 'person', ladder_step: 4 }]);
+    expect(calls).toContainEqual(['select', expect.stringContaining('ladder_step')]);
     expect(calls).toContainEqual(['eq', 'product_id', 'p-1']);
     expect(calls).toContainEqual(['order', 'repository']);
   });
@@ -71,7 +75,7 @@ describe('the writes', () => {
   it('links a repository with every field, answering the row it wrote', async () => {
     const { store, calls } = db({ product_repository_link: { data: LINK } });
     expect(await store.link('p-1', { repository: 'acme/api', role: null, knowledge: 'imported', read_at: 'a'.repeat(40), read_only: true, consumes: ['acme/web'] }))
-      .toEqual({ ok: true, link: { repository: 'acme/api', role: 'api', knowledge: 'own', read_at: null, read_only: false, consumes: [], added_by: 'person' } });
+      .toEqual({ ok: true, link: { repository: 'acme/api', role: 'api', knowledge: 'own', read_at: null, read_only: false, consumes: [], added_by: 'person', ladder_step: 4 } });
     expect(calls).toContainEqual(['rpc', 'product_repository_link', {
       p_product: 'p-1', p_repository: 'acme/api', p_role: undefined, p_knowledge: 'imported', p_read_at: 'a'.repeat(40), p_read_only: true, p_consumes: ['acme/web'],
     }]);
@@ -100,4 +104,49 @@ describe('the writes', () => {
     expect(calls).toContainEqual(['rpc', 'product_approver_set', { p_product: 'p-1', p_member: 'u-1', p_state: 'skipped' }]);
     expect(calls).toContainEqual(['rpc', 'product_approver_remove', { p_product: 'p-1', p_member: 'u-1' }]);
   });
+});
+
+describe('the records born in git (PRD 2011 s17)', () => {
+  it('lists the PRDs not shipped, the bug records whose fix is not merged and the roadmaps with a PRD still open, born in the repository', async () => {
+    const { store, calls } = db({
+      dossiers: { data: [
+        { id: 'd-1', prd: 2011, kind: 'prd' }, { id: 'd-2', prd: 7, kind: 'prd' },
+        { id: 'd-3', prd: 1210, kind: 'bug' }, { id: 'd-4', prd: 1211, kind: 'bug' },
+      ] },
+      prd_stages: { data: [{ prd: 7 }] },
+      fix_facts: { data: [{ dossier_id: 'd-4', facts: { pull: { state: 'merged' } } }, { dossier_id: 'd-3', facts: { pull: { state: 'open' } } }] },
+      roadmaps: { data: [
+        { number: 412, roadmap_prds: [{ state: 'merged' }, { state: 'building' }] },
+        { number: 413, roadmap_prds: [{ state: 'merged' }, { state: 'closed' }] },
+        { number: null, roadmap_prds: [{ state: 'building' }] },
+      ] },
+    });
+    expect(await store.openBornInGit('w-1', 'acme/plan')).toEqual([
+      { kind: 'prd', number: 2011 }, { kind: 'bug', number: 1210 }, { kind: 'roadmap', number: 412 },
+    ]);
+    expect(calls).toContainEqual(['eq', 'home_repo', 'acme/plan']);
+    expect(calls).toContainEqual(['in', 'kind', ['prd', 'bug']]);
+    expect(calls).toContainEqual(['or', 'birthplace.is.null,birthplace.eq.repo']);
+    expect(calls).toContainEqual(['eq', 'stage', 'shipped']);
+    expect(calls).toContainEqual(['in', 'dossier_id', ['d-3', 'd-4']]);
+    expect(calls).toContainEqual(['eq', 'repo', 'acme/plan']);
+    expect(calls).toContainEqual(['is', 'dossier_id', null]);
+  });
+
+  it('reads no fixes when no bug record is born there, and counts a fix whose facts are unread as not merged', async () => {
+    const none = db({ dossiers: { data: [] }, roadmaps: { data: [] } });
+    expect(await none.store.openBornInGit('w-1', 'acme/plan')).toEqual([]);
+    expect(none.calls).not.toContainEqual(['from', 'fix_facts']);
+    const unread = db({ dossiers: { data: [{ id: 'd-3', prd: 1210, kind: 'bug' }] }, fix_facts: { data: [{ dossier_id: 'd-3', facts: 'unread' }] }, roadmaps: { data: [] } });
+    expect(await unread.store.openBornInGit('w-1', 'acme/plan')).toEqual([{ kind: 'bug', number: 1210 }]);
+  });
+
+  it('throws when any of its reads fails', async () => {
+    for (const table of ['dossiers', 'prd_stages', 'roadmaps']) {
+      const answers = { dossiers: { data: [] }, prd_stages: { data: [] }, roadmaps: { data: [] }, [table]: { error: { message: 'down' } } };
+      await expect(db(answers).store.openBornInGit('w-1', 'acme/plan')).rejects.toThrow('down');
+    }
+    await expect(db({ dossiers: { data: [{ id: 'd-3', prd: 1, kind: 'bug' }] }, prd_stages: { data: [] }, fix_facts: { error: { message: 'down' } } }).store.openBornInGit('w-1', 'acme/plan')).rejects.toThrow('down');
+  });
+
 });

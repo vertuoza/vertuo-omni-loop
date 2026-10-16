@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import '../../../../../src/products/products.css';
 import '../../../../../src/product-home/product-home.css';
+import '../../../../../src/product-repositories/plan-repository.css';
 import { memberSession } from '../../../../../src/data/member-session';
 import { LIVE_PRODUCT_HOME, productHomeViewOf } from '../../../../../src/product-home/product-home.controller';
 import { ProductHome, productHomeTabs } from '../../../../../src/product-home/ProductHome';

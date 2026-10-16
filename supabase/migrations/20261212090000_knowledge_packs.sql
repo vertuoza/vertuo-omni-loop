@@ -1,6 +1,5 @@
 -- Knowledge served as packs, and a product's plan repository (PRD 2011 s10, docs:
--- .omni-loop/delivery/inbox/2011-product-records/spec.md, "3. Knowledge is served as packs" and
--- "5. Archiving the plan repository").
+-- .omni-loop/delivery/inbox/2011-product-records/spec.md, "3. Knowledge is served as packs").
 --
 -- - knowledge_packs: a repository's knowledge folder and flow config at one commit, kept once per workspace
 --   that holds the repository in one of its products. `newest` marks, per workspace and repository, the
@@ -19,19 +18,14 @@
 --   owns, as business_for_token() does (law BR-PRODUCT-63). Nobody signed in writes the two tables.
 -- - products.plan_repository: the product's plan repository (owner/name), one its workspace lists, set by
 --   an owner through product_plan_repository_set(); null until then.
--- - products.plan_archived_at: when an owner archived the plan repository, through product_plan_archive(),
---   which refuses while a repository of the product is below step 5 of the rollout ladder, naming each,
---   and clears it on an undo. The App makes the repository read-only on GitHub (PRD 2011 s17): this only
---   records it. A plan repository is not changed while archived.
 --
--- Every change adds: two tables, two columns, four functions. Nothing existing is changed or dropped.
+-- Every change adds: two tables, one column, three functions. Nothing existing is changed or dropped.
 --
 -- Proven by supabase/checks/knowledge_packs.sql (the packs, who writes and reads them, the agent link of
--- another workspace reading none) and supabase/checks/products.sql (the plan repository and its archive).
+-- another workspace reading none) and supabase/checks/products.sql (the plan repository).
 --
--- Rollback (the down script): a follow-up migration that drops product_plan_archive(),
--- product_plan_repository_set(), products.plan_archived_at and products.plan_repository (with their two
--- constraints), knowledge_pack_for_token(), knowledge_pack_put(), knowledge_pack_files and
+-- Rollback (the down script): a follow-up migration that drops
+-- product_plan_repository_set() and products.plan_repository (with its constraint), knowledge_pack_for_token(), knowledge_pack_put(), knowledge_pack_files and
 -- knowledge_packs. Before a pack is read by the kit (s12) nothing depends on them; after, drop the readers
 -- first.
 
@@ -244,19 +238,14 @@ create policy "a member reads their workspace's knowledge pack files" on public.
 
 alter table public.products
   add column plan_repository text,
-  add column plan_archived_at timestamptz,
   add constraint products_plan_repository_listed
-    foreign key (workspace_id, plan_repository) references public.repositories (workspace_id, full_name),
-  add constraint products_plan_archived_named check (plan_archived_at is null or plan_repository is not null);
+    foreign key (workspace_id, plan_repository) references public.repositories (workspace_id, full_name);
 
 comment on column public.products.plan_repository is
   'PRD 2011: the product''s plan repository, owner/name in lower case, one its workspace lists; null until an owner sets it with product_plan_repository_set().';
-comment on column public.products.plan_archived_at is
-  'PRD 2011: when an owner archived the plan repository (product_plan_archive()); null while it is not archived.';
 
 -- Sets the product's plan repository, or clears it (null or empty). Answers the product. 42501 signed out
--- or not an owner, P0002 no such product or a repository the workspace does not list, 55000 the plan
--- repository is archived (undo the archive first).
+-- or not an owner, P0002 no such product or a repository the workspace does not list.
 create function public.product_plan_repository_set(p_product uuid, p_repository text) returns public.products
 language plpgsql
 security definer
@@ -268,54 +257,10 @@ declare
   got   public.products;
 begin
   owned := public.product_repository_owned(p_product);
-  if owned.plan_archived_at is not null and repo is distinct from owned.plan_repository then
-    raise exception 'Plan repository: % is archived; undo the archive before changing it.', owned.plan_repository
-      using errcode = '55000', hint = 'plan_repository';
-  end if;
   if repo is not null and not exists (select 1 from public.repositories r where r.workspace_id = owned.workspace_id and r.full_name = repo) then
     raise exception 'Repository: % is not one of this workspace''s repositories.', repo using errcode = 'P0002', hint = 'plan_repository';
   end if;
   update public.products p set plan_repository = repo where p.id = owned.id returning * into got;
-  return got;
-end;
-$$;
-
--- Archives the product's plan repository (p_archived true), or undoes it (false). Archiving again keeps the
--- first stamp. Answers the product. 42501 signed out or not an owner, P0002 no such product, 22023 no
--- answer, 55000 no plan repository, or a repository of the product below step 5 of the ladder, each named
--- as `plan-web at step 3`, joined by ` · `.
-create function public.product_plan_archive(p_product uuid, p_archived boolean) returns public.products
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  owned public.products;
-  holds text;
-  got   public.products;
-begin
-  owned := public.product_repository_owned(p_product);
-  if p_archived is null then
-    raise exception 'Archived: true or false.' using errcode = '22023', hint = 'archived';
-  end if;
-  if not p_archived then
-    update public.products p set plan_archived_at = null where p.id = owned.id returning * into got;
-    return got;
-  end if;
-  if owned.plan_repository is null then
-    raise exception 'Archive: % names no plan repository.', owned.name using errcode = '55000', hint = 'plan_repository';
-  end if;
-  if owned.plan_archived_at is not null then
-    return owned;
-  end if;
-  select string_agg(split_part(l.repository, '/', 2) || ' at step ' || l.ladder_step, ' · ' order by l.repository collate "C")
-    into holds
-    from public.product_repositories l
-   where l.product_id = owned.id and l.ladder_step < 5 and l.repository <> owned.plan_repository;
-  if holds is not null then
-    raise exception 'Archive: still held by %.', holds using errcode = '55000', hint = 'ladder_step';
-  end if;
-  update public.products p set plan_archived_at = now() where p.id = owned.id returning * into got;
   return got;
 end;
 $$;
@@ -335,5 +280,3 @@ revoke execute on function public.knowledge_pack_for_token(text, text, text) fro
 grant execute on function public.knowledge_pack_for_token(text, text, text) to anon, authenticated;
 revoke execute on function public.product_plan_repository_set(uuid, text) from public, anon;
 grant execute on function public.product_plan_repository_set(uuid, text) to authenticated;
-revoke execute on function public.product_plan_archive(uuid, boolean) from public, anon;
-grant execute on function public.product_plan_archive(uuid, boolean) to authenticated;

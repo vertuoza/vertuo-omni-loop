@@ -25,10 +25,11 @@ export function demoRepositoriesTab(id: string): RepositoriesTab | null {
     product: { id, name: 'Widgets' },
     owner: true,
     links: [
-      { repo: 'acme/api', role: 'api', knowledge: 'own', readAt: null, readOnly: true, consumes: [], addedBy: 'person' },
-      { repo: 'acme/widgets', role: 'web', knowledge: 'own', readAt: null, readOnly: false, consumes: ['acme/api'], addedBy: 'prd' },
+      { repo: 'acme/api', role: 'api', knowledge: 'own', readAt: null, readOnly: true, consumes: [], addedBy: 'person', ladderStep: 5 },
+      { repo: 'acme/widgets', role: 'web', knowledge: 'own', readAt: null, readOnly: false, consumes: ['acme/api'], addedBy: 'prd', ladderStep: 3 },
     ],
     addable: ['acme/scripts'],
+    plan: { repository: 'acme/plan', holds: [{ name: 'widgets', why: 'step 3' }] },
     approvers: {
       owner: true,
       members: [{ id: 'demo-irisa', name: 'Irisa', login: 'irisa' }, { id: 'demo-paul', name: 'Paul', login: 'paul' }, { id: 'demo-dev', name: 'Dev', login: 'dev' }],

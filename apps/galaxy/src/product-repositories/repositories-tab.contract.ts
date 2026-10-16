@@ -33,6 +33,8 @@ const LinkSchema = z.object({
   readOnly: z.boolean(),
   consumes: z.array(z.string()),
   addedBy: z.enum(['prd', 'person']),
+  /** The rollout ladder step the repository is at in this product, 1 to 5 (PRD 2011). */
+  ladderStep: z.number().int().min(1).max(5),
 });
 export type Link = z.infer<typeof LinkSchema>;
 
@@ -57,6 +59,22 @@ export const ApproverSavedSchema = z.object({ member: z.string(), state: Approve
 export const ApproverRemovedSchema = z.object({ member: z.string(), removed: z.boolean() });
 export const MemberQuerySchema = MemberSchema;
 
+/** What still holds the plan repository: what it is, and why (`step 3`, `in git`). */
+export interface Hold {
+  /** `vertuo-web`, `roadmap 0412`, `bug 1210`, `PRD 2011`. */
+  name: string;
+  /** `step 3` for a repository below step 5, `in git` for a record still open that was born there. */
+  why: string;
+}
+
+/** The product's plan repository and what is still in it (PRD 2011 s17): information only, nothing to press. */
+export interface PlanRepository {
+  /** The plan repository, owner/name. */
+  repository: string;
+  /** What is still in it: repositories below step 5, and records born in git still open. */
+  holds: Hold[];
+}
+
 /** What the tab shows (repositories-tab.service.ts reads it; the page draws it). */
 export interface RepositoriesTab {
   product: { id: string; name: string };
@@ -67,6 +85,8 @@ export interface RepositoriesTab {
   addable: string[];
   /** The Approvers list, or null when it could not be read. */
   approvers: Approvers | null;
+  /** The plan repository and its archive; null while the product names no plan repository. */
+  plan: PlanRepository | null;
 }
 
 /** Every refusal. */
