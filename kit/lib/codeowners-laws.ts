@@ -8,6 +8,8 @@
  * - the thesis, `<knowledge>/product/thesis.md`, which names every law;
  * - every register file: each folder's `principles.md`, `rules.md` and `invariants.md`, and each
  *   cross-domain file — never a `contracts.md` (PRD 1796): a contract is never a law;
+ * - the briefing's files (PRD 1793, s2): the briefing form at its own path, and each file it points
+ *   to (`playbook/briefing-files.ts`), so a change to the rules every agent follows asks the owner too;
  * - each locked law's test, every path its `Enforced by:` line names;
  *
  * each owned by every one of `laws.owners`. It writes the file GitHub reads first (`.github/`, the
@@ -21,9 +23,10 @@ import { CODEOWNERS_FILES, OWNERS_BEGIN, ownersBlock, ownersBlockIn, withOwnersB
 import { domainsDir, isLaw, productDir, REQUIRED_LAYER_FILES, readKnowledge, type Knowledge, type KnowledgeCtx } from './knowledge/registers.ts';
 import { thesisPath } from './knowledge/thesis.ts';
 import { messageOf } from './narrow.ts';
+import { briefingFiles } from './playbook/briefing-files.ts';
 
-/** What the block needs of the context: the knowledge folder, and `laws.owners`. */
-export type OwnersCtx = KnowledgeCtx & { config: { laws?: { owners?: readonly string[] } } };
+/** What the block needs of the context: the knowledge folder, the playbook's, and `laws.owners`. */
+export type OwnersCtx = KnowledgeCtx & { config: { paths: { playbook: string }; laws?: { owners?: readonly string[] } } };
 
 /** The file the block goes in when the repository has no CODEOWNERS yet. */
 const DEFAULT_CODEOWNERS = '.github/CODEOWNERS';
@@ -36,9 +39,10 @@ function testPaths(enforcedBy: string): string[] {
     .filter(Boolean);
 }
 
-/** Every path the block owns, in the block's order: the thesis, the register files, then each law's test. */
-function lawOwnedPaths(ctx: KnowledgeCtx, knowledge: Knowledge = readKnowledge({ ctx })): OwnedPath[] {
+/** Every path the block owns, in the block's order: the thesis, the register files, the briefing's files, then each law's test. */
+function lawOwnedPaths(ctx: OwnersCtx, knowledge: Knowledge = readKnowledge({ ctx })): OwnedPath[] {
   const registers = 'The thesis and the registers: what the product promises, and its laws.';
+  const briefing = 'The briefing: the rules every agent follows.';
   const layers = (dir: string, files: readonly string[]) => REQUIRED_LAYER_FILES.filter((name) => files.includes(name)).map((name) => `${dir}/${name}`);
   const files = [
     thesisPath(ctx),
@@ -49,7 +53,7 @@ function lawOwnedPaths(ctx: KnowledgeCtx, knowledge: Knowledge = readKnowledge({
   const tests = knowledge.entries
     .filter((entry) => isLaw(entry) && entry.enforced && entry.enforcedBy !== null)
     .flatMap((entry) => testPaths(entry.enforcedBy ?? '').map((path) => ({ path, why: `law ${entry.id}: its test.` })));
-  return [...files.map((path) => ({ path, why: registers })), ...tests];
+  return [...files.map((path) => ({ path, why: registers })), ...briefingFiles({ ctx }).map((path) => ({ path, why: briefing })), ...tests];
 }
 
 /** The block `omni kb owners` would write now. */
