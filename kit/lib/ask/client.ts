@@ -57,6 +57,9 @@ const timedOut = (error: unknown): boolean =>
 
 /** The calls whose default timeout is not the `wait` call's own. */
 export const CALL_TIMEOUT_MS = 5000;
+/** How long a knowledge pack's read may take: it carries a whole knowledge folder. */
+const PACK_TIMEOUT_MS = 30_000;
+
 /** How long one proof file's upload may take: a clip is up to 50 MB. */
 const UPLOAD_TIMEOUT_MS = 120_000;
 
@@ -481,6 +484,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * the reply. @returns {Promise<{ product: { name: string }, added: string[], changed: string[], unchanged: string[] }>} */
     importProductTargets: ({ repo, product, targets }: { repo: string; product: string; targets: unknown }) =>
       call('POST', '/api/products/import', { body: { repo, product, targets } }),
+    /** PRD 2011: the newest knowledge pack of `repo` (owner/name), or the one of commit `sha`, as the caller
+     * reads it; a 404 when the caller's workspace holds none. `../knowledge/packs/store.ts` reads the reply. */
+    readKnowledgePack: ({ repo, sha }: { repo: string; sha?: string | undefined }) =>
+      call('GET', `/api/knowledge-packs?${new URLSearchParams({ repo, ...(sha === undefined ? {} : { sha }) })}`, { timeoutMs: PACK_TIMEOUT_MS }),
     /** PRD 1364: the products `repo` (owner/name) is in; `../product/import.ts` reads the reply.
      * @returns {Promise<{ products: Array<{ name: string }> }>} */
     readProductsOf: (repo: string) => call('GET', `/api/products/which?${new URLSearchParams({ repo })}`),
