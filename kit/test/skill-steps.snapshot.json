@@ -12,6 +12,7 @@
       "business",
       "check",
       "config",
+      "conventions",
       "design",
       "dossier",
       "kb",
@@ -158,6 +159,7 @@
     "commands": [
       "check",
       "config",
+      "conventions",
       "dossier",
       "flow",
       "help",
@@ -289,6 +291,7 @@
   "plan": {
     "commands": [
       "config",
+      "conventions",
       "design",
       "dossier",
       "flow",
