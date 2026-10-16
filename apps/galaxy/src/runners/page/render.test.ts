@@ -54,10 +54,10 @@ describe('the board', () => {
   });
 
   it('shows each runner state: Busy, Online, and Offline with when it was last seen', () => {
-    expect(t).toContain('acme-agents Busy');
+    expect(t).toContain('acme-agents Paused: memory 91%'); // Busy, until its last report names a pressure (PRD 2102)
     expect(t).toContain('mac-mini-office Online');
     expect(t).toContain('ada-laptop Offline, 3 h ago');
-    for (const state of ['busy', 'online', 'offline']) expect(html).toContain(`runners-state is-${state}`);
+    for (const state of ['paused', 'online', 'offline']) expect(html).toContain(`runners-state is-${state}`);
   });
 
   it('shows slots used out of slots, the repositories and the kit version', () => {
@@ -130,7 +130,7 @@ describe('the board', () => {
   it('gives a member who is not an owner each fleet as text, with no picker', () => {
     const member = render(withBoard((board) => ({ ...board, viewer: { ...board.viewer, owner: false } })));
     expect(member).not.toContain('<select');
-    expect(text(member)).toContain('acme-agents Busy Comets 1 of 1');
+    expect(text(member)).toContain('acme-agents Paused: memory 91% Comets 1 of 1');
     expect(text(member)).toContain('mac-mini-office Online Shared 0 of 2');
   });
 

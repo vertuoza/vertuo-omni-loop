@@ -240,6 +240,13 @@ describe('unlockedFor', () => {
     expect(unlockedFor(4, ['duet', 'invaders', 'kart', 'platformer'], later)).toEqual(['duet', 'invaders', 'kart', 'platformer']);
   });
 
+  it('opens OMNI PONG at LV 5 under the rulebook, and keeps it after a rule change moves it later (PRD 2101)', () => {
+    expect(unlockedFor(4, [])).toEqual(['duet', 'invaders', 'kart', 'platformer']);
+    expect(unlockedFor(5, [])).toEqual(['duet', 'invaders', 'kart', 'platformer', 'pong']);
+    const later = rules({ unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 4, pong: 9 } });
+    expect(unlockedFor(5, ['duet', 'invaders', 'kart', 'platformer', 'pong'], later)).toEqual(['duet', 'invaders', 'kart', 'platformer', 'pong']);
+  });
+
   it('adds to the games already stored, and never takes one away', () => {
     const later = rules({ unlocks: { invaders: 5 } });
     expect(unlockedFor(3, ['invaders'], later)).toEqual(['invaders']);

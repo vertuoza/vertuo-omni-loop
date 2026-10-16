@@ -19,12 +19,19 @@
 //   report sent twice adds nothing), and a job keeps its last 20,000. When a job ends, the lines of the
 //   workspace's ended jobs beyond the 50 most recent (the ones the Runners page lists) are deleted. A
 //   member reads them after a sequence number, 5,000 at a time; anyone else is told there is no job.
+// - A runner's health (PRD 2102): its owner's runner reports its machine every 15 s. The report, with
+//   the server's time, becomes the runner's last health and counts as a check-in; each adds one sample,
+//   and the runner's samples older than an hour are deleted. The Runners page reads each runner's last
+//   health and its samples of the hour, oldest first. A report's machine tokens of the last 5 h are
+//   stored in the sample as the sum of their four counts (`tokens_5h`).
+// - A job's tokens (PRD 2102): a job report may carry the tokens of its worktree; they are stored in
+//   `runner_jobs.tokens` and the page reads them with the job.
 import {
-  checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS,
-  type Board, type Job, type JobLines, type JobUpdate, type RegisterReply, type RegisterRequest, type Runner, type RunnerJob, type RunnerRefusal,
+  checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
+  type Board, type HealthReport, type Job, type JobLines, type JobUpdate, type RegisterReply, type RegisterRequest, type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample,
   type KeyJob, type KeySend, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
-import type { JobPatch, JobRow, JobRowStatus, RunnerRow, RunnersRepository } from './runners.repository';
+import type { JobPatch, JobRow, JobRowStatus, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
 
 /** The time, and a pause: real in production, fixed in tests. */
 export type Clock = { now: () => Date; sleep: (ms: number) => Promise<void> };
@@ -78,16 +85,35 @@ function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, strin
   return {
     id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, sentBy: row.sent_by,
     sentByLogin: logins.get(row.sent_by) ?? null, sentByKey: row.sent_by_key === null ? null : keys.get(row.sent_by_key) ?? null, status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
-    logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, queuedAt: row.queued_at,
+    logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null, queuedAt: row.queued_at,
     claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
 }
 
-function runnerOf(row: RunnerRow, used: number, now: Date): Runner {
+function runnerOf(row: RunnerRow, used: number, now: Date, samples?: RunnerSample[]): Runner {
   return {
     id: row.id, name: row.name, owner: row.owner, fleet: row.fleet, slots: row.slots, used, repos: row.repos, version: row.version,
-    lastSeenAt: row.last_seen_at, state: runnerState(row, used, now),
+    lastSeenAt: row.last_seen_at, state: runnerState(row, used, now), health: row.health, ...(samples ? { samples } : {}),
   };
+}
+
+/** A token count's four figures added up; null for a count the runner could not read or never sent. */
+const tokenSum = (counts: { input: number; output: number; cacheRead: number; cacheWrite: number } | null | undefined): number | null =>
+  counts ? counts.input + counts.output + counts.cacheRead + counts.cacheWrite : null;
+
+const sampleOf = (row: SampleRow): RunnerSample => ({
+  at: row.at, cpu: row.cpu, memUsed: row.mem_used, memTotal: row.mem_total, diskFree: row.disk_free, tokens5h: row.tokens_5h,
+});
+
+/** The samples of each runner, oldest first as they are read. */
+function samplesByRunner(rows: SampleRow[]): Map<string, RunnerSample[]> {
+  const byRunner = new Map<string, RunnerSample[]>();
+  for (const row of rows) {
+    const held = byRunner.get(row.runner_id);
+    if (held) held.push(sampleOf(row));
+    else byRunner.set(row.runner_id, [sampleOf(row)]);
+  }
+  return byRunner;
 }
 
 /** Whether a sender may use a fleet's runners: one of its players, or a workspace owner. */
@@ -107,7 +133,7 @@ function reportRefusal(job: JobRow, report: JobUpdate): Served<never> | null {
 function reportPatch(job: JobRow, report: JobUpdate, now: string): JobPatch {
   const carried = {
     log_tail: report.logTail === undefined ? undefined : cutLogTail(report.logTail),
-    pr_url: report.prUrl, exit_code: report.exitCode, reason: report.reason,
+    pr_url: report.prUrl, exit_code: report.exitCode, reason: report.reason, tokens: report.tokens,
   };
   const given: JobPatch = Object.fromEntries(Object.entries(carried).filter(([, column]) => column !== undefined));
   const starts = report.status === 'running' && job.running_at === null;
@@ -281,6 +307,23 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       return ok({ cancel: !ENDED.includes(updated.status) && updated.cancel_requested });
     },
 
+    /** A runner's health report (PRD 2102), from its owner: its last health and a check-in, one sample
+     * more, and its samples older than an hour gone. Answers when the server took it. */
+    async health(caller: string, runnerId: string, report: HealthReport): Promise<Served<{ at: string }>> {
+      const owned = await ownRunner(caller, runnerId);
+      if (!owned.ok) return owned;
+      await markLost();
+      const now = clock.now();
+      const at = now.toISOString();
+      await store.updateRunner(runnerId, { health: { ...report, at }, last_seen_at: at });
+      await store.insertSample({
+        runner_id: runnerId, workspace_id: owned.value.workspace_id, at,
+        cpu: report.cpu, mem_used: report.memUsed, mem_total: report.memTotal, disk_free: report.diskFree, tokens_5h: tokenSum(report.tokens?.last5h),
+      });
+      await store.trimSamples(runnerId, new Date(now.getTime() - SAMPLES_KEPT_MS).toISOString());
+      return ok({ at });
+    },
+
     /** Queues a job: a listed line, for a repository of the workspace, to a target the sender may use. */
     async send(caller: string, request: SendRequest): Promise<Served<Job>> {
       const queued = await queue(caller, request, null);
@@ -352,8 +395,9 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       return ok({ status: job.status, lines: read.slice(0, JOB_LINES_PAGE), more: read.length > JOB_LINES_PAGE, first, logTail });
     },
 
-    /** The Runners page's read: the workspace's runners with their state, its jobs (queued and running
-     * first, then the last 50 that ended), and what the viewer may do. A member only. */
+    /** The Runners page's read: the workspace's runners with their state, their last health and their
+     * samples of the last hour, its jobs (queued and running first, then the last 50 that ended), and what
+     * the viewer may do. A member only. */
     async board(caller: string, workspaceId: string): Promise<Served<Board>> {
       const viewer = await store.member(workspaceId, caller);
       if (!viewer) return no('forbidden', 'You are not a member of this workspace.');
@@ -363,8 +407,9 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const logins = await store.logins(workspaceId, [...new Set(jobs.map((job) => job.sent_by))]);
       const keys = await keysOf(workspaceId, jobs);
       const now = clock.now();
+      const samples = samplesByRunner(await store.samples(runners.map((runner) => runner.id), new Date(now.getTime() - SAMPLES_KEPT_MS).toISOString()));
       return ok({
-        runners: runners.map((runner) => runnerOf(runner, usedBy(active, runner.id), now)),
+        runners: runners.map((runner) => runnerOf(runner, usedBy(active, runner.id), now, samples.get(runner.id) ?? [])),
         jobs: jobs.map((job) => jobOf(job, logins, keys)),
         viewer: { id: caller, owner: viewer.owner, fleet: viewer.fleet },
       });

@@ -3015,6 +3015,7 @@ export type Database = {
           status: string
           to_fleet: string | null
           to_runner: string | null
+          tokens: Json | null
           workspace_id: string
         }
         Insert: {
@@ -3036,6 +3037,7 @@ export type Database = {
           status?: string
           to_fleet?: string | null
           to_runner?: string | null
+          tokens?: Json | null
           workspace_id: string
         }
         Update: {
@@ -3057,6 +3059,7 @@ export type Database = {
           status?: string
           to_fleet?: string | null
           to_runner?: string | null
+          tokens?: Json | null
           workspace_id?: string
         }
         Relationships: [
@@ -3097,10 +3100,59 @@ export type Database = {
           },
         ]
       }
+      runner_samples: {
+        Row: {
+          at: string
+          cpu: number | null
+          disk_free: number | null
+          mem_total: number | null
+          mem_used: number | null
+          runner_id: string
+          tokens_5h: number | null
+          workspace_id: string
+        }
+        Insert: {
+          at?: string
+          cpu?: number | null
+          disk_free?: number | null
+          mem_total?: number | null
+          mem_used?: number | null
+          runner_id: string
+          tokens_5h?: number | null
+          workspace_id: string
+        }
+        Update: {
+          at?: string
+          cpu?: number | null
+          disk_free?: number | null
+          mem_total?: number | null
+          mem_used?: number | null
+          runner_id?: string
+          tokens_5h?: number | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runner_samples_runner_id_fkey"
+            columns: ["runner_id"]
+            isOneToOne: false
+            referencedRelation: "runners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_samples_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       runners: {
         Row: {
           created_at: string
           fleet: string | null
+          health: Json | null
           id: string
           last_seen_at: string
           name: string
@@ -3113,6 +3165,7 @@ export type Database = {
         Insert: {
           created_at?: string
           fleet?: string | null
+          health?: Json | null
           id?: string
           last_seen_at?: string
           name: string
@@ -3125,6 +3178,7 @@ export type Database = {
         Update: {
           created_at?: string
           fleet?: string | null
+          health?: Json | null
           id?: string
           last_seen_at?: string
           name?: string
@@ -4988,6 +5042,7 @@ export type Database = {
           status: string
           to_fleet: string | null
           to_runner: string | null
+          tokens: Json | null
           workspace_id: string
         }[]
         SetofOptions: {
