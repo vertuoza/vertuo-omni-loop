@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { RoadmapRecordRead } from '../../dossier/page/RoadmapRecord';
 import type { RoadmapHumanWorkRow, RoadmapPrdRow, RoadmapRow } from '../store';
 import { loadRoadmapPage, productOf, roadmapIdOf, type RoadmapPageReads } from './load';
 
@@ -36,7 +37,10 @@ function reads(over: Partial<RoadmapPageReads> = {}): RoadmapPageReads {
       roadmap_id: ID, position: 1, row_id: 'p1', category: 'local', need: 'Docker runs', check_with: 'base:docker', fix_with: null,
       blocks_all: true, blocks: [], who: 'check', repos: [], card: null, state: 'waits', detail: null,
     }] : []),
-    products: () => Promise.resolve([{ id: 'p-1', name: 'Crew' }]),
+    products: () => Promise.resolve([{ id: 'p-1', name: 'Crew', key: 'crew' }]),
+    seqs: () => Promise.resolve(new Map()),
+    roadmapOfDossier: () => Promise.resolve(null),
+    record: () => Promise.resolve(null),
     humanWork: (id) => Promise.resolve(id === ID ? [work(ID, 'outbox:881/s1-01', 'dev-ops', 'open'), work(ID, 'park:881', 'business', 'done')] : []),
     ...over,
   };
@@ -125,5 +129,77 @@ describe('the path\'s and the query\'s ids', () => {
     expect(productOf(ID)).toBe(ID);
     expect(productOf('x')).toBeNull();
     expect(productOf(null)).toBeNull();
+  });
+});
+
+describe('a roadmap born on the server (PRD 2011, s3)', () => {
+  const DOSSIER = '00000000-0000-4000-8000-0000000000e1';
+  const PRODUCT_ROW: RoadmapRow = { ...roadmap(ID, OURS, 'p-1'), repo: null, number: null, dossier_id: DOSSIER };
+  const RECORD: RoadmapRecordRead = {
+    dossier: DOSSIER, approval: null, voids: [], asked: [], text: '# Mobile',
+    versions: [{ id: 'd1', kind: 'roadmap', bytes: 8, source: 'kit', created_at: '2026-10-15T08:00:00Z' }],
+  };
+  const MOBILE = { id: 'p-1', name: 'Mobile', key: 'mobile' };
+  const product = (over: Partial<RoadmapPageReads> = {}) => reads({
+    roadmaps: () => Promise.resolve([PRODUCT_ROW]),
+    roadmap: (id) => Promise.resolve(id === ID ? PRODUCT_ROW : null),
+    roadmapOfDossier: (id) => Promise.resolve(id === DOSSIER ? PRODUCT_ROW : null),
+    products: () => Promise.resolve([MOBILE]),
+    seqs: () => Promise.resolve(new Map([[DOSSIER, 3]])),
+    record: () => Promise.resolve(RECORD),
+    ...over,
+  });
+
+  it('lists it with its product id, `mobile-R3`, and its product', async () => {
+    const view = await loadRoadmapPage(product(), { id: null, product: null }, NOW);
+    expect(view.kind === 'list' ? view.roadmaps.map((r) => [r.ref, r.product, r.repo, r.number]) : view.kind).toEqual([['mobile-R3', 'Mobile', null, null]]);
+  });
+
+  it('opens it with its approval waiting, its status held, a Versions tab counting its versions and no issue', async () => {
+    const view = await loadRoadmapPage(product(), { id: ID, product: null, me: 'u-ada' }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    const { roadmap: opened } = view;
+    expect(opened.issueUrl).toBeNull();
+    expect(opened.record).toMatchObject({ status: 'held', count: 1, approval: { state: 'waiting', canApprove: true } });
+    expect(opened.tabs.map((t) => [t.label, t.badge])).toEqual([['Overview', null], ['Prerequisites', 1], ['Versions', 1]]);
+  });
+
+  it('opens on its dossier\'s id too, which the approval route answers with', async () => {
+    const view = await loadRoadmapPage(product(), { id: DOSSIER, product: null }, NOW);
+    expect(view.kind === 'roadmap' ? view.roadmap.id : view.kind).toBe(ID);
+  });
+
+  it('shows the version asked for under the Versions tab, and reads versions it cannot read as such', async () => {
+    const view = await loadRoadmapPage(product(), { id: ID, product: null, tab: 'versions', version: { part: 'roadmap', version: 1 } }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    expect(view.roadmap.tab).toBe('versions');
+    expect(view.roadmap.record?.shown).toEqual({ label: 'Document', number: 1, text: '# Mobile' });
+    const down = await loadRoadmapPage(product({ record: () => Promise.resolve(null) }), { id: ID, product: null, tab: 'versions' }, NOW);
+    if (down.kind !== 'roadmap') throw new Error(down.kind);
+    expect(down.roadmap.record).toMatchObject({ parts: null, shown: null, approval: { state: 'unread', canApprove: false } });
+  });
+
+  it('offers no Mark as done: it has no issue to comment on', async () => {
+    const person = product({ prerequisites: () => Promise.resolve([{
+      roadmap_id: ID, position: 1, row_id: 'p3', category: 'permissions', need: 'the preview has its secret', check_with: null, fix_with: null,
+      blocks_all: false, blocks: [], who: 'person', repos: [], card: null, state: 'waits', detail: null,
+    }]) });
+    const view = await loadRoadmapPage(person, { id: ID, product: null, tab: 'prerequisites', tickable: true }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    expect(view.roadmap.prerequisites.groups[0]?.rows[0]?.tickable).toBe(false);
+  });
+
+  it('keeps a roadmap born in git on two tabs, Versions asked for or not', async () => {
+    const view = await loadRoadmapPage(reads(), { id: ID, product: null, tab: 'versions' }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    expect([view.roadmap.tab, view.roadmap.record, view.roadmap.tabs.map((t) => t.label)]).toEqual(['overview', null, ['Overview', 'Prerequisites']]);
+  });
+
+  it('names no id when its product has no key, or when its number could not be read', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const keyless = await loadRoadmapPage(product({ products: () => Promise.resolve([{ ...MOBILE, key: null }]) }), { id: null, product: null }, NOW);
+    expect(keyless.kind === 'list' ? keyless.roadmaps.map((r) => r.ref) : keyless.kind).toEqual([null]);
+    const down = await loadRoadmapPage(product({ seqs: () => Promise.reject(new Error('down')) }), { id: null, product: null }, NOW);
+    expect(down.kind === 'list' ? down.roadmaps.map((r) => r.ref) : down.kind).toEqual([null]);
   });
 });

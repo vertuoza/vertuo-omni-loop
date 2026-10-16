@@ -5,9 +5,11 @@
 // written as the Omni Loop home page (`signature.home`'s default, ADR-0047) and `dossier.enabled` as
 // true (PRD 420): init writes them, the schema's own defaults stay null and false, so a config
 // written before reads as it did. `answers.enabled` is written as true, its schema default (PRD 251).
+// The `sync` block (PRD 1990) is written commented, with its defaults, so the weights `omni sync`
+// uses are visible where a person would change them.
 // The text is returned only once the kit's own parser accepts it.
 import { stringify } from 'yaml';
-import { AGENTS, CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../config.ts';
+import { AGENTS, CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig, SYNC_CHECKS } from '../config.ts';
 import type { Agent, Config } from '../types.ts';
 
 /** The commands `omni init` writes, each `null` when not known yet. */
@@ -25,12 +27,25 @@ export type ConfigValues = {
 
 const section = (key: string, value: unknown): string => stringify({ [key]: value }).trimEnd();
 
+/** The `sync` block, commented, holding the schema's defaults. */
+function syncBlock({ order, levels, mainRedAfter }: Config['sync']): string[] {
+  return [
+    '# How omni sync weighs its checks: the order decides the headline, a level caps the colour a check',
+    '# may show. These are the defaults; uncomment the block to change them.',
+    '# sync:',
+    `#   order: [${order.join(', ')}]   # the weight order, heaviest first`,
+    '#   levels:                               # the highest colour each check may show: red | orange | off',
+    ...SYNC_CHECKS.map((check) => `#     ${check}: ${levels[check]}`),
+    `#   mainRedAfter: ${mainRedAfter}                     # how old a missing commit of the default branch may be before main is red`,
+  ];
+}
+
 /** The file's text, and the config it parses to. */
 export function renderConfig({ slug, defaultBranch, commands, lawsSource, agents }: ConfigValues): { text: string; config: Config } {
   const repo: { slug: string | null; defaultBranch?: string } = { slug };
   if (defaultBranch) repo.defaultBranch = defaultBranch;
   // The schema's default signature, never null: only a config that writes `signature: null` has none.
-  const { signature } = ConfigSchema.parse({ kit: CONFIG_VERSION });
+  const { signature, sync } = ConfigSchema.parse({ kit: CONFIG_VERSION });
   const text = [
     `# Omni Loop config, written by \`omni init\`. A key not written here keeps its schema default.`,
     `kit: ${CONFIG_VERSION}`,
@@ -63,6 +78,8 @@ export function renderConfig({ slug, defaultBranch, commands, lawsSource, agents
     '',
     "# Who co-signs the loop's commits, pull requests and issues. null: nobody.",
     section('signature', signature),
+    '',
+    ...syncBlock(sync),
     '',
   ].join('\n');
   return { text, config: parseConfig(text, CONFIG_FILE) };

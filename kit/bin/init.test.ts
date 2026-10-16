@@ -306,7 +306,7 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
   it('writes neither knowledge key, and omni config still names the knowledge label and branch', async () => {
     const { root, read } = makeRepo({ git: true });
     await init(root);
-    expect(read('.omni-loop/config.yml')).not.toMatch(/knowledge:/);
+    expect(read('.omni-loop/config.yml')).not.toMatch(/^[^#\n]*knowledge:/m);
     for (const [key, value] of [['labels.knowledge', 'omni:knowledge'], ['branches.knowledge', 'docs/knowledge-{topic}']] as const) {
       const s = io();
       expect(await main(['config', key], { cwd: root, ...s })).toBe(0);

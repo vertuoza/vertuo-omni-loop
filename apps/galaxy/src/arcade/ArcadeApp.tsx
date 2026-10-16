@@ -15,7 +15,7 @@ import { Handheld, Lens } from './Handheld';
 import { Advance } from './Advance';
 import { HeldPad } from './Controls';
 import { createHeld } from './held';
-import { engine, march, motif, music, setMuted as setAudioMuted, sfx, unlock, type Sfx } from './sound';
+import { engine, march, motif, music, screech, setMuted as setAudioMuted, sfx, unlock, type Sfx } from './sound';
 import { Press } from './hint';
 import { keyAction, type Action } from './keys';
 import type { SongName } from './score';
@@ -39,7 +39,7 @@ import { KartOverlay } from './scenes/kart.tsx';
 import { DuetLayer } from './scenes/duet.tsx';
 import { duetDrawOf, useDuet } from './scenes/duet.live';
 import { duetRetry, type ArcadeDuet } from './scenes/duet.ts';
-import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, circuitPress, FIRST_CHOICE, trackOf, GRID_OUT_LINE, gridPress, kartCast, kartEngineOn, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartGridRow, type KartHud, type KartStep } from './scenes/kart.ts';
+import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, circuitPress, FIRST_CHOICE, trackOf, GRID_OUT_LINE, gridPress, kartCast, kartEngineLevel, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartGridRow, type KartHud, type KartStep } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
 import { usePlatformer, type ArcadePf } from './platformer/usePlatformer';
@@ -134,10 +134,10 @@ function useKartSound(scene: SceneName, hud: KartHud | null) {
     return () => { clearTimeout(after); };
   }, [scene, tune]);
   useEffect(() => {
-    if (scene !== 'kart') engine(null);
+    if (scene !== 'kart') { engine(null); screech(null); }
     return undefined;
   }, [scene]);
-  useEffect(() => () => { engine(null); }, []);
+  useEffect(() => () => { engine(null); screech(null); }, []);
 }
 
 /** The race plays the time since the last frame, with the buttons held now, and the text layer follows it. */
@@ -146,7 +146,9 @@ function stepKart(scene: SceneName, kart: ArcadeKart | null, buttons: ReadonlySe
   if (!game) return;
   const score = game.step(buttons, dt);
   hearKart(game);
-  engine(kartEngineOn(game.hud()) ? game.speed() : null);
+  const hud = game.hud();
+  engine(kartEngineLevel(hud, game.speed(), buttons));
+  screech(hud.phase === 'race' ? game.skid() : null);
   show(game);
   if (score !== null) finished(score); // the step that crossed the line says so once: the score is sent once
 }
@@ -1120,6 +1122,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       // letters and arrows do not; ENTER and TAB keep the pause and the menu. On every other screen the arcade's keys hold.
       const kr = uiRef.current.scene === 'kart' ? kartRef.current : null;
       const own = api && kr?.game && kr.options ? kr.options.keys : null;
+      const shiftBound = !!api && !!own && !api.shiftSelects(own);
       if (api && own && kr) {
         const phase = kr.hud?.phase;
         if (phase === 'countdown' || (phase === 'race' && !kr.hud?.menu)) {
@@ -1130,11 +1133,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
             else if (!e.repeat) act('b');
             return;
           }
-          if (e.key !== 'Enter' && e.key !== 'Tab' && e.key !== 'Shift') return;
+          if (e.key !== 'Enter' && e.key !== 'Tab' && !(e.key === 'Shift' && !shiftBound)) return;
         }
       }
       const action = keyAction(e.key);
       if (!action) return;
+      if (shiftBound && e.key === 'Shift') return; // PRD 1963: in OMNI KART SHIFT is SELECT only when none of the player's keys is SHIFT, so ITEM on SHIFT never leaves a paused race
       e.preventDefault();
       if (!own) held.keyDown(e.key); // a kart screen outside the race reads presses only: a key held into the next screen does nothing
       if (e.repeat && (action === 'a' || action === 'b' || action === 'start')) return;

@@ -48,7 +48,7 @@ test, no script, no hook, no command from its README or its package manifest. On
    ```
 
 3. Then the briefing (`node .omni-loop/bin/omni.mjs session start`) and `/omni:dossier-open`,
-   as `/omni:brainstorm` step 0 runs them.
+   as `/omni:brainstorm` step 0 runs them. A sync status other than 🟢 in the output's `sync` block is said to the person in one line, with its fix, and the run carries on.
 4. **The scratch folder:** `mktemp -d`, outside the plan repository and outside its worktrees. Every
    clone of step 3 goes there, and the folder is deleted when the skill ends, whatever the outcome.
 

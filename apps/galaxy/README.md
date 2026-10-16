@@ -907,7 +907,7 @@ off, no row exists, and every player sees NO XP YET.
   race time (PRD 1440), the whole race of three laps in tenths of a second, is sent once under the circuit's board (`kart` for COMET RING, `kart-frost-eight` for FROST EIGHT): each
   board keeps the best time, the lowest, and has its own send lines, SAVING TIME…, NEW BEST, YOUR BEST 1:42.3
   or TIME NOT SAVED (A retries once). The cabinet's CREW TOP 5 shows times, fastest first, for each circuit in turn (see **The circuits** below). What it sounds like is in the sound section above.
-  **The options** (PRD 1762): OPTIONS on the ready screen holds KEYS (the five actions of a keyboard: GAS, BRAKE, LEFT, RIGHT, ITEM),
+  **The options** (PRD 1762): OPTIONS on the ready screen holds KEYS (the six actions of a keyboard: GAS, BRAKE, LEFT, RIGHT, ITEM, HOP; PRD 1963),
   KART (eight colours and three designs, CLASSIC, ROCKET and RACER, drawn on the track, the minimap and the podium), LAPS (3, 5 or 7),
   DIFFICULTY (EASY, NORMAL or HARD, the rivals' pace and how long they hold an item) and DEFAULTS. They are kept in this browser only,
   under `omni-loop:kart-options` (`kart/options.ts`), never sent anywhere; a MULTI grid takes the first arrival's laps and each player's
@@ -1057,11 +1057,61 @@ off, no row exists, and every player sees NO XP YET.
   road"). **The tree line:** one tile inside the map's edge a kart stops, as at a wall. **Ice and the slide:** the kart
   has a direction of travel beside its heading, which turns towards the heading by at most the surface's grip times the
   step; on `road` and `powder` the grip has no limit, so the direction of travel is the heading and the kart drives as
-  before, while on `ice` the grip is `RULES.iceGrip` (1.2 radians a second) and the top speed is kept, so a kart that
+  before, while on `ice` the grip is `RULES.iceGrip` (0.4 radians a second, PRD 1963) and the top speed is kept, so a kart that
   steers on the lake turns its nose before its path and comes out of the X off its line, the gap between heading and
-  travel never passing `RULES.iceSlip` (0.6 radians); leaving the ice, travel is the heading again. The rivals drive the
-  same model, slide too and finish their three laps (seeds 1, 7 and 42, at every level), and karts that meet at the X
-  push each other apart as anywhere else.
+  travel never passing `RULES.iceSlip` (1.0 radian); on ice the gas adds `RULES.iceAccel` (0.6) times what it adds on road,
+  the brake takes off `RULES.iceBrake` (0.4) times and letting go `RULES.iceCoast` (0.3) times, reversing alike. **The way
+  back:** a kart that carries a direction of travel on `road` or `powder` and is not drifting turns it towards the heading
+  at `RULES.grip` (6 radians a second) and drops it within 0.01 radian; COMET RING has no ice, so a kart there carries
+  `travel` only after a drift. **Two frozen patches:** beside the lake, two discs of ice 6 tiles across, centred on the
+  middle of bend 4 (`[16, 8]`) and bend 8 (`[16, 64]`); the track's `lake` is a list of ice discs, the lake first, drawn as
+  the lake is and in light blue on the minimap. The rivals pick their speed for a bend as before: on an icy bend they slide
+  wide into the powder as a player who does not brake does, and finish their three laps (seeds 1, 7 and 42, at every
+  level), and karts that meet at the X push each other apart as anywhere else.
+  **The drift** (PRD 1963; every number is named in `RULES`): HOP, a sixth drive key (SPACE; ▲ on the Game Boy's pad,
+  ITEM staying B), makes a grounded kart hop `RULES.hopHeight` (4 pixels) over `RULES.hopTime` (0.25 seconds). The hop is
+  drawn only: `airborne` never sees it, so a hopping kart takes boxes, pads, BLOBs, ORBs and pushes, tips over and falls as
+  on the ground; HOP in the air or during a hop does nothing. A hop that lands with HOP still held, ◀ or ▶ held (its side
+  is the drift's) and the speed at least `RULES.driftMin` (0.5 of the top speed) starts a drift; with no arrow the hop was
+  only a hop. While drifting the kart turns towards the drift's side at `RULES.driftTight` (2.2 radians a second) with
+  its arrow, `RULES.driftMid` (1.5) with neither and `RULES.driftWide` (0.9) with the other; the direction of travel
+  follows the heading at `RULES.driftGrip` (0.8) and lags it by at most `RULES.driftSlip` (0.45), and on ice the lower grip
+  and larger slip hold. The charge (`fx.charge`) grows on road and ice and stands still on powder: blue from
+  `RULES.chargeBlue` (0.8 seconds), orange from `RULES.chargeOrange` (1.8). Releasing HOP gives today's BOOST for
+  `RULES.miniOrange` (1 second) or `RULES.miniBlue` (0.5), nothing under blue, and never shortens a BOOST already
+  running; every turbo of this PRD is that BOOST. A drift is lost, with no turbo, on ▼, a BLOB or ORB hit, a fall, a
+  tip-over, the tree line, a speed under `driftMin` or a ramp's jump, and when the race ends. **The HARD rivals drift:**
+  at HARD only, a rival hops at a bend's entry when its look ahead finds a turn tighter than `RULES.rivalDriftRadius` (8
+  tiles) at `driftMin` speed, drifts towards its side, and releases when the turn opens, taking the turbo it earned; it
+  never starts a drift with a wheel over the void within its look and releases at once when the void comes into it. EASY and
+  NORMAL rivals never hop.
+  **The rocket start and the stall:** the countdown shows 3, 2 and 1 for one second each (`RULES.countdown`) and keeps
+  when GAS last went down during it (GAS already held counts as pressed during the 3). At GO with GAS held: last pressed
+  during the 2, a BOOST of `RULES.rocketTime` (0.8 seconds) and `TURBO` under GO; last pressed during the 3, the engine
+  stalls for `RULES.stallTime` (0.5 seconds), the kart does not move, black smoke puffs and the engine sputters; during the
+  1, or GAS not held, a normal start. The rivals draw a rocket start at GO from the race's seed (`RULES.levels.<level>.rocket`:
+  0.2 EASY, 0.4 NORMAL, 0.7 HARD) and never stall; in MULTI each player's start is their own.
+  **The slipstream:** a kart at `RULES.draftMin` (0.6 of the top speed) or more, within `RULES.draftRange` (48 pixels)
+  behind another kart also at `draftMin` or more and within `RULES.draftLine` (0.3 radian) of the line straight back from
+  its heading, builds a slipstream; `RULES.draftTime` (1.2 seconds) in a row give a BOOST of `RULES.draftBoost` (0.6
+  seconds) and start the count again, and leaving the cone resets it. Every kart gives one and takes one (the player, the
+  rivals, and in MULTI the other players' karts at their carried positions); a kart in the air or falling neither gives nor
+  takes.
+  **What a player sees and hears** (`art.ts` from the pure, seeded state of `fx.ts`, under its particle cap; `sound.ts`, no
+  audio file): snow behind the rear wheels of a kart on powder faster than `draftMin`; skid marks while the gap between
+  heading and travel is over `RULES.skidGap` (0.15 radian) or a drift runs, white on ice and snow and dark on road, fading
+  over 3 seconds, at most `MAX_MARKS` at once; blue then orange sparks at the rear wheels of a drifting kart; white wind lines
+  while a slipstream builds. The player's own kart alone is heard: a screech (a continuous voice under the music, louder as
+  the gap grows), a tick when the sparks turn blue and again orange, a whoosh at each mini-turbo, rocket start and
+  slipstream, a sputter on a stall, and the engine's hum rising while GAS is held during the countdown. With reduced motion
+  no particle moves: the sparks stay as a still glow in their colour, the snow, smoke and wind are not drawn and the marks
+  stay. In MULTI the others' karts are drawn without hop, sparks or marks and nothing is added to MULTI's messages.
+  **The six keys:** GAS ▲, BRAKE ▼, LEFT ◀, RIGHT ▶, ITEM SHIFT and HOP SPACE by default; OPTIONS › KEYS lists the six, HOP
+  last, and DEFAULTS restores them; the countdown's line reads `▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE HOP SHIFT ITEM` with the
+  player's own keys. ENTER, TAB, ESC, M and F stay reserved; SHIFT can be bound and stands for SELECT in OMNI KART only
+  when none of the player's keys is SHIFT (TAB is SELECT always), so ITEM never leaves a paused race. Five saved keys equal
+  to the old defaults read as the new six defaults; any other five are kept and HOP takes the first of SPACE, X, C and V
+  that none holds.
   **SINGLE and MULTI** (PRD 1572): the ready screen offers `SINGLE` (everything above, unchanged) and
   `MULTI`, which reads `MULTI · SIGN IN TO RACE` and cannot be picked where no other player can be
   reached (the demo, the closed arcade). `MULTI` joins the workspace's one **grid**, a private Supabase

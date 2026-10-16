@@ -107,10 +107,10 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 58 commands and the 33 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(58);
+  it('holds the 59 commands and the 33 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(59);
     expect(skillFolders()).toHaveLength(33);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(58);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(59);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(33);
   });
 
@@ -296,7 +296,7 @@ describe('the help table in this repository', () => {
   it('lists omni bug for skills, with its usage (PRD 556)', () => {
     const bug = ENTRIES.find((e) => e.name === 'bug' && e.kind === 'command');
     assertDefined(bug, 'bug');
-    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>]'] });
+    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]'] });
     expect(bug.detail).toMatch(/\/omni:bug-fix\b/);
   });
 

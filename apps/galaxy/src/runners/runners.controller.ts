@@ -135,9 +135,10 @@ export async function jobLines(request: Request, id: string, deps: RunnersDeps):
   });
 }
 
-/** POST /api/runners/jobs: queues a job from the browser. */
+/** POST /api/runners/jobs: queues a job from the browser, or from a service with the kit's sign-in (the header wins). */
 export async function sendJob(request: Request, deps: RunnersDeps): Promise<Response> {
-  return answer(await sessionCaller(deps), deps, JobReplySchema, async (service, caller) => {
+  const caller = request.headers.get('authorization') === null ? await sessionCaller(deps) : await kitCaller(request, deps);
+  return answer(caller, deps, JobReplySchema, async (service, caller) => {
     const body = await bodyAs(request, SendRequestSchema);
     return body === null ? refuse(RUNNER_REFUSALS.malformed, BAD_SEND) : service.send(caller, body);
   }, (job) => ({ job }));

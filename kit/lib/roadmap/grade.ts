@@ -16,7 +16,14 @@
  */
 import type { PrdNumber } from '../ids.ts';
 import { CARD_LINES } from './parse.ts';
-import type { Roadmap, RoadmapPrerequisite, RoadmapRow } from './parse.ts';
+import type { ProductRoadmap, Roadmap, RoadmapPrerequisite, RoadmapRow } from './parse.ts';
+
+/** A row as the grade reads it: everything but its PRD, which a roadmap born on the server may name by
+ * a product's id (PRD 2011). */
+type GradeRow = Omit<RoadmapRow, 'prd'>;
+
+/** What the grade reads of a roadmap, whether it was born in git or on the server. */
+type Shape = Pick<Roadmap, 'questions' | 'prerequisites' | 'repos'> & { prds: readonly GradeRow[] };
 
 /** What a PRD's folder says: its spec's `blocked-by`, or that it has no folder or no readable spec. */
 export type PrdFacts = { blockedBy: 'none' | readonly PrdNumber[] } | 'no-folder' | 'unreadable';
@@ -41,7 +48,7 @@ export const PREREQUISITE_BASE_FIXES = ['install', 'labels', 'env-file'] as cons
 const BASE = /^base:(.*)$/;
 
 /** Each id listed twice, once. */
-function duplicateIds(roadmap: Roadmap): string[] {
+function duplicateIds(roadmap: Shape): string[] {
   const seen = new Set<string>();
   const twice = new Set<string>();
   for (const { id } of [...roadmap.prds, ...roadmap.questions, ...(roadmap.prerequisites ?? [])]) {
@@ -52,14 +59,14 @@ function duplicateIds(roadmap: Roadmap): string[] {
 }
 
 /** Each blocker that names no row. */
-function unknownBlockers(roadmap: Roadmap, rows: ReadonlyMap<string, RoadmapRow>): string[] {
+function unknownBlockers(roadmap: Shape, rows: ReadonlyMap<string, GradeRow>): string[] {
   return roadmap.prds.flatMap((row) =>
     row.blockedBy.filter((blocker) => !rows.has(blocker)).map((blocker) => `${row.id}: blocked by ${blocker}, which is not a row of the roadmap.`),
   );
 }
 
 /** Each cycle among the blockers, once, as the ids it runs through. */
-function cycles(roadmap: Roadmap, rows: ReadonlyMap<string, RoadmapRow>): string[] {
+function cycles(roadmap: Shape, rows: ReadonlyMap<string, GradeRow>): string[] {
   const found: string[] = [];
   const seenCycles = new Set<string>();
   const done = new Set<string>();
@@ -83,7 +90,7 @@ function cycles(roadmap: Roadmap, rows: ReadonlyMap<string, RoadmapRow>): string
 }
 
 /** Each row whose wave is not 1 with no blocker, or one more than its highest blocker's. */
-function waveOrder(roadmap: Roadmap, rows: ReadonlyMap<string, RoadmapRow>): string[] {
+function waveOrder(roadmap: Shape, rows: ReadonlyMap<string, GradeRow>): string[] {
   const violations: string[] = [];
   for (const row of roadmap.prds) {
     const blockers = row.blockedBy.flatMap((id) => rows.get(id) ?? []);
@@ -96,7 +103,7 @@ function waveOrder(roadmap: Roadmap, rows: ReadonlyMap<string, RoadmapRow>): str
 }
 
 /** Each row with a blocker and no `why`. */
-function missingWhy(roadmap: Roadmap): string[] {
+function missingWhy(roadmap: Shape): string[] {
   return roadmap.prds
     .filter((row) => row.blockedBy.length > 0 && row.why === null)
     .map((row) => `${row.id}: blocked by ${row.blockedBy.join(', ')} with no why — every blocker says why it blocks.`);
@@ -126,7 +133,7 @@ function specAgreement(roadmap: Roadmap, rows: ReadonlyMap<string, RoadmapRow>, 
 }
 
 /** Each question blocking a row that does not exist. */
-function unknownQuestionRows(roadmap: Roadmap, rows: ReadonlyMap<string, RoadmapRow>): string[] {
+function unknownQuestionRows(roadmap: Shape, rows: ReadonlyMap<string, GradeRow>): string[] {
   return roadmap.questions.flatMap((question) =>
     question.blocks.filter((id) => !rows.has(id)).map((id) => `${question.id}: blocks ${id}, which is not a row of the roadmap.`),
   );
@@ -161,7 +168,7 @@ function cardFaults({ id, who, card }: RoadmapPrerequisite): string[] {
 }
 
 /** Every prerequisite's faults: what it blocks, its check, its fix and its card. */
-function prerequisiteViolations(roadmap: Roadmap, rows: ReadonlyMap<string, RoadmapRow>): string[] {
+function prerequisiteViolations(roadmap: Shape, rows: ReadonlyMap<string, GradeRow>): string[] {
   return (roadmap.prerequisites ?? []).flatMap((prerequisite) => [
     ...(prerequisite.blocks === 'all' ? [] : prerequisite.blocks)
       .filter((id) => !rows.has(id))
@@ -173,8 +180,8 @@ function prerequisiteViolations(roadmap: Roadmap, rows: ReadonlyMap<string, Road
 }
 
 /** Every row a row waits on, directly or through others. */
-function upstream(row: RoadmapRow, rows: ReadonlyMap<string, RoadmapRow>): RoadmapRow[] {
-  const found = new Map<string, RoadmapRow>();
+function upstream(row: GradeRow, rows: ReadonlyMap<string, GradeRow>): GradeRow[] {
+  const found = new Map<string, GradeRow>();
   const queue = [...row.blockedBy];
   while (queue.length > 0) {
     const id = queue.shift() ?? '';
@@ -190,18 +197,24 @@ function upstream(row: RoadmapRow, rows: ReadonlyMap<string, RoadmapRow>): Roadm
  * what each consumes. */
 type TargetRules = { names: string[]; readOnly: ReadonlySet<string>; consumes: ReadonlyMap<string, readonly string[]> };
 
+/** Where a row's repositories are looked up, in the words a violation uses: a plan repository's
+ * `plan.targets`, or a product's own repositories (PRD 2011). */
+type Source = { is: (repo: string) => string; readOnly: string };
+
+const PLAN_TARGETS: Source = { is: (repo) => `${repo} is not a target of plan.targets`, readOnly: 'read-only target' };
+
 /** A row naming no repository, or naming one that is no target or a read-only one. */
-function rowRepoViolations(row: RoadmapRow, { names, readOnly }: TargetRules): string[] {
+function rowRepoViolations(row: GradeRow, { names, readOnly }: TargetRules, source: Source): string[] {
   const repos = row.repos ?? [];
   if (repos.length === 0) return [`${row.id}: names no repository.`];
   return repos.flatMap((repo) => {
-    if (!names.includes(repo)) return [`${row.id}: ${repo} is not a target of plan.targets (${names.join(', ')}).`];
-    return readOnly.has(repo) ? [`${row.id}: ${repo} is a read-only target — no roadmap row may name it.`] : [];
+    if (!names.includes(repo)) return [`${row.id}: ${source.is(repo)} (${names.join(', ')}).`];
+    return readOnly.has(repo) ? [`${row.id}: ${repo} is a ${source.readOnly} — no roadmap row may name it.`] : [];
   });
 }
 
 /** Each repository of `row` consuming one that `blocker` changes, when `row` is not in a later wave. */
-function consumerViolations(row: RoadmapRow, blocker: RoadmapRow, consumes: TargetRules['consumes']): string[] {
+function consumerViolations(row: GradeRow, blocker: GradeRow, consumes: TargetRules['consumes']): string[] {
   if (blocker.wave < row.wave) return [];
   return (row.repos ?? []).flatMap((consumer) => {
     const provider = (blocker.repos ?? []).find((repo) => consumes.get(consumer)?.includes(repo) === true);
@@ -213,15 +226,21 @@ function consumerViolations(row: RoadmapRow, blocker: RoadmapRow, consumes: Targ
 }
 
 /** A plan repository's rules: every repo a target, none read-only, a consumer after its provider. */
-function targetViolations(roadmap: Roadmap, rows: ReadonlyMap<string, RoadmapRow>, targets: readonly RoadmapTarget[]): string[] {
-  if (!roadmap.repos) return ['PRDs: the table has no "repos" column; in a plan repository each row names its repositories.'];
+function targetViolations(
+  roadmap: Shape,
+  rows: ReadonlyMap<string, GradeRow>,
+  targets: readonly RoadmapTarget[],
+  source: Source = PLAN_TARGETS,
+  where = 'in a plan repository',
+): string[] {
+  if (!roadmap.repos) return [`PRDs: the table has no "repos" column; ${where} each row names its repositories.`];
   const rules: TargetRules = {
     names: targets.map((target) => shortName(target.repo)),
     readOnly: new Set(targets.filter((target) => target.readOnly === true).map((target) => shortName(target.repo))),
     consumes: new Map(targets.map((target) => [shortName(target.repo), target.consumes ?? []])),
   };
   return roadmap.prds.flatMap((row) => [
-    ...rowRepoViolations(row, rules),
+    ...rowRepoViolations(row, rules, source),
     ...upstream(row, rows).flatMap((blocker) => consumerViolations(row, blocker, rules.consumes)),
   ]);
 }
@@ -246,5 +265,31 @@ export function gradeRoadmap(roadmap: Roadmap, { prdFacts, targets }: RoadmapFac
     ...unknownQuestionRows(roadmap, rows),
     ...prerequisiteViolations(roadmap, rows),
     ...repoRule,
+  ];
+}
+
+/** Each product the roadmap's rows are checked against, as a product's repository links give them. */
+export type ProductRepositories = { key: string; repositories: readonly RoadmapTarget[] };
+
+/**
+ * Every violation of a roadmap born on the server (PRD 2011): the rules of {@link gradeRoadmap} that do
+ * not read a folder (ids, blockers, cycles, waves, whys, questions, prerequisites), and its rows against
+ * the product's own repositories, never `plan.targets`: a `repos` column naming each row's repositories,
+ * each one of the product's, none read-only, a consumer after its provider. A row's PRD is not looked
+ * up: a product PRD (`mobile-12`) lives on the server, and the server answers for it.
+ */
+export function gradeProductRoadmap(roadmap: ProductRoadmap, { key, repositories }: ProductRepositories): string[] {
+  const rows = new Map<string, GradeRow>();
+  for (const row of roadmap.prds) if (!rows.has(row.id)) rows.set(row.id, row);
+  const source: Source = { is: (repo) => `${repo} is not a repository of product ${key}`, readOnly: 'read-only repository' };
+  return [
+    ...duplicateIds(roadmap),
+    ...unknownBlockers(roadmap, rows),
+    ...cycles(roadmap, rows),
+    ...waveOrder(roadmap, rows),
+    ...missingWhy(roadmap),
+    ...unknownQuestionRows(roadmap, rows),
+    ...prerequisiteViolations(roadmap, rows),
+    ...targetViolations(roadmap, rows, repositories, source, `in a product roadmap`),
   ];
 }
