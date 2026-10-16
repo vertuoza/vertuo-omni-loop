@@ -1,7 +1,9 @@
 import 'server-only';
+import { signInBackTo } from '../ask/page/sign-in';
 import { readAsSignedIn, type NotRead } from '../ask/page/signed-in-live';
+import { supabaseEnv, supabaseServer } from '../data/supabase-server';
 import { serverEnv } from '../env';
-import { outboxViewOf, type OutboxView } from './outbox-questions';
+import { OUTBOX_PATH, outboxViewOf, type OutboxView } from './outbox-questions';
 import { outboxQuestionsRepository } from './outbox-questions.repository';
 
 // Work › Questions › Outbox, read on the server as the signed-in person (PRD 2011 s14): the open outbox items
@@ -19,4 +21,11 @@ export async function readOutboxLive(query: Readonly<Record<string, string | str
     const [prds, products, authors] = await Promise.all([repo.prds([...new Set(items.map((i) => i.dossier_id))]), repo.products(), repo.authors()]);
     return { kind: 'view', view: outboxViewOf({ items, prds, products, authors, me }, query) };
   });
+}
+
+/** Where Google's callback sends the person: back to Outbox, once the code is the session cookie, with
+ * `signin_error` when the sign-in failed. */
+export async function outboxSignInReturn(url: URL, origin: string): Promise<string> {
+  const exchange = supabaseEnv() ? async (code: string) => (await supabaseServer()).auth.exchangeCodeForSession(code) : null;
+  return signInBackTo(url, new URL(OUTBOX_PATH, origin), exchange, 'ask');
 }

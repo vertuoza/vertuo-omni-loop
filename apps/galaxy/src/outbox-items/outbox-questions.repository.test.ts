@@ -22,13 +22,13 @@ function fakeDb(answers: Answer[]) {
   return { db: { from: (table: string) => chain([`from(${JSON.stringify(table)})`]) } as unknown as OutboxQuestionsDb, lines };
 }
 
-const ITEM = { dossier_id: 'd1', item: 's1-01-x', rank: 'high', repository: null, body: '---', raised_at: '2026-10-11T10:00:00Z', outbox_settlements: [] };
+const ITEM = { dossier_id: 'd1', item: 's1-01-x', rank: 'high', repository: null, body: '---', outbox_settlements: [] };
 
 describe('the workspace Outbox\'s reads', () => {
   it('read every item with whether it is settled, oldest first', async () => {
     const { db, lines } = fakeDb([{ data: [ITEM], error: null }]);
     expect(await outboxQuestionsRepository(db).items()).toEqual([ITEM]);
-    expect(lines[0]).toContain('from("outbox_items").select("dossier_id, item, rank, repository, body, raised_at, outbox_settlements(id)").order("raised_at")');
+    expect(lines[0]).toContain('from("outbox_items").select("dossier_id, item, rank, repository, body, outbox_settlements(id)").order("raised_at")');
   });
 
   it('read the PRDs of the items, among those that carry a product number, and none when there are no items', async () => {

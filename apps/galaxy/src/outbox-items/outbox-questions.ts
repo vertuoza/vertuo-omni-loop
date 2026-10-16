@@ -4,8 +4,7 @@ import { outboxTabPath } from '../dossier/page/history-at';
 import { workPath } from '../dossier/page/work';
 import { productFilterOf, readProductChoice, type ProductChoice, type ProductFilterView } from '../product-filter/product-filter.service';
 import type { QuestionView } from '../questions/questions.contract';
-import type { StoredItem, StoredPlayer } from '../product-home/product-home.repository';
-import type { QuestionProduct, StoredItemPrd } from './outbox-questions.repository';
+import type { StoredAuthor, StoredItemPrd, StoredOpenItem, StoredQuestionProduct } from './outbox-questions.repository';
 
 // Work › Questions › Outbox (PRD 2011 s14): every open outbox item of the viewer's workspaces, across every
 // product, as the product's own Questions tab draws a question (src/questions), so an answer given here is
@@ -23,10 +22,10 @@ export const OUTBOX_CALLBACK = `${OUTBOX_PATH}/callback`;
 
 /** What the page reads. */
 export interface OutboxRows {
-  items: readonly StoredItem[];
+  items: readonly StoredOpenItem[];
   prds: readonly StoredItemPrd[];
-  products: readonly QuestionProduct[];
-  authors: readonly StoredPlayer[];
+  products: readonly StoredQuestionProduct[];
+  authors: readonly StoredAuthor[];
   /** The viewer's account. */
   me: string;
 }
@@ -56,7 +55,7 @@ const keeps = (choice: ProductChoice, product: string | null): boolean =>
   choice.kind === 'all' || (choice.kind === 'none' ? product === null : product?.toLowerCase() === choice.id);
 
 /** The product PRD's id (`mobile-12`), or null when its product has no key or it has no number in it. */
-const prdIdOf = (prd: StoredItemPrd, product: QuestionProduct | undefined): string | null =>
+const prdIdOf = (prd: StoredItemPrd, product: StoredQuestionProduct | undefined): string | null =>
   product?.key != null && prd.product_seq !== null ? `${product.key}-${String(prd.product_seq)}` : null;
 
 /** The plain words and options of an item, read from its body by the kit's one item parser. */
@@ -67,7 +66,7 @@ function sectionsOf(body: string) {
 
 /** One open item as the Questions tab draws a question, and whether it waits on the viewer. */
 function questionOf(
-  item: StoredItem, prd: StoredItemPrd, product: QuestionProduct | undefined, who: { words: string; mine: boolean },
+  item: StoredOpenItem, prd: StoredItemPrd, product: StoredQuestionProduct | undefined, who: { words: string; mine: boolean },
 ): { view: QuestionView; mine: boolean; product: string | null } {
   const prdId = prdIdOf(prd, product);
   const sections = sectionsOf(item.body);

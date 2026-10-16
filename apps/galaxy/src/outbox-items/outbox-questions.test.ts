@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { outboxViewOf, type OutboxRows } from './outbox-questions';
-import type { StoredItem } from '../product-home/product-home.repository';
-import type { StoredItemPrd } from './outbox-questions.repository';
+import type { StoredItemPrd, StoredOpenItem } from './outbox-questions.repository';
 
 // Work › Questions › Outbox's rows (PRD 2011 s14): every open item of every product, the viewer's first,
 // the worst rank first inside each group, each saying whom it waits on and its product, narrowed by
@@ -60,9 +59,9 @@ const OMNI = '22222222-2222-4222-8222-222222222222';
 const ME = 'u-me';
 const PAUL = 'u-paul';
 
-const item = (dossier: string, id: string, rank: StoredItem['rank'], over: Partial<StoredItem> = {}): StoredItem => ({
+const item = (dossier: string, id: string, rank: StoredOpenItem['rank'], over: Partial<StoredOpenItem> = {}): StoredOpenItem => ({
   dossier_id: dossier, item: id, rank, repository: 'acme/app', body: body(id, dossier === 'd-m12' ? 'mobile-12' : 'omni-7', rank, `Question of ${id}?`),
-  raised_at: '2026-10-11T10:00:00Z', outbox_settlements: [], ...over,
+  outbox_settlements: [], ...over,
 });
 const prd = (id: string, over: Partial<StoredItemPrd>): StoredItemPrd =>
   ({ id, title: 'A PRD', workspace_id: 'w', product_id: null, product_seq: null, opened_by: null, ...over });
