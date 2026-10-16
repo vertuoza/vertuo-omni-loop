@@ -49485,7 +49485,7 @@ function renderOutboxItem({
   decisionPlain,
   introFun = null,
   punchlineFun = null,
-  decide: decide2,
+  decide: decide3,
   meanwhile,
   cost,
   gaps,
@@ -49534,7 +49534,7 @@ function renderOutboxItem({
     "",
     "## What I had to decide",
     "",
-    decide2,
+    decide3,
     "",
     "## What I did meanwhile",
     "",
@@ -50617,10 +50617,10 @@ function loopState(loop2, now2) {
     const seen = Date.parse(loop2.seenAt);
     return Number.isFinite(seen) && now2 < seen + FIRST_TICK_MS ? "live" : "silent";
   }
-  const wake = Date.parse(loop2.nextWakeAt);
-  if (!Number.isFinite(wake)) return "silent";
-  if (now2 < wake) return "sleeping";
-  return now2 < wake + SILENT_AFTER_MS ? "live" : "silent";
+  const wake2 = Date.parse(loop2.nextWakeAt);
+  if (!Number.isFinite(wake2)) return "silent";
+  if (now2 < wake2) return "sleeping";
+  return now2 < wake2 + SILENT_AFTER_MS ? "live" : "silent";
 }
 
 // kit/lib/loop/roadmap.ts
@@ -50762,16 +50762,16 @@ function prepareTick(args, { now: now2 }) {
   const merged = prsArg(flags.merged);
   const items = itemsArg(flags.items);
   const named4 = reposArg(flags.repos);
-  const wake = wakeArg({ wakeIn: flags["wake-in"], nextWake: flags["next-wake"] }, now2);
+  const wake2 = wakeArg({ wakeIn: flags["wake-in"], nextWake: flags["next-wake"] }, now2);
   return {
     needsLoop: true,
     takeOver: false,
-    wake,
+    wake: wake2,
     body: (loop2, plan2) => {
       const steps = Math.max(given ?? plan2?.steps.length ?? step2, step2);
       const replan2 = plan2 && plan2.version > loop2.planVersion ? plan2 : null;
       const repos = named4 ?? plan2?.steps.find((candidate) => candidate.step === step2)?.repos ?? [];
-      return tickBody({ loopId: loop2.loopId, step: step2, steps, prd: prd2, action, result: result2, link: link2, merged, items, repos, nextWakeAt: wake, replan: replan2 });
+      return tickBody({ loopId: loop2.loopId, step: step2, steps, prd: prd2, action, result: result2, link: link2, merged, items, repos, nextWakeAt: wake2, replan: replan2 });
     }
   };
 }
@@ -50840,15 +50840,15 @@ async function sendBody(client, body) {
 function sentVersionOf(plan2, kept) {
   return plan2?.version ?? kept?.planVersion ?? 1;
 }
-function nextWakeAfter(event, wake, kept) {
-  if (event === "tick") return wake;
+function nextWakeAfter(event, wake2, kept) {
+  if (event === "tick") return wake2;
   if (event === "stop") return null;
   return kept?.nextWakeAt ?? null;
 }
 function planVersionAfter(event, sentVersion, kept) {
   return event === "tick" ? Math.max(sentVersion, kept?.planVersion ?? 1) : kept?.planVersion ?? sentVersion;
 }
-function loopAfter({ body, plan: plan2, kept, repo, wake, at: at2, roadmap: roadmap2 }, answer) {
+function loopAfter({ body, plan: plan2, kept, repo, wake: wake2, at: at2, roadmap: roadmap2 }, answer) {
   const seenAt = new Date(at2).toISOString();
   if (body.event === "start" && plan2) {
     return { loopId: answer.loopId, repo, prds: [...plan2.prds], state: answer.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan2.version, roadmap: roadmap2 };
@@ -50858,7 +50858,7 @@ function loopAfter({ body, plan: plan2, kept, repo, wake, at: at2, roadmap: road
     ...kept ?? { loopId: answer.loopId, repo, prds: [], startedAt: seenAt, nextWakeAt: null, planVersion: sentVersion },
     state: answer.state,
     seenAt,
-    nextWakeAt: nextWakeAfter(body.event, wake, kept),
+    nextWakeAt: nextWakeAfter(body.event, wake2, kept),
     planVersion: planVersionAfter(body.event, sentVersion, kept),
     ...body.event === "tick" ? { last: { step: body.step, prd: body.prd, action: body.action, result: body.result, at: seenAt } } : {}
   };
@@ -52055,8 +52055,8 @@ function crossOrders(plan2) {
 // kit/lib/next/format.ts
 function verdictLine2(verdict2) {
   const head = verdict2.verdict === "act" ? `act ${verdict2.skill}` : verdict2.verdict;
-  const wake = verdict2.verdict === "wait" ? ` (look again in ${Math.round(verdict2.wakeHint / 60)} min)` : "";
-  return `PRD ${verdict2.prd} \u2014 ${head}: ${verdict2.why}${wake}${verdict2.link ? ` \u2014 ${verdict2.link}` : ""}`;
+  const wake2 = verdict2.verdict === "wait" ? ` (look again in ${Math.round(verdict2.wakeHint / 60)} min)` : "";
+  return `PRD ${verdict2.prd} \u2014 ${head}: ${verdict2.why}${wake2}${verdict2.link ? ` \u2014 ${verdict2.link}` : ""}`;
 }
 function stepWords(step2) {
   if (step2.kind !== "wave") return `PRD ${step2.prd} ${step2.kind}`;
@@ -52512,8 +52512,8 @@ function overviewFor(facts) {
   const notApproved = new Set(server.filter((entry3) => entry3.stage !== "inbox").map(({ prd: prd3 }) => prd3));
   const onBase = stage([...facts.inbox, ...approved], /* @__PURE__ */ new Set([...shippedNumbers, ...notApproved]));
   const { building: building2, outbox } = buildingAndOutboxOf(onBase, facts.features);
-  const past2 = new Set([...building2, ...outbox].map(({ prd: prd3 }) => prd3));
-  const inbox = onBase.filter(({ prd: prd3 }) => !past2.has(prd3));
+  const past3 = new Set([...building2, ...outbox].map(({ prd: prd3 }) => prd3));
+  const inbox = onBase.filter(({ prd: prd3 }) => !past3.has(prd3));
   const waiting = server.filter((entry3) => entry3.stage === "prd");
   const waitingNumbers = new Set(waiting.map(({ prd: prd3 }) => prd3));
   const taken = new Set([...facts.shipped, ...facts.inbox, ...server].map((folder) => folder.prd));
@@ -57622,11 +57622,128 @@ function listCheckouts(dir, exec) {
   return new Map([...found2].sort(([a], [b]) => a.localeCompare(b)));
 }
 
+// kit/lib/runner/health.ts
+init_define_OMNI_BUNDLE();
+import { availableParallelism, cpus, freemem, loadavg, platform, totalmem } from "node:os";
+import { existsSync as existsSync81, readFileSync as readFileSync97, statfsSync } from "node:fs";
+import { join as join123 } from "node:path";
+function figure(read2) {
+  try {
+    const value = read2();
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+function cpuTimes(reads) {
+  try {
+    const cores = reads.cpus();
+    if (cores.length === 0) return null;
+    let idle = 0;
+    let total = 0;
+    for (const { times } of cores) {
+      idle += times.idle;
+      total += times.user + times.nice + times.sys + times.idle + times.irq;
+    }
+    return Number.isFinite(total) ? { idle, total } : null;
+  } catch {
+    return null;
+  }
+}
+function busyShare(previous, now2) {
+  if (previous === null || now2 === null) return null;
+  const total = now2.total - previous.total;
+  const idle = now2.idle - previous.idle;
+  if (total <= 0 || idle < 0 || idle > total) return null;
+  return Math.round((1 - idle / total) * 1e3) / 10;
+}
+function memAvailable(meminfo) {
+  const kb3 = /^MemAvailable:\s+(\d+)\s*kB$/m.exec(meminfo)?.[1];
+  return kb3 === void 0 ? null : Number(kb3) * 1024;
+}
+function memoryUsed(reads, memTotal) {
+  if (memTotal === null) return null;
+  let available;
+  try {
+    const meminfo = reads.meminfo();
+    available = meminfo === null ? figure(() => reads.freemem()) : memAvailable(meminfo);
+  } catch {
+    available = null;
+  }
+  return available === null ? null : Math.max(0, memTotal - available);
+}
+function disk(reads) {
+  try {
+    const { bsize, blocks: blocks2, bavail } = reads.statfs();
+    return { diskFree: figure(() => bavail * bsize), diskTotal: figure(() => blocks2 * bsize) };
+  } catch {
+    return { diskFree: null, diskTotal: null };
+  }
+}
+function sample(reads, previous) {
+  const times = cpuTimes(reads);
+  const memTotal = figure(() => reads.totalmem());
+  return {
+    sample: {
+      cpu: busyShare(previous, times),
+      load1: figure(() => reads.loadavg()[0] ?? Number.NaN),
+      cores: figure(() => reads.cores()),
+      memUsed: memoryUsed(reads, memTotal),
+      memTotal,
+      ...disk(reads)
+    },
+    times
+  };
+}
+function machineReads(home) {
+  const linux = platform() === "linux";
+  return {
+    cpus,
+    loadavg,
+    cores: availableParallelism,
+    totalmem,
+    freemem,
+    meminfo: () => linux ? readFileSync97("/proc/meminfo", "utf8") : null,
+    statfs: () => {
+      const worktrees = join123(home, "wt");
+      return statfsSync(existsSync81(worktrees) ? worktrees : home);
+    }
+  };
+}
+var DEFAULT_LIMITS = { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 };
+var QUIET_TO_RESUME = 2;
+var GB = 1024 ** 3;
+function past2(value, limit, above, decimals) {
+  for (let digits = decimals; digits <= 6; digits += 1) {
+    const shown6 = Number(value.toFixed(digits));
+    if (above ? shown6 > limit : shown6 < limit) return String(shown6);
+  }
+  return String(value);
+}
+function pressure(sample2, limits) {
+  const { memUsed, memTotal, diskFree, load1, cores } = sample2;
+  if (memUsed !== null && memTotal !== null && memTotal > 0) {
+    const percent = memUsed / memTotal * 100;
+    if (percent > limits.maxMemory) return `memory ${past2(percent, limits.maxMemory, true, 0)}%`;
+  }
+  if (diskFree !== null && diskFree / GB < limits.minDiskGb) return `disk ${past2(diskFree / GB, limits.minDiskGb, false, 0)} GB free`;
+  if (load1 !== null && cores !== null && cores > 0 && load1 > limits.maxLoad * cores) {
+    return `load ${past2(load1, limits.maxLoad * cores, true, 1)} on ${String(cores)} core${cores === 1 ? "" : "s"}`;
+  }
+  return null;
+}
+function nextPause(state, reason2) {
+  if (reason2 !== null) return { state: { reason: reason2, quiet: 0 }, change: state.reason === null ? "paused" : null };
+  if (state.reason === null) return { state, change: null };
+  const quiet = state.quiet + 1;
+  return quiet < QUIET_TO_RESUME ? { state: { reason: state.reason, quiet }, change: null } : { state: { reason: null, quiet: 0 }, change: "resumed" };
+}
+
 // kit/lib/runner/job.ts
 init_define_OMNI_BUNDLE();
 import { spawn as spawn2 } from "node:child_process";
-import { appendFileSync, closeSync as closeSync2, existsSync as existsSync81, openSync as openSync2, writeFileSync as writeFileSync46 } from "node:fs";
-import { join as join123 } from "node:path";
+import { appendFileSync, closeSync as closeSync2, existsSync as existsSync82, openSync as openSync2, writeFileSync as writeFileSync46 } from "node:fs";
+import { join as join124 } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 
 // kit/lib/runner/steps.ts
@@ -57787,7 +57904,7 @@ function streamReader({ log, raw, out }) {
 }
 async function runJobProcess({ cwd, files, out, env }) {
   let code = 0;
-  if (existsSync81(join123(cwd, LOCKFILE))) {
+  if (existsSync82(join124(cwd, LOCKFILE))) {
     appendFileSync(files.log, "$ pnpm install --frozen-lockfile\n");
     code = await run("pnpm", ["install", "--frozen-lockfile"], { cwd, stdin: "ignore", log: files.log, out, env });
   }
@@ -57869,95 +57986,6 @@ function parseDuration(text15) {
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync83, mkdirSync as mkdirSync33, readFileSync as readFileSync98, rmSync as rmSync19, writeFileSync as writeFileSync47 } from "node:fs";
 import { join as join126 } from "node:path";
-
-// kit/lib/runner/health.ts
-init_define_OMNI_BUNDLE();
-import { availableParallelism, cpus, freemem, loadavg, platform, totalmem } from "node:os";
-import { existsSync as existsSync82, readFileSync as readFileSync97, statfsSync } from "node:fs";
-import { join as join124 } from "node:path";
-function figure(read2) {
-  try {
-    const value = read2();
-    return Number.isFinite(value) && value >= 0 ? value : null;
-  } catch {
-    return null;
-  }
-}
-function cpuTimes(reads) {
-  try {
-    const cores = reads.cpus();
-    if (cores.length === 0) return null;
-    let idle = 0;
-    let total = 0;
-    for (const { times } of cores) {
-      idle += times.idle;
-      total += times.user + times.nice + times.sys + times.idle + times.irq;
-    }
-    return Number.isFinite(total) ? { idle, total } : null;
-  } catch {
-    return null;
-  }
-}
-function busyShare(previous, now2) {
-  if (previous === null || now2 === null) return null;
-  const total = now2.total - previous.total;
-  const idle = now2.idle - previous.idle;
-  if (total <= 0 || idle < 0 || idle > total) return null;
-  return Math.round((1 - idle / total) * 1e3) / 10;
-}
-function memAvailable(meminfo) {
-  const kb3 = /^MemAvailable:\s+(\d+)\s*kB$/m.exec(meminfo)?.[1];
-  return kb3 === void 0 ? null : Number(kb3) * 1024;
-}
-function memoryUsed(reads, memTotal) {
-  if (memTotal === null) return null;
-  let available;
-  try {
-    const meminfo = reads.meminfo();
-    available = meminfo === null ? figure(() => reads.freemem()) : memAvailable(meminfo);
-  } catch {
-    available = null;
-  }
-  return available === null ? null : Math.max(0, memTotal - available);
-}
-function disk(reads) {
-  try {
-    const { bsize, blocks: blocks2, bavail } = reads.statfs();
-    return { diskFree: figure(() => bavail * bsize), diskTotal: figure(() => blocks2 * bsize) };
-  } catch {
-    return { diskFree: null, diskTotal: null };
-  }
-}
-function sample(reads, previous) {
-  const times = cpuTimes(reads);
-  const memTotal = figure(() => reads.totalmem());
-  return {
-    sample: {
-      cpu: busyShare(previous, times),
-      load1: figure(() => reads.loadavg()[0] ?? Number.NaN),
-      cores: figure(() => reads.cores()),
-      memUsed: memoryUsed(reads, memTotal),
-      memTotal,
-      ...disk(reads)
-    },
-    times
-  };
-}
-function machineReads(home) {
-  const linux = platform() === "linux";
-  return {
-    cpus,
-    loadavg,
-    cores: availableParallelism,
-    totalmem,
-    freemem,
-    meminfo: () => linux ? readFileSync97("/proc/meminfo", "utf8") : null,
-    statfs: () => {
-      const worktrees = join124(home, "wt");
-      return statfsSync(existsSync82(worktrees) ? worktrees : home);
-    }
-  };
-}
 
 // kit/lib/runner/line.ts
 init_define_OMNI_BUNDLE();
@@ -58161,8 +58189,23 @@ function loopOf(options) {
     },
     refused: () => refused2,
     running: 0,
-    jobs: /* @__PURE__ */ new Set()
+    jobs: /* @__PURE__ */ new Set(),
+    limits: options.limits ?? DEFAULT_LIMITS,
+    pause: { reason: null, quiet: 0 },
+    waiting: /* @__PURE__ */ new Set()
   };
+}
+function wake(loop2) {
+  for (const resume of loop2.waiting) resume();
+  loop2.waiting.clear();
+}
+async function unpaused(loop2) {
+  if (loop2.pause.reason !== null && !loop2.halt.aborted) {
+    await new Promise((resolve15) => {
+      loop2.waiting.add(resolve15);
+    });
+  }
+  return !loop2.halt.aborted;
 }
 async function backOff(loop2, delay, error62, signal) {
   loop2.print(`the app is unreachable (${error62.message}): trying again in ${String(Math.round(delay / 1e3))} s`);
@@ -58353,6 +58396,7 @@ async function nextJob(loop2, runner2, wait5) {
 async function slot(loop2, runner2) {
   const wait5 = { ms: loop2.firstMs };
   while (!loop2.halt.aborted) {
+    if (!await unpaused(loop2)) return;
     const job2 = await nextJob(loop2, runner2, wait5);
     if (job2 === "stop") return;
     if (job2 === null) continue;
@@ -58369,15 +58413,29 @@ async function slot(loop2, runner2) {
     }
   }
 }
+function decide2(loop2, reason2) {
+  const { state, change: change2 } = nextPause(loop2.pause, reason2);
+  loop2.pause = state;
+  if (change2 === "paused") loop2.print(`paused: ${String(state.reason)}`);
+  if (change2 === "resumed") {
+    loop2.print("resumed");
+    wake(loop2);
+  }
+}
 async function reporter(loop2, runner2) {
   const reads = loop2.machine ?? machineReads(loop2.home);
   let times = null;
+  const halted = () => {
+    wake(loop2);
+  };
+  loop2.halt.addEventListener("abort", halted, { once: true });
   while (!loop2.halt.aborted) {
     const started = loop2.now();
     const taken = sample(reads, times);
     times = taken.times;
+    decide2(loop2, pressure(taken.sample, loop2.limits));
     try {
-      await loop2.api.health(runner2, taken.sample);
+      await loop2.api.health(runner2, { ...taken.sample, paused: loop2.pause.reason, limits: loop2.limits });
     } catch (error62) {
       loop2.print(`health not sent: ${error62 instanceof Error ? error62.message : String(error62)}`);
     }
@@ -58463,7 +58521,7 @@ function missingTool(exec) {
 }
 
 // kit/bin/commands/runner.ts
-var USAGE33 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] | omni runner sender";
+var USAGE33 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender";
 var DEFAULT_SLOTS = 4;
 var MAX_SLOTS = 8;
 var DEFAULT_TIMEOUT = "3h";
@@ -58500,8 +58558,22 @@ function interrupts() {
 function keepLogsOf(value) {
   return value === void 0 ? KEEP_LOGS_DAYS : positiveInt("runner", "--keep-logs", value);
 }
+var PLAIN_NUMBER = /^\d+(\.\d+)?$/;
+function limitOf(flag, value, fallback4, fits, words4) {
+  if (value === void 0) return fallback4;
+  const limit = typeof value === "string" && PLAIN_NUMBER.test(value) ? Number(value) : Number.NaN;
+  if (!fits(limit)) throw usageError(`omni runner: ${flag} is ${words4}, got "${String(value)}".`);
+  return limit;
+}
+function limitsOf(flags) {
+  return {
+    maxMemory: limitOf("--max-memory", flags["max-memory"], DEFAULT_LIMITS.maxMemory, (limit) => limit >= 1 && limit <= 100, "the share of memory used, in percent, the runner pauses above: a number from 1 to 100"),
+    minDiskGb: limitOf("--min-disk", flags["min-disk"], DEFAULT_LIMITS.minDiskGb, (limit) => limit >= 0, "the free disk, in GB, the runner pauses below: a number of 0 or more"),
+    maxLoad: limitOf("--max-load", flags["max-load"], DEFAULT_LIMITS.maxLoad, (limit) => limit > 0, "the 1-minute load, in times the cores, the runner pauses above: a number above 0")
+  };
+}
 function readFlags(args, cwd) {
-  const { positional, flags } = parseArgs("runner", args, { values: ["name", "repos", "slots", "timeout", "keep-logs"] });
+  const { positional, flags } = parseArgs("runner", args, { values: ["name", "repos", "slots", "timeout", "keep-logs", "max-memory", "min-disk", "max-load"] });
   const { name: name3, repos } = flags;
   if (positional.length || name3 === void 0 || repos === void 0) throw usageError(USAGE33);
   if (!NAME3.test(name3)) throw usageError("omni runner: --name must be 1 to 40 letters, digits, dots, dashes or underscores.");
@@ -58510,7 +58582,7 @@ function readFlags(args, cwd) {
   const timeout = flags.timeout ?? DEFAULT_TIMEOUT;
   const timeoutMs = parseDuration(timeout);
   if (timeoutMs === null) throw usageError(`omni runner: --timeout must read like 90s, 45m or 3h, got "${timeout}".`);
-  return { name: name3, slots, timeoutMs, repos: resolve12(cwd, repos), keepLogsDays: keepLogsOf(flags["keep-logs"]) };
+  return { name: name3, slots, timeoutMs, repos: resolve12(cwd, repos), keepLogsDays: keepLogsOf(flags["keep-logs"]), limits: limitsOf(flags) };
 }
 function jobEnv({ env, vars }) {
   return {
@@ -58519,7 +58591,7 @@ function jobEnv({ env, vars }) {
     ...vars.claudeToken === null ? {} : { CLAUDE_CODE_OAUTH_TOKEN: vars.claudeToken }
   };
 }
-var timing = ({ sleep: sleep2, now: now2, tickMs, backoff }) => ({ sleep: sleep2, now: now2, tickMs, backoff });
+var timing = ({ sleep: sleep2, now: now2, tickMs, backoff, machine }) => ({ sleep: sleep2, now: now2, tickMs, backoff, machine });
 function pageOrRefusal(cwd, repos, checkouts, exec) {
   const askUrl2 = findAskUrl(cwd, checkouts, exec);
   if (askUrl2 === null) return { refusal: `no Omni page is set (ask.url) here or in any checkout under ${repos}` };
@@ -58533,7 +58605,7 @@ function wiring(io) {
 }
 async function start2(args, io) {
   const { cwd, stdout, stderr, exec, script: script2 } = io;
-  const { name: name3, slots, timeoutMs, repos, keepLogsDays } = readFlags(args, cwd);
+  const { name: name3, slots, timeoutMs, repos, keepLogsDays, limits } = readFlags(args, cwd);
   const checkouts = listCheckouts(repos, exec);
   const page2 = pageOrRefusal(cwd, repos, checkouts, exec);
   if ("refusal" in page2) {
@@ -58560,6 +58632,7 @@ async function start2(args, io) {
       },
       stop: stop.signal,
       keepLogsDays,
+      limits,
       ...timing(io)
     });
   } finally {
