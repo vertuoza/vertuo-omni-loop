@@ -7,6 +7,7 @@ import { nestedLinks } from '../people/nested-links';
 import { FixList } from './FixList';
 import type { FixFilters, FixItem, FixKind } from './list';
 import { TimelinePane } from './TimelinePane';
+import { bugRecordPage, bugRowsView } from './bug-rows';
 import type { FixPageView } from './timeline';
 import { sure } from '../arcade/test/sure';
 
@@ -98,5 +99,35 @@ describe('the Timeline', () => {
   it('falls back to GitHub photos with no directory', () => {
     const html = renderToStaticMarkup(createElement(TimelinePane, { fix: view }));
     expect(html).toContain('<img class="person-face is-photo" src="https://github.com/anna.png?size=48" alt=""');
+  });
+});
+
+describe('a product bug record\'s Fixes rows (PRD 2011, s8)', () => {
+  const row = (position: number, repository: string, pull: number | null, state: string) => ({ position, repository, pull, state, changes: `fix ${position}` });
+  const page = (rows: Parameters<typeof bugRowsView>[0], unmatched: Parameters<typeof bugRowsView>[1] = []) =>
+    renderToStaticMarkup(createElement(TimelinePane, { fix: bugRecordPage(bugRowsView(rows, unmatched)) }));
+
+  it('shows each row with open, merged or closed, not merged, and Ships on the last merge.', () => {
+    const html = page([row(2, 'acme/app', 7, 'merged'), row(1, 'acme/api', 5, 'open'), row(3, 'acme/web', 9, 'closed')]);
+    expect(text(html).indexOf('1. acme/api')).toBeLessThan(text(html).indexOf('2. acme/app'));
+    expect(text(html)).toContain('#5 open');
+    expect(text(html)).toContain('#7 merged');
+    expect(text(html)).toContain('#9 closed, not merged');
+    expect(text(html)).toContain('Ships on the last merge.');
+    expect(html).toContain('href="https://github.com/acme/api/pull/5"');
+  });
+
+  it('reads shipped once every row merged, with no promise left', () => {
+    const view = bugRowsView([row(1, 'acme/api', 5, 'merged')], []);
+    expect(view.shipped).toBe(true);
+    expect(bugRecordPage(view).stateLabel).toBe('Shipped');
+    expect(page([row(1, 'acme/api', 5, 'merged')])).not.toContain('Ships on the last merge.');
+  });
+
+  it('lists each unmatched merge and offers the next unmerged fix', () => {
+    const html = page([row(1, 'acme/api', null, 'open'), row(2, 'acme/web', 4, 'open')], [{ repository: 'acme/other', pull: 12 }]);
+    expect(text(html)).toContain('unmatched merge acme/other#12');
+    expect(text(html)).toContain('Open acme/web#4');
+    expect(text(html)).toContain('no pull request yet');
   });
 });
