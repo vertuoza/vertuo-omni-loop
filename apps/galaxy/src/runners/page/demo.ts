@@ -28,7 +28,7 @@ export function demoRunnersPage(now: Date): RunnersPageView {
     seq += 1;
     return {
       id: `00000000-0000-4000-8000-00000000d2${String(seq).padStart(2, '0')}`, repo: 'acme/widgets', toRunner: null, toFleet: null,
-      sentBy: YOU, sentByLogin: 'you', runner: null, cancelRequested: false, logTail: '', prUrl: null, exitCode: null, reason: null,
+      sentBy: YOU, sentByLogin: 'you', sentByKey: null, runner: null, cancelRequested: false, logTail: '', prUrl: null, exitCode: null, reason: null,
       queuedAt: at(-30), claimedAt: null, runningAt: null, endedAt: null, ...over,
     };
   };
@@ -50,6 +50,10 @@ export function demoRunnersPage(now: Date): RunnersPageView {
       }),
       job({ line: '/omni:yolo 1702', status: 'failed', toRunner: DEMO_RUNNERS.laptop, runner: DEMO_RUNNERS.laptop, reason: 'runner lost', endedAt: at(-178) }),
       job({ line: '/omni:plan 1699', status: 'cancelled', cancelRequested: true, endedAt: at(-240) }),
+      job({
+        line: '/omni:bug-fix Issue 548 totals', status: 'done', sentBy: ADA, sentByLogin: 'ada', sentByKey: 'QA dashboard', runner: DEMO_RUNNERS.office,
+        prUrl: 'https://github.com/acme/widgets/pull/1850', exitCode: 0, endedAt: at(-300),
+      }),
     ],
     viewer: { id: YOU, owner: true, fleet: 'comets' },
   };
