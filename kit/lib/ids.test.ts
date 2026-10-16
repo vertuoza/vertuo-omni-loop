@@ -15,6 +15,10 @@ import {
   parsePrd,
   parsePrdId,
   parseProductPrdId,
+  parseProductRoadmapId,
+  productRoadmapId,
+  productRoadmapParts,
+  ProductRoadmapIdSchema,
   isProductPrdId,
   productPrdParts,
   type ProductPrdId,
@@ -214,5 +218,24 @@ describe('parsePrdId — a PRD of a repository (12) or of a product (mobile-12),
     const forty = `a${'b'.repeat(39)}`;
     expect(parsePrdId(`${forty}-1`)).toBe(`${forty}-1`);
     expect(() => parsePrdId(`${forty}b-1`)).toThrow('PRD ');
+  });
+});
+
+describe('a product roadmap id — <key>-R<n>, PRD 2011', () => {
+  it('reads the key and the number', () => {
+    expect(productRoadmapParts(parseProductRoadmapId('mobile-R3'))).toEqual({ key: 'mobile', seq: 3 });
+    expect(productRoadmapParts(parseProductRoadmapId('field-app-R12'))).toEqual({ key: 'field-app', seq: 12 });
+    expect(productRoadmapId('mobile', 4)).toBe('mobile-R4');
+  });
+
+  it('is told from a product PRD, a plain number and a malformed id', () => {
+    expect(ProductRoadmapIdSchema.safeParse('mobile-12').success).toBe(false);
+    expect(ProductRoadmapIdSchema.safeParse('mobile-r3').success).toBe(false);
+    expect(ProductRoadmapIdSchema.safeParse('mobile-R0').success).toBe(false);
+    expect(ProductRoadmapIdSchema.safeParse('R3').success).toBe(false);
+    expect(ProductRoadmapIdSchema.safeParse('12').success).toBe(false);
+    expect(ProductPrdIdSchema.safeParse('mobile-R3').success).toBe(false);
+    expect(ProductRoadmapIdSchema.safeParse(`a-R${2 ** 31}`).success).toBe(false);
+    expect(() => parseProductRoadmapId('mobile-12')).toThrow('product roadmap "mobile-12"');
   });
 });

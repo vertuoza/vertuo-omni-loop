@@ -13,6 +13,6 @@ import type { RoadmapPageView } from './model';
 export async function roadmapPageView(ask: RoadmapPageAsk, now: Date): Promise<RoadmapPageView | { kind: 'not-found' }> {
   const session = await memberSession();
   if (session.kind === 'closed') return session;
-  if (session.kind === 'signed-in') return loadRoadmapPage(supabaseRoadmapPageReads(session.db, session.user), { ...ask, tickable: sendOpen() }, now);
+  if (session.kind === 'signed-in') return loadRoadmapPage(supabaseRoadmapPageReads(session.db, session.user), { ...ask, tickable: sendOpen(), me: session.user.id }, now);
   return demoRoadmapPage(now, ask, session.kind === 'demo' ? 'development' : 'signed-out') ?? { kind: 'not-found' };
 }

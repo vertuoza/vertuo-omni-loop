@@ -378,6 +378,16 @@ var ProductPrdIdSchema = z4.string().regex(PRODUCT_PRD).refine((id) => {
   const cut2 = id.lastIndexOf("-");
   return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
 }).brand();
+var PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
+var ProductRoadmapIdSchema = z4.string().regex(PRODUCT_ROADMAP).refine((id) => {
+  const cut2 = id.lastIndexOf("-R");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PRODUCT_BUG = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-B([1-9]\d{0,9})$/;
+var ProductBugIdSchema = z4.string().regex(PRODUCT_BUG).refine((id) => {
+  const cut2 = id.lastIndexOf("-B");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
+}).brand();
 var PrNumberSchema = z4.number().int().positive().brand();
 var CommentIdSchema = z4.number().int().positive().brand();
 var WorkSliceIdSchema = z4.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
@@ -702,8 +712,8 @@ function checkTargets(targets, issues) {
   targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
     const own = targetShortName(repo);
     const others = names.filter((name) => name !== own);
-    consumes.forEach((name, at) => {
-      const path = ["targets", index, "consumes", at];
+    consumes.forEach((name, at2) => {
+      const path = ["targets", index, "consumes", at2];
       if (name === own) issues.addIssue({ code: "custom", path, message: `${name} is this target itself \u2014 a target never consumes itself` });
       else if (!others.includes(name)) {
         issues.addIssue({ code: "custom", path, message: `${name} names no other target of plan.targets by its short name (${others.join(", ") || "none"})` });
@@ -1065,12 +1075,12 @@ function dropUnrecognized(raw, issues) {
   let dropped = false;
   for (const issue of issues) {
     if (issue.code !== "unrecognized_keys") continue;
-    let at = raw;
-    for (const step of issue.path) at = isRecord(at) ? at[String(step)] : void 0;
-    if (!isRecord(at)) continue;
+    let at2 = raw;
+    for (const step of issue.path) at2 = isRecord(at2) ? at2[String(step)] : void 0;
+    if (!isRecord(at2)) continue;
     for (const key of issue.keys) {
-      if (Object.hasOwn(at, key)) {
-        Reflect.deleteProperty(at, key);
+      if (Object.hasOwn(at2, key)) {
+        Reflect.deleteProperty(at2, key);
         dropped = true;
       }
     }
@@ -1291,7 +1301,7 @@ function toStageEvent(event, payload, shapes = DEFAULT_SHAPES) {
 function pullOf({ pull_request: pr, repository }) {
   return { pr, repository: repository.full_name, head: pr.head.ref, base: pr.base.ref, defaultBranch: repository.default_branch ?? "main" };
 }
-var seenAt = (stage, topic, at) => ({ stage, topic, at });
+var seenAt = (stage, topic, at2) => ({ stage, topic, at: at2 });
 var now = () => (/* @__PURE__ */ new Date()).toISOString();
 var mergedStage = ({ pr, head, base, defaultBranch }, branches) => {
   if (pr.merged !== true) return null;
@@ -1534,14 +1544,60 @@ function forwardTouch(touch, post) {
 
 // apps/omni-app/src/webhook/webhook.ts
 import { Webhooks } from "@octokit/webhooks";
-import { z as z13 } from "zod";
+import { z as z14 } from "zod";
+
+// apps/omni-app/src/fix-rows/fix-stamp.ts
+import { z as z12 } from "zod";
+
+// apps/omni-app/src/evaluate/prose-lines.ts
+var OPENING = /^ {0,3}(`{3,}(?=[^`]*$)|~{3,})/;
+function proseLines(body) {
+  const out = [];
+  let fence = null;
+  for (const line of body.split(/\r?\n/)) {
+    if (fence !== null) {
+      const closing = new RegExp(`^ {0,3}${fence[0] === "`" ? "`" : "~"}{${fence.length},}[ \\t]*$`);
+      if (closing.test(line)) fence = null;
+      continue;
+    }
+    const opening = OPENING.exec(line);
+    if (opening) fence = opening[1] ?? null;
+    else out.push(line);
+  }
+  return out;
+}
+
+// apps/omni-app/src/fix-rows/fix-stamp.ts
+var FIX_STAMP_EVENT = "omni-loop/fix.stamp.requested";
+var FixStampKindSchema = z12.enum(["merged", "closed", "reopened"]);
+var at = z12.string().refine((value) => !Number.isNaN(Date.parse(value)), "a time");
+var FixStampDataSchema = z12.looseObject({
+  installationId: z12.number(),
+  repository: z12.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+  prNumber: PrNumberSchema,
+  kind: FixStampKindSchema,
+  at,
+  bug: ProductBugIdSchema.nullable()
+});
+var FIXES = /^ {0,3}Fixes ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-B[1-9]\d{0,9})(?![\w-])/;
+function fixedRecordOf(body) {
+  for (const line of proseLines(body ?? "")) {
+    const id = FIXES.exec(line)?.[1];
+    const parsed = id === void 0 ? null : ProductBugIdSchema.safeParse(id);
+    if (parsed?.success) return parsed.data;
+  }
+  return null;
+}
+function fixStampId({ repository, prNumber, kind, at: when }) {
+  return `fix-stamp:${repository.toLowerCase()}#${String(prNumber)}:${kind}:${when}`;
+}
 
 // apps/omni-app/src/inbox-check/canon-actions.ts
-import { z as z12 } from "zod";
+import { z as z13 } from "zod";
 var CANON_ACTION_EVENT = "omni-loop/canon.action.requested";
 var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
 var FACTS = /<!--\s*omni-canon\s+(\{[^\n]*?\})\s*-->/;
-var MarkerSchema = z12.looseObject({ prd: z12.unknown(), persona: z12.unknown(), claims: z12.unknown() });
+var MarkerSchema = z13.looseObject({ prd: z13.unknown(), persona: z13.unknown(), claims: z13.unknown() });
 function readCanonMarker(summary) {
   const match2 = FACTS.exec(summary === void 0 || summary === null ? "" : printed(summary));
   if (!match2) return null;
@@ -1580,6 +1636,9 @@ var CANON_ACTIONS = Object.freeze({
 var APPROVED_LABEL_ACTIONS = Object.freeze({
   issues: Object.freeze(["labeled", "unlabeled"])
 });
+var FIX_STAMP_ACTIONS = Object.freeze({
+  pull_request: Object.freeze(["closed", "reopened"])
+});
 var APPROVED_LABEL = parseConfig("kit: 1").labels.approved;
 var HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
@@ -1587,34 +1646,37 @@ var HANDLED = Object.freeze({
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z13.looseObject({
+var PullRefSchema = z14.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z13.looseObject({ sha: z13.string().nullish() }).nullish(),
-  base: z13.looseObject({ ref: z13.string().nullish() }).nullish()
+  head: z14.looseObject({ sha: z14.string().nullish() }).nullish(),
+  base: z14.looseObject({ ref: z14.string().nullish() }).nullish()
 });
-var PayloadSchema = z13.looseObject({
-  action: z13.unknown(),
+var PayloadSchema = z14.looseObject({
+  action: z14.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z13.looseObject({ id: z13.number().nullish() }).nullish(),
-  repository: z13.looseObject({
-    name: z13.string(),
-    full_name: z13.string().nullish(),
-    owner: z13.looseObject({ login: z13.string().nullish() }).nullish(),
-    default_branch: z13.string().nullish()
+  installation: z14.looseObject({ id: z14.number().nullish() }).nullish(),
+  repository: z14.looseObject({
+    name: z14.string(),
+    full_name: z14.string().nullish(),
+    owner: z14.looseObject({ login: z14.string().nullish() }).nullish(),
+    default_branch: z14.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    merged: z13.boolean().nullish(),
-    merge_commit_sha: z13.string().nullish(),
-    merged_at: z13.string().nullish()
+    body: z14.string().nullish(),
+    merged: z14.boolean().nullish(),
+    merge_commit_sha: z14.string().nullish(),
+    merged_at: z14.string().nullish(),
+    closed_at: z14.string().nullish(),
+    updated_at: z14.string().nullish()
   }).nullish(),
-  check_run: z13.looseObject({
-    id: z13.number().nullish(),
-    external_id: z13.string().nullish(),
-    head_sha: z13.string().nullish(),
-    pull_requests: z13.array(PullRefSchema).nullish(),
-    output: z13.looseObject({ summary: z13.unknown() }).nullish()
+  check_run: z14.looseObject({
+    id: z14.number().nullish(),
+    external_id: z14.string().nullish(),
+    head_sha: z14.string().nullish(),
+    pull_requests: z14.array(PullRefSchema).nullish(),
+    output: z14.looseObject({ summary: z14.unknown() }).nullish()
   }).nullish(),
-  requested_action: z13.looseObject({ identifier: z13.unknown() }).nullish()
+  requested_action: z14.looseObject({ identifier: z14.unknown() }).nullish()
 });
 async function receiveWebhook({
   body,
@@ -1622,6 +1684,7 @@ async function receiveWebhook({
   secret,
   send,
   sendApproved = () => Promise.resolve(),
+  sendStamps = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
   log: log2 = noteTo("webhook")
@@ -1653,14 +1716,17 @@ async function receiveWebhook({
   }));
   const events = toEvents(event, payload);
   const approved = toApprovedLabelRequests(event, payload);
-  if (events.length + approved.length === 0) return reply(200, "ignored");
+  const stamps = toFixStampRequests(event, payload);
+  const total = events.length + approved.length + stamps.length;
+  if (total === 0) return reply(200, "ignored");
   try {
     if (events.length > 0) await send(events);
     if (approved.length > 0) await sendApproved(approved);
+    if (stamps.length > 0) await sendStamps(stamps);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf2(error))}`);
   }
-  return reply(200, `sent ${events.length + approved.length}`);
+  return reply(200, `sent ${total}`);
 }
 function toEvents(event, payload) {
   const action = readPayload(payload)?.action;
@@ -1718,9 +1784,25 @@ function toHarvestRequests(event, payload) {
     data: { installationId, owner, repo, repository, prNumber }
   }));
 }
-var LabelEventSchema = z13.looseObject({
-  label: z13.looseObject({ name: z13.string() }),
-  issue: z13.looseObject({ number: PrdNumberSchema, pull_request: z13.unknown().optional() })
+function toFixStampRequests(event, delivery) {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(FIX_STAMP_ACTIONS, event, payload.action)) return [];
+  const source = sourceOf(payload);
+  const pull = payload.pull_request;
+  const prNumber = pull?.number ?? payload.number;
+  if (!source || !pull || prNumber === null || prNumber === void 0) return [];
+  const bug = fixedRecordOf(pull.body);
+  const defaultBranch = payload.repository?.default_branch;
+  if (bug === null && defaultBranch && pull.base?.ref !== defaultBranch) return [];
+  const kind = payload.action === "reopened" ? "reopened" : pull.merged === true ? "merged" : "closed";
+  const at2 = { merged: pull.merged_at, closed: pull.closed_at, reopened: pull.updated_at }[kind];
+  if (!at2) return [];
+  const data = { installationId: source.installationId, repository: source.repository, prNumber, kind, at: at2, bug };
+  return [{ name: FIX_STAMP_EVENT, id: fixStampId(data), data }];
+}
+var LabelEventSchema = z14.looseObject({
+  label: z14.looseObject({ name: z14.string() }),
+  issue: z14.looseObject({ number: PrdNumberSchema, pull_request: z14.unknown().optional() })
 });
 function toApprovedLabelRequests(event, delivery) {
   const payload = readPayload(delivery);
@@ -1814,6 +1896,7 @@ function githubRoute(env, {
         secret: env.webhook?.secret,
         send,
         sendApproved: send,
+        sendStamps: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched)
       });

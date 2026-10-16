@@ -9,7 +9,7 @@ import { rememberApproved } from './SealScroll';
 // pins the dossier's latest files and labels the PRD's issue, then re-renders the page, which reads the
 // new approval in force, its seal brought into view (SealScroll, #1351). A refusal shows the route's own words.
 
-export function ApproveButton({ dossier }: { dossier: string }) {
+export function ApproveButton({ dossier, noun = 'PRD' }: { dossier: string; noun?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -28,10 +28,10 @@ export function ApproveButton({ dossier }: { dossier: string }) {
       } else {
         const body: unknown = await answer.json().catch(() => null);
         const error = typeof body === 'object' && body !== null && 'error' in body && typeof body.error === 'string' ? body.error : null;
-        setProblem(error ?? `The PRD was not approved (${answer.status}). Try again.`);
+        setProblem(error ?? `The ${noun} was not approved (${answer.status}). Try again.`);
       }
     } catch {
-      setProblem('The PRD was not approved. Check your connection and try again.');
+      setProblem(`The ${noun} was not approved. Check your connection and try again.`);
     }
     setBusy(false);
   }

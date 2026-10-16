@@ -4,6 +4,7 @@ import { MemberGate } from '../../dashboard/MemberGate';
 import { AnswerBox } from './AnswerBox';
 import { GanttChart } from './GanttChart';
 import { PrerequisitesPane } from './PrerequisitesPane';
+import { RoadmapApproval, RoadmapVersions } from '../../dossier/page/RoadmapRecordPane';
 import {
   ROADMAP_SKILL, ROADMAPS_PATH, type Demo, type HumanWorkCount, type HumanWorkEntry, type HumanWorkView, type ProductChoice, type QuestionView,
   type RoadmapDetail, type RoadmapPageView, type RoadmapSummary,
@@ -164,7 +165,7 @@ function List({ view }: { view: Extract<RoadmapPageView, { kind: 'list' }> }) {
         <ul className="roadmap-list">
           {view.roadmaps.map((r) => (
             <li key={r.id} className="board-card roadmap-card">
-              <h2 className="roadmap-title"><a href={r.href}>{r.title}</a></h2>
+              <h2 className="roadmap-title">{r.ref ? <span className="roadmap-ref">{r.ref}</span> : null} <a href={r.href}>{r.title}</a></h2>
               <p className="roadmap-milestone">{r.milestone}</p>
               <Progress roadmap={r} />
               <Blocks roadmap={r} />
@@ -183,7 +184,7 @@ function Question({ q, roadmap }: { q: QuestionView; roadmap: RoadmapDetail }) {
       <p><b>{q.id}</b> {q.question} <span className="roadmap-muted">· blocks {q.blocks.join(', ') || 'nothing'}</span></p>
       {q.recommendation ? <p className="roadmap-muted">Recommended: {q.recommendation}{q.kind === 'default' ? ' (runs on it)' : null}</p> : null}
       {q.answer ? <p>Answered: {q.answer}</p> : null}
-      {q.answerable ? <AnswerBox roadmap={roadmap.number} question={q.id} issueUrl={roadmap.issueUrl} /> : null}
+      {q.answerable && roadmap.number !== null && roadmap.issueUrl !== null ? <AnswerBox roadmap={roadmap.number} question={q.id} issueUrl={roadmap.issueUrl} /> : null}
     </li>
   );
 }
@@ -205,9 +206,11 @@ function Detail({ roadmap }: { roadmap: RoadmapDetail }) {
   return (
     <div className="dash">
       <p className="roadmap-back-row"><a className="roadmap-back" href={ROADMAPS_PATH}>← Every roadmap</a></p>
-      <h1 className="dash-name">{roadmap.title}</h1>
+      <h1 className="dash-name">{roadmap.ref ? <><span className="roadmap-ref">{roadmap.ref}</span> </> : null}{roadmap.title}</h1>
+      {roadmap.record ? <RoadmapApproval record={roadmap.record} /> : null}
       <Tabs roadmap={roadmap} />
-      {roadmap.tab === 'prerequisites' ? <PrerequisitesPane prerequisites={roadmap.prerequisites} roadmap={roadmap.id} /> : <Overview roadmap={roadmap} />}
+      {roadmap.tab === 'prerequisites' ? <PrerequisitesPane prerequisites={roadmap.prerequisites} roadmap={roadmap.id} />
+        : roadmap.tab === 'versions' && roadmap.record ? <RoadmapVersions record={roadmap.record} /> : <Overview roadmap={roadmap} />}
     </div>
   );
 }
@@ -219,7 +222,7 @@ function Overview({ roadmap }: { roadmap: RoadmapDetail }) {
       <section className="board-card roadmap-card">
         <p className="roadmap-milestone"><b>Milestone:</b> {roadmap.milestone}</p>
         <Progress roadmap={roadmap} />
-        <p className="roadmap-muted">{roadmap.repo} · <a href={roadmap.issueUrl}>roadmap #{roadmap.number}</a>{roadmap.source ? <> · <a href={roadmap.source}>its source</a></> : null}</p>
+        <p className="roadmap-muted">{roadmap.issueUrl ? <>{roadmap.repo} · <a href={roadmap.issueUrl}>roadmap #{roadmap.number}</a></> : <>{roadmap.ref} · born on the server, no issue</>}{roadmap.source ? <> · <a href={roadmap.source}>its source</a></> : null}</p>
         <Blocks roadmap={roadmap} />
       </section>
       <section className="board-card roadmap-plan">
@@ -247,7 +250,7 @@ function Overview({ roadmap }: { roadmap: RoadmapDetail }) {
         <ol className="roadmap-lines">
           {gantt.rows.map((row) => (
             <li key={row.id} className="roadmap-line">
-              <span className={`roadmap-key is-${row.state}`}>{row.stateLabel}</span> <b>{row.id}</b> <a href={row.href}>PRD {row.prd}</a> {row.title}
+              <span className={`roadmap-key is-${row.state}`}>{row.stateLabel}</span> <b>{row.id}</b> {row.href ? <a href={row.href}>PRD {row.prdLabel}</a> : <span>PRD {row.prdLabel}</span>} {row.title}
               <span className="roadmap-muted"> · wave {row.wave}{row.lanes.length > 0 ? ` · ${row.lanes.join(', ')}` : ''}{row.blockers.length > 0 ? ` · after ${row.blockers.join(', ')}` : ''}</span>
               {row.waitsOn ? <span className="roadmap-muted"> · {row.waitsOn.url ? <a href={row.waitsOn.url}>{row.waitsOn.label}</a> : row.waitsOn.label}</span> : null}
             </li>
