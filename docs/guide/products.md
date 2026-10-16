@@ -124,9 +124,12 @@ roadmap, `mobile-B74` for a bug fix. Each repository's ideas board stays as it w
 only the workspace's members see.
 
 **Work › Questions** is the workspace's own list of questions, in two tabs. **Inbox** holds the
-questions the ask mode put to you. **Outbox** holds the open outbox items of the workspace's product
-PRDs, with their product, the ones waiting on you first, answered in place. For now the Outbox lists
-product PRDs only; a repository PRD's questions stay on its feature pull request and its PRD page.
+questions the ask mode put to you. **Outbox** holds the open outbox items of every PRD of the workspace, product PRDs and repository
+PRDs alike, with their product and PRD id, the ones waiting on you first. A product PRD's question is
+answered in place, as before. A repository PRD's question is answered on its PRD page's Outbox tab
+(`/prd/<id>?tab=outbox`), which sends the answer to its feature pull request; its row links there and
+shows `as of <time>`, the last time the server read it, which can lag up to 15 minutes behind an
+answer typed on GitHub. A repository PRD's medium items are not listed.
 
 ## The rollout ladder
 
