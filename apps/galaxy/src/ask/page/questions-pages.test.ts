@@ -20,6 +20,7 @@ vi.mock('../../data/supabase-server', () => ({
 }));
 vi.mock('./for-me-live', () => ({ readForMeLive: () => Promise.resolve(given.read) }));
 vi.mock('./history-live', () => ({ readHistoryLive: () => Promise.resolve(given.read) }));
+vi.mock('../../outbox-items/outbox-questions-live', () => ({ readOutboxLive: () => Promise.resolve(given.read) }));
 vi.mock('./source', () => ({
   readTabs: () => Promise.resolve([]),
   readSession: () => Promise.resolve(given.pane),
@@ -32,6 +33,7 @@ const { AskSession } = await import('./AskSession');
 const { AskRoute } = await import('./AskRoute');
 const { default: ForMePage } = await import('../../../app/ask/(shell)/for-me/page.tsx');
 const { default: HistoryPage } = await import('../../../app/ask/(shell)/history/page.tsx');
+const { default: OutboxPage } = await import('../../../app/ask/(shell)/outbox/page.tsx');
 
 const query = { searchParams: Promise.resolve({}) };
 /** The page's children, in order. */
@@ -63,7 +65,16 @@ describe('the Questions pages start with their tabs', () => {
     expect(tabsOf(await HistoryPage(query))).toBe('/ask/history');
   });
 
-  it('/ask, Open questions marked: closed, signed out, and the person\'s own terminals', async () => {
+  it('/ask/outbox, Outbox marked, its count only once the items are read', async () => {
+    expect(tabsOf(await OutboxPage(query))).toBe('/ask/outbox');
+    given.read = { kind: 'signed-out', supabase: { url: 'u', key: 'k' } };
+    expect(tabsOf(await OutboxPage(query))).toBe('/ask/outbox');
+    given.read = { kind: 'view', view: { questions: [], open: 3, mine: 1, filter: null } };
+    const [tabs] = partsOf(await OutboxPage(query));
+    expect(tabs?.props).toEqual({ current: '/ask/outbox', open: 3 });
+  });
+
+  it('/ask, Inbox marked: closed, signed out, and the person\'s own terminals', async () => {
     expect(tabsOf(await AskRoute({ id: null, query: {} }))).toBe('/ask');
     given.mode = 'supabase';
     expect(tabsOf(await AskRoute({ id: null, query: {} }))).toBe('/ask');

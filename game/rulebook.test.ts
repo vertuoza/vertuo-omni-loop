@@ -44,7 +44,7 @@ describe('rulebook xp block', () => {
       weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1, prMerged: 1, prReviewed: 1 },
       curve: { first: 1, step: 25 },
       cap: 99,
-      unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 4 },
+      unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 4, pong: 5 },
     });
     for (const part of [xp, xp.weights, xp.curve, xp.unlocks]) expect(Object.isFrozen(part)).toBe(true);
   });

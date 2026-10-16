@@ -24,12 +24,19 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
   - its fleet, a picker for a workspace owner and plain text for everyone else;
   - slots used out of slots, its repositories and the kit version;
   - a Terminal button, opening its running job, else its last job; disabled, titled "No job yet",
-    when it has run none.
+    when it has run none;
+  - under it, a health line (PRD 2102): four gauges, CPU (percent and `load <n> / <cores>`),
+    Memory (`<used> of <total> GB`), Disk (`<free> GB free of <total>`) and Tokens
+    (`<n> in 5 h · <n> today`, the four-count split in its title), each with the last hour's
+    sparkline; a gauge past the runner's own limit reads in `--ask-red`.
 - **Jobs:** queued and running first, then the last 50 that ended. Each row shows the line, the
   repository, who sent it, where it went, its status and its action.
   - Each row has a Terminal button, which opens the `runner-terminal` panel on that job and sets
     `?terminal=<job id>` on the URL.
   - A done job links its pull request.
+  - A job shows its tokens beside its status (`1.4M tokens`) once its runner reported them (PRD 2102).
+  - A queued job whose every possible runner is paused says why under its status: `Waiting:
+    <runner> paused (<reason>)`, or `Waiting: every runner paused (<reason>)` (PRD 2102).
   - A job an API key sent shows `API key <name>` as its sender, with `made by @<login>` under it
     (PRD 2022).
 
@@ -39,6 +46,11 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
   to copy.
 - **A job's status:** Queued, Running with its time, Done, Failed with its reason (`runner lost`,
   `timeout`, the exit code), Cancelled.
+- **Paused** (PRD 2102): the runner's state reads `Paused: <reason>` in `--ask-red`, in place of
+  Online or Busy, while its last report names a pressure.
+- **A health line:** a figure it could not read is `—` with no bar; an offline runner's last
+  figures are greyed under `as of <age>`; a runner that never reported shows `Update this runner
+  to see its health.` with `omni update` to copy; no sample in the hour, no sparkline.
 - **A viewer who is not an owner:** each fleet reads as text, with no picker.
 - **Refresh:** the rows are read again every 5 seconds while the page is open.
 
@@ -47,7 +59,9 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 Runners · Runner · State · Online · Busy ·
 Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Repository · Sent by · Where ·
 Any runner · Status · Queued · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
-Cancel · Send again · Terminal · No job yet · API key · made by.
+Cancel · Send again · Terminal · No job yet · API key · made by · Paused · CPU · load · Memory ·
+Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
+health.
 
 ## Refusals
 
@@ -57,6 +71,7 @@ Cancel · Send again · Terminal · No job yet · API key · made by.
 ## Open questions
 
 - Is Send again the page's one primary action, or does the page have none while nothing failed?
+- Should the health line fold away on a phone, leaving only the state and a Paused reason?
 - Does a member see the jobs of fleets they are not in, or only their own fleet's and the shared
   ones?
 
@@ -65,3 +80,4 @@ Cancel · Send again · Terminal · No job yet · API key · made by.
 /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html
 /omni:brainstorm, PRD 1904: .omni-loop/delivery/shipped/1904-runner-live-logs/before-after.html
 /omni:brainstorm, PRD 2022: .omni-loop/delivery/shipped/2022-api-keys-v1/before-after.html
+/omni:brainstorm, PRD 2102: .omni-loop/delivery/shipped/2102-runner-health/before-after.html

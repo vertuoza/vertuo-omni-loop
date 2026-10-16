@@ -3,16 +3,18 @@ import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
-import type { ApprovalSeal, ApprovalView, ApproveScreen } from './approval';
+import type { ApprovalView, ApproveScreen } from './approval';
 import { ApproveButton } from './ApproveButton';
+import { SealCard } from './SealCard';
 import { Attestation } from './Attestation';
 import type { AttestationView } from './Attestation.service';
-import { SealScroll } from './SealScroll';
 import { CarePane } from './CarePane';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
 import { MarkSeen } from './MarkSeen';
 import { OutboxPane } from './OutboxPane';
+import { OutboxPaneProduct } from './OutboxPaneProduct';
+import type { ProductOutboxView } from './outbox-product';
 import { QuestionsPane } from './QuestionsPane';
 import { RetroPane } from './RetroPane';
 import { seenSignature } from './seen';
@@ -81,6 +83,8 @@ type Props = {
   voice?: VoiceView | null | undefined;
   /** A product PRD's attestation (PRD 1548 s4); null or left out when nobody approved it, or for any other dossier. */
   attestation?: AttestationView | null | undefined;
+  /** A product PRD's outbox from the server's rows (PRD 2011 s15); null or left out for any other dossier, whose Outbox tab reads GitHub. */
+  productOutbox?: ProductOutboxView | null | undefined;
 };
 
 const EMPTY: Record<ArtifactKind, string> = {
@@ -92,7 +96,7 @@ const EMPTY: Record<ArtifactKind, string> = {
   voice: VOICE_EMPTY,
 };
 
-type PaneProps = Pick<Props, 'view' | 'markdown' | 'supabase' | 'voice'>;
+type PaneProps = Pick<Props, 'view' | 'markdown' | 'supabase' | 'voice' | 'productOutbox'>;
 type Shown = NonNullable<DossierView['shown']>;
 
 /** The User voice tab (PRD 822): its picker and the shown version drawn, or the spec's empty line. */
@@ -110,7 +114,9 @@ function VoiceTab({ view, voice = null }: PaneProps) {
 /** The tabs drawn by a pane of their own, not as an artifact's versions. */
 const OWN_PANES: Partial<Record<DossierView['tab'], (props: PaneProps) => ReactNode>> = {
   questions: ({ view, supabase }) => <QuestionsPane questions={view.questions} supabase={supabase} />,
-  outbox: ({ view, markdown }) => <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />,
+  outbox: ({ view, markdown, productOutbox }) => productOutbox
+    ? <OutboxPaneProduct outbox={productOutbox} />
+    : <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />,
   care: ({ view }) => <CarePane care={view.care} />,
   retro: ({ view }) => <RetroPane retro={view.retro} />,
   timeline: ({ view }) => <TimelinePane fix={view.fix} />,
@@ -228,34 +234,10 @@ function ApproveScreenSection({ approval }: { approval: ApprovalView }) {
   );
 }
 
-/** The seal of an approval in force (#1351): stamped with the PRD's number and APPROVED · PINNED, then who
- * approved it and when, and each pinned file with its short hash. */
-function SealCard({ seal, dossier }: { seal: ApprovalSeal; dossier: string }) {
-  const hashes = seal.files.flatMap((file) => (file.hash ? [file.hash.slice(0, 4)] : [])).join(' ');
-  return (
-    <section id="approval" className="dossier-seal-card" aria-label="Approved">
-      <svg className="dossier-seal" viewBox="0 0 100 100" role="img" aria-label={`Seal of PRD ${seal.prd}: approved and pinned`}>
-        <defs><path id="dossier-seal-ring" d="M50 50 m-36 0 a36 36 0 1 1 72 0 a36 36 0 1 1 -72 0" /></defs>
-        <circle cx="50" cy="50" r="47" className="dossier-seal-disc" />
-        <circle cx="50" cy="50" r="41" className="dossier-seal-line" />
-        <circle cx="50" cy="50" r="29" className="dossier-seal-line dossier-seal-dash" />
-        <text className="dossier-seal-ring"><textPath href="#dossier-seal-ring">{`APPROVED · PINNED · ${hashes} ·`}</textPath></text>
-        <text x="50" y="59" textAnchor="middle" className="dossier-seal-number">{seal.prd}</text>
-      </svg>
-      <p className="dossier-seal-who">Approved by {seal.approver}</p>
-      <p className="ask-hint">{seal.at} · {seal.files.length} {seal.files.length === 1 ? 'file' : 'files'} pinned</p>
-      <ul className="dossier-seal-files">
-        {seal.files.map((file) => <li key={file.path}><span>{file.path}</span><code>{file.hash ?? '—'}</code></li>)}
-      </ul>
-      <SealScroll dossier={dossier} />
-    </section>
-  );
-}
-
 /** Under the head of a ◆ PRD: the approve screen for whoever may approve it, or the seal once approved. */
 function ApprovalArea({ approval }: { approval: ApprovalView }) {
   if (approval.canApprove) return <ApproveScreenSection approval={approval} />;
-  return approval.seal ? <SealCard seal={approval.seal} dossier={approval.dossier} /> : null;
+  return approval.seal ? <SealCard seal={{ ...approval.seal, name: `PRD ${approval.seal.prd}`, mark: String(approval.seal.prd) }} dossier={approval.dossier} /> : null;
 }
 
 /** Under the head: a ◆ PRD's approval area, then a product PRD's attestation (PRD 1548 s4); each only when it has one. */
@@ -273,7 +255,7 @@ function ProductFact({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
   return view.kind === 'prd' && supabase && !view.demo ? <ProductPicker dossier={view.id} /> : null;
 }
 
-export function DossierPage({ view, markdown, supabase, live, voice, attestation }: Props) {
+export function DossierPage({ view, markdown, supabase, live, voice, attestation, productOutbox }: Props) {
   const { stage, fix, approval } = view;
   return (
     <div className="dossier">
@@ -349,7 +331,7 @@ export function DossierPage({ view, markdown, supabase, live, voice, attestation
       <MarkSeen id={view.id} signature={seenSignature(view.tabs)} />
       {live}
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>
-        <Pane view={view} markdown={markdown} supabase={supabase} voice={voice} />
+        <Pane view={view} markdown={markdown} supabase={supabase} voice={voice} productOutbox={productOutbox} />
       </section>
     </div>
   );

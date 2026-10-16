@@ -44,7 +44,7 @@ describe('ganttOf: rows and arrows', () => {
 
   it('links each row to its PRD\'s page, by the roadmap\'s repository and the PRD\'s number (#1199)', () => {
     // /prd/<n> is Not found: /prd/<id> opens a dossier by its id, which the roadmap does not hold.
-    const href = rowOf(ganttOf(prds, NOW, 'vertuoza/vertuo-vibe-master-plan').rows, 'P1').href;
+    const href = rowOf(ganttOf(prds, NOW, 'vertuoza/vertuo-vibe-master-plan').rows, 'P1').href ?? '';
     expect(href).toBe('/prd/at/vertuoza/vertuo-vibe-master-plan/1201?to=page');
     const [owner = '', repo = '', n = ''] = new URL(href, 'https://omni.test').pathname.split('/').slice(3);
     expect(readAt({ owner, repo, n })).toEqual({ owner: 'vertuoza', repo: 'vertuo-vibe-master-plan', prd: parsePrd(1201) });

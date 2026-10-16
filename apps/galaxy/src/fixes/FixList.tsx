@@ -79,6 +79,7 @@ function Row({ item }: { item: FixItem }) {
       <a className="dossier-history-row" href={item.href}>
         <span className="dossier-history-title">
           <span className="dossier-number">{item.heading}</span> <span>{item.title}</span>{' '}
+          {item.product && <><span className="dossier-repo dossier-product">{item.product}</span>{' '}</>}
           <span className={`fix-state fix-state-${item.state ?? 'unknown'}`}>{item.stateLabel}</span>
           {item.risk && <> <span className="fix-badge">{item.risk}</span></>}
           {item.regression && <> <span className="fix-badge fix-badge-regression">regression</span></>}

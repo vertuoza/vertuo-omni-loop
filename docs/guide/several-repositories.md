@@ -303,6 +303,22 @@ It reads your answers on the plan pull request and reworks each decision you cha
 repository it was taken in**: a sub-pull request into that target's feature branch. Then it runs the
 same gate again, and marks the plan pull request ready once no question is left.
 
+## The plan repository stays
+
+A plan repository is **kept**. The loop never archives it, nor deletes it, whatever step its
+repositories have reached on the [rollout ladder](/docs/products#the-rollout-ladder). Its PRDs, its
+roadmaps, its bug records and its imported knowledge copies keep working as they do here, side by
+side with the product way: a repository below step 5 stays on the old way, and a roadmap or bug
+record born in git finishes in git.
+
+A [product](/docs/products)'s **Repositories & approvers** tab shows, as information only, each
+repository's ladder step and what still lives in its plan repository, such as `vertuo-web · step 3`
+or `roadmap 0412 · in git`. It has no action on the plan repository.
+
+The skills and checks read an imported target's knowledge from its pack, which the server keeps,
+rather than from a copy under `.omni-loop/knowledge/repos/`; `omni kb pack get <repo>` fetches it.
+The [knowledge packs](/docs/products#knowledge-packs) section says how a pack is fetched and refused.
+
 ## Without a plan repository
 
 A [product PRD](/docs/products#a-product-prd), such as `mobile-12`, is built across the product's

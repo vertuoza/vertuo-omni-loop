@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Notice } from '../ask/page/Notice';
 import { WORK_NAMES, WORK_PATHS } from '../dossier/page/work';
 import { ListSkeleton } from '../skeleton/Skeleton';
@@ -22,6 +23,7 @@ function Card({ card }: { card: ConceptCard }) {
         <span className="dossier-history-title">
           {card.number !== null && <><span className="dossier-number">#{card.number}</span>{' '}</>}
           <span>{card.title}</span>
+          {card.product && <>{' '}<span className="dossier-repo dossier-product">{card.product}</span></>}
         </span>
         <span className="dossier-history-facts">
           {card.kind && card.scale && <span className="dossier-history-artifact">{card.kind} · {card.scale}</span>}
@@ -34,10 +36,11 @@ function Card({ card }: { card: ConceptCard }) {
   );
 }
 
-export function ConceptList({ cards }: { cards: readonly ConceptCard[] }) {
+export function ConceptList({ cards, above }: { cards: readonly ConceptCard[]; above?: ReactNode }) {
   return (
     <div className="dossier dossier-history">
       <h1 className="dossier-title">{WORK_NAMES.concept.many}</h1>
+      {above}
       {cards.length === 0 ? (
         <section className="ask-card">
           <h2>No concept yet</h2>
@@ -57,7 +60,7 @@ export function ConceptList({ cards }: { cards: readonly ConceptCard[] }) {
 /** /concepts in each of its states. Signed out, it points to the PRDs list, whose sign-in brings the
  * person back to the app. */
 export function ConceptListScreen({ state }: { state: ConceptListState }) {
-  if (state.kind === 'listed') return <ConceptList cards={state.cards} />;
+  if (state.kind === 'listed') return <ConceptList cards={state.cards} above={state.above} />;
   if (state.kind === 'closed') {
     return (
       <Notice title="Concepts are not open here">

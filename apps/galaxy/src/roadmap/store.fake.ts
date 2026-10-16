@@ -18,6 +18,13 @@
 // each with the state and the waiting detail of the result row naming it, and the result's machine
 // and time on the roadmap.
 //
+// And roadmap_product_push() of 20261210100000_product_roadmaps.sql (PRD 2011): refused 42501 signed out,
+// P0002 for a product keyed so in none of the caller's workspaces or a roadmap number it has not; with no
+// number it creates the product's next roadmap (a counter per product, no gap), with one it replaces the
+// roadmap's fields and PRD rows; and it adds a version of the document, the PRD rows, the human work and
+// the prerequisites only where what it carries differs from the latest. The products and their
+// repository links are read as members read them (`products`, `product_repositories`).
+//
 // The body is trusted: the route validated it, and the database's own checks are proved by
 // supabase/checks/roadmaps.sql, not here. Reading runs under the migration's policies: a member of the
 // roadmap's workspace reads it, its PRDs and its human work.
@@ -59,12 +66,31 @@ function workFields(entry: Row) {
   };
 }
 
+/** A product of the fake, by its key: the workspace holding it, its name and its repository links. */
+export type FakeProduct = {
+  workspace: string; name: string; repositories: Array<{ repository: string; readOnly?: boolean; consumes?: string[] }>;
+};
+
+type FakeProductRoadmap = {
+  id: string; dossier_id: string; workspace_id: string; key: string; seq: number; title: string; milestone: string; target_date: string | null;
+  source: string | null; questions: unknown[]; document: string; prds: Row[]; pushed_by: string; pushed_at: string;
+};
+type FakeVersion = { dossier_id: string; kind: string; version: number; content: string };
+
 /** `accounts`: token → account. `workspaces`: workspace id → its org and products. `now`: the clock, in ms. */
-export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: Record<string, FakeWorkspace>, now: () => number) {
+export function fakeRoadmaps(
+  accounts: Record<string, FakeAccount>,
+  workspaces: Record<string, FakeWorkspace>,
+  now: () => number,
+  products: Record<string, FakeProduct> = {},
+) {
   const tables: { roadmaps: FakeRoadmap[]; roadmap_prds: FakePrd[]; roadmap_human_work: RoadmapHumanWorkRow[]; roadmap_prerequisites: RoadmapPrerequisiteRow[] } = {
     roadmaps: [], roadmap_prds: [], roadmap_human_work: [], roadmap_prerequisites: [],
   };
   const { calls, at, newId } = fakeRecorder(now);
+  const productRoadmaps: FakeProductRoadmap[] = [];
+  const versions: FakeVersion[] = [];
+  const counters: Record<string, number> = {};
 
   function prdRows(roadmapId: string, sent: unknown): FakePrd[] {
     return listOf(sent).map((value, index) => {
@@ -160,6 +186,66 @@ export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: 
     };
   }
 
+  /** The versions a product roadmap's push adds: each part it carries that differs from its latest. */
+  function addVersions(dossierId: string, body: Row): { added: Array<{ kind: string; version: number }>; unchanged: string[] } {
+    const parts: Array<[string, string | null]> = [
+      ['roadmap', String(body.document)],
+      ['roadmap-prds', JSON.stringify(body.prds)],
+      ['roadmap-human-work', Array.isArray(body.humanWork) ? JSON.stringify(body.humanWork) : null],
+      ['roadmap-prerequisites', Array.isArray(body.prerequisites) ? JSON.stringify(body.prerequisites) : null],
+    ];
+    const added: Array<{ kind: string; version: number }> = [];
+    const unchanged: string[] = [];
+    for (const [kind, content] of parts) {
+      if (content === null) continue;
+      const mine = versions.filter((v) => v.dossier_id === dossierId && v.kind === kind);
+      const latest = mine.at(-1);
+      if (latest?.content === content) {
+        unchanged.push(kind);
+        continue;
+      }
+      const version = mine.length + 1;
+      versions.push({ dossier_id: dossierId, kind, version, content });
+      added.push({ kind, version });
+    }
+    return { added, unchanged };
+  }
+
+  function productPush(me: FakeAccount | null, args: Row): Result {
+    calls.push({ fn: 'roadmap_product_push', args });
+    if (!me) return refused('42501', 'Sign in first.');
+    const key = String(args.p_key);
+    const product = products[key];
+    if (product === undefined || !me.workspaces.includes(product.workspace)) return refused('P0002', `No product keyed ${key} in your workspaces.`);
+    const body = objectOf(args.p_body);
+    const fields = {
+      title: String(body.title).trim(), milestone: String(body.milestone).trim(), target_date: textOf(body.target),
+      source: textOf(body.source)?.trim() || null, questions: listOf(body.questions), document: String(body.document),
+      prds: listOf(body.prds).map(objectOf), pushed_by: me.id, pushed_at: at(),
+    };
+    const number = typeof args.p_roadmap === 'number' ? args.p_roadmap : null;
+    let created = false;
+    let roadmap = productRoadmaps.find((r) => r.key === key && r.seq === number);
+    if (number === null) {
+      counters[key] = (counters[key] ?? 0) + 1;
+      roadmap = { id: newId(), dossier_id: newId(), workspace_id: product.workspace, key, seq: counters[key], ...fields };
+      productRoadmaps.push(roadmap);
+      created = true;
+    } else if (roadmap === undefined) {
+      return refused('P0002', `No roadmap ${key}-R${number} on ${product.name}.`);
+    } else {
+      Object.assign(roadmap, fields);
+    }
+    const { added, unchanged } = addVersions(roadmap.dossier_id, body);
+    return {
+      data: {
+        roadmapId: roadmap.id, dossierId: roadmap.dossier_id, roadmap: `${key}-R${roadmap.seq}`, created,
+        product: { id: `product:${key}`, name: product.name }, added, unchanged,
+      },
+      error: null,
+    };
+  }
+
   /** A prerequisite as stored, with the state and the waiting detail of the result row naming it. */
   function prerequisiteRow(roadmapId: string, value: unknown, index: number, results: Row[]): RoadmapPrerequisiteRow {
     const row = objectOf(value);
@@ -197,6 +283,18 @@ export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: 
       if (table === 'roadmap_prds') return tableQuery(tables.roadmap_prds, (p) => roadmapIsMine(p.roadmap_id));
       if (table === 'roadmap_human_work') return tableQuery(tables.roadmap_human_work, (h) => roadmapIsMine(h.roadmap_id));
       if (table === 'roadmap_prerequisites') return tableQuery(tables.roadmap_prerequisites, (p) => roadmapIsMine(p.roadmap_id));
+      if (table === 'products') {
+        const rows = Object.entries(products).map(([key, p], index) => ({ id: `product:${key}`, key, name: p.name, workspace_id: p.workspace, created_at: String(index).padStart(4, '0') }));
+        return tableQuery(rows, (p) => mine(p.workspace_id));
+      }
+      if (table === 'product_repositories') {
+        const rows = Object.entries(products).flatMap(([key, p]) =>
+          p.repositories.map((r) => ({
+            product_id: `product:${key}`, workspace_id: p.workspace, repository: r.repository, read_only: r.readOnly ?? false, consumes: r.consumes ?? [],
+          })),
+        );
+        return tableQuery(rows, (r) => mine(r.workspace_id));
+      }
       throw new Error(`the fake reads no ${table}`);
     };
   };
@@ -204,8 +302,15 @@ export function fakeRoadmaps(accounts: Record<string, FakeAccount>, workspaces: 
   const client = (token: string) => {
     const base = fakeClient(accounts, token, { fn: 'roadmap_push', call: roadmapPush, reads });
     const me = accounts[token] ?? null;
-    return { ...base, rpc: (name: string, args: Row) => (name === 'roadmap_prerequisites_push' ? Promise.resolve(prerequisitesPush(me, args)) : base.rpc(name, args)) };
+    return {
+      ...base,
+      rpc: (name: string, args: Row) => {
+        if (name === 'roadmap_prerequisites_push') return Promise.resolve(prerequisitesPush(me, args));
+        if (name === 'roadmap_product_push') return Promise.resolve(productPush(me, args));
+        return base.rpc(name, args);
+      },
+    };
   };
 
-  return { tables, calls, client, productId };
+  return { tables, calls, client, productId, productRoadmaps, versions };
 }

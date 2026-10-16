@@ -6,7 +6,7 @@ import { demoTabPort, draftOf, initialLinksForm, linksReducer, newLinkWrite, wri
 // draft and the write it sends, and the demo's port, which keeps the database's rules in memory.
 
 const SHA = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
-const link = (repo: string, over: Partial<Link> = {}): Link => ({ repo, role: null, knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person', ...over });
+const link = (repo: string, over: Partial<Link> = {}): Link => ({ repo, role: null, knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person', ladderStep: 1, ...over });
 
 describe('the list', () => {
   const start = () => initialLinksForm({ links: [link('acme/web'), link('acme/api')], addable: ['acme/zed', 'acme/billing'] });

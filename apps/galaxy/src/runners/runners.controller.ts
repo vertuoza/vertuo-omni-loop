@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { authenticate, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import {
-  FleetRequestSchema, JobLinesQuerySchema, JobLinesSchema, JobReplySchema, JobUpdateReplySchema, JobUpdateSchema, NextQuerySchema, RegisterReplySchema, RegisterRequestSchema,
+  FleetRequestSchema, HealthReplySchema, HealthReportSchema, JobLinesQuerySchema, JobLinesSchema, JobReplySchema, JobUpdateReplySchema, JobUpdateSchema, NextQuerySchema,
+  RegisterReplySchema, RegisterRequestSchema,
   RUNNER_REFUSALS, RunnerJobSchema, RunnerReplySchema, SendRequestSchema,
 } from './runners.contract';
 import type { RunnersService, Served } from './runners.service';
@@ -13,6 +14,7 @@ import type { RunnersService, Served } from './runners.service';
 //   POST  /api/runners/register            the kit's sign-in   registers the runner
 //   GET   /api/runners/next?runner=<id>    the kit's sign-in   holds up to 40 s: the job claimed, or 204
 //   POST  /api/runners/jobs/<id>           the kit's sign-in   a report: status, log tail, live lines, PR link, exit code
+//   POST  /api/runners/<id>/health         the kit's sign-in   the runner's machine, every 15 s (PRD 2102)
 //   GET   /api/runners/jobs/<id>/lines     the session         a job's live lines after `after` (PRD 1904)
 //   POST  /api/runners/jobs                the session         queues a job
 //   POST  /api/runners/jobs/<id>/cancel    the session         cancels a job
@@ -45,6 +47,7 @@ const FAILED = 'The runners could not answer. Try again.';
 const BAD_REGISTER = 'The body must be {"name": "<name>", "slots": <1 to 8>, "repos": ["owner/name", …], "version": "<kit version>"}.';
 const BAD_NEXT = 'Name the runner as `runner=<id>`.';
 const BAD_REPORT = 'The body must be {"status": "running" | "done" | "failed" | "cancelled", "logTail"?, "from"? with "lines"? (at most 2,000 of 600 characters), "prUrl"?, "exitCode"?, "reason"?}.';
+const BAD_HEALTH = 'The body must be {"cpu", "load1", "cores", "memUsed", "memTotal", "diskFree", "diskTotal"}, each a number of 0 or more or null, with "paused"? (80 characters or null) and "limits"? ({"maxMemory", "minDiskGb", "maxLoad"}), and nothing else.';
 const BAD_LINES = 'Ask for the lines as `after=<sequence number>`, or with no query.';
 const BAD_SEND = 'The body must be {"line": "/omni:<skill> <arguments>", "repo": "owner/name", "target": {"kind": "any"} | {"kind": "fleet", "fleet": "<fleet>"} | {"kind": "runner", "runner": "<id>"}}.';
 const BAD_FLEET = 'The body must be {"fleet": "<fleet>"} or {"fleet": null}.';
@@ -123,6 +126,15 @@ export async function reportJob(request: Request, id: string, deps: RunnersDeps)
     if (!IdSchema.safeParse(id).success) return refuse(RUNNER_REFUSALS.missing, BAD_ID);
     const body = await bodyAs(request, JobUpdateSchema, MAX_REPORT_CHARS);
     return body === null ? refuse(RUNNER_REFUSALS.malformed, BAD_REPORT) : service.update(caller, id, body);
+  });
+}
+
+/** POST /api/runners/<id>/health: a runner's machine, from its owner; answers when the server took it. */
+export async function reportHealth(request: Request, id: string, deps: RunnersDeps): Promise<Response> {
+  return answer(await kitCaller(request, deps), deps, HealthReplySchema, async (service, caller) => {
+    if (!IdSchema.safeParse(id).success) return refuse(RUNNER_REFUSALS.missing, BAD_ID);
+    const body = await bodyAs(request, HealthReportSchema);
+    return body === null ? refuse(RUNNER_REFUSALS.malformed, BAD_HEALTH) : service.health(caller, id, body);
   });
 }
 
