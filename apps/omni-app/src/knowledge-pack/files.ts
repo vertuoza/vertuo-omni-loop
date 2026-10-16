@@ -1,6 +1,6 @@
 // The pack hasher (PRD 2011 s11): the files read at a commit in, the pack's files out, each with its
 // content and the sha256 of its bytes, which is what knowledge_pack_put() computes again of the content
-// and refuses when it differs (supabase/migrations/20261212090000_knowledge_packs.sql). Pure.
+// and refuses when it differs (supabase/migrations/20261212100000_knowledge_packs.sql). Pure.
 //
 // A pack keeps text: its content is a database text column. A file it cannot keep as it is in the
 // commit is left out of the pack, named with why, never changed to fit, so every file a pack holds

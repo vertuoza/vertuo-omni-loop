@@ -1,6 +1,6 @@
 // The knowledge packs' storage (PRD 2011; ADR-0095), on the client it is given: the caller's own, acting
 // as their access token, so row-level security has the last word: a member reads only the packs of their
-// own workspaces (supabase/migrations/20261212090000_knowledge_packs.sql), and a pack of any other
+// own workspaces (supabase/migrations/20261212100000_knowledge_packs.sql), and a pack of any other
 // workspace reads as none. Every answer is parsed where it comes in; it holds no rule. A refusal comes
 // back as the database's code and message; an answer out of shape as the code `shape`.
 import type { SupabaseClient } from '@supabase/supabase-js';

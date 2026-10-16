@@ -4,7 +4,7 @@
 //   held   whether any product holds the repository (`product_repositories`): read before GitHub is, so a
 //          merge in a repository no product holds spends nothing of the installation's budget
 //   put    knowledge_pack_put(), the only writer of a pack, granted to the service role alone
-//          (supabase/migrations/20261212090000_knowledge_packs.sql): it keeps the pack in every workspace
+//          (supabase/migrations/20261212100000_knowledge_packs.sql): it keeps the pack in every workspace
 //          that holds the repository in a product, changes nothing for a commit it already keeps, marks
 //          the newest by the commit's date, and refuses a path that climbs out or a sha256 that does not
 //          hash to the content

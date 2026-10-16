@@ -3,7 +3,7 @@ import { z } from 'zod';
 // The knowledge pack read's contract (PRD 2011; ADR-0095): what the kit's `omni kb pack get` asks
 // (PRD 2011 s12), and what `GET /api/knowledge-packs` answers. A pack is a repository's knowledge folder
 // and flow config at one commit, kept by the App's knowledge pack (apps/omni-app/src/knowledge-pack/,
-// s11) through knowledge_pack_put() (supabase/migrations/20261212090000_knowledge_packs.sql): each file
+// s11) through knowledge_pack_put() (supabase/migrations/20261212100000_knowledge_packs.sql): each file
 // by its repository path, with its content and the lower-case hex sha256 of that content's UTF-8 bytes.
 // Browser-safe: zod only.
 
