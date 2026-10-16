@@ -3,7 +3,7 @@
 // from the repository's product, read with the terminal's sign-in through `GET /api/business`.
 //
 // It prints the sentence the claims make, then one line per claim with its id (`rival#4`). `--json`
-// prints `{ state, business, product, claims, personas }` (decision 14), the shape the later MCP link returns.
+// prints `{ state, business, product, claims, personas, legal, glossary }` (decision 14; PRD 1795 added the last two: the product's active Legal entries and live glossary terms, `[]` when none or from an older server), the shape the later MCP link returns.
 // Each claim carries its `state` (PRD 774, decision 12): `confirmed`, or `contradicted` while evidence
 // disagrees with it and nobody answered. A contradicted claim is marked on its line and left out of the
 // sentence, so an agent never states it as settled. A server from before PRD 774 sends no state: it
@@ -56,8 +56,17 @@ type Claim = { id: string; kind: string; value: string; source: string; state: s
 /** One persona, as the contract carries it. */
 type Persona = { name: string; stance: string; trade: string; who: string; usage: string };
 
+/** One active Legal entry of the product (PRD 1795), the owner a GitHub login. */
+type Legal = { id: string; statement: string; source: string; owner: string };
+
+/** One live glossary term of the product (PRD 1795), with the words to avoid in its place. */
+type Term = { term: string; meaning: string; avoid: string[] };
+
 /** The business the server read, as the contract's body. */
-type Business = { state: string; business: { name: string } | null; product: { name: string } | null; claims: Claim[]; personas: Persona[] };
+type Business = {
+  state: string; business: { name: string } | null; product: { name: string } | null; claims: Claim[]; personas: Persona[];
+  legal: Legal[]; glossary: Term[];
+};
 
 /** What a test hands `omni business` beyond `main()`'s own. */
 type BusinessOptions = { tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch; callMs?: number | undefined };
@@ -129,19 +138,58 @@ function personasOf(value: unknown): Persona[] | null {
   return personas.every((one) => one !== null) ? personas : null;
 }
 
+/** One Legal entry as the contract carries it, or null when it is not one. */
+function legalOf(raw: unknown): Legal | null {
+  const value = jsonObject(raw);
+  if (!value || !isText(value.id) || !/^L-[A-Z0-9]+-[1-9]\d*$/.test(value.id) || !isText(value.statement)) return null;
+  if (typeof value.source !== 'string' || !isText(value.owner)) return null;
+  return { id: value.id, statement: value.statement, source: value.source, owner: value.owner };
+}
+
+/** One glossary term as the contract carries it, or null when it is not one. */
+function termOf(raw: unknown): Term | null {
+  const value = jsonObject(raw);
+  if (!value || !isText(value.term) || typeof value.meaning !== 'string') return null;
+  const avoid: unknown = value.avoid;
+  if (!Array.isArray(avoid) || !avoid.every((word): word is string => typeof word === 'string')) return null;
+  return { term: value.term, meaning: value.meaning, avoid };
+}
+
+/** The reply's entries through `one` (`[]` when it sends none, a server from before PRD 1795), or null
+ * when one is not an entry. */
+function listOf<T>(value: unknown, one: (raw: unknown) => T | null): T[] | null {
+  if (value !== undefined && !Array.isArray(value)) return null;
+  const items = (Array.isArray(value) ? value : []).map(one);
+  return items.every((item) => item !== null) ? items : null;
+}
+
+/** The reply's Legal entries and glossary terms, or null when one is not valid. */
+function knowledgeOf(reply: Record<string, unknown>): { legal: Legal[]; glossary: Term[] } | null {
+  const legal = listOf(reply.legal, legalOf);
+  const glossary = listOf(reply.glossary, termOf);
+  return legal && glossary ? { legal, glossary } : null;
+}
+
 /** The server's reply as the contract's body, or null when it does not read as one. */
 function businessOf(raw: unknown): Business | null {
   const reply = jsonObject(raw);
   if (!reply || !['ok', 'none'].includes(String(reply.state)) || typeof reply.state !== 'string' || !Array.isArray(reply.claims)) return null;
   const claims = claimsOf({ state: reply.state, claims: reply.claims });
   const personas = claims && personasOf(reply.personas);
-  if (!claims || !personas) return null;
-  return { state: reply.state, business: named(reply.business), product: named(reply.product), claims, personas };
+  const knowledge = knowledgeOf(reply);
+  if (!claims || !personas || !knowledge) return null;
+  return { state: reply.state, business: named(reply.business), product: named(reply.product), claims, personas, ...knowledge };
 }
 
 /** One printed line per persona, its label padded to the claims' ids. */
 const personaLines = (personas: readonly Persona[], width: number): string[] => personas.map((p) =>
   `  ${'persona'.padEnd(width)}  ${p.name} (${p.stance}, ${p.trade}): ${p.who || '—'} — uses: ${p.usage || '—'}`);
+
+/** One printed line per Legal entry and per glossary term, their labels padded to `width`. */
+const knowledgeLines = (read: Business, width: number): string[] => [
+  ...read.legal.map((l) => `  ${l.id.padEnd(width)}  ${l.statement}${l.source ? ` (${l.source})` : ''} — owner: @${l.owner}`),
+  ...read.glossary.map((t) => `  ${'term'.padEnd(width)}  ${t.term}: ${t.meaning || '—'}${t.avoid.length ? ` — avoid: ${t.avoid.join(', ')}` : ''}`),
+];
 
 /** `a`, `a and b`, `a, b and c`. */
 const joined = (values: readonly string[]): string => (values.length < 2 ? values.join('') : `${values.slice(0, -1).join(', ')} and ${values.at(-1)}`);
@@ -156,8 +204,8 @@ function sentence(claims: readonly Claim[]): string {
 }
 
 /** The body `--json` prints when there is nothing to read. */
-const empty = (state: string, read: Business | null = null) =>
-  ({ state, business: read?.business ?? null, product: read?.product ?? null, claims: [], personas: read?.personas ?? [] });
+const empty = (state: string, read: Business | null = null): Business =>
+  ({ ...(read ?? { business: null, product: null, personas: [], legal: [], glossary: [] }), state, claims: [] });
 
 /** Where the read stopped, as the one line and the `--json` body. */
 function stopped(error: unknown): { state: string; line: string } {
@@ -265,13 +313,17 @@ async function claim(positional: string[], flags: { kind?: string; value?: strin
 function shown(repo: string, read: Business): [unknown, string[]] {
   if (read.state === 'none') {
     const line = read.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
-    return [empty('none', read), [line, ...personaLines(read.personas, 'persona'.length)]];
+    return [empty('none', read), [line, ...personaLines(read.personas, 'persona'.length), ...knowledgeLines(read, 'persona'.length)]];
   }
-  const idWidth = Math.max(...read.claims.map((claim) => claim.id.length), read.personas.length ? 'persona'.length : 0);
+  const idWidth = Math.max(
+    ...read.claims.map((claim) => claim.id.length), ...read.legal.map((l) => l.id.length),
+    read.personas.length ? 'persona'.length : 0, read.glossary.length ? 'term'.length : 0,
+  );
   return [read, [
     sentence(read.claims),
     ...read.claims.map((claim) => `  ${claim.id.padEnd(idWidth)}  ${claim.value}${claim.state === 'contradicted' ? CONTRADICTED : ''}`),
     ...personaLines(read.personas, idWidth),
+    ...knowledgeLines(read, idWidth),
   ]];
 }
 
