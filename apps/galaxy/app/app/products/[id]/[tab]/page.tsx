@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import '../../../../../src/products/products.css';
 import '../../../../../src/product-home/product-home.css';
+import '../../../../../src/product-home/constellation.css';
 import { memberSession } from '../../../../../src/data/member-session';
 import { LIVE_PRODUCT_HOME, productHomeViewOf } from '../../../../../src/product-home/product-home.controller';
 import { ProductHome } from '../../../../../src/product-home/ProductHome';

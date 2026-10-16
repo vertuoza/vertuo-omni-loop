@@ -1,0 +1,39 @@
+/* The Constellation tab (PRD 2129 s1): the product's repositories as stars on a sky, its declared `consumes`
+   as lines. Every colour is a token of src/ask/theme-tokens.ts, so it reads in Omni, Light and Dark. The sky
+   is --ask-sunk in every theme. Below 600 px the sky is 680 px wide inside its own frame, which scrolls
+   sideways and opens centred; the page itself never scrolls sideways. */
+
+.constellation { display: grid; gap: 12px; min-width: 0; }
+.constellation-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 14px; }
+
+.constellation-frame {
+  min-width: 0;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.constellation-sky { display: block; width: 100%; min-width: 680px; height: auto; scroll-snap-align: center; }
+
+.constellation-edge { fill: none; stroke: var(--ask-line-strong); stroke-width: 2; }
+
+.constellation-star { cursor: pointer; }
+.constellation-star:focus-visible { outline: none; }
+.constellation-star:focus-visible .constellation-body { stroke: var(--ask-cyan); stroke-width: 4; }
+.constellation-hit { fill: transparent; }
+.constellation-body { fill: var(--ask-surface); stroke: var(--ask-ink); stroke-width: 2; }
+.constellation-star[data-docked] .constellation-body { fill: none; stroke: var(--ask-muted); }
+.constellation-halo { fill: none; stroke: var(--ask-plasma); stroke-width: 2; stroke-dasharray: 4 4; }
+.constellation-mark { fill: var(--ask-ink); font-size: 18px; }
+.constellation-name { fill: var(--ask-ink); font: 700 14px var(--ask-mono); }
+.constellation-role { fill: var(--ask-muted); font-size: 12px; }
+.constellation-docked { fill: var(--ask-muted); font: 700 11px var(--ask-mono); letter-spacing: 0.14em; }
+
+.constellation-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 20px; color: var(--ask-muted); font-size: 14px; }
+.constellation-key { display: inline-block; min-width: 14px; margin-right: 4px; color: var(--ask-ink); }
+.constellation-key[data-key='also-in'] { width: 12px; height: 12px; border: 2px dashed var(--ask-plasma); border-radius: 50%; vertical-align: -2px; }
+
+@media (max-width: 599px) {
+  .constellation-sky { width: 680px; }
+}

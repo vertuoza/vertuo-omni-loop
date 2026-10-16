@@ -6,6 +6,7 @@ import { SectionTabs } from '../nav/SectionTabs';
 import { SituationNotice, type Situation } from '../products/ProductsScreen';
 import { DEMO_ROADMAP_ONE_REPO } from '../roadmap/page/demo';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { ConstellationTab } from './ConstellationTab';
 import { BugsTab, IdeasTab, QuestionsTab, RoadmapTab, VisualTab } from './HomeTabs';
 import type { Birthplace, HomePrd, LaneId, LedgerRow, ProductHome as Home, PrChip } from './product-home.service';
 import { ledeOf, productHomeTabHref, productHomeTabs, type ProductHomeTab } from './tabs';
@@ -80,6 +81,7 @@ export function demoProductHome(id: string): Home | null {
     ],
     bugs: [{ dossier: 'demo-bug-1', repo: 'acme/widgets', title: 'Totals round twice', created: '2026-10-03T09:00:00Z' }],
     visuals: [],
+    repositories: [],
     questions: [
       {
         dossier: approval.dossier, prdLabel: 'widgets-12', title: approval.title, repo: 'acme/mobile', id: 's2-01-upload-network', rank: 'high',
@@ -170,7 +172,7 @@ function Prds({ home }: { home: Home }) {
 }
 
 const PANELS: Readonly<Record<ProductHomeTab, (props: { home: Home; demo: boolean }) => ReactNode>> = {
-  ledger: Ledger, prds: Prds, ideas: IdeasTab, roadmap: RoadmapTab, bugs: BugsTab, visual: VisualTab, questions: QuestionsTab,
+  ledger: Ledger, constellation: ConstellationTab, prds: Prds, ideas: IdeasTab, roadmap: RoadmapTab, bugs: BugsTab, visual: VisualTab, questions: QuestionsTab,
 };
 
 function HomeScreen({ home, tab, demo }: { home: Home; tab: ProductHomeTab; demo: boolean }) {
