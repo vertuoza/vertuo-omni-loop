@@ -468,3 +468,161 @@ One number in the scene's words; showing the pitch as a number is one more line 
 ```
 
 <!-- /omni-outbox-settled: s4-03-pitch-meter-spans-sixty-hz-each-side -->
+
+<!-- omni-outbox-settled: s5-01-pause-resume-and-mic-lost-keys -->
+
+## s5-01-pause-resume-and-mic-lost-keys — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-pause-resume-and-mic-lost-keys
+prd: 2101
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+When a paused match resumes, which key asks for the microphone again, and how does a player leave a match whose microphone was lost?
+
+## The decision, in plain words
+
+START on the pause asks for the microphone again and the match plays on as soon as it is granted; a refusal keeps the pause up with the reason under it. On MIC LOST, A asks again and SELECT quits, sending the score, as it does on the pause.
+
+## The intro, for fun
+
+The match is frozen, the recording light is off, and the player wants back in.
+
+## The punchline, for fun
+
+One key wakes the microphone, another lets you walk away with your points.
+
+## The options, in plain words
+
+A. A. START resumes and asks for the microphone; MIC LOST takes A to retry and SELECT to quit.
+B. B. A asks for the microphone on the pause, then START resumes; MIC LOST takes A only.
+C. C. As A, and B leaves for the room from the pause and MIC LOST, with the score sent.
+
+## What I had to decide
+
+Keep START as the one key that resumes, and add SELECT to MIC LOST so a player without a microphone can still end the match and keep the score.
+
+## What I did meanwhile
+
+START resumes the pause by asking for the microphone; MIC LOST takes A to ask again and SELECT to quit. B does nothing during a match.
+
+## What it costs to change later
+
+A constant change in the game's press table (pong/art.ts) and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the microphone is asked for again with A when play resumes, and also that only START resumes: START was taken so the pause screen has one key to resume (author).
+- The spec gives MIC LOST only A to retry; SELECT · QUIT was added so a player whose microphone is gone is never stuck (author).
+- A pause from outside on the game over stops the microphone too, so A then plays again with it off (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-01-pause-resume-and-mic-lost-keys -->
+
+<!-- omni-outbox-settled: s5-02-in-match-pitch-meter-is-the-sign-only -->
+
+## s5-02-in-match-pitch-meter-is-the-sign-only — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-in-match-pitch-meter-is-the-sign-only
+prd: 2101
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+During the match, should the pitch meter beside the player's paddle show the bar of the heard pitch against the limit, or only the up, still or down sign?
+
+## The decision, in plain words
+
+During the match only the sign is drawn beside the paddle, small, on the court; the full meter with its bar stays on the ready screen, where the player tries their voice.
+
+## The intro, for fun
+
+The paddle is busy, the ball is fast, and there is not much room beside it.
+
+## The punchline, for fun
+
+One arrow says it all, the ruler stays in the waiting room.
+
+## The options, in plain words
+
+A. A. The sign alone beside the paddle during the match; the bar on the ready screen only.
+B. B. The sign and a thin bar beside the paddle during the match, as on the ready screen.
+
+## What I had to decide
+
+Keep the sign alone during the match, or ask for the bar to be drawn beside it too.
+
+## What I did meanwhile
+
+The match draws ▲, · or ▼ in pixels just right of the player's paddle, following it up and down.
+
+## What it costs to change later
+
+A few lines of drawing in the game's court (pong/art.ts) to add the bar, no change to the engine.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec's pitch meter during the match names the sign and a bar; the slice's done-when names only the steering sign beside the paddle, so the bar was left out (author).
+- Not yet seen with a real voice in a browser: how readable the sign is at speed is for a person to judge (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-02-in-match-pitch-meter-is-the-sign-only -->
