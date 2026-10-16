@@ -1,5 +1,7 @@
 import type { Board, Job, Runner, Target } from '../runners.contract';
 
+type RunnerHealth = NonNullable<Runner['health']>;
+
 // The Runners page's words (PRD 1830 s3), from the board the service reads: pure, so each runner state
 // and each job status is tested without a page. A runner reads Online, Busy, or Offline with when it
 // was last seen; a job reads Queued, Running with its time, Done, Failed with its reason (Runner lost,
@@ -38,7 +40,8 @@ function spanOf(ms: number): string {
 const since = (iso: string, now: Date) => Math.max(0, now.getTime() - Date.parse(iso));
 
 /** A runner's state in words: Online, Busy, or Offline with when it was last seen. */
-export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'>, now: Date): string {
+export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'> & { health?: Pick<RunnerHealth, 'paused'> | null | undefined }, now: Date): string {
+  if (runner.state !== 'offline' && runner.health?.paused) return `Paused: ${runner.health.paused}`;
   if (runner.state === 'online') return 'Online';
   if (runner.state === 'busy') return 'Busy';
   const ago = spanOf(since(runner.lastSeenAt, now));
