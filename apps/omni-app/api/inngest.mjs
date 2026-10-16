@@ -532,10 +532,10 @@ async function saysSpent(res) {
   if (res.headers.get("x-ratelimit-remaining") === "0" || res.status === 429) return true;
   return SECONDARY.test(await res.clone().text().catch(() => ""));
 }
-function worthWriting(known, reported, at3) {
+function worthWriting(known, reported, at4) {
   if (!known || known.limit !== reported.limit || known.resetAt !== reported.resetAt) return true;
   const step = reported.limit * BUDGET_STEP;
-  return at3 - known.updatedAt >= BUDGET_FRESH_MS || Math.abs(known.remaining - reported.remaining) >= step || reported.remaining < reported.limit * BACKGROUND_FLOOR + step;
+  return at4 - known.updatedAt >= BUDGET_FRESH_MS || Math.abs(known.remaining - reported.remaining) >= step || reported.remaining < reported.limit * BACKGROUND_FLOOR + step;
 }
 function refusal(budget, priority, now) {
   if (!budget) return null;
@@ -565,14 +565,14 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
       return null;
     }
   }
-  async function record(installation, resource, known, res, at3) {
+  async function record(installation, resource, known, res, at4) {
     const reported = budgetOf(res.headers);
     const answeredResource = res.headers.get("x-ratelimit-resource") || resource;
     const stale = answeredResource === resource ? known : null;
-    if (reported?.limit && worthWriting(stale, reported, at3)) await stored((s) => s.saveBudget(installation, answeredResource, { ...reported, at: at3 }));
-    const pauseUntil = await pauseOf(res, at3);
+    if (reported?.limit && worthWriting(stale, reported, at4)) await stored((s) => s.saveBudget(installation, answeredResource, { ...reported, at: at4 }));
+    const pauseUntil = await pauseOf(res, at4);
     if (pauseUntil === null) return;
-    await stored((s) => s.pause(installation, answeredResource, pauseUntil, at3));
+    await stored((s) => s.pause(installation, answeredResource, pauseUntil, at4));
     log2(`GitHub paused installation ${installation} (${answeredResource}) until ${new Date(pauseUntil).toISOString()}: answered ${res.status}, rate limit spent`);
     throw new GithubPaused(pauseUntil);
   }
@@ -580,16 +580,16 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     const conditional = (method ?? "GET").toUpperCase() === "GET" && resource === "core";
     return { conditional, kept: conditional ? await stored((s) => s.etag(installation, url)) : null };
   }
-  async function answerOf(installation, url, res, { conditional, kept: kept3 }, at3) {
+  async function answerOf(installation, url, res, { conditional, kept: kept3 }, at4) {
     if (res.status === 304 && kept3) {
-      if (at3 - kept3.readAt >= TOUCH_EVERY_MS) await stored((s) => s.touchEtag(installation, url, at3));
+      if (at4 - kept3.readAt >= TOUCH_EVERY_MS) await stored((s) => s.touchEtag(installation, url, at4));
       return fromStore(res, kept3);
     }
     const etag = res.headers.get("etag");
     if (!conditional || res.status !== 200 || !etag) return res;
     const body = await res.clone().text();
     if (body.length > MAX_STORED_BODY) return res;
-    await stored((s) => s.saveEtag(installation, url, { etag, body, contentType: res.headers.get("content-type"), at: at3 }));
+    await stored((s) => s.saveEtag(installation, url, { etag, body, contentType: res.headers.get("content-type"), at: at4 }));
     return res;
   }
   async function githubFetch(url, init) {
@@ -652,15 +652,15 @@ function supabaseGithubStore(db) {
       const row = rowOf(StoredEtagRow, data, "github_etags");
       return row ? { etag: row.etag, body: row.body, contentType: row.content_type, readAt: ms(row.read_at) } : null;
     },
-    async saveEtag(installation, url, { etag, body, contentType = null, at: at3 }) {
+    async saveEtag(installation, url, { etag, body, contentType = null, at: at4 }) {
       const { error } = await db.etags().upsert(
-        { installation_id: installation, url, etag, body, content_type: contentType, read_at: iso(at3) },
+        { installation_id: installation, url, etag, body, content_type: contentType, read_at: iso(at4) },
         { onConflict: "installation_id,url" }
       );
       refused("store an ETag", error);
     },
-    async touchEtag(installation, url, at3) {
-      const { error } = await db.etags().update({ read_at: iso(at3) }).eq("installation_id", installation).eq("url", url).select("url");
+    async touchEtag(installation, url, at4) {
+      const { error } = await db.etags().update({ read_at: iso(at4) }).eq("installation_id", installation).eq("url", url).select("url");
       refused("mark an ETag read", error);
     },
     async budget(installation, resource) {
@@ -670,19 +670,19 @@ function supabaseGithubStore(db) {
       return row ? { limit: row.limit, remaining: row.remaining, resetAt: ms(row.reset_at), pausedUntil: row.paused_until === null ? null : ms(row.paused_until), updatedAt: ms(row.updated_at) } : null;
     },
     /** What an answer reported; the columns it leaves out (paused_until) keep their value. */
-    async saveBudget(installation, resource, { limit, remaining, resetAt, at: at3 }) {
+    async saveBudget(installation, resource, { limit, remaining, resetAt, at: at4 }) {
       const { error } = await db.budget().upsert(
-        { installation_id: installation, resource, limit, remaining, reset_at: iso(resetAt), updated_at: iso(at3) },
+        { installation_id: installation, resource, limit, remaining, reset_at: iso(resetAt), updated_at: iso(at4) },
         { onConflict: "installation_id,resource" }
       );
       refused("store the GitHub budget", error);
     },
-    async pause(installation, resource, until, at3) {
-      const { data, error } = await db.budget().update({ paused_until: iso(until), updated_at: iso(at3) }).eq("installation_id", installation).eq("resource", resource).select("resource");
+    async pause(installation, resource, until, at4) {
+      const { data, error } = await db.budget().update({ paused_until: iso(until), updated_at: iso(at4) }).eq("installation_id", installation).eq("resource", resource).select("resource");
       refused("pause the GitHub budget", error);
       if ((rowOf(PausedRows, data, "github_budget") ?? []).length > 0) return;
       const inserted = await db.budget().upsert(
-        { installation_id: installation, resource, limit: 0, remaining: 0, reset_at: iso(until), paused_until: iso(until), updated_at: iso(at3) },
+        { installation_id: installation, resource, limit: 0, remaining: 0, reset_at: iso(until), paused_until: iso(until), updated_at: iso(at4) },
         { onConflict: "installation_id,resource" }
       );
       refused("pause the GitHub budget", inserted.error);
@@ -1343,8 +1343,8 @@ function checkTargets(targets, issues) {
   targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
     const own = targetShortName(repo);
     const others = names.filter((name) => name !== own);
-    consumes.forEach((name, at3) => {
-      const path = ["targets", index, "consumes", at3];
+    consumes.forEach((name, at4) => {
+      const path = ["targets", index, "consumes", at4];
       if (name === own) issues.addIssue({ code: "custom", path, message: `${name} is this target itself \u2014 a target never consumes itself` });
       else if (!others.includes(name)) {
         issues.addIssue({ code: "custom", path, message: `${name} names no other target of plan.targets by its short name (${others.join(", ") || "none"})` });
@@ -1716,12 +1716,12 @@ function dropUnrecognized(raw, issues) {
   let dropped = false;
   for (const issue of issues) {
     if (issue.code !== "unrecognized_keys") continue;
-    let at3 = raw;
-    for (const step of issue.path) at3 = isRecord(at3) ? at3[String(step)] : void 0;
-    if (!isRecord(at3)) continue;
+    let at4 = raw;
+    for (const step of issue.path) at4 = isRecord(at4) ? at4[String(step)] : void 0;
+    if (!isRecord(at4)) continue;
     for (const key of issue.keys) {
-      if (Object.hasOwn(at3, key)) {
-        Reflect.deleteProperty(at3, key);
+      if (Object.hasOwn(at4, key)) {
+        Reflect.deleteProperty(at4, key);
         dropped = true;
       }
     }
@@ -1785,6 +1785,16 @@ var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
 var ProductPrdIdSchema = z9.string().regex(PRODUCT_PRD).refine((id) => {
   const cut2 = id.lastIndexOf("-");
   return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
+var ProductRoadmapIdSchema = z9.string().regex(PRODUCT_ROADMAP).refine((id) => {
+  const cut2 = id.lastIndexOf("-R");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PRODUCT_BUG = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-B([1-9]\d{0,9})$/;
+var ProductBugIdSchema = z9.string().regex(PRODUCT_BUG).refine((id) => {
+  const cut2 = id.lastIndexOf("-B");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PrNumberSchema = z9.number().int().positive().brand();
 var CommentIdSchema = z9.number().int().positive().brand();
@@ -2266,10 +2276,10 @@ function splitSections(lines) {
   return { head, sections };
 }
 function readHead(head) {
-  const at3 = head.findIndex((line) => TITLE.test(line));
-  if (at3 === -1) return { title: null, opener: null };
-  const opener = head.slice(at3 + 1).map((line) => line.trim()).find((line) => line !== "" && !line.startsWith("<!--"));
-  return { title: head[at3]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
+  const at4 = head.findIndex((line) => TITLE.test(line));
+  if (at4 === -1) return { title: null, opener: null };
+  const opener = head.slice(at4 + 1).map((line) => line.trim()).find((line) => line !== "" && !line.startsWith("<!--"));
+  return { title: head[at4]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
   const text14 = raw.replace(COMMENT, "").trim();
@@ -2282,8 +2292,8 @@ function readBody(raw) {
   return { kind: "text", text: text14, see: null, questions };
 }
 function readSection(heading, lines) {
-  const at3 = lines.findIndex((line) => line.trim() !== "");
-  const first = at3 === -1 ? "" : (lines[at3] ?? "").trim();
+  const at4 = lines.findIndex((line) => line.trim() !== "");
+  const first = at4 === -1 ? "" : (lines[at4] ?? "").trim();
   if (!MARKER_START.test(first)) return { kind: "unmarked" };
   const marker2 = first.match(MARKER);
   if (!marker2) return { kind: "malformed", first };
@@ -2294,7 +2304,7 @@ function readSection(heading, lines) {
     required: need === "required",
     by: by === OLD_BY ? "invade" : by ?? null,
     verified: verified ?? null,
-    body: readBody(lines.slice(at3 + 1).join("\n"))
+    body: readBody(lines.slice(at4 + 1).join("\n"))
   };
   return { kind: "slot", slot, oldBy: by === OLD_BY };
 }
@@ -4002,9 +4012,9 @@ function ownersBlock(paths, owners) {
   return lines.join("\n");
 }
 function blockSpan(lines) {
-  const at3 = (marker2) => lines.flatMap((line, index) => line.trim() === marker2 ? [index] : []);
-  const begins = at3(OWNERS_BEGIN);
-  const ends = at3(OWNERS_END);
+  const at4 = (marker2) => lines.flatMap((line, index) => line.trim() === marker2 ? [index] : []);
+  const begins = at4(OWNERS_BEGIN);
+  const ends = at4(OWNERS_END);
   if (begins.length === 0 && ends.length === 0) return null;
   const [begin] = begins;
   const [end] = ends;
@@ -4416,9 +4426,9 @@ function parseNumbersMarker(body, markers) {
   if (value === "") return [];
   return value.split(",").flatMap((entry) => {
     const [numberPart, rest = ""] = entry.split(/=(.*)/s);
-    const at3 = rest.lastIndexOf("@");
-    const id = OutboxItemIdSchema.safeParse(rest.slice(0, at3));
-    return id.success ? [{ number: Number(numberPart), id: id.data, since: rest.slice(at3 + 1) }] : [];
+    const at4 = rest.lastIndexOf("@");
+    const id = OutboxItemIdSchema.safeParse(rest.slice(0, at4));
+    return id.success ? [{ number: Number(numberPart), id: id.data, since: rest.slice(at4 + 1) }] : [];
   });
 }
 function assignNumbers({
@@ -4974,6 +4984,14 @@ var WAVE_CELL = /^[1-9]\d*$/;
 var NONE_CELL = /^(?:|-|–|—|none)$/i;
 var ID_CELL = /^[^\s,|]+$/;
 var optionalText = z18.string().trim().min(1).optional();
+var ProductFrontMatterSchema = z18.object({
+  roadmap: z18.string().optional(),
+  title: z18.string().trim().min(1),
+  milestone: z18.string().trim().min(1),
+  product: optionalText,
+  target: z18.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
+  source: optionalText
+}).strict();
 var FrontMatterSchema2 = z18.object({
   roadmap: z18.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
   title: z18.string().trim().min(1),
@@ -4982,10 +5000,10 @@ var FrontMatterSchema2 = z18.object({
   target: z18.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
   source: optionalText
 }).strict();
-function frontMatter(raw) {
+function frontMatter(raw, schema) {
   const { data, errors: lineErrors } = parseFrontMatterLines(raw);
   const errors = lineErrors.map((message) => `front matter: ${message}.`);
-  const parsed2 = FrontMatterSchema2.safeParse(data, { error: KIT_MESSAGES });
+  const parsed2 = schema.safeParse(data, { error: KIT_MESSAGES });
   if (parsed2.success) return { data: parsed2.data, errors };
   for (const issue of parsed2.error.issues) {
     if (issue.code === "unrecognized_keys") {
@@ -5021,7 +5039,11 @@ function rowOpening(id, index, where) {
 function idListFaults(entries, where) {
   return entries.filter((entry) => !ID_CELL.test(entry)).map((entry) => `${where} "${entry}", which is no id.`);
 }
-function prdsOf(section4) {
+function repositoryPrd(cell3) {
+  const match = PRD_CELL.exec(cell3);
+  return match ? parsePrd(group(match, 1)) : null;
+}
+function prdsOf(section4, readPrd, cellWords) {
   if (!section4) return { rows: [], repos: false, faults: ['sections: no "## PRDs" section.'] };
   const table = firstTable(section4.lines);
   if (!table) return { rows: [], repos: false, faults: [`PRDs: no table; it holds one with the columns ${PRD_COLUMNS.join(", ")}.`] };
@@ -5032,8 +5054,8 @@ function prdsOf(section4) {
   table.rows.forEach((row, index) => {
     const id = cell3(row, "id");
     const { label: label2, rowFaults } = rowOpening(id, index, "PRDs");
-    const prdCell = PRD_CELL.exec(cell3(row, "PRD"));
-    if (!prdCell) rowFaults.push(`PRDs: ${label2} has the PRD cell "${cell3(row, "PRD")}", not #<number>.`);
+    const prd = readPrd(cell3(row, "PRD"));
+    if (prd === null) rowFaults.push(`PRDs: ${label2} has the PRD cell "${cell3(row, "PRD")}", not ${cellWords}.`);
     const title = cell3(row, "title");
     if (title === "") rowFaults.push(`PRDs: ${label2} has no title.`);
     const waveCell = cell3(row, "wave");
@@ -5042,10 +5064,10 @@ function prdsOf(section4) {
     rowFaults.push(...idListFaults(blockedBy, `PRDs: ${label2} is blocked by`));
     const why = cell3(row, "why");
     faults.push(...rowFaults);
-    if (rowFaults.length > 0 || !prdCell) return;
+    if (rowFaults.length > 0 || prd === null) return;
     rows.push({
       id,
-      prd: parsePrd(group(prdCell, 1)),
+      prd,
       title,
       repos: repos ? listCell(cell3(row, "repos")) : null,
       blockedBy,
@@ -5159,9 +5181,9 @@ function parseRoadmap(text14) {
   const block = FRONT_MATTER_BLOCK4.exec(text14);
   if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
   const [, raw = "", body = ""] = block;
-  const front = frontMatter(raw);
+  const front = frontMatter(raw, FrontMatterSchema2);
   const sections = sectionsOf(body);
-  const prds = prdsOf(sections.find((section4) => section4.name === "PRDs"));
+  const prds = prdsOf(sections.find((section4) => section4.name === "PRDs"), repositoryPrd, "#<number>");
   const questions = questionsOf(sections.find((section4) => section4.name === "Open questions"));
   const prerequisites = prerequisitesOf(sections.find((section4) => section4.name === "Prerequisites"));
   const errors = [...front.errors, ...prds.faults, ...questions.faults, ...prerequisites.faults];
@@ -5308,12 +5330,13 @@ function upstream(row, rows) {
   }
   return [...found.values()];
 }
-function rowRepoViolations(row, { names, readOnly }) {
+var PLAN_TARGETS = { is: (repo) => `${repo} is not a target of plan.targets`, readOnly: "read-only target" };
+function rowRepoViolations(row, { names, readOnly }, source) {
   const repos = row.repos ?? [];
   if (repos.length === 0) return [`${row.id}: names no repository.`];
   return repos.flatMap((repo) => {
-    if (!names.includes(repo)) return [`${row.id}: ${repo} is not a target of plan.targets (${names.join(", ")}).`];
-    return readOnly.has(repo) ? [`${row.id}: ${repo} is a read-only target \u2014 no roadmap row may name it.`] : [];
+    if (!names.includes(repo)) return [`${row.id}: ${source.is(repo)} (${names.join(", ")}).`];
+    return readOnly.has(repo) ? [`${row.id}: ${repo} is a ${source.readOnly} \u2014 no roadmap row may name it.`] : [];
   });
 }
 function consumerViolations(row, blocker, consumes) {
@@ -5326,15 +5349,15 @@ function consumerViolations(row, blocker, consumes) {
     ];
   });
 }
-function targetViolations(roadmap, rows, targets) {
-  if (!roadmap.repos) return ['PRDs: the table has no "repos" column; in a plan repository each row names its repositories.'];
+function targetViolations(roadmap, rows, targets, source = PLAN_TARGETS, where = "in a plan repository") {
+  if (!roadmap.repos) return [`PRDs: the table has no "repos" column; ${where} each row names its repositories.`];
   const rules = {
     names: targets.map((target2) => shortName(target2.repo)),
     readOnly: new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName(target2.repo))),
     consumes: new Map(targets.map((target2) => [shortName(target2.repo), target2.consumes ?? []]))
   };
   return roadmap.prds.flatMap((row) => [
-    ...rowRepoViolations(row, rules),
+    ...rowRepoViolations(row, rules, source),
     ...upstream(row, rows).flatMap((blocker) => consumerViolations(row, blocker, rules.consumes))
   ]);
 }
@@ -5375,10 +5398,10 @@ function prdFacts(ctx, prd) {
   return parsed2.ok ? { blockedBy: parsed2.record.blockedBy } : "unreadable";
 }
 function gradeRoadmapFile(ctx, entry) {
-  const at3 = (message) => `${entry.file}: ${message}`;
-  if (!existsSync13(join12(ctx.root, entry.file))) return { ...entry, roadmap: null, violations: [at3("roadmap.md is missing.")] };
+  const at4 = (message) => `${entry.file}: ${message}`;
+  if (!existsSync13(join12(ctx.root, entry.file))) return { ...entry, roadmap: null, violations: [at4("roadmap.md is missing.")] };
   const parsed2 = parseRoadmap(readRepoFile(ctx, entry.file));
-  if (!parsed2.ok) return { ...entry, roadmap: null, violations: parsed2.errors.map(at3) };
+  if (!parsed2.ok) return { ...entry, roadmap: null, violations: parsed2.errors.map(at4) };
   const { roadmap } = parsed2;
   const violations = [];
   if (roadmap.roadmap !== entry.number) {
@@ -5386,7 +5409,7 @@ function gradeRoadmapFile(ctx, entry) {
   }
   const targets = ctx.config.plan?.targets ?? null;
   violations.push(...gradeRoadmap(roadmap, { prdFacts: (prd) => prdFacts(ctx, prd), targets }));
-  return { ...entry, roadmap, violations: violations.map(at3) };
+  return { ...entry, roadmap, violations: violations.map(at4) };
 }
 function gradeRoadmaps(ctx) {
   return roadmapFiles(ctx).map((entry) => gradeRoadmapFile(ctx, entry));
@@ -5441,17 +5464,17 @@ function lineProblems(text14, field4) {
   return count2 > MAX_SENTENCES ? [`${field4} holds ${count2} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
-  const at3 = `personas[${i}]`;
-  if (!isRecord2(persona)) return [`${at3} must be an object.`];
+  const at4 = `personas[${i}]`;
+  if (!isRecord2(persona)) return [`${at4} must be an object.`];
   const problems = [];
-  if (!isText(persona.name)) problems.push(`${at3}.name must be a name.`);
-  if (!KNOWN_STANCES.includes(persona.stance)) problems.push(`${at3}.stance must be one of ${STANCES.join(", ")}.`);
+  if (!isText(persona.name)) problems.push(`${at4}.name must be a name.`);
+  if (!KNOWN_STANCES.includes(persona.stance)) problems.push(`${at4}.stance must be one of ${STANCES.join(", ")}.`);
   const { score } = persona;
   if (typeof score !== "number" || !Number.isInteger(score) || score < 1 || score > 5) {
-    problems.push(`${at3}.score must be a whole number from 1 to 5.`);
+    problems.push(`${at4}.score must be a whole number from 1 to 5.`);
   }
-  problems.push(...lineProblems(persona.reaction, `${at3}.reaction`));
-  problems.push(...citationProblems(persona.citations, `${at3}.citations`));
+  problems.push(...lineProblems(persona.reaction, `${at4}.reaction`));
+  problems.push(...citationProblems(persona.citations, `${at4}.citations`));
   return problems;
 }
 function objectionProblems(objection, names) {
@@ -6920,21 +6943,21 @@ async function targetOf(octokit, { owner, repo, prNumber }) {
   if (product) return { kind: "product", name, prd: product };
   const subject = subjectOf(pr, config, `${owner}/${repo}`);
   if ("skip" in subject) return null;
-  let at3;
+  let at4;
   let which;
   if (subject.kind === "feature") {
-    at3 = { owner, repo, ref: pr.headSha, config };
+    at4 = { owner, repo, ref: pr.headSha, config };
     which = (folder2) => folder2.topic === subject.topic;
   } else {
     const feature = await featurePullOf(octokit, { slug: subject.repo, prd: subject.prd });
     if ("held" in feature) return { kind: "repo", name, prd: subject.prd, held: feature.held, head: pr.headSha };
     const [planOwner = "", planRepo = ""] = subject.repo.split("/");
-    at3 = { owner: planOwner, repo: planRepo, ref: feature.pull.headSha, config: feature.config };
+    at4 = { owner: planOwner, repo: planRepo, ref: feature.pull.headSha, config: feature.config };
     which = (folder2) => folder2.prd === subject.prd;
   }
-  const folder = await prdFolderAt(octokit, { ...at3, which });
+  const folder = await prdFolderAt(octokit, { ...at4, which });
   if (!folder) return null;
-  const source = { owner: at3.owner, repo: at3.repo, ref: at3.ref, paths: at3.config.paths };
+  const source = { owner: at4.owner, repo: at4.repo, ref: at4.ref, paths: at4.config.paths };
   return { kind: "repo", name, prd: folder.prd, source, dir: folder.dir };
 }
 async function judgedAt(octokit, target2, ask3) {
@@ -7217,12 +7240,12 @@ function workingStart(date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
 }
 function addWorkingDays(start, days) {
-  let at3 = workingStart(start);
+  let at4 = workingStart(start);
   for (let left = days; left > 0; ) {
-    at3 = new Date(at3.getTime() + DAY_MS);
-    if (!isWeekend(at3)) left -= 1;
+    at4 = new Date(at4.getTime() + DAY_MS);
+    if (!isWeekend(at4)) left -= 1;
   }
-  return at3;
+  return at4;
 }
 var bare = (login) => login.replace(/^@/, "");
 var loginOf = (owner) => bare(typeof owner === "string" ? owner : owner.login);
@@ -7550,17 +7573,17 @@ function createFailureHandler({ octokitFor, log: log2 = noteTo("outbox-check") }
     return { checkRunIds, name, reason: reason2 };
   }));
 }
-async function targetOrUnknown(octokit, at3) {
+async function targetOrUnknown(octokit, at4) {
   try {
-    return await checkTarget(octokit, at3);
+    return await checkTarget(octokit, at4);
   } catch (error) {
     if (budgetRefusal(error)) throw error;
     return null;
   }
 }
-async function openRunsFailed(octokit, at3) {
+async function openRunsFailed(octokit, at4) {
   try {
-    return await completeAsFailure(octokit, { ...at3, create: false });
+    return await completeAsFailure(octokit, { ...at4, create: false });
   } catch (error) {
     if (budgetRefusal(error)) throw error;
     return [];
@@ -7739,9 +7762,9 @@ function resolveTerritory(flow, territory) {
   const hooks = {};
   const replace = [];
   for (const { point } of FLOW_POINTS) {
-    const at3 = hooksAt(touched2, point);
-    hooks[point] = at3.hooks;
-    if (at3.conflict.length > 0) replace.push({ point, hooks: at3.conflict });
+    const at4 = hooksAt(touched2, point);
+    hooks[point] = at4.hooks;
+    if (at4.conflict.length > 0) replace.push({ point, hooks: at4.conflict });
   }
   return {
     areas,
@@ -7758,14 +7781,14 @@ function combinedRules(touched2) {
 }
 var uniqueHooks = (hooks) => hooks.filter((hook, index) => hooks.findIndex(({ area: area2, path }) => area2 === hook.area && path === hook.path) === index);
 function hooksAt(touched2, point) {
-  const at3 = touched2.flatMap(({ hooks }) => hooks[point] ?? []);
-  const replaces = uniqueHooks(at3.flatMap(({ replace }) => replace ? [replace] : []));
+  const at4 = touched2.flatMap(({ hooks }) => hooks[point] ?? []);
+  const replaces = uniqueHooks(at4.flatMap(({ replace }) => replace ? [replace] : []));
   const own = replaces.filter(({ area: area2 }) => area2 !== DEFAULT_AREA);
   return {
     hooks: {
-      before: uniqueHooks(at3.flatMap(({ before: before2 }) => before2)),
+      before: uniqueHooks(at4.flatMap(({ before: before2 }) => before2)),
       replace: own[0] ?? replaces[0] ?? null,
-      after: uniqueHooks(at3.flatMap(({ after }) => after))
+      after: uniqueHooks(at4.flatMap(({ after }) => after))
     },
     conflict: new Set(own.map(({ path }) => path)).size > 1 ? own : []
   };
@@ -8719,18 +8742,18 @@ function chronological(comments) {
   return [...comments].sort((a, b) => time(a.created_at) - time(b.created_at) || a.id - b.id);
 }
 function lastReaskedAt(comments, markers) {
-  const at3 = /* @__PURE__ */ new Map();
+  const at4 = /* @__PURE__ */ new Map();
   let highestRound = 0;
   for (const comment of comments) {
     const rounds = parseRoundMarkers([comment], markers);
     for (const [number, round] of rounds) {
       highestRound = Math.max(highestRound, round);
       const when = time(comment.created_at);
-      const previous2 = at3.get(number);
-      if (previous2 === void 0 || when > previous2) at3.set(number, when);
+      const previous2 = at4.get(number);
+      if (previous2 === void 0 || when > previous2) at4.set(number, when);
     }
   }
-  return { at: at3, highestRound };
+  return { at: at4, highestRound };
 }
 function answerableQuestions(numbering, items, adopted) {
   const itemsById = new Map(items.map((item) => [item.id, item]));
@@ -9030,7 +9053,7 @@ var OutboxServerError = class extends Error {
     this.status = status;
   }
 };
-var heldLine2 = (at3) => `held \xB7 server unreachable since ${at3} \xB7 held, not failed`;
+var heldLine2 = (at4) => `held \xB7 server unreachable since ${at4} \xB7 held, not failed`;
 var ANSWERED_REFUSALS = /* @__PURE__ */ new Set([400, 409, 422]);
 var SettlementSchema = z31.object({
   verdict: z31.enum(["agreed", "drifted", ADOPTED_VERDICT]),
@@ -9539,12 +9562,85 @@ function recordReader({ url, key, fetch: fetch2 }) {
   };
 }
 
-// apps/omni-app/src/inbox-check/canon-actions.ts
+// apps/omni-app/src/fix-rows/fix-stamp.ts
 import { z as z35 } from "zod";
+var FIX_STAMP_EVENT = "omni-loop/fix.stamp.requested";
+var FixStampKindSchema = z35.enum(["merged", "closed", "reopened"]);
+var at3 = z35.string().refine((value) => !Number.isNaN(Date.parse(value)), "a time");
+var FixStampDataSchema = z35.looseObject({
+  installationId: z35.number(),
+  repository: z35.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+  prNumber: PrNumberSchema,
+  kind: FixStampKindSchema,
+  at: at3,
+  bug: ProductBugIdSchema.nullable()
+});
+
+// apps/omni-app/src/fix-rows/fix-row-stamp.ts
+var FIX_ROW_STAMP_FUNCTION_ID = "fix-row-stamp";
+function createFixRowStamp({
+  client,
+  stamp,
+  log: log2 = noteTo("fix-row-stamp")
+}) {
+  return client.createFunction(
+    { id: FIX_ROW_STAMP_FUNCTION_ID, name: "omni-loop \xB7 fix row stamp", triggers: [{ event: FIX_STAMP_EVENT }], retries: 3 },
+    async ({ event, step }) => {
+      const data = FixStampDataSchema.parse(event.data);
+      const pull = `${data.repository}#${String(data.prNumber)}`;
+      if (!stamp) {
+        log2(`fix stamp: ${pull} ${data.kind} stamps nothing: the App cannot reach the server here`);
+        return { pull, kind: data.kind, stamped: false };
+      }
+      const { repository, prNumber, kind, at: at4, bug } = data;
+      const answer = await step.run("stamp", () => stamp({ repository, prNumber, kind, at: at4, bug }));
+      for (const shipped of answer.shipped) log2(`fix stamp: ${pull} merged, the last fix of ${shipped}: it ships`);
+      if (answer.unmatched !== null) log2(`fix stamp: ${pull} merged, matching no row of ${answer.unmatched}: kept as unmatched merge ${pull.toLowerCase()}`);
+      return {
+        pull,
+        kind,
+        rows: answer.rows.map((row) => `${row.bug} row ${String(row.position)} ${row.state}`),
+        shipped: answer.shipped,
+        unmatched: answer.unmatched
+      };
+    }
+  );
+}
+
+// apps/omni-app/src/fix-rows/stamp.ts
+import { z as z36 } from "zod";
+var StampedRowSchema = z36.object({
+  bug: ProductBugIdSchema,
+  dossierId: z36.string().min(1),
+  position: z36.number().int().positive(),
+  state: z36.enum(["open", "merged", "closed"])
+});
+var StampAnswerSchema = z36.object({
+  rows: z36.array(StampedRowSchema),
+  shipped: z36.array(ProductBugIdSchema),
+  unmatched: ProductBugIdSchema.nullable()
+});
+function fixRowStamper(connection) {
+  const db = serviceDb(connection);
+  return async ({ repository, prNumber, kind, at: at4, bug }) => {
+    const { data, error } = await db.rpc("fix_row_stamp", {
+      p_repo: repository,
+      p_pull: prNumber,
+      p_event: kind,
+      p_at: at4,
+      ...bug === null ? {} : { p_bug: bug }
+    });
+    if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+    return StampAnswerSchema.parse(data);
+  };
+}
+
+// apps/omni-app/src/inbox-check/canon-actions.ts
+import { z as z37 } from "zod";
 var CANON_ACTION_EVENT = "omni-loop/canon.action.requested";
 var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
 var MAX_LABEL = 20;
-var MarkerSchema = z35.looseObject({ prd: z35.unknown(), persona: z35.unknown(), claims: z35.unknown() });
+var MarkerSchema = z37.looseObject({ prd: z37.unknown(), persona: z37.unknown(), claims: z37.unknown() });
 function canonActions(canon) {
   if (canon?.state !== "red") return [];
   const persona = canon.persona?.name;
@@ -9903,20 +9999,20 @@ function plainCell(cell3) {
 }
 function parsePlanRepositories(markdown) {
   const rows = [];
-  for (const at3 of sectionTable(markdown, "repositories")) {
-    const repo = at3("repo");
+  for (const at4 of sectionTable(markdown, "repositories")) {
+    const repo = at4("repo");
     if (!repo) continue;
-    rows.push({ repo, role: at3("role"), readAt: at3("read at"), knowledge: at3("knowledge") });
+    rows.push({ repo, role: at4("role"), readAt: at4("read at"), knowledge: at4("knowledge") });
   }
   return rows;
 }
 function parsePlanLandings(markdown) {
   const rows = [];
-  for (const at3 of sectionTable(markdown, "landings")) {
-    const landing = at3("landing");
+  for (const at4 of sectionTable(markdown, "landings")) {
+    const landing = at4("landing");
     if (!landing) continue;
-    const mergeWhen = at3("merge when");
-    rows.push({ landing: Number(landing), name: at3("name"), mergeWhen: NOTHING.test(mergeWhen) ? "" : mergeWhen });
+    const mergeWhen = at4("merge when");
+    rows.push({ landing: Number(landing), name: at4("name"), mergeWhen: NOTHING.test(mergeWhen) ? "" : mergeWhen });
   }
   return rows;
 }
@@ -9982,11 +10078,11 @@ function collisionRows(slices, generated = []) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   const landingOf = new Map(slices.map((slice) => [slice.id, slice.landing ?? 1]));
   const landed = slices.some((slice) => (slice.landing ?? 1) !== 1);
-  const at3 = (id) => `${landed ? `l${landingOf.get(id)}` : ""}w${waveOf.get(id)}`;
+  const at4 = (id) => `${landed ? `l${landingOf.get(id)}` : ""}w${waveOf.get(id)}`;
   return collisions(slices, generated).map(({ left, right, shared }) => ({
     pair: `${left} \xB7 ${right}`,
     shared: shared.map((ground) => `\`${ground}\``).join(", "),
-    resolved: `${left} ${at3(left)} \xB7 ${right} ${at3(right)}`
+    resolved: `${left} ${at4(left)} \xB7 ${right} ${at4(right)}`
   }));
 }
 
@@ -10833,7 +10929,7 @@ import {
 } from "node:fs";
 import { tmpdir as tmpdir9 } from "node:os";
 import { dirname as dirname11, join as join56 } from "node:path";
-import { z as z38 } from "zod";
+import { z as z40 } from "zod";
 
 // kit/lib/delivery/ship.ts
 import { execFileSync as execFileSync6 } from "node:child_process";
@@ -11023,18 +11119,18 @@ function movedPath(moves, file) {
 // kit/lib/outbox/settle-merge.ts
 import { existsSync as existsSync38 } from "node:fs";
 import { join as join50 } from "node:path";
-import { z as z36 } from "zod";
+import { z as z38 } from "zod";
 var MERGED_OVER_RED_BASIS = "merged-over-red";
 var MERGED_OVER_RED_REASON = "the feature pull request merged while this item was open; merging adopts what was built";
-var PrField = z36.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
-var MergeSchema = z36.object({
-  by: z36.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z36.string().min(1, "merge.by is required \u2014 who merged")),
-  at: z36.string().regex(
+var PrField = z38.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
+var MergeSchema = z38.object({
+  by: z38.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z38.string().min(1, "merge.by is required \u2014 who merged")),
+  at: z38.string().regex(
     /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
     "merge.at must be an ISO date or date-time"
   ),
   pr: PrField,
-  url: z36.string().trim().min(1).optional()
+  url: z38.string().trim().min(1).optional()
 }).strict();
 function mergeAnswer(merge) {
   return {
@@ -11603,7 +11699,7 @@ function gradeKnowledge({
 // kit/lib/knowledge/classify.ts
 import { existsSync as existsSync41, readFileSync as readFileSync37 } from "node:fs";
 import { join as join53 } from "node:path";
-import { z as z37 } from "zod";
+import { z as z39 } from "zod";
 
 // kit/lib/knowledge/look-rule.ts
 var LOOK_RULE = "An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.";
@@ -11615,36 +11711,36 @@ var NEW_PRINCIPLE = "new";
 var CAPS = Object.freeze({ statement: 300, principle: 300, reason: 200 });
 var RECORD_ID = /^ADR-(\d{4})$/;
 function capped(field4, max) {
-  return z37.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`).max(max, `${field4} is over its cap of ${max} characters`);
+  return z39.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`).max(max, `${field4} is over its cap of ${max} characters`);
 }
-var text9 = (field4) => z37.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`);
+var text9 = (field4) => z39.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`);
 var statement = capped("statement", CAPS.statement);
 var reason = capped("reason", CAPS.reason);
 var MAX_ENFORCED_BY = 3;
-var enforcedBy = z37.array(text9("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
-var worthALaw = z37.boolean({ error: "worthALaw must be true or false" }).optional();
-var ClassificationSchema = z37.discriminatedUnion(
+var enforcedBy = z39.array(text9("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
+var worthALaw = z39.boolean({ error: "worthALaw must be true or false" }).optional();
+var ClassificationSchema = z39.discriminatedUnion(
   "kind",
   [
-    z37.object({
-      kind: z37.literal("adr"),
+    z39.object({
+      kind: z39.literal("adr"),
       title: text9("title").refine((value) => !value.includes("\n"), "title must be one line"),
       statement,
       reason
     }).strict(),
-    z37.object({ kind: z37.literal("invariant"), place: text9("place"), statement, enforcedBy, worthALaw, reason }).strict(),
-    z37.object({
-      kind: z37.literal("rule"),
+    z39.object({ kind: z39.literal("invariant"), place: text9("place"), statement, enforcedBy, worthALaw, reason }).strict(),
+    z39.object({
+      kind: z39.literal("rule"),
       place: text9("place"),
       statement,
       serves: text9("serves"),
-      principle: z37.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
+      principle: z39.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
       enforcedBy,
       worthALaw,
       reason
     }).strict(),
-    z37.object({ kind: z37.literal("covered"), covers: text9("covers"), reason }).strict(),
-    z37.object({ kind: z37.literal("stays-here"), statement, reason }).strict()
+    z39.object({ kind: z39.literal("covered"), covers: text9("covers"), reason }).strict(),
+    z39.object({ kind: z39.literal("stays-here"), statement, reason }).strict()
   ],
   { error: () => `kind must be one of: ${CLASSIFICATION_KINDS.join(", ")}` }
 ).superRefine((reply, context) => {
@@ -12051,13 +12147,13 @@ function addLedgerLine(text14, { id, line, markers }) {
   if (open === -1) return null;
   const close = lines.indexOf(markers.settledClose(id), open);
   const end = close === -1 ? lines.length : close;
-  let at3 = -1;
+  let at4 = -1;
   for (let index = open + 1; index < end; index += 1) {
-    if (/^- [A-Za-z][A-Za-z ]*: /.test(lines[index] ?? "")) at3 = index;
-    else if (at3 !== -1) break;
+    if (/^- [A-Za-z][A-Za-z ]*: /.test(lines[index] ?? "")) at4 = index;
+    else if (at4 !== -1) break;
   }
-  if (at3 === -1) return null;
-  lines.splice(at3 + 1, 0, line);
+  if (at4 === -1) return null;
+  lines.splice(at4 + 1, 0, line);
   return lines.join("\n");
 }
 function servedBy2(reply, nextPrinciple) {
@@ -12241,8 +12337,8 @@ function landLaw({
   const write2 = !yes || issue !== null;
   const entry = writeRegisterEntry({ ...run, reply, enforced: issue === null ? enforcedValue(proof.kept) : `pending #${issue}`, write: write2 });
   if (!write2) {
-    const at3 = { entry: defined(entry.landedAs[0], `the id of ${candidate.id}`), register: entry.path, statement: oneLine2(reply.statement), source };
-    return { heldBack: { id: candidate.id, ...at3, title: `Law: ${at3.statement}`, body: lawIssueBody(at3) } };
+    const at4 = { entry: defined(entry.landedAs[0], `the id of ${candidate.id}`), register: entry.path, statement: oneLine2(reply.statement), source };
+    return { heldBack: { id: candidate.id, ...at4, title: `Law: ${at4.statement}`, body: lawIssueBody(at4) } };
   }
   const extra = { enforcedBy: proof.kept, dropped: proof.dropped, ...yes ? { law: { ...chosen.worth, issue } } : {} };
   return { kind: reply.kind, touched: entry.touched, landedAs: entry.landedAs, status: null, note: null, extra };
@@ -12252,7 +12348,7 @@ function landLaw({
 var REFUSED_TWICE = "the model's reply was refused twice";
 var NO_PLACE = "this repository has no knowledge folder and no decision-record folder";
 var CLASSIFY_SYSTEM = "You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.";
-var PullFilesSchema = z38.array(z38.looseObject({ filename: z38.string().min(1), status: z38.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
+var PullFilesSchema = z40.array(z40.looseObject({ filename: z40.string().min(1), status: z40.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
 function keptPaths(changed) {
   return changed.filter((file) => KEPT_STATUSES.includes(file.status)).map((file) => file.path);
 }
@@ -12704,7 +12800,7 @@ function parseSaved(schema, value, id) {
 }
 
 // apps/omni-app/src/verdict-comment/verdict-comment.ts
-import { z as z39 } from "zod";
+import { z as z41 } from "zod";
 async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text14 }) {
   const body = `${marker2}
 ${String(text14).trimEnd()}
@@ -12728,7 +12824,7 @@ ${String(text14).trimEnd()}
   });
   return { commentId: CommentWrittenSchema.parse(data).id, created: true };
 }
-var FailureCommentSchema = z39.object({ commentId: CommentIdSchema, reason: z39.string(), created: z39.boolean() });
+var FailureCommentSchema = z41.object({ commentId: CommentIdSchema, reason: z41.string(), created: z41.boolean() });
 var COMMENT_FAILURE_STEP = "comment-failure";
 function commentOnFailure(octokitFor, step, { installationId, owner, repo }, schema, comment) {
   const run = async () => {
@@ -12744,24 +12840,24 @@ import { tmpdir as tmpdir11 } from "node:os";
 import { join as join58 } from "node:path";
 
 // apps/omni-app/src/knowledge-harvest/schema.ts
-import { z as z40 } from "zod";
-var HarvestEventSchema = z40.looseObject({
-  installationId: z40.number(),
-  owner: z40.string(),
-  repo: z40.string(),
+import { z as z42 } from "zod";
+var HarvestEventSchema = z42.looseObject({
+  installationId: z42.number(),
+  owner: z42.string(),
+  repo: z42.string(),
   prNumber: PrNumberSchema
 });
 var FailedHarvestEventSchema = HarvestEventSchema.partial();
-var PullMergeSchema = z40.looseObject({
-  merged: z40.boolean().nullish(),
-  merged_at: z40.string().nullish(),
-  merged_by: z40.looseObject({ login: z40.string().nullish() }).nullish(),
-  merge_commit_sha: z40.string().nullish(),
-  html_url: z40.string().nullish()
+var PullMergeSchema = z42.looseObject({
+  merged: z42.boolean().nullish(),
+  merged_at: z42.string().nullish(),
+  merged_by: z42.looseObject({ login: z42.string().nullish() }).nullish(),
+  merge_commit_sha: z42.string().nullish(),
+  html_url: z42.string().nullish()
 });
-var RefSchema3 = z40.looseObject({ object: z40.looseObject({ sha: z40.string() }) });
-var OpenPullSchema = z40.looseObject({ head: z40.looseObject({ ref: z40.string().nullish() }).nullish() });
-var CommitSchema = z40.looseObject({ message: z40.string().nullish() });
+var RefSchema3 = z42.looseObject({ object: z42.looseObject({ sha: z42.string() }) });
+var OpenPullSchema = z42.looseObject({ head: z42.looseObject({ ref: z42.string().nullish() }).nullish() });
+var CommitSchema = z42.looseObject({ message: z42.string().nullish() });
 function parsedOr(schema, value, context) {
   const parsed2 = schema.safeParse(value);
   if (parsed2.success) return parsed2.data;
@@ -12769,124 +12865,124 @@ function parsedOr(schema, value, context) {
   const field4 = issue && issue.path.length > 0 ? issue.path.join(".") : "(answer)";
   throw new Error(`${context}: ${field4}: ${issue?.message ?? parsed2.error.message}`);
 }
-var MergeSchema2 = z40.object({ by: z40.string(), at: z40.string(), pr: PrNumberSchema, url: z40.string().exactOptional() });
-var QualifiedSchema = z40.union([
-  z40.object({ skip: z40.string() }),
-  z40.object({
-    skip: z40.null(),
+var MergeSchema2 = z42.object({ by: z42.string(), at: z42.string(), pr: PrNumberSchema, url: z42.string().exactOptional() });
+var QualifiedSchema = z42.union([
+  z42.object({ skip: z42.string() }),
+  z42.object({
+    skip: z42.null(),
     config: ConfigSchema,
-    prd: z40.object({ number: PrdNumberSchema, topic: z40.string(), title: z40.string() }),
+    prd: z42.object({ number: PrdNumberSchema, topic: z42.string(), title: z42.string() }),
     merge: MergeSchema2
   })
 ]);
-var MoveSchema = z40.object({ from: z40.string(), to: z40.string() });
-var EditsSchema = z40.object({
-  deletes: z40.array(z40.string()),
-  moves: z40.array(MoveSchema),
-  writes: z40.array(z40.object({ path: z40.string(), text: z40.string() }))
+var MoveSchema = z42.object({ from: z42.string(), to: z42.string() });
+var EditsSchema = z42.object({
+  deletes: z42.array(z42.string()),
+  moves: z42.array(MoveSchema),
+  writes: z42.array(z42.object({ path: z42.string(), text: z42.string() }))
 });
-var ItemSectionsSchema = z40.object({
-  questionPlain: z40.string().nullable().exactOptional(),
-  decisionPlain: z40.string().nullable().exactOptional(),
-  options: z40.array(z40.object({ letter: z40.string(), text: z40.string() })).nullable().exactOptional(),
-  personSteps: z40.string().nullable().exactOptional(),
-  whatIHadToDecide: z40.string().nullable().exactOptional(),
-  whatIDidMeanwhile: z40.string().nullable().exactOptional(),
-  whatItCostsToChangeLater: z40.string().nullable().exactOptional()
+var ItemSectionsSchema = z42.object({
+  questionPlain: z42.string().nullable().exactOptional(),
+  decisionPlain: z42.string().nullable().exactOptional(),
+  options: z42.array(z42.object({ letter: z42.string(), text: z42.string() })).nullable().exactOptional(),
+  personSteps: z42.string().nullable().exactOptional(),
+  whatIHadToDecide: z42.string().nullable().exactOptional(),
+  whatIDidMeanwhile: z42.string().nullable().exactOptional(),
+  whatItCostsToChangeLater: z42.string().nullable().exactOptional()
 });
-var CandidateSchema = z40.object({
-  id: z40.string(),
-  verdict: z40.string().nullable(),
-  answer: z40.string(),
-  itemText: z40.string(),
-  item: z40.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
+var CandidateSchema = z42.object({
+  id: z42.string(),
+  verdict: z42.string().nullable(),
+  answer: z42.string(),
+  itemText: z42.string(),
+  item: z42.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
 });
-var SummarySchema = z40.object({
-  places: z40.object({ adr: z40.boolean(), knowledge: z40.boolean() }),
-  domains: z40.array(z40.object({ name: z40.string(), firstLine: z40.string().nullable() })),
-  principles: z40.array(z40.object({ id: z40.string(), place: z40.string(), statement: z40.string() })),
-  decisions: z40.array(z40.object({ number: z40.string(), title: z40.string().nullable() })),
-  laws: z40.array(
-    z40.object({ id: z40.string(), kind: z40.enum(["principle", "rule", "invariant"]).nullable(), place: z40.string(), statement: z40.string() })
+var SummarySchema = z42.object({
+  places: z42.object({ adr: z42.boolean(), knowledge: z42.boolean() }),
+  domains: z42.array(z42.object({ name: z42.string(), firstLine: z42.string().nullable() })),
+  principles: z42.array(z42.object({ id: z42.string(), place: z42.string(), statement: z42.string() })),
+  decisions: z42.array(z42.object({ number: z42.string(), title: z42.string().nullable() })),
+  laws: z42.array(
+    z42.object({ id: z42.string(), kind: z42.enum(["principle", "rule", "invariant"]).nullable(), place: z42.string(), statement: z42.string() })
   )
 });
-var SettledSchema = z40.object({
-  tip: z40.string(),
-  prepared: z40.object({
-    ok: z40.literal(true),
+var SettledSchema = z42.object({
+  tip: z42.string(),
+  prepared: z42.object({
+    ok: z42.literal(true),
     prd: PrdNumberSchema,
     edits: EditsSchema,
-    settled: z40.array(z40.object({ id: z40.string(), from: z40.enum(["open", "drift"]) })),
-    shipped: z40.array(MoveSchema),
-    candidates: z40.array(CandidateSchema),
+    settled: z42.array(z42.object({ id: z42.string(), from: z42.enum(["open", "drift"]) })),
+    shipped: z42.array(MoveSchema),
+    candidates: z42.array(CandidateSchema),
     summary: SummarySchema,
-    changed: z40.array(z40.object({ path: z40.string(), status: z40.string() }))
+    changed: z42.array(z42.object({ path: z42.string(), status: z42.string() }))
   })
 });
-var ClassificationOutSchema = z40.object({
-  id: z40.string(),
+var ClassificationOutSchema = z42.object({
+  id: z42.string(),
   reply: ClassificationSchema.nullable(),
-  reason: z40.string().nullable(),
-  error: z40.string().nullable()
+  reason: z42.string().nullable(),
+  error: z42.string().nullable()
 });
-var PlacedSchema = z40.object({
-  id: z40.string(),
-  kind: z40.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
-  landedAs: z40.array(z40.string()),
-  files: z40.array(z40.string()),
-  ledgerFile: z40.string(),
-  ledgerLine: z40.string(),
-  decided: z40.string(),
-  status: z40.string().nullable(),
-  proposed: z40.boolean(),
-  reason: z40.string(),
-  enforcedBy: z40.array(z40.string()).exactOptional(),
-  dropped: z40.array(z40.object({ path: z40.string(), reason: z40.string() })).exactOptional(),
-  law: z40.object({ worth: z40.boolean(), decidedBy: z40.string(), confidence: z40.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
+var PlacedSchema = z42.object({
+  id: z42.string(),
+  kind: z42.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
+  landedAs: z42.array(z42.string()),
+  files: z42.array(z42.string()),
+  ledgerFile: z42.string(),
+  ledgerLine: z42.string(),
+  decided: z42.string(),
+  status: z42.string().nullable(),
+  proposed: z42.boolean(),
+  reason: z42.string(),
+  enforcedBy: z42.array(z42.string()).exactOptional(),
+  dropped: z42.array(z42.object({ path: z42.string(), reason: z42.string() })).exactOptional(),
+  law: z42.object({ worth: z42.boolean(), decidedBy: z42.string(), confidence: z42.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
 });
-var LawIssueSchema = z40.object({
-  id: z40.string(),
-  entry: z40.string(),
-  register: z40.string(),
-  statement: z40.string(),
-  source: z40.string(),
-  title: z40.string(),
-  body: z40.string()
+var LawIssueSchema = z42.object({
+  id: z42.string(),
+  entry: z42.string(),
+  register: z42.string(),
+  statement: z42.string(),
+  source: z42.string(),
+  title: z42.string(),
+  body: z42.string()
 });
-var WrittenSchema = z40.object({
+var WrittenSchema = z42.object({
   edits: EditsSchema,
-  placed: z40.array(PlacedSchema),
-  notPlaced: z40.array(z40.object({ id: z40.string(), reason: z40.string() })),
-  checks: z40.object({ knowledge: z40.array(z40.string()), outbox: z40.array(z40.string()) }),
-  commit: z40.object({
-    files: z40.array(z40.object({ path: z40.string(), content: z40.string() })),
-    moves: z40.array(MoveSchema),
-    deletes: z40.array(z40.string())
+  placed: z42.array(PlacedSchema),
+  notPlaced: z42.array(z42.object({ id: z42.string(), reason: z42.string() })),
+  checks: z42.object({ knowledge: z42.array(z42.string()), outbox: z42.array(z42.string()) }),
+  commit: z42.object({
+    files: z42.array(z42.object({ path: z42.string(), content: z42.string() })),
+    moves: z42.array(MoveSchema),
+    deletes: z42.array(z42.string())
   }),
-  taken: z40.array(z40.string()),
-  lawIssues: z40.array(LawIssueSchema)
+  taken: z42.array(z42.string()),
+  lawIssues: z42.array(LawIssueSchema)
 });
-var LawWorthStateSchema = z40.object({
-  statement: z40.string(),
-  why: z40.string().nullable(),
-  principle: z40.string().nullable(),
-  domain: z40.string().nullable(),
-  prdTitle: z40.string().nullable()
+var LawWorthStateSchema = z42.object({
+  statement: z42.string(),
+  why: z42.string().nullable(),
+  principle: z42.string().nullable(),
+  domain: z42.string().nullable(),
+  prdTitle: z42.string().nullable()
 });
-var LawQuestionsSchema = z40.array(z40.object({ id: z40.string(), state: LawWorthStateSchema, old: z40.boolean() }));
-var LawJudgementSchema = z40.object({
-  worth: z40.object({ worth: z40.boolean(), decidedBy: z40.string(), confidence: z40.number().nullable() }).nullable(),
-  reason: z40.string().nullable()
+var LawQuestionsSchema = z42.array(z42.object({ id: z42.string(), state: LawWorthStateSchema, old: z42.boolean() }));
+var LawJudgementSchema = z42.object({
+  worth: z42.object({ worth: z42.boolean(), decidedBy: z42.string(), confidence: z42.number().nullable() }).nullable(),
+  reason: z42.string().nullable()
 });
-var LawIssueOpenedSchema = z40.object({ number: IssueNumberSchema, created: z40.boolean() });
-var ListedIssueSchema = z40.looseObject({ number: IssueNumberSchema, title: z40.string().nullish(), pull_request: z40.unknown().optional() });
-var PublishedSchema = z40.object({
-  branch: z40.string(),
-  commit: z40.string(),
-  committed: z40.boolean(),
-  pr: z40.object({ number: PrNumberSchema, url: z40.string(), created: z40.boolean() })
+var LawIssueOpenedSchema = z42.object({ number: IssueNumberSchema, created: z42.boolean() });
+var ListedIssueSchema = z42.looseObject({ number: IssueNumberSchema, title: z42.string().nullish(), pull_request: z42.unknown().optional() });
+var PublishedSchema = z42.object({
+  branch: z42.string(),
+  commit: z42.string(),
+  committed: z42.boolean(),
+  pr: z42.object({ number: PrNumberSchema, url: z42.string(), created: z42.boolean() })
 }).nullable();
-var CommentedSchema = z40.object({ commentId: CommentIdSchema, created: z40.boolean() });
+var CommentedSchema = z42.object({ commentId: CommentIdSchema, created: z42.boolean() });
 
 // apps/omni-app/src/knowledge-harvest/github.ts
 var OPEN_PULLS_UNEXPECTED = "GitHub answered the open pull requests unexpectedly";
@@ -13281,15 +13377,15 @@ function createHarvestFailureHandler({ octokitFor }) {
 }
 
 // apps/omni-app/src/knowledge-harvest/law-judge.ts
-import { z as z41 } from "zod";
+import { z as z43 } from "zod";
 var LAW_JUDGE_SECRET_VAR = "LAW_JUDGE_SECRET";
 var JUDGE_TIMEOUT_MS3 = 55e3;
-var VerdictSchema2 = z41.looseObject({
-  answer: z41.enum(["true", "false"]),
-  confidence: z41.number().nullable().catch(null),
-  decidedBy: z41.string().nullable().catch(null)
+var VerdictSchema2 = z43.looseObject({
+  answer: z43.enum(["true", "false"]),
+  confidence: z43.number().nullable().catch(null),
+  decidedBy: z43.string().nullable().catch(null)
 });
-var RefusalSchema2 = z41.looseObject({ error: z41.string().optional().catch(void 0) });
+var RefusalSchema2 = z43.looseObject({ error: z43.string().optional().catch(void 0) });
 function lawJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/laws/judge`;
 }
@@ -13360,14 +13456,14 @@ function githubStoreOf(supabase) {
 import { mkdtempSync as mkdtempSync12, rmSync as rmSync14 } from "node:fs";
 import { tmpdir as tmpdir12 } from "node:os";
 import { join as join59 } from "node:path";
-import { z as z42 } from "zod";
+import { z as z44 } from "zod";
 var ESCALATION_FUNCTION_ID = "escalation";
 var EVERY_HOUR = "0 * * * *";
-var InstallationsSchema = z42.array(z42.looseObject({ id: z42.number() }));
-var RepositoriesSchema = z42.looseObject({
-  repositories: z42.array(z42.looseObject({ name: z42.string(), owner: z42.looseObject({ login: z42.string() }) }))
+var InstallationsSchema = z44.array(z44.looseObject({ id: z44.number() }));
+var RepositoriesSchema = z44.looseObject({
+  repositories: z44.array(z44.looseObject({ name: z44.string(), owner: z44.looseObject({ login: z44.string() }) }))
 });
-var OpenPullsSchema = z42.array(z42.looseObject({ number: z42.number(), base: z42.looseObject({ sha: z42.string() }) }));
+var OpenPullsSchema = z44.array(z44.looseObject({ number: z44.number(), base: z44.looseObject({ sha: z44.string() }) }));
 var lower = (login) => login.toLowerCase();
 function moveDue(lines, settings, now, posted) {
   const decisions = decide(lines.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now, settings);
@@ -13489,19 +13585,19 @@ function createEscalation({ client, octokitFor, appOctokit, log: log2 = noteTo("
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-import { z as z44 } from "zod";
+import { z as z46 } from "zod";
 
 // kit/lib/plan-repo/gh-schema.ts
-import { z as z43 } from "zod";
-var GhRepositorySchema = z43.looseObject({ default_branch: z43.string() });
-var GhContentEntrySchema = z43.looseObject({ type: z43.string(), name: z43.string(), path: z43.string() });
-var GhCompareFileSchema = z43.looseObject({
-  filename: z43.string(),
-  previous_filename: z43.string().optional()
+import { z as z45 } from "zod";
+var GhRepositorySchema = z45.looseObject({ default_branch: z45.string() });
+var GhContentEntrySchema = z45.looseObject({ type: z45.string(), name: z45.string(), path: z45.string() });
+var GhCompareFileSchema = z45.looseObject({
+  filename: z45.string(),
+  previous_filename: z45.string().optional()
 });
-var GhCompareSchema = z43.looseObject({
-  ahead_by: z43.number().optional(),
-  files: z43.array(GhCompareFileSchema).optional()
+var GhCompareSchema = z45.looseObject({
+  ahead_by: z45.number().optional(),
+  files: z45.array(GhCompareFileSchema).optional()
 });
 function firstIssue(error) {
   const [issue] = error.issues;
@@ -13511,64 +13607,64 @@ function firstIssue(error) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-var RateLimitSchema = z44.looseObject({
-  limit: z44.number(),
-  remaining: z44.number(),
-  resetAt: z44.string().nullish()
+var RateLimitSchema = z46.looseObject({
+  limit: z46.number(),
+  remaining: z46.number(),
+  resetAt: z46.string().nullish()
 });
-var RateLimited = z44.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
-var PullsUpdatedSchema = z44.looseObject({
-  repository: z44.looseObject({
-    pullRequests: z44.looseObject({
-      pageInfo: z44.looseObject({ hasNextPage: z44.boolean(), endCursor: z44.string().nullish() }),
-      nodes: z44.array(z44.looseObject({ number: PrNumberSchema, updatedAt: z44.string() }))
+var RateLimited = z46.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
+var PullsUpdatedSchema = z46.looseObject({
+  repository: z46.looseObject({
+    pullRequests: z46.looseObject({
+      pageInfo: z46.looseObject({ hasNextPage: z46.boolean(), endCursor: z46.string().nullish() }),
+      nodes: z46.array(z46.looseObject({ number: PrNumberSchema, updatedAt: z46.string() }))
     })
   })
 });
-var ActorSchema = z44.looseObject({ login: z44.string().nullish(), __typename: z44.string().nullish() }).nullish();
-var PullDetailSchema = z44.looseObject({
+var ActorSchema = z46.looseObject({ login: z46.string().nullish(), __typename: z46.string().nullish() }).nullish();
+var PullDetailSchema = z46.looseObject({
   number: PrNumberSchema,
   author: ActorSchema,
-  createdAt: z44.string(),
-  mergedAt: z44.string().nullish(),
-  closedAt: z44.string().nullish(),
+  createdAt: z46.string(),
+  mergedAt: z46.string().nullish(),
+  closedAt: z46.string().nullish(),
   mergedBy: ActorSchema,
-  baseRefName: z44.string().nullish(),
-  headRefName: z44.string().nullish(),
-  isDraft: z44.boolean().nullish(),
-  body: z44.string().nullish(),
-  additions: z44.number().nullish(),
-  deletions: z44.number().nullish(),
-  labels: z44.looseObject({ nodes: z44.array(z44.looseObject({ name: z44.string().nullish() }).nullish()).nullish() }).nullish(),
-  commits: z44.looseObject({
-    totalCount: z44.number(),
-    nodes: z44.array(
-      z44.looseObject({
-        commit: z44.looseObject({ message: z44.string().nullish(), committedDate: z44.string().nullish() }).nullish()
+  baseRefName: z46.string().nullish(),
+  headRefName: z46.string().nullish(),
+  isDraft: z46.boolean().nullish(),
+  body: z46.string().nullish(),
+  additions: z46.number().nullish(),
+  deletions: z46.number().nullish(),
+  labels: z46.looseObject({ nodes: z46.array(z46.looseObject({ name: z46.string().nullish() }).nullish()).nullish() }).nullish(),
+  commits: z46.looseObject({
+    totalCount: z46.number(),
+    nodes: z46.array(
+      z46.looseObject({
+        commit: z46.looseObject({ message: z46.string().nullish(), committedDate: z46.string().nullish() }).nullish()
       })
     )
   }).nullish(),
-  reviews: z44.looseObject({ nodes: z44.array(z44.looseObject({ author: ActorSchema, submittedAt: z44.string().nullish() })).nullish() }).nullish(),
-  timelineItems: z44.looseObject({
-    nodes: z44.array(
-      z44.looseObject({ createdAt: z44.string().nullish(), label: z44.looseObject({ name: z44.string().nullish() }).nullish() }).nullish()
+  reviews: z46.looseObject({ nodes: z46.array(z46.looseObject({ author: ActorSchema, submittedAt: z46.string().nullish() })).nullish() }).nullish(),
+  timelineItems: z46.looseObject({
+    nodes: z46.array(
+      z46.looseObject({ createdAt: z46.string().nullish(), label: z46.looseObject({ name: z46.string().nullish() }).nullish() }).nullish()
     ).nullish()
   }).nullish()
 });
-var PullDetailsSchema = z44.looseObject({ repository: z44.record(z44.string(), z44.unknown()) });
-var PullCommentsSchema = z44.looseObject({
-  comments: z44.looseObject({ nodes: z44.array(z44.looseObject({ body: z44.string().nullish() }).nullish()).nullish() }).nullish()
+var PullDetailsSchema = z46.looseObject({ repository: z46.record(z46.string(), z46.unknown()) });
+var PullCommentsSchema = z46.looseObject({
+  comments: z46.looseObject({ nodes: z46.array(z46.looseObject({ body: z46.string().nullish() }).nullish()).nullish() }).nullish()
 }).nullish();
-var TrackedRowSchema = z44.looseObject({
-  workspace_id: z44.string(),
-  full_name: z44.string(),
-  collected_until: z44.string().nullish(),
-  workspaces: z44.looseObject({ github_installation_id: z44.union([z44.number(), z44.string()]) })
+var TrackedRowSchema = z46.looseObject({
+  workspace_id: z46.string(),
+  full_name: z46.string(),
+  collected_until: z46.string().nullish(),
+  workspaces: z46.looseObject({ github_installation_id: z46.union([z46.number(), z46.string()]) })
 });
-var FailureSchema2 = z44.looseObject({
-  errors: z44.array(z44.looseObject({ type: z44.unknown().optional(), message: z44.unknown().optional() }).nullish()).nullish().catch(void 0),
-  message: z44.unknown().optional(),
-  status: z44.unknown().optional()
+var FailureSchema2 = z46.looseObject({
+  errors: z46.array(z46.looseObject({ type: z46.unknown().optional(), message: z46.unknown().optional() }).nullish()).nullish().catch(void 0),
+  message: z46.unknown().optional(),
+  status: z46.unknown().optional()
 });
 function parseAnswer(schema, value, what) {
   return parsedOr2(schema, value, `GitHub answered ${what} unexpectedly`);
@@ -13578,24 +13674,24 @@ function parsedOr2(schema, value, context) {
   if (parsed2.success) return parsed2.data;
   throw new Error(`${context}: ${firstIssue(parsed2.error)}`);
 }
-var BudgetSchema = z44.object({
-  limit: z44.number().exactOptional(),
-  remaining: z44.number().exactOptional(),
-  resetAt: z44.string().nullable().exactOptional()
+var BudgetSchema = z46.object({
+  limit: z46.number().exactOptional(),
+  remaining: z46.number().exactOptional(),
+  resetAt: z46.string().nullable().exactOptional()
 });
-var TrackedRepositorySchema = z44.object({
-  workspaceId: z44.string(),
-  installationId: z44.number(),
-  fullName: z44.string(),
-  collectedUntil: z44.string().nullable()
+var TrackedRepositorySchema = z46.object({
+  workspaceId: z46.string(),
+  installationId: z46.number(),
+  fullName: z46.string(),
+  collectedUntil: z46.string().nullable()
 });
-var TrackedRepositoriesSchema = z44.array(TrackedRepositorySchema);
-var BatchOutSchema = z44.object({
-  saved: z44.number(),
-  cursor: z44.string(),
-  more: z44.boolean(),
-  paused: z44.literal(true).exactOptional(),
-  error: z44.string().exactOptional(),
+var TrackedRepositoriesSchema = z46.array(TrackedRepositorySchema);
+var BatchOutSchema = z46.object({
+  saved: z46.number(),
+  cursor: z46.string(),
+  more: z46.boolean(),
+  paused: z46.literal(true).exactOptional(),
+  error: z46.string().exactOptional(),
   budget: BudgetSchema
 });
 
@@ -13785,8 +13881,8 @@ function firstReviews(pull, author) {
   for (const review of pull.reviews?.nodes ?? []) {
     const reviewer = loginOf2(review.author);
     if (!reviewer || !review.submittedAt || reviewer === author) continue;
-    const at3 = first.get(reviewer);
-    if (!at3 || Date.parse(review.submittedAt) < Date.parse(at3)) first.set(reviewer, review.submittedAt);
+    const at4 = first.get(reviewer);
+    if (!at4 || Date.parse(review.submittedAt) < Date.parse(at4)) first.set(reviewer, review.submittedAt);
   }
   return [...first].sort(([a], [b]) => a.localeCompare(b));
 }
@@ -13950,7 +14046,7 @@ function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore,
 
 // apps/omni-app/src/retro/retro.ts
 import { internalEvents } from "inngest";
-import { z as z52 } from "zod";
+import { z as z54 } from "zod";
 
 // apps/omni-app/src/retro/rules.ts
 var RULES_VERSION = 1;
@@ -14167,100 +14263,100 @@ function rulesSheet() {
 }
 
 // apps/omni-app/src/retro/kinds/schema.ts
-import { z as z45 } from "zod";
-var IssueEventSchema = z45.looseObject({
-  event: z45.string(),
-  created_at: z45.string(),
-  label: z45.looseObject({ name: z45.string().nullish() }).nullish()
+import { z as z47 } from "zod";
+var IssueEventSchema = z47.looseObject({
+  event: z47.string(),
+  created_at: z47.string(),
+  label: z47.looseObject({ name: z47.string().nullish() }).nullish()
 });
-var WorkflowRunSchema = z45.looseObject({
-  id: z45.number(),
-  name: z45.string().nullish(),
-  head_sha: z45.string().nullish()
+var WorkflowRunSchema = z47.looseObject({
+  id: z47.number(),
+  name: z47.string().nullish(),
+  head_sha: z47.string().nullish()
 });
-var WorkflowRunsPageSchema = z45.looseObject({ workflow_runs: z45.array(WorkflowRunSchema).nullish() });
-var JobSchema = z45.looseObject({
-  id: z45.number(),
-  run_id: z45.number().nullish(),
-  workflow_name: z45.string().nullish(),
-  name: z45.string(),
-  head_sha: z45.string().nullish(),
-  run_attempt: z45.number().nullish(),
-  status: z45.string().nullish(),
-  conclusion: z45.string().nullish(),
-  html_url: z45.string().nullish(),
-  completed_at: z45.string().nullish()
+var WorkflowRunsPageSchema = z47.looseObject({ workflow_runs: z47.array(WorkflowRunSchema).nullish() });
+var JobSchema = z47.looseObject({
+  id: z47.number(),
+  run_id: z47.number().nullish(),
+  workflow_name: z47.string().nullish(),
+  name: z47.string(),
+  head_sha: z47.string().nullish(),
+  run_attempt: z47.number().nullish(),
+  status: z47.string().nullish(),
+  conclusion: z47.string().nullish(),
+  html_url: z47.string().nullish(),
+  completed_at: z47.string().nullish()
 });
-var JobsPageSchema = z45.looseObject({ jobs: z45.array(JobSchema).nullish() });
-var IssueSchema2 = z45.looseObject({
+var JobsPageSchema = z47.looseObject({ jobs: z47.array(JobSchema).nullish() });
+var IssueSchema2 = z47.looseObject({
   number: IssueNumberSchema,
-  title: z45.string().nullish(),
-  body: z45.string().nullish(),
-  html_url: z45.string(),
-  created_at: z45.string(),
-  closed_at: z45.string().nullish(),
-  pull_request: z45.unknown().optional()
+  title: z47.string().nullish(),
+  body: z47.string().nullish(),
+  html_url: z47.string(),
+  created_at: z47.string(),
+  closed_at: z47.string().nullish(),
+  pull_request: z47.unknown().optional()
 });
-var ClosedPullSchema = z45.looseObject({
+var ClosedPullSchema = z47.looseObject({
   number: PrNumberSchema,
-  title: z45.string().nullish(),
-  body: z45.string().nullish(),
-  html_url: z45.string(),
-  merged_at: z45.string().nullish(),
-  updated_at: z45.string().nullish(),
-  closed_at: z45.string().nullish()
+  title: z47.string().nullish(),
+  body: z47.string().nullish(),
+  html_url: z47.string(),
+  merged_at: z47.string().nullish(),
+  updated_at: z47.string().nullish(),
+  closed_at: z47.string().nullish()
 });
-var ChangedFileSchema = z45.looseObject({
-  filename: z45.string(),
-  previous_filename: z45.string().nullish(),
-  status: z45.string().nullish(),
-  additions: z45.number().nullish(),
-  deletions: z45.number().nullish(),
-  patch: z45.string().nullish()
+var ChangedFileSchema = z47.looseObject({
+  filename: z47.string(),
+  previous_filename: z47.string().nullish(),
+  status: z47.string().nullish(),
+  additions: z47.number().nullish(),
+  deletions: z47.number().nullish(),
+  patch: z47.string().nullish()
 });
-var PullCommitSchema = z45.looseObject({
-  sha: z45.string(),
-  parents: z45.array(z45.unknown()).nullish()
+var PullCommitSchema = z47.looseObject({
+  sha: z47.string(),
+  parents: z47.array(z47.unknown()).nullish()
 });
-var CommitPageSchema = z45.looseObject({
-  html_url: z45.string().nullish(),
-  files: z45.array(ChangedFileSchema).nullish()
+var CommitPageSchema = z47.looseObject({
+  html_url: z47.string().nullish(),
+  files: z47.array(ChangedFileSchema).nullish()
 });
-var IssueCommentSchema = z45.looseObject({
-  body: z45.string().nullish(),
-  html_url: z45.string().nullish(),
-  created_at: z45.string().nullish()
+var IssueCommentSchema = z47.looseObject({
+  body: z47.string().nullish(),
+  html_url: z47.string().nullish(),
+  created_at: z47.string().nullish()
 });
-var UserSchema = z45.looseObject({ login: z45.string().nullish(), type: z45.string().nullish() });
-var ReviewSchema = z45.looseObject({
-  html_url: z45.string().nullish(),
+var UserSchema = z47.looseObject({ login: z47.string().nullish(), type: z47.string().nullish() });
+var ReviewSchema = z47.looseObject({
+  html_url: z47.string().nullish(),
   user: UserSchema.nullish(),
-  state: z45.string().nullish(),
-  body: z45.string().nullish()
+  state: z47.string().nullish(),
+  body: z47.string().nullish()
 });
-var ThreadCommentSchema = z45.looseObject({
-  url: z45.string().nullish(),
-  body: z45.string().nullish(),
-  author: z45.looseObject({ login: z45.string().nullish(), __typename: z45.string().nullish() }).nullish()
+var ThreadCommentSchema = z47.looseObject({
+  url: z47.string().nullish(),
+  body: z47.string().nullish(),
+  author: z47.looseObject({ login: z47.string().nullish(), __typename: z47.string().nullish() }).nullish()
 });
-var ReviewThreadSchema = z45.looseObject({
-  isResolved: z45.boolean().nullish(),
-  isOutdated: z45.boolean().nullish(),
-  path: z45.string().nullish(),
-  comments: z45.looseObject({ nodes: z45.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
+var ReviewThreadSchema = z47.looseObject({
+  isResolved: z47.boolean().nullish(),
+  isOutdated: z47.boolean().nullish(),
+  path: z47.string().nullish(),
+  comments: z47.looseObject({ nodes: z47.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
 });
-var ReviewThreadsAnswerSchema = z45.looseObject({
-  data: z45.looseObject({
-    repository: z45.looseObject({
-      pullRequest: z45.looseObject({
-        reviewThreads: z45.looseObject({
-          pageInfo: z45.looseObject({ hasNextPage: z45.boolean().nullish(), endCursor: z45.string().nullish() }).nullish(),
-          nodes: z45.array(ReviewThreadSchema).nullish()
+var ReviewThreadsAnswerSchema = z47.looseObject({
+  data: z47.looseObject({
+    repository: z47.looseObject({
+      pullRequest: z47.looseObject({
+        reviewThreads: z47.looseObject({
+          pageInfo: z47.looseObject({ hasNextPage: z47.boolean().nullish(), endCursor: z47.string().nullish() }).nullish(),
+          nodes: z47.array(ReviewThreadSchema).nullish()
         }).nullish()
       }).nullish()
     }).nullish()
   }).nullish(),
-  errors: z45.array(z45.looseObject({ type: z45.string().nullish(), message: z45.string().nullish() })).nullish()
+  errors: z47.array(z47.looseObject({ type: z47.string().nullish(), message: z47.string().nullish() })).nullish()
 }).nullish();
 
 // apps/omni-app/src/retro/kinds/jobs.ts
@@ -14363,9 +14459,9 @@ function unique3(values) {
 // apps/omni-app/src/retro/kinds/after-merge.reads.ts
 var FILES = "GET /repos/{owner}/{repo}/pulls/{pull_number}/files";
 var UNREADABLE = /* @__PURE__ */ new Set([403, 404, 410]);
-function within(window, at3) {
-  if (!at3) return false;
-  const time2 = Date.parse(at3);
+function within(window, at4) {
+  if (!at4) return false;
+  const time2 = Date.parse(at4);
   return time2 >= Date.parse(window.from) && time2 <= Date.parse(window.to);
 }
 async function listFiles(octokit, { owner, repo, number }) {
@@ -14392,104 +14488,104 @@ function statusOf4(error) {
 }
 
 // apps/omni-app/src/retro/kinds/records.ts
-import { z as z46 } from "zod";
-var text10 = z46.string();
-var maybeText = z46.string().nullable();
-var BlockSchema = z46.tuple([z46.number(), z46.number(), z46.number(), z46.number()]);
-var TimelineRecordsSchema = z46.object({ readyAt: maybeText });
-var StuckCommentSchema = z46.object({ url: maybeText, at: maybeText, attempts: z46.number(), text: z46.string().nullish() });
-var ReviewRecordSchema = z46.object({
+import { z as z48 } from "zod";
+var text10 = z48.string();
+var maybeText = z48.string().nullable();
+var BlockSchema = z48.tuple([z48.number(), z48.number(), z48.number(), z48.number()]);
+var TimelineRecordsSchema = z48.object({ readyAt: maybeText });
+var StuckCommentSchema = z48.object({ url: maybeText, at: maybeText, attempts: z48.number(), text: z48.string().nullish() });
+var ReviewRecordSchema = z48.object({
   url: maybeText,
   author: maybeText,
-  bot: z46.boolean(),
+  bot: z48.boolean(),
   state: maybeText,
-  red: z46.boolean(),
-  text: z46.string().nullish()
+  red: z48.boolean(),
+  text: z48.string().nullish()
 });
-var ThreadRecordSchema = z46.object({
+var ThreadRecordSchema = z48.object({
   url: maybeText,
   author: maybeText,
-  bot: z46.boolean(),
+  bot: z48.boolean(),
   path: maybeText,
-  resolved: z46.boolean(),
-  outdated: z46.boolean(),
-  red: z46.boolean(),
+  resolved: z48.boolean(),
+  outdated: z48.boolean(),
+  red: z48.boolean(),
   text: maybeText
 });
-var PullReadsSchema = z46.object({
-  files: z46.array(text10).nullable().exactOptional(),
-  stuck: z46.array(StuckCommentSchema).nullable().exactOptional(),
-  needsFix: z46.array(text10).nullable().exactOptional(),
-  reviews: z46.array(ReviewRecordSchema).nullable().exactOptional(),
-  threads: z46.array(ThreadRecordSchema).nullable().exactOptional()
+var PullReadsSchema = z48.object({
+  files: z48.array(text10).nullable().exactOptional(),
+  stuck: z48.array(StuckCommentSchema).nullable().exactOptional(),
+  needsFix: z48.array(text10).nullable().exactOptional(),
+  reviews: z48.array(ReviewRecordSchema).nullable().exactOptional(),
+  threads: z48.array(ThreadRecordSchema).nullable().exactOptional()
 });
-var DeliveryRecordsSchema = z46.object({ pulls: z46.record(z46.string(), PullReadsSchema.optional()) });
-var JobRecordSchema = z46.object({
-  id: z46.number(),
-  run: z46.number(),
+var DeliveryRecordsSchema = z48.object({ pulls: z48.record(z48.string(), PullReadsSchema.optional()) });
+var JobRecordSchema = z48.object({
+  id: z48.number(),
+  run: z48.number(),
   workflow: maybeText,
   check: text10,
   slice: SliceIdSchema,
-  sha: z46.string().nullish(),
-  attempt: z46.number(),
-  status: z46.string().nullish(),
+  sha: z48.string().nullish(),
+  attempt: z48.number(),
+  status: z48.string().nullish(),
   conclusion: maybeText,
   url: maybeText,
   completedAt: maybeText
 });
-var CiRecordsSchema = z46.object({
-  slices: z46.array(SliceIdSchema),
-  unread: z46.array(z46.object({ slice: SliceIdSchema, run: z46.number().exactOptional(), status: z46.number() })),
-  jobs: z46.array(JobRecordSchema),
-  logs: z46.record(z46.string(), z46.object({ tail: maybeText, status: z46.number().exactOptional() }).optional())
+var CiRecordsSchema = z48.object({
+  slices: z48.array(SliceIdSchema),
+  unread: z48.array(z48.object({ slice: SliceIdSchema, run: z48.number().exactOptional(), status: z48.number() })),
+  jobs: z48.array(JobRecordSchema),
+  logs: z48.record(z48.string(), z48.object({ tail: maybeText, status: z48.number().exactOptional() }).optional())
 });
-var CommitFileSchema = z46.object({
+var CommitFileSchema = z48.object({
   path: text10,
   previous: maybeText,
-  status: z46.string().nullish(),
-  additions: z46.number(),
-  deletions: z46.number(),
-  blocks: z46.array(BlockSchema).nullable()
+  status: z48.string().nullish(),
+  additions: z48.number(),
+  deletions: z48.number(),
+  blocks: z48.array(BlockSchema).nullable()
 });
-var PullRecordSchema = z46.object({
+var PullRecordSchema = z48.object({
   number: PrNumberSchema,
   url: maybeText,
   headRef: text10,
   mergedAt: maybeText,
-  commits: z46.array(z46.object({ sha: text10, url: maybeText, files: z46.array(CommitFileSchema).nullable() })).nullable()
+  commits: z48.array(z48.object({ sha: text10, url: maybeText, files: z48.array(CommitFileSchema).nullable() })).nullable()
 });
-var ChurnRecordsSchema = z46.object({
+var ChurnRecordsSchema = z48.object({
   gitattributes: maybeText,
-  final: z46.array(z46.object({ path: text10, additions: z46.number().nullish(), deletions: z46.number().nullish() })).nullable(),
-  pulls: z46.array(PullRecordSchema)
+  final: z48.array(z48.object({ path: text10, additions: z48.number().nullish(), deletions: z48.number().nullish() })).nullable(),
+  pulls: z48.array(PullRecordSchema)
 });
-var RangeSchema = z46.object({ path: text10, from: z46.number(), to: z46.number() });
-var AfterMergeRecordsSchema = z46.object({
-  window: z46.object({ from: text10, to: text10 }),
-  bugs: z46.array(z46.object({ number: IssueNumberSchema, url: text10, createdAt: text10, closedAt: maybeText })),
-  fixes: z46.array(
-    z46.object({
+var RangeSchema = z48.object({ path: text10, from: z48.number(), to: z48.number() });
+var AfterMergeRecordsSchema = z48.object({
+  window: z48.object({ from: text10, to: text10 }),
+  bugs: z48.array(z48.object({ number: IssueNumberSchema, url: text10, createdAt: text10, closedAt: maybeText })),
+  fixes: z48.array(
+    z48.object({
       number: PrNumberSchema,
       url: text10,
       mergedAt: text10,
-      closes: z46.array(IssueNumberSchema),
-      files: z46.array(z46.object({ path: text10, previous: maybeText, blocks: z46.array(BlockSchema).nullable() })).nullable()
+      closes: z48.array(IssueNumberSchema),
+      files: z48.array(z48.object({ path: text10, previous: maybeText, blocks: z48.array(BlockSchema).nullable() })).nullable()
     })
   ),
-  checks: z46.object({
+  checks: z48.object({
     commit: text10,
-    status: z46.number().nullable(),
-    jobs: z46.array(z46.object({ name: text10, workflow: maybeText, conclusion: maybeText, url: maybeText }))
+    status: z48.number().nullable(),
+    jobs: z48.array(z48.object({ name: text10, workflow: maybeText, conclusion: maybeText, url: maybeText }))
   }),
-  ranges: z46.array(RangeSchema),
-  unread: z46.array(
-    z46.object({ read: z46.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z46.number().exactOptional(), status: z46.number() })
+  ranges: z48.array(RangeSchema),
+  unread: z48.array(
+    z48.object({ read: z48.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z48.number().exactOptional(), status: z48.number() })
   )
 });
-var ChurnAtMergeSchema = z46.object({ ranges: z46.array(RangeSchema).exactOptional() }).nullish();
+var ChurnAtMergeSchema = z48.object({ ranges: z48.array(RangeSchema).exactOptional() }).nullish();
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-import { z as z47 } from "zod";
+import { z as z49 } from "zod";
 
 // kit/lib/care/list.ts
 var FIX_PLAN_MARKER = "<!-- omni-bug:fix-plan -->";
@@ -14603,29 +14699,29 @@ function slicesOf(plan) {
 }
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-var text11 = z47.string();
-var BlockSchema2 = z47.tuple([z47.number(), z47.number(), z47.number(), z47.number()]);
-var RangeSchema2 = z47.object({ path: text11, from: z47.number(), to: z47.number() });
-var PlannedSchema = z47.object({
+var text11 = z49.string();
+var BlockSchema2 = z49.tuple([z49.number(), z49.number(), z49.number(), z49.number()]);
+var RangeSchema2 = z49.object({ path: text11, from: z49.number(), to: z49.number() });
+var PlannedSchema = z49.object({
   bug: IssueNumberSchema,
   repo: text11,
   number: PrNumberSchema,
   url: text11,
-  mergedAt: z47.string().nullable(),
-  files: z47.array(z47.object({ path: text11, previous: z47.string().nullable(), blocks: z47.array(BlockSchema2).nullable() })).nullable()
+  mergedAt: z49.string().nullable(),
+  files: z49.array(z49.object({ path: text11, previous: z49.string().nullable(), blocks: z49.array(BlockSchema2).nullable() })).nullable()
 });
-var MegaUnreadSchema = z47.object({
-  read: z47.enum(["bugs", "fix-plan", "fix", "files"]),
+var MegaUnreadSchema = z49.object({
+  read: z49.enum(["bugs", "fix-plan", "fix", "files"]),
   repo: text11,
-  number: z47.number().exactOptional(),
-  status: z47.number()
+  number: z49.number().exactOptional(),
+  status: z49.number()
 });
-var MegaRecordsSchema = z47.object({
+var MegaRecordsSchema = z49.object({
   plan: text11,
-  bugs: z47.array(IssueNumberSchema),
-  planned: z47.array(PlannedSchema),
-  targets: z47.array(z47.object({ repo: text11, name: text11, ranges: z47.array(RangeSchema2) })),
-  unread: z47.array(MegaUnreadSchema)
+  bugs: z49.array(IssueNumberSchema),
+  planned: z49.array(PlannedSchema),
+  targets: z49.array(z49.object({ repo: text11, name: text11, ranges: z49.array(RangeSchema2) })),
+  unread: z49.array(MegaUnreadSchema)
 });
 var ISSUES = "GET /repos/{owner}/{repo}/issues";
 var COMMENTS = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
@@ -15965,7 +16061,7 @@ function frictionFacts({ subs, read, config }) {
     else entry.stuck.push(...stuck.map((comment) => ({ pr: pull.number, ...comment })));
     const added = records.needsFix ?? null;
     if (added === null) counts.eventsUnread += 1;
-    if (added && added.length > 0) entry.needsFix.push(...added.map((at3) => ({ pr: pull.number, at: at3 })));
+    if (added && added.length > 0) entry.needsFix.push(...added.map((at4) => ({ pr: pull.number, at: at4 })));
     else if (pull.labels.includes(label2)) entry.needsFix.push({ pr: pull.number, at: null });
   }
   const all = [...slices.values()];
@@ -16200,7 +16296,7 @@ var delivery = Object.freeze({
     const subs = slicePulls(pulls, config, prd.topic);
     const merged = new Set(mergedSlicePulls(subs).map(({ pull }) => pull.number));
     const read = {};
-    const at3 = (number) => {
+    const at4 = (number) => {
       const reads = read[number] ?? {};
       read[number] = reads;
       return reads;
@@ -16212,8 +16308,8 @@ var delivery = Object.freeze({
         readOrNull2(() => listStuckComments(octokit, ref)),
         readOrNull2(() => listLabelAdds(octokit, { ...ref, label: config.labels.needsFix }))
       ]);
-      if (files !== void 0) at3(pull.number).files = files;
-      Object.assign(at3(pull.number), { stuck, needsFix });
+      if (files !== void 0) at4(pull.number).files = files;
+      Object.assign(at4(pull.number), { stuck, needsFix });
     }
     for (const number of [pr.number, ...merged]) {
       const ref = { owner, repo, number };
@@ -16221,7 +16317,7 @@ var delivery = Object.freeze({
         readOrNull2(() => listReviews(octokit, ref)),
         readOrNull2(() => listReviewThreads(octokit, ref))
       ]);
-      Object.assign(at3(number), { reviews, threads });
+      Object.assign(at4(number), { reviews, threads });
     }
     return { pulls: read };
   },
@@ -16421,8 +16517,8 @@ function median(values) {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
-  const at3 = (index) => sorted[index] ?? 0;
-  return sorted.length % 2 === 1 ? at3(middle) : Math.round((at3(middle - 1) + at3(middle)) / 2);
+  const at4 = (index) => sorted[index] ?? 0;
+  return sorted.length % 2 === 1 ? at4(middle) : Math.round((at4(middle - 1) + at4(middle)) / 2);
 }
 function statusOf8(error) {
   return typeof error === "object" && error !== null && "status" in error ? error.status : void 0;
@@ -16464,22 +16560,22 @@ function detect({ run, pr, prd, config, pulls, records, kinds = kindsFor(run) })
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-import { z as z49 } from "zod";
+import { z as z51 } from "zod";
 
 // apps/omni-app/src/retro/narrate.ts
-import { z as z48 } from "zod";
-var ReplyFindingSchema = z48.object({
-  title: z48.string().exactOptional(),
-  whyItMatters: z48.string().exactOptional(),
-  lesson: z48.string().exactOptional(),
-  keep: z48.boolean().exactOptional(),
-  why: z48.string().exactOptional()
+import { z as z50 } from "zod";
+var ReplyFindingSchema = z50.object({
+  title: z50.string().exactOptional(),
+  whyItMatters: z50.string().exactOptional(),
+  lesson: z50.string().exactOptional(),
+  keep: z50.boolean().exactOptional(),
+  why: z50.string().exactOptional()
 });
-var ModelReplySchema = z48.object({
-  summary: z48.string(),
-  findings: z48.record(z48.string(), ReplyFindingSchema),
-  lessons: z48.array(z48.object({ text: z48.string(), findings: z48.array(z48.string()) })),
-  verdict: z48.object({ worthIt: z48.boolean(), reason: z48.string() }).nullable()
+var ModelReplySchema = z50.object({
+  summary: z50.string(),
+  findings: z50.record(z50.string(), ReplyFindingSchema),
+  lessons: z50.array(z50.object({ text: z50.string(), findings: z50.array(z50.string()) })),
+  verdict: z50.object({ worthIt: z50.boolean(), reason: z50.string() }).nullable()
 });
 var NO_MODEL_KEY = "no model key";
 var REPLY_INVALID = "model reply invalid";
@@ -16679,153 +16775,153 @@ function isObject(value) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-var text12 = z49.string();
-var maybeText2 = z49.string().nullable();
-var RunSchema = z49.enum(["merge", "day-14"]);
+var text12 = z51.string();
+var maybeText2 = z51.string().nullable();
+var RunSchema = z51.enum(["merge", "day-14"]);
 var pullFields = {
   number: PrNumberSchema,
   title: text12,
   url: maybeText2,
-  merged: z49.boolean(),
+  merged: z51.boolean(),
   baseRef: text12,
   headRef: text12,
   headSha: text12,
   openedAt: maybeText2,
   mergedAt: maybeText2,
   mergeSha: maybeText2,
-  labels: z49.array(text12)
+  labels: z51.array(text12)
 };
-var PullSchema3 = z49.object(pullFields);
-var FeaturePullSchema = z49.object({ ...pullFields, mergeSha: text12 });
-var PullIntoSchema = z49.object({
+var PullSchema3 = z51.object(pullFields);
+var FeaturePullSchema = z51.object({ ...pullFields, mergeSha: text12 });
+var PullIntoSchema = z51.object({
   number: PrNumberSchema,
   title: text12,
   url: maybeText2,
   state: text12,
-  draft: z49.boolean(),
+  draft: z51.boolean(),
   headRef: text12,
   headSha: text12,
   openedAt: text12,
   closedAt: maybeText2,
   mergedAt: maybeText2,
-  labels: z49.array(text12)
+  labels: z51.array(text12)
 });
-var PrdFactsSchema = z49.object({
+var PrdFactsSchema = z51.object({
   number: PrdNumberSchema,
   topic: text12,
   title: text12,
   problem: text12,
-  state: z49.enum(["shipped", "inbox"]),
+  state: z51.enum(["shipped", "inbox"]),
   folder: text12,
   plan: maybeText2,
   settled: maybeText2
 });
-var QualifiedSchema2 = z49.union([
-  z49.object({ skip: z49.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
-  z49.object({ skip: text12, pr: PullSchema3.exactOptional() })
+var QualifiedSchema2 = z51.union([
+  z51.object({ skip: z51.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
+  z51.object({ skip: text12, pr: PullSchema3.exactOptional() })
 ]);
-var PullsIntoSchema = z49.array(PullIntoSchema);
-var EvidenceSchema = z49.object({ label: text12, url: maybeText2, excerpt: text12.exactOptional() });
-var FindingSchema2 = z49.object({ id: text12, kind: text12, title: text12, happened: text12, evidence: z49.array(EvidenceSchema) });
-var SheetFindingSchema = z49.object({ ...FindingSchema2.shape, source: text12, ref: text12, repo: text12.exactOptional() });
-var TargetReadSchema = z49.discriminatedUnion("read", [
-  z49.object({
+var PullsIntoSchema = z51.array(PullIntoSchema);
+var EvidenceSchema = z51.object({ label: text12, url: maybeText2, excerpt: text12.exactOptional() });
+var FindingSchema2 = z51.object({ id: text12, kind: text12, title: text12, happened: text12, evidence: z51.array(EvidenceSchema) });
+var SheetFindingSchema = z51.object({ ...FindingSchema2.shape, source: text12, ref: text12, repo: text12.exactOptional() });
+var TargetReadSchema = z51.discriminatedUnion("read", [
+  z51.object({
     name: text12,
     repo: text12,
-    read: z49.literal(true),
-    installationId: z49.number(),
-    featurePrs: z49.array(FeaturePullSchema).min(1),
-    pulls: z49.array(PullIntoSchema)
+    read: z51.literal(true),
+    installationId: z51.number(),
+    featurePrs: z51.array(FeaturePullSchema).min(1),
+    pulls: z51.array(PullIntoSchema)
   }),
-  z49.object({ name: text12, repo: text12, read: z49.literal(false), reason: text12 })
+  z51.object({ name: text12, repo: text12, read: z51.literal(false), reason: text12 })
 ]);
-var RepositoryFactsSchema = z49.object({
+var RepositoryFactsSchema = z51.object({
   repo: text12,
   name: text12,
-  plan: z49.boolean(),
-  read: z49.boolean(),
+  plan: z51.boolean(),
+  read: z51.boolean(),
   reason: text12.exactOptional(),
-  featurePrs: z49.array(z49.object({ number: PrNumberSchema, url: maybeText2 })),
-  kinds: z49.record(z49.string(), z49.unknown()).exactOptional()
+  featurePrs: z51.array(z51.object({ number: PrNumberSchema, url: maybeText2 })),
+  kinds: z51.record(z51.string(), z51.unknown()).exactOptional()
 });
-var RulesSheetSchema = z49.object({
-  version: z49.number(),
-  findingOrder: z49.array(z49.array(text12)),
-  issuesPerRun: z49.number(),
-  thresholds: z49.object({
-    slowSliceFactor: z49.number(),
-    repeatedRedCommits: z49.number(),
-    repeatedRedSlices: z49.number(),
-    failingTestRuns: z49.number(),
-    churnRangeCommits: z49.number(),
-    churnFilePercent: z49.number(),
-    churnFileLines: z49.number(),
-    afterMergeDays: z49.number()
+var RulesSheetSchema = z51.object({
+  version: z51.number(),
+  findingOrder: z51.array(z51.array(text12)),
+  issuesPerRun: z51.number(),
+  thresholds: z51.object({
+    slowSliceFactor: z51.number(),
+    repeatedRedCommits: z51.number(),
+    repeatedRedSlices: z51.number(),
+    failingTestRuns: z51.number(),
+    churnRangeCommits: z51.number(),
+    churnFilePercent: z51.number(),
+    churnFileLines: z51.number(),
+    afterMergeDays: z51.number()
   }),
-  limits: z49.object({ logTailLines: z49.number(), modelInputTokens: z49.number() }),
-  fieldCaps: z49.object({
-    summary: z49.number(),
-    title: z49.number(),
-    whyItMatters: z49.number(),
-    lesson: z49.number(),
-    reason: z49.number(),
-    why: z49.number()
+  limits: z51.object({ logTailLines: z51.number(), modelInputTokens: z51.number() }),
+  fieldCaps: z51.object({
+    summary: z51.number(),
+    title: z51.number(),
+    whyItMatters: z51.number(),
+    lesson: z51.number(),
+    reason: z51.number(),
+    why: z51.number()
   })
 });
 var factSheetFields = {
   run: RunSchema,
   rules: RulesSheetSchema,
-  prd: z49.object({ number: PrdNumberSchema, title: text12, topic: text12, state: text12, folder: text12 }),
-  featurePr: z49.object({ number: PrNumberSchema, title: text12, url: maybeText2, openedAt: maybeText2, mergedAt: maybeText2, mergeSha: text12 }),
+  prd: z51.object({ number: PrdNumberSchema, title: text12, topic: text12, state: text12, folder: text12 }),
+  featurePr: z51.object({ number: PrNumberSchema, title: text12, url: maybeText2, openedAt: maybeText2, mergedAt: maybeText2, mergeSha: text12 }),
   /** Each kind's facts, by its id; a reader parses the facts it reads with that kind's schema. */
-  kinds: z49.record(z49.string(), z49.unknown()),
-  findings: z49.array(SheetFindingSchema),
+  kinds: z51.record(z51.string(), z51.unknown()),
+  findings: z51.array(SheetFindingSchema),
   /** Every repository of a multi-repository PRD (PRD 1130); absent for a PRD of one repository. */
-  repositories: z49.array(RepositoryFactsSchema).exactOptional()
+  repositories: z51.array(RepositoryFactsSchema).exactOptional()
 };
-var FactSheetSchema = z49.object(factSheetFields);
-var DroppedSchema = z49.object({ dropped: text12 });
-var ProseFieldSchema = z49.union([text12, DroppedSchema]);
-var ProseFindingSchema = z49.object({
+var FactSheetSchema = z51.object(factSheetFields);
+var DroppedSchema = z51.object({ dropped: text12 });
+var ProseFieldSchema = z51.union([text12, DroppedSchema]);
+var ProseFindingSchema = z51.object({
   title: ProseFieldSchema.exactOptional(),
   whyItMatters: ProseFieldSchema.exactOptional(),
   lesson: ProseFieldSchema.exactOptional(),
-  keep: z49.boolean().exactOptional(),
+  keep: z51.boolean().exactOptional(),
   why: text12.exactOptional()
 });
-var LessonSchema = z49.object({ text: text12, findings: z49.array(text12) });
-var VerdictSchema3 = z49.union([z49.object({ worthIt: z49.boolean(), reason: text12 }), DroppedSchema]);
-var ProseSchema = z49.object({
+var LessonSchema = z51.object({ text: text12, findings: z51.array(text12) });
+var VerdictSchema3 = z51.union([z51.object({ worthIt: z51.boolean(), reason: text12 }), DroppedSchema]);
+var ProseSchema = z51.object({
   summary: ProseFieldSchema.exactOptional(),
-  findings: z49.record(z49.string(), ProseFindingSchema),
-  lessons: z49.array(LessonSchema),
+  findings: z51.record(z51.string(), ProseFindingSchema),
+  lessons: z51.array(LessonSchema),
   verdict: VerdictSchema3.optional()
 });
-var DroppedFieldSchema = z49.object({ field: text12, reason: text12 });
-var GuardedSchema = z49.object({ prose: ProseSchema.nullable(), dropped: z49.array(DroppedFieldSchema) });
-var NarratedSchema = z49.object({ model: maybeText2, reply: ModelReplySchema.nullable(), reason: maybeText2 });
-var NarrationSchema = z49.object({ model: maybeText2, reason: maybeText2, dropped: z49.array(DroppedFieldSchema) });
-var IssueLinkSchema = z49.object({ number: IssueNumberSchema, url: text12, state: z49.enum(["open", "closed"]) });
-var IssueLinksSchema = z49.record(z49.string(), IssueLinkSchema);
-var RunRecordSchema = z49.object({
+var DroppedFieldSchema = z51.object({ field: text12, reason: text12 });
+var GuardedSchema = z51.object({ prose: ProseSchema.nullable(), dropped: z51.array(DroppedFieldSchema) });
+var NarratedSchema = z51.object({ model: maybeText2, reply: ModelReplySchema.nullable(), reason: maybeText2 });
+var NarrationSchema = z51.object({ model: maybeText2, reason: maybeText2, dropped: z51.array(DroppedFieldSchema) });
+var IssueLinkSchema = z51.object({ number: IssueNumberSchema, url: text12, state: z51.enum(["open", "closed"]) });
+var IssueLinksSchema = z51.record(z51.string(), IssueLinkSchema);
+var RunRecordSchema = z51.object({
   ...factSheetFields,
   narration: NarrationSchema.exactOptional(),
   verdict: VerdictSchema3.nullable().exactOptional(),
-  lessons: z49.array(LessonSchema).exactOptional(),
+  lessons: z51.array(LessonSchema).exactOptional(),
   issues: IssueLinksSchema.exactOptional()
 });
-var KnownSchema = z49.object({
-  knowledge: z49.object({ principles: z49.array(z49.unknown()), laws: z49.array(z49.unknown()), decisions: z49.array(z49.unknown()) }),
-  lessons: z49.array(text12)
+var KnownSchema = z51.object({
+  knowledge: z51.object({ principles: z51.array(z51.unknown()), laws: z51.array(z51.unknown()), decisions: z51.array(z51.unknown()) }),
+  lessons: z51.array(text12)
 });
-var PublishedSchema2 = z49.object({
+var PublishedSchema2 = z51.object({
   branch: text12,
-  committed: z49.boolean(),
+  committed: z51.boolean(),
   commit: text12,
-  pr: z49.object({ number: PrNumberSchema, url: text12, created: z49.boolean() }).nullable()
+  pr: z51.object({ number: PrNumberSchema, url: text12, created: z51.boolean() }).nullable()
 });
-var CommentedSchema2 = z49.object({ commentId: CommentIdSchema, created: z49.boolean() });
-var ClockSchema = z49.number();
+var CommentedSchema2 = z51.object({ commentId: CommentIdSchema, created: z51.boolean() });
+var ClockSchema = z51.number();
 
 // apps/omni-app/src/retro/guard.ts
 var DROPPED = Object.freeze({
@@ -17118,12 +17214,12 @@ async function findRetroPull(octokit, { owner, repo, branch }) {
 }
 
 // apps/omni-app/src/retro/render.ts
-import { z as z50 } from "zod";
+import { z as z52 } from "zod";
 var keptFacts = (run, id) => run.kinds?.[id];
-var TimelineFactsSchema = z50.object({
-  featurePr: z50.object({ minutes: z50.number().nullish() }).nullish(),
-  sliceCount: z50.number().exactOptional(),
-  waves: z50.object({ merged: z50.number(), planned: z50.number().nullable() })
+var TimelineFactsSchema = z52.object({
+  featurePr: z52.object({ minutes: z52.number().nullish() }).nullish(),
+  sliceCount: z52.number().exactOptional(),
+  waves: z52.object({ merged: z52.number(), planned: z52.number().nullable() })
 }).nullable();
 function mergeRuns(existing, record) {
   let doc = null;
@@ -17132,7 +17228,7 @@ function mergeRuns(existing, record) {
   } catch {
     doc = null;
   }
-  const runs = parseOrThrow(z50.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
+  const runs = parseOrThrow(z52.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
   const same = (run) => run.featurePr.number === record.featurePr.number && run.run === record.run;
   const index = runs.findIndex(same);
   const next = index === -1 ? [...runs, record] : runs.map((run, i) => i === index ? record : run);
@@ -17523,11 +17619,11 @@ function ranked(findings) {
 }
 
 // apps/omni-app/src/retro/target-comment.ts
-import { z as z51 } from "zod";
+import { z as z53 } from "zod";
 var targetMarker = (prefix) => `<!-- ${prefix}-retro-target -->`;
-var TargetCommentedSchema = z51.union([
-  z51.object({ comments: z51.array(z51.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z51.boolean() })) }),
-  z51.object({ refused: z51.number() })
+var TargetCommentedSchema = z53.union([
+  z53.object({ comments: z53.array(z53.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z53.boolean() })) }),
+  z53.object({ refused: z53.number() })
 ]);
 function targetComment({
   prd,
@@ -17605,21 +17701,21 @@ var verdictMarker2 = (prefix) => `<!-- ${prefix}-retro-verdict -->`;
 var VERDICT_MARKER2 = verdictMarker2(MARKER_PREFIX2);
 var NO_NEW_LESSON = "no new lesson";
 var NOT_JUDGED = "not judged";
-var RetroEventSchema = z52.object({
-  installationId: z52.number(),
-  owner: z52.string(),
-  repo: z52.string(),
+var RetroEventSchema = z54.object({
+  installationId: z54.number(),
+  owner: z54.string(),
+  repo: z54.string(),
   prNumber: PrNumberSchema,
-  mergeSha: z52.string(),
-  mergedAt: z52.string().nullish()
+  mergeSha: z54.string(),
+  mergedAt: z54.string().nullish()
 });
-var FailedEventSchema = z52.object({
-  installationId: z52.number().optional().catch(void 0),
-  owner: z52.string().optional().catch(void 0),
-  repo: z52.string().optional().catch(void 0),
+var FailedEventSchema = z54.object({
+  installationId: z54.number().optional().catch(void 0),
+  owner: z54.string().optional().catch(void 0),
+  repo: z54.string().optional().catch(void 0),
   prNumber: PrNumberSchema.optional().catch(void 0)
 }).catch({});
-var TickSchema = z52.looseObject({ ts: z52.number().exactOptional() }).nullable();
+var TickSchema = z54.looseObject({ ts: z54.number().exactOptional() }).nullable();
 function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch: fetch2, kinds = KINDS, followUp = false }) {
   return client.createFunction(
     {
@@ -17883,14 +17979,14 @@ import { RetryAfterError as RetryAfterError4 } from "inngest";
 
 // apps/omni-app/src/server-event/server-event.ts
 import { createHmac as createHmac3, timingSafeEqual } from "node:crypto";
-import { z as z53 } from "zod";
+import { z as z55 } from "zod";
 var SERVER_EVENT = "omni-loop/server.event.received";
 var SERVER_EVENT_KINDS = ["approved", "voided", "item-opened", "item-settled"];
 var UUID2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var ServerEventSchema = z53.object({
-  event: z53.enum(SERVER_EVENT_KINDS),
-  dossier: z53.string().regex(UUID2),
-  at: z53.string().refine((at3) => !Number.isNaN(Date.parse(at3)))
+var ServerEventSchema = z55.object({
+  event: z55.enum(SERVER_EVENT_KINDS),
+  dossier: z55.string().regex(UUID2),
+  at: z55.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
 });
 
 // apps/omni-app/src/server-event/recheck.ts
@@ -17953,13 +18049,13 @@ function createServerEventRecheck({
 }
 
 // apps/omni-app/src/server-event/targets.ts
-import { z as z54 } from "zod";
-var text13 = z54.string().min(1);
-var DossierRowSchema4 = z54.object({ workspace_id: text13, product_id: text13.nullable(), product_seq: z54.number().int().positive().nullable() });
-var ProductRowSchema = z54.object({ key: text13.nullable() });
-var WorkspaceRowSchema = z54.object({ github_installation_id: z54.number().int().positive().nullable() });
-var LinkRowSchema = z54.object({ repository: text13 });
-var PullRowSchema = z54.object({ repo: text13, number: z54.number().int().positive() });
+import { z as z56 } from "zod";
+var text13 = z56.string().min(1);
+var DossierRowSchema4 = z56.object({ workspace_id: text13, product_id: text13.nullable(), product_seq: z56.number().int().positive().nullable() });
+var ProductRowSchema = z56.object({ key: text13.nullable() });
+var WorkspaceRowSchema = z56.object({ github_installation_id: z56.number().int().positive().nullable() });
+var LinkRowSchema = z56.object({ repository: text13 });
+var PullRowSchema = z56.object({ repo: text13, number: z56.number().int().positive() });
 function targetsReader(connection) {
   const db = serviceDb(connection);
   return async (dossier) => {
@@ -18007,7 +18103,8 @@ function appFunctions(env, {
     prStats: createPrStats({ client: inngest2, octokitFor, supabase: env.supabase }),
     canonAction: createCanonAction({ client: inngest2, octokitFor, galaxyUrl: env.galaxyUrl }),
     serverEvent: createServerEventRecheck({ client: inngest2, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null }),
-    escalation: createEscalation({ client: inngest2, octokitFor, appOctokit: appOctokitFor(env.githubApp) })
+    escalation: createEscalation({ client: inngest2, octokitFor, appOctokit: appOctokitFor(env.githubApp) }),
+    fixRowStamp: createFixRowStamp({ client: inngest2, stamp: env.supabase ? fixRowStamper(env.supabase) : null })
   };
 }
 

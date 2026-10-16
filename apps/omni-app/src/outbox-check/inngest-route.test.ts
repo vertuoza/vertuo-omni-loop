@@ -11,6 +11,7 @@ import { PR_STATS_FUNCTION_ID } from '../pr-stats/pr-stats.ts';
 import { CANON_ACTION_FUNCTION_ID } from '../inbox-check/canon-action.ts';
 import { SERVER_EVENT_FUNCTION_ID } from '../server-event/recheck.ts';
 import { ESCALATION_FUNCTION_ID } from '../escalation/sweep.ts';
+import { FIX_ROW_STAMP_FUNCTION_ID } from '../fix-rows/fix-row-stamp.ts';
 
 describe('/api/inngest', () => {
   beforeEach(() => {
@@ -20,7 +21,7 @@ describe('/api/inngest', () => {
     vi.unstubAllEnvs();
   });
 
-  it('serves the outbox-check function, the inbox-check function (PRD 675), the approved-check function (PRD 1548) and its rerun on the approved label (PRD 1612), the budgets check (PRD 1679), the retro function (PRD 72) and the knowledge harvest (PRD 82), the pr stats collector (PRD 612), the canon buttons (PRD 839), the server event (PRD 1548), the escalation sweep (PRD 1794), and nothing else', () => {
+  it('serves the outbox-check function, the inbox-check function (PRD 675), the approved-check function (PRD 1548) and its rerun on the approved label (PRD 1612), the budgets check (PRD 1679), the retro function (PRD 72) and the knowledge harvest (PRD 82), the pr stats collector (PRD 612), the canon buttons (PRD 839), the server event (PRD 1548), the escalation sweep (PRD 1794), the fix row stamp (PRD 2011), and nothing else', () => {
     expect(functions.map((fn) => fn.id())).toEqual([
       FUNCTION_ID,
       INBOX_FUNCTION_ID,
@@ -33,6 +34,7 @@ describe('/api/inngest', () => {
       CANON_ACTION_FUNCTION_ID,
       SERVER_EVENT_FUNCTION_ID,
       ESCALATION_FUNCTION_ID,
+      FIX_ROW_STAMP_FUNCTION_ID,
     ]);
   });
 
@@ -45,8 +47,8 @@ describe('/api/inngest', () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { function_count: number };
     // Inngest registers each failure handler as a function of its own, beside its function; prStats,
-    // canonAction, approvedCheck, approvedRerun, serverEvent and escalation have none.
-    expect(body.function_count).toBe(16);
+    // canonAction, approvedCheck, approvedRerun, serverEvent, escalation and fixRowStamp have none.
+    expect(body.function_count).toBe(17);
   });
 });
 
@@ -76,6 +78,6 @@ describe('/api/inngest — the environment, read when the route loads (PRD 1059)
   });
 
   it('loads on a preview with nothing set', async () => {
-    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(11);
+    expect((await loadOver({ VERCEL_ENV: 'preview' })).functions).toHaveLength(12);
   });
 });

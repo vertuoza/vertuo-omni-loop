@@ -99,7 +99,7 @@ describe('the rows', () => {
     const { db, lines } = fakeDb([{ data: runner, error: null }, { data: job, error: null }, { data: [{ user_id: 'u1', github_login: 'mo' }, { user_id: 'u2', github_login: null }], error: null }]);
     const repository = runnersRepository(db);
     expect(await repository.insertRunner({ workspaceId: 'w1', owner: 'u1', name: 'shared', slots: 1, repos: ['vertuoza/app'], version: '1', seenAt: 't' })).toEqual(runner);
-    expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:yolo 1', repo: 'vertuoza/app', toRunner: null, toFleet: 'cia', sentBy: 'u1' })).toEqual(job);
+    expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:yolo 1', repo: 'vertuoza/app', toRunner: null, toFleet: 'cia', sentBy: 'u1', sentByKey: null })).toEqual(job);
     expect(await repository.logins('w1', ['u1', 'u2'])).toEqual(new Map([['u1', 'mo']]));
     expect(lines[1]).toContain('"to_fleet":"cia"');
     expect(await repository.logins('w1', [])).toEqual(new Map());
@@ -140,5 +140,18 @@ describe('a job\'s live lines (PRD 1904)', () => {
   it('throw on the database\'s refusal, naming the table', async () => {
     const { db } = fakeDb([{ data: null, error: { message: 'new row violates check constraint' } }]);
     await expect(runnersRepository(db).appendLines([])).rejects.toThrow('runner_job_lines: new row violates check constraint');
+  });
+});
+
+describe('a job an API key sent (PRD 2022 s4)', () => {
+  it('writes the key on the job, and reads the names of the workspace\'s API keys only', async () => {
+    const job = jobRow({ sent_by_key: 'k1' });
+    const { db, lines } = fakeDb([{ data: job, error: null }, { data: [{ id: 'k1', name: 'QA dashboard' }], error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:bug-fix x', repo: 'vertuoza/app', toRunner: null, toFleet: null, sentBy: 'u1', sentByKey: 'k1' })).toEqual(job);
+    expect(lines[0]).toContain('"sent_by_key":"k1"');
+    expect(await repository.keyNames('w1', ['k1'])).toEqual(new Map([['k1', 'QA dashboard']]));
+    expect(lines[1]).toContain('.eq("workspace_id","w1").eq("scope","api").in("id",["k1"])');
+    expect(await repository.keyNames('w1', [])).toEqual(new Map());
   });
 });
