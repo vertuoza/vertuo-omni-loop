@@ -10,15 +10,15 @@ export const defaultOptions = (): PongOptions => ({ limit: DEFAULT_LIMIT });
 
 export const limitHz = (options: PongOptions): number => LIMITS[options.limit];
 
-const isLimit = (raw: unknown): raw is LimitName => typeof raw === 'string' && (LIMIT_NAMES as readonly string[]).includes(raw);
+const limitNamed = (raw: unknown): LimitName | undefined => LIMIT_NAMES.find((name) => name === raw);
 
 export function parseOptions(text: string | null | undefined): PongOptions {
   if (typeof text !== 'string') return defaultOptions();
   let raw: unknown;
   try { raw = JSON.parse(text); } catch { return defaultOptions(); }
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return defaultOptions();
-  const limit: unknown = (raw as Record<string, unknown>).limit;
-  return isLimit(limit) ? { limit } : defaultOptions();
+  if (typeof raw !== 'object' || raw === null || !('limit' in raw)) return defaultOptions();
+  const limit = limitNamed(raw.limit);
+  return limit === undefined ? defaultOptions() : { limit };
 }
 
 /** The slice of the browser's storage the options need. */
