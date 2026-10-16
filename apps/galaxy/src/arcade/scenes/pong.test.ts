@@ -11,18 +11,21 @@ import type { Session } from '../types';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { browserMic, createPong } from '../pong/index';
 import { fakeMic, settle } from '../pong/mic.fake';
+import { MATCH } from '../pong/rules';
 import {
-  loadPong, LOADING_LINE, meterAt, meterBand, METER_SPAN, NOT_LOADED, PAGES, pongPress, readyLines, samePongHud, TALL_SCENES,
-  type ArcadePong, type MicState, type PongGame, type PongHud, type PongStatus,
+  livesLine, loadPong, LOADING_LINE, meterAt, meterBand, METER_SPAN, MIC_LOST, NOT_LOADED, PAGES, PONG_LIVES, pongPress, pongRetry, readyLines, samePongHud,
+  TALL_SCENES, type ArcadePong, type MicState, type PongGame, type PongHud, type PongStatus,
 } from './pong.ts';
 import { PongOverlay } from './pong.tsx';
-import { loadedPong, pausedPong, pongDrawOf, pressedPong, withPongHud } from './pong.live';
+import { loadedPong, pausedPong, pongDrawOf, pressedPong, steppedPong, withPongHud, type PongHooks } from './pong.live';
+import type { ScoreSend } from './invaders-score';
 
-// OMNI PONG's scene (PRD 2101, slice 4): the cabinet that opens it, the loader, the loading and failure
-// lines, the ready screen before and after the microphone, MIC REQUIRED and its reasons, the pitch
-// meter's three states, and the microphone stopped when the scene is left.
+// OMNI PONG's scene (PRD 2101, slices 4 and 5): the cabinet that opens it, the loader, the loading and
+// failure lines, the ready screen before and after the microphone, MIC REQUIRED and its reasons, the
+// pitch meter's three states, the microphone stopped when the scene is left; then the match's HUD, the
+// pause, MIC LOST, the game over and its score sent once, whichever way the match ended.
 
-const READY: PongHud = { phase: 'ready', limit: 'MID', limitHz: 220, band: 10, mic: 'off', steer: 'still', hz: null };
+const READY: PongHud = { phase: 'ready', limit: 'MID', limitHz: 220, band: 10, mic: 'off', steer: 'still', hz: null, score: 0, lives: 3 };
 const hudWith = (mic: MicState, more: Partial<PongHud> = {}): PongHud => ({ ...READY, mic, ...more });
 
 const text = (status: PongStatus, hud: PongHud | null = READY, grid: Grid = WIDE, form: 'full' | 'handheld' = 'full') =>
@@ -33,7 +36,7 @@ const text = (status: PongStatus, hud: PongHud | null = READY, grid: Grid = WIDE
 function stubGame(hud: PongHud = READY, leave = false) {
   const calls = { press: [] as string[], pause: 0, close: 0, step: 0 };
   const game: PongGame = {
-    draw: () => {}, step: () => { calls.step++; }, press: (a) => { calls.press.push(a); return { leave: leave && a === 'b' }; },
+    draw: () => {}, step: () => { calls.step++; return { over: false }; }, press: (a) => { calls.press.push(a); return { leave: leave && a === 'b' }; },
     pause: () => { calls.pause++; }, close: () => { calls.close++; }, hud: () => hud,
   };
   return { game, calls };
@@ -152,7 +155,7 @@ describe('the arcade\'s hold on the game', () => {
     expect(samePongHud(READY, { ...READY })).toBe(true);
     expect(samePongHud(null, null)).toBe(true);
     expect(samePongHud(READY, null)).toBe(false);
-    for (const change of [{ limit: 'LOW' }, { limitHz: 160 }, { band: 5 }, { mic: 'on' }, { steer: 'up' }, { hz: 230 }] as const) {
+    for (const change of [{ phase: 'play' }, { limit: 'LOW' }, { limitHz: 160 }, { band: 5 }, { mic: 'on' }, { steer: 'up' }, { hz: 230 }, { score: 1 }, { lives: 2 }] as const) {
       expect(samePongHud(READY, { ...READY, ...change }), JSON.stringify(change)).toBe(false);
     }
   });
@@ -218,5 +221,114 @@ describe('the ready screen, played', () => {
     expect(text('ready', withPongHud(p, game).hud)).toContain('▼ START · PLAY');
     expect(pressedPong(p, 'b')).toBe('back');
     expect(mic.on).toBe(false);
+  });
+});
+
+const sent = (send: ScoreSend | null, hud: PongHud, grid: Grid = WIDE, form: 'full' | 'handheld' = 'full') =>
+  renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form, grid, page: 0, pages: 1 } }, createElement(PongOverlay, { status: 'ready', hud, send })))
+    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+describe('the match on the text layer', () => {
+  const playing: PongHud = { ...READY, phase: 'play', mic: 'on', score: 4, lives: 2 };
+
+  it('shows the score, a heart for each life left and a dot for each one lost, and how to pause', () => {
+    expect(PONG_LIVES).toBe(MATCH.lives);
+    expect(livesLine(3)).toBe('♥♥♥');
+    expect(livesLine(1)).toBe('♥··');
+    expect(livesLine(0)).toBe('···');
+    expect(text('ready', playing)).toBe('SCORE 4 ♥♥· ENTER PAUSE');
+    expect(text('ready', playing, TALL, 'handheld')).toBe('SCORE 4 ♥♥· START PAUSE');
+  });
+
+  it('reads PAUSED with the key to resume and the key to quit, and the microphone\'s refusal when resuming was refused', () => {
+    const paused: PongHud = { ...playing, phase: 'paused', mic: 'off' };
+    expect(text('ready', paused)).toBe('SCORE 4 ♥♥· PAUSED ENTER · RESUME TAB · QUIT');
+    expect(text('ready', paused, TALL, 'handheld')).toBe('SCORE 4 ♥♥· PAUSED START · RESUME SELECT · QUIT');
+    expect(text('ready', { ...paused, mic: 'blocked' })).toBe('SCORE 4 ♥♥· PAUSED MIC BLOCKED IN THE BROWSER ENTER · RESUME TAB · QUIT');
+    expect(text('ready', { ...paused, mic: 'missing' })).toContain('NO MIC FOUND');
+  });
+
+  it('reads MIC LOST · A TO RETRY when the microphone stopped during the match', () => {
+    expect(MIC_LOST).toBe('MIC LOST · A TO RETRY');
+    expect(text('ready', { ...playing, phase: 'lost', mic: 'off' }, TALL, 'handheld')).toBe('SCORE 4 ♥♥· MIC LOST · A TO RETRY A · RETRY SELECT · QUIT');
+  });
+
+  it('reads GAME OVER, the score, then saving, NEW BEST, the best, or not saved with A to retry', () => {
+    const over: PongHud = { ...playing, phase: 'over', lives: 0 };
+    expect(sent(null, over)).toBe('GAME OVER SCORE 4 A · AGAIN B · ROOM');
+    expect(sent({ state: 'sending', score: 4, tries: 1 }, over)).toBe('GAME OVER SCORE 4 SAVING SCORE… A · AGAIN B · ROOM');
+    expect(sent({ state: 'saved', score: 4, best: 4, newBest: true }, over)).toContain('NEW BEST');
+    expect(sent({ state: 'saved', score: 4, best: 9, newBest: false }, over)).toContain('YOUR BEST 9');
+    expect(sent({ state: 'failed', score: 4, tries: 1 }, over)).toBe('GAME OVER SCORE 4 SCORE NOT SAVED A · RETRY B · ROOM');
+    expect(sent({ state: 'failed', score: 4, tries: 2 }, over)).toContain('A · AGAIN');
+  });
+
+  it('lets A retry a failed send on the game over only, while a retry is left', () => {
+    const over: PongHud = { ...playing, phase: 'over' };
+    const failed: ScoreSend = { state: 'failed', score: 4, tries: 1 };
+    expect(pongRetry(over, failed, 'a')).toBe(true);
+    expect(pongRetry(over, failed, 'b')).toBe(false);
+    expect(pongRetry(over, { ...failed, tries: 2 }, 'a')).toBe(false);
+    expect(pongRetry(playing, failed, 'a')).toBe(false);
+    expect(pongRetry(null, failed, 'a')).toBe(false);
+  });
+});
+
+describe('the score, sent once', () => {
+  /** A match on a real game with a fake microphone, its START pressed, and the scores the arcade was handed. */
+  async function match(heard: number | null) {
+    const mic = fakeMic('on');
+    const game = createPong({ mic, store: () => ({ getItem: () => null, setItem: () => {} }), seed: () => 11 });
+    const scores: number[] = [];
+    let again = 0;
+    const on: PongHooks = { over: (s) => { scores.push(s); }, again: () => { again++; } };
+    let p = loadedPong(arcade(null, 'loading'), game) as ArcadePong;
+    p = pressedPong(p, 'a', on) as ArcadePong;
+    await settle();
+    mic.heard = heard;
+    p = pressedPong(p, 'start', on) as ArcadePong;
+    return { mic, game, scores, on, p, again: () => again };
+  }
+
+  it('is sent once when the third point is conceded, never again however long the frames run', async () => {
+    const m = await match(1000);
+    let p = m.p;
+    for (let i = 0; i < 300 * 60; i++) p = steppedPong(p, m.game, 1 / 60, m.on);
+    expect(p.hud?.phase).toBe('over');
+    expect(m.scores).toEqual([p.hud?.score]);
+  });
+
+  it('is sent once on SELECT · QUIT from the pause, and not again on another SELECT or a frame', async () => {
+    const m = await match(null);
+    let p = pressedPong(m.p, 'start', m.on) as ArcadePong;
+    expect(p.hud?.phase).toBe('paused');
+    p = pressedPong(p, 'select', m.on) as ArcadePong;
+    p = pressedPong(p, 'select', m.on) as ArcadePong;
+    p = steppedPong(p, m.game, 1 / 60, m.on);
+    expect(p.hud?.phase).toBe('over');
+    expect(m.scores).toEqual([0]);
+  });
+
+  it('A on the game over plays again from the ready screen, and the next match sends its own score', async () => {
+    const m = await match(null);
+    let p = pressedPong(m.p, 'start', m.on) as ArcadePong;
+    p = pressedPong(p, 'select', m.on) as ArcadePong;
+    p = pressedPong(p, 'a', m.on) as ArcadePong;
+    expect(m.again()).toBe(1);
+    expect(p.hud).toMatchObject({ phase: 'ready', mic: 'off' }); // the pause had stopped it
+    pressedPong(p, 'a', m.on);
+    await settle();
+    p = pressedPong(p, 'start', m.on) as ArcadePong;
+    p = pressedPong(p, 'start', m.on) as ArcadePong;
+    pressedPong(p, 'select', m.on);
+    expect(m.scores).toEqual([0, 0]);
+  });
+
+  it('pauses the match from outside, and the microphone with it', async () => {
+    const m = await match(null);
+    const p = pausedPong(m.p);
+    expect(p?.hud).toMatchObject({ phase: 'paused', mic: 'off' });
+    expect(m.mic.on).toBe(false);
+    expect(m.scores).toEqual([]);
   });
 });

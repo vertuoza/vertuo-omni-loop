@@ -9,6 +9,7 @@ import type { LimitName } from '../pong/rules';
 import type { Steer } from '../pong/steer';
 import type { FrameState, Pages, PongDraw, SceneName } from './common.ts';
 import { space } from './common.ts';
+import { overPress, type ScoreSend } from './invaders-score';
 
 export { LOADING_LINE, NOT_LOADED } from './duet.ts';
 
@@ -24,28 +25,40 @@ export const PAGES: Pages = {};
 export type MicState = 'off' | 'asking' | 'on' | 'blocked' | 'missing';
 
 /**
+ * Where the game stands: the ready screen, the match in play, paused (START, or from outside), paused
+ * because the microphone's track ended (MIC LOST), or over.
+ */
+export type PongPhase = 'ready' | 'play' | 'paused' | 'lost' | 'over';
+
+/**
  * What the text layer shows of the game: its phase, the limit and its pitch in Hz, half the still band
- * around it, where the microphone stands, what the steering reads and the pitch heard (rounded), if any.
+ * around it, where the microphone stands, what the steering reads and the pitch heard (rounded) on the
+ * ready screen's meter, and the match's score and lives left.
  */
 export interface PongHud {
-  phase: 'ready';
+  phase: PongPhase;
   limit: LimitName;
   limitHz: number;
   band: number;
   mic: MicState;
   steer: Steer;
   hz: number | null;
+  score: number;
+  lives: number;
 }
 
-/** What a press did to the game: B left for the room. */
-export interface PongPressed { leave: boolean }
+/** What a press did to the game: B left for the room, the match ended (its score to send), or A began a new one from the ready screen. */
+export interface PongPressed { leave: boolean; over?: boolean; again?: boolean }
+
+/** What a frame did to the game: the match ended in it (the third point conceded). */
+export interface PongStepped { over: boolean }
 
 /** The game itself, as the arcade drives it: stepped by the canvas loop, answering presses, paused and closed from outside. */
 export interface PongGame extends PongDraw {
-  /** Plays `dt` seconds: the pitch is read from the microphone, when it is on. */
-  step(dt: number): void;
+  /** Plays `dt` seconds: the pitch is read from the microphone, when it is on, and steers the match in play. */
+  step(dt: number): PongStepped;
   press(action: Action): PongPressed;
-  /** A pause from outside: a blurred window, a hidden tab. The microphone is stopped, and A asks for it again. */
+  /** A pause from outside: a blurred window, a hidden tab. The match pauses and the microphone is stopped. */
   pause(): void;
   /** The scene left: the microphone is stopped for good. */
   close(): void;
@@ -68,6 +81,27 @@ export const MIC_REASON: Readonly<Record<'blocked' | 'missing', string>> = { blo
 
 /** The limit as the ready screen shows it, its arrows around it: `◀ PITCH · MID ▶`. */
 export const pitchLine = (hud: PongHud): string => `◀ PITCH · ${hud.limit} ▶`;
+
+export const PAUSED_LINE = 'PAUSED';
+/** The match paused because the microphone's track ended: A asks for it again. */
+export const MIC_LOST = 'MIC LOST · A TO RETRY';
+export const OVER_LINE = 'GAME OVER';
+
+/** A match's lives: `MATCH.lives`, which this file cannot import at run time (pong/guard.test.ts); pong.test.ts pins them equal. */
+export const PONG_LIVES = 3;
+
+/** The lives as the HUD shows them: a heart for each one left, a dot for each one lost (`♥♥·`). */
+export const livesLine = (lives: number): string => {
+  const left = Math.min(PONG_LIVES, Math.max(0, lives));
+  return '♥'.repeat(left) + '·'.repeat(PONG_LIVES - left);
+};
+
+/**
+ * A on the game over, once its score has shown: true when it retries a send that failed and may be
+ * retried, so the arcade sends again rather than the game playing again.
+ */
+export const pongRetry = (hud: PongHud | null, send: ScoreSend | null, action: Action): boolean =>
+  hud?.phase === 'over' && overPress(send, action) === 'retry';
 
 /** The pitch meter's sign: what the steering reads. */
 export const METER_SIGN: Readonly<Record<Steer, string>> = { up: '▲', still: '·', down: '▼' };
@@ -128,8 +162,8 @@ export function pongPress(status: PongStatus, action: Action): 'retry' | 'back' 
 
 /** Whether two text layers say the same: the arcade re-renders only when they differ. */
 export const samePongHud = (a: PongHud | null, b: PongHud | null): boolean =>
-  a === b || (!!a && !!b && a.limit === b.limit && a.limitHz === b.limitHz && a.band === b.band
-    && a.mic === b.mic && a.steer === b.steer && a.hz === b.hz);
+  a === b || (!!a && !!b && a.phase === b.phase && a.limit === b.limit && a.limitHz === b.limitHz && a.band === b.band
+    && a.mic === b.mic && a.steer === b.steer && a.hz === b.hz && a.score === b.score && a.lives === b.lives);
 
 /** The Omni sky over the whole grid, then the loaded game's court on it. */
 export function drawPong(ctx: CanvasRenderingContext2D, s: FrameState) {

@@ -26,7 +26,26 @@
 .pg-lim { position: absolute; top: -4px; bottom: -4px; left: calc(50% - 1px); width: 2px; background: var(--white); }
 .pg-hz { position: absolute; top: 2px; bottom: 2px; width: 6px; background: var(--cyan); }
 
+/* The match's HUD over the top of the court (x 120 to 520 on this grid): the score on its left, the
+   lives left on its right, each Entropy Invaders' own stat. */
+.pg-score { left: 132px; }
+.pg-lives { right: 132px; justify-items: end; }
+.pg-lives span { color: var(--red); letter-spacing: 2px; }
+/* The pause, MIC LOST and the game over, over the middle of the court. */
+.pg-panel {
+  left: 50%; top: 50%; transform: translate(-50%, -50%); gap: 6px; justify-items: center; text-align: center;
+  line-height: 1.4; white-space: nowrap;
+}
+.pg-head { font-size: 10px; }
+.pg-panel .hint { font-size: 8px; }
+.pg-lost { color: var(--red); }
+.pg-refused { color: var(--red); }
+
 /* ── On the tall grid (320×288) ───────────────────────────────────────────── */
+.grid-tall .pg-score { left: 10px; }
+.grid-tall .pg-lives { right: 10px; }
+.grid-tall .pg-panel { padding: 8px 10px; }
+.grid-tall .pg-head { font-size: 8px; }
 .grid-tall .pg-title { top: 26px; font-size: 16px; }
 .grid-tall .pg-lines { top: 82px; gap: 16px; font-size: 8px; }
 .grid-tall .pg-why { font-size: 16px; }
