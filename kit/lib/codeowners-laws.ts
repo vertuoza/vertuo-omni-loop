@@ -7,7 +7,7 @@
  *
  * - the thesis, `<knowledge>/product/thesis.md`, which names every law;
  * - every register file: each folder's `principles.md`, `rules.md` and `invariants.md`, and each
- *   cross-domain file;
+ *   cross-domain file — never a `contracts.md` (PRD 1796): a contract is never a law;
  * - each locked law's test, every path its `Enforced by:` line names;
  *
  * each owned by every one of `laws.owners`. It writes the file GitHub reads first (`.github/`, the
@@ -18,7 +18,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { CODEOWNERS_FILES, OWNERS_BEGIN, ownersBlock, ownersBlockIn, withOwnersBlock, type OwnedPath } from './codeowners.ts';
-import { domainsDir, isLaw, LAYER_FILES, productDir, readKnowledge, type Knowledge, type KnowledgeCtx } from './knowledge/registers.ts';
+import { domainsDir, isLaw, productDir, REQUIRED_LAYER_FILES, readKnowledge, type Knowledge, type KnowledgeCtx } from './knowledge/registers.ts';
 import { thesisPath } from './knowledge/thesis.ts';
 import { messageOf } from './narrow.ts';
 
@@ -39,7 +39,7 @@ function testPaths(enforcedBy: string): string[] {
 /** Every path the block owns, in the block's order: the thesis, the register files, then each law's test. */
 function lawOwnedPaths(ctx: KnowledgeCtx, knowledge: Knowledge = readKnowledge({ ctx })): OwnedPath[] {
   const registers = 'The thesis and the registers: what the product promises, and its laws.';
-  const layers = (dir: string, files: readonly string[]) => Object.keys(LAYER_FILES).filter((name) => files.includes(name)).map((name) => `${dir}/${name}`);
+  const layers = (dir: string, files: readonly string[]) => REQUIRED_LAYER_FILES.filter((name) => files.includes(name)).map((name) => `${dir}/${name}`);
   const files = [
     thesisPath(ctx),
     ...layers(productDir(ctx), knowledge.productFiles),
