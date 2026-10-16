@@ -310,7 +310,7 @@ change to a law the range makes, one `not ok` line each, by its rule:
 | rule | the range |
 |---|---|
 | `law-proof` | changes a file a law's `Enforced by:` names |
-| `law-text` | rewords, adds or removes a law in a register |
+| `law-text` | rewords, adds or removes a law or a domain contract in a register |
 | `test-removed` | deletes a test, a law's among them |
 | `law-demoted` | turns a law's `Enforced by:` path back to `pending` or `unenforced`, or removes the law |
 
