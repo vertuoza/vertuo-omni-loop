@@ -109,6 +109,22 @@ on a machine set up for it, with no one at a terminal. Start one with
   14 unless given), then prints one line, like
   `swept: 3 worktrees, 6 branches, 12 log files · 412 MB freed`, or nothing when nothing went. It
   never touches `~/logs/runner.log`, another folder or file, or another branch.
+- **The plugin** (PRD 2100): a job's skills come from the Omni plugin installed for the runner's
+  user, so the runner keeps it current. Once a job's worktree is made, before Claude starts, it reads
+  the plugin's version from `claude plugin list --json` (the user's own entry, the oldest if there
+  are several) and the omni the job's repository pins (the version its `.omni-loop/bin/omni.mjs`
+  carries; a repository with no bin pins none, and nothing is checked). A plugin as new, or newer,
+  starts nothing and calls nothing. An older one is updated with `claude plugin marketplace update
+  omni-loop` then `claude plugin update omni@omni-loop`, one update at a time across every slot and
+  the sweep, then read again. Still older, the job fails before Claude starts with
+  `omni plugin v<x> is older than <owner/repo>'s omni v<y>: claude plugin update failed: <its last
+  line>`; not installed, with `the omni plugin is not installed: claude plugin install
+  omni@omni-loop`. A list that does not read lets the job run, and its log's first line says
+  `omni plugin version not read: <why>`. The sweep updates the plugin at start and every hour, and
+  the runner prints a line only when the version changed, `omni plugin v<x> → v<y>`, or the update
+  failed, `omni plugin update failed: <its last line>`. A running session keeps the skills it
+  loaded: Claude Code keeps each plugin version in its own folder. The runner's own code does not
+  update itself: `git pull` in the checkout it starts from, then restart `omni runner`.
 - **Which lines:** only `/omni:yolo`, `yolo-fix`, `pr-care`, `do-work`, `wave`, `bug-fix`,
   `visual-fix`, `plan`, `pitch` and `prove`, with arguments of letters, digits, spaces and `._/:#-`,
   200 characters at most. The runner checks the line again before it runs it, whatever the page sent.
