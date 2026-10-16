@@ -7,7 +7,7 @@ import type { Job, JobLines, Runner } from './runners.contract';
 
 const JOB: Job = {
   id: '00000000-0000-4000-8000-000001830201', line: '/omni:yolo 1717', repo: 'vertuoza/app', toRunner: null, toFleet: 'cia',
-  sentBy: '00000000-0000-4000-8000-0000018300b1', sentByLogin: 'mo', status: 'queued', runner: null, cancelRequested: false,
+  sentBy: '00000000-0000-4000-8000-0000018300b1', sentByLogin: 'mo', sentByKey: null, status: 'queued', runner: null, cancelRequested: false,
   logTail: '', prUrl: null, exitCode: null, reason: null, queuedAt: '2026-10-13T12:00:00.000Z', claimedAt: null, runningAt: null, endedAt: null,
 };
 
