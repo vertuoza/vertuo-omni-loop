@@ -12,7 +12,7 @@
 // and the run's folder: see `./bug-film.ts`.
 import { issueArg, parseArgs, println, readUserFile, usageError } from '../args.ts';
 import { loggedPaths, fixLaws, rangeBase, rangeCommits } from '../branch-range.ts';
-import { openPullRequest } from '../../lib/bug/proof-body.ts';
+import { openPullRequest, proofFaults } from '../../lib/bug/proof-body.ts';
 import type { ProofSource } from '../../lib/bug/proof-body.ts';
 import { bugVerdict } from '../../lib/bug/verdict.ts';
 import { synchronous } from '../synchronous.ts';
@@ -35,7 +35,7 @@ function grade(args: string[], { ctx, stdout, exec }: CommandIo): number {
     changed: loggedPaths(ctx.root, base, exec),
     commits: ctx.config.signature === null ? undefined : rangeCommits(ctx.root, base, exec),
     laws: fixLaws(ctx, issue, base, exec),
-    proof: () => written ?? openPullRequest({ root: ctx.root, exec }),
+    proof: () => proofFaults(written ?? openPullRequest({ root: ctx.root, exec }), issue),
   });
   println(stdout, verdict.ok ? 'ok' : 'not ok');
   for (const failure of verdict.failures) println(stdout, `- ${failure}`);

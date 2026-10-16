@@ -17,7 +17,7 @@
  *    `outbox/`, and an account naming it: the lines `laws` gives for the folder.
  * 6. Every commit of the branch carries the trailer `omni sign trailer` prints, unless the config
  *    says `signature: null`.
- * 7. When given a way to read it (PRD 2100), the pull request's body carries its proof
+ * 7. When given a way to grade it (PRD 2100), the pull request's body carries its proof
  *    (`./proof-body.ts`), one more line per fault. A record with a `## Fixes` section is exempt:
  *    its fixes live in other repositories, and the body is not read at all.
  *
@@ -28,8 +28,6 @@ import { isAbsolute, join, normalize } from 'node:path';
 import { fixVerdict, issuePrefix, numberedFolders } from '../fix-verdict.ts';
 import { boldField, fixesViolations } from './fixes.ts';
 import type { FixesConfig } from './fixes.ts';
-import { proofFaults } from './proof-body.ts';
-import type { ProofSource } from './proof-body.ts';
 import type { Commit } from '../fix-verdict.ts';
 import type { TrailerSignature } from '../signature.ts';
 import type { IssueNumber } from '../ids.ts';
@@ -149,8 +147,8 @@ export function bugVerdict({ ctx, issue, changed, commits, laws, proof }: {
   commits?: readonly Commit[] | undefined;
   /** The changes to a law the range has not answered in the folder (PRD 1342), one line each. */
   laws?: ((folder: string) => string[]) | undefined;
-  /** Reads the pull request body to check (PRD 2100); called only when the record is not a `## Fixes` one. */
-  proof?: (() => ProofSource) | undefined;
+  /** The faults of the pull request's proof (PRD 2100), one line each; called only when the record is not a `## Fixes` one. */
+  proof?: (() => readonly string[]) | undefined;
 }): { ok: boolean; folder: string | null; failures: string[] } {
   const changedSet = changed === undefined ? undefined : new Set([...changed].map((path) => normalize(path)));
   const verdict = fixVerdict({
@@ -158,6 +156,6 @@ export function bugVerdict({ ctx, issue, changed, commits, laws, proof }: {
     grade: (folder) => [...recordViolations(ctx, `${folder}/${RECORD}`, changedSet), ...(laws?.(folder) ?? [])],
   });
   const exempt = verdict.folder !== null && recordSections(ctx, `${verdict.folder}/${RECORD}`)?.has('Fixes') === true;
-  const failures = proof === undefined || exempt ? verdict.failures : [...verdict.failures, ...proofFaults(proof(), issue)];
+  const failures = proof === undefined || exempt ? verdict.failures : [...verdict.failures, ...proof()];
   return { ok: failures.length === 0, folder: verdict.folder, failures };
 }
