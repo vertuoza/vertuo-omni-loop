@@ -415,14 +415,18 @@ From then on, `omni check knowledge` refuses a rule or an invariant whose `Enfor
 
 ### A person answers every change to a rule
 
-Four changes count as a change to a rule, locked or not (a locked one also needs its CODEOWNER,
+Five changes count as a change to a rule, locked or not (a locked one also needs its CODEOWNER,
 [above](#lock-a-law)):
 
 - **`law-proof`**: the law's test changes;
 - **`law-text`**: a register of the knowledge base, or a decision record, changes;
 - **`test-removed`**: a test file is deleted;
 - **`law-demoted`**: a law's test path turns back to `pending` or `unenforced`, or a law leaves the
-  knowledge base.
+  knowledge base;
+- **`briefing-text`**: the briefing changes (`briefing.md` in the playbook, the file its `points-to`
+  names, or a file one of its `See:` lines names), in every repository that has one. It holds the
+  rules every agent follows, so an agent never loosens them alone. The briefing is not a locked law:
+  its CODEOWNER is asked to review, and any person may answer its question.
 
 Each needs a question ranked `high`, one a person answers on the pull request. An account that says
 `spec <where>`, or names a `medium` question the loop adopted by itself, does not count: the outbox
@@ -430,7 +434,7 @@ check stays red. Which pull request gets which check:
 
 | Pull request | Its outbox check |
 |---|---|
-| a feature pull request | as always, with the four law changes answered only by `high` questions |
+| a feature pull request | as always, with the five changes answered only by `high` questions |
 | a fix (`/omni:bug-fix`, `/omni:visual-fix`) | `success` when it touches no law. One that does needs a small `outbox/` in the fix's folder, one `high` question per change: the fix skills raise them, and the check names the law and stays red until you answer |
 | a knowledge pull request, or one `/omni:enforce` opened | never blocked: merging it is your answer. The check lists the laws it touches |
 

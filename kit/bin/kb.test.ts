@@ -1126,6 +1126,8 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       `/${K}/product/principles.md @pierrederval`,
       `/${K}/product/rules.md @pierrederval`,
       `/${K}/product/invariants.md @pierrederval`,
+      '# The briefing: the rules every agent follows.',
+      `/${PLAYBOOK}/briefing.md @pierrederval`,
       '# law BR-PRODUCT-1: its test.',
       `/${TEST_FILE} @pierrederval`,
       '# END omni kb owners',
@@ -1139,9 +1141,9 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       const { root, read } = makeRepo({ git: true, files: files() });
       const { code, out } = await omni(root, ['kb', 'owners']);
       expect(code).toBe(0);
-      expect(out).toBe('kb owners — wrote .github/CODEOWNERS: 5 path(s) owned by @pierrederval; no line outside its markers changed.\n');
+      expect(out).toBe('kb owners — wrote .github/CODEOWNERS: 6 path(s) owned by @pierrederval; no line outside its markers changed.\n');
       expect(read('.github/CODEOWNERS')).toBe(`${BLOCK}\n`);
-      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0, out: 'kb owners — .github/CODEOWNERS is up to date: 5 path(s) owned by @pierrederval.\n' });
+      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0, out: 'kb owners — .github/CODEOWNERS is up to date: 6 path(s) owned by @pierrederval.\n' });
     });
 
     it('leaves every line outside its markers byte-identical, and replaces only its own block', async () => {
@@ -1154,6 +1156,29 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       const { root: replaced, read: readReplaced } = makeRepo({ git: true, files: files({ '.github/CODEOWNERS': `${before}${stale}${after}` }) });
       await omni(replaced, ['kb', 'owners']);
       expect(readReplaced('.github/CODEOWNERS')).toBe(`${before}${BLOCK}${after}`);
+    });
+
+    it('names the briefing and each file it points to, after the thesis and the registers (PRD 1793, s2)', async () => {
+      const BRIEFING = `${PLAYBOOK}/briefing.md`;
+      const briefing = (frontMatter: Record<string, unknown>, body: string) =>
+        formText({ frontMatter: { form: 'briefing', state: 'filled', ...frontMatter }, title: 'Briefing', slots: [{ id: 'never', required: true, body }] });
+      const seeing = files({ [BRIEFING]: briefing({}, 'See: ./docs/agents/never.md#merging'), 'docs/agents/never.md': '- Never merge.\n' });
+      const { root, read } = makeRepo({ git: true, files: seeing });
+      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0, out: expect.stringContaining(': 7 path(s)') as unknown });
+      const lines = read('.github/CODEOWNERS').split('\n');
+      const at = lines.indexOf('# The briefing: the rules every agent follows.');
+      expect(at).toBeGreaterThan(lines.indexOf(`/${K}/product/invariants.md @pierrederval`));
+      expect(lines.slice(at, at + 4)).toEqual([
+        '# The briefing: the rules every agent follows.',
+        `/${BRIEFING} @pierrederval`,
+        '/docs/agents/never.md @pierrederval',
+        '# law BR-PRODUCT-1: its test.',
+      ]);
+      expect(await check(root)).toMatchObject({ code: 0 });
+      const pointing = files({ [BRIEFING]: briefing({ state: 'pointer', 'points-to': 'AGENTS.md' }, ''), 'AGENTS.md': '# Agents\n' });
+      const { root: pointer, read: readPointer } = makeRepo({ git: true, files: pointing });
+      await omni(pointer, ['kb', 'owners']);
+      expect(readPointer('.github/CODEOWNERS').split('\n')).toContain('/AGENTS.md @pierrederval');
     });
 
     it('writes into the CODEOWNERS GitHub reads, never shadowing a root or docs/ file with a new .github/ one', async () => {
@@ -1178,7 +1203,7 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       expect(lines).toContain(`/${K}/domains/quote/rules.md @pierrederval @acme/law-keepers`);
       expect(lines).toContain(`/${TEST_FILE} @pierrederval @acme/law-keepers`);
       expect(lines).toContain('/game/ledger.ts @pierrederval @acme/law-keepers');
-      expect(lines.filter((line) => line.startsWith(`/${K}/`))).toHaveLength(7);
+      expect(lines.filter((line) => line.startsWith(`/${K}/`))).toHaveLength(8);
       expect(await check(root)).toMatchObject({ code: 0 });
     });
 
@@ -1233,7 +1258,98 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
     it('--json says which file it wrote, how many paths and for whom', async () => {
       const { root } = makeRepo({ git: true, files: files() });
       const parsed: unknown = JSON.parse((await omni(root, ['kb', 'owners', '--json'])).out);
-      expect(parsed).toEqual({ file: '.github/CODEOWNERS', wrote: true, paths: 5, owners: ['pierrederval'] });
+      expect(parsed).toEqual({ file: '.github/CODEOWNERS', wrote: true, paths: 6, owners: ['pierrederval'] });
     });
+  });
+});
+
+describe('omni kb legal | glossary (PRD 1795)', () => {
+  const HOST = 'omni.test';
+  const NOW = new Date('2026-10-15T08:00:00Z');
+  const LOCAL = '.omni-loop/local/product-knowledge.json';
+  const KNOWLEDGE_CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: https://omni.test\n';
+  const BUSINESS = {
+    state: 'ok',
+    business: { name: 'Acme' },
+    product: { name: 'Invoicing' },
+    claims: [],
+    personas: [],
+    legal: [{ id: 'L-INVOICING-1', statement: 'An invoice is kept ten years.', source: 'Code de commerce', owner: 'jane' }],
+    glossary: [{ term: 'Credit note', meaning: 'A document that cancels part of an invoice.', avoid: ['refund', 'rebate'] }],
+  };
+  const signedIn = { read: (host: string) => (host === HOST ? { access_token: 'a', refresh_token: 'r' } : null), write: () => {} };
+
+  /** A page answering `status` with `body`, recording each URL. */
+  function page(status: number, body: unknown = BUSINESS) {
+    const urls: string[] = [];
+    return {
+      urls,
+      fetch: (url: string) => {
+        urls.push(url);
+        return Promise.resolve(new Response(JSON.stringify(body), { status }));
+      },
+    };
+  }
+  const down = { fetch: () => Promise.reject(new TypeError('fetch failed')) };
+
+  function know(root: string, argv: string[], server: { fetch: unknown }, tokens: unknown = signedIn) {
+    return omni(root, argv, { env: {}, tokens, fetch: server.fetch, now: () => NOW });
+  }
+  const repo = () => makeRepo({ git: true, files: { '.omni-loop/config.yml': KNOWLEDGE_CONFIG } });
+
+  it('prints one line per active entry and per term, and keeps the read as the local copy', async () => {
+    const { root, read } = repo();
+    const server = page(200);
+    const legal = await know(root, ['kb', 'legal'], server);
+    expect(legal).toEqual({ code: 0, out: 'L-INVOICING-1  An invoice is kept ten years.  (source: Code de commerce; owner: @jane)\n', err: '' });
+    expect(server.urls).toEqual(['https://omni.test/api/business?repo=acme%2Fwidgets']);
+    const glossary = await know(root, ['kb', 'glossary'], page(200));
+    expect(glossary.out).toBe('Credit note: A document that cancels part of an invoice.  (avoid: refund, rebate)\n');
+    expect(JSON.parse(read(LOCAL))).toEqual({
+      product: 'Invoicing', readAt: NOW.toISOString(), legal: BUSINESS.legal, glossary: BUSINESS.glossary,
+    });
+  });
+
+  it('reads a server from before the page as empty lists', async () => {
+    const { root } = repo();
+    const old = { state: 'ok', business: { name: 'Acme' }, product: { name: 'Invoicing' }, claims: [], personas: [] };
+    expect(await know(root, ['kb', 'legal'], page(200, old))).toEqual({ code: 0, out: '', err: '' });
+  });
+
+  it.each([
+    ['a 5xx', () => page(503, { error: 'down' })],
+    ['a timeout', () => down],
+  ])('prints the copy under the unreachable line on %s', async (_, server) => {
+    const { root } = repo();
+    await know(root, ['kb', 'legal'], page(200));
+    const again = await know(root, ['kb', 'glossary'], server());
+    expect(again.code).toBe(0);
+    expect(again.out).toBe(
+      'last read 2026-10-15: the Omni page is unreachable\nCredit note: A document that cancels part of an invoice.  (avoid: refund, rebate)\n',
+    );
+  });
+
+  it('prints the server reason and exits 1 on a 4xx, whatever the copy', async () => {
+    const { root } = repo();
+    await know(root, ['kb', 'legal'], page(200));
+    const refused = await know(root, ['kb', 'legal'], page(403, { error: 'not a member of the workspace' }));
+    expect(refused.code).toBe(1);
+    expect(refused.out).toContain('not a member of the workspace');
+    expect(refused.out).not.toContain('L-INVOICING-1');
+  });
+
+  it('says nothing was read yet when the page is unreachable and there is no copy', async () => {
+    const { root } = repo();
+    expect(await know(root, ['kb', 'legal'], down)).toEqual({
+      code: 1, out: 'no product knowledge: the Omni page is unreachable and nothing was read yet\n', err: '',
+    });
+  });
+
+  it('exits 1 with the reason when there is no Omni page or no sign-in', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    expect((await know(root, ['kb', 'legal'], page(200))).code).toBe(1);
+    const { root: other } = repo();
+    const unsigned = await know(other, ['kb', 'glossary'], page(200), { read: () => null, write: () => {} });
+    expect(unsigned).toMatchObject({ code: 1, out: 'no product knowledge: no sign-in for omni.test (omni signin)\n' });
   });
 });

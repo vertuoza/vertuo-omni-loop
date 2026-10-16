@@ -309,6 +309,7 @@ change to a rule or a law the range makes, one `not ok` line each, by its rule:
 | `law-text` | rewords, adds or removes a rule or a law in a register |
 | `test-removed` | deletes a test, a law's among them |
 | `law-demoted` | turns an `Enforced by:` path back to `pending` or `unenforced`, or removes the entry |
+| `briefing-text` | changes the briefing (`<paths.playbook>/briefing.md`), its `points-to` file or a file one of its `See:` lines names |
 
 **A locked law asks more.** Changing one (its text, its `Locked:` line, or the test that proves it)
 also keeps the pull request's outbox check red under `law-locked`, until a CODEOWNER of the law's
@@ -413,7 +414,7 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
    | exit | what you do |
    |---|---|
    | `0` | `ok`: carry on. |
-   | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit), commit, and rerun. A line naming `law-proof`, `law-text`, `test-removed` or `law-demoted` follows **A change to a law**. |
+   | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit), commit, and rerun. A line naming `law-proof`, `law-text`, `test-removed`, `law-demoted` or `briefing-text` follows **A change to a law**. |
    | `2` | The kit is not installed here, its config does not read, or `--base` does not resolve: say so and stop. |
 
 3. **Push** the fix branch: `git push -u <remote> <fix branch>`.

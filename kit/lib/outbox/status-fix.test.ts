@@ -142,6 +142,56 @@ describe('fixGateResult — a fix PR answers a change to a law in its own folder
   });
 });
 
+describe('fixGateResult — a change to the briefing (PRD 1793)', () => {
+  const BRIEFING = { path: '.omni-loop/knowledge/playbook/briefing.md', status: 'M' };
+
+  function briefingAccount(root: string, account: string) {
+    const text = ['---', 'prd: 123', 'slice: s1', 'graded: 2026-10-15', '---', '', '## Risky changes', '', `- \`${BRIEFING.path}\``, 'briefing-text', account, ''];
+    write(root, `${FIX}/outbox/accounts/fix.md`, text.join('\n'));
+  }
+
+  it('is red with a medium item, saying the briefing needs an item ranked high', () => {
+    const root = fixtureRoot();
+    fixItem(root, 'medium');
+    briefingAccount(root, 'item s1-01-proof');
+    const result = fixGateResult({ ctx: flatCtx(root), fix: { folder: FIX, number: ISSUE }, changes: [BRIEFING] });
+    expect(result.ok).toBe(false);
+    expect(fixLawFailures(result)).toEqual([
+      `${BRIEFING.path} (briefing-text): its account names item s1-01-proof, ranked medium: a change to the briefing needs an item ranked high.`,
+    ]);
+  });
+
+  it('names the briefing when nothing accounts for it, and when there is no fix folder', () => {
+    const ctx = flatCtx(fixtureRoot());
+    expect(fixLawFailures(fixGateResult({ ctx, fix: { folder: FIX, number: ISSUE }, changes: [BRIEFING] }))).toEqual([
+      `${BRIEFING.path} (briefing-text): a change to the briefing needs an item ranked high in ${FIX}/outbox/ and an account naming it in ${FIX}/outbox/accounts/.`,
+    ]);
+    expect(fixLawFailures(fixGateResult({ ctx, fix: null, changes: [BRIEFING] }))).toEqual([
+      `${BRIEFING.path} (briefing-text): a change to the briefing needs an outbox in the fix's folder, and this range has no fix folder.`,
+    ]);
+  });
+
+  it('stays red while the high item is open, and is green once a person answered it', () => {
+    const root = fixtureRoot();
+    const file = fixItem(root);
+    briefingAccount(root, 'item s1-01-proof');
+    const ctx = flatCtx(root);
+    expect(fixGateResult({ ctx, fix: { folder: FIX, number: ISSUE }, changes: [BRIEFING] })).toMatchObject({ ok: false, unaccounted: [] });
+    const settled = settleItem({
+      ctx: fixOutboxContext(ctx, FIX, ISSUE),
+      file,
+      answer: { text: 'Yes, keep it.', approvedBy: 'pierrederval', approvedAt: '2026-10-15', channel: { kind: 'feature-pull-request', number: 40 }, statedVerdict: 'agreed' },
+    });
+    expect(settled.ok).toBe(true);
+    expect(fixGateResult({ ctx, fix: { folder: FIX, number: ISSUE }, changes: [BRIEFING] })).toMatchObject({ ok: true, items: [], unaccounted: [] });
+  });
+
+  it('asks nothing unless laws.source is knowledge, as for a change to a law', () => {
+    const ctx = flatCtx(fixtureRoot(), { laws: { source: 'none' } });
+    expect(fixGateResult({ ctx, fix: { folder: FIX, number: ISSUE }, changes: [BRIEFING] })).toMatchObject({ ok: true, unaccounted: [] });
+  });
+});
+
 describe('lawsTouched — the laws a range touches', () => {
   it('names a law added, a law reworded and a law removed, and leaves an unchanged one out', () => {
     const root = fixtureRoot([law('N1', 'Kept.', 'unenforced'), law('N2', 'Reworded now.', 'unenforced'), law('N4', 'Added.', 'pending #9')].join('\n'));

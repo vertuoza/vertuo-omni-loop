@@ -287,6 +287,63 @@ describe('riskyChanges — the risky paths are config, not literals (Task 8, Ste
   });
 });
 
+describe('riskyChanges — briefing-text (PRD 1793)', () => {
+  const BRIEFING = '.omni-loop/knowledge/playbook/briefing.md';
+
+  /** The briefing's text: a filled form whose one section's body is `body`, or a pointer form. */
+  function briefingText({ body = '- Never merge.', pointsTo = null }: { body?: string; pointsTo?: string | null } = {}) {
+    const state = pointsTo === null ? 'filled' : 'pointer';
+    return ['---', 'form: briefing', 'form-version: 1', `state: ${state}`, `points-to: ${pointsTo ?? 'null'}`, 'evidence: []', 'invaded: null', '---', '', '# Briefing', '', '## Never', '<!-- slot: never · required -->', body, ''].join('\n');
+  }
+
+  it.each(['A', 'M', 'D'])('fires on the briefing %s', (status) => {
+    expect(rulesFiredOn(BRIEFING, status)).toEqual(['briefing-text']);
+  });
+
+  it('fires on a briefing moved away, at its delete', () => {
+    const moved = [change(BRIEFING, 'D'), change('docs/old-briefing.md', 'A')];
+    expect(riskyChanges(moved, { ctx })).toEqual([{ path: BRIEFING, status: 'D', rule: 'briefing-text' }]);
+  });
+
+  it('fires at a custom paths.playbook, and not at the default one there', () => {
+    const custom = flatCtx(root, { paths: { knowledge: 'docs/knowledge', adr: 'docs/adr', playbook: 'handbook/how-we-work' } });
+    expect(riskyChanges([change('handbook/how-we-work/briefing.md')], { ctx: custom }).map((entry) => entry.rule)).toEqual(['briefing-text']);
+    expect(riskyChanges([change(BRIEFING)], { ctx: custom })).toEqual([]);
+  });
+
+  it("fires on a pointer form's points-to file, read at the head", () => {
+    seed(BRIEFING, briefingText({ body: '', pointsTo: 'docs/agents/rules.md' }));
+    expect(rulesFiredOn('docs/agents/rules.md')).toEqual(['briefing-text']);
+  });
+
+  it("fires on a section's See: file, the whole file, its anchor dropped", () => {
+    seed(BRIEFING, briefingText({ body: 'See: README.md#never' }));
+    expect(rulesFiredOn('README.md')).toEqual(['briefing-text']);
+  });
+
+  it('never fires on another form, on the kit template, or on a file only another form points to', () => {
+    seed(BRIEFING, briefingText());
+    seed('.omni-loop/knowledge/playbook/testing.md', briefingText({ body: 'See: docs/testing.md' }).replace('form: briefing', 'form: testing'));
+    expect(rulesFiredOn('.omni-loop/knowledge/playbook/testing.md')).toEqual([]);
+    expect(rulesFiredOn('kit/templates/playbook/briefing.md')).toEqual([]);
+    expect(rulesFiredOn('docs/testing.md')).toEqual([]);
+  });
+
+  it('reports both rules on a change that fires another one too', () => {
+    seed(BRIEFING, briefingText({ body: 'See: docs/adr/0001-rules.md' }));
+    expect(rulesFiredOn('docs/adr/0001-rules.md')).toEqual(['law-text', 'briefing-text']);
+  });
+
+  it('fires whatever laws.source says', () => {
+    const elsewhere = flatCtx(root, { laws: { source: 'none' } });
+    expect(riskyChanges([change(BRIEFING)], { ctx: elsewhere }).map((entry) => entry.rule)).toEqual(['briefing-text']);
+  });
+
+  it('is one of RULE_IDS', () => {
+    expect(RULE_IDS).toContain('briefing-text');
+  });
+});
+
 /** An invariants file holding one entry per `[id, Enforced by: value]` pair. */
 function invariantsText(entries: [string, string][]): string {
   return entries
@@ -529,7 +586,7 @@ describe('lockedLawChanges — law-locked (PRD 1726)', () => {
   });
 
   it('is no rule of riskyChanges: no account ever covers it', () => {
-    expect(RULE_IDS).toEqual(['stored-shape', 'law-proof', 'law-text', 'test-removed', 'shared-contract', 'law-demoted']);
+    expect(RULE_IDS).toEqual(['stored-shape', 'law-proof', 'law-text', 'test-removed', 'shared-contract', 'briefing-text', 'law-demoted']);
     expect(LAW_LOCKED).toBe('law-locked');
   });
 });
