@@ -391,3 +391,157 @@ A constant: drop the `numbered_at` filter in public-api.repository.ts and let `n
 ```
 
 <!-- /omni-outbox-settled: s2-01-prd-list-numbers-and-drafts -->
+
+<!-- omni-outbox-settled: s3-01-allow-vue-demi-install-script-off -->
+
+## s3-01-allow-vue-demi-install-script-off — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-allow-vue-demi-install-script-off
+prd: 2022
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+The viewer that draws the API reference pulls in a small helper whose install step pnpm refuses to run unasked, which fails every install. Should we tell pnpm to leave that step off?
+
+## The decision, in plain words
+
+The repository's pnpm settings now say the helper called vue-demi never runs its install step, so installs stay green.
+
+## The intro, for fun
+
+A helper arrived with a to-do list; we politely declined the list.
+
+## The punchline, for fun
+
+It does its job fine without ever being asked to set up.
+
+## The options, in plain words
+
+A. A. Turn vue-demi's install step off in the pnpm settings (built).
+B. B. Draw the reference with a script from a public CDN instead, and drop the viewer package.
+
+## What I had to decide
+
+Adding Scalar's viewer made pnpm stop with ignored build scripts for vue-demi, which would fail the install in CI. One line in the pnpm settings file, outside this slice's usual folders, turns that step off; the helper works without it. Undoing it is deleting the line, with the viewer removed.
+
+## What I did meanwhile
+
+Installs pass; the reference viewer works.
+
+## What it costs to change later
+
+One line in pnpm-workspace.yaml.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether vue-demi's script is needed by a Vue version this repository does not use is unverified (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-allow-vue-demi-install-script-off -->
+
+<!-- omni-outbox-settled: s3-02-docs-api-guide-and-reference-share-a-page -->
+
+## s3-02-docs-api-guide-and-reference-share-a-page — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-docs-api-guide-and-reference-share-a-page
+prd: 2022
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+The written API guide and the interactive reference were both meant to live at the same address of the docs site, called API. Should that one page show both, the guide first and the reference under it?
+
+## The decision, in plain words
+
+The docs site's API page shows the written guide with the interactive reference under it, so neither hides the other.
+
+## The intro, for fun
+
+Two pages, one address: we made them share the sofa.
+
+## The punchline, for fun
+
+Nobody sits on the floor, for now.
+
+## The options, in plain words
+
+A. A. One API page with the guide, then the reference (built).
+B. B. The reference alone on the API page, and the guide on a page of its own with another address.
+
+## What I had to decide
+
+A route file for the reference at app/docs/api would hide the guide page docs/guide/api.md, which the docs site serves at the very same address. So that route renders the guide page with the reference under it. Undoing it means giving one of them another address, a rename.
+
+## What I did meanwhile
+
+Both read at /docs/api, and the guide is the last link of the sidebar.
+
+## What it costs to change later
+
+One route file and one client component; a separate address is a rename.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Where the guide sits in the sidebar order was not specified (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-02-docs-api-guide-and-reference-share-a-page -->
