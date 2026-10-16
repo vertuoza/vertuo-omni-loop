@@ -3,7 +3,6 @@
 // while a row is not merged, and each merge that named the record but matched no row (`unmatched merge
 // <repo>#<n>`). A pure function of the rows fix_bug_push() and fix_row_stamp() keep
 // (supabase/migrations/20261211090000_fix_rows.sql), read as the signed-in member. The page merges nothing.
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FixPageView } from './timeline';
 
 export type BugRowState = 'open' | 'merged' | 'closed';
@@ -53,17 +52,4 @@ export function bugRowsView(rows: readonly BugRowRead[], unmatched: readonly Unm
 /** The page view of a product bug: the header's state and the rows the Timeline tab draws. */
 export function bugRecordPage(view: BugRowsView): FixPageView {
   return { state: view.shipped ? 'merged' : 'in-review', stateLabel: view.shipped ? 'Shipped' : 'Open', links: [], timeline: [], bugRows: view };
-}
-
-/** The rows and unmatched merges of dossier `id`, as the member; null when they could not be read. */
-export async function readBugRows(db: Pick<SupabaseClient, 'from'>, id: string): Promise<BugRowsView | null> {
-  const [rows, unmatched] = await Promise.all([
-    db.from('fix_rows').select('position, repository, pull, state, changes').eq('dossier_id', id).order('position'),
-    db.from('fix_unmatched_merges').select('repository, pull').eq('dossier_id', id).order('seen_at'),
-  ]);
-  if (rows.error || unmatched.error) {
-    console.error(rows.error ?? unmatched.error);
-    return null;
-  }
-  return bugRowsView(rows.data as BugRowRead[], unmatched.data as UnmatchedRead[]);
 }
