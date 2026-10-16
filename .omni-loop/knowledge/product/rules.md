@@ -974,7 +974,7 @@ Merged: @pierrederval, 2026-10-07, PR #1181
 
 ## BR-PRODUCT-81
 
-Any member of a roadmap's workspace may push an update to it, replacing its document and PRD rows, and the roadmap records the member who pushed last.
+Any member of a roadmap's workspace may push an update to it, replacing its document and PRD rows, and the roadmap records the member who pushed last. A roadmap born on the server keeps every push as a version, adding one only for what changed.
 
 Serves: P-PRODUCT-72
 Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s2-02-roadmap-any-member-pushes, PRD #1162
@@ -998,7 +998,7 @@ Merged: @pierrederval, 2026-10-07, PR #1163
 
 ## BR-PRODUCT-84
 
-The roadmap check accepts a row when its project's folder is in the inbox or the shipped folder, and compares its spec wherever it lives; only a row whose project is in neither is refused.
+The roadmap check accepts a row when its project's folder is in the inbox or the shipped folder, and compares its spec wherever it lives; only a row whose project is in neither is refused. A product roadmap's row may instead name a product PRD such as mobile-12.
 
 Serves: P-PRODUCT-73
 Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-02-shipped-prd-still-counts, PRD #1162
@@ -1010,7 +1010,7 @@ Merged: @pierrederval, 2026-10-07, PR #1163
 
 ## BR-PRODUCT-85
 
-In a plan repository's roadmap, every project must name at least one repository; outside a plan repository, a repositories column is refused. The source line, like the product and target date, is optional.
+In a plan repository's roadmap, every project must name at least one repository; outside a plan repository, a repositories column is refused, except in a product roadmap, which requires one naming the product's own repositories. The source line, like the product and target date, is optional.
 
 Serves: P-PRODUCT-74
 Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-03-repos-column-and-source, PRD #1162

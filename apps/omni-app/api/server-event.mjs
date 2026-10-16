@@ -382,6 +382,11 @@ var ProductPrdIdSchema = z4.string().regex(PRODUCT_PRD).refine((id) => {
   const cut2 = id.lastIndexOf("-");
   return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
 }).brand();
+var PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
+var ProductRoadmapIdSchema = z4.string().regex(PRODUCT_ROADMAP).refine((id) => {
+  const cut2 = id.lastIndexOf("-R");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
+}).brand();
 var PrNumberSchema = z4.number().int().positive().brand();
 var CommentIdSchema = z4.number().int().positive().brand();
 var WorkSliceIdSchema = z4.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();

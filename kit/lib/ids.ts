@@ -38,6 +38,20 @@ export const ProductPrdIdSchema = z
   .brand<'ProductPrdId'>();
 export type ProductPrdId = z.infer<typeof ProductPrdIdSchema>;
 
+/** A product roadmap's id (PRD 2011): its product's key, then `-R` and its number on that product,
+ * `mobile-R3`. The capital R tells it from a product PRD's id (`mobile-12`): a key is lowercase. */
+const PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
+
+export const ProductRoadmapIdSchema = z
+  .string()
+  .regex(PRODUCT_ROADMAP)
+  .refine((id) => {
+    const cut = id.lastIndexOf('-R');
+    return cut <= 40 && Number(id.slice(cut + 2)) <= PRODUCT_SEQ_MAX;
+  })
+  .brand<'ProductRoadmapId'>();
+export type ProductRoadmapId = z.infer<typeof ProductRoadmapIdSchema>;
+
 /** A pull request's number. GitHub counts it with issues, but it is a kind of its own here. */
 export const PrNumberSchema = z.number().int().positive().brand<'PrNumber'>();
 export type PrNumber = z.infer<typeof PrNumberSchema>;
@@ -115,6 +129,20 @@ export function productPrdParts(id: ProductPrdId): { key: string; seq: number } 
   const cut = id.lastIndexOf('-');
   return { key: id.slice(0, cut), seq: Number(id.slice(cut + 1)) };
 }
+
+/** A product roadmap's id: `mobile-R3`. */
+export function parseProductRoadmapId(value: string): ProductRoadmapId {
+  return parseId(ProductRoadmapIdSchema, value, 'product roadmap', value);
+}
+
+/** A product roadmap's key and its number on that product: `mobile-R3` is `{ key: 'mobile', seq: 3 }`. */
+export function productRoadmapParts(id: ProductRoadmapId): { key: string; seq: number } {
+  const cut = id.lastIndexOf('-R');
+  return { key: id.slice(0, cut), seq: Number(id.slice(cut + 2)) };
+}
+
+/** The id of product roadmap `seq` of the product keyed `key`. */
+export const productRoadmapId = (key: string, seq: number): ProductRoadmapId => parseProductRoadmapId(`${key}-R${seq}`);
 
 /** A pull request number, from a number or its digit string. */
 export function parsePr(value: number | string): PrNumber {
