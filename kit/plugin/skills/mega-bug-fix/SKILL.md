@@ -231,6 +231,15 @@ differs:
   **Without a preflight,** push the reproduction alone, open the draft PR (below), and the red is
   the failing CI run's link. A preflight or CI run that passes on the reproduction alone is
   `/omni:bug-fix`'s stop rule 3. Red is seen **before** the fix, in every target, and never by running anything the target did not commit.
+- **Stop rule 3 names the fix,** as `/omni:bug-fix`'s **Who fixed it** does, in that target's clone,
+  and writes the same comment on the issue in the plan repository: `Fixed by #<n>` for a pull
+  request of the plan repository, `Fixed by <PR URL>` for one in a target, only for a candidate proven
+  red at its merge commit's first parent and green at its merge commit, `Maybe: #<n>` or
+  `Maybe: <PR URL>` lines otherwise. Proving runs only the target's own committed setup, then its own
+  committed preflight, on the reproduction committed alone in a detached worktree at each commit; a
+  target without a preflight proves nothing here, so its candidates are `Maybe:` lines. The skill never
+  closes the issue. A product run has no issue: it posts nothing, and the hand-off carries the same
+  comment's text.
 - **Mutation:** the line is `Mutation: not run in a target`.
 - **The PR,** through `/omni:pr --repo <slug>`, a standalone PR into the target's default branch,
   draft until its red and its fix are pushed. Its body starts with `Part of <plan slug>#<n>`
@@ -291,13 +300,13 @@ As `/omni:bug-fix` step 12, in the plan repository:
 1. **Commit** the record, signed.
 2. **Prove it:** `node .omni-loop/bin/omni.mjs bug <n>`, until it prints `ok`. It checks the
    `## Fixes` rows against `plan.targets`, in order 1..k, each with its PR and its Reproduction and
-   Guard lines.
+   Guard lines. A `## Fixes` record is exempt from the proof check: no body file, and no `## Proof`.
 3. **Push** the fix branch.
 4. **Send the record to its page:** follow `/omni:dossier-push <n> --kind bug`.
 5. **The record PR,** through `/omni:pr`, a standalone PR into `repo.defaultBranch`: its body
    starts with `Closes #<n>` and one `Merge after <slug>#<pr>` line per target PR, in the plan's
-   order, then `/omni:bug-fix`'s body. **The record PR is the only one that closes the issue, and it
-   merges last.**
+   order, then `/omni:bug-fix`'s body, without its `## Proof` section. **The record PR is the only one
+   that closes the issue, and it merges last.**
 
    ```markdown
    Closes #<n>

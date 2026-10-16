@@ -334,8 +334,28 @@ a `medium` item leaves the change unaccounted. `/omni:bug-fix` and `/omni:visual
 items in a small `outbox/` of the fix's folder when their range touches a law, and `omni bug` and
 `omni visual` name what it needs.
 
-`/omni:bug-fix` also films every bug: it keeps the reproduction's red and green output (or, for a
-component bug in a repository with Storybook, the story before and after), makes a before/after GIF with
-`omni bug film`, stores it with `omni proof push --kind bug`, and opens the pull request with a `## Proof`
-section showing the bug before and after the fix. A GIF that cannot be made opens the pull request as a
-draft whose `## Proof` reads `GIF not produced - <reason>`. `/omni:mega-bug-fix` leaves `## Proof` out.
+`/omni:bug-fix` also films every bug (PRDs 1972 and 2100): it keeps the reproduction's red and green
+output (or, for a component bug in a repository with Storybook, the story before and after) and makes
+a before/after GIF with `omni bug film`. Two outputs make two 640×360 cards, drawn by the kit's own code
+with no ffmpeg, the same bytes every run; two clips go through ffmpeg. It stores the run with
+`omni proof push --kind bug`, which prints the bug page's link, the GIF's stable link, and for a
+component bug one stable link per clip (`before.webm`, then `after.webm`), and opens the pull request
+with a `## Proof` section showing the bug before and after the fix, and a `Clips: [before](…) ·
+[after](…)` line for a component bug. Clips that cannot be filmed or stitched fall back to the GIF of
+the two outputs, with `Storybook not filmed - <reason>` under it. A GIF that cannot be made at all
+opens the pull request as a draft whose `## Proof` reads `GIF not produced - <reason>`.
+`/omni:mega-bug-fix` leaves `## Proof` out.
+
+**`omni bug <n>`** also checks the pull request's body, because the pinned CLI is the one piece an
+old plugin cannot skip. The skill writes the body to a file and runs `omni bug <n> --body-file <file>`
+until it prints `ok`, then opens the pull request with that same file; without the flag, `omni bug`
+reads the open pull request of the current branch through `gh`, and with neither it prints `not ok` and
+the way to proceed. A `## Proof` passes with an `https://` image and its `- **Before the fix**` and
+`- **After the fix**` lines, or with `GIF not produced - <reason>`; a not-produced proof on a pull
+request that is not a draft is refused. A record with a `## Fixes` section is not checked. A pinned
+omni that does not know `--body-file` exits 2, and the skill runs `omni bug <n>` without it.
+
+When the reproduction already passes before any fix, `/omni:bug-fix` and `/omni:mega-bug-fix` look for
+the merged pull request that fixed the bug. Only a candidate proven red at its merge's first parent and
+green at its merge gets a `Fixed by #<n>` (or `Fixed by <PR URL>`) line on the issue; the others are
+`Maybe: #<n>` lines, and the issue is never closed.

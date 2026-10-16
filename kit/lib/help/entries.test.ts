@@ -296,8 +296,28 @@ describe('the help table in this repository', () => {
   it('lists omni bug for skills, with its usage (PRD 556)', () => {
     const bug = ENTRIES.find((e) => e.name === 'bug' && e.kind === 'command');
     assertDefined(bug, 'bug');
-    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]'] });
+    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>] [--body-file <file>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]'] });
     expect(bug.detail).toMatch(/\/omni:bug-fix\b/);
+  });
+
+  it('says what PRD 2100 changed: the body check, the GIF drawn with no ffmpeg, the clip links and the runner\'s plugin', () => {
+    const detail = (name: string) => {
+      const entry = ENTRIES.find((e) => e.name === name && e.kind === 'command');
+      assertDefined(entry, name);
+      return entry.detail;
+    };
+    const bug = detail('bug');
+    for (const words of [/--body-file/, /open pull request of the current branch/, /GIF not produced - <reason>/, /not a draft/, /## Fixes\s+section is not checked/, /with no ffmpeg/, /640×360/, /same bytes every run/, /could not write <path>/]) {
+      expect(bug, String(words)).toMatch(words);
+    }
+    expect(detail('proof')).toMatch(/one stable link per clip, before first/);
+    for (const words of [/keeps the Omni plugin current/, /older than the omni the job's repository\s+pins/, /not installed fails it/, /At start and once an hour/]) {
+      expect(detail('runner'), String(words)).toMatch(words);
+    }
+    const bugFix = ENTRIES.find((e) => e.name === 'bug-fix' && e.kind === 'skill');
+    assertDefined(bugFix, 'bugFix');
+    expect(bugFix.detail).toMatch(/omni bug <n> --body-file/);
+    expect(bugFix.detail).toMatch(/merged PR that\s+fixed the bug/);
   });
 
   it('lists /omni:bug-fix for you, after /omni:visual-fix, with its usage and when to use it (PRD 556)', () => {
