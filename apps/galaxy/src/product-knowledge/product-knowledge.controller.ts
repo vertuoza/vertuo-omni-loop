@@ -74,7 +74,7 @@ const refuse = (kind: KnowledgeRefusal, error: string): Response => reply(KNOWLE
 
 /** A request's JSON body, or undefined when it is too large or no JSON. */
 const bodyOf = (request: Request): Promise<unknown> =>
-  request.text().then((text) => (text.length > MAX_BODY_CHARS ? undefined : (JSON.parse(text) as unknown))).catch(() => undefined);
+  request.text().then((text): unknown => (text.length > MAX_BODY_CHARS ? undefined : JSON.parse(text))).catch(() => undefined);
 
 export function knowledgeHandlers(deps: KnowledgeHandlerDeps) {
   return {
