@@ -9,7 +9,7 @@ import { CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, PIA, SHARED, T0 } 
 // before anything else (the kit's for a runner's routes, the session for the browser's), each answer is
 // in the contract's shape, and each refusal is `{error}` in plain words with its status.
 
-const TOKENS: Record<string, string> = { 'olga-token': OLGA, 'mo-token': MO };
+const TOKENS: Record<string, string> = { 'olga-token': OLGA, 'mo-token': MO, 'eve-token': EVE };
 
 /** The Auth server's verdict on a token: the person it names, or none. */
 const connect = (): TokenCheck => ({
@@ -166,6 +166,42 @@ describe('POST /api/runners/jobs, from the browser', () => {
     const w = world({ viewer: null });
     expect(await read(await sendJob(browser('/jobs', { line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } }), w.deps)))
       .toEqual({ status: 401, body: { error: 'Sign in first.' } });
+  });
+});
+
+describe('POST /api/runners/jobs, from a service (PRD 1972)', () => {
+  const send = (token: string | null, repo = 'vertuoza/app') =>
+    post('/jobs', token, { line: '/omni:bug-fix https://github.com/vertuoza/app/issues/1', repo, target: { kind: 'any' } });
+
+  it('queues the job of a member\'s Bearer, sent by its person', async () => {
+    const w = world({ viewer: null });
+    expect(await read(await sendJob(send('mo-token'), w.deps)))
+      .toMatchObject({ status: 200, body: { job: { status: 'queued', sentByLogin: 'mo' } } });
+    expect(w.state.jobs).toHaveLength(1);
+  });
+
+  it('refuses a non-member\'s Bearer and a repository outside every workspace with 403', async () => {
+    const w = world({ viewer: null });
+    expect((await sendJob(send('eve-token'), w.deps)).status).toBe(403);
+    expect((await sendJob(send('mo-token', 'elsewhere/app'), w.deps)).status).toBe(403);
+    expect(w.state.jobs).toEqual([]);
+  });
+
+  it('refuses a bad Bearer with 401, even beside a valid session', async () => {
+    const w = world({ viewer: MO });
+    expect((await sendJob(send('stolen-token'), w.deps)).status).toBe(401);
+    expect(w.state.jobs).toEqual([]);
+  });
+
+  it('judges a header with no token by the header alone, never by the session', async () => {
+    const w = world({ viewer: MO });
+    const body = JSON.stringify({ line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } });
+    expect((await sendJob(new Request(`${URL_BASE}/jobs`, { method: 'POST', headers: { authorization: 'Bearer ' }, body }), w.deps)).status).toBe(401);
+  });
+
+  it('still queues from the session when there is no header', async () => {
+    const w = world({ viewer: MO });
+    expect((await sendJob(send(null), w.deps)).status).toBe(200);
   });
 });
 

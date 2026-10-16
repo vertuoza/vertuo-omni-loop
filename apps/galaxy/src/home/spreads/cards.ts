@@ -11,9 +11,9 @@ export interface CardRule { key: string; value: number; text: string }
 
 const rule = (key: string, value: number, words: string): CardRule => ({ key, value, text: `${words} scores ${value}.` });
 
-/** Every value a card may carry: a zone secured, a rescue, or an Entropy kind closed. */
+/** Every value a card may carry: a merged feat or fix pull request (PRD 1975), a rescue, or an Entropy kind closed. */
 export const RULES: readonly CardRule[] = [
-  rule('zoneSecured', RULEBOOK.zoneSecured, 'A secured zone'),
+  rule('prMerged.feat', RULEBOOK.prMerged.feat, 'A merged feat/fix PR'),
   rule('woundClose.unconfirmed-ground', RULEBOOK.woundClose['unconfirmed-ground'], 'Closing unconfirmed ground'),
   rule('woundClose.fault-line', RULEBOOK.woundClose['fault-line'], 'Closing a fault line'),
   rule('woundClose.beacon', RULEBOOK.woundClose.beacon, 'Closing a beacon'),
@@ -22,7 +22,7 @@ export const RULES: readonly CardRule[] = [
 
 /** The value a card carries by its fleet's mascot (PRD 400: keyed by mascot, never by name), as the approved ad deals them. */
 export const RULE_BY_MASCOT: Readonly<Record<string, string>> = {
-  beaver: 'zoneSecured',
+  beaver: 'prMerged.feat',
   octopod: 'woundClose.unconfirmed-ground',
   picsou: 'woundClose.fault-line',
   cia: 'woundClose.beacon',

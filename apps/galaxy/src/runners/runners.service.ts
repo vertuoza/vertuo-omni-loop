@@ -22,7 +22,7 @@
 import {
   checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS,
   type Board, type Job, type JobLines, type JobUpdate, type RegisterReply, type RegisterRequest, type Runner, type RunnerJob, type RunnerRefusal,
-  type RunnerState, type SendRequest, type Target,
+  type KeyJob, type KeySend, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { JobPatch, JobRow, JobRowStatus, RunnerRow, RunnersRepository } from './runners.repository';
 
@@ -67,10 +67,17 @@ export function runnerState(runner: Pick<RunnerRow, 'last_seen_at' | 'slots'>, u
   return used >= runner.slots ? 'busy' : 'online';
 }
 
-function jobOf(row: JobRow, logins: Map<string, string>): Job {
+/** The API key that sends: its id and name, its workspace, and the member who made it (the sender of record). */
+type KeySender = { id: string; name: string; workspace: string; maker: string };
+
+/** Who a runner's job reads as sent by: `@login`, or `API key <name> (@login)` for a key's (PRD 2022). */
+const senderOf = (login: string | null, keyName: string | null): string | null =>
+  keyName === null ? login : login ? `API key ${keyName} (@${login})` : `API key ${keyName}`;
+
+function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, string> = new Map()): Job {
   return {
     id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, sentBy: row.sent_by,
-    sentByLogin: logins.get(row.sent_by) ?? null, status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
+    sentByLogin: logins.get(row.sent_by) ?? null, sentByKey: row.sent_by_key === null ? null : keys.get(row.sent_by_key) ?? null, status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
     logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, queuedAt: row.queued_at,
     claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
@@ -105,6 +112,13 @@ function reportPatch(job: JobRow, report: JobUpdate, now: string): JobPatch {
   const given: JobPatch = Object.fromEntries(Object.entries(carried).filter(([, column]) => column !== undefined));
   const starts = report.status === 'running' && job.running_at === null;
   return { ...given, status: report.status, ...(starts ? { running_at: now } : {}), ...(ENDED.includes(report.status) ? { ended_at: now } : {}) };
+}
+
+function keyJobOf(row: JobRow, runnerName: string | null): KeyJob {
+  return {
+    id: row.id, line: row.line, repo: row.repo, status: row.status, runner: runnerName, prUrl: row.pr_url, exitCode: row.exit_code,
+    reason: row.reason, queuedAt: row.queued_at, claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
+  };
 }
 
 const usedBy = (jobs: JobRow[], runnerId: string) => jobs.filter((job) => job.runner_id === runnerId && ACTIVE.includes(job.status)).length;
@@ -152,6 +166,38 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       workspaceId = placed.workspaceId;
     }
     return workspaceId === null ? no('malformed', 'A runner holds at least one repository.') : ok(workspaceId);
+  }
+
+  /** The names of the API keys that sent these jobs. */
+  const keysOf = (workspaceId: string, jobs: JobRow[]) =>
+    store.keyNames(workspaceId, [...new Set(jobs.flatMap((job) => (job.sent_by_key === null ? [] : [job.sent_by_key])))]);
+
+  /** The name of the runner that holds the job, or null. */
+  async function runnerNameOf(job: JobRow): Promise<string | null> {
+    return job.runner_id === null ? null : (await store.runner(job.runner_id))?.name ?? null;
+  }
+
+  /** Queues the job as `caller`, a member of the workspace the repository belongs to; for a key, that must be the key's. */
+  async function queue(caller: string, request: SendRequest, key: KeySender | null): Promise<Served<JobRow>> {
+    const line = checkLine(request.line);
+    if (!line.ok) return no('malformed', line.reason);
+    const repo = request.repo.toLowerCase();
+    const placed = await placement(caller, repo, key?.workspace ?? null);
+    if (!placed.ok) return placed;
+    const sender = await store.member(placed.value, caller);
+    if (!sender) return no('forbidden', `${repo} is not in your workspace.`);
+    const target = await mayTarget(placed.value, sender, request.target);
+    if (!target.ok) return target;
+    return ok(await store.insertJob({ workspaceId: placed.value, line: request.line, repo, ...target.value, sentBy: caller, sentByKey: key?.id ?? null }));
+  }
+
+  /** The workspace the repository belongs to for the person, which must be `only` when that is given. */
+  async function placement(caller: string, repo: string, only: string | null): Promise<Served<string>> {
+    const placed = await store.place(caller, repo);
+    if (!placed.workspaceId || (only !== null && placed.workspaceId !== only)) {
+      return no('forbidden', `${repo} is not in your workspace${placed.refusal ? `: ${placed.refusal}` : ''}.`);
+    }
+    return ok(placed.workspaceId);
   }
 
   /** Stores the report's lines once each, then keeps the job's last 20,000. */
@@ -209,7 +255,8 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
         const job = await store.claim(runnerId);
         if (job) {
           const logins = await store.logins(job.workspace_id, [job.sent_by]);
-          return ok({ id: job.id, line: job.line, repo: job.repo, sentBy: logins.get(job.sent_by) ?? null });
+          const keyName = job.sent_by_key === null ? null : (await store.keyNames(job.workspace_id, [job.sent_by_key])).get(job.sent_by_key) ?? null;
+          return ok({ id: job.id, line: job.line, repo: job.repo, sentBy: senderOf(logins.get(job.sent_by) ?? null, keyName) });
         }
         if (clock.now().getTime() + NEXT_POLL_MS > deadline) return ok(null);
         await clock.sleep(NEXT_POLL_MS);
@@ -236,17 +283,34 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
 
     /** Queues a job: a listed line, for a repository of the workspace, to a target the sender may use. */
     async send(caller: string, request: SendRequest): Promise<Served<Job>> {
-      const line = checkLine(request.line);
-      if (!line.ok) return no('malformed', line.reason);
-      const repo = request.repo.toLowerCase();
-      const placed = await store.place(caller, repo);
-      if (!placed.workspaceId) return no('forbidden', `${repo} is not in your workspace: ${placed.refusal ?? 'no workspace of yours owns it'}.`);
-      const sender = await store.member(placed.workspaceId, caller);
-      if (!sender) return no('forbidden', `${repo} is not in your workspace.`);
-      const target = await mayTarget(placed.workspaceId, sender, request.target);
-      if (!target.ok) return target;
-      const job = await store.insertJob({ workspaceId: placed.workspaceId, line: request.line, repo, ...target.value, sentBy: caller });
-      return ok(jobOf(job, await store.logins(job.workspace_id, [caller])));
+      const queued = await queue(caller, request, null);
+      if (!queued.ok) return queued;
+      return ok(jobOf(queued.value, await store.logins(queued.value.workspace_id, [caller])));
+    },
+
+    /** Queues a job for a program's API key (PRD 2022): as its maker would send it, in the key's workspace
+     * only, to a runner by its name or a fleet, and marked as sent by the key. */
+    async sendByKey(key: KeySender, request: KeySend): Promise<Served<KeyJob>> {
+      if (request.runner !== undefined && request.fleet !== undefined) {
+        return no('malformed', 'Name a runner or a fleet, not both.');
+      }
+      let target: Target = { kind: 'any' };
+      if (request.fleet !== undefined) target = { kind: 'fleet', fleet: request.fleet };
+      if (request.runner !== undefined) {
+        const named = await store.runnerNamed(key.workspace, request.runner);
+        if (!named) return no('missing', `No runner named ${request.runner} in this workspace.`);
+        target = { kind: 'runner', runner: named.id };
+      }
+      const queued = await queue(key.maker, { line: request.line, repo: request.repo, target }, key);
+      return queued.ok ? ok(keyJobOf(queued.value, await runnerNameOf(queued.value))) : queued;
+    },
+
+    /** A job a key of this workspace queued, as a key reads it: none for another workspace's, or a person's. */
+    async keyJob(workspaceId: string, jobId: string): Promise<Served<KeyJob>> {
+      await markLost();
+      const job = await store.job(jobId);
+      if (job?.workspace_id !== workspaceId || job.sent_by_key === null) return no('missing', 'No such job.');
+      return ok(keyJobOf(job, await runnerNameOf(job)));
     },
 
     /** Cancels a job: a queued one at once, a claimed or running one at its runner's next report. */
@@ -262,7 +326,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const updated = await store.updateJob(jobId, [job.status], patch);
       if (!updated) return no('conflict', 'This job changed meanwhile. Try again.');
       await retainLines(updated);
-      return ok(jobOf(updated, await store.logins(updated.workspace_id, [updated.sent_by])));
+      return ok(jobOf(updated, await store.logins(updated.workspace_id, [updated.sent_by]), await keysOf(updated.workspace_id, [updated])));
     },
 
     /** Gives the runner to a fleet, or makes it shared: a workspace owner only. */
@@ -297,10 +361,11 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const [runners, active, ended] = await Promise.all([store.runners(workspaceId), store.activeJobs(workspaceId), store.endedJobs(workspaceId, ENDED_JOBS_SHOWN)]);
       const jobs = [...active, ...ended];
       const logins = await store.logins(workspaceId, [...new Set(jobs.map((job) => job.sent_by))]);
+      const keys = await keysOf(workspaceId, jobs);
       const now = clock.now();
       return ok({
         runners: runners.map((runner) => runnerOf(runner, usedBy(active, runner.id), now)),
-        jobs: jobs.map((job) => jobOf(job, logins)),
+        jobs: jobs.map((job) => jobOf(job, logins, keys)),
         viewer: { id: caller, owner: viewer.owner, fleet: viewer.fleet },
       });
     },

@@ -11,7 +11,13 @@ export type ZoneState = 'open' | 'claimed' | 'under-fire' | 'secured';
 export type WoundKind = 'transmission' | 'unconfirmed-ground' | 'beacon' | 'fault-line' | 'under-fire' | 'aftershock';
 
 export interface LedgerEvent {
-  id: string; at: string; type: string; planet: number;
+  id: string; at: string;
+  /**
+   * A type of `game/events.ts`. `PR_MERGED` and `PR_REVIEWED` (PRD 1975) belong to no planet (0):
+   * a merged pull request's author and each of its reviewers, `region` its repository, `data.pr` its number.
+   */
+  type: string;
+  planet: number;
   /** The PRD's home, `owner/name` (PRD 728); absent on the events written before it. */
   home?: string | undefined;
   region?: string | undefined; contributor?: string | undefined; team?: string | undefined; data: Record<string, unknown>;
@@ -55,6 +61,8 @@ export interface Rules {
   trancheHours: number; rescue: number; terraformOwner: number; terraformExpedition: number; terraformCloser: number;
   crossTeamMultiplier: number; nightShiftMultiplier: number; distressAfterHours: number; lostAfterDays: number;
   classMultipliers: number[];
+  /** What a merged pull request pays its author and each of its reviewers, by its kind (PRD 1975). */
+  prMerged: Readonly<Record<'feat' | 'docs', number>>; prReviewed: Readonly<Record<'feat' | 'docs', number>>;
   /** The rulebook's `xp` block, as `pnpm game:xp` applies it: what counts, the curve, the unlocks. */
   xp: XpRules;
 }
@@ -68,7 +76,7 @@ export interface GalaxyView {
 
 /** The rulebook's `xp` block (game/rulebook.ts): every XP number, in one place. */
 export interface XpRules {
-  weights: Readonly<Record<'zoneSecured' | 'woundClosed' | 'rescue' | 'expedition' | 'closer' | 'questionAnswered' | 'featureMerged' | 'featureReviewed', number>>;
+  weights: Readonly<Record<'zoneSecured' | 'woundClosed' | 'rescue' | 'expedition' | 'closer' | 'questionAnswered' | 'featureMerged' | 'featureReviewed' | 'prMerged' | 'prReviewed', number>>;
   curve: Readonly<{ first: number; step: number }>;
   cap: number;
   /** The level each game unlocks at, by game id. */
