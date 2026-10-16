@@ -6,9 +6,16 @@
 // A figure that cannot be read is `null`, never a guess: the first sample has no previous CPU times, a
 // Linux machine whose `/proc/meminfo` cannot be read has no memory used, a `statfs` that fails has no disk.
 // Only numbers come out of here: no path, no name.
+//
+// A machine under pressure takes no new job (PRD 2102, "A runner under pressure stops taking jobs"):
+// `pressure()` names the first limit a sample is past, in the order memory, disk, load, and a figure
+// that could not be read never counts. `nextPause()` pauses on the first sample with a reason and
+// resumes after two quiet samples in a row, so one quiet sample does not reopen every slot while
+// memory is still high. Both decide on the machine alone: the pause holds when the app cannot be reached.
 import { availableParallelism, cpus, freemem, loadavg, platform, totalmem } from 'node:os';
 import { existsSync, readFileSync, statfsSync } from 'node:fs';
 import { join } from 'node:path';
+import type { HealthLimits } from './api.ts';
 
 /** One core's times, as `os.cpus()` gives them, in milliseconds. */
 export type CoreTimes = { user: number; nice: number; sys: number; idle: number; irq: number };
@@ -143,4 +150,52 @@ export function machineReads(home: string): MachineReads {
       return statfsSync(existsSync(worktrees) ? worktrees : home);
     },
   };
+}
+
+/** The limits a runner pauses at unless `--max-memory`, `--min-disk` or `--max-load` say otherwise. */
+export const DEFAULT_LIMITS: HealthLimits = { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 };
+
+/** How many quiet samples in a row resume a paused runner: two, 30 s apart. */
+const QUIET_TO_RESUME = 2;
+
+const GB = 1024 ** 3;
+
+/**
+ * `value` with the fewest decimals, from `decimals` up, that still reads past `limit` (above it, or
+ * below it), so a reason never reads as the limit itself: `85.1%`, not `85%`, past 85.
+ */
+function past(value: number, limit: number, above: boolean, decimals: number): string {
+  for (let digits = decimals; digits <= 6; digits += 1) {
+    const shown = Number(value.toFixed(digits));
+    if (above ? shown > limit : shown < limit) return String(shown);
+  }
+  return String(value);
+}
+
+/** Why the machine is under pressure at `limits`, the first that holds in the order memory, disk, load; `null` when none does. */
+export function pressure(sample: Sample, limits: HealthLimits): string | null {
+  const { memUsed, memTotal, diskFree, load1, cores } = sample;
+  if (memUsed !== null && memTotal !== null && memTotal > 0) {
+    const percent = (memUsed / memTotal) * 100;
+    if (percent > limits.maxMemory) return `memory ${past(percent, limits.maxMemory, true, 0)}%`;
+  }
+  if (diskFree !== null && diskFree / GB < limits.minDiskGb) return `disk ${past(diskFree / GB, limits.minDiskGb, false, 0)} GB free`;
+  if (load1 !== null && cores !== null && cores > 0 && load1 > limits.maxLoad * cores) {
+    return `load ${past(load1, limits.maxLoad * cores, true, 1)} on ${String(cores)} core${cores === 1 ? '' : 's'}`;
+  }
+  return null;
+}
+
+/** Whether the runner is paused, and why (the last reason), and how many quiet samples it has had since. */
+export type PauseState = { reason: string | null; quiet: number };
+
+/**
+ * The pause after a sample whose pressure is `reason`, and the change to print once: `paused` on the
+ * first sample under pressure, `resumed` on the second quiet one in a row, `null` otherwise.
+ */
+export function nextPause(state: PauseState, reason: string | null): { state: PauseState; change: 'paused' | 'resumed' | null } {
+  if (reason !== null) return { state: { reason, quiet: 0 }, change: state.reason === null ? 'paused' : null };
+  if (state.reason === null) return { state, change: null };
+  const quiet = state.quiet + 1;
+  return quiet < QUIET_TO_RESUME ? { state: { reason: state.reason, quiet }, change: null } : { state: { reason: null, quiet: 0 }, change: 'resumed' };
 }
