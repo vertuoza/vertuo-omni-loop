@@ -174,7 +174,8 @@ differs:
   draft until its red and its fix are pushed. Its body starts with `Part of <plan slug>#<n>`
   (`<plan slug>` is the plan repository's `repo.slug`), **never a closing keyword**, so it never
   closes the plan repository's issue. A consumer's PR adds one `Merge after <slug>#<pr>` line per
-  PR before it in the plan. Then `/omni:bug-fix`'s body from **What was wrong** on, its `## Bug`
+  PR before it in the plan. Then `/omni:bug-fix`'s body from **What was wrong** on,
+  without its `## Proof` section (no film is made in a target), its `## Bug`
   section with one more line, `- **Fix plan:** <the fix-plan comment's link>`, and its **Record**
   line naming the record in the plan repository. `labels.bug` is added only when the target has
   it; a label is never created in a target.

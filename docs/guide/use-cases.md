@@ -165,8 +165,11 @@ It opens an issue labelled `omni:bug` (or give it an issue that already reports 
 `omni:risk-<level>` label), and whether a change broke it (`omni:regression`). On a fix branch it
 writes a test that shows the bug and runs it before any fix: it must fail. Then it fixes the bug,
 adds the cheap check that would have caught it, and opens one pull request into your default branch
-that closes the issue, with a **Bug** section saying what failed before the fix. There is no spec,
-no plan and no phase-0 pull request.
+that closes the issue, with a **Bug** section saying what failed before the fix. The pull request
+also shows the bug before and after: a short GIF of the failing run, then the passing one (or of the
+component's story, before and after), under a **Proof** heading, with the failing and passing lines
+beside it. When the GIF cannot be made, the pull request opens as a draft that says why. There is no
+spec, no plan and no phase-0 pull request.
 
 A flaky check is not a bug: it says so on the issue and stops. When the fix needs a product
 decision, a change to stored data or a shared interface, or a new screen, route or API, it stops,

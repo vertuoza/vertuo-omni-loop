@@ -75,7 +75,7 @@ acts.
    on the default branch) has no `repos:` line either: it is not stopped here, but planned in step
    1, which runs this check again once the plan is written.
 3. The briefing (`node .omni-loop/bin/omni.mjs session start`), then
-   `node .omni-loop/bin/omni.mjs kb status` once, as `/omni:yolo` step 0 runs them.
+   `node .omni-loop/bin/omni.mjs kb status` once, as `/omni:yolo` step 0 runs them. A sync status other than 🟢 in the output's `sync` block is said to the person in one line, with its fix, and the run carries on.
 
 ## From a product (`<key>-<n>`)
 

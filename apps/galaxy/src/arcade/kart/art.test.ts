@@ -206,6 +206,13 @@ describe('the player\'s kart', () => {
     expect(sure(kart, 'the kart').y + 18 * scale).toBeGreaterThan(grid.h - 12);
   });
 
+  it('is drawn 4 pixels up through a hop, and back on the ground once it has landed (PRD 1963)', () => {
+    const seen = (seconds: number, ...b: Action[]) => { sprites.length = 0; raced(seconds, ...b).draw(recorder().ctx, frame(WIDE)); return playerSprite().y; };
+    const ground = seen(0);
+    expect(ground - seen(0.1, 'up')).toBe(4);
+    expect(seen(0.4, 'up')).toBe(ground);
+  });
+
   it('is tinted with the hero\'s suit, the look the arcade draws the hero with', () => {
     createKart().draw(recorder().ctx, frame(WIDE));
     const kart = playerSprite();

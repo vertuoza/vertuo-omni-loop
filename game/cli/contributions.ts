@@ -1,7 +1,8 @@
-// game/cli/contributions.ts --workspace <slug> — who authored each pull request merged into a sector
-// repository's default branch, who opened each omni:prd issue, and when each PRD started (its phase-0
-// PR merged) and shipped (its feature PR merged), over the last 40 days, upserted into
-// public.contributions (PRD 328, PRD 572), which the app's dashboards read. The ledger job runs it
+// game/cli/contributions.ts --workspace <slug> — who authored each pull request merged into the default
+// branch of a sector's repository or of a repository the workspace tracks (#2018), who opened each
+// omni:prd issue, and when each PRD started (its phase-0 PR merged) and shipped (its feature PR merged),
+// over the last 40 days, upserted into public.contributions (PRD 328, PRD 572), which the app's
+// dashboards read. The ledger job runs it
 // right after game:xp.
 //
 // It never writes the ledger. A row here can be rewritten, backfilled or deleted, and the table
@@ -55,6 +56,7 @@ const Merged = z.array(z.object({
   body: z.string().nullish(),
 }).loose());
 const Viewed = z.object({ author: Author }).loose();
+const TrackedRows = z.array(z.object({ full_name: z.string() }).loose());
 const Opened = z.array(z.object({ number: PrdNumberSchema, author: Author, createdAt: z.string().nullish() }).loose());
 
 type Author = z.infer<typeof Author>;
@@ -137,9 +139,16 @@ export async function readRepository(exec: Exec, org: string, repo: string, star
 
 const order = (a: Contribution, b: Contribution): number => a.kind.localeCompare(b.kind) || a.repo.localeCompare(b.repo) || a.number - b.number;
 
+/** `owner/name` split in two, or null for a name with no owner. */
+const ownerAndName = (fullName: string): { owner: string; name: string } | null => {
+  const [owner, name, ...rest] = fullName.split('/');
+  return owner && name && rest.length === 0 ? { owner, name } : null;
+};
+
 /**
- * Reads the workspace's sectors, then each of their repositories under `org`, and upserts every row
- * in one request. Returns { rows: what was written, read: [{ repo, merged, opened }], skipped: [{ repo, why }] }.
+ * Reads the workspace's sectors and its tracked repositories (PRD 728, #2018), then each repository
+ * once: a sector's under `org`, then each tracked one no sector names under its own owner. Upserts every
+ * row in one request. Returns { rows: what was written, read: [{ repo, merged, opened }], skipped: [{ repo, why }] }.
  */
 export async function runContributions(
   { exec = ghExec, rest, workspaceId, org, now = new Date(), log = console.error }: { exec?: Exec; rest: SupabaseRest; workspaceId: string | undefined; org: string | null | undefined; now?: Date; log?: Log },
@@ -152,21 +161,31 @@ export async function runContributions(
     throw new Error('game:contributions: a workspace id is needed: every contributions row belongs to one workspace');
   }
   if (!org) throw new Error('game:contributions: the workspace has no github_org: set it before reading its GitHub');
-  const sectors = await rest.select('sectors', `select=name,repos&workspace_id=eq.${encodeURIComponent(workspaceId)}&order=name`);
-  const { repos } = configFrom({ sectors });
+  const inWorkspace = `workspace_id=eq.${encodeURIComponent(workspaceId)}`;
+  const sectors = await rest.select('sectors', `select=name,repos&${inWorkspace}&order=name`);
+  // A tracked repository counts on the People table as a sector's does: a member who merges only
+  // there would otherwise read 0 PRs (#2018). Read as stored, so its row keeps GitHub's case.
+  const tracked = TrackedRows.parse(await rest.select('repositories', `select=full_name&${inWorkspace}&tracked=eq.true&order=full_name`));
+  const seen = new Set<string>();
+  const repos: Array<{ owner: string; name: string }> = [];
+  for (const repo of [...configFrom({ sectors }).repos.map((name) => ({ owner: org, name })), ...tracked.flatMap((r) => ownerAndName(r.full_name) ?? [])]) {
+    const key = `${repo.owner}/${repo.name}`.toLowerCase();
+    if (!seen.has(key)) repos.push(repo);
+    seen.add(key);
+  }
   const start = windowStart(now);
 
   const found = new Map<string, InsertRow<'contributions'> & Contribution>();
   const read: Array<{ repo: string; merged: number; opened: number; started: number; shipped: number }> = [];
   const skipped: Array<{ repo: string; why: string }> = [];
-  for (const repo of repos) {
+  for (const { owner, name: repo } of repos) {
     let rows: Contribution[];
     try {
-      rows = await readRepository(exec, org, repo, start, log);
+      rows = await readRepository(exec, owner, repo, start, log);
     } catch (err) {
       const why = ghWhy(err);
       skipped.push({ repo, why });
-      log(`${org}/${repo} skipped: ${why}`);
+      log(`${owner}/${repo} skipped: ${why}`);
       continue;
     }
     const n = (kind: string): number => rows.filter((r) => r.kind === kind).length;
