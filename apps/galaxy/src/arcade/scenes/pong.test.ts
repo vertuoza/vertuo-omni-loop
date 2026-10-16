@@ -11,8 +11,9 @@ import type { Session } from '../types';
 import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { browserMic, createPong } from '../pong/index';
 import { fakeMic, settle } from '../pong/mic.fake';
+import { MATCH } from '../pong/rules';
 import {
-  livesLine, loadPong, LOADING_LINE, meterAt, meterBand, METER_SPAN, MIC_LOST, NOT_LOADED, PAGES, pongPress, pongRetry, readyLines, samePongHud,
+  livesLine, loadPong, LOADING_LINE, meterAt, meterBand, METER_SPAN, MIC_LOST, NOT_LOADED, PAGES, PONG_LIVES, pongPress, pongRetry, readyLines, samePongHud,
   TALL_SCENES, type ArcadePong, type MicState, type PongGame, type PongHud, type PongStatus,
 } from './pong.ts';
 import { PongOverlay } from './pong.tsx';
@@ -230,33 +231,36 @@ const sent = (send: ScoreSend | null, hud: PongHud, grid: Grid = WIDE, form: 'fu
 describe('the match on the text layer', () => {
   const playing: PongHud = { ...READY, phase: 'play', mic: 'on', score: 4, lives: 2 };
 
-  it('shows the score and the lives left as hearts while the match plays', () => {
+  it('shows the score, a heart for each life left and a dot for each one lost, and how to pause', () => {
+    expect(PONG_LIVES).toBe(MATCH.lives);
     expect(livesLine(3)).toBe('♥♥♥');
-    expect(livesLine(0)).toBe('');
-    expect(text('ready', playing)).toBe('SCORE 4 ♥♥');
-    expect(text('ready', playing, TALL, 'handheld')).toBe('SCORE 4 ♥♥');
+    expect(livesLine(1)).toBe('♥··');
+    expect(livesLine(0)).toBe('···');
+    expect(text('ready', playing)).toBe('SCORE 4 ♥♥· ENTER PAUSE');
+    expect(text('ready', playing, TALL, 'handheld')).toBe('SCORE 4 ♥♥· START PAUSE');
   });
 
-  it('reads PAUSED with START to resume and SELECT to quit, and the microphone\'s refusal when resuming was refused', () => {
+  it('reads PAUSED with the key to resume and the key to quit, and the microphone\'s refusal when resuming was refused', () => {
     const paused: PongHud = { ...playing, phase: 'paused', mic: 'off' };
-    expect(text('ready', paused)).toBe('SCORE 4 ♥♥ PAUSED START RESUME SELECT QUIT');
-    expect(text('ready', { ...paused, mic: 'blocked' })).toBe('SCORE 4 ♥♥ PAUSED MIC BLOCKED IN THE BROWSER START RESUME SELECT QUIT');
+    expect(text('ready', paused)).toBe('SCORE 4 ♥♥· PAUSED ENTER · RESUME TAB · QUIT');
+    expect(text('ready', paused, TALL, 'handheld')).toBe('SCORE 4 ♥♥· PAUSED START · RESUME SELECT · QUIT');
+    expect(text('ready', { ...paused, mic: 'blocked' })).toBe('SCORE 4 ♥♥· PAUSED MIC BLOCKED IN THE BROWSER ENTER · RESUME TAB · QUIT');
     expect(text('ready', { ...paused, mic: 'missing' })).toContain('NO MIC FOUND');
   });
 
   it('reads MIC LOST · A TO RETRY when the microphone stopped during the match', () => {
     expect(MIC_LOST).toBe('MIC LOST · A TO RETRY');
-    expect(text('ready', { ...playing, phase: 'lost', mic: 'off' })).toBe('SCORE 4 ♥♥ MIC LOST · A TO RETRY A RETRY SELECT QUIT');
+    expect(text('ready', { ...playing, phase: 'lost', mic: 'off' }, TALL, 'handheld')).toBe('SCORE 4 ♥♥· MIC LOST · A TO RETRY A · RETRY SELECT · QUIT');
   });
 
   it('reads GAME OVER, the score, then saving, NEW BEST, the best, or not saved with A to retry', () => {
     const over: PongHud = { ...playing, phase: 'over', lives: 0 };
-    expect(sent(null, over)).toBe('GAME OVER SCORE 4 A PLAY AGAIN B BACK');
-    expect(sent({ state: 'sending', score: 4, tries: 1 }, over)).toBe('GAME OVER SCORE 4 SAVING SCORE… A PLAY AGAIN B BACK');
+    expect(sent(null, over)).toBe('GAME OVER SCORE 4 A · AGAIN B · ROOM');
+    expect(sent({ state: 'sending', score: 4, tries: 1 }, over)).toBe('GAME OVER SCORE 4 SAVING SCORE… A · AGAIN B · ROOM');
     expect(sent({ state: 'saved', score: 4, best: 4, newBest: true }, over)).toContain('NEW BEST');
     expect(sent({ state: 'saved', score: 4, best: 9, newBest: false }, over)).toContain('YOUR BEST 9');
-    expect(sent({ state: 'failed', score: 4, tries: 1 }, over)).toBe('GAME OVER SCORE 4 SCORE NOT SAVED A RETRY B BACK');
-    expect(sent({ state: 'failed', score: 4, tries: 2 }, over)).toContain('A PLAY AGAIN');
+    expect(sent({ state: 'failed', score: 4, tries: 1 }, over)).toBe('GAME OVER SCORE 4 SCORE NOT SAVED A · RETRY B · ROOM');
+    expect(sent({ state: 'failed', score: 4, tries: 2 }, over)).toContain('A · AGAIN');
   });
 
   it('lets A retry a failed send on the game over only, while a retry is left', () => {

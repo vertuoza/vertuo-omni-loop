@@ -95,15 +95,15 @@ function Held({ hud }: { hud: PongHud }) {
           </>
         )}
         <p className="hint">
-          {hud.phase === 'lost' ? <Hint k="A">RETRY</Hint> : <Hint k="START">RESUME</Hint>} <Hint k="SELECT">QUIT</Hint>
+          {hud.phase === 'lost' ? <Hint k="A"> · RETRY</Hint> : <Hint k="ENTER"> · RESUME</Hint>} <Hint k="TAB"> · QUIT</Hint>
         </p>
       </div>
     </div>
   );
 }
 
-/** The game over: the score and the send's state, then A (retrying a send that failed, or playing again) and B. */
-function Over({ hud, send, back }: { hud: PongHud; send: ScoreSend | null; back: string }) {
+/** The game over: the score and the send's state, then A (retrying a send that failed, or playing again) and B to the room. */
+function Over({ hud, send }: { hud: PongHud; send: ScoreSend | null }) {
   const saving = send ? sendLine(send) : null;
   return (
     <div className="pg">
@@ -111,8 +111,18 @@ function Over({ hud, send, back }: { hud: PongHud; send: ScoreSend | null; back:
         <p className="inv-title pg-head">{OVER_LINE}</p>
         <p className="inv-final"><b>SCORE</b><span>{hud.score}</span></p>
         {send && saving && <p className={`inv-send inv-${sendTone(send)}`} role="status">{saving}</p>}
-        <p className="hint"><Hint k="A">{canRetry(send) ? 'RETRY' : 'PLAY AGAIN'}</Hint> <Hint k="B">{back}</Hint></p>
+        <p className="hint"><Hint k="A"> · {canRetry(send) ? 'RETRY' : 'AGAIN'}</Hint> <Hint k="B"> · ROOM</Hint></p>
       </div>
+    </div>
+  );
+}
+
+/** The match in play: the HUD, and how to pause at the foot. */
+function Playing({ hud }: { hud: PongHud }) {
+  return (
+    <div className="pg">
+      <Stats hud={hud} />
+      <p className="hint pg-foot"><Hint k="ENTER">PAUSE</Hint></p>
     </div>
   );
 }
@@ -121,9 +131,9 @@ function Over({ hud, send, back }: { hud: PongHud; send: ScoreSend | null; back:
 function PhaseScreen({ hud, send, back }: { hud: PongHud; send: ScoreSend | null; back: string }) {
   switch (hud.phase) {
     case 'ready': return <Ready hud={hud} back={back} />;
-    case 'play': return <div className="pg"><Stats hud={hud} /></div>;
+    case 'play': return <Playing hud={hud} />;
     case 'paused': case 'lost': return <Held hud={hud} />;
-    case 'over': return <Over hud={hud} send={send} back={back} />;
+    case 'over': return <Over hud={hud} send={send} />;
   }
 }
 

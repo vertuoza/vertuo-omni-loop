@@ -87,8 +87,14 @@ export const PAUSED_LINE = 'PAUSED';
 export const MIC_LOST = 'MIC LOST · A TO RETRY';
 export const OVER_LINE = 'GAME OVER';
 
-/** The lives left, as the HUD shows them: `♥♥♥`. */
-export const livesLine = (lives: number): string => '♥'.repeat(Math.max(0, lives));
+/** A match's lives: `MATCH.lives`, which this file cannot import at run time (pong/guard.test.ts); pong.test.ts pins them equal. */
+export const PONG_LIVES = 3;
+
+/** The lives as the HUD shows them: a heart for each one left, a dot for each one lost (`♥♥·`). */
+export const livesLine = (lives: number): string => {
+  const left = Math.min(PONG_LIVES, Math.max(0, lives));
+  return '♥'.repeat(left) + '·'.repeat(PONG_LIVES - left);
+};
 
 /**
  * A on the game over, once its score has shown: true when it retries a send that failed and may be
