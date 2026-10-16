@@ -15748,12 +15748,12 @@ init_define_OMNI_BUNDLE();
 function getArmenianPlural(count5, one, many) {
   return Math.abs(count5) === 1 ? one : many;
 }
-function withDefiniteArticle(word) {
-  if (!word)
+function withDefiniteArticle(word2) {
+  if (!word2)
     return "";
   const vowels = ["\u0561", "\u0565", "\u0568", "\u056B", "\u0578", "\u0578\u0582", "\u0585"];
-  const lastChar = word[word.length - 1];
-  return word + (vowels.includes(lastChar) ? "\u0576" : "\u0568");
+  const lastChar = word2[word2.length - 1];
+  return word2 + (vowels.includes(lastChar) ? "\u0576" : "\u0568");
 }
 var error24 = () => {
   const Sizable = {
@@ -29697,7 +29697,7 @@ function forgetWindow(root, claudeSessionId) {
 var SILENT_COMMANDS = [["heartbeat"], ["ask", "hook"], ["session", "end"], ["statusline"]];
 function beatsAfter(argv) {
   if (argv.length === 0) return false;
-  return !SILENT_COMMANDS.some((words4) => words4.every((word, index) => argv[index] === word));
+  return !SILENT_COMMANDS.some((words4) => words4.every((word2, index) => argv[index] === word2));
 }
 function startHeartbeat({ spawn: spawn3, script: script2, cwd, env }) {
   try {
@@ -31472,14 +31472,14 @@ function readFrontMatterBlock(text15, file2, schema) {
   }
   const [, rawFrontMatter = "", body = ""] = blockMatch;
   const lines2 = parseFrontMatterLines(rawFrontMatter);
-  const checked4 = schema.safeParse(lines2.data, { error: KIT_MESSAGES });
-  const refusals = checked4.success ? [] : checked4.error.issues.map(
+  const checked5 = schema.safeParse(lines2.data, { error: KIT_MESSAGES });
+  const refusals = checked5.success ? [] : checked5.error.issues.map(
     (issue2) => `${issue2.path.length > 0 ? issue2.path.join(".") : "(front matter)"}: ${issue2.message}`
   );
   return {
     body,
     errors: [...lines2.errors, ...refusals].map((message2) => withFile2(file2, message2)),
-    data: checked4.success ? checked4.data : null
+    data: checked5.success ? checked5.data : null
   };
 }
 var OPTION_LINE = /^([A-Za-z])\.\s+(\S.*)$/;
@@ -37184,7 +37184,7 @@ function landingCell(cell2) {
 function contractCell(cell2) {
   const text15 = plainCell(cell2);
   if (NOTHING.test(text15)) return null;
-  const kinds = text15.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
+  const kinds = text15.split(",").map((word2) => word2.trim().toLowerCase()).filter(Boolean);
   if (kinds.length === 0) return null;
   return kinds.length === 1 && kinds[0] === "none" ? "none" : { kinds };
 }
@@ -38017,8 +38017,8 @@ function contractViolations(slice, asks) {
   if (asks === null) return beside;
   const choices = `${asks.kinds.join(", ")} or none`;
   if (contract === null) return [`${slice.id}: contract: declares nothing \u2014 ${choices}`];
-  const strangers = words4.filter((word) => word !== "none" && !asks.kinds.includes(word));
-  return [...strangers.map((word) => `${slice.id}: contract: "${word}" is no kind of this repository \u2014 ${choices}`), ...beside];
+  const strangers = words4.filter((word2) => word2 !== "none" && !asks.kinds.includes(word2));
+  return [...strangers.map((word2) => `${slice.id}: contract: "${word2}" is no kind of this repository \u2014 ${choices}`), ...beside];
 }
 function notPlanRepositoryViolations(slices, repositories) {
   const violations = [];
@@ -39080,9 +39080,9 @@ function careMarker(verdict2) {
 }
 function careReplyBody(text15, verdict2) {
   const marker = careMarker(verdict2);
-  const plain = (text15 ?? "").replace(TRAILING_MARKER_RE, "").trim();
-  if (!plain) throw new Error("a PR care reply cannot be empty");
-  return `${plain}
+  const plain2 = (text15 ?? "").replace(TRAILING_MARKER_RE, "").trim();
+  if (!plain2) throw new Error("a PR care reply cannot be empty");
+  return `${plain2}
 
 ${marker}`;
 }
@@ -39650,6 +39650,123 @@ var business = {
 // kit/bin/commands/bug.ts
 init_define_OMNI_BUNDLE();
 
+// kit/bin/branch-range.ts
+init_define_OMNI_BUNDLE();
+function git2(args, cwd, exec) {
+  return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+function refExists(root, ref, exec) {
+  try {
+    git2(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], root, exec);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function rangeBase(verb2, ctx, flags, exec) {
+  const base = flags.base ?? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}`;
+  if (!refExists(ctx.root, base, exec)) {
+    const how = flags.base !== void 0 ? "pass another --base <ref>" : "fetch it, or pass --base <ref>";
+    throw usageError(`omni ${verb2}: no ${base} \u2014 ${how}.`);
+  }
+  return base;
+}
+function rangeCommits(root, base, exec) {
+  return git2(["log", "--reverse", "--format=%h%x00%B%x1e", `${base}..HEAD`], root, exec).split("").map((record2) => record2.replace(/^\n/, "")).filter((record2) => record2.includes("\0")).map((record2) => {
+    const [sha, message2] = record2.split("\0");
+    return { sha: sha ?? "", message: message2 ?? "" };
+  });
+}
+function loggedPaths(root, base, exec) {
+  return git2(["log", "--format=", "--name-only", "--no-renames", `${base}..HEAD`], root, exec).split("\n").map((line2) => line2.trim()).filter(Boolean);
+}
+function branchPaths(root, base, exec) {
+  return git2(["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", `${base}...HEAD`, "--"], root, exec).split("\0").filter(Boolean);
+}
+function fixLaws(ctx, issue2, base, exec) {
+  if (ctx.config.laws.source !== "knowledge") return void 0;
+  return fixLawCheck({ ctx, number: parsePrd(issue2), changes: rangeChanges({ ctx, base, exec }), base: baseKnowledge({ ctx, base, exec }) });
+}
+function branchVerdictCommand({
+  verb: verb2,
+  read: read2,
+  paths,
+  grade: grade2
+}) {
+  const usage2 = `usage: omni ${verb2} <n> [--base <ref>]`;
+  return {
+    run: synchronous((args, { ctx, stdout, exec }) => {
+      const { positional, flags } = parseArgs(verb2, args, { values: ["base"] });
+      if (positional.length !== 1) throw usageError(usage2);
+      const number5 = read2(verb2, "<n>", positional[0]);
+      const base = rangeBase(verb2, ctx, flags, exec);
+      const changed = paths ? paths(ctx.root, base, exec) : void 0;
+      const commits = ctx.config.signature === null ? void 0 : rangeCommits(ctx.root, base, exec);
+      const verdict2 = grade2({ ctx, number: number5, changed, commits, base, exec });
+      println(stdout, verdict2.ok ? "ok" : "not ok");
+      for (const failure7 of verdict2.failures) println(stdout, `- ${failure7}`);
+      return verdict2.ok ? 0 : 1;
+    })
+  };
+}
+
+// kit/lib/bug/proof-body.ts
+init_define_OMNI_BUNDLE();
+var PROOF_HEADING = /^##[ \t]+Proof[ \t]*#*[ \t]*$/;
+var NEXT_HEADING = /^#{1,2}[ \t]/;
+var IMAGE = /!\[[^\]]*\]\([ \t]*https:\/\/[^)\s]+/;
+var BEFORE_LINE = /^[ \t]*- \*\*Before the fix\*\*/m;
+var AFTER_LINE = /^[ \t]*- \*\*After the fix\*\*/m;
+var NOT_PRODUCED = /^[ \t]*GIF not produced - (.*)$/gm;
+function proofSection(body) {
+  const lines2 = body.split(/\r?\n/);
+  const start4 = lines2.findIndex((line2) => PROOF_HEADING.test(line2));
+  if (start4 < 0) return void 0;
+  const rest = lines2.slice(start4 + 1);
+  const end3 = rest.findIndex((line2) => NEXT_HEADING.test(line2));
+  return (end3 < 0 ? rest : rest.slice(0, end3)).join("\n");
+}
+function notProduced(section6) {
+  return [...section6.matchAll(NOT_PRODUCED)].some((match) => (match[1] ?? "").trim() !== "");
+}
+function bodyFaults(body) {
+  const section6 = proofSection(body);
+  if (section6 === void 0) return { faults: ["no ## Proof section"], produced: false };
+  const hasImage = IMAGE.test(section6);
+  const imageLines = BEFORE_LINE.test(section6) && AFTER_LINE.test(section6);
+  if (hasImage && imageLines) return { faults: [], produced: true };
+  if (notProduced(section6)) return { faults: [], produced: false };
+  if (!hasImage) return { faults: ['## Proof has no image and no "GIF not produced - <reason>" line'], produced: false };
+  return { faults: [`## Proof's image has no "Before the fix" or "After the fix" line`], produced: false };
+}
+function noBody(issue2) {
+  return `no pull request body to check: make the GIF (omni bug film ${issue2} --before <red> --after <green>, then omni proof push --kind bug ${issue2} <folder>), write the body with its ## Proof section to a file, and rerun omni bug ${issue2} --body-file <file>; with no GIF, ## Proof is the line GIF not produced - <reason> and the pull request opens as a draft`;
+}
+function proofFaults(source2, issue2) {
+  if (source2.kind === "none") return [noBody(issue2)];
+  const { faults, produced } = bodyFaults(source2.body);
+  if (source2.kind === "pull-request" && faults.length === 0 && !produced && !source2.isDraft) {
+    return [`the proof was not produced but #${source2.pr} is not a draft: gh pr ready ${source2.pr} --undo`];
+  }
+  return faults;
+}
+var ViewedPullRequestSchema = external_exports.object({
+  body: external_exports.string().nullable(),
+  isDraft: external_exports.boolean(),
+  state: external_exports.string(),
+  number: PrNumberSchema
+});
+function openPullRequest({ root, exec }) {
+  try {
+    const text15 = exec("gh", ["pr", "view", "--json", "body,isDraft,state,number"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    const viewed = ViewedPullRequestSchema.safeParse(JSON.parse(text15));
+    if (!viewed.success || viewed.data.state !== "OPEN") return { kind: "none" };
+    return { kind: "pull-request", body: viewed.data.body ?? "", pr: viewed.data.number, isDraft: viewed.data.isDraft };
+  } catch {
+    return { kind: "none" };
+  }
+}
+
 // kit/lib/bug/verdict.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync39, statSync as statSync8 } from "node:fs";
@@ -39826,9 +39943,12 @@ function reproductionsViolations(ctx, record2, sections, changed) {
   const reproduction = sections.get("Reproduction");
   return reproduction ? reproductionViolations(ctx, record2, reproduction, changed) : [];
 }
+function recordSections(ctx, record2) {
+  return isFile(ctx, record2) ? parseSections(readFileSync39(join47(ctx.root, record2), "utf8")) : void 0;
+}
 function recordViolations(ctx, record2, changed) {
-  if (!isFile(ctx, record2)) return [`${record2}: missing.`];
-  const sections = parseSections(readFileSync39(join47(ctx.root, record2), "utf8"));
+  const sections = recordSections(ctx, record2);
+  if (sections === void 0) return [`${record2}: missing.`];
   const triage = sections.get("Triage");
   return [
     ...sectionViolations(record2, sections),
@@ -39836,9 +39956,9 @@ function recordViolations(ctx, record2, changed) {
     ...reproductionsViolations(ctx, record2, sections, changed)
   ];
 }
-function bugVerdict({ ctx, issue: issue2, changed, commits, laws: laws2 }) {
+function bugVerdict({ ctx, issue: issue2, changed, commits, laws: laws2, proof: proof2 }) {
   const changedSet = changed === void 0 ? void 0 : new Set([...changed].map((path) => normalize(path)));
-  return fixVerdict({
+  const verdict2 = fixVerdict({
     ctx,
     number: issue2,
     commits,
@@ -39847,80 +39967,266 @@ function bugVerdict({ ctx, issue: issue2, changed, commits, laws: laws2 }) {
     folders: numberedFolders(ctx, bugRoot(ctx), issuePrefix(issue2)),
     grade: (folder) => [...recordViolations(ctx, `${folder}/${RECORD3}`, changedSet), ...laws2?.(folder) ?? []]
   });
-}
-
-// kit/bin/branch-range.ts
-init_define_OMNI_BUNDLE();
-function git2(args, cwd, exec) {
-  return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-}
-function refExists(root, ref, exec) {
-  try {
-    git2(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], root, exec);
-    return true;
-  } catch {
-    return false;
-  }
-}
-function rangeBase(verb2, ctx, flags, exec) {
-  const base = flags.base ?? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}`;
-  if (!refExists(ctx.root, base, exec)) {
-    const how = flags.base !== void 0 ? "pass another --base <ref>" : "fetch it, or pass --base <ref>";
-    throw usageError(`omni ${verb2}: no ${base} \u2014 ${how}.`);
-  }
-  return base;
-}
-function rangeCommits(root, base, exec) {
-  return git2(["log", "--reverse", "--format=%h%x00%B%x1e", `${base}..HEAD`], root, exec).split("").map((record2) => record2.replace(/^\n/, "")).filter((record2) => record2.includes("\0")).map((record2) => {
-    const [sha, message2] = record2.split("\0");
-    return { sha: sha ?? "", message: message2 ?? "" };
-  });
-}
-function loggedPaths(root, base, exec) {
-  return git2(["log", "--format=", "--name-only", "--no-renames", `${base}..HEAD`], root, exec).split("\n").map((line2) => line2.trim()).filter(Boolean);
-}
-function branchPaths(root, base, exec) {
-  return git2(["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", `${base}...HEAD`, "--"], root, exec).split("\0").filter(Boolean);
-}
-function fixLaws(ctx, issue2, base, exec) {
-  if (ctx.config.laws.source !== "knowledge") return void 0;
-  return fixLawCheck({ ctx, number: parsePrd(issue2), changes: rangeChanges({ ctx, base, exec }), base: baseKnowledge({ ctx, base, exec }) });
-}
-function branchVerdictCommand({
-  verb: verb2,
-  read: read2,
-  paths,
-  grade: grade2
-}) {
-  const usage2 = `usage: omni ${verb2} <n> [--base <ref>]`;
-  return {
-    run: synchronous((args, { ctx, stdout, exec }) => {
-      const { positional, flags } = parseArgs(verb2, args, { values: ["base"] });
-      if (positional.length !== 1) throw usageError(usage2);
-      const number5 = read2(verb2, "<n>", positional[0]);
-      const base = rangeBase(verb2, ctx, flags, exec);
-      const changed = paths ? paths(ctx.root, base, exec) : void 0;
-      const commits = ctx.config.signature === null ? void 0 : rangeCommits(ctx.root, base, exec);
-      const verdict2 = grade2({ ctx, number: number5, changed, commits, base, exec });
-      println(stdout, verdict2.ok ? "ok" : "not ok");
-      for (const failure7 of verdict2.failures) println(stdout, `- ${failure7}`);
-      return verdict2.ok ? 0 : 1;
-    })
-  };
+  const exempt = verdict2.folder !== null && recordSections(ctx, `${verdict2.folder}/${RECORD3}`)?.has("Fixes") === true;
+  const failures = proof2 === void 0 || exempt ? verdict2.failures : [...verdict2.failures, ...proof2()];
+  return { ok: failures.length === 0, folder: verdict2.folder, failures };
 }
 
 // kit/bin/commands/bug-film.ts
 init_define_OMNI_BUNDLE();
-import { copyFileSync as copyFileSync2, existsSync as existsSync34, mkdirSync as mkdirSync15, mkdtempSync, readFileSync as readFileSync40, rmSync as rmSync10, statSync as statSync9, writeFileSync as writeFileSync20 } from "node:fs";
-import { tmpdir } from "node:os";
+import { copyFileSync as copyFileSync2, existsSync as existsSync34, mkdirSync as mkdirSync15, readFileSync as readFileSync40, statSync as statSync9, writeFileSync as writeFileSync20 } from "node:fs";
 import { join as join48 } from "node:path";
 
 // kit/lib/bug/film.ts
 init_define_OMNI_BUNDLE();
 import { extname } from "node:path";
-var CARD_LINES = 20;
-var CARD_WIDTH = 100;
-var CARD_SECONDS = 3;
+
+// kit/lib/image/font.ts
+init_define_OMNI_BUNDLE();
+var CELL_WIDTH = 6;
+var CELL_HEIGHT = 13;
+var PICTURES = {
+  "!": [2, "..#.. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.. ..... ..#.."],
+  '"': [2, ".#.#. .#.#. .#.#."],
+  "#": [3, ".#.#. .#.#. ##### .#.#. ##### .#.#. .#.#."],
+  $: [2, "..#.. .#### #.#.# #.#.. .###. ..#.# #.#.# ####. ..#.."],
+  "%": [2, "##..# ##..# ...#. ...#. ..#.. .#... .#... #..## #..##"],
+  "&": [2, ".##.. #..#. #..#. .##.. ##..# #.#.# #..#. #..## .##.#"],
+  "'": [2, "..#.. ..#.. .#..."],
+  "(": [2, "...#. ..#.. .#... .#... .#... .#... .#... ..#.. ...#."],
+  ")": [2, ".#... ..#.. ...#. ...#. ...#. ...#. ...#. ..#.. .#..."],
+  "*": [3, "..#.. #.#.# .###. #.#.# ..#.."],
+  "+": [5, "..#.. ..#.. ##### ..#.. ..#.."],
+  ",": [9, ".##.. .##.. ..#.. .#..."],
+  "-": [7, ".###."],
+  ".": [9, ".##.. .##.."],
+  "/": [2, "....# ....# ...#. ...#. ..#.. .#... .#... #.... #...."],
+  "0": [2, ".###. #...# #..## #.#.# #.#.# #.#.# ##..# #...# .###."],
+  "1": [2, "..#.. .##.. #.#.. ..#.. ..#.. ..#.. ..#.. ..#.. .###."],
+  "2": [2, ".###. #...# ....# ....# ...#. ..#.. .#... #.... #####"],
+  "3": [2, ".###. #...# ....# ....# ..##. ....# ....# #...# .###."],
+  "4": [2, "...#. ..##. .#.#. #..#. #..#. ##### ...#. ...#. ...#."],
+  "5": [2, "##### #.... #.... ####. ....# ....# ....# #...# .###."],
+  "6": [2, ".###. #...# #.... #.... ####. #...# #...# #...# .###."],
+  "7": [2, "##### ....# ....# ...#. ...#. ..#.. ..#.. .#... .#..."],
+  "8": [2, ".###. #...# #...# #...# .###. #...# #...# #...# .###."],
+  "9": [2, ".###. #...# #...# #...# .#### ....# ....# #...# .###."],
+  ":": [5, ".##.. .##.. ..... ..... .##.. .##.."],
+  ";": [5, ".##.. .##.. ..... ..... .##.. .##.. ..#.. .#..."],
+  "<": [5, "...#. ..#.. .#... ..#.. ...#."],
+  "=": [6, "##### ..... #####"],
+  ">": [5, ".#... ..#.. ...#. ..#.. .#..."],
+  "?": [2, ".###. #...# ....# ...#. ..#.. ..#.. ..... ..... ..#.."],
+  "@": [2, ".###. #...# #.### #.#.# #.#.# #.### #.... #...# .###."],
+  A: [2, "..#.. .#.#. #...# #...# #...# ##### #...# #...# #...#"],
+  B: [2, "####. #...# #...# #...# ####. #...# #...# #...# ####."],
+  C: [2, ".###. #...# #.... #.... #.... #.... #.... #...# .###."],
+  D: [2, "####. #...# #...# #...# #...# #...# #...# #...# ####."],
+  E: [2, "##### #.... #.... #.... ####. #.... #.... #.... #####"],
+  F: [2, "##### #.... #.... #.... ####. #.... #.... #.... #...."],
+  G: [2, ".###. #...# #.... #.... #.### #...# #...# #...# .###."],
+  H: [2, "#...# #...# #...# #...# ##### #...# #...# #...# #...#"],
+  I: [2, ".###. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.. .###."],
+  J: [2, "..### ...#. ...#. ...#. ...#. ...#. ...#. #..#. .##.."],
+  K: [2, "#...# #...# #..#. #.#.. ##... #.#.. #..#. #...# #...#"],
+  L: [2, "#.... #.... #.... #.... #.... #.... #.... #.... #####"],
+  M: [2, "#...# ##.## #.#.# #.#.# #...# #...# #...# #...# #...#"],
+  N: [2, "#...# ##..# ##..# #.#.# #.#.# #..## #..## #...# #...#"],
+  O: [2, ".###. #...# #...# #...# #...# #...# #...# #...# .###."],
+  P: [2, "####. #...# #...# #...# ####. #.... #.... #.... #...."],
+  Q: [2, ".###. #...# #...# #...# #...# #...# #.#.# #..#. .##.#"],
+  R: [2, "####. #...# #...# #...# ####. #.#.. #..#. #...# #...#"],
+  S: [2, ".#### #.... #.... #.... .###. ....# ....# ....# ####."],
+  T: [2, "##### ..#.. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.."],
+  U: [2, "#...# #...# #...# #...# #...# #...# #...# #...# .###."],
+  V: [2, "#...# #...# #...# #...# #...# #...# .#.#. .#.#. ..#.."],
+  W: [2, "#...# #...# #...# #...# #.#.# #.#.# #.#.# ##.## #...#"],
+  X: [2, "#...# #...# .#.#. .#.#. ..#.. .#.#. .#.#. #...# #...#"],
+  Y: [2, "#...# #...# .#.#. .#.#. ..#.. ..#.. ..#.. ..#.. ..#.."],
+  Z: [2, "##### ....# ....# ...#. ..#.. .#... #.... #.... #####"],
+  "[": [2, ".###. .#... .#... .#... .#... .#... .#... .#... .###."],
+  "\\": [2, "#.... #.... .#... .#... ..#.. ...#. ...#. ....# ....#"],
+  "]": [2, ".###. ...#. ...#. ...#. ...#. ...#. ...#. ...#. .###."],
+  "^": [2, "..#.. .#.#. #...#"],
+  _: [12, "#####"],
+  "`": [2, ".#... ..#.."],
+  a: [4, ".###. ....# ....# .#### #...# #...# .####"],
+  b: [2, "#.... #.... ####. #...# #...# #...# #...# #...# ####."],
+  c: [4, ".###. #...# #.... #.... #.... #...# .###."],
+  d: [2, "....# ....# .#### #...# #...# #...# #...# #...# .####"],
+  e: [4, ".###. #...# #...# ##### #.... #...# .###."],
+  f: [2, "..##. .#... ###.. .#... .#... .#... .#... .#... .#..."],
+  g: [4, ".#### #...# #...# #...# #...# .#### ....# #...# .###."],
+  h: [2, "#.... #.... #.##. ##..# #...# #...# #...# #...# #...#"],
+  i: [2, "..#.. ..... .##.. ..#.. ..#.. ..#.. ..#.. ..#.. .###."],
+  j: [2, "...#. ..... ..##. ...#. ...#. ...#. ...#. ...#. ...#. #..#. .##.."],
+  k: [2, "#.... #.... #...# #..#. #.#.. ##... #.#.. #..#. #...#"],
+  l: [2, ".##.. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.. .###."],
+  m: [4, "##.#. #.#.# #.#.# #.#.# #.#.# #.#.# #.#.#"],
+  n: [4, "#.##. ##..# #...# #...# #...# #...# #...#"],
+  o: [4, ".###. #...# #...# #...# #...# #...# .###."],
+  p: [4, "####. #...# #...# #...# #...# ####. #.... #.... #...."],
+  q: [4, ".#### #...# #...# #...# #...# .#### ....# ....# ....#"],
+  r: [4, "#.##. ##..# #.... #.... #.... #.... #...."],
+  s: [4, ".#### #.... #.... .###. ....# ....# ####."],
+  t: [3, ".#... ###.. .#... .#... .#... .#... .#... ..##."],
+  u: [4, "#...# #...# #...# #...# #...# #..## .##.#"],
+  v: [4, "#...# #...# #...# #...# .#.#. .#.#. ..#.."],
+  w: [4, "#...# #...# #...# #.#.# #.#.# #.#.# .#.#."],
+  x: [4, "#...# #...# .#.#. ..#.. .#.#. #...# #...#"],
+  y: [4, "#...# #...# #...# #...# #...# .#### ....# #...# .###."],
+  z: [4, "##### ....# ...#. ..#.. .#... #.... #####"],
+  "{": [2, "..##. .#... .#... .#... #.... .#... .#... .#... ..##."],
+  "|": [2, "..#.. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.. ..#.."],
+  "}": [2, ".##.. ...#. ...#. ...#. ....# ...#. ...#. ...#. .##.."],
+  "~": [6, ".##.# #.##."],
+  "\u2713": [4, "....# ...## ...#. #.##. .##.. ..#.."],
+  "\u2717": [3, "#...# ##.## .###. ..#.. .###. ##.## #...#"],
+  "\xD7": [5, "#...# .#.#. ..#.. .#.#. #...#"],
+  "\u276F": [4, "##... .##.. ..##. ...## ..##. .##.. ##..."],
+  "\u203A": [6, ".#... ..#.. .#..."],
+  "\xB7": [7, ".##.. .##.."],
+  "\u2022": [6, ".###. ##### .###."],
+  "\u2192": [5, "..#.. ...#. ###### ...#. ..#.."],
+  "\u2500": [6, "######"],
+  "\u2502": [0, "..#... ..#... ..#... ..#... ..#... ..#... ..#... ..#... ..#... ..#... ..#... ..#... ..#..."]
+};
+function bitmap([top2, rows2]) {
+  const cell2 = Array.from({ length: CELL_HEIGHT }, () => 0);
+  rows2.split(" ").forEach((row, index) => {
+    cell2[top2 + index] = Array.from(row).reduce((bits, dot, column) => dot === "#" ? bits | 1 << CELL_WIDTH - 1 - column : bits, 0);
+  });
+  return cell2;
+}
+var GLYPHS = new Map(Object.entries(PICTURES).map(([character, picture]) => [character, bitmap(picture)]));
+var UNKNOWN = bitmap(PICTURES["?"] ?? [0, ""]);
+function glyphOf(character) {
+  if (character === " ") return Array.from({ length: CELL_HEIGHT }, () => 0);
+  return GLYPHS.get(character) ?? UNKNOWN;
+}
+
+// kit/lib/image/gif.ts
+init_define_OMNI_BUNDLE();
+var MAX_COLOURS = 8;
+var MAX_CODE_SIZE = 12;
+var TABLE_ENTRIES = 1 << MAX_CODE_SIZE;
+var MAX_SIDE = 65535;
+var BLOCK = 255;
+var word = (value) => [value & 255, value >>> 8];
+function paletteOf(frames) {
+  const positions = /* @__PURE__ */ new Map();
+  for (const { pixels } of frames) {
+    for (const pixel of pixels) {
+      const colour2 = pixel & 16777215;
+      if (positions.has(colour2)) continue;
+      if (positions.size === MAX_COLOURS) {
+        throw new RangeError(`a GIF here holds at most ${MAX_COLOURS} colours: #${colour2.toString(16).padStart(6, "0")} is a ninth`);
+      }
+      positions.set(colour2, positions.size);
+    }
+  }
+  return positions;
+}
+var tableBits = (colours) => Math.max(1, 32 - Math.clz32(colours - 1));
+function lzw(indices, minCode) {
+  const clear = 1 << minCode;
+  const end3 = clear + 1;
+  const bytes = [];
+  let buffer = 0;
+  let held2 = 0;
+  const emit = (code, size2) => {
+    buffer |= code << held2;
+    held2 += size2;
+    while (held2 >= 8) {
+      bytes.push(buffer & 255);
+      buffer >>>= 8;
+      held2 -= 8;
+    }
+  };
+  let size = minCode + 1;
+  let next2 = end3 + 1;
+  let table = /* @__PURE__ */ new Map();
+  emit(clear, size);
+  let prefix = indices[0] ?? 0;
+  for (let at2 = 1; at2 < indices.length; at2 += 1) {
+    const pixel = indices[at2] ?? 0;
+    const key2 = prefix * 256 + pixel;
+    const known2 = table.get(key2);
+    if (known2 !== void 0) {
+      prefix = known2;
+      continue;
+    }
+    emit(prefix, size);
+    if (next2 < TABLE_ENTRIES) {
+      table.set(key2, next2);
+      if (next2 === 1 << size) size += 1;
+      next2 += 1;
+    } else {
+      emit(clear, size);
+      table = /* @__PURE__ */ new Map();
+      size = minCode + 1;
+      next2 = end3 + 1;
+    }
+    prefix = pixel;
+  }
+  emit(prefix, size);
+  emit(end3, size);
+  if (held2 > 0) bytes.push(buffer & 255);
+  return bytes;
+}
+function subBlocks(bytes) {
+  const out = [];
+  for (let from = 0; from < bytes.length; from += BLOCK) {
+    const run2 = bytes.slice(from, from + BLOCK);
+    out.push(run2.length, ...run2);
+  }
+  out.push(0);
+  return out;
+}
+var sideFits = (side) => Number.isInteger(side) && side >= 1 && side <= MAX_SIDE;
+function checkedFrame({ pixels, delay }, width, height) {
+  if (pixels.length !== width * height) {
+    throw new RangeError(`a frame of ${pixels.length} pixels does not fill a ${width}x${height} image (${width * height})`);
+  }
+  if (!Number.isInteger(delay) || delay < 0 || delay > 65535) {
+    throw new RangeError(`a frame's delay is 0 to 65535 hundredths of a second, not ${delay}`);
+  }
+}
+function checked({ width, height, frames }) {
+  if (!sideFits(width) || !sideFits(height)) {
+    throw new RangeError(`a GIF's size is 1 to ${MAX_SIDE} pixels each way, not ${width}x${height}`);
+  }
+  if (frames.length === 0) throw new RangeError("a GIF needs a frame: no frame was given");
+  for (const frame of frames) checkedFrame(frame, width, height);
+}
+function encodeGif(image) {
+  checked(image);
+  const { width, height, frames } = image;
+  const palette = paletteOf(frames);
+  const bits = tableBits(palette.size);
+  const minCode = Math.max(2, bits);
+  const bytes = [...Array.from("GIF89a", (letter) => letter.charCodeAt(0)), ...word(width), ...word(height), 128 | 112 | bits - 1, 0, 0];
+  const colours = Array.from(palette.keys());
+  for (let slot2 = 0; slot2 < 1 << bits; slot2 += 1) {
+    const colour2 = colours[slot2] ?? 0;
+    bytes.push(colour2 >>> 16 & 255, colour2 >>> 8 & 255, colour2 & 255);
+  }
+  bytes.push(33, 255, 11, ...Array.from("NETSCAPE2.0", (letter) => letter.charCodeAt(0)), 3, 1, ...word(0), 0);
+  for (const { pixels, delay } of frames) {
+    bytes.push(33, 249, 4, 4, ...word(delay), 0, 0);
+    bytes.push(44, ...word(0), ...word(0), ...word(width), ...word(height), 0);
+    const indices = Uint8Array.from(pixels, (pixel) => palette.get(pixel & 16777215) ?? 0);
+    bytes.push(minCode);
+    for (const byte of subBlocks(lzw(indices, minCode))) bytes.push(byte);
+  }
+  bytes.push(59);
+  return Uint8Array.from(bytes);
+}
+
+// kit/lib/bug/film.ts
+var CARD = { width: 640, height: 360, band: 40, margin: 20, textTop: 54, pitch: 14, lines: 20, columns: 100 };
+var CARD_DELAY = 300;
+var TITLE_SCALE = 2;
 var CLIP_SECONDS = 4;
 var GIF_WIDTH = 640;
 var GIF_FPS = 10;
@@ -39936,32 +40242,80 @@ function filmKind(before2, after) {
   if (one === ".webm" && two2 === ".webm") return "clips";
   return null;
 }
-function cardText(output2) {
-  const lines2 = output2.replace(/\r/g, "").replace(/\s+$/, "").split("\n");
-  return lines2.slice(-CARD_LINES).map((line2) => line2.replace(/\t/g, "  ").slice(0, CARD_WIDTH)).join("\n");
-}
 function escapeFilter(value) {
   return value.replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/'/g, "\\'").replace(/%/g, "\\%");
 }
 var PALETTE = "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse";
-function filmArgs(input2) {
-  const size = `${GIF_WIDTH}x360`;
-  if (input2.kind === "text") {
-    const card = (index, title, file2) => `color=c=0x111111:s=${size}:r=${GIF_FPS}:d=${CARD_SECONDS}[bg${index}];[bg${index}]drawtext=font=monospace:text='${escapeFilter(title)}':fontcolor=white:fontsize=24:x=16:y=14,drawtext=font=monospace:textfile='${escapeFilter(file2)}':fontcolor=0xdddddd:fontsize=12:x=16:y=56:line_spacing=4[c${index}]`;
-    const graph3 = `${card(0, RED_TITLE, input2.red)};${card(1, GREEN_TITLE, input2.green)};[c0][c1]concat=n=2:v=1:a=0,${PALETTE}`;
-    return ["-y", "-filter_complex", graph3, "-loop", "0", input2.out];
-  }
+function filmArgs({ before: before2, after, out }) {
   const clip = (index, caption) => `[${index}:v]fps=${GIF_FPS},scale=${GIF_WIDTH}:360:force_original_aspect_ratio=decrease,pad=${GIF_WIDTH}:360:(ow-iw)/2:(oh-ih)/2,setsar=1,drawtext=font=monospace:text='${escapeFilter(caption)}':fontcolor=white:fontsize=20:box=1:boxcolor=0x000000AA:boxborderw=6:x=12:y=12[c${index}]`;
   const graph2 = `${clip(0, BEFORE_CAPTION)};${clip(1, AFTER_CAPTION)};[c0][c1]concat=n=2:v=1:a=0,${PALETTE}`;
-  return ["-y", "-t", String(CLIP_SECONDS), "-i", input2.before, "-t", String(CLIP_SECONDS), "-i", input2.after, "-filter_complex", graph2, "-loop", "0", input2.out];
+  return ["-y", "-t", String(CLIP_SECONDS), "-i", before2, "-t", String(CLIP_SECONDS), "-i", after, "-filter_complex", graph2, "-loop", "0", out];
 }
 var RED_LINE = /fail|error|exception|assert|✗|✕|red/i;
 var GREEN_LINE = /pass|ok\b|✓|✔|green|success/i;
 var NOTE_MAX = 200;
+var ANSI = /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\)|[ -/]*[0-~])/g;
+var plain = (output2) => output2.replace(ANSI, "").replace(/\r/g, "");
+function firstMatch(lines2, pattern) {
+  const found2 = lines2.findIndex((line2) => pattern.test(line2));
+  return found2 === -1 ? lines2.findIndex((line2) => line2.trim() !== "") : found2;
+}
+var MARKER2 = { red: RED_LINE, green: GREEN_LINE };
+function cardLines(output2, kind) {
+  const text15 = plain(output2).replace(/\s+$/, "");
+  const all = text15 === "" ? [] : text15.split("\n").map((line2) => line2.replace(/\t/g, "  "));
+  const target3 = firstMatch(all, MARKER2[kind]);
+  const last = Math.max(0, all.length - CARD.lines);
+  const start4 = target3 !== -1 && target3 < last ? Math.max(0, target3 - 2) : last;
+  const lines2 = all.slice(start4, start4 + CARD.lines).map((line2) => Array.from(line2).slice(0, CARD.columns).join(""));
+  return { lines: lines2, highlight: target3 === -1 ? null : target3 - start4 };
+}
+var BACKGROUND = 1118481;
+var TEXT = 14540253;
+var WHITE = 16777215;
+var CARDS = {
+  red: { title: RED_TITLE, band: 10165276, accent: 16739179 },
+  green: { title: GREEN_TITLE, band: 1409085, accent: 4906624 }
+};
+function drawText(pixels, text15, x, y, colour2, scale) {
+  let left = x;
+  for (const character of text15) {
+    glyphOf(character).forEach((bits, row) => {
+      for (let column = 0; column < CELL_WIDTH; column += 1) {
+        if ((bits & 1 << CELL_WIDTH - 1 - column) === 0) continue;
+        for (let dy = 0; dy < scale; dy += 1) {
+          const from = (y + row * scale + dy) * CARD.width + left + column * scale;
+          pixels.fill(colour2, from, from + scale);
+        }
+      }
+    });
+    left += CELL_WIDTH * scale;
+  }
+}
+function renderCard(kind, output2) {
+  const { title, band, accent } = CARDS[kind];
+  const pixels = new Uint32Array(CARD.width * CARD.height).fill(BACKGROUND);
+  pixels.fill(band, 0, CARD.band * CARD.width);
+  drawText(pixels, title, CARD.margin, (CARD.band - CELL_HEIGHT * TITLE_SCALE) / 2, WHITE, TITLE_SCALE);
+  const { lines: lines2, highlight } = cardLines(output2, kind);
+  lines2.forEach((line2, index) => {
+    drawText(pixels, line2, CARD.margin, CARD.textTop + index * CARD.pitch, index === highlight ? accent : TEXT, 1);
+  });
+  return pixels;
+}
+function filmGif(red2, green2) {
+  return encodeGif({
+    width: CARD.width,
+    height: CARD.height,
+    frames: [
+      { pixels: renderCard("red", red2), delay: CARD_DELAY },
+      { pixels: renderCard("green", green2), delay: CARD_DELAY }
+    ]
+  });
+}
 function noteOf(output2, pattern) {
-  const lines2 = output2.split("\n").map((line3) => line3.trim()).filter(Boolean);
-  const line2 = lines2.find((one) => pattern.test(one)) ?? lines2[0] ?? "";
-  return line2.slice(0, NOTE_MAX);
+  const lines2 = plain(output2).split("\n");
+  return (lines2[firstMatch(lines2, pattern)] ?? "").trim().slice(0, NOTE_MAX);
 }
 var failingLine = (output2) => noteOf(output2, RED_LINE);
 var passingLine = (output2) => noteOf(output2, GREEN_LINE);
@@ -39998,6 +40352,7 @@ function copiedNames(kind) {
 
 // kit/bin/commands/bug-film.ts
 var USAGE9 = "usage: omni bug film <n> --before <file> --after <file> [--out <dir>]";
+var WRITE_ERROR = "WriteError";
 var pad = (value) => String(value).padStart(2, "0");
 function stamp(now2) {
   return `${now2.getFullYear()}${pad(now2.getMonth() + 1)}${pad(now2.getDate())}-${pad(now2.getHours())}${pad(now2.getMinutes())}${pad(now2.getSeconds())}`;
@@ -40021,7 +40376,14 @@ function lastLine(error62) {
   const text15 = typeof stderr === "string" ? stderr : Buffer.isBuffer(stderr) ? stderr.toString("utf8") : errorMessage(error62);
   return text15.split("\n").map((line2) => line2.trim()).filter(Boolean).at(-1) ?? "no output";
 }
-function film(args, { ctx, stdout, stderr, exec }, now2 = () => /* @__PURE__ */ new Date()) {
+function writing(path, write2) {
+  try {
+    write2();
+  } catch {
+    throw Object.assign(new Error(`could not write ${path}`), { name: WRITE_ERROR });
+  }
+}
+function askOf(args, { ctx }) {
   const { positional, flags } = parseArgs("bug film", args, { values: ["before", "after", "out"] });
   if (positional.length !== 1) throw usageError(USAGE9);
   const issue2 = issueArg("bug film", "<n>", positional[0]);
@@ -40029,57 +40391,96 @@ function film(args, { ctx, stdout, stderr, exec }, now2 = () => /* @__PURE__ */ 
   const after = inputFile(ctx, "--after", flags.after);
   const kind = filmKind(before2, after);
   if (!kind) throw usageError("omni bug film: --before and --after are two .txt files or two .webm files.");
-  const slug = repoSlug("bug film", ctx, void 0);
-  if (!hasFfmpeg(exec)) {
+  const red2 = kind === "text" ? readFileSync40(before2, "utf8") : "";
+  const green2 = kind === "text" ? readFileSync40(after, "utf8") : "";
+  return { issue: issue2, slug: repoSlug("bug film", ctx, void 0), before: before2, after, kind, red: red2, green: green2, out: flags.out };
+}
+function copying(from, to) {
+  writing(to, () => {
+    copyFileSync2(from, to);
+  });
+}
+function makeGif({ kind, red: red2, green: green2 }, out, exec) {
+  const gif = join48(out, "preview.gif");
+  const [redName, greenName] = copiedNames(kind);
+  if (kind === "text") {
+    writing(gif, () => {
+      writeFileSync20(gif, filmGif(red2, green2));
+    });
+    return null;
+  }
+  try {
+    exec("ffmpeg", filmArgs({ before: join48(out, redName), after: join48(out, greenName), out: gif }), { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return null;
+  } catch (error62) {
+    return lastLine(error62);
+  }
+}
+function makeFolder(args, io, now2) {
+  const { ctx, stdout, stderr, exec } = io;
+  const ask6 = askOf(args, io);
+  const { issue: issue2, before: before2, after, kind, red: red2, green: green2 } = ask6;
+  if (kind === "clips" && !hasFfmpeg(exec)) {
     println(stderr, "ffmpeg not found");
     return 1;
   }
-  const out = flags.out === void 0 ? join48(ctx.root, ctx.config.worktrees, `proof-bug-${issue2}`, stamp(now2())) : inRoot(ctx, flags.out);
-  mkdirSync15(out, { recursive: true });
+  const out = ask6.out === void 0 ? join48(ctx.root, ctx.config.worktrees, `proof-bug-${issue2}`, stamp(now2)) : inRoot(ctx, ask6.out);
   const [redName, greenName] = copiedNames(kind);
-  copyFileSync2(before2, join48(out, redName));
-  copyFileSync2(after, join48(out, greenName));
-  const gif = join48(out, "preview.gif");
-  const scratch = mkdtempSync(join48(tmpdir(), "omni-bug-film-"));
-  try {
-    const red2 = kind === "text" ? readFileSync40(before2, "utf8") : "";
-    const green2 = kind === "text" ? readFileSync40(after, "utf8") : "";
-    let input2;
-    if (kind === "text") {
-      const redCard = join48(scratch, "red-card.txt");
-      const greenCard = join48(scratch, "green-card.txt");
-      writeFileSync20(redCard, cardText(red2));
-      writeFileSync20(greenCard, cardText(green2));
-      input2 = { kind, red: redCard, green: greenCard, out: gif };
-    } else {
-      input2 = { kind, before: join48(out, redName), after: join48(out, greenName), out: gif };
-    }
-    try {
-      exec("ffmpeg", filmArgs(input2), { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-    } catch (error62) {
-      println(stderr, `ffmpeg failed: ${lastLine(error62)}`);
-      return 1;
-    }
-    const commit = exec("git", ["rev-parse", "HEAD"], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
-    const url2 = `https://github.com/${slug}/issues/${issue2}`;
-    writeFileSync20(join48(out, "run.json"), `${JSON.stringify(runJson({ commit, url: url2, kind, red: red2, green: green2 }), null, 2)}
-`);
-  } finally {
-    rmSync10(scratch, { recursive: true, force: true });
+  writing(out, () => {
+    mkdirSync15(out, { recursive: true });
+  });
+  copying(before2, join48(out, redName));
+  copying(after, join48(out, greenName));
+  const failed4 = makeGif(ask6, out, exec);
+  if (failed4 !== null) {
+    println(stderr, `ffmpeg failed: ${failed4}`);
+    return 1;
   }
+  const commit = exec("git", ["rev-parse", "HEAD"], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  const url2 = `https://github.com/${ask6.slug}/issues/${issue2}`;
+  const runFile2 = join48(out, "run.json");
+  writing(runFile2, () => {
+    writeFileSync20(runFile2, `${JSON.stringify(runJson({ commit, url: url2, kind, red: red2, green: green2 }), null, 2)}
+`);
+  });
   println(stdout, out);
   return 0;
 }
+function film(args, io, now2 = () => /* @__PURE__ */ new Date()) {
+  try {
+    return makeFolder(args, io, now2());
+  } catch (error62) {
+    if (error62 instanceof Error && error62.name === WRITE_ERROR) {
+      println(io.stderr, error62.message);
+      return 1;
+    }
+    throw error62;
+  }
+}
 
 // kit/bin/commands/bug.ts
-var grade = branchVerdictCommand({
-  verb: "bug",
-  read: issueArg,
-  paths: loggedPaths,
-  grade: ({ ctx, number: number5, changed, commits, base, exec }) => bugVerdict({ ctx, issue: number5, changed, commits, laws: fixLaws(ctx, number5, base, exec) })
-});
+var USAGE10 = "usage: omni bug <n> [--base <ref>] [--body-file <file>]";
+function grade(args, { ctx, stdout, exec }) {
+  const { positional, flags } = parseArgs("bug", args, { values: ["base", "body-file"] });
+  if (positional.length !== 1) throw usageError(USAGE10);
+  const issue2 = issueArg("bug", "<n>", positional[0]);
+  const file2 = flags["body-file"];
+  const written = file2 === void 0 ? void 0 : { kind: "file", body: readUserFile("bug", ctx, file2) };
+  const base = rangeBase("bug", ctx, flags, exec);
+  const verdict2 = bugVerdict({
+    ctx,
+    issue: issue2,
+    changed: loggedPaths(ctx.root, base, exec),
+    commits: ctx.config.signature === null ? void 0 : rangeCommits(ctx.root, base, exec),
+    laws: fixLaws(ctx, issue2, base, exec),
+    proof: () => proofFaults(written ?? openPullRequest({ root: ctx.root, exec }), issue2)
+  });
+  println(stdout, verdict2.ok ? "ok" : "not ok");
+  for (const failure7 of verdict2.failures) println(stdout, `- ${failure7}`);
+  return verdict2.ok ? 0 : 1;
+}
 var bug = {
-  run: (args, io) => args[0] === "film" ? synchronous(film)(args.slice(1), io) : grade.run(args, io)
+  run: (args, io) => args[0] === "film" ? synchronous(film)(args.slice(1), io) : synchronous(grade)(args, io)
 };
 
 // kit/bin/commands/check.ts
@@ -40159,7 +40560,7 @@ var QUESTION_KINDS = ["default", "person"];
 var PREREQUISITE_COLUMNS = ["id", "category", "need", "check", "fix", "blocks", "who"];
 var PREREQUISITE_CATEGORIES = ["local", "access", "permissions", "github", "services"];
 var PREREQUISITE_WHO = ["agent", "check", "person"];
-var CARD_LINES2 = [
+var CARD_LINES = [
   ["why", "Why"],
   ["command", "Command"],
   ["whatItDoes", "What it does"],
@@ -40299,7 +40700,7 @@ var CARD_HEADING = /^###\s+(.+?)\s*#*\s*$/;
 var CARD_LINE = /^\s*[-*]\s+\*\*(.+?):\*\*\s*(.*)$/;
 function cardField(label2) {
   const wanted = label2.trim().toLowerCase();
-  return CARD_LINES2.find(([, name3]) => name3.toLowerCase() === wanted)?.[0] ?? null;
+  return CARD_LINES.find(([, name3]) => name3.toLowerCase() === wanted)?.[0] ?? null;
 }
 function cardOf(lines2) {
   const card = { why: null, command: null, whatItDoes: null, whoCanDoIt: null };
@@ -40529,7 +40930,7 @@ function fixFaults({ id, fix, who: who2 }) {
 function cardFaults({ id, who: who2, card }) {
   if (who2 === "agent") return [];
   if (card === null) return [`${id}: has no card; a check or person row has a "### ${id}" card under the table.`];
-  return CARD_LINES2.filter(([field2]) => card[field2] === null || card[field2] === "").map(([, label2]) => `${id}: its card has no "${label2}" line.`);
+  return CARD_LINES.filter(([field2]) => card[field2] === null || card[field2] === "").map(([, label2]) => `${id}: its card has no "${label2}" line.`);
 }
 function prerequisiteViolations(roadmap2, rows2) {
   return (roadmap2.prerequisites ?? []).flatMap((prerequisite) => [
@@ -42042,7 +42443,7 @@ var SCRIPT_RUNNERS = /* @__PURE__ */ new Set(["pnpm", "npm", "yarn", "bun"]);
 var RUN_WORDS = /* @__PURE__ */ new Set(["run", "run-script"]);
 var NODE = "node";
 function operands(words4) {
-  return words4.slice(1).filter((word) => !word.startsWith("-"));
+  return words4.slice(1).filter((word2) => !word2.startsWith("-"));
 }
 function scriptProblem(words4, scripts) {
   const rest = operands(words4);
@@ -42089,7 +42490,7 @@ function generatedViolations(entries4, ground) {
 }
 
 // kit/bin/commands/check.ts
-var USAGE10 = "usage: omni check [config|inbox|outbox|knowledge|kb|releases|agents|design|coverage|context|all] [--base <ref>] [--prd <n>]";
+var USAGE11 = "usage: omni check [config|inbox|outbox|knowledge|kb|releases|agents|design|coverage|context|all] [--base <ref>] [--prd <n>]";
 function report3(stdout, title, violations, passLine) {
   if (violations.length > 0) {
     println(stdout, formatFailure(title, violations));
@@ -42313,8 +42714,8 @@ async function checkContext(io, { base, baseKnown, prd: prd2 }) {
     const lines2 = red2.flatMap((verdict2, index) => [...index > 0 ? [""] : [], ...redMessage(verdict2, context)]);
     return report3(stdout, CONTEXT_TITLE, [...lines2, "", ...budgetTable(verdicts)], "");
   }
-  const word = state === "neutral" ? "neutral, nothing blocked" : "every target under its ceiling";
-  println(stdout, formatPass(`check context \u2014 ${verdicts.length} target(s), ${word}; ${compared}.`));
+  const word2 = state === "neutral" ? "neutral, nothing blocked" : "every target under its ceiling";
+  println(stdout, formatPass(`check context \u2014 ${verdicts.length} target(s), ${word2}; ${compared}.`));
   for (const line2 of [...neutralLines(verdicts), ...budgetTable(verdicts)]) println(stdout, `  ${line2}`);
   return true;
 }
@@ -42339,7 +42740,7 @@ var SINGLE_GUARDS = {
   agents: checkAgents
 };
 function guardOf(positional) {
-  if (positional.length > 1 || positional[0] && !GUARDS.includes(positional[0])) throw usageError(USAGE10);
+  if (positional.length > 1 || positional[0] && !GUARDS.includes(positional[0])) throw usageError(USAGE11);
   return positional[0] ?? "all";
 }
 function rangeOf(guard2, flags, io) {
@@ -42390,13 +42791,13 @@ var check2 = {
 // kit/bin/commands/comment.ts
 init_define_OMNI_BUNDLE();
 import { writeFileSync as writeFileSync22 } from "node:fs";
-var USAGE11 = "usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] [--labels <a,b>] [--slack-note <file>] [--title <t>] [--owner-slack-id <id>] [--owner-login <login>] [--pr-comment <file>] | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]";
+var USAGE12 = "usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] [--labels <a,b>] [--slack-note <file>] [--title <t>] [--owner-slack-id <id>] [--owner-login <login>] [--pr-comment <file>] | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]";
 var comment = {
   async run(args, { ctx, stdout, exec, env }) {
     const { positional, flags } = parseArgs("comment", args, {
       values: ["prd", "pr", "repo", "result", "branch", "ref", "base", "labels", "slack-note", "title", "owner-slack-id", "owner-login", "pr-comment"]
     });
-    if (positional.length) throw usageError(USAGE11);
+    if (positional.length) throw usageError(USAGE12);
     const prd2 = prdArg("comment", "--prd", flags.prd);
     const repo = repoSlug("comment", ctx, flags.repo);
     const [owner = "", name3 = ""] = repo.split("/");
@@ -42416,7 +42817,7 @@ var comment = {
       return 0;
     }
     const branch = flags.branch;
-    if (!branch) throw usageError(USAGE11);
+    if (!branch) throw usageError(USAGE12);
     const ref = flags.ref ?? branch;
     let changes = [];
     if (flags.base) {
@@ -42524,7 +42925,7 @@ function writeCache(root, { repo, syncedAt, read: read2 }) {
 }
 
 // kit/bin/commands/constituents.ts
-var USAGE12 = "usage: omni constituents [--json]";
+var USAGE13 = "usage: omni constituents [--json]";
 var CONSTITUENTS_BUDGET_MS = 3e3;
 var CARRY_ON2 = "\u2014 agents carry on";
 function withDeadline2(fetch, signal) {
@@ -42606,7 +43007,7 @@ var constituents = {
   withoutContext: true,
   async run(args, { cwd, stdout, exec, tokens: tokens2, home, fetch = globalThis.fetch, now: now2 = Date.now, budgetMs = CONSTITUENTS_BUDGET_MS }) {
     const { positional, flags } = parseArgs("constituents", args, { booleans: ["json"] });
-    if (positional.length > 0) throw usageError(USAGE12);
+    if (positional.length > 0) throw usageError(USAGE13);
     let body;
     let lines2;
     try {
@@ -43129,7 +43530,7 @@ import { execFileSync as execFileSync11 } from "node:child_process";
 init_define_OMNI_BUNDLE();
 var named2 = external_exports.object({ name: external_exports.string() });
 var login = external_exports.object({ login: external_exports.string().nullish() });
-var ViewedPullRequestSchema = external_exports.object({
+var ViewedPullRequestSchema2 = external_exports.object({
   number: external_exports.number(),
   title: external_exports.string().nullish(),
   state: external_exports.string().nullish(),
@@ -43138,7 +43539,7 @@ var ViewedPullRequestSchema = external_exports.object({
   body: external_exports.string().nullish(),
   author: login.nullish()
 });
-var SearchedItemSchema = ViewedPullRequestSchema.extend({
+var SearchedItemSchema = ViewedPullRequestSchema2.extend({
   repository: external_exports.object({ nameWithOwner: external_exports.string() })
 });
 var SearchedItemsSchema = external_exports.array(SearchedItemSchema);
@@ -43274,7 +43675,7 @@ function readCredits({ owner, repo, since, labels: labels2, signature, exec = ex
       warnings.push(`${commit.repo}#${number5}, named by a signed commit, could not be read: ${error62.message.replace(/^gh failed: /, "")}`);
       continue;
     }
-    keep(pullRequest(parseGh(ViewedPullRequestSchema, JSON.parse(text15), "gh pr view"), commit.repo));
+    keep(pullRequest(parseGh(ViewedPullRequestSchema2, JSON.parse(text15), "gh pr view"), commit.repo));
   }
   return result2(commits);
 }
@@ -43329,13 +43730,13 @@ function creditsList(items) {
 }
 
 // kit/bin/commands/credits.ts
-var USAGE13 = "usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]";
+var USAGE14 = "usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]";
 var MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/;
 var ghUsageError = (cause) => usageError(`omni credits: ${cause.message}`);
 var credits = {
   run: synchronous((args, { ctx, stdout, stderr, exec, env }) => {
     const { positional, flags } = parseArgs("credits", args, { values: ["repo", "since"], booleans: ["list", "json"] });
-    if (positional.length) throw usageError(USAGE13);
+    if (positional.length) throw usageError(USAGE14);
     const slug = repoSlug("credits", ctx, flags.repo);
     const since = flags.since ?? null;
     if (since !== null && !MONTH.test(since)) throw usageError(`omni credits: --since must be YYYY-MM, got "${since}".`);
@@ -43376,7 +43777,7 @@ var credits = {
 
 // kit/bin/commands/decide.ts
 init_define_OMNI_BUNDLE();
-var USAGE14 = "usage: omni decide <decision> --state-file <json> --old <value> [--ref <text>] [--json]";
+var USAGE15 = "usage: omni decide <decision> --state-file <json> --old <value> [--ref <text>] [--json]";
 var DECIDE_MS = 1e4;
 var UNSET = "unset";
 var isUnit = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
@@ -43433,7 +43834,7 @@ function readArgs(args) {
   const { positional, flags } = parseArgs("decide", args, { values: ["state-file", "old", "ref"], booleans: ["json"] });
   const stateFile = flags["state-file"];
   const old = flags.old;
-  if (positional.length !== 1 || typeof stateFile !== "string" || typeof old !== "string") throw usageError(USAGE14);
+  if (positional.length !== 1 || typeof stateFile !== "string" || typeof old !== "string") throw usageError(USAGE15);
   const ref = typeof flags.ref === "string" && flags.ref.trim() ? flags.ref : null;
   return { decision: positional[0] ?? "", stateFile, old, ref, json: Boolean(flags.json) };
 }
@@ -43460,8 +43861,8 @@ var decide = {
 
 // kit/bin/commands/design.ts
 init_define_OMNI_BUNDLE();
-import { mkdirSync as mkdirSync17, mkdtempSync as mkdtempSync2, readFileSync as readFileSync51, writeFileSync as writeFileSync24 } from "node:fs";
-import { tmpdir as tmpdir2 } from "node:os";
+import { mkdirSync as mkdirSync17, mkdtempSync, readFileSync as readFileSync51, writeFileSync as writeFileSync24 } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname as dirname14, join as join66, resolve as resolve6 } from "node:path";
 
 // kit/lib/design/base.ts
@@ -43736,7 +44137,7 @@ function parseHtml(html) {
 }
 
 // kit/lib/design/words/pass.ts
-var BLOCK = /* @__PURE__ */ new Set([
+var BLOCK2 = /* @__PURE__ */ new Set([
   "address",
   "article",
   "aside",
@@ -43799,7 +44200,7 @@ function textOf3(node3, spaced) {
   if (node3.kind === "text") return node3.text;
   if (isHidden(node3)) return "";
   const own2 = node3.tag === "input" ? ` ${node3.attributes.get("value") ?? ""} ` : "";
-  const block = BLOCK.has(node3.tag);
+  const block = BLOCK2.has(node3.tag);
   return node3.children.reduce((text15, child, index) => {
     const before2 = node3.children[index - 1];
     const apart = block || spaced && before2?.kind === "element" && child.kind === "element";
@@ -43954,7 +44355,7 @@ function formatScreensTouched(screens2, read2 = []) {
 }
 
 // kit/bin/commands/design.ts
-var USAGE15 = "usage: omni design touched [<base>] | omni design screens | omni design words <page.html>\u2026 | omni design gallery [--out <file>]";
+var USAGE16 = "usage: omni design touched [<base>] | omni design screens | omni design words <page.html>\u2026 | omni design gallery [--out <file>]";
 function currentBranch2({ ctx, exec }) {
   try {
     const name3 = exec("git", ["symbolic-ref", "--quiet", "--short", "HEAD"], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -44000,12 +44401,12 @@ function gallery({ ctx }, out) {
       return null;
     }
   };
-  const path = out === void 0 ? join66(mkdtempSync2(join66(tmpdir2(), "omni-design-gallery-")), "gallery.html") : resolve6(ctx.root, out);
+  const path = out === void 0 ? join66(mkdtempSync(join66(tmpdir(), "omni-design-gallery-")), "gallery.html") : resolve6(ctx.root, out);
   mkdirSync17(dirname14(path), { recursive: true });
   writeFileSync24(path, galleryPage(library, readMock));
   return [path];
 }
-function checked(source2) {
+function checked2(source2) {
   const selector = parseSelector(source2);
   if (!selector) throw new Error(`the config let through a selector it should refuse: ${source2}`);
   return selector;
@@ -44023,9 +44424,9 @@ function words(io, pages) {
   const known2 = new Set(fromForm.map((term) => term.toLowerCase()));
   const rules = {
     sentence: config3.words.sentence,
-    screen: checked(config3.words.screen),
-    primary: checked(config3.words.primary),
-    content: checked(wordsContent(config3.words)),
+    screen: checked2(config3.words.screen),
+    primary: checked2(config3.words.primary),
+    content: checked2(wordsContent(config3.words)),
     avoid: [...fromForm, ...config3.words.avoid.filter((term) => !known2.has(term.toLowerCase()))]
   };
   return pages.flatMap((page2) => {
@@ -44048,9 +44449,9 @@ var design = {
   run: synchronous((args, io) => {
     const { positional, flags } = parseArgs("design", args, { values: ["out"] });
     const [verb2 = "", ...operands2] = positional;
-    if (flags.out !== void 0 && verb2 !== "gallery") throw usageError(USAGE15);
+    if (flags.out !== void 0 && verb2 !== "gallery") throw usageError(USAGE16);
     const lines2 = Object.hasOwn(VERBS2, verb2) ? VERBS2[verb2]?.(io, operands2, flags.out) : null;
-    if (!lines2) throw usageError(USAGE15);
+    if (!lines2) throw usageError(USAGE16);
     for (const line2 of lines2) println(io.stdout, line2);
     return 0;
   })
@@ -44078,8 +44479,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/dossier/product-prd.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync48, mkdirSync as mkdirSync18, mkdtempSync as mkdtempSync3, readFileSync as readFileSync52, writeFileSync as writeFileSync25 } from "node:fs";
-import { tmpdir as tmpdir3 } from "node:os";
+import { existsSync as existsSync48, mkdirSync as mkdirSync18, mkdtempSync as mkdtempSync2, readFileSync as readFileSync52, writeFileSync as writeFileSync25 } from "node:fs";
+import { tmpdir as tmpdir2 } from "node:os";
 import { join as join67 } from "node:path";
 var PRD_FILES = Object.freeze({
   spec: "spec.md",
@@ -44119,8 +44520,8 @@ function parseLatest(body) {
   const parsed2 = LatestSchema.safeParse(body);
   return parsed2.success ? parsed2.data : null;
 }
-function writeScratch(prdId, latest, base = tmpdir3()) {
-  const path = join67(mkdtempSync3(join67(base, `omni-${prdId}-`)), PRD_FILES[latest.kind]);
+function writeScratch(prdId, latest, base = tmpdir2()) {
+  const path = join67(mkdtempSync2(join67(base, `omni-${prdId}-`)), PRD_FILES[latest.kind]);
   writeFileSync25(path, latest.content);
   return path;
 }
@@ -44257,7 +44658,7 @@ function runProductCall(call, io, addedLine2) {
 }
 
 // kit/bin/commands/dossier.ts
-var USAGE16 = `usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] [--product <name>] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status | ${PRODUCT_USAGE}`;
+var USAGE17 = `usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug|concept] [--product <name>] | omni dossier link <n> [--kind prd|visual|bug|concept] | omni dossier status | ${PRODUCT_USAGE}`;
 var KINDS4 = ["prd", "visual", "bug", "concept"];
 var ISSUE_TITLE_MS = 5e3;
 var NO_SIGN_IN2 = "no sign-in (omni signin)";
@@ -44414,12 +44815,12 @@ function namedBy(verb2, kind, value) {
 function productOf(flag, verb2, kind) {
   if (flag === void 0) return null;
   const product2 = flag.trim();
-  if (verb2 !== "push" || kind !== "prd" || product2 === "") throw usageError(USAGE16);
+  if (verb2 !== "push" || kind !== "prd" || product2 === "") throw usageError(USAGE17);
   return product2;
 }
 function kindOf2(flag, numbered) {
   if (flag === void 0) return "prd";
-  if (!numbered || !isOneOf(KINDS4, flag)) throw usageError(USAGE16);
+  if (!numbered || !isOneOf(KINDS4, flag)) throw usageError(USAGE17);
   return flag;
 }
 async function runProduct(call, { cwd, stdout, stderr, exec, tokens: tokens2, home, fetch, callMs, now: now2, scratch }) {
@@ -44449,10 +44850,10 @@ var dossier = {
     const title = verb2 === "open" && rest.length === 1 ? first.trim().slice(0, TITLE_MAX) : "";
     const numbered = ["push", "link"].includes(verb2);
     const runnable = verb2 === "status" && rest.length === 0 || numbered && rest.length === 1 || title.length > 0;
-    if (!runnable) throw usageError(USAGE16);
+    if (!runnable) throw usageError(USAGE17);
     const kind = kindOf2(flags.kind, numbered);
     const product2 = productOf(flags.product, verb2, kind);
-    if (verb2 === "link" && !/^[1-9]\d*$/.test(String(rest[0]))) throw usageError(USAGE16);
+    if (verb2 === "link" && !/^[1-9]\d*$/.test(String(rest[0]))) throw usageError(USAGE17);
     const named4 = numbered ? namedBy(verb2, kind, rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
@@ -44692,7 +45093,7 @@ function readRecordingsAt({ root, rev, dir, exec }) {
 
 // kit/lib/e2e/hold.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync49, mkdirSync as mkdirSync19, readFileSync as readFileSync55, rmSync as rmSync11, writeFileSync as writeFileSync26 } from "node:fs";
+import { existsSync as existsSync49, mkdirSync as mkdirSync19, readFileSync as readFileSync55, rmSync as rmSync10, writeFileSync as writeFileSync26 } from "node:fs";
 import { dirname as dirname15, join as join70 } from "node:path";
 var ActionSchema = external_exports.object({ name: external_exports.string(), target: external_exports.string() });
 var HeldSchema = external_exports.object({
@@ -44763,7 +45164,7 @@ function holdHealed(where) {
     writeFileSync26(join70(folder, heldAs), readFileSync55(join70(root, after.file), "utf8"));
     held2.push({ testId: after.testId, callIndex: after.callIndex, summary: after.summary, file: after.file, was: was.file, actions: after.actions, heldAs });
     writeFileSync26(join70(root, was.file), text15(was.file));
-    if (after.file !== was.file) rmSync11(join70(root, after.file), { force: true });
+    if (after.file !== was.file) rmSync10(join70(root, after.file), { force: true });
   }
   writeFileSync26(join70(folder, "index.json"), `${JSON.stringify(held2, null, 2)}
 `);
@@ -44780,7 +45181,7 @@ function confirmHeld(where) {
     writeFileSync26(join70(root, entry3.file), readFileSync55(join70(folder, entry3.heldAs), "utf8"));
     paths.add(entry3.file);
     if (entry3.was !== entry3.file) {
-      rmSync11(join70(root, entry3.was), { force: true });
+      rmSync10(join70(root, entry3.was), { force: true });
       paths.add(entry3.was);
     }
   }
@@ -44793,13 +45194,13 @@ function confirmHeld(where) {
   const list5 = [...paths];
   exec("git", ["add", "-A", "--", ...list5], gitOptions(root));
   exec("git", ["commit", "-q", "-m", `e2e: confirm ${held2.length} healed recording${held2.length === 1 ? "" : "s"} of PRD ${where.prd}`, "--", ...list5], gitOptions(root));
-  rmSync11(folder, { recursive: true, force: true });
+  rmSync10(folder, { recursive: true, force: true });
   return held2;
 }
 function rejectHeld(where) {
   const folder = holdFolder(where);
   const held2 = readIndex(folder);
-  rmSync11(folder, { recursive: true, force: true });
+  rmSync10(folder, { recursive: true, force: true });
   return held2;
 }
 
@@ -44881,7 +45282,7 @@ function unknownFlows(status5, flowIds) {
 }
 
 // kit/bin/commands/e2e.ts
-var USAGE17 = ["status <prd>", "heals <prd> [--head <ref>]", "hold <prd>", "confirm <prd>", "reject <prd>", "guard <prd>"].map((sub, i) => `${i === 0 ? "usage:" : "      "} omni e2e ${sub}`).join("\n");
+var USAGE18 = ["status <prd>", "heals <prd> [--head <ref>]", "hold <prd>", "confirm <prd>", "reject <prd>", "guard <prd>"].map((sub, i) => `${i === 0 ? "usage:" : "      "} omni e2e ${sub}`).join("\n");
 function flowRefusals(root, dir, tests) {
   const file2 = `${dir}/critical-flows.md`;
   let text15;
@@ -44895,7 +45296,7 @@ function flowRefusals(root, dir, tests) {
 }
 function status(args, { ctx, stdout, stderr }) {
   const { positional } = parseArgs("e2e status", args);
-  if (positional.length !== 1) throw usageError(USAGE17);
+  if (positional.length !== 1) throw usageError(USAGE18);
   const prd2 = prdArg("e2e status", "<prd>", positional[0]);
   const { enabled, dir } = ctx.config.e2e;
   if (!enabled) {
@@ -44928,7 +45329,7 @@ function resolveRef2(name3, { ctx, exec }, command2) {
 function range(command2, args, io) {
   const { ctx, stderr, exec } = io;
   const { positional, flags } = parseArgs(`e2e ${command2}`, args, { values: ["head"] });
-  if (positional.length !== 1) throw usageError(USAGE17);
+  if (positional.length !== 1) throw usageError(USAGE18);
   const prd2 = prdArg(`e2e ${command2}`, "<prd>", positional[0]);
   const { enabled, dir } = ctx.config.e2e;
   if (!enabled) {
@@ -45001,7 +45402,7 @@ function reject(args, io) {
 function guard(args, io) {
   const { ctx, stdout, stderr, exec } = io;
   const { positional } = parseArgs("e2e guard", args);
-  if (positional.length !== 1) throw usageError(USAGE17);
+  if (positional.length !== 1) throw usageError(USAGE18);
   const prd2 = prdArg("e2e guard", "<prd>", positional[0]);
   const { enabled, dir } = ctx.config.e2e;
   if (!enabled) {
@@ -45034,7 +45435,7 @@ var e2e = {
     if (sub === "confirm") return confirm(rest, io);
     if (sub === "reject") return reject(rest, io);
     if (sub === "guard") return guard(rest, io);
-    throw usageError(`${USAGE17}
+    throw usageError(`${USAGE18}
 omni e2e: unknown subcommand ${sub ?? "(none)"}`);
   })
 };
@@ -45258,7 +45659,7 @@ function mergeGate({
 }
 
 // kit/bin/commands/flow.ts
-var USAGE18 = "usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--repo <target>] [--json] | omni flow verdict <point> --from <file> | omni flow check merge --pr <n> [--repo <target>] [--json]";
+var USAGE19 = "usage: omni flow show [<point>] [--prd <n> --slice <id> | --path <p>] [--repo <target>] [--json] | omni flow verdict <point> --from <file> | omni flow check merge --pr <n> [--repo <target>] [--json]";
 var KNOWN = FLOW_POINTS.map(({ point: point2 }) => point2).join(", ");
 function pointArg(verb2, name3) {
   const point2 = flowPoint(name3);
@@ -45382,7 +45783,7 @@ function showOnePoint({ ctx, stdout }, shown6, name3, { flags, bySlice, print: p
 }
 function show2(args, io) {
   const { positional, flags } = parseArgs("flow show", args, { values: ["prd", "slice", "path", "repo"], booleans: ["json"] });
-  if (positional.length > 1) throw usageError(USAGE18);
+  if (positional.length > 1) throw usageError(USAGE19);
   const shown6 = shownFlow(io.ctx, flags.repo);
   const [name3] = positional;
   const bySlice = bySliceOf(flags);
@@ -45519,7 +45920,7 @@ var SUBCOMMANDS2 = {
 };
 var flow = {
   withoutContext: true,
-  run: (args, io) => runWithTargets("flow", USAGE18, SUBCOMMANDS2, args, io)
+  run: (args, io) => runWithTargets("flow", USAGE19, SUBCOMMANDS2, args, io)
 };
 
 // kit/bin/commands/generated.ts
@@ -45536,7 +45937,7 @@ function staleness(entries4, changed) {
 }
 
 // kit/bin/commands/generated.ts
-var USAGE19 = "usage: omni generated <range> [--json]";
+var USAGE20 = "usage: omni generated <range> [--json]";
 function changedPaths({ ctx, exec }, range2) {
   try {
     return rangePaths({ root: ctx.root, range: range2, exec });
@@ -45548,7 +45949,7 @@ var generated = {
   run: synchronous((args, io) => {
     const { positional, flags } = parseArgs("generated", args, { booleans: ["json"] });
     const [range2] = positional;
-    if (positional.length !== 1 || range2 === void 0) throw usageError(USAGE19);
+    if (positional.length !== 1 || range2 === void 0) throw usageError(USAGE20);
     const entries4 = io.ctx.config.generated;
     if (entries4 === void 0 || entries4.length === 0) {
       println(io.stdout, flags.json ? "[]" : "no generated files");
@@ -45563,8 +45964,8 @@ var generated = {
 
 // kit/bin/commands/harvest.ts
 init_define_OMNI_BUNDLE();
-import { mkdtempSync as mkdtempSync5, readFileSync as readFileSync63, rmSync as rmSync13, writeFileSync as writeFileSync30 } from "node:fs";
-import { tmpdir as tmpdir5 } from "node:os";
+import { mkdtempSync as mkdtempSync4, readFileSync as readFileSync63, rmSync as rmSync12, writeFileSync as writeFileSync30 } from "node:fs";
+import { tmpdir as tmpdir4 } from "node:os";
 import { join as join80 } from "node:path";
 
 // kit/lib/openrouter.ts
@@ -45627,14 +46028,14 @@ async function askModel({
   const request2 = (conversation) => ask5({ fetch, sleep: sleep2, call, deadline, key: key2, title, body: body(conversation) });
   const first = await request2(messages2);
   if (!first.ok) return failure3(UNAVAILABLE, model, unavailable(first.status));
-  const checked4 = runCheck(check4, parseJson(first.content));
-  if (checked4.reply !== null) return { ok: true, error: null, model, reply: checked4.reply, reason: null };
+  const checked5 = runCheck(check4, parseJson(first.content));
+  if (checked5.reply !== null) return { ok: true, error: null, model, reply: checked5.reply, reason: null };
   const repair = await request2([
     ...messages2,
     { role: "assistant", content: first.content },
     {
       role: "user",
-      content: `Your reply did not fit the shape asked for: ${checked4.errors.join("; ")}. Reply again with only the JSON object, in that shape.`
+      content: `Your reply did not fit the shape asked for: ${checked5.errors.join("; ")}. Reply again with only the JSON object, in that shape.`
     }
   ]);
   if (!repair.ok) return failure3(UNAVAILABLE, model, unavailable(repair.status));
@@ -45801,16 +46202,16 @@ import {
   cpSync,
   existsSync as existsSync56,
   mkdirSync as mkdirSync22,
-  mkdtempSync as mkdtempSync4,
+  mkdtempSync as mkdtempSync3,
   readdirSync as readdirSync26,
   readFileSync as readFileSync62,
   renameSync as renameSync2,
-  rmSync as rmSync12,
+  rmSync as rmSync11,
   statSync as statSync16,
   symlinkSync,
   writeFileSync as writeFileSync29
 } from "node:fs";
-import { tmpdir as tmpdir4 } from "node:os";
+import { tmpdir as tmpdir3 } from "node:os";
 import { dirname as dirname18, join as join79 } from "node:path";
 
 // kit/lib/delivery/ship.ts
@@ -46657,7 +47058,7 @@ function loopPaths(ctx) {
   return [paths.delivery, paths.knowledge, paths.adr, paths.playbook, paths.glossary].filter((path) => typeof path === "string" && path.length > 0).map((path) => path.replace(/\/+$/, ""));
 }
 function overlay(root, keep) {
-  const scratch = mkdtempSync4(join79(tmpdir4(), "omni-harvest-"));
+  const scratch = mkdtempSync3(join79(tmpdir3(), "omni-harvest-"));
   const walk2 = (dir) => {
     for (const name3 of readdirSync26(join79(root, dir))) {
       const rel = dir ? `${dir}/${name3}` : name3;
@@ -46680,7 +47081,7 @@ function inScratch(ctx, fn) {
   try {
     return fn(createContext(root, ctx.config));
   } finally {
-    rmSync12(root, { recursive: true, force: true });
+    rmSync11(root, { recursive: true, force: true });
   }
 }
 function filesUnder3(root, dir) {
@@ -46695,7 +47096,7 @@ function filesUnder3(root, dir) {
   return out;
 }
 function applyHarvestEdits({ root, edits }) {
-  for (const path of edits.deletes) rmSync12(join79(root, path), { force: true });
+  for (const path of edits.deletes) rmSync11(join79(root, path), { force: true });
   for (const { from, to } of edits.moves) {
     mkdirSync22(dirname18(join79(root, to)), { recursive: true });
     renameSync2(join79(root, from), join79(root, to));
@@ -46883,7 +47284,7 @@ function noEdits(edits) {
 }
 
 // kit/bin/commands/harvest.ts
-var USAGE20 = "usage: omni harvest <prd> --pr <feature pull request>";
+var USAGE21 = "usage: omni harvest <prd> --pr <feature pull request>";
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function landedText(entry3) {
   const ids2 = entry3.landedAs.join(", ");
@@ -46917,7 +47318,7 @@ function prdTitle(ctx, prd2) {
 }
 var DecidedSchema = external_exports.object({ answer: external_exports.enum(["true", "false"]), confidence: external_exports.number(), decidedBy: external_exports.literal("jev") });
 async function askLawWorth(question, { ctx, exec, env, vars, ref }) {
-  const dir = mkdtempSync5(join80(tmpdir5(), "omni-law-worth-"));
+  const dir = mkdtempSync4(join80(tmpdir4(), "omni-law-worth-"));
   try {
     const file2 = join80(dir, "state.json");
     writeFileSync30(file2, JSON.stringify(question.state));
@@ -46928,7 +47329,7 @@ async function askLawWorth(question, { ctx, exec, env, vars, ref }) {
     const read2 = DecidedSchema.safeParse(JSON.parse(out.join("") || "null"));
     return read2.success ? { worth: read2.data.answer === "true", decidedBy: "Jev", confidence: read2.data.confidence } : null;
   } finally {
-    rmSync13(dir, { recursive: true, force: true });
+    rmSync12(dir, { recursive: true, force: true });
   }
 }
 function ghOptions({ ctx, exec, env }) {
@@ -46972,7 +47373,7 @@ function checkLine(name3, violations) {
 var harvest = {
   async run(args, { ctx, stdout, stderr, exec, env, vars }) {
     const { positional, flags } = parseArgs("harvest", args, { values: ["pr"] });
-    if (positional.length !== 1 || flags.pr === void 0) throw usageError(USAGE20);
+    if (positional.length !== 1 || flags.pr === void 0) throw usageError(USAGE21);
     const prd2 = prdArg("harvest", "<prd>", positional[0]);
     const number5 = prArg("harvest", "--pr", flags.pr);
     if (!vars.openrouter) throw usageError(`omni harvest: ${KEY_VAR} is not set \u2014 the harvest asks a model where each decision belongs.`);
@@ -48199,11 +48600,11 @@ var fillerFor = (words4) => (text15) => text15.replace(/\{(\w+)\}/g, (whole2, ke
 function wrapWords(text15, { width = HELP_WIDTH, indent: indent2 = "" } = {}) {
   const lines2 = [];
   let line2 = "";
-  for (const word of text15.split(/\s+/).filter(Boolean)) {
-    const next2 = line2 ? `${line2} ${word}` : word;
+  for (const word2 of text15.split(/\s+/).filter(Boolean)) {
+    const next2 = line2 ? `${line2} ${word2}` : word2;
     if (line2 && indent2.length + next2.length > width) {
       lines2.push(indent2 + line2);
-      line2 = word;
+      line2 = word2;
     } else {
       line2 = next2;
     }
@@ -48379,7 +48780,7 @@ function listLines({ repo, url: url2, lanes }) {
 }
 
 // kit/bin/commands/idea.ts
-var USAGE21 = "usage: omni idea add '<title>' --pitch '<pitch>' [--lane now|next|later] | omni idea list [--json]";
+var USAGE22 = "usage: omni idea add '<title>' --pitch '<pitch>' [--lane now|next|later] | omni idea list [--json]";
 var NO_SIGN_IN3 = "no sign-in (omni signin)";
 function skipLine2(error62) {
   if (!(error62 instanceof AskCallError)) throw error62;
@@ -48395,22 +48796,22 @@ async function attempt5(stderr, call) {
   }
 }
 function listArgs(rest, flags) {
-  if (rest.length || flags.pitch !== void 0 || flags.lane !== void 0) throw usageError(USAGE21);
+  if (rest.length || flags.pitch !== void 0 || flags.lane !== void 0) throw usageError(USAGE22);
   return { verb: "list", json: flags.json === true };
 }
 function addArgs(rest, flags) {
   const [title] = rest;
-  if (title === void 0 || rest.length !== 1 || flags.pitch === void 0 || flags.json) throw usageError(USAGE21);
-  const checked4 = checkIdea({ title, pitch: flags.pitch, lane: flags.lane });
-  if (!checked4.ok) throw usageError(`omni idea add: ${checked4.problem}`);
-  return { verb: "add", idea: checked4.idea };
+  if (title === void 0 || rest.length !== 1 || flags.pitch === void 0 || flags.json) throw usageError(USAGE22);
+  const checked5 = checkIdea({ title, pitch: flags.pitch, lane: flags.lane });
+  if (!checked5.ok) throw usageError(`omni idea add: ${checked5.problem}`);
+  return { verb: "add", idea: checked5.idea };
 }
 function readArgs2(args) {
   const { positional, flags } = parseArgs("idea", args, { values: ["pitch", "lane"], booleans: ["json"] });
   const [verb2 = "", ...rest] = positional;
   if (verb2 === "list") return listArgs(rest, flags);
   if (verb2 === "add") return addArgs(rest, flags);
-  throw usageError(USAGE21);
+  throw usageError(USAGE22);
 }
 function connect({ cwd, exec, stderr, tokens: tokens2, home, fetch, callMs }) {
   const ctx = loadContext(cwd, { exec });
@@ -48465,12 +48866,12 @@ import { dirname as dirname22, join as join87 } from "node:path";
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync64 } from "node:fs";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
-var MARKER2 = typeof define_OMNI_BUNDLE_default === "undefined" ? null : define_OMNI_BUNDLE_default;
+var MARKER3 = typeof define_OMNI_BUNDLE_default === "undefined" ? null : define_OMNI_BUNDLE_default;
 function runningBundle() {
-  return MARKER2 ? fileURLToPath3(import.meta.url) : null;
+  return MARKER3 ? fileURLToPath3(import.meta.url) : null;
 }
 function kitHome({ exec }) {
-  if (MARKER2) return MARKER2.home ?? null;
+  if (MARKER3) return MARKER3.home ?? null;
   try {
     const kitDir = fileURLToPath3(new URL("../..", import.meta.url));
     return slugFromRemote(exec("git", ["remote", "get-url", "origin"], { cwd: kitDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
@@ -48479,7 +48880,7 @@ function kitHome({ exec }) {
   }
 }
 function runningKit({ exec }) {
-  if (MARKER2) return { home: MARKER2.home ?? null, version: MARKER2.version ?? null, source: false };
+  if (MARKER3) return { home: MARKER3.home ?? null, version: MARKER3.version ?? null, source: false };
   let version3 = null;
   try {
     const text15 = readFileSync64(fileURLToPath3(new URL("../../../package.json", import.meta.url)), "utf8");
@@ -49686,7 +50087,7 @@ var ACCOUNT_FORMS = Object.freeze({
 // kit/bin/commands/item.ts
 var NEW_USAGE = "usage: omni item new --prd <n>|<key>-<n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]";
 var RELAY_USAGE = "usage: omni item relay <dir> --prd <n>|<key>-<n>";
-var USAGE22 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
+var USAGE23 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
 var SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function funLine2(field2) {
   return external_exports.string().trim().min(1, `${field2} must not be empty`).superRefine((value, refinement) => {
@@ -49934,7 +50335,7 @@ var item = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, ...signIn }) {
     const [sub, ...rest] = args;
-    if (sub !== "new" && sub !== "relay") throw usageError(USAGE22);
+    if (sub !== "new" && sub !== "relay") throw usageError(USAGE23);
     const io = { ctx: loadContext(cwd, { exec }), stdout, stderr, signIn };
     return sub === "new" ? runNew(rest, io) : runRelay(rest, io);
   }
@@ -50015,7 +50416,7 @@ function readGraph({ ctx }) {
 // kit/bin/commands/kb.ts
 var LAWS_USAGE = "usage: omni kb laws [--paths <file>[,<file>\u2026] [<file>\u2026] | --slice <prd> <slice> | --area <domain>] [--json]";
 var SHOW_USAGE = "usage: omni kb show <form> [--json] [--all]";
-var USAGE23 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws [\u2026] | omni kb owners [--json]`;
+var USAGE24 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws [\u2026] | omni kb owners [--json]`;
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -50214,13 +50615,13 @@ var kb2 = {
     if (args[0] === "laws") return laws(args.slice(1), io);
     const { positional, flags } = parseArgs("kb", args, { booleans: ["json", "all"] });
     const [sub, ...rest] = positional;
-    if (flags.all && sub !== "show") throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE23}`);
+    if (flags.all && sub !== "show") throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE24}`);
     if (sub === "init") return init2(rest, flags, io);
     if (sub === "show") return show3(rest, flags, io);
     if (sub === "status") return status2(rest, flags, io);
     if (sub === "graph") return graph(rest, flags, io);
     if (sub === "owners") return owners(rest, flags, io);
-    throw usageError(USAGE23);
+    throw usageError(USAGE24);
   })
 };
 
@@ -50464,7 +50865,7 @@ function sweepEdits({
 }
 
 // kit/bin/commands/knowledge.ts
-var USAGE24 = "usage: omni knowledge <id>   e.g. omni knowledge P-PRODUCT-1\n       omni knowledge judge [<id>]";
+var USAGE25 = "usage: omni knowledge <id>   e.g. omni knowledge P-PRODUCT-1\n       omni knowledge judge [<id>]";
 function describe4(id, { ctx, stdout, stderr }) {
   const text15 = describeEntry(readKnowledge({ ctx }), id);
   if (text15 === null) {
@@ -50597,7 +50998,7 @@ var knowledge = {
     const [verb2 = "", id] = positional;
     if (positional.length === 1) return verb2 === "judge" ? sweep(void 0, io) : describe4(verb2, io);
     if (positional.length === 2 && verb2 === "judge") return sweep(id, io);
-    throw usageError(USAGE24);
+    throw usageError(USAGE25);
   }
 };
 
@@ -50752,7 +51153,7 @@ function writeLoopPlans(root, versions) {
 }
 
 // kit/bin/commands/loop.ts
-var USAGE25 = [
+var USAGE26 = [
   "usage: omni loop push start [--take-over]",
   '       omni loop push tick --step <k> [--steps <n>] --prd <n> --action <word> --result "<line>" [--link <url>] [--merged <pr,\u2026>] [--items <id,\u2026>] [--repos <repo,\u2026>] [--wake-in <seconds> | --next-wake <time>]',
   '       omni loop push park --prd <n> --who "<who>" --what "<what>" [--link <url>]',
@@ -50807,7 +51208,7 @@ function wakeArg({ wakeIn, nextWake }, now2) {
 }
 function prepareStart(args, { repo }) {
   const { positional, flags } = parseArgs("loop push start", args, { booleans: ["take-over"] });
-  if (positional.length) throw usageError(USAGE25);
+  if (positional.length) throw usageError(USAGE26);
   const takeOver = flags["take-over"] === true;
   return { needsLoop: false, takeOver, wake: null, body: (plan2) => startBody({ repo, plan: plan2, takeOver }) };
 }
@@ -50824,7 +51225,7 @@ function actionArg(value) {
 }
 function prepareTick(args, { now: now2 }) {
   const { positional, flags } = parseArgs("loop push tick", args, { values: ["step", "steps", "prd", "action", "result", "link", "merged", "items", "repos", "wake-in", "next-wake"] });
-  if (positional.length) throw usageError(USAGE25);
+  if (positional.length) throw usageError(USAGE26);
   const { step: step2, given } = stepArgs(flags);
   const prd2 = prdArg("loop push tick", "--prd", flags.prd);
   const action = actionArg(flags.action);
@@ -50848,7 +51249,7 @@ function prepareTick(args, { now: now2 }) {
 }
 function preparePark(args) {
   const { positional, flags } = parseArgs("loop push park", args, { values: ["prd", "who", "what", "link"] });
-  if (positional.length) throw usageError(USAGE25);
+  if (positional.length) throw usageError(USAGE26);
   const prd2 = prdArg("loop push park", "--prd", flags.prd);
   const who2 = lineArg("who", flags.who, WHO_MAX);
   const what = lineArg("what", flags.what, LINE_MAX);
@@ -50856,7 +51257,7 @@ function preparePark(args) {
   return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => parkBody({ loopId: loop2.loopId, prd: prd2, who: who2, what, link: link2 }) };
 }
 function prepareStop(args) {
-  if (args.length) throw usageError(USAGE25);
+  if (args.length) throw usageError(USAGE26);
   return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => stopBody(loop2.loopId) };
 }
 var PREPARERS = /* @__PURE__ */ new Map([
@@ -50867,7 +51268,7 @@ var PREPARERS = /* @__PURE__ */ new Map([
 ]);
 function prepare(event, args, options) {
   const read2 = PREPARERS.get(event);
-  if (!read2) throw usageError(USAGE25);
+  if (!read2) throw usageError(USAGE26);
   return read2(args, options);
 }
 function standingLine(loop2, state) {
@@ -50886,8 +51287,8 @@ function refuse(stderr, line2) {
   println(stderr, line2);
   return 1;
 }
-function blocksStart(standing2, takeOver) {
-  return standing2 === "live" || standing2 === "sleeping" || standing2 === "silent" && !takeOver;
+function blocksStart(standing3, takeOver) {
+  return standing3 === "live" || standing3 === "sleeping" || standing3 === "silent" && !takeOver;
 }
 function loopBody(body, kept, plan2) {
   if (!kept || kept.state !== "running") return "no loop (omni loop push start)";
@@ -50896,8 +51297,8 @@ function loopBody(body, kept, plan2) {
 function startingBody(prepared, kept, plan2, at2) {
   if (!plan2) return "no loop plan (omni next --plan)";
   if (!kept) return prepared.body(plan2);
-  const standing2 = loopState(kept, at2);
-  return blocksStart(standing2, prepared.takeOver) ? standingLine(kept, standing2) : prepared.body(plan2);
+  const standing3 = loopState(kept, at2);
+  return blocksStart(standing3, prepared.takeOver) ? standingLine(kept, standing3) : prepared.body(plan2);
 }
 async function sendBody(client, body) {
   let reply;
@@ -50970,7 +51371,7 @@ async function push3(args, io) {
 }
 function status3(args, { cwd, stdout, exec, now: now2 }) {
   const { positional, flags } = parseArgs("loop status", args, { booleans: ["json"] });
-  if (positional.length) throw usageError(USAGE25);
+  if (positional.length) throw usageError(USAGE26);
   const ctx = loadContext(cwd, { exec });
   const kept = readLocalLoop(ctx.root);
   const plan2 = readLoopPlans(ctx.root).at(-1) ?? null;
@@ -50988,7 +51389,7 @@ function status3(args, { cwd, stdout, exec, now: now2 }) {
   return 0;
 }
 function usage(stderr) {
-  println(stderr, USAGE25);
+  println(stderr, USAGE26);
   return 2;
 }
 var loop = {
@@ -51074,7 +51475,7 @@ function prdLines(where, state) {
 // kit/lib/roadmap/answers.ts
 init_define_OMNI_BUNDLE();
 var ANSWER_MAX = 1e3;
-var MARKER3 = /^<!-- omni-roadmap-answer: ([A-Za-z0-9][A-Za-z0-9._-]{0,19}) -->[ \t]*\r?\n?/;
+var MARKER4 = /^<!-- omni-roadmap-answer: ([A-Za-z0-9][A-Za-z0-9._-]{0,19}) -->[ \t]*\r?\n?/;
 var answerMarker = (question) => `<!-- omni-roadmap-answer: ${question} -->`;
 var heading = (question) => `**${question}**, answered:`;
 function answerComment(question, answer) {
@@ -51085,7 +51486,7 @@ ${answer.trim()}
 `;
 }
 function answerOf3(body) {
-  const marked = MARKER3.exec(body);
+  const marked = MARKER4.exec(body);
   if (!marked) return null;
   const question = marked[1] ?? "";
   let rest = body.slice(marked[0].length).trim();
@@ -51237,7 +51638,7 @@ function machineName() {
 
 // kit/lib/roadmap/prereqs/ticks.ts
 init_define_OMNI_BUNDLE();
-var MARKER4 = /^<!-- omni-roadmap-tick: ([A-Za-z0-9][A-Za-z0-9._-]{0,19}) -->/;
+var MARKER5 = /^<!-- omni-roadmap-tick: ([A-Za-z0-9][A-Za-z0-9._-]{0,19}) -->/;
 var tickMarker = (id) => `<!-- omni-roadmap-tick: ${id} -->`;
 function tickComment(id) {
   return `${tickMarker(id)}
@@ -51245,7 +51646,7 @@ Prerequisite **${id}** is done.
 `;
 }
 function tickOf(body) {
-  return MARKER4.exec(body)?.[1] ?? null;
+  return MARKER5.exec(body)?.[1] ?? null;
 }
 function readTicks(comments) {
   const ticks2 = /* @__PURE__ */ new Set();
@@ -51378,10 +51779,10 @@ function bound(times, pick2) {
   const known2 = times.filter((time5) => time5 !== null).sort();
   return (pick2 === "first" ? known2[0] : known2.at(-1)) ?? null;
 }
-function prdTimes(standing2, state) {
-  const startedAt = bound(standing2.prs.map((pr) => pr.createdAt), "first");
-  if (state === "merged") return { startedAt, endedAt: bound(standing2.prs.map((pr) => pr.mergedAt), "last") };
-  if (state === "closed") return { startedAt, endedAt: bound(standing2.prs.filter((pr) => pr.state === "CLOSED").map((pr) => pr.closedAt), "last") };
+function prdTimes(standing3, state) {
+  const startedAt = bound(standing3.prs.map((pr) => pr.createdAt), "first");
+  if (state === "merged") return { startedAt, endedAt: bound(standing3.prs.map((pr) => pr.mergedAt), "last") };
+  if (state === "closed") return { startedAt, endedAt: bound(standing3.prs.filter((pr) => pr.state === "CLOSED").map((pr) => pr.closedAt), "last") };
   return { startedAt, endedAt: null };
 }
 var questionsWord = (n) => `${n} question${n === 1 ? "" : "s"}`;
@@ -51395,7 +51796,7 @@ var cut2 = (line2, max) => {
   const flat2 = line2.replace(/\s+/g, " ").trim();
   return flat2.length > max ? `${flat2.slice(0, max - 1).trimEnd()}\u2026` : flat2;
 };
-var namedPr = (standing2) => standing2.prs.find((pr) => pr.state === "OPEN") ?? standing2.prs.find((pr) => pr.state === "CLOSED") ?? null;
+var namedPr = (standing3) => standing3.prs.find((pr) => pr.state === "OPEN") ?? standing3.prs.find((pr) => pr.state === "CLOSED") ?? null;
 function waitsOn(row, rows2, live = /* @__PURE__ */ new Map()) {
   for (const id of row.blockedBy) {
     const blocker = rows2.get(id);
@@ -51411,8 +51812,8 @@ function waitsOn(row, rows2, live = /* @__PURE__ */ new Map()) {
 function rowStates(roadmap2, standings) {
   const none = { shipped: false, prs: [], expected: 1 };
   return new Map(roadmap2.prds.map((row) => {
-    const standing2 = standings.get(row.id) ?? none;
-    return [row.id, { row, standing: standing2, state: prdState2(standing2) }];
+    const standing3 = standings.get(row.id) ?? none;
+    return [row.id, { row, standing: standing3, state: prdState2(standing3) }];
   }));
 }
 function prerequisitesOf2(roadmap2, result2) {
@@ -51435,7 +51836,7 @@ function pushedQuestions(roadmap2, answers2) {
 }
 function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers: answers2, prdWork: prdWork2, result: result2 = null }) {
   const rows2 = rowStates(roadmap2, standings);
-  const prds = [...rows2.values()].map(({ row, standing: standing2, state }) => ({
+  const prds = [...rows2.values()].map(({ row, standing: standing3, state }) => ({
     id: row.id,
     prd: row.prd,
     title: row.title,
@@ -51444,7 +51845,7 @@ function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers
     wave: row.wave,
     state,
     ...state === "waiting" ? waitsOn(row, rows2) : { waitsOn: null, waitsOnUrl: null },
-    ...prdTimes(standing2, state)
+    ...prdTimes(standing3, state)
   }));
   const questions2 = pushedQuestions(roadmap2, answers2);
   const { title, milestone, product: product2, target: target3, source: source2 } = roadmap2;
@@ -51603,8 +52004,8 @@ async function openPrWork(ctx, row, branch, pr, readers) {
     ...parkWork(row.prd, status5, { repo, prUrl: pr.url })
   ];
 }
-async function readPrdWork(ctx, row, standing2, own2, readers) {
-  const state = prdState2(standing2);
+async function readPrdWork(ctx, row, standing3, own2, readers) {
+  const state = prdState2(standing3);
   const branch = featureBranchOf(ctx, row);
   if (branch === null || state === "merged" || state === "closed") return [];
   const slug = ctx.config.repo.slug ?? "";
@@ -51615,10 +52016,10 @@ async function readPrdWork(ctx, row, standing2, own2, readers) {
 async function readRoadmapPrds(ctx, roadmap2, readers) {
   const read2 = [];
   for (const row of roadmap2.prds) read2.push({ row, ...await readStanding(ctx, row, readers) });
-  const standings = new Map(read2.map(({ row, standing: standing2 }) => [row.id, standing2]));
+  const standings = new Map(read2.map(({ row, standing: standing3 }) => [row.id, standing3]));
   try {
     const work = [];
-    for (const { row, standing: standing2, own: own2 } of read2) work.push(...await readPrdWork(ctx, row, standing2, own2, readers));
+    for (const { row, standing: standing3, own: own2 } of read2) work.push(...await readPrdWork(ctx, row, standing3, own2, readers));
     return { standings, prdWork: work };
   } catch {
     return { standings, prdWork: null };
@@ -51647,9 +52048,9 @@ function liveWords(state, facts, slices) {
 }
 function closedBlocker(blockedBy, standings) {
   for (const id of blockedBy) {
-    const standing2 = standings.get(id);
-    if (!standing2 || prdState2(standing2) !== "closed") continue;
-    const closed = standing2.prs.find((pr) => pr.state === "CLOSED");
+    const standing3 = standings.get(id);
+    if (!standing3 || prdState2(standing3) !== "closed") continue;
+    const closed = standing3.prs.find((pr) => pr.state === "CLOSED");
     if (closed) return closed;
   }
   return null;
@@ -51724,7 +52125,7 @@ function gated(prd2, gate) {
   return park(prd2, `waits on a person: ${gate.lines.join("; ")}`, link2);
 }
 var ids = (list5) => list5.join(", ");
-var count3 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+var count3 = (n, word2) => `${n} ${word2}${n === 1 ? "" : "s"}`;
 function careNeeds(feature) {
   const redToFix = feature.checks === "red" && feature.fixable && !feature.stuck;
   return [redToFix ? "red CI" : null, feature.conflict ? "a conflict" : null, feature.threads > 0 ? `${count3(feature.threads, "review thread")} to handle` : null].filter(
@@ -52257,7 +52658,7 @@ function replanLine(plan2) {
 // kit/lib/status/facts.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync13 } from "node:child_process";
-import { readFileSync as readFileSync77, rmSync as rmSync14, statSync as statSync17, utimesSync, writeFileSync as writeFileSync36 } from "node:fs";
+import { readFileSync as readFileSync77, rmSync as rmSync13, statSync as statSync17, utimesSync, writeFileSync as writeFileSync36 } from "node:fs";
 import { resolve as resolve7 } from "node:path";
 function fieldOf2(error62, key2) {
   return typeof error62 === "object" && error62 !== null ? Reflect.get(error62, key2) : void 0;
@@ -52336,7 +52737,7 @@ function putBack(saved) {
   if (saved === null) return;
   try {
     if (saved.bytes === null) {
-      rmSync14(saved.path, { force: true });
+      rmSync13(saved.path, { force: true });
     } else {
       writeFileSync36(saved.path, saved.bytes);
       utimesSync(saved.path, saved.atime, saved.mtime);
@@ -52835,7 +53236,7 @@ async function beforeInbox(prd2, phase02, reader) {
 function standingsOf(own2, outbox, across, reader) {
   const questions2 = own2?.state === "OPEN" && own2.isDraft ? outbox.questions : 0;
   const targets2 = (across?.listed ?? []).map((listed2) => standingPr(listed2.repo, listed2.pr, 0));
-  return [...own2 === null ? [] : [standingPr(shortName9(reader.slug), own2, questions2)], ...targets2].filter((standing2) => standing2 !== null);
+  return [...own2 === null ? [] : [standingPr(shortName9(reader.slug), own2, questions2)], ...targets2].filter((standing3) => standing3 !== null);
 }
 var shortName9 = (slug) => slug.slice(slug.indexOf("/") + 1);
 function targetSlug(name3, reader) {
@@ -52946,9 +53347,9 @@ async function gatesOf(roadmap2, reads, reader) {
   for (const row of roadmap2.prds) {
     const read2 = reads.get(row.prd);
     if (!read2) continue;
-    const standing2 = { shipped: read2.facts.shipped, prs: read2.prs, expected: 1 + (read2.facts.across?.targets.length ?? 0) };
-    standings.set(row.id, standing2);
-    const words4 = liveWords(prdState2(standing2), read2.facts, read2.slices);
+    const standing3 = { shipped: read2.facts.shipped, prs: read2.prs, expected: 1 + (read2.facts.across?.targets.length ?? 0) };
+    standings.set(row.id, standing3);
+    const words4 = liveWords(prdState2(standing3), read2.facts, read2.slices);
     if (words4 !== null) live.set(row.id, words4);
   }
   const { answers: answers2, ticks: ticks2 } = await issueReadOf(roadmap2, reader);
@@ -53225,7 +53626,7 @@ import { join as join98 } from "node:path";
 // kit/lib/statusline/board-cache.ts
 init_define_OMNI_BUNDLE();
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { closeSync, existsSync as existsSync67, mkdirSync as mkdirSync26, openSync, readFileSync as readFileSync79, renameSync as renameSync3, rmSync as rmSync15, statSync as statSync18, writeFileSync as writeFileSync37 } from "node:fs";
+import { closeSync, existsSync as existsSync67, mkdirSync as mkdirSync26, openSync, readFileSync as readFileSync79, renameSync as renameSync3, rmSync as rmSync14, statSync as statSync18, writeFileSync as writeFileSync37 } from "node:fs";
 import { join as join97 } from "node:path";
 var SliceNamesSchema = external_exports.object({
   slices: external_exports.array(external_exports.object({ name: external_exports.string().min(1).optional().catch(void 0) }).catch({})).catch([])
@@ -53334,7 +53735,7 @@ function writeJsonAt(path, entry3) {
 `);
     renameSync3(temporary, path);
   } finally {
-    rmSync15(temporary, { force: true });
+    rmSync14(temporary, { force: true });
   }
 }
 function createLock(path, now2) {
@@ -53361,12 +53762,12 @@ function takeLock(root, prd2, now2) {
 function takeLockAt(path, now2) {
   const owner = createLock(path, now2);
   if (owner !== null || lockHeldAt(path, now2)) return owner;
-  rmSync15(path, { force: true });
+  rmSync14(path, { force: true });
   return createLock(path, now2);
 }
 function releaseLockAt(path, owner) {
   const held2 = attempt8(() => readLock(path)?.owner, null);
-  if (held2 === owner) rmSync15(path, { force: true });
+  if (held2 === owner) rmSync14(path, { force: true });
 }
 var oneLine4 = (error62) => (String(prop2(error62, "message") ?? error62).split("\n")[0] ?? "").trim() || "the board could not be built";
 function refreshBoard({ root, prd: prd2, now: now2, build }) {
@@ -54110,7 +54511,7 @@ function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned, nee
 }
 
 // kit/bin/commands/phase0.ts
-var USAGE26 = "usage: omni phase0 <prd> [--base <ref>]";
+var USAGE27 = "usage: omni phase0 <prd> [--base <ref>]";
 function git7(args, cwd, exec) {
   return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
@@ -54150,7 +54551,7 @@ function printVerdict(stdout, prd2, base, verdict2) {
 var phase0 = {
   run: synchronous((args, { ctx, stdout, exec }) => {
     const { positional, flags } = parseArgs("phase0", args, { values: ["base"] });
-    if (positional.length !== 1) throw usageError(USAGE26);
+    if (positional.length !== 1) throw usageError(USAGE27);
     const prd2 = prdArg("phase0", "<prd>", positional[0]);
     const base = rangeBase("phase0", ctx, flags, exec);
     const paths = changedPaths3(ctx, base, exec);
@@ -54452,7 +54853,7 @@ function movedTable(rows2) {
 }
 
 // kit/bin/commands/plan.ts
-var USAGE27 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
+var USAGE28 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
 function counted2(count5, singular, pluralForm) {
   return `${count5} ${count5 === 1 ? singular : pluralForm}`;
 }
@@ -54484,7 +54885,7 @@ function checkPlan(prd2, { ctx }) {
 }
 function moved(rest, { ctx, stdout, exec, env }) {
   const { positional, flags } = parseArgs("plan moved", rest, { booleans: ["json"] });
-  if (positional.length !== 1) throw usageError(USAGE27);
+  if (positional.length !== 1) throw usageError(USAGE28);
   const prd2 = prdArg("plan moved", "<prd>", positional[0]);
   const planSection2 = ctx.config.plan ?? null;
   if (planSection2 === null) {
@@ -54502,7 +54903,7 @@ function moved(rest, { ctx, stdout, exec, env }) {
 }
 function landingsCommand(rest, { ctx, stdout }) {
   const { positional, flags } = parseArgs("plan landings", rest, { values: ["repo"], booleans: ["json"] });
-  if (positional.length !== 1) throw usageError(USAGE27);
+  if (positional.length !== 1) throw usageError(USAGE28);
   const prd2 = prdArg("plan landings", "<prd>", positional[0]);
   const { planPath, slices, landings, violations } = checkPlan(prd2, { ctx });
   if (violations.length > 0) {
@@ -54567,18 +54968,18 @@ function printContracts(stdout, { slices }) {
 }
 function checkCommand(rest, { ctx, stdout }) {
   const { positional } = parseArgs("plan check", rest);
-  if (positional.length !== 1) throw usageError(USAGE27);
+  if (positional.length !== 1) throw usageError(USAGE28);
   const prd2 = prdArg("plan check", "<prd>", positional[0]);
-  const checked4 = checkPlan(prd2, { ctx });
-  const { planPath, slices, waves, violations } = checked4;
+  const checked5 = checkPlan(prd2, { ctx });
+  const { planPath, slices, waves, violations } = checked5;
   println(
     stdout,
     `omni plan check \u2014 PRD ${prd2}: ${slices.length} slice(s) across wave(s) ${waves.join(", ")} (${planPath}).`
   );
-  printLandings(stdout, checked4);
-  printRepositories(stdout, checked4);
-  printMatrices(stdout, checked4);
-  printContracts(stdout, checked4);
+  printLandings(stdout, checked5);
+  printRepositories(stdout, checked5);
+  printMatrices(stdout, checked5);
+  printContracts(stdout, checked5);
   if (violations.length > 0) {
     println(stdout, formatFailure(`omni plan check \u2014 PRD ${prd2}: violation(s):`, violations));
     return 1;
@@ -54594,7 +54995,7 @@ var plan = {
     const [sub, ...rest] = args;
     if (sub === "moved") return moved(rest, { ctx, stdout, exec, env });
     if (sub === "landings") return landingsCommand(rest, { ctx, stdout });
-    if (sub !== "check") throw usageError(USAGE27);
+    if (sub !== "check") throw usageError(USAGE28);
     return checkCommand(rest, { ctx, stdout });
   })
 };
@@ -54724,9 +55125,9 @@ async function productPrd2(id, kind, io) {
 }
 
 // kit/bin/commands/prd.ts
-var USAGE28 = `usage: omni prd <n> | omni prd <key>-<n> [--show <${PRD_KINDS.join("|")}>]`;
+var USAGE29 = `usage: omni prd <n> | omni prd <key>-<n> [--show <${PRD_KINDS.join("|")}>]`;
 function idArg(value) {
-  if (value === void 0) throw usageError(USAGE28);
+  if (value === void 0) throw usageError(USAGE29);
   if (!/^[a-z]|-/i.test(value)) return prdArg("prd", "<n>", value);
   try {
     return parsePrdId(value);
@@ -54736,11 +55137,11 @@ function idArg(value) {
 }
 function readArgs3(args) {
   const { positional, flags } = parseArgs("prd", args, { values: ["show"] });
-  if (positional.length !== 1) throw usageError(USAGE28);
+  if (positional.length !== 1) throw usageError(USAGE29);
   const id = idArg(positional[0]);
   const kind = flags.show ?? null;
   if (kind === null) return { id, kind };
-  if (!isProductPrdId(id) || !isPrdKind(kind)) throw usageError(USAGE28);
+  if (!isProductPrdId(id) || !isPrdKind(kind)) throw usageError(USAGE29);
   return { id, kind };
 }
 var prd = {
@@ -54854,13 +55255,13 @@ function fileOf(dir, name3) {
   return { name: name3, path, bytes: size, type: PITCH_FILES[name3] };
 }
 function wordsOf2(sent) {
-  const word = (key2) => {
+  const word2 = (key2) => {
     const value = sent[key2];
     const max = WORD_MAX[key2];
     if (typeof value !== "string" || !value.trim() || value.trim().length > max) return refuse2(`${PITCH_RUN_FILE}: ${key2} is 1 to ${max} characters`);
     return value.trim();
   };
-  return { hook: word("hook"), benefit: word("benefit"), kicker: word("kicker"), closing: word("closing") };
+  return { hook: word2("hook"), benefit: word2("benefit"), kicker: word2("kicker"), closing: word2("closing") };
 }
 function readPitchRun(dir, prd2) {
   const file2 = join107(dir, PITCH_RUN_FILE);
@@ -54979,7 +55380,7 @@ var WORD_LIMITS = Object.freeze({
   label: { max: 4, name: "a label" }
 });
 var countWords2 = (text15) => text15.trim().split(/\s+/).filter(Boolean).length;
-var plural4 = (count5, word) => `${count5} ${word}${count5 === 1 ? "" : "s"}`;
+var plural4 = (count5, word2) => `${count5} ${word2}${count5 === 1 ? "" : "s"}`;
 function checkRunFolder(dir) {
   let value;
   try {
@@ -55194,17 +55595,17 @@ var CHANGING_WORDS = Object.freeze([
   "restaurer",
   "d\xE9connexion"
 ]);
-var wordIn = (haystack, word) => new RegExp(`(^|[^\\p{L}])${word}([^\\p{L}]|$)`, "u").test(haystack);
+var wordIn = (haystack, word2) => new RegExp(`(^|[^\\p{L}])${word2}([^\\p{L}]|$)`, "u").test(haystack);
 function changingClick({ words: words4, submits }) {
   if (submits) return "it submits a form";
   const lower = words4.toLowerCase().replace(/\s+/g, " ");
-  const word = CHANGING_WORDS.find((candidate) => wordIn(lower, candidate));
-  return word === void 0 ? null : `its words say "${word}"`;
+  const word2 = CHANGING_WORDS.find((candidate) => wordIn(lower, candidate));
+  return word2 === void 0 ? null : `its words say "${word2}"`;
 }
 
 // kit/lib/pitch/moments-film.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync74, mkdirSync as mkdirSync28, readFileSync as readFileSync91, rmSync as rmSync16, writeFileSync as writeFileSync38 } from "node:fs";
+import { existsSync as existsSync74, mkdirSync as mkdirSync28, readFileSync as readFileSync91, rmSync as rmSync15, writeFileSync as writeFileSync38 } from "node:fs";
 import { createRequire } from "node:module";
 import { join as join109 } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -55380,7 +55781,7 @@ function repositoryBrowser(cwd) {
 async function filmRun(dir, { exec, launch, now: now2 = Date.now }) {
   const walk2 = readWalk(dir);
   const work = join109(dir, FILM_DIR);
-  rmSync16(work, { recursive: true, force: true });
+  rmSync15(work, { recursive: true, force: true });
   mkdirSync28(work, { recursive: true });
   try {
     const { webm, moments } = await filmWalk(dir, walk2, { launch, now: now2 });
@@ -55391,7 +55792,7 @@ async function filmRun(dir, { exec, launch, now: now2 = Date.now }) {
 `);
     return result2;
   } finally {
-    rmSync16(work, { recursive: true, force: true });
+    rmSync15(work, { recursive: true, force: true });
   }
 }
 
@@ -56046,7 +56447,7 @@ async function writePageInput(dir, { storyboard, settings, credits: credits2, fe
 
 // kit/lib/pitch/render.ts
 init_define_OMNI_BUNDLE();
-import { mkdirSync as mkdirSync31, renameSync as renameSync4, rmSync as rmSync17 } from "node:fs";
+import { mkdirSync as mkdirSync31, renameSync as renameSync4, rmSync as rmSync16 } from "node:fs";
 import { join as join119 } from "node:path";
 
 // kit/lib/pitch/render-music.ts
@@ -56315,14 +56716,14 @@ function warnOnLength(seconds4, { min, max }, warn) {
 }
 async function inSession(dir, tools, run2) {
   const work = join119(dir, WORK_DIR);
-  rmSync17(work, { recursive: true, force: true });
+  rmSync16(work, { recursive: true, force: true });
   mkdirSync31(work, { recursive: true });
   const server = await serveRun({ dir });
   try {
     return await run2({ dir, work, server, capture: providerFor("capture", DEFAULTS.capture, tools.warn, tools.registry), tools });
   } finally {
     await server.close();
-    rmSync17(work, { recursive: true, force: true });
+    rmSync16(work, { recursive: true, force: true });
   }
 }
 async function prepare2(dir, tools) {
@@ -56393,7 +56794,7 @@ async function openStudio(dir, { fetch, warn, onReload }) {
 }
 
 // kit/bin/commands/pitch-make.ts
-var USAGE29 = {
+var USAGE30 = {
   start: "usage: omni pitch start <n> --for customers|inside",
   film: "usage: omni pitch film <dir>",
   check: "usage: omni pitch check <dir>",
@@ -56404,14 +56805,14 @@ function oneArg(verb2, args, values = []) {
   const { positional, flags } = parseArgs("pitch", args, { values });
   const [arg] = positional;
   const given = flags;
-  if (positional.length !== 1 || arg === void 0 || !hasAll(given, values)) throw usageError(USAGE29[verb2]);
+  if (positional.length !== 1 || arg === void 0 || !hasAll(given, values)) throw usageError(USAGE30[verb2]);
   return { arg, flags: given };
 }
 function hasAll(flags, values) {
   return values.every((name3) => flags[name3] !== void 0);
 }
 function audienceOf(verb2, value) {
-  if (!isOneOf(AUDIENCES2, value)) throw usageError(`${USAGE29[verb2]} \u2014 --for is customers or inside, not ${value}`);
+  if (!isOneOf(AUDIENCES2, value)) throw usageError(`${USAGE30[verb2]} \u2014 --for is customers or inside, not ${value}`);
   return value;
 }
 var folderOf2 = (cwd, dir) => isAbsolute8(dir) ? dir : resolve9(cwd, dir);
@@ -56516,7 +56917,7 @@ function storyboardFolder(verb2, cwd, dir) {
   return folder;
 }
 var providerFetch = (fetch) => (url2, init3) => fetch(url2, { ...init3 });
-function checked2(dir, stderr) {
+function checked3(dir, stderr) {
   const { errors } = checkRunFolder(dir);
   for (const finding of errors) println(stderr, `error: ${findingLine(finding)}`);
   return errors.length === 0;
@@ -56528,13 +56929,13 @@ function failureLines(error62) {
 function folderAndSwitch(verb2, args, name3) {
   const { positional, flags } = parseArgs("pitch", args, { booleans: [name3] });
   const [arg] = positional;
-  if (positional.length !== 1 || arg === void 0) throw usageError(USAGE29[verb2]);
+  if (positional.length !== 1 || arg === void 0) throw usageError(USAGE30[verb2]);
   return { arg, on: flags[name3] === true };
 }
 async function render(args, { cwd, stdout, stderr, exec, fetch, launch }) {
   const { arg, on: stills } = folderAndSwitch("render", args, "stills");
   const dir = storyboardFolder("render", cwd, arg);
-  if (!checked2(dir, stderr)) return 1;
+  if (!checked3(dir, stderr)) return 1;
   if (!stills && !hasFfmpeg2(exec)) {
     println(stderr, REFUSAL.noFfmpeg);
     return 1;
@@ -56590,7 +56991,7 @@ async function studio(args, { cwd, stdout, stderr, fetch, openBrowser = openInBr
 var PITCH_MAKERS = Object.freeze({ start, film: film2, check: check3, render, studio });
 
 // kit/bin/commands/pitch.ts
-var USAGE30 = "usage: omni pitch push <n> <dir>";
+var USAGE31 = "usage: omni pitch push <n> <dir>";
 var VERBS3 = "usage: omni pitch start|film|check|render|studio|push \u2026";
 var NO_SIGN_IN4 = "no sign-in (omni signin)";
 function skipLine4(error62) {
@@ -56604,7 +57005,7 @@ function skipLine4(error62) {
 function argsOf(args) {
   const { positional } = parseArgs("pitch", args);
   const [verb2, first, second, ...rest] = positional;
-  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE30);
+  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE31);
   return { prd: prdArg("pitch push", "<n>", first), dir: second };
 }
 function localRun(cwd, dir, prd2) {
@@ -56673,6 +57074,7 @@ import { randomUUID as randomUUID3 } from "node:crypto";
 import { readFileSync as readFileSync95 } from "node:fs";
 var isRecord8 = (value) => typeof value === "object" && value !== null;
 var GIF = "preview.gif";
+var BUG_CLIPS = ["before.webm", "after.webm"];
 var ProofReplyError = class extends Error {
   constructor(message2) {
     super(message2);
@@ -56714,8 +57116,10 @@ async function pushProof({
   const registered = await client.registerProof({ repo, prd: prd2, ...kindOf5, run: runId, commit: run2.commit, url: run2.url, criteria: run2.criteria });
   const tab = isRecord8(registered) ? registered.url : void 0;
   if (!isText8(tab)) throw new ProofReplyError("no link in the reply");
-  if (!run2.files.some(({ name: name3 }) => name3 === GIF)) return { tab };
-  return { tab, gif: `${new URL(tab).origin}/api/proofs/${runId}/${GIF}` };
+  const stable = (name3) => `${new URL(tab).origin}/api/proofs/${runId}/${name3}`;
+  const sent = (name3) => run2.files.some((file2) => file2.name === name3);
+  const clips = kind === "bug" ? BUG_CLIPS.filter(sent).map(stable) : [];
+  return { tab, ...sent(GIF) ? { gif: stable(GIF) } : {}, ...clips.length ? { clips } : {} };
 }
 
 // kit/lib/proof/run.ts
@@ -56882,7 +57286,7 @@ function storageState(accessToken, { host, now: now2 = Date.now() }) {
 }
 
 // kit/bin/commands/proof.ts
-var USAGE31 = "usage: omni proof push [--kind bug] <n> <dir> | omni proof session [<file>]";
+var USAGE32 = "usage: omni proof push [--kind bug] <n> <dir> | omni proof session [<file>]";
 var NO_SIGN_IN5 = "no sign-in (omni signin)";
 function skipLine5(error62) {
   if (error62 instanceof ProofReplyError) return `refused (${error62.message})`;
@@ -56894,18 +57298,18 @@ function skipLine5(error62) {
 function kindOf3(kind) {
   if (kind === void 0 || kind === "prd") return void 0;
   if (kind === "bug") return "bug";
-  throw usageError(`${USAGE31} (--kind is prd or bug, not ${kind})`);
+  throw usageError(`${USAGE32} (--kind is prd or bug, not ${kind})`);
 }
 function argsOf2(args, proof2) {
   const { positional, flags } = parseArgs("proof", args, { values: ["kind"] });
   const [verb2, first, second, ...rest] = positional;
   const kind = kindOf3(flags.kind);
   if (verb2 === "session") return { verb: verb2, file: sessionFile(first ?? proof2?.storageState, second, kind) };
-  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE31);
+  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE32);
   return { verb: verb2, prd: prdArg("proof push", "<n>", first), dir: second, kind };
 }
 function sessionFile(file2, extra, kind) {
-  if (!file2 || extra !== void 0 || kind !== void 0) throw usageError(`${USAGE31} (session needs <file> or PROOF_STORAGE_STATE)`);
+  if (!file2 || extra !== void 0 || kind !== void 0) throw usageError(`${USAGE32} (session needs <file> or PROOF_STORAGE_STATE)`);
   return file2;
 }
 function localRun2(cwd, dir) {
@@ -56935,6 +57339,7 @@ async function send2({ toggle, repo, prd: prd2, kind, run: run2 }, { stdout, std
   }
   println(stdout, pushed.tab);
   if (pushed.gif) println(stdout, pushed.gif);
+  for (const clip of pushed.clips ?? []) println(stdout, clip);
   return 0;
 }
 var clock = (seconds4) => new Date(seconds4 * 1e3).toTimeString().slice(0, 5);
@@ -57418,7 +57823,7 @@ function keepPage({ cwd, exec, now: now2 }, n, page2) {
   } catch {
   }
 }
-var USAGE32 = [
+var USAGE33 = [
   "usage: omni roadmap check [<n>]",
   "       omni roadmap check --product <key> <file>",
   "       omni roadmap push <n>",
@@ -57446,7 +57851,7 @@ function report6(stdout, graded) {
 }
 function checkCommand2(rest, { ctx, stdout }) {
   const { positional } = parseArgs("roadmap check", rest);
-  if (positional.length > 1) throw usageError(USAGE32);
+  if (positional.length > 1) throw usageError(USAGE33);
   const wanted = positional[0] === void 0 ? null : issueArg("roadmap check", "<n>", positional[0]);
   const all = gradeRoadmaps(ctx);
   const graded = wanted === null ? all : all.filter((entry3) => entry3.number === wanted);
@@ -57538,7 +57943,7 @@ function reportPush3(io, n, { askUrl: askUrl2, body }, reply) {
 }
 async function pushCommand(rest, io) {
   const { positional } = parseArgs("roadmap push", rest);
-  if (positional.length !== 1) throw usageError(USAGE32);
+  if (positional.length !== 1) throw usageError(USAGE33);
   const n = issueArg("roadmap push", "<n>", positional[0]);
   const inputs = await pushInputs(n, io);
   if (typeof inputs === "string") return refuse4(io.stderr, inputs);
@@ -57552,7 +57957,7 @@ async function pushCommand(rest, io) {
 }
 function answerArgs(rest) {
   const { positional } = parseArgs("roadmap answer", rest);
-  if (positional.length !== 3) throw usageError(USAGE32);
+  if (positional.length !== 3) throw usageError(USAGE33);
   const [number5, question = "", given = ""] = positional;
   const n = issueArg("roadmap answer", "<n>", number5);
   const answer = given.trim();
@@ -57647,7 +58052,7 @@ async function sendPrereqs(n, io, { machine, checkedAt, rows: rows2 }) {
 }
 async function prereqsCommand(rest, io) {
   const { positional, flags } = parseArgs("roadmap prereqs", rest, { booleans: ["fix", "json"] });
-  if (positional.length !== 1) throw usageError(USAGE32);
+  if (positional.length !== 1) throw usageError(USAGE33);
   const n = issueArg("roadmap prereqs", "<n>", positional[0]);
   const { ctx, repo } = repoContext2(io);
   const read2 = readRoadmap(ctx, roadmapFile(ctx, "prereqs", n));
@@ -57676,7 +58081,7 @@ function assertPersonRow(roadmap2, n, id) {
 }
 function tickCommand(rest, io) {
   const { positional } = parseArgs("roadmap tick", rest);
-  if (positional.length !== 2) throw usageError(USAGE32);
+  if (positional.length !== 2) throw usageError(USAGE33);
   const n = issueArg("roadmap tick", "<n>", positional[0]);
   const id = positional[1] ?? "";
   const { ctx } = repoContext2(io);
@@ -57700,7 +58105,7 @@ function productArgs(verb2, rest) {
   const { positional, flags } = parseArgs(`roadmap ${verb2}`, rest, { values: ["product", "roadmap"], booleans: ["new"] });
   const key2 = flags.product ?? "";
   if (!isProductKey(key2)) throw usageError(`omni roadmap ${verb2}: --product "${key2}" needs a product key (lowercase kebab-case, as mobile).`);
-  if (positional.length !== 1) throw usageError(USAGE32);
+  if (positional.length !== 1) throw usageError(USAGE33);
   assertProductFlags(verb2, flags);
   return { key: key2, file: positional[0] ?? "", roadmap: flags.roadmap ?? null, create: flags.new === true };
 }
@@ -57777,7 +58182,7 @@ var roadmap = {
   async run(args, io) {
     const [sub = "", ...rest] = args;
     const verb2 = Object.hasOwn(verbs, sub) ? verbs[sub] : void 0;
-    if (verb2 === void 0) throw usageError(USAGE32);
+    if (verb2 === void 0) throw usageError(USAGE33);
     return verb2(rest, io);
   }
 };
@@ -57813,7 +58218,7 @@ var JobSchema = external_exports.object({
 });
 var UpdatedSchema = external_exports.object({ cancel: external_exports.boolean().optional() }).loose();
 var timedOut4 = (error62) => typeof error62 === "object" && error62 !== null && "name" in error62 && error62.name === "TimeoutError";
-function checked3(response, what, allow) {
+function checked4(response, what, allow) {
   if (response.status === 401 || response.status === 403) throw new RunnerRefused(NO_SIGN_IN6);
   if (response.status >= 500) throw new RunnerUnreachable(`${what}: ${String(response.status)}`);
   if (!response.ok && response.status !== allow) throw new RunnerRefused(`refused (${String(response.status)})`);
@@ -57854,7 +58259,7 @@ function runnerApi({ askUrl: askUrl2, tokens: tokens2, fetch }) {
     const token = held2 ? held2 : await renewed2();
     let response = await send3(method, path, token, { ...options, timeoutMs });
     if (response.status === 401) response = await send3(method, path, await renewed2(), { ...options, timeoutMs });
-    return checked3(response, `${method} ${path}`, options.allow);
+    return checked4(response, `${method} ${path}`, options.allow);
   }
   async function json3(response) {
     const text15 = await response.text().catch(() => "");
@@ -58162,8 +58567,8 @@ function parseDuration(text15) {
 
 // kit/lib/runner/runner.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync82, mkdirSync as mkdirSync33, readFileSync as readFileSync99, rmSync as rmSync19, writeFileSync as writeFileSync48 } from "node:fs";
-import { join as join126 } from "node:path";
+import { existsSync as existsSync83, mkdirSync as mkdirSync33, readFileSync as readFileSync99, rmSync as rmSync18, writeFileSync as writeFileSync48 } from "node:fs";
+import { join as join127 } from "node:path";
 
 // kit/lib/runner/line.ts
 init_define_OMNI_BUNDLE();
@@ -58182,12 +58587,133 @@ function checkLine2(line2) {
   return { ok: true, skill, args };
 }
 
+// kit/lib/runner/plugin.ts
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync82 } from "node:fs";
+import { join as join125 } from "node:path";
+
+// kit/lib/update/plugin.ts
+init_define_OMNI_BUNDLE();
+var QUIET13 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
+var SAID_MAX = 200;
+function lastLine3(text15) {
+  if (typeof text15 !== "string") return null;
+  const line2 = text15.split(/\r?\n/).map((each) => each.trim()).findLast((each) => each !== "");
+  return line2 === void 0 ? null : line2.slice(0, SAID_MAX);
+}
+function saidByFailure(error62) {
+  return lastLine3(propertyOf(error62, "stderr")) ?? lastLine3(propertyOf(error62, "stdout")) ?? lastLine3(messageOf(error62)) ?? "no output";
+}
+function runPluginUpdate(exec) {
+  try {
+    exec("claude", ["plugin", "marketplace", "update", MARKETPLACE], QUIET13);
+    const printed3 = exec("claude", ["plugin", "update", `${PLUGIN}@${MARKETPLACE}`], QUIET13);
+    return { updated: true, said: lastLine3(printed3) ?? "no output" };
+  } catch (error62) {
+    return { updated: false, said: saidByFailure(error62) };
+  }
+}
+function updatePlugin({ version: version3 = null, exec, println: println2 }) {
+  if (!runPluginUpdate(exec).updated) {
+    println2("  plugin   not updated from here; in Claude Code, type:");
+    println2(`     /plugin marketplace update ${MARKETPLACE}`);
+    println2(`     /plugin update ${PLUGIN}@${MARKETPLACE}`);
+    return false;
+  }
+  println2(`  plugin   updated${version3 ? ` to v${version3}` : ""}, run /reload-plugins`);
+  return true;
+}
+
+// kit/lib/runner/plugin.ts
+var OMNI_PLUGIN_ID = `${PLUGIN}@${MARKETPLACE}`;
+var LIST_BUDGET_MS = 1e4;
+var LIST = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: LIST_BUDGET_MS };
+var ListSchema = external_exports.array(external_exports.looseObject({ id: external_exports.unknown(), version: external_exports.unknown().optional(), scope: external_exports.unknown().optional() }).nullable().catch(null));
+function pinnedOmni({ root, running, bundle }) {
+  if (!existsSync82(join125(root, BIN_FILE))) return null;
+  return installedVersion({ root, running, bundle }) ?? running.version;
+}
+function whyNotRun(error62) {
+  const code = propertyOf(error62, "code");
+  if (code === "ENOENT") return "claude not found";
+  return code === "ETIMEDOUT" ? "timed out" : "claude plugin list failed";
+}
+function versionOfEntries(entries4) {
+  const user = entries4.filter((entry3) => entry3.scope === void 0 || entry3.scope === "user");
+  const versions = (user.length > 0 ? user : entries4).flatMap((entry3) => {
+    const version3 = parseVersion(entry3.version);
+    return version3 === null ? [] : [version3];
+  });
+  const ordered = versions.toSorted(compareVersions);
+  return (user.length > 0 ? ordered.at(0) : ordered.at(-1)) ?? null;
+}
+function readPlugin(exec) {
+  let text15;
+  try {
+    text15 = exec("claude", ["plugin", "list", "--json"], LIST);
+  } catch (error62) {
+    return { kind: "unread", why: whyNotRun(error62) };
+  }
+  let list5;
+  try {
+    list5 = ListSchema.parse(JSON.parse(text15));
+  } catch {
+    return { kind: "unread", why: "claude plugin list was unreadable" };
+  }
+  const entries4 = list5.filter((entry3) => entry3?.id === OMNI_PLUGIN_ID);
+  if (entries4.length === 0) return { kind: "missing" };
+  const version3 = versionOfEntries(entries4.flatMap((entry3) => entry3 === null ? [] : [entry3]));
+  return version3 === null ? { kind: "unread", why: `${OMNI_PLUGIN_ID} has no version in claude plugin list` } : { kind: "version", version: version3 };
+}
+function standing(read2, pinned) {
+  if (read2.kind === "unread") return { note: `omni plugin version not read: ${read2.why}` };
+  if (read2.kind === "missing") return { failed: `the omni plugin is not installed: claude plugin install ${OMNI_PLUGIN_ID}` };
+  return compareVersions(read2.version, pinned) >= 0 ? { note: null } : { older: read2.version };
+}
+function pluginKeeper({ exec, running, bundle, print: print2 }) {
+  let turn = Promise.resolve();
+  const inTurn = (work) => {
+    const run2 = turn.then(work);
+    turn = run2.catch(() => void 0);
+    return run2;
+  };
+  const update2 = (before2) => {
+    const done = runPluginUpdate(exec);
+    const after = readPlugin(exec);
+    if (!done.updated) print2(`omni plugin update failed: ${done.said}`);
+    else if (before2.kind === "version" && after.kind === "version" && before2.version !== after.version) print2(`omni plugin v${before2.version} \u2192 v${after.version}`);
+    return { after, said: done.said };
+  };
+  const updateFor = (pinned, repo) => {
+    const again = readPlugin(exec);
+    const before2 = standing(again, pinned);
+    if (!("older" in before2)) return before2;
+    const { after, said: said2 } = update2(again);
+    const now2 = standing(after, pinned);
+    return "older" in now2 ? { failed: `omni plugin v${now2.older} is older than ${repo}'s omni v${pinned}: claude plugin update failed: ${said2}` } : now2;
+  };
+  return {
+    forJob(worktree, repo) {
+      const pinned = pinnedOmni({ root: worktree, running, bundle });
+      if (pinned === null) return Promise.resolve({ note: null });
+      const first = standing(readPlugin(exec), pinned);
+      if (!("older" in first)) return Promise.resolve(first);
+      return inTurn(() => updateFor(pinned, repo));
+    },
+    sweep() {
+      return inTurn(() => {
+        update2(readPlugin(exec));
+      });
+    }
+  };
+}
+
 // kit/lib/runner/sweep.ts
 init_define_OMNI_BUNDLE();
-import { lstatSync, readdirSync as readdirSync37, rmSync as rmSync18 } from "node:fs";
-import { join as join125 } from "node:path";
+import { lstatSync, readdirSync as readdirSync37, rmSync as rmSync17 } from "node:fs";
+import { join as join126 } from "node:path";
 var DAY_MS2 = 24 * 60 * 60 * 1e3;
-var QUIET13 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
+var QUIET14 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var ID3 = "[A-Za-z0-9_-]+";
 var JOB_ID = new RegExp(`^${ID3}$`);
 var JOB_BRANCH = new RegExp(`^agent/job-(${ID3})$`);
@@ -58207,7 +58733,7 @@ function sizeOf(path) {
     return 0;
   }
   if (!stat.isDirectory()) return stat.size;
-  return namesIn(path).reduce((total, name3) => total + sizeOf(join125(path, name3)), stat.size);
+  return namesIn(path).reduce((total, name3) => total + sizeOf(join126(path, name3)), stat.size);
 }
 function worktreeJob(name3, repoNames) {
   for (const repo of repoNames) {
@@ -58219,7 +58745,7 @@ function worktreeJob(name3, repoNames) {
 }
 function originBranches(exec, checkout) {
   try {
-    const out = exec("git", ["-C", checkout, "ls-remote", "--heads", "origin"], QUIET13);
+    const out = exec("git", ["-C", checkout, "ls-remote", "--heads", "origin"], QUIET14);
     return new Set(out.split("\n").map((line2) => /\trefs\/heads\/(.+)$/.exec(line2)?.[1]).filter((name3) => name3 !== void 0));
   } catch {
     return null;
@@ -58227,7 +58753,7 @@ function originBranches(exec, checkout) {
 }
 function hasUpstream(exec, checkout, branch) {
   try {
-    return exec("git", ["-C", checkout, "for-each-ref", "--format=%(upstream)", `refs/heads/${branch}`], QUIET13).trim() !== "";
+    return exec("git", ["-C", checkout, "for-each-ref", "--format=%(upstream)", `refs/heads/${branch}`], QUIET14).trim() !== "";
   } catch {
     return true;
   }
@@ -58237,7 +58763,7 @@ function branchPushed(exec, checkout, branch) {
 }
 function deleteBranch(exec, checkout, branch) {
   try {
-    exec("git", ["-C", checkout, "branch", "-D", branch], QUIET13);
+    exec("git", ["-C", checkout, "branch", "-D", branch], QUIET14);
     return true;
   } catch {
     return false;
@@ -58245,7 +58771,7 @@ function deleteBranch(exec, checkout, branch) {
 }
 function pruneWorktrees(exec, checkout) {
   try {
-    exec("git", ["-C", checkout, "worktree", "prune"], QUIET13);
+    exec("git", ["-C", checkout, "worktree", "prune"], QUIET14);
   } catch {
   }
 }
@@ -58253,16 +58779,16 @@ function dropJobBranch(exec, checkout, branch) {
   return !branchPushed(exec, checkout, branch) && deleteBranch(exec, checkout, branch);
 }
 function sweepWorktrees({ home, checkouts, running }) {
-  const wt = join125(home, "wt");
+  const wt = join126(home, "wt");
   const repoNames = [...checkouts.keys()].map((repo) => repo.split("/").at(-1) ?? repo);
   let count5 = 0;
   let bytes = 0;
   for (const name3 of namesIn(wt)) {
     const job2 = worktreeJob(name3, repoNames);
-    const path = join125(wt, name3);
+    const path = join126(wt, name3);
     if (job2 === null || running.has(job2) || !lstatSync(path).isDirectory()) continue;
     const size = sizeOf(path);
-    rmSync18(path, { recursive: true, force: true });
+    rmSync17(path, { recursive: true, force: true });
     count5 += 1;
     bytes += size;
   }
@@ -58271,7 +58797,7 @@ function sweepWorktrees({ home, checkouts, running }) {
 function sweepBranches({ exec, running }, checkout) {
   let names;
   try {
-    names = exec("git", ["-C", checkout, "for-each-ref", "--format=%(refname:short)%09%(upstream)", "refs/heads/agent/"], QUIET13).split("\n");
+    names = exec("git", ["-C", checkout, "for-each-ref", "--format=%(refname:short)%09%(upstream)", "refs/heads/agent/"], QUIET14).split("\n");
   } catch {
     return 0;
   }
@@ -58282,16 +58808,16 @@ function sweepBranches({ exec, running }, checkout) {
   return candidates.filter((name3) => !onOrigin.has(name3) && deleteBranch(exec, checkout, name3)).length;
 }
 function sweepLogs({ home, running, keepLogsDays, now: now2 }) {
-  const logs = join125(home, "logs");
+  const logs = join126(home, "logs");
   let count5 = 0;
   let bytes = 0;
   for (const name3 of namesIn(logs)) {
     const job2 = JOB_LOG.exec(name3)?.[1];
     if (job2 === void 0 || running.has(job2)) continue;
-    const path = join125(logs, name3);
+    const path = join126(logs, name3);
     const stat = lstatSync(path);
     if (!stat.isFile() || now2 - stat.mtimeMs <= keepLogsDays * DAY_MS2) continue;
-    rmSync18(path, { force: true });
+    rmSync17(path, { force: true });
     count5 += 1;
     bytes += stat.size;
   }
@@ -58340,7 +58866,7 @@ var sleepFor = (ms, signal) => new Promise((resolve16) => {
 function withLines(update2, live, lines2) {
   return lines2.length === 0 ? update2 : { ...update2, from: live.cursor + 1, lines: [...lines2] };
 }
-var QUIET14 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
+var QUIET15 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var readText4 = (path) => {
   try {
     return readFileSync99(path, "utf8");
@@ -58366,7 +58892,10 @@ function loopOf(options) {
     },
     refused: () => refused2,
     running: 0,
-    jobs: /* @__PURE__ */ new Set()
+    jobs: /* @__PURE__ */ new Set(),
+    plugin: pluginKeeper({ exec: options.exec, running: { version: options.version }, bundle: runningBundle(), print: (line2) => {
+      options.print(line2);
+    } })
   };
 }
 async function backOff(loop2, delay, error62, signal) {
@@ -58435,11 +58964,11 @@ async function finish(loop2, job2, update2, live) {
 }
 function defaultBranch(exec, checkout) {
   try {
-    return exec("git", ["-C", checkout, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], QUIET14).trim().replace(/^origin\//, "");
+    return exec("git", ["-C", checkout, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], QUIET15).trim().replace(/^origin\//, "");
   } catch {
   }
   try {
-    const out = exec("git", ["-C", checkout, "ls-remote", "--symref", "origin", "HEAD"], QUIET14);
+    const out = exec("git", ["-C", checkout, "ls-remote", "--symref", "origin", "HEAD"], QUIET15);
     return /^ref: refs\/heads\/(\S+)\s+HEAD/m.exec(out)?.[1] ?? "main";
   } catch {
     return "main";
@@ -58451,22 +58980,22 @@ function placeOf2(loop2, job2) {
   const checkout = loop2.checkouts.get(job2.repo);
   if (checkout === void 0) return { status: "failed", reason: `${job2.repo} is not held by this runner` };
   const repoName = job2.repo.split("/").at(-1) ?? job2.repo;
-  const logs = join126(loop2.home, "logs");
+  const logs = join127(loop2.home, "logs");
   return {
     checkout,
-    worktree: join126(loop2.home, "wt", `${repoName}-job-${job2.id}`),
+    worktree: join127(loop2.home, "wt", `${repoName}-job-${job2.id}`),
     session: `job-${job2.id}`,
-    line: join126(logs, `job-${job2.id}.line`),
-    log: join126(logs, `job-${job2.id}.log`),
-    exit: join126(logs, `job-${job2.id}.exit`)
+    line: join127(logs, `job-${job2.id}.line`),
+    log: join127(logs, `job-${job2.id}.log`),
+    exit: join127(logs, `job-${job2.id}.exit`)
   };
 }
 function makeWorktree(loop2, job2, place) {
   try {
-    loop2.exec("git", ["-C", place.checkout, "fetch", "origin"], QUIET14);
+    loop2.exec("git", ["-C", place.checkout, "fetch", "origin"], QUIET15);
     const base = defaultBranch(loop2.exec, place.checkout);
-    mkdirSync33(join126(loop2.home, "wt"), { recursive: true });
-    loop2.exec("git", ["-C", place.checkout, "worktree", "add", "--no-track", "-b", `agent/job-${job2.id}`, place.worktree, `origin/${base}`], QUIET14);
+    mkdirSync33(join127(loop2.home, "wt"), { recursive: true });
+    loop2.exec("git", ["-C", place.checkout, "worktree", "add", "--no-track", "-b", `agent/job-${job2.id}`, place.worktree, `origin/${base}`], QUIET15);
     return true;
   } catch {
     return false;
@@ -58474,20 +59003,21 @@ function makeWorktree(loop2, job2, place) {
 }
 function cleanUp(loop2, job2, place) {
   try {
-    loop2.exec("git", ["-C", place.checkout, "worktree", "remove", "--force", place.worktree], QUIET14);
+    loop2.exec("git", ["-C", place.checkout, "worktree", "remove", "--force", place.worktree], QUIET15);
   } catch {
-    rmSync19(place.worktree, { recursive: true, force: true });
+    rmSync18(place.worktree, { recursive: true, force: true });
   }
   pruneWorktrees(loop2.exec, place.checkout);
   dropJobBranch(loop2.exec, place.checkout, `agent/job-${job2.id}`);
 }
 var WAIT_FOR_AGENTS = { CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: "0" };
-function startSession(loop2, job2, place) {
-  mkdirSync33(join126(loop2.home, "logs"), { recursive: true });
+function startSession(loop2, job2, place, note) {
+  mkdirSync33(join127(loop2.home, "logs"), { recursive: true });
   writeFileSync48(place.line, `${job2.line}
 `);
-  writeFileSync48(place.log, "");
-  rmSync19(place.exit, { force: true });
+  writeFileSync48(place.log, note === null ? "" : `${note}
+`);
+  rmSync18(place.exit, { force: true });
   const sender = job2.sentBy ? { OMNI_SENT_BY: job2.sentBy, OMNI_RUNNER: loop2.name } : {};
   try {
     loop2.terminal.start({
@@ -58517,7 +59047,7 @@ async function watch2(loop2, job2, place, live) {
   for (; ; ) {
     await loop2.sleep(loop2.tickMs);
     const log = readText4(place.log);
-    if (existsSync82(place.exit)) return ended(log, readText4(place.exit), job2.repo);
+    if (existsSync83(place.exit)) return ended(log, readText4(place.exit), job2.repo);
     if (!loop2.terminal.alive(place.session)) return { status: "failed", logTail: logTail(log), reason: "the job stopped before it wrote its exit code" };
     if (loop2.now() - started > loop2.timeoutMs) return killed(loop2, place, { status: "failed", reason: "timeout" });
     if (await tick2(loop2, job2.id, { status: "running", logTail: logTail(log) }, live, log)) return killed(loop2, place, { status: "cancelled" });
@@ -58528,7 +59058,9 @@ async function runJob(loop2, job2) {
   if ("status" in place) return { last: place, live: null };
   if (!makeWorktree(loop2, job2, place)) return { last: { status: "failed", reason: "the worktree could not be made" }, live: null };
   try {
-    if (!startSession(loop2, job2, place)) return { last: { status: "failed", reason: "the tmux session could not be started" }, live: null };
+    const plugin = await loop2.plugin.forJob(place.worktree, job2.repo);
+    if ("failed" in plugin) return { last: { status: "failed", reason: plugin.failed }, live: null };
+    if (!startSession(loop2, job2, place, plugin.note)) return { last: { status: "failed", reason: "the tmux session could not be started" }, live: null };
     const live = { log: place.log, cursor: 0 };
     return { last: await watch2(loop2, job2, place, live), live };
   } finally {
@@ -58579,6 +59111,7 @@ async function sweeper(loop2) {
   while (!loop2.halt.aborted) {
     const line2 = sweptLine(sweep2({ home: loop2.home, checkouts: loop2.checkouts, exec: loop2.exec, running: loop2.jobs, keepLogsDays, now: loop2.now() }));
     if (line2 !== null) loop2.print(line2);
+    await loop2.plugin.sweep();
     await loop2.sleep(SWEEP_MS, loop2.halt);
   }
 }
@@ -58653,7 +59186,7 @@ function missingTool(exec) {
 }
 
 // kit/bin/commands/runner.ts
-var USAGE33 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] | omni runner sender";
+var USAGE34 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] | omni runner sender";
 var DEFAULT_SLOTS = 4;
 var MAX_SLOTS = 8;
 var DEFAULT_TIMEOUT = "3h";
@@ -58693,7 +59226,7 @@ function keepLogsOf(value) {
 function readFlags(args, cwd) {
   const { positional, flags } = parseArgs("runner", args, { values: ["name", "repos", "slots", "timeout", "keep-logs"] });
   const { name: name3, repos } = flags;
-  if (positional.length || name3 === void 0 || repos === void 0) throw usageError(USAGE33);
+  if (positional.length || name3 === void 0 || repos === void 0) throw usageError(USAGE34);
   if (!NAME3.test(name3)) throw usageError("omni runner: --name must be 1 to 40 letters, digits, dots, dashes or underscores.");
   const slots = flags.slots === void 0 ? DEFAULT_SLOTS : positiveInt("runner", "--slots", flags.slots);
   if (slots > MAX_SLOTS) throw usageError(`omni runner: --slots must be ${String(MAX_SLOTS)} at most, got "${String(slots)}".`);
@@ -58779,7 +59312,7 @@ var runner = {
 // kit/bin/commands/rework.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync100, writeFileSync as writeFileSync49 } from "node:fs";
-import { join as join127 } from "node:path";
+import { join as join128 } from "node:path";
 
 // kit/lib/policy/rework.ts
 init_define_OMNI_BUNDLE();
@@ -58969,12 +59502,12 @@ function reworkPullRequest(entry3) {
 }
 
 // kit/bin/commands/rework.ts
-var USAGE34 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
+var USAGE35 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
 var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync100(join127(ctx.root, path), "utf8");
+    return readFileSync100(join128(ctx.root, path), "utf8");
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") return "";
     throw error62;
@@ -59051,7 +59584,7 @@ function runClose(args, { ctx, stdout }) {
   } catch (error62) {
     throw usageError(errorMessage(error62).split("\n")[0] ?? "");
   }
-  writeFileSync49(join127(ctx.root, settledFile), closedText);
+  writeFileSync49(join128(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -59063,7 +59596,7 @@ var rework = {
     const [sub, ...rest] = args;
     if (sub === "plan") return runPlan(rest, io);
     if (sub === "close") return runClose(rest, io);
-    throw usageError(USAGE34);
+    throw usageError(USAGE35);
   })
 };
 
@@ -59293,7 +59826,7 @@ function headlineOf(findings2, order2, severity) {
 }
 
 // kit/bin/commands/session.ts
-var USAGE35 = "usage: omni session start | omni session end";
+var USAGE36 = "usage: omni session start | omni session end";
 var CLOSE_LIMIT_MS = 2e3;
 var SYNC_BUDGET_MS = 15e3;
 var SYNC_FRESH_MS = 15 * 6e4;
@@ -59374,17 +59907,17 @@ var session = {
   withoutContext: true,
   async run(args, { tokens: tokens2, home, fetch = globalThis.fetch, now: now2 = Date.now, budgetMs = CONSTITUENTS_BUDGET_MS, syncBudgetMs = SYNC_BUDGET_MS, ...io }) {
     const [verb2, ...rest] = args;
-    if (rest.length > 0) throw usageError(USAGE35);
+    if (rest.length > 0) throw usageError(USAGE36);
     if (verb2 === "start") return start3(io, { tokens: tokens2, home, fetch, now: now2, budgetMs, syncBudgetMs });
     if (verb2 === "end") return end2(io, { tokens: tokens2, home, fetch, now: now2 });
-    throw usageError(USAGE35);
+    throw usageError(USAGE36);
   }
 };
 
 // kit/bin/commands/settle.ts
 init_define_OMNI_BUNDLE();
 import { relative as relative5 } from "node:path";
-var USAGE36 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted] | omni settle <item-id> --prd <key>-<n> (--answer "<text>" | --answer-file <path>) [--verdict agreed|drifted]';
+var USAGE37 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted] | omni settle <item-id> --prd <key>-<n> (--answer "<text>" | --answer-file <path>) [--verdict agreed|drifted]';
 function answerOf5(flags, text15) {
   return {
     text: text15 ?? "",
@@ -59421,7 +59954,7 @@ function settleRequest(args, ctx) {
     values: ["by", "at", "channel", "number", "answer", "answer-file", "url", "verdict", "prd"]
   });
   const [path] = positional;
-  if (positional.length !== 1 || path === void 0) throw usageError(USAGE36);
+  if (positional.length !== 1 || path === void 0) throw usageError(USAGE37);
   const text15 = answerText2(flags, ctx);
   const product2 = productOf2(flags.prd);
   return product2 === null ? { product: product2, file: relative5(ctx.root, inRoot(ctx, path)), answer: answerOf5(flags, text15) } : { product: product2, file: `${product2}/${path}`, answer: productAnswerOf(flags, text15) };
@@ -59449,7 +59982,7 @@ var settle3 = {
 // kit/bin/commands/setup-token.ts
 init_define_OMNI_BUNDLE();
 import { randomBytes as randomBytes2 } from "node:crypto";
-var USAGE37 = "usage: omni setup-token [--name <name>] [--days 30|90|365] [--device | --loopback]";
+var USAGE38 = "usage: omni setup-token [--name <name>] [--days 30|90|365] [--device | --loopback]";
 var DAYS = ["30", "90", "365"];
 var DEFAULT_DAYS = "90";
 var NAME_MAX = 40;
@@ -59570,7 +60103,7 @@ var setupToken = {
     platform = process.platform
   }) {
     const { positional, flags } = parseArgs("setup-token", args, { values: ["name", "days"], booleans: ["device", "loopback"] });
-    if (positional.length > 0 || flags.device && flags.loopback) throw usageError(USAGE37);
+    if (positional.length > 0 || flags.device && flags.loopback) throw usageError(USAGE38);
     const name3 = nameOf2(flags.name, now2());
     const days = daysOf(flags.days);
     const askUrl2 = loadContext(cwd, { exec }).config.ask.url;
@@ -59615,13 +60148,13 @@ var ship = {
 
 // kit/bin/commands/sign.ts
 init_define_OMNI_BUNDLE();
-var USAGE38 = "usage: omni sign trailer|footer";
+var USAGE39 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   run: synchronous((args, { ctx, stdout }) => {
     const { positional } = parseArgs("sign", args);
     const [which = ""] = positional;
-    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE38);
+    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE39);
     const line2 = LINES2[which](ctx.config.signature);
     if (line2 !== null) println(stdout, line2);
     return 0;
@@ -59653,7 +60186,7 @@ var STAGE_WORDS = Object.freeze({
   retro: "retro"
 });
 var IDEA_COUNT = "on the app";
-var plural5 = (count5, word) => `${count5} ${word}${count5 === 1 ? "" : "s"}`;
+var plural5 = (count5, word2) => `${count5} ${word2}${count5 === 1 ? "" : "s"}`;
 function fetchedAgo(fetchedAt2, now2) {
   if (fetchedAt2 === null || fetchedAt2 === void 0) return "never fetched";
   const age = Math.max(0, now2 - fetchedAt2);
@@ -59667,10 +60200,10 @@ function header({ slug, base, fetchedAt: fetchedAt2 }, now2) {
 }
 function counts(values) {
   const parts = STAGE_ORDER.map((stage2) => {
-    const word = STAGE_WORDS[stage2].toUpperCase();
-    if (stage2 === "idea") return `${word} ${IDEA_COUNT}`;
-    if (stage2 === "building" && values.building > 0) return `${word} ${values.building} \xB7 ${plural5(values.openItems, "open item")}`;
-    return `${word} ${values[stage2]}`;
+    const word2 = STAGE_WORDS[stage2].toUpperCase();
+    if (stage2 === "idea") return `${word2} ${IDEA_COUNT}`;
+    if (stage2 === "building" && values.building > 0) return `${word2} ${values.building} \xB7 ${plural5(values.openItems, "open item")}`;
+    return `${word2} ${values[stage2]}`;
   });
   const out = [];
   for (const part of parts) {
@@ -59704,7 +60237,7 @@ var TOPIC_GAP = "    ";
 var SEPARATOR2 = " \xB7 ";
 var cut5 = (text15, width) => text15.length <= width ? text15 : `${text15.slice(0, Math.max(0, width - 1))}\u2026`;
 var stageColumn = (stage2) => `${INDENT}${STAGE_WORDS[stage2].padEnd(UNDER_BAR.length - INDENT.length)}`;
-function standing({ stage: stage2, prd: prd2, openItems: openItems3 = 0, approval: approval3 }) {
+function standing2({ stage: stage2, prd: prd2, openItems: openItems3 = 0, approval: approval3 }) {
   const waiting = openItems3 > 0 ? `${plural5(openItems3, "open item")} wait${openItems3 === 1 ? "s" : ""} for an answer` : null;
   if (stage2 === "outbox") return waiting ?? "its feature PR waits for your review";
   if (stage2 === "building") return waiting ?? "being built";
@@ -59712,7 +60245,7 @@ function standing({ stage: stage2, prd: prd2, openItems: openItems3 = 0, approva
   return approval3 ? "waits for approval on its page" : "its phase-0 PR waits for a merge";
 }
 function rows(entries4) {
-  const lines2 = entries4.map((row) => ({ stage: stageColumn(row.stage), number: `#${row.prd}`, topic: row.topic, words: standing(row) }));
+  const lines2 = entries4.map((row) => ({ stage: stageColumn(row.stage), number: `#${row.prd}`, topic: row.topic, words: standing2(row) }));
   const numberWidth = Math.max(...lines2.map(({ number: number5 }) => number5.length)) + NUMBER_GAP.length;
   const wordsWidth = Math.max(...lines2.map(({ words: words4 }) => words4.length));
   const room = WIDTH - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
@@ -59782,7 +60315,7 @@ function formatOverview(overview2, { now: now2 }) {
 }
 
 // kit/bin/commands/status.ts
-var USAGE39 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
+var USAGE40 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 async function overview({ ctx, stdout, exec, fetch, gate }) {
   if (fetch) {
     const failure7 = fetchRemote({ ctx, exec });
@@ -59835,7 +60368,7 @@ var status4 = {
     const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
     const ctx = loadContext(cwd, { exec });
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true, gate: { tokens: tokens2, home, fetch, callMs } });
-    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE39);
+    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE40);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
     return outboxGate({ number: positional[0], labels: flags.labels, base }, { ctx, stdout, stderr, exec, vars, gate: { tokens: tokens2, home, fetch, callMs, now: now2 } });
   }
@@ -59843,7 +60376,7 @@ var status4 = {
 
 // kit/bin/commands/targets.ts
 init_define_OMNI_BUNDLE();
-var USAGE40 = "usage: omni targets [--json]";
+var USAGE41 = "usage: omni targets [--json]";
 async function targetList(ctx, product2, io, note) {
   const repo = ctx.config.repo.slug;
   if (!repo) throw usageError("omni targets: no repository slug \u2014 set repo.slug in the config.");
@@ -59854,7 +60387,7 @@ var targets = {
   async run(args, io) {
     const { stdout, stderr, exec, env } = io;
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
-    if (positional.length) throw usageError(USAGE40);
+    if (positional.length) throw usageError(USAGE41);
     const ctx = loadContext(io.cwd, { exec });
     const plan2 = ctx.config.plan;
     if (!plan2) {
@@ -59890,12 +60423,12 @@ function resolveTier(config3, agent, tier2) {
 }
 
 // kit/bin/commands/tier.ts
-var USAGE41 = "usage: omni tier <deep|build|light> --agent <agent>";
+var USAGE42 = "usage: omni tier <deep|build|light> --agent <agent>";
 var tier = {
   run: synchronous((args, { ctx, stdout }) => {
     const { positional, flags } = parseArgs("tier", args, { values: ["agent"] });
     const [name3] = positional;
-    if (positional.length !== 1 || name3 === void 0 || flags.agent === void 0) throw usageError(USAGE41);
+    if (positional.length !== 1 || name3 === void 0 || flags.agent === void 0) throw usageError(USAGE42);
     if (!isTier2(name3)) throw usageError(`omni tier: ${name3} is no tier \u2014 one of ${TIERS.join(", ")}.`);
     const { agent } = flags;
     if (!isOneOf(AGENTS, agent)) throw usageError(`omni tier: ${agent} is no agent the kit knows \u2014 one of ${AGENTS.join(", ")}.`);
@@ -59998,7 +60531,7 @@ async function phase0Of2(repos, ctx, io) {
 }
 
 // kit/bin/commands/product.ts
-var USAGE42 = "usage: omni product import --product <name> | omni product which | omni product use <key> | omni product phase0 <owner/name>\u2026";
+var USAGE43 = "usage: omni product import --product <name> | omni product which | omni product use <key> | omni product phase0 <owner/name>\u2026";
 function failure6(error62, what) {
   if (!(error62 instanceof AskCallError)) return { ok: false, lines: [messageOf(error62)] };
   if (error62.status === null) return { ok: false, lines: [`${what}: the server is unreachable`] };
@@ -60038,7 +60571,7 @@ function verbOf(args) {
   const { positional, flags } = parseArgs("product", args, { values: ["product"] });
   const [verb2 = "", ...rest] = positional;
   const asked = Object.hasOwn(VERBS4, verb2) ? VERBS4[verb2]?.(rest, flags.product) : null;
-  if (!asked) throw usageError(USAGE42);
+  if (!asked) throw usageError(USAGE43);
   return asked;
 }
 async function said(call, verb2, ctx, io) {
@@ -60192,9 +60725,9 @@ function wavePart(slices) {
   return `wave ${Math.min(...open3.map((slice) => slice.wave))}/${Math.max(...slices.map((slice) => slice.wave))}`;
 }
 var inFlight2 = (slice) => IN_FLIGHT.includes(slice.state);
-function slicesNamed(word, slices, names) {
+function slicesNamed(word2, slices, names) {
   const label2 = ({ id, name: name3 }) => names && name3 ? `${id} ${name3}` : id;
-  return slices.length > 0 ? `${word} ${slices.map(label2).join(", ")}` : null;
+  return slices.length > 0 ? `${word2} ${slices.map(label2).join(", ")}` : null;
 }
 var cutTo = (text15, length) => `${Array.from(text15).slice(0, length - 1).join("")}${CUT}`;
 var workName2 = (work, topic) => work.kind === "prd" ? `PRD ${work.number} ${topic}` : `${work.kind} #${work.number} ${topic}`;
@@ -60579,17 +61112,17 @@ function fixOthers({ record: record2, kitRepo, actions }) {
     return [done ? WORDS2[step2].done : WORDS2[step2].left, ...lines2.map((line2) => `    ${line2}`)];
   });
 }
-var QUIET15 = (cwd, timeout) => ({ cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...timeout ? { timeout } : {} });
+var QUIET16 = (cwd, timeout) => ({ cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...timeout ? { timeout } : {} });
 function gitOut2(io, args) {
   try {
-    return io.exec("git", args, QUIET15(io.cwd)).trim();
+    return io.exec("git", args, QUIET16(io.cwd)).trim();
   } catch {
     return null;
   }
 }
 function gitDo(io, args, timeout) {
   try {
-    io.exec("git", args, QUIET15(io.cwd, timeout));
+    io.exec("git", args, QUIET16(io.cwd, timeout));
     return null;
   } catch (error62) {
     const said2 = [propertyOf(error62, "stderr"), propertyOf(error62, "stdout")].map((text15) => typeof text15 === "string" || text15 instanceof Buffer ? text15.toString() : "");
@@ -60652,12 +61185,12 @@ init_define_OMNI_BUNDLE();
 // kit/lib/sync/kit.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync101 } from "node:fs";
-import { join as join128 } from "node:path";
+import { join as join129 } from "node:path";
 
 // kit/lib/sync/setup.ts
 init_define_OMNI_BUNDLE();
 var CLAUDE_BUDGET_MS = 1e4;
-var OMNI_PLUGIN_ID = `${PLUGIN}@${MARKETPLACE}`;
+var OMNI_PLUGIN_ID2 = `${PLUGIN}@${MARKETPLACE}`;
 var HUD_PLUGIN_ID = HUD_PLUGIN;
 var PluginListSchema = external_exports.array(external_exports.looseObject({ id: external_exports.unknown(), version: external_exports.unknown().optional() }).nullable().catch(null));
 var memo2 = /* @__PURE__ */ new WeakMap();
@@ -60710,14 +61243,14 @@ function setupFactsOf(io, { home } = {}) {
   };
   return {
     claude: list5 !== null,
-    plugin: plugin(OMNI_PLUGIN_ID),
+    plugin: plugin(OMNI_PLUGIN_ID2),
     hud: plugin(HUD_PLUGIN_ID),
     signedIn: isSignedIn({ askUrl: io.config.ask.url, home, now: io.now })
   };
 }
 var ALL_DONE = {
   claude: true,
-  plugin: { done: true, fix: `/plugin install ${OMNI_PLUGIN_ID}` },
+  plugin: { done: true, fix: `/plugin install ${OMNI_PLUGIN_ID2}` },
   hud: { done: true, fix: `/plugin install ${HUD_PLUGIN_ID}` },
   signedIn: true
 };
@@ -60726,7 +61259,7 @@ var setupFacts = (io) => Promise.resolve(processUnderTest() ? ALL_DONE : setupFa
 // kit/lib/sync/kit.ts
 var GH_BUDGET_MS = 5e3;
 var BIN_MAX_BYTES = 64 * 1024 * 1024;
-var TARGET_KITS_FILE = join128(".omni-loop", "local", "sync-targets.json");
+var TARGET_KITS_FILE = join129(".omni-loop", "local", "sync-targets.json");
 var TargetKitsSchema = external_exports.record(external_exports.string(), external_exports.object({ sha: external_exports.string(), version: external_exports.string().nullable() }));
 var ProductTargetsCopySchema = external_exports.looseObject({ targets: external_exports.array(external_exports.looseObject({ repo: external_exports.string() })) });
 function whyFailed(error62, command2) {
@@ -60761,7 +61294,7 @@ function pluginsOf(io) {
   const list5 = claudePlugins(io);
   if (list5 === null || "notChecked" in list5) return list5;
   const wanted = [
-    { name: OMNI_PLUGIN_ID, label: "plugin" },
+    { name: OMNI_PLUGIN_ID2, label: "plugin" },
     { name: HUD_PLUGIN_ID, label: "HUD plugin" }
   ];
   return wanted.flatMap(({ name: name3, label: label2 }) => {
@@ -60775,7 +61308,7 @@ function targetRepos({ root, config: config3 }) {
   const planned = config3.plan?.targets ?? [];
   if (planned.length > 0) return planned.map((target3) => target3.repo);
   try {
-    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync101(join128(root, PRODUCT_TARGETS_FILE), "utf8")));
+    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync101(join129(root, PRODUCT_TARGETS_FILE), "utf8")));
     return copy.targets.map((target3) => target3.repo).filter((repo) => repo !== config3.repo.slug);
   } catch {
     return [];
@@ -60783,7 +61316,7 @@ function targetRepos({ root, config: config3 }) {
 }
 function readTargetKits(root) {
   try {
-    return TargetKitsSchema.parse(JSON.parse(readFileSync101(join128(root, TARGET_KITS_FILE), "utf8")));
+    return TargetKitsSchema.parse(JSON.parse(readFileSync101(join129(root, TARGET_KITS_FILE), "utf8")));
   } catch {
     return {};
   }
@@ -60814,7 +61347,7 @@ function targetsOf(io) {
   const facts = repos.map((repo) => targetKit(io, repo, kept, found2));
   try {
     ensureLocalDir(io.root);
-    writeJsonAt(join128(io.root, TARGET_KITS_FILE), found2);
+    writeJsonAt(join129(io.root, TARGET_KITS_FILE), found2);
   } catch {
   }
   return facts;
@@ -60830,10 +61363,10 @@ var kitFacts = (io) => Promise.resolve(processUnderTest() ? { na: NOT_CHECKED_YE
 init_define_OMNI_BUNDLE();
 import { resolve as resolve15 } from "node:path";
 var GH_BUDGET_MS2 = 1e4;
-var QUIET16 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
+var QUIET17 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 function gitLines(exec, cwd, args) {
   try {
-    return exec("git", args, { cwd, ...QUIET16 }).split("\n").map((line2) => line2.trim()).filter(Boolean);
+    return exec("git", args, { cwd, ...QUIET17 }).split("\n").map((line2) => line2.trim()).filter(Boolean);
   } catch {
     return null;
   }
@@ -60968,25 +61501,8 @@ async function runSync(io) {
   return record2;
 }
 
-// kit/lib/update/plugin.ts
-init_define_OMNI_BUNDLE();
-var QUIET17 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
-function updatePlugin({ version: version3 = null, exec, println: println2 }) {
-  try {
-    exec("claude", ["plugin", "marketplace", "update", MARKETPLACE], QUIET17);
-    exec("claude", ["plugin", "update", `${PLUGIN}@${MARKETPLACE}`], QUIET17);
-  } catch {
-    println2("  plugin   not updated from here; in Claude Code, type:");
-    println2(`     /plugin marketplace update ${MARKETPLACE}`);
-    println2(`     /plugin update ${PLUGIN}@${MARKETPLACE}`);
-    return false;
-  }
-  println2(`  plugin   updated${version3 ? ` to v${version3}` : ""}, run /reload-plugins`);
-  return true;
-}
-
 // kit/bin/commands/sync.ts
-var USAGE43 = "usage: omni sync [--json | --quiet | --background | --fix] [--strict]";
+var USAGE44 = "usage: omni sync [--json | --quiet | --background | --fix] [--strict]";
 var NOT_INSTALLED = "sync: the loop is not installed here";
 var OMNI_BUDGET_MS = 3e5;
 var PLUGIN_BUDGET_MS = 12e4;
@@ -61019,7 +61535,7 @@ function lockFor(root, now2) {
 function modeOf(args) {
   const { positional, flags } = parseArgs("sync", args, { booleans: ["json", "quiet", "background", "fix", "strict"] });
   const modes = ["json", "quiet", "background", "fix"].filter((mode) => flags[mode]);
-  if (positional.length > 0 || modes.length > 1) throw usageError(USAGE43);
+  if (positional.length > 0 || modes.length > 1) throw usageError(USAGE44);
   return { mode: modes[0] ?? "block", strict: flags.strict === true };
 }
 function printed2(record2, mode) {
@@ -61112,12 +61628,12 @@ var sync2 = {
 
 // kit/bin/commands/update.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync83, mkdtempSync as mkdtempSync6, readFileSync as readFileSync102, rmSync as rmSync20 } from "node:fs";
-import { tmpdir as tmpdir6 } from "node:os";
-import { join as join129 } from "node:path";
-var USAGE44 = "usage: omni update [--to <version>]";
+import { existsSync as existsSync84, mkdtempSync as mkdtempSync5, readFileSync as readFileSync102, rmSync as rmSync19 } from "node:fs";
+import { tmpdir as tmpdir5 } from "node:os";
+import { join as join130 } from "node:path";
+var USAGE45 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync6(join129(tmpdir6(), "omni-update-"));
+  const dir = mkdtempSync5(join130(tmpdir5(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
@@ -61129,7 +61645,7 @@ function handOver2({ cwd, home, from, target: target3, exec }) {
       return typeof status5 === "number" && Number.isInteger(status5) ? status5 : 1;
     }
   } finally {
-    rmSync20(dir, { recursive: true, force: true });
+    rmSync19(dir, { recursive: true, force: true });
   }
 }
 function rootOf(cwd, exec) {
@@ -61140,8 +61656,8 @@ function rootOf(cwd, exec) {
   }
 }
 function claudeListed(root) {
-  const file2 = root ? join129(root, CONFIG_FILE) : null;
-  if (!file2 || !existsSync83(file2)) return true;
+  const file2 = root ? join130(root, CONFIG_FILE) : null;
+  if (!file2 || !existsSync84(file2)) return true;
   try {
     return parseConfig(readFileSync102(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");
   } catch {
@@ -61176,7 +61692,7 @@ var update = {
   withoutContext: true,
   run: synchronous((args, { cwd, stdout, stderr, exec, kit, bundle }) => {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE44);
+    if (positional.length) throw usageError(USAGE45);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
@@ -61232,7 +61748,7 @@ var visual = branchVerdictCommand({
 var COMMAND_TABLE = Object.freeze({ config: config2, prd, budget, approval, wait, status: status4, settle: settle3, adopt, replies, answers, comment, ship, harvest, check: check2, generated, design, knowledge, kb: kb2, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask3, heartbeat, signin, signout, whoami, "setup-token": setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version: version2, update, help, statusline, now, targets, product, session, runner, tier, sync: sync2 });
 
 // kit/bin/omni.ts
-var USAGE45 = `usage: omni <command> [args]
+var USAGE46 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -61344,7 +61860,7 @@ async function main(argv, {
   const name3 = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command2 = Object.hasOwn(COMMAND_TABLE, name3) ? COMMAND_TABLE[name3] : void 0;
   if (!command2) {
-    stderr.write(USAGE45);
+    stderr.write(USAGE46);
     return 2;
   }
   try {
