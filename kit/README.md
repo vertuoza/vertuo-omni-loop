@@ -85,7 +85,8 @@ then prints the token, its expiry and the line to paste it by, and keeps it nowh
 
 **Runners** (PRD 1830) run the `/omni:` lines people send from the Omni app with Send to terminal,
 on a machine set up for it, with no one at a terminal. Start one with
-`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]`:
+`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]
+[--max-memory 85] [--min-disk 10] [--max-load 1.5]`:
 
 - **What it needs:** a sign-in (the kit token `OMNI_TOKEN`, or `omni signin` once), the git checkouts
   it may work in right under `--repos` (each known by its `origin`, `owner/name`, and in the
@@ -125,6 +126,14 @@ on a machine set up for it, with no one at a terminal. Start one with
   failed, `omni plugin update failed: <its last line>`. A running session keeps the skills it
   loaded: Claude Code keeps each plugin version in its own folder. The runner's own code does not
   update itself: `git pull` in the checkout it starts from, then restart `omni runner`.
+- **When its machine is under pressure** (PRD 2102): every 15 seconds it samples its machine and
+  sends the page its CPU, load, memory and disk. It pauses when memory used is above `--max-memory`
+  percent (1 to 100, 85 unless given), disk free below `--min-disk` GB (0 or more, 10 unless given),
+  or the 1-minute load above `--max-load` times its cores (above 0, 1.5 unless given). Paused, it
+  prints `paused: <reason>` (`paused: memory 91%`) and takes no new job: a slot already waiting runs
+  the job it gets, and a running job is never touched. After two quiet samples in a row it prints
+  `resumed` and takes jobs again. The page shows the reason and the limits. `--max-memory 100` and
+  `--min-disk 0` switch those two limits off. A limit out of range is refused before it starts.
 - **Which lines:** only `/omni:yolo`, `yolo-fix`, `pr-care`, `do-work`, `wave`, `bug-fix`,
   `visual-fix`, `plan`, `pitch` and `prove`, with arguments of letters, digits, spaces and `._/:#-`,
   200 characters at most. The runner checks the line again before it runs it, whatever the page sent.

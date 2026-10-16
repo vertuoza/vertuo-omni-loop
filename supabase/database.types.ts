@@ -1288,6 +1288,111 @@ export type Database = {
           },
         ]
       }
+      fix_rows: {
+        Row: {
+          changes: string
+          closed_at: string | null
+          dossier_id: string
+          guard: string | null
+          id: string
+          merged_at: string | null
+          position: number
+          pull: number | null
+          repository: string
+          reproduction: string | null
+          state: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          changes: string
+          closed_at?: string | null
+          dossier_id: string
+          guard?: string | null
+          id?: string
+          merged_at?: string | null
+          position: number
+          pull?: number | null
+          repository: string
+          reproduction?: string | null
+          state?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          changes?: string
+          closed_at?: string | null
+          dossier_id?: string
+          guard?: string | null
+          id?: string
+          merged_at?: string | null
+          position?: number
+          pull?: number | null
+          repository?: string
+          reproduction?: string | null
+          state?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fix_rows_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fix_rows_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fix_unmatched_merges: {
+        Row: {
+          dossier_id: string
+          merged_at: string
+          pull: number
+          repository: string
+          seen_at: string
+          workspace_id: string
+        }
+        Insert: {
+          dossier_id: string
+          merged_at: string
+          pull: number
+          repository: string
+          seen_at?: string
+          workspace_id: string
+        }
+        Update: {
+          dossier_id?: string
+          merged_at?: string
+          pull?: number
+          repository?: string
+          seen_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fix_unmatched_merges_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fix_unmatched_merges_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       github_budget: {
         Row: {
           installation_id: number
@@ -2280,6 +2385,7 @@ export type Database = {
       }
       products: {
         Row: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -2294,6 +2400,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          bug_seq?: number
           business_id: string
           created_at?: string
           created_by?: string | null
@@ -2308,6 +2415,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          bug_seq?: number
           business_id?: string
           created_at?: string
           created_by?: string | null
@@ -2907,6 +3015,7 @@ export type Database = {
           status: string
           to_fleet: string | null
           to_runner: string | null
+          tokens: Json | null
           workspace_id: string
         }
         Insert: {
@@ -2928,6 +3037,7 @@ export type Database = {
           status?: string
           to_fleet?: string | null
           to_runner?: string | null
+          tokens?: Json | null
           workspace_id: string
         }
         Update: {
@@ -2949,6 +3059,7 @@ export type Database = {
           status?: string
           to_fleet?: string | null
           to_runner?: string | null
+          tokens?: Json | null
           workspace_id?: string
         }
         Relationships: [
@@ -2989,10 +3100,59 @@ export type Database = {
           },
         ]
       }
+      runner_samples: {
+        Row: {
+          at: string
+          cpu: number | null
+          disk_free: number | null
+          mem_total: number | null
+          mem_used: number | null
+          runner_id: string
+          tokens_5h: number | null
+          workspace_id: string
+        }
+        Insert: {
+          at?: string
+          cpu?: number | null
+          disk_free?: number | null
+          mem_total?: number | null
+          mem_used?: number | null
+          runner_id: string
+          tokens_5h?: number | null
+          workspace_id: string
+        }
+        Update: {
+          at?: string
+          cpu?: number | null
+          disk_free?: number | null
+          mem_total?: number | null
+          mem_used?: number | null
+          runner_id?: string
+          tokens_5h?: number | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runner_samples_runner_id_fkey"
+            columns: ["runner_id"]
+            isOneToOne: false
+            referencedRelation: "runners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_samples_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       runners: {
         Row: {
           created_at: string
           fleet: string | null
+          health: Json | null
           id: string
           last_seen_at: string
           name: string
@@ -3005,6 +3165,7 @@ export type Database = {
         Insert: {
           created_at?: string
           fleet?: string | null
+          health?: Json | null
           id?: string
           last_seen_at?: string
           name: string
@@ -3017,6 +3178,7 @@ export type Database = {
         Update: {
           created_at?: string
           fleet?: string | null
+          health?: Json | null
           id?: string
           last_seen_at?: string
           name?: string
@@ -3580,6 +3742,7 @@ export type Database = {
       ask_shared_with_me: { Args: { round: string }; Returns: boolean }
       ask_sweep: { Args: never; Returns: number }
       ask_tokens_valid: { Args: { t: Json }; Returns: boolean }
+      bug_id_of: { Args: { p_product: string; p_seq: number }; Returns: string }
       business_claim_value: {
         Args: { p_kind: string; p_value: string }
         Returns: string
@@ -3741,6 +3904,7 @@ export type Database = {
       business_product: {
         Args: { p_product: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4170,6 +4334,22 @@ export type Database = {
         Args: { p_dossier_kind: string; p_version_kind: string }
         Returns: boolean
       }
+      fix_bug_push: {
+        Args: { p_body: Json; p_bug: number; p_key: string; p_repo?: string }
+        Returns: Json
+      }
+      fix_row_stamp: {
+        Args: {
+          p_at: string
+          p_bug?: string
+          p_event: string
+          p_pull: number
+          p_repo: string
+        }
+        Returns: Json
+      }
+      fix_rows_pull: { Args: { p_dossier: string }; Returns: Json }
+      fix_rows_summary: { Args: { p_dossier: string }; Returns: Json }
       fleet_look: {
         Args: {
           p_color: string
@@ -4587,6 +4767,7 @@ export type Database = {
       product_add: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4618,6 +4799,7 @@ export type Database = {
       product_of_key: {
         Args: { p_key: string; p_repo?: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4642,6 +4824,7 @@ export type Database = {
       product_rename: {
         Args: { p_name: string; p_product: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4695,6 +4878,7 @@ export type Database = {
       product_repository_owned: {
         Args: { p_product: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4858,6 +5042,7 @@ export type Database = {
           status: string
           to_fleet: string | null
           to_runner: string | null
+          tokens: Json | null
           workspace_id: string
         }[]
         SetofOptions: {
@@ -4911,6 +5096,7 @@ export type Database = {
       set_pitch_look: {
         Args: { p_look: string; p_product: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4934,6 +5120,7 @@ export type Database = {
       set_pitch_settings: {
         Args: { p_pitch: Json; p_product: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null

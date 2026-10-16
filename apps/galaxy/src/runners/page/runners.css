@@ -26,6 +26,31 @@
 .runners-state.is-online .runners-dot { background: var(--ask-green); }
 .runners-state.is-busy .runners-dot { background: var(--ask-plasma); }
 .runners-state.is-offline { color: var(--ask-muted); }
+.runners-state.is-paused { color: var(--ask-red); }
+.runners-state.is-paused .runners-dot { background: var(--ask-red); }
+
+/* The health line (PRD 2102): four gauges under a runner's row, each with its bar and the hour's sparkline. */
+.runners-health { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.runners-gauge { background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 8px; padding: 6px 10px; min-width: 0; }
+.runners-gauge-k { font: 700 11px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); }
+.runners-gauge-v { font: 600 14px/1.4 var(--ask-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.runners-gauge-fill { height: 4px; border-radius: 2px; background: var(--ask-line); margin: 3px 0; }
+.runners-gauge-fill i { display: block; height: 100%; border-radius: 2px; background: var(--ask-cyan); }
+.runners-gauge svg { width: 100%; height: 18px; display: block; }
+.runners-gauge polyline { fill: none; stroke: var(--ask-cyan); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.runners-gauge.is-over .runners-gauge-v { color: var(--ask-red); }
+.runners-gauge.is-over .runners-gauge-fill i { background: var(--ask-red); }
+.runners-gauge.is-over polyline { stroke: var(--ask-red); }
+.runners-health.is-grey .runners-gauge { opacity: .5; }
+.runners-asof { grid-column: 1 / -1; color: var(--ask-muted); font-size: 13px; }
+.runners-old { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.runners-old .roadmap-command { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.runners-old .roadmap-command code {
+  font-family: var(--ask-mono); background: var(--ask-sunk); border: 1px solid var(--ask-line-strong);
+  border-radius: 4px; padding: 4px 8px; overflow-wrap: anywhere; min-width: 0;
+}
+.runners-tokens { margin-left: 8px; color: var(--ask-muted); font-size: 12px; white-space: nowrap; }
+.runners-why { display: block; color: var(--ask-red); font-size: 12px; margin-top: 4px; }
 
 .runners-fleet { display: grid; gap: 4px; }
 .runners-fleet select {
@@ -63,4 +88,5 @@
 @media (max-width: 860px) {
   .runners-runners .runners-row, .runners-jobs .runners-row { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; }
   .runners-head { display: none; }
+  .runners-health { grid-template-columns: 1fr 1fr; }
 }

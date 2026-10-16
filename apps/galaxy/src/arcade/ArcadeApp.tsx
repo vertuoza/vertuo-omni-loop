@@ -39,6 +39,9 @@ import { KartOverlay } from './scenes/kart.tsx';
 import { DuetLayer } from './scenes/duet.tsx';
 import { duetDrawOf, useDuet } from './scenes/duet.live';
 import { duetRetry, type ArcadeDuet } from './scenes/duet.ts';
+import { PongLayer } from './scenes/pong.tsx';
+import { pongDrawOf, usePong } from './scenes/pong.live';
+import { pongRetry, type ArcadePong } from './scenes/pong.ts';
 import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, circuitPress, FIRST_CHOICE, trackOf, GRID_OUT_LINE, gridPress, kartCast, kartEngineLevel, kartPress, kartSong, loadKart, sameKartHud, soundOf, type ArcadeKart, type KartGame, type KartGridRow, type KartHud, type KartStep } from './scenes/kart.ts';
 import { PlatformerScreen } from './platformer/PlatformerScreen';
 import { ended, newSession, pressSession } from './platformer/session';
@@ -86,6 +89,8 @@ const PLATFORMER = GAMES.find((g) => g.scene === 'platformer')?.id ?? 'platforme
 const KART = GAMES.find((g) => g.scene === 'kart')?.id ?? 'kart';
 // OMNI DUET's key in the registry: its scores are sent under it (PRD 1633).
 const DUET = GAMES.find((g) => g.scene === 'duet')?.id ?? 'duet';
+// OMNI PONG's key in the registry: its scores are sent under it (PRD 2101).
+const PONG = GAMES.find((g) => g.scene === 'pong')?.id ?? 'pong';
 // The games: they read the pad's buttons held, so a key held down is never a repeat of its press.
 /** Keys that are not an answer for KEYS: a modifier on its own. */
 /** A look as one word, to tell whether the race on the screen was made with the one the options hold now (PRD 1762). */
@@ -93,7 +98,7 @@ const lookKey = (look: { color: string; design: string }): string => `${look.col
 
 const NOT_A_KEY: ReadonlySet<string> = new Set(['Control', 'Alt', 'AltGraph', 'Meta', 'Dead', 'Unidentified', 'CapsLock']);
 
-const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', 'kart', 'duet']);
+const HELD_SCENES: ReadonlySet<SceneName> = new Set(['invaders', 'platformer', 'kart', 'duet', 'pong']);
 
 // How long the FINAL LAP jingle rings before the faster tune starts.
 const FINAL_LAP_JINGLE_MS = 800;
@@ -154,11 +159,12 @@ function stepKart(scene: SceneName, kart: ArcadeKart | null, buttons: ReadonlySe
 }
 
 /** The grid `scene` is drawn on: a game keeps the one it started on; any other scene gets its form's. */
-export function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf: ArcadePf | null, kart: ArcadeKart | null, duet: ArcadeDuet | null): Grid {
+export function sceneGrid(scene: SceneName, form: Form, hud: GameHud | null, pf: ArcadePf | null, kart: ArcadeKart | null, duet: ArcadeDuet | null, pong: ArcadePong | null = null): Grid {
   if (scene === 'invaders' && hud) return GAME_GRID[hud.layout];
   if (scene === 'platformer' && pf) return pf.grid;
   if (scene === 'kart' && kart) return kart.grid;
   if (scene === 'duet' && duet) return duet.grid;
+  if (scene === 'pong' && pong) return pong.grid;
   return gridFor(form, scene);
 }
 
@@ -470,6 +476,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     over: (score) => { sendScoreRef.current(DUET, score); },
     again: () => { held.clear(); runRef.current += 1; showSend(null); },
   });
+  // OMNI PONG (PRD 2101): imported when its cabinet opens, never before, as OMNI DUET is; its
+  // microphone is stopped on a pause from outside and when the scene closes. The match says once when
+  // it ends, whichever way: the score reached is sent then, under `pong`; A on its game over goes back
+  // to the ready screen, and the next match's score is sent in its turn.
+  const { pong, pongRef, openPong, followPong, pressPong, stepPong, pausePong } = usePong(() => import('./pong/index'), {
+    over: (score) => { sendScoreRef.current(PONG, score); },
+    again: () => { held.clear(); runRef.current += 1; showSend(null); },
+  });
 
   // The level-up: the levels each login last celebrated on this device, and the one due now, if any.
   const seen = useMemo(() => createSeen(LOCAL), []);
@@ -551,9 +565,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     pausePlatformer();
     pauseKart();
     pauseDuet();
+    pausePong();
     held.clear();
     go({ ...patch, leaving: true }, 'select');
-  }, [app, go, showHud, held, pausePlatformer, pauseKart, pauseDuet]);
+  }, [app, go, showHud, held, pausePlatformer, pauseKart, pauseDuet, pausePong]);
 
   const save = useCallback(async (patch: PlayerPatch) => {
     const row = await account.save(patch, meRef.current);
@@ -634,7 +649,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (ui.scene === 'kart' && !kartRef.current) go({ scene: 'games' });
     if (ui.scene !== 'kart' && kartRef.current) setKart(null);
     if (!followScene(ui.scene)) go({ scene: 'games' });
-  }, [ui.scene, go, showHud, pfRef, setPf, kartRef, followScene]);
+    if (!followPong(ui.scene)) go({ scene: 'games' });
+  }, [ui.scene, go, showHud, pfRef, setPf, kartRef, followScene, followPong]);
   // A window that loses focus or a hidden tab never hears its keys and fingers go up: nothing stays
   // held, and a game pauses.
   useEffect(() => {
@@ -643,6 +659,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       pausePlatformer();
       pauseKart();
       pauseDuet();
+      pausePong();
       const g = gameRef.current;
       if (uiRef.current.scene !== 'invaders' || !g) return;
       gameRef.current = pauseGame(g);
@@ -655,7 +672,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       window.removeEventListener('blur', lost);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [held, showHud, pausePlatformer, pauseKart, pauseDuet, awayKart]);
+  }, [held, showHud, pausePlatformer, pauseKart, pauseDuet, pausePong, awayKart]);
 
   // ── Timed hand-overs ──
   // They wait while OPEN THE APP? is up, so B finds the scene it covered, and start again from there.
@@ -780,14 +797,23 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       openDuet(gridFor(formRef.current, 'duet'));
       go({ scene: 'duet' }, 'start');
     };
+    /** A on OMNI PONG's unlocked cabinet: the game's code is imported now, on the grid the cabinet is shown on. */
+    const playPong = () => {
+      held.clear();
+      runRef.current += 1;
+      showSend(null);
+      openPong(gridFor(formRef.current, 'pong'));
+      go({ scene: 'pong' }, 'start');
+    };
     /**
-     * Opens `scene` from the game room or a level-up: OMNI RUNNER, OMNI KART and OMNI DUET through
+     * Opens `scene` from the game room or a level-up: OMNI RUNNER, OMNI KART, OMNI DUET and OMNI PONG through
      * their own start, any other scene at once.
      */
     const openGame = (scene: SceneName, effect: Sfx) => {
       if (scene === 'platformer') playPlatformer();
       else if (scene === 'kart') playKart();
       else if (scene === 'duet') playDuet();
+      else if (scene === 'pong') playPong();
       else go({ scene }, effect);
     };
     /**
@@ -799,6 +825,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       const s = sendRef.current;
       if (s?.state === 'failed' && duetRetry(duetRef.current?.hud ?? null, s, action)) { sendScore(DUET, s.score, s.tries + 1); return; }
       if (pressDuet(action)) go({ scene: 'games' }, 'back');
+    };
+    /** A press in OMNI PONG: at the game over, A retries a score that was not saved, once; otherwise the game's. */
+    const actPong = () => {
+      const s = sendRef.current;
+      if (s?.state === 'failed' && pongRetry(pongRef.current?.hud ?? null, s, action)) { sendScore(PONG, s.score, s.tries + 1); return; }
+      if (pressPong(action)) go({ scene: 'games' }, 'back');
     };
     // OPEN THE APP? takes every press while it is up: A (or START) leaves for the app in this tab,
     // B closes it on the scene as it was, and nothing else is read (leave.ts).
@@ -1051,6 +1083,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         return;
       }
       case 'duet': actDuet(); return;
+      case 'pong': actPong(); return;
       case 'fleets': {
         const n = view?.teams.length ?? 0;
         if (!view || !n) { if (action === 'b') go({ scene: 'menu' }, 'back'); return; }
@@ -1073,7 +1106,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') { go({ scene: 'menu' }, 'back'); return; }
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openDuet, pressDuet, duetRef, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, details.dossier, app, account.kind, pfRef, setPf]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, playPlatformer, playKart, openDuet, pressDuet, duetRef, openPong, pressPong, pongRef, openLobby, leaveLobby, beginRace, backToGrid, showHud, showKartHud, sendScore, showSend, held, seen, problem, details.dossier, app, account.kind, pfRef, setPf]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
@@ -1164,7 +1197,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   // ── Canvas loop ──
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const grid = sceneGrid(ui.scene, form, hud, pf, kart, duet);
+  const grid = sceneGrid(ui.scene, form, hud, pf, kart, duet, pong);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
   const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge: charted.source, chart, system });
@@ -1192,6 +1225,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       }
       stepKart(u.scene, kartRef.current, held.buttons(), dt, showKartHud, (score) => { held.clear(); sendScoreRef.current(kartBoardOf(kartRef.current), score); });
       stepDuet(u.scene, held.buttons(), dt);
+      stepPong(u.scene, dt);
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
         scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark, logo: f.logo, theme: f.theme,
@@ -1204,13 +1238,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         game,
         kart: kartDrawOf(u.scene, kartRef.current),
         duet: duetDrawOf(u.scene, duetRef.current),
+        pong: pongDrawOf(u.scene, pongRef.current),
       };
       const phase = titlePhaseAt(t - u.since);
       drawFrame(ctx, frame, !f.view && phase === 'hiscore' ? 'title' : phase); // no high scores without the galaxy
     };
     raf = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(raf); };
-  }, [held, showHud, showKartHud, stepDuet, duetRef]);
+  }, [held, showHud, showKartHud, stepDuet, duetRef, stepPong, pongRef]);
 
   // A click on a key hint ("[A] SIGN IN WITH GITHUB"), or a press of a Game Boy's control, presses that key.
   const press = useCallback((action: Action) => { unlock(); act(action); }, [act]);
@@ -1317,6 +1352,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         </>
       ) : null;
       case 'duet': return <DuetLayer duet={duet} send={send} />;
+      case 'pong': return <PongLayer pong={pong} send={send} />;
       case 'kart': return kart ? <KartOverlay status={kart.status} hud={kart.hud} send={send} choice={kart.choice} multi={kart.multi} lobby={kart.lobby} options={kart.options} art={kartArt} kartOf={gridKart} podiumKart={podiumKart} circuit={{ cards: kart.circuits, bests: kartBests(kart, scores) }} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => { act('a'); }} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => { go({ tab }, 'tab'); }} dossier={details.dossier} log={details.log} /> : null;

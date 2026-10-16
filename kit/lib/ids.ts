@@ -52,6 +52,20 @@ export const ProductRoadmapIdSchema = z
   .brand<'ProductRoadmapId'>();
 export type ProductRoadmapId = z.infer<typeof ProductRoadmapIdSchema>;
 
+/** A product bug record's id (PRD 2011): its product's key, then `-B` and its number on that product,
+ * `mobile-B74`. The capital B tells it from a product PRD's id (`mobile-12`) and a roadmap's (`mobile-R3`). */
+const PRODUCT_BUG = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-B([1-9]\d{0,9})$/;
+
+export const ProductBugIdSchema = z
+  .string()
+  .regex(PRODUCT_BUG)
+  .refine((id) => {
+    const cut = id.lastIndexOf('-B');
+    return cut <= 40 && Number(id.slice(cut + 2)) <= PRODUCT_SEQ_MAX;
+  })
+  .brand<'ProductBugId'>();
+export type ProductBugId = z.infer<typeof ProductBugIdSchema>;
+
 /** A pull request's number. GitHub counts it with issues, but it is a kind of its own here. */
 export const PrNumberSchema = z.number().int().positive().brand<'PrNumber'>();
 export type PrNumber = z.infer<typeof PrNumberSchema>;
@@ -143,6 +157,20 @@ export function productRoadmapParts(id: ProductRoadmapId): { key: string; seq: n
 
 /** The id of product roadmap `seq` of the product keyed `key`. */
 export const productRoadmapId = (key: string, seq: number): ProductRoadmapId => parseProductRoadmapId(`${key}-R${seq}`);
+
+/** A product bug record's id: `mobile-B74`. */
+export function parseProductBugId(value: string): ProductBugId {
+  return parseId(ProductBugIdSchema, value, 'product bug', value);
+}
+
+/** A product bug's key and its number on that product: `mobile-B74` is `{ key: 'mobile', seq: 74 }`. */
+export function productBugParts(id: ProductBugId): { key: string; seq: number } {
+  const cut = id.lastIndexOf('-B');
+  return { key: id.slice(0, cut), seq: Number(id.slice(cut + 2)) };
+}
+
+/** The id of product bug `seq` of the product keyed `key`. */
+export const productBugId = (key: string, seq: number): ProductBugId => parseProductBugId(`${key}-B${seq}`);
 
 /** A pull request number, from a number or its digit string. */
 export function parsePr(value: number | string): PrNumber {

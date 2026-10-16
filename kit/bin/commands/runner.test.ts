@@ -1,6 +1,7 @@
 // `omni runner` through `main()` (PRD 1830, s2): a fixture checkout with its own origin, a fake Omni app
 // (an injected `fetch`), a fake `claude` on the PATH and a fake tmux that runs the job's command as a
-// plain child process. Nothing here calls GitHub, the Omni app or Claude.
+// plain child process. Nothing here calls GitHub, the Omni app or Claude, nor reads the real machine's
+// health: each runner samples a fixed machine, quiet unless a test says otherwise (PRD 2102).
 import { execFileSync, spawn } from 'node:child_process';
 import type { ChildProcess, ExecFileSyncOptions } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
@@ -10,6 +11,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import { repoOfRemote } from '../../lib/runner/checkouts.ts';
+import type { MachineReads } from '../../lib/runner/health.ts';
 import { senderLine } from '../../lib/runner/sender.ts';
 import { tmuxArgs, tmuxTerminal } from '../../lib/runner/terminal.ts';
 import type { JobSession, Terminal } from '../../lib/runner/terminal.ts';
@@ -201,13 +203,29 @@ afterEach(() => {
   for (const stop of running.splice(0)) stop.abort();
 });
 
+const GB = 1024 ** 3;
+
+/** A machine of 4 cores at load 1, with `memPercent` of its 16 GB used and 100 GB of disk free. */
+function machineAt(memPercent = 50): MachineReads {
+  const times = { user: 100, nice: 0, sys: 0, idle: 900, irq: 0 };
+  return {
+    cpus: () => [{ times }],
+    loadavg: () => [1, 1, 1],
+    cores: () => 4,
+    totalmem: () => 16 * GB,
+    freemem: () => ((100 - memPercent) / 100) * 16 * GB,
+    meminfo: () => null,
+    statfs: () => ({ bsize: 4096, blocks: (200 * GB) / 4096, bavail: (100 * GB) / 4096 }),
+  };
+}
+
 /** Starts `omni runner` on the fixture: its exit code once stopped, and what it printed. */
 function startRunner(
   f: ReturnType<typeof fixture>,
   app: ReturnType<typeof fakeApp>,
-  { args = [], slots = 1, exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {}, tickMs = 50, now }: {
+  { args = [], slots = 1, exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {}, tickMs = 50, now, machine = machineAt() }: {
     args?: string[]; slots?: number; exec?: ReturnType<typeof fakeExec>; tokens?: ReturnType<typeof memoryTokens>; sleep?: (ms: number, signal?: AbortSignal) => Promise<void>; terminal?: ReturnType<typeof fakeTerminal>;
-    env?: Record<string, string>; tickMs?: number; now?: () => number;
+    env?: Record<string, string>; tickMs?: number; now?: () => number; machine?: MachineReads;
   } = {},
 ) {
   const stop = new AbortController();
@@ -226,6 +244,7 @@ function startRunner(
     terminal: terminal.terminal,
     stop: stop.signal,
     tickMs,
+    machine,
     ...(sleep ? { sleep } : {}),
     ...(now ? { now } : {}),
   });
@@ -642,6 +661,64 @@ describe('omni runner', () => {
     expect(lastStatus(app)).toBe('done');
     expect(run.stdout.text()).toContain('stopping: waiting for 1 running job');
     expect(run.stdout.text().trim().split('\n').at(-1)).toBe('runner box-1 stopped');
+  });
+
+  describe('the limits it pauses at (PRD 2102)', () => {
+    const healthReports = (app: ReturnType<typeof fakeApp>) => app.calls.filter((call) => call.path === '/api/runners/r1/health').map((call) => call.body as Record<string, unknown>);
+    const nexts = (app: ReturnType<typeof fakeApp>) => app.calls.filter((call) => call.path === '/api/runners/next');
+
+    it('pauses at 85 % of memory, 10 GB of disk and 1.5 × the cores when no flag says otherwise, and reports them', async () => {
+      const f = fixture();
+      const app = fakeApp();
+      const run = startRunner(f, app);
+      await until(() => healthReports(app).length > 0 && nexts(app).length > 0, 'a health report and a next');
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+      expect(healthReports(app)[0]).toMatchObject({ paused: null, limits: { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 } });
+    });
+
+    it('pauses at --max-memory, --min-disk and --max-load, opening no next, and reports why and at which limits', async () => {
+      const f = fixture();
+      const app = fakeApp();
+      const run = startRunner(f, app, { args: ['--max-memory', '70', '--min-disk', '20', '--max-load', '1'], machine: machineAt(75) });
+      await until(() => healthReports(app).length > 0, 'a health report');
+      await delay(100);
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+      expect(healthReports(app)[0]).toMatchObject({ paused: 'memory 75%', limits: { maxMemory: 70, minDiskGb: 20, maxLoad: 1 } });
+      expect(nexts(app)).toEqual([]);
+      expect(run.stdout.text()).toContain('paused: memory 75%');
+    });
+
+    it('takes a decimal limit, and 100 % of memory or 0 GB of disk as no limit at all', async () => {
+      const f = fixture();
+      const app = fakeApp();
+      const run = startRunner(f, app, { args: ['--max-memory', '100', '--min-disk', '0', '--max-load', '2.5'], machine: machineAt(99) });
+      await until(() => nexts(app).length > 0, 'a next');
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+      expect(healthReports(app)[0]).toMatchObject({ paused: null, limits: { maxMemory: 100, minDiskGb: 0, maxLoad: 2.5 } });
+    });
+
+    it('refuses a limit out of range in plain words, before it registers', async () => {
+      for (const [args, words] of [
+        [['--max-memory', '0'], '--max-memory is the share of memory used, in percent, the runner pauses above: a number from 1 to 100, got "0".'],
+        [['--max-memory', '101'], '--max-memory is the share of memory used, in percent, the runner pauses above: a number from 1 to 100, got "101".'],
+        [['--max-memory', '1e2'], 'a number from 1 to 100, got "1e2".'],
+        [['--min-disk', '-1'], '--min-disk is the free disk, in GB, the runner pauses below: a number of 0 or more, got "-1".'],
+        [['--min-disk', 'lots'], 'a number of 0 or more, got "lots".'],
+        [['--max-load', '0'], '--max-load is the 1-minute load, in times the cores, the runner pauses above: a number above 0, got "0".'],
+        [['--max-load', '-2'], 'a number above 0, got "-2".'],
+      ] as const) {
+        const err = out();
+        const app = fakeApp();
+        const code = await main(['runner', '--name', 'box-1', '--repos', '.', ...args], { stdout: out().stream, stderr: err.stream, env: {}, fetch: app.fetch });
+        expect(code).toBe(2);
+        expect(err.text()).toMatch(/^omni runner: /);
+        expect(err.text()).toContain(words);
+        expect(app.calls).toEqual([]);
+      }
+    });
   });
 
   it('refuses a bad --slots, --timeout, --name or --keep-logs', async () => {
