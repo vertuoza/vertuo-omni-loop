@@ -4,16 +4,59 @@
       "stage": "design",
       "date": "2026-10-15",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "A pack fetched at read_at is better than a copy someone forgot to refresh. Refusing a stale pack is the right call, but it is one more thing that can stop my slice.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "My bugs get fixed in my repository. If the record of why lives only on a website, I won't read it, and next year nobody finds why that guard exists.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Roadmaps on the product and every question in one Outbox tab: I answer across all my products from one page, and the plan repository finally goes.", "citations": ["persona:Paul - Product Manager", "offering#316"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Bug Fixes across every product with a filter, and records that close themselves on the last merge, give me one view of what is broken where.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "I write the Mobile roadmap and approve it on its page, without a plan repository I don't master.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A pack fetched at read_at is better than a copy someone forgot to refresh. Refusing a stale pack is the right call, but it is one more thing that can stop my slice.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "My bugs get fixed in my repository. If the record of why lives only on a website, I won't read it, and next year nobody finds why that guard exists.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Roadmaps on the product and every question in one Outbox tab: I answer across all my products from one page, and the plan repository finally goes.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Bug Fixes across every product with a filter, and records that close themselves on the last merge, give me one view of what is broken where.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I write the Mobile roadmap and approve it on its page, without a plan repository I don't master.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
       "objection": {
         "persona": "B-E DEv",
         "text": "My bugs get fixed in my repository. If the record of why lives only on a website, I won't read it, and next year nobody finds why that guard exists.",
-        "citations": ["persona:B-E DEv"],
+        "citations": [
+          "persona:B-E DEv"
+        ],
         "settled": "accepted"
       },
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ · offering#316 ✓"
@@ -22,11 +65,106 @@
       "stage": "spec",
       "date": "2026-10-15",
       "personas": [
-        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "The pack readers and the guard test against plan.targets[] mean fewer silent breaks in a product checkout. Thirteen criteria is a big PRD to trust in one go.", "citations": ["persona:F-E Developer"] },
-        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "Fixes mobile-B74 with the repro and guard lines in my PR body: git log keeps the why. That answers what I asked.", "citations": ["persona:B-E DEv"] },
-        { "name": "Paul - Product Manager", "stance": "excited", "score": 5, "reaction": "Questions › Outbox and the outbox on each PRD page are exactly where I work across products.", "citations": ["persona:Paul - Product Manager", "offering#316"] },
-        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Records born in git finish in git, and a repository can step back down: nothing in flight tears.", "citations": ["persona:Lead Engineer"] },
-        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "The archive button tells me what still holds the plan repository, in words I can act on.", "citations": ["persona:Irisa"] }
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The pack readers and the guard test against plan.targets[] mean fewer silent breaks in a product checkout. Thirteen criteria is a big PRD to trust in one go.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Fixes mobile-B74 with the repro and guard lines in my PR body: git log keeps the why. That answers what I asked.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Questions › Outbox and the outbox on each PRD page are exactly where I work across products.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Records born in git finish in git, and a repository can step back down: nothing in flight tears.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The archive button tells me what still holds the plan repository, in words I can act on.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · offering#316 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-16",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Packs checked by hash and refused when stale beat a copy nobody refreshes, and the old way still has its own end-to-end tests.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Every fix PR carries its record, reproduction and guard, so git log still tells me why. And my plan repository keeps working.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Roadmaps and bugs on the product, and one Outbox for my questions. I still need repository PRDs in that Outbox to see everything.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Nothing in flight tore: records born in git finish in git, and the Repositories tab shows what still lives in the plan repository.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I write and approve the Mobile roadmap on its page, but driving it from the terminal is not wired yet.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · offering#316 ✓"
