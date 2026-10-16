@@ -869,3 +869,475 @@ Two sentences in the rules register, in a change of their own.
 ```
 
 <!-- /omni-outbox-settled: s2-03-rules-84-85-reword-left -->
+
+<!-- omni-outbox-settled: s5-01-checks-outside-territory -->
+
+## s5-01-checks-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s5
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-checks-outside-territory
+prd: 2011
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+The new database check for bug records only protects us if the automatic checks run it, and one older check said a product could never have a bug of its own. Who changes those two files, which sit outside this slice's ground?
+
+## The decision, in plain words
+
+This slice made both small changes itself: the automatic checks now run the new bug-records check, and the older check now proves a product still cannot hold a visual fix, instead of a bug, since product bugs are now allowed.
+
+## The intro, for fun
+
+A brand new safety check is useless if nobody ever runs it.
+
+## The punchline, for fun
+
+So it joined the line-up, and an old check stopped arguing with it.
+
+## The options, in plain words
+
+A. Keep both changes as made: the new check runs on every pull request, and the old refusal tries a visual fix (as built)
+B. Keep the old check's change but drop the workflow step, so the new check runs only when someone runs it by hand
+C. Undo both and let a person add them on the feature branch before it is marked ready
+
+## What I had to decide
+
+Whether s5 may add a step to the supabase workflow and adjust one refusal in product_prd_ids.sql, both outside its territory, or leave them to a person or another slice.
+
+## What I did meanwhile
+
+Added one step to .github/workflows/supabase.yml that runs supabase/checks/fix_rows.sql, as every other check is run. In supabase/checks/product_prd_ids.sql, the refusal 'a product dossier of another kind was written' tried a `bug` dossier on a product, which this migration now allows on purpose; it now tries a `visual` one, which is still refused. Nothing else in either file changed.
+
+## What it costs to change later
+
+A constant: removing the workflow step, or putting the old example back, is a one-line change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan lists supabase/checks/fix_rows.sql in s5's territory but not the workflow that runs it, and no slice of landing 2 owns .github/ (author)
+- No slice owns supabase/checks/product_prd_ids.sql in this PRD; leaving it unchanged would leave the supabase check red (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-checks-outside-territory -->
+
+<!-- omni-outbox-settled: s5-02-fix-row-texts-optional -->
+
+## s5-02-fix-row-texts-optional — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s5
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-fix-row-texts-optional
+prd: 2011
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+When a bug record is first sent, its fixes may not have a pull request, a reproduction or a guard yet. Must every row carry all three from the start?
+
+## The decision, in plain words
+
+Only the repository and what the fix changes are required. The pull request, the reproduction and the guard can be filled in by a later send, once they exist; a fix that has merged can no longer be moved, dropped or pointed at another pull request.
+
+## The intro, for fun
+
+Bugs rarely arrive with their paperwork done.
+
+## The punchline, for fun
+
+The record waits for the details, but never forgets a merge.
+
+## The options, in plain words
+
+A. Only the repository and the change are required at first; the rest is filled in later, and a merged row is frozen (as built)
+B. Every row must carry its pull request, reproduction and guard from the first send
+C. Nothing is frozen: a later send may rewrite or drop even a merged row
+
+## What I had to decide
+
+Which of a Fixes row's fields fix_bug_push() requires at the first push, and what a later push may change once a row merged.
+
+## What I did meanwhile
+
+fix_rows requires repository (one of the product's) and changes; pull, reproduction and guard may be null until a later push fills them. A later push rewrites the rows by position: a row whose repository or pull request changes starts open again, and a merged row's place, repository and pull request are refused to change (its words may still change). One pull request sits on one row of a bug at most.
+
+## What it costs to change later
+
+A constant: requiring the reproduction and the guard later is one check in fix_bug_push() and a constraint, in a follow-up migration, before rows exist without them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec lists a row's fields but not when each must be known; /omni:mega-bug-fix proves the reproduction red before it fixes, so the record may be pushed before either exists (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-02-fix-row-texts-optional -->
+
+<!-- omni-outbox-settled: s5-03-merge-matching-in-database -->
+
+## s5-03-merge-matching-in-database — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s5
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-merge-matching-in-database
+prd: 2011
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+When a fix's pull request merges, something has to find its row, mark it merged, ship the bug once every fix is in, and remember a merge that matches no row. Does the database do that, or the GitHub App?
+
+## The decision, in plain words
+
+The database does it, through one action only the server may call: it marks the matching rows merged, closed or reopened, says which bug records that merge completed, and keeps a merge that names a bug but matches none of its rows. The App only has to pass on what GitHub told it.
+
+## The intro, for fun
+
+Every fix that merges has to find its own name on the list.
+
+## The punchline, for fun
+
+The database keeps the list, so the App only has to read the news.
+
+## The options, in plain words
+
+A. The database matches, stamps and ships, and keeps unmatched merges; the App passes on GitHub's events (as built)
+B. The App matches and decides shipping itself, writing rows through a plainer database action
+C. The database stores only the merge time; shipping and unmatched merges are worked out when a page is read
+
+## What I had to decide
+
+Where the matching rule of s7 lives, given that s5 is the only slice of landing 2 that may change the database.
+
+## What I did meanwhile
+
+Built fix_row_stamp(repo, pull, merged|closed|reopened, at, bug?) for the service role alone: a merge stamps merged_at once (a replay keeps the first and ships nothing twice), a close marks an unmerged row closed, a reopen clears it; its answer names each record this merge shipped. A merge matching no row, whose body names a record of a product holding the repository, is kept once in fix_unmatched_merges. Being shipped is read from the rows, never stored: fix_facts carries it in its rows summary, and a product bug's facts show its pull request from the rows.
+
+## What it costs to change later
+
+A constant: the App can match rows itself later and stop calling the function; the table and the function stay, unused, until a follow-up migration drops them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- s7 owns the webhook but has no database ground, so its rule had to be settled here before s7 is built (author)
+- Whether a merge whose body names no record at all should be kept anywhere is left out: it is dropped (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-03-merge-matching-in-database -->
+
+<!-- omni-outbox-settled: s6-01-bug-push-touches-two-shared-files -->
+
+## s6-01-bug-push-touches-two-shared-files — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s6
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-bug-push-touches-two-shared-files
+prd: 2011
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+To send a bug record to the Omni page, the command needs a call that the shared sign-in client does not have yet, and a shared helper that was private. Is it fine that this slice touched those two shared files?
+
+## The decision, in plain words
+
+The sign-in client gained one call for bug records, and the private line that words a failed call in the roadmap code was made shareable, so the bug command words its failures the same way. Nothing else in those files changed.
+
+## The intro, for fun
+
+A new road needs a sign, and the sign shop was next door.
+
+## The punchline, for fun
+
+Two borrowed tools, returned unchanged.
+
+## The options, in plain words
+
+A. A. Add the one call and share the helper, leave the help text for a later slice (as built)
+B. B. Keep a private copy of the helper in the bug folder, and still add the one call
+C. C. Give the bug command its own plain fetch and touch no shared file
+
+## What I had to decide
+
+Whether a slice may add one call to the shared client and share one private helper when its territory lists neither file.
+
+## What I did meanwhile
+
+Added pushBug to kit/lib/ask/client.ts, beside pushRoadmap, and exported callLine from kit/lib/roadmap/product.ts so kit/lib/bug/product.ts reuses it instead of copying it. The help text of omni bug (kit/lib/help/entries.ts) was left as it is, so omni help bug does not yet list check and push.
+
+## What it costs to change later
+
+A constant: moving the call or the helper into the bug folder is a few lines, with a copy of the helper there.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for s6 lists neither kit/lib/ask/client.ts nor kit/lib/roadmap/product.ts nor kit/lib/help/entries.ts, yet the push needs the first, the duplication check asks for the second, and omni help would want the third.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-bug-push-touches-two-shared-files -->
+
+<!-- omni-outbox-settled: s7-01-stamp-runs-as-an-app-job -->
+
+## s7-01-stamp-runs-as-an-app-job — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-stamp-runs-as-an-app-job
+prd: 2011
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+When a fix is merged, closed or reopened, should the GitHub App record it on the bug through a background job of its own that retries on failure, rather than through the arcade?
+
+## The decision, in plain words
+
+The App records the change through a background job of its own, which writes to the database directly and tries again when the database fails. The arcade's stamp page was not built, and two tests that list the App's jobs now list this one too.
+
+## The intro, for fun
+
+A merge happened, and someone has to write it in the logbook.
+
+## The punchline, for fun
+
+The App holds the pen itself, and tries again if the ink runs out.
+
+## The options, in plain words
+
+A. The App's own background job writes to the database, with retries (as built)
+B. The App forwards each change to an arcade route that writes to the database, signed as the stage events are
+C. The App writes to the database while it answers GitHub, with no job and no retry
+
+## What I had to decide
+
+Keep the App's own job, or move the write behind an arcade route.
+
+## What I did meanwhile
+
+Built `apps/omni-app/src/fix-rows/` (the event, the service-role call of fix_row_stamp(), the `fix-row-stamp` Inngest function, retried 3 times) and registered it in `functions.ts`. The webhook hands its events to a new `sendStamps`. `apps/galaxy/app/api/fixes/stamp/` was not created. Outside the territory, `apps/omni-app/src/functions.test.ts` and `apps/omni-app/src/outbox-check/inngest-route.test.ts` each gained the new function id and count (eleven functions, sixteen with failure handlers); `apps/omni-app/entries/inngest.ts` still says ten in its header comment.
+
+## What it costs to change later
+
+A constant: the function's step could POST to a galaxy route instead of calling the database; the event and the webhook stay as they are.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan lists both `apps/omni-app/src/functions.ts` (register the stamp) and `apps/galaxy/app/api/fixes/stamp/`, and the spec does not say which side writes; s5's note says to call fix_row_stamp() as the service role, which the App already holds.
+- (author) Every registered function is listed in two tests outside the territory, so registering one cannot be done inside it.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-stamp-runs-as-an-app-job -->
+
+<!-- omni-outbox-settled: s7-02-which-pull-requests-ask-for-a-stamp -->
+
+## s7-02-which-pull-requests-ask-for-a-stamp — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-which-pull-requests-ask-for-a-stamp
+prd: 2011
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+Which closed or reopened pull requests should ask the server to update a bug's fixes: only those into the main branch, those naming a bug, or all of them?
+
+## The decision, in plain words
+
+A pull request asks only when it goes into its repository's main branch, or when its description names a bug record. A fix merged into another branch whose description names no bug is never recorded, and its bug stays open.
+
+## The intro, for fun
+
+Every door that closes could be a fix walking out.
+
+## The punchline, for fun
+
+We only check the front door, and any door with a name tag.
+
+## The options, in plain words
+
+A. Main branch, or a description naming a bug record (as built)
+B. Every pull request closed or reopened, whatever its branch, one job each
+C. Only a pull request whose description names a bug record
+
+## What I had to decide
+
+Keep the filter, widen it to every pull request, or narrow it to those naming a bug.
+
+## What I did meanwhile
+
+`toFixStampRequests` in `apps/omni-app/src/webhook/webhook.ts` sends one fix stamp event for `pull_request.closed` (merged or not) and `pull_request.reopened` into the default branch, or on any branch when the body has a `Fixes <key>-B<n>` line; a delivery naming no default branch is sent. Each event is one Inngest run, so a sub-PR into its feature branch sends none (#1409). A redelivery of the same change carries the same event id.
+
+## What it costs to change later
+
+A constant: one condition in `toFixStampRequests`.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the merge webhook stamps the row whose repository and pull request match, and says nothing of the branch; #1409 stopped sub-PR merges from spending a run each.
+- (author) Events of one pull request run as separate jobs, so a close and a reopen seconds apart could land out of order and leave the row shown closed until it merges.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-which-pull-requests-ask-for-a-stamp -->
