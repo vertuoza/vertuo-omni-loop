@@ -10,7 +10,7 @@ import { StoredProductItem, type ProductOutboxRows } from './outbox-product';
 type Db = Pick<SupabaseClient, 'from'>;
 
 const ITEM_COLUMNS = 'item, rank, repository, body, raised_at, outbox_settlements(verdict, basis, answer, channel, settler_login, settled_at)';
-const WHERE = 'dossier/page/outbox-product-read';
+const WHERE = 'dossier/page/outbox-product.repository';
 
 export const PrdKey = z.object({ product_seq: z.number().int().positive().nullable(), product_id: z.string().nullable() });
 const ProductKey = z.object({ key: z.string().nullable() });
