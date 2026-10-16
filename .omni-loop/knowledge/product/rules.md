@@ -974,7 +974,7 @@ Merged: @pierrederval, 2026-10-07, PR #1181
 
 ## BR-PRODUCT-81
 
-Any member of a roadmap's workspace may push an update to it, replacing its document and PRD rows, and the roadmap records the member who pushed last.
+Any member of a roadmap's workspace may push an update to it, replacing its document and PRD rows, and the roadmap records the member who pushed last. A roadmap born on the server keeps every push as a version, adding one only for what changed.
 
 Serves: P-PRODUCT-72
 Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s2-02-roadmap-any-member-pushes, PRD #1162
