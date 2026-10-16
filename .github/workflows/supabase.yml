@@ -151,8 +151,16 @@ jobs:
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_outbox.sql
       - name: Who may read and write the fixes' stored facts
         # Only the service role stores a fix's GitHub facts. A member reads their own workspace's
-        # rows; anyone else reads nothing, and nobody signed in writes.
+        # rows; anyone else reads nothing, and nobody signed in writes. A bug's Fixes rows give its
+        # facts their summary, whoever writes them (PRD 2011).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/fix_facts.sql
+      - name: A product bug's Fixes rows and its counter
+        # fix_bug_push() creates mobile-B<n> from the product's own counter, with its rows in order,
+        # refusing by name a row outside the product before any write; fix_row_stamp(), the service
+        # role's alone, stamps a merge once, a close and a reopen, ships the record on its last merge
+        # and keeps an unmatched merge once; a merged row never moves. A member reads the rows, nobody
+        # signed in writes them. Two creates at once, through dblink, take two numbers with no gap (PRD 2011).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/fix_rows.sql
       - name: Who may read and write the repositories
         # Only a workspace's owner adds a repository or switches its tracking, through the two
         # repository functions; a member, another workspace's owner, a stranger and anyone signed out
