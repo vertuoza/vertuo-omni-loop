@@ -33,7 +33,11 @@ const Answer = z.strictObject({
  * `<key>-B<n>`. */
 export async function pushBug(db: Pick<SupabaseClient, 'rpc'>, push: FixRowsPush): Promise<z.output<typeof Answer>> {
   const { productKey, bug, repo, title, record, rows } = push;
-  const { data, error } = await db.rpc('fix_bug_push', { p_key: productKey, p_bug: bug ?? null, p_body: { title, record, rows }, p_repo: repo ?? null });
+  return settled(await db.rpc('fix_bug_push', { p_key: productKey, p_bug: bug ?? null, p_body: { title, record, rows }, p_repo: repo ?? null }));
+}
+
+/** fix_bug_push()'s answer, parsed; its refusal or an answer that does not parse, thrown. */
+function settled({ data, error }: { data: unknown; error: { code?: string; message: string } | null }): z.output<typeof Answer> {
   if (error) throw new FixRowsStoreError('push the bug', error.code, error.message);
   const parsed = parseRow(Answer, data, 'fixes/rows: fix_bug_push');
   if (!parsed.ok) throw new FixRowsStoreError('push the bug', undefined, parsed.error);
