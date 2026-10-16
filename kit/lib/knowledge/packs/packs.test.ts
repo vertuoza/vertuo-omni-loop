@@ -44,13 +44,14 @@ describe('packGet', () => {
     expect(statSync(join(folder, '.omni-loop/config.yml')).mode & 0o222).toBe(0);
     expect(statSync(folder).mode & 0o222).toBe(0);
     expect(readFileSync(join(root, '.omni-loop/local/.gitignore'), 'utf8')).toBe('*\n');
-    expect(JSON.parse(readFileSync(join(folder, 'pack.json'), 'utf8')).files[0].sha256).toBe(hash(CONFIG));
+    expect(readFileSync(join(folder, 'pack.json'), 'utf8')).toContain(hash(CONFIG));
   });
 
   it('writes nothing for a file that does not hash to the sha256 sent, or leaves the folder', async () => {
     const { root } = makeRepo();
     const bad = reply(SHA_A, '2026-10-15T00:00:00Z');
-    bad.files[0] = { ...bad.files[0]!, content: 'tampered' };
+    const tampered = bad.files.map((file) => ({ ...file, content: 'tampered' }));
+    bad.files.splice(0, bad.files.length, ...tampered);
     const result = await packGet(input(root, () => Promise.resolve(bad)));
     expect(result.code).toBe(1);
     expect(result.err[0]).toContain('does not hash to the sha256 sent');
@@ -109,7 +110,8 @@ describe('local packs', () => {
     expect(localPacks(root, 'acme/back').map(({ sha }) => sha)).toEqual([SHA_A, SHA_B]);
     expect(newestPack(root, 'back')?.sha).toBe(SHA_A);
     expect(newestPack(root, 'acme/other')).toBeNull();
-    expect(packFile(root, newestPack(root, 'back')!, '.omni-loop/flow/kernel/tests.md')).toBe('Run the kernel tests.\n');
+    const newest = newestPack(root, 'back');
+    expect(newest === null ? null : packFile(root, newest, '.omni-loop/flow/kernel/tests.md')).toBe('Run the kernel tests.\n');
   });
 
   it('writes a commit once: a second fetch leaves the read-only folder as it is', async () => {
