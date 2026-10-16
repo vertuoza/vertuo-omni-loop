@@ -26,6 +26,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 /** The run's GIF, found by its name (PRD 798, settled item s2-01). */
 const GIF = 'preview.gif';
 
+/**
+ * The clips of a bug's run, in the order they are linked (PRD 2100): the story filmed before the fix, then after. The
+ * proof API serves exactly these two names under a run (`apps/galaxy/src/proof/store.ts`, `PROOF_CLIP_NAMES`).
+ */
+const BUG_CLIPS = ['before.webm', 'after.webm'] as const;
+
 export class ProofReplyError extends Error {
   constructor(message: string) {
     super(message);
@@ -51,7 +57,9 @@ function linksOf(reply: unknown, files: readonly ProofFile[]): { runId: string; 
 
 /**
  * Sends `run`, and answers the Proof tab's link and, for a run that sent a `preview.gif`, its stable
- * link: the one link GitHub's image proxy can read without signing in.
+ * link: the one link GitHub's image proxy can read without signing in. For a bug (`kind: 'bug'`), a run that
+ * sent `before.webm` or `after.webm` also gets a stable link to each, `clips`, before first (PRD 2100); no
+ * other run has a `clips` key.
  */
 export async function pushProof({
   client,
@@ -70,7 +78,7 @@ export async function pushProof({
   run: ProofRun;
   read?: (path: string) => Uint8Array<ArrayBuffer>;
   newRunId?: () => string;
-}): Promise<{ tab: string; gif?: string }> {
+}): Promise<{ tab: string; gif?: string; clips?: string[] }> {
   const kindOf = kind ? { kind } : {};
   let runId: string;
   if (run.files.length) {
@@ -84,6 +92,8 @@ export async function pushProof({
   const registered = await client.registerProof({ repo, prd, ...kindOf, run: runId, commit: run.commit, url: run.url, criteria: run.criteria });
   const tab = isRecord(registered) ? registered.url : undefined;
   if (!isText(tab)) throw new ProofReplyError('no link in the reply');
-  if (!run.files.some(({ name }) => name === GIF)) return { tab };
-  return { tab, gif: `${new URL(tab).origin}/api/proofs/${runId}/${GIF}` };
+  const stable = (name: string) => `${new URL(tab).origin}/api/proofs/${runId}/${name}`;
+  const sent = (name: string) => run.files.some((file) => file.name === name);
+  const clips = kind === 'bug' ? BUG_CLIPS.filter(sent).map(stable) : [];
+  return { tab, ...(sent(GIF) ? { gif: stable(GIF) } : {}), ...(clips.length ? { clips } : {}) };
 }

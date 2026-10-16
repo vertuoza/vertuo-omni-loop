@@ -8,8 +8,10 @@
 // `omni proof push [--kind bug] <n> <dir>` — sends a proof run `/omni:prove` recorded to PRD n's dossier on the
 // Omni page (PRD 798's spec, "The Omni page"), and prints the Proof tab's link, then the GIF's stable link on a
 // second line when the run sent a `preview.gif`. With `--kind bug` (PRD 1972) the run goes to the bug dossier
-// of issue n and the first line is the bug page's link; `--kind prd`, or no `--kind`, sends and prints exactly
-// what it did before. Any other kind is a usage error, exit 2.
+// of issue n and the first line is the bug page's link; a bug run that also sent `before.webm` or `after.webm`
+// (PRD 2100) prints one more line per clip, before first, after the GIF's: its stable link, served by
+// `GET /api/proofs/<run>/<clip>`. `--kind prd`, or no `--kind`, sends and prints exactly what it did before.
+// Any other kind is a usage error, exit 2.
 //
 // It reads `<dir>/run.json` and the files it names (`../../lib/proof/run.ts`), refusing before anything
 // is sent what the app would refuse: a type other than .webm, .gif, .ts or .txt is `refused (400)`, a
@@ -118,6 +120,7 @@ async function send(
   }
   println(stdout, pushed.tab);
   if (pushed.gif) println(stdout, pushed.gif);
+  for (const clip of pushed.clips ?? []) println(stdout, clip);
   return 0;
 }
 
