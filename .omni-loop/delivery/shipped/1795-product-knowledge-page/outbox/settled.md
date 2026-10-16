@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-15
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-113, P-PRODUCT-94
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ Requiring a link later is one changed check in a new migration; entries already 
 - Raised: 2026-10-15
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-114, P-PRODUCT-95
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Changing the default later touches one function; entries already stored keep the
 - Raised: 2026-10-15
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-115, P-PRODUCT-96
 
 ### The answer, as it was given
 
@@ -249,6 +252,7 @@ Changing it later is one function; no stored data changes.
 - Raised: 2026-10-15
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-116, P-PRODUCT-97
 
 ### The answer, as it was given
 
@@ -326,6 +330,7 @@ Dropping it later means a migration that stops writing these rows; rows already 
 - Raised: 2026-10-15
 - Slice: s1
 - Wave: 1
+- Stays here: A local plumbing choice that is cheap to move (one function and one read) and stores nothing lasting; no product guarantee or lasting architecture rides on it.
 
 ### The answer, as it was given
 
@@ -403,6 +408,7 @@ Moving it later is one function and the check's read; nothing stored changes.
 - Raised: 2026-10-16
 - Slice: s2
 - Wave: 2
+- Stays here: A local build choice inside the Knowledge tab, cheap to change in one slice, with no lasting product guarantee beyond what the code already shows.
 
 ### The answer, as it was given
 
@@ -481,6 +487,7 @@ B or C is one small slice each, inside apps/galaxy/src/product-knowledge/.
 - Raised: 2026-10-16
 - Slice: s2
 - Wave: 2
+- Stays here: A one-off choice about a design draft file for this slice; it states nothing lasting about the product's behaviour and is cheap to change.
 
 ### The answer, as it was given
 
@@ -559,6 +566,7 @@ B or C touches only the two files in the screens folder.
 - Raised: 2026-10-16
 - Slice: s5
 - Wave: 2
+- Stays here: An interim choice waiting on a later slice that adds retired entries to the business read; it is not a lasting guarantee, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -636,6 +644,7 @@ A small addition to the business read and one more line in the check.
 - Raised: 2026-10-16
 - Slice: s6
 - Wave: 2
+- Stays here: A local code-organisation choice made to keep slice boundaries; no lasting product guarantee or architectural decision to record.
 
 ### The answer, as it was given
 
@@ -713,6 +722,7 @@ Two short readers of the same file could drift apart if the copy's shape changes
 - Raised: 2026-10-16
 - Slice: s7
 - Wave: 2
+- Stays here: A sequencing choice about slice territory, cheap to change and with nothing lasting to keep; it belongs in the ledger, not the knowledge base.
 
 ### The answer, as it was given
 
