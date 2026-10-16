@@ -186,6 +186,40 @@ by side with the product way.
 
 ## A product PRD
 
+## Product knowledge
+
+A product keeps two kinds of knowledge on its Omni page, shared by every repository it links:
+
+- **Legal** entries: one sentence of what a law or regulation requires, with its source and an
+  owner. Each has an id such as `L-INVOICING-1`, which never changes and is never reused.
+- **Glossary** terms: a term, its meaning in one sentence and the words to avoid in its place, such
+  as *Credit note*, avoid *refund*.
+
+Both are edited on the product's **Knowledge** tab, after Questions. Each kind names one owner and
+one delegate. The owner or the delegate adds, edits and retires Legal entries (a retired entry keeps
+its id) and adds, edits and removes glossary terms (a removed term is kept, marked removed). Any other
+member of the workspace proposes a change, and the owner or the delegate approves or rejects it.
+
+Two verbs read them in a repository of the product, with the computer's sign-in:
+
+```bash terminal agent
+omni kb legal
+omni kb glossary
+```
+
+Each writes a local copy, `.omni-loop/local/product-knowledge.json`. When the Omni page cannot be
+reached, the verbs print the copy and the date it was read, and exit 0. With no copy yet, they exit 1.
+
+A rule or an invariant can cite a Legal entry in place of a principle: `Serves: L-INVOICING-1`.
+`omni check knowledge` verifies the id against the product, and reads the page only when a rule
+serves an `L-` id. An id the product does not hold, or one it retired, fails the check. With the page
+unreachable or no sign-in, the check passes and says that the Legal entry was not verified; it never
+blocks on the network.
+
+The glossary feeds the words check. `omni design words` adds the avoided words of the product's
+glossary, read from the local copy only, so a screen that says *refund* is reported as
+`"refund": avoid, the product says "Credit note"`. With no copy, the check uses its usual word lists.
+
 ## A product PRD
 
 A feature that lands in several of a product's repositories can live on the product itself. Such a

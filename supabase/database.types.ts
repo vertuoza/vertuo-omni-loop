@@ -2396,6 +2396,329 @@ export type Database = {
           },
         ]
       }
+      product_glossary: {
+        Row: {
+          avoid: string[]
+          created_at: string
+          created_by: string | null
+          id: string
+          meaning: string
+          product_id: string
+          removed_at: string | null
+          removed_by: string | null
+          term: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          avoid?: string[]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          meaning: string
+          product_id: string
+          removed_at?: string | null
+          removed_by?: string | null
+          term: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          avoid?: string[]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          meaning?: string
+          product_id?: string
+          removed_at?: string | null
+          removed_by?: string | null
+          term?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_glossary_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_glossary_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_knowledge_events: {
+        Row: {
+          action: string
+          after: Json | null
+          before: Json | null
+          changed_at: string
+          changed_by: string | null
+          glossary_id: string | null
+          id: number
+          kind: string
+          legal_id: string | null
+          product_id: string
+          proposal_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          action: string
+          after?: Json | null
+          before?: Json | null
+          changed_at?: string
+          changed_by?: string | null
+          glossary_id?: string | null
+          id?: never
+          kind: string
+          legal_id?: string | null
+          product_id: string
+          proposal_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          action?: string
+          after?: Json | null
+          before?: Json | null
+          changed_at?: string
+          changed_by?: string | null
+          glossary_id?: string | null
+          id?: never
+          kind?: string
+          legal_id?: string | null
+          product_id?: string
+          proposal_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_knowledge_events_glossary_id_fkey"
+            columns: ["glossary_id"]
+            isOneToOne: false
+            referencedRelation: "product_glossary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_knowledge_events_legal_id_fkey"
+            columns: ["legal_id"]
+            isOneToOne: false
+            referencedRelation: "product_legal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_knowledge_events_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_knowledge_events_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "product_knowledge_proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_knowledge_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_knowledge_owners: {
+        Row: {
+          kind: string
+          named_at: string
+          named_by: string | null
+          product_id: string
+          role: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          kind: string
+          named_at?: string
+          named_by?: string | null
+          product_id: string
+          role: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          kind?: string
+          named_at?: string
+          named_by?: string | null
+          product_id?: string
+          role?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_knowledge_owners_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_knowledge_owners_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_knowledge_proposals: {
+        Row: {
+          action: string
+          decided_at: string | null
+          decided_by: string | null
+          fields: Json
+          glossary_id: string | null
+          id: string
+          kind: string
+          legal_id: string | null
+          product_id: string
+          proposed_at: string
+          proposed_by: string | null
+          state: string
+          workspace_id: string
+        }
+        Insert: {
+          action: string
+          decided_at?: string | null
+          decided_by?: string | null
+          fields?: Json
+          glossary_id?: string | null
+          id?: string
+          kind: string
+          legal_id?: string | null
+          product_id: string
+          proposed_at?: string
+          proposed_by?: string | null
+          state?: string
+          workspace_id: string
+        }
+        Update: {
+          action?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          fields?: Json
+          glossary_id?: string | null
+          id?: string
+          kind?: string
+          legal_id?: string | null
+          product_id?: string
+          proposed_at?: string
+          proposed_by?: string | null
+          state?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_knowledge_proposals_glossary_id_fkey"
+            columns: ["glossary_id"]
+            isOneToOne: false
+            referencedRelation: "product_glossary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_knowledge_proposals_legal_id_fkey"
+            columns: ["legal_id"]
+            isOneToOne: false
+            referencedRelation: "product_legal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_knowledge_proposals_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_knowledge_proposals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_legal: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          number: number
+          owner_id: string | null
+          product_id: string
+          retired_at: string | null
+          retired_by: string | null
+          source: string
+          statement: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          number: number
+          owner_id?: string | null
+          product_id: string
+          retired_at?: string | null
+          retired_by?: string | null
+          source: string
+          statement: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          number?: number
+          owner_id?: string | null
+          product_id?: string
+          retired_at?: string | null
+          retired_by?: string | null
+          source?: string
+          statement?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_legal_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_legal_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_repositories: {
         Row: {
           added_at: string
@@ -4890,6 +5213,486 @@ export type Database = {
       product_approver_set: {
         Args: { p_member: string; p_product: string; p_state: string }
         Returns: Json
+      }
+      product_glossary_add: {
+        Args: {
+          p_avoid?: string[]
+          p_meaning: string
+          p_product: string
+          p_term: string
+          p_workspace: string
+        }
+        Returns: {
+          avoid: string[]
+          created_at: string
+          created_by: string | null
+          id: string
+          meaning: string
+          product_id: string
+          removed_at: string | null
+          removed_by: string | null
+          term: string
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_glossary"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_glossary_edit: {
+        Args: {
+          p_avoid?: string[]
+          p_entry: string
+          p_meaning?: string
+          p_term?: string
+          p_workspace: string
+        }
+        Returns: {
+          avoid: string[]
+          created_at: string
+          created_by: string | null
+          id: string
+          meaning: string
+          product_id: string
+          removed_at: string | null
+          removed_by: string | null
+          term: string
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_glossary"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_glossary_fields: {
+        Args: { e: Database["public"]["Tables"]["product_glossary"]["Row"] }
+        Returns: Json
+      }
+      product_glossary_live: {
+        Args: { p_entry: string; p_product: string; p_workspace: string }
+        Returns: {
+          avoid: string[]
+          created_at: string
+          created_by: string | null
+          id: string
+          meaning: string
+          product_id: string
+          removed_at: string | null
+          removed_by: string | null
+          term: string
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_glossary"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_glossary_remove: {
+        Args: { p_entry: string; p_workspace: string }
+        Returns: {
+          avoid: string[]
+          created_at: string
+          created_by: string | null
+          id: string
+          meaning: string
+          product_id: string
+          removed_at: string | null
+          removed_by: string | null
+          term: string
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_glossary"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_glossary_unique: {
+        Args: { p_except: string; p_product: string; p_term: string }
+        Returns: undefined
+      }
+      product_knowledge_apply: {
+        Args: {
+          p_action: string
+          p_entry: string
+          p_fields: Json
+          p_kind: string
+          p_owner: string
+          p_product: Database["public"]["Tables"]["products"]["Row"]
+        }
+        Returns: Json
+      }
+      product_knowledge_approve: {
+        Args: { p_proposal: string; p_workspace: string }
+        Returns: {
+          action: string
+          decided_at: string | null
+          decided_by: string | null
+          fields: Json
+          glossary_id: string | null
+          id: string
+          kind: string
+          legal_id: string | null
+          product_id: string
+          proposed_at: string
+          proposed_by: string | null
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_knowledge_proposals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_knowledge_change: {
+        Args: {
+          p_action: string
+          p_entry: string
+          p_event: string
+          p_fields: Json
+          p_kind: string
+          p_product: Database["public"]["Tables"]["products"]["Row"]
+        }
+        Returns: string
+      }
+      product_knowledge_decider_only: {
+        Args: { p_kind: string; p_product: string }
+        Returns: undefined
+      }
+      product_knowledge_decides: {
+        Args: { p_kind: string; p_product: string }
+        Returns: boolean
+      }
+      product_knowledge_entry_product: {
+        Args: { p_entry: string; p_kind: string; p_workspace: string }
+        Returns: {
+          bug_seq: number
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string | null
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          plan_repository: string | null
+          prd_count: number
+          roadmap_seq: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_knowledge_fields: {
+        Args: {
+          p_action: string
+          p_fields: Json
+          p_kind: string
+          p_owner: string
+          p_workspace: string
+        }
+        Returns: Json
+      }
+      product_knowledge_for_agents: {
+        Args: { p_product: string }
+        Returns: Json
+      }
+      product_knowledge_kind: { Args: { p_kind: string }; Returns: string }
+      product_knowledge_log: {
+        Args: {
+          p_action: string
+          p_after: Json
+          p_before: Json
+          p_entry: string
+          p_kind: string
+          p_product: Database["public"]["Tables"]["products"]["Row"]
+          p_proposal: string
+        }
+        Returns: undefined
+      }
+      product_knowledge_member_only: {
+        Args: { p_workspace: string }
+        Returns: undefined
+      }
+      product_knowledge_name: {
+        Args: {
+          p_kind: string
+          p_product: string
+          p_role: string
+          p_user: string
+          p_workspace: string
+        }
+        Returns: Json
+      }
+      product_knowledge_named: {
+        Args: { p_kind: string; p_product: string }
+        Returns: {
+          kind: string
+          named_at: string
+          named_by: string | null
+          product_id: string
+          role: string
+          user_id: string
+          workspace_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "product_knowledge_owners"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      product_knowledge_of: {
+        Args: { p_product: string; p_workspace: string }
+        Returns: Json
+      }
+      product_knowledge_open: {
+        Args: { p_proposal: string; p_workspace: string }
+        Returns: {
+          action: string
+          decided_at: string | null
+          decided_by: string | null
+          fields: Json
+          glossary_id: string | null
+          id: string
+          kind: string
+          legal_id: string | null
+          product_id: string
+          proposed_at: string
+          proposed_by: string | null
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_knowledge_proposals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_knowledge_person: {
+        Args: { p_user: string; p_workspace: string }
+        Returns: Json
+      }
+      product_knowledge_product: {
+        Args: { p_product: string; p_workspace: string }
+        Returns: {
+          bug_seq: number
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string | null
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          plan_repository: string | null
+          prd_count: number
+          roadmap_seq: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_knowledge_propose: {
+        Args: {
+          p_action: string
+          p_entry?: string
+          p_fields?: Json
+          p_kind: string
+          p_product: string
+          p_workspace: string
+        }
+        Returns: {
+          action: string
+          decided_at: string | null
+          decided_by: string | null
+          fields: Json
+          glossary_id: string | null
+          id: string
+          kind: string
+          legal_id: string | null
+          product_id: string
+          proposed_at: string
+          proposed_by: string | null
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_knowledge_proposals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_knowledge_reject: {
+        Args: { p_proposal: string; p_workspace: string }
+        Returns: {
+          action: string
+          decided_at: string | null
+          decided_by: string | null
+          fields: Json
+          glossary_id: string | null
+          id: string
+          kind: string
+          legal_id: string | null
+          product_id: string
+          proposed_at: string
+          proposed_by: string | null
+          state: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_knowledge_proposals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_knowledge_text: {
+        Args: {
+          p_field: string
+          p_label: string
+          p_most: number
+          p_value: string
+        }
+        Returns: string
+      }
+      product_legal_add: {
+        Args: {
+          p_code: string
+          p_owner?: string
+          p_product: string
+          p_source: string
+          p_statement: string
+          p_workspace: string
+        }
+        Returns: {
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          number: number
+          owner_id: string | null
+          product_id: string
+          retired_at: string | null
+          retired_by: string | null
+          source: string
+          statement: string
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_legal"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_legal_edit: {
+        Args: {
+          p_entry: string
+          p_owner?: string
+          p_source?: string
+          p_statement?: string
+          p_workspace: string
+        }
+        Returns: {
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          number: number
+          owner_id: string | null
+          product_id: string
+          retired_at: string | null
+          retired_by: string | null
+          source: string
+          statement: string
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_legal"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_legal_fields: {
+        Args: { e: Database["public"]["Tables"]["product_legal"]["Row"] }
+        Returns: Json
+      }
+      product_legal_live: {
+        Args: { p_entry: string; p_product: string; p_workspace: string }
+        Returns: {
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          number: number
+          owner_id: string | null
+          product_id: string
+          retired_at: string | null
+          retired_by: string | null
+          source: string
+          statement: string
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_legal"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_legal_retire: {
+        Args: { p_entry: string; p_workspace: string }
+        Returns: {
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          number: number
+          owner_id: string | null
+          product_id: string
+          retired_at: string | null
+          retired_by: string | null
+          source: string
+          statement: string
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_legal"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       product_of_key: {
         Args: { p_key: string; p_repo?: string }

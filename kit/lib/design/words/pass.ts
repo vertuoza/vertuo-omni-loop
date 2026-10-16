@@ -26,6 +26,8 @@ export type WordRules = {
   readonly primary: Selector;
   readonly content: Selector;
   readonly avoid: readonly string[];
+  /** PRD 1795 s6: for an avoided word the product's glossary lists (lower case), the term the product says instead. */
+  readonly says?: ReadonlyMap<string, string>;
 };
 
 /** One visible string of a screen: a control's whole label, or a run of text outside any control. */
@@ -188,10 +190,13 @@ const explainsAtRest = (phrases: readonly Phrase[], { sentence }: WordRules): Fi
     .filter((phrase) => !phrase.control && phrase.words > sentence)
     .map((phrase) => ({ rule: 'explains-at-rest', message: `"${phrase.text}" — ${phrase.words} words at rest (more than ${sentence})` }));
 
-function avoidedWord(phrases: readonly Phrase[], { avoid }: WordRules): Finding[] {
-  const terms = avoid.map((term) => ({ term, pattern: wholeTerm(term) }));
+function avoidedWord(phrases: readonly Phrase[], { avoid, says }: WordRules): Finding[] {
+  const terms = avoid.map((term) => ({ term, pattern: wholeTerm(term), say: says?.get(squash(term).toLowerCase()) }));
   return phrases.flatMap((phrase) =>
-    terms.filter(({ pattern }) => pattern.test(phrase.text)).map(({ term }): Finding => ({ rule: 'avoided-word', message: `"${term}" in "${phrase.text}"` })));
+    terms.filter(({ pattern }) => pattern.test(phrase.text)).map(({ term, say }): Finding => ({
+      rule: 'avoided-word',
+      message: say === undefined ? `"${term}" in "${phrase.text}"` : `"${term}": avoid, the product says "${say}" (in "${phrase.text}")`,
+    })));
 }
 
 /** The four rules over one screen's phrases and primary actions, in the rules' order. */

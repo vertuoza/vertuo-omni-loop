@@ -42,6 +42,7 @@ describe('the Ledger, filled', () => {
       { tab: '<a class="section-tab" href="/app/products/demo-product-1/bugs">', text: 'Bug fixes' },
       { tab: '<a class="section-tab" href="/app/products/demo-product-1/visual">', text: 'Visual fixes' },
       { tab: '<a class="section-tab" aria-label="Questions: 3 waiting" href="/app/products/demo-product-1/questions">', text: 'Questions 3' },
+      { tab: '<a class="section-tab" href="/app/products/demo-product-1/knowledge">', text: 'Knowledge' },
       { tab: '<a class="section-tab" href="/app/products/demo-product-1/repositories">', text: 'Repositories & approvers' },
     ]);
   });

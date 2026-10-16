@@ -128,8 +128,15 @@ export const LAYER_FILES: Record<string, EntryKind> = {
 };
 
 /** Every id shape, as one alternation. Order matters: the longer shapes first. */
-const ID_SOURCE =
+const ENTRY_ID_SOURCE =
   'X-[A-Z0-9]+-[A-Z0-9]+-\\d+|BR-[A-Z0-9]+-\\d+|P-[A-Z0-9]+-\\d+|N-[A-Z0-9]+-\\d+|N\\d+';
+
+/** A product's Legal entry (`L-INVOICING-1`, PRD 1795): an id a rule may serve, with no file in the repository. */
+const LEGAL_ID_SOURCE = 'L-[A-Z0-9]+-\\d+';
+const ID_SOURCE = `${ENTRY_ID_SOURCE}|${LEGAL_ID_SOURCE}`;
+
+/** A whole string that is a Legal entry's id. */
+export const LEGAL_ID_SHAPE = new RegExp(`^${LEGAL_ID_SOURCE}$`);
 
 /** A whole string that is an id of any kind. */
 export const ID_SHAPE = new RegExp(`^(?:${ID_SOURCE})$`);
@@ -137,7 +144,7 @@ export const ID_SHAPE = new RegExp(`^(?:${ID_SOURCE})$`);
 /** Every id-shaped token (`N3`, `BR-QUOTE-1`, `P-ADVISOR-2`, `X-ADVISOR-CREDITS-1`) in a text. */
 export const ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, 'g');
 
-const ENTRY_HEADING = new RegExp(`^##\\s+(${ID_SOURCE})\\s*$`);
+const ENTRY_HEADING = new RegExp(`^##\\s+(${ENTRY_ID_SOURCE})\\s*$`);
 const ANY_H2 = /^##\s/;
 const FIELD_LINE =
   /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Kind|Kept id|Glossary term):\s*(.*)$/;

@@ -14,6 +14,7 @@ import { formatFailure, formatPass, trackedFiles } from '../../lib/check-report.
 import { baseKnowledge, rangeChanges } from '../../lib/git.ts';
 import { findInboxViolations } from '../../lib/inbox/check-inbox.ts';
 import { gradeKnowledge } from '../../lib/knowledge/check-knowledge.ts';
+import { verifyServedLegal, type LegalReach } from '../../lib/knowledge/check-knowledge-legal.ts';
 import { COPIES_DIR, gradeCopies } from '../../lib/knowledge/copies.ts';
 import { readKnowledge } from '../../lib/knowledge/registers.ts';
 import { findOutboxViolations } from '../../lib/outbox/check-outbox.ts';
@@ -82,7 +83,8 @@ function checkOutbox({ ctx, stdout }: CommandIo): boolean {
   );
 }
 
-function checkKnowledge({ ctx, stdout, stderr }: CommandIo): boolean {
+// PRD 1795: a rule that serves an `L-` id is verified against the product, never blocking on the network.
+async function checkKnowledge({ ctx, stdout, stderr, exec }: CommandIo, { cwd, reach }: { cwd: string; reach: LegalReach }): Promise<boolean> {
   const root = ctx.layout.knowledgeRoot;
   const title = 'check knowledge — the knowledge folder does not hold what it claims:';
   if (!existsSync(join(ctx.root, root))) {
@@ -98,11 +100,13 @@ function checkKnowledge({ ctx, stdout, stderr }: CommandIo): boolean {
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
   for (const proposal of proposals) println(stderr, `warning: ${proposal}`);
   const knowledge = readKnowledge({ ctx });
+  const legal = await verifyServedLegal({ ctx, entries: knowledge.entries, cwd, exec, reach });
+  for (const note of legal.notes) println(stdout, note);
   const count = (kind: string) => knowledge.entries.filter((entry) => entry.kind === kind).length;
   return report(
     stdout,
     title,
-    violations,
+    [...violations, ...legal.violations],
     `check knowledge — ${count('principle')} principle(s), ${count('rule')} rule(s), ${count('invariant')} invariant(s) ` +
       `across ${knowledge.domains.length} domain(s) and ${knowledge.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`,
   );
@@ -345,7 +349,6 @@ const SINGLE_GUARDS: Readonly<Record<string, (io: CommandIo) => boolean>> = {
   config: checkConfig,
   inbox: checkInbox,
   outbox: checkOutbox,
-  knowledge: checkKnowledge,
   kb: checkKb,
   releases: checkReleases,
   agents: checkAgents,
@@ -358,13 +361,15 @@ function guardOf(positional: readonly string[]): string {
 }
 
 interface Range {
+  /** Where `omni` runs and what a test hands the Legal read (PRD 1795). */
+  know: { cwd: string; reach: LegalReach };
   base: string;
   baseKnown: boolean;
   prd: PrdNumber | null;
 }
 
 /** The coverage guard's range, from `--base` and `--prd`. */
-function rangeOf(guard: string, flags: Flags<'base' | 'prd', never>, io: CommandIo): Range {
+function rangeOf(guard: string, flags: Flags<'base' | 'prd', never>, io: CommandIo, know: Range['know']): Range {
   const { ctx, exec } = io;
   const prd = flags.prd === undefined ? null : prdArg('check', '--prd', flags.prd);
   const base = flags.base ?? defaultBase(ctx);
@@ -376,7 +381,7 @@ function rangeOf(guard: string, flags: Flags<'base' | 'prd', never>, io: Command
   const coverageRuns = guard === 'coverage' || (guard === 'all' && baseKnown);
   const contextRuns = guard === 'context' || (guard === 'all' && contextBudget(ctx.config).enabled);
   if (prd !== null && !coverageRuns && !contextRuns) println(io.stderr, `omni check: --prd ${prd} ignored — neither the coverage nor the context guard ran.`);
-  return { base, baseKnown, prd };
+  return { know, base, baseKnown, prd };
 }
 
 /** `omni check coverage` alone: a missing base is a usage error, not a skip. */
@@ -388,7 +393,7 @@ function coverageOnly(io: CommandIo, { base, baseKnown, prd }: Range): boolean {
 /** `omni check all`: every guard, coverage skipped when the base is absent, context while budgets are on. */
 async function allGuards(io: CommandIo, range: Range): Promise<boolean> {
   const { base, baseKnown, prd } = range;
-  const results = [checkConfig(io), checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io), checkAgents(io), checkDesign(io, { base, baseKnown })];
+  const results = [checkConfig(io), checkInbox(io), checkOutbox(io), await checkKnowledge(io, range.know), checkKb(io), checkReleases(io), checkAgents(io), checkDesign(io, { base, baseKnown })];
   if (baseKnown) results.push(checkCoverage(io, { base, prd }));
   else println(io.stdout, `coverage: skipped — no ${base}`);
   if (contextBudget(io.ctx.config).enabled) results.push(await checkContext(io, range));
@@ -398,6 +403,7 @@ async function allGuards(io: CommandIo, range: Range): Promise<boolean> {
 /** Runs the guard named; `true` when it is green. */
 async function runGuard(guard: string, io: CommandIo, range: Range): Promise<boolean> {
   const single = SINGLE_GUARDS[guard];
+  if (guard === 'knowledge') return checkKnowledge(io, range.know);
   if (single) return single(io);
   if (guard === 'design') return checkDesign(io, range);
   if (guard === 'context') return checkContext(io, range);
@@ -408,13 +414,13 @@ async function runGuard(guard: string, io: CommandIo, range: Range): Promise<boo
 // into a red guard (exit 1); every other guard still stops on it with exit 2, as before.
 export const check: FreeCommand = {
   withoutContext: true,
-  async run(args: string[], free: FreeIo): Promise<number> {
+  async run(args: string[], free: FreeIo & LegalReach): Promise<number> {
     const { cwd, stdout, stderr, exec, env, vars } = free;
     const { positional, flags } = parseArgs('check', args, { values: ['base', 'prd'] });
     const guard = guardOf(positional);
     const ctx = contextFor(guard, cwd, exec, stdout);
     if (ctx === null) return 1;
     const io: CommandIo = { ctx, stdout, stderr, exec, env, vars };
-    return (await runGuard(guard, io, rangeOf(guard, flags, io))) ? 0 : 1;
+    return (await runGuard(guard, io, rangeOf(guard, flags, io, { cwd, reach: { tokens: free.tokens, home: free.home, fetch: free.fetch, callMs: free.callMs, now: free.now } }))) ? 0 : 1;
   },
 };
