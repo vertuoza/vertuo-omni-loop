@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { IsOwner, RosterRow } from '../business/constituents-rows';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
 import { APPROVER_COLUMNS, StoredApprover, type ApproverState } from '../products/approvers';
@@ -36,8 +37,8 @@ export type StoredTabLink = z.infer<typeof StoredTabLinkSchema>;
 type LinkFields = z.infer<typeof StoredLinkFields>;
 
 const StoredRepository = z.object({ full_name: z.string() });
-const StoredRecord = z.object({ prd: z.number().nullable(), kind: z.string() });
-const StoredStage = z.object({ prd: z.number() });
+const StoredRecord = z.object({ prd: PrdNumberSchema.nullable(), kind: z.string() });
+const StoredStage = z.object({ prd: PrdNumberSchema });
 const StoredFacts = z.object({ dossier_id: z.string(), facts: z.unknown() });
 const StoredRoadmap = z.object({ number: z.number().nullable(), roadmap_prds: z.array(z.object({ state: z.string() })) });
 const ArchiveAnswer = z.object({ plan_archived_at: z.string().nullable() });
