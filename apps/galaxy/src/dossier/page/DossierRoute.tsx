@@ -36,6 +36,8 @@ import { proofStore } from '../../proof/store';
 import { readProofs } from './proof-read';
 import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
+import { readProductOutbox } from './outbox-product.repository';
+import { productOutboxView } from './outbox-product';
 import { approvalView, readApproval, readApproveScreen, readAskedApprovers, readVoids, type ApprovalFacts, type ApprovalRead } from './approval';
 import { attestationOf } from './Attestation.service';
 import { liveSendSetup } from '../../runners/send/send.live';
@@ -235,6 +237,13 @@ function DraftDeleted() {
   );
 }
 
+/** A product PRD's outbox on its Outbox tab, from the server's rows (PRD 2011 s15); null off that tab, for any other dossier, or when the rows cannot be read. */
+async function productOutboxOf(db: Db, dossier: DossierRead['dossier'], tab: string) {
+  if (tab !== 'outbox' || dossier.prd !== null || kindOf(dossier) !== 'prd') return null;
+  const rows = await readProductOutbox(db, dossier.id, dossier.title);
+  return rows === null ? null : productOutboxView(rows);
+}
+
 /** The page of dossier `id` on `route`'s route: /prd/<id>, /visual/<id> or /bugs/<id>. */
 export async function dossierRoute(route: WorkKind, { params, searchParams }: DossierRouteProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
@@ -289,6 +298,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);
-  const [markdown, attestation] = await Promise.all([shownMarkdown(view, (shownId) => readContent(db, shownId)), attestationOf(db, read.dossier)]);
-  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} attestation={attestation} />;
+  const [markdown, attestation, productOutbox] = await Promise.all([
+    shownMarkdown(view, (shownId) => readContent(db, shownId)), attestationOf(db, read.dossier), productOutboxOf(db, read.dossier, view.tab),
+  ]);
+  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} attestation={attestation} productOutbox={productOutbox} />;
 }

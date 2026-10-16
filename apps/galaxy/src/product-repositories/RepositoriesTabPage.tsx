@@ -3,6 +3,7 @@ import { useReducer, useRef } from 'react';
 import { approversReducer, initialApproversForm, type ApproversAction, type ApproversForm, type ApproverState } from '../products/approvers';
 import { ApproversSection, type ApproversHandlers } from '../products/approvers-section';
 import { LinksSection, type LinksHandlers } from './LinksSection';
+import { Ladder, PlanRepositorySection } from './PlanRepositorySection';
 import { repositoriesTabClient, type Changed, type RepositoriesTabPort } from './repositories-tab.client';
 import type { LinkWrite, RepositoriesTab } from './repositories-tab.contract';
 import { demoTabPort, initialLinksForm, linksReducer } from './repositories-tab-model';
@@ -62,6 +63,8 @@ export function RepositoriesTabPage({ source, tab, add = null }: RepositoriesTab
 
   return (
     <>
+      <Ladder links={links.links} />
+      {tab.plan ? <PlanRepositorySection plan={tab.plan} /> : null}
       <LinksSection form={links} owner={tab.owner} add={add} on={onLinks} />
       <ApproversSection form={approvers} on={onApprovers} />
     </>

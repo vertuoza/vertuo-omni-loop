@@ -1341,3 +1341,946 @@ A constant: one condition in `toFixStampRequests`.
 ```
 
 <!-- /omni-outbox-settled: s7-02-which-pull-requests-ask-for-a-stamp -->
+
+<!-- omni-outbox-settled: s10-01-ci-runs-pack-checks -->
+
+## s10-01-ci-runs-pack-checks — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s10
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-01-ci-runs-pack-checks
+prd: 2011
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+The two new database checks for knowledge packs and the plan repository only protect us if the automatic checks run them, and the file that lists them sits outside this slice's ground. Who adds them?
+
+## The decision, in plain words
+
+This slice added both checks to the automatic database checks itself, the same way the bug records slice did, so they run on every pull request.
+
+## The intro, for fun
+
+A safety check nobody runs is just a very tidy wish.
+
+## The punchline, for fun
+
+So both new checks joined the line-up on day one.
+
+## The options, in plain words
+
+A. A. Keep both steps: the new checks run on every pull request (as built)
+B. B. Drop the steps and let a person add them on the feature branch before it is marked ready
+C. C. Drop the steps and run the checks by hand only
+
+## What I had to decide
+
+Whether s10 may add two steps to the supabase workflow, outside its territory, so the new checks run in CI as the conventions form asks.
+
+## What I did meanwhile
+
+Added two steps to .github/workflows/supabase.yml, after the fix rows step, running supabase/checks/knowledge_packs.sql and supabase/checks/products.sql the way every other check runs. Nothing else in the file changed.
+
+## What it costs to change later
+
+A constant: removing either step is a one-line change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan lists both check files in s10's territory but not the workflow that runs them, and no slice of landing 3 owns .github/; the conventions form says a new check runs in CI in the pull request that adds it
+
+```
+
+<!-- /omni-outbox-settled: s10-01-ci-runs-pack-checks -->
+
+<!-- omni-outbox-settled: s10-02-packs-kept-per-workspace -->
+
+## s10-02-packs-kept-per-workspace — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s10
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-02-packs-kept-per-workspace
+prd: 2011
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+When a repository's knowledge changes, which teams keep a copy of it, which copy counts as the latest, and how may an agent link read one?
+
+## The decision, in plain words
+
+Each team that has put the repository in one of its products keeps its own copy; the copy of the most recent change counts as the latest, even when an older change arrives later; an agent link reads only its own team's copies, of a repository its team lists or owns.
+
+## The intro, for fun
+
+Two teams, one repository, and a pile of notes that must never wander next door.
+
+## The punchline, for fun
+
+Everyone gets their own copy, and nobody gets the neighbour's.
+
+## The options, in plain words
+
+A. A. One pack per workspace holding the repository in a product, newest by commit date, agent links read their own workspace only (as built)
+B. B. Also keep a pack in every workspace that merely tracks the repository
+C. C. No agent-link read: packs are read only by signed-in members and kit tokens
+
+## What I had to decide
+
+Where a knowledge pack is kept (every workspace tracking the repository, only those holding it in a product, or one shared row), how the newest pack is chosen (by arrival or by the commit's date), and whether an agent link (a business link) gets a read of its own besides a member's signed-in read.
+
+## What I did meanwhile
+
+knowledge_pack_put() keeps one pack per workspace that links the repository to a product, and none where no product holds it; the newest per workspace and repository is the pack of the latest commit date, so a late webhook for an older commit never takes its place. Members read through row-level security; knowledge_pack_for_token() lets an agent link read only its own workspace's packs, refusing a repository the workspace neither lists nor owns, the same scope business_for_token() checks. supabase/checks/knowledge_packs.sql proves a link of another workspace reads none, and goes red when the workspace filter is removed.
+
+## What it costs to change later
+
+Small while nothing reads packs yet: a follow-up migration that changes knowledge_pack_put() or drops knowledge_pack_for_token(). Once the harvest (s11) and the kit (s12) use them, the readers change with it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a pack is the newest 'for each product link' but not whether a workspace tracking the repository outside any product should get one
+- (author) The spec names tokens without saying whether agent links read packs at all; the kit reads as its signed-in member, so the agent-link read is used by nothing yet
+- (author) Packs are kept for every commit that touches knowledge, with no pruning; how many to keep is not settled
+
+```
+
+<!-- /omni-outbox-settled: s10-02-packs-kept-per-workspace -->
+
+<!-- omni-outbox-settled: s10-03-archive-holds-split -->
+
+## s10-03-archive-holds-split — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s10
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-03-archive-holds-split
+prd: 2011
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+Archiving a product's plan repository must be refused while anything still holds it. Which of those holds does the database itself refuse, and which are left to the page that offers the button?
+
+## The decision, in plain words
+
+The database refuses the archive while any repository of the product is below the last step of the rollout ladder, naming each, and lets only an owner archive or undo; the open roadmaps, bug records and PRDs still born in the plan repository are left for the page's server code to check, since only it can see their state.
+
+## The intro, for fun
+
+Locking the old filing cabinet is easy; knowing nobody still keeps papers in it is the hard part.
+
+## The punchline, for fun
+
+The database checks the ladder, and the page checks the drawers.
+
+## The options, in plain words
+
+A. A. The database checks the ladder and the owner; s17's server code checks the open records and that a person pressed it (as built)
+B. B. The database checks every hold, after a migration that stores each record's open state
+C. C. The database checks nothing but the owner, and s17 checks every hold
+
+## What I had to decide
+
+Whether product_plan_archive() checks every hold the spec names, or only the ones the database can see (the ladder steps), leaving the open records born in the plan repository, and the rule that a person and not an agent presses the button, to s17's server code.
+
+## What I did meanwhile
+
+product_plan_archive() is owner-only, refuses with no plan repository, refuses naming each repository below step 5 (plan-web at step 3, joined by a middle dot), keeps the first stamp when archived twice, and clears it on undo; product_plan_repository_set() is owner-only, takes a repository the workspace lists, and refuses a change while archived. Neither checks open roadmaps, bug records or PRDs, whose open state lives on GitHub, and neither can tell a person's browser session from a kit token acting as that person.
+
+## What it costs to change later
+
+A follow-up migration if the database should check more holds; s17 can add its checks in its own server code at no database cost.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Dossiers and roadmaps carry no open or shipped state in the database, so which records are open in the plan repository is not readable there
+- (author) A kit token signs in as its maker, so the database alone cannot refuse an agent pressing the archive
+
+```
+
+<!-- /omni-outbox-settled: s10-03-archive-holds-split -->
+
+<!-- omni-outbox-settled: s14-01-questions-tabs-and-outbox-route -->
+
+## s14-01-questions-tabs-and-outbox-route — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s14
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s14-01-questions-tabs-and-outbox-route
+prd: 2011
+slice: s14
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+Should Work > Questions keep its Shared with me tab beside Inbox, and should Outbox live at its own address?
+
+## The decision, in plain words
+
+The tabs read Inbox, Shared with me, Outbox, History. Outbox has its own page on its own page, and only that page shows how many decisions are open.
+
+## The intro, for fun
+
+Two inboxes walk into a workspace, and one of them is for robots.
+
+## The punchline, for fun
+
+The screen drew three tabs, so one of them had to be moved in with another.
+
+## The options, in plain words
+
+A. A. Four tabs, Outbox on its own page (built).
+B. B. Three tabs: Shared with me folded into Inbox, Outbox on its own page.
+C. C. Outbox as a query on /ask, no new page.
+
+## What I had to decide
+
+Answer A to keep four tabs and the own-page Outbox; B folds Shared with me into Inbox later, as the drawn screen shows three tabs; C puts Outbox behind a query on the Inbox page instead of a page of its own.
+
+## What I did meanwhile
+
+Built four tabs and an own page for Outbox, so nothing that works today was removed.
+
+## What it costs to change later
+
+A constant and one route: changing the tab list or the address touches a few lines and a redirect.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The count on Outbox shows only on the Outbox page itself (author)
+- The demo has no outbox to show, so it reads as not open (author)
+
+```
+
+<!-- /omni-outbox-settled: s14-01-questions-tabs-and-outbox-route -->
+
+<!-- omni-outbox-settled: s14-02-outbox-tab-misses-repository-prds -->
+
+## s14-02-outbox-tab-misses-repository-prds — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s14
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s14-02-outbox-tab-misses-repository-prds
+prd: 2011
+slice: s14
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+The new Outbox tab lists the open questions of PRDs that live on a product, but not those of PRDs that live in a repository, whose questions are kept in the repository. Should the tab also list those, so every question sits in one place as asked?
+
+## The decision, in plain words
+
+The Outbox tab shows only product PRDs' open questions; a repository PRD's questions still show on its own pull request and page, not in the shared list.
+
+## The intro, for fun
+
+Everyone was invited to the one big room, but half the guests are still waiting in their own houses.
+
+## The punchline, for fun
+
+One place for every question, minus the ones that live at home.
+
+## The options, in plain words
+
+A. A. List only product PRDs' questions in the Outbox tab for now (as built)
+B. B. Also list every repository PRD's open questions in the Outbox tab, in this PRD
+C. C. Also list them, in a follow-up PRD
+
+## What I had to decide
+
+Whether Work › Questions › Outbox must also list repository PRDs' open outbox items (read from each repository's outbox folder or its pull request comment) to meet the person's ask to see every question across products in one place, or whether product PRDs alone are enough for now.
+
+## What I did meanwhile
+
+The tab reads only the server's outbox rows. A repository PRD's open items are not listed there; they stay on its feature pull request's outbox comment and its PRD page's Outbox tab.
+
+## What it costs to change later
+
+A read of each tracked repository's open outbox items into the same list, through the App or a synced table; no stored shape changes for product PRDs.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether reading repository outbox items needs a new sync table or can reuse what the PRD page's Outbox tab already reads from GitHub (author).
+
+```
+
+<!-- /omni-outbox-settled: s14-02-outbox-tab-misses-repository-prds -->
+
+<!-- omni-outbox-settled: s16-01-product-prd-is-no-draft-in-the-list -->
+
+## s16-01-product-prd-is-no-draft-in-the-list — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s16
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s16-01-product-prd-is-no-draft-in-the-list
+prd: 2011
+slice: s16
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+In Work › PRDs, a product PRD such as `mobile-12` has no repository number. Should the list show it by its own id and count it as a PRD, not as a draft?
+
+## The decision, in plain words
+
+The list heads a product PRD, and a product bug or roadmap in their lists, by its id, and a product PRD is no longer shown as a draft. The "Draft" and "PRD" state filters still read the repository number, so a product PRD still counts as a draft there.
+
+## The intro, for fun
+
+A PRD with a name tag, sitting in the draft pile.
+
+## The punchline, for fun
+
+It keeps its name tag; the pile is a separate fix.
+
+## The options, in plain words
+
+A. Show the id and no draft badge; leave the state filter as it is (as built)
+B. Also teach the state filter that a product PRD is numbered
+C. Leave product PRDs under DRAFT
+
+## What I had to decide
+
+How far to go in the list for a PRD without a repository number.
+
+## What I did meanwhile
+
+Built A. The row's product name sits beside its title on /prd, /bugs and Concepts. The ids come from `products.key` and `dossiers.product_seq`, read as the viewer (src/product-filter/), with no migration.
+
+## What it costs to change later
+
+Small: the state filter reads `row.prd`; B passes it the labels too.
+
+## What I could not know
+
+- (author) Not recorded by the slice: the item was written without this section, and the orchestrator added it so the item reads. Nothing further is known.
+
+```
+
+<!-- /omni-outbox-settled: s16-01-product-prd-is-no-draft-in-the-list -->
+
+<!-- omni-outbox-settled: s11-01-what-a-pack-holds -->
+
+## s11-01-what-a-pack-holds — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s11
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-01-what-a-pack-holds
+prd: 2011
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+When a team merges a change to its notes and rules, what exactly goes into the saved copy, and which merges make one?
+
+## The decision, in plain words
+
+Any merge into the main branch that touches the notes folder, the settings file or a step file the settings name makes a copy of all three, read at that merge; a picture or any file over one megabyte is left out and named in the log, never squeezed in.
+
+## The intro, for fun
+
+A snapshot that takes a photo of the whole library every time one page changes.
+
+## The punchline, for fun
+
+The photos skip the paintings: words only, please.
+
+## The options, in plain words
+
+A. Pack the knowledge folder, the whole config and its hook files on every merge touching any of them, leaving out and naming a file a pack cannot hold (as built)
+B. Pack only the planning keys of the config, as the copies did, and refuse the whole pack when one file cannot be held
+C. Also keep binary files, base64-encoded, so a pack holds every file of the folder
+
+## What I had to decide
+
+Which files a knowledge pack holds (the knowledge folder alone, or also the decision folder, the playbook and the glossary when they live outside it, the whole config or only its planning keys, the hook files the flow names); which merges make one (every merge into the default branch that touches any of them, a rename out of the folder counted by its old path); which date a pack carries (the pull request's merge time); and what happens to a file a text column cannot hold (binary, a NUL, over 1 MiB) or a knowledge base past the snapshot's bound (2000 files, 20 MB).
+
+## What I did meanwhile
+
+The `knowledge-pack` Inngest function (apps/omni-app/src/knowledge-pack/) runs on the merge event the webhook already sends for every pull request merged into the default branch, beside the knowledge harvest, so the webhook is unchanged. It first asks the database whether any product holds the repository, and reads nothing on GitHub when none does. It reads the config at the merge commit, packs `paths.knowledge` with `paths.adr`, `paths.playbook` and `paths.glossary` when outside it, the whole `.omni-loop/config.yml`, and every hook file the flow names (a slash command names none); a file that is not UTF-8 text, holds a NUL or is over 1 MiB is left out and logged; a commit with no config or one that does not parse makes no pack; a knowledge base past the snapshot's bound makes no pack and is not retried. The pack's date is the pull request's `merged_at`. It runs at Inngest's lowest priority (`-600`), one run per repository at a time, and every GitHub call goes through the installation's budgeted client at background priority. It posts nothing on the merged pull request, failure included.
+
+## What it costs to change later
+
+Small: the paths are one pure module (paths.ts), the date one field, and nothing reads packs before s12. A pack already kept stays as it is; a changed rule applies from the next merge.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says 'the knowledge folder or flow config' without saying whether the whole config or only its planning keys (flow, landings, pr, contracts, as /omni:mega-invade copies) is the flow config
+- (author) Nothing says what a pack does with a binary file such as a design mockup, which a text column cannot hold as it is
+- (author) The spec says the newest pack is picked by the commit's date; the merge time GitHub gives is used, which is the merge commit's date for a merge or a squash, but not for a rebase merge
+
+```
+
+<!-- /omni-outbox-settled: s11-01-what-a-pack-holds -->
+
+<!-- omni-outbox-settled: s11-02-pack-read-route -->
+
+## s11-02-pack-read-route — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s11
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-02-pack-read-route
+prd: 2011
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+How does a person's terminal fetch the latest saved copy of a repository's notes, and what happens when they belong to two teams that both hold it?
+
+## The decision, in plain words
+
+The terminal asks the web app with the person's own sign-in; it gets the newest copy their teams hold, or the copy of one named change, and a person in two teams gets the most recent of the two. Nobody reads another team's copy.
+
+## The intro, for fun
+
+Two teams, one shelf, and a librarian who only hands you books from your own shelf.
+
+## The punchline, for fun
+
+Ask for the newest and you get the newest, never the neighbour's.
+
+## The options, in plain words
+
+A. One read of the whole pack, as the caller, the latest commit's when several workspaces hold it (as built)
+B. A list of the pack's files first, then one read per file, so a large pack is never one answer
+C. Make the caller name the workspace or the product, and refuse when it is ambiguous
+
+## What I had to decide
+
+Where the read the kit's `omni kb pack get` (s12) calls lives and what it answers. s12's territory holds no web route, and this slice's holds `apps/galaxy/app/api/knowledge-packs/` and `apps/galaxy/src/knowledge-packs/`, so the read is built here: its query, its answer's shape, which pack a member of several workspaces gets, and how it refuses.
+
+## What I did meanwhile
+
+`GET /api/knowledge-packs?repo=<owner/name>[&sha=<commit>]` answers `{repository, sha, committedAt, madeAt, files: [{path, sha256, content}]}`, the files in path order, never cached. It reads as the caller's access token, never a service key, so row-level security decides: a pack of another workspace reads as none (404, BR-PRODUCT-63). With no `sha` it answers the newest pack; a member of several workspaces holding the repository gets the one of the latest commit. It refuses a malformed query (400), no valid sign-in (401), no pack (404), no database here (503), and a database failure (500, logged). It reads the tables, not knowledge_pack_for_token(), which serves agent links and stays unused here.
+
+## What it costs to change later
+
+Small before s12 ships: s12 reads this shape, so a change is one contract file and its reader. After s12, the route and the kit change together.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives s12 no web route, so the read is taken to be this slice's because its territory holds the knowledge-packs route folder
+- (author) A Vercel function answers at most about 4.5 MB, so a knowledge base larger than that once packed would not be served whole; this repository's is about 1.3 MB
+- (author) Nothing says which pack a member of two workspaces holding the same repository should get; the latest commit's is served
+
+```
+
+<!-- /omni-outbox-settled: s11-02-pack-read-route -->
+
+<!-- omni-outbox-settled: s15-01-product-outbox-wired-outside-territory -->
+
+## s15-01-product-outbox-wired-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s15
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s15-01-product-outbox-wired-outside-territory
+prd: 2011
+slice: s15
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+A product PRD's Outbox tab needed its rows handed to the page from two files the plan did not list for this slice. Is that wiring fine where it is?
+
+## The decision, in plain words
+
+I added one small read to the PRD page's route and one optional piece of input to the page itself, so a product PRD's Outbox tab can show its server items. A repository PRD's tab is untouched.
+
+## The intro, for fun
+
+The tab was built; somebody had to plug it in.
+
+## The punchline, for fun
+
+Two sockets, one plug, no sparks.
+
+## The options, in plain words
+
+A. A. Keep the read in the route and the optional input on the page (built).
+B. B. Move the read into the view builder so the tab badge counts the items too.
+
+## What I had to decide
+
+The slice territory names only the Outbox pane files, but the tab can only show server rows if the route reads them and the page passes them down. I touched DossierRoute.tsx (reads the rows only on a product PRD's Outbox tab) and DossierPage.tsx (an optional productOutbox input that picks the product pane). The other option was a client component fetching through a new API route, which is a bigger change outside the territory too.
+
+## What I did meanwhile
+
+Built the two edits as small and optional as possible: with no productOutbox the page renders exactly as before.
+
+## What it costs to change later
+
+Moving the read elsewhere later is a few lines in one route file and one prop.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The tab bar badge for a product PRD still reads from GitHub, so it shows no count of open items (author).
+
+```
+
+<!-- /omni-outbox-settled: s15-01-product-outbox-wired-outside-territory -->
+
+<!-- omni-outbox-settled: s12-01-pack-older-than-read-at-needs-github -->
+
+## s12-01-pack-older-than-read-at-needs-github — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s12
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-01-pack-older-than-read-at-needs-github
+prd: 2011
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+How should the kit tell that a knowledge pack is older than the commit a product link was read at, when the spec only says the pack must be refused?
+
+## The decision, in plain words
+
+The kit asks GitHub to compare the two commits, refuses a pack that GitHub says is behind, and serves the pack with a warning when GitHub cannot answer.
+
+## The intro, for fun
+
+Two commits walk into a bar and nobody knows who came first.
+
+## The punchline, for fun
+
+Without a clock from GitHub, the kit shrugs and says so out loud.
+
+## The options, in plain words
+
+A. A. Refuse only what GitHub says is behind; serve with a warning when the comparison is unavailable (built).
+B. B. Refuse the pack whenever the comparison is unavailable, so a stale pack is never used by accident.
+C. C. Ask the Omni page for the date of read_at and compare dates, with no GitHub call.
+
+## What I had to decide
+
+Whether an unreadable comparison should refuse the pack (stricter, blocks work offline) or serve it with a note (what was built).
+
+## What I did meanwhile
+
+The slice serves a pack when the comparison is unavailable and prints one line saying the age against read_at was not checked.
+
+## What it costs to change later
+
+Changing the answer is a one-line change in the pack reader: no stored shape, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a pack that has diverged from read_at (neither ahead nor behind) counts as older: it is served as not older (author).
+- Whether the server should answer the commit date of read_at itself so no GitHub call is needed (author).
+
+```
+
+<!-- /omni-outbox-settled: s12-01-pack-older-than-read-at-needs-github -->
+
+<!-- omni-outbox-settled: s12-02-readers-take-pack-before-copy -->
+
+## s12-02-readers-take-pack-before-copy — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s12
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-02-readers-take-pack-before-copy
+prd: 2011
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+When the planning commands read a target repository's flow, should a fetched pack replace the old copy in the plan repository entirely, or only come first?
+
+## The decision, in plain words
+
+A fetched pack is read first and the old copy is still read when no pack was fetched, so repositories born in git keep working until the last reader of the old copies is removed.
+
+## The intro, for fun
+
+The new filing cabinet is in, but the old one has not left yet.
+
+## The punchline, for fun
+
+For now the kit looks in the new drawer first and the old one second.
+
+## The options, in plain words
+
+A. A. Pack first, copy as the fallback until s13 (built).
+B. B. Pack only: a target with no fetched pack has no flow, and the old copies stop being read at once.
+C. C. Copy first, pack as the fallback, so git-born plan repositories behave exactly as before.
+
+## What I had to decide
+
+Whether the copy fallback should be removed now (the spec says the readers never read a copy) or kept until slice s13 removes the remaining readers.
+
+## What I did meanwhile
+
+Both `omni flow show --repo` and `omni plan check` read the pack and fall back to the copy; the mega-invade skill writes no copy for a product run.
+
+## What it costs to change later
+
+Removing the fallback later is a few lines in the flow reader and its tests; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Which product commands name a repository by its short name only: `omni kb pack get back` takes the owner of this repository's slug when no plan target matches (author).
+- Where a product checkout with no plan section finds the read_at of a link: it takes `--read-at`, and without it checks no age (author).
+
+```
+
+<!-- /omni-outbox-settled: s12-02-readers-take-pack-before-copy -->
+
+<!-- omni-outbox-settled: s13-01-plan-targets-readers-allowlist -->
+
+## s13-01-plan-targets-readers-allowlist — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s13
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s13-01-plan-targets-readers-allowlist
+prd: 2011
+slice: s13
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+The guard that keeps the old plan-repository list of repositories out of the loop's commands allows the plan repository's own commands and checks beside the code that finishes records born in the repository. Is that the right line?
+
+## The decision, in plain words
+
+Only the two commands the slice named, next and care, were moved off the list. The plan repository's own commands and checks stay allowed, each named with its reason in the guard test, so the old way keeps working untouched.
+
+## The intro, for fun
+
+A guest list is only useful if someone checks the door.
+
+## The punchline, for fun
+
+Sixteen names are on it, and each now says why.
+
+## The options, in plain words
+
+A. A. Allow the plan repository's own commands and checks as listed, each with its reason (built)
+B. B. Allow only the record-finishing code, and move every other reader behind the shared reader in a follow-up slice
+
+## What I had to decide
+
+Answer A to keep the allowlist as built (it can only shrink: a file that stops reading the list must leave it). Answer B to name only the record-finishing code and move board, flow, kb, plan, product, sync and the grades behind a shared reader in a follow-up slice.
+
+## What I did meanwhile
+
+next and care read the list through one small reader file that imports types only, so the loop's path stays free of gh reads; the guard test lists every other reader and fails on a new one.
+
+## What it costs to change later
+
+B touches about ten files outside this slice's territory and risks the plan-repository path the person decided to keep.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Which commands count as the code that finishes records born in the repository, beyond roadmap push, omni bug's Fixes check, knowledge copies and copy-flow (author)
+- A new file, kit/lib/plan-repo/target-list.ts, sits outside the slice's territory; it was needed because the existing targets reader pulls gh reads onto the loop's path (author)
+
+```
+
+<!-- /omni-outbox-settled: s13-01-plan-targets-readers-allowlist -->

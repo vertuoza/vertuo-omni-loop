@@ -111,6 +111,7 @@ function Row({ item }: { item: HistoryItem }) {
           <span className="dossier-history-title">
             {item.draft ? <span className="dossier-draft">DRAFT</span> : <span className="dossier-number">{item.heading}</span>}{' '}
             <span>{item.title}</span>
+            {item.product && <>{' '}<span className="dossier-repo dossier-product">{item.product}</span></>}
           </span>
           {item.stage && <StagePill stage={item.stage} />}
         </span>

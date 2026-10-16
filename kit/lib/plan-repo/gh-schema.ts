@@ -19,6 +19,7 @@ const GhCompareFileSchema = z.looseObject({
 /** `repos/<owner>/<name>/compare/<base>...<head>`. */
 export const GhCompareSchema = z.looseObject({
   ahead_by: z.number().optional(),
+  status: z.string().optional(),
   files: z.array(GhCompareFileSchema).optional(),
 });
 
