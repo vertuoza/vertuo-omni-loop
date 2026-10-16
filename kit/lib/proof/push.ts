@@ -28,7 +28,7 @@ const GIF = 'preview.gif';
 
 /**
  * The clips of a bug's run, in the order they are linked (PRD 2100): the story filmed before the fix, then after. The
- * proof API serves exactly these two names under a run (`apps/galaxy/src/proof/store.ts`, `PROOF_CLIP_NAMES`).
+ * Omni page's proof API serves exactly these two names under a run (its `PROOF_CLIP_NAMES`).
  */
 const BUG_CLIPS = ['before.webm', 'after.webm'] as const;
 
