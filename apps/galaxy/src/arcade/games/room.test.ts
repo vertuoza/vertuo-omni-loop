@@ -12,7 +12,7 @@ describe('the registry', () => {
     expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD'], ['kart', 'OMNI KART'], ['duet', 'OMNI DUET'], ['pong', 'OMNI PONG']]);
     expect(GAMES[2]).toEqual({ id: 'kart', title: 'OMNI KART', scene: 'kart', measure: 'time', boards: [{ id: 'kart', title: 'COMET RING' }, { id: 'kart-frost-eight', title: 'FROST EIGHT' }] });
     expect(GAMES[3]).toEqual({ id: 'duet', title: 'OMNI DUET', scene: 'duet', measure: 'points' });
-    expect(GAMES[4]).toEqual({ id: 'pong', title: 'OMNI PONG', scene: null, measure: 'points' });
+    expect(GAMES[4]).toEqual({ id: 'pong', title: 'OMNI PONG', scene: 'pong', measure: 'points' });
     expect(XP_RULES.unlocks).toEqual({ invaders: 1, platformer: 2, kart: 3, duet: 4, pong: 5 });
     expect(GAMES.map((g) => [g.id, g.measure])).toEqual([['invaders', 'points'], ['platformer', 'points'], ['kart', 'time'], ['duet', 'points'], ['pong', 'points']]);
     for (const g of GAMES) expect(XP_RULES.unlocks[g.id], g.id).toBeGreaterThanOrEqual(1);
@@ -196,7 +196,7 @@ describe('OMNI DUET\'s cabinet (PRD 1633)', () => {
 });
 
 describe('OMNI PONG\'s cabinet (PRD 2101)', () => {
-  it('is the fifth cabinet: refused at LV 4 with REACH LV 5 TO PLAY, and at LV 5 refused only for having no scene yet', () => {
+  it('is the fifth cabinet: refused at LV 4 with REACH LV 5 TO PLAY, and open at LV 5 on its scene', () => {
     const lv4 = xpStatus(true, row(300, 4, ['invaders', 'platformer', 'kart', 'duet']));
     const room4 = cabinets(lv4);
     expect(room4).toHaveLength(5);
@@ -208,7 +208,7 @@ describe('OMNI PONG\'s cabinet (PRD 2101)', () => {
     const pong5 = cabinets(lv5)[4];
     assertDefined(pong5, 'pong5');
     expect(pong5).toMatchObject({ unlocked: true, level: 5 });
-    expect(cabinetDoor(pong5, lv5)).toEqual({ refused: 'OMNI PONG · COMING SOON' });
+    expect(cabinetDoor(pong5, lv5)).toEqual({ scene: 'pong' });
   });
 });
 

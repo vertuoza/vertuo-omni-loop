@@ -10,13 +10,14 @@ import { drawGames, drawPlatformer } from './games.ts';
 import { drawInvaders } from './invaders.ts';
 import { drawKart } from './kart.ts';
 import { drawDuet } from './duet.ts';
+import { drawPong } from './pong.ts';
 import { drawLevelUp } from './levelup.ts';
 import { drawAway, drawCoin, drawGate, drawIntro, drawReady, drawWelcome } from './join.ts';
 import { drawMap } from './map.ts';
 import { drawBriefing, drawMenu } from './menu.ts';
 import { drawPlanetScene } from './planet.ts';
 import { drawBuilder, drawName, drawSelect } from './recruit.ts';
-import type { FrameState } from './common.ts';
+import type { FrameState, SceneName } from './common.ts';
 
 export {
   H, TALL, W, WIDE, type ChartFrame, type FrameState, type Grid, type GridName, type JoinFrame, type MapSlot, type PageCount, type Pages,
@@ -29,9 +30,27 @@ export {
 
 const TITLE_PHASES = { title: drawTitle, story: drawStory, hiscore: drawHeroes } as const;
 
+/** The game room and the games it opens: each drawn by its own group. */
+type GameScene = Extract<SceneName, 'games' | 'invaders' | 'platformer' | 'kart' | 'duet' | 'pong'>;
+const GAME_SCENES: ReadonlySet<SceneName> = new Set<GameScene>(['games', 'invaders', 'platformer', 'kart', 'duet', 'pong']);
+const isGameScene = (scene: SceneName): scene is GameScene => GAME_SCENES.has(scene);
+
+function drawGameScene(ctx: CanvasRenderingContext2D, s: FrameState, scene: GameScene) {
+  switch (scene) {
+    case 'games': { drawGames(ctx, s); return; }
+    case 'invaders': { drawInvaders(ctx, s); return; }
+    case 'platformer': { drawPlatformer(ctx, s); return; }
+    case 'kart': { drawKart(ctx, s); return; }
+    case 'duet': { drawDuet(ctx, s); return; }
+    case 'pong': { drawPong(ctx, s); return; }
+  }
+}
+
 export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePhase: 'title' | 'story' | 'hiscore') {
   ctx.imageSmoothingEnabled = false;
-  switch (s.scene) {
+  const scene = s.scene;
+  if (isGameScene(scene)) { drawGameScene(ctx, s, scene); return; }
+  switch (scene) {
     case 'boot': { drawBoot(ctx, s); return; }
     case 'title': { TITLE_PHASES[titlePhase](ctx, s); return; }
     case 'menu': { drawMenu(ctx, s); return; }
@@ -51,11 +70,6 @@ export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePha
     case 'welcome': { drawWelcome(ctx, s); return; }
     case 'chart': { drawChart(ctx, s); return; }
     case 'system': { drawSystem(ctx, s); return; }
-    case 'games': { drawGames(ctx, s); return; }
-    case 'invaders': { drawInvaders(ctx, s); return; }
-    case 'platformer': { drawPlatformer(ctx, s); return; }
-    case 'kart': { drawKart(ctx, s); return; }
-    case 'duet': { drawDuet(ctx, s); return; }
     case 'levelup': { drawLevelUp(ctx, s); return; }
   }
 }
