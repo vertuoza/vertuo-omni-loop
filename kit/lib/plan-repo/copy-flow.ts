@@ -15,6 +15,8 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse, stringify } from 'yaml';
+import { mainCheckout } from '../dossier/local.ts';
+import { newestPack, packFile } from '../knowledge/packs/store.ts';
 import { DEFAULT_CONTRACT_KINDS, parseConfig } from '../config.ts';
 import { resolveFlow } from '../flow/resolve.ts';
 import { at, messageOf } from '../narrow.ts';
@@ -22,6 +24,8 @@ import type { Config } from '../types.ts';
 
 /** The folder, inside a copy, that holds the target's flow. */
 const COPY_FLOW_DIR = 'flow';
+/** The target's committed config, as its pack holds it. */
+const PACK_CONFIG = '.omni-loop/config.yml';
 /** The file, inside that folder, that holds the target's flow section. */
 export const COPY_FLOW_FILE = 'config.yml';
 
@@ -101,12 +105,45 @@ export function copyFlowFolder(repo: string, { config }: Pick<Where, 'config'>):
   return join(copyFolder(repo, { ctx: { config } }), COPY_FLOW_DIR);
 }
 
+/** The checkouts a pack may be kept in: this one, and the main checkout its worktrees share. */
+function packRoots(root: string): string[] {
+  const main = mainCheckout(root);
+  return main === null || main === root ? [root] : [root, main];
+}
+
+/**
+ * `repo`'s flow as its newest fetched knowledge pack holds it (PRD 2011, s12): the pack's
+ * `.omni-loop/config.yml`, its hook files at their repository paths. `null` when no pack was fetched,
+ * or the pack holds no config.
+ */
+function readPackFlow(repo: string, root: string): { folder: string; config: FlowConfig; readHook: (path: string) => string | null } | null {
+  for (const where of packRoots(root)) {
+    const pack = newestPack(where, repo);
+    const source = pack === null ? null : packFile(where, pack, PACK_CONFIG);
+    if (pack === null || source === null) continue;
+    return {
+      folder: pack.folder,
+      config: parseFlowConfig(source, join(pack.folder, PACK_CONFIG)),
+      readHook: (path) => packFile(where, pack, path),
+    };
+  }
+  return null;
+}
+
+/**
+ * `repo`'s flow: the one in its newest fetched knowledge pack (`omni kb pack get`), else the one
+ * its copy holds; `null` when neither does. Throws, naming the file, when it cannot be read.
+ */
+export function readCopyFlow(repo: string, where: Where): { folder: string; config: FlowConfig; readHook: (path: string) => string | null } | null {
+  return readPackFlow(repo, where.root) ?? readFolderFlow(repo, where);
+}
+
 /**
  * `repo`'s copied flow: `null` when its copy holds no `flow/config.yml`, else its flow and a reader of
  * the hook files copied beside it (`null` for one that is not there). Throws, naming the file, when
  * the copy's flow cannot be read.
  */
-export function readCopyFlow(repo: string, { root, config }: Where): { folder: string; config: FlowConfig; readHook: (path: string) => string | null } | null {
+function readFolderFlow(repo: string, { root, config }: Where): { folder: string; config: FlowConfig; readHook: (path: string) => string | null } | null {
   const folder = copyFlowFolder(repo, { config });
   const file = join(folder, COPY_FLOW_FILE);
   if (!existsSync(join(root, file))) return null;
