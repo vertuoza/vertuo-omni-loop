@@ -2048,3 +2048,161 @@ Moving the read elsewhere later is a few lines in one route file and one prop.
 ```
 
 <!-- /omni-outbox-settled: s15-01-product-outbox-wired-outside-territory -->
+
+<!-- omni-outbox-settled: s12-01-pack-older-than-read-at-needs-github -->
+
+## s12-01-pack-older-than-read-at-needs-github — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s12
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-01-pack-older-than-read-at-needs-github
+prd: 2011
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+How should the kit tell that a knowledge pack is older than the commit a product link was read at, when the spec only says the pack must be refused?
+
+## The decision, in plain words
+
+The kit asks GitHub to compare the two commits, refuses a pack that GitHub says is behind, and serves the pack with a warning when GitHub cannot answer.
+
+## The intro, for fun
+
+Two commits walk into a bar and nobody knows who came first.
+
+## The punchline, for fun
+
+Without a clock from GitHub, the kit shrugs and says so out loud.
+
+## The options, in plain words
+
+A. A. Refuse only what GitHub says is behind; serve with a warning when the comparison is unavailable (built).
+B. B. Refuse the pack whenever the comparison is unavailable, so a stale pack is never used by accident.
+C. C. Ask the Omni page for the date of read_at and compare dates, with no GitHub call.
+
+## What I had to decide
+
+Whether an unreadable comparison should refuse the pack (stricter, blocks work offline) or serve it with a note (what was built).
+
+## What I did meanwhile
+
+The slice serves a pack when the comparison is unavailable and prints one line saying the age against read_at was not checked.
+
+## What it costs to change later
+
+Changing the answer is a one-line change in the pack reader: no stored shape, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a pack that has diverged from read_at (neither ahead nor behind) counts as older: it is served as not older (author).
+- Whether the server should answer the commit date of read_at itself so no GitHub call is needed (author).
+
+```
+
+<!-- /omni-outbox-settled: s12-01-pack-older-than-read-at-needs-github -->
+
+<!-- omni-outbox-settled: s12-02-readers-take-pack-before-copy -->
+
+## s12-02-readers-take-pack-before-copy — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s12
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-02-readers-take-pack-before-copy
+prd: 2011
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+When the planning commands read a target repository's flow, should a fetched pack replace the old copy in the plan repository entirely, or only come first?
+
+## The decision, in plain words
+
+A fetched pack is read first and the old copy is still read when no pack was fetched, so repositories born in git keep working until the last reader of the old copies is removed.
+
+## The intro, for fun
+
+The new filing cabinet is in, but the old one has not left yet.
+
+## The punchline, for fun
+
+For now the kit looks in the new drawer first and the old one second.
+
+## The options, in plain words
+
+A. A. Pack first, copy as the fallback until s13 (built).
+B. B. Pack only: a target with no fetched pack has no flow, and the old copies stop being read at once.
+C. C. Copy first, pack as the fallback, so git-born plan repositories behave exactly as before.
+
+## What I had to decide
+
+Whether the copy fallback should be removed now (the spec says the readers never read a copy) or kept until slice s13 removes the remaining readers.
+
+## What I did meanwhile
+
+Both `omni flow show --repo` and `omni plan check` read the pack and fall back to the copy; the mega-invade skill writes no copy for a product run.
+
+## What it costs to change later
+
+Removing the fallback later is a few lines in the flow reader and its tests; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Which product commands name a repository by its short name only: `omni kb pack get back` takes the owner of this repository's slug when no plan target matches (author).
+- Where a product checkout with no plan section finds the read_at of a link: it takes `--read-at`, and without it checks no age (author).
+
+```
+
+<!-- /omni-outbox-settled: s12-02-readers-take-pack-before-copy -->
