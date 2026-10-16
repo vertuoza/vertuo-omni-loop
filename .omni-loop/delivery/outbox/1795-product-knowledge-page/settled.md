@@ -388,3 +388,390 @@ Moving it later is one function and the check's read; nothing stored changes.
 ```
 
 <!-- /omni-outbox-settled: s1-05-app-read-knowledge-version -->
+
+<!-- omni-outbox-settled: s2-01-knowledge-tab-one-route-reload -->
+
+## s2-01-knowledge-tab-one-route-reload — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-knowledge-tab-one-route-reload
+prd: 1795
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+The Knowledge tab sends every change (add, edit, retire, propose, approve, reject, name an owner) through one route, and the page reloads after a change. Is that the shape you want?
+
+## The decision, in plain words
+
+One route takes all seven kinds of change, and the page reloads once a change is saved, so the screen always shows what the database now holds. A new entry's owner is the person who adds it; the page has no control to give an entry to someone else.
+
+## The intro, for fun
+
+The Knowledge tab keeps one front door for every change.
+
+## The punchline, for fun
+
+Seven kinds of change walk in, and the page reloads to greet the result.
+
+## The options, in plain words
+
+A. A. One route for all changes, page reloads after a change (built)
+B. B. One route per verb (links, entries, proposals, owners), same reload
+C. C. One route, rows update in place without a reload
+
+## What I had to decide
+
+Option A is built. B changes one route into one per verb, and C updates the rows in place without a reload; each is a follow-up slice that touches only the Knowledge tab.
+
+## What I did meanwhile
+
+People use the tab as built: a reload after each change, owners as the person who added the entry.
+
+## What it costs to change later
+
+B or C is one small slice each, inside apps/galaxy/src/product-knowledge/.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a reload is acceptable on a product with dozens of entries (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-knowledge-tab-one-route-reload -->
+
+<!-- omni-outbox-settled: s2-02-knowledge-screen-mockup-file -->
+
+## s2-02-knowledge-screen-mockup-file — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-knowledge-screen-mockup-file
+prd: 1795
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+The new Knowledge screen's library entry needs a mockup page beside it, but the plan lists only the entry itself as this slice's ground. Is a mockup page the right thing to add?
+
+## The decision, in plain words
+
+The screen library asks every entry to point at a mockup page, so the slice added one next to the entry, drawn by hand from the built screen. It is a draft and was not rendered in a browser here.
+
+## The intro, for fun
+
+Every screen in the library wants a picture, even a young one.
+
+## The punchline, for fun
+
+This one posed from memory, so someone should check the likeness.
+
+## The options, in plain words
+
+A. A. A hand-drawn mockup page beside the entry (built)
+B. B. No mockup page, and no mock line in the entry
+C. C. A mockup page drawn by /omni:pixel-perfect mock from the running screen
+
+## What I had to decide
+
+Option A is built: a hand-drawn mockup beside the entry. B removes the mockup and the entry's mock line; C replaces it with one drawn by the screen skill from the running app.
+
+## What I did meanwhile
+
+The entry stays a draft, never locked, with its open questions listed.
+
+## What it costs to change later
+
+B or C touches only the two files in the screens folder.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The mockup was drawn from the source, not from a screenshot of the running tab (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-02-knowledge-screen-mockup-file -->
+
+<!-- omni-outbox-settled: s5-01-retired-legal-reads-as-not-held -->
+
+## s5-01-retired-legal-reads-as-not-held — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-retired-legal-reads-as-not-held
+prd: 1795
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+When a rule names a Legal entry that the product retired, the check cannot tell it from one that never existed, because the page only lists active entries. Should the page also say which entries were retired?
+
+## The decision, in plain words
+
+The check says the product does not hold the entry for both a retired and an unknown entry. The separate retired message waits until the page lists retired entries.
+
+## The intro, for fun
+
+The page forgets retired entries the moment they leave the list.
+
+## The punchline, for fun
+
+So the check can only say they are gone, not why.
+
+## The options, in plain words
+
+A. A. Say not held for both, as built.
+B. B. Add retired ids to the business read and print the retired message.
+
+## What I had to decide
+
+Add a retired list to the business read in a later slice, then the check can print the retired message.
+
+## What I did meanwhile
+
+A retired entry fails the check with the not-held message.
+
+## What it costs to change later
+
+A small addition to the business read and one more line in the check.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec asks for a retired message but fixes the business read to active entries only (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-retired-legal-reads-as-not-held -->
+
+<!-- omni-outbox-settled: s6-01-words-check-own-copy-reader -->
+
+## s6-01-words-check-own-copy-reader — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s6
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-words-check-own-copy-reader
+prd: 1795
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+The words check needs to read the saved copy of the product's glossary, but the reader that already exists belongs to another slice's files. Should the words check keep a small reader of its own, or share the existing one?
+
+## The decision, in plain words
+
+The words check has a small reader of its own for the saved glossary copy, so no file outside this slice was touched.
+
+## The intro, for fun
+
+Two readers, one little file, and a strict seating plan.
+
+## The punchline, for fun
+
+For now each keeps its own chair; merging them is a later tidy-up.
+
+## The options, in plain words
+
+A. A. The words check reads the copy with its own small reader (as built)
+B. B. Export the existing reader from the product-knowledge module and use it here
+
+## What I had to decide
+
+Pick A to keep the second small reader, or B to export the existing reader and have the words check use it.
+
+## What I did meanwhile
+
+The words check works fully offline with its own reader.
+
+## What it costs to change later
+
+Two short readers of the same file could drift apart if the copy's shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether sharing the reader is worth touching the product-knowledge module (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-01-words-check-own-copy-reader -->
+
+<!-- omni-outbox-settled: s7-01-canon-change-the-entry-button -->
+
+## s7-01-canon-change-the-entry-button — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s7
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-canon-change-the-entry-button
+prd: 1795
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 2
+---
+
+## The question, in plain words
+
+When the check turns red on a Legal entry, the spec asks for a button called Change the entry that opens the entry on the Knowledge tab. Where should that button be built?
+
+## The decision, in plain words
+
+The check now judges a spec against the product's Legal entries and names the sentence and the entry, but the button lives in code outside this slice's allowed folder, so it was not built here.
+
+## The intro, for fun
+
+The law is read, the sentence is quoted, but the button is still in another room.
+
+## The punchline, for fun
+
+Somebody has to carry it down the hall.
+
+## The options, in plain words
+
+A. A. Leave the button for a follow-up slice that owns the inbox check's canon actions (what was built)
+B. B. Widen this slice's territory to the inbox check folder and build the button now
+
+## What I had to decide
+
+Add the Change the entry button and its link in the inbox check's canon actions (a follow-up slice that owns that folder), or widen a slice's territory to include it.
+
+## What I did meanwhile
+
+A red canon check on a Legal entry names the entry and quotes the spec; the existing Change the line button still opens Settings, Business.
+
+## What it costs to change later
+
+One small follow-up slice; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The product page address a Knowledge tab link needs was not available inside the canon folder (author)
+
+```
+
+<!-- /omni-outbox-settled: s7-01-canon-change-the-entry-button -->
