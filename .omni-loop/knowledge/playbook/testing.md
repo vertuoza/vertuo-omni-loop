@@ -52,7 +52,9 @@ A test outside them never runs.
   with its fixture repositories under `apps/omni-app/test/fixtures/`.
 - A file that proves a law stays its owner's: tests of other behaviour go in a test file of their
   own, and the law's file is left untouched (PRD 1972, s4-01; it replaces PRD 1739, s2-01, which
-  let them sit beside the proof).
+  let them sit beside the proof). One exception, by its owner's answer: PRD 1796's contract tests
+  stay in `kit/lib/knowledge/check-knowledge.test.ts`, beside BR-PRODUCT-95's proof, which they
+  leave untouched (PRD 1796, s1-04).
 
 ## Choosing the level
 <!-- slot: levels · optional -->
