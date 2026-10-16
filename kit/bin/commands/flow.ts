@@ -13,9 +13,11 @@
 //   one `contracts:` line (PRD 1870): `contracts: declare <kinds>` when the repository asks its plans
 //   to declare the contract each slice changes, else `contracts: none`. With `--json`, an object:
 //   `{ differences, contracts: { declare, kinds } }`.
-// - `show --repo <target>`, in a plan repository, reads an imported target's copied flow instead
-//   (`kit/lib/plan-repo/copy-flow.ts`), its hook files from the copy: what that target's flow is at
-//   planning time, its `contracts:` line the copy's (`contracts: none` for a copy without the key). A target with no copied flow is a usage error. With `plan: { product }` (PRD 1548,
+// - `show --repo <target>`, in a plan repository, reads a target's copied flow instead, whatever its
+//   `knowledge` (`kit/lib/plan-repo/copy-flow.ts`), its hook files from the copy: what that target's
+//   flow is at planning time, its `contracts:` line the copy's (`contracts: none` for a copy without
+//   the key). A target with no copied flow is a usage error saying its contracts are unknown, never
+//   `contracts: none`. With `plan: { product }` (PRD 1548,
 //   s10), a target's short name is looked up among the product's targets, read from the Omni page
 //   (`contextWithTargets`, `./board.ts`) only when `--repo` names one by its short name.
 // - `verdict <point> --from <file>` reads a hook's output: `ok`, exit 0, or `not ok <point> <why>`,
@@ -156,7 +158,10 @@ function shownFlow(ctx: Context, repo: string | undefined): Shown {
     throw usageError(`omni flow show: ${errorMessage(error)}`);
   }
   if (copy === null) {
-    throw usageError(`omni flow show: ${repo} has no copied flow at ${join(copyFlowFolder(slug, ctx), COPY_FLOW_FILE)} — /omni:mega-invade copies an imported target's flow there.`);
+    throw usageError(
+      `omni flow show: ${repo} has no copied flow at ${join(copyFlowFolder(slug, ctx), COPY_FLOW_FILE)}, so its flow and its contracts are unknown, not the kit's defaults` +
+        " — /omni:mega-invade --sync copies every target's planning config there, `own` included.",
+    );
   }
   return { flow: resolveFlow(copy.config), readHook: copy.readHook, contracts: copy.config.contracts };
 }

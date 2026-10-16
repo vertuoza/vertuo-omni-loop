@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MASCOTS } from '@omni/design';
-import { engine, engineHz, farOf, motif, setMuted, sfx, unlock, writtenMotif, type Sfx } from './sound';
+import { engine, engineHz, farOf, motif, screech, setMuted, sfx, unlock, writtenMotif, type Sfx } from './sound';
 import { sure } from './test/sure';
 
 // A fleet's motif is keyed by its mascot, never by its name (PRD 400): a workspace names its own
@@ -75,15 +75,17 @@ class FakeAudio {
   destination = new Node();
   oscs: Osc[] = [];
   gains: { gain: Param }[] = [];
+  filters: { type: string; frequency: Param; Q: Param }[] = [];
+  sources: { loop: boolean }[] = [];
   hisses = 0;
   constructor() { made(this); }
   resume() {}
   createGain() { const g = Object.assign(new Node(), { gain: new Param() }); this.gains.push(g); return g; }
   createDelay() { return Object.assign(new Node(), { delayTime: new Param() }); }
-  createBiquadFilter() { return Object.assign(new Node(), { type: 'lowpass', frequency: new Param(), Q: new Param() }); }
+  createBiquadFilter() { const f = Object.assign(new Node(), { type: 'lowpass', frequency: new Param(), Q: new Param() }); this.filters.push(f); return f; }
   createPeriodicWave() { return {}; }
   createBuffer(_channels: number, length: number) { return { getChannelData: () => new Float32Array(length) }; }
-  createBufferSource() { this.hisses++; return Object.assign(new Node(), { buffer: null, loop: false, start() {}, stop() {} }); }
+  createBufferSource() { this.hisses++; const s = Object.assign(new Node(), { buffer: null, loop: false, start() {}, stop() {} }); this.sources.push(s); return s; }
   createOscillator() { const o = new Osc(); this.oscs.push(o); return o; }
 }
 
@@ -256,5 +258,72 @@ describe('the engine hum (PRD 1427)', () => {
     expect(master.target).toBe(0);
     engine(null);
     setMuted(false);
+  });
+});
+
+describe('the tyres\' screech (PRD 1963)', () => {
+  beforeAll(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal('window', { AudioContext: FakeAudio });
+    unlock();
+  });
+  afterAll(() => { screech(null); vi.unstubAllGlobals(); vi.useRealTimers(); });
+  beforeEach(() => { screech(null); audio.oscs = []; audio.filters = []; audio.sources = []; });
+
+  // Bug 2058: a square wave at 1400 to 1820 Hz, switched on at full level, sounded like a buzzer
+  // that clicked, and a level dropping to 0 for a frame restarted it: it stuttered.
+  it('squeals as a band of noise, never a tone: a looping noise source through a band-pass, and no oscillator', () => {
+    screech(0.5);
+    expect(audio.oscs).toEqual([]);
+    expect(audio.sources).toHaveLength(1);
+    expect(sure(audio.sources[0], 'the screech source').loop).toBe(true);
+    expect(audio.filters.map((f) => f.type)).toEqual(['bandpass']);
+  });
+
+  it('fades in from silence instead of clicking on', () => {
+    screech(1);
+    const gain = sure(audio.gains.at(-1), 'the screech gain').gain;
+    expect(gain.value).toBe(0);
+    expect(gain.target).toBeGreaterThan(0);
+  });
+
+  it('follows the level: louder and higher as it grows', () => {
+    screech(0.2);
+    const gain = sure(audio.gains.at(-1), 'the screech gain').gain;
+    const band = sure(audio.filters[0], 'the screech band').frequency;
+    const quiet = sure(gain.target, 'the quiet level'), low = sure(band.target, 'the low band');
+    screech(1);
+    expect(gain.target).toBeGreaterThan(quiet);
+    expect(band.target).toBeGreaterThan(low);
+  });
+
+  it('rides out a level that drops to 0 for a frame: it fades, and the same voice comes back', () => {
+    screech(0.5);
+    const gain = sure(audio.gains.at(-1), 'the screech gain').gain;
+    screech(0);
+    expect(gain.target).toBe(0);
+    screech(0.5);
+    expect(audio.sources).toHaveLength(1);
+    expect(gain.target).toBeGreaterThan(0);
+  });
+
+  it('stops on null, and starts a new voice after', () => {
+    screech(0.5);
+    screech(null);
+    screech(0.5);
+    expect(audio.sources).toHaveLength(2);
+  });
+
+  it('sounds nothing when muted: it goes through the master', () => {
+    const master = sure(audio.gains[0], 'the master gain').gain;
+    setMuted(true);
+    screech(1);
+    expect(master.target).toBe(0);
+    screech(null);
+    setMuted(false);
+  });
+
+  it('plays the new effects', () => {
+    for (const name of ['tickBlue', 'tickOrange', 'whoosh', 'sputter'] as const) expect(() => { sfx(name); }).not.toThrow();
   });
 });

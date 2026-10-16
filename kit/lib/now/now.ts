@@ -22,6 +22,8 @@
 //   what it is doing and what is stuck (`building s3 tabs · stuck s5`), and last the approval wait's
 //   line when there is one. The session on nothing prints the status line's own no-PRD line, or the
 //   wait's line alone.
+// - **The sync status** (PRD 1990, s6), only when `omni sync` has kept a record in the main checkout:
+//   `sync: { status, headline, checkedAt }`, read from its cache alone, for the band's first row.
 // - **The approval wait** (PRD 1322's s5, `wait.ts`), only while `omni wait approval` has something
 //   to show: `wait: { prd, line, toast, until }`, the line the band draws, `toast` while it is the
 //   approved or voided line highlighted until `until` (milliseconds). No wait, no `wait` key.
@@ -58,8 +60,12 @@ export type NowHeadline = { kind: 'loop' | 'roadmap'; number?: number; progress?
 /** The approval wait's line, a toast until `until` (milliseconds) when `toast`. */
 export type NowWait = { prd: PrdNumber; line: string; toast: boolean; until: number | null };
 
-/** `omni now`'s answer; `wait` only while an approval wait shows something. */
-export type Now = { headline: NowHeadline | null; work: NowWork | null; doing: string | null; wait?: NowWait };
+/** What `omni sync` last kept (PRD 1990): its status, its headline (`null` when green) and when it ran;
+ * `setupDone`, the newcomer's steps done, only while the status is `blue`. */
+export type NowSync = { status: 'blue' | 'red' | 'orange' | 'green'; headline: string | null; checkedAt: string; setupDone?: number };
+
+/** `omni now`'s answer; `wait` only while an approval wait shows something, `sync` only when `omni sync` has kept a record. */
+export type Now = { headline: NowHeadline | null; work: NowWork | null; doing: string | null; wait?: NowWait; sync?: NowSync };
 
 /** The answer for a session on nothing. */
 export const NOTHING: Now = Object.freeze({ headline: null, work: null, doing: null });
@@ -156,3 +162,6 @@ export function nowLines({ headline, work, doing, wait }: Now): string[] {
 
 /** `answer` with the approval `wait` it shows, when there is one. */
 export const withWait = (answer: Now, wait: NowWait | null): Now => (wait ? { ...answer, wait } : answer);
+
+/** `answer` with the `sync` record's status, headline and time, when `omni sync` kept one. */
+export const withSync = (answer: Now, sync: NowSync | null): Now => (sync ? { ...answer, sync } : answer);

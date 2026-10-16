@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sync status</title>
+<style>
+  :root { --bg: #f6f4ee; --ink: #1d1b26; --muted: #5d5a6b; --card: #ffffff; --line: #d9d5c8; --term: #17151f; --term-ink: #e9e6f2; --dim: #8a85a0; --ok: #2f8f5b; --bad: #c0392b; --accent: #6b3fd4; --warn: #c27c0e; --info: #2f6fd4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #121019; --ink: #ece9f5; --muted: #a7a2ba; --card: #1c1a26; --line: #2f2c3d; --term: #0b0a10; --accent: #a98bff; } }
+  :root[data-theme="dark"] { --bg: #121019; --ink: #ece9f5; --muted: #a7a2ba; --card: #1c1a26; --line: #2f2c3d; --term: #0b0a10; --accent: #a98bff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1120px; margin: 0 auto; padding: 32px 16px 56px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.2rem; margin: 36px 0 12px; }
+  .prd { color: var(--muted); margin: 0 0 24px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+  .card h3 { margin: 0 0 8px; font-size: 1rem; }
+  .tag { display: inline-block; font-size: .75rem; font-weight: 600; padding: 2px 8px; border-radius: 99px; margin-left: 6px; color: #fff; }
+  .tag.bad { background: var(--bad); } .tag.ok { background: var(--ok); }
+  pre { background: var(--term); color: var(--term-ink); border-radius: 8px; padding: 12px; margin: 0; font: 12.5px/1.45 ui-monospace, Menlo, monospace; overflow-x: auto; white-space: pre; }
+  .dim { color: var(--dim); } .hl { color: #ffd966; } .red { color: #ff7b72; } .grn { color: #7ee2a8; }
+  .cap { color: var(--muted); font-size: .9rem; margin: 10px 0 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  code { font: .9em ui-monospace, Menlo, monospace; }
+  .note { border-left: 3px solid var(--accent); padding: 4px 12px; color: var(--muted); }
+  .org { color: #ffb454; } .blu { color: #79b8ff; }
+  .tag.warn { background: var(--warn); } .tag.info { background: var(--info); }
+</style>
+</head>
+<body>
+<main>
+  <h1>omni sync says whether a checkout is in sync before anyone plans on it</h1>
+  <p class="prd">PRD #1990 · <code>feat/sync-status</code> · today beside after</p>
+
+  <h2>Functional</h2>
+
+  <h3>1. A product manager starts a brainstorm on a stale checkout</h3>
+  <div class="pair">
+    <div class="card"><h3>Today <span class="tag bad">nothing says it</span></h3>
+<pre><span class="dim">$</span> git branch --show-current
+feat/old-idea
+<span class="dim">$</span> claude
+<span class="dim">&gt;</span> /omni:brainstorm 'a mobile quick win'
+<span class="dim"># Briefing …</span>
+<span class="dim"># the agent explores feat/old-idea, 3 days behind main,</span>
+<span class="dim"># with a kit 9 releases old — nobody is told</span></pre>
+      <p class="cap">The plan is written against code that is no longer on <code>main</code>. It shows at review, or never.</p>
+    </div>
+    <div class="card"><h3>After <span class="tag ok">said at step 0</span></h3>
+<pre><span class="dim">&gt;</span> /omni:brainstorm 'a mobile quick win'
+<span class="red">🔴 Out of sync · main is 14 behind, the oldest 3 d old</span>
+  main       <span class="red">🔴</span> main is 14 behind, the oldest 3 d old → omni sync --fix
+             <span class="org">🟠</span> on feat/old-idea: plans are made on main
+  kit        <span class="org">🟠</span> repo kit v0.0.414, latest v0.0.423 → omni sync --fix
+  knowledge  <span class="grn">🟢</span> in sync
+  page       <span class="grn">🟢</span> signed in · synced 5 min ago
+fix: omni sync --fix
+<span class="dim">agent: your checkout is out of sync (main 3 days behind);</span>
+<span class="dim">run omni sync --fix first. Carrying on.</span></pre>
+      <p class="cap">The skill warns in one line and carries on: the person decides.</p>
+    </div>
+  </div>
+
+  <h3>2. The fix</h3>
+  <div class="pair">
+    <div class="card"><h3>Today <span class="tag bad">by hand</span></h3>
+<pre><span class="dim">$</span> git stash   <span class="dim"># maybe</span>
+<span class="dim">$</span> git switch main
+<span class="dim">$</span> git pull
+<span class="dim">$</span> omni version
+omni v0.0.414
+latest v0.0.423, run: omni update
+<span class="dim">$</span> omni update
+<span class="dim">$</span> /plugin update omni@omni-loop  <span class="dim"># and the HUD?</span></pre>
+      <p class="cap">Five commands a product manager has to remember, every morning.</p>
+    </div>
+    <div class="card"><h3>After <span class="tag ok">one command</span></h3>
+<pre><span class="dim">$</span> omni sync --fix
+  ✓ switched to main (feat/old-idea had nothing unpushed)
+  ✓ fast-forwarded main: 14 commits
+  ✓ updated the plugins — a new session loads them
+  ✓ omni update: opened #2011 (kit v0.0.423)
+  ✓ refreshed the page's copy
+<span class="grn">🟢 In sync</span></pre>
+      <p class="cap">Only the safe steps: a clean tree, nothing unpushed, fast-forward only. Never merges, rebases, resets or pushes; anything it leaves is printed with why.</p>
+    </div>
+  </div>
+
+  <h3>3. A newcomer opens the repository</h3>
+  <div class="pair">
+    <div class="card"><h3>Today <span class="tag bad">guesswork</span></h3>
+<pre><span class="dim">$</span> claude
+<span class="dim">no constituents: no sign-in — agents carry on</span>
+<span class="dim">&gt;</span> /omni:brainstorm …
+Unknown skill: omni:brainstorm</pre>
+      <p class="cap">The plugin is missing, the computer never signed in, and nothing lists what to do.</p>
+    </div>
+    <div class="card"><h3>After <span class="tag info">setting up</span></h3>
+<pre><span class="dim">$</span> omni sync
+<span class="blu">🔵 Setting up · 2 of 4</span>
+  ✓ Omni plugin installed
+  ✓ HUD plugin installed
+  · Sign in to the Omni page → omni signin
+  · Pull main → omni sync --fix</pre>
+      <p class="cap">Once all four hold it is recorded, and this checkout is never 🔵 again. Someone already set up never sees it.</p>
+    </div>
+  </div>
+
+  <h3>4. The status line and the HUD</h3>
+  <div class="pair">
+    <div class="card"><h3>Today</h3>
+<pre>Opus 5.5 · context ▓▓░░░░ 31% · 5h 12%
+no PRD · /omni:brainstorm to start</pre>
+    </div>
+    <div class="card"><h3>After <span class="tag ok">badge first</span></h3>
+<pre>Opus 5.5 · context ▓▓░░░░ 31% · 5h 12%
+<span class="grn">🟢 in sync</span> · no PRD · /omni:brainstorm to start
+
+<span class="org">🟠 repo kit v0.0.418, latest v0.0.423</span> · PRD 1990 sync-status · building · wave 1/3
+<span class="red">🔴 main is 14 behind, the oldest 3 d old</span> · no PRD · …
+<span class="blu">🔵 setting up 2/4</span> · no PRD · …</pre>
+      <p class="cap">Read from <code>.omni-loop/local/sync.json</code> only, never git or the network. A cache older than 15 minutes starts one background refresh. The HUD band's first row draws the same badge.</p>
+    </div>
+  </div>
+
+  <h3>5. When each colour shows</h3>
+  <table>
+    <tr><th>check, by weight</th><th>red</th><th>orange</th><th>green</th></tr>
+    <tr><td><b>main</b> · level <code>red</code></td><td>behind <code>origin/main</code>, the oldest missing commit older than <code>mainRedAfter</code> (24 h)</td><td>on another branch (main checkout) · tracked files changed · local commits not pushed · not checked</td><td>on main, behind only by newer commits</td></tr>
+    <tr><td><b>kit</b> · level <code>orange</code></td><td>—</td><td>repo kit, plugin or HUD plugin behind the latest release · a target repository's kit behind · not checked</td><td>all on the latest</td></tr>
+    <tr><td><b>knowledge</b> · level <code>orange</code></td><td>a target copy <code>stale</code> (capped to orange by default)</td><td>stale evidence · a target copy <code>drifted</code> · knowledge files changed here</td><td>in sync</td></tr>
+    <tr><td><b>page</b> · level <code>orange</code></td><td>—</td><td>not signed in · the page last synced over 24 h ago</td><td>signed in and fresh, or no Omni page</td></tr>
+  </table>
+  <p class="cap">A finding shows the lower of its own colour and its check's level. The headline is the heaviest check's first finding of the status's colour.</p>
+
+  <h3>6. The weights are config</h3>
+  <div class="pair">
+    <div class="card"><h3>Today</h3>
+<pre><span class="dim"># .omni-loop/config.yml — no sync block</span></pre>
+    </div>
+    <div class="card"><h3>After <span class="tag ok">the defaults</span></h3>
+<pre>sync:
+  order: [main, kit, knowledge, page]
+  levels:
+    main: red
+    kit: orange        <span class="dim"># set red to make the team update</span>
+    knowledge: orange
+    page: orange
+  mainRedAfter: 24h</pre>
+    </div>
+  </div>
+
+  <h2>Pixel perfect</h2>
+  <p class="note">Pixel perfect: no screen changes. Everything here is the terminal, the status line and the HUD band; no page of the Omni app changes.</p>
+</main>
+</body>
+</html>
