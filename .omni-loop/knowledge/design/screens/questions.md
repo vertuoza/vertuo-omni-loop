@@ -20,7 +20,8 @@ the workspace, the decisions agents took alone (PRD 2011).
 - The title, then the tabs: Inbox with its count, Outbox with its count, History.
 - On Outbox, the product filter (All products, each product, No product), as the Work lists have it.
 - The rows: the item's question, a chip saying who it waits on (`waits on you` first), and a line with
-  its product, its PRD id and its rank.
+  its product, its PRD id and its rank. A repository PRD's row (PRD 2124) adds `as of <time>`, its
+  stored outbox's last read, and its question links to its PRD page's Outbox tab, where it is answered.
 - The one primary action: Answer.
 
 ## States
@@ -30,7 +31,7 @@ the workspace, the decisions agents took alone (PRD 2011).
 
 ## Words
 
-`Inbox`, `Outbox`, `History`, `waits on you`, `waits on <name>`, `Answer`.
+`Inbox`, `Outbox`, `History`, `waits on you`, `waits on <name>`, `Answer`, `as of <time>`.
 
 ## Refusals
 
@@ -45,3 +46,4 @@ the workspace, the decisions agents took alone (PRD 2011).
 ## Source
 
 /omni:brainstorm, PRD 2011: .omni-loop/delivery/shipped/2011-product-records/before-after.html
+/omni:brainstorm, PRD 2124: .omni-loop/delivery/inbox/2124-outbox-all-prds/before-after.html (repository PRDs' rows)
