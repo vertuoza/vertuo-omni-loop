@@ -178,7 +178,17 @@ it.
 - **Stop the runner:** `tmux attach -t runner`, then Ctrl-C. It takes no new job and waits for the
   running ones to end.
 - **Update it:** stop it, `git pull` in the checkout the script starts from, and start it again.
-  Never restart it while a job runs: that job is marked `runner lost`.
+  Never restart it while a job runs: that job is marked `runner lost`. This updates the runner
+  itself; its plugin takes care of itself, below.
+- **The Omni plugin:** a job's skills come from the Omni plugin installed for the runner's user, so
+  the runner keeps it current. Once a job's worktree is made, and before Claude starts, it compares
+  the plugin's version with the omni the job's repository pins. An older plugin is updated
+  (`claude plugin update omni@omni-loop`), once, however many slots start together. A plugin as new
+  as the repository's omni, or newer, is left alone. At start and once an hour, the runner also
+  updates the plugin, so it follows the latest release even when no repository needs it. It prints a
+  line only when the plugin's version changed (from the old one to the new one) or the update
+  failed (with the last line the update said). A running job keeps the skills it loaded: Claude Code
+  keeps each version of the plugin in its own folder.
 - **Disk:** the runner cleans up after itself. When a job ends, it removes the job's worktree and
   its unpushed branch; once at start and every hour, it removes what older jobs left and job logs
   older than `--keep-logs` days, and prints one line saying what it freed.
@@ -195,5 +205,8 @@ it.
 | a job Failed with `runner lost` | the runner stopped or lost its network for over 90 s while the job ran | start the runner again, then **Send again** |
 | a job Failed with `timeout` | it ran past `--timeout` | send it again, or start the runner with a longer `--timeout` |
 | a job Failed with an exit code | Claude Code ended in error | press **Terminal** on the job, or read `~/logs/job-<id>.log` on the runner |
+| a job Failed with a reason that says the Omni plugin is older than the omni its repository pins | the plugin on the runner is older than the omni the repository pins, and the update could not bring it up; the end of the reason says why | as the runner's user, run `claude plugin update omni@omni-loop` and read what it says, then **Send again**. Claude was never started, so the job did nothing |
+| a job Failed with a reason that says the Omni plugin is not installed | Claude Code has no Omni plugin for the runner's user | install it as the runner's user, the way the [Install](/docs/install) page shows, then **Send again** |
+| a job's log starts with a line that says the plugin's version was not read | `claude plugin list` did not answer in time or its answer was unreadable, so the plugin's age was not checked | nothing: the job ran. If it keeps showing, run `claude plugin list --json` as the runner's user |
 
 [Next → How the loop works](/docs/loop)
