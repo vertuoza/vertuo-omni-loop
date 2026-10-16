@@ -64,4 +64,4 @@ Cancel · Send again · Terminal · No job yet · API key · made by.
 
 /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html
 /omni:brainstorm, PRD 1904: .omni-loop/delivery/shipped/1904-runner-live-logs/before-after.html
-/omni:brainstorm, PRD 2022: .omni-loop/delivery/inbox/2022-api-keys-v1/before-after.html
+/omni:brainstorm, PRD 2022: .omni-loop/delivery/shipped/2022-api-keys-v1/before-after.html

@@ -54,4 +54,4 @@ revoke keys.
 
 ## Source
 
-/omni:brainstorm, PRD 2022: .omni-loop/delivery/inbox/2022-api-keys-v1/before-after.html
+/omni:brainstorm, PRD 2022: .omni-loop/delivery/shipped/2022-api-keys-v1/before-after.html
