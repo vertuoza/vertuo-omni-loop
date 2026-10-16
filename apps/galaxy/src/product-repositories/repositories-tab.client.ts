@@ -1,6 +1,6 @@
 import type { ApproverState } from '../products/approvers';
 import {
-  ApproverRemovedSchema, ApproverSavedSchema, approversRoute, LinkRemovedSchema, LinkSavedSchema, linksRoute, TabErrorSchema,
+  ApproverRemovedSchema, ApproverSavedSchema, approversRoute, ArchivedSchema, archiveRoute, LinkRemovedSchema, LinkSavedSchema, linksRoute, TabErrorSchema,
   type Link, type LinkWrite,
 } from './repositories-tab.contract';
 
@@ -20,6 +20,8 @@ export interface RepositoriesTabPort {
   removeLink(repo: string): Promise<Changed<{ repo: string }>>;
   setApprover(member: string, state: ApproverState): Promise<Changed<{ state: ApproverState }>>;
   removeApprover(member: string): Promise<Changed<object>>;
+  /** Archives the plan repository (true), or undoes it (false): when it was archived. */
+  archive(archived: boolean): Promise<Changed<{ archivedAt: string | null }>>;
 }
 
 const OFFLINE = 'Nothing was saved. Check your connection and try again.';
@@ -50,5 +52,6 @@ export function repositoriesTabClient(product: string, fetchFn: Fetch = (url, in
     removeLink: (repo) => call(`${linksRoute(product)}?repo=${encodeURIComponent(repo)}`, { method: 'DELETE' }, (body) => ({ repo: LinkRemovedSchema.parse(body).repo })),
     setApprover: (member, state) => call(approversRoute(product), json({ member, state }), (body) => ({ state: ApproverSavedSchema.parse(body).state })),
     removeApprover: (member) => call(`${approversRoute(product)}?member=${encodeURIComponent(member)}`, { method: 'DELETE' }, (body) => { ApproverRemovedSchema.parse(body); return {}; }),
+    archive: (archived) => call(archiveRoute(product), json({ archived }), (body) => ({ archivedAt: ArchivedSchema.parse(body).archivedAt })),
   };
 }

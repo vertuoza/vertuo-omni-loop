@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { MemberSession } from '../data/member-session';
-import { ApproverRemovedSchema, ApproverSavedSchema, LinkRemovedSchema, LinkSavedSchema, TabErrorSchema } from './repositories-tab.contract';
+import { ApproverRemovedSchema, ApproverSavedSchema, ArchivedSchema, LinkRemovedSchema, LinkSavedSchema, TabErrorSchema } from './repositories-tab.contract';
 import { repositoriesTabHandlers, repositoriesTabViewOf, type RepositoriesTabDeps } from './repositories-tab.controller';
 import type { RepositoriesTab, RepositoriesTabService } from './repositories-tab.service';
 
@@ -11,8 +11,8 @@ vi.mock('server-only', () => ({}));
 // service runs. Each refusal is `{error}` in plain words, its status by its kind.
 
 const PRODUCT = '22222222-2222-4222-8222-222222222221';
-const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own' as const, readAt: null, readOnly: false, consumes: [], addedBy: 'person' as const };
-const TAB: RepositoriesTab = { product: { id: PRODUCT, name: 'Mobile' }, owner: true, links: [LINK], addable: ['acme/web'], approvers: null };
+const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own' as const, readAt: null, readOnly: false, consumes: [], addedBy: 'person' as const, ladderStep: 5 };
+const TAB: RepositoriesTab = { product: { id: PRODUCT, name: 'Mobile' }, owner: true, links: [LINK], addable: ['acme/web'], approvers: null, plan: null };
 
 describe('the page\'s view', () => {
   const signedIn = { kind: 'signed-in', db: {}, env: { url: 'u', key: 'k' }, user: { id: 'u-1' } } as unknown as MemberSession;
@@ -57,6 +57,7 @@ describe('the routes', () => {
       removeLink: (product, repo) => { calls.push(`remove ${product} ${repo}`); return Promise.resolve({ ok: true, value: { repo, removed: true } }); },
       setApprover: (product, member, state) => { calls.push(`set ${product} ${member} ${state}`); return Promise.resolve({ ok: true, value: { member, state } }); },
       removeApprover: (product, member) => { calls.push(`unset ${product} ${member}`); return Promise.resolve({ ok: true, value: { member, removed: true } }); },
+      archive: (product, archived) => { calls.push(`archive ${product} ${String(archived)}`); return Promise.resolve({ ok: true, value: { archivedAt: archived ? '2026-10-16T09:00:00Z' : null } }); },
       ...service,
     };
     const h = repositoriesTabHandlers({ signedIn: () => Promise.resolve(service === null ? null : full), log: (line) => { logs.push(line); } });
@@ -124,5 +125,32 @@ describe('the routes', () => {
     const h = handlers({ removeLink: () => Promise.reject(new Error('down')) });
     expect((await h.removeLink(del('links', 'repo=acme/api'), PRODUCT)).status).toBe(500);
     expect(h.logs).toEqual([`product repositories: down (${PRODUCT})`]);
+  });
+
+  it('archives and undoes the plan repository as a person, never cached', async () => {
+    const h = handlers({});
+    const archived = await answer(await h.archive(post('archive', { archived: true }), PRODUCT));
+    expect(archived).toMatchObject({ status: 200, cache: 'no-store' });
+    expect(ArchivedSchema.parse(archived.body)).toEqual({ archivedAt: '2026-10-16T09:00:00Z' });
+    expect(ArchivedSchema.parse((await answer(await h.archive(post('archive', { archived: false }), PRODUCT))).body)).toEqual({ archivedAt: null });
+    expect(h.calls).toEqual([`archive ${PRODUCT} true`, `archive ${PRODUCT} false`]);
+  });
+
+  it('refuses an agent: a request carrying an Authorization header archives nothing', async () => {
+    const h = handlers({});
+    const request = new Request(`${BASE}/archive`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer omni_agent_token' }, body: JSON.stringify({ archived: true }) });
+    const a = await answer(await h.archive(request, PRODUCT));
+    expect(a.status).toBe(403);
+    expect(TabErrorSchema.parse(a.body).error).toMatch(/only a person/i);
+    expect(h.calls).toEqual([]);
+  });
+
+  it('answers the archive 401 signed out, 400 to a malformed body, 422 to a refusal naming the holds', async () => {
+    expect((await handlers(null).archive(post('archive', { archived: true }), PRODUCT)).status).toBe(401);
+    const h = handlers({});
+    expect((await h.archive(post('archive', { archived: 'yes' }), PRODUCT)).status).toBe(400);
+    expect((await h.archive(post('archive', { archived: true, extra: 1 }), PRODUCT)).status).toBe(400);
+    const held = handlers({ archive: () => Promise.resolve({ ok: false, kind: 'refused', error: 'Archive: still held by web at step 3.' }) });
+    expect(await answer(await held.archive(post('archive', { archived: true }), PRODUCT))).toMatchObject({ status: 422, body: { error: 'Archive: still held by web at step 3.' } });
   });
 });

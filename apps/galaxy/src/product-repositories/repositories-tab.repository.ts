@@ -17,19 +17,30 @@ import { StoredLinkFields } from './product-link-row';
 /** What the tab's reads and writes need: the tables and the database's functions. */
 export type RepositoriesTabDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 
-const PRODUCT_COLUMNS = 'id, workspace_id, name';
-const StoredTabProductSchema = z.object({ id: z.string(), workspace_id: z.string(), name: z.string() });
+const PRODUCT_COLUMNS = 'id, workspace_id, name, plan_repository, plan_archived_at';
+const StoredTabProductSchema = z.object({
+  id: z.string(),
+  workspace_id: z.string(),
+  name: z.string(),
+  plan_repository: z.string().nullable(),
+  plan_archived_at: z.string().nullable(),
+});
 export type StoredTabProduct = z.infer<typeof StoredTabProductSchema>;
 
-const LINK_COLUMNS = 'repository, role, knowledge, read_at, read_only, consumes, added_by';
+const LINK_COLUMNS = 'repository, role, knowledge, read_at, read_only, consumes, added_by, ladder_step';
 /** One product link, as the tab reads it. */
-const StoredTabLinkSchema = StoredLinkFields.extend({ added_by: z.enum(['prd', 'person']) });
+const StoredTabLinkSchema = StoredLinkFields.extend({ added_by: z.enum(['prd', 'person']), ladder_step: z.number().int().min(1).max(5) });
 export type StoredTabLink = z.infer<typeof StoredTabLinkSchema>;
 
 /** The fields a link write sets, every one of them. */
 type LinkFields = z.infer<typeof StoredLinkFields>;
 
 const StoredRepository = z.object({ full_name: z.string() });
+const StoredRecord = z.object({ prd: z.number().nullable(), kind: z.string() });
+const StoredStage = z.object({ prd: z.number() });
+const StoredFacts = z.object({ dossier_id: z.string(), facts: z.unknown() });
+const StoredRoadmap = z.object({ number: z.number().nullable(), roadmap_prds: z.array(z.object({ state: z.string() })) });
+const ArchiveAnswer = z.object({ plan_archived_at: z.string().nullable() });
 const SetAnswer = z.object({ state: z.enum(['asked', 'skipped']) });
 
 /** A refusal, by the database's code and in its words. */
@@ -39,6 +50,10 @@ type Written<T> = ({ ok: true } & T) | Refused;
 type RpcAnswer = { data: unknown; error: { code?: string; message: string } | null };
 
 const refusedOf = (error: { code?: string; message: string }): Refused => ({ ok: false, code: error.code || null, message: error.message });
+
+/** Whether a fix's facts (a FixSummary) say its pull request merged; unread facts say not. */
+const fixMerged = (facts: unknown): boolean =>
+  typeof facts === 'object' && facts !== null && 'pull' in facts && typeof facts.pull === 'object' && facts.pull !== null && 'state' in facts.pull && facts.pull.state === 'merged';
 
 export function repositoriesTabRepository(db: RepositoriesTabDb) {
   return {
@@ -104,6 +119,43 @@ export function repositoriesTabRepository(db: RepositoriesTabDb) {
       const answer: RpcAnswer = await db.rpc('product_repository_unlink', { p_product: product, p_repository: repository });
       if (answer.error) return refusedOf(answer.error);
       return { ok: true, removed: answer.data === true };
+    },
+
+    /**
+     * The records of `repository` born in git and still open, as `{ kind, number }`: its PRDs that reached no
+     * shipped stage, its bug records whose fix is not merged, its roadmaps with a PRD not yet merged or closed.
+     * A record born on the server (a dossier born `server`, a roadmap with a dossier) is no hold. Throws when a read fails.
+     */
+    async openBornInGit(workspace: string, repository: string): Promise<{ kind: 'prd' | 'bug' | 'roadmap'; number: number }[]> {
+      const where = 'product-repositories/repositories-tab.repository';
+      const dossiers = await db.from('dossiers').select('id, prd, kind').eq('workspace_id', workspace).eq('home_repo', repository)
+        .in('kind', ['prd', 'bug']).or('birthplace.is.null,birthplace.eq.repo').not('prd', 'is', null);
+      if (dossiers.error) throw new Error(`Supabase: could not read the dossiers (${dossiers.error.message})`);
+      const born = orThrow(parseRows(StoredRecord.extend({ id: z.string() }), dossiers.data, `${where}: dossiers`));
+      const stages = await db.from('prd_stages').select('prd').eq('workspace_id', workspace).eq('repository', repository).eq('stage', 'shipped');
+      if (stages.error) throw new Error(`Supabase: could not read the stages (${stages.error.message})`);
+      const shipped = new Set(orThrow(parseRows(StoredStage, stages.data, `${where}: prd_stages`)).map((r) => r.prd));
+      const bugIds = born.filter((r) => r.kind === 'bug').map((r) => r.id);
+      const facts = bugIds.length === 0 ? { data: [], error: null } : await db.from('fix_facts').select('dossier_id, facts').in('dossier_id', bugIds);
+      if (facts.error) throw new Error(`Supabase: could not read the fixes (${facts.error.message})`);
+      const merged = new Set(orThrow(parseRows(StoredFacts, facts.data, `${where}: fix_facts`)).filter((r) => fixMerged(r.facts)).map((r) => r.dossier_id));
+      const roadmaps = await db.from('roadmaps').select('number, roadmap_prds(state)').eq('workspace_id', workspace).eq('repo', repository).is('dossier_id', null);
+      if (roadmaps.error) throw new Error(`Supabase: could not read the roadmaps (${roadmaps.error.message})`);
+      const open = (state: string) => state !== 'merged' && state !== 'closed';
+      return [
+        ...born.filter((r) => r.kind === 'prd' && r.prd !== null && !shipped.has(r.prd)).map((r) => ({ kind: 'prd' as const, number: r.prd ?? 0 })),
+        ...born.filter((r) => r.kind === 'bug' && r.prd !== null && !merged.has(r.id)).map((r) => ({ kind: 'bug' as const, number: r.prd ?? 0 })),
+        ...orThrow(parseRows(StoredRoadmap, roadmaps.data, `${where}: roadmaps`))
+          .filter((r) => r.number !== null && r.roadmap_prds.some((p) => open(p.state)))
+          .map((r) => ({ kind: 'roadmap' as const, number: r.number ?? 0 })),
+      ];
+    },
+
+    /** Archives the plan repository (true), or undoes it (false), through product_plan_archive(): when it was archived. */
+    async archive(product: string, archived: boolean): Promise<Written<{ archivedAt: string | null }>> {
+      const answer: RpcAnswer = await db.rpc('product_plan_archive', { p_product: product, p_archived: archived });
+      if (answer.error) return refusedOf(answer.error);
+      return { ok: true, archivedAt: orThrow(parseRow(ArchiveAnswer, answer.data, 'product-repositories/repositories-tab.repository: product_plan_archive')).plan_archived_at };
     },
 
     /** Lists a member as asked or skipped, or changes their state, through product_approver_set(). */

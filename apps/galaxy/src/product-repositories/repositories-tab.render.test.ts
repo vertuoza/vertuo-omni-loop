@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { APPROVERS_READ_ONLY } from '../products/approvers-section';
 import { ALL_LINKED, LINKS_READ_ONLY, NO_LINKS } from './LinksSection';
+import { NOT_OWNER_ARCHIVE } from './PlanArchiveSection';
 import type { RepositoriesTab } from './repositories-tab.contract';
 import { demoRepositoriesTab, RepositoriesTabScreen, TAB_LABEL, type RepositoriesTabView } from './RepositoriesTab';
 
@@ -76,7 +77,7 @@ describe('a member\'s tab', () => {
   });
 
   it('names an imported knowledge base by its commit, and a link with no role', () => {
-    const imported = render(live({ ...TAB, owner: false, links: [{ repo: 'acme/api', role: null, knowledge: 'imported', readAt: '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4', readOnly: false, consumes: [], addedBy: 'person' }] }));
+    const imported = render(live({ ...TAB, owner: false, links: [{ repo: 'acme/api', role: null, knowledge: 'imported', readAt: '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4', readOnly: false, consumes: [], addedBy: 'person', ladderStep: 1 }] }));
     expect(text(rowOf(imported, 'acme/api'))).toBe('acme/api no role yet · knowledge imported at 3f2a9c1 · added by a person');
   });
 });
@@ -92,5 +93,45 @@ describe('the situations', () => {
     const html = render(live({ ...TAB, approvers: null }));
     expect(html).toContain('data-repo="acme/widgets"');
     expect(text(html)).toContain('Couldn’t load this product’s approvers');
+  });
+});
+
+describe('the ladder and the plan repository (PRD 2011 s17)', () => {
+  const planned = (plan: RepositoriesTab['plan'], over: Partial<RepositoriesTab> = {}) => render(live({ ...TAB, plan, ...over }));
+
+  it('draws one line per repository with its step, five cells, the reached ones filled', () => {
+    const html = planned(null);
+    const from = html.indexOf('data-ladder-repo="acme/widgets"');
+    const row = html.slice(from, html.indexOf('</li>', from));
+    expect(text(row).replace(/^[^>]*> /, '')).toBe('widgets step 3');
+    expect(row).toContain('aria-label="acme/widgets: step 3 of 5"');
+    expect(row.match(/plan-ladder-cell on/g)).toHaveLength(3);
+    expect(row.match(/plan-ladder-cell"/g)).toHaveLength(2);
+    expect(html).not.toContain('id="plan-title"');
+  });
+
+  it('names what holds the plan repository and keeps Archive from being pressed', () => {
+    const html = planned({ repository: 'acme/plan', archivedAt: null, holds: [{ name: 'widgets', why: 'step 3' }, { name: 'roadmap 0412', why: 'in git' }] });
+    expect(text(html)).toContain('Held by widgets · step 3');
+    expect(text(html)).toContain('Held by roadmap 0412 · in git');
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Archive acme\/plan<\/button>/);
+  });
+
+  it('offers Archive when nothing holds it', () => {
+    const html = planned({ repository: 'acme/plan', archivedAt: null, holds: [] });
+    expect(html).toMatch(/<button(?![^>]*disabled)[^>]*>Archive acme\/plan<\/button>/);
+    expect(text(html)).not.toContain('Held by');
+  });
+
+  it('says it is archived, with Undo', () => {
+    const html = planned({ repository: 'acme/plan', archivedAt: '2026-10-16T09:00:00Z', holds: [] });
+    expect(text(html)).toContain('acme/plan is archived: read-only on GitHub.');
+    expect(buttons(html.slice(html.indexOf('id="plan-title"'), html.indexOf('id="links-title"')))).toEqual(['Undo']);
+  });
+
+  it('shows a member the holds and no button', () => {
+    const html = planned({ repository: 'acme/plan', archivedAt: null, holds: [{ name: 'widgets', why: 'step 3' }] }, { owner: false, approvers: null });
+    expect(text(html)).toContain(NOT_OWNER_ARCHIVE);
+    expect(html.slice(html.indexOf('id="plan-title"'), html.indexOf('id="links-title"'))).not.toContain('<button');
   });
 });

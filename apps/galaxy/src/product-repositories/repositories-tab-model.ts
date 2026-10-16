@@ -108,7 +108,7 @@ function consumesRefusal(repo: string, consumes: readonly string[], links: reado
 }
 
 /** product_repository_link()'s and unlink()'s rules, and the approvers' functions, over the demo's links. */
-export function demoTabPort(initial: readonly Link[]): RepositoriesTabPort {
+export function demoTabPort(initial: readonly Link[], plan: string | null = null): RepositoriesTabPort {
   let links = [...initial];
   const refuse = (message: string): Promise<Changed<never>> => Promise.resolve({ ok: false, message });
   return {
@@ -117,7 +117,7 @@ export function demoTabPort(initial: readonly Link[]): RepositoriesTabPort {
       const refusal = fieldRefusal(write) ?? consumesRefusal(repo, write.consumes, links);
       if (refusal) return refuse(refusal);
       const was = links.find((l) => l.repo === repo);
-      const link: Link = { ...write, repo, readAt: write.readAt?.toLowerCase() ?? null, addedBy: was?.addedBy ?? 'person' };
+      const link: Link = { ...write, repo, readAt: write.readAt?.toLowerCase() ?? null, addedBy: was?.addedBy ?? 'person', ladderStep: was?.ladderStep ?? 1 };
       links = [...links.filter((l) => l.repo !== repo), link];
       return Promise.resolve({ ok: true, link });
     },
@@ -126,6 +126,12 @@ export function demoTabPort(initial: readonly Link[]): RepositoriesTabPort {
       if (user) return refuse(`Consumes: ${user.repo} consumes ${repo}; take it out of its consumes first.`);
       links = links.filter((l) => l.repo !== repo);
       return Promise.resolve({ ok: true, repo });
+    },
+    archive: (archived) => {
+      // product_plan_archive()'s rule, over the demo's links: none below step 5 but the plan repository's own.
+      const held = links.filter((l) => l.ladderStep < 5 && l.repo !== plan);
+      if (archived && held.length > 0) return refuse(`Archive: still held by ${held.map((l) => `${l.repo.split('/').at(-1) ?? l.repo} at step ${String(l.ladderStep)}`).join(' · ')}.`);
+      return Promise.resolve({ ok: true, archivedAt: archived ? '2026-10-16T09:00:00Z' : null });
     },
     setApprover: (_member: string, state: ApproverState) => Promise.resolve({ ok: true, state }),
     removeApprover: () => Promise.resolve({ ok: true }),

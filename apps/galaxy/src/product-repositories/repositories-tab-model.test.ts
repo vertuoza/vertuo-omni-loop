@@ -6,7 +6,7 @@ import { demoTabPort, draftOf, initialLinksForm, linksReducer, newLinkWrite, wri
 // draft and the write it sends, and the demo's port, which keeps the database's rules in memory.
 
 const SHA = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
-const link = (repo: string, over: Partial<Link> = {}): Link => ({ repo, role: null, knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person', ...over });
+const link = (repo: string, over: Partial<Link> = {}): Link => ({ repo, role: null, knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person', ladderStep: 1, ...over });
 
 describe('the list', () => {
   const start = () => initialLinksForm({ links: [link('acme/web'), link('acme/api')], addable: ['acme/zed', 'acme/billing'] });
@@ -56,6 +56,13 @@ describe('the demo\'s port', () => {
     expect(await port.saveLink({ ...newLinkWrite('acme/web'), consumes: ['acme/zed'] })).toMatchObject({ ok: false, message: 'Consumes: acme/zed is not in this product.' });
     expect(await port.saveLink({ ...newLinkWrite('Acme/Web'), consumes: ['acme/api'] })).toEqual({ ok: true, link: link('acme/web', { consumes: ['acme/api'] }) });
     expect(await port.saveLink({ ...newLinkWrite('acme/api'), role: 'api' })).toEqual({ ok: true, link: link('acme/api', { role: 'api', addedBy: 'prd' }) });
+  });
+
+  it('refuses to archive the plan repository while another repository is below step 5, and archives once none is', async () => {
+    const port = demoTabPort([link('acme/api', { ladderStep: 5 }), link('acme/web', { ladderStep: 3 }), link('acme/plan', { ladderStep: 1 })], 'acme/plan');
+    expect(await port.archive(true)).toEqual({ ok: false, message: 'Archive: still held by web at step 3.' });
+    expect(await demoTabPort([link('acme/api', { ladderStep: 5 }), link('acme/plan')], 'acme/plan').archive(true)).toEqual({ ok: true, archivedAt: '2026-10-16T09:00:00Z' });
+    expect(await port.archive(false)).toEqual({ ok: true, archivedAt: null });
   });
 
   it('refuses to remove a repository another consumes, then removes it once it is free', async () => {

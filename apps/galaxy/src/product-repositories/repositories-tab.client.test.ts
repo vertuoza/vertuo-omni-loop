@@ -6,7 +6,7 @@ import { repositoriesTabClient } from './repositories-tab.client';
 // connection says nothing was saved.
 
 const PRODUCT = '22222222-2222-4222-8222-222222222221';
-const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person' };
+const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person', ladderStep: 1 };
 
 function stub(status: number, body: unknown) {
   const sent: { url: string; init: RequestInit }[] = [];
@@ -35,6 +35,16 @@ describe('the calls', () => {
     const unset = stub(200, { member: 'u-1', removed: true });
     expect(await unset.client.removeApprover('u-1')).toEqual({ ok: true });
     expect(unset.sent[0]?.url).toBe(`/app/products/${PRODUCT}/repositories/approvers?member=u-1`);
+  });
+
+  it('archives and undoes the plan repository with a POST, naming what holds it when refused', async () => {
+    const archived = stub(200, { archivedAt: '2026-10-16T09:00:00Z' });
+    expect(await archived.client.archive(true)).toEqual({ ok: true, archivedAt: '2026-10-16T09:00:00Z' });
+    expect(archived.sent[0]).toMatchObject({ url: `/app/products/${PRODUCT}/repositories/archive`, init: { method: 'POST', credentials: 'same-origin' } });
+    const body = archived.sent[0]?.init.body;
+    expect(typeof body === 'string' ? JSON.parse(body) : null).toEqual({ archived: true });
+    expect(await stub(200, { archivedAt: null }).client.archive(false)).toEqual({ ok: true, archivedAt: null });
+    expect(await stub(422, { error: 'Archive: still held by web at step 3.' }).client.archive(true)).toEqual({ ok: false, message: 'Archive: still held by web at step 3.' });
   });
 
   it('answers a refusal in the route\'s words, and a lost connection as nothing saved', async () => {
