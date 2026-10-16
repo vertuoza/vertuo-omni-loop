@@ -308,6 +308,38 @@ describe('projectEvents', () => {
     });
   });
 
+  describe('a pull request merged into a tracked repository\'s default branch (PRD 1975)', () => {
+    const merged = (over: Record<string, unknown> = {}) => ({
+      repo: 'Acme/App', number: 12, title: 'feat: export', kind: 'feat', author: 'Alice', mergedAt: '2026-09-22T12:00:00Z', reviewers: ['pm', 'eve'], ...over,
+    });
+    const withMerged = (...prs: Array<Record<string, unknown>>) => ({ ...snapshot(), merged: prs } as unknown as Snapshot);
+    const paid = (events: GameEvent[]) => events.filter((e) => e.type === 'PR_MERGED' || e.type === 'PR_REVIEWED');
+
+    it('writes one PR_MERGED for its author and one PR_REVIEWED per reviewer, at its merge, on no planet', () => {
+      expect(paid(projectEvents(withMerged(merged()), { config, now: NOW }))).toEqual([
+        { id: 'pr:acme/app#12:merged', at: '2026-09-22T12:00:00Z', type: 'PR_MERGED', planet: 0, home: 'acme/app', region: 'acme/app', contributor: 'alice', team: 'octopod', data: { pr: 12, kind: 'feat' } },
+        { id: 'pr:acme/app#12:reviewed:eve', at: '2026-09-22T12:00:00Z', type: 'PR_REVIEWED', planet: 0, home: 'acme/app', region: 'acme/app', contributor: 'eve', data: { pr: 12, kind: 'feat' } },
+        { id: 'pr:acme/app#12:reviewed:pm', at: '2026-09-22T12:00:00Z', type: 'PR_REVIEWED', planet: 0, home: 'acme/app', region: 'acme/app', contributor: 'pm', team: 'beaver', data: { pr: 12, kind: 'feat' } },
+      ]);
+    });
+
+    it('carries a docs kind, and writes nothing for a pull request of no kind or no author', () => {
+      expect(paid(projectEvents(withMerged(merged({ kind: 'docs', reviewers: [] })), { config, now: NOW })).map((e) => [e.id, e.data])).toEqual([['pr:acme/app#12:merged', { pr: 12, kind: 'docs' }]]);
+      expect(paid(projectEvents(withMerged(merged({ kind: 'none' }), merged({ number: 13, author: null })), { config, now: NOW }))).toEqual([]);
+    });
+
+    it('adds nothing on a second projection: the ids name the pull request and the person', () => {
+      const once = paid(projectEvents(withMerged(merged()), { config, now: NOW }));
+      const twice = paid(projectEvents(withMerged(merged(), merged()), { config, now: NOW }));
+      expect(new Set(twice.map((e) => e.id))).toEqual(new Set(once.map((e) => e.id)));
+    });
+
+    it('leaves the planets\' events as they were', () => {
+      const without = projectEvents(snapshot(), { config, now: NOW });
+      expect(projectEvents(withMerged(merged()), { config, now: NOW }).filter((e) => !e.type.startsWith('PR_'))).toEqual(without);
+    });
+  });
+
   it('is idempotent: the same snapshot yields the same ids and timestamps', () => {
     const a = projectEvents(snapshot(), { config, now: NOW });
     const b = projectEvents(snapshot(), { config, now: NOW });

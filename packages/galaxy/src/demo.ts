@@ -202,7 +202,12 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
     }),
     planet({ prd: parsePrd(2541), title: 'VAT Rules Belgium', captain: 'pm-lina', created: 12 }),
   ];
-  return { at: iso(now), teams: DEMO_TEAMS, planets };
+  // A pull request merged into a tracked repository's default branch pays its author and its
+  // reviewers (PRD 1975); a sub-PR, merged into a feature branch, pays nothing.
+  const merged = [
+    { repo: 'demo-org/vertuo-web', number: parsePr(2602), title: 'feat(quotes): duplicate a quote line', kind: 'feat' as const, author: 'gold-rush', mergedAt: ago(60), reviewers: ['dime'] },
+  ];
+  return { at: iso(now), teams: DEMO_TEAMS, planets, merged };
 }
 
 export function demoEvents(now: Date = new Date()): GameEvent[] {

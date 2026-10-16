@@ -170,6 +170,20 @@ function speedCap(track: Track, r: Rival): number {
   return cap;
 }
 
+/** Whether a turn tighter than `RULES.rivalDriftRadius` is under the kart or within its look ahead (PRD 1963): the bend a HARD rival hops into and drifts through, until it opens past that radius. */
+function tightAhead(track: Track, r: Rival): boolean {
+  const along = locatePx(track, r.kart.x, r.kart.y, r.kart.along).along;
+  const reach = RULES.rivalHorizon + RULES.rivalHorizonTime * Math.max(0, r.kart.speed);
+  const tight = RULES.rivalDriftRadius * TILE;
+  return arcsOf(track).some((arc) => arc.radius < tight && [0, track.length, -track.length].some((shift) => arc.end + shift > along && arc.start + shift < along + reach));
+}
+
+/** Whether a HARD rival holds HOP now (PRD 1963): on the ground, not braking, fast enough or already drifting, with a tight bend under it or in its look. */
+function holdsHop(track: Track, r: Rival, level: Difficulty, pad: Pad): boolean {
+  if (level !== 'hard' || pad.brake || airborne(r.kart)) return false;
+  return (r.kart.speed >= RULES.driftMin * RULES.topSpeed || r.fx?.drift !== undefined) && tightAhead(track, r);
+}
+
 /** Whether a ramp is under the kart or on its way in the next `ahead` units (PRD 1775): the gap beyond it is to be jumped, not steered away from. */
 function rampAhead(track: Track, k: { x: number; y: number; angle: number }, ahead: number): boolean {
   for (let d = 0; d <= ahead + TILE / 2; d += TILE / 2) {
@@ -183,7 +197,7 @@ function rampAhead(track: Track, k: { x: number; y: number; angle: number }, ahe
 export const approachesRamp = (track: Track, k: { x: number; y: number; angle: number }): boolean => rampAhead(track, k, RULES.rampCalm);
 
 /** What a rival's hands do: steer at the point it aims at, and lift for a turn it cannot take at its speed. A wheel over the void, now or `RULES.rivalLook` seconds ahead, steers it back from the edge with the gas off (but for a crawl under `RULES.rivalCrawl`, so a stalled kart pulls clear), and brakes it when it is faster than a corner allows. */
-function rivalPad(track: Track, r: Rival): Pad {
+function rivalPad(track: Track, r: Rival, level: Difficulty = 'normal'): Pad {
   const { x, y, angle, speed } = r.kart;
   const ahead = RULES.rivalLook * Math.max(0, speed);
   const flying = airborne(r.kart); // in the air nothing is under the wheels to steer from
@@ -191,7 +205,9 @@ function rivalPad(track: Track, r: Rival): Pad {
   if (lean !== 0) return { left: lean > 0, right: lean < 0, accel: speed < RULES.rivalCrawl, brake: speed > RULES.rivalCorner };
   const diff = aimOf(track, r);
   const cap = speedCap(track, r);
-  return { left: diff < -RULES.rivalAim, right: diff > RULES.rivalAim, accel: speed <= cap, brake: speed > cap * RULES.rivalBrake };
+  const pad: Pad = { left: diff < -RULES.rivalAim, right: diff > RULES.rivalAim, accel: speed <= cap, brake: speed > cap * RULES.rivalBrake };
+  // PRD 1963: at HARD only, HOP is held through a bend tighter than `rivalDriftRadius` (a hop at its entry, a drift once it lands, released as the bend opens); never with the void in the look (the lean above).
+  return holdsHop(track, r, level, pad) ? { ...pad, hop: true } : pad;
 }
 
 /** The rubber band: a rival behind the player speeds up and one far ahead slows down, by at most `RULES.rubber` of its pace. */
@@ -226,7 +242,7 @@ export function comeBack(track: Track, pace: Pace, kart: Kart, fx: Fx): { kart: 
 /** One short step of a rival, the player being `playerProgress` along: it drives its kart at its own pace, and its pace follows. A rival whose fall ends comes back on the line. */
 export function driveRival(track: Track, r: Rival, dt: number, playerProgress: number, level: Difficulty = 'normal'): Rival {
   const band = rubber(progressOf(track, r.pace, r.kart), playerProgress, level);
-  const stepped = stepFx(track, r.kart, rivalPad(track, r), dt, r.skill * band, r.fx ?? NO_FX, slopeAt(track, r.kart.x, r.kart.y, r.kart.angle));
+  const stepped = stepFx(track, r.kart, rivalPad(track, r, level), dt, r.skill * band, r.fx ?? NO_FX, slopeAt(track, r.kart.x, r.kart.y, r.kart.angle));
   const pace = advance(track, r.pace, r.kart, stepped.kart);
   const kart = carryAlong(track, r.kart, stepped.kart);
   if (!stepped.landed) return { ...r, kart, fx: stepped.fx, pace };

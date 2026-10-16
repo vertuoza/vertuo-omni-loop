@@ -24,6 +24,8 @@ function twins(home: string, who: string) {
     row(home, `planet:${home}#88:charted`, 'PLANET_CHARTED', { at: '2026-09-20T10:00:00Z', data: { title: `88 of ${home}`, captain: who } }),
     row(home, `zone:${home}:${home}#88:s1:opened`, 'ZONE_OPENED', { region: home, data: { wave: 1 } }),
     row(home, `zone:${home}:${home}#88:s1:secured`, 'ZONE_SECURED', { at: '2026-09-21T12:00:00Z', region: home, contributor: who, team: 'beaver' }),
+    // A secured zone earns nothing (PRD 1975): a pull request they reviewed earns the points.
+    row(home, `pr:${home}#90:reviewed:${who}`, 'PR_REVIEWED', { at: '2026-09-21T12:00:00Z', planet: 0, region: home, contributor: who, team: 'beaver', data: { pr: 90, kind: 'feat' } }),
   ];
 }
 

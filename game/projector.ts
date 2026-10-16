@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { makeEvent, NO_PLANET, planetKey, type EventType, type GameEvent } from './events.ts';
 import { derivePlanet, distressEpisodes } from './planet-state.ts';
 import type { GameConfig } from './config.ts';
-import type { DerivedPlanet, Snapshot, SnapshotPlanet } from './types.ts';
+import type { DerivedPlanet, MergedPr, Snapshot, SnapshotPlanet } from './types.ts';
 import type { PrdNumber, PrNumber } from '../kit/lib/ids.ts';
 
 /** One fact that could not become an event, and why. */
@@ -76,6 +76,7 @@ export function projectEvents(
     endEvents(push, at);
   }
   answerEvents(push, answers);
+  mergedPrEvents(push, snapshot.merged ?? []);
   return events.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
 }
 
@@ -184,6 +185,20 @@ function endEvents(push: Push, { planet, state, key, on }: At): void {
 function answerEvents(push: Push, answers: readonly AnsweredRound[]): void {
   for (const a of answers) {
     push({ id: `ask:${a.roundId}:answered`, at: a.answeredAt, type: 'QUESTION_ANSWERED', planet: a.prd ?? NO_PLANET, home: a.home, contributor: a.login });
+  }
+}
+
+// PRD 1975: a pull request of kind `feat` or `docs` merged into a tracked repository's default branch
+// pays its author (one PR_MERGED) and each reviewer (one PR_REVIEWED), at its merge, on no planet. Its
+// home and region are its repository in lower case; its ids name the pull request and the person, so
+// however many polls see it, the ledger keeps one of each.
+function mergedPrEvents(push: Push, merged: readonly MergedPr[]): void {
+  for (const pr of merged) {
+    if (pr.kind === 'none' || !pr.author) continue;
+    const repo = pr.repo.toLowerCase();
+    const on = { at: pr.mergedAt, planet: NO_PLANET, home: repo, region: repo, data: { pr: pr.number, kind: pr.kind } };
+    push({ id: `pr:${repo}#${String(pr.number)}:merged`, type: 'PR_MERGED', ...on, contributor: pr.author.toLowerCase() });
+    for (const login of pr.reviewers) push({ id: `pr:${repo}#${String(pr.number)}:reviewed:${login.toLowerCase()}`, type: 'PR_REVIEWED', ...on, contributor: login.toLowerCase() });
   }
 }
 

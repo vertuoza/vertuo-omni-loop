@@ -149,6 +149,8 @@ const JobSchema = z.object({
   toFleet: FleetSchema.nullable(),
   sentBy: IdSchema,
   sentByLogin: z.string().nullable(),
+  /** The name of the API key that sent it (PRD 2022), or null for a person's; sentBy is then the key's maker. */
+  sentByKey: z.string().nullable(),
   status: z.enum(JOB_STATUSES),
   runner: IdSchema.nullable(),
   cancelRequested: z.boolean(),
@@ -162,6 +164,15 @@ const JobSchema = z.object({
   endedAt: z.string().nullable(),
 });
 export type Job = z.infer<typeof JobSchema>;
+
+/** A job a program's API key queued, as that key reads it (PRD 2022): the runner by its name. */
+export type KeyJob = {
+  id: string; line: string; repo: string; status: Job['status']; runner: string | null; prUrl: string | null;
+  exitCode: number | null; reason: string | null; queuedAt: string; claimedAt: string | null; runningAt: string | null; endedAt: string | null;
+};
+
+/** What a key asks to send: a bug-fix line, for a repository, to a runner by name or a fleet, or to any. */
+export type KeySend = { repo: string; line: string; runner?: string | undefined; fleet?: string | undefined };
 
 export const JobReplySchema = z.object({ job: JobSchema });
 

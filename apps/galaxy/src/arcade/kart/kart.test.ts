@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { airborne, driveKart, kartAt, leanOf, NO_FX, padOf, stepFx, tippedOver, tipsOver, turnRate, wheelsOver, type Fx, type Kart, type Pad } from './kart';
+import { airborne, draftAfter, drafts, driveKart, endDrift, hopLift, kartAt, leanOf, NO_FX, padOf, stepFx, tippedOver, tipsOver, turnRate, wheelsOver, type Fx, type Kart, type Pad } from './kart';
 import { RULES } from './rules';
 import { sure } from '../test/sure';
 import { cornersOf, groundOf, parseTrack, pointAtPx, roadAt, TILE, tileAt, type Ground } from './track';
@@ -147,7 +147,7 @@ describe('the pad', () => {
     expect(held()).toEqual(NONE);
     expect(held('left', 'a')).toEqual(pad({ left: true, accel: true }));
     expect(held('right', 'down')).toEqual(pad({ right: true, brake: true }));
-    expect(held('up', 'start', 'select', 'b')).toEqual(NONE);
+    expect(held('start', 'select', 'b')).toEqual(NONE);
   });
 
   it('puts a kart on a starting place at rest', () => {
@@ -499,7 +499,7 @@ describe('the surfaces', () => {
     expect(tippedOver(edge, { x: 2 * TILE, y: 2.5 * TILE })).toBe(false);
   });
 
-  it('keeps the top speed on ice, and lets the path lag the nose while steering, by 0.6 radians at most', () => {
+  it('keeps the top speed on ice, and lets the path lag the nose while steering, by 1.0 radian at most, reaching it within a second', () => {
     let k = at(30 * TILE, 30 * TILE, 0, 60);
     const gaps: number[] = [];
     for (let t = 0; t < 1.5; t += RULES.subStep) {
@@ -507,17 +507,40 @@ describe('the surfaces', () => {
       gaps.push(gap(k));
     }
     expect(gaps[40]).toBeGreaterThan(gaps[10] ?? 0);
+    expect(Math.max(...gaps.slice(0, Math.round(1 / RULES.subStep)))).toBeGreaterThan(RULES.iceSlip - 0.01);
     expect(Math.max(...gaps)).toBeLessThanOrEqual(RULES.iceSlip + 1e-9);
     expect(Math.max(...gaps)).toBeGreaterThan(RULES.iceSlip - 0.01);
     expect(driveKart(at(30 * TILE, 30 * TILE, 0, RULES.topSpeed), GAS, 0.1, 1, false, 0, ice).speed).toBe(RULES.topSpeed);
   });
 
-  it('closes the gap at 1.2 radians a second once the wheel is straight', () => {
+  it('closes the gap at 0.4 radians a second once the wheel is straight', () => {
     let k = at(30 * TILE, 30 * TILE, 0, 60);
     for (let t = 0; t < 1.5; t += RULES.subStep) k = driveKart(k, pad({ accel: true, right: true }), RULES.subStep, 1, false, 0, ice);
     const before = gap(k);
     for (let t = 0; t < 0.1 - 1e-9; t += RULES.subStep) k = driveKart(k, GAS, RULES.subStep, 1, false, 0, ice);
     expect(before - gap(k)).toBeCloseTo(RULES.iceGrip * 0.1, 3);
+  });
+
+  it('acts the gas, the brake and the coast at 0.6, 0.4 and 0.3 of the road, reversing included', () => {
+    const dv = (map: Ground | undefined, p: Pad, v: number) => Math.abs(driveKart(at(30 * TILE, 30 * TILE, 0, v), p, 0.1, 1, false, 0, map).speed - v);
+    const road = undefined;
+    expect(dv(ice, GAS, 20) / dv(road, GAS, 20)).toBeCloseTo(RULES.iceAccel, 6);
+    expect(dv(ice, pad({ brake: true }), 20) / dv(road, pad({ brake: true }), 20)).toBeCloseTo(RULES.iceBrake, 6);
+    expect(dv(ice, pad({}), 20) / dv(road, pad({}), 20)).toBeCloseTo(RULES.iceCoast, 6);
+    expect(dv(ice, pad({ brake: true }), -30) / dv(road, pad({ brake: true }), -30)).toBeCloseTo(RULES.iceAccel, 6);
+    expect(dv(ice, GAS, -30) / dv(road, GAS, -30)).toBeCloseTo(RULES.iceBrake, 6);
+    expect(dv(ice, pad({}), -30) / dv(road, pad({}), -30)).toBeCloseTo(RULES.iceCoast, 6);
+  });
+
+  it('turns the travel back at 6 radians a second off the ice and drops it within 0.01 radian', () => {
+    const road = undefined;
+    const slid: Kart = { ...at(30 * TILE, 30 * TILE, 0, 20), travel: -0.5 };
+    const one = driveKart(slid, pad({}), 0.01, 1, false, 0, road);
+    expect((one.travel ?? 0) - -0.5).toBeCloseTo(RULES.grip * 0.01, 6);
+    let k = slid;
+    for (let t = 0; t < 0.1; t += RULES.subStep) k = driveKart(k, pad({}), RULES.subStep, 1, false, 0, road);
+    expect(k.travel).toBeUndefined();
+    expect(driveKart(at(30 * TILE, 30 * TILE, 0, 20), GAS, 0.1, 1, false, 0, road).travel).toBeUndefined();
   });
 
   it('travels the way it faces on road, and again once it leaves the ice', () => {
@@ -538,5 +561,185 @@ describe('the surfaces', () => {
     expect(kart.x).toBeLessThan(powder.size.w - TILE);
     expect(kart.x).toBeGreaterThan(powder.size.w - TILE - 4);
     expect(fx.fall).toBe(0);
+  });
+});
+
+describe('the hop and the drift (PRD 1963)', () => {
+  const road = groundOf(Array.from({ length: 80 }, () => '#'.repeat(80)));
+  const powder = groundOf(Array.from({ length: 80 }, () => 'p'.repeat(80)));
+  const ice = groundOf(Array.from({ length: 80 }, () => 'i'.repeat(80)));
+  const fast = (speed: number = RULES.topSpeed): Kart => ({ ...kartAt(10 * TILE, 40 * TILE, 0), speed });
+  const HOP = pad({ accel: true, hop: true });
+  const HOP_RIGHT = pad({ accel: true, hop: true, right: true });
+  const GAS = pad({ accel: true });
+  /** `seconds` of steps with `p`, returning the kart and its fx. */
+  const go = (map: Ground, k: Kart, f: Fx, p: Pad, seconds: number) => {
+    let kart = k, fx = f;
+    for (let t = 0; t < seconds - 1e-9; t += RULES.subStep) ({ kart, fx } = stepFx(map, kart, p, RULES.subStep, 1, fx));
+    return { kart, fx };
+  };
+  /** A drift to the right begun on road: hop, land with HOP and the right arrow held. */
+  const drifting = (map: Ground = road, k: Kart = fast()) => go(map, k, NO_FX, HOP_RIGHT, RULES.hopTime + 0.02);
+
+  it('hops 4 pixels over 0.25 seconds on HOP going down, and airborne stays false through it', () => {
+    let k = fast(), fx: Fx = NO_FX, peak = 0;
+    for (let t = 0; t < RULES.hopTime - 0.01; t += RULES.subStep) {
+      ({ kart: k, fx } = stepFx(road, k, HOP, RULES.subStep, 1, fx));
+      peak = Math.max(peak, hopLift(fx));
+      expect(airborne(k)).toBe(false);
+    }
+    expect(peak).toBeCloseTo(RULES.hopHeight, 1);
+    ({ kart: k, fx } = go(road, k, fx, GAS, 0.05));
+    expect(hopLift(fx)).toBe(0);
+  });
+
+  it('does nothing for HOP in the air or during a hop, and needs HOP to go down again', () => {
+    const up = stepFx(road, { ...fast(), height: 0, lift: 50 }, HOP, RULES.subStep, 1, NO_FX);
+    expect(up.fx.hop).toBeUndefined();
+    const hop = go(road, fast(), NO_FX, HOP, 0.1);
+    const again = go(road, hop.kart, hop.fx, pad({ accel: true }), 0.03);
+    const pressed = stepFx(road, again.kart, HOP, RULES.subStep, 1, again.fx);
+    expect(pressed.fx.hop).toBeLessThan(again.fx.hop ?? 0);
+  });
+
+  it('starts a drift only on landing with HOP and an arrow held at half the top speed or more', () => {
+    expect(drifting().fx.drift).toBe(1);
+    expect(go(road, fast(), NO_FX, pad({ accel: true, hop: true, left: true }), 0.27).fx.drift).toBe(-1);
+    expect(go(road, fast(), NO_FX, HOP, 0.27).fx.drift).toBeUndefined();
+    expect(go(road, fast(RULES.topSpeed * 0.4), NO_FX, pad({ hop: true, right: true }), 0.27).fx.drift).toBeUndefined();
+    const midHop = go(road, fast(), NO_FX, HOP, 0.1);
+    expect(go(road, midHop.kart, midHop.fx, pad({ accel: true, right: true }), 0.2).fx.drift).toBeUndefined();
+  });
+
+  it('turns at 2.2, 1.5 and 0.9 radians a second with the drift\'s arrow, neither or the other', () => {
+    const d = drifting();
+    const rate = (p: Pad): number => {
+      const one = stepFx(road, d.kart, p, 0.01, 1, d.fx);
+      return (one.kart.angle - d.kart.angle) / 0.01;
+    };
+    expect(rate(pad({ accel: true, hop: true, right: true }))).toBeCloseTo(RULES.driftTight, 5);
+    expect(rate(HOP)).toBeCloseTo(RULES.driftMid, 5);
+    expect(rate(pad({ accel: true, hop: true, left: true }))).toBeCloseTo(RULES.driftWide, 5);
+  });
+
+  it('lets the nose lead the path by 0.45 radian at most, and by 1.0 on ice', () => {
+    const lead = (map: Ground): number => {
+      let { kart, fx } = drifting(map);
+      let most = 0;
+      for (let t = 0; t < 4; t += RULES.subStep) {
+        ({ kart, fx } = stepFx(map, kart, HOP_RIGHT, RULES.subStep, 1, fx));
+        most = Math.max(most, Math.abs(Math.atan2(Math.sin(kart.angle - (kart.travel ?? kart.angle)), Math.cos(kart.angle - (kart.travel ?? kart.angle)))));
+      }
+      return most;
+    };
+    expect(lead(road)).toBeGreaterThan(0.4);
+    expect(lead(road)).toBeLessThanOrEqual(RULES.driftSlip + 1e-9);
+    expect(lead(ice)).toBeGreaterThan(RULES.driftSlip);
+    expect(lead(ice)).toBeLessThanOrEqual(RULES.iceSlip + 1e-9);
+  });
+
+  it('charges on road and ice and stands still on powder', () => {
+    expect(go(road, drifting().kart, drifting().fx, HOP_RIGHT, 0.5).fx.charge).toBeCloseTo(0.5, 1);
+    expect(go(ice, drifting(ice).kart, drifting(ice).fx, HOP_RIGHT, 0.5).fx.charge).toBeCloseTo(0.5, 1);
+    const p = drifting(powder, fast(RULES.topSpeed * RULES.powder));
+    expect(p.fx.drift).toBe(1);
+    expect(go(powder, p.kart, p.fx, HOP_RIGHT, 0.5).fx.charge).toBe(0);
+  });
+
+  it('gives a BOOST of 0.5 and 1 second when HOP is let go at 0.8 and 1.8 seconds, and none under 0.8', () => {
+    const released = (charged: number) => {
+      const d = drifting();
+      const c = go(road, d.kart, d.fx, HOP_RIGHT, charged);
+      return stepFx(road, c.kart, GAS, RULES.subStep, 1, c.fx).fx;
+    };
+    expect(released(0.5).boost).toBe(0);
+    expect(released(0.82).boost).toBeCloseTo(RULES.miniBlue, 1);
+    expect(released(1.82).boost).toBeCloseTo(RULES.miniOrange, 1);
+    expect(released(1.82).drift).toBeUndefined();
+    expect(released(1.82).charge).toBeUndefined();
+  });
+
+  it('never shortens a BOOST already running', () => {
+    const d = drifting();
+    const c = go(road, d.kart, { ...d.fx, boost: 1.4 }, HOP_RIGHT, 0.85);
+    expect(stepFx(road, c.kart, GAS, RULES.subStep, 1, { ...c.fx, boost: 1.4 }).fx.boost).toBeCloseTo(1.4 - RULES.subStep, 5);
+  });
+
+  it('loses the drift, with no turbo, on ▼, a spin-out, a fall, a tip-over, the speed under half, a ramp\'s jump', () => {
+    const d = drifting();
+    const c = go(road, d.kart, d.fx, HOP_RIGHT, 1.9);
+    const lost = (k: Kart, f: Fx, p: Pad, m: Ground = road) => stepFx(m, k, p, RULES.subStep, 1, f).fx;
+    const brake = lost(c.kart, c.fx, pad({ hop: true, brake: true }));
+    expect(brake.drift).toBeUndefined();
+    expect(brake.boost).toBe(0);
+    expect(lost(c.kart, { ...c.fx, spin: 1 }, HOP_RIGHT).drift).toBeUndefined();
+    expect(lost(c.kart, { ...c.fx, spin: 1 }, GAS).boost).toBe(0);
+    expect(lost(c.kart, { ...c.fx, fall: 1 }, HOP_RIGHT).drift).toBeUndefined();
+    expect(lost({ ...c.kart, speed: RULES.topSpeed * 0.4 }, c.fx, GAS).boost).toBe(0);
+    expect(lost({ ...c.kart, speed: RULES.topSpeed * 0.4 }, c.fx, HOP_RIGHT).drift).toBeUndefined();
+    expect(lost({ ...c.kart, height: 0, lift: 30 }, c.fx, HOP_RIGHT).drift).toBeUndefined();
+    const edge = groundOf(Array.from({ length: 80 }, (_, i) => (i < 40 ? '#' : '~').repeat(80)));
+    const over = lost({ ...c.kart, x: 40 * TILE, y: 41 * TILE + 8 }, c.fx, HOP_RIGHT, edge);
+    expect(over.drift).toBeUndefined();
+    expect(over.boost).toBe(0);
+    const ramp = groundOf(Array.from({ length: 80 }, () => '#'.repeat(30) + '^' + '#'.repeat(49)));
+    expect(lost({ ...c.kart, x: 30 * TILE + 15.9, y: 40 * TILE, angle: 0 }, c.fx, HOP_RIGHT, ramp).drift).toBeUndefined();
+  });
+
+  it('is ended, charge and all, by endDrift', () => {
+    const d = go(road, drifting().kart, drifting().fx, HOP_RIGHT, 1);
+    expect(endDrift(d.fx).drift).toBeUndefined();
+    expect(endDrift(d.fx).charge).toBeUndefined();
+  });
+
+  it('leaves a kart that never hops with the fx it always had', () => {
+    const { fx } = go(road, fast(), NO_FX, GAS, 1);
+    expect(fx).toEqual({ ...NO_FX });
+  });
+
+  it('reads HOP from the up button', () => {
+    expect(padOf(new Set<Action>(['up'])).hop).toBe(true);
+    expect(padOf(new Set<Action>()).hop).toBeUndefined();
+  });
+});
+
+describe('the slipstream (PRD 1963)', () => {
+  const fast = RULES.topSpeed * RULES.draftMin;
+  const lead = { kart: { ...kartAt(100, 100, 0), speed: fast }, fx: NO_FX };
+  const behind = (dx: number, dy: number, speed = fast) => ({ kart: { ...kartAt(100 - dx, 100 + dy, 0), speed }, fx: NO_FX });
+
+  it('builds within 48 px straight behind a kart, both at 0.6 of the top speed or more', () => {
+    expect(drafts(behind(48, 0), lead)).toBe(true);
+    expect(drafts(behind(49, 0), lead)).toBe(false);
+    expect(drafts(behind(20, 0, fast - 1), lead)).toBe(false);
+    expect(drafts(behind(20, 0), { ...lead, kart: { ...lead.kart, speed: fast - 1 } })).toBe(false);
+  });
+
+  it('builds only within 0.3 rad of the line straight back, never ahead of the kart', () => {
+    expect(drafts(behind(30, 30 * Math.tan(0.29)), lead)).toBe(true);
+    expect(drafts(behind(30, 30 * Math.tan(0.31)), lead)).toBe(false);
+    expect(drafts(behind(-30, 0), lead)).toBe(false);
+  });
+
+  it('is neither given nor taken by a kart in the air or falling', () => {
+    expect(drafts({ ...behind(20, 0), kart: { ...behind(20, 0).kart, height: 2 } }, lead)).toBe(false);
+    expect(drafts(behind(20, 0), { ...lead, kart: { ...lead.kart, lift: 1 } })).toBe(false);
+    expect(drafts({ ...behind(20, 0), fx: { ...NO_FX, fall: 0.5 } }, lead)).toBe(false);
+    expect(drafts(behind(20, 0), { ...lead, fx: { ...NO_FX, fall: 0.5 } })).toBe(false);
+  });
+
+  it('gives a BOOST of 0.6 s after 1.2 s in a row and starts the count again', () => {
+    let fx: Fx = NO_FX;
+    for (let i = 0; i < 11; i++) fx = draftAfter(fx, true, 0.1);
+    expect(fx.boost).toBe(0);
+    expect(fx.draft).toBeGreaterThan(1);
+    fx = draftAfter(fx, true, 0.2);
+    expect(fx.boost).toBe(RULES.draftBoost);
+    expect(fx.draft).toBeUndefined();
+  });
+
+  it('resets the count on leaving the cone, and never cuts a longer BOOST', () => {
+    expect(draftAfter({ ...NO_FX, draft: 1 }, false, 0.1).draft).toBeUndefined();
+    expect(draftAfter({ ...NO_FX, boost: 1.5, draft: 1.15 }, true, 0.1).boost).toBe(1.5);
   });
 });
