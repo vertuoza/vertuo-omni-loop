@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { JobLineRow, JobRow, RunnerRow } from './runners.repository';
 import { cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
-  CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, runnerRow, RUNNERS, SAM, SHARED, T0,
+  API_KEY, CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, runnerRow, RUNNERS, SAM, SHARED, T0,
 } from './fixtures/store.fake';
 
 // The runners' rules (PRD 1830 s1), on realistic rows in memory and a fixed clock: which jobs a runner
@@ -294,6 +294,74 @@ describe('who may send where', () => {
     const w = world();
     expect(await w.service.send(OLGA, send({ kind: 'any' }, '/omni:drive 1717'))).toMatchObject({ ok: false, kind: 'malformed' });
     expect(await w.service.send(OLGA, send({ kind: 'any' }, '/omni:yolo 1; rm -rf ~'))).toMatchObject({ ok: false, kind: 'malformed' });
+  });
+});
+
+describe('a job an API key sends (PRD 2022 s4)', () => {
+  const key = { id: API_KEY, name: 'QA dashboard', workspace: '00000000-0000-4000-8000-000001830001', maker: OLGA };
+  const fix = { repo: 'vertuoza/app', line: '/omni:bug-fix Issue 548 totals' };
+
+  it('queues it as the key\'s maker, marked as the key\'s, to any runner, a runner by its name or a fleet', async () => {
+    const w = world();
+    expect(value(await w.service.sendByKey(key, fix))).toMatchObject({ status: 'queued', runner: null, line: fix.line });
+    expect(value(await w.service.sendByKey(key, { ...fix, runner: 'cia-box' }))).toMatchObject({ status: 'queued' });
+    expect(value(await w.service.sendByKey(key, { ...fix, fleet: 'pirates' }))).toMatchObject({ status: 'queued' });
+    expect(w.state.jobs.map((job) => [job.sent_by, job.sent_by_key, job.to_runner, job.to_fleet])).toEqual([
+      [OLGA, API_KEY, null, null], [OLGA, API_KEY, CIA_BOX, null], [OLGA, API_KEY, null, 'pirates'],
+    ]);
+  });
+
+  it('refuses a line the runners refuse, with their reason, and queues nothing', async () => {
+    const w = world();
+    const refused = await w.service.sendByKey(key, { ...fix, line: "/omni:bug-fix it's $(rm -rf ~)" });
+    expect(refused).toMatchObject({ ok: false, kind: 'malformed' });
+    expect(!refused.ok && refused.error).toContain('arguments');
+    expect(w.state.jobs).toEqual([]);
+  });
+
+  it('refuses a repository of another workspace, even one its maker belongs to, and an unknown runner or fleet', async () => {
+    const w = world();
+    expect(await w.service.sendByKey({ ...key, workspace: '00000000-0000-4000-8000-000001830002' }, fix)).toMatchObject({ ok: false, kind: 'forbidden' });
+    expect(await w.service.sendByKey(key, { ...fix, repo: 'elsewhere/app' })).toMatchObject({ ok: false, kind: 'forbidden' });
+    expect(await w.service.sendByKey(key, { ...fix, runner: 'ghost' })).toMatchObject({ ok: false, kind: 'missing' });
+    expect(await w.service.sendByKey(key, { ...fix, fleet: 'ghosts' })).toMatchObject({ ok: false, kind: 'missing' });
+    expect(await w.service.sendByKey(key, { ...fix, fleet: 'cia', runner: 'shared' })).toMatchObject({ ok: false, kind: 'malformed' });
+    expect(w.state.jobs).toEqual([]);
+  });
+
+  it('refuses a key whose maker is no member of the workspace any more', async () => {
+    const w = world();
+    expect(await w.service.sendByKey({ ...key, maker: EVE }, fix)).toMatchObject({ ok: false, kind: 'forbidden' });
+  });
+
+  it('reads as sent by the key, with its maker, to the runner and on the Runners page', async () => {
+    const w = world();
+    const queued = value(await w.service.sendByKey(key, fix));
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: fix.line, repo: 'vertuoza/app', sentBy: 'API key QA dashboard (@olga)' });
+    const board = value(await w.service.board(OLGA, key.workspace));
+    expect(board.jobs).toMatchObject([{ id: queued.id, sentByKey: 'QA dashboard', sentByLogin: 'olga' }]);
+    const person = value(await w.service.send(MO, { line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } }));
+    expect(person.sentByKey).toBeNull();
+  });
+
+  it('follows only a job a key of the workspace queued: not a person\'s, not another workspace\'s', async () => {
+    const w = world();
+    const queued = value(await w.service.sendByKey(key, fix));
+    const person = value(await w.service.send(MO, { line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } }));
+    expect(value(await w.service.keyJob(key.workspace, queued.id))).toMatchObject({ id: queued.id, status: 'queued', runner: null, prUrl: null });
+    expect(await w.service.keyJob(key.workspace, person.id)).toMatchObject({ ok: false, kind: 'missing' });
+    expect(await w.service.keyJob('00000000-0000-4000-8000-000001830002', queued.id)).toMatchObject({ ok: false, kind: 'missing' });
+    expect(await w.service.keyJob(key.workspace, '00000000-0000-4000-8000-00000000dead')).toMatchObject({ ok: false, kind: 'missing' });
+  });
+
+  it('shows its run: the runner\'s name, the pull request, the exit code and the times', async () => {
+    const w = world();
+    const queued = value(await w.service.sendByKey(key, fix));
+    await w.service.next(OLGA, SHARED);
+    await w.service.update(OLGA, queued.id, { status: 'done', prUrl: 'https://github.com/vertuoza/app/pull/549', exitCode: 0 });
+    expect(value(await w.service.keyJob(key.workspace, queued.id))).toMatchObject({
+      status: 'done', runner: 'shared', prUrl: 'https://github.com/vertuoza/app/pull/549', exitCode: 0, endedAt: T0.toISOString(),
+    });
   });
 });
 
