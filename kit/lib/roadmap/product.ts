@@ -25,7 +25,7 @@ import type { PushedPrerequisiteResult } from './push.ts';
 export type RoadmapClient = { pushRoadmap: (body: unknown) => Promise<unknown> };
 
 /** The one line a failed call is reported with; the app's reason after it when it gave one. */
-function callLine(error: unknown): string {
+export function callLine(error: unknown): string {
   if (!(error instanceof AskCallError)) throw error;
   if (error.status === null) return 'unreachable';
   return error.reason ? `refused (${error.status}): ${error.reason}` : `refused (${error.status})`;
