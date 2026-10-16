@@ -53,6 +53,6 @@ export const RULEBOOK = Object.freeze({
     curve: Object.freeze({ first: 1, step: 25 }),
     cap: 99,
     // The level each game unlocks at.
-    unlocks: Object.freeze({ invaders: 1, platformer: 2, kart: 3, duet: 4 }),
+    unlocks: Object.freeze({ invaders: 1, platformer: 2, kart: 3, duet: 4, pong: 5 }),
   }),
 });

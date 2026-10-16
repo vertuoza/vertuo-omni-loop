@@ -24,7 +24,6 @@ import { homeTokens } from '../../lib/ask/client-tokens.ts';
 import { readTerminal } from '../../lib/ask/local-state.ts';
 import { closeTerminal } from '../../lib/ask/round.ts';
 import { loadConfig } from '../../lib/config.ts';
-import { loadContext } from '../../lib/context.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
 import { openSessionId, sessionIdOf } from '../../lib/dossier/session.ts';
 import { findRoot } from '../../lib/init/repo.ts';
@@ -68,8 +67,7 @@ function withDeadline(fetch: Fetch, ms: number): Fetch {
 /** The briefing, as `omni kb show briefing` prints it, or one line saying why there is none. Never throws. */
 async function printBriefing(io: FreeIo): Promise<void> {
   try {
-    const ctx = loadContext(io.cwd, { exec: io.exec });
-    await kb.run(['show', 'briefing'], { ctx, stdout: io.stdout, stderr: io.stderr, exec: io.exec, env: io.env, vars: io.vars });
+    await kb.run(['show', 'briefing'], { cwd: io.cwd, stdout: io.stdout, stderr: io.stderr, exec: io.exec, env: io.env, vars: io.vars });
   } catch (error) {
     println(io.stdout, `no briefing: ${messageOf(error).split('\n')[0] ?? ''} — agents carry on`);
   }

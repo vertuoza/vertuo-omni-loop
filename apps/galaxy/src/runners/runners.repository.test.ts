@@ -155,3 +155,44 @@ describe('a job an API key sent (PRD 2022 s4)', () => {
     expect(await repository.keyNames('w1', [])).toEqual(new Map());
   });
 });
+
+// A runner's health and samples (PRD 2102 s1): the snapshot read with the runner, out of shape as none;
+// a sample added once per runner and instant, trimmed by runner and time, read oldest first.
+describe('a runner\'s health and samples', () => {
+  const sample = { runner_id: SHARED, workspace_id: 'w1', at: '2026-10-16T12:00:00.000Z', cpu: 63.5, mem_used: 1, mem_total: 2, disk_free: 3, tokens_5h: null };
+
+  it('reads the runner\'s last health with it, and one out of shape as none', async () => {
+    const health = { cpu: 63.5, load1: 7.9, cores: 8, memUsed: 1, memTotal: 2, diskFree: 3, diskTotal: 4, at: '2026-10-16T12:00:00.000Z' };
+    const { db, lines } = fakeDb([{ data: runnerRow({ id: SHARED, name: 'shared', health }), error: null }, { data: { ...runnerRow({ id: SHARED, name: 'shared' }), health: { cpu: 'high' } }, error: null }]);
+    const repository = runnersRepository(db);
+    expect((await repository.runner(SHARED))?.health).toEqual(health);
+    expect((await repository.runner(SHARED))?.health).toBeNull();
+    expect(lines[0]).toContain('last_seen_at, health');
+  });
+
+  it('adds a sample once per runner and instant', async () => {
+    const { db, lines } = fakeDb([{ data: null, error: null }]);
+    await runnersRepository(db).insertSample(sample);
+    expect(lines).toEqual([`from("runner_samples").upsert(${JSON.stringify(sample)},{"onConflict":"runner_id,at","ignoreDuplicates":true})`]);
+  });
+
+  it('deletes the runner\'s samples taken before a time', async () => {
+    const { db, lines } = fakeDb([{ data: null, error: null }]);
+    await runnersRepository(db).trimSamples(SHARED, '2026-10-16T11:00:00.000Z');
+    expect(lines).toEqual([`from("runner_samples").delete().eq("runner_id","${SHARED}").lt("at","2026-10-16T11:00:00.000Z")`]);
+  });
+
+  it('reads the runners\' samples since a time, oldest first, and asks nothing for no runner', async () => {
+    const { db, lines } = fakeDb([{ data: [sample], error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.samples([SHARED], '2026-10-16T11:00:00.000Z')).toEqual([sample]);
+    expect(lines).toEqual([`from("runner_samples").select("runner_id, workspace_id, at, cpu, mem_used, mem_total, disk_free, tokens_5h").in("runner_id",["${SHARED}"]).gte("at","2026-10-16T11:00:00.000Z").order("at")`]);
+    expect(await repository.samples([], '2026-10-16T11:00:00.000Z')).toEqual([]);
+    expect(lines).toHaveLength(1);
+  });
+
+  it('throws on the database\'s refusal, naming the table', async () => {
+    const { db } = fakeDb([{ data: null, error: { message: 'permission denied for table runner_samples' } }]);
+    await expect(runnersRepository(db).insertSample(sample)).rejects.toThrow('runner_samples: permission denied for table runner_samples');
+  });
+});

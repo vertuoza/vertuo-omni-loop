@@ -88,6 +88,24 @@ keeps those whose body names the PRD, and sends each the outbox check's event, w
 outbox, approved and inbox checks. A PR the collector has not read yet gets both checks on its next
 webhook.
 
+## Fix rows and knowledge packs (PRD 2011)
+
+**The merge stamp.** On a merged `pull_request.closed`, the App calls `fix_row_stamp()` as the service
+role (`src/fix-rows/`, the only writer of a Fixes row's merge). It stamps `merged_at` on the row whose
+repository and pull request match, once: a replay keeps the first stamp and ships nothing twice. A
+pull request closed without merging marks its row not merged and leaves the record open, and a reopen
+clears that. When the last row of a product bug record merges, the record ships. A merge that matches
+no row, whose body names a record of a product that holds the repository, is kept once on that record
+as an unmatched merge. The stamp writes nothing on GitHub and never merges anything.
+
+**The pack snapshot.** On a merge that touches a repository's knowledge folder or its flow config, the
+knowledge harvest also calls the `knowledge-pack` function (`src/knowledge-pack/`). It reads the files
+at the commit, records each with its sha256 in a `knowledge_packs` row, and marks that row the newest
+pack for each product link of the repository. It runs at background priority in the installation's
+budget. `GET /api/knowledge-packs` serves the newest pack to an
+agent link of the same workspace, which `omni kb pack get <repo>` reads; a token of another
+workspace gets none of it (BR-PRODUCT-63).
+
 ## The inbox check (PRD 675)
 
 A phase-0 PR, whose head branch has the `branches.phase0` shape as the base branch's config spells it

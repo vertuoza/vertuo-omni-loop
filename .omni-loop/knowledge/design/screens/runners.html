@@ -47,11 +47,23 @@
   .ghost { display: inline-flex; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 13px/1 var(--ask-body); color: var(--ask-ink); background: none; white-space: nowrap; }
   .log { margin: 0; padding: 12px 16px; background: var(--ask-sunk); border-top: 1px solid var(--ask-line); font: 12.5px/1.55 var(--ask-mono); color: var(--ask-muted); white-space: pre-wrap; }
   .log b { color: var(--ask-ink); font-weight: 500; }
+  .health { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .g { background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 8px; padding: 6px 10px; min-width: 0; }
+  .g .k { font: 700 11px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); }
+  .g .v { font: 600 14px/1.4 var(--ask-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .g .fill { height: 4px; border-radius: 2px; background: var(--ask-line); margin: 3px 0; }
+  .g .fill i { display: block; height: 100%; border-radius: 2px; background: var(--ask-cyan); }
+  .g svg { width: 100%; height: 18px; display: block; } .g polyline { fill: none; stroke: var(--ask-cyan); stroke-width: 1.5; }
+  .g.over .v { color: var(--ask-red); } .g.over .fill i, .g.over polyline { background: var(--ask-red); stroke: var(--ask-red); }
+  .grey .g { opacity: .5; } .asof { grid-column: 1 / -1; color: var(--ask-muted); font-size: 13px; }
+  .paused { color: var(--ask-red); } .paused .dot { background: var(--ask-red); }
+  .why { display: block; color: var(--ask-red); font-size: 12px; margin-top: 4px; } .tok { color: var(--ask-muted); font: 500 12px/1 var(--ask-mono); }
+  @media (max-width: 860px) { .health { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 860px) { .runners .row, .jobs .row { grid-template-columns: 1fr auto; } .head { display: none; } .hide-s { display: none; } }
 </style>
 </head>
 <body>
-<div class="note"><p>Runners at /app/runners (PRD 1830, Terminal buttons from PRD 1904), drawn inside the app shell, which is its own shared screen. The figures are examples.</p></div>
+<div class="note"><p>Runners at /app/runners (PRD 1830, Terminal buttons from PRD 1904, machine health from PRD 2102), drawn inside the app shell, which is its own shared screen. The figures are examples.</p></div>
 <div class="frame"><div class="bar">Dashboard › <b>Runners</b></div>
   <div class="page" data-screen="runners">
     <header><h1>Runners</h1></header>
@@ -59,23 +71,26 @@
       <h2>Runners</h2>
       <div class="table runners">
         <div class="row head"><span>Runner</span><span>State</span><span>Fleet</span><span>Slots</span><span>Repositories</span><span>Kit</span><span></span></div>
-        <div class="row"><span class="name">vertuo-agents</span><span class="state busy"><i class="dot"></i>Busy</span>
+        <div class="row"><span class="name">vertuo-agents</span><span class="state paused"><i class="dot"></i>Paused: memory 91%</span>
           <select aria-label="Fleet of vertuo-agents"><option>Cyan</option><option>Shared</option></select>
-          <span data-content>4 of 4</span><span class="chips hide-s" data-content>vertuo-omni-loop</span><span class="muted hide-s" data-content>0.0.388</span><button class="ghost" type="button">Terminal</button></div>
+          <span data-content>4 of 4</span><span class="chips hide-s" data-content>vertuo-omni-loop</span><span class="muted hide-s" data-content>0.0.388</span><button class="ghost" type="button">Terminal</button>
+          <div class="health"><div class="g"><div class="k">CPU</div><div class="v" data-content>63% · load 7.9 / 8</div><div class="fill"><i style="width:63%"></i></div><svg viewBox="0 0 100 18" preserveAspectRatio="none"><polyline points="0,12 20,11 40,9 60,7 80,6 100,6"/></svg></div><div class="g over"><div class="k">Memory</div><div class="v" data-content>14.6 of 16 GB</div><div class="fill"><i style="width:91%"></i></div><svg viewBox="0 0 100 18" preserveAspectRatio="none"><polyline points="0,10 20,9 40,6 60,4 80,2 100,2"/></svg></div><div class="g"><div class="k">Disk</div><div class="v" data-content>39 GB free of 233</div><div class="fill"><i style="width:83%"></i></div><svg viewBox="0 0 100 18" preserveAspectRatio="none"><polyline points="0,5 50,6 100,7"/></svg></div><div class="g"><div class="k">Tokens</div><div class="v" data-content>10.2M in 5 h · 15.7M today</div><svg viewBox="0 0 100 18" preserveAspectRatio="none"><polyline points="0,15 25,13 50,9 75,5 100,3"/></svg></div></div></div>
         <div class="row"><span class="name">mac-mini-office</span><span class="state on"><i class="dot"></i>Online</span>
           <select aria-label="Fleet of mac-mini-office"><option>Shared</option><option>Cyan</option></select>
-          <span data-content>1 of 2</span><span class="chips hide-s" data-content>vertuo-omni-loop · vertuo-apps</span><span class="muted hide-s" data-content>0.0.388</span><button class="ghost" type="button">Terminal</button></div>
-        <div class="row"><span class="name">pierre-laptop</span><span class="state off"><i class="dot"></i>Offline, 3 h ago</span>
+          <span data-content>1 of 2</span><span class="chips hide-s" data-content>vertuo-omni-loop · vertuo-apps</span><span class="muted hide-s" data-content>0.0.388</span><button class="ghost" type="button">Terminal</button>
+          <div class="health"><div class="g"><div class="k">CPU</div><div class="v" data-content>18% · load 1.2 / 8</div><div class="fill"><i style="width:18%"></i></div><svg viewBox="0 0 100 18" preserveAspectRatio="none"><polyline points="0,14 50,13 100,14"/></svg></div><div class="g"><div class="k">Memory</div><div class="v" data-content>7.1 of 16 GB</div><div class="fill"><i style="width:44%"></i></div><svg viewBox="0 0 100 18" preserveAspectRatio="none"><polyline points="0,10 50,9 100,10"/></svg></div><div class="g"><div class="k">Disk</div><div class="v" data-content>—</div></div><div class="g"><div class="k">Tokens</div><div class="v" data-content>2.3M in 5 h · 4.0M today</div><svg viewBox="0 0 100 18" preserveAspectRatio="none"><polyline points="0,14 50,12 100,10"/></svg></div></div></div>
+        <div class="row grey"><span class="name">pierre-laptop</span><span class="state off"><i class="dot"></i>Offline, 3 h ago</span>
           <select aria-label="Fleet of pierre-laptop"><option>Shared</option></select>
-          <span data-content>0 of 1</span><span class="chips hide-s" data-content>vertuo-omni-loop</span><span class="muted hide-s" data-content>0.0.385</span><button class="ghost" type="button" disabled title="No job yet">Terminal</button></div>
+          <span data-content>0 of 1</span><span class="chips hide-s" data-content>vertuo-omni-loop</span><span class="muted hide-s" data-content>0.0.385</span><button class="ghost" type="button" disabled title="No job yet">Terminal</button>
+          <div class="health"><div class="g"><div class="k">CPU</div><div class="v" data-content>4%</div></div><div class="g"><div class="k">Memory</div><div class="v" data-content>6.0 of 32 GB</div></div><div class="g"><div class="k">Disk</div><div class="v" data-content>120 GB free</div></div><div class="g"><div class="k">Tokens</div><div class="v" data-content>0 in 5 h</div></div></div><span class="asof">as of 3 h ago</span></div>
       </div>
     </section>
     <section>
       <h2>Jobs</h2>
       <div class="table jobs">
         <div class="row head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span></span></div>
-        <div class="row"><code data-content>/omni:yolo 1717</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>vertuo-agents</span><span class="status s-run">Running 12 min</span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
-        <div class="row"><code data-content>/omni:pr-care 1801</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@irisa</span><span data-content>Cyan</span><span class="status s-queue">Queued</span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
+        <div class="row"><code data-content>/omni:yolo 1717</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>vertuo-agents</span><span><span class="status s-run">Running 12 min</span> <span class="tok" data-content>14.1M tokens</span></span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
+        <div class="row"><code data-content>/omni:pr-care 1801</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@irisa</span><span data-content>Cyan</span><span><span class="status s-queue">Queued</span><span class="why">Waiting: vertuo-agents paused (memory 91%)</span></span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
         <div class="row"><code data-content>/omni:bug-fix 1790</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@paul</span><span data-content>Any runner</span><span class="status s-done">Done</span><span class="acts"><button class="ghost" type="button">Terminal</button><a href="#">PR #1838</a></span></div>
         <div class="row"><code data-content>/omni:yolo 1702</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>pierre-laptop</span><span class="status s-fail">Runner lost</span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button" data-primary>Send again</button></span></div>
       </div>

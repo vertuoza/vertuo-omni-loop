@@ -1,0 +1,177 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-16",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Seeing a job's tokens next to its pull request tells me when an agent thrashed instead of thinking, which is where slop comes from.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "MemAvailable, statfs and a pause decided on the box itself: that is a real ops tool, not a dashboard for show.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "I can check from my phone that the machine can take more PRDs, and see what each one cost in tokens.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Gauges help, but if a runner quietly stops taking jobs I will read the queue as a stuck loop.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I don't read gauges; I just want my quick win's job to tell me why it hasn't started.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "I mostly just watch the board. If a runner quietly stops taking jobs, I'll read the queued line as the loop being stuck, so the queue itself has to say why it waits.",
+        "citations": [
+          "persona:Lead Engineer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Lead Engineer ✗ until a queued job says why it waits"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-16",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Each job's token count, sub-agents included, gives me a number to question when a run looks sloppy.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The pause holds with no server, old runners keep working, and only numbers leave the box: the edge cases are the ones I would have asked about.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Machine tokens over 5 hours and today, and per job, is exactly what I need to know how many PRDs I can push.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "\"Waiting: every runner paused (disk 6 GB free)\" on the queued job tells me what to fix without asking anyone.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The waiting sentence on my job is the only line I read, and it says why in plain words.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-16",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A token count on each job row gives me a number to point at when a run looks like it thrashed.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The pause holds without the server and only numbers leave the box, but on a Mac it reads the cache as used and pauses at once unless I pass --max-memory 100.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "From my phone I see whether the machine can take another PRD and what each one burned in tokens.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A queued job that says which runner is paused and why is the line that stops me thinking the loop is stuck.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "My job tells me in plain words why it has not started, and that is all I read.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "On my Mac the runner pauses the moment it starts, because the memory figure counts the cache as used; I'd have to know to pass --max-memory 100.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ until a Mac reads memory without its cache"
+    }
+  ]
+}

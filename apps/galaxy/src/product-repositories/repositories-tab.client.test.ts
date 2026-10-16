@@ -6,7 +6,7 @@ import { repositoriesTabClient } from './repositories-tab.client';
 // connection says nothing was saved.
 
 const PRODUCT = '22222222-2222-4222-8222-222222222221';
-const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person' };
+const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person', ladderStep: 1 };
 
 function stub(status: number, body: unknown) {
   const sent: { url: string; init: RequestInit }[] = [];

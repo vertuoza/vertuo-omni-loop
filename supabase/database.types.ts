@@ -1633,6 +1633,76 @@ export type Database = {
           },
         ]
       }
+      knowledge_pack_files: {
+        Row: {
+          content: string
+          pack_id: string
+          path: string
+          sha256: string
+          workspace_id: string
+        }
+        Insert: {
+          content: string
+          pack_id: string
+          path: string
+          sha256: string
+          workspace_id: string
+        }
+        Update: {
+          content?: string
+          pack_id?: string
+          path?: string
+          sha256?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_pack_files_pack_id_workspace_id_fkey"
+            columns: ["pack_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_packs"
+            referencedColumns: ["id", "workspace_id"]
+          },
+        ]
+      }
+      knowledge_packs: {
+        Row: {
+          committed_at: string
+          id: string
+          made_at: string
+          newest: boolean
+          repository: string
+          sha: string
+          workspace_id: string
+        }
+        Insert: {
+          committed_at: string
+          id?: string
+          made_at?: string
+          newest?: boolean
+          repository: string
+          sha: string
+          workspace_id: string
+        }
+        Update: {
+          committed_at?: string
+          id?: string
+          made_at?: string
+          newest?: boolean
+          repository?: string
+          sha?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_packs_workspace_id_repository_fkey"
+            columns: ["workspace_id", "repository"]
+            isOneToOne: false
+            referencedRelation: "repositories"
+            referencedColumns: ["workspace_id", "full_name"]
+          },
+        ]
+      }
       ledger_events: {
         Row: {
           at: string
@@ -2395,6 +2465,7 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
+          plan_repository: string | null
           prd_count: number
           roadmap_seq: number
           workspace_id: string
@@ -2410,6 +2481,7 @@ export type Database = {
           ordinal?: never
           pitch?: Json
           pitch_look?: string
+          plan_repository?: string | null
           prd_count?: number
           roadmap_seq?: number
           workspace_id: string
@@ -2425,6 +2497,7 @@ export type Database = {
           ordinal?: never
           pitch?: Json
           pitch_look?: string
+          plan_repository?: string | null
           prd_count?: number
           roadmap_seq?: number
           workspace_id?: string
@@ -2436,6 +2509,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "businesses"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_plan_repository_listed"
+            columns: ["workspace_id", "plan_repository"]
+            isOneToOne: false
+            referencedRelation: "repositories"
+            referencedColumns: ["workspace_id", "full_name"]
           },
           {
             foreignKeyName: "products_workspace_id_fkey"
@@ -3015,6 +3095,7 @@ export type Database = {
           status: string
           to_fleet: string | null
           to_runner: string | null
+          tokens: Json | null
           workspace_id: string
         }
         Insert: {
@@ -3036,6 +3117,7 @@ export type Database = {
           status?: string
           to_fleet?: string | null
           to_runner?: string | null
+          tokens?: Json | null
           workspace_id: string
         }
         Update: {
@@ -3057,6 +3139,7 @@ export type Database = {
           status?: string
           to_fleet?: string | null
           to_runner?: string | null
+          tokens?: Json | null
           workspace_id?: string
         }
         Relationships: [
@@ -3097,10 +3180,59 @@ export type Database = {
           },
         ]
       }
+      runner_samples: {
+        Row: {
+          at: string
+          cpu: number | null
+          disk_free: number | null
+          mem_total: number | null
+          mem_used: number | null
+          runner_id: string
+          tokens_5h: number | null
+          workspace_id: string
+        }
+        Insert: {
+          at?: string
+          cpu?: number | null
+          disk_free?: number | null
+          mem_total?: number | null
+          mem_used?: number | null
+          runner_id: string
+          tokens_5h?: number | null
+          workspace_id: string
+        }
+        Update: {
+          at?: string
+          cpu?: number | null
+          disk_free?: number | null
+          mem_total?: number | null
+          mem_used?: number | null
+          runner_id?: string
+          tokens_5h?: number | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runner_samples_runner_id_fkey"
+            columns: ["runner_id"]
+            isOneToOne: false
+            referencedRelation: "runners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_samples_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       runners: {
         Row: {
           created_at: string
           fleet: string | null
+          health: Json | null
           id: string
           last_seen_at: string
           name: string
@@ -3113,6 +3245,7 @@ export type Database = {
         Insert: {
           created_at?: string
           fleet?: string | null
+          health?: Json | null
           id?: string
           last_seen_at?: string
           name: string
@@ -3125,6 +3258,7 @@ export type Database = {
         Update: {
           created_at?: string
           fleet?: string | null
+          health?: Json | null
           id?: string
           last_seen_at?: string
           name?: string
@@ -3860,6 +3994,7 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
+          plan_repository: string | null
           prd_count: number
           roadmap_seq: number
           workspace_id: string
@@ -4364,6 +4499,19 @@ export type Database = {
         Returns: boolean
       }
       kit_tokens_mine: { Args: { p_workspace: string }; Returns: Json }
+      knowledge_pack_for_token: {
+        Args: { p_hash: string; p_repo: string; p_sha?: string }
+        Returns: Json
+      }
+      knowledge_pack_put: {
+        Args: {
+          p_committed_at: string
+          p_files: Json
+          p_repo: string
+          p_sha: string
+        }
+        Returns: Json
+      }
       link_github: { Args: never; Returns: Json }
       lookup_product: {
         Args: { p_prd?: number; p_repo: string; p_workspace: string }
@@ -4723,6 +4871,7 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
+          plan_repository: string | null
           prd_count: number
           roadmap_seq: number
           workspace_id: string
@@ -4755,6 +4904,32 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
+          plan_repository: string | null
+          prd_count: number
+          roadmap_seq: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_plan_repository_set: {
+        Args: { p_product: string; p_repository: string }
+        Returns: {
+          bug_seq: number
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string | null
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          plan_repository: string | null
           prd_count: number
           roadmap_seq: number
           workspace_id: string
@@ -4780,6 +4955,7 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
+          plan_repository: string | null
           prd_count: number
           roadmap_seq: number
           workspace_id: string
@@ -4834,6 +5010,7 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
+          plan_repository: string | null
           prd_count: number
           roadmap_seq: number
           workspace_id: string
@@ -4988,6 +5165,7 @@ export type Database = {
           status: string
           to_fleet: string | null
           to_runner: string | null
+          tokens: Json | null
           workspace_id: string
         }[]
         SetofOptions: {
@@ -5051,6 +5229,7 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
+          plan_repository: string | null
           prd_count: number
           roadmap_seq: number
           workspace_id: string
@@ -5075,6 +5254,7 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
+          plan_repository: string | null
           prd_count: number
           roadmap_seq: number
           workspace_id: string
