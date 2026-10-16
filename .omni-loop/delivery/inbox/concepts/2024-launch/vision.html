@@ -1,0 +1,1126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launch vision tour</title>
+<style>
+  :root {
+    /* Omni's reading tokens (packages/design/tokens.css, theme Omni). */
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-pink: #ff3ea5; --ask-cyan: #6ff0ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --ask-gutter: 32px;
+    /* Vertuoza's Pitch look (Settings > Products > Vertuoza > Pitch). */
+    --vz-ink: #08104D; --vz-paper: #FFFFFF; --vz-accent: #3D5AFE; --vz-cta: #FF4217;
+    --vz-soft: #EEF1FF; --vz-line: #DCE0F2; --vz-muted: #4A5285;
+    --vz-font: Gantari, "Atkinson Hyperlegible Next", system-ui, sans-serif;
+    --ease: cubic-bezier(.16, 1, .3, 1);
+  }
+  * { box-sizing: border-box; }
+  html { scrollbar-color: var(--ask-line-strong) var(--ask-ground); }
+  body { margin: 0; background: var(--ask-ground); color: var(--ask-ink); font: 17px/1.6 var(--ask-body); overflow-x: hidden; }
+  ::selection { background: var(--ask-plasma); color: var(--ask-on-plasma); }
+  a { color: var(--ask-cyan); text-underline-offset: 3px; }
+  button, select, input, textarea { font: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 3px; border-radius: 6px; }
+  .num { font-variant-numeric: tabular-nums; }
+  svg.i { width: 1em; height: 1em; flex: none; }
+
+  /* ---------- Prototype chrome, outside every screen ---------- */
+  .proto { max-width: 1120px; margin: 0 auto; padding: 16px var(--ask-gutter) 6px; font: 14px/1.5 var(--ask-body); color: var(--ask-muted); }
+  .proto h1 { margin: 0 0 2px; font-size: 15px; color: var(--ask-ink); }
+  .proto-steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; padding: 0; list-style: none; }
+  .proto-steps button, .proto-states button { border: 1px solid var(--ask-line-strong); background: transparent; color: var(--ask-muted); border-radius: 999px; padding: 5px 12px; font: 600 13px/1.2 var(--ask-body); }
+  .proto-steps button[aria-current="step"] { background: var(--ask-ink); color: var(--ask-ground); border-color: var(--ask-ink); }
+  .proto-states { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 6px; min-height: 30px; }
+  .proto-states span { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin-right: 4px; }
+  .proto-states button[aria-pressed="true"] { border-color: var(--ask-pink); color: var(--ask-pink); }
+  .proto-caption { margin: 0; max-width: 100ch; }
+
+  [data-screen] { display: none; }
+  [data-screen].on { display: block; }
+
+  /* ---------- Omni PRD page (dossier) ---------- */
+  .ask { max-width: 1120px; margin: 0 auto; padding: 28px var(--ask-gutter) 56px; }
+  .ask > * + * { margin-top: 20px; }
+  .dossier-head { display: grid; gap: 14px; margin: -28px calc(-1 * var(--ask-gutter)) 0; padding: 16px var(--ask-gutter) 0;
+    background: var(--ask-surface); border-bottom: 1.5px solid var(--ask-line-strong); }
+  .dossier-head.flat { padding-bottom: 16px; }
+  .crumbs { margin: 0; font-size: 14px; color: var(--ask-muted); }
+  .crumbs a { color: var(--ask-muted); }
+  .dossier-head-top { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+  .dossier-title { flex: 1 1 320px; margin: 0; font-size: 26px; line-height: 1.25; text-wrap: balance; }
+  .dossier-title em { font-style: normal; color: var(--ask-plasma); }
+  .dossier-number { color: var(--ask-plasma); white-space: nowrap; text-decoration: none; }
+  .dossier-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ask-button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong);
+    background: var(--ask-sunk); color: var(--ask-ink); font: 700 15px/1.2 var(--ask-body); text-decoration: none; white-space: nowrap;
+    transition: background .2s var(--ease), transform .2s var(--ease), opacity .2s; }
+  .ask-button:hover { background: var(--ask-plasma-soft); }
+  .ask-button:active { transform: translateY(1px); }
+  .ask-button[disabled] { opacity: .55; cursor: default; }
+  .ask-button.stage-action { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .ask-button.stage-action:hover { background: #ffe47a; }
+  .ask-button.stage-action[disabled] { background: var(--ask-sunk); border-color: var(--ask-line-strong); color: var(--ask-muted); opacity: 1; }
+  .ask-button.quiet { border-color: transparent; background: transparent; color: var(--ask-cyan); padding-inline: 6px; }
+  .ask-button.small { padding: 5px 10px; font-size: 14px; }
+  .dossier-facts { display: flex; flex-wrap: wrap; gap: 10px 0; margin: 0 0 0 -19px; clip-path: inset(-4px -4px -4px 19px); }
+  .dossier-fact { display: grid; align-content: start; gap: 6px; padding: 0 18px; border-left: 1px solid var(--ask-line-strong); }
+  .dossier-fact dt { font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .dossier-fact dd { margin: 0; font-size: 15px; }
+  .stage-track { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; font: 600 12px/1 var(--ask-mono); }
+  .stage-stop { padding: 6px 9px; border-radius: 999px; border: 1px solid var(--ask-line-strong); color: var(--ask-muted); white-space: nowrap; }
+  .stage-passed { color: var(--ask-ink); background: var(--ask-sunk); }
+  .stage-current { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); font-weight: 800; }
+  .ask-hint { color: var(--ask-muted); }
+  .dot-live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ask-green); margin-right: 6px; vertical-align: 1px; }
+  .dot-wait { background: var(--ask-plasma); animation: blink 1.6s var(--ease) infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .dossier-tabs { display: flex; gap: 4px; margin: 0 calc(-1 * var(--ask-gutter)); padding: 0 calc(var(--ask-gutter) - 14px); border-top: 1px solid var(--ask-line-strong); overflow-x: auto; }
+  .dossier-tab { display: inline-flex; align-items: baseline; gap: 6px; padding: 10px 14px; color: var(--ask-ink); font-weight: 700; text-decoration: none; white-space: nowrap; border-bottom: 3px solid transparent; }
+  .dossier-tab[aria-current='page'] { border-bottom-color: var(--ask-plasma); }
+  .dossier-tab-empty { color: var(--ask-muted); }
+  .dossier-tab small { font: 600 12px/1 var(--ask-mono); color: var(--ask-muted); }
+
+  /* ---------- Launch card ---------- */
+  .launch { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; align-items: start;
+    padding: 20px; border: 1.5px solid var(--ask-line-strong); border-radius: 14px; background: var(--ask-surface); }
+  @media (max-width: 920px) { :root { --ask-gutter: 16px; } .launch { grid-template-columns: 1fr; padding: 14px; } }
+  .col { display: grid; gap: 14px; min-width: 0; align-content: start; }
+  .label { font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); margin: 0; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 15px; }
+  .row.between { justify-content: space-between; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--ask-line-strong); font-size: 14px; white-space: nowrap; color: var(--ask-ink); }
+  .chip.ok { border-color: var(--ask-green); color: var(--ask-green); }
+  .chip.warn { border-color: var(--ask-red); color: var(--ask-red); }
+  .chip.plasma { border-color: var(--ask-plasma); color: var(--ask-plasma); }
+  .field { display: grid; gap: 6px; }
+  .select { appearance: none; width: 100%; padding: 9px 36px 9px 12px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6' fill='none' stroke='%238a90d6' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center / 18px; color: var(--ask-ink); font-weight: 700; font-size: 15px; }
+  .seg { display: inline-flex; flex-wrap: wrap; border: 1.5px solid var(--ask-line-strong); border-radius: 10px; padding: 3px; background: var(--ask-sunk); gap: 2px; }
+  .seg button { border: 0; background: transparent; color: var(--ask-muted); border-radius: 7px; padding: 5px 12px; font: 700 14px/1.2 var(--ask-body); transition: background .3s var(--ease), color .3s var(--ease); }
+  .seg button[aria-pressed="true"] { background: var(--ask-ink); color: var(--ask-ground); }
+  .seg button small { font: 600 12px/1 var(--ask-mono); opacity: .8; margin-left: 4px; }
+
+  .optin { display: grid; gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--ask-sunk); border: 1px solid var(--ask-line); }
+  .switch-row { display: flex; align-items: center; gap: 14px; }
+  .switch { position: relative; flex: none; width: 50px; height: 28px; border-radius: 999px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-ground); padding: 0; transition: background .35s var(--ease), border-color .35s var(--ease); }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: var(--ask-muted); transition: transform .45s var(--ease), background .35s var(--ease); }
+  .switch[aria-checked="true"] { background: var(--ask-plasma); border-color: var(--ask-plasma); }
+  .switch[aria-checked="true"]::after { transform: translateX(22px); background: var(--ask-on-plasma); }
+  .switch-label { margin: 0; font-weight: 700; }
+  .when { display: flex; flex-wrap: wrap; gap: 8px; transition: opacity .3s var(--ease); }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px 7px 9px; border-radius: 9px; border: 1.5px solid var(--ask-line-strong); background: transparent; color: var(--ask-muted); font: 700 14px/1.2 var(--ask-body); transition: border-color .25s var(--ease), color .25s var(--ease), background .25s var(--ease); }
+  .toggle .box { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid currentColor; display: grid; place-items: center; }
+  .toggle .box svg { width: 13px; height: 13px; opacity: 0; transform: scale(.4); transition: opacity .2s, transform .35s var(--ease); }
+  .toggle[aria-pressed="true"] { border-color: var(--ask-plasma); color: var(--ask-ink); background: var(--ask-plasma-soft); }
+  .toggle[aria-pressed="true"] .box { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .toggle[aria-pressed="true"] .box svg { opacity: 1; transform: none; }
+  .opted-out .when, .opted-out ~ .ride, .opted-out ~ .field { opacity: .35; pointer-events: none; }
+
+  .ride { border-radius: 10px; background: var(--ask-sunk); border: 1px solid var(--ask-line); padding: 14px 16px; }
+  .ride-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .lines { font-size: 15px; line-height: 1.55; }
+  .lines p { margin: 0 0 6px; }
+  .lines p:last-child { margin: 0; }
+  .lines[contenteditable="true"] { outline: 1.5px dashed var(--ask-plasma); outline-offset: 6px; border-radius: 4px; }
+  .cite { display: inline-block; margin-left: 6px; font: 600 11px/1.4 var(--ask-mono); color: var(--ask-muted); border: 1px solid var(--ask-line); border-radius: 4px; padding: 0 5px; vertical-align: 1px; user-select: none; }
+  .cite::before { content: "✓ "; color: var(--ask-green); }
+  .fake-link { color: var(--ask-cyan); text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Adapt bar */
+  .adapt { display: grid; gap: 10px; padding: 12px; border-radius: 12px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); }
+  .adapt-line { display: flex; gap: 8px; align-items: center; }
+  .adapt-line .spark { color: var(--ask-plasma); flex: none; width: 20px; height: 20px; }
+  .adapt-input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ask-ink); font-size: 16px; padding: 6px 2px; }
+  .adapt-input::placeholder { color: var(--ask-muted); }
+  .adapt-input:focus-visible { outline: none; }
+  .adapt:focus-within { border-color: var(--ask-plasma); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cchip { border: 1px solid var(--ask-line-strong); background: transparent; color: var(--ask-ink); border-radius: 999px; padding: 4px 11px; font: 600 13px/1.2 var(--ask-body); transition: background .2s var(--ease), border-color .2s, color .2s; }
+  .cchip:hover { background: var(--ask-plasma-soft); }
+  .cchip[aria-pressed="true"] { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .attach { display: inline-flex; align-items: center; gap: 8px; padding: 3px 4px 3px 3px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font-size: 13px; color: var(--ask-ink); }
+  .attach .thumb { width: 52px; border-radius: 4px; overflow: hidden; }
+  .attach button { border: 0; background: transparent; color: var(--ask-muted); padding: 0 4px; font-size: 16px; line-height: 1; }
+
+  /* Versions */
+  .versions { display: inline-flex; gap: 4px; }
+  .versions button { border: 1.5px solid var(--ask-line-strong); background: transparent; color: var(--ask-muted); border-radius: 7px; padding: 3px 9px; font: 700 13px/1.2 var(--ask-mono); }
+  .versions button[aria-pressed="true"] { border-color: var(--ask-ink); color: var(--ask-ink); }
+  .versions button.inuse::after { content: " ●"; color: var(--ask-green); font-size: 10px; vertical-align: 1px; }
+
+  /* Notices */
+  .notice { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 14px; align-items: center; padding: 12px 16px; border: 1.5px solid var(--ask-red); border-radius: 12px; background: var(--ask-sunk); }
+  .notice.calm { border-color: var(--ask-plasma); }
+  .notice-mark { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ask-red); color: var(--ask-red); display: grid; place-items: center; font-weight: 800; }
+  .notice.calm .notice-mark { border-color: var(--ask-plasma); color: var(--ask-plasma); }
+  .notice p { margin: 0; }
+  .notice .ask-hint { font-size: 15px; }
+  [hidden] { display: none !important; }
+
+  /* ---------- Omni-side player ---------- */
+  .omp { display: grid; gap: 8px; position: relative; }
+  .pbar { display: flex; align-items: center; gap: 10px; font: 600 12px/1 var(--ask-mono); color: var(--ask-muted); }
+  .pbar .pp { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); color: var(--ask-ink); display: grid; place-items: center; padding: 0; }
+  .pbar .pp svg { width: 12px; height: 12px; }
+  .trk { position: relative; flex: 1; height: 5px; border-radius: 3px; background: var(--ask-line); }
+  .trk > i { position: absolute; inset: 0; border-radius: 3px; background: var(--ask-plasma); transform-origin: left; transform: scaleX(0); }
+  .trk > b { position: absolute; top: -3px; width: 2px; height: 11px; background: var(--ask-ink); opacity: .7; border-radius: 1px; }
+  .aud { white-space: nowrap; }
+  .wait-ov { position: absolute; inset: 0 0 36px 0; display: grid; place-content: center; text-align: center; gap: 6px; border-radius: 10px;
+    background: rgba(7,6,28,.9); backdrop-filter: blur(3px); color: var(--ask-ink); }
+  .wait-ov b { font-size: 18px; }
+  .wait-ov span { color: var(--ask-muted); font-size: 15px; }
+  .cutting::after { content: "Cutting…"; position: absolute; inset: 0 0 36px 0; display: grid; place-items: center; border-radius: 10px; background: rgba(7,6,28,.55); color: var(--ask-ink); font-weight: 700; }
+
+  /* ---------- The produced video, Vertuoza brand ---------- */
+  .vp { position: relative; aspect-ratio: 16/9; overflow: hidden; border-radius: 10px; background: var(--vz-paper); color: var(--vz-ink);
+    font-family: var(--vz-font); container-type: inline-size; isolation: isolate; box-shadow: 0 12px 32px -14px rgba(0,0,0,.7); }
+  .vp > * { font-size: 1.6cqw; }
+  .vp-app { position: absolute; inset: 0; display: grid; grid-template-rows: 11% 1fr; background: var(--vz-paper);
+    transition: transform 1.2s var(--ease), transform-origin 1.2s var(--ease), box-shadow .6s var(--ease); }
+  .vz-top { background: var(--vz-ink); color: var(--vz-paper); display: flex; align-items: center; gap: 1.6em; padding: 0 2.4em; font: 700 .85em/1 var(--vz-font); }
+  .mark { display: inline-flex; align-items: center; gap: .5em; }
+  .mark::before { content: ""; width: 1.1em; height: 1.1em; border-radius: .25em; background: var(--vz-accent); box-shadow: inset -.38em -.38em 0 var(--vz-cta); }
+  .vz-top .crumb { font-weight: 400; opacity: .8; }
+  .vz-body { padding: 1.8em 2.4em; display: grid; align-content: start; gap: 1.1em; }
+  .vz-h { margin: 0; font: 700 1.55em/1.1 var(--vz-font); }
+  .vz-filters { display: flex; gap: .7em; }
+  .vz-pill { font: 600 .82em/1 var(--vz-font); border: 1px solid var(--vz-line); border-radius: 999px; padding: .5em 1em; color: var(--vz-muted); background: var(--vz-paper); display: inline-grid; transition: background .5s var(--ease), border-color .5s var(--ease), color .5s var(--ease); }
+  .vz-pill > span { grid-area: 1/1; transition: opacity .4s var(--ease); white-space: nowrap; }
+  .vz-pill .on { opacity: 0; }
+  .vz-pill .x { display: inline-grid; place-items: center; width: 1.2em; height: 1.2em; margin-left: .3em; border-radius: 50%; }
+  table.vz-t { width: 100%; border-collapse: collapse; table-layout: fixed; font: 400 .82em/1.2 var(--vz-font); }
+  .vz-t th { text-align: left; font-weight: 700; color: var(--vz-muted); padding: .8em .6em; border-bottom: 1.5px solid var(--vz-line); white-space: nowrap; overflow: hidden; transition: background .6s var(--ease), color .6s var(--ease); }
+  .vz-t td { padding: .85em .6em; border-bottom: 1px solid var(--vz-line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; transition: background .6s var(--ease); }
+  .vz-t tr { transition: opacity .6s var(--ease); }
+  .vz-t .amt { text-align: right; }
+  .src { display: inline-block; padding: .22em .65em; border-radius: 999px; font-weight: 700; background: var(--vz-soft); color: var(--vz-accent); }
+  .src.manual { background: #F1F2F7; color: var(--vz-muted); }
+  .src.ai { background: #FFF0EB; color: #B8300F; }
+  .src.acc { background: #E9F7EF; color: #1D6B41; }
+  .vp-card { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; gap: .5em; padding: 6%;
+    background: var(--vz-ink); color: var(--vz-paper); opacity: 0; transform: scale(1.05); transition: opacity .55s var(--ease), transform 1s var(--ease); pointer-events: none; }
+  .vp-card small { font: 700 .95em/1 var(--vz-font); letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+  .vp-card b { font: 700 3.1em/1.05 var(--vz-font); text-wrap: balance; max-width: 22ch; }
+  .vp-card em { font-style: normal; color: #9FB0FF; }
+  .vp-card .bar { width: 4.5em; height: .35em; border-radius: .2em; background: var(--vz-cta); }
+  .c-limits { background: var(--vz-paper); color: var(--vz-ink); justify-items: start; text-align: left; padding-left: 12%; }
+  .c-limits small { color: var(--vz-cta); opacity: 1; }
+  .c-limits b { font-size: 2.3em; max-width: 24ch; }
+  .wm { font: 800 3.4em/1 var(--vz-font); letter-spacing: -.02em; }
+  .wm i { font-style: normal; color: var(--vz-cta); }
+  .c-cover { background: radial-gradient(120% 90% at 85% 10%, #1b2a9e 0%, var(--vz-ink) 60%); }
+  .c-cover b { font-size: 4.6em; }
+  .c-cover .wk { font: 700 1.5em/1 var(--vz-font); padding: .35em .8em; border-radius: .3em; background: var(--vz-cta); }
+  .c-chap { background: var(--vz-accent); }
+  .c-chap small { opacity: .9; }
+  .c-ex { background: var(--vz-soft); color: var(--vz-ink); }
+  .c-ex .exm { position: absolute; top: 6%; right: 5%; font: 800 .9em/1 var(--vz-font); letter-spacing: .14em; text-transform: uppercase; color: var(--vz-cta); border: .15em solid var(--vz-cta); padding: .4em .7em; border-radius: .3em; transform: rotate(4deg); }
+  .c-ex b { font-size: 2.6em; }
+  .c-ex .blocks { display: grid; grid-template-columns: repeat(3, 6em); gap: .8em; margin-top: .8em; }
+  .c-ex .blocks i { height: 3.6em; border-radius: .5em; background: var(--vz-paper); border: 1px solid var(--vz-line); }
+  .c-ex .blocks i:nth-child(2) { background: var(--vz-accent); opacity: .85; }
+  .vp-cap { position: absolute; left: 4%; right: 4%; bottom: 5%; display: flex; pointer-events: none; }
+  .vp-cap span { font: 700 1.55em/1.2 var(--vz-font); color: var(--vz-paper); background: var(--vz-ink); padding: .45em .8em; border-radius: .35em; opacity: 0; transform: translateY(.6em); box-shadow: 0 .4em 1.2em -.4em rgba(8,16,77,.6); }
+  .vp.has-cap .vp-cap span.in { animation: capIn .7s var(--ease) forwards; }
+  @keyframes capIn { to { opacity: 1; transform: none; } }
+  .shot-tag { position: absolute; top: 4%; left: 4%; font: 700 1.3cqw/1 var(--vz-font); letter-spacing: .06em; text-transform: uppercase; padding: .45em .7em; border-radius: .3em; background: var(--vz-cta); color: var(--vz-paper); opacity: 0; transition: opacity .4s; }
+
+  /* Scenes */
+  .vp[data-s="title"] .c-title, .vp[data-s="limits"] .c-limits, .vp[data-s="outro"] .c-outro, .vp[data-s="cover"] .c-cover,
+  .vp[data-s="chap"] .c-chap, .vp[data-s="ex"] .c-ex, .vp[data-s="tnout"] .c-tnout { opacity: 1; transform: none; }
+  .vp[data-s="zsrc"] .vp-app { transform: scale(1.95); transform-origin: 62% 64%; }
+  .vp[data-s="zdate"] .vp-app { transform: scale(1.95); transform-origin: 78% 64%; }
+  .vp[data-s="filter"] .vp-app { transform: scale(1.4); transform-origin: 14% 30%; }
+  .vp[data-s="clear"] .vp-app { transform: scale(1.7); transform-origin: 4% 30%; }
+  .vp[data-s="zsrc"] .k-src, .vp[data-s="zdate"] .k-date { background: var(--vz-soft); }
+  .vp[data-s="zsrc"] th.k-src, .vp[data-s="zdate"] th.k-date { color: var(--vz-accent); box-shadow: inset 0 -.2em 0 var(--vz-accent); }
+  .vp[data-s="filter"] .p-src, .vp[data-s="clear"] .p-sup { border-color: var(--vz-accent); color: var(--vz-accent); background: var(--vz-soft); }
+  .vp[data-s="filter"] .p-src .off, .vp[data-s="clear"] .p-sup .off { opacity: 0; }
+  .vp[data-s="filter"] .p-src .on, .vp[data-s="clear"] .p-sup .on { opacity: 1; }
+  .vp[data-s="clear"] .p-sup .x { background: var(--vz-cta); color: var(--vz-paper); }
+  .vp[data-s="filter"] tbody tr:not(.ei) { opacity: 0; }
+  .vp.is-shot { background: #E4E8FA; }
+  .vp.is-shot .vp-app { transform: scale(.84) rotate(-1.2deg); transform-origin: 50% 46%; box-shadow: 0 1.2em 2.4em -1em rgba(8,16,77,.5), 0 0 0 .35em #fff; border-radius: .4em; overflow: hidden; }
+  .vp.is-shot .shot-tag { opacity: 1; }
+
+  /* Stills (storyboard) */
+  .strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 12px; }
+  .strip li { display: grid; gap: 6px; font-size: 13px; position: relative; min-width: 0; }
+  .strip .vp { border-radius: 6px; box-shadow: none; outline: 1px solid var(--ask-line-strong); }
+  .strip .vp * { transition: none !important; animation: none !important; }
+  .strip .vp-cap span { opacity: 1; transform: none; }
+  .strip b { font-size: 13px; line-height: 1.3; }
+  .strip .src-line { color: var(--ask-muted); font-size: 12px; line-height: 1.3; }
+  .strip li.changed .vp { outline: 2.5px solid var(--ask-plasma); }
+  .strip li.cut .vp { opacity: .35; }
+  .strip li.cut::after { content: "cut"; position: absolute; top: 6px; left: 6px; font: 700 11px/1 var(--ask-mono); background: var(--ask-red); color: var(--ask-ground); padding: 3px 6px; border-radius: 4px; }
+  .strip li.changed::after { content: "changed"; position: absolute; top: 6px; left: 6px; font: 700 11px/1 var(--ask-mono); background: var(--ask-plasma); color: var(--ask-on-plasma); padding: 3px 6px; border-radius: 4px; }
+  .strip.old { opacity: .6; }
+  .strip.old li { font-size: 12px; }
+  .deal li { opacity: 0; transform: translateY(14px) scale(.97); }
+  .deal.go li { animation: deal .7s var(--ease) forwards; }
+  @keyframes deal { to { opacity: 1; transform: none; } }
+
+  .diff { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font: 600 13px/1.4 var(--ask-mono); padding: 10px 12px; border-radius: 8px; background: var(--ask-sunk); border: 1px solid var(--ask-line); }
+  .diff .d { color: var(--ask-ink); }
+  .diff .d::before { content: "± "; color: var(--ask-plasma); }
+  .diff.refused { border-color: var(--ask-red); }
+  .diff.refused .d::before { content: "× "; color: var(--ask-red); }
+  .shimmer { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--ask-line) 0%, var(--ask-plasma) 50%, var(--ask-line) 100%); background-size: 200% 100%; animation: shim 1s linear infinite; }
+  @keyframes shim { to { background-position: -200% 0; } }
+  .render-bar { height: 6px; border-radius: 3px; background: var(--ask-line); overflow: hidden; }
+  .render-bar i { display: block; height: 100%; background: var(--ask-green); transform-origin: left; transform: scaleX(0); }
+  .render-bar.go i { animation: fill 1.6s var(--ease) forwards; }
+  @keyframes fill { to { transform: scaleX(1); } }
+
+  .panel { padding: 18px 20px; border: 1.5px solid var(--ask-line-strong); border-radius: 14px; background: var(--ask-surface); display: grid; gap: 14px; }
+  .panel h2 { margin: 0; font-size: 18px; }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 920px) { .grid2 { grid-template-columns: 1fr; } }
+
+  /* New video */
+  .drop { border: 2px dashed var(--ask-line-strong); border-radius: 12px; padding: 14px; display: grid; gap: 12px; background: var(--ask-sunk); transition: border-color .3s var(--ease), background .3s var(--ease); }
+  .drop.over { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); }
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .shot { display: grid; gap: 4px; font: 600 12px/1.3 var(--ask-mono); color: var(--ask-muted); }
+  .shot .vp { border-radius: 6px; box-shadow: none; outline: 1px solid var(--ask-line-strong); }
+  .shot .vp * { transition: none !important; }
+  .addshot { display: grid; place-items: center; aspect-ratio: 16/9; border-radius: 6px; border: 1.5px dashed var(--ask-line-strong); color: var(--ask-cyan); font: 700 14px/1.2 var(--ask-body); cursor: pointer; }
+  textarea.prompt { width: 100%; min-height: 76px; resize: vertical; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); color: var(--ask-ink); font-size: 16px; line-height: 1.45; }
+  textarea.prompt:focus-visible { border-color: var(--ask-plasma); outline: none; }
+  .empty-sb { display: grid; place-items: center; min-height: 220px; border-radius: 12px; border: 1px solid var(--ask-line); color: var(--ask-muted); background: var(--ask-sunk); text-align: center; padding: 20px; }
+
+  /* Tech News */
+  .tn-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+  .tn-row { display: grid; grid-template-columns: auto 128px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 4px; border-top: 1px solid var(--ask-line); transition: opacity .45s var(--ease); }
+  .tn-row:first-child { border-top: 0; }
+  .tn-row .vp { border-radius: 6px; box-shadow: none; outline: 1px solid var(--ask-line-strong); }
+  .tn-row .vp * { transition: none !important; }
+  .tn-row .vp-cap { display: none; }
+  .tn-row.out { opacity: .4; }
+  .tn-row.out .tt { text-decoration: line-through; text-decoration-color: var(--ask-muted); }
+  .tn-row .tt { font-weight: 700; display: block; line-height: 1.3; }
+  .tn-row .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 13px; color: var(--ask-muted); margin-top: 4px; }
+  .tn-row .at { font: 700 13px/1 var(--ask-mono); color: var(--ask-plasma); }
+  .tn-row.out .at { color: var(--ask-muted); }
+  .pm { display: inline-flex; align-items: center; gap: 6px; color: var(--ask-ink); }
+  .pm i { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font: 800 10px/1 var(--ask-body); font-style: normal; background: var(--ask-pink); color: var(--ask-ground); }
+  .pm i.b { background: var(--ask-cyan); }
+  .pm i.c { background: var(--ask-green); }
+  .ex-tag { font: 800 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-ground); background: var(--ask-pink); padding: 3px 6px; border-radius: 4px; }
+  .tick { position: relative; width: 22px; height: 22px; }
+  .tick input { appearance: none; margin: 0; width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); cursor: pointer; transition: background .25s var(--ease), border-color .25s; }
+  .tick input:checked { background: var(--ask-plasma); border-color: var(--ask-plasma); }
+  .tick svg { position: absolute; inset: 4px; width: 14px; height: 14px; color: var(--ask-on-plasma); pointer-events: none; opacity: 0; transform: scale(.4); transition: opacity .2s, transform .35s var(--ease); }
+  .tick input:checked + svg { opacity: 1; transform: none; }
+  .rule { display: flex; gap: 8px; align-items: center; margin: 0; font-size: 15px; color: var(--ask-muted); }
+  .rule svg { color: var(--ask-green); }
+  .preview-pane { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .7s var(--ease); }
+  .preview-pane > div { overflow: hidden; }
+  .preview-pane.open { grid-template-rows: 1fr; }
+  #p-tn { max-width: 760px; width: 100%; justify-self: center; }
+  .preview-pane .inner { padding: 18px 20px; border: 1.5px solid var(--ask-plasma); border-radius: 14px; background: var(--ask-surface); display: grid; gap: 12px; }
+  .skipwk { text-align: left; }
+  .cal { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; max-width: 360px; }
+  .cal div { border: 1px solid var(--ask-line-strong); border-radius: 8px; padding: 8px 0 10px; text-align: center; font: 700 12px/1 var(--ask-mono); color: var(--ask-muted); display: grid; gap: 8px; justify-items: center; }
+  .cal .has i { width: 8px; height: 8px; border-radius: 50%; background: var(--ask-plasma); }
+  .cal .fri { border-style: dashed; }
+
+  /* ---------- Slack ---------- */
+  .slack-wrap { max-width: 1120px; margin: 0 auto; padding: 16px var(--ask-gutter) 56px; }
+  .slack { display: grid; grid-template-columns: 190px minmax(0, 1fr); border-radius: 12px; overflow: hidden;
+    background: #fff; color: #1d1c1d; font: 15px/1.46 system-ui, -apple-system, "Segoe UI", sans-serif; box-shadow: 0 16px 40px -18px rgba(0,0,0,.7); }
+  .sl-side { background: #3f0e40; color: #e8dce9; padding: 14px 10px; font-size: 14px; }
+  .sl-side b { display: block; color: #fff; padding: 0 8px 12px; font-size: 15px; }
+  .sl-side div { padding: 3px 8px; border-radius: 6px; }
+  .sl-side .cur { background: #1164a3; color: #fff; font-weight: 700; }
+  .sl-main { min-width: 0; }
+  .sl-head { padding: 12px 20px; border-bottom: 1px solid #e2e2e2; font-weight: 800; display: flex; gap: 10px; align-items: baseline; }
+  .sl-head small { font-weight: 400; color: #616061; }
+  .sl-feed { padding: 8px 20px 24px; display: grid; gap: 4px; }
+  .daydiv { display: flex; align-items: center; gap: 10px; color: #616061; font-size: 13px; font-weight: 700; margin: 10px 0 4px; }
+  .daydiv::before, .daydiv::after { content: ""; flex: 1; height: 1px; background: #e2e2e2; }
+  .msg { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px; padding: 8px 0; }
+  .ava { width: 36px; height: 36px; border-radius: 8px; background: var(--ask-ground); display: grid; place-items: center; color: var(--ask-plasma); font: 800 11px/1 var(--ask-mono); }
+  .who { font-weight: 800; }
+  .app { font: 700 10px/1 system-ui; background: #e8e8e8; color: #616061; padding: 2px 4px; border-radius: 3px; margin-left: 4px; vertical-align: 2px; }
+  .ts-l { color: #616061; font-size: 12px; margin-left: 6px; }
+  .msg p { margin: 2px 0; }
+  .msg a, .sl-link { color: #1264a3; text-decoration: none; }
+  .sl-file { margin-top: 8px; max-width: 520px; }
+  .sl-file .fname { font-size: 13px; color: #616061; margin-bottom: 4px; display: flex; gap: 6px; align-items: center; }
+  .skp { position: relative; border-radius: 8px; overflow: hidden; }
+  .skp .vp { border-radius: 8px; box-shadow: none; }
+  .sk-ov { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 10px; padding: 18px 10px 8px; background: linear-gradient(transparent, rgba(0,0,0,.55)); color: #fff; font: 700 12px/1 system-ui, sans-serif; pointer-events: none; }
+  .sk-ov .mute { width: 26px; height: 26px; border-radius: 50%; background: rgba(0,0,0,.55); display: grid; place-items: center; pointer-events: auto; border: 0; color: #fff; padding: 0; }
+  .sk-ov .mute svg { width: 14px; height: 14px; }
+  .skp .vp-cap { bottom: 15%; }
+  .sk-ov .sk-trk { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,.35); position: relative; }
+  .sk-ov .sk-trk > i { position: absolute; inset: 0; background: #fff; transform-origin: left; transform: scaleX(0); border-radius: 2px; }
+  .sk-ov .sk-trk > b { position: absolute; top: -3px; width: 2px; height: 9px; background: #fff; }
+  .chap-lines { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+  .chap-lines button { border: 0; background: #f1f6fb; color: #1264a3; font: 700 13px/1.4 ui-monospace, Menlo, monospace; border-radius: 4px; padding: 0 5px; margin-right: 6px; }
+  .chap-lines button:focus-visible { outline: 2px solid #1164a3; }
+  .chap-lines .exs { color: #b8300f; font-weight: 700; font-size: 13px; }
+  .reacts { display: flex; gap: 6px; flex-wrap: wrap; font-size: 13px; margin-top: 6px; }
+  .reacts span { border: 1px solid #ddd; border-radius: 999px; padding: 1px 8px; background: #f8f8f8; }
+  .sl-btn { border: 1px solid #bbb; background: #fff; color: #1d1c1d; border-radius: 6px; padding: 5px 12px; font: 700 14px/1.2 system-ui, sans-serif; }
+  .sl-btn.primary { background: #007a5a; border-color: #007a5a; color: #fff; }
+  .sl-btn:focus-visible { outline: 2px solid #1164a3; }
+  .eph { margin: 4px 0 6px; padding: 10px 12px; border-left: 4px solid #e01e5a; background: #fdf3f6; border-radius: 4px; font-size: 14px; }
+  .eph .only { color: #616061; font-size: 12px; display: block; margin-bottom: 2px; }
+  .eph .sl-btns { display: flex; gap: 8px; margin-top: 8px; }
+  .retrying { font-size: 13px; color: #616061; display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .retrying i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #ccc; border-top-color: #1264a3; animation: spin .9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .replies { color: #1264a3; font-weight: 700; font-size: 13px; margin-top: 6px; }
+  .arrive { opacity: 0; transform: translateY(16px); }
+  .on .arrive { animation: arrive .8s var(--ease) .1s forwards; }
+  .on .arrive.late { animation-delay: .45s; }
+  @keyframes arrive { to { opacity: 1; transform: none; } }
+  @media (max-width: 760px) { .slack { grid-template-columns: 1fr; } .sl-side { display: none; } .tn-row { grid-template-columns: auto 88px minmax(0,1fr); } .tn-row .at { grid-column: 3; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition: none !important; }
+    .dot-wait { animation: none !important; }
+    .shimmer { animation: none !important; background: var(--ask-plasma); }
+  }
+  /* ---------- Vision tour chrome ---------- */
+  .tour-nav { display: flex; align-items: center; gap: 10px; margin: 6px 0 8px; }
+  .tour-nav button { border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); color: var(--ask-ink); border-radius: 8px; padding: 6px 14px; font: 700 14px/1.2 var(--ask-body); }
+  .tour-nav button[disabled] { opacity: .4; cursor: default; }
+  .tour-nav .count { font: 600 13px/1 var(--ask-mono); color: var(--ask-muted); }
+  .proto-caption { min-height: 4.5em; font-size: 15px; color: var(--ask-ink); }
+  .proto-caption b { color: var(--ask-plasma); }
+  .stage-in { animation: stageIn .8s var(--ease) both; }
+  @keyframes stageIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .optin-big { display: grid; gap: 16px; max-width: 64ch; padding: 20px; border: 1.5px solid var(--ask-line-strong); border-radius: 14px; background: var(--ask-surface); }
+  .optin-big .switch-label { font-size: 19px; }
+  .suggest { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ask-ground); background: var(--ask-pink); padding: 2px 9px; border-radius: 999px; font-weight: 700; }
+  .reveal-when { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .7s var(--ease); }
+  .reveal-when > div { overflow: hidden; display: grid; gap: 14px; }
+  .on-optin .reveal-when { grid-template-rows: 1fr; }
+  .then { list-style: none; margin: 0; padding: 0; display: grid; }
+  .then li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid var(--ask-line); font-size: 15px; }
+  .then li:first-child { border-top: 0; }
+  .then .dot { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ask-plasma); color: var(--ask-plasma); display: grid; place-items: center; font: 700 12px/1 var(--ask-mono); }
+  .then span { color: var(--ask-muted); }
+  .clock { display: inline-flex; align-items: baseline; gap: 8px; font: 800 28px/1 var(--ask-mono); color: var(--ask-ink); }
+  .clock small { font: 600 13px/1 var(--ask-body); color: var(--ask-muted); }
+  .sent-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font: 700 13px/1 var(--ask-body); border: 1.5px solid var(--ask-plasma); color: var(--ask-plasma); transition: all .4s var(--ease); }
+  .sent-badge.sent { border-color: var(--ask-green); color: var(--ask-green); }
+  .nothing { display: grid; place-items: center; gap: 6px; padding: 26px 16px; color: #616061; font-size: 14px; text-align: center; }
+  .nothing b { color: #1d1c1d; }
+  .fail-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 920px) { .fail-grid { grid-template-columns: 1fr; } }
+  .mini-slack { border-radius: 12px; overflow: hidden; background: #fff; color: #1d1c1d; font: 15px/1.46 system-ui, -apple-system, "Segoe UI", sans-serif; box-shadow: 0 16px 40px -18px rgba(0,0,0,.7); }
+  .mini-slack .sl-feed { padding: 10px 16px 16px; }
+  .vp.broken .vp-app { filter: grayscale(1) blur(1px); opacity: .5; }
+  .broken-ov { position: absolute; inset: 0 0 36px 0; display: grid; place-content: center; text-align: center; gap: 6px; border-radius: 10px; background: rgba(7,6,28,.88); color: var(--ask-ink); }
+  .broken-ov b { font-size: 18px; color: var(--ask-red); }
+  .broken-ov span { color: var(--ask-muted); font-size: 15px; }
+  .post-state { font-size: 15px; }
+  @media (prefers-reduced-motion: reduce) { .stage-in { animation: none; } .reveal-when { transition: none; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M6.5 4.5H10v15H6.5zM14 4.5h3.5v15H14z" fill="currentColor"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9.5l5 5M20.5 9.5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z" fill="currentColor"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" fill="currentColor"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.5l7 3v5.5c0 4-3 7-7 8.5-4-1.5-7-4.5-7-8.5V6.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-skip" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 16L16 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 16V5M7 9.5L12 4.5l5 5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div class="proto">
+  <h1>Launch · vision tour</h1>
+  <nav aria-label="Tour steps"><ol class="proto-steps" id="steps"></ol></nav>
+  <div class="tour-nav"><button type="button" id="prev">← Back</button><button type="button" id="next">Next →</button><span class="count" id="count"></span></div>
+  <p class="proto-caption" id="caption" aria-live="polite"></p>
+</div>
+
+<!-- 1. Brainstorm: the toggle -->
+<main class="ask" data-screen="brainstorm">
+  <header class="dossier-head">
+    <div class="dossier-head-top">
+      <h1 class="dossier-title"><a class="dossier-number" href="#">PRD #1612 ↗</a> <span data-content>Supplier invoices: Source and Creation date columns</span></h1>
+      <div class="dossier-actions"><button type="button" class="ask-button">Copy link</button></div>
+    </div>
+    <dl class="dossier-facts">
+      <div class="dossier-fact"><dt>Stage</dt><dd><ol class="stage-track" aria-label="Stages">
+        <li class="stage-stop stage-passed">idea</li><li class="stage-stop stage-current" aria-current="step">PRD</li><li class="stage-stop">inbox</li>
+        <li class="stage-stop">building</li><li class="stage-stop">outbox</li><li class="stage-stop">shipped</li><li class="stage-stop">retro</li>
+      </ol></dd></div>
+      <div class="dossier-fact"><dt>Opened</dt><dd>Martin · Oct 2</dd></div>
+      <div class="dossier-fact"><dt>Repo</dt><dd>vertuo-apps</dd></div>
+    </dl>
+    <nav class="dossier-tabs" aria-label="Tabs">
+      <a class="dossier-tab" href="#">Spec</a><a class="dossier-tab" href="#">Plan</a><a class="dossier-tab" href="#">User voice</a>
+      <a class="dossier-tab" href="#" aria-current="page">Launch <small id="b-badge">off</small></a><a class="dossier-tab dossier-tab-empty" href="#">Retro</a>
+    </nav>
+  </header>
+  <section class="optin-big" id="b-optin" aria-label="Launch">
+    <div class="switch-row">
+      <button type="button" class="switch" role="switch" aria-checked="false" aria-labelledby="b-sw-l" id="b-sw" data-primary></button>
+      <div>
+        <p class="switch-label" id="b-sw-l">Announce this launch</p>
+        <p class="ask-hint" style="margin:2px 0 0;font-size:15px"><span class="suggest">Omni suggests it</span> Users see this screen.</p>
+      </div>
+    </div>
+    <div class="reveal-when"><div>
+      <div class="when" role="group" aria-label="When">
+        <button type="button" class="toggle" aria-pressed="true" id="b-ship"><span class="box"><svg><use href="#i-check"/></svg></span>Post when shipped</button>
+        <button type="button" class="toggle" aria-pressed="true" id="b-fri"><span class="box"><svg><use href="#i-check"/></svg></span>Add to Friday</button>
+      </div>
+      <ol class="then" aria-label="Then">
+        <li><span class="dot">1</span><div><b>Ships, runs on prod</b><br><span>Omni films the walk.</span></div></li>
+        <li><span class="dot">2</span><div><b>Cut in Vertuoza's look</b><br><span>Format, three lines, video.</span></div></li>
+        <li><span class="dot">3</span><div><b>You post, Friday sends</b><br><span>Video inline in #release-won.</span></div></li>
+      </ol>
+      <p class="ask-hint" style="margin:0;font-size:14px">Look, music, voice: <a href="#">Vertuoza Pitch settings</a></p>
+    </div></div>
+  </section>
+</main>
+
+<!-- 2. Ship day -->
+<main class="ask" data-screen="ship">
+  <header class="dossier-head">
+    <div class="dossier-head-top">
+      <h1 class="dossier-title"><a class="dossier-number" href="#">PRD #1612 ↗</a> <span data-content>Supplier invoices: Source and Creation date columns</span></h1>
+      <div class="dossier-actions">
+        <button type="button" class="ask-button stage-action" data-primary data-tour="4">Post the launch</button>
+        <button type="button" class="ask-button">Copy link</button>
+      </div>
+    </div>
+    <dl class="dossier-facts">
+      <div class="dossier-fact"><dt>Stage</dt><dd><ol class="stage-track" aria-label="Stages">
+        <li class="stage-stop stage-passed">idea</li><li class="stage-stop stage-passed">PRD</li><li class="stage-stop stage-passed">inbox</li>
+        <li class="stage-stop stage-passed">building</li><li class="stage-stop stage-passed">outbox</li><li class="stage-stop stage-current" aria-current="step">shipped</li><li class="stage-stop">retro</li>
+      </ol></dd></div>
+      <div class="dossier-fact"><dt>Merged</dt><dd>Oct 15 · 09:41</dd></div>
+      <div class="dossier-fact"><dt>Prod</dt><dd><span class="dot-live"></span>live · v0.0.424</dd></div>
+      <div class="dossier-fact"><dt>Launch</dt><dd><strong>ready</strong> <span class="ask-hint">· Friday too</span></dd></div>
+    </dl>
+    <nav class="dossier-tabs" aria-label="Tabs">
+      <a class="dossier-tab" href="#">Spec</a><a class="dossier-tab" href="#">Plan</a><a class="dossier-tab" href="#">Outbox</a>
+      <a class="dossier-tab" href="#">Proof</a><a class="dossier-tab" href="#" aria-current="page">Launch <small>ready</small></a><a class="dossier-tab dossier-tab-empty" href="#">Retro</a>
+    </nav>
+  </header>
+  <section class="launch" aria-label="Launch">
+    <div class="col">
+      <div id="p-ship"></div>
+      <div class="row"><span class="label">Version</span><div class="versions"><button type="button" aria-pressed="true" class="inuse">v1</button></div></div>
+      <div class="adapt">
+        <div class="adapt-line"><svg class="spark"><use href="#i-spark"/></svg><input class="adapt-input" aria-label="Ask for a change" placeholder="Ask for a change"><button type="button" class="ask-button small" data-tour="3">Adapt</button></div>
+        <div class="chips"><button type="button" class="cchip" data-tour="3">Shorter</button><button type="button" class="cchip" data-tour="3">Other music</button><button type="button" class="cchip" data-tour="3">Other format</button><button type="button" class="cchip" data-tour="3">Replace a shot</button><button type="button" class="cchip" data-tour="3">Plainer words</button></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="optin">
+        <div class="switch-row"><button type="button" class="switch" role="switch" aria-checked="true" aria-label="Announce this launch"></button><p class="switch-label">Announce this launch</p></div>
+        <div class="when"><span class="toggle" aria-pressed="true"><span class="box"><svg><use href="#i-check"/></svg></span>Post when shipped</span><span class="toggle" aria-pressed="true"><span class="box"><svg><use href="#i-check"/></svg></span>Add to Friday</span></div>
+      </div>
+      <div class="field">
+        <label class="label" for="v-fmt">Format</label>
+        <select class="select" id="v-fmt">
+          <option value="flash">Flash · 0:12</option>
+          <option value="feature" selected>Feature · 0:32</option>
+          <option value="spotlight">Spotlight · 0:52</option>
+          <option value="chapter">Tech News chapter · 0:14</option>
+        </select>
+      </div>
+      <div class="ride">
+        <div class="ride-head"><p class="label">Rides with the video</p></div>
+        <div class="lines" data-content>
+          <p>🎉 <b>Supplier invoices: see where each invoice came from</b><span class="cite">spec §1</span></p>
+          <p>Filter imported invoices by Source and Creation date.<span class="cite">AC-1 · AC-2</span></p>
+          <p>📝 Limits: creation date only since mid-Sept 2026 · <span class="fake-link">Click through</span> · <span class="fake-link">Slide</span> · <span class="fake-link">PRD</span><span class="cite">spec §4</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 3. Adapt -->
+<main class="ask" data-screen="adapt">
+  <header class="dossier-head">
+    <div class="dossier-head-top">
+      <h1 class="dossier-title"><a class="dossier-number" href="#">PRD #1612 ↗</a> <span data-content>Supplier invoices: Source and Creation date columns</span></h1>
+      <div class="dossier-actions"><button type="button" class="ask-button stage-action" id="use-v2" data-primary>Use this version</button></div>
+    </div>
+    <nav class="dossier-tabs" aria-label="Tabs">
+      <a class="dossier-tab" href="#">Spec</a><a class="dossier-tab" href="#">Proof</a>
+      <a class="dossier-tab" href="#" aria-current="page">Launch <small id="a-tab">v2 draft</small></a><a class="dossier-tab dossier-tab-empty" href="#">Retro</a>
+    </nav>
+  </header>
+  <section class="launch" aria-label="Adapt">
+    <div class="col">
+      <div id="p-adapt"></div>
+      <div class="row"><span class="label">Version</span><div class="versions"><button type="button" aria-pressed="false" id="a-v1" class="inuse">v1</button><button type="button" aria-pressed="true" id="a-v2">v2</button></div></div>
+    </div>
+    <div class="col">
+      <div class="adapt">
+        <div class="adapt-line"><svg class="spark"><use href="#i-spark"/></svg><input class="adapt-input" id="a-q" aria-label="Ask for a change" value=""><button type="button" class="ask-button small" id="a-go">Adapt</button></div>
+        <div class="row"><span class="attach"><span class="thumb" id="a-thumb"></span>filter.png</span></div>
+        <div class="chips"><button type="button" class="cchip" aria-pressed="true">Shorter</button><button type="button" class="cchip" aria-pressed="false">Other music</button><button type="button" class="cchip" aria-pressed="false">Other format</button><button type="button" class="cchip" aria-pressed="true">Replace a shot</button><button type="button" class="cchip" aria-pressed="false">Plainer words</button></div>
+      </div>
+      <div id="a-work" hidden><div class="shimmer"></div></div>
+      <div class="diff" id="a-diff" aria-live="polite"></div>
+      <div class="row"><button type="button" class="ask-button" id="a-undo">Undo</button><span class="chip ok">Every claim sourced</span></div>
+      <div id="a-render" hidden><div class="render-bar" id="a-bar"><i></i></div><p class="ask-hint" style="margin:6px 0 0;font-size:14px" id="a-rtxt">Rendering v2 in CI…</p></div>
+    </div>
+  </section>
+  <section class="panel" aria-label="Changed stills">
+    <div class="row between"><h2>v2 storyboard</h2><span class="ask-hint" style="font-size:14px">Changed shots outlined</span></div>
+    <ol class="strip deal" id="a-strip"></ol>
+  </section>
+</main>
+
+<!-- 4. The per-PRD post -->
+<div class="slack-wrap" data-screen="post">
+  <div class="slack">
+    <aside class="sl-side" aria-label="Channels"><b>Vertuoza</b><div># general</div><div># product</div><div class="cur"># release-won</div><div># sales</div><div># support</div></aside>
+    <section class="sl-main" aria-label="#release-won">
+      <div class="sl-head"># release-won <small>Launches, as they ship</small></div>
+      <div class="sl-feed">
+        <div class="daydiv">Thursday, October 15th</div>
+        <div class="msg arrive">
+          <div class="ava">OMNI</div>
+          <div>
+            <div><span class="who">Omni</span><span class="app">APP</span><span class="ts-l">10:02</span></div>
+            <div data-content>
+              <p>🎉 <b>Supplier invoices: see where each invoice came from</b></p>
+              <p>Filter imported invoices by Source and Creation date.</p>
+              <p>📝 Limits: creation date only since mid-Sept 2026 · <a href="#">Click through</a> · <a href="#">Slide</a> · <a href="#">PRD</a></p>
+            </div>
+            <div class="sl-file"><div class="fname">launch-1612.mp4 ▾</div><div id="p-post"></div></div>
+            <div class="row" style="margin-top:8px"><button type="button" class="sl-btn primary" id="post-sound" data-primary>Watch with sound</button></div>
+            <div class="reacts"><span>🚀 6</span><span>👀 4</span><span>🙌 2</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 5. New video -->
+<main class="ask" data-screen="new-video">
+  <header class="dossier-head flat">
+    <p class="crumbs"><a href="#">Products</a> › <a href="#">Vertuoza</a> › <a href="#">Launches</a> › New video</p>
+    <div class="dossier-head-top">
+      <h1 class="dossier-title">New video</h1>
+      <div class="dossier-actions"><button type="button" class="ask-button stage-action" id="nv-render" data-primary>Render in CI</button></div>
+    </div>
+  </header>
+  <div class="grid2">
+    <section class="panel" aria-label="Inputs">
+      <div class="field"><p class="label">Screenshots</p><div class="drop"><div class="shots" id="nv-shots"><span class="addshot">+ Drop or add</span></div></div></div>
+      <div class="field"><label class="label" for="nv-prompt">Prompt</label><textarea class="prompt" id="nv-prompt">Show the Source filter on supplier invoices</textarea></div>
+      <div class="row"><span class="chip">Linked: PRD #1612</span><span class="chip plasma">Feature · 0:25</span></div>
+      <p class="rule"><svg class="i"><use href="#i-shield"/></svg>Words from your inputs only.</p>
+    </section>
+    <section class="panel" aria-label="Storyboard">
+      <div class="row between"><h2>Storyboard</h2><span class="ask-hint" style="font-size:14px" id="nv-txt">Generated</span></div>
+      <div id="nv-work" hidden><div class="shimmer"></div></div>
+      <ol class="strip deal" id="nv-strip"></ol>
+      <div id="nv-r" hidden><div class="render-bar" id="nv-bar"><i></i></div></div>
+    </section>
+  </div>
+</main>
+
+<!-- 6. Friday: Tech News -->
+<main class="ask" data-screen="friday">
+  <header class="dossier-head flat">
+    <p class="crumbs"><a href="#">Products</a> › <a href="#">Vertuoza</a> › Tech News</p>
+    <div class="dossier-head-top">
+      <h1 class="dossier-title">Tech News · <em>Week 42</em></h1>
+      <div class="dossier-actions"><button type="button" class="ask-button stage-action" data-primary data-tour="7">See it in #release-won</button></div>
+    </div>
+    <dl class="dossier-facts">
+      <div class="dossier-fact"><dt>Friday</dt><dd><span class="clock num" id="clock">10:59<small>Fri 16 Oct</small></span></dd></div>
+      <div class="dossier-fact"><dt>Status</dt><dd><span class="sent-badge" id="sent">Sends at 11:00</span></dd></div>
+      <div class="dossier-fact"><dt>Length</dt><dd class="num">1:05</dd></div>
+      <div class="dossier-fact"><dt>Chapters</dt><dd class="num">4</dd></div>
+    </dl>
+  </header>
+  <div class="grid2">
+    <section class="panel" aria-labelledby="f-h">
+      <div class="row between"><h2 id="f-h">Added to Friday</h2><span class="ask-hint" style="font-size:14px">Ticked by each PM</span></div>
+      <ol class="tn-list" id="f-list"></ol>
+    </section>
+    <section class="panel" aria-label="Cover">
+      <h2>Cover</h2>
+      <div id="f-cover"></div>
+      <p class="rule"><svg class="i"><use href="#i-shield"/></svg>Never holds a launch back.</p>
+      <p class="rule"><svg class="i"><use href="#i-skip"/></svg>Under two: no edition.</p>
+      <p class="rule"><svg class="i"><use href="#i-skip"/></svg>No video: no edition.</p>
+    </section>
+  </div>
+</main>
+
+<!-- 7. The group video in Slack -->
+<div class="slack-wrap" data-screen="edition">
+  <div class="slack">
+    <aside class="sl-side" aria-label="Channels"><b>Vertuoza</b><div># general</div><div># product</div><div class="cur"># release-won</div><div># sales</div><div># support</div></aside>
+    <section class="sl-main" aria-label="#release-won">
+      <div class="sl-head"># release-won <small>Launches, as they ship</small></div>
+      <div class="sl-feed">
+        <div class="daydiv">Friday, October 16th</div>
+        <div class="msg arrive">
+          <div class="ava">OMNI</div>
+          <div>
+            <div><span class="who">Omni</span><span class="app">APP</span><span class="ts-l">11:00</span></div>
+            <div data-content><p>📰 <b>Vertuoza Tech News · Week 42</b></p></div>
+            <div class="sl-file"><div class="fname">tech-news-week-42.mp4 ▾</div><div id="p-ed"></div></div>
+            <ul class="chap-lines" id="ed-chaps" data-content></ul>
+            <div class="row" style="margin-top:8px"><button type="button" class="sl-btn primary" id="ed-sound" data-primary>Watch with sound</button></div>
+            <div class="reacts"><span>🔥 9</span><span>👏 5</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 8. Failure: nothing posts -->
+<main class="ask" data-screen="failed">
+  <header class="dossier-head">
+    <div class="dossier-head-top">
+      <h1 class="dossier-title"><a class="dossier-number" href="#">PRD #1612 ↗</a> <span data-content>Supplier invoices: Source and Creation date columns</span></h1>
+      <div class="dossier-actions">
+        <button type="button" class="ask-button stage-action" id="x-post" disabled>Post the launch</button>
+        <button type="button" class="ask-button">Copy link</button>
+      </div>
+    </div>
+    <dl class="dossier-facts">
+      <div class="dossier-fact"><dt>Merged</dt><dd>Oct 15 · 09:41</dd></div>
+      <div class="dossier-fact"><dt>Launch</dt><dd id="x-fact"><span style="color:var(--ask-red)">render failed</span></dd></div>
+      <div class="dossier-fact"><dt>#release-won</dt><dd id="x-posted">nothing posted</dd></div>
+    </dl>
+    <nav class="dossier-tabs" aria-label="Tabs">
+      <a class="dossier-tab" href="#">Spec</a><a class="dossier-tab" href="#">Proof</a>
+      <a class="dossier-tab" href="#" aria-current="page">Launch <small id="x-tab">failed</small></a><a class="dossier-tab dossier-tab-empty" href="#">Retro</a>
+    </nav>
+  </header>
+  <div class="notice" id="x-notice" role="alert">
+    <span class="notice-mark" aria-hidden="true">!</span>
+    <div><p><b>Render failed in CI. Nothing posted.</b></p><p class="ask-hint">Shot 3 timed out. Words kept.</p></div>
+    <button type="button" class="ask-button stage-action" id="x-retry" data-primary>Retry render</button>
+  </div>
+  <div class="fail-grid">
+    <section class="launch" style="grid-template-columns:1fr" aria-label="Launch">
+      <div class="col" id="x-col">
+        <div id="p-fail"></div>
+        <div id="x-r" hidden><div class="render-bar" id="x-bar"><i></i></div></div>
+      </div>
+    </section>
+    <section class="col" aria-label="What people see">
+      <p class="label">Private note to Martin</p>
+      <div class="mini-slack">
+        <div class="sl-feed">
+          <div class="msg arrive">
+            <div class="ava">OMNI</div>
+            <div>
+              <div><span class="who">Omni</span><span class="app">APP</span><span class="ts-l">10:02</span></div>
+              <div class="eph" id="x-eph" data-content>
+                <span class="only">Only visible to you</span>
+                <b>PRD #1612 launch not posted.</b> The video failed to render: shot 3 timed out. Nothing went to #release-won.
+                <div class="sl-btns"><button type="button" class="sl-btn" id="x-retry2">Retry render</button><button type="button" class="sl-btn">Open on Omni</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="label">#release-won</p>
+      <div class="mini-slack"><div class="nothing" id="x-channel"><b>No message</b><span>No video, no post.</span></div></div>
+    </section>
+  </div>
+</main>
+<script>
+(function () {
+  'use strict';
+  var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var MS_PER_SEC = 280;
+  /* ---------- The video frame (Vertuoza brand) ---------- */
+  var ROWS = [
+    ['Bois & Fils', 'FA-2041', '02/10/2026', 'E-invoicing', '03/10/2026', '1 240,00 €'],
+    ['Sanitaire Nord', '77815', '30/09/2026', 'AI', '01/10/2026', '386,50 €'],
+    ['Électro Plus', 'EP-5532', '28/09/2026', 'Accounting', '29/09/2026', '2 918,00 €'],
+    ['Béton Sud', '2026-118', '25/09/2026', 'Manual', '25/09/2026', '4 105,20 €'],
+    ['Quincaillerie Remy', 'Q-9902', '22/09/2026', 'E-invoicing', '23/09/2026', '92,40 €']
+  ];
+  function srcCls(s) { return s === 'Manual' ? 'src manual' : s === 'AI' ? 'src ai' : s === 'Accounting' ? 'src acc' : 'src'; }
+  var FRAME =
+    '<div class="vp-app"><div class="vz-top"><span class="mark">vertuoza</span><span class="crumb">Purchases › Supplier invoices</span></div>' +
+    '<div class="vz-body"><p class="vz-h">Supplier invoices</p><div class="vz-filters">' +
+    '<span class="vz-pill p-sup"><span class="off">Supplier ▾</span><span class="on">Supplier: Bois &amp; Fils<span class="x">×</span></span></span>' +
+    '<span class="vz-pill p-src"><span class="off">Source ▾</span><span class="on">Source: E-invoicing<span class="x">×</span></span></span>' +
+    '<span class="vz-pill p-date"><span class="off">Creation date ▾</span></span></div>' +
+    '<table class="vz-t"><colgroup><col style="width:24%"><col style="width:13%"><col style="width:15%"><col style="width:18%"><col style="width:15%"><col style="width:15%"></colgroup>' +
+    '<thead><tr><th>Supplier</th><th>Number</th><th>Invoice date</th><th class="k-src">Source</th><th class="k-date">Creation date</th><th class="amt">Amount</th></tr></thead><tbody>' +
+    ROWS.map(function (r) {
+      return '<tr' + (r[3] === 'E-invoicing' ? ' class="ei"' : '') + '><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] +
+        '</td><td class="k-src"><span class="' + srcCls(r[3]) + '">' + r[3] + '</span></td><td class="k-date">' + r[4] + '</td><td class="amt">' + r[5] + '</td></tr>';
+    }).join('') +
+    '</tbody></table></div></div>' +
+    '<div class="vp-card c-title"><small>New in Vertuoza</small><b>Supplier invoices: <em>see where each invoice came from</em></b><span class="bar"></span></div>' +
+    '<div class="vp-card c-limits"><small>Limits</small><b>Creation date only since mid-September 2026.</b></div>' +
+    '<div class="vp-card c-outro"><span class="wm">vertuoza<i>.</i></span><small>Supplier invoices · live now</small></div>' +
+    '<div class="vp-card c-cover"><small>Vertuoza</small><b>Tech News</b><span class="wk">Week 42</span></div>' +
+    '<div class="vp-card c-chap"><small class="cn">Chapter 1</small><b class="ct">Supplier invoices</b></div>' +
+    '<div class="vp-card c-ex"><span class="exm">Example</span><small class="cn">Chapter 2</small><b class="ct"></b><div class="blocks"><i></i><i></i><i></i></div></div>' +
+    '<div class="vp-card c-tnout"><span class="wm">vertuoza<i>.</i></span><small>Tech News · every Friday</small></div>' +
+    '<div class="vp-cap" data-content><span></span></div><span class="shot-tag">Your screenshot</span>';
+
+  var CAP = {
+    zsrc: 'Source: Manual, AI, Accounting, E-invoicing',
+    filter: 'Filter by Source',
+    zdate: 'Creation date: when it arrived',
+    clear: 'Clear the supplier in one click'
+  };
+  var PLAIN = { zsrc: 'See where each invoice came from', filter: 'Show one source only', zdate: 'See the day it arrived' };
+  var NAMES = { title: 'Headline card', zsrc: 'Zoom: Source', filter: 'Filter by Source', zdate: 'Zoom: Creation date', clear: 'Clear supplier',
+    limits: 'Limits card', outro: 'Outro', chap: 'Chapter card', cover: 'Cover', ex: 'Example chapter', tnout: 'Outro' };
+
+  function frame(el) { el.classList.add('vp'); el.innerHTML = FRAME; return el; }
+  function apply(vp, sc, animate) {
+    vp.setAttribute('data-s', sc.s);
+    vp.classList.toggle('is-shot', !!sc.shot);
+    if (sc.s === 'ex' || sc.s === 'chap') {
+      var card = vp.querySelector(sc.s === 'ex' ? '.c-ex' : '.c-chap');
+      card.querySelector('.cn').textContent = 'Chapter ' + (sc.n || 1);
+      card.querySelector('.ct').textContent = sc.t || 'Supplier invoices';
+    }
+    var text = sc.cap !== undefined ? sc.cap : (CAP[sc.s] || '');
+    var span = vp.querySelector('.vp-cap span');
+    vp.classList.toggle('has-cap', !!text);
+    span.textContent = text;
+    if (animate !== false) { span.classList.remove('in'); void span.offsetWidth; }
+    span.classList.add('in');
+  }
+  function still(sc) { var d = frame(document.createElement('div')); apply(d, sc, false); return d; }
+
+  /* ---------- Formats and versions ---------- */
+  var FORMATS = {
+    flash: { label: 'Flash', scenes: [{ s: 'title', d: 2 }, { s: 'zsrc', d: 5 }, { s: 'filter', d: 3 }, { s: 'outro', d: 2 }], audio: 'Music · bright' },
+    feature: { label: 'Feature', scenes: [{ s: 'title', d: 2.5 }, { s: 'zsrc', d: 7.5 }, { s: 'filter', d: 6 }, { s: 'zdate', d: 6 }, { s: 'limits', d: 5 }, { s: 'outro', d: 5 }], audio: 'Music · calm' },
+    spotlight: { label: 'Spotlight', scenes: [{ s: 'title', d: 3 }, { s: 'zsrc', d: 8 }, { s: 'filter', d: 8 }, { s: 'zdate', d: 8 }, { s: 'clear', d: 8 }, { s: 'limits', d: 7 }, { s: 'outro', d: 10 }], audio: 'Voice · Kokoro' },
+    chapter: { label: 'Tech News chapter', scenes: [{ s: 'chap', d: 2 }, { s: 'zsrc', d: 6 }, { s: 'filter', d: 6 }], audio: 'Edition music' }
+  };
+  function clone(a) { return a.map(function (s) { var o = {}; for (var k in s) o[k] = s[k]; return o; }); }
+  function len(sc) { return sc.reduce(function (a, s) { return a + s.d; }, 0); }
+  function fmtT(sec) { sec = Math.round(sec); return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2); }
+
+  var versions = [{ n: 1, fmt: 'feature', scenes: clone(FORMATS.feature.scenes), audio: FORMATS.feature.audio }];
+  var inUse = 1, viewing = 1;
+  function V(n) { for (var i = 0; i < versions.length; i++) if (versions[i].n === n) return versions[i]; return versions[0]; }
+
+  /* ---------- Player ---------- */
+  var players = [];
+  function Player(host, scenes, o) {
+    o = o || {};
+    var self = this;
+    this.o = o; this.t = 0; this.playing = true; this.idx = -1; this.active = false;
+    host.innerHTML = '';
+    var wrap = document.createElement('div');
+    wrap.className = o.skin === 'slack' ? 'skp' : 'omp';
+    host.appendChild(wrap);
+    this.wrap = wrap;
+    var vpHolder = document.createElement('div');
+    wrap.appendChild(vpHolder);
+    this.vp = frame(vpHolder);
+    this.vp.setAttribute('role', 'img');
+    this.vp.setAttribute('aria-label', o.label || 'Launch video');
+    if (o.skin === 'slack') {
+      var ov = document.createElement('div'); ov.className = 'sk-ov';
+      ov.innerHTML = '<button type="button" class="mute" aria-label="Unmute"><svg><use href="#i-mute"/></svg></button><span class="sk-trk"><i></i></span><span class="tc num">0:00</span>';
+      wrap.appendChild(ov);
+      this.fill = ov.querySelector('.sk-trk > i'); this.trk = ov.querySelector('.sk-trk'); this.tc = ov.querySelector('.tc');
+      this.muteBtn = ov.querySelector('.mute');
+      this.muteBtn.addEventListener('click', function () { self.setMuted(!self.muted); });
+      this.muted = true;
+    } else {
+      var bar = document.createElement('div'); bar.className = 'pbar';
+      bar.innerHTML = '<button type="button" class="pp" aria-label="Pause"><svg><use href="#i-pause"/></svg></button><span class="tc num">0:00 / 0:00</span><span class="trk"><i></i></span><span class="aud"></span>';
+      wrap.appendChild(bar);
+      this.fill = bar.querySelector('.trk > i'); this.trk = bar.querySelector('.trk'); this.tc = bar.querySelector('.tc'); this.aud = bar.querySelector('.aud');
+      this.pp = bar.querySelector('.pp');
+      this.pp.addEventListener('click', function () { self.toggle(); });
+    }
+    this.set(scenes, o.audio);
+    players.push(this);
+  }
+  Player.prototype.set = function (scenes, audio) {
+    this.scenes = scenes; this.total = len(scenes); this.t = 0; this.idx = -1;
+    if (this.aud) this.aud.textContent = audio || '';
+    var ticks = this.trk.querySelectorAll('b'); for (var i = 0; i < ticks.length; i++) ticks[i].remove();
+    if (this.o.ticks) {
+      var acc = 0, self = this;
+      scenes.forEach(function (s) { if (s.tick) { var b = document.createElement('b'); b.style.left = (acc / self.total * 100) + '%'; self.trk.appendChild(b); } acc += s.d; });
+    }
+    this.render(true);
+  };
+  Player.prototype.render = function (force) {
+    var acc = 0, idx = 0;
+    for (var i = 0; i < this.scenes.length; i++) { if (this.t < acc + this.scenes[i].d) { idx = i; break; } acc += this.scenes[i].d; idx = i; }
+    if (idx !== this.idx || force) { this.idx = idx; apply(this.vp, this.scenes[idx], true); }
+    this.fill.style.transform = 'scaleX(' + Math.min(1, this.t / this.total) + ')';
+    this.tc.textContent = this.o.skin === 'slack' ? fmtT(this.total - this.t) : fmtT(this.t) + ' / ' + fmtT(this.total);
+  };
+  Player.prototype.toggle = function () {
+    this.playing = !this.playing;
+    if (this.pp) { this.pp.setAttribute('aria-label', this.playing ? 'Pause' : 'Play'); this.pp.innerHTML = '<svg><use href="#i-' + (this.playing ? 'pause' : 'play') + '"/></svg>'; }
+  };
+  Player.prototype.seek = function (sec) { this.t = sec; this.playing = true; this.render(true); };
+  Player.prototype.setMuted = function (m) {
+    this.muted = m;
+    this.muteBtn.setAttribute('aria-label', m ? 'Unmute' : 'Mute');
+    this.muteBtn.innerHTML = '<svg><use href="#i-' + (m ? 'mute' : 'sound') + '"/></svg>';
+  };
+  var last = performance.now();
+  function loop(now) {
+    var dt = Math.min(100, now - last); last = now;
+    var step = dt / (REDUCED ? MS_PER_SEC * 1.6 : MS_PER_SEC);
+    players.forEach(function (p) {
+      if (!p.active || !p.playing) return;
+      p.t += step;
+      if (p.t >= p.total) p.t = 0;
+      p.render(false);
+    });
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* ---------- Tour pieces ---------- */
+  function $(id) { return document.getElementById(id); }
+  var timers = [];
+  function later(fn, ms) { timers.push(setTimeout(fn, REDUCED ? Math.min(ms, 80) : ms)); }
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+  function replay(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+  function stillItem(sc, k, cls, why) {
+    var li = document.createElement('li'); if (cls) li.className = cls;
+    li.appendChild(still(sc));
+    var b = document.createElement('b'); b.textContent = (k + 1) + ' · ' + NAMES[sc.s] + (sc.shot ? ' (screenshot)' : ''); li.appendChild(b);
+    var m = document.createElement('span'); m.className = 'src-line'; m.textContent = why || (sc.d + ' s'); li.appendChild(m);
+    li.style.animationDelay = (k * 80) + 'ms';
+    return li;
+  }
+
+  /* 1. Brainstorm toggle */
+  var bSw = $('b-sw');
+  function setOpt(on) {
+    bSw.setAttribute('aria-checked', String(on));
+    $('b-optin').classList.toggle('on-optin', on);
+    $('b-badge').textContent = on ? 'on' : 'off';
+  }
+  bSw.addEventListener('click', function () { setOpt(bSw.getAttribute('aria-checked') !== 'true'); });
+  ['b-ship', 'b-fri'].forEach(function (id) { var t = $(id); t.addEventListener('click', function () { t.setAttribute('aria-pressed', String(t.getAttribute('aria-pressed') !== 'true')); }); });
+
+  /* 2. Ship day */
+  var pShip = new Player($('p-ship'), FORMATS.feature.scenes, { audio: FORMATS.feature.audio, label: 'Launch video, Feature format' });
+  $('v-fmt').addEventListener('change', function () {
+    var f = this.value, w = pShip.wrap; w.classList.add('cutting');
+    later(function () { w.classList.remove('cutting'); pShip.set(clone(FORMATS[f].scenes), FORMATS[f].audio); }, 650);
+  });
+
+  /* 3. Adapt */
+  var V1 = clone(FORMATS.feature.scenes);
+  var V2 = clone(FORMATS.feature.scenes).filter(function (s) { return s.s !== 'zdate'; });
+  V2.forEach(function (s) { if (s.s === 'filter') s.shot = true; if (s.s === 'outro') s.d = 2.5; });
+  var pAdapt = new Player($('p-adapt'), V2, { audio: 'Music · calm', label: 'Version 2 preview' });
+  $('a-thumb').appendChild(still({ s: 'filter', shot: true, cap: '' }));
+  var DIFF = ['0:32 → 0:24', 'shot 4 (Zoom: Creation date) cut', 'outro 5 s → 2.5 s', 'shot 3: clip → your screenshot'];
+  function adaptRun() {
+    var q = $('a-q'), text = 'Shorter, and use my screenshot for the filter';
+    q.value = ''; $('a-diff').innerHTML = ''; $('a-strip').innerHTML = ''; $('a-work').hidden = true; $('a-render').hidden = true;
+    $('use-v2').disabled = false; $('use-v2').textContent = 'Use this version'; $('a-tab').textContent = 'v2 draft';
+    $('a-v1').setAttribute('aria-pressed', 'false'); $('a-v2').setAttribute('aria-pressed', 'true'); $('a-v1').classList.add('inuse'); $('a-v2').classList.remove('inuse');
+    var i = 0;
+    (function type() { if (i <= text.length) { q.value = text.slice(0, i); i += 2; later(type, 28); } else later(go, 250); })();
+    function go() {
+      $('a-work').hidden = false;
+      later(function () {
+        $('a-work').hidden = true;
+        DIFF.forEach(function (t) { var s = document.createElement('span'); s.className = 'd'; s.textContent = t; $('a-diff').appendChild(s); });
+        V2.forEach(function (sc, k) { $('a-strip').appendChild(stillItem(sc, k, (sc.shot || sc.s === 'outro') ? 'changed' : '')); });
+        replay($('a-strip'), 'go');
+        pAdapt.set(V2, 'Music · calm');
+      }, 900);
+    }
+  }
+  $('a-go').addEventListener('click', adaptRun);
+  $('a-v1').addEventListener('click', function () { pAdapt.set(V1, 'Music · calm'); this.setAttribute('aria-pressed', 'true'); $('a-v2').setAttribute('aria-pressed', 'false'); });
+  $('a-v2').addEventListener('click', function () { pAdapt.set(V2, 'Music · calm'); this.setAttribute('aria-pressed', 'true'); $('a-v1').setAttribute('aria-pressed', 'false'); });
+  $('a-undo').addEventListener('click', function () { $('a-v1').click(); $('a-diff').innerHTML = '<span class="d">back to v1</span>'; $('a-tab').textContent = 'v1 in use'; $('a-v1').classList.add('inuse'); $('a-v2').classList.remove('inuse'); $('a-render').hidden = true; });
+  $('use-v2').addEventListener('click', function () {
+    var b = this; b.disabled = true; $('a-render').hidden = false; $('a-rtxt').textContent = 'Rendering v2 in CI…';
+    replay($('a-bar'), 'go');
+    later(function () { b.textContent = 'In use'; $('a-tab').textContent = 'v2 in use'; $('a-v2').classList.add('inuse'); $('a-v1').classList.remove('inuse'); $('a-rtxt').textContent = 'v2 in use · ready to post'; }, 1700);
+  });
+
+  /* 4. Per-PRD post */
+  var pPost = new Player($('p-post'), V2, { skin: 'slack', label: 'launch-1612.mp4, playing muted' });
+  function soundBtn(btn, p) {
+    btn.addEventListener('click', function () { var m = !p.muted; p.setMuted(m); btn.textContent = m ? 'Watch with sound' : 'Mute'; if (!m) p.seek(0); });
+  }
+  soundBtn($('post-sound'), pPost);
+
+  /* 5. New video */
+  [['list.png', { s: 'zsrc', shot: true, cap: '' }], ['filter.png', { s: 'filter', shot: true, cap: '' }]].forEach(function (x) {
+    var d = document.createElement('div'); d.className = 'shot'; d.appendChild(still(x[1]));
+    var n = document.createElement('span'); n.textContent = x[0]; d.appendChild(n);
+    $('nv-shots').insertBefore(d, $('nv-shots').lastElementChild);
+  });
+  var NV = [
+    [{ s: 'title', d: 2.5 }, 'from your prompt'],
+    [{ s: 'zsrc', d: 7, shot: true }, 'list.png · zoom on Source'],
+    [{ s: 'filter', d: 6, shot: true }, 'filter.png · your prompt'],
+    [{ s: 'limits', d: 5 }, 'spec §4'],
+    [{ s: 'outro', d: 4 }, 'Pitch settings']
+  ];
+  function nvRun() {
+    $('nv-strip').innerHTML = ''; $('nv-work').hidden = false; $('nv-r').hidden = true; $('nv-txt').textContent = 'Generating…';
+    $('nv-render').disabled = true; $('nv-render').textContent = 'Render in CI';
+    later(function () {
+      $('nv-work').hidden = true; $('nv-txt').textContent = 'Generated';
+      NV.forEach(function (x, k) { $('nv-strip').appendChild(stillItem(x[0], k, '', x[1])); });
+      replay($('nv-strip'), 'go'); $('nv-render').disabled = false;
+    }, 1000);
+  }
+  $('nv-render').addEventListener('click', function () {
+    var b = this; b.disabled = true; b.textContent = 'Rendering…'; $('nv-r').hidden = false; replay($('nv-bar'), 'go');
+    later(function () { b.textContent = 'Rendered · v1'; $('nv-txt').textContent = 'Ready on Launches'; }, 1700);
+  });
+
+  /* 6. Friday */
+  var TN = [
+    { t: 'Supplier invoices: see where each invoice came from', pm: 'Martin', pmc: '', fmt: 'Feature cut', also: 'Posted Thu', real: true },
+    { t: 'Quotes: duplicate a section', pm: 'Paul', pmc: 'b', fmt: 'Flash cut', also: 'Friday only' },
+    { t: 'Planning: drag a task to another day', pm: 'Paul', pmc: 'b', fmt: 'Feature cut', also: 'Posted Tue' },
+    { t: 'Mobile: add a worksite photo', pm: 'Irisa', pmc: 'c', fmt: 'From screenshots', also: 'Friday only' }
+  ];
+  var TNS = [{ s: 'cover', d: 6, tick: true }];
+  TN.forEach(function (x, i) {
+    x.at = len(TNS);
+    if (x.real) TNS.push({ s: 'chap', d: 2, n: 1, t: 'Supplier invoices', tick: true }, { s: 'zsrc', d: 6 }, { s: 'filter', d: 6 });
+    else TNS.push({ s: 'ex', d: 13, n: i + 1, t: x.t, cap: '', tick: true });
+  });
+  TNS.push({ s: 'tnout', d: 6 });
+  TN.forEach(function (x, i) {
+    var li = document.createElement('li'); li.className = 'tn-row';
+    li.innerHTML = '<label class="tick"><input type="checkbox" checked aria-label="Include chapter ' + (i + 1) + '"><svg><use href="#i-check"/></svg></label>';
+    li.appendChild(still(x.real ? { s: 'zsrc', cap: '' } : { s: 'ex', t: x.t, n: i + 1, cap: '' }));
+    var body = document.createElement('div');
+    body.innerHTML = '<span class="tt" data-content></span><span class="meta"><span class="pm"><i class="' + x.pmc + '">' + x.pm[0] + '</i>' + x.pm + '</span>' +
+      (x.real ? '' : '<span class="ex-tag">Example</span>') + '<span>' + x.fmt + '</span><span>' + x.also + '</span></span>';
+    body.querySelector('.tt').textContent = x.t;
+    li.appendChild(body);
+    var at = document.createElement('span'); at.className = 'at num'; at.textContent = fmtT(x.at); li.appendChild(at);
+    li.querySelector('input').addEventListener('change', function (e) { li.classList.toggle('out', !e.target.checked); });
+    $('f-list').appendChild(li);
+  });
+  $('f-cover').appendChild(still({ s: 'cover' }));
+  function fridayRun() {
+    var c = $('clock'), s = $('sent');
+    c.firstChild.nodeValue = '10:59'; s.textContent = 'Sends at 11:00'; s.classList.remove('sent');
+    later(function () { c.firstChild.nodeValue = '11:00'; s.textContent = 'Sending…'; }, 1400);
+    later(function () { s.textContent = 'Sent to #release-won'; s.classList.add('sent'); }, 2600);
+  }
+
+  /* 7. Edition in Slack */
+  var pEd = new Player($('p-ed'), TNS, { skin: 'slack', ticks: true, label: 'tech-news-week-42.mp4, playing muted' });
+  TN.forEach(function (x) {
+    var li = document.createElement('li');
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = fmtT(x.at); b.setAttribute('aria-label', 'Jump to ' + fmtT(x.at));
+    b.addEventListener('click', function () { pEd.seek(x.at); });
+    li.appendChild(b); li.appendChild(document.createTextNode(x.t + ' · ' + x.pm + ' '));
+    if (!x.real) { var e = document.createElement('span'); e.className = 'exs'; e.textContent = '(example)'; li.appendChild(e); }
+    $('ed-chaps').appendChild(li);
+  });
+  soundBtn($('ed-sound'), pEd);
+
+  /* 8. Failure */
+  var pFail = new Player($('p-fail'), V2, { audio: 'Music · calm', label: 'Video that failed to render' });
+  var brk = document.createElement('div'); brk.className = 'broken-ov';
+  brk.innerHTML = '<b>Render failed</b><span>Shot 3 timed out in CI</span>';
+  pFail.wrap.appendChild(brk);
+  function failReset() {
+    pFail.playing = false; pFail.t = 0; pFail.render(true); pFail.vp.classList.add('broken'); brk.hidden = false;
+    $('x-notice').hidden = false; $('x-r').hidden = true; $('x-post').disabled = true;
+    $('x-fact').innerHTML = '<span style="color:var(--ask-red)">render failed</span>'; $('x-tab').textContent = 'failed';
+    $('x-posted').textContent = 'nothing posted';
+    $('x-retry').disabled = false; $('x-retry').textContent = 'Retry render';
+  }
+  function retry() {
+    $('x-retry').disabled = true; $('x-retry').textContent = 'Rendering…'; $('x-r').hidden = false; replay($('x-bar'), 'go');
+    later(function () {
+      brk.hidden = true; pFail.vp.classList.remove('broken'); pFail.playing = true;
+      $('x-notice').hidden = true; $('x-post').disabled = false;
+      $('x-fact').innerHTML = '<strong>ready</strong>'; $('x-tab').textContent = 'ready'; $('x-posted').textContent = 'waits for you';
+    }, 1700);
+  }
+  $('x-retry').addEventListener('click', retry);
+  $('x-retry2').addEventListener('click', retry);
+  $('x-post').addEventListener('click', function () { show(3); });
+
+  /* ---------- The tour ---------- */
+  var STEPS = [
+    ['brainstorm', 'The toggle', '<b>At brainstorm, one toggle.</b> On PRD #1612\'s page, the Launch tab asks one question: Announce this launch? Omni suggests it because the spec changes a screen users see. Flip it: two choices appear, Post when shipped and Add to Friday (both allowed). Tone, look, music and voice come from Vertuoza\'s Pitch settings; nobody writes a script.', function () { setOpt(false); later(function () { setOpt(true); }, 900); }, [pShip]],
+    ['ship', 'Ship day', '<b>Ship day: the launch is already cut.</b> The PRD shipped and prod runs it; the head button reads Post the launch. The video in Vertuoza\'s look opens on the headline card and zooms on the new Source column by second 3. Three lines ride with it, each traced to the spec or a proof. Format is one select (Flash, Feature, Spotlight, Tech News chapter). Built on today\'s /omni:pitch skill, kit/lib/pitch and the Pitch settings, rendered in CI, never on a laptop.', function () { pShip.seek(0); }, [pShip]],
+    ['adapt', 'Adapt → v2', '<b>Adapt in one line, no editor.</b> The PM types "Shorter, and use my screenshot for the filter" with two chips. Claude rewrites the storyboard inside its schema; the check refuses any claim without a source. The changed stills appear in seconds with a one-line diff, and v2 sits beside v1. Use this version renders it; Undo is free.', function () { adaptRun(); }, [pAdapt]],
+    ['post', 'In #release-won', '<b>The video is the message.</b> One click, and #release-won gets the MP4 itself with three lines of text, playing muted inline. Nobody has to open a thread or a link: the headline card on frame 0 already says what changed.', function () { pPost.setMuted(true); $('post-sound').textContent = 'Watch with sound'; pPost.seek(0); }, [pPost]],
+    ['new-video', 'From screenshots', '<b>Nothing filmed? Start from screenshots.</b> Mobile, behind sign-in, or not a PRD at all: drop screenshots, write a prompt, link the PRD if there is one. Omni builds the same storyboard in a fixed format, each still saying where it came from. Words come only from what you gave and the linked spec.', function () { nvRun(); }, []],
+    ['friday', 'Friday 11:00', '<b>Friday, it sends itself.</b> Tech News · Week 42 lists every launch whose PM ticked Add to Friday, each with its own cut and chapter time; any PM can untick theirs. At 11:00 the edition goes out with nobody pressing anything. Chapters 2 to 4 are examples invented for this tour; only Supplier invoices is real.', function () { fridayRun(); }, []],
+    ['edition', 'The edition', '<b>Vertuoza Tech News, Week 42.</b> One group video in the brand: a cover, a chapter per launch, an outro, playing inline in #release-won, with one line per launch and its chapter time. Click a time to jump. Nobody wrote, cut or sent anything; each PM ticked a box.', function () { pEd.setMuted(true); $('ed-sound').textContent = 'Watch with sound'; pEd.seek(0); }, [pEd]],
+    ['failed', 'No video, no post', '<b>No video, no post.</b> If the render fails, or Slack refuses the file, nothing goes to #release-won, never the copy alone. The PM sees why on the Launch tab and in a private Slack note, with Retry. A Tech News edition whose group video fails does not send either. Press Retry render.', function () { failReset(); }, [pFail]]
+  ];
+  var cur = 0;
+  var stepsEl = $('steps');
+  STEPS.forEach(function (s, i) {
+    var li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button'; b.textContent = (i + 1) + ' · ' + s[1]; b.dataset.step = i;
+    b.addEventListener('click', function () { show(i); });
+    li.appendChild(b); stepsEl.appendChild(li);
+  });
+  function show(i) {
+    clearTimers();
+    cur = Math.max(0, Math.min(STEPS.length - 1, i));
+    var s = STEPS[cur];
+    document.querySelectorAll('[data-screen]').forEach(function (el) {
+      var on = el.dataset.screen === s[0];
+      el.classList.toggle('on', on);
+      if (on) replay(el, 'stage-in');
+    });
+    stepsEl.querySelectorAll('button').forEach(function (b) { if (+b.dataset.step === cur) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
+    $('caption').innerHTML = s[2];
+    $('count').textContent = (cur + 1) + ' / ' + STEPS.length;
+    $('prev').disabled = cur === 0; $('next').disabled = cur === STEPS.length - 1;
+    players.forEach(function (p) { p.active = false; });
+    s[4].forEach(function (p) { p.active = true; });
+    s[3]();
+    window.scrollTo(0, 0);
+  }
+  $('prev').addEventListener('click', function () { show(cur - 1); });
+  $('next').addEventListener('click', function () { show(cur + 1); });
+  document.querySelectorAll('[data-tour]').forEach(function (b) { b.addEventListener('click', function () { show(+b.dataset.tour - 1); }); });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target.tagName;
+    if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
+    if (e.key === 'ArrowRight') show(cur + 1);
+    if (e.key === 'ArrowLeft') show(cur - 1);
+  });
+  show(0);
+})();
+</script>
+</body>
+</html>

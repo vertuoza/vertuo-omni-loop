@@ -1,6 +1,6 @@
 ---
 name: mega-bug-fix
-description: The bug fix of a plan repository — takes a bug that shows in one target repository and whose cause may sit in another, from one line or a bug issue of the plan repository, to one fix pull request per target and one record pull request a person merges last. Opens (or reads) the issue in the plan repository, with --prd linking it to a PRD, classifies and triages it with a Repositories line, locates the cause in the targets' read-only clones, posts a fix plan in merge order, provider first, then proves red in each target with its own committed setup and preflight or its CI run before fixing it there, each target PR saying Part of the issue and Merge after the PRs before it, and records the fix with a Fixes table in a record PR that closes the issue, proven by omni bug. All or nothing across targets; a contract change that would break today's consumer hands over the /omni:mega-brainstorm line. Runs nothing in a target but its own committed setup, then its own committed preflight, never merges. Triggers on "fix this bug across the repositories", "the front-end shows it, the back-end causes it", "mega bug fix", "/omni:mega-bug-fix".
+description: The bug fix of a plan repository — takes a bug that shows in one target repository and whose cause may sit in another, from one line or a bug issue of the plan repository, to one fix pull request per target and one record pull request a person merges last. Opens (or reads) the issue in the plan repository, with --prd linking it to a PRD, classifies and triages it with a Repositories line, locates the cause in the targets' read-only clones, posts a fix plan in merge order, provider first, then proves red in each target with its own committed setup and preflight or its CI run before fixing it there, each target PR saying Part of the issue and Merge after the PRs before it, and records the fix with a Fixes table in a record PR that closes the issue, proven by omni bug. All or nothing across targets; a contract change that would break today's consumer hands over the /omni:mega-brainstorm line. Runs nothing in a target but its own committed setup, then its own committed preflight, never merges. With --product <key>, runs from any kitted checkout of a product's repository instead, the bug being recorded on the server as <key>-B<n> with its Fixes rows, each fix PR's body starts with Fixes <key>-B<n> and a link, and there is no record PR and no plan-repository issue. Triggers on "fix this bug across the repositories", "the front-end shows it, the back-end causes it", "mega bug fix", "/omni:mega-bug-fix".
 ---
 
 # Mega bug fix: one bug, one PR per target, one record
@@ -50,14 +50,16 @@ once for the whole fix.
 | a description | `/omni:mega-bug-fix 'the total is wrong on the invoice screen'` | the bug, in the person's words; the skill opens its issue in the plan repository |
 | an issue | `/omni:mega-bug-fix 612`, `#612`, or its URL | a bug issue of the plan repository; a URL of another repository stops the skill, as `/omni:bug-fix` |
 | `--prd <prd>` | `/omni:mega-bug-fix 'the total is wrong' --prd 1200` | links the bug to PRD `<prd>`, so `/omni:mega-pr-care <prd>` looks after its PRs too |
+| `--product <key>` | `/omni:mega-bug-fix 'the total is wrong' --product mobile` | a product run: see **From a product** |
 
 With no input, say that this skill takes a description of the bug or an issue, and stop.
 
 ## Step 0
 
 1. Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the
-   JSON, as `/omni:bug-fix` step 0 keeps it, and its `plan` section. Without a `plan` section, stop
-   with exactly one line:
+   JSON, as `/omni:bug-fix` step 0 keeps it, and its `plan` section. **From a product:** with
+   `--product <key>`, follow **From a product** below from here on, a plan repository or not.
+   Otherwise, without a `plan` section, stop with exactly one line:
 
    ```text
    not a plan repository: /omni:bug-fix
@@ -67,6 +69,66 @@ With no input, say that this skill takes a description of the bug or an issue, a
    `testing` forms, as `/omni:bug-fix` step 0. In a target, its own committed forms are read in its
    clone, `(cd <clone> && node <plan repository root>/.omni-loop/bin/omni.mjs kb show testing)`,
    never the imported copy.
+
+## From a product (`--product <key>`)
+
+A **product bug** (PRD 2011) lives on its product on the Omni page, and in no repository: its id is
+the product's key and a counter, `mobile-B74` (`<key>-B<n>`), and its Fixes rows (one per fix
+PR: repository, pull request, what changes, reproduction, guard, merged at) are the server's. This
+run starts from any checkout of a repository the product holds that has the kit installed, a plan
+repository or not. It opens no record PR and no plan-repository issue, writes no `bugs/` folder, and
+runs steps 1 to 10 below with these differences.
+
+**Which product.** `node .omni-loop/bin/omni.mjs product use <key>` remembers the key in this
+checkout (exit 2: the key is not one, print its line and stop); without `--product`,
+`omni product which` naming a remembered product makes this a run for it, said in one line.
+
+- **Steps 1 and 2: no issue.** The bug is described in the person's words in the record (step 8
+  below), not in an issue; the classification of `/omni:bug-fix` step 2 is kept in the record's
+  Triage. A description or `--prd` that names a plan-repository issue is read, never opened.
+- **Step 3, the triage,** is a `## Triage` section of the record, with its **Repositories** line,
+  and no issue comment. **Step 5, the fix plan,** is the record's `## Fixes` table and no comment.
+- **Step 4, the targets,** are the product's repositories (`omni targets --json` when the config has
+  `plan.product`, else this checkout's repository and each one the person names, asked and never
+  assumed), read in clones as step 4 says. A target outside the product is never read.
+- **Step 7, each target,** runs as written, and its PR body differs (below). `Part of <plan slug>#<n>`
+  is not written: there is no issue. Each PR is a standalone PR into its target's default branch,
+  draft until its red and its fix are pushed.
+
+**The record comes first, with no pull request yet.** Write `bug.md` to a scratch folder
+(`mktemp -d`, outside every repository), shaped as step 8 shows (a `# <title>` heading, `## Triage`,
+`## Fixes` with `—` for every pull request, `## Reproduction`, `## Guard`, `## Mutation`), one
+Reproduction and one Guard line per row, each keyed by the repository. Then:
+
+1. **Check it:** `node .omni-loop/bin/omni.mjs bug check --product <key> <file>`, until it prints
+   `ok`: a row naming a repository outside the product is refused by name.
+2. **Create it:** `node .omni-loop/bin/omni.mjs bug push --product <key> --new <file>`. It prints
+   the new id, `<key>-B<n>`, on a line of its own, then the bug's page link. A refusal (no such
+   product, no sign-in, the server unreachable) is printed as is, and the run stops there: nothing
+   was created and no target was touched (**All or nothing across targets**).
+3. **Open each fix PR** (step 7) with a body that starts with these lines, then the reproduction line
+   and the guard line of its row, so `git log` and blame still lead to the why:
+
+   ```markdown
+   Fixes <key>-B<n> · <link>
+   Merge after <slug>#<pr>
+   ```
+
+   then `/omni:bug-fix`'s body from **What was wrong** on, as step 7 says. It is **never a closing
+   keyword**: `Fixes <key>-B<n>` names a record that is not a GitHub issue, so it closes nothing. A
+   consumer's PR adds one `Merge after <slug>#<pr>` line per PR before it, in the plan's order.
+4. **Write each PR into its row**, at once: edit `bug.md`'s `## Fixes` table, then
+   `node .omni-loop/bin/omni.mjs bug check --product <key> <file>` and
+   `node .omni-loop/bin/omni.mjs bug push --product <key> --bug <n> <file>`. A file that did not
+   change adds no version.
+
+**The merge is the App's.** There is no record PR to merge last: the App stamps `merged_at` on the row
+whose repository and PR match when a fix PR merges, and the record ships when the last row is merged.
+A person merges the PRs in the order the `Merge after` lines give.
+
+**Step 10, the hand-off,** names the bug id and its page, each PR in merge order, and what was proven
+and what was not, per target. `omni bug <n>` and `omni check` read a repository's issue and folder: the
+hand-off names them as not run.
 
 ## 1. Issue
 
@@ -174,7 +236,8 @@ differs:
   draft until its red and its fix are pushed. Its body starts with `Part of <plan slug>#<n>`
   (`<plan slug>` is the plan repository's `repo.slug`), **never a closing keyword**, so it never
   closes the plan repository's issue. A consumer's PR adds one `Merge after <slug>#<pr>` line per
-  PR before it in the plan. Then `/omni:bug-fix`'s body from **What was wrong** on, its `## Bug`
+  PR before it in the plan. Then `/omni:bug-fix`'s body from **What was wrong** on,
+  without its `## Proof` section (no film is made in a target), its `## Bug`
   section with one more line, `- **Fix plan:** <the fix-plan comment's link>`, and its **Record**
   line naming the record in the plan repository. `labels.bug` is added only when the target has
   it; a label is never created in a target.

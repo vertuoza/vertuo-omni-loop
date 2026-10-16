@@ -1285,6 +1285,111 @@ export type Database = {
           },
         ]
       }
+      fix_rows: {
+        Row: {
+          changes: string
+          closed_at: string | null
+          dossier_id: string
+          guard: string | null
+          id: string
+          merged_at: string | null
+          position: number
+          pull: number | null
+          repository: string
+          reproduction: string | null
+          state: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          changes: string
+          closed_at?: string | null
+          dossier_id: string
+          guard?: string | null
+          id?: string
+          merged_at?: string | null
+          position: number
+          pull?: number | null
+          repository: string
+          reproduction?: string | null
+          state?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          changes?: string
+          closed_at?: string | null
+          dossier_id?: string
+          guard?: string | null
+          id?: string
+          merged_at?: string | null
+          position?: number
+          pull?: number | null
+          repository?: string
+          reproduction?: string | null
+          state?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fix_rows_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fix_rows_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fix_unmatched_merges: {
+        Row: {
+          dossier_id: string
+          merged_at: string
+          pull: number
+          repository: string
+          seen_at: string
+          workspace_id: string
+        }
+        Insert: {
+          dossier_id: string
+          merged_at: string
+          pull: number
+          repository: string
+          seen_at?: string
+          workspace_id: string
+        }
+        Update: {
+          dossier_id?: string
+          merged_at?: string
+          pull?: number
+          repository?: string
+          seen_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fix_unmatched_merges_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fix_unmatched_merges_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       github_budget: {
         Row: {
           installation_id: number
@@ -2224,6 +2329,7 @@ export type Database = {
           added_by: string
           consumes: string[]
           knowledge: string
+          ladder_step: number
           product_id: string
           read_at: string | null
           read_only: boolean
@@ -2236,6 +2342,7 @@ export type Database = {
           added_by: string
           consumes?: string[]
           knowledge?: string
+          ladder_step?: number
           product_id: string
           read_at?: string | null
           read_only?: boolean
@@ -2248,6 +2355,7 @@ export type Database = {
           added_by?: string
           consumes?: string[]
           knowledge?: string
+          ladder_step?: number
           product_id?: string
           read_at?: string | null
           read_only?: boolean
@@ -2274,6 +2382,7 @@ export type Database = {
       }
       products: {
         Row: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -2284,9 +2393,11 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         Insert: {
+          bug_seq?: number
           business_id: string
           created_at?: string
           created_by?: string | null
@@ -2297,9 +2408,11 @@ export type Database = {
           pitch?: Json
           pitch_look?: string
           prd_count?: number
+          roadmap_seq?: number
           workspace_id: string
         }
         Update: {
+          bug_seq?: number
           business_id?: string
           created_at?: string
           created_by?: string | null
@@ -2310,6 +2423,7 @@ export type Database = {
           pitch?: Json
           pitch_look?: string
           prd_count?: number
+          roadmap_seq?: number
           workspace_id?: string
         }
         Relationships: [
@@ -2644,7 +2758,8 @@ export type Database = {
           blockers: string[]
           ended_at: string | null
           position: number
-          prd: number
+          prd: number | null
+          prd_id: string
           repos: string[]
           roadmap_id: string
           row_id: string
@@ -2659,7 +2774,8 @@ export type Database = {
           blockers?: string[]
           ended_at?: string | null
           position: number
-          prd: number
+          prd?: number | null
+          prd_id: string
           repos?: string[]
           roadmap_id: string
           row_id: string
@@ -2674,7 +2790,8 @@ export type Database = {
           blockers?: string[]
           ended_at?: string | null
           position?: number
-          prd?: number
+          prd?: number | null
+          prd_id?: string
           repos?: string[]
           roadmap_id?: string
           row_id?: string
@@ -2758,16 +2875,17 @@ export type Database = {
         Row: {
           created_at: string
           document: string
+          dossier_id: string | null
           id: string
           milestone: string
-          number: number
+          number: number | null
           prerequisites_checked_at: string | null
           prerequisites_machine: string | null
           product_id: string | null
           pushed_at: string
           pushed_by: string | null
           questions: Json
-          repo: string
+          repo: string | null
           source: string | null
           target_date: string | null
           title: string
@@ -2776,16 +2894,17 @@ export type Database = {
         Insert: {
           created_at?: string
           document: string
+          dossier_id?: string | null
           id?: string
           milestone: string
-          number: number
+          number?: number | null
           prerequisites_checked_at?: string | null
           prerequisites_machine?: string | null
           product_id?: string | null
           pushed_at?: string
           pushed_by?: string | null
           questions?: Json
-          repo: string
+          repo?: string | null
           source?: string | null
           target_date?: string | null
           title: string
@@ -2794,22 +2913,30 @@ export type Database = {
         Update: {
           created_at?: string
           document?: string
+          dossier_id?: string | null
           id?: string
           milestone?: string
-          number?: number
+          number?: number | null
           prerequisites_checked_at?: string | null
           prerequisites_machine?: string | null
           product_id?: string | null
           pushed_at?: string
           pushed_by?: string | null
           questions?: Json
-          repo?: string
+          repo?: string | null
           source?: string | null
           target_date?: string | null
           title?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "roadmaps_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: true
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "roadmaps_product_fkey"
             columns: ["product_id", "workspace_id"]
@@ -3527,6 +3654,7 @@ export type Database = {
       ask_shared_with_me: { Args: { round: string }; Returns: boolean }
       ask_sweep: { Args: never; Returns: number }
       ask_tokens_valid: { Args: { t: Json }; Returns: boolean }
+      bug_id_of: { Args: { p_product: string; p_seq: number }; Returns: string }
       business_claim_value: {
         Args: { p_kind: string; p_value: string }
         Returns: string
@@ -3688,6 +3816,7 @@ export type Database = {
       business_product: {
         Args: { p_product: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -3698,6 +3827,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4116,6 +4246,22 @@ export type Database = {
         Args: { p_dossier_kind: string; p_version_kind: string }
         Returns: boolean
       }
+      fix_bug_push: {
+        Args: { p_body: Json; p_bug: number; p_key: string; p_repo?: string }
+        Returns: Json
+      }
+      fix_row_stamp: {
+        Args: {
+          p_at: string
+          p_bug?: string
+          p_event: string
+          p_pull: number
+          p_repo: string
+        }
+        Returns: Json
+      }
+      fix_rows_pull: { Args: { p_dossier: string }; Returns: Json }
+      fix_rows_summary: { Args: { p_dossier: string }; Returns: Json }
       fleet_look: {
         Args: {
           p_color: string
@@ -4533,6 +4679,7 @@ export type Database = {
       product_add: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4543,6 +4690,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4563,6 +4711,7 @@ export type Database = {
       product_of_key: {
         Args: { p_key: string; p_repo?: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4573,6 +4722,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4586,6 +4736,7 @@ export type Database = {
       product_rename: {
         Args: { p_name: string; p_product: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4596,6 +4747,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4620,6 +4772,7 @@ export type Database = {
           added_by: string
           consumes: string[]
           knowledge: string
+          ladder_step: number
           product_id: string
           read_at: string | null
           read_only: boolean
@@ -4637,6 +4790,7 @@ export type Database = {
       product_repository_owned: {
         Args: { p_product: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4647,11 +4801,34 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
           from: "*"
           to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_repository_set_step: {
+        Args: { p_product: string; p_repository: string; p_step: number }
+        Returns: {
+          added_at: string
+          added_by: string
+          consumes: string[]
+          knowledge: string
+          ladder_step: number
+          product_id: string
+          read_at: string | null
+          read_only: boolean
+          repository: string
+          role: string | null
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_repositories"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -4741,7 +4918,20 @@ export type Database = {
         Args: { p_key: string; p_kind: string; p_roadmap: string }
         Returns: boolean
       }
+      roadmap_id_of: {
+        Args: { p_product: string; p_seq: number }
+        Returns: string
+      }
       roadmap_prerequisites_push: { Args: { p_body: Json }; Returns: Json }
+      roadmap_product_push: {
+        Args: {
+          p_body: Json
+          p_key: string
+          p_repo?: string
+          p_roadmap: number
+        }
+        Returns: Json
+      }
       roadmap_push: { Args: { p_body: Json }; Returns: Json }
       runner_claim: {
         Args: { p_runner: string }
@@ -4816,6 +5006,7 @@ export type Database = {
       set_pitch_look: {
         Args: { p_look: string; p_product: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4826,6 +5017,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
@@ -4838,6 +5030,7 @@ export type Database = {
       set_pitch_settings: {
         Args: { p_pitch: Json; p_product: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -4848,6 +5041,7 @@ export type Database = {
           pitch: Json
           pitch_look: string
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {

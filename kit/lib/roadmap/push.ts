@@ -23,7 +23,7 @@ import { parseOutboxItem } from '../outbox/outbox.ts';
 import type { OutboxItem } from '../types.ts';
 import { clarificationWork, outboxWork, parkWork, questionWork } from './human-work.ts';
 import type { DatedComment, HumanWorkEntry } from './human-work.ts';
-import type { Roadmap, RoadmapPrerequisite, RoadmapRow } from './parse.ts';
+import type { ProductRoadmap, ProductRoadmapRow, Roadmap, RoadmapPrerequisite, RoadmapRow } from './parse.ts';
 import type { LastResult } from './prereqs/last.ts';
 
 /** Where a roadmap's PRD stands, as the app stores it: its bar's colour on the Gantt. */
@@ -178,13 +178,25 @@ export function rowStates(roadmap: Pick<Roadmap, 'prds'>, standings: ReadonlyMap
 }
 
 /** The push's prerequisites and `result`, or nothing for a roadmap without any. */
-function prerequisitesOf(roadmap: Roadmap, result: PushedPrerequisiteResult | null): Pick<RoadmapPushBody, 'prerequisites' | 'prerequisiteResult'> {
+function prerequisitesOf(roadmap: Pick<Roadmap, 'prerequisites'>, result: PushedPrerequisiteResult | null): Pick<RoadmapPushBody, 'prerequisites' | 'prerequisiteResult'> {
   const rows = roadmap.prerequisites ?? [];
   if (rows.length === 0) return {};
   return {
     prerequisites: rows.map(({ repos, blocks, ...row }) => ({ ...row, blocks: blocks === 'all' ? 'all' : [...blocks], repos: repos ?? [] })),
     prerequisiteResult: result,
   };
+}
+
+/** The roadmap's open questions as the push carries them, each with the latest answer given, or null. */
+function pushedQuestions(roadmap: Pick<Roadmap, 'questions'>, answers: ReadonlyMap<string, string>): PushedQuestion[] {
+  return roadmap.questions.map((q) => ({
+    id: q.id,
+    question: q.question,
+    recommendation: NO_RECOMMENDATION.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
+    blocks: [...q.blocks],
+    kind: q.kind,
+    answer: answers.get(q.id) ?? null,
+  }));
 }
 
 /** The body `omni roadmap push` sends: the roadmap, its document, its answers, each PRD's standing
@@ -212,19 +224,69 @@ export function roadmapPushBody({ repo, roadmap, document, standings, answers, p
     ...(state === 'waiting' ? waitsOn(row, rows) : { waitsOn: null, waitsOnUrl: null }),
     ...prdTimes(standing, state),
   }));
-  const questions = roadmap.questions.map((q) => ({
-    id: q.id,
-    question: q.question,
-    recommendation: NO_RECOMMENDATION.test(q.recommendation.trim()) ? null : q.recommendation.trim(),
-    blocks: [...q.blocks],
-    kind: q.kind,
-    answer: answers.get(q.id) ?? null,
-  }));
+  const questions = pushedQuestions(roadmap, answers);
   const { title, milestone, product, target, source } = roadmap;
   const body: RoadmapPushBody = { repo, roadmap: roadmap.roadmap, title, milestone, product, target, source, questions, document, prds, ...prerequisitesOf(roadmap, result) };
   if (prdWork === null) return body;
   const issueUrl = `https://github.com/${repo}/issues/${roadmap.roadmap}`;
   return { ...body, humanWork: [...questionWork(roadmap, answers, { repo: shortName(repo), issueUrl }), ...prdWork] };
+}
+
+// ── A roadmap born on the server (PRD 2011) ──────────────────────────────────────────────────────
+
+/** One row of a product roadmap's push: its PRD is a repository's number (`912`) or a product's id (`mobile-12`). */
+export type ProductPushedPrd = Omit<PushedPrd, 'prd'> & Pick<ProductRoadmapRow, 'prd'>;
+
+/**
+ * The body of a product roadmap's `POST /api/roadmaps`: the key of the product, `new: true` to create
+ * the product's next roadmap or `roadmap: <n>` to push to `<key>-R<n>`, the repository the kit runs from
+ * (only to choose between two workspaces holding the key), and the roadmap. `check: true` asks the
+ * server to check the rows against the product's repositories and write nothing.
+ */
+export type ProductRoadmapPushBody = {
+  productKey: string;
+  new?: true;
+  roadmap?: number;
+  repo?: string;
+  check?: true;
+  title: string;
+  milestone: string;
+  target: string | null;
+  source: string | null;
+  questions: PushedQuestion[];
+  document: string;
+  prds: ProductPushedPrd[];
+  prerequisites?: PushedPrerequisite[];
+  prerequisiteResult?: PushedPrerequisiteResult | null;
+};
+
+/**
+ * The body `omni roadmap push --product` sends. A product roadmap has no issue and no feature PR to
+ * read, so every row stands as `waiting` until the PRD it names starts; its questions carry no answer
+ * yet (the page answers them); and no human work is sent, so a push closes none.
+ */
+export function productRoadmapPushBody({ key, seq, repo, roadmap, document, check = false, result = null }: {
+  key: string;
+  seq: number | null;
+  repo: string | null;
+  roadmap: ProductRoadmap;
+  document: string;
+  check?: boolean;
+  result?: PushedPrerequisiteResult | null;
+}): ProductRoadmapPushBody {
+  const prds = roadmap.prds.map((row) => ({
+    id: row.id, prd: row.prd, title: row.title, repos: row.repos ?? [], blockers: [...row.blockedBy], wave: row.wave,
+    state: 'waiting' as const, waitsOn: null, waitsOnUrl: null, startedAt: null, endedAt: null,
+  }));
+  const questions = pushedQuestions(roadmap, new Map());
+  return {
+    productKey: key,
+    ...(seq === null ? { new: true as const } : { roadmap: seq }),
+    ...(repo === null ? {} : { repo }),
+    ...(check ? { check: true as const } : {}),
+    title: roadmap.title, milestone: roadmap.milestone, target: roadmap.target, source: roadmap.source,
+    questions, document, prds, ...prerequisitesOf(roadmap, result),
+  };
 }
 
 // ── Reading where each PRD stands ────────────────────────────────────────────────────────────────

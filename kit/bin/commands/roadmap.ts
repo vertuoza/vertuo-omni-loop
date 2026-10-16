@@ -28,6 +28,13 @@
 //   keeps it as this machine's last result, and pushes it with the roadmap. A push that fails is one
 //   line on stderr and never changes the exit: 0 when every row is ok, fixed or ticked, 1 otherwise.
 //   `push` alone carries this machine's last result.
+// - `check --product <key> <file>` and `push --product <key> (--new | --roadmap <n>) <file>` (PRD 2011, s2)
+//   are the same verbs for a roadmap born on the server, a dossier of its product with no issue and no
+//   folder: `<file>` is its roadmap.md anywhere. A check grades the rows against the product's own
+//   repositories, which the app answers (`../../lib/roadmap/product.ts`), never `plan.targets`. A push
+//   checks first, then creates `<key>-R<n>` with `--new` and prints it, or adds the versions of what
+//   changed to `<key>-R<n>` with `--roadmap <n>` (or the id the file's front matter names). Without
+//   `--product` every verb runs exactly as before.
 // - `tick <n> <id>` (slice s3) posts the comment that ticks `person` row `id`, as `answer` does; any
 //   other id is exit 2.
 //
@@ -48,7 +55,7 @@ import { ANSWER_MAX, answerComment, readAnswers } from '../../lib/roadmap/answer
 import { gradeRoadmaps, roadmapFiles } from '../../lib/roadmap/index.ts';
 import type { GradedRoadmap, RoadmapFile } from '../../lib/roadmap/index.ts';
 import { parseRoadmap, PREREQUISITE_CATEGORIES, roadmapWaves } from '../../lib/roadmap/parse.ts';
-import type { Roadmap, RoadmapPrerequisite } from '../../lib/roadmap/parse.ts';
+import type { ProductRoadmap, ProductRoadmapRow, Roadmap, RoadmapPrerequisite } from '../../lib/roadmap/parse.ts';
 import type { Shell } from '../../lib/roadmap/prereqs/catalog.ts';
 import { probesFor } from '../../lib/roadmap/prereqs/catalog.ts';
 import { lastResultOf, readLastResult, writeLastResult } from '../../lib/roadmap/prereqs/last.ts';
@@ -60,10 +67,14 @@ import { readTicks, tickComment } from '../../lib/roadmap/prereqs/ticks.ts';
 import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
 import { LoopReadError } from '../../lib/loop-reads/port.ts';
 import type { LoopReads } from '../../lib/loop-reads/port.ts';
+import { gradeProductFile, pushedLines, pushProductFile, pushTarget } from '../../lib/roadmap/product.ts';
 import { readRoadmapPrds, roadmapPushBody } from '../../lib/roadmap/push.ts';
+import { isProductKey } from '../../lib/product/checkout.ts';
 import type { PushedPrerequisiteResult } from '../../lib/roadmap/push.ts';
 import { issueArg, parseArgs, println, usageError } from '../args.ts';
 import { githubClientFor } from '../github.ts';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { FreeCommand, FreeIo, Out } from '../io.ts';
 
 /** Keeps `page` as roadmap `n`'s link in the main checkout of `cwd`, at `now`; never throws. */
@@ -92,7 +103,9 @@ type RoadmapOptions = {
 
 const USAGE = [
   'usage: omni roadmap check [<n>]',
+  '       omni roadmap check --product <key> <file>',
   '       omni roadmap push <n>',
+  '       omni roadmap push --product <key> (--new | --roadmap <n>) <file>',
   '       omni roadmap answer <n> <question> "<answer>"',
   '       omni roadmap prereqs <n> [--fix] [--json]',
   '       omni roadmap tick <n> <id>',
@@ -455,15 +468,121 @@ function tickCommand(rest: string[], io: Io): number {
   return 0;
 }
 
+// ── A roadmap born on the server (PRD 2011, slice s2) ─────────────────────────────────────────────
+
+/** `--product`'s arguments: the key, the file and, for a push, where it goes (`null`: a new roadmap). */
+type ProductArgs = { key: string; file: string; roadmap: string | null; create: boolean };
+
+/** A usage error unless `check` and `push` were given only the flags they take. */
+function assertProductFlags(verb: 'check' | 'push', flags: { new?: true; roadmap?: string }): void {
+  if (verb === 'check' && (flags.new === true || flags.roadmap !== undefined)) throw usageError('omni roadmap check: --new and --roadmap are for push.');
+  if (flags.new === true && flags.roadmap !== undefined) throw usageError('omni roadmap push: --new and --roadmap are two ways to name the roadmap: give one.');
+}
+
+function productArgs(verb: 'check' | 'push', rest: string[]): ProductArgs {
+  const { positional, flags } = parseArgs(`roadmap ${verb}`, rest, { values: ['product', 'roadmap'], booleans: ['new'] });
+  const key = flags.product ?? '';
+  if (!isProductKey(key)) throw usageError(`omni roadmap ${verb}: --product "${key}" needs a product key (lowercase kebab-case, as mobile).`);
+  if (positional.length !== 1) throw usageError(USAGE);
+  assertProductFlags(verb, flags);
+  return { key, file: positional[0] ?? '', roadmap: flags.roadmap ?? null, create: flags.new === true };
+}
+
+/** The text of the roadmap file, or the line it stops on. */
+function readProductFile(io: Io, file: string): string | { line: string } {
+  try {
+    return readFileSync(resolve(io.cwd, file), 'utf8');
+  } catch {
+    return { line: `${file} cannot be read` };
+  }
+}
+
+type Connected = { askUrl: string; repo: string | null; client: NonNullable<ReturnType<typeof signedInClient>> };
+
+/** This checkout's context, the app's address and a signed-in client, or the line to stop on. */
+function productClient(io: Io): Connected | string {
+  const ctx = loadContext(io.cwd, { exec: io.exec });
+  const askUrl = ctx.config.ask.url;
+  if (!askUrl) return 'off';
+  const client = signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  if (!client) return 'no sign-in (omni signin)';
+  return { askUrl, repo: ctx.config.repo.slug ?? null, client };
+}
+
+/** What a product verb starts from: its arguments, the file read and the connection; or its exit code. */
+async function prepareProduct(verb: 'check' | 'push', rest: string[], io: Io) {
+  const args = productArgs(verb, rest);
+  const document = readProductFile(io, args.file);
+  if (typeof document !== 'string') return refuse(io.stderr, document.line);
+  const connected = productClient(io);
+  if (typeof connected === 'string') return refuse(io.stderr, connected);
+  const graded = await gradeProductFile({ key: args.key, repo: connected.repo, document, client: connected.client });
+  return { args, document, connected, graded };
+}
+
+/** A row of a product roadmap's wave line: its id, its PRD and its repositories. */
+const rowWords = (row: ProductRoadmapRow): string => `${row.id} ${typeof row.prd === 'number' ? `#${row.prd}` : row.prd}${row.repos === null ? '' : ` (${row.repos.join(', ')})`}`;
+
+/** Prints a graded product roadmap, wave by wave, then its violations or its pass line; whether it passed. */
+function reportProduct(io: Io, { key, file }: ProductArgs, record: ProductRoadmap, violations: string[]): boolean {
+  const waves = roadmapWaves(record);
+  println(io.stdout, `omni roadmap check — ${file}: ${record.prds.length} PRD(s) across ${waves.length} wave(s), for product ${key}.`);
+  for (const { wave, rows } of waves) println(io.stdout, `  wave ${wave}: ${rows.map(rowWords).join(', ')}`);
+  if (violations.length > 0) {
+    println(io.stdout, formatFailure(`omni roadmap check — ${file}: violation(s):`, violations.map((line) => `${file}: ${line}`)));
+    return false;
+  }
+  println(io.stdout, formatPass(`omni roadmap check — ${file}: every row, blocker and question holds, and every row names repositories of product ${key}.`));
+  return true;
+}
+
+/** `omni roadmap check --product <key> <file>`: exit 0 when every row, blocker and question holds and
+ * every row names repositories of the product; 1 with every violation otherwise. */
+async function checkProduct(rest: string[], io: Io): Promise<number> {
+  const prepared = await prepareProduct('check', rest, io);
+  if (typeof prepared === 'number') return prepared;
+  const { args, graded } = prepared;
+  if (!graded.ok) {
+    println(io.stdout, formatFailure(`omni roadmap check — ${args.file}: violation(s):`, graded.lines));
+    return 1;
+  }
+  return reportProduct(io, args, graded.roadmap, graded.violations) ? 0 : 1;
+}
+
+/** `omni roadmap push --product <key> (--new | --roadmap <n>) <file>`: checks the roadmap against the
+ * product's repositories, then sends it; prints its id (`mobile-R3`) and what the push added. Exit 0
+ * once the app took it, 1 with the violations or one line otherwise. */
+async function pushProduct(rest: string[], io: Io): Promise<number> {
+  const prepared = await prepareProduct('push', rest, io);
+  if (typeof prepared === 'number') return prepared;
+  const { args, document, connected, graded } = prepared;
+  if (!graded.ok) return refuse(io.stderr, graded.lines.join('\n'));
+  const target = pushTarget(args, graded.roadmap.productId ?? null);
+  if ('error' in target) throw usageError(`omni roadmap push: ${target.error}`);
+  if (graded.violations.length > 0) {
+    return refuse(io.stderr, formatFailure(`omni roadmap push — ${args.file}: nothing was sent:`, graded.violations.map((line) => `${args.file}: ${line}`)));
+  }
+  const sent = await pushProductFile({ key: args.key, seq: target.seq, repo: connected.repo, roadmap: graded.roadmap, document, askUrl: connected.askUrl, client: connected.client });
+  if (!sent.ok) return refuse(io.stderr, sent.line);
+  println(io.stdout, pushedLines(sent.pushed));
+  return 0;
+}
+
+/** `check` and `push` run on a roadmap born on the server with `--product`, else on a git-born one. */
+const verbs: Record<string, (rest: string[], io: Io) => number | Promise<number>> = {
+  check: (rest, io) => (rest.includes('--product') ? checkProduct(rest, io) : checkCommand(rest, { ctx: loadContext(io.cwd, { exec: io.exec }), stdout: io.stdout })),
+  push: (rest, io) => (rest.includes('--product') ? pushProduct(rest, io) : pushCommand(rest, io)),
+  answer: answerCommand,
+  prereqs: prereqsCommand,
+  tick: tickCommand,
+};
+
 export const roadmap = {
   withoutContext: true,
   async run(args: string[], io: Io) {
-    const [sub, ...rest] = args;
-    if (sub === 'check') return checkCommand(rest, { ctx: loadContext(io.cwd, { exec: io.exec }), stdout: io.stdout });
-    if (sub === 'push') return pushCommand(rest, io);
-    if (sub === 'answer') return answerCommand(rest, io);
-    if (sub === 'prereqs') return prereqsCommand(rest, io);
-    if (sub === 'tick') return tickCommand(rest, io);
-    throw usageError(USAGE);
+    const [sub = '', ...rest] = args;
+    const verb = Object.hasOwn(verbs, sub) ? verbs[sub] : undefined;
+    if (verb === undefined) throw usageError(USAGE);
+    return verb(rest, io);
   },
 } satisfies FreeCommand;

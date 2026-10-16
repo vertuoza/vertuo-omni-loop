@@ -217,6 +217,31 @@ const tierRow = z.record(z.string(), tierEntry).superRefine((row, issues) => {
   }
 });
 
+// PRD 1990: the four checks `omni sync` runs, heaviest first by default, and the highest colour each
+// may show. `kit/lib/sync/` reads them.
+export const SYNC_CHECKS = Object.freeze(['main', 'kit', 'knowledge', 'page'] as const);
+const SYNC_LEVELS = Object.freeze(['red', 'orange', 'off'] as const);
+/** The most hours `sync.mainRedAfter` may name: thirty days. */
+const SYNC_MAX_HOURS = 720;
+
+const syncCheck = z.enum(SYNC_CHECKS, { error: (issue) => `${String(issue.input)} is no check — one of ${SYNC_CHECKS.join(', ')}` });
+const syncLevel = z.enum(SYNC_LEVELS, { error: (issue) => `${String(issue.input)} is no level — one of ${SYNC_LEVELS.join(', ')}` });
+
+// The weight order: each of the four checks, exactly once.
+const syncOrder = z.array(syncCheck).superRefine((order, issues) => {
+  const twice = order.find((check, index) => order.indexOf(check) !== index);
+  if (twice !== undefined) issues.addIssue({ code: 'custom', message: `${twice} is listed twice` });
+  for (const check of SYNC_CHECKS) {
+    if (!order.includes(check)) issues.addIssue({ code: 'custom', message: `${check} is not listed — the order names ${SYNC_CHECKS.join(', ')}, each once` });
+  }
+});
+
+// How old a missing commit of the default branch may be before the main check is red: `<n>h`.
+const HOURS_MESSAGE = `a whole number of hours, written <n>h from 1h to ${SYNC_MAX_HOURS}h, such as 24h`;
+const syncHours = z
+  .string({ error: HOURS_MESSAGE })
+  .refine((value) => /^[1-9]\d*h$/.test(value) && Number.parseInt(value, 10) <= SYNC_MAX_HOURS, HOURS_MESSAGE);
+
 /** Where the context budget's ceilings live when `budgets.context.file` does not say (PRD 1679). */
 const CONTEXT_BUDGET_FILE = '.omni-loop/budgets/context.json';
 
@@ -484,6 +509,19 @@ export const ConfigSchema = z
     // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
     // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
     budgets: z.object({ context: section({ enabled: z.boolean().default(false), file: text.default(CONTEXT_BUDGET_FILE) }) }).strict().optional(),
+    // PRD 1990: how `omni sync` weighs its checks. `order` decides the headline (the heaviest check
+    // first), `levels` the highest colour each check may show (`off` gathers nothing), `mainRedAfter`
+    // how old a missing commit of the default branch may be before the main check is red.
+    sync: section({
+      order: syncOrder.default(() => [...SYNC_CHECKS]),
+      levels: section({
+        main: syncLevel.default('red'),
+        kit: syncLevel.default('orange'),
+        knowledge: syncLevel.default('orange'),
+        page: syncLevel.default('orange'),
+      }),
+      mainRedAfter: syncHours.default('24h'),
+    }),
   })
   .strict()
   .superRefine(({ pr, flow, agents, tiers }, issues) => {

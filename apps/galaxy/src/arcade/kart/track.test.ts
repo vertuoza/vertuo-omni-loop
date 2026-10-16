@@ -659,7 +659,7 @@ describe('FROST EIGHT', () => {
     expect(c?.angle).toBeGreaterThanOrEqual(60);
     expect(c?.angle).toBeLessThan(64);
     expect(Math.hypot((c?.x ?? 0) * TILE - crossing.x, (c?.y ?? 0) * TILE - crossing.y)).toBeLessThan(TILE);
-    expect(FROST_EIGHT.lake).toEqual({ at: [36, 36], radius: 6 });
+    expect(FROST_EIGHT.ice?.[0]).toEqual({ at: [36, 36], radius: 6 });
     const heights = [-6, -3, 0, 3, 6].map((d) => groundAt(frost, crossing.x + d * TILE * 0.857, crossing.y + d * TILE * 0.514));
     expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(0.05);
   });
@@ -669,8 +669,8 @@ describe('FROST EIGHT', () => {
     for (let y = 0; y < frost.size.h; y++) {
       for (let x = 0; x < frost.size.w; x++) {
         const s = surfaceAt(frost, x, y);
-        const lake = Math.hypot(x + 0.5 - 36.5 * TILE, y + 0.5 - 36.5 * TILE) < 6 * TILE;
-        expect(s, `${x}, ${y}`).toBe(lake ? 'ice' : roadAt(frost, x, y) ? 'road' : 'powder');
+        const frozen = [[36, 36, 6], [16, 8, 3], [16, 64, 3]].some(([cx = 0, cy = 0, r = 0]) => Math.hypot(x + 0.5 - (cx + 0.5) * TILE, y + 0.5 - (cy + 0.5) * TILE) < r * TILE);
+        expect(s, `${x}, ${y}`).toBe(frozen ? 'ice' : roadAt(frost, x, y) ? 'road' : 'powder');
         if (s === 'ice') ice++; else if (s === 'road') road++; else powder++;
       }
     }
@@ -679,6 +679,17 @@ describe('FROST EIGHT', () => {
     expect(powder).toBeGreaterThan(0);
     expect(surfaceAt(frost, 36.5 * TILE, 36.5 * TILE)).toBe('ice');
     expect(pastTreeLine(frost, 3, 300)).toBe(true);
+  });
+
+  it('freezes two patches 6 tiles across on the middle of bend 4 and bend 8, across the road, after the lake', () => {
+    expect(FROST_EIGHT.ice).toEqual([{ at: [36, 36], radius: 6 }, { at: [16, 8], radius: 3 }, { at: [16, 64], radius: 3 }]);
+    for (const [bx, by] of [[16, 8], [16, 64]] as const) {
+      for (const d of [-2, -1, 0, 1, 2]) {
+        expect(surfaceAt(frost, (bx + 0.5 + d * 0.9) * TILE, (by + 0.5) * TILE)).toBe('ice');
+        expect(surfaceAt(frost, (bx + 0.5) * TILE, (by + 0.5 + d * 0.9) * TILE)).toBe('ice');
+      }
+      expect(surfaceAt(frost, (bx + 4) * TILE, (by + 0.5) * TILE)).not.toBe('ice');
+    }
   });
 
   it('has boxes and boost pads on the road, and a pass on the top straight', () => {

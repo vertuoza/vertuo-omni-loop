@@ -87,8 +87,8 @@ export function GanttChart({ gantt }: { gantt: Gantt }) {
         {waves.map((w) => <text key={w.wave} className="roadmap-wave" x={4} y={w.y}>Wave {w.wave}</text>)}
         {rows.map((at) => (
           <g key={at.row.id} className="roadmap-row" data-row={at.row.id}>
-            <a href={at.row.href}>
-              <text className="roadmap-row-name" x={4} y={at.mid + 4}>{clip(`${at.row.id} ${at.row.title}`, 30)}<title>{`PRD ${at.row.prd}: ${at.row.title}`}</title></text>
+            <a {...(at.row.href ? { href: at.row.href } : {})}>
+              <text className="roadmap-row-name" x={4} y={at.mid + 4}>{clip(`${at.row.id} ${at.row.title}`, 30)}<title>{`PRD ${at.row.prdLabel}: ${at.row.title}`}</title></text>
             </a>
             <Bars at={at} />
           </g>

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pitch scenes</title>
+<style>
+/* Layout: header, then one row per change, today beside after, each side a 16:9 frame drawn in a product's look. */
+:root {
+  --bg: #f3f4f8; --surface: #ffffff; --ink: #151a34; --muted: #5c6382; --line: #d7dbe8;
+  --today: #b0402f; --after: #2c7a4d;
+  --paper: #f2f5fd; --frame-ink: #08104d; --frame-muted: #525882; --accent: #003fda; --cta: #ff4217; --hair: #c9d2ee; --card: #ffffff;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace; --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11131c; --surface: #191c28; --ink: #e5e8f3; --muted: #9aa1bd; --line: #2b3044;
+  --today: #e07a68; --after: #6cc392; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11131c; --surface: #191c28; --ink: #e5e8f3; --muted: #9aa1bd; --line: #2b3044;
+  --today: #e07a68; --after: #6cc392; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+main { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 32px; }
+header { display: grid; gap: 8px; max-width: 72ch; }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: clamp(24px, 4vw, 32px); line-height: 1.15; text-wrap: balance; }
+h2 { margin: 0; font-size: 18px; text-wrap: balance; }
+p { margin: 0; color: var(--muted); }
+code { font: 13px var(--mono); }
+section { display: grid; gap: 12px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+.side { min-width: 0; display: grid; gap: 10px; align-content: start; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.today .tag { color: var(--today); } .after .tag { color: var(--after); }
+.note { font-size: 13px; }
+
+/* A pitch frame: 16:9, the look's paper, ink, accent and call-to-action colours (the same in both themes, as a video is). */
+.frame { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: var(--paper); border-radius: 6px; overflow: hidden; container-type: inline-size; color: var(--frame-ink); font-family: var(--sans); }
+.logo { position: absolute; left: 6cqw; top: 5cqw; width: 9cqw; height: 1.6cqw; border-radius: 1cqw; background: var(--frame-ink); opacity: .8; }
+.col { position: absolute; left: 6cqw; top: 0; bottom: 0; width: 34cqw; display: flex; flex-direction: column; justify-content: center; gap: 1.6cqw; }
+.col.wide { width: 70cqw; }
+.ey { font: 700 1.6cqw/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.ti { font: 700 4.2cqw/1.06 var(--sans); letter-spacing: -.02em; text-wrap: balance; }
+.ti.big { font-size: 6cqw; }
+.acc { color: var(--accent); }
+.bo { font: 400 1.9cqw/1.3 var(--sans); color: var(--frame-muted); }
+.card { position: absolute; right: 5cqw; top: 14cqw; width: 50cqw; height: 31cqw; background: var(--card); border-radius: 1.2cqw; box-shadow: 0 2cqw 4cqw -2cqw rgba(8,16,77,.35); overflow: hidden; }
+.bar { height: 2.6cqw; background: #f9fbff; border-bottom: 1px solid var(--hair); }
+.rows { padding: 2cqw; display: grid; gap: 1.2cqw; }
+.row { height: 1.6cqw; border-radius: .5cqw; background: #e5ecfb; }
+.row.on { background: #99b2f0; }
+.ring { position: absolute; border: .35cqw solid var(--accent); border-radius: 1cqw; box-shadow: 0 0 0 .8cqw rgba(0,63,218,.15); }
+.pill { position: absolute; padding: .6cqw 1.4cqw; border-radius: 99cqw; background: var(--frame-ink); color: #f9fbff; font: 700 1.5cqw/1 var(--sans); white-space: nowrap; }
+.steps { display: grid; gap: 1.4cqw; }
+.st { display: flex; gap: 1.2cqw; align-items: flex-start; font: 700 2cqw/1.15 var(--sans); }
+.st small { display: block; font: 400 1.4cqw/1.3 var(--sans); color: var(--frame-muted); margin-top: .3cqw; }
+.dot { flex: none; width: 3.2cqw; height: 3.2cqw; border-radius: 50%; border: .2cqw solid var(--hair); display: grid; place-items: center; font: 700 1.3cqw/1 var(--mono); color: var(--accent); }
+.dot.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.dim { opacity: .45; }
+.nums { display: flex; gap: 6cqw; }
+.num { font: 700 7cqw/1 var(--sans); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.lab { font: 700 1.3cqw/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--frame-muted); margin-top: 1cqw; }
+.cta { align-self: flex-start; padding: .9cqw 2cqw; border-radius: 99cqw; background: var(--cta); color: #fff; font: 700 1.8cqw/1 var(--sans); }
+.cr { border-top: .2cqw solid var(--hair); padding-top: 1.2cqw; font: 400 1.5cqw/1.5 var(--sans); color: var(--frame-muted); }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; font: 600 2.2cqw/1.3 var(--mono); color: var(--frame-muted); text-align: center; padding: 6cqw; }
+.wipe { position: absolute; top: 0; bottom: 0; width: .5cqw; background: var(--accent); box-shadow: 0 0 2cqw var(--accent); }
+.after-half { position: absolute; top: 2.6cqw; bottom: 0; left: 0; background: #ffffff; }
+
+/* The still's timeline: a scene's 6.5 s, its moments, and where the still is taken. */
+.tl { position: relative; height: 54px; margin-top: 6px; }
+.tl .track { position: absolute; left: 0; right: 0; top: 22px; height: 10px; border-radius: 5px; background: var(--line); }
+.tl .m { position: absolute; top: 14px; width: 2px; height: 26px; background: var(--muted); }
+.tl .m span { position: absolute; top: 28px; left: -20px; width: 60px; font: 11px/1.2 var(--mono); color: var(--muted); }
+.tl .still { position: absolute; top: 4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; }
+.today .still { background: var(--today); } .after .still { background: var(--after); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="eyebrow">PRD 2030 · before / after</span>
+    <h1>Pitch scenes that tell the story</h1>
+    <p>Each row is one scene of the same storyboard, drawn by today's engine and after this PRD. The look is any product's: paper, ink, accent, call to action. The content is a placeholder feature.</p>
+  </header>
+
+  <section>
+    <h2>A title carries one word</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today</span>
+        <div class="frame"><div class="logo"></div><div class="col wide"><div class="ey">New</div><div class="ti big">Invoice straight from the **worksite**.</div></div></div>
+        <p class="note">The markers render as typed, and the check says nothing.</p></div>
+      <div class="side after"><span class="tag">After</span>
+        <div class="frame"><div class="logo"></div><div class="col wide"><div class="ey">New</div><div class="ti big">Invoice straight from the <span class="acc">worksite.</span></div></div></div>
+        <p class="note"><code>**worksite**</code> and the final stop take the accent colour. An open marker is a check error.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Every scene can say what it shows</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ti">Tick what's done.</div></div>
+          <div class="card"><div class="bar"></div><div class="rows"><div class="row on"></div><div class="row on"></div><div class="row"></div><div class="row"></div></div></div></div>
+        <p class="note">A feature holds a title and bullets; no eyebrow, no line under the title.</p></div>
+      <div class="side after"><span class="tag">After</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ey">Select</div><div class="ti">Tick what's <span class="acc">done.</span></div><div class="bo">Pick the finished work items right in the worksite.</div></div>
+          <div class="card"><div class="bar"></div><div class="rows"><div class="row on"></div><div class="row on"></div><div class="row"></div><div class="row"></div></div></div></div>
+        <p class="note">An <code>eyebrow</code> and a <code>body</code> on statement, feature, steps, before/after and stats.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Each step shows its own screen</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today · step 3 of 3</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ti">Three clicks, one invoice.</div>
+          <div class="steps"><div class="st dim"><span class="dot">01</span>Open the worksite</div><div class="st dim"><span class="dot">02</span>Tick the finished lines</div><div class="st"><span class="dot on">03</span>Create the invoice</div></div></div>
+          <div class="card"><div class="bar"></div><div class="rows"><div class="row"></div><div class="row"></div><div class="row"></div><div class="row"></div></div></div></div>
+        <p class="note">One media for the whole scene: step 3 still shows the list of step 1.</p></div>
+      <div class="side after"><span class="tag">After · step 3 of 3</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ey">How it works</div><div class="ti">Three clicks, <span class="acc">one invoice.</span></div>
+          <div class="steps"><div class="st dim"><span class="dot">01</span><span>Open the worksite<small>All items, with their status</small></span></div><div class="st dim"><span class="dot">02</span>Tick the finished lines</div><div class="st"><span class="dot on">03</span>Create the invoice</div></div></div>
+          <div class="card"><div class="bar"></div><div class="rows"><div class="row on"></div><div class="row"></div><div class="row"></div></div><div class="pill" style="right:2cqw;bottom:2cqw">Total € 16,790</div></div></div>
+        <p class="note">A step takes a <code>body</code> and its own <code>media</code>, which rises in at the step's time.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Figures get a scene</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today</span>
+        <div class="frame"><div class="logo"></div><div class="empty">No scene type for a number</div></div>
+        <p class="note">A figure the spec gives can only be squeezed into a sentence.</p></div>
+      <div class="side after"><span class="tag">After</span>
+        <div class="frame"><div class="logo"></div><div class="col wide"><div class="ey">In numbers</div><div class="ti">Billing, <span class="acc">days sooner.</span></div>
+          <div class="nums"><div><div class="num acc">3</div><div class="lab">Clicks to invoice</div></div><div><div class="num">€16,790</div><div class="lab">Billed in one go</div></div></div></div></div>
+        <p class="note">A <code>stats</code> scene, 1 to 3 items that count up. Each item names its <code>source</code>: spec, release note, or asked of the person.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The outro names who has it and who built it</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today</span>
+        <div class="frame"><div class="logo"></div><div class="col wide"><span class="cta">Available now</span><div class="ti big">Done today, invoiced today.</div><div class="cr">"Advertime" from FreePD.com (public domain)</div></div></div>
+        <p class="note">Credits are the music's credit only; with no music, nothing.</p></div>
+      <div class="side after"><span class="tag">After</span>
+        <div class="frame"><div class="logo"></div><div class="col wide"><span class="cta">Available now</span><div class="ti big">Done today, <span class="acc">invoiced today.</span></div><div class="bo">Live for every customer on the Invoicing module.</div><div class="cr">Built by the Invoicing team<br>"Advertime" from FreePD.com (public domain)</div></div></div>
+        <p class="note">An outro <code>body</code>, and <code>team</code>, asked of the person, on its own line above the music's credit.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The wipe starts where the storyboard says</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ti">No more re-typing.</div></div>
+          <div class="card"><div class="bar"></div><div class="rows"><div class="row"></div><div class="row"></div><div class="row"></div></div><div class="after-half" style="width:45%"></div><div class="wipe" style="left:45%"></div></div></div>
+        <p class="note">The wipe always starts at 35% of the scene.</p></div>
+      <div class="side after"><span class="tag">After</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ey">The difference</div><div class="ti">No more <span class="acc">re-typing.</span></div><div class="bo">Amounts and descriptions carry over as they are.</div></div>
+          <div class="card"><div class="bar"></div><div class="rows"><div class="row"></div><div class="row"></div><div class="row"></div></div><div class="after-half" style="width:100%"></div></div></div>
+        <p class="note"><code>wipeAt</code> places it, on the beat the scene needs; without it, 35% as today.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The still shows the scene once it has happened</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today · still at 2.5 s</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ti">Tick what's done.</div></div>
+          <div class="card"><div class="bar"></div><div class="rows"><div class="row on"></div><div class="row on"></div><div class="row"></div><div class="row"></div></div></div></div>
+        <div class="tl" aria-label="A 6.5 second scene: zoom at 3.2 s, callout at 3.4 s, still at 2.5 s"><div class="track"></div>
+          <div class="m" style="left:49%"><span>zoom 3.2</span></div><div class="m" style="left:63%"><span>callout 3.4</span></div><div class="still" style="left:38%"></div></div>
+        <p class="note">Taken before the zoom and the callout: the contact sheet cannot show a zoom off its element.</p></div>
+      <div class="side after"><span class="tag">After · still 0.3 s before the exit</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ey">Select</div><div class="ti">Tick what's <span class="acc">done.</span></div></div>
+          <div class="card" style="transform:scale(1.08);transform-origin:30% 40%"><div class="bar"></div><div class="rows"><div class="row on"></div><div class="row on"></div><div class="row"></div><div class="row"></div></div><div class="ring" style="left:1.4cqw;top:4cqw;width:24cqw;height:6.4cqw"></div><div class="pill" style="left:1.4cqw;top:11cqw">4 items ready</div></div></div>
+        <div class="tl" aria-label="A 6.5 second scene: zoom at 3.2 s, callout at 3.4 s, still at 5.6 s"><div class="track"></div>
+          <div class="m" style="left:49%"><span>zoom 3.2</span></div><div class="m" style="left:63%"><span>callout 3.4</span></div><div class="still" style="left:86%"></div></div>
+        <p class="note">Every zoom, callout, wipe and count-up is on the still, and on <code>slide.png</code>.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What stays the same</h2>
+    <p>Storyboard version 1, the six scenes and their motion, the product's Pitch settings, the music and its sync point, the filmed walk-through and its moments, the outputs and the push. A storyboard written today passes the check and renders as before, with later stills.</p>
+  </section>
+</main>
+</body>
+</html>

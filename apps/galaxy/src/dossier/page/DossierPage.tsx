@@ -3,11 +3,11 @@ import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
-import type { ApprovalSeal, ApprovalView, ApproveScreen } from './approval';
+import type { ApprovalView, ApproveScreen } from './approval';
 import { ApproveButton } from './ApproveButton';
+import { SealCard } from './SealCard';
 import { Attestation } from './Attestation';
 import type { AttestationView } from './Attestation.service';
-import { SealScroll } from './SealScroll';
 import { CarePane } from './CarePane';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
@@ -228,34 +228,10 @@ function ApproveScreenSection({ approval }: { approval: ApprovalView }) {
   );
 }
 
-/** The seal of an approval in force (#1351): stamped with the PRD's number and APPROVED · PINNED, then who
- * approved it and when, and each pinned file with its short hash. */
-function SealCard({ seal, dossier }: { seal: ApprovalSeal; dossier: string }) {
-  const hashes = seal.files.flatMap((file) => (file.hash ? [file.hash.slice(0, 4)] : [])).join(' ');
-  return (
-    <section id="approval" className="dossier-seal-card" aria-label="Approved">
-      <svg className="dossier-seal" viewBox="0 0 100 100" role="img" aria-label={`Seal of PRD ${seal.prd}: approved and pinned`}>
-        <defs><path id="dossier-seal-ring" d="M50 50 m-36 0 a36 36 0 1 1 72 0 a36 36 0 1 1 -72 0" /></defs>
-        <circle cx="50" cy="50" r="47" className="dossier-seal-disc" />
-        <circle cx="50" cy="50" r="41" className="dossier-seal-line" />
-        <circle cx="50" cy="50" r="29" className="dossier-seal-line dossier-seal-dash" />
-        <text className="dossier-seal-ring"><textPath href="#dossier-seal-ring">{`APPROVED · PINNED · ${hashes} ·`}</textPath></text>
-        <text x="50" y="59" textAnchor="middle" className="dossier-seal-number">{seal.prd}</text>
-      </svg>
-      <p className="dossier-seal-who">Approved by {seal.approver}</p>
-      <p className="ask-hint">{seal.at} · {seal.files.length} {seal.files.length === 1 ? 'file' : 'files'} pinned</p>
-      <ul className="dossier-seal-files">
-        {seal.files.map((file) => <li key={file.path}><span>{file.path}</span><code>{file.hash ?? '—'}</code></li>)}
-      </ul>
-      <SealScroll dossier={dossier} />
-    </section>
-  );
-}
-
 /** Under the head of a ◆ PRD: the approve screen for whoever may approve it, or the seal once approved. */
 function ApprovalArea({ approval }: { approval: ApprovalView }) {
   if (approval.canApprove) return <ApproveScreenSection approval={approval} />;
-  return approval.seal ? <SealCard seal={approval.seal} dossier={approval.dossier} /> : null;
+  return approval.seal ? <SealCard seal={{ ...approval.seal, name: `PRD ${approval.seal.prd}`, mark: String(approval.seal.prd) }} dossier={approval.dossier} /> : null;
 }
 
 /** Under the head: a ◆ PRD's approval area, then a product PRD's attestation (PRD 1548 s4); each only when it has one. */

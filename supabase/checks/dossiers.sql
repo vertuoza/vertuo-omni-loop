@@ -16,7 +16,11 @@
 -- the previous body on every fixture here, for every account, and with p_workspace only that
 -- workspace's. PRD 1272 adds the concept: it takes only its record, its vision tour, a board per round
 -- and its debate, a board round is added once, the other kinds push as before, and only a member reads
--- it. One transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- it. PRD 2011 adds the roadmap: a dossier of its product, never of a repository, taking only a
+-- roadmap's versions, its number shared with none of its kind. PRD 2011 s5 adds the product bug: a bug
+-- dossier of its product with no issue number, counted apart from the product's PRDs and roadmaps, while
+-- a bug of a repository still needs its issue's. One transaction, rolled back at the end.
+-- Any `FAIL:` stops the run.
 
 begin;
 
@@ -1238,6 +1242,100 @@ begin
   end if;
 end $$;
 reset role;
+
+-- ── A roadmap is a dossier of its product, numbered by the product's counter (PRD 2011) ──
+-- It takes only a roadmap's four versions, it is never keyed by a repository, and a product's roadmap
+-- and PRD may share a number. roadmap_product_push() writes it: supabase/checks/roadmaps.sql proves it.
+do $$
+declare
+  ws       uuid := (select id from public.workspaces where slug = 'vertuoza');
+  business uuid;
+  product  uuid;
+  roadmap  uuid;
+begin
+  insert into public.businesses (workspace_id, name) values (ws, 'Roadmap business') returning id into business;
+  insert into public.products (workspace_id, business_id, name, key) values (ws, business, 'Roadmap product', 'rmp') returning id into product;
+  insert into public.dossiers (workspace_id, kind, product_id, product_seq, title, numbered_at, birthplace)
+  values (ws, 'roadmap', product, 1, 'A roadmap', now(), 'server') returning id into roadmap;
+  insert into public.dossiers (workspace_id, kind, product_id, product_seq, title, numbered_at, birthplace)
+  values (ws, 'prd', product, 1, 'A PRD of the same number', now(), 'server');
+  begin
+    insert into public.dossiers (workspace_id, kind, product_id, product_seq, title, numbered_at) values (ws, 'roadmap', product, 1, 'twice', now());
+    raise exception 'FAIL: a product took two roadmaps of one number';
+  exception when unique_violation then null; end;
+  begin
+    insert into public.dossiers (workspace_id, home_repo, kind, prd, title, numbered_at) values (ws, 'vertuoza/vertuo-omni-loop', 'roadmap', 1162, 'x', now());
+    raise exception 'FAIL: a roadmap dossier keyed by a repository was stored';
+  exception when check_violation then null; end;
+  perform public.dossier_add_version(roadmap, 'roadmap', E'---\nroadmap: rmp-R1\n---\n', 'kit');
+  perform public.dossier_add_version(roadmap, 'roadmap-prds', '[]', 'kit');
+  begin
+    perform public.dossier_add_version(roadmap, 'spec', '# a spec', 'kit');
+    raise exception 'FAIL: a roadmap dossier took a spec';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.dossier_add_version((select id from public.dossiers where product_id = product and kind = 'prd'), 'roadmap', 'x', 'kit');
+    raise exception 'FAIL: a PRD dossier took a roadmap.md';
+  exception when invalid_parameter_value then null; end;
+  if public.dossier_add_version(roadmap, 'roadmap', E'---\nroadmap: rmp-R1\n---\n', 'kit') is not null then
+    raise exception 'FAIL: an unchanged roadmap.md was added again';
+  end if;
+  if public.roadmap_id_of(product, 1) <> 'rmp-R1' then
+    raise exception 'FAIL: a product roadmap''s id is not <key>-R<n>';
+  end if;
+end $$;
+
+-- ── A bug is a dossier of its repository or of its product (PRD 2011 s5) ──
+-- A product bug has no issue number: its product's counter numbers it, apart from the product's PRDs
+-- and roadmaps, so rmb-1, rmb-R1 and rmb-B1 coexist. A bug of a repository still needs its issue's
+-- number, a visual fix or a concept is never keyed by a product, and a product bug takes only its
+-- record. fix_bug_push() writes it: supabase/checks/fix_rows.sql proves it.
+do $$
+declare
+  ws       uuid := (select id from public.workspaces where slug = 'vertuoza');
+  business uuid;
+  product  uuid;
+  bug      uuid;
+begin
+  business := (select b.id from public.businesses b where b.workspace_id = ws);
+  insert into public.products (workspace_id, business_id, name, key) values (ws, business, 'Bug product', 'rmb') returning id into product;
+  insert into public.dossiers (workspace_id, kind, product_id, product_seq, title, numbered_at, birthplace)
+  values (ws, 'bug', product, 1, 'A bug', now(), 'server') returning id into bug;
+  insert into public.dossiers (workspace_id, kind, product_id, product_seq, title, numbered_at, birthplace) values
+    (ws, 'prd', product, 1, 'A PRD of the same number', now(), 'server'),
+    (ws, 'roadmap', product, 1, 'A roadmap of the same number', now(), 'server');
+  begin
+    insert into public.dossiers (workspace_id, kind, product_id, product_seq, title, numbered_at) values (ws, 'bug', product, 1, 'twice', now());
+    raise exception 'FAIL: a product took two bugs of one number';
+  exception when unique_violation then null; end;
+  begin
+    insert into public.dossiers (workspace_id, home_repo, kind, title) values (ws, 'vertuoza/vertuo-omni-loop', 'bug', 'no issue');
+    raise exception 'FAIL: a bug of a repository was stored with no issue number';
+  exception when check_violation then null; end;
+  begin
+    insert into public.dossiers (workspace_id, kind, product_id, product_seq, prd, title, numbered_at) values (ws, 'bug', product, 2, 77, 'both', now());
+    raise exception 'FAIL: a product bug was stored with an issue number too';
+  exception when check_violation then null; end;
+  begin
+    insert into public.dossiers (workspace_id, kind, product_id, product_seq, title, numbered_at) values (ws, 'visual', product, 1, 'a visual', now());
+    raise exception 'FAIL: a visual fix was keyed by a product';
+  exception when check_violation then null; end;
+  begin
+    insert into public.dossiers (workspace_id, kind, product_id, product_seq, title, numbered_at) values (ws, 'concept', product, 1, 'a concept', now());
+    raise exception 'FAIL: a concept was keyed by a product';
+  exception when check_violation then null; end;
+  perform public.dossier_add_version(bug, 'bug-record', E'# A bug\n', 'kit');
+  begin
+    perform public.dossier_add_version(bug, 'roadmap', 'x', 'kit');
+    raise exception 'FAIL: a product bug took a roadmap.md';
+  exception when invalid_parameter_value then null; end;
+  if public.bug_id_of(product, 1) <> 'rmb-B1' then
+    raise exception 'FAIL: a product bug''s id is not <key>-B<n>';
+  end if;
+  if (select count(*) from public.dossiers where product_id = product and product_seq = 1) <> 3 then
+    raise exception 'FAIL: a product''s PRD, roadmap and bug of one number do not coexist';
+  end if;
+end $$;
 
 select 'dossier checks passed' as result;
 rollback;

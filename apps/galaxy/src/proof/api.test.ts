@@ -16,6 +16,7 @@ const Refusal = z.looseObject({ error: z.string() });
 
 const ORIGIN = 'https://omni.test';
 const DOSSIER = '00000000-0000-4000-8000-0000000000d1';
+const BUG_DOSSIER = '00000000-0000-4000-8000-0000000000b1';
 const OTHER_DOSSIER = '00000000-0000-4000-8000-0000000000d2';
 const MB = 1024 * 1024;
 
@@ -27,6 +28,7 @@ beforeEach(() => {
   world.account('tok-ada', 'ada', ['ws-acme']);
   world.account('tok-eve', 'eve', ['ws-other']);
   world.dossier({ id: DOSSIER, workspace: 'ws-acme', repo: 'acme/widgets', prd: parsePrd(798) });
+  world.dossier({ id: BUG_DOSSIER, workspace: 'ws-acme', repo: 'acme/widgets', prd: parsePrd(123), kind: 'bug' });
   world.dossier({ id: OTHER_DOSSIER, workspace: 'ws-other', repo: 'other/thing', prd: parsePrd(5) });
   deps = { connect: (token) => world.client(token), open: () => world.public() };
 });
@@ -200,6 +202,52 @@ describe('POST /api/proofs', () => {
     expect((await register({ run, prd: 799, criteria })).status).toBe(404);
     expect((await register({ run, criteria }, null)).status).toBe(401);
     expect((await register({ run, criteria }, 'tok-eve')).status).toBe(404);
+  });
+});
+
+describe('proofs of a bug (kind)', () => {
+  const bugUploads = (extra: Record<string, unknown>) =>
+    requestUploads(post('/api/proofs/uploads', { repo: 'acme/widgets', prd: 123, files: [GIF], ...extra }), deps);
+  const bugRegister = (body: Record<string, unknown>) =>
+    registerRun(post('/api/proofs', { repo: 'acme/widgets', prd: 123, commit: 'abc1234', url: 'https://github.test/i/123', ...body }), deps);
+
+  it('kind bug reaches the bug dossier and answers its page', async () => {
+    const res = await bugUploads({ kind: 'bug' });
+    expect(res.status).toBe(200);
+    const links = Links.parse(await res.json());
+    expect(sure(links.files[0], 'the link').path).toBe(`${BUG_DOSSIER}/${links.run}/preview.gif`);
+    for (const f of links.files) world.put(f.path);
+    const done = await bugRegister({ kind: 'bug', run: links.run, criteria: [{ text: 'red then green', verdict: 'pass' }] });
+    expect(done.status).toBe(200);
+    expect(await done.json()).toEqual({ url: `${ORIGIN}/bugs/${BUG_DOSSIER}` });
+    expect(world.runs[0]).toMatchObject({ dossier_id: BUG_DOSSIER });
+  });
+
+  it('no kind reaches the PRD\'s dossier, as before: PRD 123 has none', async () => {
+    expect((await bugUploads({})).status).toBe(404);
+    expect((await bugUploads({ kind: 'prd' })).status).toBe(404);
+    expect((await uploads([CLIP], { kind: 'prd' })).status).toBe(200);
+  });
+
+  it('a bug without a dossier is a 404, on both calls', async () => {
+    expect((await bugUploads({ kind: 'bug', prd: 124 })).status).toBe(404);
+    const res = await bugRegister({ kind: 'bug', prd: 124, run: '00000000-0000-4000-8000-00000000aaaa', criteria: [{ text: 'x', verdict: 'pass' }] });
+    expect(res.status).toBe(404);
+  });
+
+  it('a kind other than prd and bug is a 400, on both calls', async () => {
+    expect((await bugUploads({ kind: 'visual' })).status).toBe(400);
+    const res = await bugRegister({ kind: 'visual', run: '00000000-0000-4000-8000-00000000aaaa', criteria: [{ text: 'x', verdict: 'pass' }] });
+    expect(res.status).toBe(400);
+  });
+
+  it('preview.gif serves a bug\'s run', async () => {
+    const links = Links.parse(await (await bugUploads({ kind: 'bug' })).json());
+    for (const f of links.files) world.put(f.path);
+    await bugRegister({ kind: 'bug', run: links.run, criteria: [{ text: 'x', verdict: 'pass' }] });
+    const res = await previewGif(new Request(`${ORIGIN}/api/proofs/${links.run}/preview.gif`), links.run, deps);
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe(`https://storage.test/sign/${BUG_DOSSIER}/${links.run}/preview.gif?ttl=300`);
   });
 });
 

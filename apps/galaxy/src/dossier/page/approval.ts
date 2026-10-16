@@ -149,14 +149,14 @@ export async function readAskedApprovers(db: Pick<SupabaseClient, 'from'>, dossi
 }
 
 /** The latest version of each kind; versions are oldest first. */
-function latestOf(versions: readonly DossierVersionRow[]): Map<string, string> {
+function latestOf(versions: readonly { id: string; kind: string }[]): Map<string, string> {
   const latest = new Map<string, string>();
   for (const v of versions) latest.set(v.kind, v.id);
   return latest;
 }
 
 /** The pinned files a void names, or whose kind has a newer version than the one pinned, in pinned order. */
-function changedSince(approval: ApprovalRow, voids: readonly ApprovalVoid[], versions: readonly DossierVersionRow[]): string[] {
+function changedSince(approval: ApprovalRow, voids: readonly ApprovalVoid[], versions: readonly { id: string; kind: string }[]): string[] {
   const latest = latestOf(versions);
   const voided = new Set(voids.map((v) => v.kind));
   return approval.files.filter((file) => {
@@ -169,6 +169,29 @@ function changedSince(approval: ApprovalRow, voids: readonly ApprovalVoid[], ver
 }
 
 const short = (sha: string) => sha.slice(0, 7);
+
+/** What an approval in force reads, given the versions since: voided by a push, approved (the pinned files
+ * with their short hashes), or drifted, with the files changed and its words; shared by a PRD's page and a
+ * product roadmap's (./RoadmapRecord.ts). */
+export type Judged =
+  | { state: 'voided' | 'drifted'; detail: string; changed: string[] }
+  | { state: 'approved'; detail: string; changed: []; at: string; files: Array<{ path: string; hash: string | null }> };
+
+export function judgeApproval(approval: ApprovalRow, allVoids: readonly ApprovalVoid[], versions: readonly { id: string; kind: string }[]): Judged {
+  const at = stamp(approval.approved_at);
+  const voids = allVoids.filter((v) => v.approval_id === approval.id);
+  const changed = changedSince(approval, voids, versions);
+  const last = voids[voids.length - 1];
+  if (last) {
+    const push = `voided by ${last.pusher_login}'s push ${short(last.from_sha256)}→${short(last.to_sha256)} · ${stamp(last.voided_at)}`;
+    return { state: 'voided', detail: `${push} · ${approval.approver_login} had approved it ${at}`, changed };
+  }
+  if (!changed.length) {
+    const files = approval.files.map((file) => ({ path: file.path, hash: file.sha256 ? short(file.sha256) : null }));
+    return { state: 'approved', detail: `by ${approval.approver_login} · ${at}`, changed: [], at, files };
+  }
+  return { state: 'drifted', detail: `${changed.join(', ')} changed since ${approval.approver_login} approved it · ${at}`, changed };
+}
 
 /** The approval of a ◆ PRD as its page shows it to `me`; null for any other dossier. */
 export function approvalView(
@@ -190,19 +213,9 @@ export function approvalView(
   const { approval } = read;
   if (approval === null) return view('waiting');
   if (approval === undefined || approval === 'unread') return view('unread');
-  const at = stamp(approval.approved_at);
-  const voids = (read.approvalFacts?.voids ?? []).filter((v) => v.approval_id === approval.id);
-  const changed = changedSince(approval, voids, read.versions);
-  const last = voids[voids.length - 1];
-  if (last) {
-    const push = `voided by ${last.pusher_login}'s push ${short(last.from_sha256)}→${short(last.to_sha256)} · ${stamp(last.voided_at)}`;
-    return view('voided', `${push} · ${approval.approver_login} had approved it ${at}`, changed);
-  }
-  if (!changed.length) {
-    const files = approval.files.map((file) => ({ path: file.path, hash: file.sha256 ? short(file.sha256) : null }));
-    return view('approved', `by ${approval.approver_login} · ${at}`, [], { prd: dossier.prd, approver: approval.approver_login, at, files });
-  }
-  return view('drifted', `${changed.join(', ')} changed since ${approval.approver_login} approved it · ${at}`, changed);
+  const judged = judgeApproval(approval, read.approvalFacts?.voids ?? [], read.versions);
+  if (judged.state !== 'approved') return view(judged.state, judged.detail, judged.changed);
+  return view('approved', judged.detail, [], { prd: dossier.prd, approver: approval.approver_login, at: judged.at, files: judged.files });
 }
 
 const SECTIONS = ['Problem', 'Solution'] as const;
