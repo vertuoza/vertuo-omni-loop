@@ -115,6 +115,15 @@ on a machine set up for it, with no one at a terminal. Start one with
 - **Who sent it:** a job runs under the runner owner's GitHub and Claude accounts, with
   `OMNI_SENT_BY` and `OMNI_RUNNER` set, and `/omni:pr` writes
   `Sent from the Omni app by @<login> on runner <name>` in the pull requests it opens.
+- **Queueing from a service:** a service holding a kit token (`omk_…`, made with `omni setup-token`)
+  exchanges it at `POST /api/ask/token` for an access token, keeps that until its `expires_at`, and
+  sends it as `Authorization: Bearer <access token>` to `POST /api/runners/jobs`, with the body
+  `{"line": "/omni:bug-fix <issue url>", "repo": "<owner/name>", "target": {"kind": "any"}}`. The
+  header wins: a request that carries one is judged by it alone, never by a browser session. It
+  answers 200 with the job (`sentBy` is the token's person); 401 for a missing, bad or expired
+  token; 403 when the caller is not a member of the workspace that owns the repository, or no
+  workspace owns it, or the target is not theirs to send to; 400 for a line off the list or a
+  malformed body. The kit token itself is never sent to this route.
 - **When things go wrong:** the page unreachable, it tries again after 5 s, doubling up to 60 s, and
   its jobs keep running; a refused sign-in stops it with `no sign-in (omni setup-token)`; a job past
   `--timeout` is stopped and marked failed, reason `timeout`; a cancel from the page stops the job
@@ -299,3 +308,9 @@ only by `item <id>` naming an item ranked `high` or above: `spec <where>` is ref
 a `medium` item leaves the change unaccounted. `/omni:bug-fix` and `/omni:visual-fix` raise those
 items in a small `outbox/` of the fix's folder when their range touches a law, and `omni bug` and
 `omni visual` name what it needs.
+
+`/omni:bug-fix` also films every bug: it keeps the reproduction's red and green output (or, for a
+component bug in a repository with Storybook, the story before and after), makes a before/after GIF with
+`omni bug film`, stores it with `omni proof push --kind bug`, and opens the pull request with a `## Proof`
+section showing the bug before and after the fix. A GIF that cannot be made opens the pull request as a
+draft whose `## Proof` reads `GIF not produced - <reason>`. `/omni:mega-bug-fix` leaves `## Proof` out.

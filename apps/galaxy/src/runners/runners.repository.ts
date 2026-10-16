@@ -30,6 +30,7 @@ const JobRow = z.object({
   to_runner: z.string().nullable(),
   to_fleet: z.string().nullable(),
   sent_by: z.string(),
+  sent_by_key: z.string().nullable(),
   status: z.enum(['queued', 'claimed', 'running', 'done', 'failed', 'cancelled']),
   runner_id: z.string().nullable(),
   cancel_requested: z.boolean(),
@@ -46,7 +47,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, queued_at, claimed_at, running_at, ended_at';
 
 /** One line of a job's live log, as runner_job_lines holds it (its `at` is the database's). */
 export type JobLineRow = { job_id: string; workspace_id: string; seq: number; text: string };
@@ -57,7 +58,7 @@ const JobLineRead = z.object({ seq: z.number(), text: z.string() });
 export type NewRunner = { workspaceId: string; owner: string; name: string; slots: number; repos: string[]; version: string; seenAt: string };
 
 /** A new job's columns. */
-export type NewJob = { workspaceId: string; line: string; repo: string; toRunner: string | null; toFleet: string | null; sentBy: string };
+export type NewJob = { workspaceId: string; line: string; repo: string; toRunner: string | null; toFleet: string | null; sentBy: string; sentByKey: string | null };
 
 /** What a job's update may change. */
 export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'running_at' | 'ended_at'>>;
@@ -109,6 +110,16 @@ export function runnersRepository(db: RunnersDb) {
       return new Map(rows.flatMap((row) => (row.github_login ? [[row.user_id, row.github_login] as const] : [])));
     },
 
+    /** The names of these API keys of the workspace, by their id. */
+    keyNames: async (workspaceId: string, keyIds: string[]): Promise<Map<string, string>> => {
+      if (keyIds.length === 0) return new Map();
+      const rows = await parsed(
+        db.from('agent_tokens').select('id, name').eq('workspace_id', workspaceId).eq('scope', 'api').in('id', keyIds),
+        z.array(z.object({ id: z.string(), name: z.string() })), 'agent_tokens',
+      );
+      return new Map(rows.map((row) => [row.id, row.name]));
+    },
+
     runner: async (id: string): Promise<RunnerRow | null> =>
       parsed(db.from('runners').select(RUNNER_COLUMNS).eq('id', id).maybeSingle(), RunnerRow.nullable(), 'runners'),
 
@@ -142,6 +153,7 @@ export function runnersRepository(db: RunnersDb) {
     insertJob: async (job: NewJob): Promise<JobRow> =>
       parsed(db.from('runner_jobs').insert({
         workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy,
+        sent_by_key: job.sentByKey,
       }).select(JOB_COLUMNS).single(), JobRow, 'runner_jobs'),
 
     /** Changes the job while its status is still one of `from`; null when it moved on meanwhile. */

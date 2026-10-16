@@ -99,8 +99,13 @@ export function whereWords(job: Pick<Job, 'toRunner' | 'toFleet' | 'runner'>, ru
   return job.runner !== null && job.runner !== job.toRunner ? `${target} · ${runnerName(job.runner, runners)}` : target;
 }
 
-/** Who sent a job: their GitHub login, or a member. */
-export const senderWords = (job: Pick<Job, 'sentByLogin'>): string => (job.sentByLogin ? `@${job.sentByLogin}` : 'A member');
+/** Who sent a job: `API key <name>` for a key's (PRD 2022), else their GitHub login, or a member. */
+export const senderWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'>): string =>
+  job.sentByKey !== null ? `API key ${job.sentByKey}` : job.sentByLogin ? `@${job.sentByLogin}` : 'A member';
+
+/** Under a key's name, who made the key: `made by @<login>`; nothing for a person's job. */
+export const madeByWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'>): string | null =>
+  job.sentByKey !== null && job.sentByLogin ? `made by @${job.sentByLogin}` : null;
 
 /** A repository's name, without its owner. */
 export const repoName = (repo: string): string => repo.slice(repo.indexOf('/') + 1);

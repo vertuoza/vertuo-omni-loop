@@ -33,6 +33,8 @@ const KIND_OF: Readonly<Record<string, string>> = Object.freeze({
   'question answered': 'questionAnswered',
   'feature merged': 'featureMerged',
   'feature reviewed': 'featureReviewed',
+  'pr merged': 'prMerged',
+  'pr reviewed': 'prReviewed',
 });
 const WOUND_CLOSED = 'wound closed: ';
 

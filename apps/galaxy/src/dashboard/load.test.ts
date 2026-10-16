@@ -31,17 +31,17 @@ import type { PartInput } from './part';
 
 const NOW = new Date('2026-09-26T10:00:00Z');
 
-/** A zone secured this season, credited to a login of a fleet: 10 points on a working day. */
-const secured = (planet: number, zone: string, contributor: string, team: string, at: string): LedgerEvent & Record<string, unknown> => ({
-  workspace_id: VERTUOZA, id: `planet:${planet}:zone:${zone}:secured`, at, type: 'ZONE_SECURED', planet,
-  home: 'vertuoza/vertuo-core', region: 'vertuo-core', contributor, team, data: {},
+/** A feat pull request reviewed this season, credited to a login of a fleet: 10 points (PRD 1975). */
+const reviewed = (pr: number, contributor: string, team: string, at: string): LedgerEvent & Record<string, unknown> => ({
+  workspace_id: VERTUOZA, id: `pr:vertuoza/vertuo-core#${String(pr)}:reviewed:${contributor}`, at, type: 'PR_REVIEWED', planet: 0,
+  home: 'vertuoza/vertuo-core', region: 'vertuoza/vertuo-core', contributor, team, data: { pr, kind: 'feat' },
 });
 
-/** Vertuoza's season so far: BOTH (BEAVER) secured two zones, ADA (PIRATES) one. */
+/** Vertuoza's season so far: BOTH (BEAVER) reviewed two pull requests, ADA (PIRATES) one. */
 const SEASON = [
-  secured(12, 's1', 'both-gh', 'beaver', '2026-09-22T10:00:00Z'),
-  secured(12, 's2', 'both-gh', 'beaver', '2026-09-23T10:00:00Z'),
-  secured(12, 's3', 'Ada-GH', 'pirates', '2026-09-24T10:00:00Z'),
+  reviewed(1, 'both-gh', 'beaver', '2026-09-22T10:00:00Z'),
+  reviewed(2, 'both-gh', 'beaver', '2026-09-23T10:00:00Z'),
+  reviewed(3, 'Ada-GH', 'pirates', '2026-09-24T10:00:00Z'),
 ];
 
 /** A member of Vertuoza whose player row never got a GitHub login, and whose account links none. */
@@ -139,7 +139,7 @@ describe('Home', () => {
 
   it('counts this season only: points scored in August are August\'s', async () => {
     const d = await dashboard(PEOPLE.ada, (w) => {
-      w.tables.ledger_events.push(secured(12, 's0', 'Ada-GH', 'pirates', '2026-08-27T10:00:00Z'));
+      w.tables.ledger_events.push(reviewed(4, 'Ada-GH', 'pirates', '2026-08-27T10:00:00Z'));
     });
     expect(d.you).toMatchObject({ score: { points: 10 } });
   });

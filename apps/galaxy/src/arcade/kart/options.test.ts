@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { bindKey, defaultOptions, DEFAULT_KEYS, driveOf, FIRST_OPTIONS, loadOptions, optionsKey, optionsPress, OPTIONS_KEY, parseOptions, RESERVED_KEYS, saveOptions, type KartOptions, type OptionsView } from './options';
+import { bindKey, defaultOptions, DEFAULT_KEYS, driveOf, FIRST_OPTIONS, HELD_AS, loadOptions, optionsKey, optionsPress, OPTIONS_KEY, parseOptions, RESERVED_KEYS, saveOptions, shiftSelects, type KartOptions, type OptionsView } from './options';
 
 // The player's options (PRD 1762, slice 1): the defaults, reading them back field by field, binding a key.
 
 const store = (text: string | null) => ({ getItem: () => text, setItem: () => {} });
 
 describe('the defaults', () => {
-  it('are ▲ ▼ ◀ ▶ and SPACE, 3 laps, NORMAL and the FLEET CLASSIC look', () => {
+  it('are ▲ ▼ ◀ ▶, SHIFT for ITEM and SPACE for HOP, 3 laps, NORMAL and the FLEET CLASSIC look', () => {
     expect(defaultOptions()).toEqual({
-      keys: { gas: 'ArrowUp', brake: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', item: ' ' },
+      keys: { gas: 'ArrowUp', brake: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', item: 'Shift', hop: ' ' },
       laps: 3, difficulty: 'normal', look: { color: 'FLEET', design: 'CLASSIC' }, track: 'comet-ring',
     });
   });
@@ -25,7 +25,7 @@ describe('reading the store back', () => {
   });
 
   it('keeps what was saved', () => {
-    const o: KartOptions = { keys: { gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e' }, laps: 7, difficulty: 'hard', look: { color: 'PINK', design: 'RACER' }, track: 'comet-ring' };
+    const o: KartOptions = { keys: { gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e', hop: 'q' }, laps: 7, difficulty: 'hard', look: { color: 'PINK', design: 'RACER' }, track: 'comet-ring' };
     let kept = '';
     saveOptions(o, () => ({ getItem: () => kept, setItem: (k, v) => { expect(k).toBe(OPTIONS_KEY); kept = v; } }));
     expect(loadOptions(() => store(kept))).toEqual(o);
@@ -46,26 +46,26 @@ describe('reading the store back', () => {
   });
 
   it('puts the keys back to their defaults when two actions hold one key', () => {
-    const o = parseOptions(JSON.stringify({ laps: 5, keys: { gas: 'w', brake: 'w', left: 'a', right: 'd', item: 'e' } }));
+    const o = parseOptions(JSON.stringify({ laps: 5, keys: { gas: 'w', brake: 'w', left: 'a', right: 'd', item: 'e', hop: 'q' } }));
     expect(o.keys).toEqual(DEFAULT_KEYS);
     expect(o.laps).toBe(5);
   });
 
   it('puts the keys back to their defaults when a stored key is reserved', () => {
     for (const key of RESERVED_KEYS) {
-      const o = parseOptions(JSON.stringify({ keys: { gas: key, brake: 's', left: 'a', right: 'd', item: 'e' } }));
+      const o = parseOptions(JSON.stringify({ keys: { gas: key, brake: 's', left: 'a', right: 'd', item: 'e', hop: 'q' } }));
       expect(o.keys, key).toEqual(DEFAULT_KEYS);
     }
-    expect(parseOptions(JSON.stringify({ keys: { gas: 'M', brake: 's', left: 'a', right: 'd', item: 'e' } })).keys).toEqual(DEFAULT_KEYS);
+    expect(parseOptions(JSON.stringify({ keys: { gas: 'M', brake: 's', left: 'a', right: 'd', item: 'e', hop: 'q' } })).keys).toEqual(DEFAULT_KEYS);
   });
 
   it('puts the keys back to their defaults when one is missing or not a key', () => {
     expect(parseOptions(JSON.stringify({ keys: { gas: 'w' } })).keys).toEqual(DEFAULT_KEYS);
-    expect(parseOptions(JSON.stringify({ keys: { gas: 1, brake: 's', left: 'a', right: 'd', item: 'e' } })).keys).toEqual(DEFAULT_KEYS);
+    expect(parseOptions(JSON.stringify({ keys: { gas: 1, brake: 's', left: 'a', right: 'd', item: 'e', hop: 'q' } })).keys).toEqual(DEFAULT_KEYS);
   });
 
   it('keeps a stored letter in lower case', () => {
-    expect(parseOptions(JSON.stringify({ keys: { gas: 'W', brake: 'S', left: 'A', right: 'D', item: 'E' } })).keys.gas).toBe('w');
+    expect(parseOptions(JSON.stringify({ keys: { gas: 'W', brake: 'S', left: 'A', right: 'D', item: 'E', hop: 'Q' } })).keys.gas).toBe('w');
   });
 });
 
@@ -76,7 +76,7 @@ describe('binding a key', () => {
 
   it('swaps the two when another action holds the key', () => {
     expect(bindKey(DEFAULT_KEYS, 'gas', 'ArrowDown')).toEqual({ keys: { ...DEFAULT_KEYS, gas: 'ArrowDown', brake: 'ArrowUp' } });
-    expect(bindKey(DEFAULT_KEYS, 'left', ' ')).toEqual({ keys: { ...DEFAULT_KEYS, left: ' ', item: 'ArrowLeft' } });
+    expect(bindKey(DEFAULT_KEYS, 'left', ' ')).toEqual({ keys: { ...DEFAULT_KEYS, left: ' ', hop: 'ArrowLeft' } });
   });
 
   it('binds the key an action already holds to no change', () => {
@@ -84,7 +84,7 @@ describe('binding a key', () => {
   });
 
   it('refuses each of ENTER, TAB, SHIFT, ESC, M and F', () => {
-    for (const key of ['Enter', 'Tab', 'Shift', 'Escape', 'm', 'M', 'f', 'F']) expect(bindKey(DEFAULT_KEYS, 'gas', key), key).toEqual({ refused: 'reserved' });
+    for (const key of ['Enter', 'Tab', 'Escape', 'm', 'M', 'f', 'F']) expect(bindKey(DEFAULT_KEYS, 'gas', key), key).toEqual({ refused: 'reserved' });
   });
 
   it('keeps a letter in lower case, and finds it with or without SHIFT', () => {
@@ -97,7 +97,8 @@ describe('binding a key', () => {
 
   it('finds the arrows and SPACE by default, and not A, Z, K, B, X or J', () => {
     expect(driveOf(DEFAULT_KEYS, 'ArrowUp')).toBe('gas');
-    expect(driveOf(DEFAULT_KEYS, ' ')).toBe('item');
+    expect(driveOf(DEFAULT_KEYS, 'Shift')).toBe('item');
+    expect(driveOf(DEFAULT_KEYS, ' ')).toBe('hop');
     for (const k of ['a', 'z', 'k', 'b', 'x', 'j', 'Escape']) expect(driveOf(DEFAULT_KEYS, k), k).toBeNull();
   });
 });
@@ -209,5 +210,48 @@ describe('the circuit kept (PRD 1923)', () => {
     expect(parseOptions(JSON.stringify({ track: 'moon-base' })).track).toBe('comet-ring');
     expect(parseOptions(JSON.stringify({ track: 7 })).track).toBe('comet-ring');
     expect(parseOptions(JSON.stringify({ track: 'moon-base', laps: 5 }))).toEqual({ ...defaultOptions(), laps: 5 });
+  });
+});
+
+describe('the sixth key, HOP (PRD 1963)', () => {
+  const read = (keys: Record<string, string>) => parseOptions(JSON.stringify({ keys })).keys;
+  const old = { gas: 'ArrowUp', brake: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', item: ' ' };
+  const own = { gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e' };
+
+  it('keeps six keys and reads them back', () => {
+    const six = { ...own, hop: 'q' };
+    expect(read(six)).toEqual(six);
+    expect(Object.keys(defaultOptions().keys)).toEqual(['gas', 'brake', 'left', 'right', 'item', 'hop']);
+  });
+
+  it('binds SHIFT, and refuses ENTER, TAB, ESC, M and F', () => {
+    expect(bindKey(DEFAULT_KEYS, 'gas', 'Shift')).toEqual({ keys: { ...DEFAULT_KEYS, gas: 'Shift', item: 'ArrowUp' } });
+    for (const key of ['Enter', 'Tab', 'Escape', 'm', 'f']) expect(bindKey(DEFAULT_KEYS, 'hop', key), key).toEqual({ refused: 'reserved' });
+  });
+
+  it('reads five saved keys equal to the old defaults as the six new defaults', () => {
+    expect(read(old)).toEqual(DEFAULT_KEYS);
+  });
+
+  it('keeps five custom keys and gives HOP the first free of SPACE, X, C and V', () => {
+    expect(read(own)).toEqual({ ...own, hop: ' ' });
+    expect(read({ ...own, item: ' ' })).toEqual({ ...own, item: ' ', hop: 'x' });
+    expect(read({ ...own, item: ' ', gas: 'x' })).toEqual({ ...own, item: ' ', gas: 'x', hop: 'c' });
+    expect(read({ ...own, item: ' ', gas: 'x', brake: 'c' })).toEqual({ ...own, item: ' ', gas: 'x', brake: 'c', hop: 'v' });
+  });
+
+  it('falls back to the defaults when five keys hold all of SPACE, X, C and V, or a six repeats a key', () => {
+    expect(read({ gas: 'x', brake: 'c', left: 'v', right: ' ', item: 'e' })).toEqual(DEFAULT_KEYS);
+    expect(read({ ...own, hop: 'w' })).toEqual(DEFAULT_KEYS);
+  });
+
+  it('holds HOP as the pad\'s ▲', () => {
+    expect(HELD_AS.hop).toBe('up');
+  });
+
+  it('makes SHIFT SELECT only when none of the player\'s keys is SHIFT', () => {
+    expect(shiftSelects(DEFAULT_KEYS)).toBe(false);
+    expect(shiftSelects({ ...DEFAULT_KEYS, item: 'e' })).toBe(true);
+    expect(shiftSelects({ ...DEFAULT_KEYS, hop: 'Shift', item: ' ' })).toBe(false);
   });
 });

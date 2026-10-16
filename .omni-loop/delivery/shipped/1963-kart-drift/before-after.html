@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OMNI KART Drift</title>
+<style>
+/* Layout: today beside after, one row per change, stacking at phone width. Two parts: Functional (the engine's numbers and rules, drawn to scale) and Pixel perfect (the marked screens, drawn at the arcade's 1× grid). Omni app look outside; the arcade's own tokens inside each screen. */
+:root{
+ --ground:#f5f4fc;--surface:#ffffff;--line:#d9d6ee;--lineStrong:#85819f;
+ --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasmaSoft:#efe7ff;
+ --warn:#c2263f;--sparkBlue:#2f7dff;--sparkOrange:#f08a1c;
+ --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --display:Impact,"Arial Narrow Bold",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+ /* the arcade (packages/design/tokens.css), the same in both themes */
+ --void:#07061c;--deep:#0e0d33;--navy:#2f3fc4;--navy-dark:#1a2170;--white:#f2f4ff;--yellow:#ffd84a;--red:#ff3b5c;--cyan:#6ff0ff;--dim:#8a90d6;--magenta:#ff2bd6;
+ --font-pixel:"Press Start 2P","Courier New",monospace;--txt:"Jersey 10","Courier New",monospace;
+ /* FROST EIGHT's scenery (PRD 1923, kart/texture.ts) */
+ --sky1:#6fa8dc;--sky2:#94c1e8;--sky3:#c4def3;--sky4:#e9f4fc;--peak:#8ea6c4;--peakSnow:#ffffff;
+ --powder:#eef4fa;--powderShade:#d3e0ee;--ice:#a6dcf2;--iceLine:#7fc3e2;--asphalt:#7c8197;--asphaltFar:#6a6f86;
+ --kerb:#e5384f;--bank:#ffffff;--pine:#2e6a4e;--sun:#fff1bf;
+ /* new with this PRD: the sparks, the marks, the smoke */
+ --blueSpark:#5fb8ff;--orangeSpark:#ffa23a;--scratch:#ffffff;--smoke:#2b2b36;
+ color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--warn:#ff6b84;--sparkBlue:#6fb0ff;--sparkOrange:#ffae4f;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --ground:#0e0d33;--surface:#16144a;--line:#2f2c78;--lineStrong:#6d6acc;
+ --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasmaSoft:#2a1d66;--warn:#ff6b84;--sparkBlue:#6fb0ff;--sparkOrange:#ffae4f;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:15px/1.5 var(--body);padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:1320px;margin:0 auto;display:grid;gap:36px}
+h1{font:400 clamp(30px,5vw,46px)/1.05 var(--display);letter-spacing:.02em;margin:0;text-wrap:balance}
+h2{font:400 30px/1.1 var(--display);letter-spacing:.03em;margin:0;text-wrap:balance;border-top:2px solid var(--ink);padding-top:14px}
+h3{font:400 21px/1.2 var(--display);letter-spacing:.03em;margin:0;text-wrap:balance}
+.lead{color:var(--muted);max-width:72ch;margin:8px 0 0}
+.tag{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.row{display:grid;gap:14px}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.side.after{border-color:var(--plasma);box-shadow:0 0 0 1px var(--plasma)}
+.side .tag.now{color:var(--plasma)}
+.side p{margin:0;color:var(--muted);font-size:14px}
+ul{margin:0;padding-left:20px;display:grid;gap:6px}
+li{color:var(--muted);font-size:14px}
+li b{color:var(--ink);font-weight:600}
+code{font:13px var(--mono);background:var(--plasmaSoft);padding:1px 5px;border-radius:4px}
+.fig{max-width:460px}
+.fig svg{width:100%;height:auto;display:block}
+.map{max-width:300px}
+.map svg{width:100%;height:auto;display:block;border-radius:8px}
+.cap{font:12px/1.4 var(--mono);color:var(--muted);margin:0}
+.svgt{font:600 10px var(--mono);letter-spacing:.04em}
+.screens{font:600 13px/1.4 var(--mono);color:var(--ink);margin:0}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 10px;border-top:1px solid var(--line);vertical-align:top}
+th{font:600 11px/1.2 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+td{color:var(--muted)}
+td b{color:var(--ink)}
+.tablebox{overflow-x:auto}
+.none{color:var(--muted);font-style:italic}
+
+/* The arcade's wide grid, 640×360, drawn at 1× (whole-number scales only); scrolls inside its box when narrower. */
+.stage{overflow-x:auto;border-radius:8px}
+.screen{position:relative;width:640px;height:360px;overflow:hidden;background:var(--void);color:var(--white);font-family:var(--font-pixel)}
+.screen > svg.view{position:absolute;inset:0;width:640px;height:360px;display:block}
+/* scenes/common.css and scenes/kart.css, as written */
+.j-panel{position:absolute;display:grid;gap:8px;padding:14px 16px;font-size:9px;line-height:1.6;background:rgba(14,13,51,.94);border:2px solid var(--white);box-shadow:0 0 0 2px #0b0a26,inset 0 0 0 2px var(--navy)}
+.j-panel p{margin:0}
+.kt-mid{left:50%;top:50%;transform:translate(-50%,-50%);gap:6px;justify-items:center;text-align:center;white-space:nowrap;line-height:1.2}
+.inv-title{font-size:14px;color:var(--yellow);letter-spacing:1px;text-shadow:2px 2px 0 var(--red),4px 4px 0 #0b0a26}
+.kt-choice{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:8px;letter-spacing:1px;color:var(--white);justify-items:start}
+.kt-choice li{color:var(--white);font-size:8px}
+.kt-choice li[data-cursor="true"]{color:var(--yellow)}
+.kt-choice li.new{color:var(--cyan)}
+.hint{font-size:8px;color:var(--dim);letter-spacing:1px}
+.j-key{color:var(--yellow)}
+.kt-beat{position:absolute;left:50%;top:36%;transform:translate(-50%,-50%);margin:0;font-size:40px;letter-spacing:2px;color:var(--yellow);text-shadow:3px 3px 0 var(--red),6px 6px 0 #0b0a26}
+.kt-go{font-size:56px}
+.kt-keys{position:absolute;left:50%;top:56%;transform:translateX(-50%);margin:0;white-space:nowrap;font-size:8px;letter-spacing:1px;color:var(--white);text-shadow:1px 1px 0 #0b0a26}
+.kt-run{position:absolute;top:8px;left:8px;right:8px;margin:0;display:flex;gap:6px;align-items:stretch;font-size:10px;letter-spacing:1px;color:var(--white);text-shadow:1px 1px 0 #0b0a26}
+.kt-panelbox{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;white-space:nowrap;background:rgba(11,10,38,.72);border:2px solid var(--cyan);box-shadow:2px 2px 0 #0b0a26,inset 0 0 0 1px #0b0a26}
+.kt-place{color:var(--yellow);border-color:var(--yellow)}
+.kt-item{margin-left:auto;min-width:26px;min-height:16px;color:var(--cyan);border-color:var(--magenta)}
+.kt-empty{opacity:.6}
+.kt-item-key{font-size:7px;opacity:.8;margin-right:3px}
+.kt-foot{position:absolute;top:24px;left:50%;transform:translateX(-50%);margin:0;white-space:nowrap;font-size:8px}
+/* new: TURBO under GO on a rocket start */
+.kt-turbo{position:absolute;left:50%;top:52%;transform:translateX(-50%);margin:0;font-size:12px;letter-spacing:2px;color:var(--cyan);text-shadow:2px 2px 0 var(--navy-dark),4px 4px 0 #0b0a26}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="tag">PRD 1963 · OMNI KART · THE DRIFT</div>
+  <h1>A slippery ice, a hop that drifts into a mini-turbo, a rocket start and the slipstream</h1>
+  <p class="lead">Each row shows OMNI KART today beside OMNI KART after this PRD. FROST EIGHT's ice slides for real and gains two icy bends. SPACE hops into a drift that pays a blue or orange turbo. The gas pressed during the 2 pays a rocket start. A kart's slipstream pulls the one behind it. HARD rivals drift too. Snow, marks, sparks and sounds make all of it felt. Every number is a starting point in <code>kart/rules.ts</code>.</p>
+</header>
+
+<h2>Functional</h2>
+
+<section class="row">
+  <h3>The ice: the path lags the nose</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · grip 1.2 rad/s, slip 0.6 rad</div>
+      <div class="fig">
+        <svg viewBox="0 0 460 230" role="img" aria-label="Gap between nose and path, at the top speed, steering full lock: today it grows 0.36 radians a second and reaches 0.6 after 1.67 seconds; the lake is crossed in 1.75 seconds.">
+          <rect width="460" height="230" fill="var(--surface)"/>
+          <g stroke="var(--line)" stroke-width="1">
+            <line x1="50" y1="30" x2="440" y2="30"/><line x1="50" y1="70" x2="440" y2="70"/><line x1="50" y1="110" x2="440" y2="110"/><line x1="50" y1="150" x2="440" y2="150"/>
+          </g>
+          <line x1="50" y1="190" x2="440" y2="190" stroke="var(--lineStrong)"/>
+          <line x1="50" y1="30" x2="50" y2="190" stroke="var(--lineStrong)"/>
+          <g class="svgt" fill="var(--muted)" text-anchor="end"><text x="44" y="193">0</text><text x="44" y="153">0.3</text><text x="44" y="113">0.6</text><text x="44" y="73">0.9</text><text x="44" y="33">1.2</text></g>
+          <g class="svgt" fill="var(--muted)" text-anchor="middle"><text x="50" y="206">0 s</text><text x="147.5" y="206">0.5</text><text x="245" y="206">1</text><text x="342.5" y="206">1.5</text><text x="440" y="206">2 s</text></g>
+          <line x1="391" y1="30" x2="391" y2="190" stroke="var(--lineStrong)" stroke-dasharray="3 3"/>
+          <text class="svgt" x="386" y="44" fill="var(--muted)" text-anchor="end">lake crossed, 1.75 s</text>
+          <polyline points="50,190 375,110 440,110" fill="none" stroke="var(--ink)" stroke-width="2.5"/>
+          <text class="svgt" x="250" y="162" fill="var(--ink)">0.36 rad/s, cap 0.6</text>
+          <text class="svgt" x="14" y="20" fill="var(--muted)">gap, rad</text>
+        </svg>
+      </div>
+      <p>The nose turns at 1.56 rad/s at the top speed; the path follows at 1.2. The gap barely opens before the lake is behind the kart, and the road over the lake is straight.</p>
+      <ul><li>Gas, brake and coast on ice: <b>the road's</b>.</li><li>Leaving the ice: the path <b>snaps</b> back to the nose.</li></ul>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · grip 0.4 rad/s, slip 1.0 rad</div>
+      <div class="fig">
+        <svg viewBox="0 0 460 230" role="img" aria-label="After: the gap grows 1.16 radians a second and reaches its 1.0 cap in 0.86 seconds; today's line shown faint for comparison.">
+          <rect width="460" height="230" fill="var(--surface)"/>
+          <g stroke="var(--line)" stroke-width="1">
+            <line x1="50" y1="30" x2="440" y2="30"/><line x1="50" y1="70" x2="440" y2="70"/><line x1="50" y1="110" x2="440" y2="110"/><line x1="50" y1="150" x2="440" y2="150"/>
+          </g>
+          <line x1="50" y1="190" x2="440" y2="190" stroke="var(--lineStrong)"/>
+          <line x1="50" y1="30" x2="50" y2="190" stroke="var(--lineStrong)"/>
+          <g class="svgt" fill="var(--muted)" text-anchor="end"><text x="44" y="193">0</text><text x="44" y="153">0.3</text><text x="44" y="113">0.6</text><text x="44" y="73">0.9</text><text x="44" y="33">1.2</text></g>
+          <g class="svgt" fill="var(--muted)" text-anchor="middle"><text x="50" y="206">0 s</text><text x="147.5" y="206">0.5</text><text x="245" y="206">1</text><text x="342.5" y="206">1.5</text><text x="440" y="206">2 s</text></g>
+          <polyline points="50,190 375,110 440,110" fill="none" stroke="var(--lineStrong)" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text class="svgt" x="380" y="126" fill="var(--muted)">today</text>
+          <polyline points="50,190 218,57 440,57" fill="none" stroke="var(--plasma)" stroke-width="3"/>
+          <text class="svgt" x="226" y="50" fill="var(--plasma)">1.16 rad/s, cap 1.0 at 0.86 s</text>
+          <text class="svgt" x="14" y="20" fill="var(--muted)">gap, rad</text>
+        </svg>
+      </div>
+      <div class="tablebox"><table>
+        <tr><th>On ice</th><th>Today</th><th>After</th></tr>
+        <tr><td>Gas adds</td><td>× 1</td><td><b>× 0.6</b></td></tr>
+        <tr><td>Brake takes off</td><td>× 1</td><td><b>× 0.4</b></td></tr>
+        <tr><td>Letting go takes off</td><td>× 1</td><td><b>× 0.3</b></td></tr>
+        <tr><td>Top speed</td><td>kept</td><td>kept</td></tr>
+        <tr><td>Leaving the ice</td><td>snap</td><td><b>6 rad/s back to the nose</b></td></tr>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>FROST EIGHT's ice: the lake, then two icy bends</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · the lake only</div>
+      <div class="map">
+        <svg viewBox="0 0 292 292" role="img" aria-label="FROST EIGHT from above, 72 by 72 tiles: the figure eight, its start on the bottom straight, and a frozen lake 12 tiles across on the crossing.">
+          <rect width="292" height="292" fill="var(--powder)"/>
+          <polyline points="226,258 226,194 66,98 66,34 226,34 226,98 66,194 66,258 226,258" fill="none" stroke="var(--asphalt)" stroke-width="20" stroke-linejoin="round"/>
+          <circle cx="146" cy="146" r="24" fill="var(--ice)" stroke="var(--iceLine)" stroke-width="1.5" opacity=".92"/>
+          <rect x="128" y="248" width="4" height="20" fill="var(--white)"/><rect x="128" y="248" width="2" height="5" fill="var(--void)"/><rect x="130" y="253" width="2" height="5" fill="var(--void)"/><rect x="128" y="258" width="2" height="5" fill="var(--void)"/><rect x="130" y="263" width="2" height="5" fill="var(--void)"/>
+          <text class="svgt" x="146" y="186" fill="var(--muted)" text-anchor="middle">lake, 12 tiles</text>
+          <text class="svgt" x="136" y="284" fill="var(--muted)">start</text>
+        </svg>
+      </div>
+      <p>The diagonals cross the lake in a straight line: a player barely steers on the ice.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · the lake, bend 4 and bend 8</div>
+      <div class="map">
+        <svg viewBox="0 0 292 292" role="img" aria-label="After: the same circuit with two discs of ice 6 tiles across, in the top-left bend and in the bottom-left bend before the line.">
+          <rect width="292" height="292" fill="var(--powder)"/>
+          <polyline points="226,258 226,194 66,98 66,34 226,34 226,98 66,194 66,258 226,258" fill="none" stroke="var(--asphalt)" stroke-width="20" stroke-linejoin="round"/>
+          <circle cx="146" cy="146" r="24" fill="var(--ice)" stroke="var(--iceLine)" stroke-width="1.5" opacity=".92"/>
+          <circle cx="72" cy="40" r="12" fill="var(--ice)" stroke="var(--plasma)" stroke-width="2"/>
+          <circle cx="72" cy="252" r="12" fill="var(--ice)" stroke="var(--plasma)" stroke-width="2"/>
+          <rect x="128" y="248" width="4" height="20" fill="var(--white)"/><rect x="128" y="248" width="2" height="5" fill="var(--void)"/><rect x="130" y="253" width="2" height="5" fill="var(--void)"/><rect x="128" y="258" width="2" height="5" fill="var(--void)"/><rect x="130" y="263" width="2" height="5" fill="var(--void)"/>
+          <text class="svgt" x="90" y="66" fill="var(--plasma)">bend 4, 6 tiles</text>
+          <text class="svgt" x="90" y="236" fill="var(--plasma)">bend 8, 6 tiles</text>
+          <text class="svgt" x="146" y="186" fill="var(--muted)" text-anchor="middle">lake, 12 tiles</text>
+          <text class="svgt" x="136" y="284" fill="var(--muted)">start</text>
+        </svg>
+      </div>
+      <p>Each patch is centred on the middle of its bend's curve and covers the road's width. The track's <code>lake</code> becomes a list of ice discs, the lake first; the minimap shows all three in light blue. The rivals pick their speed as today and slide wide into the powder on an icy bend.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>The hop and the drift</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · steer only</div>
+      <p>◀ ▶ turn the nose at <code>turnRate</code>: 2.6 rad/s at grip speed, 1.56 at the top speed. There is no hop, no drift and no charge. A BOOST comes from an item or a pad, nothing else.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · HOP (SPACE) held through a bend</div>
+      <ul>
+        <li><b>The hop:</b> 4 px for 0.25 s, drawn only. The kart takes boxes, pads, BLOBs, ORBs and pushes, tips and falls as on the ground.</li>
+        <li><b>The drift starts</b> when the hop lands with HOP still held, ◀ or ▶ held, at half the top speed or more.</li>
+        <li><b>It turns</b> towards its side at 2.2 rad/s with that arrow, 1.5 with none, 0.9 with the other. The nose leads the path by up to 0.45 rad.</li>
+      </ul>
+      <div class="fig">
+        <svg viewBox="0 0 460 110" role="img" aria-label="The charge: under 0.8 seconds no turbo; from 0.8 to 1.8 seconds blue sparks and a 0.5-second boost on release; from 1.8 seconds orange sparks and a 1-second boost.">
+          <rect width="460" height="110" fill="var(--surface)"/>
+          <rect x="20" y="30" width="140" height="28" fill="var(--line)"/>
+          <rect x="160" y="30" width="175" height="28" fill="var(--sparkBlue)"/>
+          <rect x="335" y="30" width="105" height="28" fill="var(--sparkOrange)"/>
+          <g class="svgt" fill="var(--muted)" text-anchor="middle"><text x="20" y="76">0 s</text><text x="160" y="76">0.8 s</text><text x="335" y="76">1.8 s</text></g>
+          <g class="svgt"><text x="28" y="48" fill="var(--ink)">no turbo</text><text x="168" y="48" fill="#ffffff">BLUE · BOOST 0.5 s</text><text x="343" y="48" fill="#1d1200">ORANGE · 1 s</text></g>
+          <text class="svgt" x="20" y="20" fill="var(--muted)">charge while drifting on road or ice; it stands still on powder</text>
+          <text class="svgt" x="20" y="98" fill="var(--muted)">release HOP: the BOOST its colour earned</text>
+        </svg>
+      </div>
+      <p><b>Lost, with no turbo:</b> ▼, a BLOB or ORB hit, a fall, a tip-over, the tree line, the speed under half, a ramp's jump, the race's end. On ice the lower grip and the larger slip hold, so a drift on the lake runs wider.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>The rocket start</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · the countdown waits</div>
+      <p>Nothing moves before GO, and what is held during 3 · 2 · 1 changes nothing. At GO every kart starts from rest the same way.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · when GAS last went down</div>
+      <div class="fig">
+        <svg viewBox="0 0 460 120" role="img" aria-label="The countdown: GAS pressed last during the 3 stalls the kart for 0.5 seconds; during the 2 gives a 0.8-second boost and TURBO; during the 1 a normal start.">
+          <rect width="460" height="120" fill="var(--surface)"/>
+          <rect x="20" y="28" width="118" height="30" fill="var(--plasmaSoft)" stroke="var(--line)"/>
+          <rect x="140" y="28" width="118" height="30" fill="var(--plasma)"/>
+          <rect x="260" y="28" width="118" height="30" fill="var(--plasmaSoft)" stroke="var(--line)"/>
+          <rect x="380" y="28" width="60" height="30" fill="var(--ink)"/>
+          <g class="svgt" text-anchor="middle"><text x="79" y="47" fill="var(--ink)">3</text><text x="199" y="47" fill="#ffffff">2</text><text x="319" y="47" fill="var(--ink)">1</text><text x="410" y="47" fill="var(--surface)">GO</text></g>
+          <g class="svgt" fill="var(--muted)" text-anchor="middle"><text x="20" y="18">0 s</text><text x="140" y="18">1 s</text><text x="260" y="18">2 s</text><text x="380" y="18">3 s</text></g>
+          <g class="svgt" text-anchor="middle"><text x="79" y="78" fill="var(--warn)">STALL 0.5 s</text><text x="199" y="78" fill="var(--plasma)">BOOST 0.8 s</text><text x="319" y="78" fill="var(--muted)">normal start</text></g>
+          <g class="svgt" text-anchor="middle" fill="var(--muted)"><text x="79" y="94">smoke, sputter</text><text x="199" y="94">TURBO under GO</text></g>
+          <text class="svgt" x="20" y="112" fill="var(--muted)">GAS must be held at GO; only the last press counts</text>
+        </svg>
+      </div>
+      <p>GAS already held when the countdown starts counts as pressed during the 3. The rivals start with a turbo at 20 % (EASY), 40 % (NORMAL) and 70 % (HARD), drawn from the race's seed, and never stall. In MULTI each player times their own.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>The slipstream</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · no slipstream</div>
+      <p>A kart right behind another goes no faster for it. The only contact between karts is the push that keeps them apart.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · 1.2 s in the cone gives a BOOST of 0.6 s</div>
+      <div class="fig">
+        <svg viewBox="0 0 460 130" role="img" aria-label="Top view: a cone 48 pixels long and 0.3 radians either side of the line straight back from the kart ahead; a kart inside it for 1.2 seconds gets a 0.6-second boost.">
+          <rect width="460" height="130" fill="var(--surface)"/>
+          <polygon points="300,62 156,17 156,107" fill="var(--plasmaSoft)" stroke="var(--plasma)" stroke-dasharray="4 3"/>
+          <line x1="300" y1="62" x2="156" y2="62" stroke="var(--lineStrong)" stroke-dasharray="2 3"/>
+          <rect x="300" y="52" width="42" height="20" rx="3" fill="var(--ink)"/><polygon points="342,56 352,62 342,68" fill="var(--ink)"/>
+          <rect x="196" y="54" width="42" height="18" rx="3" fill="var(--plasma)"/><polygon points="238,57 247,63 238,69" fill="var(--plasma)"/>
+          <g stroke="var(--muted)" stroke-width="1.5"><line x1="176" y1="50" x2="192" y2="50"/><line x1="172" y1="76" x2="190" y2="76"/></g>
+          <text class="svgt" x="300" y="94" fill="var(--ink)">kart ahead</text>
+          <text class="svgt" x="182" y="94" fill="var(--plasma)">builds the count</text>
+          <text class="svgt" x="20" y="124" fill="var(--muted)">48 px behind · ±0.3 rad · both at 0.6 × top speed or more</text>
+          <text class="svgt" x="20" y="20" fill="var(--muted)">wind lines while it builds</text>
+        </svg>
+      </div>
+      <p>Leaving the cone starts the count again from 0. Every kart gives and takes one: the player, the rivals, and in MULTI the other players' karts at their carried positions. A kart in the air or falling neither gives nor takes.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>The rivals, level by level</h3>
+  <div class="tablebox"><table>
+    <tr><th>Level</th><th>Drift today</th><th>Drift after</th><th>Rocket start after</th><th>Slipstream after</th></tr>
+    <tr><td><b>EASY</b></td><td>none</td><td>never hop</td><td>20 %</td><td>yes</td></tr>
+    <tr><td><b>NORMAL</b></td><td>none</td><td>never hop</td><td>40 %</td><td>yes</td></tr>
+    <tr><td><b>HARD</b></td><td>none</td><td><b>hop into a bend tighter than 8 tiles, release as it opens</b>; never with the void in their look</td><td>70 %</td><td>yes</td></tr>
+  </table></div>
+  <p class="cap">On FROST EIGHT and COMET RING, on seeds 1, 7 and 42, at every level, the five rivals still finish three laps. A rival never stalls.</p>
+</section>
+
+<section class="row">
+  <h3>The keys</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · five keys</div>
+      <div class="tablebox"><table>
+        <tr><th>Action</th><th>Key</th></tr>
+        <tr><td>GAS · BRAKE</td><td>▲ · ▼</td></tr>
+        <tr><td>LEFT · RIGHT</td><td>◀ · ▶</td></tr>
+        <tr><td>ITEM</td><td>SPACE</td></tr>
+      </table></div>
+      <p>Reserved, never bound: ENTER, TAB, SHIFT, ESC, M, F. SHIFT and TAB are SELECT. Saved keys missing one action read back as the defaults.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · six keys</div>
+      <div class="tablebox"><table>
+        <tr><th>Action</th><th>Key</th></tr>
+        <tr><td>GAS · BRAKE</td><td>▲ · ▼</td></tr>
+        <tr><td>LEFT · RIGHT</td><td>◀ · ▶</td></tr>
+        <tr><td>ITEM</td><td><b>SHIFT</b></td></tr>
+        <tr><td>HOP</td><td><b>SPACE</b> · ▲ on the Game Boy's pad</td></tr>
+      </table></div>
+      <p>Reserved: ENTER, TAB, ESC, M, F. In OMNI KART SHIFT is SELECT only when none of the player's keys is SHIFT; TAB is SELECT always, so ITEM never leaves a paused race.</p>
+      <div class="tablebox"><table>
+        <tr><th>Saved with five keys</th><th>Read back as</th></tr>
+        <tr><td>the old defaults, ▲ ▼ ◀ ▶ SPACE</td><td>the new six defaults</td></tr>
+        <tr><td>keys the player chose</td><td>those five kept; HOP on the first free of SPACE, X, C, V</td></tr>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>The feel</h3>
+  <div class="tablebox"><table>
+    <tr><th>When</th><th>Today</th><th>Seen after</th><th>Heard after (the player's kart)</th><th>Reduced motion</th></tr>
+    <tr><td><b>On powder, fast</b></td><td class="none">nothing</td><td>snow thrown behind the rear wheels</td><td>—</td><td>not drawn</td></tr>
+    <tr><td><b>Gap over 0.15 rad, or a drift</b></td><td class="none">nothing</td><td>two skid marks, white on ice and snow, dark on road, fading over 3 s</td><td>a screech under the music, louder as the gap grows</td><td>marks drawn</td></tr>
+    <tr><td><b>Charge blue, then orange</b></td><td class="none">nothing</td><td>blue, then orange sparks at the rear wheels</td><td>a tick at each colour</td><td>sparks as a still glow</td></tr>
+    <tr><td><b>A turbo fires</b></td><td>BOOST trail (items, pads)</td><td>the BOOST trail</td><td>a whoosh</td><td>as today</td></tr>
+    <tr><td><b>Slipstream building</b></td><td class="none">nothing</td><td>white wind lines past the kart</td><td>—</td><td>not drawn</td></tr>
+    <tr><td><b>GAS held in the countdown</b></td><td>the engine hums at rest</td><td>—</td><td>the hum rises</td><td>—</td></tr>
+    <tr><td><b>A stall</b></td><td class="none">no stall</td><td>black smoke puffs</td><td>a sputter</td><td>smoke not drawn</td></tr>
+  </table></div>
+  <p class="cap">Pure, seeded state in kart/fx.ts under today's particle cap, the marks under a cap of their own; the sounds are the arcade's own engine in sound.ts, no audio file. In MULTI the others' karts show no hop, sparks or marks: MULTI's messages are unchanged.</p>
+</section>
+
+<h2>Pixel perfect</h2>
+<p class="screens">screens: kart-keys · kart-race</p>
+
+<section class="row">
+  <h3>OPTIONS › KEYS</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · five rows</div>
+      <div class="stage"><div class="screen" data-screen="kart-keys">
+        <svg class="view" viewBox="0 0 640 360" aria-hidden="true">
+          <rect width="640" height="360" fill="var(--void)"/>
+          <g fill="#dfe3ff"><rect x="40" y="30" width="2" height="2"/><rect x="130" y="80" width="2" height="2"/><rect x="250" y="20" width="2" height="2"/><rect x="420" y="60" width="2" height="2"/><rect x="560" y="26" width="2" height="2"/><rect x="600" y="296" width="2" height="2"/><rect x="70" y="300" width="2" height="2"/></g>
+        </svg>
+        <div class="j-panel kt-mid">
+          <p class="inv-title">KEYS</p>
+          <ul class="kt-choice">
+            <li data-cursor="true" data-primary>▶ GAS ▲</li>
+            <li data-cursor="false">BRAKE ▼</li>
+            <li data-cursor="false">LEFT ◀</li>
+            <li data-cursor="false">RIGHT ▶</li>
+            <li data-cursor="false">ITEM SPACE</li>
+          </ul>
+          <p class="hint"><span class="j-key">A</span> CHANGE <span class="j-key">B</span> BACK</p>
+        </div>
+      </div></div>
+      <p class="cap">scenes/kart.tsx's keys panel, from the source: one row per DRIVE_ROWS entry, the key by keyLabel.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · six rows, ITEM on SHIFT, HOP last</div>
+      <div class="stage"><div class="screen" data-screen="kart-keys">
+        <svg class="view" viewBox="0 0 640 360" aria-hidden="true">
+          <rect width="640" height="360" fill="var(--void)"/>
+          <g fill="#dfe3ff"><rect x="40" y="30" width="2" height="2"/><rect x="130" y="80" width="2" height="2"/><rect x="250" y="20" width="2" height="2"/><rect x="420" y="60" width="2" height="2"/><rect x="560" y="26" width="2" height="2"/><rect x="600" y="296" width="2" height="2"/><rect x="70" y="300" width="2" height="2"/></g>
+        </svg>
+        <div class="j-panel kt-mid">
+          <p class="inv-title">KEYS</p>
+          <ul class="kt-choice">
+            <li data-cursor="true" data-primary>▶ GAS ▲</li>
+            <li data-cursor="false">BRAKE ▼</li>
+            <li data-cursor="false">LEFT ◀</li>
+            <li data-cursor="false">RIGHT ▶</li>
+            <li data-cursor="false">ITEM SHIFT</li>
+            <li data-cursor="false">HOP SPACE</li>
+          </ul>
+          <p class="hint"><span class="j-key">A</span> CHANGE <span class="j-key">B</span> BACK</p>
+        </div>
+      </div></div>
+      <p class="cap">The same panel with a sixth row. Binding SHIFT is no longer refused; ENTER, TAB, ESC, M and F still are.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>The countdown on FROST EIGHT</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · the 2, five keys named</div>
+      <div class="stage"><div class="screen" data-screen="kart-race">
+        <svg class="view" viewBox="0 0 640 360" aria-hidden="true">
+          <rect width="640" height="40" fill="var(--sky1)"/><rect y="40" width="640" height="36" fill="var(--sky2)"/><rect y="76" width="640" height="38" fill="var(--sky3)"/><rect y="114" width="640" height="36" fill="var(--sky4)"/>
+          <polygon points="0,150 80,104 150,150 230,96 330,150 420,108 520,150 600,112 640,140 640,150" fill="var(--peak)"/>
+          <polygon points="80,104 96,113 64,113" fill="var(--peakSnow)"/><polygon points="230,96 248,106 212,106" fill="var(--peakSnow)"/><polygon points="420,108 436,117 404,117" fill="var(--peakSnow)"/>
+          <rect y="150" width="640" height="210" fill="var(--powder)"/>
+          <polygon points="290,150 350,150 610,360 30,360" fill="var(--asphalt)"/>
+          <polygon points="290,150 294,150 42,360 30,360" fill="var(--bank)"/><polygon points="346,150 350,150 610,360 598,360" fill="var(--bank)"/>
+          <g fill="var(--pine)"><polygon points="70,190 82,220 58,220"/><polygon points="560,186 574,220 546,220"/></g>
+          <rect x="282" y="300" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="286" width="32" height="18" fill="#ff9b30"/><rect x="286" y="334" width="14" height="8" fill="#111"/><rect x="340" y="334" width="14" height="8" fill="#111"/>
+        </svg>
+        <p class="kt-beat">2</p>
+        <p class="kt-keys">▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE ITEM</p>
+      </div></div>
+      <p class="cap">RaceScreen's beat and driveLine(own), from the source.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · the 2, six keys named</div>
+      <div class="stage"><div class="screen" data-screen="kart-race">
+        <svg class="view" viewBox="0 0 640 360" aria-hidden="true">
+          <rect width="640" height="40" fill="var(--sky1)"/><rect y="40" width="640" height="36" fill="var(--sky2)"/><rect y="76" width="640" height="38" fill="var(--sky3)"/><rect y="114" width="640" height="36" fill="var(--sky4)"/>
+          <polygon points="0,150 80,104 150,150 230,96 330,150 420,108 520,150 600,112 640,140 640,150" fill="var(--peak)"/>
+          <polygon points="80,104 96,113 64,113" fill="var(--peakSnow)"/><polygon points="230,96 248,106 212,106" fill="var(--peakSnow)"/><polygon points="420,108 436,117 404,117" fill="var(--peakSnow)"/>
+          <rect y="150" width="640" height="210" fill="var(--powder)"/>
+          <polygon points="290,150 350,150 610,360 30,360" fill="var(--asphalt)"/>
+          <polygon points="290,150 294,150 42,360 30,360" fill="var(--bank)"/><polygon points="346,150 350,150 610,360 598,360" fill="var(--bank)"/>
+          <g fill="var(--pine)"><polygon points="70,190 82,220 58,220"/><polygon points="560,186 574,220 546,220"/></g>
+          <rect x="282" y="300" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="286" width="32" height="18" fill="#ff9b30"/><rect x="286" y="334" width="14" height="8" fill="#111"/><rect x="340" y="334" width="14" height="8" fill="#111"/>
+          <g fill="var(--dim)" opacity=".7"><rect x="292" y="344" width="6" height="4"/><rect x="342" y="346" width="6" height="4"/></g>
+        </svg>
+        <p class="kt-beat">2</p>
+        <p class="kt-keys">▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE HOP SHIFT ITEM</p>
+      </div></div>
+      <p class="cap">The line names HOP and ITEM with the player's own keys. GAS pressed now pays the rocket start; the engine's hum rises while it is held.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>GO, on a rocket start</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · GO</div>
+      <div class="stage"><div class="screen" data-screen="kart-race">
+        <svg class="view" viewBox="0 0 640 360" aria-hidden="true">
+          <rect width="640" height="40" fill="var(--sky1)"/><rect y="40" width="640" height="36" fill="var(--sky2)"/><rect y="76" width="640" height="38" fill="var(--sky3)"/><rect y="114" width="640" height="36" fill="var(--sky4)"/>
+          <polygon points="0,150 80,104 150,150 230,96 330,150 420,108 520,150 600,112 640,140 640,150" fill="var(--peak)"/>
+          <rect y="150" width="640" height="210" fill="var(--powder)"/>
+          <polygon points="290,150 350,150 610,360 30,360" fill="var(--asphalt)"/>
+          <polygon points="290,150 294,150 42,360 30,360" fill="var(--bank)"/><polygon points="346,150 350,150 610,360 598,360" fill="var(--bank)"/>
+          <rect x="282" y="300" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="286" width="32" height="18" fill="#ff9b30"/><rect x="286" y="334" width="14" height="8" fill="#111"/><rect x="340" y="334" width="14" height="8" fill="#111"/>
+        </svg>
+        <div class="kt-run"><span class="kt-panelbox kt-place">1ST</span><span class="kt-panelbox">LAP 1/3</span><span class="kt-panelbox">0:00.0</span><span class="kt-panelbox kt-item kt-empty"><span class="kt-item-key">SPACE</span></span></div>
+        <p class="kt-beat kt-go">GO</p>
+      </div></div>
+      <p class="cap">Every start is the same: from rest.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · GO, TURBO under it</div>
+      <div class="stage"><div class="screen" data-screen="kart-race">
+        <svg class="view" viewBox="0 0 640 360" aria-hidden="true">
+          <rect width="640" height="40" fill="var(--sky1)"/><rect y="40" width="640" height="36" fill="var(--sky2)"/><rect y="76" width="640" height="38" fill="var(--sky3)"/><rect y="114" width="640" height="36" fill="var(--sky4)"/>
+          <polygon points="0,150 80,104 150,150 230,96 330,150 420,108 520,150 600,112 640,140 640,150" fill="var(--peak)"/>
+          <rect y="150" width="640" height="210" fill="var(--powder)"/>
+          <polygon points="290,150 350,150 610,360 30,360" fill="var(--asphalt)"/>
+          <polygon points="290,150 294,150 42,360 30,360" fill="var(--bank)"/><polygon points="346,150 350,150 610,360 598,360" fill="var(--bank)"/>
+          <g fill="var(--yellow)" opacity=".85"><rect x="296" y="342" width="4" height="14"/><rect x="312" y="344" width="4" height="12"/><rect x="324" y="344" width="4" height="12"/><rect x="340" y="342" width="4" height="14"/></g>
+          <g fill="var(--white)" opacity=".8"><rect x="270" y="330" width="10" height="6"/><rect x="360" y="332" width="10" height="6"/><rect x="262" y="320" width="6" height="4"/><rect x="372" y="322" width="6" height="4"/></g>
+          <rect x="282" y="296" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="282" width="32" height="18" fill="#ff9b30"/><rect x="286" y="330" width="14" height="8" fill="#111"/><rect x="340" y="330" width="14" height="8" fill="#111"/>
+        </svg>
+        <div class="kt-run"><span class="kt-panelbox kt-place">1ST</span><span class="kt-panelbox">LAP 1/3</span><span class="kt-panelbox">0:00.0</span><span class="kt-panelbox kt-item kt-empty"><span class="kt-item-key">SHIFT</span></span></div>
+        <p class="kt-beat kt-go">GO</p>
+        <p class="kt-turbo">TURBO</p>
+      </div></div>
+      <p class="cap">GAS pressed during the 2 and held: TURBO under GO, a puff and the BOOST trail for 0.8 s. The item panel names SHIFT.</p>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h3>A drift on the lake</h3>
+  <div class="pair">
+    <div class="side">
+      <div class="tag">Today · steering on the ice</div>
+      <div class="stage"><div class="screen" data-screen="kart-race">
+        <svg class="view" viewBox="0 0 640 360" aria-hidden="true">
+          <rect width="640" height="40" fill="var(--sky1)"/><rect y="40" width="640" height="36" fill="var(--sky2)"/><rect y="76" width="640" height="38" fill="var(--sky3)"/><rect y="114" width="640" height="36" fill="var(--sky4)"/>
+          <polygon points="0,150 80,104 150,150 230,96 330,150 420,108 520,150 600,112 640,140 640,150" fill="var(--peak)"/>
+          <rect y="150" width="640" height="210" fill="var(--powder)"/>
+          <ellipse cx="320" cy="300" rx="420" ry="150" fill="var(--ice)"/>
+          <g stroke="var(--iceLine)" stroke-width="2" opacity=".6"><line x1="120" y1="240" x2="190" y2="236"/><line x1="430" y1="230" x2="520" y2="236"/><line x1="200" y1="320" x2="260" y2="316"/></g>
+          <polygon points="270,150 330,150 560,360 10,360" fill="var(--asphalt)" opacity=".35"/>
+          <g transform="rotate(-8 320 320)"><rect x="282" y="300" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="286" width="32" height="18" fill="#ff9b30"/><rect x="286" y="334" width="14" height="8" fill="#111"/><rect x="340" y="334" width="14" height="8" fill="#111"/></g>
+        </svg>
+        <div class="kt-run"><span class="kt-panelbox kt-place">3RD</span><span class="kt-panelbox">LAP 2/3</span><span class="kt-panelbox">0:51.7</span><span class="kt-panelbox kt-item kt-empty"><span class="kt-item-key">SPACE</span></span></div>
+        <p class="hint kt-foot"><span class="j-key">ENTER</span> PAUSE</p>
+      </div></div>
+      <p class="cap">The kart leans into the turn; no mark, no spark, no sound but the engine.</p>
+    </div>
+    <div class="side after">
+      <div class="tag now">After · drifting left, orange charge</div>
+      <div class="stage"><div class="screen" data-screen="kart-race">
+        <svg class="view" viewBox="0 0 640 360" aria-hidden="true">
+          <rect width="640" height="40" fill="var(--sky1)"/><rect y="40" width="640" height="36" fill="var(--sky2)"/><rect y="76" width="640" height="38" fill="var(--sky3)"/><rect y="114" width="640" height="36" fill="var(--sky4)"/>
+          <polygon points="0,150 80,104 150,150 230,96 330,150 420,108 520,150 600,112 640,140 640,150" fill="var(--peak)"/>
+          <rect y="150" width="640" height="210" fill="var(--powder)"/>
+          <ellipse cx="320" cy="300" rx="420" ry="150" fill="var(--ice)"/>
+          <g stroke="var(--iceLine)" stroke-width="2" opacity=".6"><line x1="120" y1="240" x2="190" y2="236"/><line x1="430" y1="230" x2="520" y2="236"/><line x1="200" y1="320" x2="260" y2="316"/></g>
+          <polygon points="270,150 330,150 560,360 10,360" fill="var(--asphalt)" opacity=".35"/>
+          <g fill="none" stroke="var(--scratch)" stroke-width="3" stroke-linecap="square" opacity=".9"><path d="M300 352 C 330 300, 380 250, 470 210"/><path d="M352 356 C 390 304, 440 262, 520 226"/></g>
+          <g transform="rotate(-24 320 320)"><rect x="282" y="300" width="76" height="40" fill="#2a2a3d"/><rect x="304" y="286" width="32" height="18" fill="#ff9b30"/><rect x="286" y="334" width="14" height="8" fill="#111"/><rect x="340" y="334" width="14" height="8" fill="#111"/>
+            <g fill="var(--orangeSpark)"><rect x="280" y="342" width="4" height="4"/><rect x="274" y="348" width="3" height="3"/><rect x="290" y="346" width="3" height="3"/><rect x="352" y="342" width="4" height="4"/><rect x="360" y="348" width="3" height="3"/><rect x="346" y="350" width="3" height="3"/></g>
+            <g fill="var(--yellow)"><rect x="284" y="352" width="2" height="2"/><rect x="356" y="354" width="2" height="2"/></g>
+          </g>
+        </svg>
+        <div class="kt-run"><span class="kt-panelbox kt-place">3RD</span><span class="kt-panelbox">LAP 2/3</span><span class="kt-panelbox">0:51.7</span><span class="kt-panelbox kt-item kt-empty"><span class="kt-item-key">SHIFT</span></span></div>
+        <p class="hint kt-foot"><span class="j-key">ENTER</span> PAUSE</p>
+      </div></div>
+      <p class="cap">The nose points into the bend ahead of the path; white scratches trail the rear wheels; orange sparks say a 1-second turbo waits for HOP's release; the screech plays under the music.</p>
+    </div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

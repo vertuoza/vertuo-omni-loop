@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { DocsPage } from '../../../src/docs/DocsPage';
+import { GuideRoute } from '../../../src/docs/GuideRoute';
 import { docsMetadata } from '../../../src/seo/seo';
 import { guide } from '../../../src/docs/source';
-import { sidebarItems } from '../../../src/docs/tree';
 
 // /docs and /docs/<page> (PRD 346): one page of the guide, docs/guide/<page>.md (index.md at /docs),
 // compiled by fumadocs-mdx and found by fumadocs-core's loader. Every page is built at build time,
@@ -24,18 +23,5 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function DocsRoute({ params }: Params) {
-  const page = guide.getPage((await params).slug);
-  if (!page) notFound();
-  const Body = page.data.body;
-  return (
-    <DocsPage
-      items={sidebarItems(guide.pageTree)}
-      url={page.url}
-      title={page.data.title}
-      description={page.data.description}
-      toc={page.data.toc}
-    >
-      <Body />
-    </DocsPage>
-  );
+  return <GuideRoute slug={(await params).slug} />;
 }

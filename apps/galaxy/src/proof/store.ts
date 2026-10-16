@@ -26,6 +26,10 @@ export const PROOF_GIF_NAME = 'preview.gif';
 /** How long the GIF's signed link lives: the stable link redirects to a fresh one each time. */
 export const GIF_LINK_SECONDS = 5 * 60;
 
+/** What a run's dossier is of (PRD 1972): a PRD's, or a bug fix's, numbered by its issue. */
+export const PROOF_KINDS = ['prd', 'bug'] as const;
+export type ProofKind = (typeof PROOF_KINDS)[number];
+
 /** The types the bucket takes, and the extensions each is named with. */
 export const PROOF_TYPES = {
   'video/webm': ['webm'],
@@ -93,8 +97,8 @@ export class ProofStoreError extends Error {
 export type SignedUpload = { name: string; path: string; url: string };
 
 export type ProofStore = {
-  /** The id of PRD `prd`'s dossier in `repo` the caller may read, or null. */
-  dossierOf(repo: string, prd: PrdNumber): Promise<string | null>;
+  /** The id of the dossier numbered `prd` (a bug's issue, for kind `bug`) in `repo` the caller may read, or null. */
+  dossierOf(repo: string, prd: PrdNumber, kind: ProofKind): Promise<string | null>;
   /** One signed upload link per name, under the run's folder, in order. */
   signUploads(dossierId: string, runId: string, names: string[]): Promise<SignedUpload[]>;
   /** The names of the files the run's folder holds. */
@@ -139,7 +143,7 @@ async function signedLinks(db: Pick<SupabaseClient, 'storage'>, paths: string[],
 /** The proof store as the caller: row-level security and the bucket's rules decide. */
 export function proofStore(db: Pick<SupabaseClient, 'rpc' | 'from' | 'storage'>): ProofStore {
   return {
-    dossierOf: (repo, prd) => dossierReader(db).numbered(repo, prd, 'prd'),
+    dossierOf: (repo, prd, kind) => dossierReader(db).numbered(repo, prd, kind),
 
     async signUploads(dossierId, runId, names) {
       const bucket = db.storage.from(PROOF_BUCKET);

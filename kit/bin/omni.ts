@@ -126,6 +126,8 @@ function pushedFix(rest: readonly string[]): RecordedWork | null | undefined {
  * may be named instead.
  */
 function fixNamedBy([name = '', ...rest]: readonly string[]): RecordedWork | null | undefined {
+  // `omni bug film <n> …` names bug <n> as `omni bug <n>` does.
+  if (name === 'bug' && rest[0] === 'film') return fixOf(name, rest[1]);
   if (isFixKind(name)) return fixOf(name, rest[0]);
   return name === 'dossier' && rest[0] === 'push' ? pushedFix(rest) : undefined;
 }

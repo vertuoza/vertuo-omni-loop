@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { readRun } from '../lib/proof/run.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
 
@@ -420,5 +421,92 @@ describe('omni bug — a change to a law needs the fix\'s outbox (PRD 1342)', ()
     const { code, out } = await run(root, base);
     expect(failures(out)).toEqual([]);
     expect(code).toBe(0);
+  });
+});
+
+describe('omni bug film (PRD 1972)', () => {
+  const SLUG_CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
+  type Mode = 'ok' | 'missing' | 'fails';
+
+  /** A fake process runner: git is real; ffmpeg writes its last argument, or fails as told. */
+  function fake(mode: Mode) {
+    const calls: string[][] = [];
+    const exec = ((file: string, args: readonly string[], options?: unknown) => {
+      if (file !== 'ffmpeg') return execFileSync(file, args, options as never);
+      calls.push([...args]);
+      if (mode === 'missing') throw new Error('spawn ffmpeg ENOENT');
+      if (args[0] === '-version') return '';
+      if (mode === 'fails') throw Object.assign(new Error('x'), { stderr: 'banner\nInvalid filtergraph\n' });
+      writeFileSync(args.at(-1) ?? '', 'GIF89a');
+      return '';
+    }) as never;
+    return { exec, calls };
+  }
+
+  async function film(root: string, args: string[], mode: Mode = 'ok') {
+    const s = io();
+    const { exec, calls } = fake(mode);
+    const code = await main(['bug', 'film', ...args], { cwd: root, exec, ...s });
+    return { code, out: s.out.join('').trim(), err: s.err.join('').trim(), calls };
+  }
+
+  function inputs(ext: 'txt' | 'webm' = 'txt') {
+    const { root, write } = setup(SLUG_CONFIG);
+    write(`red.${ext}`, 'run\nAssertionError: expected 2 to be 1\n');
+    write(`green.${ext}`, 'run\n✓ saves once\n');
+    return root;
+  }
+
+  it('writes the folder from two outputs: the gif, the inputs and a run.json readRun accepts', async () => {
+    const root = inputs();
+    const out = join(root, 'proof-out');
+    const { code, out: printed, calls } = await film(root, ['12', '--before', 'red.txt', '--after', 'green.txt', '--out', out]);
+    expect(code).toBe(0);
+    expect(printed).toBe(out);
+    expect(calls.some((c) => c.includes('-filter_complex'))).toBe(true);
+    for (const name of ['preview.gif', 'red.txt', 'green.txt', 'run.json']) expect(existsSync(join(out, name))).toBe(true);
+    const run = readRun(out);
+    expect(run?.url).toBe('https://github.com/acme/widgets/issues/12');
+    expect(run?.criteria.map((c) => c.verdict)).toEqual(['pass', 'pass']);
+    expect(run?.criteria[0]?.note).toBe('AssertionError: expected 2 to be 1');
+  });
+
+  it('stitches two clips as before.webm and after.webm', async () => {
+    const root = inputs('webm');
+    const out = join(root, 'proof-out');
+    const { code } = await film(root, ['12', '--before', 'red.webm', '--after', 'green.webm', '--out', out]);
+    expect(code).toBe(0);
+    for (const name of ['preview.gif', 'before.webm', 'after.webm', 'run.json']) expect(existsSync(join(out, name))).toBe(true);
+    expect(readRun(out)?.criteria.map((c) => c.video)).toEqual(['before.webm', 'after.webm']);
+  });
+
+  it('defaults the folder under <worktrees>/proof-bug-<n>/', async () => {
+    const root = inputs();
+    const { code, out } = await film(root, ['12', '--before', 'red.txt', '--after', 'green.txt']);
+    expect(code).toBe(0);
+    expect(out).toMatch(/\/\.claude\/worktrees\/proof-bug-12\/\d{8}-\d{6}$/);
+    rmSync(join(root, '.claude'), { recursive: true, force: true });
+  });
+
+  it('is exit 1 with ffmpeg not found', async () => {
+    const root = inputs();
+    const { code, err } = await film(root, ['12', '--before', 'red.txt', '--after', 'green.txt', '--out', join(root, 'o')], 'missing');
+    expect(code).toBe(1);
+    expect(err).toBe('ffmpeg not found');
+  });
+
+  it('is exit 1 with the last line of a failing ffmpeg', async () => {
+    const root = inputs();
+    const { code, err } = await film(root, ['12', '--before', 'red.txt', '--after', 'green.txt', '--out', join(root, 'o')], 'fails');
+    expect(code).toBe(1);
+    expect(err).toBe('ffmpeg failed: Invalid filtergraph');
+  });
+
+  it('is exit 2 for a missing file, a .txt beside a .webm, and a number that is not one', async () => {
+    const root = inputs();
+    writeFileSync(join(root, 'clip.webm'), 'x');
+    expect((await film(root, ['12', '--before', 'red.txt', '--after', 'nope.txt'])).code).toBe(2);
+    expect((await film(root, ['12', '--before', 'red.txt', '--after', 'clip.webm'])).code).toBe(2);
+    expect((await film(root, ['twelve', '--before', 'red.txt', '--after', 'green.txt'])).code).toBe(2);
   });
 });

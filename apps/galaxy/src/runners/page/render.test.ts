@@ -36,6 +36,12 @@ describe('the board', () => {
   const html = render(demo());
   const t = text(html);
 
+  it('names the API key that sent a job, with who made it, and a person\'s job by login (PRD 2022 s4)', () => {
+    expect(text(jobRow(html, '/omni:bug-fix Issue 548 totals'))).toContain('API key QA dashboard made by @ada');
+    expect(text(jobRow(html, '/omni:pr-care 1801'))).toContain('@ada');
+    expect(text(jobRow(html, '/omni:pr-care 1801'))).not.toContain('made by');
+  });
+
   it('is the marked runners screen, titled Runners, with its two tables', () => {
     expect(html).toContain('data-screen="runners"');
     expect(html).toContain('<h1 class="dash-name">Runners</h1>');
