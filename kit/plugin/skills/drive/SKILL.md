@@ -1,6 +1,6 @@
 ---
 name: drive
-description: Drives your PRDs as a rolling pool of up to limits.parallelSteps steps at once, run as /omni:drive [<n>…] on a loop, or a roadmap's PRDs with --roadmap <n> — on its first tick it orders every slice of the PRDs driven into a loop plan (omni next --plan) and opens the loop on the Loop page (omni loop push start); every tick it reads the steps that share no ground with what runs (omni next --json) and starts one agent per step, each in its own worktree running that step's one skill, /omni:wave, /omni:yolo, /omni:yolo-fix or /omni:pr-care --once, parks a PRD that waits on a person on its feature PR's status comment, records a tick per step launched and per step finished with omni loop push tick, naming what runs and what is held, and sets the next wake; under --roadmap it checks the roadmap's prerequisites with omni roadmap prereqs --fix on the first tick and before a PRD one holds starts, holds a blocked PRD until its blockers merged, naming the pull request it waits on, or until the prerequisite it waits on is met, and pushes the roadmap after each tick; once nothing runs and every PRD is parked or done it stops itself, listing what waits on whom and each open prerequisite with its command. A closed terminal resumes the same loop and plan. A plan repository gets the /omni:mega-drive line. Never merges into the default branch, never answers the outbox. Triggers on "drive my PRDs", "run the loop", "keep building until it needs me", "/omni:drive".
+description: Drives your PRDs as a rolling pool of up to limits.parallelSteps steps at once, run as /omni:drive [<n>…] on a loop, or a roadmap's PRDs with --roadmap <n> (a product roadmap, --roadmap <key>-R<n>, reads its rows from the server) — on its first tick it orders every slice of the PRDs driven into a loop plan (omni next --plan) and opens the loop on the Loop page (omni loop push start); every tick it reads the steps that share no ground with what runs (omni next --json) and starts one agent per step, each in its own worktree running that step's one skill, /omni:wave, /omni:yolo, /omni:yolo-fix or /omni:pr-care --once, parks a PRD that waits on a person on its feature PR's status comment, records a tick per step launched and per step finished with omni loop push tick, naming what runs and what is held, and sets the next wake; under --roadmap it checks the roadmap's prerequisites with omni roadmap prereqs --fix on the first tick and before a PRD one holds starts, holds a blocked PRD until its blockers merged, naming the pull request it waits on, or until the prerequisite it waits on is met, and pushes the roadmap after each tick; once nothing runs and every PRD is parked or done it stops itself, listing what waits on whom and each open prerequisite with its command. A closed terminal resumes the same loop and plan. A plan repository gets the /omni:mega-drive line. Never merges into the default branch, never answers the outbox. Triggers on "drive my PRDs", "run the loop", "keep building until it needs me", "/omni:drive".
 ---
 
 # Drive: a pool of loop plan steps, filled each tick
@@ -29,6 +29,7 @@ steps say. The status comment it rewrites is a comment, and comments are never s
 |---|---|---|
 | nothing | `/omni:drive` | drive your own PRDs in inbox, building or outbox, as `omni status` marks them |
 | PRD numbers | `/omni:drive 1017 1030` | drive these PRDs, someone else's included: naming them is the ask |
+| `--roadmap <key>-R<n>` | `/omni:drive --roadmap mobile-R3` | drive a product roadmap's PRDs, read from the server: **From a product roadmap** below |
 | `--roadmap <n>` | `/omni:drive --roadmap 1170` | drive exactly roadmap n's PRDs, someone else's included, each held until its blockers' feature PRs merged. Name no PRD beside it |
 
 Each runs as a loop, this tick again after the wait it names (in Claude: `/loop` before it, as
@@ -40,7 +41,7 @@ the loop was asked for one, and nothing otherwise.
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the JSON:
 later steps read `repo.slug`, `repo.defaultBranch`, `labels.outboxGo` and `markers.prefix` from it.
 
-**A plan repository is not this skill's.** When the config has a `plan` section (its `plan.targets`),
+**A plan repository is not this skill's,** unless the roadmap is a product's (**From a product roadmap** below). When the config has a `plan` section (its `plan.targets`),
 its PRDs land in other repositories and the single-repository skills stall on them: stop with
 exactly one line, the arguments it was given carried over, and no wake:
 
@@ -50,6 +51,47 @@ a plan repository: /omni:mega-drive [<n>…] [--roadmap <n>] (in Claude: /loop /
 
 Then print the briefing, `node .omni-loop/bin/omni.mjs session start`. Its rules bind every step
 below, and the skill a tick runs reads it again on its own.
+
+## From a product roadmap (`--roadmap <key>-R<n>`)
+
+A **product roadmap** (PRD 2011, as `mobile-R3`) lives on its product on the Omni page and in no
+repository, and its PRDs are product PRDs (`mobile-12`). `omni next`, `omni care state` and
+`omni loop push` read a repository's PRD numbers and roadmap number only, so this run opens no loop
+plan, records no tick and pushes no roadmap with `omni roadmap push <n>`: it drives the roadmap's
+rows as the product PRDs of `/omni:mega-drive`'s **From a product**, from any kitted checkout of a
+repository the product holds, a plan repository or not. Name no PRD beside it.
+
+**Step 0** does not stop on a `plan` section when the roadmap's id is a product's; the
+`a plan repository:` line is for a repository roadmap number only.
+
+**Each tick,** read the roadmap's rows from the server, not from a folder:
+
+```bash
+node .omni-loop/bin/omni.mjs dossier get <key>-R<n> roadmap
+```
+
+It writes the latest `roadmap.md` to a scratch file and prints its path and its sha256; `held · server
+unreachable · held, not failed` is a `wait`, never a park and never a failure, and a roadmap not yet
+approved on its page is **parked** on a reviewer (`waits on a reviewer: the roadmap waits for approval
+on its page`). Read the rows from that file: each row's PRD (`<key>-<n>`), its blockers with their
+why, its wave. Then:
+
+- **A row's PRD** is driven as `/omni:mega-drive`'s **From a product** drives a product PRD named by
+  its id: parked while it waits for approval or is drifted, a `wait` while the server is unreachable,
+  built by `/omni:ultra-yolo <key>-<n>` once approved, with `/omni:mega-pr-care <key>-<n> --once` each
+  tick until its feature PRs are merged or closed.
+- **A blocked row is held** until the feature PRs of every blocker's PRD are merged, read with
+  `gh pr list --repo <slug> --head <feature branch> --state all --json number,state,isDraft,url`
+  for each repository the blocker's plan names; its `why` names the pull request it waits on and its
+  state (`waits on <repo>#<pr> (<key>-<n> <title>): <state>`). A blocker closed unmerged parks the row
+  on a person. A `person` question blocking the row parks it until a person answers it on the
+  roadmap's page.
+- **The pool** is `limits.parallelSteps` steps at once, with every other step this session runs.
+
+The step agents never write the roadmap: only this session's tick prints where each row stands. The
+loop stops itself once nothing runs and every row is parked or done, listing what waits on whom. The
+prerequisites of a product roadmap are not checked by `omni roadmap prereqs` yet: the list names the
+roadmap's `## Prerequisites` rows as the file holds them.
 
 ## 1. Open or resume the loop
 

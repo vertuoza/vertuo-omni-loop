@@ -25,7 +25,7 @@ import { isDossierId, readContent, readDossier, readPlanSlices, type Db } from '
 import { dossierView, readPick, type DossierRead } from './view';
 import type { VoiceCast, VoiceView } from './voice';
 import { readShownVoice, readVoiceCast } from './voice-source';
-import { kindOf, misrouted } from './work';
+import { kindOf, misrouted, rowKind } from './work';
 import { readDockPlayer } from './dock-player';
 import { questionsHref } from './working';
 import type { WorkKind } from '../store';
@@ -251,6 +251,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   }
   if (!read && one(query.deleted) === '1') return <DraftDeleted />;
   if (!read) notFound();
+  // A product roadmap's dossier (PRD 2011) has its page under /roadmaps, which finds it by its dossier's id too.
+  if (rowKind(read.dossier) === null && String(read.dossier.kind) === 'roadmap') redirect(`/roadmaps/${encodeURIComponent(id)}`);
   const elsewhere = misrouted(kindOf(read.dossier), route, id, query);
   if (elsewhere) redirect(elsewhere);
 
