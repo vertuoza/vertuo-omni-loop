@@ -23,9 +23,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { TokenCheck } from '../ask/auth';
 import { bodyOf, Line, receivePush, refuse } from '../data/kit-push';
-import { parseRow } from '../data/parse-rows';
-import { StoreError } from '../data/store-error';
 import { readProductRepositories, RoadmapStoreError } from '../roadmap/store';
+import { FixRowsStoreError, pushBug, type FixRowsPush } from './rows.repository';
 
 /** The largest push: a bug.md and fifty rows, with room to spare. */
 const MAX_PUSH_BYTES = 256 * 1024;
@@ -59,35 +58,11 @@ const Push = z.strictObject({
   message: 'name where it goes: `new` for the next bug, or `bug` for one', path: ['bug'],
 }).refine((push) => push.check === true || push.rows.length > 0, { message: 'a bug carries at least one Fixes row', path: ['rows'] });
 
-/** The database refused or failed; `code` is Postgres's. */
-class FixRowsStoreError extends StoreError {}
-
-const Answer = z.strictObject({
-  dossierId: z.string(),
-  bug: z.string(),
-  created: z.boolean(),
-  product: z.strictObject({ id: z.string(), name: z.string() }),
-  rows: z.array(z.strictObject({ position: z.number().int(), repository: z.string(), pull: z.number().int().nullable(), state: z.string() })),
-  added: z.array(z.strictObject({ kind: z.string(), version: z.number().int() })),
-  unchanged: z.array(z.string()),
-});
-
-/** Records one push of a bug born on the server: the product's next bug when `bug` is null, else a push to
- * `<key>-B<n>`. */
-async function pushBug(db: Pick<SupabaseClient, 'rpc'>, push: z.output<typeof Push>): Promise<z.output<typeof Answer>> {
-  const { productKey, bug, repo, title, record, rows } = push;
-  const { data, error } = await db.rpc('fix_bug_push', { p_key: productKey, p_bug: bug ?? null, p_body: { title, record, rows }, p_repo: repo ?? null });
-  if (error) throw new FixRowsStoreError('push the bug', error.code, error.message);
-  const parsed = parseRow(Answer, data, 'fixes/rows: fix_bug_push');
-  if (!parsed.ok) throw new FixRowsStoreError('push the bug', undefined, parsed.error);
-  return parsed.value;
-}
-
 /** The status each refusal of the database answers with; any other failure is a 500. */
 const REFUSAL_STATUS: Readonly<Record<string, number>> = { '42501': 403, '22023': 400, '23514': 400, P0002: 404 };
 
 /** The pushed rows naming a repository outside the product, by name, one line each. */
-function outside(push: z.output<typeof Push>, product: { name: string; repositories: Array<{ repository: string }> }): string[] {
+function outside(push: FixRowsPush, product: { name: string; repositories: Array<{ repository: string }> }): string[] {
   const owned = new Set(product.repositories.map((r) => r.repository.toLowerCase()));
   const names = product.repositories.map((r) => r.repository).join(', ');
   return push.rows.flatMap((row, at) => owned.has(row.repo.toLowerCase()) ? [] : [`Fixes row ${at + 1}: ${row.repo} is not a repository of product ${product.name} (${names}).`]);
