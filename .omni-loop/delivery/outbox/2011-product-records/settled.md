@@ -869,3 +869,239 @@ Two sentences in the rules register, in a change of their own.
 ```
 
 <!-- /omni-outbox-settled: s2-03-rules-84-85-reword-left -->
+
+<!-- omni-outbox-settled: s5-01-checks-outside-territory -->
+
+## s5-01-checks-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s5
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-checks-outside-territory
+prd: 2011
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+The new database check for bug records only protects us if the automatic checks run it, and one older check said a product could never have a bug of its own. Who changes those two files, which sit outside this slice's ground?
+
+## The decision, in plain words
+
+This slice made both small changes itself: the automatic checks now run the new bug-records check, and the older check now proves a product still cannot hold a visual fix, instead of a bug, since product bugs are now allowed.
+
+## The intro, for fun
+
+A brand new safety check is useless if nobody ever runs it.
+
+## The punchline, for fun
+
+So it joined the line-up, and an old check stopped arguing with it.
+
+## The options, in plain words
+
+A. Keep both changes as made: the new check runs on every pull request, and the old refusal tries a visual fix (as built)
+B. Keep the old check's change but drop the workflow step, so the new check runs only when someone runs it by hand
+C. Undo both and let a person add them on the feature branch before it is marked ready
+
+## What I had to decide
+
+Whether s5 may add a step to the supabase workflow and adjust one refusal in product_prd_ids.sql, both outside its territory, or leave them to a person or another slice.
+
+## What I did meanwhile
+
+Added one step to .github/workflows/supabase.yml that runs supabase/checks/fix_rows.sql, as every other check is run. In supabase/checks/product_prd_ids.sql, the refusal 'a product dossier of another kind was written' tried a `bug` dossier on a product, which this migration now allows on purpose; it now tries a `visual` one, which is still refused. Nothing else in either file changed.
+
+## What it costs to change later
+
+A constant: removing the workflow step, or putting the old example back, is a one-line change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan lists supabase/checks/fix_rows.sql in s5's territory but not the workflow that runs it, and no slice of landing 2 owns .github/ (author)
+- No slice owns supabase/checks/product_prd_ids.sql in this PRD; leaving it unchanged would leave the supabase check red (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-checks-outside-territory -->
+
+<!-- omni-outbox-settled: s5-02-fix-row-texts-optional -->
+
+## s5-02-fix-row-texts-optional — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s5
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-fix-row-texts-optional
+prd: 2011
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+When a bug record is first sent, its fixes may not have a pull request, a reproduction or a guard yet. Must every row carry all three from the start?
+
+## The decision, in plain words
+
+Only the repository and what the fix changes are required. The pull request, the reproduction and the guard can be filled in by a later send, once they exist; a fix that has merged can no longer be moved, dropped or pointed at another pull request.
+
+## The intro, for fun
+
+Bugs rarely arrive with their paperwork done.
+
+## The punchline, for fun
+
+The record waits for the details, but never forgets a merge.
+
+## The options, in plain words
+
+A. Only the repository and the change are required at first; the rest is filled in later, and a merged row is frozen (as built)
+B. Every row must carry its pull request, reproduction and guard from the first send
+C. Nothing is frozen: a later send may rewrite or drop even a merged row
+
+## What I had to decide
+
+Which of a Fixes row's fields fix_bug_push() requires at the first push, and what a later push may change once a row merged.
+
+## What I did meanwhile
+
+fix_rows requires repository (one of the product's) and changes; pull, reproduction and guard may be null until a later push fills them. A later push rewrites the rows by position: a row whose repository or pull request changes starts open again, and a merged row's place, repository and pull request are refused to change (its words may still change). One pull request sits on one row of a bug at most.
+
+## What it costs to change later
+
+A constant: requiring the reproduction and the guard later is one check in fix_bug_push() and a constraint, in a follow-up migration, before rows exist without them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec lists a row's fields but not when each must be known; /omni:mega-bug-fix proves the reproduction red before it fixes, so the record may be pushed before either exists (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-02-fix-row-texts-optional -->
+
+<!-- omni-outbox-settled: s5-03-merge-matching-in-database -->
+
+## s5-03-merge-matching-in-database — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s5
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-merge-matching-in-database
+prd: 2011
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 1
+---
+
+## The question, in plain words
+
+When a fix's pull request merges, something has to find its row, mark it merged, ship the bug once every fix is in, and remember a merge that matches no row. Does the database do that, or the GitHub App?
+
+## The decision, in plain words
+
+The database does it, through one action only the server may call: it marks the matching rows merged, closed or reopened, says which bug records that merge completed, and keeps a merge that names a bug but matches none of its rows. The App only has to pass on what GitHub told it.
+
+## The intro, for fun
+
+Every fix that merges has to find its own name on the list.
+
+## The punchline, for fun
+
+The database keeps the list, so the App only has to read the news.
+
+## The options, in plain words
+
+A. The database matches, stamps and ships, and keeps unmatched merges; the App passes on GitHub's events (as built)
+B. The App matches and decides shipping itself, writing rows through a plainer database action
+C. The database stores only the merge time; shipping and unmatched merges are worked out when a page is read
+
+## What I had to decide
+
+Where the matching rule of s7 lives, given that s5 is the only slice of landing 2 that may change the database.
+
+## What I did meanwhile
+
+Built fix_row_stamp(repo, pull, merged|closed|reopened, at, bug?) for the service role alone: a merge stamps merged_at once (a replay keeps the first and ships nothing twice), a close marks an unmerged row closed, a reopen clears it; its answer names each record this merge shipped. A merge matching no row, whose body names a record of a product holding the repository, is kept once in fix_unmatched_merges. Being shipped is read from the rows, never stored: fix_facts carries it in its rows summary, and a product bug's facts show its pull request from the rows.
+
+## What it costs to change later
+
+A constant: the App can match rows itself later and stop calling the function; the table and the function stay, unused, until a follow-up migration drops them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- s7 owns the webhook but has no database ground, so its rule had to be settled here before s7 is built (author)
+- Whether a merge whose body names no record at all should be kept anywhere is left out: it is dropped (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-03-merge-matching-in-database -->
