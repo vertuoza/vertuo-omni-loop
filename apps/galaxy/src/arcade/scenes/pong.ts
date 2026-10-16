@@ -128,7 +128,7 @@ export function pongPress(status: PongStatus, action: Action): 'retry' | 'back' 
 
 /** Whether two text layers say the same: the arcade re-renders only when they differ. */
 export const samePongHud = (a: PongHud | null, b: PongHud | null): boolean =>
-  a === b || (!!a && !!b && a.phase === b.phase && a.limit === b.limit && a.limitHz === b.limitHz && a.band === b.band
+  a === b || (!!a && !!b && a.limit === b.limit && a.limitHz === b.limitHz && a.band === b.band
     && a.mic === b.mic && a.steer === b.steer && a.hz === b.hz);
 
 /** The Omni sky over the whole grid, then the loaded game's court on it. */
