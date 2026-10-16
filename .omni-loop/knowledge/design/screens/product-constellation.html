@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>product-constellation</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts), and Light under a light
+     system preference (ASK.light). Faces named first, served by the app; here they fall back to system faces. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-yellow: #ff3ea5; --ask-cyan: #6ff0ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --page: #03020f;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ask-ground: #f5f4fc; --ask-surface: #ffffff; --ask-sunk: #eceaf8; --ask-line: #d9d6ee; --ask-line-strong: #85819f;
+      --ask-ink: #17153d; --ask-muted: #4f5486; --ask-plasma: #5b2bd6; --ask-plasma-soft: #efe7ff; --ask-on-plasma: #ffffff;
+      --ask-yellow: #ffd84a; --ask-cyan: #0b6f86; --ask-green: #15703f; --ask-red: #b3122f; --page: #e6e4f3;
+      color-scheme: light;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
+  a { color: var(--ask-cyan); }
+  .note { max-width: 1180px; margin: 0 auto; padding: 24px 16px 8px; font: 14px/1.55 system-ui, sans-serif; color: var(--ask-muted); }
+  .note h1 { margin: 0 0 6px; font-size: 22px; color: var(--ask-ink); text-wrap: balance; }
+  .note p { margin: 0 0 6px; max-width: 86ch; }
+  .note b { color: var(--ask-ink); }
+  h2.part { max-width: 1180px; margin: 40px auto 0; padding: 0 16px; font: 700 18px/1.3 system-ui, sans-serif; color: var(--ask-plasma); }
+  .section { max-width: 1180px; margin: 18px auto 0; padding: 0 16px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .pair.wide { grid-template-columns: 1fr; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+  .col { min-width: 0; display: grid; gap: 8px; align-content: start; }
+  .label { font: 700 12px/1 system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--ask-muted); }
+  .label.after { color: var(--ask-green); }
+  .cap { font: 13px/1.5 system-ui, sans-serif; color: var(--ask-muted); margin: 0; }
+  .flow { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; padding: 14px 16px; font-size: 14px; }
+  .flow ol, .flow ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+  .flow code { font: 12.5px var(--ask-mono); }
+  .flow h3 { margin: 0 0 8px; font-size: 14px; }
+  .scroll { overflow-x: auto; }
+  pre.ex { margin: 0; background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 10px; padding: 12px; font: 12px/1.5 var(--ask-mono); color: var(--ask-ink); white-space: pre; }
+
+  /* ── the mocked app page ── */
+  .app { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 14px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+  .crumb { font-size: 13px; color: var(--ask-muted); }
+  .app h1 { margin: 0; font-size: 26px; line-height: 1.2; }
+  .lede { margin: 0; color: var(--ask-muted); font-size: 15px; }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--ask-line); }
+  .tabs a { padding: 8px 10px; font-size: 14px; color: var(--ask-muted); text-decoration: none; border-bottom: 2px solid transparent; }
+  .tabs a[aria-current] { color: var(--ask-ink); border-color: var(--ask-plasma); font-weight: 700; }
+  .tabs .n { font: 700 11px var(--ask-mono); background: var(--ask-yellow); color: var(--ask-on-plasma); border-radius: 999px; padding: 1px 6px; margin-left: 4px; }
+  .tabs .new { color: var(--ask-ink); }
+  .summary { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--ask-muted); font-size: 14px; }
+  .summary b { font: 700 22px/1 var(--ask-mono); margin-right: 6px; color: var(--ask-ink); }
+  .lane { display: grid; gap: 8px; }
+  .lane h2 { margin: 0; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ask-muted); }
+  .row { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .num { display: inline-grid; place-items: center; min-width: 44px; height: 44px; border: 1.5px solid var(--ask-line-strong); border-radius: 999px; font: 700 13px var(--ask-mono); }
+  .rt { font-weight: 700; font-size: 15px; }
+  .rm { font-size: 13px; color: var(--ask-muted); }
+  .st { font-size: 13px; font-weight: 700; }
+  .st.w { color: var(--ask-yellow); } .st.b { color: var(--ask-green); } .st.d { color: var(--ask-red); }
+
+  .topline { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .asof { font: 12px var(--ask-mono); color: var(--ask-muted); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chips a { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 12px; border: 1px solid var(--ask-line-strong); border-radius: 999px; font-size: 13px; color: var(--ask-ink); text-decoration: none; background: var(--ask-surface); }
+  .chips a[aria-current] { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); font-weight: 700; }
+  .chips i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .cg { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); gap: 14px; }
+  @media (max-width: 900px) { .cg { grid-template-columns: 1fr; } }
+  .skyframe { background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 12px; overflow-x: auto; position: relative; }
+  .skyframe svg { display: block; width: 100%; height: auto; min-width: 0; }
+  @media (max-width: 600px) { .skyframe svg { width: 680px; } }
+  .ro { position: absolute; right: 10px; top: 10px; font: 11px var(--ask-mono); color: var(--ask-muted); background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 999px; padding: 2px 8px; }
+  svg .edge { fill: none; stroke: var(--ask-line-strong); stroke-width: 1.8; }
+  svg .edge.lit { stroke: var(--ask-green); stroke-width: 2.4; }
+  svg .tether { fill: none; stroke: var(--ask-muted); stroke-width: 1.4; stroke-dasharray: 4 5; }
+  svg .lbl { font: 14px var(--ask-mono); fill: var(--ask-ink); paint-order: stroke; stroke: var(--ask-sunk); stroke-width: 4px; stroke-linejoin: round; }
+  svg .sub { font: 11px var(--ask-mono); fill: var(--ask-muted); paint-order: stroke; stroke: var(--ask-sunk); stroke-width: 4px; }
+  svg .elbl { font: 11px var(--ask-mono); fill: var(--ask-muted); paint-order: stroke; stroke: var(--ask-sunk); stroke-width: 4px; }
+  svg .core { fill: var(--ask-surface); stroke: var(--ask-ink); stroke-width: 2; }
+  svg .core.dock { fill: none; stroke: var(--ask-muted); stroke-dasharray: 3 3; }
+  svg .ring-b { fill: none; stroke: var(--ask-green); stroke-width: 4; }
+  svg .ring-w { fill: none; stroke: var(--ask-yellow); stroke-width: 4; }
+  svg .ring-d { fill: none; stroke: var(--ask-red); stroke-width: 4; }
+  svg .halo { fill: none; stroke: var(--ask-plasma); stroke-width: 1.5; stroke-dasharray: 3 5; }
+  svg .dot { fill: var(--ask-cyan); }
+  svg .pr { fill: var(--ask-ground); stroke: var(--ask-muted); stroke-dasharray: 3 3; }
+  svg a:focus-visible .core { stroke: var(--ask-cyan); stroke-width: 4; }
+  .pulse { animation: pulse 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes pulse { 50% { opacity: .35; transform: scale(1.12); } }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } svg .dot { display: none; } }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ask-muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; border: 2px solid; }
+  .card { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; padding: 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+  .card h3 { margin: 0; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ask-muted); }
+  .card h4 { margin: 0; font: 700 17px var(--ask-mono); overflow-wrap: anywhere; }
+  .card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+  .card li { display: flex; gap: 8px; align-items: baseline; }
+  .card li b { font-family: var(--ask-mono); }
+  .card .s { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+  .kv { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 4px 12px; font-size: 13.5px; margin: 0; }
+  .kv dt { color: var(--ask-muted); font: 12px var(--ask-mono); padding-top: 2px; }
+  .kv dd { margin: 0; overflow-wrap: anywhere; }
+  .card .links { display: flex; gap: 12px; flex-wrap: wrap; font-size: 14px; }
+  .card p { margin: 0; font-size: 13px; color: var(--ask-muted); }
+</style>
+</head>
+<body>
+<div class="section" style="padding-block:24px">
+<div class="app" data-screen="product-constellation">
+      <div class="crumb">Products › Widgets</div>
+      <h1>Widgets</h1>
+      <nav class="tabs" aria-label="Product">
+        <a href="#">Ledger <span class="n">1</span></a><a href="#" aria-current="page" class="new">Constellation</a><a href="#">PRDs</a><a href="#">Ideas</a><a href="#">Roadmap</a><a href="#">Bug fixes</a><a href="#">Visual fixes</a><a href="#">Questions</a><a href="#">Repositories &amp; approvers</a>
+      </nav>
+      <div class="topline"><p class="lede">How the product looks now.</p><span class="asof">as of 14:22 UTC</span></div>
+      <div class="chips">
+        <a href="#" aria-current="true">Everything</a>
+        <a href="#"><i style="background:var(--ask-yellow)"></i>918 Offline photo upload</a>
+        <a href="#"><i style="background:var(--ask-green)"></i>912 Quotes on the phone</a>
+        <a href="#"><i style="background:var(--ask-red)"></i>905 Single sign-on</a>
+      </div>
+      <div class="cg">
+        <div class="col">
+          <div class="skyframe">
+            <span class="ro">read only</span>
+            <svg viewBox="0 0 960 500" role="img" aria-label="Widgets: 4 repositories, 3 edges, 1 waits on you">
+              <!-- edges, curved away from the centre -->
+              <path id="e1" class="edge lit" d="M300 380 Q360 300 480 250"/>
+              <path id="e2" class="edge lit" d="M680 380 Q600 300 480 250"/>
+              <path id="e3" class="edge" d="M480 250 Q430 160 480 95"/>
+              <text class="elbl" x="350" y="300" text-anchor="middle">widgets → widgets-api · 1 PRD in flight</text>
+              <text class="elbl" x="640" y="300" text-anchor="middle">widgets-web → widgets-api · 1 PRD in flight</text>
+              <text class="elbl" x="560" y="170" text-anchor="middle">widgets-api → auth · nothing in flight</text>
+              <circle class="dot" r="3"><animateMotion dur="3.4s" repeatCount="indefinite" path="M300 380 Q360 300 480 250"/></circle>
+              <circle class="dot" r="3"><animateMotion dur="3.4s" begin="-1.7s" repeatCount="indefinite" path="M300 380 Q360 300 480 250"/></circle>
+              <circle class="dot" r="3"><animateMotion dur="3.8s" repeatCount="indefinite" path="M680 380 Q600 300 480 250"/></circle>
+              <circle class="dot" r="3"><animateMotion dur="3.8s" begin="-1.9s" repeatCount="indefinite" path="M680 380 Q600 300 480 250"/></circle>
+              <!-- docked tether to the phase-0 PR -->
+              <path class="tether" d="M680 380 L820 450"/>
+              <rect class="pr" x="738" y="448" width="190" height="28" rx="6"/>
+              <text class="lbl" x="833" y="467" text-anchor="middle" style="font-size:12px">◇ widgets-web#214 · phase 0</text>
+              <!-- widgets-api, centre, building -->
+              <a href="#"><circle class="ring-b" cx="480" cy="250" r="30"/><circle class="core" cx="480" cy="250" r="18"/>
+                <text class="lbl" x="480" y="303" text-anchor="middle">acme/widgets-api</text><text class="sub" x="480" y="319" text-anchor="middle">api · ◆</text></a>
+              <!-- widgets, waits on you: the only pulse -->
+              <a href="#"><circle class="ring-w pulse" cx="300" cy="380" r="28"/><circle class="core" cx="300" cy="380" r="16"/>
+                <text class="lbl" x="300" y="431" text-anchor="middle">acme/widgets</text><text class="sub" x="300" y="447" text-anchor="middle">mobile · ◆</text></a>
+              <!-- widgets-web, docked and building -->
+              <a href="#"><circle class="ring-b" cx="680" cy="380" r="24"/><circle class="core dock" cx="680" cy="380" r="12"/>
+                <text x="680" y="344" text-anchor="middle" style="font:9px var(--ask-mono);fill:var(--ask-muted);letter-spacing:1px">DOCKED</text>
+                <text class="lbl" x="620" y="425" text-anchor="middle">acme/widgets-web</text><text class="sub" x="620" y="441" text-anchor="middle">web · ◇</text></a>
+              <!-- auth, drifted, also in Platform -->
+              <a href="#"><circle class="halo" cx="480" cy="80" r="36"/><circle class="ring-d" cx="480" cy="80" r="26"/><circle class="core" cx="480" cy="80" r="14"/>
+                <text class="lbl" x="560" y="72" text-anchor="start">acme/auth</text><text class="sub" x="560" y="88" text-anchor="start">auth · ◆ · also in Platform</text></a>
+            </svg>
+          </div>
+          <div class="legend">
+            <span><i style="border-color:var(--ask-green)"></i>building</span>
+            <span><i style="border-color:var(--ask-yellow)"></i>waits on you</span>
+            <span><i style="border-color:var(--ask-red)"></i>drifted</span>
+            <span><i style="border-color:var(--ask-muted);border-style:dashed"></i>docked · phase 0 by PR</span>
+            <span><i style="border-color:var(--ask-plasma);border-style:dashed"></i>also in another product</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Now in Widgets</h3>
+          <ul>
+            <li><span class="s" style="background:var(--ask-red)"></span><span><b>905</b> drifted · auth</span></li>
+            <li><span class="s" style="background:var(--ask-yellow)"></span><span><a href="#" data-primary><b>918</b> waits on you</a> · widgets</span></li>
+            <li><span class="s" style="background:var(--ask-green)"></span><span><b>912</b> building · 3 repositories</span></li>
+            <li><span class="s" style="border:1.5px dashed var(--ask-muted)"></span><span>widgets-web docked · <a href="#">#214</a></span></li>
+          </ul>
+          <p>Read only. Links live on Repositories &amp; approvers.</p>
+        </div>
+      </div>
+    </div>
+</div>
+</body>
+</html>
