@@ -10,13 +10,13 @@
 import { PREREQUISITE_CATEGORIES, type PrerequisiteCard, type PrerequisiteState, type RoadmapPrerequisiteRow } from '../store';
 
 /** The roadmap page's tabs: today's page, and the prerequisites. */
-const ROADMAP_TABS = ['overview', 'prerequisites'] as const;
+const ROADMAP_TABS = ['overview', 'prerequisites', 'versions'] as const;
 export type RoadmapTab = (typeof ROADMAP_TABS)[number];
 
-const TAB_LABELS: Record<RoadmapTab, string> = { overview: 'Overview', prerequisites: 'Prerequisites' };
+const TAB_LABELS: Record<RoadmapTab, string> = { overview: 'Overview', prerequisites: 'Prerequisites', versions: 'Versions' };
 
 /** The tab `?tab=` names; Overview for anything else. */
-export const roadmapTabOf = (value: string | null | undefined): RoadmapTab => (value === 'prerequisites' ? 'prerequisites' : 'overview');
+export const roadmapTabOf = (value: string | null | undefined): RoadmapTab => (value === 'prerequisites' || value === 'versions' ? value : 'overview');
 
 /** A tab of the roadmap page, as its bar links it; `badge` is how many prerequisites wait on you. */
 export interface RoadmapTabLink {
@@ -27,13 +27,14 @@ export interface RoadmapTabLink {
   badge: number | null;
 }
 
-export function roadmapTabsOf(href: string, current: RoadmapTab, waiting: number): RoadmapTabLink[] {
-  return ROADMAP_TABS.map((tab) => ({
+/** The tabs of a roadmap; Versions only for one born on the server (PRD 2011), `versions` being how many it holds. */
+export function roadmapTabsOf(href: string, current: RoadmapTab, waiting: number, versions: number | null = null): RoadmapTabLink[] {
+  return ROADMAP_TABS.filter((tab) => tab !== 'versions' || versions !== null).map((tab) => ({
     tab,
     label: TAB_LABELS[tab],
     href: tab === 'overview' ? href : `${href}?tab=${tab}`,
     current: tab === current,
-    badge: tab === 'prerequisites' && waiting > 0 ? waiting : null,
+    badge: tab === 'prerequisites' && waiting > 0 ? waiting : tab === 'versions' ? versions : null,
   }));
 }
 

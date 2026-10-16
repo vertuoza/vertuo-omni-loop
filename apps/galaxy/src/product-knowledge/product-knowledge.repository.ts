@@ -6,7 +6,7 @@ import { KnowledgeReadSchema, type ChangeWrite, type Kind, type KnowledgeRead } 
 
 // The Knowledge tab's storage (PRD 1795 s2): the reads and writes behind /app/products/<id>/knowledge, on
 // the client it is given, the signed-in person's, so row-level security and the definer functions of
-// 20261211090000_product_knowledge.sql have the last word. The product, the tab's read
+// 20261211100000_product_knowledge.sql have the last word. The product, the tab's read
 // (product_knowledge_of()), the workspace's members (workspace_roster()), and the writes
 // (product_legal_*, product_glossary_*, product_knowledge_propose / approve / reject / name). A failed read
 // throws, and an answer out of shape too; a refused write answers the database's code and words. No rule

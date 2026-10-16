@@ -1,6 +1,6 @@
 ---
 name: roadmap
-description: Turns a milestone plan into a roadmap in one sitting — reads a page, a file or pasted text, shows one map of its PRDs (each blocker with its why, each wave), its open questions and its prerequisites by category, and takes every answer in one message; then writes every PRD as /omni:brainstorm writes one (issue, inbox folder, spec with its blocked-by, before/after) with no plan, opens the roadmap issue, writes roadmap.md with its Prerequisites rows and their author cards, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR for the whole roadmap, pushes it to the roadmap's page with omni roadmap push, checks the prerequisites once with omni roadmap prereqs --fix, and hands off the open ones and the /omni:drive --roadmap line. In a plan repository it prints the /omni:mega-roadmap line. Writes no code, merges nothing. Triggers on "write a roadmap", "turn this plan into PRDs", "a milestone of PRDs", "/omni:roadmap".
+description: Turns a milestone plan into a roadmap in one sitting — reads a page, a file or pasted text, shows one map of its PRDs (each blocker with its why, each wave), its open questions and its prerequisites by category, and takes every answer in one message; then writes every PRD as /omni:brainstorm writes one (issue, inbox folder, spec with its blocked-by, before/after) with no plan, opens the roadmap issue, writes roadmap.md with its Prerequisites rows and their author cards, runs omni roadmap check and omni check inbox until green, opens one phase-0 PR for the whole roadmap, pushes it to the roadmap's page with omni roadmap push, checks the prerequisites once with omni roadmap prereqs --fix, and hands off the open ones and the /omni:drive --roadmap line. In a plan repository it prints the /omni:mega-roadmap line. With --product <key>, runs from any kitted checkout of a product's repository and ends with a product roadmap on its page (<key>-R<n>), no issue and no phase-0 PR. Writes no code, merges nothing. Triggers on "write a roadmap", "turn this plan into PRDs", "a milestone of PRDs", "/omni:roadmap".
 ---
 
 # Roadmap: a milestone into PRDs, in one sitting
@@ -44,7 +44,7 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one l
 is not installed. Keep the JSON: everything `/omni:brainstorm` step 0 keeps. `<remote>` below is
 `repo.remote`.
 
-**A repository of its own only.** When the JSON has a `plan` section (its `plan.targets`), this is a
+**A repository of its own only,** unless this is a product run (**From a product** below). When the JSON has a `plan` section (its `plan.targets`), this is a
 plan repository, whose roadmaps say which repository each PRD lands in: stop in exactly one line,
 the source carried over, writing nothing:
 
@@ -326,9 +326,77 @@ The drive builds every PRD whose blockers merged, planning each when it starts, 
 naming the pull request each waits on. A `person` question is answered on the roadmap's page, or
 with `omni roadmap answer <n> <question> "<answer>"`.
 
+## From a product (`--product <key>`)
+
+A **product roadmap** (PRD 2011) lives on its product on the Omni page, and in no repository: its id is
+the product's key, an `R` and a counter, `mobile-R3`, and its document, rows, human work and
+prerequisites are the versions of its dossier. This run starts from any checkout of a repository the
+product holds that has the kit installed, a plan repository or not, and writes nothing in any
+repository: no roadmap issue, no PRD issue, no branch, no commit, no phase-0 PR. Everything else runs
+as the steps above say, with these differences.
+
+**Which product.** With `--product <key>`, run `node .omni-loop/bin/omni.mjs product use <key>`: it
+prints `product <key> remembered in this checkout`. Exit 2 means the key is not one (lowercase
+kebab-case, as `mobile`): print its line and stop. Without `--product`, run
+`node .omni-loop/bin/omni.mjs product which`: a first line `remembered: <key>` makes this a run for
+the remembered product, said in one line before anything else; with nothing remembered the skill runs
+as written.
+
+**Step 0** does not stop on a `plan` section when the run is a product's: the `a plan repository:`
+line is for a run without `--product` only.
+
+**Steps 1 and 2** read the source and draw the map as written. A row's PRD is a product PRD with no
+issue number: its `PRD` cell is filled with its product id once it exists.
+
+**Step 3, the PRDs, go to the server.** No issue, no worktree, no phase-0 branch. Write every PRD's
+files (`spec.md`, `before-after.html`) into a folder of a scratch folder (`mktemp -d`, outside every
+repository), `<prds>/<row id>/`, and create each PRD in wave order, so every blocker's id exists
+before the spec that names it:
+`node .omni-loop/bin/omni.mjs dossier push --product <key> --new --from <prds>/<row id>`. It prints
+the new id, `<key>-<n>`: that id is the row's `PRD`, and goes in each blocked spec's `blocked-by`
+(saved with `dossier push <key>-<n> --from <folder>`). No plan is written.
+
+**Step 4, the roadmap,** writes `roadmap.md` into the scratch folder, with no roadmap issue: its front
+matter has `product: <key>` and no `roadmap:` number, its `PRD` column holds `<key>-<n>` ids, and its
+`## Prerequisites` rows and cards are as written. Check it, fixing until green, against the
+product's own repositories:
+
+```bash
+node .omni-loop/bin/omni.mjs roadmap check --product <key> <scratch>/roadmap.md
+```
+
+**Step 5, the push,** replaces the phase-0 PR; `omni phase0` and `omni check inbox` do not run:
+
+```bash
+node .omni-loop/bin/omni.mjs roadmap push --product <key> --new <scratch>/roadmap.md
+```
+
+Its first line is the new roadmap's id, `<key>-R<n>`; the rest is its page and the versions added. A
+refusal (no such product, no sign-in, a row naming a repository outside the product, the server
+unreachable) is printed as is and the run stops there. A later edit is
+`roadmap push --product <key> --roadmap <n> <file>`, and a file that did not change adds no version.
+The roadmap is approved on its page, by an approver of the product: this skill never approves it.
+
+**The prerequisites** are not checked here: `omni roadmap prereqs` reads a repository's roadmap
+number. The hand-off lists each row as written, with its card, and says the check did not run.
+
+**Step 6, the hand-off** reports the roadmap's id and page, every PRD's id and row id, the waves,
+every question with its kind, and every check that ran or did not (`omni phase0`, `omni check inbox`
+and `omni roadmap prereqs` did not). Its **What is next?** block reads:
+
+```markdown
+**What is next?**
+
+1. Review and approve roadmap <key>-R<n> on its page: <page link>
+2. Once it is approved, start a fresh session (in Claude: `/clear`), or open a new terminal, then
+   run the line below on a loop (in Claude: `/loop /omni:drive --roadmap <key>-R<n>`):
+
+/omni:drive --roadmap <key>-R<n>
+```
+
 ## Guardrails
 
-- Runs only in a repository of its own; a plan repository gets the `/omni:mega-roadmap` line.
+- Runs in a repository of its own; a plan repository gets the `/omni:mega-roadmap` line, unless the run is a product's (`--product`), which opens no issue and no phase-0 PR.
 - One map, one answer: nothing is written before it, and nothing is asked after it.
 - Every PRD gets its issue, folder, spec and before/after; none gets a plan.
 - Every blocker carries its why; a dependency nobody can explain is not written.

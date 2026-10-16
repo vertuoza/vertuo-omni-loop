@@ -38,6 +38,7 @@ committed preflight, nothing from an imported copy's playbook).
 |---|---|---|
 | nothing | `/omni:mega-drive` | drive your own multi-repository PRDs in inbox, building or outbox, as `omni status` marks them |
 | PRD numbers | `/omni:mega-drive 1201 1213` | drive these PRDs, someone else's included: naming them is the ask |
+| `--roadmap <key>-R<n>` | `/omni:mega-drive --roadmap mobile-R3` | drive a product roadmap's PRDs, read from the server: **From a product roadmap** below |
 | `--roadmap <n>` | `/omni:mega-drive --roadmap 1170` | drive exactly roadmap n's PRDs, someone else's included, each held until its blockers' plan PR and every target PR merged. Name no PRD beside it |
 
 Each runs as a loop, this tick again after the wait it names (in Claude: `/loop` before it, as
@@ -48,7 +49,7 @@ the loop was asked for one, and nothing otherwise.
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the JSON,
 as `/omni:drive` step 0 keeps it, and its `plan` section. A product PRD's id among the arguments
-(`<key>-<n>`, as `mobile-12`) is driven as **From a product** below says, a plan section or not.
+(`<key>-<n>`, as `mobile-12`), or a product roadmap's id (`--roadmap <key>-R<n>`), is driven as **From a product** and **From a product roadmap** below say, a plan section or not.
 Without a `plan` section (its
 `plan.targets`) and with no product PRD's id among the arguments, this is a repository of its own:
 stop with exactly one line, the arguments it was given carried over, and no wake:
@@ -95,6 +96,18 @@ line per product PRD naming each open target PR by repository.
 When every PRD named is a product PRD, step 1 opens no loop plan and step 4 records no tick: the
 tick prints its lines and sets its wake as **Waking up** says. Step 5 stops once each is parked or
 done and no step agent of this session runs it.
+
+## From a product roadmap (`--roadmap <key>-R<n>`)
+
+A product roadmap (`mobile-R3`, PRD 2011) is on the Omni page and in no repository, and its PRDs are
+product PRDs. `/omni:mega-drive --roadmap mobile-R3` drives it exactly as `/omni:drive`'s **From a
+product roadmap** does, from any kitted checkout of a repository the product holds, a plan
+repository or not: each tick it reads the rows with
+`node .omni-loop/bin/omni.mjs dossier get <key>-R<n> roadmap`, drives each row's PRD as **From a
+product** above drives a product PRD, holds a blocked row until every target feature PR of its
+blockers' PRDs merged (naming the first still open, by repository), and records no tick on the Loop
+page and pushes no roadmap with `omni roadmap push <n>`. Step 0 does not stop on the missing `plan`
+section for it.
 
 ## 1. Open or resume the loop
 

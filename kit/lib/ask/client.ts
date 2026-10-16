@@ -533,6 +533,9 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** PRD 1162: one push of a roadmap (`../roadmap/push.ts` shapes it), sent as it is.
      * @returns {Promise<{ roadmapId: string, created: boolean, product: unknown, unknownProduct: string | null, note: string | null }>} */
     pushRoadmap: (body: unknown) => call('POST', '/api/roadmaps', { body }),
+    /** PRD 2011: one push of a product bug record, or its check (`../bug/product.ts` shapes it), sent as it is.
+     * @returns {Promise<{ dossierId: string, bug: string, created: boolean, rows: unknown[], added: unknown[], unchanged: string[] }>} */
+    pushBug: (body: unknown) => call('POST', '/api/fixes', { body }),
     /** PRD 1246: adds an idea to `repo`'s board (owner/name), for a member of the workspace that lists
      * it. @returns {Promise<{ id: string, url: string }>} */
     addIdea: ({ repo, title, pitch, lane }: { repo: string; title: string; pitch: string; lane: string }) =>

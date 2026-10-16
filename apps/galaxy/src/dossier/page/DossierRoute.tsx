@@ -5,6 +5,8 @@ import { serviceDb } from '../../data/sign-in-live';
 import type { FixSummary } from '../github/fix';
 import { mergeFacts } from '../../fixes/facts/refresh';
 import { fixFactsStore } from '../../fixes/facts/store';
+import { bugRecordPage } from '../../fixes/bug-rows';
+import { readBugRows } from '../../fixes/bug-rows.repository';
 import { fixFacts } from './fix-facts';
 import { Notice } from '../../ask/page/Notice';
 import { serverEnv } from '../../env';
@@ -25,7 +27,7 @@ import { isDossierId, readContent, readDossier, readPlanSlices, type Db } from '
 import { dossierView, readPick, type DossierRead } from './view';
 import type { VoiceCast, VoiceView } from './voice';
 import { readShownVoice, readVoiceCast } from './voice-source';
-import { kindOf, misrouted } from './work';
+import { kindOf, misrouted, rowKind } from './work';
 import { readDockPlayer } from './dock-player';
 import { questionsHref } from './working';
 import type { WorkKind } from '../store';
@@ -148,7 +150,12 @@ function prdReads(db: Db, read: DossierRead, prd: PrdNumber): DossierReads {
 async function fixOf(db: Db, read: DossierRead): Promise<{ fix?: FixPageView }> {
   const { dossier } = read;
   const kind = kindOf(dossier);
-  if (kind === 'prd' || dossier.prd === null) return {};
+  if (kind === 'prd') return {};
+  // A product bug (PRD 2011, s8) has no issue: its page reads its Fixes rows.
+  if (dossier.prd === null) {
+    const rows = kind === 'bug' ? await readBugRows(db, dossier.id) : null;
+    return rows ? { fix: bugRecordPage(rows) } : {};
+  }
   const reader = dossierGithub();
   const ref = { id: dossier.id, home_repo: dossier.home_repo, prd: dossier.prd };
   const pages = read.versions.filter((v) => v.kind === 'before-after');
@@ -251,6 +258,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   }
   if (!read && one(query.deleted) === '1') return <DraftDeleted />;
   if (!read) notFound();
+  // A product roadmap's dossier (PRD 2011) has its page under /roadmaps, which finds it by its dossier's id too.
+  if (rowKind(read.dossier) === null && String(read.dossier.kind) === 'roadmap') redirect(`/roadmaps/${encodeURIComponent(id)}`);
   const elsewhere = misrouted(kindOf(read.dossier), route, id, query);
   if (elsewhere) redirect(elsewhere);
 
