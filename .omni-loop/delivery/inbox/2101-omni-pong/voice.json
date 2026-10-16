@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-16",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Five slices, each with its own tests, a guard on the import graph and a pinned microphone policy: what shipped is what the spec said, and the feel with a real voice is the one thing left to try.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Still a toy, but it loads only on its cabinet and the sound stays in the browser, so it costs me nothing.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A fifth game shipped in one afternoon through the loop, with multiplayer next.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The LOW / MID / HIGH limit answers my objection; the scene follows OMNI DUET's pattern, though the two share a header that could be one.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A quick win for the people who play; nothing in it reaches my customers.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
     }
   ]
 }
