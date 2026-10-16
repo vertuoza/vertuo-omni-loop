@@ -66,4 +66,4 @@ retire · Propose to remove · Approve · Reject · Kept · retired · removed �
 ## Source
 
 - PRD 1795 s2, drawn from the source by hand (no `/omni:pixel-perfect mock` run).
-- .omni-loop/delivery/inbox/1795-product-knowledge-page/spec.md
+- .omni-loop/delivery/shipped/1795-product-knowledge-page/spec.md
