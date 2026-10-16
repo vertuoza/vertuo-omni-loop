@@ -53,4 +53,4 @@ A product's Constellation tab: how the product looks now, read only. Its reposit
 
 ## Source
 
-/omni:brainstorm, PRD 2129: .omni-loop/delivery/inbox/2129-constellation-tab/before-after.html
+/omni:brainstorm, PRD 2129: .omni-loop/delivery/shipped/2129-constellation-tab/before-after.html
