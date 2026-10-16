@@ -15,7 +15,7 @@ function stub(answers: Record<string, Answer>) {
       then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) =>
         Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null }).then(ok, ko),
     };
-    for (const verb of ['select', 'eq', 'not', 'in', 'is', 'like', 'order']) {
+    for (const verb of ['select', 'eq', 'neq', 'not', 'in', 'is', 'like', 'order']) {
       q[verb] = (...a: unknown[]) => { calls.push([table, verb, ...a]); return q; };
     }
     return q;
@@ -175,5 +175,32 @@ describe('the product home\'s storage', () => {
   it('throws on an answer out of shape', async () => {
     const { repo } = stub({ dossiers: { data: [{ id: 'd-1', home_repo: 'vertuo/api', prd: null }] } });
     await expect(repo.prds('ws-1', 'p-1')).rejects.toThrow();
+  });
+
+  it('reads the product\'s links, the other products\' links to them and the repositories\' phase 0 (PRD 2129)', async () => {
+    const link = { repository: 'a/api', role: 'api', consumes: [] };
+    const other = { repository: 'a/api', products: { name: 'Web' } };
+    const flag = { full_name: 'a/api', phase0: 'pr' };
+    const { calls, repo } = stub({ product_repositories: { data: [link] }, repositories: { data: [flag] } });
+    expect(await repo.links('ws-1', 'p-1')).toEqual([link]);
+    expect(await stub({ product_repositories: { data: [other] } }).repo.otherLinks('ws-1', 'p-1', ['a/api'])).toEqual([other]);
+    expect(await repo.phase0('ws-1', ['a/api'])).toEqual([flag]);
+    expect(calls).toEqual([
+      ['product_repositories', 'select', 'repository, role, consumes'], ['product_repositories', 'eq', 'workspace_id', 'ws-1'],
+      ['product_repositories', 'eq', 'product_id', 'p-1'], ['product_repositories', 'order', 'repository'],
+      ['repositories', 'select', 'full_name, phase0'], ['repositories', 'eq', 'workspace_id', 'ws-1'], ['repositories', 'in', 'full_name', ['a/api']],
+    ]);
+  });
+
+  it('reads no other link and no phase 0 for no repository, and throws on a refused read or an answer out of shape', async () => {
+    const { calls, repo } = stub({});
+    expect(await repo.otherLinks('ws-1', 'p-1', [])).toEqual([]);
+    expect(await repo.phase0('ws-1', [])).toEqual([]);
+    expect(calls).toEqual([]);
+    await expect(stub({ product_repositories: { error: { message: 'boom' } } }).repo.links('ws-1', 'p-1')).rejects.toThrow('could not read the product\'s repositories (boom)');
+    await expect(stub({ product_repositories: { error: { message: 'boom' } } }).repo.otherLinks('ws-1', 'p-1', ['a/api'])).rejects.toThrow('other products (boom)');
+    await expect(stub({ repositories: { error: { message: 'boom' } } }).repo.phase0('ws-1', ['a/api'])).rejects.toThrow('phase 0 (boom)');
+    await expect(stub({ product_repositories: { data: [{ repository: 'a/api' }] } }).repo.links('ws-1', 'p-1')).rejects.toThrow();
+    await expect(stub({ repositories: { data: [{ full_name: 'a/api', phase0: 'maybe' }] } }).repo.phase0('ws-1', ['a/api'])).rejects.toThrow();
   });
 });

@@ -5,7 +5,7 @@ import { sortItems } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
 import type { QuestionView } from '../questions/questions.contract';
 import {
   productHomeRepository, type ProductHomeDb, type ProductHomeRepository, type StoredApproval, type StoredHomePrd,
-  type StoredFix, type StoredIdea, type StoredItem, type StoredOutbox, type StoredPlayer, type StoredProductPrd, type StoredPull,
+  type StoredFix, type StoredIdea, type StoredItem, type StoredLink, type StoredOtherLink, type StoredOutbox, type StoredPhase0, type StoredPlayer, type StoredProductPrd, type StoredPull,
   type StoredRoadmap, type StoredStageRow, type StoredTopic, type StoredVoid,
 } from './product-home.repository';
 
@@ -122,6 +122,17 @@ export interface HomeFix {
  * draws it (PRD 1548 s9), but for the addresses of its PRD's page, which the page adds. */
 export type HomeQuestion = Omit<QuestionView, 'prdHref' | 'outboxHref'>;
 
+/** A repository linked to the product (PRD 2129), as the Constellation tab names it. */
+export interface HomeRepository {
+  repository: string;
+  role: string | null;
+  /** The repositories of the product it consumes, as its owners declared them. */
+  consumes: string[];
+  phase0: 'pr' | 'server';
+  /** The names of the other products it is linked to, sorted. */
+  alsoIn: string[];
+}
+
 /** Everything the product home draws. */
 export interface ProductHome {
   product: { id: string; name: string };
@@ -132,6 +143,8 @@ export interface ProductHome {
   bugs: HomeFix[];
   visuals: HomeFix[];
   questions: HomeQuestion[];
+  /** The product's linked repositories, by name. */
+  repositories: HomeRepository[];
 }
 
 /** What the product home is drawn from, as the repository reads it. */
@@ -159,6 +172,10 @@ export interface ProductHomeRows {
   items: readonly StoredItem[];
   /** The players of the PRDs' authors: their GitHub logins. */
   players: readonly StoredPlayer[];
+  /** The product's links to its repositories, the other products' links to those, and each one's phase 0 (PRD 2129). */
+  links: readonly StoredLink[];
+  otherLinks: readonly StoredOtherLink[];
+  phase0: readonly StoredPhase0[];
   /** Who reads: their user id. */
   me: string;
 }
@@ -339,6 +356,20 @@ function productQuestionsOf(rows: ProductHomeRows, who: WhoIsFor): QuestionGroup
 const newestFirst = (groups: QuestionGroup[]): HomeQuestion[] =>
   [...groups].sort((a, b) => Date.parse(b.created) - Date.parse(a.created)).flatMap((g) => g.questions);
 
+/** The product's repositories: each link with its phase 0 (`pr` until a row says otherwise) and the other
+ * products it is also in, by name, sorted. */
+function repositoriesOf(rows: ProductHomeRows): HomeRepository[] {
+  const flags = new Map(rows.phase0.map((p) => [p.full_name, p.phase0] as const));
+  const others = groupBy(rows.otherLinks, (l) => l.repository);
+  return [...rows.links].sort((a, b) => a.repository.localeCompare(b.repository)).map((l) => ({
+    repository: l.repository,
+    role: l.role,
+    consumes: [...l.consumes],
+    phase0: flags.get(l.repository) ?? 'pr',
+    alsoIn: [...new Set((others.get(l.repository) ?? []).map((o) => o.products.name))].sort((a, b) => a.localeCompare(b)),
+  }));
+}
+
 /** The product home from the rows read. */
 export function productHomeOf(rows: ProductHomeRows): ProductHome {
   const index = indexOf(rows);
@@ -364,6 +395,7 @@ export function productHomeOf(rows: ProductHomeRows): ProductHome {
     bugs: fixesOf(rows.fixes, 'bug'),
     visuals: fixesOf(rows.fixes, 'visual'),
     questions: newestFirst(groups),
+    repositories: repositoriesOf(rows),
   };
 }
 
@@ -386,7 +418,9 @@ export function productHomeService(store: ProductHomeRepository) {
       const repos = [...new Set(prds.map((p) => p.home_repo))];
       const dossiers = prds.map((p) => p.id);
       const authors = [...new Set([...prds, ...productPrds].flatMap((p) => (p.opened_by === null ? [] : [p.opened_by])))];
-      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes, items, players] = await Promise.all([
+      const links = await store.links(workspace, id);
+      const linked = links.map((l) => l.repository);
+      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes, items, players, otherLinks, phase0] = await Promise.all([
         store.stages(workspace, repos),
         store.outbox(workspace, repos),
         store.topics(workspace, repos),
@@ -399,9 +433,11 @@ export function productHomeService(store: ProductHomeRepository) {
         store.fixes(workspace, id),
         store.items(productPrds.map((p) => p.id)),
         store.players(workspace, authors),
+        store.otherLinks(workspace, id, linked),
+        store.phase0(workspace, linked),
       ]);
       return productHomeOf({
-        product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, key: found.key, productPrds, items, players, me,
+        product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, key: found.key, productPrds, items, players, links, otherLinks, phase0, me,
       });
     },
   };
