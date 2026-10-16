@@ -34,6 +34,10 @@ const MEMBERS: Member[] = [
   { workspaceId: ELSEWHERE, userId: EVE, role: 'owner', team: null, login: 'eve' },
 ];
 
+/** Olga's API key, which sends in WORKSPACE. */
+export const API_KEY = '00000000-0000-4000-8000-0000018302a1';
+const KEYS = [{ id: API_KEY, workspaceId: WORKSPACE, name: 'QA dashboard' }];
+
 const FLEETS = [{ workspaceId: WORKSPACE, name: 'cia' }, { workspaceId: WORKSPACE, name: 'pirates' }];
 
 /** Which workspace owns a repository's GitHub organisation. */
@@ -58,7 +62,7 @@ export function jobRow(more: Partial<JobRow> = {}): JobRow {
   jobSeq += 1;
   return {
     id: `00000000-0000-4000-8000-${String(1830020000 + jobSeq).padStart(12, '0')}`, workspace_id: WORKSPACE, line: '/omni:yolo 1717',
-    repo: 'vertuoza/app', to_runner: null, to_fleet: null, sent_by: MO, status: 'queued', runner_id: null, cancel_requested: false,
+    repo: 'vertuoza/app', to_runner: null, to_fleet: null, sent_by: MO, sent_by_key: null, status: 'queued', runner_id: null, cancel_requested: false,
     log_tail: '', pr_url: null, exit_code: null, reason: null, queued_at: T0.toISOString(), claimed_at: null, running_at: null,
     ended_at: null, ...more,
   };
@@ -97,6 +101,7 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], now = () =
     logins: (workspaceId, userIds) => Promise.resolve(new Map(MEMBERS.flatMap((m) => (
       m.workspaceId === workspaceId && userIds.includes(m.userId) && m.login ? [[m.userId, m.login] as const] : []
     )))),
+    keyNames: (workspaceId, keyIds) => Promise.resolve(new Map(KEYS.filter((k) => k.workspaceId === workspaceId && keyIds.includes(k.id)).map((k) => [k.id, k.name] as const))),
     runner: (id) => Promise.resolve(state.runners.find((r) => r.id === id) ?? null),
     runnerNamed: (workspaceId, name) => Promise.resolve(state.runners.find((r) => r.workspace_id === workspaceId && r.name === name) ?? null),
     runners: (workspaceId) => Promise.resolve(state.runners.filter((r) => r.workspace_id === workspaceId).sort((a, b) => a.name.localeCompare(b.name))),
@@ -142,7 +147,7 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], now = () =
       return Promise.resolve(found ? { ...found } : null);
     },
     insertJob: (job: NewJob) => {
-      const row = jobRow({ workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy, queued_at: stamp() });
+      const row = jobRow({ workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy, sent_by_key: job.sentByKey, queued_at: stamp() });
       state.jobs.push(row);
       return Promise.resolve({ ...row });
     },

@@ -18,7 +18,7 @@
 // each with the state and the waiting detail of the result row naming it, and the result's machine
 // and time on the roadmap.
 //
-// And roadmap_product_push() of 20261210090000_product_roadmaps.sql (PRD 2011): refused 42501 signed out,
+// And roadmap_product_push() of 20261210100000_product_roadmaps.sql (PRD 2011): refused 42501 signed out,
 // P0002 for a product keyed so in none of the caller's workspaces or a roadmap number it has not; with no
 // number it creates the product's next roadmap (a counter per product, no gap), with one it replaces the
 // roadmap's fields and PRD rows; and it adds a version of the document, the PRD rows, the human work and

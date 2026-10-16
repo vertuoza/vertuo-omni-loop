@@ -7,5 +7,6 @@ packages:
 allowBuilds:
   esbuild: true
   protobufjs: true
+  vue-demi: false
 ignoredOptionalDependencies:
   - fallow-type-aware

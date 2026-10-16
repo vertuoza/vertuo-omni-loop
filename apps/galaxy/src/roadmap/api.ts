@@ -40,7 +40,7 @@
 //       created, product: {id, name}, added: [{kind, version}], unchanged: [kind]}
 //
 // The roadmap is a dossier of its product, with no issue: roadmap_product_push()
-// (supabase/migrations/20261210090000_product_roadmaps.sql) numbers it from the product's own counter and
+// (supabase/migrations/20261210100000_product_roadmaps.sql) numbers it from the product's own counter and
 // adds a version only of what changed. Its rows are checked here against the product's own repositories,
 // which the database does not do: a row naming one outside the product is refused 400 by name, and
 // nothing is written. With `check: true` nothing is written either: the answer is 200 {checked: true,

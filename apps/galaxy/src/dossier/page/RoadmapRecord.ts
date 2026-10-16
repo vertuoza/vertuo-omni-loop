@@ -6,7 +6,7 @@
 //   newest first, and the one shown (`?part=` and `?v=`, the latest document by default);
 // - its approval, as a ◆ PRD's (./approval.ts): waiting for approval, approved by whom and when, drifted ·
 //   approve again once a newer roadmap.md was pushed, or voided · approve again. It pins roadmap.md alone
-//   (supabase/migrations/20261210090000_product_roadmaps.sql, dossier_approve()), so only a newer document
+//   (supabase/migrations/20261210100000_product_roadmaps.sql, dossier_approve()), so only a newer document
 //   drifts it; a newer set of rows never does;
 // - its status word, as a PRD reads: `held` until it is approved, `building` once approved and a PRD of it
 //   is under way, `approved` before that, `drifted` once its approval no longer holds.

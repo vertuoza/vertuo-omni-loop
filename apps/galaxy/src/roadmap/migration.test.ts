@@ -17,7 +17,7 @@ import { TICK_ADDED_COLUMNS, TICK_READ_COLUMNS } from '../loop/store';
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../${path}`, import.meta.url)), 'utf8');
 const MIGRATION = read('supabase/migrations/20261110090000_roadmaps.sql');
 const CODE = MIGRATION.replace(/--.*$/gm, '').replace(/\s+/g, ' ');
-// PRD 2011 added a roadmap's dossier_id and a PRD row's prd_id (20261210090000_product_roadmaps.sql), checked below.
+// PRD 2011 added a roadmap's dossier_id and a PRD row's prd_id (20261210100000_product_roadmaps.sql), checked below.
 const ADDED_BY_PRODUCT_ROADMAPS = new Set(['dossier_id', 'prd_id']);
 const TABLES = { roadmaps: ROADMAP_COLUMNS, roadmap_prds: ROADMAP_PRD_COLUMNS };
 
@@ -37,7 +37,7 @@ describe('the roadmaps migration', () => {
   });
 
   it('adds the columns a roadmap born on the server is read by: its dossier, and a PRD row\'s text id (PRD 2011)', () => {
-    const added = read('supabase/migrations/20261210090000_product_roadmaps.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+    const added = read('supabase/migrations/20261210100000_product_roadmaps.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
     expect(added).toContain('alter table public.roadmaps add column dossier_id uuid');
     expect(added).toContain('alter table public.roadmap_prds add column prd_id text');
   });
