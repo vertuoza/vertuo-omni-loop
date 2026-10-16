@@ -1247,7 +1247,7 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       expect(stale.out).toContain('.github/CODEOWNERS: its "# BEGIN omni kb owners" block is out of date with the locked laws and laws.owners — run omni kb owners.');
       expect(await omni(root, ['kb', 'owners'])).toMatchObject({
         code: 0,
-        out: 'kb owners — wrote .github/CODEOWNERS: 5 path(s) owned by @pierrederval, @jdoe; no line outside its markers changed.\n',
+        out: 'kb owners — wrote .github/CODEOWNERS: 6 path(s) owned by @pierrederval, @jdoe; no line outside its markers changed.\n',
       });
       const written = read('.github/CODEOWNERS');
       expect(written).toBe(`${BLOCK.replaceAll(' @pierrederval', ' @pierrederval @jdoe')}\n`);
