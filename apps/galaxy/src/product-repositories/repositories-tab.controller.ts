@@ -2,7 +2,7 @@ import 'server-only';
 import type { MemberSession } from '../data/member-session';
 import { viewer } from '../data/viewer';
 import { memberWorkspace } from '../data/workspace';
-import { ApproverWriteSchema, ArchiveWriteSchema, LinkWriteSchema, MemberQuerySchema, RepoQuerySchema, TAB_REFUSALS, type TabRefusal } from './repositories-tab.contract';
+import { ApproverWriteSchema, LinkWriteSchema, MemberQuerySchema, RepoQuerySchema, TAB_REFUSALS, type TabRefusal } from './repositories-tab.contract';
 import { repositoriesTabReads, type Outcome, type RepositoriesTab, type RepositoriesTabService } from './repositories-tab.service';
 import { demoRepositoriesTab, type RepositoriesTabView } from './RepositoriesTab';
 
@@ -16,8 +16,7 @@ import { demoRepositoriesTab, type RepositoriesTabView } from './RepositoriesTab
 //
 // The routes the tab's browser client calls (repositories-tab.client.ts), in the shapes of
 // repositories-tab.contract.ts: POST and DELETE …/repositories/links, POST and DELETE
-// …/repositories/approvers, and POST …/repositories/archive (PRD 2011 s17: only a person presses Archive, so a
-// request carrying an Authorization header, an agent's, is refused before any service runs). The session is checked first, from the request's cookie claims, as viewer()
+// …/repositories/approvers. The session is checked first, from the request's cookie claims, as viewer()
 // reads them: signed out (or the demo, or no database here), 401 and no service runs. Signed in, the
 // service writes as that person, so the database functions decide who may (an owner) and what.
 
@@ -70,8 +69,6 @@ const NO_PRODUCT = 'No such product.';
 const MALFORMED_LINK = 'The body must be {"repo": "owner/name", "role", "knowledge", "readAt", "readOnly", "consumes"}.';
 const MALFORMED_APPROVER = 'The body must be {"member": "<id>", "state": "asked" | "skipped"}.';
 const MALFORMED_REPO = 'Name the repository: ?repo=owner/name.';
-const MALFORMED_ARCHIVE = 'The body must be {"archived": true | false}.';
-const AGENT = 'Only a person presses Archive: sign in and use the button on the product’s Repositories tab.';
 const MALFORMED_MEMBER = 'Name the member: ?member=<id>.';
 const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
@@ -124,11 +121,6 @@ export function repositoriesTabHandlers(deps: RepositoriesTabHandlerDeps) {
     /** POST …/approvers: an owner lists a member as asked or skipped. */
     setApprover: (request: Request, product: string) =>
       run(product, async () => parsed(ApproverWriteSchema, await bodyOf(request)), MALFORMED_APPROVER, (s, w) => s.setApprover(product, w.member, w.state)),
-    /** POST …/archive: an owner archives the plan repository, or undoes it. A person's click: an agent's request is refused. */
-    archive: (request: Request, product: string) =>
-      request.headers.has('authorization')
-        ? Promise.resolve(refuse('not-owner', AGENT))
-        : run(product, async () => parsed(ArchiveWriteSchema, await bodyOf(request)), MALFORMED_ARCHIVE, (s, w) => s.archive(product, w.archived)),
     /** DELETE …/approvers?member=: an owner takes a member off the list. */
     removeApprover: (request: Request, product: string) =>
       run(product, () => Promise.resolve(parsed(MemberQuerySchema, query(request, 'member'))), MALFORMED_MEMBER, (s, member) => s.removeApprover(product, member)),
@@ -151,7 +143,5 @@ export const postLink = async (request: Request, { params }: Params): Promise<Re
 export const deleteLink = async (request: Request, { params }: Params): Promise<Response> => live.removeLink(request, (await params).id);
 /** POST /app/products/<id>/repositories/approvers */
 export const postApprover = async (request: Request, { params }: Params): Promise<Response> => live.setApprover(request, (await params).id);
-/** POST /app/products/<id>/repositories/archive */
-export const postArchive = async (request: Request, { params }: Params): Promise<Response> => live.archive(request, (await params).id);
 /** DELETE /app/products/<id>/repositories/approvers */
 export const deleteApprover = async (request: Request, { params }: Params): Promise<Response> => live.removeApprover(request, (await params).id);

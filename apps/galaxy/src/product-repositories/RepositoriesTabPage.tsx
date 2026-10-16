@@ -1,11 +1,11 @@
 'use client';
-import { useReducer, useRef, useState } from 'react';
+import { useReducer, useRef } from 'react';
 import { approversReducer, initialApproversForm, type ApproversAction, type ApproversForm, type ApproverState } from '../products/approvers';
 import { ApproversSection, type ApproversHandlers } from '../products/approvers-section';
 import { LinksSection, type LinksHandlers } from './LinksSection';
-import { Ladder, PlanArchiveSection, type PlanHandlers } from './PlanArchiveSection';
+import { Ladder, PlanRepositorySection } from './PlanRepositorySection';
 import { repositoriesTabClient, type Changed, type RepositoriesTabPort } from './repositories-tab.client';
-import type { LinkWrite, PlanArchive, RepositoriesTab } from './repositories-tab.contract';
+import type { LinkWrite, RepositoriesTab } from './repositories-tab.contract';
 import { demoTabPort, initialLinksForm, linksReducer } from './repositories-tab-model';
 
 // The Repositories & approvers tab in the browser (PRD 1364 s11): keeps the links' state
@@ -28,9 +28,8 @@ const listReducer = (form: ApproversForm | null, action: ApproversAction): Appro
 export function RepositoriesTabPage({ source, tab, add = null }: RepositoriesTabPageProps) {
   const [links, dispatchLinks] = useReducer(linksReducer, tab, initialLinksForm);
   const [approvers, dispatchApprovers] = useReducer(listReducer, tab.approvers, (a) => (a ? initialApproversForm(a) : null));
-  const [plan, setPlan] = useState<{ plan: PlanArchive | null; busy: boolean; message: string | null }>({ plan: tab.plan, busy: false, message: null });
   const port = useRef<RepositoriesTabPort | null>(null);
-  const getPort = () => (port.current ??= source.kind === 'demo' ? demoTabPort(tab.links, tab.plan?.repository ?? null) : repositoriesTabClient(tab.product.id));
+  const getPort = () => (port.current ??= source.kind === 'demo' ? demoTabPort(tab.links) : repositoriesTabClient(tab.product.id));
 
   const changeLinks = async <T,>(call: () => Promise<Changed<T>>, done: (answer: T) => void) => {
     dispatchLinks({ type: 'busy' });
@@ -62,24 +61,10 @@ export function RepositoriesTabPage({ source, tab, add = null }: RepositoriesTab
     },
   };
 
-  const changePlan = async (archived: boolean) => {
-    if (plan.plan === null || plan.busy) return;
-    const was = plan.plan;
-    setPlan({ plan: was, busy: true, message: null });
-    const answer = await getPort().archive(archived);
-    setPlan(answer.ok
-      ? { plan: { ...was, archivedAt: answer.archivedAt, holds: [] }, busy: false, message: null }
-      : { plan: was, busy: false, message: answer.message });
-  };
-  const onPlan: PlanHandlers = {
-    archive: () => { void changePlan(true); },
-    undo: () => { void changePlan(false); },
-  };
-
   return (
     <>
       <Ladder links={links.links} />
-      {plan.plan ? <PlanArchiveSection plan={plan.plan} owner={tab.owner} busy={plan.busy} message={plan.message} on={onPlan} /> : null}
+      {tab.plan ? <PlanRepositorySection plan={tab.plan} /> : null}
       <LinksSection form={links} owner={tab.owner} add={add} on={onLinks} />
       <ApproversSection form={approvers} on={onApprovers} />
     </>

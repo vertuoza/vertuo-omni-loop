@@ -1,7 +1,7 @@
 import {
   approversOf, GONE, NOT_MEMBER, NOT_OWNER, type Approvers, type ApproverState, type Member,
 } from '../products/approvers';
-import { holdSentence, type Hold, type Link, type LinkWrite, type PlanArchive, type RepositoriesTab, type TabRefusal } from './repositories-tab.contract';
+import type { Hold, Link, LinkWrite, PlanRepository, RepositoriesTab, TabRefusal } from './repositories-tab.contract';
 import {
   repositoriesTabRepository, type Refused, type RepositoriesTabDb, type RepositoriesTabRepository, type StoredTabLink,
 } from './repositories-tab.repository';
@@ -18,11 +18,9 @@ import {
 // - saveLink, removeLink: an owner adds a repository, sets every field of its link, or takes it out,
 //   through product_repository_link() and product_repository_unlink(); a refusal keeps the database's
 //   words (a field it refuses names itself first: `Role: …`, `Consumes: …`).
-// - archive: an owner archives the product's plan repository, or undoes it (PRD 2011 s17). Refused, naming
-//   each hold, while a repository of the product is below step 5 of the rollout ladder or a roadmap, bug
-//   record or PRD born in the plan repository is still open; the database refuses the ladder again
-//   (product_plan_archive()), this adds the records born in git. It records the decision only: the App
-//   makes the repository read-only on GitHub (apps/omni-app/src/plan-archive/), so no key is here.
+// - plan: the product's plan repository and what is still in it (PRD 2011 s17), information only: the
+//   repositories below step 5 of the rollout ladder, and the roadmaps, bug records and PRDs born in the plan
+//   repository and still open. The plan repository is never archived; it keeps working beside the product.
 // - setApprover, removeApprover: an owner lists a member as asked or skipped, or takes them off; a
 //   refusal says it as the Approvers section always has (src/products/approvers.ts).
 
@@ -57,12 +55,6 @@ function approverRefusal(refused: Refused): { ok: false; kind: TabRefusal; error
   if (refused.code === '22023') return { ok: false, kind: 'refused', error: NOT_MEMBER };
   if (refused.code === 'P0002') return { ok: false, kind: 'missing', error: GONE };
   return { ok: false, kind: 'database', error: refused.message };
-}
-
-/** The database's refusal of an archive by its kind, in its words. */
-function archiveRefusal(refused: Refused): { ok: false; kind: TabRefusal; error: string } {
-  const kinds: Record<string, TabRefusal> = { '42501': 'not-owner', P0002: 'missing', '22023': 'refused', '55000': 'refused' };
-  return { ok: false, kind: kinds[refused.code ?? ''] ?? 'database', error: refused.message };
 }
 
 const RECORD_NAMES = { prd: 'PRD', bug: 'bug', roadmap: 'roadmap' } as const;
@@ -101,13 +93,9 @@ export function repositoriesTabService(store: RepositoriesTabRepository) {
     }
   }
 
-  async function planOf(workspace: string, product: { plan_repository: string | null; plan_archived_at: string | null }, links: readonly Link[]): Promise<PlanArchive | null> {
+  async function planOf(workspace: string, product: { plan_repository: string | null }, links: readonly Link[]): Promise<PlanRepository | null> {
     if (product.plan_repository === null) return null;
-    return {
-      repository: product.plan_repository,
-      archivedAt: product.plan_archived_at,
-      holds: product.plan_archived_at === null ? await holdsOf(workspace, product.plan_repository, links) : [],
-    };
+    return { repository: product.plan_repository, holds: await holdsOf(workspace, product.plan_repository, links) };
   }
 
   return {
@@ -152,22 +140,6 @@ export function repositoriesTabService(store: RepositoriesTabRepository) {
       const slug = repo.trim().toLowerCase();
       const done = await store.unlink(product, slug);
       return done.ok ? { ok: true, value: { repo: slug, removed: done.removed } } : linkRefusal(done);
-    },
-
-    /**
-     * Archives the product's plan repository (true), or undoes it (false). An owner only; the holds refuse an
-     * archive in the database's words for the ladder, and in `X · Y` for the records born in git.
-     */
-    async archive(product: string, archived: boolean): Promise<Outcome<{ archivedAt: string | null }>> {
-      const row = await store.product(product);
-      if (!row) return { ok: false, kind: 'missing', error: 'No such product.' };
-      if (!(await store.owner(row.workspace_id))) return { ok: false, kind: 'not-owner', error: 'Only a workspace owner archives the plan repository.' };
-      if (archived && row.plan_repository !== null && row.plan_archived_at === null) {
-        const holds = await holdsOf(row.workspace_id, row.plan_repository, (await store.links(row.id)).map(linkOf));
-        if (holds.length > 0) return { ok: false, kind: 'refused', error: `Archive: still held by ${holds.map(holdSentence).join(' · ')}.` };
-      }
-      const done = await store.archive(product, archived);
-      return done.ok ? { ok: true, value: { archivedAt: done.archivedAt } } : archiveRefusal(done);
     },
 
     /** Lists a member as asked or skipped, or changes their state. */

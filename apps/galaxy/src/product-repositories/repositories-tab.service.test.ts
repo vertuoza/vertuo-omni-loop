@@ -9,7 +9,7 @@ import { repositoriesTabService } from './repositories-tab.service';
 // tab's shapes, a refusal by its kind and in plain words.
 
 const ACME = 'w-acme';
-const MOBILE: StoredTabProduct = { id: 'p-mobile', workspace_id: ACME, name: 'Mobile', plan_repository: null, plan_archived_at: null };
+const MOBILE: StoredTabProduct = { id: 'p-mobile', workspace_id: ACME, name: 'Mobile', plan_repository: null };
 const API: StoredTabLink = { repository: 'acme/api', role: 'api', knowledge: 'own', read_at: null, read_only: false, consumes: [], added_by: 'person', ladder_step: 5 };
 const APP: StoredTabLink = { repository: 'acme/app', role: null, knowledge: 'own', read_at: null, read_only: true, consumes: ['acme/api'], added_by: 'prd', ladder_step: 5 };
 const ROSTER = [
@@ -29,7 +29,6 @@ function store(over: Over = {}) {
     roster: () => Promise.resolve(ROSTER),
     approvers: () => Promise.resolve([{ user_id: 'u-bo', state: 'asked' as const }]),
     openBornInGit: () => Promise.resolve([]),
-    archive: (product, archived) => { calls.push(`archive ${product} ${String(archived)}`); return Promise.resolve({ ok: true as const, archivedAt: archived ? '2026-10-16T09:00:00Z' : null }); },
     link: (product, link) => { calls.push(`link ${product} ${link.repository}`); return Promise.resolve({ ok: true as const, link: { ...link, added_by: 'person' as const, ladder_step: 1 } }); },
     unlink: (product, repo) => { calls.push(`unlink ${product} ${repo}`); return Promise.resolve({ ok: true as const, removed: true }); },
     setApprover: (product, member, state) => { calls.push(`set ${product} ${member} ${state}`); return Promise.resolve({ ok: true as const, state }); },
@@ -125,8 +124,8 @@ describe('the changes', () => {
   });
 });
 
-describe('the plan repository and its archive (PRD 2011 s17)', () => {
-  const PLANNED: StoredTabProduct = { ...MOBILE, plan_repository: 'acme/plan', plan_archived_at: null };
+describe('what is still in the plan repository (PRD 2011 s17)', () => {
+  const PLANNED: StoredTabProduct = { ...MOBILE, plan_repository: 'acme/plan' };
   const planned = (over: Over = {}) => store({ product: () => Promise.resolve(PLANNED), ...over });
   const below = { ...APP, ladder_step: 3 };
 
@@ -134,8 +133,8 @@ describe('the plan repository and its archive (PRD 2011 s17)', () => {
     expect((await store().service.tab(ACME, MOBILE.id))?.plan).toBeNull();
   });
 
-  it('offers Archive when nothing holds the plan repository', async () => {
-    expect((await planned().service.tab(ACME, MOBILE.id))?.plan).toEqual({ repository: 'acme/plan', archivedAt: null, holds: [] });
+  it('shows no hold when nothing is left in the plan repository', async () => {
+    expect((await planned().service.tab(ACME, MOBILE.id))?.plan).toEqual({ repository: 'acme/plan', holds: [] });
   });
 
   it('names each hold: a repository below step 5 (the plan repository itself never holds), then a record born in git still open', async () => {
@@ -151,46 +150,11 @@ describe('the plan repository and its archive (PRD 2011 s17)', () => {
     ]);
   });
 
-  it('says an archived plan repository with no hold, whatever is open', async () => {
-    const { service } = planned({ product: () => Promise.resolve({ ...PLANNED, plan_archived_at: '2026-10-16T09:00:00Z' }), links: () => Promise.resolve([below]) });
-    expect((await service.tab(ACME, MOBILE.id))?.plan).toEqual({ repository: 'acme/plan', archivedAt: '2026-10-16T09:00:00Z', holds: [] });
-  });
 
-  it('holds the archive, saying so, when what is open cannot be read', async () => {
+  it('says so with one hold when what is open cannot be read', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { service } = planned({ openBornInGit: () => Promise.reject(new Error('down')) });
     expect((await service.tab(ACME, MOBILE.id))?.plan?.holds).toEqual([{ name: 'Open records', why: 'could not be read just now' }]);
-    expect(await service.archive(MOBILE.id, true)).toEqual({ ok: false, kind: 'refused', error: 'Archive: still held by Open records: could not be read just now.' });
   });
 
-  it('refuses Archive naming every hold, and calls the database for nothing', async () => {
-    const { service, calls } = planned({ links: () => Promise.resolve([below]), openBornInGit: () => Promise.resolve([{ kind: 'roadmap', number: 412 }]) });
-    expect(await service.archive(MOBILE.id, true)).toEqual({ ok: false, kind: 'refused', error: 'Archive: still held by app at step 3 · roadmap 0412 born in git, open.' });
-    expect(calls).toEqual([]);
-  });
-
-  it('archives once nothing holds it, and undoes it without looking at the holds', async () => {
-    const { service, calls } = planned();
-    expect(await service.archive(MOBILE.id, true)).toEqual({ ok: true, value: { archivedAt: '2026-10-16T09:00:00Z' } });
-    const open = planned({ links: () => Promise.resolve([below]), openBornInGit: () => Promise.resolve([{ kind: 'prd', number: 7 }]) });
-    expect(await open.service.archive(MOBILE.id, false)).toEqual({ ok: true, value: { archivedAt: null } });
-    expect(calls).toEqual([`archive ${MOBILE.id} true`]);
-    expect(open.calls).toEqual([`archive ${MOBILE.id} false`]);
-  });
-
-  it('is refused to anyone who does not own the workspace, and for a product it does not read', async () => {
-    const member = planned({ owner: () => Promise.resolve(false) });
-    expect(await member.service.archive(MOBILE.id, true)).toMatchObject({ ok: false, kind: 'not-owner' });
-    expect(member.calls).toEqual([]);
-    expect(await store().service.archive('p-nothing', true)).toEqual({ ok: false, kind: 'missing', error: 'No such product.' });
-  });
-
-  it("keeps the database's refusal by kind, its ladder words included", async () => {
-    const refusing = (code: string | null, message: string) => planned({ archive: () => Promise.resolve({ ok: false as const, code, message }) }).service;
-    expect(await refusing('55000', 'Archive: still held by web at step 4.').archive(MOBILE.id, true)).toEqual({ ok: false, kind: 'refused', error: 'Archive: still held by web at step 4.' });
-    expect(await refusing('22023', 'Archived: true or false.').archive(MOBILE.id, true)).toMatchObject({ kind: 'refused' });
-    expect(await refusing('42501', 'Only an owner.').archive(MOBILE.id, true)).toMatchObject({ kind: 'not-owner' });
-    expect(await refusing('P0002', 'gone').archive(MOBILE.id, true)).toMatchObject({ kind: 'missing' });
-    expect(await refusing('XX000', 'boom').archive(MOBILE.id, true)).toEqual({ ok: false, kind: 'database', error: 'boom' });
-  });
 });

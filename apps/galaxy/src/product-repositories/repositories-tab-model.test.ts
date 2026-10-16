@@ -58,13 +58,6 @@ describe('the demo\'s port', () => {
     expect(await port.saveLink({ ...newLinkWrite('acme/api'), role: 'api' })).toEqual({ ok: true, link: link('acme/api', { role: 'api', addedBy: 'prd' }) });
   });
 
-  it('refuses to archive the plan repository while another repository is below step 5, and archives once none is', async () => {
-    const port = demoTabPort([link('acme/api', { ladderStep: 5 }), link('acme/web', { ladderStep: 3 }), link('acme/plan', { ladderStep: 1 })], 'acme/plan');
-    expect(await port.archive(true)).toEqual({ ok: false, message: 'Archive: still held by web at step 3.' });
-    expect(await demoTabPort([link('acme/api', { ladderStep: 5 }), link('acme/plan')], 'acme/plan').archive(true)).toEqual({ ok: true, archivedAt: '2026-10-16T09:00:00Z' });
-    expect(await port.archive(false)).toEqual({ ok: true, archivedAt: null });
-  });
-
   it('refuses to remove a repository another consumes, then removes it once it is free', async () => {
     const port = demoTabPort([link('acme/api'), link('acme/web', { consumes: ['acme/api'] })]);
     expect(await port.removeLink('acme/api')).toEqual({ ok: false, message: 'Consumes: acme/web consumes acme/api; take it out of its consumes first.' });

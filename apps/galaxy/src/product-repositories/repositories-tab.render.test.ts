@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { APPROVERS_READ_ONLY } from '../products/approvers-section';
 import { ALL_LINKED, LINKS_READ_ONLY, NO_LINKS } from './LinksSection';
-import { NOT_OWNER_ARCHIVE } from './PlanArchiveSection';
+import { NOTHING_LEFT } from './PlanRepositorySection';
 import type { RepositoriesTab } from './repositories-tab.contract';
 import { demoRepositoriesTab, RepositoriesTabScreen, TAB_LABEL, type RepositoriesTabView } from './RepositoriesTab';
 
@@ -110,28 +110,19 @@ describe('the ladder and the plan repository (PRD 2011 s17)', () => {
     expect(html).not.toContain('id="plan-title"');
   });
 
-  it('names what holds the plan repository and keeps Archive from being pressed', () => {
-    const html = planned({ repository: 'acme/plan', archivedAt: null, holds: [{ name: 'widgets', why: 'step 3' }, { name: 'roadmap 0412', why: 'in git' }] });
-    expect(text(html)).toContain('Held by widgets · step 3');
-    expect(text(html)).toContain('Held by roadmap 0412 · in git');
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Archive acme\/plan<\/button>/);
+  it('names what is still in the plan repository, with nothing to press', () => {
+    const html = planned({ repository: 'acme/plan', holds: [{ name: 'widgets', why: 'step 3' }, { name: 'roadmap 0412', why: 'in git' }] });
+    const section = html.slice(html.indexOf('id="plan-title"'), html.indexOf('id="links-title"'));
+    expect(text(section)).toContain('Still in the plan repository');
+    expect(text(section)).toContain('Held by widgets · step 3');
+    expect(text(section)).toContain('Held by roadmap 0412 · in git');
+    expect(section).not.toContain('<button');
+    expect(text(html).toLowerCase()).not.toContain('archive');
   });
 
-  it('offers Archive when nothing holds it', () => {
-    const html = planned({ repository: 'acme/plan', archivedAt: null, holds: [] });
-    expect(html).toMatch(/<button(?![^>]*disabled)[^>]*>Archive acme\/plan<\/button>/);
-    expect(text(html)).not.toContain('Held by');
-  });
-
-  it('says it is archived, with Undo', () => {
-    const html = planned({ repository: 'acme/plan', archivedAt: '2026-10-16T09:00:00Z', holds: [] });
-    expect(text(html)).toContain('acme/plan is archived: read-only on GitHub.');
-    expect(buttons(html.slice(html.indexOf('id="plan-title"'), html.indexOf('id="links-title"')))).toEqual(['Undo']);
-  });
-
-  it('shows a member the holds and no button', () => {
-    const html = planned({ repository: 'acme/plan', archivedAt: null, holds: [{ name: 'widgets', why: 'step 3' }] }, { owner: false, approvers: null });
-    expect(text(html)).toContain(NOT_OWNER_ARCHIVE);
-    expect(html.slice(html.indexOf('id="plan-title"'), html.indexOf('id="links-title"'))).not.toContain('<button');
+  it('says when nothing open is left in it, the same to a member as to an owner', () => {
+    const plan = { repository: 'acme/plan', holds: [] };
+    expect(text(planned(plan))).toContain(`acme/plan ${NOTHING_LEFT}`);
+    expect(text(planned(plan, { owner: false, approvers: null }))).toContain(`acme/plan ${NOTHING_LEFT}`);
   });
 });

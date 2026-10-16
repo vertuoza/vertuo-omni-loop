@@ -29,7 +29,7 @@ export function demoRepositoriesTab(id: string): RepositoriesTab | null {
       { repo: 'acme/widgets', role: 'web', knowledge: 'own', readAt: null, readOnly: false, consumes: ['acme/api'], addedBy: 'prd', ladderStep: 3 },
     ],
     addable: ['acme/scripts'],
-    plan: { repository: 'acme/plan', archivedAt: null, holds: [{ name: 'widgets', why: 'step 3' }] },
+    plan: { repository: 'acme/plan', holds: [{ name: 'widgets', why: 'step 3' }] },
     approvers: {
       owner: true,
       members: [{ id: 'demo-irisa', name: 'Irisa', login: 'irisa' }, { id: 'demo-paul', name: 'Paul', login: 'paul' }, { id: 'demo-dev', name: 'Dev', login: 'dev' }],

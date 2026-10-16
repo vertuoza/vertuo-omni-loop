@@ -11,10 +11,6 @@
 //          → 200 { member, state }        an owner lists a member as asked or skipped
 //   DELETE /app/products/<id>/repositories/approvers?member=<id>
 //          → 200 { member, removed }      an owner takes a member off the list
-//   POST   /app/products/<id>/repositories/archive {archived}
-//          → 200 { archivedAt }           an owner archives the plan repository (true), or undoes it (false);
-//                                         a person's click only (PRD 2011 s17): a request carrying an
-//                                         Authorization header is an agent's, and is refused
 //
 // A refusal is `{ error }` in plain words (ADR-0029): 400 a malformed request, 401 signed out, 403 not an
 // owner, 404 no such product the caller reads, 422 a field or a repository the database refuses (in its
@@ -63,10 +59,6 @@ export const ApproverSavedSchema = z.object({ member: z.string(), state: Approve
 export const ApproverRemovedSchema = z.object({ member: z.string(), removed: z.boolean() });
 export const MemberQuerySchema = MemberSchema;
 
-/** Archive (true) or Undo (false) the plan repository. */
-export const ArchiveWriteSchema = z.strictObject({ archived: z.boolean() });
-export const ArchivedSchema = z.object({ archivedAt: z.string().nullable() });
-
 /** What still holds the plan repository: what it is, and why (`step 3`, `in git`). */
 export interface Hold {
   /** `vertuo-web`, `roadmap 0412`, `bug 1210`, `PRD 2011`. */
@@ -75,13 +67,11 @@ export interface Hold {
   why: string;
 }
 
-/** The product's plan repository and its archive (PRD 2011 s17). */
-export interface PlanArchive {
+/** The product's plan repository and what is still in it (PRD 2011 s17): information only, nothing to press. */
+export interface PlanRepository {
   /** The plan repository, owner/name. */
   repository: string;
-  /** When it was archived (read-only on GitHub through the App), or null. */
-  archivedAt: string | null;
-  /** What still holds it, none when Archive is offered. */
+  /** What is still in it: repositories below step 5, and records born in git still open. */
   holds: Hold[];
 }
 
@@ -96,7 +86,7 @@ export interface RepositoriesTab {
   /** The Approvers list, or null when it could not be read. */
   approvers: Approvers | null;
   /** The plan repository and its archive; null while the product names no plan repository. */
-  plan: PlanArchive | null;
+  plan: PlanRepository | null;
 }
 
 /** Every refusal. */
@@ -112,11 +102,3 @@ export const repositoriesTabHref = (product: string) => `/app/products/${encodeU
 export const linksRoute = (product: string) => `${repositoriesTabHref(product)}/links`;
 /** Where the approvers are written. */
 export const approversRoute = (product: string) => `${repositoriesTabHref(product)}/approvers`;
-/** Where the plan repository is archived and unarchived. */
-export const archiveRoute = (product: string) => `${repositoriesTabHref(product)}/archive`;
-
-/** The words of a hold, as the refusal says them: `vertuo-web at step 3`, `roadmap 0412 born in git, open`. */
-export const holdSentence = ({ name, why }: Hold): string => {
-  if (why === 'in git') return `${name} born in git, open`;
-  return why.startsWith('step ') ? `${name} at ${why}` : `${name}: ${why}`;
-};

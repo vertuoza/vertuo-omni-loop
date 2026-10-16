@@ -2465,7 +2465,6 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
-          plan_archived_at: string | null
           plan_repository: string | null
           prd_count: number
           roadmap_seq: number
@@ -2482,7 +2481,6 @@ export type Database = {
           ordinal?: never
           pitch?: Json
           pitch_look?: string
-          plan_archived_at?: string | null
           plan_repository?: string | null
           prd_count?: number
           roadmap_seq?: number
@@ -2499,7 +2497,6 @@ export type Database = {
           ordinal?: never
           pitch?: Json
           pitch_look?: string
-          plan_archived_at?: string | null
           plan_repository?: string | null
           prd_count?: number
           roadmap_seq?: number
@@ -3943,7 +3940,6 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
-          plan_archived_at: string | null
           plan_repository: string | null
           prd_count: number
           roadmap_seq: number
@@ -4821,7 +4817,6 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
-          plan_archived_at: string | null
           plan_repository: string | null
           prd_count: number
           roadmap_seq: number
@@ -4855,33 +4850,6 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
-          plan_archived_at: string | null
-          plan_repository: string | null
-          prd_count: number
-          roadmap_seq: number
-          workspace_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "products"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      product_plan_archive: {
-        Args: { p_archived: boolean; p_product: string }
-        Returns: {
-          bug_seq: number
-          business_id: string
-          created_at: string
-          created_by: string | null
-          id: string
-          key: string | null
-          name: string
-          ordinal: number
-          pitch: Json
-          pitch_look: string
-          plan_archived_at: string | null
           plan_repository: string | null
           prd_count: number
           roadmap_seq: number
@@ -4907,7 +4875,6 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
-          plan_archived_at: string | null
           plan_repository: string | null
           prd_count: number
           roadmap_seq: number
@@ -4934,7 +4901,6 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
-          plan_archived_at: string | null
           plan_repository: string | null
           prd_count: number
           roadmap_seq: number
@@ -4990,7 +4956,6 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
-          plan_archived_at: string | null
           plan_repository: string | null
           prd_count: number
           roadmap_seq: number
@@ -5209,7 +5174,6 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
-          plan_archived_at: string | null
           plan_repository: string | null
           prd_count: number
           roadmap_seq: number
@@ -5235,7 +5199,6 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
-          plan_archived_at: string | null
           plan_repository: string | null
           prd_count: number
           roadmap_seq: number

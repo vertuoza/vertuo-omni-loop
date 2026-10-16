@@ -37,16 +37,6 @@ describe('the calls', () => {
     expect(unset.sent[0]?.url).toBe(`/app/products/${PRODUCT}/repositories/approvers?member=u-1`);
   });
 
-  it('archives and undoes the plan repository with a POST, naming what holds it when refused', async () => {
-    const archived = stub(200, { archivedAt: '2026-10-16T09:00:00Z' });
-    expect(await archived.client.archive(true)).toEqual({ ok: true, archivedAt: '2026-10-16T09:00:00Z' });
-    expect(archived.sent[0]).toMatchObject({ url: `/app/products/${PRODUCT}/repositories/archive`, init: { method: 'POST', credentials: 'same-origin' } });
-    const body = archived.sent[0]?.init.body;
-    expect(typeof body === 'string' ? JSON.parse(body) : null).toEqual({ archived: true });
-    expect(await stub(200, { archivedAt: null }).client.archive(false)).toEqual({ ok: true, archivedAt: null });
-    expect(await stub(422, { error: 'Archive: still held by web at step 3.' }).client.archive(true)).toEqual({ ok: false, message: 'Archive: still held by web at step 3.' });
-  });
-
   it('answers a refusal in the route\'s words, and a lost connection as nothing saved', async () => {
     expect(await stub(422, { error: 'Role: X is not one kebab-case word.' }).client.removeLink('acme/api')).toEqual({ ok: false, message: 'Role: X is not one kebab-case word.' });
     expect(await stub(500, 'no json').client.removeLink('acme/api')).toEqual({ ok: false, message: 'Nothing was saved (500). Try again.' });

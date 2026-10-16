@@ -34,8 +34,8 @@ const LINK = { product_id: 'p-1', workspace_id: 'w-1', repository: 'acme/api', r
 
 describe('the reads', () => {
   it('reads the product by its id, or none', async () => {
-    const { store, calls } = db({ products: { data: [{ id: 'p-1', workspace_id: 'w-1', name: 'Mobile', plan_repository: 'acme/plan', plan_archived_at: null }] } });
-    expect(await store.product('p-1')).toEqual({ id: 'p-1', workspace_id: 'w-1', name: 'Mobile', plan_repository: 'acme/plan', plan_archived_at: null });
+    const { store, calls } = db({ products: { data: [{ id: 'p-1', workspace_id: 'w-1', name: 'Mobile', plan_repository: 'acme/plan' }] } });
+    expect(await store.product('p-1')).toEqual({ id: 'p-1', workspace_id: 'w-1', name: 'Mobile', plan_repository: 'acme/plan' });
     expect(calls).toContainEqual(['eq', 'id', 'p-1']);
     expect(await db({ products: { data: [] } }).store.product('p-1')).toBeNull();
   });
@@ -106,7 +106,7 @@ describe('the writes', () => {
   });
 });
 
-describe('the records born in git, and the archive (PRD 2011 s17)', () => {
+describe('the records born in git (PRD 2011 s17)', () => {
   it('lists the PRDs not shipped, the bug records whose fix is not merged and the roadmaps with a PRD still open, born in the repository', async () => {
     const { store, calls } = db({
       dossiers: { data: [
@@ -149,12 +149,4 @@ describe('the records born in git, and the archive (PRD 2011 s17)', () => {
     await expect(db({ dossiers: { data: [{ id: 'd-3', prd: 1, kind: 'bug' }] }, prd_stages: { data: [] }, fix_facts: { error: { message: 'down' } } }).store.openBornInGit('w-1', 'acme/plan')).rejects.toThrow('down');
   });
 
-  it('archives and undoes through product_plan_archive(), answering when, or the database\'s code and words', async () => {
-    const { store, calls } = db({ product_plan_archive: { data: { plan_archived_at: '2026-10-16T09:00:00Z' } } });
-    expect(await store.archive('p-1', true)).toEqual({ ok: true, archivedAt: '2026-10-16T09:00:00Z' });
-    expect(calls).toContainEqual(['rpc', 'product_plan_archive', { p_product: 'p-1', p_archived: true }]);
-    expect(await db({ product_plan_archive: { data: { plan_archived_at: null } } }).store.archive('p-1', false)).toEqual({ ok: true, archivedAt: null });
-    expect(await db({ product_plan_archive: { error: { code: '55000', message: 'Archive: still held by web at step 3.' } } }).store.archive('p-1', true))
-      .toEqual({ ok: false, code: '55000', message: 'Archive: still held by web at step 3.' });
-  });
 });

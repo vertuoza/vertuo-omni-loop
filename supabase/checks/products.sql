@@ -1,12 +1,9 @@
--- A product's plan repository, and when it was archived (PRD 2011 s10). The supabase workflow runs it on
+-- A product's plan repository (PRD 2011 s10). The supabase workflow runs it on
 -- every pull request, after `supabase db start` has applied the migrations and the demo seed:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/products.sql
 -- A product names no plan repository until an owner sets one, through product_plan_repository_set(), from
--- the repositories its workspace lists. product_plan_archive() stamps when the plan repository was
--- archived and clears it on an undo; archiving is refused while a repository of the product is below step
--- 5 of the rollout ladder, naming each, or while the product names no plan repository, and a plan
--- repository is not changed while archived. Only an owner of the workspace calls either: a member, an
--- owner of another workspace and anyone signed out are refused, and nothing changes. Nobody signed in
+-- the repositories its workspace lists. Only an owner of the workspace calls it: a member, an owner of
+-- another workspace and anyone signed out are refused, and nothing changes. Nobody signed in
 -- writes the columns directly; every member reads them. One transaction, rolled back at the end. Any
 -- `FAIL:` stops the run.
 
@@ -49,7 +46,7 @@ create function pg_temp.product() returns uuid language sql security definer as 
   select p.id from public.products p where p.name = 'Plan Mobile';
 $$;
 create function pg_temp.plan() returns text language sql security definer as $$
-  select coalesce(p.plan_repository, '-') || ' ' || coalesce(p.plan_archived_at::text, '-') from public.products p where p.name = 'Plan Mobile';
+  select coalesce(p.plan_repository, '-') from public.products p where p.name = 'Plan Mobile';
 $$;
 
 -- Runs a call that must be refused with `code`, its message holding `words` when given.
@@ -68,21 +65,17 @@ $$;
 -- ── What the migration added, and who may write it ──
 do $$
 begin
-  if has_column_privilege('authenticated', 'public.products', 'plan_repository', 'update')
-     or has_column_privilege('authenticated', 'public.products', 'plan_archived_at', 'update') then
-    raise exception 'FAIL: a product''s plan repository is written other than through its two functions';
+  if has_column_privilege('authenticated', 'public.products', 'plan_repository', 'update') then
+    raise exception 'FAIL: a product''s plan repository is written other than through its function';
   end if;
-  if not has_column_privilege('authenticated', 'public.products', 'plan_repository', 'select')
-     or not has_column_privilege('authenticated', 'public.products', 'plan_archived_at', 'select') then
+  if not has_column_privilege('authenticated', 'public.products', 'plan_repository', 'select') then
     raise exception 'FAIL: a member cannot read a product''s plan repository';
   end if;
   if has_function_privilege('anon', 'public.product_plan_repository_set(uuid, text)', 'execute')
-     or has_function_privilege('anon', 'public.product_plan_archive(uuid, boolean)', 'execute')
-     or not has_function_privilege('authenticated', 'public.product_plan_repository_set(uuid, text)', 'execute')
-     or not has_function_privilege('authenticated', 'public.product_plan_archive(uuid, boolean)', 'execute') then
-    raise exception 'FAIL: the plan repository''s functions are not the signed-in''s alone';
+     or not has_function_privilege('authenticated', 'public.product_plan_repository_set(uuid, text)', 'execute') then
+    raise exception 'FAIL: the plan repository''s function is not the signed-in''s alone';
   end if;
-  if pg_temp.plan() <> '- -' then
+  if pg_temp.plan() <> '-' then
     raise exception 'FAIL: a product names a plan repository before anyone sets one: %', pg_temp.plan();
   end if;
 end $$;
@@ -94,19 +87,17 @@ reset role;
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000020111b1');
 select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''vertuoza/plan-hub'')', pg_temp.product()), '42501', 'a member setting a plan repository');
-select pg_temp.refused(format('select public.product_plan_archive(%L, true)', pg_temp.product()), '42501', 'a member archiving');
 select pg_temp.refused($q$update public.products set plan_repository = 'vertuoza/plan-hub'$q$, '42501', 'a member writing the column');
 select pg_temp.sign_in('00000000-0000-4000-8000-0000020111c1');
 select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''vertuoza/plan-hub'')', pg_temp.product()), '42501', 'another workspace''s owner');
 reset role;
 do $$ begin
-  if pg_temp.plan() <> '- -' then raise exception 'FAIL: a refused call changed the plan repository: %', pg_temp.plan(); end if;
+  if pg_temp.plan() <> '-' then raise exception 'FAIL: a refused call changed the plan repository: %', pg_temp.plan(); end if;
 end $$;
 
--- ── Olga, an owner, sets the plan repository and archives it once nothing holds it ──
+-- ── Olga, an owner, sets the plan repository ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000020111a1');
-select pg_temp.refused(format('select public.product_plan_archive(%L, true)', pg_temp.product()), '55000', 'archiving with no plan repository', 'no plan repository');
 select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''acme-plans/hub'')', pg_temp.product()), 'P0002', 'another workspace''s repository', 'acme-plans/hub');
 select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''vertuoza/nowhere'')', pg_temp.product()), 'P0002', 'a repository nobody listed', 'vertuoza/nowhere');
 select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''vertuoza/plan-hub'')', gen_random_uuid()), 'P0002', 'no such product');
@@ -114,56 +105,27 @@ do $$
 declare
   got public.products := public.product_plan_repository_set(pg_temp.product(), ' Vertuoza/Plan-Hub ');
 begin
-  if got.plan_repository <> 'vertuoza/plan-hub' or got.plan_archived_at is not null then
+  if got.plan_repository <> 'vertuoza/plan-hub' then
     raise exception 'FAIL: setting the plan repository answered %', row_to_json(got);
   end if;
 end $$;
--- plan-web at step 3 holds the archive, named.
-select pg_temp.refused(format('select public.product_plan_archive(%L, true)', pg_temp.product()), '55000', 'archiving with a repository below step 5', 'plan-web at step 3');
-reset role;
-do $$ begin
-  if pg_temp.plan() <> 'vertuoza/plan-hub -' then raise exception 'FAIL: a refused archive stamped it: %', pg_temp.plan(); end if;
-end $$;
-update public.product_repositories set ladder_step = 5 where repository = 'vertuoza/plan-web';
-set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000020111a1');
+-- It can be cleared.
 do $$
 declare
-  got   public.products := public.product_plan_archive(pg_temp.product(), true);
-  first timestamptz := got.plan_archived_at;
+  got public.products := public.product_plan_repository_set(pg_temp.product(), '');
 begin
-  if got.plan_archived_at is null or got.plan_repository <> 'vertuoza/plan-hub' then
-    raise exception 'FAIL: archiving answered %', row_to_json(got);
-  end if;
-  -- Archived twice: the first stamp stays.
-  got := public.product_plan_archive(pg_temp.product(), true);
-  if got.plan_archived_at <> first then raise exception 'FAIL: a second archive moved its stamp'; end if;
-end $$;
--- While archived, the plan repository is not changed or cleared.
-select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''vertuoza/plan-api'')', pg_temp.product()), '55000', 'changing an archived plan repository', 'archived');
-select pg_temp.refused(format('select public.product_plan_repository_set(%L, null)', pg_temp.product()), '55000', 'clearing an archived plan repository', 'archived');
--- Undo, then it can be cleared.
-do $$
-declare
-  got public.products := public.product_plan_archive(pg_temp.product(), false);
-begin
-  if got.plan_archived_at is not null or got.plan_repository <> 'vertuoza/plan-hub' then
-    raise exception 'FAIL: undoing the archive answered %', row_to_json(got);
-  end if;
-  got := public.product_plan_repository_set(pg_temp.product(), '');
   if got.plan_repository is not null then raise exception 'FAIL: clearing the plan repository answered %', row_to_json(got); end if;
 end $$;
 -- Mia, a member, reads the columns.
 select pg_temp.sign_in('00000000-0000-4000-8000-0000020111b1');
 do $$ begin
-  if (select count(*) from public.products p where p.name = 'Plan Mobile' and p.plan_repository is null and p.plan_archived_at is null) <> 1 then
+  if (select count(*) from public.products p where p.name = 'Plan Mobile' and p.plan_repository is null) <> 1 then
     raise exception 'FAIL: a member does not read the product''s plan repository';
   end if;
 end $$;
 reset role;
 
--- ── The table refuses an archive with no plan repository, and a plan repository the workspace does not list ──
-select pg_temp.refused(format('update public.products set plan_archived_at = now() where id = %L', pg_temp.product()), '23514', 'an archive with no plan repository');
+-- ── The table refuses a plan repository the workspace does not list ──
 select pg_temp.refused(format('update public.products set plan_repository = ''acme-plans/hub'' where id = %L', pg_temp.product()), '23503', 'another workspace''s repository');
 
 rollback;

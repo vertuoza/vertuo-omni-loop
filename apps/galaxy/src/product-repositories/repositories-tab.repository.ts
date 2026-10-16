@@ -18,13 +18,12 @@ import { StoredLinkFields } from './product-link-row';
 /** What the tab's reads and writes need: the tables and the database's functions. */
 export type RepositoriesTabDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 
-const PRODUCT_COLUMNS = 'id, workspace_id, name, plan_repository, plan_archived_at';
+const PRODUCT_COLUMNS = 'id, workspace_id, name, plan_repository';
 const StoredTabProductSchema = z.object({
   id: z.string(),
   workspace_id: z.string(),
   name: z.string(),
   plan_repository: z.string().nullable(),
-  plan_archived_at: z.string().nullable(),
 });
 export type StoredTabProduct = z.infer<typeof StoredTabProductSchema>;
 
@@ -41,7 +40,6 @@ const StoredRecord = z.object({ prd: PrdNumberSchema.nullable(), kind: z.string(
 const StoredStage = z.object({ prd: PrdNumberSchema });
 const StoredFacts = z.object({ dossier_id: z.string(), facts: z.unknown() });
 const StoredRoadmap = z.object({ number: z.number().nullable(), roadmap_prds: z.array(z.object({ state: z.string() })) });
-const ArchiveAnswer = z.object({ plan_archived_at: z.string().nullable() });
 const SetAnswer = z.object({ state: z.enum(['asked', 'skipped']) });
 
 /** A refusal, by the database's code and in its words. */
@@ -150,13 +148,6 @@ export function repositoriesTabRepository(db: RepositoriesTabDb) {
           .filter((r) => r.number !== null && r.roadmap_prds.some((p) => open(p.state)))
           .map((r) => ({ kind: 'roadmap' as const, number: r.number ?? 0 })),
       ];
-    },
-
-    /** Archives the plan repository (true), or undoes it (false), through product_plan_archive(): when it was archived. */
-    async archive(product: string, archived: boolean): Promise<Written<{ archivedAt: string | null }>> {
-      const answer: RpcAnswer = await db.rpc('product_plan_archive', { p_product: product, p_archived: archived });
-      if (answer.error) return refusedOf(answer.error);
-      return { ok: true, archivedAt: orThrow(parseRow(ArchiveAnswer, answer.data, 'product-repositories/repositories-tab.repository: product_plan_archive')).plan_archived_at };
     },
 
     /** Lists a member as asked or skipped, or changes their state, through product_approver_set(). */

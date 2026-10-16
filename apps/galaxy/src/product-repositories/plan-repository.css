@@ -7,4 +7,3 @@
 .plan-ladder-cell.on { background: var(--ask-green); border-color: var(--ask-green); }
 .plan-hold { padding: 10px 12px; border: 1px solid var(--ask-red); border-radius: 10px; font-size: 14px; overflow-wrap: anywhere; }
 .plan-hold b { color: var(--ask-red); }
-.plan-actions { margin: 0; }

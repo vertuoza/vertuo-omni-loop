@@ -1,4 +1,4 @@
-// The thirteen Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
+// The twelve Inngest functions `/api/inngest` serves, each wired to the app's Inngest client, to
 // installation tokens signed with the GitHub App's key, and to the groups of the app's environment it
 // needs (./env.ts): the outbox check (PRD 28), the inbox check (PRD 675) with its canon gate (PRD 839),
 // the approved check (PRD 1548), reading a product PRD's record as the service role and, for a ◆ PRD of a repository,
@@ -10,9 +10,7 @@
 // the fix row stamp (PRD 2011), which stamps a bug record's Fixes rows as the service role when their pull
 // request merges, closes or reopens, and is handed no GitHub, and the knowledge pack (PRD 2011), which keeps a
 // repository's knowledge folder and flow config as a pack, as the service role, when a merge touches them, at
-// background priority, and the plan archive (PRD 2011 s17), which every 5 minutes makes each product's plan
-// repository read-only on GitHub, or writable again, as its owner decided (the only place that holds the App's
-// key for it). Every installation call spends the
+// background priority. Every installation call spends the
 // installation's budget through the shared client (PRD 902), on the store galaxy writes too; the retro also looks up its
 // installation on each target of a multi-repository PRD as the App itself (PRD 1130). A test hands `octokitFor` a
 // stubbed GitHub.
@@ -40,8 +38,6 @@ import { createKnowledgePack } from './knowledge-pack/knowledge-pack.ts';
 import { knowledgePackStore } from './knowledge-pack/store.ts';
 import { lawJudge, lawJudgeUrl } from './knowledge-harvest/law-judge.ts';
 import { appOctokitFor, githubStoreOf, installationOctokitFor } from './octokit-for.ts';
-import { createPlanArchive } from './plan-archive/plan-archive.ts';
-import { planArchiveStore } from './plan-archive/store.ts';
 import { createOutboxCheck } from './outbox-check/outbox-check.ts';
 import { productOutboxReader } from './outbox-check/product-outbox.ts';
 import { createPrStats } from './pr-stats/pr-stats.ts';
@@ -86,11 +82,5 @@ export function appFunctions(
     serverEvent: createServerEventRecheck({ client: inngest, octokitFor, readTargets: env.supabase ? targetsReader(env.supabase) : null }),
     fixRowStamp: createFixRowStamp({ client: inngest, stamp: env.supabase ? fixRowStamper(env.supabase) : null }),
     knowledgePack: createKnowledgePack({ client: inngest, octokitFor, store: env.supabase ? knowledgePackStore(env.supabase) : null }),
-    planArchive: createPlanArchive({
-      client: inngest,
-      octokitFor,
-      appOctokit: env.githubApp ? appOctokitFor(env.githubApp) : null,
-      store: env.supabase ? planArchiveStore(env.supabase) : null,
-    }),
   };
 }
