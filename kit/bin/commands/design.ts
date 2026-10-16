@@ -16,7 +16,8 @@
 //
 // `omni design words <page>…` (PRD 1407): the word pass over each mockup page — every screen's
 // visible strings and word count, then its findings (`kit/lib/design/words/`), the avoided words
-// being `design.words.avoid` and the explicit list the `design` form's `product` section holds. A page
+// being `design.words.avoid`, the explicit list the `design` form's `product` section holds and (PRD
+// 1795 s6) the avoided words of the product's glossary in its local copy, never the server. A page
 // it cannot read is named and the next is read. It prints `design: off` while the flag is off, and
 // exits 0 whatever it finds.
 //
@@ -34,6 +35,7 @@ import { galleryPage } from '../../lib/design/gallery/page.ts';
 import { designIgnore, dropIgnored } from '../../lib/design/ignore.ts';
 import { formatScreens, readScreens } from '../../lib/design/screens.ts';
 import { avoidedWords } from '../../lib/design/words/avoid.ts';
+import { productAvoids } from '../../lib/design/words/product.ts';
 import { wordsContent } from '../../lib/design/words/content.ts';
 import { formatPage, wordPass, type WordRules } from '../../lib/design/words/pass.ts';
 import { parseSelector, type Selector } from '../../lib/design/words/selector.ts';
@@ -119,17 +121,30 @@ function formAvoids(io: CommandIo): string[] {
   return product && product.body.kind === 'text' ? avoidedWords(product.body.text) : [];
 }
 
+/** The terms once each, in order, compared without case. */
+function dedupe(terms: readonly string[]): string[] {
+  const seen = new Set<string>();
+  return terms.filter((term) => {
+    const key = term.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function words(io: CommandIo, pages: readonly string[]): string[] {
   const { design: config } = io.ctx.config;
   if (!config.enabled) return ['design: off'];
   const fromForm = formAvoids(io);
+  const product = productAvoids(io.ctx.root);
   const known = new Set(fromForm.map((term) => term.toLowerCase()));
   const rules: WordRules = {
     sentence: config.words.sentence,
     screen: checked(config.words.screen),
     primary: checked(config.words.primary),
     content: checked(wordsContent(config.words)),
-    avoid: [...fromForm, ...config.words.avoid.filter((term) => !known.has(term.toLowerCase()))],
+    avoid: dedupe([...fromForm, ...config.words.avoid.filter((term) => !known.has(term.toLowerCase())), ...product.words]),
+    says: product.says,
   };
   return pages.flatMap((page) => {
     let html: string;
