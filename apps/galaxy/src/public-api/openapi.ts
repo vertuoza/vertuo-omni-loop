@@ -1,0 +1,90 @@
+import { OpenAPIRegistry, OpenApiGeneratorV31 } from '@asteasolutions/zod-to-openapi';
+import { z } from 'zod';
+import {
+  BugFixListSchema, ListQuerySchema, PrdListSchema, PublicApiErrorSchema,
+} from './public-api.contract';
+
+// The public API's reference (PRD 2022 s3, spec "The reference"): every /api/v1 route registered with
+// @asteasolutions/zod-to-openapi (v9, which reads zod 4's own `.meta()`, so nothing patches `z`) from the
+// contract's schemas, and built into an OpenAPI 3.1 document with the `bearerAuth` scheme on every route
+// but its own. This is the only file that imports the library; nothing here validates a call.
+// A route added under app/api/v1/ is registered here too: openapi.test.ts fails when one is missing.
+
+const ERROR_ANSWERS = {
+  401: 'No key, an unknown key, a revoked key, or a key whose maker left the workspace.',
+  422: 'A query the contract refuses, or a cursor that does not decode; the message names the field.',
+  500: 'The API could not answer; the message never carries a stack or a database error.',
+} as const;
+
+const errors = (...statuses: (keyof typeof ERROR_ANSWERS)[]) => Object.fromEntries(statuses.map((status) => [
+  status,
+  { description: ERROR_ANSWERS[status], content: { 'application/json': { schema: PublicApiErrorSchema } } },
+]));
+
+/** Every /api/v1 route and the security scheme, in a registry. */
+function openApiRegistry(): OpenAPIRegistry {
+  const registry = new OpenAPIRegistry();
+  registry.registerComponent('securitySchemes', 'bearerAuth', {
+    type: 'http',
+    scheme: 'bearer',
+    description: 'An API key a workspace owner makes on Settings › API keys, sent as `Authorization: Bearer oma_…`.',
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/api/v1/prds',
+    tags: ['PRDs'],
+    summary: 'List the workspace’s PRDs',
+    description: 'Newest first, a page at a time. A key limited to some repositories lists only their PRDs.',
+    security: [{ bearerAuth: [] }],
+    request: { query: ListQuerySchema },
+    responses: {
+      200: { description: 'A page of PRDs.', content: { 'application/json': { schema: PrdListSchema } } },
+      ...errors(401, 422, 500),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/api/v1/bug-fixes',
+    tags: ['Bug fixes'],
+    summary: 'List the workspace’s bug fixes',
+    description: 'Newest first, a page at a time. A key limited to some repositories lists only their bug fixes.',
+    security: [{ bearerAuth: [] }],
+    request: { query: ListQuerySchema },
+    responses: {
+      200: { description: 'A page of bug fixes.', content: { 'application/json': { schema: BugFixListSchema } } },
+      ...errors(401, 422, 500),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/api/v1/openapi.json',
+    tags: ['Reference'],
+    summary: 'This reference',
+    description: 'The OpenAPI 3.1 document of the API. It needs no key.',
+    security: [],
+    responses: {
+      200: {
+        description: 'The OpenAPI 3.1 document.',
+        content: { 'application/json': { schema: z.looseObject({}).meta({ description: 'An OpenAPI 3.1 document.' }) } },
+      },
+    },
+  });
+
+  return registry;
+}
+
+/** The OpenAPI 3.1 document of every /api/v1 route. */
+export function openApiDocument() {
+  return new OpenApiGeneratorV31(openApiRegistry().definitions).generateDocument({
+    openapi: '3.1.0',
+    info: {
+      title: 'Omni Loop API',
+      version: '1.0.0',
+      description: 'Read a workspace’s PRDs and bug fixes with its API key. A workspace owner makes a key on Settings › API keys.',
+    },
+    servers: [{ url: '/', description: 'This deployment' }],
+  });
+}
