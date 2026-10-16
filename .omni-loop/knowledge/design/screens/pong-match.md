@@ -49,4 +49,4 @@ SAVING… · NEW BEST · SCORE NOT SAVED · A · AGAIN · B · ROOM
 
 ## Source
 
-/omni:brainstorm, PRD 2101: .omni-loop/delivery/inbox/2101-omni-pong/before-after.html
+/omni:brainstorm, PRD 2101: .omni-loop/delivery/shipped/2101-omni-pong/before-after.html
