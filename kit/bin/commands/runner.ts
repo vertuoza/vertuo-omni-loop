@@ -2,6 +2,7 @@
 // people send it from the app with Send to terminal.
 //
 //   omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]
+//               [--max-memory 85] [--min-disk 10] [--max-load 1.5]
 //   omni runner sender
 //   omni runner job --line <file> --log <file> --exit <file>
 //
@@ -11,6 +12,10 @@
 // registers and keeps one `next` open per free slot until Ctrl-C, which waits for the running jobs.
 // It sweeps what stopped jobs left once registered and every hour after (PRD 1911): a job's logs are
 // kept `--keep-logs` days, a whole number of 1 or more, 14 unless given.
+// It stops taking jobs while its machine is under pressure (PRD 2102): memory used above `--max-memory`
+// percent (1 to 100, 85 unless given), disk free below `--min-disk` GB (0 or more, 10 unless given), or
+// a 1-minute load above `--max-load` times its cores (above 0, 1.5 unless given). A limit out of range
+// is refused in plain words before the runner registers.
 // The Omni page is the `ask.url` of the config where it runs, else of the first checkout held that
 // sets one.
 //
@@ -18,7 +23,8 @@
 // @<login> on runner <name>`, read from `OMNI_SENT_BY` and `OMNI_RUNNER`; either unset, it prints
 // nothing. `job` is what runs inside a job's tmux session (`../../lib/runner/job.ts`): no person runs it.
 //
-// A test hands it `tokens`, `home`, `fetch`, `terminal`, `stop`, `sleep`, `now`, `tickMs` and `backoff`.
+// A test hands it `tokens`, `home`, `fetch`, `terminal`, `stop`, `sleep`, `now`, `tickMs`, `backoff` and
+// `machine`, the reads its health samples are taken from.
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
@@ -26,7 +32,10 @@ import { homeTokens } from '../../lib/ask/client-tokens.ts';
 import { loadContext } from '../../lib/context.ts';
 import { runningKit } from '../../lib/init/bundle.ts';
 import { runnerApi } from '../../lib/runner/api.ts';
+import type { HealthLimits } from '../../lib/runner/api.ts';
 import { listCheckouts } from '../../lib/runner/checkouts.ts';
+import { DEFAULT_LIMITS } from '../../lib/runner/health.ts';
+import type { MachineReads } from '../../lib/runner/health.ts';
 import { runJobProcess } from '../../lib/runner/job.ts';
 import { parseDuration } from '../../lib/runner/log.ts';
 import { KEEP_LOGS_DAYS, runRunner } from '../../lib/runner/runner.ts';
@@ -36,7 +45,7 @@ import type { Terminal } from '../../lib/runner/terminal.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo } from '../io.ts';
 
-const USAGE = 'usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] | omni runner sender';
+const USAGE = 'usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender';
 const DEFAULT_SLOTS = 4;
 const MAX_SLOTS = 8;
 const DEFAULT_TIMEOUT = '3h';
@@ -53,6 +62,7 @@ type RunnerCommandOptions = {
   now?: () => number;
   tickMs?: number;
   backoff?: { firstMs: number; maxMs: number };
+  machine?: MachineReads;
 };
 
 /** The `ask.url` of `dir`'s config, or `null` when it has none or no config. */
@@ -95,9 +105,29 @@ function keepLogsOf(value: string | true | undefined): number {
   return value === undefined ? KEEP_LOGS_DAYS : positiveInt('runner', '--keep-logs', value);
 }
 
+/** A number written in plain digits, a decimal point allowed: "1e2", "0x10" or "-1" are not. */
+const PLAIN_NUMBER = /^\d+(\.\d+)?$/;
+
+/** One limit flag: `fallback` unless given, else its number when `fits`, else refused in `words`. */
+function limitOf(flag: string, value: string | true | undefined, fallback: number, fits: (limit: number) => boolean, words: string): number {
+  if (value === undefined) return fallback;
+  const limit = typeof value === 'string' && PLAIN_NUMBER.test(value) ? Number(value) : Number.NaN;
+  if (!fits(limit)) throw usageError(`omni runner: ${flag} is ${words}, got "${String(value)}".`);
+  return limit;
+}
+
+/** `--max-memory`, `--min-disk` and `--max-load`: the limits the runner pauses at, `DEFAULT_LIMITS` for those not given. */
+function limitsOf(flags: Partial<Record<'max-memory' | 'min-disk' | 'max-load', string | true>>): HealthLimits {
+  return {
+    maxMemory: limitOf('--max-memory', flags['max-memory'], DEFAULT_LIMITS.maxMemory, (limit) => limit >= 1 && limit <= 100, 'the share of memory used, in percent, the runner pauses above: a number from 1 to 100'),
+    minDiskGb: limitOf('--min-disk', flags['min-disk'], DEFAULT_LIMITS.minDiskGb, (limit) => limit >= 0, 'the free disk, in GB, the runner pauses below: a number of 0 or more'),
+    maxLoad: limitOf('--max-load', flags['max-load'], DEFAULT_LIMITS.maxLoad, (limit) => limit > 0, 'the 1-minute load, in times the cores, the runner pauses above: a number above 0'),
+  };
+}
+
 /** The runner's flags, checked. */
-function readFlags(args: string[], cwd: string): { name: string; slots: number; timeoutMs: number; repos: string; keepLogsDays: number } {
-  const { positional, flags } = parseArgs('runner', args, { values: ['name', 'repos', 'slots', 'timeout', 'keep-logs'] });
+function readFlags(args: string[], cwd: string): { name: string; slots: number; timeoutMs: number; repos: string; keepLogsDays: number; limits: HealthLimits } {
+  const { positional, flags } = parseArgs('runner', args, { values: ['name', 'repos', 'slots', 'timeout', 'keep-logs', 'max-memory', 'min-disk', 'max-load'] });
   const { name, repos } = flags;
   if (positional.length || name === undefined || repos === undefined) throw usageError(USAGE);
   if (!NAME.test(name)) throw usageError('omni runner: --name must be 1 to 40 letters, digits, dots, dashes or underscores.');
@@ -106,7 +136,7 @@ function readFlags(args: string[], cwd: string): { name: string; slots: number; 
   const timeout = flags.timeout ?? DEFAULT_TIMEOUT;
   const timeoutMs = parseDuration(timeout);
   if (timeoutMs === null) throw usageError(`omni runner: --timeout must read like 90s, 45m or 3h, got "${timeout}".`);
-  return { name, slots, timeoutMs, repos: resolve(cwd, repos), keepLogsDays: keepLogsOf(flags['keep-logs']) };
+  return { name, slots, timeoutMs, repos: resolve(cwd, repos), keepLogsDays: keepLogsOf(flags['keep-logs']), limits: limitsOf(flags) };
 }
 
 /**
@@ -121,8 +151,8 @@ function jobEnv({ env, vars }: FreeIo): Record<string, string> {
   };
 }
 
-/** The test's own clock, sleep, tick and back-off, when it hands them. */
-const timing = ({ sleep, now, tickMs, backoff }: RunnerCommandOptions) => ({ sleep, now, tickMs, backoff });
+/** The test's own clock, sleep, tick, back-off and machine, when it hands them. */
+const timing = ({ sleep, now, tickMs, backoff, machine }: RunnerCommandOptions) => ({ sleep, now, tickMs, backoff, machine });
 
 /** The Omni page, or the one line saying why the runner cannot start. */
 function pageOrRefusal(cwd: string, repos: string, checkouts: ReadonlyMap<string, string>, exec: Exec): { askUrl: string } | { refusal: string } {
@@ -141,7 +171,7 @@ function wiring(io: FreeIo & RunnerCommandOptions) {
 
 async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise<number> {
   const { cwd, stdout, stderr, exec, script } = io;
-  const { name, slots, timeoutMs, repos, keepLogsDays } = readFlags(args, cwd);
+  const { name, slots, timeoutMs, repos, keepLogsDays, limits } = readFlags(args, cwd);
   const checkouts = listCheckouts(repos, exec);
   const page = pageOrRefusal(cwd, repos, checkouts, exec);
   if ('refusal' in page) {
@@ -168,6 +198,7 @@ async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise
       },
       stop: stop.signal,
       keepLogsDays,
+      limits,
       ...timing(io),
     });
   } finally {

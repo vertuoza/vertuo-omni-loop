@@ -1,0 +1,323 @@
+// The runner's health reports (PRD 2102, s1): `runRunner()` on a fake app, a fake clock and a fixed
+// machine. A report goes right after registering, then every 15 s, and one the app refuses or never
+// answers prints one line while the runner keeps polling for jobs. Nothing here reads the real machine.
+//
+// The pause (s2): a machine under pressure opens no new `next`, a slot already waiting keeps its hold
+// and runs the job it gets, a running job is never touched, and two quiet samples in a row resume it.
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { RunnerRefused, RunnerUnreachable } from './api.ts';
+import type { HealthReport, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
+import { DEFAULT_LIMITS } from './health.ts';
+import type { MachineReads } from './health.ts';
+import { runRunner } from './runner.ts';
+import type { RunnerOptions } from './runner.ts';
+import type { Terminal } from './terminal.ts';
+import type { TokenSource } from './tokens.ts';
+
+const GB = 1024 ** 3;
+const T0 = Date.parse('2026-10-16T12:00:00.000Z');
+
+/** A machine whose cores each spend 300 ms busy and 700 ms idle between two samples. */
+function machine(): MachineReads {
+  let samples = 0;
+  return {
+    cpus: () => {
+      samples += 1;
+      const times = { user: 300 * samples, nice: 0, sys: 0, idle: 700 * samples, irq: 0 };
+      return [{ times }, { times }];
+    },
+    loadavg: () => [1.5, 1, 1],
+    cores: () => 2,
+    totalmem: () => 8 * GB,
+    freemem: () => 2 * GB,
+    meminfo: () => null,
+    statfs: () => ({ bsize: 1024, blocks: (100 * GB) / 1024, bavail: (40 * GB) / 1024 }),
+  };
+}
+
+/**
+ * A fake app: registers `r1`, holds every `next` until the runner stops, and answers health reports
+ * with `answers` in turn (`ok`, or the error it throws), each taking `reportMs` of the fake clock.
+ */
+function fakeApp(answers: ('ok' | Error)[], { reportMs = 0 } = {}) {
+  const reports: HealthReport[] = [];
+  const nexts: number[] = [];
+  const clock = { now: T0 };
+  const stop = new AbortController();
+  const api: RunnerApi = {
+    register: () => Promise.resolve({ id: 'r1' }),
+    next: (_runner, signal) => {
+      nexts.push(clock.now);
+      return new Promise((resolve) => {
+        signal?.addEventListener('abort', () => {
+          resolve(null);
+        }, { once: true });
+      });
+    },
+    update: () => Promise.resolve({ cancel: false }),
+    health: (runner, report) => {
+      expect(runner).toBe('r1');
+      reports.push(report);
+      clock.now += reportMs;
+      const answer = answers[reports.length - 1] ?? 'ok';
+      if (reports.length >= answers.length) stop.abort();
+      return answer === 'ok' ? Promise.resolve() : Promise.reject(answer);
+    },
+  };
+  return { api, reports, nexts, clock, stop };
+}
+
+/** The fake app `run` drives: its routes, its clock and the stop it aborts once it has heard enough. */
+type App = { api: RunnerApi; clock: { now: number }; stop: AbortController };
+
+/** Runs the runner on `app` until it stops itself: its exit code, what it printed, and every wait the health loop took. */
+async function run(app: App, over: Partial<RunnerOptions> = {}) {
+  const printed: string[] = [];
+  const waits: number[] = [];
+  const code = await runRunner({
+    name: 'box-1', slots: 2, timeoutMs: 60_000, version: '0.0.442', checkouts: new Map(), api: app.api,
+    terminal: { start: () => undefined, stop: () => undefined, alive: () => false },
+    exec: () => '', home: mkdtempSync(join(tmpdir(), 'omni-runner-health-')), wrapper: [], env: {},
+    print: (line) => printed.push(line), stop: app.stop.signal, now: () => app.clock.now,
+    // Once stopped, no wait; the hour between sweeps waits for the stop; every other wait passes at once,
+    // on the fake clock.
+    sleep: (ms, signal) => new Promise((resolve) => {
+      if (signal?.aborted) {
+        resolve();
+        return;
+      }
+      if (ms === 60 * 60 * 1000) {
+        signal?.addEventListener('abort', () => {
+          resolve();
+        }, { once: true });
+        return;
+      }
+      waits.push(ms);
+      app.clock.now += ms;
+      setImmediate(resolve);
+    }),
+    machine: machine(),
+    ...over,
+  });
+  return { code, printed, waits };
+}
+
+describe('the runner\'s health reports', () => {
+  it('sends the machine\'s sample right after registering, then every 15 s, the CPU from the second on', async () => {
+    const app = fakeApp(['ok', 'ok', 'ok']);
+    const { code, printed, waits } = await run(app);
+    expect(code).toBe(0);
+    const quiet = { paused: null, limits: DEFAULT_LIMITS };
+    expect(app.reports).toEqual([
+      { cpu: null, load1: 1.5, cores: 2, memUsed: 6 * GB, memTotal: 8 * GB, diskFree: 40 * GB, diskTotal: 100 * GB, ...quiet },
+      { cpu: 30, load1: 1.5, cores: 2, memUsed: 6 * GB, memTotal: 8 * GB, diskFree: 40 * GB, diskTotal: 100 * GB, ...quiet },
+      { cpu: 30, load1: 1.5, cores: 2, memUsed: 6 * GB, memTotal: 8 * GB, diskFree: 40 * GB, diskTotal: 100 * GB, ...quiet },
+    ]);
+    expect(waits).toEqual([15_000, 15_000]);
+    expect(printed.filter((line) => line.startsWith('health'))).toEqual([]);
+  });
+
+  it('keeps 15 s between two samples when a report is slow', async () => {
+    const app = fakeApp(['ok', 'ok', 'ok'], { reportMs: 4000 });
+    const { waits } = await run(app);
+    expect(waits).toEqual([11_000, 11_000]);
+  });
+
+  it('prints one line for a refused report and one for a report that timed out, and runs on', async () => {
+    const app = fakeApp([new RunnerRefused('refused (404)'), new RunnerUnreachable('POST /api/runners/r1/health: timed out'), 'ok', 'ok']);
+    const { code, printed } = await run(app);
+    expect(code).toBe(0);
+    expect(app.reports).toHaveLength(4);
+    expect(printed.filter((line) => line.startsWith('health'))).toEqual([
+      'health not sent: refused (404)',
+      'health not sent: POST /api/runners/r1/health: timed out',
+    ]);
+    // Neither stopped the slots: both kept their `next` open, and the runner ended only when stopped.
+    expect(app.nexts).toHaveLength(2);
+    expect(printed.at(-1)).toBe('runner box-1 stopped');
+  });
+
+  it('carries on after a report fails in a way it did not expect', async () => {
+    const app = fakeApp([new TypeError('fetch failed'), 'ok']);
+    const { code, printed } = await run(app);
+    expect(code).toBe(0);
+    expect(printed).toContain('health not sent: fetch failed');
+    expect(app.reports).toHaveLength(2);
+  });
+});
+
+/** A machine of 10 GB whose memory used is `percents[n]` percent at its nth sample, the last one after. */
+function memoryMachine(percents: readonly number[]): MachineReads {
+  let samples = 0;
+  return {
+    ...machine(),
+    totalmem: () => 10 * GB,
+    freemem: () => {
+      const percent = percents[Math.min(samples, percents.length - 1)] ?? 0;
+      samples += 1;
+      return ((100 - percent) / 100) * 10 * GB;
+    },
+  };
+}
+
+/**
+ * A fake app that holds every `next` until it is handed a job or the runner stops, records each job's
+ * reports, and stops the runner after `reports` health reports, calling `onReport` with each one's number.
+ */
+function holdingApp(reports: number, onReport: (n: number) => void = () => undefined) {
+  const heard: HealthReport[] = [];
+  const updates: JobUpdate[] = [];
+  const held: ((job: RunnerJob | null) => void)[] = [];
+  let nexts = 0;
+  const clock = { now: T0 };
+  const stop = new AbortController();
+  const api: RunnerApi = {
+    register: () => Promise.resolve({ id: 'r1' }),
+    next: (_runner, signal) => {
+      nexts += 1;
+      return new Promise((resolve) => {
+        held.push(resolve);
+        signal?.addEventListener('abort', () => {
+          resolve(null);
+        }, { once: true });
+      });
+    },
+    update: (_job, update) => {
+      updates.push(update);
+      return Promise.resolve({ cancel: false });
+    },
+    health: (_runner, report) => {
+      heard.push(report);
+      onReport(heard.length);
+      if (heard.length >= reports) stop.abort();
+      return Promise.resolve();
+    },
+  };
+  return { api, clock, stop, reports: heard, updates, held, nexts: () => nexts };
+}
+
+describe('the pause', () => {
+  it('opens no next while the machine is under pressure, stays paused on one quiet sample, and resumes on the second', async () => {
+    const nextsAt: number[] = [];
+    const app = holdingApp(4, () => nextsAt.push(app.nexts()));
+    const { code, printed } = await run(app, { machine: memoryMachine([91, 50, 50, 50]) });
+    expect(code).toBe(0);
+    // The resume is decided at the third sample; the two slots open their next right after it.
+    expect(nextsAt).toEqual([0, 0, 0, 2]);
+    expect(app.reports.map((report) => report.paused)).toEqual(['memory 91%', 'memory 91%', null, null]);
+    expect(app.reports.map((report) => report.limits)).toEqual(Array(4).fill(DEFAULT_LIMITS));
+    expect(printed.filter((line) => /^(paused|resumed)/.test(line))).toEqual(['paused: memory 91%', 'resumed']);
+  });
+
+  it('pauses at the limits it is given, and carries them in its report', async () => {
+    const limits = { maxMemory: 40, minDiskGb: 10, maxLoad: 1.5 };
+    const app = holdingApp(2);
+    const { printed } = await run(app, { machine: memoryMachine([50]), limits });
+    expect(app.nexts()).toBe(0);
+    expect(app.reports.map((report) => [report.paused, report.limits])).toEqual([['memory 50%', limits], ['memory 50%', limits]]);
+    expect(printed).toContain('paused: memory 50%');
+  });
+
+  it('lets a slot already waiting keep its hold and run the job it gets, never touching it, and opens no next after it while paused', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'omni-runner-pause-'));
+    const stopped: string[] = [];
+    const terminal: Terminal = { start: () => undefined, stop: (name) => stopped.push(name), alive: () => true };
+    const app = holdingApp(8, (n) => {
+      // The second sample is under pressure: the slot's next, held since the first, hands it a job.
+      if (n === 2) app.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null });
+      // The job runs through two more samples under pressure, then ends by itself.
+      if (n === 5) writeFileSync(join(home, 'logs', 'job-7.exit'), '0\n');
+    });
+    const { code, printed } = await run(app, {
+      slots: 1, timeoutMs: 24 * 60 * 60 * 1000, home, terminal,
+      checkouts: new Map([['acme/widgets', join(home, 'widgets')]]),
+      machine: memoryMachine([50, 91]),
+    });
+    expect(code).toBe(0);
+    expect(printed).toContain('paused: memory 91%');
+    expect(printed).toContain('job 7 claimed: /omni:yolo 7 (acme/widgets)');
+    expect(printed).toContain('job 7 done');
+    expect(app.updates.map((update) => update.status).at(-1)).toBe('done');
+    expect(app.updates.filter((update) => update.status === 'running').length).toBeGreaterThan(1);
+    expect(stopped).toEqual([]);
+    // The one next it held when the pause began, and none after the job, the machine still under pressure.
+    expect(app.nexts()).toBe(1);
+    expect(printed.at(-1)).toBe('runner box-1 stopped');
+  });
+});
+
+describe('the tokens (PRD 2102, s4)', () => {
+  const MACHINE = { last5h: { input: 1, output: 2, cacheRead: 3, cacheWrite: 4 }, today: { input: 10, output: 20, cacheRead: 30, cacheWrite: 40 } };
+  const JOB_TOKENS = { input: 5, output: 6, cacheRead: 7, cacheWrite: 8 };
+  const counts = (machine: typeof MACHINE | null, job: typeof JOB_TOKENS | null, worktrees: string[] = []): TokenSource => ({
+    job: (worktree) => {
+      worktrees.push(worktree);
+      return job;
+    },
+    machine: () => machine,
+  });
+
+  /** Runs one job on a fake app that answers health in turn and refuses a job report that carries tokens when `refuseTokens`. */
+  async function withJob({ health, refuseTokens = false, tokens }: { health: 'ok' | 'fails'; refuseTokens?: boolean; tokens: TokenSource }) {
+    const home = mkdtempSync(join(tmpdir(), 'omni-runner-tokens-'));
+    const base = holdingApp(7, (n) => {
+      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null });
+      if (n === 6) writeFileSync(join(home, 'logs', 'job-7.exit'), '0\n');
+    });
+    const sent: JobUpdate[] = [];
+    const api: RunnerApi = {
+      ...base.api,
+      update: (job, update) => {
+        sent.push(update);
+        if (refuseTokens && update.tokens !== undefined) return Promise.reject(new RunnerRefused('refused (400)'));
+        return base.api.update(job, update);
+      },
+      health: (runner, report) => (health === 'ok' ? base.api.health(runner, report) : base.api.health(runner, report).then(() => Promise.reject(new RunnerUnreachable('down')))),
+    };
+    const { code, printed } = await run({ ...base, api }, {
+      slots: 1, timeoutMs: 24 * 60 * 60 * 1000, home, checkouts: new Map([['acme/widgets', join(home, 'widgets')]]), tokens,
+      terminal: { start: () => undefined, stop: () => undefined, alive: () => true },
+    });
+    return { code, printed, sent, reports: base.reports, home };
+  }
+
+  it('carries the machine\'s tokens of the last 5 h and today in each health report, and leaves them out when unreadable', async () => {
+    const app = fakeApp(['ok', 'ok']);
+    await run(app, { tokens: counts(MACHINE, null) });
+    expect(app.reports.map((report) => report.tokens)).toEqual([MACHINE, MACHINE]);
+    const unreadable = fakeApp(['ok']);
+    await run(unreadable, { tokens: counts(null, null) });
+    expect(unreadable.reports[0]).not.toHaveProperty('tokens');
+  });
+
+  it('carries a job\'s tokens, counted from its worktree, in each report once the health route answered', async () => {
+    const worktrees: string[] = [];
+    const { code, sent, home } = await withJob({ health: 'ok', tokens: counts(MACHINE, JOB_TOKENS, worktrees) });
+    expect(code).toBe(0);
+    expect(sent.length).toBeGreaterThan(2);
+    // The first report, the claim's running mark, has counted nothing yet.
+    for (const update of sent.slice(1)) expect(update.tokens).toEqual(JOB_TOKENS);
+    expect(sent.at(-1)?.status).toBe('done');
+    expect(new Set(worktrees)).toEqual(new Set([join(home, 'wt', 'widgets-job-7')]));
+  });
+
+  it('sends no job tokens while the health route has not answered', async () => {
+    const { sent } = await withJob({ health: 'fails', tokens: counts(MACHINE, JOB_TOKENS) });
+    expect(sent.length).toBeGreaterThan(2);
+    for (const update of sent) expect(update).not.toHaveProperty('tokens');
+  });
+
+  it('sends a report the app refused for its tokens again without them, and no later report carries any', async () => {
+    const { sent, code } = await withJob({ health: 'ok', refuseTokens: true, tokens: counts(MACHINE, JOB_TOKENS) });
+    expect(code).toBe(0);
+    const refused = sent.filter((update) => update.tokens !== undefined);
+    expect(refused).toHaveLength(1);
+    const at = sent.indexOf(refused[0] as JobUpdate);
+    expect(sent[at + 1]).not.toHaveProperty('tokens');
+    expect(sent.slice(at + 1).every((update) => update.tokens === undefined)).toBe(true);
+    expect(sent.at(-1)?.status).toBe('done');
+  });
+});
