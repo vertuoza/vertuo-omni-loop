@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ with the missing bug state named in Decisions"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-16",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The reference is generated from the same schemas that validate each call, and a test fails when a route is missing from it.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A curl per route works, but a bug description refuses commas, quotes and percent signs, so real bug titles need trimming first.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Our tools can list every PRD and bug fix and start a bug fix on a runner, without anyone opening a terminal.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Each job names its key on the Runners page, keys can be held to some repositories, and they die with their maker's membership.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A customer tool can file a fix now, but the bug list still has no state and the pull request's sender line reads @API key.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ the description's narrow characters · persona:Irisa ~ no bug state, the sender line"
     }
   ]
 }
