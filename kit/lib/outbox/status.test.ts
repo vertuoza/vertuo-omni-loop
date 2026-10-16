@@ -6,7 +6,7 @@ import { makeRepo } from '../../test/fixture.ts';
 import { flatCtx } from '../../test/flat-layout.ts';
 import { memorySource } from '../knowledge/registers.ts';
 import { makeMarkers } from '../markers.ts';
-import { adoptItem } from './settle.ts';
+import { adoptItem, settleItem } from './settle.ts';
 import { formatReport, gateResult, openItemFiles, openItems } from './status.ts';
 import { parsePrd } from '../ids.ts';
 
@@ -516,5 +516,45 @@ describe('gateResult — a change to a law (PRD 1342)', () => {
     expect(result.unaccounted?.map((change) => change.rule)).toEqual(['law-text', 'law-demoted']);
     const without = gateResult(parsePrd('985'), { ctx: flatCtx(root), changes });
     expect(without.unaccounted?.map((change) => change.rule)).toEqual(['law-text']);
+  });
+});
+
+describe('gateResult — a change to the briefing (PRD 1793)', () => {
+  const BRIEFING = { path: '.omni-loop/knowledge/playbook/briefing.md', status: 'M' };
+
+  function briefingAccount(root: string, account: string) {
+    writeAccount(root, '985', 's1.md', accountText({ entries: [{ path: BRIEFING.path, rule: 'briefing-text', account }] }));
+  }
+
+  it('is red with a medium item, saying the briefing needs an item ranked high', () => {
+    const root = rangeFixtureRoot();
+    const ctx = flatCtx(root);
+    expect(adoptItem({ ctx, itemText: itemText({ frontMatter: { slice: 's1', id: 's1-01-example' } }) }).ok).toBe(true);
+    briefingAccount(root, 'item s1-01-example');
+    const result = gateResult(parsePrd('985'), { ctx, changes: [BRIEFING] });
+    expect(result.ok).toBe(false);
+    expect(formatReport(parsePrd('985'), result)).toContain(
+      `  - ${BRIEFING.path} (briefing-text) — its account names item s1-01-example, ranked medium: a change to the briefing needs an item ranked high`,
+    );
+  });
+
+  it('is red with no account at all', () => {
+    const result = gateResult(parsePrd('985'), { ctx: flatCtx(rangeFixtureRoot()), changes: [BRIEFING] });
+    expect(result).toMatchObject({ ok: false, unaccounted: [{ ...BRIEFING, rule: 'briefing-text' }] });
+  });
+
+  it('stays red while the high item is open, and is green once a person answered it', () => {
+    const root = rangeFixtureRoot();
+    const ctx = flatCtx(root);
+    writeItem(root, '985', 's1-01-example.md', itemText({ frontMatter: { slice: 's1', id: 's1-01-example', rank: 'high' } }));
+    briefingAccount(root, 'item s1-01-example');
+    expect(gateResult(parsePrd('985'), { ctx, changes: [BRIEFING] })).toMatchObject({ ok: false, unaccounted: [] });
+    const settled = settleItem({
+      ctx,
+      file: 'docs/outbox/985/s1-01-example.md',
+      answer: { text: 'Yes, keep it.', approvedBy: 'pierrederval', approvedAt: '2026-10-15', channel: { kind: 'feature-pull-request', number: 40 }, statedVerdict: 'agreed' },
+    });
+    expect(settled.ok).toBe(true);
+    expect(gateResult(parsePrd('985'), { ctx, changes: [BRIEFING] })).toMatchObject({ ok: true, items: [], unaccounted: [] });
   });
 });
