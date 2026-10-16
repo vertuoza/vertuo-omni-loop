@@ -307,7 +307,7 @@ describe('omni check knowledge — a rule serves a Legal entry (PRD 1795)', () =
     const code = await main(['check', 'knowledge'], {
       cwd: r.root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) },
       tokens, fetch: server.fetch, now: () => NOW,
-    } as never);
+    });
     return { code, out: out.join(''), err: err.join(''), root: r.root };
   }
 
