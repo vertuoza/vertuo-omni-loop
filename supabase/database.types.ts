@@ -5379,6 +5379,7 @@ export type Database = {
       product_knowledge_entry_product: {
         Args: { p_entry: string; p_kind: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -5388,7 +5389,9 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
+          plan_repository: string | null
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
@@ -5492,6 +5495,7 @@ export type Database = {
       product_knowledge_product: {
         Args: { p_product: string; p_workspace: string }
         Returns: {
+          bug_seq: number
           business_id: string
           created_at: string
           created_by: string | null
@@ -5501,7 +5505,9 @@ export type Database = {
           ordinal: number
           pitch: Json
           pitch_look: string
+          plan_repository: string | null
           prd_count: number
+          roadmap_seq: number
           workspace_id: string
         }
         SetofOptions: {
