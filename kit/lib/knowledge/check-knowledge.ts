@@ -50,6 +50,7 @@ import {
   domainsDir,
   idParts,
   idsCitedIn,
+  LEGAL_ID_SHAPE,
   meansPending,
   productDir,
   readKnowledge,
@@ -352,9 +353,15 @@ function servesViolations(entry: KnowledgeEntry & { serves: string }, principles
     ];
   }
   const target = entry.serves.replace(/`/g, '').trim();
+  // A Legal entry lives on the Omni page: its shape is graded here, its existence by the product read.
+  if (LEGAL_ID_SHAPE.test(target)) return [];
   if (!/^P-[A-Z0-9]+-\d+$/.test(target)) {
     return [
-      violation(entry.file, entry.id, `serves "${entry.serves}", which is not one principle id.`),
+      violation(
+        entry.file,
+        entry.id,
+        `serves "${entry.serves}", which is not one principle id or a Legal entry id (L-<CODE>-<n>).`,
+      ),
     ];
   }
   const principle = principles.find((candidate) => candidate.id === target);
@@ -569,7 +576,7 @@ function findOwnersBlockViolations(ctx: CheckCtx, knowledge: Knowledge): Violati
 /** Every id-shaped token inside `file`'s own text resolves — a stray `BR-QUOTE-9` is drift. */
 export function findUnresolvedCitations(file: string, text: string, resolve: (id: string) => unknown): Violation[] {
   return idsCitedIn(text)
-    .filter((id) => !resolve(id))
+    .filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve(id))
     .map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
 
@@ -636,4 +643,12 @@ export function gradeKnowledge({
     wishes: findWishes(knowledge.entries).map(formatViolation),
     proposals: findProposals(knowledge.entries).map(formatViolation),
   };
+}
+
+/** The Legal ids the rules and invariants serve, with the entry that serves each (PRD 1795). */
+export function servedLegalIds(entries: readonly KnowledgeEntry[]): { id: string; entry: KnowledgeEntry }[] {
+  return entries.flatMap((entry) => {
+    const id = entry.serves?.replace(/`/g, '').trim() ?? '';
+    return LEGAL_ID_SHAPE.test(id) ? [{ id, entry }] : [];
+  });
 }

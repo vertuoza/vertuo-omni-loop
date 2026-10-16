@@ -811,11 +811,14 @@ var PersonaSchema = z5.looseObject({
   stance: z5.string().nullish(),
   usage: z5.string().nullish()
 });
+var LegalSchema = z5.looseObject({ id: z5.string(), statement: z5.string(), source: z5.string().nullish(), owner: z5.string().nullish() });
 var BusinessSchema = z5.looseObject({
   business: z5.unknown().optional(),
   claims: z5.array(ClaimSchema).nullish(),
   personas: z5.array(PersonaSchema).nullish(),
-  updatedAt: z5.string().nullish()
+  updatedAt: z5.string().nullish(),
+  legal: z5.array(LegalSchema).nullish(),
+  knowledgeEventId: z5.string().nullish()
 });
 var ConstituentSchema = z5.looseObject({ id: z5.string(), text: z5.string() });
 var ConstituentsSchema = z5.looseObject({
@@ -852,11 +855,11 @@ function quoted2(text15, quote) {
   return q.length > 0 && plain(text15).includes(q);
 }
 var SYSTEM = [
-  "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), the business claims its team confirmed, and its personas.",
-  "Report a finding only when the spec designs something that is not the product the Statement describes, breaks a Never line, or designs for a customer outside the size, trade or region claims.",
+  "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), its Legal entries (what the law requires of it), the business claims its team confirmed, and its personas.",
+  "Report a finding only when the spec designs something that is not the product the Statement describes, breaks a Never line or a Legal entry, or designs for a customer outside the size, trade or region claims.",
   'Answer one JSON object and nothing else: {"findings": [{"quote", "claims", "why"}], "persona": {"name", "line"}}.',
   "- quote: the exact words of the spec that break the claim, copied character for character, at most 300 characters.",
-  '- claims: the ids of what it breaks, exactly as given (e.g. "statement", "never#4", "size#1").',
+  '- claims: the ids of what it breaks, exactly as given (e.g. "statement", "never#4", "size#1", "L-INVOICING-1").',
   "- why: one short sentence.",
   "- persona: of the personas given, the one the spec fits worst, by name, and one line in their own voice about the spec, at most 200 characters. Empty name and line when there is no persona.",
   'No finding when the spec fits: "findings": [].'
@@ -903,13 +906,17 @@ function checkReply(value) {
 var text = (value) => (value === void 0 || value === null ? "" : stringOf(value)).trim();
 var stringOf = (value) => String(value);
 var thrownMessage = (error) => error !== null && typeof error === "object" && "message" in error ? error.message : void 0;
-function userPrompt({ spec, claims, constituents, personas }) {
+function userPrompt({ spec, claims, constituents, legal, personas }) {
+  const legalLines = legal.length ? legal.map((entry) => `${entry.id}: ${entry.statement}`) : ["(none)"];
   const constituentLines = constituents.length ? constituents.map((c) => `${c.id}: ${c.text}`) : ["(none)"];
   const claimLines = claims.length ? claims.map((claim) => `${claim.id}: ${claim.kind} \u2014 ${claim.value}`) : ["(none)"];
   const personaLines = personas.length ? personas.map((p) => `${p.name}: ${[p.who, p.trade, p.stance, p.usage].filter(Boolean).join("; ")}`) : ["(none)"];
   return [
     "Constituents (the Statement and the Never lines):",
     ...constituentLines,
+    "",
+    "Legal entries (what the law requires of the product):",
+    ...legalLines,
     "",
     "Claims (confirmed):",
     ...claimLines,
@@ -931,8 +938,8 @@ var neutral = (reason2) => ({
   details: [],
   canon: { state: "neutral", reason: reason2, claimsRead: 0, findings: [], persona: null, judge: null }
 });
-function kept({ spec, reply, claims, constituents, personas }) {
-  const ids = /* @__PURE__ */ new Set([...claims.map((claim) => claim.id), ...constituents.map((c) => c.id)]);
+function kept({ spec, reply, claims, constituents, legal, personas }) {
+  const ids = /* @__PURE__ */ new Set([...claims.map((claim) => claim.id), ...constituents.map((c) => c.id), ...legal.map((entry) => entry.id)]);
   const findings = [];
   for (const finding of reply.findings) {
     if (finding.quote.length > MAX_QUOTE || !quoted2(spec, finding.quote)) continue;
@@ -945,17 +952,22 @@ function kept({ spec, reply, claims, constituents, personas }) {
   return { findings, persona };
 }
 var plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-function judged({ claims, constituents, findings, persona, judge: judge3 }) {
+function judged({ claims, constituents, legal, findings, persona, judge: judge3 }) {
   const claimsRead = claims.length;
   if (findings.length === 0) {
-    const read = constituents.length ? `${plural(claimsRead, "claim")}, ${plural(constituents.length, "constituent")}` : plural(claimsRead, "claim");
+    const read = [
+      plural(claimsRead, "claim"),
+      ...constituents.length ? [plural(constituents.length, "constituent")] : [],
+      ...legal.length ? [`${legal.length} Legal`] : []
+    ].join(", ");
     const reason3 = `canon \u2713 \xB7 ${read} read`;
     return { name: CANON_GATE, ok: true, neutral: false, reason: reason3, details: [], canon: { state: "green", reason: reason3, claimsRead, findings, persona, judge: judge3 } };
   }
   const reason2 = `canon \u2717 ${findings.length}`;
   const values = new Map([
     ...claims.map((claim) => [claim.id, claim.value]),
-    ...constituents.map((c) => [c.id, c.text])
+    ...constituents.map((c) => [c.id, c.text]),
+    ...legal.map((entry) => [entry.id, entry.statement])
   ]);
   const details = findings.map(
     (finding) => `${finding.claims.map((id) => `${id} "${values.get(id)}"`).join(", ")} \u2014 the spec: "${finding.quote}"`
@@ -985,13 +997,15 @@ async function attempt(read, what) {
 }
 function enough(repo, business, read) {
   const constituents = liveConstituents(read);
+  const legal = liveLegal(business);
   const claims = business.claims ?? [];
-  if (constituents.length === 0 && !business.business) return { gate: neutral(`no business: no workspace tracking ${repo} has one`) };
-  if (constituents.length === 0 && claims.length === 0) {
-    return { gate: neutral("no confirmed claim or constituent for this repository's product") };
-  }
-  return { business, claims, personas: business.personas ?? [], constituents, version: read?.latestEventId ?? "" };
+  const nothing = constituents.length + legal.length === 0;
+  if (nothing && !business.business) return { gate: neutral(`no business: no workspace tracking ${repo} has one`) };
+  if (nothing && claims.length === 0) return { gate: neutral("no confirmed claim or constituent for this repository's product") };
+  return { business, claims, personas: business.personas ?? [], constituents, legal, version: versionOf(business, read) };
 }
+var liveLegal = (business) => (business.legal ?? []).filter((entry) => entry.statement.trim());
+var versionOf = (business, read) => [read?.latestEventId ?? "", business.knowledgeEventId ?? ""].join("|");
 var isConstituent = (id) => id === "statement" || /^never#\d+$/.test(id);
 function judgeState({ spec, constituents, findings }) {
   const statement2 = constituents.find((c) => c.id === "statement")?.text ?? null;
@@ -1006,15 +1020,15 @@ function counted(findings, broken) {
 var NO_JUDGE = () => Promise.resolve({ ok: false, error: JUDGE_NOT_CONFIGURED, answer: null, confidence: null, decidedBy: null, reason: "no judge here" });
 function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge: judge3 = NO_JUDGE, ask: ask3, cache = /* @__PURE__ */ new Map(), limit = CACHE_LIMIT }) {
   async function modelVerdict({ repo, spec, read }) {
-    const { business, claims, constituents, personas, version } = read;
+    const { business, claims, constituents, legal, personas, version } = read;
     const key = [repo, createHash("sha256").update(spec).digest("hex"), business.updatedAt ?? "", version].join("\n");
     const hit = cache.get(key);
     if (hit) return hit;
-    const answer = await ask3({ system: SYSTEM, user: userPrompt({ spec, claims, constituents, personas }), check: checkReply, schema: SCHEMA });
+    const answer = await ask3({ system: SYSTEM, user: userPrompt({ spec, claims, constituents, legal, personas }), check: checkReply, schema: SCHEMA });
     if (!answer.ok) {
       return { gate: neutral(answer.error === NO_KEY ? `model not configured (${answer.reason})` : `model error: ${answer.reason}`) };
     }
-    const verdict = kept({ spec, reply: CheckedReplySchema.parse(answer.reply), claims, constituents, personas });
+    const verdict = kept({ spec, reply: CheckedReplySchema.parse(answer.reply), claims, constituents, legal, personas });
     cache.set(key, verdict);
     for (const oldest of cache.keys()) {
       if (cache.size <= limit) break;
@@ -1026,17 +1040,17 @@ function createCanon({ readBusiness, readConstituents = () => Promise.resolve(nu
     async grade({ repo, spec, ref = null }) {
       const read = await canonOf({ readBusiness, readConstituents }, repo);
       if (read.gate) return read.gate;
-      const { claims, constituents } = read;
+      const { claims, constituents, legal } = read;
       const verdict = await modelVerdict({ repo, spec, read });
       if (verdict.gate) return verdict.gate;
-      if (constituents.length === 0) return judged({ claims, constituents, ...verdict, judge: null });
+      if (constituents.length === 0) return judged({ claims, constituents, legal, ...verdict, judge: null });
       const state = judgeState({ spec, constituents, findings: verdict.findings });
       const said = await judge3({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
       if (!said.ok) {
         return neutral(said.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said.reason})` : `judge error: ${said.reason}`);
       }
       const findings = counted(verdict.findings, said.answer === "true");
-      return judged({ claims, constituents, findings, persona: verdict.persona, judge: { decidedBy: said.decidedBy, confidence: said.confidence } });
+      return judged({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said.decidedBy, confidence: said.confidence } });
     }
   };
 }
@@ -2538,10 +2552,13 @@ var LAYER_FILES = {
   "rules.md": "rule",
   "invariants.md": "invariant"
 };
-var ID_SOURCE = "X-[A-Z0-9]+-[A-Z0-9]+-\\d+|BR-[A-Z0-9]+-\\d+|P-[A-Z0-9]+-\\d+|N-[A-Z0-9]+-\\d+|N\\d+";
+var ENTRY_ID_SOURCE = "X-[A-Z0-9]+-[A-Z0-9]+-\\d+|BR-[A-Z0-9]+-\\d+|P-[A-Z0-9]+-\\d+|N-[A-Z0-9]+-\\d+|N\\d+";
+var LEGAL_ID_SOURCE = "L-[A-Z0-9]+-\\d+";
+var ID_SOURCE = `${ENTRY_ID_SOURCE}|${LEGAL_ID_SOURCE}`;
+var LEGAL_ID_SHAPE = new RegExp(`^${LEGAL_ID_SOURCE}$`);
 var ID_SHAPE = new RegExp(`^(?:${ID_SOURCE})$`);
 var ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, "g");
-var ENTRY_HEADING = new RegExp(`^##\\s+(${ID_SOURCE})\\s*$`);
+var ENTRY_HEADING = new RegExp(`^##\\s+(${ENTRY_ID_SOURCE})\\s*$`);
 var ANY_H2 = /^##\s/;
 var FIELD_LINE = /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Kind|Kept id|Glossary term):\s*(.*)$/;
 var FIELD_KEY = {
@@ -11415,9 +11432,14 @@ function servesViolations(entry, principles) {
     ];
   }
   const target2 = entry.serves.replace(/`/g, "").trim();
+  if (LEGAL_ID_SHAPE.test(target2)) return [];
   if (!/^P-[A-Z0-9]+-\d+$/.test(target2)) {
     return [
-      violation(entry.file, entry.id, `serves "${entry.serves}", which is not one principle id.`)
+      violation(
+        entry.file,
+        entry.id,
+        `serves "${entry.serves}", which is not one principle id or a Legal entry id (L-<CODE>-<n>).`
+      )
     ];
   }
   const principle = principles.find((candidate) => candidate.id === target2);
@@ -11582,7 +11604,7 @@ function findOwnersBlockViolations(ctx, knowledge) {
   return ownersBlockProblems(ctx, knowledge).map((text15) => ({ text: text15 }));
 }
 function findUnresolvedCitations(file, text15, resolve3) {
-  return idsCitedIn(text15).filter((id) => !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
+  return idsCitedIn(text15).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
 function findWishes(entries) {
   return entries.filter((entry) => entry.kind === "principle" && servedBy(entries, entry.id).length === 0).map(

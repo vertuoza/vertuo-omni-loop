@@ -418,3 +418,65 @@ describe('createCanon — the constituents (PRD 871)', () => {
     expect(judge).toHaveBeenCalledTimes(3);
   });
 });
+
+// ── PRD 1795: the product's active Legal entries, judged as a Never line ──
+
+const LEGAL_SPEC = ['# Invoices', '', 'Invoice numbers may skip a number when a draft is deleted.'].join('\n');
+const LEGAL_BUSINESS: Business = Object.freeze({
+  state: 'none',
+  business: { name: 'Vertuoza' },
+  claims: [],
+  personas: [],
+  updatedAt: null,
+  knowledgeEventId: '7',
+  legal: [{ id: 'L-INVOICING-1', statement: 'Invoice numbers follow each other with no gaps.', source: 'Belgian VAT Code, art. 53', owner: 'anna' }],
+});
+const LEGAL_BREAK = {
+  findings: [{ quote: 'Invoice numbers may skip a number', claims: ['L-INVOICING-1'], why: 'Numbers must have no gaps.' }],
+  persona: { name: '', line: '' },
+};
+
+describe('createCanon — Legal (PRD 1795)', () => {
+  it('is red when a quote of the spec breaks a live entry, naming the sentence and the entry', async () => {
+    const { canon, ask } = canonWith({ business: LEGAL_BUSINESS, ask: modelAnswering(LEGAL_BREAK) });
+    const gate = await canon.grade({ repo: 'acme/books', spec: LEGAL_SPEC });
+    expect(gate.ok).toBe(false);
+    expect(gate.canon.findings[0]?.claims).toEqual(['L-INVOICING-1']);
+    expect(gate.details[0]).toContain('L-INVOICING-1 "Invoice numbers follow each other with no gaps."');
+    expect(gate.details[0]).toContain('Invoice numbers may skip a number');
+    expect(firstCall(vi.mocked(ask))[0].user).toContain('L-INVOICING-1: Invoice numbers follow each other with no gaps.');
+  });
+
+  it('keeps no finding that cites a retired or unknown entry, or whose quote is not in the spec', async () => {
+    const cites = (id: string, quote = 'Invoice numbers may skip a number') =>
+      modelAnswering({ findings: [{ quote, claims: [id], why: 'x' }], persona: { name: '', line: '' } });
+    for (const ask of [cites('L-INVOICING-2'), cites('L-INVOICING-1', 'a sentence the spec never wrote')]) {
+      const gate = await canonWith({ business: LEGAL_BUSINESS, ask }).canon.grade({ repo: 'acme/books', spec: LEGAL_SPEC });
+      expect(gate.ok).toBe(true);
+    }
+  });
+
+  it('a Legal entry alone is enough to judge by, and a green reads it', async () => {
+    const { canon } = canonWith({ business: LEGAL_BUSINESS });
+    const gate = await canon.grade({ repo: 'acme/books', spec: LEGAL_SPEC });
+    expect(gate.neutral).toBe(false);
+    expect(gate.reason).toBe('canon ✓ · 0 claims, 1 Legal read');
+  });
+
+  it('a changed entry (a newer knowledge event) re-judges a cached spec; the same one asks once', async () => {
+    const business: Business = { ...LEGAL_BUSINESS };
+    const { canon, ask } = canonWith({ business, ask: modelAnswering(LEGAL_BREAK) });
+    await canon.grade({ repo: 'acme/books', spec: LEGAL_SPEC });
+    await canon.grade({ repo: 'acme/books', spec: LEGAL_SPEC });
+    expect(ask).toHaveBeenCalledTimes(1);
+    business.knowledgeEventId = '8';
+    await canon.grade({ repo: 'acme/books', spec: LEGAL_SPEC });
+    expect(ask).toHaveBeenCalledTimes(2);
+  });
+
+  it('with no legal field (a database from before) the gate reads as it did', async () => {
+    const { canon } = canonWith();
+    const gate = await canon.grade({ repo: 'acme/widgets', spec: SPEC });
+    expect(gate.reason).toBe('canon ✓ · 2 claims read');
+  });
+});

@@ -1,4 +1,5 @@
-// `omni kb init | show <form> [--json] [--all] | status [--json] | graph [--json] | laws […]` — the playbook: one form
+// `omni kb legal | glossary` (PRD 1795) print the product's Legal entries or glossary terms from the Omni page, or
+// the local copy when it is unreachable. `omni kb init | show <form> [--json] [--all] | status [--json] | graph [--json] | laws […]` — the playbook: one form
 // per question an agent asks while delivering. `init` lays down every missing form, blank, and prints
 // what it wrote; it never changes a file that exists. `show` prints one form resolved section by
 // section (a pointer, then the repository's section, then the kit default), each section labelled
@@ -32,6 +33,7 @@ import { readKnowledge } from '../../lib/knowledge/registers.ts';
 import { readThesis } from '../../lib/knowledge/thesis.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
 import { messageOf } from '../../lib/narrow.ts';
+import { glossaryLines, legalLines, productKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
 import { ghReader } from '../../lib/plan-repo/targets.ts';
 import { productTargetList } from '../../lib/product/targets.ts';
 import { githubEnv } from '../github.ts';
@@ -59,7 +61,7 @@ export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnTyp
 const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] | --slice <prd> <slice> | --area <domain>] [--json]';
 const SHOW_USAGE = 'usage: omni kb show <form> [--json] [--all]';
 const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>]`;
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -309,7 +311,7 @@ function owners(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: C
   return 0;
 }
 
-/** What a test hands `omni kb pack get` beyond the command's own io: the sign-in, the app and the clock. */
+/** What a test hands `omni kb pack get | legal | glossary` beyond the command's own io: the sign-in, the app and the clock. */
 type PackOptions = {
   tokens?: TokenStore | undefined;
   home?: string | undefined;
@@ -387,6 +389,47 @@ async function pack(args: string[], io: CommandIo & PackOptions): Promise<number
   return result.code;
 }
 
+/** The repository's slug and a client signed in to its Omni page, or the one line saying why there is none. */
+function reachOf(ctx: Context, options: PackOptions): { repo: string; client: NonNullable<ReturnType<typeof signedInClient>> } | string {
+  const askUrl = ctx.config.ask.url;
+  const repo = ctx.config.repo.slug;
+  if (!askUrl) return 'no product knowledge: ask.url is not set, so there is no Omni page to read';
+  if (!repo) return 'no product knowledge: no repository slug — set repo.slug in the config';
+  const client = signedInClient({ askUrl, tokens: options.tokens, home: options.home, fetch: options.fetch ?? globalThis.fetch, callMs: options.callMs });
+  return client === null ? `no product knowledge: no sign-in for ${credentialsHost(askUrl)} (omni signin)` : { repo, client };
+}
+
+/**
+ * `omni kb legal | glossary` (PRD 1795): the product's active Legal entries, or its glossary terms,
+ * one line each, read through the business read with the computer's sign-in and kept in
+ * `.omni-loop/local/product-knowledge.json`. The page unreachable: the copy under
+ * `last read <date>: the Omni page is unreachable`, or exit 1 with no copy. A refusal prints the
+ * server's reason and exits 1, whatever the copy.
+ */
+async function productVerb(verb: 'legal' | 'glossary', positional: string[], { ctx, stdout, exec }: CommandIo, options: PackOptions, cwd: string): Promise<number> {
+  if (positional.length > 0) throw usageError(`usage: omni kb ${verb}`);
+  const refuse = (line: string): number => {
+    println(stdout, line);
+    return 1;
+  };
+  const reach = reachOf(ctx, options);
+  if (typeof reach === 'string') return refuse(reach);
+  const { repo, client } = reach;
+  try {
+    const read = await productKnowledge({
+      repo,
+      root: mainCheckout(cwd, exec) ?? ctx.root,
+      now: options.now ?? (() => new Date()),
+      fetchBusiness: () => client.readBusiness(repo),
+    });
+    if (read.from === 'copy') println(stdout, unreachableLine(read.readAt));
+    for (const line of verb === 'legal' ? legalLines(read.legal) : glossaryLines(read.glossary)) println(stdout, line);
+    return 0;
+  } catch (error) {
+    return refuse(messageOf(error));
+  }
+}
+
 const basic = synchronous((args: string[], io: CommandIo): number => {
   if (args[0] === 'laws') return laws(args.slice(1), io);
   const { positional, flags } = parseArgs('kb', args, { booleans: ['json', 'all'] });
@@ -404,6 +447,9 @@ export const kb: FreeCommand = {
   withoutContext: true,
   run: (args: string[], io: FreeIo & PackOptions): Promise<number> => {
     const full = { ...io, ctx: loadContext(io.cwd, { exec: io.exec }) };
-    return args[0] === 'pack' ? pack(args.slice(1), full) : basic(args, full);
+    const [sub, ...rest] = args;
+    if (sub === 'pack') return pack(rest, full);
+    if (sub === 'legal' || sub === 'glossary') return productVerb(sub, rest, full, io, io.cwd);
+    return basic(args, full);
   },
 };
