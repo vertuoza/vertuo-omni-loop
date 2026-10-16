@@ -311,3 +311,165 @@ Moving the change elsewhere later is a copy of a few lines; nothing is stored an
 ```
 
 <!-- /omni-outbox-settled: s4-01-route-test-lists-the-sweep -->
+
+<!-- omni-outbox-settled: s1-02-name-delegate-and-leadership -->
+
+## s1-02-name-delegate-and-leadership — drifted
+
+- Verdict: drifted
+- Approved by: pierrederval
+- Approved at: 2026-10-16T06:42:17Z
+- Channel: feature pull request #1983
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1983#issuecomment-6209727495
+- Basis: contradiction-marker — the answer says "no", which reads as a change to the recorded choice
+- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Rank: human-action
+- Bears on: none
+- Raised: 2026-10-15
+- Slice: s1
+- Wave: 1
+- Stays here: who leads this repository is configuration, not a product rule: laws.leadership in .omni-loop/config.yml and the CODEOWNERS block omni kb owners writes now hold it.
+
+### The answer, as it was given
+
+```text
+ok, with this answer: for omni-loop, product leadership is me. Set `laws.leadership: [pierrederval]` in `.omni-loop/config.yml`, and name no delegate (`laws.owners` stays `pierrederval` with no `delegate`), then run `omni kb owners`.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-02-name-delegate-and-leadership
+prd: 1794
+slice: s1
+rank: human-action
+bears-on: none
+raised: 2026-10-15
+wave: 1
+---
+
+## The question, in plain words
+
+Who stands in for @pierrederval when he does not answer about a law or an open question, and who is product leadership for this repository?
+
+## The decision, in plain words
+
+Nobody is named yet: the setting can now hold a stand-in and a leadership list, but only @pierrederval can say who they are, so this repository's settings were left as they are.
+
+## The intro, for fun
+
+Even the keeper of the laws takes a holiday now and then.
+
+## The punchline, for fun
+
+Until someone is named, the pull request just waits by the door.
+
+## What a person must do
+
+1. Choose one person who may approve a change to a law in your place, and the people who are product leadership.
+2. In a pull request of your own, write laws.owners in .omni-loop/config.yml as `- login: pierrederval` with `delegate: <their login>`, and laws.leadership as `[<login>, ...]`.
+3. Run `node .omni-loop/bin/omni.mjs kb owners` and commit the CODEOWNERS change with it.
+4. Answer this item on the feature PR once that pull request is open.
+
+## What I had to decide
+
+@pierrederval names one delegate (a person's GitHub login) and the product leadership logins, then opens a pull request that adds them to laws.owners and laws.leadership in .omni-loop/config.yml and runs omni kb owners.
+
+## What I did meanwhile
+
+The repository behaves exactly as before: with no delegate and no leadership, nobody more is ever asked, and a law change still waits on @pierrederval alone.
+
+## What it costs to change later
+
+One small pull request: two lines of config and the CODEOWNERS block omni kb owners rewrites.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Who the delegate and the leaders are is @pierrederval's to say (author).
+
+```
+
+<!-- /omni-outbox-settled: s1-02-name-delegate-and-leadership -->
+
+<!-- omni-outbox-settled: s1-03-config-proof-file-gains-tests -->
+
+## s1-03-config-proof-file-gains-tests — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-16T06:42:17Z
+- Channel: feature pull request #1983
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/1983#issuecomment-6209727495
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-23
+- Raised: 2026-10-15
+- Slice: s1
+- Wave: 1
+- Stays here: the testing form already lets a proof file gain tests of other behaviour; the answer keeps what was built and changes no rule.
+
+### The answer, as it was given
+
+```text
+A. A. Keep the new settings' tests in the settings test file, beside the unchanged signature checks.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-03-config-proof-file-gains-tests
+prd: 1794
+slice: s1
+rank: high
+bears-on: BR-PRODUCT-23
+raised: 2026-10-15
+wave: 1
+---
+
+## The question, in plain words
+
+The test file that proves the settings refuse a bad signature also gained the tests of the new stand-in and leadership settings. Is that acceptable, with the signature checks themselves left exactly as they were?
+
+## The decision, in plain words
+
+The new settings are tested in the same file as every other setting, beside the signature checks, which were not changed. The testing rules allow a proof file to gain tests of other behaviour this way.
+
+## The intro, for fun
+
+The settings' test file got a few new roommates.
+
+## The punchline, for fun
+
+The old tenant, the signature check, kept its room exactly as it was.
+
+## The options, in plain words
+
+A. A. Keep the new settings' tests in the settings test file, beside the unchanged signature checks.
+B. B. Move the new tests into a test file of their own, so the proof file is left untouched.
+
+## What I had to decide
+
+Answer A to keep the new tests where they are, or B to move them into a test file of their own.
+
+## What I did meanwhile
+
+The signature rule is proven by the same checks as before; only tests of other settings were added beside them.
+
+## What it costs to change later
+
+Moving the new tests to their own file later is a cut and paste, with no change to any code.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The coverage guard counts any change to a proof file as a change to the rule, so it asks for this item (author).
+
+```
+
+<!-- /omni-outbox-settled: s1-03-config-proof-file-gains-tests -->
