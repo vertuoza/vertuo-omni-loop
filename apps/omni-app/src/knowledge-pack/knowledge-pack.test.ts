@@ -157,6 +157,14 @@ async function run({ store, octokit, events }: { store: PackStore | null; octoki
   return { results, log };
 }
 
+/** Why the one run of `results` made no pack, for acme/api#12. */
+function skipOf(results: unknown[]): string {
+  expect(results).toHaveLength(1);
+  const [result] = results;
+  expect(result).toMatchObject({ pull: 'acme/api#12' });
+  return String((result as { skipped?: unknown }).skipped);
+}
+
 const PACKED = ['.agents/hooks/tests.md', '.omni-loop/config.yml', '.omni-loop/knowledge/adr/0001-packs.md', '.omni-loop/knowledge/playbook/testing.md', '.omni-loop/knowledge/product/rules.md'];
 
 describe('knowledge-pack — a merge touching the knowledge makes a pack (PRD 2011 s11, acceptance 7)', () => {
@@ -233,11 +241,11 @@ describe('knowledge-pack — a merge touching the knowledge makes a pack (PRD 20
   });
 
   it('a commit with no config, or one that does not parse, makes no pack, saying why', async () => {
-    const { '.omni-loop/config.yml': _config, ...bare } = TREE;
+    const bare = Object.fromEntries(Object.entries(TREE).filter(([path]) => path !== '.omni-loop/config.yml'));
     const none = await run({ store: packDb().store, octokit: github({ files: bare, changed: [{ filename: '.omni-loop/knowledge/a.md' }] }).octokit, events: await deliver() });
     expect(none.results).toEqual([{ pull: 'acme/api#12', skipped: 'it has no .omni-loop/config.yml' }]);
     const broken = await run({ store: packDb().store, octokit: github({ files: { ...TREE, '.omni-loop/config.yml': 'kit: [' }, changed: [{ filename: '.omni-loop/config.yml' }] }).octokit, events: await deliver() });
-    expect(broken.results).toEqual([{ pull: 'acme/api#12', skipped: expect.stringMatching(/^its config does not parse: \.omni-loop\/config\.yml: not valid YAML/) }]);
+    expect(skipOf(broken.results)).toMatch(/^its config does not parse: \.omni-loop\/config\.yml: not valid YAML/);
   });
 
   it('leaves out a file the pack cannot hold as it is, naming it, and packs the rest', async () => {
@@ -254,7 +262,7 @@ describe('knowledge-pack — a merge touching the knowledge makes a pack (PRD 20
     const files: Record<string, string> = { '.omni-loop/config.yml': CONFIG };
     for (let at = 0; at <= MAX_FILES; at += 1) files[`.omni-loop/knowledge/many/${String(at)}.md`] = `${String(at)}\n`;
     const { results } = await run({ store: db.store, octokit: github({ files, changed: [{ filename: '.omni-loop/knowledge/many/1.md' }] }).octokit, events: await deliver() });
-    expect(results).toEqual([{ pull: 'acme/api#12', skipped: expect.stringMatching(/^its knowledge is too large to pack: The snapshot holds 2,002 files/) }]);
+    expect(skipOf(results)).toMatch(/^its knowledge is too large to pack: The snapshot holds 2,002 files/);
     expect(db.puts).toEqual([]);
   });
 
