@@ -211,12 +211,12 @@ describe('the filters (s2)', () => {
   });
 
   it('keeps one PRD\'s stars and the edges between them lit with ?prd=, and fades the rest', () => {
-    expect(litOf({ prd: 'd-1' })).toEqual({ lit: 'd-1', stars: ['a/api', 'a/web'], edges: ['a/web'] });
+    expect(litOf({ dossier: 'd-1' })).toEqual({ lit: 'd-1', stars: ['a/api', 'a/web'], edges: ['a/web'] });
   });
 
   it('reads an unknown ?prd=, or a shipped PRD\'s, as no filter', () => {
-    expect(litOf({ prd: 'd-404' })).toEqual(litOf({}));
-    const map = stars(repos, [flight('d-9', 9, { stage: 'shipped', ledger: null })], { prd: 'd-9' });
+    expect(litOf({ dossier: 'd-404' })).toEqual(litOf({}));
+    const map = stars(repos, [flight('d-9', 9, { stage: 'shipped', ledger: null })], { dossier: 'd-9' });
     expect(map.lit).toBeNull();
   });
 

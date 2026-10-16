@@ -34,9 +34,9 @@ const edgeLabel = (edge: Edge) => `${shortName(edge.consumer)} → ${shortName(e
 const starsLine = (stars: readonly string[]) => (stars.length > 2 ? `${String(stars.length)} repositories` : stars.map(shortName).join(', '));
 
 /** The tab's address with the filter and the selection given. */
-function hrefOf(base: string, prd: string | null, star: string | null): string {
+function hrefOf(base: string, dossier: string | null, star: string | null): string {
   const query = [
-    ...(prd === null ? [] : [`prd=${encodeURIComponent(prd)}`]),
+    ...(dossier === null ? [] : [`prd=${encodeURIComponent(dossier)}`]),
     ...(star === null ? [] : [`star=${encodeURIComponent(star).replace(/%2F/g, '/')}`]),
   ];
   return query.length === 0 ? base : `${base}?${query.join('&')}`;

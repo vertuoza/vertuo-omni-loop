@@ -119,7 +119,7 @@ describe('the Constellation tab, live (s2)', () => {
   });
 
   it('marks the chip in force with ?prd=, and fades what that PRD does not touch', () => {
-    const lit = render(LIVE, FLIGHTS, { prd: 'd-905' });
+    const lit = render(LIVE, FLIGHTS, { dossier: 'd-905' });
     expect(current(section(lit, 'constellation-chips'))).toEqual(['/app/products/p-1/constellation?prd=d-905']);
     expect(lit.match(/data-faded="true"/g)).toHaveLength(3 + 3);
     expect(/data-star="acme\/auth"[^>]*data-faded/.test(lit)).toBe(false);
@@ -176,13 +176,13 @@ describe('the Constellation tab, live (s2)', () => {
   });
 
   it('keeps the filter on a star\'s link and the star on a chip\'s', () => {
-    const both = render(LIVE, FLIGHTS, { prd: 'd-912', star: 'acme/auth' });
+    const both = render(LIVE, FLIGHTS, { dossier: 'd-912', star: 'acme/auth' });
     expect(both).toContain('href="/app/products/p-1/constellation?prd=d-912&amp;star=acme/widgets"');
     expect(both).toContain('href="/app/products/p-1/constellation?prd=d-918&amp;star=acme/auth"');
   });
 
   it('reads an unknown ?prd= and ?star= as none', () => {
-    const unknown = render(LIVE, FLIGHTS, { prd: 'd-404', star: 'acme/gone' });
+    const unknown = render(LIVE, FLIGHTS, { dossier: 'd-404', star: 'acme/gone' });
     expect(unknown).not.toContain('data-faded');
     expect(text(section(unknown, 'constellation-card'))).toContain('Now in Widgets');
   });

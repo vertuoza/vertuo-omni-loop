@@ -80,9 +80,9 @@ export interface Edge {
   flowing: boolean;
 }
 
-/** What the map is drawn with: the PRD a `?prd=` lights, the star a `?star=` selects. */
+/** What the map is drawn with: the dossier of the PRD a `?prd=` lights, the star a `?star=` selects. */
 export interface Filter {
-  prd?: string | null;
+  dossier?: string | null;
   star?: string | null;
 }
 
@@ -194,7 +194,7 @@ export function constellationOf(home: Pick<ProductHome, 'repositories' | 'flight
   if (repositories.length === 0) return { kind: 'empty' };
   const placed = placedOf(repositories);
   const flights = flightsOf(home.flights, placed.map((s) => s.repository));
-  const lit = flights.find((f) => f.dossier === filter.prd) ?? null;
+  const lit = flights.find((f) => f.dossier === filter.dossier) ?? null;
   const touching = (name: string) => flights.filter((f) => f.stars.includes(name));
   const stars: Star[] = placed.map((s) => ({
     ...s, state: worst(touching(s.repository).map((f) => f.state)), lit: lit === null || lit.stars.includes(s.repository),

@@ -29,6 +29,6 @@ export default async function ProductTabRoute({ params, searchParams }: Props) {
   const tab = productHomeTabOf(segment);
   if (tab === null) notFound();
   const search = await searchParams;
-  const query = { prd: one(search.prd), star: one(search.star) };
+  const query = { dossier: one(search.prd), star: one(search.star) };
   return <ProductHome tab={tab} query={query} view={await productHomeViewOf(await memberSession(), id, LIVE_PRODUCT_HOME)} />;
 }
