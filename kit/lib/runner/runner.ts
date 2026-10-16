@@ -8,6 +8,12 @@
 // `health.ts`). A report the app refuses or never answers within 5 s prints one line, and nothing else
 // changes: the runner keeps taking and running jobs.
 //
+// Tokens (PRD 2102, `tokens.ts`): each health report carries the machine's tokens of the last 5 h and
+// of today, and each job's report the tokens of its worktree and every folder below it, counted from
+// Claude's transcripts. A job report carries them only once the health route has answered 2xx (an
+// older app's strict job contract would refuse them), and a job report the app refuses for them is
+// sent again without, and the runner stops sending them. A count that cannot be read is left out.
+//
 // A sample under pressure (memory, disk or load past the runner's limits) pauses the runner: it prints
 // `paused: <reason>` and its free slots open no new `next`. A slot already waiting on `next` keeps its
 // hold and runs the job it gets, and a running job is never touched. Two quiet samples in a row resume
@@ -34,6 +40,8 @@ import type { HealthLimits, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
 import { DEFAULT_LIMITS, machineReads, nextPause, pressure, sample } from './health.ts';
 import type { CpuTimes, MachineReads, PauseState } from './health.ts';
 import { checkLine } from './line.ts';
+import { tokenSource } from './tokens.ts';
+import type { TokenSource } from './tokens.ts';
 import { lastPullRequest, linesAfter, logTail, reportBatch } from './log.ts';
 import { dropJobBranch, pruneWorktrees, sweep, sweptLine } from './sweep.ts';
 import type { Terminal } from './terminal.ts';
@@ -96,6 +104,8 @@ export type RunnerOptions = {
   machine?: MachineReads | undefined;
   /** The limits the runner pauses at: `DEFAULT_LIMITS` unless given. */
   limits?: HealthLimits | undefined;
+  /** Where the token counts are read from: Claude's transcripts under the home, unless given. */
+  tokens?: TokenSource | undefined;
 };
 
 /** One runner's state while it runs: its options with their defaults, and whether it was refused. */
@@ -117,6 +127,12 @@ type Loop = RunnerOptions & {
   pause: PauseState;
   /** The free slots waiting for the pause to end, woken on resume or once the runner halts. */
   waiting: Set<() => void>;
+  /** The token counts' source. */
+  counts: TokenSource;
+  /** Whether job reports may carry tokens: once the health route answered 2xx, until an app refuses them. */
+  tokensOk: boolean;
+  /** Whether an app refused a report for its tokens: none is sent after. */
+  tokensOff: boolean;
 };
 
 /** A job's live lines: its log, and how many of its lines the app has accepted. */
@@ -162,6 +178,9 @@ function loopOf(options: RunnerOptions): Loop {
     limits: options.limits ?? DEFAULT_LIMITS,
     pause: { reason: null, quiet: 0 },
     waiting: new Set(),
+    counts: options.tokens ?? tokenSource({ projects: join(options.home, '.claude', 'projects'), now: options.now ?? Date.now }),
+    tokensOk: false,
+    tokensOff: false,
   };
 }
 
@@ -205,13 +224,39 @@ async function register(loop: Loop): Promise<string | null> {
 }
 
 /**
+ * Sends a job's report. One that carries tokens and is refused is sent again without them, and no later
+ * report carries any: an app older than PRD 2102 refuses a field it does not know. A refusal that
+ * carries none, or a second one, is the app's answer as it stands.
+ */
+async function sendUpdate(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
+  const { tokens, ...plain } = update;
+  if (tokens === undefined) return loop.api.update(job, update);
+  if (!loop.tokensOk) return loop.api.update(job, plain);
+  try {
+    return await loop.api.update(job, update);
+  } catch (error) {
+    if (!(error instanceof RunnerRefused)) throw error;
+    loop.tokensOk = false;
+    loop.tokensOff = true;
+    return loop.api.update(job, plain);
+  }
+}
+
+/** `update` with the tokens of the worktree and every folder below it, when reports may carry them and they can be read. */
+function withTokens(loop: Loop, update: JobUpdate, worktree: string): JobUpdate {
+  if (!loop.tokensOk) return update;
+  const tokens = loop.counts.job(worktree);
+  return tokens === null ? update : { ...update, tokens };
+}
+
+/**
  * Sends a running job's status, with the lines after the cursor: a cancel waiting comes back true.
  * The cursor moves only once the app answers. The app not answering is no cancel.
  */
 async function tick(loop: Loop, job: string, update: JobUpdate, live?: Live, log = ''): Promise<boolean> {
   const lines = live ? reportBatch(linesAfter(log, live.cursor, { ended: false })) : [];
   try {
-    const { cancel } = await loop.api.update(job, live ? withLines(update, live, lines) : update);
+    const { cancel } = await sendUpdate(loop, job, live ? withLines(update, live, lines) : update);
     if (live) live.cursor += lines.length;
     return cancel;
   } catch (error) {
@@ -226,7 +271,7 @@ async function sendLast(loop: Loop, job: string, update: JobUpdate): Promise<boo
   let wait = loop.firstMs;
   for (let tries = 1; tries <= FINAL_TRIES; tries += 1) {
     try {
-      await loop.api.update(job, update);
+      await sendUpdate(loop, job, update);
       return true;
     } catch (error) {
       if (error instanceof RunnerRefused) {
@@ -276,17 +321,21 @@ function defaultBranch(exec: ExecText, checkout: string): string {
   }
 }
 
+/** The worktree a job runs in: `~/wt/<repo>-job-<id>`. */
+function worktreeOf(loop: Loop, job: RunnerJob): string {
+  return join(loop.home, 'wt', `${job.repo.split('/').at(-1) ?? job.repo}-job-${job.id}`);
+}
+
 /** Where `job` runs, or the status it ends on before it runs: a line refused, a repository not held. */
 function placeOf(loop: Loop, job: RunnerJob): Place | JobUpdate {
   const line = checkLine(job.line);
   if (!line.ok) return { status: 'failed', reason: `refused: ${line.reason}` };
   const checkout = loop.checkouts.get(job.repo);
   if (checkout === undefined) return { status: 'failed', reason: `${job.repo} is not held by this runner` };
-  const repoName = job.repo.split('/').at(-1) ?? job.repo;
   const logs = join(loop.home, 'logs');
   return {
     checkout,
-    worktree: join(loop.home, 'wt', `${repoName}-job-${job.id}`),
+    worktree: worktreeOf(loop, job),
     session: `job-${job.id}`,
     line: join(logs, `job-${job.id}.line`),
     log: join(logs, `job-${job.id}.log`),
@@ -366,7 +415,7 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
     if (existsSync(place.exit)) return ended(log, readText(place.exit), job.repo);
     if (!loop.terminal.alive(place.session)) return { status: 'failed', logTail: logTail(log), reason: 'the job stopped before it wrote its exit code' };
     if (loop.now() - started > loop.timeoutMs) return killed(loop, place, { status: 'failed', reason: 'timeout' });
-    if (await tick(loop, job.id, { status: 'running', logTail: logTail(log) }, live, log)) return killed(loop, place, { status: 'cancelled' });
+    if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, place, { status: 'cancelled' });
   }
 }
 
@@ -421,7 +470,7 @@ async function slot(loop: Loop, runner: string): Promise<void> {
     loop.print(`job ${job.id} claimed: ${job.line} (${job.repo})`);
     try {
       const { last, live } = await runJob(loop, job);
-      await finish(loop, job.id, last, live);
+      await finish(loop, job.id, withTokens(loop, last, worktreeOf(loop, job)), live);
       loop.print(endLine(job, last));
     } finally {
       loop.jobs.delete(job.id);
@@ -460,7 +509,9 @@ async function reporter(loop: Loop, runner: string): Promise<void> {
     times = taken.times;
     decide(loop, pressure(taken.sample, loop.limits));
     try {
-      await loop.api.health(runner, { ...taken.sample, paused: loop.pause.reason, limits: loop.limits });
+      const tokens = loop.counts.machine();
+      await loop.api.health(runner, { ...taken.sample, paused: loop.pause.reason, limits: loop.limits, ...(tokens === null ? {} : { tokens }) });
+      loop.tokensOk = !loop.tokensOff;
     } catch (error) {
       loop.print(`health not sent: ${error instanceof Error ? error.message : String(error)}`);
     }

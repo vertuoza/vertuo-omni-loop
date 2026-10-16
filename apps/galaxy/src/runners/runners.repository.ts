@@ -11,6 +11,8 @@ import { RunnerHealthSchema } from './runners.contract';
 /** What the reads and writes need: the tables, and the database's functions. */
 export type RunnersDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 
+const TokensColumn = z.object({ input: z.number(), output: z.number(), cacheRead: z.number(), cacheWrite: z.number() }).nullable().catch(null).optional();
+
 const RunnerRow = z.object({
   id: z.string(),
   workspace_id: z.string(),
@@ -42,6 +44,8 @@ const JobRow = z.object({
   pr_url: z.string().nullable(),
   exit_code: z.number().nullable(),
   reason: z.string().nullable(),
+  /** The tokens its runner reported (PRD 2102); one out of shape, or a database without the column, reads as none. */
+  tokens: TokensColumn,
   queued_at: z.string(),
   claimed_at: z.string().nullable(),
   running_at: z.string().nullable(),
@@ -51,7 +55,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, queued_at, claimed_at, running_at, ended_at';
 
 /** One line of a job's live log, as runner_job_lines holds it (its `at` is the database's). */
 export type JobLineRow = { job_id: string; workspace_id: string; seq: number; text: string };
@@ -80,7 +84,7 @@ export type NewRunner = { workspaceId: string; owner: string; name: string; slot
 export type NewJob = { workspaceId: string; line: string; repo: string; toRunner: string | null; toFleet: string | null; sentBy: string; sentByKey: string | null };
 
 /** What a job's update may change. */
-export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'running_at' | 'ended_at'>>;
+export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'running_at' | 'ended_at'>>;
 
 type Raw = { data: unknown; error: { code?: string; message?: string } | null };
 

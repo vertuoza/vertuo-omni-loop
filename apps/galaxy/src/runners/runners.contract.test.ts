@@ -143,3 +143,48 @@ describe('the health report', () => {
     for (const odd of [Number.POSITIVE_INFINITY, Number.NaN]) expect(HealthReportSchema.safeParse({ ...report, load1: odd }).success).toBe(false);
   });
 });
+
+// The tokens (PRD 2102 s4): a job's report may carry the four counts of its worktree, and a health report
+// the machine's counts of the last 5 hours and of today (each null when the runner could not read it). A
+// report from a runner older than this PRD carries neither and stays valid.
+describe('the tokens a report carries', () => {
+  const counts = { input: 81_234, output: 402_118, cacheRead: 9_120_443, cacheWrite: 611_002 };
+  const sample = { cpu: 1, load1: 1, cores: 8, memUsed: 1, memTotal: 2, diskFree: 3, diskTotal: 4 };
+
+  it('takes a job report with its tokens, and without them', () => {
+    expect(JobUpdateSchema.parse({ status: 'running', tokens: counts })).toEqual({ status: 'running', tokens: counts });
+    expect(JobUpdateSchema.parse({ status: 'running' })).toEqual({ status: 'running' });
+    expect(JobUpdateSchema.safeParse({ status: 'done', tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }).success).toBe(true);
+  });
+
+  it.each([
+    ['a count missing', { input: 1, output: 1, cacheRead: 1 }],
+    ['a negative count', { ...counts, output: -1 }],
+    ['a count that is no whole number', { ...counts, input: 1.5 }],
+    ['a count that is no number', { ...counts, cacheRead: '9' }],
+    ['a count that is null', { ...counts, cacheWrite: null }],
+    ['an unknown count', { ...counts, reasoning: 3 }],
+  ])('refuses a job report with %s', (_, tokens) => {
+    expect(JobUpdateSchema.safeParse({ status: 'running', tokens }).success).toBe(false);
+  });
+
+  it('refuses a job report whose tokens are null', () => {
+    expect(JobUpdateSchema.safeParse({ status: 'running', tokens: null }).success).toBe(false);
+  });
+
+  it('takes a health report with the machine\'s tokens, a window it could not read as null, and none at all', () => {
+    const both = { ...sample, tokens: { last5h: counts, today: { ...counts, input: 120_113 } } };
+    expect(HealthReportSchema.parse(both)).toEqual(both);
+    const half = { ...sample, tokens: { last5h: null, today: counts } };
+    expect(HealthReportSchema.parse(half)).toEqual(half);
+    expect(HealthReportSchema.parse(sample)).toEqual(sample);
+  });
+
+  it.each([
+    ['a window missing', { last5h: counts }],
+    ['an unknown window', { last5h: counts, today: counts, week: counts }],
+    ['a count out of shape', { last5h: { ...counts, input: -1 }, today: counts }],
+  ])('refuses a health report with %s', (_, tokens) => {
+    expect(HealthReportSchema.safeParse({ ...sample, tokens }).success).toBe(false);
+  });
+});

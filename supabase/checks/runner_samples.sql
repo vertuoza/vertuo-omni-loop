@@ -4,7 +4,7 @@
 -- A member of the workspace reads its runners' samples and last health; an account of another
 -- workspace, or signed out, nothing; nobody signed in adds, changes or deletes a sample, or writes a
 -- runner's health. As the service role: a sample is one per runner and instant, a figure out of range is
--- refused, and the route's trim deletes one runner's old samples and no other's. Deleting a runner
+-- refused, the route stores a job's tokens (runner_jobs.tokens, member-read, service-role-written), and the route's trim deletes one runner's old samples and no other's. Deleting a runner
 -- deletes its samples. Any `FAIL:` stops the run.
 
 begin;
@@ -33,6 +33,11 @@ insert into public.runner_samples (runner_id, workspace_id, at, cpu, mem_used, m
   ('00000000-0000-4000-8000-0000021021a1', '00000000-0000-4000-8000-000002102001', now() - interval '15 seconds', 63.5, 13958643712, 17179869184, 41875931136),
   ('00000000-0000-4000-8000-0000021021b1', '00000000-0000-4000-8000-000002102001', now() - interval '2 hours', 5, 1, 2, 3);
 
+-- A job of Olga's, with the tokens its runner reported (a later migration, 20261212090000_runner_tokens.sql).
+insert into public.runner_jobs (id, workspace_id, line, repo, sent_by, tokens) values
+  ('00000000-0000-4000-8000-0000021022a1', '00000000-0000-4000-8000-000002102001', '/omni:yolo 7', 'health-check/app', '00000000-0000-4000-8000-0000021020a1',
+   '{"input": 5, "output": 6, "cacheRead": 7, "cacheWrite": 8}');
+
 create function pg_temp.sign_in(uid text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
 $$;
@@ -57,6 +62,9 @@ begin
   if (select (health ->> 'cpu')::numeric from public.runners where id = '00000000-0000-4000-8000-0000021021a1') <> 63.5 then
     raise exception 'FAIL: a member did not read the runner''s last health';
   end if;
+  if (select (tokens ->> 'cacheRead')::integer from public.runner_jobs where id = '00000000-0000-4000-8000-0000021022a1') <> 7 then
+    raise exception 'FAIL: a member did not read the job''s tokens';
+  end if;
   begin
     insert into public.runner_samples (runner_id, workspace_id, cpu) values ('00000000-0000-4000-8000-0000021021a1', '00000000-0000-4000-8000-000002102001', 99);
     raise exception 'FAIL: a member wrote a sample';
@@ -73,6 +81,10 @@ begin
     update public.runners set health = '{"cpu": 1}' where id = '00000000-0000-4000-8000-0000021021a1';
     raise exception 'FAIL: a member wrote a runner''s health';
   exception when insufficient_privilege then null; end;
+  begin
+    update public.runner_jobs set tokens = '{"input": 1, "output": 1, "cacheRead": 1, "cacheWrite": 1}' where id = '00000000-0000-4000-8000-0000021022a1';
+    raise exception 'FAIL: a member wrote a job''s tokens';
+  exception when insufficient_privilege then null; end;
 end $$;
 
 -- An account of another workspace reads nothing.
@@ -84,6 +96,9 @@ begin
   end if;
   if exists (select 1 from public.runners where id = '00000000-0000-4000-8000-0000021021a1') then
     raise exception 'FAIL: another workspace read a runner''s health';
+  end if;
+  if exists (select 1 from public.runner_jobs where id = '00000000-0000-4000-8000-0000021022a1') then
+    raise exception 'FAIL: another workspace read a job''s tokens';
   end if;
 end $$;
 reset role;
@@ -122,6 +137,11 @@ begin
   end if;
   -- The route stores the last health.
   update public.runners set health = '{"cpu": null, "at": "2026-10-16T12:00:15.000Z"}' where id = box;
+  -- The route stores a job's tokens, and a job that never had any keeps none.
+  update public.runner_jobs set tokens = '{"input": 50, "output": 60, "cacheRead": 70, "cacheWrite": 80}' where id = '00000000-0000-4000-8000-0000021022a1';
+  if (select (tokens ->> 'input')::integer from public.runner_jobs where id = '00000000-0000-4000-8000-0000021022a1') <> 50 then
+    raise exception 'FAIL: the route did not store a job''s tokens';
+  end if;
 end $$;
 reset role;
 

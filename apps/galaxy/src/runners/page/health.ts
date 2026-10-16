@@ -1,4 +1,4 @@
-import type { Job, Runner, RunnerSample } from '../runners.contract';
+import type { Job, Runner, RunnerSample, TokenCounts } from '../runners.contract';
 
 // The health line of the Runners page (PRD 2102 s3), as words and numbers: pure, so each gauge, each state of the line and
 // each queued reason is tested without a page. The figures are the runner's last report and its hour of samples; a figure
@@ -23,8 +23,28 @@ export const gbWords = (bytes: number): string => {
 };
 
 /** One gauge of a runner's health line: its label, its value (`—` when unread), how far its bar fills (null: no bar),
- * whether it is past the runner's own limit, and the hour's sparkline points (null: none). */
-export type Gauge = { key: 'cpu' | 'memory' | 'disk' | 'tokens'; label: string; value: string; fill: number | null; over: boolean; spark: string | null };
+ * whether it is past the runner's own limit, the hour's sparkline points (null: none), and its title (null: none). */
+export type Gauge = { key: 'cpu' | 'memory' | 'disk' | 'tokens'; label: string; value: string; fill: number | null; over: boolean; spark: string | null; title: string | null };
+
+/** A token figure in the page's words: whole under 1,000, `81k` under a million, then `9.1M` and `1.2B`, one decimal. */
+export function tokenFigure(n: number): string {
+  if (n < 1000) return String(n);
+  if (Math.round(n / 1000) < 1000) return `${String(Math.round(n / 1000))}k`;
+  const millions = Math.round(n / 1e5) / 10;
+  return millions < 1000 ? `${millions.toFixed(1)}M` : `${(Math.round(n / 1e8) / 10).toFixed(1)}B`;
+}
+
+/** A token count's figure: the sum of its four counts, cache reads included. */
+export const tokenTotal = (counts: TokenCounts): number => counts.input + counts.output + counts.cacheRead + counts.cacheWrite;
+
+/** The four counts a figure is made of, for a title: `input 81k · output 402k · cache read 9.1M · cache write 611k`. */
+export const tokenSplit = (counts: TokenCounts): string =>
+  `input ${tokenFigure(counts.input)} · output ${tokenFigure(counts.output)} · cache read ${tokenFigure(counts.cacheRead)} · cache write ${tokenFigure(counts.cacheWrite)}`;
+
+/** A job's tokens beside its status once a report carried them: `1.4M tokens`, and the split for its title; null before. */
+export function jobTokensWords(job: Pick<Job, 'tokens'>): { text: string; title: string } | null {
+  return job.tokens ? { text: `${tokenFigure(tokenTotal(job.tokens))} tokens`, title: tokenSplit(job.tokens) } : null;
+}
 
 const clamp = (n: number) => Math.min(100, Math.max(0, n));
 
@@ -45,7 +65,7 @@ export function gaugesOf(runner: Pick<Runner, 'health' | 'samples'>): Gauge[] | 
   const h = runner.health;
   if (!h) return null;
   const samples = runner.samples ?? [];
-  return [cpuGauge(h, samples), memoryGauge(h, samples), diskGauge(h, samples), { key: 'tokens', label: 'Tokens', value: '—', fill: null, over: false, spark: sparkPoints(samples.map((s) => s.tokens5h)) }];
+  return [cpuGauge(h, samples), memoryGauge(h, samples), diskGauge(h, samples), tokensGauge(h, samples)];
 }
 
 const loadWords = (h: RunnerHealth): string =>
@@ -56,7 +76,7 @@ const overLoad = (h: RunnerHealth): boolean => !!h.limits && h.load1 !== null &&
 function cpuGauge(h: RunnerHealth, samples: readonly RunnerSample[]): Gauge {
   return {
     key: 'cpu', label: 'CPU', value: h.cpu === null ? '—' : `${String(Math.round(h.cpu))}%${loadWords(h)}`,
-    fill: h.cpu === null ? null : clamp(h.cpu), over: overLoad(h), spark: sparkPoints(samples.map((s) => s.cpu), 100),
+    fill: h.cpu === null ? null : clamp(h.cpu), over: overLoad(h), spark: sparkPoints(samples.map((s) => s.cpu), 100), title: null,
   };
 }
 
@@ -66,7 +86,7 @@ function memoryGauge(h: RunnerHealth, samples: readonly RunnerSample[]): Gauge {
   return {
     key: 'memory', label: 'Memory', value: pct === null || memUsed === null || memTotal === null ? '—' : `${gbWords(memUsed)} of ${gbWords(memTotal)} GB`,
     fill: pct === null ? null : clamp(pct), over: !!h.limits && pct !== null && pct > h.limits.maxMemory,
-    spark: sparkPoints(samples.map((s) => share(s.memUsed, s.memTotal)), 100),
+    spark: sparkPoints(samples.map((s) => share(s.memUsed, s.memTotal)), 100), title: null,
   };
 }
 
@@ -76,7 +96,19 @@ function diskGauge(h: RunnerHealth, samples: readonly RunnerSample[]): Gauge {
   return {
     key: 'disk', label: 'Disk', value: free === null ? '—' : `${gbWords(free)} GB free${h.diskTotal === null ? '' : ` of ${gbWords(h.diskTotal)}`}`,
     fill: used === null ? null : clamp(used), over: !!h.limits && free !== null && free < h.limits.minDiskGb * GIB,
-    spark: sparkPoints(samples.map((s) => s.diskFree)),
+    spark: sparkPoints(samples.map((s) => s.diskFree)), title: null,
+  };
+}
+
+/** The machine's tokens: `10.2M in 5 h · 15.7M today`, each window `—` when the runner could not read it, the split of both in the title. */
+function tokensGauge(h: RunnerHealth, samples: readonly RunnerSample[]): Gauge {
+  const { last5h, today } = h.tokens ?? { last5h: null, today: null };
+  const figure = (counts: TokenCounts | null) => (counts === null ? '—' : tokenFigure(tokenTotal(counts)));
+  const split = (label: string, counts: TokenCounts | null) => (counts === null ? [] : [`${label}: ${tokenSplit(counts)}`]);
+  const title = [...split('Last 5 h', last5h), ...split('Today', today)].join('\n');
+  return {
+    key: 'tokens', label: 'Tokens', value: last5h === null && today === null ? '—' : `${figure(last5h)} in 5 h · ${figure(today)} today`, fill: null, over: false,
+    spark: sparkPoints(samples.map((s) => s.tokens5h)), title: title === '' ? null : title,
   };
 }
 

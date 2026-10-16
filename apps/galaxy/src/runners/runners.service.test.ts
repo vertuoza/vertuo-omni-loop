@@ -612,3 +612,64 @@ describe('a runner\'s health (PRD 2102)', () => {
     expect(board.runners.find((r) => r.id === CIA_BOX)).toMatchObject({ health: null, samples: [] });
   });
 });
+
+// The tokens (PRD 2102 s4): a job's report stores the counts its runner sent, and a health report's
+// machine tokens of the last 5 hours are kept in the sample as one sum.
+describe('a runner\'s tokens (PRD 2102 s4)', () => {
+  const GB = 1024 ** 3;
+  const COUNTS = { input: 81_234, output: 402_118, cacheRead: 9_120_443, cacheWrite: 611_002 };
+  const SUM = 81_234 + 402_118 + 9_120_443 + 611_002;
+  const HEALTH = { cpu: 1, load1: 1, cores: 8, memUsed: GB, memTotal: 16 * GB, diskFree: 40 * GB, diskTotal: 80 * GB };
+
+  it('stores the tokens a job report carries, and shows them with the job', async () => {
+    const job = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'running', tokens: COUNTS }));
+    expect(w.state.jobs[0]?.tokens).toEqual(COUNTS);
+    const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.jobs.find((j) => j.id === job.id)?.tokens).toEqual(COUNTS);
+  });
+
+  it('keeps the last tokens a report carried when a later one carries none, and replaces them with a newer count', async () => {
+    const job = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'running', tokens: COUNTS }));
+    value(await w.service.update(OLGA, job.id, { status: 'running', logTail: 'working' }));
+    expect(w.state.jobs[0]?.tokens).toEqual(COUNTS);
+    value(await w.service.update(OLGA, job.id, { status: 'done', tokens: { ...COUNTS, output: 500_000 } }));
+    expect(w.state.jobs[0]?.tokens).toEqual({ ...COUNTS, output: 500_000 });
+  });
+
+  it('shows a job whose runner never reported tokens with none', async () => {
+    const job = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'running' }));
+    const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.jobs.find((j) => j.id === job.id)?.tokens).toBeNull();
+  });
+
+  it('keeps the machine\'s tokens in the runner\'s last health, and the last 5 hours\' sum in the sample', async () => {
+    const w = world();
+    const tokens = { last5h: COUNTS, today: { ...COUNTS, input: 1 } };
+    value(await w.service.health(OLGA, SHARED, { ...HEALTH, tokens }));
+    expect(w.state.runners.find((r) => r.id === SHARED)?.health).toEqual({ ...HEALTH, tokens, at: T0.toISOString() });
+    expect(w.state.samples[0]?.tokens_5h).toBe(SUM);
+  });
+
+  it('stores no sum for a window the runner could not read, nor for a runner that sends no tokens', async () => {
+    const w = world();
+    value(await w.service.health(OLGA, SHARED, { ...HEALTH, tokens: { last5h: null, today: COUNTS } }));
+    w.setNow(at(15));
+    value(await w.service.health(OLGA, SHARED, HEALTH));
+    expect(w.state.samples.map((row) => row.tokens_5h)).toEqual([null, null]);
+  });
+
+  it('gives the page the samples\' sums of the hour, oldest first', async () => {
+    const w = world();
+    value(await w.service.health(OLGA, SHARED, { ...HEALTH, tokens: { last5h: COUNTS, today: COUNTS } }));
+    w.setNow(at(15));
+    value(await w.service.health(OLGA, SHARED, { ...HEALTH, tokens: { last5h: { ...COUNTS, input: 0 }, today: COUNTS } }));
+    const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.runners.find((r) => r.id === SHARED)?.samples?.map((s) => s.tokens5h)).toEqual([SUM, SUM - 81_234]);
+  });
+});

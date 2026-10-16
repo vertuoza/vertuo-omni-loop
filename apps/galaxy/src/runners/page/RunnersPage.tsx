@@ -7,7 +7,7 @@ import {
   canCancel, canSendAgain, fleetCell, madeByWords, prWords, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Fleet, type RunnersPageView,
 } from './model';
-import { asOfWords, gaugesOf, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
+import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
 import { runnerJob, terminalOf } from './terminal-model';
 import { TerminalButton, TerminalProvider, type TerminalJob } from './Terminal';
 import '../../dashboard/board/board.css';
@@ -47,7 +47,7 @@ function GaugeView({ gauge }: { gauge: Gauge }) {
   return (
     <div className={`runners-gauge${gauge.over ? ' is-over' : ''}`} data-gauge={gauge.key}>
       <div className="runners-gauge-k">{gauge.label}</div>
-      <div className="runners-gauge-v" data-content>{gauge.value}</div>
+      <div className="runners-gauge-v" data-content {...(gauge.title === null ? {} : { title: gauge.title })}>{gauge.value}</div>
       {gauge.fill !== null && <div className="runners-gauge-fill"><i style={{ width: `${String(Math.round(gauge.fill))}%` }} /></div>}
       {gauge.spark !== null && (
         <svg viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true"><polyline points={gauge.spark} /></svg>
@@ -102,6 +102,7 @@ function Action({ job, primary }: { job: Job; primary: boolean }) {
 
 function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; fleets: readonly Fleet[]; now: Date; primary: boolean }) {
   const waiting = waitingWords(job, board.runners);
+  const tokens = jobTokensWords(job);
   return (
     <div className="runners-row runners-job" id={`job-${job.id}`}>
       <code data-content>{job.line}</code>
@@ -110,6 +111,7 @@ function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; 
       <span data-content>{whereWords(job, board.runners, fleets)}</span>
       <span>
         <span className={`runners-status is-${statusTone(job.status)}`}>{statusWords(job, now)}</span>
+        {tokens !== null && <span className="runners-tokens" title={tokens.title}>{tokens.text}</span>}
         {waiting !== null && <span className="runners-why">{waiting}</span>}
       </span>
       <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} /></span>

@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { askClient } from '../ask/client.ts';
 import type { Fetch, TokenStore } from '../ask/client.ts';
 import type { Sample } from './health.ts';
+import type { MachineTokens, TokenCounts } from './tokens.ts';
 
 /** The line a refused sign-in stops the runner on. */
 const NO_SIGN_IN = 'no sign-in (omni setup-token)';
@@ -68,13 +69,15 @@ export type JobUpdate = {
   prUrl?: string | null;
   exitCode?: number | null;
   reason?: string | null;
+  /** The tokens the job's transcripts hold, sub-agents included (PRD 2102): numbers only. */
+  tokens?: TokenCounts;
 };
 
 /** The limits a runner pauses at (PRD 2102): memory used above, in percent; disk free below, in GB; load above, times its cores. */
 export type HealthLimits = { maxMemory: number; minDiskGb: number; maxLoad: number };
 
-/** A health report: the machine's sample, and, once the runner pauses, why and at which limits. Numbers only. */
-export type HealthReport = Sample & { paused?: string | null; limits?: HealthLimits };
+/** A health report: the machine's sample, why it is paused and at which limits, and its tokens of the last 5 h and today. Numbers only. */
+export type HealthReport = Sample & { paused?: string | null; limits?: HealthLimits; tokens?: MachineTokens };
 
 /** What the runner says about itself when it registers. */
 export type Registration = { name: string; slots: number; repos: string[]; version: string };
