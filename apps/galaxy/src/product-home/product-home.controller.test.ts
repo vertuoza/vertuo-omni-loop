@@ -22,6 +22,7 @@ const HOME: ProductHome = {
   visuals: [],
   questions: [],
   repositories: [],
+  tethers: [],
   flights: [],
 };
 

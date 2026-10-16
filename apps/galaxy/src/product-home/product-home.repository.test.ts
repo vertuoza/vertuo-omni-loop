@@ -114,6 +114,18 @@ describe('the product home\'s storage', () => {
     ]);
   });
 
+  it('reads the workspace\'s open pull requests on a phase-0 branch, and throws on an answer out of shape (PRD 2129 s3)', async () => {
+    const row = { repo: 'a/web', number: 31, head: 'docs/phase-0-reminders' };
+    const { calls, repo } = stub({ pull_requests: { data: [row] } });
+    expect(await repo.phase0Pulls('ws-1')).toEqual([row]);
+    expect(calls).toEqual([
+      ['pull_requests', 'select', 'repo, number, head'], ['pull_requests', 'is', 'closed_at', null], ['pull_requests', 'is', 'merged_at', null],
+      ['pull_requests', 'like', 'head', 'docs/phase-0-%'], ['pull_requests', 'eq', 'workspace_id', 'ws-1'],
+    ]);
+    await expect(stub({ pull_requests: { error: { message: 'boom' } } }).repo.phase0Pulls('ws-1')).rejects.toThrow('phase-0 pull requests (boom)');
+    await expect(stub({ pull_requests: { data: [{ repo: 'a/web', number: 'x', head: 'h' }] } }).repo.phase0Pulls('ws-1')).rejects.toThrow();
+  });
+
   it('reads the product\'s ideas still on the board, newest first (PRD 1364 s10)', async () => {
     const row = { id: 'i-1', repo: 'vertuo/api', title: 'Calmer gate', pitch: 'Fewer pings.', lane: 'now', prd: null, created_at: '2026-10-01T00:00:00Z' };
     const { calls, repo } = stub({ ideas: { data: [row] } });

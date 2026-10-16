@@ -243,6 +243,10 @@ export const featurePullsOf = (db: From, workspace?: string) => {
   return workspace === undefined ? read : read.eq('workspace_id', workspace);
 };
 
+/** The open pull requests on a phase-0 branch (`docs/phase-0-<topic>`), of the workspace (PRD 2129 s3). */
+const phase0PullsOf = (db: From, workspace: string) =>
+  db.from('pull_requests').select(PULL_COLUMNS).is('closed_at', null).is('merged_at', null).like('head', 'docs/phase-0-%').eq('workspace_id', workspace);
+
 /** The links of the workspace's product to its repositories, by name. */
 const linksOf = (db: From, scope: ProductScope) =>
   db.from('product_repositories').select(LINK_COLUMNS).eq('workspace_id', scope.workspace).eq('product_id', scope.product).order('repository');
@@ -397,6 +401,13 @@ export function productHomeRepository(db: ProductHomeDb) {
       const { data, error } = await featurePullsOf(db, workspace);
       if (error) throw new Error(`Supabase: could not read the pull requests (${why(error)})`);
       return orThrow(parseRows(StoredPull, data, `${WHERE}: pull_requests`));
+    },
+
+    /** The workspace's open pull requests on a phase-0 branch. */
+    async phase0Pulls(workspace: string): Promise<StoredPull[]> {
+      const { data, error } = await phase0PullsOf(db, workspace);
+      if (error) throw new Error(`Supabase: could not read the phase-0 pull requests (${why(error)})`);
+      return orThrow(parseRows(StoredPull, data, `${WHERE}: pull_requests of phase 0`));
     },
   };
 }

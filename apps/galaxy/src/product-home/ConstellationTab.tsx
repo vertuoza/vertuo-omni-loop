@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { workPath } from '../dossier/page/work';
 import { constellationOf, SKY, type Constellation, type Edge, type Filter, type Flight, type Star } from './constellation';
-import type { ProductHome as Home } from './product-home.service';
+import type { PrChip, ProductHome as Home } from './product-home.service';
 import { productHomeTabHref } from './tabs';
 import { productHomeHref } from '../products/model';
 
@@ -62,6 +62,27 @@ function EdgeLine({ edge, stars }: { edge: Edge; stars: readonly Star[] }) {
       {edge.flowing ? <path className="constellation-flow" data-consumer={edge.consumer} pathLength={300} d={d} /> : null}
       <text className="constellation-edge-label" x={mid.x} y={mid.y} textAnchor="middle">{edgeLabel(edge)}</text>
     </g>
+  );
+}
+
+/** A tether's words and its pull request on GitHub (PRD 2129 s3). */
+const tetherWords = (t: PrChip) => `◇ ${shortName(t.repo)}#${String(t.pr)} · phase 0`;
+const tetherHref = (t: PrChip) => `https://github.com/${t.repo}/pull/${String(t.pr)}`;
+
+/** A docked star's dashed tether to each of its open phase-0 pull requests, drawn as a link below its role. */
+function Tethers({ star }: { star: Star }) {
+  const { x, y } = star.at;
+  return (
+    <>
+      {star.tethers.map((t, i) => (
+        <g key={`${t.repo}#${String(t.pr)}`} className="constellation-tether" data-faded={star.lit ? undefined : true}>
+          <line className="constellation-tether-line" x1={x} y1={y + 26} x2={x} y2={y + 80 + 16 * i} />
+          <a href={tetherHref(t)}>
+            <text className="constellation-tether-label" x={x} y={y + 92 + 16 * i} textAnchor="middle">{tetherWords(t)}</text>
+          </a>
+        </g>
+      ))}
+    </>
   );
 }
 
@@ -154,6 +175,14 @@ function NowCard({ home, map }: { home: Home; map: Drawn }) {
       {map.now.length === 0
         ? <p>Nothing in flight touches its repositories.</p>
         : <ul>{map.now.map((f) => <FlightLine key={f.dossier} flight={f} tail={starsLine(f.stars)} />)}</ul>}
+      {map.stars.filter((s) => s.docked).map((s) => (
+        <p key={s.repository} className="constellation-docked-line">
+          {shortName(s.repository)} · docked:{' '}
+          {s.tethers.length === 0 ? 'no open phase-0 pull request' : s.tethers.map((t, i) => (
+            <span key={`${t.repo}#${String(t.pr)}`}>{i === 0 ? '' : ', '}<a href={tetherHref(t)}>{tetherWords(t)}</a></span>
+          ))}
+        </p>
+      ))}
       <p>Read only. Links live on Repositories &amp; approvers.</p>
     </>
   );
@@ -217,6 +246,7 @@ export function ConstellationTab({ home, now = new Date(), query = {} }: { home:
             >
               {edges.map((e) => <EdgeLine key={`${e.consumer}>${e.provider}`} edge={e} stars={stars} />)}
               {stars.map((s) => <StarMark key={s.repository} star={s} href={hrefOf(base, map.lit, s.repository)} />)}
+              {stars.map((s) => <Tethers key={s.repository} star={s} />)}
             </svg>
           </div>
           <Legend docked={stars.some((s) => s.docked)} alsoIn={stars.some((s) => s.alsoIn.length > 0)} />

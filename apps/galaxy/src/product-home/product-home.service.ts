@@ -157,6 +157,8 @@ export interface ProductHome {
   repositories: HomeRepository[];
   /** Every PRD of the product, newest first, as the Constellation reads it. */
   flights: HomeFlight[];
+  /** The open phase-0 pull requests of the product's PRDs (`docs/phase-0-<topic>`), for a docked star's tethers. */
+  tethers: PrChip[];
 }
 
 /** What the product home is drawn from, as the repository reads it. */
@@ -188,6 +190,8 @@ export interface ProductHomeRows {
   links: readonly StoredLink[];
   otherLinks: readonly StoredOtherLink[];
   phase0: readonly StoredPhase0[];
+  /** The workspace's open pull requests whose head is a phase-0 branch (PRD 2129 s3). */
+  phase0Pulls: readonly StoredPull[];
   /** Who reads: their user id. */
   me: string;
 }
@@ -258,6 +262,12 @@ function chipsOf(topic: string | undefined, pulls: readonly StoredPull[]): PrChi
   if (topic === undefined) return [];
   const head = featureHead(topic);
   return pulls.filter((p) => head.test(p.head)).map((p) => ({ repo: p.repo, pr: p.number }));
+}
+
+/** The open phase-0 pull requests of the product's PRDs: those whose head is `docs/phase-0-<topic>` of a topic read. */
+function tethersOf(topics: readonly StoredTopic[], pulls: readonly StoredPull[]): PrChip[] {
+  const heads = new Set(topics.map((t) => `docs/phase-0-${t.topic}`));
+  return pulls.filter((p) => heads.has(p.head)).map((p) => ({ repo: p.repo, pr: p.number }));
 }
 
 /** Counts a placed PRD in the summary. */
@@ -416,6 +426,7 @@ export function productHomeOf(rows: ProductHomeRows): ProductHome {
     questions: newestFirst(groups),
     repositories: repositoriesOf(rows),
     flights,
+    tethers: tethersOf(rows.topics, rows.phase0Pulls),
   };
 }
 
@@ -440,7 +451,7 @@ export function productHomeService(store: ProductHomeRepository) {
       const authors = [...new Set([...prds, ...productPrds].flatMap((p) => (p.opened_by === null ? [] : [p.opened_by])))];
       const links = await store.links(workspace, id);
       const linked = links.map((l) => l.repository);
-      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes, items, players, otherLinks, phase0] = await Promise.all([
+      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes, items, players, otherLinks, phase0, phase0Pulls] = await Promise.all([
         store.stages(workspace, repos),
         store.outbox(workspace, repos),
         store.topics(workspace, repos),
@@ -455,9 +466,10 @@ export function productHomeService(store: ProductHomeRepository) {
         store.players(workspace, authors),
         store.otherLinks(workspace, id, linked),
         store.phase0(workspace, linked),
+        prds.length === 0 ? Promise.resolve([]) : store.phase0Pulls(workspace),
       ]);
       return productHomeOf({
-        product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, key: found.key, productPrds, items, players, links, otherLinks, phase0, me,
+        product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, key: found.key, productPrds, items, players, links, otherLinks, phase0, phase0Pulls, me,
       });
     },
   };

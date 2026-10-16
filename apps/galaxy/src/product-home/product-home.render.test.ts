@@ -29,6 +29,7 @@ const EMPTY: Home = {
   questions: [],
   repositories: [],
   flights: [],
+  tethers: [],
 };
 
 describe('the Ledger, filled', () => {
@@ -51,19 +52,19 @@ describe('the Ledger, filled', () => {
   });
 
   it('shows the summary of building, waiting on a person and drifted', () => {
-    expect(text(/<section class="product-home-summary"[^>]*>([\s\S]*?)<\/section>/.exec(html)?.[1] ?? '')).toBe('2 building 2 waiting on a person 0 drifted');
+    expect(text(/<section class="product-home-summary"[^>]*>([\s\S]*?)<\/section>/.exec(html)?.[1] ?? '')).toBe('2 building 3 waiting on a person 1 drifted');
   });
 
   it('lays the rows in three lanes, each with its number, birthplace, repository, chips and state word', () => {
     expect(laneText(html, 'on-you')).toBe('On you 918 Offline photo upload ◆ acme/widgets approval 912 Quotes on the phone ◇ acme/widgets Round per line or on the total? question');
     expect(laneText(html, 'on-review')).toBe('On GitHub review 910 Faster search ◇ acme/widgets widgets #101 review');
-    expect(laneText(html, 'on-agent')).toBe('On the agent 905 Invoice reminders ◆ acme/widgets api #447 widgets #94 building');
+    expect(laneText(html, 'on-agent')).toBe('On the agent 905 Invoice reminders ◆ acme/widgets widgets-api #447 widgets #94 building');
   });
 
   it('seals a PRD whose approval is in force, and links each PR chip to GitHub and each title to the PRD page', () => {
     expect(html).toMatch(/<span class="product-home-n" data-sealed="true" title="approved">905<\/span>/);
     expect(html).toMatch(/<span class="product-home-n">918<\/span>/);
-    expect(html).toContain('href="https://github.com/acme/api/pull/447"');
+    expect(html).toContain('href="https://github.com/acme/widgets-api/pull/447"');
     expect(html).toContain('href="/prd/demo-d-905"');
   });
 });
@@ -82,6 +83,7 @@ describe('the PRDs tab', () => {
       '910 Faster search ◇ acme/widgets outbox',
       '905 Invoice reminders ◆ acme/widgets building',
       '890 Dark mode ◇ acme/widgets shipped',
+      '920 Single sign-on ◆ acme/widgets-web inbox',
     ]);
   });
 });

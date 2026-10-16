@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { Filter } from './constellation';
 import { ConstellationTab, NO_EDGES, NO_REPOSITORIES } from './ConstellationTab';
-import type { HomeFlight, HomeRepository, ProductHome as Home } from './product-home.service';
+import { demoProductHome } from './ProductHome';
+import type { HomeFlight, HomeRepository, PrChip, ProductHome as Home } from './product-home.service';
 
 // The Constellation tab as the server renders it (PRD 2129 s1): each star a link with its name and role,
 // DOCKED, the also-in halo, the legend, the as-of stamp, the read only chip, the edges, and the empty
@@ -15,14 +16,14 @@ import type { HomeFlight, HomeRepository, ProductHome as Home } from './product-
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const repo = (name: string, over: Partial<HomeRepository> = {}): HomeRepository =>
   ({ repository: name, role: null, consumes: [], phase0: 'server', alsoIn: [], ...over });
-const home = (repositories: HomeRepository[], flights: HomeFlight[] = []): Home => ({
+const home = (repositories: HomeRepository[], flights: HomeFlight[] = [], tethers: PrChip[] = []): Home => ({
   product: { id: 'p-1', name: 'Widgets' },
   ledger: { lanes: { 'on-you': [], 'on-review': [], 'on-agent': [] }, summary: { building: 0, waitingOnPerson: 0, drifted: 0 } },
-  prds: [], ideas: [], roadmaps: [], bugs: [], visuals: [], questions: [], repositories, flights,
+  prds: [], ideas: [], roadmaps: [], bugs: [], visuals: [], questions: [], repositories, flights, tethers,
 });
 const NOW = new Date('2026-10-16T09:07:42Z');
-const render = (repositories: HomeRepository[], flights: HomeFlight[] = [], query: Filter = {}) =>
-  renderToStaticMarkup(createElement(ConstellationTab, { home: home(repositories, flights), now: NOW, query }));
+const render = (repositories: HomeRepository[], flights: HomeFlight[] = [], query: Filter = {}, tethers: PrChip[] = []) =>
+  renderToStaticMarkup(createElement(ConstellationTab, { home: home(repositories, flights, tethers), now: NOW, query }));
 const flight = (dossier: string, n: number, title: string, over: Partial<HomeFlight> = {}): HomeFlight => ({
   dossier, repo: 'acme/widgets', prd: parsePrd(n), title, birthplace: 'repo',
   stage: 'building', ledger: { state: 'building', lane: 'on-agent' }, stageRepos: [], prs: [], ...over,
@@ -189,6 +190,47 @@ describe('the Constellation tab, live (s2)', () => {
 
   it('draws the legend of the states', () => {
     expect(text(section(html, 'constellation-legend'))).toContain('building waits on you drifted');
+  });
+});
+
+describe('the phase-0 tethers (s3)', () => {
+  const tethers = [{ repo: 'acme/widgets-web', pr: parsePr(31) }, { repo: 'acme/widgets-web', pr: parsePr(35) }];
+  const html = render(LIVE, [], {}, tethers);
+
+  it('reads each tether as its pull request and links it to GitHub', () => {
+    expect(text(html)).toContain('◇ widgets-web#31 · phase 0');
+    expect(text(html)).toContain('◇ widgets-web#35 · phase 0');
+    expect(html).toContain('href="https://github.com/acme/widgets-web/pull/31"');
+    expect(html).toContain('href="https://github.com/acme/widgets-web/pull/35"');
+  });
+
+  it('draws no tether for a docked star with none, and none for a star that is not docked', () => {
+    expect(render(LIVE)).not.toContain('constellation-tether');
+    expect(render(LIVE, [], {}, [{ repo: 'acme/widgets', pr: parsePr(7) }])).not.toContain('github.com/acme/widgets/pull/7');
+  });
+
+  it('lists each docked star with its phase-0 pull requests in the Now in card', () => {
+    const card = text(section(html, 'constellation-card'));
+    expect(card).toContain('widgets-web · docked: ◇ widgets-web#31 · phase 0 , ◇ widgets-web#35 · phase 0');
+    expect(text(section(render(LIVE), 'constellation-card'))).toContain('widgets-web · docked: no open phase-0 pull request');
+  });
+});
+
+describe('the demo\'s Constellation (s3)', () => {
+  const demo = demoProductHome('demo-product-1');
+  if (demo === null) throw new Error('the demo has a product home');
+  const html = renderToStaticMarkup(createElement(ConstellationTab, { home: demo, now: NOW }));
+
+  it('has four linked repositories and draws every state: building, waits on you, drifted, docked and also in', () => {
+    expect(demo.repositories.map((r) => r.repository)).toEqual(['acme/widgets', 'acme/widgets-api', 'acme/widgets-web', 'acme/auth']);
+    const state = (name: string) => new RegExp(`data-star="${name}"[^>]*data-state="([a-z-]+)"`).exec(html)?.[1];
+    expect(state('acme/widgets-api')).toBe('building');
+    expect(state('acme/widgets')).toBe('on-you');
+    expect(state('acme/widgets-web')).toBe('drifted');
+    expect(html).toMatch(/data-star="acme\/widgets-web" data-docked="true"/);
+    expect(html).toContain('href="https://github.com/acme/widgets-web/pull/31"');
+    expect(html.match(/constellation-halo/g)).toHaveLength(1);
+    expect(text(html)).toContain('◇ widgets-web#31 · phase 0');
   });
 });
 
