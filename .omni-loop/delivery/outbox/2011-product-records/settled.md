@@ -707,3 +707,165 @@ A small kit and server change: the product-PRD id parser, the dossier get comman
 ```
 
 <!-- /omni-outbox-settled: s4-02-product-roadmap-drive-unread -->
+
+<!-- omni-outbox-settled: s1-04-push-rule-keeps-versions -->
+
+## s1-04-push-rule-keeps-versions — drifted
+
+- Verdict: drifted
+- Approved by: pierrederval
+- Approved at: 2026-10-16T05:29:23Z
+- Channel: feature pull request #2012
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2012#issuecomment-6208790553
+- Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
+- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Stays here: the answer decides when the rule is reworded, not what is true; its rework rewords BR-PRODUCT-81 in the rules register itself
+- Rank: high
+- Bears on: BR-PRODUCT-81
+- Raised: 2026-10-15
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+B. Reword the rule now, in a change of its own
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-04-push-rule-keeps-versions
+prd: 2011
+slice: s1
+rank: high
+bears-on: BR-PRODUCT-81
+raised: 2026-10-15
+wave: 1
+---
+
+## The question, in plain words
+
+The rule that any member may push a roadmap, replacing its document and rows, now also covers roadmaps born on the server, which keep every push as a version: who rewords the rule, and does its proof stay sound?
+
+## The decision, in plain words
+
+A roadmap born on the server is pushed by any member of its workspace, its document and rows replaced and the last pusher recorded, exactly as the rule says, and on top of that each push keeps a version of what changed. The rule's proof gained checks for this, and its old checks are untouched; the rule's words were not changed here.
+
+## The intro, for fun
+
+The rule said replace; the new roadmaps also remember.
+
+## The punchline, for fun
+
+Same rule, longer memory, and the words still to catch up.
+
+## The options, in plain words
+
+A. Keep the rule's words for now and add the versions line when the kit's push lands (as built)
+B. Reword the rule now, in a change of its own
+C. Leave the rule as it is: replacing the document stays true, and the versions need no rule
+
+## What I had to decide
+
+Whether to reword BR-PRODUCT-81 to say a roadmap born on the server also keeps every push as a version, as the spec asks of the slice that changes it, and who does it: the rules register is outside this slice's territory, so it was left as it is.
+
+## What I did meanwhile
+
+The roadmaps check that proves BR-PRODUCT-81 keeps every check it had and gains a section for product roadmaps: any member pushes one, the roadmap records who pushed last, its rows are replaced, and each push adds a version only of what changed. The rule's text in the product rules register still reads as before, and is still true of every roadmap.
+
+## What it costs to change later
+
+A constant: one line added to the rule's text in the register, in any later change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec asks that BR-PRODUCT-81 be reworded in the slice that changes its behaviour, but no slice's territory lists the rules register (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-04-push-rule-keeps-versions -->
+
+<!-- omni-outbox-settled: s2-03-rules-84-85-reword-left -->
+
+## s2-03-rules-84-85-reword-left — drifted
+
+- Verdict: drifted
+- Approved by: pierrederval
+- Approved at: 2026-10-16T05:29:23Z
+- Channel: feature pull request #2012
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2012#issuecomment-6208790553
+- Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
+- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Stays here: the answer decides when the rules are reworded, not what is true; its rework rewords BR-PRODUCT-84 and BR-PRODUCT-85 in the rules register itself
+- Rank: high
+- Bears on: BR-PRODUCT-84
+- Raised: 2026-10-15
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+B. B. Reword both rules now, adding the register to a later slice's territory
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-03-rules-84-85-reword-left
+prd: 2011
+slice: s2
+rank: high
+bears-on: BR-PRODUCT-84
+raised: 2026-10-15
+wave: 2
+---
+
+## The question, in plain words
+
+Two rules about roadmaps now have an exception: a row may name a product's PRD, and a repositories column may sit in a product roadmap. Who rewords them?
+
+## The decision, in plain words
+
+The code now lets a roadmap born on the server name a product's PRD in a row and requires a repositories column naming the product's own repositories. The wording of the two rules in the product rules register was not changed here, since the register is outside this slice.
+
+## The intro, for fun
+
+The code learned the new exception before the rulebook did.
+
+## The punchline, for fun
+
+Same rules, two footnotes still to write.
+
+## The options, in plain words
+
+A. A. Leave the register as it is for now and reword both rules in a change of their own (as built)
+B. B. Reword both rules now, adding the register to a later slice's territory
+C. C. Leave the rules as they are: they stay true of a roadmap born in git
+
+## What I had to decide
+
+Whether to reword the rule that a row's PRD is in the inbox or shipped folder, and the rule that a repositories column belongs to a plan repository, to name the product roadmap, and who does it.
+
+## What I did meanwhile
+
+Both rules still hold for a roadmap born in git, whose tests pass unchanged. The new behaviour is proved by the product roadmap tests of the kit and of the app.
+
+## What it costs to change later
+
+Two sentences in the rules register, in a change of their own.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says each rule is reworded in the slice that changes its behaviour, but the register is outside this slice's territory.
+
+```
+
+<!-- /omni-outbox-settled: s2-03-rules-84-85-reword-left -->
