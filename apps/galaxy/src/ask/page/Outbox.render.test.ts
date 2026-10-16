@@ -29,6 +29,18 @@ describe('the Outbox page', () => {
     expect(html).toContain('aria-label="Answer s2-01-quote-totals"');
   });
 
+  it('draws a repository row with its as-of time and a link to its PRD page\'s Outbox tab, and no answer buttons', () => {
+    const repo: QuestionView = {
+      dossier: 'd-r912', prdHref: '/prd/d-r912', outboxHref: '/prd/d-r912?tab=outbox', prdLabel: '912', title: 'Omni · Rounding', repo: 'acme/api',
+      id: 's1-01-round', rank: 'high', question: 'Round up?', forWhom: 'waits on you · as of 2026-10-16 14:05 UTC', options: [], answerOn: null,
+    };
+    const html = render(view({ questions: [Q, repo], open: 2, mine: 2 }));
+    expect(text(html)).toContain('912 Round up? acme/api s1-01-round waits on you · as of 2026-10-16 14:05 UTC Omni · Rounding Answer on its Outbox tab → high');
+    expect(html).toContain('href="/prd/d-r912?tab=outbox"');
+    expect(html).not.toContain('aria-label="Answer s1-01-round"');
+    expect(text(html)).not.toContain('mobile-12 Round per line? acme/app s2-01-quote-totals waits on you · as of');
+  });
+
   it('says so when no decision is open', () => {
     expect(text(render(view({ questions: [], open: 0, mine: 0 })))).toContain(EMPTY_OUTBOX);
   });

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../data/parse-rows';
 
 // The workspace's open outbox items, read for Work › Questions › Outbox (PRD 2011 s14; ADR-0095): as the
@@ -45,6 +46,34 @@ const AUTHOR_COLUMNS = 'user_id, github_login';
 export const StoredAuthor = z.object({ user_id: z.string(), github_login: z.string().nullable() });
 export type StoredAuthor = z.infer<typeof StoredAuthor>;
 
+const REPO_PRD_COLUMNS = 'id, title, workspace_id, home_repo, prd, opened_by';
+/** A repository PRD (no product number): its dossier, where it lives and who opened it. */
+export const StoredRepoPrd = z.object({
+  id: z.string(),
+  title: z.string(),
+  workspace_id: z.string(),
+  home_repo: z.string(),
+  prd: PrdNumberSchema,
+  opened_by: z.string().nullable(),
+});
+export type StoredRepoPrd = z.infer<typeof StoredRepoPrd>;
+
+const WAITING_COLUMNS = 'workspace_id, repository, prd, waiting, synced_at';
+/** What a repository PRD's stored outbox holds waiting on a person (prd_outbox, PRD 657), and when it was read. */
+export const StoredRepoWaiting = z.object({
+  workspace_id: z.string(),
+  repository: z.string(),
+  prd: PrdNumberSchema,
+  waiting: z.array(z.object({ id: z.string(), rank: z.enum(['human-action', 'high']), question: z.string() })),
+  synced_at: z.string(),
+});
+export type StoredRepoWaiting = z.infer<typeof StoredRepoWaiting>;
+
+const LINK_COLUMNS = 'product_id, workspace_id, repository';
+/** A repository's link to a product (product_repositories); a repository may hold several. */
+export const StoredRepoLink = z.object({ product_id: z.string(), workspace_id: z.string(), repository: z.string() });
+export type StoredRepoLink = z.infer<typeof StoredRepoLink>;
+
 const WHERE = 'outbox-items/outbox-questions.repository';
 const why = (error: { message: string }) => error.message;
 
@@ -59,6 +88,16 @@ export const prdsOf = (db: OutboxQuestionsDb, ids?: readonly string[]) => {
   const read = db.from('dossiers').select(DOSSIER_COLUMNS).not('product_seq', 'is', null);
   return ids === undefined ? read : read.in('id', [...ids]);
 };
+
+/** Every repository PRD the caller reads: a numbered PRD of kind `prd` with no product number. */
+export const repoPrdsOf = (db: OutboxQuestionsDb) =>
+  db.from('dossiers').select(REPO_PRD_COLUMNS).eq('kind', 'prd').not('prd', 'is', null).is('product_seq', null);
+
+/** The stored outboxes of the caller's workspaces that hold something waiting on a person. */
+export const repoWaitingOf = (db: OutboxQuestionsDb) => db.from('prd_outbox').select(WAITING_COLUMNS).neq('waiting', '[]');
+
+/** The links of every repository the caller reads to its products. */
+export const repoLinksOf = (db: OutboxQuestionsDb) => db.from('product_repositories').select(LINK_COLUMNS);
 
 /** Every product the caller reads, first first. */
 export const productsOf = (db: OutboxQuestionsDb) => db.from('products').select(PRODUCT_COLUMNS).order('ordinal');
@@ -78,6 +117,27 @@ export function outboxQuestionsRepository(db: OutboxQuestionsDb) {
       const { data, error } = await prdsOf(db, ids);
       if (error) throw new Error(`Supabase: could not read the items' PRDs (${why(error)})`);
       return orThrow(parseRows(StoredItemPrd, data, `${WHERE}: dossiers`));
+    },
+
+    /** The repository PRDs. */
+    async repoPrds(): Promise<StoredRepoPrd[]> {
+      const { data, error } = await repoPrdsOf(db);
+      if (error) throw new Error(`Supabase: could not read the repository PRDs (${why(error)})`);
+      return orThrow(parseRows(StoredRepoPrd, data, `${WHERE}: dossiers (repository PRDs)`));
+    },
+
+    /** The repository PRDs' stored outboxes that hold waiting items. */
+    async repoWaiting(): Promise<StoredRepoWaiting[]> {
+      const { data, error } = await repoWaitingOf(db);
+      if (error) throw new Error(`Supabase: could not read the repository outboxes (${why(error)})`);
+      return orThrow(parseRows(StoredRepoWaiting, data, `${WHERE}: prd_outbox`));
+    },
+
+    /** The repositories' product links. */
+    async repoLinks(): Promise<StoredRepoLink[]> {
+      const { data, error } = await repoLinksOf(db);
+      if (error) throw new Error(`Supabase: could not read the repositories' products (${why(error)})`);
+      return orThrow(parseRows(StoredRepoLink, data, `${WHERE}: product_repositories`));
     },
 
     /** The products. */

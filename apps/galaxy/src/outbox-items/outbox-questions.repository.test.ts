@@ -24,6 +24,31 @@ function fakeDb(answers: Answer[]) {
 
 const ITEM = { dossier_id: 'd1', item: 's1-01-x', rank: 'high', repository: null, body: '---', outbox_settlements: [] };
 
+describe('the repository PRDs\' reads', () => {
+  it('read the repository PRDs, the stored outboxes holding something, and the product links', async () => {
+    const prd = { id: 'd1', title: 'T', workspace_id: 'w', home_repo: 'acme/api', prd: 912, opened_by: null };
+    const waiting = { workspace_id: 'w', repository: 'acme/api', prd: 912, waiting: [{ id: 's1-01-x', rank: 'high', question: 'Q?' }], synced_at: '2026-10-16T14:05:00+00:00' };
+    const link = { product_id: 'p', workspace_id: 'w', repository: 'acme/api' };
+    const { db, lines } = fakeDb([{ data: [prd], error: null }, { data: [waiting], error: null }, { data: [link], error: null }]);
+    const repo = outboxQuestionsRepository(db);
+    expect(await repo.repoPrds()).toEqual([prd]);
+    expect(await repo.repoWaiting()).toEqual([waiting]);
+    expect(await repo.repoLinks()).toEqual([link]);
+    expect(lines[0]).toContain('.eq("kind","prd").not("prd","is",null).is("product_seq",null)');
+    expect(lines[1]).toContain('from("prd_outbox")');
+    expect(lines[1]).toContain('.neq("waiting","[]")');
+    expect(lines[2]).toContain('from("product_repositories")');
+  });
+
+  it('throw on a failed read', async () => {
+    const failed = { data: null, error: { message: 'boom' } };
+    const repo = outboxQuestionsRepository(fakeDb([failed, failed, failed]).db);
+    await expect(repo.repoPrds()).rejects.toThrow('could not read the repository PRDs (boom)');
+    await expect(repo.repoWaiting()).rejects.toThrow('could not read the repository outboxes (boom)');
+    await expect(repo.repoLinks()).rejects.toThrow('could not read the repositories\' products (boom)');
+  });
+});
+
 describe('the workspace Outbox\'s reads', () => {
   it('read every item with whether it is settled, oldest first', async () => {
     const { db, lines } = fakeDb([{ data: [ITEM], error: null }]);
