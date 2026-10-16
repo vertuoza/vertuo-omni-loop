@@ -16,6 +16,9 @@ const PersonaSchema = z.looseObject({
   usage: z.string().nullish(),
 });
 
+/** An active Legal entry of the product (PRD 1795): `L-<CODE>-<n>`, what the law requires, its source and owner. */
+const LegalSchema = z.looseObject({ id: z.string(), statement: z.string(), source: z.string().nullish(), owner: z.string().nullish() });
+
 /**
  * `business_for_repo_app(repo)`: the business tracking the repository (null with none), its confirmed
  * claims and personas, and when one last changed.
@@ -25,6 +28,8 @@ export const BusinessSchema = z.looseObject({
   claims: z.array(ClaimSchema).nullish(),
   personas: z.array(PersonaSchema).nullish(),
   updatedAt: z.string().nullish(),
+  legal: z.array(LegalSchema).nullish(),
+  knowledgeEventId: z.string().nullish(),
 });
 
 /** A constituent: the Statement (id `statement`) or a Never line (id `never#<n>`), and its text. */
@@ -48,6 +53,7 @@ export const FindingSchema = z.looseObject({ quote: z.string(), claims: z.array(
 export const ReplyPersonaSchema = z.looseObject({ name: z.unknown().optional(), line: z.unknown().optional() });
 
 export type Claim = z.infer<typeof ClaimSchema>;
+export type Legal = z.infer<typeof LegalSchema>;
 export type Persona = z.infer<typeof PersonaSchema>;
 export type Business = z.infer<typeof BusinessSchema>;
 export type Constituent = z.infer<typeof ConstituentSchema>;
