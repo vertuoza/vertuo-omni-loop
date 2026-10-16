@@ -1,10 +1,10 @@
 ---
 title: API
-description: Make an API key, read your workspace's PRDs and bug fixes with curl, page with the cursor, and read the errors. The full reference is below.
+description: Make an API key, read your workspace's PRDs and bug fixes with curl, start a bug fix and follow its job, page with the cursor, and read the errors. The full reference is below.
 ---
 
-A program outside the loop can read a workspace's PRDs and bug fixes with an **API key**. This page
-says how to make a key, what each route answers, how to page through a list, and what the errors
+A program outside the loop can read a workspace's PRDs and bug fixes, and start a bug fix, with an
+**API key**. This page says how to make a key, what each route answers, how to page through a list, and what the errors
 mean. The reference under it, rendered from the same schemas the routes validate with, lists every
 route with its parameters, responses and examples. The document itself is
 [`/api/v1/openapi.json`](/api/v1/openapi.json), and it needs no key.
@@ -41,6 +41,37 @@ curl -H "Authorization: Bearer $OMNI_API_KEY" "https://www.omni-loop.xyz/api/v1/
 
 A bug fix answers `id`, `number`, `title`, `repo`, `created_at` and `links`. A key limited to some
 repositories lists only theirs.
+
+## Start a bug fix
+
+```bash terminal
+curl -X POST -H "Authorization: Bearer $OMNI_API_KEY" -H "Content-Type: application/json" \
+  -d '{"repo": "acme/backend", "description": "Issue 548 the invoice total is off by a cent"}' \
+  "https://www.omni-loop.xyz/api/v1/bug-fixes"
+```
+
+It answers `202` with the queued job, and the job runs `/omni:bug-fix <description>` on one of the
+workspace's runners. The `repo` must be one of the workspace's, and on the key's allow-list when it
+has one, or it answers 403. The `description` is 1 to 200 characters of letters, digits, spaces and
+`. _ / : # -`, the same line check the runners apply to a person's job: any other character answers
+422 and nothing is queued. Add `runner` (a runner's name) or `fleet` (a fleet's key) to choose where
+it runs; with neither, any runner of the workspace may take it.
+
+The Runners page shows the job as sent by `API key <name>`, with `made by @<login>` under it, and
+the pull request the job opens says it was sent by the key. The job still ends in a pull request a
+person merges: a key never merges anything.
+
+## Follow a job
+
+```bash terminal
+curl -H "Authorization: Bearer $OMNI_API_KEY" "https://www.omni-loop.xyz/api/v1/jobs/<job id>"
+```
+
+It answers the job's `status` (`queued`, `claimed`, `running`, then `done`, `failed` or
+`cancelled`), the `runner` that took it, `pr_url`, `exit_code`, `reason` and its times
+(`queued_at`, `claimed_at`, `running_at`, `ended_at`). Poll it until the status is `done`, `failed`
+or `cancelled`; `pr_url` is the pull request when it opened one. A job another workspace queued, or
+a person queued, answers 404.
 
 ## Page with the cursor
 

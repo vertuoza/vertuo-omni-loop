@@ -1,7 +1,7 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import {
-  BugFixListSchema, ListQuerySchema, PrdListSchema, PublicApiErrorSchema,
+  BugFixListSchema, JobSchema, ListQuerySchema, PrdListSchema, PublicApiErrorSchema, StartBugFixSchema,
 } from './public-api.contract';
 
 // The public API's reference (PRD 2022 s3, spec "The reference"): every /api/v1 route registered with
@@ -12,7 +12,9 @@ import {
 
 const ERROR_ANSWERS = {
   401: 'No key, an unknown key, a revoked key, or a key whose maker left the workspace.',
-  422: 'A query the contract refuses, or a cursor that does not decode; the message names the field.',
+  403: 'A repository outside the workspace or outside the key’s list of repositories.',
+  404: 'A job that does not exist, or that no key of this workspace queued.',
+  422: 'A query or body the contract refuses, a cursor that does not decode, or a description the runners refuse; the message names the field.',
   500: 'The API could not answer; the message never carries a stack or a database error.',
 } as const;
 
@@ -59,6 +61,34 @@ function openApiRegistry(): OpenAPIRegistry {
   });
 
   registry.registerPath({
+    method: 'post',
+    path: '/api/v1/bug-fixes',
+    tags: ['Bug fixes'],
+    summary: 'Start a bug fix',
+    description: 'Queues `/omni:bug-fix <description>` on the workspace’s runners, as the key: the job names the key as its sender, and the pull request it opens says so. Follow the job with `GET /api/v1/jobs/{id}`. The job ends in a pull request a person merges.',
+    security: [{ bearerAuth: [] }],
+    request: { body: { required: true, content: { 'application/json': { schema: StartBugFixSchema } } } },
+    responses: {
+      202: { description: 'The job, queued.', content: { 'application/json': { schema: JobSchema } } },
+      ...errors(401, 403, 422, 500),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/api/v1/jobs/{id}',
+    tags: ['Bug fixes'],
+    summary: 'Follow a job',
+    description: 'A job a key of this workspace queued: its status, the runner, the pull request’s link, the exit code, the reason and the times.',
+    security: [{ bearerAuth: [] }],
+    request: { params: z.object({ id: z.uuid().meta({ description: 'The job’s id, as `POST /api/v1/bug-fixes` answered it.', example: '0b4c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3' }) }) },
+    responses: {
+      200: { description: 'The job.', content: { 'application/json': { schema: JobSchema } } },
+      ...errors(401, 404, 500),
+    },
+  });
+
+  registry.registerPath({
     method: 'get',
     path: '/api/v1/openapi.json',
     tags: ['Reference'],
@@ -83,7 +113,7 @@ export function openApiDocument() {
     info: {
       title: 'Omni Loop API',
       version: '1.0.0',
-      description: 'Read a workspace’s PRDs and bug fixes with its API key. A workspace owner makes a key on Settings › API keys.',
+      description: 'Read a workspace’s PRDs and bug fixes, and start a bug fix, with its API key. A workspace owner makes a key on Settings › API keys.',
     },
     servers: [{ url: '/', description: 'This deployment' }],
   });
