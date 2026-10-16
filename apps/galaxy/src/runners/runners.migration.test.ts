@@ -106,3 +106,22 @@ describe('the runner health migration (PRD 2102)', () => {
     expect(TYPES).toMatch(/runners: \{\n\s+Row: \{\n\s+created_at: string\n\s+fleet: string \| null\n\s+health: Json \| null\n/);
   });
 });
+
+const TOKENS = read('supabase/migrations/20261212090000_runner_tokens.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+
+describe('the runner tokens migration (PRD 2102)', () => {
+  it('adds the job\'s tokens, empty for a job whose runner never reported any, and changes no grant', () => {
+    expect(TOKENS).toContain('alter table public.runner_jobs add column tokens jsonb;');
+    expect(TOKENS).not.toMatch(/grant |revoke |policy /);
+  });
+
+  it('is proved by supabase/checks/runner_samples.sql: a member reads the tokens, no one else does, and only the service role writes them', () => {
+    for (const fail of ['FAIL: a member did not read the job\'\'s tokens', 'FAIL: another workspace read a job\'\'s tokens', 'FAIL: a member wrote a job\'\'s tokens', 'FAIL: the route did not store a job\'\'s tokens']) {
+      expect(HEALTH_CHECK).toContain(fail);
+    }
+  });
+
+  it('is named in the database\'s types', () => {
+    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*status: string\n\s+to_fleet: string \| null\n\s+to_runner: string \| null\n\s+tokens: Json \| null\n/);
+  });
+});

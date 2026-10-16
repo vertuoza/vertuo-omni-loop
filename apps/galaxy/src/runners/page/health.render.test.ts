@@ -100,3 +100,29 @@ describe('why a queued job waits', () => {
     expect(html).not.toContain('Waiting:');
   });
 });
+
+describe('the tokens', () => {
+  const html = render(demo());
+
+  it('fills the Tokens gauge with the machine\'s last 5 h and today, the split in its title, and its sparkline', () => {
+    const row = runnerRow(html, 'acme-agents');
+    expect(text(row)).toContain('Tokens 10.2M in 5 h · 15.7M today');
+    expect(row).toContain('title="Last 5 h: input 81k · output 402k · cache read 9.1M · cache write 611k\nToday: ');
+    expect((row.match(/<polyline/g) ?? []).length).toBe(4);
+    expect(row.split('data-gauge="tokens"')[1]).not.toContain('runners-gauge-fill');
+    expect(row).not.toContain('runners-gauge is-over" data-gauge="tokens"');
+  });
+
+  it('keeps — for a runner whose tokens were not sent', () => {
+    expect(text(runnerRow(html, 'mac-mini-office'))).toContain('Tokens —');
+  });
+
+  it('shows a job\'s tokens beside its status once a report carried them, the split in the title', () => {
+    expect(text(html)).toContain('Running 12 min 1.5M tokens');
+    expect(html).toContain('<span class="runners-tokens" title="input 31k · output 190k · cache read 1.2M · cache write 84k">1.5M tokens</span>');
+  });
+
+  it('shows no tokens on a job whose runner reported none', () => {
+    expect((html.match(/runners-tokens/g) ?? []).length).toBe(1);
+  });
+});

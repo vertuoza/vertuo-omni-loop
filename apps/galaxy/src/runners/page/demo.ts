@@ -30,10 +30,15 @@ export function demoRunnersPage(now: Date): RunnersPageView {
     cpu, load1: cpu / 8, cores: 8, memUsed: Math.round(memGb * GB), memTotal: 16 * GB, diskFree: diskGb * GB, diskTotal: 233 * GB,
     paused, limits: LIMITS, at: at(0),
   });
-  const samples = (cpu: number, memGb: number, diskGb: number): NonNullable<Runner['samples']> =>
+  // The machine's tokens (PRD 2102 s4): 10.2M over the last 5 h and 15.7M today, almost all of it cache reads.
+  const TOKENS = {
+    last5h: { input: 81_234, output: 402_118, cacheRead: 9_120_443, cacheWrite: 611_002 },
+    today: { input: 120_113, output: 655_001, cacheRead: 14_002_118, cacheWrite: 902_114 },
+  };
+  const samples = (cpu: number, memGb: number, diskGb: number, tokens5h: number | null = null): NonNullable<Runner['samples']> =>
     [0, 1, 2, 3, 4].map((i) => ({
       at: at(i - 5), cpu: cpu * (0.6 + i / 10), memUsed: Math.round(memGb * GB * (0.8 + i / 20)), memTotal: 16 * GB,
-      diskFree: diskGb * GB, tokens5h: null,
+      diskFree: diskGb * GB, tokens5h: tokens5h === null ? null : Math.round(tokens5h * (0.5 + i / 8)),
     }));
   let seq = 0;
   const job = (over: Partial<Job> & Pick<Job, 'line' | 'status'>): Job => {
@@ -48,7 +53,7 @@ export function demoRunnersPage(now: Date): RunnersPageView {
     runners: [
       runner({
         id: DEMO_RUNNERS.agents, name: 'acme-agents', state: 'busy', fleet: 'comets', slots: 1, used: 1,
-        health: report(63, 14.6, 41, 'memory 91%'), samples: samples(63, 14.6, 41),
+        health: { ...report(63, 14.6, 41, 'memory 91%'), tokens: TOKENS }, samples: samples(63, 14.6, 41, 10_214_797),
       }),
       runner({
         id: DEMO_RUNNERS.office, name: 'mac-mini-office', state: 'online', repos: ['acme/widgets', 'acme/mobile'],
@@ -63,6 +68,7 @@ export function demoRunnersPage(now: Date): RunnersPageView {
       job({
         line: '/omni:yolo 1717', status: 'running', toRunner: DEMO_RUNNERS.agents, runner: DEMO_RUNNERS.agents, claimedAt: at(-12), runningAt: at(-12),
         logTail: 'wave 1 · slice s1 · tests green\nopened https://github.com/acme/widgets/pull/1841',
+        tokens: { input: 31_002, output: 190_455, cacheRead: 1_150_330, cacheWrite: 84_012 },
       }),
       job({ line: '/omni:pr-care 1801', status: 'queued', toFleet: 'comets', sentBy: ADA, sentByLogin: 'ada', queuedAt: at(-2) }),
       job({

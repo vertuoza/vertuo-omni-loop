@@ -3,7 +3,7 @@
 //
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
-//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?} → {cancel}
+//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser                               → JobLines
 //   POST  /api/runners/jobs                browser {line, repo, target}                      → {job}
@@ -108,6 +108,15 @@ const JOB_STATUSES = ['queued', 'claimed', 'running', 'done', 'failed', 'cancell
 /** A pull request's link. */
 const PrUrlSchema = z.string().max(300).regex(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/);
 
+/** The tokens a transcript holds, as four counts (PRD 2102): input, output, cache read and cache write. Numbers only. */
+const TokenCountsSchema = z.object({
+  input: z.number().int().nonnegative(),
+  output: z.number().int().nonnegative(),
+  cacheRead: z.number().int().nonnegative(),
+  cacheWrite: z.number().int().nonnegative(),
+}).strict();
+export type TokenCounts = z.infer<typeof TokenCountsSchema>;
+
 /** A runner's report on a job it claimed. The log tail is cut to its last 200 lines and 16 KB here.
  * `from` and `lines` come together or not at all (PRD 1904): the readable log's lines after the
  * runner's cursor, the first of them numbered `from` (its 1-based line number in the log). */
@@ -119,6 +128,8 @@ export const JobUpdateSchema = z.object({
   prUrl: PrUrlSchema.nullable().optional(),
   exitCode: z.number().int().nullable().optional(),
   reason: z.string().max(200).nullable().optional(),
+  /** The tokens of the job's worktree and every folder below it (PRD 2102), stored in `runner_jobs.tokens`. */
+  tokens: TokenCountsSchema.optional(),
 }).strict().refine((report) => (report.from === undefined) === (report.lines === undefined), { message: 'from and lines come together' });
 export type JobUpdate = z.infer<typeof JobUpdateSchema>;
 
@@ -152,6 +163,8 @@ export const HealthReportSchema = z.object({
   diskTotal: CountSchema,
   paused: z.string().min(1).max(80).nullable().optional(),
   limits: HealthLimitsSchema.optional(),
+  /** The machine's tokens of the last 5 hours and since midnight UTC; a count the runner could not read is null. */
+  tokens: z.object({ last5h: TokenCountsSchema.nullable(), today: TokenCountsSchema.nullable() }).strict().optional(),
 }).strict();
 export type HealthReport = z.infer<typeof HealthReportSchema>;
 
@@ -206,6 +219,8 @@ const JobSchema = z.object({
   prUrl: z.string().nullable(),
   exitCode: z.number().int().nullable(),
   reason: z.string().nullable(),
+  /** The tokens its runner reported (PRD 2102); null until one did. */
+  tokens: TokenCountsSchema.nullable().optional(),
   queuedAt: z.string(),
   claimedAt: z.string().nullable(),
   runningAt: z.string().nullable(),

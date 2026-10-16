@@ -15,6 +15,7 @@ import type { MachineReads } from './health.ts';
 import { runRunner } from './runner.ts';
 import type { RunnerOptions } from './runner.ts';
 import type { Terminal } from './terminal.ts';
+import type { TokenSource } from './tokens.ts';
 
 const GB = 1024 ** 3;
 const T0 = Date.parse('2026-10-16T12:00:00.000Z');
@@ -245,5 +246,78 @@ describe('the pause', () => {
     // The one next it held when the pause began, and none after the job, the machine still under pressure.
     expect(app.nexts()).toBe(1);
     expect(printed.at(-1)).toBe('runner box-1 stopped');
+  });
+});
+
+describe('the tokens (PRD 2102, s4)', () => {
+  const MACHINE = { last5h: { input: 1, output: 2, cacheRead: 3, cacheWrite: 4 }, today: { input: 10, output: 20, cacheRead: 30, cacheWrite: 40 } };
+  const JOB_TOKENS = { input: 5, output: 6, cacheRead: 7, cacheWrite: 8 };
+  const counts = (machine: typeof MACHINE | null, job: typeof JOB_TOKENS | null, worktrees: string[] = []): TokenSource => ({
+    job: (worktree) => {
+      worktrees.push(worktree);
+      return job;
+    },
+    machine: () => machine,
+  });
+
+  /** Runs one job on a fake app that answers health in turn and refuses a job report that carries tokens when `refuseTokens`. */
+  async function withJob({ health, refuseTokens = false, tokens }: { health: 'ok' | 'fails'; refuseTokens?: boolean; tokens: TokenSource }) {
+    const home = mkdtempSync(join(tmpdir(), 'omni-runner-tokens-'));
+    const base = holdingApp(7, (n) => {
+      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null });
+      if (n === 6) writeFileSync(join(home, 'logs', 'job-7.exit'), '0\n');
+    });
+    const sent: JobUpdate[] = [];
+    const api: RunnerApi = {
+      ...base.api,
+      update: (job, update) => {
+        sent.push(update);
+        if (refuseTokens && update.tokens !== undefined) return Promise.reject(new RunnerRefused('refused (400)'));
+        return base.api.update(job, update);
+      },
+      health: (runner, report) => (health === 'ok' ? base.api.health(runner, report) : base.api.health(runner, report).then(() => Promise.reject(new RunnerUnreachable('down')))),
+    };
+    const { code, printed } = await run({ ...base, api }, {
+      slots: 1, timeoutMs: 24 * 60 * 60 * 1000, home, checkouts: new Map([['acme/widgets', join(home, 'widgets')]]), tokens,
+      terminal: { start: () => undefined, stop: () => undefined, alive: () => true },
+    });
+    return { code, printed, sent, reports: base.reports, home };
+  }
+
+  it('carries the machine\'s tokens of the last 5 h and today in each health report, and leaves them out when unreadable', async () => {
+    const app = fakeApp(['ok', 'ok']);
+    await run(app, { tokens: counts(MACHINE, null) });
+    expect(app.reports.map((report) => report.tokens)).toEqual([MACHINE, MACHINE]);
+    const unreadable = fakeApp(['ok']);
+    await run(unreadable, { tokens: counts(null, null) });
+    expect(unreadable.reports[0]).not.toHaveProperty('tokens');
+  });
+
+  it('carries a job\'s tokens, counted from its worktree, in each report once the health route answered', async () => {
+    const worktrees: string[] = [];
+    const { code, sent, home } = await withJob({ health: 'ok', tokens: counts(MACHINE, JOB_TOKENS, worktrees) });
+    expect(code).toBe(0);
+    expect(sent.length).toBeGreaterThan(2);
+    // The first report, the claim's running mark, has counted nothing yet.
+    for (const update of sent.slice(1)) expect(update.tokens).toEqual(JOB_TOKENS);
+    expect(sent.at(-1)?.status).toBe('done');
+    expect(new Set(worktrees)).toEqual(new Set([join(home, 'wt', 'widgets-job-7')]));
+  });
+
+  it('sends no job tokens while the health route has not answered', async () => {
+    const { sent } = await withJob({ health: 'fails', tokens: counts(MACHINE, JOB_TOKENS) });
+    expect(sent.length).toBeGreaterThan(2);
+    for (const update of sent) expect(update).not.toHaveProperty('tokens');
+  });
+
+  it('sends a report the app refused for its tokens again without them, and no later report carries any', async () => {
+    const { sent, code } = await withJob({ health: 'ok', refuseTokens: true, tokens: counts(MACHINE, JOB_TOKENS) });
+    expect(code).toBe(0);
+    const refused = sent.filter((update) => update.tokens !== undefined);
+    expect(refused).toHaveLength(1);
+    const at = sent.indexOf(refused[0] as JobUpdate);
+    expect(sent[at + 1]).not.toHaveProperty('tokens');
+    expect(sent.slice(at + 1).every((update) => update.tokens === undefined)).toBe(true);
+    expect(sent.at(-1)?.status).toBe('done');
   });
 });

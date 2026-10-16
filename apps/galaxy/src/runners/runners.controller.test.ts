@@ -129,6 +129,16 @@ describe('POST /api/runners/jobs/<id>, a runner\'s report', () => {
     expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'cancelled' }), job.id, w.deps)).status).toBe(200);
   });
 
+  it('stores the tokens a report carries, and refuses tokens out of shape', async () => {
+    const job = claimed();
+    const w = world({ jobs: [job] });
+    const tokens = { input: 1, output: 2, cacheRead: 3, cacheWrite: 4 };
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'running', tokens }), job.id, w.deps)).status).toBe(200);
+    expect(w.state.jobs[0]?.tokens).toEqual(tokens);
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'running', tokens: { ...tokens, input: -1 } }), job.id, w.deps)).status).toBe(400);
+    expect(w.state.jobs[0]?.tokens).toEqual(tokens);
+  });
+
   it('refuses a report after the job ended, out of order', async () => {
     const job = jobRow({ status: 'done', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: T0.toISOString() });
     const w = world({ jobs: [job] });

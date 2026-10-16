@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Runner } from '../runners.contract';
-import { asOfWords, gaugesOf, gbWords, sparkPoints, stateTone, waitingWords } from './health';
+import { asOfWords, gaugesOf, gbWords, jobTokensWords, sparkPoints, stateTone, tokenFigure, tokenSplit, tokenTotal, waitingWords } from './health';
 import { stateWords } from './model';
 
 // The health line's words and numbers (PRD 2102 s3): each gauge, each state of the line, the paused state and both
@@ -172,5 +172,55 @@ describe('why a queued job waits', () => {
     expect(waitingWords({ ...queued, toFleet: 'nebula' }, [runner('a', 'comets', 'online', 'memory 91%')])).toBeNull();
     expect(waitingWords(queued, [])).toBeNull();
     expect(waitingWords({ ...queued, status: 'running' as const }, [runner('a', null, 'online', 'memory 91%')])).toBeNull();
+  });
+});
+
+// The tokens (PRD 2102 s4): the Tokens gauge's two windows and its split, a job's tokens beside its status.
+describe('the tokens', () => {
+  const COUNTS = { input: 81_234, output: 402_118, cacheRead: 9_120_443, cacheWrite: 611_002 };
+  const TODAY = { input: 120_113, output: 655_001, cacheRead: 14_002_118, cacheWrite: 902_114 };
+
+  it('reads a figure in the page\'s words: whole, thousands, then millions and billions with one decimal', () => {
+    expect([0, 999, 1000, 81_234, 611_002, 999_499, 999_500, 1_000_000, 9_120_443, 10_214_797, 999_949_999, 999_950_000, 1_200_000_000].map(tokenFigure))
+      .toEqual(['0', '999', '1k', '81k', '611k', '999k', '1.0M', '1.0M', '9.1M', '10.2M', '999.9M', '1.0B', '1.2B']);
+  });
+
+  it('adds the four counts, the cache reads with them', () => {
+    expect(tokenTotal(COUNTS)).toBe(10_214_797);
+    expect(tokenSplit(COUNTS)).toBe('input 81k · output 402k · cache read 9.1M · cache write 611k');
+  });
+
+  it('fills the Tokens gauge with the last 5 h and today, the split of both in its title, and no bar', () => {
+    const tokens = gauge({ tokens: { last5h: COUNTS, today: TODAY } }, 'tokens');
+    expect(tokens.value).toBe('10.2M in 5 h · 15.7M today');
+    expect(tokens.title).toBe(`Last 5 h: ${tokenSplit(COUNTS)}\nToday: ${tokenSplit(TODAY)}`);
+    expect(tokens.fill).toBeNull();
+    expect(tokens.over).toBe(false);
+  });
+
+  it('reads a window the runner could not read as —, and keeps the other', () => {
+    expect(gauge({ tokens: { last5h: null, today: TODAY } }, 'tokens').value).toBe('— in 5 h · 15.7M today');
+    expect(gauge({ tokens: { last5h: null, today: TODAY } }, 'tokens').title).toBe(`Today: ${tokenSplit(TODAY)}`);
+    const none = gauge({ tokens: { last5h: null, today: null } }, 'tokens');
+    expect([none.value, none.title]).toEqual(['—', null]);
+  });
+
+  it('reads a runner that sends no tokens as — with no title', () => {
+    const none = gauge({}, 'tokens');
+    expect([none.value, none.title]).toEqual(['—', null]);
+  });
+
+  it('draws the sparkline from the samples\' 5 h sums', () => {
+    const samples = [1, 2, 3].map((i) => ({ at: `2026-10-16T11:0${String(i)}:00Z`, cpu: null, memUsed: null, memTotal: null, diskFree: null, tokens5h: 1000 * i }));
+    expect(gaugesOf({ health: health(), samples })?.find((g) => g.key === 'tokens')?.spark).toBe('0.0,16.0 50.0,9.0 100.0,2.0');
+  });
+
+  it('shows a job\'s tokens beside its status once a report carried them', () => {
+    expect(jobTokensWords({ tokens: { input: 31_002, output: 190_455, cacheRead: 1_150_330, cacheWrite: 84_012 } })).toEqual({
+      text: '1.5M tokens', title: 'input 31k · output 190k · cache read 1.2M · cache write 84k',
+    });
+    expect(jobTokensWords({ tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } })?.text).toBe('0 tokens');
+    expect(jobTokensWords({ tokens: null })).toBeNull();
+    expect(jobTokensWords({})).toBeNull();
   });
 });
