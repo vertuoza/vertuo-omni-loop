@@ -1183,3 +1183,161 @@ A constant: moving the call or the helper into the bug folder is a few lines, wi
 ```
 
 <!-- /omni-outbox-settled: s6-01-bug-push-touches-two-shared-files -->
+
+<!-- omni-outbox-settled: s7-01-stamp-runs-as-an-app-job -->
+
+## s7-01-stamp-runs-as-an-app-job — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-stamp-runs-as-an-app-job
+prd: 2011
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+When a fix is merged, closed or reopened, should the GitHub App record it on the bug through a background job of its own that retries on failure, rather than through the arcade?
+
+## The decision, in plain words
+
+The App records the change through a background job of its own, which writes to the database directly and tries again when the database fails. The arcade's stamp page was not built, and two tests that list the App's jobs now list this one too.
+
+## The intro, for fun
+
+A merge happened, and someone has to write it in the logbook.
+
+## The punchline, for fun
+
+The App holds the pen itself, and tries again if the ink runs out.
+
+## The options, in plain words
+
+A. The App's own background job writes to the database, with retries (as built)
+B. The App forwards each change to an arcade route that writes to the database, signed as the stage events are
+C. The App writes to the database while it answers GitHub, with no job and no retry
+
+## What I had to decide
+
+Keep the App's own job, or move the write behind an arcade route.
+
+## What I did meanwhile
+
+Built `apps/omni-app/src/fix-rows/` (the event, the service-role call of fix_row_stamp(), the `fix-row-stamp` Inngest function, retried 3 times) and registered it in `functions.ts`. The webhook hands its events to a new `sendStamps`. `apps/galaxy/app/api/fixes/stamp/` was not created. Outside the territory, `apps/omni-app/src/functions.test.ts` and `apps/omni-app/src/outbox-check/inngest-route.test.ts` each gained the new function id and count (eleven functions, sixteen with failure handlers); `apps/omni-app/entries/inngest.ts` still says ten in its header comment.
+
+## What it costs to change later
+
+A constant: the function's step could POST to a galaxy route instead of calling the database; the event and the webhook stay as they are.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan lists both `apps/omni-app/src/functions.ts` (register the stamp) and `apps/galaxy/app/api/fixes/stamp/`, and the spec does not say which side writes; s5's note says to call fix_row_stamp() as the service role, which the App already holds.
+- (author) Every registered function is listed in two tests outside the territory, so registering one cannot be done inside it.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-stamp-runs-as-an-app-job -->
+
+<!-- omni-outbox-settled: s7-02-which-pull-requests-ask-for-a-stamp -->
+
+## s7-02-which-pull-requests-ask-for-a-stamp — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-16
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-which-pull-requests-ask-for-a-stamp
+prd: 2011
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-16
+wave: 3
+---
+
+## The question, in plain words
+
+Which closed or reopened pull requests should ask the server to update a bug's fixes: only those into the main branch, those naming a bug, or all of them?
+
+## The decision, in plain words
+
+A pull request asks only when it goes into its repository's main branch, or when its description names a bug record. A fix merged into another branch whose description names no bug is never recorded, and its bug stays open.
+
+## The intro, for fun
+
+Every door that closes could be a fix walking out.
+
+## The punchline, for fun
+
+We only check the front door, and any door with a name tag.
+
+## The options, in plain words
+
+A. Main branch, or a description naming a bug record (as built)
+B. Every pull request closed or reopened, whatever its branch, one job each
+C. Only a pull request whose description names a bug record
+
+## What I had to decide
+
+Keep the filter, widen it to every pull request, or narrow it to those naming a bug.
+
+## What I did meanwhile
+
+`toFixStampRequests` in `apps/omni-app/src/webhook/webhook.ts` sends one fix stamp event for `pull_request.closed` (merged or not) and `pull_request.reopened` into the default branch, or on any branch when the body has a `Fixes <key>-B<n>` line; a delivery naming no default branch is sent. Each event is one Inngest run, so a sub-PR into its feature branch sends none (#1409). A redelivery of the same change carries the same event id.
+
+## What it costs to change later
+
+A constant: one condition in `toFixStampRequests`.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the merge webhook stamps the row whose repository and pull request match, and says nothing of the branch; #1409 stopped sub-PR merges from spending a run each.
+- (author) Events of one pull request run as separate jobs, so a close and a reopen seconds apart could land out of order and leave the row shown closed until it merges.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-which-pull-requests-ask-for-a-stamp -->
