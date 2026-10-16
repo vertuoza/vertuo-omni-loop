@@ -20,7 +20,7 @@ describe('conceptCards', () => {
     expect(card).toEqual({
       id: 'c-1269', href: '/concepts/c-1269', number: 1269, title: 'Products replace plan repositories, with phase 0 approved on the server',
       kind: 'platform', scale: 'vast', areas: { withPrd: 0, total: 6 }, recordedAt: '2026-10-06T09:00:00Z', recorded: '6 Oct 2026',
-      state: 'unknown',
+      state: 'unknown', product: null, workspaceId: 'w-1',
     });
   });
 
