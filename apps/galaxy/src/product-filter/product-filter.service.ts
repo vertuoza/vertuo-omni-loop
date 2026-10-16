@@ -89,11 +89,45 @@ export function productFilterOf(products: readonly { id: string; name: string }[
 }
 
 /** The reads the filter needs, as the repository answers them. */
-export type ProductFilterReads = Pick<ProductFilterRepository, 'products' | 'dossierProducts' | 'boardWorkspaces' | 'ideaProducts'>;
+export type ProductFilterReads = Pick<ProductFilterRepository, 'products' | 'dossierProducts' | 'dossierNumbers' | 'boardWorkspaces' | 'ideaProducts'>;
+
+/** What a row shows of its product (PRD 2011): the product's name, and, for a product item, its id
+ * (`mobile-12` a PRD, `mobile-B74` a bug, `mobile-R3` a roadmap); null for a row born in a repository. */
+export interface ProductLabel {
+  product: string;
+  itemId: string | null;
+}
+
+/** The labels by dossier id: each row that carries a product. */
+export type ProductLabels = ReadonlyMap<string, ProductLabel>;
+
+const ITEM_PREFIX = { prd: '', bug: 'B', roadmap: 'R' } as const;
+
+/** The id of a product item: `<key>-<n>`, `<key>-B<n>` or `<key>-R<n>`; null for any other kind, or without a key or a number. */
+function itemIdOf(kind: string | undefined, key: string | null, seq: number | undefined): string | null {
+  const k = kind ?? 'prd';
+  if (key === null || seq === undefined || !(k in ITEM_PREFIX)) return null;
+  return `${key}-${ITEM_PREFIX[k as keyof typeof ITEM_PREFIX]}${seq}`;
+}
+
+/** The label of each row that carries a product: the product's name and, when the row is numbered on it, its id. */
+export function labelsOf(
+  rows: readonly { id: string; kind?: string | undefined }[], products: readonly { id: string; name: string; key?: string | null }[],
+  carriers: ReadonlyMap<string, string>, numbers: ReadonlyMap<string, number>,
+): Map<string, ProductLabel> {
+  const labels = new Map<string, ProductLabel>();
+  for (const row of rows) {
+    const product = products.find((p) => p.id.toLowerCase() === carriers.get(row.id)?.toLowerCase());
+    if (product) labels.set(row.id, { product: product.name, itemId: itemIdOf(row.kind, product.key ?? null, numbers.get(row.id)) });
+  }
+  return labels;
+}
 
 /** A list once filtered: its rows, the filter to draw (null: none), and whether the products could not be read. */
 export interface ProductScope<T> {
   rows: T[];
+  /** Each kept row's product (PRD 2011). */
+  labels: ProductLabels;
   filter: ProductFilterView | null;
   unreadable: boolean;
 }
@@ -103,27 +137,29 @@ type Log = (line: string) => void;
 const why = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 /** The rows narrowed and the filter, once the products and their carriers are read. */
-function scoped<T extends { id: string }>(
+function scoped<T extends { id: string; kind?: string | undefined }>(
   rows: readonly T[], products: readonly { id: string; name: string }[], carriers: ReadonlyMap<string, string>, query: Query, path: string,
+  numbers: ReadonlyMap<string, number> = new Map(),
 ): ProductScope<T> {
   const choice = readProductChoice(query);
-  if (products.length === 0 && choice.kind === 'all') return { rows: [...rows], filter: null, unreadable: false };
-  return { rows: narrowByProduct(rows, carriers, choice), filter: productFilterOf(products, choice, path, query), unreadable: false };
+  if (products.length === 0 && choice.kind === 'all') return { rows: [...rows], labels: new Map(), filter: null, unreadable: false };
+  const kept = narrowByProduct(rows, carriers, choice);
+  return { rows: kept, labels: labelsOf(kept, products, carriers, numbers), filter: productFilterOf(products, choice, path, query), unreadable: false };
 }
 
 /** A list of dossiers (/prd, /bugs, /visual) filtered by product: the products and the dossiers that carry
  * one are read for the listed rows' workspaces, once each. */
-export async function scopeDossiers<T extends { id: string; workspace_id: string }>(
-  reads: Pick<ProductFilterReads, 'products' | 'dossierProducts'>, rows: readonly T[], query: Query, path: string, log: Log = console.error,
+export async function scopeDossiers<T extends { id: string; workspace_id: string; kind?: string | undefined }>(
+  reads: Pick<ProductFilterReads, 'products' | 'dossierProducts' | 'dossierNumbers'>, rows: readonly T[], query: Query, path: string, log: Log = console.error,
 ): Promise<ProductScope<T>> {
   const workspaces = [...new Set(rows.map((r) => r.workspace_id))].sort();
-  if (workspaces.length === 0) return { rows: [...rows], filter: null, unreadable: false };
+  if (workspaces.length === 0) return { rows: [...rows], labels: new Map(), filter: null, unreadable: false };
   try {
-    const [products, carriers] = await Promise.all([reads.products(workspaces), reads.dossierProducts(workspaces)]);
-    return scoped(rows, products, carriers, query, path);
+    const [products, carriers, numbers] = await Promise.all([reads.products(workspaces), reads.dossierProducts(workspaces), reads.dossierNumbers(workspaces)]);
+    return scoped(rows, products, carriers, query, path, numbers);
   } catch (err) {
     log(`product filter: the products could not be read (${why(err)})`);
-    return { rows: [...rows], filter: null, unreadable: true };
+    return { rows: [...rows], labels: new Map(), filter: null, unreadable: true };
   }
 }
 

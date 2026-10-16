@@ -28,6 +28,7 @@ import { isStage, STAGE_LABELS, STAGES, type StageId, type StoredStage } from '.
 import { prdKey, type PrdRef, type StageStore } from '../../stages/store';
 import type { PrdOutboxStore } from '../../stages/outbox/store';
 import type { DossierKind, DossierListRow } from '../store';
+import type { ProductLabels } from '../../product-filter/product-filter.service';
 import { listOf } from '../../data/unparsed';
 import type { ViewerDb } from '../../data/viewer';
 import { dossierPath, stamp, TAB_LABELS, TABS } from './view';
@@ -91,9 +92,11 @@ export type ArtifactEntry = { kind: DossierKind; label: string; badge: string };
 export type HistoryItem = {
   id: string;
   href: string;
-  /** `#216`, or `DRAFT`. */
+  /** `#216`, `DRAFT`, or a product PRD's id (`mobile-12`, PRD 2011). */
   heading: string;
   draft: boolean;
+  /** The name of the product it carries (PRD 2011); null when it has none. */
+  product: string | null;
   title: string;
   repos: string[];
   /** The artifacts it has, in the page's tab order. */
@@ -311,13 +314,15 @@ export function historyStageBar(
  * one's current stored stage (PRD 587); `whom`, under `who=<login>`, the ids that login holds (PRD 698). */
 export function historyItems(
   rows: DossierListRow[], filters: HistoryFilters, viewer: string | null, open: OpenCounts = new Map(), stages: CurrentStages = new Map(),
-  whom: Whom = NOBODY,
+  whom: Whom = NOBODY, labels: ProductLabels = new Map(),
 ): HistoryItem[] {
   return rows.filter((row) => passes(row, filters, viewer, open, stages, whom)).sort(newestFirst).map((row): HistoryItem => ({
     id: row.id,
     href: dossierPath(row.id),
-    heading: row.prd === null ? 'DRAFT' : `#${row.prd}`,
-    draft: row.prd === null,
+    // A product PRD has no repository number and is no draft (PRD 2011): its id is its heading.
+    heading: labels.get(row.id)?.itemId ?? (row.prd === null ? 'DRAFT' : `#${row.prd}`),
+    draft: row.prd === null && !labels.get(row.id)?.itemId,
+    product: labels.get(row.id)?.product ?? null,
     title: row.title,
     repos: row.repos,
     artifacts: TABS.flatMap((kind): ArtifactEntry[] => {

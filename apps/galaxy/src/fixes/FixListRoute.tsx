@@ -17,6 +17,7 @@ import { fixChoices, fixItems, readFixFilters, type FixFacts, type FixKind, type
 import { loadPeople, type People } from '../people/load';
 import { NOBODY, type PeopleIn } from './people';
 import { readLoginIds, rosterReader, whoLogin, type Whom } from '../dossier/page/history';
+import type { ProductLabels } from '../product-filter/product-filter.service';
 
 // /visual and /bugs (PRD 627): the fixes of one kind of the signed-in person's workspaces, read as
 // /prd reads its list — per request, as the signed-in person, so row-level security decides; signed
@@ -56,13 +57,13 @@ export function FixListLoading({ kind }: { kind: FixKind }) {
 
 /** What a page may narrow its list by before it is drawn (PRD 1364 s12: the product filter): the fixes read,
  * as the signed-in person, narrowed, and what to draw above the list. */
-export type FixListScope = (db: Db, rows: DossierListRow[], query: Query) => Promise<{ rows: DossierListRow[]; above: ReactNode }>;
+export type FixListScope = (db: Db, rows: DossierListRow[], query: Query) => Promise<{ rows: DossierListRow[]; above: ReactNode; labels?: ProductLabels }>;
 
 export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>, scope?: FixListScope) {
   const query = await searchParams;
   const filters = readFixFilters(query);
-  const listing = (rows: DossierListRow[], viewer: FixViewer, facts?: FixFacts, people?: PeopleIn, whom?: Whom) => (
-    <FixList kind={kind} items={fixItems(rows, kind, filters, viewer, facts, people, whom)} choices={fixChoices(rows, kind)} filters={filters} />
+  const listing = (rows: DossierListRow[], viewer: FixViewer, facts?: FixFacts, people?: PeopleIn, whom?: Whom, labels?: ProductLabels) => (
+    <FixList kind={kind} items={fixItems(rows, kind, filters, viewer, facts, people, whom, labels)} choices={fixChoices(rows, kind)} filters={filters} />
   );
   const login = whoLogin(filters.who);
   const mode = serverEnv().mode;
@@ -96,7 +97,7 @@ export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>, 
     storedFacts(db, fixes), peopleOf(db, fixes),
     login ? readLoginIds(fixes, login, rosterReader(db)) : undefined,
   ]);
-  return <>{scoped.above}{listing(fixes, { id: user.id, login: loginOf(user) }, facts, people, whom)}</>;
+  return <>{scoped.above}{listing(fixes, { id: user.id, login: loginOf(user) }, facts, people, whom, scoped.labels)}</>;
 }
 
 /** The people directory of every workspace these fixes belong to, each read once. */
