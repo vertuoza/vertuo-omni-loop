@@ -11,9 +11,11 @@
 }
 .pg-lines { position: absolute; top: 96px; left: 0; right: 0; display: grid; justify-items: center; gap: 18px; font-size: 9px; }
 .pg-pitch { color: var(--white); white-space: nowrap; }
+.pg-pitch b { font-weight: 400; color: var(--cyan); }
 .pg-why { font-family: var(--txt); font-size: 18px; color: var(--dim); white-space: nowrap; }
 .pg-warn { color: var(--red); }
-.pg-key { font-size: 8px; white-space: nowrap; }
+/* The one call to act, lit as the room's PLAY button is. */
+.pg-key { padding: 6px 10px 5px; font-size: 8px; white-space: nowrap; color: var(--white); background: var(--red); }
 .pg-foot { position: absolute; bottom: 14px; left: 0; right: 0; margin: 0; text-align: center; }
 
 /* The pitch meter: the steering's sign, then the bar with the still band, the limit and the pitch heard. */

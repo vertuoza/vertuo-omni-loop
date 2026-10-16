@@ -52,7 +52,7 @@ function Ready({ hud, back }: { hud: PongHud; back: string }) {
           </>
         ) : (
           <>
-            <span className="pg-pitch">{lines.pitch}</span>
+            <span className="pg-pitch" aria-label={lines.pitch}>◀ PITCH · <b>{hud.limit}</b> ▶</span>
             {lines.kind === 'meter' ? <Meter hud={hud} /> : <span className="pg-why">{lines.steer}</span>}
             <span className="pg-key">{lines.kind === 'meter' ? <Hint k="START"> · {lines.call}</Hint> : <Hint k="A"> · {lines.call}</Hint>}</span>
           </>
