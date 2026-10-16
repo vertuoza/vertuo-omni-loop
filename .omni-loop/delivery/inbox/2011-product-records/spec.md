@@ -13,13 +13,13 @@ phase0: server
 rows, bug ids, knowledge packs, the ladder step), `kit/` (`omni roadmap`, `omni bug`, `omni kb pack`,
 the remaining `plan.targets[]` readers), `apps/omni-app` (the merge webhook stamping fix rows, the
 pack snapshot), `apps/galaxy` (the roadmap and bug pages, Questions › Inbox and Outbox, the PRD
-page's outbox, the product filter on Concepts, the archive), `kit/plugin/skills/` (`roadmap`,
+page's outbox, the product filter on Concepts, what still holds a plan repository), `kit/plugin/skills/` (`roadmap`,
 `mega-roadmap`, `mega-bug-fix`, `mega-invade`, `do-work`, `drive`), and the docs.
 
 ## Problem
 
-After #1548 a multi-repository PRD lives on its product, but three records still need a plan
-repository, so it can never be archived (concept #1269, the rollout ladder's step 5):
+After #1548 a multi-repository PRD lives on its product, but three records can still only live in a
+plan repository (concept #1269, the rollout ladder's step 5):
 
 - **Roadmaps.** `roadmap.md` is a git file under `<inbox>/roadmaps/<nnnn>-<topic>/`, numbered by an
   issue, reviewed in a phase-0 PR. `omni roadmap push` copies it to `roadmaps.document`, one text
@@ -107,22 +107,24 @@ back down changes only where new records are born.
 - Concepts gets the product filter.
 - Each product tab stays the same list with its product picked: no second copy of anything.
 
-**5. Archiving the plan repository.**
+**5. The plan repository stays, and the old way keeps working.**
 
-- A product's Repos & rollout tab offers **Archive the plan repository** only when every repository
-  of the product is at step 5 and nothing open is still born in its plan repository (no open
-  roadmap, bug record or ◇ PRD there).
-- Otherwise the button is refused, naming what still holds it:
-  `vertuo-web at step 3 · roadmap 0412 born in git, open`.
-- Archiving makes the repository read-only on GitHub through the App; **Undo** unarchives it. A
-  person presses the button; no agent does.
+- A plan repository is never archived by the loop. Its roadmaps, bug records and imported knowledge
+  copies keep working exactly as today, side by side with the product way: a repository below step 5
+  stays on the old way, and a record born in git finishes in git.
+- A product's Repositories tab shows, as information only, each repository's ladder step and what
+  still lives in its plan repository (`vertuo-web · step 3`, `roadmap 0412 · born in git, open`). It
+  offers no archive action, and the App gets no new GitHub permission.
 
 ## Decisions
 
 - **Born on the server, per repository** (the person, over "git stays the truth" and "one import at
   once"): same rule as #1299's phase 0, so a repository can step back down and nothing in flight
   tears.
-- **One PRD for all three moves** (the person): the archive needs all three.
+- **One PRD for all three moves** (the person).
+- **The plan repository is kept, and the old way keeps working** (the person, 2026-10-16, during
+  the build): the archive action of the first version of this spec is dropped, so the App needs no
+  administration permission; the Repositories tab only shows what still lives in the plan repository.
 - **The cross-product view is the existing Work pages plus a filter** (the person), not a new
   unified feed.
 - **Questions holds an Inbox and an Outbox tab, and each PRD page shows its outbox** (the person).
@@ -167,7 +169,8 @@ In:
   finishes records born in git.
 - Questions › Inbox and Outbox, the PRD page's outbox, the Concepts product filter, product ids in
   the workspace lists.
-- The archive button, its refusal and its undo.
+- The Repositories tab's ladder and the list of what still lives in the plan repository.
+- Proof that the old plan-repository way still works end to end.
 - The skills (`roadmap`, `mega-roadmap`, `mega-bug-fix`, `mega-invade`, `do-work`, `drive`) and the
   user guide.
 
@@ -175,7 +178,7 @@ Out:
 
 - The Constellation tab (concept area `constellation-tab`).
 - Moving records already born in git to the server: they finish where they were born.
-- Deleting a plan repository: archiving only.
+- Archiving or deleting a plan repository: the loop never does either.
 - Visual fixes change nothing here: they are already dossiers with a product.
 
 ## Test seams
@@ -193,9 +196,11 @@ Per `omni kb show testing`: tests beside the code, no test calls GitHub or Supab
 - **The App end to end, against a stubbed GitHub:** a merged PR stamps its row; the last one ships
   the record; a merge matching no row stamps nothing.
 - **Galaxy page tests:** Questions › Inbox and Outbox, the PRD page's outbox, the Concepts filter,
-  product ids in each workspace list, the archive button's refusal.
+  product ids in each workspace list, the Repositories tab's ladder and plan-repository list.
 - **A guard test:** no reader of `plan.targets[]` remains outside the code that finishes git-born
   records.
+- **The old way, end to end:** from a plan-repository fixture, a roadmap is pushed and graded, `omni
+  bug` checks a git bug record's Fixes table, and an imported knowledge copy is read, all as today.
 - **Mutation:** `pnpm mutation:changed` on every delivery-core file changed (`kit/lib/ids.ts`,
   `kit/lib/inbox/`, `kit/lib/config.ts`).
 
@@ -212,7 +217,6 @@ production), the kit (`kit/dist/omni.mjs` and the plugin) and the two apps.
 - **The App:** the webhook only stamps a row whose repository and PR match exactly; a misfire leaves
   a record open, never ships it early. Snapshots run on merge events, at background priority in the
   installation's budget.
-- **The archive:** a person's action, refused while anything is held, with an undo. It never merges.
 - **The rules this changes** (rules, not locked laws): BR-PRODUCT-81 (a roadmap push replaces the
   document: now it adds a version, for server-born roadmaps), BR-PRODUCT-84 (a row's project is in
   the inbox or shipped folder: now also a product PRD on the server), BR-PRODUCT-85 (a repositories
@@ -233,11 +237,8 @@ The locked laws it touches:
 - BR-PRODUCT-63: an agent link reads only repositories in its own workspace. `omni kb pack get` must
   serve only packs of the token's workspace, or an agent could read another team's knowledge.
   Changing it needs @pierrederval to approve the pull request on GitHub.
-- N-PRODUCT-15: only a person merges into the main branch. The record closing itself and the archive
-  must never merge anything, or unreviewed work reaches every user. Changing it needs @pierrederval
-  to approve the pull request on GitHub.
-- N-PRODUCT-17: no secret is ever sent to the browser. The archive calls GitHub with the App's
-  key server-side only, or anyone opening the arcade could read it. Changing it needs @pierrederval
+- N-PRODUCT-15: only a person merges into the main branch. The record closing itself must never
+  merge anything, or unreviewed work reaches every user. Changing it needs @pierrederval
   to approve the pull request on GitHub.
 
 None of these laws changes: the design must keep each, and its test must stay green.
@@ -274,6 +275,7 @@ None of these laws changes: the design must keep each, and its test must stay gr
     there needs a person's sign-in.
 12. Work › PRDs, Bug Fixes and Roadmaps show product items (`mobile-12`, `mobile-B74`, `mobile-R3`)
     with their product, and Concepts filters by product.
-13. The Archive button is refused while any repository is below step 5 or anything open was born in
-    the plan repository, naming each; once nothing holds it, it makes the repository read-only, and
-    Undo restores it.
+13. A product's Repositories tab shows each repository's ladder step and lists what still lives in
+    its plan repository, with no archive action; from a plan-repository checkout, a roadmap push and
+    grade, `omni bug` on a git bug record and an imported knowledge copy all work as before this
+    PRD, proven by tests.

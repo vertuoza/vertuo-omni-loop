@@ -83,7 +83,7 @@
 <div class="note">
   <h1>PRD 2011 · Roadmaps, bugs and knowledge move into the product</h1>
   <p>From concept #1269, area <b>product-records</b>. Once a repository reaches step 5 of the rollout ladder, its new roadmaps and bug
-  records are born on the server, in its product, and imported knowledge is served as packs. Everything stays visible across
+  records are born on the server, in its product, and imported knowledge is served as packs. The plan repository stays, and the old way keeps working beside the new one. Everything stays visible across
   products in one place: the Work pages list every product, with a product filter.</p>
   <p>Two parts: <b>Functional</b> (the flows, today beside after) and <b>Pixel perfect</b> (the screens).
   Screens: questions · prd-dossier · bug-record · product-repositories · app-shell.</p>
@@ -276,8 +276,8 @@
 </div>
 
 <div class="section">
-  <h3>A product's Repositories tab: the archive</h3>
-  <p>Today there is no way to end the plan repository. After, Archive appears, refused with what still holds it until nothing does.</p>
+  <h3>A product's Repositories tab: what still lives in the plan repository</h3>
+  <p>Today the tab lists the repositories only. After, it also shows each repository's ladder step and what still lives in the plan repository, as information only: the plan repository is never archived, and the old way keeps working.</p>
   <div class="pair">
     <div class="side"><p class="lab">Today</p>
       <div class="frame" data-screen="product-repositories">
@@ -302,12 +302,14 @@
             <span class="mono">vertuo-api</span><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i>
             <span class="mono">vertuo-web</span><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c"></i><i class="c"></i>
           </div>
-          <div class="refuse"><b>Held by</b> vertuo-web · step 3</div>
-          <div class="refuse"><b>Held by</b> roadmap 0412 · in git</div>
-          <a class="btn primary" data-primary href="#">Archive vertuo-plan</a>
+          <ul class="rows">
+            <li class="row"><span class="t mono">vertuo-web</span><span class="chip">step 3</span></li>
+            <li class="row"><span class="t mono">roadmap 0412</span><span class="chip">in git</span></li>
+          </ul>
+          <a class="btn primary" data-primary href="#">Add a repository</a>
         </div>
       </div>
-      <p class="cap">The button stays refused while anything holds the plan repository. Archived, it reads Undo.</p>
+      <p class="cap">Still in the plan repository: what keeps working the old way. No archive action.</p>
     </div>
   </div>
 </div>

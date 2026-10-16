@@ -2,13 +2,13 @@
 
 PRD #2011, spec `spec.md` beside this plan. The work lands in three stacked pull requests into `main`,
 one per record that moves: roadmaps (roadmaps), bug records (bug-records), then knowledge packs with
-the cross-product views and the archive (packs-and-views). Each landing's branch is
+the cross-product views (packs-and-views). The plan repository is kept, and the old way keeps working. Each landing's branch is
 `feat/product-records-<n>of3-<name>`, and each PR body opens with `Closes #2011`. Each slice is a
 sub-PR from `feat/product-records--<slice>` into its landing's branch, with `Part of #2011`.
 
 Every migration only adds, and nothing reads a new table or column before its own landing: landing 1
 adds the roadmap dossier kind, its counter, text PRD ids and the ladder step; landing 2 the Fixes rows
-and the bug counter; landing 3 the knowledge packs and the plan repository's archive state.
+and the bug counter; landing 3 the knowledge packs and the product's plan repository name.
 
 ## Slices
 
@@ -23,15 +23,15 @@ and the bug counter; landing 3 the knowledge packs and the plan repository's arc
 | s7 | A merged fix PR whose repository and number match a row stamps `merged_at` on it; the last one ships the record; a merge matching no row is kept as unmatched; a PR closed unmerged marks its row | `apps/omni-app/src/webhook/` `apps/omni-app/src/fix-rows/` `apps/omni-app/src/functions.ts` `apps/galaxy/app/api/fixes/stamp/` | s6 | 3 | 2 | deep |
 | s8 | A product bug's page shows its Fixes rows with their state, `Ships on the last merge.` and each unmatched merge | `apps/galaxy/app/bugs/` `apps/galaxy/src/fixes/TimelinePane.tsx` `apps/galaxy/src/fixes/FixList` `apps/galaxy/src/fixes/render.test.ts` | s6 | 3 | 2 | build |
 | s9 | `/omni:mega-bug-fix --product <key>` opens fix PRs whose body holds `Fixes mobile-B<n> · <link>` with the reproduction and guard lines, and opens no record PR and no plan-repository issue | `kit/plugin/skills/mega-bug-fix/` `kit/test/mega-bug-fix-product.test.ts` | s6 | 3 | 2 | build |
-| s10 | `knowledge_packs` holds a repository's knowledge and flow files at a commit, each with its sha256, readable only by its workspace's members and tokens; a product records its plan repository and when it was archived | `supabase/migrations/` `supabase/checks/knowledge_packs.sql` `supabase/checks/products.sql` `supabase/database.types.ts` | — | 1 | 3 | deep |
+| s10 | `knowledge_packs` holds a repository's knowledge and flow files at a commit, each with its sha256, readable only by its workspace's members and tokens; a product records its plan repository | `supabase/migrations/` `supabase/checks/knowledge_packs.sql` `supabase/checks/products.sql` `supabase/database.types.ts` | — | 1 | 3 | deep |
 | s11 | A merge touching a repository's knowledge folder or flow config makes the App snapshot them into a pack, at background priority | `apps/omni-app/src/knowledge-harvest/` `apps/omni-app/src/knowledge-pack/` `apps/omni-app/src/functions.ts` `apps/galaxy/app/api/knowledge-packs/` `apps/galaxy/src/knowledge-packs/` | s10 | 2 | 3 | deep |
 | s12 | `omni kb pack get <repo>` writes the newest pack read-only under `.omni-loop/local/packs/<repo>@<sha>/` and prints its path, holds on the newest fetched pack when the server is down, and refuses a pack older than `read_at`; `/omni:do-work`, `omni plan check` and `omni flow --repo` read packs, and `/omni:mega-invade --product` writes no copies | `kit/lib/knowledge/packs` `kit/lib/knowledge/copies` `kit/lib/plan-repo/` `kit/bin/commands/kb.ts` `kit/bin/commands/flow.ts` `kit/bin/commands/plan.ts` `kit/plugin/skills/do-work/` `kit/plugin/skills/mega-invade/` | s11 | 3 | 3 | build |
-| s13 | No `kit/` reader of `plan.targets[]` remains outside the code that finishes git-born records, and a guard test proves it | `kit/test/plan-targets-readers.test.ts` `kit/bin/commands/next.ts` `kit/bin/commands/care.ts` | s12 | 4 | 3 | build |
+| s13 | No `kit/` reader of `plan.targets[]` remains outside the code that finishes git-born records, and a guard test proves it; the old plan-repository way (roadmap push and grade, `omni bug` on a git bug record, an imported knowledge copy) is proven to work end to end | `kit/test/plan-targets-readers.test.ts` `kit/test/plan-repo-old-way.test.ts` `kit/bin/commands/next.ts` `kit/bin/commands/care.ts` | s12 | 4 | 3 | build |
 | s14 | Work › Questions has an Inbox tab (today's ask-mode questions) and an Outbox tab listing every open outbox item of the workspace with its product, the viewer's first, filtered by product, answered in place as on the product's tab | `apps/galaxy/app/ask/` `apps/galaxy/src/ask/page/QuestionsTabs` `apps/galaxy/src/ask/page/tabs` `apps/galaxy/src/ask/page/Outbox` `apps/galaxy/src/outbox-items/` `apps/galaxy/src/nav/sidebar` | — | 1 | 3 | build |
 | s15 | A product PRD's Outbox tab lists its items, open and settled, from the server's rows, answered in place with a person's sign-in; a repository PRD's tab reads as before | `apps/galaxy/src/dossier/page/OutboxPane` `apps/galaxy/src/dossier/page/outbox-` | s14 | 2 | 3 | build |
 | s16 | Concepts filters by product, and Work › PRDs, Bug Fixes and Roadmaps show product items (`mobile-12`, `mobile-B74`, `mobile-R3`) with their product | `apps/galaxy/app/concepts/` `apps/galaxy/src/concepts/` `apps/galaxy/src/product-filter/` `apps/galaxy/app/prd/page.tsx` `apps/galaxy/app/roadmaps/page.tsx` `apps/galaxy/src/fixes/list` | — | 1 | 3 | build |
-| s17 | A product's Repositories tab shows each repository's ladder step and offers Archive the plan repository, refused naming what still holds it, read-only through the App once pressed, with Undo | `apps/galaxy/src/product-repositories/` `apps/galaxy/app/app/products/[id]/repositories/` `apps/galaxy/app/api/products/archive/` `apps/omni-app/src/plan-archive/` `apps/omni-app/src/functions.ts` | s10, s11 | 3 | 3 | build |
-| s18 | The guide and the apps' READMEs describe product roadmaps, bug records, knowledge packs, Questions › Inbox and Outbox, and the archive | `docs/guide/roadmaps.md` `docs/guide/products.md` `docs/guide/several-repositories.md` `apps/galaxy/README.md` `apps/omni-app/README.md` | s13, s15, s17 | 5 | 3 | light |
+| s17 | A product's Repositories tab shows each repository's ladder step and lists what still lives in its plan repository, as information only, with no archive action | `apps/galaxy/src/product-repositories/` `apps/galaxy/app/app/products/[id]/repositories/` `apps/galaxy/app/api/products/archive/` `apps/omni-app/src/plan-archive/` `apps/omni-app/src/functions.ts` | s10, s11 | 3 | 3 | build |
+| s18 | The guide and the apps' READMEs describe product roadmaps, bug records, knowledge packs, Questions › Inbox and Outbox, and that the plan repository is kept beside the product way | `docs/guide/roadmaps.md` `docs/guide/products.md` `docs/guide/several-repositories.md` `apps/galaxy/README.md` `apps/omni-app/README.md` | s13, s15, s17 | 5 | 3 | light |
 
 **Shared ground.**
 
@@ -46,7 +46,7 @@ and the bug counter; landing 3 the knowledge packs and the plan repository's arc
   prefix and by landing.
 - `apps/galaxy/src/outbox-items/` is s14's: s15 waits for it (wave 2) and reads it.
 - `apps/omni-app/src/functions.ts`: s7 (landing 2) registers the stamp; in landing 3, s11 (wave 2)
-  registers the snapshot and s17 (wave 3) the archive.
+  registers the snapshot; s17 (wave 3) registers nothing now that it has no archive job.
 - The generated `kit/dist/` and `apps/omni-app/api/` are rebuilt by each wave, never listed.
 
 ## Landings
@@ -105,7 +105,7 @@ and the bug counter; landing 3 the knowledge packs and the plan repository's arc
 
 **s10** (deep: migration and access)
 - `knowledge_packs` exists with per-file sha256 and the newest pack per link; a token of another
-  workspace reads none (BR-PRODUCT-63); `products.plan_repository` and `plan_archived_at` exist.
+  workspace reads none (BR-PRODUCT-63); `products.plan_repository` exists.
 
 **s11** (deep: snapshot on merge; `ui: yes`)
 - A merge touching `.omni-loop/knowledge/` or the flow config writes a pack whose files hash to that
@@ -119,6 +119,9 @@ and the bug counter; landing 3 the knowledge packs and the plan repository's arc
 **s13**
 - `kit/test/plan-targets-readers.test.ts` fails on any `plan.targets` reader outside the git-born
   record code, and passes.
+- `kit/test/plan-repo-old-way.test.ts`, on a plan-repository fixture: a roadmap is pushed and graded,
+  `omni bug` checks a git bug record's Fixes table, and an imported knowledge copy is read, all as
+  before this PRD.
 
 **s14** (`ui: yes`)
 - Work › Questions shows Inbox and Outbox with counts; Outbox lists every open item of every product
@@ -134,9 +137,9 @@ and the bug counter; landing 3 the knowledge packs and the plan repository's arc
   product under the existing filter.
 
 **s17** (`ui: yes`)
-- The Repositories tab shows the ladder; Archive is refused while any repository is below step 5 or
-  anything open was born in the plan repository, naming each; pressed, it makes the plan repository
-  read-only through the App, server-side only (N-PRODUCT-17), and Undo restores it.
+- The Repositories tab shows the ladder and lists what still lives in the plan repository (a
+  repository below step 5, an open record born in git), as information only; there is no archive
+  action, and the App asks for no new permission.
 
 **s18** (light: docs only)
 - The guide's roadmaps, products and several-repositories pages, and both READMEs, describe what

@@ -297,3 +297,13 @@ Step 0 gains one sentence after the briefing: a sync status other than 🟢 in t
 block is said to the person in one line, with its fix, and the run carries on. The sentence names
 no new `omni` command or guard, so `kit/test/skill-steps.snapshot.json` is unchanged. The same
 sentence is in `/omni:yolo`'s step 0, `/omni:mega-brainstorm`'s step 3 and `/omni:ultra-yolo`'s step 3.
+
+## PRD 2049, slice s2 — the conventions at step 1 and the spec's `## Conventions`
+
+Step 1 gains a paragraph before the shared understanding: `omni conventions` prints the index of the
+files where the repository writes its conventions, and the pages the design bears on are read before
+the design is shown. Step 4's spec gains a `## Conventions` section after `## Solution`: a table
+`| repo | layer | name | source |` with a source per name, `no written convention: follows <file>`,
+`No name chosen.`, and a question to the person when two conventions coexist. The new command is one
+verb, so `kit/test/skill-steps.snapshot.json` gains `conventions` for this skill; no step is lost.
+The rules are read by `kit/test/conventions-skills.test.ts`.
