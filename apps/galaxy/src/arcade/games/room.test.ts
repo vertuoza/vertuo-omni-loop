@@ -8,12 +8,13 @@ import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 const row = (xp: number, level: number, unlocked: string[] = level >= 1 ? ['invaders'] : []) => ({ xp, level, unlocked });
 
 describe('the registry', () => {
-  it('lists Entropy Invaders, Super Omni World, OMNI KART then OMNI DUET, each keyed as the rulebook unlocks it', () => {
-    expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD'], ['kart', 'OMNI KART'], ['duet', 'OMNI DUET']]);
+  it('lists Entropy Invaders, Super Omni World, OMNI KART, OMNI DUET then OMNI PONG, each keyed as the rulebook unlocks it', () => {
+    expect(GAMES.map((g) => [g.id, g.title])).toEqual([['invaders', 'ENTROPY INVADERS'], ['platformer', 'SUPER OMNI WORLD'], ['kart', 'OMNI KART'], ['duet', 'OMNI DUET'], ['pong', 'OMNI PONG']]);
     expect(GAMES[2]).toEqual({ id: 'kart', title: 'OMNI KART', scene: 'kart', measure: 'time', boards: [{ id: 'kart', title: 'COMET RING' }, { id: 'kart-frost-eight', title: 'FROST EIGHT' }] });
     expect(GAMES[3]).toEqual({ id: 'duet', title: 'OMNI DUET', scene: 'duet', measure: 'points' });
-    expect(XP_RULES.unlocks).toEqual({ invaders: 1, platformer: 2, kart: 3, duet: 4 });
-    expect(GAMES.map((g) => [g.id, g.measure])).toEqual([['invaders', 'points'], ['platformer', 'points'], ['kart', 'time'], ['duet', 'points']]);
+    expect(GAMES[4]).toEqual({ id: 'pong', title: 'OMNI PONG', scene: null, measure: 'points' });
+    expect(XP_RULES.unlocks).toEqual({ invaders: 1, platformer: 2, kart: 3, duet: 4, pong: 5 });
+    expect(GAMES.map((g) => [g.id, g.measure])).toEqual([['invaders', 'points'], ['platformer', 'points'], ['kart', 'time'], ['duet', 'points'], ['pong', 'points']]);
     for (const g of GAMES) expect(XP_RULES.unlocks[g.id], g.id).toBeGreaterThanOrEqual(1);
   });
 });
@@ -96,7 +97,7 @@ describe('cabinets', () => {
     const room = cabinets(xpStatus(true, row(180, 3)), XP_RULES, GAMES.slice(0, 2));
     expect(room).toHaveLength(ROOM_CABINETS);
     expect(room.map((c) => c.kind)).toEqual(['game', 'game', 'soon']);
-    expect(cabinets(xpStatus(true, row(180, 3))).map((c) => c.kind)).toEqual(['game', 'game', 'game', 'game']);
+    expect(cabinets(xpStatus(true, row(180, 3))).map((c) => c.kind)).toEqual(['game', 'game', 'game', 'game', 'game']);
     expect(room[0]).toEqual({ kind: 'game', game: GAMES[0], unlocked: true, level: 1 });
     expect(room[1]).toEqual({ kind: 'game', game: GAMES[1], unlocked: false, level: 2 });
   });
@@ -181,7 +182,7 @@ describe('OMNI DUET\'s cabinet (PRD 1633)', () => {
   it('is the fourth cabinet: refused at LV 3 with REACH LV 4 TO PLAY, and opening the duet scene at LV 4', () => {
     const lv3 = xpStatus(true, row(150, 3, ['invaders', 'platformer', 'kart']));
     const room3 = cabinets(lv3);
-    expect(room3).toHaveLength(4);
+    expect(room3).toHaveLength(GAMES.length);
     const duet3 = room3[3];
     assertDefined(duet3, 'duet3');
     expect(duet3).toMatchObject({ kind: 'game', game: { id: 'duet', title: 'OMNI DUET' }, unlocked: false, level: 4 });
@@ -191,6 +192,23 @@ describe('OMNI DUET\'s cabinet (PRD 1633)', () => {
     assertDefined(duet4, 'duet4');
     expect(duet4).toMatchObject({ unlocked: true, level: 4 });
     expect(cabinetDoor(duet4, lv4)).toEqual({ scene: 'duet' });
+  });
+});
+
+describe('OMNI PONG\'s cabinet (PRD 2101)', () => {
+  it('is the fifth cabinet: refused at LV 4 with REACH LV 5 TO PLAY, and at LV 5 refused only for having no scene yet', () => {
+    const lv4 = xpStatus(true, row(300, 4, ['invaders', 'platformer', 'kart', 'duet']));
+    const room4 = cabinets(lv4);
+    expect(room4).toHaveLength(5);
+    const pong4 = room4[4];
+    assertDefined(pong4, 'pong4');
+    expect(pong4).toMatchObject({ kind: 'game', game: { id: 'pong', title: 'OMNI PONG' }, unlocked: false, level: 5 });
+    expect(cabinetDoor(pong4, lv4)).toEqual({ refused: 'REACH LV 5 TO PLAY' });
+    const lv5 = xpStatus(true, row(500, 5, ['invaders', 'platformer', 'kart', 'duet', 'pong']));
+    const pong5 = cabinets(lv5)[4];
+    assertDefined(pong5, 'pong5');
+    expect(pong5).toMatchObject({ unlocked: true, level: 5 });
+    expect(cabinetDoor(pong5, lv5)).toEqual({ refused: 'OMNI PONG · COMING SOON' });
   });
 });
 
@@ -207,6 +225,17 @@ describe('roomWindow, the cabinets the wide grid shows', () => {
     [3, [1, 2, 3]],
   ])('holds the cabinet under the cursor in its window of four: cursor on %i shows %o', (at, shown) => {
     expect(roomWindow(at, 4)).toEqual(shown);
+  });
+
+  it.each([
+    [0, [0, 1, 2]],
+    [1, [0, 1, 2]],
+    [2, [0, 1, 2]],
+    [3, [1, 2, 3]],
+    [4, [2, 3, 4]],
+  ])('holds the cabinet under the cursor in its window of five: cursor on %i shows %o', (at, shown) => {
+    expect(roomWindow(at, 5)).toEqual(shown);
+    expect(roomWindow(at, cabinets(xpStatus(true, null)).length)).toEqual(shown);
   });
 
   it('scrolls by one per cabinet past the third, and comes back to the start when the cursor does', () => {
