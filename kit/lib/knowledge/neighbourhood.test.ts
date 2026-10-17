@@ -2,6 +2,7 @@
 // the decision records, on a knowledge folder held in memory. One fixture per edge, each edge absent
 // when its source line is.
 import { describe, expect, it } from 'vitest';
+import type { Screen } from '../design/screens.ts';
 import type { DecisionRecord } from '../playbook/decisions.ts';
 import { PrdNumberSchema } from '../ids.ts';
 import {
@@ -9,6 +10,7 @@ import {
   neighbourhoodText,
   NEIGHBOURHOOD_SHAPE,
   NEIGHBOURHOOD_VERSION,
+  productFromCache,
   productLine,
   productWithoutCache,
   type Neighbourhood,
@@ -310,5 +312,135 @@ describe('neighbourhoodText', () => {
       '  side  cites   BR-PRODUCT-2  rule       Two, beside BR-PRODUCT-1.',
       'product knowledge: none — this repository belongs to no product.',
     ]);
+  });
+});
+
+// PRD 1797, slice s2: screens, the product's cached Legal entries and Glossary terms.
+describe('the screen edge', () => {
+  const screen = (name: string, paths: Partial<Pick<Screen, 'implements' | 'reads' | 'status'>>): Screen => ({
+    file: `${name}.md`,
+    screen: name,
+    status: paths.status ?? 'draft',
+    kind: 'page',
+    lockedBy: null,
+    lockedOn: null,
+    quote: null,
+    mock: null,
+    implements: paths.implements ?? [],
+    reads: paths.reads ?? [],
+    routes: [],
+    supersedes: null,
+    amendments: [],
+    sections: {},
+  });
+  const SCREENS = [
+    screen('quote', { implements: ['kit/a/page.ts'], status: 'locked' }),
+    screen('summary', { reads: ['kit/b.ts'] }),
+    screen('elsewhere', { implements: ['apps/other/page.ts'] }),
+  ];
+  const withScreens = (id: string, screens: readonly Screen[] = SCREENS) =>
+    buildNeighbourhood({ entries: ENTRIES, records: RECORDS, repo: null, product: OFFLINE, screens, screensDir: `${K}/design/screens/` }, { start: [id] });
+
+  it('reaches a screen through implements and through reads, its label the screen’s status', () => {
+    const built = withScreens('BR-PRODUCT-1');
+    expect(edgesOf(built, 'screen')).toEqual(['BR-PRODUCT-1 → screen:quote', 'BR-PRODUCT-1 → screen:summary']);
+    expect(built.nodes.find(({ id }) => id === 'screen:quote')).toEqual({
+      id: 'screen:quote',
+      kind: 'screen',
+      label: 'locked',
+      status: null,
+      file: `${K}/design/screens/quote.md`,
+      origin: 'repository',
+      hop: 1,
+    });
+    expect(built.nodes.find(({ id }) => id === 'screen:summary')?.label).toBe('draft');
+  });
+
+  it('reaches none when no path meets Governs:, the entry has no Governs: line, or no library is given', () => {
+    expect(edgesOf(withScreens('BR-PRODUCT-1', [SCREENS[2] as Screen]), 'screen')).toEqual([]);
+    expect(edgesOf(withScreens('BR-PRODUCT-2'), 'screen')).toEqual([]);
+    expect(edgesOf(around('BR-PRODUCT-1'), 'screen')).toEqual([]);
+  });
+});
+
+describe('the product’s cached knowledge', () => {
+  const CACHED: NeighbourhoodProduct = { state: 'cached', key: 'omni-loop', cachedOn: '2026-10-16' };
+  const LEGAL = [{ id: 'L-OMNI-1', statement: 'Personal data stays in the EU. Always.', source: 'GDPR', owner: 'dpo' }];
+  const GLOSSARY = [
+    { term: 'quote', meaning: 'A priced offer.', avoid: [] },
+    { term: 'ledger', meaning: 'The book of scores.', avoid: ['book'] },
+    { term: 'draft', meaning: 'Not sent.', avoid: [] },
+  ];
+  const entries = entriesOf({
+    [`${K}/product/rules.md`]: register(
+      'Rules',
+      entry('BR-PRODUCT-1', 'A Quote shows its total; a quotes list does not matter.', { Serves: 'L-OMNI-1', Source: 'README.md' }),
+      entry('BR-PRODUCT-2', 'Drafts are kept.', { Serves: 'L-OMNI-1', Source: 'README.md' }),
+      entry('BR-PRODUCT-3', 'Another rule.', { Serves: 'L-OMNI-9', Source: 'README.md' }),
+    ),
+  });
+  const from = (id: string, product = CACHED, extra: { legal?: typeof LEGAL; glossary?: typeof GLOSSARY } = { legal: LEGAL, glossary: GLOSSARY }) =>
+    buildNeighbourhood({ entries, records: [], repo: null, product, ...extra }, { start: [id] });
+
+  it('serves up to a Legal node of the cache, product origin, no file', () => {
+    const built = from('BR-PRODUCT-1');
+    expect(edgesOf(built, 'serves')).toEqual(['BR-PRODUCT-1 → L-OMNI-1']);
+    expect(built.nodes.find(({ id }) => id === 'L-OMNI-1')).toEqual({
+      id: 'L-OMNI-1',
+      kind: 'legal',
+      label: 'Personal data stays in the EU.',
+      status: null,
+      file: null,
+      origin: 'product',
+      hop: 1,
+    });
+  });
+
+  it('labels a Legal entry the cache does not hold, the edge still printed', () => {
+    expect(from('BR-PRODUCT-3').nodes.find(({ id }) => id === 'L-OMNI-9')?.label).toBe('not in the cached product knowledge');
+  });
+
+  it('serves down from a Legal entry start, and keeps its siblings', () => {
+    const built = from('L-OMNI-1');
+    expect(built.start).toEqual(['L-OMNI-1']);
+    expect(edgesOf(built, 'serves')).toEqual(['BR-PRODUCT-1 → L-OMNI-1', 'BR-PRODUCT-2 → L-OMNI-1']);
+    expect(edgesOf(from('BR-PRODUCT-1'), 'sibling')).toEqual(['BR-PRODUCT-1 → BR-PRODUCT-2']);
+  });
+
+  it('walks a Legal entry further at depth 2', () => {
+    const built = buildNeighbourhood({ entries, records: [], repo: null, product: CACHED, legal: LEGAL, glossary: [] }, { start: ['BR-PRODUCT-1'], depth: 2 });
+    expect(built.nodes.find(({ id }) => id === 'BR-PRODUCT-2')?.hop).toBe(1);
+    expect(edgesOf(built, 'serves')).toContain('BR-PRODUCT-2 → L-OMNI-1');
+  });
+
+  it('uses-term on a whole word in any case, never inside a longer word', () => {
+    const built = from('BR-PRODUCT-1');
+    expect(edgesOf(built, 'uses-term')).toEqual(['BR-PRODUCT-1 → term:quote']);
+    expect(built.nodes.find(({ id }) => id === 'term:quote')).toEqual({
+      id: 'term:quote',
+      kind: 'term',
+      label: 'A priced offer.',
+      status: null,
+      file: null,
+      origin: 'product',
+      hop: 1,
+    });
+    expect(edgesOf(from('BR-PRODUCT-2'), 'uses-term')).toEqual([]);
+  });
+
+  it('shows no Legal or term node unless the cache is read', () => {
+    for (const product of [OFFLINE, NONE]) {
+      const built = from('BR-PRODUCT-1', product);
+      expect(built.nodes.filter(({ origin }) => origin === 'product')).toEqual([]);
+    }
+  });
+
+  it('reads the three product states from the cache on disk, and an unreadable copy as offline', () => {
+    const readAt = '2026-10-16T08:00:00.000Z';
+    expect(productFromCache({ state: 'cached', product: 'omni-loop', readAt, legal: [], glossary: [] }, null)).toEqual({ product: CACHED, unreadable: false });
+    expect(productFromCache({ state: 'absent' }, 'https://omni.example')).toEqual({ product: OFFLINE, unreadable: false });
+    expect(productFromCache({ state: 'absent' }, null)).toEqual({ product: NONE, unreadable: false });
+    expect(productFromCache({ state: 'unreadable' }, null)).toEqual({ product: OFFLINE, unreadable: true });
+    expect(productLine(OFFLINE, true)).toBe('product knowledge: offline — the cached product knowledge could not be read.');
   });
 });

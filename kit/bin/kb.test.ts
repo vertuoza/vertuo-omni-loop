@@ -721,6 +721,73 @@ describe('omni kb graph <id> — the neighbourhood of one entry (PRD 1797, s1)',
   });
 });
 
+describe('omni kb graph <id> — screens and the product cache (PRD 1797, s2)', () => {
+  const K = '.omni-loop/knowledge';
+  const CACHE_PATH = '.omni-loop/local/product-knowledge.json';
+  const entry = (id: string, statement: string, fields: Record<string, string> = {}) =>
+    `## ${id}\n\n${statement}\n\n${Object.entries(fields).map(([key, value]) => `${key}: ${value}`).join('\n')}\n\n`;
+  const FILES = {
+    '.omni-loop/config.yml': `${CONFIG_TEXT}ask:\n  url: https://omni.example\n`,
+    [`${K}/product/principles.md`]: '# Principles\n\n',
+    [`${K}/product/invariants.md`]: '# Invariants\n\n',
+    [`${K}/product/rules.md`]: `# Rules\n\n${entry('BR-PRODUCT-1', 'A quote shows its total.', { Serves: 'L-OMNI-1', Source: 'README.md', Governs: '^kit/a/' })}${entry('BR-PRODUCT-2', 'Other.', { Serves: 'L-OMNI-9', Source: 'README.md' })}`,
+    [`${K}/design/screens/quote.md`]: '---\nscreen: quote\nstatus: draft\nimplements: [kit/a/page.ts]\n---\n\n## Regions\n\nx\n',
+  };
+  const COPY = {
+    product: 'omni-loop',
+    readAt: '2026-10-16T08:00:00.000Z',
+    legal: [{ id: 'L-OMNI-1', statement: 'Personal data stays in the EU. Always.', source: 'GDPR', owner: 'dpo' }],
+    glossary: [{ term: 'Quote', meaning: 'A priced offer.', avoid: [] }],
+  };
+
+  it('with a cache, reaches the screen, the Legal entry and the term, and ends on the cached line', async () => {
+    const { root } = makeRepo({ git: true, files: { ...FILES, [CACHE_PATH]: JSON.stringify(COPY) } });
+    const { code, out } = await omni(root, ['kb', 'graph', 'BR-PRODUCT-1']);
+    expect(code).toBe(0);
+    expect(out).toContain('  up    serves     L-OMNI-1');
+    expect(out).toContain('Personal data stays in the EU.');
+    expect(out).toMatch(/side +screen +screen:quote +screen +draft\n/);
+    expect(out).toMatch(/side +uses-term +term:Quote +term +A priced offer\.\n/);
+    expect(out.endsWith('product knowledge: cached 2026-10-16 (omni-loop).\n')).toBe(true);
+  });
+
+  it('marks Legal and term nodes origin product with a null file in the JSON', async () => {
+    const { root } = makeRepo({ git: true, files: { ...FILES, [CACHE_PATH]: JSON.stringify(COPY) } });
+    const built = JSON.parse((await omni(root, ['kb', 'graph', 'BR-PRODUCT-1', '--json'])).out) as Neighbourhood;
+    expect(built.product).toEqual({ state: 'cached', key: 'omni-loop', cachedOn: '2026-10-16' });
+    const product = built.nodes.filter(({ origin }) => origin === 'product');
+    expect(product.map(({ id }) => id)).toEqual(['L-OMNI-1', 'term:Quote']);
+    expect(product.every(({ file }) => file === null)).toBe(true);
+    expect(built.nodes.find(({ id }) => id === 'screen:quote')).toMatchObject({ file: `${K}/design/screens/quote.md`, origin: 'repository' });
+  });
+
+  it('labels a Legal entry the cache lacks, and starts a walk from a cached Legal entry', async () => {
+    const { root } = makeRepo({ git: true, files: { ...FILES, [CACHE_PATH]: JSON.stringify(COPY) } });
+    expect((await omni(root, ['kb', 'graph', 'BR-PRODUCT-2'])).out).toContain('not in the cached product knowledge');
+    const legal = await omni(root, ['kb', 'graph', 'L-OMNI-1']);
+    expect(legal.code).toBe(0);
+    expect(legal.out).toMatch(/^L-OMNI-1 · legal — Personal data stays in the EU\.\n {2}down {2}serves {2}BR-PRODUCT-1/);
+  });
+
+  it('with no cache shows no Legal or term node, only the offline line', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { out } = await omni(root, ['kb', 'graph', 'BR-PRODUCT-1']);
+    expect(out).not.toContain('L-OMNI-1');
+    expect(out).not.toContain('term:');
+    expect(out).toContain('screen:quote');
+    expect(out.endsWith("product knowledge: offline — no cached copy of the product's Legal and Glossary; only this repository's links are shown.\n")).toBe(true);
+    expect((await omni(root, ['kb', 'graph', 'L-OMNI-1'])).code).toBe(1);
+  });
+
+  it('reads a cache that cannot be parsed as offline, and says so', async () => {
+    const { root } = makeRepo({ git: true, files: { ...FILES, [CACHE_PATH]: '{ not json' } });
+    const { code, out } = await omni(root, ['kb', 'graph', 'BR-PRODUCT-1']);
+    expect(code).toBe(0);
+    expect(out.endsWith('product knowledge: offline — the cached product knowledge could not be read.\n')).toBe(true);
+    expect(out).not.toContain('L-OMNI-1');
+  });
+});
+
 describe('omni check kb — acceptance criterion 4: fails naming the file', () => {
   const CI = `${PLAYBOOK}/ci.md`;
   const pointer = (frontMatter: Record<string, unknown>) => formText({ frontMatter: { form: 'ci', state: 'pointer', ...frontMatter }, title: 'CI', slots: [] });

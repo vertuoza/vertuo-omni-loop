@@ -23,7 +23,8 @@ import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { credentialsHost, signedInClient } from '../../lib/ask/credentials.ts';
 import { formShowText } from '../../lib/budgets/index.ts';
 import { lawCodeowners, ownerHandle } from '../../lib/codeowners.ts';
-import type { LawOwner } from '../../lib/config.ts';
+import { designScreensDir, type LawOwner } from '../../lib/config.ts';
+import { readScreens } from '../../lib/design/screens.ts';
 import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
@@ -35,12 +36,12 @@ import { readKnowledge } from '../../lib/knowledge/registers.ts';
 import { readThesis } from '../../lib/knowledge/thesis.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
 import { messageOf } from '../../lib/narrow.ts';
-import { glossaryLines, legalLines, productKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
+import { glossaryLines, legalLines, productKnowledge, readCachedKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
 import { ghReader } from '../../lib/plan-repo/targets.ts';
 import { productTargetList } from '../../lib/product/targets.ts';
 import { githubEnv } from '../github.ts';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.ts';
-import { buildNeighbourhood, neighbourhoodText, productWithoutCache } from '../../lib/knowledge/neighbourhood.ts';
+import { buildNeighbourhood, neighbourhoodText, productFromCache } from '../../lib/knowledge/neighbourhood.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.ts';
 import { readDecisions } from '../../lib/playbook/decisions.ts';
 import { resolveForm } from '../../lib/playbook/resolve.ts';
@@ -226,15 +227,27 @@ function graph(positional: string[], flags: KbFlags, io: CommandIo): number {
  */
 function neighbourhood(start: string, flags: KbFlags, { ctx, stdout, stderr }: CommandIo): number {
   const { entries } = readKnowledge({ ctx });
-  if (!entries.some(({ id, kind }) => id === start && kind !== null)) {
+  const cache = readCachedKnowledge(ctx.root);
+  const { product, unreadable } = productFromCache(cache, ctx.config.ask.url);
+  const screensDir = designScreensDir(ctx.config);
+  const built = buildNeighbourhood(
+    {
+      entries,
+      records: readDecisions({ ctx }).records,
+      repo: ctx.config.repo.slug,
+      product,
+      screens: readScreens(join(ctx.root, screensDir)).screens,
+      screensDir,
+      legal: cache.state === 'cached' ? cache.legal : [],
+      glossary: cache.state === 'cached' ? cache.glossary : [],
+    },
+    { start: [start] },
+  );
+  if (built.start.length === 0) {
     println(stderr, `kb graph: no entry "${start}" in the knowledge folder.`);
     return 1;
   }
-  const built = buildNeighbourhood(
-    { entries, records: readDecisions({ ctx }).records, repo: ctx.config.repo.slug, product: productWithoutCache(ctx.config.ask.url) },
-    { start: [start] },
-  );
-  println(stdout, flags.json ? JSON.stringify(built, null, 2) : neighbourhoodText(built, entries));
+  println(stdout, flags.json ? JSON.stringify(built, null, 2) : neighbourhoodText(built, entries, unreadable));
   return 0;
 }
 
