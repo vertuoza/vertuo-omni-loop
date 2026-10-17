@@ -21,7 +21,9 @@
 // (`paused`, `null` when running) and the limits. The pause is decided here, whatever the app answers.
 //
 // A sweep (`sweep.ts`) runs once the runner has registered, then every hour while it runs: it removes
-// the worktrees, unpushed branches and old logs (`--keep-logs` days) of jobs no slot holds.
+// the worktrees, unpushed branches and old logs (`--keep-logs` days) of jobs no slot holds. It also
+// updates the Omni plugin, and before each job the runner brings the plugin up to the omni the job's
+// repository pins, or fails the job with the reason before Claude starts (`plugin.ts`, PRD 2100).
 //
 // Each report also carries the log's lines after the job's cursor (PRD 1904, "Only the new lines are
 // sent"): the cursor is the last line the app accepted, and moves only when it answers, so a report
@@ -35,6 +37,7 @@ import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
+import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { HealthLimits, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
 import { DEFAULT_LIMITS, machineReads, nextPause, pressure, sample } from './health.ts';
@@ -43,6 +46,8 @@ import { checkLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
 import { lastPullRequest, linesAfter, logTail, reportBatch } from './log.ts';
+import { pluginKeeper } from './plugin.ts';
+import type { PluginKeeper } from './plugin.ts';
 import { dropJobBranch, pruneWorktrees, sweep, sweptLine } from './sweep.ts';
 import type { Terminal } from './terminal.ts';
 
@@ -122,6 +127,8 @@ type Loop = RunnerOptions & {
   running: number;
   /** The ids of the jobs a slot holds: the sweep leaves everything of theirs alone. */
   jobs: Set<string>;
+  /** The Omni plugin's care: the check before each job, and the update of the sweep. */
+  plugin: PluginKeeper;
   limits: HealthLimits;
   /** Whether the machine is under pressure, and why: free slots open no `next` while it is. */
   pause: PauseState;
@@ -175,6 +182,7 @@ function loopOf(options: RunnerOptions): Loop {
     refused: () => refused,
     running: 0,
     jobs: new Set(),
+    plugin: pluginKeeper({ exec: options.exec, running: { version: options.version }, bundle: runningBundle(), print: (line) => { options.print(line); } }),
     limits: options.limits ?? DEFAULT_LIMITS,
     pause: { reason: null, quiet: 0 },
     waiting: new Set(),
@@ -371,11 +379,11 @@ function cleanUp(loop: Loop, job: RunnerJob, place: Place): void {
  * 0 makes it wait for them to end (bug 1912). */
 const WAIT_FOR_AGENTS: Readonly<Record<string, string>> = { CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: '0' };
 
-/** Writes the job's line and empty log, then starts its session: whether it started. */
-function startSession(loop: Loop, job: RunnerJob, place: Place): boolean {
+/** Writes the job's line and its log, empty or starting on `note`, then starts its session: whether it started. */
+function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | null): boolean {
   mkdirSync(join(loop.home, 'logs'), { recursive: true });
   writeFileSync(place.line, `${job.line}\n`);
-  writeFileSync(place.log, '');
+  writeFileSync(place.log, note === null ? '' : `${note}\n`);
   rmSync(place.exit, { force: true });
   const sender: Record<string, string> = job.sentBy ? { OMNI_SENT_BY: job.sentBy, OMNI_RUNNER: loop.name } : {};
   try {
@@ -425,7 +433,9 @@ async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; li
   if ('status' in place) return { last: place, live: null };
   if (!makeWorktree(loop, job, place)) return { last: { status: 'failed', reason: 'the worktree could not be made' }, live: null };
   try {
-    if (!startSession(loop, job, place)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
+    const plugin = await loop.plugin.forJob(place.worktree, job.repo);
+    if ('failed' in plugin) return { last: { status: 'failed', reason: plugin.failed }, live: null };
+    if (!startSession(loop, job, place, plugin.note)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
     const live: Live = { log: place.log, cursor: 0 };
     return { last: await watch(loop, job, place, live), live };
   } finally {
@@ -519,12 +529,13 @@ async function reporter(loop: Loop, runner: string): Promise<void> {
   }
 }
 
-/** Sweeps now, then every hour, until the runner stops or is refused. */
+/** Sweeps now and updates the Omni plugin, then every hour, until the runner stops or is refused. */
 async function sweeper(loop: Loop): Promise<void> {
   const keepLogsDays = loop.keepLogsDays ?? KEEP_LOGS_DAYS;
   while (!loop.halt.aborted) {
     const line = sweptLine(sweep({ home: loop.home, checkouts: loop.checkouts, exec: loop.exec, running: loop.jobs, keepLogsDays, now: loop.now() }));
     if (line !== null) loop.print(line);
+    await loop.plugin.sweep();
     await loop.sleep(SWEEP_MS, loop.halt);
   }
 }

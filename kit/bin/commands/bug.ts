@@ -1,10 +1,12 @@
-// `omni bug <n> [--base <ref>]` — the proof step of a bug fix (PRD #556), run on its fix branch,
-// shaped like `omni visual`: one folder under `<paths.delivery>/bugs/` for issue <n>, holding a
-// complete bug.md whose reproduction file the range `<base>..HEAD` changes, and every commit of that
-// range signed, and (PRD 1342) every change to a law the range makes answered in the folder's outbox.
-// Prints `ok`, or `not ok` then one `- ` line per failed check
-// (`kit/lib/bug/verdict.ts`). It runs no test. `--base` defaults to
-// `<repo.remote>/<repo.defaultBranch>`; a bad ref is a usage error, exit 2.
+// `omni bug <n> [--base <ref>] [--body-file <file>]` — the proof step of a bug fix (PRD #556), run on
+// its fix branch, shaped like `omni visual`: one folder under `<paths.delivery>/bugs/` for issue <n>,
+// holding a complete bug.md whose reproduction file the range `<base>..HEAD` changes, and every commit
+// of that range signed, and (PRD 1342) every change to a law the range makes answered in the folder's
+// outbox, and (PRD 2100) the pull request's body carrying its `## Proof` (`kit/lib/bug/proof-body.ts`):
+// the body in `--body-file`, else the open pull request of the current branch, read through `gh`.
+// Prints `ok`, or `not ok` then one `- ` line per failed check (`kit/lib/bug/verdict.ts`). It runs no
+// test. `--base` defaults to `<repo.remote>/<repo.defaultBranch>`; a bad ref, or a `--body-file` that
+// cannot be read, is a usage error, exit 2.
 //
 // `omni bug film <n> --before <file> --after <file> [--out <dir>]` (PRD 1972) makes the before/after GIF
 // and the run's folder: see `./bug-film.ts`.
@@ -20,11 +22,13 @@ import { resolve } from 'node:path';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { signedInClient } from '../../lib/ask/credentials.ts';
 import { gradeBugFile, bugSeqArg, bugPushedLines, pushProductBug } from '../../lib/bug/product.ts';
+import { openPullRequest, proofFaults } from '../../lib/bug/proof-body.ts';
+import type { ProofSource } from '../../lib/bug/proof-body.ts';
 import { bugVerdict } from '../../lib/bug/verdict.ts';
 import { formatFailure, formatPass } from '../../lib/check-report.ts';
 import { isProductKey } from '../../lib/product/checkout.ts';
-import { issueArg, parseArgs, println, usageError } from '../args.ts';
-import { branchVerdictCommand, fixLaws, loggedPaths } from '../branch-range.ts';
+import { issueArg, parseArgs, println, readUserFile, usageError } from '../args.ts';
+import { fixLaws, loggedPaths, rangeBase, rangeCommits } from '../branch-range.ts';
 import { synchronous } from '../synchronous.ts';
 import { loadContext } from '../../lib/context.ts';
 import type { CommandIo, FreeCommand, FreeIo, Out } from '../io.ts';
@@ -34,18 +38,32 @@ import { film } from './bug-film.ts';
 type BugOptions = { tokens?: TokenStore | undefined; home?: string | undefined; fetch?: Fetch | undefined; callMs?: number | undefined };
 
 const USAGE = [
-  'usage: omni bug <n> [--base <ref>]',
+  'usage: omni bug <n> [--base <ref>] [--body-file <file>]',
   '       omni bug film <n> --before <file> --after <file> [--out <dir>]',
   '       omni bug check --product <key> <file>',
   '       omni bug push --product <key> (--new | --bug <n>) <file>',
 ].join('\n');
 
-const grade = branchVerdictCommand({
-  verb: 'bug',
-  read: issueArg,
-  paths: loggedPaths,
-  grade: ({ ctx, number, changed, commits, base, exec }) => bugVerdict({ ctx, issue: number, changed, commits, laws: fixLaws(ctx, number, base, exec) }),
-});
+/** Grades the fix of issue `<n>` on the current branch; the exit code. */
+function grade(args: string[], { ctx, stdout, exec }: CommandIo): number {
+  const { positional, flags } = parseArgs('bug', args, { values: ['base', 'body-file'] });
+  if (positional.length !== 1) throw usageError(USAGE);
+  const issue = issueArg('bug', '<n>', positional[0]);
+  const file = flags['body-file'];
+  const written: ProofSource | undefined = file === undefined ? undefined : { kind: 'file', body: readUserFile('bug', ctx, file) };
+  const base = rangeBase('bug', ctx, flags, exec);
+  const verdict = bugVerdict({
+    ctx,
+    issue,
+    changed: loggedPaths(ctx.root, base, exec),
+    commits: ctx.config.signature === null ? undefined : rangeCommits(ctx.root, base, exec),
+    laws: fixLaws(ctx, issue, base, exec),
+    proof: () => proofFaults(written ?? openPullRequest({ root: ctx.root, exec }), issue),
+  });
+  println(stdout, verdict.ok ? 'ok' : 'not ok');
+  for (const failure of verdict.failures) println(stdout, `- ${failure}`);
+  return verdict.ok ? 0 : 1;
+}
 
 /** Prints the one line a call stops with: exit 1. */
 function refuse(stderr: Out, line: string): number {
@@ -135,6 +153,6 @@ export const bug = {
       }
     }
     const commandIo: CommandIo = { ctx: loadContext(io.cwd, { exec: io.exec }), stdout: io.stdout, stderr: io.stderr, exec: io.exec, env: io.env, vars: io.vars };
-    return args[0] === 'film' ? synchronous(film)(args.slice(1), commandIo) : grade.run(args, commandIo);
+    return args[0] === 'film' ? synchronous(film)(args.slice(1), commandIo) : synchronous(grade)(args, commandIo);
   },
 } satisfies FreeCommand;
