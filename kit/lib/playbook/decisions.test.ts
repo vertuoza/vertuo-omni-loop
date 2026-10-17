@@ -16,7 +16,7 @@ describe('readDecisions', () => {
     });
     expect(readDecisions({ ctx })).toEqual({
       dir: 'records',
-      records: [{ number: '0001', file: 'records/0001-a.md', title: '0001 — A' }],
+      records: [{ number: '0001', file: 'records/0001-a.md', title: '0001 — A', prd: null }],
       shared: [],
       next: '0002',
     });
@@ -25,5 +25,22 @@ describe('readDecisions', () => {
   it('takes the next free number past the highest, never a gap', () => {
     const { ctx } = makeRepo({ files: { '.omni-loop/knowledge/adr/0001-a.md': '# A\n', '.omni-loop/knowledge/adr/0007-g.md': '# G\n' } });
     expect(readDecisions({ ctx }).next).toBe('0008');
+  });
+
+  it('reads the PRD a record names on its header line, and none for a record without one (PRD 1797)', () => {
+    const { ctx } = makeRepo({
+      files: {
+        '.omni-loop/knowledge/adr/0001-a.md': '# ADR-0001 — A\n\n**Status:** adopted · **Date:** 2026-09-25 · **PRD:** #7 · **Decided:** nobody\n\n## Context\n\nx\n',
+        '.omni-loop/knowledge/adr/0002-b.md': '# ADR-0002 — B\n\n**Status:** adopted · **Date:** 2026-09-25\n\n## Context\n\nAs PRD #7 says, **PRD:** #7 in the body is no header.\n',
+        '.omni-loop/knowledge/adr/0003-c.md': '# ADR-0003 — C\n\n**PRD:** #1797\n',
+        '.omni-loop/knowledge/adr/0004-d.md': '# ADR-0004 — D\n\n**PRD:** #0 · **PRD:** none\n',
+      },
+    });
+    expect(readDecisions({ ctx }).records.map(({ number, prd }) => [number, prd])).toEqual([
+      ['0001', 7],
+      ['0002', null],
+      ['0003', 1797],
+      ['0004', null],
+    ]);
   });
 });
