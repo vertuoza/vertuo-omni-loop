@@ -1,11 +1,11 @@
 // Bug 2148: OMNI KART's LOADING… reads every circuit, for the CIRCUIT step's cards, before the menu shows. Reading one
 // measured each pixel of its map against every piece of its centre line, up to three times over: about two seconds for the
-// two circuits on a laptop, with the screen frozen on LOADING….
+// two circuits on a laptop, with the screen frozen on LOADING…, and four times that on a slower machine.
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
 import { CIRCUITS } from './circuits';
 import { locate, type Line, type Located } from './line';
-import { parseTrack } from './track';
+import { parseTrack, TILE } from './track';
 
 /** The time, in ms, to read every circuit afresh: a copy of its waypoints is a circuit not read yet, as the first LOADING… finds it. */
 const readEvery = (): number => {
@@ -14,10 +14,37 @@ const readEvery = (): number => {
   return performance.now() - t;
 };
 
+/** The yardstick, in ms: one distance from each pixel of every circuit's map to each piece of its centre line, the least a
+ * reading that measured every pixel against every piece once would do. Timed beside the reading, on the same machine, it
+ * keeps the budget the same on a fast laptop and a slow runner. */
+const yardstick = (): number => {
+  const t = performance.now();
+  let sum = 0;
+  for (const c of CIRCUITS) {
+    const { size, centre } = parseTrack(c.source);
+    const at = Float64Array.from(centre.segments.flatMap((s) => (s.kind === 'straight' ? [s.x, s.y] : [s.cx, s.cy])));
+    for (let py = 0; py < size.h; py++) {
+      for (let px = 0; px < size.w; px++) {
+        for (let i = 0; i < at.length; i += 2) sum += Math.hypot((px + 0.5) / TILE - (at[i] ?? 0), (py + 0.5) / TILE - (at[i + 1] ?? 0));
+      }
+    }
+  }
+  expect(sum).toBeGreaterThan(0); // a sum read keeps the loop from being skipped
+  return performance.now() - t;
+};
+
+const median = (ms: number[]) => sure([...ms].sort((a, b) => a - b)[Math.floor(ms.length / 2)], 'a time');
+
 describe('bug 2148: OMNI KART\'s LOADING…', () => {
-  it('reads every circuit within a second', () => {
-    const ms = [readEvery(), readEvery(), readEvery()].sort((a, b) => a - b);
-    expect(sure(ms[1], 'the middle time'), `${ms.map(Math.round).join(', ')} ms`).toBeLessThan(1000);
+  it('reads every circuit in less time than measuring each of their pixels against every piece of their line once', () => {
+    readEvery(); // the circuits as the menu reads them, and the code warmed up
+    const reading: number[] = [], measuring: number[] = [];
+    for (let round = 0; round < 3; round++) {
+      reading.push(readEvery());
+      measuring.push(yardstick());
+    }
+    const ratio = median(reading) / median(measuring);
+    expect(ratio, `reading ${reading.map(Math.round).join(', ')} ms, measuring ${measuring.map(Math.round).join(', ')} ms`).toBeLessThan(1);
   });
 });
 

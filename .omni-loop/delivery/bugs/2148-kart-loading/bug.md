@@ -9,7 +9,7 @@
 ## Reproduction
 
 - **File:** `apps/galaxy/src/arcade/kart/track.cost.test.ts`
-- **Red:** AssertionError: 2254, 2262, 2283 ms: expected 2262.1795839999995 to be less than 1000
+- **Red:** AssertionError: reading 2055, 2055, 2124 ms, measuring 3320, 1212, 1212 ms: expected 1.6952925017422893 to be less than 1
 
 ## Fix
 
@@ -30,10 +30,13 @@ texture pixel and height is the same, bit for bit.
 
 ## Guard
 
-The reproduction stays in the suite as a budget: every circuit read afresh three times, the middle
-time under a second. It is red on the base's code (about 2.2 s) and green on the fix (about 0.3 s),
-so a margin of more than twice either way. The first frame's paint and relief got only about three
-times faster, too little for a timed budget that CI's slower machines would keep, so they have none.
+The reproduction stays in the suite as a budget, timed beside a yardstick on the same machine: one
+distance from each pixel of every circuit's map to each piece of its centre line. Reading every
+circuit must take less than that one pass. On the base's code it takes about 1.7 times as long, on
+the fix about a quarter: a slower machine or another processor has room either way. A budget in
+milliseconds did not hold, since CI's machine took 1167 ms to read the circuits with the fix where a
+laptop takes 300. The first frame's paint and relief got about three times faster and have no
+budget of their own.
 
 A unit test in the same file pins what the speed rests on: on every circuit, at a point every third
 of a tile from 3 tiles beyond the map on every side, and at points far off it, `locate` finds what
