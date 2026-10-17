@@ -53,7 +53,9 @@ A test outside them never runs.
 - A file that proves a law stays its owner's: tests of other behaviour go in a test file of their
   own, and the law's file is left untouched (PRD 1972, s4-01; it replaces PRD 1739, s2-01, which
   let them sit beside the proof). The owner may let them sit beside the proof, on the PRD's
-  outbox, when the law's own tests stay unchanged (PRD 1795, s3-01).
+  outbox, when the law's own tests stay unchanged (PRD 1795, s3-01). PRD 1796's contract tests do,
+  in `kit/lib/knowledge/check-knowledge.test.ts`, beside BR-PRODUCT-95's proof, which they leave
+  untouched (PRD 1796, s1-04).
 
 ## Choosing the level
 <!-- slot: levels · optional -->

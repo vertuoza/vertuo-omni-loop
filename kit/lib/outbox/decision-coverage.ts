@@ -99,14 +99,15 @@ function isLawProof(change: NameStatus, { ctx }: { ctx: CoverageContext }): bool
 }
 
 /** A file directly under `<knowledgeRoot>/product/` or `<knowledgeRoot>/domains/<d>/` named
- * `principles.md`, `rules.md` or `invariants.md`; any `.md` under `<knowledgeRoot>/cross-domain/`;
+ * `principles.md`, `rules.md`, `invariants.md` or `contracts.md` (a domain contract, PRD 1796: a
+ * change to the file it points to fires nothing by itself); any `.md` under `<knowledgeRoot>/cross-domain/`;
  * or any `.md` directly under `ctx.layout.adrDir` but its `README.md`. A folder's `README.md`
  * describes; it states no law — the ADR folder's is the decisions form (PRD #45). */
 function isLawText(change: NameStatus, { ctx }: { ctx: CoverageContext }): boolean {
   const knowledgeRoot = escapeRegExp(ctx.layout.knowledgeRoot);
   const adrDir = escapeRegExp(ctx.layout.adrDir);
   const pattern = new RegExp(
-    `^${knowledgeRoot}/(?:product|domains/[^/]+)/(?:principles|rules|invariants)\\.md$` +
+    `^${knowledgeRoot}/(?:product|domains/[^/]+)/(?:principles|rules|invariants|contracts)\\.md$` +
       `|^${knowledgeRoot}/cross-domain/[^/]+\\.md$` +
       `|^${adrDir}/(?!README\\.md$)[^/]+\\.md$`,
   );

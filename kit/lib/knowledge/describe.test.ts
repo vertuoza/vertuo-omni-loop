@@ -95,6 +95,34 @@ describe('describeEntry', () => {
     expect(text).not.toContain('Served by:');
   });
 
+  it('prints a contract with its statement and its "Points to:" line (PRD 1796)', () => {
+    const files = {
+      ...FIXTURE,
+      'docs/knowledge/domains/advisor/contracts.md': [
+        '## DC-ADVISOR-1',
+        '',
+        'An Intent moves Drafted → Pushed.',
+        '',
+        'Points to: `src/advisor/intent.ts`, src/advisor/intent.schema.ts',
+        'Source: a fixture',
+        'Stated: 2026-10-16',
+        '',
+      ].join('\n'),
+    };
+    const text = describeEntry(knowledgeOf(files), 'DC-ADVISOR-1');
+    assertDefined(text, 'text');
+    const lines = text.split('\n');
+    expect(lines[0]).toBe('DC-ADVISOR-1 — a contract in docs/knowledge/domains/advisor/contracts.md');
+    expect(lines).toContain('An Intent moves Drafted → Pushed.');
+    expect(lines).toContain('Points to: src/advisor/intent.ts, src/advisor/intent.schema.ts');
+    expect(lines.indexOf('Points to: src/advisor/intent.ts, src/advisor/intent.schema.ts')).toBeLessThan(lines.indexOf('Source: a fixture'));
+    expect(text).not.toContain('Served by:');
+  });
+
+  it('prints no "Points to:" line for an entry without one', () => {
+    expect(describeEntry(knowledgeOf(FIXTURE), 'BR-ADVISOR-1')).not.toContain('Points to:');
+  });
+
   it('returns null for an id nothing claims', () => {
     expect(describeEntry(knowledgeOf(FIXTURE), 'P-ADVISOR-9')).toBeNull();
   });

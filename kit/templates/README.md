@@ -10,8 +10,10 @@ pointer here.
 
 - **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person's
   decision about what the product should be), business rules (what may or may not happen, each
-  serving one principle) and invariants (what must always hold in the code). Decisions about how it
-  is built are decision records, in `{config:paths.adr}`.
+  serving one principle) and invariants (what must always hold in the code). A fourth kind, the
+  domain contract, says in one line how an entity is shaped or moves, and points at the schema or
+  type file that enforces it, in an optional `contracts.md`. Decisions about how it is built are
+  decision records, in `{config:paths.adr}`.
 - **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent
   asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what
   a pull request looks like; what a merge publishes; what a screen of this product looks like; the

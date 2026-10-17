@@ -306,7 +306,7 @@ change to a rule or a law the range makes, one `not ok` line each, by its rule:
 | rule | the range |
 |---|---|
 | `law-proof` | changes a file a rule's or a law's `Enforced by:` names |
-| `law-text` | rewords, adds or removes a rule or a law in a register |
+| `law-text` | rewords, adds or removes a rule, a law or a domain contract in a register |
 | `test-removed` | deletes a test, a law's among them |
 | `law-demoted` | turns an `Enforced by:` path back to `pending` or `unenforced`, or removes the entry |
 | `briefing-text` | changes the briefing (`<paths.playbook>/briefing.md`), its `points-to` file or a file one of its `See:` lines names |

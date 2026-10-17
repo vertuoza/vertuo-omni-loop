@@ -1,6 +1,6 @@
 // PRD #45, slice s3: `omni kb init | show | status` and `omni check kb`, each through `main()` on a
 // fixture repository. The kit's own templates are the kit defaults throughout.
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ConfigSchema } from '../lib/config.ts';
@@ -1259,6 +1259,33 @@ describe('omni kb laws — only what a change touches (PRD 1726, s2)', () => {
       const { root } = makeRepo({ git: true, files: files() });
       const parsed: unknown = JSON.parse((await omni(root, ['kb', 'owners', '--json'])).out);
       expect(parsed).toEqual({ file: '.github/CODEOWNERS', wrote: true, paths: 6, owners: ['pierrederval'] });
+    });
+  });
+
+  describe('a domain contract (PRD 1796)', () => {
+    const SCHEMA = 'kit/lib/schema/front-matter.ts';
+    const CONTRACTS = `${K}/product/contracts.md`;
+    const CONTRACT = `# Contracts\n\n## DC-PRODUCT-1\n\nAn outbox item has exactly one rank: human-action, high or medium.\n\nPoints to: ${SCHEMA}\nSource: PRD #1796\nStated: 2026-10-15\n`;
+    const withContract = () => makeRepo({ git: true, files: files({ [CONTRACTS]: CONTRACT, [SCHEMA]: 'x\n' }) });
+
+    it('omni check knowledge counts the contract and exits 0, then exits 1 naming the contract and the path once its file is gone', async () => {
+      const { root } = withContract();
+      expect(await omni(root, ['kb', 'owners'])).toMatchObject({ code: 0, out: expect.stringContaining('6 path(s)') as unknown });
+      const passed = await omni(root, ['check', 'knowledge']);
+      expect(passed.code).toBe(0);
+      expect(passed.out).toContain('check knowledge — 1 principle(s), 4 rule(s), 0 invariant(s), 1 contract(s) across 0 domain(s)');
+      rmSync(join(root, SCHEMA));
+      const failed = await omni(root, ['check', 'knowledge']);
+      expect(failed.code).toBe(1);
+      expect(failed.out).toContain(`${CONTRACTS}: DC-PRODUCT-1 — points to "${SCHEMA}", which does not exist — fix its "Points to:" line.`);
+    });
+
+    it('omni kb laws prints no contract, with or without --paths naming the file it points to', async () => {
+      const { root } = withContract();
+      expect(lines((await omni(root, ['kb', 'laws'])).out)).toEqual([LAW_LINE]);
+      const touched = lines((await omni(root, ['kb', 'laws', '--paths', SCHEMA, CONTRACTS])).out);
+      expect(touched).toEqual([LAW_LINE, 'No rule says it governs these files.', UNGOVERNED]);
+      expect(touched.join('\n')).not.toContain('DC-PRODUCT-1');
     });
   });
 });
