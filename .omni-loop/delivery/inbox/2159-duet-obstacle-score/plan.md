@@ -9,9 +9,10 @@ into the feature branch, with `Part of #2159`.
 | id | slice | territory | blocked by | wave |
 | --- | --- | --- | --- | --- |
 | s1 | Each obstacle scores once it is fully below the circle, 1 in a chapter and 2 in endless mode, a gate once; finishing a wave adds nothing more; a hit gives back every point since the chapter (endless: the wave) began; the README says so | `apps/galaxy/src/arcade/duet/run.` `apps/galaxy/src/arcade/duet/waves.` `apps/galaxy/README.md` | — | 1 |
+| s2 | DUET's board starts over: one migration moves every `arcade_scores` row of the board `duet` to the retired board `duet-waves`, nothing deleted, nothing else touched | `supabase/migrations/` | — | 1 |
 
-Shared ground: none, one slice. `duet/waves.test.ts` and `duet/run.test.ts` are inside s1's
-territory (the `run.` and `waves.` prefixes).
+Shared ground: none. s1 and s2 share no path, so they run in the same wave. `duet/waves.test.ts`
+and `duet/run.test.ts` are inside s1's territory (the `run.` and `waves.` prefixes).
 
 ## Per slice: done when
 
@@ -28,4 +29,11 @@ territory (the `run.` and `waves.` prefixes).
     and passes.
   - The same run at 1/60 s and 1/120 s gives the same score.
   - The README's OMNI DUET section says each obstacle passed scores 1, 2 in endless mode.
+  - `pnpm test`, `pnpm lint` and `pnpm typecheck` are green.
+- **s2**
+  - A migration under `supabase/migrations/`, dated after the newest on the feature branch, sets
+    `game = 'duet-waves'` on every `arcade_scores` row whose `game` is `duet`, and does nothing else:
+    no `delete`, no other game, no other table, `submit_score()` and the table's shape unchanged.
+  - Its header comment says why (PRD 2159, Martin's reset) and how to undo it (the spec's Risks).
+  - `supabase/database.types.ts` is unchanged.
   - `pnpm test`, `pnpm lint` and `pnpm typecheck` are green.
