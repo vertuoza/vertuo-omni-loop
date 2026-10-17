@@ -171,7 +171,7 @@ describe('the snow, the marks, the sparks, the wind and the smoke', () => {
     expect(own.map((m) => [m.x, m.y]).sort()).toEqual([[100, 47], [100, 53]]);
     const rival = base.rivals[0];
     if (!rival) throw new Error('no rival');
-    const slid = { ...base, fx: { ...base.fx, hop: 0 }, player: { ...base.player, speed: 0 }, rivals: [{ ...rival, kart: { ...rival.kart, x: 200, y: 80, angle: 0, travel: RULES.skidGap + 0.05, speed: fast }, fx: { ...rival.fx, fall: 0, hop: 0 } }] };
+    const slid = { ...base, fx: { ...base.fx, hop: 0 }, player: { ...base.player, speed: 0 }, rivals: [{ ...rival, kart: { ...rival.kart, x: 200, y: 80, angle: 0, travel: RULES.skidGap + 0.05, speed: fast }, fx: { ...base.fx, fall: 0, hop: 0 } }] };
     const theirs = marksOf(slid);
     expect(theirs).toHaveLength(2);
     expect(theirs.every((m) => m.own === undefined)).toBe(true);
