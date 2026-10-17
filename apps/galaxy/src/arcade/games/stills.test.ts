@@ -1,8 +1,9 @@
 // Draws each game's still for its lit cabinet's screen (still.ts) from the game's own pieces, and
 // checks stills.ts holds them as they are drawn now: OMNI KART's race over its circuit, rendered by
 // its Mode 7 floor with its rivals, boxes, props and arch, and a slice of Super Omni World's stage 1-1
-// in its tiles, and OMNI DUET's two orbs on their circle under a falling wave. The player's own kart
-// and hero are not in a still: the cabinet draws them over it.
+// in its tiles, OMNI DUET's two orbs on their circle under a falling wave, and OMNI PONG's rally steered
+// by a hum, its pitch rising behind the court. The player's own kart and hero are not in a still: the
+// cabinet draws them over it.
 // After a game's art changes, `npx vitest run apps/galaxy/src/arcade/games/stills.test.ts -u` draws
 // them again.
 import { describe, expect, it } from 'vitest';
@@ -340,10 +341,50 @@ function duet({ w, h }: { w: number; h: number }): Canvas {
   return c;
 }
 
+// ── OMNI PONG: a rally steered by a hum, the voice's pitch rising behind the court ─
+
+/** A pixel ring of radius `r` round cx, cy, its right side only: a sound wave leaving the paddle. */
+function wave(c: Canvas, cx: number, cy: number, r: number, colour: string, alpha: number) {
+  for (let py = Math.floor(cy - r); py <= Math.ceil(cy + r); py++) {
+    for (let px = Math.floor(cx + 1); px <= Math.ceil(cx + r); px++) {
+      const d = Math.hypot(px + 0.5 - cx, py + 0.5 - cy);
+      if (Math.abs(d - r) < 0.5 && Math.abs(py + 0.5 - cy) < r * 0.7) paint(c, px, py, colour, alpha);
+    }
+  }
+}
+
+function pong({ w, h }: { w: number; h: number }): Canvas {
+  const t = DEFAULT_THEME;
+  const c = blank(w, h, t.void);
+  const paddle = { w: 2, h: Math.round(h * 0.3) };
+  const px = Math.round(w * 0.08), py = Math.round(h * 0.2);
+  const mid = py + paddle.h / 2;
+  // The hum's pitch behind the court: low on the right, rising to the player's paddle, which it lifts.
+  const pitchAt = (x: number) => {
+    const s = Math.min(1, Math.max(0, (w * 0.75 - x) / (w * 0.35)));
+    return h * 0.78 + (mid - h * 0.78) * s * s * (3 - 2 * s);
+  };
+  fill(c, 0, Math.round(h / 2) - 1, w, 2, t.navy, { alpha: 0.35 });
+  for (let x = px + paddle.w; x < w; x++) fill(c, x, Math.round(pitchAt(x)), 1, 2, t.cyan, { alpha: 0.2 });
+  for (let y = 1; y < h; y += 6) fill(c, Math.floor(w / 2), y, 1, 3, t.dim, { alpha: 0.6 });
+
+  // The player's paddle, high on the hum, its sign above it and the waves of the voice leaving it.
+  fill(c, px, py, paddle.w, paddle.h, t.cyan);
+  for (let row = 0; row < 3; row++) fill(c, px + 1 - row, py - 5 + row, 2 * row + 1, 1, t.cyan);
+  [5, 9, 13].forEach((r, i) => { wave(c, px + paddle.w, mid, r, t.cyan, 0.85 - i * 0.25); });
+
+  // The AI's paddle, low and late; the ball on its way back to the player, its trail behind it.
+  fill(c, w - Math.round(w * 0.08) - paddle.w, Math.round(h * 0.55), paddle.w, paddle.h, t.plasma);
+  const ball = { x: Math.round(w * 0.6), y: Math.round(h * 0.28) };
+  [3, 2, 1].forEach((k) => { fill(c, ball.x + k * 4, ball.y + k * 2, 2, 2, t.white, { alpha: 0.12 * (4 - k) }); });
+  fill(c, ball.x, ball.y, 2, 2, t.yellow);
+  return c;
+}
+
 // ── The stills as stills.ts keeps them ────────────────────────────────────────
 
 /** Each still, by its game's id, or by its board's when a game has a still for each of its circuits (OMNI KART's FROST EIGHT, PRD 1923): the games whose screen is not the Invaders formation. */
-const DRAWN: Readonly<Record<string, (screen: { w: number; h: number }) => Canvas>> = { kart: race, 'kart-frost-eight': frostRace, platformer: stage, duet };
+const DRAWN: Readonly<Record<string, (screen: { w: number; h: number }) => Canvas>> = { kart: race, 'kart-frost-eight': frostRace, platformer: stage, duet, pong };
 
 function encode(c: Canvas): Still {
   const palette = [...new Set(c.px)];
