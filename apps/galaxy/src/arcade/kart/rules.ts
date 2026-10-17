@@ -106,6 +106,9 @@ export const RULES = Object.freeze({
   tipPull: 8,
   /** How long both wheels of one side stay over the void, in a row, before the kart tips over (PRD 1775). */
   tipGrace: 0.5,
+  /** A tunnel's wall (bug 2144): the share of its speed a kart scraping it loses a second, and how fast it turns the kart's nose along it, in radians a second. */
+  scrape: 3,
+  wallTurn: 3,
   /** The jump (PRD 1775): the vertical speed a kart leaves a ramp with (a share of its speed), gravity in units a second squared, and the share of its turn rate a kart in the air keeps. */
   launch: 0.9,
   gravity: 400,
