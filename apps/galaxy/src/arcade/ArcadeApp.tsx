@@ -1129,6 +1129,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         return;
       }
       if (fullscreen({ kind: 'key', key: e.key, scene: uiRef.current.scene, modified, repeat: e.repeat })) { e.preventDefault(); return; }
+      // A race holds the browser's Back and Forward keys (bug 2149): a thumb that slides off SPACE onto ⌘ or ALT while the player steers would leave the arcade.
+      const racing = waiting?.hud?.phase === 'countdown' || waiting?.hud?.phase === 'race';
+      if (modified && racing && api?.browserBack(e)) { e.preventDefault(); return; }
       if (modified) return;
       // Let Space and Enter activate a focused button natively; the button calls `act` itself.
       if (e.target instanceof Element && e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
