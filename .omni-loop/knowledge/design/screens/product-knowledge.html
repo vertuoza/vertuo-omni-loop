@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product knowledge mockup</title>
+<style>
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-on-plasma: #07061c; --ask-cyan: #5ee7ff;
+    --ask-body: "Atkinson Hyperlegible Next", system-ui, sans-serif; --ask-mono: ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 16px/1.6 var(--ask-body); }
+  .page { max-width: 980px; margin: 0 auto; padding: 24px 16px; display: grid; gap: 16px; }
+  .card { padding: 18px 20px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  h1, h2, h3 { margin: 0 0 6px; }
+  h3 { font-size: 15px; color: var(--ask-muted); margin-top: 14px; }
+  .muted { color: var(--ask-muted); }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  nav a { padding: 6px 12px; border: 1px solid var(--ask-line); border-radius: 8px; color: var(--ask-ink); text-decoration: none; }
+  nav a[aria-current] { border-color: var(--ask-plasma); color: var(--ask-plasma); }
+  .row { display: grid; grid-template-columns: 9rem 1fr 14rem auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--ask-line); }
+  .row.term { grid-template-columns: 9rem 1fr 10rem auto; }
+  .id { font: 700 13px/1 var(--ask-mono); color: var(--ask-cyan); }
+  input { width: 100%; padding: 6px 8px; background: #0e0d33; color: var(--ask-ink); border: 1px solid var(--ask-line-strong); border-radius: 6px; font: inherit; }
+  button { padding: 6px 12px; border: 1px solid var(--ask-line-strong); border-radius: 8px; background: transparent; color: var(--ask-ink); font: inherit; }
+  button.primary { background: var(--ask-plasma); color: var(--ask-on-plasma); border-color: var(--ask-plasma); font-weight: 700; }
+  .variant { margin-top: 20px; font: 14px system-ui; color: var(--ask-muted); }
+  @media (max-width: 760px) { .row, .row.term { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="variant">Variant 1: the Legal owner's view of the Legal section.</p>
+  <section class="card"><a href="#" class="muted">← Products</a><h1>Widgets</h1>
+    <p class="muted">What the law requires, and the product's words, shared by every repository of the product.</p></section>
+  <nav aria-label="Widgets"><a href="#">Ledger</a><a href="#">PRDs</a><a href="#">Questions</a><a href="#" aria-current="page">Knowledge</a><a href="#">Repositories &amp; approvers</a></nav>
+
+  <section class="card">
+    <h2>Legal</h2>
+    <p class="muted">What the law requires of this product. Every repository of the product reads the same entries.</p>
+    <p class="muted">Owner: @anna · Delegate: @dev</p>
+    <div class="row"><span class="id">L-INVOICING-1</span><input value="Invoice numbers follow each other with no gaps." aria-label="Statement"><input value="Belgian VAT Code, art. 53" aria-label="Source law"><span><button class="primary">Edit</button> <button>Retire</button></span></div>
+    <h3>Open proposals</h3>
+    <div class="row"><span class="muted">adds a credit-note rule · proposed by @paul</span><span></span><span></span><span><button class="primary">Approve</button> <button>Reject</button></span></div>
+    <h3>Add an entry</h3>
+    <div class="row"><input placeholder="Code" aria-label="Code"><input placeholder="Statement" aria-label="Statement"><input placeholder="Source law" aria-label="Source law"><button class="primary">Add</button></div>
+  </section>
+
+  <p class="variant">Variant 2: another member's view of the Glossary section, and a workspace owner's naming control.</p>
+  <section class="card">
+    <h2>Glossary</h2>
+    <p class="muted">The product's words, and the words to avoid in their place.</p>
+    <p class="muted">Owner: @anna · Delegate: not named</p>
+    <div class="row term"><input value="Credit note" aria-label="Term"><input value="A document that cancels all or part of an invoice." aria-label="Meaning"><input value="refund" aria-label="Avoid"><span><button class="primary">Propose an edit</button> <button>Propose to remove</button></span></div>
+    <h3>Add a term</h3>
+    <div class="row term"><input placeholder="Term"><input placeholder="Meaning"><input placeholder="Avoid"><button class="primary">Propose</button></div>
+    <h3>Who answers for it</h3>
+    <div class="row term"><span>Owner <input value="@anna"></span><span>Delegate <input value="Nobody"></span><span></span><button class="primary">Name owner and delegate</button></div>
+  </section>
+</div>
+</body>
+</html>

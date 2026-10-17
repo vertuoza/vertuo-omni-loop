@@ -9,9 +9,9 @@ import { repositoriesTabService } from './repositories-tab.service';
 // tab's shapes, a refusal by its kind and in plain words.
 
 const ACME = 'w-acme';
-const MOBILE: StoredTabProduct = { id: 'p-mobile', workspace_id: ACME, name: 'Mobile' };
-const API: StoredTabLink = { repository: 'acme/api', role: 'api', knowledge: 'own', read_at: null, read_only: false, consumes: [], added_by: 'person' };
-const APP: StoredTabLink = { repository: 'acme/app', role: null, knowledge: 'own', read_at: null, read_only: true, consumes: ['acme/api'], added_by: 'prd' };
+const MOBILE: StoredTabProduct = { id: 'p-mobile', workspace_id: ACME, name: 'Mobile', plan_repository: null };
+const API: StoredTabLink = { repository: 'acme/api', role: 'api', knowledge: 'own', read_at: null, read_only: false, consumes: [], added_by: 'person', ladder_step: 5 };
+const APP: StoredTabLink = { repository: 'acme/app', role: null, knowledge: 'own', read_at: null, read_only: true, consumes: ['acme/api'], added_by: 'prd', ladder_step: 5 };
 const ROSTER = [
   { user_id: 'u-ada', name: 'Ada', github_login: 'ada', avatar_url: null, fleet: null },
   { user_id: 'u-bo', name: null, github_login: 'bo', avatar_url: null, fleet: null },
@@ -28,7 +28,8 @@ function store(over: Over = {}) {
     owner: () => Promise.resolve(true),
     roster: () => Promise.resolve(ROSTER),
     approvers: () => Promise.resolve([{ user_id: 'u-bo', state: 'asked' as const }]),
-    link: (product, link) => { calls.push(`link ${product} ${link.repository}`); return Promise.resolve({ ok: true as const, link: { ...link, added_by: 'person' as const } }); },
+    openBornInGit: () => Promise.resolve([]),
+    link: (product, link) => { calls.push(`link ${product} ${link.repository}`); return Promise.resolve({ ok: true as const, link: { ...link, added_by: 'person' as const, ladder_step: 1 } }); },
     unlink: (product, repo) => { calls.push(`unlink ${product} ${repo}`); return Promise.resolve({ ok: true as const, removed: true }); },
     setApprover: (product, member, state) => { calls.push(`set ${product} ${member} ${state}`); return Promise.resolve({ ok: true as const, state }); },
     removeApprover: (product, member) => { calls.push(`remove ${product} ${member}`); return Promise.resolve({ ok: true as const, removed: true }); },
@@ -43,8 +44,8 @@ describe('the tab', () => {
       product: { id: MOBILE.id, name: 'Mobile' },
       owner: true,
       links: [
-        { repo: 'acme/api', role: 'api', knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person' },
-        { repo: 'acme/app', role: null, knowledge: 'own', readAt: null, readOnly: true, consumes: ['acme/api'], addedBy: 'prd' },
+        { repo: 'acme/api', role: 'api', knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person', ladderStep: 5 },
+        { repo: 'acme/app', role: null, knowledge: 'own', readAt: null, readOnly: true, consumes: ['acme/api'], addedBy: 'prd', ladderStep: 5 },
       ],
       addable: ['acme/billing', 'acme/web'],
       approvers: {
@@ -52,6 +53,7 @@ describe('the tab', () => {
         members: [{ id: 'u-ada', name: 'Ada', login: 'ada' }, { id: 'u-bo', name: null, login: 'bo' }],
         listed: [{ id: 'u-bo', name: null, login: 'bo', state: 'asked' }],
       },
+      plan: null,
     });
   });
 
@@ -84,7 +86,7 @@ describe('the changes', () => {
     const { service, calls } = store();
     expect(await service.saveLink(MOBILE.id, write)).toEqual({
       ok: true,
-      value: { link: { repo: 'acme/web', role: 'web', knowledge: 'own', readAt: null, readOnly: false, consumes: ['acme/api'], addedBy: 'person' } },
+      value: { link: { repo: 'acme/web', role: 'web', knowledge: 'own', readAt: null, readOnly: false, consumes: ['acme/api'], addedBy: 'person', ladderStep: 1 } },
     });
     expect(calls).toEqual([`link ${MOBILE.id} acme/web`]);
     expect(await service.saveLink(MOBILE.id, { ...write, role: '  ' })).toMatchObject({ ok: true, value: { link: { role: null } } });
@@ -120,4 +122,39 @@ describe('the changes', () => {
     expect(await refusing('22023').setApprover(MOBILE.id, 'u-ada', 'asked')).toEqual({ ok: false, kind: 'refused', error: NOT_MEMBER });
     expect(await refusing('P0002').removeApprover(MOBILE.id, 'u-ada')).toEqual({ ok: false, kind: 'missing', error: GONE });
   });
+});
+
+describe('what is still in the plan repository (PRD 2011 s17)', () => {
+  const PLANNED: StoredTabProduct = { ...MOBILE, plan_repository: 'acme/plan' };
+  const planned = (over: Over = {}) => store({ product: () => Promise.resolve(PLANNED), ...over });
+  const below = { ...APP, ladder_step: 3 };
+
+  it('shows no plan while the product names none', async () => {
+    expect((await store().service.tab(ACME, MOBILE.id))?.plan).toBeNull();
+  });
+
+  it('shows no hold when nothing is left in the plan repository', async () => {
+    expect((await planned().service.tab(ACME, MOBILE.id))?.plan).toEqual({ repository: 'acme/plan', holds: [] });
+  });
+
+  it('names each hold: a repository below step 5 (the plan repository itself never holds), then a record born in git still open', async () => {
+    const { service } = planned({
+      links: () => Promise.resolve([API, below, { ...API, repository: 'acme/plan', ladder_step: 1 }]),
+      openBornInGit: () => Promise.resolve([{ kind: 'roadmap', number: 412 }, { kind: 'bug', number: 1210 }, { kind: 'prd', number: 2011 }]),
+    });
+    expect((await service.tab(ACME, MOBILE.id))?.plan?.holds).toEqual([
+      { name: 'app', why: 'step 3' },
+      { name: 'roadmap 0412', why: 'in git' },
+      { name: 'bug 1210', why: 'in git' },
+      { name: 'PRD 2011', why: 'in git' },
+    ]);
+  });
+
+
+  it('says so with one hold when what is open cannot be read', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { service } = planned({ openBornInGit: () => Promise.reject(new Error('down')) });
+    expect((await service.tab(ACME, MOBILE.id))?.plan?.holds).toEqual([{ name: 'Open records', why: 'could not be read just now' }]);
+  });
+
 });

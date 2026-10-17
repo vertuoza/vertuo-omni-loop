@@ -145,6 +145,20 @@ describe('gradePrd', () => {
     );
   });
 
+  it('a change to the briefing is risky (briefing-text), and only an item ranked high answers it (PRD 1793)', () => {
+    const path = '.omni-loop/knowledge/playbook/briefing.md';
+    const briefingRisky = riskyChanges([{ path, status: 'M' }], { ctx: flatCtx(root) });
+    expect(briefingRisky).toEqual([{ path, status: 'M', rule: 'briefing-text' }]);
+    const body = ['## Risky changes', '', `- \`${path}\``, '  briefing-text', '  spec Solution', ''].join('\n');
+    seedAccount(1044, 's3', accountText({ body }));
+    const result = gradePrd(parsePrd(1044), briefingRisky, { ctx: flatCtx(root) });
+    expect(result.accounted).toEqual([]);
+    assertDefined(result.unaccounted[0], 'result.unaccounted[0]');
+    expect(describeUnaccounted(parsePrd(1044), result.unaccounted[0])).toBe(
+      `PRD #1044: \`${path}\` is risky (briefing-text) and its account "spec Solution" is refused: a change to the briefing is accounted only by an item ranked high.`,
+    );
+  });
+
   it('an account for a path/rule the range never touched is stale, not unaccounted or fatal', () => {
     const body = [
       '## Risky changes',

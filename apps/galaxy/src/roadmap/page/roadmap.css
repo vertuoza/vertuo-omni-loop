@@ -140,3 +140,10 @@
 }
 .roadmap-tick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
 .roadmap-tick-error { margin: 0; border-left: 3px solid var(--ask-yellow); padding-left: 8px; color: var(--ask-ink); }
+
+.roadmap-ref { font: 600 0.7em/1 var(--ask-mono); color: var(--ask-yellow); }
+.roadmap-status.is-held { color: var(--ask-muted); }
+.roadmap-status.is-drifted { color: var(--ask-red); }
+.roadmap-status.is-building { color: var(--ask-green); }
+.roadmap-versions a[aria-current='true'] { color: var(--ask-ink); font-weight: 600; }
+.roadmap-version-text pre { max-height: 480px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }

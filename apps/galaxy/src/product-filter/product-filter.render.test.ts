@@ -40,9 +40,11 @@ describe('the product filter', () => {
 /** A client whose tables answer these rows, whatever the filters: no test calls Supabase. */
 function db(tables: Record<string, unknown[]>): ProductFilterDb {
   const query = (table: string) => {
+    let from = table;
     const q = {
-      select: () => q, order: () => q, in: () => q, not: () => q, eq: () => q,
-      then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: tables[table] ?? [], error: null }).then(ok),
+      // The numbers a dossier holds on its product are their own read of `dossiers`: the `numbers` rows.
+      select: (columns: string) => { if (columns.includes('product_seq')) from = 'numbers'; return q; }, order: () => q, in: () => q, not: () => q, eq: () => q,
+      then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: tables[from] ?? [], error: null }).then(ok),
     };
     return q;
   };

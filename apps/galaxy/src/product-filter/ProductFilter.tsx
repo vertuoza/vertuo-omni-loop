@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { IdeasView } from '../ideas/source';
 import type { ProductFilterDb } from './product-filter.repository';
-import { PRODUCT_FILTER_WORDS, productFilterReads, scopeBoard, scopeDossiers, type ProductFilterView } from './product-filter.service';
+import { PRODUCT_FILTER_WORDS, productFilterReads, scopeBoard, scopeDossiers, type ProductFilterView, type ProductLabels } from './product-filter.service';
 
 // The product filter (PRD 1364 s12), drawn above /prd, /ideas, /bugs and /visual: a labelled row of
 // links, All, each product, No product, the chosen one current. Plain links, no script: each one is the
@@ -25,11 +25,13 @@ export function ProductFilter({ filter, unreadable }: { filter: ProductFilterVie
 type Query = Readonly<Record<string, string | string[] | undefined>>;
 
 /** A list of dossiers at `path`, narrowed by the product its address asks for, as the signed-in person
- * reads it on `db`, with the filter to draw above it. */
+ * reads it on `db`, with the filter to draw above it and each kept row's product (PRD 2011). */
 export const productListScope = (path: string) =>
-  async <T extends { id: string; workspace_id: string }>(db: ProductFilterDb, rows: T[], query: Query): Promise<{ rows: T[]; above: ReactNode }> => {
-    const { rows: kept, filter, unreadable } = await scopeDossiers(productFilterReads(db), rows, query, path);
-    return { rows: kept, above: <ProductFilter filter={filter} unreadable={unreadable} /> };
+  async <T extends { id: string; workspace_id: string; kind?: string | undefined }>(
+    db: ProductFilterDb, rows: T[], query: Query,
+  ): Promise<{ rows: T[]; above: ReactNode; labels: ProductLabels }> => {
+    const { rows: kept, labels, filter, unreadable } = await scopeDossiers(productFilterReads(db), rows, query, path);
+    return { rows: kept, labels, above: <ProductFilter filter={filter} unreadable={unreadable} /> };
   };
 
 /** A repository's ideas board at `path`, narrowed by product for a member of its workspace, as they read

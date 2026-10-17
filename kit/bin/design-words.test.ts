@@ -209,4 +209,40 @@ describe('omni design words', () => {
     const { out } = await words(root, ['mock.html']);
     expect(out).toContain('    on main (2026-10-11) (3)\n    [control] CREW TOP 5 NO SCORES YET (6)\n    ask.client.ts (1)\n    POST (1)\n');
   });
+
+  describe("the product's glossary (PRD 1795, s6)", () => {
+    const COPY = '.omni-loop/local/product-knowledge.json';
+    const copy = (glossary: unknown) => JSON.stringify({ product: 'Acme', readAt: '2026-10-16T10:00:00.000Z', legal: [], glossary });
+    const mock = page('<div data-screen="s"><p>Ask for a refund</p><p>Utilize it</p></div>');
+
+    it("adds the glossary's avoided words from the local copy and names the product's term, without duplicates", async () => {
+      const { root } = makeRepo({
+        git: true,
+        files: {
+          '.omni-loop/config.yml': HEAD + ON + '  words:\n    avoid: [Refund]\n',
+          [DESIGN]: form('Plain.\n\nWords we avoid: utilize'),
+          [COPY]: copy([{ term: 'Credit note', meaning: 'Cancels an invoice.', avoid: ['refund', 'Utilize', 'reimbursement'] }]),
+          'mock.html': mock,
+        },
+      });
+      const { code, out } = await words(root, ['mock.html']);
+      expect(code).toBe(0);
+      expect(out).toContain('    ! avoided-word: "Refund": avoid, the product says "Credit note" (in "Ask for a refund")\n');
+      expect(out.match(/avoided-word: "Refund"/g)).toHaveLength(1);
+      expect(out.match(/avoided-word: "utilize"/gi)).toHaveLength(1);
+    });
+
+    it("uses today's avoid list when there is no copy, or one out of shape", async () => {
+      for (const extra of [{}, { [COPY]: '{not json' }, { [COPY]: JSON.stringify({ glossary: 3 }) }]) {
+        const { root } = makeRepo({
+          git: true,
+          files: { '.omni-loop/config.yml': HEAD + ON + '  words:\n    avoid: [utilize]\n', 'mock.html': mock, ...extra },
+        });
+        const { out } = await words(root, ['mock.html']);
+        expect(out).not.toContain('the product says');
+        expect(out).not.toContain('"refund"');
+        expect(out).toContain('    ! avoided-word: "utilize" in "Utilize it"\n');
+      }
+    });
+  });
 });

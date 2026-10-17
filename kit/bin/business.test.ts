@@ -38,6 +38,8 @@ const FILLED = {
     claim('rival#12', 'Rival Two'),
   ],
   personas: [],
+  legal: [],
+  glossary: [],
 };
 
 const persona = (name: string, stance: string, trade: string, who: string, usage: string) => ({ name, stance, trade, who, usage });
@@ -130,7 +132,7 @@ describe('omni business show', () => {
     expect(run.out.endsWith('\n')).toBe(true);
     const printed: unknown = JSON.parse(run.out);
     expect(printed).toEqual(withProduct);
-    expect(keysOf(printed)).toEqual(['state', 'business', 'product', 'claims', 'personas']);
+    expect(keysOf(printed)).toEqual(['state', 'business', 'product', 'claims', 'personas', 'legal', 'glossary']);
     expect(keysOf(dig(printed, 'claims', 0))).toEqual(['id', 'kind', 'value', 'source', 'state', 'receipt', 'lastSeen']);
   });
 
@@ -157,7 +159,7 @@ describe('omni business show', () => {
     const extra = { ...FILLED, secret: 'x', claims: [{ ...claim('region#1', 'Belgium'), seq: 1 }] };
     const c = await checkout({ business: () => ({ body: extra }) });
     const printed: unknown = JSON.parse((await show(['show', '--json'], c)).out);
-    expect(printed).toEqual({ state: 'ok', business: { name: 'Acme' }, product: null, claims: [claim('region#1', 'Belgium')], personas: [] });
+    expect(printed).toEqual({ state: 'ok', business: { name: 'Acme' }, product: null, claims: [claim('region#1', 'Belgium')], personas: [], legal: [], glossary: [] });
   });
 
   it('a contradicted claim keeps its state in --json, and is marked, not stated, in the text', async () => {
@@ -192,6 +194,30 @@ describe('omni business show', () => {
     expect(keysOf(dig(printed, 'personas', 0))).toEqual(['name', 'stance', 'trade', 'who', 'usage']);
   });
 
+  it('--json carries the product\'s Legal entries and glossary in the contract\'s shape (PRD 1795)', async () => {
+    const legal = [{ id: 'L-INVOICING-1', statement: 'Invoice numbers follow each other with no gaps.', source: 'https://law.example/vat-53', owner: 'anna' }];
+    const glossary = [{ term: 'Credit note', meaning: 'A document that cancels an invoice.', avoid: ['refund'] }];
+    const body = { ...FILLED, legal: [{ ...legal[0], extra: 1 }], glossary };
+    const c = await checkout({ business: () => ({ body }) });
+    const run = await show(['show', '--json'], c);
+    const printed: unknown = JSON.parse(run.out);
+    expect(dig(printed, 'legal')).toEqual(legal);
+    expect(dig(printed, 'glossary')).toEqual(glossary);
+    expect(keysOf(dig(printed, 'legal', 0))).toEqual(['id', 'statement', 'source', 'owner']);
+    expect((await show(['show'], c)).out).toContain('L-INVOICING-1');
+    expect((await show(['show'], c)).out).toContain('Credit note: A document that cancels an invoice. — avoid: refund');
+  });
+
+  it('a server from before PRD 1795 sends neither: both read as []', async () => {
+    const older: Record<string, unknown> = { ...FILLED };
+    delete older.legal;
+    delete older.glossary;
+    const c = await checkout({ business: () => ({ body: older }) });
+    const printed: unknown = JSON.parse((await show(['show', '--json'], c)).out);
+    expect(dig(printed, 'legal')).toEqual([]);
+    expect(dig(printed, 'glossary')).toEqual([]);
+  });
+
   it('prints one line per persona under the claims', async () => {
     const body = { ...FILLED, claims: [claim('region#1', 'Belgium')], personas: CAST };
     const c = await checkout({ business: () => ({ body }) });
@@ -213,7 +239,7 @@ describe('omni business show', () => {
   it('state stays none without a confirmed claim, and the personas still come back', async () => {
     const body = { state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: [CAST[0]] };
     const c = await checkout({ business: () => ({ body }) });
-    expect(JSON.parse((await show(['show', '--json'], c)).out)).toEqual(body);
+    expect(JSON.parse((await show(['show', '--json'], c)).out)).toEqual({ ...body, legal: [], glossary: [] });
     const text = await show(['show'], c);
     expect(text).toEqual({ code: 0, err: '', out: [
       'no confirmed claim for acme/widgets yet — agents carry on',
@@ -224,7 +250,7 @@ describe('omni business show', () => {
 });
 
 describe('omni business show never blocks an agent: exit 0 and one line in every other state', () => {
-  const NONE_BODY = { state: 'none', business: null, product: null, claims: [], personas: [] };
+  const NONE_BODY = { state: 'none', business: null, product: null, claims: [], personas: [], legal: [], glossary: [] };
   const CASES = [
     {
       name: 'no business (none)',
@@ -235,7 +261,7 @@ describe('omni business show never blocks an agent: exit 0 and one line in every
       name: 'a business with no confirmed claim for this repository (none)',
       setup: () => checkout({ business: () => ({ body: { ...NONE_BODY, business: { name: 'Acme' } } }) }),
       state: 'none', line: 'no confirmed claim for acme/widgets yet — agents carry on',
-      json: { state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: [] },
+      json: { state: 'none', business: { name: 'Acme' }, product: null, claims: [], personas: [], legal: [], glossary: [] },
     },
     {
       name: 'no sign-in (no-sign-in)',
@@ -304,7 +330,7 @@ describe('omni business show never blocks an agent: exit 0 and one line in every
       const asJson = await show(['show', '--json'], c);
       expect(asJson.code).toBe(0);
       expect(asJson.err).toBe('');
-      expect(JSON.parse(asJson.out)).toEqual(json ?? { state, business: null, product: null, claims: [], personas: [] });
+      expect(JSON.parse(asJson.out)).toEqual(json ?? { state, business: null, product: null, claims: [], personas: [], legal: [], glossary: [] });
     });
   }
 });

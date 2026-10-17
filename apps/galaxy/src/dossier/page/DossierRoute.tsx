@@ -5,6 +5,8 @@ import { serviceDb } from '../../data/sign-in-live';
 import type { FixSummary } from '../github/fix';
 import { mergeFacts } from '../../fixes/facts/refresh';
 import { fixFactsStore } from '../../fixes/facts/store';
+import { bugRecordPage } from '../../fixes/bug-rows';
+import { readBugRows } from '../../fixes/bug-rows.repository';
 import { fixFacts } from './fix-facts';
 import { Notice } from '../../ask/page/Notice';
 import { serverEnv } from '../../env';
@@ -25,7 +27,7 @@ import { isDossierId, readContent, readDossier, readPlanSlices, type Db } from '
 import { dossierView, readPick, type DossierRead } from './view';
 import type { VoiceCast, VoiceView } from './voice';
 import { readShownVoice, readVoiceCast } from './voice-source';
-import { kindOf, misrouted } from './work';
+import { kindOf, misrouted, rowKind } from './work';
 import { readDockPlayer } from './dock-player';
 import { questionsHref } from './working';
 import type { WorkKind } from '../store';
@@ -34,6 +36,8 @@ import { proofStore } from '../../proof/store';
 import { readProofs } from './proof-read';
 import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
+import { readProductOutbox } from './outbox-product.repository';
+import { productOutboxView } from './outbox-product';
 import { approvalView, readApproval, readApproveScreen, readAskedApprovers, readVoids, type ApprovalFacts, type ApprovalRead } from './approval';
 import { attestationOf } from './Attestation.service';
 import { liveSendSetup } from '../../runners/send/send.live';
@@ -148,7 +152,12 @@ function prdReads(db: Db, read: DossierRead, prd: PrdNumber): DossierReads {
 async function fixOf(db: Db, read: DossierRead): Promise<{ fix?: FixPageView }> {
   const { dossier } = read;
   const kind = kindOf(dossier);
-  if (kind === 'prd' || dossier.prd === null) return {};
+  if (kind === 'prd') return {};
+  // A product bug (PRD 2011, s8) has no issue: its page reads its Fixes rows.
+  if (dossier.prd === null) {
+    const rows = kind === 'bug' ? await readBugRows(db, dossier.id) : null;
+    return rows ? { fix: bugRecordPage(rows) } : {};
+  }
   const reader = dossierGithub();
   const ref = { id: dossier.id, home_repo: dossier.home_repo, prd: dossier.prd };
   const pages = read.versions.filter((v) => v.kind === 'before-after');
@@ -228,6 +237,13 @@ function DraftDeleted() {
   );
 }
 
+/** A product PRD's outbox on its Outbox tab, from the server's rows (PRD 2011 s15); null off that tab, for any other dossier, or when the rows cannot be read. */
+async function productOutboxOf(db: Db, dossier: DossierRead['dossier'], tab: string) {
+  if (tab !== 'outbox' || dossier.prd !== null || kindOf(dossier) !== 'prd') return null;
+  const rows = await readProductOutbox(db, dossier.id, dossier.title);
+  return rows === null ? null : productOutboxView(rows);
+}
+
 /** The page of dossier `id` on `route`'s route: /prd/<id>, /visual/<id> or /bugs/<id>. */
 export async function dossierRoute(route: WorkKind, { params, searchParams }: DossierRouteProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
@@ -251,6 +267,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   }
   if (!read && one(query.deleted) === '1') return <DraftDeleted />;
   if (!read) notFound();
+  // A product roadmap's dossier (PRD 2011) has its page under /roadmaps, which finds it by its dossier's id too.
+  if (rowKind(read.dossier) === null && String(read.dossier.kind) === 'roadmap') redirect(`/roadmaps/${encodeURIComponent(id)}`);
   const elsewhere = misrouted(kindOf(read.dossier), route, id, query);
   if (elsewhere) redirect(elsewhere);
 
@@ -280,6 +298,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);
-  const [markdown, attestation] = await Promise.all([shownMarkdown(view, (shownId) => readContent(db, shownId)), attestationOf(db, read.dossier)]);
-  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} attestation={attestation} />;
+  const [markdown, attestation, productOutbox] = await Promise.all([
+    shownMarkdown(view, (shownId) => readContent(db, shownId)), attestationOf(db, read.dossier), productOutboxOf(db, read.dossier, view.tab),
+  ]);
+  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} attestation={attestation} productOutbox={productOutbox} />;
 }

@@ -235,6 +235,12 @@ describe('graphOfTexts — the graph of a knowledge folder held in memory', () =
     expect(graph.entries.map((one) => one.id)).not.toContain('P-PRODUCT-9');
   });
 
+  it('leaves a domain contract out (PRD 1796): its entries, its counts and its links are the graph without it', () => {
+    const contract = { [`${K}/product/contracts.md`]: '## DC-PRODUCT-1\n\nAn item has one rank. See P-PRODUCT-1.\n\nPoints to: kit/lib/schema/front-matter.ts\nServes: P-PRODUCT-1\n' };
+    const without = graphOfTexts({ texts: FILES, knowledgeRoot: K, repo: null });
+    expect(graphOfTexts({ texts: { ...FILES, ...contract }, knowledgeRoot: K, repo: null })).toEqual(without);
+  });
+
   it('is an empty graph, never an error, when no file sits in the folder', () => {
     expect(graphOfTexts({ texts: {}, knowledgeRoot: K, repo: null })).toEqual({ version: 1, repo: null, domains: [], entries: [], links: [], loose: [], unserved: [] });
   });

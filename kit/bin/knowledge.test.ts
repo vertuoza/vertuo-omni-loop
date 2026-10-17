@@ -272,3 +272,95 @@ describe('omni knowledge <id>', () => {
     expect(await main(['knowledge', 'judge', 'one', 'more'], io)).toBe(2);
   });
 });
+
+describe('omni check knowledge — a rule serves a Legal entry (PRD 1795)', () => {
+  const HOST = 'omni.test';
+  const NOW = new Date('2026-10-15T08:00:00Z');
+  const signedIn = { read: (host: string) => (host === HOST ? { access_token: 'a', refresh_token: 'r' } : null), write: () => {} };
+  const signedOut = { read: () => null, write: () => {} };
+  const BUSINESS = {
+    state: 'ok',
+    business: { name: 'Acme' },
+    product: { name: 'Invoicing' },
+    claims: [],
+    personas: [],
+    legal: [{ id: 'L-INVOICING-1', statement: 'An invoice is kept ten years.', source: 'Code de commerce', owner: 'jane' }],
+    glossary: [],
+  };
+  const page = (status: number, body: unknown = BUSINESS) => {
+    const urls: string[] = [];
+    return { urls, fetch: (url: string) => { urls.push(url); return Promise.resolve(new Response(JSON.stringify(body), { status })); } };
+  };
+  const down = { urls: [] as string[], fetch: () => Promise.reject(new TypeError('fetch failed')) };
+
+  function served(id: string | null): Files {
+    const rules = String(FILES[`${K}/product/rules.md`]).replaceAll('Enforced by:', 'Stated: 2026-09-01\nEnforced by:');
+    const invariants = String(FILES[`${K}/product/invariants.md`]).replace('Enforced by:', `Source: ${LEDGER}, entry s1-02-blue, PRD #42\nStated: 2026-09-01\nEnforced by:`);
+    const files: Files = { ...FILES, '.omni-loop/config.yml': `${CONFIG}ask:\n  url: https://${HOST}\n`, [`${K}/product/invariants.md`]: invariants };
+    files[`${K}/product/rules.md`] = id === null ? rules : rules.replace('Serves: P-PRODUCT-1', `Serves: ${id}`);
+    return files;
+  }
+  async function check(files: Files, server: { fetch: unknown }, tokens: unknown = signedIn) {
+    const r = repo(files);
+    const out: string[] = [];
+    const err: string[] = [];
+    const code = await main(['check', 'knowledge'], {
+      cwd: r.root, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) },
+      tokens, fetch: server.fetch, now: () => NOW,
+    });
+    return { code, out: out.join(''), err: err.join(''), root: r.root };
+  }
+
+  it('passes, reads nothing and prints nothing when no rule serves an L- id', async () => {
+    const server = page(200);
+    const result = await check(served(null), server);
+    expect(result.code).toBe(0);
+    expect(server.urls).toEqual([]);
+    expect(result.out).not.toContain('Legal not verified');
+  });
+
+  it('passes when the product holds the entry', async () => {
+    const server = page(200);
+    const result = await check(served('L-INVOICING-1'), server);
+    expect(result.code).toBe(0);
+    expect(server.urls).toHaveLength(1);
+    expect(result.out).not.toContain('Legal not verified');
+  });
+
+  it('fails, naming the id and the product, when the product does not hold it (or retired it)', async () => {
+    const result = await check(served('L-INVOICING-9'), page(200));
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('serves L-INVOICING-9, which product Invoicing does not hold.');
+  });
+
+  it('fails when the repository belongs to no product', async () => {
+    const result = await check(served('L-INVOICING-1'), page(200, { ...BUSINESS, product: null }));
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('serves L-INVOICING-1, but this repository belongs to no product.');
+  });
+
+  it.each([
+    ['a timeout', () => down],
+    ['a 5xx', () => page(503, { error: 'down' })],
+  ])('passes with a note when the page is unreachable (%s)', async (_, server) => {
+    const result = await check(served('L-INVOICING-9'), server());
+    expect(result.code).toBe(0);
+    expect(result.out).toContain('Legal not verified: page unreachable');
+  });
+
+  it('passes with a note when the computer is not signed in', async () => {
+    const server = page(200);
+    const result = await check(served('L-INVOICING-9'), server, signedOut);
+    expect(result.code).toBe(0);
+    expect(result.out).toContain('Legal not verified: not signed in');
+    expect(server.urls).toEqual([]);
+  });
+
+  it.each(['L-invoicing-1', 'L-INVOICING', 'X-1'])('fails offline on %s, without reading the page', async (id) => {
+    const server = page(200);
+    const result = await check(served(id), server);
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('not one principle id or a Legal entry id');
+    expect(server.urls).toEqual([]);
+  });
+});

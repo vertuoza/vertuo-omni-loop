@@ -135,8 +135,8 @@ function server(hash: string | null, deps: McpDeps): McpServer {
   mcp.registerTool('get_business', {
     title: 'The business',
     description: 'Who the customer is, where we sell, what we offer, against whom, and what we never build: the '
-      + 'confirmed claims (and contradicted ones, flagged) and the product\'s personas. Cite the ids you rely on, '
-      + 'like region#1. When no claim answers your question, call report_unknown instead of guessing.',
+      + 'confirmed claims (and contradicted ones, flagged), the product\'s personas, its Legal entries and its '
+      + 'glossary. Cite the ids you rely on, like region#1 or L-INVOICING-1, and use the glossary\'s words. When no claim answers your question, call report_unknown instead of guessing.',
     inputSchema: { repo: repoInput },
     annotations: { readOnlyHint: true, openWorldHint: false },
   }, async ({ repo }) => answered(async () => JSON.stringify(await read(repo))));

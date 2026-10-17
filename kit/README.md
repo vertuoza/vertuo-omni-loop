@@ -85,7 +85,8 @@ then prints the token, its expiry and the line to paste it by, and keeps it nowh
 
 **Runners** (PRD 1830) run the `/omni:` lines people send from the Omni app with Send to terminal,
 on a machine set up for it, with no one at a terminal. Start one with
-`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]`:
+`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]
+[--max-memory 85] [--min-disk 10] [--max-load 1.5]`:
 
 - **What it needs:** a sign-in (the kit token `OMNI_TOKEN`, or `omni signin` once), the git checkouts
   it may work in right under `--repos` (each known by its `origin`, `owner/name`, and in the
@@ -109,6 +110,30 @@ on a machine set up for it, with no one at a terminal. Start one with
   14 unless given), then prints one line, like
   `swept: 3 worktrees, 6 branches, 12 log files · 412 MB freed`, or nothing when nothing went. It
   never touches `~/logs/runner.log`, another folder or file, or another branch.
+- **The plugin** (PRD 2100): a job's skills come from the Omni plugin installed for the runner's
+  user, so the runner keeps it current. Once a job's worktree is made, before Claude starts, it reads
+  the plugin's version from `claude plugin list --json` (the user's own entry, the oldest if there
+  are several) and the omni the job's repository pins (the version its `.omni-loop/bin/omni.mjs`
+  carries; a repository with no bin pins none, and nothing is checked). A plugin as new, or newer,
+  starts nothing and calls nothing. An older one is updated with `claude plugin marketplace update
+  omni-loop` then `claude plugin update omni@omni-loop`, one update at a time across every slot and
+  the sweep, then read again. Still older, the job fails before Claude starts with
+  `omni plugin v<x> is older than <owner/repo>'s omni v<y>: claude plugin update failed: <its last
+  line>`; not installed, with `the omni plugin is not installed: claude plugin install
+  omni@omni-loop`. A list that does not read lets the job run, and its log's first line says
+  `omni plugin version not read: <why>`. The sweep updates the plugin at start and every hour, and
+  the runner prints a line only when the version changed, `omni plugin v<x> → v<y>`, or the update
+  failed, `omni plugin update failed: <its last line>`. A running session keeps the skills it
+  loaded: Claude Code keeps each plugin version in its own folder. The runner's own code does not
+  update itself: `git pull` in the checkout it starts from, then restart `omni runner`.
+- **When its machine is under pressure** (PRD 2102): every 15 seconds it samples its machine and
+  sends the page its CPU, load, memory and disk. It pauses when memory used is above `--max-memory`
+  percent (1 to 100, 85 unless given), disk free below `--min-disk` GB (0 or more, 10 unless given),
+  or the 1-minute load above `--max-load` times its cores (above 0, 1.5 unless given). Paused, it
+  prints `paused: <reason>` (`paused: memory 91%`) and takes no new job: a slot already waiting runs
+  the job it gets, and a running job is never touched. After two quiet samples in a row it prints
+  `resumed` and takes jobs again. The page shows the reason and the limits. `--max-memory 100` and
+  `--min-disk 0` switch those two limits off. A limit out of range is refused before it starts.
 - **Which lines:** only `/omni:yolo`, `yolo-fix`, `pr-care`, `do-work`, `wave`, `bug-fix`,
   `visual-fix`, `plan`, `pitch` and `prove`, with arguments of letters, digits, spaces and `._/:#-`,
   200 characters at most. The runner checks the line again before it runs it, whatever the page sent.
@@ -309,8 +334,28 @@ a `medium` item leaves the change unaccounted. `/omni:bug-fix` and `/omni:visual
 items in a small `outbox/` of the fix's folder when their range touches a law, and `omni bug` and
 `omni visual` name what it needs.
 
-`/omni:bug-fix` also films every bug: it keeps the reproduction's red and green output (or, for a
-component bug in a repository with Storybook, the story before and after), makes a before/after GIF with
-`omni bug film`, stores it with `omni proof push --kind bug`, and opens the pull request with a `## Proof`
-section showing the bug before and after the fix. A GIF that cannot be made opens the pull request as a
-draft whose `## Proof` reads `GIF not produced - <reason>`. `/omni:mega-bug-fix` leaves `## Proof` out.
+`/omni:bug-fix` also films every bug (PRDs 1972 and 2100): it keeps the reproduction's red and green
+output (or, for a component bug in a repository with Storybook, the story before and after) and makes
+a before/after GIF with `omni bug film`. Two outputs make two 640×360 cards, drawn by the kit's own code
+with no ffmpeg, the same bytes every run; two clips go through ffmpeg. It stores the run with
+`omni proof push --kind bug`, which prints the bug page's link, the GIF's stable link, and for a
+component bug one stable link per clip (`before.webm`, then `after.webm`), and opens the pull request
+with a `## Proof` section showing the bug before and after the fix, and a `Clips: [before](…) ·
+[after](…)` line for a component bug. Clips that cannot be filmed or stitched fall back to the GIF of
+the two outputs, with `Storybook not filmed - <reason>` under it. A GIF that cannot be made at all
+opens the pull request as a draft whose `## Proof` reads `GIF not produced - <reason>`.
+`/omni:mega-bug-fix` leaves `## Proof` out.
+
+**`omni bug <n>`** also checks the pull request's body, because the pinned CLI is the one piece an
+old plugin cannot skip. The skill writes the body to a file and runs `omni bug <n> --body-file <file>`
+until it prints `ok`, then opens the pull request with that same file; without the flag, `omni bug`
+reads the open pull request of the current branch through `gh`, and with neither it prints `not ok` and
+the way to proceed. A `## Proof` passes with an `https://` image and its `- **Before the fix**` and
+`- **After the fix**` lines, or with `GIF not produced - <reason>`; a not-produced proof on a pull
+request that is not a draft is refused. A record with a `## Fixes` section is not checked. A pinned
+omni that does not know `--body-file` exits 2, and the skill runs `omni bug <n>` without it.
+
+When the reproduction already passes before any fix, `/omni:bug-fix` and `/omni:mega-bug-fix` look for
+the merged pull request that fixed the bug. Only a candidate proven red at its merge's first parent and
+green at its merge gets a `Fixed by #<n>` (or `Fixed by <PR URL>`) line on the issue; the others are
+`Maybe: #<n>` lines, and the issue is never closed.

@@ -29,6 +29,7 @@ export const GAMES: readonly Game[] = [
   { id: 'platformer', title: 'SUPER OMNI WORLD', scene: 'platformer', measure: 'points' },
   { id: 'kart', title: 'OMNI KART', scene: 'kart', measure: 'time', boards: [{ id: 'kart', title: 'COMET RING' }, { id: 'kart-frost-eight', title: 'FROST EIGHT' }] },
   { id: 'duet', title: 'OMNI DUET', scene: 'duet', measure: 'points' },
+  { id: 'pong', title: 'OMNI PONG', scene: 'pong', measure: 'points' },
 ];
 
 /** The ids of a game's boards: the ones it names, else its own id. */

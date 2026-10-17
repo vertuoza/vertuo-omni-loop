@@ -5,7 +5,8 @@ import { settled } from '../settled';
 import { fakeStageStore } from '../store.fake';
 import { countsOf, recountOutboxes } from './recount';
 import { fakePrdOutboxStore } from './store.fake';
-import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { RecordLine } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
 
 // PRD 657, s5: a PRD's open outbox questions, taken from its GitHub summary and stored in prd_outbox, so
 // /prd and the waiting outbox read them without GitHub. A PRD at building or outbox stores its counts; a
@@ -49,12 +50,36 @@ describe('countsOf', () => {
   });
 });
 
-function setUp(summaries: Record<number, GithubSummary | null | Error>) {
+const held = (thing: string, kind: RecordLine['kind'], asked: string[]): RecordLine => ({
+  thing, kind, firstHeld: '2026-10-09T15:00:00Z', step: 1, asked, nextDue: '2026-10-15T15:00:00Z',
+});
+
+describe('countsOf, with the escalation record (PRD 1794, s5)', () => {
+  const record = [held('s1-01-a', 'item', ['PierreDerval', 'jdoe']), held('N-PRODUCT-4', 'law', ['jdoe'])];
+
+  it('stores who is asked from the record, and a held law as a human-action waiting item', () => {
+    expect(countsOf(summary(7), record)).toEqual({
+      open_questions: 3,
+      waiting: [
+        { id: 's1-01-a', rank: 'high', question: 'Question of s1-01-a?', asked: ['pierrederval', 'jdoe'] },
+        { id: 's2-01-c', rank: 'human-action', question: 'Question of s2-01-c?' },
+        { id: 'N-PRODUCT-4', rank: 'human-action', question: 'Approve the change to N-PRODUCT-4 on GitHub, or ask for changes.', asked: ['jdoe'] },
+      ],
+    });
+  });
+
+  it('waits on nobody, held laws included, once the feature PR is no longer open', () => {
+    expect(countsOf(summary(7, { feature: pull('merged') }), record)?.waiting).toEqual([]);
+  });
+});
+
+function setUp(summaries: Record<number, GithubSummary | null | Error>, records: Record<number, RecordLine[] | null | Error> = {}) {
   const stages = fakeStageStore(() => '2026-09-29T10:00:00Z');
   const store = fakePrdOutboxStore(() => '2026-09-29T10:00:00Z');
   const asked: DossierRef[] = [];
   const workspaces: string[] = [];
   const logs: string[] = [];
+  const escalations: string[] = [];
   const deps = {
     stages,
     store,
@@ -65,11 +90,17 @@ function setUp(summaries: Record<number, GithubSummary | null | Error>) {
       if (answer instanceof Error) throw answer;
       return answer ?? null;
     }),
+    escalation: ({ repository, prd, pr }: { repository: string; prd: number; pr: PrNumber }) => settled(() => {
+      escalations.push(`${repository}#${String(pr)}`);
+      const answer = records[prd];
+      if (answer instanceof Error) throw answer;
+      return answer ?? null;
+    }),
     log: (line: string) => logs.push(line),
   };
   const at = (prd: number, stage: 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped') =>
     stages.recordStages([{ workspace_id: W, repository: REPO, prd: parsePrd(prd), stage, reached_at: '2026-09-01T00:00:00Z' }]);
-  return { stages, store, asked, workspaces, logs, deps, at };
+  return { stages, store, asked, workspaces, logs, escalations, deps, at };
 }
 
 describe('recountOutboxes', () => {
@@ -116,6 +147,32 @@ describe('recountOutboxes', () => {
       { id: `prd-outbox ${W} ${REPO}#8`, home_repo: REPO, prd: parsePrd(8) },
     ]);
     expect(workspaces).toEqual([W, W]);
+  });
+
+  it('reads the escalation record of an open feature PR only, and stores who it asks', async () => {
+    const { store, deps, at, escalations } = setUp(
+      { 7: summary(7), 8: summary(8, { feature: pull('merged') }) },
+      { 7: [held('N-PRODUCT-4', 'law', ['jdoe'])] },
+    );
+    await at(7, 'building');
+    await at(8, 'outbox');
+    await recountOutboxes(W, [{ repository: REPO, prd: parsePrd(7) }, { repository: REPO, prd: parsePrd(8) }], deps);
+    expect(escalations).toEqual([`${REPO}#9`]);
+    expect(store.rows.find((r) => r.prd === 7)?.waiting.at(-1)).toEqual({
+      id: 'N-PRODUCT-4', rank: 'human-action', question: 'Approve the change to N-PRODUCT-4 on GitHub, or ask for changes.', asked: ['jdoe'],
+    });
+  });
+
+  it('stores the counts as before when the feature PR has no record, and keeps what a PRD had when the record cannot be read', async () => {
+    const { store, deps, at, logs } = setUp({ 7: summary(7), 8: summary(8) }, { 7: null, 8: new Error('GitHub answered 502') });
+    await at(7, 'building');
+    await at(8, 'building');
+    await store.record([{ workspace_id: W, repository: REPO, prd: parsePrd(8), open_questions: 2, waiting: [] }]);
+    store.writes.length = 0;
+    await recountOutboxes(W, [{ repository: REPO, prd: parsePrd(7) }, { repository: REPO, prd: parsePrd(8) }], deps);
+    expect(store.writes).toEqual([`${W} ${REPO}#7 3`]);
+    expect(store.rows.find((r) => r.prd === 7)?.waiting.every((q) => !('asked' in q))).toBe(true);
+    expect(logs.join('\n')).toContain(`${REPO}#8`);
   });
 
   it('records nothing for no PRD', async () => {

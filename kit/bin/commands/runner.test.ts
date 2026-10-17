@@ -1,6 +1,7 @@
 // `omni runner` through `main()` (PRD 1830, s2): a fixture checkout with its own origin, a fake Omni app
 // (an injected `fetch`), a fake `claude` on the PATH and a fake tmux that runs the job's command as a
-// plain child process. Nothing here calls GitHub, the Omni app or Claude.
+// plain child process. Nothing here calls GitHub, the Omni app or Claude, nor reads the real machine's
+// health: each runner samples a fixed machine, quiet unless a test says otherwise (PRD 2102).
 import { execFileSync, spawn } from 'node:child_process';
 import type { ChildProcess, ExecFileSyncOptions } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
@@ -10,6 +11,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import { repoOfRemote } from '../../lib/runner/checkouts.ts';
+import type { MachineReads } from '../../lib/runner/health.ts';
 import { senderLine } from '../../lib/runner/sender.ts';
 import { tmuxArgs, tmuxTerminal } from '../../lib/runner/terminal.ts';
 import type { JobSession, Terminal } from '../../lib/runner/terminal.ts';
@@ -19,8 +21,11 @@ const ASK = 'https://omni.test';
 const git = (cwd: string, ...args: string[]): string =>
   execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 
-/** A checkout `repos/widgets` of `acme/widgets`, its origin a bare repository beside it, and an empty home. */
-function fixture() {
+/**
+ * A checkout `repos/widgets` of `acme/widgets`, its origin a bare repository beside it, and an empty home.
+ * With `pin`, the repository's bin carries that omni version, as a built bundle does (PRD 2100, s4).
+ */
+function fixture({ pin }: { pin?: string } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'omni-runner-'));
   const origin = join(root, 'remote', 'acme', 'widgets.git');
   mkdirSync(origin, { recursive: true });
@@ -28,6 +33,10 @@ function fixture() {
   const seed = join(root, 'seed');
   mkdirSync(join(seed, '.omni-loop'), { recursive: true });
   writeFileSync(join(seed, '.omni-loop', 'config.yml'), `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${ASK}\n`);
+  if (pin !== undefined) {
+    mkdirSync(join(seed, '.omni-loop', 'bin'), { recursive: true });
+    writeFileSync(join(seed, '.omni-loop', 'bin', 'omni.mjs'), `define_OMNI_BUNDLE_default = { home: "acme/kit", version: "${pin}" };\n`);
+  }
   git(seed, 'init', '-q', '-b', 'main');
   git(seed, 'add', '-A');
   git(seed, 'commit', '-q', '-m', 'seed');
@@ -142,12 +151,36 @@ function fakeTerminal({ dies = false }: { dies?: boolean } = {}) {
   return { terminal, sessions, stopped };
 }
 
+/**
+ * The Omni plugin as `claude plugin list --json` shows it, and what `claude plugin update` does to it:
+ * each update takes the next of `outcomes` (a version it moves the plugin to, `nothing`, or `fails`),
+ * `nothing` once they run out (PRD 2100, s4).
+ */
+function fakePlugin({ version, installed = true, outcomes = [] }: { version: string; installed?: boolean; outcomes?: string[] }) {
+  const state = { version };
+  const calls: string[] = [];
+  const handle = (args: readonly string[]): string => {
+    const call = args.join(' ');
+    calls.push(call);
+    if (call === 'plugin list --json') return JSON.stringify(installed ? [{ id: 'omni@omni-loop', version: state.version, scope: 'user' }] : []);
+    if (call === 'plugin update omni@omni-loop') {
+      const outcome = outcomes.shift() ?? 'nothing';
+      if (outcome === 'fails') throw Object.assign(new Error('Command failed: claude plugin update'), { stderr: 'could not reach the marketplace\n' });
+      if (outcome !== 'nothing') state.version = outcome;
+      return 'omni is up to date\n';
+    }
+    return '';
+  };
+  return { handle, calls, state, updates: () => calls.filter((call) => call === 'plugin update omni@omni-loop').length };
+}
+
 /** `claude` installed and signed in, and tmux, unless told otherwise; every other command runs. */
-function fakeExec({ claude = true, signedIn = true }: { claude?: boolean; signedIn?: boolean } = {}) {
+function fakeExec({ claude = true, signedIn = true, plugin }: { claude?: boolean; signedIn?: boolean; plugin?: ReturnType<typeof fakePlugin> } = {}) {
   return (file: string, args: readonly string[], options: ExecFileSyncOptions): string => {
     if (file === 'claude') {
       if (!claude) throw new Error('spawnSync claude ENOENT');
       if (args[0] === 'auth') return signedIn ? '{"loggedIn": true}' : '{"loggedIn": false}';
+      if (plugin && args[0] === 'plugin') return plugin.handle(args);
       return '2.0.0 (Claude Code)';
     }
     if (file === 'tmux') return 'tmux 3.4';
@@ -170,20 +203,36 @@ afterEach(() => {
   for (const stop of running.splice(0)) stop.abort();
 });
 
+const GB = 1024 ** 3;
+
+/** A machine of 4 cores at load 1, with `memPercent` of its 16 GB used and 100 GB of disk free. */
+function machineAt(memPercent = 50): MachineReads {
+  const times = { user: 100, nice: 0, sys: 0, idle: 900, irq: 0 };
+  return {
+    cpus: () => [{ times }],
+    loadavg: () => [1, 1, 1],
+    cores: () => 4,
+    totalmem: () => 16 * GB,
+    freemem: () => ((100 - memPercent) / 100) * 16 * GB,
+    meminfo: () => null,
+    statfs: () => ({ bsize: 4096, blocks: (200 * GB) / 4096, bavail: (100 * GB) / 4096 }),
+  };
+}
+
 /** Starts `omni runner` on the fixture: its exit code once stopped, and what it printed. */
 function startRunner(
   f: ReturnType<typeof fixture>,
   app: ReturnType<typeof fakeApp>,
-  { args = [], exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {}, tickMs = 50, now }: {
-    args?: string[]; exec?: ReturnType<typeof fakeExec>; tokens?: ReturnType<typeof memoryTokens>; sleep?: (ms: number, signal?: AbortSignal) => Promise<void>; terminal?: ReturnType<typeof fakeTerminal>;
-    env?: Record<string, string>; tickMs?: number; now?: () => number;
+  { args = [], slots = 1, exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {}, tickMs = 50, now, machine = machineAt() }: {
+    args?: string[]; slots?: number; exec?: ReturnType<typeof fakeExec>; tokens?: ReturnType<typeof memoryTokens>; sleep?: (ms: number, signal?: AbortSignal) => Promise<void>; terminal?: ReturnType<typeof fakeTerminal>;
+    env?: Record<string, string>; tickMs?: number; now?: () => number; machine?: MachineReads;
   } = {},
 ) {
   const stop = new AbortController();
   running.push(stop);
   const stdout = out();
   const stderr = out();
-  const done = main(['runner', '--name', 'box-1', '--repos', f.repos, '--slots', '1', ...args], {
+  const done = main(['runner', '--name', 'box-1', '--repos', f.repos, '--slots', String(slots), ...args], {
     cwd: f.root,
     stdout: stdout.stream,
     stderr: stderr.stream,
@@ -195,6 +244,7 @@ function startRunner(
     terminal: terminal.terminal,
     stop: stop.signal,
     tickMs,
+    machine,
     ...(sleep ? { sleep } : {}),
     ...(now ? { now } : {}),
   });
@@ -613,6 +663,64 @@ describe('omni runner', () => {
     expect(run.stdout.text().trim().split('\n').at(-1)).toBe('runner box-1 stopped');
   });
 
+  describe('the limits it pauses at (PRD 2102)', () => {
+    const healthReports = (app: ReturnType<typeof fakeApp>) => app.calls.filter((call) => call.path === '/api/runners/r1/health').map((call) => call.body as Record<string, unknown>);
+    const nexts = (app: ReturnType<typeof fakeApp>) => app.calls.filter((call) => call.path === '/api/runners/next');
+
+    it('pauses at 85 % of memory, 10 GB of disk and 1.5 × the cores when no flag says otherwise, and reports them', async () => {
+      const f = fixture();
+      const app = fakeApp();
+      const run = startRunner(f, app);
+      await until(() => healthReports(app).length > 0 && nexts(app).length > 0, 'a health report and a next');
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+      expect(healthReports(app)[0]).toMatchObject({ paused: null, limits: { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 } });
+    });
+
+    it('pauses at --max-memory, --min-disk and --max-load, opening no next, and reports why and at which limits', async () => {
+      const f = fixture();
+      const app = fakeApp();
+      const run = startRunner(f, app, { args: ['--max-memory', '70', '--min-disk', '20', '--max-load', '1'], machine: machineAt(75) });
+      await until(() => healthReports(app).length > 0, 'a health report');
+      await delay(100);
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+      expect(healthReports(app)[0]).toMatchObject({ paused: 'memory 75%', limits: { maxMemory: 70, minDiskGb: 20, maxLoad: 1 } });
+      expect(nexts(app)).toEqual([]);
+      expect(run.stdout.text()).toContain('paused: memory 75%');
+    });
+
+    it('takes a decimal limit, and 100 % of memory or 0 GB of disk as no limit at all', async () => {
+      const f = fixture();
+      const app = fakeApp();
+      const run = startRunner(f, app, { args: ['--max-memory', '100', '--min-disk', '0', '--max-load', '2.5'], machine: machineAt(99) });
+      await until(() => nexts(app).length > 0, 'a next');
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+      expect(healthReports(app)[0]).toMatchObject({ paused: null, limits: { maxMemory: 100, minDiskGb: 0, maxLoad: 2.5 } });
+    });
+
+    it('refuses a limit out of range in plain words, before it registers', async () => {
+      for (const [args, words] of [
+        [['--max-memory', '0'], '--max-memory is the share of memory used, in percent, the runner pauses above: a number from 1 to 100, got "0".'],
+        [['--max-memory', '101'], '--max-memory is the share of memory used, in percent, the runner pauses above: a number from 1 to 100, got "101".'],
+        [['--max-memory', '1e2'], 'a number from 1 to 100, got "1e2".'],
+        [['--min-disk', '-1'], '--min-disk is the free disk, in GB, the runner pauses below: a number of 0 or more, got "-1".'],
+        [['--min-disk', 'lots'], 'a number of 0 or more, got "lots".'],
+        [['--max-load', '0'], '--max-load is the 1-minute load, in times the cores, the runner pauses above: a number above 0, got "0".'],
+        [['--max-load', '-2'], 'a number above 0, got "-2".'],
+      ] as const) {
+        const err = out();
+        const app = fakeApp();
+        const code = await main(['runner', '--name', 'box-1', '--repos', '.', ...args], { stdout: out().stream, stderr: err.stream, env: {}, fetch: app.fetch });
+        expect(code).toBe(2);
+        expect(err.text()).toMatch(/^omni runner: /);
+        expect(err.text()).toContain(words);
+        expect(app.calls).toEqual([]);
+      }
+    });
+  });
+
   it('refuses a bad --slots, --timeout, --name or --keep-logs', async () => {
     for (const args of [['--slots', '9'], ['--slots', '0'], ['--timeout', '3d'], ['--name', 'a b'], ['--keep-logs', '0'], ['--keep-logs', 'x'], ['--keep-logs', '1.5']]) {
       const err = out();
@@ -620,6 +728,143 @@ describe('omni runner', () => {
       expect(code).toBe(2);
       expect(err.text()).toMatch(/^omni runner: /);
     }
+  });
+});
+
+describe('omni runner: the Omni plugin (PRD 2100, s4)', () => {
+  const PINNED = '0.0.450';
+  const jobsOn = (...ids: number[]) => ids.map((id) => ({ id, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }));
+  /** The calls of `claude plugin` the runner makes at start: its sweep reads the plugin, updates it, reads it again. */
+  const SWEEP_CALLS = ['plugin list --json', 'plugin marketplace update omni-loop', 'plugin update omni@omni-loop', 'plugin list --json'];
+  const failure = (app: ReturnType<typeof fakeApp>) => app.updates().find((update) => update.status === 'failed')?.reason;
+  const stop = async (run: ReturnType<typeof startRunner>) => {
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+  };
+
+  it("brings an older plugin up to the job repository's omni before claude starts, once for two slots, and prints the change", async () => {
+    const f = fixture({ pin: PINNED });
+    // The update the sweep runs at start changes nothing, so the jobs find the plugin old; the next moves it.
+    const plugin = fakePlugin({ version: '0.0.440', outcomes: ['nothing', PINNED] });
+    const started: string[] = [];
+    const base = fakeTerminal();
+    const terminal = {
+      ...base,
+      terminal: {
+        ...base.terminal,
+        start(session: JobSession) {
+          started.push(plugin.state.version);
+          base.terminal.start(session);
+        },
+      },
+    };
+    const app = fakeApp({ jobs: jobsOn(1, 2) });
+    const run = startRunner(f, app, { slots: 2, exec: fakeExec({ plugin }), terminal });
+    await until(() => run.stdout.text().includes('job 1 done') && run.stdout.text().includes('job 2 done'), 'both jobs to end');
+    await stop(run);
+
+    expect(plugin.updates()).toBe(2);
+    expect(started).toEqual([PINNED, PINNED]);
+    expect(run.stdout.text().match(/omni plugin v0\.0\.440 → v0\.0\.450/g)).toHaveLength(1);
+  });
+
+  it('fails a job whose plugin is still older after the update, with the reason, before claude starts', async () => {
+    const f = fixture({ pin: PINNED });
+    const plugin = fakePlugin({ version: '0.0.440' });
+    const app = fakeApp({ jobs: jobsOn(3) });
+    const run = startRunner(f, app, { exec: fakeExec({ plugin }) });
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    const reason = "omni plugin v0.0.440 is older than acme/widgets's omni v0.0.450: claude plugin update failed: omni is up to date";
+    expect(failure(app)).toBe(reason);
+    expect(run.terminal.sessions).toEqual([]);
+    expect(run.stdout.text()).toContain(`job 3 failed · ${reason}`);
+    expect(existsSync(join(f.home, 'wt', 'widgets-job-3'))).toBe(false);
+    expect(git(f.checkout, 'branch', '--list', 'agent/job-*').trim()).toBe('');
+  });
+
+  it('says the update failed, and fails the job with the line the update ended on', async () => {
+    const f = fixture({ pin: PINNED });
+    const plugin = fakePlugin({ version: '0.0.440', outcomes: ['fails', 'fails'] });
+    const app = fakeApp({ jobs: jobsOn(4) });
+    const run = startRunner(f, app, { exec: fakeExec({ plugin }) });
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    expect(failure(app)).toBe("omni plugin v0.0.440 is older than acme/widgets's omni v0.0.450: claude plugin update failed: could not reach the marketplace");
+    expect(run.terminal.sessions).toEqual([]);
+    expect(run.stdout.text().match(/^omni plugin update failed: could not reach the marketplace$/gm)).toHaveLength(2);
+  });
+
+  it('fails a job whose plugin is not installed with the line to install it, and updates nothing for it', async () => {
+    const f = fixture({ pin: PINNED });
+    const plugin = fakePlugin({ version: '0.0.440', installed: false });
+    const app = fakeApp({ jobs: jobsOn(5) });
+    const run = startRunner(f, app, { exec: fakeExec({ plugin }) });
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    expect(failure(app)).toBe('the omni plugin is not installed: claude plugin install omni@omni-loop');
+    expect(run.terminal.sessions).toEqual([]);
+    expect(plugin.updates()).toBe(1);
+  });
+
+  it.each(['0.0.450', '0.0.462'])('starts no update for a plugin at %s, as new as the pinned omni or newer', async (version) => {
+    const f = fixture({ pin: PINNED });
+    const plugin = fakePlugin({ version });
+    const app = fakeApp({ jobs: jobsOn(6) });
+    const run = startRunner(f, app, { exec: fakeExec({ plugin }) });
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    expect(lastStatus(app)).toBe('done');
+    expect(plugin.calls).toEqual([...SWEEP_CALLS, 'plugin list --json']);
+  });
+
+  it('asks nothing of a repository that pins no omni', async () => {
+    const f = fixture();
+    const plugin = fakePlugin({ version: '0.0.1' });
+    const app = fakeApp({ jobs: jobsOn(7) });
+    const run = startRunner(f, app, { exec: fakeExec({ plugin }) });
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    expect(lastStatus(app)).toBe('done');
+    expect(plugin.calls).toEqual(SWEEP_CALLS);
+  });
+
+  it('runs a job whose plugin list does not read, with its log starting on the line that says so', async () => {
+    const f = fixture({ pin: PINNED });
+    const app = fakeApp({ jobs: jobsOn(9) });
+    const run = startRunner(f, app);
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    expect(lastStatus(app)).toBe('done');
+    const log = readFileSync(join(f.home, 'logs', 'job-9.log'), 'utf8').split('\n');
+    expect(log[0]).toBe('omni plugin version not read: claude plugin list was unreadable');
+    expect(log).toContain('claude read: /omni:yolo 1717');
+  });
+
+  it('updates the plugin at start and every hour, and prints a line only on a change or a failure', async () => {
+    const f = fixture();
+    const plugin = fakePlugin({ version: '0.0.440', outcomes: ['0.0.441', 'nothing', 'fails'] });
+    const hours: number[] = [];
+    const sleep = async (ms: number) => {
+      if (ms === 60 * 60 * 1000) {
+        hours.push(ms);
+        if (hours.length <= 2) return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    };
+    const run = startRunner(f, fakeApp(), { exec: fakeExec({ plugin }), sleep });
+    await until(() => hours.length >= 3, 'two hours to pass');
+    await stop(run);
+
+    const lines = run.stdout.text().split('\n').filter((line) => line.startsWith('omni plugin'));
+    expect(lines).toEqual(['omni plugin v0.0.440 → v0.0.441', 'omni plugin update failed: could not reach the marketplace']);
+    expect(plugin.updates()).toBeGreaterThanOrEqual(3);
   });
 });
 

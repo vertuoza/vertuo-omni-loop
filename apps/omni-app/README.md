@@ -88,6 +88,24 @@ keeps those whose body names the PRD, and sends each the outbox check's event, w
 outbox, approved and inbox checks. A PR the collector has not read yet gets both checks on its next
 webhook.
 
+## Fix rows and knowledge packs (PRD 2011)
+
+**The merge stamp.** On a merged `pull_request.closed`, the App calls `fix_row_stamp()` as the service
+role (`src/fix-rows/`, the only writer of a Fixes row's merge). It stamps `merged_at` on the row whose
+repository and pull request match, once: a replay keeps the first stamp and ships nothing twice. A
+pull request closed without merging marks its row not merged and leaves the record open, and a reopen
+clears that. When the last row of a product bug record merges, the record ships. A merge that matches
+no row, whose body names a record of a product that holds the repository, is kept once on that record
+as an unmatched merge. The stamp writes nothing on GitHub and never merges anything.
+
+**The pack snapshot.** On a merge that touches a repository's knowledge folder or its flow config, the
+knowledge harvest also calls the `knowledge-pack` function (`src/knowledge-pack/`). It reads the files
+at the commit, records each with its sha256 in a `knowledge_packs` row, and marks that row the newest
+pack for each product link of the repository. It runs at background priority in the installation's
+budget. `GET /api/knowledge-packs` serves the newest pack to an
+agent link of the same workspace, which `omni kb pack get <repo>` reads; a token of another
+workspace gets none of it (BR-PRODUCT-63).
+
 ## The inbox check (PRD 675)
 
 A phase-0 PR, whose head branch has the `branches.phase0` shape as the base branch's config spells it
@@ -252,6 +270,31 @@ review, never its author).
   body carries `<!-- omni-loop:signed -->`, or `omni-loop-invader[bot]` opened it.
 - It writes only those two tables and the collection columns of `repositories`, and reads GitHub only.
 
+## Escalation (PRD 1794)
+
+When nobody answers what holds a pull request (a locked law `law-locked` still holds, or an open
+`high` or `human-action` item of a feature PR), the app asks more people, in working days (Monday to
+Friday, UTC), and never decides for them. It does nothing on a repository whose base config names no
+delegate in `laws.owners` and no `laws.leadership`.
+
+- **The record.** After each outbox check run, the check keeps one comment marked
+  `<!-- omni:escalation -->`, edited in place: one line per held thing, since when it holds, its step,
+  who is asked and when the next step falls due (`src/escalation/record.ts`). It mentions nobody.
+- **The sweep.** Every hour the Inngest function **escalation** (`escalation`, `src/escalation/sweep.ts`)
+  lists the App's installations as the App itself, then, through each installation, every open pull
+  request of its repositories carrying the record. Each held thing whose next step fell due
+  (`limits.escalationWorkingDays` after it was first held, then as many again) gets one new comment
+  marked `<!-- omni:escalation-ask <thing> <step> -->`, mentioning the people newly asked: at step 1
+  each owner's delegate for a law, each owner and delegate for an item; at step 2 `laws.leadership`.
+  The record is rewritten after it. A step some comment already announces is never posted again.
+- **It never decides.** The sweep reads and writes comments only: no review, answer, adoption, label,
+  check run or verdict. The record lists only what the last check run saw held, so an answer, an
+  approval that clears a law or a closed pull request asks nobody more. A delegate's approval clears
+  `law-locked` only because `omni kb owners` writes delegates into CODEOWNERS; leadership is not
+  written there, so its approval never does.
+- A pull request GitHub refuses to read is logged and swept again the next hour; the others are swept
+  all the same.
+
 ## How it runs
 
 ```
@@ -297,6 +340,10 @@ Inngest ──▶ /api/inngest   function "knowledge-harvest" (one at a time per
 Inngest ──▶ /api/inngest   function "pr-stats" (cron */15 * * * *, one run at a time)
               step "list-repositories"        the tracked repositories of installed workspaces
               steps "collect <ws>/<repo> <n>" at most 50 pull requests each: details, reviews, commits
+Inngest ──▶ /api/inngest   function "escalation" (cron 0 * * * *, one run at a time)
+              step "installations"          the App's installations, listed as the App
+              steps "repositories <id>"     each installation's repositories
+              steps "sweep <owner>/<repo>"  its open pull requests with a record: one ask per due step, the record rewritten
 ```
 
 Vercel serves the four functions from `api/github.mjs`, `api/inngest.mjs`, `api/server-event.mjs`
@@ -337,6 +384,7 @@ builds](../galaxy/README.md#8-when-vercel-builds), says how, and what to set up.
 | the harvest's GitHub reads — the merge, the tip, the ids other knowledge PRs take | `src/knowledge-harvest/github.ts` |
 | `render` — pure: the knowledge PR's title and body, the commit | `src/knowledge-harvest/render.ts` |
 | `pr-stats` — the Engineering board's collector, its GitHub reads and its store | `src/pr-stats/`, served at `api/inngest.mjs` |
+| `escalation` — the record kept after each outbox check run, and the hourly sweep that asks more people | `src/escalation/`, the sweep served at `api/inngest.mjs` |
 | `health` — alive, its commit, and whether its environment parses | `src/health/`, served at `api/health.mjs` (bundled from `entries/health.ts`) |
 
 The app only reads YAML, Markdown, JSON, patches and logs, as text; it never runs repository code. The
