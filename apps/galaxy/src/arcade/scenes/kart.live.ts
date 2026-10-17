@@ -43,10 +43,16 @@ export function useKartLive(p: KartLiveParts) {
     held.clear();
     runRef.current += 1;
     showSend(null);
-    import('../kart/index').then(({ joinRace }) => {
+    const onGrid = (): ArcadeKart | null => {
       const cur = kartRef.current;
-      if (turn !== lobbyTurn.current || lobbyRef.current !== session || !cur || cur.choice.step !== 'grid') return;
+      return turn === lobbyTurn.current && lobbyRef.current === session && cur?.choice.step === 'grid' ? cur : null;
+    };
+    import('../kart/index').then(async ({ joinRace }) => {
+      if (!onGrid()) return;
       const game = joinRace({ session, start, me });
+      await game.ready(); // the circuit's ground, built while the grid still shows (bug 2152)
+      const cur = onGrid();
+      if (!cur) { game.close(); return; } // left the grid meanwhile: the race is left too
       setKart({ ...cur, choice: { step: 'live' }, status: 'ready', game, hud: game.hud(), lobby: null });
     }).catch((err: unknown) => { console.error(err); });
   }, [held, showSend, kartRef, lobbyRef, lobbyTurn, whoRef, runRef, setKart]);

@@ -9,6 +9,7 @@ import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { rampFrom, rng } from '@omni/design';
 import type { Deck, Texture } from './mode7';
 import { inSpan, locate, pieceAt, segmentAt } from './line';
+import { drain, type Steps } from './slices';
 import { cornersOf, FLOOR, pointAtPx, TILE, type Corner, type Track } from './track';
 
 /** The colours the circuit is painted from: the road is the middle of a four-tone ramp. The floor's own, none equal to a theme token (ADR-0046). */
@@ -304,6 +305,11 @@ function pixelAt(p: Paint, outside: Uint8Array, x: number, y: number, grain: num
 
 /** The circuit painted: `cols × 16` by `rows × 16` pixels, every pixel read from the centre line and the features' tiles. */
 export function paintTrack(track: Track): Texture {
+  return painted.get(track.road) ?? drain(painting(track));
+}
+
+/** `paintTrack`'s work, stopping after each row of pixels so the page can draw meanwhile (bug 2152). */
+export function* painting(track: Track): Steps<Texture> {
   const known = painted.get(track.road);
   if (known) return known;
   const { w, h } = track.size;
@@ -321,9 +327,13 @@ export function paintTrack(track: Track): Texture {
       const grain = rand();
       px[i] = pixelAt(p, outside, x, y, grain);
     }
+    yield;
   }
   paintChevrons(track, px);
   paintArrows(track, px);
+  // Two races of one circuit may paint it at once: the painting that ends first is the one kept.
+  const first = painted.get(track.road);
+  if (first) return first;
   const texture = { w, h, px };
   painted.set(track.road, texture);
   return texture;
