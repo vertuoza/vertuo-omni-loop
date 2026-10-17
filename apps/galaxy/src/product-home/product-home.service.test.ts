@@ -17,7 +17,7 @@ const stage = (n: number, s: 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped'
 const base = (over: Partial<ProductHomeRows> = {}): ProductHomeRows => ({
   product: { id: 'p-mobile', name: 'Mobile' },
   prds: [], stages: [], outbox: [], approvals: [], voids: [], waitingOnMe: [], topics: [], pulls: [], ideas: [], roadmaps: [], fixes: [],
-  key: 'mobile', productPrds: [], items: [], players: [], me: ME,
+  key: 'mobile', productPrds: [], items: [], players: [], links: [], otherLinks: [], phase0: [], phase0Pulls: [], me: ME,
   ...over,
 });
 
@@ -249,6 +249,58 @@ describe('the Ideas, Roadmap, Bug fixes, Visual fixes and Questions tabs (s10)',
   });
 });
 
+describe('the product\'s repositories (PRD 2129)', () => {
+  it('names each linked repository with its role, consumes, phase 0 (pr by default) and the other products it is in, sorted', () => {
+    const home = productHomeOf(base({
+      links: [{ repository: 'a/web', role: 'web', consumes: ['a/api'] }, { repository: 'a/api', role: null, consumes: [] }],
+      otherLinks: [
+        { repository: 'a/api', products: { name: 'Zeta' } }, { repository: 'a/api', products: { name: 'Alpha' } }, { repository: 'a/api', products: { name: 'Alpha' } },
+      ],
+      phase0: [{ full_name: 'a/web', phase0: 'server' }],
+    }));
+    expect(home.repositories).toEqual([
+      { repository: 'a/api', role: null, consumes: [], phase0: 'pr', alsoIn: ['Alpha', 'Zeta'] },
+      { repository: 'a/web', role: 'web', consumes: ['a/api'], phase0: 'server', alsoIn: [] },
+    ]);
+  });
+});
+
+describe('the PRDs in flight, as the Constellation reads them (PRD 2129 s2)', () => {
+  it('gives every PRD its stage, its Ledger state and lane, the repositories of its stage rows and its open feature pull requests', () => {
+    const home = productHomeOf(base({
+      prds: [prd('d-2', 906, { birthplace: 'repo' }), prd('d-1', 905, { birthplace: 'repo' }), prd('d-0', 900)],
+      stages: [stage(906, 'building'), stage(905, 'outbox'), stage(900, 'shipped')],
+      topics: [{ repository: 'vertuo/api', prd: parsePrd(906), topic: 'reminders' }],
+      pulls: [{ repo: 'vertuo/mobile', number: parsePr(94), head: 'feat/reminders-2of3-code' }],
+    }));
+    expect(home.flights.map((f) => [f.dossier, f.stage, f.ledger, f.stageRepos, f.prs])).toEqual([
+      ['d-2', 'building', { state: 'building', lane: 'on-agent' }, ['vertuo/api'], [{ repo: 'vertuo/mobile', pr: 94 }]],
+      ['d-1', 'outbox', { state: 'review', lane: 'on-review' }, ['vertuo/api'], []],
+      ['d-0', 'shipped', null, ['vertuo/api'], []],
+    ]);
+  });
+
+  it('tethers the open phase-0 pull requests of the topics of the product\'s PRDs, and no other', () => {
+    const home = productHomeOf(base({
+      prds: [prd('d-1', 905, { birthplace: 'repo' })],
+      topics: [{ repository: 'vertuo/api', prd: parsePrd(905), topic: 'reminders' }],
+      phase0Pulls: [
+        { repo: 'vertuo/web', number: parsePr(31), head: 'docs/phase-0-reminders' },
+        { repo: 'vertuo/web', number: parsePr(32), head: 'docs/phase-0-other' },
+      ],
+    }));
+    expect(home.tethers).toEqual([{ repo: 'vertuo/web', pr: 31 }]);
+  });
+
+  it('keeps a PRD waiting on another person, with no lane, and one not yet synced, with no stage row', () => {
+    const home = productHomeOf(base({ prds: [prd('d-1', 918), prd('d-2', 919, { birthplace: 'repo' })], stages: [stage(918, 'prd')] }));
+    expect(home.flights.map((f) => [f.dossier, f.ledger, f.stageRepos])).toEqual([
+      ['d-1', { state: 'approval', lane: null }, ['vertuo/api']],
+      ['d-2', { state: 'review', lane: 'on-review' }, []],
+    ]);
+  });
+});
+
 describe('the product home\'s service', () => {
   function store(over: Partial<ProductHomeRepository> = {}) {
     const calls: string[] = [];
@@ -258,6 +310,9 @@ describe('the product home\'s service', () => {
       productPrds: (ws, id) => { calls.push(`product prds ${ws} ${id}`); return Promise.resolve([productPrd('d-m12', 12, { opened_by: 'u-paul' })]); },
       items: (ids) => { calls.push(`items ${ids.join()}`); return Promise.resolve([item('d-m12', 's2-01-quote-totals', 'high', 'vertuoza/vertuo-api')]); },
       players: (ws, users) => { calls.push(`players ${ws} ${users.join()}`); return Promise.resolve([{ user_id: 'u-paul', github_login: 'paul' }]); },
+      links: (ws, id) => { calls.push(`links ${ws} ${id}`); return Promise.resolve([{ repository: 'vertuo/api', role: 'api', consumes: [] }, { repository: 'vertuo/app', role: null, consumes: ['vertuo/api'] }]); },
+      otherLinks: (_ws, _id, repos) => { calls.push(`other links ${repos.join()}`); return Promise.resolve([{ repository: 'vertuo/api', products: { name: 'Web' } }]); },
+      phase0: (_ws, repos) => { calls.push(`phase0 ${repos.join()}`); return Promise.resolve([{ full_name: 'vertuo/app', phase0: 'server' as const }]); },
       stages: (_ws, repos) => { calls.push(`stages ${repos.join()}`); return Promise.resolve([stage(7, 'building')]); },
       outbox: (_ws, repos) => { calls.push(`outbox ${repos.join()}`); return Promise.resolve([]); },
       topics: (_ws, repos) => { calls.push(`topics ${repos.join()}`); return Promise.resolve([]); },
@@ -265,6 +320,7 @@ describe('the product home\'s service', () => {
       voids: (ids) => { calls.push(`voids ${ids.join()}`); return Promise.resolve([]); },
       waitingOnMe: () => { calls.push('waiting'); return Promise.resolve([]); },
       featurePulls: (ws) => { calls.push(`pulls ${ws}`); return Promise.resolve([]); },
+      phase0Pulls: (ws) => { calls.push(`phase-0 pulls ${ws}`); return Promise.resolve([]); },
       ideas: (ws, id) => { calls.push(`ideas ${ws} ${id}`); return Promise.resolve([]); },
       roadmaps: (ws, id) => { calls.push(`roadmaps ${ws} ${id}`); return Promise.resolve([]); },
       fixes: (ws, id) => { calls.push(`fixes ${ws} ${id}`); return Promise.resolve([{ id: 'd-v', kind: 'visual', home_repo: 'vertuo/web', title: 'Darker', created_at: '2026-10-01T00:00:00Z' }]); },
@@ -281,8 +337,13 @@ describe('the product home\'s service', () => {
     expect(home?.visuals.map((f) => f.dossier)).toEqual(['d-v']);
     expect(home?.questions.map((q) => [q.prdLabel, q.id, q.forWhom])).toEqual([['mobile-12', 's2-01-quote-totals', 'for paul']]);
     expect(calls).toEqual([
-      'product ws-1 p-1', 'prds ws-1 p-1', 'product prds ws-1 p-1', 'stages vertuo/api', 'outbox vertuo/api', 'topics vertuo/api', 'approvals d-1', 'voids d-1', 'waiting',
+      'product ws-1 p-1', 'prds ws-1 p-1', 'product prds ws-1 p-1', 'links ws-1 p-1', 'stages vertuo/api', 'outbox vertuo/api', 'topics vertuo/api', 'approvals d-1', 'voids d-1', 'waiting',
       'pulls ws-1', 'ideas ws-1 p-1', 'roadmaps ws-1 p-1', 'fixes ws-1 p-1', 'items d-m12', 'players ws-1 u-paul',
+      'other links vertuo/api,vertuo/app', 'phase0 vertuo/api,vertuo/app', 'phase-0 pulls ws-1',
+    ]);
+    expect(home?.repositories).toEqual([
+      { repository: 'vertuo/api', role: 'api', consumes: [], phase0: 'pr', alsoIn: ['Web'] },
+      { repository: 'vertuo/app', role: null, consumes: ['vertuo/api'], phase0: 'server', alsoIn: [] },
     ]);
   });
 
