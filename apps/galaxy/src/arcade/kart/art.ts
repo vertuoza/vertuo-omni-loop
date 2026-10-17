@@ -316,7 +316,7 @@ const SPIN_VIEWS = ['kart', 'kart-right', 'kart', 'kart-left'] as const;
  * the hero in its seat (head and shoulders, half the kart's scale). The wheels' tread turns with the
  * speed.
  */
-function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race, shade: Projected | null = null) {
+function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race, shade: Projected | null = null, drawOwnMarks: () => void = () => undefined) {
   const fallen = fallenOf(race.fx);
   if (fallen >= 1 || hiddenBlink(race.fx)) return;
   const scale = (s.grid.w >= W ? 4 : 2) * (1 - fallen);
@@ -328,6 +328,7 @@ function playerKart(ctx: CanvasRenderingContext2D, s: FrameState, race: Race, sh
   const half = scale / 2;
   // A kart in the air casts its shadow on the ground under it, where the camera sees that point: lower on the screen the higher it flies.
   if (race.fx.fall <= 0) shadow(ctx, shade ? shade.sx : x + (KART_W * scale) / 2, shade ? Math.min(s.grid.h - 2, shade.sy) : y + 16 * scale, KART_W * scale * 1.05); // a falling kart casts none
+  drawOwnMarks(); // PRD 2063: the player's own marks lie over its shadow, under its sprite
   const driver = spriteImage(look.sprite, { tint: look.tint, flat: stripesOf(s.theme), frame });
   const lean = kart.steer * half;
   const roll = rollOf(leanOf(race.track, kart), fallen, warningOf(race.fx, s));
@@ -612,8 +613,8 @@ const PARTICLE: Readonly<Record<Particle['kind'], { token: 'yellow' | 'white' | 
 };
 
 /** The skid marks on the floor, each fading out over `MARK_LIFE` seconds: white on ice and powder, dark on road. They do not move, so reduced motion keeps them. */
-function marksOnFloor(ctx: CanvasRenderingContext2D, s: FrameState, v: View, marks: readonly Mark[], track: Track) {
-  const seen = spritesInView(v, marks, (m) => groundAt(track, m.x, m.y));
+function marksOnFloor(ctx: CanvasRenderingContext2D, s: FrameState, v: View, marks: readonly Mark[], track: Track, own = false) {
+  const seen = spritesInView(v, marks.filter((m) => (m.own === true) === own), (m) => groundAt(track, m.x, m.y));
   for (const { sprite: m, at } of seen) {
     const size = Math.max(1, Math.round(1.6 * at.scale));
     ctx.globalAlpha = Math.max(0, 1 - m.age / MARK_LIFE) * 0.8;
@@ -845,10 +846,11 @@ export function createKart({ seed, cast = [], circuit, track, live, held, laps, 
         if (hid) ctx.restore();
       }
       marksOnFloor(ctx, s, v, marks, track);
+      const ownMarks = () => { marksOnFloor(ctx, s, v, marks, track, true); };
       // The particles past the player's kart, the kart, then the ones nearer the camera over it: its own sparks, trail, snow and wind are born under its middle and fall behind it as it drives on, its smoke behind it (issues 2057, 2061).
       const kart = kartDepth(s.grid);
       particlesOn(ctx, s, v, particles, track, (z) => z > kart);
-      playerKart(ctx, s, race, shadeUnder(v, track, race.player));
+      playerKart(ctx, s, race, shadeUnder(v, track, race.player), ownMarks);
       particlesOn(ctx, s, v, particles, track, (z) => z <= kart);
       sparkGlow(ctx, s, race);
       if (isSnow(track)) snowfall(ctx, s, v, seed);

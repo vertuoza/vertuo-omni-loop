@@ -110,8 +110,8 @@ export function spawnsOf(before: Race, after: Race, events: readonly RaceEvent[]
   return out;
 }
 
-/** A skid mark on the floor: where it is, how long it has lain, and whether it is white (on ice and powder) or dark (on road). */
-export interface Mark { x: number; y: number; age: number; pale: boolean }
+/** A skid mark on the floor: where it is, how long it has lain, and whether it is white (on ice and powder) or dark (on road). `own` marks the player's: laid under its middle and drawn under its kart (PRD 2063). */
+export interface Mark { x: number; y: number; age: number; pale: boolean; own?: true }
 
 export const MAX_MARKS = 96;
 /** How long a skid mark lasts before it has faded out, in seconds. */
@@ -124,16 +124,18 @@ export function stepMarks(marks: readonly Mark[], born: readonly Omit<Mark, 'age
   return list.slice(-MAX_MARKS);
 }
 
-/** The marks the racers on the ground leave this step: two at the rear wheels of one whose travel is over `RULES.skidGap` radian off its heading, or that drifts. */
+/** Whether a racer lays marks this step: on the ground, at a speed of 1 or more, and travelling over `RULES.skidGap` radian off its heading or drifting. */
+function skids(kart: Race['player'], fx: Race['fx'] | undefined): boolean {
+  if (!fx || fx.fall > 0 || (fx.hop ?? 0) > 0 || Math.abs(kart.speed) < 1) return false;
+  const off = kart.travel === undefined ? 0 : Math.abs(Math.atan2(Math.sin(kart.angle - kart.travel), Math.cos(kart.angle - kart.travel)));
+  return off > RULES.skidGap || fx.drift !== undefined;
+}
+
+/** The marks the racers on the ground leave this step: two at the rear wheels of one that skids. The player's lie under its middle and are its own, a rival's trail `BEHIND` it (PRD 2063). */
 export function marksOf(race: Race, surface: (x: number, y: number) => Surface = () => 'road'): Omit<Mark, 'age'>[] {
   const out: Omit<Mark, 'age'>[] = [];
-  const all = [{ kart: race.player, fx: race.fx }, ...race.rivals.map((r) => ({ kart: r.kart, fx: r.fx }))];
-  for (const { kart, fx } of all) {
-    if (!fx || fx.fall > 0 || (fx.hop ?? 0) > 0 || Math.abs(kart.speed) < 1) continue;
-    const off = kart.travel === undefined ? 0 : Math.abs(Math.atan2(Math.sin(kart.angle - kart.travel), Math.cos(kart.angle - kart.travel)));
-    if (off <= RULES.skidGap && fx.drift === undefined) continue;
-    const pale = surface(kart.x, kart.y) !== 'road';
-    for (const w of wheelsOf(kart)) out.push({ ...w, pale });
-  }
+  const pale = (k: Race['player']) => surface(k.x, k.y) !== 'road';
+  if (skids(race.player, race.fx)) for (const w of wheelsOf(race.player, 0)) out.push({ ...w, pale: pale(race.player), own: true });
+  for (const r of race.rivals) if (skids(r.kart, r.fx)) for (const w of wheelsOf(r.kart)) out.push({ ...w, pale: pale(r.kart) });
   return out;
 }

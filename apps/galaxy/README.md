@@ -1101,7 +1101,8 @@ off, no row exists, and every player sees NO XP YET.
   **What a player sees and hears** (`art.ts` from the pure, seeded state of `fx.ts`, under its particle cap; `sound.ts`, no
   audio file): snow behind the rear wheels of a kart on powder faster than `draftMin`; skid marks while the gap between
   heading and travel is over `RULES.skidGap` (0.15 radian) or a drift runs, white on ice and snow and dark on road, fading
-  over 3 seconds, at most `MAX_MARKS` at once; blue then orange sparks at the rear wheels of a drifting kart; white wind lines
+  over 3 seconds, at most `MAX_MARKS` at once (the player's own lie under its rear wheels, over its shadow and under its
+  sprite; a rival's trail behind it); blue then orange sparks at the rear wheels of a drifting kart; white wind lines
   while a slipstream builds. The player's own kart alone is heard: a screech (a continuous voice under the music, louder as
   the gap grows), a tick when the sparks turn blue and again orange, a whoosh at each mini-turbo, rocket start and
   slipstream, a sputter on a stall, and the engine's hum rising while GAS is held during the countdown. With reduced motion
