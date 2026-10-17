@@ -1,3 +1,36 @@
+# Settled outbox items — PRD 2156
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-duet-gate-hold -->
+
+## s1-01-duet-gate-hold — agreed
+
+- Verdict: agreed
+- Approved by: martl-vertuoza
+- Approved at: 2026-10-17T21:31:03Z
+- Channel: feature pull request #2158
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2158#issuecomment-6241408583
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-102
+- Raised: 2026-10-17
+- Slice: s1
+- Wave: 1
+- Stays here: the answer keeps what the fix built and states nothing new about the product; BR-PRODUCT-102 reads as before.
+
+### The answer, as it was given
+
+```text
+1: A
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-duet-gate-hold
 prd: 2156
@@ -45,3 +78,6 @@ One constant, `SHAPE.gate.hold`, and four wave distances in `duet/waves.ts`.
 
 - Whether 0.55 s feels right in play: measured against the half bars' changes, not played here (author).
 - Whether a gate next to a sliding block or a rod asks the same: those changes ask a turn, not a pose, and are left as they were (author).
+```
+
+<!-- /omni-outbox-settled: s1-01-duet-gate-hold -->
