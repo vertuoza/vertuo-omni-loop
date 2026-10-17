@@ -95,6 +95,21 @@ const PULL_COLUMNS = 'repo, number, head';
 export const StoredPull = z.object({ repo: z.string(), number: PrNumberSchema, head: z.string() });
 export type StoredPull = z.infer<typeof StoredPull>;
 
+const LINK_COLUMNS = 'repository, role, consumes';
+/** A repository linked to the product (PRD 2129): its role and the repositories of the product it consumes. */
+const StoredLink = z.object({ repository: z.string(), role: z.string().nullable(), consumes: z.array(z.string()) });
+export type StoredLink = z.infer<typeof StoredLink>;
+
+const OTHER_LINK_COLUMNS = 'repository, products(name)';
+/** A link of another product to one of this product's repositories, with that product's name. */
+const StoredOtherLink = z.object({ repository: z.string(), products: z.object({ name: z.string() }) });
+export type StoredOtherLink = z.infer<typeof StoredOtherLink>;
+
+const PHASE0_COLUMNS = 'full_name, phase0';
+/** Where a repository's phase 0 is approved: `pr` (docs-only pull request) or `server` (the PRD page). */
+const StoredPhase0 = z.object({ full_name: z.string(), phase0: z.enum(['pr', 'server']) });
+export type StoredPhase0 = z.infer<typeof StoredPhase0>;
+
 const IDEA_COLUMNS = 'id, repo, title, pitch, lane, prd, created_at';
 /** An idea of the product still on its board (PRD 1364 s10). */
 export const StoredIdea = z.object({
@@ -228,6 +243,22 @@ export const featurePullsOf = (db: From, workspace?: string) => {
   return workspace === undefined ? read : read.eq('workspace_id', workspace);
 };
 
+/** The open pull requests on a phase-0 branch (`docs/phase-0-<topic>`), of the workspace (PRD 2129 s3). */
+const phase0PullsOf = (db: From, workspace: string) =>
+  db.from('pull_requests').select(PULL_COLUMNS).is('closed_at', null).is('merged_at', null).like('head', 'docs/phase-0-%').eq('workspace_id', workspace);
+
+/** The links of the workspace's product to its repositories, by name. */
+const linksOf = (db: From, scope: ProductScope) =>
+  db.from('product_repositories').select(LINK_COLUMNS).eq('workspace_id', scope.workspace).eq('product_id', scope.product).order('repository');
+
+/** The links of the workspace's other products to `repos`, each with its product's name. */
+const otherLinksOf = (db: From, scope: ProductScope, repos: readonly string[]) =>
+  db.from('product_repositories').select(OTHER_LINK_COLUMNS).eq('workspace_id', scope.workspace).neq('product_id', scope.product).in('repository', [...repos]);
+
+/** The phase 0 flag of the workspace's repositories `repos`. */
+const phase0Of = (db: From, workspace: string, repos: readonly string[]) =>
+  db.from('repositories').select(PHASE0_COLUMNS).eq('workspace_id', workspace).in('full_name', [...repos]);
+
 const why = (error: { message: string }) => error.message;
 const WHERE = 'product-home/product-home.repository';
 
@@ -294,6 +325,29 @@ export function productHomeRepository(db: ProductHomeDb) {
       return orThrow(parseRows(StoredFix, data, `${WHERE}: fix dossiers`));
     },
 
+    /** The product's linked repositories, by name: role and declared `consumes`. */
+    async links(workspace: string, product: string): Promise<StoredLink[]> {
+      const { data, error } = await linksOf(db, { workspace, product });
+      if (error) throw new Error(`Supabase: could not read the product's repositories (${why(error)})`);
+      return orThrow(parseRows(StoredLink, data, `${WHERE}: product_repositories`));
+    },
+
+    /** The other products' links to `repos`, each with its product's name. */
+    async otherLinks(workspace: string, product: string, repos: readonly string[]): Promise<StoredOtherLink[]> {
+      if (repos.length === 0) return [];
+      const { data, error } = await otherLinksOf(db, { workspace, product }, repos);
+      if (error) throw new Error(`Supabase: could not read the repositories' other products (${why(error)})`);
+      return orThrow(parseRows(StoredOtherLink, data, `${WHERE}: product_repositories of other products`));
+    },
+
+    /** The phase 0 flag of `repos`. */
+    async phase0(workspace: string, repos: readonly string[]): Promise<StoredPhase0[]> {
+      if (repos.length === 0) return [];
+      const { data, error } = await phase0Of(db, workspace, repos);
+      if (error) throw new Error(`Supabase: could not read the repositories' phase 0 (${why(error)})`);
+      return orThrow(parseRows(StoredPhase0, data, `${WHERE}: repositories`));
+    },
+
     /** The stages of the workspace's PRDs in `repos`. */
     async stages(workspace: string, repos: readonly string[]): Promise<StoredStageRow[]> {
       if (repos.length === 0) return [];
@@ -347,6 +401,13 @@ export function productHomeRepository(db: ProductHomeDb) {
       const { data, error } = await featurePullsOf(db, workspace);
       if (error) throw new Error(`Supabase: could not read the pull requests (${why(error)})`);
       return orThrow(parseRows(StoredPull, data, `${WHERE}: pull_requests`));
+    },
+
+    /** The workspace's open pull requests on a phase-0 branch. */
+    async phase0Pulls(workspace: string): Promise<StoredPull[]> {
+      const { data, error } = await phase0PullsOf(db, workspace);
+      if (error) throw new Error(`Supabase: could not read the phase-0 pull requests (${why(error)})`);
+      return orThrow(parseRows(StoredPull, data, `${WHERE}: pull_requests of phase 0`));
     },
   };
 }

@@ -5,7 +5,7 @@ import { sortItems } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
 import type { QuestionView } from '../questions/questions.contract';
 import {
   productHomeRepository, type ProductHomeDb, type ProductHomeRepository, type StoredApproval, type StoredHomePrd,
-  type StoredFix, type StoredIdea, type StoredItem, type StoredOutbox, type StoredPlayer, type StoredProductPrd, type StoredPull,
+  type StoredFix, type StoredIdea, type StoredItem, type StoredLink, type StoredOtherLink, type StoredOutbox, type StoredPhase0, type StoredPlayer, type StoredProductPrd, type StoredPull,
   type StoredRoadmap, type StoredStageRow, type StoredTopic, type StoredVoid,
 } from './product-home.repository';
 
@@ -122,6 +122,27 @@ export interface HomeFix {
  * draws it (PRD 1548 s9), but for the addresses of its PRD's page, which the page adds. */
 export type HomeQuestion = Omit<QuestionView, 'prdHref' | 'outboxHref'>;
 
+/** A repository linked to the product (PRD 2129), as the Constellation tab names it. */
+export interface HomeRepository {
+  repository: string;
+  role: string | null;
+  /** The repositories of the product it consumes, as its owners declared them. */
+  consumes: string[];
+  phase0: 'pr' | 'server';
+  /** The names of the other products it is linked to, sorted. */
+  alsoIn: string[];
+}
+
+/** A PRD of the product as the Constellation reads it (PRD 2129 s2): its current stage, its place on the
+ * Ledger (null once shipped or at retro; its lane null when it waits on a person who is not you), the
+ * repositories where it has a stage row, and the open pull requests of its feature branch and landings. */
+export interface HomeFlight extends HomePrd {
+  stage: StoredStage | null;
+  ledger: { state: LedgerState; lane: LaneId | null } | null;
+  stageRepos: string[];
+  prs: PrChip[];
+}
+
 /** Everything the product home draws. */
 export interface ProductHome {
   product: { id: string; name: string };
@@ -132,6 +153,12 @@ export interface ProductHome {
   bugs: HomeFix[];
   visuals: HomeFix[];
   questions: HomeQuestion[];
+  /** The product's linked repositories, by name. */
+  repositories: HomeRepository[];
+  /** Every PRD of the product, newest first, as the Constellation reads it. */
+  flights: HomeFlight[];
+  /** The open phase-0 pull requests of the product's PRDs (`docs/phase-0-<topic>`), for a docked star's tethers. */
+  tethers: PrChip[];
 }
 
 /** What the product home is drawn from, as the repository reads it. */
@@ -159,6 +186,12 @@ export interface ProductHomeRows {
   items: readonly StoredItem[];
   /** The players of the PRDs' authors: their GitHub logins. */
   players: readonly StoredPlayer[];
+  /** The product's links to its repositories, the other products' links to those, and each one's phase 0 (PRD 2129). */
+  links: readonly StoredLink[];
+  otherLinks: readonly StoredOtherLink[];
+  phase0: readonly StoredPhase0[];
+  /** The workspace's open pull requests whose head is a phase-0 branch (PRD 2129 s3). */
+  phase0Pulls: readonly StoredPull[];
   /** Who reads: their user id. */
   me: string;
 }
@@ -231,6 +264,12 @@ function chipsOf(topic: string | undefined, pulls: readonly StoredPull[]): PrChi
   return pulls.filter((p) => head.test(p.head)).map((p) => ({ repo: p.repo, pr: p.number }));
 }
 
+/** The open phase-0 pull requests of the product's PRDs: those whose head is `docs/phase-0-<topic>` of a topic read. */
+function tethersOf(topics: readonly StoredTopic[], pulls: readonly StoredPull[]): PrChip[] {
+  const heads = new Set(topics.map((t) => `docs/phase-0-${t.topic}`));
+  return pulls.filter((p) => heads.has(p.head)).map((p) => ({ repo: p.repo, pr: p.number }));
+}
+
 /** Counts a placed PRD in the summary. */
 function count(summary: LedgerSummary, stage: StoredStage | null, place: Place): void {
   if (stage === 'building') summary.building += 1;
@@ -248,6 +287,7 @@ function indexOf(rows: ProductHomeRows) {
   const waitingOnMe = new Set(rows.waitingOnMe);
   return {
     stage: (key: string) => currentStage(stages.get(key) ?? []),
+    stageRepos: (key: string) => [...new Set((stages.get(key) ?? []).map((s) => s.repository))],
     waiting: (key: string) => outbox.get(key) ?? [],
     approval: (dossier: string) => approvalOf(approvals.get(dossier) ?? [], voids.get(dossier) ?? []),
     topic: (key: string) => topics.get(key),
@@ -257,7 +297,7 @@ function indexOf(rows: ProductHomeRows) {
 
 type Index = ReturnType<typeof indexOf>;
 
-/** One PRD read: its PRDs tab row, and its place and row on the Ledger (null once shipped). */
+/** One PRD read: its PRDs tab row, its place and row on the Ledger (null once shipped), and its flight. */
 function readPrd(stored: StoredHomePrd, index: Index, rows: ProductHomeRows) {
   const prd = homePrdOf(stored);
   const key = keyOf(prd.repo, prd.prd);
@@ -267,15 +307,19 @@ function readPrd(stored: StoredHomePrd, index: Index, rows: ProductHomeRows) {
   const approval = server ? index.approval(prd.dossier) : 'none';
   const waiting = index.waiting(key);
   const place = placeOf({ stage, server, approval, waiting: waiting.length, onMe: index.onMe(prd.dossier), mine: stored.opened_by === rows.me });
+  const prs = chipsOf(index.topic(key), rows.pulls);
   const row = (state: LedgerState): LedgerRow => ({
     ...prd,
     sealed: server && approval === 'in-force',
     state,
     question: state === 'question' ? (waiting[0]?.question ?? null) : null,
     questions: waiting.length,
-    prs: chipsOf(index.topic(key), rows.pulls),
+    prs,
   });
-  return { tab, stage, place, row, waiting };
+  const flight: HomeFlight = {
+    ...prd, stage, ledger: place === null ? null : { state: place.state, lane: place.lane }, stageRepos: index.stageRepos(key), prs,
+  };
+  return { tab, stage, place, row, waiting, flight };
 }
 
 const ideaOf = (i: StoredIdea): HomeIdea => ({ id: i.id, repo: i.repo, title: i.title, pitch: i.pitch, lane: i.lane, prd: i.prd });
@@ -339,17 +383,33 @@ function productQuestionsOf(rows: ProductHomeRows, who: WhoIsFor): QuestionGroup
 const newestFirst = (groups: QuestionGroup[]): HomeQuestion[] =>
   [...groups].sort((a, b) => Date.parse(b.created) - Date.parse(a.created)).flatMap((g) => g.questions);
 
+/** The product's repositories: each link with its phase 0 (`pr` until a row says otherwise) and the other
+ * products it is also in, by name, sorted. */
+function repositoriesOf(rows: ProductHomeRows): HomeRepository[] {
+  const flags = new Map(rows.phase0.map((p) => [p.full_name, p.phase0] as const));
+  const others = groupBy(rows.otherLinks, (l) => l.repository);
+  return [...rows.links].sort((a, b) => a.repository.localeCompare(b.repository)).map((l) => ({
+    repository: l.repository,
+    role: l.role,
+    consumes: [...l.consumes],
+    phase0: flags.get(l.repository) ?? 'pr',
+    alsoIn: [...new Set((others.get(l.repository) ?? []).map((o) => o.products.name))].sort((a, b) => a.localeCompare(b)),
+  }));
+}
+
 /** The product home from the rows read. */
 export function productHomeOf(rows: ProductHomeRows): ProductHome {
   const index = indexOf(rows);
   const lanes: Record<LaneId, LedgerRow[]> = { 'on-you': [], 'on-review': [], 'on-agent': [] };
   const summary: LedgerSummary = { building: 0, waitingOnPerson: 0, drifted: 0 };
   const prds: PrdsTabRow[] = [];
+  const flights: HomeFlight[] = [];
   const who = whoIsFor(rows);
   const groups: QuestionGroup[] = productQuestionsOf(rows, who);
   for (const stored of rows.prds) {
-    const { tab, stage, place, row, waiting } = readPrd(stored, index, rows);
+    const { tab, stage, place, row, waiting, flight } = readPrd(stored, index, rows);
     prds.push(tab);
+    flights.push(flight);
     if (place === null) continue;
     groups.push({ created: stored.created_at, questions: repoQuestionsOf(tab, stored.opened_by, waiting, who) });
     count(summary, stage, place);
@@ -364,6 +424,9 @@ export function productHomeOf(rows: ProductHomeRows): ProductHome {
     bugs: fixesOf(rows.fixes, 'bug'),
     visuals: fixesOf(rows.fixes, 'visual'),
     questions: newestFirst(groups),
+    repositories: repositoriesOf(rows),
+    flights,
+    tethers: tethersOf(rows.topics, rows.phase0Pulls),
   };
 }
 
@@ -386,7 +449,9 @@ export function productHomeService(store: ProductHomeRepository) {
       const repos = [...new Set(prds.map((p) => p.home_repo))];
       const dossiers = prds.map((p) => p.id);
       const authors = [...new Set([...prds, ...productPrds].flatMap((p) => (p.opened_by === null ? [] : [p.opened_by])))];
-      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes, items, players] = await Promise.all([
+      const links = await store.links(workspace, id);
+      const linked = links.map((l) => l.repository);
+      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes, items, players, otherLinks, phase0, phase0Pulls] = await Promise.all([
         store.stages(workspace, repos),
         store.outbox(workspace, repos),
         store.topics(workspace, repos),
@@ -399,9 +464,12 @@ export function productHomeService(store: ProductHomeRepository) {
         store.fixes(workspace, id),
         store.items(productPrds.map((p) => p.id)),
         store.players(workspace, authors),
+        store.otherLinks(workspace, id, linked),
+        store.phase0(workspace, linked),
+        prds.length === 0 ? Promise.resolve([]) : store.phase0Pulls(workspace),
       ]);
       return productHomeOf({
-        product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, key: found.key, productPrds, items, players, me,
+        product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, key: found.key, productPrds, items, players, links, otherLinks, phase0, phase0Pulls, me,
       });
     },
   };
