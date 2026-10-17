@@ -13,15 +13,53 @@ export const BAND_HZ = 10;
 export const PITCH = Object.freeze({
   /** Samples read from the analyser each frame. */
   frame: 2048,
-  /** The range a pitch is looked for in, Hz. */
-  minHz: 70,
+  /** The range a pitch is looked for in, Hz: a low male hum sits near 70. */
+  minHz: 60,
   maxHz: 1000,
-  /** Under this RMS the frame is silence. */
-  loudnessFloor: 0.01,
-  /** Under this normalised autocorrelation peak the frame is not clearly pitched (speech, breath, noise). */
-  clarityFloor: 0.8,
+  /** The microphone's band-pass, Hz: a little under the range, so the lowest hum keeps its fundamental. */
+  highpassHz: 50,
+  lowpassHz: 1000,
+  /** Under this RMS the frame is silence, whatever the room. */
+  loudnessFloor: 0.004,
+  /** Under this normalised autocorrelation peak the frame is not clearly pitched: a hum is near 1, speech, breath and noise lower. */
+  clarityFloor: 0.9,
   /** The first peak within this share of the highest is the period: a later one is an octave below. */
   peakShare: 0.9,
+});
+
+/**
+ * How a run of frames becomes a steady voice, so a laptop's built-in microphone in an open room steers
+ * only on the player's own hum. Times in seconds, rates per second.
+ */
+export interface VoiceTuning {
+  /** Under this normalised autocorrelation peak a frame is not the voice: a hum is near 1, speech and noise lower. */
+  clarityFloor: number;
+  /** How far above the room's noise a frame must be to count, dB: the player is at the microphone, the room is not. */
+  marginDb: number;
+  /** How long the room is listened to when the microphone opens, before anything counts. */
+  calibrationSeconds: number;
+  /** How fast the noise estimate follows a quieter room, and a louder one (only from frames under the gate, so a voice never raises it). */
+  noiseFall: number;
+  noiseRise: number;
+  /** How long a voice must hold before it steers, and how long it keeps steering through a dropped frame. */
+  steadySeconds: number;
+  holdSeconds: number;
+  /** The pitch steered on is the median of this many voiced frames. */
+  medianFrames: number;
+  /** A frame further than this share from that median starts the hold again: a hum stays on its note, speech glides. */
+  stability: number;
+}
+
+export const VOICE: Readonly<VoiceTuning> = Object.freeze({
+  clarityFloor: PITCH.clarityFloor,
+  marginDb: 12,
+  calibrationSeconds: 0.8,
+  noiseFall: 4,
+  noiseRise: 0.3,
+  steadySeconds: 0.15,
+  holdSeconds: 0.12,
+  medianFrames: 5,
+  stability: 0.06,
 });
 
 /**

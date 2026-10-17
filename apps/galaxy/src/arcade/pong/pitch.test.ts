@@ -27,7 +27,7 @@ const within2pc = (heard: number | null, hz: number) => heard !== null && Math.a
 
 describe('pitchOf', () => {
   for (const rate of RATES) {
-    for (const hz of [110, 165, 220, 330, 660]) {
+    for (const hz of [70, 110, 165, 220, 330, 660]) {
       it(`reads a ${String(hz)} Hz sine at ${String(rate)} Hz within 2 %`, () => {
         expect(within2pc(pitchOf(sine(hz, rate), rate), hz)).toBe(true);
       });
@@ -47,15 +47,15 @@ describe('pitchOf', () => {
     });
   }
 
-  it('looks between 70 and 1000 Hz only', () => {
-    expect(PITCH.minHz).toBe(70);
+  it('looks between 60 and 1000 Hz only', () => {
+    expect(PITCH.minHz).toBe(60);
     expect(PITCH.maxHz).toBe(1000);
     expect(pitchOf(sine(40, 48_000), 48_000)).toBeNull();
     expect(within2pc(pitchOf(sine(1500, 48_000), 48_000), 1500)).toBe(false);
   });
 
   it('reads the edges of the range', () => {
-    for (const hz of [75, 950]) expect(within2pc(pitchOf(sine(hz, 48_000), 48_000), hz)).toBe(true);
+    for (const hz of [65, 950]) expect(within2pc(pitchOf(sine(hz, 48_000), 48_000), hz)).toBe(true);
   });
 
   it('reads an empty or too short frame as null', () => {

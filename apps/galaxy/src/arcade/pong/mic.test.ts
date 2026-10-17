@@ -3,17 +3,21 @@ import { MIC_REASON, MIC_REQUIRED, readyLines, type PongHud } from '../scenes/po
 import { createPong } from './art';
 import { fakeMic, settle } from './mic.fake';
 import { AUDIO_CONSTRAINTS, browserMic, refusalOf, type MicBrowser } from './mic';
-import { PITCH } from './rules';
+import { PITCH, VOICE } from './rules';
 
 // OMNI PONG's microphone (PRD 2101): the browser's, behind the PitchSource port, and what each answer
 // does to the ready screen, through a fake one.
 
 /** A stand-in for the browser: a stream of one track, an audio graph that hears a sine, and what was asked of them. */
 function browser({ secure = true, media = true, refuse = null as string | null, hz = 220 } = {}) {
+  const clock = { t: 0 };
+  const sound = { amp: 0.5 };
+  const filters: { type: string; hz: number }[] = [];
+  const node = (): unknown => ({ connect: (next: unknown) => next });
   const track = { stopped: 0, listeners: [] as (() => void)[], stop() { this.stopped++; }, addEventListener(_: string, f: () => void) { this.listeners.push(f); } };
   const stream = { getTracks: () => [track] } as unknown as MediaStream;
   const asked: MediaStreamConstraints[] = [];
-  const audio = { closed: 0, fftSize: 0 };
+  const audio = { closed: 0, fftSize: 0, resumed: 0 };
   const env: MicBrowser = {
     secure,
     media: media
@@ -28,13 +32,20 @@ function browser({ secure = true, media = true, refuse = null as string | null, 
       sampleRate: 48000,
       createAnalyser: () => ({
         set fftSize(n: number) { audio.fftSize = n; },
-        getFloatTimeDomainData: (out: Float32Array) => { out.forEach((_, i) => { out[i] = 0.5 * Math.sin((2 * Math.PI * hz * i) / 48000); }); },
+        getFloatTimeDomainData: (out: Float32Array) => { out.forEach((_, i) => { out[i] = sound.amp * Math.sin((2 * Math.PI * hz * i) / 48000); }); },
       }) as unknown as AnalyserNode,
-      createMediaStreamSource: () => ({ connect: () => {} }) as unknown as MediaStreamAudioSourceNode,
+      createMediaStreamSource: () => node() as MediaStreamAudioSourceNode,
+      createBiquadFilter: () => {
+        const f = { type: '', hz: 0 };
+        filters.push(f);
+        return { ...(node() as object), set type(t: string) { f.type = t; }, frequency: { set value(v: number) { f.hz = v; } } } as unknown as BiquadFilterNode;
+      },
+      resume: () => { audio.resumed++; return Promise.resolve(); },
       close: () => { audio.closed++; return Promise.resolve(); },
     }),
+    now: () => clock.t,
   };
-  return { env, track, asked, audio };
+  return { env, track, asked, audio, clock, filters, sound };
 }
 
 describe('the browser\'s microphone', () => {
@@ -47,11 +58,22 @@ describe('the browser\'s microphone', () => {
     expect(b.audio.fftSize).toBe(PITCH.frame);
   });
 
-  it('reads the pitch from the analyser while on, and nothing once stopped', async () => {
+  it('band-passes the voice\'s range before the analyser', async () => {
+    const b = browser();
+    await browserMic(() => b.env).open();
+    expect(b.filters).toEqual([{ type: 'highpass', hz: PITCH.highpassHz }, { type: 'lowpass', hz: PITCH.lowpassHz }]);
+    expect(b.audio.resumed).toBe(1);
+  });
+
+  it('listens to the room first, then reads a steady pitch from the analyser, and nothing once stopped', async () => {
     const b = browser({ hz: 220 });
-    const mic = browserMic(() => b.env);
+    const mic = browserMic(() => b.env, { ...VOICE, calibrationSeconds: 0.1 });
     expect(mic.pitch()).toBeNull();
+    b.sound.amp = 0.001;
     await mic.open();
+    for (let i = 0; i < 10; i++) { b.clock.t += 1 / 60; expect(mic.pitch()).toBeNull(); }
+    b.sound.amp = 0.5;
+    for (let i = 0; i < 10; i++) { b.clock.t += 1 / 60; mic.pitch(); }
     expect(mic.pitch()).toBeCloseTo(220, -1);
     mic.stop();
     expect(b.track.stopped).toBe(1);
