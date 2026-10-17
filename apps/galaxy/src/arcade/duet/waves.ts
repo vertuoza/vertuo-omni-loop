@@ -36,7 +36,9 @@ const R = RULES.radius;
  *   way round its ends at chapter IV's speeds);
  * - a gate (issue 1692), two bars `gate.bar` R long and `gate.thick` R thick at one height, either
  *   side of a gap `gate.gap` R wide on the centre line (67 × 17 px each, 56 px apart): upright, the
- *   orbs pass through the gap 22 px clear of either bar; level, each orb is inside a bar;
+ *   orbs pass through the gap 22 px clear of either bar; level, each orb is inside a bar. It holds
+ *   the pair upright while it crosses the whole circle, where a half bar asks it only at the centre's
+ *   height: a change of pose beside it stands `gate.hold` R further (issue 2156);
  *
  * The half bar and the gate are the poses held the most exactly, so their room is what a person's
  * timing needs (`RULES.lateSeconds`): a stop at upright that lands late must still clear them.
@@ -48,7 +50,7 @@ const R = RULES.radius;
 export const SHAPE = Object.freeze({
   half: Object.freeze({ length: 2, thick: 0.3, short: 0.45 }),
   centre: Object.freeze({ side: 0.75 }),
-  gate: Object.freeze({ bar: 1.2, thick: 0.3, gap: 1 }),
+  gate: Object.freeze({ bar: 1.2, thick: 0.3, gap: 1, hold: 1.75 }),
   upright: Object.freeze({ w: 0.8, h: 1.3 }),
   short: Object.freeze({ w: 1, thick: 0.33 }),
   slide: Object.freeze({ reach: 1, across: 2 }),
@@ -378,6 +380,15 @@ export function turnSeconds(from: Pick<Piece, 'kind' | 'motion' | 'back'>, to: P
   return POSE[from.kind].pose === POSE[to.kind].pose ? 0 : quarter;
 }
 
+/**
+ * The space a change of pose between two still obstacles asks beyond its turn's time, in game pixels:
+ * `SHAPE.gate.hold` R beside a gate, which holds the pose across the whole circle; none otherwise.
+ */
+export function holdSpace(from: Pick<Piece, 'kind' | 'motion'>, to: Pick<Piece, 'kind' | 'motion'>): number {
+  if (from.motion !== 'still' || to.motion !== 'still' || POSE[from.kind].pose === POSE[to.kind].pose) return 0;
+  return from.kind === 'gate' || to.kind === 'gate' ? SHAPE.gate.hold * R : 0;
+}
+
 /** The free space between two obstacles that follow each other in a wave, in game pixels, each at its full reach. */
 export function spaceBetween(before: Piece, after: Piece): number {
   return after.above - reachOf(after) - (before.above + reachOf(before));
@@ -387,14 +398,14 @@ export function spaceBetween(before: Piece, after: Piece): number {
  * Every pair of obstacles that follow each other too closely, named by chapter, wave and line: one
  * asking a turn must stand at least the turn's time plus the reaction delay behind the one before, at
  * the speed the wave falls at as it reaches the circle's middle (its speed-up counted: the speed never
- * falls, so no faster speed passes the gap). Two still ones asking the same pose may follow as
+ * falls, so no faster speed passes the gap), and a change beside a gate `holdSpace` more. Two still ones asking the same pose may follow as
  * closely as they like.
  */
 export function spacingProblems(chapters: readonly Chapter[]): string[] {
   return chapters.flatMap((chapter) => chapter.waves.flatMap((wave, i) => wave.pieces.flatMap((p, k) => {
     const before = wave.pieces[k - 1];
     if (!before) return [];
-    const need = turnSeconds(before, p) * speedAt(wave, timeAt(wave, RULES.centre.y + p.above));
+    const need = turnSeconds(before, p) * speedAt(wave, timeAt(wave, RULES.centre.y + p.above)) + holdSpace(before, p);
     const space = spaceBetween(before, p);
     return space + 1e-9 >= need ? [] : [`chapter ${chapter.numeral} · ${chapter.name}, wave ${i + 1}, line ${k + 2}: ${space.toFixed(1)} px behind, not ${need.toFixed(1)}`];
   })));
@@ -714,7 +725,7 @@ export function patternsOf(wave: Wave): Pattern[] {
 // obstacles, 8 seconds at most from the first entering to the last passing the orbs, and none passed
 // by holding the orbs still. Chapter I (95 to 113 px/s, no speed-up) alternates still half bars and
 // centre blocks 1.75 to 2.25 R apart, one idea a wave, each asking two changes of pose at the least,
-// and brings in the gate (2.5 R from a pose change: the pair holds upright while the gate crosses the
+// and brings in the gate (3 to 3.1 R from a pose change: the pair holds upright while the gate crosses the
 // whole circle). II (105 to 123) brings in the sliding block and the short bar, III (115 to 133) the
 // rod and the upright block, and IV (125 to 143) mixes them all, its moving obstacles 2.4 R apart
 // (room for a quarter turn and a reaction at endless mode's top speed, sped up), down to 1.25 R within
@@ -742,8 +753,8 @@ const DRIFT = [
    L half · 2R`,
   `speed 101
    gate · 0
-   centre · 2.5R
-   gate · 2.5R`,
+   centre · 3R
+   gate · 3R`,
   `speed 103
    R half · 0
    centre · 1.75R
@@ -758,8 +769,8 @@ const DRIFT = [
    R half · 2R`,
   `speed 107
    centre · 0
-   gate · 2.5R
-   centre · 2.5R
+   gate · 3.05R
+   centre · 3.05R
    L half · 1.75R`,
   `speed 109
    R half · 0
@@ -775,7 +786,7 @@ const DRIFT = [
    centre · 2R`,
   `speed 113
    gate · 0
-   centre · 2.5R
+   centre · 3.1R
    R half · 1.75R
    centre · 1.75R
    L half · 1.75R`,
@@ -938,7 +949,7 @@ const STORM = [
    centre turn · 2.4R`,
   `speed 141
    gate ghost · 0
-   upright ghost · 2.5R
+   upright ghost · 3.45R
    R half ghost · 2R
    centre slide back ghost · 2.4R`,
   `speed 143
@@ -998,7 +1009,7 @@ export function endlessSpeed(n: number): number {
 function gapOf(before: string, after: string, speed: number): string {
   const [from, to] = [readWords(before), readWords(after)];
   const turning = turnSeconds(from, to);
-  const need = (turning > 0 ? turning + RULES.endlessLateSeconds : 0) * speed * (1 + RAMP.full) / R;
+  const need = ((turning > 0 ? turning + RULES.endlessLateSeconds : 0) * speed * (1 + RAMP.full) + holdSpace(from, to)) / R;
   // A gate holds the pair upright while it crosses the whole circle: a change next to one asks a little more.
   const gate = from.kind === 'gate' || to.kind === 'gate' ? ENDLESS.gate : 0;
   const room = need > 0 ? Math.max(ENDLESS.closest, need + ENDLESS.spare + gate) : ENDLESS.closest;
