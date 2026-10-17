@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 1797
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-product-line-none-or-offline -->
+
+## s1-01-product-line-none-or-offline — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-17
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-17
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-product-line-none-or-offline
 prd: 1797
@@ -47,3 +77,7 @@ A constant in one function of the neighbourhood module: either answer is a one-l
 (author) The PRD, the registers and the glossary do not settle this:
 
 - (author) The spec names the none state but not what decides it without the network; the saved copy keeps no record of a no-product reply today.
+
+```
+
+<!-- /omni-outbox-settled: s1-01-product-line-none-or-offline -->
