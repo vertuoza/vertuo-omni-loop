@@ -8,7 +8,8 @@
 // prints the map: each form's state and source, each register folder's laws and proposals, every
 // open question, every stale evidence entry, and — in a plan repository — each imported copy
 // (PRD 522). `graph` prints the knowledge registers as one graph
-// (PRD #149): its summary, or with `--json` the whole document. `laws` (PRD 1726) discloses only what
+// (PRD #149): its summary, or with `--json` the whole document; `graph <id>` (PRD 1797) prints only
+// that entry's neighbourhood, or with `--json` the versioned neighbourhood document. `laws` (PRD 1726) discloses only what
 // a change touches: every locked law, one plain line each, then with `--paths`, `--slice` or `--area`
 // the rules that govern those files, that slice's territory or that domain folder; `show briefing`
 // ends with the thesis's laws section, and `status` counts the rules with no `Governs:` line. `owners`
@@ -38,6 +39,7 @@ import { ghReader } from '../../lib/plan-repo/targets.ts';
 import { productTargetList } from '../../lib/product/targets.ts';
 import { githubEnv } from '../github.ts';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.ts';
+import { buildNeighbourhood, neighbourhoodText, productWithoutCache } from '../../lib/knowledge/neighbourhood.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.ts';
 import { readDecisions } from '../../lib/playbook/decisions.ts';
 import { resolveForm } from '../../lib/playbook/resolve.ts';
@@ -61,7 +63,8 @@ export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnTyp
 const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] | --slice <prd> <slice> | --area <domain>] [--json]';
 const SHOW_USAGE = 'usage: omni kb show <form> [--json] [--all]';
 const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
+const GRAPH_USAGE = 'usage: omni kb graph [<id>] [--json]';
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id>] [--json] | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -206,10 +209,31 @@ function graphText({ domains, entries, links, loose, unserved }: Graph): string 
   ].join('\n');
 }
 
-function graph(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
-  if (positional.length > 0) throw usageError('usage: omni kb graph [--json]');
+function graph(positional: string[], flags: KbFlags, io: CommandIo): number {
+  const { ctx, stdout } = io;
+  if (positional.length > 1) throw usageError(GRAPH_USAGE);
+  const [start] = positional;
+  if (start !== undefined) return neighbourhood(start, flags, io);
   const built = readGraph({ ctx });
   println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built));
+  return 0;
+}
+
+/**
+ * `omni kb graph <id>` (PRD 1797): the entry's neighbourhood, as text or with `--json` the versioned
+ * document. Read from the repository's files only: nothing here calls the network.
+ */
+function neighbourhood(start: string, flags: KbFlags, { ctx, stdout, stderr }: CommandIo): number {
+  const { entries } = readKnowledge({ ctx });
+  if (!entries.some(({ id, kind }) => id === start && kind !== null)) {
+    println(stderr, `kb graph: no entry "${start}" in the knowledge folder.`);
+    return 1;
+  }
+  const built = buildNeighbourhood(
+    { entries, records: readDecisions({ ctx }).records, repo: ctx.config.repo.slug, product: productWithoutCache(ctx.config.ask.url) },
+    { start: [start] },
+  );
+  println(stdout, flags.json ? JSON.stringify(built, null, 2) : neighbourhoodText(built, entries));
   return 0;
 }
 
