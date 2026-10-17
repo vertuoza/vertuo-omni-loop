@@ -352,9 +352,18 @@ export function sightOf(piece: Pick<Piece, 'ghost'>, block: Pick<Block, 'cy'>): 
   return Math.min(1, Math.max(0, (gone - block.cy) / gone));
 }
 
+/** Whether a block has fallen entirely below the circle. */
+const below = (b: Block): boolean => corners(b).every((c) => c.y > BELOW);
+
 /** Whether every block of the wave has fallen entirely below the circle. */
 export function passedAt(wave: Wave, tick: number): boolean {
-  return blocksAt(wave, tick).every((b) => corners(b).every((c) => c.y > BELOW));
+  return blocksAt(wave, tick).every(below);
+}
+
+/** How many of the wave's obstacles have every block entirely below the circle: a gate counts once. */
+export function clearedAt(wave: Wave, tick: number): number {
+  const above = new Set(placedAt(wave, tick).filter((p) => !below(p.block)).map((p) => p.piece));
+  return wave.pieces.length - above.size;
 }
 
 /** Whether a block overlaps either orb with the pair at `angle`; the check may take the orbs wider, `r`, to keep room to spare. */
