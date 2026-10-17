@@ -9,7 +9,7 @@ describe('ConfigSchema', () => {
   it('fills every section a file leaves out with its defaults', () => {
     const config = ConfigSchema.parse({ kit: 1 });
     expect(config.branches.feature).toBe('feat/{topic}');
-    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000, parallelSteps: 3 });
+    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000, parallelSteps: 3, escalationWorkingDays: 2 });
     expect(config.acceptance).toEqual({ enabled: false, dir: null, pendingSuffix: null, run: null });
     expect(config.signature?.name).toBe('Omni-man');
     expect(config.plan).toBeUndefined();

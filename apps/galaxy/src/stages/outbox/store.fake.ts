@@ -4,7 +4,7 @@
 // write replacing the counts. `fail` makes every call throw, as a refused Supabase call does. That the
 // database holds the same rules is proved by supabase/checks/prd_outbox.sql, not here.
 import { prdKey } from '../store';
-import type { OutboxCounts, OutboxRecord, PrdOutboxStore } from './store';
+import { asks, type AskingRecord, type OutboxCounts, type OutboxRecord, type PrdOutboxStore } from './store';
 import { settled } from '../settled';
 
 export type FakePrdOutboxStore = PrdOutboxStore & {
@@ -46,6 +46,17 @@ export function fakePrdOutboxStore(now: () => string = () => new Date().toISOStr
           }
         }
         return counts;
+      });
+    },
+
+    asking(login) {
+      return settled(() => {
+        check();
+        const lower = login.toLowerCase();
+        return fake.rows.flatMap(({ workspace_id, repository, prd, waiting }): AskingRecord[] => {
+          const asked = waiting.filter((question) => asks(question, lower));
+          return asked.length > 0 ? [{ workspace_id, repository, prd, waiting: asked }] : [];
+        });
       });
     },
   };

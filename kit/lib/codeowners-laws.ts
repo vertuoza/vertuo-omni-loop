@@ -12,21 +12,23 @@
  *   to (`playbook/briefing-files.ts`), so a change to the rules every agent follows asks the owner too;
  * - each locked law's test, every path its `Enforced by:` line names;
  *
- * each owned by every one of `laws.owners`. It writes the file GitHub reads first (`.github/`, the
+ * each owned by every one of `laws.owners` and each owner's delegate (PRD 1794), never by
+ * `laws.leadership`. It writes the file GitHub reads first (`.github/`, the
  * root, then the docs folder), and `.github/CODEOWNERS` when there is none, so a block never shadows a file
  * a repository already has. `omni check knowledge` goes red when the block differs from what the
  * command would write ({@link ownersBlockProblems}).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import type { LawOwner } from './config.ts';
 import { CODEOWNERS_FILES, OWNERS_BEGIN, ownersBlock, ownersBlockIn, withOwnersBlock, type OwnedPath } from './codeowners.ts';
 import { domainsDir, isLaw, productDir, REQUIRED_LAYER_FILES, readKnowledge, type Knowledge, type KnowledgeCtx } from './knowledge/registers.ts';
 import { thesisPath } from './knowledge/thesis.ts';
 import { messageOf } from './narrow.ts';
 import { briefingFiles } from './playbook/briefing-files.ts';
 
-/** What the block needs of the context: the knowledge folder, the playbook's, and `laws.owners`. */
-export type OwnersCtx = KnowledgeCtx & { config: { paths: { playbook: string }; laws?: { owners?: readonly string[] } } };
+/** What the block needs of the context: the knowledge folder, the playbook's, and `laws.owners` (their delegates included, PRD 1794). */
+export type OwnersCtx = KnowledgeCtx & { config: { paths: { playbook: string }; laws?: { owners?: readonly LawOwner[] } } };
 
 /** The file the block goes in when the repository has no CODEOWNERS yet. */
 const DEFAULT_CODEOWNERS = '.github/CODEOWNERS';
