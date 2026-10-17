@@ -8195,8 +8195,8 @@ function cleanRegex(source2) {
   const end3 = source2.endsWith("$") ? source2.length - 1 : source2.length;
   return source2.slice(start4, end3);
 }
-function floatSafeRemainder(val, step2) {
-  const ratio = val / step2;
+function floatSafeRemainder(val, step3) {
+  const ratio = val / step3;
   const roundedRatio = Math.round(ratio);
   const tolerance = 4 * Number.EPSILON * Math.max(Math.abs(ratio), 1);
   if (Math.abs(ratio - roundedRatio) < tolerance)
@@ -28031,7 +28031,7 @@ function dropUnrecognized(raw, issues) {
   for (const issue2 of issues) {
     if (issue2.code !== "unrecognized_keys") continue;
     let at2 = raw;
-    for (const step2 of issue2.path) at2 = isRecord(at2) ? at2[String(step2)] : void 0;
+    for (const step3 of issue2.path) at2 = isRecord(at2) ? at2[String(step3)] : void 0;
     if (!isRecord(at2)) continue;
     for (const key2 of issue2.keys) {
       if (Object.hasOwn(at2, key2)) {
@@ -36413,9 +36413,9 @@ function chooseFlow(session2, platform2, forced = null) {
   return platform2 === "linux" && !session2.display ? "device" : "loopback";
 }
 function deviceLink(askUrl2, userCode) {
-  const link2 = new URL(askEndpoint(askUrl2, "/ask/device"));
-  link2.searchParams.set("user_code", userCode);
-  return link2.toString();
+  const link3 = new URL(askEndpoint(askUrl2, "/ask/device"));
+  link3.searchParams.set("user_code", userCode);
+  return link3.toString();
 }
 var DeviceError = class extends Error {
   reason;
@@ -37667,13 +37667,13 @@ function areaOf(flow2, path) {
 }
 function resolveTerritory(flow2, territory) {
   const order2 = [flow2.defaultArea, ...flow2.areas];
-  const pathsOf2 = /* @__PURE__ */ new Map();
+  const pathsOf3 = /* @__PURE__ */ new Map();
   for (const path of territory) {
     const { name: name3 } = areaOf(flow2, path);
-    pathsOf2.set(name3, [...pathsOf2.get(name3) ?? [], path]);
+    pathsOf3.set(name3, [...pathsOf3.get(name3) ?? [], path]);
   }
-  const touched2 = order2.filter(({ name: name3 }) => pathsOf2.has(name3));
-  const areas = touched2.map(({ name: name3, rules }) => ({ name: name3, paths: pathsOf2.get(name3) ?? [], rules }));
+  const touched2 = order2.filter(({ name: name3 }) => pathsOf3.has(name3));
+  const areas = touched2.map(({ name: name3, rules }) => ({ name: name3, paths: pathsOf3.get(name3) ?? [], rules }));
   const merges = touched2.flatMap(({ name: name3, rules }) => rules.subPr.merge === null ? [] : [{ area: name3, method: rules.subPr.merge }]);
   const hooks = {};
   const replace = [];
@@ -38299,9 +38299,9 @@ function mergeAfterOf(kept, index) {
   const before2 = kept[index - 1];
   return index === 0 || before2 === void 0 ? null : { landing: index, name: before2.name };
 }
-function mergeAfterLine(step2) {
-  if (step2.mergeAfter === null) return null;
-  return `Merge after landing ${step2.mergeAfter.landing} (${step2.mergeAfter.name}) is deployed.`;
+function mergeAfterLine(step3) {
+  if (step3.mergeAfter === null) return null;
+  return `Merge after landing ${step3.mergeAfter.landing} (${step3.mergeAfter.name}) is deployed.`;
 }
 
 // kit/lib/product/targets.ts
@@ -38643,7 +38643,7 @@ async function buildBoard(prd2, { ctx, reads, repo: repoFlag, now: now2 = Date.n
     return { slices, result: board2(await readPrs(repo, landed, reader), { landings: landed, inlineDone }), unreadable: [], landings };
   }
   const chainOf = (name3) => landed === null ? null : landingPlan({ landings: planLandings, slices, branches: ctx.config.branches, defaultBranch: ctx.config.repo.defaultBranch, topic, repo: name3 }).map(
-    (step2) => ({ landing: step2.planLanding, name: step2.name, branch: step2.branch, repo: name3 })
+    (step3) => ({ landing: step3.planLanding, name: step3.name, branch: step3.branch, repo: name3 })
   );
   const across = await readAcrossRepos(slices, { known: knownRepositories(ctx, repo), chainOf, reader });
   const chains = landed === null ? null : across.chains;
@@ -38950,14 +38950,20 @@ import { existsSync as existsSync32, readdirSync as readdirSync16, readFileSync 
 import { join as join44 } from "node:path";
 var RECORD2 = /^(\d{4})-.+\.md$/;
 var TITLE2 = /^#\s+(.+?)\s*$/m;
+var PRD_HEADER = /\*\*PRD:\*\*\s*#(\d+)\b/;
+function headerPrd(text15) {
+  const [header2 = ""] = text15.split(/^##\s/m);
+  const prd2 = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(header2)?.[1]));
+  return prd2.success ? prd2.data : null;
+}
 function readDecisions({ ctx }) {
   const dir = ctx.layout.adrDir.replace(/\/+$/, "");
   const absolute = join44(ctx.root, dir);
   const names = existsSync32(absolute) ? readdirSync16(absolute, { withFileTypes: true }).filter((entry3) => entry3.isFile() && RECORD2.test(entry3.name)).map((entry3) => entry3.name).sort() : [];
   const records = names.map((name3) => {
     const file2 = `${dir}/${name3}`;
-    const title = readFileSync37(join44(ctx.root, file2), "utf8").match(TITLE2)?.[1] ?? null;
-    return { number: name3.match(RECORD2)?.[1] ?? "", file: file2, title };
+    const text15 = readFileSync37(join44(ctx.root, file2), "utf8");
+    return { number: name3.match(RECORD2)?.[1] ?? "", file: file2, title: text15.match(TITLE2)?.[1] ?? null, prd: headerPrd(text15) };
   });
   const byNumber2 = /* @__PURE__ */ new Map();
   for (const record2 of records) byNumber2.set(record2.number, [...byNumber2.get(record2.number) ?? [], record2.file]);
@@ -39179,7 +39185,7 @@ function decideSubPrRound(state) {
 function decideRound(state) {
   if (state.pr.state !== "OPEN") return { mode: "stop", actions: [] };
   if (state.wave?.holdsClaims !== false) return { mode: "report-only", actions: [{ kind: "status" }] };
-  const actions = (state.chain ?? []).map((link2) => ({ kind: "restack", ...link2 }));
+  const actions = (state.chain ?? []).map((link3) => ({ kind: "restack", ...link3 }));
   if (state.mergeable === "CONFLICTING") actions.push({ kind: "merge-base", base: state.pr.base });
   actions.push(...ciActions(state));
   actions.push(...threadActions(state.threads));
@@ -39196,9 +39202,9 @@ function foundEntry(base, found2, known2 = null) {
   if (found2 === "unreadable") return { ...base, number: known2, state: "unreadable", url: null };
   return { ...base, number: found2.number, state: found2.state.toLowerCase(), url: found2.url };
 }
-function rank(step2, repositories) {
-  const row = repositories.indexOf(step2.name);
-  return [step2.planLanding, step2.wave ?? Number.MAX_SAFE_INTEGER, row === -1 ? Number.MAX_SAFE_INTEGER : row];
+function rank(step3, repositories) {
+  const row = repositories.indexOf(step3.name);
+  return [step3.planLanding, step3.wave ?? Number.MAX_SAFE_INTEGER, row === -1 ? Number.MAX_SAFE_INTEGER : row];
 }
 function compareRanks(left, right) {
   for (const [index, value] of left.entries()) {
@@ -39207,11 +39213,11 @@ function compareRanks(left, right) {
   }
   return 0;
 }
-function targetEntry(step2) {
-  const base = { repo: step2.slug, kind: step2.landing === null ? "target" : "landing", target: step2.name };
-  const entry3 = foundEntry(base, step2.found);
-  if (entry3 === null || step2.landing === null) return entry3;
-  return { ...entry3, landing: step2.landing };
+function targetEntry(step3) {
+  const base = { repo: step3.slug, kind: step3.landing === null ? "target" : "landing", target: step3.name };
+  const entry3 = foundEntry(base, step3.found);
+  if (entry3 === null || step3.landing === null) return entry3;
+  return { ...entry3, landing: step3.landing };
 }
 function mergeOrder({
   repositories,
@@ -39523,14 +39529,14 @@ async function stepsOf(slug, plan2, { ctx, reads }) {
   if (mine.length === 0) return [];
   const chain = landingPlan({ ...plan2, branches: ctx.config.branches, defaultBranch: ctx.config.repo.defaultBranch, repo: name3 });
   const steps = [];
-  for (const step2 of chain) {
+  for (const step3 of chain) {
     steps.push({
       name: name3,
       slug,
-      planLanding: step2.planLanding,
-      wave: earliestWave(mine.filter((slice) => slice.landing === step2.planLanding)),
-      landing: chain.length > 1 ? { landing: step2.landing, count: step2.count, name: step2.name } : null,
-      found: await readFound(() => findPr({ repo: slug, branch: step2.branch }, reads))
+      planLanding: step3.planLanding,
+      wave: earliestWave(mine.filter((slice) => slice.landing === step3.planLanding)),
+      landing: chain.length > 1 ? { landing: step3.landing, count: step3.count, name: step3.name } : null,
+      found: await readFound(() => findPr({ repo: slug, branch: step3.branch }, reads))
     });
   }
   return steps;
@@ -40422,9 +40428,9 @@ function parkOf(body) {
   if (line2 === void 0) return null;
   const parts = line2.split("\xB7").map((part) => part.trim());
   const last = parts.at(-1) ?? "";
-  const link2 = parts.length > 1 && /^https?:\/\/\S+$/.test(last) ? last : null;
-  const why2 = flat((link2 === null ? parts : parts.slice(0, -1)).join(" \xB7 "));
-  return why2 === null ? null : { why: why2, link: link2 };
+  const link3 = parts.length > 1 && /^https?:\/\/\S+$/.test(last) ? last : null;
+  const why2 = flat((link3 === null ? parts : parts.slice(0, -1)).join(" \xB7 "));
+  return why2 === null ? null : { why: why2, link: link3 };
 }
 function parkWork(prd2, status5, { repo, prUrl }) {
   const park2 = status5 === null ? null : parkOf(status5);
@@ -45856,7 +45862,7 @@ function parseLedger(file2, text15) {
   return parsed2.data;
 }
 function withoutConfirmed(healed, ledger) {
-  return healed.filter((step2) => !ledger.some((done) => done.testId === step2.testId && done.callIndex === step2.callIndex && sameActions(done.actions, step2.new)));
+  return healed.filter((step3) => !ledger.some((done) => done.testId === step3.testId && done.callIndex === step3.callIndex && sameActions(done.actions, step3.new)));
 }
 var gitOptions = (root) => ({ cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
 function readLedgerAt({ root, rev, dir, exec }) {
@@ -46099,7 +46105,7 @@ function heals(args, io) {
       readRecordingsAt({ root: ctx.root, rev: head, dir, exec })
     );
     const screenshots = screenshotsFor(ctx.root, dir);
-    const healed = withoutConfirmed(result2.healed, readLedgerAt({ root: ctx.root, rev: head, dir, exec })).map((step2) => ({ ...step2, screenshots }));
+    const healed = withoutConfirmed(result2.healed, readLedgerAt({ root: ctx.root, rev: head, dir, exec })).map((step3) => ({ ...step3, screenshots }));
     println(stdout, JSON.stringify({ prd: prd2, base, head, ...result2, healed }, null, 2));
     return 0;
   });
@@ -51390,8 +51396,8 @@ function buildGraph(knowledge2, { repo }) {
       if (id !== entry3.id && byId.has(id)) links2.push({ from: entry3.id, to: id, kind: "cites" });
     }
   }
-  const serving = new Set(links2.filter((link2) => link2.kind === "serves").map((link2) => link2.from));
-  const served = new Set(links2.filter((link2) => link2.kind === "serves").map((link2) => link2.to));
+  const serving = new Set(links2.filter((link3) => link3.kind === "serves").map((link3) => link3.from));
+  const served = new Set(links2.filter((link3) => link3.kind === "serves").map((link3) => link3.to));
   const loose = entries4.filter((entry3) => entry3.kind !== "principle" && !serving.has(entry3.id)).map((entry3) => entry3.id);
   const unserved = entries4.filter((entry3) => entry3.kind === "principle" && !served.has(entry3.id)).map((entry3) => entry3.id);
   return { version: GRAPH_VERSION, repo, domains, entries: entries4, links: links2, loose, unserved };
@@ -51400,11 +51406,200 @@ function readGraph({ ctx }) {
   return buildGraph(readKnowledge({ ctx }), { repo: ctx.config.repo.slug });
 }
 
+// kit/lib/knowledge/neighbourhood.ts
+init_define_OMNI_BUNDLE();
+var NEIGHBOURHOOD_VERSION = 1;
+var NEIGHBOURHOOD_SHAPE = "neighbourhood";
+var isWalked = (entry3) => entry3.kind !== null;
+function statusOf2(entry3) {
+  if (entry3.kind !== "rule" && entry3.kind !== "invariant") return null;
+  if (isLaw(entry3)) return "law";
+  return entry3.proposed === null ? "rule" : "proposed";
+}
+var entryNode = (entry3) => ({
+  id: entry3.id,
+  kind: entry3.kind,
+  label: headline(entry3.statement),
+  status: statusOf2(entry3),
+  file: entry3.file,
+  origin: "repository"
+});
+var leaf = (id, kind, file2, label2 = null) => ({
+  id,
+  kind,
+  label: label2,
+  status: null,
+  file: file2,
+  origin: "repository"
+});
+var link2 = (from, to, kind, node3) => ({ edge: { from, to, kind }, node: node3 });
+var pathsOf = (value) => value.split(",").map((path) => path.replace(/`/g, "").trim()).filter(Boolean);
+var recordLabel = (title) => title?.replace(/^ADR-\d{4}\s*[—–-]\s*/, "") ?? null;
+var citedBy = (entry3) => idsCitedIn([entry3.statement, entry3.why ?? ""].join("\n"));
+function servesShared(entry3, byId) {
+  if (entry3.kind === "principle" || entry3.serves === null) return false;
+  return byId.get(entry3.serves)?.kind === "principle" || LEGAL_ID_SHAPE.test(entry3.serves);
+}
+function servesLinks(entry3, { walked, byId }) {
+  if (entry3.kind === "principle") {
+    return walked.filter((other) => other.kind !== "principle" && other.serves === entry3.id).map((other) => link2(other.id, entry3.id, "serves", entryNode(other)));
+  }
+  const served = entry3.serves === null ? void 0 : byId.get(entry3.serves);
+  return served?.kind === "principle" ? [link2(entry3.id, served.id, "serves", entryNode(served))] : [];
+}
+function leafLinks(entry3) {
+  const tests = entry3.enforced && entry3.enforcedBy !== null ? pathsOf(entry3.enforcedBy) : [];
+  return [
+    ...tests.map((path) => link2(entry3.id, `test:${path}`, "enforced-by", leaf(`test:${path}`, "test", path))),
+    ...(entry3.governs ?? []).map((pattern) => link2(entry3.id, `path:${pattern}`, "governs", leaf(`path:${pattern}`, "path", null))),
+    ...(entry3.pointsTo ?? []).map((path) => link2(entry3.id, `schema:${path}`, "points-to", leaf(`schema:${path}`, "schema", path)))
+  ];
+}
+function citeLinks(entry3, { walked, byId }) {
+  const cited2 = citedBy(entry3).flatMap((id) => {
+    const other = id === entry3.id ? void 0 : byId.get(id);
+    return other === void 0 ? [] : [link2(entry3.id, other.id, "cites", entryNode(other))];
+  });
+  const citing = walked.filter((other) => other.id !== entry3.id && citedBy(other).includes(entry3.id));
+  return [...cited2, ...citing.map((other) => link2(other.id, entry3.id, "cites", entryNode(other)))];
+}
+function siblingLinks(entry3, { walked, byId }) {
+  if (!servesShared(entry3, byId)) return [];
+  const siblings = walked.filter((other) => other.id !== entry3.id && other.kind !== "principle" && other.serves === entry3.serves);
+  return siblings.map((other) => link2(entry3.id, other.id, "sibling", entryNode(other)));
+}
+function samePrdLinks(entry3, { records }) {
+  const prd2 = prdOf(entry3.source);
+  if (prd2 === null) return [];
+  return records.filter((record2) => record2.prd === prd2).map(({ number: number5, file: file2, title }) => link2(entry3.id, `ADR-${number5}`, "same-prd", leaf(`ADR-${number5}`, "adr", file2, recordLabel(title))));
+}
+function linksOf2(entry3, index) {
+  return [...servesLinks(entry3, index), ...leafLinks(entry3), ...citeLinks(entry3, index), ...siblingLinks(entry3, index), ...samePrdLinks(entry3, index)];
+}
+function edgeKey({ from, to, kind }) {
+  const ends2 = kind === "sibling" ? [from, to].sort() : [from, to];
+  return `${kind} ${ends2.join(" ")}`;
+}
+function step2(walk2, entry3, hop) {
+  const reached = [];
+  for (const { edge, node: node3 } of linksOf2(entry3, walk2.index)) {
+    const key2 = edgeKey(edge);
+    if (!walk2.seen.has(key2)) {
+      walk2.seen.add(key2);
+      walk2.edges.push(edge);
+    }
+    if (walk2.nodes.has(node3.id)) continue;
+    walk2.nodes.set(node3.id, { ...node3, hop });
+    const next2 = walk2.index.byId.get(node3.id);
+    if (next2 !== void 0) reached.push(next2);
+  }
+  return reached;
+}
+function buildNeighbourhood(sources2, { start: start4, depth = 1 }) {
+  const walked = sources2.entries.filter(isWalked);
+  const byId = new Map(walked.map((entry3) => [entry3.id, entry3]));
+  const walk2 = { index: { walked, byId, records: sources2.records }, nodes: /* @__PURE__ */ new Map(), edges: [], seen: /* @__PURE__ */ new Set() };
+  let frontier = [...new Set(start4)].flatMap((id) => {
+    const entry3 = byId.get(id);
+    return entry3 === void 0 ? [] : [entry3];
+  });
+  for (const entry3 of frontier) walk2.nodes.set(entry3.id, { ...entryNode(entry3), hop: 0 });
+  for (let hop = 1; hop <= depth; hop += 1) frontier = frontier.flatMap((entry3) => step2(walk2, entry3, hop));
+  const { nodes, edges } = walk2;
+  return {
+    version: NEIGHBOURHOOD_VERSION,
+    shape: NEIGHBOURHOOD_SHAPE,
+    repo: sources2.repo,
+    start: [...nodes.values()].filter(({ hop }) => hop === 0).map(({ id }) => id),
+    depth,
+    product: sources2.product,
+    nodes: [...nodes.values()],
+    edges
+  };
+}
+function productWithoutCache(askUrl2) {
+  return { state: askUrl2 ? "offline" : "none", key: null, cachedOn: null };
+}
+function productLine({ state, key: key2, cachedOn }) {
+  if (state === "cached") return `product knowledge: cached ${cachedOn ?? "on an unknown day"} (${key2 ?? "no key"}).`;
+  if (state === "offline") return "product knowledge: offline \u2014 no cached copy of the product's Legal and Glossary; only this repository's links are shown.";
+  return "product knowledge: none \u2014 this repository belongs to no product.";
+}
+var LINES_PER_EDGE = 6;
+function directionOf(edge, from) {
+  if (edge.kind === "serves") return edge.from === from ? "up" : "down";
+  return edge.kind === "enforced-by" || edge.kind === "governs" || edge.kind === "points-to" ? "down" : "side";
+}
+function otherEnd(edge, id) {
+  if (edge.from === id) return edge.to;
+  return edge.to === id ? edge.from : null;
+}
+function childrenOf(parent, built, printed3) {
+  const byId = new Map(built.nodes.map((node3) => [node3.id, node3]));
+  const children = [];
+  for (const edge of built.edges) {
+    const node3 = byId.get(otherEnd(edge, parent.id) ?? "");
+    if (node3 === void 0 || node3.hop !== parent.hop + 1 || printed3.has(node3.id)) continue;
+    printed3.add(node3.id);
+    children.push({ edge, node: node3 });
+  }
+  return children;
+}
+function rowsUnder(parent, built, printed3) {
+  const indent2 = "  ".repeat(parent.hop + 1);
+  const children = childrenOf(parent, built, printed3);
+  const rows2 = [];
+  const shown6 = /* @__PURE__ */ new Map();
+  for (const [at2, { edge, node: node3 }] of children.entries()) {
+    const count5 = shown6.get(edge.kind) ?? 0;
+    shown6.set(edge.kind, count5 + 1);
+    const direction = directionOf(edge, parent.id);
+    if (count5 < LINES_PER_EDGE) {
+      rows2.push({ indent: indent2, direction, edge: edge.kind, node: node3 }, ...rowsUnder(node3, built, printed3));
+    } else if (count5 === LINES_PER_EDGE) {
+      const more = children.slice(at2).filter((child) => child.edge.kind === edge.kind).length;
+      rows2.push({ indent: indent2, direction, edge: edge.kind, more });
+    }
+  }
+  return rows2;
+}
+function startLine(node3, entry3) {
+  const parts = [node3.id, node3.kind];
+  if (node3.status === "law") parts.push(`law${entry3?.locked?.by ? `, locked by @${entry3.locked.by}` : ""}`);
+  else if (node3.status !== null) parts.push(node3.status);
+  const pending = entry3?.pending ?? null;
+  if (pending !== null) parts.push(`enforced by: pending #${pending}`);
+  return `${parts.join(" \xB7 ")} \u2014 ${node3.label ?? ""}`;
+}
+function rowLines(rows2) {
+  const width = (cells4) => Math.max(0, ...cells4.map((cell2) => cell2.length));
+  const lead = width(rows2.map(({ indent: indent2, direction }) => indent2 + direction));
+  const edge = width(rows2.map((row) => row.edge));
+  const nodes = rows2.flatMap((row) => "node" in row ? [row.node] : []);
+  const id = width(nodes.map((node3) => node3.id));
+  const kind = width(nodes.map((node3) => node3.kind));
+  return rows2.map((row) => {
+    const head = `${(row.indent + row.direction).padEnd(lead)}  ${row.edge.padEnd(edge)}  `;
+    if (!("node" in row)) return `${head}\u2026 and ${row.more} more (--json lists them all)`;
+    return `${head}${row.node.id.padEnd(id)}  ${row.node.kind.padEnd(kind)}  ${row.node.label ?? ""}`.trimEnd();
+  });
+}
+function neighbourhoodText(built, entries4) {
+  const printed3 = new Set(built.start);
+  const lines2 = [];
+  for (const node3 of built.nodes.filter(({ hop }) => hop === 0)) {
+    lines2.push(startLine(node3, entries4.find(({ id }) => id === node3.id)), ...rowLines(rowsUnder(node3, built, printed3)));
+  }
+  lines2.push(productLine(built.product));
+  return lines2.join("\n");
+}
+
 // kit/bin/commands/kb.ts
 var LAWS_USAGE = "usage: omni kb laws [--paths <file>[,<file>\u2026] [<file>\u2026] | --slice <prd> <slice> | --area <domain>] [--json]";
 var SHOW_USAGE = "usage: omni kb show <form> [--json] [--all]";
 var PACK_USAGE = "usage: omni kb pack get <repo> [--read-at <commit>]";
-var USAGE24 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws [\u2026] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
+var GRAPH_USAGE = "usage: omni kb graph [<id>] [--json]";
+var USAGE24 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id>] [--json] | omni kb laws [\u2026] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -51514,10 +51709,26 @@ function graphText({ domains, entries: entries4, links: links2, loose, unserved 
     ids2("loose entries", loose)
   ].join("\n");
 }
-function graph(positional, flags, { ctx, stdout }) {
-  if (positional.length > 0) throw usageError("usage: omni kb graph [--json]");
+function graph(positional, flags, io) {
+  const { ctx, stdout } = io;
+  if (positional.length > 1) throw usageError(GRAPH_USAGE);
+  const [start4] = positional;
+  if (start4 !== void 0) return neighbourhood(start4, flags, io);
   const built = readGraph({ ctx });
   println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built));
+  return 0;
+}
+function neighbourhood(start4, flags, { ctx, stdout, stderr }) {
+  const { entries: entries4 } = readKnowledge({ ctx });
+  if (!entries4.some(({ id, kind }) => id === start4 && kind !== null)) {
+    println(stderr, `kb graph: no entry "${start4}" in the knowledge folder.`);
+    return 1;
+  }
+  const built = buildNeighbourhood(
+    { entries: entries4, records: readDecisions({ ctx }).records, repo: ctx.config.repo.slug, product: productWithoutCache(ctx.config.ask.url) },
+    { start: [start4] }
+  );
+  println(stdout, flags.json ? JSON.stringify(built, null, 2) : neighbourhoodText(built, entries4));
   return 0;
 }
 function territoryPaths(ctx, exec, territory) {
@@ -52035,7 +52246,7 @@ function report5({ ctx, laws: laws2, judged: judged4, result: result2, undecided
     `omni knowledge judge \u2014 ${laws2.length} unenforced law(s):`,
     ...laws2.map((entry3) => lawLine2(entry3, judged4.get(entry3.id), result2)),
     ...outcomes.flatMap((one) => "opened" in one && one.opened !== null ? [one.opened] : []),
-    ...result2.citations.map(({ id, citedBy, file: file2 }) => `  ${id} is still cited by ${citedBy === null ? file2 : `${citedBy} (${file2})`}`),
+    ...result2.citations.map(({ id, citedBy: citedBy2, file: file2 }) => `  ${id} is still cited by ${citedBy2 === null ? file2 : `${citedBy2} (${file2})`}`),
     ...result2.writes.map(({ path }) => `  wrote ${path}`),
     requireProofLine(result2, undecided),
     result2.writes.length === 0 ? "Nothing changed." : `Review the diff, fix what still cites a removed entry, then open its knowledge PR from a branch shaped like ${ctx.config.branches.knowledge}.`
@@ -52106,16 +52317,16 @@ function startBody({ repo, plan: plan2, takeOver }) {
   const reason2 = oneLine3(plan2.reason ?? "", LINE_MAX);
   return { event: "start", repo, prds: [...plan2.prds], plan: plan2, ...reason2 ? { reason: reason2 } : {}, takeOver };
 }
-function tickBody({ loopId, step: step2, steps, prd: prd2, action, result: result2, link: link2 = null, merged = [], items = [], repos = [], nextWakeAt = null, replan: replan2 = null }) {
+function tickBody({ loopId, step: step3, steps, prd: prd2, action, result: result2, link: link3 = null, merged = [], items = [], repos = [], nextWakeAt = null, replan: replan2 = null }) {
   return {
     event: "tick",
     loopId,
-    step: step2,
+    step: step3,
     steps,
     prd: prd2,
     action,
     result: oneLine3(result2, LINE_MAX),
-    link: link2,
+    link: link3,
     merged: [...merged],
     items: [...items],
     ...repos.length > 0 ? { repos: [...repos] } : {},
@@ -52123,8 +52334,8 @@ function tickBody({ loopId, step: step2, steps, prd: prd2, action, result: resul
     ...replan2 ? { replan: { reason: reasonOf3(replan2), plan: replan2 } } : {}
   };
 }
-function parkBody({ loopId, prd: prd2, who: who2, what, link: link2 = null }) {
-  return { event: "park", loopId, prd: prd2, who: oneLine3(who2, WHO_MAX), what: oneLine3(what, LINE_MAX), link: link2 };
+function parkBody({ loopId, prd: prd2, who: who2, what, link: link3 = null }) {
+  return { event: "park", loopId, prd: prd2, who: oneLine3(who2, WHO_MAX), what: oneLine3(what, LINE_MAX), link: link3 };
 }
 function stopBody(loopId) {
   return { event: "stop", loopId };
@@ -52302,10 +52513,10 @@ function prepareStart(args, { repo }) {
   return { needsLoop: false, takeOver, wake: null, body: (plan2) => startBody({ repo, plan: plan2, takeOver }) };
 }
 function stepArgs(flags) {
-  const step2 = positiveInt("loop push tick", "--step", flags.step);
+  const step3 = positiveInt("loop push tick", "--step", flags.step);
   const given = flags.steps === void 0 ? null : positiveInt("loop push tick", "--steps", flags.steps);
-  if (given !== null && step2 > given) throw usageError(`omni loop push tick: step ${step2} is past the plan's ${given} steps.`);
-  return { step: step2, given };
+  if (given !== null && step3 > given) throw usageError(`omni loop push tick: step ${step3} is past the plan's ${given} steps.`);
+  return { step: step3, given };
 }
 function actionArg(value) {
   const action = value ?? "";
@@ -52315,11 +52526,11 @@ function actionArg(value) {
 function prepareTick(args, { now: now2 }) {
   const { positional, flags } = parseArgs("loop push tick", args, { values: ["step", "steps", "prd", "action", "result", "link", "merged", "items", "repos", "wake-in", "next-wake"] });
   if (positional.length) throw usageError(USAGE26);
-  const { step: step2, given } = stepArgs(flags);
+  const { step: step3, given } = stepArgs(flags);
   const prd2 = prdArg("loop push tick", "--prd", flags.prd);
   const action = actionArg(flags.action);
   const result2 = lineArg("result", flags.result, LINE_MAX);
-  const link2 = linkArg(flags.link);
+  const link3 = linkArg(flags.link);
   const merged = prsArg(flags.merged);
   const items = itemsArg(flags.items);
   const named4 = reposArg(flags.repos);
@@ -52329,10 +52540,10 @@ function prepareTick(args, { now: now2 }) {
     takeOver: false,
     wake: wake2,
     body: (loop2, plan2) => {
-      const steps = Math.max(given ?? plan2?.steps.length ?? step2, step2);
+      const steps = Math.max(given ?? plan2?.steps.length ?? step3, step3);
       const replan2 = plan2 && plan2.version > loop2.planVersion ? plan2 : null;
-      const repos = named4 ?? plan2?.steps.find((candidate) => candidate.step === step2)?.repos ?? [];
-      return tickBody({ loopId: loop2.loopId, step: step2, steps, prd: prd2, action, result: result2, link: link2, merged, items, repos, nextWakeAt: wake2, replan: replan2 });
+      const repos = named4 ?? plan2?.steps.find((candidate) => candidate.step === step3)?.repos ?? [];
+      return tickBody({ loopId: loop2.loopId, step: step3, steps, prd: prd2, action, result: result2, link: link3, merged, items, repos, nextWakeAt: wake2, replan: replan2 });
     }
   };
 }
@@ -52342,8 +52553,8 @@ function preparePark(args) {
   const prd2 = prdArg("loop push park", "--prd", flags.prd);
   const who2 = lineArg("who", flags.who, WHO_MAX);
   const what = lineArg("what", flags.what, LINE_MAX);
-  const link2 = linkArg(flags.link);
-  return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => parkBody({ loopId: loop2.loopId, prd: prd2, who: who2, what, link: link2 }) };
+  const link3 = linkArg(flags.link);
+  return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => parkBody({ loopId: loop2.loopId, prd: prd2, who: who2, what, link: link3 }) };
 }
 function prepareStop(args) {
   if (args.length) throw usageError(USAGE26);
@@ -52794,7 +53005,7 @@ function roadmapGates(read2) {
   const { roadmap: roadmap2, answers: answers2, standings, live, issueLink } = read2;
   const rows2 = rowStates(roadmap2, standings);
   const gates = /* @__PURE__ */ new Map();
-  const withLink = (gate, link2) => link2 ? { ...gate, link: link2 } : gate;
+  const withLink = (gate, link3) => link3 ? { ...gate, link: link3 } : gate;
   for (const row of roadmap2.prds) {
     const question = roadmap2.questions.find((q) => q.kind === "person" && q.blocks.includes(row.id) && !answers2.has(q.id));
     if (question) {
@@ -52834,15 +53045,15 @@ function approvalGate(state) {
   if (state === null || state.approval === null || state.state === "inbox" || state.state === "shipped") return null;
   return { state: state.state, lines: state.approval.lines, link: state.approval.url };
 }
-var act = (prd2, skill, why2, link2) => ({ prd: prd2, verdict: "act", skill, why: why2, ...link2 ? { link: link2 } : {} });
-var wait4 = (prd2, why2, wakeHint, link2) => ({ prd: prd2, verdict: "wait", why: why2, wakeHint, ...link2 ? { link: link2 } : {} });
-var park = (prd2, why2, link2) => ({ prd: prd2, verdict: "park", why: why2, ...link2 ? { link: link2 } : {} });
+var act = (prd2, skill, why2, link3) => ({ prd: prd2, verdict: "act", skill, why: why2, ...link3 ? { link: link3 } : {} });
+var wait4 = (prd2, why2, wakeHint, link3) => ({ prd: prd2, verdict: "wait", why: why2, wakeHint, ...link3 ? { link: link3 } : {} });
+var park = (prd2, why2, link3) => ({ prd: prd2, verdict: "park", why: why2, ...link3 ? { link: link3 } : {} });
 function gated(prd2, gate) {
   if (!gate) return null;
-  const link2 = gate.link ?? void 0;
-  if (gate.state === "prd") return park(prd2, "waits on a reviewer: the PRD waits for approval on its page", link2);
-  if (gate.state === "unreachable") return wait4(prd2, gate.lines.join("; "), WAKE_HINTS.unreadable, link2);
-  return park(prd2, `waits on a person: ${gate.lines.join("; ")}`, link2);
+  const link3 = gate.link ?? void 0;
+  if (gate.state === "prd") return park(prd2, "waits on a reviewer: the PRD waits for approval on its page", link3);
+  if (gate.state === "unreachable") return wait4(prd2, gate.lines.join("; "), WAKE_HINTS.unreadable, link3);
+  return park(prd2, `waits on a person: ${gate.lines.join("; ")}`, link3);
 }
 var ids = (list5) => list5.join(", ");
 var count3 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -52861,10 +53072,10 @@ function readyPr(prd2, feature) {
 }
 function questions(prd2, feature, outbox) {
   if (outbox.questions === 0) return null;
-  const link2 = feature?.url;
-  if (outbox.answered) return act(prd2, "yolo-fix", "answers are posted on the feature PR's outbox questions", link2);
+  const link3 = feature?.url;
+  if (outbox.answered) return act(prd2, "yolo-fix", "answers are posted on the feature PR's outbox questions", link3);
   const who2 = feature?.author ? `@${feature.author}` : "the PRD's owner";
-  return park(prd2, `waits on ${who2}: ${count3(outbox.questions, "outbox question")} to answer`, link2);
+  return park(prd2, `waits on ${who2}: ${count3(outbox.questions, "outbox question")} to answer`, link3);
 }
 function finished(prd2, feature, outbox) {
   const asked = questions(prd2, feature, outbox);
@@ -52878,15 +53089,15 @@ function stalledPark(prd2, stalled, stallDays) {
   const them = stalled.length === 1 ? "take it over or close it" : "take them over or close them";
   return park(prd2, `waits on a person: ${named4.join(", ")} (${stallDays} days or more); ${them}`, stalled[0]?.url);
 }
-function building(prd2, board2, link2) {
-  if (board2.takeable.length > 0) return act(prd2, "wave", `wave ${board2.wave ?? "?"} can take ${ids(board2.takeable)}`, link2);
+function building(prd2, board2, link3) {
+  if (board2.takeable.length > 0) return act(prd2, "wave", `wave ${board2.wave ?? "?"} can take ${ids(board2.takeable)}`, link3);
   const stalled = new Set(board2.stalled.map(({ id }) => id));
   const held2 = board2.inFlight.filter((id) => !stalled.has(id));
-  if (held2.length > 0) return wait4(prd2, `another session holds the claim on ${ids(held2)}`, WAKE_HINTS.claim, link2);
+  if (held2.length > 0) return wait4(prd2, `another session holds the claim on ${ids(held2)}`, WAKE_HINTS.claim, link3);
   if (board2.stalled.length > 0) return stalledPark(prd2, board2.stalled, board2.stallDays);
-  if (board2.stuck.length > 0) return park(prd2, `waits on a person: ${ids(board2.stuck)} stuck`, link2);
-  if (board2.unreadable.length > 0) return wait4(prd2, `cannot read ${ids(board2.unreadable)}`, WAKE_HINTS.unreadable, link2);
-  return wait4(prd2, "nothing can move yet", WAKE_HINTS.claim, link2);
+  if (board2.stuck.length > 0) return park(prd2, `waits on a person: ${ids(board2.stuck)} stuck`, link3);
+  if (board2.unreadable.length > 0) return wait4(prd2, `cannot read ${ids(board2.unreadable)}`, WAKE_HINTS.unreadable, link3);
+  return wait4(prd2, "nothing can move yet", WAKE_HINTS.claim, link3);
 }
 function stopped3(facts) {
   const { prd: prd2, feature } = facts;
@@ -52966,20 +53177,20 @@ function stoppedAcross(facts, prs, planPr) {
   if (prs.some((entry3) => entry3.pr === "unreadable")) return wait4(prd2, "github unreachable", WAKE_HINTS.unreadable);
   return readyAcross(prd2, prs);
 }
-function plannedAcross(prd2, board2, { prs, outbox }, link2) {
+function plannedAcross(prd2, board2, { prs, outbox }, link3) {
   if (board2.total > 0 && board2.merged === board2.total) return finishedAcross(prd2, prs, outbox);
-  return board2.takeable.length > 0 ? act(prd2, "ultra-wave", `wave ${board2.wave ?? "?"} can take ${ids(board2.takeable)}`, link2) : building(prd2, board2, link2);
+  return board2.takeable.length > 0 ? act(prd2, "ultra-wave", `wave ${board2.wave ?? "?"} can take ${ids(board2.takeable)}`, link3) : building(prd2, board2, link3);
 }
 function decideAcross(facts, across) {
   const { prd: prd2, feature, board: board2, outbox } = facts;
   const prs = [{ repo: across.repo, pr: feature }, ...across.targets];
   const planPr = known({ repo: across.repo, pr: feature });
-  const link2 = planPr?.url;
+  const link3 = planPr?.url;
   const stopped4 = stoppedAcross(facts, prs, planPr);
   if (stopped4 !== null) return stopped4;
   if (outbox === "unreadable") return wait4(prd2, "github unreachable", WAKE_HINTS.unreadable);
-  if (board2 === "unreadable") return wait4(prd2, "the board cannot be read", WAKE_HINTS.unreadable, link2);
-  return board2 === null ? act(prd2, "ultra-yolo", "the PRD has no plan yet", link2) : plannedAcross(prd2, board2, { prs, outbox }, link2);
+  if (board2 === "unreadable") return wait4(prd2, "the board cannot be read", WAKE_HINTS.unreadable, link3);
+  return board2 === null ? act(prd2, "ultra-yolo", "the PRD has no plan yet", link3) : plannedAcross(prd2, board2, { prs, outbox }, link3);
 }
 
 // kit/lib/next/follow.ts
@@ -52990,28 +53201,28 @@ function verdictOf(prd2, live) {
   if (!verdict2 || verdict2.verdict === "done" || gate?.kind !== "park") return verdict2;
   return { prd: prd2, verdict: "park", why: gate.why, ...gate.link ? { link: gate.link } : {}, ...verdict2.repos ? { repos: verdict2.repos } : {} };
 }
-function isDone(step2, live) {
-  if (verdictOf(step2.prd, live)?.verdict === "done") return true;
-  if (step2.kind !== "wave") return false;
-  const merged = live.merged.get(step2.prd);
-  return step2.slices.every((id) => merged?.has(id) === true);
+function isDone(step3, live) {
+  if (verdictOf(step3.prd, live)?.verdict === "done") return true;
+  if (step3.kind !== "wave") return false;
+  const merged = live.merged.get(step3.prd);
+  return step3.slices.every((id) => merged?.has(id) === true);
 }
-function blockerOf(step2, plan2, live) {
-  const gate = live.gates?.get(step2.prd);
-  if (gate?.kind === "hold" && plan2.steps.find((candidate) => candidate.prd === step2.prd) === step2) {
-    return { prd: step2.prd, why: gate.why, ...gate.link ? { link: gate.link } : {} };
+function blockerOf(step3, plan2, live) {
+  const gate = live.gates?.get(step3.prd);
+  if (gate?.kind === "hold" && plan2.steps.find((candidate) => candidate.prd === step3.prd) === step3) {
+    return { prd: step3.prd, why: gate.why, ...gate.link ? { link: gate.link } : {} };
   }
-  const unshipped = step2.waitsFor.find((prd2) => !live.shipped.has(prd2));
-  return unshipped === void 0 ? null : { prd: step2.prd, why: `waits on PRD ${unshipped} to ship` };
+  const unshipped = step3.waitsFor.find((prd2) => !live.shipped.has(prd2));
+  return unshipped === void 0 ? null : { prd: step3.prd, why: `waits on PRD ${unshipped} to ship` };
 }
-function holdOf(step2, plan2, done, live) {
-  return blockerOf(step2, plan2, live) ?? orderOf(step2, plan2, done);
+function holdOf(step3, plan2, done, live) {
+  return blockerOf(step3, plan2, live) ?? orderOf(step3, plan2, done);
 }
-function orderOf(step2, plan2, done) {
-  const before2 = step2.after.find((n) => !done.has(n));
+function orderOf(step3, plan2, done) {
+  const before2 = step3.after.find((n) => !done.has(n));
   if (before2 === void 0) return null;
   const other = plan2.steps.find((candidate) => candidate.step === before2);
-  return { prd: step2.prd, why: `waits on PRD ${other?.prd ?? step2.prd}: step ${step2.step} comes after step ${before2}` };
+  return { prd: step3.prd, why: `waits on PRD ${other?.prd ?? step3.prd}: step ${step3.step} comes after step ${before2}` };
 }
 function waitingOf(plan2, live, holds2) {
   return plan2.prds.flatMap((prd2) => {
@@ -53022,49 +53233,49 @@ function waitingOf(plan2, live, holds2) {
     return hold2 ? [{ prd: prd2, verdict: "park", why: hold2.why, ...hold2.link ? { link: hold2.link } : {} }] : [];
   });
 }
-function runnableVerdict(step2, { plan: plan2, live, done, holds: holds2 }) {
-  if (done.has(step2.step)) return null;
-  const verdict2 = verdictOf(step2.prd, live);
+function runnableVerdict(step3, { plan: plan2, live, done, holds: holds2 }) {
+  if (done.has(step3.step)) return null;
+  const verdict2 = verdictOf(step3.prd, live);
   if (!verdict2 || verdict2.verdict === "park") return null;
-  const hold2 = holdOf(step2, plan2, done, live);
+  const hold2 = holdOf(step3, plan2, done, live);
   if (hold2 === null) return verdict2;
-  if (!holds2.has(step2.prd)) holds2.set(step2.prd, hold2);
+  if (!holds2.has(step3.prd)) holds2.set(step3.prd, hold2);
   return null;
 }
-var doneOf = (plan2, live) => new Set(plan2.steps.filter((step2) => isDone(step2, live)).map((step2) => step2.step));
+var doneOf = (plan2, live) => new Set(plan2.steps.filter((step3) => isDone(step3, live)).map((step3) => step3.step));
 function followPlan(plan2, live) {
   const done = doneOf(plan2, live);
   const walk2 = { plan: plan2, live, done, holds: /* @__PURE__ */ new Map() };
   let waiting = null;
-  for (const step2 of plan2.steps) {
-    const verdict2 = runnableVerdict(step2, walk2);
+  for (const step3 of plan2.steps) {
+    const verdict2 = runnableVerdict(step3, walk2);
     if (verdict2 === null) continue;
     if (waiting === null) {
-      if (verdict2.verdict !== "wait") return { state: "step", step: step2, verdict: verdict2 };
-      waiting = { step: step2, verdict: verdict2 };
-    } else if (verdict2.verdict === "act" && waiting.step.beside.includes(step2.step)) {
-      return { state: "step", step: step2, verdict: verdict2 };
+      if (verdict2.verdict !== "wait") return { state: "step", step: step3, verdict: verdict2 };
+      waiting = { step: step3, verdict: verdict2 };
+    } else if (verdict2.verdict === "act" && waiting.step.beside.includes(step3.step)) {
+      return { state: "step", step: step3, verdict: verdict2 };
     }
   }
   if (waiting !== null) return { state: "step", ...waiting };
   return { state: "stop", waiting: waitingOf(plan2, live, walk2.holds) };
 }
-function stepRef({ step: step2, running }) {
-  return `step ${step2.step} (${stepWhat(step2)}, ${running ? "running" : "starting"})`;
+function stepRef({ step: step3, running }) {
+  return `step ${step3.step} (${stepWhat(step3)}, ${running ? "running" : "starting"})`;
 }
-function stepWhat(step2) {
-  const what = step2.kind !== "wave" ? step2.kind : step2.wave === null ? "slices with no wave" : `w${step2.wave}`;
-  return `PRD ${step2.prd} ${what}`;
+function stepWhat(step3) {
+  const what = step3.kind !== "wave" ? step3.kind : step3.wave === null ? "slices with no wave" : `w${step3.wave}`;
+  return `PRD ${step3.prd} ${what}`;
 }
 function runningStep(prd2, running, plan2, done) {
-  const own2 = plan2.steps.filter((step2) => step2.prd === prd2 && !done.has(step2.step));
-  const claimed = running.kind === "claims" ? own2.find((step2) => step2.kind === "wave" && step2.slices.some((id) => running.slices.includes(id))) : void 0;
+  const own2 = plan2.steps.filter((step3) => step3.prd === prd2 && !done.has(step3.step));
+  const claimed = running.kind === "claims" ? own2.find((step3) => step3.kind === "wave" && step3.slices.some((id) => running.slices.includes(id))) : void 0;
   return claimed ?? own2[0];
 }
-function groundOf(step2, live) {
-  const slices = live.slices?.get(step2.prd) ?? [];
-  if (step2.kind === "finish") return slices;
-  return slices.filter((slice) => step2.slices.includes(slice.id));
+function groundOf(step3, live) {
+  const slices = live.slices?.get(step3.prd) ?? [];
+  if (step3.kind === "finish") return slices;
+  return slices.filter((slice) => step3.slices.includes(slice.id));
 }
 function sharedOf(a, b, live, generated2) {
   const shared2 = /* @__PURE__ */ new Set();
@@ -53077,22 +53288,22 @@ function sharedOf(a, b, live, generated2) {
   }
   return [...shared2].sort();
 }
-function keptBack(step2, busy, { plan: plan2, live, done, generated: generated2 }) {
-  const same2 = busy.find((other) => other.step.prd === step2.prd);
-  if (same2) return `PRD ${step2.prd} runs ${stepRef(same2)}`;
-  const blocker = blockerOf(step2, plan2, live);
+function keptBack(step3, busy, { plan: plan2, live, done, generated: generated2 }) {
+  const same2 = busy.find((other) => other.step.prd === step3.prd);
+  if (same2) return `PRD ${step3.prd} runs ${stepRef(same2)}`;
+  const blocker = blockerOf(step3, plan2, live);
   if (blocker !== null) return blocker.why;
   for (const other of busy) {
-    const shared2 = sharedOf(step2, other.step, live, generated2);
+    const shared2 = sharedOf(step3, other.step, live, generated2);
     if (shared2.length > 0) return `${shared2.join(", ")} shared with ${stepRef(other)}`;
   }
-  return orderOf(step2, plan2, done)?.why ?? null;
+  return orderOf(step3, plan2, done)?.why ?? null;
 }
 function runningOf(plan2, live, done) {
   const running = [...live.running ?? /* @__PURE__ */ new Map()].flatMap(([prd2, run2]) => {
     if (verdictOf(prd2, live)?.verdict === "done") return [];
-    const step2 = runningStep(prd2, run2, plan2, done);
-    return step2 ? [{ step: step2, since: run2.since }] : [];
+    const step3 = runningStep(prd2, run2, plan2, done);
+    return step3 ? [{ step: step3, since: run2.since }] : [];
   });
   return running.sort((a, b) => a.step.step - b.step.step);
 }
@@ -53100,26 +53311,26 @@ function candidatesOf(plan2, live, done) {
   const followed = followPlan(plan2, live);
   const first = followed.state === "step" && followed.verdict.verdict === "act" ? [followed.step] : [];
   const seen = /* @__PURE__ */ new Set();
-  const firsts = plan2.steps.filter((step2) => {
-    if (done.has(step2.step) || seen.has(step2.prd)) return false;
-    seen.add(step2.prd);
+  const firsts = plan2.steps.filter((step3) => {
+    if (done.has(step3.step) || seen.has(step3.prd)) return false;
+    seen.add(step3.prd);
     return true;
   });
-  return [...first, ...firsts.filter((step2) => !first.includes(step2))];
+  return [...first, ...firsts.filter((step3) => !first.includes(step3))];
 }
 function followSteps(plan2, live, slots, generated2 = []) {
   const done = doneOf(plan2, live);
   const running = runningOf(plan2, live, done);
-  const busy = running.map(({ step: step2 }) => ({ step: step2, running: true }));
+  const busy = running.map(({ step: step3 }) => ({ step: step3, running: true }));
   const pool = { steps: [], running, held: [] };
-  for (const step2 of candidatesOf(plan2, live, done)) {
-    const verdict2 = verdictOf(step2.prd, live);
-    if (verdict2?.verdict !== "act" || running.some((one) => one.step === step2)) continue;
-    const why2 = keptBack(step2, busy, { plan: plan2, live, done, generated: generated2 });
-    if (why2 !== null) pool.held.push({ step: step2, why: why2 });
+  for (const step3 of candidatesOf(plan2, live, done)) {
+    const verdict2 = verdictOf(step3.prd, live);
+    if (verdict2?.verdict !== "act" || running.some((one) => one.step === step3)) continue;
+    const why2 = keptBack(step3, busy, { plan: plan2, live, done, generated: generated2 });
+    if (why2 !== null) pool.held.push({ step: step3, why: why2 });
     else if (busy.length < slots) {
-      pool.steps.push({ step: step2, verdict: verdict2 });
-      busy.push({ step: step2, running: false });
+      pool.steps.push({ step: step3, verdict: verdict2 });
+      busy.push({ step: step3, running: false });
     }
   }
   return pool;
@@ -53274,7 +53485,7 @@ function planLoop(inputs, { version: version3 = 1, reason: reason2 = null } = {}
   return { version: version3, reason: reason2, prds: ordered.map((input2) => input2.prd).sort(byNumber), steps, seen: [...inputs.prds].sort((a, b) => a.prd - b.prd).map(seenOf) };
 }
 function crossOrders(plan2) {
-  return plan2.steps.flatMap((step2) => step2.why.map((why2) => `step ${step2.step}: ${why2}`));
+  return plan2.steps.flatMap((step3) => step3.why.map((why2) => `step ${step3.step}: ${why2}`));
 }
 
 // kit/lib/next/format.ts
@@ -53283,19 +53494,19 @@ function verdictLine2(verdict2) {
   const wake2 = verdict2.verdict === "wait" ? ` (look again in ${Math.round(verdict2.wakeHint / 60)} min)` : "";
   return `PRD ${verdict2.prd} \u2014 ${head}: ${verdict2.why}${wake2}${verdict2.link ? ` \u2014 ${verdict2.link}` : ""}`;
 }
-function stepWords(step2) {
-  if (step2.kind !== "wave") return `PRD ${step2.prd} ${step2.kind}`;
-  const wave = step2.wave === null ? "slices with no wave" : `wave ${step2.wave}`;
-  return `PRD ${step2.prd} ${wave}: ${step2.slices.join(", ")}`;
+function stepWords(step3) {
+  if (step3.kind !== "wave") return `PRD ${step3.prd} ${step3.kind}`;
+  const wave = step3.wave === null ? "slices with no wave" : `wave ${step3.wave}`;
+  return `PRD ${step3.prd} ${wave}: ${step3.slices.join(", ")}`;
 }
 function formatPlan(plan2) {
   const head = `loop plan v${plan2.version} \xB7 PRDs ${plan2.prds.join(", ")} \xB7 ${plan2.steps.length} step${plan2.steps.length === 1 ? "" : "s"}`;
-  const steps = plan2.steps.map((step2) => {
-    const after = step2.after.length > 0 ? ` \xB7 after ${step2.after.join(", ")}` : "";
-    const waits2 = step2.waitsFor.length > 0 ? ` \xB7 waits for PRD ${step2.waitsFor.join(", ")} to ship` : "";
-    const beside = step2.beside.length > 0 ? ` \xB7 beside ${step2.beside.join(", ")}` : "";
-    const repos = step2.repos ? ` \xB7 in ${step2.repos.join(", ")}` : "";
-    return `  ${step2.step}. ${stepWords(step2)}${after}${waits2}${beside}${repos}`;
+  const steps = plan2.steps.map((step3) => {
+    const after = step3.after.length > 0 ? ` \xB7 after ${step3.after.join(", ")}` : "";
+    const waits2 = step3.waitsFor.length > 0 ? ` \xB7 waits for PRD ${step3.waitsFor.join(", ")} to ship` : "";
+    const beside = step3.beside.length > 0 ? ` \xB7 beside ${step3.beside.join(", ")}` : "";
+    const repos = step3.repos ? ` \xB7 in ${step3.repos.join(", ")}` : "";
+    return `  ${step3.step}. ${stepWords(step3)}${after}${waits2}${beside}${repos}`;
   });
   const orders = crossOrders(plan2);
   return [head, ...steps, ...orders.length > 0 ? ["orders across PRDs:", ...orders.map((order2) => `  ${order2}`)] : []];
@@ -53305,9 +53516,9 @@ function formatFollowed(plan2, followed) {
   return [`step ${followed.step.step}/${plan2.steps.length} \xB7 ${verdictLine2(followed.verdict)}`];
 }
 function formatPool(plan2, pool) {
-  const launch = pool.steps.map(({ step: step2, verdict: verdict2 }) => `step ${step2.step}/${plan2.steps.length} \xB7 ${verdictLine2(verdict2)}`);
-  const running = pool.running.map(({ step: step2, since }) => `  step ${step2.step} (${stepWhat(step2)}) running since ${since}${step2.repos ? ` \xB7 in ${step2.repos.join(", ")}` : ""}`);
-  const held2 = pool.held.map(({ step: step2, why: why2 }) => `  step ${step2.step} (${stepWhat(step2)}) held: ${why2}`);
+  const launch = pool.steps.map(({ step: step3, verdict: verdict2 }) => `step ${step3.step}/${plan2.steps.length} \xB7 ${verdictLine2(verdict2)}`);
+  const running = pool.running.map(({ step: step3, since }) => `  step ${step3.step} (${stepWhat(step3)}) running since ${since}${step3.repos ? ` \xB7 in ${step3.repos.join(", ")}` : ""}`);
+  const held2 = pool.held.map(({ step: step3, why: why2 }) => `  step ${step3.step} (${stepWhat(step3)}) held: ${why2}`);
   return [...launch, ...running, ...held2];
 }
 
@@ -53342,18 +53553,18 @@ function endedChanges(seen, input2) {
 }
 function doneBy(inputs) {
   const byPrd = new Map(inputs.prds.map((input2) => [input2.prd, input2]));
-  return (step2) => {
-    const input2 = byPrd.get(step2.prd);
+  return (step3) => {
+    const input2 = byPrd.get(step3.prd);
     if (!input2 || input2.ended !== null) return true;
-    if (step2.kind !== "wave") return false;
+    if (step3.kind !== "wave") return false;
     const merged = new Set((input2.slices ?? []).filter((slice) => slice.state === "merged").map((slice) => slice.id));
-    return step2.slices.every((id) => merged.has(id));
+    return step3.slices.every((id) => merged.has(id));
   };
 }
 function openBefore(plan2, done) {
-  const open3 = plan2.steps.filter((step2) => !done(step2));
+  const open3 = plan2.steps.filter((step3) => !done(step3));
   const before2 = /* @__PURE__ */ new Map();
-  for (const [index, step2] of open3.entries()) if (!before2.has(step2.prd)) before2.set(step2.prd, index);
+  for (const [index, step3] of open3.entries()) if (!before2.has(step3.prd)) before2.set(step3.prd, index);
   return before2;
 }
 function movedUp(old, fresh, inputs) {
@@ -53800,8 +54011,8 @@ function phase0Link(prd2, ctx) {
   return new RegExp(`${text15.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?!\\d)`);
 }
 async function openPhase0(prd2, reader) {
-  const link2 = phase0Link(prd2, reader.ctx);
-  const found2 = (await listPrs({ label: reader.ctx.config.labels.phase0, state: "open" }, reader)).find((pr) => link2.test(pr.body));
+  const link3 = phase0Link(prd2, reader.ctx);
+  const found2 = (await listPrs({ label: reader.ctx.config.labels.phase0, state: "open" }, reader)).find((pr) => link3.test(pr.body));
   return found2 ? { url: found2.url } : null;
 }
 async function featurePr2(branch, reader) {
@@ -54136,24 +54347,24 @@ async function followKept(prds, kept, { reader, out, json: json3, roadmap: roadm
 }
 function poolHeld(pool, held2) {
   const gated2 = new Set(held2.map((one) => one.prd));
-  return pool.held.filter(({ step: step2 }) => !gated2.has(step2.prd));
+  return pool.held.filter(({ step: step3 }) => !gated2.has(step3.prd));
 }
 function tickLines({ plan: plan2, replanned, followed, pool, held: held2 }) {
   const holds2 = followed.state === "step" ? held2.map((one) => `  ${one.gate === "park" ? "parked" : "held"}: PRD ${one.prd} \u2014 ${one.why}${one.link ? ` \u2014 ${one.link}` : ""}`) : [];
   const shown6 = followed.state === "step" ? followed.step : null;
-  const rest = { ...pool, steps: pool.steps.filter(({ step: step2 }) => step2 !== shown6), held: poolHeld(pool, held2) };
+  const rest = { ...pool, steps: pool.steps.filter(({ step: step3 }) => step3 !== shown6), held: poolHeld(pool, held2) };
   return [...replanned === null ? [] : [replanned], ...formatFollowed(plan2, followed), ...holds2, ...formatPool(plan2, rest)];
 }
-function stepJson(step2, plan2) {
-  return { step: step2.step, of: plan2.steps.length, prd: step2.prd, kind: step2.kind, wave: step2.wave, slices: step2.slices, ...step2.repos ? { repos: step2.repos } : {} };
+function stepJson(step3, plan2) {
+  return { step: step3.step, of: plan2.steps.length, prd: step3.prd, kind: step3.kind, wave: step3.wave, slices: step3.slices, ...step3.repos ? { repos: step3.repos } : {} };
 }
 function tickJson({ plan: plan2, replanned, followed, pool, verdicts, held: held2, roadmap: roadmap2 }) {
-  const step2 = followed.state === "step" ? followed.step : null;
+  const step3 = followed.state === "step" ? followed.step : null;
   return {
     plan: { version: plan2.version, steps: plan2.steps.length },
     replanned,
     stop: followed.state === "stop",
-    step: step2 && stepJson(step2, plan2),
+    step: step3 && stepJson(step3, plan2),
     verdict: followed.state === "step" ? followed.verdict : null,
     waiting: followed.state === "stop" ? followed.waiting : [],
     prds: verdicts,
@@ -54301,11 +54512,11 @@ function loopHeadline(page2) {
   return { kind: "loop", links: page2 ? [{ label: "loop page", href: page2 }] : [] };
 }
 var FIX_PR = "fix PR";
-function linked(answer, linksOf4) {
+function linked(answer, linksOf5) {
   const { headline: headline2, work } = answer;
-  const headlineLinks = headline2?.kind === "roadmap" && headline2.number !== void 0 ? linksOf4("roadmap", headline2.number) : null;
-  const links2 = work ? linksOf4(work.kind, work.number) : [];
-  const prOpen = links2.some((link2) => link2.label.startsWith(`${FIX_PR} `));
+  const headlineLinks = headline2?.kind === "roadmap" && headline2.number !== void 0 ? linksOf5("roadmap", headline2.number) : null;
+  const links2 = work ? linksOf5(work.kind, work.number) : [];
+  const prOpen = links2.some((link3) => link3.label.startsWith(`${FIX_PR} `));
   return {
     ...answer,
     headline: headline2 && headlineLinks ? { ...headline2, links: headlineLinks } : headline2,
@@ -54897,8 +55108,8 @@ function readLinks(root, kind, n, now2) {
     if (!parsed2.success || parsed2.data.error !== void 0 || !parsed2.data.links) return [];
     const age = now2 - Date.parse(parsed2.data.at);
     if (!(age >= 0 && age < SHOWN_UNDER_MS)) return [];
-    return parsed2.data.links.flatMap((link2) => {
-      const read2 = LinkSchema.safeParse(link2);
+    return parsed2.data.links.flatMap((link3) => {
+      const read2 = LinkSchema.safeParse(link3);
       return read2.success ? [read2.data] : [];
     });
   } catch {
@@ -55291,7 +55502,7 @@ import { join as join112 } from "node:path";
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync15 } from "node:child_process";
 var shortName10 = (slug) => slug.slice(slug.indexOf("/") + 1);
-var pathsOf = (file2) => [file2.filename, file2.previous_filename].filter((path) => Boolean(path));
+var pathsOf2 = (file2) => [file2.filename, file2.previous_filename].filter((path) => Boolean(path));
 function compareRow(gh, { slug, readAt, slices }) {
   const branch = gh.repository(slug).default_branch;
   const compared = gh.compare(slug, readAt, branch);
@@ -55300,7 +55511,7 @@ function compareRow(gh, { slug, readAt, slices }) {
   const files = [];
   const hit = /* @__PURE__ */ new Set();
   for (const file2 of compared.files ?? []) {
-    const under = slices.filter((slice) => pathsOf(file2).some((path) => covers(slice.territory, path)));
+    const under = slices.filter((slice) => pathsOf2(file2).some((path) => covers(slice.territory, path)));
     if (under.length === 0) continue;
     files.push(file2.filename);
     for (const slice of under) hit.add(slice.id);
@@ -55419,13 +55630,13 @@ function landingsCommand(rest, { ctx, stdout }) {
     repo: flags.repo ?? null
   });
   if (flags.json) {
-    println(stdout, JSON.stringify(chain.map((step2) => ({ ...step2, mergeAfterLine: mergeAfterLine(step2) })), null, 2));
+    println(stdout, JSON.stringify(chain.map((step3) => ({ ...step3, mergeAfterLine: mergeAfterLine(step3) })), null, 2));
     return 0;
   }
   println(stdout, `omni plan landings \u2014 PRD ${prd2}: ${counted2(chain.length, "landing", "landings")}.`);
-  for (const step2 of chain) {
-    const ids2 = step2.slices.map((slice) => slice.id).join(", ");
-    println(stdout, `  ${step2.landing}/${step2.count} ${step2.name}: ${step2.branch} \u2190 ${step2.base} \u2014 ${ids2}`);
+  for (const step3 of chain) {
+    const ids2 = step3.slices.map((slice) => slice.id).join(", ");
+    println(stdout, `  ${step3.landing}/${step3.count} ${step3.name}: ${step3.branch} \u2190 ${step3.base} \u2014 ${ids2}`);
   }
   return 0;
 }
@@ -55508,7 +55719,7 @@ function failed3(error62) {
   if (error62.status === 404) return null;
   return error62.status === null ? "unreachable" : `refused (${error62.status})`;
 }
-async function productLine(ctx, prd2, { tokens: tokens2, home, fetch = globalThis.fetch, callMs } = {}) {
+async function productLine2(ctx, prd2, { tokens: tokens2, home, fetch = globalThis.fetch, callMs } = {}) {
   const toggle = dossierSwitch(ctx.config);
   if (!toggle.on) return null;
   const repo = ctx.config.repo.slug;
@@ -55655,7 +55866,7 @@ var prd = {
     const state = await prdState(ctx, id, { approval: gateApproval(ctx, { tokens: tokens2, home, fetch, callMs }) });
     const why2 = heldWhy(state);
     if (why2 !== null) println(stderr, `omni prd: ${why2}`);
-    const product2 = await productLine(ctx, id, { tokens: tokens2, home, fetch, callMs });
+    const product2 = await productLine2(ctx, id, { tokens: tokens2, home, fetch, callMs });
     println(stdout, [...prdLines(where, state), ...product2 === null ? [] : [product2]].join("\n"));
     return 0;
   }
@@ -55676,7 +55887,7 @@ var PitchReplyError = class extends Error {
 };
 var isRecord5 = (value) => typeof value === "object" && value !== null;
 var isText7 = (value) => typeof value === "string" && value.length > 0;
-function linksOf2(reply, files) {
+function linksOf3(reply, files) {
   const run2 = isRecord5(reply) ? reply.run : void 0;
   if (!isRecord5(reply) || !isText7(run2)) throw new PitchReplyError("no run in the reply");
   const given = Array.isArray(reply.files) ? reply.files : [];
@@ -55696,7 +55907,7 @@ async function pushPitch({
   read: read2 = readFileSync94
 }) {
   const reply = await client.requestPitchUploads({ repo, prd: prd2, files: run2.files.map(({ name: name3, bytes, type }) => ({ name: name3, bytes, type })) });
-  const { runId, links: links2 } = linksOf2(reply, run2.files);
+  const { runId, links: links2 } = linksOf3(reply, run2.files);
   for (const [index, file2] of run2.files.entries()) await client.upload(at(links2, index, `the upload link of ${file2.name}`), read2(file2.path), file2.type);
   const { audience, look, commit, hook, benefit, kicker, closing } = run2;
   const registered = await client.registerPitch({ repo, prd: prd2, run: runId, audience, look, commit, hook, benefit, kicker, closing });
@@ -56001,7 +56212,7 @@ var StepSchema3 = external_exports.discriminatedUnion("do", [
   external_exports.strictObject({ do: external_exports.literal("wait"), seconds: external_exports.number().min(0.1).max(5) })
 ]);
 var WalkSchema = external_exports.strictObject({ walk: external_exports.literal(1), url: http, steps: external_exports.array(StepSchema3).min(1).max(40) }).refine(({ steps }) => {
-  const named4 = steps.flatMap((step2) => "moment" in step2 ? [step2.moment] : []);
+  const named4 = steps.flatMap((step3) => "moment" in step3 ? [step3.moment] : []);
   return new Set(named4).size === named4.length;
 }, "each moment is named once");
 function parseWalk(value) {
@@ -56140,7 +56351,7 @@ var factsAt = (x, y) => `(() => {
   return { words, submits: control.type === 'submit' && Boolean(control.form) };
 })()`;
 var FactsSchema = external_exports.object({ words: external_exports.string(), submits: external_exports.boolean() });
-var stepName = (index, step2) => `step ${String(index + 1)} (${step2.do}${"target" in step2 ? ` ${step2.target}` : ""})`;
+var stepName = (index, step3) => `step ${String(index + 1)} (${step3.do}${"target" in step3 ? ` ${step3.target}` : ""})`;
 async function guardClick(page2, { x, y }, label2) {
   const why2 = changingClick(FactsSchema.parse(await page2.evaluate(factsAt(x, y))));
   if (why2 !== null) throw new FilmRefused([`${label2}: refused: the walk-through only looks, and this click would change production (${why2})`]);
@@ -56157,30 +56368,30 @@ async function reach3(page2, target3, label2) {
   if (rect === null) throw new FilmRefused([`${label2}: ${target3} is not on the page`]);
   return rect;
 }
-async function actOn(filming, step2, label2) {
+async function actOn(filming, step3, label2) {
   const { page: page2 } = filming;
-  const rect = await reach3(page2, step2.target, label2);
+  const rect = await reach3(page2, step3.target, label2);
   const centre = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-  if (step2.do === "click") await guardClick(page2, centre, label2);
+  if (step3.do === "click") await guardClick(page2, centre, label2);
   await page2.mouse.move(centre.x, centre.y, { steps: 25 });
   const at2 = Math.round((filming.now() - filming.started) / 10) / 100;
-  if (step2.do === "click" || step2.do === "type") {
+  if (step3.do === "click" || step3.do === "type") {
     await page2.mouse.down();
     await page2.mouse.up();
   }
-  if (step2.do === "type") await page2.keyboard.type(step2.text, { delay: 80 });
+  if (step3.do === "type") await page2.keyboard.type(step3.text, { delay: 80 });
   const box2 = boxOf(rect, FILM_SIZE);
-  filming.moments.push({ name: step2.moment, do: step2.do, at: at2, box: box2, ...cameraOn(box2) });
-  await page2.waitForTimeout((step2.pause ?? PAUSE_S) * 1e3);
+  filming.moments.push({ name: step3.moment, do: step3.do, at: at2, box: box2, ...cameraOn(box2) });
+  await page2.waitForTimeout((step3.pause ?? PAUSE_S) * 1e3);
 }
-async function play(filming, step2, index) {
-  const label2 = stepName(index, step2);
-  if (step2.do === "wait") return filming.page.waitForTimeout(step2.seconds * 1e3);
-  if (step2.do === "goto") {
-    await filming.page.goto(step2.url);
-    return filming.page.waitForTimeout((step2.pause ?? PAUSE_S) * 1e3);
+async function play(filming, step3, index) {
+  const label2 = stepName(index, step3);
+  if (step3.do === "wait") return filming.page.waitForTimeout(step3.seconds * 1e3);
+  if (step3.do === "goto") {
+    await filming.page.goto(step3.url);
+    return filming.page.waitForTimeout((step3.pause ?? PAUSE_S) * 1e3);
   }
-  return actOn(filming, step2, label2);
+  return actOn(filming, step3, label2);
 }
 async function filmWalk(dir, walk2, { launch, now: now2 }) {
   const storage = join115(dir, STORAGE_STATE);
@@ -56197,7 +56408,7 @@ async function filmWalk(dir, walk2, { launch, now: now2 }) {
     try {
       await page2.goto(walk2.url);
       await page2.waitForTimeout(PAUSE_S * 1e3);
-      for (const [index, step2] of walk2.steps.entries()) await play(filming, step2, index);
+      for (const [index, step3] of walk2.steps.entries()) await play(filming, step3, index);
       await page2.waitForTimeout(PAUSE_S * 1e3);
     } finally {
       await context.close();
@@ -57578,7 +57789,7 @@ var ProofReplyError = class extends Error {
   }
 };
 var isText8 = (value) => typeof value === "string" && value.length > 0;
-function linksOf3(reply, files) {
+function linksOf4(reply, files) {
   const run2 = isRecord8(reply) ? reply.run : void 0;
   if (!isRecord8(reply) || !isText8(run2)) throw new ProofReplyError("no run in the reply");
   const given = Array.isArray(reply.files) ? reply.files : [];
@@ -57603,7 +57814,7 @@ async function pushProof({
   let runId;
   if (run2.files.length) {
     const reply = await client.requestProofUploads({ repo, prd: prd2, ...kindOf5, files: run2.files.map(({ name: name3, bytes, type }) => ({ name: name3, bytes, type })) });
-    const given = linksOf3(reply, run2.files);
+    const given = linksOf4(reply, run2.files);
     for (const [index, file2] of run2.files.entries()) await client.upload(at(given.links, index, `the upload link of ${file2.name}`), read2(file2.path), file2.type);
     runId = given.runId;
   } else {
@@ -58371,14 +58582,14 @@ function countLine(results) {
 function byCategory(results) {
   return PREREQUISITE_CATEGORIES.map((category) => ({ category, rows: results.filter((result2) => result2.prerequisite.category === category) })).filter(({ rows: rows2 }) => rows2.length > 0);
 }
-function rowLines({ prerequisite, state, detail }) {
+function rowLines2({ prerequisite, state, detail }) {
   const why2 = state === "waits" && detail ? ` (${detail})` : "";
   const head = `  ${prerequisite.id} ${STATE_WORDS[state]} \u2014 ${prerequisite.need}${why2}`;
   const command2 = prerequisite.card?.command;
   return state === "waits" && command2 ? [head, `     run: ${command2}`] : [head];
 }
 function prereqsLines(n, machine, results) {
-  const groups = byCategory(results).flatMap(({ category, rows: rows2 }) => [category, ...rows2.flatMap(rowLines)]);
+  const groups = byCategory(results).flatMap(({ category, rows: rows2 }) => [category, ...rows2.flatMap(rowLines2)]);
   return [`roadmap ${n} \u2014 prerequisites on ${machine}: ${countLine(results)}`, ...groups];
 }
 function prereqsJson(result2, results) {
@@ -58882,10 +59093,10 @@ function failure5(output2) {
 }
 function links(value, seen) {
   const found2 = [];
-  for (const link2 of value.match(PULL_REQUEST) ?? []) {
-    if (seen.has(link2)) continue;
-    seen.add(link2);
-    found2.push(`PR: ${link2}`);
+  for (const link3 of value.match(PULL_REQUEST) ?? []) {
+    if (seen.has(link3)) continue;
+    seen.add(link3);
+    found2.push(`PR: ${link3}`);
   }
   return found2;
 }
@@ -60317,9 +60528,9 @@ function capped3(severity, level) {
   return SEVERITIES.indexOf(severity) > SEVERITIES.indexOf(level) ? level : severity;
 }
 function setupSteps({ setup, defaultBranch: defaultBranch2 }, mainPulled) {
-  const plugin = (step2, label2, { done, fix }) => {
-    if (!setup.claude) return { step: step2, done: true, text: `${label2}: not Claude: skipped`, fix: null };
-    return done ? { step: step2, done, text: `${label2} installed`, fix: null } : { step: step2, done, text: `Install the ${label2}`, fix };
+  const plugin = (step3, label2, { done, fix }) => {
+    if (!setup.claude) return { step: step3, done: true, text: `${label2}: not Claude: skipped`, fix: null };
+    return done ? { step: step3, done, text: `${label2} installed`, fix: null } : { step: step3, done, text: `Install the ${label2}`, fix };
   };
   return [
     plugin("plugin", "Omni plugin", setup.plugin),
@@ -60330,7 +60541,7 @@ function setupSteps({ setup, defaultBranch: defaultBranch2 }, mainPulled) {
 }
 function fixLine(raw, defaultBranch2, headline2) {
   const open3 = raw.filter(({ finding }) => finding.severity !== "green");
-  const does = DOES.filter((step2) => open3.some((entry3) => entry3.does === step2 && entry3.finding.fix === SYNC_FIX));
+  const does = DOES.filter((step3) => open3.some((entry3) => entry3.does === step3 && entry3.finding.fix === SYNC_FIX));
   const words4 = {
     switch: `switches to ${defaultBranch2}`,
     "fast-forward": `fast-forwards ${defaultBranch2}`,
@@ -60338,7 +60549,7 @@ function fixLine(raw, defaultBranch2, headline2) {
     kit: "opens the kit's update PR",
     page: "refreshes the page's copy"
   };
-  if (does.length > 0) return `${SYNC_FIX}  (${does.map((step2) => words4[step2]).join(", ")})`;
+  if (does.length > 0) return `${SYNC_FIX}  (${does.map((step3) => words4[step3]).join(", ")})`;
   return headline2?.fix ?? open3.find(({ finding }) => finding.fix !== null)?.finding.fix ?? null;
 }
 function leveled(check4, found2, level) {
@@ -60346,7 +60557,7 @@ function leveled(check4, found2, level) {
   const shown6 = found2.length > 0 ? found2 : [green(IN_SYNC)];
   return shown6.map(({ severity, text: text15, fix, does }) => ({ finding: { check: check4, severity: capped3(severity, level), text: text15, fix }, does }));
 }
-function statusOf2(findings2) {
+function statusOf3(findings2) {
   const worst = Math.max(...findings2.map(({ severity }) => SEVERITIES.indexOf(severity)), 0);
   return SEVERITIES[worst] ?? "green";
 }
@@ -60358,12 +60569,12 @@ function syncStatus(facts, sync3) {
   const findings2 = kept.map(({ finding }) => finding);
   const mainPulled = !found2.some(({ check: check4, raw }) => check4 === "main" && raw?.some(({ severity }) => severity === "red"));
   const steps = setupSteps(facts, mainPulled);
-  const done = steps.filter((step2) => step2.done).length;
+  const done = steps.filter((step3) => step3.done).length;
   if (!setupDone && done < steps.length) {
-    const next2 = steps.find((step2) => !step2.done);
+    const next2 = steps.find((step3) => !step3.done);
     return { checkedAt, status: "blue", headline: next2?.text ?? null, setupDoneAt: null, setup: { done, steps }, findings: findings2, fix: null };
   }
-  const status5 = statusOf2(findings2);
+  const status5 = statusOf3(findings2);
   const record2 = { checkedAt, status: status5, setupDoneAt: facts.setupDoneAt ?? checkedAt, setup: null, findings: findings2 };
   if (status5 === "green") return { ...record2, headline: null, fix: null };
   const headline2 = headlineOf(findings2, sync3.order, status5);
@@ -61648,7 +61859,7 @@ function stepOf(check4, text15) {
 }
 function openFixes(record2) {
   const open3 = new Set(record2.findings.filter(({ severity, fix }) => severity !== "green" && fix === SYNC_FIX2).map(({ check: check4, text: text15 }) => stepOf(check4, text15)));
-  return STEPS.filter((step2) => open3.has(step2));
+  return STEPS.filter((step3) => open3.has(step3));
 }
 var WORDS2 = {
   plugins: { done: "\u2713 updated the plugins: a new session loads them", left: "\xB7 the plugins not updated:" },
@@ -61657,10 +61868,10 @@ var WORDS2 = {
 };
 var KIT_REPO = "\xB7 the kit not updated: this is the kit's own repository, where it is built, not installed";
 function fixOthers({ record: record2, kitRepo, actions }) {
-  return openFixes(record2).flatMap((step2) => {
-    if (step2 === "kit" && kitRepo) return [KIT_REPO];
-    const { done, lines: lines2 } = actions[step2]();
-    return [done ? WORDS2[step2].done : WORDS2[step2].left, ...lines2.map((line2) => `    ${line2}`)];
+  return openFixes(record2).flatMap((step3) => {
+    if (step3 === "kit" && kitRepo) return [KIT_REPO];
+    const { done, lines: lines2 } = actions[step3]();
+    return [done ? WORDS2[step3].done : WORDS2[step3].left, ...lines2.map((line2) => `    ${line2}`)];
   });
 }
 var QUIET15 = (cwd, timeout) => ({ cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...timeout ? { timeout } : {} });

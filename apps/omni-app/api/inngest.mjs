@@ -7760,14 +7760,20 @@ import { existsSync as existsSync24, readdirSync as readdirSync10, readFileSync 
 import { join as join31 } from "node:path";
 var RECORD = /^(\d{4})-.+\.md$/;
 var TITLE2 = /^#\s+(.+?)\s*$/m;
+var PRD_HEADER = /\*\*PRD:\*\*\s*#(\d+)\b/;
+function headerPrd(text15) {
+  const [header = ""] = text15.split(/^##\s/m);
+  const prd = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(header)?.[1]));
+  return prd.success ? prd.data : null;
+}
 function readDecisions({ ctx }) {
   const dir = ctx.layout.adrDir.replace(/\/+$/, "");
   const absolute = join31(ctx.root, dir);
   const names = existsSync24(absolute) ? readdirSync10(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
   const records = names.map((name) => {
     const file = `${dir}/${name}`;
-    const title = readFileSync21(join31(ctx.root, file), "utf8").match(TITLE2)?.[1] ?? null;
-    return { number: name.match(RECORD)?.[1] ?? "", file, title };
+    const text15 = readFileSync21(join31(ctx.root, file), "utf8");
+    return { number: name.match(RECORD)?.[1] ?? "", file, title: text15.match(TITLE2)?.[1] ?? null, prd: headerPrd(text15) };
   });
   const byNumber = /* @__PURE__ */ new Map();
   for (const record of records) byNumber.set(record.number, [...byNumber.get(record.number) ?? [], record.file]);
