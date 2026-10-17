@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-17",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "What shipped is what the before/after showed, to the pixel on both grids, and the rivals' marks are pinned by a unit test: no regression slipped in with the look.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Shipped as promised, and still two dark squares under the player's wheels: polish on the kart, not a tool I would use.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "Approved on the page and shipped the same day in one slice; the release note says in two lines what a player now sees.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One flag on a mark and the floor pass split in two, no camera change, no new cap: the third effect of that root closed the same way as the sparks and the trail.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A player now sees their own drift mark the road, and one revert takes it back: small and felt.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✗"
     }
   ]
 }
