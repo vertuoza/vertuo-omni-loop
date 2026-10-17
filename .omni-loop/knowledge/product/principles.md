@@ -791,3 +791,21 @@ Why: Terminal tokens are personal credentials, unlike shared business links, so 
 Source: .omni-loop/delivery/shipped/1628-cloud-sign-in/outbox/settled.md, entry s1-03-who-sees-tokens, PRD #1628
 Merged: @pierrederval, 2026-10-12, PR #1629
 Proposed: harvest 2026-10-12
+
+## P-PRODUCT-98
+
+A stand-in always covers for one named person, so it is never unclear whose place it takes.
+
+Why: A team has many members, so a stand-in for a team would leave unclear whom it replaces and when it should act.
+Source: .omni-loop/delivery/shipped/1794-owner-escalation/outbox/settled.md, entry s1-01-delegate-entry-shape, PRD #1794
+Merged: @pierrederval, 2026-10-17, PR #1983
+Proposed: harvest 2026-10-17
+
+## P-PRODUCT-99
+
+The waiting list never claims a person was asked about a question before they were actually told.
+
+Why: People rely on the list to know who has really been reached; an overstated escalation hides that nobody was told.
+Source: .omni-loop/delivery/shipped/1794-owner-escalation/outbox/settled.md, entry s3-01-record-keeps-the-sweeps-step, PRD #1794
+Merged: @pierrederval, 2026-10-17, PR #1983
+Proposed: harvest 2026-10-17
