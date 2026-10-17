@@ -137,6 +137,17 @@ export function driveOf(keys: Readonly<Record<DriveAction, string>>, key: string
   return DRIVE_ACTIONS.find((a) => keys[a] === k) ?? null;
 }
 
+/**
+ * Whether a key is one the browser reads as Back or Forward: ⌘← ⌘→ ⌘[ ⌘] (macOS), ALT+← ALT+→ (Windows, Linux), with no
+ * other modifier. A race holds them (bug 2149): ⌘ and ALT sit beside SPACE, the HOP, and a thumb that slides onto one
+ * while the player steers would leave the arcade for the page before it.
+ */
+export function browserBack(e: { key: string; metaKey: boolean; altKey: boolean; ctrlKey: boolean; shiftKey: boolean }): boolean {
+  if (e.ctrlKey || e.shiftKey || e.metaKey === e.altKey) return false;
+  const arrow = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+  return arrow || (e.metaKey && (e.key === '[' || e.key === ']'));
+}
+
 /** Whether SHIFT stands for SELECT in OMNI KART: only when none of the player's keys is SHIFT (PRD 1963), so ITEM on SHIFT never leaves a paused race. TAB is SELECT always. */
 export const shiftSelects = (keys: Readonly<Record<DriveAction, string>>): boolean => !DRIVE_ACTIONS.some((a) => keys[a] === 'Shift');
 
