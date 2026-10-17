@@ -455,7 +455,11 @@ function floorOf(road: Uint8Array, w: number, discs: readonly IceDisc[]): Uint8A
   const floor = new Uint8Array(road.length);
   for (let i = 0; i < floor.length; i++) {
     const x = (i % w) + 0.5, y = Math.floor(i / w) + 0.5;
-    const frozen = discs.some((d) => Math.hypot(x - (d.at[0] + 0.5) * TILE, y - (d.at[1] + 0.5) * TILE) < d.radius * TILE);
+    // A disc is measured only when the pixel is within its radius along both axes; beyond that it cannot be inside.
+    const frozen = discs.some((d) => {
+      const dx = x - (d.at[0] + 0.5) * TILE, dy = y - (d.at[1] + 0.5) * TILE, r = d.radius * TILE;
+      return Math.abs(dx) <= r && Math.abs(dy) <= r && Math.hypot(dx, dy) < r;
+    });
     floor[i] = frozen ? FLOOR.ice : road[i] === 1 ? FLOOR.road : FLOOR.powder;
   }
   return floor;

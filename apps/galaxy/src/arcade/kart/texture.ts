@@ -272,10 +272,9 @@ function roadPixelAt(p: Paint, x: number, y: number, grain: number): number {
 /** Whether a pixel within `reach` of x, y along an axis or a diagonal is road. */
 function roadWithin({ size, road }: Pick<Track, 'size' | 'road'>, x: number, y: number, reach: number): boolean {
   const d = Math.max(1, Math.round(reach * 0.7));
-  return ([[reach, 0], [-reach, 0], [0, reach], [0, -reach], [d, d], [-d, d], [d, -d], [-d, -d]] as const).some(([dx, dy]) => {
-    const px = x + dx, py = y + dy;
-    return px >= 0 && py >= 0 && px < size.w && py < size.h && road[py * size.w + px] === 1;
-  });
+  const roadAt = (px: number, py: number): boolean => px >= 0 && py >= 0 && px < size.w && py < size.h && road[py * size.w + px] === 1;
+  return roadAt(x + reach, y) || roadAt(x - reach, y) || roadAt(x, y + reach) || roadAt(x, y - reach)
+    || roadAt(x + d, y + d) || roadAt(x - d, y + d) || roadAt(x + d, y - d) || roadAt(x - d, y - d);
 }
 
 /** An ice pixel: the lake's blue, a few deeper flecks and thin pale cracks. */

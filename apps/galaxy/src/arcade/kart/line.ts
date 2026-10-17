@@ -165,8 +165,88 @@ function localOf(seg: Segment, x: number, y: number): number {
   return d - sweep < 2 * Math.PI - d ? seg.len : 0;
 }
 
+/** The box of each straight and the circle of each arc, made once per line: a point can be no nearer a segment than its box, or its circle, allows. */
+const reaches = new WeakMap<Line, Float64Array>();
+function reachOf(line: Line): Float64Array {
+  const known = reaches.get(line);
+  if (known) return known;
+  const made = new Float64Array(line.segments.length * 4);
+  line.segments.forEach((s, i) => {
+    if (s.kind === 'arc') made.set([s.cx, s.cy, s.r, NaN], i * 4); // NaN where a box keeps its far corner: this one is a circle
+    else made.set([Math.min(s.x, s.x + s.tx * s.len), Math.min(s.y, s.y + s.ty * s.len), Math.max(s.x, s.x + s.tx * s.len), Math.max(s.y, s.y + s.ty * s.len)], i * 4);
+  });
+  reaches.set(line, made);
+  return made;
+}
+
+/** How far (x, y) is from a segment at the least, from its box or its circle: never more than the real distance, up to rounding. */
+function nearestPossible(reach: Float64Array, i: number, x: number, y: number): number {
+  const a = reach[i * 4] ?? 0, b = reach[i * 4 + 1] ?? 0, c = reach[i * 4 + 2] ?? 0, d = reach[i * 4 + 3] ?? 0;
+  if (Number.isNaN(d)) return Math.abs(Math.sqrt((x - a) * (x - a) + (y - b) * (y - b)) - c);
+  const dx = Math.max(a - x, 0, x - c), dy = Math.max(b - y, 0, y - d);
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/** The slack, in tiles, that keeps rounding from ever skipping the segment a point is nearest to. */
+const SLACK = 1e-6;
+
+/** The side of the squares, in tiles, the segments that can be nearest are listed for. */
+const CELL = 1;
+
+/** For each square of a line's map, the indexes of the segments a point of it can be nearest to, made when a point of the square is first asked about. */
+const cells = new WeakMap<Line, Map<number, Int32Array>>();
+
+/** The indexes, in order, of the segments any point of the square (cx, cy) can be nearest to: those whose least distance from the square's middle is within the nearest one's plus the square's diagonal. */
+function nearOf(line: Line, cx: number, cy: number): Int32Array {
+  const reach = reachOf(line);
+  const x = (cx + 0.5) * CELL, y = (cy + 0.5) * CELL;
+  const leasts = line.segments.map((_, i) => nearestPossible(reach, i, x, y));
+  let seed = 0;
+  leasts.forEach((least, i) => { if (least < (leasts[seed] ?? Infinity)) seed = i; });
+  const first = nth(line.segments, seed);
+  const at = sampleOf(first, localOf(first, x, y));
+  const within = Math.hypot(x - at.x, y - at.y) + Math.SQRT2 * CELL + SLACK;
+  return Int32Array.from(leasts.flatMap((least, i) => (least <= within ? [i] : [])));
+}
+
+/** The segments a point at (x, y) can be nearest to: the list of its square, or null (every segment) off the grid. */
+function nearTo(line: Line, x: number, y: number): Int32Array | null {
+  const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL);
+  if (!(Math.abs(cx) < 2048 && Math.abs(cy) < 2048)) return null;
+  const known = cells.get(line) ?? new Map<number, Int32Array>();
+  cells.set(line, known);
+  const key = (cx + 2048) * 4096 + cy + 2048;
+  const made = known.get(key) ?? nearOf(line, cx, cy);
+  known.set(key, made);
+  return made;
+}
+
 /** Where (x, y) sits against the centre line: its nearest point, the distance along, across (positive on the clockwise side: to the right of travel on a y-down map) and the tangent. */
 export function locate(line: Line, x: number, y: number, hint?: number): Located {
+  if (hint !== undefined) return nearestWithin(line, x, y, hint) ?? locate(line, x, y);
+  if (lastAsked.line === line && lastAsked.x === x && lastAsked.y === y && lastAsked.at) return lastAsked.at;
+  const near = nearTo(line, x, y);
+  const at = near ? nearestListed(line, near, x, y) : nearestWithin(line, x, y);
+  if (at === null) throw new Error('a line has segments');
+  lastAsked.line = line; lastAsked.x = x; lastAsked.y = y; lastAsked.at = at;
+  return at;
+}
+
+/** The last point asked about without a hint: the baking asks the same pixel for its road, its gap and its roof one after the other. */
+const lastAsked: { line: Line | null; x: number; y: number; at: Located | null } = { line: null, x: NaN, y: NaN, at: null };
+
+/** The point of `seg` at `local`, as seen from (x, y), when it is nearer than `best`; `best` otherwise, the earlier segment winning a tie. */
+function nearer(best: Located | null, seg: Segment, local: number, x: number, y: number): Located | null {
+  const p = sampleOf(seg, local);
+  const dist = Math.hypot(x - p.x, y - p.y);
+  if (best !== null && !(dist < best.dist)) return best;
+  const dx = x - p.x;
+  const dy = y - p.y;
+  return { along: p.along, across: p.tx * dy - p.ty * dx, dist, x: p.x, y: p.y, tx: p.tx, ty: p.ty };
+}
+
+/** The nearest of every segment, in order: with a hint, each clamped to the stretch the hint reaches, and those it does not reach left out. */
+function nearestWithin(line: Line, x: number, y: number, hint?: number): Located | null {
   let best: Located | null = null;
   for (const seg of line.segments) {
     let local = localOf(seg, x, y);
@@ -175,17 +255,19 @@ export function locate(line: Line, x: number, y: number, hint?: number): Located
       if (reach === null) continue;
       local = Math.min(Math.max(local, reach.lo), reach.hi);
     }
-    const p = sampleOf(seg, local);
-    const dist = Math.hypot(x - p.x, y - p.y);
-    if (best === null || dist < best.dist) {
-      const dx = x - p.x;
-      const dy = y - p.y;
-      best = { along: p.along, across: p.tx * dy - p.ty * dx, dist, x: p.x, y: p.y, tx: p.tx, ty: p.ty };
-    }
+    best = nearer(best, seg, local, x, y);
   }
-  if (best === null) {
-    if (hint !== undefined) return locate(line, x, y);
-    throw new Error('a line has segments');
+  return best;
+}
+
+/** The nearest of the segments a point's square lists, in order, skipping one that cannot come nearer than the nearest so far. */
+function nearestListed(line: Line, near: Int32Array, x: number, y: number): Located | null {
+  const reach = reachOf(line);
+  let best: Located | null = null;
+  for (const at of near) {
+    if (best !== null && nearestPossible(reach, at, x, y) > best.dist + SLACK) continue;
+    const seg = nth(line.segments, at);
+    best = nearer(best, seg, localOf(seg, x, y), x, y);
   }
   return best;
 }
