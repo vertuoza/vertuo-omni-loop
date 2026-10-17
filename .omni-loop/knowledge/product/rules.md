@@ -1284,3 +1284,27 @@ Enforced by: game/economy.test.ts
 Governs: ^game/(rulebook|economy)\.
 Stated: 2026-10-15
 Decided: @pierrederval, 2026-10-15
+
+## BR-PRODUCT-117
+
+In the laws' owner settings, an entry with a stand-in must name one person's login as owner and both names are required; a team may only be a plain owner with no stand-in. The settings are read back exactly as written.
+
+Serves: P-PRODUCT-98
+Source: .omni-loop/delivery/shipped/1794-owner-escalation/outbox/settled.md, entry s1-01-delegate-entry-shape, PRD #1794
+Enforced by: kit/lib/config.test.ts, kit/lib/schema/config.test.ts
+Stated: 2026-10-17
+Decided: nobody — adopted when raised (medium), 2026-10-15
+Merged: @pierrederval, 2026-10-17, PR #1983
+Proposed: harvest 2026-10-17
+
+## BR-PRODUCT-118
+
+When the outbox check rewrites a pull request's waiting list, it only adds new waiting items at step 0 with nobody asked and drops answered ones. Existing items keep their step, people asked and next due time until the hourly reminder moves them.
+
+Serves: P-PRODUCT-99
+Source: .omni-loop/delivery/shipped/1794-owner-escalation/outbox/settled.md, entry s3-01-record-keeps-the-sweeps-step, PRD #1794
+Enforced by: apps/omni-app/src/escalation/escalation.test.ts, kit/lib/escalation/escalation.test.ts
+Stated: 2026-10-17
+Decided: nobody — adopted when raised (medium), 2026-10-15
+Merged: @pierrederval, 2026-10-17, PR #1983
+Proposed: harvest 2026-10-17
