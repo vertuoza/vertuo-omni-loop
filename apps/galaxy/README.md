@@ -1175,10 +1175,12 @@ off, no row exists, and every player sees NO XP YET.
   endless mode a darker one of faint chevrons), every block a soft trail fading about R above it,
   both in the theme's colours, the backdrop still and no trail under reduced motion; and as each wave
   begins, a short line of the game's own (`duet/lines.ts`, one for every chapter wave and a few for
-  endless mode) shows in the middle of the playfield for 2 seconds and fades. A wave passed scores 10, 20 in endless mode;
-  nothing else scores. Three lives: a hit restarts the chapter from its first wave with the score it
-  began with (in endless mode, the wave hit with the score it began with), on a ready screen that
-  waits for START, so no death ever earns a point. START pauses, and so does a blurred window, a
+  endless mode) shows in the middle of the playfield for 2 seconds and fades. Each obstacle passed scores 1, 2 in
+  endless mode, as soon as it is entirely below the circle (PRD 2159): a gate is one obstacle, its
+  two bars together, and finishing a wave scores nothing more. Three lives: a hit restarts the
+  chapter from its first wave with the score it began with (in endless mode, the wave hit with the
+  score it began with), giving back every obstacle passed since, on a ready screen that waits for
+  START, so no death ever earns a point. START pauses, and so does a blurred window, a
   hidden tab or OPEN THE APP?; only START resumes. The game ends at the last life lost, on SELECT on
   the pause, or on B on a ready screen once play has started (B on the first one leaves with no
   score), and every way shows the game over: the score, the waves passed and where the run got to.
