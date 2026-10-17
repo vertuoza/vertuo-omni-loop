@@ -850,3 +850,105 @@ describe('a law is a locked entry (PRD 1726)', () => {
     expect(gradeWith(root, { max: 1, owners: [] }, { copyOf: 'acme/back-end' }).violations).toEqual([]);
   });
 });
+
+describe('a domain contract (PRD 1796)', () => {
+  const ADVISOR_CONTRACTS = 'docs/knowledge/domains/advisor/contracts.md';
+  const SCHEMA = 'src/advisor/advice.schema.ts';
+  const STATUS = 'src/advisor/advice-status.ts';
+  function gradeWith(root: string, extra: { copyOf?: string } = {}) {
+    const ctx = { ...flatCtx(root, { laws: { source: 'knowledge', owners: ['pierrederval'] } }), ...extra } as Parameters<typeof gradeKnowledge>[0]['ctx'];
+    return gradeKnowledge({ ctx, files: [], glossaryText: GLOSSARY_TEXT });
+  }
+  function contract(id: string, { pointsTo = `${SCHEMA}, ${STATUS}`, drop = [], extra = [] }: { pointsTo?: string | null; drop?: string[]; extra?: string[] } = {}): string {
+    const lines = [
+      ...(pointsTo === null ? [] : [`Points to: ${pointsTo}`]),
+      'Source: PRD #1796',
+      'Stated: 2026-10-15',
+      ...extra,
+    ].filter((line) => !drop.some((field) => line.startsWith(`${field}:`)));
+    return [`## ${id}`, '', 'An advice moves Draft → Sent → Read.', '', ...lines, ''].join('\n');
+  }
+  const contractTree = (contracts: string, files: Record<string, string> = {}) =>
+    tree({ [ADVISOR_CONTRACTS]: contracts, [SCHEMA]: '// a schema\n', [STATUS]: '// a type\n', ...files });
+  const detailsOf = (root: string, extra: { copyOf?: string } = {}) => gradeWith(root, extra).violations.map(parseLine);
+
+  it('accepts a contract whose Points to: names files that exist, and one serving a principle', () => {
+    expect(gradeWith(contractTree(contract('DC-ADVISOR-1'))).violations).toEqual([]);
+    const serving = contractTree(contract('DC-ADVISOR-1', { extra: ['Serves: P-ADVISOR-1'] }), { [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1') });
+    expect(gradeWith(serving)).toMatchObject({ violations: [], wishes: [] });
+  });
+
+  it('a folder without contracts.md raises no violation', () => {
+    expect(gradeWith(tree({ [ADVISOR_RULES]: '# Rules\n' })).violations).toEqual([]);
+  });
+
+  it('refuses a missing or empty Points to:, once, naming the contract', () => {
+    for (const pointsTo of [null, '']) {
+      expect(detailsOf(contractTree(contract('DC-ADVISOR-1', { pointsTo })))).toEqual([
+        { file: ADVISOR_CONTRACTS, id: 'DC-ADVISOR-1', detail: 'is missing a "Points to:" line — a contract names the schema or type file(s) that enforce it.' },
+      ]);
+    }
+  });
+
+  it('refuses a path that does not exist, a directory and a glob, once each, naming the contract and the path', () => {
+    const root = contractTree(contract('DC-ADVISOR-1', { pointsTo: `${SCHEMA}, src/advisor/gone.ts, src/advisor, src/advisor/*.ts` }));
+    expect(detailsOf(root)).toEqual([
+      { file: ADVISOR_CONTRACTS, id: 'DC-ADVISOR-1', detail: 'points to "src/advisor/gone.ts", which does not exist — fix its "Points to:" line.' },
+      { file: ADVISOR_CONTRACTS, id: 'DC-ADVISOR-1', detail: 'points to "src/advisor", which is a directory — name the file(s) that enforce it.' },
+      { file: ADVISOR_CONTRACTS, id: 'DC-ADVISOR-1', detail: 'points to "src/advisor/*.ts", which is a glob — name each file that enforces it.' },
+    ]);
+  });
+
+  it("never looks an imported copy's paths up: they name its target's files", () => {
+    const root = contractTree(contract('DC-ADVISOR-1', { pointsTo: 'src/elsewhere/gone.ts, src/advisor' }));
+    expect(gradeWith(root, { copyOf: 'acme/back-end' }).violations).toEqual([]);
+  });
+
+  it('refuses a missing Source: or Stated:, once each', () => {
+    expect(detailsOf(contractTree(contract('DC-ADVISOR-1', { drop: ['Source'] })))).toEqual([
+      { file: ADVISOR_CONTRACTS, id: 'DC-ADVISOR-1', detail: 'is missing a "Source:" line.' },
+    ]);
+    expect(detailsOf(contractTree(contract('DC-ADVISOR-1', { drop: ['Stated'] })))).toEqual([
+      { file: ADVISOR_CONTRACTS, id: 'DC-ADVISOR-1', detail: 'is missing a "Stated: YYYY-MM-DD" line.' },
+    ]);
+  });
+
+  it('refuses an Enforced by:, a Locked:, a Proposed law: and a Governs:, once each, with the reason', () => {
+    const cases: [string, string][] = [
+      ['Enforced by: kit/lib/advisor.test.ts', 'carries an "Enforced by:" line — a contract is never a law: the file its "Points to:" names enforces it.'],
+      ['Locked: @pierrederval, 2026-10-15', 'is locked, but a contract is never a law — lock a rule or an invariant instead.'],
+      ['Proposed law: an advice is lost, and its reader never knows.', 'carries a "Proposed law:" line — a contract is never a law.'],
+      ['Governs: ^src/advisor/', 'carries a "Governs:" line — its "Points to:" already names the files it is about, and omni kb laws lists rules and laws only.'],
+    ];
+    for (const [line, detail] of cases) {
+      expect(detailsOf(contractTree(contract('DC-ADVISOR-1', { extra: [line] }), { 'kit/lib/advisor.test.ts': '// a test\n' }))).toEqual([
+        { file: ADVISOR_CONTRACTS, id: 'DC-ADVISOR-1', detail },
+      ]);
+    }
+  });
+
+  it("refuses a BR- id in contracts.md, a DC- id with another folder's code, and a DC- id in a cross-domain file", () => {
+    expect(detailsOf(contractTree(contract('BR-ADVISOR-1')))).toEqual([
+      { file: ADVISOR_CONTRACTS, id: 'BR-ADVISOR-1', detail: 'is a BR- id in a file of contracts, which carry DC- ids.' },
+    ]);
+    expect(detailsOf(contractTree(contract('DC-CREDITS-1')))).toEqual([
+      { file: ADVISOR_CONTRACTS, id: 'DC-CREDITS-1', detail: 'names CREDITS, but it sits in the advisor folder (code ADVISOR) and carries no "Kept id:" line.' },
+    ]);
+    const cross = tree(
+      { 'docs/knowledge/cross-domain/advisor--credits.md': crossDomain('DC-ADVISOR-1', { kind: 'invariant' }) },
+      { domains: ['advisor', 'credits'] },
+    );
+    expect(detailsOf(cross)).toEqual([
+      { file: 'docs/knowledge/cross-domain/advisor--credits.md', id: 'DC-ADVISOR-1', detail: 'is not an X- id — a cross-domain entry is X-<A>-<B>-<n>.' },
+    ]);
+  });
+
+  it('refuses a DC- id in a file of rules, and resolves a contract cited in another entry file', () => {
+    const root = contractTree(contract('DC-ADVISOR-1'), { [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'), [ADVISOR_RULES]: rule('DC-ADVISOR-2') });
+    expect(detailsOf(root)).toEqual([
+      { file: ADVISOR_RULES, id: 'DC-ADVISOR-2', detail: 'is a DC- id in a file of rules, which carry BR- ids.' },
+    ]);
+    const citing = contractTree(contract('DC-ADVISOR-1'), { [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1', { extra: ['See DC-ADVISOR-1.'] }) });
+    expect(grade(citing).violations).toEqual([]);
+  });
+});

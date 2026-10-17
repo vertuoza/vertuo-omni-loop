@@ -2550,9 +2550,12 @@ var PRODUCT_CODE = "PRODUCT";
 var LAYER_FILES = {
   "principles.md": "principle",
   "rules.md": "rule",
-  "invariants.md": "invariant"
+  "invariants.md": "invariant",
+  "contracts.md": "contract"
 };
-var ENTRY_ID_SOURCE = "X-[A-Z0-9]+-[A-Z0-9]+-\\d+|BR-[A-Z0-9]+-\\d+|P-[A-Z0-9]+-\\d+|N-[A-Z0-9]+-\\d+|N\\d+";
+var OPTIONAL_LAYER_FILES = ["contracts.md"];
+var REQUIRED_LAYER_FILES = Object.keys(LAYER_FILES).filter((name) => !OPTIONAL_LAYER_FILES.includes(name));
+var ENTRY_ID_SOURCE = "X-[A-Z0-9]+-[A-Z0-9]+-\\d+|DC-[A-Z0-9]+-\\d+|BR-[A-Z0-9]+-\\d+|P-[A-Z0-9]+-\\d+|N-[A-Z0-9]+-\\d+|N\\d+";
 var LEGAL_ID_SOURCE = "L-[A-Z0-9]+-\\d+";
 var ID_SOURCE = `${ENTRY_ID_SOURCE}|${LEGAL_ID_SOURCE}`;
 var LEGAL_ID_SHAPE = new RegExp(`^${LEGAL_ID_SOURCE}$`);
@@ -2560,7 +2563,7 @@ var ID_SHAPE = new RegExp(`^(?:${ID_SOURCE})$`);
 var ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, "g");
 var ENTRY_HEADING = new RegExp(`^##\\s+(${ENTRY_ID_SOURCE})\\s*$`);
 var ANY_H2 = /^##\s/;
-var FIELD_LINE = /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Kind|Kept id|Glossary term):\s*(.*)$/;
+var FIELD_LINE = /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Points to|Kind|Kept id|Glossary term):\s*(.*)$/;
 var FIELD_KEY = {
   Why: "why",
   Decided: "decided",
@@ -2573,6 +2576,7 @@ var FIELD_KEY = {
   "Proposed law": "proposedLaw",
   Locked: "lockedLine",
   Governs: "governsLine",
+  "Points to": "pointsToLine",
   Kind: "kindLine",
   "Kept id": "keptId",
   "Glossary term": "glossaryTerm"
@@ -2653,6 +2657,10 @@ function readGoverns(file, id, value) {
     problems: [`${file}: ${id} \u2014 "Governs:" names no path \u2014 list the paths it rules over, comma-separated.`]
   };
 }
+function readPointsTo(value) {
+  if (value === void 0) return null;
+  return value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
+}
 function readProposedLaw(file, id, value) {
   if (value === void 0) return { proposedLaw: null, problems: [] };
   if (value !== "") return { proposedLaw: value, problems: [] };
@@ -2731,6 +2739,7 @@ function parseEntryFile(file, text15, place) {
       locked,
       governs,
       proposedLaw,
+      pointsTo: readPointsTo(fields.pointsToLine),
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts,
@@ -2823,7 +2832,8 @@ function readRegisters({ ctx }) {
     entries,
     principles: entries.filter((entry) => entry.kind === "principle"),
     rules: entries.filter((entry) => entry.kind === "rule"),
-    invariants: entries.filter((entry) => entry.kind === "invariant")
+    invariants: entries.filter((entry) => entry.kind === "invariant"),
+    contracts: entries.filter((entry) => entry.kind === "contract")
   };
 }
 function resolveId(id, { ctx }) {
@@ -3902,7 +3912,7 @@ function isLawText(change2, { ctx }) {
   const knowledgeRoot = escapeRegExp2(ctx.layout.knowledgeRoot);
   const adrDir = escapeRegExp2(ctx.layout.adrDir);
   const pattern = new RegExp(
-    `^${knowledgeRoot}/(?:product|domains/[^/]+)/(?:principles|rules|invariants)\\.md$|^${knowledgeRoot}/cross-domain/[^/]+\\.md$|^${adrDir}/(?!README\\.md$)[^/]+\\.md$`
+    `^${knowledgeRoot}/(?:product|domains/[^/]+)/(?:principles|rules|invariants|contracts)\\.md$|^${knowledgeRoot}/cross-domain/[^/]+\\.md$|^${adrDir}/(?!README\\.md$)[^/]+\\.md$`
   );
   return pattern.test(change2.path);
 }
@@ -10868,7 +10878,7 @@ import {
   readFileSync as readFileSync44,
   renameSync as renameSync3,
   rmSync as rmSync13,
-  statSync as statSync12,
+  statSync as statSync13,
   symlinkSync,
   writeFileSync as writeFileSync16
 } from "node:fs";
@@ -11168,7 +11178,7 @@ function settleAtMerge({
 }
 
 // kit/lib/knowledge/check-knowledge.ts
-import { existsSync as existsSync43, readFileSync as readFileSync40 } from "node:fs";
+import { existsSync as existsSync43, readFileSync as readFileSync40, statSync as statSync12 } from "node:fs";
 import { join as join55 } from "node:path";
 
 // kit/lib/codeowners-laws.ts
@@ -11181,7 +11191,7 @@ function testPaths(enforcedBy2) {
 function lawOwnedPaths(ctx, knowledge = readKnowledge({ ctx })) {
   const registers = "The thesis and the registers: what the product promises, and its laws.";
   const briefing = "The briefing: the rules every agent follows.";
-  const layers = (dir, files2) => Object.keys(LAYER_FILES).filter((name) => files2.includes(name)).map((name) => `${dir}/${name}`);
+  const layers = (dir, files2) => REQUIRED_LAYER_FILES.filter((name) => files2.includes(name)).map((name) => `${dir}/${name}`);
   const files = [
     thesisPath(ctx),
     ...layers(productDir(ctx), knowledge.productFiles),
@@ -11233,7 +11243,7 @@ var NUMBER_REFERENCE = /(^|\s)(PRD |issue |PR )?#\d+\b/i;
 function partsOf(value) {
   return value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
 }
-var PREFIX_OF_KIND = { principle: "P", rule: "BR", invariant: "N" };
+var PREFIX_OF_KIND = { principle: "P", rule: "BR", invariant: "N", contract: "DC" };
 function findOwningLibraryViolations(ctx, knowledge) {
   const violations = [];
   if (ctx.copyOf) return violations;
@@ -11256,14 +11266,14 @@ function findOwningLibraryViolations(ctx, knowledge) {
 }
 function findLayoutViolations(ctx, knowledge, { glossaryText = "" } = {}) {
   const violations = [];
-  for (const name of Object.keys(LAYER_FILES)) {
+  for (const name of REQUIRED_LAYER_FILES) {
     if (!knowledge.productFiles.includes(name)) {
       violations.push(violation(`${productDir(ctx)}/${name}`, "product", "is missing."));
     }
   }
   for (const domain of knowledge.domains) {
     const dir = `${domainsDir(ctx)}/${domain.name}`;
-    for (const name of ["README.md", ...Object.keys(LAYER_FILES)]) {
+    for (const name of ["README.md", ...REQUIRED_LAYER_FILES]) {
       if (!domain.files.includes(name)) {
         violations.push(violation(`${dir}/${name}`, domain.name, "is missing."));
       }
@@ -11469,6 +11479,40 @@ function servesViolations(entry, principles) {
   }
   return [];
 }
+function sourceViolations(ctx, entry) {
+  if (!entry.source) return [violation(entry.file, entry.id, 'is missing a "Source:" line.')];
+  const violations = missingPathViolations(ctx, entry, "Source", entry.source, { onlyPathLike: true });
+  const leads = partsOf(entry.source).some(
+    (part) => PATH_LIKE.test(part) || NUMBER_REFERENCE.test(part)
+  );
+  if (!leads) {
+    violations.push(
+      violation(
+        entry.file,
+        entry.id,
+        `has "Source: ${entry.source}", which leads nowhere \u2014 name a file that exists, or a PRD or issue number.`
+      )
+    );
+  }
+  return violations;
+}
+function principleViolations(entry) {
+  const violations = [];
+  if (entry.enforcedBy !== null) {
+    violations.push(
+      violation(
+        entry.file,
+        entry.id,
+        'carries an "Enforced by:" line \u2014 a principle is judged, not proven; a rule serving it carries the proof.'
+      )
+    );
+  }
+  if (!entry.why) violations.push(violation(entry.file, entry.id, 'is missing a "Why:" line.'));
+  if (!entry.decided && entry.proposed === null) {
+    violations.push(violation(entry.file, entry.id, 'is missing a "Decided:" line.'));
+  }
+  return violations;
+}
 function findEntryViolations(ctx, entries) {
   const requireProof = ctx.config.laws?.requireProof === true && !ctx.copyOf;
   const principles = entries.filter((entry) => entry.kind === "principle");
@@ -11483,39 +11527,9 @@ function findEntryViolations(ctx, entries) {
       );
     }
     if (!entry.statement) violations.push(violation(entry.file, entry.id, "has no statement."));
-    if (!entry.source) {
-      violations.push(violation(entry.file, entry.id, 'is missing a "Source:" line.'));
-    } else {
-      violations.push(
-        ...missingPathViolations(ctx, entry, "Source", entry.source, { onlyPathLike: true })
-      );
-      const leads = partsOf(entry.source).some(
-        (part) => PATH_LIKE.test(part) || NUMBER_REFERENCE.test(part)
-      );
-      if (!leads) {
-        violations.push(
-          violation(
-            entry.file,
-            entry.id,
-            `has "Source: ${entry.source}", which leads nowhere \u2014 name a file that exists, or a PRD or issue number.`
-          )
-        );
-      }
-    }
+    violations.push(...sourceViolations(ctx, entry));
     if (entry.kind === "principle") {
-      if (entry.enforcedBy !== null) {
-        violations.push(
-          violation(
-            entry.file,
-            entry.id,
-            'carries an "Enforced by:" line \u2014 a principle is judged, not proven; a rule serving it carries the proof.'
-          )
-        );
-      }
-      if (!entry.why) violations.push(violation(entry.file, entry.id, 'is missing a "Why:" line.'));
-      if (!entry.decided && entry.proposed === null) {
-        violations.push(violation(entry.file, entry.id, 'is missing a "Decided:" line.'));
-      }
+      violations.push(...principleViolations(entry));
       continue;
     }
     if (entry.kind === "rule" && entry.serves === null) {
@@ -11531,7 +11545,37 @@ function findEntryViolations(ctx, entries) {
     if (!entry.stated || !STATED_DATE.test(entry.stated)) {
       violations.push(violation(entry.file, entry.id, 'is missing a "Stated: YYYY-MM-DD" line.'));
     }
-    violations.push(...proofViolations(ctx, entry, requireProof));
+    violations.push(...entry.kind === "contract" ? contractViolations2(ctx, entry) : proofViolations(ctx, entry, requireProof));
+  }
+  return violations;
+}
+var GLOB = /[*?[\]{}]/;
+function contractViolations2(ctx, entry) {
+  const violations = [];
+  if (entry.pointsTo === null || entry.pointsTo.length === 0) {
+    violations.push(violation(entry.file, entry.id, 'is missing a "Points to:" line \u2014 a contract names the schema or type file(s) that enforce it.'));
+  }
+  for (const path of entry.pointsTo ?? []) {
+    if (GLOB.test(path)) {
+      violations.push(violation(entry.file, entry.id, `points to "${path}", which is a glob \u2014 name each file that enforces it.`));
+      continue;
+    }
+    if (ctx.copyOf) continue;
+    const absolute = join55(ctx.root, path);
+    if (!existsSync43(absolute)) {
+      violations.push(violation(entry.file, entry.id, `points to "${path}", which does not exist \u2014 fix its "Points to:" line.`));
+    } else if (!statSync12(absolute).isFile()) {
+      violations.push(violation(entry.file, entry.id, `points to "${path}", which is a directory \u2014 name the file(s) that enforce it.`));
+    }
+  }
+  if (entry.enforcedBy !== null) {
+    violations.push(violation(entry.file, entry.id, 'carries an "Enforced by:" line \u2014 a contract is never a law: the file its "Points to:" names enforces it.'));
+  }
+  if (entry.proposedLaw !== null) {
+    violations.push(violation(entry.file, entry.id, 'carries a "Proposed law:" line \u2014 a contract is never a law.'));
+  }
+  if (entry.governs !== null) {
+    violations.push(violation(entry.file, entry.id, 'carries a "Governs:" line \u2014 its "Points to:" already names the files it is about, and omni kb laws lists rules and laws only.'));
   }
   return violations;
 }
@@ -11554,6 +11598,9 @@ function lockViolations(entry) {
   if (entry.locked === null) return [];
   if (entry.kind === "principle") {
     return [violation(entry.file, entry.id, "is locked, but a principle is never a law \u2014 lock a rule or an invariant that serves it.")];
+  }
+  if (entry.kind === "contract") {
+    return [violation(entry.file, entry.id, "is locked, but a contract is never a law \u2014 lock a rule or an invariant instead.")];
   }
   const violations = [];
   if (!entry.enforced) {
@@ -11718,7 +11765,9 @@ function knowledgeSummary({ ctx }) {
     return { name: domain.name, firstLine: existsSync44(readme) ? firstLine2(readFileSync41(readme, "utf8")) : null };
   });
   const principles = knowledge.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf4(entry), statement: entry.statement }));
-  const laws = knowledge.entries.filter((entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, kind: entry.kind, place: placeOf4(entry), statement: entry.statement }));
+  const laws = knowledge.entries.flatMap(
+    (entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain" ? [{ id: entry.id, kind: entry.kind, place: placeOf4(entry), statement: entry.statement }] : []
+  );
   const decisions = places.adr ? readDecisions({ ctx }).records.map((record) => ({ number: record.number, title: record.title })) : [];
   return { places, domains, principles, decisions, laws };
 }
@@ -12315,7 +12364,7 @@ function overlay(root, keep) {
       if (!dir && name === ".git") continue;
       if (keep.includes(rel)) {
         cpSync(join59(root, rel), join59(scratch, rel), { recursive: true });
-      } else if (keep.some((path) => path.startsWith(`${rel}/`)) && statSync12(join59(root, rel)).isDirectory()) {
+      } else if (keep.some((path) => path.startsWith(`${rel}/`)) && statSync13(join59(root, rel)).isDirectory()) {
         mkdirSync12(join59(scratch, rel), { recursive: true });
         walk2(rel);
       } else {
@@ -12786,7 +12835,7 @@ function commentOnFailure(octokitFor, step, { installationId, owner, repo }, sch
 }
 
 // apps/omni-app/src/knowledge-harvest/github.ts
-import { mkdtempSync as mkdtempSync11, readdirSync as readdirSync20, rmSync as rmSync15, statSync as statSync13 } from "node:fs";
+import { mkdtempSync as mkdtempSync11, readdirSync as readdirSync20, rmSync as rmSync15, statSync as statSync14 } from "node:fs";
 import { tmpdir as tmpdir11 } from "node:os";
 import { join as join61 } from "node:path";
 
@@ -12977,7 +13026,7 @@ function filesIn(root, dir = "") {
   const out = [];
   for (const name of readdirSync20(join61(root, dir))) {
     const rel = dir ? `${dir}/${name}` : name;
-    if (statSync13(join61(root, rel)).isDirectory()) out.push(...filesIn(root, rel));
+    if (statSync14(join61(root, rel)).isDirectory()) out.push(...filesIn(root, rel));
     else out.push(rel);
   }
   return out.sort();
@@ -13361,7 +13410,7 @@ function packFiles(read) {
 }
 
 // apps/omni-app/src/knowledge-pack/github.ts
-import { mkdtempSync as mkdtempSync12, readdirSync as readdirSync21, readFileSync as readFileSync45, rmSync as rmSync16, statSync as statSync14 } from "node:fs";
+import { mkdtempSync as mkdtempSync12, readdirSync as readdirSync21, readFileSync as readFileSync45, rmSync as rmSync16, statSync as statSync15 } from "node:fs";
 import { tmpdir as tmpdir12 } from "node:os";
 import { join as join62 } from "node:path";
 import { z as z45 } from "zod";
@@ -13376,7 +13425,7 @@ async function changedPaths(octokit, { owner, repo, prNumber }) {
 function filesIn2(root, dir = "") {
   return readdirSync21(join62(root, dir)).flatMap((name) => {
     const rel = dir ? `${dir}/${name}` : name;
-    return statSync14(join62(root, rel)).isDirectory() ? filesIn2(root, rel) : [rel];
+    return statSync15(join62(root, rel)).isDirectory() ? filesIn2(root, rel) : [rel];
   });
 }
 async function withPathsAt(octokit, { owner, repo, sha, paths }, fn) {
