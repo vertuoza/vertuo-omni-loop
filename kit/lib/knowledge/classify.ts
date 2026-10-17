@@ -41,7 +41,7 @@ export type KnowledgeSummary = {
   domains: { name: string; firstLine: string | null }[];
   principles: { id: string; place: string; statement: string }[];
   decisions: { number: string; title: string | null }[];
-  laws: { id: string; kind: EntryKind | null; place: string; statement: string }[];
+  laws: { id: string; kind: Exclude<EntryKind, 'contract'> | null; place: string; statement: string }[];
 };
 
 /** The sections of a candidate's embedded item the harvest quotes; any of them may be absent. */
@@ -191,9 +191,11 @@ export function knowledgeSummary({ ctx }: { ctx: KnowledgeCtx & { layout: { adrD
   const principles = knowledge.entries
     .filter((entry) => entry.kind === 'principle' && entry.scope !== 'cross-domain')
     .map((entry) => ({ id: entry.id, place: placeOf(entry), statement: entry.statement }));
-  const laws = knowledge.entries
-    .filter((entry) => (entry.kind === 'rule' || entry.kind === 'invariant') && entry.scope !== 'cross-domain')
-    .map((entry) => ({ id: entry.id, kind: entry.kind, place: placeOf(entry), statement: entry.statement }));
+  const laws = knowledge.entries.flatMap((entry) =>
+    (entry.kind === 'rule' || entry.kind === 'invariant') && entry.scope !== 'cross-domain'
+      ? [{ id: entry.id, kind: entry.kind, place: placeOf(entry), statement: entry.statement }]
+      : [],
+  );
   const decisions = places.adr
     ? readDecisions({ ctx }).records.map((record) => ({ number: record.number, title: record.title }))
     : [];

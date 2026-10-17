@@ -25,6 +25,12 @@
  * `test-removed` is structural and needs no context at all: a `*.test.*` or `*.feature` file,
  * deleted — the cheapest way to turn a red check green.
  *
+ * `briefing-text` (PRD 1793) is about the rules every agent reads before it changes anything: a
+ * change, of any status, to one of the briefing's files ({@link briefingFiles}: the briefing form at
+ * its own path under `paths.playbook`, its `points-to` file, each section's `See:` file), its
+ * pointers read at the head (`ctx.root`). It fires whatever `laws.source` says, never on another
+ * playbook form and never on the kit's template of the briefing.
+ *
  * `law-demoted` (PRD 1342) reads the range, not a change: given the knowledge folder as the base
  * holds it, it names each register file where a law left the registers, or where a law's
  * `Enforced by:` path turned to `pending #<n>` or `unenforced`. Its proof gone, the law's own test
@@ -37,12 +43,13 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/decision-coverage.mjs — changes in kit/porting/outbox--decision-coverage.md.
 import type { Context } from '../context.ts';
 
-/** What the five rules read: the root, the config, and where the knowledge and decisions live. */
+/** What the rules read: the root, the config, and where the knowledge and decisions live. */
 export type CoverageContext = Pick<Context, 'root' | 'config'> & {
   layout: Pick<Context['layout'], 'knowledgeRoot' | 'adrDir'>;
 };
 import type { NameStatus } from '../git.ts';
 import { isOwnedBy, isPersonOwner } from '../codeowners.ts';
+import { briefingFiles, isBriefingFile } from '../playbook/briefing-files.ts';
 import { isConfirmedRule, isLaw, readKnowledge, readRegisters } from '../knowledge/registers.ts';
 import type { KnowledgeEntry, KnowledgeSource } from '../knowledge/registers.ts';
 
@@ -92,14 +99,15 @@ function isLawProof(change: NameStatus, { ctx }: { ctx: CoverageContext }): bool
 }
 
 /** A file directly under `<knowledgeRoot>/product/` or `<knowledgeRoot>/domains/<d>/` named
- * `principles.md`, `rules.md` or `invariants.md`; any `.md` under `<knowledgeRoot>/cross-domain/`;
+ * `principles.md`, `rules.md`, `invariants.md` or `contracts.md` (a domain contract, PRD 1796: a
+ * change to the file it points to fires nothing by itself); any `.md` under `<knowledgeRoot>/cross-domain/`;
  * or any `.md` directly under `ctx.layout.adrDir` but its `README.md`. A folder's `README.md`
  * describes; it states no law — the ADR folder's is the decisions form (PRD #45). */
 function isLawText(change: NameStatus, { ctx }: { ctx: CoverageContext }): boolean {
   const knowledgeRoot = escapeRegExp(ctx.layout.knowledgeRoot);
   const adrDir = escapeRegExp(ctx.layout.adrDir);
   const pattern = new RegExp(
-    `^${knowledgeRoot}/(?:product|domains/[^/]+)/(?:principles|rules|invariants)\\.md$` +
+    `^${knowledgeRoot}/(?:product|domains/[^/]+)/(?:principles|rules|invariants|contracts)\\.md$` +
       `|^${knowledgeRoot}/cross-domain/[^/]+\\.md$` +
       `|^${adrDir}/(?!README\\.md$)[^/]+\\.md$`,
   );
@@ -133,8 +141,11 @@ const RULES: { id: string; matches: (change: NameStatus, options: { ctx: Coverag
 /** The rule a range fires when it takes a law's proof away or removes the law (PRD 1342). */
 const LAW_DEMOTED = 'law-demoted';
 
-/** The five per-change rule ids, in `RULES`' own order, then `law-demoted`, read over the range. */
-export const RULE_IDS = [...RULES.map((rule) => rule.id), LAW_DEMOTED];
+/** The rule a change to one of the briefing's files fires (PRD 1793). */
+export const BRIEFING_TEXT = 'briefing-text';
+
+/** The five per-change rule ids, in `RULES`' own order, then `briefing-text`, then `law-demoted`, read over the range. */
+export const RULE_IDS = [...RULES.map((rule) => rule.id), BRIEFING_TEXT, LAW_DEMOTED];
 
 /**
  * The register files where a confirmed rule or invariant ({@link isConfirmedRule}: every law, and
@@ -156,9 +167,9 @@ function demotedFiles({ ctx, base }: { ctx: CoverageContext; base: KnowledgeSour
 }
 
 /**
- * Grades a range's changes against all five rules. Returns every `{ path, status, rule }` a rule
- * fired on — a change matching two rules produces two entries, in `RULES` order, and neither
- * shadows the other.
+ * Grades a range's changes against the five rules, then `briefing-text`. Returns every `{ path,
+ * status, rule }` a rule fired on — a change matching two rules produces two entries, in `RULE_IDS`
+ * order, and neither shadows the other.
  *
  * `base` is the knowledge folder as the range's base holds it (PRD 1342): given, `law-demoted`
  * fires once per register file holding a demoted law, after the per-change rules, with that file's
@@ -173,12 +184,14 @@ export function riskyChanges(
   { ctx, base = null }: { ctx: CoverageContext; base?: KnowledgeSource | null },
 ): RiskyChange[] {
   const risky: RiskyChange[] = [];
+  const briefing = briefingFiles({ ctx });
   for (const change of changes) {
     for (const rule of RULES) {
       if (rule.matches(change, { ctx })) {
         risky.push({ path: change.path, status: change.status, rule: rule.id });
       }
     }
+    if (isBriefingFile(change.path, briefing)) risky.push({ path: change.path, status: change.status, rule: BRIEFING_TEXT });
   }
   if (base === null) return risky;
   const statuses = new Map(changes.map((change) => [change.path, change.status]));

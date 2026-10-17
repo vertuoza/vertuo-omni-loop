@@ -21,6 +21,9 @@ const HOME: ProductHome = {
   bugs: [],
   visuals: [],
   questions: [],
+  repositories: [],
+  tethers: [],
+  flights: [],
 };
 
 function deps(over: Partial<ProductHomeDeps> = {}) {

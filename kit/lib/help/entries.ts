@@ -266,7 +266,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [--json]', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [--json]', 'omni kb legal', 'omni kb glossary', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:
@@ -275,7 +275,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "from: this repository's own words, a page it points to, or the kit default; show decisions " +
       'lists the latest 20 decision records, and --all every one. status prints ' +
       'the map of every form and register and every open question; graph the knowledge registers ' +
-      'as one graph; init lays down every missing form, blank, and changes no file that exists.',
+      "as one graph; legal and glossary print the product's active Legal entries and its glossary " +
+      'terms, one line each, read from the Omni page and kept as a local copy, which they print, ' +
+      'saying so, when the page is unreachable; init lays down every missing form, blank, and ' +
+      'changes no file that exists.',
   },
   {
     name: 'knowledge',

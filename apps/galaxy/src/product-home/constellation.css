@@ -1,0 +1,119 @@
+/* The Constellation tab (PRD 2129 s1): the product's repositories as stars on a sky, its declared `consumes`
+   as lines. Every colour is a token of src/ask/theme-tokens.ts, so it reads in Omni, Light and Dark. The sky
+   is --ask-sunk in every theme. Below 600 px the sky is 680 px wide inside its own frame, which scrolls
+   sideways and opens centred; the page itself never scrolls sideways.
+
+   Since s2, the Ledger's states: a star's ring in the Ledger's own colours (building --ask-green, waits on
+   you --ask-yellow, drifted --ask-red), only an on-you ring pulsing; three dots moving from consumer to
+   provider on an edge between two building stars (a dotted stroke whose offset moves, pathLength 300); what
+   a ?prd= filter does not touch faded. Under prefers-reduced-motion: reduce the ring holds still and the
+   dots are not drawn. The side card sits beside the sky from 900 px, under the legend below. */
+
+.constellation { display: grid; gap: 12px; min-width: 0; }
+.constellation-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 14px; }
+
+.constellation-frame {
+  min-width: 0;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.constellation-sky { display: block; width: 100%; min-width: 680px; height: auto; scroll-snap-align: center; }
+
+.constellation-edge { fill: none; stroke: var(--ask-line-strong); stroke-width: 2; }
+.constellation-flow { fill: none; stroke: var(--ask-cyan); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 0 100; animation: constellation-flow 3.4s linear infinite; }
+@keyframes constellation-flow { to { stroke-dashoffset: -100; } }
+.constellation-edge-label { fill: var(--ask-muted); font: 11px var(--ask-mono); paint-order: stroke; stroke: var(--ask-sunk); stroke-width: 4px; stroke-linejoin: round; }
+.constellation-sky [data-faded] { opacity: 0.25; }
+
+.constellation-star { cursor: pointer; }
+.constellation-star:focus-visible { outline: none; }
+.constellation-star:focus-visible .constellation-body { stroke: var(--ask-cyan); stroke-width: 4; }
+.constellation-hit { fill: transparent; }
+.constellation-body { fill: var(--ask-surface); stroke: var(--ask-ink); stroke-width: 2; }
+.constellation-star[data-docked] .constellation-body { fill: none; stroke: var(--ask-muted); }
+.constellation-ring { fill: none; stroke-width: 4; transform-box: fill-box; transform-origin: center; }
+.constellation-ring[data-state='building'] { stroke: var(--ask-green); }
+.constellation-ring[data-state='on-you'] { stroke: var(--ask-yellow); animation: constellation-pulse 2.2s ease-in-out infinite; }
+.constellation-ring[data-state='drifted'] { stroke: var(--ask-red); }
+@keyframes constellation-pulse { 50% { opacity: 0.35; transform: scale(1.12); } }
+.constellation-halo { fill: none; stroke: var(--ask-plasma); stroke-width: 2; stroke-dasharray: 4 4; }
+.constellation-mark { fill: var(--ask-ink); font-size: 18px; }
+.constellation-name { fill: var(--ask-ink); font: 700 14px var(--ask-mono); }
+.constellation-role { fill: var(--ask-muted); font-size: 12px; }
+.constellation-tether-line { stroke: var(--ask-muted); stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }
+.constellation-tether-label { fill: var(--ask-ink); font-size: 12px; text-decoration: underline; }
+.constellation-tether a { cursor: pointer; }
+.constellation-docked { fill: var(--ask-muted); font: 700 11px var(--ask-mono); letter-spacing: 0.14em; }
+
+.constellation-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 20px; color: var(--ask-muted); font-size: 14px; }
+.constellation-key { display: inline-block; min-width: 14px; margin-right: 4px; color: var(--ask-ink); }
+.constellation-key[data-key='also-in'] { width: 12px; height: 12px; border: 2px dashed var(--ask-plasma); border-radius: 50%; vertical-align: -2px; }
+
+.constellation-key[data-key='building'],
+.constellation-key[data-key='on-you'],
+.constellation-key[data-key='drifted'] { width: 10px; height: 10px; border: 2px solid; border-radius: 50%; vertical-align: -1px; }
+.constellation-key[data-key='building'] { border-color: var(--ask-green); }
+.constellation-key[data-key='on-you'] { border-color: var(--ask-yellow); }
+.constellation-key[data-key='drifted'] { border-color: var(--ask-red); }
+
+.constellation-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.constellation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 4px 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+  background: var(--ask-surface);
+  color: var(--ask-ink);
+  font-size: 13px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.constellation-chip:hover { border-color: var(--ask-plasma); }
+.constellation-chip[aria-current] { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); font-weight: 700; }
+.constellation-chip b { font-family: var(--ask-mono); }
+
+.constellation-body-grid { display: grid; gap: 16px; min-width: 0; }
+.constellation-main { display: grid; gap: 12px; min-width: 0; }
+@media (min-width: 900px) {
+  .constellation-body-grid { grid-template-columns: minmax(0, 1fr) 300px; }
+}
+
+.constellation-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+  padding: 14px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.constellation-card h2 { margin: 0; font: 700 15px var(--ask-mono); overflow-wrap: anywhere; }
+.constellation-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.constellation-card li { display: flex; gap: 8px; align-items: baseline; overflow-wrap: anywhere; }
+.constellation-card li b { font-family: var(--ask-mono); }
+.constellation-card p { margin: 0; font-size: 13px; color: var(--ask-muted); }
+.constellation-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ask-muted); }
+.constellation-dot[data-state='building'] { background: var(--ask-green); }
+.constellation-dot[data-state='on-you'] { background: var(--ask-yellow); }
+.constellation-dot[data-state='drifted'] { background: var(--ask-red); }
+.constellation-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 14px; }
+.constellation-facts dt { color: var(--ask-muted); font: 12px var(--ask-mono); padding-top: 2px; }
+.constellation-facts dd { margin: 0; overflow-wrap: anywhere; }
+.constellation-card .constellation-links { display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .constellation-ring { animation: none; }
+  .constellation-flow { display: none; }
+}
+
+@media (max-width: 599px) {
+  .constellation-sky { width: 680px; }
+}

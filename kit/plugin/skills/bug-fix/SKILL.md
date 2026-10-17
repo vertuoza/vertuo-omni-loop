@@ -343,9 +343,10 @@ change to a rule or a law the range makes, one `not ok` line each, by its rule:
 | rule | the range |
 |---|---|
 | `law-proof` | changes a file a rule's or a law's `Enforced by:` names |
-| `law-text` | rewords, adds or removes a rule or a law in a register |
+| `law-text` | rewords, adds or removes a rule, a law or a domain contract in a register |
 | `test-removed` | deletes a test, a law's among them |
 | `law-demoted` | turns an `Enforced by:` path back to `pending` or `unenforced`, or removes the entry |
+| `briefing-text` | changes the briefing (`<paths.playbook>/briefing.md`), its `points-to` file or a file one of its `See:` lines names |
 
 **A locked law asks more.** Changing one (its text, its `Locked:` line, or the test that proves it)
 also keeps the pull request's outbox check red under `law-locked`, until a CODEOWNER of the law's
@@ -483,7 +484,7 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
    | exit | what you do |
    |---|---|
    | `0` | `ok`: carry on. |
-   | `1` | `not ok`, one line per failed check. A proof line (`no ## Proof section`, `## Proof has no image and no "GIF not produced - <reason>" line`, `## Proof's image has no "Before the fix" or "After the fix" line`) is mended in the body file: no commit. Any other (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit) is fixed on the branch: commit, push again, and send the record again when it changed. A line naming `law-proof`, `law-text`, `test-removed` or `law-demoted` follows **A change to a law**. Then rerun. |
+   | `1` | `not ok`, one line per failed check. A proof line (`no ## Proof section`, `## Proof has no image and no "GIF not produced - <reason>" line`, `## Proof's image has no "Before the fix" or "After the fix" line`) is mended in the body file: no commit. Any other (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit) is fixed on the branch: commit, push again, and send the record again when it changed. A line naming `law-proof`, `law-text`, `test-removed`, `law-demoted` or `briefing-text` follows **A change to a law**. Then rerun. |
    | `2` | A pinned omni that does not know the flag prints `omni bug: unknown flag --body-file.`: run `node .omni-loop/bin/omni.mjs bug <n>` without it, carry on with its answer, and say in the hand-off that the pinned omni did not check the body (`omni update` fixes it). Any other exit 2 (the kit is not installed here, its config does not read, `--base` does not resolve, the file cannot be read): say so and stop. |
 
 7. **Open the PR through `/omni:pr`**, as a standalone PR (a draft when no GIF was made), only once

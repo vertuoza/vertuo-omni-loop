@@ -106,6 +106,7 @@ A card opens its product home, at `/app/products/<id>`. It shows only that produ
 | tab | what it shows |
 |---|---|
 | **Ledger** (it opens on it) | what waits on whom, in three lanes: *on you*, *on GitHub review*, *on the agent*; each PRD with its number or seal, ◆ or ◇, one state word and its pull requests; above them, how many are building, waiting on a person and drifted |
+| **Constellation** | the product's repositories as stars, their declared `consumes` as lines, and what is building, waits on you, is drifted or is docked on them; read only |
 | **PRDs** | every PRD of the product, newest first, with where it was born and its state |
 | **Ideas** | the product's ideas, each with its board, its lane and its `/omni:brainstorm` line |
 | **Roadmap** | the product's roadmaps |
@@ -124,9 +125,12 @@ roadmap, `mobile-B74` for a bug fix. Each repository's ideas board stays as it w
 only the workspace's members see.
 
 **Work › Questions** is the workspace's own list of questions, in two tabs. **Inbox** holds the
-questions the ask mode put to you. **Outbox** holds the open outbox items of the workspace's product
-PRDs, with their product, the ones waiting on you first, answered in place. For now the Outbox lists
-product PRDs only; a repository PRD's questions stay on its feature pull request and its PRD page.
+questions the ask mode put to you. **Outbox** holds the open outbox items of every PRD of the workspace, product PRDs and repository
+PRDs alike, with their product and PRD id, the ones waiting on you first. A product PRD's question is
+answered in place, as before. A repository PRD's question is answered on its PRD page's Outbox tab
+(`/prd/<id>?tab=outbox`), which sends the answer to its feature pull request; its row links there and
+shows `as of <time>`, the last time the server read it, which can lag up to 15 minutes behind an
+answer typed on GitHub. A repository PRD's medium items are not listed.
 
 ## The rollout ladder
 
@@ -182,6 +186,40 @@ action. A plan repository keeps its roadmaps, bug records and imported knowledge
 by side with the product way.
 
 ## A product PRD
+
+## Product knowledge
+
+A product keeps two kinds of knowledge on its Omni page, shared by every repository it links:
+
+- **Legal** entries: one sentence of what a law or regulation requires, with its source and an
+  owner. Each has an id such as `L-INVOICING-1`, which never changes and is never reused.
+- **Glossary** terms: a term, its meaning in one sentence and the words to avoid in its place, such
+  as *Credit note*, avoid *refund*.
+
+Both are edited on the product's **Knowledge** tab, after Questions. Each kind names one owner and
+one delegate. The owner or the delegate adds, edits and retires Legal entries (a retired entry keeps
+its id) and adds, edits and removes glossary terms (a removed term is kept, marked removed). Any other
+member of the workspace proposes a change, and the owner or the delegate approves or rejects it.
+
+Two verbs read them in a repository of the product, with the computer's sign-in:
+
+```bash terminal agent
+omni kb legal
+omni kb glossary
+```
+
+Each writes a local copy, `.omni-loop/local/product-knowledge.json`. When the Omni page cannot be
+reached, the verbs print the copy and the date it was read, and exit 0. With no copy yet, they exit 1.
+
+A rule or an invariant can cite a Legal entry in place of a principle: `Serves: L-INVOICING-1`.
+`omni check knowledge` verifies the id against the product, and reads the page only when a rule
+serves an `L-` id. An id the product does not hold, or one it retired, fails the check. With the page
+unreachable or no sign-in, the check passes and says that the Legal entry was not verified; it never
+blocks on the network.
+
+The glossary feeds the words check. `omni design words` adds the avoided words of the product's
+glossary, read from the local copy only, so a screen that says *refund* is reported as
+`"refund": avoid, the product says "Credit note"`. With no copy, the check uses its usual word lists.
 
 ## A product PRD
 

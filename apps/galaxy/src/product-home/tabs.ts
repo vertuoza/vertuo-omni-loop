@@ -7,7 +7,7 @@ import type { ProductHome } from './product-home.service';
 // address, every other tab at its own segment. The Ledger counts what waits on you, Questions the outbox
 // questions waiting on a person.
 
-const ORDER = ['ledger', 'prds', 'ideas', 'roadmap', 'bugs', 'visual', 'questions'] as const;
+const ORDER = ['ledger', 'constellation', 'prds', 'ideas', 'roadmap', 'bugs', 'visual', 'questions'] as const;
 
 export type ProductHomeTab = (typeof ORDER)[number];
 
@@ -20,6 +20,7 @@ interface TabDef {
 
 const TABS: Readonly<Record<ProductHomeTab, TabDef>> = {
   ledger: { segment: null, label: 'Ledger', lede: 'What waits on whom, across the product’s PRDs.' },
+  constellation: { segment: 'constellation', label: 'Constellation', lede: 'How the product looks now.' },
   prds: { segment: 'prds', label: 'PRDs', lede: 'Every PRD of the product, newest first.' },
   ideas: { segment: 'ideas', label: 'Ideas', lede: 'The product’s ideas, each ready to brainstorm.' },
   roadmap: { segment: 'roadmap', label: 'Roadmap', lede: 'The product’s roadmaps, newest first.' },
@@ -50,8 +51,9 @@ export function productHomeTabs(home: ProductHome): SectionTab[] {
     const count = COUNTS[tab];
     return count === undefined ? shown : { ...shown, count: count(home) };
   });
-  // Last, the Repositories & approvers tab (s11), which draws itself at its own static route.
-  return [...drawn, { href: `${productHomeHref(home.product.id)}/repositories`, label: 'Repositories & approvers' }];
+  // After Questions, the Knowledge tab (PRD 1795 s2), then the Repositories & approvers tab (s11): each
+  // draws itself at its own static route.
+  return [...drawn, { href: `${productHomeHref(home.product.id)}/knowledge`, label: 'Knowledge' }, { href: `${productHomeHref(home.product.id)}/repositories`, label: 'Repositories & approvers' }];
 }
 
 /** The line under the product's name on `tab`. */

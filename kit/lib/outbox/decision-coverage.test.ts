@@ -10,6 +10,8 @@ import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
 const flatCtx = (root: string, overrides: Record<string, unknown> = {}): Context =>
   untypedFlatCtx(root, overrides) as unknown as Context;
 import { memorySource } from '../knowledge/registers.ts';
+import { gateResult } from './status.ts';
+import { parsePrd } from '../ids.ts';
 import { enforcedByPaths, LAW_LOCKED, lawsAwaitingOwners, lockedLawChanges, riskyChanges, RULE_IDS } from './decision-coverage.ts';
 
 function change(path: string, status = 'M') {
@@ -100,6 +102,71 @@ describe('riskyChanges — law-text', () => {
 
   it('does not fire on an unrelated docs file', () => {
     expect(rulesFiredOn('docs/glossary.md')).toEqual([]);
+  });
+});
+
+describe('riskyChanges — law-text on a domain contract (PRD 1796)', () => {
+  it("fires on the product's contracts file and on a domain's", () => {
+    expect(rulesFiredOn('docs/knowledge/product/contracts.md')).toEqual(['law-text']);
+    expect(rulesFiredOn('docs/knowledge/domains/invoicing/contracts.md', 'A')).toEqual(['law-text']);
+    expect(rulesFiredOn('docs/knowledge/domains/invoicing/contracts.md', 'D')).toEqual(['law-text']);
+  });
+
+  it('fires on no other contracts file: nested deeper, outside the registers, or a near name', () => {
+    for (const path of [
+      'docs/knowledge/contracts.md',
+      'docs/knowledge/domains/contracts.md',
+      'docs/knowledge/domains/invoicing/notes/contracts.md',
+      'docs/knowledge/product/contracts.md.bak',
+      'docs/knowledge/product/contract.md',
+      'docs/knowledge/product/my-contracts.md',
+      'docs/contracts.md',
+      'src/invoicing/contracts.md',
+    ]) {
+      expect(rulesFiredOn(path)).toEqual([]);
+    }
+  });
+
+  it('a change to the file a contract points to fires nothing by itself', () => {
+    seed(
+      'docs/knowledge/product/contracts.md',
+      ['## DC-PRODUCT-1', '', 'An outbox item has exactly one rank.', '', 'Points to: kit/lib/schema/front-matter.ts', 'Source: PRD 1796', 'Stated: 2026-10-15', ''].join('\n'),
+    );
+    expect(rulesFiredOn('kit/lib/schema/front-matter.ts')).toEqual([]);
+    expect(rulesFiredOn('kit/lib/schema/front-matter.ts', 'D')).toEqual([]);
+  });
+
+  it('the outbox gate stays red on a contracts change until an item ranked high covers it', () => {
+    const CONTRACTS = 'docs/knowledge/product/contracts.md';
+    const changes = [change(CONTRACTS)];
+    const account = (line: string) => {
+      seed(
+        'docs/outbox/1796/accounts/s1.md',
+        ['---', 'prd: 1796', 'slice: s1', 'graded: 2026-10-15', '---', '', '## Risky changes', '', `- \`${CONTRACTS}\``, 'law-text', line, ''].join('\n'),
+      );
+    };
+    const item = (rank: string) => {
+      seed(
+        'docs/outbox/1796/s1-01-contract.md',
+        [
+          '---', 'id: s1-01-contract', 'prd: 1796', 'slice: s1', `rank: ${rank}`, 'bears-on: none', 'raised: 2026-10-15', 'wave: 1', '---', '',
+          '## The question, in plain words', '', 'Should this contract read so?', '',
+          '## The decision, in plain words', '', 'Yes, as written.', '',
+          '## What I had to decide', '', 'x', '', '## What I did meanwhile', '', 'y', '',
+          '## What it costs to change later', '', 'z', '', '## What I could not know', '', '(author) w', '',
+        ].join('\n'),
+      );
+    };
+    expect(gateResult(parsePrd(1796), { ctx, changes }).unaccounted?.map((one) => one.rule)).toEqual(['law-text']);
+    account('spec Solution');
+    expect(gateResult(parsePrd(1796), { ctx, changes }).unaccounted?.map((one) => one.rule)).toEqual(['law-text']);
+    item('medium');
+    account('item s1-01-contract');
+    expect(gateResult(parsePrd(1796), { ctx, changes }).unaccounted?.map((one) => one.rule)).toEqual(['law-text']);
+    item('high');
+    const covered = gateResult(parsePrd(1796), { ctx, changes });
+    expect(covered.unaccounted).toEqual([]);
+    expect(covered.ok).toBe(false);
   });
 });
 
@@ -284,6 +351,63 @@ describe('riskyChanges — the risky paths are config, not literals (Task 8, Ste
     expect(riskyChanges([change('.omni-loop/knowledge/adr/0002-x.md', 'A')], { ctx: defaultCtx })).toEqual([
       { path: '.omni-loop/knowledge/adr/0002-x.md', status: 'A', rule: 'law-text' },
     ]);
+  });
+});
+
+describe('riskyChanges — briefing-text (PRD 1793)', () => {
+  const BRIEFING = '.omni-loop/knowledge/playbook/briefing.md';
+
+  /** The briefing's text: a filled form whose one section's body is `body`, or a pointer form. */
+  function briefingText({ body = '- Never merge.', pointsTo = null }: { body?: string; pointsTo?: string | null } = {}) {
+    const state = pointsTo === null ? 'filled' : 'pointer';
+    return ['---', 'form: briefing', 'form-version: 1', `state: ${state}`, `points-to: ${pointsTo ?? 'null'}`, 'evidence: []', 'invaded: null', '---', '', '# Briefing', '', '## Never', '<!-- slot: never · required -->', body, ''].join('\n');
+  }
+
+  it.each(['A', 'M', 'D'])('fires on the briefing %s', (status) => {
+    expect(rulesFiredOn(BRIEFING, status)).toEqual(['briefing-text']);
+  });
+
+  it('fires on a briefing moved away, at its delete', () => {
+    const moved = [change(BRIEFING, 'D'), change('docs/old-briefing.md', 'A')];
+    expect(riskyChanges(moved, { ctx })).toEqual([{ path: BRIEFING, status: 'D', rule: 'briefing-text' }]);
+  });
+
+  it('fires at a custom paths.playbook, and not at the default one there', () => {
+    const custom = flatCtx(root, { paths: { knowledge: 'docs/knowledge', adr: 'docs/adr', playbook: 'handbook/how-we-work' } });
+    expect(riskyChanges([change('handbook/how-we-work/briefing.md')], { ctx: custom }).map((entry) => entry.rule)).toEqual(['briefing-text']);
+    expect(riskyChanges([change(BRIEFING)], { ctx: custom })).toEqual([]);
+  });
+
+  it("fires on a pointer form's points-to file, read at the head", () => {
+    seed(BRIEFING, briefingText({ body: '', pointsTo: 'docs/agents/rules.md' }));
+    expect(rulesFiredOn('docs/agents/rules.md')).toEqual(['briefing-text']);
+  });
+
+  it("fires on a section's See: file, the whole file, its anchor dropped", () => {
+    seed(BRIEFING, briefingText({ body: 'See: README.md#never' }));
+    expect(rulesFiredOn('README.md')).toEqual(['briefing-text']);
+  });
+
+  it('never fires on another form, on the kit template, or on a file only another form points to', () => {
+    seed(BRIEFING, briefingText());
+    seed('.omni-loop/knowledge/playbook/testing.md', briefingText({ body: 'See: docs/testing.md' }).replace('form: briefing', 'form: testing'));
+    expect(rulesFiredOn('.omni-loop/knowledge/playbook/testing.md')).toEqual([]);
+    expect(rulesFiredOn('kit/templates/playbook/briefing.md')).toEqual([]);
+    expect(rulesFiredOn('docs/testing.md')).toEqual([]);
+  });
+
+  it('reports both rules on a change that fires another one too', () => {
+    seed(BRIEFING, briefingText({ body: 'See: docs/adr/0001-rules.md' }));
+    expect(rulesFiredOn('docs/adr/0001-rules.md')).toEqual(['law-text', 'briefing-text']);
+  });
+
+  it('fires whatever laws.source says', () => {
+    const elsewhere = flatCtx(root, { laws: { source: 'none' } });
+    expect(riskyChanges([change(BRIEFING)], { ctx: elsewhere }).map((entry) => entry.rule)).toEqual(['briefing-text']);
+  });
+
+  it('is one of RULE_IDS', () => {
+    expect(RULE_IDS).toContain('briefing-text');
   });
 });
 
@@ -529,7 +653,7 @@ describe('lockedLawChanges — law-locked (PRD 1726)', () => {
   });
 
   it('is no rule of riskyChanges: no account ever covers it', () => {
-    expect(RULE_IDS).toEqual(['stored-shape', 'law-proof', 'law-text', 'test-removed', 'shared-contract', 'law-demoted']);
+    expect(RULE_IDS).toEqual(['stored-shape', 'law-proof', 'law-text', 'test-removed', 'shared-contract', 'briefing-text', 'law-demoted']);
     expect(LAW_LOCKED).toBe('law-locked');
   });
 });

@@ -43,10 +43,13 @@ import type { PrdNumber } from '../ids.ts';
 
 export const GRAPH_VERSION = 1;
 
+/** The kinds the graph carries: a contract (PRD 1796) stays out until the graph walks its `Points to:` (P5, #1797). */
+export type GraphKind = Exclude<EntryKind, 'contract'>;
+
 /** An entry as the graph carries it. */
 export type GraphEntry = {
   id: string;
-  kind: EntryKind;
+  kind: GraphKind;
   domain: string | null;
   domains: string[];
   statement: string;
@@ -74,8 +77,8 @@ export type Graph = {
 
 const KINDS: readonly (EntryKind | null)[] = ['principle', 'rule', 'invariant'];
 
-/** Whether an entry's kind could be read: only those enter the graph. */
-function hasKind(entry: KnowledgeEntry): entry is KnowledgeEntry & { kind: EntryKind } {
+/** Whether an entry's kind could be read and is one the graph carries: only those enter it. */
+function hasKind(entry: KnowledgeEntry): entry is KnowledgeEntry & { kind: GraphKind } {
   return KINDS.includes(entry.kind);
 }
 const PRD_IN_SOURCE = /\bPRD\s*#(\d+)\b/;
@@ -88,7 +91,7 @@ export function prdOf(source: string | null | undefined): PrdNumber | null {
 }
 
 /** A parsed entry as the graph carries it. `pairs` maps a cross-domain file to its pair. */
-function graphEntry(entry: KnowledgeEntry & { kind: EntryKind }, pairs: Map<string, string[]>): GraphEntry {
+function graphEntry(entry: KnowledgeEntry & { kind: GraphKind }, pairs: Map<string, string[]>): GraphEntry {
   const crossDomain = entry.scope === 'cross-domain';
   return {
     id: entry.id,

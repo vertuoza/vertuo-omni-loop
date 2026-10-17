@@ -310,9 +310,10 @@ change to a law the range makes, one `not ok` line each, by its rule:
 | rule | the range |
 |---|---|
 | `law-proof` | changes a file a law's `Enforced by:` names |
-| `law-text` | rewords, adds or removes a law in a register |
+| `law-text` | rewords, adds or removes a law or a domain contract in a register |
 | `test-removed` | deletes a test, a law's among them |
 | `law-demoted` | turns a law's `Enforced by:` path back to `pending` or `unenforced`, or removes the law |
+| `briefing-text` | changes the briefing (`<paths.playbook>/briefing.md`), its `points-to` file or a file one of its `See:` lines names |
 
 Each line reads `- <path> (<rule>): a change to a law needs an item ranked high in
 <folder>/outbox/ and an account naming it in <folder>/outbox/accounts/.`
@@ -437,7 +438,7 @@ body and the hand-off name each item, the screen and who locked it.
    | exit | what you do |
    |---|---|
    | `0` | `ok`: carry on. |
-   | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing page, a page or a round too big, a raster image, a round not named `variations-r<k>.html`, any other file in the folder, an unsigned commit), commit, and rerun. A line naming `law-proof`, `law-text`, `test-removed` or `law-demoted` follows **A change to a law**. |
+   | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing page, a page or a round too big, a raster image, a round not named `variations-r<k>.html`, any other file in the folder, an unsigned commit), commit, and rerun. A line naming `law-proof`, `law-text`, `test-removed`, `law-demoted` or `briefing-text` follows **A change to a law**. |
    | `2` | The kit is not installed here, or its config does not read: say so and stop. |
 
 3. **Push** the fix branch: `git push -u <remote> <fix branch>`.

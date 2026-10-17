@@ -11,6 +11,9 @@
 //                       `<k> open · answer on Mobile › Questions`, or held when the server cannot be read
 //   step "evaluate"     snapshot into /tmp + evaluate — one step, because /tmp does not survive steps
 //   step "publish"      complete the check run; rewrite the comment unless the head moved on
+//   step "escalation"   keep the escalation record (PRD 1794): what still waits on a person, handed
+//                       on from "evaluate"; only on a repository that names a delegate or leadership,
+//                       and after the verdict is published, so it never changes it
 //   onFailure           complete the check run as `failure` — never left `in_progress`; on a pull
 //                       request that is not an Omni Loop feature PR, `skipped` instead, never `failure`;
 //                       on a repository without the loop's config, nothing
@@ -64,6 +67,8 @@ import { messageField } from './github-schema.ts';
 import { deliveryFetched } from './delivery-scope.ts';
 import { lawGateAt, withLawGate } from './law-locked.ts';
 import { productOutboxVerdict, type OutboxReading, type ProductOutboxReader } from './product-outbox.ts';
+import { heldAt, type HeldNow } from '../escalation/held.ts';
+import { keepRecord } from '../escalation/record.ts';
 import type { ProductPrdRef } from '../approved-check/state.ts';
 
 /** What a failure handler is handed: the failed run's event, its final error, and its steps. */
@@ -160,7 +165,10 @@ export function createOutboxCheck({
         });
       }));
 
-      return { checkRunId: published.checkRunId, name: started.name, conclusion: verdict.conclusion, comment: published.comment };
+      const holding = verdict.held;
+      const escalation = holding ? await step.run('escalation', () => recordSafely(holding, { octokitFor, installationId, owner, repo, prNumber, now, log })) : 'none';
+
+      return { checkRunId: published.checkRunId, name: started.name, conclusion: verdict.conclusion, comment: published.comment, escalation };
     },
   );
 }
@@ -182,6 +190,31 @@ async function outboxReadingOf(
     return { reachable: true, outbox: await read(repository, prd) };
   } catch (error) {
     return held(error instanceof Error ? error.message : String(error));
+  }
+}
+
+/**
+ * The step "escalation": keeps the record of what still waits on a person. A failure here, a budget's
+ * refusal included, is logged and the record waits for the next run: the check is already completed,
+ * and a failed record must never send the run to the failure handler, which would turn it red.
+ */
+async function recordSafely(
+  holding: HeldNow,
+  { octokitFor, installationId, owner, repo, prNumber, now, log }: {
+    octokitFor: OctokitFor<GitHubClient>;
+    installationId: number;
+    owner: string;
+    repo: string;
+    prNumber: PrNumber;
+    now: () => Date;
+    log: (line: string) => void;
+  },
+): Promise<string> {
+  try {
+    return await keepRecord(await octokitFor(installationId), { owner, repo, prNumber, now: now(), ...holding });
+  } catch (error) {
+    log(`escalation record of ${owner}/${repo}#${String(prNumber)} waits for the next run: ${error instanceof Error ? error.message : String(error)}`);
+    return 'failed';
   }
 }
 
@@ -226,12 +259,13 @@ async function waitingOnBudget<T>(where: string, log: (line: string) => void, wo
 /**
  * The step "evaluate": snapshot the base branch's config and the head's delivery folder into /tmp,
  * gather the pull request's facts, comments and changed files, and let `evaluate` decide. The
- * temporary folders are removed whatever happens.
+ * temporary folders are removed whatever happens. Beside the verdict, `held` is what still waits on a
+ * person (PRD 1794), read from what was graded; absent where the gate graded nothing.
  */
 async function evaluateAt(
   octokit: GitHubClient,
   { owner, repo, prNumber, headSha }: { owner: string; repo: string; prNumber: PrNumber; headSha: string },
-): Promise<Verdict> {
+): Promise<Verdict & { held?: HeldNow }> {
   const pr = await readPull(octokit, { owner, repo, prNumber });
   const base = mkdtempSync(join(tmpdir(), 'omni-base-'));
   const head = mkdtempSync(join(tmpdir(), 'omni-head-'));
@@ -260,7 +294,9 @@ async function evaluateAt(
     });
     // A change to a locked law (PRD 1726) is cleared by its CODEOWNERS' review alone, whatever `evaluate` said.
     if (!config || changes === null || verdict.conclusion === 'skipped') return verdict;
-    return withLawGate(verdict, await lawGateAt(octokit, { owner, repo, prNumber, baseSha: pr.baseSha, headSha, config, base, head, changes }));
+    const gate = await lawGateAt(octokit, { owner, repo, prNumber, baseSha: pr.baseSha, headSha, config, base, head, changes });
+    const held = heldAt({ config, head, pr, gate });
+    return held === null ? withLawGate(verdict, gate) : { ...withLawGate(verdict, gate), held };
   } finally {
     rmSync(base, { recursive: true, force: true });
     rmSync(head, { recursive: true, force: true });

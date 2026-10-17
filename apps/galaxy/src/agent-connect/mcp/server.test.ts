@@ -44,8 +44,10 @@ const READ = {
     { id: 'never#4', kind: 'never', value: 'Build for groups of companies', source: 'pick', state: 'confirmed', receipt: null, lastSeen: null },
   ],
   personas: [{ name: 'Marc', stance: 'skeptical', trade: 'plumber', who: 'Runs five plumbers', usage: 'Quotes' }],
+  legal: [{ id: 'L-INVOICING-1', statement: 'Invoice numbers follow each other with no gaps.', source: 'https://law.example/vat-53', owner: 'anna' }],
+  glossary: [{ term: 'Credit note', meaning: 'A document that cancels an invoice.', avoid: ['refund'] }],
 };
-const NONE = { state: 'none', business: null, product: null, claims: [], personas: [] };
+const NONE = { state: 'none', business: null, product: null, claims: [], personas: [], legal: [], glossary: [] };
 
 type Call = { fn: string; args: Record<string, unknown> };
 
@@ -121,6 +123,8 @@ describe('/api/mcp, the MCP link', () => {
     const business = sure(tools.find((t) => t.name === 'get_business'), 'tools.find((t) => t.name === \'get_business\')');
     expect(business.description).toMatch(/region#1/);
     expect(business.description).toMatch(/report_unknown/);
+    expect(business.description).toMatch(/Legal entries/);
+    expect(business.description).toMatch(/glossary/);
     expect(business.annotations?.readOnlyHint).toBe(true);
     expect(Object.keys(business.inputSchema.properties ?? {})).toEqual(['repo']);
     const claims = sure(tools.find((t) => t.name === 'get_claims'), 'tools.find((t) => t.name === \'get_claims\')');

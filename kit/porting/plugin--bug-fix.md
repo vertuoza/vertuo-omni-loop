@@ -72,3 +72,6 @@ Bug section are PRD 556's spec, carried whole.
 - The hand-off: "Review the PR and merge it if it is right." **A person merges.**
 - **The fix's page** (PRD 627): after the push, the skill follows `/omni:dossier-push <n> --kind bug`
   and the hand-off prints the page's link beside the PR.
+- **`briefing-text`** (PRD 1793): **A change to a law**'s rule table gains the row for a change to
+  the briefing's files, raised as a change to a rule is; its test is
+  `kit/test/briefing-text-skills.test.ts`.
