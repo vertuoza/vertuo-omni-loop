@@ -42299,6 +42299,22 @@ function readCopy2(root) {
   const kept = CopySchema2.safeParse(value);
   return kept.success ? kept.data : null;
 }
+function readCachedKnowledge(root) {
+  let text15;
+  try {
+    text15 = readFileSync47(join56(root, PRODUCT_KNOWLEDGE_FILE), "utf8");
+  } catch {
+    return { state: "absent" };
+  }
+  let value;
+  try {
+    value = JSON.parse(text15);
+  } catch {
+    return { state: "unreadable" };
+  }
+  const kept = CopySchema2.safeParse(value);
+  return kept.success ? { state: "cached", ...kept.data } : { state: "unreadable" };
+}
 var unanswered2 = (error62) => error62.status === null || error62.status >= 500;
 async function productKnowledge({ repo, root, now: now2, fetchBusiness }) {
   let reply;
@@ -51437,7 +51453,16 @@ function readGraph({ ctx }) {
 init_define_OMNI_BUNDLE();
 var NEIGHBOURHOOD_VERSION = 1;
 var NEIGHBOURHOOD_SHAPE = "neighbourhood";
+var LEGAL_MISSING = "not in the cached product knowledge";
 var isWalked = (entry3) => entry3.kind !== null;
+var legalNode = (id, legal) => ({
+  id,
+  kind: "legal",
+  label: legal === void 0 ? LEGAL_MISSING : headline(legal.statement),
+  status: null,
+  file: null,
+  origin: "product"
+});
 function statusOf2(entry3) {
   if (entry3.kind !== "rule" && entry3.kind !== "invariant") return null;
   if (isLaw(entry3)) return "law";
@@ -51467,12 +51492,14 @@ function servesShared(entry3, byId) {
   if (entry3.kind === "principle" || entry3.serves === null) return false;
   return byId.get(entry3.serves)?.kind === "principle" || LEGAL_ID_SHAPE.test(entry3.serves);
 }
-function servesLinks(entry3, { walked, byId }) {
-  if (entry3.kind === "principle") {
+function servesLinks(entry3, { walked, byId, cached: cached3, legal }) {
+  if (entry3.kind === "principle" || entry3.kind === "legal") {
     return walked.filter((other) => other.kind !== "principle" && other.serves === entry3.id).map((other) => link2(other.id, entry3.id, "serves", entryNode(other)));
   }
   const served = entry3.serves === null ? void 0 : byId.get(entry3.serves);
-  return served?.kind === "principle" ? [link2(entry3.id, served.id, "serves", entryNode(served))] : [];
+  if (served?.kind === "principle") return [link2(entry3.id, served.id, "serves", entryNode(served))];
+  if (cached3 && entry3.serves !== null && LEGAL_ID_SHAPE.test(entry3.serves)) return [link2(entry3.id, entry3.serves, "serves", legalNode(entry3.serves, legal.get(entry3.serves)))];
+  return [];
 }
 function leafLinks(entry3) {
   const tests = entry3.enforced && entry3.enforcedBy !== null ? pathsOf(entry3.enforcedBy) : [];
@@ -51490,6 +51517,20 @@ function citeLinks(entry3, { walked, byId }) {
   const citing = walked.filter((other) => other.id !== entry3.id && citedBy(other).includes(entry3.id));
   return [...cited2, ...citing.map((other) => link2(other.id, entry3.id, "cites", entryNode(other)))];
 }
+function screenLinks(entry3, { screens: screens2, screensDir }) {
+  const governs = entry3.governs ?? [];
+  if (governs.length === 0) return [];
+  const dir = screensDir === null ? "" : `${screensDir.replace(/\/+$/, "")}/`;
+  return screens2.filter((screen) => [...screen.implements, ...screen.reads].some((path) => governsPath(governs, path))).map((screen) => link2(entry3.id, `screen:${screen.screen}`, "screen", leaf(`screen:${screen.screen}`, "screen", `${dir}${screen.file}`, screen.status)));
+}
+var escapeRegExp3 = (text15) => text15.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function termLinks(entry3, { cached: cached3, glossary }) {
+  if (!cached3) return [];
+  return glossary.filter(({ term }) => new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegExp3(term)}(?![\\p{L}\\p{N}_])`, "iu").test(entry3.statement)).map(({ term, meaning }) => {
+    const node3 = { ...leaf(`term:${term}`, "term", null, meaning), origin: "product" };
+    return link2(entry3.id, node3.id, "uses-term", node3);
+  });
+}
 function siblingLinks(entry3, { walked, byId }) {
   if (!servesShared(entry3, byId)) return [];
   const siblings = walked.filter((other) => other.id !== entry3.id && other.kind !== "principle" && other.serves === entry3.serves);
@@ -51501,11 +51542,26 @@ function samePrdLinks(entry3, { records }) {
   return records.filter((record2) => record2.prd === prd2).map(({ number: number5, file: file2, title }) => link2(entry3.id, `ADR-${number5}`, "same-prd", leaf(`ADR-${number5}`, "adr", file2, recordLabel(title))));
 }
 function linksOf2(entry3, index) {
-  return [...servesLinks(entry3, index), ...leafLinks(entry3), ...citeLinks(entry3, index), ...siblingLinks(entry3, index), ...samePrdLinks(entry3, index)];
+  if (entry3.kind === "legal") return servesLinks(entry3, index);
+  return [
+    ...servesLinks(entry3, index),
+    ...leafLinks(entry3),
+    ...citeLinks(entry3, index),
+    ...siblingLinks(entry3, index),
+    ...samePrdLinks(entry3, index),
+    ...screenLinks(entry3, index),
+    ...termLinks(entry3, index)
+  ];
 }
 function edgeKey({ from, to, kind }) {
   const ends2 = kind === "sibling" ? [from, to].sort() : [from, to];
   return `${kind} ${ends2.join(" ")}`;
+}
+function subjectOf({ byId, legal }, id) {
+  const entry3 = byId.get(id);
+  if (entry3 !== void 0) return entry3;
+  const known2 = legal.get(id);
+  return known2 === void 0 ? void 0 : { kind: "legal", id, statement: known2.statement };
 }
 function step2(walk2, entry3, hop) {
   const reached = [];
@@ -51517,7 +51573,7 @@ function step2(walk2, entry3, hop) {
     }
     if (walk2.nodes.has(node3.id)) continue;
     walk2.nodes.set(node3.id, { ...node3, hop });
-    const next2 = walk2.index.byId.get(node3.id);
+    const next2 = subjectOf(walk2.index, node3.id);
     if (next2 !== void 0) reached.push(next2);
   }
   return reached;
@@ -51525,12 +51581,23 @@ function step2(walk2, entry3, hop) {
 function buildNeighbourhood(sources2, { start: start4, depth = 1 }) {
   const walked = sources2.entries.filter(isWalked);
   const byId = new Map(walked.map((entry3) => [entry3.id, entry3]));
-  const walk2 = { index: { walked, byId, records: sources2.records }, nodes: /* @__PURE__ */ new Map(), edges: [], seen: /* @__PURE__ */ new Set() };
+  const cached3 = sources2.product.state === "cached";
+  const index = {
+    walked,
+    byId,
+    records: sources2.records,
+    screens: sources2.screens ?? [],
+    screensDir: sources2.screensDir ?? null,
+    cached: cached3,
+    legal: new Map(cached3 ? (sources2.legal ?? []).map((legal) => [legal.id, legal]) : []),
+    glossary: cached3 ? sources2.glossary ?? [] : []
+  };
+  const walk2 = { index, nodes: /* @__PURE__ */ new Map(), edges: [], seen: /* @__PURE__ */ new Set() };
   let frontier = [...new Set(start4)].flatMap((id) => {
-    const entry3 = byId.get(id);
-    return entry3 === void 0 ? [] : [entry3];
+    const subject = subjectOf(index, id);
+    return subject === void 0 ? [] : [subject];
   });
-  for (const entry3 of frontier) walk2.nodes.set(entry3.id, { ...entryNode(entry3), hop: 0 });
+  for (const subject of frontier) walk2.nodes.set(subject.id, { ...subject.kind === "legal" ? legalNode(subject.id, index.legal.get(subject.id)) : entryNode(subject), hop: 0 });
   for (let hop = 1; hop <= depth; hop += 1) frontier = frontier.flatMap((entry3) => step2(walk2, entry3, hop));
   const { nodes, edges } = walk2;
   return {
@@ -51547,7 +51614,13 @@ function buildNeighbourhood(sources2, { start: start4, depth = 1 }) {
 function productWithoutCache(askUrl2) {
   return { state: askUrl2 ? "offline" : "none", key: null, cachedOn: null };
 }
-function productLine({ state, key: key2, cachedOn }) {
+function productFromCache(cache, askUrl2) {
+  if (cache.state === "cached") return { product: { state: "cached", key: cache.product, cachedOn: cache.readAt.slice(0, 10) }, unreadable: false };
+  if (cache.state === "unreadable") return { product: { state: "offline", key: null, cachedOn: null }, unreadable: true };
+  return { product: productWithoutCache(askUrl2), unreadable: false };
+}
+function productLine({ state, key: key2, cachedOn }, unreadable2 = false) {
+  if (state === "offline" && unreadable2) return "product knowledge: offline \u2014 the cached product knowledge could not be read.";
   if (state === "cached") return `product knowledge: cached ${cachedOn ?? "on an unknown day"} (${key2 ?? "no key"}).`;
   if (state === "offline") return "product knowledge: offline \u2014 no cached copy of the product's Legal and Glossary; only this repository's links are shown.";
   return "product knowledge: none \u2014 this repository belongs to no product.";
@@ -51611,13 +51684,13 @@ function rowLines(rows2) {
     return `${head}${row.node.id.padEnd(id)}  ${row.node.kind.padEnd(kind)}  ${row.node.label ?? ""}`.trimEnd();
   });
 }
-function neighbourhoodText(built, entries4) {
+function neighbourhoodText(built, entries4, unreadable2 = false) {
   const printed3 = new Set(built.start);
   const lines2 = [];
   for (const node3 of built.nodes.filter(({ hop }) => hop === 0)) {
     lines2.push(startLine(node3, entries4.find(({ id }) => id === node3.id)), ...rowLines(rowsUnder(node3, built, printed3)));
   }
-  lines2.push(productLine(built.product));
+  lines2.push(productLine(built.product, unreadable2));
   return lines2.join("\n");
 }
 
@@ -51747,15 +51820,27 @@ function graph(positional, flags, io) {
 }
 function neighbourhood(start4, flags, { ctx, stdout, stderr }) {
   const { entries: entries4 } = readKnowledge({ ctx });
-  if (!entries4.some(({ id, kind }) => id === start4 && kind !== null)) {
+  const cache = readCachedKnowledge(ctx.root);
+  const { product: product2, unreadable: unreadable2 } = productFromCache(cache, ctx.config.ask.url);
+  const screensDir = designScreensDir(ctx.config);
+  const built = buildNeighbourhood(
+    {
+      entries: entries4,
+      records: readDecisions({ ctx }).records,
+      repo: ctx.config.repo.slug,
+      product: product2,
+      screens: readScreens(join96(ctx.root, screensDir)).screens,
+      screensDir,
+      legal: cache.state === "cached" ? cache.legal : [],
+      glossary: cache.state === "cached" ? cache.glossary : []
+    },
+    { start: [start4] }
+  );
+  if (built.start.length === 0) {
     println(stderr, `kb graph: no entry "${start4}" in the knowledge folder.`);
     return 1;
   }
-  const built = buildNeighbourhood(
-    { entries: entries4, records: readDecisions({ ctx }).records, repo: ctx.config.repo.slug, product: productWithoutCache(ctx.config.ask.url) },
-    { start: [start4] }
-  );
-  println(stdout, flags.json ? JSON.stringify(built, null, 2) : neighbourhoodText(built, entries4));
+  println(stdout, flags.json ? JSON.stringify(built, null, 2) : neighbourhoodText(built, entries4, unreadable2));
   return 0;
 }
 function territoryPaths(ctx, exec, territory) {
