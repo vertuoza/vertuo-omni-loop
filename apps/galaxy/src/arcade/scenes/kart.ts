@@ -162,6 +162,11 @@ export interface KartGame extends KartDraw {
   /** The id of the crew board this race's time goes to (PRD 1923): its circuit's. */
   board: string;
   hud(): KartHud;
+  /**
+   * Builds what the race's first frame draws, its circuit's ground, a slice at a time, waiting on `pause` between
+   * two slices so the page keeps drawing (bug 2152); resolves once it is built. A race drawn before builds it at once.
+   */
+  ready(pause?: () => Promise<void>): Promise<void>;
   /** The cues since the last call, in order, then forgotten. */
   cues(): readonly KartCue[];
   /** The player's speed as a share of its top speed on the road, 0 to 1. */
@@ -315,12 +320,15 @@ export const READY_LINE = readyLine(3);
 export type KartModule = typeof import('../kart/index');
 
 /**
- * Imports the game and makes it. A failed import (offline, or a chunk gone after a deploy) is logged
- * with `console.error` and answers null, so the screen can say so and A can try again.
+ * Imports the game, makes it and builds its circuit's ground (bug 2152). A failed import (offline, or a
+ * chunk gone after a deploy) is logged with `console.error` and answers null, so the screen can say so
+ * and A can try again.
  */
 export async function loadKart(load: () => Promise<Pick<KartModule, 'createKart'>>, seed = 1359, cast: readonly KartDriver[] = [], rules: Pick<KartOptions, 'laps' | 'difficulty' | 'look' | 'track'> | null = null): Promise<KartGame | null> {
   try {
-    return (await load()).createKart({ seed, cast, ...(rules ? { laps: rules.laps, difficulty: rules.difficulty, look: rules.look, circuit: rules.track } : {}) });
+    const game = (await load()).createKart({ seed, cast, ...(rules ? { laps: rules.laps, difficulty: rules.difficulty, look: rules.look, circuit: rules.track } : {}) });
+    await game.ready(); // the circuit's ground, built while LOADING… shows, not on the race's first frame (bug 2152)
+    return game;
   } catch (err) {
     console.error(err);
     return null;

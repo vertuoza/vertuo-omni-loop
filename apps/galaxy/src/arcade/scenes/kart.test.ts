@@ -24,7 +24,7 @@ const text = (status: KartStatus, grid: Grid = WIDE, form: 'full' | 'handheld' =
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** A game that does nothing, as the loader hands it over. */
-const stubGame = (): KartGame => ({ draw: () => {}, step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, away: () => {}, close: () => {}, hud: () => ({ phase: 'ready', beat: null }), cues: () => [], speed: () => 0, skid: () => 0, board: 'kart' });
+const stubGame = (): KartGame => ({ draw: () => {}, ready: () => Promise.resolve(), step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, away: () => {}, close: () => {}, hud: () => ({ phase: 'ready', beat: null }), cues: () => [], speed: () => 0, skid: () => 0, board: 'kart' });
 
 describe('the kart scene on its grids', () => {
   it('is laid out on the tall grid on the Game Boy held upright, and on the wide grid elsewhere', () => {
