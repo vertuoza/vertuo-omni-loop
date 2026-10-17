@@ -3,8 +3,9 @@ import { DEFAULT_THEME } from '../theme';
 import { markFor } from '../mark';
 import { TALL, WIDE, type FrameState, type Grid } from '../scenes/common.ts';
 import type { Action } from '../keys';
-import { createKart, KART_W, minimapAt } from './art';
+import { createKart, KART_W, minimapAt, SHADOW } from './art';
 import { newRace, press, step, type Race } from './race';
+import { marksOf } from './fx';
 import { RULES } from './rules';
 import { FROST_EIGHT, parseTrack, surfaceAt, type Track } from './track';
 
@@ -181,5 +182,73 @@ describe('the player\'s own trail, snow, wind and smoke (issue 2061)', () => {
     // In three frames out of four at least some of it shows, and on average at least a 4×4 block of the sprite's pixels.
     expect(showing).toBeGreaterThanOrEqual(thrown * 0.75);
     expect(shown).toBeGreaterThanOrEqual(thrown * block);
+  });
+});
+
+/** How many pixels show a square of `colour` in the rows between the player's sprite and the screen's edge, across its sprite and a sprite's width either side. */
+function underKart(grid: Grid, colour: string): { shown: number; scale: number } {
+  const kart = (paints as Paint[]).filter((p) => p.kind === 'sprite' && p.name.startsWith('kart')).at(-1);
+  if (kart?.kind !== 'sprite') throw new Error('no kart drawn');
+  const last = lastOf(grid, colour, track);
+  const w = KART_W * kart.scale;
+  let shown = 0;
+  for (let y = Math.max(0, Math.round(kart.y + KART_H * kart.scale)); y < grid.h; y++) {
+    for (let x = Math.max(0, Math.round(kart.x - w)); x < Math.min(grid.w, Math.round(kart.x + 2 * w)); x++) shown += last[y * grid.w + x] ?? 0;
+  }
+  return { shown, scale: kart.scale };
+}
+
+describe('the player\'s own skid marks (PRD 2063)', () => {
+  it.each([['wide', WIDE], ['tall', TALL]] as const)('show under the kart on the %s grid while it lays them', (_name, grid) => {
+    // The drift of the sparks' test, the game and a pure race stepped beside it to say when the kart lays marks.
+    const kart = createKart({ seed: 5, difficulty: 'easy' });
+    let race = press(newRace({ seed: 5, track, difficulty: 'easy' }), 'start').race;
+    kart.press('start');
+    const drive = (held: Action[], seconds: number, measure = false) => {
+      for (let t = 0; t < seconds - 1e-9; t += 1 / 60) {
+        kart.step(new Set(held), 1 / 60);
+        race = step(race, new Set(held), 1 / 60).race;
+        if (!measure || marksOf(race).length === 0) continue;
+        paints.length = 0;
+        kart.draw(canvas(), frame(grid, false));
+        const under = underKart(grid, DEFAULT_THEME['navy-dark']);
+        laid++;
+        shown += under.shown;
+        if (under.shown > 0) showing++;
+        block = 4 * under.scale * under.scale; // a 2×2 block of the sprite's own pixels
+      }
+    };
+    let laid = 0, showing = 0, shown = 0, block = 0;
+    drive([], 3.1);
+    drive(['a'], 1.5);
+    drive(['a', 'right'], 0.1);
+    drive(['a'], 0.2);
+    drive(['a', 'up', 'left'], 2, true);
+    expect(laid).toBeGreaterThanOrEqual(10);
+    expect(showing).toBeGreaterThanOrEqual(laid * 0.75);
+    expect(shown).toBeGreaterThanOrEqual(laid * block);
+  });
+
+  it('are drawn after the kart\'s shadow and before its sprite, the rivals\' before the kart', () => {
+    const kart = createKart({ seed: 5, difficulty: 'easy' });
+    kart.press('start');
+    const drive = (held: Action[], seconds: number) => { for (let t = 0; t < seconds - 1e-9; t += 1 / 60) kart.step(new Set(held), 1 / 60); };
+    drive([], 3.1);
+    drive(['a'], 1.5);
+    drive(['a', 'right'], 0.1);
+    drive(['a'], 0.2);
+    drive(['a', 'up', 'left'], 1);
+    paints.length = 0;
+    kart.draw(canvas(), frame(WIDE, false));
+    const all = paints as Paint[];
+    const sprite = all.findLastIndex((p) => p.kind === 'sprite' && p.name.startsWith('kart'));
+    const player = all[sprite];
+    if (player?.kind !== 'sprite') throw new Error('no kart drawn');
+    const shadow = all.findLastIndex((p, n) => n < sprite && p.kind === 'fill' && p.style === SHADOW);
+    // A mark: a dark square under the sprite's bottom edge.
+    const marks = all.map((p, n) => [p, n] as const).filter(([p]) => p.kind === 'fill' && p.style === DEFAULT_THEME['navy-dark'] && p.rect[2] === p.rect[3] && (p.rect[1] ?? 0) >= player.y + KART_H * player.scale - 1).map(([, n]) => n);
+    expect(shadow).toBeGreaterThanOrEqual(0);
+    expect(marks.length).toBeGreaterThan(0);
+    expect(marks.every((n) => n > shadow && n < sprite)).toBe(true);
   });
 });

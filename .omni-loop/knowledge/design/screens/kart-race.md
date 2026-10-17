@@ -22,6 +22,8 @@ sound while the player drives.
 - **On the road, new with PRD 1963** (`kart/fx.ts`, drawn on the canvas):
   - the hop, 4 px up for 0.25 s;
   - two skid marks behind the rear wheels, white on ice and powder, dark on asphalt, fading over 3 s;
+    the player's own are laid under its rear wheels and drawn over its shadow, under its sprite, where
+    the camera sees them (PRD 2063);
   - sparks at the rear wheels while a drift charges, blue then orange;
   - snow thrown behind on powder; black smoke on a stall; white wind lines in a slipstream.
 - **The overlay** (`scenes/kart.tsx`, `RaceScreen`):
@@ -39,8 +41,8 @@ sound while the player drives.
   the BOOST trail for 0.8 s, a whoosh.
 - **GO, stall:** GAS last pressed during the 3, or held since the countdown began: black smoke and a
   sputter for 0.5 s, the kart still.
-- **Drifting:** the nose ahead of the path, marks behind, no sparks before 0.8 s, blue to 1.8 s,
-  orange after; a tick at each colour; a screech under the music.
+- **Drifting:** the nose ahead of the path, marks behind (the player's under its rear wheels), no
+  sparks before 0.8 s, blue to 1.8 s, orange after; a tick at each colour; a screech under the music.
 - **Slipstream:** wind lines past the kart while the count builds; a whoosh and the BOOST trail when
   it pays.
 - **Reduced motion:** sparks stand as a still glow; snow, smoke and wind lines are not drawn; the
@@ -64,3 +66,4 @@ sound while the player drives.
 ## Source
 
 /omni:brainstorm, PRD 1963: .omni-loop/delivery/shipped/1963-kart-drift/before-after.html
+/omni:brainstorm, PRD 2063: .omni-loop/delivery/shipped/2063-kart-own-skid-marks/before-after.html
