@@ -21,16 +21,23 @@
  *   ways from the start;
  * - `sibling`: an entry → another entry serving the same principle or Legal entry;
  * - `same-prd`: an entry → each decision record whose `**PRD:** #n` header is the PRD its `Source:`
- *   names.
+ *   names;
+ * - `screen` (s2): an entry → a `screen:<name>` node per library screen whose `implements` or `reads`
+ *   holds a path its `Governs:` matches;
+ * - `uses-term` (s2): an entry → a `term:<word>` node per glossary term of the cached product
+ *   knowledge its statement uses as a whole word, in any case. A `Serves: L-…` line reaches a `legal`
+ *   node of that cache (or the label {@link LEGAL_MISSING}). Both read the cache only: never the network.
  *
  * Only entry nodes are walked further; a test, a path, a schema and a decision record are leaves. A
  * node reached twice is kept once, at the first hop that reaches it. The product line says whether
  * the product's cached knowledge (its Legal entries and Glossary) is in the walk.
  */
-import { headline } from './disclose.ts';
+import { governsPath, headline } from './disclose.ts';
 import { prdOf } from './graph.ts';
 import { idsCitedIn, isLaw, LEGAL_ID_SHAPE, type KnowledgeEntry } from './registers.ts';
 import type { DecisionRecord } from '../playbook/decisions.ts';
+import type { Screen } from '../design/screens.ts';
+import type { CachedKnowledge, GlossaryTerm, LegalEntry } from '../product/knowledge.ts';
 
 export const NEIGHBOURHOOD_VERSION = 1;
 export const NEIGHBOURHOOD_SHAPE = 'neighbourhood';
@@ -77,12 +84,20 @@ export type Neighbourhood = {
   edges: NeighbourhoodEdge[];
 };
 
-/** What the neighbourhood is built from. */
+/** The label of a Legal node whose entry the cached product knowledge does not hold. */
+const LEGAL_MISSING = 'not in the cached product knowledge';
+
+/** What the neighbourhood is built from. The legal entries and terms are read only when `product.state` is `cached`. */
 export type NeighbourhoodSources = {
   entries: readonly KnowledgeEntry[];
   records: readonly DecisionRecord[];
   repo: string | null;
   product: NeighbourhoodProduct;
+  /** The screen library and the folder it is read from; none given, no `screen` edge. */
+  screens?: readonly Screen[];
+  screensDir?: string | null;
+  legal?: readonly LegalEntry[];
+  glossary?: readonly GlossaryTerm[];
 };
 
 /** An entry whose kind could be read: the only entries a walk reaches. */
@@ -92,7 +107,29 @@ const isWalked = (entry: KnowledgeEntry): entry is Walked => entry.kind !== null
 /** One step out of an entry: the edge, and the node at its other end. */
 type Link = { edge: NeighbourhoodEdge; node: Omit<NeighbourhoodNode, 'hop'> };
 
-type Index = { walked: readonly Walked[]; byId: ReadonlyMap<string, Walked>; records: readonly DecisionRecord[] };
+/** A Legal entry of the cached product knowledge, walked like an entry: only what serves it is below it. */
+type LegalSubject = { kind: 'legal'; id: string; statement: string };
+type Subject = Walked | LegalSubject;
+
+type Index = {
+  walked: readonly Walked[];
+  byId: ReadonlyMap<string, Walked>;
+  records: readonly DecisionRecord[];
+  screens: readonly Screen[];
+  screensDir: string | null;
+  cached: boolean;
+  legal: ReadonlyMap<string, LegalEntry>;
+  glossary: readonly GlossaryTerm[];
+};
+
+const legalNode = (id: string, legal: LegalEntry | undefined): Link['node'] => ({
+  id,
+  kind: 'legal',
+  label: legal === undefined ? LEGAL_MISSING : headline(legal.statement),
+  status: null,
+  file: null,
+  origin: 'product',
+});
 
 /** A rule's or an invariant's standing: a law once locked, else proposed or a rule. */
 function statusOf(entry: Walked): NodeStatus | null {
@@ -136,12 +173,14 @@ function servesShared(entry: Walked, byId: Index['byId']): entry is Walked & { s
 }
 
 /** `serves`, up to the principle `entry` serves, or down from a principle to every entry serving it. */
-function servesLinks(entry: Walked, { walked, byId }: Index): Link[] {
-  if (entry.kind === 'principle') {
+function servesLinks(entry: Subject, { walked, byId, cached, legal }: Index): Link[] {
+  if (entry.kind === 'principle' || entry.kind === 'legal') {
     return walked.filter((other) => other.kind !== 'principle' && other.serves === entry.id).map((other) => link(other.id, entry.id, 'serves', entryNode(other)));
   }
   const served = entry.serves === null ? undefined : byId.get(entry.serves);
-  return served?.kind === 'principle' ? [link(entry.id, served.id, 'serves', entryNode(served))] : [];
+  if (served?.kind === 'principle') return [link(entry.id, served.id, 'serves', entryNode(served))];
+  if (cached && entry.serves !== null && LEGAL_ID_SHAPE.test(entry.serves)) return [link(entry.id, entry.serves, 'serves', legalNode(entry.serves, legal.get(entry.serves)))];
+  return [];
 }
 
 /** The leaves below `entry`: its tests, the patterns it governs, the schema files it points to. */
@@ -164,6 +203,29 @@ function citeLinks(entry: Walked, { walked, byId }: Index): Link[] {
   return [...cited, ...citing.map((other) => link(other.id, entry.id, 'cites', entryNode(other)))];
 }
 
+/** `screen`, to every library screen whose `implements` or `reads` holds a path `entry` governs. */
+function screenLinks(entry: Walked, { screens, screensDir }: Index): Link[] {
+  const governs = entry.governs ?? [];
+  if (governs.length === 0) return [];
+  const dir = screensDir === null ? '' : `${screensDir.replace(/\/+$/, '')}/`;
+  return screens
+    .filter((screen) => [...screen.implements, ...screen.reads].some((path) => governsPath(governs, path)))
+    .map((screen) => link(entry.id, `screen:${screen.screen}`, 'screen', leaf(`screen:${screen.screen}`, 'screen', `${dir}${screen.file}`, screen.status)));
+}
+
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** `uses-term`, to every glossary term the statement uses as a whole word, in any case. */
+function termLinks(entry: Walked, { cached, glossary }: Index): Link[] {
+  if (!cached) return [];
+  return glossary
+    .filter(({ term }) => new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegExp(term)}(?![\\p{L}\\p{N}_])`, 'iu').test(entry.statement))
+    .map(({ term, meaning }) => {
+      const node: Link['node'] = { ...leaf(`term:${term}`, 'term', null, meaning), origin: 'product' };
+      return link(entry.id, node.id, 'uses-term', node);
+    });
+}
+
 /** `sibling`, to every other entry serving what `entry` serves. */
 function siblingLinks(entry: Walked, { walked, byId }: Index): Link[] {
   if (!servesShared(entry, byId)) return [];
@@ -181,8 +243,17 @@ function samePrdLinks(entry: Walked, { records }: Index): Link[] {
 }
 
 /** Every step out of `entry`, in the order the text prints them: up, then down, then side. */
-function linksOf(entry: Walked, index: Index): Link[] {
-  return [...servesLinks(entry, index), ...leafLinks(entry), ...citeLinks(entry, index), ...siblingLinks(entry, index), ...samePrdLinks(entry, index)];
+function linksOf(entry: Subject, index: Index): Link[] {
+  if (entry.kind === 'legal') return servesLinks(entry, index);
+  return [
+    ...servesLinks(entry, index),
+    ...leafLinks(entry),
+    ...citeLinks(entry, index),
+    ...siblingLinks(entry, index),
+    ...samePrdLinks(entry, index),
+    ...screenLinks(entry, index),
+    ...termLinks(entry, index),
+  ];
 }
 
 /** An edge's identity: a sibling is the same edge read from either end. */
@@ -194,9 +265,17 @@ function edgeKey({ from, to, kind }: NeighbourhoodEdge): string {
 /** A walk in progress: what it reads, the nodes and edges it has reached, and the edges it has seen. */
 type Walk = { index: Index; nodes: Map<string, NeighbourhoodNode>; edges: NeighbourhoodEdge[]; seen: Set<string> };
 
+/** The entry or cached Legal entry `id` names, when there is one. */
+function subjectOf({ byId, legal }: Index, id: string): Subject | undefined {
+  const entry = byId.get(id);
+  if (entry !== undefined) return entry;
+  const known = legal.get(id);
+  return known === undefined ? undefined : { kind: 'legal', id, statement: known.statement };
+}
+
 /** One hop out of `entry`: records each new edge and each new node at `hop`; returns the entries reached, to walk next. */
-function step(walk: Walk, entry: Walked, hop: number): Walked[] {
-  const reached: Walked[] = [];
+function step(walk: Walk, entry: Subject, hop: number): Subject[] {
+  const reached: Subject[] = [];
   for (const { edge, node } of linksOf(entry, walk.index)) {
     const key = edgeKey(edge);
     if (!walk.seen.has(key)) {
@@ -205,7 +284,7 @@ function step(walk: Walk, entry: Walked, hop: number): Walked[] {
     }
     if (walk.nodes.has(node.id)) continue;
     walk.nodes.set(node.id, { ...node, hop });
-    const next = walk.index.byId.get(node.id);
+    const next = subjectOf(walk.index, node.id);
     if (next !== undefined) reached.push(next);
   }
   return reached;
@@ -219,13 +298,24 @@ function step(walk: Walk, entry: Walked, hop: number): Walked[] {
 export function buildNeighbourhood(sources: NeighbourhoodSources, { start, depth = 1 }: { start: readonly string[]; depth?: number }): Neighbourhood {
   const walked = sources.entries.filter(isWalked);
   const byId = new Map(walked.map((entry) => [entry.id, entry]));
-  const walk: Walk = { index: { walked, byId, records: sources.records }, nodes: new Map(), edges: [], seen: new Set() };
+  const cached = sources.product.state === 'cached';
+  const index: Index = {
+    walked,
+    byId,
+    records: sources.records,
+    screens: sources.screens ?? [],
+    screensDir: sources.screensDir ?? null,
+    cached,
+    legal: new Map(cached ? (sources.legal ?? []).map((legal) => [legal.id, legal]) : []),
+    glossary: cached ? (sources.glossary ?? []) : [],
+  };
+  const walk: Walk = { index, nodes: new Map(), edges: [], seen: new Set() };
 
   let frontier = [...new Set(start)].flatMap((id) => {
-    const entry = byId.get(id);
-    return entry === undefined ? [] : [entry];
+    const subject = subjectOf(index, id);
+    return subject === undefined ? [] : [subject];
   });
-  for (const entry of frontier) walk.nodes.set(entry.id, { ...entryNode(entry), hop: 0 });
+  for (const subject of frontier) walk.nodes.set(subject.id, { ...(subject.kind === 'legal' ? legalNode(subject.id, index.legal.get(subject.id)) : entryNode(subject)), hop: 0 });
   for (let hop = 1; hop <= depth; hop += 1) frontier = frontier.flatMap((entry) => step(walk, entry, hop));
   const { nodes, edges } = walk;
 
@@ -246,8 +336,20 @@ export function productWithoutCache(askUrl: string | null): NeighbourhoodProduct
   return { state: askUrl ? 'offline' : 'none', key: null, cachedOn: null };
 }
 
+/**
+ * The product as the cache on disk tells it (PRD 1797, s2): `cached` with the copy's product and day,
+ * `offline` when the copy does not read (`unreadable`) or there is none beside an Omni page, `none`
+ * with neither. Reads nothing itself.
+ */
+export function productFromCache(cache: CachedKnowledge, askUrl: string | null): { product: NeighbourhoodProduct; unreadable: boolean } {
+  if (cache.state === 'cached') return { product: { state: 'cached', key: cache.product, cachedOn: cache.readAt.slice(0, 10) }, unreadable: false };
+  if (cache.state === 'unreadable') return { product: { state: 'offline', key: null, cachedOn: null }, unreadable: true };
+  return { product: productWithoutCache(askUrl), unreadable: false };
+}
+
 /** The last line of the text: whether the product's Legal entries and Glossary are in the walk. */
-export function productLine({ state, key, cachedOn }: NeighbourhoodProduct): string {
+export function productLine({ state, key, cachedOn }: NeighbourhoodProduct, unreadable = false): string {
+  if (state === 'offline' && unreadable) return 'product knowledge: offline — the cached product knowledge could not be read.';
   if (state === 'cached') return `product knowledge: cached ${cachedOn ?? 'on an unknown day'} (${key ?? 'no key'}).`;
   if (state === 'offline') return "product knowledge: offline — no cached copy of the product's Legal and Glossary; only this repository's links are shown.";
   return 'product knowledge: none — this repository belongs to no product.';
@@ -334,12 +436,12 @@ function rowLines(rows: readonly Row[]): string[] {
  * {@link LINES_PER_EDGE} per edge kind; then the product line. `entries` gives the start's lock and
  * its pending proof, which the JSON does not carry.
  */
-export function neighbourhoodText(built: Neighbourhood, entries: readonly KnowledgeEntry[]): string {
+export function neighbourhoodText(built: Neighbourhood, entries: readonly KnowledgeEntry[], unreadable = false): string {
   const printed = new Set(built.start);
   const lines: string[] = [];
   for (const node of built.nodes.filter(({ hop }) => hop === 0)) {
     lines.push(startLine(node, entries.find(({ id }) => id === node.id)), ...rowLines(rowsUnder(node, built, printed)));
   }
-  lines.push(productLine(built.product));
+  lines.push(productLine(built.product, unreadable));
   return lines.join('\n');
 }
