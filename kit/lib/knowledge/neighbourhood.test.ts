@@ -444,3 +444,38 @@ describe('the product’s cached knowledge', () => {
     expect(productLine(OFFLINE, true)).toBe('product knowledge: offline — the cached product knowledge could not be read.');
   });
 });
+
+describe('the depth of the walk (PRD 1797, s3)', () => {
+  const chain = entriesOf({
+    [`${K}/product/rules.md`]: register(
+      'Rules',
+      entry('BR-PRODUCT-1', 'One sees BR-PRODUCT-2 and BR-PRODUCT-3.', { Source: 'README.md', 'Enforced by': 'kit/one.test.ts' }),
+      entry('BR-PRODUCT-2', 'Two sees BR-PRODUCT-3.', { Source: 'README.md', 'Enforced by': 'kit/two.test.ts' }),
+      entry('BR-PRODUCT-3', 'Three sees BR-PRODUCT-4.', { Source: 'README.md' }),
+      entry('BR-PRODUCT-4', 'Four sees BR-PRODUCT-5.', { Source: 'README.md' }),
+      entry('BR-PRODUCT-5', 'Five stands alone.', { Source: 'README.md' }),
+    ),
+  });
+  const walk = (depth: number) => buildNeighbourhood({ entries: chain, records: [], repo: null, product: NONE }, { start: ['BR-PRODUCT-1'], depth });
+  const hops = (built: Neighbourhood) => built.nodes.map(({ id, hop }) => `${id}@${hop}`);
+
+  it('depth 1 reaches the neighbours of the start only', () => {
+    expect(hops(walk(1))).toEqual(['BR-PRODUCT-1@0', 'test:kit/one.test.ts@1', 'BR-PRODUCT-2@1', 'BR-PRODUCT-3@1']);
+  });
+
+  it('depth 2 walks the entries of hop 1, a node reached twice kept at its first hop, leaves never walked', () => {
+    const built = walk(2);
+    expect(hops(built)).toEqual(['BR-PRODUCT-1@0', 'test:kit/one.test.ts@1', 'BR-PRODUCT-2@1', 'BR-PRODUCT-3@1', 'test:kit/two.test.ts@2', 'BR-PRODUCT-4@2']);
+    expect(built.depth).toBe(2);
+    expect(built.edges.some(({ from }) => from.startsWith('test:'))).toBe(false);
+  });
+
+  it('depth 3 reaches one hop further, and prints each node once, indented two spaces per hop', () => {
+    const built = walk(3);
+    expect(hops(built)).toContain('BR-PRODUCT-5@3');
+    const lines = neighbourhoodText(built, chain).split('\n');
+    expect(lines.filter((line) => /^\s+\S+\s+\S+\s+BR-PRODUCT-3 /.test(line))).toHaveLength(1);
+    expect(lines.find((line) => line.includes('test:kit/two.test.ts'))).toMatch(/^ {4}down/);
+    expect(lines.find((line) => /^\s+\S+\s+\S+\s+BR-PRODUCT-5 /.test(line))).toMatch(/^ {6}side/);
+  });
+});

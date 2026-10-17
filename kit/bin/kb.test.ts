@@ -604,9 +604,9 @@ describe('omni kb graph — the knowledge graph (PRD #149, acceptance criterion 
       const { code, out, err } = await omni(root, argv);
       expect(code, argv.join(' ')).toBe(2);
       expect(out).toBe('');
-      expect(err).toMatch(/^(usage: omni kb graph \[<id>\] \[--json\]|omni kb: unknown flag --domain\.)\n$/);
+      expect(err).toMatch(/^(usage: omni kb graph \[<id> \| --paths|omni kb graph: unknown flag --domain\.)/);
     }
-    expect((await omni(root, ['kb'])).err).toContain('omni kb graph [<id>] [--json]');
+    expect((await omni(root, ['kb'])).err).toContain('omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]');
   });
 });
 
@@ -1557,5 +1557,73 @@ describe('omni kb legal | glossary (PRD 1795)', () => {
     const { root: other } = repo();
     const unsigned = await know(other, ['kb', 'glossary'], page(200), { read: () => null, write: () => {} });
     expect(unsigned).toMatchObject({ code: 1, out: 'no product knowledge: no sign-in for omni.test (omni signin)\n' });
+  });
+});
+
+describe('omni kb graph --paths and --depth (PRD 1797, s3)', () => {
+  const K = '.omni-loop/knowledge';
+  const entry = (id: string, statement: string, fields: Record<string, string> = {}) =>
+    `## ${id}\n\n${statement}\n\n${Object.entries(fields).map(([key, value]) => `${key}: ${value}`).join('\n')}\n\n`;
+  const FILES = {
+    ...CONFIG,
+    [`${K}/product/principles.md`]: `# Principles\n\n${entry('P-PRODUCT-1', 'Every change is reviewed.', { Why: 'Trust.', Source: 'README.md' })}`,
+    [`${K}/product/rules.md`]: `# Rules\n\n${entry('BR-PRODUCT-1', 'A plain rule about kit/a. It also sees BR-PRODUCT-2.', { Serves: 'P-PRODUCT-1', Source: 'README.md', Governs: '^kit/a/' })}${entry('BR-PRODUCT-2', 'A locked law about kit/a.', { Serves: 'P-PRODUCT-1', Source: 'README.md', Governs: '^kit/a/, ^kit/b/', Locked: '@pierrederval, 2026-10-13', 'Enforced by': 'kit/two.test.ts' })}${entry('BR-PRODUCT-3', 'Never reached by a file.', { Source: 'README.md' })}${entry('BR-PRODUCT-4', 'Governs kit/c.', { Source: 'README.md', Governs: '^kit/c/' })}`,
+    [`${K}/product/invariants.md`]: '# Invariants\n\n',
+  };
+  const heads = (out: string) => out.split('\n').filter((line) => /^[A-Z]+-PRODUCT-\d+ · /.test(line)).map((line) => line.split(' ')[0]);
+
+  it('prints one block per entry whose Governs: matches, laws first, then rules, then the product line', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { code, out, err } = await omni(root, ['kb', 'graph', '--paths', 'kit/a/x.ts']);
+    expect(code).toBe(0);
+    expect(err).toBe('');
+    expect(heads(out)).toEqual(['BR-PRODUCT-2', 'BR-PRODUCT-1']);
+    expect(out.endsWith('product knowledge: none — this repository belongs to no product.\n')).toBe(true);
+    expect(out).not.toContain('BR-PRODUCT-3 · ');
+  });
+
+  it('reads comma- and space-separated files as kb laws --paths does', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    for (const argv of [['--paths', 'kit/a/x.ts,kit/c/y.ts'], ['--paths', 'kit/a/x.ts', 'kit/c/y.ts']]) {
+      const { out } = await omni(root, ['kb', 'graph', ...argv]);
+      expect(heads(out), argv.join(' ')).toEqual(['BR-PRODUCT-2', 'BR-PRODUCT-1', 'BR-PRODUCT-4']);
+    }
+  });
+
+  it('says so when no entry governs the files, and never reaches a rule with no Governs:', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { code, out } = await omni(root, ['kb', 'graph', '--paths', 'README.md']);
+    expect(code).toBe(0);
+    expect(out.split('\n')[0]).toBe('kb graph — no entry governs those files.');
+    expect(heads(out)).toEqual([]);
+  });
+
+  it('--json carries every entry reached as a start', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const built = JSON.parse((await omni(root, ['kb', 'graph', '--paths', 'kit/a/x.ts', '--json'])).out) as Neighbourhood;
+    expect(built.start).toEqual(['BR-PRODUCT-2', 'BR-PRODUCT-1']);
+  });
+
+  it('--depth 2 adds the neighbours of the entries at hop 1, indented, no node printed twice', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const one = await omni(root, ['kb', 'graph', 'BR-PRODUCT-1']);
+    const two = await omni(root, ['kb', 'graph', 'BR-PRODUCT-1', '--depth', '2']);
+    expect(one.out).not.toContain('test:kit/two.test.ts');
+    expect(two.code).toBe(0);
+    expect(two.out).toMatch(/\n {4}down {2}enforced-by {2}test:kit\/two\.test\.ts/);
+    for (const id of ['BR-PRODUCT-2', 'P-PRODUCT-1', 'test:kit/two.test.ts']) {
+      expect(two.out.split('\n').filter((line) => line.includes(` ${id} `)), id).toHaveLength(1);
+    }
+    expect((await omni(root, ['kb', 'graph', 'BR-PRODUCT-1', '--depth', '3'])).code).toBe(0);
+  });
+
+  it('exits 2 with the usage line on --depth 4 or 0, --paths with an id or with no file', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    for (const argv of [['BR-PRODUCT-1', '--depth', '4'], ['BR-PRODUCT-1', '--depth', '0'], ['--paths'], ['--paths', ','], ['--depth', '2'], ['--paths', 'BR-PRODUCT-1'], ['--paths', 'kit/a/x.ts', 'BR-PRODUCT-1']]) {
+      const { code, out, err } = await omni(root, ['kb', 'graph', ...argv]);
+      expect(code, argv.join(' ')).toBe(2);
+      expect(out).toBe('');
+      expect(err, argv.join(' ')).toMatch(/usage: omni kb graph \[<id> \| --paths|--paths needs a value/);
+    }
   });
 });
