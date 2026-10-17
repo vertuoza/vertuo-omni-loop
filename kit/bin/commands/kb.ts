@@ -22,7 +22,8 @@ import { join } from 'node:path';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { credentialsHost, signedInClient } from '../../lib/ask/credentials.ts';
 import { formShowText } from '../../lib/budgets/index.ts';
-import { ownerHandle } from '../../lib/codeowners.ts';
+import { lawCodeowners, ownerHandle } from '../../lib/codeowners.ts';
+import type { LawOwner } from '../../lib/config.ts';
 import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
@@ -283,7 +284,7 @@ function lawsFor(io: CommandIo, flags: LawsFlags, positional: readonly string[],
 }
 
 /** The disclosure as text: one plain line per law, then one headline per rule asked for. */
-function lawsText(disclosure: Disclosure, what: DiscloseFor, owners: readonly string[]): string {
+function lawsText(disclosure: Disclosure, what: DiscloseFor, owners: readonly LawOwner[]): string {
   const lines = disclosure.laws.map((law) => lawLine(law, owners));
   if (lines.length === 0) lines.push('No law is locked yet.');
   if (what === null) return lines.join('\n');
@@ -311,8 +312,8 @@ function laws(args: string[], io: CommandIo): number {
 
 /**
  * `omni kb owners`: writes the CODEOWNERS block for the thesis, the registers and each locked law's
- * test, owned by `laws.owners`; refused while `laws.owners` is empty, since a line with no owner
- * leaves its file unowned.
+ * test, owned by `laws.owners` and each owner's delegate (PRD 1794), never by `laws.leadership`;
+ * refused while `laws.owners` is empty, since a line with no owner leaves its file unowned.
  */
 function owners(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: CommandIo): number {
   if (positional.length > 0) throw usageError('usage: omni kb owners [--json]');
@@ -327,7 +328,7 @@ function owners(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: C
     println(stderr, `omni kb owners: ${messageOf(error)}`);
     return 1;
   }
-  const who = listed.map(ownerHandle).join(', ');
+  const who = lawCodeowners(listed).map(ownerHandle).join(', ');
   const line = written.wrote
     ? `kb owners — wrote ${written.file}: ${written.paths} path(s) owned by ${who}; no line outside its markers changed.`
     : `kb owners — ${written.file} is up to date: ${written.paths} path(s) owned by ${who}.`;
