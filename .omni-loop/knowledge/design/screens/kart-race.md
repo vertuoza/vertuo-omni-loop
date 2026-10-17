@@ -66,4 +66,4 @@ sound while the player drives.
 ## Source
 
 /omni:brainstorm, PRD 1963: .omni-loop/delivery/shipped/1963-kart-drift/before-after.html
-/omni:brainstorm, PRD 2063: .omni-loop/delivery/inbox/2063-kart-own-skid-marks/before-after.html
+/omni:brainstorm, PRD 2063: .omni-loop/delivery/shipped/2063-kart-own-skid-marks/before-after.html
