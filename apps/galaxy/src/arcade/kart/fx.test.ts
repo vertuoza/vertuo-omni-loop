@@ -163,6 +163,21 @@ describe('the snow, the marks, the sparks, the wind and the smoke', () => {
     expect(marksOf(driving({ speed: fast, angle: 0, travel: 1 }, { hop: 0.1 }))).toEqual([]);
   });
 
+  it('lays the player\'s two marks under its middle and a rival\'s 8 behind it (PRD 2063)', () => {
+    const base = race();
+    const own = marksOf(driving({ speed: fast, x: 100, y: 50, angle: 0, travel: RULES.skidGap + 0.05 }));
+    expect(own).toHaveLength(2);
+    expect(own.every((m) => m.own === true)).toBe(true);
+    expect(own.map((m) => [m.x, m.y]).sort()).toEqual([[100, 47], [100, 53]]);
+    const rival = base.rivals[0];
+    if (!rival) throw new Error('no rival');
+    const slid = { ...base, fx: { ...base.fx, hop: 0 }, player: { ...base.player, speed: 0 }, rivals: [{ ...rival, kart: { ...rival.kart, x: 200, y: 80, angle: 0, travel: RULES.skidGap + 0.05, speed: fast }, fx: { ...rival.fx, fall: 0, hop: 0 } }] };
+    const theirs = marksOf(slid);
+    expect(theirs).toHaveLength(2);
+    expect(theirs.every((m) => m.own === undefined)).toBe(true);
+    expect(theirs.map((m) => [m.x, m.y]).sort()).toEqual([[192, 77], [192, 83]]);
+  });
+
   it('fades marks out over 3 seconds and keeps at most MAX_MARKS, the oldest going first', () => {
     let m = stepMarks([], [{ x: 1, y: 1, pale: true }], 0.1);
     expect(m).toHaveLength(1);
