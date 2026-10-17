@@ -1,7 +1,8 @@
 // The microphone, behind a port: the one file that calls getUserMedia and Web Audio. The sound is read
 // frame by frame in the browser and never recorded, stored or sent.
-import { pitchOf } from './pitch';
-import { PITCH } from './rules';
+import { analyse } from './pitch';
+import { PITCH, VOICE, type VoiceTuning } from './rules';
+import { newVoice } from './voice';
 
 /** What asking for the microphone gave: on, refused (or an insecure page), no microphone, or stopped before it answered. */
 export type MicOpened = 'on' | 'blocked' | 'missing' | 'stopped';
@@ -9,7 +10,7 @@ export type MicOpened = 'on' | 'blocked' | 'missing' | 'stopped';
 /** Where the game reads the voice's pitch from. */
 export interface PitchSource {
   open(): Promise<MicOpened>;
-  /** The pitch heard now, in Hz, or null: silence, noise, or the microphone off. */
+  /** The steady pitch heard now, in Hz, or null: silence, the room, or the microphone off. */
   pitch(): number | null;
   /** Stops the microphone's track: the browser's recording light goes out. */
   stop(): void;
@@ -34,7 +35,9 @@ export function refusalOf(err: unknown): 'blocked' | 'missing' {
 export interface MicBrowser {
   secure: boolean;
   media: Pick<MediaDevices, 'getUserMedia'> | undefined;
-  audio: () => Pick<AudioContext, 'sampleRate' | 'createMediaStreamSource' | 'createAnalyser' | 'close'>;
+  audio: () => Pick<AudioContext, 'sampleRate' | 'createMediaStreamSource' | 'createAnalyser' | 'createBiquadFilter' | 'resume' | 'close'>;
+  /** Seconds, for the time between two reads. */
+  now: () => number;
 }
 
 const fromWindow = (): MicBrowser => ({
@@ -42,6 +45,7 @@ const fromWindow = (): MicBrowser => ({
   // Missing on an insecure page, whatever the DOM types say.
   media: 'mediaDevices' in navigator ? navigator.mediaDevices : undefined,
   audio: () => new AudioContext(),
+  now: () => performance.now() / 1000,
 });
 
 interface Open {
@@ -51,8 +55,14 @@ interface Open {
   samples: Float32Array<ArrayBuffer>;
 }
 
-export function browserMic(browser: () => MicBrowser = fromWindow): PitchSource {
+/** The longest gap between two reads counted as such: a tab back from the background starts afresh. */
+const MAX_GAP = 0.25;
+
+export function browserMic(browser: () => MicBrowser = fromWindow, tuning: Readonly<VoiceTuning> = VOICE): PitchSource {
   let live: Open | null = null;
+  let voice = newVoice(tuning);
+  let lastRead: number | null = null;
+  let now = () => 0;
   let asks = 0;
   let ended: () => void = () => {};
   const close = (o: Open) => {
@@ -63,17 +73,29 @@ export function browserMic(browser: () => MicBrowser = fromWindow): PitchSource 
     async open() {
       const ask = ++asks;
       const b = browser();
+      now = b.now;
       if (!b.secure || !b.media) return 'blocked';
       let stream: MediaStream;
       try { stream = await b.media.getUserMedia(AUDIO_CONSTRAINTS); } catch (err) { return refusalOf(err); }
       const ctx = b.audio();
+      // Safari, and Chrome when the answer came long after the click, start the context suspended: it would hear silence.
+      void ctx.resume().catch(() => {});
       const analyser = ctx.createAnalyser();
       analyser.fftSize = PITCH.frame;
-      ctx.createMediaStreamSource(stream).connect(analyser);
+      // A band-pass over the voice's range: the room's rumble and hiss never reach the pitch.
+      const highpass = ctx.createBiquadFilter();
+      highpass.type = 'highpass';
+      highpass.frequency.value = PITCH.highpassHz;
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = 'lowpass';
+      lowpass.frequency.value = PITCH.lowpassHz;
+      ctx.createMediaStreamSource(stream).connect(highpass).connect(lowpass).connect(analyser);
       const opened: Open = { stream, ctx, analyser, samples: new Float32Array(PITCH.frame) };
       if (ask !== asks) { close(opened); return 'stopped'; }
       if (live) close(live);
       live = opened;
+      voice = newVoice(tuning);
+      lastRead = null;
       for (const track of stream.getTracks()) {
         track.addEventListener('ended', () => { if (live === opened) { live = null; close(opened); ended(); } });
       }
@@ -82,7 +104,10 @@ export function browserMic(browser: () => MicBrowser = fromWindow): PitchSource 
     pitch() {
       if (!live) return null;
       live.analyser.getFloatTimeDomainData(live.samples);
-      return pitchOf(live.samples, live.ctx.sampleRate);
+      const t = now();
+      const dt = lastRead === null ? 0 : Math.min(MAX_GAP, Math.max(0, t - lastRead));
+      lastRead = t;
+      return voice.hear(analyse(live.samples, live.ctx.sampleRate, tuning.clarityFloor), dt).hz;
     },
     stop() {
       asks++;

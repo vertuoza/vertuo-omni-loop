@@ -57,21 +57,36 @@ function refined(nsdf: Float64Array, lag: number): number {
   return curve === 0 ? lag : lag + (0.5 * (left - right)) / curve;
 }
 
-/** The frame's pitch in Hz, or null when it is too quiet, not clearly pitched, or outside the range. */
-export function pitchOf(samples: Samples, sampleRate: number): number | null {
+/** What one frame holds: its loudness, how clearly it repeats, and its pitch when it repeats clearly enough. */
+export interface Heard {
+  rms: number;
+  /** The highest normalised autocorrelation peak in range: near 1 for a hum, lower for speech and noise. */
+  clarity: number;
+  hz: number | null;
+}
+
+/** The frame read whatever its loudness: the voice tracker (voice.ts) decides against the room. */
+export function analyse(samples: Samples, sampleRate: number, clarityFloor: number = PITCH.clarityFloor): Heard {
+  const rms = rmsOf(samples);
   const minLag = Math.max(2, Math.floor(sampleRate / PITCH.maxHz));
   const maxLag = Math.ceil(sampleRate / PITCH.minHz);
   // Two periods of the lowest pitch must fit, so its lag is read over enough samples.
-  if (samples.length < 2 * maxLag || rmsOf(samples) < PITCH.loudnessFloor) return null;
+  if (samples.length < 2 * maxLag || rms === 0) return { rms, clarity: 0, hz: null };
 
   const nsdf = nsdfOf(samples, maxLag);
   const peaks = keyMaxima(nsdf).filter((lag) => lag >= minLag && lag <= maxLag);
-  const highest = Math.max(0, ...peaks.map((lag) => at(nsdf, lag)));
-  if (highest < PITCH.clarityFloor) return null;
+  const clarity = Math.max(0, ...peaks.map((lag) => at(nsdf, lag)));
+  if (clarity < clarityFloor) return { rms, clarity, hz: null };
 
   // The first peak near the highest is the period; a later one is an octave below.
-  const period = peaks.find((lag) => at(nsdf, lag) >= PITCH.peakShare * highest);
-  if (period === undefined) return null;
+  const period = peaks.find((lag) => at(nsdf, lag) >= PITCH.peakShare * clarity);
+  if (period === undefined) return { rms, clarity, hz: null };
   const hz = sampleRate / refined(nsdf, period);
-  return hz >= PITCH.minHz && hz <= PITCH.maxHz ? hz : null;
+  return { rms, clarity, hz: hz >= PITCH.minHz && hz <= PITCH.maxHz ? hz : null };
+}
+
+/** The frame's pitch in Hz, or null when it is too quiet, not clearly pitched, or outside the range. */
+export function pitchOf(samples: Samples, sampleRate: number): number | null {
+  const heard = analyse(samples, sampleRate);
+  return heard.rms < PITCH.loudnessFloor ? null : heard.hz;
 }
