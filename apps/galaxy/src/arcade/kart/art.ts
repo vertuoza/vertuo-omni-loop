@@ -1,8 +1,8 @@
 // OMNI KART on the arcade's canvas (PRD 1359): the Omni sky over the circuit in Mode 7, seen from
 // behind the player's kart, which is drawn over it with its driver in the seat. The one file under
 // arcade/kart/ that draws: everything it draws from is pure (track.ts, mode7.ts, texture.ts, race.ts).
-// The circuit's texture and the ground's heights are painted once, the first time a race is drawn, and the
-// floor goes through one pixel buffer per grid, allocated once and reused. The road rises and falls
+// The circuit's texture and the ground's heights are painted once, a slice at a time while the race loads
+// (bug 2152), and the floor goes through one pixel buffer per grid, allocated once and reused. The road rises and falls
 // (relief.ts, PRD 1698): the camera rides the ground under the player's kart, a sprite stands on the ground
 // under it, and a hill's crest hides what is behind it. It also holds the race the arcade steps.
 import { drawPlanet, drawStarfield, fleetSprite, spriteImage, spriteSize, woundTint, type Tint } from '@omni/design';
@@ -14,8 +14,8 @@ import { TILE } from './track';
 import type { KartCue, KartGame, KartQuit } from '../scenes/kart.ts';
 import { hopLift, leanOf, NO_FX, type Kart } from './kart';
 import { marksOf, newParticles, sparkOf, spawnsOf, stepMarks, stepParticles, MARK_LIFE, type Mark, type Particle, type Particles } from './fx';
-import { chaseCamera, depthAt, project, renderTerrain, roofedOf, skyShift, spritesInView, viewOf, type Deck, type Projected, type Texture, type View } from './mode7';
-import { groundAt, heightsOf, reliefRange } from './relief';
+import { chaseCamera, depthAt, project, renderTerrain, skyShift, spritesInView, tunnelling, viewOf, type Deck, type Projected, type Texture, type View } from './mode7';
+import { groundAt, raising, reliefRange } from './relief';
 import type { GridSession, RaceStart } from './hub';
 import type { Item } from './items';
 import { rateFor, readMessage, type GridPlayer, type ItemMessage, type RaceMessage } from './net';
@@ -23,7 +23,8 @@ import { away, cuesOf, dropOut, finishOf, hear, hudOf, lift, newRace, pause, pla
 import { RULES, type Difficulty } from './rules';
 import { COLORS, DEFAULT_LOOK, kartSprite, kartTint, type KartLook, type KartView } from './look';
 import type { Driver, Rival } from './rivals';
-import { deckOf, paintTrack } from './texture';
+import { drain, inSlices, type Steps } from './slices';
+import { deckOf, painting } from './texture';
 import { isSnow, lakeTiles, snowfall, snowProp, snowScenery, snowSky, woodArchLeg, type SnowKind } from './art.snow';
 import { parseTrack, roadAt, roofAt, surfaceAt, tileAt, type PropKind, type Track } from './track';
 import { circuitOf } from './circuits';
@@ -677,18 +678,20 @@ export function createKart({ seed, cast = [], circuit, track, live, held, laps, 
   track ??= parseTrack(raced.source);
   const first = newRace({ seed, track, cast, ...(laps !== undefined ? { laps } : {}), ...(difficulty ? { difficulty } : {}), ...(look ? { look } : {}), ...(live ? { field: { me: live.me.id, order: live.start.order, laps: live.start.laps } } : {}) });
   let race = held ? { ...first, fx: { ...first.fx, item: held } } : first;
-  let texture: Texture | null = null;
   let particles = newParticles(seed);
   let marks: Mark[] = [];
   let ground: Ground | null = null;
   let tiles: MinimapTile[] | null = null;
   const tilesOf = (range: { low: number; high: number }): MinimapTile[] => (tiles ??= minimapTiles(track, range));
-  const groundOf = (): Ground => {
-    if (ground) return ground;
-    texture ??= paintTrack(track);
-    ground = { texture, heights: heightsOf(track, texture), range: reliefRange(track), deck: deckOf(), roofed: roofedOf(track, texture) };
-    return ground;
+  // The ground is the circuit painted, its relief raised and its tunnel read (bug 2152): `ready` builds it a
+  // slice at a time before the race is shown; a race drawn before that builds it at once.
+  const building = function* (): Steps<Ground> {
+    const texture = yield* painting(track);
+    const heights = yield* raising(track, texture);
+    const roofed = yield* tunnelling(track, texture);
+    return { texture, heights, range: reliefRange(track), deck: deckOf(), roofed };
   };
+  const groundOf = (): Ground => (ground ??= drain(building()));
   // What stands still on the circuit stands on the ground under it, measured once.
   const snow = isSnow(track) ? snowScenery(track) : { props: [], stands: [] };
   const standing = [
@@ -835,6 +838,7 @@ export function createKart({ seed, cast = [], circuit, track, live, held, laps, 
     skid: () => (race.phase === 'race' ? skidOf(race.player, race.fx) : 0),
     board: raced.board,
     hud: () => hudOf(race),
+    async ready(pause) { ground ??= await inSlices(building(), pause); },
     draw(ctx, s) {
       const { texture, heights, range, deck, roofed } = groundOf();
       const v = viewFor(s.grid, track, race.player);

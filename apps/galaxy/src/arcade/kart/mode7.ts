@@ -12,6 +12,7 @@
 
 import { RULES } from './rules';
 import { pack } from './texture';
+import { drain, type Steps } from './slices';
 import { roofAt, TILE, type Ground } from './track';
 
 export interface View {
@@ -252,19 +253,29 @@ const vaults = new WeakMap<Uint8Array, { texture: Texture; vault: Vault }>();
 
 /** The vault of `texture` under the mask `roofed`, from each pixel's distance to the nearest void pixel (0 at it), by a two-pass chamfer; memoised on the mask. */
 function vaultOf(texture: Texture, roofed: Uint8Array): Vault {
+  return drain(vaulting(texture, roofed));
+}
+
+/** `vaultOf`'s work, stopping after each row of pixels of each pass so the page can draw meanwhile (bug 2152). */
+function* vaulting(texture: Texture, roofed: Uint8Array): Steps<Vault> {
   const known = vaults.get(roofed);
   if (known && known.texture === texture) return known.vault;
-  const dist = chamfer(texture);
+  const dist = yield* chamfer(texture);
   let half = 0;
   for (let i = 0; i < dist.length; i++) if (read(roofed, i) === 1) half = Math.max(half, read(dist, i));
-  const ceiling = dist.map((d) => arcAt(d, half));
+  yield;
+  const ceiling = new Float32Array(dist.length);
+  for (let y = 0; y < texture.h; y++) {
+    for (let i = y * texture.w; i < (y + 1) * texture.w; i++) ceiling[i] = arcAt(read(dist, i), half);
+    yield;
+  }
   const vault = { w: texture.w, h: texture.h, ceiling, beyond: half > 0 ? ROOF - RULES.vault : ROOF };
   vaults.set(roofed, { texture, vault });
   return vault;
 }
 
 /** Each pixel's distance to the nearest void pixel: one pass down and to the right from the neighbours already seen, one back up and to the left. */
-function chamfer(texture: Texture): Float32Array {
+function* chamfer(texture: Texture): Steps<Float32Array> {
   const { w, h } = texture;
   const dist = new Float32Array(w * h);
   const at = (x: number, y: number): number => (x < 0 || y < 0 || x >= w || y >= h ? Infinity : read(dist, y * w + x));
@@ -273,12 +284,14 @@ function chamfer(texture: Texture): Float32Array {
     for (let x = 0; x < w; x++) {
       dist[y * w + x] = read(texture.px, y * w + x) === 0 ? 0 : Math.min(at(x - 1, y) + 1, at(x, y - 1) + 1, at(x - 1, y - 1) + D, at(x + 1, y - 1) + D);
     }
+    yield;
   }
   for (let y = h - 1; y >= 0; y--) {
     for (let x = w - 1; x >= 0; x--) {
       const d = Math.min(read(dist, y * w + x), at(x + 1, y) + 1, at(x, y + 1) + 1, at(x + 1, y + 1) + D, at(x - 1, y + 1) + D);
       dist[y * w + x] = Number.isFinite(d) ? d : 0;
     }
+    yield;
   }
   return dist;
 }
@@ -314,13 +327,35 @@ export const TUNNEL = Object.freeze({
   rim: pack('#ffe29a'), portal: pack('#fff0a8'),
 });
 
-/** Which pixels of `texture` are roofed road (1) and which are not (0): what `renderTerrain` draws the tunnel from. */
+/** Each texture's roofed mask, with the roof it was read from: one mask a circuit, so its vault is read once, not at every race (bug 2152). */
+const masks = new WeakMap<Texture, { roof: Ground['roof']; mask: Uint8Array }>();
+
+/** Which pixels of `texture` are roofed road (1) and which are not (0): what `renderTerrain` draws the tunnel from; memoised on the texture and the roof. */
 export function roofedOf(track: Pick<Ground, 'size' | 'roof'>, texture: Texture): Uint8Array {
+  return drain(masking(track, texture));
+}
+
+/** `roofedOf`'s work, stopping after each row of pixels so the page can draw meanwhile (bug 2152). */
+function* masking(track: Pick<Ground, 'size' | 'roof'>, texture: Texture): Steps<Uint8Array> {
+  const known = masks.get(texture);
+  if (known?.roof === track.roof) return known.mask;
   const out = new Uint8Array(texture.w * texture.h);
   for (let y = 0; y < texture.h; y++) {
     for (let x = 0; x < texture.w; x++) if (roofAt(track, x, y)) out[y * texture.w + x] = 1;
+    yield;
   }
+  // Two races of one circuit may read it at once: the mask that ends first is the one kept.
+  const first = masks.get(texture);
+  if (first?.roof === track.roof) return first.mask;
+  masks.set(texture, { roof: track.roof, mask: out });
   return out;
+}
+
+/** The tunnel of `texture`, its roofed mask and the vault over it, read a row of pixels at a time (bug 2152): what a race's first frame would read at once. */
+export function* tunnelling(track: Pick<Ground, 'size' | 'roof'>, texture: Texture): Steps<Uint8Array> {
+  const roofed = yield* masking(track, texture);
+  yield* vaulting(texture, roofed);
+  return roofed;
 }
 
 const mod = (a: number, b: number): number => ((a % b) + b) % b;
