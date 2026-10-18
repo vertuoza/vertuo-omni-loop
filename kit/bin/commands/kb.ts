@@ -8,7 +8,8 @@
 // prints the map: each form's state and source, each register folder's laws and proposals, every
 // open question, every stale evidence entry, and — in a plan repository — each imported copy
 // (PRD 522). `graph` prints the knowledge registers as one graph
-// (PRD #149): its summary, or with `--json` the whole document. `laws` (PRD 1726) discloses only what
+// (PRD #149): its summary, or with `--json` the whole document; `graph <id>` (PRD 1797) prints only
+// that entry's neighbourhood, or with `--json` the versioned neighbourhood document. `laws` (PRD 1726) discloses only what
 // a change touches: every locked law, one plain line each, then with `--paths`, `--slice` or `--area`
 // the rules that govern those files, that slice's territory or that domain folder; `show briefing`
 // ends with the thesis's laws section, and `status` counts the rules with no `Governs:` line. `owners`
@@ -22,7 +23,8 @@ import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { credentialsHost, signedInClient } from '../../lib/ask/credentials.ts';
 import { formShowText } from '../../lib/budgets/index.ts';
 import { lawCodeowners, ownerHandle } from '../../lib/codeowners.ts';
-import type { LawOwner } from '../../lib/config.ts';
+import { designScreensDir, type LawOwner } from '../../lib/config.ts';
+import { readScreens } from '../../lib/design/screens.ts';
 import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
@@ -34,11 +36,12 @@ import { readKnowledge } from '../../lib/knowledge/registers.ts';
 import { readThesis } from '../../lib/knowledge/thesis.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
 import { messageOf } from '../../lib/narrow.ts';
-import { glossaryLines, legalLines, productKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
+import { glossaryLines, legalLines, productKnowledge, readCachedKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
 import { ghReader } from '../../lib/plan-repo/targets.ts';
 import { productTargetList } from '../../lib/product/targets.ts';
 import { githubEnv } from '../github.ts';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.ts';
+import { buildNeighbourhood, neighbourhoodText, productFromCache } from '../../lib/knowledge/neighbourhood.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.ts';
 import { readDecisions } from '../../lib/playbook/decisions.ts';
 import { resolveForm } from '../../lib/playbook/resolve.ts';
@@ -62,7 +65,8 @@ export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnTyp
 const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] | --slice <prd> <slice> | --area <domain>] [--json]';
 const SHOW_USAGE = 'usage: omni kb show <form> [--json] [--all]';
 const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
+const GRAPH_USAGE = 'usage: omni kb graph [<id>] [--json]';
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id>] [--json] | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -207,10 +211,43 @@ function graphText({ domains, entries, links, loose, unserved }: Graph): string 
   ].join('\n');
 }
 
-function graph(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
-  if (positional.length > 0) throw usageError('usage: omni kb graph [--json]');
+function graph(positional: string[], flags: KbFlags, io: CommandIo): number {
+  const { ctx, stdout } = io;
+  if (positional.length > 1) throw usageError(GRAPH_USAGE);
+  const [start] = positional;
+  if (start !== undefined) return neighbourhood(start, flags, io);
   const built = readGraph({ ctx });
   println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built));
+  return 0;
+}
+
+/**
+ * `omni kb graph <id>` (PRD 1797): the entry's neighbourhood, as text or with `--json` the versioned
+ * document. Read from the repository's files only: nothing here calls the network.
+ */
+function neighbourhood(start: string, flags: KbFlags, { ctx, stdout, stderr }: CommandIo): number {
+  const { entries } = readKnowledge({ ctx });
+  const cache = readCachedKnowledge(ctx.root);
+  const { product, unreadable } = productFromCache(cache, ctx.config.ask.url);
+  const screensDir = designScreensDir(ctx.config);
+  const built = buildNeighbourhood(
+    {
+      entries,
+      records: readDecisions({ ctx }).records,
+      repo: ctx.config.repo.slug,
+      product,
+      screens: readScreens(join(ctx.root, screensDir)).screens,
+      screensDir,
+      legal: cache.state === 'cached' ? cache.legal : [],
+      glossary: cache.state === 'cached' ? cache.glossary : [],
+    },
+    { start: [start] },
+  );
+  if (built.start.length === 0) {
+    println(stderr, `kb graph: no entry "${start}" in the knowledge folder.`);
+    return 1;
+  }
+  println(stdout, flags.json ? JSON.stringify(built, null, 2) : neighbourhoodText(built, entries, unreadable));
   return 0;
 }
 

@@ -1,11 +1,11 @@
 // A product's knowledge (PRD 1795, s4): the business read's `legal` and `glossary`, kept as the last
 // read for when the page cannot be reached. The server is a stub: nothing here calls the network.
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AskCallError } from '../ask/client.ts';
-import { glossaryLines, knowledgeOfReply, legalLines, NOTHING_READ, PRODUCT_KNOWLEDGE_FILE, productKnowledge, unreachableLine } from './knowledge.ts';
+import { glossaryLines, knowledgeOfReply, legalLines, NOTHING_READ, PRODUCT_KNOWLEDGE_FILE, productKnowledge, readCachedKnowledge, unreachableLine } from './knowledge.ts';
 
 const LEGAL = [{ id: 'L-INVOICING-1', statement: 'Kept ten years.', source: 'Code de commerce', owner: 'jane' }];
 const GLOSSARY = [{ term: 'Credit note', meaning: 'Cancels an invoice.', avoid: [] }];
@@ -64,5 +64,18 @@ describe('the lines', () => {
     expect(legalLines(LEGAL)).toEqual(['L-INVOICING-1  Kept ten years.  (source: Code de commerce; owner: @jane)']);
     expect(glossaryLines(GLOSSARY)).toEqual(['Credit note: Cancels an invoice.  (avoid: none)']);
     expect(unreachableLine('2026-10-15T08:00:00.000Z')).toBe('last read 2026-10-15: the Omni page is unreachable');
+  });
+});
+
+describe('readCachedKnowledge (PRD 1797): the copy on disk, never the server', () => {
+  it('reads absent with no copy, the copy once kept, and unreadable for a file that is not one', async () => {
+    const dir = root();
+    expect(readCachedKnowledge(dir)).toEqual({ state: 'absent' });
+    await productKnowledge({ repo: 'acme/api', root: dir, now: () => NOW, fetchBusiness: () => Promise.resolve(REPLY) });
+    expect(readCachedKnowledge(dir)).toEqual({ state: 'cached', product: 'Invoicing', readAt: NOW.toISOString(), legal: LEGAL, glossary: GLOSSARY });
+    writeFileSync(join(dir, PRODUCT_KNOWLEDGE_FILE), '{ nope');
+    expect(readCachedKnowledge(dir)).toEqual({ state: 'unreadable' });
+    writeFileSync(join(dir, PRODUCT_KNOWLEDGE_FILE), '{"product": 3}');
+    expect(readCachedKnowledge(dir)).toEqual({ state: 'unreadable' });
   });
 });
