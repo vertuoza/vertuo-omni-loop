@@ -35,40 +35,57 @@ interface Floor { image: ImageData; pixels: Uint32Array; depth: Float32Array; ca
 interface Ground { texture: Texture; heights: Float32Array; range: { low: number; high: number }; deck: Deck; roofed: Uint8Array }
 
 /**
- * Where the part of a sprite `z` away, in the screen box `box`, is covered by nearer road: for each column of the box,
- * the first row from the top where the floor is nearer than it (the box's bottom where none is), or null when no column
- * is covered. What a crest hides is what is under the row it covers from.
+ * Where the part of a sprite `z` away, in the screen box `box`, is covered by what is drawn nearer than it, for each
+ * column of the box, or null when no column is covered. From `below` (a crest's road, a wall): the top row of the nearer
+ * rows that reach the box's bottom (the bottom where none do); what it hides is from that row down. From `above` (a
+ * tunnel's roof): the row under the nearer rows that reach the box's top (the top where none do); what it hides is above
+ * that row. A roof over a thing never hides the whole of it (bug 2146).
  */
-export function coverOf(depth: Float32Array, w: number, h: number, box: { left: number; top: number; right: number; bottom: number }, z: number): Int16Array | null {
+export function coverOf(depth: Float32Array, w: number, h: number, box: { left: number; top: number; right: number; bottom: number }, z: number, from: 'below' | 'above' = 'below'): Int16Array | null {
   const left = Math.max(0, Math.floor(box.left)), right = Math.min(w, Math.ceil(box.right));
   const top = Math.max(0, Math.floor(box.top)), bottom = Math.min(h, Math.ceil(box.bottom));
   if (left >= right || top >= bottom) return null;
   const nearer = z * 0.9 - 2; // one row of the floor is up to 2.5% of a far thing's distance, and the foot's two rows below it count
+  const edge = from === 'below' ? bottom : top, scan = from === 'below' ? coveredFromBelow : coveredFromAbove;
   const cut = new Int16Array(right - left);
   let any = false;
   for (let col = left; col < right; col++) {
-    let row = top;
-    while (row < bottom && (depth[row * w + col] ?? Infinity) >= nearer) row++;
+    const row = scan(depth, w, col, top, bottom, nearer);
     cut[col - left] = row;
-    if (row < bottom) any = true;
+    if (row !== edge) any = true;
   }
   return any ? cut : null;
 }
 
+/** The top row of the rows nearer than `nearer` that reach `bottom` in column `col`. */
+function coveredFromBelow(depth: Float32Array, w: number, col: number, top: number, bottom: number, nearer: number): number {
+  let row = bottom;
+  while (row > top && (depth[(row - 1) * w + col] ?? Infinity) < nearer) row--;
+  return row;
+}
+
+/** The row under the rows nearer than `nearer` that reach `top` in column `col`. */
+function coveredFromAbove(depth: Float32Array, w: number, col: number, top: number, bottom: number, nearer: number): number {
+  let row = top;
+  while (row < bottom && (depth[row * w + col] ?? Infinity) < nearer) row++;
+  return row;
+}
+
 /**
- * Clips what is drawn next to the part of a sprite that no nearer road covers (`coverOf`). Saves the context when it
- * clips and says so, for the caller to restore it; clips nothing when no road covers the box.
+ * Clips what is drawn next to the part of a sprite that nothing nearer covers, from above or below (`coverOf`). Saves the
+ * context when it clips and says so, for the caller to restore it; clips nothing when nothing covers the box.
  */
 function hideBehind(ctx: CanvasRenderingContext2D, floor: Floor, w: number, h: number, box: { left: number; top: number; right: number; bottom: number }, z: number): boolean {
-  const cut = coverOf(floor.depth, w, h, box, z);
-  if (!cut) return false;
-  const left = Math.max(0, Math.floor(box.left)), top = Math.max(0, Math.floor(box.top));
+  const above = coverOf(floor.depth, w, h, box, z, 'above'), below = coverOf(floor.depth, w, h, box, z);
+  const cols = (above ?? below)?.length;
+  if (cols === undefined) return false;
+  const left = Math.max(0, Math.floor(box.left)), top = Math.max(0, Math.floor(box.top)), bottom = Math.min(h, Math.ceil(box.bottom));
+  const from = (col: number) => above?.[col] ?? top, to = (col: number) => below?.[col] ?? bottom;
   ctx.save();
   ctx.beginPath();
-  for (let start = 0, col = 1; col <= cut.length; col++) {
-    const at = cut[start] ?? top;
-    if (col < cut.length && cut[col] === at) continue;
-    if (at > top) ctx.rect(left + start, top, col - start, at - top);
+  for (let start = 0, col = 1; col <= cols; col++) {
+    if (col < cols && from(col) === from(start) && to(col) === to(start)) continue;
+    if (to(start) > from(start)) ctx.rect(left + start, from(start), col - start, to(start) - from(start));
     start = col;
   }
   ctx.clip();
