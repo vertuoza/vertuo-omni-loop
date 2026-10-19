@@ -4019,6 +4019,10 @@ export type Database = {
         }
         Returns: string
       }
+      api_key_names: {
+        Args: { p_keys: string[]; p_workspace: string }
+        Returns: Json
+      }
       api_key_of: { Args: { p_hash: string }; Returns: Json }
       api_key_revoke: {
         Args: { p_key: string; p_workspace: string }

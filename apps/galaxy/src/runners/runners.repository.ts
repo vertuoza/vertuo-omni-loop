@@ -133,14 +133,12 @@ export function runnersRepository(db: RunnersDb) {
       return new Map(rows.flatMap((row) => (row.github_login ? [[row.user_id, row.github_login] as const] : [])));
     },
 
-    /** The names of these API keys of the workspace, by their id. */
+    /** The names of these API keys of the workspace, by their id (api_key_names(): the service role may
+     * not read agent_tokens itself). */
     keyNames: async (workspaceId: string, keyIds: string[]): Promise<Map<string, string>> => {
       if (keyIds.length === 0) return new Map();
-      const rows = await parsed(
-        db.from('agent_tokens').select('id, name').eq('workspace_id', workspaceId).eq('scope', 'api').in('id', keyIds),
-        z.array(z.object({ id: z.string(), name: z.string() })), 'agent_tokens',
-      );
-      return new Map(rows.map((row) => [row.id, row.name]));
+      const names = await parsed(db.rpc('api_key_names', { p_workspace: workspaceId, p_keys: keyIds }), z.record(z.string(), z.string()), 'api_key_names()');
+      return new Map(Object.entries(names));
     },
 
     runner: async (id: string): Promise<RunnerRow | null> =>
