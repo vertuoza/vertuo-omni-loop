@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { brokenRows } from '../data/broken-rows.fake';
 import { SavedRepository } from './model';
-import { COULD_NOT_SAVE, databaseRepositories, demoRepositoriesPort, NOT_A_BOARD_MEMBER, NOT_OWNER, PUBLIC_ELSEWHERE, refusalOf } from './store';
+import { COULD_NOT_SAVE, databaseRepositories, demoRepositoriesPort, GONE, NOT_A_BOARD_MEMBER, NOT_OWNER, PUBLIC_ELSEWHERE, refusalOf } from './store';
 
 const containing = (text: string): unknown => expect.stringContaining(text);
 
@@ -23,14 +23,14 @@ function db(answer: { data?: unknown; error?: unknown } | Error) {
 
 const STORED = {
   workspace_id: 'ws-1', full_name: 'vertuoza/vertuo-apps', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: 'u-1',
-  collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr',
+  collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr', removed_at: null,
 };
 
 describe('the database calls', () => {
   it('adds a repository with add_repository(), answering the row it saved', async () => {
     const d = db({ data: STORED });
     expect(await databaseRepositories(d, 'ws-1').add('Vertuoza/vertuo-apps')).toEqual({
-      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr' },
+      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr', removedAt: null, planProducts: [] },
     });
     expect(d.calls).toEqual([['add_repository', { p_workspace: 'ws-1', p_full_name: 'Vertuoza/vertuo-apps' }]]);
   });
@@ -77,6 +77,20 @@ describe('the database calls', () => {
     expect(await port.setPhase0('acme/nothing', 'server')).toMatchObject({ ok: false });
   });
 
+  it('removes a repository with remove_repository(), answering the row it removed (PRD 2188 s1)', async () => {
+    const d = db({ data: { ...STORED, tracked: false, removed_at: '2026-10-19T10:00:00Z' } });
+    expect(await databaseRepositories(d, 'ws-1').remove('vertuoza/vertuo-apps')).toMatchObject({
+      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: false, removedAt: '2026-10-19T10:00:00Z' },
+    });
+    expect(d.calls).toEqual([['remove_repository', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps' }]]);
+  });
+
+  it('answers a remove refused for a member, or for a repository no longer listed, as the page says it (PRD 2188 s1)', async () => {
+    expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').remove('a/b')).toEqual({ ok: false, message: NOT_OWNER });
+    expect(await databaseRepositories(db({ error: { code: 'P0002' } }), 'ws-1').remove('a/b')).toEqual({ ok: false, message: GONE });
+    expect(await databaseRepositories(db(new Error('fetch failed')), 'ws-1').remove('a/b')).toEqual({ ok: false, message: COULD_NOT_SAVE });
+  });
+
   it('answers a refusal for a non-owner, an error, nothing, or a failed call', async () => {
     expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').add('a/b')).toEqual({ ok: false, message: NOT_OWNER });
     expect(await databaseRepositories(db({ error: { code: 'XX000' } }), 'ws-1').add('a/b')).toEqual({ ok: false, message: COULD_NOT_SAVE });
@@ -95,12 +109,28 @@ describe('a refusal', () => {
 describe('the demo', () => {
   it('adds a repository tracked, in lower case, and switches it', async () => {
     const port = demoRepositoriesPort([]);
-    expect(await port.add('Acme/Widgets')).toEqual({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr' } });
+    expect(await port.add('Acme/Widgets')).toEqual({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr', removedAt: null } });
     expect(await port.setTracked('acme/widgets', false)).toMatchObject({ ok: true, repository: { tracked: false } });
   });
 
   it('refuses to switch a repository it does not list', async () => {
     expect(await demoRepositoriesPort([]).setTracked('acme/nothing', false)).toMatchObject({ ok: false });
+  });
+
+  it('removes a repository: removed, untracked, its board private, in no product and planned in by none (PRD 2188 s1)', async () => {
+    const chips = [{ id: 'p-1', name: 'Widgets' }];
+    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, products: chips, publicIdeas: true, planProducts: chips }]);
+    const removed = await port.remove('Acme/Widgets');
+    expect(removed).toMatchObject({ ok: true, repository: { fullName: 'acme/widgets', tracked: false, publicIdeas: false, products: [], planProducts: [] } });
+    expect(removed.ok && typeof removed.repository.removedAt).toBe('string');
+    expect(await port.remove('acme/widgets')).toEqual(removed);
+    expect(await port.remove('acme/nothing')).toEqual({ ok: false, message: GONE });
+  });
+
+  it('adds a removed repository back, tracked (PRD 2188 s1)', async () => {
+    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false }]);
+    await port.remove('acme/widgets');
+    expect(await port.add('acme/widgets')).toMatchObject({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, removedAt: null } });
   });
 });
 
