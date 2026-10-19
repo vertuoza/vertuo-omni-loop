@@ -14,6 +14,7 @@ function stub(answers: Record<string, Answer>) {
       select: (...a: unknown[]) => { calls.push([table, 'select', ...a]); return q; },
       eq: (...a: unknown[]) => { calls.push([table, 'eq', ...a]); return q; },
       not: (...a: unknown[]) => { calls.push([table, 'not', ...a]); return q; },
+      is: (...a: unknown[]) => { calls.push([table, 'is', ...a]); return q; },
       order: (...a: unknown[]) => { calls.push([table, 'order', ...a]); return q; },
       then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) =>
         Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null }).then(ok, ko),
@@ -45,7 +46,7 @@ describe('the products\' storage', () => {
     expect(await repo.productDossiers('ws-1')).toEqual([{ id: 'd-1', kind: 'prd', product_id: 'p-1' }]);
     expect(calls).toEqual([
       ['product_repositories', 'select', 'product_id, repository'], ['product_repositories', 'eq', 'workspace_id', 'ws-1'],
-      ['repositories', 'select', 'full_name'], ['repositories', 'eq', 'workspace_id', 'ws-1'],
+      ['repositories', 'select', 'full_name'], ['repositories', 'eq', 'workspace_id', 'ws-1'], ['repositories', 'is', 'removed_at', null],
       ['dossiers', 'select', 'id, kind, product_id'], ['dossiers', 'not', 'product_id', 'is', null], ['dossiers', 'eq', 'workspace_id', 'ws-1'],
     ]);
   });

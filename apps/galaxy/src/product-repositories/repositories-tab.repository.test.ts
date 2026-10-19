@@ -56,6 +56,7 @@ describe('the reads', () => {
       product_approvers: { data: [{ user_id: 'u-1', state: 'asked' }] },
     });
     expect(await store.repositories('w-1')).toEqual(['acme/api']);
+    expect(calls).toContainEqual(['is', 'removed_at', null]);
     expect(await store.owner('w-1')).toBe(true);
     expect(await store.roster('w-1')).toMatchObject([{ user_id: 'u-1', name: 'Ada' }]);
     expect(await store.approvers('p-1')).toEqual([{ user_id: 'u-1', state: 'asked' }]);
