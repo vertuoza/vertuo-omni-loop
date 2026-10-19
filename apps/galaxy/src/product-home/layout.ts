@@ -110,6 +110,7 @@ const round = (n: number) => Math.round(n * 10) / 10;
 
 /** A star while it moves: where it is, the force on it this step, and its box's width. */
 interface Body {
+  star: LayoutStar;
   repository: string;
   width: number;
   x: number;
@@ -156,7 +157,7 @@ function spiralOf(sorted: readonly LayoutStar[], seed: string, height: number): 
   return sorted.map((star, i) => {
     const angle = turn + GOLDEN * i;
     const radius = 40 + 54 * Math.sqrt(i);
-    const body = { repository: star.repository, width: widthOf(star), x: SKY_WIDTH / 2 + radius * Math.cos(angle), y: height / 2 + FLATTEN * radius * Math.sin(angle), fx: 0, fy: 0 };
+    const body = { star, repository: star.repository, width: widthOf(star), x: SKY_WIDTH / 2 + radius * Math.cos(angle), y: height / 2 + FLATTEN * radius * Math.sin(angle), fx: 0, fy: 0 };
     keepInside(body, height);
     return body;
   });
@@ -246,11 +247,10 @@ export function layoutOf(stars: readonly LayoutStar[], lines: readonly LayoutLin
 
   const at = new Map<string, Point>();
   const boxes = new Map<string, Box>();
-  sorted.forEach((star, i) => {
-    const body = bodies[i];
-    const point = { x: round(body.x), y: round(body.y) };
+  for (const { star, x, y } of bodies) {
+    const point = { x: round(x), y: round(y) };
     at.set(star.repository, point);
     boxes.set(star.repository, labelBoxOf(star, point));
-  });
+  }
   return { width: SKY_WIDTH, height, at, boxes };
 }
