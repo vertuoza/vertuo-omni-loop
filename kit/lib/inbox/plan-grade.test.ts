@@ -687,6 +687,12 @@ describe('gradePlan — each declared kind has its block on the before/after pag
     ]);
   });
 
+  it('never asks the page for a block of none written beside a kind: that cell is refused for its form alone', () => {
+    expect(gradePlan(plan('db, none'), { config: ASKS, beforeAfter: page('db') }).violations).toEqual([
+      's1: contract: "none" beside a kind — one or the other',
+    ]);
+  });
+
   it('asks nothing of a slice declaring none, and nothing of a page with no declared kind', () => {
     expect(gradePlan(plan('none'), { config: ASKS, beforeAfter: null }).violations).toEqual([]);
     expect(gradePlan(plan('none'), { config: ASKS, beforeAfter: page() }).violations).toEqual([]);
