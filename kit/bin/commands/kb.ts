@@ -8,7 +8,8 @@
 // prints the map: each form's state and source, each register folder's laws and proposals, every
 // open question, every stale evidence entry, and — in a plan repository — each imported copy
 // (PRD 522). `graph` prints the knowledge registers as one graph
-// (PRD #149): its summary, or with `--json` the whole document. `laws` (PRD 1726) discloses only what
+// (PRD #149): its summary, or with `--json` the whole document; `graph <id>` (PRD 1797) prints only
+// that entry's neighbourhood, or with `--json` the versioned neighbourhood document. `laws` (PRD 1726) discloses only what
 // a change touches: every locked law, one plain line each, then with `--paths`, `--slice` or `--area`
 // the rules that govern those files, that slice's territory or that domain folder; `show briefing`
 // ends with the thesis's laws section, and `status` counts the rules with no `Governs:` line. `owners`
@@ -22,23 +23,25 @@ import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { credentialsHost, signedInClient } from '../../lib/ask/credentials.ts';
 import { formShowText } from '../../lib/budgets/index.ts';
 import { lawCodeowners, ownerHandle } from '../../lib/codeowners.ts';
-import type { LawOwner } from '../../lib/config.ts';
+import { designScreensDir, type LawOwner } from '../../lib/config.ts';
+import { readScreens } from '../../lib/design/screens.ts';
 import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
-import { disclose, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
+import { disclose, governsPath, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
 import { packGet } from '../../lib/knowledge/packs/get.ts';
 import type { PackOrder } from '../../lib/knowledge/packs/get.ts';
-import { readKnowledge } from '../../lib/knowledge/registers.ts';
+import { ID_SHAPE, isLaw, readKnowledge, type KnowledgeEntry } from '../../lib/knowledge/registers.ts';
 import { readThesis } from '../../lib/knowledge/thesis.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
 import { messageOf } from '../../lib/narrow.ts';
-import { glossaryLines, legalLines, productKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
+import { glossaryLines, legalLines, productKnowledge, readCachedKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
 import { ghReader } from '../../lib/plan-repo/targets.ts';
 import { productTargetList } from '../../lib/product/targets.ts';
 import { githubEnv } from '../github.ts';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.ts';
+import { buildNeighbourhood, neighbourhoodBody, productFromCache, productLine } from '../../lib/knowledge/neighbourhood.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.ts';
 import { readDecisions } from '../../lib/playbook/decisions.ts';
 import { resolveForm } from '../../lib/playbook/resolve.ts';
@@ -62,7 +65,8 @@ export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnTyp
 const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] | --slice <prd> <slice> | --area <domain>] [--json]';
 const SHOW_USAGE = 'usage: omni kb show <form> [--json] [--all]';
 const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
+const GRAPH_USAGE = 'usage: omni kb graph [<id> | --paths <file>[,<file>…] [<file>…]] [--depth <1-3>] [--json]';
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -207,10 +211,73 @@ function graphText({ domains, entries, links, loose, unserved }: Graph): string 
   ].join('\n');
 }
 
-function graph(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
-  if (positional.length > 0) throw usageError('usage: omni kb graph [--json]');
+/** The flags of `omni kb graph`. */
+type GraphFlags = Flags<'paths' | 'depth', 'json'>;
+
+function graph(args: string[], io: CommandIo): number {
+  const { ctx, stdout } = io;
+  const { positional, flags } = parseArgs('kb graph', args, { values: ['paths', 'depth'], booleans: ['json'] });
+  if (!/^[123]$/.test(flags.depth ?? '1')) throw usageError(GRAPH_USAGE);
+  const depth = Number(flags.depth ?? '1');
+  if (flags.paths !== undefined) return neighbourhoodOf({ files: pathsStart(flags, positional) }, depth, flags, io);
+  if (positional.length > 1) throw usageError(GRAPH_USAGE);
+  const [start] = positional;
+  if (start !== undefined) return neighbourhoodOf({ ids: [start] }, depth, flags, io);
+  if (flags.depth !== undefined) throw usageError(GRAPH_USAGE);
   const built = readGraph({ ctx });
   println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built));
+  return 0;
+}
+
+/** The files `--paths` starts from, read as `omni kb laws --paths` reads them; none, or an id beside them, is a usage error. */
+function pathsStart(flags: GraphFlags, positional: readonly string[]): string[] {
+  const files = [...(flags.paths ?? '').split(','), ...positional].map((path) => path.trim()).filter(Boolean);
+  if (files.length === 0 || files.some((file) => ID_SHAPE.test(file))) throw usageError(GRAPH_USAGE);
+  return files;
+}
+
+/** The entries whose `Governs:` meets one of `files`: the laws first, then the rules, each in register order. */
+function governing(entries: readonly KnowledgeEntry[], files: readonly string[]): string[] {
+  const hit = entries.filter(({ kind, governs }) => (kind === 'rule' || kind === 'invariant') && governs !== null && files.some((file) => governsPath(governs, file)));
+  return [...hit.filter(isLaw), ...hit.filter((entry) => !isLaw(entry))].map(({ id }) => id);
+}
+
+/**
+ * `omni kb graph <id>` and `omni kb graph --paths <file>…` (PRD 1797): the neighbourhood of one entry,
+ * or of every entry governing the files, as text or with `--json` the versioned document. Read from
+ * the repository's files only: nothing here calls the network.
+ */
+function neighbourhoodOf(from: { ids: string[] } | { files: string[] }, depth: number, flags: GraphFlags, { ctx, stdout, stderr }: CommandIo): number {
+  const { entries } = readKnowledge({ ctx });
+  const cache = readCachedKnowledge(ctx.root);
+  const { product, unreadable } = productFromCache(cache, ctx.config.ask.url);
+  const screensDir = designScreensDir(ctx.config);
+  const sources = {
+    entries,
+    records: readDecisions({ ctx }).records,
+    repo: ctx.config.repo.slug,
+    product,
+    screens: readScreens(join(ctx.root, screensDir)).screens,
+    screensDir,
+    legal: cache.state === 'cached' ? cache.legal : [],
+    glossary: cache.state === 'cached' ? cache.glossary : [],
+  };
+  const ids = 'ids' in from ? from.ids : governing(entries, from.files);
+  const built = buildNeighbourhood(sources, { start: ids, depth });
+  if ('ids' in from && built.start.length === 0) {
+    println(stderr, `kb graph: no entry "${from.ids.join(' ')}" in the knowledge folder.`);
+    return 1;
+  }
+  if (flags.json) {
+    println(stdout, JSON.stringify(built, null, 2));
+    return 0;
+  }
+  if (ids.length === 0) {
+    println(stdout, ['kb graph — no entry governs those files.', productLine(product, unreadable)].join('\n'));
+    return 0;
+  }
+  const blocks = built.start.flatMap((id) => neighbourhoodBody(buildNeighbourhood(sources, { start: [id], depth }), entries));
+  println(stdout, [...blocks, productLine(product, unreadable)].join('\n'));
   return 0;
 }
 
@@ -433,13 +500,13 @@ async function productVerb(verb: 'legal' | 'glossary', positional: string[], { c
 
 const basic = synchronous((args: string[], io: CommandIo): number => {
   if (args[0] === 'laws') return laws(args.slice(1), io);
+  if (args[0] === 'graph') return graph(args.slice(1), io);
   const { positional, flags } = parseArgs('kb', args, { booleans: ['json', 'all'] });
   const [sub, ...rest] = positional;
   if (flags.all && sub !== 'show') throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE}`);
   if (sub === 'init') return init(rest, flags, io);
   if (sub === 'show') return show(rest, flags, io);
   if (sub === 'status') return status(rest, flags, io);
-  if (sub === 'graph') return graph(rest, flags, io);
   if (sub === 'owners') return owners(rest, flags, io);
   throw usageError(USAGE);
 });

@@ -68,6 +68,27 @@ function readCopy(root: string): (ProductKnowledge & { readAt: string }) | null 
   return kept.success ? kept.data : null;
 }
 
+/** What the last copy on disk holds, read without a network call (PRD 1797): none, one that does not read, or its knowledge. */
+export type CachedKnowledge = { state: 'absent' } | { state: 'unreadable' } | ({ state: 'cached'; readAt: string } & ProductKnowledge);
+
+/** The copy kept under `root`, never the server: `absent` with no file, `unreadable` when the file is not a copy. */
+export function readCachedKnowledge(root: string): CachedKnowledge {
+  let text: string;
+  try {
+    text = readFileSync(join(root, PRODUCT_KNOWLEDGE_FILE), 'utf8');
+  } catch {
+    return { state: 'absent' };
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return { state: 'unreadable' };
+  }
+  const kept = CopySchema.safeParse(value);
+  return kept.success ? { state: 'cached', ...kept.data } : { state: 'unreadable' };
+}
+
 /** Whether a failed call means the server did not answer: no reply in time, or a failure on its side. */
 const unanswered = (error: AskCallError): boolean => error.status === null || error.status >= 500;
 
