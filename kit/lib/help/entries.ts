@@ -266,7 +266,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb legal', 'omni kb glossary', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb legal', 'omni kb glossary', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:

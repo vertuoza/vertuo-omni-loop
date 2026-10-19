@@ -83,3 +83,49 @@ export const ProductNeighbourhoodSchema = z.strictObject({
   repositories: z.array(RepositoryStandingSchema),
 });
 export type ProductNeighbourhood = z.infer<typeof ProductNeighbourhoodSchema>;
+
+/** Version 1's node: P5's `--json`, with no repository. */
+const V1NodeSchema = z.strictObject({
+  id: z.string().min(1),
+  kind: z.enum(['principle', 'rule', 'invariant', 'legal', 'contract', 'test', 'path', 'schema', 'screen', 'adr', 'term']),
+  label: z.string().nullable(),
+  status: z.enum(STATUSES).nullable(),
+  file: z.string().min(1).nullable(),
+  origin: z.enum(ORIGINS),
+  hop: z.number().int().min(0),
+});
+
+const V1NeighbourhoodSchema = z.strictObject({
+  version: z.literal(1),
+  shape: z.literal('neighbourhood'),
+  repo: z.string().min(1).nullable(),
+  start: z.array(z.string().min(1)),
+  depth: z.number().int().min(1).max(PRODUCT_GRAPH_DEPTH.most),
+  product: z.strictObject({ state: z.enum(['cached', 'offline', 'none']), key: z.string().min(1).nullable(), cachedOn: z.string().nullable() }),
+  nodes: z.array(V1NodeSchema),
+  edges: z.array(ProductGraphEdgeSchema),
+});
+
+/** A neighbourhood document of either version, as the CLI reads it. */
+export type ReadNeighbourhood = {
+  version: 1 | 2;
+  start: string[];
+  depth: number;
+  product: ProductNeighbourhood['product'];
+  nodes: (Omit<ProductGraphNode, 'repo' | 'kind'> & { kind: string; repo?: string | null })[];
+  edges: ProductGraphEdge[];
+  unresolved: Unresolved[];
+  repositories: RepositoryStanding[];
+};
+
+/**
+ * P5's reader (PRD 1798, s5): a neighbourhood document of version 1 (`omni kb graph <id> --json`) or of
+ * version 2 (the server's). A version 1 answer has no `unresolved` and no `repositories`, read as empty,
+ * and no `repo` on a node. Any other version, or an unknown field, is refused with `null`.
+ */
+export function readNeighbourhood(value: unknown): ReadNeighbourhood | null {
+  const two = ProductNeighbourhoodSchema.safeParse(value);
+  if (two.success) return { ...two.data, version: 2 };
+  const one = V1NeighbourhoodSchema.safeParse(value);
+  return one.success ? { ...one.data, version: 1, unresolved: [], repositories: [] } : null;
+}

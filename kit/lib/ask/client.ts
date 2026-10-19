@@ -540,6 +540,9 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** PRD 1162: one push of a roadmap (`../roadmap/push.ts` shapes it), sent as it is.
      * @returns {Promise<{ roadmapId: string, created: boolean, product: unknown, unknownProduct: string | null, note: string | null }>} */
     pushRoadmap: (body: unknown) => call('POST', '/api/roadmaps', { body }),
+    /** PRD 1798, s5: the neighbourhood of node `id` in product `key`'s knowledge graph, `depth` (1 to 3) hops, as the caller. */
+    readKnowledgeGraph: ({ key, id, depth }: { key: string; id: string; depth: number | null }) =>
+      call('GET', `/api/products/${encodeURIComponent(key)}/knowledge/graph?${new URLSearchParams(depth === null ? { id } : { id, depth: String(depth) })}`),
     /** PRD 1798: one repository's knowledge graph at one commit (`../knowledge/graph-push.ts` builds it), sent as it is.
      * @returns {Promise<{ repo: string, commit: string, nodes: number, edges: number, products: Array<{ key: string | null, href: string }> }>} */
     pushKnowledgeGraph: ({ repo, commit, graph }: { repo: string; commit: string; graph: unknown }) =>
