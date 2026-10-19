@@ -5,7 +5,7 @@
 // still never runs.
 
 /** The skills a runner runs: they run without a person typing, and end on their own. */
-export const RUNNABLE_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'visual-fix', 'plan', 'pitch', 'prove']);
+export const RUNNABLE_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove']);
 
 /** The longest line a runner takes, in characters. */
 export const LINE_MAX = 200;
@@ -14,10 +14,10 @@ const SHAPE = /^\/omni:([a-z][a-z-]*)(?: (.*))?$/s;
 const ARGS = /^[A-Za-z0-9 ._/:#-]*$/;
 
 /** A line checked: its skill and arguments, or why it is refused, in one line. */
-export type LineCheck = { ok: true; skill: string; args: string } | { ok: false; reason: string };
+export type RunnerLineCheck = { ok: true; skill: string; args: string } | { ok: false; reason: string };
 
 /** Whether `line` may run on a runner, and why not. */
-export function checkLine(line: string): LineCheck {
+export function checkRunnerLine(line: string): RunnerLineCheck {
   if (line.length > LINE_MAX) return { ok: false, reason: `the line is over ${String(LINE_MAX)} characters` };
   const match = SHAPE.exec(line);
   if (!match) return { ok: false, reason: 'the line does not read /omni:<skill> <arguments>' };
