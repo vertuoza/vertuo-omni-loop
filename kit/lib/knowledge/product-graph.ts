@@ -48,7 +48,7 @@ const ProductGraphNodeSchema = z.strictObject({
   file: z.string().min(1).nullable(),
   origin: z.enum(ORIGINS),
   hop: z.number().int().min(0),
-  /** The repository's short name, `vertuo-omni-loop`; `null` on a node of the product. */
+  /** The repository's short name (`back-end`); `null` on a node of the product. */
   repo: z.string().min(1).nullable(),
 });
 export type ProductGraphNode = z.infer<typeof ProductGraphNodeSchema>;
