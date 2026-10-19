@@ -1,48 +1,41 @@
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { layoutOf, SKY_WIDTH, type Point } from './layout';
 import type { HomeFlight, HomeRepository, PrChip, ProductHome } from './product-home.service';
 
-// The Constellation tab's map (PRD 2129 s1): one pure function from the product's linked repositories to the
-// stars, their edges and where each is placed. No rule lives in the reads or the drawing.
+// The Constellation tab's map (PRD 2129, reworked by PRD 2174 s3): one pure function from the product's
+// linked repositories and its PRDs to the stars, their lines and where each is placed. No rule lives in the
+// reads or the drawing.
 //
-// - a star per linked repository: its role, its phase 0 (◆ `server`, ◇ `pr`) and the other products it is
-//   also in; a star whose phase 0 is `pr` is docked;
-// - an edge per `consumes` entry, from the consumer to the provider, as its owners declared it: nothing is
-//   inferred;
-// - a fixed layout, with no physics and no randomness: stars ranked by how many links consume them (most
-//   first, ties by name); the first at the centre of the sky, the rest on one ring around it (two rings past
-//   8 stars), evenly spaced from the top in rank order. An edge is a quadratic curve bent away from the
-//   centre; two edges between the same pair bend to opposite sides, so they never overlap.
-//
-// Since s2, the Ledger's states on it:
-//
-// - a PRD in flight (on the Ledger: not shipped, not at retro) touches its home repository, every
-//   repository where it has a stage row, and every one where its feature branch or a landing has an open
-//   pull request; a shipped PRD, or one at retro, touches nothing;
+// - a star per linked repository: its role, its phase 0 (◆ `server`, ◇ `pr`), the other products it is also
+//   in, and its weight, the number of the product's PRDs whose targets include it, with its third (light,
+//   medium, heavy) among the product's weights; a star whose phase 0 is `pr` is docked;
+// - a plan line per pair of the product's repositories that a PRD's targets (its plan's `## Repositories`,
+//   stored in prd_targets) name together: its weight is the PRDs sharing the pair, newest first; it is in
+//   flight when one of them is (on the Ledger: not shipped, not at retro). A target outside the product's
+//   repositories draws nothing and is counted on the stars of the PRD it comes with; a PRD with fewer than
+//   two targets in the product draws no line;
+// - a consumes line per declared `consumes` entry, consumer to provider, drawn apart: nothing is inferred;
+// - the stars are placed by layoutOf (layout.ts), seeded with the product's id: the same rows, the same map;
+// - a PRD in flight touches its home repository, every repository where it has a stage row, and every one
+//   where its feature branch or a landing has an open pull request; a shipped PRD, or one at retro, touches
+//   nothing;
 // - a PRD's state is `drifted` (a ◆ PRD whose approval a push voided), else `on-you` (on the viewer's On
-//   you lane), else `building` (at building), else `quiet`; a star's is the worst of the PRDs touching it,
-//   in that order;
-// - an edge carries what crosses it now: the PRDs in flight touching both of its ends, newest first; it
-//   flows (its dots move) only between two building stars;
-// - *Now in* lists the PRDs in flight touching any star, worst first;
-// - a docked star carries one tether per open phase-0 pull request of the product's PRDs in its repository
-//   (s3); a star that is not docked never carries one;
-// - `?prd=<dossier>` keeps that PRD's stars and the edges between them lit and fades the rest, an unknown
-//   one (or one not in flight) reading as no filter; `?star=<owner/name>` selects one star, an unknown one
-//   none.
+//   you lane), else `building` (at building), else `quiet`; a star's is the worst of the PRDs touching it;
+// - *Now in* lists the first 8 PRDs in flight touching any star, worst first, and counts the rest;
+// - a docked star carries one tether per open phase-0 pull request of the product's PRDs in its repository;
+// - `?star=<owner/name>` selects one star and `?pair=<owner/name>,<owner/name>` one plan line, in either
+//   order; an unknown value selects nothing. There is no PRD filter.
 
-/** The sky's size, in the SVG's own units. */
-export const SKY = { width: 960, height: 500 } as const;
-
-export interface Point {
-  x: number;
-  y: number;
-}
+export type { Point };
 
 /** A star's state, worst first; a PRD's own. */
 export type StarState = 'drifted' | 'on-you' | 'building' | 'quiet';
 
 /** The states in the order a star takes the worst of. */
 const STAR_STATES: readonly StarState[] = ['drifted', 'on-you', 'building', 'quiet'];
+
+/** How many PRDs *Now in* lists before it counts the rest. */
+export const NOW_MAX = 8;
 
 /** A PRD in flight, as the map draws it. */
 export interface Flight {
@@ -56,6 +49,9 @@ export interface Flight {
   stars: string[];
 }
 
+/** A star's third among the product's weights. */
+export type StarSize = 'light' | 'medium' | 'heavy';
+
 export interface Star {
   repository: string;
   role: string | null;
@@ -64,84 +60,62 @@ export interface Star {
   alsoIn: string[];
   /** The open phase-0 pull requests of the product's PRDs in it: only a docked star carries any. */
   tethers: PrChip[];
-  /** How many links consume it. */
-  consumedBy: number;
+  /** How many of the product's PRDs have it among their targets. */
+  weight: number;
+  size: StarSize;
+  /** How many repositories outside the product the PRDs that target it also target. */
+  outside: number;
   at: Point;
   state: StarState;
-  /** False when a `?prd=` filter is in force and that PRD does not touch it. */
-  lit: boolean;
 }
 
-export interface Edge {
+/** A PRD sharing a plan line. */
+export interface LinePrd {
+  dossier: string;
+  prd: PrdNumber;
+  title: string;
+  inFlight: boolean;
+}
+
+/** A plan line: a pair of the product's repositories (`a` sorts before `b`) that PRDs' targets name together. */
+export interface PlanLine {
+  a: string;
+  b: string;
+  /** How many PRDs share it. */
+  weight: number;
+  /** The PRDs sharing it, newest first. */
+  prds: LinePrd[];
+  inFlight: boolean;
+}
+
+/** A declared `consumes` entry, drawn apart. */
+export interface ConsumesLine {
   consumer: string;
   provider: string;
-  /** The curve's control point. */
-  bend: Point;
-  /** The PRDs in flight touching both of its ends, newest first. */
-  crossing: Flight[];
-  lit: boolean;
-  /** Whether its dots move: both of its ends are building. */
-  flowing: boolean;
 }
 
-/** What the map is drawn with: the dossier of the PRD a `?prd=` lights, the star a `?star=` selects. */
+/** What the map is drawn with: the star a `?star=` selects, the pair a `?pair=` selects. */
 export interface Filter {
-  dossier?: string | null;
   star?: string | null;
+  pair?: string | null;
 }
 
-/** What the tab draws: no repository, repositories alone, or repositories with their edges. */
+/** What the tab draws: no repository, repositories alone, or repositories with their lines. */
 export type Constellation =
   | { kind: 'empty' }
   | {
     kind: 'stars' | 'map';
+    sky: { width: number; height: number };
     stars: Star[];
-    edges: Edge[];
-    /** Every PRD in flight, newest first: the filter's chips. */
-    flights: Flight[];
-    /** The PRDs in flight touching a star, worst first. */
+    lines: PlanLine[];
+    consumes: ConsumesLine[];
+    /** The first NOW_MAX PRDs in flight touching a star, worst first. */
     now: Flight[];
-    /** The dossier of the PRD lit, or null with no filter in force. */
-    lit: string | null;
+    /** How many more PRDs in flight touch a star. */
+    moreNow: number;
     selected: Star | null;
+    selectedLine: PlanLine | null;
   };
-
-const CENTRE: Point = { x: SKY.width / 2, y: SKY.height / 2 };
-/** Radii of the ring (one ring up to 8 stars), then of the inner and the outer ring. */
-const RING = 190;
-const INNER = 120;
-const OUTER = 215;
-const ONE_RING_MAX = 8;
-/** How far an edge bends, as a share of its length. */
-const BEND = 0.18;
-
-const round = (n: number) => Math.round(n * 10) / 10;
-
-/** `count` points evenly spaced on the ring of `radius`, from the top, clockwise. */
-const ring = (count: number, radius: number): Point[] =>
-  Array.from({ length: count }, (_, i) => {
-    const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
-    return { x: round(CENTRE.x + radius * Math.cos(angle)), y: round(CENTRE.y + radius * Math.sin(angle)) };
-  });
-
-/** The points of `total` stars, in rank order: the centre, then the ring or two. */
-function placesOf(total: number): Point[] {
-  const others = total - 1;
-  if (others <= 0) return total === 1 ? [CENTRE] : [];
-  if (total <= ONE_RING_MAX) return [CENTRE, ...ring(others, RING)];
-  const inner = Math.ceil(others / 2);
-  return [CENTRE, ...ring(inner, INNER), ...ring(others - inner, OUTER)];
-}
-
-/** The control point of the curve from `from` to `to`: the middle pushed sideways, away from the centre,
- * or to the left of the way it goes when the same pair has an edge the other way too. */
-function bendOf(from: Point, to: Point, bothWays: boolean): Point {
-  const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
-  const normal = { x: from.y - to.y, y: to.x - from.x };
-  const away = normal.x * (mid.x - CENTRE.x) + normal.y * (mid.y - CENTRE.y) >= 0 ? 1 : -1;
-  const side = bothWays ? 1 : away;
-  return { x: round(mid.x + side * normal.x * BEND), y: round(mid.y + side * normal.y * BEND) };
-}
 
 const lower = (repository: string) => repository.toLowerCase();
 
@@ -163,24 +137,8 @@ const WORDS: Readonly<Record<Exclude<StarState, 'quiet'>, string>> = { drifted: 
 const rankOf = (state: StarState) => STAR_STATES.indexOf(state);
 const worst = (states: readonly StarState[]): StarState => states.reduce<StarState>((w, s) => (rankOf(s) < rankOf(w) ? s : w), 'quiet');
 
-/** The stars of the product, ranked and placed, before the Ledger is drawn on them. */
-function placedOf(repositories: readonly HomeRepository[], tethers: readonly PrChip[]) {
-  const consumedBy = new Map<string, number>();
-  for (const r of repositories) for (const p of r.consumes) consumedBy.set(p, (consumedBy.get(p) ?? 0) + 1);
-  const ranked = [...repositories].sort((a, b) =>
-    (consumedBy.get(b.repository) ?? 0) - (consumedBy.get(a.repository) ?? 0) || a.repository.localeCompare(b.repository));
-  const places = placesOf(ranked.length);
-  return ranked.map((r, i) => ({
-    repository: r.repository,
-    role: r.role,
-    phase0: r.phase0,
-    docked: r.phase0 === 'pr',
-    alsoIn: [...r.alsoIn].sort((a, b) => a.localeCompare(b)),
-    tethers: r.phase0 === 'pr' ? tethers.filter((t) => lower(t.repo) === lower(r.repository)) : [],
-    consumedBy: consumedBy.get(r.repository) ?? 0,
-    at: places[i] ?? CENTRE,
-  }));
-}
+/** The key of a pair of repositories, the same in either order. */
+const pairKey = (a: string, b: string) => (lower(a) < lower(b) ? `${lower(a)}|${lower(b)}` : `${lower(b)}|${lower(a)}`);
 
 /** The PRDs in flight, newest first, each with the stars it touches. */
 function flightsOf(flights: readonly HomeFlight[], starNames: readonly string[]): Flight[] {
@@ -193,34 +151,101 @@ function flightsOf(flights: readonly HomeFlight[], starNames: readonly string[])
   });
 }
 
-/** The product's constellation from its linked repositories and its PRDs, drawn with `filter`. */
-export function constellationOf(home: Pick<ProductHome, 'repositories' | 'flights'> & Partial<Pick<ProductHome, 'tethers'>>, filter: Filter = {}): Constellation {
+/** What the PRDs' targets say: the PRDs of each pair of the product's repositories, each repository's weight and
+ * the repositories outside the product that come with it. */
+function plansOf(flights: readonly HomeFlight[], names: readonly string[]) {
+  const canonical = new Map(names.map((n) => [lower(n), n] as const));
+  const lines = new Map<string, PlanLine>();
+  const weights = new Map<string, number>();
+  const outside = new Map<string, Set<string>>();
+  for (const f of flights) {
+    const inside = [...new Set(f.targets.flatMap((t) => canonical.get(lower(t)) ?? []))].sort((a, b) => a.localeCompare(b));
+    const beyond = [...new Set(f.targets.filter((t) => !canonical.has(lower(t))).map(lower))];
+    for (const name of inside) {
+      weights.set(name, (weights.get(name) ?? 0) + 1);
+      outside.set(name, new Set([...(outside.get(name) ?? []), ...beyond]));
+    }
+    const prd: LinePrd = { dossier: f.dossier, prd: f.prd, title: f.title, inFlight: f.ledger !== null };
+    for (const [i, a] of inside.entries()) {
+      for (const b of inside.slice(i + 1)) {
+        const key = pairKey(a, b);
+        const line = lines.get(key) ?? { a, b, weight: 0, prds: [], inFlight: false };
+        lines.set(key, { ...line, weight: line.weight + 1, prds: [...line.prds, prd], inFlight: line.inFlight || prd.inFlight });
+      }
+    }
+  }
+  const sorted = [...lines.values()].sort((p, q) => q.weight - p.weight || p.a.localeCompare(q.a) || p.b.localeCompare(q.b));
+  return { lines: sorted, weights, outside };
+}
+
+/** A weight's third among the product's weights: the lowest third light, the highest heavy. */
+function sizesOf(weights: readonly number[]): (weight: number) => StarSize {
+  const sorted = [...weights].sort((a, b) => a - b);
+  const lowest = sorted[Math.ceil(sorted.length / 3) - 1] ?? 0;
+  const middle = sorted[Math.ceil((2 * sorted.length) / 3) - 1] ?? 0;
+  return (weight) => (weight <= lowest ? 'light' : weight <= middle ? 'medium' : 'heavy');
+}
+
+/** The pair a `?pair=` names, `owner/name,owner/name` in either order, as the line it selects. */
+function pairOf(lines: readonly PlanLine[], pair: string | null | undefined): PlanLine | null {
+  const names = pair?.split(',') ?? [];
+  const [first, second] = names;
+  if (names.length !== 2 || first === undefined || second === undefined) return null;
+  return lines.find((l) => pairKey(l.a, l.b) === pairKey(first, second)) ?? null;
+}
+
+type Home = Pick<ProductHome, 'product' | 'repositories' | 'flights'> & Partial<Pick<ProductHome, 'tethers'>>;
+
+/** The stars of the product, with what its PRDs say of them, placed by the layout, before the Ledger is drawn on them. */
+function starsOf(repositories: readonly HomeRepository[], tethers: readonly PrChip[], plans: ReturnType<typeof plansOf>, seed: string) {
+  const sorted = [...repositories].sort((a, b) => a.repository.localeCompare(b.repository));
+  const layout = layoutOf(
+    sorted.map((r) => ({ repository: r.repository, role: r.role })),
+    plans.lines.map((l) => ({ a: l.a, b: l.b, weight: l.weight })),
+    seed,
+  );
+  const sizeOf = sizesOf(sorted.map((r) => plans.weights.get(r.repository) ?? 0));
+  return {
+    sky: { width: layout.width, height: layout.height },
+    placed: sorted.map((r) => {
+      const weight = plans.weights.get(r.repository) ?? 0;
+      return {
+        repository: r.repository,
+        role: r.role,
+        phase0: r.phase0,
+        docked: r.phase0 === 'pr',
+        alsoIn: [...r.alsoIn].sort((a, b) => a.localeCompare(b)),
+        tethers: r.phase0 === 'pr' ? tethers.filter((t) => lower(t.repo) === lower(r.repository)) : [],
+        weight,
+        size: sizeOf(weight),
+        outside: plans.outside.get(r.repository)?.size ?? 0,
+        at: layout.at.get(r.repository) ?? { x: SKY_WIDTH / 2, y: layout.height / 2 },
+      };
+    }),
+  };
+}
+
+/** The product's constellation from its linked repositories and its PRDs, with `filter`'s selection. */
+export function constellationOf(home: Home, filter: Filter = {}): Constellation {
   const { repositories } = home;
   if (repositories.length === 0) return { kind: 'empty' };
-  const placed = placedOf(repositories, home.tethers ?? []);
+  const plans = plansOf(home.flights, repositories.map((r) => r.repository));
+  const { sky, placed } = starsOf(repositories, home.tethers ?? [], plans, home.product.id);
   const flights = flightsOf(home.flights, placed.map((s) => s.repository));
-  const lit = flights.find((f) => f.dossier === filter.dossier) ?? null;
-  const touching = (name: string) => flights.filter((f) => f.stars.includes(name));
-  const stars: Star[] = placed.map((s) => ({
-    ...s, state: worst(touching(s.repository).map((f) => f.state)), lit: lit === null || lit.stars.includes(s.repository),
-  }));
-  const byName = new Map(stars.map((s) => [s.repository, s] as const));
-  const declared = repositories.flatMap((r) => r.consumes.filter((p) => byName.has(p)).map((p) => ({ consumer: r.repository, provider: p })));
-  const edges: Edge[] = declared.flatMap((e) => {
-    const from = byName.get(e.consumer);
-    const to = byName.get(e.provider);
-    if (from === undefined || to === undefined) return [];
-    const bothWays = declared.some((o) => o.consumer === e.provider && o.provider === e.consumer);
-    return [{
-      ...e,
-      bend: bendOf(from.at, to.at, bothWays),
-      crossing: flights.filter((f) => f.stars.includes(e.consumer) && f.stars.includes(e.provider)),
-      lit: from.lit && to.lit,
-      flowing: from.state === 'building' && to.state === 'building',
-    }];
-  });
-  const now = [...flights].filter((f) => f.stars.length > 0).sort((a, b) => rankOf(a.state) - rankOf(b.state));
+  const stars: Star[] = placed.map((s) => ({ ...s, state: worst(flights.filter((f) => f.stars.includes(s.repository)).map((f) => f.state)) }));
+  const known = new Set(stars.map((s) => s.repository));
+  const consumes = repositories.flatMap((r) => r.consumes.filter((p) => known.has(p)).map((p) => ({ consumer: r.repository, provider: p })));
+  const touching = flights.filter((f) => f.stars.length > 0).sort((a, b) => rankOf(a.state) - rankOf(b.state));
   const wanted = filter.star === undefined || filter.star === null ? null : lower(filter.star);
-  const selected = stars.find((s) => lower(s.repository) === wanted) ?? null;
-  return { kind: edges.length === 0 ? 'stars' : 'map', stars, edges, flights, now, lit: lit?.dossier ?? null, selected };
+  return {
+    kind: plans.lines.length === 0 ? 'stars' : 'map',
+    sky,
+    stars,
+    lines: plans.lines,
+    consumes,
+    now: touching.slice(0, NOW_MAX),
+    moreNow: Math.max(0, touching.length - NOW_MAX),
+    selected: stars.find((s) => lower(s.repository) === wanted) ?? null,
+    selectedLine: pairOf(plans.lines, filter.pair),
+  };
 }

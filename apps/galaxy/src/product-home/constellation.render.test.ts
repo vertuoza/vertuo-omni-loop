@@ -8,12 +8,12 @@ import { ConstellationTab, NO_EDGES, NO_REPOSITORIES } from './ConstellationTab'
 import { demoProductHome } from './ProductHome';
 import type { HomeFlight, HomeRepository, PrChip, ProductHome as Home } from './product-home.service';
 
-// The Constellation tab as the server renders it (PRD 2129 s1): each star a link with its name and role,
-// DOCKED, the also-in halo, the legend, the as-of stamp, the read only chip, the edges, and the empty
-// states' words and links. Since s2, the Ledger's states on it: the filter chips, the rings, the edge
-// labels and their dots, the Now in card, the star card, and the stylesheet's motion.
+// The Constellation tab as the server renders it (PRD 2129 s1, PRD 2174 s3): each star a link with its name and
+// role, DOCKED, the also-in halo, the legend, the as-of stamp, the count, the plan lines (a link each with its
+// title, dots when in flight) and the consumes lines apart, the empty states' words, the rings, the Now in card
+// capped at 8, the star card, the line card, and the stylesheet's motion. PRD 2174 s4 draws the night sky.
 
-const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#x27;/g, "'").replace(/\s+/g, ' ').trim();
 const repo = (name: string, over: Partial<HomeRepository> = {}): HomeRepository =>
   ({ repository: name, role: null, consumes: [], phase0: 'server', alsoIn: [], ...over });
 const home = (repositories: HomeRepository[], flights: HomeFlight[] = [], tethers: PrChip[] = []): Home => ({
@@ -26,7 +26,7 @@ const render = (repositories: HomeRepository[], flights: HomeFlight[] = [], quer
   renderToStaticMarkup(createElement(ConstellationTab, { home: home(repositories, flights, tethers), now: NOW, query }));
 const flight = (dossier: string, n: number, title: string, over: Partial<HomeFlight> = {}): HomeFlight => ({
   dossier, repo: 'acme/widgets', prd: parsePrd(n), title, birthplace: 'repo',
-  stage: 'building', ledger: { state: 'building', lane: 'on-agent' }, stageRepos: [], prs: [], ...over,
+  stage: 'building', ledger: { state: 'building', lane: 'on-agent' }, stageRepos: [], prs: [], targets: [], ...over,
 });
 
 const FULL = [
@@ -57,21 +57,23 @@ describe('the Constellation tab, filled', () => {
     expect(html.match(/constellation-halo/g)).toHaveLength(1);
   });
 
-  it('draws one edge per consumes entry, consumer to provider', () => {
-    expect(html.match(/class="constellation-edge"/g)).toHaveLength(1);
+  it('draws one consumes line per entry, consumer to provider, apart from the plan lines', () => {
+    expect(html.match(/class="constellation-consumes"/g)).toHaveLength(1);
     expect(html).toContain('data-consumer="acme/widgets" data-provider="acme/widgets-api"');
+    expect(html).not.toContain('constellation-plan');
   });
 
-  it('says read only, the as-of time in UTC and what the sky shows', () => {
+  it('says read only, the as-of time in UTC, the count and what the sky shows', () => {
     expect(text(html)).toContain('read only');
     expect(text(html)).toContain('as of 09:07 UTC');
+    expect(text(html)).toContain('4 repositories · 1 lines');
     expect(html).toContain('role="img"');
-    expect(html).toContain('aria-label="Widgets: 4 repositories, 1 edges"');
+    expect(html).toContain('aria-label="Widgets: 4 repositories, 0 plan lines"');
   });
 
-  it('draws the legend under the sky', () => {
+  it('draws the legend under the sky, and says no PRD\'s plan names two repositories yet', () => {
     expect(text(/<ul class="constellation-legend"[^>]*>([\s\S]*?)<\/ul>/.exec(html)?.[1] ?? '')).toContain('also in another product');
-    expect(text(html)).not.toContain(NO_EDGES);
+    expect(text(html)).toContain(NO_EDGES);
   });
 });
 
@@ -83,12 +85,12 @@ describe('the Constellation tab, empty', () => {
     expect(html).not.toContain('<svg');
   });
 
-  it('draws the stars alone and says where to declare edges when no repository consumes another', () => {
+  it('draws the stars alone with the no-line note when no PRD\'s plan names two repositories', () => {
     const html = render([repo('acme/a'), repo('acme/b')]);
     expect(html.match(/data-star=/g)).toHaveLength(2);
     expect(html).not.toContain('constellation-edge');
-    expect(text(html)).toContain(`${NO_EDGES} Declare edges on Repositories & approvers`);
-    expect(html).toContain('href="/app/products/p-1/repositories"');
+    expect(text(html)).toContain(NO_EDGES);
+    expect(text(html)).toContain('2 repositories · 0 lines');
   });
 });
 
@@ -104,26 +106,24 @@ const FLIGHTS = [
   flight('d-905', 905, 'Single sign-on', { repo: 'acme/auth', stage: 'inbox', ledger: { state: 'drifted', lane: null }, birthplace: 'server' }),
   flight('d-890', 890, 'Dark mode', { stage: 'shipped', ledger: null }),
 ];
-/** The addresses of the links marked aria-current in `html`. */
-const current = (html: string) => [...html.matchAll(/<a [^>]*>/g)].map((m) => m[0]).filter((a) => a.includes('aria-current="true"')).map((a) => /href="([^"]*)"/.exec(a)?.[1]);
+const TARGETS = [
+  flight('d-918', 918, 'Offline photo upload', { ledger: { state: 'approval', lane: 'on-you' }, stage: 'prd', birthplace: 'server', targets: ['acme/widgets', 'acme/widgets-api'] }),
+  flight('d-912', 912, 'Quotes on the phone', {
+    targets: ['acme/widgets', 'acme/widgets-api', 'acme/elsewhere'], prs: [{ repo: 'acme/widgets-api', pr: parsePr(447) }, { repo: 'acme/widgets-web', pr: parsePr(12) }],
+  }),
+  flight('d-905', 905, 'Single sign-on', { repo: 'acme/auth', stage: 'inbox', ledger: { state: 'drifted', lane: null }, birthplace: 'server' }),
+  flight('d-890', 890, 'Dark mode', { stage: 'shipped', ledger: null, targets: ['acme/widgets-api', 'acme/auth'] }),
+];
 /** The inside of the element of class `cls` (an element holding no other of its own tag). */
 const section = (html: string, cls: string) => new RegExp(`<([a-z]+) class="${cls}"[^>]*>([\\s\\S]*?)</\\1>`).exec(html)?.[2] ?? '';
 
-describe('the Constellation tab, live (s2)', () => {
+describe('the Constellation tab, live', () => {
   const html = render(LIVE, FLIGHTS);
+  const planned = render(LIVE, TARGETS);
 
-  it('draws the filter chips, Everything first and in force, then each PRD in flight, newest first', () => {
-    const chips = section(html, 'constellation-chips');
-    expect(text(chips)).toBe('Everything 918 Offline photo upload 912 Quotes on the phone 905 Single sign-on');
-    expect(current(chips)).toEqual(['/app/products/p-1/constellation']);
-    expect(chips).toContain('href="/app/products/p-1/constellation?prd=d-912"');
-  });
-
-  it('marks the chip in force with ?prd=, and fades what that PRD does not touch', () => {
-    const lit = render(LIVE, FLIGHTS, { dossier: 'd-905' });
-    expect(current(section(lit, 'constellation-chips'))).toEqual(['/app/products/p-1/constellation?prd=d-905']);
-    expect(lit.match(/data-faded="true"/g)).toHaveLength(3 + 3);
-    expect(/data-star="acme\/auth"[^>]*data-faded/.test(lit)).toBe(false);
+  it('has no filter row and no ?prd= link', () => {
+    expect(html).not.toContain('constellation-chips');
+    expect(html).not.toContain('prd=');
   });
 
   it('rings each star in its state: building, waits on you, drifted', () => {
@@ -133,17 +133,14 @@ describe('the Constellation tab, live (s2)', () => {
     expect(html.match(/class="constellation-ring"/g)).toHaveLength(4);
   });
 
-  it('labels each edge with what crosses it now', () => {
-    expect(text(html)).toContain('widgets → widgets-api · 1 PRD in flight');
-    expect(text(html)).toContain('widgets-web → widgets-api · 1 PRD in flight');
-    expect(text(html)).toContain('widgets-api → auth · nothing in flight');
-    const two = render(LIVE, [...FLIGHTS, flight('d-913', 913, 'More', { prs: [{ repo: 'acme/widgets-api', pr: parsePr(9) }] })]);
-    expect(text(two)).toContain('widgets → widgets-api · 2 PRDs in flight');
-  });
-
-  it('puts dots only on an edge between two building stars', () => {
-    expect(html.match(/class="constellation-flow"/g)).toHaveLength(1);
-    expect(html).toMatch(/class="constellation-flow"[^>]*data-consumer="acme\/widgets-web"/);
+  it('draws a plan line per pair, a link with its title, dots only on one in flight', () => {
+    expect(planned.match(/class="constellation-plan"/g)).toHaveLength(2);
+    expect(planned).toContain('href="/app/products/p-1/constellation?pair=acme/widgets,acme/widgets-api"');
+    expect(planned).toContain('<title>widgets ↔ widgets-api · 2 PRDs</title>');
+    expect(planned).toContain('<title>auth ↔ widgets-api · 1 PRD</title>');
+    expect(planned.match(/class="constellation-flow"/g)).toHaveLength(1);
+    expect(text(planned)).toContain('4 repositories · 5 lines');
+    expect(text(planned)).not.toContain(NO_EDGES);
   });
 
   it('lists Now in the product worst first, each PRD linking to its page, and says it is read only', () => {
@@ -154,21 +151,46 @@ describe('the Constellation tab, live (s2)', () => {
     expect(text(card)).toContain('Read only. Links live on Repositories & approvers.');
   });
 
-  it('opens a star\'s card with ?star=: role, phase 0, also in, consumes, consumed by, now, and its two links', () => {
-    const card = section(render(LIVE, FLIGHTS, { star: 'acme/widgets-api' }), 'constellation-card');
+  it('caps Now at 8 PRDs and links the rest to the Ledger', () => {
+    const many = Array.from({ length: 11 }, (_, i) => flight(`d-${String(i)}`, 500 + i, 'Many', { stageRepos: ['acme/widgets'] }));
+    const card = section(render(LIVE, many), 'constellation-card');
+    expect(card.match(/href="\/prd\//g)).toHaveLength(8);
+    expect(text(card)).toContain('+ 3 more on the Ledger →');
+    expect(card).toContain('href="/app/products/p-1">+ 3 more');
+    expect(text(section(html, 'constellation-card'))).not.toContain('more on the Ledger');
+  });
+
+  it('opens a star\'s card with ?star=: role, phase 0, also in, PRDs, lines, consumes, now, targets outside, and its two links', () => {
+    const card = section(render(LIVE, TARGETS, { star: 'acme/widgets-api' }), 'constellation-card');
     const words = text(card);
     expect(words).toContain('acme/widgets-api');
     expect(words).toContain('role api');
     expect(words).toContain('phase 0 ◆ approved on the PRD page');
     expect(words).toContain('also in no other product');
-    expect(words).toContain('consumes auth · nothing in flight');
-    expect(words).toContain('consumed by widgets · 1 PRD in flight widgets-web · 1 PRD in flight');
+    expect(words).toContain('PRDs 3');
+    expect(words).toContain('lines widgets ↔ widgets-api · 2 PRDs auth ↔ widgets-api · 1 PRD');
+    expect(card).toContain('href="/app/products/p-1/constellation?pair=acme/widgets,acme/widgets-api"');
+    expect(words).toContain('consumes auth');
+    expect(words).toContain('consumed by widgets widgets-web');
     expect(words).toContain('now 912 building');
+    expect(words).toContain('1 target outside the product');
     expect(card).toContain('href="/prd/d-912"');
     expect(card).toContain('href="/app/products/p-1">Ledger rows →');
     expect(card).toContain('href="/app/products/p-1/repositories">Its links →');
-    expect(words).toContain('Read only.');
     expect(words).not.toContain('Now in Widgets');
+  });
+
+  it('opens a plan line\'s card with ?pair=, either order: its PRDs newest first, in flight marked', () => {
+    for (const pair of ['acme/widgets,acme/widgets-api', 'acme/widgets-api,acme/widgets']) {
+      const card = section(render(LIVE, TARGETS, { pair }), 'constellation-card');
+      expect(text(card)).toContain('widgets ↔ widgets-api');
+      expect(text(card)).toContain('2 PRDs changed both, newest first.');
+      expect(text(card)).toContain('918 Offline photo upload · in flight 912 Quotes on the phone · in flight');
+      expect(card).toContain('href="/prd/d-912"');
+    }
+    const dim = text(section(render(LIVE, TARGETS, { pair: 'acme/auth,acme/widgets-api' }), 'constellation-card'));
+    expect(dim).toContain('890 Dark mode');
+    expect(dim).not.toContain('in flight');
   });
 
   it('names a docked star\'s phase 0 and the products a star is also in', () => {
@@ -176,20 +198,15 @@ describe('the Constellation tab, live (s2)', () => {
     expect(text(section(render(LIVE, FLIGHTS, { star: 'acme/auth' }), 'constellation-card'))).toContain('also in Platform');
   });
 
-  it('keeps the filter on a star\'s link and the star on a chip\'s', () => {
-    const both = render(LIVE, FLIGHTS, { dossier: 'd-912', star: 'acme/auth' });
-    expect(both).toContain('href="/app/products/p-1/constellation?prd=d-912&amp;star=acme/widgets"');
-    expect(both).toContain('href="/app/products/p-1/constellation?prd=d-918&amp;star=acme/auth"');
-  });
-
-  it('reads an unknown ?prd= and ?star= as none', () => {
-    const unknown = render(LIVE, FLIGHTS, { dossier: 'd-404', star: 'acme/gone' });
-    expect(unknown).not.toContain('data-faded');
+  it('reads an unknown ?star= and ?pair= as none', () => {
+    const unknown = render(LIVE, TARGETS, { pair: 'acme/a,acme/b', star: 'acme/gone' });
     expect(text(section(unknown, 'constellation-card'))).toContain('Now in Widgets');
   });
 
-  it('draws the legend of the states', () => {
+  it('draws the legend of the states and the two kinds of line', () => {
     expect(text(section(html, 'constellation-legend'))).toContain('building waits on you drifted');
+    expect(text(section(html, 'constellation-legend'))).toContain('a plan line');
+    expect(text(section(html, 'constellation-legend'))).toContain('a consumes line');
   });
 });
 
@@ -231,6 +248,13 @@ describe('the demo\'s Constellation (s3)', () => {
     expect(html).toContain('href="https://github.com/acme/widgets-web/pull/31"');
     expect(html.match(/constellation-halo/g)).toHaveLength(1);
     expect(text(html)).toContain('◇ widgets-web#31 · phase 0');
+  });
+
+  it('draws plan lines from its PRDs\' targets, one in flight', () => {
+    expect(html.match(/class="constellation-plan"/g)).toHaveLength(3);
+    expect(html.match(/data-in-flight="true"/g)).toHaveLength(1);
+    expect(html).toContain('<title>widgets ↔ widgets-api · 2 PRDs</title>');
+    expect(text(html)).not.toContain(NO_EDGES);
   });
 });
 
