@@ -332,6 +332,29 @@ describe('the dossier skills in this repository', () => {
     expectAfter(skillSection(read('plan'), '6.'), 'git push -u', '/omni:dossier-push');
   });
 
+  it("the phase-0 PR's body opens with the PRD's page from omni dossier link, before prLinks.phase0, or with prLinks.phase0 when there is no page", () => {
+    const orderGaps = (text: string, mentions: string[]) => {
+      const out: string[] = [];
+      let from = 0;
+      mentions.forEach((mention: string, index: number) => {
+        const at = text.indexOf(mention, from);
+        if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+        else from = at + mention.length;
+      });
+      return out;
+    };
+    const step = skillSection(read('brainstorm'), '9.');
+    expect(orderGaps(step, ['first line is the PRD\'s page', 'omni.mjs dossier link <n>', 'exit `0`', 'opens with that link', 'never a placeholder'])).toEqual([]);
+    expect(step.indexOf('first line is the PRD\'s page')).toBeLessThan(step.indexOf('then `prLinks.phase0`'));
+    expect(step).toMatch(/no page: the line is left out/);
+    // step 9's fenced block carries a `## What lands where` heading, which skillSection would stop at
+    const megaText = read('mega-brainstorm');
+    const mega = megaText.slice(megaText.indexOf('## 9.'), megaText.indexOf('## 10.'));
+    expect(orderGaps(mega, ['opens with the PRD\'s page', 'omni.mjs dossier link <n>', 'then `prLinks.phase0`', 'omni sign footer'])).toEqual([]);
+    const pr = read('pr');
+    expect(orderGaps(pr, ['**Phase-0 PR**', 'omni.mjs dossier link <n>', 'then `prLinks.phase0` filled', 'keeps the page line'])).toEqual([]);
+  });
+
   // PRD 627: a fix is a dossier with a kind. Both fix skills push theirs after they push the fix
   // branch, print its page, and open no PRD, inbox folder, plan or outbox item; the visual fix keeps
   // every round of variations and the pick line.

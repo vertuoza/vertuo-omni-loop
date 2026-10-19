@@ -7,7 +7,9 @@
 // branch's `.omni-loop/config.yml`, `head` holds the head's delivery folder (and knowledge domains).
 // Every rule is the kit's, imported unchanged: `phase0Verdict` (what `omni phase0 <n>` prints),
 // `inboxViolationsFor` (the inbox rules for this PRD's folder only, so a broken folder of another PRD
-// never turns this PR red) and `gradePlan` (the part of `omni plan check <n>` that reads `plan.md`).
+// never turns this PR red) and `gradePlan` (the part of `omni plan check <n>` that reads `plan.md`,
+// given the folder's `before-after.html` too, so a declared contract the page carries no block for is
+// refused here as there).
 // The fourth gate, the PRD issue, is read here from what the caller fetched. The fifth, canon (PRD 839),
 // grades the PRD's `spec.md` against the repository's business through the injected `canon` gate
 // (../canon/canon.ts); it is neutral, never red, when it cannot judge, so it never fails a PR on its
@@ -420,7 +422,12 @@ function planGate({ ctx, prd, head }: { ctx: Context; prd: PrdNumber; head: stri
   if (!existsSync(absolute)) {
     return { name: 'plan', ok: false, reason: `no plan.md in ${placeOf(ctx, prd).dir}` };
   }
-  const graded = gradePlan(readFileSync(absolute, 'utf8'), { config: ctx.config, targets: targetFlows({ root: head, config: ctx.config }) });
+  const page = join(head, inFolder(ctx.layout.beforeAfterPath(prd), prd));
+  const graded = gradePlan(readFileSync(absolute, 'utf8'), {
+    config: ctx.config,
+    targets: targetFlows({ root: head, config: ctx.config }),
+    beforeAfter: existsSync(page) ? readFileSync(page, 'utf8') : null,
+  });
   if (graded.violations.length > 0) return { name: 'plan', ok: false, reason: graded.violations.join('; ') };
   const slices = graded.slices.length;
   const waves = graded.waves.length;

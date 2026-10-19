@@ -86,7 +86,10 @@ that it is answered: it writes the plan and opens the phase-0 pull request.
 ## 2. Review and merge the phase-0 pull request
 
 Open the phase-0 pull request from the link under **What is next?**. It holds only documents, no
-code: this is the cheapest moment to change your mind.
+code: this is the cheapest moment to change your mind. Its body opens with the PRD's page on the
+Omni app when the repository has one (a link of the shape `<ask.url>/prd/<dossier id>`), where the
+spec, the plan and the before/after sit side by side, every version kept; a repository with no page
+opens with the `Refs #<n>` line alone.
 
 - Read `spec.md`: is this what you asked for?
 - Look at `before-after.html`: is the after the one you want? GitHub shows its source, so open it

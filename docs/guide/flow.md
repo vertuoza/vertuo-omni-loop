@@ -392,8 +392,24 @@ s4: contract: "none" beside a kind — one or the other
 A repository that asks nothing has no list to check words against: a slice there may carry the
 column, and only its form is checked. A green plan prints its declared contracts after the waves,
 `contracts: s1 api`, and `omni flow show` prints the ask on a line of its own, `contracts: declare
-api, event` or `contracts: none`. Nothing else in the loop acts on the declaration: it is there for
-the people reviewing the plan and for a gate a repository builds on it.
+api, event` or `contracts: none`.
+
+**The before/after page shows each contract.** A declared kind is a commitment the people reviewing
+the PRD must be able to see, so the PRD's `before-after.html` carries one block per declared kind,
+today beside after, headed by the kind and the repository (`Contract: db — back`) and marked
+`data-contract="<kind>"`: for `db` the tables and their columns, for a GraphQL schema its types,
+fields and mutations, for a REST or API kind the endpoints and their payloads. `/omni:brainstorm`
+writes the blocks from the spec, `/omni:plan` adds one the plan declares and the page lacks, and
+`omni plan check` reads the page beside the plan and refuses, where the repository asks, each declared
+kind without its block:
+
+```text terminal
+s1: contract: db — before-after.html has no data-contract="db" block
+s2: contract: api — the folder has no before-after.html to carry its data-contract="api" block
+```
+
+The phase-0 check on the Omni app grades the same way. Nothing else in the loop acts on the
+declaration: it is there for the people reviewing the plan and for a gate a repository builds on it.
 
 | key | default | what it does |
 |---|---|---|

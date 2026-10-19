@@ -10469,6 +10469,16 @@ function contractViolations(slice, asks) {
   const strangers = words.filter((word) => word !== "none" && !asks.kinds.includes(word));
   return [...strangers.map((word) => `${slice.id}: contract: "${word}" is no kind of this repository \u2014 ${choices}`), ...beside];
 }
+function contractPageViolations(slice, asks, page) {
+  const { contract } = slice;
+  if (asks === null || contract === null || contract === "none") return [];
+  return contract.kinds.filter((kind) => kind !== "none" && (page === null || !carriesContractBlock(page, kind))).map(
+    (kind) => page === null ? `${slice.id}: contract: ${kind} \u2014 the folder has no before-after.html to carry its data-contract="${kind}" block` : `${slice.id}: contract: ${kind} \u2014 before-after.html has no data-contract="${kind}" block`
+  );
+}
+function carriesContractBlock(page, kind) {
+  return page.includes(`data-contract="${kind}"`) || page.includes(`data-contract='${kind}'`);
+}
 function notPlanRepositoryViolations(slices, repositories) {
   const violations = [];
   if (slices.some((slice) => slice.repo !== null)) violations.push("repo: a repo column needs a plan repository.");
@@ -10480,7 +10490,7 @@ function byRepository(slices) {
   for (const slice of slices) groups.set(slice.repo, [...groups.get(slice.repo) ?? [], slice]);
   return groups;
 }
-function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
+function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map(), beforeAfter }) {
   let slices;
   try {
     slices = parsePlanSlices(markdown);
@@ -10515,7 +10525,10 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map() }) {
     ...unknownTiers(markdown).map(({ slice, value }) => `tier: ${slice} reads "${value}", not deep, build, light, a blank or \u2014.`),
     ...multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config)),
     ...blockedByViolations2(slices),
-    ...slices.flatMap((slice) => contractViolations(slice, contractAsk(slice, { config, multi, targets }))),
+    ...slices.flatMap((slice) => {
+      const asks = contractAsk(slice, { config, multi, targets });
+      return [...contractViolations(slice, asks), ...beforeAfter === void 0 ? [] : contractPageViolations(slice, asks, beforeAfter)];
+    }),
     ...collisions2.map(
       (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf2.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )
@@ -10871,7 +10884,12 @@ function planGate({ ctx, prd, head }) {
   if (!existsSync38(absolute)) {
     return { name: "plan", ok: false, reason: `no plan.md in ${placeOf(ctx, prd).dir}` };
   }
-  const graded = gradePlan(readFileSync36(absolute, "utf8"), { config: ctx.config, targets: targetFlows({ root: head, config: ctx.config }) });
+  const page = join50(head, inFolder(ctx.layout.beforeAfterPath(prd), prd));
+  const graded = gradePlan(readFileSync36(absolute, "utf8"), {
+    config: ctx.config,
+    targets: targetFlows({ root: head, config: ctx.config }),
+    beforeAfter: existsSync38(page) ? readFileSync36(page, "utf8") : null
+  });
   if (graded.violations.length > 0) return { name: "plan", ok: false, reason: graded.violations.join("; ") };
   const slices = graded.slices.length;
   const waves = graded.waves.length;

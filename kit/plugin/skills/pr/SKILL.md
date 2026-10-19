@@ -253,6 +253,12 @@ Its title is the PRD's title followed by the landing's `titleSuffix`, ` (n/N)`.
 **Standalone PR**: the template, or Summary / Verified / Risk and rollback / Reviewer focus, then
 `Closes #<issue>` when there is one, then the `omni sign footer` line.
 
+**Phase-0 PR** (opened by `/omni:brainstorm` step 9, which says what each section holds): the PRD's
+page first, on a line of its own, as `node .omni-loop/bin/omni.mjs dossier link <n>` printed it when
+it printed one, then `prLinks.phase0` filled, the brainstorm's sections, and the `omni sign footer`
+line. A body rewritten later keeps the page line as it is; a body that has none gets it when the
+command prints one on that rewrite, and never a placeholder when it does not.
+
 **The law record,** on a feature, landing or standalone PR that changes a locked law. Such a PR's
 `ci.outboxContext` check stays red until a CODEOWNER of the law's files approves it on GitHub; once
 they have, its summary reads `Locked laws changed (<ids>): approved by their CODEOWNERS, @<login>, …`.

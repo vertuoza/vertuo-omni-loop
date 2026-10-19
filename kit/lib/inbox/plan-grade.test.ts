@@ -654,3 +654,82 @@ contracts:
     ]);
   });
 });
+
+describe('gradePlan — each declared kind has its block on the before/after page', () => {
+  const ASKS = parseConfig('kit: 1\nrepo:\n  slug: acme/widgets\ncontracts:\n  declare: true\n  kinds: [api, db, schema]\n');
+  const CONTRACT = '| id | slice | territory | contract | blocked by | wave |';
+  const plan = (s1: string, s2 = 'none') =>
+    planMd(['| s1 | A | `a/` | ' + s1 + ' | — | 1 |', '| s2 | B | `b/` | ' + s2 + ' | — | 1 |'], CONTRACT);
+  const page = (...kinds: string[]) =>
+    `<!doctype html><title>P</title>${kinds.map((kind) => `<section data-contract="${kind}"><h2>Contract: ${kind}</h2></section>`).join('')}`;
+
+  it('passes a plan whose every declared kind has a data-contract block on the page', () => {
+    expect(gradePlan(plan('db, schema', 'api'), { config: ASKS, beforeAfter: page('db', 'schema', 'api') }).violations).toEqual([]);
+  });
+
+  it('refuses each declared kind the page has no block for, naming the slice and the kind', () => {
+    expect(gradePlan(plan('db, schema', 'api'), { config: ASKS, beforeAfter: page('schema') }).violations).toEqual([
+      's1: contract: db — before-after.html has no data-contract="db" block',
+      's2: contract: api — before-after.html has no data-contract="api" block',
+    ]);
+  });
+
+  it('refuses every declared kind when the folder has no page, saying so', () => {
+    expect(gradePlan(plan('db'), { config: ASKS, beforeAfter: null }).violations).toEqual([
+      's1: contract: db — the folder has no before-after.html to carry its data-contract="db" block',
+    ]);
+  });
+
+  it('reads a block marked with single quotes too, and never a kind named in prose alone', () => {
+    expect(gradePlan(plan('db'), { config: ASKS, beforeAfter: "<section data-contract='db'></section>" }).violations).toEqual([]);
+    expect(gradePlan(plan('db'), { config: ASKS, beforeAfter: '<p>the db changes</p><section data-contract="dbx"></section>' }).violations).toEqual([
+      's1: contract: db — before-after.html has no data-contract="db" block',
+    ]);
+  });
+
+  it('asks nothing of a slice declaring none, and nothing of a page with no declared kind', () => {
+    expect(gradePlan(plan('none'), { config: ASKS, beforeAfter: null }).violations).toEqual([]);
+    expect(gradePlan(plan('none'), { config: ASKS, beforeAfter: page() }).violations).toEqual([]);
+  });
+
+  it('grades the Markdown alone when no page is given, as every caller did before', () => {
+    expect(gradePlan(plan('db'), { config: ASKS }).violations).toEqual([]);
+  });
+
+  it('asks nothing of a page where the repository asks nothing, beyond the form of the cell', () => {
+    expect(gradePlan(plan('db'), { config: CONFIG, beforeAfter: null }).violations).toEqual([]);
+    expect(gradePlan(plan('db, none'), { config: CONFIG, beforeAfter: page() }).violations).toEqual([
+      's1: contract: "none" beside a kind — one or the other',
+    ]);
+  });
+
+  it('lists the page violation after the cell violations of the same slice, and before the next slice', () => {
+    expect(gradePlan(plan('graphql, db', 'api'), { config: ASKS, beforeAfter: page() }).violations).toEqual([
+      's1: contract: "graphql" is no kind of this repository — api, db, schema or none',
+      's1: contract: graphql — before-after.html has no data-contract="graphql" block',
+      's1: contract: db — before-after.html has no data-contract="db" block',
+      's2: contract: api — before-after.html has no data-contract="api" block',
+    ]);
+  });
+
+  it("grades a target's rows in a plan repository against the page in the plan repository's folder", () => {
+    const planRepo = parseConfig(
+      'kit: 1\nrepo:\n  slug: acme/plan\nplan:\n  targets:\n    - repo: acme/back\n      role: back-end\n      knowledge: none\n',
+    );
+    const targets: ReadonlyMap<string, TargetFlow> = new Map([['back', { ok: true, config: parseFlowConfig('contracts:\n  declare: true\n', 'back') }]]);
+    const header = '| id | repo | slice | territory | contract | blocked by | wave |';
+    const markdown = [
+      planMd(['| s1 | back | A | `a/` | db | — | 1 |'], header),
+      '## Repositories',
+      '',
+      '| repo | read at |',
+      '| --- | --- |',
+      `| back | ${'a'.repeat(40)} |`,
+      '',
+    ].join('\n');
+    expect(gradePlan(markdown, { config: planRepo, targets, beforeAfter: page() }).violations).toEqual([
+      's1: contract: db — before-after.html has no data-contract="db" block',
+    ]);
+    expect(gradePlan(markdown, { config: planRepo, targets, beforeAfter: page('db') }).violations).toEqual([]);
+  });
+});
