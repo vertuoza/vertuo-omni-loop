@@ -1,4 +1,5 @@
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { makeStarfield } from '@omni/design';
 import { layoutOf, SKY_WIDTH, type Point } from './layout';
 import type { HomeFlight, HomeRepository, PrChip, ProductHome } from './product-home.service';
 
@@ -248,4 +249,36 @@ export function constellationOf(home: Home, filter: Filter = {}): Constellation 
     selected: stars.find((s) => lower(s.repository) === wanted) ?? null,
     selectedLine: pairOf(plans.lines, filter.pair),
   };
+}
+
+/** How many background stars the sky holds, and how many of them twinkle at most. */
+const FIELD_COUNT = 140;
+const TWINKLE_MAX = 60;
+
+/** The product's id as a whole number: the seed of its field of stars. */
+function seedOf(id: string): number {
+  let h = 17;
+  for (let i = 0; i < id.length; i++) h = (Math.imul(h, 31) + id.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/** A background star of the sky: where it sits, how big, and whether it twinkles (the first TWINKLE_MAX only). */
+export interface FieldStar {
+  x: number;
+  y: number;
+  r: number;
+  twinkle: boolean;
+  /** Its twinkle's delay in seconds, from its phase. */
+  delay: number;
+}
+
+/** The field behind the stars: the same for the same product and sky. */
+export function fieldOf(productId: string, width: number, height: number): FieldStar[] {
+  return makeStarfield(seedOf(productId), width, height, FIELD_COUNT).map((s, i) => ({
+    x: Math.round(s.x * 10) / 10,
+    y: Math.round(s.y * 10) / 10,
+    r: s.big ? 1.6 : 0.9,
+    twinkle: i < TWINKLE_MAX,
+    delay: Math.round(s.phase * 10) / 10,
+  }));
 }
