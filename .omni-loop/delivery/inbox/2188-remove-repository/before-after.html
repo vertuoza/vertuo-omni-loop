@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Remove a repository</title>
+<style>
+  /* Ask's reading tokens, Omni theme (packages/design/src/tokens.ts › ASK.omni), light under prefers-color-scheme. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170;
+    --ask-line-strong: #5a60c4; --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a;
+    --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c; --ask-cyan: #6ff0ff; --ask-red: #ff6b86;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --ask-ground: #f7f6fd; --ask-surface: #ffffff; --ask-sunk: #eceaf8; --ask-line: #d9d6ee;
+      --ask-line-strong: #85819f; --ask-ink: #17153d; --ask-muted: #4f5486; --ask-plasma: #6b2fd6;
+      --ask-plasma-soft: #efe7ff; --ask-on-plasma: #ffffff; --ask-cyan: #0b6f86; --ask-red: #b3122f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ask-ground); color: var(--ask-ink); font: 16px/1.6 "Atkinson Hyperlegible Next", system-ui, sans-serif; }
+  main { max-width: 1240px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 { font-size: 22px; margin: 40px 0 8px; border-bottom: 1px solid var(--ask-line); padding-bottom: 6px; }
+  h3 { font-size: 16px; margin: 0 0 8px; color: var(--ask-muted); text-transform: uppercase; letter-spacing: .06em; }
+  p.lede, p.note { color: var(--ask-muted); margin: 0 0 12px; max-width: 900px; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 20px; }
+  figure { margin: 0; }
+  figcaption { color: var(--ask-muted); font-size: 14px; margin-top: 8px; }
+  code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; }
+
+  /* Functional: flow boxes */
+  .flow { display: grid; gap: 8px; padding: 16px; border: 1px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
+  .step { padding: 8px 12px; border-radius: 8px; background: var(--ask-sunk); }
+  .step.kept { border-left: 3px solid var(--ask-cyan); }
+  .step.gone { border-left: 3px solid var(--ask-red); }
+  .step.new { border-left: 3px solid var(--ask-plasma); }
+  .arrow { color: var(--ask-muted); padding-left: 12px; }
+
+  /* Pixel perfect: the Settings › Repositories page, as repositories.css draws it */
+  .screen { border: 1px solid var(--ask-line); border-radius: 14px; padding: 16px; background: var(--ask-ground); display: grid; gap: 12px; }
+  .ask-card { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; padding: 16px; display: grid; gap: 8px; justify-items: start; }
+  .ask-card h1 { font-size: 24px; margin: 0; }
+  .muted { color: var(--ask-muted); margin: 0; font-size: 15px; }
+  .ask-button { font: inherit; font-weight: 700; padding: 9px 16px; border-radius: 10px; border: 0; background: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .ask-button.quiet { background: transparent; color: var(--ask-ink); border: 1.5px solid var(--ask-line-strong); font-weight: 600; padding: 5px 12px; font-size: 14px; }
+  ul.rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; padding: 14px 16px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .name { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; }
+  .name strong { overflow-wrap: anywhere; }
+  .small { font-size: 14px; }
+  .no-access { color: var(--ask-red); font-weight: 700; font-size: 14px; }
+  a { color: var(--ask-cyan); }
+  .chip { padding: 2px 8px; border: 1px solid var(--ask-line-strong); border-radius: 999px; font-size: 14px; }
+  .switch { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ask-muted); }
+  .toggle { width: 44px; height: 24px; border-radius: 12px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); position: relative; }
+  .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%; background: var(--ask-muted); }
+  .toggle.on { background: var(--ask-plasma-soft); border-color: var(--ask-plasma); }
+  .toggle.on::after { transform: translateX(20px); background: var(--ask-plasma); }
+  details.removed { color: var(--ask-muted); font-size: 15px; }
+  details.removed summary { cursor: pointer; }
+  details.removed ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+  details.removed li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .changed { outline: 2px dashed var(--ask-plasma); outline-offset: 3px; }
+  .confirm { border: 1px solid var(--ask-line-strong); border-radius: 10px; background: var(--ask-sunk); padding: 12px 14px; font-size: 15px; max-width: 520px; }
+  .confirm p { margin: 0 0 6px; }
+  .confirm .btns { display: flex; gap: 8px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Remove a repository</h1>
+  <p class="lede">PRD #2188 · Settings › Repositories. An owner removes a repository, for example one the Omni App can no longer reach. Removing hides it and keeps its history.</p>
+
+  <h2>Functional</h2>
+  <div class="pair">
+    <figure>
+      <h3>Today</h3>
+      <div class="flow">
+        <div class="step">The owner adds <code>vertuoza/vertuobuild</code></div>
+        <div class="arrow">↓ the Omni App loses access</div>
+        <div class="step gone">The card reads "Omni App has no access". The only control is Tracked.</div>
+        <div class="arrow">↓ Tracked off</div>
+        <div class="step gone">Gone from the Engineering board, but still on Settings › Repositories, in every product picker and on the product filter, for good.</div>
+        <div class="step">The database: "nothing deletes one". A delete would cascade to ideas, pull requests, product links and knowledge packs.</div>
+      </div>
+    </figure>
+    <figure>
+      <h3>After</h3>
+      <div class="flow">
+        <div class="step new">The owner presses <strong>Remove</strong>, then confirms "are you sure"</div>
+        <div class="arrow">↓ <code>remove_repository()</code>, owner only, in one transaction</div>
+        <div class="step new"><code>removed_at = now()</code> · <code>tracked = false</code> · <code>public_ideas = false</code></div>
+        <div class="step gone">Product links deleted · the repository dropped from links' <code>consumes</code> · <code>plan_repository</code> cleared</div>
+        <div class="step kept">Kept: ideas, pull requests and reviews, knowledge packs</div>
+        <div class="arrow">↓ <strong>Add back</strong> (<code>add_repository()</code>)</div>
+        <div class="step kept"><code>removed_at = null</code> · tracked · its history is there again (product links are not restored)</div>
+      </div>
+      <figcaption>Readers that list a workspace's repositories skip removed ones: Settings › Repositories, the product's Repositories tab and its picker, the product home, and the members' ideas board. The collector and the Engineering board already read only tracked repositories.</figcaption>
+    </figure>
+  </div>
+
+  <h2>Pixel perfect</h2>
+  <p class="note">screens: repositories · app-shell (unchanged). Drawn with the Omni reading tokens and <code>repositories.css</code>. The dashed outline marks what changes.</p>
+  <div class="pair">
+    <figure>
+      <h3>Today</h3>
+      <div class="screen" data-screen="repositories-today">
+        <section class="ask-card">
+          <h1>Repositories</h1>
+          <p class="muted">Your workspace’s repositories. The Engineering board counts the tracked ones; switching one off hides it and keeps its history.</p>
+          <button class="ask-button" data-primary>Add repository</button>
+        </section>
+        <ul class="rows">
+          <li class="row">
+            <div class="name">
+              <strong>vertuoza/vertuobuild</strong>
+              <span class="muted small">collected 5 min ago</span>
+              <span class="no-access">Omni App has no access · <a href="#">Give access on GitHub →</a></span>
+              <a class="small" href="#">Ideas board →</a>
+            </div>
+            <span class="chip">Vertuoza</span>
+            <span class="switch">Public ideas <span class="toggle"></span></span>
+            <span class="switch">Phase 0 on the server <span class="toggle"></span></span>
+            <span class="switch">Tracked <span class="toggle"></span></span>
+          </li>
+          <li class="row">
+            <div class="name">
+              <strong>vertuoza/vertuo-omni-loop</strong>
+              <span class="muted small">collected 2 min ago</span>
+              <a class="small" href="#">Ideas board →</a>
+            </div>
+            <span class="chip">omni-loop</span>
+            <span class="switch">Public ideas <span class="toggle on"></span></span>
+            <span class="switch">Phase 0 on the server <span class="toggle on"></span></span>
+            <span class="switch">Tracked <span class="toggle on"></span></span>
+          </li>
+        </ul>
+      </div>
+      <figcaption>Nothing removes the dead repository. Word pass: the head sentence is 19 words at rest, as the product shows it now.</figcaption>
+    </figure>
+    <figure>
+      <h3>After (owner)</h3>
+      <div class="screen" data-screen="repositories">
+        <section class="ask-card">
+          <h1>Repositories</h1>
+          <p class="muted changed">Removing one keeps its history.</p>
+          <button class="ask-button" data-primary>Add repository</button>
+        </section>
+        <ul class="rows">
+          <li class="row">
+            <div class="name">
+              <strong>vertuoza/vertuo-omni-loop</strong>
+              <span class="muted small">collected 2 min ago</span>
+              <a class="small" href="#">Ideas board →</a>
+            </div>
+            <span class="chip">omni-loop</span>
+            <span class="switch">Public ideas <span class="toggle on"></span></span>
+            <span class="switch">Phase 0 on the server <span class="toggle on"></span></span>
+            <span class="switch">Tracked <span class="toggle on"></span></span>
+            <button class="ask-button quiet changed">Remove</button>
+          </li>
+        </ul>
+        <details class="removed changed" open>
+          <summary>Removed (1)</summary>
+          <ul>
+            <li><strong>vertuoza/vertuobuild</strong> <span>removed just now</span> <button class="ask-button quiet">Add back</button></li>
+          </ul>
+        </details>
+      </div>
+      <figcaption>Remove sits after the switches on every card. Removed (1) is closed by default and drawn open here. A member sees neither Remove nor Add back. The head sentence is shortened to pass the word check; Tracked keeps saying what it does through its switch.</figcaption>
+    </figure>
+  </div>
+
+  <h3 style="margin-top:24px">The confirm, before the remove</h3>
+  <div class="confirm">
+    <p>Remove vertuoza/vertuobuild? Its ideas and history are kept, and adding it again brings them back.</p>
+    <p>It leaves Vertuoza.</p>
+    <p>Vertuoza will have no plan repository.</p>
+    <div class="btns"><span class="ask-button quiet">Cancel</span><span class="ask-button quiet">OK</span></div>
+  </div>
+  <p class="note" style="margin-top:8px">The browser's own <code>window.confirm</code>, as Delete draft does. The second and third lines appear only when they apply.</p>
+</main>
+</body>
+</html>
