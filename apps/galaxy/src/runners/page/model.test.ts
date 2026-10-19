@@ -33,12 +33,14 @@ describe('statusWords', () => {
 });
 
 describe('the actions', () => {
-  it('cancels a queued, claimed or running job once', () => {
-    for (const status of ['queued', 'claimed', 'running'] as const) {
-      expect(canCancel({ status, cancelRequested: false })).toBe(true);
-      expect(canCancel({ status, cancelRequested: true })).toBe(false);
-    }
+  it('cancels a queued, claimed or running job, a running one once', () => {
+    for (const status of ['queued', 'claimed', 'running'] as const) expect(canCancel({ status, cancelRequested: false })).toBe(true);
+    expect(canCancel({ status: 'running', cancelRequested: true })).toBe(false);
     for (const status of ['done', 'failed', 'cancelled'] as const) expect(canCancel({ status, cancelRequested: false })).toBe(false);
+  });
+
+  it('keeps Cancel on a Starting job whose cancel was already asked, so it never stays stuck (#2168)', () => {
+    expect(canCancel({ status: 'claimed', cancelRequested: true })).toBe(true);
   });
 
   it('sends again only a failed or cancelled job', () => {
