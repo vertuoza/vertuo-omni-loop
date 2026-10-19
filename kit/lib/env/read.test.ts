@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EnvError, GAME_VARIABLES, gitWithoutPrompt, OMNI_TOKEN_PATTERN, PLATFORM_VARIABLES, omniTokenOf, readEnv, requireGroup, SUPABASE, VARIABLES, withGithubToken, withStepVariables, WORKSPACE } from './read.ts';
+import { runnerJobOf, runnerJobVariables, unattendedOf } from './read.ts';
 
 const SECRET = 'sk-fake-secret-0123456789';
 /** A kit token as `omni setup-token` prints it: `omk_` and 43 base64url characters. */
@@ -267,5 +268,32 @@ describe('the environment passed on to a child', () => {
   it('runs git without a prompt, and a step with its own variables, over this process', () => {
     expect(gitWithoutPrompt()).toMatchObject({ GIT_TERMINAL_PROMPT: '0', PATH: process.env.PATH });
     expect(withStepVariables({ FALLOW_AUDIT_BASE: 'abc' })).toMatchObject({ FALLOW_AUDIT_BASE: 'abc', PATH: process.env.PATH });
+  });
+});
+
+// PRD 2175 s2: the runner job a session runs, and the variables `omni runner` sets on it.
+describe('the runner job (PRD 2175)', () => {
+  it('reads OMNI_JOB trimmed, with OMNI_RUNNER when it is set', () => {
+    expect(runnerJobOf({ OMNI_JOB: ' job-7 ', OMNI_RUNNER: ' box-1 ' })).toEqual({ job: 'job-7', runner: 'box-1' });
+    expect(runnerJobOf({ OMNI_JOB: 'job-7' })).toEqual({ job: 'job-7', runner: null });
+    expect(runnerJobOf({ OMNI_JOB: 'job-7', OMNI_RUNNER: '  ' })).toEqual({ job: 'job-7', runner: null });
+  });
+
+  it('reads no job outside a runner, or when OMNI_JOB is blank', () => {
+    expect(runnerJobOf({})).toBeNull();
+    expect(runnerJobOf({ OMNI_RUNNER: 'box-1' })).toBeNull();
+    expect(runnerJobOf({ OMNI_JOB: '   ' })).toBeNull();
+  });
+
+  it('names the three variables a job session gets, and lists them as the platform\'s', () => {
+    expect(runnerJobVariables('job-7', 'box-1')).toEqual({ OMNI_JOB: 'job-7', OMNI_RUNNER: 'box-1', OMNI_UNATTENDED: '1' });
+    expect(PLATFORM_VARIABLES).toEqual(expect.arrayContaining(['OMNI_JOB', 'OMNI_RUNNER', 'OMNI_UNATTENDED']));
+    expect(VARIABLES).not.toContain('OMNI_JOB');
+  });
+
+  it('reads the variables it sets back as the same job, unattended', () => {
+    const set = runnerJobVariables('job-7', 'box-1');
+    expect(runnerJobOf(set)).toEqual({ job: 'job-7', runner: 'box-1' });
+    expect(unattendedOf(set)).toBe(true);
   });
 });
