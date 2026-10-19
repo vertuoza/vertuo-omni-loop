@@ -21,4 +21,4 @@ none — the reproduction is the guard: a unit test of which delivery files each
 
 ## Mutation
 
-pending
+mutation: no changed core file against origin/main (e3745caa): nothing to mutate
