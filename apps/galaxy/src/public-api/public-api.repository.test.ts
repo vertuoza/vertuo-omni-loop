@@ -177,4 +177,19 @@ describe('the public API’s repository', () => {
     expect(await repository.stages(NORTHWIND, 'northwind/backend', [])).toEqual([]);
     expect(calls).toHaveLength(1);
   });
+
+  it('reads whether a product of the workspace names a repository as its plan repository', async () => {
+    const { db, calls } = evaluating({
+      products: [
+        { id: 'p-1', workspace_id: NORTHWIND, key: 'web', name: 'Web', plan_repository: 'northwind/plan' },
+        { id: 'p-2', workspace_id: NORTHWIND, key: 'mobile', name: 'Mobile', plan_repository: null },
+        { id: 'p-3', workspace_id: SOUTHWIND, key: 'web', name: 'Web', plan_repository: 'southwind/plan' },
+      ],
+    });
+    const repository = publicApiRepository(db);
+    expect(await repository.isPlanRepository(NORTHWIND, 'northwind/plan')).toBe(true);
+    expect(await repository.isPlanRepository(NORTHWIND, 'northwind/backend')).toBe(false);
+    expect(await repository.isPlanRepository(NORTHWIND, 'southwind/plan')).toBe(false);
+    expect(calls[0]).toEqual(['products', ['select', 'id'], ['eq', 'workspace_id', NORTHWIND], ['eq', 'plan_repository', 'northwind/plan'], ['limit', 1]]);
+  });
 });

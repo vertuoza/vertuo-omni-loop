@@ -349,7 +349,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'log\'s new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per ' +
       'report, sending them again when a report fails and every line left once the job ends: the ' +
       'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
-      'visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
+      'mega-bug-fix, visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
       'waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills ' +
       'the plugin holds: before Claude starts, a plugin older than the omni the job\'s repository ' +
       'pins is updated (once, however many slots start together), and one still older fails the job ' +
@@ -1062,6 +1062,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'otherwise, with the build that rebuilds it. A wave runs the stale builds once, after merging, ' +
       'and commits the rebuilt files alone. --json prints the same as one document. Without the ' +
       'section it prints no generated files. It runs no build, and exits 0 whatever it finds.',
+  },
+  {
+    name: 'claim',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni claim check <prd> <slice>'],
+    summary: "whether a takeover reuses a stale claim's branch or rebuilds the slice",
+    detail:
+      "Reads the slice's claim on the remote, as last fetched: its claim commit, the slice's plan row " +
+      'then and on the feature branch now, and every file the branch changed since it last met the ' +
+      'feature branch. Prints reuse (exit 0) when the row\'s title and territory are unchanged and ' +
+      'every changed file is inside the territory (the outbox dir and generated paths always are). ' +
+      'Otherwise one rebuild line, exit 1: plan row changed: territory or title, outside territory: ' +
+      '<path>, no claim commit, or slice not in the plan. A wave runs it before taking over a stale ' +
+      'claim. Exit 2 when the feature branch cannot be read: fetch it first.',
   },
   {
     name: 'tier',

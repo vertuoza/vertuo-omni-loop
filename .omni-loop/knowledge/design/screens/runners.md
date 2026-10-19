@@ -35,6 +35,9 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
     `?terminal=<job id>` on the URL.
   - A done job links its pull request.
   - A job shows its tokens beside its status (`1.4M tokens`) once its runner reported them (PRD 2102).
+  - A job that held claims when it ended lists, under its status in `--ask-red`, the sub-PRs its
+    runner released: `Released #<n>, #<n>`, each linked; a release that failed reads `Could not
+    release this job's claims: <why>` (PRD 2175).
   - A queued job whose every possible runner is paused says why under its status: `Waiting:
     <runner> paused (<reason>)`, or `Waiting: every runner paused (<reason>)` (PRD 2102).
   - A job an API key sent shows `API key <name>` as its sender, with `made by @<login>` under it
@@ -61,7 +64,7 @@ Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Re
 Any runner · Status · Queued · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
 Cancel · Send again · Terminal · No job yet · API key · made by · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
-health.
+health · Released · Could not release this job's claims.
 
 ## Refusals
 
@@ -81,3 +84,4 @@ health.
 /omni:brainstorm, PRD 1904: .omni-loop/delivery/shipped/1904-runner-live-logs/before-after.html
 /omni:brainstorm, PRD 2022: .omni-loop/delivery/shipped/2022-api-keys-v1/before-after.html
 /omni:brainstorm, PRD 2102: .omni-loop/delivery/shipped/2102-runner-health/before-after.html
+/omni:brainstorm, PRD 2175: .omni-loop/delivery/shipped/2175-runner-dead-claims/before-after.html

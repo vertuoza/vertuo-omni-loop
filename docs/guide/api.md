@@ -1,10 +1,10 @@
 ---
 title: API
-description: Make an API key, read your workspace's PRDs and bug fixes with curl, start a bug fix and follow its job, page with the cursor, and read the errors. The full reference is below.
+description: Make an API key, read your workspace's PRDs and bug fixes with curl, start a bug fix in one repository or across a plan repository's targets and follow its job, page with the cursor, and read the errors. The full reference is below.
 ---
 
-A program outside the loop can read a workspace's PRDs and bug fixes, and start a bug fix, with an
-**API key**. This page says how to make a key, what each route answers, how to page through a list, and what the errors
+A program outside the loop can read a workspace's PRDs and bug fixes, and start a bug fix, in one
+repository or across a plan repository's targets, with an **API key**. This page says how to make a key, what each route answers, how to page through a list, and what the errors
 mean. The reference under it, rendered from the same schemas the routes validate with, lists every
 route with its parameters, responses and examples. The document itself is
 [`/api/v1/openapi.json`](/api/v1/openapi.json), and it needs no key.
@@ -52,14 +52,43 @@ curl -X POST -H "Authorization: Bearer $OMNI_API_KEY" -H "Content-Type: applicat
 
 It answers `202` with the queued job, and the job runs `/omni:bug-fix <description>` on one of the
 workspace's runners. The `repo` must be one of the workspace's, and on the key's allow-list when it
-has one, or it answers 403. The `description` is 1 to 200 characters of letters, digits, spaces and
-`. _ / : # -`, the same line check the runners apply to a person's job: any other character answers
-422 and nothing is queued. Add `runner` (a runner's name) or `fleet` (a fleet's key) to choose where
-it runs; with neither, any runner of the workspace may take it.
+has one, or it answers 403. The `description` is 1 to 186 characters of letters, digits, spaces and
+`. _ / : # -`, the same line check the runners apply to a person's job: 186 characters after
+`/omni:bug-fix ` make the 200 characters a runner's line holds at most. A longer description, or any
+other character, answers 422 and nothing is queued. Add `runner` (a runner's name) or `fleet` (a
+fleet's key) to choose where it runs; with neither, any runner of the workspace may take it.
 
 The Runners page shows the job as sent by `API key <name>`, with `made by @<login>` under it, and
 the pull request the job opens says it was sent by the key. The job still ends in a pull request a
 person merges: a key never merges anything.
+
+## Start a bug fix across repositories
+
+```bash terminal
+curl -X POST -H "Authorization: Bearer $OMNI_API_KEY" -H "Content-Type: application/json" \
+  -d '{"repo": "acme/plan", "description": "https://github.com/acme/plan/issues/612"}' \
+  "https://www.omni-loop.xyz/api/v1/mega-bug-fixes"
+```
+
+It answers `202` with the queued job, and the job runs `/omni:mega-bug-fix <description>` in a
+[plan repository](/docs/several-repositories), for a bug that shows in one of its targets while its
+cause may sit in another. The skill finds where the cause is among the plan's targets, opens one fix
+pull request per target that must change, in merge order, then a record pull request in the plan
+repository that closes the issue. The job's `pr_url` is that record pull request, and its body names
+each target pull request on a `Merge after` line. A person merges every one, the record last.
+
+- The `repo` is a plan repository of the workspace, one a product names as its plan repository, and
+  on the key's allow-list when it has one: off the list answers 403, and a repository no product of
+  the workspace names as its plan repository answers 422, one outside the workspace included. A
+  runner that holds a checkout of it runs the job.
+- The `description` is the bug's issue in the plan repository (its URL, `#612` or `612`), or what is
+  wrong: 1 to 181 characters, under the same line check, and no word starting with `--`.
+- The body takes `repo`, `description`, `runner` and `fleet`, and nothing else: any other field
+  answers 422, naming it.
+
+This route is newer than the others. A deployment without it answers `404` with an HTML page, not
+the error shape; the route itself never answers 404, so a program may read a 404 as "not deployed
+here yet".
 
 ## Follow a job
 
@@ -94,7 +123,7 @@ Every refusal answers one shape, `{"error": {"code": "…", "message": "…"}}`.
 | 401 | `unauthorized` | no key, an unknown key, a revoked key, or a key whose maker left the workspace |
 | 403 | `forbidden` | a repository outside the workspace or outside the key's allow-list |
 | 404 | `not_found` | a job that does not exist or that no key of this workspace queued |
-| 422 | `invalid_request` | a query or body the contract refuses, or a bad cursor; the message names the field |
+| 422 | `invalid_request` | a query or body the contract refuses, a bad cursor, or a repository that is not a plan repository; the message names the field |
 | 500 | `internal` | anything else; the message never carries a stack or a database error |
 
 ## Reference

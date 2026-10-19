@@ -1,14 +1,24 @@
 import { describe, expect, it } from 'vitest';
+import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
 import {
   checkLine, HealthReportSchema, JobLinesQuerySchema, JobUpdateSchema, RegisterRequestSchema, RUNNER_SKILLS, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
-// The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines whose skill is on the
-// list and whose arguments are letters, digits, spaces and `._/:#-`, 200 characters at most.
+// The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines of 200 characters at
+// most, skill included, whose skill is on the list and whose arguments are letters, digits, spaces and
+// `._/:#-`.
 
 describe('the line check', () => {
   it.each(RUNNER_SKILLS)('lets /omni:%s through, with its arguments', (skill) => {
     expect(checkLine(`/omni:${skill} 1830 s1 --in-wave`)).toEqual({ ok: true, skill, args: '1830 s1 --in-wave' });
+  });
+
+  it('lists exactly the skills `omni runner` runs, so the app never queues a line a runner refuses', () => {
+    expect([...RUNNER_SKILLS]).toEqual([...RUNNABLE_SKILLS]);
+  });
+
+  it('lets /omni:mega-bug-fix through with a plan repository issue’s URL', () => {
+    expect(checkLine('/omni:mega-bug-fix https://github.com/acme/plan/issues/612')).toEqual({ ok: true, skill: 'mega-bug-fix', args: 'https://github.com/acme/plan/issues/612' });
   });
 
   it('lets a line with no arguments through', () => {
@@ -44,9 +54,20 @@ describe('the line check', () => {
     expect(checkLine(line).ok).toBe(false);
   });
 
-  it('takes 200 characters of arguments and refuses 201', () => {
-    expect(checkLine(`/omni:yolo ${'a'.repeat(200)}`).ok).toBe(true);
-    expect(checkLine(`/omni:yolo ${'a'.repeat(201)}`)).toEqual({ ok: false, reason: 'A line\'s arguments are 200 characters at most.' });
+  it('takes a line of 200 characters, the skill included, and refuses 201', () => {
+    const line = `/omni:yolo ${'a'.repeat(189)}`;
+    expect(line).toHaveLength(200);
+    expect(checkLine(line).ok).toBe(true);
+    expect(checkLine(`${line}a`)).toEqual({ ok: false, reason: 'A line is 200 characters at most, the skill included.' });
+  });
+
+  it('agrees with the runner’s own check at its limit, for every skill, so the app never queues a line a runner refuses', () => {
+    for (const skill of RUNNER_SKILLS) {
+      const longest = `/omni:${skill} ${'a'.repeat(LINE_MAX - `/omni:${skill} `.length)}`;
+      expect(longest).toHaveLength(LINE_MAX);
+      expect([checkLine(longest).ok, checkRunnerLine(longest).ok], skill).toEqual([true, true]);
+      expect([checkLine(`${longest}a`).ok, checkRunnerLine(`${longest}a`).ok], skill).toEqual([false, false]);
+    }
   });
 });
 
@@ -186,5 +207,33 @@ describe('the tokens a report carries', () => {
     ['a count out of shape', { last5h: { ...counts, input: -1 }, today: counts }],
   ])('refuses a health report with %s', (_, tokens) => {
     expect(HealthReportSchema.safeParse({ ...sample, tokens }).success).toBe(false);
+  });
+});
+
+// The released claims (PRD 2175 s2): a job's last report may say which sub-PRs its runner released, and
+// why a release failed; both are optional, so a runner from before this PRD reports as it did.
+describe('the claims a report says were released', () => {
+  it('takes a report with the numbers released and why a release failed, with either alone, and with neither', () => {
+    const full = { status: 'failed', reason: 'exit code 3', released: [1908, 1909], releaseError: 'HTTP 502' };
+    expect(JobUpdateSchema.parse(full)).toEqual(full);
+    expect(JobUpdateSchema.parse({ status: 'done', released: [], releaseError: null })).toEqual({ status: 'done', released: [], releaseError: null });
+    expect(JobUpdateSchema.safeParse({ status: 'done', releaseError: 'gh: not signed in' }).success).toBe(true);
+    expect(JobUpdateSchema.parse({ status: 'done' })).toEqual({ status: 'done' });
+  });
+
+  it('takes 50 numbers and 200 characters, the most a runner sends', () => {
+    const fifty = Array.from({ length: 50 }, (_, i) => i + 1);
+    expect(JobUpdateSchema.safeParse({ status: 'done', released: fifty, releaseError: 'x'.repeat(200) }).success).toBe(true);
+  });
+
+  it.each([
+    ['51 numbers', { released: Array.from({ length: 51 }, (_, i) => i + 1) }],
+    ['a number that is no pull request', { released: [0] }],
+    ['a number with a fraction', { released: [1.5] }],
+    ['a number as text', { released: ['1908'] }],
+    ['released as null', { released: null }],
+    ['a reason over 200 characters', { releaseError: 'x'.repeat(201) }],
+  ])('refuses a report with %s', (_, more) => {
+    expect(JobUpdateSchema.safeParse({ status: 'done', ...more }).success).toBe(false);
   });
 });

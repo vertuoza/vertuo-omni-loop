@@ -7,6 +7,7 @@ import { diagramsNamed } from './diagrams';
 import { commandsNamed, guideProblems, parsePage, readGuide, skillsNamed } from './guide';
 import { pageUrl } from './paths';
 import { sure } from '../arcade/test/sure';
+import { RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -46,6 +47,13 @@ describe('docs/guide', () => {
       '/docs/install', '/docs/join', '/docs/loop', '/docs/runners', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
       '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/design', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs', '/docs', '/docs',
     ]);
+  });
+
+  it('names on the Runners page exactly the lines a runner takes', () => {
+    const page = readGuide(GUIDE).pages.find((p) => p.slug === 'runners')?.body ?? '';
+    const sentence = /A runner takes only these lines: ([^.]*)\./.exec(page.replace(/\s+/g, ' '))?.[1] ?? '';
+    const named = [...sentence.matchAll(/`\/omni:([a-z-]+)`/g)].map((m) => sure(m[1], 'm[1]'));
+    expect(named).toEqual([...RUNNABLE_SKILLS]);
   });
 
   it('explains watching the App and the arcade on Vercel: the phase 0 checklist, the JSON logs, a Health issue and OMNI_APP_URL (PRD 1723)', () => {

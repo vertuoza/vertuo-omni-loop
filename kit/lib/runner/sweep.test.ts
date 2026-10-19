@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { branchPushed, sweep, sweptLine } from './sweep.ts';
+import { branchPushed, strandedJobs, sweep, sweptLine } from './sweep.ts';
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse('2026-10-14T12:00:00Z');
@@ -161,5 +161,22 @@ describe('sweptLine', () => {
     expect(sweptLine({ worktrees: 0, branches: 1, logs: 1, bytes: 2048 })).toBe('swept: 0 worktrees, 1 branch, 1 log file · 2 KB freed');
     expect(sweptLine({ worktrees: 1, branches: 0, logs: 0, bytes: 3 * 1024 * 1024 * 1024 + 300 * 1024 * 1024 })).toBe('swept: 1 worktree, 0 branches, 0 log files · 3.3 GB freed');
     expect(sweptLine({ worktrees: 0, branches: 1, logs: 0, bytes: 0 })).toBe('swept: 0 worktrees, 1 branch, 0 log files · 0 KB freed');
+  });
+});
+
+describe('strandedJobs (PRD 2175)', () => {
+  it('names the jobs no slot holds whose worktree is left, with the repository each ran in', () => {
+    const f = fixture();
+    f.job('lost-1');
+    f.job('running-2');
+    mkdirSync(join(f.home, 'wt', 'elsewhere-job-3'));
+    writeFileSync(join(f.home, 'wt', 'widgets-job-4'), 'a file, not a worktree');
+    mkdirSync(join(f.home, 'wt', 'widgets-job-a b'));
+    const stranded = strandedJobs({ home: f.home, checkouts: f.checkouts, running: new Set(['running-2']) });
+    expect(stranded).toEqual([{ job: 'lost-1', repo: 'acme/widgets' }]);
+  });
+
+  it('names none when the home has no worktree folder', () => {
+    expect(strandedJobs({ home: join(tmpdir(), 'omni-no-such-home'), checkouts: new Map([['acme/widgets', '/nowhere']]), running: new Set() })).toEqual([]);
   });
 });

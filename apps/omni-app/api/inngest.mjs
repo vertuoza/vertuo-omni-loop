@@ -1483,6 +1483,11 @@ var ConfigSchema = z8.object({
     approved: labelName.default("omni:approved"),
     // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
     law: labelName.default("omni:law"),
+    // PRD 2175: the label a runner swaps in for `inProgress` on a claim whose job ended while it held
+    // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`). Left
+    // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
+    // exactly as before (so `omni init` does not create it: a person does).
+    released: labelName.optional(),
     autoCreate: z8.boolean().default(false)
   }),
   prLinks: section({
@@ -1572,6 +1577,10 @@ var ConfigSchema = z8.object({
     stallDays: z8.number().int().positive().default(5),
     attempts: z8.number().int().positive().default(3),
     claimStaleMinutes: z8.number().int().positive().default(60),
+    // PRD 2175: how long a draft still on `labels.inProgress` may go with no commit and no update
+    // before the board reads its claim as stale: the fallback for a claim no runner saw die. Left
+    // out, `DEFAULT_CLAIM_DEAD_MINUTES` applies, and a config that does not set it parses exactly as before.
+    claimDeadMinutes: z8.number().int().positive().optional(),
     beforeAfterMaxBytes: z8.number().int().positive().default(512e3),
     // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
     // was before, one step at a time.
@@ -6814,6 +6823,16 @@ var ASK = envGroup({
   schema: z25.object({ switch: z25.enum(["on", "off"], "on or off") }),
   variables: { switch: "OMNI_ASK" }
 });
+var UNATTENDED = envGroup({
+  label: "an unattended run",
+  schema: z25.object({ flag: z25.string() }),
+  variables: { flag: "OMNI_UNATTENDED" }
+});
+var RUNNER_JOB = envGroup({
+  label: "the runner job",
+  schema: z25.object({ job: z25.string() }),
+  variables: { job: "OMNI_JOB" }
+});
 var TEST_RUNNER = envGroup({
   label: "the test runner",
   schema: z25.object({ vitest: z25.string() }),
@@ -6826,7 +6845,7 @@ var PACKAGE_MANAGER = envGroup({
 });
 var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
-var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN]);
+var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN, UNATTENDED, RUNNER_JOB]);
 
 // kit/lib/ask/credentials.ts
 import { chmodSync as chmodSync2, readFileSync as readFileSync16, rmSync as rmSync5, writeFileSync as writeFileSync5 } from "node:fs";

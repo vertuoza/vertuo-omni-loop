@@ -125,3 +125,23 @@ describe('the runner tokens migration (PRD 2102)', () => {
     expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*status: string\n\s+to_fleet: string \| null\n\s+to_runner: string \| null\n\s+tokens: Json \| null\n/);
   });
 });
+
+const RELEASED = read('supabase/migrations/20261214090000_runner_released.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+
+describe('the runner released-claims migration (PRD 2175)', () => {
+  it('adds the job\'s released claims and why a release failed, both empty until a runner reports them, and changes no grant', () => {
+    expect(RELEASED).toContain('alter table public.runner_jobs add column released integer[];');
+    expect(RELEASED).toContain('alter table public.runner_jobs add column release_error text;');
+    expect(RELEASED).not.toMatch(/grant |revoke |policy |not null|default /);
+  });
+
+  it('keeps what the contract lets a report carry: 50 numbers, 200 characters', () => {
+    const contract = read('apps/galaxy/src/runners/runners.contract.ts');
+    expect(contract).toContain('const RELEASED_MAX = 50;');
+    expect(contract).toContain('const RELEASE_ERROR_CHARS = 200;');
+  });
+
+  it('is named in the database\'s types', () => {
+    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*reason: string \| null\n\s+release_error: string \| null\n\s+released: number\[\] \| null\n/);
+  });
+});
