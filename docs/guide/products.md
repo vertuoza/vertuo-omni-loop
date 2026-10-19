@@ -220,6 +220,15 @@ The glossary feeds the words check. `omni design words` adds the avoided words o
 glossary, read from the local copy only, so a screen that says *refund* is reported as
 `"refund": avoid, the product says "Credit note"`. With no copy, the check uses its usual word lists.
 
+### Knowledge graph
+
+A repository's knowledge graph (its rules, invariants, decisions and the code they cite) reaches the
+product's Omni page on every push to `main`. The workflow `.github/workflows/knowledge-graph.yml`
+runs `node kit/dist/omni.mjs kb graph push` with the kit token in the `OMNI_TOKEN` secret, and holds
+only `contents: read`. Without the secret the step does nothing and the run stays green. A release
+commit (`chore(release): `) is skipped, since it only stamps versions. Run `omni kb graph push` by
+hand to push the graph of the checkout you are in; it refuses a dirty knowledge folder in one line.
+
 ## A product PRD
 
 A feature that lands in several of a product's repositories can live on the product itself. Such a
