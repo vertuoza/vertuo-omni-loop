@@ -55,7 +55,9 @@ A test outside them never runs.
   let them sit beside the proof). The owner may let them sit beside the proof, on the PRD's
   outbox, when the law's own tests stay unchanged (PRD 1795, s3-01). PRD 1796's contract tests do,
   in `kit/lib/knowledge/check-knowledge.test.ts`, beside BR-PRODUCT-95's proof, which they leave
-  untouched (PRD 1796, s1-04).
+  untouched (PRD 1796, s1-04). PRD 1798's `get_knowledge_graph` tests do too, in
+  `apps/galaxy/src/agent-connect/mcp/server.test.ts`, beside BR-PRODUCT-66's proof, with the
+  tool-listing test counting four tools (PRD 1798, s4-01).
 
 ## Choosing the level
 <!-- slot: levels · optional -->
