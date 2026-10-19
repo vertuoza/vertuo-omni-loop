@@ -39,9 +39,9 @@ export function productHomeTabHref(home: ProductHome, tab: ProductHomeTab): stri
   return segment === null ? root : `${root}/${segment}`;
 }
 
-/** Tabs that answer at their address but are left out of the row. The Constellation is hidden while its
- * rework is designed: on a product of 18 repositories its labels overlap and it draws no line. */
-const HIDDEN: ReadonlySet<ProductHomeTab> = new Set(['constellation']);
+/** Tabs that answer at their address but are left out of the row. None now: the Constellation is back
+ * (PRD 2174), its labels apart and its lines drawn from the plans' targets. */
+const HIDDEN: ReadonlySet<ProductHomeTab> = new Set();
 
 const COUNTS: Partial<Record<ProductHomeTab, (home: ProductHome) => number>> = {
   ledger: (home) => home.ledger.lanes['on-you'].length,

@@ -6,7 +6,7 @@ import type { QuestionView } from '../questions/questions.contract';
 import {
   productHomeRepository, type ProductHomeDb, type ProductHomeRepository, type StoredApproval, type StoredHomePrd,
   type StoredFix, type StoredIdea, type StoredItem, type StoredLink, type StoredOtherLink, type StoredOutbox, type StoredPhase0, type StoredPlayer, type StoredProductPrd, type StoredPull,
-  type StoredRoadmap, type StoredStageRow, type StoredTopic, type StoredVoid,
+  type StoredRoadmap, type StoredStageRow, type StoredTarget, type StoredTopic, type StoredVoid,
 } from './product-home.repository';
 
 // The product home's rules (PRD 1364 s9; ADR-0095): /app/products/<id> opens on the Ledger, what waits
@@ -135,8 +135,10 @@ export interface HomeRepository {
 
 /** A PRD of the product as the Constellation reads it (PRD 2129 s2): its current stage, its place on the
  * Ledger (null once shipped or at retro; its lane null when it waits on a person who is not you), the
- * repositories where it has a stage row, and the open pull requests of its feature branch and landings. */
+ * repositories where it has a stage row, the open pull requests of its feature branch and landings, and (PRD
+ * 2174) the repositories its plan targets, sorted. */
 export interface HomeFlight extends HomePrd {
+  targets: string[];
   stage: StoredStage | null;
   ledger: { state: LedgerState; lane: LaneId | null } | null;
   stageRepos: string[];
@@ -192,6 +194,8 @@ export interface ProductHomeRows {
   phase0: readonly StoredPhase0[];
   /** The workspace's open pull requests whose head is a phase-0 branch (PRD 2129 s3). */
   phase0Pulls: readonly StoredPull[];
+  /** The repositories the PRDs' plans target (PRD 2174), by dossier. */
+  targets: readonly StoredTarget[];
   /** Who reads: their user id. */
   me: string;
 }
@@ -285,7 +289,9 @@ function indexOf(rows: ProductHomeRows) {
   const voids = groupBy(rows.voids, (v) => v.dossier_id);
   const topics = new Map(rows.topics.map((t) => [keyOf(t.repository, t.prd), t.topic]));
   const waitingOnMe = new Set(rows.waitingOnMe);
+  const targets = groupBy(rows.targets, (t) => t.dossier_id);
   return {
+    targets: (dossier: string) => [...new Set((targets.get(dossier) ?? []).map((t) => t.repository))].sort((a, b) => a.localeCompare(b)),
     stage: (key: string) => currentStage(stages.get(key) ?? []),
     stageRepos: (key: string) => [...new Set((stages.get(key) ?? []).map((s) => s.repository))],
     waiting: (key: string) => outbox.get(key) ?? [],
@@ -317,7 +323,7 @@ function readPrd(stored: StoredHomePrd, index: Index, rows: ProductHomeRows) {
     prs,
   });
   const flight: HomeFlight = {
-    ...prd, stage, ledger: place === null ? null : { state: place.state, lane: place.lane }, stageRepos: index.stageRepos(key), prs,
+    ...prd, stage, ledger: place === null ? null : { state: place.state, lane: place.lane }, stageRepos: index.stageRepos(key), prs, targets: index.targets(prd.dossier),
   };
   return { tab, stage, place, row, waiting, flight };
 }
@@ -451,7 +457,7 @@ export function productHomeService(store: ProductHomeRepository) {
       const authors = [...new Set([...prds, ...productPrds].flatMap((p) => (p.opened_by === null ? [] : [p.opened_by])))];
       const links = await store.links(workspace, id);
       const linked = links.map((l) => l.repository);
-      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes, items, players, otherLinks, phase0, phase0Pulls] = await Promise.all([
+      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes, items, players, otherLinks, phase0, phase0Pulls, targets] = await Promise.all([
         store.stages(workspace, repos),
         store.outbox(workspace, repos),
         store.topics(workspace, repos),
@@ -467,9 +473,10 @@ export function productHomeService(store: ProductHomeRepository) {
         store.otherLinks(workspace, id, linked),
         store.phase0(workspace, linked),
         prds.length === 0 ? Promise.resolve([]) : store.phase0Pulls(workspace),
+        store.targets(dossiers),
       ]);
       return productHomeOf({
-        product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, key: found.key, productPrds, items, players, links, otherLinks, phase0, phase0Pulls, me,
+        product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, key: found.key, productPrds, items, players, links, otherLinks, phase0, phase0Pulls, targets, me,
       });
     },
   };
