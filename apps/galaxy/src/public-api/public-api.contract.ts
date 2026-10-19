@@ -7,6 +7,7 @@ import { z } from 'zod';
 //   GET /api/v1/prds?limit=&cursor=        200 {data: Prd[], next_cursor}
 //   GET /api/v1/bug-fixes?limit=&cursor=   200 {data: BugFix[], next_cursor}
 //   POST /api/v1/bug-fixes                 202 Job: queues `/omni:bug-fix <description>` on the runners (s4)
+//   POST /api/v1/mega-bug-fixes            202 Job: queues `/omni:mega-bug-fix <description>` in a plan repository
 //   GET /api/v1/jobs/{id}                  200 Job: a job a key of this workspace queued (s4)
 //
 // Every refusal answers one shape, `{error: {code, message}}`, with the status PUBLIC_API_ERRORS names.
@@ -67,7 +68,7 @@ export const BugFixListSchema = z.object({ data: z.array(BugFixSchema), next_cur
 export type BugFixList = z.infer<typeof BugFixListSchema>;
 
 /** The skill a bug fix runs. */
-const BUG_FIX = '/omni:bug-fix';
+export const BUG_FIX = '/omni:bug-fix';
 
 /** The longest description a bug fix starts with: what the runners' 200-character line leaves after
  * `/omni:bug-fix `, so a line the app queues is always one a runner runs. */
@@ -85,6 +86,34 @@ export const StartBugFixSchema = z.object({
     .meta({ description: 'The key of the fleet whose runners may run it.', example: 'comets' }),
 });
 export type StartBugFix = z.infer<typeof StartBugFixSchema>;
+
+/** The skill a mega bug fix runs, in the plan repository. */
+export const MEGA_BUG_FIX = '/omni:mega-bug-fix';
+
+/** The longest description a mega bug fix starts with: what the runners' 200-character line leaves after
+ * `/omni:mega-bug-fix `, so a line the app queues is always one a runner runs. */
+export const MEGA_DESCRIPTION_MAX = 200 - MEGA_BUG_FIX.length - 1;
+
+/** A word that starts with `--` is a flag of the skill (`--product` would make it a product's bug, `--prd`
+ * would link a PRD): the route starts the bug fix of a plan repository, and nothing else. */
+const FLAG = /(?:^|\s)--/;
+
+/** What starts a mega bug fix: the plan repository, the bug or its issue there, and optionally where it
+ * runs. Strict: a field this server does not know is refused, never ignored. */
+export const StartMegaBugFixSchema = z.strictObject({
+  repo: z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/, 'owner/name')
+    .meta({ description: 'The plan repository, `owner/name`: one a product of the workspace names as its plan repository, and on the key’s allow-list.', example: 'acme/plan' }),
+  description: z.string().min(1).max(MEGA_DESCRIPTION_MAX).refine((text) => !FLAG.test(text), 'no --flag')
+    .meta({
+      description: `The bug’s issue in the plan repository (its URL, \`#612\` or \`612\`), or what is wrong, 1 to ${String(MEGA_DESCRIPTION_MAX)} characters of letters, digits, spaces and . _ / : # - only, and no word starting with \`--\`.`,
+      example: 'https://github.com/acme/plan/issues/612',
+    }),
+  runner: z.string().min(1).max(40).optional()
+    .meta({ description: 'The name of the runner to run it on: one that holds a checkout of the plan repository. Send at most one of `runner` and `fleet`; neither means any runner of the workspace.', example: 'mac-mini-office' }),
+  fleet: z.string().min(1).max(40).optional()
+    .meta({ description: 'The key of the fleet whose runners may run it.', example: 'comets' }),
+});
+export type StartMegaBugFix = z.infer<typeof StartMegaBugFixSchema>;
 
 const JOB_STATUSES = ['queued', 'claimed', 'running', 'done', 'failed', 'cancelled'] as const;
 

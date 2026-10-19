@@ -19,7 +19,7 @@
 import { z } from 'zod';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
-export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'visual-fix', 'plan', 'pitch', 'prove'] as const;
+export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove'] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
 /** The longest arguments a line may carry. */

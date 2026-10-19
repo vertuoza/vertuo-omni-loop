@@ -349,7 +349,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'log\'s new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per ' +
       'report, sending them again when a report fails and every line left once the job ends: the ' +
       'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
-      'visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
+      'mega-bug-fix, visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
       'waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills ' +
       'the plugin holds: before Claude starts, a plugin older than the omni the job\'s repository ' +
       'pins is updated (once, however many slots start together), and one still older fails the job ' +

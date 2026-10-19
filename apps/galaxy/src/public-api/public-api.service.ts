@@ -4,7 +4,7 @@ import { currentStage } from '../stages/stage';
 import { decodeCursor, encodeCursor, type CursorList } from './cursor';
 import { hashApiKey, isApiKeyShaped } from './keys/secret';
 import type { RunnerRefusal, KeyJob, KeySend } from '../runners/runners.contract';
-import type { ApiJob, BugFix, BugFixList, ListQuery, Prd, PrdList, PublicApiErrorCode, StartBugFix } from './public-api.contract';
+import { BUG_FIX, MEGA_BUG_FIX, type ApiJob, type BugFix, type BugFixList, type ListQuery, type Prd, type PrdList, type PublicApiErrorCode, type StartBugFix, type StartMegaBugFix } from './public-api.contract';
 import type { DossierRow, ListedKind, PublicApiRepository, StageRow } from './public-api.repository';
 
 // The public API's rules (PRD 2022 s2, spec "The routes"; ADR-0095), over the repository as the service
@@ -53,9 +53,21 @@ const jobOf = (job: KeyJob): ApiJob => ({
 });
 
 /** The line a bug fix runs: the description is the skill's argument, which the runners' line check reads. */
-const bugFixLine = (description: string) => `/omni:bug-fix ${description}`;
+const bugFixLine = (description: string) => `${BUG_FIX} ${description}`;
 
-type Port = Pick<PublicApiRepository, 'keyOf' | 'dossiers' | 'products' | 'stages'>;
+/** The line a mega bug fix runs in the plan repository: the bug, or its issue there, is the skill's argument. */
+const megaBugFixLine = (description: string) => `${MEGA_BUG_FIX} ${description}`;
+
+/** The refusal of a repository off the key's allow-list, or null when the key may start work in it. */
+const offList = (key: ApiKeyCaller, repo: string): Answered<never> | null =>
+  key.repos.length > 0 && !key.repos.includes(repo)
+    ? { ok: false, code: 'forbidden', message: `${repo} is not on this API key’s list of repositories.` }
+    : null;
+
+const notPlan = (repo: string) =>
+  `repo: ${repo} is not a plan repository of this workspace: no product names it as its plan repository. A bug of one repository starts with POST /api/v1/bug-fixes.`;
+
+type Port = Pick<PublicApiRepository, 'keyOf' | 'dossiers' | 'products' | 'stages' | 'isPlanRepository'>;
 
 const issueLink = (repo: string, number: number) => `https://github.com/${repo}/issues/${number}`;
 
@@ -88,6 +100,16 @@ async function stagesOf(repository: Port, workspace: string, rows: readonly Doss
 }
 
 export function publicApiService(repository: Port, runners: RunnersPort) {
+  /** Queues `line` in `repo` for the key, through the runners' own rules (their line check included): the
+   * job is sent by the key's maker and marked as the key's. */
+  async function queueAs(key: ApiKeyCaller, repo: string, line: string, where: Pick<StartBugFix, 'runner' | 'fleet'>): Promise<Answered<ApiJob>> {
+    const sent = await runners.sendByKey(
+      { id: key.id, name: key.name, workspace: key.workspace, maker: key.maker },
+      { repo, line, runner: where.runner, fleet: where.fleet },
+    );
+    return sent.ok ? { ok: true, value: jobOf(sent.value) } : startRefusal(sent.kind, sent.error);
+  }
+
   return {
     /** The live key `secret` is, or null: a secret of another shape is never looked up. */
     async keyFor(secret: string): Promise<ApiKeyCaller | null> {
@@ -136,14 +158,18 @@ export function publicApiService(repository: Port, runners: RunnersPort) {
      * repository of its workspace and allow-list; the job is sent by the key's maker and marked as the key's. */
     async startBugFix(key: ApiKeyCaller, body: StartBugFix): Promise<Answered<ApiJob>> {
       const repo = body.repo.toLowerCase();
-      if (key.repos.length > 0 && !key.repos.includes(repo)) {
-        return { ok: false, code: 'forbidden', message: `${repo} is not on this API key’s list of repositories.` };
-      }
-      const sent = await runners.sendByKey(
-        { id: key.id, name: key.name, workspace: key.workspace, maker: key.maker },
-        { repo, line: bugFixLine(body.description), runner: body.runner, fleet: body.fleet },
-      );
-      return sent.ok ? { ok: true, value: jobOf(sent.value) } : startRefusal(sent.kind, sent.error);
+      return offList(key, repo) ?? queueAs(key, repo, bugFixLine(body.description), body);
+    },
+
+    /** Queues `/omni:mega-bug-fix` for the key in a plan repository of its workspace and allow-list, as
+     * startBugFix queues its line. A repository no product names as its plan repository is refused before
+     * anything is queued: the skill would only stop there, telling no one but the job's log. */
+    async startMegaBugFix(key: ApiKeyCaller, body: StartMegaBugFix): Promise<Answered<ApiJob>> {
+      const repo = body.repo.toLowerCase();
+      const refused = offList(key, repo);
+      if (refused) return refused;
+      if (!(await repository.isPlanRepository(key.workspace, repo))) return { ok: false, code: 'invalid_request', message: notPlan(repo) };
+      return queueAs(key, repo, megaBugFixLine(body.description), body);
     },
 
     /** A job a key of the key's workspace queued; any other is not found. */

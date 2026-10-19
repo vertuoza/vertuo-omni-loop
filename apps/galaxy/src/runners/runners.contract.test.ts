@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
 import {
   checkLine, HealthReportSchema, JobLinesQuerySchema, JobUpdateSchema, RegisterRequestSchema, RUNNER_SKILLS, SendRequestSchema, TargetSchema,
 } from './runners.contract';
@@ -9,6 +10,14 @@ import {
 describe('the line check', () => {
   it.each(RUNNER_SKILLS)('lets /omni:%s through, with its arguments', (skill) => {
     expect(checkLine(`/omni:${skill} 1830 s1 --in-wave`)).toEqual({ ok: true, skill, args: '1830 s1 --in-wave' });
+  });
+
+  it('lists exactly the skills `omni runner` runs, so the app never queues a line a runner refuses', () => {
+    expect([...RUNNER_SKILLS]).toEqual([...RUNNABLE_SKILLS]);
+  });
+
+  it('lets /omni:mega-bug-fix through with a plan repository issue’s URL', () => {
+    expect(checkLine('/omni:mega-bug-fix https://github.com/acme/plan/issues/612')).toEqual({ ok: true, skill: 'mega-bug-fix', args: 'https://github.com/acme/plan/issues/612' });
   });
 
   it('lets a line with no arguments through', () => {
