@@ -75,9 +75,10 @@ export function statusTone(status: Job['status']): 'queue' | 'run' | 'done' | 'f
   return status === 'failed' ? 'fail' : 'off';
 }
 
-/** Whether a job may still be cancelled: queued or running, and no cancel asked yet. */
+/** Whether a job may still be cancelled: queued or Starting, which a cancel ends at once (#2168), or
+ * running with no cancel asked yet. */
 export const canCancel = (job: Pick<Job, 'status' | 'cancelRequested'>): boolean =>
-  (job.status === 'queued' || job.status === 'claimed' || job.status === 'running') && !job.cancelRequested;
+  job.status === 'queued' || job.status === 'claimed' || (job.status === 'running' && !job.cancelRequested);
 
 /** Whether a job may be sent again: it failed or was cancelled. Nothing runs again by itself. */
 export const canSendAgain = (job: Pick<Job, 'status'>): boolean => job.status === 'failed' || job.status === 'cancelled';

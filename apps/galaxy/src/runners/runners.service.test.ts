@@ -179,7 +179,7 @@ describe('a runner\'s reports', () => {
   });
 
   it('answer cancel while a cancel waits, until the runner reports it cancelled', async () => {
-    const job = claimed();
+    const job = jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
     const w = world({ jobs: [job] });
     value(await w.service.cancel(MO, job.id));
     expect(value(await w.service.update(OLGA, job.id, { status: 'running' }))).toEqual({ cancel: true });
@@ -370,6 +370,15 @@ describe('cancelling', () => {
     const job = jobRow({ sent_by: MO });
     const w = world({ jobs: [job] });
     expect(value(await w.service.cancel(MO, job.id))).toMatchObject({ status: 'cancelled', cancelRequested: true, endedAt: T0.toISOString() });
+  });
+
+  it('ends a Starting job at once, though its runner, still checking in, never reports on it (#2168)', async () => {
+    const job = jobRow({ status: 'claimed', sent_by: MO, runner_id: SHARED, claimed_at: T0.toISOString() });
+    const asked = jobRow({ status: 'claimed', sent_by: MO, runner_id: SHARED, claimed_at: T0.toISOString(), cancel_requested: true });
+    const w = world({ jobs: [job, asked] });
+    expect(value(await w.service.cancel(MO, job.id))).toMatchObject({ status: 'cancelled', cancelRequested: true, endedAt: T0.toISOString() });
+    expect(value(await w.service.cancel(MO, asked.id))).toMatchObject({ status: 'cancelled', endedAt: T0.toISOString() });
+    expect(await w.service.update(OLGA, job.id, { status: 'running' })).toMatchObject({ ok: false, kind: 'conflict' });
   });
 
   it('asks the runner to stop a running job', async () => {

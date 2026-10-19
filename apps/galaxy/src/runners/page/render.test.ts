@@ -134,8 +134,8 @@ describe('the board', () => {
     expect(text(member)).toContain('mac-mini-office Online Shared 0 of 2');
   });
 
-  it('hides Cancel once a cancel was asked for', () => {
-    const asked = render(withBoard((board) => ({ ...board, jobs: board.jobs.map((job): Job => (job.line === '/omni:pr-care 1801' ? { ...job, cancelRequested: true } : job)) })));
+  it('hides Cancel on a running job once a cancel was asked for', () => {
+    const asked = render(withBoard((board) => ({ ...board, jobs: board.jobs.map((job): Job => (job.line === '/omni:pr-care 1801' ? { ...job, status: 'running', cancelRequested: true } : job)) })));
     expect(jobRow(asked, '/omni:pr-care 1801')).not.toContain('>Cancel<');
   });
 

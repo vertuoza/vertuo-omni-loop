@@ -13,8 +13,9 @@
 // - Anyone of the workspace sends to any runner, or to a runner with no fleet; only a fleet's players
 //   and the workspace's owners send to a fleet, or to a runner in one. The repository is the
 //   workspace's (repo_workspace()).
-// - The sender or a workspace owner cancels a job: a queued one at once, a claimed or running one at
-//   its runner's next report. Only an owner sets a runner's fleet.
+// - The sender or a workspace owner cancels a job: a queued or claimed one at once (a runner that
+//   reports on it after is answered 409 and stops it, #2168), a running one at its runner's next
+//   report. Only an owner sets a runner's fleet.
 // - A job's live lines (PRD 1904): a report's `lines`, numbered from `from`, are stored once each (a
 //   report sent twice adds nothing), and a job keeps its last 20,000. When a job ends, the lines of the
 //   workspace's ended jobs beyond the 50 most recent (the ones the Runners page lists) are deleted. A
@@ -356,7 +357,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       return ok(keyJobOf(job, await runnerNameOf(job)));
     },
 
-    /** Cancels a job: a queued one at once, a claimed or running one at its runner's next report. */
+    /** Cancels a job: a queued or claimed one at once, a running one at its runner's next report. */
     async cancel(caller: string, jobId: string): Promise<Served<Job>> {
       const allowed = await cancelling(caller, jobId);
       if (!allowed.ok) return allowed;
@@ -364,8 +365,9 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const job = await store.job(jobId);
       if (!job) return no('missing', 'No such job.');
       if (ENDED.includes(job.status)) return no('conflict', `This job has ended: ${job.status}.`);
-      // A queued job ends at once; a claimed or running one waits for its runner to kill it.
-      const patch: JobPatch = job.status === 'queued' ? { status: 'cancelled', cancel_requested: true, ended_at: iso() } : { cancel_requested: true };
+      // A job not running yet ends at once: a Starting one's runner may never report on it (#2168). A
+      // running one waits for its runner to kill it.
+      const patch: JobPatch = job.status === 'running' ? { cancel_requested: true } : { status: 'cancelled', cancel_requested: true, ended_at: iso() };
       const updated = await store.updateJob(jobId, [job.status], patch);
       if (!updated) return no('conflict', 'This job changed meanwhile. Try again.');
       await retainLines(updated);
