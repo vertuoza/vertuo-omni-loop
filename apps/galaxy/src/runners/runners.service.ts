@@ -7,7 +7,9 @@
 // - `next` counts as a check-in, then holds up to 40 s for a job the runner may claim (runner_claim()).
 // - A runner silent for over 90 s leaves its claimed and running jobs failed, `runner lost`: each
 //   `next`, each job update and each read of the Runners page marks them first, before it counts the
-//   caller's own check-in, so a runner back from silence finds its jobs lost. Nothing is retried.
+//   caller's own check-in, so a runner back from silence finds its jobs lost. A runner that registers
+//   again, restarted, finds its claimed and running jobs lost too, however short its silence (#2170).
+//   Nothing is retried.
 // - A job's status only goes forward: claimed, running, then done, failed or cancelled. A report on a
 //   job that has ended is refused, and the runner stops it.
 // - Anyone of the workspace sends to any runner, or to a runner with no fleet; only a fleet's players
@@ -247,6 +249,13 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     return owned?.ok ? ok(owned.value.id) : no('forbidden', 'This job was claimed by none of your runners.');
   }
 
+  /** Ends the claimed and running jobs of a runner registering again as `runner lost`: a runner that
+   * registers has just started, so it holds none of them (#2170). */
+  async function loseJobsOf(runner: RunnerRow): Promise<void> {
+    const held = (await store.activeJobs(runner.workspace_id)).filter((job) => job.runner_id === runner.id && ACTIVE.includes(job.status));
+    for (const job of held) await store.updateJob(job.id, ACTIVE, { status: 'failed', reason: 'runner lost', ended_at: iso() });
+  }
+
   /** Nothing, when the caller sent the job or owns its workspace; why not otherwise. */
   async function cancelling(caller: string, jobId: string): Promise<Served<null>> {
     const found = await store.job(jobId);
@@ -265,6 +274,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const seen = { slots: request.slots, repos, version: request.version, last_seen_at: iso() };
       const existing = await store.runnerNamed(workspaceId, request.name);
       if (existing && existing.owner !== caller) return no('forbidden', `A runner named ${request.name} was registered by someone else: pick another name.`);
+      if (existing) await loseJobsOf(existing);
       const runner = existing
         ? await store.updateRunner(existing.id, seen)
         : await store.insertRunner({ workspaceId, owner: caller, name: request.name, slots: seen.slots, repos, version: seen.version, seenAt: seen.last_seen_at });
