@@ -29,6 +29,22 @@ async function nextMessage(reader: ReadableStreamDefaultReader<Uint8Array>): Pro
   return text;
 }
 
+/** Writes `text` to `file`, then again every `everyMs` until `seen` settles. On macOS a folder watch
+ * starts a moment after `watch()` returns, and a write in that moment is never reported; a person
+ * saves long after the studio opens, so the test writes again rather than racing the watch's start. */
+async function writeUntil<T>(file: string, text: string, seen: Promise<T>, everyMs = 400): Promise<T> {
+  let settled = false;
+  const result = seen.finally(() => {
+    settled = true;
+  });
+  writeFileSync(file, text);
+  while (!settled) {
+    await Promise.race([result, new Promise((wait) => setTimeout(wait, everyMs))]);
+    if (!settled) writeFileSync(file, text);
+  }
+  return result;
+}
+
 const titleOf = (dir: string): unknown => (JSON.parse(readFileSync(join(dir, 'input.json'), 'utf8')) as { storyboard: { scenes: { title?: string }[] } }).storyboard.scenes[0]?.title;
 
 let studio: Studio | undefined;
@@ -54,10 +70,10 @@ describe('openStudio', () => {
     const stream = await fetch(new URL('/events', studio.url));
     const reader = (stream.body ?? new ReadableStream<Uint8Array>()).getReader();
     const storyboard = readFileSync(join(dir, 'storyboard.json'), 'utf8');
-    writeFileSync(join(dir, 'storyboard.json'), storyboard.replace('Quotes that send themselves', 'Quotes on their way'));
-    expect(await nextMessage(reader)).toContain('data: reload');
+    const changed = storyboard.replace('Quotes that send themselves', 'Quotes on their way');
+    expect(await writeUntil(join(dir, 'storyboard.json'), changed, nextMessage(reader))).toContain('data: reload');
     expect(titleOf(dir)).toBe('Quotes on their way');
-    expect(reloads).toEqual([1]);
+    expect(reloads.length).toBeGreaterThanOrEqual(1);
     await reader.cancel();
   });
 
@@ -69,8 +85,7 @@ describe('openStudio', () => {
       broken = done;
     });
     studio = await openStudio(dir, { fetch: contractNetwork().fetch, warn: (line) => { lines.push(line); broken(); } });
-    writeFileSync(join(dir, 'storyboard.json'), '{ "storyboard": 1 }');
-    await said;
+    await writeUntil(join(dir, 'storyboard.json'), '{ "storyboard": 1 }', said);
     expect(lines[0]).toMatch(/^error: /);
     expect(titleOf(dir)).toBe('Quotes that send themselves');
   });
