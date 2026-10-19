@@ -319,14 +319,17 @@ Anyone asking "is an agent still on this?" reads `labels.inProgress` and this co
 per PR, found by its marker and rewritten in place on every pass of the loop. **Never** use
 `gh pr comment --edit-last`: it rewrites whichever comment was last, not this one.
 
+Run each command plainly and read what it prints: an agent isolated in a worktree is refused a
+`gh` or `git` inside `$(…)`, a pipe or an `if` (bug 2189). `<prefix>` is what
+`node .omni-loop/bin/omni.mjs config markers.prefix` prints, `<slug>` what
+`node .omni-loop/bin/omni.mjs config repo.slug` prints (`{owner}/{repo}` when it prints null), and
+the marker `<MARK>` is `<!-- <prefix>-status -->`. Write the body below to a file outside the
+repository, its first line `<MARK>`, then find the comment:
+
 ```bash
-MARK="<!-- $(node .omni-loop/bin/omni.mjs config markers.prefix)-status -->"
-BODY=$(mktemp)   # write the body below into it; its first line is "$MARK"
-REPO=$(node .omni-loop/bin/omni.mjs config repo.slug)   # when it prints null, use {owner}/{repo}
-ID=$(gh api "repos/$REPO/issues/<n>/comments" --paginate \
-  --jq ".[] | select(.body | contains(\"$MARK\")) | .id" | head -n 1)
-if [ -n "$ID" ]; then gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$BODY"
-else gh pr comment <n> --body-file "$BODY"; fi
+gh api repos/<slug>/issues/<n>/comments --paginate --jq '.[] | select(.body | contains("<MARK>")) | .id'
+gh api -X PATCH repos/<slug>/issues/comments/<id> -F body=@<file>   # it printed an id: the first
+gh pr comment <n> --body-file <file>                                 # it printed nothing
 ```
 
 ```markdown
@@ -410,8 +413,9 @@ A conflicting PR runs no checks at all: the watch exits at once with "no checks 
 **On red**, triage then fix:
 
 1. Read the failing job: `gh run view <run-id> --log-failed`.
-2. Decide whether the branch caused it: does the failure point at a file in
-   `git diff --name-only $(git merge-base <remote>/<base> HEAD)..HEAD`? A failure matching a known
+2. Decide whether the branch caused it: does the failure point at a file the branch changed
+   (`git merge-base <remote>/<base> HEAD` prints `<sha>`, then `git diff --name-only <sha>..HEAD`)?
+   A failure matching a known
    red in the `ci` form, where the branch changes nothing that red names, is not the branch's.
 3. Re-run only when the `ci` form's **When to re-run** allows it: one
    `gh run rerun <run-id> --failed` per PR at most, counted as an attempt.
