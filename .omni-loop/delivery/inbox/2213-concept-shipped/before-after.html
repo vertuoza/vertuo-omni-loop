@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 2213: A concept reads as shipped</title>
+<style>
+  :root {
+    --ground: #07061c; --surface: #120f3a; --sunk: #0e0d33; --line: #1a2170; --line-strong: #5a60c4;
+    --ink: #f2f4ff; --muted: #8a90d6; --plasma: #ffd84a; --on-plasma: #07061c; --cyan: #6ff0ff;
+    --green: #4ee08a; --red: #ff6b86;
+    --body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.6 var(--body); }
+  .page { max-width: 1240px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+  h2 { font-size: 21px; margin: 40px 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  h3 { font-size: 16px; margin: 0 0 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  p { max-width: 75ch; margin: 0 0 12px; }
+  .muted { color: var(--muted); }
+  code { font: 14px var(--mono); }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .col { min-width: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .05em; border-top: 0; }
+  .card { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; padding: 16px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; }
+  .flow span { border: 1px solid var(--line-strong); border-radius: 6px; padding: 4px 10px; background: var(--sunk); }
+  .flow b { color: var(--muted); font-weight: 400; }
+  /* The mockups, drawn from the app pages' tokens and the dossier page's parts. */
+  .screen { background: var(--ground); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  .head { border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 12px; }
+  .head-top { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; }
+  .title { font-size: 20px; font-weight: 700; margin: 0; }
+  .badge { font-size: 12px; border: 1px solid var(--line-strong); border-radius: 4px; padding: 2px 6px; color: var(--muted); margin-right: 6px; }
+  .issue { color: var(--cyan); font-size: 14px; margin-right: 6px; }
+  .actions { display: flex; gap: 8px; }
+  .btn { font: 600 14px var(--body); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; padding: 6px 12px; }
+  .btn-primary { color: var(--on-plasma); background: var(--plasma); border-color: var(--plasma); }
+  .facts { display: flex; flex-wrap: wrap; gap: 18px; margin: 10px 0 0; font-size: 14px; }
+  .facts dt { color: var(--muted); font-size: 12px; text-transform: uppercase; }
+  .facts dd { margin: 2px 0 0; }
+  .chip { display: inline-block; font: 700 12px/1 var(--body); background: var(--sunk); border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px 9px; }
+  .chip-inbox { color: var(--on-plasma); background: var(--plasma); border-color: var(--plasma); }
+  .chip-shipped { color: var(--on-plasma); background: var(--green); border-color: var(--green); }
+  .tabs { display: flex; gap: 14px; font-size: 14px; margin-top: 12px; color: var(--muted); }
+  .tabs .on { color: var(--ink); border-bottom: 2px solid var(--plasma); padding-bottom: 2px; }
+  ol.areas { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  ol.areas li { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  ol.areas li.wedge { border-color: var(--line-strong); }
+  .area-name { font-weight: 700; }
+  .hint { font: 12px var(--mono); color: var(--muted); }
+  .kind { font-size: 12px; border: 1px solid var(--line-strong); border-radius: 4px; padding: 1px 5px; color: var(--muted); }
+  .brief { color: var(--muted); font-size: 14px; margin: 2px 0 6px; }
+  .prd { font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .prd a { color: var(--cyan); }
+  .stage { font-size: 12px; border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px 8px; color: var(--ink); }
+  .stage-shipped { border-color: var(--green); color: var(--green); }
+  .stage-not-built { border-color: var(--red); color: var(--red); }
+  .copy { font: 12px var(--mono); background: var(--sunk); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; display: inline-block; }
+  .cards { display: grid; gap: 10px; }
+  .ccard { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  .ccard p { margin: 4px 0 0; font-size: 14px; }
+  .meta span + span::before { content: ' · '; }
+  .caption { font-size: 14px; color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <h1>PRD 2213: A concept reads as shipped</h1>
+  <p class="muted">Today beside after. A concept gains a fourth state, <b>shipped</b>: by itself once every area's PRD shipped, or by a person marking it done.</p>
+
+  <h2>Functional</h2>
+  <div class="pair">
+    <div class="col card">
+      <h3>Today</h3>
+      <table>
+        <tr><th>The concept</th><th>Reads</th></tr>
+        <tr><td>Its concept PR is open</td><td>in review</td></tr>
+        <tr><td>Its concept PR merged</td><td>in the inbox, for good</td></tr>
+        <tr><td>No facts stored, or the PR unread or missing</td><td>state unknown</td></tr>
+      </table>
+      <p class="caption">Once merged, the sync never reads the concept again: a closed issue is never seen.</p>
+    </div>
+    <div class="col card">
+      <h3>After</h3>
+      <table>
+        <tr><th>The concept</th><th>Reads</th></tr>
+        <tr><td>Its concept PR is open (its issue's state does not count)</td><td>in review</td></tr>
+        <tr><td>Merged, every area names a PRD, each PRD at <code>shipped</code> or <code>retro</code></td><td><b>shipped</b> (by itself)</td></tr>
+        <tr><td>Merged, its issue closed: Mark done on the page, or closed on GitHub</td><td><b>shipped</b> (by a person)</td></tr>
+        <tr><td>Merged, otherwise</td><td>in the inbox</td></tr>
+        <tr><td>No facts stored, or the PR unread or missing</td><td>state unknown</td></tr>
+      </table>
+      <p class="caption">The sync keeps reading a merged concept's issue, one read per run; an <code>issues</code> event refreshes it at once.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3>Mark done, end to end</h3>
+    <div class="flow">
+      <span>A member presses Mark done</span><b>→</b>
+      <span>POST /api/concepts/done, checked as the caller (is_member)</span><b>→</b>
+      <span>the Omni app closes the issue as completed, with "Marked done on the Omni page by @login."</span><b>→</b>
+      <span>the concept's facts are stored</span><b>→</b>
+      <span>the page reloads: shipped</span>
+    </div>
+    <p class="caption">Reopen runs the same way and reopens the issue. A refused caller or a failed GitHub call changes nothing and says so in one line.</p>
+  </div>
+
+  <h2>Pixel perfect</h2>
+  <p class="muted">screens: concept-page · concept-list</p>
+
+  <h3 style="margin-top:20px">The concept page, Areas tab</h3>
+  <div class="pair">
+    <div class="col">
+      <div class="screen" data-screen="concept-page">
+        <div class="head">
+          <div class="head-top">
+            <p class="title"><span class="badge">Concept</span><span class="issue">#1964 ↗</span>Anti-loop</p>
+            <div class="actions"><button class="btn" data-primary>Copy link</button></div>
+          </div>
+          <dl class="facts"><div><dt>State</dt><dd><span class="chip chip-inbox">in the inbox</span></dd></div><div><dt>On GitHub</dt><dd><span class="issue">Issue</span><span class="issue">Concept PR</span></dd></div></dl>
+          <nav class="tabs"><span>Overview</span><span class="on">Areas</span><span>Vision tour</span><span>Boards</span><span>Debate</span></nav>
+        </div>
+        <ol class="areas">
+          <li class="wedge"><span class="area-name">Loop detector</span> <span class="hint">detector</span> <span class="kind">wedge</span><p class="brief">Spot an agent going round in circles.</p><div class="prd"><a>PRD #1990</a></div></li>
+          <li><span class="area-name">Stop and ask</span> <span class="hint">stop</span><p class="brief">Stop the run and ask a person.</p><div class="prd"><a>PRD #2001</a></div></li>
+          <li><span class="area-name">Loop report</span> <span class="hint">report</span><p class="brief">Show what looped and what it cost.</p><span class="copy">/omni:brainstorm --concept 1964 report</span> <button class="btn">Copy</button></li>
+        </ol>
+      </div>
+      <p class="caption">Today: no stage per PRD, and nothing after "in the inbox". (Example areas.)</p>
+    </div>
+    <div class="col">
+      <div class="screen" data-screen="concept-page">
+        <div class="head">
+          <div class="head-top">
+            <p class="title"><span class="badge">Concept</span><span class="issue">#1964 ↗</span>Anti-loop</p>
+            <div class="actions"><button class="btn">Copy link</button><button class="btn btn-primary" data-primary>Mark done</button></div>
+          </div>
+          <dl class="facts"><div><dt>State</dt><dd><span class="chip chip-inbox">in the inbox</span></dd></div><div><dt>On GitHub</dt><dd><span class="issue">Issue</span><span class="issue">Concept PR</span></dd></div></dl>
+          <nav class="tabs"><span>Overview</span><span class="on">Areas</span><span>Vision tour</span><span>Boards</span><span>Debate</span></nav>
+        </div>
+        <ol class="areas">
+          <li class="wedge"><span class="area-name">Loop detector</span> <span class="hint">detector</span> <span class="kind">wedge</span><p class="brief">Spot an agent going round in circles.</p><div class="prd"><a>PRD #1990</a><span class="stage stage-shipped">shipped</span></div></li>
+          <li><span class="area-name">Stop and ask</span> <span class="hint">stop</span><p class="brief">Stop the run and ask a person.</p><div class="prd"><a>PRD #2001</a><span class="stage">building</span></div></li>
+          <li><span class="area-name">Loop report</span> <span class="hint">report</span><p class="brief">Show what looped and what it cost.</p><span class="copy">/omni:brainstorm --concept 1964 report</span> <button class="btn">Copy</button></li>
+        </ol>
+      </div>
+      <p class="caption">After, in the inbox: each PRD's stage beside its link, and Mark done in the header.</p>
+    </div>
+  </div>
+
+  <div class="pair" style="margin-top:20px">
+    <div class="col">
+      <div class="screen" data-screen="concept-page">
+        <div class="head">
+          <div class="head-top">
+            <p class="title"><span class="badge">Concept</span><span class="issue">#1964 ↗</span>Anti-loop</p>
+            <div class="actions"><button class="btn">Copy link</button><button class="btn" data-primary>Reopen</button></div>
+          </div>
+          <dl class="facts"><div><dt>State</dt><dd><span class="chip chip-shipped">shipped</span></dd></div><div><dt>On GitHub</dt><dd><span class="issue">Issue</span><span class="issue">Concept PR</span></dd></div></dl>
+          <nav class="tabs"><span>Overview</span><span class="on">Areas</span><span>Vision tour</span><span>Boards</span><span>Debate</span></nav>
+        </div>
+        <ol class="areas">
+          <li class="wedge"><span class="area-name">Loop detector</span> <span class="hint">detector</span> <span class="kind">wedge</span><p class="brief">Spot an agent going round in circles.</p><div class="prd"><a>PRD #1990</a><span class="stage stage-shipped">shipped</span></div></li>
+          <li><span class="area-name">Stop and ask</span> <span class="hint">stop</span><p class="brief">Stop the run and ask a person.</p><div class="prd"><a>PRD #2001</a><span class="stage stage-shipped">shipped</span></div></li>
+          <li><span class="area-name">Loop report</span> <span class="hint">report</span><p class="brief">Show what looped and what it cost.</p><div class="prd"><span class="stage stage-not-built">not built</span></div></li>
+        </ol>
+      </div>
+      <p class="caption">After, marked done by a person: "shipped", Reopen, and "not built" on the area that never got a shipped PRD.</p>
+    </div>
+    <div class="col">
+      <div class="screen" data-screen="concept-page">
+        <div class="head">
+          <div class="head-top">
+            <p class="title"><span class="badge">Concept</span><span class="issue">#1269 ↗</span>Products replace plan repositories</p>
+            <div class="actions"><button class="btn" data-primary>Copy link</button></div>
+          </div>
+          <dl class="facts"><div><dt>State</dt><dd><span class="chip chip-shipped">shipped</span></dd></div><div><dt>On GitHub</dt><dd><span class="issue">Issue</span><span class="issue">Concept PR</span></dd></div></dl>
+          <nav class="tabs"><span>Overview</span><span class="on">Areas</span><span>Vision tour</span><span>Boards</span><span>Debate</span></nav>
+        </div>
+        <ol class="areas">
+          <li class="wedge"><span class="area-name">Phase 0 approved on the server</span> <span class="hint">server-approval</span> <span class="kind">wedge</span><div class="prd"><a>PRD #1299</a><span class="stage stage-shipped">retro</span></div></li>
+          <li><span class="area-name">The handshake</span> <span class="hint">approval-handshake</span><div class="prd"><a>PRD #1322</a><span class="stage stage-shipped">retro</span></div></li>
+          <li><span class="area-name">How the product is looking</span> <span class="hint">constellation-tab</span><div class="prd"><a>PRD #2129</a><span class="stage stage-shipped">shipped</span></div></li>
+        </ol>
+      </div>
+      <p class="caption">After, shipped by itself (three of its six areas shown): no Mark done, no Reopen.</p>
+    </div>
+  </div>
+
+  <h3 style="margin-top:28px">The Concepts list</h3>
+  <div class="pair">
+    <div class="col">
+      <div class="screen cards" data-screen="concept-list">
+        <div class="ccard"><b>Products replace plan repositories</b> <span class="chip chip-inbox">in the inbox</span><p class="muted">6 of 6 areas have a PRD · 2026-10-07</p></div>
+        <div class="ccard"><b>Anti-loop</b> <span class="chip chip-inbox">in the inbox</span><p class="muted">2 of 3 areas have a PRD · 2026-10-13</p></div>
+      </div>
+      <p class="caption">Today: a finished concept reads like one barely started. The word pass finds today's line of facts too long at rest (8 words): the after splits it.</p>
+    </div>
+    <div class="col">
+      <div class="screen cards" data-screen="concept-list">
+        <div class="ccard"><b>Products replace plan repositories</b> <span class="chip chip-shipped">shipped</span><p class="muted meta"><span>6 of 6 have a PRD</span><span>6 of 6 shipped</span><span>2026-10-07</span></p></div>
+        <div class="ccard"><b>Anti-loop</b> <span class="chip chip-inbox">in the inbox</span><p class="muted meta"><span>2 of 3 have a PRD</span><span>1 of 3 shipped</span><span>2026-10-13</span></p></div>
+      </div>
+      <p class="caption">After: the shipped chip, and how many areas shipped.</p>
+    </div>
+  </div>
+</main>
+</body>
+</html>
