@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { checkLine as checkRunnerLine, LINE_MAX } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
 import { encodeCursor } from './cursor';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
-import { BugFixListSchema, PrdListSchema, type ListQuery } from './public-api.contract';
+import { BugFixListSchema, DESCRIPTION_MAX, PrdListSchema, type ListQuery } from './public-api.contract';
 import { BAD_CURSOR, publicApiService, type ApiKeyCaller } from './public-api.service';
 
 // The public API's rules (PRD 2022 s2) on realistic rows in memory: a key is a live key of its shape;
@@ -260,5 +261,14 @@ describe('starting a bug fix (PRD 2022 s4)', () => {
     const id = started.ok ? started.value.id : '';
     expect(await service.job(mine, id)).toMatchObject({ ok: true, value: { id, status: 'queued' } });
     expect(await service.job(await caller(api, SECRETS.all), id)).toMatchObject({ ok: false, code: 'not_found' });
+  });
+
+  it(`queues only a line the runner itself runs: ${String(DESCRIPTION_MAX)} characters make a line of ${String(LINE_MAX)}`, async () => {
+    const api = fakePublicApi();
+    const started = await publicApiService(api.repository, api.runners).startBugFix(await caller(api, SECRETS.runners), { ...FIX, description: 'a'.repeat(DESCRIPTION_MAX) });
+    const line = started.ok ? started.value.line : '';
+    expect(line).toHaveLength(LINE_MAX);
+    expect(checkRunnerLine(line)).toMatchObject({ ok: true, skill: 'bug-fix' });
+    expect(checkRunnerLine(`${line}a`)).toMatchObject({ ok: false, reason: `the line is over ${String(LINE_MAX)} characters` });
   });
 });

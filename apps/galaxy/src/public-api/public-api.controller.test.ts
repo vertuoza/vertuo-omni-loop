@@ -197,9 +197,16 @@ describe('POST /api/v1/bug-fixes and GET /api/v1/jobs/{id} (PRD 2022 s4)', () =>
     expect(api.runnersState.jobs).toEqual([]);
   });
 
+  it('queues a 186-character description, a line of 200 with /omni:bug-fix', async () => {
+    const api = fakePublicApi();
+    const response = await startBugFix(post({ ...FIX, description: 'a'.repeat(186) }), deps(api));
+    expect(response.status).toBe(202);
+    expect(JobSchema.parse(await response.json()).line).toHaveLength(200);
+  });
+
   for (const [what, body, field] of [
     ['an empty description', { ...FIX, description: '' }, 'description'],
-    ['a 201-character description', { ...FIX, description: 'a'.repeat(201) }, 'description'],
+    ['a 187-character description', { ...FIX, description: 'a'.repeat(187) }, 'description'],
     ['a description with shell characters', { ...FIX, description: 'x; rm -rf ~' }, 'description'],
     ['a description of quotes and substitutions', { ...FIX, description: "it's $(whoami)" }, 'description'],
     ['no repository', { description: 'x' }, 'repo'],

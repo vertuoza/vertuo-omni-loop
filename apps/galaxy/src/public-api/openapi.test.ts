@@ -61,8 +61,9 @@ describe('the OpenAPI reference', () => {
   it('describes starting a bug fix and following its job (PRD 2022 s4)', () => {
     const post = document.paths?.['/api/v1/bug-fixes']?.post;
     expect(post?.requestBody).toBeDefined();
+    expect(JSON.stringify(post?.requestBody)).toContain('"maxLength":186');
     expect(Object.keys(post?.responses ?? {})).toEqual(expect.arrayContaining(['202', '401', '403', '422', '500']));
-    const job = document.paths?.['/api/v1/jobs/{id}']?.get;
+    const job =document.paths?.['/api/v1/jobs/{id}']?.get;
     expect(job?.parameters?.map((p) => ('name' in p ? p.name : ''))).toEqual(['id']);
     expect(Object.keys(job?.responses ?? {})).toEqual(expect.arrayContaining(['200', '401', '404', '500']));
   });

@@ -66,15 +66,19 @@ export type PrdList = z.infer<typeof PrdListSchema>;
 export const BugFixListSchema = z.object({ data: z.array(BugFixSchema), next_cursor: NextCursorSchema });
 export type BugFixList = z.infer<typeof BugFixListSchema>;
 
-/** The longest description a bug fix starts with: the runners' own line limit. */
-export const DESCRIPTION_MAX = 200;
+/** The skill a bug fix runs. */
+const BUG_FIX = '/omni:bug-fix';
+
+/** The longest description a bug fix starts with: what the runners' 200-character line leaves after
+ * `/omni:bug-fix `, so a line the app queues is always one a runner runs. */
+export const DESCRIPTION_MAX = 200 - BUG_FIX.length - 1;
 
 /** What starts a bug fix: the repository, what is wrong, and optionally where it runs. */
 export const StartBugFixSchema = z.object({
   repo: z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/, 'owner/name')
     .meta({ description: 'The repository to fix, `owner/name`. It must be one of the workspace and on the key’s allow-list.', example: 'acme/backend' }),
   description: z.string().min(1).max(DESCRIPTION_MAX)
-    .meta({ description: `What is wrong, 1 to ${DESCRIPTION_MAX} characters of letters, digits, spaces and . _ / : # - only.`, example: 'Issue 548 the invoice total is off by a cent' }),
+    .meta({ description: `What is wrong, 1 to ${DESCRIPTION_MAX} characters of letters, digits, spaces and . _ / : # - only: after \`/omni:bug-fix \`, the runners’ 200-character line.`, example: 'Issue 548 the invoice total is off by a cent' }),
   runner: z.string().min(1).max(40).optional()
     .meta({ description: 'The name of the runner to run it on. Send at most one of `runner` and `fleet`; neither means any runner of the workspace.', example: 'mac-mini-office' }),
   fleet: z.string().min(1).max(40).optional()

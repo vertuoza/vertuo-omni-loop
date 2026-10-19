@@ -52,10 +52,11 @@ curl -X POST -H "Authorization: Bearer $OMNI_API_KEY" -H "Content-Type: applicat
 
 It answers `202` with the queued job, and the job runs `/omni:bug-fix <description>` on one of the
 workspace's runners. The `repo` must be one of the workspace's, and on the key's allow-list when it
-has one, or it answers 403. The `description` is 1 to 200 characters of letters, digits, spaces and
-`. _ / : # -`, the same line check the runners apply to a person's job: any other character answers
-422 and nothing is queued. Add `runner` (a runner's name) or `fleet` (a fleet's key) to choose where
-it runs; with neither, any runner of the workspace may take it.
+has one, or it answers 403. The `description` is 1 to 186 characters of letters, digits, spaces and
+`. _ / : # -`, the same line check the runners apply to a person's job: 186 characters after
+`/omni:bug-fix ` make the 200 characters a runner's line holds at most. A longer description, or any
+other character, answers 422 and nothing is queued. Add `runner` (a runner's name) or `fleet` (a
+fleet's key) to choose where it runs; with neither, any runner of the workspace may take it.
 
 The Runners page shows the job as sent by `API key <name>`, with `made by @<login>` under it, and
 the pull request the job opens says it was sent by the key. The job still ends in a pull request a
