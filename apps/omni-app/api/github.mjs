@@ -847,6 +847,11 @@ var ConfigSchema = z7.object({
     approved: labelName.default("omni:approved"),
     // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
     law: labelName.default("omni:law"),
+    // PRD 2175: the label a runner swaps in for `inProgress` on a claim whose job ended while it held
+    // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`). Left
+    // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
+    // exactly as before (so `omni init` does not create it: a person does).
+    released: labelName.optional(),
     autoCreate: z7.boolean().default(false)
   }),
   prLinks: section({
@@ -936,6 +941,10 @@ var ConfigSchema = z7.object({
     stallDays: z7.number().int().positive().default(5),
     attempts: z7.number().int().positive().default(3),
     claimStaleMinutes: z7.number().int().positive().default(60),
+    // PRD 2175: how long a draft still on `labels.inProgress` may go with no commit and no update
+    // before the board reads its claim as stale: the fallback for a claim no runner saw die. Left
+    // out, `DEFAULT_CLAIM_DEAD_MINUTES` applies, and a config that does not set it parses exactly as before.
+    claimDeadMinutes: z7.number().int().positive().optional(),
     beforeAfterMaxBytes: z7.number().int().positive().default(512e3),
     // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
     // was before, one step at a time.
