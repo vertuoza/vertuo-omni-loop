@@ -386,6 +386,43 @@ describe('Loop health, right now (PRD 714 s2)', () => {
   });
 });
 
+describe('Loop health, a dead job\'s claims (PRD 2175)', () => {
+  const MINUTE = 60_000;
+  const ago = (minutes: number) => new Date(NOW.getTime() - minutes * MINUTE).toISOString();
+  /** An open draft sub-PR claimed long ago, on omni:in-progress, with a commit beyond its claim. */
+  const claim = (over: Partial<PullRequestRow> = {}) => pr({
+    openedAt: ago(1000), headCommittedAt: ago(30), updatedAt: ago(30), draft: true, omniSigned: true,
+    base: 'feat/runner-dead-claims', head: 'feat/runner-dead-claims--s1', labels: ['omni:sub', 'omni:in-progress'], ...over,
+  });
+  const kinds = (rows: PullRequestRow[]) => board(read({ pullRequests: rows })).health.rows.map((r) => [r.kind, r.number]);
+
+  it('lists a draft labelled omni:released as a stale claim, however fresh its commits', () => {
+    const one = claim({ labels: ['omni:sub', 'omni:released'], headCommittedAt: ago(1), updatedAt: ago(1) });
+    expect(kinds([one])).toEqual([['stale-claim', one.number]]);
+  });
+
+  it('lists a draft on omni:in-progress with no commit and no update for 241 minutes, and not at 239', () => {
+    const quiet = claim({ headCommittedAt: ago(241), updatedAt: ago(241) });
+    const recent = claim({ headCommittedAt: ago(239), updatedAt: ago(239) });
+    expect(kinds([quiet, recent])).toEqual([['stale-claim', quiet.number]]);
+  });
+
+  it('never lists a quiet claim whose update time was not read', () => {
+    const unread = claim({ headCommittedAt: ago(600) });
+    delete unread.updatedAt;
+    expect(kinds([claim({ headCommittedAt: ago(600), updatedAt: null }), unread])).toEqual([]);
+  });
+
+  it('never lists a released pull request that is not a draft, or not one of the loop\'s sub-PRs', () => {
+    expect(kinds([claim({ labels: ['omni:released'], draft: false }), claim({ labels: ['omni:released'], base: 'main' })])).toEqual([]);
+  });
+
+  it('lists a released claim labelled omni:needs-fix as stuck', () => {
+    const both = claim({ labels: ['omni:released', 'omni:needs-fix'] });
+    expect(kinds([both])).toEqual([['stuck', both.number]]);
+  });
+});
+
 describe('Loop health, held runs (PRD 714 s3)', () => {
   const MINUTE = 60_000;
   const ago = (minutes: number) => new Date(NOW.getTime() - minutes * MINUTE).toISOString();
