@@ -6,6 +6,7 @@ import type { DossierRef } from '../dossier/github/reader';
 import { fakeSnapshotStore, type FakeSnapshotStore } from '../dossier/snapshot/store.fake';
 import type { SnapshotDeps } from '../dossier/snapshot/snapshot';
 import { STAGE_SIGNATURE_HEADER } from '../stages/event/event';
+import type { FixRef } from '../dossier/github/reader';
 import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { parseTouch, receiveTouch, refreshAfterTouch, topicOfBranch, type TouchedDeps } from './touched';
 
@@ -275,5 +276,47 @@ describe('touches during a refresh (acceptance 7)', () => {
     keep('d1', summary(parsePrd(902)));
     await refreshAfterTouch({ id: 'd1', workspace_id: WS, home_repo: REPO, prd: parsePrd(902) }, deps.snapshot);
     expect(reads).toEqual([]);
+  });
+});
+
+describe('an issues touch for a concept (PRD 2213, s2)', () => {
+  const concept: FixRef = { id: 'c1', home_repo: REPO, prd: parseIssue(1269) };
+  const withConcepts = () => {
+    const t = setup();
+    const refreshed: string[] = [];
+    t.deps.conceptOf = (_workspace, _repository, issue) => Promise.resolve(issue === 1269 ? concept : null);
+    t.deps.refreshConcept = (workspace, c) => { refreshed.push(`${workspace}:${c.id}`); return Promise.resolve(); };
+    return { ...t, refreshed };
+  };
+  const body = (issue: number) => ({ repository: REPO, issue });
+
+  it('refreshes that concept\'s facts after the response, and answers 200', async () => {
+    const { post, refreshed, runLater } = withConcepts();
+    expect(await post(body(1269))).toEqual({ status: 200, body: { ok: true, stale: 0 } });
+    expect(refreshed).toEqual([]);
+    await runLater();
+    expect(refreshed).toEqual([`${WS}:c1`]);
+  });
+
+  it('does what it did for any other issue: no concept refreshed', async () => {
+    const { post, refreshed, runLater } = withConcepts();
+    expect((await post(body(77))).status).toBe(202);
+    await runLater();
+    expect(refreshed).toEqual([]);
+  });
+
+  it('logs a refresh that fails, and nothing more', async () => {
+    const { post, deps, log, runLater } = withConcepts();
+    deps.refreshConcept = () => Promise.reject(new Error('GitHub said no'));
+    await post(body(1269));
+    await runLater();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('GitHub said no'));
+  });
+
+  it('refreshes nothing for a touch with no issue', async () => {
+    const { post, refreshed, runLater } = withConcepts();
+    await post({ repository: REPO, branch: 'feat/x' });
+    await runLater();
+    expect(refreshed).toEqual([]);
   });
 });

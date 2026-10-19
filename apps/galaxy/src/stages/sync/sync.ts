@@ -222,7 +222,7 @@ async function refreshFixes(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: 
   }
 }
 
-/** Reads and stores the facts of the workspace's concepts whose concept PR has not merged; logs, never throws. */
+/** Reads and stores the facts of the workspace's concepts, merged ones too (their issue can close); logs, never throws. */
 async function refreshConcepts(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: string): Promise<void> {
   if (!deps.concepts) return;
   const concepts = deps.concepts;
