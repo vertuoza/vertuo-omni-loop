@@ -51,12 +51,13 @@ import {
 import { isSafeId } from '../../lib/ask/local-state.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
 import { openSessionId } from '../../lib/dossier/session.ts';
+import { unattendedOf } from '../../lib/env/read.ts';
 import type { AskSwitch } from '../../lib/env/read.ts';
 import { loadConfig } from '../../lib/config.ts';
 import { loadContext } from '../../lib/context.ts';
 import { findRoot } from '../../lib/init/repo.ts';
 import { parseArgs, println, usageError } from '../args.ts';
-import type { Exec, FreeCommand, FreeIo, Out, Vars } from '../io.ts';
+import type { Env, Exec, FreeCommand, FreeIo, Out, Vars } from '../io.ts';
 import { ASK_URL_UNSET } from './signin.ts';
 
 const KINDS: readonly string[] = ['pre', 'post', 'prompt', 'end'];
@@ -215,7 +216,7 @@ function readFile<T>(verb: string, cwd: string, path: string | undefined, read: 
 }
 
 /** What the verbs are handed. */
-type VerbIo = { cwd: string; stdout: Out; stderr: Out; exec: Exec; vars: Vars; tokens: TokenStore | undefined; fetch: Fetch; pace: Pace };
+type VerbIo = { env: Env; cwd: string; stdout: Out; stderr: Out; exec: Exec; vars: Vars; tokens: TokenStore | undefined; fetch: Fetch; pace: Pace };
 
 /** The page the verbs call, or why the agent asks in its own chat instead. */
 function pageOf(root: string, { vars, tokens, fetch }: Pick<VerbIo, 'vars' | 'tokens' | 'fetch'>): { reason: string } | { host: string; client: ReturnType<typeof askClient> } {
@@ -237,7 +238,7 @@ function report(outcome: AskOutcome, { stdout, stderr }: Pick<VerbIo, 'stdout' |
     return STILL_WAITING;
   }
   const send = outcome.round === null ? '' : `; send the answer from your chat with omni ask answer ${outcome.round} --file <a.json>`;
-  println(stderr, `omni ask: ${outcome.reason}${send}`);
+  println(stderr, outcome.reason === 'unattended' ? 'unattended' : `omni ask: ${outcome.reason}${send}`);
   return ASK_ELSEWHERE;
 }
 
@@ -263,6 +264,8 @@ async function runAnswer(round: string, file: string | undefined, io: VerbIo): P
 async function runAsk(round: string | null, flags: { file?: string; wait?: string }, io: VerbIo): Promise<number> {
   const { cwd, exec, vars, pace } = io;
   const verb = round === null ? 'question' : 'wait';
+  // An unattended run (a runner job) has nobody to answer: no round opens, nothing waits.
+  if (unattendedOf(io.env)) return report({ kind: 'elsewhere', reason: 'unattended', round: null }, io);
   const waitMs = waitSeconds(verb, flags.wait) * pace.secondMs;
   const root = findRoot(cwd, exec);
   const file = round === null ? readFile(verb, cwd, flags.file, readQuestionFile) : null;
@@ -292,11 +295,11 @@ export const ask = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, stderr, exec, vars, stdin = process.stdin, tokens, fetch = globalThis.fetch, limits = WAIT_LIMITS, pace = PACE }: FreeIo & AskOptions,
+    { cwd, stdout, stderr, exec, env, vars, stdin = process.stdin, tokens, fetch = globalThis.fetch, limits = WAIT_LIMITS, pace = PACE }: FreeIo & AskOptions,
   ) {
     const { positional, flags } = parseArgs('ask', args, { values: ['file', 'wait'] });
     const [sub = '', kind = '', ...rest] = positional;
-    if (VERBS.includes(sub)) return runVerb(sub, positional.slice(1), flags, { cwd, stdout, stderr, exec, vars, tokens, fetch, pace });
+    if (VERBS.includes(sub)) return runVerb(sub, positional.slice(1), flags, { env, cwd, stdout, stderr, exec, vars, tokens, fetch, pace });
     if (Object.keys(flags).length > 0) throw usageError(USAGE);
     const askSwitch = vars.ask;
     if (MODES.includes(sub) && positional.length === 1) return runMode(sub, { cwd, stdout, stderr, exec, askSwitch, tokens, fetch });
