@@ -106,7 +106,6 @@ A card opens its product home, at `/app/products/<id>`. It shows only that produ
 | tab | what it shows |
 |---|---|
 | **Ledger** (it opens on it) | what waits on whom, in three lanes: *on you*, *on GitHub review*, *on the agent*; each PRD with its number or seal, ◆ or ◇, one state word and its pull requests; above them, how many are building, waiting on a person and drifted |
-| **Constellation** | the product's repositories as stars, their declared `consumes` as lines, and what is building, waits on you, is drifted or is docked on them; read only |
 | **PRDs** | every PRD of the product, newest first, with where it was born and its state |
 | **Ideas** | the product's ideas, each with its board, its lane and its `/omni:brainstorm` line |
 | **Roadmap** | the product's roadmaps |
