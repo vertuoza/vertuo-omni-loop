@@ -1,7 +1,7 @@
 // The product graph's reads (PRD 1798 s3; ADR-0095), on the client it is given: the caller's own, acting
 // as their access token, so row-level security has the last word. A member reads their workspace's
 // products, links, Legal entries, terms and Never lines, and the graphs of the repositories their
-// workspaces list (supabase/migrations/20261214090000_knowledge_graphs.sql); a stranger reads nothing,
+// workspaces list (supabase/migrations/20261215100000_knowledge_graphs.sql); a stranger reads nothing,
 // and a product they cannot read is one that does not exist. Each answer is parsed where it comes in, a
 // stored graph by the kit's own schema; a failed or out-of-shape read throws. No rule lives here.
 import type { SupabaseClient } from '@supabase/supabase-js';

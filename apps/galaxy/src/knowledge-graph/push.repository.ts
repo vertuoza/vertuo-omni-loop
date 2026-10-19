@@ -1,6 +1,6 @@
 // The knowledge graphs' storage, for the push (PRD 1798; ADR-0095), on the client it is given: the
 // caller's own, acting as their access token, so the database decides who may push:
-// knowledge_graph_push() (supabase/migrations/20261214090000_knowledge_graphs.sql) refuses a caller who
+// knowledge_graph_push() (supabase/migrations/20261215100000_knowledge_graphs.sql) refuses a caller who
 // is a member of no workspace listing the repository (42501), keeps one row per repository and commit and
 // the last 20 commits. Its answer is parsed where it comes in; it holds no rule. A refusal comes back as
 // the database's code and message; an answer out of shape as the code `shape`.
