@@ -408,7 +408,9 @@ describe('Loop health, a dead job\'s claims (PRD 2175)', () => {
   });
 
   it('never lists a quiet claim whose update time was not read', () => {
-    expect(kinds([claim({ headCommittedAt: ago(600), updatedAt: null }), claim({ headCommittedAt: ago(600), updatedAt: undefined })])).toEqual([]);
+    const unread = claim({ headCommittedAt: ago(600) });
+    delete unread.updatedAt;
+    expect(kinds([claim({ headCommittedAt: ago(600), updatedAt: null }), unread])).toEqual([]);
   });
 
   it('never lists a released pull request that is not a draft, or not one of the loop\'s sub-PRs', () => {
