@@ -1294,3 +1294,15 @@ Source: .omni-loop/delivery/shipped/1798-knowledge-graph-api/outbox/settled.md, 
 Enforced by: supabase/checks/knowledge_graphs.sql
 Stated: 2026-10-19
 Decided: @pierrederval, 2026-10-19
+
+## BR-PRODUCT-119
+
+On the Constellation, choosing a repository keeps the lit PRD, and choosing a PRD keeps the open repository card. 'Everything' clears only the lit PRD and leaves the open repository as it was.
+
+Serves: P-PRODUCT-100
+Source: .omni-loop/delivery/shipped/2129-constellation-tab/outbox/settled.md, entry s2-01-filter-and-star-together, PRD #2129
+Enforced by: apps/galaxy/src/product-home/constellation.test.ts, apps/galaxy/src/product-home/tabs.test.ts
+Stated: 2026-10-17
+Decided: nobody — adopted when raised (medium), 2026-10-16
+Merged: @pierrederval, 2026-10-17, PR #2130
+Proposed: harvest 2026-10-17
