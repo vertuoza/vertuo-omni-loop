@@ -111,6 +111,14 @@ export const DEFAULT_CONTRACT_KINDS: readonly string[] = Object.freeze(['api', '
  */
 export const DEFAULT_CLAIM_DEAD_MINUTES = 240;
 
+/** PRD 2175: the label a runner puts on a claim whose job ended, when `labels.released` is not set. */
+export const DEFAULT_RELEASED_LABEL = 'omni:released';
+
+/** The label a released claim carries: `labels.released`, or `DEFAULT_RELEASED_LABEL` when it is not set. */
+export function releasedLabel(labels: { released?: string | undefined }): string {
+  return labels.released ?? DEFAULT_RELEASED_LABEL;
+}
+
 // PRD 1870: a kind is one lowercase word, never `none`, which a plan's `contract` cell keeps for a
 // slice that changes nothing for its callers.
 const contractKind = z
@@ -349,8 +357,10 @@ export const ConfigSchema = z
       // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
       law: labelName.default('omni:law'),
       // PRD 2175: the label a runner swaps in for `inProgress` on a claim whose job ended while it held
-      // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`).
-      released: labelName.default('omni:released'),
+      // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`). Left
+      // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
+      // exactly as before (so `omni init` does not create it: a person does).
+      released: labelName.optional(),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({

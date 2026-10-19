@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { boardFor, couldBeDead, deadClaimRules, isClaimedStale } from './board.ts';
 import type { BoardPr, BoardSlice, DeadClaimRules } from './board.ts';
-import { DEFAULT_CLAIM_DEAD_MINUTES } from './config.ts';
+import { DEFAULT_CLAIM_DEAD_MINUTES, DEFAULT_RELEASED_LABEL } from './config.ts';
 import { parsePr, parseWorkSliceId } from './ids.ts';
 
 const NOW = new Date('2026-10-19T12:00:00Z').getTime();
@@ -161,7 +161,7 @@ describe("today's cold-claim rule is unchanged (PRD 2175)", () => {
     expect(isClaimedStale(draft({ createdAt: ago(61), headCommitDate: ago(61) }), NOW, 60)).toBe(true);
   });
 
-  it('reads no quiet or released claim on a board whose config names neither label', () => {
+  it('reads no quiet or released claim on a board whose config names no in-progress label', () => {
     const labels = { sub: 'omni:sub', needsFix: 'omni:needs-fix' };
     const result = boardFor({ slices: [SLICE], prs: [quiet(600, { labels: [IN_PROGRESS, RELEASED] })], now: NOW, limits: LIMITS, config: { ...CONFIG, labels }, prd: { topic: 'widgets' } });
     expect(result.slices[0]?.state).toBe('in-flight');
@@ -192,9 +192,13 @@ describe('deadClaimRules — the rules a board reads from its config (PRD 2175)'
     expect(deadClaimRules(CONFIG.labels, { claimStaleMinutes: 60 })).toEqual({ ...RULES, deadMinutes: DEFAULT_CLAIM_DEAD_MINUTES });
   });
 
-  it('is null when the config names either label not at all', () => {
+  it('takes the default released label when the labels leave it out', () => {
+    expect(deadClaimRules({ sub: 'omni:sub', needsFix: 'omni:needs-fix', inProgress: IN_PROGRESS }, LIMITS)).toEqual({ ...RULES, releasedLabel: DEFAULT_RELEASED_LABEL });
+    expect(DEFAULT_RELEASED_LABEL).toBe(RELEASED);
+  });
+
+  it('is null when the labels name no in-progress label', () => {
     expect(deadClaimRules({ sub: 'omni:sub', needsFix: 'omni:needs-fix' }, LIMITS)).toBeNull();
-    expect(deadClaimRules({ sub: 'omni:sub', needsFix: 'omni:needs-fix', inProgress: IN_PROGRESS }, LIMITS)).toBeNull();
     expect(deadClaimRules({ sub: 'omni:sub', needsFix: 'omni:needs-fix', released: RELEASED }, LIMITS)).toBeNull();
   });
 });

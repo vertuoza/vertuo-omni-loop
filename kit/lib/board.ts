@@ -83,7 +83,7 @@
  */
 import type { PrNumber, WorkSliceId } from './ids.ts';
 import type { Config, Tier } from './types.ts';
-import { DEFAULT_CLAIM_DEAD_MINUTES } from './config.ts';
+import { DEFAULT_CLAIM_DEAD_MINUTES, releasedLabel } from './config.ts';
 import { sameWaveCollisions } from './inbox/territory.ts';
 
 /** A label as `gh pr list --json labels` returns it: a name, or an object carrying one. */
@@ -171,7 +171,7 @@ export type Frontier = {
 };
 
 /** The config sections the board reads: the branch templates as the config declares them. A board
- * handed neither `inProgress` nor `released` reads no claim as released or quiet (`deadClaimRules`). */
+ * handed no `inProgress` label reads no claim as released or quiet (`deadClaimRules`). */
 export type BoardConfig = {
   branches: Pick<Config['branches'], 'feature' | 'slice'> & { landing?: string };
   board: { matchBy: string };
@@ -185,12 +185,12 @@ export type BoardLimits = { claimStaleMinutes: number; claimDeadMinutes?: number
  * claim whose job ended, the label a live claim carries, and how long that one may stay quiet. */
 export type DeadClaimRules = { deadMinutes: number; inProgressLabel: string; releasedLabel: string };
 
-/** The dead-claim rules a board reads from its config's labels and limits: `null`, reading no claim
- * as released or quiet, when the labels name either label not at all. */
+/** The dead-claim rules a board reads from its config's labels and limits, the kit's defaults filling
+ * a `released` label or a `claimDeadMinutes` left out: `null`, reading no claim as released or quiet,
+ * when the labels name no `inProgress` label at all. */
 export function deadClaimRules(labels: BoardConfig['labels'], limits: BoardLimits): DeadClaimRules | null {
-  const { inProgress, released } = labels;
-  if (inProgress === undefined || released === undefined) return null;
-  return { deadMinutes: limits.claimDeadMinutes ?? DEFAULT_CLAIM_DEAD_MINUTES, inProgressLabel: inProgress, releasedLabel: released };
+  if (labels.inProgress === undefined) return null;
+  return { deadMinutes: limits.claimDeadMinutes ?? DEFAULT_CLAIM_DEAD_MINUTES, inProgressLabel: labels.inProgress, releasedLabel: releasedLabel(labels) };
 }
 
 /** A plan repository's repositories by short name. */

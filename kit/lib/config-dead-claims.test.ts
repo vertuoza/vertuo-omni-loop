@@ -3,12 +3,20 @@
 // `labels.inProgress` stays quiet before the board reads it as stale. Its own file: `config.test.ts`
 // proves rules and stays as it is.
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CLAIM_DEAD_MINUTES, parseConfig } from './config.ts';
+import { DEFAULT_CLAIM_DEAD_MINUTES, DEFAULT_RELEASED_LABEL, parseConfig, releasedLabel } from './config.ts';
 
 describe('labels.released (PRD 2175)', () => {
-  it('is omni:released unless the file renames it', () => {
-    expect(parseConfig('kit: 1\n').labels.released).toBe('omni:released');
-    expect(parseConfig('kit: 1\nlabels:\n  released: dead-claim\n').labels.released).toBe('dead-claim');
+  it('is left out of a config that does not set it, which parses exactly as before: the kit reads omni:released', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(Object.hasOwn(config.labels, 'released')).toBe(false);
+    expect(DEFAULT_RELEASED_LABEL).toBe('omni:released');
+    expect(releasedLabel(config.labels)).toBe('omni:released');
+  });
+
+  it('is the name the file gives it', () => {
+    const labels = parseConfig('kit: 1\nlabels:\n  released: dead-claim\n').labels;
+    expect(labels.released).toBe('dead-claim');
+    expect(releasedLabel(labels)).toBe('dead-claim');
   });
 
   it('keeps the other labels as they were when the file renames it', () => {

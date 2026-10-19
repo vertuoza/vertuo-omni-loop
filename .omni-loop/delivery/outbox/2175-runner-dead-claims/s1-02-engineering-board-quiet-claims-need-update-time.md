@@ -26,8 +26,8 @@ It will not guess, so quiet claims wait for their clock.
 
 ## The options, in plain words
 
-A. A. Count released claims now and quiet ones only when an update time is known; store none here.
-B. B. A follow-up stores each pull request's last update time, so the panel counts quiet claims too.
+A. Count released claims now and quiet ones only when an update time is known; store none here.
+B. A follow-up stores each pull request's last update time, so the panel counts quiet claims too.
 
 ## What I had to decide
 
