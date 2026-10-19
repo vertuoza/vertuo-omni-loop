@@ -1,6 +1,6 @@
 import { boardPath } from '../ideas/model';
 import { productHomeHref } from '../products/model';
-import { addable, collectionLabel, hasNoAccess, listedOf, phase0Of, removeConfirm, type Phase0, type RepositoriesState, type RepositoryRow } from './model';
+import { addable, collectionLabel, hasNoAccess, listedOf, phase0Of, removedLabel, removedOf, removeConfirm, type Phase0, type RepositoriesState, type RepositoryRow } from './model';
 
 // Settings → Repositories drawn from its state (PRD 612 s1). One row per repository of the
 // workspace: `owner/name`, when it was last collected, and its Tracked switch. The owner reads Add
@@ -15,7 +15,8 @@ import { addable, collectionLabel, hasNoAccess, listedOf, phase0Of, removeConfir
 // its Phase 0 on the server switch, the owner's only: on, a PRD born in it is approved on its PRD page
 // rather than by a phase-0 pull request. PRD 2188 s1: the owner reads a quiet Remove after each card's
 // switches; pressed, the browser asks first, naming the products the repository leaves and those that
-// lose their plan repository, and a removed repository is no longer drawn.
+// lose their plan repository, and a removed repository is no longer drawn in the list. PRD 2188 s2: under
+// the list a closed Removed (n) line, absent at 0, names each removed repository and when; the owner adds it back.
 
 /** What a member reads instead of the controls. */
 export const ONLY_OWNER = 'Only @owner can change repositories.';
@@ -124,8 +125,28 @@ function Row({ row, owner, access, now, busy, on }: { row: RepositoryRow; owner:
   );
 }
 
+/** Under the list: the removed repositories, closed by default and absent when there are none. Add back is the owner's. */
+function Removed({ rows, owner, now, busy, on }: { rows: RepositoryRow[]; owner: boolean; now: number; busy: boolean; on: RepositoriesHandlers }) {
+  if (rows.length === 0) return null;
+  return (
+    <details className="repositories-removed">
+      <summary>Removed ({rows.length})</summary>
+      <ul>
+        {rows.map((r) => (
+          <li key={r.fullName} className="repositories-removed-row" data-removed={r.fullName}>
+            <strong>{r.fullName}</strong>
+            <span className="ask-muted">{removedLabel(r, now)}</span>
+            {owner && <button type="button" className="ask-button quiet" aria-label={`Add back ${r.fullName}`} onClick={() => { on.add(r.fullName); }} disabled={busy}>Add back</button>}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export function RepositoriesView({ state, owner, access, now, on = IDLE }: RepositoriesViewProps) {
   const rows = listedOf(state.repositories);
+  const removed = removedOf(state.repositories);
   const canAdd = owner && access.kind === 'installed';
   return (
     <div className="ask-col repositories">
@@ -152,6 +173,7 @@ export function RepositoriesView({ state, owner, access, now, on = IDLE }: Repos
         {rows.length === 0
           ? <p className="repositories-empty">No repositories yet. {owner ? 'Add one from the repositories the Omni App can see.' : 'The workspace’s owner adds them.'}</p>
           : <ul>{rows.map((r) => <Row key={r.fullName} row={r} owner={owner} access={access} now={now} busy={state.busy} on={on} />)}</ul>}
+        <Removed rows={removed} owner={owner} now={now} busy={state.busy} on={on} />
         {access.kind === 'installed' && access.settingsUrl && <p className="repositories-missing"><a href={access.settingsUrl}>{MISSING_ONE}</a></p>}
       </section>
     </div>

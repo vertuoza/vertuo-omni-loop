@@ -111,6 +111,14 @@ const isRemoved = (row: RepositoryRow): boolean => Boolean(row.removedAt);
 /** The repositories the page lists: every one but the removed ones (PRD 2188 s1). */
 export const listedOf = (rows: readonly RepositoryRow[]): RepositoryRow[] => rows.filter((r) => !isRemoved(r));
 
+/** The removed repositories, by name (PRD 2188 s2): what the page lists under Removed (n). */
+export const removedOf = (rows: readonly RepositoryRow[]): RepositoryRow[] => rows.filter(isRemoved).sort((a, b) => byName(a.fullName, b.fullName));
+
+/** When the repository was removed, as the Removed (n) list says it. */
+export function removedLabel(row: RepositoryRow, now: number): string {
+  return row.removedAt ? `removed ${ago(Math.max(0, now - Date.parse(row.removedAt)))}` : 'removed';
+}
+
 /** What Add repository offers: the repositories the App can see that are not listed yet, by name. A
  * removed repository is not listed, so it is offered again (PRD 2188 s1). */
 export function addable(rows: readonly RepositoryRow[], reachable: readonly string[]): string[] {
