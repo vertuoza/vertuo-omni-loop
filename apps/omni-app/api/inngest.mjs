@@ -6828,6 +6828,11 @@ var UNATTENDED = envGroup({
   schema: z25.object({ flag: z25.string() }),
   variables: { flag: "OMNI_UNATTENDED" }
 });
+var RUNNER_JOB = envGroup({
+  label: "the runner job",
+  schema: z25.object({ job: z25.string() }),
+  variables: { job: "OMNI_JOB" }
+});
 var TEST_RUNNER = envGroup({
   label: "the test runner",
   schema: z25.object({ vitest: z25.string() }),
@@ -6840,7 +6845,7 @@ var PACKAGE_MANAGER = envGroup({
 });
 var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
-var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN, UNATTENDED]);
+var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN, UNATTENDED, RUNNER_JOB]);
 
 // kit/lib/ask/credentials.ts
 import { chmodSync as chmodSync2, readFileSync as readFileSync16, rmSync as rmSync5, writeFileSync as writeFileSync5 } from "node:fs";
