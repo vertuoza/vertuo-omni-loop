@@ -7144,14 +7144,19 @@ import { NonRetriableError, RetryAfterError as RetryAfterError2 } from "inngest"
 // apps/omni-app/src/outbox-check/delivery-scope.ts
 function deliveryFetched(config, pr) {
   const kind = pullKind(pr, config);
-  if ("skip" in kind || kind.kind !== "feature" && kind.kind !== "fix") return () => true;
-  const own = kind.kind === "feature" ? featureFolder(kind.topic) : fixFolder(kind.topic);
+  if ("skip" in kind) return () => true;
+  const own = ownFolder(kind);
   const delivery2 = `${config.paths.delivery.replace(/\/+$/, "")}/`;
   return (path) => {
     if (!path.startsWith(delivery2)) return true;
     const [, folder, ...rest] = path.slice(delivery2.length).split("/");
     return folder === void 0 || rest.length === 0 || own(folder);
   };
+}
+function ownFolder(kind) {
+  if (kind.kind === "feature") return featureFolder(kind.topic);
+  if (kind.kind === "fix") return fixFolder(kind.topic);
+  return () => false;
 }
 function featureFolder(topic) {
   return (folder) => parseFolderName(folder)?.topic === topic;
