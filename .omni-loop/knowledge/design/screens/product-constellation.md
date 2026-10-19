@@ -59,4 +59,4 @@ reworking PRD 2129).
 ## Source
 
 /omni:brainstorm, PRD 2129: .omni-loop/delivery/inbox/2129-constellation-tab/before-after.html
-/omni:brainstorm, PRD 2174: .omni-loop/delivery/inbox/2174-constellation-real-scale/before-after.html
+/omni:brainstorm, PRD 2174: .omni-loop/delivery/shipped/2174-constellation-real-scale/before-after.html
