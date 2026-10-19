@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { constellationOf, SKY, touchesOf, type Filter } from './constellation';
+import { constellationOf, NOW_MAX, touchesOf, type Filter } from './constellation';
+import { layoutOf } from './layout';
 import type { HomeFlight, HomeRepository } from './product-home.service';
 
-// The Constellation's map (PRD 2129 s1), a pure function on fixture repositories: a star each, an edge per
-// `consumes` entry from consumer to provider, docked when phase 0 is a pull request, the fixed layout (most
-// consumed at the centre, ties by name, the same on two calls), and the two empty states. Since s2, the
-// Ledger's states on it: what each PRD touches, each star's state worst first, what crosses each edge, and
-// the `?prd=` and `?star=` filters.
+// The Constellation's map (PRD 2129 s1, PRD 2174 s3), a pure function on fixture repositories and PRDs: a star
+// each, weighted by the PRDs whose targets include it; a plan line per pair of the product's repositories a
+// PRD's targets name together, with its weight, its PRDs newest first and whether one is in flight; a target
+// outside the product drawn nowhere and counted; declared `consumes` as lines apart; the stars where
+// `layoutOf` puts them; the Ledger's states on the stars; Now capped at 8; `?star=` and `?pair=`.
 
 const repo = (name: string, over: Partial<HomeRepository> = {}): HomeRepository =>
   ({ repository: name, role: null, consumes: [], phase0: 'server', alsoIn: [], ...over });
@@ -15,232 +16,192 @@ const repo = (name: string, over: Partial<HomeRepository> = {}): HomeRepository 
 /** A PRD of the product: at building on the agent, at home in `a/api` with its stage rows, unless told otherwise. */
 const flight = (dossier: string, n: number, over: Partial<HomeFlight> = {}): HomeFlight => ({
   dossier, repo: 'a/api', prd: parsePrd(n), title: `PRD ${String(n)}`, birthplace: 'repo',
-  stage: 'building', ledger: { state: 'building', lane: 'on-agent' }, stageRepos: [over.repo ?? 'a/api'], prs: [], ...over,
+  stage: 'building', ledger: { state: 'building', lane: 'on-agent' }, stageRepos: [over.repo ?? 'a/api'], prs: [], targets: [], ...over,
 });
+const shipped = (dossier: string, n: number, targets: string[]) => flight(dossier, n, { stage: 'shipped', ledger: null, stageRepos: [], targets });
 const drifted = (dossier: string, n: number, over: Partial<HomeFlight> = {}) =>
   flight(dossier, n, { stage: 'inbox', ledger: { state: 'drifted', lane: null }, birthplace: 'server', ...over });
 const onYou = (dossier: string, n: number, over: Partial<HomeFlight> = {}) =>
   flight(dossier, n, { stage: 'building', ledger: { state: 'question', lane: 'on-you' }, ...over });
 const pr = (repoName: string, n: number) => ({ repo: repoName, pr: parsePr(n) });
 
-const stars = (repositories: HomeRepository[], flights: HomeFlight[] = [], filter: Filter = {}) => {
-  const map = constellationOf({ repositories, flights }, filter);
-  if (map.kind === 'empty') throw new Error('the map has stars');
-  return map;
+const map = (repositories: HomeRepository[], flights: HomeFlight[] = [], filter: Filter = {}) => {
+  const drawn = constellationOf({ product: { id: 'p-1', name: 'Widgets' }, repositories, flights }, filter);
+  if (drawn.kind === 'empty') throw new Error('the map has stars');
+  return drawn;
 };
+
+const FOUR = [repo('a/api'), repo('a/web'), repo('a/auth'), repo('a/docs')];
 
 describe('the stars', () => {
   it('draws one star per linked repository with its role, phase 0 and the products it is also in, sorted', () => {
-    const map = stars([
-      repo('a/api', { role: 'api', alsoIn: ['Zeta', 'Alpha'] }),
-      repo('a/web', { role: 'web', phase0: 'pr' }),
-    ]);
-    expect(map.stars.map((s) => [s.repository, s.role, s.phase0, s.alsoIn])).toEqual([
+    const drawn = map([repo('a/api', { role: 'api', alsoIn: ['Zeta', 'Alpha'] }), repo('a/web', { role: 'web', phase0: 'pr' })]);
+    expect(drawn.stars.map((s) => [s.repository, s.role, s.phase0, s.alsoIn])).toEqual([
       ['a/api', 'api', 'server', ['Alpha', 'Zeta']],
       ['a/web', 'web', 'pr', []],
     ]);
   });
 
   it('docks a star whose phase 0 is a pull request, and no other', () => {
-    const map = stars([repo('a/api'), repo('a/web', { phase0: 'pr' })]);
-    expect(map.stars.map((s) => [s.repository, s.docked])).toEqual([['a/api', false], ['a/web', true]]);
+    const drawn = map([repo('a/api'), repo('a/web', { phase0: 'pr' })]);
+    expect(drawn.stars.map((s) => [s.repository, s.docked])).toEqual([['a/api', false], ['a/web', true]]);
+  });
+
+  it('answers empty for a product with no repository', () => {
+    expect(constellationOf({ product: { id: 'p-1', name: 'W' }, repositories: [], flights: [] })).toEqual({ kind: 'empty' });
+  });
+
+  it('places every star where layoutOf puts it, the same on two calls, however the rows are ordered', () => {
+    const flights = [shipped('d-1', 1, ['a/api', 'a/web']), shipped('d-2', 2, ['a/web', 'a/auth'])];
+    const first = map(FOUR, flights);
+    const expected = layoutOf(
+      FOUR.map((r) => ({ repository: r.repository, role: r.role })),
+      first.lines.map((l) => ({ a: l.a, b: l.b, weight: l.weight })),
+      'p-1',
+    );
+    expect(first.stars.map((s) => [s.repository, s.at])).toEqual([...expected.at].sort(([p], [q]) => p.localeCompare(q)));
+    expect(first.sky).toEqual({ width: expected.width, height: expected.height });
+    expect(map(FOUR, flights)).toEqual(first);
+    expect(map([...FOUR].reverse(), flights).stars).toEqual(first.stars);
   });
 });
 
-describe('the edges', () => {
-  it('draws one edge per consumes entry, from the consumer to the provider', () => {
-    const map = stars([repo('a/web', { consumes: ['a/api', 'a/auth'] }), repo('a/api', { consumes: ['a/auth'] }), repo('a/auth')]);
-    expect(map.kind).toBe('map');
-    expect(map.edges.map((e) => `${e.consumer}>${e.provider}`)).toEqual(['a/web>a/api', 'a/web>a/auth', 'a/api>a/auth']);
+describe('the plan lines', () => {
+  it('draws one line per pair of the product\'s repositories a PRD\'s targets name', () => {
+    const drawn = map(FOUR, [shipped('d-1', 1, ['a/api', 'a/web', 'a/auth'])]);
+    expect(drawn.kind).toBe('map');
+    expect(drawn.lines.map((l) => [l.a, l.b, l.weight])).toEqual([['a/api', 'a/auth', 1], ['a/api', 'a/web', 1], ['a/auth', 'a/web', 1]]);
   });
 
-  it('draws no edge to a repository the product does not hold', () => {
-    expect(stars([repo('a/web', { consumes: ['a/gone'] })]).edges).toEqual([]);
-  });
-
-  it('bends two edges between the same pair to opposite sides, so they never overlap', () => {
-    const map = stars([repo('a/api', { consumes: ['a/web'] }), repo('a/web', { consumes: ['a/api'] })]);
-    const [one, two] = map.edges;
-    expect(one?.bend).not.toEqual(two?.bend);
-  });
-});
-
-describe('the layout', () => {
-  const six = [
-    repo('a/web', { consumes: ['a/api'] }), repo('a/api', { consumes: ['a/auth'] }), repo('a/auth'),
-    repo('a/ios', { consumes: ['a/api'] }), repo('a/android', { consumes: ['a/api'] }), repo('a/docs'),
-  ];
-
-  it('places every star at the same point on two calls, however the rows are ordered', () => {
-    const first = stars(six);
-    expect(stars(six)).toEqual(first);
-    expect(stars([...six].reverse()).stars).toEqual(first.stars);
-  });
-
-  it('puts the most consumed at the centre, then ranks by how many consume it and by name', () => {
-    const map = stars(six);
-    expect(map.stars.map((s) => s.repository)).toEqual(['a/api', 'a/auth', 'a/android', 'a/docs', 'a/ios', 'a/web']);
-    expect(map.stars[0]?.at).toEqual({ x: SKY.width / 2, y: SKY.height / 2 });
-  });
-
-  it('puts the second star at the top of the ring, and keeps every star in the sky', () => {
-    const map = stars(six);
-    expect(map.stars[1]?.at).toEqual({ x: 480, y: 60 });
-    for (const s of map.stars) {
-      expect(s.at.x).toBeGreaterThan(0);
-      expect(s.at.x).toBeLessThan(SKY.width);
-      expect(s.at.y).toBeGreaterThan(0);
-      expect(s.at.y).toBeLessThan(SKY.height);
-    }
-  });
-
-  it('uses two rings past 8 stars, none of two stars at one point', () => {
-    const many = Array.from({ length: 12 }, (_, i) => repo(`a/r${String(i).padStart(2, '0')}`));
-    const points = stars(many).stars.map((s) => `${String(s.at.x)},${String(s.at.y)}`);
-    expect(new Set(points).size).toBe(12);
-  });
-
-  it('places a lone repository at the centre', () => {
-    expect(stars([repo('a/api')]).stars[0]?.at).toEqual({ x: 480, y: 250 });
-  });
-});
-
-describe('the empty states', () => {
-  it('says empty for no repository', () => {
-    expect(constellationOf({ repositories: [], flights: [flight('d-1', 1)] })).toEqual({ kind: 'empty' });
-  });
-
-  it('keeps the stars alone when no repository consumes another', () => {
-    const map = stars([repo('a/api'), repo('a/web')]);
-    expect(map.kind).toBe('stars');
-    expect(map.edges).toEqual([]);
-    expect(map.stars).toHaveLength(2);
-  });
-});
-
-describe('what a PRD touches (s2)', () => {
-  it('touches its home repository, a repository of a stage row, and one where its feature branch or a landing has an open pull request', () => {
-    expect(touchesOf(flight('d-1', 1, { repo: 'A/Home', stageRepos: ['a/staged'], prs: [pr('a/web', 4), pr('A/Mobile', 5), pr('a/web', 6)] })))
-      .toEqual(['a/home', 'a/staged', 'a/web', 'a/mobile']);
-  });
-
-  it('touches nothing once shipped or at retro', () => {
-    expect(touchesOf(flight('d-1', 1, { stage: 'shipped', ledger: null, prs: [pr('a/web', 4)] }))).toEqual([]);
-    expect(touchesOf(flight('d-1', 1, { stage: 'retro', ledger: null }))).toEqual([]);
-  });
-});
-
-describe('a star\'s state (s2)', () => {
-  const repos = [repo('a/api'), repo('a/web'), repo('a/auth'), repo('a/docs')];
-  const stateOf = (flights: HomeFlight[]) => Object.fromEntries(stars(repos, flights).stars.map((s) => [s.repository, s.state]));
-
-  it('is the worst of the PRDs touching it: drifted over on you over building over quiet', () => {
-    expect(stateOf([
-      flight('d-1', 1, { repo: 'a/api', prs: [pr('a/web', 1), pr('a/auth', 2)] }),
-      onYou('d-2', 2, { repo: 'a/web', prs: [pr('a/auth', 3)] }),
-      drifted('d-3', 3, { repo: 'a/auth' }),
-    ])).toEqual({ 'a/api': 'building', 'a/web': 'on-you', 'a/auth': 'drifted', 'a/docs': 'quiet' });
-  });
-
-  it('reads drifted over on you for one PRD both voided and asking you, and quiet for one at inbox or on review', () => {
-    expect(stateOf([
-      drifted('d-1', 1, { repo: 'a/web', ledger: { state: 'drifted', lane: 'on-you' } }),
-      flight('d-2', 2, { repo: 'a/auth', stage: 'inbox', ledger: { state: 'inbox', lane: 'on-agent' } }),
-      flight('d-3', 3, { repo: 'a/docs', stage: 'outbox', ledger: { state: 'review', lane: 'on-review' } }),
-    ])).toEqual({ 'a/api': 'quiet', 'a/web': 'drifted', 'a/auth': 'quiet', 'a/docs': 'quiet' });
-  });
-
-  it('leaves a star touched only by a shipped PRD quiet', () => {
-    expect(stateOf([flight('d-1', 1, { stage: 'shipped', ledger: null })])['a/api']).toBe('quiet');
-  });
-
-  it('matches a star and what a PRD touches case-insensitively', () => {
-    expect(stars([repo('A/Web')], [flight('d-1', 1, { repo: 'a/web' })]).stars[0]?.state).toBe('building');
-  });
-});
-
-describe('what crosses an edge (s2)', () => {
-  const repos = [repo('a/web', { consumes: ['a/api'] }), repo('a/api', { consumes: ['a/auth'] }), repo('a/auth')];
-
-  it('counts and lists the PRDs in flight touching both of its ends, newest first, and none that touch one end or shipped', () => {
-    const map = stars(repos, [
-      flight('d-3', 3, { repo: 'a/web', prs: [pr('a/api', 1)] }),
-      flight('d-2', 2, { repo: 'a/api' }),
-      flight('d-1', 1, { repo: 'a/api', prs: [pr('a/web', 2)], stage: 'shipped', ledger: null }),
-      onYou('d-0', 4, { repo: 'a/web', prs: [pr('a/api', 3), pr('a/auth', 4)] }),
-    ]);
-    expect(map.edges.map((e) => [`${e.consumer}>${e.provider}`, e.crossing.map((f) => f.dossier)])).toEqual([
-      ['a/web>a/api', ['d-3', 'd-0']],
-      ['a/api>a/auth', ['d-0']],
+  it('weighs a line by the PRDs sharing the pair, lists them newest first, and orders the heaviest line first', () => {
+    const drawn = map(FOUR, [shipped('d-3', 3, ['a/web', 'a/api']), shipped('d-2', 2, ['a/auth', 'a/docs']), shipped('d-1', 1, ['a/api', 'a/web'])]);
+    expect(drawn.lines.map((l) => [l.a, l.b, l.weight, l.prds.map((p) => p.dossier)])).toEqual([
+      ['a/api', 'a/web', 2, ['d-3', 'd-1']],
+      ['a/auth', 'a/docs', 1, ['d-2']],
     ]);
   });
 
-  it('flows only between two building stars', () => {
-    const map = stars(repos, [flight('d-1', 1, { repo: 'a/web', prs: [pr('a/api', 1)] }), onYou('d-2', 2, { repo: 'a/auth' })]);
-    expect(map.edges.map((e) => [`${e.consumer}>${e.provider}`, e.flowing])).toEqual([['a/web>a/api', true], ['a/api>a/auth', false]]);
+  it('is in flight when one of its PRDs is, and its PRDs say which', () => {
+    const drawn = map(FOUR, [flight('d-2', 2, { targets: ['a/api', 'a/web'] }), shipped('d-1', 1, ['a/api', 'a/web']), shipped('d-0', 10, ['a/auth', 'a/docs'])]);
+    expect(drawn.lines.map((l) => [l.a, l.inFlight])).toEqual([['a/api', true], ['a/auth', false]]);
+    expect(drawn.lines[0]?.prds.map((p) => p.inFlight)).toEqual([true, false]);
+  });
+
+  it('draws nothing for a target outside the product, and counts it on the star of the PRD', () => {
+    const drawn = map(FOUR, [shipped('d-1', 1, ['a/api', 'a/web', 'x/other']), shipped('d-2', 2, ['a/api', 'x/more', 'x/other'])]);
+    expect(drawn.lines.map((l) => [l.a, l.b])).toEqual([['a/api', 'a/web']]);
+    expect(drawn.stars.map((s) => [s.repository, s.outside])).toEqual([['a/api', 2], ['a/auth', 0], ['a/docs', 0], ['a/web', 1]]);
+  });
+
+  it('draws nothing for a PRD with one target in the product, and the stars alone', () => {
+    const drawn = map(FOUR, [shipped('d-1', 1, ['a/api']), shipped('d-2', 2, ['a/api', 'x/other'])]);
+    expect(drawn.kind).toBe('stars');
+    expect(drawn.lines).toEqual([]);
+  });
+
+  it('reads a target\'s name in any case, and counts it once', () => {
+    const drawn = map(FOUR, [shipped('d-1', 1, ['A/API', 'a/api', 'a/web'])]);
+    expect(drawn.lines.map((l) => [l.a, l.b, l.weight])).toEqual([['a/api', 'a/web', 1]]);
+  });
+
+  it('keeps declared consumes as lines of their own, consumer to provider, and draws none to a repository the product does not hold', () => {
+    const drawn = map([repo('a/web', { consumes: ['a/api', 'a/gone'] }), repo('a/api')]);
+    expect(drawn.kind).toBe('stars');
+    expect(drawn.consumes).toEqual([{ consumer: 'a/web', provider: 'a/api' }]);
+    expect(drawn.lines).toEqual([]);
   });
 });
 
-describe('Now in the product (s2)', () => {
-  it('lists the PRDs in flight touching a star, worst first, each with its word and its stars', () => {
-    const map = stars([repo('a/api'), repo('a/web')], [
-      flight('d-4', 4, { repo: 'a/web', stage: 'inbox', ledger: { state: 'inbox', lane: 'on-agent' } }),
-      flight('d-3', 3, { repo: 'a/api', prs: [pr('a/web', 1)] }),
-      onYou('d-2', 2),
-      drifted('d-1', 1, { repo: 'a/web' }),
-      flight('d-0', 9, { repo: 'a/other' }),
-      flight('d-9', 8, { stage: 'shipped', ledger: null }),
+describe('the star weights', () => {
+  it('counts the product\'s PRDs whose targets include a star, and sorts the weights into thirds', () => {
+    const six = ['a/r1', 'a/r2', 'a/r3', 'a/r4', 'a/r5', 'a/r6'].map((n) => repo(n));
+    const flights = [
+      shipped('d-1', 1, ['a/r6', 'a/r5']), shipped('d-2', 2, ['a/r6', 'a/r5']), shipped('d-3', 3, ['a/r6', 'a/r4']),
+      shipped('d-4', 4, ['a/r6', 'a/r3']), shipped('d-5', 5, ['a/r5', 'a/r3']),
+    ];
+    const drawn = map(six, flights);
+    expect(drawn.stars.map((s) => [s.repository, s.weight, s.size])).toEqual([
+      ['a/r1', 0, 'light'], ['a/r2', 0, 'light'], ['a/r3', 2, 'medium'], ['a/r4', 1, 'medium'], ['a/r5', 3, 'heavy'], ['a/r6', 4, 'heavy'],
     ]);
-    expect(map.now.map((f) => [f.prd, f.word, f.stars])).toEqual([
-      [1, 'drifted', ['a/web']], [2, 'waits on you', ['a/api']], [3, 'building', ['a/api', 'a/web']], [4, 'inbox', ['a/web']],
+  });
+
+  it('reads every star light when none has a PRD', () => {
+    expect(map(FOUR).stars.map((s) => [s.weight, s.size])).toEqual(FOUR.map(() => [0, 'light']));
+  });
+});
+
+describe('the Ledger on the stars', () => {
+  it('reads what each PRD touches: its home, its stage rows and the repositories of its pull requests, none once shipped', () => {
+    expect(touchesOf(flight('d-1', 1, { repo: 'A/Api', stageRepos: ['a/web'], prs: [pr('a/auth', 3)] })).sort()).toEqual(['a/api', 'a/auth', 'a/web']);
+    expect(touchesOf(shipped('d-0', 10, []))).toEqual([]);
+  });
+
+  it('rings a star with the worst state of the PRDs touching it: drifted, then waits on you, then building, else quiet', () => {
+    const drawn = map(FOUR, [
+      drifted('d-3', 3, { repo: 'a/web', stageRepos: ['a/web'] }),
+      onYou('d-2', 2, { repo: 'a/web', stageRepos: ['a/web', 'a/auth'] }),
+      flight('d-1', 1, { stageRepos: ['a/api', 'a/auth'] }),
     ]);
-    expect(map.flights.map((f) => f.prd)).toEqual([4, 3, 2, 1, 9]);
+    expect(drawn.stars.map((s) => [s.repository, s.state])).toEqual([['a/api', 'building'], ['a/auth', 'on-you'], ['a/docs', 'quiet'], ['a/web', 'drifted']]);
+  });
+
+  it('tethers a docked star\'s open phase-0 pull requests, and no other star\'s', () => {
+    const drawn = constellationOf({
+      product: { id: 'p-1', name: 'W' }, flights: [], tethers: [pr('a/web', 31), pr('a/api', 32)],
+      repositories: [repo('a/api'), repo('a/web', { phase0: 'pr' })],
+    });
+    if (drawn.kind === 'empty') throw new Error('stars');
+    expect(drawn.stars.map((s) => [s.repository, s.tethers])).toEqual([['a/api', []], ['a/web', [pr('a/web', 31)]]]);
   });
 });
 
-describe('the filters (s2)', () => {
-  const repos = [repo('a/web', { consumes: ['a/api'] }), repo('a/api', { consumes: ['a/auth'] }), repo('a/auth')];
-  const flights = [flight('d-1', 1, { repo: 'a/web', prs: [pr('a/api', 1)] }), flight('d-2', 2, { repo: 'a/auth' })];
-  const litOf = (filter: Filter) => {
-    const map = stars(repos, flights, filter);
-    return { lit: map.lit, stars: map.stars.filter((s) => s.lit).map((s) => s.repository), edges: map.edges.filter((e) => e.lit).map((e) => e.consumer) };
-  };
+describe('Now', () => {
+  const nine = Array.from({ length: 10 }, (_, i) => flight(`d-${String(i)}`, 100 + i, { stageRepos: ['a/api'] }));
 
-  it('lights everything with no filter', () => {
-    expect(litOf({})).toEqual({ lit: null, stars: ['a/api', 'a/auth', 'a/web'], edges: ['a/web', 'a/api'] });
+  it('holds the first 8 PRDs in flight touching a star, worst first, and counts the rest', () => {
+    const drawn = map(FOUR, [...nine, drifted('d-x', 200, { stageRepos: ['a/web'], repo: 'a/web' })]);
+    expect(NOW_MAX).toBe(8);
+    expect(drawn.now).toHaveLength(8);
+    expect(drawn.now[0]?.dossier).toBe('d-x');
+    expect(drawn.now.slice(1).map((f) => f.dossier)).toEqual(nine.slice(0, 7).map((f) => f.dossier));
+    expect(drawn.moreNow).toBe(3);
   });
 
-  it('keeps one PRD\'s stars and the edges between them lit with ?prd=, and fades the rest', () => {
-    expect(litOf({ dossier: 'd-1' })).toEqual({ lit: 'd-1', stars: ['a/api', 'a/web'], edges: ['a/web'] });
+  it('counts no more when 8 or fewer touch a star, and leaves out a PRD touching none or shipped', () => {
+    const drawn = map(FOUR, [flight('d-1', 1), flight('d-2', 2, { repo: 'x/other', stageRepos: [] }), shipped('d-3', 3, ['a/api'])]);
+    expect(drawn.now.map((f) => f.dossier)).toEqual(['d-1']);
+    expect(drawn.moreNow).toBe(0);
   });
 
-  it('reads an unknown ?prd=, or a shipped PRD\'s, as no filter', () => {
-    expect(litOf({ dossier: 'd-404' })).toEqual(litOf({}));
-    const map = stars(repos, [flight('d-9', 9, { stage: 'shipped', ledger: null })], { dossier: 'd-9' });
-    expect(map.lit).toBeNull();
-  });
-
-  it('selects one star with ?star=, and none for an unknown one', () => {
-    expect(stars(repos, flights, { star: 'a/api' }).selected?.repository).toBe('a/api');
-    expect(stars(repos, flights, { star: 'A/API' }).selected?.repository).toBe('a/api');
-    expect(stars(repos, flights, { star: 'a/gone' }).selected).toBeNull();
-    expect(stars(repos, flights).selected).toBeNull();
+  it('says what each PRD is: drifted, waits on you, building, else its Ledger state', () => {
+    const drawn = map(FOUR, [drifted('d-1', 1), onYou('d-2', 2), flight('d-3', 3), flight('d-4', 4, { stage: 'outbox', ledger: { state: 'review', lane: 'on-review' } })]);
+    expect(drawn.now.map((f) => [f.dossier, f.word])).toEqual([['d-1', 'drifted'], ['d-2', 'waits on you'], ['d-3', 'building'], ['d-4', 'review']]);
   });
 });
 
-describe('the tethers (s3)', () => {
-  const repos = [repo('a/api', { role: 'api' }), repo('a/web', { phase0: 'pr', consumes: ['a/api'] }), repo('a/app', { phase0: 'server' })];
-  const tethers = [pr('a/web', 31), pr('A/Web', 35), pr('a/api', 7), pr('a/app', 8), pr('a/gone', 9)];
+describe('?star= and ?pair=', () => {
+  const flights = [shipped('d-1', 1, ['a/api', 'a/web']), shipped('d-2', 2, ['a/web', 'a/auth'])];
 
-  it('gives a docked star one tether per open phase-0 pull request in its repository', () => {
-    const map = constellationOf({ repositories: repos, flights: [], tethers });
-    if (map.kind === 'empty') throw new Error('the map has stars');
-    expect(map.stars.find((s) => s.repository === 'a/web')?.tethers).toEqual([pr('a/web', 31), pr('A/Web', 35)]);
+  it('selects a star by name, in any case, and an unknown one none', () => {
+    expect(map(FOUR, flights, { star: 'a/api' }).selected?.repository).toBe('a/api');
+    expect(map(FOUR, flights, { star: 'A/WEB' }).selected?.repository).toBe('a/web');
+    expect(map(FOUR, flights, { star: 'a/gone' }).selected).toBeNull();
+    expect(map(FOUR, flights, { star: null }).selected).toBeNull();
   });
 
-  it('gives a docked star with none no tether, and a star that is not docked never one', () => {
-    const map = constellationOf({ repositories: repos, flights: [], tethers: [pr('a/api', 7), pr('a/app', 8)] });
-    if (map.kind === 'empty') throw new Error('the map has stars');
-    expect(map.stars.map((s) => [s.repository, s.tethers])).toEqual([['a/api', []], ['a/app', []], ['a/web', []]]);
+  it('selects a plan line by its pair in either order, and an unknown one none', () => {
+    expect(map(FOUR, flights, { pair: 'a/api,a/web' }).selectedLine?.prds.map((p) => p.dossier)).toEqual(['d-1']);
+    expect(map(FOUR, flights, { pair: 'a/web,a/api' }).selectedLine?.a).toBe('a/api');
+    expect(map(FOUR, flights, { pair: 'a/api,a/auth' }).selectedLine).toBeNull();
+    expect(map(FOUR, flights, { pair: 'a/api' }).selectedLine).toBeNull();
+    expect(map(FOUR, flights, { pair: 'a/api,a/web,a/auth' }).selectedLine).toBeNull();
+    expect(map(FOUR, flights, { pair: null }).selectedLine).toBeNull();
+  });
+
+  it('reads a ?prd= as nothing: there is no PRD filter', () => {
+    const drawn = map(FOUR, flights, { prd: 'd-1' } as Filter);
+    expect(drawn.selected).toBeNull();
+    expect(drawn.selectedLine).toBeNull();
+    expect(drawn.stars).toEqual(map(FOUR, flights).stars);
   });
 });

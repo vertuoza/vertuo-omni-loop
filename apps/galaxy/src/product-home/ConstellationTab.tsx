@@ -1,67 +1,124 @@
 import Link from 'next/link';
 import { workPath } from '../dossier/page/work';
-import { constellationOf, SKY, type Constellation, type Edge, type Filter, type Flight, type Star } from './constellation';
+import { constellationOf, fieldOf, type ConsumesLine, type Constellation, type Filter, type Flight, type PlanLine, type Star, type StarSize } from './constellation';
+import { ConstellationMotion } from './ConstellationMotion';
 import type { PrChip, ProductHome as Home } from './product-home.service';
 import { productHomeTabHref } from './tabs';
 import { productHomeHref } from '../products/model';
 
-// The Constellation tab, drawn (PRD 2129 s1): /app/products/<id>/constellation, read only. The product's
-// repositories as stars (a link each, its name and role, ◆ or ◇ for its phase 0, `DOCKED` when its phase 0
-// is a pull request, a dashed halo when it is also in another product) and its declared `consumes` as edges,
-// consumer to provider, in the fixed layout constellation.ts gives. With no repository, or no `consumes`,
-// it says so and links to Repositories & approvers. Server-rendered, no script, no GitHub call. Every colour
-// is a token of src/ask/theme-tokens.ts (constellation.css).
-//
-// Since s2, the Ledger's states on it: the filter row (`Everything`, then one chip per PRD in flight, a link
-// setting `?prd=`), a ring per star in its state, each edge labelled with what crosses it now and carrying
-// moving dots between two building stars, and the side card: *Now in <product>* with no star selected, the
-// selected star's card (`?star=`) otherwise. A star's link keeps the PRD lit, a chip keeps the star selected.
+// The Constellation tab, drawn (PRD 2129 s1, reworked by PRD 2174 s3): /app/products/<id>/constellation, read
+// only. The product's repositories as stars (a link each, its name and role, ◆ or ◇ for its phase 0, `DOCKED`
+// when its phase 0 is a pull request, a dashed halo when it is also in another product, a ring in its
+// Ledger state) where constellation.ts places them, the plan lines its PRDs' targets draw (a link each,
+// `?pair=`, moving dots when one of its PRDs is in flight) and its declared `consumes` lines, apart. The side
+// card is *Now in <product>* with nothing selected, the star's card (`?star=`) or the line's (`?pair=`). There
+// is no PRD filter. Server-rendered, no GitHub call (its one script only pauses the motion while the page is
+// hidden). PRD 2174 s4 draws it as the tour's night sky: a gradient, a nebula and a seeded field of stars,
+// glowing cores in three sizes, every colour a token of @omni/design (constellation.css), dark in every theme.
 
 export const NO_REPOSITORIES = 'No repository is in this product yet.';
-export const NO_EDGES = 'No repository consumes another yet.';
+export const NO_EDGES = 'No PRD\'s plan names two repositories yet.';
 
 /** The `as of` stamp: the time the request was rendered, in UTC. */
 const stampOf = (now: Date) => now.toISOString().slice(11, 16);
 
 const shortName = (repository: string) => repository.split('/').at(-1) ?? repository;
 
-/** `· 2 PRDs in flight`, `· 1 PRD in flight`, or `· nothing in flight`. */
-const inFlight = (k: number) => (k === 0 ? 'nothing in flight' : `${String(k)} PRD${k === 1 ? '' : 's'} in flight`);
-
-const edgeLabel = (edge: Edge) => `${shortName(edge.consumer)} → ${shortName(edge.provider)} · ${inFlight(edge.crossing.length)}`;
+const lineTitle = (line: PlanLine) => `${shortName(line.a)} ↔ ${shortName(line.b)} · ${String(line.weight)} PRD${line.weight === 1 ? '' : 's'}`;
 
 /** The repositories a PRD touches, as one line: their names, or how many past two. */
 const starsLine = (stars: readonly string[]) => (stars.length > 2 ? `${String(stars.length)} repositories` : stars.map(shortName).join(', '));
 
-/** The tab's address with the filter and the selection given. */
-function hrefOf(base: string, dossier: string | null, star: string | null): string {
-  const query = [
-    ...(dossier === null ? [] : [`prd=${encodeURIComponent(dossier)}`]),
-    ...(star === null ? [] : [`star=${encodeURIComponent(star).replace(/%2F/g, '/')}`]),
-  ];
-  return query.length === 0 ? base : `${base}?${query.join('&')}`;
-}
+/** A repository's name in an address: its slash kept. */
+const nameIn = (repository: string) => encodeURIComponent(repository).replace(/%2F/g, '/');
+
+const starHref = (base: string, star: Star) => `${base}?star=${nameIn(star.repository)}`;
+const pairHref = (base: string, line: PlanLine) => `${base}?pair=${nameIn(line.a)},${nameIn(line.b)}`;
 
 type Drawn = Extract<Constellation, { kind: 'stars' | 'map' }>;
 
-/** A point along the quadratic curve of `edge` from `from` to `to`, at its middle. */
-const middleOf = (from: Star, to: Star, edge: Edge) => ({
-  x: Math.round(0.25 * from.at.x + 0.5 * edge.bend.x + 0.25 * to.at.x),
-  y: Math.round(0.25 * from.at.y + 0.5 * edge.bend.y + 0.25 * to.at.y),
-});
+/** A core's radius by the star's weight: light, medium, heavy. */
+const CORE: Readonly<Record<StarSize, number>> = { light: 11, medium: 16, heavy: 22 };
+const coreOf = (star: Star) => CORE[star.size];
 
-function EdgeLine({ edge, stars }: { edge: Edge; stars: readonly Star[] }) {
-  const from = stars.find((s) => s.repository === edge.consumer);
-  const to = stars.find((s) => s.repository === edge.provider);
-  if (from === undefined || to === undefined) return null;
-  const d = `M ${String(from.at.x)} ${String(from.at.y)} Q ${String(edge.bend.x)} ${String(edge.bend.y)} ${String(to.at.x)} ${String(to.at.y)}`;
-  const mid = middleOf(from, to, edge);
+const round = (n: number) => Math.round(n * 10) / 10;
+
+/** The curve from star `from` to star `to` (a gentle bend, always to the same side), or null when either is not
+ * on the sky. With `stop`, it ends that far short of `to`: where an arrowhead sits clear of the core. */
+function curveOf(stars: readonly Star[], from: string, to: string, stop = 0): string | null {
+  const start = stars.find((s) => s.repository === from);
+  const end = stars.find((s) => s.repository === to);
+  if (start === undefined || end === undefined) return null;
+  const dx = end.at.x - start.at.x;
+  const dy = end.at.y - start.at.y;
+  const length = Math.hypot(dx, dy) || 1;
+  const cut = Math.min(stop, length / 2) / length;
+  const bend = Math.min(40, length * 0.12);
+  const cx = (start.at.x + end.at.x) / 2 - (dy / length) * bend;
+  const cy = (start.at.y + end.at.y) / 2 + (dx / length) * bend;
+  const ex = end.at.x - dx * cut;
+  const ey = end.at.y - dy * cut;
+  return `M ${String(round(start.at.x))} ${String(round(start.at.y))} Q ${String(round(cx))} ${String(round(cy))} ${String(round(ex))} ${String(round(ey))}`;
+}
+
+function PlanLink({ line, stars, base }: { line: PlanLine; stars: readonly Star[]; base: string }) {
+  const d = curveOf(stars, line.a, line.b);
+  if (d === null) return null;
   return (
-    <g data-faded={edge.lit ? undefined : true}>
-      <path className="constellation-edge" data-consumer={edge.consumer} data-provider={edge.provider} d={d} />
-      {edge.flowing ? <path className="constellation-flow" data-consumer={edge.consumer} pathLength={300} d={d} /> : null}
-      <text className="constellation-edge-label" x={mid.x} y={mid.y} textAnchor="middle">{edgeLabel(edge)}</text>
-    </g>
+    <Link href={pairHref(base, line)} className="constellation-plan" data-pair={`${line.a},${line.b}`} data-weight={line.weight} data-in-flight={line.inFlight || undefined}>
+      <title>{lineTitle(line)}</title>
+      <path className="constellation-hit-line" d={d} />
+      <path className="constellation-edge" d={d} strokeWidth={Math.min(5, 1.5 + line.weight * 0.5)} />
+      {line.inFlight ? <path className="constellation-flow" pathLength={300} d={d} /> : null}
+    </Link>
+  );
+}
+
+function ConsumesPath({ line, stars }: { line: ConsumesLine; stars: readonly Star[] }) {
+  const provider = stars.find((s) => s.repository === line.provider);
+  const d = curveOf(stars, line.consumer, line.provider, provider === undefined ? 0 : coreOf(provider) + 8);
+  if (d === null) return null;
+  return <path className="constellation-consumes" data-consumer={line.consumer} data-provider={line.provider} d={d} markerEnd="url(#constellation-arrow)" />;
+}
+
+/** The sky's layers: the gradient is the svg's own background, then the nebula, then the seeded field. */
+function SkyBackdrop({ productId, width, height }: { productId: string; width: number; height: number }) {
+  const field = fieldOf(productId, width, height);
+  return (
+    <>
+      <defs>
+        {(['plasma', 'cyan', 'magenta'] as const).map((hue) => (
+          <radialGradient key={hue} id={`constellation-nebula-${hue}`}>
+            <stop className="constellation-nebula-stop" data-hue={hue} offset="0" />
+            <stop className="constellation-nebula-stop" data-hue={hue} offset="1" stopOpacity="0" />
+          </radialGradient>
+        ))}
+        <radialGradient id="constellation-core">
+          <stop className="constellation-core-stop" offset="0" data-end="in" />
+          <stop className="constellation-core-stop" offset="1" data-end="out" />
+        </radialGradient>
+        <marker id="constellation-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+          <path className="constellation-arrow" d="M 0 0 L 10 5 L 0 10 z" />
+        </marker>
+      </defs>
+      <g className="constellation-nebula" aria-hidden="true">
+        <ellipse cx={width * 0.22} cy={height * 0.3} rx={width * 0.3} ry={height * 0.38} fill="url(#constellation-nebula-plasma)" />
+        <ellipse cx={width * 0.78} cy={height * 0.65} rx={width * 0.28} ry={height * 0.4} fill="url(#constellation-nebula-cyan)" />
+        <ellipse cx={width * 0.55} cy={height * 0.1} rx={width * 0.22} ry={height * 0.25} fill="url(#constellation-nebula-magenta)" />
+      </g>
+      <g className="constellation-field" aria-hidden="true">
+        {field.map((s) => (
+          <circle
+            key={`${String(s.x)},${String(s.y)}`}
+            className={s.twinkle ? 'constellation-speck constellation-twinkle' : 'constellation-speck'}
+            cx={s.x}
+            cy={s.y}
+            r={s.r}
+            style={s.twinkle ? { animationDelay: `${String(s.delay)}s` } : undefined}
+          />
+        ))}
+      </g>
+    </>
   );
 }
 
@@ -75,8 +132,8 @@ function Tethers({ star }: { star: Star }) {
   return (
     <>
       {star.tethers.map((t, i) => (
-        <g key={`${t.repo}#${String(t.pr)}`} className="constellation-tether" data-faded={star.lit ? undefined : true}>
-          <line className="constellation-tether-line" x1={x} y1={y + 26} x2={x} y2={y + 80 + 16 * i} />
+        <g key={`${t.repo}#${String(t.pr)}`} className="constellation-tether">
+          <line className="constellation-tether-line" x1={x} y1={y + 50} x2={x} y2={y + 80 + 16 * i} />
           <a href={tetherHref(t)}>
             <text className="constellation-tether-label" x={x} y={y + 92 + 16 * i} textAnchor="middle">{tetherWords(t)}</text>
           </a>
@@ -86,29 +143,32 @@ function Tethers({ star }: { star: Star }) {
   );
 }
 
-/** A star's label: its repository, its role, and whether it is docked. */
-const starLabel = (star: Star) => `${star.repository}, ${star.role ?? 'no role'}${star.docked ? ', docked' : ''}`;
+/** A star's label: its repository, its role when it has one, and whether it is docked. */
+const starLabel = (star: Star) => `${star.repository}${star.role === null ? '' : `, ${star.role}`}${star.docked ? ', docked' : ''}`;
 
-/** What a star wears around its body: the also-in halo, and its ring unless it is quiet. */
+/** A star's title: its name, how many PRDs touch it, and its phase 0 mark. */
+const starTitle = (star: Star) => `${shortName(star.repository)} · ${String(star.weight)} PRD${star.weight === 1 ? '' : 's'} · ${star.phase0 === 'server' ? '◆' : '◇'}`;
+
+/** What a star wears around its core: the also-in halo, and its ring unless it is quiet. */
 function StarRings({ star }: { star: Star }) {
   const { x, y } = star.at;
+  const r = coreOf(star);
   return (
     <>
-      {star.alsoIn.length === 0 ? null : <circle className="constellation-halo" cx={x} cy={y} r={36} />}
-      {star.state === 'quiet' ? null : <circle className="constellation-ring" data-state={star.state} cx={x} cy={y} r={31} />}
+      {star.alsoIn.length === 0 ? null : <circle className="constellation-halo" cx={x} cy={y} r={r + 13} />}
+      {star.state === 'quiet' ? null : <circle className="constellation-ring" data-state={star.state} cx={x} cy={y} r={r + 6} />}
     </>
   );
 }
 
-/** A star's words: its phase 0 mark, its name, its role, and `DOCKED`. */
+/** A star's words: its name, and its role only when it has one. */
 function StarWords({ star }: { star: Star }) {
   const { x, y } = star.at;
+  const r = coreOf(star);
   return (
     <>
-      <text className="constellation-mark" x={x} y={y} textAnchor="middle" dominantBaseline="central">{star.phase0 === 'server' ? '◆' : '◇'}</text>
-      <text className="constellation-name" x={x} y={y + 50} textAnchor="middle">{shortName(star.repository)}</text>
-      <text className="constellation-role" x={x} y={y + 66} textAnchor="middle">{star.role ?? 'no role'}</text>
-      {star.docked ? <text className="constellation-docked" x={x} y={y - 38} textAnchor="middle">DOCKED</text> : null}
+      <text className="constellation-name" x={x} y={y + r + 18} textAnchor="middle">{shortName(star.repository)}</text>
+      {star.role === null ? null : <text className="constellation-role" x={x} y={y + r + 34} textAnchor="middle">{star.role}</text>}
     </>
   );
 }
@@ -122,27 +182,14 @@ function StarMark({ star, href }: { star: Star; href: string }) {
       data-star={star.repository}
       data-docked={star.docked || undefined}
       data-state={star.state}
-      data-faded={star.lit ? undefined : true}
+      data-size={star.size}
     >
+      <title>{starTitle(star)}</title>
       <circle className="constellation-hit" cx={star.at.x} cy={star.at.y} r={32} />
       <StarRings star={star} />
-      <circle className="constellation-body" cx={star.at.x} cy={star.at.y} r={26} />
+      <circle className="constellation-body" cx={star.at.x} cy={star.at.y} r={coreOf(star)} />
       <StarWords star={star} />
     </Link>
-  );
-}
-
-function Chips({ map, base }: { map: Drawn; base: string }) {
-  const star = map.selected?.repository ?? null;
-  return (
-    <nav className="constellation-chips" aria-label="Filter by PRD">
-      <Link className="constellation-chip" href={hrefOf(base, null, star)} aria-current={map.lit === null ? true : undefined}>Everything</Link>
-      {map.flights.map((f) => (
-        <Link key={f.dossier} className="constellation-chip" href={hrefOf(base, f.dossier, star)} aria-current={map.lit === f.dossier ? true : undefined}>
-          <span className="constellation-dot" data-state={f.state} /><b>{f.prd}</b> {f.title}
-        </Link>
-      ))}
-    </nav>
   );
 }
 
@@ -153,8 +200,10 @@ function Legend({ docked, alsoIn }: { docked: boolean; alsoIn: boolean }) {
       <li><span className="constellation-key" data-key="on-you" /> waits on you</li>
       <li><span className="constellation-key" data-key="drifted" /> drifted</li>
       <li><span className="constellation-key" data-key="server">◆</span> phase 0 approved on the PRD page</li>
-      <li><span className="constellation-key" data-key="pr">◇</span> phase 0 by pull request{docked ? ' · DOCKED' : ''}</li>
+      <li><span className="constellation-key" data-key="pr">◇</span> phase 0 by pull request{docked ? ' · docked' : ''}</li>
       {alsoIn ? <li><span className="constellation-key" data-key="also-in" /> also in another product</li> : null}
+      <li><span className="constellation-key" data-key="plan" /> a plan line: PRDs that changed both</li>
+      <li><span className="constellation-key" data-key="consumes" /> a consumes line</li>
     </ul>
   );
 }
@@ -175,6 +224,7 @@ function NowCard({ home, map }: { home: Home; map: Drawn }) {
       {map.now.length === 0
         ? <p>Nothing in flight touches its repositories.</p>
         : <ul>{map.now.map((f) => <FlightLine key={f.dossier} flight={f} tail={starsLine(f.stars)} />)}</ul>}
+      {map.moreNow === 0 ? null : <p><Link href={productHomeHref(home.product.id)}>+ {map.moreNow} more on the Ledger →</Link></p>}
       {map.stars.filter((s) => s.docked).map((s) => (
         <p key={s.repository} className="constellation-docked-line">
           {shortName(s.repository)} · docked:{' '}
@@ -188,13 +238,14 @@ function NowCard({ home, map }: { home: Home; map: Drawn }) {
   );
 }
 
-function EdgeList({ edges, end }: { edges: readonly Edge[]; end: 'consumer' | 'provider' }) {
-  if (edges.length === 0) return <>none</>;
-  return <ul>{edges.map((e) => <li key={`${e.consumer}>${e.provider}`}>{shortName(e[end])} · {inFlight(e.crossing.length)}</li>)}</ul>;
+function ConsumesList({ lines, end }: { lines: readonly ConsumesLine[]; end: 'consumer' | 'provider' }) {
+  if (lines.length === 0) return <>none</>;
+  return <ul>{lines.map((l) => <li key={`${l.consumer}>${l.provider}`}>{shortName(l[end])}</li>)}</ul>;
 }
 
-function StarCard({ home, map, star }: { home: Home; map: Drawn; star: Star }) {
+function StarCard({ home, map, star, base }: { home: Home; map: Drawn; star: Star; base: string }) {
   const now = map.now.filter((f) => f.stars.includes(star.repository));
+  const lines = map.lines.filter((l) => l.a === star.repository || l.b === star.repository);
   return (
     <>
       <h2>{star.repository}</h2>
@@ -202,14 +253,37 @@ function StarCard({ home, map, star }: { home: Home; map: Drawn; star: Star }) {
         <dt>role</dt><dd>{star.role ?? 'no role'}</dd>
         <dt>phase 0</dt><dd>{star.phase0 === 'server' ? '◆ approved on the PRD page' : '◇ docs-only phase-0 pull request'}</dd>
         <dt>also in</dt><dd>{star.alsoIn.length === 0 ? 'no other product' : star.alsoIn.join(', ')}</dd>
-        <dt>consumes</dt><dd><EdgeList edges={map.edges.filter((e) => e.consumer === star.repository)} end="provider" /></dd>
-        <dt>consumed by</dt><dd><EdgeList edges={map.edges.filter((e) => e.provider === star.repository)} end="consumer" /></dd>
+        <dt>PRDs</dt><dd>{star.weight}</dd>
+        <dt>lines</dt>
+        <dd>
+          {lines.length === 0 ? 'none' : (
+            <ul>{lines.map((l) => <li key={`${l.a}|${l.b}`}><Link href={pairHref(base, l)}>{lineTitle(l)}</Link></li>)}</ul>
+          )}
+        </dd>
+        <dt>consumes</dt><dd><ConsumesList lines={map.consumes.filter((c) => c.consumer === star.repository)} end="provider" /></dd>
+        <dt>consumed by</dt><dd><ConsumesList lines={map.consumes.filter((c) => c.provider === star.repository)} end="consumer" /></dd>
         <dt>now</dt><dd>{now.length === 0 ? 'nothing in flight' : <ul>{now.map((f) => <FlightLine key={f.dossier} flight={f} tail={null} />)}</ul>}</dd>
       </dl>
+      {star.outside === 0 ? null : <p>{star.outside} target{star.outside === 1 ? '' : 's'} outside the product</p>}
       <p className="constellation-links">
         <Link href={productHomeHref(home.product.id)}>Ledger rows →</Link>
         <Link href={`${productHomeHref(home.product.id)}/repositories`}>Its links →</Link>
       </p>
+      <p>Read only.</p>
+    </>
+  );
+}
+
+function LineCard({ line }: { line: PlanLine }) {
+  return (
+    <>
+      <h2>{shortName(line.a)} ↔ {shortName(line.b)}</h2>
+      <p>{line.a} and {line.b}: {line.weight} PRD{line.weight === 1 ? '' : 's'} changed both, newest first.</p>
+      <ul>
+        {line.prds.map((p) => (
+          <li key={p.dossier}><Link href={workPath('prd', p.dossier)}><b>{p.prd}</b> {p.title}</Link>{p.inFlight ? ' · in flight' : ''}</li>
+        ))}
+      </ul>
       <p>Read only.</p>
     </>
   );
@@ -227,35 +301,40 @@ export function ConstellationTab({ home, now = new Date(), query = {} }: { home:
     );
   }
   const base = productHomeTabHref(home, 'constellation');
-  const { stars, edges } = map;
+  const { stars, lines, consumes } = map;
+  const label = map.selected?.repository ?? (map.selectedLine === null ? `Now in ${home.product.name}` : lineTitle(map.selectedLine));
   return (
     <section className="constellation" aria-label="Constellation">
+      <ConstellationMotion />
+      <p className="constellation-lede">How the product looks now.</p>
       <div className="constellation-bar">
         <span className="products-chip">read only</span>
+        <span>{stars.length} repositories · {lines.length + consumes.length} lines</span>
         <span className="ask-muted">as of {stampOf(now)} UTC</span>
       </div>
-      <Chips map={map} base={base} />
       <div className="constellation-body-grid">
         <div className="constellation-main">
           <div className="constellation-frame">
             <svg
               className="constellation-sky"
-              viewBox={`0 0 ${String(SKY.width)} ${String(SKY.height)}`}
+              viewBox={`0 0 ${String(map.sky.width)} ${String(map.sky.height)}`}
               role="img"
-              aria-label={`${home.product.name}: ${String(stars.length)} repositories, ${String(edges.length)} edges`}
+              aria-label={`${home.product.name}: ${String(stars.length)} repositories, ${String(lines.length)} plan lines`}
             >
-              {edges.map((e) => <EdgeLine key={`${e.consumer}>${e.provider}`} edge={e} stars={stars} />)}
-              {stars.map((s) => <StarMark key={s.repository} star={s} href={hrefOf(base, map.lit, s.repository)} />)}
+              <SkyBackdrop productId={home.product.id} width={map.sky.width} height={map.sky.height} />
+              {consumes.map((c) => <ConsumesPath key={`${c.consumer}>${c.provider}`} line={c} stars={stars} />)}
+              {lines.map((l) => <PlanLink key={`${l.a}|${l.b}`} line={l} stars={stars} base={base} />)}
+              {stars.map((s) => <StarMark key={s.repository} star={s} href={starHref(base, s)} />)}
               {stars.map((s) => <Tethers key={s.repository} star={s} />)}
             </svg>
           </div>
           <Legend docked={stars.some((s) => s.docked)} alsoIn={stars.some((s) => s.alsoIn.length > 0)} />
-          {map.kind === 'stars' ? (
-            <p className="ask-muted">{NO_EDGES} <Link href={repositoriesHref}>Declare edges on Repositories &amp; approvers</Link></p>
-          ) : null}
+          {map.kind === 'stars' ? <p className="ask-muted">{NO_EDGES}</p> : null}
         </div>
-        <aside className="constellation-card" aria-label={map.selected === null ? `Now in ${home.product.name}` : map.selected.repository}>
-          {map.selected === null ? <NowCard home={home} map={map} /> : <StarCard home={home} map={map} star={map.selected} />}
+        <aside className="constellation-card" aria-label={label}>
+          {map.selected !== null
+            ? <StarCard home={home} map={map} star={map.selected} base={base} />
+            : map.selectedLine === null ? <NowCard home={home} map={map} /> : <LineCard line={map.selectedLine} />}
         </aside>
       </div>
     </section>

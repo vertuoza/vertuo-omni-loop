@@ -95,6 +95,11 @@ const PULL_COLUMNS = 'repo, number, head';
 export const StoredPull = z.object({ repo: z.string(), number: PrNumberSchema, head: z.string() });
 export type StoredPull = z.infer<typeof StoredPull>;
 
+const TARGET_COLUMNS = 'dossier_id, repository';
+/** A repository a PRD's plan targets (PRD 2174): one row per dossier and repository, as the plan push wrote it. */
+const TargetSchema = z.object({ dossier_id: z.string(), repository: z.string() });
+export type StoredTarget = z.infer<typeof TargetSchema>;
+
 const LINK_COLUMNS = 'repository, role, consumes';
 /** A repository linked to the product (PRD 2129): its role and the repositories of the product it consumes. */
 const StoredLink = z.object({ repository: z.string(), role: z.string().nullable(), consumes: z.array(z.string()) });
@@ -247,6 +252,10 @@ export const featurePullsOf = (db: From, workspace?: string) => {
 const phase0PullsOf = (db: From, workspace: string) =>
   db.from('pull_requests').select(PULL_COLUMNS).is('closed_at', null).is('merged_at', null).like('head', 'docs/phase-0-%').eq('workspace_id', workspace);
 
+/** The targets of the PRD dossiers `dossiers`. */
+const targetsOf = (db: From, dossiers: readonly string[]) =>
+  db.from('prd_targets').select(TARGET_COLUMNS).in('dossier_id', [...dossiers]);
+
 /** The links of the workspace's product to its repositories, by name. */
 const linksOf = (db: From, scope: ProductScope) =>
   db.from('product_repositories').select(LINK_COLUMNS).eq('workspace_id', scope.workspace).eq('product_id', scope.product).order('repository');
@@ -323,6 +332,14 @@ export function productHomeRepository(db: ProductHomeDb) {
       const { data, error } = await productFixesOf(db, { workspace, product });
       if (error) throw new Error(`Supabase: could not read the product's fixes (${why(error)})`);
       return orThrow(parseRows(StoredFix, data, `${WHERE}: fix dossiers`));
+    },
+
+    /** The repositories the plans of the PRDs `dossiers` target (PRD 2174). */
+    async targets(dossiers: readonly string[]): Promise<StoredTarget[]> {
+      if (dossiers.length === 0) return [];
+      const { data, error } = await targetsOf(db, dossiers);
+      if (error) throw new Error(`Supabase: could not read the PRDs' targets (${why(error)})`);
+      return orThrow(parseRows(TargetSchema, data, `${WHERE}: prd_targets`));
     },
 
     /** The product's linked repositories, by name: role and declared `consumes`. */

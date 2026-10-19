@@ -204,6 +204,16 @@ describe('the product home\'s storage', () => {
     ]);
   });
 
+  it('reads the targets of the PRDs given, none for no PRD, and throws on a refusal or an answer out of shape (PRD 2174 s3)', async () => {
+    const row = { dossier_id: 'd-1', repository: 'a/api' };
+    const { calls, repo } = stub({ prd_targets: { data: [row] } });
+    expect(await repo.targets(['d-1', 'd-2'])).toEqual([row]);
+    expect(await repo.targets([])).toEqual([]);
+    expect(calls).toEqual([['prd_targets', 'select', 'dossier_id, repository'], ['prd_targets', 'in', 'dossier_id', ['d-1', 'd-2']]]);
+    await expect(stub({ prd_targets: { error: { message: 'boom' } } }).repo.targets(['d-1'])).rejects.toThrow('could not read the PRDs\' targets (boom)');
+    await expect(stub({ prd_targets: { data: [{ dossier_id: 'd-1' }] } }).repo.targets(['d-1'])).rejects.toThrow();
+  });
+
   it('reads no other link and no phase 0 for no repository, and throws on a refused read or an answer out of shape', async () => {
     const { calls, repo } = stub({});
     expect(await repo.otherLinks('ws-1', 'p-1', [])).toEqual([]);

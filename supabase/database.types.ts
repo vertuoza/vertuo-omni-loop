@@ -2352,6 +2352,39 @@ export type Database = {
           },
         ]
       }
+      prd_targets: {
+        Row: {
+          dossier_id: string
+          repository: string
+          workspace_id: string
+        }
+        Insert: {
+          dossier_id: string
+          repository: string
+          workspace_id: string
+        }
+        Update: {
+          dossier_id?: string
+          repository?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prd_targets_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prd_targets_workspace_id_repository_fkey"
+            columns: ["workspace_id", "repository"]
+            isOneToOne: false
+            referencedRelation: "repositories"
+            referencedColumns: ["workspace_id", "full_name"]
+          },
+        ]
+      }
       prd_topics: {
         Row: {
           prd: number
@@ -4779,6 +4812,7 @@ export type Database = {
         Args: { p_dossier_kind: string; p_version_kind: string }
         Returns: boolean
       }
+      dossier_write_targets: { Args: { p_dossier: string }; Returns: string[] }
       fix_bug_push: {
         Args: { p_body: Json; p_bug: number; p_key: string; p_repo?: string }
         Returns: Json
@@ -5230,6 +5264,7 @@ export type Database = {
         }
       }
       prd_id_of: { Args: { p_product: string; p_seq: number }; Returns: string }
+      prd_targets_backfill: { Args: never; Returns: number }
       product_add: {
         Args: { p_name: string; p_workspace: string }
         Returns: {

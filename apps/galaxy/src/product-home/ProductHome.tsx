@@ -58,7 +58,10 @@ export function demoProductHome(id: string): Home | null {
   const shipped = prd('demo-d-890', 890, 'Dark mode', 'repo');
   const drifted: HomePrd = { dossier: 'demo-d-920', repo: 'acme/widgets-web', prd: parsePrd(920), title: 'Single sign-on', birthplace: 'server' };
   const flight = (p: HomePrd, over: Partial<HomeFlight>): HomeFlight =>
-    ({ ...p, stage: 'building', ledger: { state: 'building', lane: 'on-agent' }, stageRepos: [], prs: [], ...over });
+    ({ ...p, stage: 'building', ledger: { state: 'building', lane: 'on-agent' }, stageRepos: [], prs: [], targets: [], ...over });
+  // The PRDs' plan targets (PRD 2174 s3): Invoice reminders (in flight) and Dark mode (shipped) both change
+  // widgets and widgets-api, and Dark mode also auth, so the Constellation draws three plan lines: widgets to
+  // widgets-api (two PRDs, in flight), and widgets-api and widgets each to auth (one shipped PRD, dim).
   // The Constellation's four repositories (PRD 2129 s3): widgets-api builds, widgets waits on you, widgets-web
   // is drifted and docked at its open phase-0 pull request, auth is also in a second product.
   const repositories: HomeRepository[] = [
@@ -95,12 +98,12 @@ export function demoProductHome(id: string): Home | null {
     visuals: [],
     repositories,
     flights: [
-      flight(approval, { stage: 'prd', ledger: { state: 'approval', lane: 'on-you' }, stageRepos: ['acme/widgets'] }),
+      flight(approval, { targets: ['acme/widgets'], stage: 'prd', ledger: { state: 'approval', lane: 'on-you' }, stageRepos: ['acme/widgets'] }),
       flight(question, { ledger: { state: 'question', lane: 'on-you' }, stageRepos: ['acme/widgets'] }),
-      flight(review, { stage: 'outbox', ledger: { state: 'review', lane: 'on-review' }, stageRepos: ['acme/widgets'], prs: [{ repo: 'acme/widgets', pr: parsePr(101) }] }),
-      flight(building, { stageRepos: ['acme/widgets-api'], prs: [{ repo: 'acme/widgets-api', pr: parsePr(447) }, { repo: 'acme/widgets', pr: parsePr(94) }] }),
-      flight(shipped, { stage: 'shipped', ledger: null }),
-      flight(drifted, { stage: 'inbox', ledger: { state: 'drifted', lane: null }, stageRepos: ['acme/widgets-web'] }),
+      flight(review, { targets: ['acme/widgets'], stage: 'outbox', ledger: { state: 'review', lane: 'on-review' }, stageRepos: ['acme/widgets'], prs: [{ repo: 'acme/widgets', pr: parsePr(101) }] }),
+      flight(building, { targets: ['acme/widgets', 'acme/widgets-api'], stageRepos: ['acme/widgets-api'], prs: [{ repo: 'acme/widgets-api', pr: parsePr(447) }, { repo: 'acme/widgets', pr: parsePr(94) }] }),
+      flight(shipped, { targets: ['acme/widgets', 'acme/widgets-api', 'acme/auth'], stage: 'shipped', ledger: null }),
+      flight(drifted, { targets: ['acme/widgets-web'], stage: 'inbox', ledger: { state: 'drifted', lane: null }, stageRepos: ['acme/widgets-web'] }),
     ],
     tethers: [{ repo: 'acme/widgets-web', pr: parsePr(31) }],
     questions: [
