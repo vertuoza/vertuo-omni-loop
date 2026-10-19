@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
+import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
 import {
   checkLine, HealthReportSchema, JobLinesQuerySchema, JobUpdateSchema, RegisterRequestSchema, RUNNER_SKILLS, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
-// The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines whose skill is on the
-// list and whose arguments are letters, digits, spaces and `._/:#-`, 200 characters at most.
+// The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines of 200 characters at
+// most, skill included, whose skill is on the list and whose arguments are letters, digits, spaces and
+// `._/:#-`.
 
 describe('the line check', () => {
   it.each(RUNNER_SKILLS)('lets /omni:%s through, with its arguments', (skill) => {
@@ -53,9 +54,20 @@ describe('the line check', () => {
     expect(checkLine(line).ok).toBe(false);
   });
 
-  it('takes 200 characters of arguments and refuses 201', () => {
-    expect(checkLine(`/omni:yolo ${'a'.repeat(200)}`).ok).toBe(true);
-    expect(checkLine(`/omni:yolo ${'a'.repeat(201)}`)).toEqual({ ok: false, reason: 'A line\'s arguments are 200 characters at most.' });
+  it('takes a line of 200 characters, the skill included, and refuses 201', () => {
+    const line = `/omni:yolo ${'a'.repeat(189)}`;
+    expect(line).toHaveLength(200);
+    expect(checkLine(line).ok).toBe(true);
+    expect(checkLine(`${line}a`)).toEqual({ ok: false, reason: 'A line is 200 characters at most, the skill included.' });
+  });
+
+  it('agrees with the runner’s own check at its limit, for every skill, so the app never queues a line a runner refuses', () => {
+    for (const skill of RUNNER_SKILLS) {
+      const longest = `/omni:${skill} ${'a'.repeat(LINE_MAX - `/omni:${skill} `.length)}`;
+      expect(longest).toHaveLength(LINE_MAX);
+      expect([checkLine(longest).ok, checkRunnerLine(longest).ok], skill).toEqual([true, true]);
+      expect([checkLine(`${longest}a`).ok, checkRunnerLine(`${longest}a`).ok], skill).toEqual([false, false]);
+    }
   });
 });
 

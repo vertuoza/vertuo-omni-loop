@@ -135,8 +135,9 @@ on a machine set up for it, with no one at a terminal. Start one with
   `resumed` and takes jobs again. The page shows the reason and the limits. `--max-memory 100` and
   `--min-disk 0` switch those two limits off. A limit out of range is refused before it starts.
 - **Which lines:** only `/omni:yolo`, `yolo-fix`, `pr-care`, `do-work`, `wave`, `bug-fix`,
-  `visual-fix`, `plan`, `pitch` and `prove`, with arguments of letters, digits, spaces and `._/:#-`,
-  200 characters at most. The runner checks the line again before it runs it, whatever the page sent.
+  `mega-bug-fix`, `visual-fix`, `plan`, `pitch` and `prove`, with arguments of letters, digits, spaces
+  and `._/:#-`, the whole line 200 characters at most. The runner checks the line again before it runs
+  it, whatever the page sent.
 - **Who sent it:** a job runs under the runner owner's GitHub and Claude accounts, with
   `OMNI_SENT_BY` and `OMNI_RUNNER` set, and `/omni:pr` writes
   `Sent from the Omni app by @<login> on runner <name>` in the pull requests it opens.
