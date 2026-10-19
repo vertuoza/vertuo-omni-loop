@@ -12,6 +12,9 @@
 // registers and keeps one `next` open per free slot until Ctrl-C, which waits for the running jobs.
 // It sweeps what stopped jobs left once registered and every hour after (PRD 1911): a job's logs are
 // kept `--keep-logs` days, a whole number of 1 or more, 14 unless given.
+// Each job's session gets `OMNI_JOB`, `OMNI_RUNNER` and `OMNI_UNATTENDED` (PRD 2175). Once a job ends,
+// or the sweep finds one the app marked lost, it releases the claims the job still holds with `gh`
+// (`../../lib/runner/release.ts`): `labels.inProgress` off, `labels.released` on, and a comment.
 // It stops taking jobs while its machine is under pressure (PRD 2102): memory used above `--max-memory`
 // percent (1 to 100, 85 unless given), disk free below `--min-disk` GB (0 or more, 10 unless given), or
 // a 1-minute load above `--max-load` times its cores (above 0, 1.5 unless given). A limit out of range
@@ -38,6 +41,7 @@ import { DEFAULT_LIMITS } from '../../lib/runner/health.ts';
 import type { MachineReads } from '../../lib/runner/health.ts';
 import { runJobProcess } from '../../lib/runner/job.ts';
 import { parseDuration } from '../../lib/runner/log.ts';
+import { releaser } from '../../lib/runner/release.ts';
 import { KEEP_LOGS_DAYS, runRunner } from '../../lib/runner/runner.ts';
 import { senderLine } from '../../lib/runner/sender.ts';
 import { missingTool, tmuxTerminal } from '../../lib/runner/terminal.ts';
@@ -193,6 +197,7 @@ async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise
       home,
       wrapper: [process.execPath, script, 'runner', 'job'],
       env: jobEnv(io),
+      release: releaser({ exec, checkouts }),
       print: (line) => {
         println(stdout, line);
       },

@@ -442,6 +442,69 @@ describe('the Runners page\'s read', () => {
   });
 });
 
+// PRD 2175 s2: a job's last report says which claims its runner released, and why a release failed; a
+// job its runner lost takes that report after it ended, and nothing else.
+describe('a job\'s released claims (PRD 2175)', () => {
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+  const lost = () => jobRow({ status: 'failed', reason: 'runner lost', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: at(-60).toISOString() });
+
+  it('stores what a last report released, and why a release failed, with its ending', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, released: [1908, 1909], releaseError: null }));
+    expect(w.state.jobs[0]).toMatchObject({ status: 'done', released: [1908, 1909], release_error: null, ended_at: T0.toISOString() });
+  });
+
+  it('leaves both empty for a report that carries neither, as a runner from before PRD 2175 sends', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0 }));
+    expect(w.state.jobs[0]).not.toHaveProperty('released');
+    expect(w.state.jobs[0]).not.toHaveProperty('release_error');
+  });
+
+  it('takes what a runner released for a lost job, on the status it ended on, and changes nothing else', async () => {
+    const job = lost();
+    const w = world({ jobs: [job] });
+    expect(value(await w.service.update(OLGA, job.id, { status: 'failed', released: [1908], releaseError: '#1909: HTTP 502' }))).toEqual({ cancel: false });
+    expect(w.state.jobs[0]).toEqual({ ...job, released: [1908], release_error: '#1909: HTTP 502' });
+    value(await w.service.update(OLGA, job.id, { status: 'failed', releaseError: 'gh: not signed in' }));
+    expect(w.state.jobs[0]).toMatchObject({ released: [1908], release_error: 'gh: not signed in' });
+  });
+
+  it('refuses, on an ended job, a report on another status, one that carries anything else, and one that carries nothing released', async () => {
+    const job = lost();
+    const w = world({ jobs: [job] });
+    const ended = { ok: false, kind: 'conflict', error: 'This job has ended: failed, runner lost. Stop it.' };
+    expect(await w.service.update(OLGA, job.id, { status: 'done', released: [1] })).toMatchObject(ended);
+    expect(await w.service.update(OLGA, job.id, { status: 'failed', released: [1], logTail: 'more' })).toMatchObject(ended);
+    expect(await w.service.update(OLGA, job.id, { status: 'failed' })).toMatchObject(ended);
+    expect(w.state.jobs[0]).toEqual(job);
+  });
+
+  it('takes it only from the runner that held the job', async () => {
+    const job = lost();
+    const w = world({ jobs: [job] });
+    expect(await w.service.update(MO, job.id, { status: 'failed', released: [1] })).toMatchObject({ ok: false, kind: 'forbidden' });
+  });
+
+  it('answers a conflict when the job changed meanwhile', async () => {
+    const job = lost();
+    const { store } = fakeStore({ jobs: [job] });
+    const service = runnersService({ ...store, updateJob: () => Promise.resolve(null) }, { now: () => T0, sleep: () => Promise.resolve() });
+    expect(await service.update(OLGA, job.id, { status: 'failed', released: [1] })).toMatchObject({ ok: false, kind: 'conflict', error: 'This job changed meanwhile. Report again.' });
+  });
+
+  it('reads the released claims with the job on the Runners page, none for a job that reported none', async () => {
+    const released = jobRow({ ...lost(), released: [1908], release_error: 'HTTP 502' });
+    const plain = jobRow({ status: 'done', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: at(-30).toISOString() });
+    const w = world({ jobs: [released, plain] });
+    const board = value(await w.service.board(PIA, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.jobs.find((j) => j.id === released.id)).toMatchObject({ released: [1908], releaseError: 'HTTP 502' });
+    expect(board.jobs.find((j) => j.id === plain.id)).toMatchObject({ released: null, releaseError: null });
+  });
+});
+
 describe('a job\'s live lines (PRD 1904)', () => {
   const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
   const texts = (from: number, count: number) => Array.from({ length: count }, (_, i) => `12:04:31 Bash: step ${String(from + i)}`);

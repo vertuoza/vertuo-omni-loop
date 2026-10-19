@@ -1,8 +1,8 @@
 // The line a runner may run (PRD 1830, "Who may send"): `/omni:<skill> <args>`, its skill one of the
 // ones the Omni app copies that run headless and end on their own, its arguments letters, digits,
-// spaces and `._/:#-` only, 200 characters at most. The app's route checks the line before it queues
-// a job; `omni runner` checks it again before it runs one, so a line the app should never have sent
-// still never runs.
+// spaces and `._/:#-` only, the whole line 200 characters at most. The app's route checks the line
+// before it queues a job; `omni runner` checks it again before it runs one, so a line the app should
+// never have sent still never runs.
 
 /** The skills a runner runs: they run without a person typing, and end on their own. */
 export const RUNNABLE_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove']);

@@ -29,6 +29,10 @@
 //   stored in the sample as the sum of their four counts (`tokens_5h`).
 // - A job's tokens (PRD 2102): a job report may carry the tokens of its worktree; they are stored in
 //   `runner_jobs.tokens` and the page reads them with the job.
+// - A job's released claims (PRD 2175): its last report may carry the sub-PRs its runner released and
+//   why a release failed, stored in `runner_jobs.released` and `runner_jobs.release_error`. A job
+//   already ended takes one more report carrying only those two, with the status it ended on: its
+//   runner releases a lost job's claims after the job ended. Nothing else of the job changes.
 import {
   checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
   type Board, type HealthReport, type Job, type JobLines, type JobUpdate, type RegisterReply, type RegisterRequest, type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample,
@@ -88,7 +92,8 @@ function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, strin
   return {
     id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, sentBy: row.sent_by,
     sentByLogin: logins.get(row.sent_by) ?? null, sentByKey: row.sent_by_key === null ? null : keys.get(row.sent_by_key) ?? null, status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
-    logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null, queuedAt: row.queued_at,
+    logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null,
+    released: row.released ?? null, releaseError: row.release_error ?? null, queuedAt: row.queued_at,
     claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
 }
@@ -125,6 +130,19 @@ const inFleet = (sender: Sender, fleet: string) => sender.owner || sender.fleet 
 /** A job's ending in words: its status, and its reason when it has one. */
 const endedWords = (job: JobRow) => (job.reason ? `${job.status}, ${job.reason}` : job.status);
 
+/** The fields a report on an ended job may carry: its status, and what its runner released (PRD 2175). */
+const RELEASE_ONLY: ReadonlySet<string> = new Set(['status', 'released', 'releaseError']);
+
+/** Whether `report` only says what the runner released for a job that has ended on that status. */
+const releaseOnly = (job: JobRow, report: JobUpdate): boolean =>
+  ENDED.includes(job.status) && report.status === job.status && (report.released !== undefined || report.releaseError !== undefined)
+  && Object.keys(report).every((key) => RELEASE_ONLY.has(key));
+
+/** The columns a release-only report writes. */
+function releasePatch(report: JobUpdate): JobPatch {
+  return Object.fromEntries(Object.entries({ released: report.released, release_error: report.releaseError }).filter(([, column]) => column !== undefined));
+}
+
 /** Why this report cannot be taken on the job as it stands, or null. */
 function reportRefusal(job: JobRow, report: JobUpdate): Served<never> | null {
   if (ENDED.includes(job.status)) return no('conflict', `This job has ended: ${endedWords(job)}. Stop it.`);
@@ -137,6 +155,7 @@ function reportPatch(job: JobRow, report: JobUpdate, now: string): JobPatch {
   const carried = {
     log_tail: report.logTail === undefined ? undefined : cutLogTail(report.logTail),
     pr_url: report.prUrl, exit_code: report.exitCode, reason: report.reason, tokens: report.tokens,
+    released: report.released, release_error: report.releaseError,
   };
   const given: JobPatch = Object.fromEntries(Object.entries(carried).filter(([, column]) => column !== undefined));
   const starts = report.status === 'running' && job.running_at === null;
@@ -308,6 +327,10 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       await store.updateRunner(runnerId.value, { last_seen_at: iso() });
       const job = await store.job(jobId);
       if (!job) return no('missing', 'No such job.');
+      if (releaseOnly(job, report)) {
+        const released = await store.updateJob(jobId, [job.status], releasePatch(report));
+        return released ? ok({ cancel: false }) : no('conflict', 'This job changed meanwhile. Report again.');
+      }
       const refusal = reportRefusal(job, report);
       if (refusal) return refusal;
       // The lines first: a report that fails after them is sent again, and adds nothing the second time.

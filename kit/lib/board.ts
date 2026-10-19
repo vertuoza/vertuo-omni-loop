@@ -20,9 +20,7 @@
  * | --------------- | ------------------------------------------------------------------------------ |
  * | `merged`        | its matched pull request is merged                                            |
  * | `stuck`         | its matched pull request carries the configured `labels.needsFix`             |
- * | `claimed-stale` | its matched pull request is a draft, its branch carries no commit beyond the  |
- * |                 | one it was claimed with, and that claim (`createdAt`) is older than          |
- * |                 | `limits.claimStaleMinutes`                                                    |
+ * | `claimed-stale` | its matched pull request is a draft, and its claim is dead (below)            |
  * | `in-flight`     | it has a matched pull request that is none of the above                       |
  * | `runnable`      | it has no matched pull request and every slice it is blocked by is merged     |
  * | `blocked`       | it has no matched pull request and something it depends on is not merged      |
@@ -34,9 +32,18 @@
  * (or that `repos` does not name) is `unreadable` — ahead of every row above — which holds it and
  * whatever it blocks, and nothing else. On a plan with no `repo` column, rows carry neither field.
  *
- * An **unknown head commit date** — the caller could not read one — is read as "yes, there is a
- * commit beyond the claim": this module will not call a claim stale on a signal it never actually
- * saw, so the state degrades to `in-flight` rather than `claimed-stale`.
+ * **A dead claim** (`isClaimedStale`) is a draft that meets one of three rules, the first two PRD 2175's:
+ *
+ * - it carries `labels.released` (a runner saw the job that held it end): dead at once;
+ * - it carries `labels.inProgress`, and its head commit and its `updatedAt` are both older than
+ *   `limits.claimDeadMinutes` (no one moved it, whoever held it): dead once quiet;
+ * - it carries no commit beyond the one it was claimed with, and its claim (`createdAt`) is older
+ *   than `limits.claimStaleMinutes`: dead once cold, as it always was.
+ *
+ * An **unknown date** — the caller could not read a head commit date, or an `updatedAt` — is read as
+ * "yes, it moved": this module will not call a claim stale on a signal it never actually saw, so the
+ * state degrades to `in-flight` rather than `claimed-stale` (BR-PRODUCT-2). A released label is no
+ * date: it reads stale whatever the dates say.
  *
  * **Matching a pull request to a slice** is by head branch — `branches.slice` with `{topic}` (the
  * plan's own PRD folder name) and `{slice}` filled in — narrowed by `board.matchBy`: `base` keeps
@@ -76,6 +83,7 @@
  */
 import type { PrNumber, WorkSliceId } from './ids.ts';
 import type { Config, Tier } from './types.ts';
+import { DEFAULT_CLAIM_DEAD_MINUTES, releasedLabel } from './config.ts';
 import { sameWaveCollisions } from './inbox/territory.ts';
 
 /** A label as `gh pr list --json labels` returns it: a name, or an object carrying one. */
@@ -162,12 +170,28 @@ export type Frontier = {
   collisions: ReturnType<typeof sameWaveCollisions>;
 };
 
-/** The config sections the board reads: the branch templates as the config declares them. */
+/** The config sections the board reads: the branch templates as the config declares them. A board
+ * handed no `inProgress` label reads no claim as released or quiet (`deadClaimRules`). */
 export type BoardConfig = {
   branches: Pick<Config['branches'], 'feature' | 'slice'> & { landing?: string };
   board: { matchBy: string };
-  labels: { sub: string; needsFix: string };
+  labels: { sub: string; needsFix: string; inProgress?: string | undefined; released?: string | undefined };
 };
+
+/** The limits the board reads: `claimDeadMinutes` left out is `DEFAULT_CLAIM_DEAD_MINUTES`. */
+export type BoardLimits = { claimStaleMinutes: number; claimDeadMinutes?: number | undefined };
+
+/** What reads a claim as dead beyond today's cold-claim rule (PRD 2175): the label a runner puts on a
+ * claim whose job ended, the label a live claim carries, and how long that one may stay quiet. */
+export type DeadClaimRules = { deadMinutes: number; inProgressLabel: string; releasedLabel: string };
+
+/** The dead-claim rules a board reads from its config's labels and limits, the kit's defaults filling
+ * a `released` label or a `claimDeadMinutes` left out: `null`, reading no claim as released or quiet,
+ * when the labels name no `inProgress` label at all. */
+export function deadClaimRules(labels: BoardConfig['labels'], limits: BoardLimits): DeadClaimRules | null {
+  if (labels.inProgress === undefined) return null;
+  return { deadMinutes: limits.claimDeadMinutes ?? DEFAULT_CLAIM_DEAD_MINUTES, inProgressLabel: labels.inProgress, releasedLabel: releasedLabel(labels) };
+}
 
 /** A plan repository's repositories by short name. */
 export type BoardRepos = Record<string, { slug: string | null; readable: boolean }>;
@@ -228,7 +252,7 @@ function isLive(pr: BoardPr): boolean {
 
 /** Whether `pr` carries a label named `name`, in either shape `gh pr list --json labels` returns
  * (an array of strings, or of `{ name }` objects). */
-function hasLabel(pr: BoardPr, name: string): boolean {
+function hasLabel(pr: Pick<BoardPr, 'labels'>, name: string): boolean {
   return (pr.labels ?? []).some((label) => (typeof label === 'string' ? label : label?.name) === name);
 }
 
@@ -268,13 +292,43 @@ function hasCommitBeyondClaim(pr: Pick<BoardPr, 'headCommitDate' | 'createdAt'>)
   return new Date(pr.headCommitDate).getTime() > new Date(pr.createdAt).getTime();
 }
 
+/** Whether `date` is known and older than `minutes` before `now`. An unknown or unreadable date is
+ * never old: `NaN` compares false. */
+function olderThan(date: string | null | undefined, now: number, minutes: number): boolean {
+  if (!date) return false;
+  return now - new Date(date).getTime() > minutes * 60 * 1000;
+}
+
+/** A quiet claim (PRD 2175): still on `inProgressLabel`, with its head commit and its last update both
+ * older than `deadMinutes`. Either date unknown, it is not quiet (BR-PRODUCT-2). */
+function isQuiet(pr: Pick<BoardPr, 'labels' | 'headCommitDate' | 'updatedAt'>, now: number, { inProgressLabel, deadMinutes }: DeadClaimRules): boolean {
+  return hasLabel(pr, inProgressLabel) && olderThan(pr.headCommitDate, now, deadMinutes) && olderThan(pr.updatedAt, now, deadMinutes);
+}
+
+/** Whether a draft could read as dead under the `dead` rules once its head commit date is known: it
+ * carries the released label, or it is still on the in-progress label and its last update is older
+ * than the quiet time. `omni board` reads a head commit date only for such a draft (or a cold one). */
+export function couldBeDead(pr: Pick<BoardPr, 'labels' | 'updatedAt'>, now: number, dead: DeadClaimRules): boolean {
+  return hasLabel(pr, dead.releasedLabel) || (hasLabel(pr, dead.inProgressLabel) && olderThan(pr.updatedAt, now, dead.deadMinutes));
+}
+
 /** A claim gone cold: a draft that has moved no further than the commit it was claimed with, and
- * whose claim itself (`createdAt`) is older than `staleMinutes`. Never reads `updatedAt` — a
+ * whose claim itself (`createdAt`) is older than `staleMinutes`. That rule never reads `updatedAt` — a
  * comment or a label change updates that field without moving the branch at all, which would let a
- * genuinely cold claim keep reading as fresh. Exported so the Engineering board's Loop health panel
- * (PRD 714) calls the kit's own rule, and it and `omni board` always agree. */
-export function isClaimedStale(pr: Pick<BoardPr, 'isDraft' | 'createdAt' | 'headCommitDate'>, now: number, staleMinutes: number): boolean {
+ * genuinely cold claim keep reading as fresh.
+ *
+ * Handed the `dead` rules (PRD 2175, `deadClaimRules`), a draft is also stale when it carries the
+ * released label, at once, or when it is quiet (`isQuiet`). Without them, only the cold rule reads.
+ * Exported so the Engineering board's Loop health panel (PRD 714) calls the kit's own rule, and it and
+ * `omni board` always agree. */
+export function isClaimedStale(
+  pr: Pick<BoardPr, 'isDraft' | 'createdAt' | 'headCommitDate'> & Partial<Pick<BoardPr, 'labels' | 'updatedAt'>>,
+  now: number,
+  staleMinutes: number,
+  dead: DeadClaimRules | null = null,
+): boolean {
   if (!pr.isDraft) return false;
+  if (dead && (hasLabel(pr, dead.releasedLabel) || isQuiet(pr, now, dead))) return true;
   if (hasCommitBeyondClaim(pr)) return false;
   const ageMs = now - timeOf(pr.createdAt);
   return ageMs > staleMinutes * 60 * 1000;
@@ -288,17 +342,19 @@ function stateFor({
   now,
   limits,
   needsFixLabel,
+  dead,
 }: {
   pr: BoardPr | null;
   blockersMerged: boolean;
   now: number;
-  limits: { claimStaleMinutes: number };
+  limits: BoardLimits;
   needsFixLabel: string;
+  dead: DeadClaimRules | null;
 }): SliceState {
   if (!pr) return blockersMerged ? 'runnable' : 'blocked';
   if (isMerged(pr)) return 'merged';
   if (hasLabel(pr, needsFixLabel)) return 'stuck';
-  if (isClaimedStale(pr, now, limits.claimStaleMinutes)) return 'claimed-stale';
+  if (isClaimedStale(pr, now, limits.claimStaleMinutes, dead)) return 'claimed-stale';
   return 'in-flight';
 }
 
@@ -393,7 +449,7 @@ export function boardFor<S extends BoardSlice>({
   slices: readonly S[];
   prs?: readonly BoardPr[];
   now?: number;
-  limits: { claimStaleMinutes: number };
+  limits: BoardLimits;
   config: BoardConfig;
   prd: { topic: string };
   repos?: BoardRepos | null;
@@ -408,6 +464,7 @@ export function boardFor<S extends BoardSlice>({
     ordered.find((entry) => entry.landing === (slice.landing ?? 1) && (!acrossRepos || entry.repo === undefined || entry.repo === slice.repo));
   const branchOf = (slice: S) => entryOf(slice)?.branch ?? '';
   const live = prs.filter(isLive);
+  const dead = deadClaimRules(config.labels, limits);
   // `String(slice.repo)` is the key JavaScript itself would look up for a missing repo name.
   const repoOf = (slice: S) => (acrossRepos ? repos?.[String(slice.repo)] ?? { slug: null, readable: false } : null);
 
@@ -442,11 +499,11 @@ export function boardFor<S extends BoardSlice>({
     delete rest.repo;
     const blockersMerged = (slice.blockedBy ?? []).every((blockerId) => mergedById.get(blockerId) === true);
     if (!repo) {
-      const state = builtInline(slice, pr) ? 'merged' : stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix });
+      const state = builtInline(slice, pr) ? 'merged' : stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix, dead });
       return { ...rest, pr, state };
     }
     const state = repo.readable
-      ? stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix })
+      ? stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix, dead })
       : 'unreadable';
     return { ...rest, repo: slice.repo, slug: repo.slug, pr, state };
   });

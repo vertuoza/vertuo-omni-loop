@@ -4,8 +4,8 @@ import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, FleetPicker, Refresh, SendAgainButton } from './actions';
 import {
-  canCancel, canSendAgain, fleetCell, madeByWords, prWords, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
-  type Fleet, type RunnersPageView,
+  canCancel, canSendAgain, fleetCell, madeByWords, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  type Fleet, type ReleaseNote, type RunnersPageView,
 } from './model';
 import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
 import { runnerJob, terminalOf } from './terminal-model';
@@ -23,7 +23,9 @@ import './runners.css';
 // Terminal button opening the job's live log over the page (PRD 1904 s4, ./Terminal.tsx; a runner's
 // opens its running job, else its last). With no runner, the page says how to start one. The controls,
 // the panel and the 5 s refresh run in the browser (./actions.tsx, ./Terminal.tsx); the rest is drawn on
-// the server, so a refresh draws it again with the new rows, the open panel kept.
+// the server, so a refresh draws it again with the new rows, the open panel kept. A job whose runner
+// released its claims once it ended lists them under its status, each linked, or says why it could not
+// (PRD 2175).
 
 type Supabase = { url: string; key: string };
 
@@ -100,6 +102,19 @@ function Action({ job, primary }: { job: Job; primary: boolean }) {
   return null;
 }
 
+/** One line under a job's status about its claims: the sub-PRs released, each linked, or why the release failed. */
+function ReleaseLine({ note }: { note: ReleaseNote }) {
+  if (note.kind === 'failed') return <span className="runners-why" data-content>{note.text}</span>;
+  return (
+    <span className="runners-why">
+      Released{' '}
+      {note.prs.map((pr, i) => (
+        <span key={pr.number}>{i > 0 && ', '}<a href={pr.url} data-content>#{pr.number}</a></span>
+      ))}
+    </span>
+  );
+}
+
 function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; fleets: readonly Fleet[]; now: Date; primary: boolean }) {
   const waiting = waitingWords(job, board.runners);
   const tokens = jobTokensWords(job);
@@ -113,6 +128,7 @@ function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; 
         <span className={`runners-status is-${statusTone(job.status)}`}>{statusWords(job, now)}</span>
         {tokens !== null && <span className="runners-tokens" title={tokens.title}>{tokens.text}</span>}
         {waiting !== null && <span className="runners-why">{waiting}</span>}
+        {releaseNotes(job).map((note) => <ReleaseLine key={note.kind} note={note} />)}
       </span>
       <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} /></span>
     </div>

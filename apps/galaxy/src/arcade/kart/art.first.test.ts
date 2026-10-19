@@ -17,7 +17,9 @@ import { COMET_RING, parseTrack, type TrackSource } from './track';
 // first frame in about the time of the frames after it, on every circuit, and on a second race on the
 // same circuit too. The first frame used to paint the circuit's ground and raise its relief: a second
 // and more on a laptop, the screen frozen and the music stuttering. Timed against the race's own later
-// frames, on the same machine, so a slower one has the same room.
+// frames, on the same machine, so a slower one has the same room. One first frame is one sample, so
+// each race has its own room: before the fix a first race's first frame took 47 to 68 times a later
+// one and a second race's 9.5 to 11; since, under a loaded machine, up to 5.2 and 2.2.
 vi.mock('@omni/design', async (original) => {
   const m = await original<typeof import('@omni/design')>();
   return { ...m, drawPlanet: () => {}, drawStarfield: () => {}, makeNebula: () => ({}), spriteImage: () => ({ width: 32, height: 48 }), drawSprite: () => {} };
@@ -59,12 +61,12 @@ const median = (values: readonly number[]): number => sure([...values].sort((a, 
 const loaded = async (track: string): Promise<KartGame> => sure(await loadKart(() => import('./index'), 7, [], { ...defaultOptions(), track }), 'the race');
 
 describe('a race\'s first frame (bug 2152)', () => {
-  it.each(CIRCUITS.map((c) => [c.name, c.id] as const))('draws %s\'s first frame in at most three times a frame after it, on its first race and on a second one', async (_name, track) => {
-    for (const race of ['first race', 'second race']) {
+  it.each(CIRCUITS.map((c) => [c.name, c.id] as const))('draws %s\'s first frame in at most 15 times a frame after it on its first race, and 5 times on a second one', async (_name, track) => {
+    for (const [race, room] of [['first race', 15], ['second race', 5]] as const) {
       const game = await loaded(track);
       const first = timed(() => { game.draw(ctx, frame(3)); });
       const later = median([4, 5, 6, 7, 8].map((t) => timed(() => { game.draw(ctx, frame(t)); })));
-      expect(first / later, `${race}: the first frame in ${first.toFixed(0)} ms, the frames after it in ${later.toFixed(0)} ms`).toBeLessThanOrEqual(3);
+      expect(first / later, `${race}: the first frame in ${first.toFixed(0)} ms, the frames after it in ${later.toFixed(0)} ms`).toBeLessThanOrEqual(room);
     }
   });
 });

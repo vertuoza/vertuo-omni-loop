@@ -73,10 +73,12 @@ function fixture({ pin }: { pin?: string } = {}) {
 type Call = { method: string; path: string; body: unknown };
 
 /** The fake Omni app: register answers `r1`, `next` hands each queued job once, then holds briefly. */
-function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = false, lost = 0 }: {
+function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = false, lost = 0, strict = false }: {
   jobs?: unknown[]; cancel?: boolean; unreachable?: number; status?: number; ended?: boolean;
   /** How many job reports carrying lines answer 503 first, storing nothing. */
   lost?: number;
+  /** An app older than PRD 2175: a job report carrying `released` or `releaseError` answers 400. */
+  strict?: boolean;
 } = {}) {
   const calls: Call[] = [];
   const queue = [...jobs];
@@ -103,14 +105,18 @@ function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = f
     await new Promise((resolve) => setTimeout(resolve, 20));
     return reply(204);
   };
+  /** Whether a report carries what a runner released (PRD 2175). */
+  const carriesRelease = (body: unknown): boolean => typeof body === 'object' && body !== null && ('released' in body || 'releaseError' in body);
+  const report = (body: unknown): Response => {
+    if (strict && carriesRelease(body)) return reply(400, { error: 'unknown keys' });
+    if (ended) return reply(409, { error: 'This job has ended.' });
+    return store(body) ?? reply(200, cancel ? { cancel: true } : {});
+  };
   const route = (pathname: string, body: unknown): Promise<Response> | Response => {
     if (status !== undefined) return reply(status, { error: 'no' });
     if (pathname === '/api/runners/register') return reply(200, { id: 'r1' });
     if (pathname === '/api/runners/next') return next();
-    if (pathname.startsWith('/api/runners/jobs/')) {
-      if (ended) return reply(409, { error: 'This job has ended.' });
-      return store(body) ?? reply(200, cancel ? { cancel: true } : {});
-    }
+    if (pathname.startsWith('/api/runners/jobs/')) return report(body);
     return reply(404);
   };
   const fetch = async (url: string, init: RequestInit): Promise<Response> => {
@@ -174,9 +180,31 @@ function fakePlugin({ version, installed = true, outcomes = [] }: { version: str
   return { handle, calls, state, updates: () => calls.filter((call) => call === 'plugin update omni@omni-loop').length };
 }
 
-/** `claude` installed and signed in, and tmux, unless told otherwise; every other command runs. */
-function fakeExec({ claude = true, signedIn = true, plugin }: { claude?: boolean; signedIn?: boolean; plugin?: ReturnType<typeof fakePlugin> } = {}) {
+/**
+ * GitHub as `gh` shows it to the runner's release (PRD 2175): `pr list` answers `prs`, every one an open
+ * draft carrying `omni:in-progress`, `api …/comments` the comments of one, and every other call
+ * succeeds. Each call is kept. Nothing reaches GitHub.
+ */
+function fakeGh(prs: { number: number; comments: string[] }[] = []) {
+  const calls: string[] = [];
+  const handle = (args: readonly string[]): string => {
+    const call = args.join(' ');
+    calls.push(call);
+    if (args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs.map((pr) => ({ number: pr.number, isDraft: true, labels: [{ name: 'omni:in-progress' }] })));
+    const comments = /^api repos\/[^/]+\/[^/]+\/issues\/(\d+)\/comments/.exec(call);
+    if (comments) return `${JSON.stringify(prs.find((pr) => pr.number === Number(comments[1]))?.comments ?? [])}\n`;
+    return '';
+  };
+  return { handle, calls };
+}
+
+/** A claim's status comment, as `/omni:pr` writes it for a runner's job. */
+const claimedBy = (job: string): string => `<!-- omni-outbox-status -->\n**Status:** claimed\n- job: ${job} · runner box-1`;
+
+/** `claude` installed and signed in, and tmux, unless told otherwise; `gh` answers from `gh`; every other command runs. */
+function fakeExec({ claude = true, signedIn = true, plugin, gh = fakeGh() }: { claude?: boolean; signedIn?: boolean; plugin?: ReturnType<typeof fakePlugin>; gh?: ReturnType<typeof fakeGh> } = {}) {
   return (file: string, args: readonly string[], options: ExecFileSyncOptions): string => {
+    if (file === 'gh') return gh.handle(args);
     if (file === 'claude') {
       if (!claude) throw new Error('spawnSync claude ENOENT');
       if (args[0] === 'auth') return signedIn ? '{"loggedIn": true}' : '{"loggedIn": false}';
@@ -510,7 +538,8 @@ describe('omni runner', () => {
         await until(ended(app), 'the job to end');
         run.stop.abort();
         expect(await run.done).toBe(0);
-        expect(Object.keys(run.terminal.sessions[0]?.env ?? {})).toEqual(['PATH', 'CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS']);
+        // PRD 2175: the job's own three variables, beside the PATH and bug 1912's.
+        expect(Object.keys(run.terminal.sessions[0]?.env ?? {})).toEqual(['PATH', 'OMNI_JOB', 'OMNI_RUNNER', 'OMNI_UNATTENDED', 'CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS']);
       });
     }
   });
@@ -728,6 +757,126 @@ describe('omni runner', () => {
       expect(code).toBe(2);
       expect(err.text()).toMatch(/^omni runner: /);
     }
+  });
+});
+
+describe('omni runner: a dead job\'s claims (PRD 2175, s2)', () => {
+  /** A worktree a runner that died left for job `id`, on its branch. */
+  const strand = (f: ReturnType<typeof fixture>, id: string): void => {
+    git(f.checkout, 'worktree', 'add', '-q', '--no-track', '-b', `agent/job-${id}`, join(f.home, 'wt', `widgets-job-${id}`), 'origin/main');
+  };
+
+  it('starts every job session with OMNI_JOB, OMNI_RUNNER and OMNI_UNATTENDED, a job with no sender too', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 21, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: null }] });
+    const run = startRunner(f, app);
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(run.terminal.sessions[0]?.env).toMatchObject({ OMNI_JOB: '21', OMNI_RUNNER: 'box-1', OMNI_UNATTENDED: '1' });
+    expect(run.terminal.sessions[0]?.env).not.toHaveProperty('OMNI_SENT_BY');
+  });
+
+  it('releases the claims a failed job still holds, and its last report carries them', async () => {
+    const f = fixture();
+    const gh = fakeGh([{ number: 1908, comments: [claimedBy('22')] }, { number: 1909, comments: [claimedBy('other')] }]);
+    const app = fakeApp({ jobs: [{ id: 22, line: '/omni:yolo fail', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app, { exec: fakeExec({ gh }) });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(app.updates().at(-1)).toMatchObject({ status: 'failed', exitCode: 3, released: [1908], releaseError: null });
+    expect(gh.calls).toContain('pr list --repo acme/widgets --state open --draft --label omni:in-progress --limit 100 --json number,isDraft,labels');
+    expect(gh.calls).toContain('pr edit 1908 --repo acme/widgets --remove-label omni:in-progress --add-label omni:released');
+    expect(gh.calls.filter((call) => call.startsWith('pr edit'))).toHaveLength(1);
+    expect(gh.calls.find((call) => call.startsWith('pr comment 1908'))).toContain('Released: runner job `22` on `box-1` ended (`exit code 3`)');
+    expect(run.stdout.text()).toContain('job 22 released #1908');
+  });
+
+  it('releases on every ending: done, timeout and cancelled, each named in the alarm', async () => {
+    const cases = [
+      { id: 23, line: '/omni:yolo 1717', args: [], cancel: false, reason: 'done' },
+      { id: 24, line: '/omni:yolo sleep-5', args: ['--timeout', '1s'], cancel: false, reason: 'timeout' },
+      { id: 25, line: '/omni:yolo sleep-5', args: [], cancel: true, reason: 'cancelled' },
+    ];
+    for (const { id, line, args, cancel, reason } of cases) {
+      const f = fixture();
+      const gh = fakeGh([{ number: 40, comments: [claimedBy(String(id))] }]);
+      const app = fakeApp({ jobs: [{ id, line, repo: 'acme/widgets', sentBy: 'ada' }], cancel });
+      const run = startRunner(f, app, { args, exec: fakeExec({ gh }) });
+      await until(ended(app), `job ${String(id)} to end`);
+      run.stop.abort();
+      await run.done;
+      expect(app.updates().at(-1)).toMatchObject({ released: [40], releaseError: null });
+      expect(gh.calls.find((call) => call.startsWith('pr comment 40'))).toContain(`ended (\`${reason}\`)`);
+    }
+  });
+
+  it('reports a release that failed, and the job\'s status still reaches the app', async () => {
+    const f = fixture();
+    const refusing = {
+      calls: [] as string[],
+      handle: (): string => {
+        throw Object.assign(new Error('Command failed: gh'), { stderr: 'HTTP 401: Bad credentials\n' });
+      },
+    };
+    const app = fakeApp({ jobs: [{ id: 26, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app, { exec: fakeExec({ gh: refusing }) });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(app.updates().at(-1)).toMatchObject({ status: 'done', released: [], releaseError: 'HTTP 401: Bad credentials' });
+    expect(run.stdout.text()).toContain('job 26 could not release its claims: HTTP 401: Bad credentials');
+  });
+
+  it('sends the last report again without what it released to an app that refuses it, and keeps running', async () => {
+    const f = fixture();
+    const gh = fakeGh([{ number: 1908, comments: [claimedBy('27')] }]);
+    const app = fakeApp({ jobs: [{ id: 27, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }], strict: true });
+    const run = startRunner(f, app, { exec: fakeExec({ gh }) });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    const last = app.updates().at(-1);
+    expect(last).toMatchObject({ status: 'done', prUrl: 'https://github.com/acme/widgets/pull/42' });
+    expect(last).not.toHaveProperty('released');
+    expect(run.stdout.text()).not.toContain('refused (400)');
+  });
+
+  it('releases, at the first sweep, the claims of a job a runner that died left, and reports them as runner lost', async () => {
+    const f = fixture();
+    strand(f, 'old1');
+    const gh = fakeGh([{ number: 1908, comments: [claimedBy('old1')] }]);
+    const app = fakeApp();
+    const run = startRunner(f, app, { exec: fakeExec({ gh }) });
+    await until(() => app.calls.some((call) => call.path === '/api/runners/jobs/old1'), 'the lost job\'s report');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    expect(app.calls.find((call) => call.path === '/api/runners/jobs/old1')?.body).toEqual({ status: 'failed', released: [1908], releaseError: null });
+    expect(gh.calls.find((call) => call.startsWith('pr comment 1908'))).toContain('ended (`runner lost`)');
+    expect(run.stdout.text()).toContain('job old1 released #1908');
+  });
+
+  it('sends nothing for a lost job that held no claim', async () => {
+    const f = fixture();
+    strand(f, 'old2');
+    const app = fakeApp();
+    const run = startRunner(f, app);
+    await until(() => run.stdout.text().includes('swept:'), 'the first sweep');
+    run.stop.abort();
+    await run.done;
+    expect(app.calls.filter((call) => call.path.startsWith('/api/runners/jobs/'))).toEqual([]);
+  });
+
+  it('prints one line when the app refuses a lost job\'s release report, and keeps running', async () => {
+    const f = fixture();
+    strand(f, 'old3');
+    const app = fakeApp({ strict: true });
+    const run = startRunner(f, app, { exec: fakeExec({ gh: fakeGh([{ number: 5, comments: [claimedBy('old3')] }]) }) });
+    await until(() => run.stdout.text().includes('its release was not reported'), 'the refused report');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    expect(run.stdout.text()).toContain('job old3: its release was not reported (refused (400))');
   });
 });
 

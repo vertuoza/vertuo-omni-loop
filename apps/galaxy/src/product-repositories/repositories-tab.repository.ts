@@ -72,7 +72,7 @@ export function repositoriesTabRepository(db: RepositoriesTabDb) {
 
     /** The workspace's repositories, by `owner/name`. */
     async repositories(workspace: string): Promise<string[]> {
-      const { data, error } = await db.from('repositories').select('full_name').eq('workspace_id', workspace);
+      const { data, error } = await db.from('repositories').select('full_name').eq('workspace_id', workspace).is('removed_at', null);
       if (error) throw new Error(`Supabase: could not read the repositories (${error.message})`);
       return orThrow(parseRows(StoredRepository, data, 'product-repositories/repositories-tab.repository: repositories')).map((r) => r.full_name);
     },

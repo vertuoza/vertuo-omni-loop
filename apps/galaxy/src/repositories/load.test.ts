@@ -11,6 +11,7 @@ import type { User } from '@supabase/supabase-js';
 import { githubClient, memoryGithubStore, type GithubClient, type GithubStore } from '@omni/github';
 import type { Installation } from '../signup/installation';
 import { loadRepositoriesPage, type RepositoriesApp } from './load';
+import { listedOf } from './model';
 
 // Settings → Repositories's read (PRD 612 s1): the workspace's repositories and the caller's role, as
 // the signed-in person; the installation and the repositories it can see, as the Omni App (stubbed:
@@ -103,8 +104,8 @@ describe('the repositories page\'s read', () => {
       workspace: { id: 'ws-1', name: 'Vertuoza' },
       owner: true,
       repositories: [
-        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr' },
-        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', products: [], publicIdeas: false, phase0: 'pr' },
+        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr', removedAt: null, planProducts: [] },
+        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', products: [], publicIdeas: false, phase0: 'pr', removedAt: null, planProducts: [] },
       ],
       access: {
         kind: 'installed',
@@ -152,6 +153,34 @@ describe('the repositories page\'s read', () => {
     expect(d.calls).toContainEqual(['from', 'product_repositories']);
     expect(d.calls).toContainEqual(['order', 'ordinal']);
     expect(d.calls).not.toContainEqual(['select', expect.stringContaining('product_id, public_ideas')]);
+  });
+
+  it('reads when each repository was removed, so the page lists only the others (PRD 2188 s1)', async () => {
+    const d = db({ repositories: { data: [STORED[0], { ...STORED[1], removed_at: '2026-10-19T10:00:00Z' }] } });
+    const load = await loadRepositoriesPage(d as never, USER, app(), INSTALL, github());
+    expect(load).toMatchObject({
+      repositories: [{ fullName: 'vertuoza/vertuo-apps', removedAt: null }, { fullName: 'vertuoza/pdf-builder', removedAt: '2026-10-19T10:00:00Z' }],
+    });
+    expect(d.calls).toContainEqual(['select', expect.stringContaining('removed_at')]);
+    expect(load.kind === 'repositories' && listedOf(load.repositories).map((r) => r.fullName)).toEqual(['vertuoza/vertuo-apps']);
+  });
+
+  it('reads the products that plan in each repository, for the confirm before a remove (PRD 2188 s1)', async () => {
+    const d = db({
+      products: { data: [
+        { id: 'p-1', name: 'Vertuoza', plan_repository: null },
+        { id: 'p-2', name: 'Mobile', plan_repository: 'Vertuoza/Vertuo-Apps' },
+        { id: 'p-3', name: 'Estimates', plan_repository: 'vertuoza/vertuo-apps' },
+      ] },
+      links: { data: [{ product_id: 'p-2', repository: 'vertuoza/vertuo-apps' }] },
+    });
+    expect(await loadRepositoriesPage(d as never, USER, app(), INSTALL, github())).toMatchObject({
+      repositories: [
+        { fullName: 'vertuoza/vertuo-apps', products: [{ id: 'p-2', name: 'Mobile' }], planProducts: [{ id: 'p-2', name: 'Mobile' }, { id: 'p-3', name: 'Estimates' }] },
+        { fullName: 'vertuoza/pdf-builder', products: [], planProducts: [] },
+      ],
+    });
+    expect(d.calls).toContainEqual(['select', expect.stringContaining('plan_repository')]);
   });
 
   it('keeps the list, with no chip, when the products or their links cannot be read', async () => {

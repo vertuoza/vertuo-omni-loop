@@ -1066,6 +1066,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'section it prints no generated files. It runs no build, and exits 0 whatever it finds.',
   },
   {
+    name: 'claim',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni claim check <prd> <slice>'],
+    summary: "whether a takeover reuses a stale claim's branch or rebuilds the slice",
+    detail:
+      "Reads the slice's claim on the remote, as last fetched: its claim commit, the slice's plan row " +
+      'then and on the feature branch now, and every file the branch changed since it last met the ' +
+      'feature branch. Prints reuse (exit 0) when the row\'s title and territory are unchanged and ' +
+      'every changed file is inside the territory (the outbox dir and generated paths always are). ' +
+      'Otherwise one rebuild line, exit 1: plan row changed: territory or title, outside territory: ' +
+      '<path>, no claim commit, or slice not in the plan. A wave runs it before taking over a stale ' +
+      'claim. Exit 2 when the feature branch cannot be read: fetch it first.',
+  },
+  {
     name: 'tier',
     kind: 'command',
     who: 'skills',

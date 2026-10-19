@@ -4,7 +4,7 @@ import { currentStage } from '../stages/stage';
 import { decodeCursor, encodeCursor, type CursorList } from './cursor';
 import { hashApiKey, isApiKeyShaped } from './keys/secret';
 import type { RunnerRefusal, KeyJob, KeySend } from '../runners/runners.contract';
-import { MEGA_BUG_FIX, type ApiJob, type BugFix, type BugFixList, type ListQuery, type Prd, type PrdList, type PublicApiErrorCode, type StartBugFix, type StartMegaBugFix } from './public-api.contract';
+import { BUG_FIX, MEGA_BUG_FIX, type ApiJob, type BugFix, type BugFixList, type ListQuery, type Prd, type PrdList, type PublicApiErrorCode, type StartBugFix, type StartMegaBugFix } from './public-api.contract';
 import type { DossierRow, ListedKind, PublicApiRepository, StageRow } from './public-api.repository';
 
 // The public API's rules (PRD 2022 s2, spec "The routes"; ADR-0095), over the repository as the service
@@ -53,7 +53,7 @@ const jobOf = (job: KeyJob): ApiJob => ({
 });
 
 /** The line a bug fix runs: the description is the skill's argument, which the runners' line check reads. */
-const bugFixLine = (description: string) => `/omni:bug-fix ${description}`;
+const bugFixLine = (description: string) => `${BUG_FIX} ${description}`;
 
 /** The line a mega bug fix runs in the plan repository: the bug, or its issue there, is the skill's argument. */
 const megaBugFixLine = (description: string) => `${MEGA_BUG_FIX} ${description}`;
