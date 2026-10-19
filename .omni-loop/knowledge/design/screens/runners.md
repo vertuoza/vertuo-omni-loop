@@ -84,4 +84,4 @@ health · Released · Could not release this job's claims.
 /omni:brainstorm, PRD 1904: .omni-loop/delivery/shipped/1904-runner-live-logs/before-after.html
 /omni:brainstorm, PRD 2022: .omni-loop/delivery/shipped/2022-api-keys-v1/before-after.html
 /omni:brainstorm, PRD 2102: .omni-loop/delivery/shipped/2102-runner-health/before-after.html
-/omni:brainstorm, PRD 2175: .omni-loop/delivery/inbox/2175-runner-dead-claims/before-after.html
+/omni:brainstorm, PRD 2175: .omni-loop/delivery/shipped/2175-runner-dead-claims/before-after.html
