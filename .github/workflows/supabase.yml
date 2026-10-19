@@ -168,6 +168,13 @@ jobs:
         # workspace's packs, nobody signed in writes them, and an agent link of another workspace reads
         # none (law BR-PRODUCT-63, PRD 2011).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/knowledge_packs.sql
+      - name: Who may push and read a repository's knowledge graph
+        # knowledge_graph_push() keeps one row per repository and commit for a member of a workspace that
+        # lists the repository, with their login, and answers their own workspaces' serving products; the
+        # same commit again leaves one row holding the second graph, the 21st commit removes the oldest. A
+        # stranger, an account of no workspace and a signed-out caller push nothing and read nothing, a
+        # malformed value is refused whole, and nobody writes the table directly (PRD 1798).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/knowledge_graphs.sql
       - name: A product's plan repository and its archive
         # Only an owner sets a product's plan repository, one its workspace lists, and archives it, refused
         # while a repository of the product is below step 5, named; an undo clears it, and an archived plan
