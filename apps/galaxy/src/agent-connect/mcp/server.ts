@@ -1,12 +1,16 @@
 // The MCP link (PRD 855 s2, decisions 1, 6 and 15): `/api/mcp` answers an editor's agent holding a
 // read-only link (`Authorization: Bearer omb_…`) over stateless Streamable HTTP, a fresh server per
-// request, JSON answers, no session id. Three tools:
+// request, JSON answers, no session id. Four tools:
 //
 //   get_business   {repo?}         exactly the body GET /api/business?repo= answers (decision 8)
 //   get_claims     {kind?, repo?}  that body's claims, of one kind when given
 //   report_unknown {question, repo?, file?}   stores the question on Settings › Business (PRD 855 s3,
 //                                  agent_question_report(), 20261028100000_agent_questions.sql), and says so;
 //                                  a new question then goes to Jev's Unknown worth asking (s4, deps.reported)
+//   get_knowledge_graph {id, depth?, repo?}   exactly the body GET /api/products/<key>/knowledge/graph
+//                                  answers for the product the link resolves for `repo` (PRD 1798 s4):
+//                                  knowledge_graph_for_token() reads the rows for the token, and s3's own
+//                                  join and walk answer (src/knowledge-graph/link.service.ts)
 //
 // The token is checked by the database: galaxy hashes it and business_for_token() reads the business
 // for that hash (supabase/migrations/20261028090000_agent_tokens.sql), as nobody, with no service key
@@ -17,9 +21,14 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
+import { ProductNeighbourhoodSchema } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
+import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { RpcAnswer } from '../../business/answer';
 import { businessReader, BusinessStoreError } from '../../business-api/read';
+import { linkGraphRepository } from '../../knowledge-graph/link.repository';
+import { linkGraphService } from '../../knowledge-graph/link.service';
+import { GRAPH_READ_REFUSALS, GraphQuerySchema } from '../../knowledge-graph/product-graph.contract';
 import { hashToken, isTokenShaped } from '../tokens/token';
 
 type Rpc = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
@@ -49,6 +58,7 @@ const INSTRUCTIONS = [
   'The business this code is built for: who the customer is, where we sell, against whom, and what we never build.',
   'Read it with get_business (or get_claims for one kind) before deciding anything it settles, and cite the claim ids you rely on, like region#1.',
   'When no claim answers your question, call report_unknown with it instead of guessing, and tell your person it is not known yet.',
+  'For the rules, invariants and laws behind the product, in every one of its repositories, read get_knowledge_graph, and cite the ids you rely on.',
 ].join(' ');
 
 const repoInput = z.string().max(200).regex(REPO, 'the repository as owner/name').optional()
@@ -71,6 +81,21 @@ function refused(error: unknown) {
   if (error.code === '42501' || error.code === '22023' || error.code === '54000') return text(error.reason, true);
   console.error(`mcp: ${error.message}`);
   return text(FAILED, true);
+}
+
+/** The one line a refused read of the knowledge graph answers: the link's, or the database's own reason. */
+function graphRefused(code: string | undefined, reason: string) {
+  if (code === '28000') return text(LINK_REFUSED, true);
+  if (code === '42501' || code === '22023') return text(reason, true);
+  log.error({ event: 'mcp', outcome: 'failed', fn: 'get_knowledge_graph', message: reason });
+  return text(GRAPH_READ_REFUSALS.notRead, true);
+}
+
+/** The node and depth asked, as the read route takes them, or the refusal of the first one wrong. */
+function graphQueryOf(id: string, depth: number | undefined) {
+  const parsed = GraphQuerySchema.safeParse({ id, depth: depth === undefined ? undefined : String(depth) });
+  if (parsed.success) return parsed.data;
+  return text(parsed.error.issues[0]?.path[0] === 'depth' ? GRAPH_READ_REFUSALS.depth : GRAPH_READ_REFUSALS.id, true);
 }
 
 /** What agent_question_report() answers: the question's id and how many times it was asked. */
@@ -168,6 +193,36 @@ function server(hash: string | null, deps: McpDeps): McpServer {
     if (asked === 1 && id) judge(id);
     return asked > 1 ? `${REPORTED} It was asked ${asked}× so far.` : REPORTED;
   }));
+
+  mcp.registerTool('get_knowledge_graph', {
+    title: 'The product\'s knowledge graph',
+    description: 'The product\'s knowledge as a graph, across every repository of the product: the neighbourhood of one '
+      + 'node, `depth` edges out (1 to 3, 1 by default). It holds the principles, rules, invariants and laws of each '
+      + 'repository, with their tests and paths, and the product\'s Legal entries, Glossary terms and Never lines; which '
+      + 'repository each node is from, each repository\'s last pushed commit (how old its graph is), and the ids that did '
+      + 'not resolve. Name the node as `id`: a repository node\'s id after its repository\'s short name, like '
+      + 'vertuo-omni-loop/BR-PRODUCT-3, a Legal id, like L-INVOICING-1, or term:<word>. Cite the ids you rely on, like '
+      + 'L-INVOICING-1 or vertuo-omni-loop/BR-PRODUCT-3.',
+    inputSchema: {
+      id: z.string().describe('The node to start from: vertuo-omni-loop/BR-PRODUCT-3, L-INVOICING-1 or term:<word>.'),
+      depth: z.number().optional().describe('How many edges out, from 1 to 3. 1 when left out.'),
+      repo: repoInput,
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  }, async ({ id, depth, repo }) => {
+    if (!deps.connect) return text(GRAPH_READ_REFUSALS.noDatabase, true);
+    if (!hash) return text(LINK_REFUSED, true);
+    const query = graphQueryOf(id, depth);
+    if ('content' in query) return query;
+    try {
+      const read = await linkGraphService(linkGraphRepository(deps.connect())).neighbourhood(hash, { repo: repo ?? null, ...query });
+      if (read.kind === 'refused') return graphRefused(read.code, read.reason);
+      if (read.kind === 'no-node') return text(`No node ${query.id} in the knowledge graph of ${read.product}.`, true);
+      return text(JSON.stringify(ProductNeighbourhoodSchema.parse(read.body)));
+    } catch (error) {
+      return graphRefused(undefined, error instanceof Error ? error.message : String(error));
+    }
+  });
 
   return mcp;
 }
