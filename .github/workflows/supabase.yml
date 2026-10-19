@@ -168,6 +168,21 @@ jobs:
         # workspace's packs, nobody signed in writes them, and an agent link of another workspace reads
         # none (law BR-PRODUCT-63, PRD 2011).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/knowledge_packs.sql
+      - name: Who may push and read a repository's knowledge graph
+        # knowledge_graph_push() keeps one row per repository and commit for a member of a workspace that
+        # lists the repository, with their login, and answers their own workspaces' serving products; the
+        # same commit again leaves one row holding the second graph, the 21st commit removes the oldest. A
+        # stranger, an account of no workspace and a signed-out caller push nothing and read nothing, a
+        # malformed value is refused whole, and nobody writes the table directly (PRD 1798).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/knowledge_graphs.sql
+      - name: What an agent's link reads of its product's knowledge graph
+        # knowledge_graph_for_token() answers a live business link its own product (its repository's only
+        # one, or the business's only one) with its links, Legal entries, terms and Never lines, and the
+        # latest graph of each link serving its own knowledge, never an imported one's nor another
+        # workspace's. A revoked, unknown, kit or ex-member's token reads nothing (28000), another
+        # workspace's repository is refused, named (42501), and no single product is one line (22023)
+        # (law BR-PRODUCT-63, PRD 1798).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/knowledge_graphs_link.sql
       - name: A product's plan repository and its archive
         # Only an owner sets a product's plan repository, one its workspace lists, and archives it, refused
         # while a repository of the product is below step 5, named; an undo clears it, and an archived plan

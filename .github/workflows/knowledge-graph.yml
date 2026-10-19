@@ -1,0 +1,33 @@
+# The knowledge graph push (PRD 1798 s7): on every push to main, the repository's whole knowledge
+# graph goes to the Omni page through `omni kb graph push`, so the product's graph follows main.
+# It holds no write permission: the push is a sign-in with the kit token OMNI_TOKEN, and the page
+# stores the graph. Without the secret the step does nothing and the run stays green. A
+# `chore(release): ` head is skipped: that commit only stamps versions.
+name: knowledge-graph
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  push:
+    if: >-
+      ${{ !startsWith(github.event.head_commit.message, 'chore(release): ') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: knowledge-graph    # one push at a time, a queued one is never cancelled
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Push the knowledge graph of main
+        env:
+          OMNI_TOKEN: ${{ secrets.OMNI_TOKEN }}
+        run: |
+          if [ -z "$OMNI_TOKEN" ]; then
+            echo "OMNI_TOKEN is not set: no knowledge graph push"
+            exit 0
+          fi
+          node kit/dist/omni.mjs kb graph push

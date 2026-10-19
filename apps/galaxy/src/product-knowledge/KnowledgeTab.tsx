@@ -15,6 +15,10 @@ const PRODUCTS_HOME_HREF = '/app/products';
 
 export const KNOWLEDGE_LABEL = 'Knowledge';
 
+/** The product's knowledge graph (PRD 1798 s6), read-only, linked from this tab's heading. */
+export const knowledgeGraphHref = (product: string) => `${knowledgeTabHref(product)}/graph`;
+export const GRAPH_LINK = 'Explore the knowledge graph →';
+
 export type KnowledgeTabView = Situation | { kind: 'not-found' } | { kind: 'tab'; source: TabSource; tab: KnowledgeTab };
 
 /** The demo's tab: a Legal owner and a delegate, one entry and one term, one proposal; the reader a member. */
@@ -61,6 +65,7 @@ export function KnowledgeTabScreen({ view, tabs }: KnowledgeTabScreenProps) {
           <Link className="products-back" href={PRODUCTS_HOME_HREF}>← Products</Link>
           <h1 id="product-home-title">{tab.product.name}</h1>
           <p className="ask-muted">What the law requires, and the product’s words, shared by every repository of the product.</p>
+          <p><Link href={knowledgeGraphHref(tab.product.id)}>{GRAPH_LINK}</Link></p>
         </section>
         <SectionTabs label={tab.product.name} tabs={tabs} current={knowledgeTabHref(tab.product.id)} />
         <KnowledgeTabPage source={view.source} tab={tab} />

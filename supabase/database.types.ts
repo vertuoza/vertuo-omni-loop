@@ -1633,6 +1633,33 @@ export type Database = {
           },
         ]
       }
+      knowledge_graphs: {
+        Row: {
+          graph: Json
+          pushed_at: string
+          pushed_by: string | null
+          pushed_by_login: string | null
+          repository: string
+          sha: string
+        }
+        Insert: {
+          graph: Json
+          pushed_at?: string
+          pushed_by?: string | null
+          pushed_by_login?: string | null
+          repository: string
+          sha: string
+        }
+        Update: {
+          graph?: Json
+          pushed_at?: string
+          pushed_by?: string | null
+          pushed_by_login?: string | null
+          repository?: string
+          sha?: string
+        }
+        Relationships: []
+      }
       knowledge_pack_files: {
         Row: {
           content: string
@@ -4870,6 +4897,14 @@ export type Database = {
         Returns: boolean
       }
       kit_tokens_mine: { Args: { p_workspace: string }; Returns: Json }
+      knowledge_graph_for_token: {
+        Args: { p_hash: string; p_repo?: string }
+        Returns: Json
+      }
+      knowledge_graph_push: {
+        Args: { p_graph: Json; p_repo: string; p_sha: string }
+        Returns: Json
+      }
       knowledge_pack_for_token: {
         Args: { p_hash: string; p_repo: string; p_sha?: string }
         Returns: Json

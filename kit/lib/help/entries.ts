@@ -266,7 +266,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb legal', 'omni kb glossary', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb legal', 'omni kb glossary', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:
@@ -277,7 +277,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'the map of every form and register and every open question; graph the knowledge registers ' +
       "as one graph, or with an <id> the neighbourhood of one entry (--paths <file>… for every entry " +
       'that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood ' +
-      "document); legal and glossary print the product's active Legal entries and its glossary " +
+      'document); graph push sends the whole repository graph, at HEAD, to the Omni page ' +
+      '(a clean knowledge folder and a sign-in needed); legal and glossary print ' +
+      "the product's active Legal entries and its glossary " +
       'terms, one line each, read from the Omni page and kept as a local copy, which they print, ' +
       'saying so, when the page is unreachable; init lays down every missing form, blank, and ' +
       'changes no file that exists.',

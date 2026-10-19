@@ -364,8 +364,20 @@ function directionOf(edge: NeighbourhoodEdge, from: string): 'up' | 'down' | 'si
   return edge.kind === 'enforced-by' || edge.kind === 'governs' || edge.kind === 'points-to' ? 'down' : 'side';
 }
 
+/**
+ * What the text prints: a node of a neighbourhood, or of a product's (PRD 1798, s5), which adds the
+ * repository's short name (`repo`, `null` on a node of the product, absent in version 1) and the kind `never`.
+ */
+export type PrintNode = Pick<NeighbourhoodNode, 'id' | 'label' | 'status' | 'hop'> & { kind: string; repo?: string | null };
+
+/** The part of a neighbourhood the text reads, version 1 or 2. */
+export type PrintGraph = { start: readonly string[]; nodes: readonly PrintNode[]; edges: readonly NeighbourhoodEdge[] };
+
 /** One printed row: its indent, its direction and edge, and either a node or the count of those cut. */
-type Row = { indent: string; direction: string; edge: EdgeKind } & ({ node: NeighbourhoodNode } | { more: number });
+type Row = { indent: string; direction: string; edge: EdgeKind } & ({ node: PrintNode } | { more: number });
+
+/** A node's id as printed: a repository's node leads with that repository's short name. */
+const idCell = ({ id, repo }: PrintNode): string => (repo === undefined || repo === null ? id : `${repo} ${id}`);
 
 /** The other end of `edge` from `id`, or `null` when the edge does not touch it. */
 function otherEnd(edge: NeighbourhoodEdge, id: string): string | null {
@@ -374,9 +386,9 @@ function otherEnd(edge: NeighbourhoodEdge, id: string): string | null {
 }
 
 /** The nodes one hop past `parent` that no line printed yet, each with the first edge reaching it; marks them printed. */
-function childrenOf(parent: NeighbourhoodNode, built: Neighbourhood, printed: Set<string>): { edge: NeighbourhoodEdge; node: NeighbourhoodNode }[] {
+function childrenOf(parent: PrintNode, built: PrintGraph, printed: Set<string>): { edge: NeighbourhoodEdge; node: PrintNode }[] {
   const byId = new Map(built.nodes.map((node) => [node.id, node]));
-  const children: { edge: NeighbourhoodEdge; node: NeighbourhoodNode }[] = [];
+  const children: { edge: NeighbourhoodEdge; node: PrintNode }[] = [];
   for (const edge of built.edges) {
     const node = byId.get(otherEnd(edge, parent.id) ?? '');
     if (node === undefined || node.hop !== parent.hop + 1 || printed.has(node.id)) continue;
@@ -387,7 +399,7 @@ function childrenOf(parent: NeighbourhoodNode, built: Neighbourhood, printed: Se
 }
 
 /** The rows under `parent`: each node one hop further first reached through an edge of `parent`, cut per edge kind. */
-function rowsUnder(parent: NeighbourhoodNode, built: Neighbourhood, printed: Set<string>): Row[] {
+function rowsUnder(parent: PrintNode, built: PrintGraph, printed: Set<string>): Row[] {
   const indent = '  '.repeat(parent.hop + 1);
   const children = childrenOf(parent, built, printed);
   const rows: Row[] = [];
@@ -407,8 +419,8 @@ function rowsUnder(parent: NeighbourhoodNode, built: Neighbourhood, printed: Set
 }
 
 /** The start's line: id, kind, status, a pending proof, and its headline. */
-function startLine(node: NeighbourhoodNode, entry: KnowledgeEntry | undefined): string {
-  const parts = [node.id, node.kind];
+function startLine(node: PrintNode, entry: KnowledgeEntry | undefined): string {
+  const parts = [idCell(node), node.kind];
   if (node.status === 'law') parts.push(`law${entry?.locked?.by ? `, locked by @${entry.locked.by}` : ''}`);
   else if (node.status !== null) parts.push(node.status);
   const pending = entry?.pending ?? null;
@@ -422,12 +434,12 @@ function rowLines(rows: readonly Row[]): string[] {
   const lead = width(rows.map(({ indent, direction }) => indent + direction));
   const edge = width(rows.map((row) => row.edge));
   const nodes = rows.flatMap((row) => ('node' in row ? [row.node] : []));
-  const id = width(nodes.map((node) => node.id));
+  const id = width(nodes.map(idCell));
   const kind = width(nodes.map((node) => node.kind));
   return rows.map((row) => {
     const head = `${(row.indent + row.direction).padEnd(lead)}  ${row.edge.padEnd(edge)}  `;
     if (!('node' in row)) return `${head}… and ${row.more} more (--json lists them all)`;
-    return `${head}${row.node.id.padEnd(id)}  ${row.node.kind.padEnd(kind)}  ${row.node.label ?? ''}`.trimEnd();
+    return `${head}${idCell(row.node).padEnd(id)}  ${row.node.kind.padEnd(kind)}  ${row.node.label ?? ''}`.trimEnd();
   });
 }
 
@@ -436,7 +448,7 @@ function rowLines(rows: readonly Row[]): string[] {
  * node under it, at most {@link LINES_PER_EDGE} per edge kind, indented two spaces per hop. `entries`
  * gives the start's lock and its pending proof, which the JSON does not carry.
  */
-export function neighbourhoodBody(built: Neighbourhood, entries: readonly KnowledgeEntry[]): string[] {
+export function neighbourhoodBody(built: PrintGraph, entries: readonly KnowledgeEntry[]): string[] {
   const printed = new Set(built.start);
   const lines: string[] = [];
   for (const node of built.nodes.filter(({ hop }) => hop === 0)) {
@@ -448,4 +460,44 @@ export function neighbourhoodBody(built: Neighbourhood, entries: readonly Knowle
 /** The neighbourhood as text: its body, then the product line. */
 export function neighbourhoodText(built: Neighbourhood, entries: readonly KnowledgeEntry[], unreadable = false): string {
   return [...neighbourhoodBody(built, entries), productLine(built.product, unreadable)].join('\n');
+}
+
+/** A node of a pushed graph: the neighbourhood's node without its hop, always read from the repository. */
+export type RepositoryGraphNode = Omit<NeighbourhoodNode, 'hop' | 'origin'> & { origin: 'repository' };
+
+/** The whole repository's graph as `omni kb graph push` sends it (`graph-schema.ts` reads it). */
+export type RepositoryGraphBody = { version: typeof NEIGHBOURHOOD_VERSION; shape: 'repository'; nodes: RepositoryGraphNode[]; edges: NeighbourhoodEdge[] };
+
+/**
+ * **Every node and edge of the repository** (PRD 1798, s2): the links {@link buildNeighbourhood}
+ * walks out of one entry, taken out of all of them. The product's own nodes (a Legal entry, a
+ * glossary term: `origin: 'product'`) are left out, since the server holds them; an edge may still
+ * end at an `L-…` id or a `term:<word>` for the server to join, and a `serves` edge to an `L-…` id
+ * is kept whether or not the cache holds that entry. The terms come from the cached glossary alone.
+ */
+export function buildRepositoryGraph(sources: Pick<NeighbourhoodSources, 'entries' | 'records' | 'screens' | 'screensDir' | 'legal' | 'glossary'>): RepositoryGraphBody {
+  const walked = sources.entries.filter(isWalked);
+  const index: Index = {
+    walked,
+    byId: new Map(walked.map((entry) => [entry.id, entry])),
+    records: sources.records,
+    screens: sources.screens ?? [],
+    screensDir: sources.screensDir ?? null,
+    cached: true,
+    legal: new Map((sources.legal ?? []).map((legal) => [legal.id, legal])),
+    glossary: sources.glossary ?? [],
+  };
+  const nodes = new Map<string, RepositoryGraphNode>();
+  const edges = new Map<string, NeighbourhoodEdge>();
+  const keep = (node: Link['node']): void => {
+    if (node.origin === 'repository' && !nodes.has(node.id)) nodes.set(node.id, { ...node, origin: 'repository' });
+  };
+  for (const entry of walked) {
+    keep(entryNode(entry));
+    for (const { edge, node } of linksOf(entry, index)) {
+      keep(node);
+      edges.set(edgeKey(edge), edge);
+    }
+  }
+  return { version: NEIGHBOURHOOD_VERSION, shape: 'repository', nodes: [...nodes.values()], edges: [...edges.values()] };
 }
