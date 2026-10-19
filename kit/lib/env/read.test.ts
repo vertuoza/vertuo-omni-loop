@@ -291,6 +291,12 @@ describe('the runner job (PRD 2175)', () => {
     expect(VARIABLES).not.toContain('OMNI_JOB');
   });
 
+  it('reads OMNI_UNATTENDED as on unless it is empty, 0, off or false, whatever its case or spaces', () => {
+    for (const flag of ['1', 'yes', ' on ', 'TRUE']) expect(unattendedOf({ OMNI_UNATTENDED: flag }), flag).toBe(true);
+    for (const flag of ['', '  ', '0', ' 0 ', 'off', 'OFF', 'false', ' False ']) expect(unattendedOf({ OMNI_UNATTENDED: flag }), flag).toBe(false);
+    expect(unattendedOf({})).toBe(false);
+  });
+
   it('reads the variables it sets back as the same job, unattended', () => {
     const set = runnerJobVariables('job-7', 'box-1');
     expect(runnerJobOf(set)).toEqual({ job: 'job-7', runner: 'box-1' });
