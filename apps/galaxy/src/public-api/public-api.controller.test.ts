@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { API_KEY, OLGA } from '../runners/fixtures/store.fake';
+import { API_KEY, OLGA, WORKSPACE } from '../runners/fixtures/store.fake';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
-import { DEAD_KEY, FAILED, getJob, listBugFixes, listPrds, startBugFix, NO_DATABASE, NO_KEY, type PublicApiDeps } from './public-api.controller';
+import { DEAD_KEY, FAILED, getJob, listBugFixes, listPrds, startBugFix, startMegaBugFix, NO_DATABASE, NO_KEY, type PublicApiDeps } from './public-api.controller';
 import { JobSchema, PublicApiErrorSchema } from './public-api.contract';
 import { publicApiService } from './public-api.service';
 import type { PublicApiRepository } from './public-api.repository';
@@ -263,5 +263,91 @@ describe('POST /api/v1/bug-fixes and GET /api/v1/jobs/{id} (PRD 2022 s4)', () =>
     expect(response.status).toBe(500);
     expect(await errorOf(response)).toEqual({ code: 'internal', message: FAILED });
     expect(logs).toEqual(['public-api: runner_jobs: permission denied']);
+  });
+});
+
+describe('POST /api/v1/mega-bug-fixes', () => {
+  const post = (body: unknown, authorization: string | null = `Bearer ${SECRETS.runners}`) => new Request(`${ORIGIN}/api/v1/mega-bug-fixes`, {
+    method: 'POST', headers: authorization === null ? {} : { authorization }, body: typeof body === 'string' ? body : JSON.stringify(body),
+  });
+  const ISSUE = 'https://github.com/vertuoza/plan/issues/612';
+  const FIX = { repo: 'vertuoza/plan', description: ISSUE };
+
+  /** The fake, with vertuoza/plan named as a plan repository of the runners' workspace. */
+  function withPlan(): FakePublicApi {
+    const api = fakePublicApi();
+    api.planRepository(WORKSPACE, 'vertuoza/plan');
+    return api;
+  }
+
+  it('queues /omni:mega-bug-fix in the plan repository and answers 202 with the job, sent by the key', async () => {
+    const api = withPlan();
+    const response = await startMegaBugFix(post(FIX), deps(api));
+    expect(response.status).toBe(202);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    const job = JobSchema.parse(await response.json());
+    expect(job).toMatchObject({ status: 'queued', repo: 'vertuoza/plan', runner: null, pr_url: null, line: `/omni:mega-bug-fix ${ISSUE}` });
+    expect(api.runnersState.jobs[0]).toMatchObject({ id: job.id, sent_by_key: API_KEY, sent_by: OLGA, line: job.line });
+  });
+
+  it('is followed as any job a key queued', async () => {
+    const api = withPlan();
+    const queued = JobSchema.parse(await (await startMegaBugFix(post({ ...FIX, runner: 'cia-box' }), deps(api))).json());
+    const asked = await getJob(get(`/api/v1/jobs/${queued.id}`, `Bearer ${SECRETS.runners}`), queued.id, deps(api));
+    expect(asked.status).toBe(200);
+    expect(await asked.json()).toMatchObject({ id: queued.id, line: `/omni:mega-bug-fix ${ISSUE}`, status: 'queued' });
+  });
+
+  it('answers 401 without a live key, queueing nothing', async () => {
+    const api = withPlan();
+    for (const authorization of [null, `Bearer ${SECRETS.revoked}`, `Bearer ${SECRETS.unknown}`]) {
+      const response = await startMegaBugFix(post(FIX, authorization), deps(api));
+      expect(response.status).toBe(401);
+      expect((await errorOf(response)).code).toBe('unauthorized');
+    }
+    expect(api.runnersState.jobs).toEqual([]);
+  });
+
+  it('answers 403 for a plan repository off the key’s allow-list', async () => {
+    const api = withPlan();
+    const response = await startMegaBugFix(post(FIX, `Bearer ${SECRETS.runnersLimited}`), deps(api));
+    expect(response.status).toBe(403);
+    expect(await errorOf(response)).toEqual({ code: 'forbidden', message: 'vertuoza/plan is not on this API key’s list of repositories.' });
+    expect(api.runnersState.jobs).toEqual([]);
+  });
+
+  for (const [what, body, field] of [
+    ['a repository that is no plan repository', { ...FIX, repo: 'vertuoza/app' }, 'repo: vertuoza/app is not a plan repository'],
+    ['a repository outside the workspace', { ...FIX, repo: 'elsewhere/plan' }, 'repo: elsewhere/plan is not a plan repository'],
+    ['a field it does not know', { ...FIX, skill: 'bug-fix' }, 'skill: '],
+    ['a --product flag', { ...FIX, description: `${ISSUE} --product mobile` }, 'description: '],
+    ['a 182-character description', { ...FIX, description: 'a'.repeat(182) }, 'description: '],
+    ['a description with shell characters', { ...FIX, description: 'x; rm -rf ~' }, 'description: '],
+    ['no repository', { description: ISSUE }, 'repo: '],
+    ['an unknown runner', { ...FIX, runner: 'ghost' }, 'runner or fleet: '],
+    ['a body that is not JSON', 'nope', 'The body must be'],
+  ] as const) {
+    it(`answers 422 to ${what}, naming the field, and queues nothing`, async () => {
+      const api = withPlan();
+      const response = await startMegaBugFix(post(body), deps(api));
+      expect(response.status).toBe(422);
+      const error = await errorOf(response);
+      expect(error.code).toBe('invalid_request');
+      expect(error.message.startsWith(field), error.message).toBe(true);
+      expect(api.runnersState.jobs).toEqual([]);
+    });
+  }
+
+  it('answers 500 without the database’s words when the plan check fails, and 500 with no database', async () => {
+    const api = withPlan();
+    const logs: string[] = [];
+    const broken = { ...api.repository, isPlanRepository: () => Promise.reject(new Error('products.plan_repository: permission denied')) };
+    const response = await startMegaBugFix(post(FIX), { service: publicApiService(broken, api.runners), log: (line) => logs.push(line) });
+    expect(response.status).toBe(500);
+    expect(await errorOf(response)).toEqual({ code: 'internal', message: FAILED });
+    expect(logs).toEqual(['public-api: products.plan_repository: permission denied']);
+    const none = await startMegaBugFix(post(FIX), deps(null));
+    expect(none.status).toBe(500);
+    expect(await errorOf(none)).toEqual({ code: 'internal', message: NO_DATABASE });
   });
 });

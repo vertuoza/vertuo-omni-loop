@@ -67,6 +67,15 @@ describe('the OpenAPI reference', () => {
     expect(Object.keys(job?.responses ?? {})).toEqual(expect.arrayContaining(['200', '401', '404', '500']));
   });
 
+  it('describes starting a mega bug fix, with a strict body and no 404', () => {
+    const post = document.paths?.['/api/v1/mega-bug-fixes']?.post;
+    expect(post?.requestBody).toBeDefined();
+    expect(Object.keys(post?.responses ?? {}).sort()).toEqual(['202', '401', '403', '422', '500']);
+    const body = JSON.stringify(post?.requestBody);
+    expect(body).toContain('"additionalProperties":false');
+    expect(body).toContain('"maxLength":181');
+  });
+
   it('is what GET /api/v1/openapi.json answers, with no key', async () => {
     const answer = GET();
     expect(answer.status).toBe(200);
