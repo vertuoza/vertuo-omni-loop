@@ -791,3 +791,12 @@ Why: Terminal tokens are personal credentials, unlike shared business links, so 
 Source: .omni-loop/delivery/shipped/1628-cloud-sign-in/outbox/settled.md, entry s1-03-who-sees-tokens, PRD #1628
 Merged: @pierrederval, 2026-10-12, PR #1629
 Proposed: harvest 2026-10-12
+
+## P-PRODUCT-100
+
+Making one choice on a view never silently undoes another choice the person already made there.
+
+Why: A person should be able to combine their choices, such as a PRD and a repository, without having to redo the first one.
+Source: .omni-loop/delivery/shipped/2129-constellation-tab/outbox/settled.md, entry s2-01-filter-and-star-together, PRD #2129
+Merged: @pierrederval, 2026-10-17, PR #2130
+Proposed: harvest 2026-10-17
