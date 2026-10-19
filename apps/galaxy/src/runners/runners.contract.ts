@@ -3,7 +3,7 @@
 //
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
-//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?} → {cancel}
+//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser                               → JobLines
 //   POST  /api/runners/jobs                browser {line, repo, target}                      → {job}
@@ -118,6 +118,10 @@ const TokenCountsSchema = z.object({
 }).strict();
 export type TokenCounts = z.infer<typeof TokenCountsSchema>;
 
+/** The most claims a job's report says its runner released, and the longest reason a release failed (PRD 2175). */
+const RELEASED_MAX = 50;
+const RELEASE_ERROR_CHARS = 200;
+
 /** A runner's report on a job it claimed. The log tail is cut to its last 200 lines and 16 KB here.
  * `from` and `lines` come together or not at all (PRD 1904): the readable log's lines after the
  * runner's cursor, the first of them numbered `from` (its 1-based line number in the log). */
@@ -131,6 +135,10 @@ export const JobUpdateSchema = z.object({
   reason: z.string().max(200).nullable().optional(),
   /** The tokens of the job's worktree and every folder below it (PRD 2102), stored in `runner_jobs.tokens`. */
   tokens: TokenCountsSchema.optional(),
+  /** The claims (sub-PR numbers) its runner released once it ended (PRD 2175), stored in `runner_jobs.released`. */
+  released: z.array(z.number().int().positive()).max(RELEASED_MAX).optional(),
+  /** Why the release failed, or null when nothing did (PRD 2175), stored in `runner_jobs.release_error`. */
+  releaseError: z.string().max(RELEASE_ERROR_CHARS).nullable().optional(),
 }).strict().refine((report) => (report.from === undefined) === (report.lines === undefined), { message: 'from and lines come together' });
 export type JobUpdate = z.infer<typeof JobUpdateSchema>;
 
@@ -222,6 +230,10 @@ const JobSchema = z.object({
   reason: z.string().nullable(),
   /** The tokens its runner reported (PRD 2102); null until one did. */
   tokens: TokenCountsSchema.nullable().optional(),
+  /** The claims its runner released once it ended (PRD 2175); null when its report said none. */
+  released: z.array(z.number().int()).nullable().optional(),
+  /** Why its runner could not release its claims (PRD 2175); null when nothing failed. */
+  releaseError: z.string().nullable().optional(),
   queuedAt: z.string(),
   claimedAt: z.string().nullable(),
   runningAt: z.string().nullable(),

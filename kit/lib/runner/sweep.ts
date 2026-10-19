@@ -116,6 +116,25 @@ export function dropJobBranch(exec: ExecText, checkout: string, branch: string):
   return !branchPushed(exec, checkout, branch) && deleteBranch(exec, checkout, branch);
 }
 
+/** A job no slot holds whose worktree is still there: its id and the repository it ran in. */
+export type StrandedJob = { job: string; repo: string };
+
+/**
+ * The jobs whose `~/wt/<repo>-job-<id>` folder is there while no slot holds them, `<repo>` the name of
+ * a checkout held: what a runner that died, or restarted, left. The app marks them lost (#2170).
+ */
+export function strandedJobs({ home, checkouts, running }: Pick<SweepOptions, 'home' | 'checkouts' | 'running'>): StrandedJob[] {
+  const wt = join(home, 'wt');
+  const stranded: StrandedJob[] = [];
+  for (const name of namesIn(wt)) {
+    const repo = [...checkouts.keys()].find((held) => worktreeJob(name, [held.split('/').at(-1) ?? held]) !== null);
+    const job = repo === undefined ? null : worktreeJob(name, [repo.split('/').at(-1) ?? repo]);
+    if (repo === undefined || job === null || running.has(job) || !lstatSync(join(wt, name)).isDirectory()) continue;
+    stranded.push({ job, repo });
+  }
+  return stranded;
+}
+
 /** Removes the `~/wt` folders of jobs not running: how many, and their bytes. */
 function sweepWorktrees({ home, checkouts, running }: SweepOptions): { count: number; bytes: number } {
   const wt = join(home, 'wt');

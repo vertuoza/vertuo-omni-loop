@@ -103,6 +103,10 @@ the command prints, and what the agent does next, depend on its exit code:
 | `3` | the page is not used: ask mode off, no sign-in, the page unreachable, or the question closed | asks you in its own chat, then sends your answer (step 4). The reason is the one line on stderr |
 | `2` | the command or the file is wrong | fixes the field the line names, and asks again |
 
+An unattended run, a runner job with `OMNI_UNATTENDED` set, asks no one: `omni ask question` and
+`omni ask wait` open no round, wait for nothing and exit `3` with the line `unattended`. The agent
+asks nothing and records a decision as an outbox item ranked high.
+
 It waits 110 seconds by default, so the call ends before a cloud shell gives up at two minutes.
 `--wait` takes any number of seconds from 10 to 540:
 
