@@ -25,8 +25,6 @@
 .constellation-edge { fill: none; stroke: var(--ask-line-strong); stroke-width: 2; }
 .constellation-flow { fill: none; stroke: var(--ask-cyan); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 0 100; animation: constellation-flow 3.4s linear infinite; }
 @keyframes constellation-flow { to { stroke-dashoffset: -100; } }
-.constellation-edge-label { fill: var(--ask-muted); font: 11px var(--ask-mono); paint-order: stroke; stroke: var(--ask-sunk); stroke-width: 4px; stroke-linejoin: round; }
-.constellation-sky [data-faded] { opacity: 0.25; }
 
 .constellation-star { cursor: pointer; }
 .constellation-star:focus-visible { outline: none; }
@@ -59,25 +57,6 @@
 .constellation-key[data-key='on-you'] { border-color: var(--ask-yellow); }
 .constellation-key[data-key='drifted'] { border-color: var(--ask-red); }
 
-.constellation-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
-.constellation-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 4px 12px;
-  box-sizing: border-box;
-  border: 1px solid var(--ask-line-strong);
-  border-radius: 999px;
-  background: var(--ask-surface);
-  color: var(--ask-ink);
-  font-size: 13px;
-  text-decoration: none;
-  overflow-wrap: anywhere;
-}
-.constellation-chip:hover { border-color: var(--ask-plasma); }
-.constellation-chip[aria-current] { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); font-weight: 700; }
-.constellation-chip b { font-family: var(--ask-mono); }
 
 .constellation-body-grid { display: grid; gap: 16px; min-width: 0; }
 .constellation-main { display: grid; gap: 12px; min-width: 0; }
@@ -117,3 +96,8 @@
 @media (max-width: 599px) {
   .constellation-sky { width: 680px; }
 }
+
+/* PRD 2174 s3: plan lines (a link, thicker by weight, moving dots when one of its PRDs is in flight) and the
+   declared consumes lines, thin and apart. s4 draws them in the night sky. */
+.constellation-plan { cursor: pointer; }
+.constellation-consumes { fill: none; stroke: var(--ask-muted); stroke-width: 1; }

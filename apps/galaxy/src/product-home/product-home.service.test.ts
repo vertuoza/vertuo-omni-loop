@@ -17,7 +17,7 @@ const stage = (n: number, s: 'prd' | 'inbox' | 'building' | 'outbox' | 'shipped'
 const base = (over: Partial<ProductHomeRows> = {}): ProductHomeRows => ({
   product: { id: 'p-mobile', name: 'Mobile' },
   prds: [], stages: [], outbox: [], approvals: [], voids: [], waitingOnMe: [], topics: [], pulls: [], ideas: [], roadmaps: [], fixes: [],
-  key: 'mobile', productPrds: [], items: [], players: [], links: [], otherLinks: [], phase0: [], phase0Pulls: [], me: ME,
+  key: 'mobile', productPrds: [], items: [], players: [], links: [], otherLinks: [], phase0: [], phase0Pulls: [], targets: [], me: ME,
   ...over,
 });
 
@@ -292,6 +292,16 @@ describe('the PRDs in flight, as the Constellation reads them (PRD 2129 s2)', ()
     expect(home.tethers).toEqual([{ repo: 'vertuo/web', pr: 31 }]);
   });
 
+  it('gives every PRD the repositories its plan targets (PRD 2174 s3), sorted, once each, none for a PRD without a plan', () => {
+    const home = productHomeOf(base({
+      prds: [prd('d-2', 906, { birthplace: 'repo' }), prd('d-1', 905, { birthplace: 'repo' })],
+      targets: [
+        { dossier_id: 'd-2', repository: 'vertuo/web' }, { dossier_id: 'd-2', repository: 'vertuo/api' }, { dossier_id: 'd-2', repository: 'vertuo/web' },
+      ],
+    }));
+    expect(home.flights.map((f) => [f.dossier, f.targets])).toEqual([['d-2', ['vertuo/api', 'vertuo/web']], ['d-1', []]]);
+  });
+
   it('keeps a PRD waiting on another person, with no lane, and one not yet synced, with no stage row', () => {
     const home = productHomeOf(base({ prds: [prd('d-1', 918), prd('d-2', 919, { birthplace: 'repo' })], stages: [stage(918, 'prd')] }));
     expect(home.flights.map((f) => [f.dossier, f.ledger, f.stageRepos])).toEqual([
@@ -321,6 +331,7 @@ describe('the product home\'s service', () => {
       waitingOnMe: () => { calls.push('waiting'); return Promise.resolve([]); },
       featurePulls: (ws) => { calls.push(`pulls ${ws}`); return Promise.resolve([]); },
       phase0Pulls: (ws) => { calls.push(`phase-0 pulls ${ws}`); return Promise.resolve([]); },
+      targets: (ids) => { calls.push(`targets ${ids.join()}`); return Promise.resolve([]); },
       ideas: (ws, id) => { calls.push(`ideas ${ws} ${id}`); return Promise.resolve([]); },
       roadmaps: (ws, id) => { calls.push(`roadmaps ${ws} ${id}`); return Promise.resolve([]); },
       fixes: (ws, id) => { calls.push(`fixes ${ws} ${id}`); return Promise.resolve([{ id: 'd-v', kind: 'visual', home_repo: 'vertuo/web', title: 'Darker', created_at: '2026-10-01T00:00:00Z' }]); },
@@ -339,7 +350,7 @@ describe('the product home\'s service', () => {
     expect(calls).toEqual([
       'product ws-1 p-1', 'prds ws-1 p-1', 'product prds ws-1 p-1', 'links ws-1 p-1', 'stages vertuo/api', 'outbox vertuo/api', 'topics vertuo/api', 'approvals d-1', 'voids d-1', 'waiting',
       'pulls ws-1', 'ideas ws-1 p-1', 'roadmaps ws-1 p-1', 'fixes ws-1 p-1', 'items d-m12', 'players ws-1 u-paul',
-      'other links vertuo/api,vertuo/app', 'phase0 vertuo/api,vertuo/app', 'phase-0 pulls ws-1',
+      'other links vertuo/api,vertuo/app', 'phase0 vertuo/api,vertuo/app', 'phase-0 pulls ws-1', 'targets d-1',
     ]);
     expect(home?.repositories).toEqual([
       { repository: 'vertuo/api', role: 'api', consumes: [], phase0: 'pr', alsoIn: ['Web'] },

@@ -12,7 +12,7 @@ import { productHomeTabOf } from '../../../../../src/product-home/tabs';
 // Questions tabs, each listing only the product's own (src/product-home/tabs.ts names their segments). The
 // PRDs tab keeps its own route beside this one (s9), which Next.js matches first. A segment no tab has is
 // not found. Rendered per request, as the signed-in person, so row-level security decides what the reads
-// return. The Constellation tab reads `?prd=` and `?star=` (PRD 2129 s2); the other tabs ignore them.
+// return. The Constellation tab reads `?star=` and `?pair=` (PRD 2174 s3), no longer `?prd=`; the other tabs ignore them.
 
 export const metadata: Metadata = { title: 'Product · OMNI LOOP' };
 
@@ -29,6 +29,6 @@ export default async function ProductTabRoute({ params, searchParams }: Props) {
   const tab = productHomeTabOf(segment);
   if (tab === null) notFound();
   const search = await searchParams;
-  const query = { dossier: one(search.prd), star: one(search.star) };
+  const query = { pair: one(search.pair), star: one(search.star) };
   return <ProductHome tab={tab} query={query} view={await productHomeViewOf(await memberSession(), id, LIVE_PRODUCT_HOME)} />;
 }
