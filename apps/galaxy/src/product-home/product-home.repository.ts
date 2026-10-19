@@ -257,7 +257,7 @@ const otherLinksOf = (db: From, scope: ProductScope, repos: readonly string[]) =
 
 /** The phase 0 flag of the workspace's repositories `repos`. */
 const phase0Of = (db: From, workspace: string, repos: readonly string[]) =>
-  db.from('repositories').select(PHASE0_COLUMNS).eq('workspace_id', workspace).in('full_name', [...repos]);
+  db.from('repositories').select(PHASE0_COLUMNS).eq('workspace_id', workspace).is('removed_at', null).in('full_name', [...repos]);
 
 const why = (error: { message: string }) => error.message;
 const WHERE = 'product-home/product-home.repository';
