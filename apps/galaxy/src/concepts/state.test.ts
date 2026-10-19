@@ -3,9 +3,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ConceptFacts } from '../dossier/github/fix';
 import { UNREAD } from '../dossier/github/summary';
-import { conceptPull, conceptState, CONCEPT_STATE_LABELS, type ConceptState } from './state';
+import type { StoredStage } from '../stages/stage';
+import { prdKey } from '../stages/store';
+import { conceptPull, conceptState, CONCEPT_STATE_LABELS, type ConceptProgress, type ConceptState } from './state';
 import { ConceptStateChip } from './state-chip';
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // A concept's state (PRD 1272, s4), from its stored facts: in review while its concept PR is open, in the
 // inbox once it merged, state unknown when the pull request could not be read, or none was found.
@@ -27,6 +29,33 @@ describe('a concept\'s state', () => {
     expect(conceptState(facts(null))).toBe('unknown');
   });
 
+  describe('shipped by itself (PRD 2213)', () => {
+    const progress = (prds: (number | null)[], stages: Record<number, StoredStage>): ConceptProgress => ({
+      repo: 'acme/widgets',
+      areas: prds.map((prd) => ({ prd: prd === null ? null : parsePrd(prd) })),
+      stages: new Map(Object.entries(stages).map(([prd, stage]) => [prdKey({ repository: 'acme/widgets', prd: parsePrd(Number(prd)) }), stage])),
+    });
+
+    it('is shipped once merged, every area names a PRD and each one is shipped or retro', () => {
+      expect(conceptState(facts(pull('merged')), progress([1, 2], { 1: 'shipped', 2: 'retro' }))).toBe('shipped');
+    });
+
+    it('stays in the inbox while an area names no PRD, a PRD is at another stage, or none is stored', () => {
+      expect(conceptState(facts(pull('merged')), progress([1, null], { 1: 'shipped' }))).toBe('in-inbox');
+      expect(conceptState(facts(pull('merged')), progress([1, 2], { 1: 'shipped', 2: 'outbox' }))).toBe('in-inbox');
+      expect(conceptState(facts(pull('merged')), progress([1, 2], { 1: 'shipped' }))).toBe('in-inbox');
+      expect(conceptState(facts(pull('merged')), progress([], {}))).toBe('in-inbox');
+      expect(conceptState(facts(pull('merged')), null)).toBe('in-inbox');
+    });
+
+    it('never ships a concept in review, nor one whose pull request is unknown (BR-PRODUCT-93)', () => {
+      const done = progress([1], { 1: 'shipped' });
+      expect(conceptState(facts(pull('open')), done)).toBe('in-review');
+      expect(conceptState(facts(UNREAD), done)).toBe('unknown');
+      expect(conceptState(null, done)).toBe('unknown');
+    });
+  });
+
   it('names the concept PR only when it was read', () => {
     expect(conceptPull(facts(pull('open')))).toEqual({ number: 1270, url: URL });
     expect(conceptPull(facts(UNREAD))).toBeNull();
@@ -34,9 +63,10 @@ describe('a concept\'s state', () => {
   });
 
   it('draws each state as its chip, in words', () => {
-    expect(CONCEPT_STATE_LABELS).toEqual({ 'in-review': 'in review', 'in-inbox': 'in the inbox', unknown: 'state unknown' });
+    expect(CONCEPT_STATE_LABELS).toEqual({ 'in-review': 'in review', 'in-inbox': 'in the inbox', shipped: 'shipped', unknown: 'state unknown' });
     expect(chip('in-review')).toBe('<span class="fix-state fix-state-in-review">in review</span>');
     expect(chip('in-inbox')).toBe('<span class="fix-state fix-state-merged">in the inbox</span>');
+    expect(chip('shipped')).toBe('<span class="fix-state fix-state-shipped">shipped</span>');
     expect(chip('unknown')).toBe('<span class="fix-state fix-state-unknown">state unknown</span>');
   });
 });

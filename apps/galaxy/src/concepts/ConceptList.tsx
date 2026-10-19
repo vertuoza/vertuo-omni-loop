@@ -13,8 +13,9 @@ import { ConceptStateChip } from './state-chip';
 
 const THINK_BIG = "/omni:think-big '<your idea>'";
 
-const areasLine = ({ withPrd, total }: { withPrd: number; total: number }) =>
-  `${withPrd} of ${total} ${total === 1 ? 'area has' : 'areas have'} a PRD`;
+// PRD 2213: the facts are short pieces, one span each: how many areas have a PRD, how many shipped, the date.
+const prdLine = ({ withPrd, total }: { withPrd: number; total: number }) => `${withPrd} of ${total} have a PRD`;
+const shippedLine = ({ shipped, total }: { shipped: number; total: number }) => `${shipped} of ${total} shipped`;
 
 function Card({ card }: { card: ConceptCard }) {
   return (
@@ -28,7 +29,12 @@ function Card({ card }: { card: ConceptCard }) {
         <span className="dossier-history-facts">
           {card.kind && card.scale && <span className="dossier-history-artifact">{card.kind} · {card.scale}</span>}
           <ConceptStateChip state={card.state} />
-          <span className="ask-hint">{card.areas ? areasLine(card.areas) : 'record not readable'}</span>
+          {card.areas ? (
+            <>
+              <span className="ask-hint">{prdLine(card.areas)}</span>
+              <span className="ask-hint">{shippedLine(card.areas)}</span>
+            </>
+          ) : <span className="ask-hint">record not readable</span>}
           <time className="ask-hint" dateTime={card.recordedAt}>recorded {card.recorded}</time>
         </span>
       </a>

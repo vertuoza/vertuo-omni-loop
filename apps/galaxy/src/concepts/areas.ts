@@ -7,6 +7,8 @@ import type { ConceptArea } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
 import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { DossierReader } from '../dossier/store';
 import { workPath } from '../dossier/page/work';
+import { STAGE_LABELS, type StoredStage } from '../stages/stage';
+import { storedStage } from './state';
 
 /** Where an area's PRD links: its dossier page, or its issue when it has none. */
 export type AreaPrd = { number: PrdNumber; href: string; to: 'page' | 'issue' };
@@ -18,9 +20,14 @@ export type AreaView = {
   /** The first area, the one the concept is built from. */
   wedge: boolean;
   prd: AreaPrd | null;
+  /** Its PRD's stage in the words of the PRDs tab, `syncing` while none is stored; null with no PRD. */
+  stage: string | null;
   /** The line that starts this area: the first area without a PRD only, else null. */
   next: string | null;
 };
+
+/** A PRD's stage in the words of the PRDs tab; `syncing` while none is stored. */
+const stageWords = (stage: StoredStage | null) => (stage === null ? 'syncing' : STAGE_LABELS[stage]);
 
 /** The line that brainstorms area `area` of concept `concept`. */
 const brainstormLine = (concept: IssueNumber, area: string) => `/omni:brainstorm --concept ${concept} ${area}`;
@@ -30,9 +37,12 @@ export const issueLink = (repo: string, issue: IssueNumber) =>
   `https://github.com/${repo.split('/').map(encodeURIComponent).join('/')}/issues/${issue}`;
 
 /** The areas of concept `concept` (null when the dossier carries no number) in `repo`, in build order;
- * `pages` gives the dossier id of each PRD that has a page. */
-export function areaViews(areas: readonly ConceptArea[], concept: IssueNumber | null, repo: string, pages: ReadonlyMap<PrdNumber, string>): AreaView[] {
-  const next = areas.find((area) => area.prd === null);
+ * `pages` gives the dossier id of each PRD that has a page, `stages` the stored stage of each PRD (by `prdKey`);
+ * a `shipped` concept offers no brainstorm line. */
+export function areaViews(areas: readonly ConceptArea[], concept: IssueNumber | null, repo: string, pages: ReadonlyMap<PrdNumber, string>,
+  stages: ReadonlyMap<string, StoredStage> = new Map(), shipped = false,
+): AreaView[] {
+  const next = shipped ? undefined : areas.find((area) => area.prd === null);
   return areas.map((area, index) => {
     const page = area.prd === null ? undefined : pages.get(area.prd);
     return {
@@ -43,6 +53,7 @@ export function areaViews(areas: readonly ConceptArea[], concept: IssueNumber | 
       prd: area.prd === null ? null : page === undefined
         ? { number: area.prd, href: issueLink(repo, area.prd), to: 'issue' }
         : { number: area.prd, href: workPath('prd', page), to: 'page' },
+      stage: area.prd === null ? null : stageWords(storedStage(stages, repo, area.prd)),
       next: area === next && concept !== null ? brainstormLine(concept, area.id) : null,
     };
   });

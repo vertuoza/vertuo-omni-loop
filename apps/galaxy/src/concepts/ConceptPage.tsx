@@ -20,6 +20,11 @@ import { ConceptStateChip } from './state-chip';
 // network. A tab whose file was not sent reads "not sent: too large". Rendered on the server: the tabs and
 // the round picker are links, so it all works before any script runs.
 
+/** A PRD's stage beside its link, in green once it shipped. */
+function StageWords({ stage }: { stage: string }) {
+  return <span className={stage === 'shipped' || stage === 'retro' ? 'concept-stage concept-stage-shipped' : 'concept-stage'}>{stage}</span>;
+}
+
 function AreaRow({ area }: { area: AreaView }) {
   return (
     <li className={area.wedge ? 'concept-area concept-wedge' : 'concept-area'}>
@@ -34,6 +39,7 @@ function AreaRow({ area }: { area: AreaView }) {
           <a href={area.prd.href} {...(area.prd.to === 'issue' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
             PRD #{area.prd.number}{area.prd.to === 'issue' ? ' ↗' : ''}
           </a>
+          {area.stage !== null && <>{' '}<StageWords stage={area.stage} /></>}
         </p>
       )}
       {area.next && <StageHeaderCopy label="Copy" command={area.next} />}
