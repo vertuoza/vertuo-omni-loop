@@ -1,6 +1,6 @@
 import { boardPath } from '../ideas/model';
 import { productHomeHref } from '../products/model';
-import { addable, collectionLabel, hasNoAccess, phase0Of, type Phase0, type RepositoriesState, type RepositoryRow } from './model';
+import { addable, collectionLabel, hasNoAccess, listedOf, phase0Of, removeConfirm, type Phase0, type RepositoriesState, type RepositoryRow } from './model';
 
 // Settings → Repositories drawn from its state (PRD 612 s1). One row per repository of the
 // workspace: `owner/name`, when it was last collected, and its Tracked switch. The owner reads Add
@@ -13,7 +13,9 @@ import { addable, collectionLabel, hasNoAccess, phase0Of, type Phase0, type Repo
 // shows none, and nothing says "Product". PRD 1246 s4: each row also links to the repository's ideas board and has its Public ideas switch,
 // any member's to change: off, only the workspace's members read the board. PRD 1299 s1: each row has
 // its Phase 0 on the server switch, the owner's only: on, a PRD born in it is approved on its PRD page
-// rather than by a phase-0 pull request.
+// rather than by a phase-0 pull request. PRD 2188 s1: the owner reads a quiet Remove after each card's
+// switches; pressed, the browser asks first, naming the products the repository leaves and those that
+// lose their plan repository, and a removed repository is no longer drawn.
 
 /** What a member reads instead of the controls. */
 export const ONLY_OWNER = 'Only @owner can change repositories.';
@@ -36,9 +38,11 @@ export interface RepositoriesHandlers {
   setPublicIdeas(fullName: string, on: boolean): void;
   /** A row's Phase 0 on the server switch (PRD 1299 s1). */
   setPhase0(fullName: string, phase0: Phase0): void;
+  /** A card's Remove, once the person confirmed it (PRD 2188 s1). */
+  remove(fullName: string): void;
 }
 
-const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {} };
+const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, remove() {} };
 
 export interface RepositoriesViewProps {
   state: RepositoriesState;
@@ -90,6 +94,12 @@ function Switch({ name, label, on, disabled, press }: { name: string; label: str
   );
 }
 
+/** A card's Remove, the owner's only: the browser asks first, as Delete draft does; cancelled, nothing changes. */
+function RemoveButton({ row, busy, on }: { row: RepositoryRow; busy: boolean; on: RepositoriesHandlers }) {
+  const press = () => { if (window.confirm(removeConfirm(row))) on.remove(row.fullName); };
+  return <button type="button" className="ask-button quiet repositories-remove" aria-label={`Remove ${row.fullName}`} onClick={press} disabled={busy}>Remove</button>;
+}
+
 function Row({ row, owner, access, now, busy, on }: { row: RepositoryRow; owner: boolean; access: Access; now: number; busy: boolean; on: RepositoriesHandlers }) {
   const noAccess = access.kind === 'installed' && hasNoAccess(row, access.reachable);
   return (
@@ -109,19 +119,20 @@ function Row({ row, owner, access, now, busy, on }: { row: RepositoryRow; owner:
       <Switch name="Public ideas" label={`Public ideas board of ${row.fullName}`} on={row.publicIdeas} disabled={busy} press={() => { on.setPublicIdeas(row.fullName, !row.publicIdeas); }} />
       <Switch name="Phase 0 on the server" label={`Phase 0 on the server for ${row.fullName}`} on={phase0Of(row) === 'server'} disabled={!owner || busy} press={() => { on.setPhase0(row.fullName, phase0Of(row) === 'server' ? 'pr' : 'server'); }} />
       <Switch name="Tracked" label={`Track ${row.fullName}`} on={row.tracked} disabled={!owner || busy} press={() => { on.setTracked(row.fullName, !row.tracked); }} />
+      {owner && <RemoveButton row={row} busy={busy} on={on} />}
     </li>
   );
 }
 
 export function RepositoriesView({ state, owner, access, now, on = IDLE }: RepositoriesViewProps) {
-  const rows = state.repositories;
+  const rows = listedOf(state.repositories);
   const canAdd = owner && access.kind === 'installed';
   return (
     <div className="ask-col repositories">
       <section className="ask-card repositories-head" aria-labelledby="repositories-title">
         <h1 id="repositories-title">Repositories</h1>
         {owner
-          ? <p className="ask-muted">Your workspace’s repositories. The Engineering board counts the tracked ones; switching one off hides it and keeps its history.</p>
+          ? <p className="ask-muted">Removing one keeps its history.</p>
           : <p className="ask-muted">{ONLY_OWNER}</p>}
         {state.refusal && <p className="repositories-refusal" role="alert">{state.refusal}</p>}
         {canAdd && !state.picking && <button type="button" className="ask-button" onClick={() => { on.pick(); }} disabled={state.busy}>Add repository</button>}

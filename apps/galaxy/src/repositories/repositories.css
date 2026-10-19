@@ -77,3 +77,6 @@
 
 /* A row's link to its ideas board (PRD 1246 s4), under its name. */
 .repositories-ideas { font-size: 14px; justify-self: start; }
+
+/* A card's Remove (PRD 2188 s1), the owner's: quiet, the size of the Add list's buttons, after the switches. */
+.repositories-remove { padding: 9px 14px; font-size: 15px; }

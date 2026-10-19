@@ -6,7 +6,10 @@
 // every comparison ignores case. PRD 1299 s1 adds where its phase 0 is approved: a docs-only phase-0
 // pull request (`pr`, the default) or the PRD page (`server`), the owner's to switch. PRD 1364 s11
 // replaces the one product a repository served with the products that link it (product_repositories),
-// read beside the row: the page shows them as chips, and a product's own page changes them.
+// read beside the row: the page shows them as chips, and a product's own page changes them. PRD 2188 s1
+// lets the owner remove a repository: its row stays, with when it was removed (`removedAt`), and the page
+// draws only the listed ones; the confirm before a remove names the products it leaves and the products
+// that plan in it (`planProducts`), and Add repository offers a removed one again.
 import { z } from 'zod';
 
 /** Where a repository's phase 0 is approved (PRD 1299): a phase-0 pull request, or the PRD page. */
@@ -33,6 +36,10 @@ export interface RepositoryRow {
   publicIdeas: boolean;
   /** Where its phase 0 is approved (PRD 1299 s1): the owner's to switch. Absent reads as `pr`. */
   phase0?: Phase0 | undefined;
+  /** When the owner removed it (PRD 2188 s1), or null while it is listed. Absent reads as listed. */
+  removedAt?: string | null | undefined;
+  /** The products whose plan repository it is (PRD 2188 s1), first first. Absent reads as none. */
+  planProducts?: RepositoryProduct[] | undefined;
 }
 
 /** A public.repositories row, as PostgREST answers it. */
@@ -43,6 +50,7 @@ export interface StoredRepository {
   collect_error?: string | null;
   public_ideas?: boolean;
   phase0?: string | null;
+  removed_at?: string | null;
 }
 
 /** The whole public.repositories row the owner's functions answer (`returns public.repositories`). */
@@ -57,10 +65,12 @@ export const SavedRepository = z.strictObject({
   collect_error: z.string().nullable(),
   public_ideas: z.boolean(),
   phase0: Phase0Schema,
+  removed_at: z.string().nullable(),
 });
 
-/** A stored row as the page draws it, with the products that link it (none unless given). */
-export const repositoryRowOf = (r: StoredRepository, products: RepositoryProduct[] = []): RepositoryRow => ({
+/** A stored row as the page draws it, with the products that link it and those that plan in it (none
+ * unless given). */
+export const repositoryRowOf = (r: StoredRepository, products: RepositoryProduct[] = [], planProducts: RepositoryProduct[] = []): RepositoryRow => ({
   fullName: r.full_name,
   tracked: r.tracked,
   collectedAt: r.collected_at ?? null,
@@ -68,6 +78,8 @@ export const repositoryRowOf = (r: StoredRepository, products: RepositoryProduct
   products,
   publicIdeas: r.public_ideas ?? false,
   phase0: r.phase0 === 'server' ? 'server' : 'pr',
+  removedAt: r.removed_at ?? null,
+  planProducts,
 });
 
 /** Where the repository's phase 0 is approved, `pr` when its row does not say. */
@@ -93,9 +105,16 @@ export function collectionLabel(row: RepositoryRow, now: number): string {
 const key = (name: string) => name.toLowerCase();
 const byName = (a: string, b: string) => key(a).localeCompare(key(b), 'en');
 
-/** What Add repository offers: the repositories the App can see that are not listed yet, by name. */
-export function addable(listed: readonly RepositoryRow[], reachable: readonly string[]): string[] {
-  const have = new Set(listed.map((r) => key(r.fullName)));
+/** Whether the owner removed the repository (PRD 2188 s1). */
+const isRemoved = (row: RepositoryRow): boolean => Boolean(row.removedAt);
+
+/** The repositories the page lists: every one but the removed ones (PRD 2188 s1). */
+export const listedOf = (rows: readonly RepositoryRow[]): RepositoryRow[] => rows.filter((r) => !isRemoved(r));
+
+/** What Add repository offers: the repositories the App can see that are not listed yet, by name. A
+ * removed repository is not listed, so it is offered again (PRD 2188 s1). */
+export function addable(rows: readonly RepositoryRow[], reachable: readonly string[]): string[] {
+  const have = new Set(listedOf(rows).map((r) => key(r.fullName)));
   return reachable.filter((name) => !have.has(key(name))).sort(byName);
 }
 
@@ -104,6 +123,15 @@ export function addable(listed: readonly RepositoryRow[], reachable: readonly st
 export function hasNoAccess(row: RepositoryRow, reachable: readonly string[] | null): boolean {
   if (!reachable) return false;
   return !reachable.some((name) => key(name) === key(row.fullName));
+}
+
+/** What the browser asks before a remove (PRD 2188 s1): what is kept, then the products it leaves and
+ * each product that will have no plan repository, when there are any. */
+export function removeConfirm(row: RepositoryRow): string {
+  const lines = [`Remove ${row.fullName}? Its ideas and history are kept, and adding it again brings them back.`];
+  if (row.products.length > 0) lines.push(`It leaves ${row.products.map((p) => p.name).join(', ')}.`);
+  for (const p of row.planProducts ?? []) lines.push(`${p.name} will have no plan repository.`);
+  return lines.join('\n');
 }
 
 // ── The page's state ─────────────────────────────────────────────────────────────
@@ -123,9 +151,17 @@ export type RepositoriesAction =
   | { type: 'close' }
   | { type: 'busy' }
   | { type: 'saved'; repository: RepositoryRow }
+  /** The row remove_repository() answered (PRD 2188 s1). */
+  | { type: 'removed'; repository: RepositoryRow }
   | { type: 'refused'; message: string };
 
 const sorted = (rows: RepositoryRow[]) => [...rows].sort((a, b) => byName(a.fullName, b.fullName));
+
+/** The row the state holds for `repository`, if any, and every other row. */
+function split(state: RepositoriesState, repository: RepositoryRow): { was: RepositoryRow | undefined; others: RepositoryRow[] } {
+  const was = state.repositories.find((r) => key(r.fullName) === key(repository.fullName));
+  return { was, others: state.repositories.filter((r) => r !== was) };
+}
 
 export const initialState = (repositories: RepositoryRow[]): RepositoriesState =>
   ({ repositories: sorted(repositories), picking: false, busy: false, refusal: null });
@@ -140,10 +176,19 @@ export function repositoriesReducer(state: RepositoriesState, action: Repositori
       return { ...state, busy: true, refusal: null };
     case 'saved': {
       // A saved row comes back without its products: a save never changes them, so the listed ones stay.
-      const was = state.repositories.find((r) => key(r.fullName) === key(action.repository.fullName));
-      const others = state.repositories.filter((r) => r !== was);
-      const repository = { ...action.repository, products: was?.products ?? action.repository.products };
+      const { was, others } = split(state, action.repository);
+      const repository = {
+        ...action.repository,
+        products: was?.products ?? action.repository.products,
+        planProducts: was?.planProducts ?? action.repository.planProducts,
+      };
       return { ...state, repositories: sorted([...others, repository]), picking: false, busy: false, refusal: null };
+    }
+    case 'removed': {
+      // Removing deletes the repository's product links and clears the plan repositories that named it.
+      const { others } = split(state, action.repository);
+      const repository = { ...action.repository, products: [], planProducts: [] };
+      return { ...state, repositories: sorted([...others, repository]), busy: false, refusal: null };
     }
     case 'refused':
       return { ...state, busy: false, refusal: action.message };

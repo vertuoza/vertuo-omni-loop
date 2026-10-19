@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addable, collectionLabel, hasNoAccess, initialState, phase0Of, repositoriesReducer, repositoryRowOf, SavedRepository, type RepositoryRow,
+  addable, collectionLabel, hasNoAccess, initialState, listedOf, phase0Of, removeConfirm, repositoriesReducer, repositoryRowOf, SavedRepository,
+  type RepositoryRow,
 } from './model';
 
 // Settings → Repositories as pure data (PRD 612 s1): a stored row as the page reads it, the
@@ -15,7 +16,24 @@ const row = (fullName: string, over: Partial<RepositoryRow> = {}): RepositoryRow
 describe('a stored repository row', () => {
   it('reads as the page draws it', () => {
     expect(repositoryRowOf({ full_name: 'vertuoza/vertuo-apps', tracked: false, collected_at: '2026-10-08T11:57:00Z', collect_error: null }))
-      .toEqual({ fullName: 'vertuoza/vertuo-apps', tracked: false, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr' });
+      .toEqual({ fullName: 'vertuoza/vertuo-apps', tracked: false, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr', removedAt: null, planProducts: [] });
+  });
+
+  it('reads when it was removed, and the products that plan in it (PRD 2188 s1)', () => {
+    const r = repositoryRowOf({ full_name: 'a/b', tracked: false, removed_at: '2026-10-19T10:00:00Z' }, [], [{ id: 'p-1', name: 'Mobile' }]);
+    expect(r.removedAt).toBe('2026-10-19T10:00:00Z');
+    expect(r.planProducts).toEqual([{ id: 'p-1', name: 'Mobile' }]);
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true, removed_at: null }).removedAt).toBeNull();
+  });
+
+  it('parses a saved row only with its removed_at, a time or null (PRD 2188 s1)', () => {
+    const saved = {
+      workspace_id: 'ws-1', full_name: 'a/b', tracked: false, added_at: '2026-10-08T09:00:00Z', added_by: null,
+      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr', removed_at: '2026-10-19T10:00:00Z',
+    };
+    expect(SavedRepository.safeParse(saved).success).toBe(true);
+    expect(SavedRepository.safeParse({ ...saved, removed_at: null }).success).toBe(true);
+    expect(SavedRepository.safeParse({ ...saved, removed_at: undefined }).success).toBe(false);
   });
 
   it('carries the products that link it, read beside the row (PRD 1364 s11)', () => {
@@ -33,7 +51,7 @@ describe('a stored repository row', () => {
   it('parses a saved row only with a phase 0 it knows (PRD 1299 s1)', () => {
     const saved = {
       workspace_id: 'ws-1', full_name: 'a/b', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: null,
-      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'server',
+      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'server', removed_at: null,
     };
     expect(SavedRepository.safeParse(saved).success).toBe(true);
     expect(SavedRepository.safeParse({ ...saved, phase0: 'both' }).success).toBe(false);
@@ -43,7 +61,7 @@ describe('a stored repository row', () => {
   it('parses a saved row with no product: its products are its links (PRD 1364)', () => {
     const saved = {
       workspace_id: 'ws-1', full_name: 'a/b', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: null,
-      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr',
+      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr', removed_at: null,
     };
     expect(SavedRepository.safeParse(saved).success).toBe(true);
     expect(SavedRepository.safeParse({ ...saved, product_id: null }).success).toBe(false);
@@ -76,6 +94,10 @@ describe('what Add repository offers', () => {
 
   it('is nothing when every repository the App sees is listed', () => {
     expect(addable([row('a/b')], ['A/B'])).toEqual([]);
+  });
+
+  it('offers a removed repository again (PRD 2188 s1)', () => {
+    expect(addable([row('a/b', { removedAt: '2026-10-19T10:00:00Z' }), row('a/c')], ['a/b', 'a/c'])).toEqual(['a/b']);
   });
 });
 
@@ -123,10 +145,50 @@ describe('the page\'s state', () => {
     expect(s.repositories).toHaveLength(2);
   });
 
+  it('draws only the listed repositories, never a removed one (PRD 2188 s1)', () => {
+    const s = initialState([row('vertuoza/b'), row('vertuoza/gone', { removedAt: '2026-10-19T10:00:00Z' }), row('vertuoza/a', { removedAt: null })]);
+    expect(listedOf(s.repositories).map((r) => r.fullName)).toEqual(['vertuoza/a', 'vertuoza/b']);
+  });
+
+  it('takes a removed repository off the list, out of its products and its plans (PRD 2188 s1)', () => {
+    const chips = [{ id: 'p-1', name: 'Vertuoza' }];
+    const before = initialState([row('vertuoza/a', { products: chips, planProducts: chips }), row('vertuoza/b', { products: chips })]);
+    const s = [{ type: 'busy' } as const, { type: 'removed', repository: row('vertuoza/a', { tracked: false, removedAt: '2026-10-19T10:00:00Z' }) } as const]
+      .reduce(repositoriesReducer, before);
+    expect(s.busy).toBe(false);
+    expect(listedOf(s.repositories).map((r) => r.fullName)).toEqual(['vertuoza/b']);
+    expect(s.repositories.find((r) => r.fullName === 'vertuoza/a')).toEqual(
+      row('vertuoza/a', { tracked: false, removedAt: '2026-10-19T10:00:00Z', products: [], planProducts: [] }));
+    expect(s.repositories.find((r) => r.fullName === 'vertuoza/b')?.products).toEqual(chips);
+  });
+
+  it('keeps the products that plan in a repository when a save answers its row (PRD 2188 s1)', () => {
+    const plans = [{ id: 'p-1', name: 'Mobile' }];
+    const s = repositoriesReducer(initialState([row('vertuoza/a', { planProducts: plans })]), { type: 'saved', repository: row('vertuoza/a', { tracked: false, planProducts: [] }) });
+    expect(s.repositories[0]?.planProducts).toEqual(plans);
+  });
+
   it('keeps a refusal until the next action', () => {
     const refused = repositoriesReducer(start(), { type: 'refused', message: 'No.' });
     expect(refused.refusal).toBe('No.');
     expect(refused.busy).toBe(false);
     expect(repositoriesReducer(refused, { type: 'pick' }).refusal).toBeNull();
+  });
+});
+
+describe('the confirm before a remove (PRD 2188 s1)', () => {
+  const KEEP = 'Remove vertuoza/vertuobuild? Its ideas and history are kept, and adding it again brings them back.';
+
+  it('says what is kept, and how to bring it back', () => {
+    expect(removeConfirm(row('vertuoza/vertuobuild'))).toBe(KEEP);
+  });
+
+  it('names the products it leaves, and each product that will have no plan repository', () => {
+    const r = row('vertuoza/vertuobuild', {
+      products: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Mobile' }],
+      planProducts: [{ id: 'p-2', name: 'Mobile' }],
+    });
+    expect(removeConfirm(r)).toBe(`${KEEP}\nIt leaves Vertuoza, Mobile.\nMobile will have no plan repository.`);
+    expect(removeConfirm(row('vertuoza/vertuobuild', { products: [{ id: 'p-1', name: 'Vertuoza' }] }))).toBe(`${KEEP}\nIt leaves Vertuoza.`);
   });
 });
