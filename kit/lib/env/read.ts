@@ -183,6 +183,22 @@ const ASK = envGroup({
 /** How `OMNI_ASK` switches ask mode: `on`, `off`, or `null` when it is unset and `ask.json` decides. */
 export type AskSwitch = 'on' | 'off' | null;
 
+/**
+ * An unattended run (PRD 2175): `omni runner` sets `OMNI_UNATTENDED=1` on each job's session, where
+ * nobody is there to answer. Set to anything but empty, `0`, `off` or `false`, a skill asks no one.
+ */
+const UNATTENDED = envGroup({
+  label: 'an unattended run',
+  schema: z.object({ flag: z.string() }),
+  variables: { flag: 'OMNI_UNATTENDED' },
+});
+
+/** Whether the run is unattended: `OMNI_UNATTENDED` set to something other than empty, `0`, `off` or `false`. */
+function flagIsOn(group: z.output<typeof UNATTENDED.schema> | null): boolean {
+  const flag = group?.flag.trim().toLowerCase() ?? '';
+  return flag !== '' && flag !== '0' && flag !== 'off' && flag !== 'false';
+}
+
 /** The test runner a command runs under: vitest sets `VITEST`, and no heartbeat leaves a test. */
 const TEST_RUNNER = envGroup({
   label: 'the test runner',
@@ -217,7 +233,7 @@ export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABAS
  * a sign-in reads, the test runner, the sender `omni runner` sets on each job, and the Claude token
  * it hands them.
  */
-export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN]);
+export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN, UNATTENDED]);
 
 const DEFAULT_COLUMNS = 80;
 
@@ -268,6 +284,14 @@ export function readEnv(source: EnvSource) {
   };
   reader.done();
   return env;
+}
+
+/** Whether `source` marks the run unattended, read alone: a runner job's session has nobody to answer. */
+export function unattendedOf(source: EnvSource): boolean {
+  const reader = envReader(source);
+  const on = flagIsOn(reader.group(UNATTENDED));
+  reader.done();
+  return on;
 }
 
 /**
