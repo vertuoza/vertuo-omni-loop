@@ -140,6 +140,22 @@ on a machine set up for it, with no one at a terminal. Start one with
 - **Who sent it:** a job runs under the runner owner's GitHub and Claude accounts, with
   `OMNI_SENT_BY` and `OMNI_RUNNER` set, and `/omni:pr` writes
   `Sent from the Omni app by @<login> on runner <name>` in the pull requests it opens.
+- **A job's own variables** (PRD 2175): every job's session also gets `OMNI_JOB` (the job's id),
+  `OMNI_RUNNER` (the runner's name, sender or not) and `OMNI_UNATTENDED=1`, so a claim the job makes
+  names it in its status comment, `- job: <id> · runner <name>`, and no skill waits on a question.
+- **When a job dies holding claims** (PRD 2175): once a job ends, done, failed, timed out or
+  cancelled, the runner releases the claims it still holds, with `gh`, signed in on the box: every
+  open draft pull request of the job's repository that carries `labels.inProgress` and whose status
+  comment names `job: <id>` loses `labels.inProgress`, gains `labels.released` (`omni:released`
+  unless set), and gets one comment: `Released: runner job <id> on <runner> ended (<reason>) while
+  it held this claim…`. A claim naming another job, or none, is never touched. The board reads a
+  released claim as `claimed-stale` at once, so the next run takes it over. The sweep does the same,
+  reason `runner lost`, for a job a runner that died or restarted left behind. The job's row on the
+  Runners page lists what was released, `Released #<n>, …`, or why it could not be:
+  `Could not release this job's claims: <why>`. **Create the `omni:released` label** in every
+  repository a runner works in (`labels.autoCreate` does not make it): without it, the runner still
+  takes `labels.inProgress` off and says so, and the board falls back to the quiet rule
+  (`limits.claimDeadMinutes`, 240 minutes).
 - **Queueing from a service:** a service holding a kit token (`omk_…`, made with `omni setup-token`)
   exchanges it at `POST /api/ask/token` for an access token, keeps that until its `expires_at`, and
   sends it as `Authorization: Bearer <access token>` to `POST /api/runners/jobs`, with the body
