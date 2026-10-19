@@ -410,7 +410,9 @@ Remove `labels.inProgress` from the feature PR (unless the Stuck path already sw
 Only when every slice merged, the gate in step 4 read red, and
 `node .omni-loop/bin/omni.mjs config answers.enabled` prints `true`. Held, stuck or green, go
 straight to step 7. When `answers.enabled` is off, skip this part too: the hand-off in step 7 says
-to answer on the pull request, as it always has.
+to answer on the pull request, as it always has. Skip it too when `OMNI_UNATTENDED` is set (a
+runner job, with nobody to answer): ask no question, and end red with the outbox posted and the
+feature PR in draft, as with `answers.enabled` off.
 
 By now the outbox comment, the draft feature PR and its final status comment are written, so
 nothing is lost if the person walks away. Count the open `human-action` and `high` items

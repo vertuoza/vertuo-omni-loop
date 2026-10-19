@@ -155,7 +155,7 @@ For each target answered **import**, one at a time:
      `required` or `optional`, order) as this repository's form of that name. Never its bodies: each
      slot is written from the clone's evidence, or left empty, or holds a `TODO(human)` question.
    - **Evidence** names a path **in the target** at its blob hash in the clone, in today's shape:
-     `printf '  - %s@%s\n' "<path>" "$(git -C <scratch>/<name> hash-object -- "<path>" | cut -c1-7)"`.
+     `git -C <scratch>/<name> hash-object -- "<path>"`, then the line `  - <path>@<its first 7 hex>`.
    - **A command** a section would name (install, test, the preflight) is written with a
      `TODO(human)` line under it asking a person to confirm it runs in the target, and its marker
      carries no `verified:`.

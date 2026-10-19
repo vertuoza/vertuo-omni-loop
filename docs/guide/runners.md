@@ -49,6 +49,22 @@ not type.
 **Cancel** stops a queued or running job within a few seconds. **Send again** queues a failed or
 cancelled job once more: a job never runs again by itself.
 
+### When a job dies holding claims
+
+A job that builds a PRD claims each slice with a draft sub-PR labelled `omni:in-progress`, whose
+status comment names the job (`- job: <id> · runner <name>`). When the job ends, whatever the
+reason (done, failed, timeout, cancelled, or its runner lost), the runner releases the claims it
+still holds:
+
+- each of those sub-PRs loses `omni:in-progress` and gains `omni:released`;
+- each gets a comment naming the job, its runner and why it ended;
+- the job's row on the Runners page says so under its status, in red: **Released #1908, #1909**,
+  each number linking its sub-PR. A release that failed reads **Could not release this job's
+  claims:** and why.
+
+A sub-PR claimed by another job, or by no job, is never touched. The next run of the same line takes
+a released claim over at once: send the line again and it carries on from those branches.
+
 The pull requests a job opens say who sent it: `Sent from the Omni app by @<login> on runner <name>`.
 The work runs under the GitHub and Claude accounts of the person who set the runner up.
 
@@ -190,6 +206,10 @@ it.
   line only when the plugin's version changed (from the old one to the new one) or the update
   failed (with the last line the update said). A running job keeps the skills it loaded: Claude Code
   keeps each version of the plugin in its own folder.
+- **The `omni:released` label:** create it once in every repository a runner works in (GitHub ›
+  Issues › Labels › New label). Without it, the runner still takes `omni:in-progress` off a dead
+  job's sub-PRs and says the label is missing, and those claims are taken over after 240 quiet
+  minutes instead of at once.
 - **Disk:** the runner cleans up after itself. When a job ends, it removes the job's worktree and
   its unpushed branch; once at start and every hour, it removes what older jobs left and job logs
   older than `--keep-logs` days, and prints one line saying what it freed.
@@ -208,6 +228,7 @@ it.
 | a job Failed with an exit code | Claude Code ended in error | press **Terminal** on the job, or read `~/logs/job-<id>.log` on the runner |
 | a job Failed with a reason that says the Omni plugin is older than the omni its repository pins | the plugin on the runner is older than the omni the repository pins, and the update could not bring it up; the end of the reason says why | as the runner's user, run `claude plugin update omni@omni-loop` and read what it says, then **Send again**. Claude was never started, so the job did nothing |
 | a job Failed with a reason that says the Omni plugin is not installed | Claude Code has no Omni plugin for the runner's user | install it as the runner's user, the way the [Install](/docs/install) page shows, then **Send again** |
+| a job's row says **Could not release this job's claims:** and why | the runner could not reach GitHub with `gh`, or `gh` is signed out, or the `omni:released` label is missing | sign `gh` in as the runner's user (`gh auth status`), or create the label. The claims become takeable after 240 quiet minutes anyway |
 | a job's log starts with a line that says the plugin's version was not read | `claude plugin list` did not answer in time or its answer was unreadable, so the plugin's age was not checked | nothing: the job ran. If it keeps showing, run `claude plugin list --json` as the runner's user |
 
 [Next → How the loop works](/docs/loop)

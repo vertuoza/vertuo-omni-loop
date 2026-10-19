@@ -120,6 +120,22 @@ export function prWords(url: string): string {
   return number ? `PR #${number}` : 'Pull request';
 }
 
+/** What a job's runner said of its claims once the job ended (PRD 2175): the sub-PRs it released, each with
+ * its link, or why it could not release them. */
+export type ReleaseNote =
+  | { kind: 'released'; prs: readonly { number: number; url: string }[] }
+  | { kind: 'failed'; text: string };
+
+/** The lines under a job's status about its claims, in `--ask-red`: `Released #<n>, …`, then `Could not
+ * release this job's claims: <why>`; none when its runner released nothing and nothing failed. */
+export function releaseNotes(job: Pick<Job, 'repo' | 'released' | 'releaseError'>): ReleaseNote[] {
+  const released = job.released ?? [];
+  return [
+    ...(released.length === 0 ? [] : [{ kind: 'released' as const, prs: released.map((number) => ({ number, url: `https://github.com/${job.repo}/pull/${String(number)}` })) }]),
+    ...(job.releaseError ? [{ kind: 'failed' as const, text: `Could not release this job's claims: ${job.releaseError}` }] : []),
+  ];
+}
+
 /** The fleet cell of a runner: a picker for a workspace owner, its label (or Shared) for everyone else. */
 export function fleetCell(runner: Pick<Runner, 'fleet'>, viewer: Board['viewer'], fleets: readonly Fleet[]):
   { kind: 'picker'; value: string; options: readonly { value: string; label: string }[] } | { kind: 'text'; label: string } {

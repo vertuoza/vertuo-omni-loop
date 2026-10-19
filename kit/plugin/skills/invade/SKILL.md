@@ -452,7 +452,7 @@ A page that already answers a question is pointed at, never copied, so it keeps 
   the config), whose hash would be stale on merge.
 
   ```bash
-  printf '  - %s@%s\n' "<path>" "$(git hash-object -- "<path>" | cut -c1-7)"
+  git hash-object -- "<path>"     # the line is `  - <path>@<its first 7 hex>`
   ```
 
 - **Commands.** Every command a section names runs once, from the worktree's root, before it is

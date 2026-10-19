@@ -30,8 +30,8 @@
 // `omni board` does, from the reads they hand it; the command itself only prints what it returns.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardFor, fillBranch, inlineSlicesIn, inlineWave, landingBranches } from '../../lib/board.ts';
-import type { BoardLanding, BoardPr, BoardRepos, BoardRow, LandingRow } from '../../lib/board.ts';
+import { boardFor, couldBeDead, deadClaimRules, fillBranch, inlineSlicesIn, inlineWave, landingBranches } from '../../lib/board.ts';
+import type { BoardLanding, BoardPr, BoardRepos, BoardRow, DeadClaimRules, LandingRow } from '../../lib/board.ts';
 import { loadContext } from '../../lib/context.ts';
 import type { Context, ExecText } from '../../lib/context.ts';
 import { gradedLandings } from '../../lib/inbox/plan-grade.ts';
@@ -98,13 +98,16 @@ function boardPrOf(change: LoopChange): BoardPr {
   };
 }
 
-/** Whether `pr` could possibly read as `claimed-stale` at all: only an open draft whose claim
- * (`createdAt`) is already older than the limit is worth a second read — a merged, closed or non-draft
- * pull request, or a draft claimed only moments ago, can never be `claimed-stale` regardless of what
- * its head commit date turns out to be (`kit/lib/board.ts`'s `isClaimedStale`). */
-function couldBeStale(pr: BoardPr, now: number, staleMinutes: number): boolean {
-  if (!pr.isDraft || pr.state !== 'OPEN' || !pr.createdAt) return false;
-  return now - new Date(pr.createdAt).getTime() > staleMinutes * 60 * 1000;
+/** Whether `pr` could possibly read as `claimed-stale` at all, so is worth a second read for its head
+ * commit date: an open draft whose claim (`createdAt`) is already older than `staleMinutes`, or, under
+ * the `dead` rules (PRD 2175), one that carries the released label, or one still on the in-progress
+ * label whose last update is older than the quiet time. A merged, closed or non-draft pull request, or
+ * a draft claimed or moved only moments ago, can never be `claimed-stale` regardless of what its head
+ * commit date turns out to be (`kit/lib/board.ts`'s `isClaimedStale`). */
+function couldBeStale(pr: BoardPr, now: number, staleMinutes: number, dead: DeadClaimRules | null): boolean {
+  if (!pr.isDraft || pr.state !== 'OPEN') return false;
+  if (pr.createdAt && now - new Date(pr.createdAt).getTime() > staleMinutes * 60 * 1000) return true;
+  return dead !== null && couldBeDead(pr, now, dead);
 }
 
 const STATE_WIDTH = 'claimed-stale'.length;
@@ -191,6 +194,7 @@ export async function buildBoard(
     featureBranch: fillBranch(ctx.config.branches.feature, { topic }),
     subLabel: ctx.config.labels.sub,
     staleMinutes: ctx.config.limits.claimStaleMinutes,
+    dead: deadClaimRules(ctx.config.labels, ctx.config.limits),
   };
   const board = (prs: BoardPr[], more: { repos?: BoardRepos; landings: BoardLanding[] | null; inlineDone?: ReadonlySet<string> }) =>
     boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, ...more });
@@ -213,13 +217,13 @@ export async function buildBoard(
 }
 
 /** What reading a feature's changes needs: the reads, and the config it narrows by. */
-type Reader = { reads: BoardReads; now: number; staleMinutes: number } & Narrowing;
+type Reader = { reads: BoardReads; now: number; staleMinutes: number; dead: DeadClaimRules | null } & Narrowing;
 
 /** One repository's pull requests of this feature, each that could be `claimed-stale` with its head
  * commit date. With a landing chain: the sub-PRs into each landing branch (once, by label, in
  * `label` mode), then each landing's own pull request by head. */
 async function readPrs(slug: string, chain: readonly BoardLanding[] | null, reader: Reader): Promise<BoardPr[]> {
-  const { reads, now, staleMinutes, ...narrowing } = reader;
+  const { reads, now, staleMinutes, dead, ...narrowing } = reader;
   const list = async (query: { base: string } | { label: string } | { head: string }) =>
     (await reads.changes({ repo: slug, state: 'all', ...query })).map(boardPrOf);
   let prs: BoardPr[];
@@ -236,7 +240,7 @@ async function readPrs(slug: string, chain: readonly BoardLanding[] | null, read
   }
   return Promise.all(
     prs.map(async (pr) =>
-      pr.number !== undefined && couldBeStale(pr, now, staleMinutes) ? { ...pr, headCommitDate: await reads.lastCommitAt(slug, pr.number) } : pr,
+      pr.number !== undefined && couldBeStale(pr, now, staleMinutes, dead) ? { ...pr, headCommitDate: await reads.lastCommitAt(slug, pr.number) } : pr,
     ),
   );
 }

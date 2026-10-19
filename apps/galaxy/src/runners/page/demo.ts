@@ -75,7 +75,10 @@ export function demoRunnersPage(now: Date): RunnersPageView {
         line: '/omni:bug-fix 1790', status: 'done', runner: DEMO_RUNNERS.office, prUrl: 'https://github.com/acme/widgets/pull/1838',
         logTail: 'fix pushed\nopened https://github.com/acme/widgets/pull/1838', exitCode: 0, endedAt: at(-20),
       }),
-      job({ line: '/omni:yolo 1702', status: 'failed', toRunner: DEMO_RUNNERS.laptop, runner: DEMO_RUNNERS.laptop, reason: 'runner lost', endedAt: at(-178) }),
+      job({
+        line: '/omni:yolo 1702', status: 'failed', toRunner: DEMO_RUNNERS.laptop, runner: DEMO_RUNNERS.laptop, reason: 'runner lost', endedAt: at(-178),
+        released: [1908, 1909],
+      }),
       job({ line: '/omni:plan 1699', status: 'cancelled', cancelRequested: true, endedAt: at(-240) }),
       job({
         line: '/omni:bug-fix Issue 548 totals', status: 'done', sentBy: ADA, sentByLogin: 'ada', sentByKey: 'QA dashboard', runner: DEMO_RUNNERS.office,

@@ -71,6 +71,10 @@ export type JobUpdate = {
   reason?: string | null;
   /** The tokens the job's transcripts hold, sub-agents included (PRD 2102): numbers only. */
   tokens?: TokenCounts;
+  /** The claims the runner released once the job ended (PRD 2175): their pull requests' numbers, at most 50. */
+  released?: number[];
+  /** Why releasing them failed, at most 200 characters, or `null` when nothing failed (PRD 2175). */
+  releaseError?: string | null;
 };
 
 /** The limits a runner pauses at (PRD 2102): memory used above, in percent; disk free below, in GB; load above, times its cores. */
