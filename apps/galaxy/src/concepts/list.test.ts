@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { ConceptFacts } from '../dossier/github/fix';
 import { UNREAD } from '../dossier/github/summary';
 import type { Db } from '../dossier/page/source';
 import { conceptCards, conceptListState, readConcepts, type ConceptRow } from './list';
+import { fakeStageStore } from '../stages/store.fake';
 import { CONCEPT_1269, conceptRow, listed } from './list.fixture';
 
 // The Concepts list (PRD 1272, s2): one card per concept dossier of the workspace, newest first, read
@@ -19,7 +20,7 @@ describe('conceptCards', () => {
     const [card] = conceptCards([conceptRow('c-1269', parseIssue(1269), '2026-10-06T09:00:00Z')], new Map([['c-1269', CONCEPT_1269]]));
     expect(card).toEqual({
       id: 'c-1269', href: '/concepts/c-1269', number: 1269, title: 'Products replace plan repositories, with phase 0 approved on the server',
-      kind: 'platform', scale: 'vast', areas: { withPrd: 0, total: 6 }, recordedAt: '2026-10-06T09:00:00Z', recorded: '6 Oct 2026',
+      kind: 'platform', scale: 'vast', areas: { withPrd: 0, shipped: 0, total: 6 }, recordedAt: '2026-10-06T09:00:00Z', recorded: '6 Oct 2026',
       state: 'unknown', product: null, workspaceId: 'w-1',
     });
   });
@@ -37,7 +38,7 @@ describe('conceptCards', () => {
     const one = CONCEPT_1269.replace(/^(\| server-approval \|.*\| )\|$/m, '$1#1300 |');
     expect(one).not.toBe(CONCEPT_1269);
     const [card] = conceptCards([conceptRow('c-1269', parseIssue(1269), '2026-10-06T09:00:00Z')], new Map([['c-1269', one]]));
-    expect(card?.areas).toEqual({ withPrd: 1, total: 6 });
+    expect(card?.areas).toEqual({ withPrd: 1, shipped: 0, total: 6 });
   });
 
   it('lists the newest first', () => {
@@ -49,6 +50,70 @@ describe('conceptCards', () => {
     const rows = [conceptRow('a', parseIssue(1), '2026-10-06T09:00:00Z'), conceptRow('b', parseIssue(2), '2026-10-05T09:00:00Z')];
     const cards = conceptCards(rows, new Map([['b', 'not a concept']]));
     expect(cards.map((c) => [c.id, c.kind, c.scale, c.areas])).toEqual([['a', null, null, null], ['b', null, null, null]]);
+  });
+});
+
+describe('shipped concepts (PRD 2213)', () => {
+  const SIX = ['server-approval', 'approval-handshake', 'product-home', 'product-gate', 'product-records', 'constellation-tab'];
+  const named = SIX.reduce((text, id, i) => text.replace(new RegExp(`^(\\| ${id} \\|.*\\| )\\|$`, 'm'), `$1#${1300 + i} |`), CONCEPT_1269);
+  const merged = new Map<string, ConceptFacts>([['c-1269', { issue: UNREAD, pull: PULL('merged') }]]);
+  const rows = [conceptRow('c-1269', parseIssue(1269), '2026-10-06T09:00:00Z')];
+  const stored = (stages: Record<number, 'inbox' | 'building' | 'shipped' | 'retro'>) => {
+    const store = fakeStageStore();
+    store.stages.push(...Object.entries(stages).map(([prd, stage]) => ({
+      workspace_id: 'w-1', repository: 'acme/widgets', prd: parsePrd(Number(prd)), stage, reached_at: '2026-10-07T09:00:00Z', synced_at: '2026-10-07T09:00:00Z',
+    })));
+    return store;
+  };
+  const all = { 1300: 'shipped', 1301: 'retro', 1302: 'shipped', 1303: 'retro', 1304: 'shipped', 1305: 'shipped' } as const;
+
+  it('reads shipped, counting k of n, when every area\'s PRD shipped or has its retro', async () => {
+    const cards = conceptCards(rows, new Map([['c-1269', named]]), merged, new Map([['w-1', await stored(all).currentStages('w-1')]]));
+    expect(cards.map((c) => [c.state, c.areas])).toEqual([['shipped', { withPrd: 6, shipped: 6, total: 6 }]]);
+  });
+
+  it('stays in the inbox while a PRD is not shipped, counting the ones that are', async () => {
+    const store = stored({ 1300: 'shipped', 1301: 'building' });
+    const cards = conceptCards(rows, new Map([['c-1269', named]]), merged, new Map([['w-1', await store.currentStages('w-1')]]));
+    expect(cards.map((c) => [c.state, c.areas?.shipped])).toEqual([['in-inbox', 1]]);
+  });
+
+  it('never ships a concept in review, or one with no stored facts (BR-PRODUCT-93)', async () => {
+    const stages = new Map([['w-1', await stored(all).currentStages('w-1')]]);
+    const review = new Map<string, ConceptFacts>([['c-1269', { issue: UNREAD, pull: PULL('open') }]]);
+    expect(conceptCards(rows, new Map([['c-1269', named]]), review, stages)[0]?.state).toBe('in-review');
+    expect(conceptCards(rows, new Map([['c-1269', named]]), new Map(), stages)[0]?.state).toBe('unknown');
+  });
+
+  /** A client whose list holds `listing` and whose concept.md is `named`, for every version. */
+  const client = (listing: unknown[]) => ({
+    rpc: () => Promise.resolve({ data: listing, error: null }),
+    from: () => ({ select: () => ({ eq: () => ({
+      maybeSingle: () => Promise.resolve({ data: { content: named }, error: null }),
+      in: () => Promise.resolve({ data: [], error: null }),
+    }) }) }),
+  }) as unknown as Db;
+
+  it('readConcepts reads the stages once for the workspace, only the PRDs the areas name, and none for a concept naming none', async () => {
+    const asked: string[] = [];
+    const store = stored({ 1300: 'shipped' });
+    const reader = { currentStages: (workspace: string, prds?: readonly { repository: string; prd: PrdNumber }[]) => {
+      asked.push(`${workspace} ${prds?.map((p) => p.prd).join(',')}`);
+      return store.currentStages(workspace, prds);
+    } };
+    const cards = await readConcepts(client([conceptRow('c-1269', parseIssue(1269), '2026-10-06T09:00:00Z')]), reader);
+    expect(asked).toEqual(['w-1 1300,1301,1302,1303,1304,1305']);
+    expect(cards.map((c) => c.areas?.shipped)).toEqual([1]);
+    asked.length = 0;
+    await readConcepts(client([conceptRow('c-1269', parseIssue(1269), '2026-10-06T09:00:00Z', null)]), reader);
+    expect(asked).toEqual([]);
+  });
+
+  it('lists the concepts, none shipped, when the stages cannot be read', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const cards = await readConcepts(client(rows), { currentStages: () => Promise.reject(new Error('down')) });
+    expect(cards.map((c) => c.areas?.shipped)).toEqual([0]);
+    vi.restoreAllMocks();
   });
 });
 
@@ -85,7 +150,7 @@ describe('readConcepts', () => {
     const rows: ConceptRow[] = [conceptRow('c-1269', parseIssue(1269), '2026-10-06T09:00:00Z', 'v-1269')];
     const { db, calls } = stub([listed('p-7', 'prd'), ...rows, listed('b-9', 'bug'), listed('v-3', 'visual')], { 'v-1269': CONCEPT_1269 });
     const cards = await readConcepts(db);
-    expect(cards.map((c) => [c.id, c.areas])).toEqual([['c-1269', { withPrd: 0, total: 6 }]]);
+    expect(cards.map((c) => [c.id, c.areas])).toEqual([['c-1269', { withPrd: 0, shipped: 0, total: 6 }]]);
     expect(calls).toEqual(['rpc dossier_list {"p_dossier":null}', 'from dossier_versions v-1269', 'from fix_facts w-1 c-1269']);
   });
 

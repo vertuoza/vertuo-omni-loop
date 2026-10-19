@@ -728,7 +728,11 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 }
 .fix-state-in-review { border-color: var(--ask-cyan); }
 .fix-state-merged { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.fix-state-shipped { color: var(--ask-on-plasma); background: var(--ask-green); border-color: var(--ask-green); }
 .fix-state-unknown { color: var(--ask-muted); }
+/* A concept area's PRD stage, beside its link (PRD 2213). */
+.concept-stage { font: 600 12px/1 var(--ask-body); color: var(--ask-muted); border: 1px solid var(--ask-line-strong); border-radius: 999px; padding: 3px 8px; margin-left: 6px; }
+.concept-stage-shipped { color: var(--ask-green); border-color: var(--ask-green); }
 .fix-badge {
   font: 600 12px/1 var(--ask-mono);
   color: var(--ask-muted);

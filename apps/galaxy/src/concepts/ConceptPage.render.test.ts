@@ -6,6 +6,8 @@ import { UNREAD } from '../dossier/github/summary';
 import { nestedLinks } from '../people/nested-links';
 import { ConceptPage, ConceptPageScreen } from './ConceptPage';
 import { conceptView, readConceptPick, type ConceptRead } from './ConceptPage.view';
+import type { StoredStage } from '../stages/stage';
+import { prdKey } from '../stages/store';
 import { CONCEPT_1269 } from './list.fixture';
 
 // A concept's page, /concepts/<id> (PRD 1272, s3): the header with its issue and its concept PR, then
@@ -20,7 +22,11 @@ const ALL_SENT = [
 
 const read = (over: Partial<ConceptRead> = {}): ConceptRead => ({
   id: 'c-1269', repo: 'acme/widgets', number: parseIssue(1269), title: 'Products replace plan repositories, with phase 0 approved on the server',
-  versions: ALL_SENT, record: CONCEPT_1269, debate: null, pages: new Map(), facts: null, ...over,
+  versions: ALL_SENT, record: CONCEPT_1269, debate: null, pages: new Map(), stages: new Map(), facts: null, ...over,
+});
+
+const pull = (state: 'open' | 'merged') => ({
+  number: parsePr(1270), url: 'https://github.com/acme/widgets/pull/1270', state, mergedAt: state === 'merged' ? '2026-10-07T09:00:00Z' : null, mergedBy: null,
 });
 
 const render = (r: ConceptRead, query: Record<string, string> = {}) =>
@@ -50,9 +56,6 @@ describe('a concept\'s page', () => {
   });
 
   it('shows its state chip, and links its concept PR straight once its facts name it (PRD 1272, s4)', () => {
-    const pull = (state: 'open' | 'merged') => ({
-      number: parsePr(1270), url: 'https://github.com/acme/widgets/pull/1270', state, mergedAt: state === 'merged' ? '2026-10-07T09:00:00Z' : null, mergedBy: null,
-    });
     const open = render(read({ facts: { issue: UNREAD, pull: pull('open') } }));
     expect(open).toContain('<span class="fix-state fix-state-in-review">in review</span>');
     expect(open).toContain('href="https://github.com/acme/widgets/pull/1270" target="_blank" rel="noopener noreferrer">concept PR #1270</a>');
@@ -84,6 +87,37 @@ describe('a concept\'s page', () => {
     expect((areas.match(/wedge<\/span>/g) ?? []).length).toBe(1);
     expect(html).toContain('<button type="button" class="ask-button stage-action" title="/omni:brainstorm --concept 1269 server-approval">Copy</button>');
     expect((html.match(/omni:brainstorm --concept/g) ?? []).length).toBe(2);
+  });
+
+  describe('shipped by itself (PRD 2213)', () => {
+    const SIX = ['server-approval', 'approval-handshake', 'product-home', 'product-gate', 'product-records', 'constellation-tab'];
+    const record = SIX.reduce((text, id, i) => text.replace(new RegExp(`^(\\| ${id} \\|.*\\| )\\|$`, 'm'), `$1#${1300 + i} |`), CONCEPT_1269);
+    const stages = (stage: (i: number) => StoredStage | null) => new Map(SIX.flatMap((_, i) => {
+      const s = stage(i);
+      return s === null ? [] : [[prdKey({ repository: 'acme/widgets', prd: parsePrd(1300 + i) }), s] as const];
+    }));
+    const merged = { facts: { issue: UNREAD, pull: pull('merged') } };
+
+    it('reads shipped once every area\'s PRD shipped or has its retro, each PRD\'s stage beside its link, no brainstorm line', () => {
+      const html = render(read({ record, ...merged, stages: stages((i) => (i % 2 === 0 ? 'shipped' : 'retro')) }), { tab: 'areas' });
+      expect(html).toContain('<span class="fix-state fix-state-shipped">shipped</span>');
+      expect(html).toContain('PRD #1300 ↗</a> <span class="concept-stage concept-stage-shipped">shipped</span>');
+      expect(html).toContain('PRD #1301 ↗</a> <span class="concept-stage concept-stage-shipped">retro</span>');
+      expect(html).not.toContain('omni:brainstorm');
+    });
+
+    it('stays in the inbox while one PRD is at another stage, saying syncing for a PRD with no stage', () => {
+      const html = render(read({ record, ...merged, stages: stages((i) => (i === 0 ? 'shipped' : i === 1 ? 'building' : null)) }), { tab: 'areas' });
+      expect(html).toContain('<span class="fix-state fix-state-merged">in the inbox</span>');
+      expect(html).toContain('<span class="concept-stage">building</span>');
+      expect(html).toContain('<span class="concept-stage">syncing</span>');
+    });
+
+    it('never ships a concept in review', () => {
+      const html = render(read({ record, facts: { issue: UNREAD, pull: pull('open') }, stages: stages(() => 'shipped') }));
+      expect(html).toContain('in review');
+      expect(html).not.toContain('fix-state-shipped');
+    });
   });
 
   it('links an area\'s PRD to its page, or to its issue when it has none', () => {
