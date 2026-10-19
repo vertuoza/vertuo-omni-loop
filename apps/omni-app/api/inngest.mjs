@@ -211,7 +211,10 @@ var SECRETS = Object.freeze([
   /\bgithub_pat_[A-Za-z0-9_]{16,}/g,
   /\bsk-[A-Za-z0-9_-]{16,}/g,
   /\bAKIA[0-9A-Z]{16}\b/g,
-  /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g
+  /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g,
+  /\bsb_(?:secret|publishable)_[A-Za-z0-9_-]{16,}/g,
+  /\bwhsec_[A-Za-z0-9+/=]{16,}/g,
+  /\bxox[abpr]-[A-Za-z0-9-]{10,}/g
 ]);
 var BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 var MASK = "[masked]";
@@ -16159,7 +16162,7 @@ var ci = Object.freeze({
     const red = jobs.filter((job) => job.status === "completed" && RED2.has(job.conclusion));
     const tails = await inParallel(red, async (job) => {
       const read = await readOrRefused2(() => octokit.request(LOGS, { owner, repo, job_id: job.id }).then(({ data }) => data));
-      return read.status ? { tail: null, status: read.status } : { tail: tailOf(cleanLog(asText(read.value)), LIMITS.logTailLines) };
+      return read.status ? { tail: null, status: read.status } : { tail: maskSecrets(tailOf(cleanLog(asText(read.value)), LIMITS.logTailLines)) };
     });
     const logs = Object.fromEntries(red.map((job, index) => [job.id, tails[index]]));
     return { slices, unread, jobs, logs };

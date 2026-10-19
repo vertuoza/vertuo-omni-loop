@@ -13,6 +13,10 @@ const SECRETS = [
   'sk-ant-' + 'api03-abcdefghijklmnopqrstuvwxyz',
   'AKIA' + 'IOSFODNN7EXAMPLE',
   'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
+  'sb_' + 'secret_' + 'N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz',
+  'sb_' + 'publishable_' + 'ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH',
+  'wh' + 'sec_' + 'f'.repeat(32),
+  'xo' + 'xb-' + '1234567890-' + 'e'.repeat(24),
 ];
 
 describe('maskSecrets', () => {
