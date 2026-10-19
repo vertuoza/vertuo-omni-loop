@@ -139,6 +139,26 @@ describe('POST /api/runners/jobs/<id>, a runner\'s report', () => {
     expect(w.state.jobs[0]?.tokens).toEqual(tokens);
   });
 
+  it('stores the claims a last report says were released, and why a release failed (PRD 2175)', async () => {
+    const job = claimed();
+    const w = world({ jobs: [job] });
+    const report = { status: 'failed', reason: 'exit code 3', released: [1908, 1909], releaseError: 'HTTP 502' };
+    expect(await read(await reportJob(post(`/jobs/${job.id}`, 'olga-token', report), job.id, w.deps))).toEqual({ status: 200, body: { cancel: false } });
+    expect(w.state.jobs[0]).toMatchObject({ status: 'failed', released: [1908, 1909], release_error: 'HTTP 502' });
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'failed', released: ['#1'] }), job.id, w.deps)).status).toBe(400);
+  });
+
+  it('takes what a runner released for a job already lost, and nothing else after it ended (PRD 2175)', async () => {
+    const job = jobRow({ status: 'failed', reason: 'runner lost', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    expect(await read(await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'failed', released: [7], releaseError: null }), job.id, w.deps)))
+      .toEqual({ status: 200, body: { cancel: false } });
+    expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'runner lost', released: [7], release_error: null, ended_at: T0.toISOString() });
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'failed', released: [8], reason: 'exit code 1' }), job.id, w.deps)).status).toBe(409);
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'done', released: [8] }), job.id, w.deps)).status).toBe(409);
+    expect(w.state.jobs[0]).toMatchObject({ reason: 'runner lost', released: [7] });
+  });
+
   it('refuses a report after the job ended, out of order', async () => {
     const job = jobRow({ status: 'done', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: T0.toISOString() });
     const w = world({ jobs: [job] });
