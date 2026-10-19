@@ -197,3 +197,31 @@ describe('the tokens a report carries', () => {
     expect(HealthReportSchema.safeParse({ ...sample, tokens }).success).toBe(false);
   });
 });
+
+// The released claims (PRD 2175 s2): a job's last report may say which sub-PRs its runner released, and
+// why a release failed; both are optional, so a runner from before this PRD reports as it did.
+describe('the claims a report says were released', () => {
+  it('takes a report with the numbers released and why a release failed, with either alone, and with neither', () => {
+    const full = { status: 'failed', reason: 'exit code 3', released: [1908, 1909], releaseError: 'HTTP 502' };
+    expect(JobUpdateSchema.parse(full)).toEqual(full);
+    expect(JobUpdateSchema.parse({ status: 'done', released: [], releaseError: null })).toEqual({ status: 'done', released: [], releaseError: null });
+    expect(JobUpdateSchema.safeParse({ status: 'done', releaseError: 'gh: not signed in' }).success).toBe(true);
+    expect(JobUpdateSchema.parse({ status: 'done' })).toEqual({ status: 'done' });
+  });
+
+  it('takes 50 numbers and 200 characters, the most a runner sends', () => {
+    const fifty = Array.from({ length: 50 }, (_, i) => i + 1);
+    expect(JobUpdateSchema.safeParse({ status: 'done', released: fifty, releaseError: 'x'.repeat(200) }).success).toBe(true);
+  });
+
+  it.each([
+    ['51 numbers', { released: Array.from({ length: 51 }, (_, i) => i + 1) }],
+    ['a number that is no pull request', { released: [0] }],
+    ['a number with a fraction', { released: [1.5] }],
+    ['a number as text', { released: ['1908'] }],
+    ['released as null', { released: null }],
+    ['a reason over 200 characters', { releaseError: 'x'.repeat(201) }],
+  ])('refuses a report with %s', (_, more) => {
+    expect(JobUpdateSchema.safeParse({ status: 'done', ...more }).success).toBe(false);
+  });
+});

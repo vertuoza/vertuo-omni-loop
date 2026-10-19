@@ -3410,6 +3410,8 @@ export type Database = {
           pr_url: string | null
           queued_at: string
           reason: string | null
+          release_error: string | null
+          released: number[] | null
           repo: string
           runner_id: string | null
           running_at: string | null
@@ -3432,6 +3434,8 @@ export type Database = {
           pr_url?: string | null
           queued_at?: string
           reason?: string | null
+          release_error?: string | null
+          released?: number[] | null
           repo: string
           runner_id?: string | null
           running_at?: string | null
@@ -3454,6 +3458,8 @@ export type Database = {
           pr_url?: string | null
           queued_at?: string
           reason?: string | null
+          release_error?: string | null
+          released?: number[] | null
           repo?: string
           runner_id?: string | null
           running_at?: string | null
@@ -5964,6 +5970,8 @@ export type Database = {
           pr_url: string | null
           queued_at: string
           reason: string | null
+          release_error: string | null
+          released: number[] | null
           repo: string
           runner_id: string | null
           running_at: string | null

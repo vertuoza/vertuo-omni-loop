@@ -33,10 +33,19 @@
 // The app unreachable: every call is tried again after 5 s, doubling up to 60 s, and the running jobs
 // keep going. The sign-in refused: the runner stops taking jobs and ends on one line. Stopped
 // (Ctrl-C): it stops taking jobs and waits for the running ones.
+//
+// Each job's session gets `OMNI_JOB`, `OMNI_RUNNER` and `OMNI_UNATTENDED` (PRD 2175), so a claim it
+// makes names its job. Once a job ends, done, failed, timed out or cancelled, the runner releases the
+// claims it still holds (`release.ts`), and the job's last report carries `released` and
+// `releaseError`. A job no slot holds whose worktree the sweep finds was marked lost by the app: its
+// claims are released too, reason `runner lost`, and a report carrying only what was released follows
+// when there is something to say. An app that refuses those two fields gets the report again without
+// them.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
+import { runnerJobVariables } from '../env/read.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { HealthLimits, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
@@ -48,7 +57,8 @@ import type { TokenSource } from './tokens.ts';
 import { lastPullRequest, linesAfter, logTail, reportBatch } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
 import type { PluginKeeper } from './plugin.ts';
-import { dropJobBranch, pruneWorktrees, sweep, sweptLine } from './sweep.ts';
+import type { Released, Releaser } from './release.ts';
+import { dropJobBranch, pruneWorktrees, strandedJobs, sweep, sweptLine } from './sweep.ts';
 import type { Terminal } from './terminal.ts';
 
 /** Where the runner prints: `process.stdout`, or a test's buffer. */
@@ -111,6 +121,8 @@ export type RunnerOptions = {
   limits?: HealthLimits | undefined;
   /** Where the token counts are read from: Claude's transcripts under the home, unless given. */
   tokens?: TokenSource | undefined;
+  /** Releases the claims of a job that ended (PRD 2175): none are released unless given. */
+  release?: Releaser | undefined;
 };
 
 /** One runner's state while it runs: its options with their defaults, and whether it was refused. */
@@ -236,7 +248,7 @@ async function register(loop: Loop): Promise<string | null> {
  * report carries any: an app older than PRD 2102 refuses a field it does not know. A refusal that
  * carries none, or a second one, is the app's answer as it stands.
  */
-async function sendUpdate(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
+async function sendCounted(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
   const { tokens, ...plain } = update;
   if (tokens === undefined) return loop.api.update(job, update);
   if (!loop.tokensOk) return loop.api.update(job, plain);
@@ -247,6 +259,21 @@ async function sendUpdate(loop: Loop, job: string, update: JobUpdate): Promise<{
     loop.tokensOk = false;
     loop.tokensOff = true;
     return loop.api.update(job, plain);
+  }
+}
+
+/**
+ * Sends a job's report. One that carries what was released and is refused is sent again without it:
+ * an app older than PRD 2175 refuses a field it does not know, and the job's status must still reach it.
+ */
+async function sendUpdate(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
+  const { released, releaseError, ...rest } = update;
+  if (released === undefined && releaseError === undefined) return sendCounted(loop, job, update);
+  try {
+    return await sendCounted(loop, job, update);
+  } catch (error) {
+    if (!(error instanceof RunnerRefused)) throw error;
+    return sendCounted(loop, job, rest);
   }
 }
 
@@ -390,7 +417,7 @@ function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | n
     loop.terminal.start({
       name: place.session,
       cwd: place.worktree,
-      env: { ...loop.env, ...sender, ...WAIT_FOR_AGENTS },
+      env: { ...loop.env, ...runnerJobVariables(job.id, loop.name), ...sender, ...WAIT_FOR_AGENTS },
       argv: [...loop.wrapper, '--line', place.line, '--log', place.log, '--exit', place.exit],
     });
     return true;
@@ -449,6 +476,44 @@ function endLine(job: RunnerJob, last: JobUpdate): string {
   return `job ${job.id} ${last.status}${detail ? ` · ${detail}` : ''}`;
 }
 
+/** Why a job ended, as its released claims' alarm says it: a failure's reason, else its status. */
+function endReason(last: JobUpdate): string {
+  return last.status === 'failed' ? last.reason ?? 'failed' : last.status;
+}
+
+/** The lines a release prints: the claims released, and what failed; none when it did nothing. */
+function releaseLines(job: string, { released, releaseError }: Released): string[] {
+  return [
+    ...(released.length === 0 ? [] : [`job ${job} released ${released.map((n) => `#${String(n)}`).join(', ')}`]),
+    ...(releaseError === null ? [] : [`job ${job} could not release its claims: ${releaseError}`]),
+  ];
+}
+
+/** Releases the claims of `job`, which ended on `last`: `last` with what was released, or as it is when the runner releases nothing. */
+function releasing(loop: Loop, job: RunnerJob, last: JobUpdate): JobUpdate {
+  if (loop.release === undefined) return last;
+  const done = loop.release({ id: job.id, runner: loop.name, repo: job.repo, reason: endReason(last) });
+  for (const line of releaseLines(job.id, done)) loop.print(line);
+  return { ...last, released: done.released, releaseError: done.releaseError };
+}
+
+/**
+ * Releases the claims of a job the app marked lost, `runner lost`, and reports what it released when
+ * there is something to say. The job has ended on the app: a report it refuses, or never answers,
+ * prints one line and stops nothing.
+ */
+async function releaseLost(loop: Loop, lost: { job: string; repo: string }): Promise<void> {
+  if (loop.release === undefined) return;
+  const done = loop.release({ id: lost.job, runner: loop.name, repo: lost.repo, reason: 'runner lost' });
+  for (const line of releaseLines(lost.job, done)) loop.print(line);
+  if (done.released.length === 0 && done.releaseError === null) return;
+  try {
+    await loop.api.update(lost.job, { status: 'failed', released: done.released, releaseError: done.releaseError });
+  } catch (error) {
+    loop.print(`job ${lost.job}: its release was not reported (${error instanceof Error ? error.message : String(error)})`);
+  }
+}
+
 /** Waits for the next job: the job, `null` for none yet, or `stop` once the runner stops. */
 async function nextJob(loop: Loop, runner: string, wait: { ms: number }): Promise<RunnerJob | null | 'stop'> {
   try {
@@ -480,7 +545,9 @@ async function slot(loop: Loop, runner: string): Promise<void> {
     loop.print(`job ${job.id} claimed: ${job.line} (${job.repo})`);
     try {
       const { last, live } = await runJob(loop, job);
-      await finish(loop, job.id, withTokens(loop, last, worktreeOf(loop, job)), live);
+      // A job whose session never started made no claim: it has nothing to release.
+      const report = live === null ? last : releasing(loop, job, last);
+      await finish(loop, job.id, withTokens(loop, report, worktreeOf(loop, job)), live);
       loop.print(endLine(job, last));
     } finally {
       loop.jobs.delete(job.id);
@@ -529,12 +596,17 @@ async function reporter(loop: Loop, runner: string): Promise<void> {
   }
 }
 
-/** Sweeps now and updates the Omni plugin, then every hour, until the runner stops or is refused. */
+/**
+ * Sweeps now and updates the Omni plugin, then every hour, until the runner stops or is refused. The
+ * jobs whose worktree it removes, which no slot holds, were lost: their claims are released.
+ */
 async function sweeper(loop: Loop): Promise<void> {
   const keepLogsDays = loop.keepLogsDays ?? KEEP_LOGS_DAYS;
   while (!loop.halt.aborted) {
+    const lost = strandedJobs({ home: loop.home, checkouts: loop.checkouts, running: loop.jobs });
     const line = sweptLine(sweep({ home: loop.home, checkouts: loop.checkouts, exec: loop.exec, running: loop.jobs, keepLogsDays, now: loop.now() }));
     if (line !== null) loop.print(line);
+    for (const job of lost) await releaseLost(loop, job);
     await loop.plugin.sweep();
     await loop.sleep(SWEEP_MS, loop.halt);
   }
