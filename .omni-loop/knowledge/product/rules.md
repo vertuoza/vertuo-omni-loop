@@ -1290,7 +1290,7 @@ Decided: @pierrederval, 2026-10-15
 A repository's knowledge graph keeps the account and the GitHub login of the person who pushed it, as the login was at the push, and the server keeps the twenty graphs pushed most recently for each repository: pushing an older commit again makes it the newest, and the graph served is always the one pushed last.
 
 Serves: P-PRODUCT-72
-Source: .omni-loop/delivery/outbox/1798-knowledge-graph-api/settled.md, entry s1-02-pusher-login-and-history, PRD #1798
+Source: .omni-loop/delivery/shipped/1798-knowledge-graph-api/outbox/settled.md, entry s1-02-pusher-login-and-history, PRD #1798
 Enforced by: supabase/checks/knowledge_graphs.sql
 Stated: 2026-10-19
 Decided: @pierrederval, 2026-10-19

@@ -57,4 +57,4 @@ Glossary · Never · never pushed · Unresolved · Read-only.
 ## Source
 
 - PRD 1798 s6, drawn by hand (no `/omni:pixel-perfect mock` run); no browser tool was available to look at the built page.
-- .omni-loop/delivery/inbox/1798-knowledge-graph-api/spec.md
+- .omni-loop/delivery/shipped/1798-knowledge-graph-api/spec.md
