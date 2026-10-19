@@ -10,6 +10,7 @@
  *   sign-in, the server unreachable or its refusal with its reason.
  */
 import { join } from 'node:path';
+import { z } from 'zod';
 import { AskCallError } from '../ask/client.ts';
 import type { askClient } from '../ask/client.ts';
 import type { Context } from '../context.ts';
@@ -34,13 +35,18 @@ const FAIL = (line: string): Pushed => ({ ok: false, lines: [line] });
 /** The server's answer to a push: the commit it stored and the products the graph is served in. */
 type Reply = { nodes: number; edges: number; products: { key: string | null; href: string }[] };
 
+const ReplySchema = z.object({ nodes: z.number(), edges: z.number(), products: z.array(z.unknown()) });
+const ProductSchema = z.object({ key: z.unknown(), href: z.string() });
+
 function replyOf(value: unknown): Reply | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const { nodes, edges, products } = value as Record<string, unknown>;
-  if (typeof nodes !== 'number' || typeof edges !== 'number' || !Array.isArray(products)) return null;
-  const served = products.flatMap((product: unknown) => {
-    const { key, href } = (typeof product === 'object' && product !== null ? product : {}) as Record<string, unknown>;
-    return typeof href === 'string' ? [{ key: typeof key === 'string' ? key : null, href }] : [];
+  const read = ReplySchema.safeParse(value);
+  if (!read.success) return null;
+  const { nodes, edges, products } = read.data;
+  const served = products.flatMap((product) => {
+    const one = ProductSchema.safeParse(product);
+    if (!one.success) return [];
+    const { key, href } = one.data;
+    return [{ key: typeof key === 'string' ? key : null, href }];
   });
   return { nodes, edges, products: served };
 }
