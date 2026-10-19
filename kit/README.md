@@ -288,6 +288,19 @@ same parser every other command reads the registers with, so an agent can ask wh
 principle, or what a domain holds, in one call. A repository without a knowledge folder prints an
 empty graph.
 
+`omni kb graph <id>` prints the neighbourhood of one entry: one line per node it touches, through
+the edges `serves` (up and down), `enforced-by`, `governs`, `points-to`, `cites`, `sibling`,
+`screen`, `same-prd` and `uses-term`, at most 6 lines per edge kind, and a last line saying whether
+the product's Legal and Glossary are cached. `omni kb graph --paths <file>…` prints one such block
+per entry whose `Governs:` matches the files (laws first, then rules, in register order), the files
+read as `omni kb laws --paths` reads them. `--depth 2` or `3` walks that many hops between entries,
+indented two spaces per hop, each node printed once; leaves (tests, paths, schemas, screens,
+decision records, terms) are never walked, and `--depth` is 1 by default and at most 3. `--json`
+prints the neighbourhood as one versioned document (`version: 1`, `shape: "neighbourhood"`, `repo`,
+`start`, `depth`, `product`, `nodes`, `edges`), never cut. An id that names no entry exits 1;
+`--depth` outside 1 to 3, or `--paths` with an id or with no file, exits 2 with the usage line.
+Nothing here calls the network: the product's cache is read from its file only.
+
 **Laws and their tests** (PRD 1342) apply only where `laws.source` is `knowledge`. A rule or an
 invariant's `Enforced by:` names a test path, `unenforced`, or `pending #<n>`: a law judged worth a
 test before it had one, whose **law issue** `#<n>` is labelled `labels.law` (default `omni:law`,

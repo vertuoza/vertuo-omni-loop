@@ -432,16 +432,20 @@ function rowLines(rows: readonly Row[]): string[] {
 }
 
 /**
- * The neighbourhood as text: per start, its line and one aligned line per node under it, at most
- * {@link LINES_PER_EDGE} per edge kind; then the product line. `entries` gives the start's lock and
- * its pending proof, which the JSON does not carry.
+ * The neighbourhood as text, without its product line: per start, its line and one aligned line per
+ * node under it, at most {@link LINES_PER_EDGE} per edge kind, indented two spaces per hop. `entries`
+ * gives the start's lock and its pending proof, which the JSON does not carry.
  */
-export function neighbourhoodText(built: Neighbourhood, entries: readonly KnowledgeEntry[], unreadable = false): string {
+export function neighbourhoodBody(built: Neighbourhood, entries: readonly KnowledgeEntry[]): string[] {
   const printed = new Set(built.start);
   const lines: string[] = [];
   for (const node of built.nodes.filter(({ hop }) => hop === 0)) {
     lines.push(startLine(node, entries.find(({ id }) => id === node.id)), ...rowLines(rowsUnder(node, built, printed)));
   }
-  lines.push(productLine(built.product, unreadable));
-  return lines.join('\n');
+  return lines;
+}
+
+/** The neighbourhood as text: its body, then the product line. */
+export function neighbourhoodText(built: Neighbourhood, entries: readonly KnowledgeEntry[], unreadable = false): string {
+  return [...neighbourhoodBody(built, entries), productLine(built.product, unreadable)].join('\n');
 }
