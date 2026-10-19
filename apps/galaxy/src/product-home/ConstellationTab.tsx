@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { workPath } from '../dossier/page/work';
-import { constellationOf, type ConsumesLine, type Constellation, type Filter, type Flight, type PlanLine, type Star } from './constellation';
+import { constellationOf, fieldOf, type ConsumesLine, type Constellation, type Filter, type Flight, type PlanLine, type Star, type StarSize } from './constellation';
+import { ConstellationMotion } from './ConstellationMotion';
 import type { PrChip, ProductHome as Home } from './product-home.service';
 import { productHomeTabHref } from './tabs';
 import { productHomeHref } from '../products/model';
@@ -11,8 +12,9 @@ import { productHomeHref } from '../products/model';
 // Ledger state) where constellation.ts places them, the plan lines its PRDs' targets draw (a link each,
 // `?pair=`, moving dots when one of its PRDs is in flight) and its declared `consumes` lines, apart. The side
 // card is *Now in <product>* with nothing selected, the star's card (`?star=`) or the line's (`?pair=`). There
-// is no PRD filter. Server-rendered, no script, no GitHub call. Every colour is a token of
-// src/ask/theme-tokens.ts (constellation.css); PRD 2174 s4 draws the night sky.
+// is no PRD filter. Server-rendered, no GitHub call (its one script only pauses the motion while the page is
+// hidden). PRD 2174 s4 draws it as the tour's night sky: a gradient, a nebula and a seeded field of stars,
+// glowing cores in three sizes, every colour a token of @omni/design (constellation.css), dark in every theme.
 
 export const NO_REPOSITORIES = 'No repository is in this product yet.';
 export const NO_EDGES = 'No PRD\'s plan names two repositories yet.';
@@ -35,19 +37,37 @@ const pairHref = (base: string, line: PlanLine) => `${base}?pair=${nameIn(line.a
 
 type Drawn = Extract<Constellation, { kind: 'stars' | 'map' }>;
 
-/** The path from star `from` to star `to`, or null when either is not on the sky. */
-function segmentOf(stars: readonly Star[], from: string, to: string): string | null {
-  const start = stars.find((s) => s.repository === from)?.at;
-  const end = stars.find((s) => s.repository === to)?.at;
-  return start === undefined || end === undefined ? null : `M ${String(start.x)} ${String(start.y)} L ${String(end.x)} ${String(end.y)}`;
+/** A core's radius by the star's weight: light, medium, heavy. */
+const CORE: Readonly<Record<StarSize, number>> = { light: 11, medium: 16, heavy: 22 };
+const coreOf = (star: Star) => CORE[star.size];
+
+const round = (n: number) => Math.round(n * 10) / 10;
+
+/** The curve from star `from` to star `to` (a gentle bend, always to the same side), or null when either is not
+ * on the sky. With `stop`, it ends that far short of `to`: where an arrowhead sits clear of the core. */
+function curveOf(stars: readonly Star[], from: string, to: string, stop = 0): string | null {
+  const start = stars.find((s) => s.repository === from);
+  const end = stars.find((s) => s.repository === to);
+  if (start === undefined || end === undefined) return null;
+  const dx = end.at.x - start.at.x;
+  const dy = end.at.y - start.at.y;
+  const length = Math.hypot(dx, dy) || 1;
+  const cut = Math.min(stop, length / 2) / length;
+  const bend = Math.min(40, length * 0.12);
+  const cx = (start.at.x + end.at.x) / 2 - (dy / length) * bend;
+  const cy = (start.at.y + end.at.y) / 2 + (dx / length) * bend;
+  const ex = end.at.x - dx * cut;
+  const ey = end.at.y - dy * cut;
+  return `M ${String(round(start.at.x))} ${String(round(start.at.y))} Q ${String(round(cx))} ${String(round(cy))} ${String(round(ex))} ${String(round(ey))}`;
 }
 
 function PlanLink({ line, stars, base }: { line: PlanLine; stars: readonly Star[]; base: string }) {
-  const d = segmentOf(stars, line.a, line.b);
+  const d = curveOf(stars, line.a, line.b);
   if (d === null) return null;
   return (
     <Link href={pairHref(base, line)} className="constellation-plan" data-pair={`${line.a},${line.b}`} data-weight={line.weight} data-in-flight={line.inFlight || undefined}>
       <title>{lineTitle(line)}</title>
+      <path className="constellation-hit-line" d={d} />
       <path className="constellation-edge" d={d} strokeWidth={Math.min(5, 1.5 + line.weight * 0.5)} />
       {line.inFlight ? <path className="constellation-flow" pathLength={300} d={d} /> : null}
     </Link>
@@ -55,9 +75,51 @@ function PlanLink({ line, stars, base }: { line: PlanLine; stars: readonly Star[
 }
 
 function ConsumesPath({ line, stars }: { line: ConsumesLine; stars: readonly Star[] }) {
-  const d = segmentOf(stars, line.consumer, line.provider);
+  const provider = stars.find((s) => s.repository === line.provider);
+  const d = curveOf(stars, line.consumer, line.provider, provider === undefined ? 0 : coreOf(provider) + 8);
   if (d === null) return null;
-  return <path className="constellation-consumes" data-consumer={line.consumer} data-provider={line.provider} d={d} />;
+  return <path className="constellation-consumes" data-consumer={line.consumer} data-provider={line.provider} d={d} markerEnd="url(#constellation-arrow)" />;
+}
+
+/** The sky's layers: the gradient is the svg's own background, then the nebula, then the seeded field. */
+function SkyBackdrop({ productId, width, height }: { productId: string; width: number; height: number }) {
+  const field = fieldOf(productId, width, height);
+  return (
+    <>
+      <defs>
+        {(['plasma', 'cyan', 'magenta'] as const).map((hue) => (
+          <radialGradient key={hue} id={`constellation-nebula-${hue}`}>
+            <stop className="constellation-nebula-stop" data-hue={hue} offset="0" />
+            <stop className="constellation-nebula-stop" data-hue={hue} offset="1" stopOpacity="0" />
+          </radialGradient>
+        ))}
+        <radialGradient id="constellation-core">
+          <stop className="constellation-core-stop" offset="0" data-end="in" />
+          <stop className="constellation-core-stop" offset="1" data-end="out" />
+        </radialGradient>
+        <marker id="constellation-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+          <path className="constellation-arrow" d="M 0 0 L 10 5 L 0 10 z" />
+        </marker>
+      </defs>
+      <g className="constellation-nebula" aria-hidden="true">
+        <ellipse cx={width * 0.22} cy={height * 0.3} rx={width * 0.3} ry={height * 0.38} fill="url(#constellation-nebula-plasma)" />
+        <ellipse cx={width * 0.78} cy={height * 0.65} rx={width * 0.28} ry={height * 0.4} fill="url(#constellation-nebula-cyan)" />
+        <ellipse cx={width * 0.55} cy={height * 0.1} rx={width * 0.22} ry={height * 0.25} fill="url(#constellation-nebula-magenta)" />
+      </g>
+      <g className="constellation-field" aria-hidden="true">
+        {field.map((s) => (
+          <circle
+            key={`${String(s.x)},${String(s.y)}`}
+            className={s.twinkle ? 'constellation-speck constellation-twinkle' : 'constellation-speck'}
+            cx={s.x}
+            cy={s.y}
+            r={s.r}
+            style={s.twinkle ? { animationDelay: `${String(s.delay)}s` } : undefined}
+          />
+        ))}
+      </g>
+    </>
+  );
 }
 
 /** A tether's words and its pull request on GitHub (PRD 2129 s3). */
@@ -71,7 +133,7 @@ function Tethers({ star }: { star: Star }) {
     <>
       {star.tethers.map((t, i) => (
         <g key={`${t.repo}#${String(t.pr)}`} className="constellation-tether">
-          <line className="constellation-tether-line" x1={x} y1={y + 26} x2={x} y2={y + 80 + 16 * i} />
+          <line className="constellation-tether-line" x1={x} y1={y + 50} x2={x} y2={y + 80 + 16 * i} />
           <a href={tetherHref(t)}>
             <text className="constellation-tether-label" x={x} y={y + 92 + 16 * i} textAnchor="middle">{tetherWords(t)}</text>
           </a>
@@ -81,29 +143,32 @@ function Tethers({ star }: { star: Star }) {
   );
 }
 
-/** A star's label: its repository, its role, and whether it is docked. */
-const starLabel = (star: Star) => `${star.repository}, ${star.role ?? 'no role'}${star.docked ? ', docked' : ''}`;
+/** A star's label: its repository, its role when it has one, and whether it is docked. */
+const starLabel = (star: Star) => `${star.repository}${star.role === null ? '' : `, ${star.role}`}${star.docked ? ', docked' : ''}`;
 
-/** What a star wears around its body: the also-in halo, and its ring unless it is quiet. */
+/** A star's title: its name, how many PRDs touch it, and its phase 0 mark. */
+const starTitle = (star: Star) => `${shortName(star.repository)} · ${String(star.weight)} PRD${star.weight === 1 ? '' : 's'} · ${star.phase0 === 'server' ? '◆' : '◇'}`;
+
+/** What a star wears around its core: the also-in halo, and its ring unless it is quiet. */
 function StarRings({ star }: { star: Star }) {
   const { x, y } = star.at;
+  const r = coreOf(star);
   return (
     <>
-      {star.alsoIn.length === 0 ? null : <circle className="constellation-halo" cx={x} cy={y} r={36} />}
-      {star.state === 'quiet' ? null : <circle className="constellation-ring" data-state={star.state} cx={x} cy={y} r={31} />}
+      {star.alsoIn.length === 0 ? null : <circle className="constellation-halo" cx={x} cy={y} r={r + 13} />}
+      {star.state === 'quiet' ? null : <circle className="constellation-ring" data-state={star.state} cx={x} cy={y} r={r + 6} />}
     </>
   );
 }
 
-/** A star's words: its phase 0 mark, its name, its role, and `DOCKED`. */
+/** A star's words: its name, and its role only when it has one. */
 function StarWords({ star }: { star: Star }) {
   const { x, y } = star.at;
+  const r = coreOf(star);
   return (
     <>
-      <text className="constellation-mark" x={x} y={y} textAnchor="middle" dominantBaseline="central">{star.phase0 === 'server' ? '◆' : '◇'}</text>
-      <text className="constellation-name" x={x} y={y + 50} textAnchor="middle">{shortName(star.repository)}</text>
-      <text className="constellation-role" x={x} y={y + 66} textAnchor="middle">{star.role ?? 'no role'}</text>
-      {star.docked ? <text className="constellation-docked" x={x} y={y - 38} textAnchor="middle">DOCKED</text> : null}
+      <text className="constellation-name" x={x} y={y + r + 18} textAnchor="middle">{shortName(star.repository)}</text>
+      {star.role === null ? null : <text className="constellation-role" x={x} y={y + r + 34} textAnchor="middle">{star.role}</text>}
     </>
   );
 }
@@ -119,9 +184,10 @@ function StarMark({ star, href }: { star: Star; href: string }) {
       data-state={star.state}
       data-size={star.size}
     >
+      <title>{starTitle(star)}</title>
       <circle className="constellation-hit" cx={star.at.x} cy={star.at.y} r={32} />
       <StarRings star={star} />
-      <circle className="constellation-body" cx={star.at.x} cy={star.at.y} r={26} />
+      <circle className="constellation-body" cx={star.at.x} cy={star.at.y} r={coreOf(star)} />
       <StarWords star={star} />
     </Link>
   );
@@ -134,10 +200,10 @@ function Legend({ docked, alsoIn }: { docked: boolean; alsoIn: boolean }) {
       <li><span className="constellation-key" data-key="on-you" /> waits on you</li>
       <li><span className="constellation-key" data-key="drifted" /> drifted</li>
       <li><span className="constellation-key" data-key="server">◆</span> phase 0 approved on the PRD page</li>
-      <li><span className="constellation-key" data-key="pr">◇</span> phase 0 by pull request{docked ? ' · DOCKED' : ''}</li>
+      <li><span className="constellation-key" data-key="pr">◇</span> phase 0 by pull request{docked ? ' · docked' : ''}</li>
       {alsoIn ? <li><span className="constellation-key" data-key="also-in" /> also in another product</li> : null}
-      <li>a plan line: PRDs that changed both</li>
-      <li>a consumes line</li>
+      <li><span className="constellation-key" data-key="plan" /> a plan line: PRDs that changed both</li>
+      <li><span className="constellation-key" data-key="consumes" /> a consumes line</li>
     </ul>
   );
 }
@@ -239,6 +305,8 @@ export function ConstellationTab({ home, now = new Date(), query = {} }: { home:
   const label = map.selected?.repository ?? (map.selectedLine === null ? `Now in ${home.product.name}` : lineTitle(map.selectedLine));
   return (
     <section className="constellation" aria-label="Constellation">
+      <ConstellationMotion />
+      <p className="constellation-lede">How the product looks now.</p>
       <div className="constellation-bar">
         <span className="products-chip">read only</span>
         <span>{stars.length} repositories · {lines.length + consumes.length} lines</span>
@@ -253,6 +321,7 @@ export function ConstellationTab({ home, now = new Date(), query = {} }: { home:
               role="img"
               aria-label={`${home.product.name}: ${String(stars.length)} repositories, ${String(lines.length)} plan lines`}
             >
+              <SkyBackdrop productId={home.product.id} width={map.sky.width} height={map.sky.height} />
               {consumes.map((c) => <ConsumesPath key={`${c.consumer}>${c.provider}`} line={c} stars={stars} />)}
               {lines.map((l) => <PlanLink key={`${l.a}|${l.b}`} line={l} stars={stars} base={base} />)}
               {stars.map((s) => <StarMark key={s.repository} star={s} href={starHref(base, s)} />)}
