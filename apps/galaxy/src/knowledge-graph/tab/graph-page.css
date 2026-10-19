@@ -1,0 +1,4 @@
+/* The product's knowledge graph page (PRD 1798 s6): the Knowledge tab's tokens, plus a node's origin label and the depth links. */
+.kgraph-origin { display: inline-block; padding: 1px 8px; border: 1px solid var(--ask-border, currentColor); border-radius: 999px; font-size: 0.8125rem; }
+.kgraph-depths { display: flex; gap: 12px; flex-wrap: wrap; }
+.kgraph-depths a[aria-current='true'] { font-weight: 600; text-decoration: none; }
