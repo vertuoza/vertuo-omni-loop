@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { KnowledgeTab } from './product-knowledge.contract';
-import { demoKnowledgeTab, KNOWLEDGE_LABEL, KnowledgeTabScreen, type KnowledgeTabView } from './KnowledgeTab';
+import { demoKnowledgeTab, GRAPH_LINK, knowledgeGraphHref, KNOWLEDGE_LABEL, KnowledgeTabScreen, type KnowledgeTabView } from './KnowledgeTab';
 import { NO_LEGAL, NO_TERMS, OWNERS_DECIDE, proposalLine } from './KnowledgeTabPage';
 
 // The Knowledge tab as the server renders it (PRD 1795 s2): the Legal and Glossary sections, each naming
@@ -44,6 +44,14 @@ describe('the tab', () => {
   it('is headed with the product\'s name, its tabs marking Knowledge', () => {
     expect(/<h1[^>]*>([^<]*)<\/h1>/.exec(html)?.[1]).toBe('Widgets');
     expect(text(/<a [^>]*aria-current="page"[^>]*>([^<]*)<\/a>/.exec(html)?.[1] ?? '')).toBe(KNOWLEDGE_LABEL);
+  });
+
+  it('links the knowledge graph from its heading, and stays the marked tab', () => {
+    const head = html.slice(0, html.indexOf('</section>'));
+    expect(head).toContain(`href="${knowledgeGraphHref(PRODUCT)}"`);
+    expect(knowledgeGraphHref(PRODUCT)).toBe(`/app/products/${PRODUCT}/knowledge/graph`);
+    expect(text(head)).toContain(GRAPH_LINK);
+    expect(html.match(/aria-current="page"/g)).toHaveLength(1);
   });
 
   it('has a Legal section and a Glossary section, each naming its owner and delegate', () => {
