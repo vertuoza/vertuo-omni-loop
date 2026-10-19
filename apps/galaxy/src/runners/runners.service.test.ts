@@ -250,6 +250,17 @@ describe('registering', () => {
     expect(w.state.runners[0]).toMatchObject({ slots: 2, version: '0.0.388', last_seen_at: at(300).toISOString() });
   });
 
+  it('ends the jobs a restarted runner held as runner lost, though it was silent for under 90 s (#2170)', async () => {
+    const starting = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const running = jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+    const elsewhere = jobRow({ status: 'running', runner_id: CIA_BOX, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+    const queued = jobRow();
+    const w = world({ jobs: [starting, running, elsewhere, queued], start: at(10) });
+    value(await w.service.register(OLGA, { name: 'shared', slots: 1, repos: ['vertuoza/app'], version: '1' }));
+    expect(w.state.jobs.map((j) => [j.status, j.reason])).toEqual([['failed', 'runner lost'], ['failed', 'runner lost'], ['running', null], ['queued', null]]);
+    expect(value(await w.service.next(OLGA, SHARED))?.id).toBe(queued.id);
+  });
+
   it('refuses a name another person registered, a repository outside the workspace, and two workspaces', async () => {
     const w = world();
     expect(await w.service.register(MO, { name: 'shared', slots: 1, repos: ['vertuoza/app'], version: '1' })).toMatchObject({ ok: false, kind: 'forbidden' });
