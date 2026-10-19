@@ -337,7 +337,12 @@ else gh pr comment <n> --body-file "$BODY"; fi
 - attempt: <k> / <limits.attempts>
 - slices: <merged> / <total> merged            <!-- feature PR only -->
 - human steps: <missing labels, or "none">
+- job: <id> · runner <name>                    <!-- a runner job's session only -->
 ```
+
+The `job:` line names the runner job that holds the claim, so the runner releases a dead job's
+claims. Every rewrite writes it from the session's own `OMNI_JOB` (`OMNI_RUNNER` for the name), and
+drops it when `OMNI_JOB` is not set.
 
 This skill does not decide whether a claim is stale. The board does: `/omni:wave` reads the slice's
 `claimed-stale` state from `omni board <prd>`. Whoever picks up a stale PR takes it over and says so
@@ -358,7 +363,9 @@ Claim mode takes one slice of a PRD, given its plan id and title. It does not lo
    --title "<slice>: <title>" --body-file <file>`. Its body starts with `prLinks.sub` filled (the
    sub-PR shape above) and ends with the `omni sign footer` line.
    Its labels are `labels.sub` and `labels.inProgress`, subject to **Labels**.
-4. Post the status comment with state `claimed`. Stop.
+4. Post the status comment with state `claimed`. When `OMNI_JOB` is set (a runner job's session), it
+   carries the line `- job: <id> · runner <name>`, the values of `OMNI_JOB` and `OMNI_RUNNER`; a
+   claim made outside a runner has no job line. Stop.
 
 ## The lifecycle
 
