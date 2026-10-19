@@ -185,10 +185,30 @@ Before any subagent starts, `git fetch <remote>`, then, for each takeable slice,
 - **`runnable`:** follow `/omni:pr`'s **Claim** mode with the slice id and its board `title`. It cuts
   the slice branch from the feature branch, makes the claim commit, pushes, opens the draft sub-PR
   and posts the `claimed` status comment.
-- **`claimed-stale`:** its branch and draft sub-PR (the row's `pr.number`) already exist. Take it
-  over: add `labels.inProgress` (subject to `/omni:pr`'s **Labels**) and rewrite its status comment,
-  through `/omni:pr`'s marker recipe, with state `claimed` and the line "taken over from a stale
-  claim".
+- **`claimed-stale`:** its branch and draft sub-PR (the row's `pr.number`) already exist, holding
+  work nobody is on: a runner job that died released it (it carries the released label,
+  `omni:released` unless `labels.released` sets another), it sat quiet past
+  `limits.claimDeadMinutes`, or it holds nothing beyond its claim. Before taking it over, ask
+  whether that work is still this slice's:
+
+  ```bash
+  node .omni-loop/bin/omni.mjs claim check <prd> <slice>
+  ```
+
+  - **`reuse`** (exit 0): the plan row and the territory still match. Take the branch over: add
+    `labels.inProgress` and remove the released label (subject to `/omni:pr`'s **Labels**), and
+    rewrite its status comment, through `/omni:pr`'s marker recipe, with state `claimed` and the
+    line "taken over from job `<id>`", the job its old status comment's `job:` line named, or
+    "taken over from a quiet claim" when it named none. Its dispatch (step 3) says the branch is
+    reused, so its subagent re-verifies it before building.
+  - **`rebuild: <reason>`** (exit 1): the work is not this slice's any more. Close the sub-PR
+    unmerged with the comment `Closed to rebuild: <the rebuild line>`
+    (`gh pr close <n> --comment "…"`), delete its remote branch
+    (`git push <remote> --delete <slice branch>`, and the local branch when there is one), then
+    claim the slice afresh, as a `runnable` one, through `/omni:pr`'s **Claim** mode. Its subagent
+    builds from that fresh claim like any other.
+  - **Exit 2** (the feature branch could not be read): `git fetch <remote>` and run it once more.
+    Still 2: leave the slice unclaimed this wave and name it in the report.
 
 Claim mode leaves your checkout on the last slice branch it cut, and git refuses to check a branch
 out in a second worktree. Once every claim is made, run `git switch --detach`, so each subagent's
@@ -220,6 +240,9 @@ and `effort` its tier resolved to, or neither when it inherits). Keep the prompt
 > Build slice `<id>` of PRD <prd>, on feature branch `<feature branch>`: follow `/omni:do-work
 > --in-wave`. Its slice branch is already claimed. `<its Tier: line>`. Do not spawn subagents.
 > Return only do-work's result JSON: no diffs, no logs.
+
+A slice taken over on `reuse` (step 2) adds one sentence after the claim's: "Its branch is reused:
+re-verify it before building."
 
 **A refused launch.** The agent refuses to start a slice on its model (it does not know the model,
 or cannot set one per subagent): start that slice again, once, on the terminal's model (no model,

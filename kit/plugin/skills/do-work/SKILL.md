@@ -112,6 +112,8 @@ is, the feature branch is where the slice is built).
   another worktree holds), and build there.
 - **Under `--in-wave`:** `/omni:wave` has already claimed the slice. Do not cut a fresh branch:
   fetch and check out the existing `<repo.remote>/<slice branch>`, which holds the claim commit.
+  When the prompt says the branch is reused (a stale claim taken over), it holds an earlier agent's
+  commits: re-verify them, as **A reused branch** says, before step 2.
 - **Running alone:** claim first: follow `/omni:pr`'s **Claim** mode in full (it cuts the slice
   branch from the feature branch, makes the claim commit, pushes, opens the draft and posts the
   claimed status) before you build anything.
@@ -426,6 +428,25 @@ Stop once the sub-PR is open and the preflight is green (or has stayed red throu
 what fails. `stopped` carries the law or principles it would break; `blocked` carries the
 human-action item.
 `/omni:wave` merges sub-PRs; a subagent never merges its own.
+
+## A reused branch
+
+`/omni:wave` took over a stale claim whose plan row and territory still match (`omni claim check`
+printed `reuse`), so the branch holds commits by an agent that is gone. Nothing is built on them
+before they are re-verified, in this order, once the point `do-work.start` has run:
+
+1. **Merge the feature branch in:** `git fetch <repo.remote>`, then
+   `git merge <repo.remote>/<feature branch>`. Resolve conflicts inside the territory and commit.
+2. **Run the preflight,** as step 5 item 1 runs it: the stale generated files rebuilt first and
+   dropped after, then `commands.preflightFull` (or `commands.preflight`).
+3. **Review the branch's diff** (`git diff <repo.remote>/<feature branch>...HEAD`) against the
+   slice's done-when in the plan: each change serves it, inside the territory, test-first, and
+   nothing is left half-done (a skipped test, a test with no assertion, a stub, a TODO).
+
+Each finding (a red preflight, a conflict, a review finding) is fixed on the slice branch within
+`limits.attempts` tries, or recorded as an outbox item through step 3, naming what was found and why
+it was left. Commit and push the fixes. Only then go on to step 2 for what the slice still needs. The
+sub-PR's body says the branch was reused and re-verified, one line per fix.
 
 ## Under `--inline`
 
