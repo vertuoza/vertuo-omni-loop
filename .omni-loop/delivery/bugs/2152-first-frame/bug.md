@@ -31,6 +31,12 @@ The reproduction stays in the suite, timed against the race's own later frames o
 on every circuit, a race the arcade has loaded draws its first frame in at most three times a frame
 after it, on its first race and on a second one. On the base's code it takes 115 and 121 times.
 
+Since 19/10 the guard counts instead of timing: the first frame of a race the arcade has loaded
+builds no row of its circuit's ground, on every circuit, on its first race and on a second one. The
+ratio was borderline on shared CI runners (3.09 to 3.43 on a first race), where a first frame runs
+its drawing code cold with no ground in it. A race drawn before `ready` shows what it would count:
+the whole ground, 6913 rows, on its first frame.
+
 Two tests beside it pin what the fix rests on, with no clock. A race's `ready` pauses between slices
 while it builds a circuit no race has read, and not once for a second race on that circuit. The
 paint, the relief and the tunnel each stop after every row of pixels. `slices.test.ts` pins when
