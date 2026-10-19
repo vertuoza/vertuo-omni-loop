@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addable, collectionLabel, hasNoAccess, initialState, listedOf, phase0Of, removeConfirm, repositoriesReducer, repositoryRowOf, SavedRepository,
+  addable, collectionLabel, hasNoAccess, initialState, listedOf, phase0Of, removedLabel, removedOf, removeConfirm, repositoriesReducer, repositoryRowOf, SavedRepository,
   type RepositoryRow,
 } from './model';
 
@@ -148,6 +148,25 @@ describe('the page\'s state', () => {
   it('draws only the listed repositories, never a removed one (PRD 2188 s1)', () => {
     const s = initialState([row('vertuoza/b'), row('vertuoza/gone', { removedAt: '2026-10-19T10:00:00Z' }), row('vertuoza/a', { removedAt: null })]);
     expect(listedOf(s.repositories).map((r) => r.fullName)).toEqual(['vertuoza/a', 'vertuoza/b']);
+  });
+
+  it('lists the removed repositories by name, and says when each was removed (PRD 2188 s2)', () => {
+    const gone = (name: string, at: string) => row(name, { tracked: false, removedAt: at });
+    const s = initialState([row('vertuoza/listed'), gone('vertuoza/b', '2026-10-19T11:00:00Z'), gone('Vertuoza/A', '2026-10-19T09:00:00Z')]);
+    expect(removedOf(s.repositories).map((r) => r.fullName)).toEqual(['Vertuoza/A', 'vertuoza/b']);
+    expect(removedOf([row('vertuoza/listed')])).toEqual([]);
+    const now = Date.parse('2026-10-19T12:00:00Z');
+    expect(removedLabel(gone('a/b', '2026-10-19T09:00:00Z'), now)).toBe('removed 3 h ago');
+    expect(removedLabel(row('a/b'), now)).toBe('removed');
+  });
+
+  it('moves a removed repository back to the list when add answers it listed again (PRD 2188 s2)', () => {
+    const gone = row('vertuoza/a', { tracked: false, removedAt: '2026-10-19T10:00:00Z' });
+    const before = initialState([gone, row('vertuoza/b')]);
+    const s = repositoriesReducer(before, { type: 'saved', repository: row('vertuoza/a', { removedAt: null }) });
+    expect(removedOf(s.repositories)).toEqual([]);
+    expect(listedOf(s.repositories).map((r) => r.fullName)).toEqual(['vertuoza/a', 'vertuoza/b']);
+    expect(s.repositories.find((r) => r.fullName === 'vertuoza/a')?.tracked).toBe(true);
   });
 
   it('takes a removed repository off the list, out of its products and its plans (PRD 2188 s1)', () => {
