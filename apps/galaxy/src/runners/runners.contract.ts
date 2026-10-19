@@ -22,8 +22,9 @@ import { z } from 'zod';
 export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove'] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
-/** The longest arguments a line may carry. */
-const MAX_LINE_ARGS = 200;
+/** The longest line a runner runs, skill included: the kit's own `LINE_MAX`, which `omni runner` checks
+ * again before it runs a job. */
+const MAX_LINE = 200;
 
 /** How long a runner stays online after its last check-in. */
 export const LOST_AFTER_MS = 90_000;
@@ -52,22 +53,22 @@ const LINE = /^\/omni:([a-z][a-z-]*)(?: (.*))?$/s;
 /** A line's verdict: its skill and arguments, or why it is refused, in plain words. */
 export type LineCheck = { ok: true; skill: RunnerSkill; args: string } | { ok: false; reason: string };
 
-/** Whether `line` is one a runner may run: `/omni:<skill> <args>`, the skill on the list, the arguments
- * letters, digits, spaces and `._/:#-` only, 200 characters at most. The route checks it, and the runner
- * checks it again before it runs. */
+/** Whether `line` is one a runner may run: 200 characters at most, skill included, reading
+ * `/omni:<skill> <args>`, the skill on the list, the arguments letters, digits, spaces and `._/:#-` only.
+ * The route checks it, and the runner checks it again before it runs, in the same order. */
 export function checkLine(line: string): LineCheck {
+  if (line.length > MAX_LINE) return { ok: false, reason: `A line is ${String(MAX_LINE)} characters at most, the skill included.` };
   const match = LINE.exec(line);
   if (!match) return { ok: false, reason: 'A line reads `/omni:<skill> <arguments>`.' };
   const skill = RUNNER_SKILLS.find((listed) => listed === match[1]);
   if (!skill) return { ok: false, reason: `/omni:${match[1] ?? ''} is not a skill a runner runs: only ${RUNNER_SKILLS.join(', ')}.` };
   const args = match[2] ?? '';
-  if (args.length > MAX_LINE_ARGS) return { ok: false, reason: `A line's arguments are ${String(MAX_LINE_ARGS)} characters at most.` };
   if (!ARGS.test(args)) return { ok: false, reason: 'A line\'s arguments are letters, digits, spaces and . _ / : # - only.' };
   return { ok: true, skill, args };
 }
 
 /** A line a runner may run, as a schema. */
-const LineSchema = z.string().max(MAX_LINE_ARGS + 40).refine((line) => checkLine(line).ok, { message: 'not a line a runner runs' });
+const LineSchema = z.string().max(MAX_LINE).refine((line) => checkLine(line).ok, { message: 'not a line a runner runs' });
 
 /** A repository, as `owner/name`. */
 const RepoSchema = z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/);
