@@ -540,6 +540,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** PRD 1162: one push of a roadmap (`../roadmap/push.ts` shapes it), sent as it is.
      * @returns {Promise<{ roadmapId: string, created: boolean, product: unknown, unknownProduct: string | null, note: string | null }>} */
     pushRoadmap: (body: unknown) => call('POST', '/api/roadmaps', { body }),
+    /** PRD 1798: one repository's knowledge graph at one commit (`../knowledge/graph-push.ts` builds it), sent as it is.
+     * @returns {Promise<{ repo: string, commit: string, nodes: number, edges: number, products: Array<{ key: string | null, href: string }> }>} */
+    pushKnowledgeGraph: ({ repo, commit, graph }: { repo: string; commit: string; graph: unknown }) =>
+      call('POST', '/api/knowledge/graphs', { body: { repo, commit, graph }, timeoutMs: UPLOAD_TIMEOUT_MS }),
     /** PRD 2011: one push of a product bug record, or its check (`../bug/product.ts` shapes it), sent as it is.
      * @returns {Promise<{ dossierId: string, bug: string, created: boolean, rows: unknown[], added: unknown[], unchanged: string[] }>} */
     pushBug: (body: unknown) => call('POST', '/api/fixes', { body }),

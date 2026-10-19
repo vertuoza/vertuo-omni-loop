@@ -9,7 +9,8 @@
 // open question, every stale evidence entry, and — in a plan repository — each imported copy
 // (PRD 522). `graph` prints the knowledge registers as one graph
 // (PRD #149): its summary, or with `--json` the whole document; `graph <id>` (PRD 1797) prints only
-// that entry's neighbourhood, or with `--json` the versioned neighbourhood document. `laws` (PRD 1726) discloses only what
+// that entry's neighbourhood, or with `--json` the versioned neighbourhood document; `graph push` (PRD 1798)
+// sends the whole repository's graph to the Omni page. `laws` (PRD 1726) discloses only what
 // a change touches: every locked law, one plain line each, then with `--paths`, `--slice` or `--area`
 // the rules that govern those files, that slice's territory or that domain folder; `show briefing`
 // ends with the thesis's laws section, and `status` counts the rules with no `Governs:` line. `owners`
@@ -28,6 +29,7 @@ import { readScreens } from '../../lib/design/screens.ts';
 import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
+import { pushKnowledgeGraph } from '../../lib/knowledge/graph-push.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
 import { disclose, governsPath, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
 import { packGet } from '../../lib/knowledge/packs/get.ts';
@@ -66,7 +68,8 @@ const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] 
 const SHOW_USAGE = 'usage: omni kb show <form> [--json] [--all]';
 const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
 const GRAPH_USAGE = 'usage: omni kb graph [<id> | --paths <file>[,<file>…] [<file>…]] [--depth <1-3>] [--json]';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
+const GRAPH_PUSH_USAGE = 'usage: omni kb graph push';
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -498,6 +501,27 @@ async function productVerb(verb: 'legal' | 'glossary', positional: string[], { c
   }
 }
 
+/** `omni kb graph push` (PRD 1798, s2): see `../../lib/knowledge/graph-push.ts`. */
+async function graphPush(args: string[], io: CommandIo & PackOptions): Promise<number> {
+  const { ctx, stdout, exec } = io;
+  if (args.length > 0) throw usageError(GRAPH_PUSH_USAGE);
+  const askUrl = ctx.config.ask.url;
+  const client = askUrl ? signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
+  let result: Awaited<ReturnType<typeof pushKnowledgeGraph>>;
+  try {
+    result = await pushKnowledgeGraph({
+      ctx,
+      client,
+      now: io.now ?? (() => new Date()),
+      git: (gitArgs) => exec('git', [...gitArgs], { cwd: ctx.root, encoding: 'utf8' }),
+    });
+  } catch (error) {
+    result = { ok: false, lines: [`kb graph push: ${messageOf(error)}`] };
+  }
+  for (const line of result.lines) println(stdout, line);
+  return result.ok ? 0 : 1;
+}
+
 const basic = synchronous((args: string[], io: CommandIo): number => {
   if (args[0] === 'laws') return laws(args.slice(1), io);
   if (args[0] === 'graph') return graph(args.slice(1), io);
@@ -517,6 +541,7 @@ export const kb: FreeCommand = {
     const full = { ...io, ctx: loadContext(io.cwd, { exec: io.exec }) };
     const [sub, ...rest] = args;
     if (sub === 'pack') return pack(rest, full);
+    if (sub === 'graph' && rest[0] === 'push') return graphPush(rest.slice(1), full);
     if (sub === 'legal' || sub === 'glossary') return productVerb(sub, rest, full, io, io.cwd);
     return basic(args, full);
   },

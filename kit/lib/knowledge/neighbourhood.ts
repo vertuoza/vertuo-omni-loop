@@ -449,3 +449,43 @@ export function neighbourhoodBody(built: Neighbourhood, entries: readonly Knowle
 export function neighbourhoodText(built: Neighbourhood, entries: readonly KnowledgeEntry[], unreadable = false): string {
   return [...neighbourhoodBody(built, entries), productLine(built.product, unreadable)].join('\n');
 }
+
+/** A node of a pushed graph: the neighbourhood's node without its hop, always read from the repository. */
+export type RepositoryGraphNode = Omit<NeighbourhoodNode, 'hop' | 'origin'> & { origin: 'repository' };
+
+/** The whole repository's graph as `omni kb graph push` sends it (`graph-schema.ts` reads it). */
+export type RepositoryGraphBody = { version: typeof NEIGHBOURHOOD_VERSION; shape: 'repository'; nodes: RepositoryGraphNode[]; edges: NeighbourhoodEdge[] };
+
+/**
+ * **Every node and edge of the repository** (PRD 1798, s2): the links {@link buildNeighbourhood}
+ * walks out of one entry, taken out of all of them. The product's own nodes (a Legal entry, a
+ * glossary term: `origin: 'product'`) are left out, since the server holds them; an edge may still
+ * end at an `L-…` id or a `term:<word>` for the server to join, and a `serves` edge to an `L-…` id
+ * is kept whether or not the cache holds that entry. The terms come from the cached glossary alone.
+ */
+export function buildRepositoryGraph(sources: Pick<NeighbourhoodSources, 'entries' | 'records' | 'screens' | 'screensDir' | 'legal' | 'glossary'>): RepositoryGraphBody {
+  const walked = sources.entries.filter(isWalked);
+  const index: Index = {
+    walked,
+    byId: new Map(walked.map((entry) => [entry.id, entry])),
+    records: sources.records,
+    screens: sources.screens ?? [],
+    screensDir: sources.screensDir ?? null,
+    cached: true,
+    legal: new Map((sources.legal ?? []).map((legal) => [legal.id, legal])),
+    glossary: sources.glossary ?? [],
+  };
+  const nodes = new Map<string, RepositoryGraphNode>();
+  const edges = new Map<string, NeighbourhoodEdge>();
+  const keep = (node: Link['node']): void => {
+    if (node.origin === 'repository' && !nodes.has(node.id)) nodes.set(node.id, { ...node, origin: 'repository' });
+  };
+  for (const entry of walked) {
+    keep(entryNode(entry));
+    for (const { edge, node } of linksOf(entry, index)) {
+      keep(node);
+      edges.set(edgeKey(edge), edge);
+    }
+  }
+  return { version: NEIGHBOURHOOD_VERSION, shape: 'repository', nodes: [...nodes.values()], edges: [...edges.values()] };
+}
