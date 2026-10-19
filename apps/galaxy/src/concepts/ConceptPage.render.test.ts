@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { UNREAD } from '../dossier/github/summary';
 import { nestedLinks } from '../people/nested-links';
@@ -9,6 +9,8 @@ import { conceptView, readConceptPick, type ConceptRead } from './ConceptPage.vi
 import type { StoredStage } from '../stages/stage';
 import { prdKey } from '../stages/store';
 import { CONCEPT_1269 } from './list.fixture';
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {} }) }));
 
 // A concept's page, /concepts/<id> (PRD 1272, s3): the header with its issue and its concept PR, then
 // Overview, Areas, Vision tour, Boards and Debate, a file that was not sent reading "not sent: too large".
@@ -117,6 +119,47 @@ describe('a concept\'s page', () => {
       const html = render(read({ record, facts: { issue: UNREAD, pull: pull('open') }, stages: stages(() => 'shipped') }));
       expect(html).toContain('in review');
       expect(html).not.toContain('fix-state-shipped');
+    });
+  });
+
+  describe('shipped by a person (PRD 2213, s3)', () => {
+    const issue = (state: 'open' | 'closed') => ({
+      number: parseIssue(1269), url: 'https://github.com/acme/widgets/issues/1269', state, author: null, createdAt: '2026-10-01T09:00:00Z', risk: null, regression: false,
+    });
+    const facts = (p: ReturnType<typeof pull>, state: 'open' | 'closed') => ({ facts: { issue: issue(state), pull: p } });
+    const record = CONCEPT_1269.replace('| Approval pins the hashes. | |', '| Approval pins the hashes. | #1300 |');
+    const shipped = new Map<string, StoredStage>([[prdKey({ repository: 'acme/widgets', prd: parsePrd(1300) }), 'shipped']]);
+    const button = (html: string) => /<button[^>]*dossier-approve-button[^>]*>(.*?)<\/button>/.exec(html)?.[1] ?? null;
+
+    it('shows Mark done on a concept in the inbox, Reopen on one a person shipped, and nothing on the rest', () => {
+      expect(button(render(read(facts(pull('merged'), 'open'))))).toBe('Mark done');
+      expect(button(render(read(facts(pull('merged'), 'closed'))))).toBe('Reopen');
+      expect(button(render(read(facts(pull('open'), 'open'))))).toBeNull();
+      expect(button(render(read(facts(pull('open'), 'closed'))))).toBeNull();
+      expect(button(render(read({ facts: { issue: UNREAD, pull: UNREAD } })))).toBeNull();
+      expect(button(render(read({ facts: null })))).toBeNull();
+    });
+
+    it('shows neither on a concept shipped by itself', () => {
+      const SIX = ['server-approval', 'approval-handshake', 'product-home', 'product-gate', 'product-records', 'constellation-tab'];
+      const all = SIX.reduce((text, id, i) => text.replace(new RegExp(`^(\\| ${id} \\|.*\\| )\\|$`, 'm'), `$1#${1300 + i} |`), CONCEPT_1269);
+      const stages = new Map(SIX.map((_, i) => [prdKey({ repository: 'acme/widgets', prd: parsePrd(1300 + i) }), 'shipped' as const]));
+      const html = render(read({ record: all, stages, ...facts(pull('merged'), 'closed') }));
+      expect(html).toContain('fix-state-shipped');
+      expect(button(html)).toBeNull();
+    });
+
+    it('reads shipped, and not built on each area without a shipped PRD', () => {
+      const html = render(read({ record, stages: shipped, ...facts(pull('merged'), 'closed') }), { tab: 'areas' });
+      expect(html).toContain('<span class="fix-state fix-state-shipped">shipped</span>');
+      expect(html).toContain('PRD #1300 ↗</a> <span class="concept-stage concept-stage-shipped">shipped</span>');
+      expect((html.match(/<span class="concept-stage">not built<\/span>/g) ?? []).length).toBe(5);
+      expect(html).not.toContain('omni:brainstorm');
+    });
+
+    it('shows no not built on a concept reopened', () => {
+      const html = render(read({ record, stages: shipped, ...facts(pull('merged'), 'open') }), { tab: 'areas' });
+      expect(html).not.toContain('not built');
     });
   });
 

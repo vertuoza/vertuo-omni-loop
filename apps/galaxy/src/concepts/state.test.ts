@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { ConceptFacts } from '../dossier/github/fix';
+import type { ConceptFacts, FixIssue } from '../dossier/github/fix';
 import { UNREAD } from '../dossier/github/summary';
 import type { StoredStage } from '../stages/stage';
 import { prdKey } from '../stages/store';
-import { conceptPull, conceptState, CONCEPT_STATE_LABELS, type ConceptProgress, type ConceptState } from './state';
+import { conceptPull, conceptState, shippedByPerson, CONCEPT_STATE_LABELS, type ConceptProgress, type ConceptState } from './state';
 import { ConceptStateChip } from './state-chip';
-import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // A concept's state (PRD 1272, s4), from its stored facts: in review while its concept PR is open, in the
 // inbox once it merged, state unknown when the pull request could not be read, or none was found.
@@ -53,6 +53,38 @@ describe('a concept\'s state', () => {
       expect(conceptState(facts(pull('open')), done)).toBe('in-review');
       expect(conceptState(facts(UNREAD), done)).toBe('unknown');
       expect(conceptState(null, done)).toBe('unknown');
+    });
+  });
+
+  describe('shipped by a person (PRD 2213, s3)', () => {
+    const issue = (state: 'open' | 'closed'): FixIssue => ({ number: parseIssue(1269), url: 'u', state, author: null, createdAt: '2026-10-01T09:00:00Z', risk: null, regression: false });
+    const withIssue = (p: ConceptFacts['pull'], state: 'open' | 'closed'): ConceptFacts => ({ issue: issue(state), pull: p });
+    const areas: ConceptProgress = { repo: 'acme/widgets', areas: [{ prd: parsePrd(1) }, { prd: null }], stages: new Map() };
+
+    it('is shipped once merged and the issue is closed, whatever the areas', () => {
+      expect(conceptState(withIssue(pull('merged'), 'closed'))).toBe('shipped');
+      expect(conceptState(withIssue(pull('merged'), 'closed'), areas)).toBe('shipped');
+      expect(shippedByPerson(withIssue(pull('merged'), 'closed'), areas)).toBe(true);
+    });
+
+    it('is in the inbox again once the issue is reopened, or when it could not be read', () => {
+      expect(conceptState(withIssue(pull('merged'), 'open'), areas)).toBe('in-inbox');
+      expect(conceptState({ issue: UNREAD, pull: pull('merged') }, areas)).toBe('in-inbox');
+      expect(conceptState({ issue: null, pull: pull('merged') }, areas)).toBe('in-inbox');
+      expect(shippedByPerson(withIssue(pull('merged'), 'open'), areas)).toBe(false);
+    });
+
+    it('never ships a concept in review, whatever its issue, and unknown stays unknown (BR-PRODUCT-93)', () => {
+      expect(conceptState(withIssue(pull('open'), 'closed'))).toBe('in-review');
+      expect(conceptState(withIssue(UNREAD, 'closed'))).toBe('unknown');
+      expect(conceptState(withIssue(null, 'closed'))).toBe('unknown');
+      expect(shippedByPerson(withIssue(pull('open'), 'closed'))).toBe(false);
+    });
+
+    it('is shipped by itself, not by a person, when every area shipped as well', () => {
+      const done: ConceptProgress = { repo: 'acme/widgets', areas: [{ prd: parsePrd(1) }], stages: new Map([[prdKey({ repository: 'acme/widgets', prd: parsePrd(1) }), 'shipped']]) };
+      expect(conceptState(withIssue(pull('merged'), 'closed'), done)).toBe('shipped');
+      expect(shippedByPerson(withIssue(pull('merged'), 'closed'), done)).toBe(false);
     });
   });
 
