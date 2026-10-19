@@ -565,7 +565,7 @@ Moving the page to another address is a change to one route folder and one link;
 - Raised: 2026-10-19
 - Slice: s1
 - Wave: 1
-- Became: BR-PRODUCT-113
+- Became: BR-PRODUCT-120
 
 ### The answer, as it was given
 
