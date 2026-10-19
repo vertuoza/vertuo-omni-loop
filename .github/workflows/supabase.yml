@@ -189,6 +189,11 @@ jobs:
         # product, none in no product, the named one in several; changing it is locked while an approval
         # is in force, and a PRD's product links its repositories.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_product.sql
+      - name: A PRD's plan targets
+        # PRD 2174: each plan push writes the repositories its Repositories table names, resolved, never
+        # the home repository on its own account; a newer plan replaces them; the migration backfills
+        # every dossier with a plan; members read their workspace's rows and no client writes one.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_targets.sql
       - name: Which product a lookup finds
         # PRD 1364: every product lookup reads the PRD's own product, then the repository's only
         # product, then none: approvers, claims, personas, constituents and pitch follow it, and a
