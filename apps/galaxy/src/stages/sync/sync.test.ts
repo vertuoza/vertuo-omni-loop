@@ -433,13 +433,13 @@ describe('the concept facts (PRD 1272, s4)', () => {
     return { ...setup, facts, asked };
   }
 
-  it('reads and stores each concept whose pull request has not merged, and leaves a merged one alone', async () => {
+  it('reads and stores every concept, a merged one too, its stored merged pull request kept', async () => {
     const { d, facts, asked } = withConcepts();
     await facts.writeFacts([{ dossier_id: 'c2', workspace_id: 'w-acme', facts: { issue: UNREAD, pull: pull('merged') } }], '2026-10-07T10:00:00Z');
     expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
-    expect(asked).toEqual(['c1']);
+    expect(asked).toEqual(['c1', 'c2']);
     expect(facts.rows.find((r) => r.dossier_id === 'c1')).toMatchObject({ workspace_id: 'w-acme', facts: { pull: pull('open') }, synced_at: NOW });
-    expect(facts.rows.find((r) => r.dossier_id === 'c2')).toMatchObject({ synced_at: '2026-10-07T10:00:00Z' });
+    expect(facts.rows.find((r) => r.dossier_id === 'c2')).toMatchObject({ facts: { pull: pull('merged') }, synced_at: NOW });
   });
 
   it('logs a workspace whose concepts cannot be refreshed, and still answers 200', async () => {

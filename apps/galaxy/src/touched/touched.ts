@@ -15,6 +15,10 @@
 // retro pull request the snapshot holds. Only a dossier with a snapshot can be stale: one with none is
 // read on its first visit anyway.
 //
+// PRD 2213 (s2): an `issues` touch whose issue is a concept's (a concept dossier of the repository, its
+// number the issue's) also refreshes that concept's stored facts after the response, so a close or a
+// reopen shows at once rather than at the next sync run. Any other issue does what it did.
+//
 // Bursts coalesce. A touch that lands while a refresh holds the lease moves the stale mark past the
 // refresh's start, so the refresh's end leaves it set; the refresh started by a touch then runs one
 // follow-up read. Every other touch's refresh finds the lease held and does nothing.
@@ -22,6 +26,7 @@ import 'server-only';
 import { z } from 'zod';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
 import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { FixRef } from '../dossier/github/reader';
 import { UNREAD, type GithubSummary } from '../dossier/github/summary';
 import { refreshSnapshot, staleSnapshot, type SnapshotDeps, type SnapshotDossier } from '../dossier/snapshot/snapshot';
 import { log as runLog, type LogEntry } from 'vertuo-omni-plan/kit/lib/log/log.ts';
@@ -43,6 +48,10 @@ export type TouchedDeps = {
   snapshotsOf: (workspace: string, repository: string) => Promise<TouchedSnapshot[]>;
   /** The snapshot's own deps: its store, the reader, the clock, and what runs after the response. */
   snapshot: SnapshotDeps;
+  /** A concept: the workspace's concept dossier in the repository whose issue is `issue`; null when none. */
+  conceptOf?: (workspace: string, repository: string, issue: IssueNumber) => Promise<FixRef | null>;
+  /** Reads a concept's facts again and stores them (PRD 2213, s2). */
+  refreshConcept?: (workspace: string, concept: FixRef) => Promise<void>;
   /** Where a failure is written: console.error by default. */
   log?: (line: string) => void;
   /** Where an ordinary outcome is written (a touch that matches no dossier): kit/lib/log's info by default. */
@@ -164,6 +173,23 @@ function signedTouch({ body, headers }: { body: string; headers: Headers }, secr
   return refused(400, 'the body is not a touch');
 }
 
+/** Starts, after the response, the refresh of the concept the touch's issue is; 1 when there is one, else 0. */
+async function refreshConceptOf(touch: Touch, workspace: string, deps: TouchedDeps): Promise<number> {
+  const { conceptOf, refreshConcept } = deps;
+  if (touch.issue === undefined || !conceptOf || !refreshConcept) return 0;
+  const concept = await conceptOf(workspace, touch.repository, touch.issue);
+  if (!concept) return 0;
+  const log = deps.log ?? console.error;
+  deps.snapshot.later(async () => {
+    try {
+      await refreshConcept(workspace, concept);
+    } catch (error) {
+      log(`touch: the concept ${touch.repository}#${touch.issue ?? ''} could not be refreshed — ${why(error)}`);
+    }
+  });
+  return 1;
+}
+
 export async function receiveTouch(request: { body: string; headers: Headers }, deps: TouchedDeps): Promise<Reply> {
   const log = deps.log ?? console.error;
   if (!deps.secret) {
@@ -176,7 +202,12 @@ export async function receiveTouch(request: { body: string; headers: Headers }, 
   const what = `${touch.repository}${touch.issue ? ` issue #${touch.issue}` : ''}${touch.pr ? ` pull request #${touch.pr}` : ''}${touch.branch ? ` on ${touch.branch}` : ''}`;
   try {
     const dossiers: SnapshotDossier[] = [];
-    for (const workspace of await deps.workspacesOf(touch.repository)) dossiers.push(...(await resolve(touch, workspace, deps)));
+    let concepts = 0;
+    for (const workspace of await deps.workspacesOf(touch.repository)) {
+      dossiers.push(...(await resolve(touch, workspace, deps)));
+      concepts += await refreshConceptOf(touch, workspace, deps);
+    }
+    if (dossiers.length === 0 && concepts > 0) return { status: 200, body: { ok: true, stale: 0 } };
     if (dossiers.length === 0) {
       (deps.note ?? runLog.info)({ event: 'touch', outcome: 'ok', status: 202, repo: touch.repository, message: `${what} matched no dossier` });
       return { status: 202, body: { stale: 0 } };
