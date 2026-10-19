@@ -158,3 +158,238 @@ Low before s2 merges: one schema in the kit. After, a field added to the graph n
 ```
 
 <!-- /omni-outbox-settled: s1-03-pushed-graph-shape -->
+
+<!-- omni-outbox-settled: s3-01-whole-product-standing -->
+
+## s3-01-whole-product-standing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-19
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-19
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-whole-product-standing
+prd: 1798
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-19
+wave: 2
+---
+
+## The question, in plain words
+
+When someone asks about one rule or one legal entry, should the answer list every broken link and every repository of the product, or only those near what they asked about?
+
+## The decision, in plain words
+
+Every answer lists all the product's broken links and all its repositories, whatever was asked, so a reader always sees how complete and how old the whole graph is.
+
+## The intro, for fun
+
+Ask about one rule, and the answer hands you the whole product's report card.
+
+## The punchline, for fun
+
+Nobody can say they were not told the back-end never sent its homework.
+
+## The options, in plain words
+
+A. The whole product's lists in every answer (built).
+B. Only the unresolved ids of the walked nodes, and every repository.
+C. Only the walked nodes' unresolved ids and repositories.
+
+## What I had to decide
+
+Whether the read route's `unresolved` and `repositories` cover the whole product (as built) or only the neighbourhood walked.
+
+## What I did meanwhile
+
+productNeighbourhood (apps/galaxy/src/knowledge-graph/walk.ts) copies the joined graph's whole `unresolved` and `repositories` into every answer; only `nodes` and `edges` are the walk's. The page (s6) reads the same lists from the whole graph.
+
+## What it costs to change later
+
+Low: trimming `unresolved` to the walked nodes is one filter in walk.ts and its test; no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec's answer carries `unresolved` and `repositories` beside the walk without saying whether they are trimmed to it.
+- A product with many unresolved ids sends them all in every answer; no product is that large yet (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-whole-product-standing -->
+
+<!-- omni-outbox-settled: s3-02-twin-repository-names -->
+
+## s3-02-twin-repository-names — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-19
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-19
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-twin-repository-names
+prd: 1798
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-19
+wave: 2
+---
+
+## The question, in plain words
+
+If a product holds two repositories with the same name from two different owners, how are their rules told apart?
+
+## The decision, in plain words
+
+Each rule is named after its repository's short name, unless another repository of the product has that same short name: then both are named by their owner and name in full.
+
+## The intro, for fun
+
+Two repositories walk into a product, both called web.
+
+## The punchline, for fun
+
+Their surnames come out, so nobody mixes up whose rule is whose.
+
+## The options, in plain words
+
+A. The owner and the name in full for repositories sharing a short name, the short name otherwise (built).
+B. Always the owner and the name in full.
+C. Always the short name, letting such ids meet.
+
+## What I had to decide
+
+How a repository node's id is prefixed when two linked repositories share a short name: by `owner/name` for both (as built), or always by the short name.
+
+## What I did meanwhile
+
+joinProductGraph (apps/galaxy/src/knowledge-graph/join.ts) prefixes with the short name, and with the whole `owner/name` for every link whose short name another link of the product shares, so `acme/web/BR-1` and `other/web/BR-1` never collide. `repo` on the node and in `repositories` follows the same name.
+
+## What it costs to change later
+
+Low: the naming is one function of the join, read at request time; nothing stored carries the prefix.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec prefixes by the short name and says two repositories never collide, without naming the case of two links with one short name.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-twin-repository-names -->
+
+<!-- omni-outbox-settled: s3-03-product-key-in-two-workspaces -->
+
+## s3-03-product-key-in-two-workspaces — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-19
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-19
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-product-key-in-two-workspaces
+prd: 1798
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-19
+wave: 2
+---
+
+## The question, in plain words
+
+A product's short name is unique only inside one team. If someone belongs to two teams that both use the same name, which product do they get?
+
+## The decision, in plain words
+
+They get the product created first, the same way the loop already picks between two teams' products of one name when no repository says which.
+
+## The intro, for fun
+
+Two teams, one product name, one person who belongs to both.
+
+## The punchline, for fun
+
+The older product wins, by the oldest rule there is: it was there first.
+
+## The options, in plain words
+
+A. The oldest product holding the key (built).
+B. A 409 naming both workspaces, asking for a repository to choose by.
+C. The caller names a repository, and the team that lists it is chosen.
+
+## What I had to decide
+
+Which product `GET /api/products/<key>/knowledge/graph` reads when two of the caller's workspaces hold the key: the oldest (as built), or a refusal asking to name the workspace.
+
+## What I did meanwhile
+
+productGraphRepository.productByKey (apps/galaxy/src/knowledge-graph/product-graph.repository.ts) reads the caller's products with that key, oldest first (created_at, then id), as product_of_key() orders them when no repository is given, and serves the first.
+
+## What it costs to change later
+
+Low: answering 409 for a key two workspaces hold, or taking a `repo` query to choose as product_of_key() does, changes the repository and the controller only.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the product by its key alone, and products.key is unique per workspace, not across them.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-product-key-in-two-workspaces -->
