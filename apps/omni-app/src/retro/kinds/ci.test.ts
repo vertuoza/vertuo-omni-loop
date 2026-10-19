@@ -170,6 +170,21 @@ describe('ci — gather', () => {
     expect(logRecord(records.logs, 1011).tail).toBe(tailOf(cleanLog(long), LIMITS.logTailLines));
   });
 
+  it('masks a key a job printed before its lines are kept, so retro.json never holds one', async () => {
+    const key = 'sb_' + 'secret_' + 'N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz';
+    const github = replay({
+      pulls: [FEATURE, itemAt(SUB_PULLS, 0, 'the first sub-PR')],
+      recording: [
+        runsOf('feat/widget--s1', [run(101, 'feat/widget--s1', SHA.a)]),
+        jobsOf(101, [job(1011, 101, 'unit', SHA.a, 'failure', at(9, 20))]),
+        logOf(1011, `2026-09-20T09:20:00.0000000Z │ Secret      │ ${key} │\n`),
+      ],
+    });
+    const pulls = await listPullsInto(github.octokit, { owner: OWNER, repo: REPO, base: 'feat/widget' });
+    const records = await gather(github.octokit, { owner: OWNER, repo: REPO, pr, prd, config, pulls });
+    expect(logRecord(records.logs, 1011).tail).toBe('│ Secret      │ [masked] │');
+  });
+
   it('keeps going when GitHub refuses a slice’s runs, and says which', async () => {
     const { records } = await gathered({ s3Runs: runsOf('feat/widget--s3', [], 403) });
     expect(records.slices).toEqual(['s1', 's2']);

@@ -49,13 +49,17 @@ export const MODEL_CALL = Object.freeze({
   maxTokens: 4096,
 });
 
-/** The secrets a token looks like: GitHub's, `sk-` keys, AWS key ids, a JWT; and a bearer credential. */
+/** The secrets a token looks like: GitHub's, `sk-` keys, AWS key ids, a JWT, Supabase keys, webhook secrets and Slack
+ * tokens; and a bearer credential. */
 const SECRETS = Object.freeze([
   /\bgh[pousr]_[A-Za-z0-9]{16,}/g,
   /\bgithub_pat_[A-Za-z0-9_]{16,}/g,
   /\bsk-[A-Za-z0-9_-]{16,}/g,
   /\bAKIA[0-9A-Z]{16}\b/g,
   /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g,
+  /\bsb_(?:secret|publishable)_[A-Za-z0-9_-]{16,}/g,
+  /\bwhsec_[A-Za-z0-9+/=]{16,}/g,
+  /\bxox[abpr]-[A-Za-z0-9-]{10,}/g,
 ]);
 const BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 export const MASK = '[masked]';
