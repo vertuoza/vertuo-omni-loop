@@ -29461,6 +29461,8 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     /** PRD 1162: one push of a roadmap (`../roadmap/push.ts` shapes it), sent as it is.
      * @returns {Promise<{ roadmapId: string, created: boolean, product: unknown, unknownProduct: string | null, note: string | null }>} */
     pushRoadmap: (body) => call("POST", "/api/roadmaps", { body }),
+    /** PRD 1798, s5: the neighbourhood of node `id` in product `key`'s knowledge graph, `depth` (1 to 3) hops, as the caller. */
+    readKnowledgeGraph: ({ key: key2, id, depth }) => call("GET", `/api/products/${encodeURIComponent(key2)}/knowledge/graph?${new URLSearchParams(depth === null ? { id } : { id, depth: String(depth) })}`),
     /** PRD 1798: one repository's knowledge graph at one commit (`../knowledge/graph-push.ts` builds it), sent as it is.
      * @returns {Promise<{ repo: string, commit: string, nodes: number, edges: number, products: Array<{ key: string | null, href: string }> }>} */
     pushKnowledgeGraph: ({ repo, commit, graph: graph2 }) => call("POST", "/api/knowledge/graphs", { body: { repo, commit, graph: graph2 }, timeoutMs: UPLOAD_TIMEOUT_MS }),
@@ -32819,8 +32821,8 @@ function serverOutboxStore({ ctx, connect: connect2, now: now2 }) {
       const product2 = productPrd(prd2);
       if (out !== null) return writeInto(out, id, text15);
       const ref = refOf(product2, id);
-      const refusal3 = itemRefusal({ laws: lawsFor(ctx), prd: product2, file: ref, name: `${id}.md`, text: text15, taken: /* @__PURE__ */ new Set() });
-      if (refusal3 !== null) throw new Error(`${ref}: ${refusal3}`);
+      const refusal4 = itemRefusal({ laws: lawsFor(ctx), prd: product2, file: ref, name: `${id}.md`, text: text15, taken: /* @__PURE__ */ new Set() });
+      if (refusal4 !== null) throw new Error(`${ref}: ${refusal4}`);
       await put(product2, text15, false);
       return ref;
     },
@@ -33931,9 +33933,9 @@ function lastReaskedAt(comments, markers) {
     const rounds = parseRoundMarkers([comment2], markers);
     for (const [number5, round2] of rounds) {
       highestRound = Math.max(highestRound, round2);
-      const when = time3(comment2.created_at);
+      const when2 = time3(comment2.created_at);
       const previous = at2.get(number5);
-      if (previous === void 0 || when > previous) at2.set(number5, when);
+      if (previous === void 0 || when2 > previous) at2.set(number5, when2);
     }
   }
   return { at: at2, highestRound };
@@ -47867,14 +47869,14 @@ function answeredByPerson(candidate) {
   return candidate.verdict === "drifted" && /^yes\b/.test(candidate.closed ?? "");
 }
 function decidedLine(candidate) {
-  const when = day(candidate.approvedAt);
+  const when2 = day(candidate.approvedAt);
   if (candidate.verdict === ADOPTED_VERDICT) {
     if (candidate.approvedBy === null || candidate.approvedBy === "nobody") {
-      return `nobody \u2014 adopted when raised (medium), ${when}`;
+      return `nobody \u2014 adopted when raised (medium), ${when2}`;
     }
-    return `${handle2(candidate.approvedBy)} \u2014 merged over a red outbox, ${when}`;
+    return `${handle2(candidate.approvedBy)} \u2014 merged over a red outbox, ${when2}`;
   }
-  return `${handle2(candidate.approvedBy)} via ${candidate.channel}, ${when}`;
+  return `${handle2(candidate.approvedBy)} via ${candidate.channel}, ${when2}`;
 }
 function mergedLine(merge2) {
   return `${handle2(merge2.by)}, ${day(merge2.at)}, PR #${merge2.pr}`;
@@ -48764,7 +48766,7 @@ var ENTRIES = deepFreeze([
     name: "kb",
     kind: "command",
     who: "you",
-    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph push", "omni kb legal", "omni kb glossary", "omni kb init"],
+    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb legal", "omni kb glossary", "omni kb init"],
     label: "omni kb show <form>",
     summary: "one form of the playbook",
     detail: "The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; init lays down every missing form, blank, and changes no file that exists."
@@ -51786,6 +51788,7 @@ function directionOf(edge, from) {
   if (edge.kind === "serves") return edge.from === from ? "up" : "down";
   return edge.kind === "enforced-by" || edge.kind === "governs" || edge.kind === "points-to" ? "down" : "side";
 }
+var idCell = ({ id, repo }) => repo === void 0 || repo === null ? id : `${repo} ${id}`;
 function otherEnd(edge, id) {
   if (edge.from === id) return edge.to;
   return edge.to === id ? edge.from : null;
@@ -51820,7 +51823,7 @@ function rowsUnder(parent, built, printed3) {
   return rows2;
 }
 function startLine(node3, entry3) {
-  const parts = [node3.id, node3.kind];
+  const parts = [idCell(node3), node3.kind];
   if (node3.status === "law") parts.push(`law${entry3?.locked?.by ? `, locked by @${entry3.locked.by}` : ""}`);
   else if (node3.status !== null) parts.push(node3.status);
   const pending = entry3?.pending ?? null;
@@ -51832,12 +51835,12 @@ function rowLines(rows2) {
   const lead = width(rows2.map(({ indent: indent2, direction }) => indent2 + direction));
   const edge = width(rows2.map((row) => row.edge));
   const nodes = rows2.flatMap((row) => "node" in row ? [row.node] : []);
-  const id = width(nodes.map((node3) => node3.id));
+  const id = width(nodes.map(idCell));
   const kind = width(nodes.map((node3) => node3.kind));
   return rows2.map((row) => {
     const head = `${(row.indent + row.direction).padEnd(lead)}  ${row.edge.padEnd(edge)}  `;
     if (!("node" in row)) return `${head}\u2026 and ${row.more} more (--json lists them all)`;
-    return `${head}${row.node.id.padEnd(id)}  ${row.node.kind.padEnd(kind)}  ${row.node.label ?? ""}`.trimEnd();
+    return `${head}${idCell(row.node).padEnd(id)}  ${row.node.kind.padEnd(kind)}  ${row.node.label ?? ""}`.trimEnd();
   });
 }
 function neighbourhoodBody(built, entries4) {
@@ -51930,6 +51933,112 @@ async function pushKnowledgeGraph({ ctx, git: git8, client, now: now2 }) {
   if (reply === null) return FAIL("kb graph push: the server answered something that is not a push result");
   const where = reply.products.length === 0 ? ["in products: none"] : reply.products.map(({ key: key2, href }) => `in products: ${key2 === null ? href : `${key2} \xB7 see ${href}`}`);
   return { ok: true, lines: [`pushed ${repo}@${commit.slice(0, 7)} \xB7 ${reply.nodes} nodes, ${reply.edges} edges`, ...where] };
+}
+
+// kit/lib/knowledge/product-graph-text.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/knowledge/product-graph.ts
+init_define_OMNI_BUNDLE();
+var PRODUCT_GRAPH_VERSION = 2;
+var PRODUCT_GRAPH_DEPTH = Object.freeze({ fallback: 1, most: 3 });
+var NODE_KINDS = ["principle", "rule", "invariant", "legal", "contract", "test", "path", "schema", "screen", "adr", "term", "never"];
+var EDGE_KINDS = ["serves", "enforced-by", "governs", "points-to", "cites", "sibling", "screen", "same-prd", "uses-term"];
+var STATUSES = ["law", "rule", "proposed"];
+var ORIGINS = ["repository", "product"];
+var STATES3 = ["cached", "offline", "none", "server"];
+var ProductGraphNodeSchema = external_exports.strictObject({
+  id: external_exports.string().min(1),
+  kind: external_exports.enum(NODE_KINDS),
+  label: external_exports.string().nullable(),
+  status: external_exports.enum(STATUSES).nullable(),
+  file: external_exports.string().min(1).nullable(),
+  origin: external_exports.enum(ORIGINS),
+  hop: external_exports.number().int().min(0),
+  /** The repository's short name (`back-end`); `null` on a node of the product. */
+  repo: external_exports.string().min(1).nullable()
+});
+var ProductGraphEdgeSchema = external_exports.strictObject({ from: external_exports.string().min(1), to: external_exports.string().min(1), kind: external_exports.enum(EDGE_KINDS) });
+var UnresolvedSchema = external_exports.strictObject({ repo: external_exports.string().min(1), node: external_exports.string().min(1), id: external_exports.string().min(1) });
+var RepositoryStandingSchema = external_exports.strictObject({
+  repo: external_exports.string().min(1),
+  commit: external_exports.string().regex(/^[0-9a-f]{40}$/).nullable(),
+  pushedAt: external_exports.iso.datetime({ offset: true }).nullable(),
+  pushedBy: external_exports.string().min(1).nullable(),
+  graph: external_exports.enum(["own", "none"])
+});
+var ProductNeighbourhoodSchema = external_exports.strictObject({
+  version: external_exports.literal(PRODUCT_GRAPH_VERSION),
+  shape: external_exports.literal("neighbourhood"),
+  repo: external_exports.string().min(1).nullable(),
+  start: external_exports.array(external_exports.string().min(1)),
+  depth: external_exports.number().int().min(1).max(PRODUCT_GRAPH_DEPTH.most),
+  product: external_exports.strictObject({ state: external_exports.enum(STATES3), key: external_exports.string().min(1).nullable(), cachedOn: external_exports.string().nullable() }),
+  nodes: external_exports.array(ProductGraphNodeSchema),
+  edges: external_exports.array(ProductGraphEdgeSchema),
+  unresolved: external_exports.array(UnresolvedSchema),
+  repositories: external_exports.array(RepositoryStandingSchema)
+});
+var V1NodeSchema = external_exports.strictObject({
+  id: external_exports.string().min(1),
+  kind: external_exports.enum(["principle", "rule", "invariant", "legal", "contract", "test", "path", "schema", "screen", "adr", "term"]),
+  label: external_exports.string().nullable(),
+  status: external_exports.enum(STATUSES).nullable(),
+  file: external_exports.string().min(1).nullable(),
+  origin: external_exports.enum(ORIGINS),
+  hop: external_exports.number().int().min(0)
+});
+var V1NeighbourhoodSchema = external_exports.strictObject({
+  version: external_exports.literal(1),
+  shape: external_exports.literal("neighbourhood"),
+  repo: external_exports.string().min(1).nullable(),
+  start: external_exports.array(external_exports.string().min(1)),
+  depth: external_exports.number().int().min(1).max(PRODUCT_GRAPH_DEPTH.most),
+  product: external_exports.strictObject({ state: external_exports.enum(["cached", "offline", "none"]), key: external_exports.string().min(1).nullable(), cachedOn: external_exports.string().nullable() }),
+  nodes: external_exports.array(V1NodeSchema),
+  edges: external_exports.array(ProductGraphEdgeSchema)
+});
+function readNeighbourhood(value) {
+  const two2 = ProductNeighbourhoodSchema.safeParse(value);
+  if (two2.success) return { ...two2.data, version: 2 };
+  const one = V1NeighbourhoodSchema.safeParse(value);
+  return one.success ? { ...one.data, version: 1, unresolved: [], repositories: [] } : null;
+}
+
+// kit/lib/knowledge/product-graph-text.ts
+var FAIL2 = (line2) => ({ ok: false, lines: [line2] });
+var when = (iso) => new Date(iso).toISOString().slice(0, 16).replace("T", " ");
+function repositoryLine({ repo, commit, pushedAt, pushedBy }) {
+  if (commit === null || pushedAt === null) return `${repo} \xB7 never pushed`;
+  return `${repo} @${commit.slice(0, 7)} \xB7 pushed ${when(pushedAt)}${pushedBy === null ? "" : ` by @${pushedBy}`}`;
+}
+function productLine2({ state, key: key2, cachedOn }) {
+  if (state === "server") return `product knowledge: server (${key2 ?? "no key"}).`;
+  if (state === "cached") return `product knowledge: cached ${cachedOn ?? "on an unknown day"} (${key2 ?? "no key"}).`;
+  if (state === "offline") return "product knowledge: offline.";
+  return "product knowledge: none.";
+}
+function productGraphText(read2) {
+  const unresolved = read2.unresolved.map(({ repo, node: node3, id }) => `unresolved: ${repo} ${node3} \u2192 ${id}`);
+  return [...read2.repositories.map(repositoryLine), ...neighbourhoodBody(read2, []), ...unresolved, productLine2(read2.product)];
+}
+function refusal3(error62) {
+  if (!(error62 instanceof AskCallError)) return FAIL2(`kb graph: ${messageOf(error62)}`);
+  if (error62.status === null) return FAIL2("kb graph: the server is unreachable");
+  return FAIL2(`kb graph: the server refused (${error62.status}): ${error62.reason ?? error62.message}`);
+}
+async function readProductGraph({ askUrl: askUrl2, client, key: key2, id, depth, json: json3 }) {
+  if (!askUrl2) return FAIL2("kb graph: ask.url is not set, so there is no Omni page to ask");
+  if (client === null) return FAIL2("kb graph: no sign-in for the Omni page (omni signin)");
+  let answer;
+  try {
+    answer = await client.readKnowledgeGraph({ key: key2, id, depth });
+  } catch (error62) {
+    return refusal3(error62);
+  }
+  const read2 = readNeighbourhood(answer);
+  if (read2 === null) return FAIL2("kb graph: the server answered something that is not a knowledge graph");
+  return { ok: true, lines: json3 ? [JSON.stringify(answer, null, 2)] : productGraphText(read2) };
 }
 
 // kit/lib/knowledge/packs/get.ts
@@ -52190,8 +52299,9 @@ var LAWS_USAGE = "usage: omni kb laws [--paths <file>[,<file>\u2026] [<file>\u20
 var SHOW_USAGE = "usage: omni kb show <form> [--json] [--all]";
 var PACK_USAGE = "usage: omni kb pack get <repo> [--read-at <commit>]";
 var GRAPH_USAGE = "usage: omni kb graph [<id> | --paths <file>[,<file>\u2026] [<file>\u2026]] [--depth <1-3>] [--json]";
+var GRAPH_PRODUCT_USAGE = "usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]";
 var GRAPH_PUSH_USAGE = "usage: omni kb graph push";
-var USAGE24 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json] | omni kb graph push | omni kb laws [\u2026] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
+var USAGE24 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws [\u2026] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -52525,7 +52635,7 @@ async function graphPush(args, io) {
   const { ctx, stdout, exec } = io;
   if (args.length > 0) throw usageError(GRAPH_PUSH_USAGE);
   const askUrl2 = ctx.config.ask.url;
-  const client = askUrl2 ? signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
+  const client = pageClient(askUrl2, io);
   let result2;
   try {
     result2 = await pushKnowledgeGraph({
@@ -52539,6 +52649,23 @@ async function graphPush(args, io) {
   }
   for (const line2 of result2.lines) println(stdout, line2);
   return result2.ok ? 0 : 1;
+}
+async function graphProduct(args, io) {
+  const { ctx, stdout, stderr } = io;
+  const askUrl2 = ctx.config.ask.url;
+  const result2 = await readProductGraph({ askUrl: askUrl2, client: pageClient(askUrl2, io), ...productGraphArgs(args) });
+  for (const line2 of result2.lines) println(result2.ok ? stdout : stderr, line2);
+  return result2.ok ? 0 : 1;
+}
+function productGraphArgs(args) {
+  const { positional, flags } = parseArgs("kb graph", args, { values: ["product", "depth"], booleans: ["json"] });
+  const [id] = positional;
+  if (positional.length !== 1 || id === void 0 || flags.product === void 0) throw usageError(GRAPH_PRODUCT_USAGE);
+  if (flags.depth !== void 0 && !/^[123]$/.test(flags.depth)) throw usageError(GRAPH_PRODUCT_USAGE);
+  return { key: flags.product, id, depth: flags.depth === void 0 ? null : Number(flags.depth), json: flags.json === true };
+}
+function pageClient(askUrl2, io) {
+  return askUrl2 ? signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
 }
 var basic = synchronous((args, io) => {
   if (args[0] === "laws") return laws(args.slice(1), io);
@@ -52559,6 +52686,7 @@ var kb2 = {
     const [sub, ...rest] = args;
     if (sub === "pack") return pack(rest, full);
     if (sub === "graph" && rest[0] === "push") return graphPush(rest.slice(1), full);
+    if (sub === "graph" && rest.includes("--product")) return graphProduct(rest, full);
     if (sub === "legal" || sub === "glossary") return productVerb(sub, rest, full, io, io.cwd);
     return basic(args, full);
   }
@@ -55566,7 +55694,7 @@ import { join as join108 } from "node:path";
 // kit/lib/sync/schema.ts
 init_define_OMNI_BUNDLE();
 var SEVERITIES = Object.freeze(["green", "orange", "red"]);
-var STATUSES = Object.freeze(["blue", "red", "orange", "green"]);
+var STATUSES2 = Object.freeze(["blue", "red", "orange", "green"]);
 var SETUP_STEPS = Object.freeze(["plugin", "hud", "signin", "main"]);
 var line = external_exports.string().min(1);
 var FindingSchema = external_exports.object({
@@ -55583,7 +55711,7 @@ var StepSchema2 = external_exports.object({
 }).strict();
 var SyncRecordSchema = external_exports.object({
   checkedAt: external_exports.iso.datetime(),
-  status: external_exports.enum(STATUSES),
+  status: external_exports.enum(STATUSES2),
   headline: line.nullable(),
   setupDoneAt: external_exports.iso.datetime().nullable(),
   setup: external_exports.object({ done: external_exports.number().int().min(0).max(SETUP_STEPS.length), steps: external_exports.array(StepSchema2) }).strict().nullable(),
@@ -56290,8 +56418,8 @@ function printLandings(stdout, { landings }) {
   if (landings.length <= 1) return;
   println(stdout, `omni plan check \u2014 ${counted2(landings.length, "landing", "landings")}, merged in order:`);
   for (const { landing, name: name3, mergeWhen, slices: members3, waves: landingWaves } of landings) {
-    const when = mergeWhen === null ? "" : ` \u2014 merge when ${mergeWhen}`;
-    println(stdout, `  landing ${landing} (${name3}): wave(s) ${landingWaves.join(", ")} \u2014 ${members3.join(", ")}${when}`);
+    const when2 = mergeWhen === null ? "" : ` \u2014 merge when ${mergeWhen}`;
+    println(stdout, `  landing ${landing} (${name3}): wave(s) ${landingWaves.join(", ")} \u2014 ${members3.join(", ")}${when2}`);
   }
 }
 function printRepositories(stdout, { multi, slices, waves }) {
@@ -56365,7 +56493,7 @@ function failed3(error62) {
   if (error62.status === 404) return null;
   return error62.status === null ? "unreachable" : `refused (${error62.status})`;
 }
-async function productLine2(ctx, prd2, { tokens: tokens2, home, fetch = globalThis.fetch, callMs } = {}) {
+async function productLine3(ctx, prd2, { tokens: tokens2, home, fetch = globalThis.fetch, callMs } = {}) {
   const toggle = dossierSwitch(ctx.config);
   if (!toggle.on) return null;
   const repo = ctx.config.repo.slug;
@@ -56512,7 +56640,7 @@ var prd = {
     const state = await prdState(ctx, id, { approval: gateApproval(ctx, { tokens: tokens2, home, fetch, callMs }) });
     const why2 = heldWhy(state);
     if (why2 !== null) println(stderr, `omni prd: ${why2}`);
-    const product2 = await productLine2(ctx, id, { tokens: tokens2, home, fetch, callMs });
+    const product2 = await productLine3(ctx, id, { tokens: tokens2, home, fetch, callMs });
     println(stdout, [...prdLines(where, state), ...product2 === null ? [] : [product2]].join("\n"));
     return 0;
   }
@@ -58218,9 +58346,9 @@ async function start(args, { cwd, stdout, stderr, exec, tokens: tokens2, home, f
   const ctx = loadContext(cwd, { exec });
   const askUrl2 = ctx.config.ask.url;
   const store = signedInStore(askUrl2, { tokens: tokens2, home });
-  const refusal3 = refusalHere(ctx, prd2, { exec, store });
-  if (refusal3 !== null || store === null || !askUrl2) {
-    println(stderr, refusal3 ?? REFUSAL.noSignIn);
+  const refusal4 = refusalHere(ctx, prd2, { exec, store });
+  if (refusal4 !== null || store === null || !askUrl2) {
+    println(stderr, refusal4 ?? REFUSAL.noSignIn);
     return 1;
   }
   const repo = ctx.config.repo.slug;
@@ -60331,7 +60459,7 @@ var readText4 = (path) => {
   }
 };
 function loopOf(options) {
-  const refusal3 = new AbortController();
+  const refusal4 = new AbortController();
   let refused2 = null;
   const { firstMs, maxMs } = options.backoff ?? BACKOFF;
   return {
@@ -60341,10 +60469,10 @@ function loopOf(options) {
     tickMs: options.tickMs ?? TICK_MS,
     firstMs,
     maxMs,
-    halt: AbortSignal.any([options.stop, refusal3.signal]),
+    halt: AbortSignal.any([options.stop, refusal4.signal]),
     refuse(error62) {
       refused2 ??= error62.message;
-      refusal3.abort();
+      refusal4.abort();
     },
     refused: () => refused2,
     running: 0,

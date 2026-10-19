@@ -6,7 +6,8 @@ import { firstParam, memberSession } from '../../../../../../src/data/member-ses
 import { LIVE_PRODUCT_HOME, productHomeViewOf } from '../../../../../../src/product-home/product-home.controller';
 import { ProductHome, productHomeTabs } from '../../../../../../src/product-home/ProductHome';
 import { graphQueryOf } from '../../../../../../src/knowledge-graph/tab/graph-page';
-import { graphPageViewOf, LIVE_GRAPH_PAGE } from '../../../../../../src/knowledge-graph/tab/graph-page.controller';
+import { graphPageViewOf } from '../../../../../../src/knowledge-graph/tab/graph-page.controller';
+import { LIVE_GRAPH_PAGE } from '../../../../../../src/knowledge-graph/tab/graph-page-live';
 import { KnowledgeGraphScreen } from '../../../../../../src/knowledge-graph/tab/KnowledgeGraph';
 
 // /app/products/<id>/knowledge/graph (PRD 1798 s6): the product's knowledge graph, reached from the

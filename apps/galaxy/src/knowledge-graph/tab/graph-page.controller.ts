@@ -1,8 +1,7 @@
 import 'server-only';
 import type { MemberSession } from '../../data/member-session';
 import type { Situation } from '../../products/ProductsScreen';
-import { productGraphRepository } from '../product-graph.repository';
-import { productGraphService } from '../product-graph.service';
+import type { productGraphService } from '../product-graph.service';
 import { demoJoinedGraph, DEMO_PRODUCT } from './graph-page.demo';
 import { graphPageOf, type GraphPageData, type GraphQuery } from './graph-page';
 
@@ -20,10 +19,6 @@ type SignedIn = Extract<MemberSession, { kind: 'signed-in' }>;
 export interface GraphPageDeps {
   read(session: SignedIn, product: string): ReturnType<ReturnType<typeof productGraphService>['graph']>;
 }
-
-export const LIVE_GRAPH_PAGE: GraphPageDeps = {
-  read: (session, product) => productGraphService(productGraphRepository(session.db)).graph({ id: product }),
-};
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
