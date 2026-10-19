@@ -39,7 +39,6 @@ describe('the Ledger, filled', () => {
     expect(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1]).toBe('Widgets');
     expect(tabs(html)).toEqual([
       { tab: '<a class="section-tab" aria-label="Ledger: 2 waiting" aria-current="page" href="/app/products/demo-product-1">', text: 'Ledger 2' },
-      { tab: '<a class="section-tab" href="/app/products/demo-product-1/constellation">', text: 'Constellation' },
       { tab: '<a class="section-tab" href="/app/products/demo-product-1/prds">', text: 'PRDs' },
       { tab: '<a class="section-tab" href="/app/products/demo-product-1/ideas">', text: 'Ideas' },
       { tab: '<a class="section-tab" href="/app/products/demo-product-1/roadmap">', text: 'Roadmap' },
@@ -74,8 +73,8 @@ describe('the PRDs tab', () => {
     const html = render({ kind: 'home', home: FILLED }, 'prds');
     expect(tabs(html).map((t) => t.tab).slice(0, 3)).toEqual([
       '<a class="section-tab" aria-label="Ledger: 2 waiting" href="/app/products/demo-product-1">',
-      '<a class="section-tab" href="/app/products/demo-product-1/constellation">',
       '<a class="section-tab" aria-current="page" href="/app/products/demo-product-1/prds">',
+      '<a class="section-tab" href="/app/products/demo-product-1/ideas">',
     ]);
     expect([...html.matchAll(/<li class="product-home-row"[^>]*>([\s\S]*?)<\/li>/g)].map((m) => text(group(m, 1)))).toEqual([
       '918 Offline photo upload ◆ acme/widgets PRD',

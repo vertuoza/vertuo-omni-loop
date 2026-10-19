@@ -39,6 +39,10 @@ export function productHomeTabHref(home: ProductHome, tab: ProductHomeTab): stri
   return segment === null ? root : `${root}/${segment}`;
 }
 
+/** Tabs that answer at their address but are left out of the row. The Constellation is hidden while its
+ * rework is designed: on a product of 18 repositories its labels overlap and it draws no line. */
+const HIDDEN: ReadonlySet<ProductHomeTab> = new Set(['constellation']);
+
 const COUNTS: Partial<Record<ProductHomeTab, (home: ProductHome) => number>> = {
   ledger: (home) => home.ledger.lanes['on-you'].length,
   questions: (home) => home.questions.length,
@@ -46,7 +50,7 @@ const COUNTS: Partial<Record<ProductHomeTab, (home: ProductHome) => number>> = {
 
 /** The product home's tabs, as the section tabs draw them. */
 export function productHomeTabs(home: ProductHome): SectionTab[] {
-  const drawn = ORDER.map((tab) => {
+  const drawn = ORDER.filter((tab) => !HIDDEN.has(tab)).map((tab) => {
     const shown: SectionTab = { href: productHomeTabHref(home, tab), label: TABS[tab].label };
     const count = COUNTS[tab];
     return count === undefined ? shown : { ...shown, count: count(home) };

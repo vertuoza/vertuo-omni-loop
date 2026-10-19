@@ -16,10 +16,10 @@ describe('the product home\'s tab segments', () => {
     expect(productHomeTabOf('Ideas')).toBeNull();
   });
 
-  it('draws Constellation second in the tab row, at /constellation (PRD 2129)', () => {
+  it('leaves Constellation out of the tab row while its rework is designed, still at /constellation (PRD 2129)', () => {
     const home = { product: { id: 'p-1', name: 'Mobile' }, ledger: { lanes: { 'on-you': [] } }, questions: [] } as unknown as ProductHome;
     expect(productHomeTabs(home).map((t) => t.label)).toEqual([
-      'Ledger', 'Constellation', 'PRDs', 'Ideas', 'Roadmap', 'Bug fixes', 'Visual fixes', 'Questions', 'Knowledge', 'Repositories & approvers',
+      'Ledger', 'PRDs', 'Ideas', 'Roadmap', 'Bug fixes', 'Visual fixes', 'Questions', 'Knowledge', 'Repositories & approvers',
     ]);
     expect(productHomeTabHref(home, 'constellation')).toBe('/app/products/p-1/constellation');
   });
