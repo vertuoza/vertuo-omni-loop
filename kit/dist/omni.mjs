@@ -48800,7 +48800,7 @@ var ENTRIES = deepFreeze([
     usage: ["omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]", "omni runner sender"],
     label: "omni runner",
     summary: "run the lines the Omni app sends, on this machine",
-    detail: "Makes this machine a runner: it registers with the Omni page under --name, shows on its Runners page, and runs the /omni: lines people send it with Send to terminal, at most --slots at once (4 by default, 8 at most). It signs in as every omni command does (OMNI_TOKEN, else omni signin), holds the git checkouts right under --repos, by their origin, and refuses to start when claude is missing or signed out, or tmux is missing. Each job runs in a worktree ~/wt/<repo>-job-<id> on branch agent/job-<id>, in the tmux session job-<id>; its line goes to claude from a file, never a shell. claude runs with --output-format stream-json: each step becomes one readable line (Bash: <command>, Edit: <path>, PR: <link>, a failed call's \u2717 with up to 20 lines of its output, Done: with its turns and cost), written to ~/logs/job-<id>.log and the session, while the raw stream stays on the machine in ~/logs/job-<id>.jsonl. Every 5 s the runner sends the log's new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per report, sending them again when a report fails and every line left once the job ends: the Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills the plugin holds: before Claude starts, a plugin older than the omni the job's repository pins is updated (once, however many slots start together), and one still older fails the job with omni plugin v<x> is older than <owner/repo>'s omni v<y> and its update's last line; a plugin not installed fails it with the line to install it; a list that does not read lets the job run, its log saying so. At start and once an hour it updates the plugin, printing a line only when its version changed or the update failed. sender prints the line /omni:pr writes in a pull request a job opens, naming who sent it and the runner."
+    detail: "Makes this machine a runner: it registers with the Omni page under --name, shows on its Runners page, and runs the /omni: lines people send it with Send to terminal, at most --slots at once (4 by default, 8 at most). It signs in as every omni command does (OMNI_TOKEN, else omni signin), holds the git checkouts right under --repos, by their origin, and refuses to start when claude is missing or signed out, or tmux is missing. Each job runs in a worktree ~/wt/<repo>-job-<id> on branch agent/job-<id>, in the tmux session job-<id>; its line goes to claude from a file, never a shell. claude runs with --output-format stream-json: each step becomes one readable line (Bash: <command>, Edit: <path>, PR: <link>, a failed call's \u2717 with up to 20 lines of its output, Done: with its turns and cost), written to ~/logs/job-<id>.log and the session, while the raw stream stays on the machine in ~/logs/job-<id>.jsonl. Every 5 s the runner sends the log's new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per report, sending them again when a report fails and every line left once the job ends: the Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, mega-bug-fix, visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills the plugin holds: before Claude starts, a plugin older than the omni the job's repository pins is updated (once, however many slots start together), and one still older fails the job with omni plugin v<x> is older than <owner/repo>'s omni v<y> and its update's last line; a plugin not installed fails it with the line to install it; a list that does not read lets the job run, its log saying so. At start and once an hour it updates the plugin, printing a line only when its version changed or the update failed. sender prints the line /omni:pr writes in a pull request a job opens, naming who sent it and the runner."
   },
   {
     name: "dossier",
@@ -59820,11 +59820,11 @@ import { join as join134 } from "node:path";
 
 // kit/lib/runner/line.ts
 init_define_OMNI_BUNDLE();
-var RUNNABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "bug-fix", "visual-fix", "plan", "pitch", "prove"]);
+var RUNNABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "bug-fix", "mega-bug-fix", "visual-fix", "plan", "pitch", "prove"]);
 var LINE_MAX2 = 200;
 var SHAPE = /^\/omni:([a-z][a-z-]*)(?: (.*))?$/s;
 var ARGS = /^[A-Za-z0-9 ._/:#-]*$/;
-function checkLine2(line2) {
+function checkRunnerLine(line2) {
   if (line2.length > LINE_MAX2) return { ok: false, reason: `the line is over ${String(LINE_MAX2)} characters` };
   const match = SHAPE.exec(line2);
   if (!match) return { ok: false, reason: "the line does not read /omni:<skill> <arguments>" };
@@ -60357,7 +60357,7 @@ function worktreeOf(loop2, job2) {
   return join134(loop2.home, "wt", `${job2.repo.split("/").at(-1) ?? job2.repo}-job-${job2.id}`);
 }
 function placeOf2(loop2, job2) {
-  const line2 = checkLine2(job2.line);
+  const line2 = checkRunnerLine(job2.line);
   if (!line2.ok) return { status: "failed", reason: `refused: ${line2.reason}` };
   const checkout = loop2.checkouts.get(job2.repo);
   if (checkout === void 0) return { status: "failed", reason: `${job2.repo} is not held by this runner` };

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { checkRunnerLine, LINE_MAX } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
+import { WORKSPACE } from '../runners/fixtures/store.fake';
 import { encodeCursor } from './cursor';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
-import { BugFixListSchema, PrdListSchema, type ListQuery } from './public-api.contract';
+import { BugFixListSchema, MEGA_DESCRIPTION_MAX, PrdListSchema, type ListQuery } from './public-api.contract';
 import { BAD_CURSOR, publicApiService, type ApiKeyCaller } from './public-api.service';
 
 // The public API's rules (PRD 2022 s2) on realistic rows in memory: a key is a live key of its shape;
@@ -260,5 +262,61 @@ describe('starting a bug fix (PRD 2022 s4)', () => {
     const id = started.ok ? started.value.id : '';
     expect(await service.job(mine, id)).toMatchObject({ ok: true, value: { id, status: 'queued' } });
     expect(await service.job(await caller(api, SECRETS.all), id)).toMatchObject({ ok: false, code: 'not_found' });
+  });
+});
+
+describe('starting a mega bug fix in a plan repository', () => {
+  const ISSUE = 'https://github.com/vertuoza/plan/issues/612';
+  const FIX = { repo: 'Vertuoza/Plan', description: ISSUE };
+
+  it('builds the /omni:mega-bug-fix line in the plan repository and sends it as the key', async () => {
+    const api = fakePublicApi();
+    api.planRepository(WORKSPACE, 'vertuoza/plan');
+    const started = await publicApiService(api.repository, api.runners).startMegaBugFix(await caller(api, SECRETS.runners), FIX);
+    expect(started).toMatchObject({ ok: true, value: { status: 'queued', repo: 'vertuoza/plan', line: `/omni:mega-bug-fix ${ISSUE}` } });
+    expect(api.runnersState.jobs).toHaveLength(1);
+  });
+
+  it('refuses a repository no product of the key’s workspace names as its plan repository, queueing nothing', async () => {
+    const api = fakePublicApi();
+    api.planRepository(NORTHWIND, 'vertuoza/plan');
+    const service = publicApiService(api.repository, api.runners);
+    const key = await caller(api, SECRETS.runners);
+    for (const repo of ['vertuoza/plan', 'vertuoza/app']) {
+      const refused = await service.startMegaBugFix(key, { ...FIX, repo });
+      expect(refused).toMatchObject({ ok: false, code: 'invalid_request' });
+      expect(!refused.ok && refused.message).toBe(`repo: ${repo} is not a plan repository of this workspace: no product names it as its plan repository. A bug of one repository starts with POST /api/v1/bug-fixes.`);
+    }
+    expect(api.runnersState.jobs).toEqual([]);
+  });
+
+  it('keeps the allow-list in front of the plan check and the runners', async () => {
+    const api = fakePublicApi();
+    api.planRepository(WORKSPACE, 'vertuoza/plan');
+    api.planRepository(WORKSPACE, 'vertuoza/other');
+    const service = publicApiService(api.repository, api.runners);
+    const limited = await caller(api, SECRETS.runnersLimited);
+    api.calls.length = 0;
+    expect(await service.startMegaBugFix(limited, FIX)).toMatchObject({ ok: false, code: 'forbidden', message: 'vertuoza/plan is not on this API key’s list of repositories.' });
+    expect(api.calls).toEqual([]);
+    expect(await service.startMegaBugFix(limited, { ...FIX, repo: 'vertuoza/other' })).toMatchObject({ ok: true, value: { repo: 'vertuoza/other' } });
+    expect(api.runnersState.jobs).toHaveLength(1);
+  });
+
+  it('answers the runners’ own refusal, as for a bug fix', async () => {
+    const api = fakePublicApi();
+    api.planRepository(WORKSPACE, 'vertuoza/plan');
+    const refused = await publicApiService(api.repository, api.runners).startMegaBugFix(await caller(api, SECRETS.runners), { ...FIX, runner: 'ghost' });
+    expect(refused).toMatchObject({ ok: false, code: 'invalid_request', message: 'runner or fleet: No runner named ghost in this workspace.' });
+  });
+
+  it(`queues only a line the runner itself runs: ${String(MEGA_DESCRIPTION_MAX)} characters make a line of ${String(LINE_MAX)}`, async () => {
+    const api = fakePublicApi();
+    api.planRepository(WORKSPACE, 'vertuoza/plan');
+    const started = await publicApiService(api.repository, api.runners).startMegaBugFix(await caller(api, SECRETS.runners), { ...FIX, description: 'a'.repeat(MEGA_DESCRIPTION_MAX) });
+    const line = started.ok ? started.value.line : '';
+    expect(line).toHaveLength(LINE_MAX);
+    expect(checkRunnerLine(line)).toMatchObject({ ok: true, skill: 'mega-bug-fix' });
+    expect(checkRunnerLine(`${line}a`)).toMatchObject({ ok: false });
   });
 });

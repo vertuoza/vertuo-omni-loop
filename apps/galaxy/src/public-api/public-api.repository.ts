@@ -114,6 +114,16 @@ export function publicApiRepository(db: PublicApiDb) {
         z.array(StageRow), 'prd_stages',
       );
     },
+
+    /** Whether a product of the workspace names `repository` (owner/name, in lower case, as
+     * product_plan_repository_set() keeps it) as its plan repository (PRD 2011). */
+    async isPlanRepository(workspace: string, repository: string): Promise<boolean> {
+      const named = await settled(
+        db.from('products').select('id').eq('workspace_id', workspace).eq('plan_repository', repository).limit(1),
+        z.array(z.object({ id: z.string() })), 'products.plan_repository',
+      );
+      return named.length > 0;
+    },
   };
 }
 

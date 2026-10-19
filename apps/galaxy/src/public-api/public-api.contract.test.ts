@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { STORED_STAGES } from '../stages/stage';
 import { decodeCursor } from './cursor';
 import {
-  BugFixSchema, ListQuerySchema, PRD_STAGES, PrdSchema, PUBLIC_API_ERRORS, PublicApiErrorSchema,
+  BugFixSchema, ListQuerySchema, MEGA_DESCRIPTION_MAX, PRD_STAGES, PrdSchema, PUBLIC_API_ERRORS, PublicApiErrorSchema,
+  StartBugFixSchema, StartMegaBugFixSchema,
 } from './public-api.contract';
 
 // The public API's contract (PRD 2022 s2): a list's query, valid and refused; the shapes the spec names;
@@ -61,6 +62,42 @@ describe('the shapes', () => {
     const bug = { id: ID, number: 548, title: 'Login loops', repo: 'acme/backend', created_at: '2026-10-15T13:41:50+00:00', links: LINKS };
     expect(BugFixSchema.parse(bug)).toEqual(bug);
     expect(BugFixSchema.safeParse({ ...bug, repo: null }).success).toBe(false);
+  });
+});
+
+describe('a mega bug fix’s body', () => {
+  const BODY = { repo: 'acme/plan', description: 'https://github.com/acme/plan/issues/612' };
+
+  it('takes the plan repository and the issue’s URL, number or line, and where it runs', () => {
+    expect(StartMegaBugFixSchema.parse(BODY)).toEqual(BODY);
+    for (const description of ['#612', '612', 'the total is wrong on the invoice screen', 'a'.repeat(MEGA_DESCRIPTION_MAX)]) {
+      expect(StartMegaBugFixSchema.safeParse({ ...BODY, description }).success, description).toBe(true);
+    }
+    expect(StartMegaBugFixSchema.parse({ ...BODY, runner: 'agent-box' })).toEqual({ ...BODY, runner: 'agent-box' });
+    expect(StartMegaBugFixSchema.parse({ ...BODY, fleet: 'comets' })).toEqual({ ...BODY, fleet: 'comets' });
+  });
+
+  it('leaves 181 characters to the description, what a 200-character line keeps after /omni:mega-bug-fix', () => {
+    expect(MEGA_DESCRIPTION_MAX).toBe(181);
+    expect(StartMegaBugFixSchema.safeParse({ ...BODY, description: 'a'.repeat(182) }).error?.issues[0]?.path).toEqual(['description']);
+    expect(StartMegaBugFixSchema.safeParse({ ...BODY, description: '' }).error?.issues[0]?.path).toEqual(['description']);
+  });
+
+  it('refuses a word that starts a flag, which would make it another run of the skill', () => {
+    for (const description of ['--product mobile', '612 --product mobile', '612 --prd 1200', '612\t--prd 1']) {
+      expect(StartMegaBugFixSchema.safeParse({ ...BODY, description }).error?.issues[0]?.path, description).toEqual(['description']);
+    }
+    expect(StartMegaBugFixSchema.safeParse({ ...BODY, description: 'the a-b total is off by 1-2 cents' }).success).toBe(true);
+  });
+
+  it('refuses a field it does not know, where a bug fix’s body ignores it', () => {
+    const unknown = StartMegaBugFixSchema.safeParse({ ...BODY, skill: 'bug-fix' });
+    expect(unknown.error?.issues[0]).toMatchObject({ code: 'unrecognized_keys', keys: ['skill'] });
+    expect(StartBugFixSchema.parse({ ...BODY, skill: 'mega-bug-fix' })).toEqual(BODY);
+  });
+
+  it('refuses a repository that is not owner/name', () => {
+    expect(StartMegaBugFixSchema.safeParse({ ...BODY, repo: 'plan' }).error?.issues[0]?.path).toEqual(['repo']);
   });
 });
 
