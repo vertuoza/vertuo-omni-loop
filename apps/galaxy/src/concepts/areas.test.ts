@@ -56,6 +56,29 @@ describe('each area\'s PRD stage (PRD 2213)', () => {
   });
 });
 
+describe('a concept shipped by a person (PRD 2213, s3)', () => {
+  const named = AREAS.map((area, i) => (i < 3 ? { ...area, prd: parsePrd(1300 + i) } : area));
+  const stages = new Map<string, StoredStage>([
+    [prdKey({ repository: 'acme/widgets', prd: parsePrd(1300) }), 'shipped'],
+    [prdKey({ repository: 'acme/widgets', prd: parsePrd(1301) }), 'retro'],
+    [prdKey({ repository: 'acme/widgets', prd: parsePrd(1302) }), 'building'],
+  ]);
+
+  it('reads not built on each area whose PRD has not shipped, or that names none', () => {
+    const views = areaViews(named, C1269, 'acme/widgets', new Map(), stages, true, true);
+    expect(views.map((v) => v.stage)).toEqual(['shipped', 'retro', 'not built', 'not built', 'not built', 'not built']);
+    expect(views.some((v) => v.next !== null)).toBe(false);
+  });
+
+  it('reads not built on an area whose PRD has no stored stage, never syncing', () => {
+    expect(areaViews(named, C1269, 'acme/widgets', new Map(), new Map(), true, true).map((v) => v.stage).slice(0, 3)).toEqual(['not built', 'not built', 'not built']);
+  });
+
+  it('leaves a concept shipped by itself without the mark', () => {
+    expect(areaViews(named, C1269, 'acme/widgets', new Map(), stages, true, false).map((v) => v.stage)).toEqual(['shipped', 'retro', 'building', null, null, null]);
+  });
+});
+
 describe('which PRDs have a page', () => {
   it('asks once per PRD, as a PRD in the concept\'s repository, and leaves out one with no page or a failed lookup', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});

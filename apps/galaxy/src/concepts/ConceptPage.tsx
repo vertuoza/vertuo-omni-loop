@@ -9,6 +9,7 @@ import { StageHeaderCopy } from '../dossier/page/StageHeaderCopy';
 import type { AreaView } from './areas';
 import type { ConceptPageState } from './ConceptPage.read';
 import { CONCEPT_TAB_LABELS, NOT_SENT, type ConceptPageView, type ConceptPane } from './ConceptPage.view';
+import { MarkDoneButton } from './MarkDoneButton';
 import { ConceptStateChip } from './state-chip';
 
 // /concepts/<id> (PRD 1272, s3), laid out as a dossier's page: the header box — the Concept badge, `#n ↗`
@@ -25,6 +26,19 @@ function StageWords({ stage }: { stage: string }) {
   return <span className={stage === 'shipped' || stage === 'retro' ? 'concept-stage concept-stage-shipped' : 'concept-stage'}>{stage}</span>;
 }
 
+/** An area's PRD link, its stage beside it; a stage alone (`not built`) when it names no PRD. */
+function AreaPrdLine({ area }: { area: AreaView }) {
+  const stage = area.stage !== null && <StageWords stage={area.stage} />;
+  if (!area.prd) return stage ? <p>{stage}</p> : null;
+  const issue = area.prd.to === 'issue';
+  return (
+    <p>
+      <a href={area.prd.href} {...(issue ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>PRD #{area.prd.number}{issue ? ' ↗' : ''}</a>
+      {stage && <>{' '}{stage}</>}
+    </p>
+  );
+}
+
 function AreaRow({ area }: { area: AreaView }) {
   return (
     <li className={area.wedge ? 'concept-area concept-wedge' : 'concept-area'}>
@@ -34,14 +48,7 @@ function AreaRow({ area }: { area: AreaView }) {
         {area.wedge && <>{' '}<span className="dossier-kind">wedge</span></>}
       </p>
       <p className="ask-muted">{area.brief}</p>
-      {area.prd && (
-        <p>
-          <a href={area.prd.href} {...(area.prd.to === 'issue' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
-            PRD #{area.prd.number}{area.prd.to === 'issue' ? ' ↗' : ''}
-          </a>
-          {area.stage !== null && <>{' '}<StageWords stage={area.stage} /></>}
-        </p>
-      )}
+      <AreaPrdLine area={area} />
       {area.next && <StageHeaderCopy label="Copy" command={area.next} />}
     </li>
   );
@@ -97,6 +104,7 @@ export function ConceptPage({ view }: { view: ConceptPageView }) {
         <div className="dossier-head-top">
           <DossierTitle heading={view.heading ?? ''} draft={false} title={view.title} issueUrl={view.issueUrl} badge={view.badge} />
           <div className="dossier-actions">
+            {view.done && <MarkDoneButton concept={view.id} mode={view.done} />}
             <CopyLink path={view.link} />
           </div>
         </div>
