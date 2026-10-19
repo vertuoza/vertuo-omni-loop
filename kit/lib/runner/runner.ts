@@ -42,7 +42,7 @@ import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { HealthLimits, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
 import { DEFAULT_LIMITS, machineReads, nextPause, pressure, sample } from './health.ts';
 import type { CpuTimes, MachineReads, PauseState } from './health.ts';
-import { checkLine } from './line.ts';
+import { checkRunnerLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
 import { lastPullRequest, linesAfter, logTail, reportBatch } from './log.ts';
@@ -336,7 +336,7 @@ function worktreeOf(loop: Loop, job: RunnerJob): string {
 
 /** Where `job` runs, or the status it ends on before it runs: a line refused, a repository not held. */
 function placeOf(loop: Loop, job: RunnerJob): Place | JobUpdate {
-  const line = checkLine(job.line);
+  const line = checkRunnerLine(job.line);
   if (!line.ok) return { status: 'failed', reason: `refused: ${line.reason}` };
   const checkout = loop.checkouts.get(job.repo);
   if (checkout === undefined) return { status: 'failed', reason: `${job.repo} is not held by this runner` };

@@ -11,6 +11,7 @@ import type { DossierPage, DossierRow, KeyRow, ListedKind, ProductRow, PublicApi
 // as supabase/migrations/20261210090000_api_keys.sql answers it: only a live `api` key whose maker is
 // still a member of its workspace. Two workspaces: Northwind (northwind/backend, northwind/web) and
 // Southwind (southwind/backend). Ada made Northwind's keys and is still a member; Ben made one and left.
+// A product's plan repository (products.plan_repository) is added by `planRepository`; there is none at first.
 
 export const NORTHWIND = '11111111-1111-4111-8111-111111111111';
 export const SOUTHWIND = '22222222-2222-4222-8222-222222222222';
@@ -79,6 +80,7 @@ export function fakePublicApi() {
   const dossiers: FakeDossier[] = [];
   const products: FakeProduct[] = [];
   const stages: FakeStage[] = [];
+  const plans: { workspace: string; repository: string }[] = [];
   const calls: string[] = [];
   let made = 0;
 
@@ -121,6 +123,10 @@ export function fakePublicApi() {
         .filter((s) => s.workspace === workspace && s.repository === repository && prds.includes(s.prd))
         .map(({ repository: repo, prd, stage }) => ({ repository: repo, prd, stage })));
     },
+    isPlanRepository(workspace, repository) {
+      calls.push('isPlanRepository');
+      return Promise.resolve(plans.some((plan) => plan.workspace === workspace && plan.repository === repository));
+    },
   };
 
   // The runners' own rules over their own fake store: what a key starts and follows a job with.
@@ -144,6 +150,8 @@ export function fakePublicApi() {
     product: (workspace: string, id: string, key: string | null, name: string) => { products.push({ workspace, id, key, name }); },
     /** A stage a PRD reached. */
     stage: (workspace: string, repository: string, prd: PrdNumber, stage: (typeof PRD_STAGES)[number]) => { stages.push({ workspace, repository, prd, stage }); },
+    /** A repository a product of the workspace names as its plan repository. */
+    planRepository: (workspace: string, repository: string) => { plans.push({ workspace, repository }); },
   };
 }
 
