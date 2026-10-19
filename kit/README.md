@@ -317,6 +317,15 @@ prints the neighbourhood as one versioned document (`version: 1`, `shape: "neigh
 `--depth` outside 1 to 3, or `--paths` with an id or with no file, exits 2 with the usage line.
 Nothing here calls the network: the product's cache is read from its file only.
 
+`omni kb graph push` (PRD 1798) sends the whole repository's graph to the Omni page: every node and
+edge the neighbourhood is built from, as one object (`version: 1`, `shape: "repository"`, `nodes`,
+`edges`; no `start`, `depth` or `hop`, and no node of the product's own), with the repository's slug
+and its `HEAD` commit, to `POST /api/knowledge/graphs`. It first refreshes the product knowledge
+cache, signs in as every push does (`omni signin`, or `OMNI_TOKEN`), and prints
+`pushed <slug>@<commit> · <n> nodes, <m> edges` and a line `in products: <key> · see <link>` per
+product the repository serves. It exits 1 with one line, sending nothing, for a knowledge folder with
+uncommitted changes, and also for no `ask.url`, no sign-in, an unreachable server or a refusal.
+
 **Laws and their tests** (PRD 1342) apply only where `laws.source` is `knowledge`. A rule or an
 invariant's `Enforced by:` names a test path, `unenforced`, or `pending #<n>`: a law judged worth a
 test before it had one, whose **law issue** `#<n>` is labelled `labels.law` (default `omni:law`,
