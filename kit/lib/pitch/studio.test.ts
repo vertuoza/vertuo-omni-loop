@@ -33,16 +33,14 @@ async function nextMessage(reader: ReadableStreamDefaultReader<Uint8Array>): Pro
  * starts a moment after `watch()` returns, and a write in that moment is never reported; a person
  * saves long after the studio opens, so the test writes again rather than racing the watch's start. */
 async function writeUntil<T>(file: string, text: string, seen: Promise<T>, everyMs = 400): Promise<T> {
-  let settled = false;
-  const result = seen.finally(() => {
-    settled = true;
-  });
+  const answered = seen.then((value) => ({ value }));
   writeFileSync(file, text);
-  while (!settled) {
-    await Promise.race([result, new Promise((wait) => setTimeout(wait, everyMs))]);
-    if (!settled) writeFileSync(file, text);
+  for (;;) {
+    const tick = new Promise<null>((wait) => setTimeout(() => { wait(null); }, everyMs));
+    const outcome = await Promise.race([answered, tick]);
+    if (outcome !== null) return outcome.value;
+    writeFileSync(file, text);
   }
-  return result;
 }
 
 const titleOf = (dir: string): unknown => (JSON.parse(readFileSync(join(dir, 'input.json'), 'utf8')) as { storyboard: { scenes: { title?: string }[] } }).storyboard.scenes[0]?.title;
