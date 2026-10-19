@@ -117,6 +117,9 @@ form, or one section of it, at that page with a `See:` line.
   (`apps/galaxy/src/ask/reading-viewport.ts`, bug 1826); only the arcade is never zoomed.
 - **HOME's kicker, `★` glyphs and hard offset shadows are the print ad's, on purpose**
   (`apps/galaxy/src/home/home.css`), though the craft floor refuses them elsewhere.
+- **The Constellation's sky stays dark in every theme,** in the galaxy colours of `@omni/design`, as
+  HOME's starfield does: a night sky with a nebula and a field of stars, not the reading pages'
+  tokens (`apps/galaxy/src/product-home/constellation.css`, PRD 2174).
 
 ## Review
 <!-- slot: review · optional · by: invade -->
