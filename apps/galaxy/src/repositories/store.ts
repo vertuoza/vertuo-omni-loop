@@ -12,7 +12,10 @@ import { repositoryRowOf, SavedRepository, type Phase0, type RepositoryRow } fro
 // fourth, set_repository_phase0() of supabase/migrations/20261122090000_phase0_flag.sql, the owner's
 // only: it switches where the repository's phase 0 is approved, a phase-0 pull request or the PRD page.
 // PRD 1364 s11 drops the product select's call: a repository's products are changed on each product's
-// home, under Repositories & approvers.
+// home, under Repositories & approvers. PRD 2188 s1 adds remove_repository() of
+// supabase/migrations/20261215090000_remove_repository.sql, the owner's only: the repository is hidden,
+// untracked, its board private, out of every product, and keeps its history; add_repository() lists it
+// again, tracked.
 
 export type Saved = { ok: true; repository: RepositoryRow } | { ok: false; message: string };
 
@@ -24,10 +27,12 @@ export interface RepositoriesPort {
   setPublicIdeas(fullName: string, on: boolean): Promise<Saved>;
   /** Switches where its phase 0 is approved (PRD 1299 s1): the owner's only. */
   setPhase0(fullName: string, phase0: Phase0): Promise<Saved>;
+  /** Removes it (PRD 2188 s1): the owner's only. Removing one already removed answers it as it is. */
+  remove(fullName: string): Promise<Saved>;
 }
 
 export const NOT_OWNER = 'Only the workspace’s owner can change its repositories.';
-const GONE = 'That repository is no longer in this workspace. Reload the page.';
+export const GONE = 'That repository is no longer in this workspace. Reload the page.';
 export const NOT_A_BOARD_MEMBER = 'Only a member of the workspace can make its ideas board public or private.';
 export const PUBLIC_ELSEWHERE = 'Another workspace already shows this repository’s ideas board in public.';
 export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
@@ -63,10 +68,11 @@ export function databaseRepositories(db: Rpc, workspace: string): RepositoriesPo
     setTracked: (fullName, tracked) => call('set_repository_tracked', { p_full_name: fullName, p_tracked: tracked }),
     setPublicIdeas: (fullName, on) => call('set_repository_public_ideas', { p_full_name: fullName, p_public: on }, boardRefusal),
     setPhase0: (fullName, phase0) => call('set_repository_phase0', { p_full_name: fullName, p_phase0: phase0 }),
+    remove: (fullName) => call('remove_repository', { p_full_name: fullName }),
   };
 }
 
-/** The two functions' rules on repositories kept in memory. */
+/** The functions' rules on repositories kept in memory. */
 export function demoRepositoriesPort(initial: RepositoryRow[]): RepositoriesPort {
   let rows = [...initial];
   const find = (name: string) => rows.find((r) => r.fullName === name.trim().toLowerCase());
@@ -80,13 +86,19 @@ export function demoRepositoriesPort(initial: RepositoryRow[]): RepositoriesPort
   return {
     add(fullName) {
       const kept = find(fullName);
+      if (kept?.removedAt) return change(fullName, { removedAt: null, tracked: true });
       if (kept) return Promise.resolve({ ok: true, repository: kept });
-      const repository: RepositoryRow = { fullName: fullName.trim().toLowerCase(), tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr' };
+      const repository: RepositoryRow = { fullName: fullName.trim().toLowerCase(), tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr', removedAt: null };
       rows = [...rows, repository];
       return Promise.resolve({ ok: true, repository });
     },
     setTracked: (fullName, tracked) => change(fullName, { tracked }),
     setPublicIdeas: (fullName, publicIdeas) => change(fullName, { publicIdeas }),
     setPhase0: (fullName, phase0) => change(fullName, { phase0 }),
+    remove(fullName) {
+      const kept = find(fullName);
+      if (kept?.removedAt) return Promise.resolve({ ok: true, repository: kept });
+      return change(fullName, { removedAt: new Date().toISOString(), tracked: false, publicIdeas: false, products: [], planProducts: [] });
+    },
   };
 }

@@ -3063,6 +3063,7 @@ export type Database = {
           full_name: string
           phase0: string
           public_ideas: boolean
+          removed_at: string | null
           tracked: boolean
           workspace_id: string
         }
@@ -3075,6 +3076,7 @@ export type Database = {
           full_name: string
           phase0?: string
           public_ideas?: boolean
+          removed_at?: string | null
           tracked?: boolean
           workspace_id: string
         }
@@ -3087,6 +3089,7 @@ export type Database = {
           full_name?: string
           phase0?: string
           public_ideas?: boolean
+          removed_at?: string | null
           tracked?: boolean
           workspace_id?: string
         }
@@ -3882,6 +3885,7 @@ export type Database = {
           full_name: string
           phase0: string
           public_ideas: boolean
+          removed_at: string | null
           tracked: boolean
           workspace_id: string
         }
@@ -5881,6 +5885,28 @@ export type Database = {
         Returns: string
       }
       remove_jev_key: { Args: { p_workspace: string }; Returns: undefined }
+      remove_repository: {
+        Args: { p_full_name: string; p_workspace: string }
+        Returns: {
+          added_at: string
+          added_by: string | null
+          collect_error: string | null
+          collected_at: string | null
+          collected_until: string | null
+          full_name: string
+          phase0: string
+          public_ideas: boolean
+          removed_at: string | null
+          tracked: boolean
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "repositories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       repo_workspace: {
         Args: { person: string; repo: string }
         Returns: Record<string, unknown>
@@ -6092,6 +6118,7 @@ export type Database = {
           full_name: string
           phase0: string
           public_ideas: boolean
+          removed_at: string | null
           tracked: boolean
           workspace_id: string
         }
@@ -6113,6 +6140,7 @@ export type Database = {
           full_name: string
           phase0: string
           public_ideas: boolean
+          removed_at: string | null
           tracked: boolean
           workspace_id: string
         }
@@ -6134,6 +6162,7 @@ export type Database = {
           full_name: string
           phase0: string
           public_ideas: boolean
+          removed_at: string | null
           tracked: boolean
           workspace_id: string
         }

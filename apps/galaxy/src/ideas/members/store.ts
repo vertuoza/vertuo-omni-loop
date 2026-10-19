@@ -50,7 +50,7 @@ export function membersPort(db: MembersDb): MembersPort {
 /** The board Work › Ideas opens: the workspace's public one first, else its first repository's; null
  * when it lists none. */
 export async function workspaceBoard(db: MembersDb, workspace: string): Promise<string | null> {
-  const { data, error } = await db.from('repositories').select('full_name').eq('workspace_id', workspace)
+  const { data, error } = await db.from('repositories').select('full_name').eq('workspace_id', workspace).is('removed_at', null)
     .order('public_ideas', { ascending: false }).order('added_at').limit(1);
   if (error) throw new Error(`${WHERE_BOARD}: ${error.message}`);
   return orThrow(parseRows(Listed, data, WHERE_BOARD))[0]?.full_name ?? null;

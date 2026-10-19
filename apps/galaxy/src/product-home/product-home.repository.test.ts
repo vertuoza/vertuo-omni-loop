@@ -200,7 +200,7 @@ describe('the product home\'s storage', () => {
     expect(calls).toEqual([
       ['product_repositories', 'select', 'repository, role, consumes'], ['product_repositories', 'eq', 'workspace_id', 'ws-1'],
       ['product_repositories', 'eq', 'product_id', 'p-1'], ['product_repositories', 'order', 'repository'],
-      ['repositories', 'select', 'full_name, phase0'], ['repositories', 'eq', 'workspace_id', 'ws-1'], ['repositories', 'in', 'full_name', ['a/api']],
+      ['repositories', 'select', 'full_name, phase0'], ['repositories', 'eq', 'workspace_id', 'ws-1'], ['repositories', 'is', 'removed_at', null], ['repositories', 'in', 'full_name', ['a/api']],
     ]);
   });
 

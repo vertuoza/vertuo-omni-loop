@@ -1,0 +1,35 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-19",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "A soft remove with an are-you-sure can't destroy anything in production; that's the kind of change I trust.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "Fine, a stale card I can finally get rid of. Not a reason to use the tool, but one less annoyance.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "I add repositories to try ideas in all of them; being able to clean the list keeps my products tidy.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 2, "reaction": "I watch the Engineering board to keep teams coherent; a repository that silently drops out of it reads like a bug to me.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "I don't master the harness; a dead repository with a red line I can't fix only confuses me.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "I watch the Engineering board to keep teams coherent; a repository that silently drops out of it reads like a bug to me.",
+        "citations": ["persona:Lead Engineer"],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-19",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "The confirm names what a product loses before it happens, and nothing is deleted for good.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "One function, one column, a check that proves the cascade is not triggered. Boring in the good way.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "Add back keeps the ideas board, so a removal by mistake costs me nothing.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Removed (n) with the date tells me why a repository left the board; that answers my question without asking anyone.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "Remove, are you sure, done: no harness to understand.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    }
+  ]
+}

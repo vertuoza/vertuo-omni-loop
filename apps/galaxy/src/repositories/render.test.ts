@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
-import { initialState, repositoriesReducer, type RepositoriesAction, type RepositoryRow } from './model';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { initialState, removeConfirm, repositoriesReducer, type RepositoriesAction, type RepositoryRow } from './model';
 import { RepositoriesScreen, type RepositoriesScreenView } from './RepositoriesScreen';
 import { MISSING_ONE, NO_ACCESS, ONLY_OWNER, RepositoriesView, type Access } from './RepositoriesView';
 import { sure } from '../arcade/test/sure';
@@ -139,7 +139,7 @@ describe('the ideas board switch (PRD 1246 s4)', () => {
 
   it('turns the board public and private again through its handler', () => {
     const calls: [string, boolean][] = [];
-    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPhase0() {}, setPublicIdeas: (name: string, on: boolean) => { calls.push([name, on]); } };
+    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPhase0() {}, remove() {}, setPublicIdeas: (name: string, on: boolean) => { calls.push([name, on]); } };
     const tree = RepositoriesView({ state: state([row('a/b', { publicIdeas: true })]), owner: false, access: INSTALLED, now: NOW, on });
     const press = (node: unknown): void => {
       if (!node || typeof node !== 'object') return;
@@ -187,11 +187,114 @@ describe('the phase 0 switch (PRD 1299 s1)', () => {
 
   it('switches it both ways through its handler', () => {
     const calls: [string, string][] = [];
-    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0: (name: string, to: string) => { calls.push([name, to]); } };
+    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, remove() {}, setPhase0: (name: string, to: string) => { calls.push([name, to]); } };
     const view = (r: RepositoryRow) => RepositoriesView({ state: state([r]), owner: true, access: INSTALLED, now: NOW, on });
     press(view(row('a/b')), 'Phase 0 on the server for a/b');
     press(view(row('a/b', { phase0: 'server' })), 'Phase 0 on the server for a/b');
     expect(calls).toEqual([['a/b', 'server'], ['a/b', 'pr']]);
+  });
+});
+
+// Presses the control labelled `label` in a rendered element tree, as a click would.
+const press = (node: unknown, label: string): void => {
+  if (!node || typeof node !== 'object') return;
+  const props = (node as { props?: Record<string, unknown> }).props;
+  if (!props) return;
+  if (props['aria-label'] === label && typeof props.onClick === 'function') (props.onClick as () => void)();
+  const kids = props.children;
+  for (const kid of Array.isArray(kids) ? kids.flat(4) : [kids]) press(kid, label);
+  if (typeof (node as { type?: unknown }).type === 'function') press(((node as { type: (p: unknown) => unknown }).type)(props), label);
+};
+describe('removing a repository (PRD 2188 s1)', () => {
+  const removes = (html: string) => buttons(html).filter((b) => b.text === 'Remove');
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('tells the owner that removing one keeps its history', () => {
+    expect(text(render([APPS]))).toContain('Removing one keeps its history.');
+    expect(text(render([APPS], { owner: false }))).not.toContain('Removing one keeps its history.');
+  });
+
+  it('gives the owner a quiet Remove on every card, after its switches, and a member none', () => {
+    const html = render([APPS, PDF, SECRET]);
+    expect(removes(html)).toHaveLength(3);
+    expect(removes(html).every((b) => sure(b.attrs, 'b.attrs').includes('ask-button quiet'))).toBe(true);
+    const apps = rowOf(html, 'vertuoza/vertuo-apps');
+    expect(apps.indexOf('>Remove<')).toBeGreaterThan(apps.indexOf('aria-label="Track vertuoza/vertuo-apps"'));
+    expect(removes(render([APPS, PDF], { owner: false }))).toEqual([]);
+  });
+
+  it('waits while a call is on its way', () => {
+    expect(removes(render([APPS], { actions: [{ type: 'busy' }] })).every((b) => /disabled=""/.test(sure(b.attrs, 'b.attrs')))).toBe(true);
+  });
+
+  it('draws no card for a removed repository', () => {
+    const html = render([APPS, row('vertuoza/vertuobuild', { removedAt: '2026-10-08T11:00:00Z' })]);
+    expect(rowOf(html, 'vertuoza/vertuobuild')).toBe('');
+    expect(removes(html)).toHaveLength(1);
+  });
+
+  it('takes the card off the list once removed, and Add repository offers it again', () => {
+    const removed = row('vertuoza/vertuo-apps', { tracked: false, removedAt: '2026-10-08T12:00:00Z' });
+    const html = render([APPS, PDF], { actions: [{ type: 'busy' }, { type: 'removed', repository: removed }, { type: 'pick' }] });
+    expect(rowOf(html, 'vertuoza/vertuo-apps')).toBe('');
+    const offer = /<ul class="repositories-offer">([\s\S]*?)<\/ul>/.exec(html)?.[1] ?? '';
+    expect(buttons(offer).map((b) => b.text)).toContain('vertuoza/vertuo-apps');
+  });
+
+  it('asks first, naming the products it leaves and the plan repository it clears, and removes only when confirmed', () => {
+    const r = row('vertuoza/vertuobuild', { products: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Mobile' }], planProducts: [{ id: 'p-2', name: 'Mobile' }] });
+    const asked: string[] = [];
+    const removed: string[] = [];
+    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, remove: (name: string) => { removed.push(name); } };
+    const view = () => RepositoriesView({ state: state([r]), owner: true, access: INSTALLED, now: NOW, on });
+
+    vi.stubGlobal('window', { confirm: (message: string) => { asked.push(message); return false; } });
+    press(view(), 'Remove vertuoza/vertuobuild');
+    expect(removed).toEqual([]);
+
+    vi.stubGlobal('window', { confirm: (message: string) => { asked.push(message); return true; } });
+    press(view(), 'Remove vertuoza/vertuobuild');
+    expect(removed).toEqual(['vertuoza/vertuobuild']);
+
+    expect(asked).toEqual([removeConfirm(r), removeConfirm(r)]);
+    expect(asked[0]).toBe('Remove vertuoza/vertuobuild? Its ideas and history are kept, and adding it again brings them back.\nIt leaves Vertuoza, Mobile.\nMobile will have no plan repository.');
+  });
+});
+
+describe('the removed repositories (PRD 2188 s2)', () => {
+  const GONE = row('vertuoza/vertuobuild', { tracked: false, removedAt: '2026-10-08T09:00:00Z' });
+  const GONE2 = row('vertuoza/old', { tracked: false, removedAt: '2026-10-08T11:30:00Z' });
+  const details = (html: string) => /<details[\s\S]*?<\/details>/.exec(html)?.[0] ?? '';
+
+  it('is absent when nothing was removed', () => {
+    expect(render([APPS])).not.toContain('<details');
+    expect(text(render([APPS]))).not.toContain('Removed (');
+  });
+
+  it('counts the removed repositories on a closed line, each with when it was removed, and not in the list', () => {
+    const html = render([APPS, GONE, GONE2]);
+    const d = details(html);
+    expect(d).not.toContain(' open');
+    expect(text(d)).toContain('Removed (2)');
+    expect(text(sure(/<li[^>]*data-removed="vertuoza\/vertuobuild"[\s\S]*?<\/li>/.exec(d)?.[0], 'li'))).toBe('vertuoza/vertuobuild removed 3 h ago Add back');
+    expect(text(d)).toContain('vertuoza/old removed 30 min ago');
+    expect(rowOf(html, 'vertuoza/vertuobuild')).toBe('');
+    expect(text(html)).not.toContain('No repositories yet');
+  });
+
+  it('gives Add back to the owner only', () => {
+    expect(buttons(render([GONE])).map((b) => b.text)).toContain('Add back');
+    const member = render([GONE], { owner: false });
+    expect(text(details(member))).toContain('Removed (1)');
+    expect(buttons(member).map((b) => b.text)).not.toContain('Add back');
+  });
+
+  it('adds back through the page\'s add handler', () => {
+    const added: string[] = [];
+    const on = { pick() {}, close() {}, add: (name: string) => { added.push(name); }, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, remove() {} };
+    const view = RepositoriesView({ state: state([GONE]), owner: true, access: INSTALLED, now: NOW, on });
+    press(view, 'Add back vertuoza/vertuobuild');
+    expect(added).toEqual(['vertuoza/vertuobuild']);
   });
 });
 
