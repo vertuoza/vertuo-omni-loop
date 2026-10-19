@@ -229,6 +229,35 @@ only `contents: read`. Without the secret the step does nothing and the run stay
 commit (`chore(release): `) is skipped, since it only stamps versions. Run `omni kb graph push` by
 hand to push the graph of the checkout you are in; it refuses a dirty knowledge folder in one line.
 
+Another repository of the product adds the same workflow, calling the kit it installed:
+
+```yaml file=.github/workflows/knowledge-graph.yml
+name: knowledge-graph
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  push:
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release): ') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Push the knowledge graph of main
+        env:
+          OMNI_TOKEN: ${{ secrets.OMNI_TOKEN }}
+        run: |
+          if [ -z "$OMNI_TOKEN" ]; then
+            echo "OMNI_TOKEN is not set: no knowledge graph push"
+            exit 0
+          fi
+          node .omni-loop/bin/omni.mjs kb graph push
+```
+
 ## A product PRD
 
 A feature that lands in several of a product's repositories can live on the product itself. Such a
