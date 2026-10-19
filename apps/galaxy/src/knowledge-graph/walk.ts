@@ -93,8 +93,8 @@ export function walkProductGraph(graph: JoinedGraph, { id, depth }: { id: string
   return { start: start.id, nodes: [...walk.reached.values()], edges: walk.edges };
 }
 
-/** P5's neighbourhood JSON at version 2 for the product keyed `key`; `null` when the graph holds no `id`. */
-export function productNeighbourhood(graph: JoinedGraph, { key, id, depth }: { key: string; id: string; depth: number }): ProductNeighbourhood | null {
+/** P5's neighbourhood JSON at version 2 for the product keyed `key` (`null` before it has one); `null` when the graph holds no `id`. */
+export function productNeighbourhood(graph: JoinedGraph, { key, id, depth }: { key: string | null; id: string; depth: number }): ProductNeighbourhood | null {
   const walked = walkProductGraph(graph, { id, depth });
   if (walked === null) return null;
   return {
