@@ -30,6 +30,7 @@ import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
 import { pushKnowledgeGraph } from '../../lib/knowledge/graph-push.ts';
+import { readProductGraph } from '../../lib/knowledge/product-graph-text.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
 import { disclose, governsPath, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
 import { packGet } from '../../lib/knowledge/packs/get.ts';
@@ -68,8 +69,9 @@ const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] 
 const SHOW_USAGE = 'usage: omni kb show <form> [--json] [--all]';
 const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
 const GRAPH_USAGE = 'usage: omni kb graph [<id> | --paths <file>[,<file>…] [<file>…]] [--depth <1-3>] [--json]';
+const GRAPH_PRODUCT_USAGE = 'usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]';
 const GRAPH_PUSH_USAGE = 'usage: omni kb graph push';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -506,7 +508,7 @@ async function graphPush(args: string[], io: CommandIo & PackOptions): Promise<n
   const { ctx, stdout, exec } = io;
   if (args.length > 0) throw usageError(GRAPH_PUSH_USAGE);
   const askUrl = ctx.config.ask.url;
-  const client = askUrl ? signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
+  const client = pageClient(askUrl, io);
   let result: Awaited<ReturnType<typeof pushKnowledgeGraph>>;
   try {
     result = await pushKnowledgeGraph({
@@ -520,6 +522,29 @@ async function graphPush(args: string[], io: CommandIo & PackOptions): Promise<n
   }
   for (const line of result.lines) println(stdout, line);
   return result.ok ? 0 : 1;
+}
+
+/** `omni kb graph --product <key> <id> [--depth <n>] [--json]` (PRD 1798, s5): see `../../lib/knowledge/product-graph-text.ts`. */
+async function graphProduct(args: string[], io: CommandIo & PackOptions): Promise<number> {
+  const { ctx, stdout, stderr } = io;
+  const askUrl = ctx.config.ask.url;
+  const result = await readProductGraph({ askUrl, client: pageClient(askUrl, io), ...productGraphArgs(args) });
+  for (const line of result.lines) println(result.ok ? stdout : stderr, line);
+  return result.ok ? 0 : 1;
+}
+
+/** The product key, node id, depth (`null`: the server's default) and `--json` of `omni kb graph --product`; anything else is a usage error. */
+function productGraphArgs(args: string[]): { key: string; id: string; depth: number | null; json: boolean } {
+  const { positional, flags } = parseArgs('kb graph', args, { values: ['product', 'depth'], booleans: ['json'] });
+  const [id] = positional;
+  if (positional.length !== 1 || id === undefined || flags.product === undefined) throw usageError(GRAPH_PRODUCT_USAGE);
+  if (flags.depth !== undefined && !/^[123]$/.test(flags.depth)) throw usageError(GRAPH_PRODUCT_USAGE);
+  return { key: flags.product, id, depth: flags.depth === undefined ? null : Number(flags.depth), json: flags.json === true };
+}
+
+/** The signed-in client of the Omni page at `askUrl`; `null` with no `ask.url`. */
+function pageClient(askUrl: string | null, io: PackOptions) {
+  return askUrl ? signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
 }
 
 const basic = synchronous((args: string[], io: CommandIo): number => {
@@ -542,6 +567,7 @@ export const kb: FreeCommand = {
     const [sub, ...rest] = args;
     if (sub === 'pack') return pack(rest, full);
     if (sub === 'graph' && rest[0] === 'push') return graphPush(rest.slice(1), full);
+    if (sub === 'graph' && rest.includes('--product')) return graphProduct(rest, full);
     if (sub === 'legal' || sub === 'glossary') return productVerb(sub, rest, full, io, io.cwd);
     return basic(args, full);
   },
