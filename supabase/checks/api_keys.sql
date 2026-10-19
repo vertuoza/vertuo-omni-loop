@@ -232,6 +232,29 @@ begin
 end $$;
 reset role;
 
+-- ── api_key_names(): the service role's only, the workspace's API keys' names (issue 2165) ──
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000020a1');
+select pg_temp.refused(format('select public.api_key_names(%L, %L)', pg_temp.ws('northwind-keys'), array[(pg_temp.kept('QA dashboard')).id]), '42501');
+reset role;
+set local role service_role;
+do $$
+declare
+  qa uuid := (pg_temp.kept('QA dashboard')).id;
+  got jsonb := public.api_key_names(pg_temp.ws('northwind-keys'), array[qa, gen_random_uuid()]);
+begin
+  if got <> jsonb_build_object(qa::text, 'QA dashboard') then
+    raise exception 'FAIL: api_key_names answered %', got;
+  end if;
+  if public.api_key_names(gen_random_uuid(), array[qa]) <> '{}'::jsonb then
+    raise exception 'FAIL: api_key_names answered a key of another workspace';
+  end if;
+  if public.api_key_names(pg_temp.ws('northwind-keys'), '{}') <> '{}'::jsonb then
+    raise exception 'FAIL: api_key_names answered names for no key';
+  end if;
+end $$;
+reset role;
+
 -- ── `last used` moves at most once a minute ──
 do $$
 declare

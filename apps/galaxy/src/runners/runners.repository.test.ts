@@ -146,12 +146,13 @@ describe('a job\'s live lines (PRD 1904)', () => {
 describe('a job an API key sent (PRD 2022 s4)', () => {
   it('writes the key on the job, and reads the names of the workspace\'s API keys only', async () => {
     const job = jobRow({ sent_by_key: 'k1' });
-    const { db, lines } = fakeDb([{ data: job, error: null }, { data: [{ id: 'k1', name: 'QA dashboard' }], error: null }]);
+    const { db, lines } = fakeDb([{ data: job, error: null }, { data: { k1: 'QA dashboard' }, error: null }]);
     const repository = runnersRepository(db);
     expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:bug-fix x', repo: 'vertuoza/app', toRunner: null, toFleet: null, sentBy: 'u1', sentByKey: 'k1' })).toEqual(job);
     expect(lines[0]).toContain('"sent_by_key":"k1"');
     expect(await repository.keyNames('w1', ['k1'])).toEqual(new Map([['k1', 'QA dashboard']]));
-    expect(lines[1]).toContain('.eq("workspace_id","w1").eq("scope","api").in("id",["k1"])');
+    // Through api_key_names(): the service role may not read agent_tokens itself (issue 2165).
+    expect(lines[1]).toBe('rpc("api_key_names",{"p_workspace":"w1","p_keys":["k1"]})');
     expect(await repository.keyNames('w1', [])).toEqual(new Map());
   });
 });
