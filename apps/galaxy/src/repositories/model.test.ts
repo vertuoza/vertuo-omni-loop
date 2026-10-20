@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addable, collectionLabel, hasNoAccess, initialState, listedOf, phase0Of, removedLabel, removedOf, removeConfirm, repositoriesReducer, repositoryRowOf, SavedRepository,
+  addable, collectionLabel, fixWhenAnsweredOf, hasNoAccess, initialState, listedOf, phase0Of, removedLabel, removedOf, removeConfirm, repositoriesReducer, repositoryRowOf, SavedRepository,
   type RepositoryRow,
 } from './model';
 
@@ -16,7 +16,7 @@ const row = (fullName: string, over: Partial<RepositoryRow> = {}): RepositoryRow
 describe('a stored repository row', () => {
   it('reads as the page draws it', () => {
     expect(repositoryRowOf({ full_name: 'vertuoza/vertuo-apps', tracked: false, collected_at: '2026-10-08T11:57:00Z', collect_error: null }))
-      .toEqual({ fullName: 'vertuoza/vertuo-apps', tracked: false, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr', removedAt: null, planProducts: [] });
+      .toEqual({ fullName: 'vertuoza/vertuo-apps', tracked: false, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr', fixWhenAnswered: true, removedAt: null, planProducts: [] });
   });
 
   it('reads when it was removed, and the products that plan in it (PRD 2188 s1)', () => {
@@ -29,7 +29,7 @@ describe('a stored repository row', () => {
   it('parses a saved row only with its removed_at, a time or null (PRD 2188 s1)', () => {
     const saved = {
       workspace_id: 'ws-1', full_name: 'a/b', tracked: false, added_at: '2026-10-08T09:00:00Z', added_by: null,
-      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr', removed_at: '2026-10-19T10:00:00Z',
+      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr', fix_when_answered: true, removed_at: '2026-10-19T10:00:00Z',
     };
     expect(SavedRepository.safeParse(saved).success).toBe(true);
     expect(SavedRepository.safeParse({ ...saved, removed_at: null }).success).toBe(true);
@@ -48,10 +48,18 @@ describe('a stored repository row', () => {
     expect(phase0Of(row('a/b', { phase0: 'server' }))).toBe('server');
   });
 
+  it('reads Fix on a runner once answered, on when the row does not say (PRD 2270 s3)', () => {
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true, fix_when_answered: false }).fixWhenAnswered).toBe(false);
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true, fix_when_answered: true }).fixWhenAnswered).toBe(true);
+    expect(repositoryRowOf({ full_name: 'a/b', tracked: true }).fixWhenAnswered).toBe(true);
+    expect(fixWhenAnsweredOf(row('a/b'))).toBe(true);
+    expect(fixWhenAnsweredOf(row('a/b', { fixWhenAnswered: false }))).toBe(false);
+  });
+
   it('parses a saved row only with a phase 0 it knows (PRD 1299 s1)', () => {
     const saved = {
       workspace_id: 'ws-1', full_name: 'a/b', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: null,
-      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'server', removed_at: null,
+      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'server', fix_when_answered: true, removed_at: null,
     };
     expect(SavedRepository.safeParse(saved).success).toBe(true);
     expect(SavedRepository.safeParse({ ...saved, phase0: 'both' }).success).toBe(false);
@@ -61,7 +69,7 @@ describe('a stored repository row', () => {
   it('parses a saved row with no product: its products are its links (PRD 1364)', () => {
     const saved = {
       workspace_id: 'ws-1', full_name: 'a/b', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: null,
-      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr', removed_at: null,
+      collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr', fix_when_answered: true, removed_at: null,
     };
     expect(SavedRepository.safeParse(saved).success).toBe(true);
     expect(SavedRepository.safeParse({ ...saved, product_id: null }).success).toBe(false);

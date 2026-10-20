@@ -36,6 +36,8 @@ export interface RepositoryRow {
   publicIdeas: boolean;
   /** Where its phase 0 is approved (PRD 1299 s1): the owner's to switch. Absent reads as `pr`. */
   phase0?: Phase0 | undefined;
+  /** Whether a runner job that waited on answers is fixed by itself once they are in (PRD 2270 s3): the owner's to switch. On by default; absent reads as on. */
+  fixWhenAnswered?: boolean | undefined;
   /** When the owner removed it (PRD 2188 s1), or null while it is listed. Absent reads as listed. */
   removedAt?: string | null | undefined;
   /** The products whose plan repository it is (PRD 2188 s1), first first. Absent reads as none. */
@@ -50,6 +52,7 @@ export interface StoredRepository {
   collect_error?: string | null;
   public_ideas?: boolean;
   phase0?: string | null;
+  fix_when_answered?: boolean;
   removed_at?: string | null;
 }
 
@@ -65,6 +68,7 @@ export const SavedRepository = z.strictObject({
   collect_error: z.string().nullable(),
   public_ideas: z.boolean(),
   phase0: Phase0Schema,
+  fix_when_answered: z.boolean(),
   removed_at: z.string().nullable(),
 });
 
@@ -78,12 +82,16 @@ export const repositoryRowOf = (r: StoredRepository, products: RepositoryProduct
   products,
   publicIdeas: r.public_ideas ?? false,
   phase0: r.phase0 === 'server' ? 'server' : 'pr',
+  fixWhenAnswered: r.fix_when_answered ?? true,
   removedAt: r.removed_at ?? null,
   planProducts,
 });
 
 /** Where the repository's phase 0 is approved, `pr` when its row does not say. */
 export const phase0Of = (row: RepositoryRow): Phase0 => row.phase0 ?? 'pr';
+
+/** Whether the repository's Fix on a runner once answered switch is on, on when its row does not say. */
+export const fixWhenAnsweredOf = (row: RepositoryRow): boolean => row.fixWhenAnswered ?? true;
 
 const MINUTE = 60_000;
 

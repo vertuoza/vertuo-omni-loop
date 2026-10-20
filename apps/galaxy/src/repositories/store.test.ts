@@ -23,14 +23,14 @@ function db(answer: { data?: unknown; error?: unknown } | Error) {
 
 const STORED = {
   workspace_id: 'ws-1', full_name: 'vertuoza/vertuo-apps', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: 'u-1',
-  collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr', removed_at: null,
+  collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr', fix_when_answered: true, removed_at: null,
 };
 
 describe('the database calls', () => {
   it('adds a repository with add_repository(), answering the row it saved', async () => {
     const d = db({ data: STORED });
     expect(await databaseRepositories(d, 'ws-1').add('Vertuoza/vertuo-apps')).toEqual({
-      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr', removedAt: null, planProducts: [] },
+      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr', fixWhenAnswered: true, removedAt: null, planProducts: [] },
     });
     expect(d.calls).toEqual([['add_repository', { p_workspace: 'ws-1', p_full_name: 'Vertuoza/vertuo-apps' }]]);
   });
@@ -77,6 +77,21 @@ describe('the database calls', () => {
     expect(await port.setPhase0('acme/nothing', 'server')).toMatchObject({ ok: false });
   });
 
+  it('switches Fix on a runner once answered with set_repository_fix_when_answered(), the owner\'s only (PRD 2270 s3)', async () => {
+    const d = db({ data: { ...STORED, fix_when_answered: false } });
+    expect(await databaseRepositories(d, 'ws-1').setFixWhenAnswered('vertuoza/vertuo-apps', false)).toMatchObject({ ok: true, repository: { fixWhenAnswered: false } });
+    expect(d.calls).toEqual([['set_repository_fix_when_answered', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps', p_on: false }]]);
+    expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').setFixWhenAnswered('a/b', true)).toEqual({ ok: false, message: NOT_OWNER });
+    expect(await databaseRepositories(db({ error: { code: 'P0002' } }), 'ws-1').setFixWhenAnswered('a/b', true)).toMatchObject({ ok: false, message: containing('Reload') });
+  });
+
+  it('switches Fix on a runner once answered off and back on in the demo', async () => {
+    const port = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false }]);
+    expect(await port.setFixWhenAnswered('acme/widgets', false)).toMatchObject({ ok: true, repository: { fixWhenAnswered: false } });
+    expect(await port.setFixWhenAnswered('acme/widgets', true)).toMatchObject({ ok: true, repository: { fixWhenAnswered: true } });
+    expect(await port.setFixWhenAnswered('acme/nothing', false)).toMatchObject({ ok: false });
+  });
+
   it('removes a repository with remove_repository(), answering the row it removed (PRD 2188 s1)', async () => {
     const d = db({ data: { ...STORED, tracked: false, removed_at: '2026-10-19T10:00:00Z' } });
     expect(await databaseRepositories(d, 'ws-1').remove('vertuoza/vertuo-apps')).toMatchObject({
@@ -109,7 +124,7 @@ describe('a refusal', () => {
 describe('the demo', () => {
   it('adds a repository tracked, in lower case, and switches it', async () => {
     const port = demoRepositoriesPort([]);
-    expect(await port.add('Acme/Widgets')).toEqual({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr', removedAt: null } });
+    expect(await port.add('Acme/Widgets')).toEqual({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr', fixWhenAnswered: true, removedAt: null } });
     expect(await port.setTracked('acme/widgets', false)).toMatchObject({ ok: true, repository: { tracked: false } });
   });
 
