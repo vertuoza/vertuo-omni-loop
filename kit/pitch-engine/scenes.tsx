@@ -1,10 +1,12 @@
 // The six scene templates (PRD 1108 s4): intro, statement, feature, steps, before/after and outro, each
-// laid out on the 1920×1080 frame in the look's colours and fonts.
+// laid out on the 1920×1080 frame in the look's colours and fonts. Every scene but the intro shows its
+// supporting lines (PRD 2030 s3): an eyebrow above its title and a body under it, the outro a body under
+// its closing line.
 import type { ReactNode } from 'react';
 import { EASINGS, SPRINGS, interpolate, mix, spring } from './animation.ts';
 import { useEngine, useEntryFrame, useSceneTime } from './core.tsx';
-import { Column, FILL, GRID, MaybeTitle, PosedMedia, Slot, afterTitle, useCardPose } from './layout.tsx';
-import type { Region, Side } from './layout.tsx';
+import { AFTER_BODY, Column, FILL, GRID, Lines, PosedMedia, Slot, linesTimes, useCardPose } from './layout.tsx';
+import type { Region, SceneLines, Side } from './layout.tsx';
 import { DeviceFrame, Surface, useFitted } from './media.tsx';
 import type { Fitted } from './fit.ts';
 import { alpha } from './palette.ts';
@@ -26,10 +28,13 @@ function Intro({ scene }: { scene: SceneOf<'intro'> }): ReactNode {
   );
 }
 
+/** A scene's words, its title being `title`. */
+const linesOf = (scene: { eyebrow?: string | undefined; body?: string | undefined }, title: string | undefined): SceneLines => ({ eyebrow: scene.eyebrow, title, body: scene.body });
+
 function Statement({ scene }: { scene: SceneOf<'statement'> }): ReactNode {
   return (
     <Column left={GRID} width={1500}>
-      <Title text={scene.text} size={104} delay={0.1} maxWidth={1500} />
+      <Lines lines={linesOf(scene, scene.text)} size={104} width={1500} />
     </Column>
   );
 }
@@ -43,29 +48,42 @@ const FEATURE_LAYOUTS: Readonly<Record<Layout, { region: Region; side: Side; col
   full: { region: { x: 140, y: 330, width: 1640, height: 700 }, side: 'center', column: null },
 };
 
-/** A feature's words: its title and bullets beside the media, or its title alone above it. */
+/** The `full` layout's words over the media: from 150 px down, or from 100 with an eyebrow or a body, the media lower to leave them room. */
+const FULL_WORDS = Object.freeze({ top: 150, gap: 20 });
+const FULL_WITH_LINES = Object.freeze({ top: 100, region: { x: 140, y: 370, width: 1640, height: 660 } });
+
+/** Whether a scene holds an eyebrow or a body. */
+const hasSupport = (scene: { eyebrow?: string | undefined; body?: string | undefined }): boolean => scene.eyebrow !== undefined || scene.body !== undefined;
+
+/** A feature's words: its title, body and bullets beside the media, or its title and body above it. */
 function FeatureWords({ scene, column }: { scene: SceneOf<'feature'>; column: number | null }): ReactNode {
+  const lines = linesOf(scene, scene.title);
   if (column === null) {
+    const top = hasSupport(scene) ? FULL_WITH_LINES.top : FULL_WORDS.top;
     return (
-      <div style={{ position: 'absolute', left: GRID, top: 150, width: 1500 }}>
-        <MaybeTitle text={scene.title} size={80} width={1500} />
+      <div style={{ position: 'absolute', left: GRID, top, width: 1500, display: 'flex', flexDirection: 'column', gap: FULL_WORDS.gap }}>
+        <Lines lines={lines} size={80} width={1500} />
       </div>
     );
   }
   return (
     <Column left={column} width={600} gap={36}>
-      <MaybeTitle text={scene.title} size={84} width={600} />
-      {scene.bullets === undefined ? null : <Bullets items={scene.bullets} delay={afterTitle(scene.title)} />}
+      <Lines lines={lines} size={84} width={600} />
+      {scene.bullets === undefined ? null : <Bullets items={scene.bullets} delay={linesTimes(lines).after} />}
     </Column>
   );
 }
+
+/** Where a feature's media goes: its layout's region, lowered in the `full` layout under supporting lines. */
+const featureRegion = (scene: SceneOf<'feature'>, layout: (typeof FEATURE_LAYOUTS)[Layout]): Region =>
+  layout.column === null && hasSupport(scene) ? FULL_WITH_LINES.region : layout.region;
 
 function Feature({ scene }: { scene: SceneOf<'feature'> }): ReactNode {
   const layout = FEATURE_LAYOUTS[scene.layout ?? 'right'];
   return (
     <div style={FILL}>
       <FeatureWords scene={scene} column={layout.column} />
-      <PosedMedia media={scene.media} region={layout.region} side={layout.side} />
+      <PosedMedia media={scene.media} region={featureRegion(scene, layout)} side={layout.side} />
     </div>
   );
 }
@@ -105,7 +123,7 @@ function StepList({ scene }: { scene: SceneOf<'steps'> }): ReactNode {
   const entry = useEntryFrame();
   const t = useSceneTime();
   const exit = useExitStyle();
-  const listAt = afterTitle(scene.title);
+  const listAt = linesTimes(linesOf(scene, scene.title)).after;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28, ...exit }}>
       {scene.steps.map((step, index) => {
@@ -121,7 +139,7 @@ function Steps({ scene }: { scene: SceneOf<'steps'> }): ReactNode {
   return (
     <div style={FILL}>
       <Column left={GRID} width={620} gap={36}>
-        <MaybeTitle text={scene.title} size={80} width={620} />
+        <Lines lines={linesOf(scene, scene.title)} size={80} width={620} />
         <StepList scene={scene} />
       </Column>
       <PosedMedia media={scene.media} region={SIDE_REGION} side="right" />
@@ -178,7 +196,7 @@ function BeforeAfter({ scene }: { scene: SceneOf<'beforeAfter'> }): ReactNode {
   return (
     <div style={FILL}>
       <Column left={GRID} width={600}>
-        <MaybeTitle text={scene.title} size={84} width={600} />
+        <Lines lines={linesOf(scene, scene.title)} size={84} width={600} />
       </Column>
       <Slot region={SIDE_REGION}>
         {fitted === null ? null : (
@@ -207,13 +225,20 @@ function Credits({ shown, delay }: { shown: boolean; delay: number }): ReactNode
 
 const CLOSING_AT = 0.45;
 
+/** When the outro's body arrives (once its closing line has), and its credits after it. */
+function outroTimes(scene: SceneOf<'outro'>): { body: number; credits: number } {
+  const body = scene.closing === undefined ? CLOSING_AT : revealEnd(scene.closing, CLOSING_AT);
+  return { body, credits: (scene.body === undefined ? body : body + AFTER_BODY) + 0.3 };
+}
+
 function Outro({ scene }: { scene: SceneOf<'outro'> }): ReactNode {
-  const after = scene.closing === undefined ? CLOSING_AT : revealEnd(scene.closing, CLOSING_AT);
+  const at = outroTimes(scene);
   return (
     <Column left={GRID} width={1300} gap={40}>
       <CallToAction text={scene.cta} />
       {scene.closing === undefined ? null : <Title text={scene.closing} size={112} delay={CLOSING_AT} maxWidth={1300} />}
-      <Credits shown={scene.credits === true} delay={after + 0.3} />
+      {scene.body === undefined ? null : <Line text={scene.body} delay={at.body} maxWidth={1300} />}
+      <Credits shown={scene.credits === true} delay={at.credits} />
     </Column>
   );
 }
