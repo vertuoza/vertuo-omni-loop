@@ -90,6 +90,49 @@
       ],
       "objection": null,
       "fit": "fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ · persona:Irisa ✓ once a repository commits smoke"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-20",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A fix must now turn the built app's own check green, so a crash only the bundle shows is proven before and after the change.",
+          "citations": ["persona:F-E Developer"]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "It runs only the check we commit, and the guide shows where that line goes; until we write it, a fix stops and says why.",
+          "citations": ["persona:B-E DEv"]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "The triage lands at once with the release the bug first showed in, so I follow a production bug from its first minute.",
+          "citations": ["persona:Paul - Product Manager"]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One committed check that the fix, its proof and CI all run keeps every repository on the same guard.",
+          "citations": ["persona:Lead Engineer"]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A stop still waits on a check nobody has written yet, but it leaves the reproduction and the suspect for whoever fixes it by hand.",
+          "citations": ["persona:Irisa"]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ once a repository commits smoke · persona:Irisa ✓ once a repository commits smoke"
     }
   ]
 }
