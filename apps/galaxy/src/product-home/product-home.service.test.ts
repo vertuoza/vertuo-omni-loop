@@ -18,6 +18,7 @@ const base = (over: Partial<ProductHomeRows> = {}): ProductHomeRows => ({
   product: { id: 'p-mobile', name: 'Mobile' },
   prds: [], stages: [], outbox: [], approvals: [], voids: [], waitingOnMe: [], topics: [], pulls: [], ideas: [], roadmaps: [], fixes: [],
   key: 'mobile', productPrds: [], items: [], players: [], links: [], otherLinks: [], phase0: [], phase0Pulls: [], targets: [], me: ME,
+  owner: false, archived: null,
   ...over,
 });
 
@@ -315,7 +316,10 @@ describe('the product home\'s service', () => {
   function store(over: Partial<ProductHomeRepository> = {}) {
     const calls: string[] = [];
     const s: ProductHomeRepository = {
-      product: (ws, id) => { calls.push(`product ${ws} ${id}`); return Promise.resolve({ id, name: 'Mobile', key: 'mobile' }); },
+      product: (ws, id) => { calls.push(`product ${ws} ${id}`); return Promise.resolve({ id, name: 'Mobile', key: 'mobile', archived_at: null, archived_by: null }); },
+      owner: (ws) => { calls.push(`owner ${ws}`); return Promise.resolve(true); },
+      archive: (id) => { calls.push(`archive ${id}`); return Promise.resolve({ ok: true as const, answer: { id, name: 'Mobile', archivedAt: '2026-10-20T09:00:00Z' } }); },
+      restore: (id) => { calls.push(`restore ${id}`); return Promise.resolve({ ok: true as const, answer: { id, name: 'Mobile', archivedAt: null } }); },
       prds: (ws, id) => { calls.push(`prds ${ws} ${id}`); return Promise.resolve([prd('d-1', 7, { home_repo: 'vertuo/api' })]); },
       productPrds: (ws, id) => { calls.push(`product prds ${ws} ${id}`); return Promise.resolve([productPrd('d-m12', 12, { opened_by: 'u-paul' })]); },
       items: (ids) => { calls.push(`items ${ids.join()}`); return Promise.resolve([item('d-m12', 's2-01-quote-totals', 'high', 'vertuoza/vertuo-api')]); },
@@ -350,8 +354,9 @@ describe('the product home\'s service', () => {
     expect(calls).toEqual([
       'product ws-1 p-1', 'prds ws-1 p-1', 'product prds ws-1 p-1', 'links ws-1 p-1', 'stages vertuo/api', 'outbox vertuo/api', 'topics vertuo/api', 'approvals d-1', 'voids d-1', 'waiting',
       'pulls ws-1', 'ideas ws-1 p-1', 'roadmaps ws-1 p-1', 'fixes ws-1 p-1', 'items d-m12', 'players ws-1 u-paul',
-      'other links vertuo/api,vertuo/app', 'phase0 vertuo/api,vertuo/app', 'phase-0 pulls ws-1', 'targets d-1',
+      'other links vertuo/api,vertuo/app', 'phase0 vertuo/api,vertuo/app', 'phase-0 pulls ws-1', 'targets d-1', 'owner ws-1',
     ]);
+    expect([home?.owner, home?.archived]).toEqual([true, null]);
     expect(home?.repositories).toEqual([
       { repository: 'vertuo/api', role: 'api', consumes: [], phase0: 'pr', alsoIn: ['Web'] },
       { repository: 'vertuo/app', role: null, consumes: ['vertuo/api'], phase0: 'server', alsoIn: [] },
@@ -362,6 +367,40 @@ describe('the product home\'s service', () => {
     const { calls, s } = store({ product: () => Promise.resolve(null) });
     expect(await productHomeService(s).home({ product: 'p-x', workspace: 'ws-1', me: ME })).toBeNull();
     expect(calls).toEqual([]);
+  });
+
+  it('reads an archived product for its owner, naming who archived it by their login (PRD 2232 s1)', async () => {
+    const { calls, s } = store({
+      product: (_ws, id) => Promise.resolve({ id, name: 'Mobile', key: 'mobile', archived_at: '2026-10-18T09:00:00Z', archived_by: 'u-olga' }),
+      players: (ws, users) => { calls.push(`players ${ws} ${users.join()}`); return Promise.resolve([{ user_id: 'u-paul', github_login: 'paul' }, { user_id: 'u-olga', github_login: 'olga' }]); },
+    });
+    const home = await productHomeService(s).home({ product: 'p-1', workspace: 'ws-1', me: ME });
+    expect(home?.archived).toEqual({ at: '2026-10-18T09:00:00Z', by: 'olga' });
+    expect(calls).toContain('players ws-1 u-paul,u-olga');
+  });
+
+  it('reads an archived product whose archiver has no login, or is gone, with no name', async () => {
+    const gone = store({ product: (_ws, id) => Promise.resolve({ id, name: 'Mobile', key: 'mobile', archived_at: '2026-10-18T09:00:00Z', archived_by: null }) });
+    expect((await productHomeService(gone.s).home({ product: 'p-1', workspace: 'ws-1', me: ME }))?.archived).toEqual({ at: '2026-10-18T09:00:00Z', by: null });
+    const nameless = store({ product: (_ws, id) => Promise.resolve({ id, name: 'Mobile', key: 'mobile', archived_at: '2026-10-18T09:00:00Z', archived_by: 'u-olga' }) });
+    expect((await productHomeService(nameless.s).home({ product: 'p-1', workspace: 'ws-1', me: ME }))?.archived).toEqual({ at: '2026-10-18T09:00:00Z', by: null });
+  });
+
+  it('archives and restores, answering the product as the database left it', async () => {
+    const { calls, s } = store();
+    expect(await productHomeService(s).archive('p-1')).toEqual({ ok: true, value: { id: 'p-1', name: 'Mobile', archivedAt: '2026-10-20T09:00:00Z' } });
+    expect(await productHomeService(s).restore('p-1')).toEqual({ ok: true, value: { id: 'p-1', name: 'Mobile', archivedAt: null } });
+    expect(calls).toEqual(['archive p-1', 'restore p-1']);
+  });
+
+  it('answers a refusal by its kind, in the database\'s words: not an owner, no such product, or the database failed', async () => {
+    const refused = (code: string | null, message: string) => store({ archive: () => Promise.resolve({ ok: false as const, code, message }), restore: () => Promise.resolve({ ok: false as const, code, message }) }).s;
+    expect(await productHomeService(refused('42501', 'Only an owner of the workspace archives Mobile.')).archive('p-1'))
+      .toEqual({ ok: false, kind: 'not-owner', error: 'Only an owner of the workspace archives Mobile.' });
+    expect(await productHomeService(refused('P0002', 'Product: no such product.')).restore('p-1'))
+      .toEqual({ ok: false, kind: 'missing', error: 'Product: no such product.' });
+    expect(await productHomeService(refused(null, 'connection reset')).archive('p-1'))
+      .toEqual({ ok: false, kind: 'database', error: 'connection reset' });
   });
 
   it('reads no pull request for a product with no PRD', async () => {

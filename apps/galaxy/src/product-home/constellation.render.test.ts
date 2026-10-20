@@ -19,7 +19,7 @@ const repo = (name: string, over: Partial<HomeRepository> = {}): HomeRepository 
 const home = (repositories: HomeRepository[], flights: HomeFlight[] = [], tethers: PrChip[] = []): Home => ({
   product: { id: 'p-1', name: 'Widgets' },
   ledger: { lanes: { 'on-you': [], 'on-review': [], 'on-agent': [] }, summary: { building: 0, waitingOnPerson: 0, drifted: 0 } },
-  prds: [], ideas: [], roadmaps: [], bugs: [], visuals: [], questions: [], repositories, flights, tethers,
+  prds: [], ideas: [], roadmaps: [], bugs: [], visuals: [], questions: [], repositories, flights, tethers, owner: false, archived: null,
 });
 const NOW = new Date('2026-10-16T09:07:42Z');
 const render = (repositories: HomeRepository[], flights: HomeFlight[] = [], query: Filter = {}, tethers: PrChip[] = []) =>

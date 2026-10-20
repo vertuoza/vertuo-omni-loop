@@ -84,3 +84,23 @@
 .questions-refusal { margin: 0; font-size: 14px; color: var(--ask-red); overflow-wrap: anywhere; }
 .questions-elsewhere { font-size: 13px; }
 .product-home-row[data-state='settled'] .product-home-state { color: var(--ask-green); }
+
+/* Archive a product (PRD 2232 s1): the owner's quiet Archive at the end of the name's line, wrapping under
+   it at 393 px, and the archived banner above the head card, its Restore the page's one primary action. */
+.product-home-name { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-width: 0; }
+.product-home-name h1 { overflow-wrap: anywhere; }
+.product-home-archive,
+.product-home-restore { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.product-home-archive-button { padding: 9px 14px; font-size: 15px; }
+.product-home-archived {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 14px 18px;
+  background: var(--ask-plasma-soft);
+  border: 1px solid var(--ask-plasma);
+  border-radius: 12px;
+}
+.product-home-archived p { margin: 0; font-weight: 700; }
