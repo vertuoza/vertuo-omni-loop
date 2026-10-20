@@ -127,3 +127,57 @@ describe('the bug-fixing form\'s kit default says the same', () => {
     expect(gaps(form, ['this level cannot see it', '`commands.smoke`', 'Guard', 'run by CI'])).toEqual([]);
   });
 });
+
+// PRD 2275, s3: the triage is posted at once with Reproduction and Branch pending, edited in place at
+// steps 5 and 7, carries the Production line read against releases, and takes a release range as
+// regression evidence.
+describe('the bug-fix triage is posted at once and reads production against releases', () => {
+  const step = (heading: string) => skillSection(read('bug-fix'), heading);
+  // Step 3's template holds a `## Triage` heading of its own, so the step runs up to step 4.
+  const step3Whole = () => {
+    const text = read('bug-fix');
+    return text.slice(text.indexOf('## 3.'), text.indexOf('## 4.'));
+  };
+
+  it('step 3 posts the triage with Reproduction and Branch pending', () => {
+    const step3 = step3Whole();
+    expect(step3).toContain('- **Reproduction:** pending');
+    expect(step3).toContain('- **Branch:** pending');
+    expect(step3).not.toContain('- **Branch:** `<fix branch>`');
+    expect(gaps(step3, ['posted in this step, at once', 'Steps 5 and 7', 'edited in place', 'by its marker'])).toEqual([]);
+  });
+
+  it('steps 5 and 7 edit the Branch and Reproduction lines in place, found by the marker', () => {
+    expect(gaps(step('5.'), ['Edit the triage comment in place', '`<!-- omni-bug:triage -->`', '`- **Branch:**`'])).toEqual([]);
+    expect(gaps(step('7.'), ['Edit the triage comment in place', '`<!-- omni-bug:triage -->`', '`- **Reproduction:**`'])).toEqual([]);
+  });
+
+  it('the template holds the Production line after Regression, only for a production report', () => {
+    const step3 = step3Whole();
+    const line = '- **Production:** <deployed version> · first seen <YYYY-MM-DD HH:MM> UTC (<source>) · <count> occurrences';
+    expect(step3).toContain(line);
+    expect(step3.indexOf('- **Regression:**')).toBeLessThan(step3.indexOf(line));
+    expect(step3.indexOf(line)).toBeLessThan(step3.lastIndexOf('- **Reproduction:** pending'));
+    expect(flat(step3)).toContain('only when the report comes from production');
+  });
+
+  it('step 3 reads the first occurrence from the source in UTC and matches it against releases', () => {
+    expect(gaps(step3Whole(), [
+      'read from the report\'s source, with its time zone',
+      'never from the issue\'s date',
+      'written in UTC',
+      '`gh release list --json tagName,publishedAt`',
+      'GitHub deployments',
+      '`gh api repos/<repo.slug>/deployments`',
+      'the last one published, or deployed, before it',
+      '`<file>:<line>`',
+    ])).toEqual([]);
+  });
+
+  it('a release range is regression evidence, and the suspect diff is read with git log on it', () => {
+    expect(gaps(step3Whole(), [
+      '`<previous tag>..<tag> (first seen <time> UTC, none before)`',
+      '`git log <previous tag>..<tag>`',
+    ])).toEqual([]);
+  });
+});

@@ -80,3 +80,7 @@ Bug section are PRD 556's spec, carried whole.
   (rule 6 is PRD 2255's `--answers` stop); stops 3, 4 and 7 keep the reproduction on a pushed branch; a `critical` stop opens its comment with
   `> [!CAUTION]`; step 9's guard is the smoke run by CI; the record's **Reproduction** names its
   **Level**. Its tests are `kit/test/bug-fix-smoke.test.ts`.
+- **The triage at once, and production read against releases** (PRD 2275): step 3 posts the triage
+  with **Reproduction** and **Branch** `pending`, steps 5 and 7 edit those lines in place by the
+  marker, a `Production:` line gives the deployed version and the first occurrence in UTC matched
+  against releases and deployments, and a release range is regression evidence.
