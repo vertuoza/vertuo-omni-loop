@@ -1,0 +1,35 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-20",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Archive with a restore can't destroy anything in production; I trust that more than a delete.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "A column and two functions. Fine, as long as every lookup really ignores it.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "I create products to try ideas across repositories; archiving the dead ones keeps my list clean.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 2, "reaction": "If a repository quietly stops getting the product's rules, my team's agents keep building without them and I won't notice.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "Archive, are you sure, done: nothing in the harness to understand.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "If a repository quietly stops getting the product's rules, my team's agents keep building without them and I won't notice.",
+        "citations": ["persona:Lead Engineer"],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-20",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "The confirm names the repositories before it happens, and restore puts everything back.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 4, "reaction": "Every lookup is named and the check proves the owner is refused too. That's the part I'd have worried about.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "Restore keeps the links and the rules, so archiving by mistake costs me nothing.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "The terminal says the product is archived instead of printing nothing; my agents can't silently lose the rules.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "One button and a restore; I don't need to understand the rest.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    }
+  ]
+}
