@@ -4,6 +4,8 @@
 // after the runner's cursor, each numbered by its 1-based line number in the log, sent at most 2,000
 // lines and 256 KB per report.
 
+import type { PrdNumber } from '../ids.ts';
+
 /** The most lines a log tail carries. */
 export const TAIL_LINES = 200;
 /** The most bytes a log tail carries. */
@@ -81,11 +83,11 @@ const STAMP = /^\d{2}:\d{2}:\d{2} /;
  * on its next command), or `null` for any other line, a line naming another PRD, or an empty log. The
  * runner's `hh:mm:ss ` stamp, when the line has one, is ignored.
  */
-export function runOutcome(log: string, prd: string): RunOutcome | null {
+export function runOutcome(log: string, prd: PrdNumber): RunOutcome | null {
   const last = log.split('\n').map((line) => line.trim()).filter((line) => line !== '').at(-1) ?? '';
   const match = /^\/omni:([a-z-]+) (\d+)$/.exec(last.replace(STAMP, ''));
   const outcome = match?.[1] !== undefined && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : undefined;
-  return outcome !== undefined && match?.[2] === prd ? outcome : null;
+  return outcome !== undefined && match?.[2] === String(prd) ? outcome : null;
 }
 
 const UNITS: Readonly<Record<string, number>> = { s: 1000, m: 60_000, h: 3_600_000 };

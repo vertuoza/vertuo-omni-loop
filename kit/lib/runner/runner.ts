@@ -45,6 +45,7 @@ import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
+import { parsePrd } from '../ids.ts';
 import { runnerJobVariables } from '../env/read.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
@@ -430,7 +431,8 @@ function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | n
 /** What a `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223); `null` for any other job. */
 function outcomeOf(log: string, line: string): RunOutcome | null {
   const checked = checkRunnerLine(line);
-  return checked.ok && (checked.skill === 'yolo' || checked.skill === 'yolo-fix') ? runOutcome(log, checked.args.trim()) : null;
+  const args = checked.ok ? checked.args.trim() : '';
+  return checked.ok && (checked.skill === 'yolo' || checked.skill === 'yolo-fix') && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args)) : null;
 }
 
 /** The status a run that ended with `exitText` reports: done with its pull request, or failed with its code. */
