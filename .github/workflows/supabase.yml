@@ -357,6 +357,13 @@ jobs:
         # sent twice is stored once, retention keeps the listed jobs' lines, a deleted job takes its
         # lines with it (PRD 1904).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_job_lines.sql
+      - name: A runner job's questions, and what answering or dismissing does
+        # Members read their workspace's questions, nobody else does, only the service role writes. The
+        # first answer queues the resume line to the first job's repository and target as the answerer
+        # and stores the answers once; a second answer, a dismissal after it, an account outside the
+        # workspace, answers that do not match the questions and a job not waiting are refused and change
+        # nothing; a refused queue stores nothing; a dismissal queues no job (PRD 2255).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_job_questions.sql
       - name: A runner's health and its samples
         # Members read their workspace's samples and runners' last health, nobody else does, only the
         # service role writes; a sample is one per runner and instant, a figure out of range is refused,

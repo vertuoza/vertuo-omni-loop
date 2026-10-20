@@ -22,7 +22,8 @@ import './drawer.css';
 // of the workspace's repository the viewer read (PRD 1246; sidebar.ts, hrefOf).
 // The entry the page falls under carries aria-current="page"; Questions carries how many questions
 // wait there, shared ones included, and PRDs how many outbox items, live from the waiting provider
-// (PRD 499). Each Dashboard and Work section, and Settings, shows its arcade sprite before its name
+// (PRD 499). Runners carries how many of the workspace's jobs wait for an answer, spoken "Runners: <n>
+// waiting" and gone at 0 (PRD 2255; src/waiting/runners.ts). Each Dashboard and Work section, and Settings, shows its arcade sprite before its name
 // (issue 653, PRD 733).
 // Docs and Release notes open in a new tab, and say so with the new-tab icon and their name (issue 548).
 // They sit at the sidebar's foot, under Settings, in one small row without a label, above the release running
