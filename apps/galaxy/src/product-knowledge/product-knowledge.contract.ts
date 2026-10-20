@@ -22,6 +22,9 @@ export type Kind = z.infer<typeof KindSchema>;
 const PersonSchema = z.object({ user: z.string(), login: z.string().nullable() }).nullable();
 export type Person = z.infer<typeof PersonSchema>;
 
+/** Who added an entry (null: nobody known, as when their account was deleted), when, and when it last changed (PRD 2240 s1). */
+const AUTHORED = { createdBy: PersonSchema, createdAt: z.string(), updatedAt: z.string() };
+
 const LegalEntrySchema = z.object({
   entry: z.string(),
   id: z.string(),
@@ -31,6 +34,7 @@ const LegalEntrySchema = z.object({
   source: z.string(),
   owner: PersonSchema,
   retiredAt: z.string().nullable(),
+  ...AUTHORED,
 });
 export type LegalEntry = z.infer<typeof LegalEntrySchema>;
 
@@ -40,6 +44,7 @@ const GlossaryEntrySchema = z.object({
   meaning: z.string(),
   avoid: z.array(z.string()),
   removedAt: z.string().nullable(),
+  ...AUTHORED,
 });
 export type GlossaryEntry = z.infer<typeof GlossaryEntrySchema>;
 
