@@ -31,9 +31,10 @@ const why = (err: unknown) => (err instanceof Error ? err.message : String(prope
 /** Whether a member may change a product's Pitch settings: whoever may edit Settings › Business, any member. */
 const EDITABLE_BY_MEMBERS = true;
 
-/** The workspace's products, first first, through the products' storage (ADR-0095). */
-const productsOf = (db: SupabaseClient<Database>, workspace: string): Promise<StoredProduct[]> =>
-  productsRepository(db).products(workspace);
+/** The workspace's live products, first first, through the products' storage (ADR-0095); an archived one,
+ * which only an owner reads (PRD 2232), is not a product to set a look on. */
+const productsOf = async (db: SupabaseClient<Database>, workspace: string): Promise<StoredProduct[]> =>
+  (await productsRepository(db).products(workspace)).filter((p) => p.archived_at === null);
 
 type StoredLoad = { kind: 'no-workspace' } | { kind: 'unreadable' } | { kind: 'stored'; workspace: Workspace; products: StoredProduct[] };
 

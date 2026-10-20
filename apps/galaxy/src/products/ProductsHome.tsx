@@ -1,8 +1,10 @@
 import Link from 'next/link';
+import { ago } from '../product-home/archive';
+import { RestoreButton } from '../product-home/ArchiveControls';
 import { repositoriesTabHref } from '../product-repositories/repositories-tab.contract';
 import { PRODUCTS_HREF, productHomeHref } from './model';
 import { firstToOpen, homeTotals, tileRepositories } from './products-home.model';
-import type { ProductCard, ProductsList } from './products.service';
+import type { ArchivedProduct, ProductCard, ProductsList } from './products.service';
 import { SituationNotice, type Situation } from './ProductsScreen';
 
 // Products in the sidebar, drawn (PRD 1364 s8; drawn again by #1598, pick D): /app/products opens on four
@@ -31,6 +33,8 @@ export const DEMO_PRODUCTS_LIST: ProductsList = {
     { id: 'demo-product-2', name: 'Legacy', repositories: [{ repo: 'acme/api', shared: true }], prds: 1, waiting: 0 },
   ],
   unlinked: ['acme/scripts'],
+  archived: [],
+  owner: false,
 };
 
 const plural = (n: number, one: string, many: string) => `${String(n)} ${n === 1 ? one : many}`;
@@ -105,7 +109,27 @@ function AddToProduct({ repo, products }: { repo: string; products: readonly Pro
   );
 }
 
-function ProductsHomeList({ list }: { list: ProductsList }) {
+/** Under the tiles, for an owner only (PRD 2232): the archived products, collapsed, each with its Restore.
+ * Absent at none. */
+function ArchivedProducts({ list, now }: { list: ProductsList; now: number }) {
+  if (!list.owner || list.archived.length === 0) return null;
+  return (
+    <details className="products-archived">
+      <summary>Archived ({list.archived.length})</summary>
+      <ul aria-label="Archived products">
+        {list.archived.map((p: ArchivedProduct) => (
+          <li key={p.id} className="products-archived-row" data-product={p.id}>
+            <span className="products-archived-name">{p.name}</span>
+            <span className="products-archived-line">archived {ago(p.at, now)}{p.by === null ? '' : ` by ${p.by}`}</span>
+            <RestoreButton product={p.id} name={p.name} demo={false} />
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function ProductsHomeList({ list, now }: { list: ProductsList; now: number }) {
   const leading = firstToOpen(list.products);
   return (
     <div className="ask-col products">
@@ -124,6 +148,7 @@ function ProductsHomeList({ list }: { list: ProductsList }) {
             </>
           )}
       </section>
+      <ArchivedProducts list={list} now={now} />
       <section className="products-list products-unlinked" aria-labelledby="products-unlinked-title">
         <h2 id="products-unlinked-title">Repositories in no product</h2>
         {list.unlinked.length === 0
@@ -143,6 +168,7 @@ function ProductsHomeList({ list }: { list: ProductsList }) {
   );
 }
 
-export function ProductsHome({ view }: { view: ProductsHomeView }) {
-  return view.kind === 'products' ? <ProductsHomeList list={view.list} /> : <SituationNotice view={view} />;
+/** `now` reads the archived lines' time (the server's, by default). */
+export function ProductsHome({ view, now = Date.now() }: { view: ProductsHomeView; now?: number }) {
+  return view.kind === 'products' ? <ProductsHomeList list={view.list} now={now} /> : <SituationNotice view={view} />;
 }
