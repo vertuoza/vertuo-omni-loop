@@ -74,7 +74,8 @@ describe('productGraphService', () => {
     expect(await service.graph({ id: 'p1' })).toBeNull();
     expect(await service.neighbourhood({ key: 'omni-loop' }, { id: 'L-INVOICING-1', depth: 1 })).toEqual({ kind: 'no-product' });
     const known = productGraphService(repositoryOf().repository);
-    expect(await known.neighbourhood({ key: 'omni-loop' }, { id: 'L-INVOICING-2', depth: 1 })).toEqual({ kind: 'no-node' });
-    expect(await known.neighbourhood({ key: 'omni-loop' }, { id: 'never#1', depth: 1 })).toEqual({ kind: 'no-node' });
+    expect(await known.neighbourhood({ key: 'omni-loop' }, { id: 'L-INVOICING-2', depth: 1 })).toEqual({ kind: 'no-node', matches: [] });
+    expect(await known.neighbourhood({ key: 'omni-loop' }, { id: 'never#1', depth: 1 })).toEqual({ kind: 'no-node', matches: [] });
+    expect(await known.neighbourhood({ key: 'omni-loop' }, { id: 'BR-PRODUCT-3', depth: 1 })).toEqual({ kind: 'no-node', matches: ['vertuo-omni-loop/BR-PRODUCT-3'] });
   });
 });

@@ -19,7 +19,7 @@ import type { ProductGraphService } from './product-graph.service';
 //
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 no `id`, or a `depth` outside 1 to 3; 401
 // no valid sign-in; 404 a product key the caller cannot read, the same answer as for one that does not
-// exist; 404 an `id` absent from the joined graph; 503 no database here, or the sign-in service down;
+// exist; 404 an `id` absent from the joined graph, naming the prefixed ids a bare one stands for; 503 no database here, or the sign-in service down;
 // 500 a failed read, logged.
 
 /** A client acting as one access token: the Auth server's check and the reads as that person. */
@@ -33,6 +33,12 @@ export type ProductGraphDeps = {
 
 /** The answer for a product the caller cannot read, or that does not exist: one and the same. */
 const noProduct = (key: string) => refuse(404, `No product ${key} that you can read.`);
+
+/** The answer for an id the graph does not hold, naming the prefixed ids a bare one stands for (#2221). */
+function noNode(id: string, key: string, matches: readonly string[]) {
+  const hint = matches.length === 0 ? '' : ` Did you mean ${matches.join(' or ')}?`;
+  return refuse(404, `No node ${id} in the knowledge graph of ${key}.${hint}`);
+}
 
 /** The query's node and depth, or the refusal its first problem is. */
 function queryOf(params: URLSearchParams) {
@@ -52,7 +58,7 @@ export async function readProductGraph(request: Request, key: string, deps: Prod
   try {
     const read = await deps.connect(auth.caller.token).service.neighbourhood({ key }, query);
     if (read.kind === 'no-product') return noProduct(key);
-    if (read.kind === 'no-node') return refuse(404, `No node ${query.id} in the knowledge graph of ${key}.`);
+    if (read.kind === 'no-node') return noNode(query.id, key, read.matches);
     return reply(200, ProductNeighbourhoodSchema.parse(read.body));
   } catch (error) {
     deps.log(`knowledge-graphs: ${key}: ${error instanceof Error ? error.message : String(error)}`);
