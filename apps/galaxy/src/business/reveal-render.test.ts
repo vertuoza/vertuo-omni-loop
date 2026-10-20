@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest';
 import type { Claim } from './model';
 import { businessReducer, initialBusinessState, type BusinessAction } from './state';
 import type { DraftView, WebPage } from './reveal';
-import { BusinessScreen, DEMO_CLAIMS, DEMO_PRODUCTS } from './BusinessScreen';
+import { DEMO_CLAIMS, DEMO_PRODUCTS } from './BusinessScreen';
+import { BusinessPage } from './BusinessPage';
 import {
   ADD_PAGE, BusinessView, DOCK, DRAFT, DRAFTING, NOTHING_FOUND, NOTHING_NEW, NOTHING_SAVED, PAGES_FULL, SAVED_LINE, THATS_US, THIN_HINT,
 } from './BusinessView';
@@ -200,7 +201,7 @@ describe('nothing found', () => {
 
 describe('the demo', () => {
   it('offers Draft from my repos, marked Demo', () => {
-    const html = renderToStaticMarkup(createElement(BusinessScreen, { view: { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS } }));
+    const html = renderToStaticMarkup(createElement(BusinessPage, { part: 'settings', current: 'demo-product-1', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS }));
     expect(text(html)).toContain('Demo');
     expect(button(html, DRAFT)).toBeDefined();
     expect(text(html)).toContain(`${ADD_PAGE} (3 of 3 left)`);
