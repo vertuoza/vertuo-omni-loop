@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { JobLineRow, JobRow, RunnerRow, SampleRow } from './runners.repository';
-import { cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
+import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { OutboxStand } from '../dossier/page/stage';
+import type { ContinuationsRepository, JobLineRow, JobRow, RunnerRow, SampleRow } from './runners.repository';
+import { continuationsService, cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
-  API_KEY, CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, runnerRow, RUNNERS, SAM, SHARED, T0,
+  API_KEY, CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, runnerRow, RUNNERS, SAM, SHARED, T0, WORKSPACE,
 } from './fixtures/store.fake';
 
 // The runners' rules (PRD 1830 s1), on realistic rows in memory and a fixed clock: which jobs a runner
@@ -781,5 +783,106 @@ describe('a runner\'s tokens (PRD 2102 s4)', () => {
     value(await w.service.health(OLGA, SHARED, { ...HEALTH, tokens: { last5h: { ...COUNTS, input: 0 }, today: COUNTS } }));
     const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
     expect(board.runners.find((r) => r.id === SHARED)?.samples?.map((s) => s.tokens5h)).toEqual([SUM, SUM - 81_234]);
+  });
+});
+
+// A job continued once its answers are in (PRD 2270 s1): `/omni:yolo-fix <n>` queued to the job's runner or
+// fleet, by its sender, linked to it; once only, as the unique runner_jobs.continues holds it.
+describe('a continuation', () => {
+  const PRD = parsePrd(1717);
+  const ANSWERED: OutboxStand = { asked: 1, answered: 1, answers: [{ number: 1, letter: 'B' }] };
+  const waited = (more: Partial<JobRow> = {}) =>
+    jobRow({ status: 'done', outcome: 'answers', runner_id: CIA_BOX, claimed_at: T0.toISOString(), ended_at: at(600).toISOString(), ...more });
+
+  /** The continuation's storage over the fake's jobs: the switch per repository (listed and on unless told
+   * otherwise), the PRD's jobs newest first, and the unique `continues` the database holds. */
+  function continuations(state: { jobs: JobRow[] }, switches: Record<string, boolean | null> = {}): ContinuationsRepository {
+    return {
+      fixWhenAnswered: (_workspaceId, repo) => Promise.resolve(repo in switches ? switches[repo] ?? null : true),
+      prdJobs: (workspaceId, repo, prd) => Promise.resolve(state.jobs
+        .filter((j) => j.workspace_id === workspaceId && j.repo === repo && j.line.includes(` ${String(prd)}`))
+        .sort((a, b) => b.queued_at.localeCompare(a.queued_at))
+        .map((j) => ({ ...j }))),
+      insertContinuation: (job) => {
+        if (state.jobs.some((j) => j.continues === job.continues)) return Promise.resolve(null);
+        const row = jobRow({
+          workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy,
+          sent_by_key: job.sentByKey, continues: job.continues, queued_at: at(900).toISOString(),
+        });
+        state.jobs.push(row);
+        return Promise.resolve({ ...row });
+      },
+    };
+  }
+
+  function continuing(jobs: JobRow[], switches: Record<string, boolean | null> = {}) {
+    const { store, state } = fakeStore({ jobs, now: () => at(900) });
+    return { state, service: continuationsService(store, continuations(state, switches)) };
+  }
+
+  const ask = (stand: OutboxStand | null = ANSWERED) => ({ workspaceId: WORKSPACE, repo: 'Vertuoza/App', prd: PRD, stand });
+
+  it('queues /omni:yolo-fix <n> to the runner the job was sent to, sent by its sender, linked as its continuation', async () => {
+    const job = waited({ to_runner: CIA_BOX, sent_by: MO });
+    const { service, state } = continuing([job]);
+    const done = await service.continueAnswered(ask());
+    expect(done).toMatchObject({ queued: { line: '/omni:yolo-fix 1717', repo: 'vertuoza/app', toRunner: CIA_BOX, toFleet: null, sentBy: MO, sentByLogin: 'mo', status: 'queued', continues: job.id } });
+    expect(state.jobs).toHaveLength(2);
+  });
+
+  it('queues it to the fleet the job was sent to, or to any runner when it went to any', async () => {
+    const toFleet = continuing([waited({ to_fleet: 'cia', sent_by: MO })]);
+    expect(await toFleet.service.continueAnswered(ask())).toMatchObject({ queued: { toRunner: null, toFleet: 'cia' } });
+    const toAny = continuing([waited({ sent_by: SAM })]);
+    expect(await toAny.service.continueAnswered(ask())).toMatchObject({ queued: { toRunner: null, toFleet: null, sentBy: SAM } });
+  });
+
+  it('keeps the API key that sent the job as its sender', async () => {
+    const { service } = continuing([waited({ sent_by: OLGA, sent_by_key: API_KEY })]);
+    expect(await service.continueAnswered(ask())).toMatchObject({ queued: { sentBy: OLGA, sentByKey: 'QA dashboard' } });
+  });
+
+  it('queues once: a second continuation of the same job is refused by the unique column, and two touches at once queue one fix', async () => {
+    const job = waited({ to_fleet: 'cia' });
+    const { service, state } = continuing([job]);
+    const both = await Promise.all([service.continueAnswered(ask()), service.continueAnswered(ask())]);
+    expect(both.filter((done) => done.queued !== null)).toHaveLength(1);
+    expect(both.find((done) => done.queued === null)).toEqual({ queued: null, why: `job ${job.id} was continued already` });
+    expect(state.jobs.filter((j) => j.continues === job.id)).toHaveLength(1);
+    expect(await service.continueAnswered(ask())).toMatchObject({ queued: null });
+    expect(state.jobs).toHaveLength(2);
+  });
+
+  it('queues nothing, and reads nothing, while an asked item waits for a counted reply', async () => {
+    const { store, state } = fakeStore({ jobs: [waited()] });
+    const read: string[] = [];
+    const port = continuations(state);
+    const service = continuationsService(store, { ...port, prdJobs: (...args) => { read.push('jobs'); return port.prdJobs(...args); } });
+    expect(await service.continueAnswered(ask({ asked: 2, answered: 1, answers: [] }))).toEqual({ queued: null, why: '1 of 2 asked items answered' });
+    expect(await service.continueAnswered(ask(null))).toMatchObject({ queued: null });
+    expect(read).toEqual([]);
+    expect(state.jobs).toHaveLength(1);
+  });
+
+  it('queues nothing with the switch off, or for a repository the workspace does not list', async () => {
+    expect(await continuing([waited()], { 'vertuoza/app': false }).service.continueAnswered(ask())).toEqual({ queued: null, why: 'Fix on a runner once answered is off for this repository' });
+    expect(await continuing([waited()], { 'vertuoza/app': null }).service.continueAnswered(ask())).toMatchObject({ queued: null });
+  });
+
+  it('queues nothing in its sender\'s name once they may no longer send there', async () => {
+    // Pia plays in pirates: the runner cia-box serves cia.
+    const pirate = await continuing([waited({ to_runner: CIA_BOX, sent_by: PIA })]).service.continueAnswered(ask());
+    expect(pirate.queued).toBeNull();
+    expect(pirate.why).toContain('serves cia');
+    // Eve is no member of this workspace.
+    expect(await continuing([waited({ sent_by: EVE })]).service.continueAnswered(ask())).toEqual({ queued: null, why: 'its sender is no longer a member of the workspace' });
+  });
+
+  it('queues nothing while a job of the PRD is queued or running, or when the newest did not wait on answers', async () => {
+    const running = jobRow({ line: '/omni:pr-care 1717', status: 'running', runner_id: SHARED, queued_at: at(700).toISOString() });
+    expect(await continuing([waited(), running]).service.continueAnswered(ask())).toEqual({ queued: null, why: 'a job of PRD 1717 is running' });
+    const held = await continuing([waited({ outcome: 'held' })]).service.continueAnswered(ask());
+    expect(held.queued).toBeNull();
+    expect(held.why).toContain('did not end on Waiting on answers');
   });
 });
