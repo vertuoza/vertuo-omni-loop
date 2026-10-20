@@ -1,0 +1,95 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-20",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Screens today beside after stay where they were, and the check refuses a page an agent left half filled: less slop reaches review.",
+          "citations": ["persona:F-E Developer"]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A table's columns as code, the added ones in green, and the GraphQL types before and after: that is what I read in a PR, not fluff.",
+          "citations": ["persona:B-E DEv"]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "One page per PRD across every repository, with the same tabs every time: I approve faster.",
+          "citations": ["persona:Paul - Product Manager"]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The flow between services and the deploy order first, then each service the same way: cohesion I can check at a glance.",
+          "citations": ["persona:Lead Engineer"]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "I ship mobile quick wins and do not master the technical harness: a Technical tab full of N/A would slow me down.",
+          "citations": ["persona:Irisa"]
+        }
+      ],
+      "objection": {
+        "persona": "Irisa",
+        "text": "I move fast on mobile and do not master the technical side. If my Technical tab is only a row of N/A, or if I must click to see what the PRD changes for the customer, the page slows me down.",
+        "citations": ["persona:Irisa"],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Irisa ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-20",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The marks and the word pass are untouched, and the check names the file and the rule an agent broke.",
+          "citations": ["persona:F-E Developer"]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "Breaking rows first with a badge, coordinated deploys first in the table change list: the two things I look for.",
+          "citations": ["persona:B-E DEv"]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The mega-brainstorm gets one block per repository in both tabs, in build order.",
+          "citations": ["persona:Paul - Product Manager"]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Only new pages are checked, so no inbox turns red overnight; the cost is a Playwright for the diagrams.",
+          "citations": ["persona:Lead Engineer"]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The first tab opens on what changes for the customer, and a service with nothing technical is one line.",
+          "citations": ["persona:Irisa"]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Irisa ✓"
+    }
+  ]
+}
