@@ -131,7 +131,7 @@ describe('the page in each situation', () => {
       const html = page(v);
       expect(html.indexOf('class="section-tabs"'), v.kind).toBeGreaterThanOrEqual(0);
       const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
-      expect(tabs, v.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', false], ['Products', false], ['API keys', true], ['Jev', false]]);
+      expect(tabs, v.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', false], ['API keys', true], ['Jev', false]]);
     }
   });
 

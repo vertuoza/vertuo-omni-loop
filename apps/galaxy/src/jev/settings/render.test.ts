@@ -293,7 +293,7 @@ describe('the page\'s situations', () => {
       expect(html.indexOf('class="section-tabs"'), view.kind).toBeGreaterThanOrEqual(0);
       expect(html.indexOf('class="section-tabs"'), view.kind).toBeLessThan(html.indexOf('<h1'));
       const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
-      expect(tabs, view.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', false], ['Products', false], ['API keys', false], ['Jev', true]]);
+      expect(tabs, view.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', false], ['API keys', false], ['Jev', true]]);
     }
   });
 });

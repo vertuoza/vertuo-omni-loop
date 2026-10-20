@@ -59,6 +59,8 @@ export interface ConstituentsPanelProps {
   people: Readonly<Record<string, Person>>;
   /** The constituents could not be read: the panel says so, and the page carries on. */
   unreadable?: boolean;
+  /** The id of the one constituent to draw alone, with its own history (the Knowledge home's item page, PRD 2240 s4); left out, all of them. */
+  focus?: string;
   on?: ConstituentHandlers;
 }
 
@@ -111,7 +113,7 @@ function StatementBlock({ statement, state, owner, on }: { statement: Constituen
   );
 }
 
-function NeverList({ lines, state, owner, on }: { lines: readonly Constituent[]; state: ConstituentsState; owner: boolean; on: ConstituentHandlers }) {
+function NeverList({ lines, state, owner, adding, on }: { lines: readonly Constituent[]; state: ConstituentsState; owner: boolean; adding: boolean; on: ConstituentHandlers }) {
   return (
     <div className="constituents-never">
       <h3>{NEVER_LIST_TITLE}</h3>
@@ -132,7 +134,7 @@ function NeverList({ lines, state, owner, on }: { lines: readonly Constituent[];
             ))}
           </ul>
         )}
-      {owner && (state.editing?.kind === 'never'
+      {owner && adding && (state.editing?.kind === 'never'
         ? <Field kind="never" state={state} on={on} />
         : <button type="button" className="ask-button quiet" onClick={on.addNever} disabled={state.busy}>{ADD_NEVER_LINE}</button>)}
     </div>
@@ -156,9 +158,13 @@ function HistoryEntry({ event, state, people }: { event: ConstituentEvent; state
   );
 }
 
-export function ConstituentsPanel({ state, product, owner, people, unreadable = false, on = IDLE }: ConstituentsPanelProps) {
+export function ConstituentsPanel({ state, product, owner, people, unreadable = false, focus, on = IDLE }: ConstituentsPanelProps) {
   if (product === null) return null;
-  const { statement, never, history } = panelOf(state, product);
+  const whole = panelOf(state, product);
+  const { statement } = whole;
+  const alone = focus !== undefined;
+  const never = alone ? whole.never.filter((l) => l.id === focus) : whole.never;
+  const history = alone ? whole.history.filter((e) => e.constituent === focus) : whole.history;
   return (
     <section className="ask-card business-constituents" aria-labelledby="constituents-title" data-product={product}>
       <header className="constituents-head">
@@ -169,8 +175,8 @@ export function ConstituentsPanel({ state, product, owner, people, unreadable = 
         ? <p className="business-refusal" role="alert">{UNREADABLE}</p>
         : (
           <>
-            <StatementBlock statement={statement} state={state} owner={owner} on={on} />
-            <NeverList lines={never} state={state} owner={owner} on={on} />
+            {(!alone || statement?.id === focus) && <StatementBlock statement={statement} state={state} owner={owner} on={on} />}
+            {(!alone || never.length > 0) && <NeverList lines={never} state={state} owner={owner} adding={!alone} on={on} />}
             {state.refusal && <p className="business-refusal" role="alert">{state.refusal}</p>}
             <details className="constituents-history">
               <summary>{HISTORY} · {history.length}</summary>
