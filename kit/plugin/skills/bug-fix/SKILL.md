@@ -183,8 +183,10 @@ Run this instead, to design it first:
 `/omni:brainstorm <the issue's line>`
 ```
 
-Then stop. Open no pull request and push nothing. A worktree step 5 had already cut stays where it
-is, unpushed, and the hand-off names its path and its branch.
+Then stop. Open no pull request. A reproduction already written is kept (**A stop keeps the
+reproduction**, step 7): it is committed alone on the fix branch and the branch is pushed, and the
+comment links the branch and names the reproduction's path. A worktree step 5 had already cut stays
+where it is, never deleted, and the hand-off names its path and its branch.
 
 ## 5. Branch
 
@@ -216,10 +218,44 @@ Write the reproduction, in the domain's words:
 Run it **before any fix**:
 
 - **It fails:** keep the failing line verbatim; it is the red evidence.
-- **It passes:** stop (stop rule 3). First look for the merged pull request that already fixed the
-  bug (**Who fixed it**, below), then comment on the issue; a person decides.
+- **It passes:** it has three readings, in this order: **it misses the bug**, **the bug is already
+  gone**, or **this level cannot see it**. The third applies when the evidence points at what only
+  the build changes: an error in production that the source cannot produce (a module's shape,
+  CommonJS/ESM interop, server-side rendering, minification, a production-only environment value),
+  or a regression range that changes the toolchain (the bundler, the package's `"type"`, the
+  framework). Under the first two, stop (stop rule 3): first look for the merged pull request that
+  already fixed the bug (**Who fixed it**, below), then comment on the issue; a person decides. Under
+  the third, move up a level, below.
 - **It cannot run in this session** (a harness or a service the session lacks): the evidence is the
   sentence `Red not proven here — <why>; CI is the proof`, and the skill carries on.
+
+**Move up to the smoke level.** Under the third reading, write the reproduction as one more case of
+what `commands.smoke` checks (the failing route added to the routes it loads, or the equivalent), then
+run `setup`, then `commands.smoke`, before any fix. `commands.smoke` builds what the repository ships
+to production, then runs checks against the built output. It is the only way to the build level: never
+run a build script or a probe of your own.
+
+- **Smoke fails:** its failing line is the red (the record's level is `smoke`), and steps 8 onward run
+  as today, with `commands.smoke` green as the proof the fix works, beside the preflight.
+- **Smoke passes too:** stop rule 3, with **Who fixed it**. A unit-level pass alone never reaches stop
+  rule 3 while the third reading applies; a smoke-level pass does.
+- **Smoke is set but cannot run in this session** (a browser or a tool the session lacks): push the
+  reproduction alone on the draft PR; the red is the CI run of `commands.smoke` on it, when the
+  repository's CI runs it (a workflow under `.github/workflows/` holds the command's text). When it
+  does not, stop rule 6.
+- **`commands.smoke` is null:** stop rule 6.
+
+**A stop keeps the reproduction.** At stop rules 3, 4 and 6, commit the reproduction alone on the fix
+branch and push the branch (`git push -u <remote> <fix branch>`). The stop's comment links the branch
+and names the reproduction's path. Stop rule 6 also opens the fix PR as a draft, labelled
+`labels.needsFix` (`gh pr create --draft --label "<labels.needsFix>"`), its body saying it stopped and
+why. When the triage's risk is `critical`, the stop's comment starts with `> [!CAUTION]` then
+`> critical — nothing is fixed.`, mentions nobody, and the hand-off prints that line first; the issue
+keeps `labels.riskCritical`.
+
+**Stop rule 6's comment** names the suspect (`<file>:<line>`), the triage's **Production** line, the
+exact YAML to commit in `.omni-loop/config.yml` (`commands.smoke: <a command that builds and checks the
+route>`), and the command that reruns the fix.
 
 **Film it.** The run folder is `<worktrees>/proof-bug-<n>/<run>/` (`<worktrees>` is
 `node .omni-loop/bin/omni.mjs config worktrees`, `<run>` is `<YYYYMMDD-HHMMSS>`), outside the tracked
@@ -291,6 +327,16 @@ guard-sized (a check script, a lint rule, a unit test), add it with its own test
 fails on the default branch's version of the offending code and passes on the fix branch. Otherwise
 the guard line is `Guard: none — <reason>`.
 
+**A bug proven red at the smoke level.** The case the reproduction added to `commands.smoke` is the
+guard. Check, read-only, whether the repository's CI runs `commands.smoke` (the command's text in a
+workflow under `.github/workflows/`):
+
+- **It does:** `Guard: <the case> in commands.smoke, run by CI`.
+- **It does not:** `Guard: none — <repository>'s CI does not run commands.smoke`, and the PR body and a
+  comment on the issue name the CI step to add.
+
+The skill never edits CI: a repository's workflows are a person's to change.
+
 ## 10. Mutation
 
 - **`commands.mutation` set:** commit first (it reads committed changes), run it, and read what
@@ -317,6 +363,7 @@ future Bugs view reads:
 ## Reproduction
 
 - **File:** `<repository path of the test or scenario>`
+- **Level:** <unit | acceptance | smoke>
 - **Red:** <the failing line, verbatim | Red not proven here — <why>; CI is the proof>
 
 ## Fix
@@ -561,10 +608,14 @@ Written verbatim, so they are never argued away:
 
 1. Not a behaviour bug: triage comment `Kind: tooling`, stop.
 2. A term cannot be defined without inventing behaviour: stop and ask.
-3. The reproduction passes before the fix: stop, comment on the issue, with `Fixed by #<n>` (or `Fixed by <PR URL>`) only for a pull request proven red at its merge's first parent and green at its merge (**Who fixed it**), else `Maybe:` lines. Never close the issue.
+3. The reproduction passes before the fix (a unit-level pass alone never reaches this rule while the third reading applies): stop, comment on the issue, with `Fixed by #<n>` (or `Fixed by <PR URL>`) only for a pull request proven red at its merge's first parent and green at its merge (**Who fixed it**), else `Maybe:` lines. Never close the issue.
 4. The boundary is crossed: stop, comment with the `/omni:brainstorm` line.
 5. `limits.attempts` red attempts at the fix, or at CI on the PR: the PR stays draft, labelled
    `labels.needsFix`, with a comment saying what is stuck, and the issue gets a comment linking it.
+6. The bug lives in the build and the repository commits no `commands.smoke` it can run: stop, keep the reproduction, comment on the issue with the suspect, the production evidence and the line to commit. Never fix without red.
+
+For rules 3, 4 and 6, the reproduction is committed alone on the fix branch and the branch is pushed
+(step 7, **A stop keeps the reproduction**).
 
 For rule 5 with a PR already open: `gh pr ready <pr> --undo`, add `labels.needsFix`
 (`gh pr edit <pr> --add-label "<labels.needsFix>"`), comment on the PR with what is stuck, and
@@ -576,6 +627,9 @@ comment on the issue with the PR's link.
 - **Never fix before red.** The reproduction runs, and fails, before any fix, or says it could not
   run.
 - **Never edit the reproduction to make it pass.**
+- **Never delete the reproduction, its branch or its worktree on a stop.**
+- **Never edit a repository's CI workflows**, and never run a build script or a probe of your own:
+  the build level is reached only through `commands.smoke`.
 - **Never open the PR before `omni bug <n> --body-file` printed `ok`**, unless the pinned omni refused the flag.
 - **Never write a `Fixed by` line for a pull request that is not proven**, and never close the issue.
 - **Never cross the boundary** to finish a fix: stop, and hand over the `/omni:brainstorm` line.

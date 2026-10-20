@@ -75,3 +75,8 @@ Bug section are PRD 556's spec, carried whole.
 - **`briefing-text`** (PRD 1793): **A change to a law**'s rule table gains the row for a change to
   the briefing's files, raised as a change to a rule is; its test is
   `kit/test/briefing-text-skills.test.ts`.
+- **The smoke level** (PRD 2275): a passing reproduction has a third reading, this level cannot see
+  it, and step 7 moves up to `setup` then `commands.smoke`; stop rule 6 stops with no runnable smoke;
+  stops 3, 4 and 6 keep the reproduction on a pushed branch; a `critical` stop opens its comment with
+  `> [!CAUTION]`; step 9's guard is the smoke run by CI; the record's **Reproduction** names its
+  **Level**. Its tests are `kit/test/bug-fix-smoke.test.ts`.
