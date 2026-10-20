@@ -3253,3 +3253,19 @@ describe('the inline wave (issue 1722)', () => {
     expect(read('wave')).toContain(`${INLINE_SLICE_TRAILER}: <id>`);
   });
 });
+
+describe('a slice agent in its own worktree runs one command at a time', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  /** Each dispatch prompt: a run of `>` quote lines holding "Do not spawn subagents". */
+  const prompts = (text: string) =>
+    text.split(/\n(?!\s*>)/).filter((block: string) => block.includes('Do not spawn subagents')).map((block: string) => block.replace(/\n\s*>\s?/g, ' '));
+
+  it.each(['wave', 'yolo-fix'])('every prompt /omni:%s gives a slice agent says so', (skill: string) => {
+    const found = prompts(read(skill));
+    expect(found.length).toBeGreaterThan(0);
+    for (const prompt of found) {
+      expect(prompt).toContain('Run each command alone, from your worktree');
+      expect(prompt).toContain('`git -C <your worktree> …`');
+    }
+  });
+});

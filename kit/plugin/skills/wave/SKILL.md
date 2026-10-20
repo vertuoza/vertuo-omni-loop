@@ -155,8 +155,9 @@ never run side by side. Each takes the next from the feature branch as the last 
    `isolation: "worktree"`). Keep the prompt this small:
 
    > Build slice `<id>` of PRD <prd>, inline on feature branch `<feature branch>`: follow
-   > `/omni:do-work --inline`. Do not spawn subagents. Return only do-work's result JSON: no diffs,
-   > no logs.
+   > `/omni:do-work --inline`. Do not spawn subagents. Run each command alone, from your worktree,
+   > never chained with `cd … &&` or `;`, and git as `git -C <your worktree> …`. Return only
+   > do-work's result JSON: no diffs, no logs.
 
    The inline path stays on the terminal's model: start the agent with no model and no effort, and
    resolve no tier; do-work stamps `inherited (inline)`. Nesting is at most three levels, as in
@@ -239,10 +240,16 @@ and `effort` its tier resolved to, or neither when it inherits). Keep the prompt
 
 > Build slice `<id>` of PRD <prd>, on feature branch `<feature branch>`: follow `/omni:do-work
 > --in-wave`. Its slice branch is already claimed. `<its Tier: line>`. Do not spawn subagents.
-> Return only do-work's result JSON: no diffs, no logs.
+> Run each command alone, from your worktree, never chained with `cd … &&` or `;`, and git as
+> `git -C <your worktree> …`. Return only do-work's result JSON: no diffs, no logs.
 
 A slice taken over on `reuse` (step 2) adds one sentence after the claim's: "Its branch is reused:
 re-verify it before building."
+
+**One command at a time.** An agent started in its own worktree may refuse a command it cannot
+prove stays inside that worktree (in Claude: a `cd … && …` chain that runs git), and the slice
+loses a turn on each refusal. So every prompt that starts one, here, in **Inline wave** and in
+`/omni:yolo-fix`, says to run each command alone and git as `git -C <its worktree>`.
 
 **A refused launch.** The agent refuses to start a slice on its model (it does not know the model,
 or cannot set one per subagent): start that slice again, once, on the terminal's model (no model,

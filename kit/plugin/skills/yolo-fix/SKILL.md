@@ -164,8 +164,9 @@ steps over the rework rows instead:
    > row. The question: <question>. What was built: <choice>. The person's answer, verbatim:
    > <answer>. Build towards: <chosenOption text, or "the answer itself">. The bound, the item's own
    > words: <bound>. Record no item and ask nothing: the decision is made. A change the bound does
-   > not cover returns `stopped`, naming the sentence it outgrew. Do not spawn subagents. Return only
-   > do-work's result JSON.
+   > not cover returns `stopped`, naming the sentence it outgrew. Do not spawn subagents. Run each
+   > command alone, from your worktree, never chained with `cd … &&` or `;`, and git as
+   > `git -C <your worktree> …`. Return only do-work's result JSON.
 
 3. **Merge**, one at a time, exactly as `/omni:wave` §4 does, grading territory against the
    rework's `territory`. Its "not merged" table applies as written.
