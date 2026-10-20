@@ -1,0 +1,95 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-20",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A skill that must see the crash in the built bundle before it touches a line is the opposite of a fix that slips a bug into production.",
+          "citations": ["persona:F-E Developer"]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "One more key every repository must commit before the tool can fix a build bug; it is real only if we write the smoke.",
+          "citations": ["persona:B-E DEv"]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 3,
+          "reaction": "A stop without smoke slows a fix, but a triage posted at once lets me follow every bug from the first minute.",
+          "citations": ["persona:Paul - Product Manager"]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One committed smoke that the skill, the fix and CI all run keeps every team on the same check.",
+          "citations": ["persona:Lead Engineer"]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 2,
+          "reaction": "My customers wait on a broken screen while the skill asks for a command nobody has written yet.",
+          "citations": ["persona:Irisa"]
+        }
+      ],
+      "objection": {
+        "persona": "Irisa",
+        "text": "When production crashes for every customer, I want the fix today. A skill that stops until someone commits a smoke command leaves my customers on the broken screen.",
+        "citations": ["persona:Irisa"],
+        "settled": "none"
+      },
+      "fit": "fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ once a repository commits smoke · persona:Irisa ✗ until then"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-20",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The third reading names the bundle problems I know, interop and SSR, and the fix still has to turn the smoke green.",
+          "citations": ["persona:F-E Developer"]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The skill never edits our CI and only runs what we committed, so it stays a tool I control.",
+          "citations": ["persona:B-E DEv"]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 4,
+          "reaction": "The release range and the first occurrence in UTC point at the culprit release without me digging through the tracker.",
+          "citations": ["persona:Paul - Product Manager"]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A critical stop is visible on the issue, and the guard line tells me whether our CI runs the smoke.",
+          "citations": ["persona:Lead Engineer"]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A stop now hands a person the suspect and the line to commit, so the fix by hand takes minutes.",
+          "citations": ["persona:Irisa"]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ · persona:Irisa ✓ once a repository commits smoke"
+    }
+  ]
+}
