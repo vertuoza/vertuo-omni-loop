@@ -255,7 +255,7 @@ It never merges into any repository's default branch. You do.
 that wants bug fixes proven against what it ships commits `commands.smoke` in its
 `.omni-loop/config.yml`, beside `setup` and `preflight`:
 
-```yaml
+```yaml file=.omni-loop/config.yml
 commands:
   setup: bun install --frozen-lockfile
   preflight: bun run lint && bun run test
