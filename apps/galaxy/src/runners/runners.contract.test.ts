@@ -237,3 +237,18 @@ describe('the claims a report says were released', () => {
     expect(JobUpdateSchema.safeParse({ status: 'done', ...more }).success).toBe(false);
   });
 });
+
+// The outcome (PRD 2223 s1): a done yolo job's report says what its hand-off ended on; an unknown word is refused.
+describe('the outcome a report carries', () => {
+  it.each(['answers', 'held', 'ready', null])('takes %s', (outcome) => {
+    expect(JobUpdateSchema.parse({ status: 'done', exitCode: 0, outcome })).toEqual({ status: 'done', exitCode: 0, outcome });
+  });
+
+  it('takes a report without one, as a runner from before this PRD sends', () => {
+    expect(JobUpdateSchema.parse({ status: 'done' })).toEqual({ status: 'done' });
+  });
+
+  it.each(['done', 'waiting', '', 'ANSWERS', 1])('refuses %j', (outcome) => {
+    expect(JobUpdateSchema.safeParse({ status: 'done', outcome }).success).toBe(false);
+  });
+});

@@ -1,7 +1,8 @@
 // A job's log as the runner reads it (PRD 1830): the tail it sends, the pull request it links, and
 // the `--timeout` it is held to.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { LINE_CHARS, lastPullRequest, linesAfter, logTail, parseDuration, reportBatch, REPORT_BYTES, REPORT_LINES, TAIL_BYTES, TAIL_LINES } from './log.ts';
+import { LINE_CHARS, lastPullRequest, linesAfter, logTail, parseDuration, reportBatch, runOutcome, REPORT_BYTES, REPORT_LINES, TAIL_BYTES, TAIL_LINES } from './log.ts';
 
 describe('logTail', () => {
   it('keeps the last 200 lines', () => {
@@ -88,5 +89,38 @@ describe('reportBatch (PRD 1904)', () => {
     expect(batch.length).toBeLessThan(2000);
     expect(Buffer.byteLength(JSON.stringify(batch))).toBeLessThanOrEqual(REPORT_BYTES);
     expect(Buffer.byteLength(JSON.stringify(lines.slice(0, batch.length + 1)))).toBeGreaterThan(REPORT_BYTES);
+  });
+});
+
+describe('runOutcome (PRD 2223)', () => {
+  it('reads the last non-empty line: yolo-fix is answers, yolo held, pr-care ready', () => {
+    expect(runOutcome('Done: ok\n/omni:yolo-fix 2223\n', '2223')).toBe('answers');
+    expect(runOutcome('Done: ok\n/omni:yolo 2223', '2223')).toBe('held');
+    expect(runOutcome('Done: ok\n/omni:pr-care 2223\n', '2223')).toBe('ready');
+  });
+
+  it('skips trailing blank lines and the runner\'s time stamp', () => {
+    expect(runOutcome('x\n14:03:09 /omni:yolo-fix 2223\n\n  \n', '2223')).toBe('answers');
+  });
+
+  it('is null for another PRD, another line, a line that only mentions one, or no final message', () => {
+    expect(runOutcome('/omni:yolo-fix 2224\n', '2223')).toBeNull();
+    expect(runOutcome('/omni:yolo-fix 22230\n', '2223')).toBeNull();
+    expect(runOutcome('/omni:plan 2223\n', '2223')).toBeNull();
+    expect(runOutcome('then run /omni:yolo-fix 2223 later\n', '2223')).toBeNull();
+    expect(runOutcome('/omni:yolo-fix 2223\nDone\n', '2223')).toBeNull();
+    expect(runOutcome('', '2223')).toBeNull();
+    expect(runOutcome('\n\n', '2223')).toBeNull();
+  });
+});
+
+describe('the yolo hand-off\'s last lines (PRD 2223)', () => {
+  it('are the three lines runOutcome reads, so a change in the skill fails here', () => {
+    const skill = readFileSync(new URL('../../plugin/skills/yolo/SKILL.md', import.meta.url), 'utf8');
+    for (const [line, outcome] of [['/omni:pr-care <n>', 'ready'], ['/omni:yolo-fix <n>', 'answers'], ['/omni:yolo <n>', 'held']] as const) {
+      expect(skill).toContain(`\n${line}\n`);
+      expect(runOutcome(line.replace('<n>', '9'), '9')).toBe(outcome);
+    }
+    expect(skill).toContain('`/omni:pr-care <n>`, `/omni:yolo-fix <n>` or `/omni:yolo <n>`');
   });
 });
