@@ -1,6 +1,6 @@
 ---
 name: bug-fix
-description: Takes a bug from one line, or an existing issue, to one pull request a person merges — opens (or reads) its issue, classifies it, posts a triage (domain, risk, regression), proves a reproduction red before any fix, fixes it test-first on a fix branch, adds the guard that would have caught it, runs mutation testing when the repository has it, records the fix, proves it with omni bug (its pull request body checked for its proof before the PR opens), opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch or wave, and an outbox only when the range changes a law — one high item per change, in the fix's folder, for a person to answer. Stops on a flaky check (tooling, not a bug), on a reproduction that passes before the fix (naming the merged pull request that fixed the bug, when one is proven), and hands over the /omni:brainstorm line when the fix needs a product decision, a stored shape, a shared contract or a new screen, route or API. Never merges. Triggers on "fix this bug", "fix #612", "this is broken", "bug fix", "/omni:bug-fix".
+description: Takes a bug from one line, or an existing issue, to one pull request a person merges — opens (or reads) its issue, classifies it, posts a triage (domain, risk, regression), proves a reproduction red before any fix, fixes it test-first on a fix branch, adds the guard that would have caught it, runs mutation testing when the repository has it, records the fix, proves it with omni bug (its pull request body checked for its proof before the PR opens), opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch or wave, and an outbox only when the range changes a law — one high item per change, in the fix's folder, for a person to answer. Stops on a flaky check (tooling, not a bug), on a reproduction that passes before the fix (naming the merged pull request that fixed the bug, when one is proven), and hands over the /omni:brainstorm line when the fix needs a product decision, a stored shape, a shared contract or a new screen, route or API. On a runner (OMNI_UNATTENDED set) that stop first asks the person on its job, with omni runner ask, and ends on a Waiting for an answer on Omni line; --answers <job> resumes from what they answered on the Omni page, and Design it first hands over the same line. Never merges. Triggers on "fix this bug", "fix #612", "this is broken", "bug fix", "/omni:bug-fix".
 ---
 
 <!-- Ported from vertuo-ai-domain@47a1a194a:.claude/skills/vertuo-fix-bug/SKILL.md — changes in kit/porting/plugin--bug-fix.md -->
@@ -39,11 +39,13 @@ signed. A command that prints nothing means signing is off here: add nothing.
 |---|---|---|
 | a description | `/omni:bug-fix 'saving twice duplicates the row'` | the bug, in the person's words; the skill opens its issue |
 | an issue | `/omni:bug-fix 612`, `/omni:bug-fix #612`, or `/omni:bug-fix https://github.com/<owner>/<repo>/issues/612` | an issue that already reports the bug; the skill uses it as it is |
+| `--answers <job>` | `/omni:bug-fix #612 --answers 4821` | a resume (PRD 2255): a person answered on the Omni page the questions job `<job>` asked at a stop for a decision; see **Resuming with answers** |
 
 The three issue forms are all read as its number, `<n>`. An issue URL must name `repo.slug`: a URL
 of another repository stops the skill with one line saying which repository it belongs to, since
 the fix branch and the PR live here. With no input, say that this skill takes a description of the
-bug or an issue, and stop.
+bug or an issue, and stop. `--answers <job>` goes with an issue, the one the job stopped on: given
+alone, say that a resume needs its issue, and stop.
 
 ## Step 0
 
@@ -106,8 +108,18 @@ Establish, with evidence you can cite, the risk levels and the regression eviden
 - **Risk:** `critical`, `high`, `medium` or `low`, and one sentence: who is hurt, how, workaround or
   not.
 - **Regression:** `yes` only with evidence: the culprit PR or commit (`git log <green>..<red>` on
-  `<remote>/<repo.defaultBranch>`, then read the suspect diff), a green run followed by a red one, or
-  the report saying when it last worked. Otherwise: new bug — no evidence this ever worked.
+  `<remote>/<repo.defaultBranch>`, then read the suspect diff), a green run followed by a red one, a
+  release range, or the report saying when it last worked. Otherwise: new bug — no evidence this ever
+  worked. A release range is `<previous tag>..<tag> (first seen <time> UTC, none before)`, when the
+  first occurrence follows that release and none came before it; the suspect diff is read with
+  `git log <previous tag>..<tag>`.
+- **Production:** only when the report comes from production. The first occurrence is read from the
+  report's source, with its time zone (the error tracker's own first-seen time), never from the
+  issue's date, and written in UTC. Match it against releases: `gh release list --json
+  tagName,publishedAt`, and the repository's GitHub deployments (`gh api
+  repos/<repo.slug>/deployments`) when it has them. The deployed version is the last one published, or
+  deployed, before it. When the tracker gives the stack unminified, cite its top frame as
+  `<file>:<line>`.
 
 **Ask Jev about the risk.** Once you have set the risk level and its sentence yourself, and before
 you post the comment, write the bug's state to a scratch file (never in the repository):
@@ -124,6 +136,10 @@ was. When it prints `<level> <confidence>` (`high 0.82`), the workspace has put 
 Jev's level counts, even against yours: it is the level of the Risk line and of the risk label below,
 and the Risk line ends with ` (Jev, <confidence>)`. Jev answers the level only: Kind, Domain,
 Regression and the Risk line's sentence stay yours.
+
+The triage is posted in this step, at once, with `- **Reproduction:** pending` and
+`- **Branch:** pending`: neither exists yet, and every stop after this step leaves a triage on the
+issue. Steps 5 and 7 fill those two lines, edited in place by its marker.
 
 Post **one** comment on the issue (a comment is never signed), found by its marker and edited in
 place on a rerun:
@@ -144,10 +160,13 @@ gh api -X PATCH repos/<repo.slug>/issues/comments/<id> -F body=@<file>          
 - **Domain:** <the knowledge area or code area that owns the behaviour>
 - **Risk:** <critical | high | medium | low> — <who is hurt, how, workaround or not>[ (Jev, <confidence>)]
 - **Regression:** yes — <culprit PR or commit | green run → red run | the report's "last worked">
-  | new bug — no evidence this ever worked
-- **Reproduction:** `<path of the test or scenario>`
-- **Branch:** `<fix branch>`
+  | <previous tag>..<tag> (first seen <time> UTC, none before) | new bug — no evidence this ever worked
+- **Production:** <deployed version> · first seen <YYYY-MM-DD HH:MM> UTC (<source>) · <count> occurrences
+- **Reproduction:** pending
+- **Branch:** pending
 ```
+
+The **Production** line is there only when the report comes from production.
 
 Then label the issue with the label of the risk that counted, Jev's or yours (`labels.riskCritical`, `labels.riskHigh`,
 `labels.riskMedium` or `labels.riskLow`) and, for a regression only, `labels.regression`:
@@ -183,8 +202,13 @@ Run this instead, to design it first:
 `/omni:brainstorm <the issue's line>`
 ```
 
-Then stop. Open no pull request and push nothing. A worktree step 5 had already cut stays where it
-is, unpushed, and the hand-off names its path and its branch.
+Then stop. Open no pull request. A reproduction already written is kept (**A stop keeps the
+reproduction**, step 7): it is committed alone on the fix branch and the branch is pushed, and the
+comment links the branch and names the reproduction's path. A worktree step 5 had already cut stays
+where it is, never deleted, and the hand-off names its path and its branch.
+
+On a runner, with `OMNI_UNATTENDED` set, ask the person on the job before this comment goes up:
+**Asking on a runner**, below. Anywhere else, this is the stop.
 
 ## 5. Branch
 
@@ -196,6 +220,9 @@ git worktree add -b <fix branch> <worktrees>/<n>-<slug> <remote>/<repo.defaultBr
 ```
 
 Every change below is made in this worktree. Never commit on `repo.defaultBranch`.
+
+Edit the triage comment in place, found by its marker `<!-- omni-bug:triage -->` (step 3's
+`gh api` lookup, then its `PATCH`): its `- **Branch:**` line becomes `- **Branch:** `<fix branch>``.
 
 ## 6. Words first
 
@@ -215,11 +242,47 @@ Write the reproduction, in the domain's words:
 
 Run it **before any fix**:
 
-- **It fails:** keep the failing line verbatim; it is the red evidence.
-- **It passes:** stop (stop rule 3). First look for the merged pull request that already fixed the
-  bug (**Who fixed it**, below), then comment on the issue; a person decides.
+- **It fails:** keep the failing line verbatim; it is the red evidence. Edit the triage comment in
+  place, found by its marker `<!-- omni-bug:triage -->`: its `- **Reproduction:**` line becomes the
+  reproduction's path.
+- **It passes:** it has three readings, in this order: **it misses the bug**, **the bug is already
+  gone**, or **this level cannot see it**. The third applies when the evidence points at what only
+  the build changes: an error in production that the source cannot produce (a module's shape,
+  CommonJS/ESM interop, server-side rendering, minification, a production-only environment value),
+  or a regression range that changes the toolchain (the bundler, the package's `"type"`, the
+  framework). Under the first two, stop (stop rule 3): first look for the merged pull request that
+  already fixed the bug (**Who fixed it**, below), then comment on the issue; a person decides. Under
+  the third, move up a level, below.
 - **It cannot run in this session** (a harness or a service the session lacks): the evidence is the
   sentence `Red not proven here — <why>; CI is the proof`, and the skill carries on.
+
+**Move up to the smoke level.** Under the third reading, write the reproduction as one more case of
+what `commands.smoke` checks (the failing route added to the routes it loads, or the equivalent), then
+run `setup`, then `commands.smoke`, before any fix. `commands.smoke` builds what the repository ships
+to production, then runs checks against the built output. It is the only way to the build level: never
+run a build script or a probe of your own.
+
+- **Smoke fails:** its failing line is the red (the record's level is `smoke`), and steps 8 onward run
+  as today, with `commands.smoke` green as the proof the fix works, beside the preflight.
+- **Smoke passes too:** stop rule 3, with **Who fixed it**. A unit-level pass alone never reaches stop
+  rule 3 while the third reading applies; a smoke-level pass does.
+- **Smoke is set but cannot run in this session** (a browser or a tool the session lacks): push the
+  reproduction alone on the draft PR; the red is the CI run of `commands.smoke` on it, when the
+  repository's CI runs it (a workflow under `.github/workflows/` holds the command's text). When it
+  does not, stop rule 7.
+- **`commands.smoke` is null:** stop rule 7.
+
+**A stop keeps the reproduction.** At stop rules 3, 4 and 7, commit the reproduction alone on the fix
+branch and push the branch (`git push -u <remote> <fix branch>`). The stop's comment links the branch
+and names the reproduction's path. Stop rule 7 also opens the fix PR as a draft, labelled
+`labels.needsFix` (`gh pr create --draft --label "<labels.needsFix>"`), its body saying it stopped and
+why. When the triage's risk is `critical`, the stop's comment starts with `> [!CAUTION]` then
+`> critical — nothing is fixed.`, mentions nobody, and the hand-off prints that line first; the issue
+keeps `labels.riskCritical`.
+
+**Stop rule 7's comment** names the suspect (`<file>:<line>`), the triage's **Production** line, the
+exact YAML to commit in `.omni-loop/config.yml` (`commands.smoke: <a command that builds and checks the
+route>`), and the command that reruns the fix.
 
 **Film it.** The run folder is `<worktrees>/proof-bug-<n>/<run>/` (`<worktrees>` is
 `node .omni-loop/bin/omni.mjs config worktrees`, `<run>` is `<YYYYMMDD-HHMMSS>`), outside the tracked
@@ -291,6 +354,16 @@ guard-sized (a check script, a lint rule, a unit test), add it with its own test
 fails on the default branch's version of the offending code and passes on the fix branch. Otherwise
 the guard line is `Guard: none — <reason>`.
 
+**A bug proven red at the smoke level.** The case the reproduction added to `commands.smoke` is the
+guard. Check, read-only, whether the repository's CI runs `commands.smoke` (the command's text in a
+workflow under `.github/workflows/`):
+
+- **It does:** `Guard: <the case> in commands.smoke, run by CI`.
+- **It does not:** `Guard: none — <repository>'s CI does not run commands.smoke`, and the PR body and a
+  comment on the issue name the CI step to add.
+
+The skill never edits CI: a repository's workflows are a person's to change.
+
 ## 10. Mutation
 
 - **`commands.mutation` set:** commit first (it reads committed changes), run it, and read what
@@ -317,6 +390,7 @@ future Bugs view reads:
 ## Reproduction
 
 - **File:** `<repository path of the test or scenario>`
+- **Level:** <unit | acceptance | smoke>
 - **Red:** <the failing line, verbatim | Red not proven here — <why>; CI is the proof>
 
 ## Fix
@@ -555,16 +629,99 @@ app, say the fix has no page yet and give its issue, `https://github.com/<repo.s
 **A person merges.** After a stop, the hand-off is the issue, the comment the stop posted (and the
 `/omni:brainstorm` line, after **The stop**), and the worktree left behind, when there is one.
 
+## Asking on a runner
+
+At **The stop** of step 4, and only there (PRD 2255): when `OMNI_UNATTENDED` is set (a runner job, with
+nobody to read a comment) and there is an issue, ask the person on the job before the stop comment goes
+up. Run by a person in a terminal, `OMNI_UNATTENDED` is not set, and **The stop** is exactly as step 4
+says.
+
+**The questions.** Write them to a scratch file, never in the repository: 1 to 4 questions in the shape
+`omni ask question --file` reads, each with a `header`, a `question`, a `multiSelect` and 2 to 4 options.
+An option is one way to fix it that you found: its `label` names the fix, its `description` says in one
+line what it changes. **The last option of every question is `Design it first`**, described `Stop here and
+brainstorm the behaviour`. The Omni page adds the free answer itself. Write the **lead** to a second
+scratch file: one paragraph saying why the fix stopped, in the words of the stop comment.
+
+**Ask.** Run
+`node .omni-loop/bin/omni.mjs runner ask --file <questions file> --issue <n> --lead <lead file>`, where
+`--issue <n>` is the issue the fix stopped on. It reads `OMNI_JOB`, which the runner gives each job,
+checks the questions against that shape, stores them on the job and, on exit 0, prints the line the
+comment ends on. Only exit 0 asked.
+
+**The stop comment.** On exit 0, post the comment of **The stop**, found by its first line and edited in
+place on a rerun (it always points at the question that waits now), with its last line the line
+`omni runner ask` printed, word for word, in place of the `/omni:brainstorm` line:
+
+```markdown
+<!-- omni-bug:need-human -->
+
+This is more than a bug fix: <what crossed the line, in one or two sentences>.
+
+Waiting for an answer on Omni: <the Runners page link, with ?answer=<job>>
+```
+
+Then end with exit 0: open no pull request and push nothing, as for any stop. The job reads Done on the
+runner and **Need human** on the Omni page.
+
+**When it does not go through.** On any other exit (an Omni app without the route, a refusal, no
+sign-in, a questions file it rejects), post today's stop comment, with the `/omni:brainstorm` line, and
+end as **The stop** says. The hand-off says the one line `omni runner ask` printed.
+
+## Resuming with answers
+
+Only with `--answers <job>` (PRD 2255): the run resumes one that stopped at step 4 and asked on its job
+`<job>`, and a person answered on the Omni page. Run step 0, then:
+
+**Read the answers.** Run `node .omni-loop/bin/omni.mjs runner answers <job>`. It prints the job's row as
+one line of JSON: its `questions`, its `answers` (each question's text to its answer: an option's label,
+the labels of a multi-select, or the person's own words) and `byLogin`, the login of whoever answered.
+When it exits 1, or the row holds no answers, stop with the line it printed and touch nothing: no
+comment, no branch, no push (stop rule 6).
+
+**Say what was decided.** Post on the issue one comment, found by its first line and the line
+`Job <job>`, and edited in place on a rerun. A decision of another job is a comment of its own:
+
+```markdown
+<!-- omni-bug:decision -->
+
+Decided in Omni by @<login>
+
+Job <job>
+
+**<the question's header>** — <the question>
+<the answer>
+```
+
+One `**<the question's header>**` block per question, in the order they were asked.
+
+**Carry on.** Go on from step 3, the triage, with the answers as the behaviour wanted: they settle the
+decision the stop named, and that one only, so step 4 does not stop on it again. A line crossed for any
+other reason, at step 4 or after, is a new stop. The reproduction, the fix, the guard and the pull
+request run as written, and a person merges the pull request.
+
+**Design it first.** When an answer is `Design it first`, stop as step 4 does: post the stop comment with
+the `/omni:brainstorm` line, open no pull request, push nothing, and end with exit 0.
+
+**Another decision.** When the fix meets another decision, it asks again, as **Asking on a runner**: this
+resume is a job of its own, and gets its own **Need human**. It asks nothing it was already told.
+
 ## Stop rules
 
 Written verbatim, so they are never argued away:
 
 1. Not a behaviour bug: triage comment `Kind: tooling`, stop.
 2. A term cannot be defined without inventing behaviour: stop and ask.
-3. The reproduction passes before the fix: stop, comment on the issue, with `Fixed by #<n>` (or `Fixed by <PR URL>`) only for a pull request proven red at its merge's first parent and green at its merge (**Who fixed it**), else `Maybe:` lines. Never close the issue.
-4. The boundary is crossed: stop, comment with the `/omni:brainstorm` line.
+3. The reproduction passes before the fix (a unit-level pass alone never reaches this rule while the third reading applies): stop, comment on the issue, with `Fixed by #<n>` (or `Fixed by <PR URL>`) only for a pull request proven red at its merge's first parent and green at its merge (**Who fixed it**), else `Maybe:` lines. Never close the issue.
+4. The boundary is crossed: stop, comment with the `/omni:brainstorm` line (on a runner, ask first: **Asking on a runner**).
 5. `limits.attempts` red attempts at the fix, or at CI on the PR: the PR stays draft, labelled
    `labels.needsFix`, with a comment saying what is stuck, and the issue gets a comment linking it.
+6. `--answers <job>` whose answers `omni runner answers` cannot read, or reads empty: stop with its
+   line and touch nothing.
+7. The bug lives in the build and the repository commits no `commands.smoke` it can run: stop, keep the reproduction, comment on the issue with the suspect, the production evidence and the line to commit. Never fix without red.
+
+For rules 3, 4 and 7, the reproduction is committed alone on the fix branch and the branch is pushed
+(step 7, **A stop keeps the reproduction**).
 
 For rule 5 with a PR already open: `gh pr ready <pr> --undo`, add `labels.needsFix`
 (`gh pr edit <pr> --add-label "<labels.needsFix>"`), comment on the PR with what is stuck, and
@@ -576,9 +733,14 @@ comment on the issue with the PR's link.
 - **Never fix before red.** The reproduction runs, and fails, before any fix, or says it could not
   run.
 - **Never edit the reproduction to make it pass.**
+- **Never delete the reproduction, its branch or its worktree on a stop.**
+- **Never edit a repository's CI workflows**, and never run a build script or a probe of your own:
+  the build level is reached only through `commands.smoke`.
 - **Never open the PR before `omni bug <n> --body-file` printed `ok`**, unless the pinned omni refused the flag.
 - **Never write a `Fixed by` line for a pull request that is not proven**, and never close the issue.
 - **Never cross the boundary** to finish a fix: stop, and hand over the `/omni:brainstorm` line.
+- **Never ask on a job unless `OMNI_UNATTENDED` is set**: a person in a terminal gets the stop as it is.
+  Never carry on from answers that could not be read, and never read the answers as a leave to merge.
 - Never commit on `repo.defaultBranch`.
 - Never report anything as proven that was not run.
 - Never open a PRD, an inbox folder, a plan or an outbox item for a bug fix, save the items

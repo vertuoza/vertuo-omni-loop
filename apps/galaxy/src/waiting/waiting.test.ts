@@ -43,8 +43,8 @@ describe('the Questions part', () => {
 
   it('counts the entries, the shared ones apart, and the outbox, empty for now', () => {
     const list = { ...EMPTY_WAITING, questions: mergeQuestions([q('a', MIN), q('b', MIN)], [q('b', MIN, 'Bob'), q('c', MIN, 'Bob')]) };
-    expect(waitingCounts(list)).toEqual({ questions: 3, shared: 2, outbox: 0, approvals: 0, total: 3 });
-    expect(waitingCounts(EMPTY_WAITING)).toEqual({ questions: 0, shared: 0, outbox: 0, approvals: 0, total: 0 });
+    expect(waitingCounts(list)).toEqual({ questions: 3, shared: 2, outbox: 0, approvals: 0, runners: 0, total: 3 });
+    expect(waitingCounts(EMPTY_WAITING)).toEqual({ questions: 0, shared: 0, outbox: 0, approvals: 0, runners: 0, total: 0 });
   });
 
   it('counts an outbox item in the total', () => {
@@ -53,7 +53,13 @@ describe('the Questions part', () => {
   });
 
   it('counts the approval requests waiting on the person in the total (PRD 1322)', () => {
-    expect(waitingCounts({ ...EMPTY_WAITING, questions: [q('a', MIN)] }, 2)).toEqual({ questions: 1, shared: 0, outbox: 0, approvals: 2, total: 3 });
+    expect(waitingCounts({ ...EMPTY_WAITING, questions: [q('a', MIN)] }, 2)).toEqual({ questions: 1, shared: 0, outbox: 0, approvals: 2, runners: 0, total: 3 });
+  });
+
+  it('keeps the runners waiting for an answer apart from the total: the sidebar\'s badge is their only signal (PRD 2255)', () => {
+    const list = { ...EMPTY_WAITING, questions: [q('a', MIN)] };
+    expect(waitingCounts(list, 2, 4)).toEqual({ questions: 1, shared: 0, outbox: 0, approvals: 2, runners: 4, total: 3 });
+    expect(waitingCounts(EMPTY_WAITING, 0, 3)).toMatchObject({ runners: 3, total: 0 });
   });
 });
 

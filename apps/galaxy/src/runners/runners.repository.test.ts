@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { continuationsRepository, runnersRepository, type RunnersDb } from './runners.repository';
-import { jobRow, runnerRow, SHARED } from './fixtures/store.fake';
+import { jobRow, MO, questionsRow, runnerRow, SHARED, WORKSPACE } from './fixtures/store.fake';
 
 // The runners' storage (PRD 1830 s1): the reads, writes and functions it sends, each answer parsed
 // where it comes in. A fake client records each query's chain and answers what the test gives it. The
@@ -243,5 +243,119 @@ describe('a runner\'s health and samples', () => {
   it('throws on the database\'s refusal, naming the table', async () => {
     const { db } = fakeDb([{ data: null, error: { message: 'permission denied for table runner_samples' } }]);
     await expect(runnersRepository(db).insertSample(sample)).rejects.toThrow('runner_samples: permission denied for table runner_samples');
+  });
+});
+
+// A job's questions (PRD 2255 s1): the row stored once per job, read by job and by workspace, and the two
+// functions that close it, called with every argument and refused by the code the database raises. What
+// the functions do is proven on the database itself by supabase/checks/runner_job_questions.sql.
+describe('a job\'s questions (PRD 2255)', () => {
+  const JOB = '00000000-0000-4000-8000-0000022552a1';
+  const row = questionsRow({ job_id: JOB });
+  const answers = { 'Which fix?': 'Guard the input' };
+
+  it('stores the questions a job asks, with its workspace, issue and lead, and answers the row', async () => {
+    const { db, lines } = fakeDb([{ data: row, error: null }]);
+    const stored = await runnersRepository(db).insertQuestions({ jobId: JOB, workspaceId: WORKSPACE, issue: row.issue, lead: row.lead, questions: row.questions });
+    expect(stored).toEqual(row);
+    expect(lines).toEqual([`from("runner_job_questions").insert(${JSON.stringify({ job_id: JOB, workspace_id: WORKSPACE, issue: 314, lead: row.lead, questions: row.questions })}).select("job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_at, resume_job, asked_at").single()`]);
+  });
+
+  it('answers none when the job asked already (one row per job: the primary key refuses a second)', async () => {
+    const { db } = fakeDb([{ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "runner_job_questions_pkey"' } }]);
+    expect(await runnersRepository(db).insertQuestions({ jobId: JOB, workspaceId: WORKSPACE, issue: row.issue, lead: row.lead, questions: row.questions })).toBeNull();
+  });
+
+  it('throws on any other refusal when it stores, naming the table', async () => {
+    const { db } = fakeDb([{ data: null, error: { code: '23514', message: 'new row violates check constraint "runner_job_questions_questions_check"' } }]);
+    await expect(runnersRepository(db).insertQuestions({ jobId: JOB, workspaceId: WORKSPACE, issue: row.issue, lead: row.lead, questions: row.questions }))
+      .rejects.toThrow('runner_job_questions: new row violates check constraint');
+  });
+
+  it('reads a job\'s questions by the job, and none for a job that asked none', async () => {
+    const { db, lines } = fakeDb([{ data: row, error: null }, { data: null, error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.questionsOf(JOB)).toEqual(row);
+    expect(await repository.questionsOf('00000000-0000-4000-8000-0000022552b1')).toBeNull();
+    expect(lines[0]).toBe(`from("runner_job_questions").select("job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_at, resume_job, asked_at").eq("job_id","${JOB}").maybeSingle()`);
+  });
+
+  it('reads a closed row with its answers, who closed it and the resume job', async () => {
+    const closed = questionsRow({ job_id: JOB, answers, closed_by: MO, closed_at: '2026-10-13T12:05:00.000Z', resume_job: '00000000-0000-4000-8000-0000022552c1' });
+    const { db } = fakeDb([{ data: closed, error: null }]);
+    expect(await runnersRepository(db).questionsOf(JOB)).toEqual(closed);
+  });
+
+  it('throws on a row whose questions are out of shape', async () => {
+    const { db } = fakeDb([{ data: { ...row, questions: [{ question: 'Which fix?' }] }, error: null }]);
+    await expect(runnersRepository(db).questionsOf(JOB)).rejects.toThrow('runner_job_questions answered out of shape');
+  });
+
+  it('lists the workspace\'s jobs whose questions are open, by the workspace', async () => {
+    const { db, lines } = fakeDb([{ data: [{ job_id: JOB }, { job_id: 'j2' }], error: null }]);
+    expect(await runnersRepository(db).openQuestionJobs(WORKSPACE)).toEqual([JOB, 'j2']);
+    expect(lines).toEqual([`from("runner_job_questions").select("job_id").eq("workspace_id","${WORKSPACE}").is("closed_at",null)`]);
+  });
+
+  it('reads the workspace\'s jobs among some ids, newest ended first, and asks nothing for none', async () => {
+    const job = jobRow({ status: 'done', outcome: 'human', ended_at: '2026-10-13T12:00:00.000Z' });
+    const { db, lines } = fakeDb([{ data: [job], error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.jobsById(WORKSPACE, [job.id])).toEqual([job]);
+    expect(lines).toEqual([expect.stringContaining(`.eq("workspace_id","${WORKSPACE}").in("id",["${job.id}"]).order("ended_at",{"ascending":false})`)]);
+    expect(await repository.jobsById(WORKSPACE, [])).toEqual([]);
+    expect(lines).toHaveLength(1);
+  });
+
+  it('reads a job that ended with its questions open, outcome human', async () => {
+    const { db } = fakeDb([{ data: jobRow({ status: 'done', outcome: 'human' }), error: null }]);
+    expect((await runnersRepository(db).job('j1'))?.outcome).toBe('human');
+  });
+
+  it('answers a job\'s questions through runner_job_answer(), with the job, the answers and who answers, and reads the resume job', async () => {
+    const resume = jobRow({ line: `/omni:bug-fix #314 --answers ${JOB}`, sent_by: MO });
+    const { db, lines } = fakeDb([{ data: resume, error: null }, { data: [resume], error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.answer(JOB, answers, MO)).toEqual({ ok: true, value: resume });
+    // A function that returns one row may be answered as a list of one.
+    expect(await repository.answer(JOB, answers, MO)).toEqual({ ok: true, value: resume });
+    expect(lines[0]).toBe(`rpc("runner_job_answer",${JSON.stringify({ p_job: JOB, p_answers: answers, p_by: MO })})`);
+  });
+
+  it('dismisses a job\'s questions through runner_job_dismiss(), with the job and who dismisses, and reads the closed row', async () => {
+    const closed = questionsRow({ job_id: JOB, closed_by: MO, closed_at: '2026-10-13T12:05:00.000Z' });
+    const { db, lines } = fakeDb([{ data: closed, error: null }]);
+    expect(await runnersRepository(db).dismiss(JOB, MO)).toEqual({ ok: true, value: closed });
+    expect(lines).toEqual([`rpc("runner_job_dismiss",${JSON.stringify({ p_job: JOB, p_by: MO })})`]);
+  });
+
+  it.each([
+    ['P0002', 'no questions on this job', 'none'],
+    ['55000', 'these questions are already closed', 'closed'],
+    ['55000', 'this job is not waiting for an answer', 'closed'],
+    ['42501', 'not a member of this workspace', 'stranger'],
+    ['22023', 'each question needs one answer', 'mismatch'],
+  ] as const)('reads the database\'s refusal %s (%s) as %s, for an answer and for a dismissal', async (code, message, refusal) => {
+    const { db } = fakeDb([{ data: null, error: { code, message } }, { data: null, error: { code, message } }]);
+    const repository = runnersRepository(db);
+    expect(await repository.answer(JOB, answers, MO)).toEqual({ ok: false, refusal });
+    expect(await repository.dismiss(JOB, MO)).toEqual({ ok: false, refusal });
+  });
+
+  it('throws on any other failure, naming the function: a permission denied is not a stranger', async () => {
+    const { db } = fakeDb([
+      { data: null, error: { code: '42501', message: 'permission denied for function runner_job_answer' } },
+      { data: null, error: { code: '23514', message: 'new row for relation "runner_jobs" violates check constraint "runner_jobs_line_check"' } },
+    ]);
+    const repository = runnersRepository(db);
+    await expect(repository.answer(JOB, answers, MO)).rejects.toThrow('runner_job_answer(): permission denied for function runner_job_answer');
+    await expect(repository.dismiss(JOB, MO)).rejects.toThrow('runner_job_dismiss(): new row for relation "runner_jobs" violates check constraint');
+  });
+
+  it('throws on an answer out of shape', async () => {
+    const { db } = fakeDb([{ data: { id: 1 }, error: null }, { data: [], error: null }]);
+    const repository = runnersRepository(db);
+    await expect(repository.answer(JOB, answers, MO)).rejects.toThrow('runner_job_answer() answered out of shape');
+    await expect(repository.dismiss(JOB, MO)).rejects.toThrow('runner_job_dismiss() answered out of shape');
   });
 });

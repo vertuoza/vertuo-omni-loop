@@ -1,4 +1,4 @@
-import type { Board, Job, Runner, Target } from '../runners.contract';
+import type { Board, Job, JobQuestions, Runner, Target } from '../runners.contract';
 
 type RunnerHealth = NonNullable<Runner['health']>;
 
@@ -17,7 +17,9 @@ export type RunnersPageView =
   | { kind: 'sign-in' }
   | { kind: 'no-workspace' }
   | { kind: 'unreadable' }
-  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; now: string; answered: readonly string[] };
+  // `demoQuestions` is the demo's alone (PRD 2255): the questions its Need human drawer reads and answers in the
+  // browser, with no route to call. A page read from the database never carries it.
+  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; now: string; answered: readonly string[]; demoQuestions?: readonly JobQuestions[] };
 
 /** The command that starts a runner, as the empty page shows it. */
 export const START_COMMAND = 'omni runner --name <name> --repos <dir>';
@@ -48,8 +50,8 @@ export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'> & { heal
   return ago === 'now' ? 'Offline' : `Offline, ${ago} ago`;
 }
 
-/** A done job's outcome in words (PRD 2223). */
-const OUTCOME_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready' } as const;
+/** A done job's outcome in words (PRD 2223; `human`, PRD 2255: it ended with questions for a person). */
+const OUTCOME_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human' } as const;
 
 /** What a job that waited on answers reads once they are in (PRD 2270): Answered · fixing while its
  * continuation is queued, starting or running, Answered · fixed once that ended, linking it; Answered with a
@@ -98,7 +100,7 @@ export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'r
 
 /** The tone a status is drawn in. */
 export function statusTone(status: Job['status'], outcome?: Job['outcome']): 'queue' | 'run' | 'done' | 'fail' | 'off' | 'wait' {
-  if (status === 'done' && (outcome === 'answers' || outcome === 'held')) return 'wait';
+  if (status === 'done' && (outcome === 'answers' || outcome === 'held' || outcome === 'human')) return 'wait';
   if (status === 'queued') return 'queue';
   if (status === 'claimed' || status === 'running') return 'run';
   if (status === 'done') return 'done';
@@ -112,6 +114,11 @@ export const canCancel = (job: Pick<Job, 'status' | 'cancelRequested'>): boolean
 
 /** Whether a job may be sent again: it failed or was cancelled. Nothing runs again by itself. */
 export const canSendAgain = (job: Pick<Job, 'status'>): boolean => job.status === 'failed' || job.status === 'cancelled';
+
+/** Whether a job shows the Need human button (PRD 2255): it ended done with its questions still open, which the
+ * board reads as outcome `human`. Answered or dismissed, the board sends no outcome and it reads Done; a job
+ * that asked and then failed or was cancelled never shows it. */
+export const canAnswer = (job: Pick<Job, 'status'> & { outcome?: Job['outcome'] }): boolean => job.status === 'done' && job.outcome === 'human';
 
 /** Where a job first went, to send it there again. */
 export function targetOf(job: Pick<Job, 'toRunner' | 'toFleet'>): Target {
@@ -145,10 +152,11 @@ export const madeByWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'>): string
 export const repoName = (repo: string): string => repo.slice(repo.indexOf('/') + 1);
 
 /** The link to the PRD page of a job with an outcome (PRD 2223): `/prd/at/<owner>/<repo>/<n>`, the PRD being
- * the number its line names; null for a job without an outcome or a line that names no PRD. */
+ * the number its line names; null for a job without an outcome (and for Need human, whose number is a bug's
+ * issue, not a PRD) or a line that names no PRD. */
 export function prdPageLink(job: Pick<Job, 'line' | 'repo' | 'outcome' | 'status'>): string | null {
   const number = /^\/omni:[a-z-]+ (\d+)$/.exec(job.line)?.[1];
-  if (job.status !== 'done' || !job.outcome || number === undefined) return null;
+  if (job.status !== 'done' || !job.outcome || job.outcome === 'human' || number === undefined) return null;
   return `/prd/at/${job.repo.split('/').map(encodeURIComponent).join('/')}/${number}`;
 }
 

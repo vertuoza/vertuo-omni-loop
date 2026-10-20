@@ -69,7 +69,7 @@ describe('the browser\'s Fix with answers', () => {
     const fetcher = answer(200, { job: { ...FIX, id: FIX.id, line: FIX.line, repo: 'acme/widgets', toRunner: null, toFleet: null, sentBy: JOB, sentByLogin: 'ada', sentByKey: null, status: 'queued', runner: null, cancelRequested: false, logTail: '', prUrl: null, exitCode: null, reason: null, queuedAt: 'x', claimedAt: null, runningAt: null, endedAt: null } });
     const called = await fixFromBrowser(JOB, fetcher);
     expect(called).toMatchObject({ ok: true, value: { id: FIX.id, continues: JOB } });
-    expect(fetcher).toHaveBeenCalledWith(`/api/runners/jobs/${JOB}/fix`, { method: 'POST', credentials: 'same-origin' });
+    expect(fetcher).toHaveBeenCalledWith(`/api/runners/jobs/${JOB}/fix`, { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'same-origin' });
   });
 
   it('shows the route\'s words for a refusal, and says the app could not be reached otherwise', async () => {

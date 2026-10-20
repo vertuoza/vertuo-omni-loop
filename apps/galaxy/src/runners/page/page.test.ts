@@ -55,6 +55,12 @@ describe('/app/runners', () => {
     expect((await props()).terminal).toBeNull();
   });
 
+  it('passes the job ?answer= names on, to open its Need human drawer (PRD 2255)', async () => {
+    given.session = { kind: 'demo' };
+    expect((await props({ answer: 'job-2' })).answer).toBe('job-2');
+    expect((await props()).answer).toBeNull();
+  });
+
   it('loads the board as the signed-in person', async () => {
     given.session = { kind: 'signed-in', db: { db: true }, user: { id: 'u1' } };
     expect((await props()).view).toEqual({ kind: 'board', loaded: true });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { afterAnswersWords, answeredOf, canCancel, fixLineOf, canSendAgain, madeByWords, prdPageLink, prWords, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
+import { afterAnswersWords, answeredOf, canAnswer, canCancel, fixLineOf, canSendAgain, madeByWords, prdPageLink, prWords, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
 
 // The Runners page's words and rules (PRD 1830 s3), pure: how long ago, where a job is sent again, and
 // which jobs take Cancel or Send again.
@@ -137,5 +137,41 @@ describe('a job that waited, once its answers are in (PRD 2270 s2)', () => {
     expect(fixLineOf({ line: '/omni:yolo 2270' })).toBe('/omni:yolo-fix 2270');
     expect(fixLineOf({ line: '/omni:do-work 2270 s1' })).toBe('/omni:yolo-fix 2270');
     expect(fixLineOf({ line: '/omni:bug-fix Issue 548 totals' })).toBeNull();
+  });
+});
+
+describe('a done job that needs a human (PRD 2255)', () => {
+  const job = { reason: null, exitCode: 0, runningAt: null, claimedAt: null, status: 'done' as const };
+
+  it('reads Need human, and Done once its questions are answered or dismissed (the board sends no outcome then)', () => {
+    expect(statusWords({ ...job, outcome: 'human' }, NOW)).toBe('Need human');
+    expect(statusWords({ ...job, outcome: null }, NOW)).toBe('Done');
+  });
+
+  it('is drawn in the yellow, as a job that waits on a person, and only when it is done', () => {
+    expect(statusTone('done', 'human')).toBe('wait');
+    expect(statusTone('failed', 'human')).toBe('fail');
+    expect(statusTone('cancelled', 'human')).toBe('off');
+  });
+
+  it('links no PRD page: its number is a bug\'s issue', () => {
+    expect(prdPageLink({ line: '/omni:bug-fix 314', repo: 'acme/widgets', status: 'done', outcome: 'human' })).toBeNull();
+    expect(prdPageLink({ line: '/omni:yolo 2213', repo: 'acme/widgets', status: 'done', outcome: 'human' })).toBeNull();
+  });
+});
+
+describe('canAnswer (PRD 2255 s3)', () => {
+  it('shows the Need human button on a done job that ended with its questions open', () => {
+    expect(canAnswer({ status: 'done', outcome: 'human' })).toBe(true);
+  });
+
+  it('shows none once the questions were answered or dismissed (the board sends no outcome then), or on any other outcome', () => {
+    expect(canAnswer({ status: 'done', outcome: null })).toBe(false);
+    expect(canAnswer({ status: 'done' })).toBe(false);
+    for (const outcome of ['answers', 'held', 'ready'] as const) expect(canAnswer({ status: 'done', outcome })).toBe(false);
+  });
+
+  it('shows none on a job that asked and then failed, was cancelled, or still runs', () => {
+    for (const status of ['failed', 'cancelled', 'running', 'queued', 'claimed'] as const) expect(canAnswer({ status, outcome: 'human' })).toBe(false);
   });
 });

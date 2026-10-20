@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { OutboxStand } from '../dossier/page/stage';
-import type { ContinuationsRepository, JobLineRow, JobRow, RunnerRow, SampleRow } from './runners.repository';
+import { ENDED_JOBS_SHOWN } from './runners.contract';
+import type { ContinuationsRepository, JobLineRow, JobRow, QuestionsRow, RunnerRow, SampleRow } from './runners.repository';
 import { continuationsService, cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
-  API_KEY, CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, runnerRow, RUNNERS, SAM, SHARED, T0, WORKSPACE,
+  API_KEY, CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, QUESTION, questionsRow, runnerRow, RUNNERS, SAM, SHARED, T0, WORKSPACE,
 } from './fixtures/store.fake';
 
 // The runners' rules (PRD 1830 s1), on realistic rows in memory and a fixed clock: which jobs a runner
@@ -14,12 +15,12 @@ import {
 const at = (seconds: number) => new Date(T0.getTime() + seconds * 1000);
 
 /** The service on the fake store, with a clock that a held `next` moves forward as it sleeps. */
-function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], start = T0, onSleep }: {
-  jobs?: JobRow[]; runners?: RunnerRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; start?: Date; onSleep?: (jobs: JobRow[]) => void;
+function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], questions = [], start = T0, onSleep }: {
+  jobs?: JobRow[]; runners?: RunnerRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; start?: Date; onSleep?: (jobs: JobRow[]) => void;
 } = {}) {
   let now = start;
   const slept: number[] = [];
-  const { store, state } = fakeStore({ jobs, runners, lines, samples, now: () => now });
+  const { store, state } = fakeStore({ jobs, runners, lines, samples, questions, now: () => now });
   const service = runnersService(store, {
     now: () => now,
     sleep: (ms) => {
@@ -899,5 +900,347 @@ describe('a continuation', () => {
     expect(await service.continueAnswered({ ...ask(), by: EVE })).toEqual({ queued: null, why: 'you are not a member of this workspace' });
     expect(await service.continueAnswered({ ...ask({ asked: 2, answered: 1, answers: [] }), by: MO })).toMatchObject({ queued: null });
     expect(state.jobs).toHaveLength(1);
+  });
+});
+
+// PRD 2255 s1: a running job asks a person on its job, ends `done` with its questions open and reads
+// Need human, and the first person of the workspace to answer queues the run that resumes it.
+describe('a job\'s questions (PRD 2255)', () => {
+  const ASK = { issue: parseIssue(314), lead: 'The planning query fails for 31 tenants.', questions: [QUESTION] };
+  const ANSWERS = { 'Which fix?': 'Guard the input' };
+  const times = { claimed_at: T0.toISOString(), running_at: T0.toISOString() };
+  /** A bug fix running on the shared runner, which Olga owns, sent by Olga to the fleet cia. */
+  const running = (more: Partial<JobRow> = {}) => jobRow({ status: 'running', runner_id: SHARED, line: '/omni:bug-fix #314', sent_by: OLGA, to_fleet: 'cia', ...times, ...more });
+  /** The same job, ended `done` with its questions open: Need human. */
+  const waiting = (more: Partial<JobRow> = {}) => running({ status: 'done', outcome: 'human', ended_at: T0.toISOString(), ...more });
+
+  describe('asking', () => {
+    it('stores the questions of a running job, from the owner of its runner, and reads them back open', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      const asked = value(await w.service.ask(OLGA, job.id, ASK));
+      expect(w.state.questions).toEqual([questionsRow({ job_id: job.id, issue: ASK.issue, lead: ASK.lead, questions: ASK.questions })]);
+      expect(asked).toEqual({
+        job: job.id, issue: 314, lead: ASK.lead, questions: [QUESTION], state: 'open', answers: null, by: null, byLogin: null, at: null, resume: null,
+      });
+    });
+
+    it('is refused to anyone but the owner of the job\'s runner, for a job nobody knows, and for one that is not running', async () => {
+      const [job, queued, claimed, done] = [running(), jobRow({ ...times }), running({ status: 'claimed', running_at: null }), waiting({ outcome: null })];
+      const w = world({ jobs: [job, queued, claimed, done] });
+      expect(await w.service.ask(MO, job.id, ASK)).toMatchObject({ ok: false, kind: 'forbidden' });
+      expect(await w.service.ask(OLGA, '00000000-0000-4000-8000-0000022559f9', ASK)).toMatchObject({ ok: false, kind: 'missing' });
+      for (const notRunning of [queued, claimed, done]) {
+        expect(await w.service.ask(OLGA, notRunning.id, ASK)).toMatchObject({ ok: false, kind: notRunning === queued ? 'forbidden' : 'conflict' });
+      }
+      expect(w.state.questions).toEqual([]);
+    });
+
+    it('says in words that a job that is not running cannot ask', async () => {
+      const done = waiting({ outcome: null });
+      const w = world({ jobs: [done] });
+      expect(await w.service.ask(OLGA, done.id, ASK)).toEqual({ ok: false, kind: 'conflict', error: 'This job is done: only a running job asks.' });
+    });
+
+    it('takes the questions of a job once: a second ask is refused and changes nothing', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      value(await w.service.ask(OLGA, job.id, ASK));
+      const again = await w.service.ask(OLGA, job.id, { ...ASK, lead: 'Another lead.' });
+      expect(again).toEqual({ ok: false, kind: 'conflict', error: 'This job asked its questions already.' });
+      expect(w.state.questions).toHaveLength(1);
+      expect(w.state.questions[0]?.lead).toBe(ASK.lead);
+    });
+  });
+
+  describe('ending', () => {
+    it('stores the outcome human on a job reported done with its questions open, whatever outcome the report carried', async () => {
+      const plain = running();
+      const yolo = running();
+      const w = world({ jobs: [plain, yolo], questions: [questionsRow({ job_id: plain.id }), questionsRow({ job_id: yolo.id })] });
+      value(await w.service.update(OLGA, plain.id, { status: 'done', exitCode: 0 }));
+      value(await w.service.update(OLGA, yolo.id, { status: 'done', exitCode: 0, outcome: 'answers' }));
+      expect(w.state.jobs.map((j) => [j.status, j.outcome])).toEqual([['done', 'human'], ['done', 'human']]);
+    });
+
+    it('stores none on a failed or cancelled job that asked, and none when the questions were closed before it ended', async () => {
+      const failed = running();
+      const cancelled = running();
+      const answeredEarly = running();
+      const w = world({
+        jobs: [failed, cancelled, answeredEarly],
+        questions: [questionsRow({ job_id: failed.id }), questionsRow({ job_id: cancelled.id }), questionsRow({ job_id: answeredEarly.id, answers: ANSWERS, closed_by: MO, closed_at: T0.toISOString() })],
+      });
+      value(await w.service.update(OLGA, failed.id, { status: 'failed', exitCode: 1 }));
+      value(await w.service.update(OLGA, cancelled.id, { status: 'cancelled' }));
+      value(await w.service.update(OLGA, answeredEarly.id, { status: 'done', exitCode: 0 }));
+      for (const job of w.state.jobs) expect(job.outcome ?? null).toBeNull();
+    });
+
+    it('keeps the outcome a job without questions reports', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, outcome: 'held' }));
+      expect(w.state.jobs[0]?.outcome).toBe('held');
+    });
+  });
+
+  describe('reading', () => {
+    it('is open to any member of the workspace, a person or a runner\'s owner, and reads the questions open', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      for (const reader of [MO, OLGA, SAM]) {
+        expect(value(await w.service.questions(reader, job.id))).toMatchObject({ job: job.id, state: 'open', questions: [QUESTION], lead: ASK.lead, issue: 314 });
+      }
+    });
+
+    it('reads a member of another workspace no question, as a job nobody knows, and says when a job asked none', async () => {
+      const job = waiting();
+      const quiet = running();
+      const w = world({ jobs: [job, quiet], questions: [questionsRow({ job_id: job.id })] });
+      expect(await w.service.questions(EVE, job.id)).toEqual({ ok: false, kind: 'missing', error: 'No such job.' });
+      expect(await w.service.questions(MO, '00000000-0000-4000-8000-0000022559f9')).toMatchObject({ ok: false, kind: 'missing' });
+      expect(await w.service.questions(MO, quiet.id)).toEqual({ ok: false, kind: 'missing', error: 'This job asked no question.' });
+    });
+
+    it('reads an answered row with its answers, who answered by id and login, when, and the job that resumes it', async () => {
+      const job = waiting();
+      const resume = '00000000-0000-4000-8000-0000022552c1';
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id, answers: ANSWERS, closed_by: MO, closed_at: '2026-10-13T12:05:00.000Z', resume_job: resume })] });
+      expect(value(await w.service.questions(OLGA, job.id))).toMatchObject({ state: 'answered', answers: ANSWERS, by: MO, byLogin: 'mo', at: '2026-10-13T12:05:00.000Z', resume });
+    });
+
+    it('reads a dismissed row with no answers and no resume job', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id, closed_by: SAM, closed_at: '2026-10-13T12:05:00.000Z' })] });
+      expect(value(await w.service.questions(OLGA, job.id))).toMatchObject({ state: 'dismissed', answers: null, by: SAM, byLogin: null, resume: null });
+    });
+  });
+
+  describe('answering', () => {
+    it('queues the resume line to the first job\'s repository and target, sent by the answerer, and stores the answers once', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      const resume = value(await w.service.answer(MO, job.id, { answers: ANSWERS }));
+      expect(resume).toMatchObject({ line: `/omni:bug-fix #314 --answers ${job.id}`, repo: 'vertuoza/app', toRunner: null, toFleet: 'cia', sentBy: MO, sentByLogin: 'mo', status: 'queued' });
+      expect(w.state.jobs.map((j) => j.id)).toEqual([job.id, resume.id]);
+      expect(w.state.questions[0]).toMatchObject({ answers: ANSWERS, closed_by: MO, closed_at: T0.toISOString(), resume_job: resume.id });
+    });
+
+    it('sends the resume to the runner the first job went to', async () => {
+      const job = waiting({ to_fleet: null, to_runner: CIA_BOX });
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      expect(value(await w.service.answer(OLGA, job.id, { answers: ANSWERS }))).toMatchObject({ toRunner: CIA_BOX, toFleet: null });
+    });
+
+    it('keeps the skill of the first job: a mega bug fix resumes as one', async () => {
+      const job = waiting({ line: '/omni:mega-bug-fix #314' });
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      expect(value(await w.service.answer(MO, job.id, { answers: ANSWERS })).line).toBe(`/omni:mega-bug-fix #314 --answers ${job.id}`);
+    });
+
+    it('gives the first answer the job: a second reads who answered, and queues and stores nothing', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      value(await w.service.answer(MO, job.id, { answers: ANSWERS }));
+      const second = await w.service.answer(OLGA, job.id, { answers: { 'Which fix?': 'Design it first' } });
+      expect(second).toEqual({ ok: false, kind: 'conflict', error: 'Already answered by @mo' });
+      expect(w.state.jobs).toHaveLength(2);
+      expect(w.state.questions[0]).toMatchObject({ answers: ANSWERS, closed_by: MO });
+    });
+
+    it('reads a dismissed row as dismissed, by whom, and queues nothing', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      value(await w.service.dismiss(OLGA, job.id));
+      expect(await w.service.answer(MO, job.id, { answers: ANSWERS })).toEqual({ ok: false, kind: 'conflict', error: 'Dismissed by @olga' });
+      expect(w.state.jobs).toHaveLength(1);
+    });
+
+    it('names a person with no GitHub login as someone', async () => {
+      // Sam plays in no fleet: the job went to any runner.
+      const job = waiting({ to_fleet: null });
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      value(await w.service.answer(SAM, job.id, { answers: ANSWERS }));
+      expect(await w.service.answer(MO, job.id, { answers: ANSWERS })).toMatchObject({ error: 'Already answered by someone' });
+    });
+
+    it('needs one answer to each question and no other: nothing is queued or stored otherwise', async () => {
+      const job = waiting();
+      const two = { ...QUESTION, question: 'And the tests?' };
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id, questions: [QUESTION, two] })] });
+      for (const answers of [ANSWERS, { ...ANSWERS, 'Why?': 'because' }, { 'Which fix?': 'Guard the input', 'Another?': 'yes' }]) {
+        expect(await w.service.answer(MO, job.id, { answers })).toEqual({ ok: false, kind: 'malformed', error: 'Answer each question once, and only the ones asked.' });
+      }
+      expect(w.state.jobs).toHaveLength(1);
+      expect(w.state.questions[0]?.closed_at).toBeNull();
+      value(await w.service.answer(MO, job.id, { answers: { ...ANSWERS, 'And the tests?': 'Add one' } }));
+    });
+
+    it('is a job nobody knows to a member of another workspace, and one without questions', async () => {
+      const job = waiting();
+      const quiet = waiting();
+      const w = world({ jobs: [job, quiet], questions: [questionsRow({ job_id: job.id })] });
+      expect(await w.service.answer(EVE, job.id, { answers: ANSWERS })).toEqual({ ok: false, kind: 'missing', error: 'No such job.' });
+      expect(await w.service.answer(MO, quiet.id, { answers: ANSWERS })).toEqual({ ok: false, kind: 'missing', error: 'This job asked no question.' });
+      expect(w.state.jobs).toHaveLength(2);
+    });
+
+    it('is refused for a job that is not waiting: still running, or ended without asking for a human', async () => {
+      const stillRunning = running();
+      const failed = waiting({ status: 'failed', outcome: null });
+      const w = world({ jobs: [stillRunning, failed], questions: [questionsRow({ job_id: stillRunning.id }), questionsRow({ job_id: failed.id })] });
+      for (const job of [stillRunning, failed]) {
+        expect(await w.service.answer(MO, job.id, { answers: ANSWERS })).toEqual({ ok: false, kind: 'conflict', error: 'This job is not waiting for an answer.' });
+      }
+      expect(w.state.jobs).toHaveLength(2);
+    });
+
+    it('checks the target as a person\'s Send does: a fleet\'s runner is for its players and the owners, and nothing is stored', async () => {
+      const toPirates = waiting({ to_fleet: 'pirates' });
+      const toCiaBox = waiting({ to_fleet: null, to_runner: CIA_BOX });
+      const w = world({ jobs: [toPirates, toCiaBox], questions: [questionsRow({ job_id: toPirates.id }), questionsRow({ job_id: toCiaBox.id })] });
+      expect(await w.service.answer(MO, toPirates.id, { answers: ANSWERS })).toEqual({ ok: false, kind: 'forbidden', error: 'Only the players of pirates and the workspace\'s owners send to its runners.' });
+      expect(await w.service.answer(PIA, toCiaBox.id, { answers: ANSWERS })).toMatchObject({ ok: false, kind: 'forbidden', error: expect.stringContaining('cia-box serves cia') as string });
+      expect(w.state.jobs).toHaveLength(2);
+      expect(w.state.questions.every((q) => q.closed_at === null)).toBe(true);
+      // The workspace's owner, and a player of the fleet, answer.
+      value(await w.service.answer(OLGA, toPirates.id, { answers: ANSWERS }));
+      value(await w.service.answer(MO, toCiaBox.id, { answers: ANSWERS }));
+    });
+
+    it('checks the repository as a person\'s Send does: one that left the workspace is refused, and nothing is stored', async () => {
+      const job = waiting({ repo: 'elsewhere/app' });
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      expect(await w.service.answer(MO, job.id, { answers: ANSWERS })).toMatchObject({ ok: false, kind: 'forbidden' });
+      expect(w.state.jobs).toHaveLength(1);
+      expect(w.state.questions[0]?.closed_at).toBeNull();
+    });
+
+    it('checks the resume line as a person\'s Send does: a first job that is no listed skill is refused, and nothing is stored', async () => {
+      const job = waiting({ line: '/omni:nope #314' });
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      expect(await w.service.answer(MO, job.id, { answers: ANSWERS })).toMatchObject({ ok: false, kind: 'malformed' });
+      expect(w.state.jobs).toHaveLength(1);
+    });
+  });
+
+  describe('dismissing', () => {
+    it('closes the row with no answers and queues no job, and reads who dismissed it', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      const closed = value(await w.service.dismiss(MO, job.id));
+      expect(closed).toMatchObject({ job: job.id, state: 'dismissed', answers: null, by: MO, byLogin: 'mo', at: T0.toISOString(), resume: null });
+      expect(w.state.jobs).toHaveLength(1);
+    });
+
+    it('is open to any member of the workspace, to one only once, and to no one outside it', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      expect(await w.service.dismiss(EVE, job.id)).toEqual({ ok: false, kind: 'missing', error: 'No such job.' });
+      value(await w.service.dismiss(PIA, job.id));
+      expect(await w.service.dismiss(MO, job.id)).toEqual({ ok: false, kind: 'conflict', error: 'Dismissed by @pia' });
+    });
+
+    it('reads an answered row as answered, by whom', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      value(await w.service.answer(MO, job.id, { answers: ANSWERS }));
+      expect(await w.service.dismiss(OLGA, job.id)).toEqual({ ok: false, kind: 'conflict', error: 'Already answered by @mo' });
+    });
+
+    it('is refused for a job without questions and for one that is not waiting', async () => {
+      const quiet = waiting();
+      const failed = waiting({ status: 'failed', outcome: null });
+      const w = world({ jobs: [quiet, failed], questions: [questionsRow({ job_id: failed.id })] });
+      expect(await w.service.dismiss(MO, quiet.id)).toEqual({ ok: false, kind: 'missing', error: 'This job asked no question.' });
+      expect(await w.service.dismiss(MO, failed.id)).toEqual({ ok: false, kind: 'conflict', error: 'This job is not waiting for an answer.' });
+    });
+  });
+
+  // Two people answering at once: both pass the checks, one finds the row closed by the database, which locks it.
+  describe('when the database refuses after the checks', () => {
+    const racing = (refusal: 'none' | 'closed' | 'stranger' | 'mismatch') => {
+      const job = waiting();
+      const { store } = fakeStore({ jobs: [job], questions: [questionsRow({ job_id: job.id })], now: () => T0 });
+      const refusing = { ...store, answer: () => Promise.resolve({ ok: false as const, refusal }), dismiss: () => Promise.resolve({ ok: false as const, refusal }) };
+      return { job, service: runnersService(refusing, { now: () => T0, sleep: () => Promise.resolve() }) };
+    };
+
+    it.each([
+      ['none', 'missing', 'This job asked no question.'],
+      ['stranger', 'forbidden', 'You are not a member of this workspace.'],
+      ['mismatch', 'malformed', 'Answer each question once, and only the ones asked.'],
+      ['closed', 'conflict', 'This job is not waiting for an answer.'],
+    ] as const)('reads %s as %s: %s', async (refusal, kind, error) => {
+      const { job, service } = racing(refusal);
+      expect(await service.answer(MO, job.id, { answers: ANSWERS })).toEqual({ ok: false, kind, error });
+      expect(await service.dismiss(MO, job.id)).toEqual({ ok: false, kind, error });
+    });
+
+    it('names who closed the row when the other person won the race', async () => {
+      const job = waiting();
+      const { store } = fakeStore({ jobs: [job], questions: [questionsRow({ job_id: job.id })], now: () => T0 });
+      // The row reads open to the checks, and closed by Pia when the function refuses.
+      let reads = 0;
+      const closing = {
+        ...store,
+        questionsOf: async (id: string) => {
+          const row = await store.questionsOf(id);
+          reads += 1;
+          return row && reads > 1 ? { ...row, answers: ANSWERS, closed_by: PIA, closed_at: T0.toISOString() } : row;
+        },
+        answer: () => Promise.resolve({ ok: false as const, refusal: 'closed' as const }),
+      };
+      const service = runnersService(closing, { now: () => T0, sleep: () => Promise.resolve() });
+      expect(await service.answer(MO, job.id, { answers: ANSWERS })).toEqual({ ok: false, kind: 'conflict', error: 'Already answered by @pia' });
+    });
+  });
+
+  describe('on the Runners page', () => {
+    it('reads a job that ended with its questions open as human, and as Done once they are answered or dismissed', async () => {
+      const open = waiting();
+      const answered = waiting();
+      const dismissed = waiting();
+      const w = world({ jobs: [open, answered, dismissed], questions: [questionsRow({ job_id: open.id }), questionsRow({ job_id: answered.id }), questionsRow({ job_id: dismissed.id })] });
+      value(await w.service.answer(MO, answered.id, { answers: ANSWERS }));
+      value(await w.service.dismiss(MO, dismissed.id));
+      const board = value(await w.service.board(PIA, WORKSPACE));
+      expect(board.jobs.filter((j) => [open.id, answered.id, dismissed.id].includes(j.id)).map((j) => [j.id, j.status, j.outcome])).toEqual([
+        [open.id, 'done', 'human'], [answered.id, 'done', null], [dismissed.id, 'done', null],
+      ]);
+      // The queued resume job is on the board too.
+      expect(board.jobs.find((j) => j.line === `/omni:bug-fix #314 --answers ${answered.id}`)).toMatchObject({ status: 'queued', outcome: null });
+    });
+
+    it('keeps a job waiting for an answer on the board whatever its age: past the last 50 ended jobs', async () => {
+      const old = waiting({ ended_at: new Date(T0.getTime() - 86_400_000).toISOString() });
+      const ended = Array.from({ length: ENDED_JOBS_SHOWN }, (_, i) => jobRow({ status: 'done', runner_id: SHARED, ended_at: at(-i).toISOString() }));
+      const w = world({ jobs: [old, ...ended], questions: [questionsRow({ job_id: old.id })] });
+      const board = value(await w.service.board(PIA, WORKSPACE));
+      expect(board.jobs).toHaveLength(ENDED_JOBS_SHOWN + 1);
+      expect(board.jobs.find((j) => j.id === old.id)).toMatchObject({ status: 'done', outcome: 'human' });
+      // Newest ended first, the old one last among them.
+      expect(board.jobs.at(-1)?.id).toBe(old.id);
+    });
+
+    it('lists a waiting job once when it is among the last 50 as well', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      expect(value(await w.service.board(PIA, WORKSPACE)).jobs.map((j) => j.id)).toEqual([job.id]);
+    });
+
+    it('does not keep an old job on the board for questions nobody can answer: a failed job that asked, or one answered', async () => {
+      const failed = waiting({ status: 'failed', outcome: null, ended_at: new Date(T0.getTime() - 86_400_000).toISOString() });
+      const answered = waiting({ ended_at: new Date(T0.getTime() - 86_400_000).toISOString() });
+      const ended = Array.from({ length: ENDED_JOBS_SHOWN }, (_, i) => jobRow({ status: 'done', runner_id: SHARED, ended_at: at(-i).toISOString() }));
+      const w = world({
+        jobs: [failed, answered, ...ended],
+        questions: [questionsRow({ job_id: failed.id }), questionsRow({ job_id: answered.id, answers: ANSWERS, closed_by: MO, closed_at: T0.toISOString() })],
+      });
+      const board = value(await w.service.board(PIA, WORKSPACE));
+      expect(board.jobs.map((j) => j.id)).not.toContain(failed.id);
+      expect(board.jobs.map((j) => j.id)).not.toContain(answered.id);
+    });
   });
 });

@@ -4,10 +4,12 @@ import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, FixWithAnswersButton, FleetPicker, Refresh, SendAgainButton } from './actions';
 import {
-  afterAnswersWords, answeredOf, canCancel, canSendAgain, fixLineOf, fleetCell, madeByWords, prdPageLink, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  afterAnswersWords, answeredOf, canAnswer, canCancel, canSendAgain, fixLineOf, fleetCell, madeByWords, prdPageLink, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Answered, type Fleet, type ReleaseNote, type RunnersPageView,
 } from './model';
 import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
+import { listedAnswer } from './need-human';
+import { NeedHumanButton, NeedHumanProvider, type NeedJob } from './NeedHuman';
 import { runnerJob, terminalOf } from './terminal-model';
 import { TerminalButton, TerminalProvider, type TerminalJob } from './Terminal';
 import '../../dashboard/board/board.css';
@@ -25,9 +27,12 @@ import './runners.css';
 // the panel and the 5 s refresh run in the browser (./actions.tsx, ./Terminal.tsx); the rest is drawn on
 // the server, so a refresh draws it again with the new rows, the open panel kept. A job whose runner
 // released its claims once it ended lists them under its status, each linked, or says why it could not
-// (PRD 2175). A job that waited on answers reads Answered · fixing and Answered · fixed once they are in,
-// linking the fix job, which reads `after answers · job <id>` linking back; with every asked item answered
-// and no fix queued it reads Answered with Fix with answers, the row's one primary action (PRD 2270 s2).
+// (PRD 2175). A done job that ended with questions open reads Need human, filled, with a Need human button
+// opening the drawer that answers them (PRD 2255 s3, ./NeedHuman.tsx); `?answer=<job id>` opens it too. Once
+// answered or dismissed it reads Done and carries no button. A job that waited on answers reads Answered ·
+// fixing and Answered · fixed once they are in, linking the fix job, which reads `after answers · job <id>`
+// linking back; with every asked item answered and no fix queued it reads Answered with Fix with answers,
+// the row's one primary action (PRD 2270 s2).
 
 type Supabase = { url: string; key: string };
 
@@ -37,6 +42,8 @@ export interface RunnersPageProps {
   signinError: string | null;
   /** The job whose Terminal panel the URL opens (`?terminal=<job id>`), if any. */
   terminal?: string | null;
+  /** The job whose Need human drawer the URL opens (`?answer=<job id>`), if any (PRD 2255). */
+  answer?: string | null;
 }
 
 function Closed() {
@@ -97,13 +104,19 @@ function RunnerRow({ runner, board, fleets, now }: { runner: Runner; board: Boar
   );
 }
 
+/** A done job's button about its answers: Fix with answers once they are in (PRD 2270), Need human while its questions are open (PRD 2255). */
+function AnswersButton({ job, primary, answered }: { job: Job; primary: boolean; answered: Answered | null }) {
+  if (answered?.button === true && fixLineOf(job) !== null) return <FixWithAnswersButton job={job.id} primary={primary} />;
+  return canAnswer(job) ? <NeedHumanButton job={job.id} /> : null;
+}
+
 function Action({ job, primary, answered }: { job: Job; primary: boolean; answered: Answered | null }) {
   if (canCancel(job)) return <CancelButton job={job.id} />;
   if (canSendAgain(job)) return <SendAgainButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />;
   const page = prdPageLink(job);
   return (
     <>
-      {answered?.button === true && fixLineOf(job) !== null && <FixWithAnswersButton job={job.id} primary={primary} />}
+      <AnswersButton job={job} primary={primary} answered={answered} />
       {job.status === 'done' && job.prUrl && <a href={job.prUrl}>{prWords(job.prUrl)}</a>}
       {page !== null && <a href={page}>PRD page</a>}
     </>
@@ -126,7 +139,7 @@ function ReleaseLine({ note }: { note: ReleaseNote }) {
 /** A job's status: its words, or Answered · fixing / fixed linking the fix, or Answered (PRD 2270). */
 function StatusWords({ job, now, answered }: { job: Job; now: Date; answered: Answered | null }) {
   const words = answered === null ? statusWords(job, now) : answered.fix === null ? answered.words : <a href={`#job-${answered.fix}`}>{answered.words}</a>;
-  return <span className={`runners-status is-${answered?.tone ?? statusTone(job.status, job.outcome)}`}>{words}</span>;
+  return <span className={`runners-status is-${answered?.tone ?? statusTone(job.status, job.outcome)}${canAnswer(job) ? ' is-human' : ''}`}>{words}</span>;
 }
 
 function JobRow({ job, board, fleets, now, primary, answeredIds }: { job: Job; board: Board; fleets: readonly Fleet[]; now: Date; primary: boolean; answeredIds: readonly string[] }) {
@@ -197,7 +210,7 @@ function Board({ board, fleets, now, answered }: { board: Board; fleets: readonl
   );
 }
 
-export function RunnersPage({ view, supabase, signinError, terminal = null }: RunnersPageProps) {
+export function RunnersPage({ view, supabase, signinError, terminal = null, answer = null }: RunnersPageProps) {
   if (view.kind === 'closed' || view.kind === 'sign-in' || view.kind === 'no-workspace') {
     return <MemberGate kind={view.kind} closed={<Closed />} board="The Runners page" supabase={supabase} signinError={signinError} />;
   }
@@ -206,9 +219,14 @@ export function RunnersPage({ view, supabase, signinError, terminal = null }: Ru
   }
   const runnerName = (id: string | null) => view.board.runners.find((runner) => runner.id === id)?.name ?? null;
   const jobs: TerminalJob[] = view.board.jobs.map((job) => ({ id: job.id, repo: job.repo, runner: runnerName(job.runner), status: job.status }));
+  // The job `?answer=` opens, once the board lists it; with it, the Terminal panel stays shut, so two panels never stack.
+  const asked = listedAnswer(answer, view.board.jobs);
+  const needJobs: NeedJob[] = view.board.jobs.map((job) => ({ id: job.id, repo: job.repo }));
   return (
-    <TerminalProvider initial={terminalOf(terminal)} jobs={jobs}>
-      <Board board={view.board} fleets={view.fleets} now={new Date(view.now)} answered={view.answered} />
+    <TerminalProvider initial={terminalOf(asked === null ? terminal : null)} jobs={jobs}>
+      <NeedHumanProvider initial={asked} jobs={needJobs} demo={view.demoQuestions ?? null}>
+        <Board board={view.board} fleets={view.fleets} now={new Date(view.now)} answered={view.answered} />
+      </NeedHumanProvider>
     </TerminalProvider>
   );
 }

@@ -11,6 +11,7 @@ import { BUSINESS_MS, EMPTY_BUSINESS_PART, businessRead, readBusinessCount, type
 import { iconHref } from './icon';
 import { EMPTY_OUTBOX_PART, outboxRead, pollOutbox, readOutbox, type OutboxPart } from './outbox';
 import { pollQuestions } from './questions-poll';
+import { pollRunners, runnersFailed, runnersSeen, type RunnersPart } from './runners';
 import type { WaitingView } from './view';
 import { partTick, waitingClient, type SignedOutGate } from './waiting.client';
 import { EMPTY_WAITING, titled, waitingCounts, type WaitingApproval, type WaitingCounts, type WaitingItem, type WaitingList, type WaitingOutbox } from './waiting';
@@ -48,12 +49,18 @@ import { EMPTY_WAITING, titled, waitingCounts, type WaitingApproval, type Waitin
 // PRD 1322 (s2) adds the Approvals part (src/waiting/approvals.ts): the approval requests waiting on the
 // person, read from GET /api/waiting/approvals once after load and every 15 s while visible. It is a
 // wait: it adds to the total, and a new request alerts like a new question.
+//
+// PRD 2255 (s4) adds the Runners part (src/waiting/runners.ts): how many of the workspace's runner jobs
+// wait for an answer, read from GET /api/waiting/runners through src/waiting/waiting.client.ts once after
+// load and every 15 s while visible, and stopped by a 401 with the other two. It is the badge on Runners
+// alone (counts.runners): it never adds to the total, so not to the bell, the tab's `(N)` or the favicon
+// dot, and it raises no alert, since nobody is notified.
 
 export type Waiting = {
   list: WaitingList;
   counts: WaitingCounts;
   /** A part whose last read failed: it holds what it last had. */
-  unread: { questions: boolean; outbox: boolean; documents: boolean; business: boolean; approvals: boolean };
+  unread: { questions: boolean; outbox: boolean; documents: boolean; business: boolean; approvals: boolean; runners: boolean };
   /** How many PRDs the outbox route could not read, the items of the others kept. */
   unreadPrds: number;
   /** The New documents part: one group per PRD, newest first. Never counted. */
@@ -65,7 +72,7 @@ export type Waiting = {
 };
 
 const EMPTY: Waiting = {
-  list: EMPTY_WAITING, counts: waitingCounts(EMPTY_WAITING), unread: { questions: false, outbox: false, documents: false, business: false, approvals: false },
+  list: EMPTY_WAITING, counts: waitingCounts(EMPTY_WAITING), unread: { questions: false, outbox: false, documents: false, business: false, approvals: false, runners: false },
   unreadPrds: 0, documents: [], business: 0, approvals: [],
 };
 
@@ -112,10 +119,12 @@ function onceEach(): (kind: string, error: unknown) => void {
   };
 }
 
-export function WaitingProvider({ view, outbox: first = [], children }: {
+export function WaitingProvider({ view, outbox: first = [], runners: firstRunners = 0, children }: {
   view: WaitingView | null;
   /** The Outbox part to start from: empty on a page, which reads it after load. */
   outbox?: WaitingOutbox[];
+  /** The Runners part's count to start from: none on a page, which reads it after load. */
+  runners?: number;
   children: ReactNode;
 }) {
   const [questions, setQuestions] = useState(() => view?.questions ?? []);
@@ -124,6 +133,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   const [documents, setDocuments] = useState<{ groups: DocumentGroup[]; unread: boolean }>({ groups: [], unread: false });
   const [business, setBusiness] = useState<BusinessPart>(EMPTY_BUSINESS_PART);
   const [approvals, setApprovals] = useState<ApprovalsPart>(EMPTY_APPROVALS_PART);
+  const [runners, setRunners] = useState<RunnersPart>(() => runnersSeen(firstRunners));
   // The routes read as whoever the sign-in cookie names: a database source only says someone is signed in.
   const source = view?.source ?? null;
   const signedIn = source?.kind === 'database' && Boolean(source.me);
@@ -236,6 +246,22 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
     }, document, () => Date.now(), APPROVALS_MS);
   }, [signedIn, notice]);
 
+  // The Runners part: how many jobs wait for an answer, read through the client as the Questions and New
+  // documents parts are, so a 401 stops it with them (bug #1316). No alert: the badge is the signal.
+  useEffect(() => {
+    if (!signedIn) return;
+    const client = waitingClient();
+    const log = onceEach();
+    return pollRunners(partTick(gate.current, {
+      read: () => client.runners(),
+      seen: (count) => { setRunners(runnersSeen(count)); },
+      failed: (error) => {
+        log('runners', error);
+        setRunners(runnersFailed);
+      },
+    }), document);
+  }, [signedIn]);
+
   // The New documents part: read as `me` at once, then every 10 s while visible. Seen is read again at
   // each read, so a PRD page opened in any tab clears its group at the next one.
   useEffect(() => {
@@ -269,11 +295,11 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   const value = useMemo<Waiting>(() => {
     const list = { questions, outbox: outbox.items };
     return {
-      list, counts: waitingCounts(list, approvals.items.length),
-      unread: { questions: unread, outbox: outbox.unread, documents: documents.unread, business: business.unread, approvals: approvals.unread },
+      list, counts: waitingCounts(list, approvals.items.length, runners.count),
+      unread: { questions: unread, outbox: outbox.unread, documents: documents.unread, business: business.unread, approvals: approvals.unread, runners: runners.unread },
       unreadPrds: outbox.unreadPrds, documents: documents.groups, business: business.count, approvals: approvals.items,
     };
-  }, [questions, unread, outbox, documents, business, approvals]);
+  }, [questions, unread, outbox, documents, business, approvals, runners]);
 
   const total = value.counts.total;
   useEffect(() => {

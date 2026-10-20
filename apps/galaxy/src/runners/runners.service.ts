@@ -35,15 +35,26 @@
 //   runner releases a lost job's claims after the job ended. Nothing else of the job changes.
 // - A job's outcome (PRD 2223): a done job's last report may say what its yolo hand-off ended on
 //   (answers, held, ready), stored in `runner_jobs.outcome`; a report on another status stores none.
+// - A job's questions (PRD 2255): a running job asks once, from the owner of its runner; any member of
+//   the workspace reads them (a runner's owner or a person). A job reported done with its questions
+//   still open stores the outcome `human` (a failed or cancelled one stores none, and neither does one
+//   whose questions were closed meanwhile); the runner cannot report it. The first member to answer
+//   queues `/omni:<skill> #<issue> --answers <job>` as themselves, to the job's repository and target,
+//   checked as Send checks them; runner_job_answer() stores the answers and the resume job in one
+//   transaction, so a refused queue stores nothing. A second answer reads `Already answered by <name>`
+//   (or `Dismissed by <name>`) and changes nothing; a dismissal closes the row and queues nothing. Only a
+//   job that ended `human` is answered or dismissed. The Runners page keeps a job waiting for an answer
+//   whatever its age, and reads one whose questions are closed as Done (outcome null): the stored
+//   outcome stays `human`.
+import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import {
   checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
-  type Board, type HealthReport, type Job, type JobLines, type JobUpdate, type RegisterReply, type RegisterRequest, type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample,
-  type KeyJob, type KeySend, type RunnerState, type SendRequest, type Target,
+  type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type RegisterReply, type RegisterRequest,
+  type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyJob, type KeySend, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { OutboxStand } from '../dossier/page/stage';
 import { shouldContinue, unansweredWhy } from './continue';
-import type { ContinuationsRepository, JobPatch, JobRow, JobRowStatus, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
+import type { ContinuationsRepository, JobPatch, JobRow, JobRowStatus, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
 
 /** The time, and a pause: real in production, fixed in tests. */
 export type Clock = { now: () => Date; sleep: (ms: number) => Promise<void> };
@@ -202,6 +213,30 @@ async function mayTarget(store: TargetStore, workspaceId: string, sender: Sender
   return target.kind === 'fleet' ? mayFleet(store, workspaceId, sender, target.fleet) : mayRunner(store, workspaceId, sender, target.runner);
 }
 
+/** What the page and the routes read of a job's questions (PRD 2255): open until someone closed them,
+ * answered when they left answers, dismissed when they did not; who closed them by id and login. */
+function questionsView(row: QuestionsRow, logins: Map<string, string>): JobQuestions {
+  return {
+    job: row.job_id, issue: row.issue, lead: row.lead, questions: row.questions,
+    state: row.closed_at === null ? 'open' : row.answers === null ? 'dismissed' : 'answered',
+    answers: row.answers, by: row.closed_by, byLogin: row.closed_by === null ? null : logins.get(row.closed_by) ?? null,
+    at: row.closed_at, resume: row.resume_job,
+  };
+}
+
+/** The line that resumes a job's run with its answers: the same one runner_job_answer() queues. */
+const resumeLine = (skill: string, issue: IssueNumber, job: string) => `/omni:${skill} #${String(issue)} --answers ${job}`;
+
+/** Where the first job went, as a person's Send names it: its runner, its fleet, or any runner. */
+const targetOf = (job: JobRow): Target => {
+  if (job.to_runner !== null) return { kind: 'runner', runner: job.to_runner };
+  return job.to_fleet === null ? { kind: 'any' } : { kind: 'fleet', fleet: job.to_fleet };
+};
+
+const NOT_WAITING = 'This job is not waiting for an answer.';
+const NO_QUESTION = 'This job asked no question.';
+const EACH_ANSWERED = 'Answer each question once, and only the ones asked.';
+
 export function runnersService(store: RunnersRepository, clock: Clock) {
   const iso = () => clock.now().toISOString();
   const markLost = () => store.markLost(new Date(clock.now().getTime() - LOST_AFTER_MS).toISOString());
@@ -293,6 +328,48 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     return found.sent_by === caller || member.owner ? ok(null) : no('forbidden', 'Only its sender or a workspace owner cancels a job.');
   }
 
+  /** Why closed questions refuse another answer, in words: who answered, or dismissed, them. */
+  async function closedWords(row: QuestionsRow): Promise<string> {
+    const login = row.closed_by === null ? undefined : (await store.logins(row.workspace_id, [row.closed_by])).get(row.closed_by);
+    return `${row.answers === null ? 'Dismissed' : 'Already answered'} by ${login === undefined ? 'someone' : `@${login}`}`;
+  }
+
+  /** A job's questions as a member of its workspace sees them: the job, its row and the member. Why not,
+   * in words: a job nobody sees, or one that asked none. */
+  async function questionsFor(caller: string, jobId: string): Promise<Served<{ job: JobRow; row: QuestionsRow; member: Sender }>> {
+    const job = await store.job(jobId);
+    const member = job ? await store.member(job.workspace_id, caller) : null;
+    if (!job || !member) return no('missing', 'No such job.');
+    const row = await store.questionsOf(jobId);
+    return row ? ok({ job, row, member }) : no('missing', NO_QUESTION);
+  }
+
+  /** The questions a member may answer or dismiss: the job is theirs to see, it asked, they are still open and
+   * the job ended with them open. Why not otherwise, in words. */
+  async function waitingFor(caller: string, jobId: string): Promise<Served<{ job: JobRow; row: QuestionsRow; member: Sender }>> {
+    const found = await questionsFor(caller, jobId);
+    if (!found.ok) return found;
+    if (found.value.row.closed_at !== null) return no('conflict', await closedWords(found.value.row));
+    return found.value.job.outcome === 'human' ? found : no('conflict', NOT_WAITING);
+  }
+
+  /** The patch that ends a job from its runner's report: a job that ends with its questions still open reads
+   * Need human, which the server sets and the runner never reports (PRD 2255). */
+  async function endingPatch(job: JobRow, report: JobUpdate): Promise<JobPatch> {
+    const patch = reportPatch(job, report, iso());
+    const asked = report.status === 'done' ? await store.questionsOf(job.id) : null;
+    return asked?.closed_at === null ? { ...patch, outcome: 'human' } : patch;
+  }
+
+  /** The refusal of the database's function, when two people act at once or the rules moved on, in words. */
+  async function refused(refusal: QuestionsRefusal, jobId: string): Promise<Served<never>> {
+    if (refusal === 'none') return no('missing', NO_QUESTION);
+    if (refusal === 'stranger') return no('forbidden', 'You are not a member of this workspace.');
+    if (refusal === 'mismatch') return no('malformed', EACH_ANSWERED);
+    const row = await store.questionsOf(jobId);
+    return no('conflict', row?.closed_at ? await closedWords(row) : NOT_WAITING);
+  }
+
   return {
     /** Registers the runner by its name, or registers it again with its slots, repositories and version. */
     async register(caller: string, request: RegisterRequest): Promise<Served<RegisterReply>> {
@@ -345,7 +422,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       if (refusal) return refusal;
       // The lines first: a report that fails after them is sent again, and adds nothing the second time.
       await appendLines(job, report);
-      const updated = await store.updateJob(jobId, [job.status], reportPatch(job, report, iso()));
+      const updated = await store.updateJob(jobId, [job.status], await endingPatch(job, report));
       if (!updated) return no('conflict', 'This job changed meanwhile. Report again.');
       await retainLines(updated);
       return ok({ cancel: !ENDED.includes(updated.status) && updated.cancel_requested });
@@ -440,6 +517,58 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       return ok({ status: job.status, lines: read.slice(0, JOB_LINES_PAGE), more: read.length > JOB_LINES_PAGE, first, logTail });
     },
 
+    /** A running job asks its questions (PRD 2255), once: from the owner of its runner. Answers them open. */
+    async ask(caller: string, jobId: string, request: AskRequest): Promise<Served<JobQuestions>> {
+      const runnerId = await reporting(caller, jobId);
+      if (!runnerId.ok) return runnerId;
+      const job = await store.job(jobId);
+      if (!job) return no('missing', 'No such job.');
+      if (job.status !== 'running') return no('conflict', `This job is ${job.status}: only a running job asks.`);
+      const stored = await store.insertQuestions({ jobId, workspaceId: job.workspace_id, issue: request.issue, lead: request.lead, questions: request.questions });
+      if (!stored) return no('conflict', 'This job asked its questions already.');
+      return ok(questionsView(stored, new Map()));
+    },
+
+    /** A job's questions, with the answers once someone closed them, for a member of its workspace: a
+     * person, or the owner of a runner (the resume job reads them). */
+    async questions(caller: string, jobId: string): Promise<Served<JobQuestions>> {
+      const found = await questionsFor(caller, jobId);
+      if (!found.ok) return found;
+      const { row } = found.value;
+      return ok(questionsView(row, await store.logins(row.workspace_id, row.closed_by === null ? [] : [row.closed_by])));
+    },
+
+    /** The first member to answer a job's questions queues the run that resumes it, as themselves: one answer
+     * to each question, the line and the target checked as Send checks them, the answers and the resume job
+     * stored together (runner_job_answer()). Answers the resume job. */
+    async answer(caller: string, jobId: string, request: AnswerRequest): Promise<Served<Job>> {
+      const waiting = await waitingFor(caller, jobId);
+      if (!waiting.ok) return waiting;
+      const { job, row, member } = waiting.value;
+      const asked = row.questions.map((question) => question.question);
+      if (Object.keys(request.answers).length !== asked.length || !asked.every((text) => Object.hasOwn(request.answers, text))) return no('malformed', EACH_ANSWERED);
+      const first = checkLine(job.line);
+      if (!first.ok) return no('malformed', first.reason);
+      const line = checkLine(resumeLine(first.skill, row.issue, jobId));
+      if (!line.ok) return no('malformed', line.reason);
+      const placed = await placement(caller, job.repo, job.workspace_id);
+      if (!placed.ok) return placed;
+      const target = await mayTarget(store, job.workspace_id, member, targetOf(job));
+      if (!target.ok) return target;
+      const answered = await store.answer(jobId, request.answers, caller);
+      if (!answered.ok) return refused(answered.refusal, jobId);
+      return ok(jobOf(answered.value, await store.logins(answered.value.workspace_id, [caller])));
+    },
+
+    /** Any member closes a job's questions with no answers and no job queued: they leave the badge. */
+    async dismiss(caller: string, jobId: string): Promise<Served<JobQuestions>> {
+      const waiting = await waitingFor(caller, jobId);
+      if (!waiting.ok) return waiting;
+      const dismissed = await store.dismiss(jobId, caller);
+      if (!dismissed.ok) return refused(dismissed.refusal, jobId);
+      return ok(questionsView(dismissed.value, await store.logins(dismissed.value.workspace_id, [caller])));
+    },
+
     /** The Runners page's read: the workspace's runners with their state, their last health and their
      * samples of the last hour, its jobs (queued and running first, then the last 50 that ended), and what
      * the viewer may do. A member only. */
@@ -447,8 +576,16 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const viewer = await store.member(workspaceId, caller);
       if (!viewer) return no('forbidden', 'You are not a member of this workspace.');
       await markLost();
-      const [runners, active, ended] = await Promise.all([store.runners(workspaceId), store.activeJobs(workspaceId), store.endedJobs(workspaceId, ENDED_JOBS_SHOWN)]);
-      const jobs = [...active, ...ended];
+      const [runners, active, ended, openIds] = await Promise.all([
+        store.runners(workspaceId), store.activeJobs(workspaceId), store.endedJobs(workspaceId, ENDED_JOBS_SHOWN), store.openQuestionJobs(workspaceId),
+      ]);
+      // A job waiting for an answer stays on the board whatever its age (PRD 2255): the ones past the last 50 are added…
+      const listed = new Set([...active, ...ended].map((job) => job.id));
+      const waiting = (await store.jobsById(workspaceId, openIds.filter((id) => !listed.has(id)))).filter((job) => job.status === 'done' && job.outcome === 'human');
+      const finished = [...ended, ...waiting].sort((a, b) => (b.ended_at ?? '').localeCompare(a.ended_at ?? ''));
+      // …and one whose questions were answered or dismissed reads Done: the outcome `human` is only for open ones.
+      const open = new Set(openIds);
+      const jobs = [...active, ...finished].map((job) => (job.outcome === 'human' && !open.has(job.id) ? { ...job, outcome: null } : job));
       const logins = await store.logins(workspaceId, [...new Set(jobs.map((job) => job.sent_by))]);
       const keys = await keysOf(workspaceId, jobs);
       const now = clock.now();
@@ -474,12 +611,6 @@ type ContinueRequest = {
 
 /** The fix queued, or why none was. */
 type Continued = { queued: Job; why: null } | { queued: null; why: string };
-
-/** The target a job was sent to: its runner, its fleet, or any runner. */
-const targetOf = (job: JobRow): Target => {
-  if (job.to_runner !== null) return { kind: 'runner', runner: job.to_runner };
-  return job.to_fleet === null ? { kind: 'any' } : { kind: 'fleet', fleet: job.to_fleet };
-};
 
 /** Why a continuation has no sender: the job's sender left the workspace, or the person pressing never joined it. */
 const senderGone = (by: string | undefined): string => (by === undefined ? 'its sender is no longer a member of the workspace' : 'you are not a member of this workspace');

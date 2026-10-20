@@ -156,7 +156,7 @@ describe('the runner outcome migration (PRD 2223)', () => {
   });
 
   it('allows the words the contract lets a report carry', () => {
-    expect(read('apps/galaxy/src/runners/runners.contract.ts')).toContain("const JOB_OUTCOMES = ['answers', 'held', 'ready'] as const;");
+    expect(read('apps/galaxy/src/runners/runners.contract.ts')).toContain("const REPORTED_OUTCOMES = ['answers', 'held', 'ready'] as const;");
   });
 
   it('is named in the database\'s types', () => {

@@ -15,14 +15,14 @@
 // (./continue.test.ts).
 import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { OutboxStand } from '../dossier/page/stage';
-import { checkLine, type RunnerSkill } from './runners.contract';
+import { checkLine, type JOB_OUTCOMES, type RunnerSkill } from './runners.contract';
 
 /** A job, as the decision reads it: the columns of a runner_jobs row it needs. */
 export type JobSeen = {
   id: string;
   line: string;
   status: 'queued' | 'claimed' | 'running' | 'done' | 'failed' | 'cancelled';
-  outcome?: 'answers' | 'held' | 'ready' | null | undefined;
+  outcome?: (typeof JOB_OUTCOMES)[number] | null | undefined;
   continues?: string | null | undefined;
   queued_at: string;
 };

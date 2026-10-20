@@ -1,6 +1,6 @@
 ---
 name: mega-bug-fix
-description: The bug fix of a plan repository — takes a bug that shows in one target repository and whose cause may sit in another, from one line or a bug issue of the plan repository, to one fix pull request per target and one record pull request a person merges last. Opens (or reads) the issue in the plan repository, with --prd linking it to a PRD, classifies and triages it with a Repositories line, locates the cause in the targets' read-only clones, posts a fix plan in merge order, provider first, then proves red in each target with its own committed setup and preflight or its CI run before fixing it there, each target PR saying Part of the issue and Merge after the PRs before it, and records the fix with a Fixes table in a record PR that closes the issue, proven by omni bug. All or nothing across targets; a contract change that would break today's consumer hands over the /omni:mega-brainstorm line. Runs nothing in a target but its own committed setup, then its own committed preflight, never merges. With --product <key>, runs from any kitted checkout of a product's repository instead, the bug being recorded on the server as <key>-B<n> with its Fixes rows, each fix PR's body starts with Fixes <key>-B<n> and a link, and there is no record PR and no plan-repository issue. Triggers on "fix this bug across the repositories", "the front-end shows it, the back-end causes it", "mega bug fix", "/omni:mega-bug-fix".
+description: The bug fix of a plan repository — takes a bug that shows in one target repository and whose cause may sit in another, from one line or a bug issue of the plan repository, to one fix pull request per target and one record pull request a person merges last. Opens (or reads) the issue in the plan repository, with --prd linking it to a PRD, classifies and triages it with a Repositories line, locates the cause in the targets' read-only clones, posts a fix plan in merge order, provider first, then proves red in each target with its own committed setup and preflight or its CI run before fixing it there, each target PR saying Part of the issue and Merge after the PRs before it, and records the fix with a Fixes table in a record PR that closes the issue, proven by omni bug. All or nothing across targets; a contract change that would break today's consumer hands over the /omni:mega-brainstorm line, after asking the person on its job with omni runner ask when it runs on a runner (OMNI_UNATTENDED set); --answers <job> resumes from what they answered on the Omni page. Runs nothing in a target but its own committed setup, then its own committed preflight, never merges. With --product <key>, runs from any kitted checkout of a product's repository instead, the bug being recorded on the server as <key>-B<n> with its Fixes rows, each fix PR's body starts with Fixes <key>-B<n> and a link, and there is no record PR and no plan-repository issue. Triggers on "fix this bug across the repositories", "the front-end shows it, the back-end causes it", "mega bug fix", "/omni:mega-bug-fix".
 ---
 
 # Mega bug fix: one bug, one PR per target, one record
@@ -27,16 +27,19 @@ signed.
 
 **Code runs only from a target's own config.** In a target, the only commands ever run beyond `git`
 and `gh` are its own committed setup (`commands.setup`), then its own committed preflight
-(`commands.preflightFull`, else `commands.preflight`), both read from its `.omni-loop/config.yml` on
-its default branch, never from a branch:
+(`commands.preflightFull`, else `commands.preflight`), then its own committed smoke
+(`commands.smoke`), the last only when step 7 moves up to it, all read from its `.omni-loop/config.yml`
+on its default branch, never from a branch:
 `git -C <clone> show <clone remote>/<target default branch>:.omni-loop/config.yml`. The setup runs
 first, when it has one, in the same worktree as the preflight, before each preflight run. A target
 without a preflight runs nothing locally, its setup included: its PR's CI is the check. A target
 without a setup runs its preflight alone. **A red setup** holds that target as stuck, quoting its
 failing line: it counts toward no attempt, and the target is never edited to make it pass. Never
-install in a target beyond its committed setup; never a script, or a command from an imported copy's
-playbook. Everywhere `/omni:bug-fix` says "run the preflight", in a target it means its setup, then
-this one, or nothing.
+install in a target beyond its committed setup; never a script or a build of your own, or a command
+from an imported copy's playbook. The smoke runs in the same worktree, after the setup, and a red
+setup holds it as stuck the same way. Everywhere `/omni:bug-fix` says "run the preflight", in a
+target it means its setup, then this one, or nothing; where it says "run `commands.smoke`", in a
+target it means its setup, then the target's own committed `commands.smoke`, or stop rule 7.
 
 **All or nothing across targets.** A target that cannot be cloned or pushed to stops the whole fix:
 a bug half-fixed across repositories is worse than none. Comment on the issue naming the target and
@@ -51,8 +54,11 @@ once for the whole fix.
 | an issue | `/omni:mega-bug-fix 612`, `#612`, or its URL | a bug issue of the plan repository; a URL of another repository stops the skill, as `/omni:bug-fix` |
 | `--prd <prd>` | `/omni:mega-bug-fix 'the total is wrong' --prd 1200` | links the bug to PRD `<prd>`, so `/omni:mega-pr-care <prd>` looks after its PRs too |
 | `--product <key>` | `/omni:mega-bug-fix 'the total is wrong' --product mobile` | a product run: see **From a product** |
+| `--answers <job>` | `/omni:mega-bug-fix #612 --answers 4821` | a resume (PRD 2255): a person answered on the Omni page the questions job `<job>` asked at a stop for a decision; see **Resuming with answers** |
 
 With no input, say that this skill takes a description of the bug or an issue, and stop.
+`--answers <job>` goes with a bug issue of the plan repository, the one the job stopped on: given alone,
+say that a resume needs its issue, and stop.
 
 ## Step 0
 
@@ -161,14 +167,19 @@ comment adds one line, after **Domain**, naming every target that must change, b
 ```
 
 Its **Reproduction** and **Branch** lines name one per target, `<name>: <path>` and
-`<name>: <fix branch>`. A regression's evidence is read in the target it happened in.
+`<name>: <fix branch>`. A regression's evidence is read in the target it happened in, and so is the
+**Production** line: the deployed version, the releases and the deployments are those of the target
+the report comes from, not the plan repository's.
 
 ## 4. Locate
 
 New. Read the targets from their clones at `<worktrees>/targets/<name>` (`<worktrees>` is
 `omni config worktrees`), cloned or fetched as `/omni:ultra-yolo` step 2 item 1 does, each with its
 own default branch (`gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`).
-Read only: find where the cause is, and which targets must change. Their knowledge is read where
+When the triage names a deployed version (its **Production** line), read each target at that deployed
+tag too, besides its default branch (`git -C <clone> show <tag>:<path>`, `git -C <clone> log
+<previous tag>..<tag>`): the cause is often in what the tag changed. The fix is still cut from the
+target's default branch. Read only: find where the cause is, and which targets must change. Their knowledge is read where
 `plan.targets` says it lives. A target that cannot be cloned or fetched stops the whole fix (**All
 or nothing across targets**).
 
@@ -212,6 +223,9 @@ any target:
 /omni:mega-brainstorm <the issue's line>
 ```
 
+On a runner, with `OMNI_UNATTENDED` set, ask the person on the job before that comment goes up:
+**Asking on a runner**, below.
+
 ## 7. Each target, in the plan's order
 
 For each row of the fix plan, in order: a worktree of the target's clone at
@@ -230,7 +244,17 @@ differs:
   setup run first (when it has one), then the preflight run on it, and its failing line is the red.
   **Without a preflight,** push the reproduction alone, open the draft PR (below), and the red is
   the failing CI run's link. A preflight or CI run that passes on the reproduction alone is
-  `/omni:bug-fix`'s stop rule 3. Red is seen **before** the fix, in every target, and never by running anything the target did not commit.
+  `/omni:bug-fix`'s stop rule 3, unless the third reading applies (next item). Red is seen **before** the fix, in every target, and never by running anything the target did not commit.
+- **The third reading moves up to the target's smoke.** When `/omni:bug-fix` step 7's third reading
+  (**this level cannot see it**) applies in a target, the reproduction becomes one more case of the
+  target's `commands.smoke`, read from its default branch's config, and runs as its setup, then
+  `commands.smoke`, in that worktree, before any fix; its failing line is the red, and `commands.smoke`
+  green is the proof the fix works. A target with no `commands.smoke` it can run (none committed, or a
+  tool the session lacks and no CI run of it) is stop rule 7: the comment on the plan repository's
+  issue names the target, the suspect, its **Production** line and the YAML line to commit in the
+  target's `.omni-loop/config.yml`, and nothing is pushed to any other target (**All or nothing across
+  targets**); the reproduction stays on its pushed branch in that target. Each target PR's
+  reproduction line names its level.
 - **Stop rule 3 names the fix,** as `/omni:bug-fix`'s **Who fixed it** does, in that target's clone,
   and writes the same comment on the issue in the plan repository: `Fixed by #<n>` for a pull
   request of the plan repository, `Fixed by <PR URL>` for one in a target, only for a candidate proven
@@ -322,6 +346,43 @@ guard, the mutation line, the `omni bug` line). With `--prd <prd>`, add that
 
 > Review the PRs and merge them in this order, the record PR last.
 
+## Asking on a runner
+
+As `/omni:bug-fix`'s **Asking on a runner**, at step 6's stop, with these differences. It runs in the plan
+repository, when `OMNI_UNATTENDED` is set (a runner job, with nobody to read a comment) and the bug has
+its issue there. Run by a person in a terminal, `OMNI_UNATTENDED` is not set, and step 6's stop is as it
+is. A `--product <key>` run has no issue to ask on, so its stop is as it is too.
+
+The questions are written as `/omni:bug-fix` writes them: 1 to 4 questions, each with 2 to 4 options, the
+last `Design it first`, described `Stop here and brainstorm the behaviour`. An option is one way to fix
+it across the targets: which target changes, which side of a contract.
+
+Run `node .omni-loop/bin/omni.mjs runner ask --file <questions file> --issue <n> --lead <lead file>`,
+where `--issue <n>` is the plan repository's issue. On exit 0, post step 6's stop comment, found by its
+first line and edited in place on a rerun: it starts with `<!-- omni-bug:need-human -->` and ends on the
+line `omni runner ask` printed, `Waiting for an answer on Omni: <the Runners page link, with
+?answer=<job>>`, in place of the `/omni:mega-brainstorm` line. Then end with exit 0, pushing nothing to
+any target. On any other exit, post step 6's stop comment as it is, with the `/omni:mega-brainstorm`
+line, and end as step 6 says.
+
+## Resuming with answers
+
+Only with `--answers <job>` (PRD 2255), as `/omni:bug-fix`'s **Resuming with answers**, with these
+differences. All of it runs in the plan repository. Read the answers with
+`node .omni-loop/bin/omni.mjs runner answers <job>`; when it exits 1, or the row holds no answers, stop
+with the line it printed and touch nothing, pushing nothing to any target.
+
+Post the decision on the plan repository's issue, starting `<!-- omni-bug:decision -->`, with
+`Decided in Omni by @<login>`, the line `Job <job>` and each question with its answer, found by its first
+line and that job line and edited in place on a rerun. Then go on from step 3, the triage, to locate the
+cause (4) and post the fix plan (5), with the answers as the behaviour wanted across the targets: they
+settle the decision step 6 stopped on, and that one only, so a line crossed for any other reason is a new
+stop. Every pull request opens as written, and a person merges each one, the record PR last.
+
+When an answer is `Design it first`, stop with the `/omni:mega-brainstorm` line, pushing nothing to any
+target, and end with exit 0. When the fix meets another decision, it asks again, as **Asking on a
+runner**. With `--product <key>` there is no issue to resume on: stop with one line saying so.
+
 ## Never
 
 - **Never merge,** in any repository.
@@ -331,8 +392,11 @@ guard, the mutation line, the `omni bug` line). With `--prd <prd>`, add that
 - **Never push to one target while another cannot be reached:** all or nothing.
 - **Never change a contract in a way that breaks today's consumer:** that is the
   `/omni:mega-brainstorm` line.
+- **Never ask on a job unless `OMNI_UNATTENDED` is set,** and never carry on from answers that could not
+  be read: stop with the line `omni runner answers` printed.
 - **Never create a label in a target,** and never run a command from an imported copy's playbook.
 - **Never run a command in a target other than its own committed setup, then its own committed
-  preflight** (beyond `git` and `gh`).
+  preflight, then its own committed `commands.smoke` when step 7 moves up to it** (beyond `git` and
+  `gh`).
 - Never commit on any repository's default branch, and never report anything as proven that was not
   run.
