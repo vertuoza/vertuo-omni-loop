@@ -107,7 +107,7 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 61 commands and the 33 skills', () => {
+  it('holds the 61 commands and the 34 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(61);
     expect(skillFolders()).toHaveLength(34);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(61);
@@ -400,7 +400,7 @@ describe('the help table in this repository', () => {
     const byGroup = Object.fromEntries(GROUP_IDS.map((id) => [id, ENTRIES.filter((e) => e.kind === 'skill' && e.group === id).map((e) => e.name).sort()]));
     expect(byGroup).toEqual({
       start: ['brainstorm', 'bug-fix', 'roadmap', 'think-big', 'visual-fix'],
-      build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
+      build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix', 'yolo-runner'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
       everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'status', 'validate-e2e'],

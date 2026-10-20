@@ -19,7 +19,7 @@ export type RunnersPageView =
   | { kind: 'unreadable' }
   // `demoQuestions` is the demo's alone (PRD 2255): the questions its Need human drawer reads and answers in the
   // browser, with no route to call. A page read from the database never carries it.
-  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; now: string; demoQuestions?: readonly JobQuestions[] };
+  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; now: string; demoQuestions?: readonly JobQuestions[] };
 
 /** The command that starts a runner, as the empty page shows it. */
 export const START_COMMAND = 'omni runner --name <name> --repos <dir>';
@@ -132,6 +132,23 @@ export function prdPageLink(job: Pick<Job, 'line' | 'repo' | 'outcome' | 'status
   const number = /^\/omni:[a-z-]+ (\d+)$/.exec(job.line)?.[1];
   if (job.status !== 'done' || !job.outcome || job.outcome === 'human' || number === undefined) return null;
   return `/prd/at/${job.repo.split('/').map(encodeURIComponent).join('/')}/${number}`;
+}
+
+/** The PRD titles the page knows, by `<owner/repo in lower case>#<n>`: the repository's dossiers the viewer may read. */
+export type PrdTitles = Readonly<Record<string, string>>;
+
+/** The key of a PRD in `PrdTitles`. */
+export const prdKey = (repo: string, number: number): string => `${repo.toLowerCase()}#${String(number)}`;
+
+/** The PRD a job's line builds (PRD 2251), for the line under it: its number, the link to its page and its
+ * title; null when the line is not `/omni:<skill> <n>` or the job's repository has no dossier of PRD n. */
+export function prdLineOf(job: Pick<Job, 'line' | 'repo'>, prds: PrdTitles): { number: number; href: string; title: string } | null {
+  const digits = /^\/omni:[a-z-]+ (\d+)$/.exec(job.line)?.[1];
+  if (digits === undefined) return null;
+  const number = Number(digits);
+  const title = prds[prdKey(job.repo, number)];
+  if (title === undefined) return null;
+  return { number, href: `/prd/at/${job.repo.split('/').map(encodeURIComponent).join('/')}/${digits}?to=page`, title };
 }
 
 /** A pull request link's words: `PR #1838`, or `Pull request` when the link names no number. */

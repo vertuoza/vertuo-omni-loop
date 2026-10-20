@@ -3,7 +3,7 @@ import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { Workspace } from '../../data/workspace';
 import type { Board } from '../runners.contract';
 import type { Served } from '../runners.service';
-import type { Fleet, RunnersPageView } from './model';
+import type { Fleet, PrdTitles, RunnersPageView } from './model';
 
 // The Runners page's read (PRD 1830 s3): the workspace the person joined first, as every board page
 // heads its own; with none, the no-workspace notice. Then the board, through the runners' service (its
@@ -18,6 +18,8 @@ export interface RunnersPageReads {
   board(workspaceId: string): Promise<Served<Board>>;
   /** The workspace's fleets. */
   fleets(workspaceId: string): Promise<Fleet[]>;
+  /** The titles of the PRDs the person may read, for the line under a job that builds one (PRD 2251). */
+  prds(): Promise<PrdTitles>;
 }
 
 const failed = (message: string) => { log.error({ event: 'runners-page', outcome: 'failed', message }); };
@@ -31,16 +33,25 @@ async function fleetsOf(reads: RunnersPageReads, workspaceId: string): Promise<F
   }
 }
 
+async function prdsOf(reads: RunnersPageReads): Promise<PrdTitles> {
+  try {
+    return await reads.prds();
+  } catch (error) {
+    failed(`the PRD titles could not be read (${messageOf(error)})`);
+    return {};
+  }
+}
+
 export async function loadRunnersPage(reads: RunnersPageReads, now: Date): Promise<RunnersPageView> {
   try {
     const workspace = await reads.workspace();
     if (!workspace) return { kind: 'no-workspace' };
-    const [served, fleets] = await Promise.all([reads.board(workspace.id), fleetsOf(reads, workspace.id)]);
+    const [served, fleets, prds] = await Promise.all([reads.board(workspace.id), fleetsOf(reads, workspace.id), prdsOf(reads)]);
     if (!served.ok) {
       failed(`the board could not be read (${served.error})`);
       return { kind: 'unreadable' };
     }
-    return { kind: 'board', name: workspace.name, board: served.value, fleets, now: now.toISOString() };
+    return { kind: 'board', name: workspace.name, board: served.value, fleets, prds, now: now.toISOString() };
   } catch (error) {
     failed(`the page could not be read (${messageOf(error)})`);
     return { kind: 'unreadable' };

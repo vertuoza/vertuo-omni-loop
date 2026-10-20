@@ -340,7 +340,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'runner',
     kind: 'command',
     who: 'you',
-    usage: ['omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]', 'omni runner sender'],
+    usage: ['omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]', 'omni runner sender', "omni runner send '<line>' [--to <runner|fleet>]", 'omni runner follow <n>'],
     label: 'omni runner',
     summary: 'run the lines the Omni app sends, on this machine',
     detail:
@@ -365,7 +365,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'not installed fails it with the line to install it; a list that does not read lets the job ' +
       'run, its log saying so. At start and once an hour it updates the plugin, printing a line only ' +
       'when its version changed or the update failed. sender prints the line /omni:pr writes in a ' +
-      'pull request a job opens, naming who sent it and the runner.',
+      'pull request a job opens, naming who sent it and the runner. send "<line>" [--to <runner|fleet>] ' +
+      'queues a line for this repository\'s workspace with your own sign-in and prints the job\'s id (a line no ' +
+      'runner runs is refused before any call; --to names a runner, else a fleet). follow <n> finds the PRD\'s ' +
+      'newest job in this repository and prints one line per milestone until it ends (queued, claimed by <runner>, ' +
+      'waiting for approval, PR: <link>, <k>/<total> slices merged, then Waiting on answers, Held, Ready, Done, ' +
+      'Failed: <reason>, Cancelled or Runner lost, with the PRD page link): exit 0 on done, 1 on failed, cancelled ' +
+      'or runner lost; Ctrl-C stops the following only, the job runs on.',
   },
   {
     name: 'dossier',
@@ -1470,6 +1476,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:ultra-yolo-fix 600',
       result: 'each rework landed in its repository, then the plan PR shipped',
+    },
+  },
+  {
+    name: 'yolo-runner',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:yolo-runner <n>'],
+    label: '/omni:yolo-runner <n>',
+    summary: 'build a PRD on a runner, and follow it from here',
+    detail:
+      "The /omni:yolo of a runner: follows the PRD's queued or running job when there is one, " +
+      "else sends /omni:yolo <n> to a runner of the workspace, then prints the job's milestones " +
+      'until it ends and hands off on the ending. It builds nothing in this terminal and never ' +
+      'merges into {defaultBranch}; Ctrl-C stops the following only.',
+    group: 'build',
+    when: 'Use it when you want a runner to build the PRD while you follow it, or to pick up a job sent from the page.',
+    example: {
+      type: '/omni:yolo-runner 580',
+      result: "the PRD's job followed milestone by milestone, then the hand-off on how it ended",
     },
   },
   {

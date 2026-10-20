@@ -1,6 +1,7 @@
+import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import type { ExecText } from '../context.ts';
-import { formText as fixtureFormText, makeRepo } from '../../test/fixture.ts';
+import { formText as fixtureFormText, makeRepo, realExec } from '../../test/fixture.ts';
 import { gradePlaybook } from './check-playbook.ts';
 import { staleEvidence } from './status.ts';
 import { assertDefined } from '../../test/assert.ts';
@@ -83,5 +84,19 @@ describe('staleEvidence', () => {
       { path: 'gone.json', hash: '7654321', now: null, exists: false },
     ]);
     expect(staleEvidence(evidence.slice(0, 1), { ctx, exec: refuse })).toEqual([{ path: 'a.json', hash: 'abcdef1', now: null, exists: true }]);
+  });
+
+  // Bug 2278: the release commit bumps "version" in package.json after every merge.
+  it('is quiet for a file whose only change since the recorded hash is its "version" line, and names any other change', () => {
+    const manifest = (version: string, test: string) => `{\n  "name": "app",\n  "version": "${version}",\n  "scripts": { "test": "${test}" }\n}\n`;
+    const repo = makeRepo({ git: true, files: { 'package.json': manifest('0.0.1', 'vitest run') } });
+    const recorded = execFileSync('git', ['hash-object', '--', 'package.json'], { cwd: repo.root, encoding: 'utf8' }).trim().slice(0, 7);
+    const evidence = [{ path: 'package.json', hash: recorded }];
+
+    repo.write('package.json', manifest('0.0.2', 'vitest run'));
+    expect(staleEvidence(evidence, { ctx: repo.ctx, exec: realExec })).toEqual([]);
+
+    repo.write('package.json', manifest('0.0.2', 'vitest run --shard'));
+    expect(staleEvidence(evidence, { ctx: repo.ctx, exec: realExec })).toMatchObject([{ path: 'package.json', hash: recorded, exists: true }]);
   });
 });
