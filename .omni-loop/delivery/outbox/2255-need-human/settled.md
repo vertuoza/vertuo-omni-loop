@@ -547,3 +547,392 @@ Two sentences in two skill files and the phrases pinned by the kit test.
 ```
 
 <!-- /omni-outbox-settled: s2-03-answers-settle-the-stop -->
+
+<!-- omni-outbox-settled: s3-01-need-human-button-outline -->
+
+## s3-01-need-human-button-outline — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-20
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-need-human-button-outline
+prd: 2255
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-20
+wave: 2
+---
+
+## The question, in plain words
+
+On the Runners page, should the Need human button be the page's one main button, or a quieter outlined button beside Terminal?
+
+## The decision, in plain words
+
+The Need human button is drawn as an outlined button in the plasma colour, so the first Send again button stays the page's one main button. The status beside it is the filled part.
+
+## The intro, for fun
+
+A job puts its hand up and asks for a person.
+
+## The punchline, for fun
+
+The hand is raised, and the loudest colour on the row is already its status.
+
+## The options, in plain words
+
+A. A. Outlined Need human button, Send again stays the one main button (built)
+B. B. Filled Need human button, and it becomes the one main button while a job waits
+
+## What I had to decide
+
+Pick A to keep the button outlined and the page's single main button on Send again, or B to fill the Need human button and make it the main one when a job is waiting.
+
+## What I did meanwhile
+
+I drew the Need human button outlined in plasma and left the first Send again as the page's one main button, which the page's existing test and the design form both ask for.
+
+## What it costs to change later
+
+Cheap to change: one style rule and one flag on the row decide it, and no data or contract depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the job's action is a Need human button but does not say whether it is the main button of the page (author)
+- A page with a waiting job and no failed job would then have no main button at all (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-need-human-button-outline -->
+
+<!-- omni-outbox-settled: s3-02-drawer-reads-on-open -->
+
+## s3-02-drawer-reads-on-open — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-20
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-drawer-reads-on-open
+prd: 2255
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-20
+wave: 2
+---
+
+## The question, in plain words
+
+Should the Need human drawer fetch a job's questions when it opens, or should the Runners page carry every waiting job's questions from the start?
+
+## The decision, in plain words
+
+The drawer asks the Omni app for the job's questions when it opens, so the page itself stays as light as it is today and a person always reads the current state, including who answered first.
+
+## The intro, for fun
+
+Why carry every question on your back when you can ask at the door?
+
+## The punchline, for fun
+
+The drawer knocks once, reads the answer, and only then pulls up a chair.
+
+## The options, in plain words
+
+A. A. The drawer reads the questions when it opens (built)
+B. B. The page's server read carries the questions of every waiting job
+
+## What I had to decide
+
+Pick A to keep the read on open, or B to have the page's server read the questions of every waiting job and hand them to the drawer ready to show.
+
+## What I did meanwhile
+
+I built A: the drawer shows a short reading line, then the questions or who closed them. The demo page seeds its drawer from its own sample questions, so it shows the full form at once.
+
+## What it costs to change later
+
+Moderate to change: B means the page's server read joins the questions table for the waiting jobs, which touches the data layer another slice owns.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the drawer holds the lead and the questions but not when they are read (author)
+- I did not measure how many waiting jobs a busy workspace would carry at once (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-02-drawer-reads-on-open -->
+
+<!-- omni-outbox-settled: s3-03-closed-row-by-its-words -->
+
+## s3-03-closed-row-by-its-words — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-20
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-closed-row-by-its-words
+prd: 2255
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-20
+wave: 2
+---
+
+## The question, in plain words
+
+When someone else already answered, how should the drawer tell that refusal from any other refusal?
+
+## The decision, in plain words
+
+The drawer tells a closed question from other refusals by the service's own words, Already answered by or Dismissed by, and then shows the person who came first with no buttons. Any other refusal stays in the drawer above the foot.
+
+## The intro, for fun
+
+Two people press Send at the same second, and only one of them wins.
+
+## The punchline, for fun
+
+The loser is told who won, politely, and by name.
+
+## The options, in plain words
+
+A. A. Match the service's words in the drawer (built)
+B. B. Carry the refusal's status through the client files and read it in the drawer
+
+## What I had to decide
+
+Pick A to keep matching the service's words, or B to have the page's client files carry the refusal's status so the drawer need not read words.
+
+## What I did meanwhile
+
+I built A inside the drawer's own files. The client that calls the routes returns only the words of a refusal, and it sits outside this slice's territory, so I left it alone.
+
+## What it costs to change later
+
+Cheap to change if the client files can be touched: the matching sits in one small function, and B replaces it with a status read.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- If the service ever rewords these two refusals, the drawer would show them as an ordinary problem instead of a closed row (author)
+- The service's own tests pin the words, but nothing in the drawer's tests pins the two sides together (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-03-closed-row-by-its-words -->
+
+<!-- omni-outbox-settled: s4-01-waiting-means-done-and-open -->
+
+## s4-01-waiting-means-done-and-open — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-20
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-waiting-means-done-and-open
+prd: 2255
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-20
+wave: 2
+---
+
+## The question, in plain words
+
+Which stopped jobs should the number beside Runners count as waiting for an answer?
+
+## The decision, in plain words
+
+It counts a job only when it stopped to ask a person and its questions are still open, each job once. A job that failed or was cancelled with questions left open is not counted, since nobody can answer those.
+
+## The intro, for fun
+
+A number beside a name should only count the things you can actually do something about.
+
+## The punchline, for fun
+
+Otherwise it would sit at 1 forever, like a missed call nobody can return.
+
+## The options, in plain words
+
+A. Count a stopped job once, only when it ended asking a person and its questions are still open, as the Runners page marks Need human.
+B. Count every question still open, whatever became of its job, failed and cancelled ones included.
+
+## What I had to decide
+
+Pick A to count only the jobs that ended asking a person for help and still have open questions, the same jobs the Runners page marks Need human. Pick B to count every open question whatever became of its job, which would also count jobs that failed or were cancelled.
+
+## What I did meanwhile
+
+The number counts the stopped jobs that asked for a person and whose questions are still open, each job once. It looks at every job of the workspace, not only the last 50 the Runners page lists, and a job leaves the count as soon as its questions are answered or dismissed.
+
+## What it costs to change later
+
+Switching to B means the count ignores the state of the job and counts every open question. It is one small change in how the count is worked out, with no stored data and no page changing.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The idea says the number counts the workspace's open job questions, but does not say whether a failed or cancelled job whose questions are still open should count, nor whether a job with two open questions counts once or twice.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-waiting-means-done-and-open -->
+
+<!-- omni-outbox-settled: s4-02-runners-count-stays-quiet -->
+
+## s4-02-runners-count-stays-quiet — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-20
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-runners-count-stays-quiet
+prd: 2255
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-20
+wave: 2
+---
+
+## The question, in plain words
+
+Should a job waiting for an answer also move the bell, the number in the page title and the dot on the browser tab, or only the number beside Runners?
+
+## The decision, in plain words
+
+Only the number beside Runners shows it. The bell, the number in the page title and the dot on the tab stay as they are, and nobody gets an alert when a job starts waiting.
+
+## The intro, for fun
+
+Some news deserves a doorbell, and some is fine waiting on the shelf with a label.
+
+## The punchline, for fun
+
+This one gets the label, and the doorbell keeps its voice for the rest.
+
+## The options, in plain words
+
+A. The count shows beside Runners only: the bell, the page title and the dot on the tab ignore it, and no alert is raised.
+B. The count joins the total the bell, the page title and the dot on the tab show, and a new waiting job alerts like a new question.
+C. The count joins the total the bell, the page title and the dot on the tab show, but a new waiting job raises no alert.
+
+## What I had to decide
+
+Pick A to keep the Runners count out of the bell, the page title, the dot on the tab and the alerts, so it shows only beside Runners. Pick B to add it to the total those three show and alert on a new one. Pick C to add it to the total but raise no alert.
+
+## What I did meanwhile
+
+The count shows beside Runners alone. The bell, the number in the page title and the dot on the tab ignore it, and a job that starts waiting raises no alert.
+
+## What it costs to change later
+
+Switching to B or C means adding the count to the total in one place, and for B letting a new one alert like a new question. The number beside Runners stays as it is.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The idea asks for a number beside Runners only; it does not say whether the bell, the page title, the dot on the tab or an alert should also react to it.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-runners-count-stays-quiet -->
