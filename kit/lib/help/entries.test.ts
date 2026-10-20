@@ -127,6 +127,14 @@ describe('the help table in this repository', () => {
     }
   });
 
+  it('lists the add and edit sub-commands of omni constituents (PRD 2268)', () => {
+    const command = ENTRIES.find((e) => e.kind === 'command' && e.name === 'constituents');
+    assertDefined(command, 'constituents');
+    expect(command.usage.join('\n')).toMatch(/omni constituents add --statement .* --never /);
+    expect(command.usage.join('\n')).toMatch(/omni constituents edit statement\|never#<n> --text /);
+    for (const words of [/\badd and edit\b/, /workspace owner/, /--json/]) expect(command.detail, String(words)).toMatch(words);
+  });
+
   it('names omni roadmap prereqs and omni roadmap tick, with what each does (PRD 1218)', () => {
     const command = ENTRIES.find((e) => e.kind === 'command' && e.name === 'roadmap');
     assertDefined(command, 'roadmap');
