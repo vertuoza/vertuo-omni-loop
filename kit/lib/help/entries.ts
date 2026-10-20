@@ -266,7 +266,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb legal', 'omni kb glossary', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb legal', 'omni kb glossary', 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', '  [--product <name>] [--json]', 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', '  [--product <name>] [--json]', 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:
@@ -281,7 +281,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       '(a clean knowledge folder and a sign-in needed); legal and glossary print ' +
       "the product's active Legal entries and its glossary " +
       'terms, one line each, read from the Omni page and kept as a local copy, which they print, ' +
-      'saying so, when the page is unreachable; init lays down every missing form, blank, and ' +
+      'saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change ' +
+      'one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the ' +
+      'fields given and names its item by the id or term the reads print, and --product names the ' +
+      'product when the repository is in several. They print added <id>, edited <id> or proposed (a ' +
+      "member who does not own the section proposes, and waits for its owner) with the item's link; " +
+      "--json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or " +
+      'retired from the terminal; init lays down every missing form, blank, and ' +
       'changes no file that exists.',
   },
   {
@@ -499,7 +505,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'constituents',
     kind: 'command',
     who: 'skills',
-    usage: ['omni constituents [--json]'],
+    usage: ['omni constituents [--json]', 'omni constituents add --statement "<text>" | --never "<text>"', '  [--product <name>] [--json]', 'omni constituents edit statement|never#<n> --text "<text>"', '  [--product <name>] [--json]'],
     summary: "the product's Statement and Never list, read at every session's start",
     detail:
       "Prints the constituents of the product this repository serves: its Statement (what the product " +
@@ -508,7 +514,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'before the briefing. It reads them from the Omni page with your omni signin, keeps a copy on this ' +
       'computer, and says "synced just now"; offline or failing, it prints that copy with its age. With ' +
       'no copy, no product or no sign-in it prints one line. It always exits 0 within 3 seconds. --json ' +
-      'prints the same for skills: state, product, statement, never and syncedAt.',
+      'prints the same for skills: state, product, statement, never and syncedAt. add and edit change them ' +
+      'as you, signed in with omni signin or OMNI_TOKEN: add --statement or --never saves a Statement ' +
+      'or a new Never line, edit statement or edit never#<n> with --text rewrites one, and --product ' +
+      'names the product when the repository is in several. They print added <id> or edited <id> with ' +
+      "the item's link; --json prints the page's answer. Only a workspace owner changes a constituent: " +
+      "a member's refusal is printed in the page's words and exits 1, wrong usage exits 2. Reading " +
+      'is unchanged and a change never writes its copy. Nothing is removed from the terminal.',
   },
   {
     name: 'session',
@@ -1925,6 +1937,27 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:pixel-perfect polish the quote page',
       result: 'one batch of fixes in your tokens and components, checked at mobile and desktop widths',
+    },
+  },
+  {
+    name: 'knowledge-add',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:knowledge-add <what to add or edit>'],
+    label: '/omni:knowledge-add',
+    summary: "add or edit one item of a product's knowledge",
+    detail:
+      "Adds or edits one Statement, Never line, Legal entry or Glossary term of the product's " +
+      'Knowledge tab from the terminal. It turns what you said into exactly one item, asks for any ' +
+      'field you did not give and never fills one, shows the item whole and asks Yes / Change / ' +
+      'Cancel, and writes only on Yes, with omni constituents or omni kb legal and glossary. The ' +
+      'next item starts only after the last one\'s line printed. It never writes unattended and ' +
+      'never removes or retires anything.',
+    group: 'everyday',
+    when: "Use it when a product's constituents, legal entries or glossary should change without leaving the terminal.",
+    example: {
+      type: '/omni:knowledge-add add a never line: we never store card numbers',
+      result: 'the item shown whole, then on Yes its line and link, as added never#4',
     },
   },
   {

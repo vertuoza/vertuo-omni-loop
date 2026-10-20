@@ -4997,6 +4997,10 @@ export type Database = {
         }
         Returns: Json
       }
+      knowledge_product_for_repo: {
+        Args: { p_product?: string; p_repo: string }
+        Returns: Json
+      }
       link_github: { Args: never; Returns: Json }
       lookup_product: {
         Args: { p_prd?: number; p_repo: string; p_workspace: string }
