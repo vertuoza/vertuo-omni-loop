@@ -42,7 +42,8 @@ describe('the tab\'s read, its authors and dates', () => {
   });
 
   it('parses the demo\'s tab as it would a live read, every entry with an author and its dates', async () => {
-    const { members: _members, ...demo } = demoKnowledgeTab('demo-product-1') as KnowledgeTab;
+    const { members, ...demo } = demoKnowledgeTab('demo-product-1') as KnowledgeTab;
+    expect(members).toEqual([]);
     expect(await knowledgeRepository(client(demo)).read('w-1', 'p-1')).toEqual({ ok: true, read: demo });
     const entries = [...demo.legal.entries, ...demo.glossary.entries];
     expect(entries.length).toBeGreaterThan(0);
