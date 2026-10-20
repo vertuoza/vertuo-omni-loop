@@ -3126,6 +3126,7 @@ export type Database = {
           collect_error: string | null
           collected_at: string | null
           collected_until: string | null
+          fix_when_answered: boolean
           full_name: string
           phase0: string
           public_ideas: boolean
@@ -3139,6 +3140,7 @@ export type Database = {
           collect_error?: string | null
           collected_at?: string | null
           collected_until?: string | null
+          fix_when_answered?: boolean
           full_name: string
           phase0?: string
           public_ideas?: boolean
@@ -3152,6 +3154,7 @@ export type Database = {
           collect_error?: string | null
           collected_at?: string | null
           collected_until?: string | null
+          fix_when_answered?: boolean
           full_name?: string
           phase0?: string
           public_ideas?: boolean
@@ -3471,6 +3474,7 @@ export type Database = {
         Row: {
           cancel_requested: boolean
           claimed_at: string | null
+          continues: string | null
           ended_at: string | null
           exit_code: number | null
           id: string
@@ -3496,6 +3500,7 @@ export type Database = {
         Insert: {
           cancel_requested?: boolean
           claimed_at?: string | null
+          continues?: string | null
           ended_at?: string | null
           exit_code?: number | null
           id?: string
@@ -3521,6 +3526,7 @@ export type Database = {
         Update: {
           cancel_requested?: boolean
           claimed_at?: string | null
+          continues?: string | null
           ended_at?: string | null
           exit_code?: number | null
           id?: string
@@ -3544,6 +3550,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "runner_jobs_continues_fkey"
+            columns: ["continues"]
+            isOneToOne: false
+            referencedRelation: "runner_jobs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "runner_jobs_runner_id_fkey"
             columns: ["runner_id"]
@@ -3951,6 +3964,7 @@ export type Database = {
           collect_error: string | null
           collected_at: string | null
           collected_until: string | null
+          fix_when_answered: boolean
           full_name: string
           phase0: string
           public_ideas: boolean
@@ -6078,6 +6092,7 @@ export type Database = {
           collect_error: string | null
           collected_at: string | null
           collected_until: string | null
+          fix_when_answered: boolean
           full_name: string
           phase0: string
           public_ideas: boolean
@@ -6173,6 +6188,7 @@ export type Database = {
         Returns: {
           cancel_requested: boolean
           claimed_at: string | null
+          continues: string | null
           ended_at: string | null
           exit_code: number | null
           id: string
@@ -6297,6 +6313,29 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_repository_fix_when_answered: {
+        Args: { p_full_name: string; p_on: boolean; p_workspace: string }
+        Returns: {
+          added_at: string
+          added_by: string | null
+          collect_error: string | null
+          collected_at: string | null
+          collected_until: string | null
+          fix_when_answered: boolean
+          full_name: string
+          phase0: string
+          public_ideas: boolean
+          removed_at: string | null
+          tracked: boolean
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "repositories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_repository_phase0: {
         Args: { p_full_name: string; p_phase0: string; p_workspace: string }
         Returns: {
@@ -6305,6 +6344,7 @@ export type Database = {
           collect_error: string | null
           collected_at: string | null
           collected_until: string | null
+          fix_when_answered: boolean
           full_name: string
           phase0: string
           public_ideas: boolean
@@ -6327,6 +6367,7 @@ export type Database = {
           collect_error: string | null
           collected_at: string | null
           collected_until: string | null
+          fix_when_answered: boolean
           full_name: string
           phase0: string
           public_ideas: boolean
@@ -6349,6 +6390,7 @@ export type Database = {
           collect_error: string | null
           collected_at: string | null
           collected_until: string | null
+          fix_when_answered: boolean
           full_name: string
           phase0: string
           public_ideas: boolean
