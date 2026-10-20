@@ -605,10 +605,10 @@ Only with `--answers <job>` (PRD 2255): the run resumes one that stopped at step
 `<job>`, and a person answered on the Omni page. Run step 0, then:
 
 **Read the answers.** Run `node .omni-loop/bin/omni.mjs runner answers <job>`. It prints the job's row as
-one line of JSON: its `questions`, its `answers` (one per question: an option's label, the labels of a
-multi-select, or the person's own words) and `answeredBy`, the login of whoever answered. When it exits
-1, or the row holds no answers, stop with the line it printed and touch nothing: no comment, no branch,
-no push (stop rule 6).
+one line of JSON: its `questions`, its `answers` (each question's text to its answer: an option's label,
+the labels of a multi-select, or the person's own words) and `byLogin`, the login of whoever answered.
+When it exits 1, or the row holds no answers, stop with the line it printed and touch nothing: no
+comment, no branch, no push (stop rule 6).
 
 **Say what was decided.** Post on the issue one comment, found by its first line and the line
 `Job <job>`, and edited in place on a rerun. A decision of another job is a comment of its own:

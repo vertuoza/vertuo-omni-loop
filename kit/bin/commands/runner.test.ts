@@ -1056,7 +1056,9 @@ describe('omni runner ask and omni runner answers (PRD 2255, s2)', () => {
     ],
   };
   const LEAD = 'The planning query fails for 31 tenants, and the fix is a choice a person has to make.';
-  const ROW = { job: 'job-7', issue: 314, lead: LEAD, questions: QUESTIONS.questions, answers: ['Filter it out'], answeredBy: 'ada' };
+  // The app's row (apps/galaxy/src/runners/runners.contract.ts, JobQuestionsSchema): each question's text to its answer.
+  const ANSWERS = { 'How should the planning query treat an assignment the user may not see?': 'Filter it out' };
+  const ROW = { job: 'job-7', issue: 314, lead: LEAD, questions: QUESTIONS.questions, state: 'answered', answers: ANSWERS, byLogin: 'ada' };
 
   /** The stubbed app: every call is recorded, and `reply` answers the questions route. */
   function app(reply: (call: Call) => Response | Promise<Response> = () => new Response('{}', { status: 200 })) {

@@ -111,7 +111,9 @@ describe('jobQuestionsApi().ask()', () => {
 
 describe('jobQuestionsApi().answers()', () => {
   it("reads the job's questions route as the app answers it, with the sign-in", async () => {
-    const row = { job: 'job-7', issue: 314, lead: ASKED.lead, questions: ASKED.questions, answers: ['Filter it out'], answeredBy: 'ada' };
+    // The app's row (apps/galaxy/src/runners/runners.contract.ts, JobQuestionsSchema): each question's text to its answer.
+    const answers = { 'How should the planning query treat an assignment the user may not see?': 'Filter it out' };
+    const row = { job: 'job-7', issue: 314, lead: ASKED.lead, questions: ASKED.questions, state: 'answered', answers, byLogin: 'ada' };
     const { client, calls } = questionsApi(reply(200, row));
     await expect(client.answers('job 7')).resolves.toEqual(row);
     expect(calls[0]?.url).toBe('https://omni.test/api/runners/jobs/job%207/questions');
