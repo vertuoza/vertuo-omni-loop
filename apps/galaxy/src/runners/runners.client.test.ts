@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { cancelRunnerJob, readJobLines, sendToRunner, setRunnerFleet } from './runners.client';
-import type { Job, JobLines, Runner } from './runners.contract';
+import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { answerRunnerJob, cancelRunnerJob, dismissRunnerJob, readJobLines, readJobQuestions, sendToRunner, setRunnerFleet } from './runners.client';
+import type { Job, JobLines, JobQuestions, Runner } from './runners.contract';
 
 // The browser's calls to the runners' routes (PRD 1830 s1): what each sends, and how an answer, a
 // refusal and an unreachable app come back.
@@ -59,5 +60,42 @@ describe('the runners\' client', () => {
     expect(calls).toEqual([{ url: `/api/runners/jobs/${JOB.id}/lines?after=1200`, method: 'GET', body: null }]);
     const missing = fetcher(404, { error: 'No such job.' });
     expect(await readJobLines(JOB.id, 0, missing.fake)).toEqual({ ok: false, error: 'No such job.' });
+  });
+
+  // A job's questions (PRD 2255): read, answered with the job that resumes the run, dismissed.
+  describe('a job\'s questions (PRD 2255)', () => {
+    const QUESTIONS: JobQuestions = {
+      job: JOB.id, issue: parseIssue(314), lead: 'The planning query fails for 31 tenants.', state: 'open', answers: null, by: null, byLogin: null, at: null, resume: null,
+      questions: [{
+        question: 'Which fix?', header: 'Fix', multiSelect: false,
+        options: [{ label: 'Guard the input', description: 'Check the tenant first' }, { label: 'Design it first', description: 'Stop and brainstorm' }],
+      }],
+    };
+
+    it('reads them', async () => {
+      const { fake, calls } = fetcher(200, QUESTIONS);
+      expect(await readJobQuestions(JOB.id, fake)).toEqual({ ok: true, value: QUESTIONS });
+      expect(calls).toEqual([{ url: `/api/runners/jobs/${JOB.id}/questions`, method: 'GET', body: null }]);
+      expect(await readJobQuestions(JOB.id, fetcher(404, { error: 'No such job.' }).fake)).toEqual({ ok: false, error: 'No such job.' });
+    });
+
+    it('sends the answers and reads back the job that resumes the run', async () => {
+      const resume = { ...JOB, line: `/omni:bug-fix #314 --answers ${JOB.id}` };
+      const { fake, calls } = fetcher(200, { job: resume });
+      expect(await answerRunnerJob(JOB.id, { 'Which fix?': 'Guard the input' }, fake)).toEqual({ ok: true, value: resume });
+      expect(calls).toEqual([{ url: `/api/runners/jobs/${JOB.id}/answers`, method: 'POST', body: { answers: { 'Which fix?': 'Guard the input' } } }]);
+    });
+
+    it('gives the route\'s words when someone answered first', async () => {
+      const first = fetcher(409, { error: 'Already answered by @mo' });
+      expect(await answerRunnerJob(JOB.id, { 'Which fix?': 'Design it first' }, first.fake)).toEqual({ ok: false, error: 'Already answered by @mo' });
+    });
+
+    it('dismisses them and reads them back closed', async () => {
+      const closed = { ...QUESTIONS, state: 'dismissed' as const, by: JOB.sentBy, byLogin: 'mo', at: '2026-10-13T12:05:00.000Z' };
+      const { fake, calls } = fetcher(200, closed);
+      expect(await dismissRunnerJob(JOB.id, fake)).toEqual({ ok: true, value: closed });
+      expect(calls).toEqual([{ url: `/api/runners/jobs/${JOB.id}/dismiss`, method: 'POST', body: null }]);
+    });
   });
 });

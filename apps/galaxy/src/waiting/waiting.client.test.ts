@@ -25,10 +25,18 @@ describe('the waiting client', () => {
     expect(fetchFn.mock.calls[0]?.[0]).toBe('/api/waiting/documents');
   });
 
+  it('reads the Runners part\'s count from its route (PRD 2255)', async () => {
+    const fetchFn = fetching(200, { count: 3 });
+    expect(await waitingClient(fetchFn).runners()).toBe(3);
+    expect(fetchFn).toHaveBeenCalledWith('/api/waiting/runners', { headers: { accept: 'application/json' }, cache: 'no-store', credentials: 'same-origin' });
+    expect(await waitingClient(fetching(200, { count: 0 })).runners()).toBe(0);
+  });
+
   it('throws WaitingSignedOut on a 401', async () => {
     const client = waitingClient(fetching(401, { error: 'signed-out' }));
     await expect(client.questions()).rejects.toBeInstanceOf(WaitingSignedOut);
     await expect(client.documents()).rejects.toBeInstanceOf(WaitingSignedOut);
+    await expect(client.runners()).rejects.toBeInstanceOf(WaitingSignedOut);
   });
 
   it('throws WaitingReadFailed on a 500, naming its status', async () => {
@@ -40,6 +48,12 @@ describe('the waiting client', () => {
   it('refuses a shape the contract does not know', async () => {
     await expect(waitingClient(fetching(200, { questions: [{ ...question, askedAt: 'yesterday' }] })).questions()).rejects.toThrow();
     await expect(waitingClient(fetching(200, { documents: [{ ...document, kind: 'retro' }] })).documents()).rejects.toThrow();
+  });
+
+  it('refuses a Runners count that is not a whole number of at least 0', async () => {
+    for (const count of [-1, 1.5, '3', null]) await expect(waitingClient(fetching(200, { count })).runners()).rejects.toThrow();
+    await expect(waitingClient(fetching(200, {})).runners()).rejects.toThrow();
+    await expect(waitingClient(fetching(500, { error: 'database' })).runners()).rejects.toMatchObject({ status: 500 });
   });
 });
 

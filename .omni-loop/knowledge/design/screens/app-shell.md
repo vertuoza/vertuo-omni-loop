@@ -25,7 +25,8 @@ in its `reads`, never in its `implements`. The pages a person meets before the a
   wordmark, `nav/BrandLogo.tsx`) linked to /app, « to fold it, the workspace's name; the
   **Dashboard** group (Home, Fleet, Loop, Runners, Workspace, Engineering) and the **Work** group (Products,
   Roadmaps, Ideas, Concepts, PRDs, Bug Fixes, Visual Updates, Questions, Knowledge), each entry with
-  its 16 px sprite, the current one marked; Questions and PRDs carry a count badge; at the foot
+  its 16 px sprite, the current one marked; Questions and PRDs carry a count badge, and Runners one
+  for the workspace's jobs waiting for an answer, spoken `Runners: <n> waiting` (PRD 2255); at the foot
   Settings, then Docs · Release notes (each opening a new tab), then `Omni Loop v<version>`.
 - **The top bar** (`nav/AppBar.tsx`): the section's sprite at 2× in a tile and the trail to the page
   (`Work › PRDs`); then the theme switch (Omni, Light, Dark), Game mode, the bell (its own shared
@@ -52,7 +53,7 @@ in its `reads`, never in its `implements`. The pages a person meets before the a
 OMNI LOOP · Dashboard · Home · Fleet · Loop · Runners · Workspace · Engineering · Work · Products · Roadmaps ·
 Ideas · Concepts · PRDs · Bug Fixes · Visual Updates · Questions · Knowledge · Settings · Docs ·
 Release notes · Omni Loop v<version> · Collapse the menu · Expand the menu · Menu · Omni · Light ·
-Dark · Game mode · My profile · Sign out · Sign in with GitHub.
+Dark · Game mode · My profile · Sign out · Sign in with GitHub · Runners: <n> waiting.
 
 ## Refusals
 
@@ -84,4 +85,5 @@ Dark · Game mode · My profile · Sign out · Sign in with GitHub.
 - PRD 1584 s4, 2026-10-11 (drawn by `/omni:pixel-perfect mock`, from the source)
 - /omni:brainstorm, PRD 1705: .omni-loop/delivery/shipped/1705-doorway/before-after.html (the `/ask` pages it no longer frames)
 - /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html (the Runners entry)
+- /omni:brainstorm, PRD 2255: .omni-loop/delivery/shipped/2255-need-human/before-after.html (the Runners badge)
 - /omni:visual-fix #1996, pick B by @pierrederval on 2026-10-15: .omni-loop/delivery/visual/1996-ideas-keeps-menu/before-after.html
