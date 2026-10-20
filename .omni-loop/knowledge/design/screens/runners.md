@@ -33,6 +33,8 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
   repository, who sent it, where it went, its status and its action.
   - Each row has a Terminal button, which opens the `runner-terminal` panel on that job and sets
     `?terminal=<job id>` on the URL.
+  - A job whose line names a PRD of its repository shows, under the line, `PRD <n>` linking the
+    PRD's page, then its title (PRD 2251).
   - A done job links its pull request. A yolo job that ended on its hand-off's last line reads its
     outcome in place of Done (PRD 2223): Waiting on answers or Held in `--ask-plasma`, Ready in
     `--ask-green`, with a PRD page link beside its pull request.
@@ -89,3 +91,4 @@ health · Released · Could not release this job's claims.
 /omni:brainstorm, PRD 2102: .omni-loop/delivery/shipped/2102-runner-health/before-after.html
 /omni:brainstorm, PRD 2175: .omni-loop/delivery/shipped/2175-runner-dead-claims/before-after.html
 /omni:brainstorm, PRD 2223: .omni-loop/delivery/shipped/2223-outbox-waiting/before-after.html
+/omni:brainstorm, PRD 2251: .omni-loop/delivery/inbox/2251-runner-follow/before-after.html
