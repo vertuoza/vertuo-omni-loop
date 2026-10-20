@@ -18,8 +18,14 @@ export type HudWait = { line: string; toast: boolean; until: number | null };
 /** What `omni sync` last kept (PRD 1990); `setupDone`, the newcomer's steps done, only while `blue`. */
 export type HudSync = { status: 'blue' | 'red' | 'orange' | 'green'; headline: string | null; checkedAt: string; setupDone?: number };
 
+/** The runner slots free while a runner is online for this repository (PRD 2251). */
+export type HudRunners = { free: number; slots: number };
+
+/** The last milestone of the followed runner job (PRD 2251). */
+export type HudRunner = { line: string };
+
 /** `omni now --json`'s answer, as the band reads it; `wait` only while an approval wait shows something, `sync` once `omni sync` has run. */
-export type HudNow = { headline: HudHeadline | null; work: HudWork | null; doing: string | null; wait: HudWait | null; sync: HudSync | null };
+export type HudNow = { headline: HudHeadline | null; work: HudWork | null; doing: string | null; wait: HudWait | null; sync: HudSync | null; runners: HudRunners | null; runner: HudRunner | null };
 
 declare module 'claude-code' {
   interface PluginState {

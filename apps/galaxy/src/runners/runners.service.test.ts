@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { ENDED_JOBS_SHOWN } from './runners.contract';
 import type { JobLineRow, JobRow, QuestionsRow, RunnerRow, SampleRow } from './runners.repository';
 import { cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
@@ -783,6 +783,104 @@ describe('a runner\'s tokens (PRD 2102 s4)', () => {
     value(await w.service.health(OLGA, SHARED, { ...HEALTH, tokens: { last5h: { ...COUNTS, input: 0 }, today: COUNTS } }));
     const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
     expect(board.runners.find((r) => r.id === SHARED)?.samples?.map((s) => s.tokens5h)).toEqual([SUM, SUM - 81_234]);
+  });
+});
+
+// PRD 2251 s1: the terminal reads, with its own sign-in, the runners and a PRD's jobs of the workspace
+// its repository belongs to; a person outside that workspace reads none.
+describe('the terminal\'s reads (PRD 2251)', () => {
+  const PRD = PrdNumberSchema.parse(2251);
+  const THEIRS = '00000000-0000-4000-8000-000001830002';
+
+  describe('the runners', () => {
+    it('lists the workspace\'s runners with their state, slots used, slots, fleet and repositories', async () => {
+      const running = jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+      const w = world({ jobs: [running] });
+      expect(value(await w.service.runnersFor(PIA, 'vertuoza/app'))).toEqual([
+        { id: CIA_BOX, name: 'cia-box', fleet: 'cia', state: 'online', used: 0, slots: 4, repos: ['vertuoza/app'] },
+        { id: OTHER, name: 'other', fleet: null, state: 'online', used: 0, slots: 4, repos: ['vertuoza/other'] },
+        { id: SHARED, name: 'shared', fleet: null, state: 'busy', used: 1, slots: 1, repos: ['vertuoza/app'] },
+      ]);
+    });
+
+    it('reads a repository named in capitals as GitHub does', async () => {
+      expect(value(await world().service.runnersFor(MO, 'Vertuoza/App'))).toHaveLength(3);
+    });
+
+    it('marks a silent runner offline, and its running job lost', async () => {
+      const running = jobRow({ status: 'running', runner_id: CIA_BOX, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+      const w = world({ jobs: [running], start: at(91) });
+      const runners = value(await w.service.runnersFor(MO, 'vertuoza/app'));
+      expect(runners.map((r) => [r.name, r.state, r.used])).toEqual([['cia-box', 'offline', 0], ['other', 'offline', 0], ['shared', 'offline', 0]]);
+      expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'runner lost' });
+    });
+
+    it('is refused to a person outside the workspace, and for a repository no workspace of theirs holds', async () => {
+      const w = world();
+      expect(await w.service.runnersFor(EVE, 'vertuoza/app')).toMatchObject({ ok: false, kind: 'forbidden' });
+      expect(await w.service.runnersFor(MO, 'elsewhere/app')).toMatchObject({ ok: false, kind: 'forbidden' });
+      expect(await w.service.runnersFor(MO, 'nobody/app')).toMatchObject({ ok: false, kind: 'forbidden' });
+    });
+
+    it('never answers another workspace\'s runners, even to its own member', async () => {
+      const theirs = runnerRow({ id: '00000000-0000-4000-8000-0000018301d1', name: 'theirs', workspace_id: THEIRS, owner: EVE, repos: ['elsewhere/app'] });
+      const w = world({ runners: [...RUNNERS, theirs] });
+      expect(value(await w.service.runnersFor(MO, 'vertuoza/app')).map((r) => r.name)).toEqual(['cia-box', 'other', 'shared']);
+      expect(value(await w.service.runnersFor(EVE, 'elsewhere/app')).map((r) => r.name)).toEqual(['theirs']);
+    });
+  });
+
+  describe('a PRD\'s jobs', () => {
+    it('answers the PRD\'s jobs in the repository, newest first, with their runner by name', async () => {
+      const older = jobRow({
+        line: '/omni:yolo 2251', status: 'done', runner_id: SHARED, outcome: 'answers', pr_url: 'https://github.com/vertuoza/app/pull/7', exit_code: 0,
+        queued_at: at(-600).toISOString(), claimed_at: at(-599).toISOString(), ended_at: at(-60).toISOString(),
+      });
+      const newer = jobRow({ line: '/omni:yolo-fix 2251', status: 'running', runner_id: CIA_BOX, queued_at: at(-30).toISOString(), claimed_at: at(-29).toISOString(), running_at: at(-28).toISOString() });
+      const queued = jobRow({ line: '/omni:pr-care 2251 --once', queued_at: at(-5).toISOString() });
+      const w = world({ jobs: [older, newer, queued] });
+      expect(value(await w.service.prdJobs(MO, 'vertuoza/app', PRD))).toEqual([
+        {
+          id: queued.id, line: '/omni:pr-care 2251 --once', repo: 'vertuoza/app', status: 'queued', runner: null, prUrl: null, exitCode: null, reason: null,
+          outcome: null, queuedAt: at(-5).toISOString(), claimedAt: null, runningAt: null, endedAt: null,
+        },
+        {
+          id: newer.id, line: '/omni:yolo-fix 2251', repo: 'vertuoza/app', status: 'running', runner: 'cia-box', prUrl: null, exitCode: null, reason: null,
+          outcome: null, queuedAt: at(-30).toISOString(), claimedAt: at(-29).toISOString(), runningAt: at(-28).toISOString(), endedAt: null,
+        },
+        {
+          id: older.id, line: '/omni:yolo 2251', repo: 'vertuoza/app', status: 'done', runner: 'shared', prUrl: 'https://github.com/vertuoza/app/pull/7', exitCode: 0,
+          reason: null, outcome: 'answers', queuedAt: at(-600).toISOString(), claimedAt: at(-599).toISOString(), runningAt: null, endedAt: at(-60).toISOString(),
+        },
+      ]);
+    });
+
+    it('leaves out a job whose line names another PRD, or none, and a job of another repository', async () => {
+      const mine = jobRow({ line: '/omni:yolo 2251' });
+      const w = world({ jobs: [
+        mine, jobRow({ line: '/omni:yolo 22510' }), jobRow({ line: '/omni:yolo 225' }), jobRow({ line: '/omni:wave' }),
+        jobRow({ line: '/omni:bug-fix https://github.com/vertuoza/app/issues/2251' }), jobRow({ line: '/omni:yolo 2251', repo: 'vertuoza/other' }),
+      ] });
+      expect(value(await w.service.prdJobs(MO, 'vertuoza/app', PRD)).map((job) => job.id)).toEqual([mine.id]);
+    });
+
+    it('answers a job its silent runner lost as failed, runner lost', async () => {
+      const running = jobRow({ line: '/omni:yolo 2251', status: 'running', runner_id: CIA_BOX, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+      const w = world({ jobs: [running], start: at(91) });
+      expect(value(await w.service.prdJobs(MO, 'vertuoza/app', PRD))).toMatchObject([{ status: 'failed', reason: 'runner lost', runner: 'cia-box' }]);
+    });
+
+    it('answers none when the PRD has no job yet', async () => {
+      expect(value(await world({ jobs: [jobRow({ line: '/omni:yolo 1717' })] }).service.prdJobs(MO, 'vertuoza/app', PRD))).toEqual([]);
+    });
+
+    it('is refused to a person outside the workspace, and never reads another workspace\'s jobs', async () => {
+      const theirs = jobRow({ line: '/omni:yolo 2251', workspace_id: THEIRS, repo: 'elsewhere/app', sent_by: EVE });
+      const w = world({ jobs: [jobRow({ line: '/omni:yolo 2251' }), theirs] });
+      expect(await w.service.prdJobs(EVE, 'vertuoza/app', PRD)).toMatchObject({ ok: false, kind: 'forbidden' });
+      expect(await w.service.prdJobs(MO, 'elsewhere/app', PRD)).toMatchObject({ ok: false, kind: 'forbidden' });
+      expect(value(await w.service.prdJobs(EVE, 'elsewhere/app', PRD)).map((job) => job.id)).toEqual([theirs.id]);
+    });
   });
 });
 
