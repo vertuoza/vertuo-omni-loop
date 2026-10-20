@@ -108,8 +108,18 @@ Establish, with evidence you can cite, the risk levels and the regression eviden
 - **Risk:** `critical`, `high`, `medium` or `low`, and one sentence: who is hurt, how, workaround or
   not.
 - **Regression:** `yes` only with evidence: the culprit PR or commit (`git log <green>..<red>` on
-  `<remote>/<repo.defaultBranch>`, then read the suspect diff), a green run followed by a red one, or
-  the report saying when it last worked. Otherwise: new bug — no evidence this ever worked.
+  `<remote>/<repo.defaultBranch>`, then read the suspect diff), a green run followed by a red one, a
+  release range, or the report saying when it last worked. Otherwise: new bug — no evidence this ever
+  worked. A release range is `<previous tag>..<tag> (first seen <time> UTC, none before)`, when the
+  first occurrence follows that release and none came before it; the suspect diff is read with
+  `git log <previous tag>..<tag>`.
+- **Production:** only when the report comes from production. The first occurrence is read from the
+  report's source, with its time zone (the error tracker's own first-seen time), never from the
+  issue's date, and written in UTC. Match it against releases: `gh release list --json
+  tagName,publishedAt`, and the repository's GitHub deployments (`gh api
+  repos/<repo.slug>/deployments`) when it has them. The deployed version is the last one published, or
+  deployed, before it. When the tracker gives the stack unminified, cite its top frame as
+  `<file>:<line>`.
 
 **Ask Jev about the risk.** Once you have set the risk level and its sentence yourself, and before
 you post the comment, write the bug's state to a scratch file (never in the repository):
@@ -126,6 +136,10 @@ was. When it prints `<level> <confidence>` (`high 0.82`), the workspace has put 
 Jev's level counts, even against yours: it is the level of the Risk line and of the risk label below,
 and the Risk line ends with ` (Jev, <confidence>)`. Jev answers the level only: Kind, Domain,
 Regression and the Risk line's sentence stay yours.
+
+The triage is posted in this step, at once, with `- **Reproduction:** pending` and
+`- **Branch:** pending`: neither exists yet, and every stop after this step leaves a triage on the
+issue. Steps 5 and 7 fill those two lines, edited in place by its marker.
 
 Post **one** comment on the issue (a comment is never signed), found by its marker and edited in
 place on a rerun:
@@ -146,10 +160,13 @@ gh api -X PATCH repos/<repo.slug>/issues/comments/<id> -F body=@<file>          
 - **Domain:** <the knowledge area or code area that owns the behaviour>
 - **Risk:** <critical | high | medium | low> — <who is hurt, how, workaround or not>[ (Jev, <confidence>)]
 - **Regression:** yes — <culprit PR or commit | green run → red run | the report's "last worked">
-  | new bug — no evidence this ever worked
-- **Reproduction:** `<path of the test or scenario>`
-- **Branch:** `<fix branch>`
+  | <previous tag>..<tag> (first seen <time> UTC, none before) | new bug — no evidence this ever worked
+- **Production:** <deployed version> · first seen <YYYY-MM-DD HH:MM> UTC (<source>) · <count> occurrences
+- **Reproduction:** pending
+- **Branch:** pending
 ```
+
+The **Production** line is there only when the report comes from production.
 
 Then label the issue with the label of the risk that counted, Jev's or yours (`labels.riskCritical`, `labels.riskHigh`,
 `labels.riskMedium` or `labels.riskLow`) and, for a regression only, `labels.regression`:
@@ -204,6 +221,9 @@ git worktree add -b <fix branch> <worktrees>/<n>-<slug> <remote>/<repo.defaultBr
 
 Every change below is made in this worktree. Never commit on `repo.defaultBranch`.
 
+Edit the triage comment in place, found by its marker `<!-- omni-bug:triage -->` (step 3's
+`gh api` lookup, then its `PATCH`): its `- **Branch:**` line becomes `- **Branch:** `<fix branch>``.
+
 ## 6. Words first
 
 List the nouns and verbs the reproduction needs. When `paths.glossary` is set, each is in it; a
@@ -222,7 +242,9 @@ Write the reproduction, in the domain's words:
 
 Run it **before any fix**:
 
-- **It fails:** keep the failing line verbatim; it is the red evidence.
+- **It fails:** keep the failing line verbatim; it is the red evidence. Edit the triage comment in
+  place, found by its marker `<!-- omni-bug:triage -->`: its `- **Reproduction:**` line becomes the
+  reproduction's path.
 - **It passes:** it has three readings, in this order: **it misses the bug**, **the bug is already
   gone**, or **this level cannot see it**. The third applies when the evidence points at what only
   the build changes: an error in production that the source cannot produce (a module's shape,
