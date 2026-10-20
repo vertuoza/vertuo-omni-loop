@@ -6,13 +6,15 @@
  * **Stale evidence.** A filled form lists the files it was filled from as `<path>@<hex>`, the first
  * hex of the file's `git hash-object` when it was read. An entry is stale when the file is gone, or
  * its hash no longer starts with the recorded hex: the form may no longer say what the file does.
+ * A change to its `"version"` line alone is no change (bug 2278): the release commit bumps it in
+ * `package.json` after every merge, and no form says a version.
  *
  * **Source.** Where a form reads from, as a whole: `pointer` for a pointer form, or one whose every
  * section the repository answers is a `See:` line; `repo` when at least one section holds the
  * repository's own text; `kit` when no section comes from the repository (a missing, invalid or
  * blank form, or one holding only open questions).
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context, ExecText } from '../context.ts';
 import { registerCounts } from '../knowledge/registers.ts';
@@ -52,6 +54,24 @@ function blobHash(path: string, { ctx, exec }: { ctx: Pick<Context, 'root'>; exe
   }
 }
 
+/** A manifest's `"version": "<v>",` line. */
+const VERSION_LINE = /^\s*"version"\s*:\s*"[^"]*",?\s*$/;
+
+/** Whether `path` differs from the blob recorded as `hash` only in its `"version"` lines; `false`
+ * when git no longer holds that blob. */
+function versionOnly(path: string, hash: string, { ctx, exec }: { ctx: Pick<Context, 'root'>; exec: ExecText }): boolean {
+  let before: string;
+  try {
+    before = exec('git', ['cat-file', 'blob', hash], { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch {
+    return false;
+  }
+  const was = before.split('\n');
+  const is = readFileSync(join(ctx.root, path), 'utf8').split('\n');
+  if (was.length !== is.length) return false;
+  return was.every((line, i) => line === is[i] || (VERSION_LINE.test(line) && VERSION_LINE.test(is[i] ?? '')));
+}
+
 /**
  * Each of `evidence`'s entries (`[{ path, hash }]`, as the parser reads them) that is stale:
  * `[{ path, hash, now, exists }]`, `now` the file's hash today (`null` when it is gone or git could
@@ -67,7 +87,9 @@ export function staleEvidence(
   for (const { path, hash } of evidence) {
     const exists = existsSync(join(ctx.root, path));
     const now = exists ? blobHash(path, { ctx, exec }) : null;
-    if (now === null || !now.startsWith(hash)) out.push({ path, hash, now, exists });
+    if (now !== null && now.startsWith(hash)) continue;
+    if (now !== null && versionOnly(path, hash, { ctx, exec })) continue;
+    out.push({ path, hash, now, exists });
   }
   return out;
 }
