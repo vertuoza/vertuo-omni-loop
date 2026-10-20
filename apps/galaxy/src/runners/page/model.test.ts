@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { afterAnswersWords, answeredOf, canAnswer, canCancel, fixLineOf, canSendAgain, madeByWords, prdPageLink, prWords, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
+import { afterAnswersWords, answeredOf, canAnswer, canCancel, fixLineOf, canSendAgain, madeByWords, prdLineOf, prdPageLink, prWords, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
 
 // The Runners page's words and rules (PRD 1830 s3), pure: how long ago, where a job is sent again, and
 // which jobs take Cancel or Send again.
@@ -137,6 +137,23 @@ describe('a job that waited, once its answers are in (PRD 2270 s2)', () => {
     expect(fixLineOf({ line: '/omni:yolo 2270' })).toBe('/omni:yolo-fix 2270');
     expect(fixLineOf({ line: '/omni:do-work 2270 s1' })).toBe('/omni:yolo-fix 2270');
     expect(fixLineOf({ line: '/omni:bug-fix Issue 548 totals' })).toBeNull();
+  });
+});
+
+describe('prdLineOf', () => {
+  const prds = { 'acme/widgets#1717': 'Widgets sync', 'acme/widgets#42': 'A, B & <C>' };
+
+  it('names the PRD a /omni:<skill> <n> line builds, linking its page, with its title', () => {
+    expect(prdLineOf({ line: '/omni:yolo 1717', repo: 'acme/widgets' }, prds)).toEqual({ number: 1717, href: '/prd/at/acme/widgets/1717?to=page', title: 'Widgets sync' });
+    expect(prdLineOf({ line: '/omni:yolo-fix 42', repo: 'Acme/Widgets' }, prds)?.title).toBe('A, B & <C>');
+  });
+
+  it('is null for a PRD the repository has no dossier of, or a line that names none', () => {
+    expect(prdLineOf({ line: '/omni:yolo 9', repo: 'acme/widgets' }, prds)).toBeNull();
+    expect(prdLineOf({ line: '/omni:yolo 1717', repo: 'acme/mobile' }, prds)).toBeNull();
+    expect(prdLineOf({ line: '/omni:bug-fix Issue 548 totals', repo: 'acme/widgets' }, prds)).toBeNull();
+    expect(prdLineOf({ line: '/omni:yolo 1717 now', repo: 'acme/widgets' }, prds)).toBeNull();
+    expect(prdLineOf({ line: 'yolo 1717', repo: 'acme/widgets' }, prds)).toBeNull();
   });
 });
 

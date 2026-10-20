@@ -14,6 +14,7 @@ const NOW = new Date('2026-10-13T14:00:00Z');
 const WORKSPACE = { id: 'w1', slug: 'acme', name: 'Acme', theme: {} };
 const BOARD: Board = { runners: [], jobs: [], viewer: { id: 'u1', owner: true, fleet: null } };
 const FLEETS = [{ name: 'comets', label: 'Comets' }];
+const PRDS = { 'acme/widgets#7': 'Seven' };
 
 function reads(over: Partial<RunnersPageReads> = {}): RunnersPageReads {
   return {
@@ -21,6 +22,7 @@ function reads(over: Partial<RunnersPageReads> = {}): RunnersPageReads {
     board: (): Promise<Served<Board>> => Promise.resolve({ ok: true, value: BOARD }),
     fleets: () => Promise.resolve(FLEETS),
     stand: () => Promise.resolve(null),
+    prds: () => Promise.resolve(PRDS),
     ...over,
   };
 }
@@ -29,7 +31,7 @@ describe('loadRunnersPage', () => {
   it('reads the board and the fleets of the workspace the person joined first', async () => {
     const board = vi.fn((): Promise<Served<Board>> => Promise.resolve({ ok: true, value: BOARD }));
     const fleets = vi.fn(() => Promise.resolve(FLEETS));
-    expect(await loadRunnersPage(reads({ board, fleets }), NOW)).toEqual({ kind: 'board', name: 'Acme', board: BOARD, fleets: FLEETS, now: NOW.toISOString(), answered: [] });
+    expect(await loadRunnersPage(reads({ board, fleets }), NOW)).toEqual({ kind: 'board', name: 'Acme', board: BOARD, fleets: FLEETS, prds: PRDS, now: NOW.toISOString(), answered: [] });
     expect(board).toHaveBeenCalledWith('w1');
     expect(fleets).toHaveBeenCalledWith('w1');
   });
@@ -50,7 +52,12 @@ describe('loadRunnersPage', () => {
 
   it('still draws the board when only the fleets fail, with no fleet to pick', async () => {
     const view = await loadRunnersPage(reads({ fleets: () => Promise.reject(new Error('down')) }), NOW);
-    expect(view).toEqual({ kind: 'board', name: 'Acme', board: BOARD, fleets: [], now: NOW.toISOString(), answered: [] });
+    expect(view).toEqual({ kind: 'board', name: 'Acme', board: BOARD, fleets: [], prds: PRDS, now: NOW.toISOString(), answered: [] });
+  });
+
+  it('still draws the board when only the PRD titles fail, with no PRD line', async () => {
+    const view = await loadRunnersPage(reads({ prds: () => Promise.reject(new Error('down')) }), NOW);
+    expect(view).toEqual({ kind: 'board', name: 'Acme', board: BOARD, fleets: FLEETS, prds: {}, now: NOW.toISOString(), answered: [] });
   });
 });
 

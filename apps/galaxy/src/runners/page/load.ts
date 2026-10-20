@@ -6,7 +6,7 @@ import { prdOfLine, shouldContinue } from '../continue';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { Board, Job } from '../runners.contract';
 import type { Served } from '../runners.service';
-import type { Fleet, RunnersPageView } from './model';
+import type { Fleet, PrdTitles, RunnersPageView } from './model';
 
 // The Runners page's read (PRD 1830 s3): the workspace the person joined first, as every board page
 // heads its own; with none, the no-workspace notice. Then the board, through the runners' service (its
@@ -23,6 +23,8 @@ export interface RunnersPageReads {
   fleets(workspaceId: string): Promise<Fleet[]>;
   /** Where a PRD's asked questions stand, from its stored GitHub snapshot (PRD 2270); null when unread or none asked. */
   stand(workspaceId: string, repo: string, prd: PrdNumber): Promise<OutboxStand | null>;
+  /** The titles of the PRDs the person may read, for the line under a job that builds one (PRD 2251). */
+  prds(): Promise<PrdTitles>;
 }
 
 const failed = (message: string) => { log.error({ event: 'runners-page', outcome: 'failed', message }); };
@@ -58,16 +60,25 @@ export async function answeredJobs(reads: RunnersPageReads, workspaceId: string,
   return found.flat();
 }
 
+async function prdsOf(reads: RunnersPageReads): Promise<PrdTitles> {
+  try {
+    return await reads.prds();
+  } catch (error) {
+    failed(`the PRD titles could not be read (${messageOf(error)})`);
+    return {};
+  }
+}
+
 export async function loadRunnersPage(reads: RunnersPageReads, now: Date): Promise<RunnersPageView> {
   try {
     const workspace = await reads.workspace();
     if (!workspace) return { kind: 'no-workspace' };
-    const [served, fleets] = await Promise.all([reads.board(workspace.id), fleetsOf(reads, workspace.id)]);
+    const [served, fleets, prds] = await Promise.all([reads.board(workspace.id), fleetsOf(reads, workspace.id), prdsOf(reads)]);
     if (!served.ok) {
       failed(`the board could not be read (${served.error})`);
       return { kind: 'unreadable' };
     }
-    return { kind: 'board', name: workspace.name, board: served.value, fleets, now: now.toISOString(), answered: await answeredJobs(reads, workspace.id, served.value.jobs) };
+    return { kind: 'board', name: workspace.name, board: served.value, fleets, prds, now: now.toISOString(), answered: await answeredJobs(reads, workspace.id, served.value.jobs) };
   } catch (error) {
     failed(`the page could not be read (${messageOf(error)})`);
     return { kind: 'unreadable' };

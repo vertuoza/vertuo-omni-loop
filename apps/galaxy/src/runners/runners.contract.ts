@@ -5,7 +5,9 @@
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
 //   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
-//   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser                               → JobLines
+//   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser or terminal (PRD 2251)        → JobLines
+//   GET   /api/runners?repo=<owner/name>   terminal (PRD 2251)                              → {runners: [KitRunner]}
+//   GET   /api/runners/jobs?repo=<owner/name>&prd=<n>  terminal (PRD 2251)                 → {jobs: [PrdJob]}, newest first
 //   POST  /api/runners/jobs                browser {line, repo, target}                      → {job}
 //   POST  /api/runners/jobs/<id>/cancel    browser                                           → {job}
 //   POST  /api/runners/jobs/<id>/questions runner {issue, lead, questions} (PRD 2255)        → JobQuestions
@@ -15,14 +17,14 @@
 //   PATCH /api/runners/<id>                browser {fleet}                                   → {runner}
 //
 // A runner's routes take the kit's sign-in (a bearer access token, `omni signin` or a traded
-// OMNI_TOKEN); the browser's take the session. A refusal is `{error}` in plain words (ADR-0029): 400 a
+// OMNI_TOKEN); the browser's take the session; the terminal's reads take the kit's sign-in. A refusal is `{error}` in plain words (ADR-0029): 400 a
 // malformed request or a line off the list, 401 signed out, 403 not allowed (a target outside the
 // sender's fleet, a repository outside the workspace, a fleet set by a non-owner, a runner of someone
 // else, a token on a route that takes a person's session), 404 no such runner or job (or no question
 // on it), 409 a job that has ended (a runner stops it) or a status that goes back, or questions already
 // asked, answered or dismissed, 503 no database here, 500 the database failed.
 import { z } from 'zod';
-import { IssueNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
 export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove'] as const;
@@ -71,6 +73,15 @@ export function checkLine(line: string): LineCheck {
   const args = match[2] ?? '';
   if (!ARGS.test(args)) return { ok: false, reason: 'A line\'s arguments are letters, digits, spaces and . _ / : # - only.' };
   return { ok: true, skill, args };
+}
+
+/** The PRD a line names (PRD 2251): its first argument, when it is a PRD number (`/omni:yolo 2251`,
+ * `/omni:do-work 2251 s1`); null for a line no runner runs, or whose first argument is anything else. */
+export function linePrd(line: string): PrdNumber | null {
+  const check = checkLine(line);
+  const first = check.ok ? /^(\d+)(?: |$)/.exec(check.args)?.[1] : undefined;
+  const prd = PrdNumberSchema.safeParse(first === undefined ? null : Number(first));
+  return prd.success ? prd.data : null;
 }
 
 /** A line a runner may run, as a schema. */
@@ -374,6 +385,28 @@ const RunnerSchema = z.object({
 export type Runner = z.infer<typeof RunnerSchema>;
 
 export const RunnerReplySchema = z.object({ runner: RunnerSchema });
+
+// ── The terminal's reads (PRD 2251) ─────────────────────────────────────────────
+
+/** The runners' query: the repository the terminal is in, whose workspace's runners are read. */
+export const RunnersQuerySchema = z.object({ repo: RepoSchema }).strict();
+
+/** A PRD's jobs' query: the repository, and the PRD its jobs' lines name. */
+export const PrdJobsQuerySchema = z.object({ repo: RepoSchema, prd: z.coerce.number().pipe(PrdNumberSchema) }).strict();
+
+/** A runner, as the terminal reads it: what it needs to pick one and count its free slots. */
+const KitRunnerSchema = RunnerSchema.pick({ id: true, name: true, fleet: true, state: true, used: true, slots: true, repos: true });
+export type KitRunner = z.infer<typeof KitRunnerSchema>;
+
+export const KitRunnersSchema = z.object({ runners: z.array(KitRunnerSchema) });
+
+/** A PRD's job, as the terminal follows it: its status, its runner by name, its PR link, how it ended and when. */
+const PrdJobSchema = JobSchema.pick({
+  id: true, line: true, repo: true, status: true, prUrl: true, exitCode: true, reason: true, queuedAt: true, claimedAt: true, runningAt: true, endedAt: true,
+}).extend({ runner: RunnerNameSchema.nullable(), outcome: z.enum(JOB_OUTCOMES).nullable() });
+export type PrdJob = z.infer<typeof PrdJobSchema>;
+
+export const PrdJobsSchema = z.object({ jobs: z.array(PrdJobSchema) });
 
 /** The Runners page's read: the workspace's runners, each with its health and its last hour of samples,
  * its jobs (queued and running first, then the last 50 that ended), and what the viewer may do there. */

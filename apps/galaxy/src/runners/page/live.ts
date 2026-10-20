@@ -7,7 +7,9 @@ import { serviceDb } from '../../data/sign-in-live';
 import { runnersDeps } from '../runners.live';
 import { standOf } from './fix.live';
 import { fleetsRepository } from './fleets.repository';
+import { readHistory } from '../../dossier/page/source';
 import type { RunnersPageReads } from './load';
+import { prdKey } from './model';
 
 // The Runners page's real reads (PRD 1830 s3): the workspace and the fleets as the signed-in person
 // (row-level security), the board through the runners' service, as the service role, which holds the
@@ -26,5 +28,6 @@ export function runnersPageReads(db: SupabaseClient<Database>, user: Pick<User, 
     board: (workspaceId) => service.board(user.id, workspaceId),
     fleets: (workspaceId) => fleets.fleets(workspaceId),
     stand: standOf(serviceDb()),
+    prds: async () => Object.fromEntries((await readHistory(db)).filter((row) => row.prd !== null).map((row) => [prdKey(row.home_repo, row.prd ?? 0), row.title])),
   };
 }
