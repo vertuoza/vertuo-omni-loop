@@ -1,11 +1,10 @@
 import 'server-only';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Constituents } from '../../business/constituents-panel';
 import { loadConstituentsPanel } from '../../business/constituents-load';
 import { DEMO_CONSTITUENTS } from '../../business/BusinessScreen';
-import { CONSTITUENT_COLUMNS, StoredConstituent } from '../../constituents/model';
-import { parseRows } from '../../data/parse-rows';
-import { knowledgeReader, loginsOf, writeSourceOf, type KnowledgeReader, type WriteSource } from './authors';
+import { loginsOf } from './authors.repository';
+import { storedRowsOf } from './constituents.repository';
+import { knowledgeReader, writeSourceOf, type KnowledgeReader, type WriteSource } from './knowledge-reader';
 import { rowsOf, type ConstituentRow } from './constituents-section';
 
 // The Constituents section's read (PRD 2240 s4), as the signed-in person, so row-level security decides
@@ -18,14 +17,6 @@ export interface ConstituentsData {
   rows: ConstituentRow[];
   /** What ConstituentsPanel draws from: the lines, their history, the person's role and account. */
   read: Constituents;
-}
-
-/** Every line of the product, parsed; null when they cannot be read. */
-async function storedRowsOf(db: Pick<SupabaseClient, 'from'>, product: string): Promise<StoredConstituent[] | null> {
-  const stored = await db.from('constituents').select(CONSTITUENT_COLUMNS).eq('product_id', product);
-  if (stored.error) console.error(`product-knowledge: could not read the constituents (${stored.error.message})`);
-  const parsed = parseRows(StoredConstituent, stored.data, 'product-knowledge/constituents-load: constituents');
-  return parsed.ok && !stored.error ? parsed.value : null;
 }
 
 /** The product's constituents as a member reads them, or null when they cannot be read. */

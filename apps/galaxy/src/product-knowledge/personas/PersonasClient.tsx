@@ -1,12 +1,11 @@
 'use client';
 import { useEffect, useReducer, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
-import type { Database } from '../../../../../supabase/database.types.ts';
 import { canUndo, initialPersonasState, personasReducer, type Persona, type PersonasAction, type PersonasState } from '../../business/personas';
-import { databasePersonas, demoPersonasPort, type PersonaPort } from '../../business/personas-store';
+import type { PersonaPort } from '../../business/personas-store';
 import { ADD_PERSONA, Card, Drawer, type PersonaHandlers } from '../../business/PersonasSection';
-import type { WriteSource } from '../constituents/authors';
+import type { WriteSource } from '../constituents/knowledge-reader';
+import { personaPortFor } from './persona-port';
 
 // What changes on the Personas section, in the browser (PRD 2240 s4): a persona's page draws its card,
 // whose Edit opens the drawer (Save, Cancel, Delete), and the list draws + Add a persona under it, which
@@ -19,9 +18,7 @@ import type { WriteSource } from '../constituents/authors';
 function useCast(source: WriteSource, personas: Persona[], newProduct: string, after: (action: PersonasAction) => void): [PersonasState, PersonaHandlers] {
   const [cast, act] = useReducer(personasReducer, personas, initialPersonasState);
   const port = useRef<PersonaPort | null>(null);
-  const getPort = () => (port.current ??= source.kind === 'demo'
-    ? demoPersonasPort(personas)
-    : databasePersonas(createBrowserClient<Database>(source.url, source.key), source.workspace));
+  const getPort = () => (port.current ??= personaPortFor(source, personas));
   // Undo goes once its 5 seconds have passed.
   const until = cast.undo?.until ?? null;
   useEffect(() => {

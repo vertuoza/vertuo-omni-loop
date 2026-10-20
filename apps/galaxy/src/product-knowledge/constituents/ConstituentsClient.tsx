@@ -1,15 +1,14 @@
 'use client';
 import { useReducer, useRef, useState, type SubmitEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
-import type { Database } from '../../../../../supabase/database.types.ts';
 import { ConstituentsPanel, type ConstituentHandlers } from '../../business/ConstituentsPanel';
 import {
   constituentsReducer, initialConstituentsState, vagueHint, writeConstituent, type ConstituentField, type Constituents, type ConstituentsState,
 } from '../../business/constituents-panel';
 import { NEVER_MAX, STATEMENT_MAX } from '../../constituents/model';
-import { databaseConstituents, demoConstituentsPort, type ConstituentPort } from '../../constituents/store';
-import type { WriteSource } from './authors';
+import type { ConstituentPort } from '../../constituents/store';
+import { constituentPortFor } from './constituent-port';
+import type { WriteSource } from './knowledge-reader';
 
 // What changes on the Constituents section, in the browser (PRD 2240 s4): a line's page draws the
 // panel (../../business/ConstituentsPanel.tsx) for that one line, with its edit, remove and history, and
@@ -26,9 +25,7 @@ interface Props {
 
 function usePort(source: WriteSource, read: Constituents, product: string): () => ConstituentPort {
   const port = useRef<ConstituentPort | null>(null);
-  return () => (port.current ??= source.kind === 'demo'
-    ? demoConstituentsPort({ products: [product], by: read.me ?? 'demo' })
-    : databaseConstituents(createBrowserClient<Database>(source.url, source.key), source.workspace));
+  return () => (port.current ??= constituentPortFor(source, product, read.me));
 }
 
 /** The text a line had before an edit saves over it; null for a new one. */
