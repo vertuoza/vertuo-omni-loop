@@ -58,6 +58,7 @@ import type { Context } from '../../lib/context.ts';
 import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
 import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
 import { synchronous } from '../synchronous.ts';
+import { knowledgeWrite } from '../kb-write.ts';
 
 /** The one flag every `omni kb` verb reads. */
 type KbFlags = { json?: true; all?: true };
@@ -71,7 +72,7 @@ const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
 const GRAPH_USAGE = 'usage: omni kb graph [<id> | --paths <file>[,<file>…] [<file>…]] [--depth <1-3>] [--json]';
 const GRAPH_PRODUCT_USAGE = 'usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]';
 const GRAPH_PUSH_USAGE = 'usage: omni kb graph push';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit …] | omni kb glossary [add|edit …]`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -503,6 +504,12 @@ async function productVerb(verb: 'legal' | 'glossary', positional: string[], { c
   }
 }
 
+/** `omni kb legal | glossary`: the read, or with `add` or `edit` (PRD 2268) the write of `../kb-write.ts`. */
+function productCommand(verb: 'legal' | 'glossary', args: string[], io: CommandIo & PackOptions, options: PackOptions & { cwd: string }): Promise<number> {
+  if (args[0] === 'add' || args[0] === 'edit') return knowledgeWrite(verb, args, io, options);
+  return productVerb(verb, args, io, options, options.cwd);
+}
+
 /** `omni kb graph push` (PRD 1798, s2): see `../../lib/knowledge/graph-push.ts`. */
 async function graphPush(args: string[], io: CommandIo & PackOptions): Promise<number> {
   const { ctx, stdout, exec } = io;
@@ -568,7 +575,7 @@ export const kb: FreeCommand = {
     if (sub === 'pack') return pack(rest, full);
     if (sub === 'graph' && rest[0] === 'push') return graphPush(rest.slice(1), full);
     if (sub === 'graph' && rest.includes('--product')) return graphProduct(rest, full);
-    if (sub === 'legal' || sub === 'glossary') return productVerb(sub, rest, full, io, io.cwd);
+    if (sub === 'legal' || sub === 'glossary') return productCommand(sub, rest, { ...full, vars: io.vars }, io);
     return basic(args, full);
   },
 };

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 2270 before/after</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts), as the library mockups write them. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-cyan: #6ff0ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ask-ground); color: var(--ask-ink); font: 16px/1.55 var(--ask-body); }
+  a { color: var(--ask-cyan); }
+  .page { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 22px; }
+  h1 { margin: 0; font-size: 26px; } h2 { margin: 18px 0 0; font-size: 20px; border-top: 1px solid var(--ask-line-strong); padding-top: 16px; }
+  h3 { margin: 0 0 8px; font: 700 12px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .lede, .cap { color: var(--ask-muted); margin: 0; max-width: 80ch; } .cap { font-size: 14px; margin-top: 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .flow { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 10px; padding: 14px; font-size: 14px; }
+  .flow ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+  code { font: 13px/1.4 var(--ask-mono); }
+  .bad { color: var(--ask-red); } .good { color: var(--ask-green); }
+
+  /* The Runners page's jobs table (runners/page/runners.css, as runners.html draws it). */
+  .jobs { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 10px; font-size: 14px; }
+  .jrow { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--ask-line); }
+  .jrow:first-child { border-top: 0; } .jhead { color: var(--ask-muted); font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; }
+  .jline { display: grid; gap: 2px; } .sub { font-size: 12px; color: var(--ask-muted); }
+  .st { display: grid; gap: 4px; justify-items: start; }
+  .status { font: 700 12px/1 var(--ask-body); padding: 4px 8px; border-radius: 999px; border: 1px solid var(--ask-line-strong); white-space: nowrap; }
+  .s-wait { border-color: var(--ask-plasma); color: var(--ask-plasma); } .s-done { border-color: var(--ask-green); color: var(--ask-green); } .s-run { border-color: var(--ask-cyan); color: var(--ask-cyan); }
+  .acts { display: flex; gap: 8px; justify-content: end; flex-wrap: wrap; align-items: center; }
+  .ghost { display: inline-flex; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 12px/1 var(--ask-body); color: var(--ask-ink); background: none; white-space: nowrap; text-decoration: none; }
+  .primary { display: inline-flex; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--ask-plasma); background: var(--ask-plasma); color: var(--ask-on-plasma); font: 700 12px/1 var(--ask-body); white-space: nowrap; }
+
+  /* The repositories card (as repositories.html draws it). */
+  .card { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 10px; padding: 14px; display: grid; gap: 10px; font-size: 14px; }
+  .switches { display: flex; flex-wrap: wrap; gap: 14px; }
+  .switch { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ask-muted); }
+  .toggle { width: 44px; height: 24px; border-radius: 12px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); position: relative; display: inline-block; }
+  .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%; background: var(--ask-muted); }
+  .toggle.on { background: var(--ask-plasma-soft); border-color: var(--ask-plasma); }
+  .toggle.on::after { transform: translateX(20px); background: var(--ask-plasma); }
+  .row-top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>PRD 2270 · A runner job waiting on answers fixes by itself once they are in</h1>
+  <p class="lede">Today a job that stopped on questions reads Waiting on answers forever, even once every question is answered. After, the answers start the fix on the same runner, once, and the row says so; a per-repository switch keeps a person in charge.</p>
+
+  <h2>Functional</h2>
+  <div class="pair">
+    <div class="flow"><h3>Today</h3><ol>
+      <li>The runner ends <code>/omni:yolo 271</code> on <b>Waiting on answers</b>.</li>
+      <li>You answer both questions, on GitHub or on the PRD page.</li>
+      <li class="bad">The row still reads Waiting on answers; nothing runs until someone sends <code>/omni:yolo-fix 271</code>.</li>
+    </ol></div>
+    <div class="flow"><h3>After</h3><ol>
+      <li>The runner ends <code>/omni:yolo 271</code> on <b>Waiting on answers</b>, as today.</li>
+      <li>Your last answer is a comment: the page reads the PRD again and sees every high question answered.</li>
+      <li class="good">It queues <code>/omni:yolo-fix 271</code> once, to the same runner, in your name; the row reads <b>Answered · fixing</b>.</li>
+      <li>Switch off: the row reads <b>Answered</b> with <b>Fix with answers</b>, and nothing starts until you press it.</li>
+    </ol></div>
+  </div>
+
+  <h2>Pixel perfect</h2>
+  <p class="cap">screens: runners · repositories</p>
+
+  <h3>The Runners page's job rows</h3>
+  <div class="pair">
+    <div>
+      <div class="jobs" data-screen="runners">
+        <div class="jrow jhead"><span>Line</span><span>Status</span><span></span></div>
+        <div class="jrow"><span class="jline"><code data-content>/omni:yolo 271</code></span><span class="st"><span class="status s-wait">Waiting on answers</span></span><span class="acts"><button class="ghost" type="button" data-primary>Terminal</button><a href="#">PR #272</a></span></div>
+      </div>
+      <p class="cap">Today: the same word after every question is answered.</p>
+    </div>
+    <div>
+      <div class="jobs" data-screen="runners">
+        <div class="jrow jhead"><span>Line</span><span>Status</span><span></span></div>
+        <div class="jrow"><span class="jline"><code data-content>/omni:yolo-fix 271</code><span class="sub">after answers · <a href="#">job 66fa712d</a></span></span><span class="st"><span class="status s-run">Running 4 min</span></span><span class="acts"><button class="ghost" type="button" data-primary>Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
+        <div class="jrow"><span class="jline"><code data-content>/omni:yolo 271</code></span><span class="st"><span class="status s-done">Answered · fixing</span><a class="sub" href="#">the fix job</a></span><span class="acts"><button class="ghost" type="button">Terminal</button><a href="#">PR #272</a></span></div>
+      </div>
+      <p class="cap">After, switch on: the fix starts by itself; the job that waited links it, and reads Answered · fixed once it ends.</p>
+    </div>
+  </div>
+  <div class="pair">
+    <div></div>
+    <div>
+      <div class="jobs" data-screen="runners">
+        <div class="jrow jhead"><span>Line</span><span>Status</span><span></span></div>
+        <div class="jrow"><span class="jline"><code data-content>/omni:yolo 271</code></span><span class="st"><span class="status s-done">Answered</span></span><span class="acts"><button class="primary" type="button" data-primary>Fix with answers</button><button class="ghost" type="button">Terminal</button></span></div>
+      </div>
+      <p class="cap">After, switch off: nothing starts until someone presses Fix with answers.</p>
+    </div>
+  </div>
+
+  <h3>Settings › Repositories, one card</h3>
+  <div class="pair">
+    <div>
+      <div class="card" data-screen="repositories">
+        <div class="row-top"><strong data-content>vertuoza/vertuo-crew-domain</strong><a href="#" data-primary>Ideas board →</a></div>
+        <div class="switches"><span class="switch">Public ideas <span class="toggle on"></span></span><span class="switch">Phase 0 on the server <span class="toggle on"></span></span><span class="switch">Tracked <span class="toggle on"></span></span></div>
+      </div>
+      <p class="cap">Today.</p>
+    </div>
+    <div>
+      <div class="card" data-screen="repositories">
+        <div class="row-top"><strong data-content>vertuoza/vertuo-crew-domain</strong><a href="#" data-primary>Ideas board →</a></div>
+        <div class="switches"><span class="switch">Public ideas <span class="toggle on"></span></span><span class="switch">Phase 0 on the server <span class="toggle on"></span></span><span class="switch">Tracked <span class="toggle on"></span></span><span class="switch">Fix on a runner once answered <span class="toggle on"></span></span></div>
+      </div>
+      <p class="cap">After: one more switch, on by default.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

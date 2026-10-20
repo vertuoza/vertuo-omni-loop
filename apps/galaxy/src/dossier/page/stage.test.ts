@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { UNREAD, type GithubSummary, type PendingAnswer, type PullRef } from '../github/summary';
 import type { StageRow } from '../../stages/stage';
 import type { CareState } from '../github/care';
-import { careChipOf, outboxStand, stageOf, stageView, syncedWords } from './stage';
+import { careChipOf, fixingOf, outboxStand, stageOf, stageView, syncedWords } from './stage';
 import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // PRD 426's reading of the stage from the GitHub summary, which only the page's pulse still uses: each
@@ -241,6 +241,19 @@ describe('the outbox stand and Fix with answers (PRD 2223)', () => {
     expect(v.fixes).toBe('Fixes with 1: A · 4: B');
   });
 
+  it('reads fixing on <runner> in place of answered, with no Fix with answers, while the fix job runs (PRD 2270)', () => {
+    const g = github([reply(1, 'a'), reply(4, 'b')]);
+    const v = stageView({ prd: parsePrd(426), rows: [row('building')], github: g, slices: 3, fixing: { runner: 'laptop' } });
+    expect(v.caption).toBe('3/3 slices · fixing on laptop');
+    expect(v.action).toEqual({ kind: 'link', label: 'Answer the outbox', href: COMMENT });
+    expect(v.fixes).toBeUndefined();
+  });
+
+  it('leaves the caption alone while a question is still open, whatever runs', () => {
+    const g = github([reply(1, 'a')]);
+    expect(stageView({ prd: parsePrd(426), rows: [row('building')], github: g, slices: 3, fixing: { runner: 'laptop' } }).caption).toBe('3/3 slices · 1 of 2 answered');
+  });
+
   it('is today\'s button and caption with only mediums open, or the outbox or the replies unread', () => {
     for (const g of [github([], [item('m', 'medium')]), { ...github([]), replies: UNREAD }, { ...github([]), replies: undefined }]) {
       expect(view(g).action).toEqual({ kind: 'link', label: 'Answer the outbox', href: COMMENT });
@@ -252,5 +265,25 @@ describe('the outbox stand and Fix with answers (PRD 2223)', () => {
     const feature = (g: GithubSummary) => view(g).links.find((l) => l.label.startsWith('feature'))?.label;
     expect(feature(github([]))).toBe('feature #433 · draft');
     expect(feature({ ...github([]), feature: pr(433, 'open') })).toBe('feature #433');
+  });
+});
+
+describe('the PRD\'s fix job (PRD 2270)', () => {
+  const job = (more: Partial<Parameters<typeof fixingOf>[1][number]> = {}) =>
+    ({ line: '/omni:yolo-fix 426', status: 'running' as const, runner: 'laptop', to_runner: null, to_fleet: null, ...more });
+  const prd = parsePrd(426);
+
+  it('names the runner of a queued, claimed or running /omni:yolo-fix of the PRD', () => {
+    expect(fixingOf(prd, [job()])).toEqual({ runner: 'laptop' });
+    expect(fixingOf(prd, [job({ status: 'claimed' })])).toEqual({ runner: 'laptop' });
+    expect(fixingOf(prd, [job({ status: 'queued', runner: null, to_runner: 'desk' })])).toEqual({ runner: 'desk' });
+    expect(fixingOf(prd, [job({ status: 'queued', runner: null, to_fleet: 'crew' })])).toEqual({ runner: 'crew' });
+    expect(fixingOf(prd, [job({ status: 'queued', runner: null })])).toEqual({ runner: 'a runner' });
+  });
+
+  it('is none for an ended job, another PRD\'s fix, or another skill', () => {
+    expect(fixingOf(prd, [job({ status: 'done' }), job({ status: 'failed' }), job({ status: 'cancelled' })])).toBeNull();
+    expect(fixingOf(prd, [job({ line: '/omni:yolo-fix 4260' }), job({ line: '/omni:yolo 426' }), job({ line: '/omni:yolo-fix 42' })])).toBeNull();
+    expect(fixingOf(prd, [])).toBeNull();
   });
 });

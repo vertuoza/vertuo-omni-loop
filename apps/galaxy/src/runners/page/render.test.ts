@@ -207,7 +207,7 @@ const idOf = (line: string): string => demo().board.jobs.find((job) => job.line 
 const ASKING = idOf('/omni:bug-fix 314');
 const ANSWERED = idOf('/omni:bug-fix 301');
 /** The demo as a page read from the database is: its questions are not on the page, the drawer reads them. */
-const live = (): RunnersPageView => { const view = demo(); return { kind: 'board', name: view.name, board: view.board, fleets: view.fleets, prds: view.prds, now: view.now }; };
+const live = (): RunnersPageView => { const view = demo(); return { kind: 'board', name: view.name, board: view.board, fleets: view.fleets, prds: view.prds, now: view.now, answered: view.answered }; };
 
 describe('a done job that needs a human (PRD 2255 s3)', () => {
   const html = render(demo());
@@ -348,5 +348,51 @@ describe('before the board', () => {
 
   it('says when the board could not be read', () => {
     expect(text(render({ kind: 'unreadable' }))).toContain('The runners could not be read');
+  });
+});
+
+describe('a job that waited, once its answers are in (PRD 2270 s2)', () => {
+  const find = (view: Extract<RunnersPageView, { kind: 'board' }>, line: string): Job => {
+    const found = view.board.jobs.find((job) => job.line === line);
+    if (!found) throw new Error(line);
+    return found;
+  };
+  const waited = find(demo(), '/omni:yolo 1855');
+  const fixed = (status: Job['status']): Job => ({ ...waited, id: '99999999-eeee-4000-8000-000000000009', line: '/omni:yolo-fix 1855', status, outcome: null, continues: waited.id, prUrl: null });
+  const withFix = (status: Job['status']) => render(withBoard((board) => ({ ...board, jobs: [...board.jobs, fixed(status)] })));
+
+  it('reads Answered · fixing while its continuation runs, linking it, and the fix job reads after answers · job <id>, linking back', () => {
+    const html = withFix('running');
+    const row = jobRow(html, '/omni:yolo 1855');
+    expect(text(row)).toContain('Answered · fixing');
+    expect(row).toContain(`<a href="#job-${fixed('running').id}">Answered · fixing</a>`);
+    expect(row).toContain('runners-status is-run');
+    expect(row).not.toContain('Fix with answers');
+    const fix = jobRow(html, '/omni:yolo-fix 1855');
+    expect(text(fix)).toContain(`after answers · job ${waited.id.slice(0, 8)}`);
+    expect(fix).toContain(`<a href="#job-${waited.id}" data-content="true">after answers · job ${waited.id.slice(0, 8)}</a>`);
+  });
+
+  it('reads Answered · fixed once the continuation ended', () => {
+    const row = jobRow(withFix('done'), '/omni:yolo 1855');
+    expect(text(row)).toContain('Answered · fixed');
+    expect(row).toContain('runners-status is-done');
+  });
+
+  it('reads Answered with Fix with answers, the row\'s primary action, when every asked item is answered and nothing continued it', () => {
+    const alone = withBoard((board) => ({ ...board, jobs: [waited] }));
+    const row = jobRow(render({ ...(alone as Extract<RunnersPageView, { kind: 'board' }>), answered: [waited.id] }), '/omni:yolo 1855');
+    expect(text(row)).toContain('Answered');
+    expect(text(row)).not.toContain('Waiting on answers');
+    expect(row).toContain('runners-status is-wait');
+    expect(row).toContain('data-primary');
+    expect(text(row)).toContain('Fix with answers');
+    expect(text(row)).toContain('PRD page');
+  });
+
+  it('keeps Waiting on answers, with no button, while answers are missing', () => {
+    const row = jobRow(render(demo()), '/omni:yolo 1855');
+    expect(text(row)).toContain('Waiting on answers');
+    expect(text(row)).not.toContain('Fix with answers');
   });
 });

@@ -262,6 +262,8 @@ const JobSchema = z.object({
   releaseError: z.string().nullable().optional(),
   /** What it ended on (PRD 2223, 2255); null for a job without one, and for one whose questions were answered or dismissed. */
   outcome: z.enum(JOB_OUTCOMES).nullable().optional(),
+  /** The job it continues (PRD 2270): a `/omni:yolo-fix` queued once that job's answers were in; null for any other. */
+  continues: IdSchema.nullable().optional(),
   queuedAt: z.string(),
   claimedAt: z.string().nullable(),
   runningAt: z.string().nullable(),

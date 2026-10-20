@@ -104,8 +104,8 @@ describe('the repositories page\'s read', () => {
       workspace: { id: 'ws-1', name: 'Vertuoza' },
       owner: true,
       repositories: [
-        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr', removedAt: null, planProducts: [] },
-        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', products: [], publicIdeas: false, phase0: 'pr', removedAt: null, planProducts: [] },
+        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr', fixWhenAnswered: true, removedAt: null, planProducts: [] },
+        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', products: [], publicIdeas: false, phase0: 'pr', fixWhenAnswered: true, removedAt: null, planProducts: [] },
       ],
       access: {
         kind: 'installed',
@@ -133,6 +133,14 @@ describe('the repositories page\'s read', () => {
       repositories: [{ fullName: 'vertuoza/vertuo-apps', phase0: 'server' }],
     });
     expect(d.calls).toContainEqual(['select', expect.stringContaining('phase0')]);
+  });
+
+  it('reads whether each repository fixes by itself once answered (PRD 2270 s3)', async () => {
+    const d = db({ repositories: { data: [{ ...STORED[0], fix_when_answered: false }] } });
+    expect(await loadRepositoriesPage(d as never, USER, app(), INSTALL, github())).toMatchObject({
+      repositories: [{ fullName: 'vertuoza/vertuo-apps', fixWhenAnswered: false }],
+    });
+    expect(d.calls).toContainEqual(['select', expect.stringContaining('fix_when_answered')]);
   });
 
   it('reads the products that link each repository, first first, none, one or several (PRD 1364 s11)', async () => {
