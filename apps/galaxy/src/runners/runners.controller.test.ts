@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TokenCheck } from '../ask/auth';
-import { cancelJob, jobLines, nextJob, registerRunner, reportJob, sendJob, setRunnerFleet, type RunnersDeps } from './runners.controller';
+import { cancelJob, jobLines, nextJob, registerRunner, reportHealth, reportJob, sendJob, setRunnerFleet, type RunnersDeps } from './runners.controller';
 import type { JobLineRow, JobRow } from './runners.repository';
 import { runnersService } from './runners.service';
 import { CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, PIA, SHARED, T0 } from './fixtures/store.fake';
@@ -127,6 +127,36 @@ describe('POST /api/runners/jobs/<id>, a runner\'s report', () => {
     expect(await read(await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'running' }), job.id, w.deps)))
       .toEqual({ status: 200, body: { cancel: true } });
     expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'cancelled' }), job.id, w.deps)).status).toBe(200);
+  });
+
+  it('stores the tokens a report carries, and refuses tokens out of shape', async () => {
+    const job = claimed();
+    const w = world({ jobs: [job] });
+    const tokens = { input: 1, output: 2, cacheRead: 3, cacheWrite: 4 };
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'running', tokens }), job.id, w.deps)).status).toBe(200);
+    expect(w.state.jobs[0]?.tokens).toEqual(tokens);
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'running', tokens: { ...tokens, input: -1 } }), job.id, w.deps)).status).toBe(400);
+    expect(w.state.jobs[0]?.tokens).toEqual(tokens);
+  });
+
+  it('stores the claims a last report says were released, and why a release failed (PRD 2175)', async () => {
+    const job = claimed();
+    const w = world({ jobs: [job] });
+    const report = { status: 'failed', reason: 'exit code 3', released: [1908, 1909], releaseError: 'HTTP 502' };
+    expect(await read(await reportJob(post(`/jobs/${job.id}`, 'olga-token', report), job.id, w.deps))).toEqual({ status: 200, body: { cancel: false } });
+    expect(w.state.jobs[0]).toMatchObject({ status: 'failed', released: [1908, 1909], release_error: 'HTTP 502' });
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'failed', released: ['#1'] }), job.id, w.deps)).status).toBe(400);
+  });
+
+  it('takes what a runner released for a job already lost, and nothing else after it ended (PRD 2175)', async () => {
+    const job = jobRow({ status: 'failed', reason: 'runner lost', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    expect(await read(await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'failed', released: [7], releaseError: null }), job.id, w.deps)))
+      .toEqual({ status: 200, body: { cancel: false } });
+    expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'runner lost', released: [7], release_error: null, ended_at: T0.toISOString() });
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'failed', released: [8], reason: 'exit code 1' }), job.id, w.deps)).status).toBe(409);
+    expect((await reportJob(post(`/jobs/${job.id}`, 'olga-token', { status: 'done', released: [8] }), job.id, w.deps)).status).toBe(409);
+    expect(w.state.jobs[0]).toMatchObject({ reason: 'runner lost', released: [7] });
   });
 
   it('refuses a report after the job ended, out of order', async () => {
@@ -304,5 +334,36 @@ describe('a failure', () => {
     expect(await read(await nextJob(kit(`/next?runner=${SHARED}`, 'olga-token'), broken)))
       .toEqual({ status: 500, body: { error: 'The runners could not answer. Try again.' } });
     expect(w.logged).toEqual(['runners: runner_claim(): connection reset']);
+  });
+});
+
+// A runner's health report (PRD 2102 s1): the kit's sign-in first, then a strict report on the caller's
+// own runner; a 200 stores its last health and one sample.
+describe('POST /api/runners/<id>/health', () => {
+  const REPORT = { cpu: 63.5, load1: 7.9, cores: 8, memUsed: 13_958_643_712, memTotal: 17_179_869_184, diskFree: 41_875_931_136, diskTotal: 249_821_655_040 };
+  const health = (id: string, token: string | null, body: unknown) => reportHealth(post(`/${id}/health`, token, body), id, world().deps);
+
+  it('stores the runner\'s last health and one sample, and answers when it took them', async () => {
+    const w = world();
+    expect(await read(await reportHealth(post(`/${SHARED}/health`, 'olga-token', REPORT), SHARED, w.deps))).toEqual({ status: 200, body: { at: T0.toISOString() } });
+    expect(w.state.runners.find((r) => r.id === SHARED)?.health).toEqual({ ...REPORT, at: T0.toISOString() });
+    expect(w.state.samples).toHaveLength(1);
+  });
+
+  it('refuses a malformed report: a negative figure, an unknown field, or no JSON', async () => {
+    expect(await read(await health(SHARED, 'olga-token', { ...REPORT, memUsed: -1 }))).toMatchObject({ status: 400, body: { error: expect.stringContaining('"cpu"') as unknown } });
+    expect((await health(SHARED, 'olga-token', { ...REPORT, hostname: 'box-1' })).status).toBe(400);
+    expect((await reportHealth(kit(`/${SHARED}/health`, 'olga-token', { method: 'POST', body: 'not json' }), SHARED, world().deps)).status).toBe(400);
+  });
+
+  it('refuses the signed out, another owner\'s runner and an unknown one, writing nothing', async () => {
+    const w = world();
+    expect((await reportHealth(post(`/${SHARED}/health`, null, REPORT), SHARED, w.deps)).status).toBe(401);
+    expect((await reportHealth(post(`/${SHARED}/health`, 'mo-token', REPORT), SHARED, w.deps)).status).toBe(403);
+    expect((await reportHealth(post(`/${CIA_BOX}/health`, 'eve-token', REPORT), CIA_BOX, w.deps)).status).toBe(403);
+    expect((await reportHealth(post('/00000000-0000-4000-8000-000001830fff/health', 'olga-token', REPORT), '00000000-0000-4000-8000-000001830fff', w.deps)).status).toBe(404);
+    expect((await reportHealth(post('/nope/health', 'olga-token', REPORT), 'nope', w.deps)).status).toBe(404);
+    expect(w.state.samples).toEqual([]);
+    expect(w.state.runners.every((r) => r.health === null)).toBe(true);
   });
 });

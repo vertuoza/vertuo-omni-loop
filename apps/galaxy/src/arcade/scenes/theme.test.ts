@@ -8,6 +8,8 @@ import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common
 import { drawFrame, layoutMap } from './index.ts';
 import { createDuet } from '../duet/index';
 import { FIELD, playfield } from './duet.ts';
+import { createPong } from '../pong/index';
+import { fakeMic } from '../pong/mic.fake';
 import { sure } from '../test/sure';
 
 // The canvas in a workspace's theme: every sprite drawn, with the options it was drawn with, and
@@ -52,7 +54,7 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .sort((a, b) => a.sort - b.sort);
 const SCENES: SceneName[] = [
   'boot', 'title', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'coin', 'away', 'gate', 'intro',
-  'select', 'name', 'hero', 'ready', 'welcome', 'outsider', 'kart', 'duet',
+  'select', 'name', 'hero', 'ready', 'welcome', 'outsider', 'kart', 'duet', 'pong',
 ];
 
 /** A theme that overrides every token, each with a colour no default has: #1000xx. */
@@ -165,5 +167,25 @@ describe('OMNI DUET\'s playfield on both grids, in a workspace\'s theme (PRD 163
     const { ctx, moves } = placed();
     drawFrame(ctx, { ...frame('duet', WIDE, EVERY, 1), duet: null }, 'title');
     expect(moves).toEqual([]);
+  });
+});
+
+describe('OMNI PONG\'s court on both grids, in a workspace\'s theme (PRD 2101)', () => {
+  const pong = createPong({ mic: fakeMic(), store: () => ({ getItem: () => null, setItem: () => {} }) });
+
+  it('draws the sky, then the court\'s line and paddles in the theme\'s colours, across the whole grid', () => {
+    for (const grid of [WIDE, TALL]) {
+      const { ctx, colours, moves } = placed();
+      drawFrame(ctx, { ...frame('pong', grid, EVERY, 1), pong }, 'title');
+      expect(moves, grid.name).toEqual([]);
+      for (const t of ['void', 'dim', 'cyan', 'plasma'] as const) expect(colours.has(EVERY[t]), `${grid.name} ${t}`).toBe(true);
+    }
+  });
+
+  it('draws only the Omni sky while the game\'s code is on its way', () => {
+    const { ctx, colours } = placed();
+    drawFrame(ctx, { ...frame('pong', WIDE, EVERY, 1), pong: null }, 'title');
+    expect(colours.has(EVERY.void)).toBe(true);
+    expect(colours.has(EVERY.dim)).toBe(false);
   });
 });

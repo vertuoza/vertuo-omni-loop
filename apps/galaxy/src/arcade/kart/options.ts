@@ -8,12 +8,12 @@ import { DEFAULT_CIRCUIT, isCircuitId } from './circuits';
 // The look's sprites and tints reach the arcade through this module: it is the one loaded on demand.
 export { kartSprite, kartTint } from './look';
 
-/** The five things a player's hands do in a race. */
-export const DRIVE_ACTIONS = ['gas', 'brake', 'left', 'right', 'item'] as const;
+/** The six things a player's hands do in a race (PRD 1963: HOP is the sixth, last). */
+export const DRIVE_ACTIONS = ['gas', 'brake', 'left', 'right', 'item', 'hop'] as const;
 export type DriveAction = (typeof DRIVE_ACTIONS)[number];
 
 /** The words the options screen names each action by. */
-export const DRIVE_NAMES: Record<DriveAction, string> = { gas: 'GAS', brake: 'BRAKE', left: 'LEFT', right: 'RIGHT', item: 'ITEM' };
+export const DRIVE_NAMES: Record<DriveAction, string> = { gas: 'GAS', brake: 'BRAKE', left: 'LEFT', right: 'RIGHT', item: 'ITEM', hop: 'HOP' };
 
 export const LAP_CHOICES = [3, 5, 7] as const;
 export type Laps = (typeof LAP_CHOICES)[number];
@@ -37,13 +37,19 @@ export interface KartOptions {
 /** The key under which the options are kept in the browser. */
 export const OPTIONS_KEY = 'omni-loop:kart-options';
 
-export const DEFAULT_KEYS: Readonly<Record<DriveAction, string>> = { gas: 'ArrowUp', brake: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', item: ' ' };
+export const DEFAULT_KEYS: Readonly<Record<DriveAction, string>> = { gas: 'ArrowUp', brake: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', item: 'Shift', hop: ' ' };
 
-/** Today's options: ▲ ▼ ◀ ▶ and SPACE, 3 laps, NORMAL, FLEET and CLASSIC. A new object each call. */
+/** The keys the five-key defaults of before PRD 1963 held: a store with exactly these reads as the six new defaults. */
+const OLD_DEFAULT_KEYS: Readonly<Record<string, string>> = { gas: 'ArrowUp', brake: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', item: ' ' };
+
+/** The keys HOP takes, in order, when a store of five keys is read: the first none of them holds. */
+const HOP_CHOICES: readonly string[] = [' ', 'x', 'c', 'v'];
+
+/** Today's options: ▲ ▼ ◀ ▶, SHIFT and SPACE, 3 laps, NORMAL, FLEET and CLASSIC. A new object each call. */
 export const defaultOptions = (): KartOptions => ({ keys: { ...DEFAULT_KEYS }, laps: 3, difficulty: 'normal', look: { color: 'FLEET', design: 'CLASSIC' }, track: DEFAULT_CIRCUIT.id });
 
-/** The six keys that stay the arcade's: ENTER, TAB and SHIFT (start, select), ESC, M (mute) and F (fullscreen). */
-export const RESERVED_KEYS: readonly string[] = ['Enter', 'Tab', 'Shift', 'Escape', 'm', 'f'];
+/** The five keys that stay the arcade's: ENTER, TAB (start, select), ESC, M (mute) and F (fullscreen). SHIFT can be bound (PRD 1963). */
+export const RESERVED_KEYS: readonly string[] = ['Enter', 'Tab', 'Escape', 'm', 'f'];
 
 /** The key as it is kept: a letter in lower case, the rest as the keyboard names it. */
 export const normalKey = (key: string): string => (key.length === 1 ? key.toLowerCase() : key);
@@ -52,18 +58,27 @@ export const isReserved = (key: string): boolean => RESERVED_KEYS.includes(norma
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** The keys read back: all five, none reserved, no key twice; otherwise the defaults. */
+const isKeyText = (key: unknown): key is string => typeof key === 'string' && key !== '' && key.length <= 24;
+
+/** A store of five keys (before PRD 1963): the old defaults read as the new six; otherwise its five are kept and HOP takes the first free of SPACE, X, C and V. Null when none is free. */
+function addHop(keys: Record<DriveAction, string>): Record<DriveAction, string> | null {
+  const held = DRIVE_ACTIONS.filter((a) => a !== 'hop').map((a) => keys[a]);
+  if (DRIVE_ACTIONS.every((a) => a === 'hop' || keys[a] === OLD_DEFAULT_KEYS[a])) return { ...DEFAULT_KEYS };
+  const free = HOP_CHOICES.find((k) => !held.includes(k));
+  return free === undefined ? null : { ...keys, hop: free };
+}
+
+/** The keys read back: all six, none reserved, no key twice; otherwise the defaults. A store of five is kept (`addHop`). */
 function readKeys(raw: unknown): Record<DriveAction, string> {
   if (!isObject(raw)) return { ...DEFAULT_KEYS };
-  const keys: Record<DriveAction, string> = { ...DEFAULT_KEYS };
-  for (const action of DRIVE_ACTIONS) {
-    const key = raw[action];
-    if (typeof key !== 'string' || key === '' || key.length > 24) return { ...DEFAULT_KEYS };
-    keys[action] = normalKey(key);
-  }
-  const values = Object.values(keys);
-  if (new Set(values).size !== values.length || values.some(isReserved)) return { ...DEFAULT_KEYS };
-  return keys;
+  const five = raw.hop === undefined;
+  const read = DRIVE_ACTIONS.filter((a) => !(five && a === 'hop')).map((a) => [a, raw[a]] as const);
+  if (!read.every(([, key]) => isKeyText(key))) return { ...DEFAULT_KEYS };
+  const keys = { ...DEFAULT_KEYS, ...Object.fromEntries(read.map(([a, key]) => [a, normalKey(String(key))])) };
+  const full = five ? addHop(keys) : keys;
+  if (!full) return { ...DEFAULT_KEYS };
+  const values = DRIVE_ACTIONS.map((a) => full[a]);
+  return new Set(values).size !== values.length || values.some(isReserved) ? { ...DEFAULT_KEYS } : full;
 }
 
 const isLaps = (v: unknown): v is Laps => LAP_CHOICES.some((laps) => laps === v);
@@ -105,7 +120,7 @@ export function saveOptions(options: KartOptions, store: () => OptionsStore = br
 /** What binding a key does: the new keys, or why not (`reserved`). */
 export type Bound = { keys: Record<DriveAction, string> } | { refused: 'reserved' };
 
-/** Binds `key` to `action`; a key another action holds swaps with it. The six reserved keys are refused. */
+/** Binds `key` to `action`; a key another action holds swaps with it. The five reserved keys are refused. */
 export function bindKey(keys: Readonly<Record<DriveAction, string>>, action: DriveAction, key: string): Bound {
   if (isReserved(key)) return { refused: 'reserved' };
   const next = normalKey(key);
@@ -122,8 +137,22 @@ export function driveOf(keys: Readonly<Record<DriveAction, string>>, key: string
   return DRIVE_ACTIONS.find((a) => keys[a] === k) ?? null;
 }
 
-/** The pad button each driving action holds for the race: ▲ gas is A, ▼ brake is ▼, the item is a press of B. */
-export const HELD_AS: Record<Exclude<DriveAction, 'item'>, Action> = { gas: 'a', brake: 'down', left: 'left', right: 'right' };
+/**
+ * Whether a key is one the browser reads as Back or Forward: ⌘← ⌘→ ⌘[ ⌘] (macOS), ALT+← ALT+→ (Windows, Linux), with no
+ * other modifier. A race holds them (bug 2149): ⌘ and ALT sit beside SPACE, the HOP, and a thumb that slides onto one
+ * while the player steers would leave the arcade for the page before it.
+ */
+export function browserBack(e: { key: string; metaKey: boolean; altKey: boolean; ctrlKey: boolean; shiftKey: boolean }): boolean {
+  if (e.ctrlKey || e.shiftKey || e.metaKey === e.altKey) return false;
+  const arrow = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+  return arrow || (e.metaKey && (e.key === '[' || e.key === ']'));
+}
+
+/** Whether SHIFT stands for SELECT in OMNI KART: only when none of the player's keys is SHIFT (PRD 1963), so ITEM on SHIFT never leaves a paused race. TAB is SELECT always. */
+export const shiftSelects = (keys: Readonly<Record<DriveAction, string>>): boolean => !DRIVE_ACTIONS.some((a) => keys[a] === 'Shift');
+
+/** The pad button each driving action holds for the race: ▲ gas is A, ▼ brake is ▼, HOP is ▲ (PRD 1963), the item is a press of B. */
+export const HELD_AS: Record<Exclude<DriveAction, 'item'>, Action> = { gas: 'a', brake: 'down', left: 'left', right: 'right', hop: 'up' };
 
 // ── The panel ──
 
@@ -158,7 +187,7 @@ type MenuView = Extract<OptionsView, { screen: 'menu' }>;
 
 const vertical = (action: Action): boolean => action === 'up' || action === 'down';
 
-/** KEYS: ▲ ▼ move over the five actions, A waits for a key, B goes back to the lines (or cancels the wait). */
+/** KEYS: ▲ ▼ move over the six actions, A waits for a key, B goes back to the lines (or cancels the wait). */
 function pressKeys(view: KeysView, options: KartOptions, action: Action): OptionsStep {
   if (view.capture) return step(action === 'b' ? { ...view, capture: false, refused: false } : view, options);
   if (action === 'b') return step(FIRST_OPTIONS, options);

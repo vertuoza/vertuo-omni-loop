@@ -8,6 +8,7 @@ import { DossierHistory } from '../../src/dossier/page/DossierHistory';
 import { DossierSignIn } from '../../src/dossier/page/DossierSignIn';
 import '../../src/product-filter/product-filter.css';
 import { productListScope } from '../../src/product-filter/ProductFilter';
+import type { ProductLabels } from '../../src/product-filter/product-filter.service';
 import {
   HISTORY_CALLBACK, HISTORY_PATH, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds, readOpenCounts,
   rosterReader, whoLogin, type CurrentStages, type OpenCounts, type Whom,
@@ -61,9 +62,9 @@ const DEMO_READER: Pick<PrdOutboxStore, 'countsOf'> = {
 export default async function HistoryRoute({ searchParams }: Props) {
   const query = await searchParams;
   const filters = readHistoryFilters(query);
-  const listing = (rows: DossierListRow[], viewer: string, open: OpenCounts, stages: CurrentStages = new Map(), whom?: Whom) => (
+  const listing = (rows: DossierListRow[], viewer: string, open: OpenCounts, stages: CurrentStages = new Map(), whom?: Whom, labels?: ProductLabels) => (
     <DossierHistory
-      items={historyItems(rows, filters, viewer, open, stages, whom)} choices={historyChoices(rows)} filters={filters}
+      items={historyItems(rows, filters, viewer, open, stages, whom, labels)} choices={historyChoices(rows)} filters={filters}
       stages={historyStageBar(rows, filters, viewer, open, stages, whom)}
     />
   );
@@ -88,13 +89,13 @@ export default async function HistoryRoute({ searchParams }: Props) {
       console.error(error);
       return <DossierDatabaseDown />;
     }
-    const { rows, above } = await productListScope(HISTORY_PATH)(db, listed, query);
+    const { rows, above, labels } = await productListScope(HISTORY_PATH)(db, listed, query);
     const whom = login ? await readLoginIds(rows, login, rosterReader(db)) : undefined;
     const [open, stages] = await Promise.all([
       readOpenCounts(historyToRead(rows, filters, userId, whom), prdOutboxStore(db)),
       readCurrentStages(rows, stageStore(db)),
     ]);
-    return <>{above}{listing(rows, userId, open, stages, whom)}</>;
+    return <>{above}{listing(rows, userId, open, stages, whom, labels)}</>;
   }
   return <Streamed read={history(user.id)} skeleton={<PrdListLoading />} failed={<DossierDatabaseDown />}>{(list) => list}</Streamed>;
 }

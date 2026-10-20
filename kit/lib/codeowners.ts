@@ -21,8 +21,11 @@
  * It also writes one block of the file (PRD 1726, slice s4): the lines between {@link OWNERS_BEGIN}
  * and {@link OWNERS_END}, which `omni kb owners` keeps in step with the locked laws
  * (`codeowners-laws.ts`). {@link withOwnersBlock} replaces that block, or appends it, and leaves
- * every line outside the markers as it was.
+ * every line outside the markers as it was. Each line names every owner of `laws.owners` and each
+ * owner's delegate (PRD 1794), so a delegate's approval clears a law; product leadership
+ * (`laws.leadership`) is never written there.
  */
+import type { LawOwner } from './config.ts';
 
 /** The folders GitHub looks for the file in, in the order it looks: `''` is the root. */
 const CODEOWNERS_FOLDERS = ['.github', '', 'docs'];
@@ -133,12 +136,28 @@ export function exactPattern(path: string): string {
 }
 
 /**
- * The whole block, its markers included: a line per path, grouped under its `why` comment in the
- * order given, each owned by every one of `owners`. A path listed twice is written once, under its
- * first `why`.
+ * Who the block names for `laws.owners`: each owner, then its delegate (PRD 1794), in the order
+ * written. A person named twice, as an owner and as another's delegate, is named once, where first
+ * written: GitHub logins compare without case.
  */
-export function ownersBlock(paths: readonly OwnedPath[], owners: readonly string[]): string {
-  const handles = owners.map(ownerHandle).join(' ');
+export function lawCodeowners(owners: readonly LawOwner[]): string[] {
+  const named = owners.flatMap((entry) => (typeof entry === 'string' ? [entry] : [entry.login, entry.delegate]));
+  const seen = new Set<string>();
+  return named.filter((owner) => {
+    const key = owner.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * The whole block, its markers included: a line per path, grouped under its `why` comment in the
+ * order given, each owned by every one of `owners` and each of their delegates. A path listed twice
+ * is written once, under its first `why`.
+ */
+export function ownersBlock(paths: readonly OwnedPath[], owners: readonly LawOwner[]): string {
+  const handles = lawCodeowners(owners).map(ownerHandle).join(' ');
   const lines = [OWNERS_BEGIN, '# Written by `omni kb owners` from laws.owners and the locked laws (PRD 1726): run it again, never edit these lines.'];
   const seen = new Set<string>();
   let why: string | null = null;

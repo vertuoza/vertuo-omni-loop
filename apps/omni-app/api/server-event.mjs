@@ -189,7 +189,10 @@ var SECRETS = Object.freeze([
   /\bgithub_pat_[A-Za-z0-9_]{16,}/g,
   /\bsk-[A-Za-z0-9_-]{16,}/g,
   /\bAKIA[0-9A-Z]{16}\b/g,
-  /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g
+  /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g,
+  /\bsb_(?:secret|publishable)_[A-Za-z0-9_-]{16,}/g,
+  /\bwhsec_[A-Za-z0-9+/=]{16,}/g,
+  /\bxox[abpr]-[A-Za-z0-9-]{10,}/g
 ]);
 var Text = z2.string().optional().catch(void 0);
 var ModelBody = z2.object({
@@ -381,6 +384,16 @@ var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
 var ProductPrdIdSchema = z4.string().regex(PRODUCT_PRD).refine((id) => {
   const cut2 = id.lastIndexOf("-");
   return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
+var ProductRoadmapIdSchema = z4.string().regex(PRODUCT_ROADMAP).refine((id) => {
+  const cut2 = id.lastIndexOf("-R");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PRODUCT_BUG = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-B([1-9]\d{0,9})$/;
+var ProductBugIdSchema = z4.string().regex(PRODUCT_BUG).refine((id) => {
+  const cut2 = id.lastIndexOf("-B");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PrNumberSchema = z4.number().int().positive().brand();
 var CommentIdSchema = z4.number().int().positive().brand();
@@ -728,6 +741,15 @@ var proofUrl = z7.string().refine((value) => {
 var envName = z7.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
 var lawOwner = z7.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
+var personLogin = z7.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, "a GitHub login, without @, never a team");
+var ownerWithDelegate = z7.preprocess(
+  (value) => isRecord(value) ? { login: "", delegate: "", ...value } : value,
+  z7.object({ login: personLogin, delegate: personLogin }).strict().refine((entry) => entry.login.toLowerCase() !== entry.delegate.toLowerCase(), {
+    message: "a delegate other than its own owner",
+    path: ["delegate"]
+  })
+);
+var lawOwnerEntry = z7.union([lawOwner, ownerWithDelegate]);
 var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
 var contractKind = z7.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
 var contractKinds = z7.array(contractKind).min(1, "at least one kind, such as api").superRefine((kinds, issues) => {
@@ -896,6 +918,11 @@ var ConfigSchema = z7.object({
     approved: labelName.default("omni:approved"),
     // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
     law: labelName.default("omni:law"),
+    // PRD 2175: the label a runner swaps in for `inProgress` on a claim whose job ended while it held
+    // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`). Left
+    // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
+    // exactly as before (so `omni init` does not create it: a person does).
+    released: labelName.optional(),
     autoCreate: z7.boolean().default(false)
   }),
   prLinks: section({
@@ -956,7 +983,11 @@ var ConfigSchema = z7.object({
     max: z7.number().int().positive().default(20),
     // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
     // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
-    owners: z7.array(lawOwner).default([])
+    // PRD 1794: an entry may be `{ login, delegate }` instead; the delegate is a CODEOWNER too.
+    owners: z7.array(lawOwnerEntry).default([]),
+    // PRD 1794: product leadership, GitHub logins asked last about what still waits on a person.
+    // Never written into CODEOWNERS, so its approval never clears a law.
+    leadership: z7.array(personLogin).default([])
   }),
   risk: section({
     storedShape: z7.array(regexSource).default([]),
@@ -981,13 +1012,20 @@ var ConfigSchema = z7.object({
     stallDays: z7.number().int().positive().default(5),
     attempts: z7.number().int().positive().default(3),
     claimStaleMinutes: z7.number().int().positive().default(60),
+    // PRD 2175: how long a draft still on `labels.inProgress` may go with no commit and no update
+    // before the board reads its claim as stale: the fallback for a claim no runner saw die. Left
+    // out, `DEFAULT_CLAIM_DEAD_MINUTES` applies, and a config that does not set it parses exactly as before.
+    claimDeadMinutes: z7.number().int().positive().optional(),
     beforeAfterMaxBytes: z7.number().int().positive().default(512e3),
     // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
     // was before, one step at a time.
     parallelSteps: z7.number().int().min(1).max(6).default(3),
     // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
     // and a config that does not set it parses exactly as before.
-    hookMaxBytes: z7.number().int().positive().optional()
+    hookMaxBytes: z7.number().int().positive().optional(),
+    // PRD 1794: how many working days (Monday to Friday, UTC) a thing waits on a person before the
+    // next people are asked. Its own setting: `stallDays` is unchanged.
+    escalationWorkingDays: z7.number().int().min(1).max(10).default(2)
   }),
   // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
   // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in

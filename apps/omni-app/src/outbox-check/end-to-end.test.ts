@@ -4,7 +4,12 @@
 // client (PRD 902, s5), so every call spends installation 7's budget, and a paused budget refuses it.
 import { parsePr, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { createHmac, generateKeyPairSync } from 'node:crypto';
-import { join } from 'node:path';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
+import { adoptItem, settleItem } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
 import { githubClient, memoryGithubStore, type GithubStore } from '@omni/github';
@@ -13,7 +18,8 @@ import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
 import { type AppEvent, inngest } from '../inngest-client.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import { installationOctokitFor } from '../octokit-for.ts';
-import { checkRunAt, fakeGitHub, outputOf, overHttp } from './fake-github.ts';
+import { RECORD_MARKER } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
+import { checkRunAt, commitOf, fakeGitHub, outputOf, overHttp } from './fake-github.ts';
 import { createOutboxCheck } from './outbox-check.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
@@ -87,8 +93,10 @@ function appOctokitFor(github: GitHub, { store, plain, logged }: Run) {
   return installationOctokitFor(GITHUB_APP, githubClient({ store, fetch: overHttp(github, RATE), log: (line) => logged.push(line) }));
 }
 
+const heads: string[] = [];
 afterEach(() => {
   vi.unstubAllGlobals();
+  for (const head of heads.splice(0)) rmSync(head, { recursive: true, force: true });
 });
 
 /** A fresh run: an empty store, no plain call, nothing logged. */
@@ -319,6 +327,83 @@ describe('end to end — a signed webhook to a completed check', () => {
       expect(latest(github)).toMatchObject({ conclusion: 'failure', output: { title: '1 unaccounted change to a law — N-PRODUCT-2' } });
       expect(github.state.requests.map((r) => r.route)).not.toContain('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews');
     });
+  });
+
+  describe('14. a change to the briefing needs an item ranked high a person answers (PRD 1793)', () => {
+    const BRIEFING = '.omni-loop/knowledge/playbook/briefing.md';
+    const OUTBOX = '.omni-loop/delivery/outbox/0042-widget';
+    const ITEM = `${OUTBOX}/s1-01-widget-colour.md`;
+    const files = [{ filename: BRIEFING, status: 'modified' }];
+    const itemOf = (rank: string) => readFileSync(join(fixture('head-open'), ITEM), 'utf8').replace('rank: high', `rank: ${rank}`);
+
+    /** A head built at run time from `head-clear` and the base's knowledge: the briefing changed, an account naming the item, and `prepare` on the kit's context. */
+    function headWith(prepare: (ctx: ReturnType<typeof createContext>) => void) {
+      const head = mkdtempSync(join(tmpdir(), 'e2e-briefing-'));
+      heads.push(head);
+      cpSync(fixture('head-clear'), head, { recursive: true });
+      cpSync(join(fixture('base-laws'), '.omni-loop/knowledge'), join(head, '.omni-loop/knowledge'), { recursive: true });
+      const write = (path: string, text: string) => {
+        mkdirSync(dirname(join(head, path)), { recursive: true });
+        writeFileSync(join(head, path), text);
+      };
+      write(BRIEFING, '---\nform: briefing\nform-version: 1\nstate: filled\npoints-to: null\nevidence: []\ninvaded: null\n---\n\n# Briefing\n');
+      write(`${OUTBOX}/accounts/s1.md`, ['---', 'prd: 42', 'slice: s1', 'graded: 2026-10-15', '---', '', '## Risky changes', '', `- \`${BRIEFING}\``, 'briefing-text', 'item s1-01-widget-colour', ''].join('\n'));
+      prepare(createContext(head, parseConfig(readFileSync(join(fixture('base-laws'), '.omni-loop/config.yml'), 'utf8'))));
+      return head;
+    }
+
+    it('a feature PR whose account names a medium item fails, saying the briefing needs an item ranked high', async () => {
+      const head = headWith((ctx) => {
+        expect(adoptItem({ ctx, itemText: itemOf('medium') }).ok).toBe(true);
+      });
+      const pull = featurePull();
+      const github = fakeGitHub({ commits: { base1: fixture('base-laws'), head1: head }, pull, files });
+      await deliver(github, pullRequestDelivery(pull, 'opened'));
+      expect(latest(github)).toMatchObject({ name: 'outbox', conclusion: 'failure' });
+      expect(outputOf(latest(github)).summary).toContain(`${BRIEFING} (briefing-text) — its account names item s1-01-widget-colour, ranked medium: a change to the briefing needs an item ranked high`);
+    });
+
+    it('a feature PR whose high item a person answered succeeds', async () => {
+      const head = headWith((ctx) => {
+        writeFileSync(join(ctx.root, ITEM), itemOf('high'));
+        const answer = { text: 'Yes, keep it.', approvedBy: 'pierrederval', approvedAt: '2026-10-15', channel: { kind: 'feature-pull-request', number: 12 }, statedVerdict: 'agreed' };
+        expect(settleItem({ ctx, file: ITEM, answer }).ok).toBe(true);
+      });
+      const pull = featurePull();
+      const github = fakeGitHub({ commits: { base1: fixture('base-laws'), head1: head }, pull, files });
+      await deliver(github, pullRequestDelivery(pull, 'opened'));
+      expect(latest(github)).toMatchObject({ name: 'outbox', conclusion: 'success', output: { title: 'Outbox clear' } });
+    });
+
+    it('a knowledge PR changing the briefing succeeds', async () => {
+      const pull = { ...featurePull(), head: { ref: 'docs/knowledge-widget', sha: 'head1' } };
+      const github = fakeGitHub({ commits: { base1: fixture('base-laws'), head1: fixture('head-laws-fix') }, pull, files });
+      await deliver(github, pullRequestDelivery(pull, 'opened'));
+      expect(latest(github)).toMatchObject({ conclusion: 'success', output: { title: 'Knowledge PR: no law touched' } });
+    });
+  });
+
+  it('15. the escalation record leaves the check as it was: the same conclusion and summary with and without it (PRD 1794)', async () => {
+    const delegated = commitOf([fixture('base-locked')], (yaml) => yaml.replace('  owners: [ann]', '  owners:\n    - login: ann\n      delegate: jdoe\n  leadership: [cto]'));
+    const head = commitOf([fixture('head-locked-edited'), fixture('head-open')]);
+    try {
+      const files = [{ filename: '.omni-loop/knowledge/product/invariants.md', status: 'modified' }];
+      const checked = async (base: string) => {
+        const github = fakeGitHub({ commits: { base1: base, head1: head }, pull: featurePull(), files });
+        await deliver(github, pullRequestDelivery(featurePull()));
+        const run = latest(github);
+        return { github, check: { conclusion: run.conclusion, ...outputOf(run) } };
+      };
+      const withRecord = await checked(delegated);
+      const without = await checked(fixture('base-locked'));
+      expect(withRecord.github.state.comments.filter((comment) => comment.body.startsWith(RECORD_MARKER))).toHaveLength(1);
+      expect(without.github.state.comments.filter((comment) => comment.body.startsWith(RECORD_MARKER))).toEqual([]);
+      expect(withRecord.check).toEqual(without.check);
+      expect(withRecord.check.conclusion).toBe('failure');
+    } finally {
+      rmSync(delegated, { recursive: true, force: true });
+      rmSync(head, { recursive: true, force: true });
+    }
   });
 
   it('5. a repository with no .omni-loop/config.yml gets no outbox check at all (PRD 359)', async () => {

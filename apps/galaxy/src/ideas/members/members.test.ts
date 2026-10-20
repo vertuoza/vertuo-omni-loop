@@ -45,16 +45,17 @@ type Write = { table: string; op: string; values?: unknown; id?: string };
 /** A database that records each write and answers what `answer` says. */
 function fakeDb(answer: { data?: unknown; error?: { code?: string; message: string } | null } = {}, listing: unknown[] = [{ workspace_id: '00000000-0000-4000-8000-0000000000aa' }]) {
   const writes: Write[] = [];
+  const filters: unknown[][] = [];
   const result = (data: unknown) => Promise.resolve({ data: answer.data ?? data, error: answer.error ?? null });
   const db = {
     from: vi.fn((table: string) => ({
-      select: () => ({ eq: () => ({ order: () => ({ order: () => ({ limit: () => Promise.resolve({ data: listing, error: null }) }), limit: () => Promise.resolve({ data: listing, error: null }) }) }) }),
+      select: () => ({ eq: () => { const ordered = { order: () => ({ order: () => ({ limit: () => Promise.resolve({ data: listing, error: null }) }), limit: () => Promise.resolve({ data: listing, error: null }) }) }; return { ...ordered, is: (column: string, value: unknown) => { filters.push([column, value]); return ordered; } }; } }),
       insert: (values: unknown) => { writes.push({ table, op: 'insert', values }); return { select: () => ({ single: () => result({ id: IDEA }) }) }; },
       update: (values: unknown) => ({ eq: (_: string, id: string) => { writes.push({ table, op: 'update', values, id }); return { select: () => result([{ id }]) }; } }),
     })),
     rpc: vi.fn(),
   };
-  return { db: db as unknown as MembersDb, writes };
+  return { db: db as unknown as MembersDb, writes, filters };
 }
 
 describe('a member\'s writes', () => {
@@ -143,6 +144,12 @@ describe('a form sent from the page', () => {
 describe('the workspace\'s board, for Work › Ideas', () => {
   it('is the repository whose board is public first, else the first one listed', async () => {
     expect(await workspaceBoard(fakeDb({}, [{ full_name: 'acme/widgets' }]).db, 'w')).toBe('acme/widgets');
+  });
+
+  it('skips a removed repository', async () => {
+    const { db, filters } = fakeDb({}, [{ full_name: 'acme/widgets' }]);
+    await workspaceBoard(db, 'w');
+    expect(filters).toEqual([['removed_at', null]]);
   });
 
   it('is none when the workspace lists no repository', async () => {

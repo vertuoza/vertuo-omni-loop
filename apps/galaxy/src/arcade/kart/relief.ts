@@ -5,6 +5,7 @@
 // a height for each pixel of the circuit's texture (mode7.ts), and the sprites stand on the ground (art.ts).
 import { locate, segmentAt } from './line';
 import type { Texture } from './mode7';
+import { drain, type Steps } from './slices';
 import { VOID } from './texture';
 import { LEVEL, legHeight, TILE, type Track } from './track';
 
@@ -87,9 +88,18 @@ export function reliefRange(track: Ground): { low: number; high: number } {
 /** The ground's height under every pixel of the circuit's texture that is not the void (0 under the void): what the floor is rendered from. */
 /** Read once per texture and relief: circuits that differ in their relief alone share a texture. */
 const made = new WeakMap<Texture, { relief: Ground['relief']; heights: Float32Array }>();
-export function heightsOf(track: Ground, texture: Texture): Float32Array {
+const madeFor = (track: Ground, texture: Texture): Float32Array | undefined => {
   const known = made.get(texture);
-  if (known && known.relief === track.relief && known.heights.length === texture.w * texture.h) return known.heights;
+  return known && known.relief === track.relief && known.heights.length === texture.w * texture.h ? known.heights : undefined;
+};
+export function heightsOf(track: Ground, texture: Texture): Float32Array {
+  return madeFor(track, texture) ?? drain(raising(track, texture));
+}
+
+/** `heightsOf`'s work, stopping after each row of pixels so the page can draw meanwhile (bug 2152). */
+export function* raising(track: Ground, texture: Texture): Steps<Float32Array> {
+  const known = madeFor(track, texture);
+  if (known) return known;
   const out = new Float32Array(texture.w * texture.h);
   if (!flat(track)) {
     for (let y = 0; y < texture.h; y++) {
@@ -97,8 +107,12 @@ export function heightsOf(track: Ground, texture: Texture): Float32Array {
         const i = y * texture.w + x;
         if (texture.px[i] !== VOID) out[i] = groundAt(track, x + 0.5, y + 0.5);
       }
+      yield;
     }
   }
+  // Two races of one circuit may raise it at once: the relief that ends first is the one kept.
+  const first = madeFor(track, texture);
+  if (first) return first;
   made.set(texture, { relief: track.relief, heights: out });
   return out;
 }

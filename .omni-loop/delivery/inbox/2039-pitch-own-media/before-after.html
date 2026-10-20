@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pitch with your own media</title>
+<style>
+/* Layout: header, then one row per change, today beside after. Frames are 16:9 pitch frames in a product's look; terminals are the exchange with the kit. */
+:root {
+  --bg: #f3f4f8; --surface: #ffffff; --ink: #151a34; --muted: #5c6382; --line: #d7dbe8;
+  --today: #b0402f; --after: #2c7a4d;
+  --paper: #f2f5fd; --frame-ink: #08104d; --frame-muted: #525882; --accent: #003fda; --cta: #ff4217; --hair: #c9d2ee; --card: #ffffff;
+  --term-bg: #151826; --term-ink: #dfe3f2; --term-muted: #8e95b4; --term-ok: #7fd1a0; --term-err: #f0907e; --term-key: #9db7ff;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace; --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11131c; --surface: #191c28; --ink: #e5e8f3; --muted: #9aa1bd; --line: #2b3044;
+  --today: #e07a68; --after: #6cc392; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11131c; --surface: #191c28; --ink: #e5e8f3; --muted: #9aa1bd; --line: #2b3044;
+  --today: #e07a68; --after: #6cc392; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+main { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 56px; display: grid; gap: 32px; }
+header { display: grid; gap: 8px; max-width: 72ch; }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: clamp(24px, 4vw, 32px); line-height: 1.15; text-wrap: balance; }
+h2 { margin: 0; font-size: 18px; text-wrap: balance; }
+p { margin: 0; color: var(--muted); }
+code { font: 13px var(--mono); }
+section { display: grid; gap: 12px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+.side { min-width: 0; display: grid; gap: 10px; align-content: start; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.today .tag { color: var(--today); } .after .tag { color: var(--after); }
+.note { font-size: 13px; }
+
+/* A pitch frame: 16:9, the look's colours (the same in both themes, as a video is). */
+.frame { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: var(--paper); border-radius: 6px; overflow: hidden; container-type: inline-size; color: var(--frame-ink); font-family: var(--sans); }
+.logo { position: absolute; left: 6cqw; top: 5cqw; width: 9cqw; height: 1.6cqw; border-radius: 1cqw; background: var(--frame-ink); opacity: .8; }
+.col { position: absolute; left: 6cqw; top: 0; bottom: 0; width: 34cqw; display: flex; flex-direction: column; justify-content: center; gap: 1.6cqw; }
+.ey { font: 700 1.6cqw/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.ti { font: 700 4.2cqw/1.06 var(--sans); letter-spacing: -.02em; text-wrap: balance; }
+.acc { color: var(--accent); }
+.card { position: absolute; right: 5cqw; top: 14cqw; width: 50cqw; height: 31cqw; background: var(--card); border-radius: 1.2cqw; box-shadow: 0 2cqw 4cqw -2cqw rgba(8,16,77,.35); overflow: hidden; }
+.bar { height: 2.6cqw; background: #f9fbff; border-bottom: 1px solid var(--hair); }
+.rows { padding: 2cqw; display: grid; gap: 1.2cqw; }
+.row { height: 1.6cqw; border-radius: .5cqw; background: #e5ecfb; }
+.row.on { background: #99b2f0; }
+.btn { position: absolute; right: 2cqw; bottom: 2cqw; padding: .8cqw 1.8cqw; border-radius: .8cqw; background: var(--accent); color: #fff; font: 700 1.4cqw/1 var(--sans); }
+.toast { position: absolute; left: 50%; top: 9cqw; transform: translateX(-50%); padding: 1cqw 2cqw; border-radius: .9cqw; background: #e3f5ea; color: #1d6a3f; font: 700 1.6cqw/1 var(--sans); white-space: nowrap; }
+.doc { position: absolute; inset: 5cqw 6cqw 3cqw; border-radius: .8cqw; background: #fbfcff; border: 1px solid var(--hair); }
+.ring { position: absolute; border: .35cqw solid var(--accent); border-radius: 1cqw; box-shadow: 0 0 0 .8cqw rgba(0,63,218,.15); }
+.pill { position: absolute; padding: .6cqw 1.4cqw; border-radius: 99cqw; background: var(--frame-ink); color: #f9fbff; font: 700 1.5cqw/1 var(--sans); white-space: nowrap; }
+.blank { position: absolute; inset: 2.6cqw 0 0; background: #e9ecf4; display: grid; place-items: center; font: 600 2cqw/1.3 var(--mono); color: var(--frame-muted); text-align: center; padding: 3cqw; }
+.cursor { position: absolute; width: 0; height: 0; border-left: 1.1cqw solid transparent; border-right: 1.1cqw solid transparent; border-bottom: 2.4cqw solid var(--frame-ink); transform: rotate(-30deg); }
+
+/* A grid frame as the probe draws it: lines every 0.1, labelled. */
+.grid { position: absolute; inset: 0; background-image: linear-gradient(to right, rgba(0,63,218,.35) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,63,218,.35) 1px, transparent 1px); background-size: 10% 10%; }
+.gl { position: absolute; font: 700 2.4cqw/1 var(--mono); color: var(--accent); background: rgba(255,255,255,.85); padding: .15cqw .3cqw; border-radius: .3cqw; }
+
+/* A terminal: the exchange with the kit or the skill. */
+.term { background: var(--term-bg); color: var(--term-ink); border-radius: 6px; padding: 14px 16px; font: 12.5px/1.6 var(--mono); overflow-x: auto; white-space: pre; }
+.term .p { color: var(--term-muted); } .term .ok { color: var(--term-ok); } .term .err { color: var(--term-err); } .term .k { color: var(--term-key); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="eyebrow">PRD 2039 · before / after</span>
+    <h1>Pitch with your own media</h1>
+    <p>Each row is one moment of making a launch video with <code>/omni:pitch</code>, today and after this PRD. The look is any product's; the feature is a placeholder ("create an invoice"). No real recording is drawn.</p>
+  </header>
+
+  <section>
+    <h2>The key moment reaches its end</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today · the video's last feature frame</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ti">Create the <span class="acc">invoice.</span></div></div>
+          <div class="card"><div class="bar"></div><div class="rows"><div class="row on"></div><div class="row on"></div><div class="row"></div></div><div class="btn">Create invoice</div></div></div>
+        <p class="note">The walk-through never clicks a button that saves: "film the page that leads to it and stop there". The invoice is never created on screen.</p></div>
+      <div class="side after"><span class="tag">After · a recording the person brings</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ti">Create the <span class="acc">invoice.</span></div></div>
+          <div class="card"><div class="bar"></div><div class="doc"></div><div class="toast">Invoice created</div></div></div>
+        <p class="note">The person brings a recording from staging or QA. The video shows the gesture to its end, beside the filmed walk-through or instead of it (<code>--no-film</code>).</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>A screen recorder's file plays</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today · a .mov in the storyboard</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ti">Create the <span class="acc">invoice.</span></div></div>
+          <div class="card"><div class="bar"></div><div class="blank">recording.mov<br>not played by the render's browser</div></div></div>
+        <p class="note">A clip plays from a <code>&lt;video&gt;</code> the render seeks, which reads WebM only and waits up to 5 s a frame.</p></div>
+      <div class="side after"><span class="tag">After · decoded into frames</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ti">Create the <span class="acc">invoice.</span></div></div>
+          <div class="card"><div class="bar"></div><div class="rows"><div class="row on"></div><div class="row on"></div><div class="row on"></div></div><div class="btn">Create invoice</div></div></div>
+        <p class="note">Every clip, whatever its format, is decoded by ffmpeg into numbered images the engine already draws, and reused while the file is unchanged.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Coordinates are read, never guessed</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today · a recording with no moments.json</span>
+        <div class="frame"><div class="logo"></div><div class="col"><div class="ti">Create the <span class="acc">invoice.</span></div></div>
+          <div class="card"><div class="bar"></div><div class="rows"><div class="row on"></div><div class="row on"></div><div class="row"></div></div><div class="btn">Create invoice</div></div></div>
+        <p class="note">Only filming writes coordinates. "Never guess a coordinate" leaves a brought-in recording with no zoom, no callout and no cursor.</p></div>
+      <div class="side after"><span class="tag">After · omni pitch probe --at 4.2, then the scene</span>
+        <div style="display:grid;gap:8px">
+          <div class="frame"><div class="bar" style="height:5cqw;background:#f9fbff"></div><div class="rows" style="padding:4cqw;gap:2.4cqw"><div class="row on" style="height:3cqw"></div><div class="row on" style="height:3cqw"></div></div><div class="btn" style="right:4cqw;bottom:4cqw;font-size:2.6cqw;padding:1.6cqw 3.4cqw">Create invoice</div><div class="grid"></div>
+            <span class="gl" style="left:.5cqw;top:.5cqw">0,0</span><span class="gl" style="left:49cqw;top:.5cqw">x 0.5</span><span class="gl" style="left:86cqw;top:.5cqw">x 0.9</span><span class="gl" style="left:.5cqw;top:48%">y 0.5</span><span class="gl" style="left:.5cqw;top:88%">y 0.9</span></div>
+          <div class="frame"><div class="card" style="left:4cqw;right:4cqw;top:6cqw;width:auto;height:44cqw"><div class="bar"></div><div class="rows"><div class="row on"></div><div class="row on"></div></div><div class="btn" style="font-size:2.4cqw;padding:1.4cqw 3cqw;right:3cqw;bottom:3cqw">Create invoice</div></div>
+            <div class="ring" style="right:5cqw;top:40cqw;width:26cqw;height:10cqw"></div><div class="pill" style="right:10cqw;top:51.5cqw">One click</div><div class="cursor" style="right:14cqw;top:45cqw"></div></div>
+        </div>
+        <p class="note">The probe prints the cuts, writes a timed contact sheet and gridded frames in the storyboard's 0..1 coordinates. The check refuses a zoom, callout or cursor on a brought-in media nobody probed.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>No fixed address, still a video</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today</span>
+        <div class="term"><span class="p">$</span> omni pitch start 412 --for customers
+<span class="err">proof is not configured here: run /omni:invade --refresh,
+or set proof.url in .omni-loop/config.yml</span></div>
+        <p class="note">A repository with no fixed address to film cannot make any pitch.</p></div>
+      <div class="side after"><span class="tag">After</span>
+        <div class="term"><span class="p">$</span> omni pitch start 412 --for customers --no-film
+<span class="ok">{"dir":".claude/worktrees/pitch-412/customers-…","url":null,…}</span>
+<span class="p">$</span> omni pitch probe &lt;dir&gt; ~/Desktop/create-invoice.mov
+media/create-invoice.mov  2880×1800  14.20 s  60 fps
+cuts: 3.10, 9.45
+<span class="ok">probe/create-invoice.mov/sheet.png</span></div>
+        <p class="note">Without <code>--no-film</code>, the refusal names it. <code>omni pitch film</code> on a <code>--no-film</code> run refuses in one line.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Every line shows where it comes from, before it is written</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">Today · the sources</span>
+        <div class="term"><span class="k">sources:</span> spec.md, release.md
+<span class="p">"and nothing else: not the code, not the issue"</span>
+
+<span class="p">→ storyboard.json written straight away</span></div>
+        <p class="note">A short spec makes a short video, and the person first sees the words on the contact sheet.</p></div>
+      <div class="side after"><span class="tag">After · the scene plan, in the conversation</span>
+        <div class="term"><span class="k">scene      media                      line                          source</span>
+intro      —                          Invoices from the worksite.   spec
+feature    walk · open-lines          Tick what's done.             release
+feature    create-invoice.mov 9.4–13  One click, one invoice.       PR #57
+outro      —                          Live for every customer.      note
+<span class="p">gap: the spec says "draft", PR #57 shipped "sent" → "sent" kept</span>
+<span class="ok">Approve this plan?</span></div>
+        <p class="note">Sources: the spec, the release note, the PRD's issue, its merged PRs and a note from the person; never the code. The table is approved before the storyboard is written; the sources never appear in the video.</p></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

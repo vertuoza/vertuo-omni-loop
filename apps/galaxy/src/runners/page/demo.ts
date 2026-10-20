@@ -23,33 +23,76 @@ export function demoRunnersPage(now: Date): RunnersPageView {
   const runner = (over: Partial<Runner> & Pick<Runner, 'id' | 'name' | 'state'>): Runner => ({
     owner: YOU, fleet: null, slots: 2, used: 0, repos: ['acme/widgets'], version: '0.0.388', lastSeenAt: at(0), ...over,
   });
+  const GB = 1024 ** 3;
+  const LIMITS = { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 };
+  // A machine of 16 GB and 8 cores: its CPU share, memory used and disk free (in GB), and why it is paused, if it is.
+  const report = (cpu: number, memGb: number, diskGb: number, paused: string | null): NonNullable<Runner['health']> => ({
+    cpu, load1: cpu / 8, cores: 8, memUsed: Math.round(memGb * GB), memTotal: 16 * GB, diskFree: diskGb * GB, diskTotal: 233 * GB,
+    paused, limits: LIMITS, at: at(0),
+  });
+  // The machine's tokens (PRD 2102 s4): 10.2M over the last 5 h and 15.7M today, almost all of it cache reads.
+  const TOKENS = {
+    last5h: { input: 81_234, output: 402_118, cacheRead: 9_120_443, cacheWrite: 611_002 },
+    today: { input: 120_113, output: 655_001, cacheRead: 14_002_118, cacheWrite: 902_114 },
+  };
+  const samples = (cpu: number, memGb: number, diskGb: number, tokens5h: number | null = null): NonNullable<Runner['samples']> =>
+    [0, 1, 2, 3, 4].map((i) => ({
+      at: at(i - 5), cpu: cpu * (0.6 + i / 10), memUsed: Math.round(memGb * GB * (0.8 + i / 20)), memTotal: 16 * GB,
+      diskFree: diskGb * GB, tokens5h: tokens5h === null ? null : Math.round(tokens5h * (0.5 + i / 8)),
+    }));
   let seq = 0;
   const job = (over: Partial<Job> & Pick<Job, 'line' | 'status'>): Job => {
     seq += 1;
     return {
       id: `00000000-0000-4000-8000-00000000d2${String(seq).padStart(2, '0')}`, repo: 'acme/widgets', toRunner: null, toFleet: null,
-      sentBy: YOU, sentByLogin: 'you', runner: null, cancelRequested: false, logTail: '', prUrl: null, exitCode: null, reason: null,
+      sentBy: YOU, sentByLogin: 'you', sentByKey: null, runner: null, cancelRequested: false, logTail: '', prUrl: null, exitCode: null, reason: null,
       queuedAt: at(-30), claimedAt: null, runningAt: null, endedAt: null, ...over,
     };
   };
   const board: Board = {
     runners: [
-      runner({ id: DEMO_RUNNERS.agents, name: 'acme-agents', state: 'busy', fleet: 'comets', slots: 1, used: 1 }),
-      runner({ id: DEMO_RUNNERS.office, name: 'mac-mini-office', state: 'online', repos: ['acme/widgets', 'acme/mobile'] }),
-      runner({ id: DEMO_RUNNERS.laptop, name: 'ada-laptop', state: 'offline', owner: ADA, slots: 1, lastSeenAt: at(-180), version: '0.0.385' }),
+      runner({
+        id: DEMO_RUNNERS.agents, name: 'acme-agents', state: 'busy', fleet: 'comets', slots: 1, used: 1,
+        health: { ...report(63, 14.6, 41, 'memory 91%'), tokens: TOKENS }, samples: samples(63, 14.6, 41, 10_214_797),
+      }),
+      runner({
+        id: DEMO_RUNNERS.office, name: 'mac-mini-office', state: 'online', repos: ['acme/widgets', 'acme/mobile'],
+        health: { ...report(18, 7.1, 41, null), diskFree: null }, samples: samples(18, 7.1, 41),
+      }),
+      runner({
+        id: DEMO_RUNNERS.laptop, name: 'ada-laptop', state: 'offline', owner: ADA, slots: 1, lastSeenAt: at(-180), version: '0.0.385',
+        health: { ...report(4, 6, 120, null), at: at(-180) },
+      }),
     ],
     jobs: [
       job({
         line: '/omni:yolo 1717', status: 'running', toRunner: DEMO_RUNNERS.agents, runner: DEMO_RUNNERS.agents, claimedAt: at(-12), runningAt: at(-12),
         logTail: 'wave 1 · slice s1 · tests green\nopened https://github.com/acme/widgets/pull/1841',
+        tokens: { input: 31_002, output: 190_455, cacheRead: 1_150_330, cacheWrite: 84_012 },
       }),
       job({ line: '/omni:pr-care 1801', status: 'queued', toFleet: 'comets', sentBy: ADA, sentByLogin: 'ada', queuedAt: at(-2) }),
       job({
         line: '/omni:bug-fix 1790', status: 'done', runner: DEMO_RUNNERS.office, prUrl: 'https://github.com/acme/widgets/pull/1838',
         logTail: 'fix pushed\nopened https://github.com/acme/widgets/pull/1838', exitCode: 0, endedAt: at(-20),
       }),
-      job({ line: '/omni:yolo 1702', status: 'failed', toRunner: DEMO_RUNNERS.laptop, runner: DEMO_RUNNERS.laptop, reason: 'runner lost', endedAt: at(-178) }),
+      job({
+        line: '/omni:yolo 1702', status: 'failed', toRunner: DEMO_RUNNERS.laptop, runner: DEMO_RUNNERS.laptop, reason: 'runner lost', endedAt: at(-178),
+        released: [1908, 1909],
+      }),
       job({ line: '/omni:plan 1699', status: 'cancelled', cancelRequested: true, endedAt: at(-240) }),
+      job({
+        line: '/omni:yolo 1855', status: 'done', runner: DEMO_RUNNERS.office, prUrl: 'https://github.com/acme/widgets/pull/1861', exitCode: 0,
+        outcome: 'answers', endedAt: at(-60),
+      }),
+      job({ line: '/omni:yolo 1856', status: 'done', runner: DEMO_RUNNERS.office, exitCode: 0, outcome: 'held', endedAt: at(-90) }),
+      job({
+        line: '/omni:yolo-fix 1857', status: 'done', runner: DEMO_RUNNERS.office, prUrl: 'https://github.com/acme/widgets/pull/1862', exitCode: 0,
+        outcome: 'ready', endedAt: at(-120),
+      }),
+      job({
+        line: '/omni:bug-fix Issue 548 totals', status: 'done', sentBy: ADA, sentByLogin: 'ada', sentByKey: 'QA dashboard', runner: DEMO_RUNNERS.office,
+        prUrl: 'https://github.com/acme/widgets/pull/1850', exitCode: 0, endedAt: at(-300),
+      }),
     ],
     viewer: { id: YOU, owner: true, fleet: 'comets' },
   };

@@ -35,7 +35,17 @@ export function StageAction({ stage, demo = false }: { stage: StageView | null; 
   if (action?.kind === 'link') {
     return <a className="ask-button stage-action" href={action.href} target="_blank" rel="noopener noreferrer">{action.label}</a>;
   }
-  if (action?.kind === 'copy') return <StageHeaderCopy label={action.label} command={action.command} />;
+  if (action?.kind === 'copy') {
+    const copy = <StageHeaderCopy label={action.label} command={action.command} />;
+    if (!stage?.fixes) return copy;
+    // Fix with answers (PRD 2223): the answers it acts on, under the button, linking the Outbox tab (a query-only link, so it stays on this page).
+    return (
+      <span className="stage-action-stack">
+        {copy}
+        <a className="stage-fixes ask-hint" href="?tab=outbox">{stage.fixes}</a>
+      </span>
+    );
+  }
   return null;
 }
 

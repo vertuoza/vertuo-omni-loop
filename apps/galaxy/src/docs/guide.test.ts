@@ -7,6 +7,7 @@ import { diagramsNamed } from './diagrams';
 import { commandsNamed, guideProblems, parsePage, readGuide, skillsNamed } from './guide';
 import { pageUrl } from './paths';
 import { sure } from '../arcade/test/sure';
+import { RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -20,13 +21,13 @@ const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
 const ORDER = [
-  'index', 'install', 'join', 'cloud', 'any-agent', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'design', 'validate-e2e',
-  'use-cases', 'troubleshooting', 'observability',
+  'index', 'install', 'join', 'cloud', 'runners', 'any-agent', 'invade', 'loop', 'first-prd', 'drive', 'products', 'several-repositories', 'roadmaps', 'ideas', 'landings', 'flow', 'design', 'validate-e2e',
+  'use-cases', 'troubleshooting', 'observability', 'api',
 ];
 const TITLES = [
-  'Getting started', 'Install', 'Join a team', 'Cloud sessions', 'Any coding agent', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
+  'Getting started', 'Install', 'Join a team', 'Cloud sessions', 'Runners', 'Any coding agent', 'Invade', 'How the loop works', 'Your first PRD', 'Drive the loop', 'Products', 'Several repositories',
   'Roadmaps', 'Ideas board', 'Landings', 'Repository flow', 'Design craft (opt-in)', 'Validate with e2e (beta)', 'Use cases', 'When something goes wrong',
-  'Observability',
+  'Observability', 'API',
 ];
 
 describe('docs/guide', () => {
@@ -34,7 +35,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its twenty pages, in order, each with its title', () => {
+  it('holds its twenty-one pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -43,9 +44,16 @@ describe('docs/guide', () => {
   it('links each page to the one to read next, and the last back to Getting started', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
-      '/docs/install', '/docs/join', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
-      '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/design', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs', '/docs',
+      '/docs/install', '/docs/join', '/docs/loop', '/docs/runners', '/docs/loop', '/docs/loop', '/docs/loop', '/docs/first-prd', '/docs/several-repositories', '/docs/several-repositories', '/docs/several-repositories',
+      '/docs/roadmaps', '/docs/landings', '/docs/landings', '/docs/flow', '/docs/design', '/docs/validate-e2e', '/docs/use-cases', '/docs/troubleshooting', '/docs', '/docs', '/docs',
     ]);
+  });
+
+  it('names on the Runners page exactly the lines a runner takes', () => {
+    const page = readGuide(GUIDE).pages.find((p) => p.slug === 'runners')?.body ?? '';
+    const sentence = /A runner takes only these lines: ([^.]*)\./.exec(page.replace(/\s+/g, ' '))?.[1] ?? '';
+    const named = [...sentence.matchAll(/`\/omni:([a-z-]+)`/g)].map((m) => sure(m[1], 'm[1]'));
+    expect(named).toEqual([...RUNNABLE_SKILLS]);
   });
 
   it('explains watching the App and the arcade on Vercel: the phase 0 checklist, the JSON logs, a Health issue and OMNI_APP_URL (PRD 1723)', () => {
@@ -142,6 +150,13 @@ describe('docs/guide', () => {
       expect(cloud, phrase).toContain(phrase);
     }
     for (const slug of ['install', 'join']) expect(body(slug), slug).toContain('](/docs/cloud)');
+  });
+
+  it('walks a member through using a runner, setting one up on a Unix server and connecting it (PRD 1830)', () => {
+    const page = readGuide(GUIDE).pages.find((p) => p.slug === 'runners')?.body ?? '';
+    for (const heading of ['## Use a runner', '## Set up a new runner', '## Connect it']) expect(page).toContain(heading);
+    for (const words of ['Send to terminal', '**Terminal**', '**Cancel**', '**Send again**', 'claude setup-token', 'gh auth login', 'omni setup-token',
+      'CLAUDE_CODE_OAUTH_TOKEN', 'OMNI_TOKEN', '--keep-logs', 'runner lost', 'opens no port']) expect(page).toContain(words);
   });
 
   it('walks any coding agent through the session and the questions, and names OMNI_ASK=on for the cloud (PRD 1831)', () => {

@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-16",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A pitch detector as a pure function tested on synthesised sines is code I can trust; a microphone permission flow is where browsers differ, so I want every refusal case on screen.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Singing to move a paddle is a gimmick, but a fun one I would actually try once, and it costs nothing to whoever never opens the cabinet.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A fifth game at LV 5, and one nobody has played like this before: a reason to keep shipping through the loop.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 2,
+          "reaction": "Same pattern as OMNI DUET, good; but a voice-only game in an open space, with one limit for every voice, will split the team.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A quick win for the people who play; nothing in it reaches my customers.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "In an open space a game you must sing to play disturbs the whole team, and with one fixed limit at 220 Hz part of the team will spend the match straining their voice instead of playing.",
+        "citations": [
+          "persona:Lead Engineer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓ · persona:Lead Engineer ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-16",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Granted, refused, not found, insecure and lost each have their own line and their own test, and the microphone stops whenever play does: the spec says how it stays correct.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Still a toy, but the chunk only loads on the cabinet and the sound never leaves the browser.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "AI now and multiplayer next, as OMNI KART did: the first one ships fast.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "LOW, MID and HIGH answer the fixed limit; the open-space noise stays, but it is a game a player chooses to open.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A quick win for the people who play; nothing in it reaches my customers.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-16",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Five slices, each with its own tests, a guard on the import graph and a pinned microphone policy: what shipped is what the spec said, and the feel with a real voice is the one thing left to try.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Still a toy, but it loads only on its cabinet and the sound stays in the browser, so it costs me nothing.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "A fifth game shipped in one afternoon through the loop, with multiplayer next.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The LOW / MID / HIGH limit answers my objection; the scene follows OMNI DUET's pattern, though the two share a header that could be one.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A quick win for the people who play; nothing in it reaches my customers.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    }
+  ]
+}

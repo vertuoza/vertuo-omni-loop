@@ -332,6 +332,29 @@ describe('the dossier skills in this repository', () => {
     expectAfter(skillSection(read('plan'), '6.'), 'git push -u', '/omni:dossier-push');
   });
 
+  it("the phase-0 PR's body opens with the PRD's page from omni dossier link, before prLinks.phase0, or with prLinks.phase0 when there is no page", () => {
+    const orderGaps = (text: string, mentions: string[]) => {
+      const out: string[] = [];
+      let from = 0;
+      mentions.forEach((mention: string, index: number) => {
+        const at = text.indexOf(mention, from);
+        if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+        else from = at + mention.length;
+      });
+      return out;
+    };
+    const step = skillSection(read('brainstorm'), '9.');
+    expect(orderGaps(step, ['first line is the PRD\'s page', 'omni.mjs dossier link <n>', 'exit `0`', 'opens with that link', 'never a placeholder'])).toEqual([]);
+    expect(step.indexOf('first line is the PRD\'s page')).toBeLessThan(step.indexOf('then `prLinks.phase0`'));
+    expect(step).toMatch(/no page: the line is left out/);
+    // step 9's fenced block carries a `## What lands where` heading, which skillSection would stop at
+    const megaText = read('mega-brainstorm');
+    const mega = megaText.slice(megaText.indexOf('## 9.'), megaText.indexOf('## 10.'));
+    expect(orderGaps(mega, ['opens with the PRD\'s page', 'omni.mjs dossier link <n>', 'then `prLinks.phase0`', 'omni sign footer'])).toEqual([]);
+    const pr = read('pr');
+    expect(orderGaps(pr, ['**Phase-0 PR**', 'omni.mjs dossier link <n>', 'then `prLinks.phase0` filled', 'keeps the page line'])).toEqual([]);
+  });
+
   // PRD 627: a fix is a dossier with a kind. Both fix skills push theirs after they push the fix
   // branch, print its page, and open no PRD, inbox folder, plan or outbox item; the visual fix keeps
   // every round of variations and the pick line.
@@ -3228,5 +3251,21 @@ describe('the inline wave (issue 1722)', () => {
   it('the trailer the skills ask for is the one the board reads', () => {
     expect(read('do-work')).toContain(`${INLINE_SLICE_TRAILER}: <id>`);
     expect(read('wave')).toContain(`${INLINE_SLICE_TRAILER}: <id>`);
+  });
+});
+
+describe('a slice agent in its own worktree runs one command at a time', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  /** Each dispatch prompt: a run of `>` quote lines holding "Do not spawn subagents". */
+  const prompts = (text: string) =>
+    text.split(/\n(?!\s*>)/).filter((block: string) => block.includes('Do not spawn subagents')).map((block: string) => block.replace(/\n\s*>\s?/g, ' '));
+
+  it.each(['wave', 'yolo-fix'])('every prompt /omni:%s gives a slice agent says so', (skill: string) => {
+    const found = prompts(read(skill));
+    expect(found.length).toBeGreaterThan(0);
+    for (const prompt of found) {
+      expect(prompt).toContain('Run each command alone, from your worktree');
+      expect(prompt).toContain('`git -C <your worktree> …`');
+    }
   });
 });

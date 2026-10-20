@@ -43,6 +43,35 @@ function openOutboxOf(summary: GithubSummary | null | undefined): OpenOutbox {
   return href ? { count: outbox.open.length, href } : null;
 }
 
+/** Where the outbox's asked questions stand (PRD 2223): the open items ranked `high` or `human-action`
+ * (a medium is adopted unless someone objects, so it is never asked), how many have a counted reply, and
+ * the letter each counted reply picks, in the outbox's numbering. A reply counts when the kit's reader
+ * would settle it: its author counts and it is not held as undetermined. Null when the outbox or the
+ * replies were not read, or no asked item is open. */
+export type OutboxStand = { asked: number; answered: number; answers: { number: number; letter: string | null }[] };
+
+/** The letter an answer picks: `B because…` or `B. text — because…` gives B; `approve all` agrees with
+ * the built option, A; anything else none. */
+function letterOf(text: string): string | null {
+  const picked = /^\s*([A-Za-z])(?![A-Za-z0-9])/.exec(text);
+  if (picked?.[1]) return picked[1].toUpperCase();
+  return /^\s*(approve all|go with (the )?recommendation)\s*$/i.test(text) ? 'A' : null;
+}
+
+export function outboxStand(summary: GithubSummary | null | undefined): OutboxStand | null {
+  const outbox = summary?.outbox ?? null;
+  const replies = summary?.replies ?? null;
+  if (!outbox || !known(outbox) || !replies || !known(replies)) return null;
+  const asked = outbox.open.filter((item) => item.rank === 'high' || item.rank === 'human-action');
+  if (asked.length === 0) return null;
+  const answers = asked.flatMap((item) => {
+    const number = replies.numbering.find((n) => n.id === item.id)?.number;
+    const reply = replies.pending.find((p) => p.id === item.id);
+    return number !== undefined && reply?.counted && !reply.held ? [{ number, letter: letterOf(reply.text) }] : [];
+  }).sort((a, b) => a.number - b.number);
+  return { asked: asked.length, answered: answers.length, answers };
+}
+
 /** The stage from the GitHub summary alone (PRD 426), for the page's pulse. `slices` is the plan's slice count. */
 export function stageOf(prd: PrdNumber | null, summary: GithubSummary | null, slices: number | null = null): Stage {
   if (prd === null) return { id: 'idea', action: null, caption: 'Brainstorm in progress' };
@@ -64,7 +93,11 @@ export function stageOf(prd: PrdNumber | null, summary: GithubSummary | null, sl
   return { id: 'prd', ...actionOf('prd', prd, summary, slices) };
 }
 
-type Action = { action: NextAction | null; caption: string | null };
+type Action = {
+  action: NextAction | null; caption: string | null;
+  /** Under Fix with answers (PRD 2223): the answers it acts on, `Fixes with 1: A · 4: B`. */
+  fixes?: string;
+};
 const none: Action = { action: null, caption: null };
 
 type ActionInput = { prd: PrdNumber | null; read: GithubSummary | null; slices: number | null };
@@ -103,7 +136,18 @@ const outboxFirst =
   (otherwise: (input: ActionInput) => Action) =>
   (input: ActionInput): Action => {
     const open = openOutboxOf(input.read);
-    return open ? link('Answer the outbox', open.href) : otherwise(input);
+    if (!open) return otherwise(input);
+    const stand = outboxStand(input.read);
+    if (!stand) return link('Answer the outbox', open.href);
+    const merged = input.read ? input.read.mergedSlices : UNREAD;
+    const done = stand.answered === stand.asked;
+    const caption = [
+      ...(known(merged) && merged > 0 ? [builtWords(merged, input.slices)] : []),
+      done ? 'answered' : `${stand.answered} of ${stand.asked} answered`,
+    ].join(' · ');
+    if (!done || input.prd === null) return { ...link('Answer the outbox', open.href), caption };
+    const fixes = `Fixes with ${stand.answers.map(({ number, letter }) => (letter ? `${number}: ${letter}` : String(number))).join(' · ')}`;
+    return { action: { kind: 'copy', label: 'Fix with answers', command: `/omni:yolo-fix ${input.prd}` }, caption, fixes };
   };
 
 /** Pitch (PRD 859): the one button at shipped and retro, read from no GitHub summary. The retro PR stays
@@ -169,7 +213,8 @@ function linksOf(summary: GithubSummary | null | undefined): StageLink[] {
 
 /** One pull request's link; the open feature PR's carries its health chip when its care state was read. */
 function pullLinkOf(name: string, pull: PullRef, care: Read<CareState | null>): StageLink {
-  const link: StageLink = { label: `${name} #${pull.number}`, href: pull.url, done: pull.state === 'merged' };
+  const draft = name === 'feature' && pull.state === 'open' && pull.draft ? ' · draft' : '';
+  const link: StageLink = { label: `${name} #${pull.number}${draft}`, href: pull.url, done: pull.state === 'merged' };
   if (name === 'feature' && pull.state === 'open' && known(care) && care) link.chip = careChipOf(care);
   return link;
 }

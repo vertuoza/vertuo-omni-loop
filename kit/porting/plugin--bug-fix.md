@@ -54,9 +54,24 @@ Bug section are PRD 556's spec, carried whole.
   runs `omni bug film` then `omni proof push --kind bug` before the PR, whose body gains `## Proof`
   right after **What was wrong**. A GIF not made opens the PR as a draft with
   `GIF not produced - <reason>`. Its tests are `kit/test/bug-fix-proof.test.ts`.
+- **The proof, guarded** (PRD 2100): step 12 writes the PR's body to a file and runs
+  `omni bug <n> --body-file <file>` until `ok` before `/omni:pr` opens the PR with that same file; a
+  pinned omni that prints `unknown flag --body-file` gets `omni bug <n>` without it. Clips that fail
+  (`ffmpeg not found` included) fall back to the text GIF of `red.txt` and `green.txt`, with
+  `Storybook not filmed - <reason>`, so the reason table has no `ffmpeg not found` row; a component
+  bug's `## Proof` gains the `Clips: [before](<link>) · [after](<link>)` line, the links being what
+  `omni proof push --kind bug` prints after the GIF's.
+- **Stop rule 3 names the fix** (PRD 2100): when the reproduction passes before any fix, step 7 finds
+  the merged pull request that fixed the bug and the issue comment says `Fixed by #<n>` (or
+  `Fixed by <PR URL>`) only for a candidate proven red at its merge's first parent and green at its
+  merge, `Maybe: #<n>` lines otherwise, and the skill never closes the issue. `/omni:mega-bug-fix`
+  writes the same comment in the plan repository.
 
 - **Signing**, as every kit skill: the issue and the PR end with `omni sign footer`, every commit
   with `omni sign trailer`.
 - The hand-off: "Review the PR and merge it if it is right." **A person merges.**
 - **The fix's page** (PRD 627): after the push, the skill follows `/omni:dossier-push <n> --kind bug`
   and the hand-off prints the page's link beside the PR.
+- **`briefing-text`** (PRD 1793): **A change to a law**'s rule table gains the row for a change to
+  the briefing's files, raised as a change to a rule is; its test is
+  `kit/test/briefing-text-skills.test.ts`.

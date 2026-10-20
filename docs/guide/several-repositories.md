@@ -184,6 +184,33 @@ repository, with its role, its slices and the waves they sit in. Every team read
 side by side before any code exists. A person reviews it and merges it, which puts the PRD in the
 plan repository's inbox.
 
+### Names follow each repository's conventions
+
+Before it names a table, a column, a GraphQL field or a service in a target, the brainstorm reads
+where that target writes its conventions down. `omni conventions --root <clone>` lists those files
+from the target's read-only copy, and the agent reads the pages the design bears on: the pages on
+the database and its migrations for a new table or column, the pages on the schema for a GraphQL
+change. `/omni:plan` does the same for each target a slice may land in.
+
+The index holds, in this order:
+
+1. `CLAUDE.md` and `AGENTS.md` at the root, and every file they import with `@<path>`.
+2. The files the target's `.omni-loop/config.yml` lists under `paths.context`, when it has one.
+3. The readme of the `docs` folder (`README.md`, `readme.md` or `index.md`).
+4. The readme of `docs/adr`, or, without one, every ADR in it.
+5. Every Markdown page those files link to, one level of links only, inside the repository. A link
+   to a file that does not exist reads `missing`.
+
+So a page is read only when one of those files links to it. A `docs/migrations.md` that nothing
+links to is never found: link it from the target's `CLAUDE.md` or from the readme of its `docs`
+folder. A target needs no omni config for this.
+
+The spec then carries a `## Conventions` table, one row per name the design picks, each with the
+page and line it comes from (`_created_at ← docs/migrations.md:12`), or the neighbouring code it
+copies when no page settles it. When two conventions coexist and no page says which one wins, the
+agent asks you during the design; it never picks one silently. Read that table when you review the
+phase-0 pull request: a name without a source is the one to question.
+
 ## The pull requests over time
 
 ![The pull requests of PRD 600 over time: the one phase-0 pull request and the plan pull request with the one outbox in the plan repository, a feature pull request and its sub-pull requests wave by wave in each target, each slice's decisions carried into the outbox, and the merge order with the plan pull request last](diagrams/pull-requests-repositories.svg)
@@ -275,6 +302,22 @@ type:
 It reads your answers on the plan pull request and reworks each decision you changed **in the
 repository it was taken in**: a sub-pull request into that target's feature branch. Then it runs the
 same gate again, and marks the plan pull request ready once no question is left.
+
+## The plan repository stays
+
+A plan repository is **kept**. The loop never archives it, nor deletes it, whatever step its
+repositories have reached on the [rollout ladder](/docs/products#the-rollout-ladder). Its PRDs, its
+roadmaps, its bug records and its imported knowledge copies keep working as they do here, side by
+side with the product way: a repository below step 5 stays on the old way, and a roadmap or bug
+record born in git finishes in git.
+
+A [product](/docs/products)'s **Repositories & approvers** tab shows, as information only, each
+repository's ladder step and what still lives in its plan repository, such as `vertuo-web · step 3`
+or `roadmap 0412 · in git`. It has no action on the plan repository.
+
+The skills and checks read an imported target's knowledge from its pack, which the server keeps,
+rather than from a copy under `.omni-loop/knowledge/repos/`; `omni kb pack get <repo>` fetches it.
+The [knowledge packs](/docs/products#knowledge-packs) section says how a pack is fetched and refused.
 
 ## Without a plan repository
 

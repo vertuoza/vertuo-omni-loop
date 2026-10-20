@@ -14,7 +14,7 @@ describe('homeTotals', () => {
         card({ id: 'a', repositories: [{ repo: 'o/api', shared: true }, { repo: 'o/web', shared: false }], prds: 3, waiting: 2 }),
         card({ id: 'b', repositories: [{ repo: 'o/api', shared: true }], prds: 1, waiting: 1 }),
       ],
-      unlinked: ['o/scripts'],
+      unlinked: ['o/scripts'], archived: [], owner: false,
     };
     expect(homeTotals(list)).toEqual({ products: 2, repositories: 3, prds: 4, waiting: 3 });
   });

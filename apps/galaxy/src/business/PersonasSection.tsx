@@ -57,7 +57,8 @@ function StanceChip({ stance }: { stance: Stance }) {
   return <span className="business-stance" data-stance={stance}>{STANCE_LABEL[stance]}</span>;
 }
 
-function Card({ persona, busy, on }: { persona: Persona; busy: boolean; on: PersonaHandlers }) {
+/** One persona's card, and the drawer that edits or adds one: the Knowledge home's pages draw them alone (PRD 2240 s4). */
+export function Card({ persona, busy, on }: { persona: Persona; busy: boolean; on: PersonaHandlers }) {
   return (
     <li className="business-persona" data-persona={persona.id}>
       <div className="business-persona-top">
@@ -107,7 +108,7 @@ function Picker({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
   );
 }
 
-function Drawer({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
+export function Drawer({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
   const drawer = defined(state.drawer, 'the open drawer');
   const f = drawer.fields;
   const editing = drawer.editing !== null;

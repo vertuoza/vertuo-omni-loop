@@ -155,5 +155,51 @@ begin
   end if;
 end $$;
 
+-- ── The facts read their summary from the rows (PRD 2011 s5) ──
+-- A product bug's rows (written here directly, as fix_bug_push() would) give its facts their `rows` part
+-- and its `pull`, whatever a write says; a bug with no rows keeps what was written.
+do $$
+declare
+  ws      uuid := (select id from public.workspaces where slug = 'vertuoza');
+  product uuid;
+  bug     uuid;
+  facts   jsonb;
+begin
+  insert into public.businesses (workspace_id, name)
+  select ws, 'Vertuoza' where not exists (select 1 from public.businesses b where b.workspace_id = ws);
+  insert into public.products (workspace_id, business_id, name, key)
+  values (ws, (select b.id from public.businesses b where b.workspace_id = ws), 'Facts product', 'facts')
+  returning id into product;
+  insert into public.repositories (workspace_id, full_name) values (ws, 'vertuoza/facts-api');
+  insert into public.dossiers (workspace_id, kind, product_id, product_seq, title, numbered_at, birthplace)
+  values (ws, 'bug', product, 1, 'A product bug', now(), 'server') returning id into bug;
+  insert into public.fix_rows (dossier_id, workspace_id, position, repository, pull, changes, merged_at) values
+    (bug, ws, 1, 'vertuoza/facts-api', 3, 'The first fix.', '2026-10-16T09:00:00Z'),
+    (bug, ws, 2, 'vertuoza/facts-api', 4, 'The second fix.', null);
+  facts := (select f.facts from public.fix_facts f where f.dossier_id = bug);
+  if facts is null or facts -> 'rows' ->> 'rows' <> '2' or facts -> 'rows' ->> 'merged' <> '1' or (facts -> 'rows' ->> 'shipped')::boolean
+     or facts -> 'pull' ->> 'number' <> '4' or facts -> 'pull' ->> 'state' <> 'open' then
+    raise exception 'FAIL: a product bug''s facts do not read its rows: %', facts;
+  end if;
+  -- The sync writes what GitHub said: the rows' summary stays.
+  update public.fix_facts f set facts = '{"issue": "unread", "pull": "unread", "approvals": [], "release": null}' where f.dossier_id = bug;
+  facts := (select f.facts from public.fix_facts f where f.dossier_id = bug);
+  if facts -> 'rows' ->> 'rows' <> '2' or facts -> 'pull' ->> 'number' <> '4' or facts ->> 'issue' <> 'unread' then
+    raise exception 'FAIL: a write over a product bug''s facts dropped what its rows say: %', facts;
+  end if;
+  update public.fix_rows r set merged_at = '2026-10-16T10:00:00Z' where r.dossier_id = bug and r.position = 2;
+  facts := (select f.facts from public.fix_facts f where f.dossier_id = bug);
+  if not (facts -> 'rows' ->> 'shipped')::boolean or facts -> 'pull' ->> 'state' <> 'merged' or facts -> 'pull' ->> 'number' <> '4' then
+    raise exception 'FAIL: the last merged row did not ship the bug''s facts: %', facts;
+  end if;
+  -- A bug of a repository, with no rows: its facts as written, with no rows part.
+  update public.fix_facts f set facts = '{"issue": null, "pull": "unread", "approvals": [], "release": null}'
+   where f.dossier_id = '00000000-0000-4000-8000-00000000f001';
+  if (select f.facts from public.fix_facts f where f.dossier_id = '00000000-0000-4000-8000-00000000f001')
+     <> '{"issue": null, "pull": "unread", "approvals": [], "release": null}'::jsonb then
+    raise exception 'FAIL: a bug with no rows did not keep its facts as written';
+  end if;
+end $$;
+
 select 'fix facts checks passed' as result;
 rollback;

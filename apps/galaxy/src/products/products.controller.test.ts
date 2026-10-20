@@ -11,7 +11,7 @@ import type { ProductsList } from './products.service';
 // workspace, then the list read as the person; a failed read is the unreadable notice.
 
 const SIGNED_IN = { kind: 'signed-in', db: {}, user: { id: 'u-1' }, env: { url: 'u', key: 'k' } } as unknown as MemberSession;
-const LIST: ProductsList = { products: [{ id: 'p-1', name: 'Mobile', repositories: [], prds: 0, waiting: 0 }], unlinked: [] };
+const LIST: ProductsList = { products: [{ id: 'p-1', name: 'Mobile', repositories: [], prds: 0, waiting: 0 }], unlinked: [], archived: [], owner: false };
 
 function deps(over: Partial<ProductsHomeDeps> = {}) {
   const reads: string[] = [];

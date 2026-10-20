@@ -161,6 +161,17 @@ describe('evaluateInbox — the four gates', () => {
     expect(verdict.summary).toContain('a blocker must sit in an earlier wave');
   });
 
+  it('a declared contract the before/after page carries no block for is failure, naming the slice and the kind', async () => {
+    const verdict = await graded(input({ base: fixture('inbox-base-contracts'), head: fixture('inbox-head-contract-no-block') }));
+    expect(failed(verdict)).toEqual(['plan']);
+    expect(verdict.summary).toContain('s1: contract: db — before-after.html has no data-contract="db" block');
+  });
+
+  it('a declared contract with its block on the before/after page passes the plan gate', async () => {
+    const verdict = await graded(input({ base: fixture('inbox-base-contracts'), head: fixture('inbox-head-contract-block') }));
+    expect(verdict.conclusion).toBe('success');
+  });
+
   it.each([
     ['closed', { ...OPEN_ISSUE, state: 'closed' }, 'issue #42 is closed'],
     ['unlabelled', { ...OPEN_ISSUE, labels: ['bug'] }, 'issue #42 does not carry the label omni:prd'],

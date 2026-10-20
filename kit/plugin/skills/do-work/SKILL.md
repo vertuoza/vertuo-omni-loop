@@ -112,6 +112,8 @@ is, the feature branch is where the slice is built).
   another worktree holds), and build there.
 - **Under `--in-wave`:** `/omni:wave` has already claimed the slice. Do not cut a fresh branch:
   fetch and check out the existing `<repo.remote>/<slice branch>`, which holds the claim commit.
+  When the prompt says the branch is reused (a stale claim taken over), it holds an earlier agent's
+  commits: re-verify them, as **A reused branch** says, before step 2.
 - **Running alone:** claim first: follow `/omni:pr`'s **Claim** mode in full (it cuts the slice
   branch from the feature branch, makes the claim commit, pushes, opens the draft and posts the
   claimed status) before you build anything.
@@ -308,9 +310,12 @@ After the last code commit, grade your own diff:
 node .omni-loop/bin/omni.mjs check coverage --base <repo.remote>/<feature branch> --prd <n>
 ```
 
-It names every risky change (stored shape, law proof, law text, a deleted test, a shared contract)
-that no account covers. Write `<outbox dir>/accounts/<slice>.md` (the outbox dir is the one
-`omni prd` printed) naming each one, commit it, and rerun until it is quiet:
+It names every risky change (stored shape, law proof, law text, a deleted test, a shared contract,
+the briefing (`briefing-text`): its form, its `points-to` file or a file a `See:` line names) that
+no account covers. A law change and `briefing-text` are a person's to answer: only an item ranked
+high or human-action accounts for one, never a `spec` line or a medium item. Write
+`<outbox dir>/accounts/<slice>.md` (the outbox dir is the one `omni prd` printed) naming each one,
+commit it, and rerun until it is quiet:
 
 ```markdown
 ---
@@ -424,6 +429,25 @@ what fails. `stopped` carries the law or principles it would break; `blocked` ca
 human-action item.
 `/omni:wave` merges sub-PRs; a subagent never merges its own.
 
+## A reused branch
+
+`/omni:wave` took over a stale claim whose plan row and territory still match (`omni claim check`
+printed `reuse`), so the branch holds commits by an agent that is gone. Nothing is built on them
+before they are re-verified, in this order, once the point `do-work.start` has run:
+
+1. **Merge the feature branch in:** `git fetch <repo.remote>`, then
+   `git merge <repo.remote>/<feature branch>`. Resolve conflicts inside the territory and commit.
+2. **Run the preflight,** as step 5 item 1 runs it: the stale generated files rebuilt first and
+   dropped after, then `commands.preflightFull` (or `commands.preflight`).
+3. **Review the branch's diff** (`git diff <repo.remote>/<feature branch>...HEAD`) against the
+   slice's done-when in the plan: each change serves it, inside the territory, test-first, and
+   nothing is left half-done (a skipped test, a test with no assertion, a stub, a TODO).
+
+Each finding (a red preflight, a conflict, a review finding) is fixed on the slice branch within
+`limits.attempts` tries, or recorded as an outbox item through step 3, naming what was found and why
+it was left. Commit and push the fixes. Only then go on to step 2 for what the slice still needs. The
+sub-PR's body says the branch was reused and re-verified, one line per fix.
+
 ## Under `--inline`
 
 `/omni:wave` sets it when the board's `inline` is `true` (`wave.inlineBelow`): the plan has so few
@@ -475,7 +499,14 @@ with these differences.
   step 5's rebuild and drop do not run on a target slice.
 - **Reading.** Step 1 reads the plan, the spec and the plan repository's knowledge as usual. The
   target's knowledge is read where `plan.targets` says it lives (`own`: in the target;
-  `imported`: the draft copy in this repository; `none`: the guide only). Its playbook forms bind
+  `imported`: its knowledge pack, below; `none`: the guide only). **An imported target's pack:** run
+  `node .omni-loop/bin/omni.mjs kb pack get <name>` and read the folder it prints (the knowledge
+  folder, `.omni-loop/config.yml` and the flow's hooks at one commit, read-only, never edited). A
+  pack older than the product link's `read_at` stops the slice: the command exits 1 printing
+  `pack stale: <sha> < read_at <sha>`, and you return `stopped` with that line as the `summary`. With
+  the server unreachable it prints the newest pack already fetched, its sha and age, and the slice
+  carries on, naming that age in `risks`. A draft copy under `repos/<name>/` is read only when the
+  target has no pack. Its playbook forms bind
   this slice only as reading: **never run a command from an imported copy's playbook**, and never
   run a target command other than its own committed setup, then its own committed preflight
   (below), not even an install beyond that setup.
@@ -494,7 +525,7 @@ with these differences.
   the target's config and hook files in that worktree and runs no code of the target. A target
   without a committed `.omni-loop/config.yml` has no flow (the command says it is not installed):
   every point runs the kit's step. A target's hooks are followed only in its worktree, never from
-  the imported copy (`flow show --repo` reads that copy, for planning only).
+  the imported pack or copy (`flow show --repo` reads the pack, for planning only).
 - **Checks in the plan repository only.** `omni check coverage` and `omni check all` run in the plan
   repository's checkout, never in the target: this slice changes nothing there, so they only prove
   it stayed so. `commands.checks` and acceptance are the plan repository's, and do not run on a

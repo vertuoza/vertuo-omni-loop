@@ -85,7 +85,8 @@ then prints the token, its expiry and the line to paste it by, and keeps it nowh
 
 **Runners** (PRD 1830) run the `/omni:` lines people send from the Omni app with Send to terminal,
 on a machine set up for it, with no one at a terminal. Start one with
-`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]`:
+`omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]
+[--max-memory 85] [--min-disk 10] [--max-load 1.5]`:
 
 - **What it needs:** a sign-in (the kit token `OMNI_TOKEN`, or `omni signin` once), the git checkouts
   it may work in right under `--repos` (each known by its `origin`, `owner/name`, and in the
@@ -109,12 +110,53 @@ on a machine set up for it, with no one at a terminal. Start one with
   14 unless given), then prints one line, like
   `swept: 3 worktrees, 6 branches, 12 log files · 412 MB freed`, or nothing when nothing went. It
   never touches `~/logs/runner.log`, another folder or file, or another branch.
+- **The plugin** (PRD 2100): a job's skills come from the Omni plugin installed for the runner's
+  user, so the runner keeps it current. Once a job's worktree is made, before Claude starts, it reads
+  the plugin's version from `claude plugin list --json` (the user's own entry, the oldest if there
+  are several) and the omni the job's repository pins (the version its `.omni-loop/bin/omni.mjs`
+  carries; a repository with no bin pins none, and nothing is checked). A plugin as new, or newer,
+  starts nothing and calls nothing. An older one is updated with `claude plugin marketplace update
+  omni-loop` then `claude plugin update omni@omni-loop`, one update at a time across every slot and
+  the sweep, then read again. Still older, the job fails before Claude starts with
+  `omni plugin v<x> is older than <owner/repo>'s omni v<y>: claude plugin update failed: <its last
+  line>`; not installed, with `the omni plugin is not installed: claude plugin install
+  omni@omni-loop`. A list that does not read lets the job run, and its log's first line says
+  `omni plugin version not read: <why>`. The sweep updates the plugin at start and every hour, and
+  the runner prints a line only when the version changed, `omni plugin v<x> → v<y>`, or the update
+  failed, `omni plugin update failed: <its last line>`. A running session keeps the skills it
+  loaded: Claude Code keeps each plugin version in its own folder. The runner's own code does not
+  update itself: `git pull` in the checkout it starts from, then restart `omni runner`.
+- **When its machine is under pressure** (PRD 2102): every 15 seconds it samples its machine and
+  sends the page its CPU, load, memory and disk. It pauses when memory used is above `--max-memory`
+  percent (1 to 100, 85 unless given), disk free below `--min-disk` GB (0 or more, 10 unless given),
+  or the 1-minute load above `--max-load` times its cores (above 0, 1.5 unless given). Paused, it
+  prints `paused: <reason>` (`paused: memory 91%`) and takes no new job: a slot already waiting runs
+  the job it gets, and a running job is never touched. After two quiet samples in a row it prints
+  `resumed` and takes jobs again. The page shows the reason and the limits. `--max-memory 100` and
+  `--min-disk 0` switch those two limits off. A limit out of range is refused before it starts.
 - **Which lines:** only `/omni:yolo`, `yolo-fix`, `pr-care`, `do-work`, `wave`, `bug-fix`,
-  `visual-fix`, `plan`, `pitch` and `prove`, with arguments of letters, digits, spaces and `._/:#-`,
-  200 characters at most. The runner checks the line again before it runs it, whatever the page sent.
+  `mega-bug-fix`, `visual-fix`, `plan`, `pitch` and `prove`, with arguments of letters, digits, spaces
+  and `._/:#-`, the whole line 200 characters at most. The runner checks the line again before it runs
+  it, whatever the page sent.
 - **Who sent it:** a job runs under the runner owner's GitHub and Claude accounts, with
   `OMNI_SENT_BY` and `OMNI_RUNNER` set, and `/omni:pr` writes
   `Sent from the Omni app by @<login> on runner <name>` in the pull requests it opens.
+- **A job's own variables** (PRD 2175): every job's session also gets `OMNI_JOB` (the job's id),
+  `OMNI_RUNNER` (the runner's name, sender or not) and `OMNI_UNATTENDED=1`, so a claim the job makes
+  names it in its status comment, `- job: <id> · runner <name>`, and no skill waits on a question.
+- **When a job dies holding claims** (PRD 2175): once a job ends, done, failed, timed out or
+  cancelled, the runner releases the claims it still holds, with `gh`, signed in on the box: every
+  open draft pull request of the job's repository that carries `labels.inProgress` and whose status
+  comment names `job: <id>` loses `labels.inProgress`, gains `labels.released` (`omni:released`
+  unless set), and gets one comment: `Released: runner job <id> on <runner> ended (<reason>) while
+  it held this claim…`. A claim naming another job, or none, is never touched. The board reads a
+  released claim as `claimed-stale` at once, so the next run takes it over. The sweep does the same,
+  reason `runner lost`, for a job a runner that died or restarted left behind. The job's row on the
+  Runners page lists what was released, `Released #<n>, …`, or why it could not be:
+  `Could not release this job's claims: <why>`. **Create the `omni:released` label** in every
+  repository a runner works in (`labels.autoCreate` does not make it): without it, the runner still
+  takes `labels.inProgress` off and says so, and the board falls back to the quiet rule
+  (`limits.claimDeadMinutes`, 240 minutes).
 - **Queueing from a service:** a service holding a kit token (`omk_…`, made with `omni setup-token`)
   exchanges it at `POST /api/ask/token` for an access token, keeps that until its `expires_at`, and
   sends it as `Authorization: Bearer <access token>` to `POST /api/runners/jobs`, with the body
@@ -279,6 +321,37 @@ same parser every other command reads the registers with, so an agent can ask wh
 principle, or what a domain holds, in one call. A repository without a knowledge folder prints an
 empty graph.
 
+`omni kb graph <id>` prints the neighbourhood of one entry: one line per node it touches, through
+the edges `serves` (up and down), `enforced-by`, `governs`, `points-to`, `cites`, `sibling`,
+`screen`, `same-prd` and `uses-term`, at most 6 lines per edge kind, and a last line saying whether
+the product's Legal and Glossary are cached. `omni kb graph --paths <file>…` prints one such block
+per entry whose `Governs:` matches the files (laws first, then rules, in register order), the files
+read as `omni kb laws --paths` reads them. `--depth 2` or `3` walks that many hops between entries,
+indented two spaces per hop, each node printed once; leaves (tests, paths, schemas, screens,
+decision records, terms) are never walked, and `--depth` is 1 by default and at most 3. `--json`
+prints the neighbourhood as one versioned document (`version: 1`, `shape: "neighbourhood"`, `repo`,
+`start`, `depth`, `product`, `nodes`, `edges`), never cut. An id that names no entry exits 1;
+`--depth` outside 1 to 3, or `--paths` with an id or with no file, exits 2 with the usage line.
+Nothing here calls the network: the product's cache is read from its file only.
+
+`omni kb graph --product <key> <id> [--depth <1-3>] [--json]` (PRD 1798) asks the Omni page for the
+neighbourhood of one node in a product's knowledge graph, across every repository of the product, as
+you, with `GET /api/products/<key>/knowledge/graph`. It prints one header line per repository
+(`<repo> @<commit> · pushed <time> by @<login>`, or `<repo> · never pushed`), the neighbourhood as
+`omni kb graph <id>` prints it with each repository node's short name before its id, and the last
+line `product knowledge: server (<key>).`; `--json` prints the answer as the server sent it. It
+exits 1 with one line for no `ask.url`, no sign-in, an unreachable server or a refusal (an unknown
+id, a product you are not in), and exits 2 with the usage line for a `--depth` outside 1 to 3.
+
+`omni kb graph push` (PRD 1798) sends the whole repository's graph to the Omni page: every node and
+edge the neighbourhood is built from, as one object (`version: 1`, `shape: "repository"`, `nodes`,
+`edges`; no `start`, `depth` or `hop`, and no node of the product's own), with the repository's slug
+and its `HEAD` commit, to `POST /api/knowledge/graphs`. It first refreshes the product knowledge
+cache, signs in as every push does (`omni signin`, or `OMNI_TOKEN`), and prints
+`pushed <slug>@<commit> · <n> nodes, <m> edges` and a line `in products: <key> · see <link>` per
+product the repository serves. It exits 1 with one line, sending nothing, for a knowledge folder with
+uncommitted changes, and also for no `ask.url`, no sign-in, an unreachable server or a refusal.
+
 **Laws and their tests** (PRD 1342) apply only where `laws.source` is `knowledge`. A rule or an
 invariant's `Enforced by:` names a test path, `unenforced`, or `pending #<n>`: a law judged worth a
 test before it had one, whose **law issue** `#<n>` is labelled `labels.law` (default `omni:law`,
@@ -309,8 +382,28 @@ a `medium` item leaves the change unaccounted. `/omni:bug-fix` and `/omni:visual
 items in a small `outbox/` of the fix's folder when their range touches a law, and `omni bug` and
 `omni visual` name what it needs.
 
-`/omni:bug-fix` also films every bug: it keeps the reproduction's red and green output (or, for a
-component bug in a repository with Storybook, the story before and after), makes a before/after GIF with
-`omni bug film`, stores it with `omni proof push --kind bug`, and opens the pull request with a `## Proof`
-section showing the bug before and after the fix. A GIF that cannot be made opens the pull request as a
-draft whose `## Proof` reads `GIF not produced - <reason>`. `/omni:mega-bug-fix` leaves `## Proof` out.
+`/omni:bug-fix` also films every bug (PRDs 1972 and 2100): it keeps the reproduction's red and green
+output (or, for a component bug in a repository with Storybook, the story before and after) and makes
+a before/after GIF with `omni bug film`. Two outputs make two 640×360 cards, drawn by the kit's own code
+with no ffmpeg, the same bytes every run; two clips go through ffmpeg. It stores the run with
+`omni proof push --kind bug`, which prints the bug page's link, the GIF's stable link, and for a
+component bug one stable link per clip (`before.webm`, then `after.webm`), and opens the pull request
+with a `## Proof` section showing the bug before and after the fix, and a `Clips: [before](…) ·
+[after](…)` line for a component bug. Clips that cannot be filmed or stitched fall back to the GIF of
+the two outputs, with `Storybook not filmed - <reason>` under it. A GIF that cannot be made at all
+opens the pull request as a draft whose `## Proof` reads `GIF not produced - <reason>`.
+`/omni:mega-bug-fix` leaves `## Proof` out.
+
+**`omni bug <n>`** also checks the pull request's body, because the pinned CLI is the one piece an
+old plugin cannot skip. The skill writes the body to a file and runs `omni bug <n> --body-file <file>`
+until it prints `ok`, then opens the pull request with that same file; without the flag, `omni bug`
+reads the open pull request of the current branch through `gh`, and with neither it prints `not ok` and
+the way to proceed. A `## Proof` passes with an `https://` image and its `- **Before the fix**` and
+`- **After the fix**` lines, or with `GIF not produced - <reason>`; a not-produced proof on a pull
+request that is not a draft is refused. A record with a `## Fixes` section is not checked. A pinned
+omni that does not know `--body-file` exits 2, and the skill runs `omni bug <n>` without it.
+
+When the reproduction already passes before any fix, `/omni:bug-fix` and `/omni:mega-bug-fix` look for
+the merged pull request that fixed the bug. Only a candidate proven red at its merge's first parent and
+green at its merge gets a `Fixed by #<n>` (or `Fixed by <PR URL>`) line on the issue; the others are
+`Maybe: #<n>` lines, and the issue is never closed.

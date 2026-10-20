@@ -36,6 +36,12 @@ describe('the board', () => {
   const html = render(demo());
   const t = text(html);
 
+  it('names the API key that sent a job, with who made it, and a person\'s job by login (PRD 2022 s4)', () => {
+    expect(text(jobRow(html, '/omni:bug-fix Issue 548 totals'))).toContain('API key QA dashboard made by @ada');
+    expect(text(jobRow(html, '/omni:pr-care 1801'))).toContain('@ada');
+    expect(text(jobRow(html, '/omni:pr-care 1801'))).not.toContain('made by');
+  });
+
   it('is the marked runners screen, titled Runners, with its two tables', () => {
     expect(html).toContain('data-screen="runners"');
     expect(html).toContain('<h1 class="dash-name">Runners</h1>');
@@ -48,10 +54,10 @@ describe('the board', () => {
   });
 
   it('shows each runner state: Busy, Online, and Offline with when it was last seen', () => {
-    expect(t).toContain('acme-agents Busy');
+    expect(t).toContain('acme-agents Paused: memory 91%'); // Busy, until its last report names a pressure (PRD 2102)
     expect(t).toContain('mac-mini-office Online');
     expect(t).toContain('ada-laptop Offline, 3 h ago');
-    for (const state of ['busy', 'online', 'offline']) expect(html).toContain(`runners-state is-${state}`);
+    for (const state of ['paused', 'online', 'offline']) expect(html).toContain(`runners-state is-${state}`);
   });
 
   it('shows slots used out of slots, the repositories and the kit version', () => {
@@ -78,6 +84,28 @@ describe('the board', () => {
     expect(jobRow(html, '/omni:bug-fix 1790')).toContain('<a href="https://github.com/acme/widgets/pull/1838">PR #1838</a>');
     expect(html).not.toContain('<details');
     expect(html).not.toContain('wave 1 · slice s1 · tests green');
+  });
+
+  it('reads a done yolo job by its outcome, with a PRD page link beside its PR link (PRD 2223)', () => {
+    const answers = jobRow(html, '/omni:yolo 1855');
+    expect(text(answers)).toContain('Waiting on answers');
+    expect(answers).toContain('runners-status is-wait');
+    expect(answers).toContain('<a href="https://github.com/acme/widgets/pull/1861">PR #1861</a><a href="/prd/at/acme/widgets/1855">PRD page</a>');
+    const held = jobRow(html, '/omni:yolo 1856');
+    expect(text(held)).toContain('Held');
+    expect(held).toContain('runners-status is-wait');
+    expect(held).toContain('<a href="/prd/at/acme/widgets/1856">PRD page</a>');
+    const ready = jobRow(html, '/omni:yolo-fix 1857');
+    expect(text(ready)).toContain('Ready');
+    expect(ready).toContain('runners-status is-done');
+    expect(ready).toContain('href="/prd/at/acme/widgets/1857"');
+  });
+
+  it('keeps a done job without an outcome as Done, with no PRD page link, and a failed job too', () => {
+    const plain = jobRow(html, '/omni:bug-fix 1790');
+    expect(text(plain)).toContain('Done');
+    expect(plain).not.toContain('PRD page');
+    expect(jobRow(html, '/omni:yolo 1702')).not.toContain('PRD page');
   });
 
   it('gives each job row a Terminal button on that job (PRD 1904)', () => {
@@ -124,12 +152,12 @@ describe('the board', () => {
   it('gives a member who is not an owner each fleet as text, with no picker', () => {
     const member = render(withBoard((board) => ({ ...board, viewer: { ...board.viewer, owner: false } })));
     expect(member).not.toContain('<select');
-    expect(text(member)).toContain('acme-agents Busy Comets 1 of 1');
+    expect(text(member)).toContain('acme-agents Paused: memory 91% Comets 1 of 1');
     expect(text(member)).toContain('mac-mini-office Online Shared 0 of 2');
   });
 
-  it('hides Cancel once a cancel was asked for', () => {
-    const asked = render(withBoard((board) => ({ ...board, jobs: board.jobs.map((job): Job => (job.line === '/omni:pr-care 1801' ? { ...job, cancelRequested: true } : job)) })));
+  it('hides Cancel on a running job once a cancel was asked for', () => {
+    const asked = render(withBoard((board) => ({ ...board, jobs: board.jobs.map((job): Job => (job.line === '/omni:pr-care 1801' ? { ...job, status: 'running', cancelRequested: true } : job)) })));
     expect(jobRow(asked, '/omni:pr-care 1801')).not.toContain('>Cancel<');
   });
 

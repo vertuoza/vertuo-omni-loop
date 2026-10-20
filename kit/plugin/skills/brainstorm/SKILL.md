@@ -129,6 +129,11 @@ This step is a conversation with the person who has the idea. Everything they de
 never assumed; nothing below it starts before the design is approved. Read-only exploration of the
 repository is allowed throughout.
 
+**Read the conventions first.** Run `node .omni-loop/bin/omni.mjs conventions`, which prints the index of the
+files where this repository writes its conventions, and read the pages the design bears on before the design
+is shown: a design that adds or renames a table or a column reads the pages on the database and its
+migrations, and one that changes a GraphQL schema reads the pages on the schema.
+
 **With `--concept`, the concept speaks first.** Before your first question, write back as your
 understanding the area's brief, the vision and the verdict (**From a concept**), and name the screens
 of `vision.html` you took as the area's. Keep what the concept settled apart from what you assume,
@@ -319,6 +324,8 @@ spec: file
 
 ## Solution
 
+## Conventions
+
 ## Decisions
 
 ## User stories
@@ -364,6 +371,11 @@ spec: file
   as a red check at the end. No locked law printed: the one line `The locked laws: none touched.`
   A rule it prints is read like the rest of the knowledge, and named in Risks only when the design
   changes it.
+- **`## Conventions`**, after `## Solution`: a table `| repo | layer | name | source |`, one row per name the
+  design picks, the source a path and line (`<name> ← <file>:<line>`). A name no page settles reads
+  `no written convention: follows <file>`, naming the neighbouring code it copies. When two conventions
+  coexist and no page says which one a new name follows, ask the person during the design and never pick
+  silently. A spec that names nothing writes the one line `No name chosen.`
 - Words come from `paths.glossary` when it is set, and from the files in `paths.context`.
 
 **Self-review,** before anyone reads it: no placeholder or "TBD", no two sections contradicting each
@@ -470,6 +482,22 @@ and go on only once they approve it.
   and agent turn), or a flow diagram.
 - **Nothing visible** (docs, config, a guard): a short page stating what changes and what stays the
   same, today beside after.
+- **The contract blocks,** whenever the repository asks every slice to declare its contract
+  (`omni flow show` printed `contracts: declare <kinds>`; `db`, `schema`, `rest`, `api` are the
+  usual kinds) and the change commits it to one: the Functional part carries one **Contract** block
+  per kind the spec commits the repository to, today beside after, under a heading that names the
+  kind and the repository (`Contract: db — <repository>`). `db` shows the table(s) and their columns
+  before and after; `schema` the GraphQL types, fields and mutations before and after; `rest` or
+  `api` the endpoints and their payloads. Mark the element holding each whole block
+  `data-contract="<kind>"`, in the spirit of `data-screen`. A block is a section of the page beside
+  the screens, never a line under them: a reader of the dossier page sees it without scrolling past
+  the mockups. The kinds come from the spec, since the plan is written after this page (step 8): in
+  one repository, what **Solution** says changes for the repository's callers, in that repository's
+  kinds; in a plan repository, the `Contract:` line of each paragraph of the spec's `## Repositories`
+  section (`/omni:mega-brainstorm` step 5), one group of blocks per repository. `omni plan check`
+  refuses a plan declaring a kind the page has no block for, naming the slice and the kind, and
+  `/omni:plan` step 4 adds a block the plan declares and the page lacks, or stops with
+  `needs clarification`.
 
 With `--concept`, the "after" starts from the area's screens in `vision.html` (**From a concept**),
 each redrawn as a static mockup: the tour's look and layout, never its script or its motion, and
@@ -602,10 +630,16 @@ page is where a workspace member reviews and approves them: go to step 10. Never
    one adds nothing. Whatever it prints, carry on.
 5. Open the phase-0 PR through `/omni:pr`'s lifecycle: base `repo.defaultBranch`, head the
    phase-0 branch, a Conventional Commits title (`docs(<scope>): <PRD title>`), `labels.phase0`
-   subject to **Labels**, and a body that starts with `prLinks.phase0` filled (it refers to the
-   PRD; the feature PR is the one that closes it), followed by Summary, Verified (the `omni phase0`
-   and `omni check inbox` lines), Risk and rollback, and Reviewer focus, and ending with the
-   `omni sign footer` line.
+   subject to **Labels**, and a body whose **first line is the PRD's page**, then `prLinks.phase0`
+   filled (it refers to the PRD; the feature PR is the one that closes it), followed by Summary,
+   Verified (the `omni phase0` and `omni check inbox` lines), Risk and rollback, and Reviewer
+   focus, and ending with the `omni sign footer` line. The page line is the one step 10's hand-off
+   reads: run `node .omni-loop/bin/omni.mjs dossier link <n>`; exit `0` prints the page's link on
+   one line, and the body opens with that link, as printed, on a line of its own
+   (`<dossier link>`: spec, plan and before/after side by side, every version kept), so a reviewer
+   reads the PRD on its page before the diff. Anything else (`none`, `off`, `no sign-in`,
+   `unreachable`, `refused (<status>)`, or exit `2`) means the PRD has no page: the line is left out
+   and the body opens with `prLinks.phase0`, never a placeholder and never a link written by hand.
 
 **A person reviews and merges it.** Never merge it yourself, and never mark the feature PR ready.
 

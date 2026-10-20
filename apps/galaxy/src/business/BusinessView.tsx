@@ -127,7 +127,13 @@ export interface BusinessViewProps {
   personas?: ReactNode;
   /** The Constituents panel (PRD 871 s2), drawn above the claims of the tab shown. */
   constituents?: ReactNode;
+  /** What of the page is drawn (PRD 2240 s6): `settings`, the product's Knowledge › Settings (Region shared
+   * by every product, the picks, the claims, To check, the draft); `products`, Settings › Business (only
+   * "+ Add a product"); `all`, both as one page, the product tabs included. */
+  part?: BusinessPart;
 }
+
+export type BusinessPart = 'all' | 'settings' | 'products';
 
 function Sentence({ parts, typing = false }: { parts: readonly SentencePart[]; typing?: boolean }) {
   return (
@@ -605,7 +611,21 @@ function ClaimLists({ listed, wrong, busy, on }: { listed: readonly Claim[]; wro
   );
 }
 
-export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date.now(), personas = null, constituents = null }: BusinessViewProps) {
+/** Settings › Business after the move (PRD 2240 s6): the one button that adds a product. */
+function ProductsOnly({ state, on }: { state: BusinessState; on: BusinessHandlers }) {
+  return (
+    <div className="ask-col business">
+      {state.refusal && <p className="business-refusal" role="alert">{state.refusal}</p>}
+      <section className="business-more" aria-label="Add a product">
+        <AddProduct state={state} on={on} />
+      </section>
+    </div>
+  );
+}
+
+export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date.now(), personas = null, constituents = null, part = 'all' }: BusinessViewProps) {
+  if (part === 'products') return <ProductsOnly state={whole} on={on} />;
+  const settings = part === 'settings';
   // Everything below reads the tab's claims: every claim while there is one product. A claim of kind
   // `never` is drawn nowhere (PRD 871): Never lines are the product's constituents now.
   const multi = hasProducts(whole.products);
@@ -621,19 +641,19 @@ export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date
   const thinking = found.length > 0;
   return (
     <div className="ask-col business">
-      {multi && !state.skipped && (
+      {(multi || settings) && !state.skipped && (
         <section className="ask-card business-region" aria-label="Shared by every product">
           <ChipGroup kind="region" title="Region · shared by every product" list={REGIONS} state={state} on={on} />
         </section>
       )}
-      {multi && <ProductTabs state={state} on={on} />}
+      {multi && !settings && <ProductTabs state={state} on={on} />}
       {constituents}
       {toCheck.length > 0 && <Check rows={toCheck} busy={state.busy} on={on} />}
       <Head state={state} sure={sure.length} demo={demo} thinking={thinking} on={on} />
 
       {thinking && <Found rows={found} state={state} on={on} />}
 
-      {!state.skipped && <Picks state={state} region={!multi} on={on} />}
+      {!state.skipped && <Picks state={state} region={!multi && !settings} on={on} />}
 
       <ClaimLists listed={listedRows} wrong={wrong} busy={state.busy} on={on} />
 
@@ -641,7 +661,7 @@ export function BusinessView({ state: whole, demo = false, on = IDLE, now = Date
 
       {sure.length > 0 && <Payoff claims={sure} />}
 
-      {!multi && (
+      {!multi && !settings && (
         <section className="business-more" aria-label="Sell something else">
           <AddProduct state={state} on={on} />
         </section>

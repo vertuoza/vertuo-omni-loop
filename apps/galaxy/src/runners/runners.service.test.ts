@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { JobLineRow, JobRow, RunnerRow } from './runners.repository';
+import type { JobLineRow, JobRow, RunnerRow, SampleRow } from './runners.repository';
 import { cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
-  CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, runnerRow, RUNNERS, SAM, SHARED, T0,
+  API_KEY, CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, runnerRow, RUNNERS, SAM, SHARED, T0,
 } from './fixtures/store.fake';
 
 // The runners' rules (PRD 1830 s1), on realistic rows in memory and a fixed clock: which jobs a runner
@@ -12,12 +12,12 @@ import {
 const at = (seconds: number) => new Date(T0.getTime() + seconds * 1000);
 
 /** The service on the fake store, with a clock that a held `next` moves forward as it sleeps. */
-function world({ jobs = [], runners = RUNNERS, lines = [], start = T0, onSleep }: {
-  jobs?: JobRow[]; runners?: RunnerRow[]; lines?: JobLineRow[]; start?: Date; onSleep?: (jobs: JobRow[]) => void;
+function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], start = T0, onSleep }: {
+  jobs?: JobRow[]; runners?: RunnerRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; start?: Date; onSleep?: (jobs: JobRow[]) => void;
 } = {}) {
   let now = start;
   const slept: number[] = [];
-  const { store, state } = fakeStore({ jobs, runners, lines, now: () => now });
+  const { store, state } = fakeStore({ jobs, runners, lines, samples, now: () => now });
   const service = runnersService(store, {
     now: () => now,
     sleep: (ms) => {
@@ -179,7 +179,7 @@ describe('a runner\'s reports', () => {
   });
 
   it('answer cancel while a cancel waits, until the runner reports it cancelled', async () => {
-    const job = claimed();
+    const job = jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
     const w = world({ jobs: [job] });
     value(await w.service.cancel(MO, job.id));
     expect(value(await w.service.update(OLGA, job.id, { status: 'running' }))).toEqual({ cancel: true });
@@ -250,6 +250,17 @@ describe('registering', () => {
     expect(w.state.runners[0]).toMatchObject({ slots: 2, version: '0.0.388', last_seen_at: at(300).toISOString() });
   });
 
+  it('ends the jobs a restarted runner held as runner lost, though it was silent for under 90 s (#2170)', async () => {
+    const starting = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const running = jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+    const elsewhere = jobRow({ status: 'running', runner_id: CIA_BOX, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+    const queued = jobRow();
+    const w = world({ jobs: [starting, running, elsewhere, queued], start: at(10) });
+    value(await w.service.register(OLGA, { name: 'shared', slots: 1, repos: ['vertuoza/app'], version: '1' }));
+    expect(w.state.jobs.map((j) => [j.status, j.reason])).toEqual([['failed', 'runner lost'], ['failed', 'runner lost'], ['running', null], ['queued', null]]);
+    expect(value(await w.service.next(OLGA, SHARED))?.id).toBe(queued.id);
+  });
+
   it('refuses a name another person registered, a repository outside the workspace, and two workspaces', async () => {
     const w = world();
     expect(await w.service.register(MO, { name: 'shared', slots: 1, repos: ['vertuoza/app'], version: '1' })).toMatchObject({ ok: false, kind: 'forbidden' });
@@ -297,11 +308,88 @@ describe('who may send where', () => {
   });
 });
 
+describe('a job an API key sends (PRD 2022 s4)', () => {
+  const key = { id: API_KEY, name: 'QA dashboard', workspace: '00000000-0000-4000-8000-000001830001', maker: OLGA };
+  const fix = { repo: 'vertuoza/app', line: '/omni:bug-fix Issue 548 totals' };
+
+  it('queues it as the key\'s maker, marked as the key\'s, to any runner, a runner by its name or a fleet', async () => {
+    const w = world();
+    expect(value(await w.service.sendByKey(key, fix))).toMatchObject({ status: 'queued', runner: null, line: fix.line });
+    expect(value(await w.service.sendByKey(key, { ...fix, runner: 'cia-box' }))).toMatchObject({ status: 'queued' });
+    expect(value(await w.service.sendByKey(key, { ...fix, fleet: 'pirates' }))).toMatchObject({ status: 'queued' });
+    expect(w.state.jobs.map((job) => [job.sent_by, job.sent_by_key, job.to_runner, job.to_fleet])).toEqual([
+      [OLGA, API_KEY, null, null], [OLGA, API_KEY, CIA_BOX, null], [OLGA, API_KEY, null, 'pirates'],
+    ]);
+  });
+
+  it('refuses a line the runners refuse, with their reason, and queues nothing', async () => {
+    const w = world();
+    const refused = await w.service.sendByKey(key, { ...fix, line: "/omni:bug-fix it's $(rm -rf ~)" });
+    expect(refused).toMatchObject({ ok: false, kind: 'malformed' });
+    expect(!refused.ok && refused.error).toContain('arguments');
+    expect(w.state.jobs).toEqual([]);
+  });
+
+  it('refuses a repository of another workspace, even one its maker belongs to, and an unknown runner or fleet', async () => {
+    const w = world();
+    expect(await w.service.sendByKey({ ...key, workspace: '00000000-0000-4000-8000-000001830002' }, fix)).toMatchObject({ ok: false, kind: 'forbidden' });
+    expect(await w.service.sendByKey(key, { ...fix, repo: 'elsewhere/app' })).toMatchObject({ ok: false, kind: 'forbidden' });
+    expect(await w.service.sendByKey(key, { ...fix, runner: 'ghost' })).toMatchObject({ ok: false, kind: 'missing' });
+    expect(await w.service.sendByKey(key, { ...fix, fleet: 'ghosts' })).toMatchObject({ ok: false, kind: 'missing' });
+    expect(await w.service.sendByKey(key, { ...fix, fleet: 'cia', runner: 'shared' })).toMatchObject({ ok: false, kind: 'malformed' });
+    expect(w.state.jobs).toEqual([]);
+  });
+
+  it('refuses a key whose maker is no member of the workspace any more', async () => {
+    const w = world();
+    expect(await w.service.sendByKey({ ...key, maker: EVE }, fix)).toMatchObject({ ok: false, kind: 'forbidden' });
+  });
+
+  it('reads as sent by the key, with its maker, to the runner and on the Runners page', async () => {
+    const w = world();
+    const queued = value(await w.service.sendByKey(key, fix));
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: fix.line, repo: 'vertuoza/app', sentBy: 'API key QA dashboard (@olga)' });
+    const board = value(await w.service.board(OLGA, key.workspace));
+    expect(board.jobs).toMatchObject([{ id: queued.id, sentByKey: 'QA dashboard', sentByLogin: 'olga' }]);
+    const person = value(await w.service.send(MO, { line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } }));
+    expect(person.sentByKey).toBeNull();
+  });
+
+  it('follows only a job a key of the workspace queued: not a person\'s, not another workspace\'s', async () => {
+    const w = world();
+    const queued = value(await w.service.sendByKey(key, fix));
+    const person = value(await w.service.send(MO, { line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } }));
+    expect(value(await w.service.keyJob(key.workspace, queued.id))).toMatchObject({ id: queued.id, status: 'queued', runner: null, prUrl: null });
+    expect(await w.service.keyJob(key.workspace, person.id)).toMatchObject({ ok: false, kind: 'missing' });
+    expect(await w.service.keyJob('00000000-0000-4000-8000-000001830002', queued.id)).toMatchObject({ ok: false, kind: 'missing' });
+    expect(await w.service.keyJob(key.workspace, '00000000-0000-4000-8000-00000000dead')).toMatchObject({ ok: false, kind: 'missing' });
+  });
+
+  it('shows its run: the runner\'s name, the pull request, the exit code and the times', async () => {
+    const w = world();
+    const queued = value(await w.service.sendByKey(key, fix));
+    await w.service.next(OLGA, SHARED);
+    await w.service.update(OLGA, queued.id, { status: 'done', prUrl: 'https://github.com/vertuoza/app/pull/549', exitCode: 0 });
+    expect(value(await w.service.keyJob(key.workspace, queued.id))).toMatchObject({
+      status: 'done', runner: 'shared', prUrl: 'https://github.com/vertuoza/app/pull/549', exitCode: 0, endedAt: T0.toISOString(),
+    });
+  });
+});
+
 describe('cancelling', () => {
   it('ends a queued job at once', async () => {
     const job = jobRow({ sent_by: MO });
     const w = world({ jobs: [job] });
     expect(value(await w.service.cancel(MO, job.id))).toMatchObject({ status: 'cancelled', cancelRequested: true, endedAt: T0.toISOString() });
+  });
+
+  it('ends a Starting job at once, though its runner, still checking in, never reports on it (#2168)', async () => {
+    const job = jobRow({ status: 'claimed', sent_by: MO, runner_id: SHARED, claimed_at: T0.toISOString() });
+    const asked = jobRow({ status: 'claimed', sent_by: MO, runner_id: SHARED, claimed_at: T0.toISOString(), cancel_requested: true });
+    const w = world({ jobs: [job, asked] });
+    expect(value(await w.service.cancel(MO, job.id))).toMatchObject({ status: 'cancelled', cancelRequested: true, endedAt: T0.toISOString() });
+    expect(value(await w.service.cancel(MO, asked.id))).toMatchObject({ status: 'cancelled', endedAt: T0.toISOString() });
+    expect(await w.service.update(OLGA, job.id, { status: 'running' })).toMatchObject({ ok: false, kind: 'conflict' });
   });
 
   it('asks the runner to stop a running job', async () => {
@@ -351,6 +439,96 @@ describe('the Runners page\'s read', () => {
   it('is refused to anyone outside the workspace', async () => {
     const w = world();
     expect(await w.service.board(EVE, RUNNERS[0]?.workspace_id ?? '')).toMatchObject({ ok: false, kind: 'forbidden' });
+  });
+});
+
+// PRD 2175 s2: a job's last report says which claims its runner released, and why a release failed; a
+// job its runner lost takes that report after it ended, and nothing else.
+describe('a job\'s released claims (PRD 2175)', () => {
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+  const lost = () => jobRow({ status: 'failed', reason: 'runner lost', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: at(-60).toISOString() });
+
+  it('stores what a last report released, and why a release failed, with its ending', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, released: [1908, 1909], releaseError: null }));
+    expect(w.state.jobs[0]).toMatchObject({ status: 'done', released: [1908, 1909], release_error: null, ended_at: T0.toISOString() });
+  });
+
+  it('leaves both empty for a report that carries neither, as a runner from before PRD 2175 sends', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0 }));
+    expect(w.state.jobs[0]).not.toHaveProperty('released');
+    expect(w.state.jobs[0]).not.toHaveProperty('release_error');
+  });
+
+  it('takes what a runner released for a lost job, on the status it ended on, and changes nothing else', async () => {
+    const job = lost();
+    const w = world({ jobs: [job] });
+    expect(value(await w.service.update(OLGA, job.id, { status: 'failed', released: [1908], releaseError: '#1909: HTTP 502' }))).toEqual({ cancel: false });
+    expect(w.state.jobs[0]).toEqual({ ...job, released: [1908], release_error: '#1909: HTTP 502' });
+    value(await w.service.update(OLGA, job.id, { status: 'failed', releaseError: 'gh: not signed in' }));
+    expect(w.state.jobs[0]).toMatchObject({ released: [1908], release_error: 'gh: not signed in' });
+  });
+
+  it('refuses, on an ended job, a report on another status, one that carries anything else, and one that carries nothing released', async () => {
+    const job = lost();
+    const w = world({ jobs: [job] });
+    const ended = { ok: false, kind: 'conflict', error: 'This job has ended: failed, runner lost. Stop it.' };
+    expect(await w.service.update(OLGA, job.id, { status: 'done', released: [1] })).toMatchObject(ended);
+    expect(await w.service.update(OLGA, job.id, { status: 'failed', released: [1], logTail: 'more' })).toMatchObject(ended);
+    expect(await w.service.update(OLGA, job.id, { status: 'failed' })).toMatchObject(ended);
+    expect(w.state.jobs[0]).toEqual(job);
+  });
+
+  it('takes it only from the runner that held the job', async () => {
+    const job = lost();
+    const w = world({ jobs: [job] });
+    expect(await w.service.update(MO, job.id, { status: 'failed', released: [1] })).toMatchObject({ ok: false, kind: 'forbidden' });
+  });
+
+  it('answers a conflict when the job changed meanwhile', async () => {
+    const job = lost();
+    const { store } = fakeStore({ jobs: [job] });
+    const service = runnersService({ ...store, updateJob: () => Promise.resolve(null) }, { now: () => T0, sleep: () => Promise.resolve() });
+    expect(await service.update(OLGA, job.id, { status: 'failed', released: [1] })).toMatchObject({ ok: false, kind: 'conflict', error: 'This job changed meanwhile. Report again.' });
+  });
+
+  it('reads the released claims with the job on the Runners page, none for a job that reported none', async () => {
+    const released = jobRow({ ...lost(), released: [1908], release_error: 'HTTP 502' });
+    const plain = jobRow({ status: 'done', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: at(-30).toISOString() });
+    const w = world({ jobs: [released, plain] });
+    const board = value(await w.service.board(PIA, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.jobs.find((j) => j.id === released.id)).toMatchObject({ released: [1908], releaseError: 'HTTP 502' });
+    expect(board.jobs.find((j) => j.id === plain.id)).toMatchObject({ released: null, releaseError: null });
+  });
+});
+
+// PRD 2223 s1: a done job's last report may say what its yolo hand-off ended on.
+describe('a job\'s outcome (PRD 2223)', () => {
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+
+  it('stores the outcome of a done report and reads it back with the job on the Runners page', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, outcome: 'answers' }));
+    expect(w.state.jobs[0]).toMatchObject({ status: 'done', outcome: 'answers' });
+    const board = value(await w.service.board(PIA, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.jobs.find((j) => j.id === job.id)).toMatchObject({ outcome: 'answers' });
+  });
+
+  it('stores none for a report that carries none, a failed report, or a cancelled one, and reads it as null', async () => {
+    const plain = running();
+    const failed = running();
+    const cancelled = running();
+    const w = world({ jobs: [plain, failed, cancelled] });
+    value(await w.service.update(OLGA, plain.id, { status: 'done', exitCode: 0 }));
+    value(await w.service.update(OLGA, failed.id, { status: 'failed', exitCode: 1, outcome: 'held' }));
+    value(await w.service.update(OLGA, cancelled.id, { status: 'cancelled', outcome: 'ready' }));
+    for (const job of w.state.jobs) expect(job).not.toHaveProperty('outcome');
+    const board = value(await w.service.board(PIA, RUNNERS[0]?.workspace_id ?? ''));
+    for (const job of board.jobs) expect(job.outcome).toBeNull();
   });
 });
 
@@ -478,5 +656,130 @@ describe('reading a job\'s live lines (PRD 1904)', () => {
     const w = world({ jobs: [job], lines: lineRows(job, 1, 2) });
     expect(await w.service.lines(EVE, job.id, 0)).toMatchObject({ ok: false, kind: 'missing', error: 'No such job.' });
     expect(await w.service.lines(MO, '00000000-0000-4000-8000-000001830fff', 0)).toMatchObject({ ok: false, kind: 'missing' });
+  });
+});
+
+// A runner's health (PRD 2102 s1): its owner's report becomes its last health with the server's time and
+// counts as a check-in, adds one sample, and drops the runner's samples older than an hour; the Runners
+// page reads each runner's last health and its hour of samples, oldest first.
+describe('a runner\'s health (PRD 2102)', () => {
+  const GB = 1024 ** 3;
+  const REPORT = { cpu: 63.5, load1: 7.9, cores: 8, memUsed: 13 * GB, memTotal: 16 * GB, diskFree: 39 * GB, diskTotal: 233 * GB };
+
+  /** A sample of `runner` taken `seconds` from T0. */
+  const sampleAt = (runner: string, seconds: number, cpu = 10): SampleRow => ({
+    runner_id: runner, workspace_id: RUNNERS[0]?.workspace_id ?? '', at: at(seconds).toISOString(), cpu, mem_used: GB, mem_total: 16 * GB, disk_free: 40 * GB, tokens_5h: null,
+  });
+
+  it('stores the report with the server\'s time as the runner\'s last health, and counts it as a check-in', async () => {
+    const w = world({ runners: [runnerRow({ id: SHARED, name: 'shared', last_seen_at: at(-60).toISOString() })] });
+    expect(value(await w.service.health(OLGA, SHARED, REPORT))).toEqual({ at: T0.toISOString() });
+    expect(w.state.runners[0]).toMatchObject({ health: { ...REPORT, at: T0.toISOString() }, last_seen_at: T0.toISOString() });
+  });
+
+  it('keeps why a runner is paused and its limits', async () => {
+    const w = world();
+    const paused = { ...REPORT, paused: 'memory 91%', limits: { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 } };
+    value(await w.service.health(OLGA, SHARED, paused));
+    expect(w.state.runners.find((r) => r.id === SHARED)?.health).toEqual({ ...paused, at: T0.toISOString() });
+  });
+
+  it('adds one sample of the report\'s figures, in the runner\'s workspace', async () => {
+    const w = world();
+    value(await w.service.health(OLGA, SHARED, { ...REPORT, cpu: null }));
+    expect(w.state.samples).toEqual([{
+      runner_id: SHARED, workspace_id: RUNNERS[0]?.workspace_id, at: T0.toISOString(), cpu: null, mem_used: 13 * GB, mem_total: 16 * GB, disk_free: 39 * GB, tokens_5h: null,
+    }]);
+  });
+
+  it('deletes that runner\'s samples older than an hour, and no other runner\'s', async () => {
+    const w = world({ samples: [sampleAt(SHARED, -3601), sampleAt(SHARED, -3600), sampleAt(SHARED, -15), sampleAt(CIA_BOX, -7200)] });
+    value(await w.service.health(OLGA, SHARED, REPORT));
+    expect(w.state.samples.map((row) => [row.runner_id, row.at])).toEqual([
+      [SHARED, at(-3600).toISOString()], [SHARED, at(-15).toISOString()], [CIA_BOX, at(-7200).toISOString()], [SHARED, T0.toISOString()],
+    ]);
+  });
+
+  it('refuses a runner someone else registered, and one that does not exist, writing nothing', async () => {
+    const w = world();
+    expect(await w.service.health(MO, SHARED, REPORT)).toMatchObject({ ok: false, kind: 'forbidden' });
+    expect(await w.service.health(OLGA, '00000000-0000-4000-8000-000001830fff', REPORT)).toMatchObject({ ok: false, kind: 'missing' });
+    expect(w.state.samples).toEqual([]);
+    expect(w.state.runners.every((r) => r.health === null)).toBe(true);
+  });
+
+  it('gives the Runners page each runner\'s last health, or null, and its samples of the last hour, oldest first', async () => {
+    const health = { ...REPORT, at: at(-15).toISOString() };
+    const w = world({
+      runners: [runnerRow({ id: SHARED, name: 'shared', health }), runnerRow({ id: CIA_BOX, name: 'cia-box', fleet: 'cia' })],
+      samples: [sampleAt(SHARED, -15, 63.5), sampleAt(SHARED, -4000), sampleAt(SHARED, -30, 40), sampleAt(OTHER, -15)],
+    });
+    const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
+    const shared = board.runners.find((r) => r.id === SHARED);
+    expect(shared?.health).toEqual(health);
+    expect(shared?.samples?.map((s) => [s.at, s.cpu])).toEqual([[at(-30).toISOString(), 40], [at(-15).toISOString(), 63.5]]);
+    expect(shared?.samples?.[0]).toEqual({ at: at(-30).toISOString(), cpu: 40, memUsed: GB, memTotal: 16 * GB, diskFree: 40 * GB, tokens5h: null });
+    expect(board.runners.find((r) => r.id === CIA_BOX)).toMatchObject({ health: null, samples: [] });
+  });
+});
+
+// The tokens (PRD 2102 s4): a job's report stores the counts its runner sent, and a health report's
+// machine tokens of the last 5 hours are kept in the sample as one sum.
+describe('a runner\'s tokens (PRD 2102 s4)', () => {
+  const GB = 1024 ** 3;
+  const COUNTS = { input: 81_234, output: 402_118, cacheRead: 9_120_443, cacheWrite: 611_002 };
+  const SUM = 81_234 + 402_118 + 9_120_443 + 611_002;
+  const HEALTH = { cpu: 1, load1: 1, cores: 8, memUsed: GB, memTotal: 16 * GB, diskFree: 40 * GB, diskTotal: 80 * GB };
+
+  it('stores the tokens a job report carries, and shows them with the job', async () => {
+    const job = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'running', tokens: COUNTS }));
+    expect(w.state.jobs[0]?.tokens).toEqual(COUNTS);
+    const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.jobs.find((j) => j.id === job.id)?.tokens).toEqual(COUNTS);
+  });
+
+  it('keeps the last tokens a report carried when a later one carries none, and replaces them with a newer count', async () => {
+    const job = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'running', tokens: COUNTS }));
+    value(await w.service.update(OLGA, job.id, { status: 'running', logTail: 'working' }));
+    expect(w.state.jobs[0]?.tokens).toEqual(COUNTS);
+    value(await w.service.update(OLGA, job.id, { status: 'done', tokens: { ...COUNTS, output: 500_000 } }));
+    expect(w.state.jobs[0]?.tokens).toEqual({ ...COUNTS, output: 500_000 });
+  });
+
+  it('shows a job whose runner never reported tokens with none', async () => {
+    const job = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'running' }));
+    const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.jobs.find((j) => j.id === job.id)?.tokens).toBeNull();
+  });
+
+  it('keeps the machine\'s tokens in the runner\'s last health, and the last 5 hours\' sum in the sample', async () => {
+    const w = world();
+    const tokens = { last5h: COUNTS, today: { ...COUNTS, input: 1 } };
+    value(await w.service.health(OLGA, SHARED, { ...HEALTH, tokens }));
+    expect(w.state.runners.find((r) => r.id === SHARED)?.health).toEqual({ ...HEALTH, tokens, at: T0.toISOString() });
+    expect(w.state.samples[0]?.tokens_5h).toBe(SUM);
+  });
+
+  it('stores no sum for a window the runner could not read, nor for a runner that sends no tokens', async () => {
+    const w = world();
+    value(await w.service.health(OLGA, SHARED, { ...HEALTH, tokens: { last5h: null, today: COUNTS } }));
+    w.setNow(at(15));
+    value(await w.service.health(OLGA, SHARED, HEALTH));
+    expect(w.state.samples.map((row) => row.tokens_5h)).toEqual([null, null]);
+  });
+
+  it('gives the page the samples\' sums of the hour, oldest first', async () => {
+    const w = world();
+    value(await w.service.health(OLGA, SHARED, { ...HEALTH, tokens: { last5h: COUNTS, today: COUNTS } }));
+    w.setNow(at(15));
+    value(await w.service.health(OLGA, SHARED, { ...HEALTH, tokens: { last5h: { ...COUNTS, input: 0 }, today: COUNTS } }));
+    const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.runners.find((r) => r.id === SHARED)?.samples?.map((s) => s.tokens5h)).toEqual([SUM, SUM - 81_234]);
   });
 });

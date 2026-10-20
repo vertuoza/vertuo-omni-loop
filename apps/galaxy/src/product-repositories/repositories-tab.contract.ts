@@ -11,6 +11,8 @@
 //          → 200 { member, state }        an owner lists a member as asked or skipped
 //   DELETE /app/products/<id>/repositories/approvers?member=<id>
 //          → 200 { member, removed }      an owner takes a member off the list
+//   POST   /app/products/<id>/repositories/plan {repo}
+//          → 200 { plan }                 an owner names the product's plan repository, or none (repo null)
 //
 // A refusal is `{ error }` in plain words (ADR-0029): 400 a malformed request, 401 signed out, 403 not an
 // owner, 404 no such product the caller reads, 422 a field or a repository the database refuses (in its
@@ -33,6 +35,8 @@ const LinkSchema = z.object({
   readOnly: z.boolean(),
   consumes: z.array(z.string()),
   addedBy: z.enum(['prd', 'person']),
+  /** The rollout ladder step the repository is at in this product, 1 to 5 (PRD 2011). */
+  ladderStep: z.number().int().min(1).max(5),
 });
 export type Link = z.infer<typeof LinkSchema>;
 
@@ -57,6 +61,28 @@ export const ApproverSavedSchema = z.object({ member: z.string(), state: Approve
 export const ApproverRemovedSchema = z.object({ member: z.string(), removed: z.boolean() });
 export const MemberQuerySchema = MemberSchema;
 
+/** What still holds the plan repository: what it is, and why (`step 3`, `in git`). */
+const HoldSchema = z.object({
+  /** `vertuo-web`, `roadmap 0412`, `bug 1210`, `PRD 2011`. */
+  name: z.string(),
+  /** `step 3` for a repository below step 5, `in git` for a record still open that was born there. */
+  why: z.string(),
+});
+export type Hold = z.infer<typeof HoldSchema>;
+
+/** The product's plan repository and what is still in it (PRD 2011 s17). */
+const PlanRepositorySchema = z.object({
+  /** The plan repository, owner/name. */
+  repository: z.string(),
+  /** What is still in it: repositories below step 5, and records born in git still open. */
+  holds: z.array(HoldSchema),
+});
+export type PlanRepository = z.infer<typeof PlanRepositorySchema>;
+
+/** The plan repository as an owner names it: one of the workspace's repositories, or null for none. */
+export const PlanWriteSchema = z.strictObject({ repo: RepoSchema.nullable() });
+export const PlanSavedSchema = z.object({ plan: PlanRepositorySchema.nullable() });
+
 /** What the tab shows (repositories-tab.service.ts reads it; the page draws it). */
 export interface RepositoriesTab {
   product: { id: string; name: string };
@@ -65,8 +91,12 @@ export interface RepositoriesTab {
   links: Link[];
   /** The workspace's repositories not in the product yet, by name. */
   addable: string[];
+  /** The workspace's repositories, by name: what the plan repository can be. */
+  repositories: string[];
   /** The Approvers list, or null when it could not be read. */
   approvers: Approvers | null;
+  /** The plan repository and what still lives in it; null while the product names no plan repository. */
+  plan: PlanRepository | null;
 }
 
 /** Every refusal. */
@@ -82,3 +112,5 @@ export const repositoriesTabHref = (product: string) => `/app/products/${encodeU
 export const linksRoute = (product: string) => `${repositoriesTabHref(product)}/links`;
 /** Where the approvers are written. */
 export const approversRoute = (product: string) => `${repositoriesTabHref(product)}/approvers`;
+/** Where the plan repository is written. */
+export const planRoute = (product: string) => `${repositoriesTabHref(product)}/plan`;

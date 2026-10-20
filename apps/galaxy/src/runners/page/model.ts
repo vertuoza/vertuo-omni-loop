@@ -1,5 +1,7 @@
 import type { Board, Job, Runner, Target } from '../runners.contract';
 
+type RunnerHealth = NonNullable<Runner['health']>;
+
 // The Runners page's words (PRD 1830 s3), from the board the service reads: pure, so each runner state
 // and each job status is tested without a page. A runner reads Online, Busy, or Offline with when it
 // was last seen; a job reads Queued, Running with its time, Done, Failed with its reason (Runner lost,
@@ -38,15 +40,19 @@ function spanOf(ms: number): string {
 const since = (iso: string, now: Date) => Math.max(0, now.getTime() - Date.parse(iso));
 
 /** A runner's state in words: Online, Busy, or Offline with when it was last seen. */
-export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'>, now: Date): string {
+export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'> & { health?: Pick<RunnerHealth, 'paused'> | null | undefined }, now: Date): string {
+  if (runner.state !== 'offline' && runner.health?.paused) return `Paused: ${runner.health.paused}`;
   if (runner.state === 'online') return 'Online';
   if (runner.state === 'busy') return 'Busy';
   const ago = spanOf(since(runner.lastSeenAt, now));
   return ago === 'now' ? 'Offline' : `Offline, ${ago} ago`;
 }
 
+/** A done job's outcome in words (PRD 2223). */
+const OUTCOME_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready' } as const;
+
 /** A job's status in words. */
-export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'runningAt' | 'claimedAt'>, now: Date): string {
+export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'runningAt' | 'claimedAt'> & { outcome?: Job['outcome'] }, now: Date): string {
   switch (job.status) {
     case 'queued': return 'Queued';
     case 'claimed': return 'Starting';
@@ -54,7 +60,7 @@ export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'r
       const from = job.runningAt ?? job.claimedAt;
       return from ? `Running ${spanOf(since(from, now))}` : 'Running';
     }
-    case 'done': return 'Done';
+    case 'done': return job.outcome ? OUTCOME_WORDS[job.outcome] : 'Done';
     case 'cancelled': return 'Cancelled';
     case 'failed':
       if (job.reason === 'runner lost') return 'Runner lost';
@@ -65,16 +71,18 @@ export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'r
 }
 
 /** The tone a status is drawn in. */
-export function statusTone(status: Job['status']): 'queue' | 'run' | 'done' | 'fail' | 'off' {
+export function statusTone(status: Job['status'], outcome?: Job['outcome']): 'queue' | 'run' | 'done' | 'fail' | 'off' | 'wait' {
+  if (status === 'done' && (outcome === 'answers' || outcome === 'held')) return 'wait';
   if (status === 'queued') return 'queue';
   if (status === 'claimed' || status === 'running') return 'run';
   if (status === 'done') return 'done';
   return status === 'failed' ? 'fail' : 'off';
 }
 
-/** Whether a job may still be cancelled: queued or running, and no cancel asked yet. */
+/** Whether a job may still be cancelled: queued or Starting, which a cancel ends at once (#2168), or
+ * running with no cancel asked yet. */
 export const canCancel = (job: Pick<Job, 'status' | 'cancelRequested'>): boolean =>
-  (job.status === 'queued' || job.status === 'claimed' || job.status === 'running') && !job.cancelRequested;
+  job.status === 'queued' || job.status === 'claimed' || (job.status === 'running' && !job.cancelRequested);
 
 /** Whether a job may be sent again: it failed or was cancelled. Nothing runs again by itself. */
 export const canSendAgain = (job: Pick<Job, 'status'>): boolean => job.status === 'failed' || job.status === 'cancelled';
@@ -99,16 +107,45 @@ export function whereWords(job: Pick<Job, 'toRunner' | 'toFleet' | 'runner'>, ru
   return job.runner !== null && job.runner !== job.toRunner ? `${target} · ${runnerName(job.runner, runners)}` : target;
 }
 
-/** Who sent a job: their GitHub login, or a member. */
-export const senderWords = (job: Pick<Job, 'sentByLogin'>): string => (job.sentByLogin ? `@${job.sentByLogin}` : 'A member');
+/** Who sent a job: `API key <name>` for a key's (PRD 2022), else their GitHub login, or a member. */
+export const senderWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'>): string =>
+  job.sentByKey !== null ? `API key ${job.sentByKey}` : job.sentByLogin ? `@${job.sentByLogin}` : 'A member';
+
+/** Under a key's name, who made the key: `made by @<login>`; nothing for a person's job. */
+export const madeByWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'>): string | null =>
+  job.sentByKey !== null && job.sentByLogin ? `made by @${job.sentByLogin}` : null;
 
 /** A repository's name, without its owner. */
 export const repoName = (repo: string): string => repo.slice(repo.indexOf('/') + 1);
+
+/** The link to the PRD page of a job with an outcome (PRD 2223): `/prd/at/<owner>/<repo>/<n>`, the PRD being
+ * the number its line names; null for a job without an outcome or a line that names no PRD. */
+export function prdPageLink(job: Pick<Job, 'line' | 'repo' | 'outcome' | 'status'>): string | null {
+  const number = /^\/omni:[a-z-]+ (\d+)$/.exec(job.line)?.[1];
+  if (job.status !== 'done' || !job.outcome || number === undefined) return null;
+  return `/prd/at/${job.repo.split('/').map(encodeURIComponent).join('/')}/${number}`;
+}
 
 /** A pull request link's words: `PR #1838`, or `Pull request` when the link names no number. */
 export function prWords(url: string): string {
   const number = /\/pull\/(\d+)$/.exec(url)?.[1];
   return number ? `PR #${number}` : 'Pull request';
+}
+
+/** What a job's runner said of its claims once the job ended (PRD 2175): the sub-PRs it released, each with
+ * its link, or why it could not release them. */
+export type ReleaseNote =
+  | { kind: 'released'; prs: readonly { number: number; url: string }[] }
+  | { kind: 'failed'; text: string };
+
+/** The lines under a job's status about its claims, in `--ask-red`: `Released #<n>, …`, then `Could not
+ * release this job's claims: <why>`; none when its runner released nothing and nothing failed. */
+export function releaseNotes(job: Pick<Job, 'repo' | 'released' | 'releaseError'>): ReleaseNote[] {
+  const released = job.released ?? [];
+  return [
+    ...(released.length === 0 ? [] : [{ kind: 'released' as const, prs: released.map((number) => ({ number, url: `https://github.com/${job.repo}/pull/${String(number)}` })) }]),
+    ...(job.releaseError ? [{ kind: 'failed' as const, text: `Could not release this job's claims: ${job.releaseError}` }] : []),
+  ];
 }
 
 /** The fleet cell of a runner: a picker for a workspace owner, its label (or Shared) for everyone else. */

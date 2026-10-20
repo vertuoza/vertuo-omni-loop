@@ -265,3 +265,13 @@ are recorded as under `--in-wave`, never adopted here.
 ### Tests
 
 `kit/test/plugin.test.ts`, the block "the inline wave (issue 1722)".
+
+## PRD #1793, slice s3 — the briefing is a risky change
+
+Not a re-port: step 4's list of risky changes names `briefing-text` (the briefing form, its
+`points-to` file, a file a `See:` line names), which, like a law change, only an item ranked high or
+human-action accounts for.
+
+### Tests
+
+`kit/test/briefing-text-skills.test.ts`.

@@ -173,11 +173,11 @@ after it, in order). Landing n is `after`, landing n+1 is the action's own.
    n+1's branch drops them and keeps only its own:
 
    ```bash
-   OLD=$(gh pr view <after.pr> --json headRefOid --jq .headRefOid)   # landing n's last commit
+   gh pr view <after.pr> --json headRefOid --jq .headRefOid   # landing n's last commit: <old>
    git -C <worktrees>/pr-care-<n> fetch <remote>
-   git -C <worktrees>/pr-care-<n> merge-base --is-ancestor "$OLD" <remote>/<branch>   # 0: still to rebase
+   git -C <worktrees>/pr-care-<n> merge-base --is-ancestor <old> <remote>/<branch>   # 0: still to rebase
    git -C <worktrees>/pr-care-<n> switch -C <branch> <remote>/<branch>
-   git -C <worktrees>/pr-care-<n> rebase --onto <remote>/<repo.defaultBranch> "$OLD"
+   git -C <worktrees>/pr-care-<n> rebase --onto <remote>/<repo.defaultBranch> <old>
    ```
 
    When `merge-base --is-ancestor` exits non-zero, the branch was rebased already: skip to item 4.

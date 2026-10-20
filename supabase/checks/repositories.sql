@@ -9,7 +9,12 @@
 -- out writes any of the three tables directly. The seed of 20261008090000_repositories.sql gives
 -- vertuoza its six tracked repositories, and no other workspace anything. A repository's products are
 -- its product_repositories links alone: repositories.product_id and everything that wrote it are gone
--- (PRD 1364). One transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- (PRD 1364). The owner, and only the owner, removes a repository through remove_repository() (PRD
+-- 2188): it is hidden (removed_at), untracked and its board private; the products that link it lose the
+-- link, every consumes drops it, a product that plans in it has no plan repository; its ideas, pull
+-- requests and knowledge packs stay. Removing it twice answers it as it is; adding it again lists it,
+-- tracked; a removed repository cannot be linked or set as a plan repository. One transaction, rolled
+-- back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -123,7 +128,8 @@ insert into calls
 select format(c, pg_temp.ws('vertuoza'))
   from unnest(array[
     'select public.add_repository(%L, ''vertuoza/planted'')',
-    'select public.set_repository_tracked(%L, ''vertuoza/vertuo-apps'', false)'
+    'select public.set_repository_tracked(%L, ''vertuoza/vertuo-apps'', false)',
+    'select public.remove_repository(%L, ''vertuoza/vertuo-apps'')'
   ]) c;
 grant select on calls to anon, authenticated;
 
@@ -276,6 +282,167 @@ begin
     update public.repositories set tracked = false where workspace_id = pg_temp.ws('vertuoza');
     raise exception 'FAIL: the service role switched tracking directly';
   exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- ── Removing a repository hides it and keeps its history (PRD 2188) ──
+-- Olga opens the business (every repository joins its first product) and adds Mobile. Mobile links
+-- vertuo-apps and vertuo-ai-domain, which consumes it, and plans in vertuo-apps; in the first product,
+-- vertuo-ai-domain consumes it too. vertuo-apps has a public board, an idea, a pull request with its
+-- review, and a knowledge pack.
+create temporary table made (name text primary key, id uuid);
+grant select, insert on made to authenticated;
+create function pg_temp.made(name text) returns uuid language sql as $$
+  select m.id from made m where m.name = made.name;
+$$;
+-- Runs a call that must be refused to its caller with `code`.
+create function pg_temp.refused(stmt text, code text, why text) returns void language plpgsql as $$
+begin
+  execute stmt;
+  raise exception 'FAIL: % ran: %', why, stmt;
+exception when others then
+  if sqlstate <> code then raise exception 'FAIL: % answered % (%), not %', why, sqlstate, sqlerrm, code; end if;
+end;
+$$;
+-- The repository's rows that are history, as one value.
+create function pg_temp.history(repo text) returns text language sql as $$
+  select (select count(*) from public.ideas i where i.repo = history.repo) || ' ideas, '
+      || (select count(*) from public.pull_requests p where p.repo = history.repo) || ' pull requests, '
+      || (select count(*) from public.pull_request_reviews v where v.repo = history.repo) || ' reviews, '
+      || (select count(*) from public.knowledge_packs k where k.repository = history.repo) || ' packs';
+$$;
+create temporary table removed (round int primary key, r public.repositories);
+grant select, insert on removed to authenticated;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000061a1');
+do $$
+declare
+  b public.businesses;
+begin
+  b := public.business_open(pg_temp.ws('vertuoza'));
+  insert into made values ('first', (select p.id from public.products p where p.business_id = b.id order by p.ordinal limit 1));
+  insert into made values ('mobile', (public.product_add(pg_temp.ws('vertuoza'), 'Mobile')).id);
+  perform public.product_repository_link(pg_temp.made('mobile'), 'vertuoza/vertuo-apps');
+  perform public.product_repository_link(pg_temp.made('mobile'), 'vertuoza/vertuo-ai-domain', p_consumes => array['vertuoza/vertuo-apps']);
+  perform public.product_repository_link(pg_temp.made('first'), 'vertuoza/vertuo-ai-domain', p_consumes => array['vertuoza/vertuo-apps']);
+  perform public.product_plan_repository_set(pg_temp.made('mobile'), 'vertuoza/vertuo-apps');
+  perform public.set_repository_public_ideas(pg_temp.ws('vertuoza'), 'vertuoza/vertuo-apps', true);
+end $$;
+reset role;
+
+insert into public.ideas (workspace_id, repo, title, pitch, added_by)
+values (pg_temp.ws('vertuoza'), 'vertuoza/vertuo-apps', 'Offline quotes', 'Draft a quote on site with no signal.', '00000000-0000-4000-8000-0000000061b1');
+insert into public.knowledge_packs (workspace_id, repository, sha, committed_at, newest)
+values (pg_temp.ws('vertuoza'), 'vertuoza/vertuo-apps', repeat('a', 40), now() - interval '1 day', true);
+
+do $$
+begin
+  if pg_temp.history('vertuoza/vertuo-apps') <> '1 ideas, 1 pull requests, 1 reviews, 1 packs' then
+    raise exception 'FAIL: vertuo-apps does not start with its history: %', pg_temp.history('vertuoza/vertuo-apps');
+  end if;
+  if (select count(*) from public.product_repositories where repository = 'vertuoza/vertuo-apps') <> 2
+     or (select plan_repository from public.products where id = pg_temp.made('mobile')) is distinct from 'vertuoza/vertuo-apps' then
+    raise exception 'FAIL: vertuo-apps does not start in both products, Mobile planning in it';
+  end if;
+end $$;
+
+-- A member is refused, an unknown repository answers P0002, and nothing changes.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000061b1');
+select pg_temp.refused(format('select public.remove_repository(%L, ''vertuoza/vertuo-apps'')', pg_temp.ws('vertuoza')), '42501', 'a member removing a repository');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000061a1');
+select pg_temp.refused(format('select public.remove_repository(%L, ''vertuoza/missing'')', pg_temp.ws('vertuoza')), 'P0002', 'removing a repository the workspace does not list');
+reset role;
+
+do $$
+begin
+  if (select removed_at from public.repositories where full_name = 'vertuoza/vertuo-apps') is not null
+     or (select count(*) from public.product_repositories where repository = 'vertuoza/vertuo-apps') <> 2 then
+    raise exception 'FAIL: a refused remove changed vertuo-apps';
+  end if;
+end $$;
+
+-- The owner removes it, in any case, then removes it again.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000061a1');
+do $$
+begin
+  insert into removed values (1, public.remove_repository(pg_temp.ws('vertuoza'), '  Vertuoza/Vertuo-Apps '));
+  insert into removed values (2, public.remove_repository(pg_temp.ws('vertuoza'), 'vertuoza/vertuo-apps'));
+end $$;
+reset role;
+
+do $$
+declare
+  r public.repositories := (select x.r from removed x where x.round = 1);
+begin
+  if r.full_name <> 'vertuoza/vertuo-apps' or r.removed_at is null or r.tracked or r.public_ideas then
+    raise exception 'FAIL: remove_repository did not answer vertuo-apps removed, untracked and private: %', r;
+  end if;
+  if (select x.r from removed x where x.round = 2)::text <> r::text then
+    raise exception 'FAIL: removing twice did not answer the same row: %', (select x.r from removed x where x.round = 2);
+  end if;
+  if (select row(x.*)::text from public.repositories x where x.full_name = 'vertuoza/vertuo-apps') <> r::text then
+    raise exception 'FAIL: the stored row is not the one remove_repository answered';
+  end if;
+  if exists (select 1 from public.product_repositories where repository = 'vertuoza/vertuo-apps') then
+    raise exception 'FAIL: a product still links the removed repository';
+  end if;
+  if exists (select 1 from public.product_repositories where 'vertuoza/vertuo-apps' = any (consumes)) then
+    raise exception 'FAIL: a link still consumes the removed repository';
+  end if;
+  if (select count(*) from public.product_repositories where repository = 'vertuoza/vertuo-ai-domain') <> 2 then
+    raise exception 'FAIL: removing vertuo-apps took vertuo-ai-domain out of a product';
+  end if;
+  if (select plan_repository from public.products where id = pg_temp.made('mobile')) is not null then
+    raise exception 'FAIL: Mobile still plans in the removed repository';
+  end if;
+  if pg_temp.history('vertuoza/vertuo-apps') <> '1 ideas, 1 pull requests, 1 reviews, 1 packs' then
+    raise exception 'FAIL: removing lost the repository''s history: %', pg_temp.history('vertuoza/vertuo-apps');
+  end if;
+  if (select count(*) from public.repositories where removed_at is not null) <> 1 then
+    raise exception 'FAIL: removing one repository removed another';
+  end if;
+end $$;
+
+-- A removed repository cannot be linked to a product or set as its plan repository; adding it again lists
+-- it, tracked, with its history, and no link or plan repository comes back.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000061a1');
+select pg_temp.refused(format('select public.product_repository_link(%L, ''vertuoza/vertuo-apps'')', pg_temp.made('mobile')), 'P0002', 'linking a removed repository');
+select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''vertuoza/vertuo-apps'')', pg_temp.made('mobile')), 'P0002', 'planning in a removed repository');
+do $$
+declare
+  r public.repositories;
+begin
+  r := public.add_repository(pg_temp.ws('vertuoza'), 'vertuoza/vertuo-apps');
+  if r.removed_at is not null or not r.tracked then
+    raise exception 'FAIL: adding a removed repository again did not list it, tracked: %', r;
+  end if;
+end $$;
+reset role;
+
+do $$
+begin
+  if pg_temp.history('vertuoza/vertuo-apps') <> '1 ideas, 1 pull requests, 1 reviews, 1 packs' then
+    raise exception 'FAIL: adding back lost the repository''s history: %', pg_temp.history('vertuoza/vertuo-apps');
+  end if;
+  if exists (select 1 from public.product_repositories where repository = 'vertuoza/vertuo-apps')
+     or (select plan_repository from public.products where id = pg_temp.made('mobile')) is not null then
+    raise exception 'FAIL: adding back brought a product link or a plan repository back';
+  end if;
+  if (select count(*) from public.repositories where full_name = 'vertuoza/vertuo-apps') <> 1 then
+    raise exception 'FAIL: adding back made a second row';
+  end if;
+end $$;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000061a1');
+do $$
+begin
+  perform public.product_repository_link(pg_temp.made('mobile'), 'vertuoza/vertuo-apps');
+  perform public.product_plan_repository_set(pg_temp.made('mobile'), 'vertuoza/vertuo-apps');
 end $$;
 reset role;
 

@@ -58,6 +58,7 @@ const PRD_BY_POSITION: Readonly<Record<string, readonly string[]>> = Object.free
   harvest: [],
   dossier: ['push'],
   plan: ['check'],
+  claim: ['check'],
   rework: ['plan'],
 });
 const PRD_FLAG = '--prd';

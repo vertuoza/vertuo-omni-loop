@@ -172,6 +172,49 @@ describe('omni proof push', () => {
     expect(JSON.parse(calls[4]?.body as string)).toEqual({ repo: 'acme/widgets', prd: 7, kind: 'bug', run: RUN_ID, commit: RUN.commit, url: RUN.url, criteria: RUN.criteria });
   });
 
+  it('--kind bug of a run with clips prints the bug page, the GIF, then a link to each clip (PRD 2100)', async () => {
+    const BUG_PAGE = `${BASE}/bugs/0b7c-bug-dossier-7`;
+    const clips = {
+      commit: RUN.commit, url: RUN.url,
+      criteria: [{ text: 'Red.', verdict: 'pass', video: 'before.webm' }, { text: 'Green.', verdict: 'pass', video: 'after.webm' }],
+    };
+    const { root } = checkout({ files: { 'run.json': JSON.stringify(clips), 'before.webm': 'red', 'after.webm': 'green', 'preview.gif': 'GIF89a' } });
+    const { calls, fetch } = fakeApp((href) => (href === `${BASE}/api/proofs` ? json(200, { url: BUG_PAGE }) : null));
+    expect(await push(['--kind', 'bug', '7', DIR], { root, fetch })).toEqual({
+      code: 0,
+      out: `${BUG_PAGE}\n${BASE}/api/proofs/${RUN_ID}/preview.gif\n${BASE}/api/proofs/${RUN_ID}/before.webm\n${BASE}/api/proofs/${RUN_ID}/after.webm\n`,
+      err: '',
+    });
+    expect(calls.map(({ method, url }) => [method, url])).toEqual([
+      ['POST', `${BASE}/api/proofs/uploads`],
+      ['PUT', 'https://files.example/before.webm?token=t'],
+      ['PUT', 'https://files.example/after.webm?token=t'],
+      ['PUT', 'https://files.example/preview.gif?token=t'],
+      ['POST', `${BASE}/api/proofs`],
+    ]);
+  });
+
+  it('--kind bug of a run of text prints the bug page, then the GIF, and no clip', async () => {
+    const BUG_PAGE = `${BASE}/bugs/0b7c-bug-dossier-7`;
+    const text = {
+      commit: RUN.commit, url: RUN.url,
+      criteria: [{ text: 'Red.', verdict: 'pass', script: 'red.txt' }, { text: 'Green.', verdict: 'pass', script: 'green.txt' }],
+    };
+    const { root } = checkout({ files: { 'run.json': JSON.stringify(text), 'red.txt': 'FAIL', 'green.txt': 'PASS', 'preview.gif': 'GIF89a' } });
+    const { fetch } = fakeApp((href) => (href === `${BASE}/api/proofs` ? json(200, { url: BUG_PAGE }) : null));
+    expect(await push(['--kind', 'bug', '7', DIR], { root, fetch })).toEqual({ code: 0, out: `${BUG_PAGE}\n${BASE}/api/proofs/${RUN_ID}/preview.gif\n`, err: '' });
+  });
+
+  it('a PRD run holding before.webm and after.webm prints the tab and the GIF only, as before', async () => {
+    const clips = {
+      commit: RUN.commit, url: RUN.url,
+      criteria: [{ text: 'Red.', verdict: 'pass', video: 'before.webm' }, { text: 'Green.', verdict: 'pass', video: 'after.webm' }],
+    };
+    const { root } = checkout({ files: { 'run.json': JSON.stringify(clips), 'before.webm': 'red', 'after.webm': 'green', 'preview.gif': 'GIF89a' } });
+    const { fetch } = fakeApp();
+    expect(await push(['7', DIR], { root, fetch })).toEqual({ code: 0, out: `${TAB}\n${BASE}/api/proofs/${RUN_ID}/preview.gif\n`, err: '' });
+  });
+
   it('--kind prd sends and prints what no --kind does', async () => {
     const { root } = checkout();
     const plain = fakeApp();

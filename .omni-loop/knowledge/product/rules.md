@@ -974,7 +974,7 @@ Merged: @pierrederval, 2026-10-07, PR #1181
 
 ## BR-PRODUCT-81
 
-Any member of a roadmap's workspace may push an update to it, replacing its document and PRD rows, and the roadmap records the member who pushed last.
+Any member of a roadmap's workspace may push an update to it, replacing its document and PRD rows, and the roadmap records the member who pushed last. A roadmap born on the server keeps every push as a version, adding one only for what changed.
 
 Serves: P-PRODUCT-72
 Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s2-02-roadmap-any-member-pushes, PRD #1162
@@ -998,7 +998,7 @@ Merged: @pierrederval, 2026-10-07, PR #1163
 
 ## BR-PRODUCT-84
 
-The roadmap check accepts a row when its project's folder is in the inbox or the shipped folder, and compares its spec wherever it lives; only a row whose project is in neither is refused.
+The roadmap check accepts a row when its project's folder is in the inbox or the shipped folder, and compares its spec wherever it lives; only a row whose project is in neither is refused. A product roadmap's row may instead name a product PRD such as mobile-12.
 
 Serves: P-PRODUCT-73
 Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-02-shipped-prd-still-counts, PRD #1162
@@ -1010,7 +1010,7 @@ Merged: @pierrederval, 2026-10-07, PR #1163
 
 ## BR-PRODUCT-85
 
-In a plan repository's roadmap, every project must name at least one repository; outside a plan repository, a repositories column is refused. The source line, like the product and target date, is optional.
+In a plan repository's roadmap, every project must name at least one repository; outside a plan repository, a repositories column is refused, except in a product roadmap, which requires one naming the product's own repositories. The source line, like the product and target date, is optional.
 
 Serves: P-PRODUCT-74
 Source: .omni-loop/delivery/shipped/1162-roadmap/outbox/settled.md, entry s4-03-repos-column-and-source, PRD #1162
@@ -1284,3 +1284,84 @@ Enforced by: game/economy.test.ts
 Governs: ^game/(rulebook|economy)\.
 Stated: 2026-10-15
 Decided: @pierrederval, 2026-10-15
+
+## BR-PRODUCT-113
+
+A Legal knowledge entry's source law is accepted as any single line of up to 500 characters, either a web link or the law's name and article. It is never refused for not being a web address.
+
+Serves: P-PRODUCT-94
+Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-01-legal-source-free-text, PRD #1795
+Enforced by: supabase/checks/product_knowledge.sql, kit/lib/knowledge/check-knowledge-legal.ts
+Stated: 2026-10-16
+Decided: nobody — adopted when raised (medium), 2026-10-15
+Merged: @pierrederval, 2026-10-16, PR #2032
+Proposed: harvest 2026-10-16
+
+## BR-PRODUCT-114
+
+A new Legal entry with no owner named is owned by the person who wrote it; one that came from a proposal is owned by its proposer once approved, unless they named someone else. Anyone allowed may change the owner later.
+
+Serves: P-PRODUCT-95
+Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-02-legal-entry-owner-default, PRD #1795
+Enforced by: apps/galaxy/src/product-knowledge/product-knowledge.service.test.ts, supabase/checks/product_knowledge.sql
+Stated: 2026-10-16
+Decided: nobody — adopted when raised (medium), 2026-10-15
+Merged: @pierrederval, 2026-10-16, PR #2032
+Proposed: harvest 2026-10-16
+
+## BR-PRODUCT-115
+
+A person named as the Legal or Glossary owner counts as named only while still a team member. When no named person remains on the team, the team's owners decide that kind's entries and proposals, as they do before anyone is named.
+
+Serves: P-PRODUCT-96
+Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-03-named-owner-who-left, PRD #1795
+Enforced by: apps/galaxy/src/product-knowledge/product-knowledge.service.test.ts, supabase/checks/product_knowledge.sql
+Stated: 2026-10-16
+Decided: nobody — adopted when raised (medium), 2026-10-15
+Merged: @pierrederval, 2026-10-16, PR #2032
+Proposed: harvest 2026-10-16
+
+## BR-PRODUCT-116
+
+Naming, changing or clearing an owner or a delegate of product knowledge is recorded in the knowledge history as its own kind of change, named, with who was named before and after.
+
+Serves: P-PRODUCT-97
+Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-04-naming-an-owner-is-logged, PRD #1795
+Enforced by: supabase/checks/product_knowledge.sql, supabase/migrations/20261212110000_product_knowledge.sql, apps/galaxy/src/product-knowledge/product-knowledge.repository.test.ts
+Stated: 2026-10-16
+Decided: nobody — adopted when raised (medium), 2026-10-15
+Merged: @pierrederval, 2026-10-16, PR #2032
+Proposed: harvest 2026-10-16
+
+## BR-PRODUCT-119
+
+On the Constellation, choosing a repository keeps the lit PRD, and choosing a PRD keeps the open repository card. 'Everything' clears only the lit PRD and leaves the open repository as it was.
+
+Serves: P-PRODUCT-100
+Source: .omni-loop/delivery/shipped/2129-constellation-tab/outbox/settled.md, entry s2-01-filter-and-star-together, PRD #2129
+Enforced by: apps/galaxy/src/product-home/constellation.test.ts, apps/galaxy/src/product-home/tabs.test.ts
+Stated: 2026-10-17
+Decided: nobody — adopted when raised (medium), 2026-10-16
+Merged: @pierrederval, 2026-10-17, PR #2130
+Proposed: harvest 2026-10-17
+
+## BR-PRODUCT-120
+
+A repository's knowledge graph keeps the account and the GitHub login of the person who pushed it, as the login was at the push, and the server keeps the twenty graphs pushed most recently for each repository: pushing an older commit again makes it the newest, and the graph served is always the one pushed last.
+
+Serves: P-PRODUCT-72
+Source: .omni-loop/delivery/shipped/1798-knowledge-graph-api/outbox/settled.md, entry s1-02-pusher-login-and-history, PRD #1798
+Enforced by: supabase/checks/knowledge_graphs.sql
+Stated: 2026-10-19
+Decided: @pierrederval, 2026-10-19
+
+## BR-PRODUCT-121
+
+Any member of a concept's workspace may mark the concept done, or reopen it, through the Omni page's route, whatever its review state: the route does not refuse a concept whose concept PR has not merged, since the page's Mark done button shows only where it applies. Someone who cannot read the concept still gets the same not-a-member answer whether or not it exists.
+
+Serves: P-PRODUCT-7
+Source: .omni-loop/delivery/shipped/2213-concept-shipped/outbox/settled.md, entry s3-01-mark-done-guards, PRD #2213
+Enforced by: apps/galaxy/src/concepts/done.test.ts
+Governs: ^apps/galaxy/src/concepts/done
+Stated: 2026-10-20
+Decided: @pierrederval, 2026-10-20

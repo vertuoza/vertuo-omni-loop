@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../keys';
-import { LOOK, MAX_PARTICLES, newParticles, spawnsOf, stepParticles, type Spawn } from './fx';
+import { sure } from '../test/sure';
+import { LOOK, MARK_LIFE, MAX_MARKS, MAX_PARTICLES, marksOf, newParticles, spawnsOf, stepMarks, stepParticles, type Mark, type Spawn } from './fx';
 import { newRace, press, step, type Race } from './race';
 import { RULES } from './rules';
 
@@ -71,14 +72,121 @@ describe('what a step spawns', () => {
     expect(kinds(spawnsOf(taken, taken, []))).toEqual([]);
   });
 
-  it('a trail behind each racer on BOOST', () => {
+  it('a trail from each racer on BOOST', () => {
     const r = race();
     const boosting: Race = { ...r, fx: { ...r.fx, boost: 1 } };
     const [trail] = spawnsOf(r, boosting, []);
     expect(trail?.kind).toBe('trail');
     expect(spawnsOf(r, r, [])).toEqual([]);
-    // Behind: the kart faces `angle`, so the trail is on the opposite side of its position.
-    const ahead = Math.cos(r.player.angle) * ((trail?.x ?? 0) - r.player.x) + Math.sin(r.player.angle) * ((trail?.y ?? 0) - r.player.y);
-    expect(ahead).toBeLessThan(0);
+  });
+});
+
+// PRD 1963, slice 8: what the player sees of the drift.
+describe('the snow, the marks, the sparks, the wind and the smoke', () => {
+  const race = (): Race => step(press(newRace({ seed: 7 }), 'start').race, NONE, RULES.countdown + 0.05).race;
+  const fast = RULES.topSpeed * 0.8;
+  const kinds = (spawns: readonly Spawn[]) => spawns.map((s) => s.kind);
+  const driving = (over: Partial<Race['player']>, fx: Partial<Race['fx']> = {}): Race => { const r = race(); return { ...r, player: { ...r.player, ...over }, fx: { ...r.fx, ...fx } }; };
+
+  it('throws snow only on powder and above 0.6 of the top speed', () => {
+    const r = driving({ speed: fast });
+    expect(kinds(spawnsOf(r, r, [], () => 'powder'))).toEqual(['snow']);
+    expect(spawnsOf(r, r, [], () => 'road')).toEqual([]);
+    expect(spawnsOf(r, r, [], () => 'ice')).toEqual([]);
+    const slow = driving({ speed: RULES.draftMin * RULES.topSpeed * 0.9 });
+    expect(spawnsOf(slow, slow, [], () => 'powder')).toEqual([]);
+  });
+
+  it('throws blue sparks once the charge is blue, orange once it is orange, from both rear wheels', () => {
+    expect(spawnsOf(race(), driving({ speed: fast }, { drift: 1, charge: RULES.chargeBlue - 0.01 }), [])).toEqual([]);
+    expect(kinds(spawnsOf(race(), driving({ speed: fast }, { drift: 1, charge: RULES.chargeBlue }), []))).toEqual(['blue', 'blue']);
+    expect(kinds(spawnsOf(race(), driving({ speed: fast }, { drift: 1, charge: RULES.chargeOrange }), []))).toEqual(['orange', 'orange']);
+  });
+
+  it('throws the sparks from the rear wheels where the kart is drawn: under its middle, one each side (issue 2057)', () => {
+    const k = { x: 300, y: 200, angle: 0.7 };
+    const sparks = spawnsOf(race(), driving({ speed: fast, ...k }, { drift: 1, charge: RULES.chargeBlue }), []);
+    const ahead = (s: Spawn) => (s.x - k.x) * Math.cos(k.angle) + (s.y - k.y) * Math.sin(k.angle);
+    const aside = (s: Spawn) => (s.y - k.y) * Math.cos(k.angle) - (s.x - k.x) * Math.sin(k.angle);
+    // Not behind it: the camera sits so close behind the player's kart that a spark born behind it starts under the kart or off the screen.
+    expect(sparks.map(ahead)).toEqual([expect.closeTo(0), expect.closeTo(0)]);
+    const [one, other] = sparks.map(aside);
+    expect(Math.abs(sure(one, 'a wheel'))).toBeGreaterThan(0);
+    expect(sure(other, 'the other wheel')).toBeCloseTo(-sure(one, 'a wheel'));
+  });
+
+  it('throws the player\'s own trail, snow and wind from its middle, where its sprite draws its rear, and a rival\'s behind it (issue 2061)', () => {
+    const k = { x: 300, y: 200, angle: 0.7 };
+    const ahead = (s: Spawn) => (s.x - k.x) * Math.cos(k.angle) + (s.y - k.y) * Math.sin(k.angle);
+    const aside = (s: Spawn) => (s.y - k.y) * Math.cos(k.angle) - (s.x - k.x) * Math.sin(k.angle);
+    const own = spawnsOf(race(), driving({ speed: fast, ...k }, { boost: 1, draft: 0.5 }), [], () => 'powder');
+    expect(kinds(own)).toEqual(['trail', 'snow', 'wind']);
+    // Not behind it: the camera sits so close behind the player's kart that what is born behind it starts under the kart or off the screen.
+    expect(own.map(ahead)).toEqual([expect.closeTo(0), expect.closeTo(0), expect.closeTo(0)]);
+    expect(own.map(aside)).toEqual([expect.closeTo(0), expect.closeTo(0), expect.closeTo(0)]);
+    // A rival is seen from far behind: what it throws is born 8 behind its middle and shows under its sprite.
+    const r = race();
+    const [first, ...others] = r.rivals;
+    const rival = sure(first, 'a rival');
+    const boosting: Race = { ...r, rivals: [{ ...rival, kart: { ...rival.kart, ...k, speed: fast }, fx: { ...r.fx, boost: 1, draft: 0.5 } }, ...others] };
+    const thrown = spawnsOf(r, boosting, [], () => 'powder');
+    expect(kinds(thrown)).toEqual(['trail', 'snow', 'wind']);
+    expect(thrown.map(ahead)).toEqual([expect.closeTo(-8), expect.closeTo(-8), expect.closeTo(-8)]);
+  });
+
+  it('streams wind while a slipstream builds, and smoke on a stall', () => {
+    expect(kinds(spawnsOf(race(), driving({ speed: fast }, { draft: 0.5 }), []))).toEqual(['wind']);
+    const r = race();
+    expect(kinds(spawnsOf(r, { ...r, stall: 0.3 }, []))).toEqual(['smoke']);
+  });
+
+  it('throws nothing from a kart in the air or falling', () => {
+    expect(spawnsOf(race(), driving({ speed: fast }, { drift: 1, charge: 2, hop: 0.1 }), [], () => 'powder')).toEqual([]);
+    expect(spawnsOf(race(), driving({ speed: fast }, { drift: 1, charge: 2, fall: 0.5 }), [], () => 'powder')).toEqual([]);
+  });
+
+  it('keeps every kind under the particle cap of today', () => {
+    let p = newParticles(2);
+    for (let i = 0; i < 200; i++) p = stepParticles(p, [{ kind: 'snow', ...at }, { kind: 'blue', ...at }, { kind: 'wind', ...at }, { kind: 'smoke', ...at }], 0.01);
+    expect(p.list.length).toBeLessThanOrEqual(MAX_PARTICLES);
+  });
+
+  it('leaves marks only over the 0.15 rad gap or in a drift, pale off the road and dark on it', () => {
+    expect(marksOf(driving({ speed: fast }))).toEqual([]);
+    expect(marksOf(driving({ speed: fast, angle: 0, travel: RULES.skidGap - 0.01 }))).toEqual([]);
+    const slide = driving({ speed: fast, angle: 0, travel: RULES.skidGap + 0.05 });
+    expect(marksOf(slide)).toHaveLength(2);
+    expect(marksOf(slide).every((m) => !m.pale)).toBe(true);
+    expect(marksOf(slide, () => 'ice').every((m) => m.pale)).toBe(true);
+    expect(marksOf(slide, () => 'powder').every((m) => m.pale)).toBe(true);
+    expect(marksOf(driving({ speed: fast }, { drift: -1, charge: 0 }))).toHaveLength(2);
+    expect(marksOf(driving({ speed: fast, angle: 0, travel: 1 }, { hop: 0.1 }))).toEqual([]);
+  });
+
+  it('lays the player\'s two marks under its middle and a rival\'s 8 behind it (PRD 2063)', () => {
+    const base = race();
+    const own = marksOf(driving({ speed: fast, x: 100, y: 50, angle: 0, travel: RULES.skidGap + 0.05 }));
+    expect(own).toHaveLength(2);
+    expect(own.every((m) => m.own === true)).toBe(true);
+    expect(own.map((m) => [m.x, m.y]).sort()).toEqual([[100, 47], [100, 53]]);
+    const rival = base.rivals[0];
+    if (!rival) throw new Error('no rival');
+    const slid = { ...base, fx: { ...base.fx, hop: 0 }, player: { ...base.player, speed: 0 }, rivals: [{ ...rival, kart: { ...rival.kart, x: 200, y: 80, angle: 0, travel: RULES.skidGap + 0.05, speed: fast }, fx: { ...base.fx, fall: 0, hop: 0 } }] };
+    const theirs = marksOf(slid);
+    expect(theirs).toHaveLength(2);
+    expect(theirs.every((m) => m.own === undefined)).toBe(true);
+    expect(theirs.map((m) => [m.x, m.y]).sort()).toEqual([[192, 77], [192, 83]]);
+  });
+
+  it('fades marks out over 3 seconds and keeps at most MAX_MARKS, the oldest going first', () => {
+    let m = stepMarks([], [{ x: 1, y: 1, pale: true }], 0.1);
+    expect(m).toHaveLength(1);
+    m = stepMarks(m, [], MARK_LIFE - 0.2);
+    expect(m).toHaveLength(1);
+    expect(stepMarks(m, [], 0.2)).toHaveLength(0);
+    let many: Mark[] = [];
+    for (let i = 0; i < MAX_MARKS + 20; i++) many = stepMarks(many, [{ x: i, y: 0, pale: false }], 0.001);
+    expect(many).toHaveLength(MAX_MARKS);
+    expect(many[0]?.x).toBe(20);
   });
 });

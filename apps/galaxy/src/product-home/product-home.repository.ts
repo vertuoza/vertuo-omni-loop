@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { orThrow, parseRows } from '../data/parse-rows';
+import { IsOwner } from '../business/constituents-rows';
+import { orThrow, parseRow, parseRows } from '../data/parse-rows';
+import { ArchiveAnswerSchema, type ArchiveAnswer } from './product-archive.contract';
 import { PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The product home's storage (PRD 1364 s9; ADR-0095): the reads behind /app/products/<id>, as the
@@ -14,14 +16,25 @@ import { PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts
 // Since PRD 1548 s9, its Questions tab's: the product's key (products.key), its product PRDs (dossiers of
 // kind `prd` keyed by the product's counter, `mobile-12`), their outbox items with whether each is settled
 // (outbox_items, outbox_settlements), and the GitHub logins of the PRDs' authors (players). A failed read throws, and an answer out of shape too. No rule lives here: which lane a
-// PRD is on is product-home.service.ts's.
+// PRD is on is product-home.service.ts's. Since PRD 2232 s1, when and by whom the product was archived
+// (products.archived_at, archived_by), whether the caller owns the workspace (is_owner()), and the owner's
+// Archive and Restore (product_archive(), product_restore()), a refusal answered in the database's code
+// and words.
 
 /** What the product home's reads need: the tables and the database's functions. */
 export type ProductHomeDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 type From = Pick<SupabaseClient, 'from'>;
 
-const PRODUCT_COLUMNS = 'id, name, key';
-export const StoredProduct = z.object({ id: z.string(), name: z.string(), key: z.string().nullable() });
+const PRODUCT_COLUMNS = 'id, name, key, archived_at, archived_by';
+export const StoredProduct = z.object({
+  id: z.string(),
+  name: z.string(),
+  key: z.string().nullable(),
+  /** When an owner archived it, null while it is live (PRD 2232); only an owner reads it then. */
+  archived_at: z.string().nullable(),
+  /** Who archived it; null while it is live, or once their account is gone. */
+  archived_by: z.string().nullable(),
+});
 type Product = z.infer<typeof StoredProduct>;
 
 const PRODUCT_PRD_COLUMNS = 'id, product_seq, title, opened_by, created_at';
@@ -94,6 +107,26 @@ export type StoredVoid = z.infer<typeof StoredVoid>;
 const PULL_COLUMNS = 'repo, number, head';
 export const StoredPull = z.object({ repo: z.string(), number: PrNumberSchema, head: z.string() });
 export type StoredPull = z.infer<typeof StoredPull>;
+
+const TARGET_COLUMNS = 'dossier_id, repository';
+/** A repository a PRD's plan targets (PRD 2174): one row per dossier and repository, as the plan push wrote it. */
+const TargetSchema = z.object({ dossier_id: z.string(), repository: z.string() });
+export type StoredTarget = z.infer<typeof TargetSchema>;
+
+const LINK_COLUMNS = 'repository, role, consumes';
+/** A repository linked to the product (PRD 2129): its role and the repositories of the product it consumes. */
+const StoredLink = z.object({ repository: z.string(), role: z.string().nullable(), consumes: z.array(z.string()) });
+export type StoredLink = z.infer<typeof StoredLink>;
+
+const OTHER_LINK_COLUMNS = 'repository, products(name)';
+/** A link of another product to one of this product's repositories, with that product's name. */
+const StoredOtherLink = z.object({ repository: z.string(), products: z.object({ name: z.string() }) });
+export type StoredOtherLink = z.infer<typeof StoredOtherLink>;
+
+const PHASE0_COLUMNS = 'full_name, phase0';
+/** Where a repository's phase 0 is approved: `pr` (docs-only pull request) or `server` (the PRD page). */
+const StoredPhase0 = z.object({ full_name: z.string(), phase0: z.enum(['pr', 'server']) });
+export type StoredPhase0 = z.infer<typeof StoredPhase0>;
 
 const IDEA_COLUMNS = 'id, repo, title, pitch, lane, prd, created_at';
 /** An idea of the product still on its board (PRD 1364 s10). */
@@ -228,11 +261,43 @@ export const featurePullsOf = (db: From, workspace?: string) => {
   return workspace === undefined ? read : read.eq('workspace_id', workspace);
 };
 
+/** The open pull requests on a phase-0 branch (`docs/phase-0-<topic>`), of the workspace (PRD 2129 s3). */
+const phase0PullsOf = (db: From, workspace: string) =>
+  db.from('pull_requests').select(PULL_COLUMNS).is('closed_at', null).is('merged_at', null).like('head', 'docs/phase-0-%').eq('workspace_id', workspace);
+
+/** The targets of the PRD dossiers `dossiers`. */
+const targetsOf = (db: From, dossiers: readonly string[]) =>
+  db.from('prd_targets').select(TARGET_COLUMNS).in('dossier_id', [...dossiers]);
+
+/** The links of the workspace's product to its repositories, by name. */
+const linksOf = (db: From, scope: ProductScope) =>
+  db.from('product_repositories').select(LINK_COLUMNS).eq('workspace_id', scope.workspace).eq('product_id', scope.product).order('repository');
+
+/** The links of the workspace's other products to `repos`, each with its product's name. */
+const otherLinksOf = (db: From, scope: ProductScope, repos: readonly string[]) =>
+  db.from('product_repositories').select(OTHER_LINK_COLUMNS).eq('workspace_id', scope.workspace).neq('product_id', scope.product).in('repository', [...repos]);
+
+/** The phase 0 flag of the workspace's repositories `repos`. */
+const phase0Of = (db: From, workspace: string, repos: readonly string[]) =>
+  db.from('repositories').select(PHASE0_COLUMNS).eq('workspace_id', workspace).is('removed_at', null).in('full_name', [...repos]);
+
 const why = (error: { message: string }) => error.message;
 const WHERE = 'product-home/product-home.repository';
 
 /** What a function call answers: its body, unparsed, or its error. */
-type RpcAnswer = { data: unknown; error: { message: string } | null };
+type RpcAnswer = { data: unknown; error: { code?: string; message: string } | null };
+
+/** A write the database refused, by its code and in its words. */
+export type Refused = { ok: false; code: string | null; message: string };
+/** What Archive and Restore answer: the product as the database left it, or its refusal. */
+type Archiving = { ok: true; answer: ArchiveAnswer } | Refused;
+
+/** Calls product_archive() or product_restore() on `product`: the row as it is left, or the refusal. */
+async function archiving(db: ProductHomeDb, fn: 'product_archive' | 'product_restore', product: string): Promise<Archiving> {
+  const answer: RpcAnswer = await db.rpc(fn, { p_product: product });
+  if (answer.error) return { ok: false, code: answer.error.code || null, message: answer.error.message };
+  return { ok: true, answer: orThrow(parseRow(ArchiveAnswerSchema, answer.data, `${WHERE}: ${fn}`)) };
+}
 
 export function productHomeRepository(db: ProductHomeDb) {
   return {
@@ -294,6 +359,37 @@ export function productHomeRepository(db: ProductHomeDb) {
       return orThrow(parseRows(StoredFix, data, `${WHERE}: fix dossiers`));
     },
 
+    /** The repositories the plans of the PRDs `dossiers` target (PRD 2174). */
+    async targets(dossiers: readonly string[]): Promise<StoredTarget[]> {
+      if (dossiers.length === 0) return [];
+      const { data, error } = await targetsOf(db, dossiers);
+      if (error) throw new Error(`Supabase: could not read the PRDs' targets (${why(error)})`);
+      return orThrow(parseRows(TargetSchema, data, `${WHERE}: prd_targets`));
+    },
+
+    /** The product's linked repositories, by name: role and declared `consumes`. */
+    async links(workspace: string, product: string): Promise<StoredLink[]> {
+      const { data, error } = await linksOf(db, { workspace, product });
+      if (error) throw new Error(`Supabase: could not read the product's repositories (${why(error)})`);
+      return orThrow(parseRows(StoredLink, data, `${WHERE}: product_repositories`));
+    },
+
+    /** The other products' links to `repos`, each with its product's name. */
+    async otherLinks(workspace: string, product: string, repos: readonly string[]): Promise<StoredOtherLink[]> {
+      if (repos.length === 0) return [];
+      const { data, error } = await otherLinksOf(db, { workspace, product }, repos);
+      if (error) throw new Error(`Supabase: could not read the repositories' other products (${why(error)})`);
+      return orThrow(parseRows(StoredOtherLink, data, `${WHERE}: product_repositories of other products`));
+    },
+
+    /** The phase 0 flag of `repos`. */
+    async phase0(workspace: string, repos: readonly string[]): Promise<StoredPhase0[]> {
+      if (repos.length === 0) return [];
+      const { data, error } = await phase0Of(db, workspace, repos);
+      if (error) throw new Error(`Supabase: could not read the repositories' phase 0 (${why(error)})`);
+      return orThrow(parseRows(StoredPhase0, data, `${WHERE}: repositories`));
+    },
+
     /** The stages of the workspace's PRDs in `repos`. */
     async stages(workspace: string, repos: readonly string[]): Promise<StoredStageRow[]> {
       if (repos.length === 0) return [];
@@ -326,6 +422,19 @@ export function productHomeRepository(db: ProductHomeDb) {
       return orThrow(parseRows(StoredApproval, data, `${WHERE}: approvals`));
     },
 
+    /** Whether the caller owns the workspace (PRD 2232 s1): only an owner archives and restores. */
+    async owner(workspace: string): Promise<boolean> {
+      const answer: RpcAnswer = await db.rpc('is_owner', { workspace });
+      if (answer.error) throw new Error(`Supabase: could not read your role (${why(answer.error)})`);
+      return orThrow(parseRow(IsOwner, answer.data, `${WHERE}: is_owner`));
+    },
+
+    /** Archives the product, through product_archive(): an owner's only. */
+    archive: (product: string): Promise<Archiving> => archiving(db, 'product_archive', product),
+
+    /** Restores the product as it was, through product_restore(): an owner's only. */
+    restore: (product: string): Promise<Archiving> => archiving(db, 'product_restore', product),
+
     /** The voids of `dossiers`' approvals. */
     async voids(dossiers: readonly string[]): Promise<StoredVoid[]> {
       if (dossiers.length === 0) return [];
@@ -347,6 +456,13 @@ export function productHomeRepository(db: ProductHomeDb) {
       const { data, error } = await featurePullsOf(db, workspace);
       if (error) throw new Error(`Supabase: could not read the pull requests (${why(error)})`);
       return orThrow(parseRows(StoredPull, data, `${WHERE}: pull_requests`));
+    },
+
+    /** The workspace's open pull requests on a phase-0 branch. */
+    async phase0Pulls(workspace: string): Promise<StoredPull[]> {
+      const { data, error } = await phase0PullsOf(db, workspace);
+      if (error) throw new Error(`Supabase: could not read the phase-0 pull requests (${why(error)})`);
+      return orThrow(parseRows(StoredPull, data, `${WHERE}: pull_requests of phase 0`));
     },
   };
 }

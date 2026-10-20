@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { MemberSession } from '../data/member-session';
-import { ApproverRemovedSchema, ApproverSavedSchema, LinkRemovedSchema, LinkSavedSchema, TabErrorSchema } from './repositories-tab.contract';
+import { ApproverRemovedSchema, ApproverSavedSchema, LinkRemovedSchema, LinkSavedSchema, PlanSavedSchema, TabErrorSchema } from './repositories-tab.contract';
 import { repositoriesTabHandlers, repositoriesTabViewOf, type RepositoriesTabDeps } from './repositories-tab.controller';
 import type { RepositoriesTab, RepositoriesTabService } from './repositories-tab.service';
 
@@ -11,8 +11,8 @@ vi.mock('server-only', () => ({}));
 // service runs. Each refusal is `{error}` in plain words, its status by its kind.
 
 const PRODUCT = '22222222-2222-4222-8222-222222222221';
-const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own' as const, readAt: null, readOnly: false, consumes: [], addedBy: 'person' as const };
-const TAB: RepositoriesTab = { product: { id: PRODUCT, name: 'Mobile' }, owner: true, links: [LINK], addable: ['acme/web'], approvers: null };
+const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own' as const, readAt: null, readOnly: false, consumes: [], addedBy: 'person' as const, ladderStep: 5 };
+const TAB: RepositoriesTab = { product: { id: PRODUCT, name: 'Mobile' }, owner: true, links: [LINK], addable: ['acme/web'], repositories: ['acme/api', 'acme/web'], approvers: null, plan: null };
 
 describe('the page\'s view', () => {
   const signedIn = { kind: 'signed-in', db: {}, env: { url: 'u', key: 'k' }, user: { id: 'u-1' } } as unknown as MemberSession;
@@ -57,6 +57,7 @@ describe('the routes', () => {
       removeLink: (product, repo) => { calls.push(`remove ${product} ${repo}`); return Promise.resolve({ ok: true, value: { repo, removed: true } }); },
       setApprover: (product, member, state) => { calls.push(`set ${product} ${member} ${state}`); return Promise.resolve({ ok: true, value: { member, state } }); },
       removeApprover: (product, member) => { calls.push(`unset ${product} ${member}`); return Promise.resolve({ ok: true, value: { member, removed: true } }); },
+      setPlan: (product, repo) => { calls.push(`plan ${product} ${String(repo)}`); return Promise.resolve({ ok: true, value: { plan: repo === null ? null : { repository: repo, holds: [] } } }); },
       ...service,
     };
     const h = repositoriesTabHandlers({ signedIn: () => Promise.resolve(service === null ? null : full), log: (line) => { logs.push(line); } });
@@ -84,11 +85,29 @@ describe('the routes', () => {
     expect(h.calls).toEqual([`remove ${PRODUCT} acme/api`, `set ${PRODUCT} u-1 asked`, `unset ${PRODUCT} u-1`]);
   });
 
+  it('names the plan repository, and none, never cached', async () => {
+    const h = handlers({});
+    const named = await answer(await h.setPlan(post('plan', { repo: 'acme/plan' }), PRODUCT));
+    expect(named).toMatchObject({ status: 200, cache: 'no-store' });
+    expect(PlanSavedSchema.parse(named.body)).toEqual({ plan: { repository: 'acme/plan', holds: [] } });
+    expect(PlanSavedSchema.parse((await answer(await h.setPlan(post('plan', { repo: null }), PRODUCT))).body)).toEqual({ plan: null });
+    expect(h.calls).toEqual([`plan ${PRODUCT} acme/plan`, `plan ${PRODUCT} null`]);
+  });
+
+  it('answers a refused plan repository in the database\'s words, by its kind', async () => {
+    const refusing = (kind: 'not-owner' | 'refused', error: string) => handlers({ setPlan: () => Promise.resolve({ ok: false, kind, error }) });
+    const notOwner = 'Only an owner of the workspace changes the repositories of Mobile.';
+    expect(await answer(await refusing('not-owner', notOwner).setPlan(post('plan', { repo: 'acme/plan' }), PRODUCT))).toMatchObject({ status: 403, body: { error: notOwner } });
+    const unlisted = 'Repository: acme/gone is not one of this workspace\'s repositories.';
+    expect(await answer(await refusing('refused', unlisted).setPlan(post('plan', { repo: 'acme/gone' }), PRODUCT))).toMatchObject({ status: 422, body: { error: unlisted } });
+  });
+
   it('answers 401 signed out, before anything runs', async () => {
     const h = handlers(null);
     for (const response of [
       await h.saveLink(post('links', WRITE), PRODUCT), await h.removeLink(del('links', 'repo=acme/api'), PRODUCT),
       await h.setApprover(post('approvers', { member: 'u-1', state: 'asked' }), PRODUCT), await h.removeApprover(del('approvers', 'member=u-1'), PRODUCT),
+      await h.setPlan(post('plan', { repo: 'acme/plan' }), PRODUCT),
     ]) {
       const a = await answer(response);
       expect(a.status).toBe(401);
@@ -104,7 +123,9 @@ describe('the routes', () => {
     expect((await h.removeLink(del('links', 'repo=nope'), PRODUCT)).status).toBe(400);
     expect((await h.setApprover(post('approvers', { member: 'u-1', state: 'maybe' }), PRODUCT)).status).toBe(400);
     expect((await h.removeApprover(del('approvers', 'member='), PRODUCT)).status).toBe(400);
+    for (const body of [{}, { repo: 'nope' }, { repo: '' }, { repo: 'acme/plan', extra: 1 }]) expect((await h.setPlan(post('plan', body), PRODUCT)).status).toBe(400);
     expect((await h.saveLink(post('links', WRITE), 'demo-product-1')).status).toBe(404);
+    expect((await h.setPlan(post('plan', { repo: 'acme/plan' }), 'demo-product-1')).status).toBe(404);
     expect(h.calls).toEqual([]);
   });
 
@@ -125,4 +146,5 @@ describe('the routes', () => {
     expect((await h.removeLink(del('links', 'repo=acme/api'), PRODUCT)).status).toBe(500);
     expect(h.logs).toEqual([`product repositories: down (${PRODUCT})`]);
   });
+
 });

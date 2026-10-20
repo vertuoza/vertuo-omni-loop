@@ -1,6 +1,6 @@
 ---
 name: bug-fix
-description: Takes a bug from one line, or an existing issue, to one pull request a person merges — opens (or reads) its issue, classifies it, posts a triage (domain, risk, regression), proves a reproduction red before any fix, fixes it test-first on a fix branch, adds the guard that would have caught it, runs mutation testing when the repository has it, records the fix, proves it with omni bug, opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch or wave, and an outbox only when the range changes a law — one high item per change, in the fix's folder, for a person to answer. Stops on a flaky check (tooling, not a bug), on a reproduction that passes before the fix, and hands over the /omni:brainstorm line when the fix needs a product decision, a stored shape, a shared contract or a new screen, route or API. Never merges. Triggers on "fix this bug", "fix #612", "this is broken", "bug fix", "/omni:bug-fix".
+description: Takes a bug from one line, or an existing issue, to one pull request a person merges — opens (or reads) its issue, classifies it, posts a triage (domain, risk, regression), proves a reproduction red before any fix, fixes it test-first on a fix branch, adds the guard that would have caught it, runs mutation testing when the repository has it, records the fix, proves it with omni bug (its pull request body checked for its proof before the PR opens), opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch or wave, and an outbox only when the range changes a law — one high item per change, in the fix's folder, for a person to answer. Stops on a flaky check (tooling, not a bug), on a reproduction that passes before the fix (naming the merged pull request that fixed the bug, when one is proven), and hands over the /omni:brainstorm line when the fix needs a product decision, a stored shape, a shared contract or a new screen, route or API. Never merges. Triggers on "fix this bug", "fix #612", "this is broken", "bug fix", "/omni:bug-fix".
 ---
 
 <!-- Ported from vertuo-ai-domain@47a1a194a:.claude/skills/vertuo-fix-bug/SKILL.md — changes in kit/porting/plugin--bug-fix.md -->
@@ -216,8 +216,8 @@ Write the reproduction, in the domain's words:
 Run it **before any fix**:
 
 - **It fails:** keep the failing line verbatim; it is the red evidence.
-- **It passes:** stop (stop rule 3). Comment on the issue with the reproduction and the two readings
-  (it misses the bug, or the bug is already gone); a person decides.
+- **It passes:** stop (stop rule 3). First look for the merged pull request that already fixed the
+  bug (**Who fixed it**, below), then comment on the issue; a person decides.
 - **It cannot run in this session** (a harness or a service the session lacks): the evidence is the
   sentence `Red not proven here — <why>; CI is the proof`, and the skill carries on.
 
@@ -229,6 +229,43 @@ it) also starts Storybook once and films the story headless with Playwright, at 
 `/omni:prove` films a criterion, to `before.webm`. Every other bug is filmed from its reproduction's
 output. A story that cannot be filmed (no Playwright, Storybook does not start, the story does not
 render) is no stop: keep the reason for step 12 and go on with the outputs alone.
+
+**Who fixed it.** Only when the reproduction passed (stop rule 3): the bug may be gone because a
+merged pull request fixed it since it was first seen. Look before commenting.
+
+- **Candidates:** the pull requests merged since the bug was first seen (the issue's date, or the
+  report's "last worked") that touch the reproduction's files or the files its error trace names. Find
+  them with `git log --merges -- <files>` and
+  `gh pr list --state merged --search "<terms from the issue's line>" --json number,url,mergeCommit`.
+- **Proven:** a candidate is proven only when you ran the reproduction, in this repository, and it is
+  **red at its merge commit's first parent** and **green at its merge commit**. Run it on each commit
+  in a detached worktree (`git worktree add --detach <worktrees>/<n>-probe <commit>`, the
+  reproduction's files copied in, removed once it has run), the way step 7 ran it, and never edit the
+  reproduction to turn it red or green. A candidate you could not run at both commits is not proven.
+- **The comment** goes on the issue (`gh issue comment <n> --body-file <file>`, as step 4's stop
+  does). For a proven candidate it names it and the two commits, with the reproduction's command:
+
+  ```markdown
+  The reproduction passes before any fix: the bug is already gone.
+
+  Fixed by #<n>
+
+  Red at <short sha> (before #<n>), green at <short sha>: `<the reproduction's command>`
+  ```
+
+  `Fixed by #<n>` names a pull request of this repository, `Fixed by <PR URL>` one elsewhere. The line
+  starts its line, stands alone on it and is written once, for the one proven candidate (the earlier
+  merge, when two qualify; the other becomes a `Maybe:` line).
+- **No proven candidate:** no line starts with `Fixed by`. Each candidate gets a `Maybe: #<n>` line
+  and the comment keeps the two readings, the reproduction misses the bug or the bug is already gone:
+
+  ```markdown
+  The reproduction passes before any fix: it misses the bug, or the bug is already gone.
+
+  Maybe: #<n>
+  ```
+
+- **The skill never closes the issue.** A person decides, and the skill stops there.
 
 ## 8. Fix
 
@@ -306,9 +343,10 @@ change to a rule or a law the range makes, one `not ok` line each, by its rule:
 | rule | the range |
 |---|---|
 | `law-proof` | changes a file a rule's or a law's `Enforced by:` names |
-| `law-text` | rewords, adds or removes a rule or a law in a register |
+| `law-text` | rewords, adds or removes a rule, a law or a domain contract in a register |
 | `test-removed` | deletes a test, a law's among them |
 | `law-demoted` | turns an `Enforced by:` path back to `pending` or `unenforced`, or removes the entry |
+| `briefing-text` | changes the briefing (`<paths.playbook>/briefing.md`), its `points-to` file or a file one of its `See:` lines names |
 
 **A locked law asks more.** Changing one (its text, its `Locked:` line, or the test that proves it)
 also keeps the pull request's outbox check red under `law-locked`, until a CODEOWNER of the law's
@@ -408,38 +446,52 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
 1. **Commit** on the fix branch as `fix(<scope>): <what the user gets back> (#<n>)`, with the
    session's co-author trailer, then the `omni sign trailer` line (**Signing**). The scope follows
    `omni kb show conventions`.
-2. **Prove it:** `node .omni-loop/bin/omni.mjs bug <n>`. Run it until it prints `ok`:
-
-   | exit | what you do |
-   |---|---|
-   | `0` | `ok`: carry on. |
-   | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit), commit, and rerun. A line naming `law-proof`, `law-text`, `test-removed` or `law-demoted` follows **A change to a law**. |
-   | `2` | The kit is not installed here, its config does not read, or `--base` does not resolve: say so and stop. |
-
-3. **Push** the fix branch: `git push -u <remote> <fix branch>`.
-4. **Send the record to its page:** follow `/omni:dossier-push <n> --kind bug`, and carry on
+2. **Push** the fix branch: `git push -u <remote> <fix branch>`.
+3. **Send the record to its page:** follow `/omni:dossier-push <n> --kind bug`, and carry on
    whatever it prints. Keep the link it printed for the hand-off.
-5. **Film it:** run `node .omni-loop/bin/omni.mjs bug film <n> --before <red file> --after <green file>
+4. **Film it:** run `node .omni-loop/bin/omni.mjs bug film <n> --before <red file> --after <green file>
    --out <run folder>` (the two clips, `before.webm` and `after.webm`, for a component bug; `red.txt`
    and `green.txt` otherwise), then
    `node .omni-loop/bin/omni.mjs proof push --kind bug <n> <folder>`. The second prints the bug page's
-   link, then the GIF's stable link: keep that second line. A story that could not be filmed falls
-   back to the two outputs, and the body says `Storybook not filmed - <reason>` under the GIF. A GIF
-   that is not made never stops the skill: the PR opens as a **draft**, its `## Proof` holds the one
-   line `GIF not produced - <reason>`, and the reason is the row's:
+   link, then the GIF's stable link: keep that second line. A component bug's run prints two more
+   lines, the `before.webm` link then the `after.webm` link: keep both for the `Clips:` line (a pinned
+   omni that prints none leaves that line out).
+
+   **Clips that fail make the GIF of the two outputs.** A story that could not be filmed (step 7 kept
+   the reason), or two clips that `omni bug film` exits 1 on (`ffmpeg not found`, or
+   `ffmpeg failed: <its last line>`), are no reason for a draft: the GIF of the two outputs needs no
+   ffmpeg. Run `omni bug film <n> --before <red file> --after <green file> --out <run folder>` on
+   `red.txt` and `green.txt` instead, push that run as above, leave out the `Clips:` line, and write
+   `Storybook not filmed - <reason>` under the GIF, the reason being the story's or the clips' own line
+   (`ffmpeg not found` included).
+
+   A GIF that cannot be made at all never stops the skill either: the PR opens as a **draft**, its
+   `## Proof` holds the one line `GIF not produced - <reason>`, and the reason is the row's:
 
    | cause | reason |
    |---|---|
-   | no `ffmpeg` on the PATH | `ffmpeg not found` |
    | `omni bug film` or `omni proof push --kind` exits 2 (the pinned omni does not know them) | `the pinned omni is too old: run omni update` |
    | `omni bug film` exits 1 otherwise | its line |
    | `omni proof push` exits 1 (`off`, `no sign-in (omni signin)`, `unreachable`, `none`, `refused (…)`) | `proof push: <its line>` |
    | red was not seen in this session (`Red not proven here`) | `red not proven here` |
 
-6. **Open the PR through `/omni:pr`**, as a standalone PR (a draft when no GIF was made): base
-   `repo.defaultBranch`, label
-   `labels.bug` (subject to its **Labels** rules), title the commit's subject, and this body, signed
-   (**Signing**):
+5. **Write the body** of the pull request, shaped as below, to a file outside the repository
+   (`mktemp`), ending with the `omni sign footer` line (**Signing**). This one file is checked, then
+   opened.
+6. **Prove it:** `node .omni-loop/bin/omni.mjs bug <n> --body-file <file>`. Run it until it prints
+   `ok`:
+
+   | exit | what you do |
+   |---|---|
+   | `0` | `ok`: carry on. |
+   | `1` | `not ok`, one line per failed check. A proof line (`no ## Proof section`, `## Proof has no image and no "GIF not produced - <reason>" line`, `## Proof's image has no "Before the fix" or "After the fix" line`) is mended in the body file: no commit. Any other (a second folder, a missing or empty section, a risk outside the four levels, a reproduction the branch does not change, an empty red line, an unsigned commit) is fixed on the branch: commit, push again, and send the record again when it changed. A line naming `law-proof`, `law-text`, `test-removed`, `law-demoted` or `briefing-text` follows **A change to a law**. Then rerun. |
+   | `2` | A pinned omni that does not know the flag prints `omni bug: unknown flag --body-file.`: run `node .omni-loop/bin/omni.mjs bug <n>` without it, carry on with its answer, and say in the hand-off that the pinned omni did not check the body (`omni update` fixes it). Any other exit 2 (the kit is not installed here, its config does not read, `--base` does not resolve, the file cannot be read): say so and stop. |
+
+7. **Open the PR through `/omni:pr`**, as a standalone PR (a draft when no GIF was made), only once
+   `omni bug <n> --body-file <file>` printed `ok` (or the pinned omni refused the flag, above): base
+   `repo.defaultBranch`, label `labels.bug` (subject to its **Labels** rules), title the commit's
+   subject, and **that same file** as its body, signed (**Signing**): `gh pr create --body-file <file>`,
+   at point `pr.open` as `/omni:pr` says. The body's shape:
 
    ```markdown
    Closes #<n>
@@ -451,6 +503,8 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
    ## Proof
 
    ![Before and after the fix](<the GIF's stable link>)
+
+   Clips: [before](<the before.webm link>) · [after](<the after.webm link>)
 
    - **Before the fix** (red): `<the failing line>`
    - **After the fix** (green, `<short sha>`): `<the passing line>`
@@ -469,7 +523,7 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
    ## Verified
 
    - <commands.preflight>: <green, or "none set here">
-   - `omni bug <n>`: ok
+   - `omni bug <n> --body-file <file>`: ok
    - <what was run and seen green, and what was not>
 
    ## Risk and rollback
@@ -479,8 +533,9 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
    <the line `omni sign footer` prints>
    ```
 
-   When no GIF was made, `## Proof` is the one line `GIF not produced - <reason>`; when a story could
-   not be filmed, it gains `Storybook not filmed - <reason>` under the GIF.
+   The `Clips:` line is for a component bug whose clips were filmed: any other body leaves it out.
+   When the clips were not filmed, `## Proof` gains `Storybook not filmed - <reason>` under the GIF
+   instead. When no GIF was made, `## Proof` is the one line `GIF not produced - <reason>`.
 
    The record line is a repository path, never a URL. `/omni:pr` watches it until it is green or
    stuck. A red CI run is one more attempt at the fix: back to step 8.
@@ -506,7 +561,7 @@ Written verbatim, so they are never argued away:
 
 1. Not a behaviour bug: triage comment `Kind: tooling`, stop.
 2. A term cannot be defined without inventing behaviour: stop and ask.
-3. The reproduction passes before the fix: stop, comment on the issue.
+3. The reproduction passes before the fix: stop, comment on the issue, with `Fixed by #<n>` (or `Fixed by <PR URL>`) only for a pull request proven red at its merge's first parent and green at its merge (**Who fixed it**), else `Maybe:` lines. Never close the issue.
 4. The boundary is crossed: stop, comment with the `/omni:brainstorm` line.
 5. `limits.attempts` red attempts at the fix, or at CI on the PR: the PR stays draft, labelled
    `labels.needsFix`, with a comment saying what is stuck, and the issue gets a comment linking it.
@@ -521,6 +576,8 @@ comment on the issue with the PR's link.
 - **Never fix before red.** The reproduction runs, and fails, before any fix, or says it could not
   run.
 - **Never edit the reproduction to make it pass.**
+- **Never open the PR before `omni bug <n> --body-file` printed `ok`**, unless the pinned omni refused the flag.
+- **Never write a `Fixed by` line for a pull request that is not proven**, and never close the issue.
 - **Never cross the boundary** to finish a fix: stop, and hand over the `/omni:brainstorm` line.
 - Never commit on `repo.defaultBranch`.
 - Never report anything as proven that was not run.

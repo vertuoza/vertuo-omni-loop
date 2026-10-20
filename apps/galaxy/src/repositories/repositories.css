@@ -77,3 +77,13 @@
 
 /* A row's link to its ideas board (PRD 1246 s4), under its name. */
 .repositories-ideas { font-size: 14px; justify-self: start; }
+
+/* A card's Remove (PRD 2188 s1), the owner's: quiet, the size of the Add list's buttons, after the switches. */
+.repositories-remove { padding: 9px 14px; font-size: 15px; }
+
+/* Removed (n) (PRD 2188 s2): a quiet, closed line under the list; each removed repository wraps like a row. */
+.repositories-removed summary { cursor: pointer; color: var(--ask-muted); }
+.repositories-removed ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.repositories-removed-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; }
+.repositories-removed-row strong { color: var(--ask-ink); overflow-wrap: anywhere; }
+.repositories-removed .ask-button { padding: 9px 14px; font-size: 15px; }

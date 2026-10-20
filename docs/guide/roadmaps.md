@@ -47,6 +47,34 @@ It opens the roadmap's issue, writes `roadmap.md`, checks it with `omni roadmap 
 with `omni check inbox`, and opens **one phase-0 pull request** holding the roadmap and every PRD's
 folder. Merging it approves the whole roadmap at once. It ends with the line that drives it.
 
+## In a product, on the server
+
+A repository that has reached **step 5** of the rollout ladder (roadmaps and bug records, after
+approval, the gate, the outbox and phase 0 on the server) is in a [product](/docs/products#the-rollout-ladder).
+Its new roadmaps are born on the product instead of in git:
+
+- the roadmap gets an id from its product's own counter, `<key>-R<n>`, such as `mobile-R3`;
+- it has no GitHub issue and no phase-0 pull request: you **approve it on its page**, as for a
+  product PRD;
+- its document, its PRD rows, its human work and its prerequisites are versions on its page, and every
+  push adds a version of what changed;
+- a PRD row names a repository's PRD by its number (`912`) or a product PRD by its id (`mobile-12`).
+
+The skill writes it with `--product`:
+
+```text agent
+/omni:roadmap --product mobile
+```
+
+or, in a plan repository, `/omni:mega-roadmap --product mobile`. The command underneath is
+`omni roadmap push --product mobile --new`, which creates the product's next roadmap. `omni roadmap
+check` checks its rows against the product's own repositories, and names a row that points outside
+them. `/omni:drive --roadmap mobile-R3` reads the roadmap's rows from the server.
+
+A roadmap already born in git keeps everything above as it was: its `roadmap.md`, its issue, its
+phase-0 pull request and its push, which still replace the document. Nothing moves a roadmap from git
+to the server.
+
 ## roadmap.md
 
 The roadmap lives in the inbox, in a folder named after its issue, under `roadmaps/`:

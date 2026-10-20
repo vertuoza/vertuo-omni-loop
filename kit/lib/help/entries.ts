@@ -266,7 +266,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [--json]', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb legal', 'omni kb glossary', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:
@@ -275,7 +275,14 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "from: this repository's own words, a page it points to, or the kit default; show decisions " +
       'lists the latest 20 decision records, and --all every one. status prints ' +
       'the map of every form and register and every open question; graph the knowledge registers ' +
-      'as one graph; init lays down every missing form, blank, and changes no file that exists.',
+      "as one graph, or with an <id> the neighbourhood of one entry (--paths <file>… for every entry " +
+      'that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood ' +
+      'document); graph push sends the whole repository graph, at HEAD, to the Omni page ' +
+      '(a clean knowledge folder and a sign-in needed); legal and glossary print ' +
+      "the product's active Legal entries and its glossary " +
+      'terms, one line each, read from the Omni page and kept as a local copy, which they print, ' +
+      'saying so, when the page is unreachable; init lays down every missing form, blank, and ' +
+      'changes no file that exists.',
   },
   {
     name: 'knowledge',
@@ -344,9 +351,15 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'log\'s new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per ' +
       'report, sending them again when a report fails and every line left once the job ends: the ' +
       'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
-      'visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
-      'waits for the running jobs. sender prints the line /omni:pr writes in a pull request a job ' +
-      'opens, naming who sent it and the runner.',
+      'mega-bug-fix, visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C ' +
+      'waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills ' +
+      'the plugin holds: before Claude starts, a plugin older than the omni the job\'s repository ' +
+      'pins is updated (once, however many slots start together), and one still older fails the job ' +
+      'with omni plugin v<x> is older than <owner/repo>\'s omni v<y> and its update\'s last line; a plugin ' +
+      'not installed fails it with the line to install it; a list that does not read lets the job ' +
+      'run, its log saying so. At start and once an hour it updates the plugin, printing a line only ' +
+      'when its version changed or the update failed. sender prints the line /omni:pr writes in a ' +
+      'pull request a job opens, naming who sent it and the runner.',
   },
   {
     name: 'dossier',
@@ -401,7 +414,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       "Sends a proof run /omni:prove recorded to PRD n's dossier on the Omni page and prints its Proof " +
       "tab's link; with --kind bug it sends the run to the bug dossier of issue n and prints the bug " +
-      "page's link, then the GIF's stable link. It reads " +
+      "page's link, then the GIF's stable link, then, for a run that holds before.webm or after.webm, " +
+      'one stable link per clip, before first: GET /api/proofs/<run>/<clip> answers a redirect to a ' +
+      'signed link, any other name a 404. It reads ' +
       'run.json in the folder, and refuses before sending anything a file that is not .webm, .gif, ' +
       '.ts or .txt, or one over 50 MB. Then it uploads each clip and script, and registers the run. ' +
       'It never holds up the skill that runs it: anything that stops it exits 1 with one line, as ' +
@@ -618,6 +633,23 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'every row is ok, 1 otherwise, or 1 with not a plan repository.',
   },
   {
+    name: 'conventions',
+    kind: 'command',
+    who: 'you',
+    label: 'omni conventions',
+    usage: ['omni conventions [--root <dir>] [--json]'],
+    summary: 'where a directory writes its conventions',
+    detail:
+      'Prints an index of the files where a directory, this repository or a clone given with --root, ' +
+      'writes its conventions: CLAUDE.md and AGENTS.md with the files they import through @<path>, ' +
+      'the files its omni config lists under paths.context, the readme of its docs folder, the readme ' +
+      'of the adr folder inside it (else each ADR), and the Markdown pages those link to, one level deep and inside ' +
+      'the directory. One line each: its path, its title and the file that led to it; a link to a ' +
+      'file that does not exist reads missing. Read the pages that bear on a design before naming ' +
+      'anything. --json prints the same entries as an array of { path, title, from, missing }. It ' +
+      'reads files only and needs no omni config. Exit 1 when --root is not a directory.',
+  },
+  {
     name: 'product',
     kind: 'command',
     who: 'you',
@@ -795,6 +827,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "check grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the " +
       'same plan in an earlier wave of the same landing, no id is used twice, no two slices of one ' +
       'wave share ground, landings run from 1 with no gap, and paths that land alone travel alone. ' +
+      'Where the repository asks for contracts, every slice declares one, in its kinds or none, and ' +
+      "each declared kind has a data-contract block on the folder's before-after.html. " +
       'It prints the slices, the waves and where they meet, then every violation; exit 1 on any. ' +
       "moved, in a plan repository, compares each target's read at with its default branch today: " +
       'moved with the files changed under its slices\' territories, ok, or unreachable; exit 0 ' +
@@ -915,19 +949,28 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'bug',
     kind: 'command',
     who: 'skills',
-    usage: ['omni bug <n> [--base <ref>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]'],
-    summary: 'grade a bug fix branch, or film its before and after',
+    usage: ['omni bug <n> [--base <ref>] [--body-file <file>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]'],
+    summary: 'grade a bug fix branch and its pull request, or film its before and after',
     detail:
       "The proof step of /omni:bug-fix, run on its fix branch: one folder for issue <n> under the " +
       "delivery folder's bugs/, holding a bug.md with its Triage, Reproduction, Fix, Guard and " +
       'Mutation sections, a risk of critical, high, medium or low, a reproduction file the branch ' +
       "changes and its red line, and every commit carrying the loop's signature, unless signing is " +
-      'off. It runs no test. Prints ok, or not ok with one line per failed check. --base defaults ' +
-      'to {remote}/{defaultBranch}. omni bug film makes the fix\'s before/after GIF with ffmpeg: ' +
-      'from two .txt outputs of the reproduction (red, then green) or two .webm clips, 640 pixels ' +
-      'wide, looping. It writes preview.gif, the two inputs and a run.json that omni proof push ' +
-      '--kind bug sends, in --out (by default proof-bug-<n>/<time> under the worktrees folder), and ' +
-      'prints that folder. Without ffmpeg it exits 1 with ffmpeg not found.',
+      'off. It also checks the pull request\'s body: the file of --body-file (the body the skill is ' +
+      'about to open), else the open pull request of the current branch, read through gh, else it ' +
+      'says how to proceed. Its ## Proof must hold an https:// image with a "- **Before the fix**" ' +
+      'and a "- **After the fix**" line, or the line GIF not produced - <reason>; a not-produced ' +
+      'proof on an open pull request that is not a draft is refused. A record with a ## Fixes ' +
+      'section is not checked for a proof. It runs no test. Prints ok, or not ok with one line per ' +
+      'failed check; exit 2 when --body-file cannot be read. --base defaults to ' +
+      '{remote}/{defaultBranch}. omni bug film makes the fix\'s ' +
+      'before/after GIF. From two .txt outputs of the reproduction (red, then green) the kit draws it ' +
+      'itself, with no ffmpeg: two 640×360 cards of 3 seconds each, looping, the failing and passing ' +
+      'lines highlighted, the same bytes every run. From two .webm clips it stitches them with ffmpeg ' +
+      '(640 pixels wide, looping), and without ffmpeg exits 1 with ffmpeg not found. It writes ' +
+      'preview.gif, the two inputs and a run.json that omni proof push --kind bug sends, in --out ' +
+      '(by default proof-bug-<n>/<time> under the worktrees folder), and prints that folder; for two ' +
+      '.txt it exits 1 only for a folder it cannot write (could not write <path>).',
   },
   {
     name: 'concept',
@@ -1023,6 +1066,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'otherwise, with the build that rebuilds it. A wave runs the stale builds once, after merging, ' +
       'and commits the rebuilt files alone. --json prints the same as one document. Without the ' +
       'section it prints no generated files. It runs no build, and exits 0 whatever it finds.',
+  },
+  {
+    name: 'claim',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni claim check <prd> <slice>'],
+    summary: "whether a takeover reuses a stale claim's branch or rebuilds the slice",
+    detail:
+      "Reads the slice's claim on the remote, as last fetched: its claim commit, the slice's plan row " +
+      'then and on the feature branch now, and every file the branch changed since it last met the ' +
+      'feature branch. Prints reuse (exit 0) when the row\'s title and territory are unchanged and ' +
+      'every changed file is inside the territory (the outbox dir and generated paths always are). ' +
+      'Otherwise one rebuild line, exit 1: plan row changed: territory or title, outside territory: ' +
+      '<path>, no claim commit, or slice not in the plan. A wave runs it before taking over a stale ' +
+      'claim. Exit 2 when the feature branch cannot be read: fetch it first.',
   },
   {
     name: 'tier',
@@ -1435,8 +1493,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'For a bug a user, a browser or an API caller can see: from one line or an issue, it posts a ' +
       'triage (how bad, whether a change broke it), proves a reproduction fails before any fix, ' +
       'fixes it test-first on a fix branch, adds the check that would have caught it and opens one ' +
-      'PR into {defaultBranch}. It sends its record to the fix\'s page on the Omni page ' +
-      '(/omni:dossier-push <n> --kind bug) and prints its link. No PRD, plan or outbox. A flaky ' +
+      'PR into {defaultBranch}, whose body shows the bug before and after under Proof and is checked ' +
+      'by omni bug <n> --body-file before the PR opens. It sends its record to the fix\'s page on the ' +
+      'Omni page (/omni:dossier-push <n> --kind bug) and prints its link. No PRD, plan or outbox. A ' +
+      'reproduction that passes before any fix stops it, naming on the issue the merged PR that ' +
+      'fixed the bug when it can prove one. A flaky ' +
       'check is not a bug and stops it; a ' +
       'fix that needs a product decision, a stored shape or a new screen stops it, with the ' +
       '/omni:brainstorm line to run instead. It never merges.',

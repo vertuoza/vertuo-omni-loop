@@ -1,0 +1,717 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Launch · board round 1</title>
+<style>
+:root{--bg:#07061c;--panel:#120f3a;--edge:#2a2f7a;--ink:#f2f4ff;--muted:#a3a8e0;--sig:#ffd84a;--cy:#6ff0ff;--pk:#ff3ea5;font:16px/1.55 "Atkinson Hyperlegible Next",system-ui,sans-serif}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f6f6fb;--panel:#fff;--edge:#d5d7ee;--ink:#14163a;--muted:#555a8a;--sig:#8a6400;--cy:#006d7a;--pk:#b0186a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 120px}
+h1{font-size:28px;margin:0 0 8px}h2{margin:0;font-size:22px}
+.lead{color:var(--muted);max-width:75ch}
+.synth{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:16px 20px;margin:20px 0 32px}
+.synth h2{font-size:18px;margin-bottom:8px}.synth li{margin:4px 0}
+.concept{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:20px;margin:0 0 28px}
+.concept header{display:flex;gap:16px;align-items:flex-start;margin-bottom:12px}
+.let{font:700 28px/1 "JetBrains Mono",ui-monospace,monospace;color:var(--sig);min-width:1.4em}
+.wow{margin:6px 0 2px}.axis{margin:0;color:var(--cy);font-weight:700;font-size:14px}
+iframe{width:100%;height:560px;border:1px solid var(--edge);border-radius:10px;background:#07061c}
+.cons{margin:12px 0 6px}.dis{color:var(--pk)}
+.obj{margin:10px 0;padding:8px 14px;border-left:1px solid var(--pk);font-style:italic}.obj cite{display:block;font-style:normal;font-size:13px;color:var(--muted)}
+.muted{color:var(--muted)}.small{font-size:13px}
+table{border-collapse:collapse;font-size:14px;width:100%;margin-top:8px}th,td{padding:4px 8px;border-bottom:1px solid var(--edge);text-align:left;vertical-align:top}td{font-variant-numeric:tabular-nums}.st{color:var(--muted)}
+.react{border:1px solid var(--edge);border-radius:10px;margin-top:14px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.react input[type=text]{flex:1 1 260px;padding:6px 10px;border-radius:8px;border:1px solid var(--edge);background:transparent;color:var(--ink)}
+select{background:var(--panel);color:var(--ink);border:1px solid var(--edge);border-radius:6px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--edge);padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}
+.bar output{font:14px "JetBrains Mono",ui-monospace,monospace;color:var(--muted);max-width:70ch;overflow-wrap:anywhere}
+button{font:700 15px/1.2 inherit;padding:10px 16px;border-radius:8px;border:0;background:var(--sig);color:#07061c;cursor:pointer}
+:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
+@media (max-width:600px){iframe{height:460px}}
+</style></head><body><p data-omni-reactions>keep B D · push A: Aligné, on a déjà des paramètres qui exist&#x27;nt pour donner les tons etc. Si on fait bcp de prds ça devient lourd non? · push C: Non il faut que ça soit dans le thème vertuoza le style BD j&#x27;ai pas. et si c&#x27;est montré au client c&#x27;est encore moins corporate. · push E: J&#x27;aime trop l&#x27;idée mais faudrait a nouveau un truc avec un format super sympa, pas sûr que nintendo soit le meilleur format · push F: yes jouable, peut être avec des screenshots fournis par qlq. où on va vraiment plus loin et on trouve un mécanisme plus pousser (ex demo n&#x27;est pas release en meme temps que prod, on pourrait récupérer les images d&#x27;avant en demo) ou gérer ça avec des features flags. tout est possible, faut que ça reste simple et le plus rapide à gérer possible · push G: si c&#x27;est vraiment lourd a mettre en place (en cout , tech , etc) alors on peut skip. si il y a d&#x27;autres alternatives let&#x27;s go. mais effectivement ça serait top qu&#x27;on puisse ajuster une video (micro ajustement, remplacement total, adaptations spécifiques, bande son modifiable, ...). · kill H · notes — H: Pour l&#x27;isntant, on y travaille, la chaine remontera un jour mais peut être pas dans ce flux.</p><main>
+<h1>Launch · round 1 : huit directions</h1>
+<p class="lead">Quatre concept artists (10×, emprunter à une autre industrie, délice, contrarian) ont proposé huit directions. Le panel (Visionary, Craft, Skeptic, Value et les 5 personas du produit) les a notées, puis en a débattu pendant un tour de cross-talk. Les scores et les positions affichés sont ceux après ce débat. Le dissent reste visible, il n'est jamais moyenné. Chaque carte s'ouvre telle que l'artist l'a dessinée.</p>
+<section class="synth"><h2>Ce que le débat a fait émerger (lecture du modérateur, pas un vote)</h2>
+<ul>
+<li><b>F</b> (l'avant/après dans le fil Slack) est le moment du lecteur que presque tout le monde veut, et <b>D</b> (le desk éditorial) est le cœur du texte. 6 membres sur 9 ont F dans leur top 2, et 5 sur 9 ont D.</li>
+<li>Les autres concepts se rangent comme des pièces autour de ce duo. <b>A</b> sert de moment d'opt-in, qui filme l'écran « avant ». <b>G</b> est le moteur d'édition et de fact-check. <b>B</b> devient un « Click through it » dans le thread. <b>E</b> est un récap du vendredi. <b>C</b> reste un tier pour les gros lancements. <b>H</b> devient un champ manuel « demandé par ».</li>
+<li>Faits du repo que le Skeptic a remontés :
+ <ul>
+ <li>Rien ne filme l'écran « avant » aujourd'hui.</li>
+ <li>Rien ne poste sur Slack depuis la page Omni ; seules les notes d'outbox partent, depuis la CI.</li>
+ <li>Le rendu tourne sur un laptop.</li>
+ <li>L'onglet User voice contient des personas synthétiques, pas de demandes clients.</li>
+ </ul></li>
+<li>Points notés par le Craft : aucune carte ne dessine d'état d'échec (rendu raté, footage manquant, upload refusé par Slack) ni ne dit que Launch remplace Pitch.</li>
+</ul></section>
+
+<section class="concept" id="cA" data-letter="A">
+ <header><span class="let">A</span><div><h2>Written first</h2><p class="wow">Le PM lit l&#x27;annonce finie avant qu&#x27;une ligne soit codée ; le jour du ship, elle est déjà relue.</p><p class="axis">QUAND : écrite au brainstorm, à rebours.</p></div></header>
+ <iframe title="Carte A" sandbox="" srcdoc="&lt;style&gt;:root{--g:#07061c;--s:#120f3a;--k:#0e0d33;--l:#1a2170;--ls:#5a60c4;--i:#f2f4ff;--m:#8a90d6;--p:#ffd84a;--op:#07061c;--pk:#ff3ea5;--c:#6ff0ff;--gr:#4ee08a;--b:&quot;Atkinson Hyperlegible Next&quot;,&quot;Atkinson Hyperlegible&quot;,system-ui,sans-serif;--mo:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--g);color:var(--i);font:17px/1.6 var(--b)}
+.note{max-width:960px;margin:0 auto;padding:16px;font:13px/1.5 system-ui,sans-serif;color:var(--m)}.note b{color:var(--i)}
+.ask{max-width:960px;margin:0 auto;padding:0 0 40px;display:grid;gap:18px}
+.head{background:var(--s);border-bottom:1.5px solid var(--ls);padding:16px 32px 0;display:grid;gap:12px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:26px;line-height:1.25}.n{color:var(--p)}
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;border:1.5px solid var(--ls);background:var(--k);color:var(--i);font:700 15px/1.2 var(--b);cursor:pointer}
+.btn.pri{background:var(--p);border-color:var(--p);color:var(--op)}
+.track{list-style:none;margin:0;padding:0;display:flex;gap:4px;flex-wrap:wrap;font:600 12px/1 var(--mo)}
+.track li{padding:6px 9px;border-radius:999px;border:1px solid var(--ls);color:var(--m)}
+.track .pa{color:var(--i);background:var(--k)}.track .cu{background:var(--p);color:var(--op);border-color:var(--p);font-weight:800}
+.tabs{display:flex;gap:4px;margin:0 -18px;overflow-x:auto}.tab{padding:10px 14px;font-weight:700;border-bottom:3px solid transparent;white-space:nowrap;color:var(--m)}
+.tab.on{color:var(--i);border-color:var(--p)}
+.pane{padding:0 32px;display:grid;gap:16px}
+.hint{color:var(--m);font-size:15px}
+.lbl{font:700 11px/1 var(--b);letter-spacing:.08em;text-transform:uppercase;color:var(--m)}
+.box{background:var(--s);border:1.5px solid var(--l);border-radius:10px;padding:14px 16px}
+@media(max-width:700px){.head,.pane{padding-left:16px;padding-right:16px}}
+.rows{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.row{display:grid;grid-template-columns:34px 1fr auto;gap:12px;align-items:center;background:var(--k);border:1.5px solid var(--l);border-radius:8px;padding:10px 12px}
+.row b{font:700 13px var(--mo);color:var(--p)}
+.slot{font:600 12px/1 var(--mo);padding:5px 8px;border-radius:999px;border:1px dashed var(--ls);color:var(--m);white-space:nowrap}
+.slot.ok{border:1px solid var(--gr);color:var(--gr)}
+.tl{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--k);border:1px solid var(--l)}
+.tl i{display:block;height:100%}
+.tg{display:flex;align-items:center;gap:10px;font-weight:700}
+.sw{width:42px;height:24px;border-radius:99px;background:var(--p);position:relative}.sw:after{content:&quot;&quot;;position:absolute;right:3px;top:3px;width:18px;height:18px;border-radius:50%;background:var(--op)}
+&lt;/style&gt;
+&lt;p class=&quot;note&quot;&gt;&lt;b&gt;Concept: Written first.&lt;/b&gt; Contrarian axis: the launch is authored at brainstorm, before any code, not after ship. Screen: a PRD&#x27;s page at &quot;building&quot;, Launch tab. Footage slots fill themselves as slices merge; on ship day the post is already reviewed.&lt;/p&gt;
+&lt;main class=&quot;ask&quot; data-screen=&quot;prd-launch-script&quot;&gt;
+ &lt;header class=&quot;head&quot;&gt;
+  &lt;div class=&quot;top&quot;&gt;&lt;h1&gt;&lt;span class=&quot;n&quot;&gt;PRD #1612&lt;/span&gt; &lt;span data-content&gt;Supplier invoices: source and date columns&lt;/span&gt;&lt;/h1&gt;
+   &lt;div style=&quot;display:flex;gap:8px&quot;&gt;&lt;button class=&quot;btn pri&quot; data-primary&gt;Lock the script&lt;/button&gt;&lt;button class=&quot;btn&quot;&gt;Copy link&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;ol class=&quot;track&quot;&gt;&lt;li class=&quot;pa&quot;&gt;idea&lt;/li&gt;&lt;li class=&quot;pa&quot;&gt;PRD&lt;/li&gt;&lt;li class=&quot;pa&quot;&gt;inbox&lt;/li&gt;&lt;li class=&quot;cu&quot;&gt;building&lt;/li&gt;&lt;li&gt;outbox&lt;/li&gt;&lt;li&gt;shipped&lt;/li&gt;&lt;/ol&gt;
+  &lt;nav class=&quot;tabs&quot;&gt;&lt;span class=&quot;tab&quot;&gt;Spec&lt;/span&gt;&lt;span class=&quot;tab&quot;&gt;Plan&lt;/span&gt;&lt;span class=&quot;tab&quot;&gt;Proof&lt;/span&gt;&lt;span class=&quot;tab on&quot;&gt;Launch&lt;/span&gt;&lt;span class=&quot;tab&quot;&gt;Outbox&lt;/span&gt;&lt;/nav&gt;
+ &lt;/header&gt;
+ &lt;div class=&quot;pane&quot;&gt;
+  &lt;div class=&quot;box&quot; style=&quot;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap&quot;&gt;
+   &lt;label class=&quot;tg&quot;&gt;&lt;span class=&quot;sw&quot;&gt;&lt;/span&gt;Announce this launch&lt;/label&gt;
+   &lt;span class=&quot;hint&quot;&gt;Tier: Mini · 20 s · no slide&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div&gt;&lt;span class=&quot;lbl&quot;&gt;Script, written from the spec&lt;/span&gt;&lt;/div&gt;
+  &lt;ol class=&quot;rows&quot;&gt;
+   &lt;li class=&quot;row&quot;&gt;&lt;b&gt;1&lt;/b&gt;&lt;span data-content&gt;Imported invoices all look manual.&lt;/span&gt;&lt;span class=&quot;slot ok&quot;&gt;footage ready&lt;/span&gt;&lt;/li&gt;
+   &lt;li class=&quot;row&quot;&gt;&lt;b&gt;2&lt;/b&gt;&lt;span data-content&gt;Two new columns: Source, Created.&lt;/span&gt;&lt;span class=&quot;slot ok&quot;&gt;footage ready&lt;/span&gt;&lt;/li&gt;
+   &lt;li class=&quot;row&quot;&gt;&lt;b&gt;3&lt;/b&gt;&lt;span data-content&gt;Filter by Peppol, AI, manual.&lt;/span&gt;&lt;span class=&quot;slot&quot;&gt;waits for slice 3&lt;/span&gt;&lt;/li&gt;
+   &lt;li class=&quot;row&quot;&gt;&lt;b&gt;4&lt;/b&gt;&lt;span data-content&gt;Clear the supplier field.&lt;/span&gt;&lt;span class=&quot;slot&quot;&gt;waits for slice 4&lt;/span&gt;&lt;/li&gt;
+  &lt;/ol&gt;
+  &lt;div class=&quot;tl&quot; aria-label=&quot;Filled 2 of 4&quot;&gt;&lt;i style=&quot;width:50%;background:var(--gr)&quot;&gt;&lt;/i&gt;&lt;/div&gt;
+  &lt;div class=&quot;box&quot;&gt;&lt;span class=&quot;lbl&quot;&gt;Slack post&lt;/span&gt;&lt;p style=&quot;margin:6px 0 0&quot; data-content&gt;:tada: &lt;b&gt;Find imported invoices in seconds.&lt;/b&gt; Source and Created columns, filterable.&lt;/p&gt;&lt;/div&gt;
+  &lt;p class=&quot;hint&quot;&gt;Filmed at ship. One review.&lt;/p&gt;
+ &lt;/div&gt;
+&lt;/main&gt;
+"></iframe>
+ <div class="verdict">
+  <p class="cons"><b>Consensus</b> · Wow 3 · Valeur 4 · Craft 3 · Fit 4 · en top 2 chez : F-E Dev</p>
+  <p>Le panel garde son moment (l&#x27;opt-in) mais pas son script : c&#x27;est à l&#x27;opt-in qu&#x27;on filme l&#x27;écran « avant », dont F a besoin.</p>
+  <p class='dis'><b>Dissent :</b> Irisa Fit 2 (médiane 4) · Paul (PM) Fit 2 (médiane 4) · B-E Dev Fit 2 (médiane 4) · Lead Eng. Fit 2 (médiane 4)</p>
+  <blockquote class='obj'>« Je ship sept PRD par semaine : un script au brainstorm, c&#x27;est du travail par PRD, sauf si Omni le rédige. »<cite>persona:Paul - Product Manager</cite></blockquote>
+  
+  <details><summary>Scores et position de chaque membre du panel</summary><table><tr><th></th><th>Wow</th><th>Valeur</th><th>Craft</th><th>Fit</th><th>Position (tour 2)</th></tr><tr><th>Visionary</th><td>2</td><td>4</td><td>3</td><td>4</td><td class='st'>Not a script at brainstorm: its value is filming the &quot;before&quot; at opt-in, which F&#x27;s wipe depends on.</td></tr><tr><th>Craft</th><td>3</td><td>4</td><td>4</td><td>5</td><td class='st'>the timing spine: opt-in and the &quot;before&quot; are filmed here, and the script slots become G&#x27;s segments.</td></tr><tr><th>Skeptic</th><td>3</td><td>4</td><td>3</td><td>4</td><td class='st'>keep it as the one-tap opt-in moment that films the &quot;before&quot; and drafts the copy; re-check every line at ship.</td></tr><tr><th>Value</th><td>3</td><td>4</td><td>3</td><td>4</td><td class='st'>Not as a script chore, but as the opt-in moment that films &quot;before&quot; for F. The enabler of the best reader moment.</td></tr><tr><th>Irisa</th><td>3</td><td>3</td><td>3</td><td>2</td><td class='st'>Only the &quot;already reviewed on ship day&quot; half appeals; a drift check is needed.</td></tr><tr><th>Paul (PM)</th><td>3</td><td>3</td><td>3</td><td>2</td><td class='st'>front-loads work per PRD; only if Omni drafts the script.</td></tr><tr><th>B-E Dev</th><td>3</td><td>3</td><td>3</td><td>2</td><td class='st'>a script before the code is a promise that goes stale; draft only, re-checked at ship.</td></tr><tr><th>Lead Eng.</th><td>3</td><td>3</td><td>3</td><td>2</td><td class='st'>still adds a script slot to the build; never let it block a slice.</td></tr><tr><th>F-E Dev</th><td>3</td><td>4</td><td>4</td><td>4</td><td class='st'>Right spine if every slot is a real clip re-verified at ship.</td></tr></table></details>
+ </div>
+ <fieldset class="react"><legend>Ta réaction</legend>
+  <label><input type="radio" name="rA" value="keep"> Garder</label>
+  <label><input type="radio" name="rA" value="kill"> Tuer</label>
+  <label><input type="radio" name="rA" value="merge"> Fusionner dans <select name="mA"><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rA" value="push"> Pousser plus loin</label>
+  <input type="text" name="nA" placeholder="Note (facultatif)">
+ </fieldset>
+</section>
+<section class="concept" id="cB" data-letter="B">
+ <header><span class="let">B</span><div><h2>Click-through</h2><p class="wow">Un sales clique la feature en 40 s depuis le post, puis rejoue la démo devant un client.</p><p class="axis">UNITÉ : pas de vidéo, une démo cliquable.</p></div></header>
+ <iframe title="Carte B" sandbox="" srcdoc="&lt;style&gt;:root{--g:#07061c;--s:#120f3a;--k:#0e0d33;--l:#1a2170;--ls:#5a60c4;--i:#f2f4ff;--m:#8a90d6;--p:#ffd84a;--op:#07061c;--pk:#ff3ea5;--c:#6ff0ff;--gr:#4ee08a;--b:&quot;Atkinson Hyperlegible Next&quot;,&quot;Atkinson Hyperlegible&quot;,system-ui,sans-serif;--mo:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--g);color:var(--i);font:17px/1.6 var(--b)}
+.note{max-width:960px;margin:0 auto;padding:16px;font:13px/1.5 system-ui,sans-serif;color:var(--m)}.note b{color:var(--i)}
+.ask{max-width:960px;margin:0 auto;padding:0 0 40px;display:grid;gap:18px}
+.head{background:var(--s);border-bottom:1.5px solid var(--ls);padding:16px 32px 0;display:grid;gap:12px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:26px;line-height:1.25}.n{color:var(--p)}
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;border:1.5px solid var(--ls);background:var(--k);color:var(--i);font:700 15px/1.2 var(--b);cursor:pointer}
+.btn.pri{background:var(--p);border-color:var(--p);color:var(--op)}
+.track{list-style:none;margin:0;padding:0;display:flex;gap:4px;flex-wrap:wrap;font:600 12px/1 var(--mo)}
+.track li{padding:6px 9px;border-radius:999px;border:1px solid var(--ls);color:var(--m)}
+.track .pa{color:var(--i);background:var(--k)}.track .cu{background:var(--p);color:var(--op);border-color:var(--p);font-weight:800}
+.tabs{display:flex;gap:4px;margin:0 -18px;overflow-x:auto}.tab{padding:10px 14px;font-weight:700;border-bottom:3px solid transparent;white-space:nowrap;color:var(--m)}
+.tab.on{color:var(--i);border-color:var(--p)}
+.pane{padding:0 32px;display:grid;gap:16px}
+.hint{color:var(--m);font-size:15px}
+.lbl{font:700 11px/1 var(--b);letter-spacing:.08em;text-transform:uppercase;color:var(--m)}
+.box{background:var(--s);border:1.5px solid var(--l);border-radius:10px;padding:14px 16px}
+@media(max-width:700px){.head,.pane{padding-left:16px;padding-right:16px}}
+
+.two{display:grid;grid-template-columns:1fr 1.5fr;gap:18px}
+@media(max-width:760px){.two{grid-template-columns:1fr}}
+.st{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.st li{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;background:var(--k);border:1.5px solid var(--l);border-radius:8px;padding:8px 10px}
+.st li.on{border-color:var(--p)}.st b{font:700 13px var(--mo);color:var(--p)}
+.demo{background:var(--k);border:1.5px solid var(--ls);border-radius:10px;overflow:hidden}
+.bar{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--l)}.bar i{width:9px;height:9px;border-radius:50%;background:var(--ls)}
+.scr{position:relative;height:190px;padding:14px;display:grid;gap:8px;align-content:start}
+.ln{height:14px;border-radius:4px;background:var(--l)}
+.hot{position:absolute;right:34px;top:30px;width:120px;height:26px;border:2px solid var(--p);border-radius:6px;box-shadow:0 0 0 999px rgba(7,6,28,.55)}
+.tip{position:absolute;right:20px;top:66px;background:var(--p);color:var(--op);font:700 14px var(--b);padding:6px 10px;border-radius:8px}
+.dots{display:flex;gap:6px;justify-content:center;padding:8px}.dots i{width:8px;height:8px;border-radius:50%;background:var(--ls)}.dots i.on{background:var(--p)}
+.pv{background:#fff;color:#1d1c1d;border-radius:10px;padding:12px 14px;font:15px/1.5 system-ui,sans-serif}
+.pv .lk{color:#1264a3;font-weight:600}
+&lt;/style&gt;
+&lt;p class=&quot;note&quot;&gt;&lt;b&gt;Concept: Click-through.&lt;/b&gt; Contrarian axis: no video. The launch is a clickable demo (5 steps built from the filmed E2E moments) that colleagues click inside the post&#x27;s link and sales replay in front of a customer, with the short copy above it. Screen: Launch tab, review before publish.&lt;/p&gt;
+&lt;main class=&quot;ask&quot; data-screen=&quot;prd-launch-demo&quot;&gt;
+ &lt;header class=&quot;head&quot;&gt;
+  &lt;div class=&quot;top&quot;&gt;&lt;h1&gt;&lt;span class=&quot;n&quot;&gt;PRD #1612&lt;/span&gt; &lt;span data-content&gt;Supplier invoices: source and date columns&lt;/span&gt;&lt;/h1&gt;
+   &lt;div style=&quot;display:flex;gap:8px&quot;&gt;&lt;button class=&quot;btn pri&quot; data-primary&gt;Post to #release-won&lt;/button&gt;&lt;button class=&quot;btn&quot;&gt;Copy demo link&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;ol class=&quot;track&quot;&gt;&lt;li class=&quot;pa&quot;&gt;idea&lt;/li&gt;&lt;li class=&quot;pa&quot;&gt;PRD&lt;/li&gt;&lt;li class=&quot;pa&quot;&gt;inbox&lt;/li&gt;&lt;li class=&quot;pa&quot;&gt;building&lt;/li&gt;&lt;li class=&quot;pa&quot;&gt;outbox&lt;/li&gt;&lt;li class=&quot;cu&quot;&gt;shipped&lt;/li&gt;&lt;/ol&gt;
+  &lt;nav class=&quot;tabs&quot;&gt;&lt;span class=&quot;tab&quot;&gt;Spec&lt;/span&gt;&lt;span class=&quot;tab&quot;&gt;Proof&lt;/span&gt;&lt;span class=&quot;tab on&quot;&gt;Launch&lt;/span&gt;&lt;span class=&quot;tab&quot;&gt;Retro&lt;/span&gt;&lt;/nav&gt;
+ &lt;/header&gt;
+ &lt;div class=&quot;pane&quot;&gt;&lt;div class=&quot;two&quot;&gt;
+  &lt;div style=&quot;display:grid;gap:10px;align-content:start&quot;&gt;
+   &lt;span class=&quot;lbl&quot;&gt;Steps&lt;/span&gt;
+   &lt;ol class=&quot;st&quot;&gt;
+    &lt;li&gt;&lt;b&gt;1&lt;/b&gt;&lt;span data-content&gt;Open Supplier invoices&lt;/span&gt;&lt;span class=&quot;hint&quot;&gt;edit&lt;/span&gt;&lt;/li&gt;
+    &lt;li class=&quot;on&quot;&gt;&lt;b&gt;2&lt;/b&gt;&lt;span data-content&gt;Spot the Source column&lt;/span&gt;&lt;span class=&quot;hint&quot;&gt;edit&lt;/span&gt;&lt;/li&gt;
+    &lt;li&gt;&lt;b&gt;3&lt;/b&gt;&lt;span data-content&gt;Filter by Peppol&lt;/span&gt;&lt;span class=&quot;hint&quot;&gt;edit&lt;/span&gt;&lt;/li&gt;
+    &lt;li&gt;&lt;b&gt;4&lt;/b&gt;&lt;span data-content&gt;Sort by Created&lt;/span&gt;&lt;span class=&quot;hint&quot;&gt;edit&lt;/span&gt;&lt;/li&gt;
+    &lt;li&gt;&lt;b&gt;5&lt;/b&gt;&lt;span data-content&gt;Clear the supplier&lt;/span&gt;&lt;span class=&quot;hint&quot;&gt;edit&lt;/span&gt;&lt;/li&gt;
+   &lt;/ol&gt;
+  &lt;/div&gt;
+  &lt;div style=&quot;display:grid;gap:12px;align-content:start&quot;&gt;
+   &lt;span class=&quot;lbl&quot;&gt;Demo preview&lt;/span&gt;
+   &lt;div class=&quot;demo&quot;&gt;
+    &lt;div class=&quot;bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;
+    &lt;div class=&quot;scr&quot;&gt;&lt;div class=&quot;ln&quot; style=&quot;width:70%&quot;&gt;&lt;/div&gt;&lt;div class=&quot;ln&quot; style=&quot;width:90%&quot;&gt;&lt;/div&gt;&lt;div class=&quot;ln&quot; style=&quot;width:55%&quot;&gt;&lt;/div&gt;&lt;div class=&quot;ln&quot; style=&quot;width:80%&quot;&gt;&lt;/div&gt;
+     &lt;div class=&quot;hot&quot;&gt;&lt;/div&gt;&lt;div class=&quot;tip&quot; data-content&gt;New: Source&lt;/div&gt;&lt;/div&gt;
+    &lt;div class=&quot;dots&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i class=&quot;on&quot;&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;
+   &lt;/div&gt;
+   &lt;span class=&quot;lbl&quot;&gt;Slack preview&lt;/span&gt;
+   &lt;div class=&quot;pv&quot; data-content&gt;:tada: &lt;b&gt;Find imported invoices fast.&lt;/b&gt; Source and Created, filterable.&lt;br&gt;&lt;span class=&quot;lk&quot;&gt;Click through it, 40 s&lt;/span&gt;&lt;/div&gt;
+  &lt;/div&gt;
+ &lt;/div&gt;&lt;/div&gt;
+&lt;/main&gt;
+"></iframe>
+ <div class="verdict">
+  <p class="cons"><b>Consensus</b> · Wow 3 · Valeur 4 · Craft 3 · Fit 4 · en top 2 chez : B-E Dev</p>
+  <p>Unanime : une deuxième sortie dans le thread (« Click through it »), pas l&#x27;annonce elle-même.</p>
+  
+  <p class='muted'>Aucune persona ne s'y oppose.</p>
+  
+  <details><summary>Scores et position de chaque membre du panel</summary><table><tr><th></th><th>Wow</th><th>Valeur</th><th>Craft</th><th>Fit</th><th>Position (tour 2)</th></tr><tr><th>Visionary</th><td>3</td><td>4</td><td>3</td><td>4</td><td class='st'>The sales encore in the thread (&quot;Click through it&quot;), never the headline.</td></tr><tr><th>Craft</th><td>3</td><td>4</td><td>3</td><td>4</td><td class='st'>a second output in the thread (&quot;Click through it&quot;), built from the same moments as the wipe.</td></tr><tr><th>Skeptic</th><td>3</td><td>4</td><td>3</td><td>3</td><td class='st'>honest companion in the thread, once sales can open it without an Omni sign-in and the filmed data is safe to show.</td></tr><tr><th>Value</th><td>2</td><td>4</td><td>3</td><td>3</td><td class='st'>A sales tool in the thread, if non-Omni colleagues can open it and it shows no real customer data.</td></tr><tr><th>Irisa</th><td>3</td><td>4</td><td>3</td><td>4</td><td class='st'>A cheap companion in the thread that sales can replay.</td></tr><tr><th>Paul (PM)</th><td>2</td><td>4</td><td>3</td><td>4</td><td class='st'>cheap second output in the thread, not the launch.</td></tr><tr><th>B-E Dev</th><td>3</td><td>4</td><td>4</td><td>4</td><td class='st'>the honest demo, cheap enough to happen; belongs in the thread under D.</td></tr><tr><th>Lead Eng.</th><td>3</td><td>4</td><td>3</td><td>4</td><td class='st'>cheapest and honest, best as the second output in the thread.</td></tr><tr><th>F-E Dev</th><td>3</td><td>4</td><td>4</td><td>4</td><td class='st'>The most honest unit; best as the post&#x27;s second button.</td></tr></table></details>
+ </div>
+ <fieldset class="react"><legend>Ta réaction</legend>
+  <label><input type="radio" name="rB" value="keep"> Garder</label>
+  <label><input type="radio" name="rB" value="kill"> Tuer</label>
+  <label><input type="radio" name="rB" value="merge"> Fusionner dans <select name="mB"><option>A</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rB" value="push"> Pousser plus loin</label>
+  <input type="text" name="nB" placeholder="Note (facultatif)">
+ </fieldset>
+</section>
+<section class="concept" id="cC" data-letter="C">
+ <header><span class="let">C</span><div><h2>The Trailer Cut</h2><p class="wow">Un poster de film avec play et tagline dans #release-won au lieu d&#x27;un paragraphe.</p><p class="axis">STYLE : bande-annonce cinéma en 4 temps.</p></div></header>
+ <iframe title="Carte C" sandbox="" srcdoc="&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;&gt;&lt;title&gt;Trailer cut&lt;/title&gt;
+&lt;style&gt;
+:root{--g:#07061c;--s:#120f3a;--k:#0e0d33;--l:#1a2170;--ls:#5a60c4;--i:#f2f4ff;--m:#8a90d6;--p:#ffd84a;--op:#07061c;--pk:#ff3ea5;--c:#6ff0ff;--gr:#4ee08a;--b:&quot;Atkinson Hyperlegible Next&quot;,system-ui,sans-serif;--mono:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--g);color:var(--i);font:16px/1.5 var(--b)}
+.note{max-width:960px;margin:0 auto;padding:12px 16px;font:13px/1.5 system-ui,sans-serif;color:var(--m)}.note b{color:var(--i)}
+.ask{max-width:960px;margin:0 auto;padding:0 16px 32px;display:grid;gap:16px}
+.head{background:var(--s);border-bottom:1.5px solid var(--ls);padding:14px 16px 0;margin:0 -16px;display:grid;gap:10px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+h1{margin:0;font-size:22px;line-height:1.25;flex:1 1 300px}.n{color:var(--p)}
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;border:1.5px solid var(--ls);background:var(--k);color:var(--i);font:700 15px/1.2 var(--b)}
+.btn.pri{background:var(--p);border-color:var(--p);color:var(--op)}
+.tabs{display:flex;gap:4px;overflow-x:auto;border-top:1px solid var(--ls)}.tab{padding:9px 12px;font-weight:700;white-space:nowrap;border-bottom:3px solid transparent}.tab.on{border-color:var(--p)}.tab small{font:600 12px var(--mono);color:var(--m)}
+.stage{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,4fr);gap:20px}
+@media(max-width:760px){.stage{grid-template-columns:1fr}}
+.poster{position:relative;aspect-ratio:2/3;max-height:560px;width:100%;background:linear-gradient(180deg,#1a2170,#07061c 75%);border:1.5px solid var(--ls);border-radius:8px;overflow:hidden;display:grid;align-content:space-between;padding:20px;text-align:center}
+.poster svg{position:absolute;inset:0;width:100%;height:100%}
+.pz{position:relative;font:700 12px var(--mono);letter-spacing:.18em;color:var(--c)}
+.pt{position:relative;font:italic 900 40px/1 Anton,Impact,system-ui;letter-spacing:.01em;text-transform:uppercase;text-shadow:0 4px 14px rgba(0,0,0,.6)}
+.pt span{color:var(--p)}
+.pb{position:relative;display:grid;gap:6px;font:600 12px var(--mono);color:var(--m)}
+.pb b{color:var(--i)}
+.col{display:grid;gap:14px;align-content:start}
+.col h2{margin:0;font-size:15px;color:var(--m);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.beats{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.beat{display:grid;grid-template-columns:72px 1fr auto;gap:10px;align-items:center;padding:8px;border:1px solid var(--l);border-radius:8px;background:var(--k)}
+.fr{height:44px;border-radius:4px;background:linear-gradient(135deg,#2a2350,#1a2170);border:1px solid var(--ls)}
+.beat small{font:600 12px var(--mono);color:var(--m)}
+.tag{font:600 13px var(--mono);color:var(--m);padding:3px 8px;border:1px solid var(--ls);border-radius:999px}
+.tag.ok{color:var(--gr)}
+.cast{display:flex;gap:8px;flex-wrap:wrap}
+.meter{display:flex;gap:12px;flex-wrap:wrap;font:600 13px var(--mono);color:var(--m)}
+&lt;/style&gt;&lt;/head&gt;&lt;body&gt;
+&lt;p class=&quot;note&quot;&gt;&lt;b&gt;Concept: The Trailer Cut.&lt;/b&gt; Film trailers. On a shipped, opted-in PRD, the Launch tab shows a poster, a tagline and a 4-beat trailer. The PM edits a line, hits premiere. Caption outside the screen.&lt;/p&gt;
+&lt;main class=&quot;ask&quot; data-screen=&quot;launch-trailer&quot;&gt;
+&lt;header class=&quot;head&quot;&gt;
+ &lt;div class=&quot;top&quot;&gt;&lt;h1&gt;&lt;span class=&quot;n&quot;&gt;PRD #1432&lt;/span&gt; Supplier invoices: find imported ones&lt;/h1&gt;
+  &lt;div style=&quot;display:flex;gap:8px&quot;&gt;&lt;a class=&quot;btn&quot;&gt;Re-cut&lt;/a&gt;&lt;a class=&quot;btn pri&quot; data-primary href=&quot;#premiere&quot;&gt;Premiere in #release-won&lt;/a&gt;&lt;/div&gt;&lt;/div&gt;
+ &lt;nav class=&quot;tabs&quot;&gt;&lt;span class=&quot;tab&quot;&gt;Spec&lt;/span&gt;&lt;span class=&quot;tab&quot;&gt;Proof&lt;/span&gt;&lt;span class=&quot;tab on&quot; style=&quot;border-bottom-color:var(--p)&quot;&gt;Launch &lt;small&gt;draft&lt;/small&gt;&lt;/span&gt;&lt;span class=&quot;tab&quot;&gt;Retro&lt;/span&gt;&lt;/nav&gt;
+&lt;/header&gt;
+&lt;section class=&quot;stage&quot;&gt;
+ &lt;div class=&quot;poster&quot; aria-label=&quot;Poster&quot;&gt;
+  &lt;svg viewBox=&quot;0 0 300 450&quot; preserveAspectRatio=&quot;xMidYMid slice&quot;&gt;&lt;g fill=&quot;#f2f4ff&quot; opacity=&quot;.7&quot;&gt;&lt;circle cx=&quot;40&quot; cy=&quot;60&quot; r=&quot;1.5&quot;/&gt;&lt;circle cx=&quot;250&quot; cy=&quot;40&quot; r=&quot;1.5&quot;/&gt;&lt;circle cx=&quot;180&quot; cy=&quot;110&quot; r=&quot;1&quot;/&gt;&lt;circle cx=&quot;90&quot; cy=&quot;150&quot; r=&quot;1&quot;/&gt;&lt;circle cx=&quot;270&quot; cy=&quot;170&quot; r=&quot;1.5&quot;/&gt;&lt;/g&gt;&lt;rect x=&quot;40&quot; y=&quot;170&quot; width=&quot;220&quot; height=&quot;130&quot; rx=&quot;6&quot; fill=&quot;#120f3a&quot; stroke=&quot;#6ff0ff&quot; stroke-width=&quot;2&quot;/&gt;&lt;rect x=&quot;56&quot; y=&quot;188&quot; width=&quot;90&quot; height=&quot;10&quot; fill=&quot;#ffd84a&quot;/&gt;&lt;rect x=&quot;56&quot; y=&quot;210&quot; width=&quot;188&quot; height=&quot;8&quot; fill=&quot;#5a60c4&quot;/&gt;&lt;rect x=&quot;56&quot; y=&quot;228&quot; width=&quot;160&quot; height=&quot;8&quot; fill=&quot;#5a60c4&quot;/&gt;&lt;rect x=&quot;56&quot; y=&quot;246&quot; width=&quot;120&quot; height=&quot;8&quot; fill=&quot;#ff3ea5&quot;/&gt;&lt;/svg&gt;
+  &lt;div class=&quot;pz&quot;&gt;OMNI PICTURES PRESENTS&lt;/div&gt;
+  &lt;div class=&quot;pt&quot;&gt;Find the &lt;span&gt;invoice&lt;/span&gt;&lt;br&gt;you were looking for&lt;/div&gt;
+  &lt;div class=&quot;pb&quot;&gt;&lt;span&gt;Starring &lt;b&gt;Source&lt;/b&gt; and &lt;b&gt;Creation date&lt;/b&gt;&lt;/span&gt;&lt;span&gt;In every workspace Oct 15&lt;/span&gt;&lt;/div&gt;
+ &lt;/div&gt;
+ &lt;div class=&quot;col&quot;&gt;
+  &lt;h2&gt;Trailer, 24 s&lt;/h2&gt;
+  &lt;ol class=&quot;beats&quot;&gt;
+   &lt;li class=&quot;beat&quot;&gt;&lt;div class=&quot;fr&quot;&gt;&lt;/div&gt;&lt;div&gt;Lost in the list&lt;br&gt;&lt;small&gt;0:00 · before&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;tag&quot;&gt;edit&lt;/span&gt;&lt;/li&gt;
+   &lt;li class=&quot;beat&quot;&gt;&lt;div class=&quot;fr&quot;&gt;&lt;/div&gt;&lt;div&gt;Two new columns&lt;br&gt;&lt;small&gt;0:06 · zoom on click&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;tag&quot;&gt;edit&lt;/span&gt;&lt;/li&gt;
+   &lt;li class=&quot;beat&quot;&gt;&lt;div class=&quot;fr&quot;&gt;&lt;/div&gt;&lt;div&gt;Filter in one click&lt;br&gt;&lt;small&gt;0:13 · live clip&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;tag&quot;&gt;edit&lt;/span&gt;&lt;/li&gt;
+   &lt;li class=&quot;beat&quot;&gt;&lt;div class=&quot;fr&quot;&gt;&lt;/div&gt;&lt;div&gt;Try it now&lt;br&gt;&lt;small&gt;0:20 · end card&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;tag ok&quot;&gt;kept&lt;/span&gt;&lt;/li&gt;
+  &lt;/ol&gt;
+  &lt;h2&gt;Asked for by&lt;/h2&gt;
+  &lt;div class=&quot;cast&quot;&gt;&lt;span class=&quot;tag&quot;&gt;RADV&lt;/span&gt;&lt;span class=&quot;tag&quot;&gt;2 more&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;meter&quot;&gt;&lt;span&gt;Voice: Kokoro&lt;/span&gt;&lt;span&gt;Music: free&lt;/span&gt;&lt;span&gt;Render 38 s&lt;/span&gt;&lt;/div&gt;
+ &lt;/div&gt;
+&lt;/section&gt;
+&lt;/main&gt;
+&lt;p class=&quot;note&quot;&gt;Wow: the colleague scrolling #release-won sees a movie poster with a play button, not a paragraph. Not drawn: the Slack thread, the voice track.&lt;/p&gt;
+&lt;/body&gt;&lt;/html&gt;
+"></iframe>
+ <div class="verdict">
+  <p class="cons"><b>Consensus</b> · Wow 4 · Valeur 3 · Craft 3 · Fit 2 · en top 2 chez : personne</p>
+  <p>Le Visionary l&#x27;a lâché comme flagship au cross-talk ; reste un tier « Premiere » pour les gros lancements, dans le look du produit, sans le costume poster.</p>
+  
+  <blockquote class='obj'>« J&#x27;aurais honte d&#x27;une bande-annonce de cinéma pour un filtre de colonne. »<cite>persona:B-E DEv</cite></blockquote>
+  
+  <details><summary>Scores et position de chaque membre du panel</summary><table><tr><th></th><th>Wow</th><th>Valeur</th><th>Craft</th><th>Fit</th><th>Position (tour 2)</th></tr><tr><th>Visionary</th><td>4</td><td>3</td><td>3</td><td>3</td><td class='st'>Moved: drop the film costume; its beats, ident and voice become the opt-in Premiere tier on top of F.</td></tr><tr><th>Craft</th><td>5</td><td>3</td><td>3</td><td>3</td><td class='st'>a tier for big launches only, in the product&#x27;s own look from its Pitch settings, never Omni&#x27;s poster costume.</td></tr><tr><th>Skeptic</th><td>5</td><td>3</td><td>3</td><td>3</td><td class='st'>a &quot;big launch&quot; tier only, if the free voice passes Pierre&#x27;s ear and no customer name is burned into the file.</td></tr><tr><th>Value</th><td>5</td><td>2</td><td>3</td><td>2</td><td class='st'>A tier for the rare big launch. As the default, the builders cringe and the channel gets muted.</td></tr><tr><th>Irisa</th><td>4</td><td>3</td><td>4</td><td>2</td><td class='st'>Tentpoles only; not for my quick wins.</td></tr><tr><th>Paul (PM)</th><td>4</td><td>2</td><td>4</td><td>2</td><td class='st'>tentpoles only, not my weekly cadence.</td></tr><tr><th>B-E Dev</th><td>3</td><td>2</td><td>3</td><td>1</td><td class='st'>costume for a column filter; only as a rare big-launch tier.</td></tr><tr><th>Lead Eng.</th><td>4</td><td>3</td><td>3</td><td>2</td><td class='st'>marketing costume my teams would not own.</td></tr><tr><th>F-E Dev</th><td>4</td><td>3</td><td>3</td><td>2</td><td class='st'>Good beat structure, wrong costume; poster must be a real frame.</td></tr></table></details>
+ </div>
+ <fieldset class="react"><legend>Ta réaction</legend>
+  <label><input type="radio" name="rC" value="keep"> Garder</label>
+  <label><input type="radio" name="rC" value="kill"> Tuer</label>
+  <label><input type="radio" name="rC" value="merge"> Fusionner dans <select name="mC"><option>A</option><option>B</option><option>D</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rC" value="push"> Pousser plus loin</label>
+  <input type="text" name="nC" placeholder="Note (facultatif)">
+ </fieldset>
+</section>
+<section class="concept" id="cD" data-letter="D">
+ <header><span class="let">D</span><div><h2>The Wire</h2><p class="wow">Le PM, en éditeur, choisit un angle de titre parmi trois et édite le chapô en voyant « tel que ça sera lu » dans Slack.</p><p class="axis">LE TEXTE MÈNE : copy + preuve d&#x27;abord, clip secondaire.</p></div></header>
+ <iframe title="Carte D" sandbox="" srcdoc="&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;&gt;&lt;title&gt;The Wire&lt;/title&gt;
+&lt;style&gt;
+:root{--g:#07061c;--s:#120f3a;--k:#0e0d33;--l:#1a2170;--ls:#5a60c4;--i:#f2f4ff;--m:#8a90d6;--p:#ffd84a;--op:#07061c;--pk:#ff3ea5;--c:#6ff0ff;--gr:#4ee08a;--b:&quot;Atkinson Hyperlegible Next&quot;,system-ui,sans-serif;--mono:&quot;JetBrains Mono&quot;,ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--g);color:var(--i);font:16px/1.55 var(--b)}
+.note{max-width:960px;margin:0 auto;padding:12px 16px;font:13px/1.5 system-ui,sans-serif;color:var(--m)}.note b{color:var(--i)}
+.ask{max-width:960px;margin:0 auto;padding:0 16px 32px;display:grid;gap:16px}
+.head{background:var(--s);border-bottom:1.5px solid var(--ls);padding:14px 16px 0;margin:0 -16px;display:grid;gap:10px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+h1{margin:0;font-size:22px;line-height:1.25;flex:1 1 300px}.n{color:var(--p)}
+.btn{display:inline-block;padding:8px 14px;border-radius:8px;border:1.5px solid var(--ls);background:var(--k);color:var(--i);font:700 15px/1.2 var(--b)}
+.btn.pri{background:var(--p);border-color:var(--p);color:var(--op)}
+.tabs{display:flex;gap:4px;border-top:1px solid var(--ls)}.tab{padding:9px 12px;font-weight:700;border-bottom:3px solid transparent}.tab.on{border-color:var(--p)}.tab small{font:600 12px var(--mono);color:var(--m)}
+.grid{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:20px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.sec{display:grid;gap:10px;align-content:start}
+h2{margin:0;font:700 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--m)}
+.opt{display:flex;gap:10px;align-items:baseline;padding:10px 12px;border:1px solid var(--l);border-radius:8px;background:var(--k)}
+.opt.on{border-color:var(--p);background:var(--s)}
+.dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--ls);flex:none;transform:translateY(1px)}.on .dot{background:var(--p);border-color:var(--p)}
+.opt b{font-size:18px;line-height:1.3}
+.opt small{display:block;color:var(--m);font:600 12px var(--mono)}
+.lede{margin:0;font-size:17px;max-width:62ch}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vs div{padding:10px;border-radius:8px;border:1px solid var(--l);background:var(--k);font-size:15px}
+.vs h3{margin:0 0 4px;font:700 12px var(--mono);color:var(--m)}
+.vs .after{border-color:var(--gr)}
+.slack{border:1px solid var(--ls);border-radius:8px;background:var(--k);padding:12px;display:grid;gap:8px}
+.slack .who{display:flex;gap:8px;align-items:center;font-weight:700;font-size:14px}
+.av{width:28px;height:28px;border-radius:6px;background:var(--p)}
+.slack p{margin:0;font-size:14px}
+.clip{height:40px;border-radius:6px;background:linear-gradient(135deg,#2a2350,#1a2170);border:1px solid var(--ls);display:grid;place-items:center}
+.chip{display:inline-block;padding:3px 9px;border-radius:999px;border:1px solid var(--ls);font:600 13px var(--mono);color:var(--c);margin-right:6px}
+.chip.w{color:var(--p)}
+.wire{display:flex;gap:8px;flex-wrap:wrap;font:600 13px var(--mono);color:var(--m)}
+&lt;/style&gt;&lt;/head&gt;&lt;body&gt;
+&lt;p class=&quot;note&quot;&gt;&lt;b&gt;Concept: The Wire.&lt;/b&gt; Newsrooms. A shipped, opted-in PRD files a story: three headline angles and a lede the PM edits in place. The PM picks and files. Caption outside the screen.&lt;/p&gt;
+&lt;main class=&quot;ask&quot; data-screen=&quot;launch-wire&quot;&gt;
+&lt;header class=&quot;head&quot;&gt;
+ &lt;div class=&quot;top&quot;&gt;&lt;h1&gt;&lt;span class=&quot;n&quot;&gt;PRD #1432&lt;/span&gt; Supplier invoices: find imported ones&lt;/h1&gt;
+  &lt;div style=&quot;display:flex;gap:8px&quot;&gt;&lt;a class=&quot;btn&quot;&gt;Hold&lt;/a&gt;&lt;a class=&quot;btn pri&quot; data-primary href=&quot;#file&quot;&gt;File to #release-won&lt;/a&gt;&lt;/div&gt;&lt;/div&gt;
+ &lt;nav class=&quot;tabs&quot;&gt;&lt;span class=&quot;tab&quot;&gt;Spec&lt;/span&gt;&lt;span class=&quot;tab&quot;&gt;Proof&lt;/span&gt;&lt;span class=&quot;tab on&quot;&gt;Launch &lt;small&gt;desk&lt;/small&gt;&lt;/span&gt;&lt;span class=&quot;tab&quot;&gt;Retro&lt;/span&gt;&lt;/nav&gt;
+&lt;/header&gt;
+&lt;section class=&quot;grid&quot;&gt;
+ &lt;div class=&quot;sec&quot;&gt;
+  &lt;h2&gt;Headline&lt;/h2&gt;
+  &lt;div class=&quot;opt on&quot;&gt;&lt;span class=&quot;dot&quot;&gt;&lt;/span&gt;&lt;div&gt;&lt;b&gt;Find imported invoices in one click&lt;/b&gt;&lt;small&gt;benefit first&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;div class=&quot;opt&quot;&gt;&lt;span class=&quot;dot&quot;&gt;&lt;/span&gt;&lt;div&gt;&lt;b&gt;Supplier invoices now show their source&lt;/b&gt;&lt;small&gt;plain&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;div class=&quot;opt&quot;&gt;&lt;span class=&quot;dot&quot;&gt;&lt;/span&gt;&lt;div&gt;&lt;b&gt;No more guessing which invoice is AI&lt;/b&gt;&lt;small&gt;pain first&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;h2&gt;Lede&lt;/h2&gt;
+  &lt;p class=&quot;lede&quot; contenteditable&gt;Imported invoices no longer hide among manual ones. Filter by Source and Creation date, and find them at once.&lt;/p&gt;
+  &lt;div class=&quot;vs&quot;&gt;&lt;div&gt;&lt;h3&gt;BEFORE&lt;/h3&gt;Peppol, AI and manual invoices looked the same.&lt;/div&gt;&lt;div class=&quot;after&quot;&gt;&lt;h3&gt;NOW&lt;/h3&gt;Two new columns. One filter.&lt;/div&gt;&lt;/div&gt;
+  &lt;h2&gt;Sources&lt;/h2&gt;
+  &lt;div class=&quot;wire&quot;&gt;&lt;span class=&quot;chip&quot;&gt;Spec&lt;/span&gt;&lt;span class=&quot;chip&quot;&gt;Release note&lt;/span&gt;&lt;span class=&quot;chip&quot;&gt;Proof clip&lt;/span&gt;&lt;/div&gt;
+ &lt;/div&gt;
+ &lt;div class=&quot;sec&quot;&gt;
+  &lt;h2&gt;As it will read&lt;/h2&gt;
+  &lt;div class=&quot;slack&quot;&gt;
+   &lt;div class=&quot;who&quot;&gt;&lt;span class=&quot;av&quot;&gt;&lt;/span&gt;Omni · #release-won&lt;/div&gt;
+   &lt;p&gt;&lt;b&gt;What&#x27;s New: Find imported invoices in one click&lt;/b&gt;&lt;/p&gt;
+   &lt;div class=&quot;clip&quot;&gt;&lt;svg width=&quot;28&quot; height=&quot;28&quot; viewBox=&quot;0 0 28 28&quot;&gt;&lt;path d=&quot;M8 5l15 9-15 9z&quot; fill=&quot;#f2f4ff&quot;/&gt;&lt;/svg&gt;&lt;/div&gt;
+   &lt;p&gt;Imported invoices no longer hide among manual ones.&lt;/p&gt;
+   &lt;p style=&quot;color:var(--m)&quot;&gt;Note: since mid-September only.&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;wire&quot;&gt;&lt;span&gt;Voice: plain&lt;/span&gt;&lt;span&gt;Clip 12 s&lt;/span&gt;&lt;span&gt;No slide&lt;/span&gt;&lt;/div&gt;
+ &lt;/div&gt;
+&lt;/section&gt;
+&lt;/main&gt;
+&lt;p class=&quot;note&quot;&gt;Wow: the PM works as an editor, picks one of three headline angles, and watches the Slack post rewrite itself as it will read. Not drawn: video render, the thread reply.&lt;/p&gt;
+&lt;/body&gt;&lt;/html&gt;
+"></iframe>
+ <div class="verdict">
+  <p class="cons"><b>Consensus</b> · Wow 3 · Valeur 4 · Craft 4 · Fit 5 · en top 2 chez : Craft, Skeptic, Irisa, Paul (PM), B-E Dev, Lead Eng.</p>
+  <p>« Le cœur du texte » pour tout le panel ; ajouts proposés : champ Limites obligatoire, champ « demandé par », aperçu produit par la même fonction que l&#x27;envoi.</p>
+  
+  <p class='muted'>Aucune persona ne s'y oppose.</p>
+  <p class='muted small'>Mots gardés exprès : les phrases signalées sont le titre et le chapô générés que le PM édite, donc le contenu même du concept.</p>
+  <details><summary>Scores et position de chaque membre du panel</summary><table><tr><th></th><th>Wow</th><th>Valeur</th><th>Craft</th><th>Fit</th><th>Position (tour 2)</th></tr><tr><th>Visionary</th><td>3</td><td>5</td><td>4</td><td>5</td><td class='st'>The PM&#x27;s desk where every launch is decided; G&#x27;s editing lives inside it.</td></tr><tr><th>Craft</th><td>3</td><td>5</td><td>4</td><td>5</td><td class='st'>the desk: headline angles, lede, required Limits field, Asked-for field, &quot;As it will read&quot;, with F&#x27;s wipe as the clip.</td></tr><tr><th>Skeptic</th><td>3</td><td>5</td><td>4</td><td>5</td><td class='st'>the copy core with a required limits field; its preview must come from the same function that posts.</td></tr><tr><th>Value</th><td>2</td><td>5</td><td>4</td><td>5</td><td class='st'>The copy and Limits field are what CS quotes to customers, so this is the review desk the winner needs.</td></tr><tr><th>Irisa</th><td>3</td><td>4</td><td>4</td><td>5</td><td class='st'>The review I would really do on a phone; the copy core.</td></tr><tr><th>Paul (PM)</th><td>3</td><td>4</td><td>4</td><td>5</td><td class='st'>the copy core every launch needs, 30 s review.</td></tr><tr><th>B-E Dev</th><td>3</td><td>4</td><td>4</td><td>5</td><td class='st'>the post I&#x27;d respect; boring on purpose, sources enforced.</td></tr><tr><th>Lead Eng.</th><td>3</td><td>4</td><td>4</td><td>4</td><td class='st'>the copy core, a review step only the PM sees.</td></tr><tr><th>F-E Dev</th><td>3</td><td>4</td><td>4</td><td>4</td><td class='st'>The copy core, honest when every sentence has a source.</td></tr></table></details>
+ </div>
+ <fieldset class="react"><legend>Ta réaction</legend>
+  <label><input type="radio" name="rD" value="keep"> Garder</label>
+  <label><input type="radio" name="rD" value="kill"> Tuer</label>
+  <label><input type="radio" name="rD" value="merge"> Fusionner dans <select name="mD"><option>A</option><option>B</option><option>C</option><option>E</option><option>F</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rD" value="push"> Pousser plus loin</label>
+  <input type="text" name="nD" placeholder="Note (facultatif)">
+ </fieldset>
+</section>
+<section class="concept" id="cE" data-letter="E">
+ <header><span class="let">E</span><div><h2>The Direct</h2><p class="wow">Chaque vendredi 11h, un show « Cette semaine chez Vertuoza » dans #release-won, attendu comme un Nintendo Direct.</p><p class="axis">CADENCE : un rendez-vous hebdo groupé.</p></div></header>
+ <iframe title="Carte E" sandbox="" srcdoc="&lt;style&gt;
+.d1{--g:#07061c;--s:#120f3a;--k:#0e0d33;--l:#5a60c4;--i:#f2f4ff;--m:#8a90d6;--p:#ffd84a;--c:#6ff0ff;--pk:#ff3ea5;--gr:#4ee08a;font:15px/1.5 &quot;Atkinson Hyperlegible Next&quot;,system-ui,sans-serif;color:var(--i);background:var(--g);max-width:960px;margin:0 auto;box-sizing:border-box}
+.d1 *{box-sizing:border-box}
+.cap1{font:13px/1.5 system-ui,sans-serif;color:#8a90d6;background:#07061c;padding:12px 16px;max-width:960px;margin:0 auto}
+.d1 .top{background:var(--s);border-bottom:1.5px solid var(--l);padding:14px 28px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.d1 h1{margin:0;font-size:24px}.d1 h1 b{color:var(--p)}
+.d1 .when{font:700 12px/1 &quot;JetBrains Mono&quot;,monospace;color:var(--c);border:1px solid var(--l);border-radius:99px;padding:7px 11px}
+.d1 .body{padding:20px 28px;display:grid;grid-template-columns:1fr 1.2fr;gap:20px}
+.d1 .lab{font:700 11px/1 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--m);margin-bottom:8px}
+.d1 .rundown{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.d1 .seg{display:flex;gap:10px;align-items:center;background:var(--s);border:1.5px solid var(--l);border-radius:10px;padding:9px 12px}
+.d1 .seg .n{font:800 13px/1 &quot;JetBrains Mono&quot;,monospace;color:var(--p);width:22px}
+.d1 .seg .t{flex:1;font-weight:700}.d1 .seg small{display:block;font-weight:400;color:var(--m);font-size:12px}
+.d1 .tag{font:700 11px/1 &quot;JetBrains Mono&quot;,monospace;padding:5px 8px;border-radius:99px}
+.d1 .ok{background:var(--gr);color:var(--g)}.d1 .wait{background:var(--pk);color:var(--g)}.d1 .out{border:1px dashed var(--l);color:var(--m)}
+.d1 .seg.me{border-color:var(--p)}
+.d1 .scr{position:relative;aspect-ratio:16/9;border-radius:12px;border:1.5px solid var(--l);overflow:hidden;background:radial-gradient(circle at 75% 25%,#2a2350,#07061c 70%)}
+.d1 .scr .bug{position:absolute;left:5%;top:8%;font:700 11px/1 &quot;JetBrains Mono&quot;,monospace;letter-spacing:.14em;color:var(--c)}
+.d1 .scr .ttl{position:absolute;left:5%;top:24%;font:italic 800 42px/1 Anton,Impact,sans-serif;text-transform:uppercase;transform:skewX(-8deg)}
+.d1 .scr .ttl em{color:var(--p);font-style:normal}
+.d1 .scr .ep{position:absolute;left:5%;bottom:14%;display:flex;gap:6px}
+.d1 .scr .ep span{width:34px;height:20px;border-radius:4px;border:1.5px solid var(--l);background:var(--k)}
+.d1 .scr .ep .on{background:var(--p);border-color:var(--p)}
+.d1 .scr .bar{position:absolute;left:0;right:0;bottom:0;height:5px;background:#1a2170}.d1 .scr .bar b{display:block;width:22%;height:100%;background:var(--p)}
+.d1 .scr .len{position:absolute;right:12px;bottom:14px;font:700 12px/1 &quot;JetBrains Mono&quot;,monospace;color:var(--m)}
+.d1 .info{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}.d1 .info span{font:600 12px/1 &quot;JetBrains Mono&quot;,monospace;padding:5px 8px;border-radius:99px;border:1px solid var(--l);color:var(--m)}
+.d1 .act{display:flex;gap:8px;align-items:center;padding:0 28px 22px;flex-wrap:wrap}
+.d1 .btn{padding:11px 18px;border-radius:8px;border:1.5px solid var(--l);background:var(--k);color:var(--i);font:700 15px/1.2 inherit;text-decoration:none}
+.d1 .btn.pri{background:var(--p);border-color:var(--p);color:var(--g);font-size:16px}
+.d1 .hint{color:var(--m);font-size:13px;margin-left:auto}
+@media(max-width:700px){.d1 .body{grid-template-columns:1fr;padding:16px}.d1 .top,.d1 .act{padding-left:16px;padding-right:16px}}
+&lt;/style&gt;
+&lt;div class=&quot;cap1&quot;&gt;CONCEPT 1, THE DIRECT. A weekly show: launches opted in during the week become segments of one short film, posted every Friday in #release-won. Each segment is approved by its own PM. The wow is the ritual people wait for.&lt;/div&gt;
+&lt;div class=&quot;d1&quot;&gt;
+&lt;main data-screen=&quot;launch-direct&quot;&gt;
+ &lt;header class=&quot;top&quot;&gt;
+  &lt;h1&gt;&lt;b&gt;Omni Direct&lt;/b&gt; #42&lt;/h1&gt;
+  &lt;span class=&quot;when&quot;&gt;Fri 16 Oct · 11:00 · #release-won&lt;/span&gt;
+ &lt;/header&gt;
+ &lt;section class=&quot;body&quot; aria-label=&quot;This week&quot;&gt;
+  &lt;div&gt;
+   &lt;div class=&quot;lab&quot;&gt;This week&#x27;s rundown&lt;/div&gt;
+   &lt;ol class=&quot;rundown&quot;&gt;
+    &lt;li class=&quot;seg me&quot;&gt;&lt;span class=&quot;n&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;t&quot;&gt;Supplier invoices&lt;small&gt;Martin&lt;/small&gt;&lt;/span&gt;&lt;span class=&quot;tag ok&quot;&gt;APPROVED&lt;/span&gt;&lt;/li&gt;
+    &lt;li class=&quot;seg&quot;&gt;&lt;span class=&quot;n&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;t&quot;&gt;Quote duplicates&lt;small&gt;Amelie&lt;/small&gt;&lt;/span&gt;&lt;span class=&quot;tag ok&quot;&gt;APPROVED&lt;/span&gt;&lt;/li&gt;
+    &lt;li class=&quot;seg&quot;&gt;&lt;span class=&quot;n&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;t&quot;&gt;Faster planning&lt;small&gt;Irisa&lt;/small&gt;&lt;/span&gt;&lt;span class=&quot;tag wait&quot;&gt;WAITING&lt;/span&gt;&lt;/li&gt;
+    &lt;li class=&quot;seg&quot;&gt;&lt;span class=&quot;n&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;t&quot;&gt;Log cleanup&lt;small&gt;Kev&lt;/small&gt;&lt;/span&gt;&lt;span class=&quot;tag out&quot;&gt;OPTED OUT&lt;/span&gt;&lt;/li&gt;
+   &lt;/ol&gt;
+  &lt;/div&gt;
+  &lt;div&gt;
+   &lt;div class=&quot;scr&quot;&gt;
+    &lt;div class=&quot;bug&quot;&gt;OMNI DIRECT · FRI&lt;/div&gt;
+    &lt;div class=&quot;ttl&quot;&gt;This week&lt;br&gt;in &lt;em&gt;Vertuoza&lt;/em&gt;&lt;/div&gt;
+    &lt;div class=&quot;ep&quot;&gt;&lt;span class=&quot;on&quot;&gt;&lt;/span&gt;&lt;span class=&quot;on&quot;&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;
+    &lt;div class=&quot;len&quot;&gt;1:48&lt;/div&gt;&lt;div class=&quot;bar&quot;&gt;&lt;b&gt;&lt;/b&gt;&lt;/div&gt;
+   &lt;/div&gt;
+   &lt;div class=&quot;info&quot;&gt;&lt;span&gt;3 segments&lt;/span&gt;&lt;span&gt;Voice: Studio&lt;/span&gt;&lt;span&gt;Music: on&lt;/span&gt;&lt;span&gt;Auto-cut Thu 18:00&lt;/span&gt;&lt;/div&gt;
+  &lt;/div&gt;
+ &lt;/section&gt;
+ &lt;div class=&quot;act&quot;&gt;
+  &lt;a class=&quot;btn pri&quot; href=&quot;#&quot; data-primary&gt;Go live Friday 11:00&lt;/a&gt;
+  &lt;a class=&quot;btn&quot; href=&quot;#&quot;&gt;Preview the show&lt;/a&gt;
+  &lt;a class=&quot;btn&quot; href=&quot;#&quot;&gt;Hold to next week&lt;/a&gt;
+  &lt;span class=&quot;hint&quot;&gt;An unapproved segment waits for next week.&lt;/span&gt;
+ &lt;/div&gt;
+&lt;/main&gt;
+&lt;/div&gt;
+"></iframe>
+ <div class="verdict">
+  <p class="cons"><b>Consensus</b> · Wow 4 · Valeur 3 · Craft 4 · Fit 2 · en top 2 chez : Visionary</p>
+  <p>Gros wow (Visionary 5), mais tout le monde le veut en récap hebdo par-dessus les posts du jour, jamais comme passage obligé.</p>
+  <p class='dis'><b>Dissent :</b> Paul (PM) Fit 4 (médiane 2)</p>
+  <blockquote class='obj'>« Retenir la feature de mon équipe jusqu&#x27;au vendredi, c&#x27;est un risque de cadence que je ne porterai pas. »<cite>persona:Lead Engineer</cite></blockquote>
+  
+  <details><summary>Scores et position de chaque membre du panel</summary><table><tr><th></th><th>Wow</th><th>Valeur</th><th>Craft</th><th>Fit</th><th>Position (tour 2)</th></tr><tr><th>Visionary</th><td>5</td><td>3</td><td>4</td><td>3</td><td class='st'>The biggest wow on the board, as a Friday roll-up of approved Drops, never a gate.</td></tr><tr><th>Craft</th><td>5</td><td>3</td><td>3</td><td>2</td><td class='st'>an optional weekly roll-up of same-day posts, shown on each PRD&#x27;s Launch tab, never the only path.</td></tr><tr><th>Skeptic</th><td>4</td><td>3</td><td>4</td><td>2</td><td class='st'>a weekly roll-up of already-posted drops, never the gate; needs enough opted-in launches a week.</td></tr><tr><th>Value</th><td>4</td><td>3</td><td>3</td><td>2</td><td class='st'>A Friday roll-up for management on top of same-day posts. Never a gate.</td></tr><tr><th>Irisa</th><td>4</td><td>3</td><td>4</td><td>3</td><td class='st'>A good weekly roll-up if I can still post my win alone.</td></tr><tr><th>Paul (PM)</th><td>4</td><td>3</td><td>4</td><td>4</td><td class='st'>weekly roll-up on top of same-day posts.</td></tr><tr><th>B-E Dev</th><td>4</td><td>3</td><td>3</td><td>2</td><td class='st'>a weekly roll-up at most, never the only path.</td></tr><tr><th>Lead Eng.</th><td>5</td><td>3</td><td>4</td><td>2</td><td class='st'>acceptable only as a roll-up on top of same-day posts.</td></tr><tr><th>F-E Dev</th><td>3</td><td>3</td><td>3</td><td>2</td><td class='st'>Only a weekly roll-up on top of same-day posts, never the only path.</td></tr></table></details>
+ </div>
+ <fieldset class="react"><legend>Ta réaction</legend>
+  <label><input type="radio" name="rE" value="keep"> Garder</label>
+  <label><input type="radio" name="rE" value="kill"> Tuer</label>
+  <label><input type="radio" name="rE" value="merge"> Fusionner dans <select name="mE"><option>A</option><option>B</option><option>C</option><option>D</option><option>F</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rE" value="push"> Pousser plus loin</label>
+  <input type="text" name="nE" placeholder="Note (facultatif)">
+ </fieldset>
+</section>
+<section class="concept" id="cF" data-letter="F">
+ <header><span class="let">F</span><div><h2>The Drop</h2><p class="wow">Un volet avant/après qui joue dans le fil Slack : on comprend avant de lire.</p><p class="axis">LE MOMENT DU LECTEUR.</p></div></header>
+ <iframe title="Carte F" sandbox="" srcdoc="&lt;style&gt;
+.d2{font:15px/1.46 -apple-system,&quot;Segoe UI&quot;,system-ui,sans-serif;background:#1a1d21;color:#d1d2d3;max-width:760px;margin:0 auto;padding:16px;box-sizing:border-box}
+.d2 *{box-sizing:border-box}
+.d2 .cap{font:13px/1.5 system-ui,sans-serif;color:#8a90d6;margin-bottom:12px}
+.d2 .scr{background:#1a1d21;border:1px solid #35383d;border-radius:10px;overflow:hidden}
+.d2 .hd{padding:10px 16px;border-bottom:1px solid #35383d;font-weight:800;color:#fff}
+.d2 .msg{display:flex;gap:10px;padding:14px 16px}
+.d2 .av{width:38px;height:38px;border-radius:8px;background:#ffd84a;color:#07061c;font:800 11px/38px system-ui;text-align:center;flex:none}
+.d2 .nm{font-weight:800;color:#fff}.d2 .nm small{font-weight:400;color:#9a9ca0;margin-left:6px}
+.d2 .h{font-size:17px;font-weight:800;color:#fff;margin:4px 0 2px}
+.d2 .vid{position:relative;margin:8px 0;border-radius:10px;overflow:hidden;aspect-ratio:16/9;background:linear-gradient(120deg,#12104a,#07061c);border:1px solid #35383d;max-width:520px}
+.d2 .half{position:absolute;top:0;bottom:0;padding:12px;width:50%}
+.d2 .half.b{left:0;background:#2b1a2e}.d2 .half.a{right:0;background:#0f2a3a}
+.d2 .half span{font:700 10px/1 monospace;letter-spacing:.1em}
+.d2 .b span{color:#ff3ea5}.d2 .a span{color:#6ff0ff}
+.d2 .half i{display:block;height:8px;border-radius:3px;margin-top:8px;background:#5a60c4;opacity:.5}
+.d2 .b i{width:90%}.d2 .a i.k{background:#4ee08a;opacity:1;width:55%}
+.d2 .split{position:absolute;left:50%;top:0;bottom:0;width:3px;background:#ffd84a}
+.d2 .play{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px;border-radius:50%;background:#ffd84a}
+.d2 .play:after{content:&quot;&quot;;position:absolute;left:21px;top:15px;border-left:18px solid #07061c;border-top:12px solid transparent;border-bottom:12px solid transparent}
+.d2 .dur{position:absolute;right:8px;bottom:8px;background:#000a;color:#fff;font:700 12px/1 monospace;padding:4px 6px;border-radius:4px}
+.d2 .btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.d2 .btn{padding:8px 14px;border-radius:6px;border:1px solid #565856;color:#d1d2d3;font-weight:700;text-decoration:none;background:none}
+.d2 .btn.pri{background:#007a5a;border-color:#007a5a;color:#fff}
+.d2 .rx{display:flex;gap:6px;margin-top:8px}.d2 .rx span{border:1px solid #35383d;background:#222529;border-radius:99px;padding:2px 9px;font-size:13px}.d2 .rx .me{border-color:#1d9bd1;background:#10334a}
+.d2 .th{margin:6px 0 0;color:#1d9bd1;font-size:13px}
+.d2 .st{padding:8px 16px;background:#222529;border-top:1px solid #35383d;font-size:13px;color:#9a9ca0}
+&lt;/style&gt;
+&lt;div class=&quot;d2&quot;&gt;
+&lt;div class=&quot;cap&quot;&gt;CONCEPT 2, THE DROP. The colleague&#x27;s moment: the post in #release-won. A before/after wipe that plays in the feed, so sales and CS see the change before they read a word.&lt;/div&gt;
+&lt;div class=&quot;scr&quot; data-screen=&quot;slack-drop&quot;&gt;
+ &lt;div class=&quot;hd&quot;&gt;# release-won&lt;/div&gt;
+ &lt;div class=&quot;msg&quot;&gt;
+  &lt;div class=&quot;av&quot;&gt;OMNI&lt;/div&gt;
+  &lt;div style=&quot;flex:1;min-width:0&quot;&gt;
+   &lt;div class=&quot;nm&quot;&gt;Omni &lt;small&gt;APP · 10:02 · approved by Martin&lt;/small&gt;&lt;/div&gt;
+   &lt;div class=&quot;h&quot;&gt;:tada: New: Supplier invoices, found in one search&lt;/div&gt;
+   &lt;div&gt;Scroll 400 imports? Now: type, find.&lt;/div&gt;
+   &lt;div class=&quot;vid&quot;&gt;
+    &lt;div class=&quot;half b&quot;&gt;&lt;span&gt;BEFORE&lt;/span&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;
+    &lt;div class=&quot;half a&quot;&gt;&lt;span&gt;AFTER&lt;/span&gt;&lt;i class=&quot;k&quot;&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;
+    &lt;div class=&quot;split&quot;&gt;&lt;/div&gt;&lt;div class=&quot;play&quot;&gt;&lt;/div&gt;&lt;div class=&quot;dur&quot;&gt;0:38&lt;/div&gt;
+   &lt;/div&gt;
+   &lt;div&gt;Good to know: imports from 2025 on.&lt;/div&gt;
+   &lt;div class=&quot;btns&quot;&gt;&lt;a class=&quot;btn pri&quot; href=&quot;#&quot; data-primary&gt;Watch 38 s&lt;/a&gt;&lt;a class=&quot;btn&quot; href=&quot;#&quot;&gt;See the slide&lt;/a&gt;&lt;a class=&quot;btn&quot; href=&quot;#&quot;&gt;Copy pitch line&lt;/a&gt;&lt;/div&gt;
+   &lt;div class=&quot;rx&quot;&gt;&lt;span class=&quot;me&quot;&gt;:fire: 14&lt;/span&gt;&lt;span&gt;:clap: 9&lt;/span&gt;&lt;span&gt;:eyes: 6&lt;/span&gt;&lt;/div&gt;
+   &lt;div class=&quot;th&quot;&gt;7 replies&lt;/div&gt;
+  &lt;/div&gt;
+ &lt;/div&gt;
+ 
+&lt;/div&gt;
+&lt;/div&gt;
+"></iframe>
+ <div class="verdict">
+  <p class="cons"><b>Consensus</b> · Wow 4 · Valeur 4 · Craft 3 · Fit 4 · en top 2 chez : Visionary, Craft, Skeptic, Value, Irisa, Paul (PM), Lead Eng.</p>
+  <p>Le plus cité en top 2 (6/9). Conditions : filmer l&#x27;« avant » à l&#x27;opt-in (sinon une image fixe étiquetée), poster un message avec le MP4 dans le thread et un GIF en secours, et n&#x27;inventer aucun chiffre (la carte en invente).</p>
+  
+  <blockquote class='obj'>« Rien ne filme mon ancien écran aujourd&#x27;hui : un faux « avant » trahirait ce que j&#x27;ai construit. »<cite>persona:F-E Developer</cite></blockquote>
+  <p class='muted small'>Mot gardé exprès : le titre signalé est le texte du post Slack généré.</p>
+  <details><summary>Scores et position de chaque membre du panel</summary><table><tr><th></th><th>Wow</th><th>Valeur</th><th>Craft</th><th>Fit</th><th>Position (tour 2)</th></tr><tr><th>Visionary</th><td>5</td><td>5</td><td>4</td><td>4</td><td class='st'>The flagship: a real before/after wipe in the feed (GIF in the post, MP4 in the thread), if the before is filmed at opt-in.</td></tr><tr><th>Craft</th><td>5</td><td>4</td><td>3</td><td>4</td><td class='st'>the reader&#x27;s moment, honest only with a before filmed at opt-in, and posted as a message with the clip in its thread.</td></tr><tr><th>Skeptic</th><td>4</td><td>5</td><td>3</td><td>4</td><td class='st'>default unit, if the before is filmed at opt-in (else a labelled still), the post is a chat.postMessage with the MP4 in the thread, and a GIF fallback is ready.</td></tr><tr><th>Value</th><td>4</td><td>5</td><td>3</td><td>4</td><td class='st'>The body readers watch and reuse. It depends on &quot;before&quot; being filmed at opt-in and on facts it does not invent.</td></tr><tr><th>Irisa</th><td>4</td><td>5</td><td>4</td><td>4</td><td class='st'>Makes a small win visible in the feed, if &quot;before&quot; is filmed early.</td></tr><tr><th>Paul (PM)</th><td>4</td><td>4</td><td>3</td><td>3</td><td class='st'>best reader moment, but the missing &quot;before&quot; capture must be automatic.</td></tr><tr><th>B-E Dev</th><td>4</td><td>4</td><td>3</td><td>3</td><td class='st'>right idea, but the before screen is not filmed anywhere today.</td></tr><tr><th>Lead Eng.</th><td>4</td><td>4</td><td>4</td><td>3</td><td class='st'>best at showing the work, if the before footage is captured automatically.</td></tr><tr><th>F-E Dev</th><td>4</td><td>4</td><td>3</td><td>3</td><td class='st'>The reader&#x27;s moment, honest only with a real captured before.</td></tr></table></details>
+ </div>
+ <fieldset class="react"><legend>Ta réaction</legend>
+  <label><input type="radio" name="rF" value="keep"> Garder</label>
+  <label><input type="radio" name="rF" value="kill"> Tuer</label>
+  <label><input type="radio" name="rF" value="merge"> Fusionner dans <select name="mF"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>G</option><option>H</option></select></label>
+  <label><input type="radio" name="rF" value="push"> Pousser plus loin</label>
+  <input type="text" name="nF" placeholder="Note (facultatif)">
+ </fieldset>
+</section>
+<section class="concept" id="cG" data-letter="G">
+ <header><span class="let">G</span><div><h2>Script Cut</h2><p class="wow">Le PM réécrit une phrase et le clip associé se re-coupe, se re-voix et se re-sous-titre en quelques secondes.</p><p class="axis">MODÈLE D&#x27;ÉDITION : la vidéo est un script.</p></div></header>
+ <iframe title="Carte G" sandbox="" srcdoc="&lt;!-- Concept 1: Script Cut. Caption (outside the screen): the PM edits the words; the video re-cuts around them. --&gt;
+&lt;style&gt;
+.c1{--ground:#07061c;--surface:#17153d;--sunk:#0e0d33;--line:#2a2f7a;--ls:#5a60c4;--ink:#f2f4ff;--muted:#a9afe0;--plasma:#ffd84a;--on:#07061c;--soft:#2a2350;--cyan:#6ff0ff;--green:#4ee08a;font:16px/1.5 &quot;Atkinson Hyperlegible Next&quot;,system-ui,sans-serif;color:var(--ink);background:#000;padding:16px}
+.c1 *{box-sizing:border-box}
+.c1 .cap{max-width:1100px;margin:0 auto 12px;color:#a9afe0;font-size:14px}
+.c1 [data-screen]{max-width:1100px;margin:0 auto;background:var(--ground);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.c1 .top{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--surface)}
+.c1 .top b{font-size:17px}.c1 .tabs{display:flex;gap:4px;margin-left:12px;flex-wrap:wrap}
+.c1 .tab{padding:4px 10px;border:1px solid var(--ls);border-radius:999px;font-size:13px;color:var(--muted)}
+.c1 .tab.on{background:var(--soft);color:var(--ink);border-color:var(--plasma)}
+.c1 .grid{display:grid;grid-template-columns:1.15fr 1fr;gap:20px;padding:20px}
+@media(max-width:760px){.c1 .grid{grid-template-columns:1fr}}
+.c1 .player{background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:10px}
+.c1 .frame{aspect-ratio:16/9;border-radius:6px;background:linear-gradient(135deg,#1b1470,#3a1a7a 60%,#ff3ea5);position:relative;overflow:hidden}
+.c1 .frame .win{position:absolute;left:8%;top:14%;width:62%;height:70%;background:#f5f4fc;border-radius:6px;box-shadow:0 12px 28px rgba(0,0,0,.45);padding:8px}
+.c1 .frame .row{height:9px;border-radius:3px;background:#d9d6ee;margin:6px 0}
+.c1 .frame .hl{outline:2px solid #ff3ea5;background:#ffd1e6}
+.c1 .frame .zoom{position:absolute;right:6%;bottom:10%;width:34%;background:var(--ground);border:2px solid var(--plasma);border-radius:6px;padding:8px;font-size:13px;line-height:1.3;box-shadow:0 8px 20px rgba(0,0,0,.5)}
+.c1 .frame .big{position:absolute;left:8%;bottom:4%;font:800 22px/1 Anton,Impact,sans-serif;letter-spacing:.01em;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+.c1 .timeline{display:flex;gap:3px;margin-top:10px}
+.c1 .seg{height:30px;border-radius:4px;background:var(--surface);border:1px solid var(--ls);font-size:11px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.c1 .seg.on{background:var(--soft);border-color:var(--plasma);color:var(--ink)}
+.c1 .meta{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;margin-top:8px}
+.c1 .script{display:flex;flex-direction:column;gap:8px}
+.c1 .line{display:grid;grid-template-columns:34px 1fr;gap:8px;padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.c1 .line.on{border-color:var(--plasma);background:var(--soft)}
+.c1 .line .t{font:12px ui-monospace,Menlo,monospace;color:var(--muted);padding-top:3px}
+.c1 .line p{margin:0}
+.c1 .edit{background:rgba(255,216,74,.22);border-bottom:2px solid var(--plasma);padding:0 2px}
+.c1 .recut{font-size:12px;color:var(--cyan);margin-top:4px}
+.c1 .bar{display:flex;align-items:center;gap:12px;padding:14px 20px;border-top:1px solid var(--line);background:var(--surface);flex-wrap:wrap}
+.c1 .chips{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+.c1 .chip{border:1px solid var(--ls);border-radius:999px;padding:3px 10px;font-size:13px;color:var(--muted)}
+.c1 .chip i{color:var(--green);font-style:normal}
+.c1 button{font:700 16px/1 inherit;font-family:inherit;border:0;border-radius:8px;padding:14px 22px;cursor:pointer}
+.c1 button[data-primary]{background:var(--plasma);color:var(--on);box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.c1 button.ghost{background:transparent;color:var(--ink);border:1px solid var(--ls)}
+.c1 button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+&lt;/style&gt;
+&lt;div class=&quot;c1&quot;&gt;
+&lt;div class=&quot;cap&quot;&gt;Concept 1, Script Cut. The PM edits words; the video re-cuts around them.&lt;/div&gt;
+&lt;section data-screen=&quot;launch-script-cut&quot;&gt;
+  &lt;div class=&quot;top&quot;&gt;&lt;b&gt;Supplier invoices&lt;/b&gt;&lt;span class=&quot;chip&quot;&gt;PRD 1204&lt;/span&gt;
+    &lt;div class=&quot;tabs&quot;&gt;&lt;span class=&quot;tab&quot;&gt;Spec&lt;/span&gt;&lt;span class=&quot;tab&quot;&gt;Proof&lt;/span&gt;&lt;span class=&quot;tab on&quot;&gt;Launch&lt;/span&gt;&lt;span class=&quot;tab&quot;&gt;Retro&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;div class=&quot;grid&quot;&gt;
+    &lt;div class=&quot;player&quot;&gt;
+      &lt;div class=&quot;frame&quot; aria-label=&quot;Video frame&quot;&gt;
+        &lt;div class=&quot;win&quot;&gt;&lt;div class=&quot;row&quot; style=&quot;width:60%&quot;&gt;&lt;/div&gt;&lt;div class=&quot;row&quot;&gt;&lt;/div&gt;&lt;div class=&quot;row hl&quot;&gt;&lt;/div&gt;&lt;div class=&quot;row&quot;&gt;&lt;/div&gt;&lt;div class=&quot;row&quot; style=&quot;width:80%&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;zoom&quot;&gt;&lt;b&gt;Source&lt;/b&gt;&lt;br&gt;Peppol · AI · Manual&lt;/div&gt;
+        &lt;div class=&quot;big&quot;&gt;Spot every imported invoice.&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;timeline&quot;&gt;&lt;span class=&quot;seg&quot;&gt;Hook&lt;/span&gt;&lt;span class=&quot;seg on&quot; style=&quot;flex:2&quot;&gt;Source column&lt;/span&gt;&lt;span class=&quot;seg&quot; style=&quot;flex:2&quot;&gt;Filter&lt;/span&gt;&lt;span class=&quot;seg&quot;&gt;Limits&lt;/span&gt;&lt;span class=&quot;seg&quot;&gt;Outro&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;meta&quot;&gt;&lt;span&gt;0:24 · narrated · music on&lt;/span&gt;&lt;span&gt;Re-cut in 6 s&lt;/span&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;script&quot;&gt;
+      &lt;div class=&quot;line&quot;&gt;&lt;span class=&quot;t&quot;&gt;0:00&lt;/span&gt;&lt;p&gt;Imported invoices all look the same.&lt;/p&gt;&lt;/div&gt;
+      &lt;div class=&quot;line on&quot;&gt;&lt;span class=&quot;t&quot;&gt;0:04&lt;/span&gt;&lt;div&gt;&lt;p&gt;Now every invoice shows its &lt;span class=&quot;edit&quot;&gt;source&lt;/span&gt; at a glance.&lt;/p&gt;&lt;div class=&quot;recut&quot;&gt;Clip tied to this line re-cuts&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;line&quot;&gt;&lt;span class=&quot;t&quot;&gt;0:11&lt;/span&gt;&lt;p&gt;Filter by source or creation date.&lt;/p&gt;&lt;/div&gt;
+      &lt;div class=&quot;line&quot;&gt;&lt;span class=&quot;t&quot;&gt;0:19&lt;/span&gt;&lt;p&gt;Creation date starts mid-September.&lt;/p&gt;&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;bar&quot;&gt;
+    &lt;div class=&quot;chips&quot;&gt;&lt;span class=&quot;chip&quot;&gt;&lt;i&gt;●&lt;/i&gt; Facts checked against spec&lt;/span&gt;&lt;span class=&quot;chip&quot;&gt;#release-won&lt;/span&gt;&lt;span class=&quot;chip&quot;&gt;Square · GIF · Slide&lt;/span&gt;&lt;/div&gt;
+    &lt;button class=&quot;ghost&quot;&gt;Re-voice&lt;/button&gt;
+    &lt;button data-primary&gt;Premiere in #release-won&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/section&gt;
+&lt;/div&gt;
+"></iframe>
+ <div class="verdict">
+  <p class="cons"><b>Consensus</b> · Wow 4 · Valeur 3 · Craft 4 · Fit 4 · en top 2 chez : F-E Dev</p>
+  <p>« Le moteur d&#x27;édition sous D et F » : une phrase = un segment, et une puce fact-check qui cite sa source dans la spec.</p>
+  
+  <blockquote class='obj'>« Une timeline à re-couper, c&#x27;est trop lourd sur chantier : je veux le fact-check, pas un éditeur. »<cite>persona:Irisa</cite></blockquote>
+  <p class='muted small'>Mot gardé exprès : les phrases de plus de 7 mots signalées sont le script de narration généré (l'artefact), pas des libellés d'interface.</p>
+  <details><summary>Scores et position de chaque membre du panel</summary><table><tr><th></th><th>Wow</th><th>Valeur</th><th>Craft</th><th>Fit</th><th>Position (tour 2)</th></tr><tr><th>Visionary</th><td>3</td><td>4</td><td>4</td><td>5</td><td class='st'>The editing engine (line = segment, a facts chip that blocks), shown as D&#x27;s desk, never a timeline.</td></tr><tr><th>Craft</th><td>4</td><td>4</td><td>3</td><td>4</td><td class='st'>the engine under D and F, on the dossier&#x27;s own head and tokens, its facts chip citing a source.</td></tr><tr><th>Skeptic</th><td>4</td><td>4</td><td>5</td><td>4</td><td class='st'>the editing layer; an unsourced claim blocks, drift only warns.</td></tr><tr><th>Value</th><td>3</td><td>3</td><td>4</td><td>4</td><td class='st'>The facts chip is the trust guard management needs. It is an engine the readers never see.</td></tr><tr><th>Irisa</th><td>5</td><td>3</td><td>4</td><td>3</td><td class='st'>The fact-check and one-sentence edit layer under F, not a timeline on my phone.</td></tr><tr><th>Paul (PM)</th><td>5</td><td>3</td><td>4</td><td>4</td><td class='st'>the edit engine under F and D, not a default.</td></tr><tr><th>B-E Dev</th><td>4</td><td>3</td><td>4</td><td>3</td><td class='st'>the facts-check chip is the part I want; voice off by default.</td></tr><tr><th>Lead Eng.</th><td>4</td><td>3</td><td>4</td><td>3</td><td class='st'>good editing engine, as long as the fact chips only warn.</td></tr><tr><th>F-E Dev</th><td>4</td><td>4</td><td>4</td><td>5</td><td class='st'>The editing engine that keeps words pinned to real footage.</td></tr></table></details>
+ </div>
+ <fieldset class="react"><legend>Ta réaction</legend>
+  <label><input type="radio" name="rG" value="keep"> Garder</label>
+  <label><input type="radio" name="rG" value="kill"> Tuer</label>
+  <label><input type="radio" name="rG" value="merge"> Fusionner dans <select name="mG"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>H</option></select></label>
+  <label><input type="radio" name="rG" value="push"> Pousser plus loin</label>
+  <input type="text" name="nG" placeholder="Note (facultatif)">
+ </fieldset>
+</section>
+<section class="concept" id="cH" data-letter="H">
+ <header><span class="let">H</span><div><h2>Asked-for</h2><p class="wow">Le post s&#x27;ouvre sur « You asked. We shipped. » et tague les sales/CS dont les clients l&#x27;avaient demandé.</p><p class="axis">DEMANDE : construit autour de qui l&#x27;a demandé.</p></div></header>
+ <iframe title="Carte H" sandbox="" srcdoc="&lt;!-- Concept 2: Asked-for. Caption (outside the screen): the launch is built around the people who asked for the feature. --&gt;
+&lt;style&gt;
+.c2{--ground:#07061c;--surface:#17153d;--sunk:#0e0d33;--line:#2a2f7a;--ls:#5a60c4;--ink:#f2f4ff;--muted:#a9afe0;--plasma:#ffd84a;--on:#07061c;--soft:#2a2350;--cyan:#6ff0ff;--green:#4ee08a;--mag:#ff3ea5;font:16px/1.5 &quot;Atkinson Hyperlegible Next&quot;,system-ui,sans-serif;color:var(--ink);background:#000;padding:16px}
+.c2 *{box-sizing:border-box}
+.c2 .cap{max-width:1100px;margin:0 auto 12px;color:#a9afe0;font-size:14px}
+.c2 [data-screen]{max-width:1100px;margin:0 auto;background:var(--ground);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.c2 .top{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--surface);flex-wrap:wrap}
+.c2 .chip{border:1px solid var(--ls);border-radius:999px;padding:3px 10px;font-size:13px;color:var(--muted)}
+.c2 .grid{display:grid;grid-template-columns:1fr 1.2fr;gap:20px;padding:20px}
+@media(max-width:760px){.c2 .grid{grid-template-columns:1fr}}
+.c2 h3{margin:0 0 10px;font-size:15px;color:var(--muted);font-weight:700}
+.c2 .ask{display:flex;gap:10px;padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
+.c2 .av{width:34px;height:34px;border-radius:50%;background:var(--soft);border:1px solid var(--ls);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--plasma);flex:none}
+.c2 .ask p{margin:0;font-size:14px}.c2 .ask small{color:var(--muted);font-size:12px}
+.c2 .who{display:flex;align-items:center;gap:8px;margin-top:6px}
+.c2 .who label{font-size:13px;color:var(--cyan)}
+.c2 .slack{background:#1a1d21;border:1px solid #3a3d44;border-radius:8px;padding:14px;color:#d1d2d3;font-family:system-ui,sans-serif}
+.c2 .slack .h{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.c2 .slack .logo{width:36px;height:36px;border-radius:6px;background:var(--plasma);color:var(--on);font-weight:800;display:flex;align-items:center;justify-content:center}
+.c2 .slack b{color:#fff}.c2 .slack .time{font-size:12px;color:#9a9b9e}
+.c2 .slack p{margin:4px 0;font-size:15px}
+.c2 .mention{background:rgba(29,155,209,.25);color:#7cc7ee;border-radius:4px;padding:0 3px}
+.c2 .vid{aspect-ratio:16/9;margin:8px 0;border-radius:8px;background:linear-gradient(135deg,#1b1470,#3a1a7a 60%,#ff3ea5);position:relative;display:flex;align-items:flex-end;padding:12px}
+.c2 .vid .hook{font:800 24px/1.05 Anton,Impact,sans-serif;color:#fff;max-width:70%;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+.c2 .vid .play{position:absolute;right:14px;bottom:14px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center}
+.c2 .vid .play:after{content:&quot;&quot;;border-left:14px solid #17153d;border-top:9px solid transparent;border-bottom:9px solid transparent;margin-left:4px}
+.c2 .vid .ask-tag{position:absolute;left:12px;top:12px;background:var(--mag);color:#07061c;font-weight:700;font-size:13px;padding:3px 9px;border-radius:999px}
+.c2 .react{display:flex;gap:6px;margin-top:6px}.c2 .react span{border:1px solid #3a3d44;border-radius:12px;padding:2px 8px;font-size:13px}
+.c2 .bar{display:flex;align-items:center;gap:12px;padding:14px 20px;border-top:1px solid var(--line);background:var(--surface);flex-wrap:wrap}
+.c2 .bar .chips{flex:1;display:flex;gap:6px;flex-wrap:wrap}
+.c2 button{font:700 16px/1 inherit;font-family:inherit;border:0;border-radius:8px;padding:14px 22px;cursor:pointer}
+.c2 button[data-primary]{background:var(--plasma);color:var(--on);box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.c2 button.ghost{background:transparent;color:var(--ink);border:1px solid var(--ls)}
+.c2 button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+&lt;/style&gt;
+&lt;div class=&quot;c2&quot;&gt;
+&lt;div class=&quot;cap&quot;&gt;Concept 2, Asked-for. The launch is built around who asked for the feature.&lt;/div&gt;
+&lt;section data-screen=&quot;launch-asked-for&quot;&gt;
+  &lt;div class=&quot;top&quot;&gt;&lt;b&gt;Supplier invoices&lt;/b&gt;&lt;span class=&quot;chip&quot;&gt;PRD 1204&lt;/span&gt;&lt;span class=&quot;chip&quot;&gt;Launch&lt;/span&gt;&lt;span class=&quot;chip&quot;&gt;Draft&lt;/span&gt;&lt;/div&gt;
+  &lt;div class=&quot;grid&quot;&gt;
+    &lt;div&gt;
+      &lt;h3&gt;Asked by 3 customers&lt;/h3&gt;
+      &lt;div class=&quot;ask&quot;&gt;&lt;span class=&quot;av&quot;&gt;R&lt;/span&gt;&lt;div&gt;&lt;p&gt;RADV, September&lt;/p&gt;&lt;small&gt;Logged by CS follow-up&lt;/small&gt;
+        &lt;div class=&quot;who&quot;&gt;&lt;label&gt;&lt;input type=&quot;checkbox&quot; checked&gt; Tag Sophie in post&lt;/label&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;ask&quot;&gt;&lt;span class=&quot;av&quot;&gt;B&lt;/span&gt;&lt;div&gt;&lt;p&gt;Support ticket, 12 Aug&lt;/p&gt;&lt;small&gt;Imported invoices indistinguishable&lt;/small&gt;
+        &lt;div class=&quot;who&quot;&gt;&lt;label&gt;&lt;input type=&quot;checkbox&quot; checked&gt; Tag Karim in post&lt;/label&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;ask&quot;&gt;&lt;span class=&quot;av&quot;&gt;V&lt;/span&gt;&lt;div&gt;&lt;p&gt;Sales call, 2 Sept&lt;/p&gt;&lt;small&gt;Peppol demo question&lt;/small&gt;
+        &lt;div class=&quot;who&quot;&gt;&lt;label&gt;&lt;input type=&quot;checkbox&quot;&gt; Tag Léa in post&lt;/label&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div&gt;
+      &lt;h3&gt;Slack preview&lt;/h3&gt;
+      &lt;div class=&quot;slack&quot;&gt;
+        &lt;div class=&quot;h&quot;&gt;&lt;span class=&quot;logo&quot;&gt;O&lt;/span&gt;&lt;div&gt;&lt;b&gt;Omni&lt;/b&gt; &lt;span class=&quot;time&quot;&gt;in #release-won&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;p&gt;:tada: &lt;b&gt;You asked. We shipped.&lt;/b&gt;&lt;/p&gt;
+        &lt;p&gt;Spot every imported invoice at a glance.&lt;/p&gt;
+        &lt;div class=&quot;vid&quot;&gt;&lt;span class=&quot;ask-tag&quot;&gt;Asked by RADV&lt;/span&gt;&lt;span class=&quot;hook&quot;&gt;Source and date, one glance.&lt;/span&gt;&lt;span class=&quot;play&quot;&gt;&lt;/span&gt;&lt;/div&gt;
+        &lt;p&gt;&lt;span class=&quot;mention&quot;&gt;@Sophie&lt;/span&gt; &lt;span class=&quot;mention&quot;&gt;@Karim&lt;/span&gt; your customers can use it today.&lt;/p&gt;
+        &lt;div class=&quot;react&quot;&gt;&lt;span&gt;:rocket: 0&lt;/span&gt;&lt;span&gt;:eyes: 0&lt;/span&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;bar&quot;&gt;
+    &lt;div class=&quot;chips&quot;&gt;&lt;span class=&quot;chip&quot;&gt;Video 0:20&lt;/span&gt;&lt;span class=&quot;chip&quot;&gt;Posts to #release-won&lt;/span&gt;&lt;/div&gt;
+    &lt;button class=&quot;ghost&quot;&gt;Edit copy&lt;/button&gt;
+    &lt;button data-primary&gt;Post and tag&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/section&gt;
+&lt;/div&gt;
+"></iframe>
+ <div class="verdict">
+  <p class="cons"><b>Consensus</b> · Wow 4 · Valeur 4 · Craft 3 · Fit 3 · en top 2 chez : Value</p>
+  <p>Plus forte valeur business, mais pas de données : l&#x27;onglet User voice contient des personas synthétiques, pas de vraies demandes. Le panel le ramène à un champ manuel « demandé par + tag » dans le desk de D, avec les noms dans le texte Slack et jamais dans la vidéo.</p>
+  
+  <blockquote class='obj'>« Aucune source de demandes clients n&#x27;existe aujourd&#x27;hui, et je ne ferai pas alimenter ça par mes équipes. »<cite>persona:Lead Engineer</cite></blockquote>
+  <p class='muted small'>Mot gardé exprès : la phrase signalée est le texte du post Slack généré, pas un libellé d'interface.</p>
+  <details><summary>Scores et position de chaque membre du panel</summary><table><tr><th></th><th>Wow</th><th>Valeur</th><th>Craft</th><th>Fit</th><th>Position (tour 2)</th></tr><tr><th>Visionary</th><td>4</td><td>5</td><td>3</td><td>3</td><td class='st'>The most forwardable line; starts as a manual &quot;asked by&quot; plus tags in D&#x27;s desk, with no names in the video.</td></tr><tr><th>Craft</th><td>4</td><td>5</td><td>2</td><td>3</td><td class='st'>a manual field in D&#x27;s desk; names go in the Slack text, never in the video.</td></tr><tr><th>Skeptic</th><td>4</td><td>5</td><td>3</td><td>3</td><td class='st'>right outcome with no source of requests today (User voice is synthetic personas); start as a manual &quot;asked for by&quot; field plus thread replies collected.</td></tr><tr><th>Value</th><td>4</td><td>5</td><td>2</td><td>3</td><td class='st'>The highest business value, built as a manual &quot;asked by + tag&quot; field in D&#x27;s desk until a real demand source exists.</td></tr><tr><th>Irisa</th><td>4</td><td>4</td><td>3</td><td>3</td><td class='st'>Right instinct but no data source today; keep it as a typed field.</td></tr><tr><th>Paul (PM)</th><td>4</td><td>3</td><td>2</td><td>2</td><td class='st'>right idea, no data source today.</td></tr><tr><th>B-E Dev</th><td>3</td><td>4</td><td>2</td><td>3</td><td class='st'>real value, no data source; keep it as a manual tag list.</td></tr><tr><th>Lead Eng.</th><td>3</td><td>4</td><td>3</td><td>2</td><td class='st'>right loop, but no data source today and I will not have my teams feed it.</td></tr><tr><th>F-E Dev</th><td>3</td><td>3</td><td>3</td><td>2</td><td class='st'>Valuable idea, but no data source today and invented requesters on the card.</td></tr></table></details>
+ </div>
+ <fieldset class="react"><legend>Ta réaction</legend>
+  <label><input type="radio" name="rH" value="keep"> Garder</label>
+  <label><input type="radio" name="rH" value="kill"> Tuer</label>
+  <label><input type="radio" name="rH" value="merge"> Fusionner dans <select name="mH"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></label>
+  <label><input type="radio" name="rH" value="push"> Pousser plus loin</label>
+  <input type="text" name="nH" placeholder="Note (facultatif)">
+ </fieldset>
+</section>
+</main>
+<div class="bar"><button type="button" id="copy">Copier mes réactions</button><output id="out" aria-live="polite"></output></div>
+<script>
+document.getElementById('copy').addEventListener('click',()=>{
+ const g={keep:[],kill:[],merge:[],push:[]};const notes=[];
+ for(const s of document.querySelectorAll('.concept')){const L=s.dataset.letter;const r=s.querySelector('input[name=r'+L+']:checked');const n=s.querySelector('input[name=n'+L+']').value.trim();
+  if(r){if(r.value==='merge')g.merge.push(L+'→'+s.querySelector('select[name=m'+L+']').value);else if(r.value==='push')g.push.push(L+(n?': '+n:''));else g[r.value].push(L);}
+  if(n&&!(r&&r.value==='push'))notes.push(L+': '+n);}
+ const parts=[];if(g.keep.length)parts.push('keep '+g.keep.join(' '));if(g.merge.length)parts.push('merge '+g.merge.join(' '));
+ for(const p of g.push)parts.push('push '+p);if(g.kill.length)parts.push('kill '+g.kill.join(' '));if(notes.length)parts.push('notes — '+notes.join(' | '));
+ const line=parts.join(' · ')||'(aucune réaction)';const o=document.getElementById('out');o.textContent=line;
+ (navigator.clipboard?navigator.clipboard.writeText(line):Promise.reject()).then(()=>{o.textContent='Copié : '+line},()=>{});
+});
+</script></body></html>

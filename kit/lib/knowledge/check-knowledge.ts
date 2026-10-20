@@ -3,19 +3,24 @@
  * parser in `registers.mjs`. Every violation names the file the reader should open and the id (or
  * file name) at fault:
  *
- * - **the layout** — `product/` and every `domains/<domain>/` carry the three layer files, every
+ * - **the layout** — `product/` and every `domains/<domain>/` carry the three layer files (a
+ *   fourth, `contracts.md`, is optional, PRD 1796), every
  *   domain a `README.md` whose `Glossary term:` is a word the glossary holds (when a glossary is
  *   configured — `ctx.config.paths.glossary`; when there is none, the line must still be present
  *   but is not looked up); a cross-domain file is named `<a>--<b>.md`, two domains that exist, `a`
  *   before `b` alphabetically;
  * - **the id** — never reused; its prefix is its layer's (`P-` principle, `BR-` rule, `N-`
- *   invariant, `X-` cross-domain) and names its domain's code, unless a `Kept id:` line says it
+ *   invariant, `DC-` contract, `X-` cross-domain) and names its domain's code, unless a `Kept id:` line says it
  *   predates the layout; `N1`…`N8` live only in `product/invariants.md`;
  * - **the lines** — every entry a statement and a `Source:`; a principle `Why:` and `Decided:` and
  *   never `Enforced by:` (a principle is judged, not proven); a rule exactly one `Serves:` naming
  *   a principle that exists, an `Enforced by:` and a `Stated:` date; an invariant the same without
  *   the `Serves:`; a cross-domain entry a `Kind:`, and a `Serves:` that cites a product principle
  *   or one of its own pair's, never a third domain's;
+ * - **contracts** (PRD 1796) — a statement, a `Source:` and a `Stated:` as a rule; a `Points to:`
+ *   line whose every path is a file in the tree, never a directory or a glob (an imported copy's
+ *   paths are not looked up); and no `Enforced by:`, `Locked:`, `Proposed law:` or `Governs:`, since a
+ *   contract is never a law: the file it points to enforces it;
  * - **proof** (PRD 1342) — `Enforced by: pending #<n>` names a law issue, never a path, so none is
  *   looked up; with `laws.requireProof: true`, a rule or an invariant may no longer say `unenforced`:
  *   it names its test, or its law issue. A proposed entry is no law yet, and an imported copy's own
@@ -41,15 +46,16 @@
  * is reported once, never a violation; a malformed `Proposed:` line is one.
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-registers.mjs — changes in kit/porting/knowledge--check-knowledge.md.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { readRepoFile } from '../check-report.ts';
 import { defined } from '../narrow.ts';
 import {
-  LAYER_FILES,
+  REQUIRED_LAYER_FILES,
   domainsDir,
   idParts,
   idsCitedIn,
+  LEGAL_ID_SHAPE,
   meansPending,
   productDir,
   readKnowledge,
@@ -62,15 +68,16 @@ import {
 import { invalidGoverns } from './disclose.ts';
 import { readThesis, thesisPath, thesisProblems } from './thesis.ts';
 import { ownersBlockProblems } from '../codeowners-laws.ts';
+import type { LawOwner } from '../config.ts';
 
 /**
  * What grading needs of the context: the checkout, where the knowledge folder sits, the glossary's
- * path, and — in an imported copy's context — the target it copies.
+ * path, the playbook's (its briefing is in the CODEOWNERS block, PRD 1793), and — in an imported copy's context — the target it copies.
  */
 export type CheckCtx = KnowledgeCtx & {
   config: {
-    paths: { glossary: string | null };
-    laws?: { requireProof: boolean; max?: number; owners?: readonly string[] };
+    paths: { glossary: string | null; playbook: string };
+    laws?: { requireProof: boolean; max?: number; owners?: readonly LawOwner[] };
   };
   copyOf?: string;
 };
@@ -109,7 +116,7 @@ function partsOf(value: string): string[] {
 }
 
 /** The id prefix each layer's entries carry. */
-const PREFIX_OF_KIND: Record<EntryKind, string> = { principle: 'P', rule: 'BR', invariant: 'N' };
+const PREFIX_OF_KIND: Record<EntryKind, string> = { principle: 'P', rule: 'BR', invariant: 'N', contract: 'DC' };
 
 /** Every library a domain README lists under "## Owning libraries" exists under `ctx.root`. */
 export function findOwningLibraryViolations(ctx: CheckCtx, knowledge: Knowledge): Violation[] {
@@ -141,14 +148,14 @@ export function findLayoutViolations(
   { glossaryText = '' }: { glossaryText?: string } = {},
 ): Violation[] {
   const violations: Violation[] = [];
-  for (const name of Object.keys(LAYER_FILES)) {
+  for (const name of REQUIRED_LAYER_FILES) {
     if (!knowledge.productFiles.includes(name)) {
       violations.push(violation(`${productDir(ctx)}/${name}`, 'product', 'is missing.'));
     }
   }
   for (const domain of knowledge.domains) {
     const dir = `${domainsDir(ctx)}/${domain.name}`;
-    for (const name of ['README.md', ...Object.keys(LAYER_FILES)]) {
+    for (const name of ['README.md', ...REQUIRED_LAYER_FILES]) {
       if (!domain.files.includes(name)) {
         violations.push(violation(`${dir}/${name}`, domain.name, 'is missing.'));
       }
@@ -352,9 +359,15 @@ function servesViolations(entry: KnowledgeEntry & { serves: string }, principles
     ];
   }
   const target = entry.serves.replace(/`/g, '').trim();
+  // A Legal entry lives on the Omni page: its shape is graded here, its existence by the product read.
+  if (LEGAL_ID_SHAPE.test(target)) return [];
   if (!/^P-[A-Z0-9]+-\d+$/.test(target)) {
     return [
-      violation(entry.file, entry.id, `serves "${entry.serves}", which is not one principle id.`),
+      violation(
+        entry.file,
+        entry.id,
+        `serves "${entry.serves}", which is not one principle id or a Legal entry id (L-<CODE>-<n>).`,
+      ),
     ];
   }
   const principle = principles.find((candidate) => candidate.id === target);
@@ -390,6 +403,44 @@ function servesViolations(entry: KnowledgeEntry & { serves: string }, principles
   return [];
 }
 
+/** An entry's `Source:` line: present, every path it names real, and leading somewhere. */
+function sourceViolations(ctx: CheckCtx, entry: KnowledgeEntry): Violation[] {
+  if (!entry.source) return [violation(entry.file, entry.id, 'is missing a "Source:" line.')];
+  const violations = missingPathViolations(ctx, entry, 'Source', entry.source, { onlyPathLike: true });
+  const leads = partsOf(entry.source).some(
+    (part) => PATH_LIKE.test(part) || NUMBER_REFERENCE.test(part),
+  );
+  if (!leads) {
+    violations.push(
+      violation(
+        entry.file,
+        entry.id,
+        `has "Source: ${entry.source}", which leads nowhere — name a file that exists, or a PRD or issue number.`,
+      ),
+    );
+  }
+  return violations;
+}
+
+/** A principle's own lines: a `Why:`, a `Decided:` unless proposed, and never an `Enforced by:`. */
+function principleViolations(entry: KnowledgeEntry): Violation[] {
+  const violations: Violation[] = [];
+  if (entry.enforcedBy !== null) {
+    violations.push(
+      violation(
+        entry.file,
+        entry.id,
+        'carries an "Enforced by:" line — a principle is judged, not proven; a rule serving it carries the proof.',
+      ),
+    );
+  }
+  if (!entry.why) violations.push(violation(entry.file, entry.id, 'is missing a "Why:" line.'));
+  if (!entry.decided && entry.proposed === null) {
+    violations.push(violation(entry.file, entry.id, 'is missing a "Decided:" line.'));
+  }
+  return violations;
+}
+
 /** Every entry's lines, by kind. */
 export function findEntryViolations(ctx: CheckCtx, entries: readonly KnowledgeEntry[]): Violation[] {
   const requireProof = ctx.config.laws?.requireProof === true && !ctx.copyOf;
@@ -407,41 +458,10 @@ export function findEntryViolations(ctx: CheckCtx, entries: readonly KnowledgeEn
       );
     }
     if (!entry.statement) violations.push(violation(entry.file, entry.id, 'has no statement.'));
-
-    if (!entry.source) {
-      violations.push(violation(entry.file, entry.id, 'is missing a "Source:" line.'));
-    } else {
-      violations.push(
-        ...missingPathViolations(ctx, entry, 'Source', entry.source, { onlyPathLike: true }),
-      );
-      const leads = partsOf(entry.source).some(
-        (part) => PATH_LIKE.test(part) || NUMBER_REFERENCE.test(part),
-      );
-      if (!leads) {
-        violations.push(
-          violation(
-            entry.file,
-            entry.id,
-            `has "Source: ${entry.source}", which leads nowhere — name a file that exists, or a PRD or issue number.`,
-          ),
-        );
-      }
-    }
+    violations.push(...sourceViolations(ctx, entry));
 
     if (entry.kind === 'principle') {
-      if (entry.enforcedBy !== null) {
-        violations.push(
-          violation(
-            entry.file,
-            entry.id,
-            'carries an "Enforced by:" line — a principle is judged, not proven; a rule serving it carries the proof.',
-          ),
-        );
-      }
-      if (!entry.why) violations.push(violation(entry.file, entry.id, 'is missing a "Why:" line.'));
-      if (!entry.decided && entry.proposed === null) {
-        violations.push(violation(entry.file, entry.id, 'is missing a "Decided:" line.'));
-      }
+      violations.push(...principleViolations(entry));
       continue;
     }
 
@@ -459,7 +479,48 @@ export function findEntryViolations(ctx: CheckCtx, entries: readonly KnowledgeEn
     if (!entry.stated || !STATED_DATE.test(entry.stated)) {
       violations.push(violation(entry.file, entry.id, 'is missing a "Stated: YYYY-MM-DD" line.'));
     }
-    violations.push(...proofViolations(ctx, entry, requireProof));
+    // A contract is never a law (PRD 1796): its `Points to:` is its proof, never an `Enforced by:`.
+    violations.push(...(entry.kind === 'contract' ? contractViolations(ctx, entry) : proofViolations(ctx, entry, requireProof)));
+  }
+  return violations;
+}
+
+/** A glob's characters: a `Points to:` path names each file, never a pattern. */
+const GLOB = /[*?[\]{}]/;
+
+/**
+ * A contract's own lines (PRD 1796): a `Points to:` naming files that exist — never a directory or a
+ * glob; an imported copy's paths name its target's files, so none is looked up — and none of the
+ * lines that make a law: the file a contract points to is its enforcement. A `Locked:` line is
+ * refused by {@link lockViolations}.
+ */
+function contractViolations(ctx: CheckCtx, entry: KnowledgeEntry): Violation[] {
+  const violations: Violation[] = [];
+  if (entry.pointsTo === null || entry.pointsTo.length === 0) {
+    violations.push(violation(entry.file, entry.id, 'is missing a "Points to:" line — a contract names the schema or type file(s) that enforce it.'));
+  }
+  for (const path of entry.pointsTo ?? []) {
+    if (GLOB.test(path)) {
+      violations.push(violation(entry.file, entry.id, `points to "${path}", which is a glob — name each file that enforces it.`));
+      continue;
+    }
+    // An imported copy's paths name files of its target, never of this disk (PRD 522).
+    if (ctx.copyOf) continue;
+    const absolute = join(ctx.root, path);
+    if (!existsSync(absolute)) {
+      violations.push(violation(entry.file, entry.id, `points to "${path}", which does not exist — fix its "Points to:" line.`));
+    } else if (!statSync(absolute).isFile()) {
+      violations.push(violation(entry.file, entry.id, `points to "${path}", which is a directory — name the file(s) that enforce it.`));
+    }
+  }
+  if (entry.enforcedBy !== null) {
+    violations.push(violation(entry.file, entry.id, 'carries an "Enforced by:" line — a contract is never a law: the file its "Points to:" names enforces it.'));
+  }
+  if (entry.proposedLaw !== null) {
+    violations.push(violation(entry.file, entry.id, 'carries a "Proposed law:" line — a contract is never a law.'));
+  }
+  if (entry.governs !== null) {
+    violations.push(violation(entry.file, entry.id, 'carries a "Governs:" line — its "Points to:" already names the files it is about, and omni kb laws lists rules and laws only.'));
   }
   return violations;
 }
@@ -494,6 +555,9 @@ function lockViolations(entry: KnowledgeEntry): Violation[] {
   if (entry.locked === null) return [];
   if (entry.kind === 'principle') {
     return [violation(entry.file, entry.id, 'is locked, but a principle is never a law — lock a rule or an invariant that serves it.')];
+  }
+  if (entry.kind === 'contract') {
+    return [violation(entry.file, entry.id, 'is locked, but a contract is never a law — lock a rule or an invariant instead.')];
   }
   const violations: Violation[] = [];
   if (!entry.enforced) {
@@ -569,7 +633,7 @@ function findOwnersBlockViolations(ctx: CheckCtx, knowledge: Knowledge): Violati
 /** Every id-shaped token inside `file`'s own text resolves — a stray `BR-QUOTE-9` is drift. */
 export function findUnresolvedCitations(file: string, text: string, resolve: (id: string) => unknown): Violation[] {
   return idsCitedIn(text)
-    .filter((id) => !resolve(id))
+    .filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve(id))
     .map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
 
@@ -636,4 +700,12 @@ export function gradeKnowledge({
     wishes: findWishes(knowledge.entries).map(formatViolation),
     proposals: findProposals(knowledge.entries).map(formatViolation),
   };
+}
+
+/** The Legal ids the rules and invariants serve, with the entry that serves each (PRD 1795). */
+export function servedLegalIds(entries: readonly KnowledgeEntry[]): { id: string; entry: KnowledgeEntry }[] {
+  return entries.flatMap((entry) => {
+    const id = entry.serves?.replace(/`/g, '').trim() ?? '';
+    return LEGAL_ID_SHAPE.test(id) ? [{ id, entry }] : [];
+  });
 }

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Notice } from '../ask/page/Notice';
 import { WORK_NAMES, WORK_PATHS } from '../dossier/page/work';
 import { ListSkeleton } from '../skeleton/Skeleton';
@@ -12,8 +13,9 @@ import { ConceptStateChip } from './state-chip';
 
 const THINK_BIG = "/omni:think-big '<your idea>'";
 
-const areasLine = ({ withPrd, total }: { withPrd: number; total: number }) =>
-  `${withPrd} of ${total} ${total === 1 ? 'area has' : 'areas have'} a PRD`;
+// PRD 2213: the facts are short pieces, one span each: how many areas have a PRD, how many shipped, the date.
+const prdLine = ({ withPrd, total }: { withPrd: number; total: number }) => `${withPrd} of ${total} have a PRD`;
+const shippedLine = ({ shipped, total }: { shipped: number; total: number }) => `${shipped} of ${total} shipped`;
 
 function Card({ card }: { card: ConceptCard }) {
   return (
@@ -22,11 +24,17 @@ function Card({ card }: { card: ConceptCard }) {
         <span className="dossier-history-title">
           {card.number !== null && <><span className="dossier-number">#{card.number}</span>{' '}</>}
           <span>{card.title}</span>
+          {card.product && <>{' '}<span className="dossier-repo dossier-product">{card.product}</span></>}
         </span>
         <span className="dossier-history-facts">
           {card.kind && card.scale && <span className="dossier-history-artifact">{card.kind} · {card.scale}</span>}
           <ConceptStateChip state={card.state} />
-          <span className="ask-hint">{card.areas ? areasLine(card.areas) : 'record not readable'}</span>
+          {card.areas ? (
+            <>
+              <span className="ask-hint">{prdLine(card.areas)}</span>
+              <span className="ask-hint">{shippedLine(card.areas)}</span>
+            </>
+          ) : <span className="ask-hint">record not readable</span>}
           <time className="ask-hint" dateTime={card.recordedAt}>recorded {card.recorded}</time>
         </span>
       </a>
@@ -34,10 +42,11 @@ function Card({ card }: { card: ConceptCard }) {
   );
 }
 
-export function ConceptList({ cards }: { cards: readonly ConceptCard[] }) {
+export function ConceptList({ cards, above }: { cards: readonly ConceptCard[]; above?: ReactNode }) {
   return (
     <div className="dossier dossier-history">
       <h1 className="dossier-title">{WORK_NAMES.concept.many}</h1>
+      {above}
       {cards.length === 0 ? (
         <section className="ask-card">
           <h2>No concept yet</h2>
@@ -57,7 +66,7 @@ export function ConceptList({ cards }: { cards: readonly ConceptCard[] }) {
 /** /concepts in each of its states. Signed out, it points to the PRDs list, whose sign-in brings the
  * person back to the app. */
 export function ConceptListScreen({ state }: { state: ConceptListState }) {
-  if (state.kind === 'listed') return <ConceptList cards={state.cards} />;
+  if (state.kind === 'listed') return <ConceptList cards={state.cards} above={state.above} />;
   if (state.kind === 'closed') {
     return (
       <Notice title="Concepts are not open here">

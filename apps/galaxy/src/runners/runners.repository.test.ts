@@ -73,6 +73,14 @@ describe('the rows', () => {
     expect(lines[0]).toMatch(/^from\("runner_jobs"\)\.update\(\{"status":"running"\}\)\.eq\("id","j1"\)\.in\("status",\["claimed"\]\)\.select\(.*\)\.maybeSingle\(\)$/);
   });
 
+  it('read a job\'s outcome with the row, selecting the column, and one out of shape as none (PRD 2223)', async () => {
+    const { db, lines } = fakeDb([{ data: jobRow({ status: 'done', outcome: 'held' }), error: null }, { data: { ...jobRow({ status: 'done' }), outcome: 'weird' }, error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.job('j1')).toMatchObject({ outcome: 'held' });
+    expect(lines[0]).toContain('outcome');
+    expect(await repository.job('j2')).toMatchObject({ outcome: null });
+  });
+
   it('read a person\'s place in a workspace: owner or member, and their fleet', async () => {
     const { db, lines } = fakeDb([{ data: { role: 'owner' }, error: null }, { data: { team: 'cia', github_login: 'olga' }, error: null }]);
     expect(await runnersRepository(db).member('w1', 'u1')).toEqual({ owner: true, fleet: 'cia' });
@@ -99,7 +107,7 @@ describe('the rows', () => {
     const { db, lines } = fakeDb([{ data: runner, error: null }, { data: job, error: null }, { data: [{ user_id: 'u1', github_login: 'mo' }, { user_id: 'u2', github_login: null }], error: null }]);
     const repository = runnersRepository(db);
     expect(await repository.insertRunner({ workspaceId: 'w1', owner: 'u1', name: 'shared', slots: 1, repos: ['vertuoza/app'], version: '1', seenAt: 't' })).toEqual(runner);
-    expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:yolo 1', repo: 'vertuoza/app', toRunner: null, toFleet: 'cia', sentBy: 'u1' })).toEqual(job);
+    expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:yolo 1', repo: 'vertuoza/app', toRunner: null, toFleet: 'cia', sentBy: 'u1', sentByKey: null })).toEqual(job);
     expect(await repository.logins('w1', ['u1', 'u2'])).toEqual(new Map([['u1', 'mo']]));
     expect(lines[1]).toContain('"to_fleet":"cia"');
     expect(await repository.logins('w1', [])).toEqual(new Map());
@@ -140,5 +148,60 @@ describe('a job\'s live lines (PRD 1904)', () => {
   it('throw on the database\'s refusal, naming the table', async () => {
     const { db } = fakeDb([{ data: null, error: { message: 'new row violates check constraint' } }]);
     await expect(runnersRepository(db).appendLines([])).rejects.toThrow('runner_job_lines: new row violates check constraint');
+  });
+});
+
+describe('a job an API key sent (PRD 2022 s4)', () => {
+  it('writes the key on the job, and reads the names of the workspace\'s API keys only', async () => {
+    const job = jobRow({ sent_by_key: 'k1' });
+    const { db, lines } = fakeDb([{ data: job, error: null }, { data: { k1: 'QA dashboard' }, error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:bug-fix x', repo: 'vertuoza/app', toRunner: null, toFleet: null, sentBy: 'u1', sentByKey: 'k1' })).toEqual(job);
+    expect(lines[0]).toContain('"sent_by_key":"k1"');
+    expect(await repository.keyNames('w1', ['k1'])).toEqual(new Map([['k1', 'QA dashboard']]));
+    // Through api_key_names(): the service role may not read agent_tokens itself (issue 2165).
+    expect(lines[1]).toBe('rpc("api_key_names",{"p_workspace":"w1","p_keys":["k1"]})');
+    expect(await repository.keyNames('w1', [])).toEqual(new Map());
+  });
+});
+
+// A runner's health and samples (PRD 2102 s1): the snapshot read with the runner, out of shape as none;
+// a sample added once per runner and instant, trimmed by runner and time, read oldest first.
+describe('a runner\'s health and samples', () => {
+  const sample = { runner_id: SHARED, workspace_id: 'w1', at: '2026-10-16T12:00:00.000Z', cpu: 63.5, mem_used: 1, mem_total: 2, disk_free: 3, tokens_5h: null };
+
+  it('reads the runner\'s last health with it, and one out of shape as none', async () => {
+    const health = { cpu: 63.5, load1: 7.9, cores: 8, memUsed: 1, memTotal: 2, diskFree: 3, diskTotal: 4, at: '2026-10-16T12:00:00.000Z' };
+    const { db, lines } = fakeDb([{ data: runnerRow({ id: SHARED, name: 'shared', health }), error: null }, { data: { ...runnerRow({ id: SHARED, name: 'shared' }), health: { cpu: 'high' } }, error: null }]);
+    const repository = runnersRepository(db);
+    expect((await repository.runner(SHARED))?.health).toEqual(health);
+    expect((await repository.runner(SHARED))?.health).toBeNull();
+    expect(lines[0]).toContain('last_seen_at, health');
+  });
+
+  it('adds a sample once per runner and instant', async () => {
+    const { db, lines } = fakeDb([{ data: null, error: null }]);
+    await runnersRepository(db).insertSample(sample);
+    expect(lines).toEqual([`from("runner_samples").upsert(${JSON.stringify(sample)},{"onConflict":"runner_id,at","ignoreDuplicates":true})`]);
+  });
+
+  it('deletes the runner\'s samples taken before a time', async () => {
+    const { db, lines } = fakeDb([{ data: null, error: null }]);
+    await runnersRepository(db).trimSamples(SHARED, '2026-10-16T11:00:00.000Z');
+    expect(lines).toEqual([`from("runner_samples").delete().eq("runner_id","${SHARED}").lt("at","2026-10-16T11:00:00.000Z")`]);
+  });
+
+  it('reads the runners\' samples since a time, oldest first, and asks nothing for no runner', async () => {
+    const { db, lines } = fakeDb([{ data: [sample], error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.samples([SHARED], '2026-10-16T11:00:00.000Z')).toEqual([sample]);
+    expect(lines).toEqual([`from("runner_samples").select("runner_id, workspace_id, at, cpu, mem_used, mem_total, disk_free, tokens_5h").in("runner_id",["${SHARED}"]).gte("at","2026-10-16T11:00:00.000Z").order("at")`]);
+    expect(await repository.samples([], '2026-10-16T11:00:00.000Z')).toEqual([]);
+    expect(lines).toHaveLength(1);
+  });
+
+  it('throws on the database\'s refusal, naming the table', async () => {
+    const { db } = fakeDb([{ data: null, error: { message: 'permission denied for table runner_samples' } }]);
+    await expect(runnersRepository(db).insertSample(sample)).rejects.toThrow('runner_samples: permission denied for table runner_samples');
   });
 });

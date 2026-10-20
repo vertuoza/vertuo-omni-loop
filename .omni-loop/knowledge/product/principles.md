@@ -791,3 +791,48 @@ Why: Terminal tokens are personal credentials, unlike shared business links, so 
 Source: .omni-loop/delivery/shipped/1628-cloud-sign-in/outbox/settled.md, entry s1-03-who-sees-tokens, PRD #1628
 Merged: @pierrederval, 2026-10-12, PR #1629
 Proposed: harvest 2026-10-12
+
+## P-PRODUCT-94
+
+A legal entry may cite its source the way the law is actually cited, by link or by name, never forced into one form.
+
+Why: Many laws are cited by name and article and have no single stable link, so requiring a link would refuse real, correct citations.
+Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-01-legal-source-free-text, PRD #1795
+Merged: @pierrederval, 2026-10-16, PR #2032
+Proposed: harvest 2026-10-16
+
+## P-PRODUCT-95
+
+Every Legal entry always has a person who answers for it, and nobody becomes its owner without having written, proposed or been named for it.
+
+Why: An entry no one answers for goes stale, and making someone answer for work they never touched shifts responsibility without their say.
+Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-02-legal-entry-owner-default, PRD #1795
+Merged: @pierrederval, 2026-10-16, PR #2032
+Proposed: harvest 2026-10-16
+
+## P-PRODUCT-96
+
+Someone who has left a team keeps no say over its work, and a departure never leaves the work with nobody able to decide.
+
+Why: Leaving a former member in charge would either hand them lasting power or freeze decisions until someone noticed.
+Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-03-named-owner-who-left, PRD #1795
+Merged: @pierrederval, 2026-10-16, PR #2032
+Proposed: harvest 2026-10-16
+
+## P-PRODUCT-97
+
+The knowledge history records every change to who answers for a product's knowledge, not only changes to its entries.
+
+Why: People rely on the history to see who was responsible when, and a silent change of owner would hide accountability.
+Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-04-naming-an-owner-is-logged, PRD #1795
+Merged: @pierrederval, 2026-10-16, PR #2032
+Proposed: harvest 2026-10-16
+
+## P-PRODUCT-100
+
+Making one choice on a view never silently undoes another choice the person already made there.
+
+Why: A person should be able to combine their choices, such as a PRD and a repository, without having to redo the first one.
+Source: .omni-loop/delivery/shipped/2129-constellation-tab/outbox/settled.md, entry s2-01-filter-and-star-together, PRD #2129
+Merged: @pierrederval, 2026-10-17, PR #2130
+Proposed: harvest 2026-10-17

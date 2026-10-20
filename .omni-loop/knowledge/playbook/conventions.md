@@ -4,13 +4,14 @@ form-version: 1
 state: filled
 points-to: null
 evidence:
-  - package.json@39e6355
-  - kit/lib/ids.ts@90d94c1
+  - package.json@9870eaf
+  - kit/lib/ids.ts@66fe58a
   - scripts/id-types-guard.test.ts@daaaf9e
-  - kit/lib/env/read.ts@db70924
+  - kit/lib/env/read.ts@106759c
   - scripts/env-guard.test.ts@5739a50
   - kit/lib/env/docs.ts@1588953
-terraformed: 2026-09-25
+  - eslint.config.ts@882ba64
+invaded: 2026-10-20
 ---
 
 # Conventions
@@ -60,13 +61,13 @@ New server code logs through `kit/lib/log`, never a bare `console` string (ADR-0
   does not run proves nothing (PRD 902, s1-02).
 
 ## Formatting
-<!-- slot: formatting · optional · by: terraform -->
-No formatter and no linter is configured: `package.json` has no format or lint script, and the tree
-holds no formatter config. The file you touch sets the style; keep to it.
+<!-- slot: formatting · optional · by: invade -->
+No formatter is configured. `pnpm lint` (typescript-eslint `strictTypeChecked`, `eslint.config.ts`)
+checks correctness, not layout. The file you touch sets the style; keep to it.
 
 ## Commits
-<!-- slot: commits · optional · by: terraform -->
-Conventional Commits whose scope names the part of the repository the commit changes, as
-`git log` shows: `kit`, `plugin`, `game`, `galaxy`, `omni-app`, `supabase`, `delivery`. A pull
+<!-- slot: commits · optional · by: invade -->
+Conventional Commits whose scope names the part or feature changed, as `git log` shows: `kit`,
+`galaxy`, `knowledge`, `game`, `omni-app`, `plugin`, `supabase`, `delivery`, `roadmap`. A pull
 request lands on `main` as one commit, under its own title followed by its number:
 `feat(kit): omni init — install the Omni Loop kit on a repository in one command (#40)`.

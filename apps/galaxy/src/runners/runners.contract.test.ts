@@ -1,14 +1,24 @@
 import { describe, expect, it } from 'vitest';
+import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
 import {
-  checkLine, JobLinesQuerySchema, JobUpdateSchema, RegisterRequestSchema, RUNNER_SKILLS, SendRequestSchema, TargetSchema,
+  checkLine, HealthReportSchema, JobLinesQuerySchema, JobUpdateSchema, RegisterRequestSchema, RUNNER_SKILLS, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
-// The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines whose skill is on the
-// list and whose arguments are letters, digits, spaces and `._/:#-`, 200 characters at most.
+// The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines of 200 characters at
+// most, skill included, whose skill is on the list and whose arguments are letters, digits, spaces and
+// `._/:#-`.
 
 describe('the line check', () => {
   it.each(RUNNER_SKILLS)('lets /omni:%s through, with its arguments', (skill) => {
     expect(checkLine(`/omni:${skill} 1830 s1 --in-wave`)).toEqual({ ok: true, skill, args: '1830 s1 --in-wave' });
+  });
+
+  it('lists exactly the skills `omni runner` runs, so the app never queues a line a runner refuses', () => {
+    expect([...RUNNER_SKILLS]).toEqual([...RUNNABLE_SKILLS]);
+  });
+
+  it('lets /omni:mega-bug-fix through with a plan repository issue’s URL', () => {
+    expect(checkLine('/omni:mega-bug-fix https://github.com/acme/plan/issues/612')).toEqual({ ok: true, skill: 'mega-bug-fix', args: 'https://github.com/acme/plan/issues/612' });
   });
 
   it('lets a line with no arguments through', () => {
@@ -44,9 +54,20 @@ describe('the line check', () => {
     expect(checkLine(line).ok).toBe(false);
   });
 
-  it('takes 200 characters of arguments and refuses 201', () => {
-    expect(checkLine(`/omni:yolo ${'a'.repeat(200)}`).ok).toBe(true);
-    expect(checkLine(`/omni:yolo ${'a'.repeat(201)}`)).toEqual({ ok: false, reason: 'A line\'s arguments are 200 characters at most.' });
+  it('takes a line of 200 characters, the skill included, and refuses 201', () => {
+    const line = `/omni:yolo ${'a'.repeat(189)}`;
+    expect(line).toHaveLength(200);
+    expect(checkLine(line).ok).toBe(true);
+    expect(checkLine(`${line}a`)).toEqual({ ok: false, reason: 'A line is 200 characters at most, the skill included.' });
+  });
+
+  it('agrees with the runner’s own check at its limit, for every skill, so the app never queues a line a runner refuses', () => {
+    for (const skill of RUNNER_SKILLS) {
+      const longest = `/omni:${skill} ${'a'.repeat(LINE_MAX - `/omni:${skill} `.length)}`;
+      expect(longest).toHaveLength(LINE_MAX);
+      expect([checkLine(longest).ok, checkRunnerLine(longest).ok], skill).toEqual([true, true]);
+      expect([checkLine(`${longest}a`).ok, checkRunnerLine(`${longest}a`).ok], skill).toEqual([false, false]);
+    }
   });
 });
 
@@ -100,5 +121,134 @@ describe('a report\'s live lines (PRD 1904)', () => {
     expect(JobLinesQuerySchema.parse({})).toEqual({ after: 0 });
     expect(JobLinesQuerySchema.parse({ after: '1200' })).toEqual({ after: 1200 });
     for (const after of ['-1', 'x', '1.5']) expect(JobLinesQuerySchema.safeParse({ after }).success).toBe(false);
+  });
+});
+
+// A runner's health report (PRD 2102 s1): numbers only, each non-negative or null, strict; `paused` and
+// `limits` come from a runner that pauses, and a runner that does not sends neither.
+describe('the health report', () => {
+  const report = {
+    cpu: 63.5, load1: 7.9, cores: 8, memUsed: 13_958_643_712, memTotal: 17_179_869_184, diskFree: 41_875_931_136, diskTotal: 249_821_655_040,
+  };
+
+  it('takes a sample alone, and one with why the runner is paused and its limits', () => {
+    expect(HealthReportSchema.parse(report)).toEqual(report);
+    const paused = { ...report, paused: 'memory 91%', limits: { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 } };
+    expect(HealthReportSchema.parse(paused)).toEqual(paused);
+    expect(HealthReportSchema.safeParse({ ...report, paused: null, limits: { maxMemory: 100, minDiskGb: 0, maxLoad: 0.1 } }).success).toBe(true);
+  });
+
+  it('takes every figure the runner could not read as null', () => {
+    const blind = { cpu: null, load1: null, cores: null, memUsed: null, memTotal: null, diskFree: null, diskTotal: null };
+    expect(HealthReportSchema.safeParse(blind).success).toBe(true);
+  });
+
+  it.each([
+    ['a negative figure', { memUsed: -1 }],
+    ['a CPU above 100 %', { cpu: 100.1 }],
+    ['bytes that are no whole number', { diskFree: 1.5 }],
+    ['a figure that is no number', { load1: '7.9' }],
+    ['a missing figure', { cores: undefined }],
+    ['an unknown field', { hostname: 'box-1' }],
+    ['a reason of 81 characters', { paused: 'x'.repeat(81) }],
+    ['an empty reason', { paused: '' }],
+    ['a memory limit above 100 %', { limits: { maxMemory: 101, minDiskGb: 10, maxLoad: 1.5 } }],
+    ['a load limit of 0', { limits: { maxMemory: 85, minDiskGb: 10, maxLoad: 0 } }],
+    ['a limit missing', { limits: { maxMemory: 85, minDiskGb: 10 } }],
+    ['an unknown limit', { limits: { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5, maxSwap: 2 } }],
+  ])('refuses %s', (_, change) => {
+    expect(HealthReportSchema.safeParse({ ...report, ...change }).success).toBe(false);
+  });
+
+  it('refuses a number JSON cannot carry', () => {
+    for (const odd of [Number.POSITIVE_INFINITY, Number.NaN]) expect(HealthReportSchema.safeParse({ ...report, load1: odd }).success).toBe(false);
+  });
+});
+
+// The tokens (PRD 2102 s4): a job's report may carry the four counts of its worktree, and a health report
+// the machine's counts of the last 5 hours and of today (each null when the runner could not read it). A
+// report from a runner older than this PRD carries neither and stays valid.
+describe('the tokens a report carries', () => {
+  const counts = { input: 81_234, output: 402_118, cacheRead: 9_120_443, cacheWrite: 611_002 };
+  const sample = { cpu: 1, load1: 1, cores: 8, memUsed: 1, memTotal: 2, diskFree: 3, diskTotal: 4 };
+
+  it('takes a job report with its tokens, and without them', () => {
+    expect(JobUpdateSchema.parse({ status: 'running', tokens: counts })).toEqual({ status: 'running', tokens: counts });
+    expect(JobUpdateSchema.parse({ status: 'running' })).toEqual({ status: 'running' });
+    expect(JobUpdateSchema.safeParse({ status: 'done', tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }).success).toBe(true);
+  });
+
+  it.each([
+    ['a count missing', { input: 1, output: 1, cacheRead: 1 }],
+    ['a negative count', { ...counts, output: -1 }],
+    ['a count that is no whole number', { ...counts, input: 1.5 }],
+    ['a count that is no number', { ...counts, cacheRead: '9' }],
+    ['a count that is null', { ...counts, cacheWrite: null }],
+    ['an unknown count', { ...counts, reasoning: 3 }],
+  ])('refuses a job report with %s', (_, tokens) => {
+    expect(JobUpdateSchema.safeParse({ status: 'running', tokens }).success).toBe(false);
+  });
+
+  it('refuses a job report whose tokens are null', () => {
+    expect(JobUpdateSchema.safeParse({ status: 'running', tokens: null }).success).toBe(false);
+  });
+
+  it('takes a health report with the machine\'s tokens, a window it could not read as null, and none at all', () => {
+    const both = { ...sample, tokens: { last5h: counts, today: { ...counts, input: 120_113 } } };
+    expect(HealthReportSchema.parse(both)).toEqual(both);
+    const half = { ...sample, tokens: { last5h: null, today: counts } };
+    expect(HealthReportSchema.parse(half)).toEqual(half);
+    expect(HealthReportSchema.parse(sample)).toEqual(sample);
+  });
+
+  it.each([
+    ['a window missing', { last5h: counts }],
+    ['an unknown window', { last5h: counts, today: counts, week: counts }],
+    ['a count out of shape', { last5h: { ...counts, input: -1 }, today: counts }],
+  ])('refuses a health report with %s', (_, tokens) => {
+    expect(HealthReportSchema.safeParse({ ...sample, tokens }).success).toBe(false);
+  });
+});
+
+// The released claims (PRD 2175 s2): a job's last report may say which sub-PRs its runner released, and
+// why a release failed; both are optional, so a runner from before this PRD reports as it did.
+describe('the claims a report says were released', () => {
+  it('takes a report with the numbers released and why a release failed, with either alone, and with neither', () => {
+    const full = { status: 'failed', reason: 'exit code 3', released: [1908, 1909], releaseError: 'HTTP 502' };
+    expect(JobUpdateSchema.parse(full)).toEqual(full);
+    expect(JobUpdateSchema.parse({ status: 'done', released: [], releaseError: null })).toEqual({ status: 'done', released: [], releaseError: null });
+    expect(JobUpdateSchema.safeParse({ status: 'done', releaseError: 'gh: not signed in' }).success).toBe(true);
+    expect(JobUpdateSchema.parse({ status: 'done' })).toEqual({ status: 'done' });
+  });
+
+  it('takes 50 numbers and 200 characters, the most a runner sends', () => {
+    const fifty = Array.from({ length: 50 }, (_, i) => i + 1);
+    expect(JobUpdateSchema.safeParse({ status: 'done', released: fifty, releaseError: 'x'.repeat(200) }).success).toBe(true);
+  });
+
+  it.each([
+    ['51 numbers', { released: Array.from({ length: 51 }, (_, i) => i + 1) }],
+    ['a number that is no pull request', { released: [0] }],
+    ['a number with a fraction', { released: [1.5] }],
+    ['a number as text', { released: ['1908'] }],
+    ['released as null', { released: null }],
+    ['a reason over 200 characters', { releaseError: 'x'.repeat(201) }],
+  ])('refuses a report with %s', (_, more) => {
+    expect(JobUpdateSchema.safeParse({ status: 'done', ...more }).success).toBe(false);
+  });
+});
+
+// The outcome (PRD 2223 s1): a done yolo job's report says what its hand-off ended on; an unknown word is refused.
+describe('the outcome a report carries', () => {
+  it.each(['answers', 'held', 'ready', null])('takes %s', (outcome) => {
+    expect(JobUpdateSchema.parse({ status: 'done', exitCode: 0, outcome })).toEqual({ status: 'done', exitCode: 0, outcome });
+  });
+
+  it('takes a report without one, as a runner from before this PRD sends', () => {
+    expect(JobUpdateSchema.parse({ status: 'done' })).toEqual({ status: 'done' });
+  });
+
+  it.each(['done', 'waiting', '', 'ANSWERS', 1])('refuses %j', (outcome) => {
+    expect(JobUpdateSchema.safeParse({ status: 'done', outcome }).success).toBe(false);
   });
 });

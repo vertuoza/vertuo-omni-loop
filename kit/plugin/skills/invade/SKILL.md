@@ -109,7 +109,9 @@ TODO(human): <a question a person can answer in one line>
 The registers live under `paths.knowledge`: `product/`, one `domains/<domain>/` folder per domain
 (its **code** is the folder name uppercased, hyphens removed: `agent-session` is `AGENTSESSION`), and
 `cross-domain/<a>--<b>.md`. Each product and domain folder holds `principles.md`, `rules.md` and
-`invariants.md`; a domain folder also a `README.md` with a `Glossary term:` line. An entry is a
+`invariants.md`, and may hold `contracts.md`, which is optional: its domain contracts (`DC-<CODE>-<n>`)
+are written by a person, and this skill writes no contract. A domain folder also holds a `README.md`
+with a `Glossary term:` line. An entry is a
 `## <id>` heading, a one-line statement, then its field lines. Read one with
 `node .omni-loop/bin/omni.mjs knowledge <id>`; never parse the files yourself.
 
@@ -450,7 +452,7 @@ A page that already answers a question is pointed at, never copied, so it keeps 
   the config), whose hash would be stale on merge.
 
   ```bash
-  printf '  - %s@%s\n' "<path>" "$(git hash-object -- "<path>" | cut -c1-7)"
+  git hash-object -- "<path>"     # the line is `  - <path>@<its first 7 hex>`
   ```
 
 - **Commands.** Every command a section names runs once, from the worktree's root, before it is

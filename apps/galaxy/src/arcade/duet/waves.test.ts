@@ -4,7 +4,7 @@ import { RULES } from './rules';
 import {
   blocksAt, CHAPTERS, ENDLESS_GROUPS, ENDLESS_SEED, endlessSpeed, endlessWave, endlessWaves, fallen, ghostShare, parseChapter, parseWave, passedAt, patternsOf,
   placedAt, POSE, RAMP, reachOf, ring, route, secondsOf, SHAPE, sightOf, spaceBetween, spacingProblems, speedAt, struck, throughHolding, timeAt,
-  turnSeconds, waveProblems, wayOf, windowOf, type Pattern, type Piece, type Wave,
+  holdSpace, turnSeconds, waveProblems, wayOf, windowOf, type Pattern, type Piece, type Wave,
 } from './waves';
 
 // OMNI DUET's waves (PRD 1633, slice 3; issues 1672, 1689 and 1692): the vocabulary of obstacles set on
@@ -323,6 +323,17 @@ describe('the spacing a turn asks for', () => {
   it('names an obstacle too close behind one of the other pose, and lets one of the same pose follow closely', () => {
     const close = parseChapter('V', 'CLOSE', ['speed 100\nL half · 0\nR half · 0.25R\ncentre · 1R']);
     expect(spacingProblems([close])).toEqual(['chapter V · CLOSE, wave 1, line 4: 56.0 px behind, not 69.8']);
+  });
+
+  it('asks a change of pose beside a gate 1.75 R more, the gate holding the pose across the whole circle, and nothing more beside a half bar or a moving obstacle', () => {
+    const piece = (kind: Piece['kind'], motion: Piece['motion'] = 'still') => ({ kind, motion });
+    expect(holdSpace(piece('gate'), piece('centre'))).toBeCloseTo(1.75 * R, 9);
+    expect(holdSpace(piece('upright'), piece('gate'))).toBeCloseTo(1.75 * R, 9);
+    expect(holdSpace(piece('gate'), piece('half'))).toBe(0);
+    expect(holdSpace(piece('half'), piece('centre'))).toBe(0);
+    expect(holdSpace(piece('gate'), piece('centre', 'slide'))).toBe(0);
+    const near = parseChapter('V', 'GATE', ['speed 100\ngate · 0\ncentre · 2.5R']);
+    expect(spacingProblems([near])).toEqual(['chapter V · GATE, wave 1, line 3: 140.0 px behind, not 168.2']);
   });
 
   it('keeps the endless waves to it too, for the first 200', () => {
@@ -699,10 +710,10 @@ describe('the endless waves', () => {
     expect(reached).toBeLessThanOrEqual(60);
   });
 
-  it('pack the obstacles of one pose 1.25 R apart, and leave a change of pose or a turn the room the spacing rule asks', () => {
+  it('pack the obstacles of one pose 1.25 R apart, and leave a change of pose or a turn the room the spacing rule asks, a gate\'s hold more', () => {
     const spaces = endlessWaves(200).flatMap((w) => w.pieces.slice(1).map((p, k) => {
       const before = w.pieces[k] as Piece;
-      return { space: spaceBetween(before, p) / R, same: p.motion === 'still' && before.motion === 'still' && POSE[p.kind].pose === POSE[before.kind].pose };
+      return { space: (spaceBetween(before, p) - holdSpace(before, p)) / R, same: p.motion === 'still' && before.motion === 'still' && POSE[p.kind].pose === POSE[before.kind].pose };
     }));
     expect(Math.min(...spaces.filter((s) => s.same).map((s) => s.space))).toBeCloseTo(1.25, 9);
     expect(spaces.filter((s) => s.same && s.space < 1.5 * R).length).toBeGreaterThan(20);
@@ -736,5 +747,50 @@ describe('the endless waves', () => {
 
   it('keep the chapters\' room to spare for the first 200', () => {
     expect(waveProblems(endless(endlessWaves(200)), { reactionSeconds: 0.4, orbRadius: RULES.orbRadius + 2 })).toEqual([]);
+  });
+});
+
+describe('the moment to change pose (issue 2156)', () => {
+  /** The least time a change of pose between two still obstacles leaves to start the quarter turn: a half bar's leaves 0.6 s or more. */
+  const LEAST = 0.55;
+  const step = Math.PI * 2 * RULES.turnsPerSecond * RULES.subStep;
+  const quarter = Math.round(Math.PI / 2 / step);
+
+  /** Whether `blocks`, sub-step by sub-step, strike the pair that holds `from` until sub-step `s`, then turns a quarter `dir` and holds there. */
+  const struckTurning = (blocks: readonly Block[][], turn: { from: number; dir: number; s: number }) =>
+    blocks.some((b, t) => b.length > 0 && struck(turn.from + turn.dir * step * Math.min(quarter, Math.max(0, t - turn.s)), b));
+
+  /** The longest run of sub-steps the quarter turn from obstacle `k - 1`'s pose to obstacle `k`'s may start at, either way round, in seconds. */
+  function changeWindow(wave: Wave, k: number): number {
+    const [a, b] = [wave.pieces[k - 1], wave.pieces[k]];
+    if (!a || !b) return 0;
+    let last = 1;
+    while (!passedAt(wave, last)) last++;
+    const blocks = Array.from({ length: last + 1 }, (_, t) => placedAt(wave, t).filter((p) => p.piece === a || p.piece === b).map((p) => p.block));
+    let widest = 0;
+    for (const dir of [1, -1]) {
+      let run = 0;
+      for (let s = 0; s <= last; s++) {
+        run = struckTurning(blocks, { from: POSE[a.kind].angle, dir, s }) ? 0 : run + 1;
+        widest = Math.max(widest, run);
+      }
+    }
+    return widest * RULES.subStep;
+  }
+
+  /** Every change of pose between two still obstacles that leaves less than `LEAST` to start the turn, by wave and line. */
+  const tight = (name: string, waves: readonly Wave[]) => waves.flatMap((w, i) => w.pieces.flatMap((p, k) => {
+    const before = w.pieces[k - 1];
+    if (!before || before.motion !== 'still' || p.motion !== 'still' || POSE[before.kind].pose === POSE[p.kind].pose) return [];
+    const seconds = changeWindow(w, k);
+    return seconds >= LEAST ? [] : [`${name} wave ${i + 1}, line ${k + 2}: ${before.kind} → ${p.kind}, ${seconds.toFixed(2)} s`];
+  }));
+
+  it('leaves every change of pose in the chapters as long to start as a half bar\'s: a gate beside a centre block too', () => {
+    expect(CHAPTERS.flatMap((c) => tight(c.name, c.waves))).toEqual([]);
+  });
+
+  it('leaves the same in the first 200 endless waves', () => {
+    expect(tight('endless', endlessWaves(200))).toEqual([]);
   });
 });

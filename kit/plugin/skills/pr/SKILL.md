@@ -253,6 +253,12 @@ Its title is the PRD's title followed by the landing's `titleSuffix`, ` (n/N)`.
 **Standalone PR**: the template, or Summary / Verified / Risk and rollback / Reviewer focus, then
 `Closes #<issue>` when there is one, then the `omni sign footer` line.
 
+**Phase-0 PR** (opened by `/omni:brainstorm` step 9, which says what each section holds): the PRD's
+page first, on a line of its own, as `node .omni-loop/bin/omni.mjs dossier link <n>` printed it when
+it printed one, then `prLinks.phase0` filled, the brainstorm's sections, and the `omni sign footer`
+line. A body rewritten later keeps the page line as it is; a body that has none gets it when the
+command prints one on that rewrite, and never a placeholder when it does not.
+
 **The law record,** on a feature, landing or standalone PR that changes a locked law. Such a PR's
 `ci.outboxContext` check stays red until a CODEOWNER of the law's files approves it on GitHub; once
 they have, its summary reads `Locked laws changed (<ids>): approved by their CODEOWNERS, @<login>, …`.
@@ -319,14 +325,17 @@ Anyone asking "is an agent still on this?" reads `labels.inProgress` and this co
 per PR, found by its marker and rewritten in place on every pass of the loop. **Never** use
 `gh pr comment --edit-last`: it rewrites whichever comment was last, not this one.
 
+Run each command plainly and read what it prints: an agent isolated in a worktree is refused a
+`gh` or `git` inside `$(…)`, a pipe or an `if` (bug 2189). `<prefix>` is what
+`node .omni-loop/bin/omni.mjs config markers.prefix` prints, `<slug>` what
+`node .omni-loop/bin/omni.mjs config repo.slug` prints (`{owner}/{repo}` when it prints null), and
+the marker `<MARK>` is `<!-- <prefix>-status -->`. Write the body below to a file outside the
+repository, its first line `<MARK>`, then find the comment:
+
 ```bash
-MARK="<!-- $(node .omni-loop/bin/omni.mjs config markers.prefix)-status -->"
-BODY=$(mktemp)   # write the body below into it; its first line is "$MARK"
-REPO=$(node .omni-loop/bin/omni.mjs config repo.slug)   # when it prints null, use {owner}/{repo}
-ID=$(gh api "repos/$REPO/issues/<n>/comments" --paginate \
-  --jq ".[] | select(.body | contains(\"$MARK\")) | .id" | head -n 1)
-if [ -n "$ID" ]; then gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$BODY"
-else gh pr comment <n> --body-file "$BODY"; fi
+gh api repos/<slug>/issues/<n>/comments --paginate --jq '.[] | select(.body | contains("<MARK>")) | .id'
+gh api -X PATCH repos/<slug>/issues/comments/<id> -F body=@<file>   # it printed an id: the first
+gh pr comment <n> --body-file <file>                                 # it printed nothing
 ```
 
 ```markdown
@@ -337,7 +346,12 @@ else gh pr comment <n> --body-file "$BODY"; fi
 - attempt: <k> / <limits.attempts>
 - slices: <merged> / <total> merged            <!-- feature PR only -->
 - human steps: <missing labels, or "none">
+- job: <id> · runner <name>                    <!-- a runner job's session only -->
 ```
+
+The `job:` line names the runner job that holds the claim, so the runner releases a dead job's
+claims. Every rewrite writes it from the session's own `OMNI_JOB` (`OMNI_RUNNER` for the name), and
+drops it when `OMNI_JOB` is not set.
 
 This skill does not decide whether a claim is stale. The board does: `/omni:wave` reads the slice's
 `claimed-stale` state from `omni board <prd>`. Whoever picks up a stale PR takes it over and says so
@@ -358,7 +372,9 @@ Claim mode takes one slice of a PRD, given its plan id and title. It does not lo
    --title "<slice>: <title>" --body-file <file>`. Its body starts with `prLinks.sub` filled (the
    sub-PR shape above) and ends with the `omni sign footer` line.
    Its labels are `labels.sub` and `labels.inProgress`, subject to **Labels**.
-4. Post the status comment with state `claimed`. Stop.
+4. Post the status comment with state `claimed`. When `OMNI_JOB` is set (a runner job's session), it
+   carries the line `- job: <id> · runner <name>`, the values of `OMNI_JOB` and `OMNI_RUNNER`; a
+   claim made outside a runner has no job line. Stop.
 
 ## The lifecycle
 
@@ -410,8 +426,9 @@ A conflicting PR runs no checks at all: the watch exits at once with "no checks 
 **On red**, triage then fix:
 
 1. Read the failing job: `gh run view <run-id> --log-failed`.
-2. Decide whether the branch caused it: does the failure point at a file in
-   `git diff --name-only $(git merge-base <remote>/<base> HEAD)..HEAD`? A failure matching a known
+2. Decide whether the branch caused it: does the failure point at a file the branch changed
+   (`git merge-base <remote>/<base> HEAD` prints `<sha>`, then `git diff --name-only <sha>..HEAD`)?
+   A failure matching a known
    red in the `ci` form, where the branch changes nothing that red names, is not the branch's.
 3. Re-run only when the `ci` form's **When to re-run** allows it: one
    `gh run rerun <run-id> --failed` per PR at most, counted as an attempt.

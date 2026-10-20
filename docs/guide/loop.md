@@ -293,9 +293,10 @@ Proposed law: If a quote's total leaves out the tax, customers are billed the wr
 
 A person locks it, in a pull request of their own:
 
-1. Name the owners once: `laws.owners` in `.omni-loop/config.yml` (logins or teams), then
-   `omni kb owners` writes them into `.github/CODEOWNERS` for the laws' files, the thesis and the
-   registers. `omni check knowledge` refuses a lock while no owner is named.
+1. Name the owners once: `laws.owners` in `.omni-loop/config.yml` (logins or teams, each with a
+   delegate if you like, below), then `omni kb owners` writes them into `.github/CODEOWNERS` for the
+   laws' files, the thesis and the registers. `omni check knowledge` refuses a lock while no owner
+   is named.
 2. Replace the entry's `Proposed law:` line with `Locked: @<your login>, <today>`, make sure it has
    its `Governs:` line and its test, and add its line to the thesis's laws section.
 3. A CODEOWNER of those files approves the pull request on GitHub.
@@ -315,6 +316,46 @@ not locked still needs only a `high` question, which any person may answer.
 | a path, such as `src/quotes/total.test.ts` | the law's test: the outbox gate treats any change to it as a change to the law |
 | `pending #<n>` | a law that waits for its test: law issue `#<n>` is open, and agents respect the law already |
 | `unenforced` | a law with no test and no issue yet; refused once `laws.requireProof` is on, below |
+
+### When an owner does not answer
+
+An owner on leave should not leave a pull request stuck, and nothing waits forever without someone
+being told. Give each owner a **delegate**, and name **product leadership**:
+
+```yaml file=.omni-loop/config.yml
+laws:
+  owners:
+    - login: pierrederval
+      delegate: jdoe
+    - acme/platform          # an owner with no delegate
+  leadership: [cto-login]
+limits:
+  escalationWorkingDays: 2
+```
+
+- A delegate is one person's GitHub login, never a team, and never the owner itself.
+  `omni kb owners` writes each owner and each delegate on every line of its block, so a delegate's
+  approval clears a law as the owner's does. Run it again after you add a delegate:
+  `omni check knowledge` reports the block out of date until you do. `omni kb laws` names the
+  delegate: `Changing it needs @pierrederval (or the delegate @jdoe) to approve the pull request.`
+- Leadership is a list of logins. It is never written into CODEOWNERS, so its approval never clears
+  a law.
+- `limits.escalationWorkingDays` is 1 to 10, 2 by default. Working days are Monday to Friday, in
+  UTC.
+
+A changed law waiting for its approval, or a `high` or `human-action` question waiting for its
+answer, is asked about in three steps:
+
+| Step | When | A law waiting for approval | A question waiting for its answer |
+|---|---|---|---|
+| 0 | as soon as it waits | its CODEOWNERS | the feature PR, and the PRD's opener on the Omni page |
+| 1 | `escalationWorkingDays` working days later | each owner's delegate | each owner and each delegate |
+| 2 | as many working days again | and leadership | and leadership |
+
+Each step posts one new comment on the pull request that mentions the people newly asked, and
+shows the wait in their list on the Omni page. Asking never decides: nothing is approved, adopted
+or labelled, and the check stays red until a person answers. With no delegate and no leadership,
+nobody more is ever asked.
 
 ### Worth a law?
 
@@ -374,14 +415,18 @@ From then on, `omni check knowledge` refuses a rule or an invariant whose `Enfor
 
 ### A person answers every change to a rule
 
-Four changes count as a change to a rule, locked or not (a locked one also needs its CODEOWNER,
+Five changes count as a change to a rule, locked or not (a locked one also needs its CODEOWNER,
 [above](#lock-a-law)):
 
 - **`law-proof`**: the law's test changes;
 - **`law-text`**: a register of the knowledge base, or a decision record, changes;
 - **`test-removed`**: a test file is deleted;
 - **`law-demoted`**: a law's test path turns back to `pending` or `unenforced`, or a law leaves the
-  knowledge base.
+  knowledge base;
+- **`briefing-text`**: the briefing changes (`briefing.md` in the playbook, the file its `points-to`
+  names, or a file one of its `See:` lines names), in every repository that has one. It holds the
+  rules every agent follows, so an agent never loosens them alone. The briefing is not a locked law:
+  its CODEOWNER is asked to review, and any person may answer its question.
 
 Each needs a question ranked `high`, one a person answers on the pull request. An account that says
 `spec <where>`, or names a `medium` question the loop adopted by itself, does not count: the outbox
@@ -389,7 +434,7 @@ check stays red. Which pull request gets which check:
 
 | Pull request | Its outbox check |
 |---|---|
-| a feature pull request | as always, with the four law changes answered only by `high` questions |
+| a feature pull request | as always, with the five changes answered only by `high` questions |
 | a fix (`/omni:bug-fix`, `/omni:visual-fix`) | `success` when it touches no law. One that does needs a small `outbox/` in the fix's folder, one `high` question per change: the fix skills raise them, and the check names the law and stays red until you answer |
 | a knowledge pull request, or one `/omni:enforce` opened | never blocked: merging it is your answer. The check lists the laws it touches |
 

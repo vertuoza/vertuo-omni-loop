@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>product-constellation</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni), and the galaxy colours @omni/design exports (tokens.css),
+     which the night sky uses in every theme. Faces fall back to system faces here. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-yellow: #ff3ea5; --ask-cyan: #6ff0ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --void: #07061c; --deep: #0e0d33; --starfield: #05040f; --white: #f2f4ff; --plasma: #a45cff; --yellow: #ffd84a;
+    --red: #ff3b5c; --cyan: #6ff0ff; --green: #4ee08a; --slate: #5b5f80; --dim: #8a90d6; --magenta: #ff3ea5;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
+  a { color: var(--ask-cyan); }
+  .note { max-width: 1240px; margin: 0 auto; padding: 24px 16px 8px; font: 14px/1.55 system-ui, sans-serif; color: var(--ask-muted); }
+  .note h1 { margin: 0 0 6px; font-size: 22px; color: var(--ask-ink); }
+  .note p { margin: 0 0 6px; max-width: 90ch; }
+  .note b { color: var(--ask-ink); }
+  h2.part { max-width: 1240px; margin: 36px auto 0; padding: 0 16px; font: 700 18px/1.3 system-ui, sans-serif; color: var(--ask-plasma); }
+  .section { max-width: 1240px; margin: 16px auto 0; padding: 0 16px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+  .col { min-width: 0; display: grid; gap: 8px; align-content: start; }
+  .label { font: 700 12px/1 system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--ask-muted); }
+  .label.after { color: var(--ask-green); }
+  .cap { font: 13px/1.5 system-ui, sans-serif; color: var(--ask-muted); margin: 0; }
+  .flow { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; padding: 14px 16px; font-size: 14px; }
+  .flow ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+  .flow code, .cap code { font: 12.5px var(--ask-mono); }
+  .flow h3 { margin: 0 0 8px; font-size: 14px; }
+  .scroll { overflow-x: auto; }
+  pre.ex { margin: 0; background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 10px; padding: 12px; font: 12px/1.5 var(--ask-mono); white-space: pre; }
+
+  .app { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 14px; padding: 18px; display: grid; gap: 12px; min-width: 0; }
+  .app h1 { margin: 0; font-size: 24px; }
+  .crumb { font-size: 13px; color: var(--ask-muted); }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--ask-line); }
+  .tabs a { padding: 8px 10px; font-size: 14px; color: var(--ask-muted); text-decoration: none; border-bottom: 2px solid transparent; }
+  .tabs a[aria-current] { color: var(--ask-ink); border-color: var(--ask-plasma); font-weight: 700; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chips span { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 12px; border: 1px solid var(--ask-line-strong); border-radius: 999px; font-size: 13px; background: var(--ask-surface); }
+  .topline { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+  .lede { margin: 0; color: var(--ask-muted); font-size: 15px; }
+  .counts { font: 13px var(--ask-mono); color: var(--ask-muted); }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .frame { border: 1px solid var(--ask-line-strong); border-radius: 12px; overflow-x: auto; min-width: 0; }
+  .frame svg { display: block; width: 100%; height: auto; }
+  @media (max-width: 600px) { .frame svg { width: 680px; } }
+  .frame.old { background: var(--ask-sunk); }
+  .card { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; padding: 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+  .card h3 { margin: 0; font: 700 14px var(--ask-mono); }
+  .card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+  .card li { display: flex; gap: 8px; align-items: baseline; }
+  .card li b { font-family: var(--ask-mono); }
+  .card p { margin: 0; font-size: 13px; color: var(--ask-muted); }
+  .s { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ask-muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid; }
+  .legend em { width: 22px; height: 0; border-top: 3px solid; display: inline-block; }
+
+  /* the shipped tab, as it renders (PRD 2129) */
+
+
+.constellation { display: grid; gap: 12px; min-width: 0; }
+.constellation-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 14px; }
+
+.constellation-frame {
+  min-width: 0;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.constellation-sky { display: block; width: 100%; min-width: 680px; height: auto; scroll-snap-align: center; }
+
+.constellation-edge { fill: none; stroke: var(--ask-line-strong); stroke-width: 2; }
+.constellation-flow { fill: none; stroke: var(--ask-cyan); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 0 100; animation: constellation-flow 3.4s linear infinite; }
+@keyframes constellation-flow { to { stroke-dashoffset: -100; } }
+.constellation-edge-label { fill: var(--ask-muted); font: 11px var(--ask-mono); paint-order: stroke; stroke: var(--ask-sunk); stroke-width: 4px; stroke-linejoin: round; }
+.constellation-sky [data-faded] { opacity: 0.25; }
+
+.constellation-star { cursor: pointer; }
+.constellation-star:focus-visible { outline: none; }
+.constellation-star:focus-visible .constellation-body { stroke: var(--ask-cyan); stroke-width: 4; }
+.constellation-hit { fill: transparent; }
+.constellation-body { fill: var(--ask-surface); stroke: var(--ask-ink); stroke-width: 2; }
+.constellation-star[data-docked] .constellation-body { fill: none; stroke: var(--ask-muted); }
+.constellation-ring { fill: none; stroke-width: 4; transform-box: fill-box; transform-origin: center; }
+.constellation-ring[data-state='building'] { stroke: var(--ask-green); }
+.constellation-ring[data-state='on-you'] { stroke: var(--ask-yellow); animation: constellation-pulse 2.2s ease-in-out infinite; }
+.constellation-ring[data-state='drifted'] { stroke: var(--ask-red); }
+@keyframes constellation-pulse { 50% { opacity: 0.35; transform: scale(1.12); } }
+.constellation-halo { fill: none; stroke: var(--ask-plasma); stroke-width: 2; stroke-dasharray: 4 4; }
+.constellation-mark { fill: var(--ask-ink); font-size: 18px; }
+.constellation-name { fill: var(--ask-ink); font: 700 14px var(--ask-mono); }
+.constellation-role { fill: var(--ask-muted); font-size: 12px; }
+.constellation-tether-line { stroke: var(--ask-muted); stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }
+.constellation-tether-label { fill: var(--ask-ink); font-size: 12px; text-decoration: underline; }
+.constellation-tether a { cursor: pointer; }
+.constellation-docked { fill: var(--ask-muted); font: 700 11px var(--ask-mono); letter-spacing: 0.14em; }
+
+.constellation-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 20px; color: var(--ask-muted); font-size: 14px; }
+.constellation-key { display: inline-block; min-width: 14px; margin-right: 4px; color: var(--ask-ink); }
+.constellation-key[data-key='also-in'] { width: 12px; height: 12px; border: 2px dashed var(--ask-plasma); border-radius: 50%; vertical-align: -2px; }
+
+.constellation-key[data-key='building'],
+.constellation-key[data-key='on-you'],
+.constellation-key[data-key='drifted'] { width: 10px; height: 10px; border: 2px solid; border-radius: 50%; vertical-align: -1px; }
+.constellation-key[data-key='building'] { border-color: var(--ask-green); }
+.constellation-key[data-key='on-you'] { border-color: var(--ask-yellow); }
+.constellation-key[data-key='drifted'] { border-color: var(--ask-red); }
+
+.constellation-chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.constellation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 4px 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+  background: var(--ask-surface);
+  color: var(--ask-ink);
+  font-size: 13px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.constellation-chip:hover { border-color: var(--ask-plasma); }
+.constellation-chip[aria-current] { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); font-weight: 700; }
+.constellation-chip b { font-family: var(--ask-mono); }
+
+.constellation-body-grid { display: grid; gap: 16px; min-width: 0; }
+.constellation-main { display: grid; gap: 12px; min-width: 0; }
+@media (min-width: 900px) {
+  .constellation-body-grid { grid-template-columns: minmax(0, 1fr) 300px; }
+}
+
+.constellation-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+  padding: 14px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.constellation-card h2 { margin: 0; font: 700 15px var(--ask-mono); overflow-wrap: anywhere; }
+.constellation-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.constellation-card li { display: flex; gap: 8px; align-items: baseline; overflow-wrap: anywhere; }
+.constellation-card li b { font-family: var(--ask-mono); }
+.constellation-card p { margin: 0; font-size: 13px; color: var(--ask-muted); }
+.constellation-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ask-muted); }
+.constellation-dot[data-state='building'] { background: var(--ask-green); }
+.constellation-dot[data-state='on-you'] { background: var(--ask-yellow); }
+.constellation-dot[data-state='drifted'] { background: var(--ask-red); }
+.constellation-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 14px; }
+.constellation-facts dt { color: var(--ask-muted); font: 12px var(--ask-mono); padding-top: 2px; }
+.constellation-facts dd { margin: 0; overflow-wrap: anywhere; }
+.constellation-card .constellation-links { display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .constellation-ring { animation: none; }
+  .constellation-flow { display: none; }
+}
+
+@media (max-width: 599px) {
+  .constellation-sky { width: 680px; }
+}
+
+
+  /* the night sky (this PRD) */
+  .nsky .field circle { fill: #d6d9ff; }
+  .nsky .tw { animation: tw 3.2s ease-in-out infinite; }
+  @keyframes tw { 50% { opacity: .08; } }
+  .nsky .pl { fill: none; stroke: var(--dim); stroke-opacity: .45; }
+  .nsky .pl.fl { stroke: var(--cyan); stroke-opacity: .9; }
+  .nsky a:hover .pl, .nsky a:focus-visible .pl { stroke-opacity: 1; }
+  .nsky .cl { fill: none; stroke: var(--slate); stroke-width: 1; }
+  .nsky .dot { fill: var(--cyan); }
+  .nsky .core { fill: #fff3c2; stroke: var(--yellow); stroke-width: 2; }
+  .nsky .core.dk { fill: var(--slate); stroke: var(--dim); }
+  .nsky .ring { fill: none; stroke-width: 3.5; transform-box: fill-box; transform-origin: center; }
+  .nsky .ring.building { stroke: var(--green); }
+  .nsky .ring.drifted { stroke: var(--red); }
+  .nsky .ring.on-you { stroke: var(--yellow); animation: pulse 2.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; transform: scale(1.15); } }
+  .nsky .halo { fill: none; stroke: var(--plasma); stroke-width: 1.5; stroke-dasharray: 3 5; }
+  .nsky .br { animation: br 6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes br { 50% { transform: scale(1.12); opacity: .7; } }
+  .nsky .lbl { font: 13px var(--ask-mono); fill: var(--white); paint-order: stroke; stroke: var(--void); stroke-width: 4px; stroke-linejoin: round; }
+  .nsky .sub { font: 11px var(--ask-mono); fill: var(--dim); paint-order: stroke; stroke: var(--void); stroke-width: 4px; }
+  .nsky a.star:focus-visible .core { stroke: var(--cyan); stroke-width: 4; }
+  @media (prefers-reduced-motion: reduce) { .nsky .tw, .nsky .ring.on-you, .nsky .br { animation: none; } .nsky .dot { display: none; } }
+</style>
+</head>
+<body>
+<div class="section" style="padding-block:24px">
+<div class="app" data-screen="product-constellation">
+      <div class="crumb">Products › Vertuoza</div>
+      <h1>Vertuoza</h1>
+      <nav class="tabs" aria-label="Product"><a href="#">Ledger</a><a href="#" aria-current="page">Constellation</a><a href="#">PRDs</a><a href="#">Ideas</a><a href="#">Roadmap</a><a href="#">Bug fixes</a><a href="#">Visual fixes</a><a href="#">Questions</a><a href="#">Knowledge</a><a href="#">Repositories &amp; approvers</a></nav>
+      <div class="topline"><p class="lede">How the product looks now.</p><span class="counts">18 repositories · 24 lines</span><span class="counts">as of 14:22 UTC</span></div>
+      <div class="grid">
+        <div class="col">
+          <div class="frame"><svg class="nsky" viewBox="0 0 960 600" role="img" aria-label="Vertuoza: 18 repositories, 24 lines, 24 PRDs"><defs><radialGradient id="sky" cx="55%" cy="45%" r="75%"><stop offset="0" stop-color="#1d1666"/><stop offset=".45" stop-color="var(--deep)"/><stop offset="1" stop-color="var(--starfield)"/></radialGradient><radialGradient id="gY"><stop offset="0" stop-color="#fff6c8" stop-opacity=".9"/><stop offset=".3" stop-color="#ffd84a" stop-opacity=".35"/><stop offset="1" stop-color="#ffd84a" stop-opacity="0"/></radialGradient><radialGradient id="gG"><stop offset="0" stop-color="#d0d2e6" stop-opacity=".35"/><stop offset="1" stop-color="#8a90d6" stop-opacity="0"/></radialGradient><radialGradient id="gR"><stop offset="0" stop-color="#ffd0d8" stop-opacity=".8"/><stop offset=".35" stop-color="#ff3b5c" stop-opacity=".35"/><stop offset="1" stop-color="#ff3b5c" stop-opacity="0"/></radialGradient><radialGradient id="neb1"><stop offset="0" stop-color="#a45cff" stop-opacity=".18"/><stop offset="1" stop-color="#a45cff" stop-opacity="0"/></radialGradient><radialGradient id="neb2"><stop offset="0" stop-color="#6ff0ff" stop-opacity=".1"/><stop offset="1" stop-color="#6ff0ff" stop-opacity="0"/></radialGradient><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--slate)"/></marker></defs><rect width="960" height="600" fill="url(#sky)"/><ellipse cx="288" cy="372" rx="336" ry="240" fill="url(#neb1)"/><ellipse cx="720" cy="180" rx="288" ry="210" fill="url(#neb2)"/><g class="field"><circle class="tw" style="animation-delay:-0.7s" cx="265" cy="211" r="0.4" opacity="0.51"/><circle class="tw" style="animation-delay:-2.5s" cx="82" cy="431" r="0.4" opacity="0.26"/><circle class="tw" style="animation-delay:-2.4s" cx="260" cy="216" r="0.7" opacity="0.41"/><circle class="tw" style="animation-delay:-1.9s" cx="377" cy="287" r="1.0" opacity="0.35"/><circle class="tw" style="animation-delay:-0.4s" cx="704" cy="464" r="0.3" opacity="0.30"/><circle class="tw" style="animation-delay:-0.4s" cx="553" cy="30" r="0.7" opacity="0.61"/><circle class="tw" style="animation-delay:-2.4s" cx="699" cy="580" r="0.4" opacity="0.33"/><circle class="tw" style="animation-delay:-2.3s" cx="31" cy="129" r="1.2" opacity="0.24"/><circle class="tw" style="animation-delay:-0.8s" cx="836" cy="450" r="1.3" opacity="0.51"/><circle class="tw" style="animation-delay:-0.5s" cx="444" cy="356" r="0.9" opacity="0.36"/><circle class="tw" style="animation-delay:-0.8s" cx="593" cy="273" r="0.4" opacity="0.53"/><circle class="tw" style="animation-delay:-0.4s" cx="34" cy="415" r="0.7" opacity="0.44"/><circle class="tw" style="animation-delay:-0.8s" cx="955" cy="86" r="0.5" opacity="0.17"/><circle class="tw" style="animation-delay:-1.5s" cx="267" cy="194" r="1.1" opacity="0.41"/><circle class="tw" style="animation-delay:-0.6s" cx="520" cy="117" r="1.0" opacity="0.34"/><circle class="tw" style="animation-delay:-0.4s" cx="65" cy="419" r="1.4" opacity="0.16"/><circle class="tw" style="animation-delay:-0.8s" cx="353" cy="478" r="0.7" opacity="0.31"/><circle class="tw" style="animation-delay:-2.9s" cx="529" cy="422" r="1.2" opacity="0.17"/><circle class="tw" style="animation-delay:-1.9s" cx="366" cy="98" r="0.7" opacity="0.60"/><circle class="tw" style="animation-delay:-1.5s" cx="921" cy="369" r="1.3" opacity="0.26"/><circle class="tw" style="animation-delay:-1.8s" cx="437" cy="65" r="1.1" opacity="0.31"/><circle class="tw" style="animation-delay:-0.7s" cx="502" cy="400" r="0.8" opacity="0.46"/><circle class="tw" style="animation-delay:-2.7s" cx="603" cy="332" r="0.4" opacity="0.54"/><circle class="tw" style="animation-delay:-2.1s" cx="705" cy="107" r="0.8" opacity="0.33"/><circle class="tw" style="animation-delay:-0.2s" cx="1" cy="36" r="0.4" opacity="0.44"/><circle class="tw" style="animation-delay:-2.8s" cx="414" cy="231" r="1.3" opacity="0.36"/><circle class="tw" style="animation-delay:-2.7s" cx="731" cy="240" r="0.5" opacity="0.48"/><circle class="tw" style="animation-delay:-1.5s" cx="359" cy="86" r="0.7" opacity="0.41"/><circle class="tw" style="animation-delay:-1.5s" cx="396" cy="379" r="1.0" opacity="0.28"/><circle class="tw" style="animation-delay:-1.5s" cx="474" cy="383" r="1.0" opacity="0.50"/><circle class="tw" style="animation-delay:-2.3s" cx="721" cy="152" r="0.4" opacity="0.51"/><circle class="tw" style="animation-delay:-1.9s" cx="530" cy="185" r="1.1" opacity="0.19"/><circle class="tw" style="animation-delay:-2.5s" cx="133" cy="436" r="1.4" opacity="0.55"/><circle class="tw" style="animation-delay:-0.3s" cx="942" cy="510" r="0.5" opacity="0.35"/><circle class="tw" style="animation-delay:-0.8s" cx="952" cy="81" r="0.9" opacity="0.23"/><circle class="tw" style="animation-delay:-2.0s" cx="856" cy="358" r="0.4" opacity="0.54"/><circle class="tw" style="animation-delay:-0.2s" cx="9" cy="596" r="0.9" opacity="0.22"/><circle class="tw" style="animation-delay:-1.3s" cx="19" cy="91" r="0.9" opacity="0.23"/><circle class="tw" style="animation-delay:-0.6s" cx="263" cy="200" r="0.4" opacity="0.49"/><circle class="tw" style="animation-delay:-1.9s" cx="462" cy="106" r="0.7" opacity="0.50"/><circle class="tw" style="animation-delay:-2.9s" cx="692" cy="124" r="1.0" opacity="0.56"/><circle class="tw" style="animation-delay:-0.6s" cx="21" cy="16" r="1.0" opacity="0.44"/><circle class="tw" style="animation-delay:-1.5s" cx="576" cy="458" r="1.3" opacity="0.47"/><circle class="tw" style="animation-delay:-1.2s" cx="655" cy="463" r="1.1" opacity="0.21"/><circle class="tw" style="animation-delay:-1.5s" cx="909" cy="38" r="0.5" opacity="0.50"/><circle class="tw" style="animation-delay:-2.7s" cx="838" cy="216" r="0.3" opacity="0.49"/><circle class="tw" style="animation-delay:-3.0s" cx="903" cy="565" r="0.8" opacity="0.27"/><circle class="tw" style="animation-delay:-1.0s" cx="468" cy="396" r="0.7" opacity="0.38"/><circle class="tw" style="animation-delay:-1.4s" cx="718" cy="340" r="0.6" opacity="0.46"/><circle class="tw" style="animation-delay:-1.9s" cx="262" cy="595" r="0.3" opacity="0.43"/><circle class="tw" style="animation-delay:-2.4s" cx="224" cy="482" r="0.4" opacity="0.62"/><circle class="tw" style="animation-delay:-2.1s" cx="907" cy="35" r="0.6" opacity="0.38"/><circle class="tw" style="animation-delay:-3.0s" cx="247" cy="225" r="0.9" opacity="0.45"/><circle class="tw" style="animation-delay:-1.6s" cx="844" cy="55" r="0.8" opacity="0.64"/><circle class="tw" style="animation-delay:-2.9s" cx="228" cy="558" r="0.9" opacity="0.58"/><circle class="tw" style="animation-delay:-2.4s" cx="400" cy="486" r="1.0" opacity="0.18"/><circle class="tw" style="animation-delay:-1.6s" cx="803" cy="453" r="0.8" opacity="0.28"/><circle class="tw" style="animation-delay:-2.4s" cx="115" cy="559" r="1.2" opacity="0.35"/><circle class="tw" style="animation-delay:-2.0s" cx="38" cy="533" r="1.4" opacity="0.61"/><circle class="tw" style="animation-delay:-1.4s" cx="662" cy="379" r="1.3" opacity="0.31"/><circle class="" style="" cx="557" cy="87" r="0.3" opacity="0.21"/><circle class="" style="" cx="365" cy="381" r="1.2" opacity="0.59"/><circle class="" style="" cx="847" cy="256" r="0.7" opacity="0.30"/><circle class="" style="" cx="733" cy="178" r="0.6" opacity="0.18"/><circle class="" style="" cx="181" cy="194" r="0.7" opacity="0.52"/><circle class="" style="" cx="668" cy="507" r="1.0" opacity="0.63"/><circle class="" style="" cx="178" cy="184" r="0.5" opacity="0.50"/><circle class="" style="" cx="91" cy="2" r="0.8" opacity="0.46"/><circle class="" style="" cx="85" cy="596" r="0.8" opacity="0.35"/><circle class="" style="" cx="803" cy="412" r="1.2" opacity="0.17"/><circle class="" style="" cx="679" cy="530" r="0.7" opacity="0.39"/><circle class="" style="" cx="451" cy="165" r="0.6" opacity="0.40"/><circle class="" style="" cx="294" cy="398" r="0.6" opacity="0.36"/><circle class="" style="" cx="712" cy="266" r="1.0" opacity="0.59"/><circle class="" style="" cx="282" cy="38" r="1.2" opacity="0.26"/><circle class="" style="" cx="899" cy="330" r="1.4" opacity="0.59"/><circle class="" style="" cx="680" cy="169" r="1.1" opacity="0.60"/><circle class="" style="" cx="22" cy="359" r="1.2" opacity="0.41"/><circle class="" style="" cx="513" cy="581" r="0.9" opacity="0.31"/><circle class="" style="" cx="596" cy="448" r="0.6" opacity="0.44"/><circle class="" style="" cx="782" cy="468" r="0.9" opacity="0.55"/><circle class="" style="" cx="741" cy="236" r="0.3" opacity="0.24"/><circle class="" style="" cx="559" cy="293" r="0.8" opacity="0.17"/><circle class="" style="" cx="511" cy="491" r="0.6" opacity="0.28"/><circle class="" style="" cx="586" cy="392" r="1.3" opacity="0.62"/><circle class="" style="" cx="356" cy="234" r="1.2" opacity="0.34"/><circle class="" style="" cx="922" cy="514" r="1.3" opacity="0.44"/><circle class="" style="" cx="368" cy="196" r="1.4" opacity="0.32"/><circle class="" style="" cx="344" cy="306" r="0.3" opacity="0.24"/><circle class="" style="" cx="302" cy="21" r="1.1" opacity="0.16"/><circle class="" style="" cx="360" cy="122" r="1.2" opacity="0.24"/><circle class="" style="" cx="383" cy="598" r="0.7" opacity="0.23"/><circle class="" style="" cx="399" cy="384" r="0.9" opacity="0.34"/><circle class="" style="" cx="12" cy="133" r="0.9" opacity="0.35"/><circle class="" style="" cx="510" cy="71" r="0.9" opacity="0.19"/><circle class="" style="" cx="124" cy="166" r="0.7" opacity="0.18"/><circle class="" style="" cx="37" cy="348" r="1.0" opacity="0.38"/><circle class="" style="" cx="582" cy="510" r="1.1" opacity="0.31"/><circle class="" style="" cx="907" cy="132" r="1.4" opacity="0.50"/><circle class="" style="" cx="251" cy="545" r="1.3" opacity="0.30"/><circle class="" style="" cx="193" cy="400" r="1.1" opacity="0.42"/><circle class="" style="" cx="750" cy="236" r="1.0" opacity="0.22"/><circle class="" style="" cx="721" cy="426" r="0.8" opacity="0.45"/><circle class="" style="" cx="415" cy="293" r="1.1" opacity="0.30"/><circle class="" style="" cx="389" cy="365" r="0.6" opacity="0.63"/><circle class="" style="" cx="559" cy="274" r="1.3" opacity="0.55"/><circle class="" style="" cx="500" cy="565" r="1.0" opacity="0.47"/><circle class="" style="" cx="41" cy="15" r="0.8" opacity="0.45"/><circle class="" style="" cx="475" cy="26" r="0.8" opacity="0.31"/><circle class="" style="" cx="210" cy="207" r="0.9" opacity="0.62"/><circle class="" style="" cx="69" cy="588" r="1.4" opacity="0.63"/><circle class="" style="" cx="66" cy="303" r="1.2" opacity="0.61"/><circle class="" style="" cx="447" cy="63" r="0.5" opacity="0.44"/><circle class="" style="" cx="848" cy="370" r="1.0" opacity="0.61"/><circle class="" style="" cx="272" cy="99" r="1.3" opacity="0.19"/><circle class="" style="" cx="838" cy="272" r="0.5" opacity="0.28"/><circle class="" style="" cx="268" cy="587" r="1.3" opacity="0.20"/><circle class="" style="" cx="542" cy="394" r="0.7" opacity="0.59"/><circle class="" style="" cx="868" cy="402" r="0.8" opacity="0.64"/><circle class="" style="" cx="18" cy="301" r="1.0" opacity="0.65"/><circle class="" style="" cx="650" cy="281" r="0.6" opacity="0.51"/><circle class="" style="" cx="820" cy="139" r="0.8" opacity="0.59"/><circle class="" style="" cx="354" cy="43" r="1.3" opacity="0.20"/><circle class="" style="" cx="80" cy="566" r="0.9" opacity="0.55"/><circle class="" style="" cx="951" cy="338" r="1.4" opacity="0.55"/><circle class="" style="" cx="734" cy="31" r="0.6" opacity="0.57"/><circle class="" style="" cx="583" cy="544" r="0.4" opacity="0.40"/><circle class="" style="" cx="448" cy="180" r="1.0" opacity="0.60"/><circle class="" style="" cx="915" cy="594" r="1.3" opacity="0.29"/><circle class="" style="" cx="518" cy="205" r="0.9" opacity="0.50"/><circle class="" style="" cx="828" cy="143" r="1.2" opacity="0.56"/><circle class="" style="" cx="199" cy="530" r="0.6" opacity="0.63"/><circle class="" style="" cx="495" cy="471" r="0.6" opacity="0.56"/><circle class="" style="" cx="448" cy="236" r="0.5" opacity="0.37"/><circle class="" style="" cx="476" cy="128" r="0.9" opacity="0.35"/><circle class="" style="" cx="765" cy="216" r="0.6" opacity="0.28"/><circle class="" style="" cx="631" cy="510" r="0.5" opacity="0.51"/><circle class="" style="" cx="662" cy="79" r="1.4" opacity="0.21"/><circle class="" style="" cx="773" cy="378" r="1.1" opacity="0.33"/><circle class="" style="" cx="946" cy="184" r="0.8" opacity="0.51"/><circle class="" style="" cx="189" cy="311" r="1.2" opacity="0.20"/><circle class="" style="" cx="21" cy="409" r="1.2" opacity="0.17"/><circle class="" style="" cx="803" cy="299" r="0.5" opacity="0.43"/><circle class="" style="" cx="576" cy="469" r="1.0" opacity="0.63"/><circle class="" style="" cx="583" cy="71" r="1.1" opacity="0.62"/><circle class="" style="" cx="728" cy="555" r="1.1" opacity="0.49"/><circle class="" style="" cx="185" cy="363" r="0.4" opacity="0.56"/><circle class="" style="" cx="343" cy="528" r="0.9" opacity="0.34"/><circle class="" style="" cx="795" cy="320" r="0.6" opacity="0.20"/><circle class="" style="" cx="466" cy="38" r="1.0" opacity="0.57"/><circle class="" style="" cx="817" cy="41" r="1.1" opacity="0.58"/><circle class="" style="" cx="643" cy="183" r="0.4" opacity="0.24"/><circle class="" style="" cx="72" cy="456" r="1.2" opacity="0.36"/><circle class="" style="" cx="863" cy="111" r="0.7" opacity="0.48"/><circle class="" style="" cx="932" cy="545" r="0.7" opacity="0.34"/><circle class="" style="" cx="448" cy="552" r="0.5" opacity="0.39"/><circle class="" style="" cx="631" cy="290" r="1.3" opacity="0.54"/><circle class="" style="" cx="589" cy="493" r="0.4" opacity="0.52"/><circle class="" style="" cx="682" cy="366" r="1.2" opacity="0.25"/><circle class="" style="" cx="960" cy="189" r="0.7" opacity="0.32"/><circle class="" style="" cx="753" cy="375" r="0.3" opacity="0.22"/><circle class="" style="" cx="934" cy="309" r="0.9" opacity="0.21"/><circle class="" style="" cx="37" cy="408" r="1.3" opacity="0.25"/><circle class="" style="" cx="634" cy="225" r="0.8" opacity="0.57"/><circle class="" style="" cx="370" cy="551" r="0.8" opacity="0.46"/><circle class="" style="" cx="833" cy="228" r="0.7" opacity="0.36"/><circle class="" style="" cx="522" cy="127" r="0.6" opacity="0.41"/><circle class="" style="" cx="759" cy="499" r="0.5" opacity="0.22"/><circle class="" style="" cx="877" cy="275" r="1.2" opacity="0.44"/><circle class="" style="" cx="520" cy="398" r="0.9" opacity="0.59"/></g><g><a href="#"><title>vertuo-apps ↔ vertuo-front · 2 PRDs</title><path class="pl" style="stroke-width:2.9" d="M310 406 Q378 284 383 144"/></a><a href="#"><title>vertuo-backend-php ↔ vertuo-front · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M452 409 Q449 268 383 144"/></a><a href="#"><title>vertuo-api-gateway ↔ vertuo-front · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M606 439 Q530 265 383 144"/></a><a href="#"><title>vertuo-crew-domain ↔ vertuo-workflow-domain · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M280 211 Q485 421 763 516"/></a><a href="#"><title>vertuo-backend-php ↔ vertuo-crew-domain · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M452 409 Q390 289 280 211"/></a><a href="#"><title>vertuo-ai-domain ↔ vertuo-ux-research-domain · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M792 197 Q812 114 793 32"/></a><a href="#"><title>pdf-builder ↔ vertuo-backend-php · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M360 550 Q423 490 452 409"/></a><a href="#"><title>pdf-builder ↔ vertuo-apps · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M360 550 Q352 472 310 406"/></a><a href="#"><title>vertuo-tom ↔ vertuo-work-v2 · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M747 371 Q824 368 891 330"/></a><a href="#"><title>vertuo-backend-php ↔ vertuo-work-v2 · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M452 409 Q681 422 891 330"/></a><a href="#"><title>teamleaddashboard ↔ vertuobuild · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M538 32 Q505 122 517 217"/></a><a href="#"><title>vertuo-backend-php ↔ vertuobuild · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M452 409 Q508 321 517 217"/></a><a href="#"><title>vertuo-api-gateway ↔ vertuo-auth · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M606 439 Q405 328 175 321"/></a><a href="#"><title>vertuo-auth ↔ vertuo-front · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M175 321 Q301 257 383 144"/></a><a href="#"><title>vertuo-auth ↔ vertuo-mobile · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M175 321 Q288 337 395 301"/></a><a href="#"><title>vertuo-front ↔ vertuo-mobile · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M383 144 Q370 224 395 301"/></a><a href="#"><title>vertuo-apps ↔ vertuo-qa · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M310 406 Q497 351 639 217"/></a><a href="#"><title>vertuo-api-gateway ↔ vertuo-apps · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M606 439 Q462 387 310 406"/></a><a href="#"><title>vertuo-automation-plan ↔ vertuo-vibe-master-plan · 1 PRD</title><path class="pl" style="stroke-width:2.2" d="M100 161 Q65 314 104 465"/></a><a href="#"><title>vertuo-apps ↔ vertuo-backend-php · 6 PRDs</title><path class="pl fl" style="stroke-width:5.0" d="M310 406 Q381 424 452 409"/></a><circle class="dot" r="2.6"><animateMotion dur="3.2s" begin="-0s" repeatCount="indefinite" path="M310 406 Q381 424 452 409"/></circle><circle class="dot" r="2.6"><animateMotion dur="3.6s" begin="-1.2s" repeatCount="indefinite" path="M310 406 Q381 424 452 409"/></circle><circle class="dot" r="2.6"><animateMotion dur="4s" begin="-2.4s" repeatCount="indefinite" path="M310 406 Q381 424 452 409"/></circle><a href="#"><title>vertuo-api-gateway ↔ vertuo-mobile · 2 PRDs</title><path class="pl fl" style="stroke-width:2.9" d="M606 439 Q517 345 395 301"/></a><circle class="dot" r="2.6"><animateMotion dur="3.2s" begin="-0s" repeatCount="indefinite" path="M606 439 Q517 345 395 301"/></circle><circle class="dot" r="2.6"><animateMotion dur="3.6s" begin="-1.2s" repeatCount="indefinite" path="M606 439 Q517 345 395 301"/></circle><circle class="dot" r="2.6"><animateMotion dur="4s" begin="-2.4s" repeatCount="indefinite" path="M606 439 Q517 345 395 301"/></circle><a href="#"><title>vertuo-backend-php ↔ vertuo-mobile · 1 PRD</title><path class="pl fl" style="stroke-width:2.2" d="M452 409 Q437 348 395 301"/></a><circle class="dot" r="2.6"><animateMotion dur="3.2s" begin="-0s" repeatCount="indefinite" path="M452 409 Q437 348 395 301"/></circle><circle class="dot" r="2.6"><animateMotion dur="3.6s" begin="-1.2s" repeatCount="indefinite" path="M452 409 Q437 348 395 301"/></circle><circle class="dot" r="2.6"><animateMotion dur="4s" begin="-2.4s" repeatCount="indefinite" path="M452 409 Q437 348 395 301"/></circle><a href="#"><title>vertuo-api-gateway ↔ vertuo-backend-php · 2 PRDs</title><path class="pl fl" style="stroke-width:2.9" d="M606 439 Q533 406 452 409"/></a><circle class="dot" r="2.6"><animateMotion dur="3.2s" begin="-0s" repeatCount="indefinite" path="M606 439 Q533 406 452 409"/></circle><circle class="dot" r="2.6"><animateMotion dur="3.6s" begin="-1.2s" repeatCount="indefinite" path="M606 439 Q533 406 452 409"/></circle><circle class="dot" r="2.6"><animateMotion dur="4s" begin="-2.4s" repeatCount="indefinite" path="M606 439 Q533 406 452 409"/></circle><a href="#"><title>vertuo-ai-domain ↔ vertuo-backend-php · 1 PRD</title><path class="pl fl" style="stroke-width:2.2" d="M792 197 Q596 262 452 409"/></a><circle class="dot" r="2.6"><animateMotion dur="3.2s" begin="-0s" repeatCount="indefinite" path="M792 197 Q596 262 452 409"/></circle><circle class="dot" r="2.6"><animateMotion dur="3.6s" begin="-1.2s" repeatCount="indefinite" path="M792 197 Q596 262 452 409"/></circle><circle class="dot" r="2.6"><animateMotion dur="4s" begin="-2.4s" repeatCount="indefinite" path="M792 197 Q596 262 452 409"/></circle><path class="cl" marker-end="url(#arr)" d="M383 144 Q459 318 606 439"/></g><g><a href="#" class="star"><title>vertuo-qa · 1 PRD · ◆</title><circle cx="639" cy="217" r="34" fill="url(#gY)" class="br"/><circle class="halo" cx="639" cy="217" r="22"/><circle class="core" cx="639" cy="217" r="10"/><text class="lbl" x="639" y="245" text-anchor="middle">vertuo-qa</text></a><a href="#" class="star"><title>vertuobuild · 2 PRDs · ◇</title><circle cx="517" cy="217" r="44.199999999999996" fill="url(#gG)"/><circle class="core dk" cx="517" cy="217" r="13"/><text class="lbl" x="517" y="248" text-anchor="middle">vertuobuild</text></a><a href="#" class="star"><title>teamleaddashboard · 1 PRD · ◇</title><circle cx="538" cy="32" r="34" fill="url(#gG)"/><circle class="core dk" cx="538" cy="32" r="10"/><text class="lbl" x="538" y="60" text-anchor="middle">teamleaddashboard</text></a><a href="#" class="star"><title>vertuo-tom · 1 PRD · ◆</title><circle cx="747" cy="371" r="34" fill="url(#gY)" class="br"/><circle class="core" cx="747" cy="371" r="10"/><text class="lbl" x="747" y="399" text-anchor="middle">vertuo-tom</text></a><a href="#" class="star"><title>vertuo-mobile · 3 PRDs · ◆</title><circle cx="395" cy="301" r="57.8" fill="url(#gY)" class="br"/><circle class="ring on-you" cx="395" cy="301" r="24"/><circle class="core" cx="395" cy="301" r="17"/><text class="lbl" x="395" y="336" text-anchor="middle">vertuo-mobile</text><text class="sub" x="395" y="350" text-anchor="middle">mobile</text></a><a href="#" class="star"><title>vertuo-ai-domain · 2 PRDs · ◇</title><circle cx="792" cy="197" r="44.199999999999996" fill="url(#gG)"/><circle class="ring drifted" cx="792" cy="197" r="20"/><circle class="core dk" cx="792" cy="197" r="13"/><text class="lbl" x="792" y="228" text-anchor="middle">vertuo-ai-domain</text></a><a href="#" class="star"><title>pdf-builder · 2 PRDs · ◇</title><circle cx="360" cy="550" r="44.199999999999996" fill="url(#gG)"/><circle class="core dk" cx="360" cy="550" r="13"/><text class="lbl" x="360" y="581" text-anchor="middle">pdf-builder</text></a><a href="#" class="star"><title>vertuo-crew-domain · 2 PRDs · ◇</title><circle cx="280" cy="211" r="44.199999999999996" fill="url(#gG)"/><circle class="core dk" cx="280" cy="211" r="13"/><text class="lbl" x="280" y="242" text-anchor="middle">vertuo-crew-domain</text></a><a href="#" class="star"><title>vertuo-workflow-domain · 1 PRD · ◇</title><circle cx="763" cy="516" r="34" fill="url(#gG)"/><circle class="core dk" cx="763" cy="516" r="10"/><text class="lbl" x="763" y="544" text-anchor="middle">vertuo-workflow-domain</text></a><a href="#" class="star"><title>vertuo-apps · 9 PRDs · ◆</title><circle cx="310" cy="406" r="57.8" fill="url(#gY)" class="br"/><circle class="ring building" cx="310" cy="406" r="24"/><circle class="core" cx="310" cy="406" r="17"/><text class="lbl" x="310" y="441" text-anchor="middle">vertuo-apps</text><text class="sub" x="310" y="455" text-anchor="middle">web</text></a><a href="#" class="star"><title>vertuo-ux-research-domain · 1 PRD · ◇</title><circle cx="793" cy="32" r="34" fill="url(#gG)"/><circle class="core dk" cx="793" cy="32" r="10"/><text class="lbl" x="793" y="60" text-anchor="middle">vertuo-ux-research-domain</text></a><a href="#" class="star"><title>vertuo-backend-php · 12 PRDs · ◆</title><circle cx="452" cy="409" r="57.8" fill="url(#gY)" class="br"/><circle class="ring building" cx="452" cy="409" r="24"/><circle class="core" cx="452" cy="409" r="17"/><text class="lbl" x="452" y="444" text-anchor="middle">vertuo-backend-php</text><text class="sub" x="452" y="458" text-anchor="middle">api</text></a><a href="#" class="star"><title>vertuo-automation-plan · 1 PRD · ◆</title><circle cx="100" cy="161" r="34" fill="url(#gY)" class="br"/><circle class="core" cx="100" cy="161" r="10"/><text class="lbl" x="100" y="189" text-anchor="middle">vertuo-automation-plan</text></a><a href="#" class="star"><title>vertuo-work-v2 · 2 PRDs · ◇</title><circle cx="891" cy="330" r="44.199999999999996" fill="url(#gG)"/><circle class="core dk" cx="891" cy="330" r="13"/><text class="lbl" x="891" y="361" text-anchor="middle">vertuo-work-v2</text></a><a href="#" class="star"><title>vertuo-vibe-master-plan · 1 PRD · ◇</title><circle cx="104" cy="465" r="34" fill="url(#gG)"/><circle class="core dk" cx="104" cy="465" r="10"/><text class="lbl" x="104" y="493" text-anchor="middle">vertuo-vibe-master-plan</text></a><a href="#" class="star"><title>vertuo-front · 4 PRDs · ◆</title><circle cx="383" cy="144" r="57.8" fill="url(#gY)" class="br"/><circle class="core" cx="383" cy="144" r="17"/><text class="lbl" x="383" y="179" text-anchor="middle">vertuo-front</text></a><a href="#" class="star"><title>vertuo-api-gateway · 5 PRDs · ◆</title><circle cx="606" cy="439" r="57.8" fill="url(#gY)" class="br"/><circle class="ring building" cx="606" cy="439" r="24"/><circle class="core" cx="606" cy="439" r="17"/><text class="lbl" x="606" y="474" text-anchor="middle">vertuo-api-gateway</text><text class="sub" x="606" y="488" text-anchor="middle">api</text></a><a href="#" class="star"><title>vertuo-auth · 2 PRDs · ◆</title><circle cx="175" cy="321" r="44.199999999999996" fill="url(#gY)" class="br"/><circle class="halo" cx="175" cy="321" r="25"/><circle class="core" cx="175" cy="321" r="13"/><text class="lbl" x="175" y="352" text-anchor="middle">vertuo-auth</text></a></g></svg></div>
+          <div class="legend">
+            <span><i style="border-color:var(--green)"></i>building</span>
+            <span><i style="border-color:var(--yellow)"></i>waits on you</span>
+            <span><i style="border-color:var(--red)"></i>drifted</span>
+            <span><i style="border-color:var(--dim);background:var(--slate)"></i>docked · phase 0 by PR</span>
+            <span><i style="border-color:var(--plasma);border-style:dashed"></i>also in another product</span>
+            <span><em style="border-color:var(--cyan)"></em>PRDs changed both</span>
+            <span><em style="border-color:var(--slate);border-top-width:1px"></em>consumes</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Now in Vertuoza</h3>
+          <ul>
+            <li><span class="s" style="background:var(--red)"></span><span><a href="#"><b>1915</b> drifted</a> · vertuo-ai-domain</span></li>
+            <li><span class="s" style="background:var(--yellow)"></span><span><a href="#" data-primary><b>248</b> waits on you</a> · 3 repositories</span></li>
+            <li><span class="s" style="background:var(--green)"></span><span><a href="#"><b>271</b> building</a> · apps, backend-php</span></li>
+            <li><span class="s" style="background:var(--dim)"></span><span><a href="#"><b>123</b> review</a> · vertuobuild</span></li>
+            <li><span class="s" style="background:var(--dim)"></span><span><a href="#"><b>792</b> inbox</a> · vertuo-apps</span></li>
+          </ul>
+          <p><a href="#">+ 10 more on the Ledger →</a></p>
+          <p>Read only.</p>
+        </div>
+      </div>
+    </div>
+</div>
+</body>
+</html>

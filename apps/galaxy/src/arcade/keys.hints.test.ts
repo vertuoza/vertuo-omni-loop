@@ -52,8 +52,8 @@ describe('the player\'s keys on screen', () => {
   });
 
   it('names the default keys on the countdown\'s line, and the player\'s own when they chose', () => {
-    const keys = { gas: 'ArrowUp', brake: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', item: ' ' };
-    expect(driveLine(keys)).toBe('▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE ITEM');
-    expect(driveLine({ gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e' })).toBe('W GAS A D STEER S BRAKE E ITEM');
+    const keys = { gas: 'ArrowUp', brake: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', item: 'Shift', hop: ' ' };
+    expect(driveLine(keys)).toBe('▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE HOP SHIFT ITEM');
+    expect(driveLine({ gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e', hop: 'q' })).toBe('W GAS A D STEER S BRAKE Q HOP E ITEM');
   });
 });

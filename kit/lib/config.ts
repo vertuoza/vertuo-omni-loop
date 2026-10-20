@@ -65,6 +65,31 @@ const wordSelector = text.refine((value) => parseSelector(value) !== null, 'a se
 const lawOwner = z
   .string()
   .regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, 'a GitHub login or <org>/<team>, without @');
+// PRD 1794: one person's GitHub login, without `@`: never a team, since a team never clears a law.
+const personLogin = z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, 'a GitHub login, without @, never a team');
+// PRD 1794: an owner and the one person asked in their place once they have not answered. A key the
+// entry leaves out reads as empty, so the refusal names that key: a union reports an option's issues
+// only when none of them aborts, and a missing key would abort.
+const ownerWithDelegate = z.preprocess(
+  (value) => (isRecord(value) ? { login: '', delegate: '', ...value } : value),
+  z
+    .object({ login: personLogin, delegate: personLogin })
+    .strict()
+    .refine((entry) => entry.login.toLowerCase() !== entry.delegate.toLowerCase(), {
+      message: 'a delegate other than its own owner',
+      path: ['delegate'],
+    }),
+);
+// An entry of `laws.owners`: a plain owner (PRD 1726), or an owner with a delegate (PRD 1794).
+const lawOwnerEntry = z.union([lawOwner, ownerWithDelegate]);
+
+/** An entry of `laws.owners`, as written: a login or `<org>/<team>`, or `{ login, delegate }`. */
+export type LawOwner = z.infer<typeof lawOwnerEntry>;
+
+/** An entry of `laws.owners` as its owner and its delegate; a plain entry has no delegate. */
+export function lawOwnerParts(entry: LawOwner): { owner: string; delegate: string | null } {
+  return typeof entry === 'string' ? { owner: entry, delegate: null } : { owner: entry.login, delegate: entry.delegate };
+}
 
 /**
  * The kinds of contract a slice may declare (PRD 1870) when a repository's `contracts.kinds` names
@@ -78,6 +103,21 @@ const lawOwner = z
  * `none`, the word for a slice that changes nothing for its callers, is never one of them.
  */
 export const DEFAULT_CONTRACT_KINDS: readonly string[] = Object.freeze(['api', 'db']);
+
+/**
+ * PRD 2175: how many minutes a draft still on `labels.inProgress` may go with no commit and no update
+ * before the board reads its claim as stale, when `limits.claimDeadMinutes` is not set. Long enough
+ * that an agent thinking without pushing is not taken over: the longest slice job seen ran 81 minutes.
+ */
+export const DEFAULT_CLAIM_DEAD_MINUTES = 240;
+
+/** PRD 2175: the label a runner puts on a claim whose job ended, when `labels.released` is not set. */
+export const DEFAULT_RELEASED_LABEL = 'omni:released';
+
+/** The label a released claim carries: `labels.released`, or `DEFAULT_RELEASED_LABEL` when it is not set. */
+export function releasedLabel(labels: { released?: string | undefined }): string {
+  return labels.released ?? DEFAULT_RELEASED_LABEL;
+}
 
 // PRD 1870: a kind is one lowercase word, never `none`, which a plan's `contract` cell keeps for a
 // slice that changes nothing for its callers.
@@ -316,6 +356,11 @@ export const ConfigSchema = z
       approved: labelName.default('omni:approved'),
       // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
       law: labelName.default('omni:law'),
+      // PRD 2175: the label a runner swaps in for `inProgress` on a claim whose job ended while it held
+      // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`). Left
+      // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
+      // exactly as before (so `omni init` does not create it: a person does).
+      released: labelName.optional(),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({
@@ -380,7 +425,11 @@ export const ConfigSchema = z
       max: z.number().int().positive().default(20),
       // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
       // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
-      owners: z.array(lawOwner).default([]),
+      // PRD 1794: an entry may be `{ login, delegate }` instead; the delegate is a CODEOWNER too.
+      owners: z.array(lawOwnerEntry).default([]),
+      // PRD 1794: product leadership, GitHub logins asked last about what still waits on a person.
+      // Never written into CODEOWNERS, so its approval never clears a law.
+      leadership: z.array(personLogin).default([]),
     }),
     risk: section({
       storedShape: z.array(regexSource).default([]),
@@ -409,6 +458,10 @@ export const ConfigSchema = z
       stallDays: z.number().int().positive().default(5),
       attempts: z.number().int().positive().default(3),
       claimStaleMinutes: z.number().int().positive().default(60),
+      // PRD 2175: how long a draft still on `labels.inProgress` may go with no commit and no update
+      // before the board reads its claim as stale: the fallback for a claim no runner saw die. Left
+      // out, `DEFAULT_CLAIM_DEAD_MINUTES` applies, and a config that does not set it parses exactly as before.
+      claimDeadMinutes: z.number().int().positive().optional(),
       beforeAfterMaxBytes: z.number().int().positive().default(512000),
       // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
       // was before, one step at a time.
@@ -416,6 +469,9 @@ export const ConfigSchema = z
       // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
       // and a config that does not set it parses exactly as before.
       hookMaxBytes: z.number().int().positive().optional(),
+      // PRD 1794: how many working days (Monday to Friday, UTC) a thing waits on a person before the
+      // next people are asked. Its own setting: `stallDays` is unchanged.
+      escalationWorkingDays: z.number().int().min(1).max(10).default(2),
     }),
     // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
     // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in

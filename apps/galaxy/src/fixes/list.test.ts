@@ -108,7 +108,7 @@ describe('the rows', () => {
   it('shows #n, the title, the repositories, what it holds and its last activity, and opens the fix\'s own page', () => {
     const [sidebar, topbar] = fixItems(ROWS, 'visual', { who: 'all' }, ME);
     expect(sidebar).toEqual({
-      id: SIDEBAR.id, href: `/visual/${SIDEBAR.id}`, heading: '#548', title: 'Darker sidebar', repos: ['vertuoza/vertuo-omni-loop'],
+      id: SIDEBAR.id, href: `/visual/${SIDEBAR.id}`, heading: '#548', product: null, title: 'Darker sidebar', repos: ['vertuoza/vertuo-omni-loop'],
       artifacts: [{ kind: 'before-after', label: 'Before/after', badge: 'v1' }, { kind: 'variations', label: 'Variations', badge: '2 rounds' }],
       activity: 'last activity 29 Sep 2026, 09:30 UTC', at: SIDEBAR.last_activity,
       askedBy: null, state: null, stateLabel: '—', risk: null, regression: false,

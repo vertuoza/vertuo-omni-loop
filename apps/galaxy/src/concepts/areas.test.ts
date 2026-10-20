@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { parseConcept } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
 import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { areaViews, readAreaPages } from './areas';
+import { prdKey } from '../stages/store';
+import type { StoredStage } from '../stages/stage';
 import { CONCEPT_1269 } from './list.fixture';
 
 // A concept's Areas tab (PRD 1272, s3): the areas in build order, the wedge first, each PRD linked to its
@@ -33,6 +35,47 @@ describe('the Areas tab', () => {
     const done = AREAS.map((area, i) => ({ ...area, prd: parsePrd(1300 + i) }));
     expect(areaViews(done, C1269, 'acme/widgets', new Map()).some((v) => v.next !== null)).toBe(false);
     expect(areaViews(AREAS, null, 'acme/widgets', new Map()).some((v) => v.next !== null)).toBe(false);
+  });
+});
+
+describe('each area\'s PRD stage (PRD 2213)', () => {
+  const named = AREAS.map((area, i) => (i < 3 ? { ...area, prd: parsePrd(1300 + i) } : area));
+  const stages = new Map<string, StoredStage>([
+    [prdKey({ repository: 'acme/widgets', prd: parsePrd(1300) }), 'shipped'],
+    [prdKey({ repository: 'Acme/Widgets', prd: parsePrd(1301) }), 'building'],
+  ]);
+
+  it('says the stage in the PRDs tab\'s words, syncing while none is stored, nothing with no PRD', () => {
+    const views = areaViews(named, C1269, 'acme/widgets', new Map(), stages);
+    expect(views.map((v) => v.stage)).toEqual(['shipped', 'building', 'syncing', null, null, null]);
+  });
+
+  it('offers no brainstorm line on a shipped concept', () => {
+    expect(areaViews(named, C1269, 'acme/widgets', new Map(), stages).some((v) => v.next !== null)).toBe(true);
+    expect(areaViews(named, C1269, 'acme/widgets', new Map(), stages, true).some((v) => v.next !== null)).toBe(false);
+  });
+});
+
+describe('a concept shipped by a person (PRD 2213, s3)', () => {
+  const named = AREAS.map((area, i) => (i < 3 ? { ...area, prd: parsePrd(1300 + i) } : area));
+  const stages = new Map<string, StoredStage>([
+    [prdKey({ repository: 'acme/widgets', prd: parsePrd(1300) }), 'shipped'],
+    [prdKey({ repository: 'acme/widgets', prd: parsePrd(1301) }), 'retro'],
+    [prdKey({ repository: 'acme/widgets', prd: parsePrd(1302) }), 'building'],
+  ]);
+
+  it('reads not built on each area whose PRD has not shipped, or that names none', () => {
+    const views = areaViews(named, C1269, 'acme/widgets', new Map(), stages, true, true);
+    expect(views.map((v) => v.stage)).toEqual(['shipped', 'retro', 'not built', 'not built', 'not built', 'not built']);
+    expect(views.some((v) => v.next !== null)).toBe(false);
+  });
+
+  it('reads not built on an area whose PRD has no stored stage, never syncing', () => {
+    expect(areaViews(named, C1269, 'acme/widgets', new Map(), new Map(), true, true).map((v) => v.stage).slice(0, 3)).toEqual(['not built', 'not built', 'not built']);
+  });
+
+  it('leaves a concept shipped by itself without the mark', () => {
+    expect(areaViews(named, C1269, 'acme/widgets', new Map(), stages, true, false).map((v) => v.stage)).toEqual(['shipped', 'retro', 'building', null, null, null]);
   });
 });
 

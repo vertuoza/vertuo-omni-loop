@@ -1,0 +1,119 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-16",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Server-rendered and read only, so it cannot break anything in production. The motion has to stop for people who ask it to.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "A starfield with particles is the fluff I expected from this tool. Unless a line tells me which repository breaks when another changes, I won't open this tab twice.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "One look at every repository of my product, and the ones waiting on me pulse. That's the view I'd show in a demo of the hosted app.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Filtering on one PRD to see which repositories and edges it crosses is what I check by hand on the board today.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I don't master the harness; a picture that says which repository still needs a phase-0 pull request tells me where I'm stuck.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "A starfield with particles is the fluff I expected from this tool. Unless a line tells me which repository breaks when another changes, I won't open this tab twice.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✗ · offering#316 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-16",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "No client script, tokens only, reduced motion respected: it reads like the rest of the app pages.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Every edge says how many PRDs in flight cross it, and my API's card lists who consumes it. That I would open.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Declared edges and the Ledger's own states: nothing to set up, it works the day it ships.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The fixed layout means the map looks the same every morning, so a change in it means something.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "DOCKED with its phase-0 pull request linked: I know which repository to ask about.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · offering#316 ✓"
+    }
+  ]
+}

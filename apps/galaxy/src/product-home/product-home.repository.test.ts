@@ -5,7 +5,7 @@ import { productHomeRepository, type ProductHomeDb } from './product-home.reposi
 // table, columns and filters, what it answers parsed, nothing read for no PRD, and a refusal or an answer
 // out of shape thrown.
 
-type Answer = { data?: unknown; error?: { message: string } | null };
+type Answer = { data?: unknown; error?: { code?: string; message: string } | null };
 
 function stub(answers: Record<string, Answer>) {
   const calls: unknown[][] = [];
@@ -15,24 +15,46 @@ function stub(answers: Record<string, Answer>) {
       then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) =>
         Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null }).then(ok, ko),
     };
-    for (const verb of ['select', 'eq', 'not', 'in', 'is', 'like', 'order']) {
+    for (const verb of ['select', 'eq', 'neq', 'not', 'in', 'is', 'like', 'order']) {
       q[verb] = (...a: unknown[]) => { calls.push([table, verb, ...a]); return q; };
     }
     return q;
   };
   const db = {
     from: (table: string) => query(table),
-    rpc: (fn: string) => { calls.push([fn, 'rpc']); return query(fn); },
+    rpc: (fn: string, args?: unknown) => { calls.push(args === undefined ? [fn, 'rpc'] : [fn, 'rpc', args]); return query(fn); },
   };
   return { calls, repo: productHomeRepository(db as unknown as ProductHomeDb) };
 }
 
 describe('the product home\'s storage', () => {
-  it('reads the workspace\'s product by its id, or none', async () => {
-    const { calls, repo } = stub({ products: { data: [{ id: 'p-1', name: 'Mobile', key: 'mobile' }] } });
-    expect(await repo.product('ws-1', 'p-1')).toEqual({ id: 'p-1', name: 'Mobile', key: 'mobile' });
-    expect(calls).toEqual([['products', 'select', 'id, name, key'], ['products', 'eq', 'workspace_id', 'ws-1'], ['products', 'eq', 'id', 'p-1']]);
+  it('reads the workspace\'s product by its id, with when and by whom it was archived, or none', async () => {
+    const row = { id: 'p-1', name: 'Mobile', key: 'mobile', archived_at: null, archived_by: null };
+    const { calls, repo } = stub({ products: { data: [row] } });
+    expect(await repo.product('ws-1', 'p-1')).toEqual(row);
+    expect(calls).toEqual([['products', 'select', 'id, name, key, archived_at, archived_by'], ['products', 'eq', 'workspace_id', 'ws-1'], ['products', 'eq', 'id', 'p-1']]);
     expect(await stub({ products: { data: [] } }).repo.product('ws-1', 'p-x')).toBeNull();
+    const archived = { ...row, archived_at: '2026-10-18T09:00:00Z', archived_by: 'u-olga' };
+    expect(await stub({ products: { data: [archived] } }).repo.product('ws-1', 'p-1')).toEqual(archived);
+  });
+
+  it('reads whether the caller owns the workspace (PRD 2232 s1), and throws on a refusal', async () => {
+    const { calls, repo } = stub({ is_owner: { data: true } });
+    expect(await repo.owner('ws-1')).toBe(true);
+    expect(calls).toEqual([['is_owner', 'rpc', { workspace: 'ws-1' }]]);
+    expect(await stub({ is_owner: { data: false } }).repo.owner('ws-1')).toBe(false);
+    await expect(stub({ is_owner: { error: { message: 'boom' } } }).repo.owner('ws-1')).rejects.toThrow('could not read your role (boom)');
+  });
+
+  it('archives and restores the product through product_archive() and product_restore(), answering the database\'s refusal in its words', async () => {
+    const archived = { id: 'p-1', name: 'Mobile', archivedAt: '2026-10-20T09:00:00Z' };
+    const { calls, repo } = stub({ product_archive: { data: archived }, product_restore: { data: { ...archived, archivedAt: null } } });
+    expect(await repo.archive('p-1')).toEqual({ ok: true, answer: archived });
+    expect(await repo.restore('p-1')).toEqual({ ok: true, answer: { ...archived, archivedAt: null } });
+    expect(calls).toEqual([['product_archive', 'rpc', { p_product: 'p-1' }], ['product_restore', 'rpc', { p_product: 'p-1' }]]);
+    const refused = await stub({ product_archive: { error: { code: '42501', message: 'Only an owner of the workspace archives Mobile.' } } }).repo.archive('p-1');
+    expect(refused).toEqual({ ok: false, code: '42501', message: 'Only an owner of the workspace archives Mobile.' });
+    await expect(stub({ product_restore: { data: { id: 'p-1' } } }).repo.restore('p-1')).rejects.toThrow();
   });
 
   it('reads the product\'s product PRDs, newest first, their outbox items with their settlements, and the authors\' logins (PRD 1548 s9)', async () => {
@@ -114,6 +136,18 @@ describe('the product home\'s storage', () => {
     ]);
   });
 
+  it('reads the workspace\'s open pull requests on a phase-0 branch, and throws on an answer out of shape (PRD 2129 s3)', async () => {
+    const row = { repo: 'a/web', number: 31, head: 'docs/phase-0-reminders' };
+    const { calls, repo } = stub({ pull_requests: { data: [row] } });
+    expect(await repo.phase0Pulls('ws-1')).toEqual([row]);
+    expect(calls).toEqual([
+      ['pull_requests', 'select', 'repo, number, head'], ['pull_requests', 'is', 'closed_at', null], ['pull_requests', 'is', 'merged_at', null],
+      ['pull_requests', 'like', 'head', 'docs/phase-0-%'], ['pull_requests', 'eq', 'workspace_id', 'ws-1'],
+    ]);
+    await expect(stub({ pull_requests: { error: { message: 'boom' } } }).repo.phase0Pulls('ws-1')).rejects.toThrow('phase-0 pull requests (boom)');
+    await expect(stub({ pull_requests: { data: [{ repo: 'a/web', number: 'x', head: 'h' }] } }).repo.phase0Pulls('ws-1')).rejects.toThrow();
+  });
+
   it('reads the product\'s ideas still on the board, newest first (PRD 1364 s10)', async () => {
     const row = { id: 'i-1', repo: 'vertuo/api', title: 'Calmer gate', pitch: 'Fewer pings.', lane: 'now', prd: null, created_at: '2026-10-01T00:00:00Z' };
     const { calls, repo } = stub({ ideas: { data: [row] } });
@@ -175,5 +209,42 @@ describe('the product home\'s storage', () => {
   it('throws on an answer out of shape', async () => {
     const { repo } = stub({ dossiers: { data: [{ id: 'd-1', home_repo: 'vertuo/api', prd: null }] } });
     await expect(repo.prds('ws-1', 'p-1')).rejects.toThrow();
+  });
+
+  it('reads the product\'s links, the other products\' links to them and the repositories\' phase 0 (PRD 2129)', async () => {
+    const link = { repository: 'a/api', role: 'api', consumes: [] };
+    const other = { repository: 'a/api', products: { name: 'Web' } };
+    const flag = { full_name: 'a/api', phase0: 'pr' };
+    const { calls, repo } = stub({ product_repositories: { data: [link] }, repositories: { data: [flag] } });
+    expect(await repo.links('ws-1', 'p-1')).toEqual([link]);
+    expect(await stub({ product_repositories: { data: [other] } }).repo.otherLinks('ws-1', 'p-1', ['a/api'])).toEqual([other]);
+    expect(await repo.phase0('ws-1', ['a/api'])).toEqual([flag]);
+    expect(calls).toEqual([
+      ['product_repositories', 'select', 'repository, role, consumes'], ['product_repositories', 'eq', 'workspace_id', 'ws-1'],
+      ['product_repositories', 'eq', 'product_id', 'p-1'], ['product_repositories', 'order', 'repository'],
+      ['repositories', 'select', 'full_name, phase0'], ['repositories', 'eq', 'workspace_id', 'ws-1'], ['repositories', 'is', 'removed_at', null], ['repositories', 'in', 'full_name', ['a/api']],
+    ]);
+  });
+
+  it('reads the targets of the PRDs given, none for no PRD, and throws on a refusal or an answer out of shape (PRD 2174 s3)', async () => {
+    const row = { dossier_id: 'd-1', repository: 'a/api' };
+    const { calls, repo } = stub({ prd_targets: { data: [row] } });
+    expect(await repo.targets(['d-1', 'd-2'])).toEqual([row]);
+    expect(await repo.targets([])).toEqual([]);
+    expect(calls).toEqual([['prd_targets', 'select', 'dossier_id, repository'], ['prd_targets', 'in', 'dossier_id', ['d-1', 'd-2']]]);
+    await expect(stub({ prd_targets: { error: { message: 'boom' } } }).repo.targets(['d-1'])).rejects.toThrow('could not read the PRDs\' targets (boom)');
+    await expect(stub({ prd_targets: { data: [{ dossier_id: 'd-1' }] } }).repo.targets(['d-1'])).rejects.toThrow();
+  });
+
+  it('reads no other link and no phase 0 for no repository, and throws on a refused read or an answer out of shape', async () => {
+    const { calls, repo } = stub({});
+    expect(await repo.otherLinks('ws-1', 'p-1', [])).toEqual([]);
+    expect(await repo.phase0('ws-1', [])).toEqual([]);
+    expect(calls).toEqual([]);
+    await expect(stub({ product_repositories: { error: { message: 'boom' } } }).repo.links('ws-1', 'p-1')).rejects.toThrow('could not read the product\'s repositories (boom)');
+    await expect(stub({ product_repositories: { error: { message: 'boom' } } }).repo.otherLinks('ws-1', 'p-1', ['a/api'])).rejects.toThrow('other products (boom)');
+    await expect(stub({ repositories: { error: { message: 'boom' } } }).repo.phase0('ws-1', ['a/api'])).rejects.toThrow('phase 0 (boom)');
+    await expect(stub({ product_repositories: { data: [{ repository: 'a/api' }] } }).repo.links('ws-1', 'p-1')).rejects.toThrow();
+    await expect(stub({ repositories: { data: [{ full_name: 'a/api', phase0: 'maybe' }] } }).repo.phase0('ws-1', ['a/api'])).rejects.toThrow();
   });
 });
