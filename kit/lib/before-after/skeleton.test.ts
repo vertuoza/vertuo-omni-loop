@@ -61,11 +61,11 @@ describe('parseServices', () => {
   });
 
   it('refuses a missing, empty or blank list', () => {
-    for (const value of [undefined, '', ' , ,']) expect(parseServices(value)).toEqual({ refusal: expect.stringContaining('--services needs at least one service') });
+    for (const value of [undefined, '', ' , ,']) expect(parseServices(value)).toEqual({ refusal: '--services needs at least one service, as --services kit,galaxy.' });
   });
 
   it('refuses a name the page cannot carry, and a name twice', () => {
-    expect(parseServices('kit,"><script>')).toEqual({ refusal: expect.stringContaining('"><script>') });
+    expect(parseServices('kit,"><script>')).toEqual({ refusal: '"><script>" is not a service name: use letters, digits, ".", "_" and "-".' });
     expect(parseServices('kit,galaxy,kit')).toEqual({ refusal: 'the service "kit" is named twice.' });
   });
 });
