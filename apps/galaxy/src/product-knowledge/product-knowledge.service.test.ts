@@ -110,6 +110,17 @@ describe('the tab', () => {
     expect(await fake().service.tab(WORKSPACE, PRODUCT)).toMatchObject({ canName: false, members: [] });
   });
 
+  it('shows who added each entry and when, and nobody for an entry whose author is gone (PRD 2240 s1)', async () => {
+    const owen = { user: 'u-owen', login: 'owen' };
+    const dates = { createdAt: '2026-01-05T09:00:00+00:00', updatedAt: '2026-02-07T10:30:00+00:00' };
+    const legal = { entry: 'l-1', id: 'L-VAT-1', code: 'VAT', number: 1, statement: 's', source: 'u', owner: null, retiredAt: null, createdBy: owen, ...dates };
+    const term = { entry: 'g-1', term: 'Quote', meaning: 'm', avoid: [], removedAt: null, createdBy: null, ...dates };
+    const { service } = fake({ read: () => Promise.resolve({ ok: true, read: read({ legal: { ...section(false), entries: [legal] }, glossary: { ...section(false), entries: [term] } }) }) });
+    const tab = await service.tab(WORKSPACE, PRODUCT);
+    expect(tab?.legal.entries).toEqual([legal]);
+    expect(tab?.glossary.entries).toEqual([term]);
+  });
+
   it('is none for another workspace\'s product, or a reader who is no member', async () => {
     expect(await fake().service.tab('w-2', PRODUCT)).toBeNull();
     expect(await fake({ read: () => Promise.resolve({ ok: false, code: '42501', message: '' }) }).service.tab(WORKSPACE, PRODUCT)).toBeNull();

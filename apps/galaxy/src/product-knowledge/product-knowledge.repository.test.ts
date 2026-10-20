@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ChangeWrite } from './product-knowledge.contract';
+import { demoKnowledgeTab } from './KnowledgeTab';
+import type { ChangeWrite, KnowledgeTab } from './product-knowledge.contract';
 import { knowledgeRepository, type KnowledgeDb } from './product-knowledge.repository';
 
 // The Knowledge tab's storage (PRD 1795 s2), on a fake client: which database function each change calls,
@@ -62,6 +63,36 @@ describe('the reads', () => {
   it('parses the tab\'s read, and throws on an answer out of shape', async () => {
     expect(await knowledgeRepository(db({ data: READ }).client).read('w-1', 'p-1')).toEqual({ ok: true, read: READ });
     await expect(knowledgeRepository(db({ data: { product: 1 } }).client).read('w-1', 'p-1')).rejects.toThrow();
+  });
+
+  it('reads who added each entry and when, an entry whose author is gone naming nobody (PRD 2240 s1)', async () => {
+    const owen = { user: 'u-owen', login: 'owen' };
+    const dates = { createdAt: '2026-01-05T09:00:00+00:00', updatedAt: '2026-02-07T10:30:00+00:00' };
+    const legal = {
+      entry: 'l-1', id: 'L-INVOICING-1', code: 'INVOICING', number: 1, statement: 's', source: 'u', owner: owen, retiredAt: null, createdBy: owen, ...dates,
+    };
+    const term = { entry: 'g-1', term: 'Quote', meaning: 'm', avoid: [], removedAt: null, createdBy: null, ...dates };
+    const data = { ...READ, legal: { ...SECTION, entries: [legal, { ...legal, entry: 'l-2', createdBy: null }] }, glossary: { ...SECTION, entries: [term, { ...term, entry: 'g-2', createdBy: owen }] } };
+    const got = await knowledgeRepository(db({ data }).client).read('w-1', 'p-1');
+    expect(got).toEqual({ ok: true, read: data });
+    expect(got.ok && got.read.legal.entries.map((e) => e.createdBy)).toEqual([owen, null]);
+    expect(got.ok && got.read.glossary.entries.map((e) => [e.createdBy, e.createdAt, e.updatedAt])).toEqual([[null, dates.createdAt, dates.updatedAt], [owen, dates.createdAt, dates.updatedAt]]);
+  });
+
+  it('parses the demo\'s tab as it would a live read, its entries with authors and dates', async () => {
+    const { members: _members, ...demo } = demoKnowledgeTab('demo-product-1') as KnowledgeTab;
+    expect(await knowledgeRepository(db({ data: demo }).client).read('w-1', 'p-1')).toEqual({ ok: true, read: demo });
+    const entries = [...demo.legal.entries, ...demo.glossary.entries];
+    expect(entries.length).toBeGreaterThan(0);
+    for (const e of entries) {
+      expect(e.createdBy?.login).toBeTruthy();
+      expect(Date.parse(e.createdAt)).toBeLessThanOrEqual(Date.parse(e.updatedAt));
+    }
+  });
+
+  it('throws on an entry with no dates: the read carries them', async () => {
+    const term = { entry: 'g-1', term: 'Quote', meaning: 'm', avoid: [], removedAt: null, createdBy: null };
+    await expect(knowledgeRepository(db({ data: { ...READ, glossary: { ...SECTION, entries: [term] } } }).client).read('w-1', 'p-1')).rejects.toThrow();
   });
 
   it('answers a refused read with the database\'s code', async () => {

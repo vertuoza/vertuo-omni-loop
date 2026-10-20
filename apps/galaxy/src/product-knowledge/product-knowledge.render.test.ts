@@ -76,7 +76,7 @@ describe('the tab', () => {
     const kept = render(live({
       ...BASE,
       legal: { ...BASE.legal, entries: [...BASE.legal.entries, { ...(BASE.legal.entries[0] as (typeof BASE.legal.entries)[number]), entry: 'x', id: 'L-INVOICING-2', number: 2, retiredAt: '2026-12-01' }] },
-      glossary: { ...BASE.glossary, entries: [...BASE.glossary.entries, { entry: 'y', term: 'Bill', meaning: 'Old.', avoid: [], removedAt: '2026-12-01' }] },
+      glossary: { ...BASE.glossary, entries: [...BASE.glossary.entries, { ...(BASE.glossary.entries[0] as (typeof BASE.glossary.entries)[number]), entry: 'y', term: 'Bill', meaning: 'Old.', avoid: [], removedAt: '2026-12-01' }] },
     }));
     expect(text(kept)).toContain('L-INVOICING-2 · retired');
     expect(text(kept)).toContain('Bill · removed');

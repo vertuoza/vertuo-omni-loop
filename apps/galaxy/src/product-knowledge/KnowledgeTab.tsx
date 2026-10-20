@@ -21,7 +21,7 @@ export const GRAPH_LINK = 'Explore the knowledge graph →';
 
 export type KnowledgeTabView = Situation | { kind: 'not-found' } | { kind: 'tab'; source: TabSource; tab: KnowledgeTab };
 
-/** The demo's tab: a Legal owner and a delegate, one entry and one term, one proposal; the reader a member. */
+/** The demo's tab: a Legal owner, one entry and one term, each with who added it and when; the reader a member. */
 export function demoKnowledgeTab(id: string): KnowledgeTab | null {
   if (id !== 'demo-product-1') return null;
   const anna = { user: 'demo-anna', login: 'anna' };
@@ -37,6 +37,7 @@ export function demoKnowledgeTab(id: string): KnowledgeTab | null {
       entries: [{
         entry: 'demo-legal-1', id: 'L-INVOICING-1', code: 'INVOICING', number: 1, statement: 'Invoice numbers follow each other with no gaps.',
         source: 'Belgian VAT Code, art. 53', owner: anna, retiredAt: null,
+        createdBy: anna, createdAt: '2026-11-02T09:00:00Z', updatedAt: '2026-11-20T14:30:00Z',
       }],
       proposals: [],
     },
@@ -44,7 +45,10 @@ export function demoKnowledgeTab(id: string): KnowledgeTab | null {
       owner: anna,
       delegate: null,
       decides: false,
-      entries: [{ entry: 'demo-term-1', term: 'Credit note', meaning: 'A document that cancels all or part of an invoice.', avoid: ['refund'], removedAt: null }],
+      entries: [{
+        entry: 'demo-term-1', term: 'Credit note', meaning: 'A document that cancels all or part of an invoice.', avoid: ['refund'], removedAt: null,
+        createdBy: anna, createdAt: '2026-11-04T10:15:00Z', updatedAt: '2026-11-04T10:15:00Z',
+      }],
       proposals: [],
     },
   };
