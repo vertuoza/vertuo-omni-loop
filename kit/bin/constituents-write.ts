@@ -55,12 +55,12 @@ function fieldsOf(flags: Record<string, string | true | undefined>): Record<stri
 /** The change `args` asks for, or a `UsageError` saying what is missing or wrong. */
 function changeOf(args: string[]): { change: Change; json: boolean } {
   const { positional, flags } = parsedOf(args);
-  const [action = '', ...rest] = positional;
+  const [verb = '', ...rest] = positional;
   const fields = fieldsOf(flags);
   const [entry] = rest;
-  if (!SHAPES.includes(`${action} ${Object.keys(fields).join(',')} ${rest.length}`) || (entry !== undefined && !ENTRY.test(entry))) throw usageError(USAGE);
+  if (!SHAPES.includes(`${verb} ${Object.keys(fields).join(',')} ${rest.length}`) || (entry !== undefined && !ENTRY.test(entry))) throw usageError(USAGE);
   const product = textOf(flags.product);
-  const change = { action, fields, ...(product === null ? {} : { product }), ...(entry === undefined ? {} : { entry }) } as Change;
+  const change: Change = { action: verb === 'add' ? 'add' : 'edit', fields, ...(product === null ? {} : { product }), ...(entry === undefined ? {} : { entry }) };
   return { change, json: flags.json === true };
 }
 
