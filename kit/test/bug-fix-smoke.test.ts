@@ -1,0 +1,244 @@
+// PRD 2275, s2: `/omni:bug-fix` proves a bug that only shows in a production build at the smoke level.
+// A passing reproduction has three readings, the third moves up to `setup` then `commands.smoke`, stop
+// rule 7 stops with no runnable smoke, a stop keeps the reproduction on a pushed branch, a critical stop
+// opens with the alert, the guard is the smoke run by CI, and the record names its level. These tests
+// live apart from the law proofs in `plugin.test.ts`, and change none of them.
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+
+const read = (skill: string) => readFileSync(new URL(`../plugin/skills/${skill}/SKILL.md`, import.meta.url), 'utf8');
+
+/** The `## <heading>` section of a SKILL.md whose heading starts with `start`, up to the next one. */
+function skillSection(text: string, start: string) {
+  const lines = text.split('\n');
+  const from = lines.findIndex((line: string) => line.startsWith(`## ${start}`));
+  if (from < 0) return '';
+  const to = lines.findIndex((line: string, index: number) => index > from && line.startsWith('## '));
+  return lines.slice(from, to < 0 ? undefined : to).join('\n');
+}
+
+const flat = (text: string) => text.replace(/\s+/g, ' ');
+
+/** Each of `mentions` that `text` lacks, or lacks after the one before it: empty when all come in order. */
+const gaps = (text: string, mentions: string[]) => {
+  const out: string[] = [];
+  const words = flat(text);
+  let from = 0;
+  mentions.forEach((mention: string, index: number) => {
+    const at = words.indexOf(mention, from);
+    if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+    else from = at + mention.length;
+  });
+  return out;
+};
+
+describe('the bug-fix skill proves a build-level bug at the smoke level', () => {
+  const step7 = () => skillSection(read('bug-fix'), '7.');
+
+  it('step 7 names three readings of a passing reproduction, in order, and when the third applies', () => {
+    expect(gaps(step7(), [
+      'three readings',
+      '**it misses the bug**',
+      '**the bug is already gone**',
+      '**this level cannot see it**',
+      'an error in production that the source cannot produce',
+      'a regression range that changes the toolchain',
+    ])).toEqual([]);
+  });
+
+  it('under the third reading it runs setup then commands.smoke with the case added, before any fix', () => {
+    expect(gaps(step7(), [
+      '**Move up to the smoke level.**',
+      'one more case of what `commands.smoke` checks',
+      'run `setup`, then `commands.smoke`, before any fix',
+      '**Smoke fails:**',
+      '**Smoke passes too:** stop rule 3',
+      '**Smoke is set but cannot run in this session**',
+      'the red is the CI run of `commands.smoke`',
+      'stop rule 7',
+      '**`commands.smoke` is null:** stop rule 7',
+    ])).toEqual([]);
+  });
+
+  it('stop rule 7 is verbatim, and rule 3 says a unit-level pass alone never reaches it under the third reading', () => {
+    const rules = skillSection(read('bug-fix'), 'Stop rules');
+    expect(rules).toContain('7. The bug lives in the build and the repository commits no `commands.smoke` it can run: stop, keep the reproduction, comment on the issue with the suspect, the production evidence and the line to commit. Never fix without red.');
+    expect(flat(rules)).toContain('a unit-level pass alone never reaches this rule while the third reading applies');
+  });
+
+  it('stops 3, 4 and 7 commit the reproduction and push the branch; rule 7 opens a draft labelled needsFix', () => {
+    expect(gaps(step7(), [
+      '**A stop keeps the reproduction.**',
+      'stop rules 3, 4 and 7',
+      'commit the reproduction alone on the fix branch and push the branch',
+      'links the branch and names the reproduction\'s path',
+      'Stop rule 7 also opens the fix PR as a draft, labelled `labels.needsFix`',
+    ])).toEqual([]);
+    expect(flat(skillSection(read('bug-fix'), 'Stop rules'))).toContain('For rules 3, 4 and 7, the reproduction is committed alone on the fix branch and the branch is pushed');
+  });
+
+  it('a critical stop starts with the CAUTION alert, mentions nobody, and the hand-off prints the line first', () => {
+    expect(gaps(step7(), [
+      'the triage\'s risk is `critical`',
+      '`> [!CAUTION]`',
+      '`> critical — nothing is fixed.`',
+      'mentions nobody',
+      'the hand-off prints that line first',
+    ])).toEqual([]);
+  });
+
+  it('stop rule 7\'s comment names the suspect, the production line, the YAML to commit and the rerun command', () => {
+    expect(gaps(step7(), [
+      '**Stop rule 7\'s comment**',
+      '`<file>:<line>`',
+      '**Production**',
+      '`commands.smoke: <a command that builds and checks the',
+      'the command that reruns the fix',
+    ])).toEqual([]);
+  });
+
+  it('step 9 holds both guard lines and says the skill never edits CI', () => {
+    expect(gaps(skillSection(read('bug-fix'), '9.'), [
+      '`Guard: <the case> in commands.smoke, run by CI`',
+      '`Guard: none — <repository>\'s CI does not run commands.smoke`',
+      'the PR body and a comment on the issue name the CI step to add',
+      'The skill never edits CI',
+    ])).toEqual([]);
+  });
+
+  it('the record\'s Reproduction holds the Level line', () => {
+    // The record template holds `## ` headings of its own, so the step runs up to the next real one.
+    const text = read('bug-fix');
+    const record = text.slice(text.indexOf('## 11.'), text.indexOf('## A change to a law'));
+    expect(record).toContain('- **Level:** <unit | acceptance | smoke>');
+    expect(record.indexOf('## Reproduction')).toBeLessThan(record.indexOf('- **Level:**'));
+    expect(record.indexOf('- **Level:**')).toBeLessThan(record.indexOf('## Fix'));
+  });
+
+  it('Never says the reproduction, its branch and its worktree are never deleted on a stop', () => {
+    expect(skillSection(read('bug-fix'), 'Never')).toContain('**Never delete the reproduction, its branch or its worktree on a stop.**');
+  });
+});
+
+describe('the bug-fixing form\'s kit default says the same', () => {
+  const form = readFileSync(new URL('../templates/playbook/bug-fixing.md', import.meta.url), 'utf8');
+
+  it('its Steps name the third reading and its Guard names the smoke run by CI', () => {
+    expect(gaps(form, ['this level cannot see it', '`commands.smoke`', 'Guard', 'run by CI'])).toEqual([]);
+  });
+});
+
+// PRD 2275, s3: the triage is posted at once with Reproduction and Branch pending, edited in place at
+// steps 5 and 7, carries the Production line read against releases, and takes a release range as
+// regression evidence.
+describe('the bug-fix triage is posted at once and reads production against releases', () => {
+  const step = (heading: string) => skillSection(read('bug-fix'), heading);
+  // Step 3's template holds a `## Triage` heading of its own, so the step runs up to step 4.
+  const step3Whole = () => {
+    const text = read('bug-fix');
+    return text.slice(text.indexOf('## 3.'), text.indexOf('## 4.'));
+  };
+
+  it('step 3 posts the triage with Reproduction and Branch pending', () => {
+    const step3 = step3Whole();
+    expect(step3).toContain('- **Reproduction:** pending');
+    expect(step3).toContain('- **Branch:** pending');
+    expect(step3).not.toContain('- **Branch:** `<fix branch>`');
+    expect(gaps(step3, ['posted in this step, at once', 'Steps 5 and 7', 'edited in place', 'by its marker'])).toEqual([]);
+  });
+
+  it('steps 5 and 7 edit the Branch and Reproduction lines in place, found by the marker', () => {
+    expect(gaps(step('5.'), ['Edit the triage comment in place', '`<!-- omni-bug:triage -->`', '`- **Branch:**`'])).toEqual([]);
+    expect(gaps(step('7.'), ['Edit the triage comment in place', '`<!-- omni-bug:triage -->`', '`- **Reproduction:**`'])).toEqual([]);
+  });
+
+  it('the template holds the Production line after Regression, only for a production report', () => {
+    const step3 = step3Whole();
+    const line = '- **Production:** <deployed version> · first seen <YYYY-MM-DD HH:MM> UTC (<source>) · <count> occurrences';
+    expect(step3).toContain(line);
+    expect(step3.indexOf('- **Regression:**')).toBeLessThan(step3.indexOf(line));
+    expect(step3.indexOf(line)).toBeLessThan(step3.lastIndexOf('- **Reproduction:** pending'));
+    expect(flat(step3)).toContain('only when the report comes from production');
+  });
+
+  it('step 3 reads the first occurrence from the source in UTC and matches it against releases', () => {
+    expect(gaps(step3Whole(), [
+      'read from the report\'s source, with its time zone',
+      'never from the issue\'s date',
+      'written in UTC',
+      '`gh release list --json tagName,publishedAt`',
+      'GitHub deployments',
+      '`gh api repos/<repo.slug>/deployments`',
+      'the last one published, or deployed, before it',
+      '`<file>:<line>`',
+    ])).toEqual([]);
+  });
+
+  it('a release range is regression evidence, and the suspect diff is read with git log on it', () => {
+    expect(gaps(step3Whole(), [
+      '`<previous tag>..<tag> (first seen <time> UTC, none before)`',
+      '`git log <previous tag>..<tag>`',
+    ])).toEqual([]);
+  });
+});
+
+// PRD 2275, s4: `/omni:mega-bug-fix` follows the smoke level in each target: the safety rule allows the
+// target's committed setup, preflight, then smoke; step 4 reads the deployed tag; step 7 moves up to the
+// target's smoke or stops by rule 7 naming the target; the guide tells a target how to commit it.
+describe('the mega-bug-fix skill follows the smoke level in each target', () => {
+  const mega = () => read('mega-bug-fix');
+  const step = (heading: string) => skillSection(mega(), heading);
+
+  it('the rule allows setup, then the preflight, then smoke, and keeps the pinned phrase whole', () => {
+    const text = mega();
+    const rule = text.slice(text.indexOf("**Code runs only from a target's own config.**"), text.indexOf('**All or nothing'));
+    expect(gaps(rule, [
+      'its own committed setup (`commands.setup`)',
+      'then its own committed preflight',
+      'then its own committed smoke (`commands.smoke`)',
+      'only when step 7 moves up to it',
+      'never from a branch',
+    ])).toEqual([]);
+  });
+
+  it('Never names setup, preflight and smoke in that order, with the pinned phrase whole', () => {
+    const never = flat(skillSection(mega(), 'Never'));
+    expect(never).toContain('other than its own committed setup, then its own committed preflight');
+    expect(gaps(never, ['its own committed setup', 'its own committed preflight', '`commands.smoke` when step 7 moves up to it'])).toEqual([]);
+  });
+
+  it('step 4 reads each target at the deployed tag, and the fix is still cut from the default branch', () => {
+    expect(gaps(step('4.'), [
+      'the triage names a deployed version',
+      'read each target at that deployed tag too, besides its default branch',
+      'The fix is still cut from the target\'s default branch',
+    ])).toEqual([]);
+  });
+
+  it('the triage\'s Production line is read in the target the report comes from', () => {
+    expect(flat(step('3.'))).toContain('**Production** line: the deployed version, the releases and the deployments are those of the target the report comes from');
+  });
+
+  it('step 7 moves up to the target\'s smoke, or stops by rule 7 naming the target and pushing nothing elsewhere', () => {
+    expect(gaps(step('7.'), [
+      '**The third reading moves up to the target\'s smoke.**',
+      'read from its default branch\'s config',
+      'its setup, then `commands.smoke`',
+      'is stop rule 7',
+      'names the target',
+      'the YAML line to commit',
+      'nothing is pushed to any other target',
+    ])).toEqual([]);
+  });
+
+  it('the guide shows a target\'s smoke beside setup and preflight and says when the skills run it', () => {
+    const guide = readFileSync(new URL('../../docs/guide/several-repositories.md', import.meta.url), 'utf8');
+    const yaml = guide.slice(guide.indexOf('  setup: bun install'), guide.indexOf('smoke: bun run build'));
+    expect(yaml).toContain('preflight:');
+    expect(gaps(guide, [
+      '`commands.smoke`',
+      'builds what the repository ships to production, then checks the built output',
+      'only when a passing reproduction cannot see the bug',
+    ])).toEqual([]);
+  });
+});

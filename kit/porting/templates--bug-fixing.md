@@ -54,3 +54,5 @@ config key names a bug's label, branch or scenario folder.
 - The opener, "Use this page when a reported bug becomes a pull request": the upstream page opens
   with a sentence of its own.
 - The spec's slot markers and headings.
+- **The smoke level** (PRD 2275): step 4 names the third reading of a passing reproduction (this
+  level cannot see it) and moving up to `commands.smoke`; the Guard names the smoke run by CI.
