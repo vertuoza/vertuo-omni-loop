@@ -18,8 +18,8 @@ export type Timeline = Readonly<{ fps: number; width: number; height: number; fr
 
 /** How far into its arriving overlap a scene's entrances start: once the scene leaving is mostly gone. */
 const ENTRY_SHARE = 0.55;
-/** How long after its entrances start a scene reads as settled, for its still. */
-const SETTLE_SECONDS = 2.5;
+/** How long before a scene starts to leave its still is taken (PRD 2030): once everything in it has happened. */
+const STILL_LEAD_SECONDS = 0.3;
 
 /** The frames scenes `before` and `after` share: the transition, never more than half of either. */
 const overlapOf = (transition: number, before: number, after: number): number => Math.min(transition, Math.floor(before / 2), Math.floor(after / 2));
@@ -46,6 +46,10 @@ export const scenesAt = (timeline: Timeline, frame: number): TimelineScene[] => 
 /** The frames into a scene its entrances wait for. */
 export const entryDelay = (scene: TimelineScene): number => Math.round(scene.enter * ENTRY_SHARE);
 
-/** A frame of the video where the scene has settled, before it starts to leave: its still. */
+/**
+ * A frame of the video where the scene has settled, its still: 0.3 s before it starts to leave (the last
+ * scene, 0.3 s before the video ends), so its zoom, callouts, cursor, wipe and count-up are on it; never
+ * before its entrances start.
+ */
 export const stillFrame = (scene: TimelineScene, fps: number): number =>
-  scene.from + Math.min(entryDelay(scene) + Math.round(SETTLE_SECONDS * fps), scene.frames - scene.exit - 1);
+  scene.from + Math.max(scene.frames - scene.exit - Math.round(STILL_LEAD_SECONDS * fps), entryDelay(scene));
