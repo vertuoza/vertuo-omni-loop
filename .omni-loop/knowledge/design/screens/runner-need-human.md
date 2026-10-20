@@ -63,4 +63,4 @@ Dismiss · Send answers · Already answered by · Dismissed by · Close.
 
 ## Source
 
-/omni:brainstorm, PRD 2255: .omni-loop/delivery/inbox/2255-need-human/before-after.html
+/omni:brainstorm, PRD 2255: .omni-loop/delivery/shipped/2255-need-human/before-after.html
