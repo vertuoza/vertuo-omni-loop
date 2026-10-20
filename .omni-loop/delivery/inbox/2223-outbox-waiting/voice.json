@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-20",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A button that sends yolo-fix to a runner is fine, but only if I can see which answers it will act on first.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A job that says Waiting on answers instead of Done is the first runner status I would actually trust.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Answer, then one click to fix: that is the shortest way from my answers to a ready PR.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Reading draft and 1 of 2 answered on the board tells me who holds a PR without opening it.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I do not have to know the fix command: the page offers it once I have answered.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "If one click sends /omni:yolo-fix to a runner that rewrites my PR alone, I want to see on the button which answers it will act on, or I will fear slop landing unseen.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✗ until the button names the answers"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-20",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Fixes with 1: A · 4: B under the button answers my worry, and a held reply never counts.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The outcome is read from a line the skill already prints, with a fallback to Done: no new moving part to babysit.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The Runners page links the PRD page, so I go from Waiting on answers to answering in one click.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The status stays done and the outcome is a nullable column, so nothing that reads status today breaks.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Mediums do not hold the button, so a quick win is not stuck on questions already adopted.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    }
+  ]
+}
