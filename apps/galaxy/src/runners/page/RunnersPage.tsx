@@ -2,10 +2,10 @@ import { Notice } from '../../ask/page/Notice';
 import { MemberGate } from '../../dashboard/MemberGate';
 import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
-import { CancelButton, FleetPicker, Refresh, SendAgainButton } from './actions';
+import { CancelButton, FixWithAnswersButton, FleetPicker, Refresh, SendAgainButton } from './actions';
 import {
-  canCancel, canSendAgain, fleetCell, madeByWords, prdPageLink, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
-  type Fleet, type ReleaseNote, type RunnersPageView,
+  afterAnswersWords, answeredOf, canCancel, canSendAgain, fixLineOf, fleetCell, madeByWords, prdPageLink, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  type Answered, type Fleet, type ReleaseNote, type RunnersPageView,
 } from './model';
 import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
 import { runnerJob, terminalOf } from './terminal-model';
@@ -25,7 +25,9 @@ import './runners.css';
 // the panel and the 5 s refresh run in the browser (./actions.tsx, ./Terminal.tsx); the rest is drawn on
 // the server, so a refresh draws it again with the new rows, the open panel kept. A job whose runner
 // released its claims once it ended lists them under its status, each linked, or says why it could not
-// (PRD 2175).
+// (PRD 2175). A job that waited on answers reads Answered · fixing and Answered · fixed once they are in,
+// linking the fix job, which reads `after answers · job <id>` linking back; with every asked item answered
+// and no fix queued it reads Answered with Fix with answers, the row's one primary action (PRD 2270 s2).
 
 type Supabase = { url: string; key: string };
 
@@ -95,12 +97,13 @@ function RunnerRow({ runner, board, fleets, now }: { runner: Runner; board: Boar
   );
 }
 
-function Action({ job, primary }: { job: Job; primary: boolean }) {
+function Action({ job, primary, answered }: { job: Job; primary: boolean; answered: Answered | null }) {
   if (canCancel(job)) return <CancelButton job={job.id} />;
   if (canSendAgain(job)) return <SendAgainButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />;
   const page = prdPageLink(job);
   return (
     <>
+      {answered?.button === true && fixLineOf(job) !== null && <FixWithAnswersButton job={job.id} primary={primary} />}
       {job.status === 'done' && job.prUrl && <a href={job.prUrl}>{prWords(job.prUrl)}</a>}
       {page !== null && <a href={page}>PRD page</a>}
     </>
@@ -120,9 +123,17 @@ function ReleaseLine({ note }: { note: ReleaseNote }) {
   );
 }
 
-function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; fleets: readonly Fleet[]; now: Date; primary: boolean }) {
+/** A job's status: its words, or Answered · fixing / fixed linking the fix, or Answered (PRD 2270). */
+function StatusWords({ job, now, answered }: { job: Job; now: Date; answered: Answered | null }) {
+  const words = answered === null ? statusWords(job, now) : answered.fix === null ? answered.words : <a href={`#job-${answered.fix}`}>{answered.words}</a>;
+  return <span className={`runners-status is-${answered?.tone ?? statusTone(job.status, job.outcome)}`}>{words}</span>;
+}
+
+function JobRow({ job, board, fleets, now, primary, answeredIds }: { job: Job; board: Board; fleets: readonly Fleet[]; now: Date; primary: boolean; answeredIds: readonly string[] }) {
   const waiting = waitingWords(job, board.runners);
   const tokens = jobTokensWords(job);
+  const answered = answeredOf(job, board.jobs, answeredIds);
+  const after = afterAnswersWords(job);
   return (
     <div className="runners-row runners-job" id={`job-${job.id}`}>
       <code data-content>{job.line}</code>
@@ -130,23 +141,24 @@ function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; 
       <span data-content>{senderWords(job)}{madeByWords(job) !== null && <small className="runners-muted runners-made-by"> {madeByWords(job)}</small>}</span>
       <span data-content>{whereWords(job, board.runners, fleets)}</span>
       <span>
-        <span className={`runners-status is-${statusTone(job.status, job.outcome)}`}>{statusWords(job, now)}</span>
+        <StatusWords job={job} now={now} answered={answered} />
+        {after !== null && job.continues && <span className="runners-why"><a href={`#job-${job.continues}`} data-content>{after}</a></span>}
         {tokens !== null && <span className="runners-tokens" title={tokens.title}>{tokens.text}</span>}
         {waiting !== null && <span className="runners-why">{waiting}</span>}
         {releaseNotes(job).map((note) => <ReleaseLine key={note.kind} note={note} />)}
       </span>
-      <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} /></span>
+      <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} answered={answered} /></span>
     </div>
   );
 }
 
-function Jobs({ board, fleets, now }: { board: Board; fleets: readonly Fleet[]; now: Date }) {
+function Jobs({ board, fleets, now, answered }: { board: Board; fleets: readonly Fleet[]; now: Date; answered: readonly string[] }) {
   if (board.jobs.length === 0) return <p className="runners-muted">No job yet.</p>;
-  const primary = board.jobs.find(canSendAgain)?.id ?? null;
+  const primary = board.jobs.find(canSendAgain)?.id ?? answered[0] ?? null;
   return (
     <div className="runners-table runners-jobs">
       <div className="runners-row runners-head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span /></div>
-      {board.jobs.map((job) => <JobRow key={job.id} job={job} board={board} fleets={fleets} now={now} primary={job.id === primary} />)}
+      {board.jobs.map((job) => <JobRow key={job.id} job={job} board={board} fleets={fleets} now={now} primary={job.id === primary} answeredIds={answered} />)}
     </div>
   );
 }
@@ -161,7 +173,7 @@ function Start() {
   );
 }
 
-function Board({ board, fleets, now }: { board: Board; fleets: readonly Fleet[]; now: Date }) {
+function Board({ board, fleets, now, answered }: { board: Board; fleets: readonly Fleet[]; now: Date; answered: readonly string[] }) {
   return (
     <div className="dash runners" data-screen="runners">
       <h1 className="dash-name">Runners</h1>
@@ -176,7 +188,7 @@ function Board({ board, fleets, now }: { board: Board; fleets: readonly Fleet[];
           </section>
           <section className="runners-section">
             <h2>Jobs</h2>
-            <Jobs board={board} fleets={fleets} now={now} />
+            <Jobs board={board} fleets={fleets} now={now} answered={answered} />
           </section>
         </>
       )}
@@ -196,7 +208,7 @@ export function RunnersPage({ view, supabase, signinError, terminal = null }: Ru
   const jobs: TerminalJob[] = view.board.jobs.map((job) => ({ id: job.id, repo: job.repo, runner: runnerName(job.runner), status: job.status }));
   return (
     <TerminalProvider initial={terminalOf(terminal)} jobs={jobs}>
-      <Board board={view.board} fleets={view.fleets} now={new Date(view.now)} />
+      <Board board={view.board} fleets={view.fleets} now={new Date(view.now)} answered={view.answered} />
     </TerminalProvider>
   );
 }
