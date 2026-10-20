@@ -397,6 +397,9 @@ export const ConfigSchema = z
       mutation: nullableText.default(null),
       // PRD 1369: a design linter `/omni:pixel-perfect review` runs when it is set; it only reports.
       design: nullableText.default(null),
+      // PRD 2275: it builds what the repository ships to production, then runs checks against the
+      // built output; only the bug-fix skills run it, when a passing reproduction cannot see the bug.
+      smoke: nullableText.default(null),
     }),
     acceptance: z
       .object({
