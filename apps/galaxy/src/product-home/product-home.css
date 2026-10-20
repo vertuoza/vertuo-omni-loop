@@ -87,7 +87,7 @@
 
 /* Archive a product (PRD 2232 s1): the owner's quiet Archive at the end of the name's line, wrapping under
    it at 393 px, and the archived banner above the head card, its Restore the page's one primary action. */
-.product-home-name { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-width: 0; }
+.product-home-name { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; width: 100%; min-width: 0; }
 .product-home-name h1 { overflow-wrap: anywhere; }
 .product-home-archive,
 .product-home-restore { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
