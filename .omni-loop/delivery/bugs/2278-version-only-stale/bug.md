@@ -21,4 +21,4 @@ The reproduction is the guard: a unit test on a real git repository that a versi
 
 ## Mutation
 
-pending
+mutation: no changed core file against origin/main (1e89b6e2): nothing to mutate
