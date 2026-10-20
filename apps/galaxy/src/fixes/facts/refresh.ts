@@ -6,8 +6,8 @@
 // workspace; a fix's own page stores what it read through `mergeFacts`.
 //
 // PRD 1272 (s4): a concept's facts, {issue, pull}, are refreshed the same way, through the reader's
-// ConceptReader; a concept whose stored pull request has merged is final (in the inbox) and is not read
-// again.
+// ConceptReader. PRD 2213 (s2): a merged concept is no longer final to the refresh: its issue can close
+// and reopen (shipped by a person), so each run reads it again and keeps its stored, merged pull request.
 import type { ConceptFacts, FixSummary } from '../../dossier/github/fix';
 import type { ConceptReader, FixReader, FixRef } from '../../dossier/github/reader';
 import { UNREAD, type Read } from '../../dossier/github/summary';
@@ -29,7 +29,8 @@ export type RefreshResult = { read: number; stored: number; final: number; faile
 export const isFinal = (facts: FixSummary | null | undefined): boolean =>
   facts != null && facts.release !== UNREAD && facts.release !== null;
 
-/** Stored facts whose concept PR has merged: the concept is in the inbox, and its state changes no more. */
+/** Stored facts whose concept PR has merged. A concept's page still reads these as settled (its PR, not its
+ * issue); the refresh does not: a merged concept's issue is read every run (PRD 2213, s2). */
 export const isConceptFinal = (facts: ConceptFacts | null | undefined): boolean =>
   facts != null && facts.pull !== UNREAD && facts.pull?.state === 'merged';
 
@@ -45,9 +46,12 @@ export function mergeFacts(stored: FixSummary | null, read: FixSummary): FixSumm
   };
 }
 
-/** A concept's `read`, each part left UNREAD taken from `stored` when there is one. */
+/** A concept's `read`, each part left UNREAD taken from `stored` when there is one; a stored merged pull
+ * request is kept whatever the read says, since a merged concept's PR is not read again (PRD 2213, s2). */
 export function mergeConceptFacts(stored: ConceptFacts | null, read: ConceptFacts): ConceptFacts {
-  return { issue: keep(read.issue, stored?.issue), pull: keep(read.pull, stored?.pull) };
+  const merged = stored?.pull;
+  const pull = merged && merged !== UNREAD && merged.state === 'merged' ? merged : keep(read.pull, stored?.pull);
+  return { issue: keep(read.issue, stored?.issue), pull };
 }
 
 type Refresh<T> = Logged & {
@@ -97,5 +101,5 @@ export function refreshFixFacts(workspace: string, fixes: readonly FixRef[], dep
 
 export function refreshConceptFacts(workspace: string, concepts: readonly FixRef[], deps: ConceptRefreshDeps): Promise<RefreshResult> {
   const { reader, ...rest } = deps;
-  return refreshFacts(workspace, concepts, { ...rest, read: (ref) => reader.concept(ref), final: isConceptFinal, merge: mergeConceptFacts });
+  return refreshFacts(workspace, concepts, { ...rest, read: (ref) => reader.concept(ref), final: () => false, merge: mergeConceptFacts });
 }
