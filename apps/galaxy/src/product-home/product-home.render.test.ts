@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { demoProductHome, NO_PRDS, ProductHome, type ProductHomeTab, type ProductHomeView } from './ProductHome';
 import { EMPTY as EMPTY_TABS } from './HomeTabs';
+import { DEMO_CHANGES_NOTHING, pressArchive, pressRestore, type PressDeps } from './ArchiveControls';
+import type { ArchiveResult } from './product-archive.client';
 import type { ProductHome as Home } from './product-home.service';
 
 // /app/products/<id> as the server renders it (PRD 1364 s9): the Ledger, its summary and three lanes, each
@@ -30,6 +32,8 @@ const EMPTY: Home = {
   repositories: [],
   flights: [],
   tethers: [],
+  owner: false,
+  archived: null,
 };
 
 describe('the Ledger, filled', () => {
@@ -181,5 +185,108 @@ describe('the product home\'s situations', () => {
     expect(text(render({ kind: 'closed' }))).toContain('Products are not open here');
     expect(text(render({ kind: 'unreadable' }))).toContain('Couldn’t load your products');
     expect(text(render({ kind: 'no-workspace' }))).toContain('Your account is not in a workspace');
+  });
+});
+
+describe('archive a product (PRD 2232 s1)', () => {
+  const NOW = Date.parse('2026-10-20T12:00:00Z');
+  const OWNED: Home = { ...FILLED, owner: true, archived: null };
+  const ARCHIVED: Home = { ...FILLED, owner: true, archived: { at: '2026-10-18T09:00:00Z', by: 'pierrederval' } };
+  const at = (home: Home, tab: ProductHomeTab = 'ledger') => renderToStaticMarkup(createElement(ProductHome, { view: { kind: 'home', home }, tab, now: NOW }));
+  const head = (html: string) => /<section class="ask-card products-head"[^>]*>([\s\S]*?)<\/section>/.exec(html)?.[1] ?? '';
+  const banner = (html: string) => /<section class="product-home-archived" aria-label="Archived">([\s\S]*?)<\/section>/.exec(html)?.[1] ?? '';
+
+  it('gives an owner a quiet Archive beside the product\'s name, in the head card', () => {
+    const html = at(OWNED);
+    expect(head(html)).toContain('<button type="button" class="ask-button quiet product-home-archive-button" aria-label="Archive Widgets">Archive</button>');
+    expect(html).not.toContain('data-primary');
+    expect(html).not.toContain('Restore');
+  });
+
+  it('gives a member no Archive', () => {
+    expect(at({ ...OWNED, owner: false })).not.toContain('Archive');
+  });
+
+  it('opens the Ledger under its seven-word lede', () => {
+    expect(text(head(at(OWNED)))).toBe('← Products Widgets Archive What waits on whom across its PRDs.');
+  });
+
+  it('draws an archived product read-only, under its banner with Restore, the one primary action, and no Archive', () => {
+    const html = at(ARCHIVED);
+    expect(text(banner(html))).toBe('Archived 2 days ago by pierrederval. Restore');
+    expect(banner(html)).toContain('<button type="button" class="ask-button" aria-label="Restore Widgets" data-primary="true">Restore</button>');
+    expect(html.indexOf('product-home-archived')).toBeLessThan(html.indexOf('products-head'));
+    expect(head(html)).not.toContain('Archive');
+    expect(html.match(/data-primary/g)).toHaveLength(1);
+  });
+
+  it('keeps an archived product\'s tabs that change nothing, and opens the Ledger for one it leaves out', () => {
+    expect(tabs(at(ARCHIVED)).map((t) => t.text)).toEqual(['Ledger 2', 'Constellation', 'PRDs', 'Ideas', 'Roadmap', 'Bug fixes', 'Visual fixes']);
+    const questions = at(ARCHIVED, 'questions');
+    expect(questions).toContain('data-lane="on-you"');
+    expect(questions).not.toContain('Questions');
+  });
+
+  it('names nobody when it does not know who archived it', () => {
+    expect(text(banner(at({ ...ARCHIVED, archived: { at: '2026-10-20T11:15:00Z', by: null } })))).toBe('Archived 45 minutes ago. Restore');
+  });
+});
+
+describe('pressing Archive and Restore (PRD 2232 s1)', () => {
+  const REPOS = ['vertuoza/vertuo-omni-loop', 'vertuoza/omni-docs'];
+  function deps(confirmed: boolean, answer: ArchiveResult, demo = false) {
+    const asked: string[] = [];
+    const calls: string[] = [];
+    const gone: (string | null)[] = [];
+    const d: PressDeps = {
+      confirm: (message) => { asked.push(message); return confirmed; },
+      port: () => ({
+        archive: () => { calls.push('archive'); return Promise.resolve(answer); },
+        restore: () => { calls.push('restore'); return Promise.resolve(answer); },
+      }),
+      go: (href) => { gone.push(href); },
+      demo,
+    };
+    return { asked, calls, gone, d };
+  }
+  const ARCHIVED_ANSWER: ArchiveResult = { ok: true, product: { id: 'p-1', name: 'omni-loop', archivedAt: '2026-10-20T09:00:00Z' } };
+
+  it('asks first with the spec\'s words, naming the repositories, and changes nothing when cancelled', async () => {
+    const { asked, calls, gone, d } = deps(false, ARCHIVED_ANSWER);
+    expect(await pressArchive('omni-loop', REPOS, d)).toBeNull();
+    expect(asked).toEqual(['Archive omni-loop? It leaves every member\'s list, and its repositories stop reading its Legal entries and glossary.'
+      + '\n\nRepositories: vertuoza/vertuo-omni-loop, vertuoza/omni-docs']);
+    expect(calls).toEqual([]);
+    expect(gone).toEqual([]);
+  });
+
+  it('archives once confirmed, and lands on the products page', async () => {
+    const { calls, gone, d } = deps(true, ARCHIVED_ANSWER);
+    expect(await pressArchive('omni-loop', [], d)).toBeNull();
+    expect(calls).toEqual(['archive']);
+    expect(gone).toEqual(['/app/products']);
+  });
+
+  it('shows a refusal in the route\'s words, and stays', async () => {
+    const { gone, d } = deps(true, { ok: false, message: 'Only an owner of the workspace archives omni-loop.' });
+    expect(await pressArchive('omni-loop', [], d)).toBe('Only an owner of the workspace archives omni-loop.');
+    expect(gone).toEqual([]);
+  });
+
+  it('restores, then shows the live home again; a refusal stays on the page', async () => {
+    const restored = deps(true, { ok: true, product: { id: 'p-1', name: 'omni-loop', archivedAt: null } });
+    expect(await pressRestore(restored.d)).toBeNull();
+    expect(restored.calls).toEqual(['restore']);
+    expect(restored.gone).toEqual([null]);
+    const refused = deps(true, { ok: false, message: 'Nothing changed. Check your connection and try again.' });
+    expect(await pressRestore(refused.d)).toBe('Nothing changed. Check your connection and try again.');
+    expect(refused.gone).toEqual([]);
+  });
+
+  it('sends nothing in the demo', async () => {
+    const archive = deps(true, ARCHIVED_ANSWER, true);
+    expect(await pressArchive('Widgets', [], archive.d)).toBe(DEMO_CHANGES_NOTHING);
+    expect(await pressRestore(archive.d)).toBe(DEMO_CHANGES_NOTHING);
+    expect(archive.calls).toEqual([]);
   });
 });

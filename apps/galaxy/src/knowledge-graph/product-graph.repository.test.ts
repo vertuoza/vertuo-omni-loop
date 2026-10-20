@@ -33,14 +33,14 @@ function stub(answers: Record<string, Raw>) {
 const PRODUCT = { id: 'p1', key: 'omni-loop', name: 'Omni Loop' };
 
 describe('productGraphRepository', () => {
-  it('reads a product by its key, the oldest first when two workspaces hold it, and by its id', async () => {
+  it('reads a product by its key, a live one then the oldest first when two workspaces hold it, and by its id', async () => {
     const s = stub({ products: { data: [PRODUCT], error: null } });
     const store = productGraphRepository(s.db);
     expect(await store.productByKey('omni-loop')).toEqual(PRODUCT);
     expect(await store.productById('p1')).toEqual(PRODUCT);
     expect(s.reads).toEqual([
-      'products · select id, key, name · key=omni-loop · order created_at · order id · limit 1',
-      'products · select id, key, name · id=p1 · limit 1',
+      'products · select id, key, name, archived_at · key=omni-loop · order archived_at · order created_at · order id · limit 1',
+      'products · select id, key, name, archived_at · id=p1 · limit 1',
     ]);
     expect(await productGraphRepository(stub({ products: { data: [], error: null } }).db).productByKey('omni-loop')).toBeNull();
   });
