@@ -1,8 +1,16 @@
 // The storyboard's schema (PRD 1108 s3): the fixture with all six scene types reads, and each malformed
-// field is refused with its path.
+// field is refused with its path. A scene's supporting lines (PRD 2030 s3): an eyebrow and a body on the
+// statement, feature, steps and before/after, a body on the outro.
 import { describe, expect, it } from 'vitest';
 import { SCENE_TYPES, mediaOf, parseStoryboard } from './storyboard.ts';
 import { REMOVED, changedStoryboard, fixtureStoryboard } from './storyboard.fixture.ts';
+
+/** The fixture with the fields `fields` added to its scene `index`. */
+function withFields(index: number, fields: Record<string, string>): unknown {
+  const storyboard = fixtureStoryboard();
+  const scenes: unknown[] = storyboard.scenes.map((scene, n) => (n === index ? { ...scene, ...fields } : scene));
+  return { ...storyboard, scenes };
+}
 
 /** The paths a storyboard is refused at. */
 const refusedAt = (value: unknown): string[] => (parseStoryboard(value).problems ?? []).map((problem) => problem.path);
@@ -46,8 +54,27 @@ describe('parseStoryboard', () => {
     ['a before/after with no after', 'scenes.4.after', REMOVED, 'scenes.4.after'],
     ['an outro with no call to action', 'scenes.5.cta', REMOVED, 'scenes.5.cta'],
     ['a field the schema does not name', 'scenes.5.subtitle', 'x', 'scenes.5'],
+    ['an empty body', 'scenes.2.body', ' ', 'scenes.2.body'],
+    ['an empty eyebrow', 'scenes.3.eyebrow', '', 'scenes.3.eyebrow'],
+    ['an eyebrow on the outro', 'scenes.5.eyebrow', 'Now', 'scenes.5'],
   ])('refuses %s, at its path', (_name, field, value, path) => {
     expect(refusedAt(changedStoryboard(field, value))).toContain(path);
+  });
+
+  it.each([
+    ['a statement', 1],
+    ['a feature', 2],
+    ['steps', 3],
+    ['a before/after', 4],
+  ])('reads %s with an eyebrow and a body', (_name, index) => {
+    const fields = { eyebrow: 'New in Widgets', body: 'Every line priced, the quote leaves on its own.' };
+    const scene = parseStoryboard(withFields(index, fields)).storyboard?.scenes[index];
+    expect(scene).toMatchObject(fields);
+  });
+
+  it('reads an outro with a body under its closing line', () => {
+    const scene = parseStoryboard(withFields(5, { body: 'Live for every customer' })).storyboard?.scenes[5];
+    expect(scene).toMatchObject({ type: 'outro', body: 'Live for every customer' });
   });
 
   it('names every refused field, not the first only', () => {

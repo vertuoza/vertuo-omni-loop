@@ -6,6 +6,8 @@
 // - Scenes: `intro` (eyebrow, title, tag), `statement` (one sentence), `feature` (media, at most four
 //   bullets, a layout), `steps` (two to four steps driving the media), `beforeAfter` (a wipe between two
 //   media) and `outro` (call to action, closing line, credits). Each lasts 1 to 20 seconds.
+// - Supporting lines (PRD 2030): the statement, feature, steps and before/after take an `eyebrow` above
+//   their title and a `body` under it, one plain sentence; the outro a `body` under its closing line.
 // - Media: a clip or a screenshot, by its path in the run's folder, with `start`, `end`, `rate`, `crop`, a
 //   `device` frame, and keyframed `camera` (zoom 1 to 4 on a focus point), `callouts` (a ring or a
 //   spotlight, a label of at most four words) and `cursor` (moves and clicks). Coordinates are 0..1 of
@@ -54,22 +56,27 @@ const duration = z.number().min(1).max(20);
 const scene = <T extends SceneType, Shape extends z.ZodRawShape>(type: T, shape: Shape) =>
   z.strictObject({ type: z.literal(type), duration, ...shape });
 
+/** A scene's supporting lines: the small line above its title, and the sentence under it. */
+const lines = { eyebrow: text.optional(), body: text.optional() };
+
 const SceneSchema = z.discriminatedUnion('type', [
   scene('intro', { eyebrow: text.optional(), title: text, tag: text.optional() }),
-  scene('statement', { text }),
+  scene('statement', { text, ...lines }),
   scene('feature', {
     title: text.optional(),
+    ...lines,
     media: MediaSchema,
     bullets: z.array(text).max(4).optional(),
     layout: z.enum(['left', 'right', 'full']).optional(),
   }),
   scene('steps', {
     title: text.optional(),
+    ...lines,
     media: MediaSchema,
     steps: z.array(z.strictObject({ label: text, at: seconds })).min(2).max(4),
   }),
-  scene('beforeAfter', { title: text.optional(), before: MediaSchema, after: MediaSchema, labels: z.strictObject({ before: text, after: text }).optional() }),
-  scene('outro', { cta: text, closing: text.optional(), credits: z.boolean().optional() }),
+  scene('beforeAfter', { title: text.optional(), ...lines, before: MediaSchema, after: MediaSchema, labels: z.strictObject({ before: text, after: text }).optional() }),
+  scene('outro', { cta: text, closing: text.optional(), body: text.optional(), credits: z.boolean().optional() }),
 ]);
 export type Scene = z.infer<typeof SceneSchema>;
 
