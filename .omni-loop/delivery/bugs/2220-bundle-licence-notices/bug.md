@@ -27,4 +27,4 @@ package ships no licence file.
 
 ## Mutation
 
-mutation: no delivery-core file changed (kit/build.ts and kit/dist are outside Stryker's scope)
+mutation: no changed core file against origin/main (e07addcc): nothing to mutate
