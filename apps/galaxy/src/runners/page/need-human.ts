@@ -1,4 +1,5 @@
 import { drawerKey } from '../../nav/drawer';
+import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { positionOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { roundAnswers, type AskQuestion, type Draft } from '../../ask/answer-model';
 import type { Called } from '../runners.client';
@@ -32,7 +33,7 @@ export function withAnswer(href: string, job: string | null): string {
 }
 
 /** The issue a job worked on, on GitHub: the header's link. */
-export const issueUrl = (repo: string, issue: number): string => `https://github.com/${repo}/issues/${String(issue)}`;
+export const issueUrl = (repo: string, issue: IssueNumber): string => `https://github.com/${repo}/issues/${String(issue)}`;
 
 export const WORDS = {
   need: 'Need human',
@@ -79,7 +80,7 @@ const NOT_FOUND: readonly string[] = ['No such job.', 'This job asked no questio
 export type Reading =
   | { kind: 'loading' }
   | { kind: 'open'; row: JobQuestions; asked: AskQuestion[] }
-  | { kind: 'closed'; words: string; issue: number | null }
+  | { kind: 'closed'; words: string; issue: IssueNumber | null }
   | { kind: 'missing' }
   | { kind: 'failed'; words: string };
 

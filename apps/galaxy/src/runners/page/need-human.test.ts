@@ -72,7 +72,7 @@ describe('withAnswer', () => {
 
 describe('the issue the header links', () => {
   it('is the issue of the repository on GitHub', () => {
-    expect(issueUrl('acme/widgets', 314)).toBe('https://github.com/acme/widgets/issues/314');
+    expect(issueUrl('acme/widgets', IssueNumberSchema.parse(314))).toBe('https://github.com/acme/widgets/issues/314');
   });
 });
 

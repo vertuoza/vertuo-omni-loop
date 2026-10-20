@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
+import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { emptyDraft, pickOption, shownLabel, toggleOther, typeOther, type AskQuestion, type Draft, type Pick } from '../../ask/answer-model';
 import { OptionDescription, QuestionHeading } from '../../ask/page/QuestionText';
 import { renderMarkdownBody } from '../../dossier/markdown';
@@ -166,7 +167,7 @@ interface NeedHumanViewProps {
 }
 
 /** The header: `Need human · <repo> · #<issue>`, the issue linking its page on GitHub, and the close button. */
-function Head({ titleId, repo, issue, onClose }: { titleId: string; repo: string; issue: number | null; onClose?: (() => void) | undefined }) {
+function Head({ titleId, repo, issue, onClose }: { titleId: string; repo: string; issue: IssueNumber | null; onClose?: (() => void) | undefined }) {
   return (
     <header className="need-head">
       <span className="need-title" id={titleId}>
