@@ -1,6 +1,6 @@
 import { boardPath } from '../ideas/model';
 import { productHomeHref } from '../products/model';
-import { addable, collectionLabel, hasNoAccess, listedOf, phase0Of, removedLabel, removedOf, removeConfirm, type Phase0, type RepositoriesState, type RepositoryRow } from './model';
+import { addable, collectionLabel, hasNoAccess, listedOf, fixWhenAnsweredOf, phase0Of, removedLabel, removedOf, removeConfirm, type Phase0, type RepositoriesState, type RepositoryRow } from './model';
 
 // Settings → Repositories drawn from its state (PRD 612 s1). One row per repository of the
 // workspace: `owner/name`, when it was last collected, and its Tracked switch. The owner reads Add
@@ -17,6 +17,7 @@ import { addable, collectionLabel, hasNoAccess, listedOf, phase0Of, removedLabel
 // switches; pressed, the browser asks first, naming the products the repository leaves and those that
 // lose their plan repository, and a removed repository is no longer drawn in the list. PRD 2188 s2: under
 // the list a closed Removed (n) line, absent at 0, names each removed repository and when; the owner adds it back.
+// PRD 2270 s3: each row has its Fix on a runner once answered switch, on by default, the owner's only.
 
 /** What a member reads instead of the controls. */
 export const ONLY_OWNER = 'Only @owner can change repositories.';
@@ -39,11 +40,13 @@ export interface RepositoriesHandlers {
   setPublicIdeas(fullName: string, on: boolean): void;
   /** A row's Phase 0 on the server switch (PRD 1299 s1). */
   setPhase0(fullName: string, phase0: Phase0): void;
+  /** A row's Fix on a runner once answered switch (PRD 2270 s3). */
+  setFixWhenAnswered(fullName: string, on: boolean): void;
   /** A card's Remove, once the person confirmed it (PRD 2188 s1). */
   remove(fullName: string): void;
 }
 
-const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, remove() {} };
+const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, setFixWhenAnswered() {}, remove() {} };
 
 export interface RepositoriesViewProps {
   state: RepositoriesState;
@@ -119,6 +122,7 @@ function Row({ row, owner, access, now, busy, on }: { row: RepositoryRow; owner:
       <ProductChips row={row} />
       <Switch name="Public ideas" label={`Public ideas board of ${row.fullName}`} on={row.publicIdeas} disabled={busy} press={() => { on.setPublicIdeas(row.fullName, !row.publicIdeas); }} />
       <Switch name="Phase 0 on the server" label={`Phase 0 on the server for ${row.fullName}`} on={phase0Of(row) === 'server'} disabled={!owner || busy} press={() => { on.setPhase0(row.fullName, phase0Of(row) === 'server' ? 'pr' : 'server'); }} />
+      <Switch name="Fix on a runner once answered" label={`Fix on a runner once answered for ${row.fullName}`} on={fixWhenAnsweredOf(row)} disabled={!owner || busy} press={() => { on.setFixWhenAnswered(row.fullName, !fixWhenAnsweredOf(row)); }} />
       <Switch name="Tracked" label={`Track ${row.fullName}`} on={row.tracked} disabled={!owner || busy} press={() => { on.setTracked(row.fullName, !row.tracked); }} />
       {owner && <RemoveButton row={row} busy={busy} on={on} />}
     </li>

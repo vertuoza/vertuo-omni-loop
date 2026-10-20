@@ -139,7 +139,7 @@ describe('the ideas board switch (PRD 1246 s4)', () => {
 
   it('turns the board public and private again through its handler', () => {
     const calls: [string, boolean][] = [];
-    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPhase0() {}, remove() {}, setPublicIdeas: (name: string, on: boolean) => { calls.push([name, on]); } };
+    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPhase0() {}, setFixWhenAnswered() {}, remove() {}, setPublicIdeas: (name: string, on: boolean) => { calls.push([name, on]); } };
     const tree = RepositoriesView({ state: state([row('a/b', { publicIdeas: true })]), owner: false, access: INSTALLED, now: NOW, on });
     const press = (node: unknown): void => {
       if (!node || typeof node !== 'object') return;
@@ -187,11 +187,40 @@ describe('the phase 0 switch (PRD 1299 s1)', () => {
 
   it('switches it both ways through its handler', () => {
     const calls: [string, string][] = [];
-    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, remove() {}, setPhase0: (name: string, to: string) => { calls.push([name, to]); } };
+    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, remove() {}, setFixWhenAnswered() {}, setPhase0: (name: string, to: string) => { calls.push([name, to]); } };
     const view = (r: RepositoryRow) => RepositoriesView({ state: state([r]), owner: true, access: INSTALLED, now: NOW, on });
     press(view(row('a/b')), 'Phase 0 on the server for a/b');
     press(view(row('a/b', { phase0: 'server' })), 'Phase 0 on the server for a/b');
     expect(calls).toEqual([['a/b', 'server'], ['a/b', 'pr']]);
+  });
+});
+
+describe('the Fix on a runner once answered switch (PRD 2270 s3)', () => {
+  const fix = (html: string) => switches(html, 'Fix on a runner once answered for ');
+  const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, remove() {} };
+
+  it('shows each row\'s switch, on by default and off when the row says so', () => {
+    const html = render([APPS, row('vertuoza/legacy', { fixWhenAnswered: false })]);
+    const sw = fix(html);
+    expect(sw).toHaveLength(2);
+    expect(sw.find((s) => sure(s.attrs, 's.attrs').includes('for vertuoza/vertuo-apps'))?.attrs).toContain('aria-checked="true"');
+    expect(sw.find((s) => sure(s.attrs, 's.attrs').includes('for vertuoza/legacy'))?.attrs).toContain('aria-checked="false"');
+    expect(text(rowOf(html, 'vertuoza/legacy'))).toContain('Fix on a runner once answered');
+  });
+
+  it('lets only the owner switch it, and not while a call is on its way', () => {
+    expect(fix(render([APPS])).every((s) => !/disabled/.test(sure(s.attrs, 's.attrs')))).toBe(true);
+    expect(fix(render([APPS], { owner: false })).every((s) => /disabled=""/.test(sure(s.attrs, 's.attrs')))).toBe(true);
+    expect(fix(render([APPS], { actions: [{ type: 'busy' }] })).every((s) => /disabled=""/.test(sure(s.attrs, 's.attrs')))).toBe(true);
+  });
+
+  it('switches it both ways through its handler', () => {
+    const calls: [string, boolean][] = [];
+    const handlers = { ...on, setFixWhenAnswered: (name: string, to: boolean) => { calls.push([name, to]); } };
+    const view = (r: RepositoryRow) => RepositoriesView({ state: state([r]), owner: true, access: INSTALLED, now: NOW, on: handlers });
+    press(view(row('a/b')), 'Fix on a runner once answered for a/b');
+    press(view(row('a/b', { fixWhenAnswered: false })), 'Fix on a runner once answered for a/b');
+    expect(calls).toEqual([['a/b', false], ['a/b', true]]);
   });
 });
 
@@ -245,7 +274,7 @@ describe('removing a repository (PRD 2188 s1)', () => {
     const r = row('vertuoza/vertuobuild', { products: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Mobile' }], planProducts: [{ id: 'p-2', name: 'Mobile' }] });
     const asked: string[] = [];
     const removed: string[] = [];
-    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, remove: (name: string) => { removed.push(name); } };
+    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, setFixWhenAnswered() {}, remove: (name: string) => { removed.push(name); } };
     const view = () => RepositoriesView({ state: state([r]), owner: true, access: INSTALLED, now: NOW, on });
 
     vi.stubGlobal('window', { confirm: (message: string) => { asked.push(message); return false; } });
@@ -291,7 +320,7 @@ describe('the removed repositories (PRD 2188 s2)', () => {
 
   it('adds back through the page\'s add handler', () => {
     const added: string[] = [];
-    const on = { pick() {}, close() {}, add: (name: string) => { added.push(name); }, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, remove() {} };
+    const on = { pick() {}, close() {}, add: (name: string) => { added.push(name); }, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, setFixWhenAnswered() {}, remove() {} };
     const view = RepositoriesView({ state: state([GONE]), owner: true, access: INSTALLED, now: NOW, on });
     press(view, 'Add back vertuoza/vertuobuild');
     expect(added).toEqual(['vertuoza/vertuobuild']);
