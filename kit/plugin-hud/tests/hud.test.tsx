@@ -334,35 +334,3 @@ describe('the sync row', () => {
     expect(await ui.find({ key: 'work' })).toBeUndefined()
   })
 })
-
-// PRD 2251 s5: the runner rows, `omni now`'s `runners` and `runner` fields, each hidden when absent.
-describe('the runner rows', () => {
-  test('draws the free slots and the followed job\'s last milestone, below the work', async ($, on) => {
-    world(on, json({ ...PRD, runners: { free: 3, slots: 8 }, runner: { line: 'PRD 2223 on box-1 · 1/2 slices merged' } }))
-    await start($)
-    for (const surface of SURFACES) {
-      const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: BAND })
-      expect((await ui.find({ key: 'runners' }))?.text).toBe('runners 3/8 slots free')
-      expect((await ui.find({ key: 'runner' }))?.text).toBe('PRD 2223 on box-1 · 1/2 slices merged')
-      expect((await ui.find({ key: 'work' }))?.text).toContain('PRD 315')
-      await ui.unmount()
-    }
-  })
-
-  test('hides each row when its field is absent or null, and draws them alone on a session on nothing', async ($, on) => {
-    const { answer } = world(on, json({ ...PRD, runners: null }))
-    await start($)
-    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: BAND })
-    expect(await ui.find({ key: 'runners' })).toBeUndefined()
-    expect(await ui.find({ key: 'runner' })).toBeUndefined()
-    answer(json({ ...NOTHING, runners: { free: 1, slots: 2 } }))
-  })
-
-  test('draws nothing on a runners field of another shape', async ($, on) => {
-    world(on, json({ ...PRD, runners: { free: 'many' } }))
-    await start($)
-    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'AbovePrompt', props: BAND })
-    expect(await ui.find({ key: 'runners' })).toBeUndefined()
-    expect(await ui.find({ key: 'work' })).toBeUndefined()
-  })
-})

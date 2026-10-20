@@ -4,14 +4,17 @@ form-version: 1
 state: filled
 points-to: null
 evidence:
-  - .github/workflows/supabase.yml@eb1f7c4
-  - .github/workflows/game.yml@8e69ab2
-  - package.json@39e6355
-  - kit/test/dist.test.ts@e236e83
-  - .claude-plugin/marketplace.json@5996f1b
-  - apps/galaxy/README.md@0e2049f
-  - apps/omni-app/README.md@ed64d66
-terraformed: 2026-09-25
+  - .github/workflows/supabase.yml@a4bc540
+  - .github/workflows/game.yml@4bf6bd0
+  - package.json@9870eaf
+  - kit/test/dist.test.ts@0f196ea
+  - .claude-plugin/marketplace.json@cf4a45d
+  - apps/galaxy/README.md@7a49947
+  - apps/omni-app/README.md@a655cb8
+  - .github/workflows/release.yml@22d7e0d
+  - .github/workflows/release-fallback.yml@ae27a90
+  - scripts/vercel-ignore.sh@f086dd3
+invaded: 2026-10-20
 ---
 
 # Releasing
@@ -19,7 +22,7 @@ terraformed: 2026-09-25
 Use this page when you need to know what a merge publishes.
 
 ## What a merge publishes
-<!-- slot: publishes · required · by: terraform -->
+<!-- slot: publishes · required · by: invade -->
 A merge to `main` ships:
 
 - **The database.** A merge that touches `supabase/migrations/` or the `supabase` workflow applies
@@ -29,8 +32,8 @@ A merge to `main` ships:
   goes in, in a different order than CI applied them (conventions › A migration stays the newest
   until it merges).
 - **The kit.** The root package's `bin` is `kit/dist/omni.mjs`, the file the one-line install
-  runs, and the plugin marketplace serves `kit/plugin` (`.claude-plugin/marketplace.json`): a merge
-  changes what both hand out.
+  runs, and the plugin marketplace serves `kit/plugin` and the HUD plugin `kit/plugin-hud`
+  (`.claude-plugin/marketplace.json`): a merge changes what they hand out.
 
 - **The arcade and the GitHub App.** `apps/galaxy` and `apps/omni-app` are Vercel projects imported
   from this repository. A merge to `main` deploys each to production through the release commit
@@ -42,11 +45,11 @@ A merge to `main` ships:
   ([apps/galaxy/README.md › When Vercel builds](../../../apps/galaxy/README.md#8-when-vercel-builds)).
 
 ## How a release happens
-<!-- slot: how · optional · by: terraform -->
+<!-- slot: how · optional · by: invade -->
 See: apps/galaxy/README.md#deploy-to-production
 
 ## Rollback
-<!-- slot: rollback · optional · by: terraform -->
+<!-- slot: rollback · optional · by: invade -->
 The ledger is append-only and lives only in Supabase. What restores it is the backup the `game`
 workflow's `rankings` job exports on each run, kept 90 days as a workflow artifact, or the Pro
 plan's point-in-time recovery (apps/galaxy/README.md).

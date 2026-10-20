@@ -4,9 +4,9 @@ form-version: 1
 state: filled
 points-to: null
 evidence:
-  - README.md@7eaaaa0
-  - apps/galaxy/.env.example@a092419
-terraformed: 2026-09-25
+  - README.md@e0d3c68
+  - apps/galaxy/.env.example@27019dd
+invaded: 2026-10-20
 ---
 
 # Briefing
