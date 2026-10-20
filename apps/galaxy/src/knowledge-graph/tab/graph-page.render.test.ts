@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -136,6 +138,58 @@ describe('a picked node', () => {
 
   it('names a node\'s origin: repository, Legal, Glossary, Never', () => {
     expect([originOf({ kind: 'rule', repo: 'api' }), originOf({ kind: 'legal', repo: null }), originOf({ kind: 'term', repo: null }), originOf({ kind: 'never', repo: null })]).toEqual(['api', 'Legal', 'Glossary', 'Never']);
+  });
+});
+
+describe('a picked node at phone width (bug 2222)', () => {
+  // A node id like `vertuo-omni-loop/BR-PRODUCT-120` has no break, and an edge line joins two of them: at
+  // 390 px the opened node's heading, its statement and its edges pushed the page to 469 px. Each must sit
+  // in an element whose class, or an ancestor's, lets a long word break (`overflow-wrap: anywhere`, which
+  // the browser inherits), so nothing is wider than the window.
+  const LONG = 'vertuo-omni-loop/BR-PRODUCT-120';
+  const TEST = 'vertuo-omni-loop/test:supabase/checks/knowledge_graphs.sql';
+  const sheet = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  // The stylesheets the graph page loads (its route imports products.css and graph-page.css; ask.css is the layout's).
+  const CSS = ['./graph-page.css', '../../products/products.css', '../../ask/ask.css'].map(sheet).join('\n');
+  /** The classes whose own rule, a lone class selector, sets `overflow-wrap: anywhere`. */
+  const wrapping = new Set(
+    [...CSS.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+      .filter(([, , body]) => /overflow-wrap:\s*anywhere/.test(body ?? ''))
+      .flatMap(([, selectors]) => (selectors ?? '').split(',').map((s) => s.trim()))
+      .filter((s) => /^\.[\w-]+$/.test(s))
+      .map((s) => s.slice(1)),
+  );
+  /** The classes of the element whose opening tag starts at `at`, and of every element around it. */
+  const classesAround = (html: string, at: number): string[][] => {
+    const open: string[][] = [];
+    for (const m of html.slice(0, at + 1).matchAll(/<(\/?)([a-z][\w-]*)([^>]*?)(\/?)>/g)) {
+      const [, closing, tag, attrs] = m;
+      if (['input', 'br', 'img', 'meta', 'link', 'hr'].includes(tag ?? '')) continue;
+      if (closing) open.pop();
+      else open.push((/class="([^"]*)"/.exec(attrs ?? '')?.[1] ?? '').split(/\s+/).filter(Boolean));
+    }
+    return open;
+  };
+  const wraps = (html: string, at: number) => classesAround(html, at).some((classes) => classes.some((c) => wrapping.has(c)));
+
+  const base = demoJoinedGraph();
+  const graph = {
+    ...base,
+    nodes: base.nodes.map((n) => (n.id === 'billing/BR-BILLING-1' ? { ...n, id: LONG, label: `${LONG} is held by ${TEST}` } : n)),
+    edges: base.edges.map((e) => (e.from === 'billing/BR-BILLING-1' ? { ...e, from: LONG } : e)),
+  };
+  const html = render(view(graphQueryOf({ node: LONG }), graph));
+  const section = html.indexOf('aria-labelledby="graph-picked-title"');
+
+  it('lets the opened node\'s heading, its statement and every edge line break inside the window', () => {
+    expect(section).toBeGreaterThan(0);
+    const heading = html.indexOf('<h2 id="graph-picked-title"');
+    const statement = html.indexOf(`data-picked="${LONG}"`, section);
+    const edges = [...html.slice(section).matchAll(/<li class="links-row ask-muted">/g)].map((m) => section + m.index);
+    expect(edges.length).toBeGreaterThan(0);
+    expect(text(html.slice(section))).toContain(`${LONG} → serves → L-INVOICING-1`);
+    expect({ heading: wraps(html, heading), statement: wraps(html, html.lastIndexOf('<p', statement)) }).toEqual({ heading: true, statement: true });
+    expect(edges.map((at) => wraps(html, at))).toEqual(edges.map(() => true));
   });
 });
 

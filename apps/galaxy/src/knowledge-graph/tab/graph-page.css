@@ -2,3 +2,6 @@
 .kgraph-origin { display: inline-block; padding: 1px 8px; border: 1px solid var(--ask-border, currentColor); border-radius: 999px; font-size: 0.8125rem; }
 .kgraph-depths { display: flex; gap: 12px; flex-wrap: wrap; }
 .kgraph-depths a[aria-current='true'] { font-weight: 600; text-decoration: none; }
+/* Node ids such as `vertuo-omni-loop/BR-PRODUCT-120` hold no break: every line of the page may break inside one,
+   so at 390 px the opened node's heading, its statement and its edges stay inside the window (bug 2222). */
+.kgraph { overflow-wrap: anywhere; }
