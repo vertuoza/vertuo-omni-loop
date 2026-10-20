@@ -5,10 +5,10 @@ state: filled
 points-to: null
 evidence:
   - .omni-loop/knowledge/adr/0001-outbox-check-as-github-app.md@3ae738d
-  - .omni-loop/knowledge/product/principles.md@dfa5a26
-  - .omni-loop/knowledge/product/rules.md@76417f1
-  - .omni-loop/knowledge/product/invariants.md@b7b2573
-terraformed: 2026-09-25
+  - .omni-loop/knowledge/product/principles.md@934e61a
+  - .omni-loop/knowledge/product/rules.md@f603ae9
+  - .omni-loop/knowledge/product/invariants.md@6894355
+invaded: 2026-10-20
 ---
 
 # Decision records
@@ -16,11 +16,11 @@ terraformed: 2026-09-25
 Use this page when recording a decision about how this repository is built, or looking one up.
 
 ## Where they live
-<!-- slot: where · required · by: terraform -->
+<!-- slot: where · required · by: invade -->
 Here, in `.omni-loop/knowledge/adr/`; the product registers are in `.omni-loop/knowledge/product/`.
 
 ## Format
-<!-- slot: format · required · by: terraform -->
+<!-- slot: format · required · by: invade -->
 One file per record, `NNNN-<slug>.md`:
 
 - Title: `# ADR-NNNN — <the decision>`.
