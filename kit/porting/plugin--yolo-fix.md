@@ -150,3 +150,10 @@ rewrites the note, and restates none of the voice's limits.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## A rework agent runs one command at a time
+
+The rework prompt of step 5 says, as `/omni:wave`'s do, to run each command alone, from the
+worktree, and git as `git -C <your worktree> …`: an agent in its own worktree refuses a chained
+command it cannot keep inside it. Tested in `kit/test/plugin.test.ts`, `a slice agent in its own
+worktree runs one command at a time`.

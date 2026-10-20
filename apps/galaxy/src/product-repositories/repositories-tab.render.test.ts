@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { APPROVERS_READ_ONLY } from '../products/approvers-section';
 import { ALL_LINKED, LINKS_READ_ONLY, NO_LINKS } from './LinksSection';
-import { NOTHING_LEFT } from './PlanRepositorySection';
+import { NO_PLAN, NO_PLAN_CHOICE, NOTHING_LEFT, PLAN_READ_ONLY, PlanRepositorySection } from './PlanRepositorySection';
 import type { RepositoriesTab } from './repositories-tab.contract';
 import { demoRepositoriesTab, RepositoriesTabScreen, TAB_LABEL, type RepositoriesTabView } from './RepositoriesTab';
 
@@ -107,16 +107,15 @@ describe('the ladder and the plan repository (PRD 2011 s17)', () => {
     expect(row).toContain('aria-label="acme/widgets: step 3 of 5"');
     expect(row.match(/plan-ladder-cell on/g)).toHaveLength(3);
     expect(row.match(/plan-ladder-cell"/g)).toHaveLength(2);
-    expect(html).not.toContain('id="plan-title"');
+    expect(text(html)).not.toContain('Still in the plan repository');
   });
 
   it('names what is still in the plan repository, with nothing to press', () => {
     const html = planned({ repository: 'acme/plan', holds: [{ name: 'widgets', why: 'step 3' }, { name: 'roadmap 0412', why: 'in git' }] });
-    const section = html.slice(html.indexOf('id="plan-title"'), html.indexOf('id="links-title"'));
-    expect(text(section)).toContain('Still in the plan repository');
-    expect(text(section)).toContain('Held by widgets · step 3');
-    expect(text(section)).toContain('Held by roadmap 0412 · in git');
-    expect(section).not.toContain('<button');
+    const still = html.slice(html.indexOf('Still in the plan repository'), html.indexOf('id="links-title"'));
+    expect(text(still)).toContain('Held by widgets · step 3');
+    expect(text(still)).toContain('Held by roadmap 0412 · in git');
+    expect(still).not.toContain('<button');
     expect(text(html).toLowerCase()).not.toContain('archive');
   });
 
@@ -124,5 +123,38 @@ describe('the ladder and the plan repository (PRD 2011 s17)', () => {
     const plan = { repository: 'acme/plan', holds: [] };
     expect(text(planned(plan))).toContain(`acme/plan ${NOTHING_LEFT}`);
     expect(text(planned(plan, { owner: false, approvers: null }))).toContain(`acme/plan ${NOTHING_LEFT}`);
+  });
+});
+
+describe('naming the plan repository', () => {
+  const sectionOf = (html: string) => html.slice(html.indexOf('id="plan-title"'), html.indexOf('id="links-title"'));
+  const options = (html: string) => [...html.matchAll(/<option value="([^"]*)"( selected="")?>/g)].map((m) => (m[2] ? `${m[1]} *` : m[1]));
+  const PLAN = { repository: 'acme/plan', holds: [] };
+
+  it('offers an owner none or any of the workspace\'s repositories, the saved one picked, Save waiting for a change', () => {
+    const section = sectionOf(render(live({ ...TAB, plan: PLAN })));
+    expect(section).toContain('aria-label="Plan repository"');
+    expect(options(section)).toEqual(['', 'acme/api', 'acme/plan *', 'acme/scripts', 'acme/widgets']);
+    expect(section).toContain(`<option value="">${NO_PLAN_CHOICE}</option>`);
+    expect(section).toMatch(/<button class="ask-button" type="submit" disabled="">Save<\/button>/);
+  });
+
+  it('picks none for an owner while the product names no plan repository, and keeps a saved one the workspace no longer lists', () => {
+    expect(options(sectionOf(render(live({ ...TAB, plan: null }))))).toEqual([' *', 'acme/api', 'acme/plan', 'acme/scripts', 'acme/widgets']);
+    expect(options(sectionOf(render(live({ ...TAB, plan: { repository: 'acme/old-plan', holds: [] } }))))).toContain('acme/old-plan *');
+  });
+
+  it('reads the plan repository as text to a member, or says there is none, with no control', () => {
+    const member = (plan: RepositoriesTab['plan']) => sectionOf(render(live({ ...TAB, owner: false, approvers: null, plan })));
+    expect(member(PLAN)).not.toContain('<select');
+    expect(buttons(member(PLAN))).toEqual([]);
+    expect(text(member(PLAN))).toContain(`acme/plan ${PLAN_READ_ONLY}`);
+    expect(text(member(null))).toContain(`${NO_PLAN} ${PLAN_READ_ONLY}`);
+  });
+
+  it('says a refusal in the database\'s words', () => {
+    const refused = 'Repository: acme/gone is not one of this workspace\'s repositories.';
+    const html = renderToStaticMarkup(createElement(PlanRepositorySection, { form: { plan: null, busy: false, message: refused }, owner: true, repositories: ['acme/api'] }));
+    expect(html).toContain(`<p class="products-refusal" role="alert">${refused.replace(/'/g, '&#x27;')}</p>`);
   });
 });

@@ -105,6 +105,20 @@ describe('the writes', () => {
     expect(calls).toContainEqual(['rpc', 'product_approver_set', { p_product: 'p-1', p_member: 'u-1', p_state: 'skipped' }]);
     expect(calls).toContainEqual(['rpc', 'product_approver_remove', { p_product: 'p-1', p_member: 'u-1' }]);
   });
+
+  it('names the plan repository, or none, through product_plan_repository_set(), answering the product\'s workspace and what it stored', async () => {
+    const { store, calls } = db({ product_plan_repository_set: { data: { id: 'p-1', workspace_id: 'w-1', name: 'Mobile', plan_repository: 'acme/plan', archived_at: null } } });
+    expect(await store.setPlan('p-1', 'acme/plan')).toEqual({ ok: true, product: { workspace_id: 'w-1', plan_repository: 'acme/plan' } });
+    expect(calls).toContainEqual(['rpc', 'product_plan_repository_set', { p_product: 'p-1', p_repository: 'acme/plan' }]);
+    const cleared = db({ product_plan_repository_set: { data: { id: 'p-1', workspace_id: 'w-1', name: 'Mobile', plan_repository: null } } });
+    expect(await cleared.store.setPlan('p-1', null)).toEqual({ ok: true, product: { workspace_id: 'w-1', plan_repository: null } });
+    expect(cleared.calls).toContainEqual(['rpc', 'product_plan_repository_set', { p_product: 'p-1', p_repository: null }]);
+  });
+
+  it('answers a refused plan repository by its code and in its words', async () => {
+    const { store } = db({ product_plan_repository_set: { error: { code: 'P0002', message: 'Repository: acme/gone is not one of this workspace\'s repositories.' } } });
+    expect(await store.setPlan('p-1', 'acme/gone')).toEqual({ ok: false, code: 'P0002', message: 'Repository: acme/gone is not one of this workspace\'s repositories.' });
+  });
 });
 
 describe('the records born in git (PRD 2011 s17)', () => {

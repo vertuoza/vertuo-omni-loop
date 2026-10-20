@@ -8,8 +8,9 @@ import { RepositoriesTabPage, type TabSource } from './RepositoriesTabPage';
 
 // The product home's Repositories & approvers tab, drawn (PRD 1364 s11): /app/products/<id>/repositories,
 // the product's name, the product home's tabs, then the product's repositories, each editable by a
-// workspace owner (LinksSection.tsx), and under them its Approvers list, moved here from Settings ›
-// Products (PRD 1322). Before the tab, every situation of the product home.
+// workspace owner (LinksSection.tsx), its plan repository, which an owner picks (PlanRepositorySection.tsx),
+// and under them its Approvers list, moved here from Settings › Products (PRD 1322). Before the tab, every
+// situation of the product home.
 
 /** Products in the sidebar: where the tab goes back to. */
 const PRODUCTS_HOME_HREF = '/app/products';
@@ -29,6 +30,7 @@ export function demoRepositoriesTab(id: string): RepositoriesTab | null {
       { repo: 'acme/widgets', role: 'web', knowledge: 'own', readAt: null, readOnly: false, consumes: ['acme/api'], addedBy: 'prd', ladderStep: 3 },
     ],
     addable: ['acme/scripts'],
+    repositories: ['acme/api', 'acme/plan', 'acme/scripts', 'acme/widgets'],
     plan: { repository: 'acme/plan', holds: [{ name: 'widgets', why: 'step 3' }] },
     approvers: {
       owner: true,

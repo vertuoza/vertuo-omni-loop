@@ -204,3 +204,19 @@ again. The guardrails gained "Never claim on a branch behind the default branch"
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.ts kit/bin/board.test.ts` and `pnpm test`, green.
+
+## A slice agent runs one command at a time
+
+An agent started in its own worktree (in Claude, `isolation: "worktree"`) refuses a command it
+cannot prove stays inside that worktree, such as a `cd … && …` chain that runs git, and the slice
+loses a turn on each refusal; runner jobs met it on every slice. Both dispatch prompts (step 3 and
+**Inline wave**) now say to run each command alone, from the worktree, and git as
+`git -C <your worktree> …`; step 3 says why, under **One command at a time**.
+
+### Tests
+
+`kit/test/plugin.test.ts`, `a slice agent in its own worktree runs one command at a time`.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.ts` and `pnpm test`, green.

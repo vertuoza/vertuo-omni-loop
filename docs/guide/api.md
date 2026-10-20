@@ -80,7 +80,8 @@ each target pull request on a `Merge after` line. A person merges every one, the
 - The `repo` is a plan repository of the workspace, one a product names as its plan repository, and
   on the key's allow-list when it has one: off the list answers 403, and a repository no product of
   the workspace names as its plan repository answers 422, one outside the workspace included. A
-  runner that holds a checkout of it runs the job.
+  workspace owner names it on the product's **Repositories & approvers** tab, under **Plan
+  repository**. A runner that holds a checkout of it runs the job.
 - The `description` is the bug's issue in the plan repository (its URL, `#612` or `612`), or what is
   wrong: 1 to 181 characters, under the same line check, and no word starting with `--`.
 - The body takes `repo`, `description`, `runner` and `fleet`, and nothing else: any other field
