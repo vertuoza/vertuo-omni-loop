@@ -198,7 +198,10 @@ for an architectural design, the same written-spec review), with two additions:
 
 - **`## Repositories`**, after `## Solution`: one paragraph per repository a slice will name, in the
   order step 8's table lists them: its role, what changes there, and which knowledge it was read from
-  (its own, the imported copy, or the guide alone).
+  (its own, the imported copy, or the guide alone). A repository whose line of step 1 reads
+  `contracts: declare <kinds>` ends its paragraph with a `Contract:` line naming the kinds the change
+  commits it to, in that repository's own words (`Contract: schema, db`), or `Contract: none`: step 6
+  draws one block per kind from it, and step 8's `contract` column declares the same kinds.
 - **`## Conventions`**, after `## Repositories`: the table of `/omni:brainstorm` step 4, one row per name
   the design picks in any repository, its source read from that repository's pages (step 3).
 - **Risks** also names every stale or drifted copy the design relied on (step 1), and what a merge
@@ -209,6 +212,11 @@ for an architectural design, the same written-spec review), with two additions:
 
 As `/omni:brainstorm` step 5, one page, **grouped by repository**: a section per repository the
 design touches, each with its own today beside after, headed by the repository's name and role.
+Each repository's section carries its contract blocks (**The contract blocks** there): one block per
+kind its `Contract:` line of step 5 names, today beside after, headed `Contract: <kind> — <repository>`
+and marked `data-contract="<kind>"`, beside that repository's screens and never below them. A
+repository whose line reads `Contract: none` has no block. `omni plan check` (step 8) refuses a slice
+declaring a kind the page has no block for.
 Acceptance scenarios, when `acceptance.enabled`, as `/omni:brainstorm` step 6.
 
 ## 7. Commit, check, push
@@ -259,7 +267,9 @@ Its body adds, after Summary, a **What lands where** table, so each team finds i
 ```
 
 One row per `## Repositories` row, in its order: the slices whose `repo` it is, and the waves they
-sit in. The body still starts with `prLinks.phase0` filled and ends with the `omni sign footer` line.
+sit in. The body still opens with the PRD's page, the link `node .omni-loop/bin/omni.mjs dossier link <n>`
+prints when it prints one (left out otherwise, as `/omni:brainstorm` step 9 says), then `prLinks.phase0`
+filled, and ends with the `omni sign footer` line.
 
 **A person reviews and merges it.** Never merge it yourself, and never mark the feature PR ready.
 
