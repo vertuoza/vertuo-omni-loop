@@ -17,6 +17,9 @@ import type { AgentQuestion } from '../agent-connect/questions/model';
 // not be read; or the business itself, any member's to pick and confirm. Every situation starts with
 // the Settings tabs, Fleets · Repositories · Business.
 //
+// Since PRD 2240 s6 the page keeps only "+ Add a product" (BusinessPage part `products`): Region, the picks,
+// the claim lists, To check and the draft are the product's Knowledge › Settings.
+//
 // Below the business, Connect an agent (PRD 855 s1, ../agent-connect/tokens/): a member's read-only
 // links for their editors' agents, shown once made, and the workspace's list, when the page has it.
 // Above it, the questions agents couldn't answer (PRD 855 s3, ../agent-connect/questions/), when the
@@ -134,7 +137,13 @@ function BusinessBody({ view }: { view: BusinessScreenView }) {
       const { agents, questions, ...props } = view;
       return (
         <>
-          <BusinessPage {...props} />
+          <div className="ask-col business">
+            <section className="ask-card business-head" aria-labelledby="business-title">
+              <h1 id="business-title">Business</h1>
+              <p className="ask-muted">What agents read about each product (its picks, claims, constituents, personas and pitch) is on that product’s Knowledge tab.</p>
+            </section>
+          </div>
+          <BusinessPage {...props} part="products" />
           {questions && (
             <div className="ask-col business-agents">
               <AgentQuestions {...questions} />

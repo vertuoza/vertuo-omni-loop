@@ -6,7 +6,7 @@ import {
   planConfirm, planPick, planTap, sizeOf, sizeValue, viewClaims, type Claim, type ClaimKind, type Product,
 } from './model';
 import { businessReducer, initialBusinessState } from './state';
-import { BusinessView, type BusinessHandlers } from './BusinessView';
+import { BusinessView, type BusinessHandlers, type BusinessPart } from './BusinessView';
 import { callsOf, confirmCalls, databaseBusiness, demoBusinessPort, run, type BusinessPort, type Saved } from './store';
 import { suggestKey } from './suggest';
 import { databaseDraft, demoDraftPort, draftDbOver, type DraftPort } from './draft-port';
@@ -45,6 +45,11 @@ export interface BusinessPageProps {
   draft?: DraftView | null;
   /** The web pages pasted on the business. */
   pages?: WebPage[];
+  /** What of the page is drawn (PRD 2240 s6): the product's Knowledge › Settings, Settings › Business's
+   * "+ Add a product" alone, or both (the default). */
+  part?: BusinessPart;
+  /** The product shown, for Knowledge › Settings: the first product when left out. */
+  current?: string;
 }
 
 /** What suggested rivals are asked for: the picks' key, naming the tab (PRD 748 s3–s4), or null. */
@@ -54,8 +59,8 @@ const suggestKeyOf = (picked: Claim[], on: string | null) => {
 };
 
 /** The key the page opens as already asked: the first tab's, when guesses are left from an earlier visit. */
-function openingKey(claims: Claim[], products: readonly Product[]): string | null {
-  const first = products[0]?.id ?? null;
+function openingKey(claims: Claim[], products: readonly Product[], current?: string): string | null {
+  const first = current ?? products[0]?.id ?? null;
   const opening = viewClaims(claims, products, first);
   return opening.some((c) => c.kind === 'rival' && c.state === 'proposed') ? suggestKeyOf(opening, first) : null;
 }
@@ -63,8 +68,10 @@ function openingKey(claims: Claim[], products: readonly Product[]): string | nul
 /** How often a running draft's row is read again. */
 const POLL_MS = 1500;
 
-export function BusinessPage({ source, claims, products, draft = null, pages = [] }: BusinessPageProps) {
-  const [whole, dispatch] = useReducer(businessReducer, null, () => initialBusinessState(claims, products, { draft, pages }));
+export function BusinessPage({ source, claims, products, draft = null, pages = [], part = 'all', current }: BusinessPageProps) {
+  const [whole, dispatch] = useReducer(businessReducer, null, () => ({ ...initialBusinessState(claims, products, { draft, pages }), ...(current === undefined ? {} : { current }) }));
+  // Settings › Business draws no picks and no draft: nothing there asks for guesses or watches a draft.
+  const picks = part !== 'products';
   // What the demo's stores start from: the claims the page holds now.
   const held = useRef(whole);
   held.current = whole;
@@ -100,19 +107,19 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   // for again. The answer never blocks a control, and no guess is never an error.
   // Each product asks for its own (PRD 748 s4): the key names the tab.
   const key = suggestKeyOf(state.claims, whole.current);
-  const asked = useRef<string | null>(openingKey(claims, products));
+  const asked = useRef<string | null>(openingKey(claims, products, current));
   // What the two effects below read without running again when it changes: the ports, the tab shown
   // (which the picks' key already names) and the demo's renewal.
   const latest = useRef({ getPort, getDrafts, renew, product });
   latest.current = { getPort, getDrafts, renew, product };
   useEffect(() => {
-    if (!key || key === asked.current) return;
+    if (!picks || !key || key === asked.current) return;
     asked.current = key;
     void latest.current.getPort().suggest(latest.current.product).then((found) => {
       if (found.length > 0) dispatch({ type: 'suggested', claims: found });
     });
     // getPort is stable for the page's life and the key names the tab: only the picks' key asks again.
-  }, [key]);
+  }, [key, picks]);
 
   const plan = (kind: ClaimKind, planned: { reject: Claim[]; pick: string | null }) => void go(callsOf(getPort(), kind, planned, product));
 
@@ -124,7 +131,7 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
   };
 
   // A running draft is read again until it ends; then every claim is read again.
-  const running = whole.draft?.state === 'running' ? whole.draft.id : null;
+  const running = picks && whole.draft?.state === 'running' ? whole.draft.id : null;
   useEffect(() => {
     if (!running) return;
     let live = true;
@@ -250,6 +257,7 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
     <BusinessView
       state={whole}
       demo={source.kind === 'demo'}
+      part={part}
       on={on}
     />
   );
