@@ -270,12 +270,12 @@ describe('the screen-writing skills know kind: shared (PRD 1584)', () => {
 describe('the before/after has a Functional part and a Pixel perfect part (PRD 1584)', () => {
   const page = () => section('brainstorm/SKILL.md', '5.');
 
-  it('brainstorm, with design on, writes the Functional part, then the Pixel perfect part', () => {
+  it('brainstorm, with design on, writes the Functional section, then the Pixel perfect section (PRD 2239)', () => {
     expect(
-      inOrder(page(), ['**Two parts,** with the design flag on', '**Functional:**', '**Pixel perfect:**', 'screens: quote-list · app-shell', '`Pixel perfect: no screen changes`']),
+      inOrder(page(), ['**Two tabs,**', '**Functional** (`data-section="functional"`)', '**Pixel perfect** (`data-section="pixel-perfect"`)', 'screens: quote-list · app-shell', '`Pixel perfect: no screen changes`']),
     ).toEqual([]);
-    expect(page()).toMatch(/the part review and the word pass read/);
-    expect(page()).toMatch(/With the design flag off, the page is written as before/);
+    expect(page()).toMatch(/the section review and the word pass read/);
+    expect(page()).toMatch(/With the design flag off, the section is `na`/);
   });
 
   it('visual-fix keeps its page as the Pixel perfect part alone', () => {
