@@ -466,7 +466,11 @@ export type RunnersService = ReturnType<typeof runnersService>;
 
 /** What a continuation asks (PRD 2270): the PRD of a repository of the workspace, and where its asked
  * questions stand after the touch's read. */
-type ContinueRequest = { workspaceId: string; repo: string; prd: PrdNumber; stand: OutboxStand | null };
+type ContinueRequest = {
+  workspaceId: string; repo: string; prd: PrdNumber; stand: OutboxStand | null;
+  /** A person pressing Fix with answers (PRD 2270 s2): the fix is sent in their name and the repository's switch is not asked. */
+  by?: string | undefined;
+};
 
 /** The fix queued, or why none was. */
 type Continued = { queued: Job; why: null } | { queued: null; why: string };
@@ -477,6 +481,12 @@ const targetOf = (job: JobRow): Target => {
   return job.to_fleet === null ? { kind: 'any' } : { kind: 'fleet', fleet: job.to_fleet };
 };
 
+/** Why a continuation has no sender: the job's sender left the workspace, or the person pressing never joined it. */
+const senderGone = (by: string | undefined): string => (by === undefined ? 'its sender is no longer a member of the workspace' : 'you are not a member of this workspace');
+
+/** The API key a continuation is sent by: the job's own, unless a person pressed Fix with answers. */
+const keyOf = (job: Pick<JobRow, 'sent_by_key'>, by: string | undefined): string | null => (by === undefined ? job.sent_by_key : null);
+
 /** The continuation's rules (PRD 2270 s1): once every asked item of a PRD has a counted reply, its newest
  * runner job, which waited on answers, is continued by `/omni:yolo-fix <n>`, queued to the same runner or
  * fleet in its sender's name (the API key that sent it, too), and linked to it. The decision is
@@ -485,21 +495,22 @@ const targetOf = (job: JobRow): Target => {
 export function continuationsService(store: RunnersRepository, continuations: ContinuationsRepository) {
   const none = (why: string): Continued => ({ queued: null, why });
   return {
-    async continueAnswered({ workspaceId, repo, prd, stand }: ContinueRequest): Promise<Continued> {
+    async continueAnswered({ workspaceId, repo, prd, stand, by }: ContinueRequest): Promise<Continued> {
       // Nothing is read until every asked item is answered: most touches stop here.
       const unanswered = unansweredWhy(stand);
       if (unanswered !== null) return none(unanswered);
       const repoKey = repo.toLowerCase();
       const [switchOn, jobs] = await Promise.all([continuations.fixWhenAnswered(workspaceId, repoKey), continuations.prdJobs(workspaceId, repoKey, prd)]);
-      const decision = shouldContinue({ prd, stand, jobs, switchOn: switchOn === true });
+      const decision = shouldContinue({ prd, stand, jobs, switchOn: by !== undefined || switchOn === true });
       if (!decision.continue) return none(decision.why);
       const job = decision.job;
-      const sender = await store.member(workspaceId, job.sent_by);
-      if (!sender) return none('its sender is no longer a member of the workspace');
+      const sentBy = by ?? job.sent_by;
+      const sender = await store.member(workspaceId, sentBy);
+      if (!sender) return none(senderGone(by));
       const target = await mayTarget(store, workspaceId, sender, targetOf(job));
       if (!target.ok) return none(target.error);
       const row = await continuations.insertContinuation({
-        workspaceId, line: `/omni:yolo-fix ${String(prd)}`, repo: job.repo, ...target.value, sentBy: job.sent_by, sentByKey: job.sent_by_key, continues: job.id,
+        workspaceId, line: `/omni:yolo-fix ${String(prd)}`, repo: job.repo, ...target.value, sentBy, sentByKey: keyOf(job, by), continues: job.id,
       });
       if (!row) return none(`job ${job.id} was continued already`);
       const keys = row.sent_by_key === null ? new Map<string, string>() : await store.keyNames(workspaceId, [row.sent_by_key]);

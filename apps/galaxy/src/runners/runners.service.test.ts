@@ -885,4 +885,19 @@ describe('a continuation', () => {
     expect(held.queued).toBeNull();
     expect(held.why).toContain('did not end on Waiting on answers');
   });
+
+  it('queues the fix in the name of the person pressing Fix with answers, with the switch off, to where the job went (PRD 2270 s2)', async () => {
+    const job = waited({ to_runner: CIA_BOX, sent_by: OLGA, sent_by_key: API_KEY });
+    const { service, state } = continuing([job], { 'vertuoza/app': false });
+    expect(await service.continueAnswered({ ...ask(), by: MO })).toMatchObject({ queued: { line: '/omni:yolo-fix 1717', toRunner: CIA_BOX, sentBy: MO, sentByKey: null, continues: job.id } });
+    expect(await service.continueAnswered({ ...ask(), by: MO })).toMatchObject({ queued: null });
+    expect(state.jobs).toHaveLength(2);
+  });
+
+  it('refuses Fix with answers to someone who is no member of the workspace, and while an asked item waits', async () => {
+    const { service, state } = continuing([waited()], { 'vertuoza/app': false });
+    expect(await service.continueAnswered({ ...ask(), by: EVE })).toEqual({ queued: null, why: 'you are not a member of this workspace' });
+    expect(await service.continueAnswered({ ...ask({ asked: 2, answered: 1, answers: [] }), by: MO })).toMatchObject({ queued: null });
+    expect(state.jobs).toHaveLength(1);
+  });
 });
