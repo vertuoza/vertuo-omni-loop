@@ -14,6 +14,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { z } from 'zod';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { askClient } from '../../lib/ask/client.ts';
 import { homeTokens } from '../../lib/ask/client-tokens.ts';
@@ -148,6 +149,11 @@ export function interrupts(): { signal: AbortSignal; release(): void } {
   };
 }
 
+/** What `omni board --json` prints that the count reads: each slice's state. */
+const BoardSchema = z.object({ slices: z.array(z.object({ state: z.string() })) });
+/** What the page answers for a PRD's dossier: its link. */
+const DossierSchema = z.object({ url: z.string().min(1) });
+
 /** `omni board <n> --json` as it runs here: how many slices are merged of how many; `null` when it cannot be read. */
 async function boardCount(prd: PrdNumber, io: Io): Promise<MergedCount> {
   let text = '';
@@ -155,8 +161,9 @@ async function boardCount(prd: PrdNumber, io: Io): Promise<MergedCount> {
   const capture: Out = { write: (chunk) => (text += chunk) };
   try {
     if ((await board.run([String(prd), '--json'], { cwd: io.cwd, exec: io.exec, env: io.env, vars: io.vars, script: io.script, tokens: io.tokens, home: io.home, ...(io.fetch ? { fetch: io.fetch } : {}), stdout: capture, stderr: sink })) !== 0) return null;
-    const slices = (JSON.parse(text) as { slices?: { state?: string }[] }).slices;
-    if (!Array.isArray(slices)) return null;
+    const read = BoardSchema.safeParse(JSON.parse(text));
+    if (!read.success) return null;
+    const { slices } = read.data;
     return { merged: slices.filter((slice) => slice.state === 'merged').length, total: slices.length };
   } catch {
     return null;
@@ -167,8 +174,8 @@ async function boardCount(prd: PrdNumber, io: Io): Promise<MergedCount> {
 async function pageOf(prd: PrdNumber, at: At, fetch: Fetch): Promise<string | null> {
   try {
     const client = askClient({ baseUrl: at.askUrl, host: credentialsHost(at.askUrl), tokens: at.tokens, fetch });
-    const found = (await client.findDossier({ repo: at.repo, prd })) as { url?: unknown } | null;
-    return typeof found?.url === 'string' && found.url !== '' ? found.url : null;
+    const found = DossierSchema.safeParse(await client.findDossier({ repo: at.repo, prd }));
+    return found.success ? found.data.url : null;
   } catch {
     return null;
   }
