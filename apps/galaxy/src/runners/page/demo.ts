@@ -96,5 +96,5 @@ export function demoRunnersPage(now: Date): RunnersPageView {
     ],
     viewer: { id: YOU, owner: true, fleet: 'comets' },
   };
-  return { kind: 'board', name: DEMO_NAME, board, fleets: FLEETS, now: now.toISOString() };
+  return { kind: 'board', name: DEMO_NAME, board, fleets: FLEETS, prds: { 'acme/widgets#1717': 'Sync widgets across devices', 'acme/widgets#1855': 'Export the totals as CSV' }, now: now.toISOString() };
 }

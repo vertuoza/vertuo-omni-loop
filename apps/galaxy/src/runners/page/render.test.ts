@@ -42,6 +42,17 @@ describe('the board', () => {
     expect(text(jobRow(html, '/omni:pr-care 1801'))).not.toContain('made by');
   });
 
+  it('shows PRD <n>, linking its page, and its title under the line of a job that builds a known PRD', () => {
+    const row = jobRow(html, '/omni:yolo 1717');
+    expect(row).toContain('<a href="/prd/at/acme/widgets/1717?to=page"');
+    expect(text(row)).toContain('PRD 1717 · Sync widgets across devices');
+  });
+
+  it('shows no PRD line for a PRD the repository has no dossier of, or a line that names none', () => {
+    expect(text(jobRow(html, '/omni:pr-care 1801'))).not.toContain('PRD 1801');
+    expect(jobRow(html, '/omni:bug-fix Issue 548 totals')).not.toContain('/prd/at/');
+  });
+
   it('is the marked runners screen, titled Runners, with its two tables', () => {
     expect(html).toContain('data-screen="runners"');
     expect(html).toContain('<h1 class="dash-name">Runners</h1>');
