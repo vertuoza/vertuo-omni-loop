@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canCancel, canSendAgain, madeByWords, prdPageLink, prWords, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
+import { canAnswer, canCancel, canSendAgain, madeByWords, prdPageLink, prWords, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
 
 // The Runners page's words and rules (PRD 1830 s3), pure: how long ago, where a job is sent again, and
 // which jobs take Cancel or Send again.
@@ -118,5 +118,21 @@ describe('a done job that needs a human (PRD 2255)', () => {
   it('links no PRD page: its number is a bug\'s issue', () => {
     expect(prdPageLink({ line: '/omni:bug-fix 314', repo: 'acme/widgets', status: 'done', outcome: 'human' })).toBeNull();
     expect(prdPageLink({ line: '/omni:yolo 2213', repo: 'acme/widgets', status: 'done', outcome: 'human' })).toBeNull();
+  });
+});
+
+describe('canAnswer (PRD 2255 s3)', () => {
+  it('shows the Need human button on a done job that ended with its questions open', () => {
+    expect(canAnswer({ status: 'done', outcome: 'human' })).toBe(true);
+  });
+
+  it('shows none once the questions were answered or dismissed (the board sends no outcome then), or on any other outcome', () => {
+    expect(canAnswer({ status: 'done', outcome: null })).toBe(false);
+    expect(canAnswer({ status: 'done' })).toBe(false);
+    for (const outcome of ['answers', 'held', 'ready'] as const) expect(canAnswer({ status: 'done', outcome })).toBe(false);
+  });
+
+  it('shows none on a job that asked and then failed, was cancelled, or still runs', () => {
+    for (const status of ['failed', 'cancelled', 'running', 'queued', 'claimed'] as const) expect(canAnswer({ status, outcome: 'human' })).toBe(false);
   });
 });
