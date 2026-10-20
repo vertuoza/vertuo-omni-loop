@@ -5,7 +5,7 @@ import { productHomeRepository, type ProductHomeDb } from './product-home.reposi
 // table, columns and filters, what it answers parsed, nothing read for no PRD, and a refusal or an answer
 // out of shape thrown.
 
-type Answer = { data?: unknown; error?: { message: string } | null };
+type Answer = { data?: unknown; error?: { code?: string; message: string } | null };
 
 function stub(answers: Record<string, Answer>) {
   const calls: unknown[][] = [];
@@ -22,17 +22,39 @@ function stub(answers: Record<string, Answer>) {
   };
   const db = {
     from: (table: string) => query(table),
-    rpc: (fn: string) => { calls.push([fn, 'rpc']); return query(fn); },
+    rpc: (fn: string, args?: unknown) => { calls.push(args === undefined ? [fn, 'rpc'] : [fn, 'rpc', args]); return query(fn); },
   };
   return { calls, repo: productHomeRepository(db as unknown as ProductHomeDb) };
 }
 
 describe('the product home\'s storage', () => {
-  it('reads the workspace\'s product by its id, or none', async () => {
-    const { calls, repo } = stub({ products: { data: [{ id: 'p-1', name: 'Mobile', key: 'mobile' }] } });
-    expect(await repo.product('ws-1', 'p-1')).toEqual({ id: 'p-1', name: 'Mobile', key: 'mobile' });
-    expect(calls).toEqual([['products', 'select', 'id, name, key'], ['products', 'eq', 'workspace_id', 'ws-1'], ['products', 'eq', 'id', 'p-1']]);
+  it('reads the workspace\'s product by its id, with when and by whom it was archived, or none', async () => {
+    const row = { id: 'p-1', name: 'Mobile', key: 'mobile', archived_at: null, archived_by: null };
+    const { calls, repo } = stub({ products: { data: [row] } });
+    expect(await repo.product('ws-1', 'p-1')).toEqual(row);
+    expect(calls).toEqual([['products', 'select', 'id, name, key, archived_at, archived_by'], ['products', 'eq', 'workspace_id', 'ws-1'], ['products', 'eq', 'id', 'p-1']]);
     expect(await stub({ products: { data: [] } }).repo.product('ws-1', 'p-x')).toBeNull();
+    const archived = { ...row, archived_at: '2026-10-18T09:00:00Z', archived_by: 'u-olga' };
+    expect(await stub({ products: { data: [archived] } }).repo.product('ws-1', 'p-1')).toEqual(archived);
+  });
+
+  it('reads whether the caller owns the workspace (PRD 2232 s1), and throws on a refusal', async () => {
+    const { calls, repo } = stub({ is_owner: { data: true } });
+    expect(await repo.owner('ws-1')).toBe(true);
+    expect(calls).toEqual([['is_owner', 'rpc', { workspace: 'ws-1' }]]);
+    expect(await stub({ is_owner: { data: false } }).repo.owner('ws-1')).toBe(false);
+    await expect(stub({ is_owner: { error: { message: 'boom' } } }).repo.owner('ws-1')).rejects.toThrow('could not read your role (boom)');
+  });
+
+  it('archives and restores the product through product_archive() and product_restore(), answering the database\'s refusal in its words', async () => {
+    const archived = { id: 'p-1', name: 'Mobile', archivedAt: '2026-10-20T09:00:00Z' };
+    const { calls, repo } = stub({ product_archive: { data: archived }, product_restore: { data: { ...archived, archivedAt: null } } });
+    expect(await repo.archive('p-1')).toEqual({ ok: true, answer: archived });
+    expect(await repo.restore('p-1')).toEqual({ ok: true, answer: { ...archived, archivedAt: null } });
+    expect(calls).toEqual([['product_archive', 'rpc', { p_product: 'p-1' }], ['product_restore', 'rpc', { p_product: 'p-1' }]]);
+    const refused = await stub({ product_archive: { error: { code: '42501', message: 'Only an owner of the workspace archives Mobile.' } } }).repo.archive('p-1');
+    expect(refused).toEqual({ ok: false, code: '42501', message: 'Only an owner of the workspace archives Mobile.' });
+    await expect(stub({ product_restore: { data: { id: 'p-1' } } }).repo.restore('p-1')).rejects.toThrow();
   });
 
   it('reads the product\'s product PRDs, newest first, their outbox items with their settlements, and the authors\' logins (PRD 1548 s9)', async () => {

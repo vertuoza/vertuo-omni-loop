@@ -3,8 +3,10 @@ import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { parseOutboxItem } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
 import { sortItems } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
 import type { QuestionView } from '../questions/questions.contract';
+import type { Archived } from './archive';
+import type { ArchiveAnswer, ArchiveRefusal } from './product-archive.contract';
 import {
-  productHomeRepository, type ProductHomeDb, type ProductHomeRepository, type StoredApproval, type StoredHomePrd,
+  productHomeRepository, type ProductHomeDb, type ProductHomeRepository, type Refused, type StoredApproval, type StoredHomePrd,
   type StoredFix, type StoredIdea, type StoredItem, type StoredLink, type StoredOtherLink, type StoredOutbox, type StoredPhase0, type StoredPlayer, type StoredProductPrd, type StoredPull,
   type StoredRoadmap, type StoredStageRow, type StoredTarget, type StoredTopic, type StoredVoid,
 } from './product-home.repository';
@@ -37,6 +39,10 @@ import {
 // s9 they include the open items of the product's product PRDs (`mobile-12`, its outbox on the server),
 // the worst first, each with the repository it was raised in, its options and the PRD it is answered on;
 // and every question says who it is for, read from its rank.
+//
+// Since PRD 2232 s1, whether the reader owns the workspace (only an owner archives and restores), and, for
+// an archived product (which only an owner reads), when and by whom it was archived, by their GitHub login.
+// Archive and Restore answer the product as the database left it, or its refusal by kind, in its words.
 
 /** Where a PRD was born: `server` (◆, approved on its page) or `repo` (◇, by its phase-0 pull request). */
 export type Birthplace = 'server' | 'repo';
@@ -161,6 +167,10 @@ export interface ProductHome {
   flights: HomeFlight[];
   /** The open phase-0 pull requests of the product's PRDs (`docs/phase-0-<topic>`), for a docked star's tethers. */
   tethers: PrChip[];
+  /** Whether the reader owns the workspace: only an owner archives and restores (PRD 2232). */
+  owner: boolean;
+  /** When and by whom the product was archived; null while it is live. */
+  archived: Archived | null;
 }
 
 /** What the product home is drawn from, as the repository reads it. */
@@ -198,6 +208,10 @@ export interface ProductHomeRows {
   targets: readonly StoredTarget[];
   /** Who reads: their user id. */
   me: string;
+  /** Whether the reader owns the workspace (PRD 2232). */
+  owner: boolean;
+  /** When and by whom the product was archived; null while it is live. */
+  archived: Archived | null;
 }
 
 const keyOf = (repo: string, prd: PrdNumber) => `${repo.toLowerCase()}#${String(prd)}`;
@@ -433,7 +447,26 @@ export function productHomeOf(rows: ProductHomeRows): ProductHome {
     repositories: repositoriesOf(rows),
     flights,
     tethers: tethersOf(rows.topics, rows.phase0Pulls),
+    owner: rows.owner,
+    archived: rows.archived,
   };
+}
+
+/** What Archive and Restore answer: the product as the database left it, or why it was refused. */
+export type ArchiveOutcome = { ok: true; value: ArchiveAnswer } | { ok: false; kind: ArchiveRefusal; error: string };
+
+/** A refusal by its kind, in the database's words: 42501 not an owner, P0002 no such product. */
+function archiveRefusal(refused: Refused): ArchiveOutcome {
+  if (refused.code === '42501') return { ok: false, kind: 'not-owner', error: refused.message };
+  if (refused.code === 'P0002') return { ok: false, kind: 'missing', error: refused.message };
+  return { ok: false, kind: 'database', error: refused.message };
+}
+
+/** When and by whom `found` was archived, the archiver by their login; null while it is live. */
+function archivedOf(found: { archived_at: string | null; archived_by: string | null }, players: readonly StoredPlayer[]): Archived | null {
+  if (found.archived_at === null) return null;
+  const by = found.archived_by === null ? null : (players.find((p) => p.user_id === found.archived_by)?.github_login ?? null);
+  return { at: found.archived_at, by };
 }
 
 /** What the reads need: the product's id, its workspace, and who reads. */
@@ -454,10 +487,12 @@ export function productHomeService(store: ProductHomeRepository) {
       const [prds, productPrds] = await Promise.all([store.prds(workspace, id), store.productPrds(workspace, id)]);
       const repos = [...new Set(prds.map((p) => p.home_repo))];
       const dossiers = prds.map((p) => p.id);
-      const authors = [...new Set([...prds, ...productPrds].flatMap((p) => (p.opened_by === null ? [] : [p.opened_by])))];
+      // The archiver's login is read with the authors'.
+      const archiver = found.archived_at !== null && found.archived_by !== null ? [found.archived_by] : [];
+      const authors = [...new Set([...[...prds, ...productPrds].flatMap((p) => (p.opened_by === null ? [] : [p.opened_by])), ...archiver])];
       const links = await store.links(workspace, id);
       const linked = links.map((l) => l.repository);
-      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes, items, players, otherLinks, phase0, phase0Pulls, targets] = await Promise.all([
+      const [stages, outbox, topics, approvals, voids, waitingOnMe, pulls, ideas, roadmaps, fixes, items, players, otherLinks, phase0, phase0Pulls, targets, owner] = await Promise.all([
         store.stages(workspace, repos),
         store.outbox(workspace, repos),
         store.topics(workspace, repos),
@@ -474,10 +509,24 @@ export function productHomeService(store: ProductHomeRepository) {
         store.phase0(workspace, linked),
         prds.length === 0 ? Promise.resolve([]) : store.phase0Pulls(workspace),
         store.targets(dossiers),
+        store.owner(workspace),
       ]);
       return productHomeOf({
         product, prds, stages, outbox, approvals, voids, waitingOnMe, topics, pulls, ideas, roadmaps, fixes, key: found.key, productPrds, items, players, links, otherLinks, phase0, phase0Pulls, targets, me,
+        owner, archived: archivedOf(found, players),
       });
+    },
+
+    /** Archives the product (PRD 2232 s1): an owner's only, in the database. */
+    async archive(product: string): Promise<ArchiveOutcome> {
+      const done = await store.archive(product);
+      return done.ok ? { ok: true, value: done.answer } : archiveRefusal(done);
+    },
+
+    /** Restores the product as it was: an owner's only, in the database. */
+    async restore(product: string): Promise<ArchiveOutcome> {
+      const done = await store.restore(product);
+      return done.ok ? { ok: true, value: done.answer } : archiveRefusal(done);
     },
   };
 }

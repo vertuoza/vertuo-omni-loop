@@ -5,7 +5,8 @@ import type { ProductHome } from './product-home.service';
 // The product home's tabs (PRD 1364 s9, s10): each one's address under /app/products/<id>, its label and
 // the line under the product's name, in the order the row draws them. The Ledger opens at the bare
 // address, every other tab at its own segment. The Ledger counts what waits on you, Questions the outbox
-// questions waiting on a person.
+// questions waiting on a person. An archived product (PRD 2232) is read-only: it keeps the tabs that change
+// nothing, and opens the Ledger in place of the others.
 
 const ORDER = ['ledger', 'constellation', 'prds', 'ideas', 'roadmap', 'bugs', 'visual', 'questions'] as const;
 
@@ -19,7 +20,7 @@ interface TabDef {
 }
 
 const TABS: Readonly<Record<ProductHomeTab, TabDef>> = {
-  ledger: { segment: null, label: 'Ledger', lede: 'What waits on whom, across the product’s PRDs.' },
+  ledger: { segment: null, label: 'Ledger', lede: 'What waits on whom across its PRDs.' },
   constellation: { segment: 'constellation', label: 'Constellation', lede: 'How the product looks now.' },
   prds: { segment: 'prds', label: 'PRDs', lede: 'Every PRD of the product, newest first.' },
   ideas: { segment: 'ideas', label: 'Ideas', lede: 'The product’s ideas, each ready to brainstorm.' },
@@ -43,6 +44,16 @@ export function productHomeTabHref(home: ProductHome, tab: ProductHomeTab): stri
  * (PRD 2174), its labels apart and its lines drawn from the plans' targets. */
 const HIDDEN: ReadonlySet<ProductHomeTab> = new Set();
 
+/** The tabs an archived product leaves out: Questions answers them. Knowledge and Repositories & approvers,
+ * which edit, are left out of its row too. */
+const CHANGES: ReadonlySet<ProductHomeTab> = new Set(['questions']);
+
+/** Whether the product is archived; a home read before PRD 2232 names no archive, and reads live. */
+const isArchived = (home: ProductHome): boolean => home.archived?.at !== undefined;
+
+/** The tab `home` draws when `tab` is asked: the Ledger, for an archived product, in place of one it leaves out. */
+export const tabShown = (home: ProductHome, tab: ProductHomeTab): ProductHomeTab => (isArchived(home) && CHANGES.has(tab) ? 'ledger' : tab);
+
 const COUNTS: Partial<Record<ProductHomeTab, (home: ProductHome) => number>> = {
   ledger: (home) => home.ledger.lanes['on-you'].length,
   questions: (home) => home.questions.length,
@@ -50,13 +61,15 @@ const COUNTS: Partial<Record<ProductHomeTab, (home: ProductHome) => number>> = {
 
 /** The product home's tabs, as the section tabs draw them. */
 export function productHomeTabs(home: ProductHome): SectionTab[] {
-  const drawn = ORDER.filter((tab) => !HIDDEN.has(tab)).map((tab) => {
+  const archived = isArchived(home);
+  const drawn = ORDER.filter((tab) => !HIDDEN.has(tab) && !(archived && CHANGES.has(tab))).map((tab) => {
     const shown: SectionTab = { href: productHomeTabHref(home, tab), label: TABS[tab].label };
     const count = COUNTS[tab];
     return count === undefined ? shown : { ...shown, count: count(home) };
   });
   // After Questions, the Knowledge tab (PRD 1795 s2), then the Repositories & approvers tab (s11): each
-  // draws itself at its own static route.
+  // draws itself at its own static route. An archived product has neither.
+  if (archived) return drawn;
   return [...drawn, { href: `${productHomeHref(home.product.id)}/knowledge`, label: 'Knowledge' }, { href: `${productHomeHref(home.product.id)}/repositories`, label: 'Repositories & approvers' }];
 }
 
