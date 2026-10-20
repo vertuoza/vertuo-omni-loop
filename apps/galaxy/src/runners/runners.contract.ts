@@ -3,7 +3,7 @@
 //
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
-//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?} → {cancel}
+//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser                               → JobLines
 //   POST  /api/runners/jobs                browser {line, repo, target}                      → {job}
@@ -118,6 +118,9 @@ const TokenCountsSchema = z.object({
 }).strict();
 export type TokenCounts = z.infer<typeof TokenCountsSchema>;
 
+/** What a done yolo job's hand-off ended on (PRD 2223): the run ended on `/omni:yolo-fix` (answers), `/omni:yolo` (held) or `/omni:pr-care` (ready). */
+const JOB_OUTCOMES = ['answers', 'held', 'ready'] as const;
+
 /** The most claims a job's report says its runner released, and the longest reason a release failed (PRD 2175). */
 const RELEASED_MAX = 50;
 const RELEASE_ERROR_CHARS = 200;
@@ -139,6 +142,8 @@ export const JobUpdateSchema = z.object({
   released: z.array(z.number().int().positive()).max(RELEASED_MAX).optional(),
   /** Why the release failed, or null when nothing did (PRD 2175), stored in `runner_jobs.release_error`. */
   releaseError: z.string().max(RELEASE_ERROR_CHARS).nullable().optional(),
+  /** What a done yolo job's hand-off ended on (PRD 2223), stored in `runner_jobs.outcome`; an unknown value is refused. */
+  outcome: z.enum(JOB_OUTCOMES).nullable().optional(),
 }).strict().refine((report) => (report.from === undefined) === (report.lines === undefined), { message: 'from and lines come together' });
 export type JobUpdate = z.infer<typeof JobUpdateSchema>;
 
@@ -234,6 +239,8 @@ const JobSchema = z.object({
   released: z.array(z.number().int()).nullable().optional(),
   /** Why its runner could not release its claims (PRD 2175); null when nothing failed. */
   releaseError: z.string().nullable().optional(),
+  /** What its yolo hand-off ended on (PRD 2223); null for a job without one. */
+  outcome: z.enum(JOB_OUTCOMES).nullable().optional(),
   queuedAt: z.string(),
   claimedAt: z.string().nullable(),
   runningAt: z.string().nullable(),

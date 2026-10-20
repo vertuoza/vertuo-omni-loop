@@ -73,6 +73,14 @@ describe('the rows', () => {
     expect(lines[0]).toMatch(/^from\("runner_jobs"\)\.update\(\{"status":"running"\}\)\.eq\("id","j1"\)\.in\("status",\["claimed"\]\)\.select\(.*\)\.maybeSingle\(\)$/);
   });
 
+  it('read a job\'s outcome with the row, selecting the column, and one out of shape as none (PRD 2223)', async () => {
+    const { db, lines } = fakeDb([{ data: jobRow({ status: 'done', outcome: 'held' }), error: null }, { data: { ...jobRow({ status: 'done' }), outcome: 'weird' }, error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.job('j1')).toMatchObject({ outcome: 'held' });
+    expect(lines[0]).toContain('outcome');
+    expect(await repository.job('j2')).toMatchObject({ outcome: null });
+  });
+
   it('read a person\'s place in a workspace: owner or member, and their fleet', async () => {
     const { db, lines } = fakeDb([{ data: { role: 'owner' }, error: null }, { data: { team: 'cia', github_login: 'olga' }, error: null }]);
     expect(await runnersRepository(db).member('w1', 'u1')).toEqual({ owner: true, fleet: 'cia' });

@@ -62,6 +62,7 @@
 .runners-status.is-queue { color: var(--ask-cyan); border-color: var(--ask-cyan); }
 .runners-status.is-run { color: var(--ask-plasma); border-color: var(--ask-plasma); }
 .runners-status.is-done { color: var(--ask-green); border-color: var(--ask-green); }
+.runners-status.is-wait { color: var(--ask-plasma); border-color: var(--ask-plasma); }
 .runners-status.is-fail { color: var(--ask-red); border-color: var(--ask-red); }
 .runners-status.is-off { color: var(--ask-muted); }
 

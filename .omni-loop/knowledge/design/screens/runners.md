@@ -33,7 +33,9 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
   repository, who sent it, where it went, its status and its action.
   - Each row has a Terminal button, which opens the `runner-terminal` panel on that job and sets
     `?terminal=<job id>` on the URL.
-  - A done job links its pull request.
+  - A done job links its pull request. A yolo job that ended on its hand-off's last line reads its
+    outcome in place of Done (PRD 2223): Waiting on answers or Held in `--ask-plasma`, Ready in
+    `--ask-green`, with a PRD page link beside its pull request.
   - A job shows its tokens beside its status (`1.4M tokens`) once its runner reported them (PRD 2102).
   - A job that held claims when it ended lists, under its status in `--ask-red`, the sub-PRs its
     runner released: `Released #<n>, #<n>`, each linked; a release that failed reads `Could not
@@ -47,7 +49,8 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 
 - **No runner yet:** the page says how to start one, with `omni runner --name <name> --repos <dir>`
   to copy.
-- **A job's status:** Queued, Running with its time, Done, Failed with its reason (`runner lost`,
+- **A job's status:** Queued, Running with its time, Done (or its outcome: Waiting on answers, Held,
+  Ready), Failed with its reason (`runner lost`,
   `timeout`, the exit code), Cancelled.
 - **Paused** (PRD 2102): the runner's state reads `Paused: <reason>` in `--ask-red`, in place of
   Online or Busy, while its last report names a pressure.
@@ -85,3 +88,4 @@ health · Released · Could not release this job's claims.
 /omni:brainstorm, PRD 2022: .omni-loop/delivery/shipped/2022-api-keys-v1/before-after.html
 /omni:brainstorm, PRD 2102: .omni-loop/delivery/shipped/2102-runner-health/before-after.html
 /omni:brainstorm, PRD 2175: .omni-loop/delivery/shipped/2175-runner-dead-claims/before-after.html
+/omni:brainstorm, PRD 2223: .omni-loop/delivery/shipped/2223-outbox-waiting/before-after.html

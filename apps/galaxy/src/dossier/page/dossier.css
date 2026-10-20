@@ -121,6 +121,8 @@
 .stage-ahead { color: var(--ask-muted); }
 .stage-words { margin: 0; overflow-wrap: anywhere; }
 .stage-copy { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.stage-action-stack { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.stage-fixes { font-size: 13px; }
 .stage-command { font: 13px/1 var(--ask-mono); color: var(--ask-muted); }
 /* Pitch (PRD 859): the button, and under it a small panel of two choices, the command and Copy. */
 .pitch-action { position: relative; display: inline-flex; }

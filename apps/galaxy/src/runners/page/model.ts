@@ -48,8 +48,11 @@ export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'> & { heal
   return ago === 'now' ? 'Offline' : `Offline, ${ago} ago`;
 }
 
+/** A done job's outcome in words (PRD 2223). */
+const OUTCOME_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready' } as const;
+
 /** A job's status in words. */
-export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'runningAt' | 'claimedAt'>, now: Date): string {
+export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'runningAt' | 'claimedAt'> & { outcome?: Job['outcome'] }, now: Date): string {
   switch (job.status) {
     case 'queued': return 'Queued';
     case 'claimed': return 'Starting';
@@ -57,7 +60,7 @@ export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'r
       const from = job.runningAt ?? job.claimedAt;
       return from ? `Running ${spanOf(since(from, now))}` : 'Running';
     }
-    case 'done': return 'Done';
+    case 'done': return job.outcome ? OUTCOME_WORDS[job.outcome] : 'Done';
     case 'cancelled': return 'Cancelled';
     case 'failed':
       if (job.reason === 'runner lost') return 'Runner lost';
@@ -68,7 +71,8 @@ export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'r
 }
 
 /** The tone a status is drawn in. */
-export function statusTone(status: Job['status']): 'queue' | 'run' | 'done' | 'fail' | 'off' {
+export function statusTone(status: Job['status'], outcome?: Job['outcome']): 'queue' | 'run' | 'done' | 'fail' | 'off' | 'wait' {
+  if (status === 'done' && (outcome === 'answers' || outcome === 'held')) return 'wait';
   if (status === 'queued') return 'queue';
   if (status === 'claimed' || status === 'running') return 'run';
   if (status === 'done') return 'done';
@@ -113,6 +117,14 @@ export const madeByWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'>): string
 
 /** A repository's name, without its owner. */
 export const repoName = (repo: string): string => repo.slice(repo.indexOf('/') + 1);
+
+/** The link to the PRD page of a job with an outcome (PRD 2223): `/prd/at/<owner>/<repo>/<n>`, the PRD being
+ * the number its line names; null for a job without an outcome or a line that names no PRD. */
+export function prdPageLink(job: Pick<Job, 'line' | 'repo' | 'outcome' | 'status'>): string | null {
+  const number = /^\/omni:[a-z-]+ (\d+)$/.exec(job.line)?.[1];
+  if (job.status !== 'done' || !job.outcome || number === undefined) return null;
+  return `/prd/at/${job.repo.split('/').map(encodeURIComponent).join('/')}/${number}`;
+}
 
 /** A pull request link's words: `PR #1838`, or `Pull request` when the link names no number. */
 export function prWords(url: string): string {

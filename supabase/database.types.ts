@@ -3476,6 +3476,7 @@ export type Database = {
           id: string
           line: string
           log_tail: string
+          outcome: string | null
           pr_url: string | null
           queued_at: string
           reason: string | null
@@ -3500,6 +3501,7 @@ export type Database = {
           id?: string
           line: string
           log_tail?: string
+          outcome?: string | null
           pr_url?: string | null
           queued_at?: string
           reason?: string | null
@@ -3524,6 +3526,7 @@ export type Database = {
           id?: string
           line?: string
           log_tail?: string
+          outcome?: string | null
           pr_url?: string | null
           queued_at?: string
           reason?: string | null
@@ -6175,6 +6178,7 @@ export type Database = {
           id: string
           line: string
           log_tail: string
+          outcome: string | null
           pr_url: string | null
           queued_at: string
           reason: string | null
