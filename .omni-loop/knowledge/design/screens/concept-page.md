@@ -51,4 +51,4 @@ marks the concept done when the rest will never be built (PRD 2213).
 
 ## Source
 
-/omni:brainstorm, PRD 2213: .omni-loop/delivery/inbox/2213-concept-shipped/before-after.html
+/omni:brainstorm, PRD 2213: .omni-loop/delivery/shipped/2213-concept-shipped/before-after.html
