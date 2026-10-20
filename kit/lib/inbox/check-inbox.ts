@@ -15,7 +15,9 @@
  * 4. Each `areas` entry, whenever this repository has a knowledge folder
  *    (`ctx.layout.knowledgeRoot`) — whatever `laws.source` says — names a real domain folder.
  * 5. The sibling `before-after.html`, when present, stays at or under the configured size cap
- *    (`ctx.config.limits.beforeAfterMaxBytes`).
+ *    (`ctx.config.limits.beforeAfterMaxBytes`); when its head carries
+ *    `<meta name="omni-before-after" content="2">` (PRD 2239), it also keeps the two-tab page's rules
+ *    (`../before-after/grade.ts`). A page without the meta is graded on its size alone.
  * 6. The sibling `voice.json`, when present, reads as the voice record (PRD 822, `../voice/voice.ts`):
  *    each refusal names the file, the round and the field.
  * 7. Every roadmap under the inbox's `roadmaps/` passes `omni roadmap check` (PRD 1162,
@@ -27,6 +29,7 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-inbox.mjs — changes in kit/porting/inbox--check-inbox.md.
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
+import { gradeBeforeAfter } from '../before-after/grade.ts';
 import { readRepoFile } from '../check-report.ts';
 import { domainsDir } from '../knowledge/registers.ts';
 import { parseFolderName } from '../layout.ts';
@@ -129,6 +132,12 @@ export function beforeAfterViolation(
   return `${file}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
 
+/** The two-tab page's violations of one before-after.html (PRD 2239), each naming the file: none when it is absent. */
+function pageViolations(file: string, folder: string, ctx: Ctx): string[] {
+  if (!existsSync(join(ctx.root, file))) return [];
+  return gradeBeforeAfter({ file, html: readRepoFile(ctx, file), prd: parseFolderName(folder)?.prd ?? null });
+}
+
 /** The violations of one voice.json, each naming the file: none when it is absent or reads. */
 function voiceViolations(file: string, ctx: Ctx): string[] {
   if (!existsSync(join(ctx.root, file))) return [];
@@ -137,7 +146,7 @@ function voiceViolations(file: string, ctx: Ctx): string[] {
 
 /**
  * One inbox folder's own grading, its spec file named: the spec's violations, its before-after
- * page's size, and the parsed record (`null` when absent or malformed) for the `blocked-by` pass.
+ * page's size and (a page carrying the meta) its rules, and the parsed record (`null` when absent or malformed) for the `blocked-by` pass.
  */
 function gradeFolder(specFile: string, ctx: Ctx): { violations: string[]; record: FolderRecord | null } {
   const folder = basename(dirname(specFile));
@@ -153,8 +162,10 @@ function gradeFolder(specFile: string, ctx: Ctx): { violations: string[]; record
     if (graded.record) record = { ...graded.record, file: specFile, folder };
   }
 
-  const beforeAfter = beforeAfterViolation(`${dirname(specFile)}/before-after.html`, ctx);
+  const page = `${dirname(specFile)}/before-after.html`;
+  const beforeAfter = beforeAfterViolation(page, ctx);
   if (beforeAfter) violations.push(beforeAfter);
+  violations.push(...pageViolations(page, folder, ctx));
   violations.push(...voiceViolations(`${dirname(specFile)}/${VOICE_FILE}`, ctx));
 
   return { violations, record };
