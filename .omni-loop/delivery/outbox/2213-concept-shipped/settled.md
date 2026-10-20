@@ -157,3 +157,163 @@ A merged concept page would add one background read per view if changed.
 ```
 
 <!-- /omni-outbox-settled: s2-02-concept-page-still-final -->
+
+<!-- omni-outbox-settled: s1-01-concept-state-proof-extended -->
+
+## s1-01-concept-state-proof-extended — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-20T05:03:31Z
+- Channel: feature pull request #2214
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2214#issuecomment-6283802063
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-93
+- Raised: 2026-10-19
+- Slice: s1
+- Stays here: it says how the tests prove BR-PRODUCT-93, not something new about the product
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+A. A. Keep the new cases beside the old ones, as built.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-01-concept-state-proof-extended
+prd: 2213
+slice: s1
+rank: high
+bears-on: BR-PRODUCT-93
+raised: 2026-10-19
+wave: 1
+---
+
+## The question, in plain words
+
+A concept can now read shipped, so the tests that prove a concept with no facts or an unread pull request is state unknown were extended. Is the rule still proved as you want it?
+
+## The decision, in plain words
+
+The old checks stay as they were and still pass, and new ones were added beside them: a concept in review or with no facts never reads shipped. Nothing about state unknown was loosened.
+
+## The intro, for fun
+
+A fourth state walks in, and the doorman still checks everyone's papers.
+
+## The punchline, for fun
+
+Unknown stays unknown, shipped or not.
+
+## The options, in plain words
+
+A. A. Keep the new cases beside the old ones, as built.
+B. B. Move the new shipped cases to their own tests and leave the old ones untouched.
+
+## What I had to decide
+
+Confirm the extended tests are the proof of the rule, or ask for the new cases to move.
+
+## What I did meanwhile
+
+The extended tests stay as built, all green.
+
+## What it costs to change later
+
+Moving the new cases to other files is a small edit.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the owner of the rule wants the new cases in the same tests (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-01-concept-state-proof-extended -->
+
+<!-- omni-outbox-settled: s3-01-mark-done-guards -->
+
+## s3-01-mark-done-guards — drifted
+
+- Verdict: drifted
+- Approved by: pierrederval
+- Approved at: 2026-10-20T05:03:31Z
+- Channel: feature pull request #2214
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2214#issuecomment-6283802063
+- Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
+- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Rank: high
+- Bears on: BR-PRODUCT-93
+- Raised: 2026-10-19
+- Slice: s3
+- Became: BR-PRODUCT-121
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+B. B. Trust the page's button only, and let the route close any concept's issue for a member — because the Mark done button only shows where it applies; any workspace member may close a concept issue through the route
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-mark-done-guards
+prd: 2213
+slice: s3
+rank: high
+bears-on: BR-PRODUCT-93
+raised: 2026-10-19
+wave: 2
+---
+
+## The question, in plain words
+
+Mark done is refused for a concept whose pull request has not merged, and a person who cannot read the concept is told they are not a member, whether or not it exists. Is that the behaviour you want?
+
+## The decision, in plain words
+
+The route refuses a concept still in review or with no stored facts, refuses anyone who cannot read the concept with the same not-a-member answer, and keeps a close that worked even when its comment could not be posted.
+
+## The intro, for fun
+
+The button wants to close the door, but first it checks the house was built.
+
+## The punchline, for fun
+
+No roof, no done.
+
+## The options, in plain words
+
+A. A. Guard on the route: refuse in review, hide existence from non-members, keep the close if only the comment fails (as built)
+B. B. Trust the page's button only, and let the route close any concept's issue for a member
+
+## What I had to decide
+
+Whether the route should enforce the in-the-inbox rule itself, as built, or leave it to the page's button alone.
+
+## What I did meanwhile
+
+Built the guards on the route; the page's button already shows only for a concept in the inbox.
+
+## What it costs to change later
+
+Dropping a guard is a one-line change in the route.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a missing comment should fail the call (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-mark-done-guards -->
