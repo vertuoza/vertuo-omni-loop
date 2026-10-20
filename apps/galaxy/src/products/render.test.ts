@@ -155,7 +155,7 @@ describe('a product\'s page, for someone who may not edit the business', () => {
 });
 
 describe('the product body', () => {
-  const body = (view: ProductScreenView, framed?: boolean) => renderToStaticMarkup(createElement(ProductBody, { view, framed }));
+  const body = (view: ProductScreenView, framed = true) => renderToStaticMarkup(createElement(ProductBody, { view, framed }));
   const demo = (): ProductScreenView => ({ kind: 'product', source: { kind: 'demo' }, editable: true, product: { ...sure(DEMO_PRODUCTS[0], 'the first demo product'), pitch: defaultPitchSettings('arcade') } });
 
   it('says each situation in plain words', () => {
