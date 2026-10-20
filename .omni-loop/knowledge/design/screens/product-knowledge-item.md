@@ -46,4 +46,4 @@ Created by · Created · Updated · History · retired · removed.
 
 ## Source
 
-- /omni:brainstorm, PRD 2240: .omni-loop/delivery/inbox/2240-product-knowledge-home/before-after.html
+- /omni:brainstorm, PRD 2240: .omni-loop/delivery/shipped/2240-product-knowledge-home/before-after.html
