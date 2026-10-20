@@ -1,7 +1,7 @@
 // The waiting list's own reads (PRD 1318, s4; ADR-0095): every query the bell sends that is not the ask
 // pages', on the client it is given, as the signed-in person, so row-level security has the last word.
-// The Questions part's first question of each waiting round, the New documents part's versions, and
-// the Business part's two counts. A failed read throws. No rule lives here: which rounds wait and which
+// The Questions part's first question of each waiting round, the New documents part's versions, the
+// Business part's two counts, and the Runners part's two reads (PRD 2255). A failed read throws. No rule lives here: which rounds wait and which
 // versions count is waiting.service.ts's. The client is handed in, as the ask reads are (src/ask/
 // ask.repository.ts): the controller and the server's first paint pass the viewer's.
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -36,6 +36,25 @@ export type DocumentReadRow = z.infer<typeof DocumentRead>;
 export const newestVersions = (db: Pick<SupabaseClient, 'from'>) =>
   db.from('dossier_versions').select(DOCUMENT_COLUMNS).not('dossier.prd', 'is', null).order('created_at', { ascending: false }).limit(DOCS_LIMIT);
 
+const OPEN_QUESTION_COLUMNS = 'job_id';
+/** A runner job's open questions, as the Runners part reads them: the job that asked (PRD 2255). */
+export const OpenQuestionRead = z.object({ job_id: z.string() });
+
+const JOB_STATE_COLUMNS = 'id, status, outcome';
+/** A runner job's state, as the Runners part reads it: the service decides which ones wait (PRD 2255). */
+export const JobStateRead = z.object({ id: z.string(), status: z.string(), outcome: z.string().nullable() });
+type JobStateReadRow =z.infer<typeof JobStateRead>;
+
+/** The jobs with questions nobody has closed, in every workspace the client reads: the read
+ * `pnpm schemas:verify` checks (src/waiting/runners.boundary.ts). */
+export const openQuestionRows = (db: Pick<SupabaseClient, 'from'>) =>
+  db.from('runner_job_questions').select(OPEN_QUESTION_COLUMNS).is('closed_at', null);
+
+/** The state of fifty runner jobs that ended with an outcome, any workspace: the read `pnpm schemas:verify`
+ * checks, where the Runners part reads the jobs of one workspace among the ids it asks for. */
+export const jobStateRows = (db: Pick<SupabaseClient, 'from'>) =>
+  db.from('runner_jobs').select(JOB_STATE_COLUMNS).not('outcome', 'is', null).limit(50);
+
 export function waitingRepository(db: WaitingDb) {
   return {
     /** These rounds' questions. */
@@ -56,6 +75,20 @@ export function waitingRepository(db: WaitingDb) {
         .limit(DOCS_LIMIT);
       if (error) throw new Error(`read the new documents: ${error.message}`);
       return orThrow(parseRows(DocumentRead, data, 'waiting/documents: dossier_versions'));
+    },
+
+    /** The ids of the workspace's jobs whose questions nobody has answered or dismissed (PRD 2255). */
+    async openQuestionJobs(workspace: string): Promise<string[]> {
+      const { data, error } = await db.from('runner_job_questions').select(OPEN_QUESTION_COLUMNS).eq('workspace_id', workspace).is('closed_at', null);
+      if (error) throw new Error(`read the runner jobs' open questions: ${error.message}`);
+      return orThrow(parseRows(OpenQuestionRead, data, 'waiting/runners: runner_job_questions')).map((row) => row.job_id);
+    },
+
+    /** The state of the workspace's jobs among `ids` (PRD 2255). */
+    async jobStates(workspace: string, ids: string[]): Promise<JobStateReadRow[]> {
+      const { data, error } = await db.from('runner_jobs').select(JOB_STATE_COLUMNS).eq('workspace_id', workspace).in('id', ids);
+      if (error) throw new Error(`read the runner jobs: ${error.message}`);
+      return orThrow(parseRows(JobStateRead, data, 'waiting/runners: runner_jobs'));
     },
   };
 }

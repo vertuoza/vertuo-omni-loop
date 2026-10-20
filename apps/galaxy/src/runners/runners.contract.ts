@@ -1,5 +1,5 @@
 // The runners' shapes (PRD 1830 s1; ADR-0095), as zod schemas the routes, the Runners page, Send to
-// terminal and the kit's `omni runner` share. Browser-safe: zod only.
+// terminal and the kit's `omni runner` share. Browser-safe: zod and the kit's branded ids only.
 //
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
@@ -8,15 +8,21 @@
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser                               → JobLines
 //   POST  /api/runners/jobs                browser {line, repo, target}                      → {job}
 //   POST  /api/runners/jobs/<id>/cancel    browser                                           → {job}
+//   POST  /api/runners/jobs/<id>/questions runner {issue, lead, questions} (PRD 2255)        → JobQuestions
+//   GET   /api/runners/jobs/<id>/questions runner or browser, of the job's workspace (PRD 2255) → JobQuestions
+//   POST  /api/runners/jobs/<id>/answers   browser, a person's session only {answers}        → {job}
+//   POST  /api/runners/jobs/<id>/dismiss   browser, a person's session only                  → JobQuestions
 //   PATCH /api/runners/<id>                browser {fleet}                                   → {runner}
 //
 // A runner's routes take the kit's sign-in (a bearer access token, `omni signin` or a traded
 // OMNI_TOKEN); the browser's take the session. A refusal is `{error}` in plain words (ADR-0029): 400 a
 // malformed request or a line off the list, 401 signed out, 403 not allowed (a target outside the
 // sender's fleet, a repository outside the workspace, a fleet set by a non-owner, a runner of someone
-// else), 404 no such runner or job, 409 a job that has ended (a runner stops it) or a status that goes
-// back, 503 no database here, 500 the database failed.
+// else, a token on a route that takes a person's session), 404 no such runner or job (or no question
+// on it), 409 a job that has ended (a runner stops it) or a status that goes back, or questions already
+// asked, answered or dismissed, 503 no database here, 500 the database failed.
 import { z } from 'zod';
+import { IssueNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
 export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove'] as const;
@@ -118,8 +124,12 @@ const TokenCountsSchema = z.object({
 }).strict();
 export type TokenCounts = z.infer<typeof TokenCountsSchema>;
 
-/** What a done yolo job's hand-off ended on (PRD 2223): the run ended on `/omni:yolo-fix` (answers), `/omni:yolo` (held) or `/omni:pr-care` (ready). */
-const JOB_OUTCOMES = ['answers', 'held', 'ready'] as const;
+/** What a done job ended on: a yolo hand-off (PRD 2223), the run ended on `/omni:yolo-fix` (answers), `/omni:yolo` (held)
+ * or `/omni:pr-care` (ready); or `human` (PRD 2255), the run ended with the questions it asked a person still open. */
+export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human'] as const;
+
+/** What a runner's report may say: the server alone sets `human`, from the questions a job stored. */
+const REPORTED_OUTCOMES = ['answers', 'held', 'ready'] as const;
 
 /** The most claims a job's report says its runner released, and the longest reason a release failed (PRD 2175). */
 const RELEASED_MAX = 50;
@@ -142,8 +152,8 @@ export const JobUpdateSchema = z.object({
   released: z.array(z.number().int().positive()).max(RELEASED_MAX).optional(),
   /** Why the release failed, or null when nothing did (PRD 2175), stored in `runner_jobs.release_error`. */
   releaseError: z.string().max(RELEASE_ERROR_CHARS).nullable().optional(),
-  /** What a done yolo job's hand-off ended on (PRD 2223), stored in `runner_jobs.outcome`; an unknown value is refused. */
-  outcome: z.enum(JOB_OUTCOMES).nullable().optional(),
+  /** What a done yolo job's hand-off ended on (PRD 2223), stored in `runner_jobs.outcome`; an unknown value, and `human`, are refused. */
+  outcome: z.enum(REPORTED_OUTCOMES).nullable().optional(),
 }).strict().refine((report) => (report.from === undefined) === (report.lines === undefined), { message: 'from and lines come together' });
 export type JobUpdate = z.infer<typeof JobUpdateSchema>;
 
@@ -239,7 +249,7 @@ const JobSchema = z.object({
   released: z.array(z.number().int()).nullable().optional(),
   /** Why its runner could not release its claims (PRD 2175); null when nothing failed. */
   releaseError: z.string().nullable().optional(),
-  /** What its yolo hand-off ended on (PRD 2223); null for a job without one. */
+  /** What it ended on (PRD 2223, 2255); null for a job without one, and for one whose questions were answered or dismissed. */
   outcome: z.enum(JOB_OUTCOMES).nullable().optional(),
   queuedAt: z.string(),
   claimedAt: z.string().nullable(),
@@ -277,6 +287,66 @@ export const JobLinesSchema = z.object({
   logTail: z.string().nullable(),
 });
 export type JobLines = z.infer<typeof JobLinesSchema>;
+
+// ── A job's questions (PRD 2255) ────────────────────────────────────────────────
+
+/** What a job may ask: 1 to 4 questions, each with 2 to 4 options, and a lead of at most 4,000 characters. */
+const QUESTIONS_MAX = 4;
+const OPTIONS_MIN = 2;
+const OPTIONS_MAX = 4;
+const LEAD_CHARS = 4_000;
+
+/** The longest answer to one question, a free one included. */
+export const ANSWER_CHARS = 2_000;
+
+/** One option of a question: what it is, and what it changes. */
+const QuestionOptionSchema = z.strictObject({ label: z.string().min(1).max(200), description: z.string().max(1_000) });
+
+/** One question, in the file shape `omni ask question --file` reads (`kit/lib/ask/schema.ts`), with its limits. */
+export const QuestionSchema = z.strictObject({
+  question: z.string().min(1).max(1_000),
+  header: z.string().min(1).max(200),
+  options: z.array(QuestionOptionSchema).min(OPTIONS_MIN).max(OPTIONS_MAX),
+  multiSelect: z.boolean(),
+});
+export type Question = z.infer<typeof QuestionSchema>;
+
+/** What a running job asks (`omni runner ask`): the issue it works on, why it stopped, and its questions, each asked once. */
+export const AskRequestSchema = z.strictObject({
+  issue: IssueNumberSchema,
+  lead: z.string().min(1).max(LEAD_CHARS),
+  questions: z.array(QuestionSchema).min(1).max(QUESTIONS_MAX),
+}).refine((asked) => new Set(asked.questions.map((question) => question.question)).size === asked.questions.length, { message: 'each question is asked once' });
+export type AskRequest = z.infer<typeof AskRequestSchema>;
+
+/** The answers a person sends: each question's text to its answer, a pick or a free one. The service checks that
+ * every question has one. */
+export const AnswerRequestSchema = z.strictObject({
+  answers: z.record(z.string().min(1), z.string().min(1).max(ANSWER_CHARS)).refine((answers) => {
+    const count = Object.keys(answers).length;
+    return count >= 1 && count <= QUESTIONS_MAX;
+  }, { message: 'one answer per question' }),
+});
+export type AnswerRequest = z.infer<typeof AnswerRequestSchema>;
+
+/** Where a job's questions stand: open, answered (the resume job queued) or dismissed. */
+const QUESTION_STATES = ['open', 'answered', 'dismissed'] as const;
+
+/** A job's questions, as the routes answer them: the questions, and once someone acted, the answers, who closed
+ * them (by id and GitHub login), when, and the job that resumes the run. */
+export const JobQuestionsSchema = z.object({
+  job: IdSchema,
+  issue: IssueNumberSchema,
+  lead: z.string(),
+  questions: z.array(QuestionSchema),
+  state: z.enum(QUESTION_STATES),
+  answers: z.record(z.string(), z.string()).nullable(),
+  by: IdSchema.nullable(),
+  byLogin: z.string().nullable(),
+  at: z.string().nullable(),
+  resume: IdSchema.nullable(),
+});
+export type JobQuestions = z.infer<typeof JobQuestionsSchema>;
 
 /** A runner's state: online, busy when every slot holds a job, offline after 90 s of silence. */
 const RunnerStateSchema = z.enum(['online', 'busy', 'offline']);
