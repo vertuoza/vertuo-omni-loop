@@ -130,7 +130,14 @@ describe('GET /api/products/<key>/knowledge/graph', () => {
   });
 
   it('answers 404 for an id the joined graph does not hold', async () => {
-    expect(await read('omni-loop', '?id=BR-PRODUCT-3')).toEqual({ status: 404, body: { error: 'No node BR-PRODUCT-3 in the knowledge graph of omni-loop.' } });
+    expect(await read('omni-loop', '?id=BR-PRODUCT-99')).toEqual({ status: 404, body: { error: 'No node BR-PRODUCT-99 in the knowledge graph of omni-loop.' } });
+  });
+
+  it('answers 404 for a bare repository id, naming the prefixed id it matches (#2221)', async () => {
+    expect(await read('omni-loop', '?id=BR-PRODUCT-3')).toEqual({
+      status: 404,
+      body: { error: 'No node BR-PRODUCT-3 in the knowledge graph of omni-loop. Did you mean vertuo-omni-loop/BR-PRODUCT-3?' },
+    });
   });
 
   it('reaches the graph of a product keyed `which`, beside the fixed segment', async () => {

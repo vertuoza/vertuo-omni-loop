@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ProductNeighbourhoodSchema } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
 import type { JoinedGraph, JoinedNode } from './join';
-import { productNeighbourhood, walkProductGraph } from './walk';
+import { prefixedMatches, productNeighbourhood, walkProductGraph } from './walk';
 
 // The walk over a product's joined graph (PRD 1798 s3), as P5 walks one repository: only the nodes
 // within `depth` edges of the start, the entries walked further and the others leaves.
@@ -73,6 +73,22 @@ describe('walkProductGraph', () => {
   it('is null for an id the graph does not hold', () => {
     expect(walkProductGraph(GRAPH, { id: 'R1', depth: 1 })).toBeNull();
     expect(walkProductGraph(GRAPH, { id: 'L-INVOICING-1', depth: 1 })).toBeNull();
+  });
+});
+
+describe('prefixedMatches', () => {
+  it('names the repository nodes a bare id stands for, prefixed by their repository (#2221)', () => {
+    expect(prefixedMatches(GRAPH, 'R1')).toEqual(['a/R1']);
+    const twice: JoinedGraph = { ...GRAPH, nodes: [...GRAPH.nodes, node('acme/web/R1', 'rule', 'acme/web')] };
+    expect(prefixedMatches(twice, 'R1')).toEqual(['a/R1', 'acme/web/R1']);
+  });
+
+  it('names nothing for an id no repository holds, a prefixed id, or a product node', () => {
+    expect(prefixedMatches(GRAPH, 'R9')).toEqual([]);
+    expect(prefixedMatches(GRAPH, 'a/R1')).toEqual([]);
+    expect(prefixedMatches(GRAPH, 'R1/x')).toEqual([]);
+    expect(prefixedMatches(GRAPH, 'L-1')).toEqual([]);
+    expect(prefixedMatches(GRAPH, '')).toEqual([]);
   });
 });
 
