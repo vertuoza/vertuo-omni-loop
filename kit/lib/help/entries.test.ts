@@ -592,6 +592,16 @@ describe('the e2e field', () => {
   });
 });
 
+describe('omni help kb lists the knowledge writes (PRD 2268, s2)', () => {
+  it('names legal and glossary add and edit, and the exit codes', () => {
+    const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'kb');
+    assertDefined(entry, 'kb');
+    for (const sub of ['legal add', 'legal edit', 'glossary add', 'glossary edit']) expect(entry.usage.join('\n')).toContain(`omni kb ${sub}`);
+    expect(entry.detail).toContain('proposed');
+    expect(entry.detail).toContain('exits 1');
+  });
+});
+
 describe('omni help runner (PRD 1904)', () => {
   it('describes the stream-json run and the live log it sends', () => {
     const runner = ENTRIES.find((entry) => entry.kind === 'command' && entry.name === 'runner');
