@@ -266,7 +266,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb legal', 'omni kb glossary', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb legal', 'omni kb glossary', 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', '  [--product <name>] [--json]', 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', '  [--product <name>] [--json]', 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:
@@ -281,7 +281,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       '(a clean knowledge folder and a sign-in needed); legal and glossary print ' +
       "the product's active Legal entries and its glossary " +
       'terms, one line each, read from the Omni page and kept as a local copy, which they print, ' +
-      'saying so, when the page is unreachable; init lays down every missing form, blank, and ' +
+      'saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change ' +
+      'one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the ' +
+      'fields given and names its item by the id or term the reads print, and --product names the ' +
+      'product when the repository is in several. They print added <id>, edited <id> or proposed (a ' +
+      "member who does not own the section proposes, and waits for its owner) with the item's link; " +
+      "--json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or " +
+      'retired from the terminal; init lays down every missing form, blank, and ' +
       'changes no file that exists.',
   },
   {
