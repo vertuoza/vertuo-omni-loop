@@ -22,9 +22,14 @@
 // lib/agents/skills.ts), so `omni init` and `omni update` write the skills of their own version for
 // the agents that read `.agents/skills/`; the bundle exports `kitSkills` beside `main`, so the
 // committed file can be asked for them.
-import { build } from 'esbuild';
+//
+// Each built file ends with the third-party notices of the libraries it bundles (#2220, Legal
+// L-LICENSE-2): every package esbuild's metafile names, its name, version, licence and the licence file
+// it ships, verbatim. esbuild's own `legalComments` keeps only the comments a library marks, and zod
+// and yaml mark none. The CLI bundle carries the pitch engine's packages too, since it serves that page.
+import { build, type Metafile } from 'esbuild';
 import { z } from 'zod';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -67,9 +72,42 @@ const ENGINE_PAGE = [
   '',
 ].join('\n');
 
+const root = fileURLToPath(new URL('..', import.meta.url));
+
+/** The root folder of every package under node_modules the metafile names as an input. */
+function packageRoots(meta: Metafile): string[] {
+  const roots = new Set<string>();
+  for (const input of Object.keys(meta.inputs)) {
+    const at = input.lastIndexOf('node_modules/');
+    if (at < 0) continue;
+    const [first = '', second = ''] = input.slice(at + 'node_modules/'.length).split('/');
+    roots.add(join(root, input.slice(0, at), 'node_modules', first.startsWith('@') ? `${first}/${second}` : first));
+  }
+  return [...roots];
+}
+
+/** What a notice names of its package. */
+const NoticePackageSchema = z.looseObject({ name: z.string(), version: z.string(), license: z.string().optional() });
+
+/** The notice of one package: `name@version (licence)`, then its licence file as it ships it. */
+function notice(pkgRoot: string): { name: string; text: string } {
+  const pkg = NoticePackageSchema.parse(JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8')));
+  const file = readdirSync(pkgRoot).sort().find((name) => /^(licen[cs]e|copying)(\.(md|txt))?$/i.test(name));
+  if (!file) throw new Error(`kit/build.ts: ${pkg.name} ships no licence file, so the kit cannot carry its notice`);
+  const text = readFileSync(join(pkgRoot, file), 'utf8').replaceAll('\r\n', '\n').trimEnd().replaceAll('*/', '* /');
+  return { name: pkg.name, text: `${pkg.name}@${pkg.version} (${pkg.license ?? 'see below'})\n\n${text}` };
+}
+
+/** Appends the notices of these packages to a built file, as one comment, sorted by name. */
+function appendNotices(file: string, pkgRoots: string[]): void {
+  const notices = [...new Set(pkgRoots)].map(notice).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  if (notices.length === 0) return;
+  appendFileSync(file, `/*! Third-party notices: the libraries bundled in this file, each under its own licence.\n\n${notices.map((n) => n.text).join('\n\n')}\n*/\n`);
+}
+
 const engineDir = join(dirname(outfile), 'pitch-engine');
 mkdirSync(engineDir, { recursive: true });
-await build({
+const engine = await build({
   entryPoints: [`${kit}pitch-engine/page.tsx`],
   outfile: join(engineDir, 'engine.js'),
   absWorkingDir: fileURLToPath(new URL('..', import.meta.url)),
@@ -80,22 +118,26 @@ await build({
   jsx: 'automatic',
   minify: true,
   legalComments: 'none',
+  metafile: true,
   define: { 'process.env.NODE_ENV': '"production"' },
 });
+const enginePackages = packageRoots(engine.metafile);
+appendNotices(join(engineDir, 'engine.js'), enginePackages);
 writeFileSync(join(engineDir, 'index.html'), ENGINE_PAGE);
 
-await build({
+const cli = await build({
   stdin: { contents: ENTRY, resolveDir: kit, sourcefile: 'build.mjs', loader: 'js' },
   outfile,
   // esbuild names each bundled module in a comment relative to this directory: pin it to the
   // repository root, so a build from any cwd is byte-identical.
-  absWorkingDir: fileURLToPath(new URL('..', import.meta.url)),
+  absWorkingDir: root,
   bundle: true,
   platform: 'node',
   format: 'esm',
   target: 'node22',
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
   legalComments: 'none',
+  metafile: true,
   // A string, parsed once where it is read: an object here would be initialised in every module.
   define: {
     __OMNI_BUNDLE__: JSON.stringify({ home, version }),
@@ -104,3 +146,4 @@ await build({
     __OMNI_PITCH_ENGINE__: JSON.stringify(JSON.stringify(readEnginePage(engineDir))),
   },
 });
+appendNotices(outfile, [...packageRoots(cli.metafile), ...enginePackages]);
