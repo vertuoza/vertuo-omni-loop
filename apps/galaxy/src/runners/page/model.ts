@@ -1,4 +1,4 @@
-import type { Board, Job, Runner, Target } from '../runners.contract';
+import type { Board, Job, JobQuestions, Runner, Target } from '../runners.contract';
 
 type RunnerHealth = NonNullable<Runner['health']>;
 
@@ -17,7 +17,9 @@ export type RunnersPageView =
   | { kind: 'sign-in' }
   | { kind: 'no-workspace' }
   | { kind: 'unreadable' }
-  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; now: string };
+  // `demoQuestions` is the demo's alone (PRD 2255): the questions its Need human drawer reads and answers in the
+  // browser, with no route to call. A page read from the database never carries it.
+  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; now: string; demoQuestions?: readonly JobQuestions[] };
 
 /** The command that starts a runner, as the empty page shows it. */
 export const START_COMMAND = 'omni runner --name <name> --repos <dir>';
@@ -86,6 +88,11 @@ export const canCancel = (job: Pick<Job, 'status' | 'cancelRequested'>): boolean
 
 /** Whether a job may be sent again: it failed or was cancelled. Nothing runs again by itself. */
 export const canSendAgain = (job: Pick<Job, 'status'>): boolean => job.status === 'failed' || job.status === 'cancelled';
+
+/** Whether a job shows the Need human button (PRD 2255): it ended done with its questions still open, which the
+ * board reads as outcome `human`. Answered or dismissed, the board sends no outcome and it reads Done; a job
+ * that asked and then failed or was cancelled never shows it. */
+export const canAnswer = (job: Pick<Job, 'status'> & { outcome?: Job['outcome'] }): boolean => job.status === 'done' && job.outcome === 'human';
 
 /** Where a job first went, to send it there again. */
 export function targetOf(job: Pick<Job, 'toRunner' | 'toFleet'>): Target {
