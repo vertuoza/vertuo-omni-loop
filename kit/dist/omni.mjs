@@ -29481,6 +29481,13 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
      * @returns {Promise<{ state: 'ok' | 'none', product: { name: string } | null, statement: { id: 'statement', text: string } | null,
      *   never: Array<{ id: string, text: string }>, latestEventId: string | null }>} */
     readConstituents: (repo) => call("GET", `/api/constituents?${new URLSearchParams({ repo })}`),
+    /** PRD 2268: adds or edits one Legal entry or Glossary term of the product `repo` belongs to (`product`, when
+     * the repository is in several), as the caller: the section's owner saves it, any other member proposes it.
+     * `entry` names the item an edit changes, by the id or term the reads print.
+     * @returns {Promise<{ done: 'applied' | 'proposed', id?: string, url: string, owner?: string }>} */
+    changeKnowledge: ({ repo, product: product2, kind, action, entry: entry3, fields }) => call("POST", "/api/knowledge/changes", {
+      body: { repo, ...product2 === void 0 ? {} : { product: product2 }, kind, action, ...entry3 === void 0 ? {} : { entry: entry3 }, fields }
+    }),
     /** PRD 1665: one of the loop's reads, `path` under `/api/loop/` (`changes`, `changes/<n>`, `comments`,
      * `issues`, `issues/<n>`) with its query (`repo` and its filters); `../loop-reads/omni.ts` reads the answer. */
     readLoop: (path, query) => call("GET", `/api/loop/${path}?${new URLSearchParams(query)}`),
@@ -48979,10 +48986,10 @@ var ENTRIES = deepFreeze([
     name: "kb",
     kind: "command",
     who: "you",
-    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb legal", "omni kb glossary", "omni kb init"],
+    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb legal", "omni kb glossary", 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', "  [--product <name>] [--json]", 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', "  [--product <name>] [--json]", 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', "  [--product <name>] [--json]", 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', "  [--product <name>] [--json]", "omni kb init"],
     label: "omni kb show <form>",
     summary: "one form of the playbook",
-    detail: "The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; init lays down every missing form, blank, and changes no file that exists."
+    detail: "The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the fields given and names its item by the id or term the reads print, and --product names the product when the repository is in several. They print added <id>, edited <id> or proposed (a member who does not own the section proposes, and waits for its owner) with the item's link; --json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or retired from the terminal; init lays down every missing form, blank, and changes no file that exists."
   },
   {
     name: "knowledge",
@@ -52515,6 +52522,93 @@ function targetsTable(rows2) {
   return cells4.map((line2) => line2.map((cell2, i) => i === line2.length - 1 ? cell2 : cell2.padEnd(widths[i] ?? 0)).join("  "));
 }
 
+// kit/bin/kb-write.ts
+init_define_OMNI_BUNDLE();
+var USAGE25 = {
+  legal: 'usage: omni kb legal add --code <CODE> --statement "<text>" --source "<law>" [--product <name>] [--json] | omni kb legal edit <id> [--statement "<text>"] [--source "<law>"] [--product <name>] [--json]',
+  glossary: 'usage: omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>] [--product <name>] [--json] | omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>] [--product <name>] [--json]'
+};
+var REQUIRED3 = { legal: ["code", "statement", "source"], glossary: ["term", "meaning"] };
+var ADDABLE = { legal: REQUIRED3.legal, glossary: ["term", "meaning", "avoid"] };
+var EDITABLE = { legal: ["statement", "source"], glossary: ["meaning", "avoid"] };
+var textOf5 = (value) => typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+var wordsOf2 = (value) => value.split(",").map((word2) => word2.trim()).filter(Boolean);
+function fieldsOf(names, flags) {
+  const given = names.map((name3) => {
+    const raw = flags[name3];
+    if (name3 !== "avoid") return [name3, textOf5(raw)];
+    return [name3, typeof raw === "string" ? wordsOf2(raw) : null];
+  });
+  return Object.fromEntries(given.filter(([, value]) => value !== null));
+}
+function parsedOf(kind, args) {
+  const names = [.../* @__PURE__ */ new Set([...ADDABLE[kind], ...EDITABLE[kind], "product"])];
+  try {
+    return parseArgs(`kb ${kind}`, args, { values: names, booleans: ["json"] });
+  } catch (error62) {
+    throw usageError(`${error62 instanceof Error ? error62.message : String(error62)} ${USAGE25[kind]}`);
+  }
+}
+function changeOf(kind, args) {
+  const usage2 = USAGE25[kind];
+  const { positional, flags } = parsedOf(kind, args);
+  const [action, ...rest] = positional;
+  if (action !== "add" && action !== "edit") throw usageError(usage2);
+  const entry3 = action === "edit" ? textOf5(rest[0]) : null;
+  const fields = fieldsOf(action === "add" ? ADDABLE[kind] : EDITABLE[kind], flags);
+  checkChange(kind, action, rest.length, entry3, fields);
+  const product2 = textOf5(flags.product);
+  const change2 = { kind, action, ...product2 === null ? {} : { product: product2 }, ...entry3 === null ? {} : { entry: entry3 }, fields };
+  return { change: change2, json: flags.json === true };
+}
+function checkChange(kind, action, positionals, entry3, fields) {
+  if (action === "add" && (positionals > 0 || REQUIRED3[kind].some((name3) => !(name3 in fields)))) throw usageError(USAGE25[kind]);
+  if (action === "edit" && (positionals !== 1 || entry3 === null)) throw usageError(USAGE25[kind]);
+  if (action === "edit" && Object.keys(fields).length === 0) throw usageError(`omni kb ${kind} edit: give at least one field to change. ${USAGE25[kind]}`);
+}
+function successLine(action, reply) {
+  const answer = jsonObject(reply);
+  if (!answer) return null;
+  const [id, url2, owner] = [textOf5(answer.id), textOf5(answer.url), textOf5(answer.owner)];
+  const link3 = url2 === null ? "" : ` \xB7 ${url2}`;
+  if (answer.done === "proposed") return `proposed \xB7 waits for ${owner === null ? "the section's owner" : `@${owner.replace(/^@/, "")}`}${link3}`;
+  return answer.done === "applied" && id !== null ? `${action === "add" ? "added" : "edited"} ${id}${link3}` : null;
+}
+function refusalLine2(error62, host) {
+  if (!(error62 instanceof AskCallError)) throw error62;
+  if (error62.status === null) {
+    return error62.message.startsWith("not signed in") ? `no sign-in for ${host} (omni signin)` : "the Omni page could not be reached";
+  }
+  if (error62.status === 401) return "the sign-in was refused (omni signin)";
+  return error62.reason ?? `refused (${error62.status})`;
+}
+async function knowledgeWrite(kind, args, { ctx, stdout, stderr, vars }, options) {
+  const { change: change2, json: json3 } = changeOf(kind, args);
+  const stop = (line2) => {
+    if (json3) println(stdout, JSON.stringify({ error: line2 }));
+    else println(stderr, `omni kb ${kind} ${change2.action}: ${line2}`);
+    return 1;
+  };
+  const askUrl2 = ctx.config.ask.url;
+  const repo = ctx.config.repo.slug;
+  if (!askUrl2) return stop("no Omni page is set here (ask.url)");
+  if (!repo) return stop("no repository slug \u2014 set repo.slug in the config");
+  const host = credentialsHost(askUrl2);
+  const omniToken = vars.omniToken?.token ?? null;
+  const tokens2 = options.tokens ?? homeTokens({ ...options.home ? { home: options.home } : {}, omniToken });
+  if (!tokens2.read(host) && !tokens2.omniToken) return stop(`no sign-in for ${host} (omni signin)`);
+  const client = askClient({ baseUrl: askUrl2, host, tokens: tokens2, fetch: options.fetch ?? globalThis.fetch, ...options.callMs ? { callMs: options.callMs } : {} });
+  try {
+    const reply = await client.changeKnowledge({ repo, ...change2 });
+    const line2 = successLine(change2.action, reply);
+    if (line2 === null) return stop("the Omni page answered something this kit does not read");
+    println(stdout, json3 ? JSON.stringify(reply) : line2);
+    return 0;
+  } catch (error62) {
+    return stop(refusalLine2(error62, host));
+  }
+}
+
 // kit/bin/commands/kb.ts
 var LAWS_USAGE = "usage: omni kb laws [--paths <file>[,<file>\u2026] [<file>\u2026] | --slice <prd> <slice> | --area <domain>] [--json]";
 var SHOW_USAGE = "usage: omni kb show <form> [--json] [--all]";
@@ -52522,7 +52616,7 @@ var PACK_USAGE = "usage: omni kb pack get <repo> [--read-at <commit>]";
 var GRAPH_USAGE = "usage: omni kb graph [<id> | --paths <file>[,<file>\u2026] [<file>\u2026]] [--depth <1-3>] [--json]";
 var GRAPH_PRODUCT_USAGE = "usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]";
 var GRAPH_PUSH_USAGE = "usage: omni kb graph push";
-var USAGE25 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws [\u2026] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
+var USAGE26 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws [\u2026] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit \u2026] | omni kb glossary [add|edit \u2026]`;
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -52852,6 +52946,10 @@ async function productVerb(verb2, positional, { ctx, stdout, exec }, options, cw
     return refuse6(messageOf(error62));
   }
 }
+function productCommand(verb2, args, io, options) {
+  if (args[0] === "add" || args[0] === "edit") return knowledgeWrite(verb2, args, io, options);
+  return productVerb(verb2, args, io, options, options.cwd);
+}
 async function graphPush(args, io) {
   const { ctx, stdout, exec } = io;
   if (args.length > 0) throw usageError(GRAPH_PUSH_USAGE);
@@ -52893,12 +52991,12 @@ var basic = synchronous((args, io) => {
   if (args[0] === "graph") return graph(args.slice(1), io);
   const { positional, flags } = parseArgs("kb", args, { booleans: ["json", "all"] });
   const [sub, ...rest] = positional;
-  if (flags.all && sub !== "show") throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE25}`);
+  if (flags.all && sub !== "show") throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE26}`);
   if (sub === "init") return init2(rest, flags, io);
   if (sub === "show") return show3(rest, flags, io);
   if (sub === "status") return status2(rest, flags, io);
   if (sub === "owners") return owners(rest, flags, io);
-  throw usageError(USAGE25);
+  throw usageError(USAGE26);
 });
 var kb2 = {
   withoutContext: true,
@@ -52908,7 +53006,7 @@ var kb2 = {
     if (sub === "pack") return pack(rest, full);
     if (sub === "graph" && rest[0] === "push") return graphPush(rest.slice(1), full);
     if (sub === "graph" && rest.includes("--product")) return graphProduct(rest, full);
-    if (sub === "legal" || sub === "glossary") return productVerb(sub, rest, full, io, io.cwd);
+    if (sub === "legal" || sub === "glossary") return productCommand(sub, rest, { ...full, vars: io.vars }, io);
     return basic(args, full);
   }
 };
@@ -53094,7 +53192,7 @@ function requireProofText(text15) {
 function editableFiles(read2) {
   const original = /* @__PURE__ */ new Map();
   const texts = /* @__PURE__ */ new Map();
-  const textOf6 = (path) => {
+  const textOf7 = (path) => {
     if (!texts.has(path)) {
       const text15 = read2(path);
       original.set(path, text15);
@@ -53103,13 +53201,13 @@ function editableFiles(read2) {
     return texts.get(path) ?? null;
   };
   const edit = (path, change2) => {
-    const text15 = textOf6(path);
+    const text15 = textOf7(path);
     const changed = text15 === null ? null : change2(text15);
     if (changed !== null) texts.set(path, changed);
     return changed !== null;
   };
   const writes = () => [...texts].filter((pair) => pair[1] !== null && pair[1] !== original.get(pair[0])).map(([path, text15]) => ({ path, text: text15 }));
-  return { textOf: textOf6, edit, writes };
+  return { textOf: textOf7, edit, writes };
 }
 function applyVerdict(entry3, verdict2, { edit, markers }) {
   const issue2 = verdict2.issue;
@@ -53160,7 +53258,7 @@ function sweepEdits({
 }
 
 // kit/bin/commands/knowledge.ts
-var USAGE26 = "usage: omni knowledge <id>   e.g. omni knowledge P-PRODUCT-1\n       omni knowledge judge [<id>]";
+var USAGE27 = "usage: omni knowledge <id>   e.g. omni knowledge P-PRODUCT-1\n       omni knowledge judge [<id>]";
 function describe4(id, { ctx, stdout, stderr }) {
   const text15 = describeEntry(readKnowledge({ ctx }), id);
   if (text15 === null) {
@@ -53293,7 +53391,7 @@ var knowledge = {
     const [verb2 = "", id] = positional;
     if (positional.length === 1) return verb2 === "judge" ? sweep(void 0, io) : describe4(verb2, io);
     if (positional.length === 2 && verb2 === "judge") return sweep(id, io);
-    throw usageError(USAGE26);
+    throw usageError(USAGE27);
   }
 };
 
@@ -53448,7 +53546,7 @@ function writeLoopPlans(root, versions) {
 }
 
 // kit/bin/commands/loop.ts
-var USAGE27 = [
+var USAGE28 = [
   "usage: omni loop push start [--take-over]",
   '       omni loop push tick --step <k> [--steps <n>] --prd <n> --action <word> --result "<line>" [--link <url>] [--merged <pr,\u2026>] [--items <id,\u2026>] [--repos <repo,\u2026>] [--wake-in <seconds> | --next-wake <time>]',
   '       omni loop push park --prd <n> --who "<who>" --what "<what>" [--link <url>]',
@@ -53503,7 +53601,7 @@ function wakeArg({ wakeIn, nextWake }, now2) {
 }
 function prepareStart(args, { repo }) {
   const { positional, flags } = parseArgs("loop push start", args, { booleans: ["take-over"] });
-  if (positional.length) throw usageError(USAGE27);
+  if (positional.length) throw usageError(USAGE28);
   const takeOver = flags["take-over"] === true;
   return { needsLoop: false, takeOver, wake: null, body: (plan2) => startBody({ repo, plan: plan2, takeOver }) };
 }
@@ -53520,7 +53618,7 @@ function actionArg(value) {
 }
 function prepareTick(args, { now: now2 }) {
   const { positional, flags } = parseArgs("loop push tick", args, { values: ["step", "steps", "prd", "action", "result", "link", "merged", "items", "repos", "wake-in", "next-wake"] });
-  if (positional.length) throw usageError(USAGE27);
+  if (positional.length) throw usageError(USAGE28);
   const { step: step3, given } = stepArgs(flags);
   const prd2 = prdArg("loop push tick", "--prd", flags.prd);
   const action = actionArg(flags.action);
@@ -53544,7 +53642,7 @@ function prepareTick(args, { now: now2 }) {
 }
 function preparePark(args) {
   const { positional, flags } = parseArgs("loop push park", args, { values: ["prd", "who", "what", "link"] });
-  if (positional.length) throw usageError(USAGE27);
+  if (positional.length) throw usageError(USAGE28);
   const prd2 = prdArg("loop push park", "--prd", flags.prd);
   const who2 = lineArg("who", flags.who, WHO_MAX);
   const what = lineArg("what", flags.what, LINE_MAX);
@@ -53552,7 +53650,7 @@ function preparePark(args) {
   return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => parkBody({ loopId: loop2.loopId, prd: prd2, who: who2, what, link: link3 }) };
 }
 function prepareStop(args) {
-  if (args.length) throw usageError(USAGE27);
+  if (args.length) throw usageError(USAGE28);
   return { needsLoop: true, takeOver: false, wake: null, body: (loop2) => stopBody(loop2.loopId) };
 }
 var PREPARERS = /* @__PURE__ */ new Map([
@@ -53563,7 +53661,7 @@ var PREPARERS = /* @__PURE__ */ new Map([
 ]);
 function prepare2(event, args, options) {
   const read2 = PREPARERS.get(event);
-  if (!read2) throw usageError(USAGE27);
+  if (!read2) throw usageError(USAGE28);
   return read2(args, options);
 }
 function standingLine(loop2, state) {
@@ -53666,7 +53764,7 @@ async function push3(args, io) {
 }
 function status3(args, { cwd, stdout, exec, now: now2 }) {
   const { positional, flags } = parseArgs("loop status", args, { booleans: ["json"] });
-  if (positional.length) throw usageError(USAGE27);
+  if (positional.length) throw usageError(USAGE28);
   const ctx = loadContext(cwd, { exec });
   const kept = readLocalLoop(ctx.root);
   const plan2 = readLoopPlans(ctx.root).at(-1) ?? null;
@@ -53684,7 +53782,7 @@ function status3(args, { cwd, stdout, exec, now: now2 }) {
   return 0;
 }
 function usage(stderr) {
-  println(stderr, USAGE27);
+  println(stderr, USAGE28);
   return 2;
 }
 var loop = {
@@ -56437,7 +56535,7 @@ function phase0Reason({ ok, docsOnly, offending, missing: missing2, trailer, uns
 }
 
 // kit/bin/commands/phase0.ts
-var USAGE28 = "usage: omni phase0 <prd> [--base <ref>]";
+var USAGE29 = "usage: omni phase0 <prd> [--base <ref>]";
 function git8(args, cwd, exec) {
   return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
@@ -56477,7 +56575,7 @@ function printVerdict(stdout, prd2, base, verdict2) {
 var phase0 = {
   run: synchronous((args, { ctx, stdout, exec }) => {
     const { positional, flags } = parseArgs("phase0", args, { values: ["base"] });
-    if (positional.length !== 1) throw usageError(USAGE28);
+    if (positional.length !== 1) throw usageError(USAGE29);
     const prd2 = prdArg("phase0", "<prd>", positional[0]);
     const base = rangeBase("phase0", ctx, flags, exec);
     const paths = changedPaths3(ctx, base, exec);
@@ -56556,7 +56654,7 @@ function movedTable(rows2) {
 }
 
 // kit/bin/commands/plan.ts
-var USAGE29 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
+var USAGE30 = "usage: omni plan check <prd> | omni plan moved <prd> [--json] | omni plan landings <prd> [--json] [--repo <name>]";
 function counted2(count5, singular, pluralForm) {
   return `${count5} ${count5 === 1 ? singular : pluralForm}`;
 }
@@ -56598,7 +56696,7 @@ function checkPlan(prd2, { ctx }) {
 }
 function moved(rest, { ctx, stdout, exec, env }) {
   const { positional, flags } = parseArgs("plan moved", rest, { booleans: ["json"] });
-  if (positional.length !== 1) throw usageError(USAGE29);
+  if (positional.length !== 1) throw usageError(USAGE30);
   const prd2 = prdArg("plan moved", "<prd>", positional[0]);
   const planSection2 = ctx.config.plan ?? null;
   if (planSection2 === null) {
@@ -56616,7 +56714,7 @@ function moved(rest, { ctx, stdout, exec, env }) {
 }
 function landingsCommand(rest, { ctx, stdout }) {
   const { positional, flags } = parseArgs("plan landings", rest, { values: ["repo"], booleans: ["json"] });
-  if (positional.length !== 1) throw usageError(USAGE29);
+  if (positional.length !== 1) throw usageError(USAGE30);
   const prd2 = prdArg("plan landings", "<prd>", positional[0]);
   const { planPath, slices, landings, violations } = checkPlan(prd2, { ctx });
   if (violations.length > 0) {
@@ -56681,7 +56779,7 @@ function printContracts(stdout, { slices }) {
 }
 function checkCommand(rest, { ctx, stdout }) {
   const { positional } = parseArgs("plan check", rest);
-  if (positional.length !== 1) throw usageError(USAGE29);
+  if (positional.length !== 1) throw usageError(USAGE30);
   const prd2 = prdArg("plan check", "<prd>", positional[0]);
   const checked5 = checkPlan(prd2, { ctx });
   const { planPath, slices, waves, violations } = checked5;
@@ -56708,7 +56806,7 @@ var plan = {
     const [sub, ...rest] = args;
     if (sub === "moved") return moved(rest, { ctx, stdout, exec, env });
     if (sub === "landings") return landingsCommand(rest, { ctx, stdout });
-    if (sub !== "check") throw usageError(USAGE29);
+    if (sub !== "check") throw usageError(USAGE30);
     return checkCommand(rest, { ctx, stdout });
   })
 };
@@ -56838,9 +56936,9 @@ async function productPrd2(id, kind, io) {
 }
 
 // kit/bin/commands/prd.ts
-var USAGE30 = `usage: omni prd <n> | omni prd <key>-<n> [--show <${PRD_KINDS.join("|")}>]`;
+var USAGE31 = `usage: omni prd <n> | omni prd <key>-<n> [--show <${PRD_KINDS.join("|")}>]`;
 function idArg(value) {
-  if (value === void 0) throw usageError(USAGE30);
+  if (value === void 0) throw usageError(USAGE31);
   if (!/^[a-z]|-/i.test(value)) return prdArg("prd", "<n>", value);
   try {
     return parsePrdId(value);
@@ -56850,11 +56948,11 @@ function idArg(value) {
 }
 function readArgs3(args) {
   const { positional, flags } = parseArgs("prd", args, { values: ["show"] });
-  if (positional.length !== 1) throw usageError(USAGE30);
+  if (positional.length !== 1) throw usageError(USAGE31);
   const id = idArg(positional[0]);
   const kind = flags.show ?? null;
   if (kind === null) return { id, kind };
-  if (!isProductPrdId(id) || !isPrdKind(kind)) throw usageError(USAGE30);
+  if (!isProductPrdId(id) || !isPrdKind(kind)) throw usageError(USAGE31);
   return { id, kind };
 }
 var prd = {
@@ -56967,7 +57065,7 @@ function fileOf(dir, name3) {
   if (size > PITCH_FILE_MAX_BYTES) refuse3(`${name3}: over ${PITCH_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
   return { name: name3, path, bytes: size, type: PITCH_FILES[name3] };
 }
-function wordsOf2(sent) {
+function wordsOf3(sent) {
   const word2 = (key2) => {
     const value = sent[key2];
     const max = WORD_MAX[key2];
@@ -56986,7 +57084,7 @@ function readPitchRun(dir, prd2) {
   if (!isOneOf(AUDIENCES, audience)) return refuse3(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
   if (!isOneOf(LOOKS, look)) return refuse3(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look)}`);
   if (typeof commit !== "string" || !COMMIT3.test(commit)) return refuse3(`${PITCH_RUN_FILE}: commit is the hash of the commit the pitch was made at`);
-  const words4 = wordsOf2(sent);
+  const words4 = wordsOf3(sent);
   const files = keysOf(PITCH_FILES).map((name3) => fileOf(dir, name3));
   return { audience, look, commit, ...words4, files };
 }
@@ -57156,7 +57254,7 @@ function syncErrors({ meta: meta3, scenes }) {
   return [{ path: "meta.music.sync.at", message: `${sync3.at} s is past the end of scene ${sync3.scene + 1}, ${scene2.duration} s long` }];
 }
 function sceneWarnings(scene2, index) {
-  const words4 = wordsOf3(scene2, `scenes.${index}`);
+  const words4 = wordsOf4(scene2, `scenes.${index}`);
   const warnings = words4.flatMap(overLimit);
   const count5 = words4.reduce((sum, piece) => sum + countWords2(piece.text), 0);
   if (count5 / READ_WORDS_PER_SECOND > scene2.duration) {
@@ -57189,7 +57287,7 @@ function textsAt(value, path, at2) {
   if (key2 !== "*") return textsAt(propertyOf(value, key2), rest, `${at2}.${key2}`);
   return Array.isArray(value) ? value.flatMap((item2, n) => textsAt(item2, rest, `${at2}.${n}`)) : [];
 }
-function wordsOf3(scene2, at2) {
+function wordsOf4(scene2, at2) {
   return WORD_FIELDS.flatMap(([field2, limit]) => textsAt(scene2, field2.split("."), at2).map((piece) => ({ ...piece, limit })));
 }
 function lengthWarnings(seconds4) {
@@ -58507,7 +58605,7 @@ async function openStudio(dir, { fetch, warn, onReload }) {
 }
 
 // kit/bin/commands/pitch-make.ts
-var USAGE31 = {
+var USAGE32 = {
   start: "usage: omni pitch start <n> --for customers|inside",
   film: "usage: omni pitch film <dir>",
   check: "usage: omni pitch check <dir>",
@@ -58518,14 +58616,14 @@ function oneArg(verb2, args, values = []) {
   const { positional, flags } = parseArgs("pitch", args, { values });
   const [arg] = positional;
   const given = flags;
-  if (positional.length !== 1 || arg === void 0 || !hasAll(given, values)) throw usageError(USAGE31[verb2]);
+  if (positional.length !== 1 || arg === void 0 || !hasAll(given, values)) throw usageError(USAGE32[verb2]);
   return { arg, flags: given };
 }
 function hasAll(flags, values) {
   return values.every((name3) => flags[name3] !== void 0);
 }
 function audienceOf(verb2, value) {
-  if (!isOneOf(AUDIENCES2, value)) throw usageError(`${USAGE31[verb2]} \u2014 --for is customers or inside, not ${value}`);
+  if (!isOneOf(AUDIENCES2, value)) throw usageError(`${USAGE32[verb2]} \u2014 --for is customers or inside, not ${value}`);
   return value;
 }
 var folderOf2 = (cwd, dir) => isAbsolute8(dir) ? dir : resolve10(cwd, dir);
@@ -58642,7 +58740,7 @@ function failureLines(error62) {
 function folderAndSwitch(verb2, args, name3) {
   const { positional, flags } = parseArgs("pitch", args, { booleans: [name3] });
   const [arg] = positional;
-  if (positional.length !== 1 || arg === void 0) throw usageError(USAGE31[verb2]);
+  if (positional.length !== 1 || arg === void 0) throw usageError(USAGE32[verb2]);
   return { arg, on: flags[name3] === true };
 }
 async function render(args, { cwd, stdout, stderr, exec, fetch, launch }) {
@@ -58704,7 +58802,7 @@ async function studio(args, { cwd, stdout, stderr, fetch, openBrowser = openInBr
 var PITCH_MAKERS = Object.freeze({ start, film: film2, check: check4, render, studio });
 
 // kit/bin/commands/pitch.ts
-var USAGE32 = "usage: omni pitch push <n> <dir>";
+var USAGE33 = "usage: omni pitch push <n> <dir>";
 var VERBS3 = "usage: omni pitch start|film|check|render|studio|push \u2026";
 var NO_SIGN_IN4 = "no sign-in (omni signin)";
 function skipLine4(error62) {
@@ -58718,7 +58816,7 @@ function skipLine4(error62) {
 function argsOf(args) {
   const { positional } = parseArgs("pitch", args);
   const [verb2, first, second, ...rest] = positional;
-  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE32);
+  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE33);
   return { prd: prdArg("pitch push", "<n>", first), dir: second };
 }
 function localRun(cwd, dir, prd2) {
@@ -58874,7 +58972,7 @@ function isHttpUrl(value) {
 var KNOWN_VERDICTS2 = VERDICTS2;
 var isVerdict2 = (value) => KNOWN_VERDICTS2.includes(value);
 var isBlank = (value) => value === void 0 || value === null;
-function textOf5(item2, at2) {
+function textOf6(item2, at2) {
   const text15 = isRecord9(item2) ? item2.text : void 0;
   const valid = isRecord9(item2) && typeof text15 === "string" && text15.trim() && text15.length <= TEXT_MAX2;
   if (!valid) return refuse4(`${at2}: its text is 1 to ${TEXT_MAX2} characters`);
@@ -58901,7 +58999,7 @@ function extrasOf2(item2, at2, criterion) {
 }
 function criterionOf(item2, index) {
   const at2 = `criterion ${index + 1}`;
-  const { text: text15, sent } = textOf5(item2, at2);
+  const { text: text15, sent } = textOf6(item2, at2);
   return extrasOf2(sent, at2, { text: text15, verdict: verdictOf2(sent, at2) });
 }
 function fileOf2(dir, name3) {
@@ -58999,7 +59097,7 @@ function storageState(accessToken, { host, now: now2 = Date.now() }) {
 }
 
 // kit/bin/commands/proof.ts
-var USAGE33 = "usage: omni proof push [--kind bug] <n> <dir> | omni proof session [<file>]";
+var USAGE34 = "usage: omni proof push [--kind bug] <n> <dir> | omni proof session [<file>]";
 var NO_SIGN_IN5 = "no sign-in (omni signin)";
 function skipLine5(error62) {
   if (error62 instanceof ProofReplyError) return `refused (${error62.message})`;
@@ -59011,18 +59109,18 @@ function skipLine5(error62) {
 function kindOf3(kind) {
   if (kind === void 0 || kind === "prd") return void 0;
   if (kind === "bug") return "bug";
-  throw usageError(`${USAGE33} (--kind is prd or bug, not ${kind})`);
+  throw usageError(`${USAGE34} (--kind is prd or bug, not ${kind})`);
 }
 function argsOf2(args, proof2) {
   const { positional, flags } = parseArgs("proof", args, { values: ["kind"] });
   const [verb2, first, second, ...rest] = positional;
   const kind = kindOf3(flags.kind);
   if (verb2 === "session") return { verb: verb2, file: sessionFile(first ?? proof2?.storageState, second, kind) };
-  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE33);
+  if (verb2 !== "push" || second === void 0 || rest.length) throw usageError(USAGE34);
   return { verb: verb2, prd: prdArg("proof push", "<n>", first), dir: second, kind };
 }
 function sessionFile(file2, extra, kind) {
-  if (!file2 || extra !== void 0 || kind !== void 0) throw usageError(`${USAGE33} (session needs <file> or PROOF_STORAGE_STATE)`);
+  if (!file2 || extra !== void 0 || kind !== void 0) throw usageError(`${USAGE34} (session needs <file> or PROOF_STORAGE_STATE)`);
   return file2;
 }
 function localRun2(cwd, dir) {
@@ -59421,7 +59519,7 @@ function keepPage({ cwd, exec, now: now2 }, n, page2) {
   } catch {
   }
 }
-var USAGE34 = [
+var USAGE35 = [
   "usage: omni roadmap check [<n>]",
   "       omni roadmap check --product <key> <file>",
   "       omni roadmap push <n>",
@@ -59449,7 +59547,7 @@ function report6(stdout, graded) {
 }
 function checkCommand2(rest, { ctx, stdout }) {
   const { positional } = parseArgs("roadmap check", rest);
-  if (positional.length > 1) throw usageError(USAGE34);
+  if (positional.length > 1) throw usageError(USAGE35);
   const wanted = positional[0] === void 0 ? null : issueArg("roadmap check", "<n>", positional[0]);
   const all = gradeRoadmaps(ctx);
   const graded = wanted === null ? all : all.filter((entry3) => entry3.number === wanted);
@@ -59541,7 +59639,7 @@ function reportPush3(io, n, { askUrl: askUrl2, body }, reply) {
 }
 async function pushCommand(rest, io) {
   const { positional } = parseArgs("roadmap push", rest);
-  if (positional.length !== 1) throw usageError(USAGE34);
+  if (positional.length !== 1) throw usageError(USAGE35);
   const n = issueArg("roadmap push", "<n>", positional[0]);
   const inputs = await pushInputs(n, io);
   if (typeof inputs === "string") return refuse5(io.stderr, inputs);
@@ -59555,7 +59653,7 @@ async function pushCommand(rest, io) {
 }
 function answerArgs(rest) {
   const { positional } = parseArgs("roadmap answer", rest);
-  if (positional.length !== 3) throw usageError(USAGE34);
+  if (positional.length !== 3) throw usageError(USAGE35);
   const [number5, question = "", given = ""] = positional;
   const n = issueArg("roadmap answer", "<n>", number5);
   const answer = given.trim();
@@ -59650,7 +59748,7 @@ async function sendPrereqs(n, io, { machine, checkedAt, rows: rows2 }) {
 }
 async function prereqsCommand(rest, io) {
   const { positional, flags } = parseArgs("roadmap prereqs", rest, { booleans: ["fix", "json"] });
-  if (positional.length !== 1) throw usageError(USAGE34);
+  if (positional.length !== 1) throw usageError(USAGE35);
   const n = issueArg("roadmap prereqs", "<n>", positional[0]);
   const { ctx, repo } = repoContext2(io);
   const read2 = readRoadmap(ctx, roadmapFile(ctx, "prereqs", n));
@@ -59679,7 +59777,7 @@ function assertPersonRow(roadmap2, n, id) {
 }
 function tickCommand(rest, io) {
   const { positional } = parseArgs("roadmap tick", rest);
-  if (positional.length !== 2) throw usageError(USAGE34);
+  if (positional.length !== 2) throw usageError(USAGE35);
   const n = issueArg("roadmap tick", "<n>", positional[0]);
   const id = positional[1] ?? "";
   const { ctx } = repoContext2(io);
@@ -59703,7 +59801,7 @@ function productArgs2(verb2, rest) {
   const { positional, flags } = parseArgs(`roadmap ${verb2}`, rest, { values: ["product", "roadmap"], booleans: ["new"] });
   const key2 = flags.product ?? "";
   if (!isProductKey(key2)) throw usageError(`omni roadmap ${verb2}: --product "${key2}" needs a product key (lowercase kebab-case, as mobile).`);
-  if (positional.length !== 1) throw usageError(USAGE34);
+  if (positional.length !== 1) throw usageError(USAGE35);
   assertProductFlags(verb2, flags);
   return { key: key2, file: positional[0] ?? "", roadmap: flags.roadmap ?? null, create: flags.new === true };
 }
@@ -59780,7 +59878,7 @@ var roadmap = {
   async run(args, io) {
     const [sub = "", ...rest] = args;
     const verb2 = Object.hasOwn(verbs, sub) ? verbs[sub] : void 0;
-    if (verb2 === void 0) throw usageError(USAGE34);
+    if (verb2 === void 0) throw usageError(USAGE35);
     return verb2(rest, io);
   }
 };
@@ -61239,7 +61337,7 @@ function missingTool(exec) {
 }
 
 // kit/bin/commands/runner.ts
-var USAGE35 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender";
+var USAGE36 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender";
 var DEFAULT_SLOTS = 4;
 var MAX_SLOTS = 8;
 var DEFAULT_TIMEOUT = "3h";
@@ -61293,7 +61391,7 @@ function limitsOf(flags) {
 function readFlags(args, cwd) {
   const { positional, flags } = parseArgs("runner", args, { values: ["name", "repos", "slots", "timeout", "keep-logs", "max-memory", "min-disk", "max-load"] });
   const { name: name3, repos } = flags;
-  if (positional.length || name3 === void 0 || repos === void 0) throw usageError(USAGE35);
+  if (positional.length || name3 === void 0 || repos === void 0) throw usageError(USAGE36);
   if (!NAME3.test(name3)) throw usageError("omni runner: --name must be 1 to 40 letters, digits, dots, dashes or underscores.");
   const slots = flags.slots === void 0 ? DEFAULT_SLOTS : positiveInt("runner", "--slots", flags.slots);
   if (slots > MAX_SLOTS) throw usageError(`omni runner: --slots must be ${String(MAX_SLOTS)} at most, got "${String(slots)}".`);
@@ -61571,7 +61669,7 @@ function reworkPullRequest(entry3) {
 }
 
 // kit/bin/commands/rework.ts
-var USAGE36 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
+var USAGE37 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
 var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
@@ -61665,7 +61763,7 @@ var rework = {
     const [sub, ...rest] = args;
     if (sub === "plan") return runPlan(rest, io);
     if (sub === "close") return runClose(rest, io);
-    throw usageError(USAGE36);
+    throw usageError(USAGE37);
   })
 };
 
@@ -61895,7 +61993,7 @@ function headlineOf(findings2, order2, severity) {
 }
 
 // kit/bin/commands/session.ts
-var USAGE37 = "usage: omni session start | omni session end";
+var USAGE38 = "usage: omni session start | omni session end";
 var CLOSE_LIMIT_MS = 2e3;
 var SYNC_BUDGET_MS = 15e3;
 var SYNC_FRESH_MS = 15 * 6e4;
@@ -61975,17 +62073,17 @@ var session = {
   withoutContext: true,
   async run(args, { tokens: tokens2, home, fetch = globalThis.fetch, now: now2 = Date.now, budgetMs = CONSTITUENTS_BUDGET_MS, syncBudgetMs = SYNC_BUDGET_MS, ...io }) {
     const [verb2, ...rest] = args;
-    if (rest.length > 0) throw usageError(USAGE37);
+    if (rest.length > 0) throw usageError(USAGE38);
     if (verb2 === "start") return start3(io, { tokens: tokens2, home, fetch, now: now2, budgetMs, syncBudgetMs });
     if (verb2 === "end") return end2(io, { tokens: tokens2, home, fetch, now: now2 });
-    throw usageError(USAGE37);
+    throw usageError(USAGE38);
   }
 };
 
 // kit/bin/commands/settle.ts
 init_define_OMNI_BUNDLE();
 import { relative as relative5 } from "node:path";
-var USAGE38 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted] | omni settle <item-id> --prd <key>-<n> (--answer "<text>" | --answer-file <path>) [--verdict agreed|drifted]';
+var USAGE39 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted] | omni settle <item-id> --prd <key>-<n> (--answer "<text>" | --answer-file <path>) [--verdict agreed|drifted]';
 function answerOf5(flags, text15) {
   return {
     text: text15 ?? "",
@@ -62022,7 +62120,7 @@ function settleRequest(args, ctx) {
     values: ["by", "at", "channel", "number", "answer", "answer-file", "url", "verdict", "prd"]
   });
   const [path] = positional;
-  if (positional.length !== 1 || path === void 0) throw usageError(USAGE38);
+  if (positional.length !== 1 || path === void 0) throw usageError(USAGE39);
   const text15 = answerText2(flags, ctx);
   const product2 = productOf2(flags.prd);
   return product2 === null ? { product: product2, file: relative5(ctx.root, inRoot(ctx, path)), answer: answerOf5(flags, text15) } : { product: product2, file: `${product2}/${path}`, answer: productAnswerOf(flags, text15) };
@@ -62050,7 +62148,7 @@ var settle3 = {
 // kit/bin/commands/setup-token.ts
 init_define_OMNI_BUNDLE();
 import { randomBytes as randomBytes2 } from "node:crypto";
-var USAGE39 = "usage: omni setup-token [--name <name>] [--days 30|90|365] [--device | --loopback]";
+var USAGE40 = "usage: omni setup-token [--name <name>] [--days 30|90|365] [--device | --loopback]";
 var DAYS = ["30", "90", "365"];
 var DEFAULT_DAYS = "90";
 var NAME_MAX = 40;
@@ -62171,7 +62269,7 @@ var setupToken = {
     platform: platform2 = process.platform
   }) {
     const { positional, flags } = parseArgs("setup-token", args, { values: ["name", "days"], booleans: ["device", "loopback"] });
-    if (positional.length > 0 || flags.device && flags.loopback) throw usageError(USAGE39);
+    if (positional.length > 0 || flags.device && flags.loopback) throw usageError(USAGE40);
     const name3 = nameOf2(flags.name, now2());
     const days = daysOf(flags.days);
     const askUrl2 = loadContext(cwd, { exec }).config.ask.url;
@@ -62216,13 +62314,13 @@ var ship = {
 
 // kit/bin/commands/sign.ts
 init_define_OMNI_BUNDLE();
-var USAGE40 = "usage: omni sign trailer|footer";
+var USAGE41 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   run: synchronous((args, { ctx, stdout }) => {
     const { positional } = parseArgs("sign", args);
     const [which = ""] = positional;
-    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE40);
+    if (positional.length !== 1 || which !== "trailer" && which !== "footer") throw usageError(USAGE41);
     const line2 = LINES2[which](ctx.config.signature);
     if (line2 !== null) println(stdout, line2);
     return 0;
@@ -62383,7 +62481,7 @@ function formatOverview(overview2, { now: now2 }) {
 }
 
 // kit/bin/commands/status.ts
-var USAGE41 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
+var USAGE42 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 async function overview({ ctx, stdout, exec, fetch, gate }) {
   if (fetch) {
     const failure7 = fetchRemote({ ctx, exec });
@@ -62436,7 +62534,7 @@ var status4 = {
     const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
     const ctx = loadContext(cwd, { exec });
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true, gate: { tokens: tokens2, home, fetch, callMs } });
-    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE41);
+    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE42);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
     return outboxGate({ number: positional[0], labels: flags.labels, base }, { ctx, stdout, stderr, exec, vars, gate: { tokens: tokens2, home, fetch, callMs, now: now2 } });
   }
@@ -62444,7 +62542,7 @@ var status4 = {
 
 // kit/bin/commands/targets.ts
 init_define_OMNI_BUNDLE();
-var USAGE42 = "usage: omni targets [--json]";
+var USAGE43 = "usage: omni targets [--json]";
 async function targetList(ctx, product2, io, note) {
   const repo = ctx.config.repo.slug;
   if (!repo) throw usageError("omni targets: no repository slug \u2014 set repo.slug in the config.");
@@ -62455,7 +62553,7 @@ var targets = {
   async run(args, io) {
     const { stdout, stderr, exec, env } = io;
     const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
-    if (positional.length) throw usageError(USAGE42);
+    if (positional.length) throw usageError(USAGE43);
     const ctx = loadContext(io.cwd, { exec });
     const plan2 = ctx.config.plan;
     if (!plan2) {
@@ -62491,12 +62589,12 @@ function resolveTier(config3, agent, tier2) {
 }
 
 // kit/bin/commands/tier.ts
-var USAGE43 = "usage: omni tier <deep|build|light> --agent <agent>";
+var USAGE44 = "usage: omni tier <deep|build|light> --agent <agent>";
 var tier = {
   run: synchronous((args, { ctx, stdout }) => {
     const { positional, flags } = parseArgs("tier", args, { values: ["agent"] });
     const [name3] = positional;
-    if (positional.length !== 1 || name3 === void 0 || flags.agent === void 0) throw usageError(USAGE43);
+    if (positional.length !== 1 || name3 === void 0 || flags.agent === void 0) throw usageError(USAGE44);
     if (!isTier2(name3)) throw usageError(`omni tier: ${name3} is no tier \u2014 one of ${TIERS.join(", ")}.`);
     const { agent } = flags;
     if (!isOneOf(AGENTS, agent)) throw usageError(`omni tier: ${agent} is no agent the kit knows \u2014 one of ${AGENTS.join(", ")}.`);
@@ -62599,7 +62697,7 @@ async function phase0Of2(repos, ctx, io) {
 }
 
 // kit/bin/commands/product.ts
-var USAGE44 = "usage: omni product import --product <name> | omni product which | omni product use <key> | omni product phase0 <owner/name>\u2026";
+var USAGE45 = "usage: omni product import --product <name> | omni product which | omni product use <key> | omni product phase0 <owner/name>\u2026";
 function failure6(error62, what) {
   if (!(error62 instanceof AskCallError)) return { ok: false, lines: [messageOf(error62)] };
   if (error62.status === null) return { ok: false, lines: [`${what}: the server is unreachable`] };
@@ -62639,7 +62737,7 @@ function verbOf(args) {
   const { positional, flags } = parseArgs("product", args, { values: ["product"] });
   const [verb2 = "", ...rest] = positional;
   const asked = Object.hasOwn(VERBS4, verb2) ? VERBS4[verb2]?.(rest, flags.product) : null;
-  if (!asked) throw usageError(USAGE44);
+  if (!asked) throw usageError(USAGE45);
   return asked;
 }
 async function said(call, verb2, ctx, io) {
@@ -63570,7 +63668,7 @@ async function runSync(io) {
 }
 
 // kit/bin/commands/sync.ts
-var USAGE45 = "usage: omni sync [--json | --quiet | --background | --fix] [--strict]";
+var USAGE46 = "usage: omni sync [--json | --quiet | --background | --fix] [--strict]";
 var NOT_INSTALLED = "sync: the loop is not installed here";
 var OMNI_BUDGET_MS = 3e5;
 var PLUGIN_BUDGET_MS = 12e4;
@@ -63603,7 +63701,7 @@ function lockFor(root, now2) {
 function modeOf(args) {
   const { positional, flags } = parseArgs("sync", args, { booleans: ["json", "quiet", "background", "fix", "strict"] });
   const modes = ["json", "quiet", "background", "fix"].filter((mode) => flags[mode]);
-  if (positional.length > 0 || modes.length > 1) throw usageError(USAGE45);
+  if (positional.length > 0 || modes.length > 1) throw usageError(USAGE46);
   return { mode: modes[0] ?? "block", strict: flags.strict === true };
 }
 function printed2(record2, mode) {
@@ -63699,7 +63797,7 @@ init_define_OMNI_BUNDLE();
 import { existsSync as existsSync88, mkdtempSync as mkdtempSync5, readFileSync as readFileSync110, rmSync as rmSync20 } from "node:fs";
 import { tmpdir as tmpdir5 } from "node:os";
 import { join as join140 } from "node:path";
-var USAGE46 = "usage: omni update [--to <version>]";
+var USAGE47 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
   const dir = mkdtempSync5(join140(tmpdir5(), "omni-update-"));
   try {
@@ -63760,7 +63858,7 @@ var update = {
   withoutContext: true,
   run: synchronous((args, { cwd, stdout, stderr, exec, kit, bundle }) => {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE46);
+    if (positional.length) throw usageError(USAGE47);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
@@ -63816,7 +63914,7 @@ var visual = branchVerdictCommand({
 var COMMAND_TABLE = Object.freeze({ config: config2, prd, budget, approval, wait, status: status4, settle: settle3, adopt, replies, answers, comment, ship, harvest, check: check2, claim: claim3, generated, design, knowledge, kb: kb2, item, plan, roadmap, board, care, next, loop, rework, phase0, visual, bug, concept, init, ask: ask3, heartbeat, signin, signout, whoami, "setup-token": setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version: version2, update, help, statusline, now, targets, product, session, runner, tier, sync: sync2 });
 
 // kit/bin/omni.ts
-var USAGE47 = `usage: omni <command> [args]
+var USAGE48 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -63929,7 +64027,7 @@ async function main(argv, {
   const name3 = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command2 = Object.hasOwn(COMMAND_TABLE, name3) ? COMMAND_TABLE[name3] : void 0;
   if (!command2) {
-    stderr.write(USAGE47);
+    stderr.write(USAGE48);
     return 2;
   }
   try {
