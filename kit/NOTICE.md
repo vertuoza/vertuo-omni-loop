@@ -3,6 +3,14 @@
 The kit includes content derived from third-party work, used under the terms of its original
 license.
 
+## The libraries the built kit bundles
+
+`kit/dist/omni.mjs` bundles zod (MIT) and yaml (ISC), and carries the pitch engine, which bundles
+React, React DOM and scheduler (MIT). Each built file under `kit/dist/` ends with a
+`Third-party notices` comment holding, for every package it bundles, its name, version, licence and
+the licence file it ships, verbatim: `kit/build.ts` writes it from esbuild's list of the files it
+bundled, and `kit/test/dist-notices.test.ts` fails when a bundled package lacks its notice.
+
 ## impeccable
 
 `kit/plugin/skills/pixel-perfect/` (the `/omni:pixel-perfect` skill: its `SKILL.md` and the

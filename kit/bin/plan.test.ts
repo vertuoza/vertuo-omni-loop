@@ -329,8 +329,10 @@ function multiPlan({
   return lines.join('\n');
 }
 
-async function check(config: Files, plan: string) {
-  const { root } = makeRepo({ git: true, files: { ...config, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+async function check(config: Files, plan: string, page?: string) {
+  const files: Files = { ...config, '.omni-loop/delivery/inbox/0007-x/plan.md': plan };
+  if (page !== undefined) files['.omni-loop/delivery/inbox/0007-x/before-after.html'] = page;
+  const { root } = makeRepo({ git: true, files });
   const s = io();
   const code = await main(['plan', 'check', '7'], { cwd: root, ...s });
   return { code, out: s.out.join(''), err: s.err.join('') };
@@ -565,11 +567,46 @@ describe('omni plan check — the contract column (PRD 1870)', () => {
   });
 
   it('exits 1 with the refusal of an undeclared slice in a repository that asks, after the contracts line (acceptance 10)', async () => {
-    const { code, out } = await check(ASKS, contractPlan(['| s1 | Alpha | `a/` | — | — | 1 |', '| s2 | Beta | `b/` | db | — | 1 |']));
+    const page = '<!doctype html><title>x</title><section data-contract="db"><h2>Contract: db</h2></section>';
+    const { code, out } = await check(ASKS, contractPlan(['| s1 | Alpha | `a/` | — | — | 1 |', '| s2 | Beta | `b/` | db | — | 1 |']), page);
     expect(code).toBe(1);
     expect(out).toMatch(/^contracts: s2 db$/m);
     expect(out).toMatch(/^ {2}s1: contract: declares nothing — api, db or none$/m);
+    expect(out).not.toMatch(/data-contract/);
     expect(out.indexOf('contracts: s2 db')).toBeLessThan(out.indexOf('violation(s)'));
+  });
+});
+
+describe('omni plan check — each declared kind has its block on the before/after page', () => {
+  const ASKS = { '.omni-loop/config.yml': `${CONFIG['.omni-loop/config.yml']}contracts:\n  declare: true\n  kinds: [db, schema]\n` };
+  const contractPlan = (rows: string[]) =>
+    ['# A plan', '', '| id | slice | territory | contract | blocked by | wave |', '| --- | --- | --- | --- | --- | --- |', ...rows, ''].join('\n');
+  const PLAN = contractPlan(['| s1 | Alpha | `a/` | db | — | 1 |', '| s2 | Beta | `b/` | schema | s1 | 2 |']);
+  const block = (kind: string) => `<section data-contract="${kind}"><h2>Contract: ${kind} — widgets</h2></section>`;
+
+  it('passes when the page carries a data-contract block for every declared kind', async () => {
+    const { code, out } = await check(ASKS, PLAN, `<!doctype html><title>x</title>${block('db')}${block('schema')}`);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^contracts: s1 db · s2 schema$/m);
+  });
+
+  it('exits 1 naming the slice and the kind the page has no block for', async () => {
+    const { code, out } = await check(ASKS, PLAN, `<!doctype html><title>x</title>${block('db')}`);
+    expect(code).toBe(1);
+    expect(out).toMatch(/^ {2}s2: contract: schema — before-after\.html has no data-contract="schema" block$/m);
+    expect(out).not.toMatch(/s1: contract/);
+  });
+
+  it('exits 1 for every declared kind when the folder has no page, saying so', async () => {
+    const { code, out } = await check(ASKS, PLAN);
+    expect(code).toBe(1);
+    expect(out).toMatch(/^ {2}s1: contract: db — the folder has no before-after\.html to carry its data-contract="db" block$/m);
+    expect(out).toMatch(/^ {2}s2: contract: schema — the folder has no before-after\.html to carry its data-contract="schema" block$/m);
+  });
+
+  it('asks nothing of the page where the repository asks nothing', async () => {
+    const { code } = await check(CONFIG, PLAN);
+    expect(code).toBe(0);
   });
 });
 

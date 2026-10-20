@@ -827,6 +827,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "check grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the " +
       'same plan in an earlier wave of the same landing, no id is used twice, no two slices of one ' +
       'wave share ground, landings run from 1 with no gap, and paths that land alone travel alone. ' +
+      'Where the repository asks for contracts, every slice declares one, in its kinds or none, and ' +
+      "each declared kind has a data-contract block on the folder's before-after.html. " +
       'It prints the slices, the waves and where they meet, then every violation; exit 1 on any. ' +
       "moved, in a plan repository, compares each target's read at with its default branch today: " +
       'moved with the files changed under its slices\' territories, ok, or unreachable; exit 0 ' +

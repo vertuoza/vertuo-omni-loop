@@ -1,7 +1,7 @@
 import type { ProductNeighbourhood } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
 import { joinProductGraph, type JoinedGraph, type LinkedRepository } from './join';
 import type { ProductGraphRepository, StoredGraphRow, StoredProductRow } from './product-graph.repository';
-import { productNeighbourhood } from './walk';
+import { prefixedMatches, productNeighbourhood } from './walk';
 
 // The product graph's reader (PRD 1798 s3; ADR-0095), on its repository: the latest graph of each
 // repository the product links with its own knowledge (`knowledge = 'own'`), joined with the product's
@@ -18,8 +18,8 @@ type ProductRef = { key: string } | { id: string };
 /** The product read, and its whole graph. */
 type ProductGraph = { product: StoredProductRow; graph: JoinedGraph };
 
-/** A neighbourhood: its body, or why there is none. */
-type NeighbourhoodRead = { kind: 'ok'; body: ProductNeighbourhood } | { kind: 'no-product' } | { kind: 'no-node' };
+/** A neighbourhood: its body, or why there is none (with no node, the prefixed ids a bare id stands for). */
+type NeighbourhoodRead = { kind: 'ok'; body: ProductNeighbourhood } | { kind: 'no-product' } | { kind: 'no-node'; matches: string[] };
 
 /** A stored graph as the join reads it: the commit, when (ISO, in UTC) and by whom it was pushed. */
 const pushedOf = (row: StoredGraphRow) => ({ commit: row.sha, pushedAt: new Date(row.pushed_at).toISOString(), pushedBy: row.pushed_by_login, graph: row.graph });
@@ -59,8 +59,9 @@ export function productGraphService(repository: ProductGraphRepository) {
     async neighbourhood(ref: ProductRef, { id, depth }: { id: string; depth: number }): Promise<NeighbourhoodRead> {
       const product = await productOf(ref);
       if (product === null) return { kind: 'no-product' };
-      const body = productNeighbourhood(await joined(product.id), { key: product.key, id, depth });
-      return body === null ? { kind: 'no-node' } : { kind: 'ok', body };
+      const graph = await joined(product.id);
+      const body = productNeighbourhood(graph, { key: product.key, id, depth });
+      return body === null ? { kind: 'no-node', matches: prefixedMatches(graph, id) } : { kind: 'ok', body };
     },
   };
 }

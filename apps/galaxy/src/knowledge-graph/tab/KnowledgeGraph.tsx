@@ -160,7 +160,7 @@ export function KnowledgeGraphScreen({ view, tabs }: KnowledgeGraphScreenProps) 
   if (view.kind === 'graph') {
     const { data } = view;
     return (
-      <div className="ask-col products product-home">
+      <div className="ask-col products product-home kgraph">
         <section className="ask-card products-head" aria-labelledby="product-home-title">
           <Link className="products-back" href={PRODUCTS_HOME_HREF}>← Products</Link>
           <h1 id="product-home-title">{data.product.name}</h1>

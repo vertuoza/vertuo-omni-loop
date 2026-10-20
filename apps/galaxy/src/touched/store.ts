@@ -8,6 +8,8 @@ import { z } from 'zod';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { orEmpty, parseRows } from '../data/parse-rows';
 import { StoredSummary } from '../dossier/snapshot/schema';
+import type { FixRef } from '../dossier/github/reader';
+import { IssueNumberSchema, type IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { TouchedSnapshot } from './touched';
 
 export const TOUCHED_COLUMNS = 'dossier_id, summary';
@@ -31,4 +33,18 @@ export async function snapshotsOf(db: Db, workspace: string, repository: string,
     log(`touched/store: dossier_github: the snapshot of ${dossierId} does not parse`);
     return [];
   });
+}
+
+export const CONCEPT_COLUMNS = 'id, home_repo, prd';
+
+/** A concept dossier's row as CONCEPT_COLUMNS reads it. */
+export const ConceptRow = z.object({ id: z.string(), home_repo: z.string(), prd: IssueNumberSchema });
+
+/** The workspace's concept dossier in `repository` (`owner/name`, in any case) whose issue is `issue`; null when none. */
+export async function conceptOf(db: Db, workspace: string, repository: string, issue: IssueNumber, log: (line: string) => void = console.error): Promise<FixRef | null> {
+  const { data, error } = await db.from('dossiers').select(CONCEPT_COLUMNS).eq('workspace_id', workspace)
+    .eq('kind', 'concept').eq('prd', issue).ilike('home_repo', literally(repository)).limit(1);
+  if (error) throw new Error(`Supabase refused to read the workspace's concepts: ${error.message}`);
+  const [row] = orEmpty(parseRows(ConceptRow, data, 'touched/store: dossiers', log));
+  return row ? { id: row.id, home_repo: row.home_repo, prd: row.prd } : null;
 }

@@ -9,6 +9,9 @@
 // PRD 1272 (s4): its facts (its issue and its concept PR), for the state chip and the PR link, are read
 // beside its versions through `facts`: by default ./state.live.ts, the stored ones at once, else GitHub.
 // Facts that cannot be had leave the state unknown, and the page still renders.
+//
+// PRD 2213: the stored stages of the PRDs its areas name come from one StageStore read for its workspace,
+// never GitHub, for the shipped state and the Areas tab.
 import { parseConcept } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
 import { parseIssue, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import type { ConceptFacts } from '../dossier/github/fix';
@@ -17,6 +20,8 @@ import { isDossierId, type Db } from '../dossier/page/source';
 import { rowKind } from '../dossier/page/work';
 import { dossierReader, type DossierReader } from '../dossier/store';
 import { readAreaPages } from './areas';
+import { stageStore, type StageStore } from '../stages/store';
+import type { StoredStage } from '../stages/stage';
 import { conceptView, type ConceptPageView, type ConceptPick, type ConceptRead } from './ConceptPage.view';
 import { liveConceptFacts, type ConceptFactsRead } from './state.live';
 
@@ -45,9 +50,23 @@ function areaPrds(record: string | null): PrdNumber[] {
   return parsed?.ok ? parsed.record.areas.flatMap((area) => (area.prd === null ? [] : [area.prd])) : [];
 }
 
+/** The stored stage of each of `prds`, one read for the workspace; none when there is no PRD or the read
+ * fails (logged): each area then reads syncing and the concept does not ship by itself. */
+async function storedStages(stages: Pick<StageStore, 'currentStages'>, workspace: string, repo: string, prds: readonly PrdNumber[]): Promise<Map<string, StoredStage>> {
+  if (prds.length === 0) return new Map();
+  try {
+    return await stages.currentStages(workspace, prds.map((prd) => ({ repository: repo, prd })));
+  } catch (error) {
+    console.error(error);
+    return new Map();
+  }
+}
+
 /** Concept `id` as the viewer reads it for `pick`; null when they may not read it, it does not exist, or
  * it is not a concept. Rejects when the dossier itself cannot be read. */
-async function readConcept(db: Pick<Db, 'from'>, id: string, pick: ConceptPick, facts: ConceptFactsRead = liveConceptFacts): Promise<ConceptRead | null> {
+async function readConcept(
+  db: Pick<Db, 'from'>, id: string, pick: ConceptPick, facts: ConceptFactsRead = liveConceptFacts, stages: Pick<StageStore, 'currentStages'> = stageStore(db),
+): Promise<ConceptRead | null> {
   if (!isDossierId(id)) return null;
   const reader = dossierReader(db);
   const row = await reader.dossier(id);
@@ -59,9 +78,12 @@ async function readConcept(db: Pick<Db, 'from'>, id: string, pick: ConceptPick, 
     latestText(reader, versions, 'debate', pick.tab === 'debate'),
     row.prd === null ? Promise.resolve<ConceptFacts | null>(null) : facts(db, { id: row.id, workspace_id: row.workspace_id, home_repo: row.home_repo, prd: parseIssue(row.prd) }),
   ]);
-  const prds = pick.tab === 'areas' ? areaPrds(record) : [];
-  const pages = prds.length ? await readAreaPages(reader, row.home_repo, prds) : new Map<PrdNumber, string>();
-  return { id: row.id, repo: row.home_repo, number: row.prd, title: row.title, versions, record, debate, pages, facts: read };
+  const prds = areaPrds(record);
+  const [pages, stored] = await Promise.all([
+    pick.tab === 'areas' && prds.length ? readAreaPages(reader, row.home_repo, prds) : Promise.resolve(new Map<PrdNumber, string>()),
+    storedStages(stages, row.workspace_id, row.home_repo, prds),
+  ]);
+  return { id: row.id, repo: row.home_repo, number: row.prd, title: row.title, versions, record, debate, pages, stages: stored, facts: read };
 }
 
 /** What /concepts/<id> shows: no dossier here, a sign-in, a database that did not answer, not found, or the page. */
