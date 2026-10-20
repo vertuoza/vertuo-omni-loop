@@ -159,3 +159,158 @@ A constant: a new read in the runners' storage that filters by repository and li
 ```
 
 <!-- /omni-outbox-settled: s1-02-prd-jobs-among-listed -->
+
+<!-- omni-outbox-settled: s3-01-help-entry-outside-territory -->
+
+## s3-01-help-entry-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-20
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-help-entry-outside-territory
+prd: 2251
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-20
+wave: 2
+---
+
+## The question, in plain words
+
+The plan asks that the runner help page names both new commands, but the file that holds that page is outside this slice's territory.
+
+## The decision, in plain words
+
+The slice edited the runner's entry in the help text, adding the two commands, and nothing else in that file.
+
+## The intro, for fun
+
+Two new commands walked into the help page and found the door was not on their map.
+
+## The punchline, for fun
+
+The page now lists them, and the map is for a person to redraw.
+
+## The options, in plain words
+
+A. A. Keep the one-entry edit in this slice (as built).
+B. B. Move the help edit to a later slice that owns the help file and leave the page without them until then.
+
+## What I had to decide
+
+Whether the help entry stays edited by this slice (as built), or moves to another slice's territory.
+
+## What I did meanwhile
+
+Added the two usage lines and one paragraph to the runner entry of the help entries; no other entry changed, and a test in the runner command's tests reads the help page.
+
+## What it costs to change later
+
+A constant: the text can be moved or reworded in any later change; nothing depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's done-when says omni help runner names both commands but its territory lists only the runner client and command files.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-help-entry-outside-territory -->
+
+<!-- omni-outbox-settled: s3-02-follow-keeps-last-milestone-file -->
+
+## s3-02-follow-keeps-last-milestone-file — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-20
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-follow-keeps-last-milestone-file
+prd: 2251
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-20
+wave: 2
+---
+
+## The question, in plain words
+
+The plan says the follow writes its last milestone for this session, but not where, so the band's slice has nothing fixed to read.
+
+## The decision, in plain words
+
+While a follow runs, it keeps its last milestone in one small file per PRD in the checkout's local folder, and removes it when the follow ends; the board's merged count is read every 30 seconds from the board command.
+
+## The intro, for fun
+
+A follow needs a note on the fridge so the band can read it without asking.
+
+## The punchline, for fun
+
+The note says what happened last, and it comes off the fridge when the job ends.
+
+## The options, in plain words
+
+A. A. One file per PRD under the local folder, removed when the follow ends (as built).
+B. B. One file per terminal session, named by the session id the way ask mode names its files.
+C. C. No file: the band asks the page for the followed job itself.
+
+## What I had to decide
+
+Where the followed job's last milestone is kept for the HUD, and how the slice count is read.
+
+## What I did meanwhile
+
+Wrote .omni-loop/local/runner-follow/<prd>.json holding prd, runner, line and at; the file is deleted when the follow ends for any reason. The count of merged slices comes from running the board command's JSON every sixth read (30 seconds) and once the job ends; an unreadable board prints no count line.
+
+## What it costs to change later
+
+A constant: the file's name and shape are read only by the band's slice, which is not built yet.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan names no file or shape for what the follow leaves, nor where the board's count comes from.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-follow-keeps-last-milestone-file -->
