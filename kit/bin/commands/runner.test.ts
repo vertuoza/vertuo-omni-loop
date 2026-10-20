@@ -1060,3 +1060,234 @@ describe('the runner pieces', () => {
     expect(repoOfRemote('widgets')).toBeNull();
   });
 });
+
+// `omni runner send` and `omni runner follow` (PRD 2251, s3) against a fake page: the terminal's own sign-in,
+// no runner, no tmux, nothing from GitHub.
+type FakeJob = { id: string; status: string; runner: string | null; outcome?: string | null; reason?: string | null; exitCode?: number | null; line?: string };
+
+/** A fake page: `jobs` is what each read of the PRD's jobs answers, in turn (the last one again once they run out). */
+function fakePage({ jobs = [[]], lines = [[]], runners = [], dossier = `${ASK}/prd/2251`, down = 0, sendStatus = 200 }: {
+  jobs?: FakeJob[][]; lines?: { seq: number; text: string }[][]; runners?: unknown[]; dossier?: string | null; down?: number; sendStatus?: number;
+} = {}) {
+  const calls: Call[] = [];
+  let reads = 0;
+  let linesRead = 0;
+  let unreachable = down;
+  /** The next read of the PRD's jobs. */
+  const jobsRead = (): unknown => {
+    const read = jobs[Math.min(reads, jobs.length - 1)] ?? [];
+    reads += 1;
+    return { jobs: read.map((job) => ({ line: '/omni:yolo 2251', prUrl: null, exitCode: null, reason: null, outcome: null, queuedAt: 't', ...job })) };
+  };
+  /** The next read of a job's lines. */
+  const linesAnswer = (): unknown => {
+    const page = lines[Math.min(linesRead, lines.length - 1)] ?? [];
+    linesRead += 1;
+    return { status: 'running', lines: page, more: false, first: 1, logTail: null };
+  };
+  /** What the page answers a call, by its route: a status and a body. */
+  const answer = (pathname: string, method: string): [number, unknown] => {
+    if (pathname === '/api/runners') return [200, { runners }];
+    if (pathname === '/api/dossiers') return dossier === null ? [404, { error: 'none' }] : [200, { url: dossier }];
+    if (pathname.endsWith('/lines')) return [200, linesAnswer()];
+    if (pathname !== '/api/runners/jobs') return [404, {}];
+    if (method !== 'POST') return [200, jobsRead()];
+    return sendStatus === 200 ? [200, { job: { id: 'job-9' } }] : [sendStatus, { error: 'Not in this workspace.' }];
+  };
+  const fetch = (url: string, init: RequestInit): Promise<Response> => {
+    const { pathname, search } = new URL(url);
+    const body: unknown = typeof init.body === 'string' ? JSON.parse(init.body) : null;
+    calls.push({ method: init.method ?? 'GET', path: `${pathname}${search}`, body });
+    if (unreachable > 0) {
+      unreachable -= 1;
+      return Promise.reject(new TypeError('fetch failed'));
+    }
+    const [code, value] = answer(pathname, init.method ?? 'GET');
+    return Promise.resolve(new Response(JSON.stringify(value), { status: code }));
+  };
+  return { calls, fetch };
+}
+
+/** `omni runner <args>` from the fixture's checkout, as a terminal runs it. */
+async function terminal(f: ReturnType<typeof fixture>, page: { fetch: (url: string, init: RequestInit) => Promise<Response> }, args: string[], extra: { tokens?: ReturnType<typeof memoryTokens>; stop?: AbortSignal; sleep?: (ms: number, signal?: AbortSignal) => Promise<void>; mergedOf?: () => Promise<{ merged: number; total: number } | null> } = {}) {
+  const stdout = out();
+  const stderr = out();
+  const code = await main(['runner', ...args], {
+    cwd: f.checkout,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    exec: fakeExec(),
+    env: { PATH: String(process.env.PATH) },
+    tokens: extra.tokens ?? memoryTokens(),
+    home: f.home,
+    fetch: page.fetch,
+    followMs: 1,
+    mergedOf: extra.mergedOf ?? (() => Promise.resolve(null)),
+    ...(extra.stop ? { stop: extra.stop } : {}),
+    ...(extra.sleep ? { sleep: extra.sleep } : {}),
+  });
+  return { code, stdout: stdout.text(), stderr: stderr.text() };
+}
+
+describe('omni runner send', () => {
+  it('refuses a line no runner runs before any call', async () => {
+    const page = fakePage();
+    for (const line of ['yolo 7', '/omni:brainstorm 7', '/omni:yolo 7; rm -rf /']) {
+      const run = await terminal(fixture(), page, ['send', line]);
+      expect(run.code, line).toBe(1);
+      expect(run.stderr).toMatch(/^omni runner: /);
+    }
+    expect(page.calls).toEqual([]);
+  });
+
+  it('queues the line for any runner and prints the job id', async () => {
+    const page = fakePage();
+    const run = await terminal(fixture(), page, ['send', '/omni:yolo 2251']);
+    expect(run).toMatchObject({ code: 0, stdout: 'job-9\n' });
+    expect(page.calls).toEqual([{ method: 'POST', path: '/api/runners/jobs', body: { line: '/omni:yolo 2251', repo: 'acme/widgets', target: { kind: 'any' } } }]);
+  });
+
+  it('sends to a runner by its name first, else to a fleet, else refuses', async () => {
+    const runners = [
+      { id: 'r-1', name: 'box-1', fleet: 'vertuo-agents', state: 'online', used: 0, slots: 4, repos: ['acme/widgets'] },
+      { id: 'r-2', name: 'vertuo-agents', fleet: null, state: 'online', used: 0, slots: 4, repos: [] },
+    ];
+    const byRunner = fakePage({ runners });
+    await terminal(fixture(), byRunner, ['send', '/omni:yolo 2251', '--to', 'box-1']);
+    expect(byRunner.calls.at(-1)?.body).toMatchObject({ target: { kind: 'runner', runner: 'r-1' } });
+    const first = fakePage({ runners });
+    await terminal(fixture(), first, ['send', '/omni:yolo 2251', '--to', 'vertuo-agents']);
+    expect(first.calls.at(-1)?.body).toMatchObject({ target: { kind: 'runner', runner: 'r-2' } });
+    const byFleet = fakePage({ runners: [runners[0]] });
+    await terminal(fixture(), byFleet, ['send', '/omni:yolo 2251', '--to', 'vertuo-agents']);
+    expect(byFleet.calls.at(-1)?.body).toMatchObject({ target: { kind: 'fleet', fleet: 'vertuo-agents' } });
+    const unknown = fakePage({ runners });
+    const run = await terminal(fixture(), unknown, ['send', '/omni:yolo 2251', '--to', 'nobody']);
+    expect(run.code).toBe(1);
+    expect(run.stderr).toContain('no runner or fleet named "nobody"');
+    expect(unknown.calls.some((call) => call.method === 'POST')).toBe(false);
+  });
+
+  it('prints the page\'s refusal, and holds when signed out', async () => {
+    const refused = await terminal(fixture(), fakePage({ sendStatus: 403 }), ['send', '/omni:yolo 2251']);
+    expect(refused).toMatchObject({ code: 1, stderr: 'omni runner: Not in this workspace.\n' });
+    const signedOut = await terminal(fixture(), fakePage(), ['send', '/omni:yolo 2251'], { tokens: memoryTokens(null) });
+    expect(signedOut).toMatchObject({ code: 1, stdout: 'no sign-in (omni signin) · held\n' });
+  });
+});
+
+describe('omni runner follow', () => {
+  const running = (over: Partial<FakeJob> = {}): FakeJob => ({ id: 'job-1', status: 'running', runner: 'box-1', ...over });
+
+  it('prints each milestone once, in order, and exits 0 on done', async () => {
+    const f = fixture();
+    const page = fakePage({
+      jobs: [[{ id: 'job-1', status: 'queued', runner: null }], [running()], [running()], [running({ status: 'done', outcome: 'ready' })]],
+      lines: [[], [{ seq: 1, text: '10:00:00 ◌ PRD 2251 · waiting for Paul' }], [{ seq: 2, text: '10:05:00 PR: https://github.com/acme/widgets/pull/42' }], [{ seq: 3, text: '10:09:00 PR: https://github.com/acme/widgets/pull/42' }]],
+    });
+    const run = await terminal(f, page, ['follow', '2251']);
+    expect(run.code).toBe(0);
+    expect(run.stdout.split('\n')).toEqual(['queued', 'claimed by box-1', 'waiting for approval', 'PR: https://github.com/acme/widgets/pull/42', `Ready · ${ASK}/prd/2251`, '']);
+    expect(page.calls.find((call) => call.path.startsWith('/api/runners/jobs?'))?.path).toBe('/api/runners/jobs?repo=acme%2Fwidgets&prd=2251');
+    expect(existsSync(join(f.checkout, '.omni-loop', 'local', 'runner-follow', '2251.json'))).toBe(false);
+  });
+
+  it('reads only the lines after the last one it saw', async () => {
+    const page = fakePage({
+      jobs: [[running()], [running({ status: 'done' })]],
+      lines: [[{ seq: 1, text: 'a' }, { seq: 2, text: 'b' }], []],
+    });
+    await terminal(fixture(), page, ['follow', '2251']);
+    expect(page.calls.filter((call) => call.path.includes('/lines')).map((call) => call.path)).toEqual([
+      '/api/runners/jobs/job-1/lines?after=0', '/api/runners/jobs/job-1/lines?after=2',
+    ]);
+  });
+
+  it('keeps the last milestone for the HUD while it follows', async () => {
+    const f = fixture();
+    const file = join(f.checkout, '.omni-loop', 'local', 'runner-follow', '2251.json');
+    const kept: unknown[] = [];
+    const page = fakePage({ jobs: [[running()], [running({ status: 'done' })]] });
+    await terminal(f, page, ['follow', '2251'], { sleep: () => { kept.push(JSON.parse(readFileSync(file, 'utf8'))); return Promise.resolve(); } });
+    expect(kept).toMatchObject([{ prd: 2251, runner: 'box-1', line: 'claimed by box-1' }]);
+  });
+
+  it('prints the board count when it goes up', async () => {
+    const counts = [{ merged: 0, total: 2 }, { merged: 1, total: 2 }];
+    const page = fakePage({ jobs: [[running()], [running()], [running({ status: 'done' })]] });
+    const run = await terminal(fixture(), page, ['follow', '2251'], { mergedOf: () => Promise.resolve(counts.shift() ?? { merged: 1, total: 2 }) });
+    expect(run.code).toBe(0);
+    expect(run.stdout).toContain('claimed by box-1\n1/2 slices merged\n');
+  });
+
+  it.each([
+    ['failed', { status: 'failed', reason: 'timeout' }, 'Failed: timeout'],
+    ['cancelled', { status: 'cancelled' }, 'Cancelled'],
+    ['runner lost', { status: 'failed', reason: 'runner lost' }, 'Runner lost'],
+  ] as const)('exits 1 when the job %s', async (_name, over, words) => {
+    const page = fakePage({ jobs: [[running(over)]] });
+    const run = await terminal(fixture(), page, ['follow', '2251']);
+    expect(run.code).toBe(1);
+    expect(run.stdout).toContain(`${words} · ${ASK}/prd/2251\n`);
+  });
+
+  it('exits 0 on a done job that held or waits on answers, naming each ending', async () => {
+    for (const [outcome, words] of [['held', 'Held'], ['answers', 'Waiting on answers']] as const) {
+      const run = await terminal(fixture(), fakePage({ jobs: [[running({ status: 'done', outcome })]] }), ['follow', '2251']);
+      expect(run.code).toBe(0);
+      expect(run.stdout).toContain(`${words} · `);
+    }
+  });
+
+  it('keeps waiting while the PRD has no job, then follows the one that appears', async () => {
+    const page = fakePage({ jobs: [[], [], [running({ status: 'done' })]] });
+    const run = await terminal(fixture(), page, ['follow', '2251']);
+    expect(run.code).toBe(0);
+    expect(run.stdout.split('\n').slice(0, 2)).toEqual(['waiting for a job of PRD 2251', 'queued']);
+    expect(run.stdout.match(/waiting for a job/g)).toHaveLength(1);
+  });
+
+  it('follows the newest job and never a second one', async () => {
+    const page = fakePage({ jobs: [[running({ id: 'job-2' }), running({ id: 'job-1', status: 'failed', reason: 'timeout' })], [running({ id: 'job-2', status: 'done' }), running({ id: 'job-1', status: 'failed' })]] });
+    const run = await terminal(fixture(), page, ['follow', '2251']);
+    expect(run.code).toBe(0);
+    expect(page.calls.some((call) => call.path.includes('/job-1/'))).toBe(false);
+    expect(page.calls.some((call) => call.method === 'POST')).toBe(false);
+  });
+
+  it('ends held, not failed, when the page stays unreadable, and carries on through a short outage', async () => {
+    const held = await terminal(fixture(), fakePage({ down: 99 }), ['follow', '2251']);
+    expect(held).toMatchObject({ code: 1, stdout: 'server unreachable · held, not failed\n' });
+    expect(held.stdout).not.toContain('Failed');
+    const brief = await terminal(fixture(), fakePage({ down: 2, jobs: [[running({ status: 'done' })]] }), ['follow', '2251']);
+    expect(brief.code).toBe(0);
+  });
+
+  it('refuses a page that has no routes, and holds when signed out', async () => {
+    const page = { fetch: () => Promise.resolve(new Response('{}', { status: 404 })) };
+    expect((await terminal(fixture(), page, ['follow', '2251'])).stdout).toBe('refused (404)\n');
+    const signedOut = await terminal(fixture(), fakePage(), ['follow', '2251'], { tokens: memoryTokens(null) });
+    expect(signedOut).toMatchObject({ code: 1, stdout: 'no sign-in (omni signin) · held\n' });
+  });
+
+  it('stops on Ctrl-C and leaves the job running: it cancels nothing', async () => {
+    const stop = new AbortController();
+    const page = fakePage({ jobs: [[running()]] });
+    const run = await terminal(fixture(), page, ['follow', '2251'], { stop: stop.signal, sleep: () => { stop.abort(); return Promise.resolve(); } });
+    expect(run.code).toBe(130);
+    expect(run.stdout).toContain('stopped following PRD 2251 · the job runs on');
+    expect(page.calls.some((call) => call.method === 'POST')).toBe(false);
+  });
+
+  it('is named, with send, by omni help runner', async () => {
+    const stdout = out();
+    expect(await main(['help', 'runner'], { cwd: fixture().checkout, stdout: stdout.stream, stderr: out().stream, exec: fakeExec(), env: {} })).toBe(0);
+    expect(stdout.text()).toContain("omni runner send '<line>' [--to <runner|fleet>]");
+    expect(stdout.text()).toContain('omni runner follow <n>');
+  });
+
+  it('refuses a missing or bad PRD number', async () => {
+    expect(await terminal(fixture(), fakePage(), ['follow'])).toMatchObject({ code: 2, stderr: 'usage: omni runner follow <n>\n' });
+    expect((await terminal(fixture(), fakePage(), ['follow', 'abc'])).code).toBe(2);
+  });
+});

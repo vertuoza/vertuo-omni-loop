@@ -28341,16 +28341,16 @@ function readSlots(sections, { file: file2, errors, oldSpellings }) {
   const slots = [];
   const unmarked = [];
   for (const { heading: heading2, lines: lines2 } of sections) {
-    const read2 = readSection(heading2, lines2);
-    if (read2.kind === "unmarked") {
+    const read3 = readSection(heading2, lines2);
+    if (read3.kind === "unmarked") {
       unmarked.push(heading2);
       continue;
     }
-    if (read2.kind === "malformed") {
-      errors.push(withFile(file2, `"## ${heading2}": malformed slot marker ${read2.first} \u2014 want <!-- slot: <id> \xB7 required|optional[ \xB7 by: invade|human][ \xB7 verified: YYYY-MM-DD] -->`));
+    if (read3.kind === "malformed") {
+      errors.push(withFile(file2, `"## ${heading2}": malformed slot marker ${read3.first} \u2014 want <!-- slot: <id> \xB7 required|optional[ \xB7 by: invade|human][ \xB7 verified: YYYY-MM-DD] -->`));
       continue;
     }
-    const { slot: slot2, oldBy } = read2;
+    const { slot: slot2, oldBy } = read3;
     if (slots.some((known2) => known2.id === slot2.id)) {
       errors.push(withFile(file2, `slot "${slot2.id}" appears twice`));
       continue;
@@ -28408,12 +28408,12 @@ function resolvePlaybookId(id, { ctx }) {
   if (!match) return { ok: false, reason: `${id}: not playbook/<form>#<slot>` };
   const [, formId = "", slotId = ""] = match;
   if (!FORM_IDS.includes(formId)) return { ok: false, reason: `the kit has no form "${formId}"` };
-  const read2 = readForm(formId, { ctx });
-  if (!read2.exists) return { ok: false, reason: `no form file at ${read2.file}` };
-  if (!read2.ok) return { ok: false, reason: read2.errors.join("; ") };
-  const slot2 = read2.form.slots.find((entry3) => entry3.id === slotId);
-  if (!slot2) return { ok: false, reason: `${read2.file} has no slot "${slotId}"` };
-  if (slot2.body.kind === "empty") return { ok: false, reason: `${read2.file}: slot "${slotId}" is blank` };
+  const read3 = readForm(formId, { ctx });
+  if (!read3.exists) return { ok: false, reason: `no form file at ${read3.file}` };
+  if (!read3.ok) return { ok: false, reason: read3.errors.join("; ") };
+  const slot2 = read3.form.slots.find((entry3) => entry3.id === slotId);
+  if (!slot2) return { ok: false, reason: `${read3.file} has no slot "${slotId}"` };
+  if (slot2.body.kind === "empty") return { ok: false, reason: `${read3.file}: slot "${slotId}" is blank` };
   return { ok: true };
 }
 
@@ -28919,9 +28919,9 @@ function envReader(source2, { production = false } = {}) {
   const problems = [];
   return {
     group(group2) {
-      const read2 = readGroup(source2, group2, production);
-      problems.push(...read2.problems);
-      return read2.value;
+      const read3 = readGroup(source2, group2, production);
+      problems.push(...read3.problems);
+      return read3.value;
     },
     done() {
       if (problems.length) throw new EnvError(problems);
@@ -29192,7 +29192,7 @@ function freshTokens(body) {
 function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS, now: now2 = Date.now }) {
   const root = baseUrl.replace(/\/+$/, "");
   const segment = (value) => encodeURIComponent(value);
-  async function send3(method, path, { body, token, timeoutMs, accept = "application/json", extra = {}, signal }) {
+  async function send4(method, path, { body, token, timeoutMs, accept = "application/json", extra = {}, signal }) {
     const headers = { accept, ...extra };
     if (body !== void 0) headers["content-type"] = "application/json";
     if (token) headers.authorization = `Bearer ${token}`;
@@ -29222,7 +29222,7 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     if (!current.refresh_token) return null;
     let response;
     try {
-      response = await send3("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
+      response = await send4("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
     } catch {
       return null;
     }
@@ -29236,7 +29236,7 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
   async function trade(omniToken, repo = null) {
     let response;
     try {
-      response = await send3("POST", "/api/ask/token", { body: repo ? { omni_token: omniToken, repo } : { omni_token: omniToken }, timeoutMs: callMs });
+      response = await send4("POST", "/api/ask/token", { body: repo ? { omni_token: omniToken, repo } : { omni_token: omniToken }, timeoutMs: callMs });
     } catch {
       throw new AskCallError(`OMNI_TOKEN: cannot reach ${host}: allow it in your environment's network access`);
     }
@@ -29260,11 +29260,11 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
   async function authorized(method, path, options) {
     const current = await currentTokens();
     if (!current?.access_token) throw new AskCallError(`not signed in to ${host}`);
-    let response = await send3(method, path, { ...options, token: current.access_token });
+    let response = await send4(method, path, { ...options, token: current.access_token });
     if (response.status === 401) {
       const fresh = tokens2.omniToken ? (await trade(tokens2.omniToken)).tokens : await refresh3(current);
       if (!fresh) throw new AskCallError(`${method} ${path}: sign-in refused`, { status: 401 });
-      response = await send3(method, path, { ...options, token: fresh.access_token });
+      response = await send4(method, path, { ...options, token: fresh.access_token });
     }
     if (!response.ok) {
       const reason2 = reasonOf(await bodyOf4(response));
@@ -29306,7 +29306,7 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     if (!current?.refresh_token) return "refused";
     let response;
     try {
-      response = await send3("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
+      response = await send4("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
     } catch {
       return "unreachable";
     }
@@ -30433,17 +30433,17 @@ function resolveForm(formId, { ctx, template }) {
   const kit = parseForm(template, { file: `kit template ${formId}` });
   if (!kit.ok) throw new Error(`the kit's template for ${formId} does not parse:
 ${kit.errors.join("\n")}`);
-  const read2 = readForm(formId, { ctx });
-  const { file: file2 } = read2;
+  const read3 = readForm(formId, { ctx });
+  const { file: file2 } = read3;
   const problems = [];
   let repo = null;
   let state = "missing";
-  if (read2.exists && read2.ok) {
-    repo = read2.form;
+  if (read3.exists && read3.ok) {
+    repo = read3.form;
     state = repo.state;
-  } else if (read2.exists) {
+  } else if (read3.exists) {
     state = "invalid";
-    problems.push(...read2.errors);
+    problems.push(...read3.errors);
   }
   const title = repo?.title ?? kit.form.title;
   if (repo?.state === "pointer") {
@@ -31351,12 +31351,12 @@ var BlockedBySchema = external_exports.string().trim().min(1, "blocked-by is req
   }
   const inner = (match[1] ?? "").trim();
   const prds = inner.length === 0 ? [] : inner.split(",").map((token) => PrdNumberSchema.safeParse(Number(token.trim())));
-  const read2 = prds.flatMap((prd2) => prd2.success ? [prd2.data] : []);
-  if (read2.length !== prds.length) {
+  const read3 = prds.flatMap((prd2) => prd2.success ? [prd2.data] : []);
+  if (read3.length !== prds.length) {
     ctx.addIssue({ code: "custom", message: BLOCKED_BY_MESSAGE });
     return external_exports.NEVER;
   }
-  return read2;
+  return read3;
 });
 var AreasSchema = external_exports.string().trim().transform((raw, ctx) => {
   const match = raw.match(BRACKET_LIST);
@@ -31523,10 +31523,10 @@ function validateSections(body) {
   return { errors, sections };
 }
 function parseOutboxItem(text15, { file: file2 = null } = {}) {
-  const read2 = readFrontMatterBlock(text15, file2, OutboxItemFrontMatterSchema);
-  if (read2.body === null) return { ok: false, errors: read2.errors };
-  const errors = [...read2.errors];
-  const { errors: sectionErrors, sections } = validateSections(read2.body);
+  const read3 = readFrontMatterBlock(text15, file2, OutboxItemFrontMatterSchema);
+  if (read3.body === null) return { ok: false, errors: read3.errors };
+  const errors = [...read3.errors];
+  const { errors: sectionErrors, sections } = validateSections(read3.body);
   errors.push(...sectionErrors.map((message2) => withFile2(file2, message2)));
   let parsedOptions;
   if (OPTIONS_HEADING in sections) {
@@ -31534,8 +31534,8 @@ function parseOutboxItem(text15, { file: file2 = null } = {}) {
     parsedOptions = options;
     errors.push(...optionErrors.map((message2) => withFile2(file2, message2)));
   }
-  if (errors.length > 0 || read2.data === null) return { ok: false, errors };
-  const fm = read2.data;
+  if (errors.length > 0 || read3.data === null) return { ok: false, errors };
+  const fm = read3.data;
   const itemSections2 = {};
   for (const [heading2, field2] of Object.entries(SECTION_FIELD)) {
     const content = sections[heading2];
@@ -32042,8 +32042,8 @@ function latestPerId(entries4) {
   return [...byId.values()];
 }
 function openedEntry(id) {
-  const read2 = OutboxItemIdSchema.safeParse(id);
-  return read2.success ? { id: read2.data, fields: {}, blocks: [] } : null;
+  const read3 = OutboxItemIdSchema.safeParse(id);
+  return read3.success ? { id: read3.data, fields: {}, blocks: [] } : null;
 }
 function closedEntry({ id, fields, blocks: blocks2 }) {
   const [answerText3 = "", itemText2 = ""] = blocks2;
@@ -32441,12 +32441,12 @@ function validateBody(body) {
   return { errors, entries: entries4 };
 }
 function parseAccount(text15, { file: file2 = null } = {}) {
-  const read2 = readFrontMatterBlock(text15, file2, AccountFrontMatterSchema);
-  if (read2.body === null) return { ok: false, errors: read2.errors };
-  const { errors: bodyErrors, entries: entries4 } = validateBody(read2.body);
-  const errors = [...read2.errors, ...bodyErrors.map((message2) => withFile2(file2, message2))];
-  if (errors.length > 0 || read2.data === null) return { ok: false, errors };
-  const fm = read2.data;
+  const read3 = readFrontMatterBlock(text15, file2, AccountFrontMatterSchema);
+  if (read3.body === null) return { ok: false, errors: read3.errors };
+  const { errors: bodyErrors, entries: entries4 } = validateBody(read3.body);
+  const errors = [...read3.errors, ...bodyErrors.map((message2) => withFile2(file2, message2))];
+  if (errors.length > 0 || read3.data === null) return { ok: false, errors };
+  const fm = read3.data;
   const account = {
     prd: fm.prd,
     slice: fm.slice,
@@ -33791,10 +33791,10 @@ var PrCommentResultSchema = external_exports.object({
   htmlUrl: external_exports.string().nullish(),
   newAdoptedCount: external_exports.number().optional()
 }).loose();
-function readPrCommentResult(path, { read: read2 = (file2) => readFileSync22(file2, "utf8") } = {}) {
+function readPrCommentResult(path, { read: read3 = (file2) => readFileSync22(file2, "utf8") } = {}) {
   if (!path) return null;
   try {
-    const parsed2 = PrCommentResultSchema.safeParse(JSON.parse(read2(path)));
+    const parsed2 = PrCommentResultSchema.safeParse(JSON.parse(read3(path)));
     return parsed2.success ? parsed2.data : null;
   } catch {
     return null;
@@ -34322,10 +34322,10 @@ function requireUnderOutbox(ctx, path, itemText2) {
   }
 }
 async function adoptAt(ref, product2, { ctx, store, stdout, stderr }) {
-  const read2 = await store.readItem(ref);
-  if (!read2.ok) throw usageError(`omni adopt: cannot read ${ref} (${read2.code}).`);
-  if (product2 === null) requireUnderOutbox(ctx, ref, read2.text);
-  const result2 = await store.adopt(read2.text).catch((error62) => withPrdFolder("adopt", () => {
+  const read3 = await store.readItem(ref);
+  if (!read3.ok) throw usageError(`omni adopt: cannot read ${ref} (${read3.code}).`);
+  if (product2 === null) requireUnderOutbox(ctx, ref, read3.text);
+  const result2 = await store.adopt(read3.text).catch((error62) => withPrdFolder("adopt", () => {
     throw error62;
   }));
   if (!result2.ok) {
@@ -34889,8 +34889,8 @@ function sectionFaults(sections) {
   const present = CONCEPT_SECTIONS.filter((name3) => position.has(name3));
   for (let index = 1; index < present.length; index += 1) {
     const [before2, after] = [at(present, index - 1, "a section"), at(present, index, "a section")];
-    const placeOf3 = (name3) => defined(position.get(name3), `the place of "## ${name3}"`);
-    if (placeOf3(after) < placeOf3(before2)) {
+    const placeOf4 = (name3) => defined(position.get(name3), `the place of "## ${name3}"`);
+    if (placeOf4(after) < placeOf4(before2)) {
       faults.push(`sections: "## ${before2}" comes after "## ${after}"; the order is ${CONCEPT_SECTIONS.join(", ")}.`);
     }
   }
@@ -35069,9 +35069,9 @@ function parseVoice(text15) {
     errors.push(...roundProblems(round2).map((problem) => `${name3}: ${problem}`));
   });
   if (errors.length) return { ok: false, voice: null, errors };
-  const read2 = VoiceSchema.safeParse(voice);
-  if (!read2.success) return { ok: false, voice: null, errors: read2.error.issues.map((issue2) => `${issue2.path.join(".")}: ${issue2.message}`) };
-  return { ok: true, voice: read2.data, errors: [] };
+  const read3 = VoiceSchema.safeParse(voice);
+  if (!read3.success) return { ok: false, voice: null, errors: read3.error.issues.map((issue2) => `${issue2.path.join(".")}: ${issue2.message}`) };
+  return { ok: true, voice: read3.data, errors: [] };
 }
 
 // kit/lib/dossier/folder.ts
@@ -35963,9 +35963,9 @@ function answerText(given) {
   const text15 = Array.isArray(given) && given.every((label2) => typeof label2 === "string") ? given.join(", ") : given;
   return typeof text15 === "string" && text15 !== "" ? text15 : null;
 }
-function contextOf(read2) {
+function contextOf(read3) {
   try {
-    return read2() ?? null;
+    return read3() ?? null;
   } catch {
     return null;
   }
@@ -36075,17 +36075,17 @@ async function answerRound(client, roundId, answers2) {
 async function openAnswered({ questions: questions2, answers: answers2, readContext, readLead: readLead2, ...terminal }) {
   const context = contextOf(readContext) ?? void 0;
   const lead = contextOf(readLead2);
-  const send3 = async () => {
+  const send4 = async () => {
     const sessionId = await terminalSession(terminal);
     return terminal.client.openAnswered(sessionId, questions2, answers2, context, lead);
   };
   let reply;
   try {
-    reply = await send3();
+    reply = await send4();
   } catch (error62) {
     if (!sessionGone(error62)) throw error62;
     clearTerminal(terminal.root, terminal.terminalId);
-    reply = await send3();
+    reply = await send4();
   }
   const roundId = field(reply, "roundId");
   if (typeof roundId !== "string" || roundId === "") throw new Error("the server answered with no round");
@@ -36542,9 +36542,9 @@ var ANSWERS = {
 };
 function outcomeOf(body, seconds4) {
   const status5 = body?.status;
-  const read2 = typeof status5 === "string" && Object.hasOwn(ANSWERS, status5) ? ANSWERS[status5] : void 0;
-  if (!body || !read2) throw new DeviceError("unreachable");
-  return read2(body, seconds4);
+  const read3 = typeof status5 === "string" && Object.hasOwn(ANSWERS, status5) ? ANSWERS[status5] : void 0;
+  if (!body || !read3) throw new DeviceError("unreachable");
+  return read3(body, seconds4);
 }
 function approvalOf(body) {
   if (text7(body.code)) return { code: body.code };
@@ -36869,9 +36869,9 @@ async function signInByLoopback(run2) {
     }
     return await finishSignIn(run2, await firstOf(contenders));
   } catch (error62) {
-    const ending = endingOf(error62);
-    if (ending === null) throw error62;
-    println(stderr, `omni signin: ${ending}`);
+    const ending2 = endingOf(error62);
+    if (ending2 === null) throw error62;
+    println(stderr, `omni signin: ${ending2}`);
     return 1;
   } finally {
     await listener.close();
@@ -36891,9 +36891,9 @@ async function signInByDevice(run2) {
     }
   } catch (error62) {
     if (error62 instanceof DeviceError && error62.reason === "unavailable") return null;
-    const ending = endingOf(error62);
-    if (ending === null) throw error62;
-    println(stderr, `omni signin: ${ending}`);
+    const ending2 = endingOf(error62);
+    if (ending2 === null) throw error62;
+    println(stderr, `omni signin: ${ending2}`);
     return 1;
   }
 }
@@ -37112,8 +37112,8 @@ function readJsonFile(verb2, cwd, path) {
     throw usageError(`omni ask ${verb2}: ${path} does not read: (file): not JSON.`);
   }
 }
-function readFile(verb2, cwd, path, read2) {
-  const result2 = read2(readJsonFile(verb2, cwd, path));
+function readFile(verb2, cwd, path, read3) {
+  const result2 = read3(readJsonFile(verb2, cwd, path));
   if (result2.ok) return result2.value;
   throw usageError(`omni ask ${verb2}: ${String(path)} does not read: ${result2.field}: ${result2.message}.`);
 }
@@ -37133,8 +37133,8 @@ function report2(outcome, { stdout, stderr }) {
     println(stdout, `round ${outcome.round}`);
     return STILL_WAITING;
   }
-  const send3 = outcome.round === null ? "" : `; send the answer from your chat with omni ask answer ${outcome.round} --file <a.json>`;
-  println(stderr, outcome.reason === "unattended" ? "unattended" : `omni ask: ${outcome.reason}${send3}`);
+  const send4 = outcome.round === null ? "" : `; send the answer from your chat with omni ask answer ${outcome.round} --file <a.json>`;
+  println(stderr, outcome.reason === "unattended" ? "unattended" : `omni ask: ${outcome.reason}${send4}`);
   return ASK_ELSEWHERE;
 }
 var titleOf = (root, exec) => () => sessionTitle({ slug: loadConfig(root).repo.slug, branch: currentBranch(root, exec), root });
@@ -38494,15 +38494,15 @@ async function productTargetList({ ctx, product: product2, repo }, io, note) {
   if (client === null) return `no targets: no sign-in for ${credentialsHost(askUrl2)} (omni signin)`;
   if (!repo) return "no targets: no repository slug \u2014 set repo.slug in the config";
   try {
-    const read2 = await productTargets({
+    const read3 = await productTargets({
       product: product2,
       root: mainCheckout(io.cwd, io.exec) ?? ctx.root,
       now: io.now ?? (() => /* @__PURE__ */ new Date()),
       fetchTargets: () => client.readProductTargets({ repo, product: product2 })
     });
-    if (read2.from === "copy") note.write(`${lastReadLine(read2.readAt)}
+    if (read3.from === "copy") note.write(`${lastReadLine(read3.readAt)}
 `);
-    return read2.targets;
+    return read3.targets;
   } catch (error62) {
     return messageOf(error62);
   }
@@ -38622,7 +38622,7 @@ function queryOf(fields) {
 }
 function omniLoopReads({ askUrl: askUrl2, tokens: tokens2, home, fetch = globalThis.fetch, callMs = LOOP_READ_MS }) {
   const client = askUrl2 ? signedInClient({ askUrl: askUrl2, tokens: tokens2, home, fetch, callMs }) : null;
-  async function read2(path, query, schema) {
+  async function read3(path, query, schema) {
     if (!askUrl2) throw new LoopReadError(NO_OMNI_PAGE, "everything");
     if (client === null) throw new LoopReadError(NO_SIGN_IN, "everything");
     const repo = String(query.repo);
@@ -38638,11 +38638,11 @@ function omniLoopReads({ askUrl: askUrl2, tokens: tokens2, home, fetch = globalT
     return parsed2.data;
   }
   return {
-    changes: async ({ repo, base, head, label: label2, state }) => (await read2("changes", { repo, base, head, label: label2, state }, LoopChangesSchema)).changes,
-    change: (repo, number5) => read2(`changes/${number5}`, { repo }, LoopChangeDetailSchema),
-    comments: async (repo, on2) => (await read2("comments", { repo, on: on2 }, LoopCommentsSchema)).comments,
-    issues: async ({ repo, label: label2, state }) => (await read2("issues", { repo, label: label2, state }, LoopIssuesSchema)).issues,
-    issue: (repo, number5) => read2(`issues/${number5}`, { repo }, LoopIssueDetailSchema)
+    changes: async ({ repo, base, head, label: label2, state }) => (await read3("changes", { repo, base, head, label: label2, state }, LoopChangesSchema)).changes,
+    change: (repo, number5) => read3(`changes/${number5}`, { repo }, LoopChangeDetailSchema),
+    comments: async (repo, on2) => (await read3("comments", { repo, on: on2 }, LoopCommentsSchema)).comments,
+    issues: async ({ repo, label: label2, state }) => (await read3("issues", { repo, label: label2, state }, LoopIssuesSchema)).issues,
+    issue: (repo, number5) => read3(`issues/${number5}`, { repo }, LoopIssueDetailSchema)
   };
 }
 
@@ -38865,9 +38865,9 @@ function loopReadsFor(ctx, { reads, tokens: tokens2, home, fetch, callMs }) {
   return reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens: tokens2, home, fetch, callMs });
 }
 async function contextWithTargets(verb2, io) {
-  const read2 = await withProductTargets(loadContext(io.cwd, { exec: io.exec }), io, io.stderr);
-  if (typeof read2 === "string") throw usageError(`omni ${verb2}: ${read2}`);
-  return read2;
+  const read3 = await withProductTargets(loadContext(io.cwd, { exec: io.exec }), io, io.stderr);
+  if (typeof read3 === "string") throw usageError(`omni ${verb2}: ${read3}`);
+  return read3;
 }
 async function runWithTargets(verb2, usage2, subcommands, args, io) {
   const [sub = "", ...rest] = args;
@@ -39520,9 +39520,9 @@ async function viewPr(repo, number5, reads) {
   return foundOf(await reads.change(repo, number5));
 }
 var stopsEverything = (error62) => error62 instanceof LoopReadError && error62.scope === "everything";
-async function readFound(read2) {
+async function readFound(read3) {
   try {
-    return await read2();
+    return await read3();
   } catch (error62) {
     if (stopsEverything(error62)) throw error62;
     return "unreadable";
@@ -39943,9 +39943,9 @@ function businessOf(raw) {
   return { state: reply.state, business: named(reply.business), product: named(reply.product), claims, personas, ...knowledge2 };
 }
 var personaLines = (personas, width) => personas.map((p) => `  ${"persona".padEnd(width)}  ${p.name} (${p.stance}, ${p.trade}): ${p.who || "\u2014"} \u2014 uses: ${p.usage || "\u2014"}`);
-var knowledgeLines = (read2, width) => [
-  ...read2.legal.map((l) => `  ${l.id.padEnd(width)}  ${l.statement}${l.source ? ` (${l.source})` : ""} \u2014 owner: @${l.owner}`),
-  ...read2.glossary.map((t) => `  ${"term".padEnd(width)}  ${t.term}: ${t.meaning || "\u2014"}${t.avoid.length ? ` \u2014 avoid: ${t.avoid.join(", ")}` : ""}`)
+var knowledgeLines = (read3, width) => [
+  ...read3.legal.map((l) => `  ${l.id.padEnd(width)}  ${l.statement}${l.source ? ` (${l.source})` : ""} \u2014 owner: @${l.owner}`),
+  ...read3.glossary.map((t) => `  ${"term".padEnd(width)}  ${t.term}: ${t.meaning || "\u2014"}${t.avoid.length ? ` \u2014 avoid: ${t.avoid.join(", ")}` : ""}`)
 ];
 var joined = (values) => values.length < 2 ? values.join("") : `${values.slice(0, -1).join(", ")} and ${values.at(-1)}`;
 function sentence2(claims) {
@@ -39955,7 +39955,7 @@ function sentence2(claims) {
   const who2 = size ? `${size.replace("-", "\u2013")}-person` : `${BLANK}-person`;
   return `We sell ${blankOr(of("offering"))} to ${who2} ${blankOr(of("trade"))} in ${blankOr(of("region"))}, up against ${blankOr(of("rival"))}.`;
 }
-var empty = (state, read2 = null) => ({ ...read2 ?? { business: null, product: null, personas: [], legal: [], glossary: [] }, state, claims: [] });
+var empty = (state, read3 = null) => ({ ...read3 ?? { business: null, product: null, personas: [], legal: [], glossary: [] }, state, claims: [] });
 function stopped(error62) {
   if (!(error62 instanceof AskCallError)) throw error62;
   if (error62.status === null) return { state: "unreachable", line: `the Omni page could not be reached ${CARRY_ON}` };
@@ -40022,27 +40022,27 @@ async function claim2(positional, flags, env) {
   println(env.stdout, `claim ${stored.added ? "saved" : "already held"}: ${stored.id} (${stored.state})`);
   return 0;
 }
-function shown2(repo, read2) {
-  if (read2.state === "none") {
-    const line2 = read2.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
-    return [empty("none", read2), [line2, ...personaLines(read2.personas, "persona".length), ...knowledgeLines(read2, "persona".length)]];
+function shown2(repo, read3) {
+  if (read3.state === "none") {
+    const line2 = read3.business ? `no confirmed claim for ${repo} yet ${CARRY_ON}` : `no business for ${repo} yet ${CARRY_ON}`;
+    return [empty("none", read3), [line2, ...personaLines(read3.personas, "persona".length), ...knowledgeLines(read3, "persona".length)]];
   }
   const idWidth = Math.max(
-    ...read2.claims.map((claim4) => claim4.id.length),
-    ...read2.legal.map((l) => l.id.length),
-    read2.personas.length ? "persona".length : 0,
-    read2.glossary.length ? "term".length : 0
+    ...read3.claims.map((claim4) => claim4.id.length),
+    ...read3.legal.map((l) => l.id.length),
+    read3.personas.length ? "persona".length : 0,
+    read3.glossary.length ? "term".length : 0
   );
-  return [read2, [
-    sentence2(read2.claims),
-    ...read2.claims.map((claim4) => `  ${claim4.id.padEnd(idWidth)}  ${claim4.value}${claim4.state === "contradicted" ? CONTRADICTED : ""}`),
-    ...personaLines(read2.personas, idWidth),
-    ...knowledgeLines(read2, idWidth)
+  return [read3, [
+    sentence2(read3.claims),
+    ...read3.claims.map((claim4) => `  ${claim4.id.padEnd(idWidth)}  ${claim4.value}${claim4.state === "contradicted" ? CONTRADICTED : ""}`),
+    ...personaLines(read3.personas, idWidth),
+    ...knowledgeLines(read3, idWidth)
   ]];
 }
-function archived(out, read2) {
-  const name3 = read2.product?.name ?? "";
-  if (out.json) println(out.stdout, JSON.stringify(empty("archived", read2)));
+function archived(out, read3) {
+  const name3 = read3.product?.name ?? "";
+  if (out.json) println(out.stdout, JSON.stringify(empty("archived", read3)));
   else println(out.stdout, archivedLine(name3));
   return 1;
 }
@@ -40060,10 +40060,10 @@ async function show(args, env) {
     const { state, line: line2 } = stopped(error62);
     return print(out, empty(state), [line2]);
   }
-  const read2 = businessOf(reply);
-  if (!read2) return print(out, empty("refused"), [`refused (the reply is not a business) ${CARRY_ON}`]);
-  if (read2.state === "archived" && read2.product) return archived(out, read2);
-  return print(out, ...shown2(repo, read2));
+  const read3 = businessOf(reply);
+  if (!read3) return print(out, empty("refused"), [`refused (the reply is not a business) ${CARRY_ON}`]);
+  if (read3.state === "archived" && read3.product) return archived(out, read3);
+  return print(out, ...shown2(repo, read3));
 }
 var business = {
   withoutContext: true,
@@ -40915,12 +40915,12 @@ async function readPrdWork(ctx, row, standing3, own2, readers) {
   return [...prWork, ...clarificationWork(row.prd, await issueComments(slug, row.prd, readers), { repo: shortName7(slug), planAt })];
 }
 async function readRoadmapPrds(ctx, roadmap2, readers) {
-  const read2 = [];
-  for (const row of roadmap2.prds) read2.push({ row, ...await readStanding(ctx, row, readers) });
-  const standings = new Map(read2.map(({ row, standing: standing3 }) => [row.id, standing3]));
+  const read3 = [];
+  for (const row of roadmap2.prds) read3.push({ row, ...await readStanding(ctx, row, readers) });
+  const standings = new Map(read3.map(({ row, standing: standing3 }) => [row.id, standing3]));
   try {
     const work = [];
-    for (const { row, standing: standing3, own: own2 } of read2) work.push(...await readPrdWork(ctx, row, standing3, own2, readers));
+    for (const { row, standing: standing3, own: own2 } of read3) work.push(...await readPrdWork(ctx, row, standing3, own2, readers));
     return { standings, prdWork: work };
   } catch {
     return { standings, prdWork: null };
@@ -40947,9 +40947,9 @@ async function gradeProductFile({ key: key2, repo, document, client }) {
   } catch (error62) {
     return { ok: false, lines: [`the repositories of product ${key2} could not be read: ${callLine(error62)}`] };
   }
-  const read2 = CheckReply.safeParse(reply);
-  if (!read2.success) return { ok: false, lines: [`the repositories of product ${key2} could not be read: the reply is not a check`] };
-  const repositories = read2.data.repositories.map(({ repo: name3, readOnly: readOnly2, consumes }) => ({ repo: name3, readOnly: readOnly2, consumes }));
+  const read3 = CheckReply.safeParse(reply);
+  if (!read3.success) return { ok: false, lines: [`the repositories of product ${key2} could not be read: the reply is not a check`] };
+  const repositories = read3.data.repositories.map(({ repo: name3, readOnly: readOnly2, consumes }) => ({ repo: name3, readOnly: readOnly2, consumes }));
   return { ok: true, roadmap: roadmap2, violations: gradeProductRoadmap(roadmap2, { key: key2, repositories }) };
 }
 function roadmapSeqArg(key2, value) {
@@ -40998,9 +40998,9 @@ async function pushProductFile({ key: key2, seq, repo, roadmap: roadmap2, docume
   } catch (error62) {
     return { ok: false, line: callLine(error62) };
   }
-  const read2 = PushReply.safeParse(reply);
-  if (!read2.success) return { ok: false, line: "refused (no roadmap in the reply)" };
-  const { roadmapId, roadmap: id, created, added, unchanged } = read2.data;
+  const read3 = PushReply.safeParse(reply);
+  if (!read3.success) return { ok: false, line: "refused (no roadmap in the reply)" };
+  const { roadmapId, roadmap: id, created, added, unchanged } = read3.data;
   return {
     ok: true,
     pushed: { roadmap: id, page: `${askUrl2.replace(/\/+$/, "")}/roadmaps/${roadmapId}`, created, added: added.map((item2) => `${item2.kind} v${item2.version}`), unchanged }
@@ -41304,8 +41304,8 @@ async function readRepositories(client, body, key2) {
   const unread = (why3) => `the repositories of product ${key2} could not be read: ${why3}`;
   const reply = await client.pushBug(body).catch((error62) => ({ failed: callLine(error62) }));
   if (isFailure(reply)) return unread(reply.failed);
-  const read2 = CheckReply2.safeParse(reply);
-  return read2.success ? read2.data.repositories : unread("the reply is not a check");
+  const read3 = CheckReply2.safeParse(reply);
+  return read3.success ? read3.data.repositories : unread("the reply is not a check");
 }
 var isFailure = (reply) => typeof reply === "object" && reply !== null && "failed" in reply;
 async function gradeBugFile({ key: key2, repo, record: record2, client }) {
@@ -41344,9 +41344,9 @@ async function pushProductBug({ key: key2, seq, repo, graded, askUrl: askUrl2, c
   } catch (error62) {
     return { ok: false, line: callLine(error62) };
   }
-  const read2 = PushReply2.safeParse(reply);
-  if (!read2.success) return { ok: false, line: "refused (no bug in the reply)" };
-  const { dossierId, bug: bug2, created, rows: rows2, added, unchanged } = read2.data;
+  const read3 = PushReply2.safeParse(reply);
+  if (!read3.success) return { ok: false, line: "refused (no bug in the reply)" };
+  const { dossierId, bug: bug2, created, rows: rows2, added, unchanged } = read3.data;
   return {
     ok: true,
     pushed: { bug: bug2, page: `${askUrl2.replace(/\/+$/, "")}/bugs/${dossierId}`, created, rows: rows2.length, added: added.map((item2) => `${item2.kind} v${item2.version}`), unchanged }
@@ -41483,7 +41483,7 @@ function fixLaws(ctx, issue2, base, exec) {
 }
 function branchVerdictCommand({
   verb: verb2,
-  read: read2,
+  read: read3,
   paths,
   grade: grade2
 }) {
@@ -41492,13 +41492,13 @@ function branchVerdictCommand({
     run: synchronous((args, { ctx, stdout, exec }) => {
       const { positional, flags } = parseArgs(verb2, args, { values: ["base"] });
       if (positional.length !== 1) throw usageError(usage2);
-      const number5 = read2(verb2, "<n>", positional[0]);
+      const number5 = read3(verb2, "<n>", positional[0]);
       const base = rangeBase(verb2, ctx, flags, exec);
       const changed = paths ? paths(ctx.root, base, exec) : void 0;
       const commits = ctx.config.signature === null ? void 0 : rangeCommits(ctx.root, base, exec);
       const verdict2 = grade2({ ctx, number: number5, changed, commits, base, exec });
       println(stdout, verdict2.ok ? "ok" : "not ok");
-      for (const failure7 of verdict2.failures) println(stdout, `- ${failure7}`);
+      for (const failure8 of verdict2.failures) println(stdout, `- ${failure8}`);
       return verdict2.ok ? 0 : 1;
     })
   };
@@ -41716,12 +41716,12 @@ function subBlocks(bytes) {
   return out;
 }
 var sideFits = (side) => Number.isInteger(side) && side >= 1 && side <= MAX_SIDE;
-function checkedFrame({ pixels, delay }, width, height) {
+function checkedFrame({ pixels, delay: delay2 }, width, height) {
   if (pixels.length !== width * height) {
     throw new RangeError(`a frame of ${pixels.length} pixels does not fill a ${width}x${height} image (${width * height})`);
   }
-  if (!Number.isInteger(delay) || delay < 0 || delay > 65535) {
-    throw new RangeError(`a frame's delay is 0 to 65535 hundredths of a second, not ${delay}`);
+  if (!Number.isInteger(delay2) || delay2 < 0 || delay2 > 65535) {
+    throw new RangeError(`a frame's delay is 0 to 65535 hundredths of a second, not ${delay2}`);
   }
 }
 function checked({ width, height, frames }) {
@@ -41744,8 +41744,8 @@ function encodeGif(image) {
     bytes.push(colour2 >>> 16 & 255, colour2 >>> 8 & 255, colour2 & 255);
   }
   bytes.push(33, 255, 11, ...Array.from("NETSCAPE2.0", (letter) => letter.charCodeAt(0)), 3, 1, ...word(0), 0);
-  for (const { pixels, delay } of frames) {
-    bytes.push(33, 249, 4, 4, ...word(delay), 0, 0);
+  for (const { pixels, delay: delay2 } of frames) {
+    bytes.push(33, 249, 4, 4, ...word(delay2), 0, 0);
     bytes.push(44, ...word(0), ...word(0), ...word(width), ...word(height), 0);
     const indices = Uint8Array.from(pixels, (pixel) => palette.get(pixel & 16777215) ?? 0);
     bytes.push(minCode);
@@ -42013,7 +42013,7 @@ function grade(args, { ctx, stdout, exec }) {
     proof: () => proofFaults(written ?? openPullRequest({ root: ctx.root, exec }), issue2)
   });
   println(stdout, verdict2.ok ? "ok" : "not ok");
-  for (const failure7 of verdict2.failures) println(stdout, `- ${failure7}`);
+  for (const failure8 of verdict2.failures) println(stdout, `- ${failure8}`);
   return verdict2.ok ? 0 : 1;
 }
 function refuse(stderr, line2) {
@@ -42840,15 +42840,15 @@ async function verifyServedLegal({ ctx, entries: entries4, cwd, exec, reach: rea
   const client = signedInClient({ askUrl: askUrl2, tokens: reach4.tokens, home: reach4.home, fetch: reach4.fetch ?? globalThis.fetch, callMs: reach4.callMs });
   if (client === null) return { violations: [], notes: ["Legal not verified: not signed in"] };
   try {
-    const read2 = await productKnowledge({
+    const read3 = await productKnowledge({
       repo,
       root: mainCheckout(cwd, exec) ?? ctx.root,
       now: reach4.now ?? (() => /* @__PURE__ */ new Date()),
       fetchBusiness: () => client.readBusiness(repo)
     });
-    if (read2.from === "copy") return { violations: [], notes: ["Legal not verified: page unreachable"] };
-    const held2 = new Set(read2.legal.map(({ id }) => id));
-    const violations = served.filter(({ id }) => !held2.has(id)).map(({ id, entry: entry3 }) => `${entry3.file}: ${entry3.id} \u2014 serves ${id}, which product ${read2.product} does not hold.`);
+    if (read3.from === "copy") return { violations: [], notes: ["Legal not verified: page unreachable"] };
+    const held2 = new Set(read3.legal.map(({ id }) => id));
+    const violations = served.filter(({ id }) => !held2.has(id)).map(({ id, entry: entry3 }) => `${entry3.file}: ${entry3.id} \u2014 serves ${id}, which product ${read3.product} does not hold.`);
     return { violations, notes: [] };
   } catch (error62) {
     const reason2 = messageOf(error62);
@@ -42904,8 +42904,8 @@ function formSource(resolved) {
 function playbookStatus({ ctx, exec }) {
   const forms = FORMS.map(({ id, kind }) => {
     const resolved = resolveForm(id, { ctx, template: formTemplate(id) });
-    const read2 = readForm(id, { ctx });
-    const form2 = read2.exists && read2.ok ? read2.form : null;
+    const read3 = readForm(id, { ctx });
+    const form2 = read3.exists && read3.ok ? read3.form : null;
     return {
       form: id,
       kind,
@@ -42922,11 +42922,11 @@ function playbookStatus({ ctx, exec }) {
 
 // kit/lib/playbook/check-playbook.ts
 function gradeForm({ id, kind }, { ctx, exec }) {
-  const read2 = readForm(id, { ctx });
-  const { file: file2 } = read2;
-  if (!read2.exists) return { state: "missing", violations: [], warnings: [`${file2}: missing \u2014 the kit defaults apply; \`omni kb init\` writes it`] };
-  if (!read2.ok) return { state: "invalid", violations: read2.errors, warnings: [] };
-  const { form: form2 } = read2;
+  const read3 = readForm(id, { ctx });
+  const { file: file2 } = read3;
+  if (!read3.exists) return { state: "missing", violations: [], warnings: [`${file2}: missing \u2014 the kit defaults apply; \`omni kb init\` writes it`] };
+  if (!read3.ok) return { state: "invalid", violations: read3.errors, warnings: [] };
+  const { form: form2 } = read3;
   const kit = defined(parseForm(formTemplate(id)).form, `the kit's ${id} form`);
   const gone = (path) => !ctx.copyOf && !existsSync42(join58(ctx.root, path));
   const violations = [];
@@ -43467,15 +43467,15 @@ function parseScreen(text15, file2) {
     return fail2(`front matter is not YAML \u2014 ${messageOf(error62).split("\n")[0]}`);
   }
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return fail2("front matter is not YAML key: value lines");
-  const read2 = ScreenFrontMatter.safeParse(raw);
-  if (!read2.success) {
-    const [issue2] = read2.error.issues;
+  const read3 = ScreenFrontMatter.safeParse(raw);
+  if (!read3.success) {
+    const [issue2] = read3.error.issues;
     const keys = issue2?.code === "unrecognized_keys" ? `: ${issue2.keys.join(", ")}` : "";
     return fail2(`${issue2?.message ?? "front matter does not read"}${keys}`);
   }
-  const { screen, status: status5, kind, quote, mock, implements: paths, reads, routes, supersedes } = read2.data;
-  const lockedBy = read2.data["locked-by"];
-  const lockedOn = read2.data["locked-on"];
+  const { screen, status: status5, kind, quote, mock, implements: paths, reads, routes, supersedes } = read3.data;
+  const lockedBy = read3.data["locked-by"];
+  const lockedOn = read3.data["locked-on"];
   if (status5 === "locked") {
     const missing2 = [["locked-by", lockedBy], ["locked-on", lockedOn], ["quote", quote]].flatMap(([field2, value]) => value === null ? [field2] : []);
     if (missing2.length) return fail2(`a locked screen needs locked-by, locked-on and quote \u2014 missing ${missing2.join(", ")}`);
@@ -43493,9 +43493,9 @@ function readScreens(dir) {
   const screens2 = [];
   const problems = [];
   for (const file2 of files) {
-    const read2 = parseScreen(readFileSync50(join63(dir, file2), "utf8"), file2);
-    if (read2.ok) screens2.push(read2.screen);
-    else problems.push(read2.problem);
+    const read3 = parseScreen(readFileSync50(join63(dir, file2), "utf8"), file2);
+    if (read3.ok) screens2.push(read3.screen);
+    else problems.push(read3.problem);
   }
   screens2.sort((a, b) => a.screen.localeCompare(b.screen) || a.file.localeCompare(b.file));
   return { screens: screens2, problems };
@@ -43563,16 +43563,16 @@ var parsed = (files) => Object.entries(files).map(([file2, text15]) => ({ file: 
 function gradeScreens(dir, head, base) {
   const prefix = dir.replace(/\/*$/, "/");
   const now2 = parsed(head);
-  const screens2 = now2.flatMap(({ read: read2 }) => read2.ok ? [read2.screen] : []);
-  const violations = now2.flatMap(({ read: read2 }) => read2.ok ? [] : [`${prefix}${read2.problem}`]);
+  const screens2 = now2.flatMap(({ read: read3 }) => read3.ok ? [read3.screen] : []);
+  const violations = now2.flatMap(({ read: read3 }) => read3.ok ? [] : [`${prefix}${read3.problem}`]);
   for (const old of screens2.filter((entry3) => entry3.status === "superseded")) {
     if (!screens2.some((other) => other !== old && other.supersedes === old.screen)) {
       violations.push(`${prefix}${old.file}: "${old.screen}" is superseded, but no screen names it in supersedes`);
     }
   }
-  for (const { file: file2, text: text15, read: read2 } of parsed(base ?? {})) {
-    if (!read2.ok || read2.screen.status !== "locked") continue;
-    const was = read2.screen;
+  for (const { file: file2, text: text15, read: read3 } of parsed(base ?? {})) {
+    if (!read3.ok || read3.screen.status !== "locked") continue;
+    const was = read3.screen;
     const where = `${prefix}${file2}: the locked screen "${was.screen}"`;
     const owner = `${was.lockedBy} (locked on ${was.lockedOn})`;
     const nowText = head[file2];
@@ -43633,7 +43633,7 @@ function gradeDesign({ dir, formFile, head, base }) {
   };
 }
 function headSnapshot({ root, dir, formFile }) {
-  const read2 = (path) => existsSync47(path) ? readFileSync51(path, "utf8") : null;
+  const read3 = (path) => existsSync47(path) ? readFileSync51(path, "utf8") : null;
   const folder = join64(root, dir);
   let names = [];
   try {
@@ -43643,7 +43643,7 @@ function headSnapshot({ root, dir, formFile }) {
   }
   const screens2 = {};
   for (const name3 of names) screens2[name3] = readFileSync51(join64(folder, name3), "utf8");
-  return { screens: screens2, form: read2(join64(root, formFile)) };
+  return { screens: screens2, form: read3(join64(root, formFile)) };
 }
 function snapshotAt({ root, ref, dir, formFile, exec }) {
   const git9 = (args) => exec("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
@@ -44228,7 +44228,7 @@ var ConstituentsSchema = external_exports.object({
   statement: external_exports.object({ id: external_exports.literal("statement"), text: text8 }).nullable(),
   never: external_exports.array(external_exports.object({ id: external_exports.string().regex(NEVER_ID), text: text8 })),
   latestEventId: external_exports.string().regex(EVENT_ID).nullish().transform((id) => id ?? null)
-}).refine((read2) => read2.state === "ok" === (read2.statement !== null || read2.never.length > 0));
+}).refine((read3) => read3.state === "ok" === (read3.statement !== null || read3.never.length > 0));
 var ConstituentsCacheSchema = external_exports.looseObject({
   repo: external_exports.string(),
   syncedAt: external_exports.string().refine((at2) => !Number.isNaN(Date.parse(at2))),
@@ -44237,8 +44237,8 @@ var ConstituentsCacheSchema = external_exports.looseObject({
 
 // kit/lib/constituents/read.ts
 function constituentsOf(reply) {
-  const read2 = ConstituentsSchema.safeParse(reply);
-  return read2.success ? read2.data : null;
+  const read3 = ConstituentsSchema.safeParse(reply);
+  return read3.success ? read3.data : null;
 }
 var MINUTE = 6e4;
 var HOUR = 60 * MINUTE;
@@ -44250,15 +44250,15 @@ function ageOf2(syncedAt, now2) {
   if (ms < DAY) return `${Math.floor(ms / HOUR)} h ago`;
   return `${Math.floor(ms / DAY)} d ago`;
 }
-function printed(read2, repo, synced) {
-  if (!read2.product) return [`no product for ${repo} yet (${synced}) \u2014 agents carry on`];
-  if (read2.state === "none") return [`no constituents for ${read2.product.name} yet (${synced}) \u2014 agents carry on`];
-  const width = Math.max(...read2.never.map((line2) => line2.id.length), 0);
+function printed(read3, repo, synced) {
+  if (!read3.product) return [`no product for ${repo} yet (${synced}) \u2014 agents carry on`];
+  if (read3.state === "none") return [`no constituents for ${read3.product.name} yet (${synced}) \u2014 agents carry on`];
+  const width = Math.max(...read3.never.map((line2) => line2.id.length), 0);
   return [
-    `Constituents of ${read2.product.name} (${synced}): they come before every priority and the playbook.`,
-    `Statement: ${read2.statement ? read2.statement.text : "(none yet)"}`,
-    read2.never.length > 0 ? "Never:" : "Never: (none yet)",
-    ...read2.never.map((line2) => `  ${line2.id.padEnd(width)}  ${line2.text}`)
+    `Constituents of ${read3.product.name} (${synced}): they come before every priority and the playbook.`,
+    `Statement: ${read3.statement ? read3.statement.text : "(none yet)"}`,
+    read3.never.length > 0 ? "Never:" : "Never: (none yet)",
+    ...read3.never.map((line2) => `  ${line2.id.padEnd(width)}  ${line2.text}`)
   ];
 }
 
@@ -44273,12 +44273,12 @@ function readCache(root, repo) {
   }
   const kept = ConstituentsCacheSchema.safeParse(value);
   if (!kept.success || kept.data.repo !== repo) return null;
-  const read2 = constituentsOf(kept.data.read);
-  return read2 ? { syncedAt: kept.data.syncedAt, read: read2 } : null;
+  const read3 = constituentsOf(kept.data.read);
+  return read3 ? { syncedAt: kept.data.syncedAt, read: read3 } : null;
 }
-function writeCache(root, { repo, syncedAt, read: read2 }) {
+function writeCache(root, { repo, syncedAt, read: read3 }) {
   ensureLocalDir(root);
-  writeFileSync26(join68(root, CONSTITUENTS_FILE), `${JSON.stringify({ repo, syncedAt, read: read2 }, null, 2)}
+  writeFileSync26(join68(root, CONSTITUENTS_FILE), `${JSON.stringify({ repo, syncedAt, read: read3 }, null, 2)}
 `);
 }
 
@@ -44289,11 +44289,11 @@ var CARRY_ON2 = "\u2014 agents carry on";
 function withDeadline2(fetch, signal) {
   return (url2, init3) => fetch(url2, { ...init3, signal: init3.signal ? AbortSignal.any([init3.signal, signal]) : signal });
 }
-var bodyOf2 = (state, read2 = null, syncedAt = null) => ({
+var bodyOf2 = (state, read3 = null, syncedAt = null) => ({
   state,
-  product: read2?.product ?? null,
-  statement: read2?.statement ?? null,
-  never: read2?.never ?? [],
+  product: read3?.product ?? null,
+  statement: read3?.statement ?? null,
+  never: read3?.never ?? [],
   syncedAt: syncedAt ?? null
 });
 function stopped2(error62) {
@@ -44352,14 +44352,14 @@ async function sync(env) {
   } catch (error62) {
     return fallback2({ repo, root, ...stopped2(error62) }, env.now());
   }
-  const read2 = constituentsOf(reply);
-  if (!read2) return fallback2({ repo, root, state: "refused", why: "refused (the reply is not constituents)" }, env.now());
+  const read3 = constituentsOf(reply);
+  if (!read3) return fallback2({ repo, root, state: "refused", why: "refused (the reply is not constituents)" }, env.now());
   const syncedAt = new Date(env.now()).toISOString();
   try {
-    writeCache(root, { repo, syncedAt, read: read2 });
+    writeCache(root, { repo, syncedAt, read: read3 });
   } catch {
   }
-  return [bodyOf2(read2.state, read2, syncedAt), printed(read2, repo, "synced just now")];
+  return [bodyOf2(read3.state, read3, syncedAt), printed(read3, repo, "synced just now")];
 }
 var constituents = {
   withoutContext: true,
@@ -45107,19 +45107,19 @@ var credits = {
     } catch (error62) {
       throw ghUsageError(unreadable(error62));
     }
-    let read2;
+    let read3;
     try {
-      read2 = readCredits({ owner, repo, since, labels: labels2, signature, exec, env: ghEnv });
+      read3 = readCredits({ owner, repo, since, labels: labels2, signature, exec, env: ghEnv });
     } catch (error62) {
       if (error62 instanceof GitHubUnreadable) throw ghUsageError(error62);
       throw error62;
     }
-    const items = creditItems({ prs: read2.prs, issues: read2.issues, commits: read2.commits, labels: labels2, signature, since });
-    const commits = signature ? creditCommits(read2.commits) : null;
+    const items = creditItems({ prs: read3.prs, issues: read3.issues, commits: read3.commits, labels: labels2, signature, since });
+    const commits = signature ? creditCommits(read3.commits) : null;
     const summary2 = summarize2(items, { commits, app: signature !== null && botLogin(signature.email) !== null });
     const name3 = signature?.name ?? null;
     if (flags.json) {
-      const doc = { name: name3, scope: { owner, repo, since }, totals: summary2, items, commits: commits ?? [], warnings: read2.warnings };
+      const doc = { name: name3, scope: { owner, repo, since }, totals: summary2, items, commits: commits ?? [], warnings: read3.warnings };
       println(stdout, JSON.stringify(doc, null, 2));
       return 0;
     }
@@ -45128,7 +45128,7 @@ var credits = {
       println(stdout);
       for (const line2 of creditsList(items)) println(stdout, line2);
     }
-    for (const warning of read2.warnings) println(stderr, `warning: ${warning}`);
+    for (const warning of read3.warnings) println(stderr, `warning: ${warning}`);
     return 0;
   })
 };
@@ -45196,14 +45196,14 @@ function readArgs(args) {
   const ref = typeof flags.ref === "string" && flags.ref.trim() ? flags.ref : null;
   return { decision: positional[0] ?? "", stateFile, old, ref, json: Boolean(flags.json) };
 }
-function report4({ stdout, stderr, decision, read: read2, json: json3 }) {
+function report4({ stdout, stderr, decision, read: read3, json: json3 }) {
   if (json3) {
-    const shown6 = read2.answer !== void 0 ? { decision, answer: read2.answer, confidence: read2.confidence, decidedBy: "jev", reason: null } : { decision, answer: null, confidence: null, decidedBy: "old", reason: read2.reason };
+    const shown6 = read3.answer !== void 0 ? { decision, answer: read3.answer, confidence: read3.confidence, decidedBy: "jev", reason: null } : { decision, answer: null, confidence: null, decidedBy: "old", reason: read3.reason };
     println(stdout, JSON.stringify(shown6));
   } else {
-    println(stdout, read2.answer !== void 0 ? `${read2.answer} ${read2.confidence.toFixed(2)}` : UNSET);
+    println(stdout, read3.answer !== void 0 ? `${read3.answer} ${read3.confidence.toFixed(2)}` : UNSET);
   }
-  if (read2.answer === void 0) println(stderr, `omni decide ${decision}: ${read2.reason} \u2014 your own answer counts`);
+  if (read3.answer === void 0) println(stderr, `omni decide ${decision}: ${read3.reason} \u2014 your own answer counts`);
 }
 var decide = {
   withoutContext: true,
@@ -45211,8 +45211,8 @@ var decide = {
     const { decision, stateFile, old, ref, json: json3 } = readArgs(args);
     const ctx = loadContext(cwd, { exec });
     const state = stateOf(ctx, stateFile);
-    const read2 = await ask4({ ctx, decision, state, old, ref, tokens: tokens2, home, fetch, callMs });
-    report4({ stdout, stderr, decision, read: read2, json: json3 });
+    const read3 = await ask4({ ctx, decision, state, old, ref, tokens: tokens2, home, fetch, callMs });
+    report4({ stdout, stderr, decision, read: read3, json: json3 });
     return 0;
   }
 };
@@ -45355,10 +45355,10 @@ function avoidedWords(product2) {
   const lines2 = product2.split(/\r?\n/);
   const terms = [];
   lines2.forEach((line2, index) => {
-    const read2 = labelled(line2);
-    if (!read2 || !LABEL2.test(read2.label)) return;
-    if (read2.rest !== "") {
-      terms.push(...read2.rest.split(/[,;]/).map(cleanTerm));
+    const read3 = labelled(line2);
+    if (!read3 || !LABEL2.test(read3.label)) return;
+    if (read3.rest !== "") {
+      terms.push(...read3.rest.split(/[,;]/).map(cleanTerm));
       return;
     }
     const floor = BULLET.test(line2) ? indent(line2) : -1;
@@ -45734,8 +45734,8 @@ function screenLabel({ screen, status: status5, routes }) {
   const mark = status5 === "locked" ? " \u{1F512}" : ` (${status5})`;
   return `${screen}${mark}${routes.length ? ` (${routes.join(", ")})` : ""}`;
 }
-function formatScreensTouched(screens2, read2 = []) {
-  const labels2 = [...screens2.map(screenLabel), ...read2.map(({ screen }) => `reads ${screen}`)];
+function formatScreensTouched(screens2, read3 = []) {
+  const labels2 = [...screens2.map(screenLabel), ...read3.map(({ screen }) => `reads ${screen}`)];
   return labels2.length ? [`screens: ${labels2.join(" \xB7 ")}`] : [];
 }
 
@@ -45797,9 +45797,9 @@ function checked2(source2) {
   return selector;
 }
 function formAvoids(io) {
-  const read2 = readForm("design", { ctx: io.ctx });
-  if (!read2.exists || !read2.ok) return [];
-  const product2 = read2.form.slots.find((slot2) => slot2.id === "product");
+  const read3 = readForm("design", { ctx: io.ctx });
+  if (!read3.exists || !read3.ok) return [];
+  const product2 = read3.form.slots.find((slot2) => slot2.id === "product");
   return product2 && product2.body.kind === "text" ? avoidedWords(product2.body.text) : [];
 }
 function dedupe(terms) {
@@ -46163,13 +46163,13 @@ function recordedLink(home, prd2, kind) {
   return readDossiers(home).filter((entry3) => entry3.prd === prd2).at(-1) ?? null;
 }
 async function pushConcept(issue2, { ctx, repo, client, stdout, stderr }) {
-  const read2 = readConceptFolder(ctx, issue2);
-  if (!read2) throw usageError(`omni dossier push: issue ${issue2} has no concept folder.`);
-  if (!read2.ok) {
-    println(stderr, `invalid concept.md: ${read2.errors.join(" ")}`);
+  const read3 = readConceptFolder(ctx, issue2);
+  if (!read3) throw usageError(`omni dossier push: issue ${issue2} has no concept folder.`);
+  if (!read3.ok) {
+    println(stderr, `invalid concept.md: ${read3.errors.join(" ")}`);
     return 1;
   }
-  const { folder } = read2;
+  const { folder } = read3;
   let result2;
   try {
     result2 = await client.pushDossier({ repo, prd: issue2, kind: "concept", title: folder.title, artifacts: folder.artifacts.map(({ kind, content }) => ({ kind, content })) });
@@ -47195,9 +47195,9 @@ function verdict(args, { ctx, stdout }) {
   const from = flags.from;
   if (positional.length !== 1 || name3 === void 0 || from === void 0) throw usageError("usage: omni flow verdict <point> --from <file>");
   const point2 = pointArg("verdict", name3);
-  const read2 = readVerdict(point2.point, readUserFile("flow verdict", ctx, from));
-  println(stdout, verdictLine(point2.point, read2));
-  return read2.ok ? 0 : 1;
+  const read3 = readVerdict(point2.point, readUserFile("flow verdict", ctx, from));
+  println(stdout, verdictLine(point2.point, read3));
+  return read3.ok ? 0 : 1;
 }
 var MERGE_USAGE = "usage: omni flow check merge --pr <n> [--repo <target>] [--json]";
 function repoArg(ctx, value, verb2) {
@@ -47474,9 +47474,9 @@ async function ask5({ fetch, sleep: sleep2, call, deadline, key: key2, title, bo
     if (remaining <= 0) return { ok: false, status: "timeout" };
     outcome = await once({ fetch, key: key2, title, body, signal: AbortSignal.timeout(remaining) });
     if (outcome.ok || !outcome.retry || attempt12 === call.attempts) return outcome;
-    const pause3 = call.backoffMs[attempt12 - 1] ?? call.backoffMs.at(-1) ?? 0;
-    if (Date.now() + pause3 >= deadline) return outcome;
-    await sleep2(pause3);
+    const pause4 = call.backoffMs[attempt12 - 1] ?? call.backoffMs.at(-1) ?? 0;
+    if (Date.now() + pause4 >= deadline) return outcome;
+    await sleep2(pause4);
   }
   return outcome;
 }
@@ -47619,13 +47619,13 @@ import { execFileSync as execFileSync12 } from "node:child_process";
 import { existsSync as existsSync53, readFileSync as readFileSync65, writeFileSync as writeFileSync30, mkdirSync as mkdirSync21 } from "node:fs";
 import { basename as basename11, join as join80, dirname as dirname17 } from "node:path";
 var REWRITTEN = /\.(md|html|yml|yaml|json)$/;
-function releaseNoteReasons(ctx, prd2, dir, read2) {
+function releaseNoteReasons(ctx, prd2, dir, read3) {
   if (!ctx.config.releaseNotes.enabled) return [];
   const file2 = releaseNotePath(dir);
   if (!existsSync53(join80(ctx.root, file2))) return [`no release note: ${file2}`];
-  return gradeReleaseNote(read2(file2), { prd: prd2 }).map((rule) => `release note: ${rule}`);
+  return gradeReleaseNote(read3(file2), { prd: prd2 }).map((rule) => `release note: ${rule}`);
 }
-function planShip(ctx, prd2, { files, read: read2 }) {
+function planShip(ctx, prd2, { files, read: read3 }) {
   const where = ctx.layout.whereIs(prd2);
   if (where?.state !== "inbox") {
     return { ok: false, reasons: [`PRD ${Number(prd2)} is not in the inbox (${where ? where.state : "nowhere"})`] };
@@ -47633,7 +47633,7 @@ function planShip(ctx, prd2, { files, read: read2 }) {
   const reasons = [
     ...openItemFiles(prd2, { ctx }).map((file2) => `open outbox item: ${file2}`),
     ...unreworkedDrift(prd2, { ctx }).map((entry3) => `drifted, not reworked: ${entry3.id}`),
-    ...releaseNoteReasons(ctx, prd2, where.dir, read2)
+    ...releaseNoteReasons(ctx, prd2, where.dir, read3)
   ];
   if (reasons.length) return { ok: false, reasons };
   const { dirs } = ctx.layout;
@@ -47646,7 +47646,7 @@ function planShip(ctx, prd2, { files, read: read2 }) {
   for (const file2 of files) {
     if (!REWRITTEN.test(file2) || basename11(file2) === SETTLED_FILE) continue;
     if (!existsSync53(join80(ctx.root, file2))) continue;
-    const before2 = read2(file2);
+    const before2 = read3(file2);
     let after = before2.split(where.dir).join(shipped);
     if (hasOutbox) after = after.split(outbox).join(`${shipped}/outbox`);
     if (after !== before2) rewrites.push({ file: file2, text: after });
@@ -47663,8 +47663,8 @@ function applyShip(ctx, prd2, { exec = execFileSync12 } = {}) {
   const delivery = ctx.config.paths.delivery;
   const dirty = exec("git", ["status", "--porcelain", "--", delivery], { cwd: ctx.root, encoding: "utf8" });
   if (String(dirty).trim()) throw new DirtyDeliveryError(delivery);
-  const read2 = (file2) => readFileSync65(join80(ctx.root, file2), "utf8");
-  const plan2 = planShip(ctx, prd2, { files: trackedFiles(ctx), read: read2 });
+  const read3 = (file2) => readFileSync65(join80(ctx.root, file2), "utf8");
+  const plan2 = planShip(ctx, prd2, { files: trackedFiles(ctx), read: read3 });
   if (!plan2.ok) throw new Error(`Cannot ship PRD ${Number(prd2)}:
 ${plan2.reasons.map((r) => `  - ${r}`).join("\n")}`);
   for (const { from, to } of plan2.moves) {
@@ -47852,14 +47852,14 @@ function knowledgeSummary({ ctx }) {
     knowledge: existsSync55(join82(ctx.root, ctx.layout.knowledgeRoot))
   };
   const knowledge2 = readKnowledge({ ctx });
-  const placeOf3 = (entry3) => entry3.scope === "product" ? PRODUCT_PLACE : entry3.domain;
+  const placeOf4 = (entry3) => entry3.scope === "product" ? PRODUCT_PLACE : entry3.domain;
   const domains = knowledge2.domains.map((domain2) => {
     const readme = join82(ctx.root, domainsDir(ctx), domain2.name, "README.md");
     return { name: domain2.name, firstLine: existsSync55(readme) ? firstLine4(readFileSync66(readme, "utf8")) : null };
   });
-  const principles = knowledge2.entries.filter((entry3) => entry3.kind === "principle" && entry3.scope !== "cross-domain").map((entry3) => ({ id: entry3.id, place: placeOf3(entry3), statement: entry3.statement }));
+  const principles = knowledge2.entries.filter((entry3) => entry3.kind === "principle" && entry3.scope !== "cross-domain").map((entry3) => ({ id: entry3.id, place: placeOf4(entry3), statement: entry3.statement }));
   const laws2 = knowledge2.entries.flatMap(
-    (entry3) => (entry3.kind === "rule" || entry3.kind === "invariant") && entry3.scope !== "cross-domain" ? [{ id: entry3.id, kind: entry3.kind, place: placeOf3(entry3), statement: entry3.statement }] : []
+    (entry3) => (entry3.kind === "rule" || entry3.kind === "invariant") && entry3.scope !== "cross-domain" ? [{ id: entry3.id, kind: entry3.kind, place: placeOf4(entry3), statement: entry3.statement }] : []
   );
   const decisions = places.adr ? readDecisions({ ctx }).records.map((record2) => ({ number: record2.number, title: record2.title })) : [];
   return { places, domains, principles, decisions, laws: laws2 };
@@ -48727,8 +48727,8 @@ async function askLawWorth(question, { ctx, exec, env, vars, ref }) {
     const quiet = { write: () => true };
     const args = ["law-worth", "--state-file", file2, "--old", String(question.old), "--ref", ref, "--json"];
     await decide.run(args, { cwd: ctx.root, stdout: { write: (text15) => out.push(text15) }, stderr: quiet, exec, env, vars });
-    const read2 = DecidedSchema.safeParse(JSON.parse(out.join("") || "null"));
-    return read2.success ? { worth: read2.data.answer === "true", decidedBy: "Jev", confidence: read2.data.confidence } : null;
+    const read3 = DecidedSchema.safeParse(JSON.parse(out.join("") || "null"));
+    return read3.success ? { worth: read3.data.answer === "true", decidedBy: "Jev", confidence: read3.data.confidence } : null;
   } finally {
     rmSync13(dir, { recursive: true, force: true });
   }
@@ -49015,10 +49015,10 @@ var ENTRIES = deepFreeze([
     name: "runner",
     kind: "command",
     who: "you",
-    usage: ["omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]", "omni runner sender"],
+    usage: ["omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]", "omni runner sender", "omni runner send '<line>' [--to <runner|fleet>]", "omni runner follow <n>"],
     label: "omni runner",
     summary: "run the lines the Omni app sends, on this machine",
-    detail: "Makes this machine a runner: it registers with the Omni page under --name, shows on its Runners page, and runs the /omni: lines people send it with Send to terminal, at most --slots at once (4 by default, 8 at most). It signs in as every omni command does (OMNI_TOKEN, else omni signin), holds the git checkouts right under --repos, by their origin, and refuses to start when claude is missing or signed out, or tmux is missing. Each job runs in a worktree ~/wt/<repo>-job-<id> on branch agent/job-<id>, in the tmux session job-<id>; its line goes to claude from a file, never a shell. claude runs with --output-format stream-json: each step becomes one readable line (Bash: <command>, Edit: <path>, PR: <link>, a failed call's \u2717 with up to 20 lines of its output, Done: with its turns and cost), written to ~/logs/job-<id>.log and the session, while the raw stream stays on the machine in ~/logs/job-<id>.jsonl. Every 5 s the runner sends the log's new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per report, sending them again when a report fails and every line left once the job ends: the Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, mega-bug-fix, visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills the plugin holds: before Claude starts, a plugin older than the omni the job's repository pins is updated (once, however many slots start together), and one still older fails the job with omni plugin v<x> is older than <owner/repo>'s omni v<y> and its update's last line; a plugin not installed fails it with the line to install it; a list that does not read lets the job run, its log saying so. At start and once an hour it updates the plugin, printing a line only when its version changed or the update failed. sender prints the line /omni:pr writes in a pull request a job opens, naming who sent it and the runner."
+    detail: `Makes this machine a runner: it registers with the Omni page under --name, shows on its Runners page, and runs the /omni: lines people send it with Send to terminal, at most --slots at once (4 by default, 8 at most). It signs in as every omni command does (OMNI_TOKEN, else omni signin), holds the git checkouts right under --repos, by their origin, and refuses to start when claude is missing or signed out, or tmux is missing. Each job runs in a worktree ~/wt/<repo>-job-<id> on branch agent/job-<id>, in the tmux session job-<id>; its line goes to claude from a file, never a shell. claude runs with --output-format stream-json: each step becomes one readable line (Bash: <command>, Edit: <path>, PR: <link>, a failed call's \u2717 with up to 20 lines of its output, Done: with its turns and cost), written to ~/logs/job-<id>.log and the session, while the raw stream stays on the machine in ~/logs/job-<id>.jsonl. Every 5 s the runner sends the log's new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per report, sending them again when a report fails and every line left once the job ends: the Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, mega-bug-fix, visual-fix, plan, pitch and prove run. A job past --timeout (3h by default) is stopped; Ctrl-C waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills the plugin holds: before Claude starts, a plugin older than the omni the job's repository pins is updated (once, however many slots start together), and one still older fails the job with omni plugin v<x> is older than <owner/repo>'s omni v<y> and its update's last line; a plugin not installed fails it with the line to install it; a list that does not read lets the job run, its log saying so. At start and once an hour it updates the plugin, printing a line only when its version changed or the update failed. sender prints the line /omni:pr writes in a pull request a job opens, naming who sent it and the runner. send "<line>" [--to <runner|fleet>] queues a line for this repository's workspace with your own sign-in and prints the job's id (a line no runner runs is refused before any call; --to names a runner, else a fleet). follow <n> finds the PRD's newest job in this repository and prints one line per milestone until it ends (queued, claimed by <runner>, waiting for approval, PR: <link>, <k>/<total> slices merged, then Waiting on answers, Held, Ready, Done, Failed: <reason>, Cancelled or Runner lost, with the PRD page link): exit 0 on done, 1 on failed, cancelled or runner lost; Ctrl-C stops the following only, the job runs on.`
   },
   {
     name: "dossier",
@@ -50246,9 +50246,9 @@ async function add2({ client, repo }, idea2, { stdout, stderr }) {
   else println(stderr, "refused (no board in the reply)");
 }
 async function list4({ client, repo }, json3, { stdout, stderr }) {
-  const read2 = await attempt5(stderr, () => client.listIdeas(repo));
-  if (!read2) return;
-  const board2 = boardOf(read2.reply);
+  const read3 = await attempt5(stderr, () => client.listIdeas(repo));
+  if (!read3) return;
+  const board2 = boardOf(read3.reply);
   if (!board2) println(stderr, "refused (no board in the reply)");
   else if (json3) println(stdout, JSON.stringify(board2, null, 2));
   else for (const line2 of listLines(board2)) println(stdout, line2);
@@ -50804,16 +50804,16 @@ function frontMatter3(text15) {
   const block = FRONT_MATTER4.exec(text15 ?? "");
   if (!block) return null;
   try {
-    const read2 = FilledFrontMatterSchema.safeParse((0, import_yaml9.parse)(block[1] ?? ""));
-    return read2.success ? read2.data : null;
+    const read3 = FilledFrontMatterSchema.safeParse((0, import_yaml9.parse)(block[1] ?? ""));
+    return read3.success ? read3.data : null;
   } catch {
     return null;
   }
 }
 function playbookOf(configText) {
   try {
-    const read2 = PlaybookConfigSchema.safeParse((0, import_yaml9.parse)(configText));
-    const playbook = read2.success ? read2.data.paths?.playbook : void 0;
+    const read3 = PlaybookConfigSchema.safeParse((0, import_yaml9.parse)(configText));
+    const playbook = read3.success ? read3.data.paths?.playbook : void 0;
     return typeof playbook === "string" && playbook.trim() ? playbook.replace(/\/+$/, "") : DEFAULT_PLAYBOOK;
   } catch {
     return DEFAULT_PLAYBOOK;
@@ -52104,9 +52104,9 @@ var FAIL = (line2) => ({ ok: false, lines: [line2] });
 var ReplySchema2 = external_exports.object({ nodes: external_exports.number(), edges: external_exports.number(), products: external_exports.array(external_exports.unknown()) });
 var ProductSchema = external_exports.object({ key: external_exports.unknown(), href: external_exports.string() });
 function replyOf2(value) {
-  const read2 = ReplySchema2.safeParse(value);
-  if (!read2.success) return null;
-  const { nodes, edges, products } = read2.data;
+  const read3 = ReplySchema2.safeParse(value);
+  if (!read3.success) return null;
+  const { nodes, edges, products } = read3.data;
   const served = products.flatMap((product2) => {
     const one = ProductSchema.safeParse(product2);
     if (!one.success) return [];
@@ -52239,9 +52239,9 @@ function productLine2({ state, key: key2, cachedOn }) {
   if (state === "offline") return "product knowledge: offline.";
   return "product knowledge: none.";
 }
-function productGraphText(read2) {
-  const unresolved = read2.unresolved.map(({ repo, node: node3, id }) => `unresolved: ${repo} ${node3} \u2192 ${id}`);
-  return [...read2.repositories.map(repositoryLine), ...neighbourhoodBody(read2, []), ...unresolved, productLine2(read2.product)];
+function productGraphText(read3) {
+  const unresolved = read3.unresolved.map(({ repo, node: node3, id }) => `unresolved: ${repo} ${node3} \u2192 ${id}`);
+  return [...read3.repositories.map(repositoryLine), ...neighbourhoodBody(read3, []), ...unresolved, productLine2(read3.product)];
 }
 function refusal3(error62) {
   if (!(error62 instanceof AskCallError)) return FAIL2(`kb graph: ${messageOf(error62)}`);
@@ -52257,9 +52257,9 @@ async function readProductGraph({ askUrl: askUrl2, client, key: key2, id, depth,
   } catch (error62) {
     return refusal3(error62);
   }
-  const read2 = readNeighbourhood(answer);
-  if (read2 === null) return FAIL2("kb graph: the server answered something that is not a knowledge graph");
-  return { ok: true, lines: json3 ? [JSON.stringify(answer, null, 2)] : productGraphText(read2) };
+  const read3 = readNeighbourhood(answer);
+  if (read3 === null) return FAIL2("kb graph: the server answered something that is not a knowledge graph");
+  return { ok: true, lines: json3 ? [JSON.stringify(answer, null, 2)] : productGraphText(read3) };
 }
 
 // kit/lib/knowledge/packs/get.ts
@@ -52445,8 +52445,8 @@ function ownJudged({ installed: installed2, filled }) {
 }
 function importedStale(gh, target3, { branch, config: config3, evidence, copyFlow }) {
   const { repo } = target3;
-  const read2 = { repo, readAt: defined(target3.readAt, `the readAt of ${repo}`) };
-  const stale2 = [staleness3(gh, read2, branch, evidence), copyFlow === void 0 ? null : flowMoved(gh, read2, branch, config3, copyFlow)].filter(
+  const read3 = { repo, readAt: defined(target3.readAt, `the readAt of ${repo}`) };
+  const stale2 = [staleness3(gh, read3, branch, evidence), copyFlow === void 0 ? null : flowMoved(gh, read3, branch, config3, copyFlow)].filter(
     (why3) => why3 !== null
   );
   return stale2.length > 0 ? stale2.join("; ") : null;
@@ -52460,11 +52460,11 @@ function commitsFlow(repo, config3) {
   const target3 = targetFlow(repo, config3);
   return !("error" in target3) && hasFlow(target3);
 }
-function judged2(gh, target3, facts, read2) {
+function judged2(gh, target3, facts, read3) {
   const { knowledge: knowledge2 } = target3;
   const drifted = knowledge2 === "own" ? ownJudged(facts) : facts.installed && facts.filled ? ["drifted", `the config says ${knowledge2}, but it has the loop and a filled form`] : ["ok", null];
   if (drifted[0] !== "ok") return drifted;
-  const stale2 = knowledge2 === "imported" ? importedStale(gh, target3, read2) : otherStale(gh, target3, read2);
+  const stale2 = knowledge2 === "imported" ? importedStale(gh, target3, read3) : otherStale(gh, target3, read3);
   return stale2 === null ? ["ok", null] : ["stale", stale2];
 }
 function readTarget2(target3, {
@@ -52839,14 +52839,14 @@ async function productVerb(verb2, positional, { ctx, stdout, exec }, options, cw
   if (typeof reach4 === "string") return refuse6(reach4);
   const { repo, client } = reach4;
   try {
-    const read2 = await productKnowledge({
+    const read3 = await productKnowledge({
       repo,
       root: mainCheckout(cwd, exec) ?? ctx.root,
       now: options.now ?? (() => /* @__PURE__ */ new Date()),
       fetchBusiness: () => client.readBusiness(repo)
     });
-    if (read2.from === "copy") println(stdout, unreachableLine(read2.readAt));
-    for (const line2 of verb2 === "legal" ? legalLines(read2.legal) : glossaryLines(read2.glossary)) println(stdout, line2);
+    if (read3.from === "copy") println(stdout, unreachableLine(read3.readAt));
+    for (const line2 of verb2 === "legal" ? legalLines(read3.legal) : glossaryLines(read3.glossary)) println(stdout, line2);
     return 0;
   } catch (error62) {
     return refuse6(messageOf(error62));
@@ -53091,12 +53091,12 @@ function requireProofText(text15) {
   lines2.splice(at2 + 1, 0, `${indent2}requireProof: true`);
   return lines2.join("\n");
 }
-function editableFiles(read2) {
+function editableFiles(read3) {
   const original = /* @__PURE__ */ new Map();
   const texts = /* @__PURE__ */ new Map();
   const textOf6 = (path) => {
     if (!texts.has(path)) {
-      const text15 = read2(path);
+      const text15 = read3(path);
       original.set(path, text15);
       texts.set(path, text15);
     }
@@ -53136,13 +53136,13 @@ function requireProofOf(config3, decided) {
 }
 function sweepEdits({
   entries: entries4,
-  read: read2,
+  read: read3,
   verdicts,
   markers,
   knowledgeFiles: knowledgeFiles3,
   config: config3
 }) {
-  const files = editableFiles((path) => config3 !== null && path === config3.file ? config3.text : read2(path));
+  const files = editableFiles((path) => config3 !== null && path === config3.file ? config3.text : read3(path));
   const laws2 = unenforcedLaws(entries4);
   const removed = laws2.flatMap((entry3) => {
     const verdict2 = verdicts[entry3.id];
@@ -53194,8 +53194,8 @@ async function classifierWorth(state, vars) {
     fetch: globalThis.fetch,
     title: "omni knowledge judge"
   });
-  const read2 = WorthReplySchema.safeParse(answer.reply);
-  if (answer.ok && read2.success) return { worth: read2.data.worthALaw };
+  const read3 = WorthReplySchema.safeParse(answer.reply);
+  if (answer.ok && read3.success) return { worth: read3.data.worthALaw };
   return { reason: answer.reason ?? "the model gave no answer" };
 }
 var worthText = (worth) => worth.worth ? lawWorthNote(worth).replace(/^not /, "") : lawWorthNote(worth);
@@ -53562,9 +53562,9 @@ var PREPARERS = /* @__PURE__ */ new Map([
   ["stop", prepareStop]
 ]);
 function prepare2(event, args, options) {
-  const read2 = PREPARERS.get(event);
-  if (!read2) throw usageError(USAGE27);
-  return read2(args, options);
+  const read3 = PREPARERS.get(event);
+  if (!read3) throw usageError(USAGE27);
+  return read3(args, options);
 }
 function standingLine(loop2, state) {
   const hint = state === "silent" ? "take it over with --take-over" : "stop it first (omni loop push stop)";
@@ -53981,23 +53981,23 @@ function closedBlocker(blockedBy, standings) {
   }
   return null;
 }
-function openPrerequisite(row, read2) {
-  const blocking = (read2.roadmap.prerequisites ?? []).filter((p) => p.blocks === "all" || p.blocks.includes(row.id));
+function openPrerequisite(row, read3) {
+  const blocking = (read3.roadmap.prerequisites ?? []).filter((p) => p.blocks === "all" || p.blocks.includes(row.id));
   for (const prerequisite of blocking) {
-    const words4 = prerequisiteWords(prerequisite, read2);
+    const words4 = prerequisiteWords(prerequisite, read3);
     if (words4 !== null) return words4;
   }
   return null;
 }
-function prerequisiteWords(prerequisite, read2) {
-  if (prerequisite.who === "person" && read2.ticks?.has(prerequisite.id)) return null;
-  const state = read2.prerequisites?.get(prerequisite.id);
+function prerequisiteWords(prerequisite, read3) {
+  if (prerequisite.who === "person" && read3.ticks?.has(prerequisite.id)) return null;
+  const state = read3.prerequisites?.get(prerequisite.id);
   if (state !== void 0 && isMet(state)) return null;
   const line2 = `waits on prerequisite ${prerequisite.id} (${prerequisite.category}): ${prerequisite.need}`;
-  return state === void 0 ? `${line2} \u2014 not checked on this machine yet: omni roadmap prereqs ${read2.roadmap.roadmap} --fix` : line2;
+  return state === void 0 ? `${line2} \u2014 not checked on this machine yet: omni roadmap prereqs ${read3.roadmap.roadmap} --fix` : line2;
 }
-function roadmapGates(read2) {
-  const { roadmap: roadmap2, answers: answers2, standings, live, issueLink } = read2;
+function roadmapGates(read3) {
+  const { roadmap: roadmap2, answers: answers2, standings, live, issueLink } = read3;
   const rows2 = rowStates(roadmap2, standings);
   const gates = /* @__PURE__ */ new Map();
   const withLink = (gate, link3) => link3 ? { ...gate, link: link3 } : gate;
@@ -54018,8 +54018,8 @@ function roadmapGates(read2) {
       gates.set(row.prd, withLink({ kind: "hold", why: wait5.waitsOn }, wait5.waitsOnUrl));
       continue;
     }
-    const open3 = openPrerequisite(row, read2);
-    if (open3 !== null) gates.set(row.prd, withLink({ kind: "hold", why: open3 }, read2.prerequisitesLink ?? issueLink));
+    const open3 = openPrerequisite(row, read3);
+    if (open3 !== null) gates.set(row.prd, withLink({ kind: "hold", why: open3 }, read3.prerequisitesLink ?? issueLink));
   }
   return gates;
 }
@@ -54737,9 +54737,9 @@ function touchedBy(ctx, commits) {
   }
   return [...seen.values()];
 }
-function unlessUnreadable(read2) {
+function unlessUnreadable(read3) {
   try {
-    return read2();
+    return read3();
   } catch {
     return null;
   }
@@ -55155,8 +55155,8 @@ async function readFacts2(prd2, reader, gate) {
 }
 async function beforeInbox(prd2, phase02, reader) {
   if (phase02 === null) throw usageError(`omni next: PRD ${prd2} has no inbox or shipped folder, and no open phase-0 PR.`);
-  const read2 = await acrossFacts("", null, reader);
-  const facts = { prd: prd2, shipped: false, phase0: phase02, feature: null, board: null, outbox: { questions: 0, answered: false }, ...read2 ? { across: read2.across } : {} };
+  const read3 = await acrossFacts("", null, reader);
+  const facts = { prd: prd2, shipped: false, phase0: phase02, feature: null, board: null, outbox: { questions: 0, answered: false }, ...read3 ? { across: read3.across } : {} };
   return { facts, slices: null, prs: [], running: null };
 }
 function standingsOf(own2, outbox, across, reader) {
@@ -55184,11 +55184,11 @@ async function acrossFacts(branch, slices, reader) {
   const repo = shortName9(reader.slug);
   const named4 = new Set(reposOf2(slices));
   const landed = targets2.filter((target3) => named4.has(shortName9(target3.repo)) && shortName9(target3.repo) !== repo);
-  const read2 = [];
-  for (const target3 of landed) read2.push({ repo: shortName9(target3.repo), ...await targetPr(branch, { ...reader, slug: target3.repo }) });
+  const read3 = [];
+  for (const target3 of landed) read3.push({ repo: shortName9(target3.repo), ...await targetPr(branch, { ...reader, slug: target3.repo }) });
   return {
-    across: { repo, targets: read2.map(({ repo: name3, pr }) => ({ repo: name3, pr })) },
-    listed: read2.flatMap(({ repo: name3, listed: listed2 }) => listed2 ? [{ repo: name3, pr: listed2 }] : [])
+    across: { repo, targets: read3.map(({ repo: name3, pr }) => ({ repo: name3, pr })) },
+    listed: read3.flatMap(({ repo: name3, listed: listed2 }) => listed2 ? [{ repo: name3, pr: listed2 }] : [])
   };
 }
 var PR_STATES2 = ["OPEN", "MERGED", "CLOSED"];
@@ -55207,19 +55207,19 @@ function endedOf(facts) {
 }
 async function readPrd(prd2, reader) {
   const gate = approvalGate(await prdState(reader.ctx, prd2, { approval: reader.approval }));
-  let read2;
+  let read3;
   try {
-    read2 = await readFacts2(prd2, reader, gate);
+    read3 = await readFacts2(prd2, reader, gate);
   } catch (error62) {
     if (isUsage(error62) || stopsEverything2(error62)) throw error62;
     const planPath = reader.ctx.layout.planPath(prd2);
     const facts = { prd: prd2, shipped: false, phase0: null, feature: "unreadable", board: "unreadable", outbox: "unreadable", approval: gate };
-    read2 = { facts, slices: planPath === null ? null : planSlices(join106(reader.ctx.root, planPath)), prs: [], running: null };
+    read3 = { facts, slices: planPath === null ? null : planSlices(join106(reader.ctx.root, planPath)), prs: [], running: null };
   }
-  const input2 = { prd: prd2, blockedBy: blockersOf2(prd2, reader.ctx), slices: read2.slices, ended: endedOf(read2.facts) };
-  const repos = reposOf2(read2.slices);
-  const verdict2 = decideNext(read2.facts);
-  return { verdict: repos.length > 0 ? { ...verdict2, repos } : verdict2, input: input2, read: read2 };
+  const input2 = { prd: prd2, blockedBy: blockersOf2(prd2, reader.ctx), slices: read3.slices, ended: endedOf(read3.facts) };
+  const repos = reposOf2(read3.slices);
+  const verdict2 = decideNext(read3.facts);
+  return { verdict: repos.length > 0 ? { ...verdict2, repos } : verdict2, input: input2, read: read3 };
 }
 async function yourPrds(reader) {
   const facts = readFacts({ ctx: reader.ctx, exec: reader.exec });
@@ -55233,17 +55233,17 @@ async function yourPrds(reader) {
   return yours2.rows.filter((row) => row.stage !== "prd").map((row) => row.prd).sort((a, b) => a - b);
 }
 async function readAll2(prds, reader, roadmap2 = null) {
-  const read2 = [];
-  for (const prd2 of prds) read2.push(await readPrd(prd2, reader));
+  const read3 = [];
+  for (const prd2 of prds) read3.push(await readPrd(prd2, reader));
   const driven = new Set(prds);
   const rowBlockers = roadmapBlockers(roadmap2);
-  const inputs = read2.map(({ input: input2 }) => {
+  const inputs = read3.map(({ input: input2 }) => {
     const extra = rowBlockers.get(input2.prd) ?? [];
     return extra.length === 0 ? input2 : { ...input2, blockedBy: [.../* @__PURE__ */ new Set([...input2.blockedBy, ...extra])].sort((a, b) => a - b) };
   });
   const outside = [...new Set(inputs.flatMap((input2) => input2.blockedBy))].filter((prd2) => !driven.has(prd2));
   const shipped = outside.filter((prd2) => reader.ctx.layout.whereIs(prd2)?.state === "shipped");
-  return { verdicts: read2.map(({ verdict: verdict2 }) => verdict2), inputs: { prds: inputs, shipped }, reads: new Map(read2.map((one) => [one.input.prd, one.read])) };
+  return { verdicts: read3.map(({ verdict: verdict2 }) => verdict2), inputs: { prds: inputs, shipped }, reads: new Map(read3.map((one) => [one.input.prd, one.read])) };
 }
 function roadmapBlockers(roadmap2) {
   if (roadmap2 === null) return /* @__PURE__ */ new Map();
@@ -55271,11 +55271,11 @@ async function gatesOf(roadmap2, reads, reader) {
   const standings = /* @__PURE__ */ new Map();
   const live = /* @__PURE__ */ new Map();
   for (const row of roadmap2.prds) {
-    const read2 = reads.get(row.prd);
-    if (!read2) continue;
-    const standing3 = { shipped: read2.facts.shipped, prs: read2.prs, expected: 1 + (read2.facts.across?.targets.length ?? 0) };
+    const read3 = reads.get(row.prd);
+    if (!read3) continue;
+    const standing3 = { shipped: read3.facts.shipped, prs: read3.prs, expected: 1 + (read3.facts.across?.targets.length ?? 0) };
     standings.set(row.id, standing3);
-    const words4 = liveWords(prdState2(standing3), read2.facts, read2.slices);
+    const words4 = liveWords(prdState2(standing3), read3.facts, read3.slices);
     if (words4 !== null) live.set(row.id, words4);
   }
   const { answers: answers2, ticks: ticks2 } = await issueReadOf(roadmap2, reader);
@@ -55318,7 +55318,7 @@ function currentPlan(kept, inputs, root) {
 }
 function liveOf({ verdicts, inputs, reads }, gates) {
   const merged = new Map(inputs.prds.map((input2) => [input2.prd, new Set((input2.slices ?? []).filter((slice) => slice.state === "merged").map((slice) => slice.id))]));
-  const running = new Map([...reads].flatMap(([prd2, read2]) => read2.running === null ? [] : [[prd2, read2.running]]));
+  const running = new Map([...reads].flatMap(([prd2, read3]) => read3.running === null ? [] : [[prd2, read3.running]]));
   return {
     verdicts: new Map(verdicts.map((verdict2) => [verdict2.prd, verdict2])),
     merged,
@@ -55329,14 +55329,14 @@ function liveOf({ verdicts, inputs, reads }, gates) {
   };
 }
 async function followKept(prds, kept, { reader, out, json: json3, roadmap: roadmap2 }) {
-  const read2 = await readAll2(prds, reader, roadmap2 ?? null);
-  const { plan: plan2, replanned } = currentPlan(kept, read2.inputs, reader.ctx.root);
-  const gates = roadmap2 ? await gatesOf(roadmap2, read2.reads, reader) : null;
-  const live = liveOf(read2, gates);
+  const read3 = await readAll2(prds, reader, roadmap2 ?? null);
+  const { plan: plan2, replanned } = currentPlan(kept, read3.inputs, reader.ctx.root);
+  const gates = roadmap2 ? await gatesOf(roadmap2, read3.reads, reader) : null;
+  const live = liveOf(read3, gates);
   const { config: config3 } = reader.ctx;
   const pool = followSteps(plan2, live, config3.limits.parallelSteps, config3.generated ?? []);
-  const held2 = gates ? heldOf(gates, read2.verdicts) : [];
-  const ticked = { plan: plan2, replanned, followed: followPlan(plan2, live), pool, verdicts: read2.verdicts, held: held2, roadmap: roadmap2?.roadmap ?? null };
+  const held2 = gates ? heldOf(gates, read3.verdicts) : [];
+  const ticked = { plan: plan2, replanned, followed: followPlan(plan2, live), pool, verdicts: read3.verdicts, held: held2, roadmap: roadmap2?.roadmap ?? null };
   for (const line2 of json3 ? [JSON.stringify(tickJson(ticked), null, 2)] : tickLines(ticked)) out(line2);
   return 0;
 }
@@ -56104,8 +56104,8 @@ function readLinks(root, kind, n, now2) {
     const age = now2 - Date.parse(parsed2.data.at);
     if (!(age >= 0 && age < SHOWN_UNDER_MS)) return [];
     return parsed2.data.links.flatMap((link3) => {
-      const read2 = LinkSchema.safeParse(link3);
-      return read2.success ? [read2.data] : [];
+      const read3 = LinkSchema.safeParse(link3);
+      return read3.success ? [read3.data] : [];
     });
   } catch {
     return [];
@@ -56909,11 +56909,11 @@ async function pushPitch({
   repo,
   prd: prd2,
   run: run2,
-  read: read2 = readFileSync95
+  read: read3 = readFileSync95
 }) {
   const reply = await client.requestPitchUploads({ repo, prd: prd2, files: run2.files.map(({ name: name3, bytes, type }) => ({ name: name3, bytes, type })) });
   const { runId, links: links2 } = linksOf3(reply, run2.files);
-  for (const [index, file2] of run2.files.entries()) await client.upload(at(links2, index, `the upload link of ${file2.name}`), read2(file2.path), file2.type);
+  for (const [index, file2] of run2.files.entries()) await client.upload(at(links2, index, `the upload link of ${file2.name}`), read3(file2.path), file2.type);
   const { audience, look, commit, hook, benefit, kicker, closing } = run2;
   const registered = await client.registerPitch({ repo, prd: prd2, run: runId, audience, look, commit, hook, benefit, kicker, closing });
   const tab = isRecord5(registered) ? registered.url : void 0;
@@ -58813,7 +58813,7 @@ async function pushProof({
   prd: prd2,
   kind,
   run: run2,
-  read: read2 = readFileSync102,
+  read: read3 = readFileSync102,
   newRunId = randomUUID3
 }) {
   const kindOf5 = kind ? { kind } : {};
@@ -58821,7 +58821,7 @@ async function pushProof({
   if (run2.files.length) {
     const reply = await client.requestProofUploads({ repo, prd: prd2, ...kindOf5, files: run2.files.map(({ name: name3, bytes, type }) => ({ name: name3, bytes, type })) });
     const given = linksOf4(reply, run2.files);
-    for (const [index, file2] of run2.files.entries()) await client.upload(at(given.links, index, `the upload link of ${file2.name}`), read2(file2.path), file2.type);
+    for (const [index, file2] of run2.files.entries()) await client.upload(at(given.links, index, `the upload link of ${file2.name}`), read3(file2.path), file2.type);
     runId = given.runId;
   } else {
     runId = newRunId();
@@ -59518,14 +59518,14 @@ async function pushInputs(n, io, given) {
   const entry3 = roadmapFile(ctx, "push", n);
   const askUrl2 = ctx.config.ask.url;
   if (!askUrl2) return "off";
-  const read2 = readRoadmap(ctx, entry3);
-  if (typeof read2 === "string") return read2;
+  const read3 = readRoadmap(ctx, entry3);
+  if (typeof read3 === "string") return read3;
   const client = signedInClient({ askUrl: askUrl2, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
   if (!client) return "no sign-in (omni signin)";
-  const loop2 = await readLoop(ctx, repo, read2.roadmap, io);
+  const loop2 = await readLoop(ctx, repo, read3.roadmap, io);
   if (typeof loop2 === "string") return loop2;
   const result2 = given ?? keptResult(ctx, n, io);
-  return { askUrl: askUrl2, client, body: roadmapPushBody({ repo, roadmap: read2.roadmap, document: read2.document, ...loop2, result: result2 }) };
+  return { askUrl: askUrl2, client, body: roadmapPushBody({ repo, roadmap: read3.roadmap, document: read3.document, ...loop2, result: result2 }) };
 }
 function reportPush3(io, n, { askUrl: askUrl2, body }, reply) {
   const roadmapId = field(reply, "roadmapId");
@@ -59571,9 +59571,9 @@ function assertAsks(roadmap2, n, question) {
 function answerCommand(rest, io) {
   const { n, question, answer } = answerArgs(rest);
   const { ctx } = repoContext2(io);
-  const read2 = readRoadmap(ctx, roadmapFile(ctx, "answer", n));
-  if (typeof read2 === "string") return refuse5(io.stderr, read2);
-  assertAsks(read2.roadmap, n, question);
+  const read3 = readRoadmap(ctx, roadmapFile(ctx, "answer", n));
+  if (typeof read3 === "string") return refuse5(io.stderr, read3);
+  assertAsks(read3.roadmap, n, question);
   let url2;
   try {
     url2 = githubClientFor(ctx, { issue: n, exec: io.exec, env: io.env }).createComment(answerComment(question, answer))?.html_url;
@@ -59653,9 +59653,9 @@ async function prereqsCommand(rest, io) {
   if (positional.length !== 1) throw usageError(USAGE34);
   const n = issueArg("roadmap prereqs", "<n>", positional[0]);
   const { ctx, repo } = repoContext2(io);
-  const read2 = readRoadmap(ctx, roadmapFile(ctx, "prereqs", n));
-  if (typeof read2 === "string") return refuse5(io.stderr, read2);
-  const prerequisites = read2.roadmap.prerequisites ?? [];
+  const read3 = readRoadmap(ctx, roadmapFile(ctx, "prereqs", n));
+  if (typeof read3 === "string") return refuse5(io.stderr, read3);
+  const prerequisites = read3.roadmap.prerequisites ?? [];
   if (prerequisites.length === 0) {
     println(io.stdout, `roadmap ${n} \u2014 no prerequisites: nothing to check.`);
     return 0;
@@ -59683,9 +59683,9 @@ function tickCommand(rest, io) {
   const n = issueArg("roadmap tick", "<n>", positional[0]);
   const id = positional[1] ?? "";
   const { ctx } = repoContext2(io);
-  const read2 = readRoadmap(ctx, roadmapFile(ctx, "tick", n));
-  if (typeof read2 === "string") return refuse5(io.stderr, read2);
-  assertPersonRow(read2.roadmap, n, id);
+  const read3 = readRoadmap(ctx, roadmapFile(ctx, "tick", n));
+  if (typeof read3 === "string") return refuse5(io.stderr, read3);
+  assertPersonRow(read3.roadmap, n, id);
   let url2;
   try {
     url2 = githubClientFor(ctx, { issue: n, exec: io.exec, env: io.env }).createComment(tickComment(id))?.html_url;
@@ -59816,11 +59816,36 @@ var JobSchema = external_exports.object({
   sentBy: external_exports.string().nullish().transform((value) => value ?? null)
 });
 var UpdatedSchema = external_exports.object({ cancel: external_exports.boolean().optional() }).loose();
+var KitRunnerSchema = external_exports.object({
+  id: external_exports.string(),
+  name: external_exports.string(),
+  fleet: external_exports.string().nullable(),
+  state: external_exports.enum(["online", "busy", "offline"]),
+  used: external_exports.number(),
+  slots: external_exports.number(),
+  repos: external_exports.array(external_exports.string())
+});
+var PrdJobSchema = external_exports.object({
+  id: external_exports.string(),
+  line: external_exports.string(),
+  status: external_exports.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  runner: external_exports.string().nullable(),
+  prUrl: external_exports.string().nullable(),
+  exitCode: external_exports.number().nullable(),
+  reason: external_exports.string().nullable(),
+  outcome: external_exports.enum(["answers", "held", "ready"]).nullable().optional().transform((value) => value ?? null),
+  queuedAt: external_exports.string()
+});
+var JobLinesSchema = external_exports.object({
+  status: PrdJobSchema.shape.status,
+  lines: external_exports.array(external_exports.object({ seq: external_exports.number(), text: external_exports.string() })),
+  more: external_exports.boolean()
+});
 var timedOut4 = (error62) => typeof error62 === "object" && error62 !== null && "name" in error62 && error62.name === "TimeoutError";
 function checked4(response, what, allow) {
-  if (response.status === 401 || response.status === 403 && allow !== 403) throw new RunnerRefused(NO_SIGN_IN6);
+  if (response.status === 401 || response.status === 403 && !allow.includes(403)) throw new RunnerRefused(NO_SIGN_IN6);
   if (response.status >= 500) throw new RunnerUnreachable(`${what}: ${String(response.status)}`);
-  if (!response.ok && response.status !== allow) throw new RunnerRefused(`refused (${String(response.status)})`);
+  if (!response.ok && !allow.includes(response.status)) throw new RunnerRefused(`refused (${String(response.status)})`);
   return response;
 }
 function runnerApi({ askUrl: askUrl2, tokens: tokens2, fetch }) {
@@ -59836,7 +59861,7 @@ function runnerApi({ askUrl: askUrl2, tokens: tokens2, fetch }) {
     if (!fresh) throw new RunnerRefused(NO_SIGN_IN6);
     return fresh;
   }
-  async function send3(method, path, token, { body, timeoutMs, signal }) {
+  async function send4(method, path, token, { body, timeoutMs, signal }) {
     const headers = { accept: "application/json", authorization: `Bearer ${token}` };
     if (body !== void 0) headers["content-type"] = "application/json";
     const timeout = AbortSignal.timeout(timeoutMs);
@@ -59856,9 +59881,13 @@ function runnerApi({ askUrl: askUrl2, tokens: tokens2, fetch }) {
     const timeoutMs = options.timeoutMs ?? CALL_MS2;
     const held2 = tokens2.read(host)?.access_token;
     const token = held2 ? held2 : await renewed2();
-    let response = await send3(method, path, token, { ...options, timeoutMs });
-    if (response.status === 401) response = await send3(method, path, await renewed2(), { ...options, timeoutMs });
-    return checked4(response, `${method} ${path}`, options.allow);
+    let response = await send4(method, path, token, { ...options, timeoutMs });
+    if (response.status === 401) response = await send4(method, path, await renewed2(), { ...options, timeoutMs });
+    return checked4(response, `${method} ${path}`, options.allow ?? []);
+  }
+  function forbidden(response) {
+    if (response.status === 403) throw new RunnerRefused("refused (403: this repository is not in your workspace)");
+    return response;
   }
   async function json3(response) {
     const text15 = await response.text().catch(() => "");
@@ -59881,14 +59910,40 @@ function runnerApi({ askUrl: askUrl2, tokens: tokens2, fetch }) {
       return job2.success ? job2.data : null;
     },
     async update(job2, update2) {
-      const response = await call("POST", `/api/runners/jobs/${segment(job2)}`, { body: update2, allow: 409 });
+      const response = await call("POST", `/api/runners/jobs/${segment(job2)}`, { body: update2, allow: [409] });
       if (response.status === 409) return { cancel: true };
       const reply = UpdatedSchema.safeParse(await json3(response));
       return { cancel: reply.success && reply.data.cancel === true };
     },
     async health(runner2, report7) {
-      const response = await call("POST", `/api/runners/${segment(runner2)}/health`, { body: report7, timeoutMs: HEALTH_MS, allow: 403 });
+      const response = await call("POST", `/api/runners/${segment(runner2)}/health`, { body: report7, timeoutMs: HEALTH_MS, allow: [403] });
       if (response.status === 403) throw new RunnerRefused("refused (403)");
+    },
+    async runners(repo) {
+      const reply = external_exports.object({ runners: external_exports.array(KitRunnerSchema) }).safeParse(await json3(await call("GET", `/api/runners?${new URLSearchParams({ repo })}`, { allow: [403] }).then(forbidden)));
+      if (!reply.success) throw new RunnerRefused("refused (the app answered no runners)");
+      return reply.data.runners;
+    },
+    async prdJobs(repo, prd2) {
+      const query = new URLSearchParams({ repo, prd: String(prd2) });
+      const reply = external_exports.object({ jobs: external_exports.array(PrdJobSchema) }).safeParse(await json3(await call("GET", `/api/runners/jobs?${query}`, { allow: [403] }).then(forbidden)));
+      if (!reply.success) throw new RunnerRefused("refused (the app answered no jobs)");
+      return reply.data.jobs;
+    },
+    async lines(job2, after) {
+      const reply = JobLinesSchema.safeParse(await json3(await call("GET", `/api/runners/jobs/${segment(job2)}/lines?after=${String(after)}`)));
+      if (!reply.success) throw new RunnerRefused("refused (the app answered no lines)");
+      return reply.data;
+    },
+    async send(request2) {
+      const response = await call("POST", "/api/runners/jobs", { body: request2, allow: [400, 403] });
+      if (!response.ok) {
+        const error62 = external_exports.object({ error: external_exports.string() }).safeParse(await json3(response));
+        throw new RunnerRefused(error62.success ? error62.data.error : `refused (${String(response.status)})`);
+      }
+      const reply = external_exports.object({ job: external_exports.object({ id: external_exports.union([external_exports.string().min(1), external_exports.number()]).transform(String) }) }).safeParse(await json3(response));
+      if (!reply.success) throw new RunnerRefused("refused (the app answered no job)");
+      return { id: reply.data.job.id };
     }
   };
 }
@@ -59930,9 +59985,9 @@ init_define_OMNI_BUNDLE();
 import { availableParallelism, cpus, freemem, loadavg, platform, totalmem } from "node:os";
 import { existsSync as existsSync83, readFileSync as readFileSync105, statfsSync } from "node:fs";
 import { join as join131 } from "node:path";
-function figure(read2) {
+function figure(read3) {
   try {
-    const value = read2();
+    const value = read3();
     return Number.isFinite(value) && value >= 0 ? value : null;
   } catch {
     return null;
@@ -60588,10 +60643,10 @@ function readPlugin(exec) {
   const version3 = versionOfEntries(entries4.flatMap((entry3) => entry3 === null ? [] : [entry3]));
   return version3 === null ? { kind: "unread", why: `${OMNI_PLUGIN_ID} has no version in claude plugin list` } : { kind: "version", version: version3 };
 }
-function standing(read2, pinned) {
-  if (read2.kind === "unread") return { note: `omni plugin version not read: ${read2.why}` };
-  if (read2.kind === "missing") return { failed: `the omni plugin is not installed: claude plugin install ${OMNI_PLUGIN_ID}` };
-  return compareVersions(read2.version, pinned) >= 0 ? { note: null } : { older: read2.version };
+function standing(read3, pinned) {
+  if (read3.kind === "unread") return { note: `omni plugin version not read: ${read3.why}` };
+  if (read3.kind === "missing") return { failed: `the omni plugin is not installed: claude plugin install ${OMNI_PLUGIN_ID}` };
+  return compareVersions(read3.version, pinned) >= 0 ? { note: null } : { older: read3.version };
 }
 function pluginKeeper({ exec, running, bundle, print: print2 }) {
   let turn = Promise.resolve();
@@ -60851,20 +60906,20 @@ async function unpaused(loop2) {
   }
   return !loop2.halt.aborted;
 }
-async function backOff(loop2, delay, error62, signal) {
-  loop2.print(`the app is unreachable (${error62.message}): trying again in ${String(Math.round(delay / 1e3))} s`);
-  await loop2.sleep(delay, signal);
-  return Math.min(delay * 2, loop2.maxMs);
+async function backOff(loop2, delay2, error62, signal) {
+  loop2.print(`the app is unreachable (${error62.message}): trying again in ${String(Math.round(delay2 / 1e3))} s`);
+  await loop2.sleep(delay2, signal);
+  return Math.min(delay2 * 2, loop2.maxMs);
 }
 async function register(loop2) {
-  let delay = loop2.firstMs;
+  let delay2 = loop2.firstMs;
   const repos = [...loop2.checkouts.keys()];
   while (!loop2.halt.aborted) {
     try {
       return (await loop2.api.register({ name: loop2.name, slots: loop2.slots, repos, version: loop2.version ?? "unknown" })).id;
     } catch (error62) {
       if (error62 instanceof RunnerRefused) loop2.refuse(error62);
-      else if (error62 instanceof RunnerUnreachable) delay = await backOff(loop2, delay, error62, loop2.halt);
+      else if (error62 instanceof RunnerUnreachable) delay2 = await backOff(loop2, delay2, error62, loop2.halt);
       else throw error62;
     }
   }
@@ -61238,8 +61293,273 @@ function missingTool(exec) {
   return null;
 }
 
+// kit/bin/commands/runner-follow.ts
+init_define_OMNI_BUNDLE();
+import { mkdirSync as mkdirSync35, rmSync as rmSync20, writeFileSync as writeFileSync51 } from "node:fs";
+import { join as join138 } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
+
+// kit/lib/runner/follow.ts
+init_define_OMNI_BUNDLE();
+var NOTHING_SEEN = Object.freeze({ queued: false, claimedBy: null, waiting: false, prs: [], merged: 0, ended: false });
+var STAMP3 = /^\d{2}:\d{2}:\d{2} /;
+var PR_LINE = /^PR: (\S+)/;
+var WAITING = /^◌ PRD \d+ · waiting for /;
+var APPROVED = /^✓ PRD \d+ approved /;
+var DONE_WORDS = { answers: "Waiting on answers", held: "Held", ready: "Ready" };
+var failure6 = ({ reason: reason2, exitCode }) => reason2 ?? (exitCode === null ? "no reason given" : `exit code ${String(exitCode)}`);
+function ending(job2) {
+  if (job2.status === "cancelled") return "Cancelled";
+  if (job2.status === "failed") return job2.reason === "runner lost" ? "Runner lost" : `Failed: ${failure6(job2)}`;
+  if (job2.status !== "done") return null;
+  return job2.outcome === null ? "Done" : DONE_WORDS[job2.outcome];
+}
+function readLines(lines2, seen) {
+  let waiting = seen.waiting;
+  let waitingStarted = false;
+  const prs = [...seen.prs];
+  const fresh = [];
+  for (const raw of lines2) {
+    const line2 = raw.trim().replace(STAMP3, "");
+    if (WAITING.test(line2)) {
+      if (!waiting) waitingStarted = true;
+      waiting = true;
+    } else if (APPROVED.test(line2)) {
+      waiting = false;
+    }
+    const pr = PR_LINE.exec(line2)?.[1];
+    if (pr !== void 0 && !prs.includes(pr)) {
+      prs.push(pr);
+      fresh.push(pr);
+    }
+  }
+  return { waiting, waitingStarted, prs: fresh.length > 0 ? prs : [...seen.prs] };
+}
+function milestones(previous, job2, lines2, merged, page2) {
+  const seen = previous ?? NOTHING_SEEN;
+  const out = [];
+  if (!seen.queued) out.push("queued");
+  let claimedBy = seen.claimedBy;
+  if (claimedBy === null && job2.runner !== null) {
+    claimedBy = job2.runner;
+    out.push(`claimed by ${job2.runner}`);
+  }
+  const read3 = readLines(lines2, seen);
+  if (read3.waitingStarted) out.push("waiting for approval");
+  for (const pr of read3.prs.slice(seen.prs.length)) out.push(`PR: ${pr}`);
+  let count5 = seen.merged;
+  if (merged !== null && merged.total > 0 && merged.merged > count5) {
+    count5 = merged.merged;
+    out.push(`${String(merged.merged)}/${String(merged.total)} slices merged`);
+  }
+  let ended2 = seen.ended;
+  const last = ended2 ? null : ending(job2);
+  if (last !== null) {
+    ended2 = true;
+    out.push(page2 === null ? last : `${last} \xB7 ${page2}`);
+  }
+  return { lines: out, seen: { queued: true, claimedBy, waiting: read3.waiting, prs: read3.prs, merged: count5, ended: ended2 } };
+}
+function isEnded(job2) {
+  return job2.status === "done" || job2.status === "failed" || job2.status === "cancelled";
+}
+function exitCodeOf(job2) {
+  return job2.status === "done" ? 0 : 1;
+}
+
+// kit/bin/commands/runner-follow.ts
+var SEND_USAGE = "usage: omni runner send '<line>' [--to <runner|fleet>]";
+var FOLLOW_USAGE = "usage: omni runner follow <n>";
+var FOLLOW_MS = 5e3;
+var HELD_AFTER2 = 3;
+var BOARD_EVERY = 6;
+var SIGNED_OUT = "no sign-in (omni signin) \xB7 held";
+var UNREACHABLE2 = "server unreachable \xB7 held, not failed";
+function placeOf3(io) {
+  let ctx;
+  try {
+    ctx = loadContext(io.cwd, { exec: io.exec });
+  } catch (error62) {
+    println(io.stderr, `omni runner: ${error62 instanceof Error ? error62.message : String(error62)}`);
+    return 1;
+  }
+  const { slug } = ctx.config.repo;
+  const askUrl2 = ctx.config.ask.url;
+  if (slug && askUrl2) return { slug, askUrl: askUrl2, root: ctx.root };
+  println(io.stderr, slug ? "omni runner: no Omni page is set here (ask.url) \xB7 held" : "omni runner: no repository slug \u2014 set repo.slug in the config.");
+  return 1;
+}
+function signedInAt(io) {
+  const place = placeOf3(io);
+  if (place === 1) return 1;
+  const { slug, askUrl: askUrl2, root } = place;
+  const tokens2 = io.tokens ?? homeTokens({ home: io.home, omniToken: io.vars.omniToken?.token ?? null });
+  if (!tokens2.read(credentialsHost(askUrl2))) {
+    println(io.stdout, SIGNED_OUT);
+    return 1;
+  }
+  return { askUrl: askUrl2, repo: slug, root, tokens: tokens2, api: runnerApi({ askUrl: askUrl2, tokens: tokens2, fetch: io.fetch ?? globalThis.fetch }) };
+}
+async function targetOf3(to, repo, reads) {
+  if (to === void 0) return { kind: "any" };
+  const runners = await reads.runners(repo);
+  const runner2 = runners.find((candidate) => candidate.name === to);
+  if (runner2) return { kind: "runner", runner: runner2.id };
+  if (runners.some((candidate) => candidate.fleet === to)) return { kind: "fleet", fleet: to };
+  return `omni runner: no runner or fleet named "${to}" in this workspace.`;
+}
+async function send3(args, io) {
+  const { positional, flags } = parseArgs("runner", args, { values: ["to"] });
+  const [line2] = positional;
+  if (positional.length !== 1 || line2 === void 0 || flags.to === "") throw usageError(SEND_USAGE);
+  const checked5 = checkRunnerLine(line2);
+  if (!checked5.ok) {
+    println(io.stderr, `omni runner: ${checked5.reason}`);
+    return 1;
+  }
+  const at2 = signedInAt(io);
+  if (at2 === 1) return 1;
+  try {
+    const target3 = await targetOf3(flags.to, at2.repo, at2.api);
+    if (typeof target3 === "string") {
+      println(io.stderr, target3);
+      return 1;
+    }
+    const job2 = await at2.api.send({ line: line2, repo: at2.repo, target: target3 });
+    println(io.stdout, job2.id);
+    return 0;
+  } catch (error62) {
+    println(io.stderr, `omni runner: ${error62 instanceof Error ? error62.message : String(error62)}`);
+    return 1;
+  }
+}
+var pause3 = (ms, signal) => delay(ms, void 0, signal ? { signal } : {}).catch(() => void 0);
+function interrupts() {
+  const controller = new AbortController();
+  const stop = () => {
+    controller.abort();
+  };
+  process.on("SIGINT", stop);
+  process.on("SIGTERM", stop);
+  return {
+    signal: controller.signal,
+    release() {
+      process.off("SIGINT", stop);
+      process.off("SIGTERM", stop);
+    }
+  };
+}
+async function boardCount(prd2, io) {
+  let text15 = "";
+  const sink = { write: () => void 0 };
+  const capture2 = { write: (chunk) => text15 += chunk };
+  try {
+    if (await board.run([String(prd2), "--json"], { cwd: io.cwd, exec: io.exec, env: io.env, vars: io.vars, script: io.script, tokens: io.tokens, home: io.home, ...io.fetch ? { fetch: io.fetch } : {}, stdout: capture2, stderr: sink }) !== 0) return null;
+    const slices = JSON.parse(text15).slices;
+    if (!Array.isArray(slices)) return null;
+    return { merged: slices.filter((slice) => slice.state === "merged").length, total: slices.length };
+  } catch {
+    return null;
+  }
+}
+async function pageOf3(prd2, at2, fetch) {
+  try {
+    const client = askClient({ baseUrl: at2.askUrl, host: credentialsHost(at2.askUrl), tokens: at2.tokens, fetch });
+    const found2 = await client.findDossier({ repo: at2.repo, prd: prd2 });
+    return typeof found2?.url === "string" && found2.url !== "" ? found2.url : null;
+  } catch {
+    return null;
+  }
+}
+var followFile = (root, prd2) => join138(root, LOCAL_DIR, "runner-follow", `${String(prd2)}.json`);
+async function newLines2(run2, job2) {
+  const lines2 = [];
+  for (; ; ) {
+    const read3 = await run2.at.api.lines(job2, run2.cursor);
+    for (const line2 of read3.lines) {
+      lines2.push(line2.text);
+      run2.cursor = Math.max(run2.cursor, line2.seq);
+    }
+    if (!read3.more || read3.lines.length === 0) return lines2;
+  }
+}
+function remember(run2, job2, line2) {
+  const { root } = run2.at;
+  ensureLocalDir(root);
+  mkdirSync35(join138(root, LOCAL_DIR, "runner-follow"), { recursive: true });
+  const at2 = new Date((run2.io.now ?? Date.now)()).toISOString();
+  writeFileSync51(followFile(root, run2.prd), `${JSON.stringify({ prd: Number(run2.prd), runner: job2.runner, line: line2, at: at2 }, null, 2)}
+`);
+}
+async function jobOf(run2) {
+  const jobs = await run2.at.api.prdJobs(run2.at.repo, run2.prd);
+  return (run2.job === null ? jobs[0] : jobs.find((job2) => job2.id === run2.job)) ?? null;
+}
+async function countOf(run2, ended2) {
+  if (run2.reads % BOARD_EVERY !== 0 && !ended2) return run2.merged;
+  return (run2.io.mergedOf ?? ((prd2) => boardCount(prd2, run2.io)))(run2.prd);
+}
+async function read2(run2) {
+  const job2 = await jobOf(run2);
+  if (job2 === null) {
+    if (run2.reads === 0) println(run2.io.stdout, `waiting for a job of PRD ${String(run2.prd)}`);
+    return null;
+  }
+  run2.job = job2.id;
+  const lines2 = await newLines2(run2, job2.id);
+  const ended2 = isEnded(job2);
+  run2.merged = await countOf(run2, ended2);
+  const page2 = ended2 ? await pageOf3(run2.prd, run2.at, run2.io.fetch ?? globalThis.fetch) : null;
+  const next2 = milestones(run2.seen, job2, lines2, run2.merged, page2);
+  run2.seen = next2.seen;
+  for (const line2 of next2.lines) println(run2.io.stdout, line2);
+  const last = next2.lines.at(-1);
+  if (last !== void 0) remember(run2, job2, last);
+  return ended2 ? exitCodeOf(job2) : null;
+}
+function endOf(error62, failures) {
+  if (error62 instanceof RunnerRefused) return error62.message;
+  if (!(error62 instanceof RunnerUnreachable)) throw error62;
+  return failures >= HELD_AFTER2 ? UNREACHABLE2 : null;
+}
+async function follow2(run2, signal) {
+  let failures = 0;
+  while (!signal.aborted) {
+    try {
+      const code = await read2(run2);
+      if (code !== null) return code;
+      failures = 0;
+    } catch (error62) {
+      failures += 1;
+      const end3 = endOf(error62, failures);
+      if (end3 !== null) {
+        println(run2.io.stdout, end3);
+        return 1;
+      }
+    }
+    run2.reads += 1;
+    await (run2.io.sleep ?? pause3)(run2.io.followMs ?? FOLLOW_MS, signal);
+  }
+  println(run2.io.stdout, `stopped following PRD ${String(run2.prd)} \xB7 the job runs on`);
+  return 130;
+}
+async function followCommand(args, io) {
+  const { positional } = parseArgs("runner", args);
+  if (positional.length !== 1) throw usageError(FOLLOW_USAGE);
+  const prd2 = prdArg("runner", "<n>", positional[0]);
+  const at2 = signedInAt(io);
+  if (at2 === 1) return 1;
+  const stop = io.stop ? { signal: io.stop, release: () => void 0 } : interrupts();
+  try {
+    return await follow2({ prd: prd2, at: at2, io, seen: null, job: null, cursor: 0, merged: null, reads: 0 }, stop.signal);
+  } finally {
+    stop.release();
+    rmSync20(followFile(at2.root, prd2), { force: true });
+  }
+}
+
 // kit/bin/commands/runner.ts
-var USAGE35 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender";
+var USAGE35 = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n>";
 var DEFAULT_SLOTS = 4;
 var MAX_SLOTS = 8;
 var DEFAULT_TIMEOUT = "3h";
@@ -61257,21 +61577,6 @@ function findAskUrl(cwd, checkouts, exec) {
     if (url2 !== null) return url2;
   }
   return null;
-}
-function interrupts() {
-  const controller = new AbortController();
-  const stop = () => {
-    controller.abort();
-  };
-  process.on("SIGINT", stop);
-  process.on("SIGTERM", stop);
-  return {
-    signal: controller.signal,
-    release() {
-      process.off("SIGINT", stop);
-      process.off("SIGTERM", stop);
-    }
-  };
 }
 function keepLogsOf(value) {
   return value === void 0 ? KEEP_LOGS_DAYS : positiveInt("runner", "--keep-logs", value);
@@ -61374,14 +61679,16 @@ var runner = {
       return 0;
     }
     if (first === "job") return job(rest, io);
+    if (first === "send") return send3(rest, io);
+    if (first === "follow") return followCommand(rest, io);
     return start2(args, io);
   }
 };
 
 // kit/bin/commands/rework.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync108, writeFileSync as writeFileSync51 } from "node:fs";
-import { join as join138 } from "node:path";
+import { readFileSync as readFileSync108, writeFileSync as writeFileSync52 } from "node:fs";
+import { join as join139 } from "node:path";
 
 // kit/lib/policy/rework.ts
 init_define_OMNI_BUNDLE();
@@ -61576,7 +61883,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync108(join138(ctx.root, path), "utf8");
+    return readFileSync108(join139(ctx.root, path), "utf8");
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") return "";
     throw error62;
@@ -61653,7 +61960,7 @@ function runClose(args, { ctx, stdout }) {
   } catch (error62) {
     throw usageError(errorMessage(error62).split("\n")[0] ?? "");
   }
-  writeFileSync51(join138(ctx.root, settledFile), closedText);
+  writeFileSync52(join139(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -62096,9 +62403,9 @@ function printToken({ stdout }, made) {
   return 0;
 }
 function endingLine({ stderr }, error62) {
-  const ending = endingOf2(error62);
-  if (ending === null) throw error62;
-  println(stderr, `omni setup-token: ${ending}`);
+  const ending2 = endingOf2(error62);
+  if (ending2 === null) throw error62;
+  println(stderr, `omni setup-token: ${ending2}`);
   return 1;
 }
 async function fallbackDevice2(run2) {
@@ -62386,8 +62693,8 @@ function formatOverview(overview2, { now: now2 }) {
 var USAGE41 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
 async function overview({ ctx, stdout, exec, fetch, gate }) {
   if (fetch) {
-    const failure7 = fetchRemote({ ctx, exec });
-    if (failure7 !== null) println(stdout, `fetch failed: ${failure7}; showing your last fetch`);
+    const failure8 = fetchRemote({ ctx, exec });
+    if (failure8 !== null) println(stdout, `fetch failed: ${failure8}; showing your last fetch`);
   }
   const facts = readFacts({ ctx, exec });
   if (facts === null) {
@@ -62600,7 +62907,7 @@ async function phase0Of2(repos, ctx, io) {
 
 // kit/bin/commands/product.ts
 var USAGE44 = "usage: omni product import --product <name> | omni product which | omni product use <key> | omni product phase0 <owner/name>\u2026";
-function failure6(error62, what) {
+function failure7(error62, what) {
   if (!(error62 instanceof AskCallError)) return { ok: false, lines: [messageOf(error62)] };
   if (error62.status === null) return { ok: false, lines: [`${what}: the server is unreachable`] };
   return { ok: false, lines: [`${what}: the server refused (${error62.status}): ${error62.reason ?? error62.message}`] };
@@ -62614,7 +62921,7 @@ function importCall(ctx, repo, product2) {
     try {
       return { ok: true, lines: importLines(await client.importProductTargets({ repo, product: product2, targets: targets2 }), product2) };
     } catch (error62) {
-      return failure6(error62, `the import into product ${product2} stopped`);
+      return failure7(error62, `the import into product ${product2} stopped`);
     }
   };
 }
@@ -62622,7 +62929,7 @@ var whichCall = (repo) => async (client) => {
   try {
     return { ok: true, lines: whichLines(await client.readProductsOf(repo)) };
   } catch (error62) {
-    return failure6(error62, `no products read for ${repo}`);
+    return failure7(error62, `no products read for ${repo}`);
   }
 };
 var VERBS4 = {
@@ -62997,7 +63304,7 @@ function kindOf4(args) {
   const value = args[args.indexOf(KIND_FLAG2) + 1];
   return LINK_KINDS.find((kind) => kind === value);
 }
-function pageOf3(ctx, { tokens: tokens2, home, fetch = globalThis.fetch, callMs }) {
+function pageOf4(ctx, { tokens: tokens2, home, fetch = globalThis.fetch, callMs }) {
   const toggle = dossierSwitch(ctx.config);
   const repo = ctx.config.repo.slug;
   const client = toggle.on && repo ? signedInClient({ askUrl: toggle.askUrl, tokens: tokens2, home, fetch, callMs }) : null;
@@ -63018,15 +63325,15 @@ function loopReadsOf2(ctx, { reads, tokens: tokens2, home, fetch, callMs }) {
 async function refreshWorkLinks(root, kind, n, io, timed, instant2) {
   const ctx = loadContext(io.cwd, { exec: timed });
   const reads = loopReadsOf2(ctx, io);
-  await refreshLinks({ root, kind, n, now: instant2, build: () => buildLinks(ctx, kind, n, { reads, page: pageOf3(ctx, io), exec: timed }) });
+  await refreshLinks({ root, kind, n, now: instant2, build: () => buildLinks(ctx, kind, n, { reads, page: pageOf4(ctx, io), exec: timed }) });
 }
 async function refreshPrdBoard(root, prd2, io, timed, instant2) {
   if (lockHeld(root, prd2, instant2)) return;
-  const read2 = async () => {
+  const read3 = async () => {
     const ctx = loadContext(io.cwd, { exec: timed });
     return (await buildBoard(prd2, { ctx, reads: boardReads(loopReadsOf2(ctx, io)), now: instant2, exec: timed })).result.slices;
   };
-  const built = await read2().then((slices) => ({ slices }), (error62) => ({ error: error62 }));
+  const built = await read3().then((slices) => ({ slices }), (error62) => ({ error: error62 }));
   refreshBoard({
     root,
     prd: prd2,
@@ -63253,7 +63560,7 @@ init_define_OMNI_BUNDLE();
 // kit/lib/sync/kit.ts
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync109 } from "node:fs";
-import { join as join139 } from "node:path";
+import { join as join140 } from "node:path";
 
 // kit/lib/sync/setup.ts
 init_define_OMNI_BUNDLE();
@@ -63280,14 +63587,14 @@ function claudePlugins(io) {
   const held2 = memo2.get(io);
   if (held2 !== void 0) return held2;
   const options = { cwd: io.cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: CLAUDE_BUDGET_MS };
-  let read2;
+  let read3;
   try {
-    read2 = pluginsOfList(io.exec("claude", ["plugin", "list", "--json"], options));
+    read3 = pluginsOfList(io.exec("claude", ["plugin", "list", "--json"], options));
   } catch (error62) {
-    read2 = afterFailure(error62);
+    read3 = afterFailure(error62);
   }
-  memo2.set(io, read2);
-  return read2;
+  memo2.set(io, read3);
+  return read3;
 }
 function isSignedIn({ askUrl: askUrl2, home, now: now2 }) {
   if (askUrl2 === null) return true;
@@ -63327,7 +63634,7 @@ var setupFacts = (io) => Promise.resolve(processUnderTest() ? ALL_DONE : setupFa
 // kit/lib/sync/kit.ts
 var GH_BUDGET_MS = 5e3;
 var BIN_MAX_BYTES = 64 * 1024 * 1024;
-var TARGET_KITS_FILE = join139(".omni-loop", "local", "sync-targets.json");
+var TARGET_KITS_FILE = join140(".omni-loop", "local", "sync-targets.json");
 var TargetKitsSchema = external_exports.record(external_exports.string(), external_exports.object({ sha: external_exports.string(), version: external_exports.string().nullable() }));
 var ProductTargetsCopySchema = external_exports.looseObject({ targets: external_exports.array(external_exports.looseObject({ repo: external_exports.string() })) });
 function whyFailed(error62, command2) {
@@ -63345,18 +63652,18 @@ function notFound(error62) {
 }
 function latestOf(exec, home) {
   if (home === null) return { notChecked: "no kit home" };
-  let failure7;
+  let failure8;
   const watched = (file2, args, options) => {
     try {
       return exec(file2, args, options);
     } catch (error62) {
-      failure7 = error62;
+      failure8 = error62;
       throw error62;
     }
   };
   const latest = latestRelease({ home, exec: watched, timeoutMs: GH_BUDGET_MS });
   if (latest !== null) return latest;
-  return { notChecked: failure7 === void 0 ? "no release" : whyFailed(failure7, "gh") };
+  return { notChecked: failure8 === void 0 ? "no release" : whyFailed(failure8, "gh") };
 }
 function pluginsOf(io) {
   const list5 = claudePlugins(io);
@@ -63376,7 +63683,7 @@ function targetRepos({ root, config: config3 }) {
   const planned = config3.plan?.targets ?? [];
   if (planned.length > 0) return planned.map((target3) => target3.repo);
   try {
-    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync109(join139(root, PRODUCT_TARGETS_FILE), "utf8")));
+    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync109(join140(root, PRODUCT_TARGETS_FILE), "utf8")));
     return copy.targets.map((target3) => target3.repo).filter((repo) => repo !== config3.repo.slug);
   } catch {
     return [];
@@ -63384,7 +63691,7 @@ function targetRepos({ root, config: config3 }) {
 }
 function readTargetKits(root) {
   try {
-    return TargetKitsSchema.parse(JSON.parse(readFileSync109(join139(root, TARGET_KITS_FILE), "utf8")));
+    return TargetKitsSchema.parse(JSON.parse(readFileSync109(join140(root, TARGET_KITS_FILE), "utf8")));
   } catch {
     return {};
   }
@@ -63415,7 +63722,7 @@ function targetsOf2(io) {
   const facts = repos.map((repo) => targetKit(io, repo, kept, found2));
   try {
     ensureLocalDir(io.root);
-    writeJsonAt(join139(io.root, TARGET_KITS_FILE), found2);
+    writeJsonAt(join140(io.root, TARGET_KITS_FILE), found2);
   } catch {
   }
   return facts;
@@ -63449,11 +63756,11 @@ function staleOf(ctx, exec) {
     return { notChecked: "the playbook did not read" };
   }
 }
-function targetsOf3(ctx, exec, read2) {
+function targetsOf3(ctx, exec, read3) {
   const plan2 = ctx.config.plan;
   if (!plan2 || plan2.product !== void 0) return null;
   try {
-    return read2(plan2.targets, { ctx, exec: budgeted(exec) }).map(({ repo, state }) => ({ repo, state }));
+    return read3(plan2.targets, { ctx, exec: budgeted(exec) }).map(({ repo, state }) => ({ repo, state }));
   } catch {
     return { notChecked: "no gh" };
   }
@@ -63464,13 +63771,13 @@ function changedOf2(root, config3, exec) {
   const changed = gitLines(exec, root, ["status", "--porcelain", "--untracked-files=no", "--", config3.paths.knowledge]);
   return changed === null ? { notChecked: "git status failed" } : changed.length;
 }
-function gatherKnowledge(io, read2 = readTargets) {
+function gatherKnowledge(io, read3 = readTargets) {
   const root = gitLines(io.exec, io.cwd, ["rev-parse", "--show-toplevel"])?.[0];
   if (root === void 0) return Promise.resolve({ notChecked: "not a git checkout" });
   const ctx = createContext(root, io.config);
   return Promise.resolve({
     staleEvidence: staleOf(ctx, io.exec),
-    targets: targetsOf3(ctx, io.exec, read2),
+    targets: targetsOf3(ctx, io.exec, read3),
     changed: changedOf2(root, io.config, io.exec)
   });
 }
@@ -63502,10 +63809,10 @@ async function refreshed(deps, { askUrl: askUrl2, host, repo, root, now: now2 })
     }, deps.budgetMs);
   });
   try {
-    const read2 = constituentsOf(await Promise.race([client.readConstituents(repo), late]));
-    if (read2 === null) return false;
+    const read3 = constituentsOf(await Promise.race([client.readConstituents(repo), late]));
+    if (read3 === null) return false;
     try {
-      writeCache(root, { repo, syncedAt: new Date(now2).toISOString(), read: read2 });
+      writeCache(root, { repo, syncedAt: new Date(now2).toISOString(), read: read3 });
     } catch {
     }
     return true;
@@ -63527,12 +63834,12 @@ async function gatherPage(io, deps = {}) {
   const kept = copyAt !== null && Number.isFinite(copyAt) ? copyAt : null;
   if (!signedInTo(tokens2, host, io.now)) return { signedIn: false, syncedAt: kept, answering: false };
   if (!repo) return { signedIn: true, syncedAt: kept, answering: false };
-  const read2 = await refreshed(
+  const read3 = await refreshed(
     { tokens: tokens2, fetch: deps.fetch ?? globalThis.fetch, budgetMs: deps.budgetMs ?? PAGE_BUDGET_MS },
     { askUrl: askUrl2, host, repo, root: io.root, now: io.now }
   );
-  if (read2 === "refused") return { signedIn: false, syncedAt: kept, answering: false };
-  return { signedIn: true, syncedAt: read2 ? io.now : kept, answering: read2 };
+  if (read3 === "refused") return { signedIn: false, syncedAt: kept, answering: false };
+  return { signedIn: true, syncedAt: read3 ? io.now : kept, answering: read3 };
 }
 var pageFacts = (io) => gatherPage(io);
 
@@ -63696,12 +64003,12 @@ var sync2 = {
 
 // kit/bin/commands/update.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync88, mkdtempSync as mkdtempSync5, readFileSync as readFileSync110, rmSync as rmSync20 } from "node:fs";
+import { existsSync as existsSync88, mkdtempSync as mkdtempSync5, readFileSync as readFileSync110, rmSync as rmSync21 } from "node:fs";
 import { tmpdir as tmpdir5 } from "node:os";
-import { join as join140 } from "node:path";
+import { join as join141 } from "node:path";
 var USAGE46 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target3, exec }) {
-  const dir = mkdtempSync5(join140(tmpdir5(), "omni-update-"));
+  const dir = mkdtempSync5(join141(tmpdir5(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home: defined(home, "the kit home"), version: target3, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
@@ -63713,7 +64020,7 @@ function handOver2({ cwd, home, from, target: target3, exec }) {
       return typeof status5 === "number" && Number.isInteger(status5) ? status5 : 1;
     }
   } finally {
-    rmSync20(dir, { recursive: true, force: true });
+    rmSync21(dir, { recursive: true, force: true });
   }
 }
 function rootOf(cwd, exec) {
@@ -63724,7 +64031,7 @@ function rootOf(cwd, exec) {
   }
 }
 function claudeListed(root) {
-  const file2 = root ? join140(root, CONFIG_FILE) : null;
+  const file2 = root ? join141(root, CONFIG_FILE) : null;
   if (!file2 || !existsSync88(file2)) return true;
   try {
     return parseConfig(readFileSync110(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");

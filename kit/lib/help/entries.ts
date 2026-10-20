@@ -334,7 +334,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'runner',
     kind: 'command',
     who: 'you',
-    usage: ['omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]', 'omni runner sender'],
+    usage: ['omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]', 'omni runner sender', "omni runner send '<line>' [--to <runner|fleet>]", 'omni runner follow <n>'],
     label: 'omni runner',
     summary: 'run the lines the Omni app sends, on this machine',
     detail:
@@ -359,7 +359,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'not installed fails it with the line to install it; a list that does not read lets the job ' +
       'run, its log saying so. At start and once an hour it updates the plugin, printing a line only ' +
       'when its version changed or the update failed. sender prints the line /omni:pr writes in a ' +
-      'pull request a job opens, naming who sent it and the runner.',
+      'pull request a job opens, naming who sent it and the runner. send "<line>" [--to <runner|fleet>] ' +
+      'queues a line for this repository\'s workspace with your own sign-in and prints the job\'s id (a line no ' +
+      'runner runs is refused before any call; --to names a runner, else a fleet). follow <n> finds the PRD\'s ' +
+      'newest job in this repository and prints one line per milestone until it ends (queued, claimed by <runner>, ' +
+      'waiting for approval, PR: <link>, <k>/<total> slices merged, then Waiting on answers, Held, Ready, Done, ' +
+      'Failed: <reason>, Cancelled or Runner lost, with the PRD page link): exit 0 on done, 1 on failed, cancelled ' +
+      'or runner lost; Ctrl-C stops the following only, the job runs on.',
   },
   {
     name: 'dossier',

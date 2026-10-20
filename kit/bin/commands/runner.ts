@@ -4,6 +4,8 @@
 //   omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]
 //               [--max-memory 85] [--min-disk 10] [--max-load 1.5]
 //   omni runner sender
+//   omni runner send '<line>' [--to <runner|fleet>]
+//   omni runner follow <n>
 //   omni runner job --line <file> --log <file> --exit <file>
 //
 // The first starts the runner (`../../lib/runner/runner.ts`): it reads the sign-in every kit command
@@ -25,6 +27,9 @@
 // `sender` prints the line `/omni:pr` writes in a pull request a job opens, `Sent from the Omni app by
 // @<login> on runner <name>`, read from `OMNI_SENT_BY` and `OMNI_RUNNER`; either unset, it prints
 // nothing. `job` is what runs inside a job's tmux session (`../../lib/runner/job.ts`): no person runs it.
+//
+// `send` queues a line for this repository's workspace and `follow` prints a PRD's job milestones
+// until it ends (PRD 2251, `./runner-follow.ts`); both use the terminal's own sign-in.
 //
 // A test hands it `tokens`, `home`, `fetch`, `terminal`, `stop`, `sleep`, `now`, `tickMs`, `backoff` and
 // `machine`, the reads its health samples are taken from.
@@ -48,8 +53,10 @@ import { missingTool, tmuxTerminal } from '../../lib/runner/terminal.ts';
 import type { Terminal } from '../../lib/runner/terminal.ts';
 import { parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo } from '../io.ts';
+import { followCommand, interrupts, send } from './runner-follow.ts';
+import type { FollowOptions } from './runner-follow.ts';
 
-const USAGE = 'usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender';
+const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n>";
 const DEFAULT_SLOTS = 4;
 const MAX_SLOTS = 8;
 const DEFAULT_TIMEOUT = '3h';
@@ -67,7 +74,7 @@ type RunnerCommandOptions = {
   tickMs?: number;
   backoff?: { firstMs: number; maxMs: number };
   machine?: MachineReads;
-};
+} & FollowOptions;
 
 /** The `ask.url` of `dir`'s config, or `null` when it has none or no config. */
 function askUrlOf(dir: string, exec: Exec): string | null {
@@ -85,23 +92,6 @@ function findAskUrl(cwd: string, checkouts: ReadonlyMap<string, string>, exec: E
     if (url !== null) return url;
   }
   return null;
-}
-
-/** Stops on Ctrl-C (or SIGTERM): the signal the runner reads, and how to stop listening. */
-function interrupts(): { signal: AbortSignal; release(): void } {
-  const controller = new AbortController();
-  const stop = (): void => {
-    controller.abort();
-  };
-  process.on('SIGINT', stop);
-  process.on('SIGTERM', stop);
-  return {
-    signal: controller.signal,
-    release() {
-      process.off('SIGINT', stop);
-      process.off('SIGTERM', stop);
-    },
-  };
 }
 
 /** `--keep-logs`: a whole number of days, 1 or more, `KEEP_LOGS_DAYS` unless given. */
@@ -228,6 +218,8 @@ export const runner = {
       return 0;
     }
     if (first === 'job') return job(rest, io);
+    if (first === 'send') return send(rest, io);
+    if (first === 'follow') return followCommand(rest, io);
     return start(args, io);
   },
 } satisfies FreeCommand;
