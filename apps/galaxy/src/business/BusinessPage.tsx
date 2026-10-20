@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useReducer, useRef, type ReactNode } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '../../../../supabase/database.types.ts';
 import {
@@ -11,13 +11,6 @@ import { callsOf, confirmCalls, databaseBusiness, demoBusinessPort, run, type Bu
 import { suggestKey } from './suggest';
 import { databaseDraft, demoDraftPort, draftDbOver, type DraftPort } from './draft-port';
 import { thatsUs, type DraftView, type WebPage } from './reveal';
-import { canUndo, initialPersonasState, personasReducer, type Persona, type PersonasState } from './personas';
-import { databasePersonas, demoPersonasPort, type PersonaPort } from './personas-store';
-import { PersonasSection, type PersonaHandlers } from './PersonasSection';
-import { databaseConstituents, demoConstituentsPort, type ConstituentPort } from '../constituents/store';
-import { constituentsReducer, initialConstituentsState, writeConstituent, type ConstituentsState } from './constituents-panel';
-import { ConstituentsPanel, type ConstituentHandlers } from './ConstituentsPanel';
-import type { ConstituentsPanelData } from './constituents-load';
 
 // Settings → Business in the browser (PRD 748 s2): keeps the page's state (model.ts) and calls the
 // claim functions as the signed-in person (store.ts), one plan at a time; the view draws each step. A
@@ -35,14 +28,8 @@ import type { ConstituentsPanelData } from './constituents-load';
 // What the weekly recheck left (PRD 774 s4): ✓ / ✗ on a replacement or an addition saves at once, and
 // ✓ Still true on a faded claim moves its last_seen to now.
 //
-// The personas (PRD 799 s3), through personas-store.ts: the section keeps its own state
-// (personas.ts), and follows the product tab shown. + Add a persona opens the drawer on a random
-// avatar; Save adds or edits, Delete removes at once and Undo restores it for 5 seconds.
-//
-// The constituents (PRD 871 s2), through ../constituents/store.ts: the panel keeps its own state
-// (./constituents-panel.ts) and follows the product tab shown. An owner's Save adds or edits, Remove
-// removes at once, and the event the database logged joins the History drawer. In the demo, the same
-// rules run in memory.
+// The personas and the constituents are no longer here (PRD 2240 s4): they are sections of the product's
+// Knowledge home (../product-knowledge/personas, ../product-knowledge/constituents).
 
 export type BusinessSource =
   | { kind: 'demo' }
@@ -58,55 +45,6 @@ export interface BusinessPageProps {
   draft?: DraftView | null;
   /** The web pages pasted on the business. */
   pages?: WebPage[];
-  /** Every persona of the business, of every product (PRD 799 s3). */
-  personas?: Persona[];
-  /** The products' constituents, their history, the person's role and account (PRD 871 s2); left out,
-   * no panel. */
-  constituents?: Constituents;
-}
-
-/** What the Constituents panel opens with: the read, and the account its writes are logged under. */
-export type Constituents = ConstituentsPanelData & { me: string | null };
-
-/**
- * The Constituents panel's state and handlers (PRD 871 s2): `product` is the tab shown, `products`
- * every product's id (the demo's port checks a line's product against them).
- */
-function useConstituents(source: BusinessSource, read: Constituents | undefined, product: string | null, products: readonly string[]): [ConstituentsState, ConstituentHandlers] {
-  const [state, act] = useReducer(constituentsReducer, read, (r) => initialConstituentsState(r?.constituents ?? [], r?.events ?? []));
-  // The demo's port reads the products through this list, kept current as products are added.
-  const known = useRef<string[]>([]);
-  known.current.splice(0, known.current.length, ...products);
-  const port = useRef<ConstituentPort | null>(null);
-  const getPort = () => (port.current ??= source.kind === 'demo'
-    ? demoConstituentsPort({ products: known.current, by: read?.me ?? 'demo' })
-    : databaseConstituents(createBrowserClient<Database>(source.url, source.key), source.workspace));
-  const write = async (w: Parameters<typeof writeConstituent>[1]) => {
-    if (state.busy) return;
-    act({ type: 'busy' });
-    act(await writeConstituent(getPort(), w, read?.me ?? null));
-  };
-  const handlers: ConstituentHandlers = {
-    editStatement: (statement) => { act({ type: 'edit-statement', statement }); },
-    addNever: () => { act({ type: 'add-never' }); },
-    text: (text) => { act({ type: 'text', text }); },
-    cancel: () => { act({ type: 'cancel' }); },
-    save: () => {
-      const field = state.editing;
-      if (!field || !product || state.text.trim() === '') return;
-      const before = field.kind === 'statement' && field.id !== null ? state.constituents.find((c) => c.id === field.id)?.text ?? null : null;
-      void write({ kind: 'save', product, field, text: state.text, before });
-    },
-    remove: (line) => void write({ kind: 'remove', line }),
-  };
-  return [state, handlers];
-}
-
-/** The Constituents panel of the tab shown, or nothing when the page read no constituents. */
-function useConstituentsPanel(source: BusinessSource, read: Constituents | undefined, product: string | null, products: readonly Product[]): ReactNode {
-  const [state, on] = useConstituents(source, read, product, products.map((p) => p.id));
-  if (!read) return null;
-  return <ConstituentsPanel state={state} product={product} owner={read.owner} people={read.people} unreadable={read.constituents === null} on={on} />;
 }
 
 /** What suggested rivals are asked for: the picks' key, naming the tab (PRD 748 s3–s4), or null. */
@@ -125,67 +63,7 @@ function openingKey(claims: Claim[], products: readonly Product[]): string | nul
 /** How often a running draft's row is read again. */
 const POLL_MS = 1500;
 
-/** A seed for a new persona's avatar and the picker's order. */
-const freshSeed = () => `${Date.now()}-${Math.random()}`;
-
-/** The product a new persona goes on: the tab shown, else the source's product, else the first. */
-const newPersonaProduct = (source: BusinessSource, current: string | null, products: readonly Product[]) =>
-  current ?? (source.kind === 'database' ? source.product : products[0]?.id ?? null);
-
-/**
- * The personas section's state and handlers (PRD 799 s3): `newProduct` is the product a new persona
- * goes on, the tab shown.
- */
-function usePersonas(source: BusinessSource, personas: Persona[], newProduct: string | null): [PersonasState, PersonaHandlers] {
-  const [cast, act] = useReducer(personasReducer, personas, initialPersonasState);
-  const castPort = useRef<PersonaPort | null>(null);
-  const getCast = () => (castPort.current ??= source.kind === 'demo'
-    ? demoPersonasPort(personas)
-    : databasePersonas(createBrowserClient<Database>(source.url, source.key), source.workspace));
-  // Undo goes once its 5 seconds have passed.
-  const until = cast.undo?.until ?? null;
-  useEffect(() => {
-    if (until === null) return;
-    const timer = setTimeout(() => { act({ type: 'tick', at: Date.now() }); }, Math.max(0, until - Date.now()));
-    return () => { clearTimeout(timer); };
-  }, [until]);
-  const save = async () => {
-    const drawer = cast.drawer;
-    if (cast.busy || !drawer) return;
-    const { editing, product, fields } = drawer;
-    const write = editing !== null ? () => getCast().edit(editing, fields) : product ? () => getCast().add(product, fields) : null;
-    if (!write) return;
-    act({ type: 'busy' });
-    const saved = await write();
-    act(saved.ok ? { type: 'saved', persona: saved.persona } : { type: 'refused', message: saved.message });
-  };
-  const remove = async () => {
-    const editing = cast.drawer?.editing;
-    if (cast.busy || !editing) return;
-    act({ type: 'busy' });
-    const removed = await getCast().remove(editing);
-    act(removed.ok ? { type: 'deleted', persona: removed.persona, at: Date.now() } : { type: 'refused', message: removed.message });
-  };
-  const undo = async () => {
-    if (cast.busy || !cast.undo || !canUndo(cast, Date.now())) return;
-    act({ type: 'busy' });
-    const back = await getCast().restore(cast.undo.persona.id);
-    act(back.ok ? { type: 'restored', persona: back.persona } : { type: 'refused', message: back.message });
-  };
-  const handlers: PersonaHandlers = {
-    open: () => { act({ type: 'new', product: newProduct, seed: freshSeed() }); },
-    edit: (p) => { act({ type: 'edit', persona: p.id, seed: freshSeed() }); },
-    change: (fields) => { act({ type: 'change', fields }); },
-    shuffle: () => { act({ type: 'shuffle' }); },
-    close: () => { act({ type: 'close' }); },
-    save: () => void save(),
-    remove: () => void remove(),
-    undo: () => void undo(),
-  };
-  return [cast, handlers];
-}
-
-export function BusinessPage({ source, claims, products, draft = null, pages = [], personas = [], constituents }: BusinessPageProps) {
+export function BusinessPage({ source, claims, products, draft = null, pages = [] }: BusinessPageProps) {
   const [whole, dispatch] = useReducer(businessReducer, null, () => initialBusinessState(claims, products, { draft, pages }));
   // What the demo's stores start from: the claims the page holds now.
   const held = useRef(whole);
@@ -368,19 +246,11 @@ export function BusinessPage({ source, claims, products, draft = null, pages = [
     stillTrue: (claim) => void keepClaim(claim),
   };
 
-  // The personas (PRD 799 s3).
-  const [cast, persona] = usePersonas(source, personas, newPersonaProduct(source, whole.current, products));
-
-  // The constituents (PRD 871 s2), of the tab shown.
-  const panel = useConstituentsPanel(source, constituents, newPersonaProduct(source, whole.current, whole.products), whole.products);
-
   return (
     <BusinessView
       state={whole}
       demo={source.kind === 'demo'}
       on={on}
-      personas={<PersonasSection state={cast} products={whole.products} current={whole.current} on={persona} />}
-      constituents={panel}
     />
   );
 }

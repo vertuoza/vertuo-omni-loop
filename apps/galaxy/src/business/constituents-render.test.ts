@@ -13,7 +13,7 @@ import {
 import {
   ADD_NEVER_LINE, ADD_STATEMENT, CONSTITUENTS_TITLE, ConstituentsPanel, EDIT_STATEMENT, NO_NEVER, NO_STATEMENT, REMOVE, SAVE, UNREADABLE,
 } from './ConstituentsPanel';
-import { BusinessScreen, DEMO_CLAIMS, DEMO_CONSTITUENTS, DEMO_PRODUCTS } from './BusinessScreen';
+import { BusinessScreen, DEMO_CLAIMS, DEMO_PRODUCTS } from './BusinessScreen';
 import { BusinessView } from './BusinessView';
 import type { Claim } from './model';
 import { initialBusinessState } from './state';
@@ -172,21 +172,12 @@ describe('on Settings › Business', () => {
   const claim = (seq: number, kind: Claim['kind'], value: string, state: Claim['state'] = 'confirmed'): Claim =>
     ({ id: `c-${seq}`, seq, kind, value, source: 'pick', state, cited: 0, lastBy: null });
 
-  it('sits above the claims, in the demo as an owner with nothing yet', () => {
+  it('is not drawn at all: the constituents are a section of the product\'s Knowledge home (PRD 2240 s4)', () => {
     const html = renderToStaticMarkup(createElement(BusinessScreen, {
-      view: { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS, personas: [], constituents: DEMO_CONSTITUENTS },
-    }));
-    const panel = html.indexOf('business-constituents');
-    expect(panel).toBeGreaterThan(0);
-    expect(panel).toBeLessThan(html.indexOf('The claims agents read'));
-    expect(text(html)).toContain(ADD_STATEMENT);
-  });
-
-  it('is not drawn when the page has no constituents', () => {
-    const html = renderToStaticMarkup(createElement(BusinessScreen, {
-      view: { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS, personas: [] },
+      view: { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS },
     }));
     expect(html).not.toContain('business-constituents');
+    expect(text(html)).not.toContain(ADD_STATEMENT);
   });
 
   it('leaves the Never kind out of the claim editor: no Never claim is drawn, and nothing offers one', () => {

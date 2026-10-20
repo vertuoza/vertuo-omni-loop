@@ -1,5 +1,6 @@
 import { historyOf, liveOf, type Constituent, type ConstituentEvent, type EventAction } from '../constituents/model';
 import type { ConstituentPort, SavedConstituent } from '../constituents/store';
+import type { ConstituentsPanelData } from './constituents-load';
 
 // Settings › Business's Constituents panel (PRD 871 s2), its state and the rules it draws by. Per
 // product, above the claims: the Statement (what the product is) and the Never list (what it must never
@@ -145,3 +146,6 @@ export async function writeConstituent(
   if (field.kind === 'statement' && field.id !== null) return answer(await port.edit(field.id, text), 'edited', write.before);
   return answer(await port.add(product, field.kind, text), 'added', null);
 }
+
+/** What a panel opens with: the read, and the account its writes are logged under. */
+export type Constituents = ConstituentsPanelData & { me: string | null };

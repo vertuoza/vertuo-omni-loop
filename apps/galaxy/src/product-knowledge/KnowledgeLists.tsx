@@ -20,7 +20,7 @@ export interface ListProps {
   query: Query;
 }
 
-function Filters({ path, query, active, retired }: { path: string; query: Query; active: number; retired: number }) {
+export function Filters({ path, query, active, retired }: { path: string; query: Query; active: number; retired: number }) {
   const show = showOf(query);
   const link = (to: Show, label: string, n: number) => (
     <Link href={showHref(path, query, to)} aria-current={show === to ? 'true' : undefined}>{label} · {n}</Link>
@@ -33,9 +33,9 @@ function Filters({ path, query, active, retired }: { path: string; query: Query;
   );
 }
 
-const Cell = ({ children, full }: { children: string; full?: string }) => <td className="kn-text" title={full ?? children}>{children}</td>;
+export const Cell = ({ children, full }: { children: string; full?: string }) => <td className="kn-text" title={full ?? children}>{children}</td>;
 
-function Section({ id, title, lede, children }: { id: string; title: string; lede: string; children: ReactNode }) {
+export function Section({ id, title, lede, children }: { id: string; title: string; lede: string; children: ReactNode }) {
   return (
     <section className="ask-card products-section" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
