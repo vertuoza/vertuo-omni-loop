@@ -11,7 +11,9 @@
 -- and never reused, even after a retirement; a retired entry and a removed term keep their rows; a live
 -- term is unique without case. Every change appends exactly one event, in the same transaction; nobody
 -- writes any of the five tables directly, the service role included, and nobody rewrites an event.
--- What business_for_repo() answers of them is supabase/checks/business.sql's.
+-- The page's read names who added each Legal entry and term, and when it was added and last changed
+-- (PRD 2240 s1, 20261218090000_product_knowledge_authors.sql). What business_for_repo() answers of them
+-- is supabase/checks/business.sql's.
 --
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
@@ -540,6 +542,13 @@ begin
 end $$;
 reset role;
 
+-- Every change above ran in this one transaction, so each entry's created and updated times are the same
+-- now(): L-INVOICING-1 is given distinct ones, to tell them apart in the read. L-GDPR2-1 and Quotation lose
+-- their author, as `on delete set null` leaves an entry whose author's account was deleted (PRD 2240 s1).
+update public.product_legal set created_at = '2026-01-05 09:00+00', updated_at = '2026-02-07 10:30+00' where id = pg_temp.made('inv-1');
+update public.product_legal set created_by = null where code = 'GDPR2';
+update public.product_glossary set created_by = null where id = pg_temp.made('quote');
+
 -- ── The page's read: owners, entries and the open proposals, with what the reader may do ──
 set local role authenticated;
 do $$
@@ -568,6 +577,24 @@ begin
   if (select string_agg(x->>'term', ',') from jsonb_array_elements(got->'glossary'->'entries') x) <> 'Credit Note,Credit note,Invoice,Quotation'
      or (select count(*) from jsonb_array_elements(got->'glossary'->'entries') x where x->>'removedAt' is not null) <> 1 then
     raise exception 'FAIL: the page read''s glossary: %', got->'glossary'->'entries';
+  end if;
+  -- Who added each entry, and when (PRD 2240 s1): L-INVOICING-1 by Owen, the Legal entry by approval by
+  -- its approver, a term by Gus; an entry whose author is gone names nobody, and still has its dates.
+  if got->'legal'->'entries'->1->'createdBy' is distinct from jsonb_build_object('user', pg_temp.id('owen'), 'login', 'owen@pk.test')
+     or got->'legal'->'entries'->1->'createdAt' is distinct from to_jsonb('2026-01-05 09:00+00'::timestamptz)
+     or got->'legal'->'entries'->1->'updatedAt' is distinct from to_jsonb('2026-02-07 10:30+00'::timestamptz)
+     or got->'legal'->'entries'->4->'createdBy'->>'user' is distinct from pg_temp.id('owen')::text
+     or got->'legal'->'entries'->0->'createdBy' is distinct from 'null'::jsonb
+     or got->'legal'->'entries'->0->'createdAt' is distinct from to_jsonb((pg_temp.legal((got->'legal'->'entries'->0->>'entry')::uuid)).created_at)
+     or got->'legal'->'entries'->0->'updatedAt' is distinct from to_jsonb((pg_temp.legal((got->'legal'->'entries'->0->>'entry')::uuid)).updated_at) then
+    raise exception 'FAIL: the page read''s Legal authors and dates: %', got->'legal'->'entries';
+  end if;
+  if got->'glossary'->'entries'->2->'createdBy' is distinct from jsonb_build_object('user', pg_temp.id('gus'), 'login', 'gus@pk.test')
+     or got->'glossary'->'entries'->3->'createdBy' is distinct from 'null'::jsonb
+     or got->'glossary'->'entries'->3->'createdAt' is distinct from to_jsonb((pg_temp.term(pg_temp.made('quote'))).created_at)
+     or got->'glossary'->'entries'->3->'updatedAt' is distinct from to_jsonb((pg_temp.term(pg_temp.made('quote'))).updated_at)
+     or got->'glossary'->'entries'->2->'createdAt' is null or got->'glossary'->'entries'->2->'updatedAt' is null then
+    raise exception 'FAIL: the page read''s glossary authors and dates: %', got->'glossary'->'entries';
   end if;
   if jsonb_array_length(got->'legal'->'proposals') <> 1 or jsonb_array_length(got->'glossary'->'proposals') <> 0
      or got->'legal'->'proposals'->0->>'action' <> 'add' or got->'legal'->'proposals'->0->'proposedBy'->>'login' <> 'mia@pk.test'
