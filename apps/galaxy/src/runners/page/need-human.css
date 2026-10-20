@@ -10,12 +10,12 @@
 .need-scrim { position: absolute; inset: 0; background: var(--ask-ground); opacity: .6; }
 .need {
   position: absolute; top: 0; right: 0; bottom: 0; width: min(560px, 100%);
-  display: flex; flex-direction: column; background: var(--ask-ground); color: var(--ask-ink);
+  display: flex; flex-direction: column; background: var(--ask-sunk); color: var(--ask-ink);
   border-left: 2px solid var(--ask-line-strong);
 }
 .need:focus { outline: none; }
 .need-head {
-  display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--ask-surface);
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--ask-surface);
   border-bottom: 1px solid var(--ask-line); font-size: 14px; min-width: 0;
 }
 .need-title { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -23,16 +23,15 @@
 .need-close { border: 0; background: none; color: var(--ask-muted); font-size: 22px; line-height: 1; padding: 2px 8px; cursor: pointer; }
 .need-close:hover { color: var(--ask-ink); }
 
-.need-body { flex: 1; overflow: auto; min-height: 0; padding: 16px; display: grid; gap: 20px; align-content: start; }
+.need-body { flex: 1; overflow: auto; min-height: 0; padding: 14px 16px; display: grid; gap: 16px; align-content: start; }
 .need-lead { padding: 0; }
 .need-q { min-width: 0; }
 .need-note, .need-closed { margin: 0; color: var(--ask-muted); font-size: 15px; line-height: 1.5; }
-.need-closed { color: var(--ask-ink); font-weight: 700; font-size: 16px; }
 .need-problem { margin: 0; color: var(--ask-red); font-size: 14px; line-height: 1.4; flex-basis: 100%; }
 
 .need-foot {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 12px;
-  padding: 12px 16px; background: var(--ask-surface); border-top: 1px solid var(--ask-line);
+  padding: 10px 16px; background: var(--ask-surface); border-top: 1px solid var(--ask-line);
 }
 
 @media (max-width: 720px) {

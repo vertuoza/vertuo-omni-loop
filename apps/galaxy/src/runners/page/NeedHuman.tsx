@@ -48,8 +48,8 @@ function buttonOf(job: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-answer="${job}"]`) ?? document.querySelector<HTMLElement>(`[data-terminal="${job}"]`);
 }
 
-/** Holds which drawer is open, from `?answer=` on the first draw, mirrors it in the URL (history.replaceState, so the
- * page's refresh draws the same URL), carries out the focus moves, and draws the drawer over the page. `demo` holds the
+/** Holds which drawer is open, from `?answer=` on the first draw, mirrors it in the URL (history.replaceState, which Next follows, so
+ * the page's refresh draws the same URL), carries out the focus moves, and draws the drawer over the page. `demo` holds the
  * questions of the demo page, which the drawer then reads and answers in the browser. */
 export function NeedHumanProvider({ initial, jobs, demo, children }: { initial: string | null; jobs: readonly NeedJob[]; demo: readonly JobQuestions[] | null; children: ReactNode }) {
   const router = useRouter();
@@ -62,8 +62,10 @@ export function NeedHumanProvider({ initial, jobs, demo, children }: { initial: 
     router.refresh();
   }, [router]);
 
+  // `null` as the state, as Next's guide does: it then follows the new URL (its own state would make the page's 5 s
+  // refresh draw the old one again).
   useEffect(() => {
-    window.history.replaceState(window.history.state, '', withAnswer(window.location.href, state.open));
+    window.history.replaceState(null, '', withAnswer(window.location.href, state.open));
   }, [state.open]);
   useEffect(() => {
     if (state.focus === 'button' && state.job !== null) buttonOf(state.job)?.focus();
@@ -92,8 +94,9 @@ function NeedHumanDrawer({ id, repo, port, seed, onClose, onSent }: {
   const [problem, setProblem] = useState<string | null>(null);
   const panel = useRef<HTMLElement | null>(null);
 
+  // The drawer reads the questions from its port as it opens, whichever the first drawing held: the demo's row seeds the
+  // server's markup, and the port's own copy, which remembers an answer sent earlier, then replaces it.
   useEffect(() => {
-    if (seed !== null) return undefined;
     let live = true;
     void port.read(id).then((called) => {
       if (!live) return;
@@ -102,7 +105,7 @@ function NeedHumanDrawer({ id, repo, port, seed, onClose, onSent }: {
       else setReading(next);
     });
     return () => { live = false; };
-  }, [id, port, seed, onClose]);
+  }, [id, port, onClose]);
 
   useEffect(() => { panel.current?.focus(); }, []);
   useEffect(() => {

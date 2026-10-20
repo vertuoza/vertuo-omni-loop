@@ -3,7 +3,7 @@ screen: runner-need-human
 status: draft
 kind: page
 mock: runner-need-human.html
-implements: []
+implements: [apps/galaxy/src/runners/page/NeedHuman.tsx, apps/galaxy/src/runners/page/need-human.ts, apps/galaxy/src/runners/page/need-human.css]
 reads: [apps/galaxy/src/runners/runners.contract.ts, apps/galaxy/src/runners/page/Terminal.tsx]
 routes: ['/app/runners?answer=<job id>']
 supersedes: null
