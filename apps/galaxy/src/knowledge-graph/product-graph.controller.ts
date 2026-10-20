@@ -1,6 +1,7 @@
 import { ProductNeighbourhoodSchema } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
 import { authenticate, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
+import { archivedMessage } from '../business-api/read';
 import { GRAPH_READ_REFUSALS, GraphQuerySchema, ProductKeySchema } from './product-graph.contract';
 import type { ProductGraphService } from './product-graph.service';
 
@@ -20,7 +21,8 @@ import type { ProductGraphService } from './product-graph.service';
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 no `id`, or a `depth` outside 1 to 3; 401
 // no valid sign-in; 404 a product key the caller cannot read, the same answer as for one that does not
 // exist; 404 an `id` absent from the joined graph, naming the prefixed ids a bare one stands for; 503 no database here, or the sign-in service down;
-// 500 a failed read, logged.
+// 500 a failed read, logged. An archived product (PRD 2232) answers 404 too, with `Product <name> is archived: an
+// owner restores it on its page.`, its owner included.
 
 /** A client acting as one access token: the Auth server's check and the reads as that person. */
 type CallerClient = TokenCheck & { service: ProductGraphService };
@@ -58,6 +60,7 @@ export async function readProductGraph(request: Request, key: string, deps: Prod
   try {
     const read = await deps.connect(auth.caller.token).service.neighbourhood({ key }, query);
     if (read.kind === 'no-product') return noProduct(key);
+    if (read.kind === 'archived') return refuse(404, archivedMessage(read.name));
     if (read.kind === 'no-node') return noNode(query.id, key, read.matches);
     return reply(200, ProductNeighbourhoodSchema.parse(read.body));
   } catch (error) {

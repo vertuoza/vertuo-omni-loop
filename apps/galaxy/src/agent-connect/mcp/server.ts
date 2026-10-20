@@ -2,7 +2,9 @@
 // read-only link (`Authorization: Bearer omb_…`) over stateless Streamable HTTP, a fresh server per
 // request, JSON answers, no session id. Four tools:
 //
-//   get_business   {repo?}         exactly the body GET /api/business?repo= answers (decision 8)
+//   get_business   {repo?}         exactly the body GET /api/business?repo= answers (decision 8); for an archived
+//                                  product (PRD 2232) the sentence `product <name> is archived: …`, as get_claims and
+//                                  get_knowledge_graph answer it
 //   get_claims     {kind?, repo?}  that body's claims, of one kind when given
 //   report_unknown {question, repo?, file?}   stores the question on Settings › Business (PRD 855 s3,
 //                                  agent_question_report(), 20261028100000_agent_questions.sql), and says so;
@@ -25,7 +27,7 @@ import { ProductNeighbourhoodSchema } from 'vertuo-omni-plan/kit/lib/knowledge/p
 import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
 import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import type { RpcAnswer } from '../../business/answer';
-import { businessReader, BusinessStoreError } from '../../business-api/read';
+import { archivedLine, businessReader, BusinessStoreError } from '../../business-api/read';
 import { linkGraphRepository } from '../../knowledge-graph/link.repository';
 import { linkGraphService } from '../../knowledge-graph/link.service';
 import { GRAPH_READ_REFUSALS, GraphQuerySchema } from '../../knowledge-graph/product-graph.contract';
@@ -78,7 +80,7 @@ function refused(error: unknown) {
   if (!(error instanceof BusinessStoreError)) throw error;
   if (error.code === '28000') return text(LINK_REFUSED, true);
   // 54000: the link's 31st question in 24 hours (s3), its one line as the database wrote it.
-  if (error.code === '42501' || error.code === '22023' || error.code === '54000') return text(error.reason, true);
+  if (error.code === '42501' || error.code === '22023' || error.code === '54000' || error.code === 'P0002') return text(error.reason, true);
   console.error(`mcp: ${error.message}`);
   return text(FAILED, true);
 }
@@ -87,6 +89,9 @@ function refused(error: unknown) {
 function graphRefused(code: string | undefined, reason: string) {
   if (code === '28000') return text(LINK_REFUSED, true);
   if (code === '42501' || code === '22023') return text(reason, true);
+  // P0002: the product is archived (PRD 2232), in the sentence get_business answers.
+  const archived = code === 'P0002' ? /^Product (.+) is archived/.exec(reason) : null;
+  if (archived?.[1]) return text(archivedLine(archived[1]), true);
   log.error({ event: 'mcp', outcome: 'failed', fn: 'get_knowledge_graph', message: reason });
   return text(GRAPH_READ_REFUSALS.notRead, true);
 }
@@ -138,7 +143,10 @@ function server(hash: string | null, deps: McpDeps): McpServer {
         return { data, error: { code: code ?? '', message: message ?? 'no answer' } };
       },
     });
-    return reader.forRepo(repo ?? '');
+    const body = await reader.forRepo(repo ?? '');
+    // An archived product answers in words, never with an empty list (PRD 2232).
+    if (body.state === 'archived') throw new BusinessStoreError('P0002', archivedLine(body.product?.name ?? ''));
+    return body;
   };
   /** A new question to Jev, after the answer; its failure never reaches the agent. */
   const judge = (question: string) => {

@@ -22,6 +22,7 @@ function stub(answers: Record<string, Raw>) {
         select: (columns: string) => { steps.push(`select ${columns}`); return chain; },
         eq: (column: string, value: string) => { steps.push(`${column}=${value}`); return chain; },
         in: (column: string, values: string[]) => { steps.push(`${column} in ${values.join(',')}`); return chain; },
+        is: (column: string, value: null) => { steps.push(`${column} is ${String(value)}`); return chain; },
         order: (column: string) => { steps.push(`order ${column}`); return chain; },
         then: (resolve: (raw: Raw) => unknown) => { reads.push(steps.join(' · ')); return Promise.resolve(answer()).then(resolve); },
       };
@@ -46,7 +47,7 @@ describe('productRepositoriesRepository', () => {
     expect(await store.links('p1')).toEqual([LINK]);
     expect(s.reads).toEqual([
       'repositories · select workspace_id · full_name=acme/plan',
-      'products · select id, workspace_id, name · workspace_id in w1',
+      'products · select id, workspace_id, name · workspace_id in w1 · archived_at is null',
       'product_repositories · select repository, role, knowledge, read_at, read_only, consumes · product_id=p1 · order repository',
     ]);
   });
