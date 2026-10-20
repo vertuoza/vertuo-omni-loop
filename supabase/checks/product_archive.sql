@@ -1,4 +1,4 @@
--- Archive a product (PRD 2232 s1, 20261217090000_archive_product.sql). The supabase workflow runs it on
+-- Archive a product (PRD 2232 s1, 20261217100000_archive_product.sql). The supabase workflow runs it on
 -- every pull request, after `supabase db start` has applied the migrations and the demo seed:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/product_archive.sql
 -- Only an owner of the workspace archives and restores a product (42501 a member, P0002 no such product);
