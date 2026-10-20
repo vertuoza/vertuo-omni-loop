@@ -60,4 +60,4 @@ on whom across its PRDs.` (the Ledger's lede, cut to seven words by the PRD 2232
 
 ## Source
 
-/omni:brainstorm, PRD 2232: .omni-loop/delivery/inbox/2232-archive-product/before-after.html
+/omni:brainstorm, PRD 2232: .omni-loop/delivery/shipped/2232-archive-product/before-after.html

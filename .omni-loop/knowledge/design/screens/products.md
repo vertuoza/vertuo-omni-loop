@@ -62,4 +62,4 @@ yet`, `Add a repository`, `Open`, `SHARED`, `Repositories in no product`, `Add t
 ## Source
 
 /omni:visual-fix #1598, pick D by @pierrederval on 2026-10-11: .omni-loop/delivery/visual/1598-products-page/before-after.html
-/omni:brainstorm, PRD 2232: .omni-loop/delivery/inbox/2232-archive-product/before-after.html
+/omni:brainstorm, PRD 2232: .omni-loop/delivery/shipped/2232-archive-product/before-after.html
