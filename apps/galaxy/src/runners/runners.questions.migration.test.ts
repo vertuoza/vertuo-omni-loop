@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../${path}`, import.meta.url)), 'utf8');
-const MIGRATION = read('supabase/migrations/20261218090000_runner_job_questions.sql');
+const MIGRATION = read('supabase/migrations/20261218100000_runner_job_questions.sql');
 // Comment lines go; a `--` inside a string (the resume line's ` --answers `) stays.
 const CODE = MIGRATION.replace(/^\s*--.*$/gm, '').replace(/\s+/g, ' ');
 const CHECK = read('supabase/checks/runner_job_questions.sql');

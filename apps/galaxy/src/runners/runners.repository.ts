@@ -4,7 +4,7 @@
 // samples, supabase/migrations/20261211100000_runner_health.sql, PRD 2102) and the service holds the
 // rules. Every answer is parsed where it comes in; it holds no rule. A refusal of the
 // database, or an answer out of shape, throws, naming the call: the controller answers 500 and logs it.
-// The two functions that act on a job's questions (supabase/migrations/20261218090000_runner_job_questions.sql,
+// The two functions that act on a job's questions (supabase/migrations/20261218100000_runner_job_questions.sql,
 // PRD 2255) are the exception: their refusals are rules of the database (no row, closed, not a member,
 // answers that do not match), so they are read by their code and answered, never thrown.
 import type { SupabaseClient } from '@supabase/supabase-js';

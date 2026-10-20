@@ -9,7 +9,7 @@ import type { Acted, JobLineRow, JobPatch, JobRow, JobRowStatus, NewJob, NewRunn
 // supabase/migrations/20261208090000_runner_job_lines.sql and runner_job_lines_retain() keep them; and a
 // runner's samples (PRD 2102), one per runner and instant, as runner_samples holds them; and a job's
 // questions (PRD 2255), with runner_job_answer() and runner_job_dismiss() as
-// supabase/migrations/20261218090000_runner_job_questions.sql writes them and
+// supabase/migrations/20261218100000_runner_job_questions.sql writes them and
 // supabase/checks/runner_job_questions.sql proves them. A realistic workspace: Olga owns it and plays in
 // the fleet cia, Mo plays in cia, Pia in pirates, Sam in no fleet; Eve belongs to another workspace.
 
