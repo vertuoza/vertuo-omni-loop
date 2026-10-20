@@ -18,9 +18,10 @@ const SECTION_STATES = ['filled', 'na', 'gap'] as const;
 
 const STATES: ReadonlySet<string> = new Set(SECTION_STATES);
 const FILL = /<!--\s*FILL\s*-->/g;
-/** The attributes whose value a browser fetches, on any element. */
-const LOADING = ['src', 'srcset', 'poster', 'href', 'xlink:href'] as const;
-/** The elements whose `href` is a link to follow, never a resource fetched. */
+/** The attributes a browser fetches from, on any element. */
+const FETCHED = ['src', 'srcset', 'poster'] as const;
+/** The attributes an element fetches from unless it is a link (`LINKS`), which a reader follows instead. */
+const REFERENCES = ['href', 'xlink:href'] as const;
 const LINKS = new Set(['a', 'area', 'base']);
 
 /** A section read: its name, its state (null when it has none), and the service and tab around it. */
@@ -29,38 +30,34 @@ type Section = { readonly name: string; readonly state: string | null; readonly 
 /** What the page holds, read once: its meta, its tabs, its sections, its unrendered diagrams, the resources it loads. */
 type Read = { marked: boolean; tabs: Set<string>; sections: Section[]; diagrams: number; loads: string[] };
 
-/** Whether a URL loads nothing: empty, a `data:` URL, or a fragment of the page itself. */
-const loadsNothing = (url: string): boolean => {
+/**
+ * Whether an attribute's value loads nothing: blank, a `data:` URL, or a fragment of the page itself.
+ * A `srcset` is read whole, never split into its candidates: only a blank one loads nothing.
+ */
+function loadsNothing(attribute: string, url: string): boolean {
   const value = url.trim();
+  if (attribute === 'srcset') return value === '';
   return value === '' || value.startsWith('#') || value.toLowerCase().startsWith('data:');
-};
-
-/** The URLs of a `srcset`: the first token of each comma-separated candidate. */
-const candidates = (srcset: string): string[] =>
-  srcset.split(/,\s+/).map((candidate) => candidate.trim().split(/\s+/)[0] ?? '');
+}
 
 /** The resources one element loads, each as `<tag attribute="value">`. */
 function loadsOf({ tag, attributes }: Element): string[] {
   const named = (attribute: string, value: string): string => `<${tag} ${attribute}="${value}">`;
-  const found = LOADING.flatMap((attribute) => {
+  const read = LINKS.has(tag) ? FETCHED : [...FETCHED, ...REFERENCES];
+  const found = read.flatMap((attribute) => {
     const value = attributes.get(attribute);
-    if (value === undefined) return [];
-    if (attribute.endsWith('href') && LINKS.has(tag)) return [];
-    const urls = attribute === 'srcset' ? candidates(value) : [value];
-    return urls.every(loadsNothing) ? [] : [named(attribute, value)];
+    return value === undefined || loadsNothing(attribute, value) ? [] : [named(attribute, value)];
   });
   const data = attributes.get('data');
-  if (tag === 'object' && data !== undefined && !loadsNothing(data)) found.push(named('data', data));
+  if (tag === 'object' && data !== undefined && !loadsNothing('data', data)) found.push(named('data', data));
   return found;
 }
 
 const isMeta = ({ tag, attributes }: Element): boolean =>
-  tag === 'meta' &&
-  attributes.get('name')?.trim() === BEFORE_AFTER_META.name &&
-  attributes.get('content')?.trim() === BEFORE_AFTER_META.version;
+  tag === 'meta' && attributes.get('name') === BEFORE_AFTER_META.name && attributes.get('content') === BEFORE_AFTER_META.version;
 
 const isDiagram = ({ tag, attributes }: Element): boolean =>
-  tag === 'pre' && (attributes.get('class') ?? '').split(/\s+/).includes('mermaid');
+  tag === 'pre' && attributes.get('class')?.split(/\s/).includes('mermaid') === true;
 
 /** The innermost service and tab around an element. */
 type Around = { readonly service: string | null; readonly tab: string | null };

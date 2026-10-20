@@ -26,9 +26,9 @@ So the check listens for every call it would place, except the reader's own clic
 
 ## The options, in plain words
 
-A. A. Refuse every fetched address on any element, links excepted; leave inline styles unread; check every section wherever it sits (as built)
-B. B. Refuse only what the spec names by example: an outside script, an outside stylesheet and an outside picture
-C. C. As A, and also read the page's inline styles for outside addresses
+A. Refuse every fetched address on any element, links excepted; leave inline styles unread; check every section wherever it sits (as built)
+B. Refuse only what the spec names by example: an outside script, an outside stylesheet and an outside picture
+C. As A, and also read the page's inline styles for outside addresses
 
 ## What I had to decide
 
@@ -48,3 +48,4 @@ Each answer is a change to one list of names in the page check and its tests; no
 (author) The PRD, the registers and the glossary do not settle this:
 
 - A stylesheet pulled in from inside a style block is not caught: the spec names attributes only, so inline styles were left unread (author).
+- A responsive-image list is refused whenever it is filled in, even one made only of pictures written inside the page: reading it candidate by candidate was left out, as no page of this shape uses one (author).

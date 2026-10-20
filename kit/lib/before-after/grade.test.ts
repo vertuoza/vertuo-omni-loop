@@ -32,8 +32,10 @@ describe('gradeBeforeAfter (PRD 2239, spec §4)', () => {
     expect(grade(page({ meta: '<meta name="omni-pitch" content="2">', technical: '' }))).toEqual([]);
   });
 
-  it('reads the meta whatever its attribute order, case and spacing', () => {
-    expect(grade(page({ meta: '<META content=" 2 " NAME="omni-before-after" />', technical: '' }))).toEqual([`${FILE}: no "technical" tab`]);
+  it('reads the meta whatever its attribute order and the case of its names, its values exactly as written', () => {
+    expect(grade(page({ meta: '<META content="2" NAME="omni-before-after" />', technical: '' }))).toEqual([`${FILE}: no "technical" tab`]);
+    expect(grade(page({ meta: '<meta name=" omni-before-after" content="2">', technical: '' }))).toEqual([]);
+    expect(grade(page({ meta: '<meta name="omni-before-after" content="2 ">', technical: '' }))).toEqual([]);
   });
 
   it('refuses a page missing a tab, naming it', () => {
@@ -111,7 +113,9 @@ describe('gradeBeforeAfter (PRD 2239, spec §4)', () => {
     ['<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter">', '<link href="https://fonts.googleapis.com/css?family=Inter">'],
     ['<link rel="icon" href="favicon.ico">', '<link href="favicon.ico">'],
     ['<img src="today.png" alt="">', '<img src="today.png">'],
-    ['<img srcset="data:image/svg+xml,a 1x, after.png 2x">', '<img srcset="data:image/svg+xml,a 1x, after.png 2x">'],
+    ['<img srcset="after.png 2x">', '<img srcset="after.png 2x">'],
+    ['<img srcset="data:image/svg+xml,a 1x">', '<img srcset="data:image/svg+xml,a 1x">'],
+    ['<a src="a.png">x</a>', '<a src="a.png">'],
     ['<iframe src="//example.com"></iframe>', '<iframe src="//example.com">'],
     ['<video poster="p.jpg"></video>', '<video poster="p.jpg">'],
     ['<object data="d.svg"></object>', '<object data="d.svg">'],
@@ -125,8 +129,8 @@ describe('gradeBeforeAfter (PRD 2239, spec §4)', () => {
     const head = [
       '<img src="data:image/svg+xml,%3Csvg%3E">',
       '<img src="DATA:image/png;base64,AA==">',
-      '<img srcset="data:image/svg+xml,a 1x, data:image/svg+xml,b 2x">',
-      '<svg><use href="#arrow"/><use xlink:href="#b"/></svg>',
+      '<img srcset=" ">',
+      '<svg><use href="#arrow"/><use xlink:href="#b"/><a xlink:href="https://x">a link in a drawing</a></svg>',
       '<a href="https://github.com/acme/widgets/pull/1">the PR</a>',
       '<a href="#technical">Technical</a>',
       '<area href="https://x">',
