@@ -1,8 +1,13 @@
-// PRD 2239, s2: `omni before-after new` through `main()` on a fixture repository.
+// PRD 2239, s2 and s3: `omni before-after new` and `render` through `main()` on a fixture repository.
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { makeRepo } from '../test/fixture.ts';
+import { readEnv } from '../lib/env/read.ts';
+import { parsePrd } from '../lib/ids.ts';
+import type { RenderLaunch } from '../lib/before-after/render.ts';
+import { makeRepo, testContext } from '../test/fixture.ts';
+import { renderPage } from './commands/before-after.ts';
 import { main } from './omni.ts';
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
@@ -99,10 +104,68 @@ describe('omni before-after new', () => {
     }
   });
 
-  it('says render is not in this version, exit 1', async () => {
-    const { root } = repo();
+});
+
+describe('omni before-after render', () => {
+  const PRE = '<pre class="mermaid">graph TD</pre>';
+  const page = `<html><head><meta name="omni-before-after" content="2"></head><body><div data-section="flow" data-state="filled">${PRE}</div></body></html>`;
+  const io = (root: string) => {
+    const out: string[] = [];
+    const err: string[] = [];
+    return { out, err, io: { ctx: testContext(root), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) }, exec: execFileSync, env: {}, vars: readEnv({}) } };
+  };
+  const browser = (answer: unknown): RenderLaunch => () =>
+    Promise.resolve({ newPage: () => Promise.resolve({ setContent: () => Promise.resolve(), evaluate: () => Promise.resolve(answer) }), close: () => Promise.resolve() });
+
+  it('writes the drawn page and prints one line per diagram, exit 0, through a fake browser', async () => {
+    const { root } = repo({ [`${DIR}/spec.md`]: '', [PAGE]: page });
+    const run = io(root);
+    expect(await renderPage(parsePrd(2239), run.io, browser({ svg: '<svg>x</svg>' }))).toBe(0);
+    expect(run.out.join('')).toBe('rendered flow of the page\n');
+    const html = readFileSync(join(root, PAGE), 'utf8');
+    expect(html).toContain('<figure class="mermaid-diagram" data-source="graph TD"><svg>x</svg></figure>');
+    expect(html).not.toContain(PRE);
+  });
+
+  it('exits 1 naming a refused diagram, the page still written', async () => {
+    const { root } = repo({ [`${DIR}/spec.md`]: '', [PAGE]: page });
+    const run = io(root);
+    expect(await renderPage(parsePrd(2239), run.io, browser({ error: 'Parse error on line 1:\nx' }))).toBe(1);
+    expect(run.err.join('')).toBe('omni before-after render: flow of the page: Parse error on line 1:\n');
+    expect(readFileSync(join(root, PAGE), 'utf8')).toBe(page);
+  });
+
+  it('exits 1 with the install line, leaving the page byte-identical, when no browser starts', async () => {
+    const { root } = repo({ [`${DIR}/spec.md`]: '', [PAGE]: page });
+    const run = io(root);
+    const none: RenderLaunch = () => Promise.reject(new Error('Playwright is not installed in this repository'));
+    expect(await renderPage(parsePrd(2239), run.io, none)).toBe(1);
+    expect(run.err.join('')).toBe(
+      'omni before-after render: cannot render the diagrams: Playwright is not installed in this repository. Install it: pnpm add -D playwright && pnpm exec playwright install chromium\n',
+    );
+    expect(readFileSync(join(root, PAGE), 'utf8')).toBe(page);
+  });
+
+  it('through main(), a repository with no Playwright gets the install line and an untouched page', async () => {
+    const { root } = repo({ [`${DIR}/spec.md`]: '', [PAGE]: page });
     const result = await omni(root, ['before-after', 'render', '2239']);
     expect(result.code).toBe(1);
-    expect(result.err).toBe('omni before-after render: not available in this version of the kit.\n');
+    expect(result.err).toMatch(/^omni before-after render: cannot render the diagrams: .*\. Install it: pnpm add -D playwright && pnpm exec playwright install chromium\n$/);
+    expect(readFileSync(join(root, PAGE), 'utf8')).toBe(page);
+  });
+
+  it('says there is nothing to render for a page with no diagram, starting no browser', async () => {
+    const { root } = repo({ [`${DIR}/spec.md`]: '', [PAGE]: '<html></html>' });
+    const result = await omni(root, ['before-after', 'render', '2239']);
+    expect(result).toEqual({ code: 0, out: 'no diagrams to render\n', err: '' });
+  });
+
+  it('refuses a PRD with no inbox folder and a folder with no page, exit 1; a bad number is a usage error', async () => {
+    const { root } = repo();
+    expect(await omni(root, ['before-after', 'render', '7'])).toEqual({ code: 1, out: '', err: 'omni before-after render: PRD 7 has no inbox folder.\n' });
+    const missing = await omni(root, ['before-after', 'render', '2239']);
+    expect(missing).toEqual({ code: 1, out: '', err: `omni before-after render: ${PAGE} does not exist: write it with omni before-after new 2239.\n` });
+    expect((await omni(root, ['before-after', 'render'])).code).toBe(2);
+    expect((await omni(root, ['before-after', 'render', 'x'])).code).toBe(2);
   });
 });
