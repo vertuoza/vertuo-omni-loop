@@ -35,10 +35,14 @@
 //   runner releases a lost job's claims after the job ended. Nothing else of the job changes.
 // - A job's outcome (PRD 2223): a done job's last report may say what its yolo hand-off ended on
 //   (answers, held, ready), stored in `runner_jobs.outcome`; a report on another status stores none.
+// - The terminal's reads (PRD 2251): a member of the workspace a repository belongs to reads its
+//   runners, and the jobs of that repository whose line names a PRD (its first argument), among the ones
+//   the Runners page lists, newest first; anyone else is refused, and another workspace is never read.
+import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import {
-  checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
+  checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
   type Board, type HealthReport, type Job, type JobLines, type JobUpdate, type RegisterReply, type RegisterRequest, type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample,
-  type KeyJob, type KeySend, type RunnerState, type SendRequest, type Target,
+  type KeyJob, type KeySend, type KitRunner, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { JobPatch, JobRow, JobRowStatus, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
 
@@ -173,6 +177,17 @@ function keyJobOf(row: JobRow, runnerName: string | null): KeyJob {
   };
 }
 
+/** A runner as the terminal reads it (PRD 2251). */
+const kitRunnerOf = (row: RunnerRow, used: number, now: Date): KitRunner => ({
+  id: row.id, name: row.name, fleet: row.fleet, state: runnerState(row, used, now), used, slots: row.slots, repos: row.repos,
+});
+
+/** A PRD's job as the terminal follows it (PRD 2251): its runner by name. */
+const prdJobOf = (row: JobRow, runnerName: string | null): PrdJob => ({
+  id: row.id, line: row.line, repo: row.repo, status: row.status, runner: runnerName, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason,
+  outcome: row.outcome ?? null, queuedAt: row.queued_at, claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
+});
+
 const usedBy = (jobs: JobRow[], runnerId: string) => jobs.filter((job) => job.runner_id === runnerId && ACTIVE.includes(job.status)).length;
 
 export function runnersService(store: RunnersRepository, clock: Clock) {
@@ -250,6 +265,13 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       return no('forbidden', `${repo} is not in your workspace${placed.refusal ? `: ${placed.refusal}` : ''}.`);
     }
     return ok(placed.workspaceId);
+  }
+
+  /** The workspace the repository belongs to for the caller, who must be one of its members; why not otherwise. */
+  async function memberPlacement(caller: string, repo: string): Promise<Served<string>> {
+    const placed = await placement(caller, repo, null);
+    if (!placed.ok) return placed;
+    return (await store.member(placed.value, caller)) ? placed : no('forbidden', `${repo} is not in your workspace.`);
   }
 
   /** Stores the report's lines once each, then keeps the job's last 20,000. */
@@ -432,6 +454,33 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const [read, first] = await Promise.all([store.lines(jobId, after, JOB_LINES_PAGE + 1), store.firstLine(jobId)]);
       const logTail = first === null && job.log_tail !== '' ? job.log_tail : null;
       return ok({ status: job.status, lines: read.slice(0, JOB_LINES_PAGE), more: read.length > JOB_LINES_PAGE, first, logTail });
+    },
+
+    /** The terminal's read of the runners (PRD 2251): every runner of the workspace the repository belongs
+     * to for the caller, with its state and slots, by name. A member only. */
+    async runnersFor(caller: string, repo: string): Promise<Served<KitRunner[]>> {
+      const workspace = await memberPlacement(caller, repo.toLowerCase());
+      if (!workspace.ok) return workspace;
+      await markLost();
+      const [runners, active] = await Promise.all([store.runners(workspace.value), store.activeJobs(workspace.value)]);
+      const now = clock.now();
+      return ok(runners.map((runner) => kitRunnerOf(runner, usedBy(active, runner.id), now)));
+    },
+
+    /** The terminal's read of a PRD's jobs (PRD 2251): the jobs of the repository whose line names the PRD,
+     * among the ones the Runners page lists (queued and running, then the last 50 that ended), newest
+     * first. A member of the workspace the repository belongs to only. */
+    async prdJobs(caller: string, repo: string, prd: PrdNumber): Promise<Served<PrdJob[]>> {
+      const named = repo.toLowerCase();
+      const workspace = await memberPlacement(caller, named);
+      if (!workspace.ok) return workspace;
+      await markLost();
+      const [runners, active, ended] = await Promise.all([store.runners(workspace.value), store.activeJobs(workspace.value), store.endedJobs(workspace.value, ENDED_JOBS_SHOWN)]);
+      const names = new Map(runners.map((runner) => [runner.id, runner.name]));
+      return ok([...active, ...ended]
+        .filter((job) => job.repo === named && linePrd(job.line) === prd)
+        .sort((a, b) => b.queued_at.localeCompare(a.queued_at) || b.id.localeCompare(a.id))
+        .map((job) => prdJobOf(job, job.runner_id === null ? null : names.get(job.runner_id) ?? null)));
     },
 
     /** The Runners page's read: the workspace's runners with their state, their last health and their
