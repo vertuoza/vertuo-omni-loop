@@ -6,7 +6,7 @@
 //   the read failed: both hide the row). Not signed in: no read, no key.
 // - **runner** `{ line }`: while `omni runner follow` runs here, its last milestone, read from
 //   `.omni-loop/local/runner-follow/<n>.json` (`{ prd, runner, line, at }`; the file goes when the
-//   follow ends): `PRD 2223 on vertuo-agents · 1/2 slices merged`. The file written last wins.
+//   follow ends): `PRD 2223 on box-1 · 1/2 slices merged`. The file written last wins.
 //
 // Nothing here throws. Only `readRunners` reaches the network, and `omni now` awaits it alone.
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { credentialsHost } from '../ask/credentials.ts';
 import type { Fetch, TokenStore } from '../ask/client.ts';
+import { PrdNumberSchema } from '../ids.ts';
 import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
 import { runnerApi } from '../runner/api.ts';
 import type { KitRunner } from '../runner/api.ts';
@@ -28,7 +29,7 @@ const FOLLOW_DIR = 'runner-follow';
 export type RunnerSlots = { free: number; slots: number };
 
 const CacheSchema = z.object({ at: z.number(), runners: z.object({ free: z.number(), slots: z.number() }).nullable() });
-const FollowSchema = z.object({ prd: z.number(), runner: z.string().nullable(), line: z.string().min(1), at: z.iso.datetime({ offset: true }) });
+const FollowSchema = z.object({ prd: PrdNumberSchema, runner: z.string().nullable(), line: z.string().min(1), at: z.iso.datetime({ offset: true }) });
 
 /** The slots of the runners of `repo` that are online or busy; `null` when none is. */
 export function slotsOf(runners: readonly KitRunner[], repo: string): RunnerSlots | null {

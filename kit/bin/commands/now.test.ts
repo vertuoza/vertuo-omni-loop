@@ -18,7 +18,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-async function ask({ signedIn = true, body = { runners }, fail = false }: { signedIn?: boolean; body?: unknown; fail?: boolean } = {}) {
+function ask({ signedIn = true, body = { runners }, fail = false }: { signedIn?: boolean; body?: unknown; fail?: boolean } = {}) {
   const repo = makeRepo({ files: { '.omni-loop/config.yml': CONFIG }, git: true });
   roots.push(repo.root);
   const fetch = vi.fn(() => (fail ? Promise.reject(new Error('down')) : Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })))) as unknown as typeof globalThis.fetch;
@@ -34,33 +34,33 @@ async function ask({ signedIn = true, body = { runners }, fail = false }: { sign
 
 describe('omni now --json, the runner rows', () => {
   it('carries the slots free of the runners online for this repository', async () => {
-    const { parsed } = await ask();
+    const { parsed } = ask();
     expect(await parsed()).toMatchObject({ runners: { free: 2, slots: 3 } });
   });
 
   it('reads the page once in 30 seconds', async () => {
-    const { run, fetch } = await ask();
+    const { run, fetch } = ask();
     await run();
     await run();
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('carries runners null when the read fails, and no key when nobody is signed in', async () => {
-    expect(await (await ask({ fail: true })).parsed()).toMatchObject({ runners: null });
-    const out = await ask({ signedIn: false });
+    expect(await ask({ fail: true }).parsed()).toMatchObject({ runners: null });
+    const out = ask({ signedIn: false });
     expect(await out.parsed()).not.toHaveProperty('runners');
     expect(out.fetch).not.toHaveBeenCalled();
   });
 
   it('carries the followed job\'s last milestone while a follow keeps one', async () => {
-    const { repo, parsed } = await ask({ signedIn: false });
+    const { repo, parsed } = ask({ signedIn: false });
     mkdirSync(join(repo.root, '.omni-loop/local/runner-follow'), { recursive: true });
-    writeFileSync(join(repo.root, '.omni-loop/local/runner-follow/2223.json'), JSON.stringify({ prd: 2223, runner: 'vertuo-agents', line: '1/2 slices merged', at: '2026-10-20T12:00:00.000Z' }));
-    expect(await parsed()).toMatchObject({ runner: { line: 'PRD 2223 on vertuo-agents · 1/2 slices merged' } });
+    writeFileSync(join(repo.root, '.omni-loop/local/runner-follow/2223.json'), JSON.stringify({ prd: 2223, runner: 'box-1', line: '1/2 slices merged', at: '2026-10-20T12:00:00.000Z' }));
+    expect(await parsed()).toMatchObject({ runner: { line: 'PRD 2223 on box-1 · 1/2 slices merged' } });
   });
 
   it('asks the page for nothing without --json', async () => {
-    const { run, fetch } = await ask();
+    const { run, fetch } = ask();
     expect(await run([])).not.toContain('runners');
     expect(fetch).not.toHaveBeenCalled();
   });

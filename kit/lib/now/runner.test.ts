@@ -16,7 +16,7 @@ const NOW = Date.parse('2026-10-20T12:00:00.000Z');
 const runner = (more: Partial<KitRunner>): KitRunner => ({ id: 'r1', name: 'one', fleet: null, state: 'online', used: 0, slots: 2, repos: [REPO], ...more });
 const signedIn: TokenStore = { read: () => ({ access_token: 'a', refresh_token: 'r', expires_at: null }), write: () => undefined, clear: () => undefined } as unknown as TokenStore;
 const signedOut: TokenStore = { read: () => null, write: () => undefined, clear: () => undefined } as unknown as TokenStore;
-const reply = (runners: KitRunner[]): typeof fetch => vi.fn(() => Promise.resolve(new Response(JSON.stringify({ runners }), { status: 200, headers: { 'content-type': 'application/json' } }))) as unknown as typeof fetch;
+const reply = (runners: KitRunner[]): typeof fetch => vi.fn(() => Promise.resolve(new Response(JSON.stringify({ runners }), { status: 200, headers: { 'content-type': 'application/json' } })));
 
 let root = '';
 beforeEach(() => {
@@ -72,8 +72,8 @@ describe('the followed job', () => {
   };
 
   it('is the last milestone, with the runner that claimed the job', () => {
-    keep(2223, { prd: 2223, runner: 'vertuo-agents', line: '1/2 slices merged', at: '2026-10-20T12:00:00.000Z' });
-    expect(readFollow(root)).toEqual({ line: 'PRD 2223 on vertuo-agents · 1/2 slices merged' });
+    keep(2223, { prd: 2223, runner: 'box-1', line: '1/2 slices merged', at: '2026-10-20T12:00:00.000Z' });
+    expect(readFollow(root)).toEqual({ line: 'PRD 2223 on box-1 · 1/2 slices merged' });
   });
 
   it('leaves the runner out while none claimed the job, and takes the file written last', () => {

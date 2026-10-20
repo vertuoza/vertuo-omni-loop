@@ -338,12 +338,12 @@ describe('the sync row', () => {
 // PRD 2251 s5: the runner rows, `omni now`'s `runners` and `runner` fields, each hidden when absent.
 describe('the runner rows', () => {
   test('draws the free slots and the followed job\'s last milestone, below the work', async ($, on) => {
-    world(on, json({ ...PRD, runners: { free: 3, slots: 8 }, runner: { line: 'PRD 2223 on vertuo-agents · 1/2 slices merged' } }))
+    world(on, json({ ...PRD, runners: { free: 3, slots: 8 }, runner: { line: 'PRD 2223 on box-1 · 1/2 slices merged' } }))
     await start($)
     for (const surface of SURFACES) {
       const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: BAND })
       expect((await ui.find({ key: 'runners' }))?.text).toBe('runners 3/8 slots free')
-      expect((await ui.find({ key: 'runner' }))?.text).toBe('PRD 2223 on vertuo-agents · 1/2 slices merged')
+      expect((await ui.find({ key: 'runner' }))?.text).toBe('PRD 2223 on box-1 · 1/2 slices merged')
       expect((await ui.find({ key: 'work' }))?.text).toContain('PRD 315')
       await ui.unmount()
     }
