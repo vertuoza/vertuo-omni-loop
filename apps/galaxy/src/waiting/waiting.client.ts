@@ -1,9 +1,10 @@
-import { DocumentsSchema, QuestionsSchema } from './waiting.contract';
+import { DocumentsSchema, QuestionsSchema, RunnersWaitingSchema } from './waiting.contract';
 import type { DocumentRow } from './documents';
 import type { WaitingQuestion } from './waiting';
 
 // The bell's reads from the browser (PRD 1318, s4; ADR-0095): the app's /api/waiting/questions and
-// /api/waiting/documents routes, every response parsed with src/waiting/waiting.contract.ts. The
+// /api/waiting/documents routes, and since PRD 2255 /api/waiting/runners, the sidebar's Runners badge,
+// every response parsed with src/waiting/waiting.contract.ts. The
 // waiting provider builds no Supabase client: its sign-in cookie goes with each request. A 401 throws
 // WaitingSignedOut, which the provider reads as "stop both polls" (bug #1316); any other failure throws
 // WaitingReadFailed, and the provider keeps the part's last items, marked unread.
@@ -71,6 +72,11 @@ export function waitingClient(fetchFn: Fetch = (url, init) => fetch(url, init)) 
     /** The New documents part's versions, newest first. */
     async documents(): Promise<DocumentRow[]> {
       return DocumentsSchema.parse(await read('read the new documents', '/api/waiting/documents')).documents;
+    },
+
+    /** The Runners part: how many of the workspace's jobs wait for an answer (PRD 2255). */
+    async runners(): Promise<number> {
+      return RunnersWaitingSchema.parse(await read('read the runners waiting', '/api/waiting/runners')).count;
     },
   };
 }
