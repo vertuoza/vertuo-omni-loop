@@ -85,9 +85,10 @@ v3.14.22 before it shipped. Nothing in either skill leads to that guard.
     never reaches stop rule 3 while the third reading applies.
   - **smoke is set but cannot run in this session** (a browser or a tool the session lacks): the
     reproduction is pushed alone on the draft PR, and the red is the CI run of `smoke` on it, when
-    the repository's CI runs `smoke`. When it does not, stop rule 6.
-  - **smoke is `null`:** stop rule 6.
-- **Stop rule 6, new, written verbatim with the others:** *The bug lives in the build and the
+    the repository's CI runs `smoke`. When it does not, stop rule 7.
+  - **smoke is `null`:** stop rule 7.
+- **Stop rule 7, new, written verbatim with the others** (rule 6 is PRD 2255's `--answers` stop,
+  merged on `main` first): *The bug lives in the build and the
   repository commits no `commands.smoke` it can run: stop, keep the reproduction, comment on the
   issue with the suspect, the production evidence and the line to commit. Never fix without red.*
   Its comment names the suspect (`<file>:<line>`), the **Production** line of the triage, the exact
@@ -97,8 +98,8 @@ v3.14.22 before it shipped. Nothing in either skill leads to that guard.
 
 ### 3. A stop keeps the reproduction, and a critical stop says so
 
-- **Stop rules 3, 4 and 6 keep the reproduction.** It is committed alone on the fix branch, and the
-  branch is pushed. Stop rule 6 also opens the fix PR as a draft, labelled `labels.needsFix`, as
+- **Stop rules 3, 4 and 7 keep the reproduction.** It is committed alone on the fix branch, and the
+  branch is pushed. Stop rule 7 also opens the fix PR as a draft, labelled `labels.needsFix`, as
   stop rule 5 does today, its body saying it stopped and why. The stop's comment links the branch
   and names the reproduction's path. **Never** gains: *never delete the reproduction, its branch or
   its worktree on a stop.* (Stop rule 4 today leaves the worktree unpushed; it now pushes the
@@ -161,7 +162,7 @@ reproduction line names its level. `omni bug` reads the record as today: it requ
 | vertuo-omni-loop | kit config | `commands.smoke` | `commands.setup` ← `kit/lib/config.ts:391`; one lower-case word like `commands.design` ← `kit/lib/config.ts:399` |
 | vertuo-omni-loop | skill text | `- **Production:** …` triage line | follows the triage template's bold-field lines ← `kit/plugin/skills/bug-fix/SKILL.md:146` |
 | vertuo-omni-loop | skill text | `pending` (Reproduction and Branch before they exist) | no written convention: follows the fix plan's `—` for a pull request not yet open ← `kit/plugin/skills/mega-bug-fix/SKILL.md:192`, spelled as a word because the line is read by people |
-| vertuo-omni-loop | skill text | stop rule 6 | follows the numbered **Stop rules** ← `kit/plugin/skills/bug-fix/SKILL.md:558` |
+| vertuo-omni-loop | skill text | stop rule 7 | follows the numbered **Stop rules** ← `kit/plugin/skills/bug-fix/SKILL.md:558` |
 | vertuo-omni-loop | skill text | `Guard: none — <repository>'s CI does not run commands.smoke` | follows `Guard: none — <reason>` ← `kit/plugin/skills/bug-fix/SKILL.md:292` |
 | vertuo-omni-loop | record | `- **Level:** <unit \| acceptance \| smoke>` | follows the record's bold fields ← `kit/plugin/skills/bug-fix/SKILL.md:317` |
 | vertuo-omni-loop | test | `kit/test/bug-fix-smoke.test.ts` | follows `kit/test/bug-fix-proof.test.ts` (skill text read section by section) |
@@ -171,14 +172,14 @@ reproduction line names its level. `omni bug` reads the record as today: it requ
 - **One PRD** for the five gaps and the guard (asked): they change the same two skills.
 - **`commands.smoke`, one command** that builds and checks (asked, settled in the parent session):
   no `commands.build`, no preview-deployment harness.
-- **No smoke, no fix** (asked, settled in the parent session): stop rule 6; never an unproven fix.
+- **No smoke, no fix** (asked, settled in the parent session): stop rule 7; never an unproven fix.
 - **`/omni:bug-fix` follows the same rule** in its own repository (asked): the build level only
   through `commands.smoke`.
 - **A critical stop: the `[!CAUTION]` alert alone** (asked): no mention, no phone or email alert.
 - **The guard: a line and a recommendation** (asked): the skill never edits a repository's CI.
-- **Stop rule 6 opens a draft PR** labelled `labels.needsFix` (asked, with the visible stop).
+- **Stop rule 7 opens a draft PR** labelled `labels.needsFix` (asked, with the visible stop).
 - **Smoke set but not runnable in the session** (taken without asking, the most reversible): CI's
-  run of `smoke` on the reproduction alone is the red when CI runs it, else stop rule 6.
+  run of `smoke` on the reproduction alone is the red when CI runs it, else stop rule 7.
 - **Stop rule 4 now pushes its branch** (taken without asking): the reproduction must outlive the
   session, which a runner's or a removed worktree's does not.
 - **The voice's objection** (persona:Irisa): *"When production crashes for every customer, I want
@@ -231,7 +232,7 @@ Every test runs on fixtures and never calls GitHub (`omni kb show testing`). The
   as `kit/test/bug-fix-proof.test.ts` does):
   - bug-fix step 7 names the three readings in order, and moves up to `commands.smoke` under the
     third;
-  - the **Stop rules** hold rule 6 verbatim, and rule 3 says it applies after the smoke level when
+  - the **Stop rules** hold rule 7 verbatim, and rule 3 says it applies after the smoke level when
     the third reading holds;
   - step 3's triage template holds `Reproduction:** pending`, `Branch:** pending` and the
     `Production:` line, and the regression evidence names a release range;
@@ -268,7 +269,7 @@ Every test runs on fixtures and never calls GitHub (`omni kb show testing`). The
       needs @pierrederval to approve the pull request on GitHub.
     - N-PRODUCT-15: unreviewed work reaches every user, and nobody chose to ship it. Changing it
       needs @pierrederval to approve the pull request on GitHub.
-  - **Why they hold:** stop rule 6's PR stays a draft (BR-PRODUCT-5); the skills still never merge
+  - **Why they hold:** stop rule 7's PR stays a draft (BR-PRODUCT-5); the skills still never merge
     (N-PRODUCT-15); no label the gate reads is applied by the skill (BR-PRODUCT-3).
   - The rule BR-PRODUCT-23 governs `kit/lib/config.ts`'s `signature` keys, which this PRD does not
     touch.
@@ -281,10 +282,10 @@ Every test runs on fixtures and never calls GitHub (`omni kb show testing`). The
    cannot see it" runs `setup` then `commands.smoke` with the case added, before any fix.
 3. A unit-level pass alone never reaches stop rule 3 while the third reading applies; a smoke-level
    pass does.
-4. Stop rule 6 is written verbatim in **Stop rules**: with no runnable `commands.smoke`, the skill
+4. Stop rule 7 is written verbatim in **Stop rules**: with no runnable `commands.smoke`, the skill
    stops, keeps the reproduction on a pushed branch and a draft PR labelled `labels.needsFix`, and
    comments the suspect, the production evidence and the YAML line to commit.
-5. Stop rules 3, 4 and 6 push the branch holding the reproduction, and **Never** forbids deleting
+5. Stop rules 3, 4 and 7 push the branch holding the reproduction, and **Never** forbids deleting
    the reproduction, its branch or its worktree on a stop.
 6. A stop whose risk is `critical` starts its comment with `> [!CAUTION]` and
    `critical — nothing is fixed`, mentioning nobody.

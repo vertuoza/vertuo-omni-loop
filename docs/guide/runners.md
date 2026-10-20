@@ -40,7 +40,8 @@ The Runners page, under Dashboard in the sidebar (`/app/runners`), lists:
   fleet here.
 - **Jobs:** queued and running first, then the last 50 that ended. Each shows its line, who sent it,
   where it went and its status: Queued, Running, Done with its pull request, Failed with its reason
-  (`runner lost`, `timeout` or an exit code), or Cancelled.
+  (`runner lost`, `timeout` or an exit code), Cancelled, or **Need human** when it stopped to ask
+  you something.
 
 Press **Terminal** on a job, or on a busy runner, to read what the job is doing, line by line, as it
 happens: each step Claude takes, each command and its result. It is read-only: you watch, you do
@@ -48,6 +49,35 @@ not type.
 
 **Cancel** stops a queued or running job within a few seconds. **Send again** queues a failed or
 cancelled job once more: a job never runs again by itself.
+
+### Answer a job that needs a human
+
+A `/omni:bug-fix` job that reaches a decision only a person can take stops and asks. Its status
+reads **Need human**, in the plasma colour and filled so it stands out, and its row has a **Need
+human** button. The comment it leaves on the issue ends with a link that opens the same panel.
+
+1. Press **Need human**, or follow the link from the issue. A panel opens over the right of the
+   page (over the whole page on a phone). Its header reads `Need human · <repo> · #<issue>`, and the
+   issue number links the issue on GitHub.
+2. Read the short note on why the job stopped, then answer each question: pick one option, or
+   several when the question says **Pick any that apply**, or write your own answer of up to 2,000
+   characters.
+3. Press **Send answers**. It stays off until every question has an answer. The panel closes, and a
+   new job shows on the board, queued, to the same runner or fleet: it carries on from your answers
+   instead of starting over. The first job reads **Done** from then on.
+
+If nobody should answer, press **Dismiss**: the questions close, no job is queued, and the job reads
+**Done**. Escape, the close button, or a click on the dimmed page closes the panel without doing
+either, and the focus goes back to the button.
+
+Anyone in the workspace may answer or dismiss, and the first to do so wins. Open a closed question
+later and the panel reads **Already answered by @<login>** or **Dismissed by @<login>**, with
+neither button, and nothing is queued. If Omni refuses the new job (for instance because the runner
+it went to is no longer yours to send to), the panel says why in the service's own words and
+nothing is stored: fix the cause, or answer again.
+
+A job that asked and then failed or was cancelled shows no **Need human** button: there is nothing
+left to resume.
 
 ### When a job dies holding claims
 

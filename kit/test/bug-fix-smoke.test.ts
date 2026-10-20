@@ -1,6 +1,6 @@
 // PRD 2275, s2: `/omni:bug-fix` proves a bug that only shows in a production build at the smoke level.
 // A passing reproduction has three readings, the third moves up to `setup` then `commands.smoke`, stop
-// rule 6 stops with no runnable smoke, a stop keeps the reproduction on a pushed branch, a critical stop
+// rule 7 stops with no runnable smoke, a stop keeps the reproduction on a pushed branch, a critical stop
 // opens with the alert, the guard is the smoke run by CI, and the record names its level. These tests
 // live apart from the law proofs in `plugin.test.ts`, and change none of them.
 import { readFileSync } from 'node:fs';
@@ -55,26 +55,26 @@ describe('the bug-fix skill proves a build-level bug at the smoke level', () => 
       '**Smoke passes too:** stop rule 3',
       '**Smoke is set but cannot run in this session**',
       'the red is the CI run of `commands.smoke`',
-      'stop rule 6',
-      '**`commands.smoke` is null:** stop rule 6',
+      'stop rule 7',
+      '**`commands.smoke` is null:** stop rule 7',
     ])).toEqual([]);
   });
 
-  it('stop rule 6 is verbatim, and rule 3 says a unit-level pass alone never reaches it under the third reading', () => {
+  it('stop rule 7 is verbatim, and rule 3 says a unit-level pass alone never reaches it under the third reading', () => {
     const rules = skillSection(read('bug-fix'), 'Stop rules');
-    expect(rules).toContain('6. The bug lives in the build and the repository commits no `commands.smoke` it can run: stop, keep the reproduction, comment on the issue with the suspect, the production evidence and the line to commit. Never fix without red.');
+    expect(rules).toContain('7. The bug lives in the build and the repository commits no `commands.smoke` it can run: stop, keep the reproduction, comment on the issue with the suspect, the production evidence and the line to commit. Never fix without red.');
     expect(flat(rules)).toContain('a unit-level pass alone never reaches this rule while the third reading applies');
   });
 
-  it('stops 3, 4 and 6 commit the reproduction and push the branch; rule 6 opens a draft labelled needsFix', () => {
+  it('stops 3, 4 and 7 commit the reproduction and push the branch; rule 7 opens a draft labelled needsFix', () => {
     expect(gaps(step7(), [
       '**A stop keeps the reproduction.**',
-      'stop rules 3, 4 and 6',
+      'stop rules 3, 4 and 7',
       'commit the reproduction alone on the fix branch and push the branch',
       'links the branch and names the reproduction\'s path',
-      'Stop rule 6 also opens the fix PR as a draft, labelled `labels.needsFix`',
+      'Stop rule 7 also opens the fix PR as a draft, labelled `labels.needsFix`',
     ])).toEqual([]);
-    expect(flat(skillSection(read('bug-fix'), 'Stop rules'))).toContain('For rules 3, 4 and 6, the reproduction is committed alone on the fix branch and the branch is pushed');
+    expect(flat(skillSection(read('bug-fix'), 'Stop rules'))).toContain('For rules 3, 4 and 7, the reproduction is committed alone on the fix branch and the branch is pushed');
   });
 
   it('a critical stop starts with the CAUTION alert, mentions nobody, and the hand-off prints the line first', () => {
@@ -87,9 +87,9 @@ describe('the bug-fix skill proves a build-level bug at the smoke level', () => 
     ])).toEqual([]);
   });
 
-  it('stop rule 6\'s comment names the suspect, the production line, the YAML to commit and the rerun command', () => {
+  it('stop rule 7\'s comment names the suspect, the production line, the YAML to commit and the rerun command', () => {
     expect(gaps(step7(), [
-      '**Stop rule 6\'s comment**',
+      '**Stop rule 7\'s comment**',
       '`<file>:<line>`',
       '**Production**',
       '`commands.smoke: <a command that builds and checks the',
