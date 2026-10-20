@@ -33,6 +33,7 @@ function store(over: Over = {}) {
     unlink: (product, repo) => { calls.push(`unlink ${product} ${repo}`); return Promise.resolve({ ok: true as const, removed: true }); },
     setApprover: (product, member, state) => { calls.push(`set ${product} ${member} ${state}`); return Promise.resolve({ ok: true as const, state }); },
     removeApprover: (product, member) => { calls.push(`remove ${product} ${member}`); return Promise.resolve({ ok: true as const, removed: true }); },
+    setPlan: (product, repo) => { calls.push(`plan ${product} ${String(repo)}`); return Promise.resolve({ ok: true as const, product: { workspace_id: ACME, plan_repository: repo } }); },
     ...over,
   };
   return { service: repositoriesTabService(fake), calls };
@@ -48,6 +49,7 @@ describe('the tab', () => {
         { repo: 'acme/app', role: null, knowledge: 'own', readAt: null, readOnly: true, consumes: ['acme/api'], addedBy: 'prd', ladderStep: 5 },
       ],
       addable: ['acme/billing', 'acme/web'],
+      repositories: ['acme/api', 'acme/app', 'acme/billing', 'acme/web'],
       approvers: {
         owner: true,
         members: [{ id: 'u-ada', name: 'Ada', login: 'ada' }, { id: 'u-bo', name: null, login: 'bo' }],
@@ -157,4 +159,40 @@ describe('what is still in the plan repository (PRD 2011 s17)', () => {
     expect((await service.tab(ACME, MOBILE.id))?.plan?.holds).toEqual([{ name: 'Open records', why: 'could not be read just now' }]);
   });
 
+});
+
+describe('naming the plan repository', () => {
+  const below = { ...APP, ladder_step: 3 };
+
+  it('names one of the workspace\'s repositories in lower case, answering it with what is still in it', async () => {
+    const { service, calls } = store({ links: () => Promise.resolve([API, below]), openBornInGit: () => Promise.resolve([{ kind: 'bug', number: 1210 }]) });
+    expect(await service.setPlan(MOBILE.id, ' Acme/Plan ')).toEqual({
+      ok: true,
+      value: { plan: { repository: 'acme/plan', holds: [{ name: 'app', why: 'step 3' }, { name: 'bug 1210', why: 'in git' }] } },
+    });
+    expect(calls).toEqual([`plan ${MOBILE.id} acme/plan`]);
+  });
+
+  it('names none, answering no plan', async () => {
+    const { service, calls } = store();
+    expect(await service.setPlan(MOBILE.id, null)).toEqual({ ok: true, value: { plan: null } });
+    expect(calls).toEqual([`plan ${MOBILE.id} null`]);
+  });
+
+  it('refuses by kind, in the database\'s own words: not an owner, a repository the workspace does not list, an archived product', async () => {
+    const refusing = (code: string | null, message: string) => store({ setPlan: () => Promise.resolve({ ok: false as const, code, message }) }).service;
+    const notOwner = 'Only an owner of the workspace changes the repositories of Mobile.';
+    expect(await refusing('42501', notOwner).setPlan(MOBILE.id, 'acme/plan')).toEqual({ ok: false, kind: 'not-owner', error: notOwner });
+    const unlisted = 'Repository: acme/gone is not one of this workspace\'s repositories.';
+    expect(await refusing('P0002', unlisted).setPlan(MOBILE.id, 'acme/gone')).toEqual({ ok: false, kind: 'refused', error: unlisted });
+    const archived = 'Product Mobile is archived: an owner restores it on its page.';
+    expect(await refusing('P0002', archived).setPlan(MOBILE.id, 'acme/plan')).toEqual({ ok: false, kind: 'refused', error: archived });
+    expect(await refusing('XX000', 'boom').setPlan(MOBILE.id, 'acme/plan')).toEqual({ ok: false, kind: 'database', error: 'boom' });
+  });
+
+  it('still answers the saved plan repository when the links cannot be read after, saying so with one hold', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { service } = store({ links: () => Promise.reject(new Error('down')) });
+    expect(await service.setPlan(MOBILE.id, 'acme/plan')).toEqual({ ok: true, value: { plan: { repository: 'acme/plan', holds: [{ name: 'Open records', why: 'could not be read just now' }] } } });
+  });
 });
