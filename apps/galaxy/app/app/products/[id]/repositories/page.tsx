@@ -9,8 +9,8 @@ import { LIVE_REPOSITORIES_TAB, repositoriesTabViewOf } from '../../../../../src
 import { RepositoriesTabScreen } from '../../../../../src/product-repositories/RepositoriesTab';
 
 // /app/products/<id>/repositories (PRD 1364 s11): the product home's Repositories & approvers tab, the
-// product's repositories, which a workspace owner adds, edits and removes, and under them its Approvers
-// list, moved here from Settings › Products. Rendered per request, as the signed-in person, so row-level
+// product's repositories, which a workspace owner adds, edits and removes, its plan repository, which an
+// owner names, and under them its Approvers list, moved here from Settings › Products. Rendered per request, as the signed-in person, so row-level
 // security decides what the reads return; the product home is read beside it for its tabs. `?add=` names
 // the repository Add a repository starts on (Products' Add to a product). In development (or
 // OMNI_LOOP_DEMO=1), the demo, whose changes stay in the page. An archived product (PRD 2232) is read-only:

@@ -8,8 +8,8 @@ import { StoredLinkFields } from './product-link-row';
 
 // The Repositories & approvers tab's storage (PRD 1364 s11; ADR-0095): the reads and writes behind
 // /app/products/<id>/repositories, on the client it is given, the signed-in person's, so row-level
-// security, product_repository_link(), product_repository_unlink(), product_approver_set() and
-// product_approver_remove() have the last word. The product, its links (product_repositories, with who
+// security, product_repository_link(), product_repository_unlink(), product_plan_repository_set(),
+// product_approver_set() and product_approver_remove() have the last word. The product, its links (product_repositories, with who
 // added each), the workspace's repositories, whether the caller owns the workspace (is_owner()), its
 // members (workspace_roster()) and the product's approvers (product_approvers, PRD 1322). A failed read
 // throws, and an answer out of shape too; a refused write answers the database's code and words. No rule
@@ -26,6 +26,9 @@ const StoredTabProductSchema = z.object({
   plan_repository: z.string().nullable(),
 });
 export type StoredTabProduct = z.infer<typeof StoredTabProductSchema>;
+/** The product as product_plan_repository_set() answers it, the fields the tab needs. */
+const StoredPlanSchema = StoredTabProductSchema.pick({ workspace_id: true, plan_repository: true });
+type StoredPlan = z.infer<typeof StoredPlanSchema>;
 
 const LINK_COLUMNS = 'repository, role, knowledge, read_at, read_only, consumes, added_by, ladder_step';
 /** One product link, as the tab reads it. */
@@ -155,6 +158,13 @@ export function repositoriesTabRepository(db: RepositoriesTabDb) {
       const answer: RpcAnswer = await db.rpc('product_approver_set', { p_product: product, p_member: member, p_state: state });
       if (answer.error) return refusedOf(answer.error);
       return { ok: true, state: orThrow(parseRow(SetAnswer, answer.data, 'product-repositories/repositories-tab.repository: product_approver_set')).state };
+    },
+
+    /** Names the product's plan repository, or none (null), through product_plan_repository_set(): the product as it stored it. */
+    async setPlan(product: string, repository: string | null): Promise<Written<{ product: StoredPlan }>> {
+      const answer: RpcAnswer = await db.rpc('product_plan_repository_set', { p_product: product, p_repository: repository });
+      if (answer.error) return refusedOf(answer.error);
+      return { ok: true, product: orThrow(parseRow(StoredPlanSchema, answer.data, 'product-repositories/repositories-tab.repository: product_plan_repository_set')) };
     },
 
     /** Takes a member off the list, through product_approver_remove(): whether they were on it. */

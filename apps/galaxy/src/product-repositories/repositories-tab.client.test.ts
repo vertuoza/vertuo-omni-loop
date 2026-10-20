@@ -37,6 +37,18 @@ describe('the calls', () => {
     expect(unset.sent[0]?.url).toBe(`/app/products/${PRODUCT}/repositories/approvers?member=u-1`);
   });
 
+  it('names the plan repository, or none, with a POST, answering it as saved', async () => {
+    const named = stub(200, { plan: { repository: 'acme/plan', holds: [{ name: 'web', why: 'step 3' }] } });
+    expect(await named.client.setPlan('acme/plan')).toEqual({ ok: true, plan: { repository: 'acme/plan', holds: [{ name: 'web', why: 'step 3' }] } });
+    expect(named.sent[0]).toMatchObject({ url: `/app/products/${PRODUCT}/repositories/plan`, init: { method: 'POST', credentials: 'same-origin' } });
+    expect(named.sent[0]?.init.body).toBe(JSON.stringify({ repo: 'acme/plan' }));
+    const cleared = stub(200, { plan: null });
+    expect(await cleared.client.setPlan(null)).toEqual({ ok: true, plan: null });
+    expect(cleared.sent[0]?.init.body).toBe(JSON.stringify({ repo: null }));
+    const refused = 'Repository: acme/gone is not one of this workspace\'s repositories.';
+    expect(await stub(422, { error: refused }).client.setPlan('acme/gone')).toEqual({ ok: false, message: refused });
+  });
+
   it('answers a refusal in the route\'s words, and a lost connection as nothing saved', async () => {
     expect(await stub(422, { error: 'Role: X is not one kebab-case word.' }).client.removeLink('acme/api')).toEqual({ ok: false, message: 'Role: X is not one kebab-case word.' });
     expect(await stub(500, 'no json').client.removeLink('acme/api')).toEqual({ ok: false, message: 'Nothing was saved (500). Try again.' });

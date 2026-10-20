@@ -1,7 +1,7 @@
 import type { ApproverState } from '../products/approvers';
 import {
-  ApproverRemovedSchema, ApproverSavedSchema, approversRoute, LinkRemovedSchema, LinkSavedSchema, linksRoute, TabErrorSchema,
-  type Link, type LinkWrite,
+  ApproverRemovedSchema, ApproverSavedSchema, approversRoute, LinkRemovedSchema, LinkSavedSchema, linksRoute, PlanSavedSchema, planRoute,
+  TabErrorSchema, type Link, type LinkWrite, type PlanRepository,
 } from './repositories-tab.contract';
 
 // The Repositories & approvers tab's calls from the browser (PRD 1364 s11; ADR-0095): the tab's own
@@ -14,10 +14,12 @@ type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
 export type Changed<T> = ({ ok: true } & T) | { ok: false; message: string };
 
-/** What the tab changes: its links and its Approvers list. */
+/** What the tab changes: its links, its plan repository and its Approvers list. */
 export interface RepositoriesTabPort {
   saveLink(write: LinkWrite): Promise<Changed<{ link: Link }>>;
   removeLink(repo: string): Promise<Changed<{ repo: string }>>;
+  /** Names the plan repository, or none (null): it answers the plan repository as saved. */
+  setPlan(repo: string | null): Promise<Changed<{ plan: PlanRepository | null }>>;
   setApprover(member: string, state: ApproverState): Promise<Changed<{ state: ApproverState }>>;
   removeApprover(member: string): Promise<Changed<object>>;
 }
@@ -48,6 +50,7 @@ export function repositoriesTabClient(product: string, fetchFn: Fetch = (url, in
   return {
     saveLink: (write) => call(linksRoute(product), json(write), (body) => ({ link: LinkSavedSchema.parse(body).link })),
     removeLink: (repo) => call(`${linksRoute(product)}?repo=${encodeURIComponent(repo)}`, { method: 'DELETE' }, (body) => ({ repo: LinkRemovedSchema.parse(body).repo })),
+    setPlan: (repo) => call(planRoute(product), json({ repo }), (body) => ({ plan: PlanSavedSchema.parse(body).plan })),
     setApprover: (member, state) => call(approversRoute(product), json({ member, state }), (body) => ({ state: ApproverSavedSchema.parse(body).state })),
     removeApprover: (member) => call(`${approversRoute(product)}?member=${encodeURIComponent(member)}`, { method: 'DELETE' }, (body) => { ApproverRemovedSchema.parse(body); return {}; }),
   };

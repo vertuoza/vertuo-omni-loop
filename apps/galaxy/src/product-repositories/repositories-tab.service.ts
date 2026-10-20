@@ -5,6 +5,7 @@ import type { Hold, Link, LinkWrite, PlanRepository, RepositoriesTab, TabRefusal
 import {
   repositoriesTabRepository, type Refused, type RepositoriesTabDb, type RepositoriesTabRepository, type StoredTabLink,
 } from './repositories-tab.repository';
+import { ladderHolds } from './repositories-tab-model';
 
 // The product home's Repositories & approvers tab, its rules (PRD 1364 s11; ADR-0095).
 //
@@ -21,6 +22,10 @@ import {
 // - plan: the product's plan repository and what is still in it (PRD 2011 s17), information only: the
 //   repositories below step 5 of the rollout ladder, and the roadmaps, bug records and PRDs born in the plan
 //   repository and still open. The plan repository is never archived; it keeps working beside the product.
+// - setPlan: an owner names the product's plan repository, one of the workspace's repositories, or none,
+//   through product_plan_repository_set(); it answers the plan repository as saved, with what is still in
+//   it, and a refusal keeps the database's words (not an owner, a repository the workspace does not list,
+//   an archived product).
 // - setApprover, removeApprover: an owner lists a member as asked or skipped, or takes them off; a
 //   refusal says it as the Approvers section always has (src/products/approvers.ts).
 
@@ -42,7 +47,7 @@ const linkOf = (row: StoredTabLink): Link => ({
   ladderStep: row.ladder_step,
 });
 
-/** A link refusal by its kind, in the database's words. */
+/** A link or plan repository refusal by its kind, in the database's words. */
 function linkRefusal(refused: Refused): { ok: false; kind: TabRefusal; error: string } {
   if (refused.code === '42501') return { ok: false, kind: 'not-owner', error: refused.message };
   if (refused.code === '22023' || refused.code === 'P0002') return { ok: false, kind: 'refused', error: refused.message };
@@ -61,10 +66,6 @@ const RECORD_NAMES = { prd: 'PRD', bug: 'bug', roadmap: 'roadmap' } as const;
 /** The record's number as people read it: a roadmap's is four digits (`0412`). */
 const numberOf = (kind: keyof typeof RECORD_NAMES, number: number) => (kind === 'roadmap' ? String(number).padStart(4, '0') : String(number));
 const UNREAD: Hold = { name: 'Open records', why: 'could not be read just now' };
-
-/** The repositories of the product below step 5, but the plan repository itself, by name. */
-const ladderHolds = (links: readonly Link[], plan: string): Hold[] =>
-  links.filter((l) => l.ladderStep < 5 && l.repo !== plan).map((l) => ({ name: l.repo.split('/').at(-1) ?? l.repo, why: `step ${String(l.ladderStep)}` }));
 
 const blankToNull = (text: string | null): string | null => (text === null || text.trim() === '' ? null : text.trim());
 
@@ -93,9 +94,10 @@ export function repositoriesTabService(store: RepositoriesTabRepository) {
     }
   }
 
-  async function planOf(workspace: string, product: { plan_repository: string | null }, links: readonly Link[]): Promise<PlanRepository | null> {
+  /** The plan repository and what still holds it, or null while the product names none. Unread links: one hold saying so. */
+  async function planOf(workspace: string, product: { plan_repository: string | null }, links: readonly Link[] | null): Promise<PlanRepository | null> {
     if (product.plan_repository === null) return null;
-    return { repository: product.plan_repository, holds: await holdsOf(workspace, product.plan_repository, links) };
+    return { repository: product.plan_repository, holds: links === null ? [UNREAD] : await holdsOf(workspace, product.plan_repository, links) };
   }
 
   return {
@@ -117,6 +119,7 @@ export function repositoriesTabService(store: RepositoriesTabRepository) {
         owner,
         links: shown,
         addable: [...new Set(repositories)].filter((r) => !linked.has(r)).sort(byName),
+        repositories: [...new Set(repositories)].sort(byName),
         approvers,
         plan: await planOf(workspace, product, shown),
       };
@@ -140,6 +143,17 @@ export function repositoriesTabService(store: RepositoriesTabRepository) {
       const slug = repo.trim().toLowerCase();
       const done = await store.unlink(product, slug);
       return done.ok ? { ok: true, value: { repo: slug, removed: done.removed } } : linkRefusal(done);
+    },
+
+    /** Names the product's plan repository, or none (null): the plan repository as saved, with what is still in it. */
+    async setPlan(product: string, repo: string | null): Promise<Outcome<{ plan: PlanRepository | null }>> {
+      const saved = await store.setPlan(product, repo === null ? null : repo.trim().toLowerCase());
+      if (!saved.ok) return linkRefusal(saved);
+      const links = await store.links(product).then((rows) => rows.map(linkOf), (err: unknown) => {
+        console.error(`product repositories: the repositories of ${product} could not be read (${why(err)})`);
+        return null;
+      });
+      return { ok: true, value: { plan: await planOf(saved.product.workspace_id, saved.product, links) } };
     },
 
     /** Lists a member as asked or skipped, or changes their state. */

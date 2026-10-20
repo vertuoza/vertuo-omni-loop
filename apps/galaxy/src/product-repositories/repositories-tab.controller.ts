@@ -2,7 +2,7 @@ import 'server-only';
 import type { MemberSession } from '../data/member-session';
 import { viewer } from '../data/viewer';
 import { memberWorkspace } from '../data/workspace';
-import { ApproverWriteSchema, LinkWriteSchema, MemberQuerySchema, RepoQuerySchema, TAB_REFUSALS, type TabRefusal } from './repositories-tab.contract';
+import { ApproverWriteSchema, LinkWriteSchema, MemberQuerySchema, PlanWriteSchema, RepoQuerySchema, TAB_REFUSALS, type TabRefusal } from './repositories-tab.contract';
 import { repositoriesTabReads, type Outcome, type RepositoriesTab, type RepositoriesTabService } from './repositories-tab.service';
 import { demoRepositoriesTab, type RepositoriesTabView } from './RepositoriesTab';
 
@@ -16,7 +16,7 @@ import { demoRepositoriesTab, type RepositoriesTabView } from './RepositoriesTab
 //
 // The routes the tab's browser client calls (repositories-tab.client.ts), in the shapes of
 // repositories-tab.contract.ts: POST and DELETE …/repositories/links, POST and DELETE
-// …/repositories/approvers. The session is checked first, from the request's cookie claims, as viewer()
+// …/repositories/approvers, POST …/repositories/plan. The session is checked first, from the request's cookie claims, as viewer()
 // reads them: signed out (or the demo, or no database here), 401 and no service runs. Signed in, the
 // service writes as that person, so the database functions decide who may (an owner) and what.
 
@@ -70,6 +70,7 @@ const MALFORMED_LINK = 'The body must be {"repo": "owner/name", "role", "knowled
 const MALFORMED_APPROVER = 'The body must be {"member": "<id>", "state": "asked" | "skipped"}.';
 const MALFORMED_REPO = 'Name the repository: ?repo=owner/name.';
 const MALFORMED_MEMBER = 'Name the member: ?member=<id>.';
+const MALFORMED_PLAN = 'The body must be {"repo": "owner/name"}, or {"repo": null} for none.';
 const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
 const reply = (status: number, body: unknown): Response => Response.json(body, { status, headers: NO_STORE });
@@ -124,6 +125,9 @@ export function repositoriesTabHandlers(deps: RepositoriesTabHandlerDeps) {
     /** DELETE …/approvers?member=: an owner takes a member off the list. */
     removeApprover: (request: Request, product: string) =>
       run(product, () => Promise.resolve(parsed(MemberQuerySchema, query(request, 'member'))), MALFORMED_MEMBER, (s, member) => s.removeApprover(product, member)),
+    /** POST …/plan: an owner names the product's plan repository, or none. */
+    setPlan: (request: Request, product: string) =>
+      run(product, async () => parsed(PlanWriteSchema, await bodyOf(request)), MALFORMED_PLAN, (s, write) => s.setPlan(product, write.repo)),
   };
 }
 
@@ -145,3 +149,5 @@ export const deleteLink = async (request: Request, { params }: Params): Promise<
 export const postApprover = async (request: Request, { params }: Params): Promise<Response> => live.setApprover(request, (await params).id);
 /** DELETE /app/products/<id>/repositories/approvers */
 export const deleteApprover = async (request: Request, { params }: Params): Promise<Response> => live.removeApprover(request, (await params).id);
+/** POST /app/products/<id>/repositories/plan */
+export const postPlan = async (request: Request, { params }: Params): Promise<Response> => live.setPlan(request, (await params).id);
