@@ -1354,3 +1354,14 @@ Source: .omni-loop/delivery/shipped/1798-knowledge-graph-api/outbox/settled.md, 
 Enforced by: supabase/checks/knowledge_graphs.sql
 Stated: 2026-10-19
 Decided: @pierrederval, 2026-10-19
+
+## BR-PRODUCT-121
+
+Any member of a concept's workspace may mark the concept done, or reopen it, through the Omni page's route, whatever its review state: the route does not refuse a concept whose concept PR has not merged, since the page's Mark done button shows only where it applies. Someone who cannot read the concept still gets the same not-a-member answer whether or not it exists.
+
+Serves: P-PRODUCT-7
+Source: .omni-loop/delivery/outbox/2213-concept-shipped/settled.md, entry s3-01-mark-done-guards, PRD #2213
+Enforced by: apps/galaxy/src/concepts/done.test.ts
+Governs: ^apps/galaxy/src/concepts/done
+Stated: 2026-10-20
+Decided: @pierrederval, 2026-10-20
