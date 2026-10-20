@@ -37,6 +37,11 @@ function startOf(graph: JoinedGraph, id: string) {
   return graph.nodes.find((node) => node.kind === 'term' && node.id.toLowerCase() === wanted);
 }
 
+/** The repository nodes a bare `id` stands for, `<repository>/<id>`, in the graph's order (#2221). */
+export function prefixedMatches(graph: JoinedGraph, id: string): string[] {
+  return graph.nodes.filter((node) => node.repo !== null && node.id === `${node.repo}/${id}`).map((node) => node.id);
+}
+
 /** Every edge touching each node, in the graph's order. */
 function edgesByNode(edges: readonly ProductGraphEdge[]): Map<string, ProductGraphEdge[]> {
   const touching = new Map<string, ProductGraphEdge[]>();
