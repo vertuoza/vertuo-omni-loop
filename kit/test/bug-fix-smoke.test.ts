@@ -181,3 +181,64 @@ describe('the bug-fix triage is posted at once and reads production against rele
     ])).toEqual([]);
   });
 });
+
+// PRD 2275, s4: `/omni:mega-bug-fix` follows the smoke level in each target: the safety rule allows the
+// target's committed setup, preflight, then smoke; step 4 reads the deployed tag; step 7 moves up to the
+// target's smoke or stops by rule 7 naming the target; the guide tells a target how to commit it.
+describe('the mega-bug-fix skill follows the smoke level in each target', () => {
+  const mega = () => read('mega-bug-fix');
+  const step = (heading: string) => skillSection(mega(), heading);
+
+  it('the rule allows setup, then the preflight, then smoke, and keeps the pinned phrase whole', () => {
+    const text = mega();
+    const rule = text.slice(text.indexOf("**Code runs only from a target's own config.**"), text.indexOf('**All or nothing'));
+    expect(gaps(rule, [
+      'its own committed setup (`commands.setup`)',
+      'then its own committed preflight',
+      'then its own committed smoke (`commands.smoke`)',
+      'only when step 7 moves up to it',
+      'never from a branch',
+    ])).toEqual([]);
+  });
+
+  it('Never names setup, preflight and smoke in that order, with the pinned phrase whole', () => {
+    const never = flat(skillSection(mega(), 'Never'));
+    expect(never).toContain('other than its own committed setup, then its own committed preflight');
+    expect(gaps(never, ['its own committed setup', 'its own committed preflight', '`commands.smoke` when step 7 moves up to it'])).toEqual([]);
+  });
+
+  it('step 4 reads each target at the deployed tag, and the fix is still cut from the default branch', () => {
+    expect(gaps(step('4.'), [
+      'the triage names a deployed version',
+      'read each target at that deployed tag too, besides its default branch',
+      'The fix is still cut from the target\'s default branch',
+    ])).toEqual([]);
+  });
+
+  it('the triage\'s Production line is read in the target the report comes from', () => {
+    expect(flat(step('3.'))).toContain('**Production** line: the deployed version, the releases and the deployments are those of the target the report comes from');
+  });
+
+  it('step 7 moves up to the target\'s smoke, or stops by rule 7 naming the target and pushing nothing elsewhere', () => {
+    expect(gaps(step('7.'), [
+      '**The third reading moves up to the target\'s smoke.**',
+      'read from its default branch\'s config',
+      'its setup, then `commands.smoke`',
+      'is stop rule 7',
+      'names the target',
+      'the YAML line to commit',
+      'nothing is pushed to any other target',
+    ])).toEqual([]);
+  });
+
+  it('the guide shows a target\'s smoke beside setup and preflight and says when the skills run it', () => {
+    const guide = readFileSync(new URL('../../docs/guide/several-repositories.md', import.meta.url), 'utf8');
+    const yaml = guide.slice(guide.indexOf('  setup: bun install'), guide.indexOf('smoke: bun run build'));
+    expect(yaml).toContain('preflight:');
+    expect(gaps(guide, [
+      '`commands.smoke`',
+      'builds what the repository ships to production, then checks the built output',
+      'only when a passing reproduction cannot see the bug',
+    ])).toEqual([]);
+  });
+});

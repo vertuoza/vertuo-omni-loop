@@ -249,6 +249,29 @@ with your PRD's number. It is `/omni:yolo` for several repositories:
 
 It never merges into any repository's default branch. You do.
 
+### A target's smoke, for a bug only the build shows
+
+`/omni:mega-bug-fix` runs the same two commands in a target, then one more when it needs it. A target
+that wants bug fixes proven against what it ships commits `commands.smoke` in its
+`.omni-loop/config.yml`, beside `setup` and `preflight`:
+
+```yaml
+commands:
+  setup: bun install --frozen-lockfile
+  preflight: bun run lint && bun run test
+  smoke: bun run build && bun run test:smoke
+```
+
+`smoke` **builds what the repository ships to production, then checks the built output**: for a
+front-end it serves the production bundle and loads each route; for a server-rendered app it renders
+each route from the built server. The bug-fix skills run it only when a passing reproduction cannot
+see the bug (an error that only the production bundle produces, or a regression range that changes the
+bundler or the framework): the reproduction is added as one more case of `smoke`, which must fail
+before any fix and pass after it. They read it from the target's default branch, run it after its
+`setup`, and never edit the target's CI. A target with no `smoke` it can run makes the skill stop, keep
+the reproduction on a pushed branch, and comment the line to commit. Run `smoke` in CI too: it is then
+the guard that keeps the bug from coming back.
+
 A PRD whose spec was merged without a plan, as a roadmap leaves them, is planned first: the plan says
 which slice lands in which target, and `omni plan check` grades it before the first wave.
 
