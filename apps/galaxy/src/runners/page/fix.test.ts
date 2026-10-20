@@ -67,7 +67,7 @@ describe('the browser\'s Fix with answers', () => {
 
   it('posts to the job\'s fix route with the page\'s session and reads the job back', async () => {
     const fetcher = answer(200, { job: { ...FIX, id: FIX.id, line: FIX.line, repo: 'acme/widgets', toRunner: null, toFleet: null, sentBy: JOB, sentByLogin: 'ada', sentByKey: null, status: 'queued', runner: null, cancelRequested: false, logTail: '', prUrl: null, exitCode: null, reason: null, queuedAt: 'x', claimedAt: null, runningAt: null, endedAt: null } });
-    const called = await fixFromBrowser(JOB, fetcher as unknown as typeof fetch);
+    const called = await fixFromBrowser(JOB, fetcher);
     expect(called).toMatchObject({ ok: true, value: { id: FIX.id, continues: JOB } });
     expect(fetcher).toHaveBeenCalledWith(`/api/runners/jobs/${JOB}/fix`, { method: 'POST', credentials: 'same-origin' });
   });
@@ -76,6 +76,6 @@ describe('the browser\'s Fix with answers', () => {
     expect(await fixFromBrowser(JOB, answer(409, { error: 'Nothing was queued: x.' }) as unknown as typeof fetch)).toEqual({ ok: false, error: 'Nothing was queued: x.' });
     expect(await fixFromBrowser(JOB, answer(500, null) as unknown as typeof fetch)).toEqual({ ok: false, error: 'The Omni app could not be reached. Try again.' });
     expect(await fixFromBrowser(JOB, answer(200, { job: 1 }) as unknown as typeof fetch)).toEqual({ ok: false, error: 'The Omni app could not be reached. Try again.' });
-    expect(await fixFromBrowser(JOB, (() => Promise.reject(new Error('offline'))) as unknown as typeof fetch)).toEqual({ ok: false, error: 'The Omni app could not be reached. Try again.' });
+    expect(await fixFromBrowser(JOB, () => Promise.reject(new Error('offline')))).toEqual({ ok: false, error: 'The Omni app could not be reached. Try again.' });
   });
 });
