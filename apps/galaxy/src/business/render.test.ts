@@ -16,7 +16,7 @@ import {
 } from '../agent-connect/tokens/ConnectAgentCard';
 import { dayLabel, type AgentToken } from '../agent-connect/tokens/model';
 import { initialTokensState, tokensReducer, type TokensAction } from '../agent-connect/tokens/state';
-import { ADD_PRODUCT, ADD_RIVAL, BusinessView, PRODUCT_NAME, SKIP, SKIPPED, TRY_LINE } from './BusinessView';
+import { ADD_PRODUCT, ADD_RIVAL, BusinessView, DRAFT, PRODUCT_NAME, SKIP, SKIPPED, TRY_LINE } from './BusinessView';
 import { sure } from '../arcade/test/sure';
 
 // Settings → Business as the server renders it (PRD 748 s2): the empty page (the sentence with its
@@ -311,8 +311,31 @@ describe('the page\'s situations', () => {
     expect(text(screen({ kind: 'unreadable' }))).toContain('Couldn’t load your business');
   });
 
-  it('draws the business otherwise', () => {
-    expect(text(screen({ kind: 'business', source: { kind: 'demo' }, claims: [], products: DEMO_PRODUCTS }))).toContain('We sell ___');
+  it('draws only Add a product on Settings › Business: Region, the picks, the claims, To check and the draft are Knowledge › Settings (PRD 2240 s6)', () => {
+    const html = screen({ kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS });
+    expect(text(html)).toContain(ADD_PRODUCT);
+    expect(html).not.toContain('business-picks');
+    expect(html).not.toContain('business-region');
+    expect(html).not.toContain('business-claims');
+    expect(html).not.toContain('business-check');
+    expect(html).not.toContain('business-products-bar');
+    expect(html).not.toContain('role="tablist"');
+    expect(text(html)).not.toContain(DRAFT);
+    expect(text(html)).not.toContain('We sell');
+  });
+
+  it('draws Knowledge › Settings: Region shared by every product, the picks, the claims and the draft, with no product tabs and no Add a product', () => {
+    const two = [...DEMO_PRODUCTS, { id: 'demo-product-2', name: 'Acme CRM' }];
+    for (const products of [DEMO_PRODUCTS, two]) {
+      const html = renderToStaticMarkup(createElement(BusinessView, { state: initialBusinessState(DEMO_CLAIMS, products), part: 'settings' }));
+      expect(text(html)).toContain('Region · shared by every product');
+      expect(html.match(/data-kind="region"/g)).toHaveLength(1);
+      expect(html).toContain('business-picks');
+      expect(html).toContain('business-claims');
+      expect(text(html)).toContain(DRAFT);
+      expect(html).not.toContain('role="tablist"');
+      expect(text(html)).not.toContain(ADD_PRODUCT);
+    }
   });
 
   it('starts with the Fleets · Repositories · Business · Products · API keys · Jev tabs in every situation, Business marked', () => {
