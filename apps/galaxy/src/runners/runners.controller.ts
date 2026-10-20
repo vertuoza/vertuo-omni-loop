@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { authenticate, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import {
-  FleetRequestSchema, HealthReplySchema, HealthReportSchema, JobLinesQuerySchema, JobLinesSchema, JobReplySchema, JobUpdateReplySchema, JobUpdateSchema, NextQuerySchema,
-  RegisterReplySchema, RegisterRequestSchema,
+  AnswerRequestSchema, AskRequestSchema, FleetRequestSchema, HealthReplySchema, HealthReportSchema, JobLinesQuerySchema, JobLinesSchema, JobQuestionsSchema, JobReplySchema,
+  JobUpdateReplySchema, JobUpdateSchema, NextQuerySchema, RegisterReplySchema, RegisterRequestSchema,
   RUNNER_REFUSALS, RunnerJobSchema, RunnerReplySchema, SendRequestSchema,
 } from './runners.contract';
 import type { RunnersService, Served } from './runners.service';
@@ -19,12 +19,17 @@ import type { RunnersService, Served } from './runners.service';
 //   POST  /api/runners/jobs                the session         queues a job
 //   POST  /api/runners/jobs/<id>/cancel    the session         cancels a job
 //   PATCH /api/runners/<id>                the session         sets or clears a runner's fleet
+//   POST  /api/runners/jobs/<id>/questions the kit's sign-in   a running job asks its questions, once (PRD 2255)
+//   GET   /api/runners/jobs/<id>/questions the session or the kit's  a job's questions, and their answers once given
+//   POST  /api/runners/jobs/<id>/answers   the session only    answers them: queues the job that resumes the run
+//   POST  /api/runners/jobs/<id>/dismiss   the session only    closes them with no answers
 //
 // The caller is checked first: signed out, 401, and nothing else runs. A runner's routes take a bearer
 // access token (`omni signin`, or a traded OMNI_TOKEN), checked with the Auth server; the browser's
-// take the page's session. The service then reads and writes as the service role, holding the rules
-// itself (./runners.service.ts). Each answer is checked against the contract before it leaves; each
-// refusal is `{error}` in plain words (./runners.contract.ts). A failure is 500, logged.
+// take the page's session. A token never answers or dismisses a question (BR-PRODUCT-94): any bearer
+// header on those two routes is a 403. The service then reads and writes as the service role, holding
+// the rules itself (./runners.service.ts). Each answer is checked against the contract before it leaves;
+// each refusal is `{error}` in plain words (./runners.contract.ts). A failure is 500, logged.
 
 export type RunnersDeps = {
   /** A client acting as the given access token, for the kit's sign-in; null when no database is configured. */
@@ -51,6 +56,10 @@ const BAD_HEALTH = 'The body must be {"cpu", "load1", "cores", "memUsed", "memTo
 const BAD_LINES = 'Ask for the lines as `after=<sequence number>`, or with no query.';
 const BAD_SEND = 'The body must be {"line": "/omni:<skill> <arguments>", "repo": "owner/name", "target": {"kind": "any"} | {"kind": "fleet", "fleet": "<fleet>"} | {"kind": "runner", "runner": "<id>"}}.';
 const BAD_FLEET = 'The body must be {"fleet": "<fleet>"} or {"fleet": null}.';
+const BAD_ASK = 'The body must be {"issue": <the issue number>, "lead": "<why the job stopped>", "questions": [{"question", "header", "options": [{"label", "description"}, 2 to 4], "multiSelect"}, 1 to 4, each asked once]}.';
+const BAD_ANSWERS = 'The body must be {"answers": {"<question>": "<answer>", …}}: one answer of 2,000 characters or fewer to each question, and nothing else.';
+const TOKEN_ANSWERS = 'A token never answers: answer on the Runners page, signed in.';
+const TOKEN_DISMISS = 'A token never dismisses: dismiss on the Runners page, signed in.';
 const BAD_ID = 'No such runner or job.';
 
 const IdSchema = z.uuid();
@@ -82,6 +91,12 @@ async function kitCaller(request: Request, deps: RunnersDeps): Promise<string | 
 async function sessionCaller(deps: RunnersDeps): Promise<string | Response> {
   if (!deps.session) return refuse(RUNNER_REFUSALS.unavailable, NO_DATABASE);
   return (await deps.session()) ?? refuse(RUNNER_REFUSALS['signed-out'], SIGNED_OUT);
+}
+
+/** The browser's signed-in person, for a route a token never reaches: a request that carries a bearer header
+ * is refused with `words`, whatever session the browser holds (BR-PRODUCT-94). */
+async function personCaller(request: Request, deps: RunnersDeps, words: string): Promise<string | Response> {
+  return request.headers.get('authorization') === null ? sessionCaller(deps) : refuse(RUNNER_REFUSALS.forbidden, words);
 }
 
 /** Runs `serve` for the caller and answers its value in `shape`; a refusal in its words, a failure 500. */
@@ -160,6 +175,39 @@ export async function sendJob(request: Request, deps: RunnersDeps): Promise<Resp
 export async function cancelJob(id: string, deps: RunnersDeps): Promise<Response> {
   return answer(await sessionCaller(deps), deps, JobReplySchema, (service, caller) =>
     IdSchema.safeParse(id).success ? service.cancel(caller, id) : Promise.resolve(refuse(RUNNER_REFUSALS.missing, BAD_ID)), (job) => ({ job }));
+}
+
+/** POST /api/runners/jobs/<id>/questions: a running job asks its questions, once, from the owner of its runner (PRD 2255). */
+export async function askQuestions(request: Request, id: string, deps: RunnersDeps): Promise<Response> {
+  return answer(await kitCaller(request, deps), deps, JobQuestionsSchema, async (service, caller) => {
+    if (!IdSchema.safeParse(id).success) return refuse(RUNNER_REFUSALS.missing, BAD_ID);
+    const body = await bodyAs(request, AskRequestSchema);
+    return body === null ? refuse(RUNNER_REFUSALS.malformed, BAD_ASK) : service.ask(caller, id, body);
+  });
+}
+
+/** GET /api/runners/jobs/<id>/questions: a job's questions, with the answers once given, for a member of its
+ * workspace (the session) or a runner's owner (the kit's sign-in, the header wins); 404 to anyone else. */
+export async function readQuestions(request: Request, id: string, deps: RunnersDeps): Promise<Response> {
+  const caller = request.headers.get('authorization') === null ? await sessionCaller(deps) : await kitCaller(request, deps);
+  return answer(caller, deps, JobQuestionsSchema, (service, who) =>
+    IdSchema.safeParse(id).success ? service.questions(who, id) : Promise.resolve(refuse(RUNNER_REFUSALS.missing, BAD_ID)));
+}
+
+/** POST /api/runners/jobs/<id>/answers: a member answers a job's questions, with the page's session only: the
+ * answers and the job that resumes the run are stored together, and the first answer wins. */
+export async function answerQuestions(request: Request, id: string, deps: RunnersDeps): Promise<Response> {
+  return answer(await personCaller(request, deps, TOKEN_ANSWERS), deps, JobReplySchema, async (service, caller) => {
+    if (!IdSchema.safeParse(id).success) return refuse(RUNNER_REFUSALS.missing, BAD_ID);
+    const body = await bodyAs(request, AnswerRequestSchema);
+    return body === null ? refuse(RUNNER_REFUSALS.malformed, BAD_ANSWERS) : service.answer(caller, id, body);
+  }, (job) => ({ job }));
+}
+
+/** POST /api/runners/jobs/<id>/dismiss: a member closes a job's questions with no answers, with the page's session only. */
+export async function dismissQuestions(request: Request, id: string, deps: RunnersDeps): Promise<Response> {
+  return answer(await personCaller(request, deps, TOKEN_DISMISS), deps, JobQuestionsSchema, (service, caller) =>
+    IdSchema.safeParse(id).success ? service.dismiss(caller, id) : Promise.resolve(refuse(RUNNER_REFUSALS.missing, BAD_ID)));
 }
 
 /** PATCH /api/runners/<id>: a workspace owner sets or clears a runner's fleet. */

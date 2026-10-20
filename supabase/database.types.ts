@@ -3467,6 +3467,67 @@ export type Database = {
           },
         ]
       }
+      runner_job_questions: {
+        Row: {
+          answers: Json | null
+          asked_at: string
+          closed_at: string | null
+          closed_by: string | null
+          issue: number
+          job_id: string
+          lead: string
+          questions: Json
+          resume_job: string | null
+          workspace_id: string
+        }
+        Insert: {
+          answers?: Json | null
+          asked_at?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          issue: number
+          job_id: string
+          lead: string
+          questions: Json
+          resume_job?: string | null
+          workspace_id: string
+        }
+        Update: {
+          answers?: Json | null
+          asked_at?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          issue?: number
+          job_id?: string
+          lead?: string
+          questions?: Json
+          resume_job?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runner_job_questions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "runner_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_job_questions_resume_job_fkey"
+            columns: ["resume_job"]
+            isOneToOne: false
+            referencedRelation: "runner_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_job_questions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       runner_jobs: {
         Row: {
           cancel_requested: boolean
@@ -6200,6 +6261,61 @@ export type Database = {
           to: "runner_jobs"
           isOneToOne: false
           isSetofReturn: true
+        }
+      }
+      runner_job_answer: {
+        Args: { p_answers: Json; p_by: string; p_job: string }
+        Returns: {
+          cancel_requested: boolean
+          claimed_at: string | null
+          ended_at: string | null
+          exit_code: number | null
+          id: string
+          line: string
+          log_tail: string
+          outcome: string | null
+          pr_url: string | null
+          queued_at: string
+          reason: string | null
+          release_error: string | null
+          released: number[] | null
+          repo: string
+          runner_id: string | null
+          running_at: string | null
+          sent_by: string
+          sent_by_key: string | null
+          status: string
+          to_fleet: string | null
+          to_runner: string | null
+          tokens: Json | null
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "runner_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      runner_job_dismiss: {
+        Args: { p_by: string; p_job: string }
+        Returns: {
+          answers: Json | null
+          asked_at: string
+          closed_at: string | null
+          closed_by: string | null
+          issue: number
+          job_id: string
+          lead: string
+          questions: Json
+          resume_job: string | null
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "runner_job_questions"
+          isOneToOne: true
+          isSetofReturn: false
         }
       }
       runner_job_lines_retain: {

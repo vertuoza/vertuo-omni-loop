@@ -48,8 +48,8 @@ export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'> & { heal
   return ago === 'now' ? 'Offline' : `Offline, ${ago} ago`;
 }
 
-/** A done job's outcome in words (PRD 2223). */
-const OUTCOME_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready' } as const;
+/** A done job's outcome in words (PRD 2223; `human`, PRD 2255: it ended with questions for a person). */
+const OUTCOME_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human' } as const;
 
 /** A job's status in words. */
 export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'runningAt' | 'claimedAt'> & { outcome?: Job['outcome'] }, now: Date): string {
@@ -72,7 +72,7 @@ export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'r
 
 /** The tone a status is drawn in. */
 export function statusTone(status: Job['status'], outcome?: Job['outcome']): 'queue' | 'run' | 'done' | 'fail' | 'off' | 'wait' {
-  if (status === 'done' && (outcome === 'answers' || outcome === 'held')) return 'wait';
+  if (status === 'done' && (outcome === 'answers' || outcome === 'held' || outcome === 'human')) return 'wait';
   if (status === 'queued') return 'queue';
   if (status === 'claimed' || status === 'running') return 'run';
   if (status === 'done') return 'done';
@@ -119,10 +119,11 @@ export const madeByWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'>): string
 export const repoName = (repo: string): string => repo.slice(repo.indexOf('/') + 1);
 
 /** The link to the PRD page of a job with an outcome (PRD 2223): `/prd/at/<owner>/<repo>/<n>`, the PRD being
- * the number its line names; null for a job without an outcome or a line that names no PRD. */
+ * the number its line names; null for a job without an outcome (and for Need human, whose number is a bug's
+ * issue, not a PRD) or a line that names no PRD. */
 export function prdPageLink(job: Pick<Job, 'line' | 'repo' | 'outcome' | 'status'>): string | null {
   const number = /^\/omni:[a-z-]+ (\d+)$/.exec(job.line)?.[1];
-  if (job.status !== 'done' || !job.outcome || number === undefined) return null;
+  if (job.status !== 'done' || !job.outcome || job.outcome === 'human' || number === undefined) return null;
   return `/prd/at/${job.repo.split('/').map(encodeURIComponent).join('/')}/${number}`;
 }
 
