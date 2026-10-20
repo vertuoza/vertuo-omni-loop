@@ -248,7 +248,7 @@ Moving the new cases to other files is a small edit.
 - Channel: feature pull request #2214
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2214#issuecomment-6283802063
 - Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #2229, the sub-pull request that brought the build back in line
 - Rank: high
 - Bears on: BR-PRODUCT-93
 - Raised: 2026-10-19
