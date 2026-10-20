@@ -21,28 +21,31 @@ const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g
 }));
 
 describe('the settings tabs', () => {
+  it('have no Products tab: products live under their own Knowledge home (PRD 2240 s5)', () => {
+    expect(SETTINGS_TABS.map((t) => t.label)).not.toContain('Products');
+    expect(SETTINGS_TABS.map((t) => t.href)).not.toContain('/app/settings/products');
+  });
+
   const render = (current: string) => renderToStaticMarkup(createElement(SectionTabs, { label: 'Settings', tabs: SETTINGS_TABS, current }));
 
-  it('draw Fleets, Repositories, Business, Products, API keys then Jev, links to their pages, in a named row', () => {
+  it('draw Fleets, Repositories, Business, API keys then Jev, links to their pages, in a named row', () => {
     const html = render('/app/settings/fleets');
     expect(html).toMatch(/<nav [^>]*class="section-tabs"[^>]*aria-label="Settings"/);
     expect(links(html).map((l) => [l.text, l.href])).toEqual([
       ['Fleets', '/app/settings/fleets'],
       ['Repositories', '/app/settings/repositories'],
       ['Business', '/app/settings/business'],
-      ['Products', '/app/settings/products'],
       ['API keys', '/app/settings/api-keys'],
       ['Jev', '/app/settings/jev'],
     ]);
   });
 
   it('mark only the page showing', () => {
-    expect(links(render('/app/settings/fleets')).map((l) => l.current)).toEqual([true, false, false, false, false, false]);
-    expect(links(render('/app/settings/repositories')).map((l) => l.current)).toEqual([false, true, false, false, false, false]);
-    expect(links(render('/app/settings/business')).map((l) => l.current)).toEqual([false, false, true, false, false, false]);
-    expect(links(render('/app/settings/products')).map((l) => l.current)).toEqual([false, false, false, true, false, false]);
-    expect(links(render('/app/settings/api-keys')).map((l) => l.current)).toEqual([false, false, false, false, true, false]);
-    expect(links(render('/app/settings/jev')).map((l) => l.current)).toEqual([false, false, false, false, false, true]);
+    expect(links(render('/app/settings/fleets')).map((l) => l.current)).toEqual([true, false, false, false, false]);
+    expect(links(render('/app/settings/repositories')).map((l) => l.current)).toEqual([false, true, false, false, false]);
+    expect(links(render('/app/settings/business')).map((l) => l.current)).toEqual([false, false, true, false, false]);
+    expect(links(render('/app/settings/api-keys')).map((l) => l.current)).toEqual([false, false, false, true, false]);
+    expect(links(render('/app/settings/jev')).map((l) => l.current)).toEqual([false, false, false, false, true]);
     expect(links(render('/app')).some((l) => l.current)).toBe(false);
   });
 });
