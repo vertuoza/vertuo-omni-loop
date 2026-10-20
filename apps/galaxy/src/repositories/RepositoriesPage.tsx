@@ -44,6 +44,7 @@ export function RepositoriesPage({ source, owner, repositories, access, now }: R
     setTracked: (fullName, tracked) => void run((p) => p.setTracked(fullName, tracked)),
     setPublicIdeas: (fullName, on) => void run((p) => p.setPublicIdeas(fullName, on)),
     setPhase0: (fullName, phase0) => void run((p) => p.setPhase0(fullName, phase0)),
+    setFixWhenAnswered: (fullName, on) => void run((p) => p.setFixWhenAnswered(fullName, on)),
     remove: (fullName) => void run((p) => p.remove(fullName), 'removed'),
   };
 

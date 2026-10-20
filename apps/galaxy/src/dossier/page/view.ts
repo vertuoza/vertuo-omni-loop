@@ -83,7 +83,7 @@ import { isDossierId } from './source';
 import { at, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
 import { GITHUB_PENDING } from './stream/pending';
 import type { StageRow } from '../../stages/stage';
-import { stageView, type StageView } from './stage';
+import { stageView, type Fixing, type StageView } from './stage';
 import { kindOf, WORK_NAMES, workPath } from './work';
 import { reworkCommand } from './voice';
 import { pad, shortDay, stamp } from './dates';
@@ -216,6 +216,8 @@ export type DossierRead = {
   slices?: number | null;
   /** The PRD's stored stages (PRD 587): none yet reads Syncing…; left out when they were not asked for. */
   stages?: readonly StageRow[] | null | undefined;
+  /** The PRD's fix job while it is queued or running (PRD 2270); null or left out when none is, or it could not be read. */
+  fixing?: Fixing | null | undefined;
   /** The demo dossier (PRD 251, s9): its outbox cannot send. */
   demo?: boolean;
   /** A fix's state, links and Timeline (PRD 627, s5); left out for a PRD. */
@@ -661,10 +663,10 @@ const headingOf = (prd: PrdNumber | null, work: WorkKind) => (prd === null ? 'DR
 
 /** A PRD's stage: a draft's from its questions, a numbered one's from its stored stages when they were
  * asked for; none for a fix. */
-function stageOf({ read: { dossier, stages, github, slices = null }, work }: Page, questions: QuestionsView): StageView | null {
+function stageOf({ read: { dossier, stages, github, slices = null, fixing = null }, work }: Page, questions: QuestionsView): StageView | null {
   if (work !== 'prd') return null;
   if (dossier.prd === null) return stageView({ prd: null, answered: questions.answered > 0, rows: [] });
-  return stages !== undefined ? stageView({ prd: dossier.prd, rows: stages ?? [], github, slices }) : null;
+  return stages !== undefined ? stageView({ prd: dossier.prd, rows: stages ?? [], github, slices, fixing }) : null;
 }
 
 type DossierHeader = Pick<DossierView,

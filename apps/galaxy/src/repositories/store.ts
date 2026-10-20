@@ -15,7 +15,9 @@ import { repositoryRowOf, SavedRepository, type Phase0, type RepositoryRow } fro
 // home, under Repositories & approvers. PRD 2188 s1 adds remove_repository() of
 // supabase/migrations/20261215090000_remove_repository.sql, the owner's only: the repository is hidden,
 // untracked, its board private, out of every product, and keeps its history; add_repository() lists it
-// again, tracked.
+// again, tracked. PRD 2270 s3 adds set_repository_fix_when_answered() of
+// supabase/migrations/20261219090000_fix_when_answered.sql, the owner's only: it switches whether a runner
+// job that waited on answers is fixed by itself once they are in.
 
 export type Saved = { ok: true; repository: RepositoryRow } | { ok: false; message: string };
 
@@ -27,6 +29,8 @@ export interface RepositoriesPort {
   setPublicIdeas(fullName: string, on: boolean): Promise<Saved>;
   /** Switches where its phase 0 is approved (PRD 1299 s1): the owner's only. */
   setPhase0(fullName: string, phase0: Phase0): Promise<Saved>;
+  /** Switches its Fix on a runner once answered (PRD 2270 s3): the owner's only. */
+  setFixWhenAnswered(fullName: string, on: boolean): Promise<Saved>;
   /** Removes it (PRD 2188 s1): the owner's only. Removing one already removed answers it as it is. */
   remove(fullName: string): Promise<Saved>;
 }
@@ -68,6 +72,7 @@ export function databaseRepositories(db: Rpc, workspace: string): RepositoriesPo
     setTracked: (fullName, tracked) => call('set_repository_tracked', { p_full_name: fullName, p_tracked: tracked }),
     setPublicIdeas: (fullName, on) => call('set_repository_public_ideas', { p_full_name: fullName, p_public: on }, boardRefusal),
     setPhase0: (fullName, phase0) => call('set_repository_phase0', { p_full_name: fullName, p_phase0: phase0 }),
+    setFixWhenAnswered: (fullName, on) => call('set_repository_fix_when_answered', { p_full_name: fullName, p_on: on }),
     remove: (fullName) => call('remove_repository', { p_full_name: fullName }),
   };
 }
@@ -88,13 +93,14 @@ export function demoRepositoriesPort(initial: RepositoryRow[]): RepositoriesPort
       const kept = find(fullName);
       if (kept?.removedAt) return change(fullName, { removedAt: null, tracked: true });
       if (kept) return Promise.resolve({ ok: true, repository: kept });
-      const repository: RepositoryRow = { fullName: fullName.trim().toLowerCase(), tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr', removedAt: null };
+      const repository: RepositoryRow = { fullName: fullName.trim().toLowerCase(), tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr', fixWhenAnswered: true, removedAt: null };
       rows = [...rows, repository];
       return Promise.resolve({ ok: true, repository });
     },
     setTracked: (fullName, tracked) => change(fullName, { tracked }),
     setPublicIdeas: (fullName, publicIdeas) => change(fullName, { publicIdeas }),
     setPhase0: (fullName, phase0) => change(fullName, { phase0 }),
+    setFixWhenAnswered: (fullName, fixWhenAnswered) => change(fullName, { fixWhenAnswered }),
     remove(fullName) {
       const kept = find(fullName);
       if (kept?.removedAt) return Promise.resolve({ ok: true, repository: kept });

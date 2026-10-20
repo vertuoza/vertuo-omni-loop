@@ -41,7 +41,7 @@ export function repositoriesRepository(db: Db) {
       // `data` is widened to null: the rows are read here unparsed.
       const { data, error }: { data: StoredRepository[] | null; error: Error | null } = await db
         .from('repositories')
-        .select('full_name, tracked, collected_at, collect_error, public_ideas, phase0, removed_at')
+        .select('full_name, tracked, collected_at, collect_error, public_ideas, phase0, fix_when_answered, removed_at')
         .eq('workspace_id', workspace);
       if (error) throw new Error(`Supabase: could not read the repositories (${error.message})`);
       return data ?? [];
