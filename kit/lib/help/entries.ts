@@ -1915,6 +1915,27 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     },
   },
   {
+    name: 'knowledge-add',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:knowledge-add <what to add or edit>'],
+    label: '/omni:knowledge-add',
+    summary: "add or edit one item of a product's knowledge",
+    detail:
+      "Adds or edits one Statement, Never line, Legal entry or Glossary term of the product's " +
+      'Knowledge tab from the terminal. It turns what you said into exactly one item, asks for any ' +
+      'field you did not give and never fills one, shows the item whole and asks Yes / Change / ' +
+      'Cancel, and writes only on Yes, with omni constituents or omni kb legal and glossary. The ' +
+      'next item starts only after the last one\'s line printed. It never writes unattended and ' +
+      'never removes or retires anything.',
+    group: 'everyday',
+    when: "Use it when a product's constituents, legal entries or glossary should change without leaving the terminal.",
+    example: {
+      type: '/omni:knowledge-add add a never line: we never store card numbers',
+      result: 'the item shown whole, then on Yes its line and link, as added never#4',
+    },
+  },
+  {
     name: 'dossier-open',
     kind: 'skill',
     who: 'skills',
