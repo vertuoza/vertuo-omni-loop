@@ -99,4 +99,4 @@ health · Released · Could not release this job's claims · Need human.
 /omni:brainstorm, PRD 2175: .omni-loop/delivery/shipped/2175-runner-dead-claims/before-after.html
 /omni:brainstorm, PRD 2223: .omni-loop/delivery/shipped/2223-outbox-waiting/before-after.html
 /omni:brainstorm, PRD 2255: .omni-loop/delivery/shipped/2255-need-human/before-after.html
-/omni:brainstorm, PRD 2270: .omni-loop/delivery/inbox/2270-fix-when-answered/before-after.html
+/omni:brainstorm, PRD 2270: .omni-loop/delivery/shipped/2270-fix-when-answered/before-after.html

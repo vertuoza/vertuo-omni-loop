@@ -61,4 +61,4 @@ each one's switches. A member reads the same list, and only switches Public idea
 ## Source
 
 /omni:brainstorm, PRD 2188: .omni-loop/delivery/shipped/2188-remove-repository/before-after.html
-/omni:brainstorm, PRD 2270: .omni-loop/delivery/inbox/2270-fix-when-answered/before-after.html
+/omni:brainstorm, PRD 2270: .omni-loop/delivery/shipped/2270-fix-when-answered/before-after.html
