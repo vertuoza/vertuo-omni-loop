@@ -225,7 +225,7 @@ glossary, read from the local copy only, so a screen that says *refund* is repor
 
 A repository's knowledge graph (its rules, invariants, decisions and the code they cite) reaches the
 product's Omni page on every push to `main`. The workflow `.github/workflows/knowledge-graph.yml`
-runs `node kit/dist/omni.mjs kb graph push` with the kit token in the `OMNI_TOKEN` secret, and holds
+runs `node .omni-loop/bin/omni.mjs kb graph push` with the kit token in the `OMNI_TOKEN` secret, and holds
 only `contents: read`. Without the secret the step does nothing and the run stays green. A release
 commit (`chore(release): `) is skipped, since it only stamps versions. Run `omni kb graph push` by
 hand to push the graph of the checkout you are in; it refuses a dirty knowledge folder in one line.

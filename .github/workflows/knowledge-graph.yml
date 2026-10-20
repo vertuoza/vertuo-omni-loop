@@ -3,6 +3,9 @@
 # It holds no write permission: the push is a sign-in with the kit token OMNI_TOKEN, and the page
 # stores the graph. Without the secret the step does nothing and the run stays green. A
 # `chore(release): ` head is skipped: that commit only stamps versions.
+# This repository's omni is a shim onto the kit's TypeScript source (`.omni-loop/bin/omni.mjs`), and
+# `kit/dist/omni.mjs` hands over to it, so the job installs the workspace first (#2228). Another
+# repository's `.omni-loop/bin/omni.mjs` is the dependency-free bundle and needs no install.
 name: knowledge-graph
 on:
   push:
@@ -20,8 +23,10 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
       - name: Push the knowledge graph of main
         env:
           OMNI_TOKEN: ${{ secrets.OMNI_TOKEN }}
@@ -30,4 +35,4 @@ jobs:
             echo "OMNI_TOKEN is not set: no knowledge graph push"
             exit 0
           fi
-          node kit/dist/omni.mjs kb graph push
+          node .omni-loop/bin/omni.mjs kb graph push
