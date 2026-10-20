@@ -3,67 +3,60 @@ screen: product-knowledge
 status: draft
 kind: page
 mock: product-knowledge.html
-implements: ["apps/galaxy/app/app/products/[id]/knowledge/page.tsx", apps/galaxy/src/product-knowledge/KnowledgeTab.tsx, apps/galaxy/src/product-knowledge/KnowledgeTabPage.tsx]
-reads: [apps/galaxy/src/product-knowledge/product-knowledge.controller.ts, apps/galaxy/src/product-home/tabs.ts, apps/galaxy/src/products/products.css, apps/galaxy/src/nav/SectionTabs.tsx]
-routes: [/app/products/<id>/knowledge]
+implements: ["apps/galaxy/app/app/products/[id]/knowledge/page.tsx", "apps/galaxy/app/app/products/[id]/knowledge/[section]/page.tsx", apps/galaxy/src/product-knowledge/KnowledgeTab.tsx, apps/galaxy/src/product-knowledge/KnowledgeTabPage.tsx, apps/galaxy/src/product-knowledge/KnowledgeNav.tsx, apps/galaxy/src/product-knowledge/knowledge-sections.ts, apps/galaxy/src/nav/SortableList.tsx]
+reads: [apps/galaxy/src/product-knowledge/product-knowledge.controller.ts, apps/galaxy/src/product-home/tabs.ts, apps/galaxy/src/products/products.css, apps/galaxy/src/nav/SectionTabs.tsx, apps/galaxy/src/business/PersonasSection.tsx, apps/galaxy/src/business/ConstituentsPanel.tsx, apps/galaxy/src/products/pitch-form.tsx, apps/galaxy/src/business/BusinessView.tsx]
+routes: [/app/products/<id>/knowledge, /app/products/<id>/knowledge/<section>]
 supersedes: null
 ---
 
 ## Purpose
 
-What the law requires of a product, and the product's own words, in one place every repository of the
-product reads (PRD 1795). The product home's Knowledge tab, after Questions: a Legal section and a
-Glossary section. Each names who answers for it, lists its entries and its open proposals, and shows the
-controls the reader's role allows.
+The one home of everything agents read about a product (PRD 1795, made the product's knowledge home by
+PRD 2240): its Constituents, Personas, Legal entries, Glossary, Pitch settings and the business settings
+that fit nowhere else. The product home's Knowledge tab, after Questions.
 
 ## Regions
 
-- **The heading:** the product's name, `← Products`, and one line saying what the tab holds.
-- **The tabs:** the product home's, `Knowledge` after `Questions`, the current one marked.
-- **The Legal section:** `Owner: @anna · Delegate: @dev` (or `not named`), then one row per active entry:
-  its id (`L-INVOICING-1`), its owner, its statement and its source law as fields, and the row's buttons.
-  Under the rows, `Open proposals`, then the add form (code, statement, source law), then `Kept`: retired
-  entries as text.
-- **The Glossary section:** the same shape; a row holds the term, its meaning and the words to avoid
-  (comma separated); removed terms are kept as text.
-- **The naming control,** a workspace owner only, in each section: an Owner and a Delegate picker among
-  the workspace's members, and `Name owner and delegate`.
+- **The heading:** the product's name, `← Products`, one line, and the link to the knowledge graph.
+- **The tabs:** the product home's, `Knowledge` current.
+- **The sub-menu:** a second row, `Constituents · Personas · Legal · Glossary · Pitch · Settings`, each
+  list section with its count of active items; the current one marked. `/knowledge` opens Constituents.
+- **A list section** (Constituents, Personas, Legal, Glossary): a table, every header a sort link
+  (`?sort=&dir=`), the one in use marked `aria-sort`; text cells one line, ending in "…"; each row's
+  first cell links to the item's page (`product-knowledge-item`). Above it, `Active · n` and
+  `Retired · n` filters; for Legal and Glossary the owner and delegate line, the naming control and
+  open proposals. Under it, the add action.
+- **Pitch:** the Pitch editor, as it was on Settings › Products.
+- **Settings:** Region (shared by every product), the picks, the claim lists, To check and the draft
+  from repos, as they were on Settings › Business.
 
 ## States
 
-- **The kind's owner or delegate:** rows end in `Edit` and `Retire` (Legal) or `Remove` (Glossary); each
-  open proposal has `Approve` and `Reject`; the add form ends in `Add`.
-- **Any other member:** rows end in `Propose an edit` and `Propose to retire` (or `Propose to remove`);
-  the add form ends in `Propose`; no `Approve`, no `Reject`.
-- **A workspace owner:** the naming control, beside whatever their role as owner or delegate gives.
-- **No owner and no delegate named:** the section says `While none is named, the workspace’s owners
-  decide.`
-- **Empty:** `No Legal entry yet.` or `No term yet.`
-- **A change refused:** the database's words under the sections, in the refusal colour.
-- **Signed out, no workspace, no database, unreadable, no such product:** the situation notices of the
-  product home.
+- **Owner or delegate of Legal or Glossary:** Approve and Reject on proposals; `Add an entry`.
+- **Any other member:** `Propose` in place of Add; no Approve or Reject.
+- **Empty list:** `No <item> yet.`
+- **An item with no author** (made before PRD 2240): `—` in Created by and Created, sorted last.
+- **Signed out, no workspace, no database, unreadable, no such product:** the product home's notices.
 
 ## Words
 
-Knowledge · Legal · Glossary · Owner · Delegate · not named · Open proposals · Statement · Source law ·
-Code · Term · Meaning · Avoid · Edit · Retire · Remove · Add · Propose · Propose an edit · Propose to
-retire · Propose to remove · Approve · Reject · Kept · retired · removed · Name owner and delegate.
+Knowledge · Constituents · Personas · Legal · Glossary · Pitch · Settings · Active · Retired · Code ·
+Statement · Source law · Term · Meaning · Kind · Text · Name · Stance · Trade · Owner · Created by ·
+Created · Updated · Add an entry · Propose · Approve · Reject · shared by every product.
 
 ## Refusals
 
-- A Legal entry is retired, never deleted; a term is removed, never deleted: the page has no Delete.
+- A Legal entry is retired, a term removed, never deleted: no Delete on Legal or Glossary.
 - A member who may only propose never sees a control that changes an entry directly.
-- A proposal is never shown as an entry until its owner approves it.
+- A proposal is never listed as an entry until approved.
+- No knowledge of a product is edited anywhere else in the app.
 
 ## Open questions
 
-- A row edits in place with its fields always open. Is a read-first row with an Edit toggle better once a
-  product holds dozens of entries?
-- A change reloads the page. Should the row update in place and keep the reader's scroll?
-- The entry's owner is the person who added it; the page has no control to hand an entry to another
-  member. Is that needed?
+- Should the Settings section split Region from the picks once it grows?
+- Do lists need a search box once a section holds more than a few dozen items?
 
 ## Source
 
 - PRD 1795 s2, drawn from the source by hand (no `/omni:pixel-perfect mock` run).
-- .omni-loop/delivery/shipped/1795-product-knowledge-page/spec.md
+- /omni:brainstorm, PRD 2240: .omni-loop/delivery/inbox/2240-product-knowledge-home/before-after.html
