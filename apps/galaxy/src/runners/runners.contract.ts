@@ -241,6 +241,8 @@ const JobSchema = z.object({
   releaseError: z.string().nullable().optional(),
   /** What its yolo hand-off ended on (PRD 2223); null for a job without one. */
   outcome: z.enum(JOB_OUTCOMES).nullable().optional(),
+  /** The job it continues (PRD 2270): a `/omni:yolo-fix` queued once that job's answers were in; null for any other. */
+  continues: IdSchema.nullable().optional(),
   queuedAt: z.string(),
   claimedAt: z.string().nullable(),
   runningAt: z.string().nullable(),
