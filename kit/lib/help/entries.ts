@@ -1467,6 +1467,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     },
   },
   {
+    name: 'yolo-runner',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:yolo-runner <n>'],
+    label: '/omni:yolo-runner <n>',
+    summary: 'build a PRD on a runner, and follow it from here',
+    detail:
+      "The /omni:yolo of a runner: follows the PRD's queued or running job when there is one, " +
+      "else sends /omni:yolo <n> to a runner of the workspace, then prints the job's milestones " +
+      'until it ends and hands off on the ending. It builds nothing in this terminal and never ' +
+      'merges into {defaultBranch}; Ctrl-C stops the following only.',
+    group: 'build',
+    when: 'Use it when you want a runner to build the PRD while you follow it, or to pick up a job sent from the page.',
+    example: {
+      type: '/omni:yolo-runner 580',
+      result: "the PRD's job followed milestone by milestone, then the hand-off on how it ended",
+    },
+  },
+  {
     name: 'visual-fix',
     kind: 'skill',
     who: 'you',
