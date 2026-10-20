@@ -6284,6 +6284,7 @@ export type Database = {
         Returns: {
           cancel_requested: boolean
           claimed_at: string | null
+          continues: string | null
           ended_at: string | null
           exit_code: number | null
           id: string
