@@ -45,6 +45,7 @@ import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
+import { parsePrd } from '../ids.ts';
 import { runnerJobVariables } from '../env/read.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
@@ -54,7 +55,8 @@ import type { CpuTimes, MachineReads, PauseState } from './health.ts';
 import { checkRunnerLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
-import { lastPullRequest, linesAfter, logTail, reportBatch } from './log.ts';
+import { lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
+import type { RunOutcome } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
 import type { PluginKeeper } from './plugin.ts';
 import type { Released, Releaser } from './release.ts';
@@ -263,12 +265,12 @@ async function sendCounted(loop: Loop, job: string, update: JobUpdate): Promise<
 }
 
 /**
- * Sends a job's report. One that carries what was released and is refused is sent again without it:
- * an app older than PRD 2175 refuses a field it does not know, and the job's status must still reach it.
+ * Sends a job's report. One that carries what was released, or an outcome, and is refused is sent again
+ * without them: an app older than PRD 2175 or 2223 refuses a field it does not know, and the job's status must still reach it.
  */
 async function sendUpdate(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
-  const { released, releaseError, ...rest } = update;
-  if (released === undefined && releaseError === undefined) return sendCounted(loop, job, update);
+  const { released, releaseError, outcome, ...rest } = update;
+  if (released === undefined && releaseError === undefined && outcome === undefined) return sendCounted(loop, job, update);
   try {
     return await sendCounted(loop, job, update);
   } catch (error) {
@@ -426,11 +428,22 @@ function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | n
   }
 }
 
+/** What a `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223); `null` for any other job. */
+function outcomeOf(log: string, line: string): RunOutcome | null {
+  const checked = checkRunnerLine(line);
+  const args = checked.ok ? checked.args.trim() : '';
+  return checked.ok && (checked.skill === 'yolo' || checked.skill === 'yolo-fix') && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args)) : null;
+}
+
 /** The status a run that ended with `exitText` reports: done with its pull request, or failed with its code. */
-function ended(log: string, exitText: string, repo: string): JobUpdate {
+function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
   const code = Number.parseInt(exitText, 10);
   const exitCode = Number.isNaN(code) ? 1 : code;
-  if (exitCode === 0) return { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, repo), exitCode: 0 };
+  if (exitCode === 0) {
+    const done: JobUpdate = { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: 0 };
+    const outcome = outcomeOf(log, job.line);
+    return outcome === null ? done : { ...done, outcome };
+  }
   return { status: 'failed', logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` };
 }
 
@@ -447,7 +460,7 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
   for (;;) {
     await loop.sleep(loop.tickMs);
     const log = readText(place.log);
-    if (existsSync(place.exit)) return ended(log, readText(place.exit), job.repo);
+    if (existsSync(place.exit)) return ended(log, readText(place.exit), job);
     if (!loop.terminal.alive(place.session)) return { status: 'failed', logTail: logTail(log), reason: 'the job stopped before it wrote its exit code' };
     if (loop.now() - started > loop.timeoutMs) return killed(loop, place, { status: 'failed', reason: 'timeout' });
     if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, place, { status: 'cancelled' });

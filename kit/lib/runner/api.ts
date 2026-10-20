@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { askClient } from '../ask/client.ts';
 import type { Fetch, TokenStore } from '../ask/client.ts';
 import type { Sample } from './health.ts';
+import type { RunOutcome } from './log.ts';
 import type { MachineTokens, TokenCounts } from './tokens.ts';
 
 /** The line a refused sign-in stops the runner on. */
@@ -75,6 +76,8 @@ export type JobUpdate = {
   released?: number[];
   /** Why releasing them failed, at most 200 characters, or `null` when nothing failed (PRD 2175). */
   releaseError?: string | null;
+  /** What a done `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223); never sent for any other job. */
+  outcome?: RunOutcome | null;
 };
 
 /** The limits a runner pauses at (PRD 2102): memory used above, in percent; disk free below, in GB; load above, times its cores. */

@@ -86,6 +86,28 @@ describe('the board', () => {
     expect(html).not.toContain('wave 1 · slice s1 · tests green');
   });
 
+  it('reads a done yolo job by its outcome, with a PRD page link beside its PR link (PRD 2223)', () => {
+    const answers = jobRow(html, '/omni:yolo 1855');
+    expect(text(answers)).toContain('Waiting on answers');
+    expect(answers).toContain('runners-status is-wait');
+    expect(answers).toContain('<a href="https://github.com/acme/widgets/pull/1861">PR #1861</a><a href="/prd/at/acme/widgets/1855">PRD page</a>');
+    const held = jobRow(html, '/omni:yolo 1856');
+    expect(text(held)).toContain('Held');
+    expect(held).toContain('runners-status is-wait');
+    expect(held).toContain('<a href="/prd/at/acme/widgets/1856">PRD page</a>');
+    const ready = jobRow(html, '/omni:yolo-fix 1857');
+    expect(text(ready)).toContain('Ready');
+    expect(ready).toContain('runners-status is-done');
+    expect(ready).toContain('href="/prd/at/acme/widgets/1857"');
+  });
+
+  it('keeps a done job without an outcome as Done, with no PRD page link, and a failed job too', () => {
+    const plain = jobRow(html, '/omni:bug-fix 1790');
+    expect(text(plain)).toContain('Done');
+    expect(plain).not.toContain('PRD page');
+    expect(jobRow(html, '/omni:yolo 1702')).not.toContain('PRD page');
+  });
+
   it('gives each job row a Terminal button on that job (PRD 1904)', () => {
     for (const job of demo().board.jobs) {
       expect(jobRow(html, job.line)).toContain(`data-terminal="${job.id}">Terminal</button>`);

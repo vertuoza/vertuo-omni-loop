@@ -33,6 +33,8 @@
 //   why a release failed, stored in `runner_jobs.released` and `runner_jobs.release_error`. A job
 //   already ended takes one more report carrying only those two, with the status it ended on: its
 //   runner releases a lost job's claims after the job ended. Nothing else of the job changes.
+// - A job's outcome (PRD 2223): a done job's last report may say what its yolo hand-off ended on
+//   (answers, held, ready), stored in `runner_jobs.outcome`; a report on another status stores none.
 import {
   checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
   type Board, type HealthReport, type Job, type JobLines, type JobUpdate, type RegisterReply, type RegisterRequest, type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample,
@@ -93,7 +95,7 @@ function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, strin
     id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, sentBy: row.sent_by,
     sentByLogin: logins.get(row.sent_by) ?? null, sentByKey: row.sent_by_key === null ? null : keys.get(row.sent_by_key) ?? null, status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
     logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null,
-    released: row.released ?? null, releaseError: row.release_error ?? null, queuedAt: row.queued_at,
+    released: row.released ?? null, releaseError: row.release_error ?? null, outcome: row.outcome ?? null, queuedAt: row.queued_at,
     claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
 }
@@ -156,6 +158,8 @@ function reportPatch(job: JobRow, report: JobUpdate, now: string): JobPatch {
     log_tail: report.logTail === undefined ? undefined : cutLogTail(report.logTail),
     pr_url: report.prUrl, exit_code: report.exitCode, reason: report.reason, tokens: report.tokens,
     released: report.released, release_error: report.releaseError,
+    // Only a done job has an outcome (PRD 2223): a failed or cancelled report's is never stored.
+    outcome: report.status === 'done' ? report.outcome : undefined,
   };
   const given: JobPatch = Object.fromEntries(Object.entries(carried).filter(([, column]) => column !== undefined));
   const starts = report.status === 'running' && job.running_at === null;

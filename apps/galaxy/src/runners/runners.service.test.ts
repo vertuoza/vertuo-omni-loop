@@ -505,6 +505,33 @@ describe('a job\'s released claims (PRD 2175)', () => {
   });
 });
 
+// PRD 2223 s1: a done job's last report may say what its yolo hand-off ended on.
+describe('a job\'s outcome (PRD 2223)', () => {
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+
+  it('stores the outcome of a done report and reads it back with the job on the Runners page', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, outcome: 'answers' }));
+    expect(w.state.jobs[0]).toMatchObject({ status: 'done', outcome: 'answers' });
+    const board = value(await w.service.board(PIA, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.jobs.find((j) => j.id === job.id)).toMatchObject({ outcome: 'answers' });
+  });
+
+  it('stores none for a report that carries none, a failed report, or a cancelled one, and reads it as null', async () => {
+    const plain = running();
+    const failed = running();
+    const cancelled = running();
+    const w = world({ jobs: [plain, failed, cancelled] });
+    value(await w.service.update(OLGA, plain.id, { status: 'done', exitCode: 0 }));
+    value(await w.service.update(OLGA, failed.id, { status: 'failed', exitCode: 1, outcome: 'held' }));
+    value(await w.service.update(OLGA, cancelled.id, { status: 'cancelled', outcome: 'ready' }));
+    for (const job of w.state.jobs) expect(job).not.toHaveProperty('outcome');
+    const board = value(await w.service.board(PIA, RUNNERS[0]?.workspace_id ?? ''));
+    for (const job of board.jobs) expect(job.outcome).toBeNull();
+  });
+});
+
 describe('a job\'s live lines (PRD 1904)', () => {
   const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
   const texts = (from: number, count: number) => Array.from({ length: count }, (_, i) => `12:04:31 Bash: step ${String(from + i)}`);

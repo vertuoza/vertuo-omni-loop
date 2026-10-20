@@ -321,3 +321,59 @@ describe('the tokens (PRD 2102, s4)', () => {
     expect(sent.at(-1)?.status).toBe('done');
   });
 });
+
+describe('the outcome (PRD 2223)', () => {
+  /** Runs one job on `line` that ends with `exit`, its log being `log`: every report the app got. */
+  async function ending(line: string, log: string, exit: string): Promise<JobUpdate[]> {
+    const home = mkdtempSync(join(tmpdir(), 'omni-runner-outcome-'));
+    const base = holdingApp(7, (n) => {
+      if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null });
+      if (n === 6) writeFileSync(join(home, 'logs', 'job-7.exit'), exit);
+    });
+    const sent: JobUpdate[] = [];
+    const api: RunnerApi = { ...base.api, update: (job, update) => { sent.push(update); return base.api.update(job, update); } };
+    await run({ ...base, api }, {
+      slots: 1, timeoutMs: 24 * 60 * 60 * 1000, home, checkouts: new Map([['acme/widgets', join(home, 'widgets')]]),
+      terminal: { start: () => { writeFileSync(join(home, 'logs', 'job-7.log'), log); }, stop: () => undefined, alive: () => true },
+    });
+    return sent;
+  }
+
+  it.each([
+    ['/omni:yolo-fix 7', '12:00:00 Done: ok\n/omni:yolo-fix 7\n', 'answers'],
+    ['/omni:yolo 7', '/omni:yolo 7\n\n', 'held'],
+    ['/omni:yolo 7', '/omni:pr-care 7\n', 'ready'],
+  ])('sends the outcome of %s when its log ends on %j', async (line, log, outcome) => {
+    const last = (await ending(line, log, '0\n')).at(-1);
+    expect(last).toMatchObject({ status: 'done', outcome });
+  });
+
+  it('sends none for another PRD, another skill, or a failed job', async () => {
+    expect((await ending('/omni:yolo 7', '/omni:yolo 8\n', '0\n')).at(-1)).not.toHaveProperty('outcome');
+    expect((await ending('/omni:pr-care 7', '/omni:pr-care 7\n', '0\n')).at(-1)).not.toHaveProperty('outcome');
+    const failed = (await ending('/omni:yolo 7', '/omni:yolo-fix 7\n', '1\n')).at(-1);
+    expect(failed).toMatchObject({ status: 'failed' });
+    expect(failed).not.toHaveProperty('outcome');
+  });
+
+  it('sends a final report the app refused for its outcome again without it', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'omni-runner-outcome-'));
+    const base = holdingApp(7, (n) => {
+      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null });
+      if (n === 6) writeFileSync(join(home, 'logs', 'job-7.exit'), '0\n');
+    });
+    const sent: JobUpdate[] = [];
+    const api: RunnerApi = {
+      ...base.api,
+      update: (job, update) => {
+        sent.push(update);
+        return update.outcome === undefined ? base.api.update(job, update) : Promise.reject(new RunnerRefused('refused (400)'));
+      },
+    };
+    await run({ ...base, api }, {
+      slots: 1, timeoutMs: 24 * 60 * 60 * 1000, home, checkouts: new Map([['acme/widgets', join(home, 'widgets')]]),
+      terminal: { start: () => { writeFileSync(join(home, 'logs', 'job-7.log'), '/omni:yolo 7\n'); }, stop: () => undefined, alive: () => true },
+    });
+    expect(sent.filter((update) => update.status === 'done').map((update) => update.outcome)).toEqual(['held', undefined]);
+  });
+});

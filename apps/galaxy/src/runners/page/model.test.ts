@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canCancel, canSendAgain, madeByWords, prWords, senderWords, stateWords, statusWords, targetOf } from './model';
+import { canCancel, canSendAgain, madeByWords, prdPageLink, prWords, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
 
 // The Runners page's words and rules (PRD 1830 s3), pure: how long ago, where a job is sent again, and
 // which jobs take Cancel or Send again.
@@ -69,5 +69,34 @@ describe('senderWords and madeByWords', () => {
     expect(madeByWords({ sentByLogin: 'ada', sentByKey: null })).toBeNull();
     expect(senderWords({ sentByLogin: null, sentByKey: null })).toBe('A member');
     expect(madeByWords({ sentByLogin: null, sentByKey: 'QA dashboard' })).toBeNull();
+  });
+});
+
+describe('a done job\'s outcome (PRD 2223)', () => {
+  const job = { reason: null, exitCode: 0, runningAt: null, claimedAt: null, status: 'done' as const };
+
+  it('reads Waiting on answers, Held or Ready, and Done without one', () => {
+    expect(statusWords({ ...job, outcome: 'answers' }, NOW)).toBe('Waiting on answers');
+    expect(statusWords({ ...job, outcome: 'held' }, NOW)).toBe('Held');
+    expect(statusWords({ ...job, outcome: 'ready' }, NOW)).toBe('Ready');
+    expect(statusWords({ ...job, outcome: null }, NOW)).toBe('Done');
+    expect(statusWords(job, NOW)).toBe('Done');
+  });
+
+  it('is drawn in the yellow for answers and held, the green for ready and a plain done job', () => {
+    expect(statusTone('done', 'answers')).toBe('wait');
+    expect(statusTone('done', 'held')).toBe('wait');
+    expect(statusTone('done', 'ready')).toBe('done');
+    expect(statusTone('done', null)).toBe('done');
+    expect(statusTone('failed', 'answers')).toBe('fail');
+  });
+
+  it('links the PRD page of the PRD the line names, for a done job with an outcome only', () => {
+    const done = { line: '/omni:yolo 2213', repo: 'acme/widgets', status: 'done' as const, outcome: 'answers' as const };
+    expect(prdPageLink(done)).toBe('/prd/at/acme/widgets/2213');
+    expect(prdPageLink({ ...done, line: '/omni:yolo-fix 7' })).toBe('/prd/at/acme/widgets/7');
+    expect(prdPageLink({ ...done, outcome: null })).toBeNull();
+    expect(prdPageLink({ ...done, status: 'failed' })).toBeNull();
+    expect(prdPageLink({ ...done, line: '/omni:yolo Issue 5' })).toBeNull();
   });
 });

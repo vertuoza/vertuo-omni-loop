@@ -81,6 +81,15 @@ export function demoRunnersPage(now: Date): RunnersPageView {
       }),
       job({ line: '/omni:plan 1699', status: 'cancelled', cancelRequested: true, endedAt: at(-240) }),
       job({
+        line: '/omni:yolo 1855', status: 'done', runner: DEMO_RUNNERS.office, prUrl: 'https://github.com/acme/widgets/pull/1861', exitCode: 0,
+        outcome: 'answers', endedAt: at(-60),
+      }),
+      job({ line: '/omni:yolo 1856', status: 'done', runner: DEMO_RUNNERS.office, exitCode: 0, outcome: 'held', endedAt: at(-90) }),
+      job({
+        line: '/omni:yolo-fix 1857', status: 'done', runner: DEMO_RUNNERS.office, prUrl: 'https://github.com/acme/widgets/pull/1862', exitCode: 0,
+        outcome: 'ready', endedAt: at(-120),
+      }),
+      job({
         line: '/omni:bug-fix Issue 548 totals', status: 'done', sentBy: ADA, sentByLogin: 'ada', sentByKey: 'QA dashboard', runner: DEMO_RUNNERS.office,
         prUrl: 'https://github.com/acme/widgets/pull/1850', exitCode: 0, endedAt: at(-300),
       }),
