@@ -208,7 +208,7 @@ describe('/app/settings/fleets in each situation', () => {
       expect(html.indexOf('class="section-tabs"'), view.kind).toBeLessThan(html.indexOf('<h1'));
       expect(html.indexOf('class="section-tabs"'), view.kind).toBeGreaterThanOrEqual(0);
       const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
-      expect(tabs, view.kind).toEqual([['Fleets', true], ['Repositories', false], ['Business', false], ['Products', false], ['API keys', false], ['Jev', false]]);
+      expect(tabs, view.kind).toEqual([['Fleets', true], ['Repositories', false], ['Business', false], ['API keys', false], ['Jev', false]]);
     }
   });
 });
