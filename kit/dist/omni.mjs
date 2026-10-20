@@ -18213,8 +18213,8 @@ var error43 = () => {
       case "not_multiple_of":
         return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
       case "unrecognized_keys": {
-        const plural6 = issue2.keys.length > 1 ? "s" : "";
-        return `Chave${plural6} inv\xE1lida${plural6}: ${joinValues(issue2.keys, ", ")}`;
+        const plural7 = issue2.keys.length > 1 ? "s" : "";
+        return `Chave${plural7} inv\xE1lida${plural7}: ${joinValues(issue2.keys, ", ")}`;
       }
       case "invalid_key":
         return `Entrada inv\xE1lida n${translateOriginWithArticle(issue2.origin, "definite")}`;
@@ -18359,8 +18359,8 @@ var error44 = () => {
       case "not_multiple_of":
         return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
       case "unrecognized_keys": {
-        const plural6 = issue2.keys.length > 1 ? "s" : "";
-        return `Chave${plural6} inv\xE1lida${plural6}: ${joinValues(issue2.keys, ", ")}`;
+        const plural7 = issue2.keys.length > 1 ? "s" : "";
+        return `Chave${plural7} inv\xE1lida${plural7}: ${joinValues(issue2.keys, ", ")}`;
       }
       case "invalid_key":
         return `Entrada inv\xE1lida n${translateOriginWithArticle(issue2.origin, "definite")}`;
@@ -30472,15 +30472,15 @@ function templatesDir() {
 }
 function readTemplates(dir = templatesDir()) {
   const out = {};
-  const walk2 = (sub) => {
+  const walk3 = (sub) => {
     const entries4 = readdirSync6(join13(dir, sub), { withFileTypes: true }).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
     for (const entry3 of entries4) {
       const path = sub ? posix2.join(sub, entry3.name) : entry3.name;
-      if (entry3.isDirectory()) walk2(path);
+      if (entry3.isDirectory()) walk3(path);
       else out[path] = readFileSync11(join13(dir, path), "utf8");
     }
   };
-  walk2("");
+  walk3("");
   return out;
 }
 function templateText(path) {
@@ -30951,17 +30951,17 @@ function syncAgents({ worktree, agents, version: version3, skills }) {
   }
 }
 function applyUpdate({ root, bundle, version: version3, from, home, exec, println: println2, skills }) {
-  const quiet = (cwd) => ({ cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const quiet2 = (cwd) => ({ cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   const git9 = (args, cwd = root) => {
     try {
-      return exec("git", args, quiet(cwd));
+      return exec("git", args, quiet2(cwd));
     } catch (error62) {
       throw new UpdateError(`omni update: git ${args[0]} failed: ${why(error62)}`);
     }
   };
   const gh = (args) => {
     try {
-      return exec("gh", args, quiet(root));
+      return exec("gh", args, quiet2(root));
     } catch (error62) {
       throw new UpdateError(`omni update: gh ${args.slice(0, 2).join(" ")} failed: ${why(error62)}`);
     }
@@ -34889,8 +34889,8 @@ function sectionFaults(sections) {
   const present = CONCEPT_SECTIONS.filter((name3) => position.has(name3));
   for (let index = 1; index < present.length; index += 1) {
     const [before2, after] = [at(present, index - 1, "a section"), at(present, index, "a section")];
-    const placeOf3 = (name3) => defined(position.get(name3), `the place of "## ${name3}"`);
-    if (placeOf3(after) < placeOf3(before2)) {
+    const placeOf4 = (name3) => defined(position.get(name3), `the place of "## ${name3}"`);
+    if (placeOf4(after) < placeOf4(before2)) {
       faults.push(`sections: "## ${before2}" comes after "## ${after}"; the order is ${CONCEPT_SECTIONS.join(", ")}.`);
     }
   }
@@ -35544,10 +35544,10 @@ async function* messages(body, signal, idleMs) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   const sse = sseReader();
-  const quiet = new AbortController();
-  const stop = AbortSignal.any([signal, quiet.signal]);
+  const quiet2 = new AbortController();
+  const stop = AbortSignal.any([signal, quiet2.signal]);
   let timer = setTimeout(() => {
-    quiet.abort();
+    quiet2.abort();
   }, idleMs);
   try {
     for (; ; ) {
@@ -35555,7 +35555,7 @@ async function* messages(body, signal, idleMs) {
       if (next2 === "aborted" || next2.done) return;
       clearTimeout(timer);
       timer = setTimeout(() => {
-        quiet.abort();
+        quiet2.abort();
       }, idleMs);
       yield* sse.push(decoder.decode(next2.value, { stream: true }));
     }
@@ -40398,7 +40398,7 @@ function cycles(roadmap2, rows2) {
   const found2 = [];
   const seenCycles = /* @__PURE__ */ new Set();
   const done = /* @__PURE__ */ new Set();
-  const walk2 = (id, path) => {
+  const walk3 = (id, path) => {
     const start4 = path.indexOf(id);
     if (start4 !== -1) {
       const loop2 = path.slice(start4);
@@ -40410,10 +40410,10 @@ function cycles(roadmap2, rows2) {
       return;
     }
     if (done.has(id)) return;
-    for (const blocker of rows2.get(id)?.blockedBy ?? []) walk2(blocker, [...path, id]);
+    for (const blocker of rows2.get(id)?.blockedBy ?? []) walk3(blocker, [...path, id]);
     done.add(id);
   };
-  for (const row of roadmap2.prds) walk2(row.id, []);
+  for (const row of roadmap2.prds) walk3(row.id, []);
   return found2;
 }
 function waveOrder(roadmap2, rows2) {
@@ -42104,6 +42104,194 @@ init_define_OMNI_BUNDLE();
 import { existsSync as existsSync38, readdirSync as readdirSync18, statSync as statSync11 } from "node:fs";
 import { basename as basename9, dirname as dirname11, join as join54 } from "node:path";
 
+// kit/lib/before-after/grade.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/design/words/html.ts
+init_define_OMNI_BUNDLE();
+var VOID = /* @__PURE__ */ new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+var RAW = /* @__PURE__ */ new Set(["script", "style", "template", "noscript", "textarea", "title"]);
+var KEPT_RAW = /* @__PURE__ */ new Set(["textarea", "title"]);
+var NAMED = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: "\xA0",
+  mdash: "\u2014",
+  ndash: "\u2013",
+  middot: "\xB7",
+  hellip: "\u2026",
+  rsquo: "\u2019",
+  lsquo: "\u2018",
+  rdquo: "\u201D",
+  ldquo: "\u201C",
+  laquo: "\xAB",
+  raquo: "\xBB",
+  copy: "\xA9",
+  bull: "\u2022",
+  times: "\xD7",
+  rarr: "\u2192",
+  larr: "\u2190"
+};
+var TAG_OPEN = /^<([A-Za-z][\w:-]*)/;
+var TAG_CLOSE = /^<\/([A-Za-z][\w:-]*)\s*>/;
+var ATTRIBUTE = /^\s*([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/;
+function numericReference(ref) {
+  const hex3 = ref[1] === "x" || ref[1] === "X";
+  const code = Number.parseInt(ref.slice(hex3 ? 2 : 1), hex3 ? 16 : 10);
+  return code > 0 && code <= 1114111 ? String.fromCodePoint(code) : null;
+}
+function decodeEntities(text15) {
+  return text15.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole2, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole2);
+}
+function past(html, marker, from) {
+  const at2 = html.indexOf(marker, from);
+  return at2 === -1 ? html.length : at2 + marker.length;
+}
+var top = ({ root, stack }) => stack[stack.length - 1] ?? root;
+function addText(reader, text15) {
+  if (text15 !== "") top(reader).children.push({ kind: "text", text: decodeEntities(text15) });
+}
+function skipDeclaration(html, lt) {
+  if (html.startsWith("<!--", lt)) return past(html, "-->", lt + 4);
+  if (html.startsWith("<!", lt) || html.startsWith("<?", lt)) return past(html, ">", lt);
+  return null;
+}
+function readEndTag(reader, lt) {
+  const close = TAG_CLOSE.exec(reader.html.slice(lt, lt + 256));
+  if (close?.[1] === void 0) return null;
+  const index = reader.stack.map((element) => element.tag).lastIndexOf(close[1].toLowerCase());
+  if (index >= 0) reader.stack.length = index;
+  return lt + close[0].length;
+}
+function readAttributes(html, cursor) {
+  const attributes = /* @__PURE__ */ new Map();
+  let at2 = cursor;
+  let attribute = ATTRIBUTE.exec(html.slice(at2));
+  while (attribute?.[1]) {
+    const name3 = attribute[1].toLowerCase();
+    if (!attributes.has(name3)) attributes.set(name3, decodeEntities(attribute[2] ?? attribute[3] ?? attribute[4] ?? ""));
+    at2 += attribute[0].length;
+    attribute = ATTRIBUTE.exec(html.slice(at2));
+  }
+  return { attributes, end: at2 };
+}
+function readRawBody(reader, element, from) {
+  const closeAt = reader.html.toLowerCase().indexOf(`</${element.tag}`, from);
+  if (KEPT_RAW.has(element.tag)) element.children.push({ kind: "text", text: decodeEntities(reader.html.slice(from, closeAt === -1 ? void 0 : closeAt)) });
+  return closeAt === -1 ? reader.html.length : past(reader.html, ">", closeAt);
+}
+function readStartTag(reader, lt) {
+  const open3 = TAG_OPEN.exec(reader.html.slice(lt, lt + 256));
+  if (open3?.[1] === void 0) return null;
+  const tag = open3[1].toLowerCase();
+  const { attributes, end: end3 } = readAttributes(reader.html, lt + open3[0].length);
+  const after = past(reader.html, ">", end3);
+  const element = { kind: "element", tag, attributes, children: [] };
+  top(reader).children.push(element);
+  if (RAW.has(tag)) return readRawBody(reader, element, after);
+  const selfClosing = reader.html[after - 2] === "/";
+  if (!VOID.has(tag) && !selfClosing) reader.stack.push(element);
+  return after;
+}
+function readMarkup(reader, lt) {
+  const next2 = skipDeclaration(reader.html, lt) ?? readEndTag(reader, lt) ?? readStartTag(reader, lt);
+  if (next2 !== null) return next2;
+  addText(reader, "<");
+  return lt + 1;
+}
+function parseHtml(html) {
+  const root = { kind: "element", tag: "#document", attributes: /* @__PURE__ */ new Map(), children: [] };
+  const reader = { html, root, stack: [] };
+  let at2 = 0;
+  while (at2 < html.length) {
+    const lt = html.indexOf("<", at2);
+    addText(reader, html.slice(at2, lt === -1 ? void 0 : lt));
+    at2 = lt === -1 ? html.length : readMarkup(reader, lt);
+  }
+  return root;
+}
+
+// kit/lib/before-after/grade.ts
+var BEFORE_AFTER_META = { name: "omni-before-after", version: "2" };
+var BEFORE_AFTER_TABS = ["functional", "technical"];
+var SECTION_STATES = ["filled", "na", "gap"];
+var STATES2 = new Set(SECTION_STATES);
+var FILL = /<!--\s*FILL\s*-->/g;
+var FETCHED = ["src", "srcset", "poster"];
+var REFERENCES = ["href", "xlink:href"];
+var LINKS = /* @__PURE__ */ new Set(["a", "area", "base"]);
+function loadsNothing(url2) {
+  const value = url2.trim();
+  return value === "" || value.startsWith("#") || value.toLowerCase().startsWith("data:");
+}
+var quiet = (attribute, value) => attribute === "srcset" ? value.trim() === "" : loadsNothing(value);
+function loadsOf({ tag, attributes }) {
+  const named4 = (attribute, value) => `<${tag} ${attribute}="${value}">`;
+  const read2 = LINKS.has(tag) ? FETCHED : [...FETCHED, ...REFERENCES];
+  const found2 = read2.flatMap((attribute) => {
+    const value = attributes.get(attribute);
+    return value === void 0 || quiet(attribute, value) ? [] : [named4(attribute, value)];
+  });
+  const data = attributes.get("data");
+  if (tag === "object" && data !== void 0 && !loadsNothing(data)) found2.push(named4("data", data));
+  return found2;
+}
+var isMeta = ({ tag, attributes }) => tag === "meta" && attributes.get("name") === BEFORE_AFTER_META.name && attributes.get("content") === BEFORE_AFTER_META.version;
+var isDiagram = ({ tag, attributes }) => tag === "pre" && attributes.get("class")?.split(/\s/).includes("mermaid") === true;
+function noteMarks(element, read2) {
+  if (isMeta(element)) read2.marked = true;
+  if (isDiagram(element)) read2.diagrams += 1;
+  read2.loads.push(...loadsOf(element));
+}
+var within = ({ attributes }, around) => ({
+  service: attributes.get("data-service") ?? around.service,
+  tab: attributes.get("data-tab") ?? around.tab
+});
+function noteParts({ attributes }, here, read2) {
+  const tab = attributes.get("data-tab");
+  if (tab !== void 0) read2.tabs.add(tab);
+  const name3 = attributes.get("data-section");
+  if (name3 !== void 0) read2.sections.push({ name: name3, state: attributes.get("data-state") ?? null, ...here });
+}
+function walk(element, around, read2) {
+  noteMarks(element, read2);
+  const here = within(element, around);
+  noteParts(element, here, read2);
+  for (const child of element.children) {
+    if (child.kind === "element") walk(child, here, read2);
+  }
+}
+var placeOf = ({ name: name3, service, tab }) => `section "${name3}"${service === null ? "" : ` of service "${service}"`}${tab === null ? "" : ` in the "${tab}" tab`}`;
+function stateViolation(section6) {
+  if (section6.state === null) return `${placeOf(section6)} has no data-state (${SECTION_STATES[0]}, ${SECTION_STATES[1]} or ${SECTION_STATES[2]})`;
+  if (STATES2.has(section6.state)) return null;
+  return `${placeOf(section6)} has data-state "${section6.state}", not ${SECTION_STATES[0]}, ${SECTION_STATES[1]} or ${SECTION_STATES[2]}`;
+}
+var plural3 = (count5, one, many) => `${count5} ${count5 === 1 ? one : many}`;
+function gradeBeforeAfter({ file: file2, html, prd: prd2 }) {
+  const read2 = { marked: false, tabs: /* @__PURE__ */ new Set(), sections: [], diagrams: 0, loads: [] };
+  walk(parseHtml(html), { service: null, tab: null }, read2);
+  if (!read2.marked) return [];
+  const violations = [];
+  for (const tab of BEFORE_AFTER_TABS) {
+    if (!read2.tabs.has(tab)) violations.push(`no "${tab}" tab`);
+  }
+  for (const section6 of read2.sections) {
+    const violation2 = stateViolation(section6);
+    if (violation2 !== null) violations.push(violation2);
+  }
+  const fills = html.match(FILL)?.length ?? 0;
+  if (fills > 0) violations.push(`${plural3(fills, "<!-- FILL --> marker", "<!-- FILL --> markers")} left`);
+  if (read2.diagrams > 0) {
+    violations.push(`${plural3(read2.diagrams, "diagram", "diagrams")} not rendered (omni before-after render ${prd2 === null ? "<n>" : String(prd2)})`);
+  }
+  violations.push(...read2.loads.map((resource) => `${resource} loads an external resource`));
+  return violations.map((violation2) => `${file2}: ${violation2}`);
+}
+
 // kit/lib/roadmap/index.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync37 } from "node:fs";
@@ -42252,6 +42440,10 @@ function beforeAfterViolation(file2, ctx) {
   if (size <= ctx.config.limits.beforeAfterMaxBytes) return null;
   return `${file2}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
+function pageViolations(file2, folder, ctx) {
+  if (!existsSync38(join54(ctx.root, file2))) return [];
+  return gradeBeforeAfter({ file: file2, html: readRepoFile(ctx, file2), prd: parseFolderName(folder)?.prd ?? null });
+}
 function voiceViolations(file2, ctx) {
   if (!existsSync38(join54(ctx.root, file2))) return [];
   return parseVoice(readRepoFile(ctx, file2)).errors.map((error62) => `${file2}: ${error62}`);
@@ -42268,8 +42460,10 @@ function gradeFolder(specFile, ctx) {
     violations.push(...graded.violations);
     if (graded.record) record2 = { ...graded.record, file: specFile, folder };
   }
-  const beforeAfter = beforeAfterViolation(`${dirname11(specFile)}/before-after.html`, ctx);
+  const page2 = `${dirname11(specFile)}/before-after.html`;
+  const beforeAfter = beforeAfterViolation(page2, ctx);
   if (beforeAfter) violations.push(beforeAfter);
+  violations.push(...pageViolations(page2, folder, ctx));
   violations.push(...voiceViolations(`${dirname11(specFile)}/${VOICE_FILE}`, ctx));
   return { violations, record: record2 };
 }
@@ -44397,7 +44591,7 @@ var REMOTE = /^\s*(?:https?:)?\/\//i;
 var FOLLOWED = /* @__PURE__ */ new Set(["a", "area", "base", "form"]);
 var LOADING = /* @__PURE__ */ new Set(["src", "href", "xlink:href", "data", "poster", "srcset", "background"]);
 var TAG = /<([a-z][\w:-]*)\b([^>]*)>/gi;
-var ATTRIBUTE = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g;
+var ATTRIBUTE2 = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g;
 var STYLE_BLOCK = /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi;
 var SCRIPT_BLOCK = /<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi;
 var CSS_LOADS = [
@@ -44419,7 +44613,7 @@ function attributeUrls(attribute, value) {
 }
 function tagLoads(name3, attributes, styles) {
   const loads = [];
-  for (const [, attr = "", ...values] of attributes.matchAll(ATTRIBUTE)) {
+  for (const [, attr = "", ...values] of attributes.matchAll(ATTRIBUTE2)) {
     const attribute = attr.toLowerCase();
     const groups = values;
     const value = groups.find((v) => v !== void 0) ?? "";
@@ -45042,7 +45236,7 @@ function readCredits({ owner, repo, since, labels: labels2, signature, exec = ex
 init_define_OMNI_BUNDLE();
 var LABEL = 11;
 var COUNT = 5;
-var STATES2 = 26;
+var STATES3 = 26;
 function cell(text15, width, gap = 1) {
   const value = String(text15);
   return value.length + gap > width ? `${value}${" ".repeat(gap)}` : value.padEnd(width);
@@ -45056,7 +45250,7 @@ function creditsReport({ name: name3, scope, since, summary: summary2 }) {
   const { states, kinds } = prs;
   const lines2 = [
     `${name3 ?? "Omni Loop"} \xB7 ${scope} \xB7 ${since ? `since ${since}` : "all time"}`,
-    cell("PRs", LABEL) + cell(prs.total, COUNT) + cell(`(merged ${states.merged} \xB7 open ${states.open})`, STATES2, 2) + `phase-0 ${kinds["phase-0"]} \xB7 feature ${kinds.feature} \xB7 slices ${kinds.slice} \xB7 other ${kinds.other}`,
+    cell("PRs", LABEL) + cell(prs.total, COUNT) + cell(`(merged ${states.merged} \xB7 open ${states.open})`, STATES3, 2) + `phase-0 ${kinds["phase-0"]} \xB7 feature ${kinds.feature} \xB7 slices ${kinds.slice} \xB7 other ${kinds.other}`,
     name3 === null ? "  signing is off in this repository" : `  ${signatureLine(prs.signatures)}`,
     name3 === null ? cell("PRD issues", LABEL) + String(prdIssues.total) : cell("PRD issues", LABEL) + cell(prdIssues.total, COUNT) + signatureLine(prdIssues.signatures)
   ];
@@ -45410,115 +45604,6 @@ function wordsContent(words4) {
 
 // kit/lib/design/words/pass.ts
 init_define_OMNI_BUNDLE();
-
-// kit/lib/design/words/html.ts
-init_define_OMNI_BUNDLE();
-var VOID = /* @__PURE__ */ new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
-var RAW = /* @__PURE__ */ new Set(["script", "style", "template", "noscript", "textarea", "title"]);
-var KEPT_RAW = /* @__PURE__ */ new Set(["textarea", "title"]);
-var NAMED = {
-  amp: "&",
-  lt: "<",
-  gt: ">",
-  quot: '"',
-  apos: "'",
-  nbsp: "\xA0",
-  mdash: "\u2014",
-  ndash: "\u2013",
-  middot: "\xB7",
-  hellip: "\u2026",
-  rsquo: "\u2019",
-  lsquo: "\u2018",
-  rdquo: "\u201D",
-  ldquo: "\u201C",
-  laquo: "\xAB",
-  raquo: "\xBB",
-  copy: "\xA9",
-  bull: "\u2022",
-  times: "\xD7",
-  rarr: "\u2192",
-  larr: "\u2190"
-};
-var TAG_OPEN = /^<([A-Za-z][\w:-]*)/;
-var TAG_CLOSE = /^<\/([A-Za-z][\w:-]*)\s*>/;
-var ATTRIBUTE2 = /^\s*([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/;
-function numericReference(ref) {
-  const hex3 = ref[1] === "x" || ref[1] === "X";
-  const code = Number.parseInt(ref.slice(hex3 ? 2 : 1), hex3 ? 16 : 10);
-  return code > 0 && code <= 1114111 ? String.fromCodePoint(code) : null;
-}
-function decodeEntities(text15) {
-  return text15.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole2, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole2);
-}
-function past(html, marker, from) {
-  const at2 = html.indexOf(marker, from);
-  return at2 === -1 ? html.length : at2 + marker.length;
-}
-var top = ({ root, stack }) => stack[stack.length - 1] ?? root;
-function addText(reader, text15) {
-  if (text15 !== "") top(reader).children.push({ kind: "text", text: decodeEntities(text15) });
-}
-function skipDeclaration(html, lt) {
-  if (html.startsWith("<!--", lt)) return past(html, "-->", lt + 4);
-  if (html.startsWith("<!", lt) || html.startsWith("<?", lt)) return past(html, ">", lt);
-  return null;
-}
-function readEndTag(reader, lt) {
-  const close = TAG_CLOSE.exec(reader.html.slice(lt, lt + 256));
-  if (close?.[1] === void 0) return null;
-  const index = reader.stack.map((element) => element.tag).lastIndexOf(close[1].toLowerCase());
-  if (index >= 0) reader.stack.length = index;
-  return lt + close[0].length;
-}
-function readAttributes(html, cursor) {
-  const attributes = /* @__PURE__ */ new Map();
-  let at2 = cursor;
-  let attribute = ATTRIBUTE2.exec(html.slice(at2));
-  while (attribute?.[1]) {
-    const name3 = attribute[1].toLowerCase();
-    if (!attributes.has(name3)) attributes.set(name3, decodeEntities(attribute[2] ?? attribute[3] ?? attribute[4] ?? ""));
-    at2 += attribute[0].length;
-    attribute = ATTRIBUTE2.exec(html.slice(at2));
-  }
-  return { attributes, end: at2 };
-}
-function readRawBody(reader, element, from) {
-  const closeAt = reader.html.toLowerCase().indexOf(`</${element.tag}`, from);
-  if (KEPT_RAW.has(element.tag)) element.children.push({ kind: "text", text: decodeEntities(reader.html.slice(from, closeAt === -1 ? void 0 : closeAt)) });
-  return closeAt === -1 ? reader.html.length : past(reader.html, ">", closeAt);
-}
-function readStartTag(reader, lt) {
-  const open3 = TAG_OPEN.exec(reader.html.slice(lt, lt + 256));
-  if (open3?.[1] === void 0) return null;
-  const tag = open3[1].toLowerCase();
-  const { attributes, end: end3 } = readAttributes(reader.html, lt + open3[0].length);
-  const after = past(reader.html, ">", end3);
-  const element = { kind: "element", tag, attributes, children: [] };
-  top(reader).children.push(element);
-  if (RAW.has(tag)) return readRawBody(reader, element, after);
-  const selfClosing = reader.html[after - 2] === "/";
-  if (!VOID.has(tag) && !selfClosing) reader.stack.push(element);
-  return after;
-}
-function readMarkup(reader, lt) {
-  const next2 = skipDeclaration(reader.html, lt) ?? readEndTag(reader, lt) ?? readStartTag(reader, lt);
-  if (next2 !== null) return next2;
-  addText(reader, "<");
-  return lt + 1;
-}
-function parseHtml(html) {
-  const root = { kind: "element", tag: "#document", attributes: /* @__PURE__ */ new Map(), children: [] };
-  const reader = { html, root, stack: [] };
-  let at2 = 0;
-  while (at2 < html.length) {
-    const lt = html.indexOf("<", at2);
-    addText(reader, html.slice(at2, lt === -1 ? void 0 : lt));
-    at2 = lt === -1 ? html.length : readMarkup(reader, lt);
-  }
-  return root;
-}
-
-// kit/lib/design/words/pass.ts
 var BLOCK2 = /* @__PURE__ */ new Set([
   "address",
   "article",
@@ -45594,49 +45679,49 @@ function phraseOf(text15, control) {
   const words4 = countWords(squashed);
   return words4 > 0 ? [{ text: squashed, words: words4, control }] : [];
 }
-function flush(walk2) {
-  walk2.phrases.push(...phraseOf(walk2.run, false));
-  walk2.run = "";
+function flush(walk3) {
+  walk3.phrases.push(...phraseOf(walk3.run, false));
+  walk3.run = "";
 }
-var skipped2 = (element, walk2, top2) => isHidden(element) || !top2 && matches(walk2.rules.screen, element);
+var skipped2 = (element, walk3, top2) => isHidden(element) || !top2 && matches(walk3.rules.screen, element);
 var hasRunningText = (element) => element.children.some((child) => child.kind === "text" && WORD.test(child.text));
 var runsOn = (child, running) => running && child.kind === "element" && PHRASING.has(child.tag);
-function readContent(element, walk2, inline) {
-  if (!inline) flush(walk2);
-  walk2.content += countWords(textOf3(element, true));
+function readContent(element, walk3, inline) {
+  if (!inline) flush(walk3);
+  walk3.content += countWords(textOf3(element, true));
 }
-function readControl(element, walk2) {
-  flush(walk2);
-  walk2.phrases.push(...phraseOf(textOf3(element, true), true));
+function readControl(element, walk3) {
+  flush(walk3);
+  walk3.phrases.push(...phraseOf(textOf3(element, true), true));
 }
-function visitChildren(element, walk2, inline) {
-  if (!inline) flush(walk2);
+function visitChildren(element, walk3, inline) {
+  if (!inline) flush(walk3);
   const running = inline || hasRunningText(element);
-  for (const child of element.children) visit2(child, walk2, runsOn(child, running));
-  if (!inline) flush(walk2);
+  for (const child of element.children) visit2(child, walk3, runsOn(child, running));
+  if (!inline) flush(walk3);
 }
-function visitElement(element, walk2, top2, inline) {
-  if (skipped2(element, walk2, top2)) return;
-  if (!top2 && matches(walk2.rules.content, element)) {
-    readContent(element, walk2, inline);
+function visitElement(element, walk3, top2, inline) {
+  if (skipped2(element, walk3, top2)) return;
+  if (!top2 && matches(walk3.rules.content, element)) {
+    readContent(element, walk3, inline);
     return;
   }
-  if (matches(walk2.rules.primary, element)) walk2.primaries.push(squash(textOf3(element, true)));
-  if (isControl(element, walk2.rules.primary)) {
-    readControl(element, walk2);
+  if (matches(walk3.rules.primary, element)) walk3.primaries.push(squash(textOf3(element, true)));
+  if (isControl(element, walk3.rules.primary)) {
+    readControl(element, walk3);
     return;
   }
-  visitChildren(element, walk2, inline);
+  visitChildren(element, walk3, inline);
 }
-function visit2(node3, walk2, inline) {
-  if (node3.kind === "text") walk2.run += node3.text;
-  else visitElement(node3, walk2, false, inline);
+function visit2(node3, walk3, inline) {
+  if (node3.kind === "text") walk3.run += node3.text;
+  else visitElement(node3, walk3, false, inline);
 }
 function readScreen(screen, rules) {
-  const walk2 = { rules, phrases: [], primaries: [], run: "", content: 0 };
-  visitElement(screen, walk2, true, false);
-  flush(walk2);
-  return { phrases: walk2.phrases, primaries: walk2.primaries, content: walk2.content };
+  const walk3 = { rules, phrases: [], primaries: [], run: "", content: 0 };
+  visitElement(screen, walk3, true, false);
+  flush(walk3);
+  return { phrases: walk3.phrases, primaries: walk3.primaries, content: walk3.content };
 }
 function screenName(screen, rules, index) {
   const named4 = [...namingAttributes(rules.screen), "id", "aria-label"].map((name3) => screen.attributes.get(name3)?.trim()).find(Boolean);
@@ -45659,12 +45744,12 @@ function findings(phrases, primaries, rules) {
 }
 function screensUnder(node3, rules) {
   const found2 = [];
-  const walk2 = (element) => {
+  const walk3 = (element) => {
     if (isHidden(element)) return;
     if (matches(rules.screen, element)) found2.push(element);
-    for (const child of element.children) if (child.kind === "element") walk2(child);
+    for (const child of element.children) if (child.kind === "element") walk3(child);
   };
-  walk2(node3);
+  walk3(node3);
   return found2;
 }
 function wordPass(html, rules) {
@@ -46320,7 +46405,7 @@ function scanText(file2, text15) {
   return findings2;
 }
 var inCache = (path) => path.includes(".e2e/cache/");
-function walk(root, dir, out) {
+function walk2(root, dir, out) {
   let names;
   try {
     names = readdirSync24(join74(root, dir));
@@ -46330,13 +46415,13 @@ function walk(root, dir, out) {
   for (const name3 of names.sort()) {
     if (name3 === "node_modules" || name3 === ".git") continue;
     const path = `${dir}/${name3}`;
-    if (statSync16(join74(root, path)).isDirectory()) walk(root, path, out);
+    if (statSync16(join74(root, path)).isDirectory()) walk2(root, path, out);
     else out.push(path);
   }
 }
 function filesUnder(root, dir) {
   const out = [];
-  walk(root, dir.replace(/\/+$/, ""), out);
+  walk2(root, dir.replace(/\/+$/, ""), out);
   return out;
 }
 function guardFiles(root, files) {
@@ -47852,14 +47937,14 @@ function knowledgeSummary({ ctx }) {
     knowledge: existsSync55(join82(ctx.root, ctx.layout.knowledgeRoot))
   };
   const knowledge2 = readKnowledge({ ctx });
-  const placeOf3 = (entry3) => entry3.scope === "product" ? PRODUCT_PLACE : entry3.domain;
+  const placeOf4 = (entry3) => entry3.scope === "product" ? PRODUCT_PLACE : entry3.domain;
   const domains = knowledge2.domains.map((domain2) => {
     const readme = join82(ctx.root, domainsDir(ctx), domain2.name, "README.md");
     return { name: domain2.name, firstLine: existsSync55(readme) ? firstLine4(readFileSync66(readme, "utf8")) : null };
   });
-  const principles = knowledge2.entries.filter((entry3) => entry3.kind === "principle" && entry3.scope !== "cross-domain").map((entry3) => ({ id: entry3.id, place: placeOf3(entry3), statement: entry3.statement }));
+  const principles = knowledge2.entries.filter((entry3) => entry3.kind === "principle" && entry3.scope !== "cross-domain").map((entry3) => ({ id: entry3.id, place: placeOf4(entry3), statement: entry3.statement }));
   const laws2 = knowledge2.entries.flatMap(
-    (entry3) => (entry3.kind === "rule" || entry3.kind === "invariant") && entry3.scope !== "cross-domain" ? [{ id: entry3.id, kind: entry3.kind, place: placeOf3(entry3), statement: entry3.statement }] : []
+    (entry3) => (entry3.kind === "rule" || entry3.kind === "invariant") && entry3.scope !== "cross-domain" ? [{ id: entry3.id, kind: entry3.kind, place: placeOf4(entry3), statement: entry3.statement }] : []
   );
   const decisions = places.adr ? readDecisions({ ctx }).records.map((record2) => ({ number: record2.number, title: record2.title })) : [];
   return { places, domains, principles, decisions, laws: laws2 };
@@ -48151,7 +48236,7 @@ function makeNumbering({ ctx, taken }) {
     }
   };
 }
-function placeOf(ctx, place) {
+function placeOf2(ctx, place) {
   if (place === PRODUCT_PLACE) return { dir: productDir(ctx), code: PRODUCT_CODE, title: "Product" };
   const title = place.charAt(0).toUpperCase() + place.slice(1).replace(/-/g, " ");
   return { dir: `${domainsDir(ctx)}/${place}`, code: codeOf(place), title };
@@ -48273,7 +48358,7 @@ function writeRegisterEntry({
   enforced,
   write: write2
 }) {
-  const place = placeOf(ctx, reply.place);
+  const place = placeOf2(ctx, reply.place);
   const id = numbering.entry(reply.kind, place.code);
   const { serves, principleId } = servedBy2(reply, () => numbering.entry("principle", place.code));
   const path = `${place.dir}/${LAYER[reply.kind]}`;
@@ -48460,7 +48545,7 @@ function loopPaths(ctx) {
 }
 function overlay(root, keep) {
   const scratch = mkdtempSync3(join85(tmpdir3(), "omni-harvest-"));
-  const walk2 = (dir) => {
+  const walk3 = (dir) => {
     for (const name3 of readdirSync27(join85(root, dir))) {
       const rel = dir ? `${dir}/${name3}` : name3;
       if (!dir && name3 === ".git") continue;
@@ -48468,13 +48553,13 @@ function overlay(root, keep) {
         cpSync(join85(root, rel), join85(scratch, rel), { recursive: true });
       } else if (keep.some((path) => path.startsWith(`${rel}/`)) && statSync18(join85(root, rel)).isDirectory()) {
         mkdirSync23(join85(scratch, rel), { recursive: true });
-        walk2(rel);
+        walk3(rel);
       } else {
         symlinkSync(join85(root, rel), join85(scratch, rel));
       }
     }
   };
-  walk2("");
+  walk3("");
   return scratch;
 }
 function inScratch(ctx, fn) {
@@ -48724,9 +48809,9 @@ async function askLawWorth(question, { ctx, exec, env, vars, ref }) {
     const file2 = join86(dir, "state.json");
     writeFileSync33(file2, JSON.stringify(question.state));
     const out = [];
-    const quiet = { write: () => true };
+    const quiet2 = { write: () => true };
     const args = ["law-worth", "--state-file", file2, "--old", String(question.old), "--ref", ref, "--json"];
-    await decide.run(args, { cwd: ctx.root, stdout: { write: (text15) => out.push(text15) }, stderr: quiet, exec, env, vars });
+    await decide.run(args, { cwd: ctx.root, stdout: { write: (text15) => out.push(text15) }, stderr: quiet2, exec, env, vars });
     const read2 = DecidedSchema.safeParse(JSON.parse(out.join("") || "null"));
     return read2.success ? { worth: read2.data.answer === "true", decidedBy: "Jev", confidence: read2.data.confidence } : null;
   } finally {
@@ -51942,17 +52027,17 @@ function subjectOf({ byId, legal }, id) {
   const known2 = legal.get(id);
   return known2 === void 0 ? void 0 : { kind: "legal", id, statement: known2.statement };
 }
-function step2(walk2, entry3, hop) {
+function step2(walk3, entry3, hop) {
   const reached = [];
-  for (const { edge, node: node3 } of linksOf2(entry3, walk2.index)) {
+  for (const { edge, node: node3 } of linksOf2(entry3, walk3.index)) {
     const key2 = edgeKey(edge);
-    if (!walk2.seen.has(key2)) {
-      walk2.seen.add(key2);
-      walk2.edges.push(edge);
+    if (!walk3.seen.has(key2)) {
+      walk3.seen.add(key2);
+      walk3.edges.push(edge);
     }
-    if (walk2.nodes.has(node3.id)) continue;
-    walk2.nodes.set(node3.id, { ...node3, hop });
-    const next2 = subjectOf(walk2.index, node3.id);
+    if (walk3.nodes.has(node3.id)) continue;
+    walk3.nodes.set(node3.id, { ...node3, hop });
+    const next2 = subjectOf(walk3.index, node3.id);
     if (next2 !== void 0) reached.push(next2);
   }
   return reached;
@@ -51971,14 +52056,14 @@ function buildNeighbourhood(sources2, { start: start4, depth = 1 }) {
     legal: new Map(cached3 ? (sources2.legal ?? []).map((legal) => [legal.id, legal]) : []),
     glossary: cached3 ? sources2.glossary ?? [] : []
   };
-  const walk2 = { index, nodes: /* @__PURE__ */ new Map(), edges: [], seen: /* @__PURE__ */ new Set() };
+  const walk3 = { index, nodes: /* @__PURE__ */ new Map(), edges: [], seen: /* @__PURE__ */ new Set() };
   let frontier = [...new Set(start4)].flatMap((id) => {
     const subject = subjectOf(index, id);
     return subject === void 0 ? [] : [subject];
   });
-  for (const subject of frontier) walk2.nodes.set(subject.id, { ...subject.kind === "legal" ? legalNode(subject.id, index.legal.get(subject.id)) : entryNode(subject), hop: 0 });
-  for (let hop = 1; hop <= depth; hop += 1) frontier = frontier.flatMap((entry3) => step2(walk2, entry3, hop));
-  const { nodes, edges } = walk2;
+  for (const subject of frontier) walk3.nodes.set(subject.id, { ...subject.kind === "legal" ? legalNode(subject.id, index.legal.get(subject.id)) : entryNode(subject), hop: 0 });
+  for (let hop = 1; hop <= depth; hop += 1) frontier = frontier.flatMap((entry3) => step2(walk3, entry3, hop));
+  const { nodes, edges } = walk3;
   return {
     version: NEIGHBOURHOOD_VERSION,
     shape: NEIGHBOURHOOD_SHAPE,
@@ -52167,7 +52252,7 @@ var NODE_KINDS = ["principle", "rule", "invariant", "legal", "contract", "test",
 var EDGE_KINDS = ["serves", "enforced-by", "governs", "points-to", "cites", "sibling", "screen", "same-prd", "uses-term"];
 var STATUSES = ["law", "rule", "proposed"];
 var ORIGINS = ["repository", "product"];
-var STATES3 = ["cached", "offline", "none", "server"];
+var STATES4 = ["cached", "offline", "none", "server"];
 var ProductGraphNodeSchema = external_exports.strictObject({
   id: external_exports.string().min(1),
   kind: external_exports.enum(NODE_KINDS),
@@ -52194,7 +52279,7 @@ var ProductNeighbourhoodSchema = external_exports.strictObject({
   repo: external_exports.string().min(1).nullable(),
   start: external_exports.array(external_exports.string().min(1)),
   depth: external_exports.number().int().min(1).max(PRODUCT_GRAPH_DEPTH.most),
-  product: external_exports.strictObject({ state: external_exports.enum(STATES3), key: external_exports.string().min(1).nullable(), cachedOn: external_exports.string().nullable() }),
+  product: external_exports.strictObject({ state: external_exports.enum(STATES4), key: external_exports.string().min(1).nullable(), cachedOn: external_exports.string().nullable() }),
   nodes: external_exports.array(ProductGraphNodeSchema),
   edges: external_exports.array(ProductGraphEdgeSchema),
   unresolved: external_exports.array(UnresolvedSchema),
@@ -52394,7 +52479,7 @@ function hasFilledForm(gh, repo, playbook, ref) {
   const listed2 = gh.dir(repo, playbook, ref) ?? [];
   return listed2.filter((entry3) => entry3.type === "file" && entry3.name.endsWith(".md")).some((entry3) => isFilled(gh.file(repo, entry3.path, ref)));
 }
-var plural3 = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+var plural4 = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function staleness3(gh, { repo, readAt }, branch, evidence) {
   const compared = gh.compare(repo, readAt, branch);
   if (compared === null) return `readAt ${readAt.slice(0, 7)} cannot be compared with the default branch`;
@@ -52403,7 +52488,7 @@ function staleness3(gh, { repo, readAt }, branch, evidence) {
   const touched2 = new Set((compared.files ?? []).flatMap((f) => [f.filename, f.previous_filename].filter(Boolean)));
   const changed = [...evidence].filter((path) => touched2.has(path)).length;
   if (changed === 0) return null;
-  return `${plural3(ahead, "commit", "commits")}, ${plural3(changed, "evidence file", "evidence files")} changed`;
+  return `${plural4(ahead, "commit", "commits")}, ${plural4(changed, "evidence file", "evidence files")} changed`;
 }
 function targetFlow(repo, config3) {
   try {
@@ -53815,7 +53900,7 @@ var sleep = (ms) => new Promise((resolve17) => {
   setTimeout(resolve17, ms).unref();
 });
 var message = (error62) => error62 instanceof Error ? error62.message : String(error62);
-async function within(probe, ms, timer) {
+async function within2(probe, ms, timer) {
   const timeout = timer(ms).then(() => ({ ok: false, detail: `timed out after ${ms / 1e3} s` }));
   try {
     return await Promise.race([Promise.resolve().then(probe), timeout]);
@@ -53828,7 +53913,7 @@ function fixToRun(prerequisite, fix, options) {
   return options.fix && prerequisite.who === "agent" ? fix : null;
 }
 async function fixThenCheck(prerequisite, fix, check5, options) {
-  const fixed2 = await within(fix, options.fixLimitMs ?? FIX_LIMIT_MS, options.timer ?? sleep);
+  const fixed2 = await within2(fix, options.fixLimitMs ?? FIX_LIMIT_MS, options.timer ?? sleep);
   if (!fixed2.ok) return waits(prerequisite, `the fix did not work: ${fixed2.detail}`);
   const again = await check5();
   return again.ok ? { prerequisite, state: "fixed", detail: null } : waits(prerequisite, `still not ok after the fix: ${again.detail}`);
@@ -53837,7 +53922,7 @@ async function runChecked(prerequisite, options) {
   const probes = options.probes(prerequisite);
   const { check: check5 } = probes;
   if (check5 === null) return waits(prerequisite, "nothing checks it");
-  const runCheck2 = () => within(check5, options.limitMs ?? CHECK_LIMIT_MS, options.timer ?? sleep);
+  const runCheck2 = () => within2(check5, options.limitMs ?? CHECK_LIMIT_MS, options.timer ?? sleep);
   const first = await runCheck2();
   if (first.ok) return { prerequisite, state: "ok", detail: null };
   const fix = fixToRun(prerequisite, probes.fix, options);
@@ -54240,10 +54325,10 @@ function runnableVerdict(step3, { plan: plan2, live, done, holds: holds2 }) {
 var doneOf = (plan2, live) => new Set(plan2.steps.filter((step3) => isDone(step3, live)).map((step3) => step3.step));
 function followPlan(plan2, live) {
   const done = doneOf(plan2, live);
-  const walk2 = { plan: plan2, live, done, holds: /* @__PURE__ */ new Map() };
+  const walk3 = { plan: plan2, live, done, holds: /* @__PURE__ */ new Map() };
   let waiting = null;
   for (const step3 of plan2.steps) {
-    const verdict2 = runnableVerdict(step3, walk2);
+    const verdict2 = runnableVerdict(step3, walk3);
     if (verdict2 === null) continue;
     if (waiting === null) {
       if (verdict2.verdict !== "wait") return { state: "step", step: step3, verdict: verdict2 };
@@ -54253,7 +54338,7 @@ function followPlan(plan2, live) {
     }
   }
   if (waiting !== null) return { state: "step", ...waiting };
-  return { state: "stop", waiting: waitingOf(plan2, live, walk2.holds) };
+  return { state: "stop", waiting: waitingOf(plan2, live, walk3.holds) };
 }
 function stepRef({ step: step3, running }) {
   return `step ${step3.step} (${stepWhat(step3)}, ${running ? "running" : "starting"})`;
@@ -55851,14 +55936,14 @@ function writtenAt2(path) {
   const at2 = attempt9(() => Date.parse(String(Reflect.get(Object(JSON.parse(readFileSync89(path, "utf8"))), "at"))), Number.NaN);
   return Number.isNaN(at2) ? attempt9(() => statSync21(path).mtimeMs, null) : at2;
 }
-var within2 = (at2, now2, ms) => at2 !== null && now2 - at2 >= 0 && now2 - at2 < ms;
+var within3 = (at2, now2, ms) => at2 !== null && now2 - at2 >= 0 && now2 - at2 < ms;
 function startLinksRefresh({ folder, kind, n, now: now2, spawn: spawn3, script: script2, env }, exec) {
   if (!spawn3 || !script2) return false;
   try {
     const root = mainCheckout(folder, exec);
     if (!root) return false;
     const base = join108(root, LOCAL_DIR, "now", `links-${kind}-${n}`);
-    if (within2(writtenAt2(`${base}.json`), now2, REFRESH_AFTER_MS) || within2(writtenAt2(`${base}.lock`), now2, LOCK_ABANDONED_MS)) return false;
+    if (within3(writtenAt2(`${base}.json`), now2, REFRESH_AFTER_MS) || within3(writtenAt2(`${base}.lock`), now2, LOCK_ABANDONED_MS)) return false;
     const child = spawn3(process.execPath, [script2, "statusline", "--refresh", String(n), KIND_FLAG, kind], {
       cwd: folder,
       detached: true,
@@ -55984,7 +56069,7 @@ var ROUND_LIKE2 = /^variations/i;
 function visualRoot(ctx) {
   return `${ctx.config.paths.delivery}/visual`;
 }
-function pageViolations(ctx, page2) {
+function pageViolations2(ctx, page2) {
   if (!existsSync73(join110(ctx.root, page2))) return [`${page2}: missing.`];
   const violations = [];
   const size = beforeAfterViolation(page2, ctx);
@@ -56009,7 +56094,7 @@ function folderViolations(ctx, folder) {
   }
   const byName2 = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   return [
-    ...rounds.sort((a, b) => a.k - b.k).flatMap(({ name: name3 }) => pageViolations(ctx, `${folder}/${name3}`)),
+    ...rounds.sort((a, b) => a.k - b.k).flatMap(({ name: name3 }) => pageViolations2(ctx, `${folder}/${name3}`)),
     ...misnamed.sort(byName2).map((name3) => `${folder}/${name3}: a round of variations is named variations-r<k>.html, k from 1.`),
     ...others.sort(byName2).map((name3) => `${folder}/${name3}: not part of a visual fix; the folder holds ${PAGE} and variations-r<k>.html only.`)
   ];
@@ -56022,7 +56107,7 @@ function visualVerdict({ ctx, issue: issue2, commits, laws: laws2 }) {
     root: visualRoot(ctx),
     prefix: issuePrefix(issue2),
     folders: numberedFolders(ctx, visualRoot(ctx), issuePrefix(issue2)),
-    grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder), ...laws2?.(folder) ?? []]
+    grade: (folder) => [...pageViolations2(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder), ...laws2?.(folder) ?? []]
   });
 }
 
@@ -57093,7 +57178,7 @@ var WORD_LIMITS = Object.freeze({
   label: { max: 4, name: "a label" }
 });
 var countWords2 = (text15) => text15.trim().split(/\s+/).filter(Boolean).length;
-var plural4 = (count5, word2) => `${count5} ${word2}${count5 === 1 ? "" : "s"}`;
+var plural5 = (count5, word2) => `${count5} ${word2}${count5 === 1 ? "" : "s"}`;
 function checkRunFolder(dir) {
   let value;
   try {
@@ -57161,14 +57246,14 @@ function sceneWarnings(scene2, index) {
   const count5 = words4.reduce((sum, piece) => sum + countWords2(piece.text), 0);
   if (count5 / READ_WORDS_PER_SECOND > scene2.duration) {
     const needed = Math.ceil(count5 / READ_WORDS_PER_SECOND);
-    warnings.push({ path: `scenes.${index}`, message: `${plural4(count5, "word")} take about ${needed} s to read; the scene lasts ${scene2.duration} s` });
+    warnings.push({ path: `scenes.${index}`, message: `${plural5(count5, "word")} take about ${needed} s to read; the scene lasts ${scene2.duration} s` });
   }
   return warnings;
 }
 function overLimit({ path, text: text15, limit }) {
   const count5 = countWords2(text15);
   const { max, name: name3 } = WORD_LIMITS[limit];
-  return count5 > max ? [{ path, message: `${plural4(count5, "word")}; ${name3} holds at most ${max}` }] : [];
+  return count5 > max ? [{ path, message: `${plural5(count5, "word")}; ${name3} holds at most ${max}` }] : [];
 }
 var WORD_FIELDS = Object.freeze([
   ["eyebrow", "eyebrow"],
@@ -57398,7 +57483,7 @@ async function play(filming, step3, index) {
   }
   return actOn(filming, step3, label2);
 }
-async function filmWalk(dir, walk2, { launch, now: now2 }) {
+async function filmWalk(dir, walk3, { launch, now: now2 }) {
   const storage = join117(dir, STORAGE_STATE);
   const browser = await launch();
   try {
@@ -57411,9 +57496,9 @@ async function filmWalk(dir, walk2, { launch, now: now2 }) {
     const page2 = await context.newPage();
     const filming = { page: page2, started: now2(), now: now2, moments: [] };
     try {
-      await page2.goto(walk2.url);
+      await page2.goto(walk3.url);
       await page2.waitForTimeout(PAUSE_S * 1e3);
-      for (const [index, step3] of walk2.steps.entries()) await play(filming, step3, index);
+      for (const [index, step3] of walk3.steps.entries()) await play(filming, step3, index);
       await page2.waitForTimeout(PAUSE_S * 1e3);
     } finally {
       await context.close();
@@ -57492,12 +57577,12 @@ function repositoryBrowser(cwd) {
   };
 }
 async function filmRun(dir, { exec, launch, now: now2 = Date.now }) {
-  const walk2 = readWalk(dir);
+  const walk3 = readWalk(dir);
   const work = join117(dir, FILM_DIR);
   rmSync16(work, { recursive: true, force: true });
   mkdirSync29(work, { recursive: true });
   try {
-    const { webm, moments } = await filmWalk(dir, walk2, { launch, now: now2 });
+    const { webm, moments } = await filmWalk(dir, walk3, { launch, now: now2 });
     const clip = join117(dir, WALK_CLIP);
     exec("ffmpeg", remuxArgs(webm, clip), { stdio: ["ignore", "ignore", "pipe"] });
     const result2 = { moments: 1, clip: WALK_CLIP, width: FILM_SIZE.width, height: FILM_SIZE.height, seconds: clipSeconds(exec, clip), steps: moments };
@@ -60038,8 +60123,8 @@ function pressure(sample2, limits) {
 function nextPause(state, reason2) {
   if (reason2 !== null) return { state: { reason: reason2, quiet: 0 }, change: state.reason === null ? "paused" : null };
   if (state.reason === null) return { state, change: null };
-  const quiet = state.quiet + 1;
-  return quiet < QUIET_TO_RESUME ? { state: { reason: state.reason, quiet }, change: null } : { state: { reason: null, quiet: 0 }, change: "resumed" };
+  const quiet2 = state.quiet + 1;
+  return quiet2 < QUIET_TO_RESUME ? { state: { reason: state.reason, quiet: quiet2 }, change: null } : { state: { reason: null, quiet: 0 }, change: "resumed" };
 }
 
 // kit/lib/runner/job.ts
@@ -60958,7 +61043,7 @@ function defaultBranch(exec, checkout) {
 function worktreeOf(loop2, job2) {
   return join137(loop2.home, "wt", `${job2.repo.split("/").at(-1) ?? job2.repo}-job-${job2.id}`);
 }
-function placeOf2(loop2, job2) {
+function placeOf3(loop2, job2) {
   const line2 = checkRunnerLine(job2.line);
   if (!line2.ok) return { status: "failed", reason: `refused: ${line2.reason}` };
   const checkout = loop2.checkouts.get(job2.repo);
@@ -61046,7 +61131,7 @@ async function watch2(loop2, job2, place, live) {
   }
 }
 async function runJob(loop2, job2) {
-  const place = placeOf2(loop2, job2);
+  const place = placeOf3(loop2, job2);
   if ("status" in place) return { last: place, live: null };
   if (!makeWorktree(loop2, job2, place)) return { last: { status: "failed", reason: "the worktree could not be made" }, live: null };
   try {
@@ -62254,14 +62339,14 @@ var STAGE_WORDS = Object.freeze({
   retro: "retro"
 });
 var IDEA_COUNT = "on the app";
-var plural5 = (count5, word2) => `${count5} ${word2}${count5 === 1 ? "" : "s"}`;
+var plural6 = (count5, word2) => `${count5} ${word2}${count5 === 1 ? "" : "s"}`;
 function fetchedAgo(fetchedAt2, now2) {
   if (fetchedAt2 === null || fetchedAt2 === void 0) return "never fetched";
   const age = Math.max(0, now2 - fetchedAt2);
   if (age < MINUTE3) return "fetched just now";
-  if (age < HOUR3) return `fetched ${plural5(Math.floor(age / MINUTE3), "minute")} ago`;
-  if (age < DAY3) return `fetched ${plural5(Math.floor(age / HOUR3), "hour")} ago`;
-  return `fetched ${plural5(Math.floor(age / DAY3), "day")} ago`;
+  if (age < HOUR3) return `fetched ${plural6(Math.floor(age / MINUTE3), "minute")} ago`;
+  if (age < DAY3) return `fetched ${plural6(Math.floor(age / HOUR3), "hour")} ago`;
+  return `fetched ${plural6(Math.floor(age / DAY3), "day")} ago`;
 }
 function header({ slug, base, fetchedAt: fetchedAt2 }, now2) {
   return ["omni status", ...slug ? [slug] : [], `${base}, ${fetchedAgo(fetchedAt2, now2)}`].join(" \xB7 ");
@@ -62270,7 +62355,7 @@ function counts(values) {
   const parts = STAGE_ORDER.map((stage2) => {
     const word2 = STAGE_WORDS[stage2].toUpperCase();
     if (stage2 === "idea") return `${word2} ${IDEA_COUNT}`;
-    if (stage2 === "building" && values.building > 0) return `${word2} ${values.building} \xB7 ${plural5(values.openItems, "open item")}`;
+    if (stage2 === "building" && values.building > 0) return `${word2} ${values.building} \xB7 ${plural6(values.openItems, "open item")}`;
     return `${word2} ${values[stage2]}`;
   });
   const out = [];
@@ -62306,7 +62391,7 @@ var SEPARATOR2 = " \xB7 ";
 var cut6 = (text15, width) => text15.length <= width ? text15 : `${text15.slice(0, Math.max(0, width - 1))}\u2026`;
 var stageColumn = (stage2) => `${INDENT}${STAGE_WORDS[stage2].padEnd(UNDER_BAR.length - INDENT.length)}`;
 function standing2({ stage: stage2, prd: prd2, openItems: openItems3 = 0, approval: approval3 }) {
-  const waiting = openItems3 > 0 ? `${plural5(openItems3, "open item")} wait${openItems3 === 1 ? "s" : ""} for an answer` : null;
+  const waiting = openItems3 > 0 ? `${plural6(openItems3, "open item")} wait${openItems3 === 1 ? "s" : ""} for an answer` : null;
   if (stage2 === "outbox") return waiting ?? "its feature PR waits for your review";
   if (stage2 === "building") return waiting ?? "being built";
   if (stage2 === "inbox") return `ready to build: /omni:yolo ${prd2}`;
