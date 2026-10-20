@@ -157,3 +157,9 @@ The rework prompt of step 5 says, as `/omni:wave`'s do, to run each command alon
 worktree, and git as `git -C <your worktree> …`: an agent in its own worktree refuses a chained
 command it cannot keep inside it. Tested in `kit/test/plugin.test.ts`, `a slice agent in its own
 worktree runs one command at a time`.
+
+## PRD 2251, slice s4 — the runner line in the held ending
+
+Not a re-port. Step 8 says the held ending's **What is next?** adds the line "To build it on a runner
+instead: `/omni:yolo-runner <n>`." above its command, which stays `/omni:yolo-fix <n>`. The ending
+itself is `/omni:yolo` section 7's, outside this slice's territory. Tested in `kit/test/plugin.test.ts`.
