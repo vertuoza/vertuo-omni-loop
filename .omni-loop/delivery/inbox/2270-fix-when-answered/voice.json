@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-20",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The switch is there, on by default, and turning it off leaves me a Fix with answers button: a person can stay in the loop.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Once per job is held by the database, so two comments at once still queue one fix.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Runner jobs pick up again once my answers are in, and the row reads Answered · fixing.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The fix goes to the same runner in the sender's name and links the job it continues.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "I answer, and the fix starts on its own; nothing new to learn.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓"
     }
   ]
 }
