@@ -4950,6 +4950,190 @@ import { join as join15 } from "node:path";
 import { existsSync as existsSync15, readdirSync as readdirSync6, statSync as statSync3 } from "node:fs";
 import { basename as basename4, dirname as dirname3, join as join14 } from "node:path";
 
+// kit/lib/design/words/html.ts
+var VOID = /* @__PURE__ */ new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+var RAW = /* @__PURE__ */ new Set(["script", "style", "template", "noscript", "textarea", "title"]);
+var KEPT_RAW = /* @__PURE__ */ new Set(["textarea", "title"]);
+var NAMED = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: "\xA0",
+  mdash: "\u2014",
+  ndash: "\u2013",
+  middot: "\xB7",
+  hellip: "\u2026",
+  rsquo: "\u2019",
+  lsquo: "\u2018",
+  rdquo: "\u201D",
+  ldquo: "\u201C",
+  laquo: "\xAB",
+  raquo: "\xBB",
+  copy: "\xA9",
+  bull: "\u2022",
+  times: "\xD7",
+  rarr: "\u2192",
+  larr: "\u2190"
+};
+var TAG_OPEN = /^<([A-Za-z][\w:-]*)/;
+var TAG_CLOSE = /^<\/([A-Za-z][\w:-]*)\s*>/;
+var ATTRIBUTE = /^\s*([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/;
+function numericReference(ref) {
+  const hex = ref[1] === "x" || ref[1] === "X";
+  const code2 = Number.parseInt(ref.slice(hex ? 2 : 1), hex ? 16 : 10);
+  return code2 > 0 && code2 <= 1114111 ? String.fromCodePoint(code2) : null;
+}
+function decodeEntities(text15) {
+  return text15.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole);
+}
+function past(html, marker2, from) {
+  const at4 = html.indexOf(marker2, from);
+  return at4 === -1 ? html.length : at4 + marker2.length;
+}
+var top = ({ root, stack }) => stack[stack.length - 1] ?? root;
+function addText(reader, text15) {
+  if (text15 !== "") top(reader).children.push({ kind: "text", text: decodeEntities(text15) });
+}
+function skipDeclaration(html, lt) {
+  if (html.startsWith("<!--", lt)) return past(html, "-->", lt + 4);
+  if (html.startsWith("<!", lt) || html.startsWith("<?", lt)) return past(html, ">", lt);
+  return null;
+}
+function readEndTag(reader, lt) {
+  const close = TAG_CLOSE.exec(reader.html.slice(lt, lt + 256));
+  if (close?.[1] === void 0) return null;
+  const index = reader.stack.map((element) => element.tag).lastIndexOf(close[1].toLowerCase());
+  if (index >= 0) reader.stack.length = index;
+  return lt + close[0].length;
+}
+function readAttributes(html, cursor) {
+  const attributes = /* @__PURE__ */ new Map();
+  let at4 = cursor;
+  let attribute = ATTRIBUTE.exec(html.slice(at4));
+  while (attribute?.[1]) {
+    const name = attribute[1].toLowerCase();
+    if (!attributes.has(name)) attributes.set(name, decodeEntities(attribute[2] ?? attribute[3] ?? attribute[4] ?? ""));
+    at4 += attribute[0].length;
+    attribute = ATTRIBUTE.exec(html.slice(at4));
+  }
+  return { attributes, end: at4 };
+}
+function readRawBody(reader, element, from) {
+  const closeAt = reader.html.toLowerCase().indexOf(`</${element.tag}`, from);
+  if (KEPT_RAW.has(element.tag)) element.children.push({ kind: "text", text: decodeEntities(reader.html.slice(from, closeAt === -1 ? void 0 : closeAt)) });
+  return closeAt === -1 ? reader.html.length : past(reader.html, ">", closeAt);
+}
+function readStartTag(reader, lt) {
+  const open = TAG_OPEN.exec(reader.html.slice(lt, lt + 256));
+  if (open?.[1] === void 0) return null;
+  const tag = open[1].toLowerCase();
+  const { attributes, end } = readAttributes(reader.html, lt + open[0].length);
+  const after = past(reader.html, ">", end);
+  const element = { kind: "element", tag, attributes, children: [] };
+  top(reader).children.push(element);
+  if (RAW.has(tag)) return readRawBody(reader, element, after);
+  const selfClosing = reader.html[after - 2] === "/";
+  if (!VOID.has(tag) && !selfClosing) reader.stack.push(element);
+  return after;
+}
+function readMarkup(reader, lt) {
+  const next = skipDeclaration(reader.html, lt) ?? readEndTag(reader, lt) ?? readStartTag(reader, lt);
+  if (next !== null) return next;
+  addText(reader, "<");
+  return lt + 1;
+}
+function parseHtml(html) {
+  const root = { kind: "element", tag: "#document", attributes: /* @__PURE__ */ new Map(), children: [] };
+  const reader = { html, root, stack: [] };
+  let at4 = 0;
+  while (at4 < html.length) {
+    const lt = html.indexOf("<", at4);
+    addText(reader, html.slice(at4, lt === -1 ? void 0 : lt));
+    at4 = lt === -1 ? html.length : readMarkup(reader, lt);
+  }
+  return root;
+}
+
+// kit/lib/before-after/grade.ts
+var BEFORE_AFTER_META = { name: "omni-before-after", version: "2" };
+var BEFORE_AFTER_TABS = ["functional", "technical"];
+var SECTION_STATES = ["filled", "na", "gap"];
+var STATES = new Set(SECTION_STATES);
+var FILL = /<!--\s*FILL\s*-->/g;
+var FETCHED = ["src", "srcset", "poster"];
+var REFERENCES = ["href", "xlink:href"];
+var LINKS = /* @__PURE__ */ new Set(["a", "area", "base"]);
+function loadsNothing(url) {
+  const value = url.trim();
+  return value === "" || value.startsWith("#") || value.toLowerCase().startsWith("data:");
+}
+var quiet = (attribute, value) => attribute === "srcset" ? value.trim() === "" : loadsNothing(value);
+function loadsOf({ tag, attributes }) {
+  const named = (attribute, value) => `<${tag} ${attribute}="${value}">`;
+  const read = LINKS.has(tag) ? FETCHED : [...FETCHED, ...REFERENCES];
+  const found = read.flatMap((attribute) => {
+    const value = attributes.get(attribute);
+    return value === void 0 || quiet(attribute, value) ? [] : [named(attribute, value)];
+  });
+  const data = attributes.get("data");
+  if (tag === "object" && data !== void 0 && !loadsNothing(data)) found.push(named("data", data));
+  return found;
+}
+var isMeta = ({ tag, attributes }) => tag === "meta" && attributes.get("name") === BEFORE_AFTER_META.name && attributes.get("content") === BEFORE_AFTER_META.version;
+var isDiagram = ({ tag, attributes }) => tag === "pre" && attributes.get("class")?.split(/\s/).includes("mermaid") === true;
+function noteMarks(element, read) {
+  if (isMeta(element)) read.marked = true;
+  if (isDiagram(element)) read.diagrams += 1;
+  read.loads.push(...loadsOf(element));
+}
+var within = ({ attributes }, around) => ({
+  service: attributes.get("data-service") ?? around.service,
+  tab: attributes.get("data-tab") ?? around.tab
+});
+function noteParts({ attributes }, here, read) {
+  const tab = attributes.get("data-tab");
+  if (tab !== void 0) read.tabs.add(tab);
+  const name = attributes.get("data-section");
+  if (name !== void 0) read.sections.push({ name, state: attributes.get("data-state") ?? null, ...here });
+}
+function walk(element, around, read) {
+  noteMarks(element, read);
+  const here = within(element, around);
+  noteParts(element, here, read);
+  for (const child of element.children) {
+    if (child.kind === "element") walk(child, here, read);
+  }
+}
+var placeOf = ({ name, service, tab }) => `section "${name}"${service === null ? "" : ` of service "${service}"`}${tab === null ? "" : ` in the "${tab}" tab`}`;
+function stateViolation(section4) {
+  if (section4.state === null) return `${placeOf(section4)} has no data-state (${SECTION_STATES[0]}, ${SECTION_STATES[1]} or ${SECTION_STATES[2]})`;
+  if (STATES.has(section4.state)) return null;
+  return `${placeOf(section4)} has data-state "${section4.state}", not ${SECTION_STATES[0]}, ${SECTION_STATES[1]} or ${SECTION_STATES[2]}`;
+}
+var plural2 = (count2, one, many) => `${count2} ${count2 === 1 ? one : many}`;
+function gradeBeforeAfter({ file, html, prd }) {
+  const read = { marked: false, tabs: /* @__PURE__ */ new Set(), sections: [], diagrams: 0, loads: [] };
+  walk(parseHtml(html), { service: null, tab: null }, read);
+  if (!read.marked) return [];
+  const violations = [];
+  for (const tab of BEFORE_AFTER_TABS) {
+    if (!read.tabs.has(tab)) violations.push(`no "${tab}" tab`);
+  }
+  for (const section4 of read.sections) {
+    const violation2 = stateViolation(section4);
+    if (violation2 !== null) violations.push(violation2);
+  }
+  const fills = html.match(FILL)?.length ?? 0;
+  if (fills > 0) violations.push(`${plural2(fills, "<!-- FILL --> marker", "<!-- FILL --> markers")} left`);
+  if (read.diagrams > 0) {
+    violations.push(`${plural2(read.diagrams, "diagram", "diagrams")} not rendered (omni before-after render ${prd === null ? "<n>" : String(prd)})`);
+  }
+  violations.push(...read.loads.map((resource) => `${resource} loads an external resource`));
+  return violations.map((violation2) => `${file}: ${violation2}`);
+}
+
 // kit/lib/roadmap/index.ts
 import { existsSync as existsSync14 } from "node:fs";
 import { join as join13 } from "node:path";
@@ -5313,7 +5497,7 @@ function cycles(roadmap, rows) {
   const found = [];
   const seenCycles = /* @__PURE__ */ new Set();
   const done = /* @__PURE__ */ new Set();
-  const walk2 = (id, path) => {
+  const walk3 = (id, path) => {
     const start = path.indexOf(id);
     if (start !== -1) {
       const loop = path.slice(start);
@@ -5325,10 +5509,10 @@ function cycles(roadmap, rows) {
       return;
     }
     if (done.has(id)) return;
-    for (const blocker of rows.get(id)?.blockedBy ?? []) walk2(blocker, [...path, id]);
+    for (const blocker of rows.get(id)?.blockedBy ?? []) walk3(blocker, [...path, id]);
     done.add(id);
   };
-  for (const row of roadmap.prds) walk2(row.id, []);
+  for (const row of roadmap.prds) walk3(row.id, []);
   return found;
 }
 function waveOrder(roadmap, rows) {
@@ -5664,6 +5848,10 @@ function beforeAfterViolation(file, ctx) {
   if (size <= ctx.config.limits.beforeAfterMaxBytes) return null;
   return `${file}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
+function pageViolations(file, folder, ctx) {
+  if (!existsSync15(join14(ctx.root, file))) return [];
+  return gradeBeforeAfter({ file, html: readRepoFile(ctx, file), prd: parseFolderName(folder)?.prd ?? null });
+}
 function voiceViolations(file, ctx) {
   if (!existsSync15(join14(ctx.root, file))) return [];
   return parseVoice(readRepoFile(ctx, file)).errors.map((error) => `${file}: ${error}`);
@@ -5680,8 +5868,10 @@ function gradeFolder(specFile, ctx) {
     violations.push(...graded.violations);
     if (graded.record) record = { ...graded.record, file: specFile, folder };
   }
-  const beforeAfter = beforeAfterViolation(`${dirname3(specFile)}/before-after.html`, ctx);
+  const page = `${dirname3(specFile)}/before-after.html`;
+  const beforeAfter = beforeAfterViolation(page, ctx);
   if (beforeAfter) violations.push(beforeAfter);
+  violations.push(...pageViolations(page, folder, ctx));
   violations.push(...voiceViolations(`${dirname3(specFile)}/${VOICE_FILE}`, ctx));
   return { violations, record };
 }
@@ -5786,7 +5976,7 @@ var LAWS_PR = Object.freeze({ knowledge: "Knowledge PR", law: "Enforce PR" });
 function lawsVerdict(kind, { ctx, changes, base }) {
   const laws = lawsTouched(changes, { ctx, base });
   const what = LAWS_PR[kind];
-  const title = laws.length === 0 ? `${what}: no law touched` : `${what}: ${plural2(laws.length, "law")} touched`;
+  const title = laws.length === 0 ? `${what}: no law touched` : `${what}: ${plural3(laws.length, "law")} touched`;
   const summary2 = [
     `${what}: never blocked. A person merging it answers every change to a law it holds.`,
     ...laws.length > 0 ? ["Laws this range touches:", ...lawLines(laws)] : ["It touches no law."]
@@ -5852,14 +6042,14 @@ function folderNames(absolute) {
   if (!existsSync17(absolute)) return [];
   return readdirSync8(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 }
-var plural2 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+var plural3 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 function conclusionOf(result, noun = { unaccounted: "unaccounted risky change", suffix: "" }) {
   const reasons = [];
-  if (result.items.length > 0) reasons.push(plural2(result.items.length, "open outbox item"));
+  if (result.items.length > 0) reasons.push(plural3(result.items.length, "open outbox item"));
   if (result.unreworked.length > 0) reasons.push("unreworked drift");
   const unaccounted = result.unaccounted ?? [];
   if (unaccounted.length > 0) {
-    reasons.push(`${plural2(unaccounted.length, noun.unaccounted)}${noun.suffix}`);
+    reasons.push(`${plural3(unaccounted.length, noun.unaccounted)}${noun.suffix}`);
   }
   if (reasons.length === 0) return { conclusion: "success", title: "Outbox clear" };
   if (result.overridden) {
@@ -8438,7 +8628,7 @@ function neutralLines(verdicts) {
 // apps/omni-app/src/budgets-check/output.ts
 var BUDGETS_CHECK_NAME = "omni / budgets";
 var BLOCKS_NOTHING = "A measurement that fails never blocks a merge.";
-var counted2 = (count2, noun, plural6 = `${noun}s`) => `${count2} ${count2 === 1 ? noun : plural6}`;
+var counted2 = (count2, noun, plural7 = `${noun}s`) => `${count2} ${count2 === 1 ? noun : plural7}`;
 function redTitle(verdicts) {
   const over = verdicts.filter(({ verdict }) => verdict === "over-budget").length;
   const waiting = verdicts.filter(({ verdict }) => verdict === "needs-yes").length;
@@ -9616,7 +9806,7 @@ var VersionRowSchema = z34.object({ id: text8, kind: text8, sha256: text8, commi
 var ContentRowSchema = z34.object({ id: text8, content: z34.string() });
 var HOLDER = "product_id, workspace_id, products!inner(key)";
 var APPROVAL = "id, approved_by, approver_login, approved_at, files";
-var VOID = "kind, from_sha256, to_sha256, pusher_login, voided_at";
+var VOID2 = "kind, from_sha256, to_sha256, pusher_login, voided_at";
 var VERSION = "id, kind, sha256, commit_sha, created_at";
 var refused3 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function rowsOf2(schema, answer) {
@@ -9645,7 +9835,7 @@ function recordReader({ url, key, fetch: fetch2 }) {
     const latestWithout = versions.map((row) => ({ kind: row.kind, sha256: row.sha256, versionId: row.id, commitSha: row.commit_sha, content: null }));
     if (!approved) return { dossierId: dossier.id, approval: null, latest: latestWithout };
     const members2 = rowsOf2(z34.object({ user_id: text8 }), await db.from("workspace_members").select("user_id").eq("workspace_id", holder.workspace_id).eq("user_id", approved.approved_by).limit(1));
-    const voids = rowsOf2(VoidRowSchema, await db.from("approval_voids").select(VOID).eq("approval_id", approved.id).order("voided_at", { ascending: true }));
+    const voids = rowsOf2(VoidRowSchema, await db.from("approval_voids").select(VOID2).eq("approval_id", approved.id).order("voided_at", { ascending: true }));
     const pinnedSha = new Map(approved.files.map((file) => [file.kind, file.sha256]));
     const differing = versions.filter((row) => pinnedSha.has(row.kind) && pinnedSha.get(row.kind) !== row.sha256).map((row) => row.id);
     const wanted = [.../* @__PURE__ */ new Set([...approved.files.map((file) => file.version_id), ...differing])];
@@ -10747,7 +10937,7 @@ async function evaluateInbox({
     prd,
     conclusion: gates.every((gate) => gate.ok) ? "success" : "failure",
     title: titleOf(gates),
-    summary: summaryOf2({ prd, folder: placeOf(ctx, prd).name, gates, marker: canonMarker({ prd, canon: facts }) }),
+    summary: summaryOf2({ prd, folder: placeOf2(ctx, prd).name, gates, marker: canonMarker({ prd, canon: facts }) }),
     gates,
     canon: facts
   };
@@ -10764,7 +10954,7 @@ async function evaluateRoadmap({
   repo
 }) {
   const waves = roadmap.roadmap ? roadmapWaves(roadmap.roadmap) : [];
-  const size = `${plural3(waves.flatMap((wave) => wave.rows).length, "PRD")} in ${plural3(waves.length, "wave")}`;
+  const size = `${plural4(waves.flatMap((wave) => wave.rows).length, "PRD")} in ${plural4(waves.length, "wave")}`;
   const roadmapGate = roadmap.violations.length === 0 ? { name: "roadmap", ok: true, reason: `${size}: every row, blocker and question holds` } : { name: "roadmap", ok: false, reason: roadmap.violations.join("; ") };
   const graded = await Promise.all(
     waves.flatMap((wave) => wave.rows).map(async (row) => {
@@ -10805,7 +10995,7 @@ function roadmapSummary({ ctx, roadmap, roadmapGate, graded }) {
 function canonTail(gates) {
   const canon = gates.filter((gate) => gate.name === CANON_GATE);
   const judged4 = canon.filter((gate) => !gate.neutral);
-  return judged4.length === 0 ? "canon neutral" : `canon \u2713 on ${judged4.length} of ${plural3(canon.length, "PRD")}`;
+  return judged4.length === 0 ? "canon neutral" : `canon \u2713 on ${judged4.length} of ${plural4(canon.length, "PRD")}`;
 }
 function rowGates({
   ctx,
@@ -10837,7 +11027,7 @@ function failedByName(gates) {
   }
   return [...failed2].map(([name, prds]) => prds.length === 0 ? name : `${name} (PRD ${prds.join(", ")})`).join(", ");
 }
-var plural3 = (count2, word) => `${count2} ${word}${count2 === 1 ? "" : "s"}`;
+var plural4 = (count2, word) => `${count2} ${word}${count2 === 1 ? "" : "s"}`;
 async function canonGateOf({
   canon,
   ctx,
@@ -10847,10 +11037,10 @@ async function canonGateOf({
 }) {
   if (!canon || !repo) return neutral("the canon gate is not wired here");
   const file = join50(head, inFolder(ctx.layout.specPath(prd), prd));
-  if (!existsSync38(file)) return neutral(`no spec.md in ${placeOf(ctx, prd).dir}`);
+  if (!existsSync38(file)) return neutral(`no spec.md in ${placeOf2(ctx, prd).dir}`);
   return canon.grade({ repo, spec: readFileSync36(file, "utf8"), ref: `PRD ${prd}` });
 }
-function placeOf(ctx, prd) {
+function placeOf2(ctx, prd) {
   const place = ctx.layout.whereIs(prd);
   if (!place) throw new Error(`PRD ${prd} has no folder in the head snapshot.`);
   return place;
@@ -10882,13 +11072,13 @@ function phase0Gate({
 }
 function inboxGate({ ctx, prd }) {
   const violations = inboxViolationsFor({ ctx, prd });
-  return violations.length === 0 ? { name: "inbox folder", ok: true, reason: `${placeOf(ctx, prd).dir} follows the inbox rules` } : { name: "inbox folder", ok: false, reason: violations.join("; ") };
+  return violations.length === 0 ? { name: "inbox folder", ok: true, reason: `${placeOf2(ctx, prd).dir} follows the inbox rules` } : { name: "inbox folder", ok: false, reason: violations.join("; ") };
 }
 function planGate({ ctx, prd, head }) {
   const file = inFolder(ctx.layout.planPath(prd), prd);
   const absolute = join50(head, file);
   if (!existsSync38(absolute)) {
-    return { name: "plan", ok: false, reason: `no plan.md in ${placeOf(ctx, prd).dir}` };
+    return { name: "plan", ok: false, reason: `no plan.md in ${placeOf2(ctx, prd).dir}` };
   }
   const page = join50(head, inFolder(ctx.layout.beforeAfterPath(prd), prd));
   const graded = gradePlan(readFileSync36(absolute, "utf8"), {
@@ -12030,14 +12220,14 @@ function knowledgeSummary({ ctx }) {
     knowledge: existsSync44(join57(ctx.root, ctx.layout.knowledgeRoot))
   };
   const knowledge = readKnowledge({ ctx });
-  const placeOf4 = (entry) => entry.scope === "product" ? PRODUCT_PLACE : entry.domain;
+  const placeOf5 = (entry) => entry.scope === "product" ? PRODUCT_PLACE : entry.domain;
   const domains = knowledge.domains.map((domain) => {
     const readme = join57(ctx.root, domainsDir(ctx), domain.name, "README.md");
     return { name: domain.name, firstLine: existsSync44(readme) ? firstLine2(readFileSync41(readme, "utf8")) : null };
   });
-  const principles = knowledge.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf4(entry), statement: entry.statement }));
+  const principles = knowledge.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf5(entry), statement: entry.statement }));
   const laws = knowledge.entries.flatMap(
-    (entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain" ? [{ id: entry.id, kind: entry.kind, place: placeOf4(entry), statement: entry.statement }] : []
+    (entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain" ? [{ id: entry.id, kind: entry.kind, place: placeOf5(entry), statement: entry.statement }] : []
   );
   const decisions = places.adr ? readDecisions({ ctx }).records.map((record) => ({ number: record.number, title: record.title })) : [];
   return { places, domains, principles, decisions, laws };
@@ -12327,7 +12517,7 @@ function makeNumbering({ ctx, taken }) {
     }
   };
 }
-function placeOf2(ctx, place) {
+function placeOf3(ctx, place) {
   if (place === PRODUCT_PLACE) return { dir: productDir(ctx), code: PRODUCT_CODE, title: "Product" };
   const title = place.charAt(0).toUpperCase() + place.slice(1).replace(/-/g, " ");
   return { dir: `${domainsDir(ctx)}/${place}`, code: codeOf(place), title };
@@ -12449,7 +12639,7 @@ function writeRegisterEntry({
   enforced,
   write: write2
 }) {
-  const place = placeOf2(ctx, reply.place);
+  const place = placeOf3(ctx, reply.place);
   const id = numbering.entry(reply.kind, place.code);
   const { serves, principleId } = servedBy2(reply, () => numbering.entry("principle", place.code));
   const path = `${place.dir}/${LAYER[reply.kind]}`;
@@ -12629,7 +12819,7 @@ function loopPaths(ctx) {
 }
 function overlay(root, keep) {
   const scratch = mkdtempSync9(join60(tmpdir9(), "omni-harvest-"));
-  const walk2 = (dir) => {
+  const walk3 = (dir) => {
     for (const name of readdirSync19(join60(root, dir))) {
       const rel = dir ? `${dir}/${name}` : name;
       if (!dir && name === ".git") continue;
@@ -12637,13 +12827,13 @@ function overlay(root, keep) {
         cpSync(join60(root, rel), join60(scratch, rel), { recursive: true });
       } else if (keep.some((path) => path.startsWith(`${rel}/`)) && statSync13(join60(root, rel)).isDirectory()) {
         mkdirSync12(join60(scratch, rel), { recursive: true });
-        walk2(rel);
+        walk3(rel);
       } else {
         symlinkSync(join60(root, rel), join60(scratch, rel));
       }
     }
   };
-  walk2("");
+  walk3("");
   return scratch;
 }
 function inScratch(ctx, fn) {
@@ -13734,12 +13924,12 @@ function repositoryPath3(path) {
   if (segments.length === 0 || segments.includes("..")) return null;
   return segments.join("/");
 }
-var within = (path, folder) => path === folder || path.startsWith(`${folder}/`);
+var within2 = (path, folder) => path === folder || path.startsWith(`${folder}/`);
 function knowledgeFolders(config) {
   const { knowledge, adr, playbook, glossary } = config.paths;
   const named = [knowledge, adr, playbook, glossary].map((path) => typeof path === "string" ? repositoryPath3(path) : null).filter((path) => path !== null);
   const unique6 = [...new Set(named)];
-  return unique6.filter((folder) => !unique6.some((other) => other !== folder && within(folder, other))).sort();
+  return unique6.filter((folder) => !unique6.some((other) => other !== folder && within2(folder, other))).sort();
 }
 function hookFiles(hooks) {
   return Object.values(hooks ?? {}).flatMap((value) => {
@@ -13759,11 +13949,11 @@ function flowFiles(config) {
 }
 function packPaths(config) {
   const folders = knowledgeFolders(config);
-  const files = flowFiles(config).filter((file) => !folders.some((folder) => within(file, folder)));
+  const files = flowFiles(config).filter((file) => !folders.some((folder) => within2(file, folder)));
   return { folders, files };
 }
 function touchesPack(changed, { folders, files }) {
-  const held = (path) => files.includes(path) || folders.some((folder) => within(path, folder));
+  const held = (path) => files.includes(path) || folders.some((folder) => within2(path, folder));
   return changed.some(({ path, previous: previous2 }) => held(path) || typeof previous2 === "string" && held(previous2));
 }
 
@@ -14988,7 +15178,7 @@ function unique3(values) {
 // apps/omni-app/src/retro/kinds/after-merge.reads.ts
 var FILES = "GET /repos/{owner}/{repo}/pulls/{pull_number}/files";
 var UNREADABLE = /* @__PURE__ */ new Set([403, 404, 410]);
-function within2(window, at4) {
+function within3(window, at4) {
   if (!at4) return false;
   const time2 = Date.parse(at4);
   return time2 >= Date.parse(window.from) && time2 <= Date.parse(window.to);
@@ -15278,7 +15468,7 @@ async function megaIssues(octokit, scope, unread) {
     if (more.status) unread.push({ read: "bugs", repo: `${owner}/${repo}`, status: more.status });
     for (const issue of more.value ?? []) found.set(issue.number, issue);
   }
-  return [...found.values()].filter((issue) => !issue.pull_request && within2(window, issue.created_at) && linksPrd(issue.body, prd)).sort((a, b) => a.number - b.number);
+  return [...found.values()].filter((issue) => !issue.pull_request && within3(window, issue.created_at) && linksPrd(issue.body, prd)).sort((a, b) => a.number - b.number);
 }
 async function plannedFixes(octokit, { plan, bug }, unread) {
   const [owner, repo] = plan.split("/");
@@ -15321,9 +15511,9 @@ function targetRanges(atMerge, repo) {
   return (churn2.success ? churn2.data?.ranges ?? [] : []).map(({ path, from, to }) => ({ path, from, to }));
 }
 function plannedFor(mega, { bug, window, counted: counted3 }) {
-  return mega.planned.filter((fix) => fix.bug === bug && within2(window, fix.mergedAt) && !(fix.repo === mega.plan && counted3.includes(fix.number)));
+  return mega.planned.filter((fix) => fix.bug === bug && within3(window, fix.mergedAt) && !(fix.repo === mega.plan && counted3.includes(fix.number)));
 }
-function placeOf3(mega, repo, planRanges) {
+function placeOf4(mega, repo, planRanges) {
   if (repo === mega.plan) return { ranges: planRanges, prefix: "" };
   const target2 = mega.targets.find((entry) => entry.repo === repo);
   return { ranges: target2?.ranges ?? [], prefix: `${target2?.name ?? shortName4(repo)}/` };
@@ -15382,8 +15572,8 @@ var afterMerge = Object.freeze({
   detect(records, { prd } = {}) {
     if (!records) return { facts: null, findings: [] };
     const { window } = records;
-    const fixes = records.fixes.filter((fix) => within2(window, fix.mergedAt));
-    const bugs = records.bugs.filter((bug) => within2(window, bug.createdAt)).map((bug) => bugFacts(bug, { records, fixes }));
+    const fixes = records.fixes.filter((fix) => within3(window, fix.mergedAt));
+    const bugs = records.bugs.filter((bug) => within3(window, bug.createdAt)).map((bug) => bugFacts(bug, { records, fixes }));
     const facts = {
       prd: prd?.number ?? null,
       days: THRESHOLDS.afterMergeDays,
@@ -15432,7 +15622,7 @@ var afterMerge = Object.freeze({
   }
 });
 function bugsNaming(listed, { window, names }) {
-  return listed.filter((issue) => !issue.pull_request && within2(window, issue.created_at) && names(`${issue.title ?? ""}
+  return listed.filter((issue) => !issue.pull_request && within3(window, issue.created_at) && names(`${issue.title ?? ""}
 ${issue.body ?? ""}`)).map((issue) => ({ number: issue.number, url: issue.html_url, createdAt: issue.created_at, closedAt: issue.closed_at ?? null })).sort((a, b) => a.number - b.number);
 }
 function withMegaBugs(bugs, mega) {
@@ -15445,7 +15635,7 @@ async function closingFixes(octokit, { owner, repo, base, window, featurePr, bug
   const wanted = new Set(bugs.map((bug) => bug.number));
   const merged = await readOrRefused(() => mergedSince(octokit, { owner, repo, base, since: window.from }));
   if (merged.status) unread.push({ read: "fixes", status: merged.status });
-  const found = (merged.value ?? []).filter((pull) => pull.number !== featurePr && within2(window, pull.merged_at)).map((pull) => ({ pull, closes: closedBy(`${pull.title ?? ""}
+  const found = (merged.value ?? []).filter((pull) => pull.number !== featurePr && within3(window, pull.merged_at)).map((pull) => ({ pull, closes: closedBy(`${pull.title ?? ""}
 ${pull.body ?? ""}`, `${owner}/${repo}`).filter((n) => wanted.has(n)) })).filter(({ closes: closes2 }) => closes2.length > 0).sort((a, b) => a.pull.merged_at.localeCompare(b.pull.merged_at) || a.pull.number - b.pull.number);
   for (const { pull, closes: closes2 } of found) {
     const files = await readOrRefused(() => listFiles(octokit, { owner, repo, number: pull.number }));
@@ -15461,7 +15651,7 @@ function bugFacts(bug, { records, fixes }) {
     number: bug.number,
     url: bug.url,
     daysAfterMerge: Math.floor((Date.parse(bug.createdAt) - Date.parse(window.from)) / DAY_MS3),
-    closed: within2(window, bug.closedAt),
+    closed: within3(window, bug.closedAt),
     fixes: own.map((fix) => fix.number),
     linked: own.flatMap((fix) => linksOf(fix, ranges))
   };
@@ -15469,7 +15659,7 @@ function bugFacts(bug, { records, fixes }) {
   const planned = plannedFor(mega, { bug: bug.number, window, counted: facts.fixes });
   facts.planned = planned.map(({ repo, number, url }) => ({ repo, number, url }));
   for (const fix of planned) {
-    const place = placeOf3(mega, fix.repo, ranges);
+    const place = placeOf4(mega, fix.repo, ranges);
     facts.linked.push(...linksOf(fix, place.ranges, { repo: fix.repo, prefix: place.prefix }));
   }
   return facts;
@@ -15517,7 +15707,7 @@ function checkLines(checks) {
   const red = checks.jobs.filter((job) => RED.has(job.conclusion)).map((job) => `\`${job.name}\``);
   const counts = [`${checks.green} green`, `${checks.red} red${red.length > 0 ? ` (${red.join(", ")})` : ""}`];
   if (checks.other > 0) counts.push(`${checks.other} neither`);
-  return [`- ${plural4(checks.total, "GitHub Actions job")} ran on the merge commit \`${checks.commit}\`: ${counts.join(", ")}.`];
+  return [`- ${plural5(checks.total, "GitHub Actions job")} ran on the merge commit \`${checks.commit}\`: ${counts.join(", ")}.`];
 }
 function happened(bug, facts) {
   const opened = `was opened ${daysText(bug.daysAfterMerge)} after the merge.`;
@@ -15599,7 +15789,7 @@ function daysText(days) {
   if (days < 1) return "less than a day";
   return days === 1 ? "1 day" : `${days} days`;
 }
-function plural4(count2, noun) {
+function plural5(count2, noun) {
   return `${count2} ${noun}${count2 === 1 ? "" : "s"}`;
 }
 function and(items, last = " and ") {
@@ -15738,7 +15928,7 @@ var churn = Object.freeze({
   },
   detect(records, { pr, prd, config, pulls }) {
     if (!records) return { facts: null, findings: [] };
-    const walked = walk(records, { sliceOf: sliceReader(config, prd), leftOut: leftOutAs(records.gitattributes ?? null, { delivery: config.paths.delivery }) });
+    const walked = walk2(records, { sliceOf: sliceReader(config, prd), leftOut: leftOutAs(records.gitattributes ?? null, { delivery: config.paths.delivery }) });
     const final = records.final ? new Map(records.final.map((file) => [file.path, file.additions])) : null;
     const perFile = final ? churnPerFile(walked.files, final) : null;
     const ranges = rewritten(walked);
@@ -15817,7 +16007,7 @@ var churn = Object.freeze({
     return lines;
   }
 });
-function walk(records, { sliceOf: sliceOf2, leftOut }) {
+function walk2(records, { sliceOf: sliceOf2, leftOut }) {
   const commits = /* @__PURE__ */ new Map();
   const files = /* @__PURE__ */ new Map();
   const lines = /* @__PURE__ */ new Map();
@@ -16564,7 +16754,7 @@ function territoryFacts({ prd, config, subs, read }) {
       id: `territory:${slice}`,
       kind: "territory",
       title: `Slice ${slice} changed files outside its territory`,
-      happened: `Slice ${slice} changed ${plural5(paths.length, "path")} outside its territory and off the plan\u2019s shared ground: ${paths.map(code).join(", ")}.`,
+      happened: `Slice ${slice} changed ${plural6(paths.length, "path")} outside its territory and off the plan\u2019s shared ground: ${paths.map(code).join(", ")}.`,
       evidence: withUrls(own.map((pull) => ({ label: `#${pull.pr}`, url: pull.url ? `${pull.url}/files` : null })))
     };
   });
@@ -16601,7 +16791,7 @@ function frictionFacts({ subs, read, config }) {
     const parts = [];
     if (entry.needsFix.length > 0) parts.push(`was labelled \`${label2}\``);
     const [onlyStuck] = entry.stuck;
-    if (entry.stuck.length === 1 && onlyStuck) parts.push(`went stuck after ${plural5(onlyStuck.attempts, "attempt")}`);
+    if (entry.stuck.length === 1 && onlyStuck) parts.push(`went stuck after ${plural6(onlyStuck.attempts, "attempt")}`);
     if (entry.stuck.length > 1) parts.push(`went stuck ${entry.stuck.length} times`);
     if (entry.claims > 1) parts.push(`was claimed ${entry.claims} times`);
     const evidence = [
@@ -16666,8 +16856,8 @@ function reviewFacts({ pr, subs, read }) {
   const findings = pulls.filter((pull) => pull.red.length > 0 || pull.unresolved.length > 0).map((pull) => {
     const where = pull.slice ? `slice ${pull.slice}` : "the feature PR";
     const parts = [];
-    if (pull.red.length > 0) parts.push(`${plural5(pull.red.length, "red-circle finding")} from ${pull.red.length === 1 ? "a bot" : "bots"}`);
-    if (pull.unresolved.length > 0) parts.push(`${plural5(pull.unresolved.length, "review thread")} unresolved at the merge`);
+    if (pull.red.length > 0) parts.push(`${plural6(pull.red.length, "red-circle finding")} from ${pull.red.length === 1 ? "a bot" : "bots"}`);
+    if (pull.unresolved.length > 0) parts.push(`${plural6(pull.unresolved.length, "review thread")} unresolved at the merge`);
     const evidence = [
       ...pull.red.map((item) => ({ label: item.path ? `red circle on ${item.path}` : "red circle in a review", url: item.url })),
       ...pull.unresolved.map((item) => ({ label: item.path ? `unresolved thread on ${item.path}` : "unresolved thread", url: item.url }))
@@ -16686,7 +16876,7 @@ function byAuthorKind(items) {
   const bots = items.filter((item) => item.bot).length;
   return { people: items.length - bots, bots };
 }
-function plural5(count2, word) {
+function plural6(count2, word) {
   return `${count2} ${count2 === 1 ? word : `${word}s`}`;
 }
 function joinAnd(parts) {
@@ -16894,31 +17084,31 @@ function territoryLine(territory) {
   if (territory.reason) return `- Territory: not graded \u2014 ${territory.reason}.`;
   const { graded, breaches: breaches2, shared, unread, unplanned } = territory.counts;
   const notes = [];
-  if (unread > 0) notes.push(`the files of ${plural5(unread, "more sub-PR")} could not be read`);
-  if (unplanned > 0) notes.push(`${plural5(unplanned, "more sub-PR")} ${unplanned === 1 ? "names a slice" : "name slices"} the plan does not hold`);
-  const outside = breaches2 === 0 ? "no path" : plural5(breaches2, "path");
-  return `- Territory: ${plural5(graded, "merged sub-PR")} graded against the plan \u2014 ${outside} outside a slice\u2019s territory${shared > 0 ? `, ${shared} more on shared ground` : ""}${notes.map((note) => `; ${note}`).join("")}.`;
+  if (unread > 0) notes.push(`the files of ${plural6(unread, "more sub-PR")} could not be read`);
+  if (unplanned > 0) notes.push(`${plural6(unplanned, "more sub-PR")} ${unplanned === 1 ? "names a slice" : "name slices"} the plan does not hold`);
+  const outside = breaches2 === 0 ? "no path" : plural6(breaches2, "path");
+  return `- Territory: ${plural6(graded, "merged sub-PR")} graded against the plan \u2014 ${outside} outside a slice\u2019s territory${shared > 0 ? `, ${shared} more on shared ground` : ""}${notes.map((note) => `; ${note}`).join("")}.`;
 }
 function frictionLine(friction) {
   const { stuck, needsFix, reclaimed, commentsUnread, eventsUnread } = friction.counts;
   const notes = [];
-  if (commentsUnread > 0) notes.push(`the comments of ${plural5(commentsUnread, "sub-PR")} could not be read`);
-  if (eventsUnread > 0) notes.push(`the label events of ${plural5(eventsUnread, "sub-PR")} could not be read, so only the labels they carry now count`);
-  return `- Friction: ${plural5(stuck, "slice")} stuck, ${needsFix} labelled \`${friction.label}\`, ${reclaimed} claimed more than once${notes.map((note) => `; ${note}`).join("")}.`;
+  if (commentsUnread > 0) notes.push(`the comments of ${plural6(commentsUnread, "sub-PR")} could not be read`);
+  if (eventsUnread > 0) notes.push(`the label events of ${plural6(eventsUnread, "sub-PR")} could not be read, so only the labels they carry now count`);
+  return `- Friction: ${plural6(stuck, "slice")} stuck, ${needsFix} labelled \`${friction.label}\`, ${reclaimed} claimed more than once${notes.map((note) => `; ${note}`).join("")}.`;
 }
 function reviewLine(review) {
   const c = review.counts;
   const reviewsRead = c.pulls - c.reviewsUnread;
   const threadsRead = c.pulls - c.threadsUnread;
   const parts = [];
-  if (reviewsRead > 0) parts.push(`${plural5(c.reviews, "review")}${c.reviews > 0 ? ` (${c.reviewsByPeople} by people, ${c.reviewsByBots} by bots)` : ""}`);
-  if (threadsRead > 0) parts.push(`${plural5(c.threads, "review thread")}${c.threads > 0 ? ` (${c.threadsByPeople} by people, ${c.threadsByBots} by bots)` : ""}`);
-  if (reviewsRead > 0 || threadsRead > 0) parts.push(plural5(c.red, "red-circle bot finding"));
-  if (threadsRead > 0) parts.push(`${plural5(c.unresolved, "thread")} unresolved at the merge`);
+  if (reviewsRead > 0) parts.push(`${plural6(c.reviews, "review")}${c.reviews > 0 ? ` (${c.reviewsByPeople} by people, ${c.reviewsByBots} by bots)` : ""}`);
+  if (threadsRead > 0) parts.push(`${plural6(c.threads, "review thread")}${c.threads > 0 ? ` (${c.threadsByPeople} by people, ${c.threadsByBots} by bots)` : ""}`);
+  if (reviewsRead > 0 || threadsRead > 0) parts.push(plural6(c.red, "red-circle bot finding"));
+  if (threadsRead > 0) parts.push(`${plural6(c.unresolved, "thread")} unresolved at the merge`);
   const unread = [];
   if (c.reviewsUnread > 0) unread.push(`the reviews of ${c.reviewsUnread}`);
   if (c.threadsUnread > 0) unread.push(`the review threads of ${c.threadsUnread}`);
-  return `- Review: ${plural5(c.pulls, "pull request")}${parts.length > 0 ? ` \u2014 ${parts.join(", ")}` : ""}${unread.length > 0 ? `; ${unread.join(" and ")} could not be read` : ""}.`;
+  return `- Review: ${plural6(c.pulls, "pull request")}${parts.length > 0 ? ` \u2014 ${parts.join(", ")}` : ""}${unread.length > 0 ? `; ${unread.join(" and ")} could not be read` : ""}.`;
 }
 
 // apps/omni-app/src/retro/kinds/timeline.ts

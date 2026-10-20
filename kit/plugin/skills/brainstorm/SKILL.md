@@ -389,23 +389,65 @@ and go on only once they approve it.
 
 ## 5. The before/after page
 
-`before-after.html` in the folder, always, because `omni phase0` requires one:
+`before-after.html` in the folder, always, because `omni phase0` requires one. Write it through the
+CLI, never from a blank file, in this order:
 
-- **Two parts,** with the design flag on, in this order, each under its own heading:
-  - **Functional:** what the change does, today beside after: the flow, the data, the exchange,
-    drawn as the kinds below say (an API's exchange, a flow diagram, a short page for nothing
-    visible). Every PRD has it.
-  - **Pixel perfect:** only when the change changes a screen: the marked screens, today beside
-    after, as **A change with a screen** below says, and one line naming the library screens they
-    are, shared screens included (`screens: quote-list · app-shell`). It is the part review and the
-    word pass read, and the one a reviewer looks at closely.
+1. **Start it.** `node .omni-loop/bin/omni.mjs before-after new <n> --services <name>,<name>…`, the
+   services the design touches: a service is a deployable part of the repository, named as its
+   architecture form names it. It writes the page with every section a `<!-- FILL -->`; never name
+   the skeleton's path. It refuses a PRD with no folder, a page already there (`--force` rewrites
+   it) and an empty `--services`.
+2. **Fill it,** each section in one of three states (below), and delete every `<!-- FILL -->`.
+3. **Draw it.** `node .omni-loop/bin/omni.mjs before-after render <n>` turns each
+   `<pre class="mermaid">` into inline SVG and prints `rendered <section> of <service>` per diagram.
+   It needs a Playwright browser and the network: when it refuses (exit 1, with its install line)
+   or a diagram is refused, that section becomes `gap`, `To settle — diagram not rendered: <why>`,
+   with the diagram's source kept as text in a `<details>`, never as `<pre class="mermaid">`.
+4. **The word pass,** below, then `omni check inbox`, which grades the page's tabs, states and
+   rendered diagrams.
 
-  A PRD that changes no screen (a database fix, a guard, a doc) has the Functional part alone, and
-  says, in place of the second part, the one line `Pixel perfect: no screen changes`: no slice runs
-  pixel-perfect work for it, and the feature PR's **Pixel perfect** line (`/omni:pr`) is `none`.
-  With the design flag off, the page is written as before, in one part, by the kinds below.
+- **Two tabs,** in this order, each a `<section data-tab="…">` of the skeleton:
+  - **Functional & design** (`functional`, open when the page loads): one block per service
+    (`data-service`), each with two sections:
+    - **Functional** (`data-section="functional"`): today beside after, in product words: the
+      journey, what the person sees or gets, no identifier a product reader would not use. Every
+      PRD has it.
+    - **Pixel perfect** (`data-section="pixel-perfect"`): only when the change changes a screen:
+      the marked screens, today beside after, as the **Pixel perfect section** below says, and one
+      line naming the library screens they are, shared screens included
+      (`screens: quote-list · app-shell`). It is the section review and the word pass read. A PRD
+      that changes no screen says the one line `Pixel perfect: no screen changes` in it: no slice
+      runs pixel-perfect work for it, and the feature PR's **Pixel perfect** line (`/omni:pr`) is
+      `none`. With the design flag off, the section is `na`, `N/A — design craft is off here`.
+  - **Technical** (`technical`): **Flow** (`data-section="flow"`, once: a Mermaid
+    `sequenceDiagram` or `flowchart` of the exchange between services, each datastore and third
+    party named) and **Deploy order** (`data-section="deploy"`, once: the order services and
+    migrations ship in), then one block per service, headed by its name and a role badge
+    (`BACK-END`, `FRONT-END`, `DATABASE`, `CLI`…), with three sections:
+    - **Database** (`db`): a Mermaid `erDiagram` of the tables created, altered or dropped, only the
+      columns the design names, each marked `+ added`, `- dropped` or `~ altered · was <old>`; per
+      table a TODAY | AFTER code block (an added line `add`, a removed line `del`, an untouched
+      `ctx`); then the change table `table · change · detail`, a row that needs a coordinated
+      deploy first, badged `coordinated deploy`.
+    - **API / schema** (`api`): the change table `element · kind · before · after · service`, one
+      row per element, `kind` one of `added`, `changed`, `deprecated`, `removed`, breaking rows
+      first and badged `breaking`; then, for at most six touched types, breaking first, a
+      BEFORE | AFTER block in the schema's own language, only the touched lines, `# …` for the
+      rest.
+    - **Behaviour** (`behaviour`): the readers and writers whose result changes though their
+      signature does not, today beside after.
+- **A change is breaking** when it removes an element, changes the type of an output, an argument or
+  an input field, changes an output's nullability, or adds a required argument or input field. A
+  deprecation never is. The repository's conventions pages may make the rule stricter, never
+  looser: follow them and say under the table which page you followed.
+- **Three states.** Every `data-section` carries `data-state`: `filled` (the design covers it: the
+  content), `na` (the change does not touch it: `N/A — <one-line reason>`) or `gap` (it applies and
+  the design does not settle it: `To settle — <what is missing, one line>`). A service whose `db`,
+  `api` and `behaviour` are all `na` shows them as the one line `<service>: no technical change`.
+- **Pages with no meta.** A page without `<meta name="omni-before-after" content="2">` is the older
+  shape and is graded on its size alone; this step never writes one.
 
-- A change with a **screen:** two mockups side by side, the screen today and the screen after.
+- **The Pixel perfect section:** a change with a **screen** is two mockups side by side, the screen today and the screen after.
   With the design flag on, read `node .omni-loop/bin/omni.mjs kb show design` first (and the file a
   pointer section names), and build the "after" from the product's own tokens and components as
   its `system` section names them: their colours, type scale, spacing and component shapes, read
@@ -484,7 +526,7 @@ and go on only once they approve it.
   same, today beside after.
 - **The contract blocks,** whenever the repository asks every slice to declare its contract
   (`omni flow show` printed `contracts: declare <kinds>`; `db`, `schema`, `rest`, `api` are the
-  usual kinds) and the change commits it to one: the Functional part carries one **Contract** block
+  usual kinds) and the change commits it to one: the service's technical sections carry one **Contract** block
   per kind the spec commits the repository to, today beside after, under a heading that names the
   kind and the repository (`Contract: db — <repository>`). `db` shows the table(s) and their columns
   before and after; `schema` the GraphQL types, fields and mutations before and after; `rest` or
@@ -761,6 +803,9 @@ rewritten to answer it, before anyone builds. `<folder>`, `<topic>`, `<feature b
 3. **Rewrite** the spec and the before/after page to answer the latest round's objection and its
    lowest scores, the way steps 4 and 5 write them (with the design flag on, the marks, the word
    pass and the drafts included), and add the change to the spec's **Decisions**.
+   The page is written as step 5 writes it, through `omni before-after new <n> --force …`, `render`
+   and the word pass. A reworked PRD whose page has no `omni-before-after` meta keeps its old shape
+   (edit it in place, never `new`) unless the person asks for the new one.
    The overrule and the gap question hold as in **The voice**.
 4. **Ask the personas again** as round `rework-<k>`, `<k>` one more than the last rework round (1
    for the first), appended to `voice.json`.

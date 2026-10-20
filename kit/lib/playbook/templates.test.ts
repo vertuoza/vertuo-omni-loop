@@ -37,7 +37,7 @@ const ALL = (): [string, string][] => [...FORM_IDS.map((id): [string, string] =>
 
 describe('the kit’s templates folder', () => {
   it('holds one template per form and the front door’s README, and nothing else', () => {
-    expect(Object.keys(readTemplates()).sort()).toEqual([FRONT_DOOR_TEMPLATE, ...FORM_IDS.map(templatePath)].sort());
+    expect(Object.keys(readTemplates()).sort()).toEqual([FRONT_DOOR_TEMPLATE, 'before-after/page.html', ...FORM_IDS.map(templatePath)].sort());
     expect(templatePath('testing')).toBe('playbook/testing.md');
     expect(templatePath('decisions')).toBe('playbook/decisions.md');
     expect(FRONT_DOOR_TEMPLATE).toBe('README.md');

@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { main } from '../../bin/omni.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import { checkSpecText, findInboxViolations, inboxViolationsFor } from './check-inbox.ts';
 import { assertDefined } from '../../test/assert.ts';
@@ -377,4 +379,55 @@ describe('roadmaps (PRD 1162)', () => {
 it('accepts e2e: validate and refuses e2e: yes, naming the PRD (PRD 1275)', () => {
   expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ e2e: 'validate' }) })).toBe('');
   expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ e2e: 'yes' }) })).toMatch(/0042-a\/spec\.md: e2e: /);
+});
+
+describe('a before/after page of the two-tab shape (PRD 2239)', () => {
+  const folder = `${IN}/0042-inbox-and-planner`;
+  const page = (technical: string) =>
+    `<!doctype html><html><head><meta name="omni-before-after" content="2"></head><body><section data-tab="functional"><div data-section="functional" data-state="filled">x</div></section>${technical}</body></html>`;
+  const good = page('<section data-tab="technical"><div data-section="flow" data-state="na">N/A — one service</div></section>');
+  const bad = page('<pre class="mermaid">graph TD; A-->B</pre>');
+  const files = (html: string) => ({ [`${folder}/spec.md`]: specText(), [`${folder}/before-after.html`]: html });
+  const silent = () => {
+    const out: string[] = [];
+    return { out, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => true }, env: {} };
+  };
+
+  it('passes a page carrying the meta that keeps every rule', () => {
+    const { ctx } = makeRepo({ files: files(good) });
+    expect(findInboxViolations({ ctx })).toEqual([]);
+    expect(inboxViolationsFor({ ctx, prd: parsePrd(42) })).toEqual([]);
+  });
+
+  it('reports the page rules beside the size check, each naming the file, in findInboxViolations and inboxViolationsFor', () => {
+    const { ctx } = makeRepo({ files: files(bad), config: { limits: { beforeAfterMaxBytes: 64 } } });
+    const expected = [
+      expect.stringMatching(new RegExp(`^${folder}/before-after\\.html: is \\d+ bytes, over the 64-byte cap\\.$`)),
+      `${folder}/before-after.html: no "technical" tab`,
+      `${folder}/before-after.html: 1 diagram not rendered (omni before-after render 42)`,
+    ];
+    expect(findInboxViolations({ ctx })).toEqual(expected);
+    expect(inboxViolationsFor({ ctx, prd: parsePrd(42) })).toEqual(expected);
+  });
+
+  it('grades a page without the meta on its size alone', () => {
+    const { ctx } = makeRepo({ files: files(bad.replace('<meta name="omni-before-after" content="2">', '')) });
+    expect(findInboxViolations({ ctx })).toEqual([]);
+  });
+
+  it('makes omni check inbox red through main(), naming the file and the rule', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n', ...files(bad) } });
+    const s = silent();
+    const code = await main(['check', 'inbox'], { cwd: root, ...s });
+    expect(s.out.join('')).toContain(`${folder}/before-after.html: 1 diagram not rendered (omni before-after render 42)`);
+    expect(code).toBe(1);
+  });
+
+  it("keeps this repository's own inbox green through main()", async () => {
+    const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
+    const s = silent();
+    const code = await main(['check', 'inbox'], { cwd: repoRoot, ...s });
+    expect(s.out.join('')).not.toMatch(/before-after\.html:/);
+    expect(code).toBe(0);
+  });
 });
