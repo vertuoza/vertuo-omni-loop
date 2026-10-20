@@ -328,3 +328,9 @@ Step 9's body opens with the PRD's page, the link `omni dossier link <n>` prints
 body shapes say the same, and a body rewrite keeps the line. The kit builds no phase-0 body and
 `omni phase0` reads none, so no kit code changes; `kit/test/plugin.test.ts` pins the order. The step
 names `omni dossier link`, which the skill already named, so the snapshot is unchanged.
+
+## PRD 2251, slice s4 — the runner line in What is next?
+
+Not a re-port. Step 10 gains, above the command in each of its two **What is next?** blocks, the line
+"To build it on a runner instead: `/omni:yolo-runner <n>`."; the command stays the last line,
+`/omni:yolo <n>`. Tested in `kit/test/plugin.test.ts`, `/omni:yolo-runner and the hand-offs that name it`.
