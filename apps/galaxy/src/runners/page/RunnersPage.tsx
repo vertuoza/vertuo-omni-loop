@@ -4,8 +4,8 @@ import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, FleetPicker, Refresh, SendAgainButton } from './actions';
 import {
-  canCancel, canSendAgain, fleetCell, madeByWords, prdPageLink, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
-  type Fleet, type ReleaseNote, type RunnersPageView,
+  canCancel, canSendAgain, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  type Fleet, type PrdTitles, type ReleaseNote, type RunnersPageView,
 } from './model';
 import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
 import { runnerJob, terminalOf } from './terminal-model';
@@ -120,12 +120,16 @@ function ReleaseLine({ note }: { note: ReleaseNote }) {
   );
 }
 
-function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; fleets: readonly Fleet[]; now: Date; primary: boolean }) {
+function JobRow({ job, board, fleets, prds, now, primary }: { job: Job; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; now: Date; primary: boolean }) {
   const waiting = waitingWords(job, board.runners);
   const tokens = jobTokensWords(job);
+  const prd = prdLineOf(job, prds);
   return (
     <div className="runners-row runners-job" id={`job-${job.id}`}>
-      <code data-content>{job.line}</code>
+      <span className="runners-line">
+        <code data-content>{job.line}</code>
+        {prd !== null && <span className="runners-prd"><a href={prd.href}>PRD {prd.number}</a><span className="runners-muted" data-content> · {prd.title}</span></span>}
+      </span>
       <span className="runners-muted" data-content title={job.repo}>{repoName(job.repo)}</span>
       <span data-content>{senderWords(job)}{madeByWords(job) !== null && <small className="runners-muted runners-made-by"> {madeByWords(job)}</small>}</span>
       <span data-content>{whereWords(job, board.runners, fleets)}</span>
@@ -140,13 +144,13 @@ function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; 
   );
 }
 
-function Jobs({ board, fleets, now }: { board: Board; fleets: readonly Fleet[]; now: Date }) {
+function Jobs({ board, fleets, prds, now }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; now: Date }) {
   if (board.jobs.length === 0) return <p className="runners-muted">No job yet.</p>;
   const primary = board.jobs.find(canSendAgain)?.id ?? null;
   return (
     <div className="runners-table runners-jobs">
       <div className="runners-row runners-head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span /></div>
-      {board.jobs.map((job) => <JobRow key={job.id} job={job} board={board} fleets={fleets} now={now} primary={job.id === primary} />)}
+      {board.jobs.map((job) => <JobRow key={job.id} job={job} board={board} fleets={fleets} prds={prds} now={now} primary={job.id === primary} />)}
     </div>
   );
 }
@@ -161,7 +165,7 @@ function Start() {
   );
 }
 
-function Board({ board, fleets, now }: { board: Board; fleets: readonly Fleet[]; now: Date }) {
+function Board({ board, fleets, prds, now }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; now: Date }) {
   return (
     <div className="dash runners" data-screen="runners">
       <h1 className="dash-name">Runners</h1>
@@ -176,7 +180,7 @@ function Board({ board, fleets, now }: { board: Board; fleets: readonly Fleet[];
           </section>
           <section className="runners-section">
             <h2>Jobs</h2>
-            <Jobs board={board} fleets={fleets} now={now} />
+            <Jobs board={board} fleets={fleets} prds={prds} now={now} />
           </section>
         </>
       )}
@@ -196,7 +200,7 @@ export function RunnersPage({ view, supabase, signinError, terminal = null }: Ru
   const jobs: TerminalJob[] = view.board.jobs.map((job) => ({ id: job.id, repo: job.repo, runner: runnerName(job.runner), status: job.status }));
   return (
     <TerminalProvider initial={terminalOf(terminal)} jobs={jobs}>
-      <Board board={view.board} fleets={view.fleets} now={new Date(view.now)} />
+      <Board board={view.board} fleets={view.fleets} prds={view.prds} now={new Date(view.now)} />
     </TerminalProvider>
   );
 }
