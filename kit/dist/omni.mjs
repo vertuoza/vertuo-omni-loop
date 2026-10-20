@@ -61449,14 +61449,17 @@ function interrupts() {
     }
   };
 }
+var BoardSchema = external_exports.object({ slices: external_exports.array(external_exports.object({ state: external_exports.string() })) });
+var DossierSchema = external_exports.object({ url: external_exports.string().min(1) });
 async function boardCount(prd2, io) {
   let text15 = "";
   const sink = { write: () => void 0 };
   const capture2 = { write: (chunk) => text15 += chunk };
   try {
     if (await board.run([String(prd2), "--json"], { cwd: io.cwd, exec: io.exec, env: io.env, vars: io.vars, script: io.script, tokens: io.tokens, home: io.home, ...io.fetch ? { fetch: io.fetch } : {}, stdout: capture2, stderr: sink }) !== 0) return null;
-    const slices = JSON.parse(text15).slices;
-    if (!Array.isArray(slices)) return null;
+    const read3 = BoardSchema.safeParse(JSON.parse(text15));
+    if (!read3.success) return null;
+    const { slices } = read3.data;
     return { merged: slices.filter((slice) => slice.state === "merged").length, total: slices.length };
   } catch {
     return null;
@@ -61465,8 +61468,8 @@ async function boardCount(prd2, io) {
 async function pageOf3(prd2, at2, fetch) {
   try {
     const client = askClient({ baseUrl: at2.askUrl, host: credentialsHost(at2.askUrl), tokens: at2.tokens, fetch });
-    const found2 = await client.findDossier({ repo: at2.repo, prd: prd2 });
-    return typeof found2?.url === "string" && found2.url !== "" ? found2.url : null;
+    const found2 = DossierSchema.safeParse(await client.findDossier({ repo: at2.repo, prd: prd2 }));
+    return found2.success ? found2.data.url : null;
   } catch {
     return null;
   }
