@@ -48,8 +48,11 @@ const HIDDEN: ReadonlySet<ProductHomeTab> = new Set();
  * which edit, are left out of its row too. */
 const CHANGES: ReadonlySet<ProductHomeTab> = new Set(['questions']);
 
+/** Whether the product is archived; a home read before PRD 2232 names no archive, and reads live. */
+const isArchived = (home: ProductHome): boolean => home.archived?.at !== undefined;
+
 /** The tab `home` draws when `tab` is asked: the Ledger, for an archived product, in place of one it leaves out. */
-export const tabShown = (home: ProductHome, tab: ProductHomeTab): ProductHomeTab => (home.archived !== null && CHANGES.has(tab) ? 'ledger' : tab);
+export const tabShown = (home: ProductHome, tab: ProductHomeTab): ProductHomeTab => (isArchived(home) && CHANGES.has(tab) ? 'ledger' : tab);
 
 const COUNTS: Partial<Record<ProductHomeTab, (home: ProductHome) => number>> = {
   ledger: (home) => home.ledger.lanes['on-you'].length,
@@ -58,7 +61,7 @@ const COUNTS: Partial<Record<ProductHomeTab, (home: ProductHome) => number>> = {
 
 /** The product home's tabs, as the section tabs draw them. */
 export function productHomeTabs(home: ProductHome): SectionTab[] {
-  const archived = home.archived !== null;
+  const archived = isArchived(home);
   const drawn = ORDER.filter((tab) => !HIDDEN.has(tab) && !(archived && CHANGES.has(tab))).map((tab) => {
     const shown: SectionTab = { href: productHomeTabHref(home, tab), label: TABS[tab].label };
     const count = COUNTS[tab];
