@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archive a product</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts): the app pages' own
+     look, one dark theme. Faces named first, served by the app; here they fall back to system faces. */
+  :root {
+    color-scheme: dark;
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-yellow: #ff3ea5; --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --note: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
+  .wrap { max-width: 1320px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+  .note { font: 14px/1.55 var(--note); color: var(--ask-muted); display: grid; gap: 6px; }
+  .note h1 { margin: 0; font-size: 22px; color: var(--ask-ink); }
+  .note h2 { margin: 12px 0 0; font-size: 18px; color: var(--ask-plasma); letter-spacing: .02em; }
+  .note h3 { margin: 6px 0 0; font-size: 15px; color: var(--ask-ink); }
+  .note p { margin: 0; max-width: 90ch; }
+  .note b, .note code { color: var(--ask-ink); }
+  .note code { font: 13px var(--ask-mono); }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  @media (max-width: 980px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .side { display: grid; gap: 8px; min-width: 0; }
+  .side > h4 { margin: 0; font: 700 12px/1 var(--note); letter-spacing: .12em; text-transform: uppercase; color: var(--ask-muted); }
+  .side > h4.after { color: var(--ask-plasma); }
+  .cap { margin: 0; font: 13px/1.5 var(--note); color: var(--ask-muted); }
+  .cap b { color: var(--ask-ink); }
+
+  /* Functional part: exchanges and the row. */
+  pre { margin: 0; padding: 14px 16px; overflow-x: auto; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 10px;
+    font: 13px/1.6 var(--ask-mono); color: var(--ask-ink); }
+  pre .p { color: var(--ask-muted); }
+  pre .r { color: var(--ask-red); }
+  pre .g { color: var(--ask-green); }
+  pre .y { color: var(--ask-plasma); }
+  table.facts { width: 100%; border-collapse: collapse; font: 14px/1.5 var(--note); }
+  table.facts th, table.facts td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--ask-line); vertical-align: top; }
+  table.facts th { color: var(--ask-muted); font-weight: 600; }
+  table.facts td:first-child { color: var(--ask-ink); font-weight: 600; }
+  .tbl { overflow-x: auto; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 10px; }
+
+  /* The page area under the app bar (the app shell is its own shared screen). */
+  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; min-width: 0; }
+  .bar { padding: 10px 16px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong); font: 600 14px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .bar b { color: var(--ask-ink); }
+  .col { padding: 20px; display: grid; gap: 22px; min-width: 0; }
+  a { color: var(--ask-cyan); text-underline-offset: 3px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  .muted { color: var(--ask-muted); }
+
+  /* ask.css: card, buttons. */
+  .ask-card { display: grid; gap: 12px; justify-items: start; padding: 22px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .ask-card h1 { margin: 0; font-size: 22px; line-height: 1.3; }
+  .ask-card p { margin: 0; }
+  .ask-button { font: 700 16px/1 var(--ask-body); color: var(--ask-on-plasma); background: var(--ask-plasma); border: 0; border-radius: 8px; padding: 13px 20px; white-space: nowrap; }
+  .ask-button.quiet { color: var(--ask-ink); background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); }
+  .ask-button.small { padding: 9px 14px; font-size: 15px; }
+
+  /* products.css */
+  .products-head h1 { margin: 0; font-size: 26px; line-height: 1.2; }
+  .products-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .products-sum > div { display: flex; flex-direction: column-reverse; justify-content: flex-end; padding: 12px 14px; border-left: 1px solid var(--ask-line); min-width: 0; }
+  .products-sum > div:first-child { border-left: 0; }
+  .products-sum dt { font-size: 13px; color: var(--ask-muted); }
+  .products-sum dd { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .products-sum > div[data-waiting] dd { color: var(--ask-plasma); }
+  .products-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .products-tile { display: grid; grid-template-rows: auto auto 1fr auto; gap: 8px; min-height: 160px; padding: 14px; background: var(--ask-surface);
+    border: 1px solid var(--ask-line-strong); border-left: 4px solid var(--ask-line-strong); border-radius: 10px; min-width: 0; }
+  .products-tile[data-waiting] { border-left-color: var(--ask-plasma); }
+  .products-tile-name { font-size: 19px; font-weight: 700; color: var(--ask-ink); text-decoration: none; }
+  .products-tile-line { font-size: 14px; color: var(--ask-muted); }
+  .products-tile-repos { margin: 0; font: 500 13px/1.6 var(--ask-mono); overflow-wrap: anywhere; }
+  .products-tile-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+  .products-waiting { color: var(--ask-muted); }
+  .products-waiting[data-waiting] { color: var(--ask-plasma); font-weight: 700; }
+  .products-open { display: inline-flex; padding: 6px 12px; border: 1px solid var(--ask-line-strong); border-radius: 8px; font-weight: 700; color: var(--ask-ink); text-decoration: none; }
+  .products-open-first { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .products-shared { margin-left: 4px; padding: 1px 4px; border: 1px solid var(--ask-cyan); border-radius: 4px; font: 700 10px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-cyan); }
+  .products-unlinked { display: grid; gap: 10px; }
+  .products-unlinked h2 { margin: 0; font-size: 16px; }
+  .products-repo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 10px 16px; border: 1px dashed var(--ask-line-strong); border-radius: 12px; }
+  /* After: Archived (n), as Removed (n) of repositories.css (PRD 2188). */
+  .products-archived summary { cursor: pointer; color: var(--ask-muted); }
+  .products-archived ul { margin: 10px 0 0; display: grid; gap: 8px; }
+  .products-archived-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; }
+  .products-archived-row strong { overflow-wrap: anywhere; }
+
+  /* The product home: head card, section tabs, the Ledger (product-home.css, section-tabs.css). */
+  .products-back { font-size: 14px; color: var(--ask-muted); }
+  .head-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; width: 100%; }
+  .section-tabs ul { display: flex; flex-wrap: wrap; gap: 4px 18px; border-bottom: 1.5px solid var(--ask-line-strong); }
+  .section-tab { display: inline-flex; margin-bottom: -1.5px; padding: 8px 2px; font: 700 14px/1.2 var(--ask-body); color: var(--ask-muted); text-decoration: none; border-bottom: 3px solid transparent; }
+  .section-tab[aria-current="page"] { color: var(--ask-plasma); border-bottom-color: var(--ask-plasma); }
+  .product-home-summary { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--ask-muted); font-size: 14px; }
+  .product-home-summary b { font: 700 22px/1 var(--ask-mono); margin-right: 6px; }
+  .product-home-summary b[data-tone="building"] { color: var(--ask-green); }
+  .product-home-summary b[data-tone="waiting"] { color: var(--ask-yellow); }
+  .product-home-summary b[data-tone="drifted"] { color: var(--ask-red); }
+  .lane { display: grid; gap: 10px; }
+  .lane h2 { margin: 0; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ask-muted); }
+  .product-home-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px;
+    background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .product-home-n { display: inline-grid; place-items: center; min-width: 44px; height: 44px; padding: 0 6px; border: 1.5px solid var(--ask-line-strong); border-radius: 999px; font: 700 13px/1 var(--ask-mono); }
+  .product-home-title { font-weight: 700; color: var(--ask-ink); text-decoration: none; overflow-wrap: anywhere; }
+  .product-home-state { font-size: 13px; font-weight: 700; color: var(--ask-yellow); white-space: nowrap; }
+  /* After: the archived banner, above the head card. */
+  .archived-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 18px;
+    background: var(--ask-plasma-soft); border: 1px solid var(--ask-plasma); border-radius: 12px; }
+  .archived-banner p { margin: 0; font-weight: 700; }
+
+  /* The browser's own confirm, drawn outside the marked screen: its words are the spec's. */
+  .confirm { max-width: 460px; padding: 18px 20px; background: #2b2b33; color: #f2f2f5; border-radius: 12px; font: 14px/1.5 var(--note);
+    box-shadow: 0 12px 40px rgb(0 0 0 / .5); display: grid; gap: 12px; }
+  .confirm .host { font-weight: 700; }
+  .confirm .btns { display: flex; justify-content: flex-end; gap: 8px; }
+  .confirm .btns span { padding: 5px 14px; border-radius: 6px; background: #4a4a55; }
+  .confirm .btns span.ok { background: #3b82f6; color: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="note">
+  <h1>Archive a product</h1>
+  <p><b>PRD 2232.</b> A workspace owner archives a product: it leaves every list, no endpoint answers for it, and nothing is erased. Restore brings it back as it was. Drawn from the spec (<code>spec.md</code>) and from today's code (<code>apps/galaxy/src/products/</code>, <code>apps/galaxy/src/product-home/</code>), in the app's Omni theme. The figures are examples.</p>
+</header>
+
+<section class="note"><h2>Functional</h2>
+  <p><b>Who.</b> A workspace owner archives and restores, as for the product's repositories and key (<code>product_repository_owned()</code>). A member is refused with 42501 and sees no Archive, no Archived line and no Restore.</p>
+</section>
+
+<div class="pair">
+  <div class="side"><h4>Today</h4>
+    <div class="tbl"><table class="facts">
+      <tr><th>What</th><th>Today</th></tr>
+      <tr><td>products row</td><td><code>id, workspace_id, name, key, …</code>, no way to retire it</td></tr>
+      <tr><td>Remove a product</td><td>nothing; a delete would cascade into claims, personas, Legal, glossary and the knowledge history</td></tr>
+      <tr><td>Members' list</td><td>every product of the workspace</td></tr>
+      <tr><td>Kit and agents</td><td>keep reading its Legal entries and glossary</td></tr>
+    </table></div>
+  </div>
+  <div class="side"><h4 class="after">After</h4>
+    <div class="tbl"><table class="facts">
+      <tr><th>What</th><th>After</th></tr>
+      <tr><td>products row</td><td>kept, plus <code>archived_at timestamptz</code> and <code>archived_by uuid</code>, null while live</td></tr>
+      <tr><td>Archive / Restore</td><td><code>product_archive(p_product)</code> sets both; <code>product_restore(p_product)</code> clears both. Each answers <code>{id, name, archivedAt}</code>. Every row under the product stays.</td></tr>
+      <tr><td>Members' list</td><td>live products only; an owner also reads the archived ones</td></tr>
+      <tr><td>Kit and agents</td><td>every lookup skips it, owners included; a named product answers <code>P0002 Product &lt;name&gt; is archived: an owner restores it on its page.</code> Its repositories resolve to their other products, or none, until restore.</td></tr>
+      <tr><td>Changes</td><td>Legal, glossary, links, approvers, key, dossier, roadmap and bug pushes refuse it with that P0002</td></tr>
+    </table></div>
+  </div>
+</div>
+
+<div class="pair">
+  <div class="side"><h4>Today: in the repository</h4>
+<pre><span class="p">$</span> omni kb legal
+<span class="y">L-GDPR-4</span>  Logs that record decisions are kept for good
+…
+<span class="p">$</span> omni business show
+product omni-loop · vertuoza/vertuo-omni-loop
+<span class="p">$</span> curl …/api/products/which
+<span class="g">[{"key":"omni-loop", …}]</span></pre>
+    <p class="cap">The product's rules keep reaching the repository and its agents, whatever the team decided.</p>
+  </div>
+  <div class="side"><h4 class="after">After: omni-loop archived</h4>
+<pre><span class="p">$</span> omni kb legal
+<span class="r">product omni-loop is archived: an owner restores it on its page</span>
+<span class="p">exit 1 · the local copy is not served</span>
+<span class="p">$</span> omni business show
+<span class="r">product omni-loop is archived: an owner restores it on its page</span>
+<span class="p">$</span> curl …/api/business
+<span class="y">{"state":"archived","product":{"name":"omni-loop"}}</span>
+<span class="p">$</span> omni kb graph --product omni-loop &lt;id&gt;
+<span class="r">404 Product omni-loop is archived: an owner restores it on its page.</span>
+<span class="p">$</span> curl …/api/products/which
+<span class="g">[]</span>   <span class="p">archived products left out</span></pre>
+    <p class="cap"><code>omni kb glossary</code> says the same line and exits 1; the MCP link's <code>get_business</code> and <code>get_knowledge_graph</code> answer the same sentence. Words, never an empty list. After Restore every command answers as before.</p>
+  </div>
+</div>
+
+<section class="note"><h2>Pixel perfect</h2>
+  <p>screens: products · product-home</p>
+  <h3>(a) The products list, /app/products, read by an owner</h3>
+</section>
+
+<div class="pair">
+  <div class="side"><h4>Today</h4>
+    <div class="frame"><div class="bar">Work › <b>Products</b></div>
+      <div class="col" data-screen="products-today">
+        <header class="products-head"><h1>Products</h1></header>
+        <dl class="products-sum" data-content><div><dt>products</dt><dd>4</dd></div><div><dt>repositories</dt><dd>15</dd></div><div><dt>PRDs</dt><dd>66</dd></div><div data-waiting><dt>waiting on you</dt><dd>5</dd></div></dl>
+        <ul class="products-tiles">
+          <li class="products-tile" data-waiting><a class="products-tile-name" href="#">Vertuoza</a><span class="products-tile-line" data-content>23 PRDs · 13 repositories</span>
+            <p class="products-tile-repos" data-content>pdf-builder · vertuo-apps · vertuo-backend-php · +10</p>
+            <span class="products-tile-foot"><span class="products-waiting" data-waiting data-content>3 waiting on you</span><a class="products-open products-open-first" href="#" data-primary>Open</a></span></li>
+          <li class="products-tile" data-waiting><a class="products-tile-name" href="#">omni-loop</a><span class="products-tile-line" data-content>41 PRDs · 1 repository</span>
+            <p class="products-tile-repos" data-content>vertuo-omni-loop</p>
+            <span class="products-tile-foot"><span class="products-waiting" data-waiting data-content>2 waiting on you</span><a class="products-open" href="#">Open</a></span></li>
+          <li class="products-tile"><a class="products-tile-name" href="#">Vertuo UX</a><span class="products-tile-line" data-content>2 PRDs · 1 repository</span>
+            <p class="products-tile-repos" data-content>vertuo-ux-research-domain <span class="products-shared">shared</span></p>
+            <span class="products-tile-foot"><span class="products-waiting">Nothing waiting</span><a class="products-open" href="#">Open</a></span></li>
+        </ul>
+        <section class="products-unlinked"><h2>Repositories in no product</h2><ul data-content><li class="products-repo">vertuoza/vertuo-docs <a href="#">Add to a product</a></li></ul></section>
+      </div>
+    </div>
+    <p class="cap">Every product of the workspace, for every member. Nothing takes one out of the list.</p>
+  </div>
+  <div class="side"><h4 class="after">After: omni-loop archived, Archived (1) opened</h4>
+    <div class="frame"><div class="bar">Work › <b>Products</b></div>
+      <div class="col" data-screen="products-after">
+        <header class="products-head"><h1>Products</h1></header>
+        <dl class="products-sum" data-content><div><dt>products</dt><dd>3</dd></div><div><dt>repositories</dt><dd>14</dd></div><div><dt>PRDs</dt><dd>25</dd></div><div data-waiting><dt>waiting on you</dt><dd>3</dd></div></dl>
+        <ul class="products-tiles">
+          <li class="products-tile" data-waiting><a class="products-tile-name" href="#">Vertuoza</a><span class="products-tile-line" data-content>23 PRDs · 13 repositories</span>
+            <p class="products-tile-repos" data-content>pdf-builder · vertuo-apps · vertuo-backend-php · +10</p>
+            <span class="products-tile-foot"><span class="products-waiting" data-waiting data-content>3 waiting on you</span><a class="products-open products-open-first" href="#" data-primary>Open</a></span></li>
+          <li class="products-tile"><a class="products-tile-name" href="#">Vertuo UX</a><span class="products-tile-line" data-content>2 PRDs · 1 repository</span>
+            <p class="products-tile-repos" data-content>vertuo-ux-research-domain <span class="products-shared">shared</span></p>
+            <span class="products-tile-foot"><span class="products-waiting">Nothing waiting</span><a class="products-open" href="#">Open</a></span></li>
+          <li class="products-tile"><a class="products-tile-name" href="#">Vertuoza ERP</a><span class="products-tile-line" data-content>0 PRDs · No repository yet</span>
+            <p class="products-tile-repos"></p>
+            <span class="products-tile-foot"><a href="#">Add a repository</a><a class="products-open" href="#">Open</a></span></li>
+        </ul>
+        <details class="products-archived" open>
+          <summary>Archived (1)</summary>
+          <ul><li class="products-archived-row"><strong>omni-loop</strong><span class="muted" data-content>archived 2 days ago by pierrederval</span><button type="button" class="ask-button quiet small" aria-label="Restore omni-loop">Restore</button></li></ul>
+        </details>
+        <section class="products-unlinked"><h2>Repositories in no product</h2><ul data-content><li class="products-repo">vertuoza/vertuo-docs <a href="#">Add to a product</a></li></ul></section>
+      </div>
+    </div>
+    <p class="cap"><b>Archived (1)</b> sits under the grid, closed by default (drawn open here), absent when nothing is archived, and shown to owners only: a member sees the grid alone. Restore puts omni-loop back in the grid. The archived product's figures leave the totals.</p>
+  </div>
+</div>
+
+<section class="note"><h3>(b) The product home, /app/products/&lt;id&gt;, read by an owner</h3></section>
+
+<div class="pair">
+  <div class="side"><h4>Today</h4>
+    <div class="frame"><div class="bar">Work › Products › <b>omni-loop</b></div>
+      <div class="col" data-screen="product-home-today">
+        <section class="ask-card"><a class="products-back" href="#">← Products</a><h1>omni-loop</h1><p class="muted">What waits on whom, across the product’s PRDs.</p></section>
+        <nav class="section-tabs"><ul><li><a class="section-tab" aria-current="page" href="#">Ledger</a></li><li><a class="section-tab" href="#">Constellation</a></li><li><a class="section-tab" href="#">PRDs</a></li><li><a class="section-tab" href="#">Ideas</a></li><li><a class="section-tab" href="#">Roadmap</a></li><li><a class="section-tab" href="#">Knowledge</a></li><li><a class="section-tab" href="#">Repositories &amp; approvers</a></li></ul></nav>
+        <section class="product-home-summary" data-content><span><b data-tone="building">3</b> building</span><span><b data-tone="waiting">2</b> waiting on a person</span><span><b data-tone="drifted">0</b> drifted</span></section>
+        <section class="lane"><h2>Waiting on a person</h2><ul data-content><li class="product-home-row"><span class="product-home-n">2232</span><a class="product-home-title" href="#">Archive a product</a><span class="product-home-state">approval</span></li></ul></section>
+      </div>
+    </div>
+    <p class="cap">The head card holds the way back, the name and the tab's lede. No control on it. Some tabs are left out of the drawing. Word pass on today: <b>explains-at-rest</b>, the Ledger's lede is 8 words at rest; the after cuts it to 7 (<code>tabs.ts</code>).</p>
+  </div>
+  <div class="side"><h4 class="after">After: the owner's Archive</h4>
+    <div class="frame"><div class="bar">Work › Products › <b>omni-loop</b></div>
+      <div class="col" data-screen="product-home-after">
+        <section class="ask-card"><a class="products-back" href="#">← Products</a>
+          <div class="head-row"><h1>omni-loop</h1><button type="button" class="ask-button quiet small" aria-label="Archive omni-loop">Archive</button></div>
+          <p class="muted">What waits on whom across its PRDs.</p></section>
+        <nav class="section-tabs"><ul><li><a class="section-tab" aria-current="page" href="#">Ledger</a></li><li><a class="section-tab" href="#">Constellation</a></li><li><a class="section-tab" href="#">PRDs</a></li><li><a class="section-tab" href="#">Ideas</a></li><li><a class="section-tab" href="#">Roadmap</a></li><li><a class="section-tab" href="#">Knowledge</a></li><li><a class="section-tab" href="#">Repositories &amp; approvers</a></li></ul></nav>
+        <section class="product-home-summary" data-content><span><b data-tone="building">3</b> building</span><span><b data-tone="waiting">2</b> waiting on a person</span><span><b data-tone="drifted">0</b> drifted</span></section>
+        <section class="lane"><h2>Waiting on a person</h2><ul data-content><li class="product-home-row"><span class="product-home-n">2232</span><a class="product-home-title" href="#">Archive a product</a><span class="product-home-state">approval</span></li></ul></section>
+      </div>
+    </div>
+    <p class="cap">A quiet <b>Archive</b> beside the name, for a workspace owner only; the page keeps no primary action of its own. Pressing it asks first, in the browser's own confirm:</p>
+    <div class="confirm" role="img" aria-label="The browser's confirm">
+      <span class="host">galaxy.omni-loop.dev says</span>
+      <span>Archive omni-loop? It leaves every member's list, and its repositories stop reading its Legal entries and glossary.<br>Repositories: vertuoza/vertuo-omni-loop</span>
+      <span class="btns"><span>Cancel</span><span class="ok">OK</span></span>
+    </div>
+    <p class="cap">The Repositories line is there only when the product has any. OK archives and lands the owner on <code>/app/products</code>, omni-loop under Archived (1). Cancel changes nothing.</p>
+  </div>
+</div>
+
+<section class="note"><h3>(c) The archived product's home, read by an owner</h3></section>
+
+<div class="pair">
+  <div class="side"><h4>Today</h4>
+    <p class="cap">No archived product exists today: the home is always the live one drawn in (b).</p>
+  </div>
+  <div class="side"><h4 class="after">After: archived, read-only</h4>
+    <div class="frame"><div class="bar">Work › Products › <b>omni-loop</b></div>
+      <div class="col" data-screen="product-home-archived">
+        <section class="archived-banner"><p>Archived 2 days ago by pierrederval.</p><button type="button" class="ask-button" aria-label="Restore omni-loop" data-primary>Restore</button></section>
+        <section class="ask-card"><a class="products-back" href="#">← Products</a><h1>omni-loop</h1><p class="muted">What waits on whom across its PRDs.</p></section>
+        <nav class="section-tabs"><ul><li><a class="section-tab" aria-current="page" href="#">Ledger</a></li><li><a class="section-tab" href="#">Constellation</a></li><li><a class="section-tab" href="#">PRDs</a></li><li><a class="section-tab" href="#">Ideas</a></li><li><a class="section-tab" href="#">Roadmap</a></li><li><a class="section-tab" href="#">Knowledge</a></li><li><a class="section-tab" href="#">Repositories &amp; approvers</a></li></ul></nav>
+        <section class="product-home-summary" data-content><span><b data-tone="building">3</b> building</span><span><b data-tone="waiting">2</b> waiting on a person</span><span><b data-tone="drifted">0</b> drifted</span></section>
+        <section class="lane"><h2>Waiting on a person</h2><ul data-content><li class="product-home-row"><span class="product-home-n">2232</span><a class="product-home-title" href="#">Archive a product</a><span class="product-home-state">approval</span></li></ul></section>
+      </div>
+    </div>
+    <p class="cap">The banner leads, with <b>Restore</b> as the page's one primary action; Archive is gone from the head card, and nothing on the page changes the product. A member who opens this link gets the products page's not-found (<b>No such product</b>).</p>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

@@ -15,7 +15,11 @@
 // decide `state`, which comes from claims only: a product with personas and no confirmed claim reads
 // `none`, and still prints its personas. A server from before PRD 799 sends none: they read as `[]`.
 //
-// It never blocks an agent (decision 13): every reading outcome exits 0. When there is nothing to
+// A repository whose only product was archived (PRD 2232) reads `archived`: `show` prints
+// `product <name> is archived: an owner restores it on its page` and exits 1 (`--json` prints the body, its
+// `state` `archived`, and exits 1 too).
+//
+// It never blocks an agent (decision 13): every other reading outcome exits 0. When there is nothing to
 // read it prints one line ending "— agents carry on", and `--json` says which in `state`:
 //   none         the workspace has no business, or no confirmed claim for this repository
 //   no-sign-in   no Omni page set here (ask.url), no sign-in for it, or a sign-in it no longer honours
@@ -47,6 +51,7 @@ import { jsonObject } from '../../lib/ask/schema.ts';
 import { homeTokens } from '../../lib/ask/client-tokens.ts';
 import { credentialsHost } from '../../lib/ask/credentials.ts';
 import { loadContext } from '../../lib/context.ts';
+import { archivedLine } from '../../lib/product/knowledge.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 
@@ -173,7 +178,7 @@ function knowledgeOf(reply: Record<string, unknown>): { legal: Legal[]; glossary
 /** The server's reply as the contract's body, or null when it does not read as one. */
 function businessOf(raw: unknown): Business | null {
   const reply = jsonObject(raw);
-  if (!reply || !['ok', 'none'].includes(String(reply.state)) || typeof reply.state !== 'string' || !Array.isArray(reply.claims)) return null;
+  if (!reply || !['ok', 'none', 'archived'].includes(String(reply.state)) || typeof reply.state !== 'string' || !Array.isArray(reply.claims)) return null;
   const claims = claimsOf({ state: reply.state, claims: reply.claims });
   const personas = claims && personasOf(reply.personas);
   const knowledge = knowledgeOf(reply);
@@ -327,6 +332,14 @@ function shown(repo: string, read: Business): [unknown, string[]] {
   ]];
 }
 
+/** An archived product (PRD 2232) is an answer, not an outage: its one line, and exit 1, whatever the local copy. */
+function archived(out: { json: boolean; stdout: Out }, read: Business): number {
+  const name = read.product?.name ?? '';
+  if (out.json) println(out.stdout, JSON.stringify(empty('archived', read)));
+  else println(out.stdout, archivedLine(name));
+  return 1;
+}
+
 /** `omni business show [--json]`: reads the business and prints it, or the one line saying why not. */
 async function show(args: string[], env: BusinessIo): Promise<number> {
   const { positional, flags } = parseArgs('business', args, { booleans: ['json'] });
@@ -345,6 +358,7 @@ async function show(args: string[], env: BusinessIo): Promise<number> {
   }
   const read = businessOf(reply);
   if (!read) return print(out, empty('refused'), [`refused (the reply is not a business) ${CARRY_ON}`]);
+  if (read.state === 'archived' && read.product) return archived(out, read);
   return print(out, ...shown(repo, read));
 }
 

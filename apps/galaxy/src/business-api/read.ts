@@ -59,17 +59,24 @@ const businessTermSchema = z.object({
   avoid: z.array(z.string()),
 }).strict();
 
+/** The database's words for an archived product (PRD 2232), as its P0002 refusals say them. */
+export const archivedMessage = (name: string) => `Product ${name} is archived: an owner restores it on its page.`;
+/** The sentence the kit and the MCP link answer for an archived product (PRD 2232). */
+export const archivedLine = (name: string) => `product ${name} is archived: an owner restores it on its page`;
+
 /** The body of a read. `ok` only with at least one claim; `none` with none (no business, or no
- * confirmed claim for the repository). */
+ * confirmed claim for the repository); `archived` (PRD 2232) when the repository's only product was
+ * archived, with that product's name and no claim. */
 const businessReadSchema = z.object({
-  state: z.enum(['ok', 'none']),
+  state: z.enum(['ok', 'none', 'archived']),
   business: named.nullable(),
   product: named.nullable(),
   claims: z.array(businessClaimSchema),
   personas: z.array(businessPersonaSchema).default([]),
   legal: z.array(businessLegalSchema).default([]),
   glossary: z.array(businessTermSchema).default([]),
-}).strict().refine((read) => (read.state === 'ok') === (read.claims.length > 0), 'state is ok exactly when there are claims');
+}).strict().refine((read) => (read.state === 'ok') === (read.claims.length > 0), 'state is ok exactly when there are claims')
+  .refine((read) => read.state !== 'archived' || read.product !== null, 'an archived read names its product');
 
 type BusinessRead = z.infer<typeof businessReadSchema>;
 

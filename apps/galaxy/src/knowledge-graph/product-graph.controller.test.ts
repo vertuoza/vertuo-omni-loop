@@ -21,6 +21,7 @@ const MEMBERS: Record<string, string[]> = { [ADA]: ['w-acme'], [EVE]: ['w-other'
 const PRODUCTS = [
   { id: 'p-omni', key: 'omni-loop', name: 'Omni Loop', workspace: 'w-acme' },
   { id: 'p-which', key: 'which', name: 'Which', workspace: 'w-acme' },
+  { id: 'p-old', key: 'old', name: 'Old Product', workspace: 'w-acme', archived_at: '2026-10-20T08:00:00+00:00' },
 ];
 
 /** The front-end: a law serving a Legal entry and a principle, the principle served by another rule, its test, an unheld Legal id. */
@@ -42,7 +43,7 @@ const FRONT: RepositoryGraph = {
 
 /** A repository answering as row-level security would for `token`'s member, or failing as told. */
 function repositoryAs(token: string, fail: boolean): ProductGraphRepository {
-  const readable = PRODUCTS.filter((product) => (MEMBERS[token] ?? []).includes(product.workspace)).map(({ id, key, name }) => ({ id, key, name }));
+  const readable = PRODUCTS.filter((product) => (MEMBERS[token] ?? []).includes(product.workspace)).map(({ id, key, name, archived_at }) => ({ id, key, name, archived_at: archived_at ?? null }));
   const failing = () => Promise.reject(new Error('socket hang up'));
   return {
     productByKey: (key) => (fail ? failing() : Promise.resolve(readable.find((product) => product.key === key) ?? null)),
@@ -127,6 +128,10 @@ describe('GET /api/products/<key>/knowledge/graph', () => {
     expect(stranger.body).toEqual({ error: 'No product omni-loop that you can read.' });
     expect(none).toEqual({ status: 404, body: { error: 'No product no-such that you can read.' } });
     expect(await read('Not A Key', '?id=L-INVOICING-1')).toEqual({ status: 404, body: { error: 'No product Not A Key that you can read.' } });
+  });
+
+  it('answers 404 with the archived message for an archived product, its owner’s sign-in included (PRD 2232)', async () => {
+    expect(await read('old', '?id=L-INVOICING-1')).toEqual({ status: 404, body: { error: 'Product Old Product is archived: an owner restores it on its page.' } });
   });
 
   it('answers 404 for an id the joined graph does not hold', async () => {

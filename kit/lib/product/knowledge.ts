@@ -7,6 +7,8 @@
 //   glossary }`), the way `targets.ts` keeps `product-targets.json`. When the server cannot be reached
 //   (no answer within the client's 5 seconds, or a 5xx), the copy is read instead, said by
 //   `unreachableLine`; with no copy, the read stops with `NOTHING_READ`.
+// - An archived product (PRD 2232) is an answer too: the read stops with `product <name> is archived: …`, the
+//   copy neither read nor rewritten.
 // - A refusal (a 4xx: no sign-in, not a member, no such product) is never hidden behind the copy: the
 //   read stops with the server's reason.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -27,6 +29,7 @@ export type GlossaryTerm = z.infer<typeof TermSchema>;
 
 /** The business read, as far as the product's knowledge goes. */
 const ReplySchema = z.object({
+  state: z.string().optional(),
   product: z.object({ name: z.string().min(1) }).nullable().optional(),
   legal: z.array(LegalSchema).optional(),
   glossary: z.array(TermSchema).optional(),
@@ -43,6 +46,9 @@ const CopySchema = z.object({
 export type ProductKnowledge = { product: string; legal: LegalEntry[]; glossary: GlossaryTerm[] };
 export type ProductKnowledgeRead = ({ from: 'server' } | { from: 'copy'; readAt: string }) & ProductKnowledge;
 
+/** The one line for a product an owner archived (PRD 2232): an answer, not an outage, so no copy is served for it. */
+export const archivedLine = (name: string): string => `product ${name} is archived: an owner restores it on its page`;
+
 export const NOTHING_READ = 'no product knowledge: the Omni page is unreachable and nothing was read yet';
 
 /** The reply's knowledge; throws, naming the repository, when it is not a business read or names no product. */
@@ -52,7 +58,8 @@ export function knowledgeOfReply(reply: unknown, repo: string): ProductKnowledge
     const issue = parsed.error.issues[0];
     throw new Error(`the Omni page answered no product knowledge for ${repo}: ${issue ? `${issue.path.join('.')} ${issue.message}` : 'out of shape'}`);
   }
-  const { product, legal = [], glossary = [] } = parsed.data;
+  const { state, product, legal = [], glossary = [] } = parsed.data;
+  if (state === 'archived' && product) throw new Error(archivedLine(product.name));
   if (!product) throw new Error(`no product knowledge: ${repo} belongs to no product on the Omni page`);
   return { product: product.name, legal, glossary };
 }

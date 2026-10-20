@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.486" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.487" };
   }
 });
 
@@ -39772,6 +39772,92 @@ var care = {
 
 // kit/bin/commands/business.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/product/knowledge.ts
+init_define_OMNI_BUNDLE();
+import { readFileSync as readFileSync41, writeFileSync as writeFileSync21 } from "node:fs";
+import { join as join48 } from "node:path";
+var PRODUCT_KNOWLEDGE_FILE = join48(LOCAL_DIR, "product-knowledge.json");
+var LegalSchema = external_exports.object({ id: external_exports.string().min(1), statement: external_exports.string(), source: external_exports.string(), owner: external_exports.string() });
+var TermSchema = external_exports.object({ term: external_exports.string().min(1), meaning: external_exports.string(), avoid: external_exports.array(external_exports.string()) });
+var ReplySchema = external_exports.object({
+  state: external_exports.string().optional(),
+  product: external_exports.object({ name: external_exports.string().min(1) }).nullable().optional(),
+  legal: external_exports.array(LegalSchema).optional(),
+  glossary: external_exports.array(TermSchema).optional()
+});
+var CopySchema2 = external_exports.object({
+  product: external_exports.string(),
+  readAt: external_exports.iso.datetime(),
+  legal: external_exports.array(LegalSchema),
+  glossary: external_exports.array(TermSchema)
+});
+var archivedLine = (name3) => `product ${name3} is archived: an owner restores it on its page`;
+var NOTHING_READ2 = "no product knowledge: the Omni page is unreachable and nothing was read yet";
+function knowledgeOfReply(reply, repo) {
+  const parsed2 = ReplySchema.safeParse(reply);
+  if (!parsed2.success) {
+    const issue2 = parsed2.error.issues[0];
+    throw new Error(`the Omni page answered no product knowledge for ${repo}: ${issue2 ? `${issue2.path.join(".")} ${issue2.message}` : "out of shape"}`);
+  }
+  const { state, product: product2, legal = [], glossary = [] } = parsed2.data;
+  if (state === "archived" && product2) throw new Error(archivedLine(product2.name));
+  if (!product2) throw new Error(`no product knowledge: ${repo} belongs to no product on the Omni page`);
+  return { product: product2.name, legal, glossary };
+}
+function readCopy2(root) {
+  let value;
+  try {
+    value = JSON.parse(readFileSync41(join48(root, PRODUCT_KNOWLEDGE_FILE), "utf8"));
+  } catch {
+    return null;
+  }
+  const kept = CopySchema2.safeParse(value);
+  return kept.success ? kept.data : null;
+}
+function readCachedKnowledge(root) {
+  let text15;
+  try {
+    text15 = readFileSync41(join48(root, PRODUCT_KNOWLEDGE_FILE), "utf8");
+  } catch {
+    return { state: "absent" };
+  }
+  let value;
+  try {
+    value = JSON.parse(text15);
+  } catch {
+    return { state: "unreadable" };
+  }
+  const kept = CopySchema2.safeParse(value);
+  return kept.success ? { state: "cached", ...kept.data } : { state: "unreadable" };
+}
+var unanswered2 = (error62) => error62.status === null || error62.status >= 500;
+async function productKnowledge({ repo, root, now: now2, fetchBusiness }) {
+  let reply;
+  try {
+    reply = await fetchBusiness();
+  } catch (error62) {
+    if (!(error62 instanceof AskCallError)) throw error62;
+    if (unanswered2(error62)) {
+      const copy = readCopy2(root);
+      if (copy === null) throw new Error(NOTHING_READ2);
+      return { from: "copy", ...copy };
+    }
+    throw new Error(`the Omni page refused the product knowledge of ${repo} (${error62.status}): ${error62.reason ?? error62.message}`);
+  }
+  const known2 = knowledgeOfReply(reply, repo);
+  ensureLocalDir(root);
+  writeFileSync21(join48(root, PRODUCT_KNOWLEDGE_FILE), `${JSON.stringify({ ...known2, readAt: now2().toISOString() }, null, 2)}
+`);
+  return { from: "server", ...known2 };
+}
+function unreachableLine(readAt) {
+  return `last read ${readAt.slice(0, 10)}: the Omni page is unreachable`;
+}
+var legalLines = (legal) => legal.map(({ id, statement: statement2, source: source2, owner }) => `${id}  ${statement2}  (source: ${source2}; owner: @${owner})`);
+var glossaryLines = (glossary) => glossary.map(({ term, meaning, avoid }) => `${term}: ${meaning}  (avoid: ${avoid.length > 0 ? avoid.join(", ") : "none"})`);
+
+// kit/bin/commands/business.ts
 var CLAIM_USAGE = "usage: omni business claim add --kind <region|offering|size|trade|rival> --value <text> --state <proposed|confirmed> --ref <text>";
 var USAGE8 = `usage: omni business show [--json] | omni business cited <id>\u2026 --by <skill> [--ref <text>] | ${CLAIM_USAGE.slice("usage: ".length)}`;
 var CITED_USAGE = "usage: omni business cited <id>\u2026 --by <skill> [--ref <text>]";
@@ -39849,7 +39935,7 @@ function knowledgeOf(reply) {
 }
 function businessOf(raw) {
   const reply = jsonObject(raw);
-  if (!reply || !["ok", "none"].includes(String(reply.state)) || typeof reply.state !== "string" || !Array.isArray(reply.claims)) return null;
+  if (!reply || !["ok", "none", "archived"].includes(String(reply.state)) || typeof reply.state !== "string" || !Array.isArray(reply.claims)) return null;
   const claims = claimsOf({ state: reply.state, claims: reply.claims });
   const personas = claims && personasOf(reply.personas);
   const knowledge2 = knowledgeOf(reply);
@@ -39954,6 +40040,12 @@ function shown2(repo, read2) {
     ...knowledgeLines(read2, idWidth)
   ]];
 }
+function archived(out, read2) {
+  const name3 = read2.product?.name ?? "";
+  if (out.json) println(out.stdout, JSON.stringify(empty("archived", read2)));
+  else println(out.stdout, archivedLine(name3));
+  return 1;
+}
 async function show(args, env) {
   const { positional, flags } = parseArgs("business", args, { booleans: ["json"] });
   if (positional.length !== 1 || positional[0] !== "show") throw usageError(USAGE8);
@@ -39970,6 +40062,7 @@ async function show(args, env) {
   }
   const read2 = businessOf(reply);
   if (!read2) return print(out, empty("refused"), [`refused (the reply is not a business) ${CARRY_ON}`]);
+  if (read2.state === "archived" && read2.product) return archived(out, read2);
   return print(out, ...shown2(repo, read2));
 }
 var business = {
@@ -39990,7 +40083,7 @@ var business = {
 
 // kit/bin/commands/bug.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync44 } from "node:fs";
+import { readFileSync as readFileSync45 } from "node:fs";
 import { resolve as resolve4 } from "node:path";
 
 // kit/lib/bug/product.ts
@@ -40973,19 +41066,19 @@ function fixesViolations(config3, sections, fixes) {
 
 // kit/lib/bug/verdict.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync41, statSync as statSync9 } from "node:fs";
-import { isAbsolute as isAbsolute5, join as join49, normalize } from "node:path";
+import { readFileSync as readFileSync42, statSync as statSync9 } from "node:fs";
+import { isAbsolute as isAbsolute5, join as join50, normalize } from "node:path";
 
 // kit/lib/fix-verdict.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync35, readdirSync as readdirSync17 } from "node:fs";
-import { join as join48 } from "node:path";
+import { join as join49 } from "node:path";
 var RASTER_DATA_URL = /data:image\/(?!svg\+xml)[a-z0-9.+-]+/i;
 function issuePrefix(issue2) {
   return `${String(issue2).padStart(4, "0")}-`;
 }
 function numberedFolders(ctx, root, prefix) {
-  const absolute = join48(ctx.root, root);
+  const absolute = join49(ctx.root, root);
   if (!existsSync35(absolute)) return [];
   return readdirSync17(absolute, { withFileTypes: true }).filter((entry3) => entry3.isDirectory() && entry3.name.startsWith(prefix) && entry3.name.length > prefix.length).map((entry3) => `${root}/${entry3.name}`).sort();
 }
@@ -41048,7 +41141,7 @@ function parseSections(text15) {
 }
 function isFile(ctx, path) {
   try {
-    return statSync9(join49(ctx.root, path)).isFile();
+    return statSync9(join50(ctx.root, path)).isFile();
   } catch {
     return false;
   }
@@ -41091,7 +41184,7 @@ function reproductionsViolations(ctx, record2, sections, changed) {
   return reproduction ? reproductionViolations(ctx, record2, reproduction, changed) : [];
 }
 function recordSections(ctx, record2) {
-  return isFile(ctx, record2) ? parseSections(readFileSync41(join49(ctx.root, record2), "utf8")) : void 0;
+  return isFile(ctx, record2) ? parseSections(readFileSync42(join50(ctx.root, record2), "utf8")) : void 0;
 }
 function recordViolations(ctx, record2, changed) {
   const sections = recordSections(ctx, record2);
@@ -41319,9 +41412,9 @@ function openPullRequest({ root, exec }) {
 
 // kit/lib/product/checkout.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync42, writeFileSync as writeFileSync21 } from "node:fs";
-import { join as join50 } from "node:path";
-var PRODUCT_FILE = join50(LOCAL_DIR, "product.json");
+import { readFileSync as readFileSync43, writeFileSync as writeFileSync22 } from "node:fs";
+import { join as join51 } from "node:path";
+var PRODUCT_FILE = join51(LOCAL_DIR, "product.json");
 var isProductKey = (key2) => ProductPrdIdSchema.safeParse(`${key2}-1`).success;
 var RememberedSchema = external_exports.object({
   key: external_exports.string().refine(isProductKey),
@@ -41331,14 +41424,14 @@ function rememberProduct(root, key2, now2) {
   if (!isProductKey(key2)) throw new Error(`not a product key: ${key2} (lowercase kebab-case, as mobile)`);
   const remembered = { key: key2, usedAt: now2.toISOString() };
   ensureLocalDir(root);
-  writeFileSync21(join50(root, PRODUCT_FILE), `${JSON.stringify(remembered, null, 2)}
+  writeFileSync22(join51(root, PRODUCT_FILE), `${JSON.stringify(remembered, null, 2)}
 `);
   return remembered;
 }
 function rememberedProduct(root) {
   let value;
   try {
-    value = JSON.parse(readFileSync42(join50(root, PRODUCT_FILE), "utf8"));
+    value = JSON.parse(readFileSync43(join51(root, PRODUCT_FILE), "utf8"));
   } catch {
     return null;
   }
@@ -41413,8 +41506,8 @@ function branchVerdictCommand({
 
 // kit/bin/commands/bug-film.ts
 init_define_OMNI_BUNDLE();
-import { copyFileSync as copyFileSync2, existsSync as existsSync36, mkdirSync as mkdirSync16, readFileSync as readFileSync43, statSync as statSync10, writeFileSync as writeFileSync22 } from "node:fs";
-import { join as join51 } from "node:path";
+import { copyFileSync as copyFileSync2, existsSync as existsSync36, mkdirSync as mkdirSync16, readFileSync as readFileSync44, statSync as statSync10, writeFileSync as writeFileSync23 } from "node:fs";
+import { join as join52 } from "node:path";
 
 // kit/lib/bug/film.ts
 init_define_OMNI_BUNDLE();
@@ -41830,8 +41923,8 @@ function askOf(args, { ctx }) {
   const after = inputFile(ctx, "--after", flags.after);
   const kind = filmKind(before2, after);
   if (!kind) throw usageError("omni bug film: --before and --after are two .txt files or two .webm files.");
-  const red2 = kind === "text" ? readFileSync43(before2, "utf8") : "";
-  const green2 = kind === "text" ? readFileSync43(after, "utf8") : "";
+  const red2 = kind === "text" ? readFileSync44(before2, "utf8") : "";
+  const green2 = kind === "text" ? readFileSync44(after, "utf8") : "";
   return { issue: issue2, slug: repoSlug("bug film", ctx, void 0), before: before2, after, kind, red: red2, green: green2, out: flags.out };
 }
 function copying(from, to) {
@@ -41840,16 +41933,16 @@ function copying(from, to) {
   });
 }
 function makeGif({ kind, red: red2, green: green2 }, out, exec) {
-  const gif = join51(out, "preview.gif");
+  const gif = join52(out, "preview.gif");
   const [redName, greenName] = copiedNames(kind);
   if (kind === "text") {
     writing(gif, () => {
-      writeFileSync22(gif, filmGif(red2, green2));
+      writeFileSync23(gif, filmGif(red2, green2));
     });
     return null;
   }
   try {
-    exec("ffmpeg", filmArgs({ before: join51(out, redName), after: join51(out, greenName), out: gif }), { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    exec("ffmpeg", filmArgs({ before: join52(out, redName), after: join52(out, greenName), out: gif }), { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     return null;
   } catch (error62) {
     return lastLine(error62);
@@ -41863,13 +41956,13 @@ function makeFolder(args, io, now2) {
     println(stderr, "ffmpeg not found");
     return 1;
   }
-  const out = ask6.out === void 0 ? join51(ctx.root, ctx.config.worktrees, `proof-bug-${issue2}`, stamp(now2)) : inRoot(ctx, ask6.out);
+  const out = ask6.out === void 0 ? join52(ctx.root, ctx.config.worktrees, `proof-bug-${issue2}`, stamp(now2)) : inRoot(ctx, ask6.out);
   const [redName, greenName] = copiedNames(kind);
   writing(out, () => {
     mkdirSync16(out, { recursive: true });
   });
-  copying(before2, join51(out, redName));
-  copying(after, join51(out, greenName));
+  copying(before2, join52(out, redName));
+  copying(after, join52(out, greenName));
   const failed4 = makeGif(ask6, out, exec);
   if (failed4 !== null) {
     println(stderr, `ffmpeg failed: ${failed4}`);
@@ -41877,9 +41970,9 @@ function makeFolder(args, io, now2) {
   }
   const commit = exec("git", ["rev-parse", "HEAD"], { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   const url2 = `https://github.com/${ask6.slug}/issues/${issue2}`;
-  const runFile2 = join51(out, "run.json");
+  const runFile2 = join52(out, "run.json");
   writing(runFile2, () => {
-    writeFileSync22(runFile2, `${JSON.stringify(runJson({ commit, url: url2, kind, red: red2, green: green2 }), null, 2)}
+    writeFileSync23(runFile2, `${JSON.stringify(runJson({ commit, url: url2, kind, red: red2, green: green2 }), null, 2)}
 `);
   });
   println(stdout, out);
@@ -41945,7 +42038,7 @@ async function prepare(verb2, rest, io) {
   const args = productArgs(verb2, rest);
   let record2;
   try {
-    record2 = readFileSync44(resolve4(io.ctx.root, args.file), "utf8");
+    record2 = readFileSync45(resolve4(io.ctx.root, args.file), "utf8");
   } catch {
     return refuse(io.stderr, `${args.file} cannot be read`);
   }
@@ -42009,12 +42102,12 @@ import { join as join66 } from "node:path";
 // kit/lib/inbox/check-inbox.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync38, readdirSync as readdirSync18, statSync as statSync11 } from "node:fs";
-import { basename as basename9, dirname as dirname11, join as join53 } from "node:path";
+import { basename as basename9, dirname as dirname11, join as join54 } from "node:path";
 
 // kit/lib/roadmap/index.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync37 } from "node:fs";
-import { join as join52 } from "node:path";
+import { join as join53 } from "node:path";
 
 // kit/lib/inbox/inbox.ts
 init_define_OMNI_BUNDLE();
@@ -42073,7 +42166,7 @@ function roadmapsDir(ctx) {
 }
 function roadmapFiles(ctx) {
   const dir = roadmapsDir(ctx);
-  return prdFoldersIn(join52(ctx.root, dir)).map(({ name: name3, prd: prd2 }) => ({
+  return prdFoldersIn(join53(ctx.root, dir)).map(({ name: name3, prd: prd2 }) => ({
     number: parseIssue(prd2),
     dir: `${dir}/${name3}`,
     file: `${dir}/${name3}/roadmap.md`
@@ -42082,13 +42175,13 @@ function roadmapFiles(ctx) {
 function prdFacts(ctx, prd2) {
   const specFile = ctx.layout.specPath(prd2);
   if (specFile === null) return "no-folder";
-  if (!existsSync37(join52(ctx.root, specFile))) return "unreadable";
+  if (!existsSync37(join53(ctx.root, specFile))) return "unreadable";
   const parsed2 = parseSpec(readRepoFile(ctx, specFile), { file: specFile });
   return parsed2.ok ? { blockedBy: parsed2.record.blockedBy } : "unreadable";
 }
 function gradeRoadmapFile(ctx, entry3) {
   const at2 = (message2) => `${entry3.file}: ${message2}`;
-  if (!existsSync37(join52(ctx.root, entry3.file))) return { ...entry3, roadmap: null, violations: [at2("roadmap.md is missing.")] };
+  if (!existsSync37(join53(ctx.root, entry3.file))) return { ...entry3, roadmap: null, violations: [at2("roadmap.md is missing.")] };
   const parsed2 = parseRoadmap(readRepoFile(ctx, entry3.file));
   if (!parsed2.ok) return { ...entry3, roadmap: null, violations: parsed2.errors.map(at2) };
   const { roadmap: roadmap2 } = parsed2;
@@ -42109,7 +42202,7 @@ function findRoadmapViolations(ctx) {
 
 // kit/lib/inbox/check-inbox.ts
 function knownAreas(ctx) {
-  const dir = join53(ctx.root, domainsDir(ctx));
+  const dir = join54(ctx.root, domainsDir(ctx));
   if (!existsSync38(dir)) return /* @__PURE__ */ new Set();
   return new Set(
     readdirSync18(dir, { withFileTypes: true }).filter((entry3) => entry3.isDirectory()).map((entry3) => entry3.name)
@@ -42128,7 +42221,7 @@ function violationsForFile(file2, folder, text15, ctx) {
       `${file2}: prd ${record2.prd} does not agree with its folder's number, ${folderPrd} ("${folder}").`
     );
   }
-  if (record2.areas?.length && existsSync38(join53(ctx.root, ctx.layout.knowledgeRoot))) {
+  if (record2.areas?.length && existsSync38(join54(ctx.root, ctx.layout.knowledgeRoot))) {
     const known2 = knownAreas(ctx);
     for (const area2 of record2.areas) {
       if (!known2.has(area2)) {
@@ -42153,21 +42246,21 @@ function blockedByViolations2(records, ctx) {
   return violations;
 }
 function beforeAfterViolation(file2, ctx) {
-  const absolute = join53(ctx.root, file2);
+  const absolute = join54(ctx.root, file2);
   if (!existsSync38(absolute)) return null;
   const { size } = statSync11(absolute);
   if (size <= ctx.config.limits.beforeAfterMaxBytes) return null;
   return `${file2}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
 function voiceViolations(file2, ctx) {
-  if (!existsSync38(join53(ctx.root, file2))) return [];
+  if (!existsSync38(join54(ctx.root, file2))) return [];
   return parseVoice(readRepoFile(ctx, file2)).errors.map((error62) => `${file2}: ${error62}`);
 }
 function gradeFolder(specFile, ctx) {
   const folder = basename9(dirname11(specFile));
   const violations = [];
   let record2 = null;
-  if (!existsSync38(join53(ctx.root, specFile))) {
+  if (!existsSync38(join54(ctx.root, specFile))) {
     violations.push(`${specFile}: spec.md is missing.`);
   } else {
     const text15 = readRepoFile(ctx, specFile);
@@ -42195,13 +42288,13 @@ function findInboxViolations({ ctx }) {
 
 // kit/lib/knowledge/check-knowledge.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync40, readFileSync as readFileSync46, statSync as statSync12 } from "node:fs";
-import { join as join55 } from "node:path";
+import { existsSync as existsSync40, readFileSync as readFileSync47, statSync as statSync12 } from "node:fs";
+import { join as join56 } from "node:path";
 
 // kit/lib/codeowners-laws.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync39, mkdirSync as mkdirSync17, readFileSync as readFileSync45, writeFileSync as writeFileSync23 } from "node:fs";
-import { dirname as dirname12, join as join54 } from "node:path";
+import { existsSync as existsSync39, mkdirSync as mkdirSync17, readFileSync as readFileSync46, writeFileSync as writeFileSync24 } from "node:fs";
+import { dirname as dirname12, join as join55 } from "node:path";
 var DEFAULT_CODEOWNERS = ".github/CODEOWNERS";
 function testPaths(enforcedBy2) {
   return enforcedBy2.split(",").map((part) => (part.replace(/`/g, "").trim().split("#")[0] ?? "").trim()).filter(Boolean);
@@ -42224,8 +42317,8 @@ function expectedOwnersBlock(ctx, knowledge2 = readKnowledge({ ctx })) {
 }
 function codeownersFile(ctx) {
   for (const file2 of CODEOWNERS_FILES) {
-    const absolute = join54(ctx.root, file2);
-    if (existsSync39(absolute)) return { file: file2, text: readFileSync45(absolute, "utf8") };
+    const absolute = join55(ctx.root, file2);
+    if (existsSync39(absolute)) return { file: file2, text: readFileSync46(absolute, "utf8") };
   }
   return { file: DEFAULT_CODEOWNERS, text: null };
 }
@@ -42258,9 +42351,9 @@ function writeOwnersBlock(ctx) {
     throw new Error(`${file2}: ${messageOf(error62)}.`, { cause: error62 });
   }
   if (next2 === text15) return { file: file2, wrote: false, paths };
-  const absolute = join54(ctx.root, file2);
+  const absolute = join55(ctx.root, file2);
   mkdirSync17(dirname12(absolute), { recursive: true });
-  writeFileSync23(absolute, next2);
+  writeFileSync24(absolute, next2);
   return { file: file2, wrote: true, paths };
 }
 
@@ -42284,13 +42377,13 @@ function findOwningLibraryViolations(ctx, knowledge2) {
   if (ctx.copyOf) return violations;
   for (const domain2 of knowledge2.domains) {
     const readme = `${domainsDir(ctx)}/${domain2.name}/README.md`;
-    if (!existsSync40(join55(ctx.root, readme))) continue;
-    const section6 = readFileSync46(join55(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
+    if (!existsSync40(join56(ctx.root, readme))) continue;
+    const section6 = readFileSync47(join56(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
     if (!section6) continue;
     const listed2 = section6.split(/^## /m)[0] ?? "";
     for (const match of listed2.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
       const path = (match[1] ?? "").replace(/\/$/, "");
-      if (!existsSync40(join55(ctx.root, path))) {
+      if (!existsSync40(join56(ctx.root, path))) {
         violations.push(
           violation(readme, domain2.name, `names owning library ${path}, which does not exist.`)
         );
@@ -42442,8 +42535,8 @@ function missingPathViolations(ctx, entry3, label2, value, { onlyPathLike }) {
   for (const part of partsOf(value)) {
     if (onlyPathLike && !PATH_LIKE.test(part)) continue;
     const [path = "", anchor2] = part.split("#");
-    if (anchor2 && existsSync40(join55(ctx.root, path)) && path.endsWith(".md")) {
-      if (!headingAnchors(readFileSync46(join55(ctx.root, path), "utf8")).has(anchor2.toLowerCase())) {
+    if (anchor2 && existsSync40(join56(ctx.root, path)) && path.endsWith(".md")) {
+      if (!headingAnchors(readFileSync47(join56(ctx.root, path), "utf8")).has(anchor2.toLowerCase())) {
         violations.push(
           violation(
             entry3.file,
@@ -42454,7 +42547,7 @@ function missingPathViolations(ctx, entry3, label2, value, { onlyPathLike }) {
       }
       continue;
     }
-    if (!existsSync40(join55(ctx.root, path))) {
+    if (!existsSync40(join56(ctx.root, path))) {
       violations.push(
         violation(
           entry3.file,
@@ -42596,7 +42689,7 @@ function contractViolations2(ctx, entry3) {
       continue;
     }
     if (ctx.copyOf) continue;
-    const absolute = join55(ctx.root, path);
+    const absolute = join56(ctx.root, path);
     if (!existsSync40(absolute)) {
       violations.push(violation(entry3.file, entry3.id, `points to "${path}", which does not exist \u2014 fix its "Points to:" line.`));
     } else if (!statSync12(absolute).isFile()) {
@@ -42737,89 +42830,6 @@ function servedLegalIds(entries4) {
 
 // kit/lib/knowledge/check-knowledge-legal.ts
 init_define_OMNI_BUNDLE();
-
-// kit/lib/product/knowledge.ts
-init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync47, writeFileSync as writeFileSync24 } from "node:fs";
-import { join as join56 } from "node:path";
-var PRODUCT_KNOWLEDGE_FILE = join56(LOCAL_DIR, "product-knowledge.json");
-var LegalSchema = external_exports.object({ id: external_exports.string().min(1), statement: external_exports.string(), source: external_exports.string(), owner: external_exports.string() });
-var TermSchema = external_exports.object({ term: external_exports.string().min(1), meaning: external_exports.string(), avoid: external_exports.array(external_exports.string()) });
-var ReplySchema = external_exports.object({
-  product: external_exports.object({ name: external_exports.string().min(1) }).nullable().optional(),
-  legal: external_exports.array(LegalSchema).optional(),
-  glossary: external_exports.array(TermSchema).optional()
-});
-var CopySchema2 = external_exports.object({
-  product: external_exports.string(),
-  readAt: external_exports.iso.datetime(),
-  legal: external_exports.array(LegalSchema),
-  glossary: external_exports.array(TermSchema)
-});
-var NOTHING_READ2 = "no product knowledge: the Omni page is unreachable and nothing was read yet";
-function knowledgeOfReply(reply, repo) {
-  const parsed2 = ReplySchema.safeParse(reply);
-  if (!parsed2.success) {
-    const issue2 = parsed2.error.issues[0];
-    throw new Error(`the Omni page answered no product knowledge for ${repo}: ${issue2 ? `${issue2.path.join(".")} ${issue2.message}` : "out of shape"}`);
-  }
-  const { product: product2, legal = [], glossary = [] } = parsed2.data;
-  if (!product2) throw new Error(`no product knowledge: ${repo} belongs to no product on the Omni page`);
-  return { product: product2.name, legal, glossary };
-}
-function readCopy2(root) {
-  let value;
-  try {
-    value = JSON.parse(readFileSync47(join56(root, PRODUCT_KNOWLEDGE_FILE), "utf8"));
-  } catch {
-    return null;
-  }
-  const kept = CopySchema2.safeParse(value);
-  return kept.success ? kept.data : null;
-}
-function readCachedKnowledge(root) {
-  let text15;
-  try {
-    text15 = readFileSync47(join56(root, PRODUCT_KNOWLEDGE_FILE), "utf8");
-  } catch {
-    return { state: "absent" };
-  }
-  let value;
-  try {
-    value = JSON.parse(text15);
-  } catch {
-    return { state: "unreadable" };
-  }
-  const kept = CopySchema2.safeParse(value);
-  return kept.success ? { state: "cached", ...kept.data } : { state: "unreadable" };
-}
-var unanswered2 = (error62) => error62.status === null || error62.status >= 500;
-async function productKnowledge({ repo, root, now: now2, fetchBusiness }) {
-  let reply;
-  try {
-    reply = await fetchBusiness();
-  } catch (error62) {
-    if (!(error62 instanceof AskCallError)) throw error62;
-    if (unanswered2(error62)) {
-      const copy = readCopy2(root);
-      if (copy === null) throw new Error(NOTHING_READ2);
-      return { from: "copy", ...copy };
-    }
-    throw new Error(`the Omni page refused the product knowledge of ${repo} (${error62.status}): ${error62.reason ?? error62.message}`);
-  }
-  const known2 = knowledgeOfReply(reply, repo);
-  ensureLocalDir(root);
-  writeFileSync24(join56(root, PRODUCT_KNOWLEDGE_FILE), `${JSON.stringify({ ...known2, readAt: now2().toISOString() }, null, 2)}
-`);
-  return { from: "server", ...known2 };
-}
-function unreachableLine(readAt) {
-  return `last read ${readAt.slice(0, 10)}: the Omni page is unreachable`;
-}
-var legalLines = (legal) => legal.map(({ id, statement: statement2, source: source2, owner }) => `${id}  ${statement2}  (source: ${source2}; owner: @${owner})`);
-var glossaryLines = (glossary) => glossary.map(({ term, meaning, avoid }) => `${term}: ${meaning}  (avoid: ${avoid.length > 0 ? avoid.join(", ") : "none"})`);
-
-// kit/lib/knowledge/check-knowledge-legal.ts
 var NONE2 = { violations: [], notes: [] };
 async function verifyServedLegal({ ctx, entries: entries4, cwd, exec, reach: reach4 }) {
   const served = servedLegalIds(entries4);

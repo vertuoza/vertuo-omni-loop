@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { orThrow, parseRows } from '../data/parse-rows';
+import { IsOwner } from '../business/constituents-rows';
+import { orThrow, parseRow, parseRows } from '../data/parse-rows';
+import { ArchiveAnswerSchema, type ArchiveAnswer } from './product-archive.contract';
 import { PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // The product home's storage (PRD 1364 s9; ADR-0095): the reads behind /app/products/<id>, as the
@@ -14,14 +16,25 @@ import { PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts
 // Since PRD 1548 s9, its Questions tab's: the product's key (products.key), its product PRDs (dossiers of
 // kind `prd` keyed by the product's counter, `mobile-12`), their outbox items with whether each is settled
 // (outbox_items, outbox_settlements), and the GitHub logins of the PRDs' authors (players). A failed read throws, and an answer out of shape too. No rule lives here: which lane a
-// PRD is on is product-home.service.ts's.
+// PRD is on is product-home.service.ts's. Since PRD 2232 s1, when and by whom the product was archived
+// (products.archived_at, archived_by), whether the caller owns the workspace (is_owner()), and the owner's
+// Archive and Restore (product_archive(), product_restore()), a refusal answered in the database's code
+// and words.
 
 /** What the product home's reads need: the tables and the database's functions. */
 export type ProductHomeDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 type From = Pick<SupabaseClient, 'from'>;
 
-const PRODUCT_COLUMNS = 'id, name, key';
-export const StoredProduct = z.object({ id: z.string(), name: z.string(), key: z.string().nullable() });
+const PRODUCT_COLUMNS = 'id, name, key, archived_at, archived_by';
+export const StoredProduct = z.object({
+  id: z.string(),
+  name: z.string(),
+  key: z.string().nullable(),
+  /** When an owner archived it, null while it is live (PRD 2232); only an owner reads it then. */
+  archived_at: z.string().nullable(),
+  /** Who archived it; null while it is live, or once their account is gone. */
+  archived_by: z.string().nullable(),
+});
 type Product = z.infer<typeof StoredProduct>;
 
 const PRODUCT_PRD_COLUMNS = 'id, product_seq, title, opened_by, created_at';
@@ -272,7 +285,19 @@ const why = (error: { message: string }) => error.message;
 const WHERE = 'product-home/product-home.repository';
 
 /** What a function call answers: its body, unparsed, or its error. */
-type RpcAnswer = { data: unknown; error: { message: string } | null };
+type RpcAnswer = { data: unknown; error: { code?: string; message: string } | null };
+
+/** A write the database refused, by its code and in its words. */
+export type Refused = { ok: false; code: string | null; message: string };
+/** What Archive and Restore answer: the product as the database left it, or its refusal. */
+type Archiving = { ok: true; answer: ArchiveAnswer } | Refused;
+
+/** Calls product_archive() or product_restore() on `product`: the row as it is left, or the refusal. */
+async function archiving(db: ProductHomeDb, fn: 'product_archive' | 'product_restore', product: string): Promise<Archiving> {
+  const answer: RpcAnswer = await db.rpc(fn, { p_product: product });
+  if (answer.error) return { ok: false, code: answer.error.code || null, message: answer.error.message };
+  return { ok: true, answer: orThrow(parseRow(ArchiveAnswerSchema, answer.data, `${WHERE}: ${fn}`)) };
+}
 
 export function productHomeRepository(db: ProductHomeDb) {
   return {
@@ -396,6 +421,19 @@ export function productHomeRepository(db: ProductHomeDb) {
       if (error) throw new Error(`Supabase: could not read the PRDs' approvals (${why(error)})`);
       return orThrow(parseRows(StoredApproval, data, `${WHERE}: approvals`));
     },
+
+    /** Whether the caller owns the workspace (PRD 2232 s1): only an owner archives and restores. */
+    async owner(workspace: string): Promise<boolean> {
+      const answer: RpcAnswer = await db.rpc('is_owner', { workspace });
+      if (answer.error) throw new Error(`Supabase: could not read your role (${why(answer.error)})`);
+      return orThrow(parseRow(IsOwner, answer.data, `${WHERE}: is_owner`));
+    },
+
+    /** Archives the product, through product_archive(): an owner's only. */
+    archive: (product: string): Promise<Archiving> => archiving(db, 'product_archive', product),
+
+    /** Restores the product as it was, through product_restore(): an owner's only. */
+    restore: (product: string): Promise<Archiving> => archiving(db, 'product_restore', product),
 
     /** The voids of `dossiers`' approvals. */
     async voids(dossiers: readonly string[]): Promise<StoredVoid[]> {

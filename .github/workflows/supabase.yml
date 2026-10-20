@@ -368,6 +368,12 @@ jobs:
         # api_key_of() runs for the service role only and answers nothing for a revoked key, a key whose
         # maker left, a business link or a kit token; last used moves once a minute (PRD 2022).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/api_keys.sql
+      - name: Who archives and restores a product, and what stops answering for it
+        # Only a workspace's owner archives or restores a product; a member no longer reads it, an owner
+        # does. Every lookup the kit and agents use skips it, the owner's too, and says so in words; a call
+        # naming it by key or id is refused (P0002); nothing under it is erased, and restore brings it all
+        # back (PRD 2232).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/product_archive.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

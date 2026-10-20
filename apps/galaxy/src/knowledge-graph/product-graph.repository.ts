@@ -13,7 +13,8 @@ import { orThrow, parseRows } from '../data/parse-rows';
 /** What the reads need: the tables. */
 export type ProductGraphDb = Pick<SupabaseClient<Database>, 'from'>;
 
-const StoredProduct = z.object({ id: z.string().min(1), key: z.string().nullable(), name: z.string() });
+// `archived_at` is set once an owner archived the product (PRD 2232): row-level security still lets an owner read it.
+const StoredProduct = z.object({ id: z.string().min(1), key: z.string().nullable(), name: z.string(), archived_at: z.string().nullable().optional() });
 export type StoredProductRow = z.infer<typeof StoredProduct>;
 
 const StoredLink = z.object({ repository: z.string().min(1), knowledge: z.enum(['own', 'imported', 'none']) });
@@ -23,7 +24,7 @@ const StoredNever = z.object({ seq: z.number().int(), body: z.string(), removed_
 const StoredGraph = z.object({ sha: z.string().min(1), graph: RepositoryGraphSchema, pushed_at: z.string().min(1), pushed_by_login: z.string().nullable() });
 export type StoredGraphRow = z.infer<typeof StoredGraph>;
 
-const PRODUCT_COLUMNS = 'id, key, name';
+const PRODUCT_COLUMNS = 'id, key, name, archived_at';
 
 /** The rows of a read, or a thrown error naming it. */
 function rowsOf<T>(schema: z.ZodType<T>, { data, error }: { data: unknown; error: { message: string } | null }, what: string, table: string): T[] {
@@ -33,9 +34,9 @@ function rowsOf<T>(schema: z.ZodType<T>, { data, error }: { data: unknown; error
 
 export function productGraphRepository(db: ProductGraphDb) {
   return {
-    /** The product keyed `key` the caller reads: the oldest, when two of their workspaces hold the key. */
+    /** The product keyed `key` the caller reads: a live one before an archived one, then the oldest, when two of their workspaces hold the key. */
     async productByKey(key: string): Promise<StoredProductRow | null> {
-      const answer = await db.from('products').select(PRODUCT_COLUMNS).eq('key', key).order('created_at').order('id').limit(1);
+      const answer = await db.from('products').select(PRODUCT_COLUMNS).eq('key', key).order('archived_at', { ascending: true, nullsFirst: true }).order('created_at').order('id').limit(1);
       return rowsOf(StoredProduct, answer, `the product ${key}`, 'products')[0] ?? null;
     },
 

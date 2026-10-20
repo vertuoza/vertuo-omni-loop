@@ -1,7 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { orThrow, parseRows } from '../data/parse-rows';
+import { orThrow, parseRow, parseRows } from '../data/parse-rows';
 import { PRODUCT_COLUMNS } from './model';
+
+const LISTED_COLUMNS = `${PRODUCT_COLUMNS}, archived_at, archived_by`;
 
 // The products' storage (PRD 1364 s8; ADR-0095): the reads behind /app/products, as the signed-in person,
 // so row-level security has the last word. The workspace's products (the same read Settings › Products
@@ -20,6 +22,10 @@ export const StoredProductRow = z.object({
   name: z.string(),
   pitch_look: z.string().nullable(),
   pitch: z.unknown().optional(),
+  /** When an owner archived it (PRD 2232); null while it is live. Only an owner's read holds archived rows. */
+  archived_at: z.string().nullable().default(null),
+  /** Who archived it; null while live, or once their account is gone. */
+  archived_by: z.string().nullable().default(null),
 });
 type StoredProductRow = z.infer<typeof StoredProductRow>;
 
@@ -32,6 +38,11 @@ const REPOSITORY_COLUMNS = 'full_name';
 /** A repository of the workspace, by its `owner/name`. */
 const StoredRepository = z.object({ full_name: z.string() });
 
+/** A member's GitHub login, by user: the name an archived product shows (PRD 2232). */
+const StoredPlayer = z.object({ user_id: z.string(), github_login: z.string().nullable() });
+export type StoredPlayer = z.infer<typeof StoredPlayer>;
+const IsOwner = z.boolean();
+
 const DOSSIER_COLUMNS = 'id, kind, product_id';
 /** A dossier that carries a product: its id, its kind (`prd`, `bug`, `visual`, `concept`) and its product. */
 export const StoredProductDossier = z.object({ id: z.string(), kind: z.string(), product_id: z.string() });
@@ -42,7 +53,7 @@ const WaitingRequest = z.object({ dossier: z.string() });
 
 /** The workspace's products, first first: the read `pnpm schemas:verify` checks too. */
 export const productsOf = (db: Pick<SupabaseClient, 'from'>, workspace?: string) => {
-  const read = db.from('products').select(PRODUCT_COLUMNS);
+  const read = db.from('products').select(LISTED_COLUMNS);
   return (workspace === undefined ? read : read.eq('workspace_id', workspace)).order('ordinal');
 };
 
@@ -84,6 +95,21 @@ export function productsRepository(db: ProductsDb) {
       const { data, error } = await db.from('repositories').select(REPOSITORY_COLUMNS).eq('workspace_id', workspace).is('removed_at', null);
       if (error) throw new Error(`Supabase: could not read the repositories (${why(error)})`);
       return orThrow(parseRows(StoredRepository, data, 'products/products.repository: repositories')).map((r) => r.full_name);
+    },
+
+    /** Whether the caller owns the workspace (PRD 2232): only an owner reads archived products. */
+    async owner(workspace: string): Promise<boolean> {
+      const answer: RpcAnswer = await db.rpc('is_owner', { workspace });
+      if (answer.error) throw new Error(`Supabase: could not read your role (${why(answer.error)})`);
+      return orThrow(parseRow(IsOwner, answer.data, 'products/products.repository: is_owner'));
+    },
+
+    /** The GitHub logins of the workspace's members `users`. */
+    async players(workspace: string, users: readonly string[]): Promise<StoredPlayer[]> {
+      if (users.length === 0) return [];
+      const { data, error } = await db.from('players').select('user_id, github_login').eq('workspace_id', workspace).in('user_id', [...users]);
+      if (error) throw new Error(`Supabase: could not read the members' names (${why(error)})`);
+      return orThrow(parseRows(StoredPlayer, data, 'products/products.repository: players'));
     },
 
     /** The workspace's dossiers that carry a product. */
