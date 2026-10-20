@@ -4,20 +4,20 @@ form-version: 1
 state: filled
 points-to: null
 evidence:
-  - package.json@f886c74
-  - vitest.config.ts@347b309
-  - kit/test/dist.test.ts@c912f3a
-  - apps/galaxy/package.json@7ae2649
-  - .github/workflows/game.yml@d9f2da2
-  - .github/workflows/supabase.yml@f937511
-  - scripts/check-changed.ts@ad798a2
-  - scripts/check-changed-steps.ts@8cca656
+  - package.json@9870eaf
+  - vitest.config.ts@731c58f
+  - kit/test/dist.test.ts@0f196ea
+  - apps/galaxy/package.json@c9781fd
+  - .github/workflows/game.yml@4bf6bd0
+  - .github/workflows/supabase.yml@a4bc540
+  - scripts/check-changed.ts@1d62baa
+  - scripts/check-changed-steps.ts@2d48772
   - scripts/lint.ts@efc3f1b
   - scripts/lint-repository.ts@b154f4c
-  - .github/workflows/checks.yml@2ee982c
+  - .github/workflows/checks.yml@af9027a
   - scripts/check-changed-hooks.ts@c844953
   - .github/workflows/quick.yml@2fe8e9e
-terraformed: 2026-09-25
+invaded: 2026-10-20
 ---
 
 # Verification
@@ -25,7 +25,7 @@ terraformed: 2026-09-25
 Use this page when handing off changes: what must be green before a pull request, and before a push.
 
 ## The preflight
-<!-- slot: preflight · required · by: terraform · verified: 2026-09-25 -->
+<!-- slot: preflight · required · by: invade · verified: 2026-10-20 -->
 `pnpm test` is the preflight, and the full preflight too: one vitest run over the whole workspace,
 as `vitest.config.ts` includes it. Among its tests, `kit/test/dist.test.ts` fails when
 `kit/dist/omni.mjs` differs from a fresh build: after a change to the kit's source or templates,

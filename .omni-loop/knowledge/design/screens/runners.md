@@ -13,7 +13,8 @@ supersedes: null
 
 The workspace's runners and the jobs sent to them: which machines are online, what each one is
 running, and where each job ended, with its pull request and a Terminal that shows its live log
-(the `runner-terminal` screen, PRD 1904). A workspace owner gives
+(the `runner-terminal` screen, PRD 1904), and the drawer where a person answers a bug fix that
+stopped for a decision (the `runner-need-human` screen, PRD 2255). A workspace owner gives
 a runner to a fleet here. It sits inside the app shell, a shared screen of its own, `app-shell`.
 
 ## Regions
@@ -29,13 +30,18 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
     Memory (`<used> of <total> GB`), Disk (`<free> GB free of <total>`) and Tokens
     (`<n> in 5 h · <n> today`, the four-count split in its title), each with the last hour's
     sparkline; a gauge past the runner's own limit reads in `--ask-red`.
-- **Jobs:** queued and running first, then the last 50 that ended. Each row shows the line, the
+- **Jobs:** queued and running first, then the jobs waiting for an answer whatever their age
+  (PRD 2255), then the last 50 that ended. Each row shows the line, the
   repository, who sent it, where it went, its status and its action.
   - Each row has a Terminal button, which opens the `runner-terminal` panel on that job and sets
     `?terminal=<job id>` on the URL.
   - A done job links its pull request. A yolo job that ended on its hand-off's last line reads its
     outcome in place of Done (PRD 2223): Waiting on answers or Held in `--ask-plasma`, Ready in
     `--ask-green`, with a PRD page link beside its pull request.
+  - A bug fix that stopped for a decision and asked on its job reads **Need human**, filled in
+    `--ask-plasma`, in place of Done (PRD 2255). Its action is a Need human button that opens the
+    `runner-need-human` drawer and sets `?answer=<job id>` on the URL; once answered or dismissed,
+    the job reads Done.
   - A job shows its tokens beside its status (`1.4M tokens`) once its runner reported them (PRD 2102).
   - A job that held claims when it ended lists, under its status in `--ask-red`, the sub-PRs its
     runner released: `Released #<n>, #<n>`, each linked; a release that failed reads `Could not
@@ -50,7 +56,7 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 - **No runner yet:** the page says how to start one, with `omni runner --name <name> --repos <dir>`
   to copy.
 - **A job's status:** Queued, Running with its time, Done (or its outcome: Waiting on answers, Held,
-  Ready), Failed with its reason (`runner lost`,
+  Ready, Need human), Failed with its reason (`runner lost`,
   `timeout`, the exit code), Cancelled.
 - **Paused** (PRD 2102): the runner's state reads `Paused: <reason>` in `--ask-red`, in place of
   Online or Busy, while its last report names a pressure.
@@ -67,12 +73,12 @@ Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Re
 Any runner · Status · Queued · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
 Cancel · Send again · Terminal · No job yet · API key · made by · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
-health · Released · Could not release this job's claims.
+health · Released · Could not release this job's claims · Need human.
 
 ## Refusals
 
 - No free-text prompt: a job is only a line the app copies, from the list of skills a runner may run.
-- No job runs again by itself: Send again is a person's press.
+- No job runs again by itself: Send again and Send answers are a person's press.
 
 ## Open questions
 
@@ -89,3 +95,4 @@ health · Released · Could not release this job's claims.
 /omni:brainstorm, PRD 2102: .omni-loop/delivery/shipped/2102-runner-health/before-after.html
 /omni:brainstorm, PRD 2175: .omni-loop/delivery/shipped/2175-runner-dead-claims/before-after.html
 /omni:brainstorm, PRD 2223: .omni-loop/delivery/shipped/2223-outbox-waiting/before-after.html
+/omni:brainstorm, PRD 2255: .omni-loop/delivery/shipped/2255-need-human/before-after.html
