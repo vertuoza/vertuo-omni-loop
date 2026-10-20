@@ -42,6 +42,7 @@ function reads(over: Partial<RoadmapPageReads> = {}): RoadmapPageReads {
     roadmapOfDossier: () => Promise.resolve(null),
     record: () => Promise.resolve(null),
     humanWork: (id) => Promise.resolve(id === ID ? [work(ID, 'outbox:881/s1-01', 'dev-ops', 'open'), work(ID, 'park:881', 'business', 'done')] : []),
+    shipped: () => Promise.resolve(new Map()),
     ...over,
   };
 }
@@ -119,6 +120,41 @@ describe('loadRoadmapPage', () => {
     expect(await loadRoadmapPage(reads({ workspace: () => Promise.resolve(null) }), { id: null, product: null }, NOW)).toEqual({ kind: 'no-workspace' });
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(await loadRoadmapPage(reads({ workspace: () => Promise.reject(new Error('down')) }), { id: null, product: null }, NOW)).toEqual({ kind: 'unreadable' });
+  });
+});
+
+// Issue #2258: the rows are as the last `omni roadmap push` left them, and a person's merge after the
+// drive stopped is never pushed. The PRD's shipped stage, which the app records from the merge itself,
+// reads it as merged all the same.
+describe('a PRD merged after the last push (#2258)', () => {
+  const MERGED_AT = '2026-10-19T14:14:59Z';
+  const pushed = (state: RoadmapPrdRow['state']): RoadmapPrdRow => ({ ...prd(ID, state), started_at: '2026-10-18T09:00:00Z' });
+  const shippedRead = vi.fn<RoadmapPageReads['shipped']>(() => Promise.resolve(new Map([[parsePrd(881), MERGED_AT]])));
+  const stale = (state: RoadmapPrdRow['state'], shipped = shippedRead) => reads({ prds: () => Promise.resolve([pushed(state)]), shipped });
+
+  it('reads a PRD pushed as waiting for merge as merged once the app recorded it shipped, ended at its merge', async () => {
+    const view = await loadRoadmapPage(stale('ready'), { id: ID, product: null }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    expect(view.roadmap.gantt.rows.map((r) => [r.state, r.waitsOn])).toEqual([['merged', null]]);
+    expect(view.roadmap.gantt.median).toBe(Date.parse(MERGED_AT) - Date.parse('2026-10-18T09:00:00Z'));
+    expect(shippedRead).toHaveBeenCalledWith(OURS, 'acme/widgets', [parsePrd(881)]);
+  });
+
+  it('counts it merged in the list, with nothing left waiting on a merge', async () => {
+    const view = await loadRoadmapPage(stale('ready'), { id: null, product: null }, NOW);
+    expect(view.kind === 'list' ? view.roadmaps.filter((r) => r.id === ID).map((r) => [r.merged, r.ready, r.total]) : view.kind).toEqual([[1, 0, 1]]);
+  });
+
+  it('leaves a PRD closed unmerged as it was pushed', async () => {
+    const view = await loadRoadmapPage(stale('closed'), { id: ID, product: null }, NOW);
+    expect(view.kind === 'roadmap' ? view.roadmap.gantt.rows.map((r) => r.state) : view.kind).toEqual(['closed']);
+  });
+
+  it('keeps the pushed rows when the stages cannot be read, and logs it', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const view = await loadRoadmapPage(stale('ready', vi.fn(() => Promise.reject(new Error('down')))), { id: ID, product: null }, NOW);
+    expect(view.kind === 'roadmap' ? view.roadmap.gantt.rows.map((r) => r.state) : view.kind).toEqual(['ready']);
+    expect(logged).toHaveBeenCalledTimes(1);
   });
 });
 
