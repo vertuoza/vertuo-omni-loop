@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ~ the guards hold, the routing is open by choice"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-20",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The drawer traps focus and gives it back to the button, and Send answers waits until every question has one.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Only the server sets Need human, and the answer and the resume land in one transaction, as the release note says.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "I answer in a drawer from the issue's link, and the fix starts again with my answer: no terminal in between.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The Runners count tells me something waits, but anyone can still settle it and nobody is told.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Plain options or my own words, and Dismiss when the question is not mine to answer.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ~ anyone answers, nobody is told, as chosen"
     }
   ]
 }
