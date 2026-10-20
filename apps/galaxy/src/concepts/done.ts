@@ -5,18 +5,20 @@
 // security answers for them, and a concept they may not read is refused 403, the same words whether or
 // not it exists. The issue is closed or reopened as the omni-loop App, with a comment naming the caller
 // (./done-github.ts); only then are the concept's stored facts written (as the service role, as the
-// page's refresh does), so a GitHub failure changes nothing stored. A concept whose PR has not merged is
-// never marked done: it is in review. The token never reaches the browser (N-PRODUCT-17).
+// page's refresh does), so a GitHub failure changes nothing stored. The route closes a concept's issue
+// whatever its review state, one still in review included: the page's Mark done button shows only for a
+// concept in the inbox, and that is where the rule lives (BR-PRODUCT-121). The token never reaches the
+// browser (N-PRODUCT-17).
 import { z } from 'zod';
 import { parseIssue, type IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { refuse, reply } from '../business-api/reply';
-import type { ConceptFacts, FixIssue } from '../dossier/github/fix';
+import type { FixIssue } from '../dossier/github/fix';
 import { UNREAD } from '../dossier/github/summary';
 import { isDossierId, type Db } from '../dossier/page/source';
 import { rowKind } from '../dossier/page/work';
 import { dossierReader } from '../dossier/store';
 import { mergeConceptFacts } from '../fixes/facts/refresh';
-import { conceptFactsStore, type ConceptFactsStore } from '../fixes/facts/store';
+import type { ConceptFactsStore } from '../fixes/facts/store';
 
 /** The signed-in caller: a client acting as them, and their GitHub login (null when they have none). */
 export type Caller = { db: Pick<Db, 'from'>; login: string | null };
@@ -26,15 +28,12 @@ export type DoneDeps = {
   session: (() => Promise<Caller | null>) | null;
   /** Closes (`done`) or reopens the issue as the App, commenting as `login`; the issue as it stands; may throw. */
   setIssue: (repo: string, issue: IssueNumber, done: boolean, login: string) => Promise<FixIssue>;
-  /** The concept's stored facts as the caller reads them; null when none are stored. */
-  facts: (db: Pick<Db, 'from'>, concept: { id: string; workspace_id: string }) => Promise<ConceptFacts | null>;
   /** Stores what GitHub answered into the concept's facts (the service role); may throw. */
   keep: (concept: { id: string; workspace_id: string }, issue: FixIssue) => Promise<void>;
 };
 
 const MAX_BODY_BYTES = 1024;
 const NOT_MEMBER = 'Only a member of the concept\'s workspace may mark it done.';
-const NOT_MERGED = 'A concept whose concept PR has not merged cannot be marked done.';
 const NOT_ISSUED = 'This concept has no issue to close.';
 const NO_LOGIN = 'Sign in with GitHub to mark a concept done: the comment names you.';
 
@@ -55,21 +54,13 @@ async function bodyOf(request: Request): Promise<z.infer<typeof Body> | Response
   return parsed.success ? parsed.data : bad();
 }
 
-/** The concept's stored facts, as the caller reads them (row-level security applies). */
-export const storedFacts: DoneDeps['facts'] = async (db, { id, workspace_id }) =>
-  (await conceptFactsStore(db).readFacts(workspace_id, [id])).get(id) ?? null;
-
-/** Whether the concept PR its facts name has merged. */
-const merged = (facts: ConceptFacts | null) => !!facts && facts.pull !== UNREAD && facts.pull?.state === 'merged';
-
 const said = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** The concept the caller may mark done, with the login the comment names; or the Response that refuses. */
-async function markable(deps: DoneDeps, caller: Caller, id: string) {
+async function markable(caller: Caller, id: string) {
   const row = await dossierReader(caller.db).dossier(id);
   if (!row || rowKind(row) !== 'concept') return refuse(403, NOT_MEMBER);
   if (row.prd === null) return refuse(409, NOT_ISSUED);
-  if (!merged(await deps.facts(caller.db, row))) return refuse(409, NOT_MERGED);
   if (caller.login === null) return refuse(403, NO_LOGIN);
   return { row, prd: parseIssue(row.prd), login: caller.login };
 }
@@ -83,7 +74,7 @@ export async function markDone(request: Request, deps: DoneDeps): Promise<Respon
   if (body instanceof Response) return body;
   let found: Awaited<ReturnType<typeof markable>>;
   try {
-    found = await markable(deps, caller, body.concept);
+    found = await markable(caller, body.concept);
   } catch (error) {
     console.error(`concept done: ${said(error)}`);
     return refuse(500, 'The concept could not be read. Try again.');

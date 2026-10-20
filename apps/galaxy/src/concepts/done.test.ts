@@ -28,13 +28,11 @@ const issueAfter = (state: 'open' | 'closed'): FixIssue => ({
 
 let fake: ReturnType<typeof fakeSupabase>;
 let concept = '';
-let facts: ConceptFacts | null;
 let setIssue: ReturnType<typeof vi.fn<DoneDeps['setIssue']>>;
 let keep: ReturnType<typeof vi.fn<DoneDeps['keep']>>;
 
 const as = (token: string | null, login: string | null = 'bob-gh'): DoneDeps => ({
   session: () => Promise.resolve(token === null ? null : ({ db: fake.client(token) as unknown as Caller['db'], login } satisfies Caller)),
-  facts: () => Promise.resolve(facts),
   setIssue,
   keep,
 });
@@ -47,7 +45,6 @@ beforeEach(async () => {
     p_repo: 'acme/widgets', p_draft: null, p_prd: 1269, p_kind: 'concept', p_title: 'Products', p_artifacts: [{ kind: 'concept-record', content: CONCEPT_1269 }],
   });
   concept = (pushed.data as { id: string }).id;
-  facts = MERGED;
   setIssue = vi.fn<DoneDeps['setIssue']>((_repo, _issue, done) => Promise.resolve(issueAfter(done ? 'closed' : 'open')));
   keep = vi.fn<DoneDeps['keep']>(() => Promise.resolve());
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -55,7 +52,7 @@ beforeEach(async () => {
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe('POST /api/concepts/done', () => {
-  it('closes a merged concept\'s issue for a member, as them, then stores the issue', async () => {
+  it('closes a concept\'s issue for a member, as them, then stores the issue', async () => {
     const answer = await post(as('bob'), { concept, done: true });
     expect(answer.status).toBe(200);
     expect(await answer.json()).toEqual({ concept, issue: { number: 1269, state: 'closed' } });
@@ -91,12 +88,14 @@ describe('POST /api/concepts/done', () => {
     expect(setIssue).not.toHaveBeenCalled();
   });
 
-  it('refuses a concept still in review, or whose facts are not stored, with 409', async () => {
-    facts = { ...MERGED, pull: { ...(MERGED.pull as object), state: 'open', mergedAt: null } as ConceptFacts['pull'] };
-    expect((await post(as('bob'), { concept, done: true })).status).toBe(409);
-    facts = null;
-    expect((await post(as('bob'), { concept, done: true })).status).toBe(409);
-    expect(setIssue).not.toHaveBeenCalled();
+  it('closes or reopens the issue of a concept still in review for a member: the page\'s button decides where it shows (BR-PRODUCT-121)', async () => {
+    // The concept was only pushed: no merged concept PR is stored for it, so it reads as in review or unknown.
+    const answer = await post(as('bob'), { concept, done: true });
+    expect(answer.status).toBe(200);
+    expect(await answer.json()).toEqual({ concept, issue: { number: 1269, state: 'closed' } });
+    expect(setIssue).toHaveBeenCalledWith('acme/widgets', 1269, true, 'bob-gh');
+    expect((await post(as('bob'), { concept, done: false })).status).toBe(200);
+    expect(setIssue).toHaveBeenLastCalledWith('acme/widgets', 1269, false, 'bob-gh');
   });
 
   it('asks a caller with no GitHub login to sign in with it, changing nothing', async () => {
