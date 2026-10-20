@@ -6,11 +6,13 @@ import { SectionTabs } from '../nav/SectionTabs';
 import { SituationNotice, type Situation } from '../products/ProductsScreen';
 import { DEMO_ROADMAP_ONE_REPO } from '../roadmap/page/demo';
 import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { archivedLine } from './archive';
+import { ArchiveButton, RestoreButton } from './ArchiveControls';
 import type { Filter } from './constellation';
 import { ConstellationTab } from './ConstellationTab';
 import { BugsTab, IdeasTab, QuestionsTab, RoadmapTab, VisualTab } from './HomeTabs';
 import type { Birthplace, HomeFlight, HomePrd, HomeRepository, LaneId, LedgerRow, ProductHome as Home, PrChip } from './product-home.service';
-import { ledeOf, productHomeTabHref, productHomeTabs, type ProductHomeTab } from './tabs';
+import { ledeOf, productHomeTabHref, productHomeTabs, tabShown, type ProductHomeTab } from './tabs';
 
 // The product home, drawn (PRD 1364 s9): /app/products/<id>, the product's name, then its tabs. It opens on
 // the Ledger: a summary (building, waiting on a person, drifted), then what waits on whom in three lanes,
@@ -21,6 +23,11 @@ import { ledeOf, productHomeTabHref, productHomeTabs, type ProductHomeTab } from
 // at its own address (tabs.ts). The Repositories & approvers tab (/app/products/<id>/repositories, s11) draws
 // itself (src/product-repositories/RepositoriesTab.tsx) under these same tabs. Before the home, every
 // situation of /app/products.
+//
+// Since PRD 2232 s1, a workspace owner sees a quiet Archive beside the product's name (ArchiveControls.tsx);
+// a member sees none. An archived product, which only an owner reads, is read-only under a banner,
+// `Archived <ago> by <name>.`, with Restore, the page's one primary action; it has no Archive, and keeps only
+// the tabs that change nothing (tabs.ts).
 
 /** Products in the sidebar: where the home goes back to. */
 const PRODUCTS_HOME_HREF = '/app/products';
@@ -72,6 +79,8 @@ export function demoProductHome(id: string): Home | null {
   ];
   return {
     product: { id, name: 'Widgets' },
+    owner: true,
+    archived: null,
     ledger: {
       lanes: {
         'on-you': [
@@ -203,23 +212,42 @@ const PANELS: Readonly<Record<ProductHomeTab, (props: PanelProps) => ReactNode>>
   ledger: Ledger, constellation: ConstellationTab, prds: Prds, ideas: IdeasTab, roadmap: RoadmapTab, bugs: BugsTab, visual: VisualTab, questions: QuestionsTab,
 };
 
-function HomeScreen({ home, tab, demo, query }: { home: Home; tab: ProductHomeTab; demo: boolean; query: Filter }) {
-  const Panel = PANELS[tab];
+/** Over an archived product's home, for its owner: when and by whom, and Restore. */
+function ArchivedBanner({ home, demo, now }: { home: Home; demo: boolean; now: number }) {
+  if (home.archived === null) return null;
+  return (
+    <section className="product-home-archived" aria-label="Archived">
+      <p>{archivedLine(home.archived, now)}</p>
+      <RestoreButton product={home.product.id} name={home.product.name} demo={demo} />
+    </section>
+  );
+}
+
+function HomeScreen({ home, tab, demo, query, now }: { home: Home; tab: ProductHomeTab; demo: boolean; query: Filter; now: number }) {
+  const shown = tabShown(home, tab);
+  const Panel = PANELS[shown];
   return (
     <div className="ask-col products product-home">
+      <ArchivedBanner home={home} demo={demo} now={now} />
       <section className="ask-card products-head" aria-labelledby="product-home-title">
         <Link className="products-back" href={PRODUCTS_HOME_HREF}>← Products</Link>
-        <h1 id="product-home-title">{home.product.name}</h1>
-        <p className="ask-muted">{ledeOf(tab)}</p>
+        <div className="product-home-name">
+          <h1 id="product-home-title">{home.product.name}</h1>
+          {home.owner && home.archived === null
+            ? <ArchiveButton product={home.product.id} name={home.product.name} repositories={home.repositories.map((r) => r.repository)} demo={demo} />
+            : null}
+        </div>
+        <p className="ask-muted">{ledeOf(shown)}</p>
       </section>
-      <SectionTabs label={home.product.name} tabs={productHomeTabs(home)} current={productHomeTabHref(home, tab)} />
+      <SectionTabs label={home.product.name} tabs={productHomeTabs(home)} current={productHomeTabHref(home, shown)} />
       <Panel home={home} demo={demo} query={query} />
     </div>
   );
 }
 
-export function ProductHome({ view, tab, query = {} }: { view: ProductHomeView; tab: ProductHomeTab; query?: Filter }) {
-  if (view.kind === 'home') return <HomeScreen home={view.home} tab={tab} demo={view.demo === true} query={query} />;
+/** The product home on `tab`; `now` reads the archived banner's time (the server's, by default). */
+export function ProductHome({ view, tab, query = {}, now = Date.now() }: { view: ProductHomeView; tab: ProductHomeTab; query?: Filter; now?: number }) {
+  if (view.kind === 'home') return <HomeScreen home={view.home} tab={tab} demo={view.demo === true} query={query} now={now} />;
   if (view.kind === 'not-found') {
     return (
       <Notice title="No such product">

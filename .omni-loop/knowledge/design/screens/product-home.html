@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product home mockup</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts): the app pages' own
+     look, one dark theme. Faces named first, served by the app; here they fall back to system faces. */
+  :root {
+    color-scheme: dark;
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-yellow: #ff3ea5; --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --note: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
+  .wrap { max-width: 1320px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+  .note { font: 14px/1.55 var(--note); color: var(--ask-muted); display: grid; gap: 6px; }
+  .note h1 { margin: 0; font-size: 22px; color: var(--ask-ink); }
+  .note h2 { margin: 12px 0 0; font-size: 18px; color: var(--ask-plasma); letter-spacing: .02em; }
+  .note h3 { margin: 6px 0 0; font-size: 15px; color: var(--ask-ink); }
+  .note p { margin: 0; max-width: 90ch; }
+  .note b, .note code { color: var(--ask-ink); }
+  .note code { font: 13px var(--ask-mono); }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  @media (max-width: 980px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .side { display: grid; gap: 8px; min-width: 0; }
+  .side > h4 { margin: 0; font: 700 12px/1 var(--note); letter-spacing: .12em; text-transform: uppercase; color: var(--ask-muted); }
+  .side > h4.after { color: var(--ask-plasma); }
+  .cap { margin: 0; font: 13px/1.5 var(--note); color: var(--ask-muted); }
+  .cap b { color: var(--ask-ink); }
+
+  /* Functional part: exchanges and the row. */
+  pre { margin: 0; padding: 14px 16px; overflow-x: auto; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 10px;
+    font: 13px/1.6 var(--ask-mono); color: var(--ask-ink); }
+  pre .p { color: var(--ask-muted); }
+  pre .r { color: var(--ask-red); }
+  pre .g { color: var(--ask-green); }
+  pre .y { color: var(--ask-plasma); }
+  table.facts { width: 100%; border-collapse: collapse; font: 14px/1.5 var(--note); }
+  table.facts th, table.facts td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--ask-line); vertical-align: top; }
+  table.facts th { color: var(--ask-muted); font-weight: 600; }
+  table.facts td:first-child { color: var(--ask-ink); font-weight: 600; }
+  .tbl { overflow-x: auto; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 10px; }
+
+  /* The page area under the app bar (the app shell is its own shared screen). */
+  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; min-width: 0; }
+  .bar { padding: 10px 16px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong); font: 600 14px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .bar b { color: var(--ask-ink); }
+  .col { padding: 20px; display: grid; gap: 22px; min-width: 0; }
+  a { color: var(--ask-cyan); text-underline-offset: 3px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  .muted { color: var(--ask-muted); }
+
+  /* ask.css: card, buttons. */
+  .ask-card { display: grid; gap: 12px; justify-items: start; padding: 22px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .ask-card h1 { margin: 0; font-size: 22px; line-height: 1.3; }
+  .ask-card p { margin: 0; }
+  .ask-button { font: 700 16px/1 var(--ask-body); color: var(--ask-on-plasma); background: var(--ask-plasma); border: 0; border-radius: 8px; padding: 13px 20px; white-space: nowrap; }
+  .ask-button.quiet { color: var(--ask-ink); background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); }
+  .ask-button.small { padding: 9px 14px; font-size: 15px; }
+
+  /* products.css */
+  .products-head h1 { margin: 0; font-size: 26px; line-height: 1.2; }
+  .products-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .products-sum > div { display: flex; flex-direction: column-reverse; justify-content: flex-end; padding: 12px 14px; border-left: 1px solid var(--ask-line); min-width: 0; }
+  .products-sum > div:first-child { border-left: 0; }
+  .products-sum dt { font-size: 13px; color: var(--ask-muted); }
+  .products-sum dd { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .products-sum > div[data-waiting] dd { color: var(--ask-plasma); }
+  .products-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .products-tile { display: grid; grid-template-rows: auto auto 1fr auto; gap: 8px; min-height: 160px; padding: 14px; background: var(--ask-surface);
+    border: 1px solid var(--ask-line-strong); border-left: 4px solid var(--ask-line-strong); border-radius: 10px; min-width: 0; }
+  .products-tile[data-waiting] { border-left-color: var(--ask-plasma); }
+  .products-tile-name { font-size: 19px; font-weight: 700; color: var(--ask-ink); text-decoration: none; }
+  .products-tile-line { font-size: 14px; color: var(--ask-muted); }
+  .products-tile-repos { margin: 0; font: 500 13px/1.6 var(--ask-mono); overflow-wrap: anywhere; }
+  .products-tile-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+  .products-waiting { color: var(--ask-muted); }
+  .products-waiting[data-waiting] { color: var(--ask-plasma); font-weight: 700; }
+  .products-open { display: inline-flex; padding: 6px 12px; border: 1px solid var(--ask-line-strong); border-radius: 8px; font-weight: 700; color: var(--ask-ink); text-decoration: none; }
+  .products-open-first { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .products-shared { margin-left: 4px; padding: 1px 4px; border: 1px solid var(--ask-cyan); border-radius: 4px; font: 700 10px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-cyan); }
+  .products-unlinked { display: grid; gap: 10px; }
+  .products-unlinked h2 { margin: 0; font-size: 16px; }
+  .products-repo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 10px 16px; border: 1px dashed var(--ask-line-strong); border-radius: 12px; }
+  /* After: Archived (n), as Removed (n) of repositories.css (PRD 2188). */
+  .products-archived summary { cursor: pointer; color: var(--ask-muted); }
+  .products-archived ul { margin: 10px 0 0; display: grid; gap: 8px; }
+  .products-archived-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; }
+  .products-archived-row strong { overflow-wrap: anywhere; }
+
+  /* The product home: head card, section tabs, the Ledger (product-home.css, section-tabs.css). */
+  .products-back { font-size: 14px; color: var(--ask-muted); }
+  .head-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; width: 100%; }
+  .section-tabs ul { display: flex; flex-wrap: wrap; gap: 4px 18px; border-bottom: 1.5px solid var(--ask-line-strong); }
+  .section-tab { display: inline-flex; margin-bottom: -1.5px; padding: 8px 2px; font: 700 14px/1.2 var(--ask-body); color: var(--ask-muted); text-decoration: none; border-bottom: 3px solid transparent; }
+  .section-tab[aria-current="page"] { color: var(--ask-plasma); border-bottom-color: var(--ask-plasma); }
+  .product-home-summary { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--ask-muted); font-size: 14px; }
+  .product-home-summary b { font: 700 22px/1 var(--ask-mono); margin-right: 6px; }
+  .product-home-summary b[data-tone="building"] { color: var(--ask-green); }
+  .product-home-summary b[data-tone="waiting"] { color: var(--ask-yellow); }
+  .product-home-summary b[data-tone="drifted"] { color: var(--ask-red); }
+  .lane { display: grid; gap: 10px; }
+  .lane h2 { margin: 0; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ask-muted); }
+  .product-home-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px;
+    background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .product-home-n { display: inline-grid; place-items: center; min-width: 44px; height: 44px; padding: 0 6px; border: 1.5px solid var(--ask-line-strong); border-radius: 999px; font: 700 13px/1 var(--ask-mono); }
+  .product-home-title { font-weight: 700; color: var(--ask-ink); text-decoration: none; overflow-wrap: anywhere; }
+  .product-home-state { font-size: 13px; font-weight: 700; color: var(--ask-yellow); white-space: nowrap; }
+  /* After: the archived banner, above the head card. */
+  .archived-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 18px;
+    background: var(--ask-plasma-soft); border: 1px solid var(--ask-plasma); border-radius: 12px; }
+  .archived-banner p { margin: 0; font-weight: 700; }
+
+  /* The browser's own confirm, drawn outside the marked screen: its words are the spec's. */
+  .confirm { max-width: 460px; padding: 18px 20px; background: #2b2b33; color: #f2f2f5; border-radius: 12px; font: 14px/1.5 var(--note);
+    box-shadow: 0 12px 40px rgb(0 0 0 / .5); display: grid; gap: 12px; }
+  .confirm .host { font-weight: 700; }
+  .confirm .btns { display: flex; justify-content: flex-end; gap: 8px; }
+  .confirm .btns span { padding: 5px 14px; border-radius: 6px; background: #4a4a55; }
+  .confirm .btns span.ok { background: #3b82f6; color: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="note"><p><b>The product home at /app/products/&lt;id&gt;, read by a workspace owner</b> (PRD 1364 s9, PRD 2232). The app shell sits outside the marked screens. First the live product, with the owner's quiet Archive; then the archived product, read-only under its banner. Some tabs are left out. The figures are examples.</p></header>
+<div class="frame"><div class="bar">Work › Products › <b>omni-loop</b></div>
+      <div class="col" data-screen="product-home">
+        <section class="ask-card"><a class="products-back" href="#">← Products</a>
+          <div class="head-row"><h1>omni-loop</h1><button type="button" class="ask-button quiet small" aria-label="Archive omni-loop">Archive</button></div>
+          <p class="muted">What waits on whom across its PRDs.</p></section>
+        <nav class="section-tabs"><ul><li><a class="section-tab" aria-current="page" href="#">Ledger</a></li><li><a class="section-tab" href="#">Constellation</a></li><li><a class="section-tab" href="#">PRDs</a></li><li><a class="section-tab" href="#">Ideas</a></li><li><a class="section-tab" href="#">Roadmap</a></li><li><a class="section-tab" href="#">Knowledge</a></li><li><a class="section-tab" href="#">Repositories &amp; approvers</a></li></ul></nav>
+        <section class="product-home-summary" data-content><span><b data-tone="building">3</b> building</span><span><b data-tone="waiting">2</b> waiting on a person</span><span><b data-tone="drifted">0</b> drifted</span></section>
+        <section class="lane"><h2>Waiting on a person</h2><ul data-content><li class="product-home-row"><span class="product-home-n">2232</span><a class="product-home-title" href="#">Archive a product</a><span class="product-home-state">approval</span></li></ul></section>
+      </div>
+    </div>
+<p class="cap">Archived, read-only, for its owner:</p>
+<div class="frame"><div class="bar">Work › Products › <b>omni-loop</b></div>
+      <div class="col" data-screen="product-home-archived">
+        <section class="archived-banner"><p>Archived 2 days ago by pierrederval.</p><button type="button" class="ask-button" aria-label="Restore omni-loop" data-primary>Restore</button></section>
+        <section class="ask-card"><a class="products-back" href="#">← Products</a><h1>omni-loop</h1><p class="muted">What waits on whom across its PRDs.</p></section>
+        <nav class="section-tabs"><ul><li><a class="section-tab" aria-current="page" href="#">Ledger</a></li><li><a class="section-tab" href="#">Constellation</a></li><li><a class="section-tab" href="#">PRDs</a></li><li><a class="section-tab" href="#">Ideas</a></li><li><a class="section-tab" href="#">Roadmap</a></li><li><a class="section-tab" href="#">Knowledge</a></li><li><a class="section-tab" href="#">Repositories &amp; approvers</a></li></ul></nav>
+        <section class="product-home-summary" data-content><span><b data-tone="building">3</b> building</span><span><b data-tone="waiting">2</b> waiting on a person</span><span><b data-tone="drifted">0</b> drifted</span></section>
+        <section class="lane"><h2>Waiting on a person</h2><ul data-content><li class="product-home-row"><span class="product-home-n">2232</span><a class="product-home-title" href="#">Archive a product</a><span class="product-home-state">approval</span></li></ul></section>
+      </div>
+    </div>
+</div>
+</body>
+</html>
