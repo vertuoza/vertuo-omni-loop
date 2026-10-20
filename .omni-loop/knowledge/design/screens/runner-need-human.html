@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Runner need human mockup</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts), as the runners mockup uses them. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 16px/1.55 var(--ask-body); }
+  a { color: var(--ask-cyan); text-underline-offset: 3px; }
+  .note { max-width: 760px; margin: 0 auto; padding: 24px 16px 8px; font: 14px/1.55 system-ui, sans-serif; color: var(--ask-muted); }
+  .wrap { max-width: 760px; margin: 16px auto 32px; padding: 0 16px; display: grid; gap: 24px; }
+  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; position: relative; height: 640px; }
+  .frame.short { height: 300px; }
+  .bar { padding: 8px 14px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong); font: 600 13px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .bar b { color: var(--ask-ink); }
+  .scrim { position: absolute; inset: 0; background: rgba(3, 2, 15, .55); }
+  .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--ask-sunk); border-left: 2px solid var(--ask-line-strong); display: flex; flex-direction: column; }
+  .head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--ask-surface); border-bottom: 1px solid var(--ask-line); font-size: 13px; }
+  .head .t { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .x { border: 0; background: none; color: var(--ask-muted); font-size: 18px; line-height: 1; padding: 2px 6px; }
+  .body { flex: 1; overflow: auto; padding: 14px 16px; display: grid; gap: 16px; align-content: start; font-size: 15px; }
+  .lead { margin: 0; max-width: 900px; }
+  .q { margin: 0; padding: 0; border: 0; display: grid; gap: 8px; min-width: 0; }
+  .q legend { padding: 0; margin-bottom: 4px; font-weight: 700; }
+  .hd { display: block; font: 700 11px/1.2 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); margin-bottom: 4px; }
+  .opt { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; align-items: start; padding: 9px 10px; border: 1px solid var(--ask-line-strong); border-radius: 8px; background: var(--ask-surface); }
+  .opt.on { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); }
+  .opt input { margin: 3px 0 0; accent-color: var(--ask-plasma); }
+  .opt b { display: block; font-size: 14px; } .opt span { display: block; color: var(--ask-muted); font-size: 13px; }
+  .free { display: grid; gap: 4px; font-size: 13px; color: var(--ask-muted); }
+  .free textarea { width: 100%; min-height: 56px; resize: vertical; font: 14px/1.5 var(--ask-body); color: var(--ask-ink); background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 8px; padding: 8px 10px; }
+  .foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding: 10px 16px; background: var(--ask-surface); border-top: 1px solid var(--ask-line); }
+  .btn { display: inline-flex; padding: 8px 14px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); color: var(--ask-ink); font: 700 14px/1.2 var(--ask-body); }
+  .btn.primary { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .closed { margin: 0; color: var(--ask-muted); }
+</style>
+</head>
+<body>
+<div class="note"><p>The Need human drawer over /app/runners (PRD 2255), opened from a job's Need human button or from <code>?answer=&lt;job id&gt;</code>. The first frame is open with an option picked; the second is a job someone already answered. The figures and the questions are an example, from vertuo-automation-plan#314.</p></div>
+<div class="wrap">
+  <div class="frame">
+    <div class="bar">Dashboard › <b>Runners</b></div>
+    <div class="scrim"></div>
+    <aside class="drawer" data-screen="runner-need-human" role="dialog" aria-modal="true" aria-labelledby="nh-title">
+      <div class="head"><span class="t" id="nh-title">Need human · <span data-content>vertuo-automation-plan</span> · <a href="#" data-content>#314</a></span><button class="x" type="button" aria-label="Close">×</button></div>
+      <div class="body">
+        <p class="lead" data-content>The planning query fails for 31 tenants. A worker assignment points at a project the user may not open, and the schema says that project is never empty. Each fix changes what a user may see, so the agent stopped for a decision.</p>
+        <fieldset class="q">
+          <legend><span class="hd">Fix</span><span data-content>How should the planning show an assignment whose project the user may not open?</span></legend>
+          <label class="opt"><input type="radio" name="q1"><span><b data-content>Make the project nullable</b><span data-content>The assignment shows with no project; the API contract changes.</span></span></label>
+          <label class="opt"><input type="radio" name="q1"><span><b data-content>Drop the access check</b><span data-content>Every assignment shows its project, whatever the user may open.</span></span></label>
+          <label class="opt on"><input type="radio" name="q1" checked><span><b data-content>Filter those assignments out</b><span data-content>The user sees only the assignments whose project they may open.</span></span></label>
+          <label class="opt"><input type="radio" name="q1"><span><b>Design it first</b><span>Stop here and brainstorm the behaviour</span></span></label>
+          <label class="free">Or your own answer<textarea maxlength="2000"></textarea></label>
+        </fieldset>
+      </div>
+      <div class="foot"><button class="btn" type="button">Dismiss</button><button class="btn primary" type="button" data-primary>Send answers</button></div>
+    </aside>
+  </div>
+
+  <div class="frame short">
+    <div class="bar">Dashboard › <b>Runners</b></div>
+    <div class="scrim"></div>
+    <aside class="drawer" data-screen="runner-need-human" role="dialog" aria-modal="true" aria-labelledby="nh-title-2">
+      <div class="head"><span class="t" id="nh-title-2">Need human · <span data-content>vertuo-automation-plan</span> · <a href="#" data-content>#314</a></span><button class="x" type="button" aria-label="Close">×</button></div>
+      <div class="body">
+        <p class="closed">Already answered by <span data-content>Paul</span></p>
+      </div>
+    </aside>
+  </div>
+</div>
+</body>
+</html>

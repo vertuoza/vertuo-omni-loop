@@ -203,7 +203,7 @@ describe('currentItem and pageTrail', () => {
 });
 
 describe('badgeOf', () => {
-  const counts = { questions: 3, shared: 1, outbox: 2, approvals: 0, total: 5 };
+  const counts = { questions: 3, shared: 1, outbox: 2, approvals: 0, runners: 4, total: 5 };
 
   it('gives Questions the Questions part, the shared ones included', () => {
     expect(badgeOf('questions', counts)).toBe(3);
@@ -214,8 +214,13 @@ describe('badgeOf', () => {
     expect(badgeOf('prds', { ...counts, outbox: 0 })).toBeNull();
   });
 
-  it('gives no badge at 0, nor to any other entry: only Questions and PRDs count (PRD 733)', () => {
+  it('gives Runners the jobs waiting for an answer, none at 0 (PRD 2255)', () => {
+    expect(badgeOf('runners', counts)).toBe(4);
+    expect(badgeOf('runners', { ...counts, runners: 0 })).toBeNull();
+  });
+
+  it('gives no badge at 0, nor to any other entry: only Questions, PRDs and Runners count (PRD 733, PRD 2255)', () => {
     expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
-    for (const id of ['home', 'fleet', 'loop', 'runners', 'workspace', 'engineering', 'roadmaps', 'ideas', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
+    for (const id of ['home', 'fleet', 'loop', 'workspace', 'engineering', 'roadmaps', 'ideas', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
 });

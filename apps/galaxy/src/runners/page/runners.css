@@ -65,6 +65,8 @@
 .runners-status.is-run { color: var(--ask-plasma); border-color: var(--ask-plasma); }
 .runners-status.is-done { color: var(--ask-green); border-color: var(--ask-green); }
 .runners-status.is-wait { color: var(--ask-plasma); border-color: var(--ask-plasma); }
+/* Need human (PRD 2255): a job that waits on a person, filled, so it reads before the outlined Waiting on answers. */
+.runners-status.is-human { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
 .runners-status.is-fail { color: var(--ask-red); border-color: var(--ask-red); }
 .runners-status.is-off { color: var(--ask-muted); }
 

@@ -4,10 +4,12 @@ import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, FleetPicker, Refresh, SendAgainButton } from './actions';
 import {
-  canCancel, canSendAgain, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  canAnswer, canCancel, canSendAgain, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Fleet, type PrdTitles, type ReleaseNote, type RunnersPageView,
 } from './model';
 import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
+import { listedAnswer } from './need-human';
+import { NeedHumanButton, NeedHumanProvider, type NeedJob } from './NeedHuman';
 import { runnerJob, terminalOf } from './terminal-model';
 import { TerminalButton, TerminalProvider, type TerminalJob } from './Terminal';
 import '../../dashboard/board/board.css';
@@ -25,7 +27,9 @@ import './runners.css';
 // the panel and the 5 s refresh run in the browser (./actions.tsx, ./Terminal.tsx); the rest is drawn on
 // the server, so a refresh draws it again with the new rows, the open panel kept. A job whose runner
 // released its claims once it ended lists them under its status, each linked, or says why it could not
-// (PRD 2175).
+// (PRD 2175). A done job that ended with questions open reads Need human, filled, with a Need human button
+// opening the drawer that answers them (PRD 2255 s3, ./NeedHuman.tsx); `?answer=<job id>` opens it too. Once
+// answered or dismissed it reads Done and carries no button.
 
 type Supabase = { url: string; key: string };
 
@@ -35,6 +39,8 @@ export interface RunnersPageProps {
   signinError: string | null;
   /** The job whose Terminal panel the URL opens (`?terminal=<job id>`), if any. */
   terminal?: string | null;
+  /** The job whose Need human drawer the URL opens (`?answer=<job id>`), if any (PRD 2255). */
+  answer?: string | null;
 }
 
 function Closed() {
@@ -101,6 +107,7 @@ function Action({ job, primary }: { job: Job; primary: boolean }) {
   const page = prdPageLink(job);
   return (
     <>
+      {canAnswer(job) && <NeedHumanButton job={job.id} />}
       {job.status === 'done' && job.prUrl && <a href={job.prUrl}>{prWords(job.prUrl)}</a>}
       {page !== null && <a href={page}>PRD page</a>}
     </>
@@ -134,7 +141,7 @@ function JobRow({ job, board, fleets, prds, now, primary }: { job: Job; board: B
       <span data-content>{senderWords(job)}{madeByWords(job) !== null && <small className="runners-muted runners-made-by"> {madeByWords(job)}</small>}</span>
       <span data-content>{whereWords(job, board.runners, fleets)}</span>
       <span>
-        <span className={`runners-status is-${statusTone(job.status, job.outcome)}`}>{statusWords(job, now)}</span>
+        <span className={`runners-status is-${statusTone(job.status, job.outcome)}${canAnswer(job) ? ' is-human' : ''}`}>{statusWords(job, now)}</span>
         {tokens !== null && <span className="runners-tokens" title={tokens.title}>{tokens.text}</span>}
         {waiting !== null && <span className="runners-why">{waiting}</span>}
         {releaseNotes(job).map((note) => <ReleaseLine key={note.kind} note={note} />)}
@@ -189,7 +196,7 @@ function Board({ board, fleets, prds, now }: { board: Board; fleets: readonly Fl
   );
 }
 
-export function RunnersPage({ view, supabase, signinError, terminal = null }: RunnersPageProps) {
+export function RunnersPage({ view, supabase, signinError, terminal = null, answer = null }: RunnersPageProps) {
   if (view.kind === 'closed' || view.kind === 'sign-in' || view.kind === 'no-workspace') {
     return <MemberGate kind={view.kind} closed={<Closed />} board="The Runners page" supabase={supabase} signinError={signinError} />;
   }
@@ -198,9 +205,14 @@ export function RunnersPage({ view, supabase, signinError, terminal = null }: Ru
   }
   const runnerName = (id: string | null) => view.board.runners.find((runner) => runner.id === id)?.name ?? null;
   const jobs: TerminalJob[] = view.board.jobs.map((job) => ({ id: job.id, repo: job.repo, runner: runnerName(job.runner), status: job.status }));
+  // The job `?answer=` opens, once the board lists it; with it, the Terminal panel stays shut, so two panels never stack.
+  const asked = listedAnswer(answer, view.board.jobs);
+  const needJobs: NeedJob[] = view.board.jobs.map((job) => ({ id: job.id, repo: job.repo }));
   return (
-    <TerminalProvider initial={terminalOf(terminal)} jobs={jobs}>
-      <Board board={view.board} fleets={view.fleets} prds={view.prds} now={new Date(view.now)} />
+    <TerminalProvider initial={terminalOf(asked === null ? terminal : null)} jobs={jobs}>
+      <NeedHumanProvider initial={asked} jobs={needJobs} demo={view.demoQuestions ?? null}>
+        <Board board={view.board} fleets={view.fleets} prds={view.prds} now={new Date(view.now)} />
+      </NeedHumanProvider>
     </TerminalProvider>
   );
 }

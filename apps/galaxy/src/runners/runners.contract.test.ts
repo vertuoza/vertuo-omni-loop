@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
 import {
-  checkLine, HealthReportSchema, JobLinesQuerySchema, JobUpdateSchema, KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema,
-  RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
+  AnswerRequestSchema, AskRequestSchema, checkLine, HealthReportSchema, JOB_OUTCOMES, JobLinesQuerySchema, JobQuestionsSchema, JobReplySchema, JobUpdateSchema,
+  KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
 // The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines of 200 characters at
@@ -308,5 +308,95 @@ describe('the kit\'s answers', () => {
     expect(PrdJobsSchema.parse({ jobs: [job] })).toEqual({ jobs: [job] });
     expect(PrdJobsSchema.parse({ jobs: [{ ...job, sentBy: 'someone', logTail: 'secret' }] })).toEqual({ jobs: [job] });
     expect(PrdJobsSchema.safeParse({ jobs: [{ ...job, outcome: 'waiting' }] }).success).toBe(false);
+  });
+});
+
+// PRD 2255 s1: `human` is the server's word. A done job that ends with its questions open reads it; a runner's
+// report never says it, so a job cannot read Need human with nothing to answer.
+describe('the outcome human (PRD 2255)', () => {
+  it('is one of the outcomes a job reads', () => {
+    expect([...JOB_OUTCOMES]).toEqual(['answers', 'held', 'ready', 'human']);
+    const job = { id: '00000000-0000-4000-8000-000001830201', line: '/omni:bug-fix 314', repo: 'acme/widgets', toRunner: null, toFleet: null, sentBy: '00000000-0000-4000-8000-0000018300b1', sentByLogin: 'mo', sentByKey: null, status: 'done', runner: null, cancelRequested: false, logTail: '', prUrl: null, exitCode: 0, reason: null, outcome: 'human', queuedAt: 't', claimedAt: null, runningAt: null, endedAt: 't' };
+    expect(JobReplySchema.parse({ job }).job.outcome).toBe('human');
+  });
+
+  it('is refused in a runner\'s report', () => {
+    expect(JobUpdateSchema.safeParse({ status: 'done', exitCode: 0, outcome: 'human' }).success).toBe(false);
+  });
+});
+
+// The questions a job asks (PRD 2255 s1): `omni ask`'s file shape, 1 to 4 questions, each with a header and
+// 2 to 4 options of a label and a description, beside the issue the job works on and a lead.
+describe('the questions a job asks (PRD 2255)', () => {
+  const option = (label: string) => ({ label, description: `What ${label} changes` });
+  const question = (header: string, more: object = {}) => ({
+    question: `Which fix for ${header}?`, header, options: [option('Make project nullable'), option('Design it first')], multiSelect: false, ...more,
+  });
+  const ask = { issue: 314, lead: 'The planning query fails for 31 tenants.', questions: [question('Planning')] };
+
+  it('takes one question, and four', () => {
+    expect(AskRequestSchema.parse(ask)).toEqual(ask);
+    const four = { ...ask, questions: ['A', 'B', 'C', 'D'].map((header) => question(header)) };
+    expect(AskRequestSchema.parse(four).questions).toHaveLength(4);
+  });
+
+  it.each([
+    ['no question', { questions: [] }],
+    ['five questions', { questions: ['A', 'B', 'C', 'D', 'E'].map((header) => question(header)) }],
+    ['two questions asking the same thing', { questions: [question('A'), question('A')] }],
+    ['no issue', { issue: undefined }],
+    ['an issue that is no number', { issue: '314' }],
+    ['an issue of 0', { issue: 0 }],
+    ['no lead', { lead: '' }],
+    ['a lead of 4,001 characters', { lead: 'x'.repeat(4_001) }],
+    ['an unknown field', { context: { skill: 'bug-fix' } }],
+  ])('refuses %s', (_, more) => {
+    expect(AskRequestSchema.safeParse({ ...ask, ...more }).success).toBe(false);
+  });
+
+  it.each([
+    ['no header', question('', {})],
+    ['one option', question('A', { options: [option('Only')] })],
+    ['five options', question('A', { options: ['a', 'b', 'c', 'd', 'e'].map(option) })],
+    ['an option with no label', question('A', { options: [option('x'), { label: '', description: 'd' }] })],
+    ['an option with no description field', question('A', { options: [option('x'), { label: 'y' }] })],
+    ['no multiSelect', { question: 'Which?', header: 'A', options: [option('x'), option('y')] }],
+    ['an unknown field on an option', question('A', { options: [option('x'), { ...option('y'), preview: 'z' }] })],
+  ])('refuses a question with %s', (_, bad) => {
+    expect(AskRequestSchema.safeParse({ ...ask, questions: [bad] }).success).toBe(false);
+  });
+
+  it('takes a question a person may pick several options of', () => {
+    expect(AskRequestSchema.parse({ ...ask, questions: [question('A', { multiSelect: true })] }).questions[0]?.multiSelect).toBe(true);
+  });
+
+  it('reads a job\'s questions back as open, answered or dismissed, with who closed them', () => {
+    const read = {
+      job: '00000000-0000-4000-8000-000001830201', issue: 314, lead: ask.lead, questions: ask.questions, state: 'open',
+      answers: null, by: null, byLogin: null, at: null, resume: null,
+    };
+    expect(JobQuestionsSchema.parse(read)).toEqual(read);
+    const answered = { ...read, state: 'answered', answers: { 'Which fix for Planning?': 'Make project nullable' }, by: '00000000-0000-4000-8000-0000018300b1', byLogin: 'mo', at: 't', resume: '00000000-0000-4000-8000-000001830202' };
+    expect(JobQuestionsSchema.parse(answered).state).toBe('answered');
+    expect(JobQuestionsSchema.safeParse({ ...read, state: 'closed' }).success).toBe(false);
+  });
+});
+
+describe('the answers (PRD 2255)', () => {
+  it('takes one answer per question, of 2,000 characters at most', () => {
+    expect(AnswerRequestSchema.parse({ answers: { 'Which fix?': 'Make project nullable' } })).toEqual({ answers: { 'Which fix?': 'Make project nullable' } });
+    expect(AnswerRequestSchema.safeParse({ answers: { 'Which fix?': 'x'.repeat(2_000) } }).success).toBe(true);
+    expect(AnswerRequestSchema.safeParse({ answers: { 'Which fix?': 'x'.repeat(2_001) } }).success).toBe(false);
+  });
+
+  it.each([
+    ['no answer at all', { answers: {} }],
+    ['an empty answer', { answers: { 'Which fix?': '' } }],
+    ['an answer that is no text', { answers: { 'Which fix?': 3 } }],
+    ['five answers', { answers: { a: '1', b: '2', c: '3', d: '4', e: '5' } }],
+    ['a field beside the answers', { answers: { 'Which fix?': 'x' }, via: 'page' }],
+    ['no answers field', {}],
+  ])('refuses %s', (_, body) => {
+    expect(AnswerRequestSchema.safeParse(body).success).toBe(false);
   });
 });

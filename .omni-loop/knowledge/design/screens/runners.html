@@ -45,6 +45,8 @@
   .s-fail { border-color: var(--ask-red); color: var(--ask-red); }
   .s-wait { border-color: var(--ask-plasma); color: var(--ask-plasma); }
   .s-queue { color: var(--ask-cyan); border-color: var(--ask-cyan); }
+  .s-human { border-color: var(--ask-plasma); color: var(--ask-on-plasma); background: var(--ask-plasma); }
+  .ghost.primary { background: var(--ask-plasma); color: var(--ask-on-plasma); border-color: var(--ask-plasma); }
   .ghost { display: inline-flex; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 13px/1 var(--ask-body); color: var(--ask-ink); background: none; white-space: nowrap; }
   .log { margin: 0; padding: 12px 16px; background: var(--ask-sunk); border-top: 1px solid var(--ask-line); font: 12.5px/1.55 var(--ask-mono); color: var(--ask-muted); white-space: pre-wrap; }
   .log b { color: var(--ask-ink); font-weight: 500; }
@@ -64,7 +66,7 @@
 </style>
 </head>
 <body>
-<div class="note"><p>Runners at /app/runners (PRD 1830, Terminal buttons from PRD 1904, machine health from PRD 2102, released claims from PRD 2175), drawn inside the app shell, which is its own shared screen. The figures are examples.</p></div>
+<div class="note"><p>Runners at /app/runners (PRD 1830, Terminal buttons from PRD 1904, machine health from PRD 2102, released claims from PRD 2175, Need human from PRD 2255), drawn inside the app shell, which is its own shared screen. The figures are examples.</p></div>
 <div class="frame"><div class="bar">Dashboard › <b>Runners</b></div>
   <div class="page" data-screen="runners">
     <header><h1>Runners</h1></header>
@@ -93,6 +95,7 @@
         <div class="row"><span><code data-content>/omni:yolo 1717</code><span class="why" style="color:var(--ask-muted)"><a href="#">PRD 1717</a> · <span data-content>Runner health</span></span></span><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>vertuo-agents</span><span><span class="status s-run">Running 12 min</span> <span class="tok" data-content>14.1M tokens</span></span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
         <div class="row"><code data-content>/omni:pr-care 1801</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@irisa</span><span data-content>Cyan</span><span><span class="status s-queue">Queued</span><span class="why">Waiting: vertuo-agents paused (memory 91%)</span></span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
         <div class="row"><code data-content>/omni:yolo 2213</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>vertuo-agents</span><span class="status s-wait">Waiting on answers</span><span class="acts"><a class="ghost" href="#">PRD page</a><button class="ghost" type="button">Terminal</button><a href="#">PR #2219</a></span></div>
+        <div class="row"><code data-content>/omni:mega-bug-fix #314</code><span class="muted" data-content>vertuo-automation-plan</span><span data-content>API key cleaner</span><span data-content>vertuo-agents</span><span class="status s-human">Need human</span><span class="acts"><button class="ghost primary" type="button">Need human</button><button class="ghost" type="button">Terminal</button></span></div>
         <div class="row"><code data-content>/omni:bug-fix 1790</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@paul</span><span data-content>Any runner</span><span class="status s-done">Done</span><span class="acts"><button class="ghost" type="button">Terminal</button><a href="#">PR #1838</a></span></div>
         <div class="row"><code data-content>/omni:yolo 1702</code><span class="muted" data-content>vertuo-omni-loop</span><span data-content>@pierrederval</span><span data-content>pierre-laptop</span><span><span class="status s-fail">Runner lost</span><span class="why">Released <a href="#">#1908</a>, <a href="#">#1909</a></span></span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button" data-primary>Send again</button></span></div>
       </div>

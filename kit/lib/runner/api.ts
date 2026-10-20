@@ -11,12 +11,19 @@
 // A health report's failure, either way, stops nothing: the runner prints one line and carries on.
 // A job report the app answers 409 is not a refusal: the job ended meanwhile (cancelled, or failed as
 // `runner lost`), so the runner stops that job alone, as for a cancel.
+//
+// A job's questions (PRD 2255) are the other client here, `jobQuestionsApi`: `omni runner ask` and
+// `omni runner answers` run inside a job's session, not in the runner, and what they print is the app's own
+// words, so a refusal there carries the app's `error` rather than `refused (<status>)` alone.
 import { z } from 'zod';
 import { askClient } from '../ask/client.ts';
 import type { Fetch, TokenStore } from '../ask/client.ts';
-import type { PrdNumber } from '../ids.ts';
+import { field, jsonObject } from '../ask/schema.ts';
+import type { JsonObject } from '../ask/schema.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
 import type { Sample } from './health.ts';
 import type { RunOutcome } from './log.ts';
+import type { JobQuestionList } from './questions.ts';
 import type { MachineTokens, TokenCounts } from './tokens.ts';
 
 /** The line a refused sign-in stops the runner on. */
@@ -120,7 +127,7 @@ const PrdJobSchema = z.object({
   prUrl: z.string().nullable(),
   exitCode: z.number().nullable(),
   reason: z.string().nullable(),
-  outcome: z.enum(['answers', 'held', 'ready']).nullable().optional().transform((value) => value ?? null),
+  outcome: z.enum(['answers', 'held', 'ready', 'human']).nullable().optional().transform((value) => value ?? null),
   queuedAt: z.string(),
 });
 export type PrdJob = z.output<typeof PrdJobSchema>;
@@ -148,17 +155,37 @@ export type KitReads = {
   send(request: { line: string; repo: string; target: SendTarget }): Promise<{ id: string }>;
 };
 
+/** What a running job asks the person (PRD 2255): the issue its skill stopped on, why it stopped, and the questions. */
+export type JobQuestions = { issue: IssueNumber; lead: string; questions: JobQuestionList };
+
+export type JobQuestionsApi = {
+  /** Stores a running job's questions: throws `RunnerRefused` with the app's own words, or `RunnerUnreachable`. */
+  ask(job: string, request: JobQuestions): Promise<void>;
+  /** A job's row of questions as the app answers it (the answers once given): throws as `ask` does. */
+  answers(job: string): Promise<JsonObject>;
+};
+
 const timedOut = (error: unknown): boolean => typeof error === 'object' && error !== null && 'name' in error && error.name === 'TimeoutError';
 
+/** A refusal in the app's own words (its `error`, on one line), else `refused (<status>)`. */
+function refusalWords(status: number, body: unknown): string {
+  const words = field(body, 'error');
+  const line = typeof words === 'string' ? words.replace(/\s+/g, ' ').trim() : '';
+  return line === '' ? `refused (${String(status)})` : line;
+}
+
 /** `response` when it may be read: a refused sign-in, a 5xx and any other refusal but `allow` throw. */
-function checked(response: Response, what: string, allow: readonly number[]): Response {
+function checked(response: Response, what: string, allow: readonly number[] = []): Response {
   if (response.status === 401 || (response.status === 403 && !allow.includes(403))) throw new RunnerRefused(NO_SIGN_IN);
   if (response.status >= 500) throw new RunnerUnreachable(`${what}: ${String(response.status)}`);
   if (!response.ok && !allow.includes(response.status)) throw new RunnerRefused(`refused (${String(response.status)})`);
   return response;
 }
 
-export function runnerApi({ askUrl, tokens, fetch }: { askUrl: string; tokens: TokenStore; fetch: Fetch }): RunnerApi & KitReads {
+type Wiring = { askUrl: string; tokens: TokenStore; fetch: Fetch };
+
+/** The calls every client here makes: the sign-in on each, renewed once when a call answers 401, and a timeout. */
+function transport({ askUrl, tokens, fetch }: Wiring) {
   const root = askUrl.replace(/\/+$/, '');
   const host = new URL(askUrl).host;
   const client = askClient({ baseUrl: root, host, tokens, fetch });
@@ -190,22 +217,6 @@ export function runnerApi({ askUrl, tokens, fetch }: { askUrl: string; tokens: T
     }
   }
 
-  /** A 2xx response: a 401 renews the sign-in once and tries again. */
-  async function call(method: string, path: string, options: { body?: unknown; timeoutMs?: number; signal?: AbortSignal | undefined; allow?: readonly number[] } = {}): Promise<Response> {
-    const timeoutMs = options.timeoutMs ?? CALL_MS;
-    const held = tokens.read(host)?.access_token;
-    const token = held ? held : await renewed();
-    let response = await send(method, path, token, { ...options, timeoutMs });
-    if (response.status === 401) response = await send(method, path, await renewed(), { ...options, timeoutMs });
-    return checked(response, `${method} ${path}`, options.allow ?? []);
-  }
-
-  /** A 403 on a read is a repository outside the workspace, not a refused sign-in. */
-  function forbidden(response: Response): Response {
-    if (response.status === 403) throw new RunnerRefused('refused (403: this repository is not in your workspace)');
-    return response;
-  }
-
   async function json(response: Response): Promise<unknown> {
     const text = await response.text().catch(() => '');
     try {
@@ -215,6 +226,33 @@ export function runnerApi({ askUrl, tokens, fetch }: { askUrl: string; tokens: T
     }
   }
 
+  /**
+   * A 2xx response: a 401 renews the sign-in once and tries again. With `words`, any other refusal below 500
+   * (a 403 included) throws the app's own words, as `refusalWords` reads them.
+   */
+  async function call(method: string, path: string, options: { body?: unknown; timeoutMs?: number; signal?: AbortSignal | undefined; allow?: readonly number[]; words?: true } = {}): Promise<Response> {
+    const timeoutMs = options.timeoutMs ?? CALL_MS;
+    const held = tokens.read(host)?.access_token;
+    const token = held ? held : await renewed();
+    let response = await send(method, path, token, { ...options, timeoutMs });
+    if (response.status === 401) response = await send(method, path, await renewed(), { ...options, timeoutMs });
+    if (options.words === true && response.status !== 401 && response.status < 500 && !response.ok) {
+      throw new RunnerRefused(refusalWords(response.status, await json(response)));
+    }
+    return checked(response, `${method} ${path}`, options.allow);
+  }
+
+  return { call, json, segment };
+}
+
+/** A 403 on a read is a repository outside the workspace, not a refused sign-in. */
+function forbidden(response: Response): Response {
+  if (response.status === 403) throw new RunnerRefused('refused (403: this repository is not in your workspace)');
+  return response;
+}
+
+export function runnerApi(wiring: Wiring): RunnerApi & KitReads {
+  const { call, json, segment } = transport(wiring);
   return {
     async register(registration) {
       const reply = RegisteredSchema.safeParse(await json(await call('POST', '/api/runners/register', { body: registration })));
@@ -263,6 +301,22 @@ export function runnerApi({ askUrl, tokens, fetch }: { askUrl: string; tokens: T
       const reply = z.object({ job: z.object({ id: z.union([z.string().min(1), z.number()]).transform(String) }) }).safeParse(await json(response));
       if (!reply.success) throw new RunnerRefused('refused (the app answered no job)');
       return { id: reply.data.job.id };
+    },
+  };
+}
+
+/** A job's questions (PRD 2255): the app's `POST` and `GET /api/runners/jobs/<job>/questions`, with the runner's sign-in. */
+export function jobQuestionsApi(wiring: Wiring): JobQuestionsApi {
+  const { call, json, segment } = transport(wiring);
+  const route = (job: string): string => `/api/runners/jobs/${segment(job)}/questions`;
+  return {
+    async ask(job, request) {
+      await call('POST', route(job), { body: request, words: true });
+    },
+    async answers(job) {
+      const reply = jsonObject(await json(await call('GET', route(job), { words: true })));
+      if (reply === null || !Array.isArray(reply['questions'])) throw new RunnerRefused('refused (the app answered no questions)');
+      return reply;
     },
   };
 }

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { TokenCheck } from '../ask/auth';
 import {
-  cancelJob, jobLines, listRunners, nextJob, prdJobs, registerRunner, reportHealth, reportJob, sendJob, setRunnerFleet, type RunnersDeps,
+  answerQuestions, askQuestions, cancelJob, dismissQuestions, jobLines, listRunners, nextJob, prdJobs, readQuestions, registerRunner, reportHealth, reportJob, sendJob, setRunnerFleet, type RunnersDeps,
 } from './runners.controller';
-import type { JobLineRow, JobRow } from './runners.repository';
+import { ANSWER_CHARS } from './runners.contract';
+import type { JobLineRow, JobRow, QuestionsRow } from './runners.repository';
 import { runnersService } from './runners.service';
-import { CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, PIA, SHARED, T0 } from './fixtures/store.fake';
+import { CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, PIA, QUESTION, questionsRow, SHARED, T0 } from './fixtures/store.fake';
 
 // The runners' routes (PRD 1830 s1), with the real service on the fake store: the sign-in is checked
 // before anything else (the kit's for a runner's routes, the session for the browser's), each answer is
@@ -23,12 +24,12 @@ const connect = (): TokenCheck => ({
   },
 });
 
-function world({ jobs = [], lines = [], viewer = MO, database = true, serviceRole = true }: {
-  jobs?: JobRow[]; lines?: JobLineRow[]; viewer?: string | null; database?: boolean; serviceRole?: boolean;
+function world({ jobs = [], lines = [], questions = [], viewer = MO, database = true, serviceRole = true }: {
+  jobs?: JobRow[]; lines?: JobLineRow[]; questions?: QuestionsRow[]; viewer?: string | null; database?: boolean; serviceRole?: boolean;
 } = {}) {
   const logged: string[] = [];
   let now = T0;
-  const { store, state } = fakeStore({ jobs, lines, now: () => now });
+  const { store, state } = fakeStore({ jobs, lines, questions, now: () => now });
   const service = runnersService(store, {
     now: () => now,
     sleep: (ms) => {
@@ -434,5 +435,224 @@ describe('POST /api/runners/<id>/health', () => {
     expect((await reportHealth(post('/nope/health', 'olga-token', REPORT), 'nope', w.deps)).status).toBe(404);
     expect(w.state.samples).toEqual([]);
     expect(w.state.runners.every((r) => r.health === null)).toBe(true);
+  });
+});
+
+// A job's questions and their answers (PRD 2255 s1): a runner's token posts the questions and may read them
+// back; only a person's session answers or dismisses (BR-PRODUCT-94), and the first answer wins.
+describe('a job\'s questions (PRD 2255)', () => {
+  const times = { claimed_at: T0.toISOString(), running_at: T0.toISOString() };
+  /** A bug fix running on the shared runner, which Olga owns, sent by Olga to the fleet cia. */
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, line: '/omni:bug-fix #314', sent_by: OLGA, to_fleet: 'cia', ...times });
+  /** The same job, ended `done` with its questions open: Need human. */
+  const waiting = () => ({ ...running(), status: 'done' as const, outcome: 'human' as const, ended_at: T0.toISOString() });
+  const ASK = { issue: 314, lead: 'The planning query fails for 31 tenants.', questions: [QUESTION] };
+  const ANSWERS = { answers: { 'Which fix?': 'Guard the input' } };
+  const NOBODY = '00000000-0000-4000-8000-0000022559f9';
+  const bearer = (id: string, route: 'answers' | 'dismiss', token: string, body: unknown = {}) => post(`/jobs/${id}/${route}`, token, body);
+
+  describe('POST /api/runners/jobs/<id>/questions', () => {
+    it('stores the questions of a running job for the owner of its runner, and answers them open', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      expect(await read(await askQuestions(post(`/jobs/${job.id}/questions`, 'olga-token', ASK), job.id, w.deps))).toEqual({
+        status: 200,
+        body: { job: job.id, issue: 314, lead: ASK.lead, questions: [QUESTION], state: 'open', answers: null, by: null, byLogin: null, at: null, resume: null },
+      });
+      expect(w.state.questions).toEqual([questionsRow({ job_id: job.id, lead: ASK.lead, questions: [QUESTION] })]);
+    });
+
+    it('refuses the signed out and a bad token before anything runs', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      for (const token of [null, 'stolen-token']) {
+        expect((await askQuestions(post(`/jobs/${job.id}/questions`, token, ASK), job.id, w.deps)).status).toBe(401);
+      }
+      expect(w.state.questions).toEqual([]);
+    });
+
+    it('refuses a body out of shape: no JSON, an unknown field, no question, a question twice, or an issue that is none', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      const same = (body: unknown) => askQuestions(post(`/jobs/${job.id}/questions`, 'olga-token', body), job.id, w.deps);
+      expect(await read(await same({ ...ASK, extra: 1 }))).toMatchObject({ status: 400, body: { error: expect.stringContaining('"issue"') as unknown } });
+      expect((await same({ ...ASK, questions: [] })).status).toBe(400);
+      expect((await same({ ...ASK, questions: [QUESTION, QUESTION] })).status).toBe(400);
+      expect((await same({ ...ASK, issue: 0 })).status).toBe(400);
+      expect((await same({ ...ASK, issue: '314' })).status).toBe(400);
+      expect((await askQuestions(kit(`/jobs/${job.id}/questions`, 'olga-token', { method: 'POST', body: 'not json' }), job.id, w.deps)).status).toBe(400);
+      expect(w.state.questions).toEqual([]);
+    });
+
+    it('refuses a runner that is not the job\'s, 404s an unknown job and an id that is none', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      expect((await askQuestions(post(`/jobs/${job.id}/questions`, 'mo-token', ASK), job.id, w.deps)).status).toBe(403);
+      expect((await askQuestions(post(`/jobs/${NOBODY}/questions`, 'olga-token', ASK), NOBODY, w.deps)).status).toBe(404);
+      expect((await askQuestions(post('/jobs/nope/questions', 'olga-token', ASK), 'nope', w.deps)).status).toBe(404);
+      expect(w.state.questions).toEqual([]);
+    });
+
+    it('answers 409 for a job that is not running and for one that asked already', async () => {
+      const ended = waiting();
+      const job = running();
+      const w = world({ jobs: [ended, job] });
+      expect(await read(await askQuestions(post(`/jobs/${ended.id}/questions`, 'olga-token', ASK), ended.id, w.deps)))
+        .toEqual({ status: 409, body: { error: 'This job is done: only a running job asks.' } });
+      expect((await askQuestions(post(`/jobs/${job.id}/questions`, 'olga-token', ASK), job.id, w.deps)).status).toBe(200);
+      expect(await read(await askQuestions(post(`/jobs/${job.id}/questions`, 'olga-token', ASK), job.id, w.deps)))
+        .toEqual({ status: 409, body: { error: 'This job asked its questions already.' } });
+    });
+
+    it('answers 503 with no database, and with no service role', async () => {
+      const job = running();
+      expect((await askQuestions(post(`/jobs/${job.id}/questions`, 'olga-token', ASK), job.id, world({ jobs: [job], database: false }).deps)).status).toBe(503);
+      expect((await askQuestions(post(`/jobs/${job.id}/questions`, 'olga-token', ASK), job.id, world({ jobs: [job], serviceRole: false }).deps)).status).toBe(503);
+    });
+
+    it('answers 500 in plain words and logs the cause when the database fails', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      const broken: RunnersDeps = { ...w.deps, service: { ...w.deps.service, ask: () => Promise.reject(new Error('runner_job_questions: connection reset')) } as RunnersDeps['service'] };
+      expect(await read(await askQuestions(post(`/jobs/${job.id}/questions`, 'olga-token', ASK), job.id, broken)))
+        .toEqual({ status: 500, body: { error: 'The runners could not answer. Try again.' } });
+      expect(w.logged).toEqual(['runners: runner_job_questions: connection reset']);
+    });
+  });
+
+  describe('GET /api/runners/jobs/<id>/questions', () => {
+    it('answers a member of the workspace in the browser the questions, open, with no answers yet', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })], viewer: PIA });
+      const response = await readQuestions(new Request(`${URL_BASE}/jobs/${job.id}/questions`), job.id, w.deps);
+      expect(response.headers.get('cache-control')).toContain('no-store');
+      expect(await read(response)).toMatchObject({ status: 200, body: { job: job.id, state: 'open', questions: [QUESTION], answers: null } });
+    });
+
+    it('answers a runner\'s owner with the kit\'s sign-in, the answers once they are given', async () => {
+      const job = waiting();
+      const answered = questionsRow({ job_id: job.id, answers: ANSWERS.answers, closed_by: MO, closed_at: T0.toISOString(), resume_job: NOBODY });
+      const w = world({ jobs: [job], questions: [answered], viewer: null });
+      expect(await read(await readQuestions(kit(`/jobs/${job.id}/questions`, 'olga-token'), job.id, w.deps))).toMatchObject({
+        status: 200, body: { state: 'answered', answers: ANSWERS.answers, by: MO, byLogin: 'mo', at: T0.toISOString(), resume: NOBODY },
+      });
+    });
+
+    it('answers 404 to a member of another workspace, for a job that asked nothing, and for an id that is none', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job, running()], questions: [questionsRow({ job_id: job.id })], viewer: EVE });
+      expect(await read(await readQuestions(new Request(`${URL_BASE}/jobs/${job.id}/questions`), job.id, w.deps))).toEqual({ status: 404, body: { error: 'No such job.' } });
+      expect((await readQuestions(kit(`/jobs/${job.id}/questions`, 'eve-token'), job.id, w.deps)).status).toBe(404);
+      const quiet = running();
+      expect((await readQuestions(new Request(`${URL_BASE}/jobs/${quiet.id}/questions`), quiet.id, world({ jobs: [quiet] }).deps)).status).toBe(404);
+      expect((await readQuestions(new Request(`${URL_BASE}/jobs/nope/questions`), 'nope', world().deps)).status).toBe(404);
+    });
+
+    it('refuses the signed out, with a bad token and with no session', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })], viewer: null });
+      expect(await read(await readQuestions(new Request(`${URL_BASE}/jobs/${job.id}/questions`), job.id, w.deps))).toEqual({ status: 401, body: { error: 'Sign in first.' } });
+      expect((await readQuestions(kit(`/jobs/${job.id}/questions`, 'stolen-token'), job.id, w.deps)).status).toBe(401);
+    });
+  });
+
+  describe('POST /api/runners/jobs/<id>/answers', () => {
+    const open = () => {
+      const job = waiting();
+      return { job, w: world({ jobs: [job], questions: [questionsRow({ job_id: job.id })], viewer: MO }) };
+    };
+    const answered = (job: JobRow, w: ReturnType<typeof world>, body: unknown = ANSWERS) => answerQuestions(browser(`/jobs/${job.id}/answers`, body), job.id, w.deps);
+
+    it('queues the resume job as the person who answered, and stores the answers', async () => {
+      const { job, w } = open();
+      const response = await read(await answered(job, w));
+      expect(response).toMatchObject({ status: 200, body: { job: { line: `/omni:bug-fix #314 --answers ${job.id}`, status: 'queued', sentBy: MO, sentByLogin: 'mo', toFleet: 'cia' } } });
+      expect(w.state.questions[0]).toMatchObject({ answers: ANSWERS.answers, closed_by: MO });
+    });
+
+    it('refuses a bearer token, a runner\'s or a person\'s, whatever session the page holds: it never answers (BR-PRODUCT-94)', async () => {
+      const { job, w } = open();
+      for (const token of ['olga-token', 'mo-token', 'stolen-token']) {
+        expect(await read(await answerQuestions(bearer(job.id, 'answers', token, ANSWERS), job.id, w.deps)))
+          .toEqual({ status: 403, body: { error: 'A token never answers: answer on the Runners page, signed in.' } });
+      }
+      expect(w.state.questions[0]).toMatchObject({ answers: null, closed_by: null });
+      expect(w.state.jobs).toHaveLength(1);
+    });
+
+    it('refuses a body out of shape: no JSON, no answers, an answer too long, or an unknown field', async () => {
+      const { job, w } = open();
+      expect(await read(await answered(job, w, { answers: {} }))).toMatchObject({ status: 400, body: { error: expect.stringContaining('"answers"') as unknown } });
+      expect((await answered(job, w, { answers: { 'Which fix?': 'x'.repeat(ANSWER_CHARS + 1) } })).status).toBe(400);
+      expect((await answered(job, w, { ...ANSWERS, extra: 1 })).status).toBe(400);
+      expect((await answered(job, w, { answers: { 'Which fix?': 3 } })).status).toBe(400);
+      expect((await answerQuestions(new Request(`${URL_BASE}/jobs/${job.id}/answers`, { method: 'POST', body: 'not json' }), job.id, w.deps)).status).toBe(400);
+      expect(w.state.jobs).toHaveLength(1);
+    });
+
+    it('refuses answers that miss a question or answer one that was not asked, queuing nothing', async () => {
+      const { job, w } = open();
+      expect((await answered(job, w, { answers: { 'Another question?': 'Guard the input' } })).status).toBe(400);
+      expect((await answered(job, w, { answers: { ...ANSWERS.answers, 'Another question?': 'x' } })).status).toBe(400);
+      expect(w.state.jobs).toHaveLength(1);
+    });
+
+    it('answers 404 to a member of another workspace, for a job that asked nothing and for an id that is none', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })], viewer: EVE });
+      expect((await answered(job, w)).status).toBe(404);
+      const quiet = waiting();
+      expect((await answered(quiet, world({ jobs: [quiet], viewer: MO }))).status).toBe(404);
+      expect((await answerQuestions(browser(`/jobs/${NOBODY}/answers`, ANSWERS), NOBODY, world({ viewer: MO }).deps)).status).toBe(404);
+      expect((await answerQuestions(browser('/jobs/nope/answers', ANSWERS), 'nope', world({ viewer: MO }).deps)).status).toBe(404);
+      expect(w.state.jobs).toHaveLength(1);
+    });
+
+    it('answers 409, naming who was first, to the second person to answer', async () => {
+      const { job, w } = open();
+      expect((await answered(job, w)).status).toBe(200);
+      const again = answerQuestions(browser(`/jobs/${job.id}/answers`, ANSWERS), job.id, { ...w.deps, session: () => Promise.resolve(OLGA) });
+      expect(await read(await again)).toEqual({ status: 409, body: { error: 'Already answered by @mo' } });
+      expect(w.state.jobs).toHaveLength(2);
+    });
+
+    it('refuses the signed out with 401, and answers 503 with no database', async () => {
+      const job = waiting();
+      const questions = [questionsRow({ job_id: job.id })];
+      expect(await read(await answered(job, world({ jobs: [job], questions, viewer: null })))).toEqual({ status: 401, body: { error: 'Sign in first.' } });
+      expect((await answered(job, world({ jobs: [job], questions, database: false }))).status).toBe(503);
+    });
+  });
+
+  describe('POST /api/runners/jobs/<id>/dismiss', () => {
+    const dismissed = (id: string, w: ReturnType<typeof world>) => dismissQuestions(browser(`/jobs/${id}/dismiss`, {}), id, w.deps);
+
+    it('closes the questions with no answers and queues nothing, for any member', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })], viewer: PIA });
+      expect(await read(await dismissed(job.id, w))).toMatchObject({ status: 200, body: { job: job.id, state: 'dismissed', answers: null, by: PIA, byLogin: 'pia' } });
+      expect(w.state.jobs).toHaveLength(1);
+    });
+
+    it('refuses a bearer token, a runner\'s or a person\'s: it never dismisses (BR-PRODUCT-94)', async () => {
+      const job = waiting();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })], viewer: MO });
+      for (const token of ['olga-token', 'mo-token', 'stolen-token']) {
+        expect(await read(await dismissQuestions(bearer(job.id, 'dismiss', token), job.id, w.deps)))
+          .toEqual({ status: 403, body: { error: 'A token never dismisses: dismiss on the Runners page, signed in.' } });
+      }
+      expect(w.state.questions[0]).toMatchObject({ closed_by: null, closed_at: null });
+    });
+
+    it('answers 404 to a member of another workspace and for an id that is none, 409 to a second dismiss, 401 signed out', async () => {
+      const job = waiting();
+      const questions = [questionsRow({ job_id: job.id })];
+      expect((await dismissed(job.id, world({ jobs: [job], questions, viewer: EVE }))).status).toBe(404);
+      expect((await dismissed('nope', world({ jobs: [job], questions, viewer: MO }))).status).toBe(404);
+      const w = world({ jobs: [job], questions, viewer: MO });
+      expect((await dismissed(job.id, w)).status).toBe(200);
+      expect(await read(await dismissed(job.id, w))).toEqual({ status: 409, body: { error: 'Dismissed by @mo' } });
+      expect((await dismissed(job.id, world({ jobs: [job], questions, viewer: null }))).status).toBe(401);
+    });
   });
 });

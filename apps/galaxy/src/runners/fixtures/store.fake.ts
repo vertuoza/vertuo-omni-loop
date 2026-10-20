@@ -1,13 +1,17 @@
-import type { JobLineRow, JobPatch, JobRow, JobRowStatus, NewJob, NewRunner, RunnerRow, RunnersRepository, SampleRow } from '../runners.repository';
+import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Question } from '../runners.contract';
+import type { Acted, JobLineRow, JobPatch, JobRow, JobRowStatus, NewJob, NewRunner, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from '../runners.repository';
 
 // The runners' storage in memory (PRD 1830 s1), for the service's and the controller's tests: the same
 // rows the two tables hold, the claim's rules as runner_claim() applies them, and runners_mark_lost(),
 // as supabase/migrations/20261207100000_runners.sql writes them and supabase/checks/runners.sql proves
 // them; and a job's live lines (PRD 1904), appended once each, trimmed and kept for the listed jobs as
 // supabase/migrations/20261208090000_runner_job_lines.sql and runner_job_lines_retain() keep them; and a
-// runner's samples (PRD 2102), one per runner and instant, as runner_samples holds them. A
-// realistic workspace: Olga owns it and plays in the fleet cia, Mo plays in cia, Pia in pirates,
-// Sam in no fleet; Eve belongs to another workspace.
+// runner's samples (PRD 2102), one per runner and instant, as runner_samples holds them; and a job's
+// questions (PRD 2255), with runner_job_answer() and runner_job_dismiss() as
+// supabase/migrations/20261218100000_runner_job_questions.sql writes them and
+// supabase/checks/runner_job_questions.sql proves them. A realistic workspace: Olga owns it and plays in
+// the fleet cia, Mo plays in cia, Pia in pirates, Sam in no fleet; Eve belongs to another workspace.
 
 export const WORKSPACE = '00000000-0000-4000-8000-000001830001';
 export const ELSEWHERE = '00000000-0000-4000-8000-000001830002';
@@ -69,6 +73,23 @@ export function jobRow(more: Partial<JobRow> = {}): JobRow {
   };
 }
 
+/** One question, in `omni ask`'s file shape: two fixes and the one that stops to design. */
+export const QUESTION: Question = {
+  question: 'Which fix?', header: 'Fix', multiSelect: false,
+  options: [
+    { label: 'Guard the input', description: 'Check the tenant before the query' },
+    { label: 'Design it first', description: 'Stop here and brainstorm the behaviour' },
+  ],
+};
+
+/** The questions a job asked: open, about issue 314, in WORKSPACE, unless told otherwise. */
+export function questionsRow(more: Partial<QuestionsRow> & Pick<QuestionsRow, 'job_id'>): QuestionsRow {
+  return {
+    workspace_id: WORKSPACE, issue: parseIssue(314), lead: 'The planning query fails for 31 tenants.', questions: [QUESTION],
+    answers: null, closed_by: null, closed_at: null, resume_job: null, asked_at: T0.toISOString(), ...more,
+  };
+}
+
 /** `count` live lines of the job, numbered from `from`, each reading `line <seq>`. */
 export function lineRows(job: Pick<JobRow, 'id' | 'workspace_id'>, from: number, count: number): JobLineRow[] {
   return Array.from({ length: count }, (_, i) => ({ job_id: job.id, workspace_id: job.workspace_id, seq: from + i, text: `line ${String(from + i)}` }));
@@ -77,13 +98,13 @@ export function lineRows(job: Pick<JobRow, 'id' | 'workspace_id'>, from: number,
 const ENDED_STATUSES: readonly JobRowStatus[] = ['done', 'failed', 'cancelled'];
 
 /** The fake's tables, and the clock it stamps writes with. */
-export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], now = () => T0 }: {
-  runners?: RunnerRow[]; jobs?: JobRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; now?: () => Date;
+export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], questions = [], now = () => T0 }: {
+  runners?: RunnerRow[]; jobs?: JobRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; now?: () => Date;
 } = {}) {
   const calls: string[] = [];
   const state = {
     runners: runners.map((row) => ({ ...row })), jobs: jobs.map((row) => ({ ...row })), lines: lines.map((row) => ({ ...row })),
-    samples: samples.map((row) => ({ ...row })), calls,
+    samples: samples.map((row) => ({ ...row })), questions: questions.map((row) => ({ ...row })), calls,
   };
   const stamp = () => now().toISOString();
   // As runner_claim() reads them: a queued job of its workspace, for a repository it holds…
@@ -92,6 +113,14 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
   // …sent to it, to its fleet, or, for a runner with no fleet only, to any runner.
   const addressed = (runner: RunnerRow, job: JobRow) => (job.to_runner === null ? job.to_fleet === runner.fleet : job.to_runner === runner.id);
   const may = (runner: RunnerRow, job: JobRow) => takeable(runner, job) && addressed(runner, job);
+  // Why runner_job_answer() and runner_job_dismiss() refuse before they change anything: no row, a closed row or a
+  // job that is not waiting, an account outside the workspace.
+  const refusal = (jobId: string, by: string): 'none' | 'closed' | 'stranger' | null => {
+    const row = state.questions.find((q) => q.job_id === jobId);
+    if (!row) return 'none';
+    if (row.closed_at !== null || state.jobs.find((j) => j.id === jobId)?.outcome !== 'human') return 'closed';
+    return MEMBERS.some((m) => m.workspaceId === row.workspace_id && m.userId === by) ? null : 'stranger';
+  };
 
   const store: RunnersRepository = {
     member: (workspaceId, userId) => {
@@ -208,6 +237,50 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       .filter((j) => j.workspace_id === workspaceId && j.ended_at !== null)
       .sort((a, b) => (b.ended_at ?? '').localeCompare(a.ended_at ?? ''))
       .slice(0, limit)),
+    jobsById: (workspaceId, ids) => Promise.resolve(state.jobs
+      .filter((j) => j.workspace_id === workspaceId && ids.includes(j.id))
+      .sort((a, b) => (b.ended_at ?? '').localeCompare(a.ended_at ?? ''))
+      .map((j) => ({ ...j }))),
+    questionsOf: (jobId) => {
+      const found = state.questions.find((q) => q.job_id === jobId);
+      return Promise.resolve(found ? { ...found } : null);
+    },
+    insertQuestions: (row) => {
+      // One row per job, as its primary key: a second insert reads none.
+      if (state.questions.some((q) => q.job_id === row.jobId)) return Promise.resolve(null);
+      const added = questionsRow({ job_id: row.jobId, workspace_id: row.workspaceId, issue: row.issue, lead: row.lead, questions: row.questions, asked_at: stamp() });
+      state.questions.push(added);
+      return Promise.resolve({ ...added });
+    },
+    openQuestionJobs: (workspaceId) => Promise.resolve(state.questions.filter((q) => q.workspace_id === workspaceId && q.closed_at === null).map((q) => q.job_id)),
+    answer: (jobId, answers, by) => {
+      state.calls.push(`answer ${jobId} by ${by}`);
+      const refused = refusal(jobId, by);
+      const row = state.questions.find((q) => q.job_id === jobId);
+      const asked = state.jobs.find((j) => j.id === jobId);
+      if (refused || !row || !asked) return Promise.resolve<Acted<JobRow>>({ ok: false, refusal: refused ?? 'none' });
+      // As runner_job_answer(): each question has one answer, and nothing else is answered.
+      const texts = row.questions.map((q) => q.question);
+      const keys = Object.keys(answers);
+      const skill = /^\/omni:([a-z][a-z-]*)/.exec(asked.line)?.[1];
+      if (keys.length !== texts.length || !texts.every((text) => text in answers) || !skill) return Promise.resolve({ ok: false, refusal: 'mismatch' });
+      // …the resume job is queued as the answerer, to the first job's repository and target, then the row closes.
+      const resume = jobRow({
+        workspace_id: asked.workspace_id, line: `/omni:${skill} #${String(row.issue)} --answers ${jobId}`, repo: asked.repo,
+        to_runner: asked.to_runner, to_fleet: asked.to_fleet, sent_by: by, queued_at: stamp(),
+      });
+      state.jobs.push(resume);
+      Object.assign(row, { answers: { ...answers }, closed_by: by, closed_at: stamp(), resume_job: resume.id });
+      return Promise.resolve({ ok: true, value: { ...resume } });
+    },
+    dismiss: (jobId, by) => {
+      state.calls.push(`dismiss ${jobId} by ${by}`);
+      const refused = refusal(jobId, by);
+      const row = state.questions.find((q) => q.job_id === jobId);
+      if (refused || !row) return Promise.resolve<Acted<QuestionsRow>>({ ok: false, refusal: refused ?? 'none' });
+      Object.assign(row, { closed_by: by, closed_at: stamp() });
+      return Promise.resolve({ ok: true, value: { ...row } });
+    },
   };
   return { store, state };
 }

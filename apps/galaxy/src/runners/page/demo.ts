@@ -1,4 +1,5 @@
-import type { Board, Job, Runner } from '../runners.contract';
+import { IssueNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Board, Job, JobQuestions, Runner } from '../runners.contract';
 import type { Fleet, RunnersPageView } from './model';
 
 // The demo's runners (PRD 1830 s3), for development and OMNI_LOOP_DEMO=1: one runner in each state, a
@@ -16,7 +17,11 @@ const DEMO_RUNNERS = {
   laptop: '00000000-0000-4000-8000-00000000d103',
 } as const;
 
-const FLEETS: Fleet[] = [{ name: 'comets', label: 'Comets' }, { name: 'nebula', label: 'Nebula' }];
+// The two jobs of the demo that asked questions (PRD 2255): one still open, one a person answered.
+const ASKING = '00000000-0000-4000-8000-00000000d2a1';
+const ANSWERED = '00000000-0000-4000-8000-00000000d2a2';
+
+const FLEETS: Fleet[] =[{ name: 'comets', label: 'Comets' }, { name: 'nebula', label: 'Nebula' }];
 
 export function demoRunnersPage(now: Date): RunnersPageView {
   const at = (minutes: number) => new Date(now.getTime() + minutes * MIN).toISOString();
@@ -93,8 +98,48 @@ export function demoRunnersPage(now: Date): RunnersPageView {
         line: '/omni:bug-fix Issue 548 totals', status: 'done', sentBy: ADA, sentByLogin: 'ada', sentByKey: 'QA dashboard', runner: DEMO_RUNNERS.office,
         prUrl: 'https://github.com/acme/widgets/pull/1850', exitCode: 0, endedAt: at(-300),
       }),
+      // A bug-fix that stopped with two questions for a person (PRD 2255): it reads Need human, with the button.
+      job({
+        id: ASKING, line: '/omni:bug-fix 314', status: 'done', sentByLogin: 'ada', sentBy: ADA, sentByKey: 'cleaner', runner: DEMO_RUNNERS.office, exitCode: 0,
+        outcome: 'human', logTail: 'stopped: two questions for a person', endedAt: at(-15),
+      }),
+      // One that asked, and Ada answered: it reads Done again, and its drawer says who answered.
+      job({ id: ANSWERED, line: '/omni:bug-fix 301', status: 'done', runner: DEMO_RUNNERS.office, exitCode: 0, endedAt: at(-200) }),
     ],
     viewer: { id: YOU, owner: true, fleet: 'comets' },
   };
-  return { kind: 'board', name: DEMO_NAME, board, fleets: FLEETS, prds: { 'acme/widgets#1717': 'Sync widgets across devices', 'acme/widgets#1855': 'Export the totals as CSV' }, now: now.toISOString() };
+  const questions: JobQuestions[] = [
+    {
+      job: ASKING, issue: IssueNumberSchema.parse(314), state: 'open', answers: null, by: null, byLogin: null, at: null, resume: null,
+      lead: 'The planning query fails for **31 tenants**: an assignment points at a project the user may not open.\n\nBoth fixes below pass the tests; they differ in what the user sees.',
+      questions: [
+        {
+          question: 'How should the planning show an assignment whose project the user may not open?', header: 'Fix', multiSelect: false,
+          options: [
+            { label: 'Make the project nullable (Recommended)', description: 'The assignment shows with no project name.' },
+            { label: 'Filter those assignments out', description: 'The user sees only what they may open.' },
+          ],
+        },
+        {
+          question: 'Which tenants first?', header: 'Rollout', multiSelect: true,
+          options: [
+            { label: 'The 31 failing', description: 'Fix what is broken today.' },
+            { label: 'All of them', description: 'Roll the new shape out everywhere at once.' },
+          ],
+        },
+      ],
+    },
+    {
+      job: ANSWERED, issue: IssueNumberSchema.parse(301), state: 'answered', by: ADA, byLogin: 'ada', at: at(-190), resume: null,
+      lead: 'The invoice total drops a cent when a line has a 3-decimal price.',
+      answers: { 'Round each line, or the total?': 'Round each line' },
+      questions: [
+        {
+          question: 'Round each line, or the total?', header: 'Rounding', multiSelect: false,
+          options: [{ label: 'Round each line', description: 'What the supplier sheet does.' }, { label: 'Round the total', description: 'What the ledger does.' }],
+        },
+      ],
+    },
+  ];
+  return { kind: 'board', name: DEMO_NAME, board, fleets: FLEETS, prds: { 'acme/widgets#1717': 'Sync widgets across devices', 'acme/widgets#1855': 'Export the totals as CSV' }, now: now.toISOString(), demoQuestions: questions };
 }

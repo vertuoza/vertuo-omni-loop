@@ -1036,6 +1036,182 @@ describe('omni runner sender', () => {
   });
 });
 
+/**
+ * `omni runner ask` and `omni runner answers` (PRD 2255, s2): run in a job's session, on the `acme/widgets`
+ * checkout whose config names the Omni page, against a stubbed app that answers the job's questions route.
+ */
+describe('omni runner ask and omni runner answers (PRD 2255, s2)', () => {
+  const QUESTIONS = {
+    questions: [
+      {
+        question: 'How should the planning query treat an assignment the user may not see?',
+        header: 'Planning',
+        options: [
+          { label: 'Make project nullable', description: 'The column accepts no project and the query reads it.' },
+          { label: 'Filter it out', description: 'The query skips the assignments the user may not see.' },
+          { label: 'Design it first', description: 'Stop here and brainstorm the behaviour' },
+        ],
+        multiSelect: false,
+      },
+    ],
+  };
+  const LEAD = 'The planning query fails for 31 tenants, and the fix is a choice a person has to make.';
+  // The app's row (apps/galaxy/src/runners/runners.contract.ts, JobQuestionsSchema): each question's text to its answer.
+  const ANSWERS = { 'How should the planning query treat an assignment the user may not see?': 'Filter it out' };
+  const ROW = { job: 'job-7', issue: 314, lead: LEAD, questions: QUESTIONS.questions, state: 'answered', answers: ANSWERS, byLogin: 'ada' };
+
+  /** The stubbed app: every call is recorded, and `reply` answers the questions route. */
+  function app(reply: (call: Call) => Response | Promise<Response> = () => new Response('{}', { status: 200 })) {
+    const calls: (Call & { authorization: string | null })[] = [];
+    const fetch = async (url: string, init: RequestInit): Promise<Response> => {
+      const headers = new Headers(init.headers);
+      const call = { method: init.method ?? 'GET', path: new URL(url).pathname, body: typeof init.body === 'string' ? (JSON.parse(init.body) as unknown) : null };
+      calls.push({ ...call, authorization: headers.get('authorization') });
+      return reply(call);
+    };
+    return { calls, fetch };
+  }
+  const refusal = (code: number, words?: string) => () => new Response(words === undefined ? null : JSON.stringify({ error: words }), { status: code });
+
+  /** `omni runner <args>` in the checkout, as a job's session runs it. */
+  async function run(f: ReturnType<typeof fixture>, args: string[], { stub = app(), env = { OMNI_JOB: 'job-7' } }: { stub?: ReturnType<typeof app>; env?: Record<string, string> } = {}) {
+    const stdout = out();
+    const stderr = out();
+    const code = await main(['runner', ...args], {
+      cwd: f.checkout,
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+      env: { PATH: String(process.env.PATH), ...env },
+      tokens: memoryTokens(),
+      home: f.home,
+      fetch: stub.fetch,
+    });
+    return { code, out: stdout.text(), err: stderr.text(), calls: stub.calls };
+  }
+
+  /** The checkout, with the questions file and the lead file the skill writes in its scratch folder. */
+  function asking(questions: unknown = QUESTIONS, lead = `${LEAD}\n`) {
+    const f = fixture();
+    writeFileSync(join(f.root, 'questions.json'), typeof questions === 'string' ? questions : JSON.stringify(questions));
+    writeFileSync(join(f.root, 'lead.txt'), lead);
+    const ask = (...more: string[]) => ['ask', '--file', join(f.root, 'questions.json'), '--issue', '314', '--lead', join(f.root, 'lead.txt'), ...more];
+    return { f, ask };
+  }
+
+  describe('ask', () => {
+    it("posts the issue, the lead and the questions on the job's route with the runner's sign-in, exits 0, and prints the line the comment ends on", async () => {
+      const { f, ask } = asking();
+      const result = await run(f, ask());
+      expect(result).toMatchObject({ code: 0, err: '', out: 'Waiting for an answer on Omni: https://omni.test/app/runners?answer=job-7\n' });
+      expect(result.calls).toEqual([{ method: 'POST', path: '/api/runners/jobs/job-7/questions', authorization: 'Bearer access-1', body: { issue: 314, lead: LEAD, questions: QUESTIONS.questions } }]);
+    });
+
+    it('reads its files from the folder it runs in when they are named relative to it', async () => {
+      const { f } = asking();
+      const result = await run(f, ['ask', '--file', '../../questions.json', '--issue', '314', '--lead', '../../lead.txt']);
+      expect(result).toMatchObject({ code: 0, err: '' });
+      expect(result.calls).toHaveLength(1);
+    });
+
+    it('refuses more than 4 questions, naming the field, and sends nothing', async () => {
+      const five = { questions: Array.from({ length: 5 }, () => QUESTIONS.questions[0]) };
+      const { f, ask } = asking(five);
+      const result = await run(f, ask());
+      expect(result).toMatchObject({ code: 1, out: '', calls: [] });
+      expect(result.err).toBe(`omni runner: ${join(f.root, 'questions.json')} does not read: questions: at most 4 questions, got 5.\n`);
+    });
+
+    it('refuses an option with no label, naming the field as omni ask does, and sends nothing', async () => {
+      const [first] = QUESTIONS.questions;
+      const unlabelled = { questions: [{ ...first, options: [{ label: 'Filter it out', description: 'x' }, { label: '', description: 'y' }] }] };
+      const { f, ask } = asking(unlabelled);
+      const result = await run(f, ask());
+      expect(result).toMatchObject({ code: 1, out: '', calls: [] });
+      expect(result.err).toContain('does not read: questions.0.options.1.label:');
+    });
+
+    it('refuses a file that is not JSON, one that is not there, and an empty lead, each in one line', async () => {
+      const notJson = asking('not json');
+      expect(await run(notJson.f, notJson.ask())).toMatchObject({ code: 1, err: `omni runner: ${join(notJson.f.root, 'questions.json')} does not read: (file): not JSON.\n`, calls: [] });
+      const missing = asking();
+      const gone = await run(missing.f, ['ask', '--file', join(missing.f.root, 'none.json'), '--issue', '314', '--lead', join(missing.f.root, 'lead.txt')]);
+      expect(gone).toMatchObject({ code: 1, calls: [] });
+      expect(gone.err).toBe(`omni runner: cannot read ${join(missing.f.root, 'none.json')}.\n`);
+      const blank = asking(QUESTIONS, '  \n');
+      const empty = await run(blank.f, blank.ask());
+      expect(empty).toMatchObject({ code: 1, calls: [] });
+      expect(empty.err).toBe(`omni runner: ${join(blank.f.root, 'lead.txt')} is empty: the lead says why the fix stopped.\n`);
+    });
+
+    it('refuses to ask outside a runner job, with no OMNI_JOB, and sends nothing', async () => {
+      const { f, ask } = asking();
+      for (const env of [{}, { OMNI_JOB: '  ' }]) {
+        expect(await run(f, ask(), { env })).toEqual({ code: 1, out: '', err: 'omni runner: no job to ask on: OMNI_JOB is not set, this is not a runner job.\n', calls: [] });
+      }
+    });
+
+    it("exits 1 with the app's words on a 409, on a 404, and with `refused (<status>)` from an app that has none", async () => {
+      const { f, ask } = asking();
+      const conflict = await run(f, ask(), { stub: app(refusal(409, 'This job already asked.')) });
+      expect(conflict).toMatchObject({ code: 1, out: '', err: 'omni runner: This job already asked.\n' });
+      const notFound = await run(f, ask(), { stub: app(refusal(404, 'No such job.')) });
+      expect(notFound).toMatchObject({ code: 1, out: '', err: 'omni runner: No such job.\n' });
+      const old = await run(f, ask(), { stub: app(refusal(404)) });
+      expect(old).toMatchObject({ code: 1, out: '', err: 'omni runner: refused (404)\n' });
+    });
+
+    it('exits 1 in one line when the app is down', async () => {
+      const { f, ask } = asking();
+      const result = await run(f, ask(), { stub: app(refusal(503, 'down')) });
+      expect(result).toMatchObject({ code: 1, out: '', err: 'omni runner: POST /api/runners/jobs/job-7/questions: 503\n' });
+    });
+
+    it('is a usage error, exit 2, without its three flags, with a bad issue number, or with a stray argument', async () => {
+      const { f, ask } = asking();
+      for (const args of [['ask'], ['ask', '--file', 'q.json', '--issue', '314'], [...ask(), 'extra'], ask().map((arg) => (arg === '314' ? 'three' : arg))]) {
+        const result = await run(f, args);
+        expect(result, args.join(' ')).toMatchObject({ code: 2, out: '', calls: [] });
+        expect(result.err).toMatch(/^(usage: )?omni runner/);
+      }
+      expect((await run(f, ['ask'])).err).toBe('usage: omni runner ask --file <file> --issue <n> --lead <file>\n');
+    });
+  });
+
+  describe('answers', () => {
+    it("prints the job's questions and their answers as the app holds them, and exits 0", async () => {
+      const stub = app(() => new Response(JSON.stringify(ROW), { status: 200 }));
+      const result = await run(asking().f, ['answers', 'job-7'], { stub });
+      expect(result).toMatchObject({ code: 0, err: '' });
+      expect(JSON.parse(result.out)).toEqual(ROW);
+      expect(result.out.trim().split('\n')).toHaveLength(1);
+      expect(result.calls).toEqual([{ method: 'GET', path: '/api/runners/jobs/job-7/questions', authorization: 'Bearer access-1', body: null }]);
+    });
+
+    it('exits 1 with one line when the job has no row, with the app\'s words or without', async () => {
+      const { f } = asking();
+      const words = await run(f, ['answers', 'job-7'], { stub: app(refusal(404, 'No questions on this job.')) });
+      expect(words).toMatchObject({ code: 1, out: '', err: 'omni runner: No questions on this job.\n' });
+      const none = await run(f, ['answers', 'job-7'], { stub: app(refusal(404)) });
+      expect(none).toMatchObject({ code: 1, out: '', err: 'omni runner: no questions found for job job-7.\n' });
+    });
+
+    it('exits 1 with one line when the app answers something that is no row of questions', async () => {
+      const result = await run(asking().f, ['answers', 'job-7'], { stub: app() });
+      expect(result).toMatchObject({ code: 1, out: '', err: 'omni runner: refused (the app answered no questions)\n' });
+    });
+
+    it('is a usage error, exit 2, without a job or with two', async () => {
+      const { f } = asking();
+      for (const args of [['answers'], ['answers', 'job-7', 'job-8'], ['answers', 'job-7', '--file', 'x']]) {
+        const result = await run(f, args);
+        expect(result, args.join(' ')).toMatchObject({ code: 2, out: '', calls: [] });
+        expect(result.err).toMatch(/^(usage: )?omni runner/);
+      }
+      expect((await run(f, ['answers'])).err).toBe('usage: omni runner answers <job>\n');
+    });
+  });
+});
+
 describe('the runner pieces', () => {
   it('starts a tmux session detached, named, in its folder, with its variables, and the command as separate arguments', () => {
     expect(tmuxArgs({ name: 'job-7', cwd: '/w', env: { OMNI_RUNNER: 'box-1' }, argv: ['node', 'omni.mjs', 'runner', 'job'] })).toEqual([

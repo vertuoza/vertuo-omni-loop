@@ -14,8 +14,8 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => undefined
 
 const NOW = new Date('2026-10-13T14:00:00Z');
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
-const render = (view: RunnersPageView, terminal: string | null = null) =>
-  renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null, terminal }));
+const render = (view: RunnersPageView, terminal: string | null = null, answer: string | null = null) =>
+  renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null, terminal, answer }));
 
 function demo(): Extract<RunnersPageView, { kind: 'board' }> {
   const view = demoRunnersPage(NOW);
@@ -200,6 +200,129 @@ describe('the page opened with ?terminal=<job id>', () => {
 
   it('ignores a parameter that names no job id', () => {
     expect(render(demo(), 'nope')).not.toContain('data-screen="runner-terminal"');
+  });
+});
+
+const idOf = (line: string): string => demo().board.jobs.find((job) => job.line === line)?.id ?? '';
+const ASKING = idOf('/omni:bug-fix 314');
+const ANSWERED = idOf('/omni:bug-fix 301');
+/** The demo as a page read from the database is: its questions are not on the page, the drawer reads them. */
+const live = (): RunnersPageView => { const view = demo(); return { kind: 'board', name: view.name, board: view.board, fleets: view.fleets, prds: view.prds, now: view.now }; };
+
+describe('a done job that needs a human (PRD 2255 s3)', () => {
+  const html = render(demo());
+  const actions = (page: string, line: string) => [...jobRow(page, line).matchAll(/<button[^>]*>([^<]+)<\/button>/g)].map((m) => m[1]).filter((a) => a !== 'Terminal');
+
+  it('reads Need human, filled, with a Need human button', () => {
+    const row = jobRow(html, '/omni:bug-fix 314');
+    expect(text(row)).toContain('Need human');
+    expect(row).toContain('runners-status is-wait is-human');
+    expect(row).toContain(`data-answer="${ASKING}"`);
+    expect(actions(html, '/omni:bug-fix 314')).toEqual(['Need human']);
+  });
+
+  it('reads Done once its questions were answered or dismissed, with no button', () => {
+    const row = jobRow(html, '/omni:bug-fix 301');
+    expect(text(row)).toContain('Done');
+    expect(row).not.toContain('is-human');
+    expect(row).not.toContain('data-answer');
+    expect(actions(html, '/omni:bug-fix 301')).toEqual([]);
+  });
+
+  it('shows no button on a job that asked and then failed or was cancelled', () => {
+    const page = render(withBoard((board) => ({
+      ...board,
+      jobs: board.jobs.filter((job) => job.status === 'failed' || job.status === 'cancelled').map((job): Job => ({ ...job, outcome: 'human' })),
+    })));
+    expect(page).not.toContain('data-answer');
+    expect(page).not.toContain('is-human');
+    expect(text(page)).not.toContain('Need human');
+  });
+
+  it('keeps the page\'s one primary action on the first Send again: the Need human button is not primary', () => {
+    expect(html.match(/data-primary/g)).toHaveLength(1);
+    expect(jobRow(html, '/omni:bug-fix 314')).not.toContain('data-primary');
+  });
+
+  it('opens no drawer without ?answer=', () => {
+    expect(html).not.toContain('data-screen="runner-need-human"');
+  });
+});
+
+describe('the page opened with ?answer=<job id> (PRD 2255 s3)', () => {
+  const html = render(demo(), null, ASKING);
+  const t = text(html);
+  const drawer = html.slice(html.indexOf('data-screen="runner-need-human"'));
+
+  it('opens the drawer over the board, as a modal dialog the focus can move into', () => {
+    expect(html).toContain('data-screen="runners"');
+    expect(html).toContain('data-screen="runner-need-human"');
+    expect(drawer).toMatch(/role="dialog"/);
+    expect(drawer).toMatch(/aria-modal="true"/);
+    expect(drawer).toMatch(/tabindex="-1"/);
+    expect(html).toContain('need-scrim');
+  });
+
+  it('heads it Need human, the repository and the issue, which links GitHub, with a Close button', () => {
+    expect(t).toContain('Need human · widgets · #314');
+    expect(drawer).toContain('<a href="https://github.com/acme/widgets/issues/314"');
+    expect(drawer).toContain('aria-label="Close"');
+  });
+
+  it('holds the lead and each question with its options, one pick or several', () => {
+    expect(t).toContain('The planning query fails for 31 tenants');
+    expect(t).toContain('How should the planning show an assignment whose project the user may not open?');
+    expect(t).toContain('Make the project nullable');
+    expect(t).toContain('Recommended');
+    expect(t).toContain('Filter those assignments out');
+    expect(t).toContain('Which tenants first?');
+    expect(t).toContain('Pick one');
+    expect(t).toContain('Pick any that apply');
+    expect(drawer).toContain('type="radio"');
+    expect(drawer).toContain('type="checkbox"');
+  });
+
+  it('gives each question a free answer of at most 2,000 characters', () => {
+    expect(drawer.match(/<textarea/g)).toHaveLength(2);
+    expect(drawer.match(/maxlength="2000"/gi)).toHaveLength(2);
+  });
+
+  it('ends with Dismiss and Send answers, which stays off until every question has an answer', () => {
+    expect(drawer).toMatch(/<button[^>]*>Dismiss<\/button>/);
+    const send = /<button[^>]*>Send answers<\/button>/.exec(drawer)?.[0] ?? '';
+    expect(send).toContain('disabled=""');
+    expect(send).toContain('data-primary');
+  });
+
+  it('keeps the Terminal panel shut, so two panels never stack', () => {
+    expect(render(demo(), ASKING, ASKING)).not.toContain('data-screen="runner-terminal"');
+  });
+
+  it('reads who answered a closed row, with neither button', () => {
+    const closed = render(demo(), null, ANSWERED);
+    expect(text(closed)).toContain('Need human · widgets · #301');
+    expect(text(closed)).toContain('Already answered by @ada');
+    expect(closed).not.toContain('need-foot');
+    expect(text(closed)).not.toContain('Send answers');
+    expect(closed).not.toContain('>Dismiss<');
+  });
+
+  it('reads who dismissed it when it was dismissed', () => {
+    const view = demo();
+    const dismissed = render({ ...view, demoQuestions: (view.demoQuestions ?? []).map((row) => (row.job === ANSWERED ? { ...row, state: 'dismissed' as const, answers: null, byLogin: 'olga' } : row)) }, null, ANSWERED);
+    expect(text(dismissed)).toContain('Dismissed by @olga');
+    expect(dismissed).not.toContain('need-foot');
+  });
+
+  it('says the questions are being read, and offers no button yet, on a page read from the database', () => {
+    const page = render(live(), null, ASKING);
+    expect(text(page)).toContain('Reading the questions…');
+    expect(page).not.toContain('need-foot');
+  });
+
+  it('ignores a parameter that names no job id, or a job the board does not list', () => {
+    expect(render(demo(), null, 'nope')).not.toContain('data-screen="runner-need-human"');
+    expect(render(demo(), null, '00000000-0000-4000-8000-0000000000ff')).not.toContain('data-screen="runner-need-human"');
   });
 });
 

@@ -7,6 +7,8 @@
 //   omni runner send '<line>' [--to <runner|fleet>]
 //   omni runner follow <n>
 //   omni runner job --line <file> --log <file> --exit <file>
+//   omni runner ask --file <file> --issue <n> --lead <file>
+//   omni runner answers <job>
 //
 // The first starts the runner (`../../lib/runner/runner.ts`): it reads the sign-in every kit command
 // reads (`OMNI_TOKEN`, else `omni signin`'s), lists the git checkouts under `--repos` by their
@@ -31,32 +33,48 @@
 // `send` queues a line for this repository's workspace and `follow` prints a PRD's job milestones
 // until it ends (PRD 2251, `./runner-follow.ts`); both use the terminal's own sign-in.
 //
+// `ask` and `answers` run inside a job's session too (PRD 2255): `/omni:bug-fix` and `/omni:mega-bug-fix`, at
+// their stop for a decision, ask the person on the job. `ask` reads `OMNI_JOB`, checks `--file` (`omni ask`'s
+// question file, 1 to 4 questions of 2 to 4 options each) and `--lead` (one paragraph, why the skill stopped),
+// posts them with `--issue` to the job's questions route with the job's sign-in, and prints the line the
+// stop comment ends on, `Waiting for an answer on Omni: <the Runners page, on the job's drawer>`. It exits 0
+// once they are stored, and 1 with one line, the app's own words, otherwise (a skill then posts its stop
+// as it always did). `answers <job>` prints that job's row as the app holds it, questions and answers, as
+// one line of JSON, and exits 1 with one line when it cannot be read: the resumed run reads it from there.
+//
 // A test hands it `tokens`, `home`, `fetch`, `terminal`, `stop`, `sleep`, `now`, `tickMs`, `backoff` and
 // `machine`, the reads its health samples are taken from.
+import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { homeTokens } from '../../lib/ask/client-tokens.ts';
 import { loadContext } from '../../lib/context.ts';
+import { runnerJobOf } from '../../lib/env/read.ts';
+import type { IssueNumber } from '../../lib/ids.ts';
 import { runningKit } from '../../lib/init/bundle.ts';
-import { runnerApi } from '../../lib/runner/api.ts';
-import type { HealthLimits } from '../../lib/runner/api.ts';
+import { jobQuestionsApi, RunnerRefused, RunnerUnreachable, runnerApi } from '../../lib/runner/api.ts';
+import type { HealthLimits, JobQuestionsApi } from '../../lib/runner/api.ts';
 import { listCheckouts } from '../../lib/runner/checkouts.ts';
 import { DEFAULT_LIMITS } from '../../lib/runner/health.ts';
 import type { MachineReads } from '../../lib/runner/health.ts';
 import { runJobProcess } from '../../lib/runner/job.ts';
 import { parseDuration } from '../../lib/runner/log.ts';
+import { readJobQuestions, waitingLine } from '../../lib/runner/questions.ts';
+import type { JobQuestionList } from '../../lib/runner/questions.ts';
 import { releaser } from '../../lib/runner/release.ts';
 import { KEEP_LOGS_DAYS, runRunner } from '../../lib/runner/runner.ts';
 import { senderLine } from '../../lib/runner/sender.ts';
 import { missingTool, tmuxTerminal } from '../../lib/runner/terminal.ts';
 import type { Terminal } from '../../lib/runner/terminal.ts';
-import { parseArgs, positiveInt, println, usageError } from '../args.ts';
-import type { Exec, FreeCommand, FreeIo } from '../io.ts';
+import { issueArg, parseArgs, positiveInt, println, usageError } from '../args.ts';
+import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { followCommand, interrupts, send } from './runner-follow.ts';
 import type { FollowOptions } from './runner-follow.ts';
 
-const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n>";
+const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job>";
+const ASK_USAGE = 'usage: omni runner ask --file <file> --issue <n> --lead <file>';
+const ANSWERS_USAGE = 'usage: omni runner answers <job>';
 const DEFAULT_SLOTS = 4;
 const MAX_SLOTS = 8;
 const DEFAULT_TIMEOUT = '3h';
@@ -156,9 +174,12 @@ function pageOrRefusal(cwd: string, repos: string, checkouts: ReadonlyMap<string
   return missing === null ? { askUrl } : { refusal: missing };
 }
 
+/** The sign-in a call carries: a test's own, else the kit token `OMNI_TOKEN`, else the one `omni signin` keeps. */
+const tokensOf = (io: FreeIo & RunnerCommandOptions): TokenStore => io.tokens ?? homeTokens({ home: io.home, omniToken: io.vars.omniToken?.token ?? null });
+
 /** The sign-in, the terminal, the home and the stop signal: a test's own, else the real ones. */
 function wiring(io: FreeIo & RunnerCommandOptions) {
-  const tokens = io.tokens ?? homeTokens({ home: io.home, omniToken: io.vars.omniToken?.token ?? null });
+  const tokens = tokensOf(io);
   const stop = io.stop ? { signal: io.stop, release: () => undefined } : interrupts();
   return { tokens, stop, terminal: io.terminal ?? tmuxTerminal(io.exec), home: io.home ?? homedir(), fetch: io.fetch ?? globalThis.fetch };
 }
@@ -207,6 +228,99 @@ async function job(args: string[], { cwd, stdout }: FreeIo): Promise<number> {
   return runJobProcess({ cwd, files: { line: flags.line, log: flags.log, exit: flags.exit }, out: stdout });
 }
 
+/** One line on stderr, the app's words or ours, and the exit code of an `ask` or `answers` that did not go through. */
+function refused(stderr: Out, words: string): number {
+  println(stderr, `omni runner: ${words}`);
+  return 1;
+}
+
+/** The text of `path`, read from `cwd`, or one line saying it cannot be read. */
+function textOf(cwd: string, path: string): { text: string } | { refusal: string } {
+  try {
+    return { text: readFileSync(resolve(cwd, path), 'utf8') };
+  } catch {
+    return { refusal: `cannot read ${path}.` };
+  }
+}
+
+/** The questions `path` holds, in `omni ask`'s file shape within the limits of a job's, or one line saying which field is wrong. */
+function questionsFile(cwd: string, path: string): { questions: JobQuestionList } | { refusal: string } {
+  const file = textOf(cwd, path);
+  if ('refusal' in file) return file;
+  let json: unknown;
+  try {
+    json = JSON.parse(file.text);
+  } catch {
+    return { refusal: `${path} does not read: (file): not JSON.` };
+  }
+  const read = readJobQuestions(json);
+  return read.ok ? { questions: read.value } : { refusal: `${path} does not read: ${read.field}: ${read.message}.` };
+}
+
+/** The lead `path` holds, trimmed, or one line saying it is empty. */
+function leadFile(cwd: string, path: string): { lead: string } | { refusal: string } {
+  const file = textOf(cwd, path);
+  if ('refusal' in file) return file;
+  const lead = file.text.trim();
+  return lead === '' ? { refusal: `${path} is empty: the lead says why the fix stopped.` } : { lead };
+}
+
+/** `ask`'s flags, checked: its questions file, its lead file and the issue. */
+function askFlags(args: string[]): { file: string; lead: string; issue: IssueNumber } {
+  const { positional, flags } = parseArgs('runner', args, { values: ['file', 'issue', 'lead'] });
+  if (positional.length || !flags.file || !flags.issue || !flags.lead) throw usageError(ASK_USAGE);
+  return { file: flags.file, lead: flags.lead, issue: issueArg('runner', '--issue', flags.issue) };
+}
+
+/** The Omni page where this command runs and the client of a job's questions route on it, or one line saying there is none. */
+function questionsPage(io: FreeIo & RunnerCommandOptions): { askUrl: string; client: JobQuestionsApi } | { refusal: string } {
+  const askUrl = askUrlOf(io.cwd, io.exec);
+  if (askUrl === null) return { refusal: 'no Omni page is set (ask.url) in this checkout.' };
+  return { askUrl, client: jobQuestionsApi({ askUrl, tokens: tokensOf(io), fetch: io.fetch ?? globalThis.fetch }) };
+}
+
+/** What a call to the app came to: its value, or the one line the app refused it with (or `unreachable`'s). Anything else is thrown. */
+async function throughApp<T>(call: () => Promise<T>): Promise<{ value: T } | { refusal: string }> {
+  try {
+    return { value: await call() };
+  } catch (error) {
+    if (error instanceof RunnerRefused || error instanceof RunnerUnreachable) return { refusal: error.message };
+    throw error;
+  }
+}
+
+/** `ask --file <file> --issue <n> --lead <file>`: the questions a stopped skill asks on this job (PRD 2255). */
+async function askOnJob(args: string[], io: FreeIo & RunnerCommandOptions): Promise<number> {
+  const { cwd, stdout, stderr } = io;
+  const flags = askFlags(args);
+  const jobId = runnerJobOf(io.env)?.job;
+  if (jobId === undefined) return refused(stderr, 'no job to ask on: OMNI_JOB is not set, this is not a runner job.');
+  const questions = questionsFile(cwd, flags.file);
+  if ('refusal' in questions) return refused(stderr, questions.refusal);
+  const lead = leadFile(cwd, flags.lead);
+  if ('refusal' in lead) return refused(stderr, lead.refusal);
+  const page = questionsPage(io);
+  if ('refusal' in page) return refused(stderr, page.refusal);
+  const sent = await throughApp(() => page.client.ask(jobId, { issue: flags.issue, lead: lead.lead, questions: questions.questions }));
+  if ('refusal' in sent) return refused(stderr, sent.refusal);
+  println(stdout, waitingLine(page.askUrl, jobId));
+  return 0;
+}
+
+/** `answers <job>`: the job's questions and answers, as one line of JSON, for the run that resumes it (PRD 2255). */
+async function answersOfJob(args: string[], io: FreeIo & RunnerCommandOptions): Promise<number> {
+  const { stdout, stderr } = io;
+  const { positional } = parseArgs('runner', args);
+  const [jobId, ...extra] = positional;
+  if (jobId === undefined || extra.length) throw usageError(ANSWERS_USAGE);
+  const page = questionsPage(io);
+  if ('refusal' in page) return refused(stderr, page.refusal);
+  const row = await throughApp(() => page.client.answers(jobId));
+  if ('refusal' in row) return refused(stderr, row.refusal === 'refused (404)' ? `no questions found for job ${jobId}.` : row.refusal);
+  println(stdout, JSON.stringify(row.value));
+  return 0;
+}
+
 export const runner = {
   withoutContext: true,
   async run(args: string[], io: FreeIo & RunnerCommandOptions) {
@@ -220,6 +334,8 @@ export const runner = {
     if (first === 'job') return job(rest, io);
     if (first === 'send') return send(rest, io);
     if (first === 'follow') return followCommand(rest, io);
+    if (first === 'ask') return askOnJob(rest, io);
+    if (first === 'answers') return answersOfJob(rest, io);
     return start(args, io);
   },
 } satisfies FreeCommand;

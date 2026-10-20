@@ -6,14 +6,14 @@
 // The milestones, in the order they can happen: `queued`; `claimed by <runner>`; `waiting for
 // approval` (while the lines show `omni wait approval` waiting); each `PR: <link>` the job writes;
 // `<k>/<total> slices merged` when the count goes up; then the ending, with the PRD page link:
-// `Waiting on answers`, `Held`, `Ready` or `Done` (PRD 2223's outcome), `Failed: <reason>`,
+// `Waiting on answers`, `Held`, `Ready`, `Need human` (PRD 2255) or `Done` (PRD 2223's outcome), `Failed: <reason>`,
 // `Cancelled` or `Runner lost`.
 
 /** The job, as the follow reads it: the part of the app's answer the milestones need. */
 export type FollowJob = {
   status: 'queued' | 'claimed' | 'running' | 'done' | 'failed' | 'cancelled';
   runner: string | null;
-  outcome: 'answers' | 'held' | 'ready' | null;
+  outcome: 'answers' | 'held' | 'ready' | 'human' | null;
   reason: string | null;
   exitCode: number | null;
 };
@@ -35,7 +35,7 @@ const WAITING = /^◌ PRD \d+ · waiting for /;
 const APPROVED = /^✓ PRD \d+ approved /;
 
 /** The ending's words: the same on the page, in the skills' hand-offs and in the terminal. */
-const DONE_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready' } as const;
+const DONE_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human' } as const;
 
 /** Why a failed job failed, in words: its reason, else its exit code. */
 const failure = ({ reason, exitCode }: FollowJob): string => reason ?? (exitCode === null ? 'no reason given' : `exit code ${String(exitCode)}`);
