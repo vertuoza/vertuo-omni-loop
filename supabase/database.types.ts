@@ -2838,6 +2838,8 @@ export type Database = {
       }
       products: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           bug_seq: number
           business_id: string
           created_at: string
@@ -2854,6 +2856,8 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           bug_seq?: number
           business_id: string
           created_at?: string
@@ -2870,6 +2874,8 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           bug_seq?: number
           business_id?: string
           created_at?: string
@@ -4220,6 +4226,13 @@ export type Database = {
       ask_sweep: { Args: never; Returns: number }
       ask_tokens_valid: { Args: { t: Json }; Returns: boolean }
       bug_id_of: { Args: { p_product: string; p_seq: number }; Returns: string }
+      business_archived: {
+        Args: {
+          p: Database["public"]["Tables"]["products"]["Row"]
+          p_workspace: string
+        }
+        Returns: Json
+      }
       business_claim_value: {
         Args: { p_kind: string; p_value: string }
         Returns: string
@@ -4381,6 +4394,8 @@ export type Database = {
       business_product: {
         Args: { p_product: string; p_workspace: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
           bug_seq: number
           business_id: string
           created_at: string
@@ -5268,6 +5283,8 @@ export type Database = {
       product_add: {
         Args: { p_name: string; p_workspace: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
           bug_seq: number
           business_id: string
           created_at: string
@@ -5297,6 +5314,34 @@ export type Database = {
       product_approver_set: {
         Args: { p_member: string; p_product: string; p_state: string }
         Returns: Json
+      }
+      product_archive: { Args: { p_product: string }; Returns: Json }
+      product_archived_for: {
+        Args: { p_prd?: number; p_repo: string; p_workspace: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          bug_seq: number
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string | null
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          plan_repository: string | null
+          prd_count: number
+          roadmap_seq: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       product_glossary_add: {
         Args: {
@@ -5463,6 +5508,8 @@ export type Database = {
       product_knowledge_entry_product: {
         Args: { p_entry: string; p_kind: string; p_workspace: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
           bug_seq: number
           business_id: string
           created_at: string
@@ -5579,6 +5626,8 @@ export type Database = {
       product_knowledge_product: {
         Args: { p_product: string; p_workspace: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
           bug_seq: number
           business_id: string
           created_at: string
@@ -5778,9 +5827,65 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      product_live: {
+        Args: { p: Database["public"]["Tables"]["products"]["Row"] }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          bug_seq: number
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string | null
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          plan_repository: string | null
+          prd_count: number
+          roadmap_seq: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "products"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       product_of_key: {
         Args: { p_key: string; p_repo?: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
+          bug_seq: number
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string | null
+          name: string
+          ordinal: number
+          pitch: Json
+          pitch_look: string
+          plan_repository: string | null
+          prd_count: number
+          roadmap_seq: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      product_owner_of: {
+        Args: { p_act: string; p_product: string }
+        Returns: {
+          archived_at: string | null
+          archived_by: string | null
           bug_seq: number
           business_id: string
           created_at: string
@@ -5806,6 +5911,8 @@ export type Database = {
       product_plan_repository_set: {
         Args: { p_product: string; p_repository: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
           bug_seq: number
           business_id: string
           created_at: string
@@ -5832,6 +5939,8 @@ export type Database = {
       product_rename: {
         Args: { p_name: string; p_product: string; p_workspace: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
           bug_seq: number
           business_id: string
           created_at: string
@@ -5887,6 +5996,8 @@ export type Database = {
       product_repository_owned: {
         Args: { p_product: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
           bug_seq: number
           business_id: string
           created_at: string
@@ -5935,6 +6046,7 @@ export type Database = {
         Args: { p_product: string; p_repository: string }
         Returns: boolean
       }
+      product_restore: { Args: { p_product: string }; Returns: Json }
       product_set_key: {
         Args: { p_key: string; p_product: string }
         Returns: Json
@@ -6130,6 +6242,8 @@ export type Database = {
       set_pitch_look: {
         Args: { p_look: string; p_product: string; p_workspace: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
           bug_seq: number
           business_id: string
           created_at: string
@@ -6155,6 +6269,8 @@ export type Database = {
       set_pitch_settings: {
         Args: { p_pitch: Json; p_product: string; p_workspace: string }
         Returns: {
+          archived_at: string | null
+          archived_by: string | null
           bug_seq: number
           business_id: string
           created_at: string
