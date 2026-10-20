@@ -55,7 +55,7 @@ export function prdOfLine(line: string): PrdNumber | null {
 }
 
 /** Whether something was asked and every asked item has a counted reply. */
-export function answeredAll(stand: OutboxStand | null): stand is OutboxStand {
+export function answeredAll(stand: OutboxStand | null): boolean {
   return stand !== null && stand.asked > 0 && stand.answered === stand.asked;
 }
 
