@@ -958,7 +958,10 @@ var ConfigSchema = z7.object({
     // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
     mutation: nullableText.default(null),
     // PRD 1369: a design linter `/omni:pixel-perfect review` runs when it is set; it only reports.
-    design: nullableText.default(null)
+    design: nullableText.default(null),
+    // PRD 2275: it builds what the repository ships to production, then runs checks against the
+    // built output; only the bug-fix skills run it, when a passing reproduction cannot see the bug.
+    smoke: nullableText.default(null)
   }),
   acceptance: z7.object({
     enabled: z7.boolean().default(false),
