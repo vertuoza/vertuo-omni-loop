@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { authenticate, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import {
-  FleetRequestSchema, HealthReplySchema, HealthReportSchema, JobLinesQuerySchema, JobLinesSchema, JobReplySchema, JobUpdateReplySchema, JobUpdateSchema, NextQuerySchema,
-  RegisterReplySchema, RegisterRequestSchema,
-  RUNNER_REFUSALS, RunnerJobSchema, RunnerReplySchema, SendRequestSchema,
+  FleetRequestSchema, HealthReplySchema, HealthReportSchema, JobLinesQuerySchema, JobLinesSchema, JobReplySchema, JobUpdateReplySchema, JobUpdateSchema, KitRunnersSchema,
+  NextQuerySchema, PrdJobsQuerySchema, PrdJobsSchema, RegisterReplySchema, RegisterRequestSchema,
+  RUNNER_REFUSALS, RunnerJobSchema, RunnerReplySchema, RunnersQuerySchema, SendRequestSchema,
 } from './runners.contract';
 import type { RunnersService, Served } from './runners.service';
 
@@ -15,8 +15,10 @@ import type { RunnersService, Served } from './runners.service';
 //   GET   /api/runners/next?runner=<id>    the kit's sign-in   holds up to 40 s: the job claimed, or 204
 //   POST  /api/runners/jobs/<id>           the kit's sign-in   a report: status, log tail, live lines, PR link, exit code
 //   POST  /api/runners/<id>/health         the kit's sign-in   the runner's machine, every 15 s (PRD 2102)
-//   GET   /api/runners/jobs/<id>/lines     the session         a job's live lines after `after` (PRD 1904)
-//   POST  /api/runners/jobs                the session         queues a job
+//   GET   /api/runners/jobs/<id>/lines     either              a job's live lines after `after` (PRD 1904; the kit's, PRD 2251)
+//   GET   /api/runners?repo=               the kit's sign-in   the runners of the repository's workspace (PRD 2251)
+//   GET   /api/runners/jobs?repo=&prd=     the kit's sign-in   the PRD's jobs in the repository, newest first (PRD 2251)
+//   POST  /api/runners/jobs                either              queues a job (the kit's, PRD 1972)
 //   POST  /api/runners/jobs/<id>/cancel    the session         cancels a job
 //   PATCH /api/runners/<id>                the session         sets or clears a runner's fleet
 //
@@ -50,7 +52,9 @@ const BAD_REPORT = 'The body must be {"status": "running" | "done" | "failed" | 
 const BAD_HEALTH = 'The body must be {"cpu", "load1", "cores", "memUsed", "memTotal", "diskFree", "diskTotal"}, each a number of 0 or more or null, with "paused"? (80 characters or null) and "limits"? ({"maxMemory", "minDiskGb", "maxLoad"}), and nothing else.';
 const BAD_LINES = 'Ask for the lines as `after=<sequence number>`, or with no query.';
 const BAD_SEND = 'The body must be {"line": "/omni:<skill> <arguments>", "repo": "owner/name", "target": {"kind": "any"} | {"kind": "fleet", "fleet": "<fleet>"} | {"kind": "runner", "runner": "<id>"}}.';
-const BAD_FLEET = 'The body must be {"fleet": "<fleet>"} or {"fleet": null}.';
+const BAD_RUNNERS = 'Name the repository as `repo=owner/name`.';
+const BAD_JOBS = 'Name the repository as `repo=owner/name` and the PRD as `prd=<number>`.';
+const BAD_FLEET ='The body must be {"fleet": "<fleet>"} or {"fleet": null}.';
 const BAD_ID = 'No such runner or job.';
 
 const IdSchema = z.uuid();
@@ -82,6 +86,12 @@ async function kitCaller(request: Request, deps: RunnersDeps): Promise<string | 
 async function sessionCaller(deps: RunnersDeps): Promise<string | Response> {
   if (!deps.session) return refuse(RUNNER_REFUSALS.unavailable, NO_DATABASE);
   return (await deps.session()) ?? refuse(RUNNER_REFUSALS['signed-out'], SIGNED_OUT);
+}
+
+/** The caller by the kit's sign-in when the request carries an authorization header, by the browser's
+ * session otherwise: a header is judged alone, never by the session beside it. */
+async function eitherCaller(request: Request, deps: RunnersDeps): Promise<string | Response> {
+  return request.headers.get('authorization') === null ? sessionCaller(deps) : kitCaller(request, deps);
 }
 
 /** Runs `serve` for the caller and answers its value in `shape`; a refusal in its words, a failure 500. */
@@ -138,19 +148,36 @@ export async function reportHealth(request: Request, id: string, deps: RunnersDe
   });
 }
 
-/** GET /api/runners/jobs/<id>/lines?after=<seq>: a job's live lines, for a member of its workspace; 404 to anyone else. */
+/** GET /api/runners/jobs/<id>/lines?after=<seq>: a job's live lines, for a member of its workspace, from the
+ * browser or the terminal (PRD 2251); 404 to anyone else. */
 export async function jobLines(request: Request, id: string, deps: RunnersDeps): Promise<Response> {
-  return answer(await sessionCaller(deps), deps, JobLinesSchema, (service, caller) => {
+  return answer(await eitherCaller(request, deps), deps, JobLinesSchema, (service, caller) => {
     if (!IdSchema.safeParse(id).success) return Promise.resolve(refuse(RUNNER_REFUSALS.missing, BAD_ID));
     const query = JobLinesQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
     return query.success ? service.lines(caller, id, query.data.after) : Promise.resolve(refuse(RUNNER_REFUSALS.malformed, BAD_LINES));
   });
 }
 
+/** GET /api/runners?repo=<owner/name>: the runners of the repository's workspace, for a member, from the terminal (PRD 2251). */
+export async function listRunners(request: Request, deps: RunnersDeps): Promise<Response> {
+  return answer(await kitCaller(request, deps), deps, KitRunnersSchema, (service, caller) => {
+    const query = RunnersQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+    return query.success ? service.runnersFor(caller, query.data.repo) : Promise.resolve(refuse(RUNNER_REFUSALS.malformed, BAD_RUNNERS));
+  }, (runners) => ({ runners }));
+}
+
+/** GET /api/runners/jobs?repo=<owner/name>&prd=<n>: the PRD's jobs in the repository, newest first, for a
+ * member of its workspace, from the terminal (PRD 2251). */
+export async function prdJobs(request: Request, deps: RunnersDeps): Promise<Response> {
+  return answer(await kitCaller(request, deps), deps, PrdJobsSchema, (service, caller) => {
+    const query = PrdJobsQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+    return query.success ? service.prdJobs(caller, query.data.repo, query.data.prd) : Promise.resolve(refuse(RUNNER_REFUSALS.malformed, BAD_JOBS));
+  }, (jobs) => ({ jobs }));
+}
+
 /** POST /api/runners/jobs: queues a job from the browser, or from a service with the kit's sign-in (the header wins). */
 export async function sendJob(request: Request, deps: RunnersDeps): Promise<Response> {
-  const caller = request.headers.get('authorization') === null ? await sessionCaller(deps) : await kitCaller(request, deps);
-  return answer(caller, deps, JobReplySchema, async (service, caller) => {
+  return answer(await eitherCaller(request, deps), deps, JobReplySchema, async (service, caller) => {
     const body = await bodyAs(request, SendRequestSchema);
     return body === null ? refuse(RUNNER_REFUSALS.malformed, BAD_SEND) : service.send(caller, body);
   }, (job) => ({ job }));
