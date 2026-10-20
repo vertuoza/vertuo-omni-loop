@@ -1,14 +1,17 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { Notice } from '../ask/page/Notice';
 import { SectionTabs } from '../nav/SectionTabs';
 import type { SectionTab } from '../nav/section-tabs';
 import { SituationNotice, type Situation } from '../products/ProductsScreen';
 import { knowledgeTabHref, type KnowledgeTab } from './product-knowledge.contract';
-import { KnowledgeTabPage, type TabSource } from './KnowledgeTabPage';
+import type { SectionKey } from './knowledge-sections';
+import { KnowledgeNav } from './KnowledgeNav';
+import type { TabSource } from './KnowledgeTabPage';
 
-// The product home's Knowledge tab, drawn (PRD 1795 s2): /app/products/<id>/knowledge, the product's name,
-// the product home's tabs, then the Legal section and the Glossary section (KnowledgeTabPage.tsx). Before
-// the tab, every situation of the product home.
+// The product home's Knowledge tab, drawn (PRD 1795 s2, PRD 2240 s3): the frame of every page under
+// /app/products/<id>/knowledge, the product's name, the product home's tabs, the sub-menu of sections
+// (KnowledgeNav.tsx), then the section the page draws. Before the tab, every situation of the product home.
 
 /** Products in the sidebar: where the tab goes back to. */
 const PRODUCTS_HOME_HREF = '/app/products';
@@ -54,13 +57,17 @@ export function demoKnowledgeTab(id: string): KnowledgeTab | null {
   };
 }
 
-export interface KnowledgeTabScreenProps {
+export interface KnowledgeScreenProps {
   view: KnowledgeTabView;
   /** The product home's tabs, this one among them. */
   tabs: SectionTab[];
+  /** The section showing, marked in the sub-menu. */
+  section: SectionKey | null;
+  /** What the section draws under the sub-menu, once the product is read. */
+  children: (tab: KnowledgeTab, source: TabSource) => ReactNode;
 }
 
-export function KnowledgeTabScreen({ view, tabs }: KnowledgeTabScreenProps) {
+export function KnowledgeScreen({ view, tabs, section, children }: KnowledgeScreenProps) {
   if (view.kind === 'tab') {
     const { tab } = view;
     return (
@@ -72,17 +79,24 @@ export function KnowledgeTabScreen({ view, tabs }: KnowledgeTabScreenProps) {
           <p><Link href={knowledgeGraphHref(tab.product.id)}>{GRAPH_LINK}</Link></p>
         </section>
         <SectionTabs label={tab.product.name} tabs={tabs} current={knowledgeTabHref(tab.product.id)} />
-        <KnowledgeTabPage source={view.source} tab={tab} />
+        <KnowledgeNav tab={tab} current={section} />
+        {children(tab, view.source)}
       </div>
     );
   }
-  if (view.kind === 'not-found') {
-    return (
-      <Notice title="No such product">
-        <p className="ask-muted">Your workspace holds no product at this address.</p>
-        <p><Link href={PRODUCTS_HOME_HREF}>See your products →</Link></p>
-      </Notice>
-    );
-  }
-  return <SituationNotice view={view} />;
+  return view.kind === 'not-found' ? <NoSuchProduct /> : <SituationNotice view={view} />;
+}
+
+function NoSuchProduct() {
+  return (
+    <Notice title="No such product">
+      <p className="ask-muted">Your workspace holds no product at this address.</p>
+      <p><Link href={PRODUCTS_HOME_HREF}>See your products →</Link></p>
+    </Notice>
+  );
+}
+
+/** The frame with no section under it: what the knowledge graph's page draws for a situation of the product home. */
+export function KnowledgeTabScreen({ view, tabs }: Pick<KnowledgeScreenProps, 'view' | 'tabs'>) {
+  return <KnowledgeScreen view={view} tabs={tabs} section={null}>{() => null}</KnowledgeScreen>;
 }

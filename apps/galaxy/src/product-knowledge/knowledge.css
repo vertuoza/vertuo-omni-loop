@@ -1,0 +1,19 @@
+/* The Knowledge home's lists and entry pages (PRD 2240 s3), in the ask pages' tokens. */
+.kn-scroll { overflow-x: auto; width: 100%; }
+.kn-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.kn-table th, .kn-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--ask-line, #e5e5e5); vertical-align: top; }
+.kn-table thead th { font-weight: 600; color: var(--ask-muted); white-space: nowrap; }
+.kn-table thead th[aria-sort] { color: var(--ask-ink); }
+.kn-sort { color: inherit; text-decoration: none; }
+.kn-sort:hover { color: var(--ask-ink); text-decoration: underline; }
+.kn-sort-mark { margin-left: 4px; font-size: 10px; }
+/* A text cell is one line, cut with an ellipsis. */
+.kn-text { max-width: 36ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kn-filters { display: flex; gap: 14px; margin: 4px 0; }
+.kn-filters a { color: var(--ask-muted); text-decoration: none; }
+.kn-filters a[aria-current='true'] { color: var(--ask-ink); font-weight: 600; text-decoration: underline; }
+.kn-fields { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.kn-fields dt { color: var(--ask-muted); }
+.kn-fields dd { margin: 0; overflow-wrap: anywhere; }
+.kn-status { font-weight: 400; }
+.kn-controls { display: grid; gap: 10px; }
