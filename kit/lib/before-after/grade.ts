@@ -30,15 +30,14 @@ type Section = { readonly name: string; readonly state: string | null; readonly 
 /** What the page holds, read once: its meta, its tabs, its sections, its unrendered diagrams, the resources it loads. */
 type Read = { marked: boolean; tabs: Set<string>; sections: Section[]; diagrams: number; loads: string[] };
 
-/**
- * Whether an attribute's value loads nothing: blank, a `data:` URL, or a fragment of the page itself.
- * A `srcset` is read whole, never split into its candidates: only a blank one loads nothing.
- */
-function loadsNothing(attribute: string, url: string): boolean {
+/** Whether a URL loads nothing: blank, a `data:` URL, or a fragment of the page itself. */
+function loadsNothing(url: string): boolean {
   const value = url.trim();
-  if (attribute === 'srcset') return value === '';
   return value === '' || value.startsWith('#') || value.toLowerCase().startsWith('data:');
 }
+
+/** Whether an attribute's value loads nothing. A `srcset` is read whole, never split into its candidates: only a blank one does. */
+const quiet = (attribute: string, value: string): boolean => (attribute === 'srcset' ? value.trim() === '' : loadsNothing(value));
 
 /** The resources one element loads, each as `<tag attribute="value">`. */
 function loadsOf({ tag, attributes }: Element): string[] {
@@ -46,10 +45,10 @@ function loadsOf({ tag, attributes }: Element): string[] {
   const read = LINKS.has(tag) ? FETCHED : [...FETCHED, ...REFERENCES];
   const found = read.flatMap((attribute) => {
     const value = attributes.get(attribute);
-    return value === undefined || loadsNothing(attribute, value) ? [] : [named(attribute, value)];
+    return value === undefined || quiet(attribute, value) ? [] : [named(attribute, value)];
   });
   const data = attributes.get('data');
-  if (tag === 'object' && data !== undefined && !loadsNothing('data', data)) found.push(named('data', data));
+  if (tag === 'object' && data !== undefined && !loadsNothing(data)) found.push(named('data', data));
   return found;
 }
 

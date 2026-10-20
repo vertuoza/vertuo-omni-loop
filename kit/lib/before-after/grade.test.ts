@@ -30,6 +30,7 @@ describe('gradeBeforeAfter (PRD 2239, spec §4)', () => {
     expect(grade(broken)).toEqual([]);
     expect(grade(page({ meta: '<meta name="omni-before-after" content="1">', technical: '' }))).toEqual([]);
     expect(grade(page({ meta: '<meta name="omni-pitch" content="2">', technical: '' }))).toEqual([]);
+    expect(grade(page({ meta: '<div name="omni-before-after" content="2"></div>', technical: '' }))).toEqual([]);
   });
 
   it('reads the meta whatever its attribute order and the case of its names, its values exactly as written', () => {
@@ -135,6 +136,9 @@ describe('gradeBeforeAfter (PRD 2239, spec §4)', () => {
       '<a href="#technical">Technical</a>',
       '<area href="https://x">',
       '<img src=" ">',
+      '<object data="data:image/svg+xml,%3Csvg%3E"></object>',
+      '<object></object>',
+      '<div data="https://x">not an object</div>',
       '<script>const src = "https://x";</script>',
       '<style>.a{background:none}</style>',
     ].join('');
