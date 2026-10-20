@@ -70,6 +70,9 @@ export type AnswerDoor = 'page' | 'terminal' | 'github';
  * the kit counts (owner, member, collaborator): `/omni:yolo-fix` will not read it. */
 export type PendingAnswer = {
   number: number; id: string; text: string; by: string; at: string | null; url: string | null; counted: boolean; door: AnswerDoor;
+  /** True when the kit's reply reader holds it for a round (an undetermined answer) instead of settling
+   * it: `/omni:yolo-fix` settles nothing from it. Left out by a summary made before it. */
+  held?: boolean;
 };
 
 /** What the feature PR's comments say of the outbox (PRD 251, s9): the outbox comment's numbering,
