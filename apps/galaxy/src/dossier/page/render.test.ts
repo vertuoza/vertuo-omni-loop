@@ -186,6 +186,32 @@ describe('the stage header (PRD 426, PRD 587)', () => {
     expect(button(html)).toEqual([comment, 'Answer the outbox']);
   });
 
+  it('the head says where the outbox stands: waiting, answered, or unread (PRD 2223)', () => {
+    const item = (id: string) => ({ id, rank: 'high' as const, question: 'Q?', decision: 'D.', options: [], personSteps: null });
+    const comment = 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7';
+    const answer = (number: number, id: string) => ({ number, id, text: 'B', by: 'paula', at: null, url: null, counted: true, door: 'github' as const });
+    const base = summary({
+      phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 3, outbox: { open: [item('a'), item('b')], settled: [] }, outboxComment: comment,
+    });
+    const numbering = [{ number: 1, id: 'a' }, { number: 4, id: 'b' }];
+    const render = (replies: GithubSummary['replies']) => page({ github: { ...base, replies }, slices: 3, stages: at('building') });
+
+    const waiting = render({ numbering, pending: [answer(1, 'a')] });
+    expect(waiting).toContain('<strong>Stage: building</strong><span class="ask-hint"> · 3/3 slices · 1 of 2 answered</span>');
+    expect(button(waiting)).toEqual([comment, 'Answer the outbox']);
+    expect(waiting).toContain('feature #221 · draft</a>');
+
+    const answered = render({ numbering, pending: [answer(1, 'a'), answer(4, 'b')] });
+    expect(answered).toContain('<span class="ask-hint"> · 3/3 slices · answered</span>');
+    expect(answered).toContain('title="/omni:yolo-fix 216">Fix with answers</button>');
+    expect(answered).toContain('<a class="stage-fixes ask-hint" href="?tab=outbox">Fixes with 1: B · 4: B</a>');
+
+    const unread = render(UNREAD);
+    expect(button(unread)).toEqual([comment, 'Answer the outbox']);
+    expect(unread).not.toContain('slices · ');
+    expect(unread).not.toContain('Fix with answers');
+  });
+
   it('says when the stage was last synced on hover, and Syncing… with nothing lit before the first sync', () => {
     expect(page({ github: summary(), stages: at('prd') })).toContain('<p class="stage-words" title="last synced 29 Sep 2026, 09:15 UTC"><strong>Stage: PRD</strong>');
     const syncing = page({ github: summary(), stages: [] });

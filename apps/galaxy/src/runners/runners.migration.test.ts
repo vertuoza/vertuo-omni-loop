@@ -145,3 +145,21 @@ describe('the runner released-claims migration (PRD 2175)', () => {
     expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*reason: string \| null\n\s+release_error: string \| null\n\s+released: number\[\] \| null\n/);
   });
 });
+
+const OUTCOME = read('supabase/migrations/20261217090000_runner_outcome.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+
+describe('the runner outcome migration (PRD 2223)', () => {
+  it('adds the job\'s outcome, empty until a runner reports one and limited to answers, held and ready, and changes no grant', () => {
+    expect(OUTCOME).toContain('alter table public.runner_jobs add column outcome text');
+    expect(OUTCOME).toContain("check (outcome in ('answers', 'held', 'ready'))");
+    expect(OUTCOME).not.toMatch(/grant |revoke |policy |not null|default /);
+  });
+
+  it('allows the words the contract lets a report carry', () => {
+    expect(read('apps/galaxy/src/runners/runners.contract.ts')).toContain("const JOB_OUTCOMES = ['answers', 'held', 'ready'] as const;");
+  });
+
+  it('is named in the database\'s types', () => {
+    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*log_tail: string\n\s+outcome: string \| null\n\s+pr_url: string \| null\n/);
+  });
+});

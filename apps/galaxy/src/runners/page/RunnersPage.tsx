@@ -4,7 +4,7 @@ import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, FleetPicker, Refresh, SendAgainButton } from './actions';
 import {
-  canCancel, canSendAgain, fleetCell, madeByWords, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  canCancel, canSendAgain, fleetCell, madeByWords, prdPageLink, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Fleet, type ReleaseNote, type RunnersPageView,
 } from './model';
 import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
@@ -98,8 +98,13 @@ function RunnerRow({ runner, board, fleets, now }: { runner: Runner; board: Boar
 function Action({ job, primary }: { job: Job; primary: boolean }) {
   if (canCancel(job)) return <CancelButton job={job.id} />;
   if (canSendAgain(job)) return <SendAgainButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />;
-  if (job.status === 'done' && job.prUrl) return <a href={job.prUrl}>{prWords(job.prUrl)}</a>;
-  return null;
+  const page = prdPageLink(job);
+  return (
+    <>
+      {job.status === 'done' && job.prUrl && <a href={job.prUrl}>{prWords(job.prUrl)}</a>}
+      {page !== null && <a href={page}>PRD page</a>}
+    </>
+  );
 }
 
 /** One line under a job's status about its claims: the sub-PRs released, each linked, or why the release failed. */
@@ -125,7 +130,7 @@ function JobRow({ job, board, fleets, now, primary }: { job: Job; board: Board; 
       <span data-content>{senderWords(job)}{madeByWords(job) !== null && <small className="runners-muted runners-made-by"> {madeByWords(job)}</small>}</span>
       <span data-content>{whereWords(job, board.runners, fleets)}</span>
       <span>
-        <span className={`runners-status is-${statusTone(job.status)}`}>{statusWords(job, now)}</span>
+        <span className={`runners-status is-${statusTone(job.status, job.outcome)}`}>{statusWords(job, now)}</span>
         {tokens !== null && <span className="runners-tokens" title={tokens.title}>{tokens.text}</span>}
         {waiting !== null && <span className="runners-why">{waiting}</span>}
         {releaseNotes(job).map((note) => <ReleaseLine key={note.kind} note={note} />)}

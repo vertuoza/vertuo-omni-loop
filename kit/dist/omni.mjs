@@ -60266,6 +60266,14 @@ function lastPullRequest(log, repo) {
   const found2 = log.match(pattern);
   return found2?.at(-1) ?? null;
 }
+var OUTCOMES = { "yolo-fix": "answers", yolo: "held", "pr-care": "ready" };
+var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
+function runOutcome(log, prd2) {
+  const last = log.split("\n").map((line2) => line2.trim()).filter((line2) => line2 !== "").at(-1) ?? "";
+  const match = /^\/omni:([a-z-]+) (\d+)$/.exec(last.replace(STAMP2, ""));
+  const outcome = match?.[1] !== void 0 && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : void 0;
+  return outcome !== void 0 && match?.[2] === String(prd2) ? outcome : null;
+}
 var UNITS = { s: 1e3, m: 6e4, h: 36e5 };
 function parseDuration(text15) {
   const match = /^(\d+)([smh])$/.exec(text15);
@@ -60866,8 +60874,8 @@ async function sendCounted(loop2, job2, update2) {
   }
 }
 async function sendUpdate(loop2, job2, update2) {
-  const { released, releaseError, ...rest } = update2;
-  if (released === void 0 && releaseError === void 0) return sendCounted(loop2, job2, update2);
+  const { released, releaseError, outcome, ...rest } = update2;
+  if (released === void 0 && releaseError === void 0 && outcome === void 0) return sendCounted(loop2, job2, update2);
   try {
     return await sendCounted(loop2, job2, update2);
   } catch (error62) {
@@ -60996,10 +61004,19 @@ function startSession(loop2, job2, place, note) {
     return false;
   }
 }
-function ended(log, exitText, repo) {
+function outcomeOf2(log, line2) {
+  const checked5 = checkRunnerLine(line2);
+  const args = checked5.ok ? checked5.args.trim() : "";
+  return checked5.ok && (checked5.skill === "yolo" || checked5.skill === "yolo-fix") && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args)) : null;
+}
+function ended(log, exitText, job2) {
   const code = Number.parseInt(exitText, 10);
   const exitCode = Number.isNaN(code) ? 1 : code;
-  if (exitCode === 0) return { status: "done", logTail: logTail(log), prUrl: lastPullRequest(log, repo), exitCode: 0 };
+  if (exitCode === 0) {
+    const done = { status: "done", logTail: logTail(log), prUrl: lastPullRequest(log, job2.repo), exitCode: 0 };
+    const outcome = outcomeOf2(log, job2.line);
+    return outcome === null ? done : { ...done, outcome };
+  }
   return { status: "failed", logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` };
 }
 function killed(loop2, place, update2) {
@@ -61012,7 +61029,7 @@ async function watch2(loop2, job2, place, live) {
   for (; ; ) {
     await loop2.sleep(loop2.tickMs);
     const log = readText4(place.log);
-    if (existsSync87(place.exit)) return ended(log, readText4(place.exit), job2.repo);
+    if (existsSync87(place.exit)) return ended(log, readText4(place.exit), job2);
     if (!loop2.terminal.alive(place.session)) return { status: "failed", logTail: logTail(log), reason: "the job stopped before it wrote its exit code" };
     if (loop2.now() - started > loop2.timeoutMs) return killed(loop2, place, { status: "failed", reason: "timeout" });
     if (await tick2(loop2, job2.id, withTokens(loop2, { status: "running", logTail: logTail(log) }, place.worktree), live, log)) return killed(loop2, place, { status: "cancelled" });
