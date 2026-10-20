@@ -36,9 +36,9 @@ export function productRepositoriesRepository(db: ProductRepositoriesDb) {
       return orThrow(parseRows(Listing, data, 'product-repositories: repositories')).map((row) => row.workspace_id);
     },
 
-    /** The products of these workspaces. */
+    /** The live products of these workspaces: an archived one (PRD 2232) is no product to link, import or find. */
     async products(workspaces: string[]): Promise<StoredProductRow[]> {
-      const { data, error } = await db.from('products').select('id, workspace_id, name').in('workspace_id', workspaces);
+      const { data, error } = await db.from('products').select('id, workspace_id, name').in('workspace_id', workspaces).is('archived_at', null);
       if (error) throw new Error(`read the products: ${error.message}`);
       return orThrow(parseRows(StoredProduct, data, 'product-repositories: products'));
     },

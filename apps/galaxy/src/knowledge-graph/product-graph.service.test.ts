@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RepositoryGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
-import type { ProductGraphRepository } from './product-graph.repository';
+import type { ProductGraphRepository, StoredProductRow } from './product-graph.repository';
 import { productGraphService } from './product-graph.service';
 
 // The product graph's reader (PRD 1798 s3), over a repository answering as the caller's rows would: the
@@ -19,7 +19,7 @@ const GRAPH: RepositoryGraph = {
 const PRODUCT = { id: 'p1', key: 'omni-loop', name: 'Omni Loop' };
 
 /** A repository holding one product, read as its member; `asked` records the graphs read. */
-function repositoryOf({ product = PRODUCT }: { product?: typeof PRODUCT | null } = {}) {
+function repositoryOf({ product = PRODUCT }: { product?: StoredProductRow | null } = {}) {
   const asked: string[] = [];
   const repository: ProductGraphRepository = {
     productByKey: (key) => Promise.resolve(product?.key === key ? product : null),
@@ -67,6 +67,16 @@ describe('productGraphService', () => {
     expect(read.body.product).toEqual({ state: 'server', key: 'omni-loop', cachedOn: null });
     expect(read.body.start).toEqual(['L-INVOICING-1']);
     expect(read.body.nodes.map(({ id, hop }) => [id, hop])).toEqual([['L-INVOICING-1', 0], ['vertuo-omni-loop/BR-PRODUCT-3', 1]]);
+  });
+
+  it('answers for no archived product, its owner included (PRD 2232)', async () => {
+    const archived = { ...PRODUCT, archived_at: '2026-10-20T08:00:00+00:00' };
+    const { repository, asked } = repositoryOf({ product: archived });
+    const service = productGraphService(repository);
+    expect(await service.neighbourhood({ key: 'omni-loop' }, { id: 'L-INVOICING-1', depth: 1 })).toEqual({ kind: 'archived', name: 'Omni Loop' });
+    expect(await service.neighbourhood({ id: 'p1' }, { id: 'L-INVOICING-1', depth: 1 })).toEqual({ kind: 'archived', name: 'Omni Loop' });
+    expect(await service.graph({ id: 'p1' })).toBeNull();
+    expect(asked).toEqual([]);
   });
 
   it('reads no product the caller cannot read, and no node the graph does not hold', async () => {

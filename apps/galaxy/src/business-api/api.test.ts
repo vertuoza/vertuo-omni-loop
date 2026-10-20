@@ -106,6 +106,14 @@ describe('GET /api/business', () => {
     expect(body).toEqual({ state: 'none', business: null, product: null, claims: [], personas: [], legal: [], glossary: [] });
   });
 
+  it('archived, with the product\'s name and nothing of it, when the repository\'s only product was archived (PRD 2232)', async () => {
+    const archived = { state: 'archived', business: { name: 'Acme' }, product: { name: 'Omni Loop' }, claims: [], personas: [], legal: [], glossary: [] };
+    expect(await world({ answer: archived }).get('?repo=acme/widgets')).toMatchObject({ status: 200, body: archived });
+    // an archived read never carries a claim: one that does is out of the contract
+    const withClaims = { ...archived, claims: [{ id: 'region#1', kind: 'region', value: 'Belgium', source: 'pick', state: 'confirmed', receipt: null, lastSeen: null }] };
+    expect((await world({ answer: withClaims }).get('?repo=acme/widgets')).status).toBe(500);
+  });
+
   it('none when the business holds no confirmed claim', async () => {
     const claims = CLAIMS.filter((c) => c.state !== 'confirmed' && c.state !== 'contradicted');
     const { body } = await world({ claims }).get('?repo=acme/widgets');
