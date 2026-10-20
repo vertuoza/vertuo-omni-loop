@@ -79,13 +79,18 @@ function changeOf(kind: Kind, args: string[]): { change: Change; json: boolean }
   const [action, ...rest] = positional;
   if (action !== 'add' && action !== 'edit') throw usageError(usage);
   const entry = action === 'edit' ? textOf(rest[0]) : null;
-  if (rest.length !== (action === 'edit' ? 1 : 0) || (action === 'edit' && entry === null)) throw usageError(usage);
   const fields = fieldsOf(action === 'add' ? ADDABLE[kind] : EDITABLE[kind], flags);
-  if (action === 'add' && REQUIRED[kind].some((name) => !(name in fields))) throw usageError(usage);
-  if (action === 'edit' && Object.keys(fields).length === 0) throw usageError(`omni kb ${kind} edit: give at least one field to change. ${usage}`);
+  checkChange(kind, action, rest.length, entry, fields);
   const product = textOf(flags.product);
   const change: Change = { kind, action, ...(product === null ? {} : { product }), ...(entry === null ? {} : { entry }), fields };
   return { change, json: flags.json === true };
+}
+
+/** An add names no item and has every required field; an edit names one item and changes at least one field: otherwise a `UsageError`. */
+function checkChange(kind: Kind, action: Action, positionals: number, entry: string | null, fields: Record<string, unknown>): void {
+  if (action === 'add' && (positionals > 0 || REQUIRED[kind].some((name) => !(name in fields)))) throw usageError(USAGE[kind]);
+  if (action === 'edit' && (positionals !== 1 || entry === null)) throw usageError(USAGE[kind]);
+  if (action === 'edit' && Object.keys(fields).length === 0) throw usageError(`omni kb ${kind} edit: give at least one field to change. ${USAGE[kind]}`);
 }
 
 /** The line a successful change prints, or null when the reply is not one. */
