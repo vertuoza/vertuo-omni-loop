@@ -38,8 +38,11 @@ function doorOf(body: string | null | undefined): AnswerDoor {
 }
 
 /** What the kit's reply reader decides: the answers it would settle and those it holds, by number. */
-function answersOf({ settle, held }: { settle: readonly Planned[]; held: readonly Planned[] }): Map<number, Planned> {
-  return new Map([...settle, ...held].map((p) => [p.number, p]));
+function answersOf({ settle, held }: { settle: readonly Planned[]; held: readonly Planned[] }): Map<number, Planned & { held: boolean }> {
+  return new Map([
+    ...settle.map((p): [number, Planned & { held: boolean }] => [p.number, { ...p, held: false }]),
+    ...held.map((p): [number, Planned & { held: boolean }] => [p.number, { ...p, held: true }]),
+  ]);
 }
 
 export function outboxReplies({ comments, items, adopted, markers }: {
@@ -55,11 +58,11 @@ export function outboxReplies({ comments, items, adopted, markers }: {
   const bodies = new Map(comments.map((c) => [c.html_url, c.body]));
   const pending = [...new Set([...counted.keys(), ...anyone.keys()])].sort((a, b) => a - b).map((number): PendingAnswer => {
     const kept = counted.get(number);
-    const { item, answer } = kept ?? defined(anyone.get(number), `the answer to item ${number}`);
+    const { item, answer, held } = kept ?? defined(anyone.get(number), `the answer to item ${number}`);
     const url = answer.url ?? null;
     return {
       number, id: item.id, text: answer.text, by: answer.approvedBy, at: answer.approvedAt ?? null, url,
-      counted: kept !== undefined, door: doorOf(url === null ? null : bodies.get(url)),
+      counted: kept !== undefined, ...(held ? { held: true } : {}), door: doorOf(url === null ? null : bodies.get(url)),
     };
   });
   return { numbering, pending };
