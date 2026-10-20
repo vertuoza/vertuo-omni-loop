@@ -4,6 +4,8 @@
 // `<!-- FILL -->` for the agent to replace. Pure: it reads the template's text it is handed, never
 // the disk.
 
+import type { PrdNumber } from '../ids.ts';
+
 /** The template's marks, each replaced once. */
 const MARKS = { prd: '{{prd}}', functional: '{{functional}}', technical: '{{technical}}' } as const;
 
@@ -26,7 +28,7 @@ const TECHNICAL_SECTIONS = [
 /** The services `--services` names, in order, or the one line that refuses the list. */
 export function parseServices(value: string | undefined): { services: string[] } | { refusal: string } {
   const services = (value ?? '').split(',').map((name) => name.trim()).filter((name) => name !== '');
-  if (services.length === 0) return { refusal: '--services needs at least one service, as --services kit,galaxy.' };
+  if (services.length === 0) return { refusal: '--services needs at least one service, as --services kit,app.' };
   const bad = services.find((name) => !SERVICE_NAME.test(name));
   if (bad !== undefined) return { refusal: `"${bad}" is not a service name: use letters, digits, ".", "_" and "-".` };
   const twice = services.find((name, index) => services.indexOf(name) !== index);
@@ -42,7 +44,7 @@ const blockOf = (service: string, heading: string, sections: readonly (readonly 
   `<div data-service="${service}">\n<h3>${heading}</h3>\n${sections.map(sectionOf).join('\n')}\n</div>`;
 
 /** The page's text for PRD `prd` and the named `services`, from the kit's `template`. */
-export function beforeAfterSkeleton({ template, prd, services }: { template: string; prd: number; services: readonly string[] }): string {
+export function beforeAfterSkeleton({ template, prd, services }: { template: string; prd: PrdNumber; services: readonly string[] }): string {
   const functional = services.map((service) => blockOf(service, service, FUNCTIONAL_SECTIONS)).join('\n');
   const technical = services
     .map((service) => blockOf(service, `${service} <span class="badge" data-role><!-- FILL --></span>`, TECHNICAL_SECTIONS))

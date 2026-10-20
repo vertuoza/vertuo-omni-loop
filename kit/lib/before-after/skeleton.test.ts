@@ -5,7 +5,7 @@ import { parsePrd } from '../ids.ts';
 import { gradeBeforeAfter } from './grade.ts';
 import { beforeAfterSkeleton, parseServices } from './skeleton.ts';
 
-const page = (services: string[]) => beforeAfterSkeleton({ template: kitTemplate('before-after/page.html'), prd: 2239, services });
+const page = (services: string[]) => beforeAfterSkeleton({ template: kitTemplate('before-after/page.html'), prd: parsePrd(2239), services });
 const FILL = '<!-- FILL -->';
 
 describe('beforeAfterSkeleton', () => {
@@ -61,11 +61,11 @@ describe('parseServices', () => {
   });
 
   it('refuses a missing, empty or blank list', () => {
-    for (const value of [undefined, '', ' , ,']) expect(parseServices(value)).toEqual({ refusal: '--services needs at least one service, as --services kit,galaxy.' });
+    for (const value of [undefined, '', ' , ,']) expect(parseServices(value)).toEqual({ refusal: '--services needs at least one service, as --services kit,app.' });
   });
 
   it('refuses a name the page cannot carry, and a name twice', () => {
-    expect(parseServices('kit,"><script>')).toEqual({ refusal: '"><script>" is not a service name: use letters, digits, ".", "_" and "-".' });
+    expect(parseServices('kit,"><script>')).toEqual({ refusal: '""><script>" is not a service name: use letters, digits, ".", "_" and "-".' });
     expect(parseServices('kit,galaxy,kit')).toEqual({ refusal: 'the service "kit" is named twice.' });
   });
 });
