@@ -4,9 +4,13 @@
 // samples, supabase/migrations/20261211100000_runner_health.sql, PRD 2102) and the service holds the
 // rules. Every answer is parsed where it comes in; it holds no rule. A refusal of the
 // database, or an answer out of shape, throws, naming the call: the controller answers 500 and logs it.
+// The two functions that act on a job's questions (supabase/migrations/20261218090000_runner_job_questions.sql,
+// PRD 2255) are the exception: their refusals are rules of the database (no row, closed, not a member,
+// answers that do not match), so they are read by their code and answered, never thrown.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { RunnerHealthSchema } from './runners.contract';
+import { IssueNumberSchema, type IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { JOB_OUTCOMES, QuestionSchema, RunnerHealthSchema, type Question } from './runners.contract';
 
 /** What the reads and writes need: the tables, and the database's functions. */
 export type RunnersDb = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -50,8 +54,8 @@ const JobRow = z.object({
   released: z.array(z.number()).nullable().catch(null).optional(),
   /** Why its runner could not release them (PRD 2175). */
   release_error: z.string().nullable().catch(null).optional(),
-  /** What its yolo hand-off ended on (PRD 2223); a value out of shape reads as none. */
-  outcome: z.enum(['answers', 'held', 'ready']).nullable().catch(null).optional(),
+  /** What it ended on (PRD 2223, 2255); a value out of shape reads as none. */
+  outcome: z.enum(JOB_OUTCOMES).nullable().catch(null).optional(),
   queued_at: z.string(),
   claimed_at: z.string().nullable(),
   running_at: z.string().nullable(),
@@ -62,6 +66,44 @@ export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health';
 const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, queued_at, claimed_at, running_at, ended_at';
+
+/** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
+ * with answers it was answered, without them dismissed. */
+const QuestionsRow = z.object({
+  job_id: z.string(),
+  workspace_id: z.string(),
+  issue: IssueNumberSchema,
+  lead: z.string(),
+  questions: z.array(QuestionSchema),
+  answers: z.record(z.string(), z.string()).nullable(),
+  closed_by: z.string().nullable(),
+  closed_at: z.string().nullable(),
+  resume_job: z.string().nullable(),
+  asked_at: z.string(),
+});
+export type QuestionsRow = z.infer<typeof QuestionsRow>;
+
+const QUESTIONS_COLUMNS = 'job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_at, resume_job, asked_at';
+
+/** A new row of questions: the job that asks, its workspace, its issue, its lead and its questions. */
+type NewQuestions = { jobId: string; workspaceId: string; issue: IssueNumber; lead: string; questions: Question[] };
+
+/** Why runner_job_answer() or runner_job_dismiss() refused, read by the code the database raised: `none` no row
+ * for the job (P0002), `closed` the row is closed or the job is not waiting (55000), `stranger` the person is not a
+ * member of the workspace (42501), `mismatch` the answers do not match the questions (22023). */
+export type QuestionsRefusal = 'none' | 'closed' | 'stranger' | 'mismatch';
+
+/** What acting on a job's questions answered: the value, or the refusal. */
+export type Acted<T> = { ok: true; value: T } | { ok: false; refusal: QuestionsRefusal };
+
+/** The refusal a database error is, or null when it is anything else (a failure the controller logs). */
+function refusalOf(error: { code?: string; message?: string }): QuestionsRefusal | null {
+  if (error.code === 'P0002') return 'none';
+  if (error.code === '55000') return 'closed';
+  if (error.code === '42501' && error.message?.startsWith('not a member')) return 'stranger';
+  if (error.code === '22023') return 'mismatch';
+  return null;
+}
 
 /** One line of a job's live log, as runner_job_lines holds it (its `at` is the database's). */
 export type JobLineRow = { job_id: string; workspace_id: string; seq: number; text: string };
@@ -100,6 +142,21 @@ async function parsed<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, what: str
   const read = schema.safeParse(data);
   if (!read.success) throw new Error(`${what} answered out of shape`);
   return read.data;
+}
+
+/** Calls a function that acts on a job's questions: its value parsed, a refusal of the database answered by
+ * its code, anything else thrown, naming the call. A function that returns one row may answer it as an object
+ * or as a list of one (PostgREST), as `Placement` below. */
+async function acted<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, what: string): Promise<Acted<T>> {
+  const { data, error } = await call;
+  if (error) {
+    const refusal = refusalOf(error);
+    if (refusal) return { ok: false, refusal };
+    throw new Error(`${what}: ${error.message ?? error.code ?? 'the database refused'}`);
+  }
+  const read = z.union([schema, z.array(schema).length(1).transform((rows) => rows[0])]).safeParse(data);
+  if (!read.success || read.data === undefined) throw new Error(`${what} answered out of shape`);
+  return { ok: true, value: read.data };
 }
 
 const MemberRow = z.object({ role: z.string() }).nullable();
@@ -233,6 +290,37 @@ export function runnersRepository(db: RunnersDb) {
     /** The workspace's last `limit` ended jobs, newest first. */
     endedJobs: async (workspaceId: string, limit: number): Promise<JobRow[]> =>
       parsed(db.from('runner_jobs').select(JOB_COLUMNS).eq('workspace_id', workspaceId).in('status', ['done', 'failed', 'cancelled']).order('ended_at', { ascending: false }).limit(limit), z.array(JobRow), 'runner_jobs'),
+
+    /** The workspace's jobs among these ids, newest ended first (a job still running last). */
+    jobsById: async (workspaceId: string, ids: string[]): Promise<JobRow[]> => {
+      if (ids.length === 0) return [];
+      return parsed(db.from('runner_jobs').select(JOB_COLUMNS).eq('workspace_id', workspaceId).in('id', ids).order('ended_at', { ascending: false }), z.array(JobRow), 'runner_jobs');
+    },
+
+    /** A job's questions (PRD 2255); null when it asked none. */
+    questionsOf: async (jobId: string): Promise<QuestionsRow | null> =>
+      parsed(db.from('runner_job_questions').select(QUESTIONS_COLUMNS).eq('job_id', jobId).maybeSingle(), QuestionsRow.nullable(), 'runner_job_questions'),
+
+    /** Stores the questions a job asks; null when it already asked (one row per job, so a second insert reads none). */
+    insertQuestions: async (row: NewQuestions): Promise<QuestionsRow | null> => {
+      const inserted = db.from('runner_job_questions').insert({
+        job_id: row.jobId, workspace_id: row.workspaceId, issue: row.issue, lead: row.lead, questions: row.questions,
+      }).select(QUESTIONS_COLUMNS).single();
+      return parsed(Promise.resolve(inserted).then((raw) => (raw.error?.code === '23505' ? { data: null, error: null } : raw)), QuestionsRow.nullable(), 'runner_job_questions');
+    },
+
+    /** The ids of the workspace's jobs whose questions are still open, whatever the job's state. */
+    openQuestionJobs: async (workspaceId: string): Promise<string[]> =>
+      (await parsed(db.from('runner_job_questions').select('job_id').eq('workspace_id', workspaceId).is('closed_at', null), z.array(z.object({ job_id: z.string() })), 'runner_job_questions')).map((row) => row.job_id),
+
+    /** Answers a job's questions for the person (runner_job_answer()): in one transaction it locks the row, queues the
+     * resume job and stores the answers. Answers the resume job, or why the database refused. */
+    answer: async (jobId: string, answers: Record<string, string>, by: string): Promise<Acted<JobRow>> =>
+      acted(db.rpc('runner_job_answer', { p_job: jobId, p_answers: answers, p_by: by }), JobRow, 'runner_job_answer()'),
+
+    /** Dismisses a job's questions for the person (runner_job_dismiss()). Answers the closed row, or why the database refused. */
+    dismiss: async (jobId: string, by: string): Promise<Acted<QuestionsRow>> =>
+      acted(db.rpc('runner_job_dismiss', { p_job: jobId, p_by: by }), QuestionsRow, 'runner_job_dismiss()'),
   };
 }
 

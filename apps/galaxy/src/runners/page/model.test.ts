@@ -100,3 +100,23 @@ describe('a done job\'s outcome (PRD 2223)', () => {
     expect(prdPageLink({ ...done, line: '/omni:yolo Issue 5' })).toBeNull();
   });
 });
+
+describe('a done job that needs a human (PRD 2255)', () => {
+  const job = { reason: null, exitCode: 0, runningAt: null, claimedAt: null, status: 'done' as const };
+
+  it('reads Need human, and Done once its questions are answered or dismissed (the board sends no outcome then)', () => {
+    expect(statusWords({ ...job, outcome: 'human' }, NOW)).toBe('Need human');
+    expect(statusWords({ ...job, outcome: null }, NOW)).toBe('Done');
+  });
+
+  it('is drawn in the yellow, as a job that waits on a person, and only when it is done', () => {
+    expect(statusTone('done', 'human')).toBe('wait');
+    expect(statusTone('failed', 'human')).toBe('fail');
+    expect(statusTone('cancelled', 'human')).toBe('off');
+  });
+
+  it('links no PRD page: its number is a bug\'s issue', () => {
+    expect(prdPageLink({ line: '/omni:bug-fix 314', repo: 'acme/widgets', status: 'done', outcome: 'human' })).toBeNull();
+    expect(prdPageLink({ line: '/omni:yolo 2213', repo: 'acme/widgets', status: 'done', outcome: 'human' })).toBeNull();
+  });
+});
