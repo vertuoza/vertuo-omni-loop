@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
 import {
   AnswerRequestSchema, AskRequestSchema, checkLine, HealthReportSchema, JOB_OUTCOMES, JobLinesQuerySchema, JobQuestionsSchema, JobReplySchema, JobUpdateSchema,
-  RegisterRequestSchema, RUNNER_SKILLS, SendRequestSchema, TargetSchema,
+  KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
 // The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines of 200 characters at
@@ -251,6 +251,63 @@ describe('the outcome a report carries', () => {
 
   it.each(['done', 'waiting', '', 'ANSWERS', 1])('refuses %j', (outcome) => {
     expect(JobUpdateSchema.safeParse({ status: 'done', outcome }).success).toBe(false);
+  });
+});
+
+// The kit's reads (PRD 2251 s1): a job names a PRD by its line's first argument; the runners and a
+// PRD's jobs are read by the repository the terminal is in.
+describe('the PRD a line names', () => {
+  it.each([
+    ['/omni:yolo 2251', 2251],
+    ['/omni:yolo-fix 2251', 2251],
+    ['/omni:do-work 2251 s1 --in-wave', 2251],
+    ['/omni:pr-care 7 --once', 7],
+  ])('reads %s as PRD %i', (line, prd) => {
+    expect(linePrd(line)).toBe(prd);
+  });
+
+  it.each([
+    ['no argument', '/omni:wave'],
+    ['an issue link', '/omni:bug-fix https://github.com/vertuoza/app/issues/1'],
+    ['a word first', '/omni:yolo s1 2251'],
+    ['a number glued to a word', '/omni:yolo 2251abc'],
+    ['zero', '/omni:yolo 0'],
+    ['a line no runner runs', '/omni:brainstorm 2251'],
+  ])('names none for %s', (_, line) => {
+    expect(linePrd(line)).toBeNull();
+  });
+});
+
+describe('the kit\'s queries', () => {
+  it('reads the runners by a repository, and nothing else', () => {
+    expect(RunnersQuerySchema.parse({ repo: 'vertuoza/app' })).toEqual({ repo: 'vertuoza/app' });
+    for (const query of [{}, { repo: 'app' }, { repo: 'vertuoza/app', x: '1' }]) expect(RunnersQuerySchema.safeParse(query).success).toBe(false);
+  });
+
+  it('reads a PRD\'s jobs by a repository and a PRD number', () => {
+    expect(PrdJobsQuerySchema.parse({ repo: 'vertuoza/app', prd: '2251' })).toEqual({ repo: 'vertuoza/app', prd: 2251 });
+    for (const prd of ['0', '-1', '1.5', 'x', '']) expect(PrdJobsQuerySchema.safeParse({ repo: 'vertuoza/app', prd }).success).toBe(false);
+    expect(PrdJobsQuerySchema.safeParse({ repo: 'vertuoza/app' }).success).toBe(false);
+    expect(PrdJobsQuerySchema.safeParse({ prd: '2251' }).success).toBe(false);
+  });
+});
+
+describe('the kit\'s answers', () => {
+  const runner = { id: '00000000-0000-4000-8000-0000018301a1', name: 'vertuo-agents', fleet: null, state: 'online', used: 1, slots: 4, repos: ['vertuoza/app'] };
+  const job = {
+    id: '00000000-0000-4000-8000-000022510001', line: '/omni:yolo 2251', repo: 'vertuoza/app', status: 'done', runner: 'vertuo-agents',
+    prUrl: 'https://github.com/vertuoza/app/pull/7', exitCode: 0, reason: null, outcome: 'ready',
+    queuedAt: '2026-10-20T12:00:00.000Z', claimedAt: '2026-10-20T12:00:02.000Z', runningAt: '2026-10-20T12:00:03.000Z', endedAt: '2026-10-20T13:00:00.000Z',
+  };
+
+  it('answers the runners with their name, fleet, state, slots used, slots and repositories, nothing more', () => {
+    expect(KitRunnersSchema.parse({ runners: [{ ...runner, owner: 'someone', health: null }] })).toEqual({ runners: [runner] });
+  });
+
+  it('answers a PRD\'s jobs with their status, runner, PR link, outcome and times', () => {
+    expect(PrdJobsSchema.parse({ jobs: [job] })).toEqual({ jobs: [job] });
+    expect(PrdJobsSchema.parse({ jobs: [{ ...job, sentBy: 'someone', logTail: 'secret' }] })).toEqual({ jobs: [job] });
+    expect(PrdJobsSchema.safeParse({ jobs: [{ ...job, outcome: 'waiting' }] }).success).toBe(false);
   });
 });
 

@@ -747,6 +747,8 @@ It never stops the hand-off.
 2. Merge that PR. → PRD <n> moves into the inbox.
 3. Once it's merged, start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 
+To build it on a runner instead: `/omni:yolo-runner <n>`.
+
 /omni:yolo <n>
 ```
 
@@ -774,6 +776,8 @@ fallback when it has none):
    `omni wait approval <n>` asks them by phone and email, and waits for the approval.
 3. Start a fresh session (in Claude: `/clear`), or open a new terminal, then run the line below: it
    runs `omni wait approval <n>` and starts wave 1 the moment the PRD is approved.
+
+To build it on a runner instead: `/omni:yolo-runner <n>`.
 
 /omni:yolo <n>
 ```

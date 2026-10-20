@@ -230,7 +230,9 @@ no rework sub-PR, no round comment. Step 7 still refreshes the outbox comment.
 Then end the reply with `/omni:yolo` §7's hand-off, as written: the PRD's folder, where it is, and
 the **What is next?** of the ending this run reached, its last line alone as the reply's last line.
 One difference: the held ending's command is `/omni:yolo-fix <n>`, since a held rework resumes with
-this skill. The red ending already runs `/omni:yolo-fix <n>`, and the green one runs nothing. As
+this skill, and its **What is next?** adds one line above that command: "To build it on a runner
+instead: `/omni:yolo-runner <n>`." The last line stays `/omni:yolo-fix <n>`. The red ending already
+runs `/omni:yolo-fix <n>`, and the green one runs nothing. As
 there, a run that stops before it picks up the feature PR (step 1) keeps its one line and prints no
 hand-off.
 
