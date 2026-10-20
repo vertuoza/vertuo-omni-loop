@@ -4,8 +4,8 @@ form-version: 1
 state: filled
 points-to: null
 evidence:
-  - README.md@54f6eab
-  - apps/galaxy/README.md@3dc7bdb
+  - README.md@e0d3c68
+  - apps/galaxy/README.md@7a49947
   - packages/design/README.md@cdcb27b
   - packages/design/tokens.css@0f40a8f
   - packages/design/fonts.css@9ee3aa6
@@ -16,13 +16,14 @@ evidence:
   - packages/design/src/brand.ts@252ab72
   - apps/galaxy/app/layout.tsx@1f4bc89
   - apps/galaxy/app/app/layout.tsx@240c4a5
+  - apps/galaxy/src/product-home/constellation.css@4cc7238
   - apps/galaxy/app/design/page.tsx@1fc58aa
   - apps/galaxy/src/design-system.test.ts@fa0f19f
   - apps/galaxy/src/page-width.test.ts@7302b0d
   - apps/galaxy/src/home/lingo.ts@451d655
   - apps/galaxy/src/home/press-start-guard.test.ts@0ec2faa
-  - apps/galaxy/src/home/poster/Poster.tsx@a29c227
-  - apps/galaxy/src/home/home.css@21785f0
+  - apps/galaxy/src/home/poster/Poster.tsx@07164d2
+  - apps/galaxy/src/home/home.css@5bff64c
   - apps/galaxy/src/ask/theme-tokens.ts@e980c91
   - apps/galaxy/src/ask/theme.ts@0fd40b2
   - apps/galaxy/src/ask/ask.css@08fdf34
@@ -31,7 +32,7 @@ evidence:
   - apps/galaxy/src/arcade/deep-link.ts@736d552
   - apps/galaxy/src/nav/AppShell.tsx@ac75b75
   - apps/galaxy/scripts/shots.ts@b48bee0
-invaded: 2026-10-10
+invaded: 2026-10-20
 ---
 
 # Design
@@ -113,8 +114,10 @@ form, or one section of it, at that page with a `See:` line.
   START, so a click opens SELECT YOUR APP (`apps/galaxy/src/home/press-start-guard.test.ts`).
 - **On a phone the arcade is a Game Boy:** edge to edge, and never zoomed by a pinch or a double tap
   (`apps/galaxy/app/layout.tsx`).
-- **The reading pages zoom:** every reading section's layout lets a person pinch or double-tap zoom
-  (`apps/galaxy/src/ask/reading-viewport.ts`, bug 1826); only the arcade is never zoomed.
+- **The reading pages do not zoom yet:** the root layout's viewport sets `maximumScale: 1` and
+  `userScalable: false` for every page (`apps/galaxy/app/layout.tsx`), and no reading section's
+  layout sets them back (`apps/galaxy/app/app/layout.tsx`); the fix that let them zoom (bug 1826) is
+  not on `main`.
 - **HOME's kicker, `★` glyphs and hard offset shadows are the print ad's, on purpose**
   (`apps/galaxy/src/home/home.css`), though the craft floor refuses them elsewhere.
 - **The Constellation's sky stays dark in every theme,** in the galaxy colours of `@omni/design`, as

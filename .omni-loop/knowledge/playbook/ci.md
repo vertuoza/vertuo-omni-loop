@@ -4,18 +4,20 @@ form-version: 1
 state: filled
 points-to: null
 evidence:
-  - .github/workflows/supabase.yml@f937511
-  - .github/workflows/game.yml@d9f2da2
-  - .omni-loop/knowledge/adr/0001-outbox-check-as-github-app.md@3ae738d
-  - apps/omni-app/README.md@88dfe14
-  - .github/workflows/checks.yml@2ee982c
-  - scripts/settle-head.sh@e3cce31
-  - package.json@f886c74
-  - apps/galaxy/package.json@7ae2649
+  - .github/workflows/supabase.yml@a4bc540
+  - .github/workflows/game.yml@4bf6bd0
+  - apps/omni-app/README.md@a655cb8
+  - .github/workflows/checks.yml@af9027a
+  - scripts/settle-head.sh@74ab5b9
+  - package.json@9870eaf
+  - apps/galaxy/package.json@c9781fd
   - scripts/lint-repository.ts@b154f4c
   - .github/workflows/quick.yml@2fe8e9e
   - scripts/check-changed-hooks.ts@c844953
-terraformed: 2026-09-25
+  - .github/workflows/preview-debounce.yml@12349c8
+  - .githooks/pre-commit@097e115
+  - .githooks/pre-push@4ba5c3d
+invaded: 2026-10-20
 ---
 
 # CI
@@ -23,35 +25,34 @@ terraformed: 2026-09-25
 Use this page when a check on your pull request is red.
 
 ## Workflows
-<!-- slot: workflows · required · by: terraform -->
+<!-- slot: workflows · required · by: invade -->
 | Check | Runs on | What it does |
 |---|---|---|
-| `supabase` › `check` | a pull request that touches `supabase/**` or `.github/workflows/supabase.yml` | first refuses a new migration dated at or before the newest on `main` as it is now (`scripts/migration-order.ts`), then starts an empty local database with every migration and the demo seed, then runs `supabase/checks/access.sql`: who may read and write what. 15-minute timeout |
-| `checks` › `settle` | a pull request into `main` that is not a draft and changes more than `**/*.md` and `docs/**` (opened, pushed to, reopened or marked ready) | waits 30 seconds (`scripts/settle-head.sh`), then compares the branch's tip with the run's head: moved → `stale=true` and every job below skips (shards included), the newer push has its own run; `gh` cannot read the tip → `stale=false`, the checks run anyway |
-| `checks` › `test shard 1/3`, `2/3`, `3/3` | after `settle` answered `stale=false`, side by side, none cancelling another (`fail-fast: false`) | `pnpm install --frozen-lockfile`, then `pnpm vitest run --shard=<i>/3`: a third of the workspace's vitest files each. 20-minute timeout |
+| `supabase` › `check` | a pull request touching `supabase/**`, `apps/galaxy/src/**`, `apps/omni-app/src/**`, a `*.boundary.ts`, the two schema scripts or its workflow | an empty local database with every migration and the demo seed; refuses a migration dated at or before the newest on `main` (`scripts/migration-order.ts`); checks `supabase/database.types.ts` and every `*.boundary.ts` read (`pnpm schemas:verify --local`); runs the SQL checks in `supabase/checks/`. 20-minute timeout |
+| `checks` › `settle` | a pull request into `main` that is not a draft, never a `docs/phase-0-` head (opened, pushed to, reopened or marked ready) | docs-only (`**/*.md`, `docs/**`) → `stale=true` at once, its checks skipped; else it waits 30 seconds (`scripts/settle-head.sh`) and compares the branch's tip with the run's head: moved → `stale=true`, every job below skips, the newer push has its own run; `gh` cannot read → `stale=false` |
+| `checks` › `test shard 1/3`, `2/3`, `3/3` | after `settle` answered `stale=false`, side by side, none cancelling another (`fail-fast: false`) | `pnpm vitest run --shard=<i>/3`: a third of the vitest files each. 20-minute timeout |
 | `checks` › `test` | after every test shard, even a failed one, unless `settle` went stale | gathers the shards into the one `test` check: green only when all three passed, otherwise red naming their result. 2-minute timeout |
-| `checks` › `typecheck` | after `settle` answered `stale=false` | `pnpm install --frozen-lockfile`, then `pnpm typecheck`: `tsgo -p .` over the root project, then the arcade's `fumadocs-mdx && tsgo --noEmit`. `pnpm typecheck:tsc` runs the same pair with `tsc`, locally. 10-minute timeout |
-| `checks` › `lint shard 1/2`, `2/2` | after `settle` answered `stale=false`, side by side, `fail-fast: false` | `pnpm install --frozen-lockfile`, then `pnpm lint --shard <i>/2`: typescript-eslint over every second tracked TypeScript file, from the i-th (`scripts/lint-repository.ts`), failing on any finding. 10-minute timeout |
+| `checks` › `typecheck` | after `settle` answered `stale=false` | `pnpm typecheck`: `tsgo -p .` over the root project, `tsgo -p kit/pitch-engine`, then the arcade's `fumadocs-mdx && tsgo --noEmit`. `pnpm typecheck:tsc` runs the same three with `tsc`, locally. 10-minute timeout |
+| `checks` › `lint shard 1/2`, `2/2` | after `settle` answered `stale=false`, side by side, `fail-fast: false` | `pnpm lint --shard <i>/2`: typescript-eslint over every second tracked TypeScript file (`scripts/lint-repository.ts`), failing on any finding. 10-minute timeout |
 | `checks` › `lint` | after every lint shard, even a failed one, unless `settle` went stale | gathers the shards into the one `lint` check, as `test` does. 2-minute timeout |
-| `checks` › `fallow` | after `settle` answered `stale=false`, side by side with the others | `pnpm install --frozen-lockfile`, then `pnpm fallow:audit` measured from the pull request's base: red only on a dead-code, duplication or complexity finding the pull request adds beyond the baselines in `fallow/` (`fallow/README.md` says when they are regenerated). 10-minute timeout |
-| `quick` › `settle`, `quick` | a draft, or a pull request whose base is not `main` (a sub-pull request), never a `docs/phase-0-` head (`.github/workflows/quick.yml`) | the same `settle` gate, then `pnpm install --frozen-lockfile` and `pnpm check:changed --base origin/<base>`: typecheck, lint of the changed files, related tests, fallow. Group `quick-<head branch>`. 20-minute timeout |
+| `checks` › `fallow` | after `settle` answered `stale=false`, side by side with the others | `pnpm fallow:audit` measured from the pull request's base: red only on a dead-code, duplication or complexity finding the pull request adds beyond the baselines in `fallow/` (`fallow/README.md` says when they are regenerated). 10-minute timeout |
+| `quick` › `settle`, `quick` | a draft, or a pull request whose base is not `main` (a sub-pull request), never a `docs/phase-0-` head (`.github/workflows/quick.yml`) | the same `settle` gate, then `pnpm check:changed --base origin/<base>`: typecheck, lint of the changed files, related tests, fallow. Group `quick-<head branch>`. 20-minute timeout |
 | `outbox` | every pull request, posted by the omni-loop GitHub App, not by a workflow (ADR-0001) | `skipped` on a sub-pull request and on any pull request that is not a PRD's feature pull request; red on a feature pull request while an outbox item is open, drift is unreworked or a risky change is unaccounted |
 
 A draft, and a sub-pull request into a feature branch, get `quick` on every push: only what
 changed, so the full `pnpm test` and `pnpm lint` still come before ready. A ready pull request into
-`main` runs `checks` (its `quick` skips): marking a draft ready is what grades it, then every push
-after, and a newer push cancels an older run still waiting in `settle`
-(concurrency group `checks-<head branch>-ready`; a draft's run, which runs nothing, has its own
-`checks-<head branch>-draft`, so a push straight before `gh pr ready` never cancels the ready run,
-issue 1167). A pull request that changes only `**/*.md` or
-`docs/**` (a phase-0, a retro) runs no `checks` and no `quick`. No other workflow job runs on a pull request: the
-`supabase` workflow's `deploy` job, `release` and `releases` run on a push to `main`, and the
-`game` workflow on a schedule or by hand.
+`main` runs `checks` (its `quick` skips), on being marked ready and on every push after; a newer
+push cancels an older run still in `settle` (group `checks-<head branch>-ready`; a draft's run has
+`-draft`, so a push just before `gh pr ready` never cancels it, issue 1167). A docs-only pull
+request (a retro) runs `settle` alone: its `checks` and `quick` report skipped. A phase-0 head (`docs/phase-0-`) runs neither. The only other workflow job on a pull request
+is `preview-debounce` › `preview`, on a ready pull request into `main`: it builds the Vercel
+previews (`vercel/preview/<project>`, PRD 1646). The `supabase` workflow's `deploy` job, `release`
+(then `release-fallback` when it fails), `releases` and `knowledge-graph` run on a push to `main`; `game`, `health`, `mutation`, `security`
+and `business-recheck` on a schedule or by hand.
 
-Before any of this, the git hooks `pnpm install` turns on (`.githooks/`) run for every agent and
-person: pre-commit the fallow audit of the work tree, pre-push the typecheck and lint of what
-changed. They fail closed, so a red `checks` › `fallow` usually means a commit made with
-`--no-verify`, which the pull request must explain.
+First, the git hooks `pnpm install` turns on (`.githooks/`): pre-commit the fallow audit, pre-push
+the typecheck and lint of what changed. They fail closed, so a red `fallow` usually means a
+`--no-verify` commit, which the pull request must explain.
 
 ## What gates a merge
 <!-- slot: gating · required -->
