@@ -43,6 +43,7 @@ jobs:
           - { shard: env, mutate: 'kit/lib/env/**/*.ts' }
           - { shard: inbox, mutate: 'kit/lib/inbox/**/*.ts' }
           - { shard: policy, mutate: 'kit/lib/policy/**/*.ts' }
+          - { shard: retro, mutate: 'kit/lib/retro/**/*.ts' }
           - { shard: outbox-comment, mutate: 'kit/lib/outbox/comment.ts' }
           - { shard: outbox-settle, mutate: 'kit/lib/outbox/settle.ts,kit/lib/outbox/outbox.ts' }
           - { shard: outbox-rest, mutate: 'kit/lib/outbox/**/*.ts,!kit/lib/outbox/comment.ts,!kit/lib/outbox/settle.ts,!kit/lib/outbox/outbox.ts' }
