@@ -1,5 +1,5 @@
-import type { Asking } from 'vertuo-omni-plan/kit/lib/approval/stream.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Asking } from 'omni-loop/kit/lib/approval/stream.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Answer, ApprovalHistory, HistoryRepository } from './approvals.repository';
 
 // The approval stream's rules (PRD 1322 s3, spec §4): a PRD's requests, approvals and voids, shaped into

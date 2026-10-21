@@ -1,6 +1,6 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { FAKE_WORKSPACE, fakeSupabase } from '../dossier/store.fake';
 import type { ConceptFacts, FixIssue } from '../dossier/github/fix';
 import { UNREAD } from '../dossier/github/summary';
@@ -14,10 +14,10 @@ vi.mock('server-only', () => ({}));
 // Mark done and Reopen (PRD 2213, s3): the route as a function of a Request, the caller read through their
 // own stubbed session (row-level security as the migration keeps it), GitHub a fake that records each call.
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
-const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com' };
+const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com' };
 const OTHER = '00000000-0000-4000-8000-00000000aced';
-const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: [OTHER] };
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@example.com', workspaces: [OTHER] };
 
 const MERGED: ConceptFacts = {
   issue: UNREAD, pull: { number: parsePr(1270), url: 'https://github.com/acme/widgets/pull/1270', state: 'merged', mergedAt: '2026-10-07T09:00:00Z', mergedBy: null },

@@ -1,8 +1,8 @@
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { Recording, failing, httpError } from '../../../test/github-replay.ts';
 import { FEATURE, MERGE_SHA, MERGED_AT } from '../../../test/retro-scenario.ts';
 import { listPullsInto } from '../github.ts';

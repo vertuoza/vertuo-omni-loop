@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseConcept } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
-import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseConcept } from 'omni-loop/kit/lib/concept/parse.ts';
+import { parseIssue, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { areaViews, readAreaPages } from './areas';
 import { prdKey } from '../stages/store';
 import type { StoredStage } from '../stages/stage';

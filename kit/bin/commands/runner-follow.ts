@@ -107,7 +107,9 @@ export async function send(args: string[], io: Io): Promise<number> {
   const { positional, flags } = parseArgs('runner', args, { values: ['to'] });
   const [line] = positional;
   if (positional.length !== 1 || line === undefined || flags.to === '') throw usageError(SEND_USAGE);
-  const checked = checkRunnerLine(line);
+  // A repository's own skill (PRD 2313) is the app's to allow: the shape and the fixed list are checked here, the name left to it.
+  const own = /^\/([a-z][a-z0-9-]*)(?: |$)/.exec(line)?.[1];
+  const checked = checkRunnerLine(line, own === undefined ? [] : [own]);
   if (!checked.ok) {
     println(io.stderr, `omni runner: ${checked.reason}`);
     return 1;

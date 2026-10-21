@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { previewGif, proofClip, registerRun, requestUploads, type ProofDeps } from './api';
 import { FakeProofWorld } from './store.fake';
 import { sure } from '../arcade/test/sure';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 

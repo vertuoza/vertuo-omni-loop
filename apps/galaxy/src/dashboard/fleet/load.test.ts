@@ -14,7 +14,7 @@ const ROSTER: Member[] = [
   member('u-bob', 'bob-gh', 'beaver', 'BOB'),
   member('u-sol', 'sol-gh', null, 'SOL'),
 ];
-const merged = (login: string, n: number): Activity => ({ kind: 'pr-merged', repo: 'vertuo-ai-domain', number: n, login, at: '2026-09-25T08:00:00Z' });
+const merged = (login: string, n: number): Activity => ({ kind: 'pr-merged', repo: 'nimbus-ai-domain', number: n, login, at: '2026-09-25T08:00:00Z' });
 const ACTIVITY = [...Array.from({ length: 7 }, (_, i) => merged('paetienne', 100 + i)), merged('bob-gh', 1), merged('stranger', 2)];
 const GALAXY = {
   heroes: [{ name: 'ada-gh', points: 120 }, { name: 'bob-gh', points: 300 }],

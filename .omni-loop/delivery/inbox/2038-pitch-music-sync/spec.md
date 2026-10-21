@@ -9,7 +9,7 @@ proof: video
 # Pitch music that lands on a measured rise
 
 **Date:** 2026-10-15 · **PRD:** #2038 · **Follows:** PRD 1108 (Pitch studio), whose settings, music
-providers, storyboard, check, render and push stay. **Compared with:** `vertuoza/release-videos`, the
+providers, storyboard, check, render and push stay. **Compared with:** `demo-org/release-videos`, the
 engine PRD 1108 names as its inspiration (its spec, "Inspired by"): it measures a track's energy,
 syncs a chosen rise onto a scene named by its id, checks the sync before rendering, and lets the
 person hear a few tracks before one is picked. That part was left behind. **Sibling:** PRD 2030
@@ -68,7 +68,7 @@ no measure.
 
 ### 2. Measuring a track
 
-`kit/lib/pitch/energy.ts`, pure, the method of `vertuoza/release-videos` (`scripts/probe.ts`,
+`kit/lib/pitch/energy.ts`, pure, the method of `demo-org/release-videos` (`scripts/probe.ts`,
 `probeAudio`):
 
 - **Input:** the track decoded by ffmpeg into mono 16-bit samples at 8 kHz.

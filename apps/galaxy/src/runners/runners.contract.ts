@@ -24,7 +24,7 @@
 // on it), 409 a job that has ended (a runner stops it) or a status that goes back, or questions already
 // asked, answered or dismissed, 503 no database here, 500 the database failed.
 import { z } from 'zod';
-import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
 export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove'] as const;
@@ -55,37 +55,80 @@ const JOB_LINE_CHARS = 600;
 export const JOB_LINES_KEPT = 20_000;
 export const JOB_LINES_PAGE = 5_000;
 
+/** The longest name of a repository's own skill (PRD 2313): the kit's own `SKILL_NAME_MAX`, and the
+ * database's limit on `repository_runner_skills.skill`. */
+const MAX_SKILL_NAME = 64;
+
 const ARGS = /^[A-Za-z0-9 ._/:#-]*$/;
 const LINE = /^\/omni:([a-z][a-z-]*)(?: (.*))?$/s;
+const OWN_LINE = /^\/([a-z][a-z0-9-]*)(?: (.*))?$/s;
+const BAD_ARGS = 'A line\'s arguments are letters, digits, spaces and . _ / : # - only.';
 
-/** A line's verdict: its skill and arguments, or why it is refused, in plain words. */
-export type LineCheck = { ok: true; skill: RunnerSkill; args: string } | { ok: false; reason: string };
+/** A line of a fixed skill: `/omni:<skill> <args>`. */
+type FixedLine = { ok: true; kind: 'omni'; skill: RunnerSkill; args: string };
+/** A line of a skill of the repository's own (PRD 2313): `/<name> <args>`. */
+type OwnLine = { ok: true; kind: 'repository'; skill: string; args: string };
+type Refused = { ok: false; reason: string };
+
+/** A line's verdict: its kind, skill and arguments, or why it is refused, in plain words. */
+export type LineCheck = FixedLine | OwnLine | Refused;
+
+/** Whether a name is allowed: one of the repository's allowed skills, or any name for the shape alone. */
+type Allows = (name: string) => boolean;
+
+function verdict(line: string, allows: Allows): LineCheck {
+  if (line.length > MAX_LINE) return { ok: false, reason: `A line is ${String(MAX_LINE)} characters at most, the skill included.` };
+  const fixed = LINE.exec(line);
+  if (fixed) return fixedVerdict(fixed[1] ?? '', fixed[2] ?? '');
+  const own = OWN_LINE.exec(line);
+  if (!own) return { ok: false, reason: 'A line reads `/omni:<skill> <arguments>` or `/<skill> <arguments>`.' };
+  return ownVerdict(own[1] ?? '', own[2] ?? '', allows);
+}
+
+function fixedVerdict(name: string, args: string): FixedLine | Refused {
+  const skill = RUNNER_SKILLS.find((listed) => listed === name);
+  if (!skill) return { ok: false, reason: `/omni:${name} is not a skill a runner runs: only ${RUNNER_SKILLS.join(', ')}.` };
+  if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
+  return { ok: true, kind: 'omni', skill, args };
+}
+
+function ownVerdict(skill: string, args: string, allows: Allows): OwnLine | Refused {
+  if (skill.length > MAX_SKILL_NAME) return { ok: false, reason: `A skill's name is ${String(MAX_SKILL_NAME)} characters at most.` };
+  if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
+  if (RUNNER_SKILLS.some((listed) => listed === skill)) return { ok: false, reason: `/${skill} is the loop's own skill: send /omni:${skill}.` };
+  if (!allows(skill)) return { ok: false, reason: `/${skill} is not allowed on a runner for this repository.` };
+  return { ok: true, kind: 'repository', skill, args };
+}
 
 /** Whether `line` is one a runner may run: 200 characters at most, skill included, reading
- * `/omni:<skill> <args>`, the skill on the list, the arguments letters, digits, spaces and `._/:#-` only.
- * The route checks it, and the runner checks it again before it runs, in the same order. */
-export function checkLine(line: string): LineCheck {
-  if (line.length > MAX_LINE) return { ok: false, reason: `A line is ${String(MAX_LINE)} characters at most, the skill included.` };
-  const match = LINE.exec(line);
-  if (!match) return { ok: false, reason: 'A line reads `/omni:<skill> <arguments>`.' };
-  const skill = RUNNER_SKILLS.find((listed) => listed === match[1]);
-  if (!skill) return { ok: false, reason: `/omni:${match[1] ?? ''} is not a skill a runner runs: only ${RUNNER_SKILLS.join(', ')}.` };
-  const args = match[2] ?? '';
-  if (!ARGS.test(args)) return { ok: false, reason: 'A line\'s arguments are letters, digits, spaces and . _ / : # - only.' };
-  return { ok: true, skill, args };
+ * `/omni:<skill> <args>` with the skill on the list, or `/<name> <args>` with the name one of `allowed`,
+ * the repository's own skills (PRD 2313), never a fixed skill's; the arguments letters, digits, spaces
+ * and `._/:#-` only. The route checks it, and the runner checks it again before it runs, in the same
+ * order. With no `allowed`, only a fixed skill's line passes. */
+export function checkLine(line: string): FixedLine | Refused;
+export function checkLine(line: string, allowed: readonly string[]): LineCheck;
+export function checkLine(line: string, allowed: readonly string[] = []): LineCheck {
+  return verdict(line, (name) => allowed.includes(name));
+}
+
+/** A line's shape alone, every name but a fixed skill's counted allowed: what Send checks before it
+ * knows the repository, and what names a PRD (PRD 2313). */
+export function checkLineShape(line: string): LineCheck {
+  return verdict(line, () => true);
 }
 
 /** The PRD a line names (PRD 2251): its first argument, when it is a PRD number (`/omni:yolo 2251`,
- * `/omni:do-work 2251 s1`); null for a line no runner runs, or whose first argument is anything else. */
+ * `/omni:do-work 2251 s1`, a repository skill's `/validate-prd 347`, PRD 2313); null for a line no
+ * runner runs, or whose first argument is anything else. */
 export function linePrd(line: string): PrdNumber | null {
-  const check = checkLine(line);
+  const check = checkLineShape(line);
   const first = check.ok ? /^(\d+)(?: |$)/.exec(check.args)?.[1] : undefined;
   const prd = PrdNumberSchema.safeParse(first === undefined ? null : Number(first));
   return prd.success ? prd.data : null;
 }
 
-/** A line a runner may run, as a schema. */
-const LineSchema = z.string().max(MAX_LINE).refine((line) => checkLine(line).ok, { message: 'not a line a runner runs' });
+/** The name of a repository's own skill (PRD 2313), as `repository_runner_skills.skill` holds it. */
+const SkillNameSchema = z.string().max(MAX_SKILL_NAME).regex(/^[a-z][a-z0-9-]*$/);
 
 /** A repository, as `owner/name`. */
 const RepoSchema = z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/);
@@ -116,8 +159,11 @@ export type RegisterReply = z.infer<typeof RegisterReplySchema>;
 export const NextQuerySchema = z.object({ runner: IdSchema }).strict();
 
 /** A job, as the runner that claimed it receives it: the sender's GitHub login, when they have one, goes
- * to the run as OMNI_SENT_BY. */
-export const RunnerJobSchema = z.object({ id: IdSchema, line: LineSchema, repo: RepoSchema, sentBy: z.string().nullable() });
+ * to the run as OMNI_SENT_BY. `allowedSkills` are the repository's own skills its owner allowed, read
+ * when the job was claimed (PRD 2313): the runner checks the line against them again before it runs. */
+export const RunnerJobSchema = z.object({
+  id: IdSchema, line: z.string().max(MAX_LINE), repo: RepoSchema, sentBy: z.string().nullable(), allowedSkills: z.array(SkillNameSchema),
+}).refine((job) => checkLine(job.line, job.allowedSkills).ok, { message: 'not a line a runner runs', path: ['line'] });
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
 
 /** The statuses a job goes through, in order; the last three end it. */

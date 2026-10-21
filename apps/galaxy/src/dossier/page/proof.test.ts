@@ -1,17 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import type { ProofRunRow } from '../../proof/store';
 import type { DossierRow } from '../store';
 import { proofView, type ProofRead } from './proof';
 import { dossierView, readPick } from './view';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The Proof tab of /prd/<id> (PRD 798, s4), as pure functions of the runs the viewer reads: hidden with
 // no run; the newest run first, its commit, URL, date and ✓/✗/— counts, then one row per criterion with
 // its verdict, note, player and script; an older run picked with the version picker.
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
-const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
+const PIERRE = { user_id: 'u-pierre', email: 'pierre@example.com', name: 'Pierre' };
 
 const numbered: DossierRow = {
   id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(798), title: 'Proof video',

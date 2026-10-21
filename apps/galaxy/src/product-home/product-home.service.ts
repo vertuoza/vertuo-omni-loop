@@ -1,7 +1,7 @@
 import { currentStage, STAGE_LABELS, type StoredStage } from '../stages/stage';
-import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { parseOutboxItem } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
-import { sortItems } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
+import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseOutboxItem } from 'omni-loop/kit/lib/outbox/outbox.ts';
+import { sortItems } from 'omni-loop/kit/lib/outbox/comment.ts';
 import type { QuestionView } from '../questions/questions.contract';
 import type { Archived } from './archive';
 import type { ArchiveAnswer, ArchiveRefusal } from './product-archive.contract';

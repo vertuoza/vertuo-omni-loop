@@ -2,7 +2,7 @@
 // game room never loads a game's own engine (OMNI KART's is loaded on demand, kart/guard.test.ts), so
 // each still is drawn once from the game's own pieces by stills.test.ts and kept here as text: its
 // palette, and each row of its pixels as runs of one colour.
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import type { GridName } from '../grid';
 
 /**

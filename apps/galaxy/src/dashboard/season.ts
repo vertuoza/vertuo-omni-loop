@@ -1,4 +1,4 @@
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 // The season (PRD 328): the calendar month in UTC, the one the game's economy scores (buildGalaxy
 // scores `now.toISOString().slice(0, 7)`). The dashboard's points, both rankings and its three season
 // counts read within the same bounds, so they reset together. The week of merges alone counts

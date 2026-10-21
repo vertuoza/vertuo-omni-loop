@@ -80,7 +80,7 @@ import {
   CONTEXT_LABELS, CONTEXTS, GITHUB_UNREAD, isContext, OUTBOX_EMPTY, outboxView, type ContextKind, type ContextView, type OutboxView,
 } from './outbox-view';
 import { isDossierId } from './source';
-import { at, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { GITHUB_PENDING } from './stream/pending';
 import type { StageRow } from '../../stages/stage';
 import { stageView, type Fixing, type StageView } from './stage';
@@ -91,7 +91,7 @@ import type { GithubAt } from '../snapshot/snapshot';
 import { proofView, runsBadge, type ProofRead, type ProofView } from './proof';
 import { pitchesBadge, pitchView, type PitchRead, type PitchView } from './pitch';
 import { approvalView, type ApprovalFacts, type ApprovalRead, type ApprovalView } from './approval';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
 

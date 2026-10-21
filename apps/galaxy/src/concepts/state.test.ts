@@ -7,7 +7,7 @@ import type { StoredStage } from '../stages/stage';
 import { prdKey } from '../stages/store';
 import { conceptPull, conceptState, shippedByPerson, CONCEPT_STATE_LABELS, type ConceptProgress, type ConceptState } from './state';
 import { ConceptStateChip } from './state-chip';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // A concept's state (PRD 1272, s4), from its stored facts: in review while its concept PR is open, in the
 // inbox once it merged, state unknown when the pull request could not be read, or none was found.

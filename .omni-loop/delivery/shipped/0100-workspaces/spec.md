@@ -30,7 +30,7 @@ Everything the game knows is global, and the only door is an email domain.
   (`auth.users.id`, `20260925150000_fleets_and_players.sql`), so a person can be one player,
   once, anywhere. `players.github_id` and `github_login` are unique across the whole table.
 - **Access is one email check, repeated four times:**
-  - `is_crew()` checks the token's email `like '%@vertuoza.com'`;
+  - `is_crew()` checks the token's email `like '%@example.com'`;
   - `hook_before_user_created` refuses every other domain;
   - the arcade's `isCrewEmail()` (`apps/galaxy/src/data/supabase-server.ts`);
   - the Google sign-in's `hd: 'vertuoza.com'`.
@@ -41,7 +41,7 @@ Everything the game knows is global, and the only door is an email domain.
   appends with `on_conflict=id` and `resolution=ignore-duplicates` (`game/sources/supabase.mjs`).
   So a second workspace's PRD #12, or its repository called `api`, is dropped without an error.
 - **The organisation is a literal.** `buildSnapshot()` defaults to `org = 'vertuoza'` and
-  `planRepo = 'vertuo-omni-plan'` (`game/sources/github.mjs`), and no command overrides it.
+  `planRepo = 'nimbus-plan'` (`game/sources/github.mjs`), and no command overrides it.
 - **The look is a literal.**
   - The V mark is one module (`apps/galaxy/src/arcade/mark.ts`), drawn on the deck
     (`VertuozaMark` in `ArcadeApp.tsx`) and on the boot screen (`drawBoot` in `scenes.ts`).
@@ -66,7 +66,7 @@ public.workspaces
   slug         text not null unique  check (slug ~ '^[a-z0-9-]{2,32}$')   -- 'vertuoza'
   name         text not null         check (char_length(name) between 1 and 40) -- 'Vertuoza'
   github_org   text                  -- 'vertuoza': the owner of the repositories the projector reads
-  plan_repo    text                  -- 'vertuo-omni-plan': the repository that carries the PRD issues
+  plan_repo    text                  -- 'nimbus-plan': the repository that carries the PRD issues
   join_domain  text unique           -- 'vertuoza.com': confirmed accounts of this domain join by themselves
   theme        jsonb not null default '{}' check (public.valid_theme(theme))
   created_at   timestamptz not null default now()
@@ -144,7 +144,7 @@ The migration inserts the workspace:
 - `slug 'vertuoza'`
 - `name 'Vertuoza'`
 - `github_org 'vertuoza'`
-- `plan_repo 'vertuo-omni-plan'`
+- `plan_repo 'nimbus-plan'`
 - `join_domain 'vertuoza.com'`
 - `theme '{}'`
 
@@ -235,7 +235,7 @@ every token and its default, which is today's value:
   - `.github/workflows/game.yml` sets `OMNI_LOOP_WORKSPACE: vertuoza`.
 - **Reading GitHub.**
   - The projector reads `github_org` and `plan_repo` from the workspace row.
-  - `buildSnapshot()` loses its `'vertuoza'` and `'vertuo-omni-plan'` defaults: called without
+  - `buildSnapshot()` loses its `'vertuoza'` and `'nimbus-plan'` defaults: called without
     them, it throws.
   - A workspace without a `github_org` is refused by `game:project` and `game:banner`.
 - **Reading and writing Supabase.** `game/sources/supabase.mjs` filters every read (`loadConfig`,
@@ -407,7 +407,7 @@ applies every migration. `auth.users` is untouched.
 1. **The migrations apply.** On an empty database, every migration and the demo seed apply, and
    `supabase/checks/access.sql` passes in the `supabase` workflow.
 2. **Vertuoza exists.** After the migration, `public.workspaces` holds one row, `vertuoza`, with
-   `github_org 'vertuoza'`, `plan_repo 'vertuo-omni-plan'`, `join_domain 'vertuoza.com'` and theme
+   `github_org 'vertuoza'`, `plan_repo 'nimbus-plan'`, `join_domain 'vertuoza.com'` and theme
    `{}`. Its six fleets carry today's labels, colours, mottos, mascots and order, and
    `invincible-team` is retired.
 3. **Workspaces are isolated.** A member of one workspace reads no row of another from

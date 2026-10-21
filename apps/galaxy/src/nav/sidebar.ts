@@ -16,7 +16,7 @@
 // group (the foot has none), the entry, then the page, with the entry's sprite. The query and the hash
 // never count. An entry that counts what waits for the person (PRD 499) carries its count as a badge,
 // none at 0: Questions, PRDs and, since PRD 2255, Runners (the workspace's jobs waiting for an answer).
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
 

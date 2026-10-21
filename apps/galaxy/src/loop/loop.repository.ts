@@ -2,7 +2,7 @@
 // person, repo_workspace(), which no signed-in role may call, so it runs on the service role's client
 // it is handed (./loop-reads-live.ts). No rule lives here: the service reads what comes back.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { Database } from '../../../../supabase/database.types';
 
 type Db = SupabaseClient<Database>;

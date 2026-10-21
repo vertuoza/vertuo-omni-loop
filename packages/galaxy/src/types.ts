@@ -2,7 +2,7 @@
 // draws. One source for the package's types: index.ts re-exports them for the arcade, and the
 // sources type themselves with them. Self-contained on purpose, so the arcade's type check never
 // reaches into the game's sources through it. Its ID brands come from the kit's own module (PRD 1049).
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export type PlanetState =
   | 'charted' | 'locked' | 'terraforming' | 'distress' | 'awaiting-command'

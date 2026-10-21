@@ -3,7 +3,7 @@
 // library function that posts takes a client with `listComments` / `createComment` / `updateComment`;
 // this is the production one. PRD 1665, s6: the read helpers left — the loop reads through `LoopReads`
 // (the Omni page), and the harvest, which still reads through `gh`, holds its own.
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-comment.mjs — changes in kit/porting/bin--github.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-comment.mjs — changes in kit/porting/bin--github.md.
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import type { ExecText } from '../lib/context.ts';

@@ -279,7 +279,7 @@ max_frequency = "5s"
 # inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
-# Only @vertuoza.com accounts may join (the function ships in the fleets-and-players migration).
+# Only a GitHub sign-up may join (the function's last version ships in the github-sign-up migration).
 # In production, switch it on in the dashboard: Authentication › Hooks › Before User Created.
 [auth.hook.before_user_created]
 enabled = true

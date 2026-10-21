@@ -36,7 +36,7 @@ describe('readOnlyClient', () => {
 
   it('reads an rpc called with get: true, which PostgREST runs read-only', async () => {
     const { base, db } = client();
-    await db.rpc('business_for_repo', { p_repo: 'vertuoza/a' }, { get: true });
+    await db.rpc('business_for_repo', { p_repo: 'demo-org/a' }, { get: true });
     expect(base).toHaveBeenCalledTimes(1);
   });
 
@@ -46,7 +46,7 @@ describe('readOnlyClient', () => {
       await db.from('teams').insert({ name: 'x', label: 'X', color: '#fff', motto: '', sort: 1, workspace_id: 'w' }),
       await db.from('teams').update({ label: 'Y' }).eq('name', 'x'),
       await db.from('teams').delete().eq('name', 'x'),
-      await db.rpc('business_for_repo', { p_repo: 'vertuoza/a' }),
+      await db.rpc('business_for_repo', { p_repo: 'demo-org/a' }),
     ];
     for (const answer of answers) expect(answer.error?.message).toContain('schemas:verify only reads');
     expect(base).not.toHaveBeenCalled();

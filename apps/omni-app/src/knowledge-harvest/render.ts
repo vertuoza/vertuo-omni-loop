@@ -5,9 +5,9 @@
 // then one table row per placed decision, matching its ledger line, then what each new rule and
 // invariant is enforced by and every proposed proof dropped with its reason (PRD 1171), then the ones
 // not placed as checkboxes, then what the merge settled and shipped and how the checks came out.
-import type { HarvestEdits, Move } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
-import type { Placed } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
-import type { IssueNumber, PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { HarvestEdits, Move } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
+import type { Placed } from 'omni-loop/kit/lib/knowledge/write.ts';
+import type { IssueNumber, PrNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** What the knowledge PR names of its PRD. */
 export type HarvestPrd = { number: PrdNumber; title: string };

@@ -4,7 +4,7 @@
 // three cabinets side by side on the wide grid, following the cursor (games/room.ts, roomWindow),
 // one a page on the tall one (games.css).
 import { useEffect, useRef, useState } from 'react';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import type { WoundKind } from '@omni/galaxy';
 import { heroPose, woundTint } from '@omni/design';
 import { useScreen } from '../Screen';

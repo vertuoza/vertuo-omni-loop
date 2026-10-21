@@ -26,7 +26,7 @@
  * would ever say so. The scenario *An ADR is not a law* requires `high`, so {@link proposeRank}
  * proposes it here.
  */
-// Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-do-work/outbox-policy.mjs — changes in kit/porting/policy--outbox-policy.md.
+// Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-do-work/outbox-policy.mjs — changes in kit/porting/policy--outbox-policy.md.
 import { COMMANDS } from '../commands.ts';
 import { idParts } from '../knowledge/registers.ts';
 import { ACCOUNTS_DIR } from '../outbox/account.ts';

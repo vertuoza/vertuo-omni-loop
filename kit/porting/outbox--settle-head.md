@@ -1,6 +1,6 @@
 # `kit/lib/outbox/settle-head.mjs`
 
-Source: `scripts/settle-head.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/settle-head.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 

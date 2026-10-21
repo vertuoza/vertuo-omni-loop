@@ -1,6 +1,6 @@
 # `kit/lib/outbox/comment.mjs`
 
-Source: `scripts/outbox-comment.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/outbox-comment.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -30,7 +30,7 @@ Source: `scripts/outbox-comment.mjs` @ `vertuo-ai-domain@c4a210122`.
   `unaccountedChanges(prd, changes, { ctx })`. Imported and re-exported:
   `import { unaccountedChanges } from './status.mjs'; export { unaccountedChanges };` — the test
   file imports it from `./outbox-comment.mjs`, so it is re-exported the same way.
-- `MARKER = '<!-- vertuo-outbox -->'`, `PR_MARKER = '<!-- vertuo-outbox-pr -->'` (module constants):
+- `MARKER = '<!-- nimbus-outbox -->'`, `PR_MARKER = '<!-- nimbus-outbox-pr -->'` (module constants):
   deleted, per the task's own mapping table (`MARKER, PR_MARKER` → `markers.comment,
   markers.prComment`). No longer exported — the task's own exact-exports list does not name them.
   Every read site now takes an injected `markers` (or, for the two formatters, the full `ctx`) and
@@ -73,7 +73,7 @@ Source: `scripts/outbox-comment.mjs` @ `vertuo-ai-domain@c4a210122`.
   includes(ctx.config.labels.outboxGo)` and `` `_These items were waved through with
   \`${ctx.config.labels.outboxGo}\` — waved through, not answered._` `` (the task's own
   mapping-table row, both the check and the printed label name).
-- `/vertuo-yolo-fix` (the one runtime string literal, in `formatOutboxPrComment`'s "a reply settles
+- `/nimbus-yolo-fix` (the one runtime string literal, in `formatOutboxPrComment`'s "a reply settles
   nothing on its own" line) → `` `\`${COMMANDS.yoloFix}\`` `` (the task's own mapping-table row).
   Added `import { COMMANDS } from '../commands.mjs'`.
 - **Slack: `ctx.config.notify.slack` gates the note entirely** (controller ruling 4).
@@ -116,8 +116,8 @@ Source: `scripts/outbox-comment.mjs` @ `vertuo-ai-domain@c4a210122`.
 - `execFileSync`/`fileURLToPath` imports: deleted (only the CLI half and `ghClient` used them).
 - Module doc comment: reworded throughout to drop `docs/outbox/<prd>`, `scripts/outbox.mjs`,
   `scripts/outbox-account.mjs`, `scripts/outbox-settle.mjs`, `scripts/outbox-replies.mjs`,
-  `.claude/skills/vertuo-yolo-fix/rework.mjs`, `.github/workflows/outbox.yml`, `/vertuo-yolo-fix`,
-  the literal marker text (`<!-- vertuo-outbox-announced: … -->` etc.), `vertuoza/vertuo-ai-domain`
+  `.claude/skills/nimbus-yolo-fix/rework.mjs`, `.github/workflows/outbox.yml`, `/nimbus-yolo-fix`,
+  the literal marker text (`<!-- nimbus-outbox-announced: … -->` etc.), `demo-org/nimbus-brain`
   in the `Usage:` examples, and the "#octopod" Slack channel name — in favour of
   `ctx.layout.outboxDir(prd)`, `account.mjs`/`decision-coverage.mjs`/`status.mjs`/`settle.mjs`'s own
   names, `ctx.markers.comment`/`ctx.markers.prComment`, `/omni-yolo-fix`, "the configured marker
@@ -146,7 +146,7 @@ Source: `scripts/outbox-comment.mjs` @ `vertuo-ai-domain@c4a210122`.
 - Removed from the import list (no longer exported): `ANNOUNCED_MARKER_PREFIX`, `MARKER`,
   `NUMBERS_MARKER_PREFIX`, `PR_MARKER`. Added imports: `flatCtx` (`kit/test/flat-layout.mjs`),
   `makeMarkers` (`kit/lib/markers.mjs`).
-- Added a module-scope `const markers = makeMarkers('vertuo-outbox');`, matching `flatCtx`'s own
+- Added a module-scope `const markers = makeMarkers('nimbus-outbox');`, matching `flatCtx`'s own
   configured prefix — every marker literal an assertion checks reproduces byte for byte, the same
   convention `replies.test.mjs` and `settle.test.mjs` already use.
 - Added two module-scope `ctx` fixtures for tests that render text or parse a marker but never
@@ -179,8 +179,8 @@ Source: `scripts/outbox-comment.mjs` @ `vertuo-ai-domain@c4a210122`.
   `formatNumbersMarker(numbering, markers)`; `parseNumbersMarker(body)` → `parseNumbersMarker(body,
   markers)`; `parseRoundMarkers(comments)` → `parseRoundMarkers(comments, markers)`.
 - The two hard-coded round-marker literals in the `parseRoundMarkers` describe block
-  (`'<!-- vertuo-outbox-round: 2 1,3 -->'`, `'<!-- vertuo-outbox-round: 2 1 -->'` /
-  `'<!-- vertuo-outbox-round: 3 1 -->'`) and the two in the `upsertOutboxPrComment` describe block
+  (`'<!-- nimbus-outbox-round: 2 1,3 -->'`, `'<!-- nimbus-outbox-round: 2 1 -->'` /
+  `'<!-- nimbus-outbox-round: 3 1 -->'`) and the two in the `upsertOutboxPrComment` describe block
   → `` `${markers.round(2, [1, 3])}` `` / `` `${markers.round(2, [1])}` `` / `` `${markers.round(3,
   [1])}` ``, matching `replies.test.mjs`'s own convention for the same marker.
 - `settle(root, file, { … })` helper: `settleItem({ root, file, answer })` → `settleItem({ ctx:
@@ -193,16 +193,16 @@ Source: `scripts/outbox-comment.mjs` @ `vertuo-ai-domain@c4a210122`.
 - `objectTo(root, spec, { text })` helper: `renderSettledEntry({ item, itemText, answer, judgement
   })` → same call plus `markers` (`settle.mjs`'s own already-ported signature, Task 6).
 - **Assertion changes, all "command names in rendered text" per the task's own Step 3 allowance**:
-  - `expect(body).toContain('/vertuo-yolo-fix');` (in the worst-first `formatOutboxPrComment`
+  - `expect(body).toContain('/nimbus-yolo-fix');` (in the worst-first `formatOutboxPrComment`
     scenario) → `expect(body).toContain('/omni-yolo-fix');`.
-  - The one literal `` '_A reply settles nothing on its own — `/vertuo-yolo-fix` reads the replies
+  - The one literal `` '_A reply settles nothing on its own — `/nimbus-yolo-fix` reads the replies
     and settles ' + 'them._'`` inside the big byte-for-byte body comparison (the "renders a PRD with
     one high, one human-action and two adopted items…" test) → `` '_A reply settles nothing on its
     own — `/omni-yolo-fix` reads the replies and settles ' + 'them._'``.
-  - Every literal `<!-- vertuo-outbox-… -->` an assertion names (announced-keys marker, numbers
+  - Every literal `<!-- nimbus-outbox-… -->` an assertion names (announced-keys marker, numbers
     marker, round marker) is unchanged VALUE-wise — only how the test *constructs* the expected
     string changed (an imported constant → `markers.<field>`), since `flatCtx`'s configured prefix
-    (`vertuo-outbox`) is byte-identical to upstream's own hard-coded prefix. No test's expected
+    (`nimbus-outbox`) is byte-identical to upstream's own hard-coded prefix. No test's expected
     *value* differs from upstream's.
 - **New test, TDD RED then GREEN (Step 4)**: `describe('maybeWriteSlackNote', …)` gained "writes
   nothing when the repository has not opted in to Slack notifications (notify.slack is null)" — a

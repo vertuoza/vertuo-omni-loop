@@ -13,7 +13,7 @@
 // When it cannot decide (the outbox or the replies unread), nothing is queued: the next touch decides
 // again. Plain functions over what was read, so each condition is tested failing alone
 // (./continue.test.ts).
-import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { OutboxStand } from '../dossier/page/stage';
 import { checkLine, type JOB_OUTCOMES, type RunnerSkill } from './runners.contract';
 

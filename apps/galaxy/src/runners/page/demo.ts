@@ -1,4 +1,4 @@
-import { IssueNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { Board, Job, JobQuestions, Runner } from '../runners.contract';
 import type { Fleet, RunnersPageView } from './model';
 

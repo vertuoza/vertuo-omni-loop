@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { type AppEvent, inngest } from '../inngest-client.ts';
 import { stdoutLines } from '../run-log/capture.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';

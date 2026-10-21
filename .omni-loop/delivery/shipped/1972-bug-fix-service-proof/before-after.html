@@ -36,7 +36,7 @@
 <body>
 <div class="doc">
 <h1>A service starts /omni:bug-fix, and every bug-fix PR shows a before/after GIF</h1>
-<p class="lead">PRD 1972. vertuo-cleaner opens an <code>omni:bug</code> issue for an error group, then waits for a person to paste <code>/omni:bug-fix &lt;issue url&gt;</code>. After this PRD it queues the job itself, with Pierre's kit token, and the pull request the job opens shows the bug before and after the fix.</p>
+<p class="lead">PRD 1972. nimbus-cleaner opens an <code>omni:bug</code> issue for an error group, then waits for a person to paste <code>/omni:bug-fix &lt;issue url&gt;</code>. After this PRD it queues the job itself, with Pierre's kit token, and the pull request the job opens shows the bug before and after the fix.</p>
 
 <h2 class="part">Functional</h2>
 
@@ -46,26 +46,26 @@
 <pre><span class="dim"># the cleaner, with a kit token's access token</span>
 POST /api/runners/jobs
 Authorization: Bearer eyJhbGciOi…
-{"line": "/omni:bug-fix https://github.com/vertuoza/vertuo-backend-php/issues/123",
- "repo": "vertuoza/vertuo-backend-php", "target": {"kind": "any"}}
+{"line": "/omni:bug-fix https://github.com/demo-org/nimbus-backend-php/issues/123",
+ "repo": "demo-org/nimbus-backend-php", "target": {"kind": "any"}}
 
 <span class="bad">401 {"error": "Sign in first."}</span>
 
 <span class="dim"># so the cleaner shows a person the line to paste</span>
-/omni:bug-fix https://github.com/vertuoza/vertuo-backend-php/issues/123</pre>
+/omni:bug-fix https://github.com/demo-org/nimbus-backend-php/issues/123</pre>
     <p class="cap"><code>sendJob</code> reads the browser's session alone. The runner's own routes (register, next, report) already take the Bearer.</p>
   </div>
   <div><span class="tag after">After</span>
 <pre><span class="dim"># 1. once an hour: the kit token for an access token</span>
 POST /api/ask/token
-{"omni_token": "omk_…", "repo": "vertuoza/vertuo-backend-php"}
+{"omni_token": "omk_…", "repo": "demo-org/nimbus-backend-php"}
 <span class="good">200 {"access_token": "eyJhbGciOi…", "expires_at": …, "workspace": …}</span>
 
 <span class="dim"># 2. each bug</span>
 POST /api/runners/jobs
 Authorization: Bearer eyJhbGciOi…
-{"line": "/omni:bug-fix https://github.com/vertuoza/vertuo-backend-php/issues/123",
- "repo": "vertuoza/vertuo-backend-php", "target": {"kind": "any"}}
+{"line": "/omni:bug-fix https://github.com/demo-org/nimbus-backend-php/issues/123",
+ "repo": "demo-org/nimbus-backend-php", "target": {"kind": "any"}}
 <span class="good">200 {"job": {…, "sentBy": "&lt;Pierre&gt;"}}</span>
 
 <span class="dim"># refused</span>

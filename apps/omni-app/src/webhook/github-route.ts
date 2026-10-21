@@ -9,7 +9,7 @@
 // Every delivery, a GET included, writes one `webhook` line (PRD 1723 s6, ../run-log/run-log.ts): its
 // outcome and status, the delivery id and the GitHub event's name in `fn`, and, once the signature is
 // checked, the repository. A thrown error is logged `failed` and rethrown unchanged.
-import { log, type Logger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from '../env.ts';
 import type { FixStampRequest } from '../fix-rows/fix-stamp.ts';
 import { type AppEvent, type ApprovedLabelRequest, inngest } from '../inngest-client.ts';

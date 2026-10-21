@@ -8,7 +8,7 @@
 // A thread's verdict: the last care reply's marker, except that a person writing after it, or a thread
 // care resolved and someone reopened, makes it `asked` (the reviewer keeps the last word). A thread with
 // no care reply is `open` while unresolved; resolved by a person without one, it is left out.
-import { at, defined, firstPart, group, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined, firstPart, group, isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { z } from 'zod';
 
 export type CareCi = 'green' | 'red' | 'running' | 'none';

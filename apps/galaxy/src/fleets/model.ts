@@ -1,4 +1,4 @@
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import type { FleetRow } from '../arcade/types';
 import type { Refusal } from './refusal';
 

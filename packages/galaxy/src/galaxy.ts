@@ -1,14 +1,14 @@
 // Ledger events → the galaxy the arcade UI draws. Pure, and read-only like the rest of the game:
 // the same events come from game/ledger/*.jsonl, from Supabase, or from the demo world. Points
 // and rankings are never recomputed here; they come from game/economy.ts.
-import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
-import { tranchesBetween } from 'vertuo-omni-plan/game/calendar.ts';
-import { score } from 'vertuo-omni-plan/game/economy.ts';
-import { EVENT_TYPES, NO_PLANET, oneSpelling, planetKeyOf, textOf, WOUND_KINDS, type EventType } from 'vertuo-omni-plan/game/events.ts';
+import { RULEBOOK } from 'omni-loop/game/rulebook.ts';
+import { tranchesBetween } from 'omni-loop/game/calendar.ts';
+import { score } from 'omni-loop/game/economy.ts';
+import { EVENT_TYPES, NO_PLANET, oneSpelling, planetKeyOf, textOf, WOUND_KINDS, type EventType } from 'omni-loop/game/events.ts';
 import type {
   Fleet, FleetConfig, FleetLook, GalaxyView, Hero, LedgerEvent, LogLine, Planet, PlanetState, Projects, Wound, WoundKind, Zone,
 } from './types.ts';
-import { parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 // An event's data is read field by field, as game/projector.ts writes it: a field of another type
 // reads as absent, so a stray value never reaches the view as something it is not.

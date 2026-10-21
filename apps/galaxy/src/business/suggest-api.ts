@@ -1,7 +1,7 @@
 import { claimOf, type StoredClaim } from './model';
 import { refuse, reply } from '../business-api/reply';
 import { suggestInput, type Suggester } from './suggest';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // POST /api/business/suggest-rivals {workspace, product} → 200 {claims} (PRD 748 s3), as a plain
 // function of a Request so app/api/business/suggest-rivals/route.ts stays one line. Settings › Business

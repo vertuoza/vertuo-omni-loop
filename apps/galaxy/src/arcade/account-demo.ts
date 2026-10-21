@@ -8,7 +8,7 @@ import { bestOf, measureOf } from './measure';
 import type { Account, Player, PlayerPatch, ScoreBoard, Session } from './types';
 
 const KEY = 'omni-loop:guest';
-const GUEST: Session = { id: 'guest', email: 'guest@vertuoza.com', givenName: 'GUEST', crew: true, github: null };
+const GUEST: Session = { id: 'guest', email: 'guest@example.com', givenName: 'GUEST', crew: true, github: null };
 /** The highest score a game takes, as submit_score() holds it. */
 const SCORE_CAP = 9_999_999;
 

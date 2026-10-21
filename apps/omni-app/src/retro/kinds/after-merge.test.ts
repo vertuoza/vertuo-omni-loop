@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { failing } from '../../../test/github-replay.ts';
 import { refusedWordsIn } from '../rules.ts';
 import { afterMerge, followUpAt } from './after-merge.ts';
@@ -17,7 +17,7 @@ import {
   afterMergeRecording,
 } from './after-merge.fixtures/day-14.ts';
 import type { AfterMergeMissing } from './after-merge.fixtures/day-14.ts';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 
 /** Any text holding `text`, as the matcher reads it. */
 const containing = (text: string): unknown => expect.stringContaining(text);

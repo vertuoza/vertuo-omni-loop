@@ -13,7 +13,7 @@ Fixing it by hand skips what makes a bug fix trustworthy: a reproduction seen fa
 fix, a triage that says how bad it is and whether something broke it, and a guard so it does not
 come back.
 
-vertuo-ai-domain already has this discipline as `vertuo-fix-bug`, but it is tied to that
+nimbus-brain already has this discipline as `nimbus-fix-bug`, but it is tied to that
 repository's browser harness, QA target and Stryker script. The kit already holds the pieces a port
 needs: the `bug-fixing` playbook form (`omni kb show bug-fixing`, kit default steps), the config key
 `branches.fix`, and the fast-lane pattern `/omni:visual-fix` set in PRD 541: its own issue, one fix

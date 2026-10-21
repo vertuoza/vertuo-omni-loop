@@ -1,7 +1,7 @@
 // The sync's snapshot store (PRD 902, s4): its Supabase calls on a recording client. No test reaches
 // Supabase.
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { syncSnapshotStore } from './snapshots';
 
 type Answer = { data: unknown; error: { message: string; code?: string } | null };

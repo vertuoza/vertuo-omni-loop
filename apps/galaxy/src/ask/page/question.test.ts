@@ -11,9 +11,9 @@ const ADA = 'ada';
 const BOB = 'bob';
 const DAN = 'dan';
 const MEMBERS = [
-  { user_id: ADA, email: 'ada@vertuoza.com', name: null },
-  { user_id: BOB, email: 'bob@vertuoza.com', name: 'BOB' },
-  { user_id: DAN, email: 'dan@vertuoza.com', name: null },
+  { user_id: ADA, email: 'ada@example.com', name: null },
+  { user_id: BOB, email: 'bob@example.com', name: 'BOB' },
+  { user_id: DAN, email: 'dan@example.com', name: null },
 ];
 const QUESTIONS = [{ question: 'Which storage?', header: 'Storage', multiSelect: false, options: [{ label: 'Postgres', description: '' }, { label: 'Memory', description: '' }] }];
 
@@ -61,10 +61,10 @@ describe('one question, at /ask/q/<round>', () => {
 
   it('says who answered it, with the answer, once answered', () => {
     const view = questionView(state(answered('r3', 2 * MIN, ADA, 'terminal')), BOB, MEMBERS, NOW);
-    expect(view).toMatchObject({ kind: 'answered', by: 'ada@vertuoza.com', byMe: false, via: 'terminal' });
+    expect(view).toMatchObject({ kind: 'answered', by: 'ada@example.com', byMe: false, via: 'terminal' });
     if (view.kind !== 'answered') return;
     expect(view.lines).toEqual([{ header: 'Storage', question: 'Which storage?', answer: 'Memory' }]);
-    expect(answeredTitle(view)).toBe('Already answered by ada@vertuoza.com');
+    expect(answeredTitle(view)).toBe('Already answered by ada@example.com');
   });
 
   it('counts the screenshots of an answer that has them (PRD 620)', () => {
@@ -104,7 +104,7 @@ describe('For me', () => {
   it('lists the open rounds shared with the caller, the soonest to move first, with their time left and who shared them', () => {
     const list = forMeList([row(round('late', MIN)), row(round('soon', 6 * MIN))], MEMBERS, NOW);
     expect(list.map((e) => [e.roundId, e.minutesLeft])).toEqual([['soon', 3], ['late', 8]]);
-    expect(list[0]).toMatchObject({ question: 'Which storage?', sessionTitle: 'vertuo-omni-loop · feat/sharing', sharedBy: 'ada@vertuoza.com' });
+    expect(list[0]).toMatchObject({ question: 'Which storage?', sessionTitle: 'vertuo-omni-loop · feat/sharing', sharedBy: 'ada@example.com' });
   });
 
   it('carries the sharer\'s face: the directory\'s, else their initial (PRD 652)', () => {

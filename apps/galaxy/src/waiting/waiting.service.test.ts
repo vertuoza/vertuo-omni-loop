@@ -9,8 +9,8 @@ import { DOCS_DAYS } from './documents';
 // service since PRD 1318 (s4), on the ask pages' fake
 // Supabase: the person's own sessions' open rounds and the rounds shared with them, as one list.
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', name: 'Ada' };
-const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com', name: 'Ada' };
+const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com' };
 const START = Date.parse('2026-09-28T09:00:00Z');
 const question = (text: string) => [{ question: text, header: 'Pick', multiSelect: false, options: [{ label: 'Yes' }, { label: 'No' }] }];
 

@@ -1,7 +1,7 @@
 import { SPRITE_DEFS } from '@omni/design';
 import { describe, expect, it, vi } from 'vitest';
 import { OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, pageTrail, type SidebarItem } from './sidebar';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { present } from '../ask/test/test-item';
 
 // /app/settings' page only redirects: next/navigation's redirect, recorded instead of thrown.
@@ -108,8 +108,8 @@ describe('currentItem and pageTrail', () => {
     ['/app/workspace?period=season', 'workspace', 'Dashboard › Workspace'],
     ['/app/engineering', 'engineering', 'Dashboard › Engineering'],
     ['/app/engineering?period=30d&sort=merged', 'engineering', 'Dashboard › Engineering'],
-    ['/app/engineering/vertuoza/pdf-builder', 'engineering', 'Dashboard › Engineering'],
-    ['/app/engineering/vertuoza/pdf-builder?period=30d', 'engineering', 'Dashboard › Engineering'],
+    ['/app/engineering/demo-org/pdf-builder', 'engineering', 'Dashboard › Engineering'],
+    ['/app/engineering/demo-org/pdf-builder?period=30d', 'engineering', 'Dashboard › Engineering'],
     ['/app/settings', 'settings', 'Settings'],
     ['/app/settings/fleets', 'settings', 'Settings › Fleets'],
     ['/app/settings/fleets?fleet=beaver', 'settings', 'Settings › Fleets'],
@@ -171,7 +171,7 @@ describe('currentItem and pageTrail', () => {
 
   it('links the last crumb back to its page from a page under it, and not on the page itself, whatever the query', () => {
     expect(pageTrail('/prd/3f2a')?.crumbs.at(-1)).toEqual({ label: 'PRDs', path: '/prd' });
-    expect(pageTrail('/app/engineering/vertuoza/pdf-builder')?.crumbs.at(-1)).toEqual({ label: 'Engineering', path: '/app/engineering' });
+    expect(pageTrail('/app/engineering/demo-org/pdf-builder')?.crumbs.at(-1)).toEqual({ label: 'Engineering', path: '/app/engineering' });
     expect(pageTrail('/ask/history')?.crumbs.at(-1)).toEqual({ label: 'History' });
     expect(pageTrail('/prd')?.crumbs.at(-1)).toEqual({ label: 'PRDs' });
     expect(pageTrail('/prd/?who=all')?.crumbs.at(-1)).toEqual({ label: 'PRDs' });

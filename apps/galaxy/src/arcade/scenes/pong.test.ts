@@ -8,7 +8,7 @@ import { GAMES } from '../games';
 import { cabinetDoor, cabinets, xpStatus } from '../games/room';
 import { allowed } from '../onboarding';
 import type { Session } from '../types';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { browserMic, createPong } from '../pong/index';
 import { fakeMic, settle } from '../pong/mic.fake';
 import { MATCH } from '../pong/rules';

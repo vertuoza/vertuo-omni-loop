@@ -5,10 +5,10 @@
 // file and drained the installation's budget. A knowledge PR's or an enforce PR's check reads the
 // knowledge alone, so it fetches no folder (issue 2210: past the snapshot's bound, every such check
 // failed). A pull request the check does not gate fetches everything, as before.
-import { issuePrefix } from 'vertuo-omni-plan/kit/lib/fix-verdict.ts';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { issuePrefix } from 'omni-loop/kit/lib/fix-verdict.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 import { pullKind, type PrFacts, type PullKind } from '../evaluate/evaluate.ts';
 
 /**

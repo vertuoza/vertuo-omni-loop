@@ -21,9 +21,9 @@ describe('signing in from an ask page', () => {
 
   it("comes back with Google's or Supabase's reason when the sign-in was refused", async () => {
     const exchange = () => Promise.resolve({ error: null });
-    const back = new URL(await signInReturn(callback('?error=access_denied&error_description=Only+%40vertuoza.com+accounts'), ORIGIN, ID, exchange));
+    const back = new URL(await signInReturn(callback('?error=access_denied&error_description=Only+%40example.com+accounts'), ORIGIN, ID, exchange));
     expect(back.pathname).toBe(`/ask/${ID}`);
-    expect(back.searchParams.get('signin_error')).toBe('Only @vertuoza.com accounts');
+    expect(back.searchParams.get('signin_error')).toBe('Only @example.com accounts');
   });
 
   it('says so when the code cannot be exchanged', async () => {

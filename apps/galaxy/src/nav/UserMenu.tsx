@@ -1,5 +1,5 @@
 'use client';
-import { positionOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { positionOf } from 'omni-loop/kit/lib/narrow.ts';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '../../../../supabase/database.types.ts';

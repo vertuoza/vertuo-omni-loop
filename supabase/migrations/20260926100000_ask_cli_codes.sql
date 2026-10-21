@@ -34,7 +34,7 @@ declare
   expires timestamptz := now() + interval '2 minutes';
 begin
   if auth.uid() is null or not public.is_crew() then
-    raise exception 'Sign in with your vertuoza.com account first.' using errcode = '42501';
+    raise exception 'Sign in with your company account first.' using errcode = '42501';
   end if;
   if p_code_hash is null or p_code_hash !~ '^[0-9a-f]{64}$' or coalesce(p_refresh_token, '') = '' then
     raise exception 'A sign-in code needs its hash and a refresh token.' using errcode = '22023';

@@ -5,8 +5,8 @@
 //
 // `gather` reads the feature PR's issue events, for the moment it was marked ready; the sub-PRs come
 // from the retro's shared step "gather-pulls". `detect` and `describe` are pure.
-import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
-import type { PrNumber, SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePlanSlices } from 'omni-loop/kit/lib/inbox/territory.ts';
+import type { PrNumber, SliceId } from 'omni-loop/kit/lib/ids.ts';
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { ListSchema, parseGitHub } from '../github.schema.ts';

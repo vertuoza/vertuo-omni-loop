@@ -9,10 +9,10 @@ import { stageShots, type Bucket } from './attachments';
 import { peopleOf } from '../../people/load';
 import { item, present } from '../test/test-item';
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
-const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com' };
+const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com' };
 // Bob shares Ada's workspace (the fake's default); Carl belongs to another one.
-const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: ['00000000-0000-4000-8000-00000000aced'] };
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@example.com', workspaces: ['00000000-0000-4000-8000-00000000aced'] };
 const START = Date.parse('2026-09-26T09:00:00Z');
 const QUESTIONS = [{ question: 'Which storage?', header: 'Storage', multiSelect: false, options: [{ label: 'Postgres (Recommended)' }, { label: 'Memory' }] }];
 const ANSWERS = { 'Which storage?': 'Postgres (Recommended)' };
@@ -312,7 +312,7 @@ describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
     const w = await world();
     const state = await readSession(w.as('ada'), w.sessionId);
     const members = await readMembers(both(w, 'bob'), present(state, 'state').session.workspace_id);
-    expect(members.map((m) => m.email).sort()).toEqual(['ada@vertuoza.com', 'bob@vertuoza.com']);
+    expect(members.map((m) => m.email).sort()).toEqual(['ada@example.com', 'bob@example.com']);
     expect(await readMembers(both(w, 'carl'), present(state, 'state').session.workspace_id)).toEqual([]);
     expect(await readMembers(both(w, 'bob'), null)).toEqual([]);
   });
@@ -328,9 +328,9 @@ describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
 
 describe('members\' faces (PRD 652)', () => {
   const members = [
-    { user_id: 'u-ada', email: 'ada@vertuoza.com', name: 'ADA' },
-    { user_id: 'u-bob', email: 'bob@vertuoza.com', name: null },
-    { user_id: 'u-cat', email: 'cat@vertuoza.com', name: 'CAT' },
+    { user_id: 'u-ada', email: 'ada@example.com', name: 'ADA' },
+    { user_id: 'u-bob', email: 'bob@example.com', name: null },
+    { user_id: 'u-cat', email: 'cat@example.com', name: 'CAT' },
   ];
   const roster = [
     { user_id: 'u-ada', name: 'ADA', github_login: 'ada', avatar_url: 'https://avatars.example/ada.png', fleet: null },

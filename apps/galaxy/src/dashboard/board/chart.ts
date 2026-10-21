@@ -1,4 +1,4 @@
-import { at, dateParts } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, dateParts } from 'omni-loop/kit/lib/narrow.ts';
 
 // The board's per-day charts (PRD 572): the axis's marks, and how each day is named under its column
 // and in the list a screen reader reads in the drawing's place.

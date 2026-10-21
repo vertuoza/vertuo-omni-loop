@@ -16,7 +16,7 @@ import { BLOCK, EMPTY_BLOCK, tileData } from './art';
 import { blockBumped, clockSeconds, enemyContact, enemyTurn, enemyWakes, heroAtFlag, heroFell } from './contact';
 import { heroSpeed, JUMP_IDLE, jumpStep, LIFE_EVENTS, PHYSICS, STAGE_SECONDS, TILE, type JumpState, type PlatformerEvent } from './rules';
 import type { Stage } from './stages';
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { phaserNarrow } from '../phaser-narrow';
 
 export type PhaserModule = typeof import('phaser');

@@ -7,7 +7,7 @@ import {
 } from './send';
 import { sure } from '../arcade/test/sure';
 import { sentView, UNCOUNTED } from './sent';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 

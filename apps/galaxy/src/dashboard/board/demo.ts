@@ -3,7 +3,7 @@ import type { StageId } from '../../stages/stage';
 import { boardOf, type AnsweredCount, type BoardRequest, type BoardValue } from './load';
 import { brusselsDay, brusselsMidnight } from './period';
 import type { Activity, Member, PrdNow } from './tally';
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 
 // The board in the demo (PRD 572: development, or OMNI_LOOP_DEMO=1), on the demo world: its roster is
 // the demo galaxy's heroes, *you* (DAM-DEV) playing solo as on the demo's Home, and two members with

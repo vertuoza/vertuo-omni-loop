@@ -7,7 +7,7 @@
 // its reporter names it, with the separators made one (` > `) and the line numbers Playwright adds
 // left out, so the same test failing on two commits carries one name.
 
-import { plainText } from 'vertuo-omni-plan/kit/lib/outbox/plain-text.ts';
+import { plainText } from 'omni-loop/kit/lib/outbox/plain-text.ts';
 
 /** The timestamp GitHub Actions puts at the start of every line of a job's log. */
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z ?/;

@@ -23,21 +23,24 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- ── The cast ──
--- Olga owns Vertuoza; Mo and Nia are its members; Carl owns Acme.
+-- Olga owns Initech; Mo and Nia are its members; Carl owns Acme.
 insert into auth.users (id, email, email_confirmed_at) values
-  ('00000000-0000-4000-8000-0000000085a1', 'olga@vertuoza.com', now()),
-  ('00000000-0000-4000-8000-0000000085b1', 'mo@vertuoza.com', now()),
-  ('00000000-0000-4000-8000-0000000085b2', 'nia@vertuoza.com', now()),
+  ('00000000-0000-4000-8000-0000000085a1', 'olga@example.com', now()),
+  ('00000000-0000-4000-8000-0000000085b1', 'mo@example.com', now()),
+  ('00000000-0000-4000-8000-0000000085b2', 'nia@example.com', now()),
   ('00000000-0000-4000-8000-0000000085c1', 'carl@acme.test', now());
 insert into public.workspaces (slug, name, github_org) values ('acme-links', 'Acme', 'acme-links');
-update public.workspaces set github_org = 'vertuoza' where slug = 'vertuoza' and github_org is null;
+update public.workspaces set github_org = 'initech' where slug = 'initech' and github_org is null;
 insert into public.workspace_members (workspace_id, user_id, role)
 select w.id, m.user_id, m.role
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000085a1'::uuid, 'owner'),
-         ('vertuoza', '00000000-0000-4000-8000-0000000085b1'::uuid, 'member'),
-         ('vertuoza', '00000000-0000-4000-8000-0000000085b2'::uuid, 'member'),
+         ('initech', '00000000-0000-4000-8000-0000000085a1'::uuid, 'owner'),
+         ('initech', '00000000-0000-4000-8000-0000000085b1'::uuid, 'member'),
+         ('initech', '00000000-0000-4000-8000-0000000085b2'::uuid, 'member'),
          ('acme-links', '00000000-0000-4000-8000-0000000085c1'::uuid, 'owner')
        ) as m (slug, user_id, role)
   join public.workspaces w on w.slug = m.slug
@@ -52,7 +55,7 @@ create function pg_temp.sign_out() returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
 $$;
 create temporary table ids (slug text primary key, id uuid);
-insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('vertuoza', 'acme-links');
+insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('initech', 'acme-links');
 grant select on ids to anon, authenticated, service_role;
 create function pg_temp.ws(slug text) returns uuid language sql as $$
   select i.id from ids i where i.slug = ws.slug;
@@ -88,9 +91,9 @@ do $$
 declare c text;
 begin
   foreach c in array array[
-    format('select public.agent_token_make(%L, ''x'', %L, ''abcd'')', pg_temp.ws('vertuoza'), repeat('a', 64)),
-    format('select public.agent_token_revoke(%L, gen_random_uuid())', pg_temp.ws('vertuoza')),
-    format('select public.agent_tokens_list(%L)', pg_temp.ws('vertuoza')),
+    format('select public.agent_token_make(%L, ''x'', %L, ''abcd'')', pg_temp.ws('initech'), repeat('a', 64)),
+    format('select public.agent_token_revoke(%L, gen_random_uuid())', pg_temp.ws('initech')),
+    format('select public.agent_tokens_list(%L)', pg_temp.ws('initech')),
     'select 1 from public.agent_tokens'
   ] loop perform pg_temp.refused(c, '42501'); end loop;
 end $$;
@@ -105,29 +108,29 @@ declare
   made jsonb;
   tok text := 'omb_MoEditorTokenAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0001';
 begin
-  perform public.business_open(pg_temp.ws('vertuoza'));
+  perform public.business_open(pg_temp.ws('initech'));
   select p.id into first from public.products p join public.businesses b on b.id = p.business_id
-   where b.workspace_id = pg_temp.ws('vertuoza');
-  perform public.claim_pick(pg_temp.ws('vertuoza'), null, 'region', 'Belgium', 'pick');
-  perform public.claim_pick(pg_temp.ws('vertuoza'), first, 'offering', 'ERP', 'pick');
-  perform public.claim_pick(pg_temp.ws('vertuoza'), first, 'rival', 'Rival Maybe', 'suggestion');
+   where b.workspace_id = pg_temp.ws('initech');
+  perform public.claim_pick(pg_temp.ws('initech'), null, 'region', 'Belgium', 'pick');
+  perform public.claim_pick(pg_temp.ws('initech'), first, 'offering', 'ERP', 'pick');
+  perform public.claim_pick(pg_temp.ws('initech'), first, 'rival', 'Rival Maybe', 'suggestion');
 
-  made := public.agent_token_make(pg_temp.ws('vertuoza'), ' Mo''s editor ', pg_temp.hash(tok), right(tok, 4));
+  made := public.agent_token_make(pg_temp.ws('initech'), ' Mo''s editor ', pg_temp.hash(tok), right(tok, 4));
   if made->>'name' <> 'Mo''s editor' or made->>'lastFour' <> '0001' or (made->>'mine')::boolean is not true
      or (made->>'canRevoke')::boolean is not true or made->>'lastUsedAt' is not null or made ? 'hash' or made ? 'tokenHash' then
     raise exception 'FAIL: a made link answered %', made;
   end if;
-  insert into kept values ('mo', tok, (made->>'id')::uuid, public.business_for_repo('vertuoza/vertuo-apps'));
+  insert into kept values ('mo', tok, (made->>'id')::uuid, public.business_for_repo('initech/nimbus-apps'));
   if (pg_temp.kept('mo')).body->>'state' <> 'ok' then
     raise exception 'FAIL: the member read no business: %', (pg_temp.kept('mo')).body;
   end if;
 
   -- A name is unique among Mo's live links, and 1 to 40 characters.
-  perform pg_temp.refused(format('select public.agent_token_make(%L, ''mo''''s EDITOR'', %L, ''abcd'')', pg_temp.ws('vertuoza'), repeat('b', 64)), '22023');
-  perform pg_temp.refused(format('select public.agent_token_make(%L, '''', %L, ''abcd'')', pg_temp.ws('vertuoza'), repeat('b', 64)), '22023');
-  perform pg_temp.refused(format('select public.agent_token_make(%L, %L, %L, ''abcd'')', pg_temp.ws('vertuoza'), repeat('n', 41), repeat('b', 64)), '22023');
-  perform pg_temp.refused(format('select public.agent_token_make(%L, ''ok'', ''not-a-hash'', ''abcd'')', pg_temp.ws('vertuoza')), '22023');
-  perform pg_temp.refused(format('select public.agent_token_make(%L, ''ok'', %L, ''ab'')', pg_temp.ws('vertuoza'), repeat('b', 64)), '22023');
+  perform pg_temp.refused(format('select public.agent_token_make(%L, ''mo''''s EDITOR'', %L, ''abcd'')', pg_temp.ws('initech'), repeat('b', 64)), '22023');
+  perform pg_temp.refused(format('select public.agent_token_make(%L, '''', %L, ''abcd'')', pg_temp.ws('initech'), repeat('b', 64)), '22023');
+  perform pg_temp.refused(format('select public.agent_token_make(%L, %L, %L, ''abcd'')', pg_temp.ws('initech'), repeat('n', 41), repeat('b', 64)), '22023');
+  perform pg_temp.refused(format('select public.agent_token_make(%L, ''ok'', ''not-a-hash'', ''abcd'')', pg_temp.ws('initech')), '22023');
+  perform pg_temp.refused(format('select public.agent_token_make(%L, ''ok'', %L, ''ab'')', pg_temp.ws('initech'), repeat('b', 64)), '22023');
   -- Mo is no member of Acme.
   perform pg_temp.refused(format('select public.agent_token_make(%L, ''ok'', %L, ''abcd'')', pg_temp.ws('acme-links'), repeat('b', 64)), '42501');
 end $$;
@@ -154,7 +157,7 @@ declare
   got jsonb;
   h text := pg_temp.hash((pg_temp.kept('mo')).token);
 begin
-  got := public.business_for_token(h, 'vertuoza/vertuo-apps');
+  got := public.business_for_token(h, 'initech/nimbus-apps');
   if got <> (pg_temp.kept('mo')).body then
     raise exception 'FAIL: business_for_token answered % where business_for_repo answered %', got, (pg_temp.kept('mo')).body;
   end if;
@@ -170,9 +173,9 @@ begin
   perform pg_temp.refused(format('select public.business_for_token(%L, ''acme-links/widgets'')', h), '42501');
   perform pg_temp.refused(format('select public.business_for_token(%L, ''not a repo'')', h), '22023');
   -- An unknown, a malformed and a missing token are refused.
-  perform pg_temp.refused(format('select public.business_for_token(%L, ''vertuoza/vertuo-apps'')', pg_temp.hash('omb_nobody')), '28000');
-  perform pg_temp.refused('select public.business_for_token(''omb_plain'', ''vertuoza/vertuo-apps'')', '28000');
-  perform pg_temp.refused('select public.business_for_token(null, ''vertuoza/vertuo-apps'')', '28000');
+  perform pg_temp.refused(format('select public.business_for_token(%L, ''initech/nimbus-apps'')', pg_temp.hash('omb_nobody')), '28000');
+  perform pg_temp.refused('select public.business_for_token(''omb_plain'', ''initech/nimbus-apps'')', '28000');
+  perform pg_temp.refused('select public.business_for_token(null, ''initech/nimbus-apps'')', '28000');
 end $$;
 reset role;
 
@@ -198,9 +201,9 @@ end $$;
 -- ── Several products: no repository names the tracked ones ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000085b1');
-select public.product_add(pg_temp.ws('vertuoza'), 'Second product');
+select public.product_add(pg_temp.ws('initech'), 'Second product');
 -- With two products, the read names the repository's product.
-update kept set body = public.business_for_repo('vertuoza/vertuo-apps') where name = 'mo';
+update kept set body = public.business_for_repo('initech/nimbus-apps') where name = 'mo';
 reset role;
 set local role anon;
 select pg_temp.sign_out();
@@ -216,7 +219,7 @@ begin
     raise exception 'FAIL: several products and no repository did not answer the business with no product: %', got;
   end if;
   if (pg_temp.kept('mo')).body->'product' = 'null'::jsonb
-     or public.business_for_token(h, 'vertuoza/vertuo-apps') <> (pg_temp.kept('mo')).body then
+     or public.business_for_token(h, 'initech/nimbus-apps') <> (pg_temp.kept('mo')).body then
     raise exception 'FAIL: naming the repository no longer reads its product';
   end if;
 end $$;
@@ -228,7 +231,7 @@ do $$
 declare listed jsonb;
 begin
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085b2');
-  listed := public.agent_tokens_list(pg_temp.ws('vertuoza'));
+  listed := public.agent_tokens_list(pg_temp.ws('initech'));
   if jsonb_array_length(listed) <> 1 or listed->0->>'name' <> 'Mo''s editor' or (listed->0->>'mine')::boolean
      or (listed->0->>'canRevoke')::boolean or (listed->0->>'working')::boolean is not true
      or (listed->0->'maker'->>'id')::uuid <> '00000000-0000-4000-8000-0000000085b1' then
@@ -238,12 +241,12 @@ begin
     raise exception 'FAIL: the list carries the hash';
   end if;
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085a1');
-  listed := public.agent_tokens_list(pg_temp.ws('vertuoza'));
+  listed := public.agent_tokens_list(pg_temp.ws('initech'));
   if (listed->0->>'canRevoke')::boolean is not true or (listed->0->>'mine')::boolean then
     raise exception 'FAIL: the owner may not revoke Mo''s link: %', listed;
   end if;
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085c1');
-  perform pg_temp.refused(format('select public.agent_tokens_list(%L)', pg_temp.ws('vertuoza')), '42501');
+  perform pg_temp.refused(format('select public.agent_tokens_list(%L)', pg_temp.ws('initech')), '42501');
 end $$;
 reset role;
 
@@ -256,25 +259,25 @@ declare
   made jsonb;
 begin
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085b1');
-  made := public.agent_token_make(pg_temp.ws('vertuoza'), 'Laptop', pg_temp.hash(second), right(second, 4));
+  made := public.agent_token_make(pg_temp.ws('initech'), 'Laptop', pg_temp.hash(second), right(second, 4));
   insert into kept values ('second', second, (made->>'id')::uuid, null);
-  made := public.agent_token_make(pg_temp.ws('vertuoza'), 'Desktop', pg_temp.hash(third), right(third, 4));
+  made := public.agent_token_make(pg_temp.ws('initech'), 'Desktop', pg_temp.hash(third), right(third, 4));
   insert into kept values ('third', third, (made->>'id')::uuid, null);
 
   -- Nia, a member, and Carl, another workspace's owner, may not.
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085b2');
-  perform pg_temp.refused(format('select public.agent_token_revoke(%L, %L)', pg_temp.ws('vertuoza'), (pg_temp.kept('mo')).id), '42501');
+  perform pg_temp.refused(format('select public.agent_token_revoke(%L, %L)', pg_temp.ws('initech'), (pg_temp.kept('mo')).id), '42501');
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085c1');
-  perform pg_temp.refused(format('select public.agent_token_revoke(%L, %L)', pg_temp.ws('vertuoza'), (pg_temp.kept('mo')).id), '42501');
+  perform pg_temp.refused(format('select public.agent_token_revoke(%L, %L)', pg_temp.ws('initech'), (pg_temp.kept('mo')).id), '42501');
   perform pg_temp.refused(format('select public.agent_token_revoke(%L, %L)', pg_temp.ws('acme-links'), (pg_temp.kept('mo')).id), 'P0002');
 
   -- Mo revokes his own; Olga, the owner, revokes another of Mo's.
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085b1');
-  made := public.agent_token_revoke(pg_temp.ws('vertuoza'), (pg_temp.kept('mo')).id);
+  made := public.agent_token_revoke(pg_temp.ws('initech'), (pg_temp.kept('mo')).id);
   if made->>'id' <> (pg_temp.kept('mo')).id::text then raise exception 'FAIL: revoking answered %', made; end if;
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085a1');
-  perform public.agent_token_revoke(pg_temp.ws('vertuoza'), (pg_temp.kept('second')).id);
-  if jsonb_array_length(public.agent_tokens_list(pg_temp.ws('vertuoza'))) <> 1 then
+  perform public.agent_token_revoke(pg_temp.ws('initech'), (pg_temp.kept('second')).id);
+  if jsonb_array_length(public.agent_tokens_list(pg_temp.ws('initech'))) <> 1 then
     raise exception 'FAIL: the list still shows a revoked link';
   end if;
 end $$;
@@ -291,7 +294,7 @@ do $$
 begin
   perform pg_temp.refused(format('select public.business_for_token(%L)', pg_temp.hash((pg_temp.kept('mo')).token)), '28000');
   perform pg_temp.refused(format('select public.business_for_token(%L)', pg_temp.hash((pg_temp.kept('second')).token)), '28000');
-  perform public.business_for_token(pg_temp.hash((pg_temp.kept('third')).token), 'vertuoza/vertuo-apps');
+  perform public.business_for_token(pg_temp.hash((pg_temp.kept('third')).token), 'initech/nimbus-apps');
 end $$;
 reset role;
 
@@ -301,18 +304,18 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000085b1');
 do $$
 declare i integer;
 begin
-  perform public.agent_token_make(pg_temp.ws('vertuoza'), 'Mo''s editor', pg_temp.hash('omb_again'), 'gain');
+  perform public.agent_token_make(pg_temp.ws('initech'), 'Mo''s editor', pg_temp.hash('omb_again'), 'gain');
   -- Mo holds 2 live links (Desktop and Mo's editor): 18 more make 20.
   for i in 1..18 loop
-    perform public.agent_token_make(pg_temp.ws('vertuoza'), 'Link ' || i, pg_temp.hash('omb_many_' || i), lpad(i::text, 4, '0'));
+    perform public.agent_token_make(pg_temp.ws('initech'), 'Link ' || i, pg_temp.hash('omb_many_' || i), lpad(i::text, 4, '0'));
   end loop;
-  perform pg_temp.refused(format('select public.agent_token_make(%L, ''One too many'', %L, ''abcd'')', pg_temp.ws('vertuoza'), pg_temp.hash('omb_21')), '54000');
+  perform pg_temp.refused(format('select public.agent_token_make(%L, ''One too many'', %L, ''abcd'')', pg_temp.ws('initech'), pg_temp.hash('omb_21')), '54000');
 end $$;
 reset role;
 
 -- ── A link whose maker left the workspace stops, and is listed as not working ──
 delete from public.workspace_members
- where workspace_id = pg_temp.ws('vertuoza') and user_id = '00000000-0000-4000-8000-0000000085b1';
+ where workspace_id = pg_temp.ws('initech') and user_id = '00000000-0000-4000-8000-0000000085b1';
 set local role anon;
 select pg_temp.sign_out();
 select pg_temp.refused(format('select public.business_for_token(%L)', pg_temp.hash((pg_temp.kept('third')).token)), '28000');
@@ -320,24 +323,24 @@ reset role;
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000085a1');
 do $$
-declare listed jsonb := public.agent_tokens_list(pg_temp.ws('vertuoza'));
+declare listed jsonb := public.agent_tokens_list(pg_temp.ws('initech'));
 begin
   if jsonb_array_length(listed) <> 20 or exists (select 1 from jsonb_array_elements(listed) e where (e->>'working')::boolean) then
     raise exception 'FAIL: the links of a person who left are not listed as not working: %', listed;
   end if;
   -- The owner revokes one left behind.
-  perform public.agent_token_revoke(pg_temp.ws('vertuoza'), (pg_temp.kept('third')).id);
+  perform public.agent_token_revoke(pg_temp.ws('initech'), (pg_temp.kept('third')).id);
 end $$;
 reset role;
 
 -- ══ Kit tokens (PRD 1628) ══════════════════════════════════════════════════════════
--- Kai is a member of Vertuoza; Olga owns it and Nia is a member (above).
+-- Kai is a member of Initech; Olga owns it and Nia is a member (above).
 insert into auth.users (id, email, email_confirmed_at) values
-  ('00000000-0000-4000-8000-0000000085d1', 'kai@vertuoza.com', now());
+  ('00000000-0000-4000-8000-0000000085d1', 'kai@example.com', now());
 insert into auth.identities (user_id, provider, provider_id, identity_data) values
   ('00000000-0000-4000-8000-0000000085d1', 'github', '162801', '{"user_name": "kai-gh"}');
 insert into public.workspace_members (workspace_id, user_id, role)
-values (pg_temp.ws('vertuoza'), '00000000-0000-4000-8000-0000000085d1', 'member');
+values (pg_temp.ws('initech'), '00000000-0000-4000-8000-0000000085d1', 'member');
 
 -- ── Signed out, nothing is made, listed or claimed; signed in, nobody claims, renews or reads a session ──
 set local role anon;
@@ -347,7 +350,7 @@ declare c text;
 begin
   foreach c in array array[
     format('select public.kit_token_make(null, ''x'', %L, ''abcd'', 90, ''sealed'')', repeat('a', 64)),
-    format('select public.kit_tokens_mine(%L)', pg_temp.ws('vertuoza')),
+    format('select public.kit_tokens_mine(%L)', pg_temp.ws('initech')),
     format('select public.kit_token_claim(%L)', repeat('a', 64)),
     'select public.kit_token_renewed(gen_random_uuid(), gen_random_uuid(), ''sealed'')',
     'select public.kit_token_release(gen_random_uuid(), gen_random_uuid())',
@@ -379,7 +382,7 @@ declare
   tok text := 'omk_KaiLaptopTokenAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAk001';
   made jsonb;
 begin
-  -- No workspace named: Kai's first one, Vertuoza.
+  -- No workspace named: Kai's first one, Initech.
   made := public.kit_token_make(null, ' terminal 2026-12-04 ', pg_temp.hash(tok), right(tok, 4), 90, 'sealed-kai-1');
   if made->>'scope' <> 'kit' or made->>'name' <> 'terminal 2026-12-04' or made->>'lastFour' <> 'k001'
      or (made->>'expiresAt')::timestamptz <> now() + interval '90 days' or (made->>'mine')::boolean is not true
@@ -390,7 +393,7 @@ begin
 
   -- The same name again is fine for a kit token; the workspace may be named by its slug.
   tok := 'omk_KaiSecondTokenBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBk002';
-  made := public.kit_token_make('vertuoza', 'terminal 2026-12-04', pg_temp.hash(tok), right(tok, 4), 30, 'sealed-kai-2');
+  made := public.kit_token_make('initech', 'terminal 2026-12-04', pg_temp.hash(tok), right(tok, 4), 30, 'sealed-kai-2');
   if (made->>'expiresAt')::timestamptz <> now() + interval '30 days' then raise exception 'FAIL: 30 days answered %', made; end if;
   insert into kept values ('kai-b', tok, (made->>'id')::uuid, null);
   tok := 'omk_KaiThirdTokenCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCk003';
@@ -420,7 +423,7 @@ declare t public.agent_tokens;
 begin
   select * into t from public.agent_tokens x where x.id = (pg_temp.kept('kai-a')).id;
   if t.scope <> 'kit' or t.token_hash <> pg_temp.hash((pg_temp.kept('kai-a')).token) or t.last_four <> 'k001'
-     or t.session <> 'sealed-kai-1' or t.workspace_id <> pg_temp.ws('vertuoza') then
+     or t.session <> 'sealed-kai-1' or t.workspace_id <> pg_temp.ws('initech') then
     raise exception 'FAIL: the kit token is not stored as its hash, last four and sealed session: %', t;
   end if;
   if position((pg_temp.kept('kai-a')).token in row(t.*)::text) > 0 then
@@ -436,7 +439,7 @@ end $$;
 set local role anon;
 select pg_temp.sign_out();
 select pg_temp.refused(format('select public.business_for_token(%L)', pg_temp.hash((pg_temp.kept('kai-a')).token)), '28000');
-select pg_temp.refused(format('select public.business_for_token(%L, ''vertuoza/vertuo-apps'')', pg_temp.hash((pg_temp.kept('kai-a')).token)), '28000');
+select pg_temp.refused(format('select public.business_for_token(%L, ''initech/nimbus-apps'')', pg_temp.hash((pg_temp.kept('kai-a')).token)), '28000');
 reset role;
 
 -- ── The lists: Kai sees his own kit tokens; Nia does not; Olga, the owner, does ──
@@ -447,26 +450,26 @@ declare
   listed jsonb;
 begin
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085d1');
-  mine := public.kit_tokens_mine(pg_temp.ws('vertuoza'));
+  mine := public.kit_tokens_mine(pg_temp.ws('initech'));
   if jsonb_array_length(mine->'tokens') <> 3 or (mine->>'live')::integer <> 3 or (mine->>'limit')::integer <> 20
      or mine->'tokens'->0->>'lastFour' <> 'k003' or mine->'tokens'->2->>'lastFour' <> 'k001'
      or mine::text like '%sealed-kai%' then
     raise exception 'FAIL: Kai''s own kit tokens read %', mine;
   end if;
-  listed := public.agent_tokens_list(pg_temp.ws('vertuoza'));
+  listed := public.agent_tokens_list(pg_temp.ws('initech'));
   if (select count(*) from jsonb_array_elements(listed) e where e->>'scope' = 'kit') <> 3 then
     raise exception 'FAIL: Kai''s list lacks his kit tokens: %', listed;
   end if;
   perform pg_temp.refused(format('select public.kit_tokens_mine(%L)', pg_temp.ws('acme-links')), '42501');
 
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085b2');
-  if jsonb_array_length(public.kit_tokens_mine(pg_temp.ws('vertuoza'))->'tokens') <> 0
-     or exists (select 1 from jsonb_array_elements(public.agent_tokens_list(pg_temp.ws('vertuoza'))) e where e->>'scope' = 'kit') then
+  if jsonb_array_length(public.kit_tokens_mine(pg_temp.ws('initech'))->'tokens') <> 0
+     or exists (select 1 from jsonb_array_elements(public.agent_tokens_list(pg_temp.ws('initech'))) e where e->>'scope' = 'kit') then
     raise exception 'FAIL: Nia sees Kai''s kit tokens';
   end if;
 
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085a1');
-  listed := public.agent_tokens_list(pg_temp.ws('vertuoza'));
+  listed := public.agent_tokens_list(pg_temp.ws('initech'));
   if (select count(*) from jsonb_array_elements(listed) e where e->>'scope' = 'kit' and (e->>'canRevoke')::boolean) <> 3
      or listed::text like '%sealed-kai%' then
     raise exception 'FAIL: the owner does not see Kai''s kit tokens to revoke: %', listed;
@@ -553,7 +556,7 @@ reset role;
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000085d1');
 do $$
-declare mine jsonb := public.kit_tokens_mine(pg_temp.ws('vertuoza'));
+declare mine jsonb := public.kit_tokens_mine(pg_temp.ws('initech'));
 begin
   if jsonb_array_length(mine->'tokens') <> 2 or (mine->>'live')::integer <> 2 then
     raise exception 'FAIL: an expired kit token is still listed or live: %', mine;
@@ -571,18 +574,18 @@ declare
 begin
   -- Kai holds 2 live kit tokens (the expired one does not count): 18 business links make 20.
   for i in 1..18 loop
-    links := links || (public.agent_token_make(pg_temp.ws('vertuoza'), 'Kai link ' || i, pg_temp.hash('omb_kai_' || i), lpad(i::text, 4, '0'))->>'id')::uuid;
+    links := links || (public.agent_token_make(pg_temp.ws('initech'), 'Kai link ' || i, pg_temp.hash('omb_kai_' || i), lpad(i::text, 4, '0'))->>'id')::uuid;
   end loop;
   perform pg_temp.refused(format('select public.kit_token_make(null, ''one more'', %L, ''abcd'', 90, ''s'')', pg_temp.hash('omk_kai_21')), '54000');
-  perform pg_temp.refused(format('select public.agent_token_make(%L, ''one more'', %L, ''abcd'')', pg_temp.ws('vertuoza'), pg_temp.hash('omb_kai_21')), '54000');
-  if (public.kit_tokens_mine(pg_temp.ws('vertuoza'))->>'live')::integer <> 20 then
+  perform pg_temp.refused(format('select public.agent_token_make(%L, ''one more'', %L, ''abcd'')', pg_temp.ws('initech'), pg_temp.hash('omb_kai_21')), '54000');
+  if (public.kit_tokens_mine(pg_temp.ws('initech'))->>'live')::integer <> 20 then
     raise exception 'FAIL: Kai''s live count is not 20';
   end if;
   -- A business link's name is still unique among business links, whatever the kit tokens are named.
-  perform public.agent_token_revoke(pg_temp.ws('vertuoza'), links[18]);
-  perform public.agent_token_make(pg_temp.ws('vertuoza'), 'cloud', pg_temp.hash('omb_kai_cloud'), 'clou');
-  perform public.agent_token_revoke(pg_temp.ws('vertuoza'), links[17]);
-  perform pg_temp.refused(format('select public.agent_token_make(%L, ''Cloud'', %L, ''abcd'')', pg_temp.ws('vertuoza'), pg_temp.hash('omb_kai_cloud2')), '22023');
+  perform public.agent_token_revoke(pg_temp.ws('initech'), links[18]);
+  perform public.agent_token_make(pg_temp.ws('initech'), 'cloud', pg_temp.hash('omb_kai_cloud'), 'clou');
+  perform public.agent_token_revoke(pg_temp.ws('initech'), links[17]);
+  perform pg_temp.refused(format('select public.agent_token_make(%L, ''Cloud'', %L, ''abcd'')', pg_temp.ws('initech'), pg_temp.hash('omb_kai_cloud2')), '22023');
 end $$;
 reset role;
 
@@ -592,12 +595,12 @@ do $$
 declare made jsonb;
 begin
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085d1');
-  made := public.agent_token_revoke(pg_temp.ws('vertuoza'), (pg_temp.kept('kai-a')).id);
+  made := public.agent_token_revoke(pg_temp.ws('initech'), (pg_temp.kept('kai-a')).id);
   if made->>'scope' <> 'kit' or made ? 'session' then raise exception 'FAIL: revoking a kit token answered %', made; end if;
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085b2');
-  perform pg_temp.refused(format('select public.agent_token_revoke(%L, %L)', pg_temp.ws('vertuoza'), (pg_temp.kept('kai-c')).id), '42501');
+  perform pg_temp.refused(format('select public.agent_token_revoke(%L, %L)', pg_temp.ws('initech'), (pg_temp.kept('kai-c')).id), '42501');
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000085a1');
-  perform public.agent_token_revoke(pg_temp.ws('vertuoza'), (pg_temp.kept('kai-c')).id);
+  perform public.agent_token_revoke(pg_temp.ws('initech'), (pg_temp.kept('kai-c')).id);
 end $$;
 reset role;
 do $$
@@ -630,13 +633,13 @@ begin
 end $$;
 reset role;
 delete from public.workspace_members
- where workspace_id = pg_temp.ws('vertuoza') and user_id = '00000000-0000-4000-8000-0000000085d1';
+ where workspace_id = pg_temp.ws('initech') and user_id = '00000000-0000-4000-8000-0000000085d1';
 set local role service_role;
 do $$
 declare got jsonb := public.kit_token_claim(pg_temp.hash((pg_temp.kept('kai-d')).token));
 begin
-  if got->>'state' <> 'not-a-member' or got->>'login' <> 'kai-gh' or got->'workspace'->>'name' <> 'Vertuoza'
-     or got->'workspace'->>'slug' <> 'vertuoza' or got ? 'session' then
+  if got->>'state' <> 'not-a-member' or got->>'login' <> 'kai-gh' or got->'workspace'->>'name' <> 'Initech'
+     or got->'workspace'->>'slug' <> 'initech' or got ? 'session' then
     raise exception 'FAIL: an ex-member''s kit token answered %', got;
   end if;
 end $$;

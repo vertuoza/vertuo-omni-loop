@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { approvalsRead, EMPTY_APPROVALS_PART, readApprovals } from './approvals';
 
 // The waiting list's Approvals part (PRD 1322 s2): one read of GET /api/waiting/approvals, what a read

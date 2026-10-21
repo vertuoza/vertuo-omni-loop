@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { refusedWordsIn } from '../rules.ts';
 import { afterMerge } from './after-merge.ts';
 import { handles } from './test/handles.ts';

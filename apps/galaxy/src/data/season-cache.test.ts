@@ -7,7 +7,7 @@ vi.mock('next/cache', () => ({ unstable_cache: () => { throw new Error('the live
 
 import { item } from '../ask/test/test-item';
 import { loadGalaxy } from './load-galaxy';
-import type { LogEntry } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import type { LogEntry } from 'omni-loop/kit/lib/log/log.ts';
 import { seasonKey, type SeasonCache } from './season-cache';
 
 // PRD 657, s8: the season, cached per workspace. The viewer's own reads decide the key (the newest
@@ -83,7 +83,7 @@ const seasons = (store: Map<string, unknown>) => [...store.keys()].filter((k) =>
 function world(ledger: Row[] = [event('planet:12:charted', '2026-09-20T10:00:00Z')]) {
   const tables = {
     ledger_events: ledger,
-    sectors: [{ workspace_id: WS, name: 'core-belt', repos: ['vertuo-core'] }],
+    sectors: [{ workspace_id: WS, name: 'core-belt', repos: ['nimbus-core'] }],
     teams: [{ workspace_id: WS, name: 'beaver', home: null, label: 'BEAVER', color: '#2fc6a4', motto: '', mascot: null, sort: 10, retired_at: null }],
   };
   return { tables, viewer: fakeDb(tables), service: fakeDb(tables), memory: memoryCache() };

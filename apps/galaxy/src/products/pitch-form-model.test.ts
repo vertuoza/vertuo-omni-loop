@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultPitchSettings, parsePitchSettings, presetLook } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { defaultPitchSettings, parsePitchSettings, presetLook } from 'omni-loop/kit/lib/pitch/settings.ts';
 import {
   fileNameOf, initialPitchForm, isDirty, labelOf, MOODS, pitchFormReducer, SAVED, secondsOf, UPLOADED, VOICES,
   withAsset, withColour, withFont, withMusicProvider, withSection, withTheme,

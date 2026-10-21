@@ -8,26 +8,29 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 insert into auth.users (id, email) values
-  ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com'),
   ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
--- A second workspace, Acme. Ada belongs to Vertuoza, Carl to Acme, Eve to none.
+-- A second workspace, Acme. Ada belongs to Initech, Carl to Acme, Eve to none.
 insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme');
 insert into public.workspace_members (workspace_id, user_id, joined_at)
 select w.id, m.user_id, now() - interval '1 day'
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000000a1'::uuid),
+         ('initech', '00000000-0000-4000-8000-0000000000a1'::uuid),
          ('acme',     '00000000-0000-4000-8000-0000000000c1'::uuid)
        ) as m (slug, user_id)
   join public.workspaces w on w.slug = m.slug;
 
--- Three PRD dossiers: two of Vertuoza's, one of Acme's.
+-- Three PRD dossiers: two of Initech's, one of Acme's.
 insert into public.dossiers (id, workspace_id, home_repo, kind, prd, title, numbered_at)
 select d.id, w.id, d.repo, 'prd', d.prd, d.title, now()
   from (values
-         ('00000000-0000-4000-8000-00000000d901'::uuid, 'vertuoza', 'vertuoza/vertuo-omni-loop', 901, 'Call GitHub only when needed'),
-         ('00000000-0000-4000-8000-00000000d902'::uuid, 'vertuoza', 'vertuoza/vertuo-omni-loop', 902, 'Pages read a snapshot'),
+         ('00000000-0000-4000-8000-00000000d901'::uuid, 'initech', 'initech/nimbus-plan', 901, 'Call GitHub only when needed'),
+         ('00000000-0000-4000-8000-00000000d902'::uuid, 'initech', 'initech/nimbus-plan', 902, 'Pages read a snapshot'),
          ('00000000-0000-4000-8000-00000000d903'::uuid, 'acme',     'acme/widgets',              3,   'Widgets')
        ) as d (id, slug, repo, prd, title)
   join public.workspaces w on w.slug = d.slug;
@@ -40,13 +43,13 @@ $$;
 set local role service_role;
 do $$
 declare
-  vertuoza uuid := (select id from public.workspaces where slug = 'vertuoza');
+  initech uuid := (select id from public.workspaces where slug = 'initech');
   acme     uuid := (select id from public.workspaces where slug = 'acme');
   leased   int;
 begin
   insert into public.dossier_github (dossier_id, workspace_id, summary, read_at) values
-    ('00000000-0000-4000-8000-00000000d901', vertuoza, '{"repo":"vertuoza/vertuo-omni-loop","prd":901,"issue":"unread"}', '2026-10-01T09:00:00Z'),
-    ('00000000-0000-4000-8000-00000000d902', vertuoza, '{"repo":"vertuoza/vertuo-omni-loop","prd":902,"issue":null}', '2026-10-01T09:00:00Z'),
+    ('00000000-0000-4000-8000-00000000d901', initech, '{"repo":"initech/nimbus-plan","prd":901,"issue":"unread"}', '2026-10-01T09:00:00Z'),
+    ('00000000-0000-4000-8000-00000000d902', initech, '{"repo":"initech/nimbus-plan","prd":902,"issue":null}', '2026-10-01T09:00:00Z'),
     ('00000000-0000-4000-8000-00000000d903', acme,     '{"repo":"acme/widgets","prd":3,"issue":null}', '2026-10-01T09:00:00Z');
 
   -- Something moved on GitHub: the snapshot is marked stale, once.
@@ -67,7 +70,7 @@ begin
 
   -- The refresh writes what it read, as an upsert, and clears the stale mark and the lease.
   insert into public.dossier_github (dossier_id, workspace_id, summary, read_at, refreshing_until)
-  values ('00000000-0000-4000-8000-00000000d901', vertuoza, '{"repo":"vertuoza/vertuo-omni-loop","prd":901,"issue":null}', '2026-10-01T09:05:30Z', null)
+  values ('00000000-0000-4000-8000-00000000d901', initech, '{"repo":"initech/nimbus-plan","prd":901,"issue":null}', '2026-10-01T09:05:30Z', null)
   on conflict (dossier_id)
   do update set summary = excluded.summary, read_at = excluded.read_at, refreshing_until = excluded.refreshing_until;
   update public.dossier_github set stale_since = null
@@ -82,7 +85,7 @@ begin
   end if;
 
   begin
-    insert into public.dossier_github (dossier_id, workspace_id, summary) values ('00000000-0000-4000-8000-00000000d9ff', vertuoza, '{}');
+    insert into public.dossier_github (dossier_id, workspace_id, summary) values ('00000000-0000-4000-8000-00000000d9ff', initech, '{}');
     raise exception 'FAIL: a snapshot was stored for no dossier';
   exception when foreign_key_violation then null; end;
   begin
@@ -107,7 +110,7 @@ reset role;
 
 -- ── Ada, a member: reads her workspace's rows only, and writes nothing ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 begin
   if (select count(*) from public.dossier_github) <> 2
@@ -116,7 +119,7 @@ begin
   end if;
   begin
     insert into public.dossier_github (dossier_id, workspace_id, summary)
-    values ('00000000-0000-4000-8000-00000000d903', (select id from public.workspaces where slug = 'vertuoza'), '{}');
+    values ('00000000-0000-4000-8000-00000000d903', (select id from public.workspaces where slug = 'initech'), '{}');
     raise exception 'FAIL: a member stored a GitHub snapshot';
   exception when insufficient_privilege then null; end;
   begin
@@ -137,7 +140,7 @@ do $$
 begin
   if (select count(*) from public.dossier_github) <> 1
      or exists (select 1 from public.dossier_github where dossier_id <> '00000000-0000-4000-8000-00000000d903') then
-    raise exception 'FAIL: a member of another workspace read Vertuoza''s GitHub snapshots';
+    raise exception 'FAIL: a member of another workspace read Initech''s GitHub snapshots';
   end if;
 end $$;
 reset role;

@@ -9,7 +9,7 @@ import { databaseRepositories, demoRepositoriesPort, type RepositoriesPort, type
 // Settings → Repositories in the browser (PRD 612 s1): keeps the page's state (model.ts) and calls the
 // repository functions as the signed-in person (store.ts), one call at a time; the view draws each
 // step. PRD 1246 s4 adds the ideas board's switch, PRD 1299 s1 the phase 0 switch, PRD 2188 s1 Remove,
-// whose answer takes the card off the list. In the demo, the same rules run in memory.
+// whose answer takes the card off the list, PRD 2313 s3 the Runner skills block (its live read and its switches). In the demo, the same rules run in memory.
 
 export type RepositoriesSource =
   | { kind: 'demo' }
@@ -46,6 +46,18 @@ export function RepositoriesPage({ source, owner, repositories, access, now }: R
     setPhase0: (fullName, phase0) => void run((p) => p.setPhase0(fullName, phase0)),
     setFixWhenAnswered: (fullName, on) => void run((p) => p.setFixWhenAnswered(fullName, on)),
     remove: (fullName) => void run((p) => p.remove(fullName), 'removed'),
+    toggleSkills: (fullName, open) => {
+      if (!open) { dispatch({ type: 'skills-close', repository: fullName }); return; }
+      dispatch({ type: 'skills-open', repository: fullName });
+      void getPort().skills(fullName).then((read) => { dispatch({ type: 'skills-read', repository: fullName, read }); });
+    },
+    setSkill: (fullName, skill, allowed) => {
+      if (state.busy) return;
+      dispatch({ type: 'busy' });
+      void getPort().setSkill(fullName, skill, allowed).then((saved) => {
+        dispatch(saved.ok ? { type: 'skills-read', repository: fullName, read: saved.read } : { type: 'refused', message: saved.message });
+      });
+    },
   };
 
   return <RepositoriesView state={state} owner={owner} access={access} now={now} on={on} />;

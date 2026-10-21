@@ -5,8 +5,8 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
-import { EventSchema } from 'vertuo-omni-plan/game/events.ts';
-import { playerXp } from 'vertuo-omni-plan/game/experience.ts';
+import { EventSchema } from 'omni-loop/game/events.ts';
+import { playerXp } from 'omni-loop/game/experience.ts';
 import { arr, json, lit, workspaceId } from './sql.ts';
 
 const WORKSPACE = 'nimbus';

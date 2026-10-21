@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { DossierRow, DossierVersionRow } from '../store';
 import {
   approvalView, readApproval, readApproveScreen, readAskedApprovers, readVoids, type ApprovalFacts, type ApprovalRow, type ApprovalVoid,
@@ -18,7 +18,7 @@ vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', async (original) => ({ ...(await original<typeof import('next/navigation')>()), useRouter: () => ({ refresh: () => {} }) }));
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
-const ADA = { user_id: 'u-ada', email: 'ada@vertuoza.com', name: 'Ada' };
+const ADA = { user_id: 'u-ada', email: 'ada@example.com', name: 'Ada' };
 
 /** A dossier row as it read before PRD 1299: no birthplace. */
 const unborn = (): DossierRow => ({
@@ -203,7 +203,7 @@ describe('the PRD page', () => {
 const VOID: ApprovalVoid = {
   approval_id: 'a-1', kind: 'plan', from_sha256: 'a'.repeat(64), to_sha256: 'b'.repeat(64), pusher_login: 'bob', voided_at: '2026-10-09T10:00:00Z',
 };
-const BOB = { user_id: 'u-bob', email: 'bob@vertuoza.com', name: 'Bob' };
+const BOB = { user_id: 'u-bob', email: 'bob@example.com', name: 'Bob' };
 const withFacts = (r: DossierRead, facts: ApprovalFacts): DossierRead => ({ ...r, members: [ADA, BOB], approvalFacts: facts });
 
 describe('approvalView, with the product\'s approvers and the voids', () => {

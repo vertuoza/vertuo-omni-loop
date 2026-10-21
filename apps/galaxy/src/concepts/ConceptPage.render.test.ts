@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { UNREAD } from '../dossier/github/summary';
 import { nestedLinks } from '../people/nested-links';
 import { ConceptPage, ConceptPageScreen } from './ConceptPage';

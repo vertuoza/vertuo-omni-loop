@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CATEGORIES } from '../../ask/classify';
 import { questionCategory } from './question-category';
 import { JEV_DECISIONS, jevEntry } from './index';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The question category's registry entry (PRD 812 s2): a Choice over the six categories, what it
 // sends Jev (what Haiku reads today, never an option's preview), and how an answer maps back.

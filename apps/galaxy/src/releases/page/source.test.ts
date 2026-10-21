@@ -7,7 +7,7 @@ import { DEMO_RELEASES } from '../demo';
 import type { ReleaseRow } from '../row';
 import { readEnv } from '../../env';
 import { releasesView } from './source';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 

@@ -10,7 +10,7 @@
 //   on galaxy. With it unset, a product with constituents gets a neutral gate, "judge not configured".
 //   Galaxy's host is `GALAXY_URL` when set, as for the stage events.
 import { createClient } from '@supabase/supabase-js';
-import { askModel, MODEL_CALL } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
+import { askModel, MODEL_CALL } from 'omni-loop/kit/lib/openrouter.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { type Ask, createCanon } from './canon.ts';
 import type { AppEnv } from '../env.ts';

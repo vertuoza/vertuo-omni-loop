@@ -6,8 +6,8 @@
 // fails the run, naming the step and the field. The types in `retro.types.ts` are the ones these
 // parse to, so the two cannot drift.
 import { z } from 'zod';
-import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/schema/config.ts';
-import { CommentIdSchema, IssueNumberSchema, PrNumberSchema, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { ConfigSchema } from 'omni-loop/kit/lib/schema/config.ts';
+import { CommentIdSchema, IssueNumberSchema, PrNumberSchema, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { ModelReplySchema } from './narrate.ts';
 
 const text = z.string();

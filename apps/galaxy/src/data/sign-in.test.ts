@@ -15,7 +15,7 @@ const TOKEN = 'gho_provider-token-of-the-sign-in';
 
 /** GitHub as the provider token reads it: each person's login and orgs. */
 const GITHUB: Record<string, GithubAccount> = {
-  [PEOPLE.bea.id]: { login: 'bea-gh', orgs: ['Vertuoza', 'some-club'] },
+  [PEOPLE.bea.id]: { login: 'bea-gh', orgs: ['Demo-Org', 'some-club'] },
   [PEOPLE.eve.id]: { login: 'eve-gh', orgs: ['example'] },
 };
 
@@ -40,17 +40,17 @@ describe('after a sign-in with GitHub', () => {
   it('joins the workspaces of the person\'s orgs, links GitHub, then goes back to the arcade', async () => {
     const { w, db, deps, session, joining } = world(PEOPLE.bea);
     expect(await afterSignIn(db, session, deps, null)).toEqual(['signin', 'ok']);
-    expect(joining).toHaveBeenCalledWith(PEOPLE.bea.id, ['bea-gh', 'Vertuoza', 'some-club']);
+    expect(joining).toHaveBeenCalledWith(PEOPLE.bea.id, ['bea-gh', 'Demo-Org', 'some-club']);
     expect(memberOf(w, PEOPLE.bea)).toEqual([VERTUOZA]);
     expect(w.calls).toEqual([
-      { kind: 'rpc', fn: 'join_workspaces_by_github', args: { p_user_id: PEOPLE.bea.id, p_logins: ['bea-gh', 'Vertuoza', 'some-club'] } },
+      { kind: 'rpc', fn: 'join_workspaces_by_github', args: { p_user_id: PEOPLE.bea.id, p_logins: ['bea-gh', 'Demo-Org', 'some-club'] } },
       { kind: 'rpc', fn: 'link_github' },
     ]);
   });
 
   it('joins as the service role, never as the person: they cannot run the join themselves', async () => {
     const { w } = world(PEOPLE.bea);
-    const { error } = await w.client(PEOPLE.bea).rpc('join_workspaces_by_github', { p_user_id: PEOPLE.bea.id, p_logins: ['vertuoza'] });
+    const { error } = await w.client(PEOPLE.bea).rpc('join_workspaces_by_github', { p_user_id: PEOPLE.bea.id, p_logins: ['demo-org'] });
     expect(error?.code).toBe('42501');
   });
 
@@ -62,7 +62,7 @@ describe('after a sign-in with GitHub', () => {
   });
 
   it('links GitHub on every sign-in, a member\'s too', async () => {
-    const { w, db, deps } = world(PEOPLE.ada, { login: 'ada-gh', orgs: ['vertuoza'] });
+    const { w, db, deps } = world(PEOPLE.ada, { login: 'ada-gh', orgs: ['demo-org'] });
     expect(await afterSignIn(db, { user: { id: PEOPLE.ada.id }, provider_token: TOKEN }, deps, null)).toEqual(['signin', 'ok']);
     expect(w.calls.map((c) => c.kind === 'rpc' && c.fn)).toEqual(['join_workspaces_by_github', 'link_github']);
   });

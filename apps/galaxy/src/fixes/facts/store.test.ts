@@ -5,7 +5,7 @@ import type { ConceptFacts, FixSummary } from '../../dossier/github/fix';
 import { UNREAD } from '../../dossier/github/summary';
 import { conceptFactsOf, conceptFactsStore, factsOf, fixFactsStore } from './store';
 import { fakeConceptFactsStore, fakeFixFactsStore } from './store.fake';
-import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr } from 'omni-loop/kit/lib/ids.ts';
 
 const W = 'w-acme';
 const FACTS: FixSummary = {

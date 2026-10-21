@@ -36,7 +36,7 @@
  * only the **latest** entry for any id it finds more than once — the one rule every reader of the
  * ledger gets for free, in this one place, rather than in each of them.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-settle.mjs — changes in kit/porting/outbox--settle.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-settle.mjs — changes in kit/porting/outbox--settle.md.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { z } from 'zod';

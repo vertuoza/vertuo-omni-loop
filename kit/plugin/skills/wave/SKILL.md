@@ -3,7 +3,7 @@ name: wave
 description: Build ONE wave of a PRD in parallel — read the board, claim every takeable slice, start one agent per slice, each in its own worktree, following /omni:do-work --in-wave, then merge their sub-PRs into the feature branch one at a time, check the wave together, adopt its medium decisions and report. A PRD whose plan has fewer slices than wave.inlineBelow is built inline instead, one slice after the other and committed on the feature branch itself, with no claim and no sub-PR. Followed by /omni:yolo for each wave; a person may run it on a PRD. Never merges into the default branch. Triggers on "run the next wave", "build wave 3", "/omni:wave".
 ---
 
-<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-parallel-wave/SKILL.md (and the board and wave-loop parts of vertuo-deliver) — changes in kit/porting/plugin--wave.md -->
+<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-parallel-wave/SKILL.md (and the board and wave-loop parts of nimbus-deliver) — changes in kit/porting/plugin--wave.md -->
 
 # Wave: the takeable slices, in parallel, merged one at a time
 

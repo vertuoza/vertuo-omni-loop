@@ -10,7 +10,7 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
 import { ContentSchema, PullSchema, PullsSchema, TreeSchema, parseGitHub } from './github.schema.ts';
 import type { Octokit, Pull, PullInto } from './retro.types.ts';

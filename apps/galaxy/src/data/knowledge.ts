@@ -3,7 +3,7 @@
 // builds the graph through the kit (load-knowledge.ts); nothing here touches the disk, so the browser
 // may import it.
 
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export type EntryKind = 'principle' | 'rule' | 'invariant';
 export type EntryStatus = 'law' | 'proposed';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProductNeighbourhoodSchema } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
+import { ProductNeighbourhoodSchema } from 'omni-loop/kit/lib/knowledge/product-graph.ts';
 import type { JoinedGraph, JoinedNode } from './join';
 import { prefixedMatches, productNeighbourhood, walkProductGraph } from './walk';
 

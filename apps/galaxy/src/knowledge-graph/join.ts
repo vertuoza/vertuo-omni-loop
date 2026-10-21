@@ -1,6 +1,6 @@
-import type { RepositoryGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
-import { LEGAL_ID_SHAPE } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
-import type { ProductGraphEdge, ProductGraphNode, RepositoryStanding, Unresolved } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
+import type { RepositoryGraph } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
+import { LEGAL_ID_SHAPE } from 'omni-loop/kit/lib/knowledge/registers.ts';
+import type { ProductGraphEdge, ProductGraphNode, RepositoryStanding, Unresolved } from 'omni-loop/kit/lib/knowledge/product-graph.ts';
 
 // The join (PRD 1798 s3): the latest pushed graph of each repository of a product, joined with the
 // product's own Legal entries, Glossary terms and Never lines (P3's tables, PRD 871's constituents),

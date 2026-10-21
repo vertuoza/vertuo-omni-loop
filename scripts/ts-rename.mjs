@@ -19,7 +19,7 @@
 //
 // A path is rewritten only when it names a file this run renames (or renamed before): read from the
 // folder of the file that names it, from the repository root, from the folder of the package.json it
-// sits under, or through a workspace package's name (`vertuo-omni-plan/kit/lib/config.mjs`). A glob or
+// sits under, or through a workspace package's name (`omni-loop/kit/lib/config.mjs`). A glob or
 // a template (`game/cli/*.mjs`, `./commands/${name}.mjs`) is rewritten when it matches a renamed file.
 // A path no rule resolves (`.omni-loop/bin/omni.mjs`, another repository's file) stays as written.
 // A declaration file naming a module that has its own hand-written `.d.mts` keeps naming it.

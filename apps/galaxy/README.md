@@ -359,7 +359,7 @@ Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
 ### Layers: client → controller → service → repository (PRD 1318)
 
 Each feature folder (`src/<area>/`) splits a request into five roles, named by the file's suffix
-(ADR-0095, after vertuo-ai-domain's `libs/LIBRARY_STYLE_RULES.md` §5):
+(ADR-0095, after nimbus-ai-domain's `libs/LIBRARY_STYLE_RULES.md` §5):
 
 | role | file | does | never |
 |---|---|---|---|
@@ -577,6 +577,16 @@ the App cannot read shows *Omni App has no access*, with a link to the installat
 GitHub. Vertuoza, and only Vertuoza, starts with six tracked repositories; any other workspace starts
 with none. omni-app's `prStats` Inngest function collects the tracked repositories every 15 minutes
 into `pull_requests` and `pull_request_reviews` ([`apps/omni-app/README.md`](../omni-app/README.md)).
+
+**Runner skills** (PRD 2313). Each row ends with a **Runner skills** block, closed by default. Opened,
+it reads the repository's `.claude/skills/<name>/SKILL.md` on its default branch live, as the Omni App
+(`GET /api/repositories/skills?repo=`, `src/repositories/skills.ts`; nothing is stored), and lists each
+`/name` with its description as the tooltip and an **Allow on runner** switch. Only the owner flips it,
+through `set_repository_runner_skill()`; a member sees it disabled. An allowed skill reads `allowed by
+@<login> on <date>`; one no longer on the branch reads **Gone: no longer on <default branch>**, its switch
+still on; a failed read says `Skills could not be read: <why>` and the allowed skills stay listed. A
+folder with no `SKILL.md`, a name that is not `[a-z][a-z0-9-]*` or not its folder's, and the loop's own
+skills are left out.
 
 **Phase 0 on the server** (PRD 1299). Each row also has a **Phase 0 on the server** switch
 (`repositories.phase0`, `pr` or `server`, `pr` by default), which only the owner flips, through the

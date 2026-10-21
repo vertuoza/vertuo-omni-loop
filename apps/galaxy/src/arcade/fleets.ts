@@ -1,7 +1,7 @@
 import type { PlanetState, WoundKind } from '@omni/galaxy';
 import { fleetSprite, heroLook, MASCOTS as LIBRARY, type Hero, type Tint } from '@omni/design';
 import type { FleetRow } from './types';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export interface FleetLook { label: string; sprite: string; tint: Tint | null; color: string; motto: string; retired: boolean }
 

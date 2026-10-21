@@ -16,7 +16,7 @@
 //   4. links GitHub (link_github()), so the account is a player at once.
 // All are best effort (ADR 0044): a failure is logged, and the sign-in carries on; what needs a
 // workspace then refuses with its own message.
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { CliCallbackDeps, CliSession } from '../ask/cli-code';
 import { belongsTo, type SignupDeps } from '../signup/installation';
 import { joinLogins, type GithubAccount } from './github-orgs';

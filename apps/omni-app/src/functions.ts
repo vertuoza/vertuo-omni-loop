@@ -20,7 +20,7 @@
 // `ms`. What a run throws is rethrown unchanged, so the retries and the failure handlers fire as before. The shared
 // GitHub client's sentences (a budget paused or deferred) are JSON note lines too. A test hands `logger` a logger it reads.
 import { githubClient } from '@omni/github';
-import { log, type Logger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from './env.ts';
 import { liveCanon } from './canon/live.ts';
 import { createApprovedCheck, createApprovedRerun } from './approved-check/approved-check.ts';

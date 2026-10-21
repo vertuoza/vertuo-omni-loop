@@ -6,7 +6,7 @@ import {
   capped, fixesOf, githubPullUrl, moreHref, prdsOf, profileLogin, profilePath, profileStageLinks, pullRequestsOf, reviewsOf, seeAllHref,
   PROFILE_LIMIT,
 } from './select';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { readHistoryFilters } from '../dossier/page/history';
 import { STAGES } from '../stages/stage';
 

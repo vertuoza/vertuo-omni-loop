@@ -37,7 +37,7 @@ tokens, which `/omni:brainstorm`, `/omni:yolo` and `/omni:yolo-fix` all read: it
 `[→ apps/galaxy/README.md#deploy-to-production]` runs past its section into the rest of the galaxy
 README. The other forms print 1 to 14 KB. Nobody saw it, because nothing looks.
 
-vertuoza/vnext answers the same problem with character budgets on its hot-path files, checked in
+demo-org/vnext answers the same problem with character budgets on its hot-path files, checked in
 its CI. That answer is theirs: their files, their CI, and a raise any agent can approve by typing a
 trailer. The loop is installed in repositories of every stack, so its answer must be the kit's:
 measured by the kit, the same everywhere, and raised only by a person.

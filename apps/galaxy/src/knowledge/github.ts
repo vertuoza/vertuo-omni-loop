@@ -12,8 +12,8 @@
 // at the reader's priority: `background` unless a person waits on it (the knowledge map's own reader is
 // `interactive`). The App's JWT calls, the token's minting and finding an installation, go out plain.
 import { githubClient, type GithubStore, type Priority } from '@omni/github';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { graphOfTexts } from 'omni-loop/kit/lib/knowledge/graph.ts';
 import { z } from 'zod';
 import type { KnowledgeGraph } from '../data/knowledge';
 import type { WorkspaceGithub } from '../data/workspace';

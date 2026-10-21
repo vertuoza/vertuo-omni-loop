@@ -4,10 +4,11 @@
 //
 // The pause (s2): a machine under pressure opens no new `next`, a slot already waiting keeps its hold
 // and runs the job it gets, a running job is never touched, and two quiet samples in a row resume it.
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import type { ExecText } from '../context.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { HealthReport, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
 import { DEFAULT_LIMITS } from './health.ts';
@@ -227,7 +228,7 @@ describe('the pause', () => {
     const terminal: Terminal = { start: () => undefined, stop: (name) => stopped.push(name), alive: () => true };
     const app = holdingApp(8, (n) => {
       // The second sample is under pressure: the slot's next, held since the first, hands it a job.
-      if (n === 2) app.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null });
+      if (n === 2) app.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, allowedSkills: [] });
       // The job runs through two more samples under pressure, then ends by itself.
       if (n === 5) writeFileSync(join(home, 'logs', 'job-7.exit'), '0\n');
     });
@@ -264,7 +265,7 @@ describe('the tokens (PRD 2102, s4)', () => {
   async function withJob({ health, refuseTokens = false, tokens }: { health: 'ok' | 'fails'; refuseTokens?: boolean; tokens: TokenSource }) {
     const home = mkdtempSync(join(tmpdir(), 'omni-runner-tokens-'));
     const base = holdingApp(7, (n) => {
-      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null });
+      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, allowedSkills: [] });
       if (n === 6) writeFileSync(join(home, 'logs', 'job-7.exit'), '0\n');
     });
     const sent: JobUpdate[] = [];
@@ -327,7 +328,7 @@ describe('the outcome (PRD 2223)', () => {
   async function ending(line: string, log: string, exit: string): Promise<JobUpdate[]> {
     const home = mkdtempSync(join(tmpdir(), 'omni-runner-outcome-'));
     const base = holdingApp(7, (n) => {
-      if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null });
+      if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null, allowedSkills: [] });
       if (n === 6) writeFileSync(join(home, 'logs', 'job-7.exit'), exit);
     });
     const sent: JobUpdate[] = [];
@@ -359,7 +360,7 @@ describe('the outcome (PRD 2223)', () => {
   it('sends a final report the app refused for its outcome again without it', async () => {
     const home = mkdtempSync(join(tmpdir(), 'omni-runner-outcome-'));
     const base = holdingApp(7, (n) => {
-      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null });
+      if (n === 2) base.held[0]?.({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, allowedSkills: [] });
       if (n === 6) writeFileSync(join(home, 'logs', 'job-7.exit'), '0\n');
     });
     const sent: JobUpdate[] = [];
@@ -375,5 +376,94 @@ describe('the outcome (PRD 2223)', () => {
       terminal: { start: () => { writeFileSync(join(home, 'logs', 'job-7.log'), '/omni:yolo 7\n'); }, stop: () => undefined, alive: () => true },
     });
     expect(sent.filter((update) => update.status === 'done').map((update) => update.outcome)).toEqual(['held', undefined]);
+  });
+});
+
+// A repository's own skill (PRD 2313, s2): the runner checks the line against the skills the job carries,
+// read when the app handed it over, then, once the job's worktree is cut from `origin/<default branch>`,
+// that the skill's `SKILL.md` is there: a skill turned off, or only on a branch, never runs. One that
+// runs ends done or failed from its exit code alone, with no outcome.
+describe("a repository's own skill (PRD 2313, s2)", () => {
+  /**
+   * Runs one job on `line` carrying `allowed`, its worktree holding the skills `present`, its run ending on
+   * `exit`: every report the app got, the sessions started, and the git calls made.
+   */
+  async function claimed({ line, allowed, present = [], exit = '0\n' }: { line: string; allowed: string[]; present?: string[]; exit?: string }) {
+    const home = mkdtempSync(join(tmpdir(), 'omni-runner-skills-'));
+    const worktree = join(home, 'wt', 'widgets-job-7');
+    const git: string[][] = [];
+    // The checkout's `origin/HEAD` names `trunk`: the default branch is read, never assumed. Adding the
+    // worktree checks out what `origin/trunk` holds: the skills `present`.
+    const exec: ExecText = (file, args) => {
+      if (file === 'git') git.push([...args]);
+      if (args.includes('worktree') && args.includes('add')) {
+        for (const skill of present) {
+          mkdirSync(join(worktree, '.claude', 'skills', skill), { recursive: true });
+          writeFileSync(join(worktree, '.claude', 'skills', skill, 'SKILL.md'), `---\nname: ${skill}\n---\n`);
+        }
+      }
+      return args.includes('symbolic-ref') ? 'origin/trunk\n' : '';
+    };
+    const started: string[] = [];
+    const base = holdingApp(7, (n) => {
+      if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null, allowedSkills: allowed });
+      if (n === 6) {
+        mkdirSync(join(home, 'logs'), { recursive: true });
+        writeFileSync(join(home, 'logs', 'job-7.exit'), exit);
+      }
+    });
+    const sent: JobUpdate[] = [];
+    const api: RunnerApi = { ...base.api, update: (job, update) => { sent.push(update); return base.api.update(job, update); } };
+    const { printed } = await run({ ...base, api }, {
+      slots: 1, timeoutMs: 24 * 60 * 60 * 1000, home, exec, checkouts: new Map([['acme/widgets', join(home, 'widgets')]]),
+      terminal: {
+        start: (session) => {
+          started.push(session.name);
+          writeFileSync(join(home, 'logs', 'job-7.log'), `${line}\n`);
+        },
+        stop: () => undefined,
+        alive: () => true,
+      },
+    });
+    return { sent, started, git, printed, home, worktree };
+  }
+
+  const worktreeAdd = (git: string[][]) => git.filter((args) => args.includes('worktree') && args.includes('add'));
+
+  it('refuses a skill the job does not carry before it makes a worktree', async () => {
+    const { sent, started, git } = await claimed({ line: '/validate-prd 347', allowed: ['audit'] });
+    expect(sent).toEqual([{ status: 'failed', reason: 'refused: /validate-prd is not allowed on a runner for this repository' }]);
+    expect(started).toEqual([]);
+    expect(worktreeAdd(git)).toEqual([]);
+  });
+
+  it('refuses a skill the job carries but the default branch lacks, once the worktree is cut from it, without running it', async () => {
+    const { sent, started, git, home, worktree, printed } = await claimed({ line: '/validate-prd 347', allowed: ['validate-prd'] });
+    expect(worktreeAdd(git)).toEqual([['-C', join(home, 'widgets'), 'worktree', 'add', '--no-track', '-b', 'agent/job-7', worktree, 'origin/trunk']]);
+    expect(sent).toEqual([{ status: 'failed', reason: 'refused: /validate-prd is not on trunk' }]);
+    expect(started).toEqual([]);
+    expect(git.some((args) => args.includes('worktree') && args.includes('remove'))).toBe(true);
+    expect(printed).toContain('job 7 failed · refused: /validate-prd is not on trunk');
+  });
+
+  it('runs a skill the job carries and its worktree holds, and ends done from its exit code with no outcome', async () => {
+    const { sent, started } = await claimed({ line: '/validate-prd 347', allowed: ['validate-prd'], present: ['validate-prd'] });
+    expect(started).toEqual(['job-7']);
+    const last = sent.at(-1);
+    expect(last).toMatchObject({ status: 'done', exitCode: 0 });
+    expect(last).not.toHaveProperty('outcome');
+  });
+
+  it('ends failed from its exit code, with no outcome', async () => {
+    const { sent } = await claimed({ line: '/validate-prd 347', allowed: ['validate-prd'], present: ['validate-prd'], exit: '2\n' });
+    const last = sent.at(-1);
+    expect(last).toMatchObject({ status: 'failed', exitCode: 2, reason: 'exit code 2' });
+    expect(last).not.toHaveProperty('outcome');
+  });
+
+  it("runs a fixed skill's line as before, whatever the job carries", async () => {
+    const { sent, started } = await claimed({ line: '/omni:pr-care 7', allowed: [] });
+    expect(started).toEqual(['job-7']);
+    expect(sent.at(-1)).toMatchObject({ status: 'done', exitCode: 0 });
   });
 });

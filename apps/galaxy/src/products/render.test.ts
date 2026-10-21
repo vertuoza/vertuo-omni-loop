@@ -1,8 +1,8 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { defaultPitchSettings, presetLook, type PitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
+import { defaultPitchSettings, presetLook, type PitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import { sure } from '../arcade/test/sure';
 import type { PitchedProduct, ProductRow } from './model';
 import { PITCH_HINT, PitchSection, READ_ONLY } from './pitch-form';

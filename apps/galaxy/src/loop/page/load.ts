@@ -6,7 +6,7 @@
 // from the workspace's roster, which fails soft: its error logged, every runner reads "A member". The
 // reads are a port (LoopPageReads) so the loader is tested on fakes; supabaseLoopPageReads is the page's.
 import type { SupabaseClient, User } from '@supabase/supabase-js';
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { RosterRow as RosterRowSchema } from '../../business/constituents-rows';
 import { memberWorkspace, type Workspace } from '../../data/workspace';
