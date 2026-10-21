@@ -227,9 +227,9 @@ describe('omni design words', () => {
       });
       const { code, out } = await words(root, ['mock.html']);
       expect(code).toBe(0);
-      expect(out).toContain('    ! avoided-word: "Refund": avoid, the product says "Credit note" (in "Ask for a refund")\n');
-      expect(out.match(/avoided-word: "Refund"/g)).toHaveLength(1);
-      expect(out.match(/avoided-word: "utilize"/gi)).toHaveLength(1);
+      expect(out).toContain('    ! avoided word: Refund → say Credit note (in "Ask for a refund")\n');
+      expect(out.match(/avoided word: Refund/g)).toHaveLength(1);
+      expect(out.match(/avoided[ -]word: "?utilize/gi)).toHaveLength(1);
     });
 
     it("uses today's avoid list when there is no copy, or one out of shape", async () => {

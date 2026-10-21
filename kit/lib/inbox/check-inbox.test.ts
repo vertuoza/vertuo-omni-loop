@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { main } from '../../bin/omni.ts';
 import { makeRepo } from '../../test/fixture.ts';
-import { checkSpecText, findInboxViolations, inboxViolationsFor } from './check-inbox.ts';
+import { checkSpecText, findInboxViolations, inboxAvoidWarnings, inboxViolationsFor } from './check-inbox.ts';
 import { assertDefined } from '../../test/assert.ts';
 import { dig } from '../../bin/dig.ts';
 import { parsePrd } from '../ids.ts';
@@ -429,5 +429,50 @@ describe('a before/after page of the two-tab shape (PRD 2239)', () => {
     const code = await main(['check', 'inbox'], { cwd: repoRoot, ...s });
     expect(s.out.join('')).not.toMatch(/before-after\.html:/);
     expect(code).toBe(0);
+  });
+});
+
+describe("the product's avoided words in a spec (PRD 2299)", () => {
+  const COPY = '.omni-loop/local/product-knowledge.json';
+  const folder = `${IN}/0042-a`;
+  const copy = JSON.stringify({
+    product: 'Acme',
+    readAt: '2026-10-16T10:00:00.000Z',
+    legal: [],
+    glossary: [{ term: 'Workspace', meaning: 'Where a team works.', avoid: ['team', 'Credit  note'] }],
+  });
+  const silent = () => {
+    const out: string[] = [];
+    return { out, stdout: { write: (s: string) => out.push(s) }, stderr: { write: () => true }, env: {} };
+  };
+  const body = 'A Team page. The team, the TEAM. Teamwork and steam stay. A credit note.\n';
+  const repo = (extra: Record<string, string>) =>
+    makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n', [`${folder}/spec.md`]: specText() + body, ...extra } });
+
+  it('counts each avoided word once per spec, whole and in any case', () => {
+    const { ctx } = repo({ [COPY]: copy });
+    expect(inboxAvoidWarnings({ ctx })).toEqual([
+      `${folder}/spec.md: "team" ×3 → say Workspace`,
+      `${folder}/spec.md: "credit  note" ×1 → say Workspace`,
+    ]);
+    expect(findInboxViolations({ ctx })).toEqual([]);
+  });
+
+  it('says nothing with no copy', () => {
+    const { ctx } = repo({});
+    expect(inboxAvoidWarnings({ ctx })).toEqual([]);
+  });
+
+  it('prints the warnings through main() and keeps the exit code', async () => {
+    const withCopy = repo({ [COPY]: copy });
+    const without = repo({});
+    const a = silent();
+    const b = silent();
+    const codeWith = await main(['check', 'inbox'], { cwd: withCopy.root, ...a });
+    const codeWithout = await main(['check', 'inbox'], { cwd: without.root, ...b });
+    expect(a.out.join('')).toContain(`${folder}/spec.md: "team" ×3 → say Workspace`);
+    expect(b.out.join('')).not.toContain('→ say');
+    expect(codeWith).toBe(codeWithout);
+    expect(codeWith).toBe(0);
   });
 });
