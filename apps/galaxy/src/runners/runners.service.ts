@@ -51,8 +51,8 @@
 //   outcome stays `human`.
 import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import {
-  checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
-  type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type RegisterReply, type RegisterRequest,
+  checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
+  type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyJob, type KeySend, type KitRunner, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
@@ -284,18 +284,35 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     return job.runner_id === null ? null : (await store.runner(job.runner_id))?.name ?? null;
   }
 
-  /** Queues the job as `caller`, a member of the workspace the repository belongs to; for a key, that must be the key's. */
+  /** Whether the repository allows the skill a repository's own line names (PRD 2313); a fixed skill's line needs no allowance. */
+  async function allowance(workspaceId: string, repo: string, line: LineCheck & { ok: true }): Promise<Served<null>> {
+    if (line.kind === 'omni') return ok(null);
+    if ((await store.allowedSkills(workspaceId, repo)).includes(line.skill)) return ok(null);
+    return no('malformed', `/${line.skill} is not allowed on a runner for ${repo}: an owner allows it in Settings › Repositories.`);
+  }
+
+  /** Queues the job as `caller`, a member of the workspace the repository belongs to; for a key, that must be the key's.
+   * The line's shape is checked first; a repository's own skill, once the repository is placed, against what its owner allowed. */
   async function queue(caller: string, request: SendRequest, key: KeySender | null): Promise<Served<JobRow>> {
-    const line = checkLine(request.line);
+    const line = checkLineShape(request.line);
     if (!line.ok) return no('malformed', line.reason);
     const repo = request.repo.toLowerCase();
-    const placed = await placement(caller, repo, key?.workspace ?? null);
+    const placed = await senderIn(caller, repo, key?.workspace ?? null);
+    if (!placed.ok) return placed;
+    const { workspaceId, sender } = placed.value;
+    const allowed = await allowance(workspaceId, repo, line);
+    if (!allowed.ok) return allowed;
+    const target = await mayTarget(store, workspaceId, sender, request.target);
+    if (!target.ok) return target;
+    return ok(await store.insertJob({ workspaceId, line: request.line, repo, ...target.value, sentBy: caller, sentByKey: key?.id ?? null }));
+  }
+
+  /** The workspace the repository belongs to for the person, which must be `only` when that is given, and their place in it. */
+  async function senderIn(caller: string, repo: string, only: string | null): Promise<Served<{ workspaceId: string; sender: Sender }>> {
+    const placed = await placement(caller, repo, only);
     if (!placed.ok) return placed;
     const sender = await store.member(placed.value, caller);
-    if (!sender) return no('forbidden', `${repo} is not in your workspace.`);
-    const target = await mayTarget(store, placed.value, sender, request.target);
-    if (!target.ok) return target;
-    return ok(await store.insertJob({ workspaceId: placed.value, line: request.line, repo, ...target.value, sentBy: caller, sentByKey: key?.id ?? null }));
+    return sender ? ok({ workspaceId: placed.value, sender }) : no('forbidden', `${repo} is not in your workspace.`);
   }
 
   /** The workspace the repository belongs to for the person, which must be `only` when that is given. */
@@ -420,7 +437,9 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
         if (job) {
           const logins = await store.logins(job.workspace_id, [job.sent_by]);
           const keyName = job.sent_by_key === null ? null : (await store.keyNames(job.workspace_id, [job.sent_by_key])).get(job.sent_by_key) ?? null;
-          return ok({ id: job.id, line: job.line, repo: job.repo, sentBy: senderOf(logins.get(job.sent_by) ?? null, keyName) });
+          // Read at claim (PRD 2313): a skill turned off while its job waited is absent, and the runner refuses it.
+          const allowedSkills = await store.allowedSkills(job.workspace_id, job.repo);
+          return ok({ id: job.id, line: job.line, repo: job.repo, sentBy: senderOf(logins.get(job.sent_by) ?? null, keyName), allowedSkills });
         }
         if (clock.now().getTime() + NEXT_POLL_MS > deadline) return ok(null);
         await clock.sleep(NEXT_POLL_MS);
