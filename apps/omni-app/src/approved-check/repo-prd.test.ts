@@ -4,8 +4,8 @@
 // several repositories; galaxy's judge is a function the test hands in.
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
-import type { ApprovalReply } from 'vertuo-omni-plan/kit/lib/approval/approval.ts';
-import { sha256 } from 'vertuo-omni-plan/kit/lib/dossier/folder.ts';
+import type { ApprovalReply } from 'omni-loop/kit/lib/approval/approval.ts';
+import { sha256 } from 'omni-loop/kit/lib/dossier/folder.ts';
 import { readEnv } from '../env.ts';
 import { appFunctions } from '../functions.ts';
 import { APPROVED_CHECK_EVENT, APPROVED_LABEL_EVENT, inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';

@@ -1,10 +1,10 @@
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import { checkRunAt, fakeGitHub } from './fake-github.ts';
 import { startCheck } from '../publish/publish.ts';
@@ -267,7 +267,7 @@ describe('outbox-check — only an Omni Loop feature PR is gated (issue 876)', (
   const dependabotPr = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: 'dependabot/npm_and_yarn/brace-expansion-5.0.12', sha: 'head1' } };
   const plainFeaturePr = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: 'feat/VS-29444-gantt-node-move-dates', sha: 'head1' } };
 
-  /** A GitHub that rate-limits every read past the pull request and the base config, as on vertuo-backend-php#6333. */
+  /** A GitHub that rate-limits every read past the pull request and the base config, as on nimbus-backend-php#6333. */
   function rateLimitedAfterClassify(github: ReturnType<typeof featureGitHub>) {
     return { request: (route: string, params?: Params) => {
       if (route === 'GET /repos/{owner}/{repo}/compare/{basehead}') return Promise.reject(new Error(RATE_LIMIT));

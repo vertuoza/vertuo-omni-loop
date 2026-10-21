@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 export const FUNCTIONS = ['github', 'inngest', 'server-event', 'health'] as const;
 
 /** A workspace package, whose TypeScript the bundle carries. */
-const WORKSPACE = /^(?:vertuo-omni-plan|@omni\/[^/]+)(?:\/|$)/;
+const WORKSPACE = /^(?:omni-loop|@omni\/[^/]+)(?:\/|$)/;
 
 const app = fileURLToPath(new URL('.', import.meta.url));
 

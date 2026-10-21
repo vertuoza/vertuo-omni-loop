@@ -13,12 +13,12 @@
 // person, since the App cannot read a team's members.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CODEOWNERS_FILES, ownersOf, readCodeowners } from 'vertuo-omni-plan/kit/lib/codeowners.ts';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { diskSource } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
-import { lawsAwaitingOwners, lockedLawChanges, type LawAwaiting, type LockedLawChange } from 'vertuo-omni-plan/kit/lib/outbox/decision-coverage.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { CODEOWNERS_FILES, ownersOf, readCodeowners } from 'omni-loop/kit/lib/codeowners.ts';
+import { createContext } from 'omni-loop/kit/lib/context.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { diskSource } from 'omni-loop/kit/lib/knowledge/registers.ts';
+import { lawsAwaitingOwners, lockedLawChanges, type LawAwaiting, type LockedLawChange } from 'omni-loop/kit/lib/outbox/decision-coverage.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 import type { Verdict } from '../evaluate/evaluate.ts';
 import { PER_PAGE, paginate } from '../retro/github.ts';
 import { snapshot } from '../snapshot/snapshot.ts';

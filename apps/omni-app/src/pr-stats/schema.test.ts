@@ -48,7 +48,7 @@ describe('the collector answer schemas', () => {
   });
 
   it('read a tracked repository row, and refuse one without its workspace', () => {
-    const row = { workspace_id: 'ws', full_name: 'vertuoza/apps', collected_until: null, workspaces: { github_installation_id: 7 } };
+    const row = { workspace_id: 'ws', full_name: 'demo-org/apps', collected_until: null, workspaces: { github_installation_id: 7 } };
     expect(TrackedRowSchema.parse(row)).toEqual(row);
     expect(TrackedRowSchema.safeParse({ ...row, workspace_id: undefined }).error?.issues[0]?.path).toEqual(['workspace_id']);
   });

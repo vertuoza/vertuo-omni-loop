@@ -28,8 +28,8 @@ import {
   type GitHubClient,
   type PullListed,
 } from '../outbox-check/github-schema.ts';
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { Move } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { Move } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
 
 const FILE_MODE = '100644';
 

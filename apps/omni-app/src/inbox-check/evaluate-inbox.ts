@@ -23,17 +23,17 @@
 // wave. Every other topic is one PRD, as before.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { createContext, type Context } from 'vertuo-omni-plan/kit/lib/context.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { inboxViolationsFor } from 'vertuo-omni-plan/kit/lib/inbox/check-inbox.ts';
-import { gradePlan } from 'vertuo-omni-plan/kit/lib/inbox/plan-grade.ts';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import { gradeRoadmaps, roadmapFiles, type GradedRoadmap } from 'vertuo-omni-plan/kit/lib/roadmap/index.ts';
-import { roadmapWaves, type RoadmapRow } from 'vertuo-omni-plan/kit/lib/roadmap/parse.ts';
-import { targetFlows } from 'vertuo-omni-plan/kit/lib/plan-repo/copy-flow.ts';
-import { phase0Verdict } from 'vertuo-omni-plan/kit/lib/policy/phase-0.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { CONFIG_FILE, ConfigError, parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { createContext, type Context } from 'omni-loop/kit/lib/context.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { inboxViolationsFor } from 'omni-loop/kit/lib/inbox/check-inbox.ts';
+import { gradePlan } from 'omni-loop/kit/lib/inbox/plan-grade.ts';
+import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
+import { gradeRoadmaps, roadmapFiles, type GradedRoadmap } from 'omni-loop/kit/lib/roadmap/index.ts';
+import { roadmapWaves, type RoadmapRow } from 'omni-loop/kit/lib/roadmap/parse.ts';
+import { targetFlows } from 'omni-loop/kit/lib/plan-repo/copy-flow.ts';
+import { phase0Verdict } from 'omni-loop/kit/lib/policy/phase-0.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 import { CANON_GATE, neutral } from '../canon/canon.ts';
 import { canonMarker } from './canon-actions.ts';
 import type { Commit, IssueFacts } from './github.ts';
