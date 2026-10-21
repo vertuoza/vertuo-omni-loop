@@ -398,6 +398,30 @@ describe('who may send where', () => {
   });
 });
 
+describe('a job the Omni app sends (PRD 2338 s2)', () => {
+  const appJob = () => jobRow({ line: '/omni:retro-apply --retro 2340', sent_by: null, sent_by_app: 'omni-app' });
+
+  it('reads as sent by the Omni app, with no person, on the Runners page', async () => {
+    const queued = appJob();
+    const w = world({ jobs: [queued] });
+    const board = value(await w.service.board(OLGA, queued.workspace_id));
+    expect(board.jobs).toMatchObject([{ id: queued.id, sentBy: null, sentByLogin: null, sentByApp: 'omni-app', sentByKey: null }]);
+  });
+
+  it('reads as sent by the Omni app to the runner that claims it', async () => {
+    const queued = appJob();
+    const w = world({ jobs: [queued] });
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: queued.line, repo: 'demo-org/app', sentBy: 'Omni app', allowedSkills: [] });
+  });
+
+  it('lets a workspace owner cancel it, and no other member', async () => {
+    const queued = appJob();
+    const w = world({ jobs: [queued] });
+    expect(await w.service.cancel(MO, queued.id)).toMatchObject({ ok: false, kind: 'forbidden' });
+    expect(await w.service.cancel(OLGA, queued.id)).toMatchObject({ ok: true });
+  });
+});
+
 describe('a job an API key sends (PRD 2022 s4)', () => {
   const key = { id: API_KEY, name: 'QA dashboard', workspace: '00000000-0000-4000-8000-000001830001', maker: OLGA };
   const fix = { repo: 'demo-org/app', line: '/omni:bug-fix Issue 548 totals' };
@@ -963,7 +987,9 @@ describe('a continuation', () => {
     expect(pirate.queued).toBeNull();
     expect(pirate.why).toContain('serves cia');
     // Eve is no member of this workspace.
-    expect(await continuing([waited({ sent_by: EVE })]).service.continueAnswered(ask())).toEqual({ queued: null, why: 'its sender is no longer a member of the workspace' });
+    expect(await continuing([waited({ sent_by: EVE })]).service.continueAnswered(ask())).toEqual({ queued: null, why: 'its sender is no longer a member of the workspace, or the Omni app sent it' });
+    // The Omni app sent it (PRD 2338): no person to send the fix in the name of.
+    expect(await continuing([waited({ sent_by: null, sent_by_app: 'omni-app' })]).service.continueAnswered(ask())).toEqual({ queued: null, why: 'its sender is no longer a member of the workspace, or the Omni app sent it' });
   });
 
   it('queues nothing while a job of the PRD is queued or running, or when the newest did not wait on answers', async () => {

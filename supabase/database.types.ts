@@ -3582,7 +3582,8 @@ export type Database = {
           repo: string
           runner_id: string | null
           running_at: string | null
-          sent_by: string
+          sent_by: string | null
+          sent_by_app: string | null
           sent_by_key: string | null
           status: string
           to_fleet: string | null
@@ -3608,7 +3609,8 @@ export type Database = {
           repo: string
           runner_id?: string | null
           running_at?: string | null
-          sent_by: string
+          sent_by?: string | null
+          sent_by_app?: string | null
           sent_by_key?: string | null
           status?: string
           to_fleet?: string | null
@@ -3634,7 +3636,8 @@ export type Database = {
           repo?: string
           runner_id?: string | null
           running_at?: string | null
-          sent_by?: string
+          sent_by?: string | null
+          sent_by_app?: string | null
           sent_by_key?: string | null
           status?: string
           to_fleet?: string | null
@@ -6304,7 +6307,8 @@ export type Database = {
           repo: string
           runner_id: string | null
           running_at: string | null
-          sent_by: string
+          sent_by: string | null
+          sent_by_app: string | null
           sent_by_key: string | null
           status: string
           to_fleet: string | null
@@ -6339,7 +6343,8 @@ export type Database = {
           repo: string
           runner_id: string | null
           running_at: string | null
-          sent_by: string
+          sent_by: string | null
+          sent_by_app: string | null
           sent_by_key: string | null
           status: string
           to_fleet: string | null

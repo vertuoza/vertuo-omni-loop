@@ -42,6 +42,14 @@ describe('the board', () => {
     expect(text(jobRow(html, '/omni:pr-care 1801'))).not.toContain('made by');
   });
 
+  it('names the Omni app as the sender of a retro job, with retro of PRD <n> under it, linked to the retro PR (PRD 2338)', () => {
+    const row = jobRow(html, '/omni:retro-apply --retro 2340');
+    expect(text(row)).toContain('Omni app retro of PRD 1717');
+    expect(row).toContain('<a href="https://github.com/acme/widgets/pull/2340">retro of PRD 1717</a>');
+    expect(row).not.toContain('made by');
+    expect(text(row)).not.toContain('A member');
+  });
+
   it('shows PRD <n>, linking its page, and its title under the line of a job that builds a known PRD', () => {
     const row = jobRow(html, '/omni:yolo 1717');
     expect(row).toContain('<a href="/prd/at/acme/widgets/1717?to=page"');
