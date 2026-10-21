@@ -144,6 +144,36 @@ describe('checkStoryboard', () => {
     expect(lines(check(short).warnings)).toContain('scenes: 9.5 s in all; a pitch lasts 15 to 60 s');
   });
 
+  it.each([['scenes.0.title'], ['scenes.1.text'], ['scenes.2.title'], ['scenes.3.title'], ['scenes.4.title'], ['scenes.5.closing']])(
+    'refuses an accent left open in %s, naming the field',
+    (field) => {
+      const report = check(changedStoryboard(field, 'Straight from the **worksite.'));
+      expect(lines(report.errors)).toEqual([`${field}: an accent is left open: close it with another **`]);
+      expect(report.warnings).toEqual([]);
+    },
+  );
+
+  it('refuses an accent left open after a closed one, and warns on nothing then', () => {
+    const report = check(changedStoryboard('scenes.2.title', 'Send **one** quote, **paid'));
+    expect(lines(report.errors)).toEqual(['scenes.2.title: an accent is left open: close it with another **']);
+    expect(report.warnings).toEqual([]);
+  });
+
+  it('passes a title with one accent, of one word or a few', () => {
+    expect(check(changedStoryboard('scenes.2.title', 'Three clicks, **one invoice**.'))).toMatchObject({ errors: [], warnings: [] });
+  });
+
+  it.each([['scenes.0.title'], ['scenes.1.text'], ['scenes.5.closing']])('warns on two accents in %s, without an error', (field) => {
+    const report = check(changedStoryboard(field, 'Send **one**, get **paid**.'));
+    expect(report.errors).toEqual([]);
+    expect(lines(report.warnings)).toEqual([`${field}: 2 accents; a title holds one`]);
+  });
+
+  it('leaves the accent markers out of a word count, and holds no other field to the accent', () => {
+    expect(check(changedStoryboard('scenes.3.steps.0.label', 'Price ** every line, then ** send')).warnings).toEqual([]);
+    expect(check(changedStoryboard('scenes.3.steps.0.label', 'Price **every line')).errors).toEqual([]);
+  });
+
   it('reads a scene with no words as nothing to read', () => {
     const report = check(changedStoryboard('scenes.4.labels', REMOVED));
     expect(report.warnings).toEqual([]);

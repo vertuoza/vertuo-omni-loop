@@ -1,12 +1,62 @@
 // A title built word by word (PRD 1108 s4): each word springs up from blurred to sharp, one after the
-// other, so a title's state at any frame is known.
+// other, so a title's state at any frame is known. Its accent (PRD 2030 s1): `**word**` marks the words
+// drawn in the accent, and a final full stop takes the accent too.
 import { describe, expect, it } from 'vitest';
-import { WORD_STAGGER, revealEnd, titleWords, wordState } from './text.ts';
+import { WORD_STAGGER, parseTitle, revealEnd, titleWords, wordState } from './text.ts';
 
 describe('titleWords', () => {
   it('splits a title on its spaces, keeping punctuation with its word', () => {
     expect(titleWords('  Quotes that   send themselves. ')).toEqual(['Quotes', 'that', 'send', 'themselves.']);
     expect(titleWords('')).toEqual([]);
+  });
+
+  it('leaves the accent markers out of the words', () => {
+    expect(titleWords('Invoice straight from the **worksite**.')).toEqual(['Invoice', 'straight', 'from', 'the', 'worksite.']);
+    expect(titleWords('Three clicks, ** one invoice**.')).toEqual(['Three', 'clicks,', 'one', 'invoice.']);
+  });
+});
+
+describe('parseTitle', () => {
+  it('flags the marked word as the accent and tints the final stop, with no marker left', () => {
+    expect(parseTitle('Invoice straight from the **worksite**.')).toEqual({
+      words: [
+        { text: 'Invoice', accent: false },
+        { text: 'straight', accent: false },
+        { text: 'from', accent: false },
+        { text: 'the', accent: false },
+        { text: 'worksite', accent: true },
+      ],
+      stop: true,
+    });
+  });
+
+  it('accents every word of a few marked together, and only those', () => {
+    expect(parseTitle('Three clicks, **one invoice**.').words).toEqual([
+      { text: 'Three', accent: false },
+      { text: 'clicks,', accent: false },
+      { text: 'one', accent: true },
+      { text: 'invoice', accent: true },
+    ]);
+  });
+
+  it('keeps a stop the accent holds as the final stop, and a title with no stop has none', () => {
+    expect(parseTitle('Straight from the **worksite.**')).toEqual({ words: [{ text: 'Straight', accent: false }, { text: 'from', accent: false }, { text: 'the', accent: false }, { text: 'worksite', accent: true }], stop: true });
+    expect(parseTitle('Quotes that send themselves')).toEqual({ words: ['Quotes', 'that', 'send', 'themselves'].map((text) => ({ text, accent: false })), stop: false });
+  });
+
+  it('takes an ellipsis, a question or a stop in the middle as words, not as the final stop', () => {
+    expect(parseTitle('Wait for it...')).toMatchObject({ stop: false, words: [{ text: 'Wait' }, { text: 'for' }, { text: 'it...' }] });
+    expect(parseTitle('Ready?').stop).toBe(false);
+    expect(parseTitle('One. Two').words.map((word) => word.text)).toEqual(['One.', 'Two']);
+  });
+
+  it('accents nothing after a marker left open, and drops it', () => {
+    expect(parseTitle('Invoice from the **worksite.')).toEqual({ words: ['Invoice', 'from', 'the', 'worksite'].map((text) => ({ text, accent: false })), stop: true });
+  });
+
+  it('holds a stop standing alone as the final stop, and nothing for an empty title', () => {
+    expect(parseTitle('Done .')).toEqual({ words: [{ text: 'Done', accent: false }], stop: true });
+    expect(parseTitle('  ')).toEqual({ words: [], stop: false });
   });
 });
 
@@ -47,5 +97,10 @@ describe('wordState', () => {
 describe('revealEnd', () => {
   it('is when the last word has started, plus a beat', () => {
     expect(revealEnd('One two three', 0.2)).toBeCloseTo(0.2 + 3 * WORD_STAGGER + 0.15, 6);
+  });
+
+  it('counts the words without their markers', () => {
+    expect(revealEnd('One **two** three', 0.2)).toBe(revealEnd('One two three', 0.2));
+    expect(revealEnd('One ** two** three', 0.2)).toBe(revealEnd('One two three', 0.2));
   });
 });
