@@ -14,7 +14,9 @@ const LISTING: SkillsListing = {
   skills: [{ name: 'release-notes', description: 'Drafts the release notes.' }, { name: 'validate-prd', description: null }],
 };
 
-function world({ member = true, listing = LISTING, signedIn = true, database = true, installation = 7 as number | null, broken = false } = {}) {
+type World = { member?: boolean; listing?: SkillsListing; signedIn?: boolean; database?: boolean; installation?: number | null; broken?: boolean };
+
+function world({ member = true, listing = LISTING, signedIn = true, database = true, installation = 7, broken = false }: World = {}) {
   const asked: string[] = [];
   const store: SkillsStore = {
     workspaceOf: (repo) => {

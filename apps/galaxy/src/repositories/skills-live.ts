@@ -25,7 +25,11 @@ export function skillsDeps(): SkillsDeps {
       const { data: { user } } = await db.auth.getUser();
       if (!user) return null;
       const store = repositoriesRepository(db);
-      return { workspaceOf: store.workspaceOf, allowed: store.allowedSkills, logins: store.logins };
+      return {
+        workspaceOf: (repository) => store.workspaceOf(repository),
+        allowed: (workspace, repository) => store.allowedSkills(workspace, repository),
+        logins: (workspace, users) => store.logins(workspace, users),
+      };
     },
     async installation(workspace) {
       const db = await supabaseServer();
