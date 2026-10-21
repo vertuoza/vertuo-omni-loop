@@ -1,7 +1,7 @@
 // Arcade name entry, as a pure reducer: up to 10 characters from A–Z, 0–9 and `-`, typed on a
 // keyboard or spun on a letter wheel (the on-screen pad). `cursor` is the slot being edited;
 // 10 means every slot is full.
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 
 export const WHEEL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-';
 export const NAME_MAX = 10;

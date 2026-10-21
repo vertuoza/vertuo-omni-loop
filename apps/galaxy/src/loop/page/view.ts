@@ -11,7 +11,7 @@
 // - ledgerOf: the ticks and every replan after the first plan, the newest first, each tick linking to
 //   its PRD's page and, since PRD 1162, naming the repositories its step touched (a plan repository's).
 import { z } from 'zod';
-import { PrdNumberSchema, SliceIdSchema, type PrdNumber, type SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema, SliceIdSchema, type PrdNumber, type SliceId } from 'omni-loop/kit/lib/ids.ts';
 import { prdPagePath } from '../../dossier/page/history-at';
 import { loopState, type LoopState, type LoopTimes } from '../state';
 import type { LoopPlan } from '../store';

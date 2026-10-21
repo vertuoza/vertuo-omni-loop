@@ -457,8 +457,8 @@ describe('a law is a locked entry (PRD 1726)', () => {
   });
 
   it('reads a team as the one who locked', () => {
-    const [rule] = entriesOf('r.md', ruleWith('Locked: @vertuoza/core, 2026-10-14'), DOMAIN_RULES);
-    expect(rule.locked).toEqual({ by: 'vertuoza/core', on: '2026-10-14' });
+    const [rule] = entriesOf('r.md', ruleWith('Locked: @demo-org/core, 2026-10-14'), DOMAIN_RULES);
+    expect(rule.locked).toEqual({ by: 'demo-org/core', on: '2026-10-14' });
   });
 
   it('reads an entry without them as null, and keeps Proposed: apart from Proposed law:', () => {

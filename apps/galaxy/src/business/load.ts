@@ -10,7 +10,7 @@ import { DRAFT_COLUMNS, StoredDraft } from './draft-port';
 import { PAGE_COLUMNS, WebPage, type DraftView } from './reveal';
 import { PERSONA_COLUMNS, personaOf, StoredPersona, type Persona } from './personas';
 import { orEmpty, orThrow, parseRow, parseRows } from '../data/parse-rows';
-import { at, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { RpcAnswer } from './answer';
 
 // Settings → Business's read (PRD 748 s2), as the signed-in person, so row-level security decides what

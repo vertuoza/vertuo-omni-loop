@@ -4,7 +4,7 @@ import type { ConceptReader, FixReader, FixRef } from '../../dossier/github/read
 import { UNREAD } from '../../dossier/github/summary';
 import { isConceptFinal, mergeFacts, refreshConceptFacts, refreshFixFacts } from './refresh';
 import { fakeConceptFactsStore, fakeFixFactsStore } from './store.fake';
-import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr } from 'omni-loop/kit/lib/ids.ts';
 
 // PRD 691, s1: what GitHub says of each fix, read through the reader and stored in fix_facts, so /bugs and
 // /visual render without GitHub. A part GitHub could not read keeps what was stored; a fix whose whole

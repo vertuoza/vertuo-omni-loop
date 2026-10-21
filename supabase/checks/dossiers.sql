@@ -24,21 +24,24 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 insert into auth.users (id, email) values
-  ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
-  ('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com'),
+  ('00000000-0000-4000-8000-0000000000b1', 'bob@example.com'),
   ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
 -- A second workspace, Acme, owns the GitHub organisation acme, and a third, Globex, owns globex and has
--- no member here. Ada joined Vertuoza first, then Acme; Bob belongs to Vertuoza, Carl to Acme, Eve to
+-- no member here. Ada joined Initech first, then Acme; Bob belongs to Initech, Carl to Acme, Eve to
 -- none.
 insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme'), ('globex', 'Globex', 'globex');
 insert into public.workspace_members (workspace_id, user_id, joined_at)
 select w.id, m.user_id, m.joined_at
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000000a1'::uuid, now() - interval '2 days'),
+         ('initech', '00000000-0000-4000-8000-0000000000a1'::uuid, now() - interval '2 days'),
          ('acme',     '00000000-0000-4000-8000-0000000000a1'::uuid, now() - interval '1 day'),
-         ('vertuoza', '00000000-0000-4000-8000-0000000000b1'::uuid, now() - interval '1 day'),
+         ('initech', '00000000-0000-4000-8000-0000000000b1'::uuid, now() - interval '1 day'),
          ('acme',     '00000000-0000-4000-8000-0000000000c1'::uuid, now() - interval '1 day')
        ) as m (slug, user_id, joined_at)
   join public.workspaces w on w.slug = m.slug;
@@ -60,16 +63,16 @@ begin
   exception when insufficient_privilege then null; end;
   begin perform 1 from public.dossier_versions limit 1; raise exception 'FAIL: anon read the dossier versions';
   exception when insufficient_privilege then null; end;
-  begin perform public.dossier_open('An idea', 'vertuoza/vertuo-omni-loop', null); raise exception 'FAIL: anon opened a draft';
+  begin perform public.dossier_open('An idea', 'initech/nimbus-plan', null); raise exception 'FAIL: anon opened a draft';
   exception when insufficient_privilege then null; end;
-  begin perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'An idea', null, '[]'); raise exception 'FAIL: anon pushed a dossier';
+  begin perform public.dossier_push('initech/nimbus-plan', 7, 'An idea', null, '[]'); raise exception 'FAIL: anon pushed a dossier';
   exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 
 -- ── Ada opens a draft, and a push numbers it and lands versions ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   draft uuid;
@@ -77,10 +80,10 @@ declare
   pushed jsonb;
   n int;
 begin
-  draft := public.dossier_open('  A team inbox  ', 'Vertuoza/Vertuo-Omni-Loop', 'sess-a');
+  draft := public.dossier_open('  A team inbox  ', 'Initech/Nimbus-Plan', 'sess-a');
   if not exists (
     select 1 from public.dossiers d join public.workspaces w on w.id = d.workspace_id
-     where d.id = draft and w.slug = 'vertuoza' and d.home_repo = 'vertuoza/vertuo-omni-loop' and d.prd is null
+     where d.id = draft and w.slug = 'initech' and d.home_repo = 'initech/nimbus-plan' and d.prd is null
        and d.numbered_at is null and d.title = 'A team inbox' and d.opened_by = '00000000-0000-4000-8000-0000000000a1'
        and d.claude_session_id = 'sess-a') then
     raise exception 'FAIL: a draft did not open in the workspace of the repository, as its opener, with its Claude session';
@@ -92,7 +95,7 @@ begin
 
   -- Nothing is written but through the functions.
   begin
-    insert into public.dossiers (workspace_id, home_repo, title) values ((select id from public.workspaces where slug = 'vertuoza'), 'vertuoza/planted', 'planted');
+    insert into public.dossiers (workspace_id, home_repo, title) values ((select id from public.workspaces where slug = 'initech'), 'initech/planted', 'planted');
     raise exception 'FAIL: a signed-in account wrote a dossier directly';
   exception when insufficient_privilege then null; end;
   begin
@@ -110,7 +113,7 @@ begin
   exception when insufficient_privilege then null; end;
 
   -- The push numbers the draft, takes the spec's title, and adds v1 of each kind.
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', draft,
+  pushed := public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', draft,
     '[{"kind": "spec", "content": "spec one"}, {"kind": "plan", "content": "plan one"}]');
   if pushed <> jsonb_build_object('id', draft, 'added', '[{"kind": "spec", "version": 1}, {"kind": "plan", "version": 1}]'::jsonb, 'unchanged', '[]'::jsonb, 'product', null) then
     raise exception 'FAIL: the first push answered %', pushed;
@@ -127,16 +130,16 @@ begin
   end if;
 
   -- The same content again adds nothing; a change adds one; going back to an earlier state is still new.
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec one"}]');
+  pushed := public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec one"}]');
   if pushed -> 'added' <> '[]'::jsonb or pushed -> 'unchanged' <> '["spec"]'::jsonb or (pushed ->> 'id')::uuid <> draft then
     raise exception 'FAIL: an unchanged file was not reported unchanged on the dossier keyed by repository and PRD: %', pushed;
   end if;
   if (select count(*) from public.dossier_versions where dossier_id = draft) <> 2 then
     raise exception 'FAIL: dossier_push() added a version for an unchanged file';
   end if;
-  pushed := public.dossier_push('VERTUOZA/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec two"}]');
+  pushed := public.dossier_push('INITECH/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec two"}]');
   if pushed -> 'added' <> '[{"kind": "spec", "version": 2}]'::jsonb then raise exception 'FAIL: a changed spec did not add v2: %', pushed; end if;
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec one"}]');
+  pushed := public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec one"}]');
   if pushed -> 'added' <> '[{"kind": "spec", "version": 3}]'::jsonb then raise exception 'FAIL: a spec back to its first state did not add v3: %', pushed; end if;
   insert into ids values ('dossier', draft), ('acme', other);
 
@@ -157,38 +160,38 @@ begin
 
   -- The refusals.
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', '00000000-0000-4000-8000-00000000ffff', '[]');
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', '00000000-0000-4000-8000-00000000ffff', '[]');
     raise exception 'FAIL: a push named a draft that does not exist';
   exception when no_data_found then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 9, 'Team inbox', other, '[]');
+    perform public.dossier_push('initech/nimbus-plan', 9, 'Team inbox', other, '[]');
     raise exception 'FAIL: a push numbered a draft of another repository';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 8, 'Team inbox', draft, '[]');
+    perform public.dossier_push('initech/nimbus-plan', 8, 'Team inbox', draft, '[]');
     raise exception 'FAIL: a push renumbered a dossier';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "retro", "content": "x"}]');
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "retro", "content": "x"}]');
     raise exception 'FAIL: a push took an artifact of an unknown kind';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "plan", "content": "a"}, {"kind": "plan", "content": "b"}]');
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "plan", "content": "a"}, {"kind": "plan", "content": "b"}]');
     raise exception 'FAIL: a push took the same kind twice';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, jsonb_build_array(jsonb_build_object('kind', 'before-after', 'content', repeat('x', 524289))));
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, jsonb_build_array(jsonb_build_object('kind', 'before-after', 'content', repeat('x', 524289))));
     raise exception 'FAIL: a push stored an artifact over 512 KiB';
   exception when program_limit_exceeded then null; end;
   if (select count(*) from public.dossier_versions where dossier_id = draft) <> 4 then
     raise exception 'FAIL: a refused push left a version behind';
   end if;
 
-  insert into ids values ('draft', public.dossier_open('Another idea', 'vertuoza/vertuo-omni-loop', null));
+  insert into ids values ('draft', public.dossier_open('Another idea', 'initech/nimbus-plan', null));
 end $$;
 
 -- ── Bob, a member who is not the opener: reads everything, deletes nothing, pushes the next version ──
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
   did constant uuid := (select id from ids where name = 'dossier');
@@ -210,7 +213,7 @@ begin
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: a member deleted a draft they did not open'; end if;
 
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "plan", "content": "plan two"}]');
+  pushed := public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "plan", "content": "plan two"}]');
   if (pushed ->> 'id')::uuid <> did or pushed -> 'added' <> '[{"kind": "plan", "version": 2}]'::jsonb then
     raise exception 'FAIL: a member could not push the next version of their workspace''s dossier: %', pushed;
   end if;
@@ -219,7 +222,7 @@ begin
   end if;
 end $$;
 
--- ── Carl, of another workspace: reads nothing of Vertuoza's, reaches none of its drafts ──
+-- ── Carl, of another workspace: reads nothing of Initech's, reaches none of its drafts ──
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
 do $$
 declare
@@ -238,28 +241,28 @@ begin
     raise exception 'FAIL: an account read the versions of another workspace''s dossier';
   end if;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', draft, '[]');
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', draft, '[]');
     raise exception 'FAIL: an account of another workspace numbered its draft';
   exception when no_data_found then null; end;
   delete from public.dossiers where id = draft;
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: an account of another workspace deleted a draft'; end if;
 
-  -- A repository Vertuoza owns is Vertuoza's (PRD 459): a push from Acme is refused, naming Vertuoza,
-  -- and adds nothing to Vertuoza's dossier.
+  -- A repository Initech owns is Initech's (PRD 459): a push from Acme is refused, naming Initech,
+  -- and adds nothing to Initech's dossier.
   begin
-    pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec one"}]');
-    raise exception 'FAIL: a push from another workspace went through for a repository Vertuoza owns: %', pushed;
+    pushed := public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec one"}]');
+    raise exception 'FAIL: a push from another workspace went through for a repository Initech owns: %', pushed;
   exception when insufficient_privilege then
-    if sqlerrm <> 'you are not a member of Vertuoza, which owns vertuoza/vertuo-omni-loop' then
+    if sqlerrm <> 'you are not a member of Initech, which owns initech/nimbus-plan' then
       raise exception 'FAIL: the refusal of a push for a repository another workspace owns reads %', sqlerrm;
     end if;
   end;
   begin
-    perform public.dossier_open('An idea', 'vertuoza/vertuo-omni-loop', null);
-    raise exception 'FAIL: an account of another workspace opened a draft for a repository Vertuoza owns';
+    perform public.dossier_open('An idea', 'initech/nimbus-plan', null);
+    raise exception 'FAIL: an account of another workspace opened a draft for a repository Initech owns';
   exception when insufficient_privilege then
-    if sqlerrm <> 'you are not a member of Vertuoza, which owns vertuoza/vertuo-omni-loop' then
+    if sqlerrm <> 'you are not a member of Initech, which owns initech/nimbus-plan' then
       raise exception 'FAIL: the refusal of a draft for a repository another workspace owns reads %', sqlerrm;
     end if;
   end;
@@ -301,11 +304,11 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000000e1', 'eve@example.com'
 do $$
 begin
   begin
-    perform public.dossier_open('An idea', 'vertuoza/vertuo-omni-loop', null);
+    perform public.dossier_open('An idea', 'initech/nimbus-plan', null);
     raise exception 'FAIL: an account in no workspace opened a draft';
   exception when insufficient_privilege then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec three"}]');
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec three"}]');
     raise exception 'FAIL: dossier_push() did not refuse an account in no workspace';
   exception when insufficient_privilege then null; end;
   begin
@@ -330,7 +333,7 @@ begin
 end $$;
 
 -- ── Only the opener deletes a draft ──
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   draft constant uuid := (select id from ids where name = 'draft');
@@ -349,7 +352,7 @@ declare
   found_id uuid;
 begin
   insert into public.dossiers (workspace_id, home_repo, prd, title, numbered_at)
-  values ((select id from public.workspaces where slug = 'vertuoza'), 'vertuoza/vertuo-omni-loop', 8, 'team-roster', now())
+  values ((select id from public.workspaces where slug = 'initech'), 'initech/nimbus-plan', 8, 'team-roster', now())
   returning id into found_id;
   insert into ids values ('fallback', found_id);
   if public.dossier_add_version(found_id, 'spec', 'spec from github', 'github', null, 'a1b2c3d', 'b10b5ea') is distinct from 1 then
@@ -370,15 +373,15 @@ end $$;
 reset role;
 
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   found_id constant uuid := (select id from ids where name = 'fallback');
   draft uuid;
   pushed jsonb;
 begin
-  draft := public.dossier_open('A team roster', 'vertuoza/vertuo-omni-loop', 'sess-m');
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 8, 'Team roster', draft,
+  draft := public.dossier_open('A team roster', 'initech/nimbus-plan', 'sess-m');
+  pushed := public.dossier_push('initech/nimbus-plan', 8, 'Team roster', draft,
     '[{"kind": "spec", "content": "spec from github"}, {"kind": "plan", "content": "roster plan"}]');
   if pushed <> jsonb_build_object('id', found_id, 'added', '[{"kind": "plan", "version": 1}]'::jsonb, 'unchanged', '["spec"]'::jsonb, 'product', null) then
     raise exception 'FAIL: a draft numbered to the fallback''s dossier did not land on it: %', pushed;
@@ -422,14 +425,14 @@ end $$;
 
 -- ── The questions that shaped a dossier: dossier_rounds() (PRD 216, step 3) ──
 -- Written as the database owner, past row-level security, so each row is dated where the rules need it:
--- Vertuoza's PRD 30 of vertuoza/tiles, opened 10 hours ago in the Claude session sess-r, and PRD 31,
+-- Initech's PRD 30 of initech/tiles, opened 10 hours ago in the Claude session sess-r, and PRD 31,
 -- opened 5 hours ago in the same Claude session, which ends PRD 30's brainstorm. Acme holds a dossier of
 -- its own for the same repository, number and Claude session, opened 7 hours ago: it belongs to another
--- workspace, so it ends nothing of Vertuoza's. A draft with neither a Claude session nor a number.
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+-- workspace, so it ends nothing of Initech's. A draft with neither a Claude session nor a number.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
-  vertuoza constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  initech constant uuid := (select id from public.workspaces where slug = 'initech');
   acme constant uuid := (select id from public.workspaces where slug = 'acme');
   ada constant uuid := '00000000-0000-4000-8000-0000000000a1';
   bob constant uuid := '00000000-0000-4000-8000-0000000000b1';
@@ -446,26 +449,26 @@ begin
     ('prd30', gen_random_uuid()), ('prd31', gen_random_uuid()), ('acme30', gen_random_uuid()), ('draft', gen_random_uuid())
   ) as x (name, id);
   insert into public.dossiers (id, workspace_id, home_repo, prd, title, opened_by, claude_session_id, created_at, numbered_at) values
-    ((select id from ids where name = 'q-prd30'), vertuoza, 'vertuoza/tiles', 30, 'Tiles', ada, 'sess-r', now() - interval '10 hours', now() - interval '9 hours'),
-    ((select id from ids where name = 'q-prd31'), vertuoza, 'vertuoza/tiles', 31, 'Grout', ada, 'sess-r', now() - interval '5 hours', now() - interval '4 hours'),
-    ((select id from ids where name = 'q-acme30'), acme, 'vertuoza/tiles', 30, 'Tiles at Acme', carl, 'sess-r', now() - interval '7 hours', now() - interval '7 hours'),
-    ((select id from ids where name = 'q-draft'), vertuoza, 'vertuoza/tiles', null, 'Sealant', ada, null, now() - interval '12 hours', null);
+    ((select id from ids where name = 'q-prd30'), initech, 'initech/tiles', 30, 'Tiles', ada, 'sess-r', now() - interval '10 hours', now() - interval '9 hours'),
+    ((select id from ids where name = 'q-prd31'), initech, 'initech/tiles', 31, 'Grout', ada, 'sess-r', now() - interval '5 hours', now() - interval '4 hours'),
+    ((select id from ids where name = 'q-acme30'), acme, 'initech/tiles', 30, 'Tiles at Acme', carl, 'sess-r', now() - interval '7 hours', now() - interval '7 hours'),
+    ((select id from ids where name = 'q-draft'), initech, 'initech/tiles', null, 'Sealant', ada, null, now() - interval '12 hours', null);
 
   -- The ask sessions: each lands in its workspace by its owner and repository, as PRD 144 places it.
   insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
-  values (ada, 'tiles · main', 'Vertuoza/Tiles', 'main', 'sess-r') returning id into s_ada;
+  values (ada, 'tiles · main', 'Initech/Tiles', 'main', 'sess-r') returning id into s_ada;
   insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
-  values (bob, 'tiles · feat/tiles--s2', 'vertuoza/tiles', 'feat/tiles--s2', 'sess-bob') returning id into s_bob;
+  values (bob, 'tiles · feat/tiles--s2', 'initech/tiles', 'feat/tiles--s2', 'sess-bob') returning id into s_bob;
   insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
-  values (bob, 'stones · feat/stones', 'vertuoza/stones', 'feat/stones', 'sess-stones') returning id into s_stones;
-  -- Carl's, of Acme, for a repository Vertuoza owns: opened before PRD 459 refused that, when it still
+  values (bob, 'stones · feat/stones', 'initech/stones', 'feat/stones', 'sess-stones') returning id into s_stones;
+  -- Carl's, of Acme, for a repository Initech owns: opened before PRD 459 refused that, when it still
   -- landed in his own workspace. Written as it was then, past the trigger that now refuses it.
   alter table public.ask_sessions disable trigger ask_sessions_place;
   insert into public.ask_sessions (owner, title, repo, branch, claude_session_id, workspace_id)
-  values (carl, 'tiles at acme', 'vertuoza/tiles', 'main', 'sess-r', acme) returning id into s_carl;
+  values (carl, 'tiles at acme', 'initech/tiles', 'main', 'sess-r', acme) returning id into s_carl;
   alter table public.ask_sessions enable trigger ask_sessions_place;
   if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = s_carl) <> 'acme'
-     or (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = s_ada) <> 'vertuoza' then
+     or (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = s_ada) <> 'initech' then
     raise exception 'FAIL: the ask sessions of the rounds checks did not land in the workspaces they need';
   end if;
 
@@ -509,7 +512,7 @@ grant execute on function pg_temp.rounds_of(text) to authenticated;
 
 -- ── Bob, a member: each dossier's rounds by the two rules, once each, in the order they were asked ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
   got text;
@@ -532,7 +535,7 @@ begin
   select * into found_round from public.dossier_rounds((select id from ids where name = 'q-prd30')) r
    where r.round_id = (select id from ids where name = 'q-delivery');
   if found_round.asked_by is distinct from '00000000-0000-4000-8000-0000000000b1'::uuid
-     or found_round.repo is distinct from 'vertuoza/tiles' or found_round.branch is distinct from 'feat/tiles--s2'
+     or found_round.repo is distinct from 'initech/tiles' or found_round.branch is distinct from 'feat/tiles--s2'
      or found_round.status is distinct from 'answered' or found_round.answered_via is distinct from 'page'
      or found_round.answered_by is distinct from '00000000-0000-4000-8000-0000000000b1'::uuid
      or found_round.answers is distinct from '{"Square or hexagonal tiles?": "Hexagonal"}'::jsonb
@@ -545,7 +548,7 @@ begin
    where r.round_id = (select id from ids where name = 'q-brainstorm');
   if found_round.asked_by is distinct from '00000000-0000-4000-8000-0000000000a1'::uuid
      or found_round.answered_by is distinct from '00000000-0000-4000-8000-0000000000a1'::uuid
-     or found_round.answered_via is distinct from 'terminal' or found_round.repo is distinct from 'Vertuoza/Tiles'
+     or found_round.answered_via is distinct from 'terminal' or found_round.repo is distinct from 'Initech/Tiles'
      or found_round.category is not null then
     raise exception 'FAIL: a brainstorm round did not name who asked it and who answered it: %', row_to_json(found_round);
   end if;
@@ -559,7 +562,7 @@ begin
 end $$;
 
 -- ── Ada, a member of both workspaces: each dossier reads its own workspace's rounds only ──
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   got text;
@@ -574,12 +577,12 @@ begin
   end if;
 end $$;
 
--- ── Carl, of another workspace: nothing of Vertuoza's ──
+-- ── Carl, of another workspace: nothing of Initech's ──
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
 do $$
 begin
   if pg_temp.rounds_of('q-prd30') <> '' or pg_temp.rounds_of('q-prd31') <> '' then
-    raise exception 'FAIL: an account of another workspace read the rounds of a Vertuoza dossier';
+    raise exception 'FAIL: an account of another workspace read the rounds of an Initech dossier';
   end if;
   if pg_temp.rounds_of('q-acme30') <> 'q-acme:brainstorm' then
     raise exception 'FAIL: a member of Acme did not read the rounds of an Acme dossier';
@@ -621,20 +624,20 @@ begin
 end $$;
 
 -- ── The history: dossier_list() (PRD 216, step 4) ──
--- Written as the database owner, past row-level security. Vertuoza's plan repository is
--- vertuoza/vertuo-omni-loop (the sectors migration); Acme's becomes acme/plans here. PRD 40 of Vertuoza's
+-- Written as the database owner, past row-level security. Initech's plan repository is
+-- initech/nimbus-plan (the sectors migration); Acme's becomes acme/plans here. PRD 40 of Initech's
 -- plan repository, opened 3 days ago in the Claude session sess-l: its spec at v2 (the second read from
 -- GitHub) and its before/after page at v1, no plan; a brainstorm question asked in
--- Vertuoza/Vertuo-AI-Domain and answered, a delivery question asked in its home repository named in
--- another case; its planet surveyed in vertuo-core (twice, once in another case) and vertuo-web, a zone
--- opened in vertuo-mobile, and PRD 41's planet surveyed in vertuo-mobile. PRD 40 of vertuoza/tiles,
+-- Initech/Nimbus-Brain and answered, a delivery question asked in its home repository named in
+-- another case; its planet surveyed in nimbus-core (twice, once in another case) and nimbus-web, a zone
+-- opened in nimbus-app, and PRD 41's planet surveyed in nimbus-app. PRD 40 of initech/tiles,
 -- which the fallback created: not the plan repository, so the planet's regions are not its own, and
 -- nothing else happened to it since it was numbered 4 days ago. A draft opened 6 days ago, untouched.
 -- Acme's PRD 40 of acme/plans, its planet surveyed in acme-core.
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
-  vertuoza constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  initech constant uuid := (select id from public.workspaces where slug = 'initech');
   acme constant uuid := (select id from public.workspaces where slug = 'acme');
   ada constant uuid := '00000000-0000-4000-8000-0000000000a1';
   bob constant uuid := '00000000-0000-4000-8000-0000000000b1';
@@ -649,33 +652,33 @@ declare
   s_delivery uuid;
   r_brainstorm uuid;
 begin
-  if (select w.plan_repo from public.workspaces w where w.id = vertuoza) is distinct from 'vertuo-omni-loop' then
-    raise exception 'FAIL: the history checks expect vertuoza/vertuo-omni-loop as Vertuoza''s plan repository';
+  if (select w.plan_repo from public.workspaces w where w.id = initech) is distinct from 'nimbus-plan' then
+    raise exception 'FAIL: the history checks expect initech/nimbus-plan as Initech''s plan repository';
   end if;
   update public.workspaces set plan_repo = 'plans' where id = acme;
   insert into ids values ('l-plan40', plan40), ('l-tiles40', tiles40), ('l-draft', draft), ('l-acme40', acme40);
   insert into public.dossiers (id, workspace_id, home_repo, prd, title, opened_by, claude_session_id, created_at, numbered_at) values
-    (plan40,  vertuoza, 'vertuoza/vertuo-omni-loop', 40,   'Invoice reminders', ada,  'sess-l', now() - interval '3 days', now() - interval '71 hours'),
-    (tiles40, vertuoza, 'vertuoza/tiles',            40,   'Tile sizes',        null, null,     now() - interval '5 days', now() - interval '4 days'),
-    (draft,   vertuoza, 'vertuoza/tiles',            null, 'Grout colours',     bob,  null,     now() - interval '6 days', null),
+    (plan40,  initech, 'initech/nimbus-plan', 40,   'Invoice reminders', ada,  'sess-l', now() - interval '3 days', now() - interval '71 hours'),
+    (tiles40, initech, 'initech/tiles',            40,   'Tile sizes',        null, null,     now() - interval '5 days', now() - interval '4 days'),
+    (draft,   initech, 'initech/tiles',            null, 'Grout colours',     bob,  null,     now() - interval '6 days', null),
     (acme40,  acme,     'acme/plans',                40,   'Acme reminders',    carl, null,     now() - interval '2 days', now() - interval '2 days');
   perform public.dossier_add_version(plan40, 'spec', 'reminders spec one', 'kit', ada);
   perform public.dossier_add_version(plan40, 'before-after', 'reminders page', 'kit', ada);
   perform public.dossier_add_version(plan40, 'spec', 'reminders spec two', 'github', null, 'a1b2c3d', 'b10b5ea');
 
   insert into public.ledger_events (workspace_id, id, at, type, planet, region) values
-    (vertuoza, 'check:region:vertuo-core:40:surveyed',   now() - interval '60 hours', 'REGION_SURVEYED', 40, 'vertuo-core'),
-    (vertuoza, 'check:region:vertuo-core:40:again',      now() - interval '50 hours', 'REGION_SURVEYED', 40, 'Vertuo-Core'),
-    (vertuoza, 'check:region:vertuo-web:40:surveyed',    now() - interval '40 hours', 'REGION_SURVEYED', 40, 'vertuo-web'),
-    (vertuoza, 'check:planet:40:charted',                now() - interval '70 hours', 'PLANET_CHARTED',  40, null),
-    (vertuoza, 'check:zone:vertuo-mobile:40:opened',     now() - interval '30 hours', 'ZONE_OPENED',     40, 'vertuo-mobile'),
-    (vertuoza, 'check:region:vertuo-mobile:41:surveyed', now() - interval '30 hours', 'REGION_SURVEYED', 41, 'vertuo-mobile'),
+    (initech, 'check:region:nimbus-core:40:surveyed',   now() - interval '60 hours', 'REGION_SURVEYED', 40, 'nimbus-core'),
+    (initech, 'check:region:nimbus-core:40:again',      now() - interval '50 hours', 'REGION_SURVEYED', 40, 'Nimbus-Core'),
+    (initech, 'check:region:nimbus-web:40:surveyed',    now() - interval '40 hours', 'REGION_SURVEYED', 40, 'nimbus-web'),
+    (initech, 'check:planet:40:charted',                now() - interval '70 hours', 'PLANET_CHARTED',  40, null),
+    (initech, 'check:zone:nimbus-app:40:opened',     now() - interval '30 hours', 'ZONE_OPENED',     40, 'nimbus-app'),
+    (initech, 'check:region:nimbus-app:41:surveyed', now() - interval '30 hours', 'REGION_SURVEYED', 41, 'nimbus-app'),
     (acme,     'check:region:acme-core:40:surveyed',     now() - interval '30 hours', 'REGION_SURVEYED', 40, 'acme-core');
 
   insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
-  values (ada, 'vertuo-ai-domain · main', 'Vertuoza/Vertuo-AI-Domain', 'main', 'sess-l') returning id into s_brainstorm;
+  values (ada, 'nimbus-brain · main', 'Initech/Nimbus-Brain', 'main', 'sess-l') returning id into s_brainstorm;
   insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
-  values (bob, 'vertuo-omni-loop · feat/invoice-reminders--s1', 'Vertuoza/Vertuo-Omni-Loop', 'feat/invoice-reminders--s1', 'sess-lb')
+  values (bob, 'nimbus-plan · feat/invoice-reminders--s1', 'Initech/Nimbus-Plan', 'feat/invoice-reminders--s1', 'sess-lb')
   returning id into s_delivery;
   insert into public.ask_rounds (session_id, questions, created_at, prd, skill)
   values (s_brainstorm, asked, now() - interval '2 days', null, '/omni:brainstorm') returning id into r_brainstorm;
@@ -695,10 +698,10 @@ grant execute on function pg_temp.list_order() to authenticated;
 
 -- ── Bob, a member: every dossier of his workspace, and nothing else, each as the history lists it ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
-  vertuoza constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  initech constant uuid := (select id from public.workspaces where slug = 'initech');
   plan40 constant uuid := (select id from ids where name = 'l-plan40');
   tiles40 constant uuid := (select id from ids where name = 'l-tiles40');
   draft constant uuid := (select id from ids where name = 'l-draft');
@@ -708,14 +711,14 @@ begin
   if (select count(*) from public.dossier_list()) <> (select count(*) from public.dossiers) then
     raise exception 'FAIL: dossier_list() did not list every dossier a member reads, once each';
   end if;
-  if exists (select 1 from public.dossier_list() l where l.workspace_id <> vertuoza) then
+  if exists (select 1 from public.dossier_list() l where l.workspace_id <> initech) then
     raise exception 'FAIL: dossier_list() listed a dossier of a workspace its caller does not belong to';
   end if;
 
   -- PRD 40 of the plan repository: its home, its questions' repository and its planet's regions, once
   -- each and in lower case; its latest version of each kind it has; its rounds; its latest version's time.
   select * into listed from public.dossier_list() l where l.id = plan40;
-  if listed.repos is distinct from array['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-core', 'vertuoza/vertuo-web'] then
+  if listed.repos is distinct from array['initech/nimbus-plan', 'initech/nimbus-brain', 'initech/nimbus-core', 'initech/nimbus-web'] then
     raise exception 'FAIL: a PRD of the plan repository did not list its home, its questions'' and its planet''s repositories: %', listed.repos;
   end if;
   if listed.latest -> 'spec' ->> 'version' is distinct from '2' or listed.latest -> 'spec' ->> 'source' is distinct from 'github'
@@ -728,13 +731,13 @@ begin
     raise exception 'FAIL: dossier_list() did not count a dossier''s rounds asked and answered: % asked, % answered', listed.asked, listed.answered;
   end if;
   if listed.last_activity is distinct from (select max(v.created_at) from public.dossier_versions v where v.dossier_id = plan40)
-     or listed.prd is distinct from 40 or listed.title is distinct from 'Invoice reminders' or listed.home_repo is distinct from 'vertuoza/vertuo-omni-loop' then
+     or listed.prd is distinct from 40 or listed.title is distinct from 'Invoice reminders' or listed.home_repo is distinct from 'initech/nimbus-plan' then
     raise exception 'FAIL: a dossier''s last activity is not its latest version, or its row is not its own: %', row_to_json(listed);
   end if;
 
   -- PRD 40 of another repository: the planet's regions are the plan repository's PRD's, not its own.
   select * into listed from public.dossier_list() l where l.id = tiles40;
-  if listed.repos is distinct from array['vertuoza/tiles'] or listed.latest is distinct from '{}'::jsonb
+  if listed.repos is distinct from array['initech/tiles'] or listed.latest is distinct from '{}'::jsonb
      or listed.asked is distinct from 0 or listed.answered is distinct from 0 or listed.last_activity is distinct from now() - interval '4 days' then
     raise exception 'FAIL: a dossier of another repository, with nothing but its numbering, did not list as such: %', row_to_json(listed);
   end if;
@@ -743,10 +746,10 @@ begin
     raise exception 'FAIL: an untouched draft did not list with its opening as its last activity: %', row_to_json(listed);
   end if;
 
-  -- PRD 30 of vertuoza/tiles (the rounds checks): its rounds asked in Vertuoza/Tiles and vertuoza/tiles
+  -- PRD 30 of initech/tiles (the rounds checks): its rounds asked in Initech/Tiles and initech/tiles
   -- are its home, once; an answer given in this transaction is its last activity.
   select * into listed from public.dossier_list() l where l.id = (select id from ids where name = 'q-prd30');
-  if listed.repos is distinct from array['vertuoza/tiles'] or listed.asked is distinct from 4 or listed.answered is distinct from 2
+  if listed.repos is distinct from array['initech/tiles'] or listed.asked is distinct from 4 or listed.answered is distinct from 2
      or listed.last_activity is distinct from now() then
     raise exception 'FAIL: PRD 30 did not list its home once, its four rounds, two answered, and its latest answer as its last activity: %', row_to_json(listed);
   end if;
@@ -778,7 +781,7 @@ begin
 end $$;
 
 -- ── Ada, a member of both workspaces: each dossier with its own workspace's repositories ──
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 begin
   if (select l.repos from public.dossier_list() l where l.id = (select id from ids where name = 'l-acme40'))
@@ -786,23 +789,23 @@ begin
     raise exception 'FAIL: a PRD of Acme''s plan repository did not list its planet''s regions as Acme''s repositories';
   end if;
   if (select l.repos from public.dossier_list() l where l.id = (select id from ids where name = 'l-plan40'))
-     is distinct from array['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-core', 'vertuoza/vertuo-web'] then
-    raise exception 'FAIL: a member of two workspaces read another workspace''s regions on a Vertuoza PRD';
+     is distinct from array['initech/nimbus-plan', 'initech/nimbus-brain', 'initech/nimbus-core', 'initech/nimbus-web'] then
+    raise exception 'FAIL: a member of two workspaces read another workspace''s regions on an Initech PRD';
   end if;
   if (select count(*) from public.dossier_list()) <> (select count(*) from public.dossiers) then
     raise exception 'FAIL: dossier_list() did not list every dossier of both workspaces to a member of both';
   end if;
 end $$;
 
--- ── Carl, of another workspace: lists nothing of Vertuoza's ──
+-- ── Carl, of another workspace: lists nothing of Initech's ──
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
 do $$
 declare
-  vertuoza constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  initech constant uuid := (select id from public.workspaces where slug = 'initech');
 begin
-  if exists (select 1 from public.dossier_list() l where l.workspace_id = vertuoza)
+  if exists (select 1 from public.dossier_list() l where l.workspace_id = initech)
      or exists (select 1 from public.dossier_list((select id from ids where name = 'l-plan40'))) then
-    raise exception 'FAIL: an account of another workspace listed a Vertuoza dossier';
+    raise exception 'FAIL: an account of another workspace listed an Initech dossier';
   end if;
   if (select l.repos from public.dossier_list() l where l.id = (select id from ids where name = 'l-acme40'))
      is distinct from array['acme/plans', 'acme/acme-core'] then
@@ -855,7 +858,7 @@ begin
 end $$;
 
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   prd7 constant uuid := (select id from ids where name = 'dossier');
@@ -864,7 +867,7 @@ declare
   bug uuid;
 begin
   -- A visual fix numbered 7, as PRD 7 is, in the same repository: a dossier of its own.
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Sidebar darker', null,
+  pushed := public.dossier_push('initech/nimbus-plan', 7, 'Sidebar darker', null,
     '[{"kind": "before-after", "content": "page one"}, {"kind": "variations", "content": "round one"}, {"kind": "variations", "content": "round two"}]',
     'visual');
   visual := (pushed ->> 'id')::uuid;
@@ -879,7 +882,7 @@ begin
   end if;
 
   -- The rounds again, then with a third: only the third is added, as round 3.
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Sidebar darker', null,
+  pushed := public.dossier_push('initech/nimbus-plan', 7, 'Sidebar darker', null,
     '[{"kind": "before-after", "content": "page one"}, {"kind": "variations", "content": "round one"}, {"kind": "variations", "content": "round two"}, {"kind": "variations", "content": "round three"}]',
     'visual');
   if (pushed ->> 'id')::uuid <> visual or pushed -> 'added' <> '[{"kind": "variations", "version": 3}]'::jsonb
@@ -888,13 +891,13 @@ begin
   end if;
 
   -- A push with no kind is a PRD's, exactly as before.
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "plan", "content": "plan two"}]');
+  pushed := public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "plan", "content": "plan two"}]');
   if (pushed ->> 'id')::uuid <> prd7 or pushed -> 'added' <> '[]'::jsonb then
     raise exception 'FAIL: a push without a kind did not reach PRD 7''s dossier: %', pushed;
   end if;
 
   -- A bug fix takes its bug record.
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 571, 'omni reads 1e2 as a number', null, '[{"kind": "bug-record", "content": "# Bug 571"}]', 'bug');
+  pushed := public.dossier_push('initech/nimbus-plan', 571, 'omni reads 1e2 as a number', null, '[{"kind": "bug-record", "content": "# Bug 571"}]', 'bug');
   bug := (pushed ->> 'id')::uuid;
   if pushed -> 'added' <> '[{"kind": "bug-record", "version": 1}]'::jsonb
      or not exists (select 1 from public.dossiers where id = bug and kind = 'bug' and prd = 571) then
@@ -903,27 +906,27 @@ begin
 
   -- The pairings a kind does not take, and an unknown kind.
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 571, 'omni reads 1e2 as a number', null, '[{"kind": "spec", "content": "a spec"}]', 'bug');
+    perform public.dossier_push('initech/nimbus-plan', 571, 'omni reads 1e2 as a number', null, '[{"kind": "spec", "content": "a spec"}]', 'bug');
     raise exception 'FAIL: a bug dossier took a spec version';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "variations", "content": "a round"}]');
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "variations", "content": "a round"}]');
     raise exception 'FAIL: a prd dossier took a variations version';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "bug-record", "content": "a record"}]', 'prd');
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "bug-record", "content": "a record"}]', 'prd');
     raise exception 'FAIL: a prd dossier took a bug-record version';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Sidebar darker', null, '[{"kind": "plan", "content": "a plan"}]', 'visual');
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Sidebar darker', null, '[{"kind": "plan", "content": "a plan"}]', 'visual');
     raise exception 'FAIL: a visual dossier took a plan version';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Something', null, '[]', 'epic');
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Something', null, '[]', 'epic');
     raise exception 'FAIL: a push took an unknown kind of dossier';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 12, 'A fix', public.dossier_open('A fix', 'vertuoza/vertuo-omni-loop', null), '[]', 'visual');
+    perform public.dossier_push('initech/nimbus-plan', 12, 'A fix', public.dossier_open('A fix', 'initech/nimbus-plan', null), '[]', 'visual');
     raise exception 'FAIL: a fix numbered a draft';
   exception when invalid_parameter_value then null; end;
   if (select count(*) from public.dossier_versions where dossier_id = bug) <> 1
@@ -941,7 +944,7 @@ begin
 end $$;
 
 -- Bob, a member, reads the fixes and their versions; Carl, of another workspace, reads none of them.
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 begin
   if (select count(*) from public.dossiers where id in (select id from ids where name in ('visual', 'bug'))) <> 2
@@ -968,7 +971,7 @@ declare
   found_id uuid;
 begin
   insert into public.dossiers (workspace_id, home_repo, kind, prd, title, numbered_at)
-  values ((select id from public.workspaces where slug = 'vertuoza'), 'vertuoza/vertuo-omni-loop', 'visual', 548, 'Omni links in a new tab', now())
+  values ((select id from public.workspaces where slug = 'initech'), 'initech/nimbus-plan', 'visual', 548, 'Omni links in a new tab', now())
   returning id into found_id;
   if public.dossier_add_version(found_id, 'before-after', 'page', 'github', null, 'a1b2c3d', 'b10b5ea') is distinct from 1 then
     raise exception 'FAIL: the service role could not add a visual fix''s page';
@@ -979,7 +982,7 @@ begin
   exception when invalid_parameter_value then null; end;
   begin
     insert into public.dossiers (workspace_id, home_repo, kind, prd, title, numbered_at)
-    values ((select id from public.workspaces where slug = 'vertuoza'), 'vertuoza/vertuo-omni-loop', 'bug', null, 'A draft fix', null);
+    values ((select id from public.workspaces where slug = 'initech'), 'initech/nimbus-plan', 'bug', null, 'A draft fix', null);
     raise exception 'FAIL: a fix without a number was stored';
   exception when check_violation then null; end;
 end $$;
@@ -1098,36 +1101,36 @@ end $$;
 grant execute on function pg_temp.compare_lists(text) to authenticated;
 
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 select pg_temp.compare_lists('ada');
 do $$
 declare
-  vertuoza constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  initech constant uuid := (select id from public.workspaces where slug = 'initech');
   acme constant uuid := (select id from public.workspaces where slug = 'acme');
 begin
   -- Ada is in both: each workspace lists its own dossiers, and the two make the whole list.
   if exists (select 1 from public.dossier_list(p_workspace => acme) l where l.workspace_id <> acme)
      or not exists (select 1 from public.dossier_list(p_workspace => acme))
-     or (select count(*) from public.dossier_list(p_workspace => acme)) + (select count(*) from public.dossier_list(p_workspace => vertuoza))
+     or (select count(*) from public.dossier_list(p_workspace => acme)) + (select count(*) from public.dossier_list(p_workspace => initech))
         <> (select count(*) from public.dossier_list()) then
     raise exception 'FAIL: dossier_list(p_workspace) did not list that workspace''s dossiers alone';
   end if;
   -- Both arguments: the dossier, only when it is of that workspace.
   if exists (select 1 from public.dossier_list(p_dossier => (select id from ids where name = 'l-plan40'), p_workspace => acme))
-     or not exists (select 1 from public.dossier_list(p_dossier => (select id from ids where name = 'l-plan40'), p_workspace => vertuoza)) then
+     or not exists (select 1 from public.dossier_list(p_dossier => (select id from ids where name = 'l-plan40'), p_workspace => initech)) then
     raise exception 'FAIL: dossier_list(p_dossier, p_workspace) listed a dossier of another workspace, or not its own';
   end if;
-  insert into ids values ('ws-vertuoza', vertuoza);
+  insert into ids values ('ws-initech', initech);
 end $$;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 select pg_temp.compare_lists('bob');
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
 select pg_temp.compare_lists('carl');
 do $$
 begin
-  -- Carl is not in Vertuoza, and cannot read its row: naming it by its id lists nothing.
-  if exists (select 1 from public.dossier_list(p_workspace => (select id from ids where name = 'ws-vertuoza'))) then
-    raise exception 'FAIL: an account of another workspace listed a Vertuoza dossier by naming the workspace';
+  -- Carl is not in Initech, and cannot read its row: naming it by its id lists nothing.
+  if exists (select 1 from public.dossier_list(p_workspace => (select id from ids where name = 'ws-initech'))) then
+    raise exception 'FAIL: an account of another workspace listed an Initech dossier by naming the workspace';
   end if;
 end $$;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
@@ -1139,13 +1142,13 @@ reset role;
 -- and nothing else; no other kind takes those. A board round pushed again adds nothing. A PRD, a visual
 -- fix and a bug fix still push under the redefined function. Only a member of its workspace reads it.
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   pushed jsonb;
   concept uuid;
 begin
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 1269, 'Products replace plan repositories', null,
+  pushed := public.dossier_push('initech/nimbus-plan', 1269, 'Products replace plan repositories', null,
     '[{"kind": "concept-record", "content": "# concept"}, {"kind": "vision", "content": "<p>tour</p>"}, {"kind": "board", "content": "board one"}, {"kind": "board", "content": "board two"}, {"kind": "debate", "content": "# debate"}]',
     'concept');
   concept := (pushed ->> 'id')::uuid;
@@ -1157,12 +1160,12 @@ begin
   end if;
 
   -- The same boards again: no version added. A third board is round 3.
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 1269, 'Products replace plan repositories', null,
+  pushed := public.dossier_push('initech/nimbus-plan', 1269, 'Products replace plan repositories', null,
     '[{"kind": "board", "content": "board one"}, {"kind": "board", "content": "board two"}]', 'concept');
   if pushed -> 'added' <> '[]'::jsonb or pushed -> 'unchanged' <> '["board", "board"]'::jsonb then
     raise exception 'FAIL: pushing the same board rounds again added a version: %', pushed;
   end if;
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 1269, 'Products replace plan repositories', null,
+  pushed := public.dossier_push('initech/nimbus-plan', 1269, 'Products replace plan repositories', null,
     '[{"kind": "board", "content": "board one"}, {"kind": "board", "content": "board two"}, {"kind": "board", "content": "board three"}]', 'concept');
   if pushed -> 'added' <> '[{"kind": "board", "version": 3}]'::jsonb then
     raise exception 'FAIL: a third board was not added as round 3: %', pushed;
@@ -1171,24 +1174,24 @@ begin
   -- The pairings: a concept takes no spec, a PRD no board, a visual fix no vision tour; a record twice,
   -- and a concept naming a draft, are refused.
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 1269, 'Products', null, '[{"kind": "spec", "content": "a spec"}]', 'concept');
+    perform public.dossier_push('initech/nimbus-plan', 1269, 'Products', null, '[{"kind": "spec", "content": "a spec"}]', 'concept');
     raise exception 'FAIL: a concept dossier took a spec version';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "board", "content": "a board"}]');
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "board", "content": "a board"}]');
     raise exception 'FAIL: a prd dossier took a board version';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Sidebar darker', null, '[{"kind": "vision", "content": "a tour"}]', 'visual');
+    perform public.dossier_push('initech/nimbus-plan', 7, 'Sidebar darker', null, '[{"kind": "vision", "content": "a tour"}]', 'visual');
     raise exception 'FAIL: a visual dossier took a vision version';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 1269, 'Products', null,
+    perform public.dossier_push('initech/nimbus-plan', 1269, 'Products', null,
       '[{"kind": "concept-record", "content": "a"}, {"kind": "concept-record", "content": "b"}]', 'concept');
     raise exception 'FAIL: a concept took its record twice in one push';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.dossier_push('vertuoza/vertuo-omni-loop', 1270, 'A concept', public.dossier_open('A concept', 'vertuoza/vertuo-omni-loop', null), '[]', 'concept');
+    perform public.dossier_push('initech/nimbus-plan', 1270, 'A concept', public.dossier_open('A concept', 'initech/nimbus-plan', null), '[]', 'concept');
     raise exception 'FAIL: a concept numbered a draft';
   exception when invalid_parameter_value then null; end;
   if (select count(*) from public.dossier_versions where dossier_id = concept) <> 6 then
@@ -1196,15 +1199,15 @@ begin
   end if;
 
   -- A PRD, a visual fix and a bug fix still push.
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "plan", "content": "plan three"}]');
+  pushed := public.dossier_push('initech/nimbus-plan', 7, 'Team inbox', null, '[{"kind": "plan", "content": "plan three"}]');
   if jsonb_array_length(pushed -> 'added') <> 1 or pushed -> 'added' -> 0 ->> 'kind' <> 'plan' then
     raise exception 'FAIL: a PRD push no longer works: %', pushed;
   end if;
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Sidebar darker', null, '[{"kind": "variations", "content": "round four"}]', 'visual');
+  pushed := public.dossier_push('initech/nimbus-plan', 7, 'Sidebar darker', null, '[{"kind": "variations", "content": "round four"}]', 'visual');
   if pushed -> 'added' <> '[{"kind": "variations", "version": 4}]'::jsonb then
     raise exception 'FAIL: a visual fix push no longer works: %', pushed;
   end if;
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 571, 'omni reads 1e2 as a number', null, '[{"kind": "bug-record", "content": "# Bug 571, again"}]', 'bug');
+  pushed := public.dossier_push('initech/nimbus-plan', 571, 'omni reads 1e2 as a number', null, '[{"kind": "bug-record", "content": "# Bug 571, again"}]', 'bug');
   if pushed -> 'added' <> '[{"kind": "bug-record", "version": 2}]'::jsonb then
     raise exception 'FAIL: a bug fix push no longer works: %', pushed;
   end if;
@@ -1216,7 +1219,7 @@ begin
 end $$;
 
 -- Bob, a member, reads the concept and its versions; Carl, of another workspace, and Eve, of none, read none.
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 begin
   if not exists (select 1 from public.dossiers where id = (select id from ids where name = 'concept'))
@@ -1248,7 +1251,7 @@ reset role;
 -- and PRD may share a number. roadmap_product_push() writes it: supabase/checks/roadmaps.sql proves it.
 do $$
 declare
-  ws       uuid := (select id from public.workspaces where slug = 'vertuoza');
+  ws       uuid := (select id from public.workspaces where slug = 'initech');
   business uuid;
   product  uuid;
   roadmap  uuid;
@@ -1264,7 +1267,7 @@ begin
     raise exception 'FAIL: a product took two roadmaps of one number';
   exception when unique_violation then null; end;
   begin
-    insert into public.dossiers (workspace_id, home_repo, kind, prd, title, numbered_at) values (ws, 'vertuoza/vertuo-omni-loop', 'roadmap', 1162, 'x', now());
+    insert into public.dossiers (workspace_id, home_repo, kind, prd, title, numbered_at) values (ws, 'initech/nimbus-plan', 'roadmap', 1162, 'x', now());
     raise exception 'FAIL: a roadmap dossier keyed by a repository was stored';
   exception when check_violation then null; end;
   perform public.dossier_add_version(roadmap, 'roadmap', E'---\nroadmap: rmp-R1\n---\n', 'kit');
@@ -1292,7 +1295,7 @@ end $$;
 -- record. fix_bug_push() writes it: supabase/checks/fix_rows.sql proves it.
 do $$
 declare
-  ws       uuid := (select id from public.workspaces where slug = 'vertuoza');
+  ws       uuid := (select id from public.workspaces where slug = 'initech');
   business uuid;
   product  uuid;
   bug      uuid;
@@ -1309,7 +1312,7 @@ begin
     raise exception 'FAIL: a product took two bugs of one number';
   exception when unique_violation then null; end;
   begin
-    insert into public.dossiers (workspace_id, home_repo, kind, title) values (ws, 'vertuoza/vertuo-omni-loop', 'bug', 'no issue');
+    insert into public.dossiers (workspace_id, home_repo, kind, title) values (ws, 'initech/nimbus-plan', 'bug', 'no issue');
     raise exception 'FAIL: a bug of a repository was stored with no issue number';
   exception when check_violation then null; end;
   begin

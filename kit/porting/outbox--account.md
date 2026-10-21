@@ -1,6 +1,6 @@
 # `kit/lib/outbox/account.mjs`
 
-Source: `scripts/outbox-account.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/outbox-account.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 

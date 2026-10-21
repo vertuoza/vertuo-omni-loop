@@ -19,7 +19,7 @@
 // It reads the kit's `ApprovalReading` through `HeadReading`, the part of it this module reads, so it
 // imports the check's types from ./state.ts alone.
 import { basename } from 'node:path';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { ApprovedState, ApprovedVerdict, PinDrift } from './state.ts';
 
 /** The line of a reading the server never got to judge: the kit's `UNREACHABLE_LINE`. */

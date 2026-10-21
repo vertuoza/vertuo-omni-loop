@@ -1,6 +1,6 @@
 import type { Node, Root } from 'fumadocs-core/page-tree';
 import { loader, type MetaData, type PageData, type StaticSource } from 'fumadocs-core/source';
-import { plainText } from 'vertuo-omni-plan/kit/lib/outbox/plain-text.ts';
+import { plainText } from 'omni-loop/kit/lib/outbox/plain-text.ts';
 import { DOCS_PATH } from './paths';
 
 // The guide's pages through fumadocs-core (PRD 346): its loader serves them under /docs, builds the

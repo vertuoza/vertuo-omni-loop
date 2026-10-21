@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { dig } from 'vertuo-omni-plan/kit/bin/dig.ts';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { dig } from 'omni-loop/kit/bin/dig.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { DROPPED, guard as guardProse } from './guard.ts';
 import type { GuardSheet } from './guard.ts';
 import { FIELD_CAPS, REFUSED_GAME_WORDS, REFUSED_PERSON_WORDS } from './rules.ts';

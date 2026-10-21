@@ -3,7 +3,7 @@ name: bug-fix
 description: Takes a bug from one line, or an existing issue, to one pull request a person merges — opens (or reads) its issue, classifies it, posts a triage (domain, risk, regression), proves a reproduction red before any fix, fixes it test-first on a fix branch, adds the guard that would have caught it, runs mutation testing when the repository has it, records the fix, proves it with omni bug (its pull request body checked for its proof before the PR opens), opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch or wave, and an outbox only when the range changes a law — one high item per change, in the fix's folder, for a person to answer. Stops on a flaky check (tooling, not a bug), on a reproduction that passes before the fix (naming the merged pull request that fixed the bug, when one is proven), and hands over the /omni:brainstorm line when the fix needs a product decision, a stored shape, a shared contract or a new screen, route or API. On a runner (OMNI_UNATTENDED set) that stop first asks the person on its job, with omni runner ask, and ends on a Waiting for an answer on Omni line; --answers <job> resumes from what they answered on the Omni page, and Design it first hands over the same line. Never merges. Triggers on "fix this bug", "fix #612", "this is broken", "bug fix", "/omni:bug-fix".
 ---
 
-<!-- Ported from vertuo-ai-domain@47a1a194a:.claude/skills/vertuo-fix-bug/SKILL.md — changes in kit/porting/plugin--bug-fix.md -->
+<!-- Ported from nimbus-brain@47a1a194a:.claude/skills/nimbus-fix-bug/SKILL.md — changes in kit/porting/plugin--bug-fix.md -->
 
 # Bug fix: one bug to one pull request
 

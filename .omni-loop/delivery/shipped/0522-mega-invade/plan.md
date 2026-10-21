@@ -51,7 +51,7 @@ PRD #522, spec in `spec.md` beside this plan. Built on the feature branch `feat/
 
 **s2: imported knowledge is checked, never read as the plan repository's own**
 
-- On a fixture plan repository with a well-formed copy under `repos/vertuo-backend-php/`,
+- On a fixture plan repository with a well-formed copy under `repos/nimbus-backend-php/`,
   `omni check kb` passes, although no evidence path of the copy exists on the fixture's disk.
 - A copy with a malformed form or register entry makes `omni check kb` fail with the same message
   it gives for the repository's own knowledge, prefixed by the copy's path.

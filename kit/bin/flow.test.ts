@@ -227,7 +227,7 @@ plan:
     expect(err).toMatch(message);
   });
 
-  // vertuoza/vertuo-automation-plan#280 planned eight slices of an `own` back-end that asks for a
+  // demo-org/nimbus-plan#280 planned eight slices of an `own` back-end that asks for a
   // contract column, with none: the target had no copy, and the planner read the old message
   // ("/omni:mega-invade copies an imported target's flow there") as "this target asks nothing".
   it('says a target with no copy has unknown contracts, whatever its knowledge, and how to copy it', async () => {

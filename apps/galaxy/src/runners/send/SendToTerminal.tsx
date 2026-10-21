@@ -55,7 +55,7 @@ export function SendToTerminalView({ line, setup, state, name, onToggle, onChoos
   line: string; setup: SendSetup | null; state: SendState; name: string;
   onToggle: () => void; onChoose: (key: string) => void; onSend: () => void;
 }) {
-  if (!setup || setup.options.length === 0 || !sendable(line)) return null;
+  if (!setup || setup.options.length === 0 || !sendable(line, setup.allowed)) return null;
   const open = state.kind === 'open' ? state : null;
   return (
     <span className="send-terminal">

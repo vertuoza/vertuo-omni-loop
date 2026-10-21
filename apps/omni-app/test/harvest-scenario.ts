@@ -4,15 +4,15 @@
 // decisions. A second PRD, 44 (`gadgets`), merged through #45, lets two harvests run one after the
 // other. The model is a fake OpenRouter answering each decision from `REPLIES`. Test support only;
 // nothing in the app imports it.
-import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
-import { parseOutboxItem as parseOutboxItemOf } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
-import { renderAdoptedEntry, renderSettledEntry, settledHeader } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { makeMarkers } from 'omni-loop/kit/lib/markers.ts';
+import { parseOutboxItem as parseOutboxItemOf } from 'omni-loop/kit/lib/outbox/outbox.ts';
+import { renderAdoptedEntry, renderSettledEntry, settledHeader } from 'omni-loop/kit/lib/outbox/settle.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { vi } from 'vitest';
 import { z } from 'zod';
 import { HARVEST_EVENT } from '../src/inngest-client.ts';
 import { replayGitHub } from './github-replay.ts';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 export const OWNER = 'acme';
 export const REPO = 'widgets';

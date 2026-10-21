@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { PITCH_PRESETS, type PitchPreset, type PitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { PITCH_PRESETS, type PitchPreset, type PitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import { lookLabel } from './model';
 import { acceptOf } from './pitch-form-assets';
 import {

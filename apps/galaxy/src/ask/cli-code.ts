@@ -27,7 +27,7 @@
 // database still will not issue it for someone in none, the server does.
 import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
-import { messageOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { messageOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { withInstallLink } from './auth';
 import { redeemCode, type Called, type CodeRedeemer } from './cli-code.repository';
 import { USER_CODE_ALPHABET, USER_CODE_LENGTH, type DevicePurpose } from './device.contract';

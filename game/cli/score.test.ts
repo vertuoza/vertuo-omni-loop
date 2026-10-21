@@ -9,7 +9,7 @@ import { serveFake, type Call, type Served } from '../test/fake-supabase.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
-const workspaces = [{ id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', theme: {}, created_at: '2026-09-26T12:00:00+00:00' }];
+const workspaces = [{ id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'demo-org', plan_repo: 'nimbus-plan', theme: {}, created_at: '2026-09-26T12:00:00+00:00' }];
 const row = (id: string, at: string, type: string, over: Record<string, unknown> = {}) => ({ workspace_id: VERTUOZA, id, at, type, planet: 88, home: 'acme/plan', region: null, contributor: null, team: null, data: {}, ...over });
 
 describe('pnpm game:score, as a process', () => {

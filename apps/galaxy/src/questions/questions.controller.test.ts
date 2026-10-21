@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseOutboxItemId, parseProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseOutboxItemId, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { AnswerReplySchema } from './questions.contract';
 import { answerQuestion, type QuestionsHandlerDeps } from './questions.controller';
 import { questionsService, type QuestionsDeps } from './questions.service';
@@ -26,7 +26,7 @@ const BODY = [
   '## What I could not know', '', '(author) The spec says nothing.', '',
 ].join('\n');
 
-const OPEN = { item: ITEM, rank: 'high' as const, repository: 'vertuoza/vertuo-api', body: BODY, raisedAt: '2026-10-11T09:00:00Z', settlement: null };
+const OPEN = { item: ITEM, rank: 'high' as const, repository: 'demo-org/nimbus-api', body: BODY, raisedAt: '2026-10-11T09:00:00Z', settlement: null };
 
 type World = { member?: boolean; settled?: boolean; settle?: Awaited<ReturnType<QuestionsDeps['settle']>>; throws?: boolean };
 

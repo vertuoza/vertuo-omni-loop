@@ -2,7 +2,7 @@
 // a visitor reads when the releases cannot be shown, and the way a day, a week and its counts are
 // written. English, whatever the server's locale: the names are spelled here, never asked of Intl.
 import type { Day } from './weeks.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export const RELEASES = {
   /** Beside the OMNI LOOP mark in the app bar. */

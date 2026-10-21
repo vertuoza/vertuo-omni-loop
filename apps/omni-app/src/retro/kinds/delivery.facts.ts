@@ -20,16 +20,16 @@
 //               unresolved at the merge. A finding for a pull request carrying either.
 //
 // A record GitHub would not give (`null`) is counted as unknown, never as none.
-import { breaches, collisions, covers, parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
-import { foldersLayout } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { RANK_VALUES, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
-import { parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
-import { reworkPullRequest } from 'vertuo-omni-plan/kit/lib/policy/rework.ts';
-import type { SettledEntry } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
-import { SliceIdSchema, type PrNumber, type SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { breaches, collisions, covers, parsePlanSlices } from 'omni-loop/kit/lib/inbox/territory.ts';
+import { foldersLayout } from 'omni-loop/kit/lib/layout.ts';
+import { makeMarkers } from 'omni-loop/kit/lib/markers.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
+import { RANK_VALUES, SETTLED_FILE } from 'omni-loop/kit/lib/outbox/outbox.ts';
+import { parseSettledEntries } from 'omni-loop/kit/lib/outbox/settle.ts';
+import { reworkPullRequest } from 'omni-loop/kit/lib/policy/rework.ts';
+import type { SettledEntry } from 'omni-loop/kit/lib/outbox/settle.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
+import { SliceIdSchema, type PrNumber, type SliceId } from 'omni-loop/kit/lib/ids.ts';
 import type { Evidence, Finding, RetroPr, RetroPrd, RetroPull } from './index.ts';
 import type { PullReads, StuckComment } from './delivery.reads.ts';
 import { sliceOf } from './slice-of.ts';

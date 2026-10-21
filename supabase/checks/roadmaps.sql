@@ -19,39 +19,42 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 insert into auth.users (id, email) values
-  ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
-  ('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com'),
+  ('00000000-0000-4000-8000-0000000000b1', 'bob@example.com'),
   ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
--- Ada and Bob belong to Vertuoza; Carl to Acme, which owns the GitHub organisation acme; Eve to none.
+-- Ada and Bob belong to Initech; Carl to Acme, which owns the GitHub organisation acme; Eve to none.
 insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme');
 insert into public.workspace_members (workspace_id, user_id)
 select w.id, m.user_id
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000000a1'::uuid),
-         ('vertuoza', '00000000-0000-4000-8000-0000000000b1'::uuid),
+         ('initech', '00000000-0000-4000-8000-0000000000a1'::uuid),
+         ('initech', '00000000-0000-4000-8000-0000000000b1'::uuid),
          ('acme',     '00000000-0000-4000-8000-0000000000c1'::uuid)
        ) as m (slug, user_id)
   join public.workspaces w on w.slug = m.slug;
--- Each workspace sells one product: Vertuoza Crew for Vertuoza, Anvils for Acme.
+-- Each workspace sells one product: Initech Crew for Initech, Anvils for Acme.
 insert into public.businesses (workspace_id, name)
-select id, name from public.workspaces where slug in ('vertuoza', 'acme');
+select id, name from public.workspaces where slug in ('initech', 'acme');
 insert into public.products (workspace_id, business_id, name)
-select b.workspace_id, b.id, case w.slug when 'vertuoza' then 'Vertuoza Crew' else 'Anvils' end
+select b.workspace_id, b.id, case w.slug when 'initech' then 'Initech Crew' else 'Anvils' end
   from public.businesses b join public.workspaces w on w.id = b.workspace_id
- where w.slug in ('vertuoza', 'acme');
+ where w.slug in ('initech', 'acme');
 
 -- Act as a signed-in account for the rest of the transaction: the claims of its access token.
 create function pg_temp.sign_in(uid text, email text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'email', email, 'role', 'authenticated')::text, true);
 $$;
 
--- A push of roadmap 1200 of vertuoza/vertuo-omni-loop, its fields overridden by `extra`.
+-- A push of roadmap 1200 of initech/nimbus-plan, its fields overridden by `extra`.
 create function pg_temp.push_body(extra jsonb default '{}'::jsonb) returns jsonb language sql as $$
   select jsonb_build_object(
-    'repo', 'Vertuoza/Vertuo-Omni-Loop', 'number', 1200, 'title', 'Vertuoza Crew — from skeleton to earned autonomy',
-    'milestone', 'A company grants its first mandate after a trial week.', 'product', 'vertuoza crew', 'target', '2027-03-31',
+    'repo', 'Initech/Nimbus-Plan', 'number', 1200, 'title', 'Initech Crew — from skeleton to earned autonomy',
+    'milestone', 'A company grants its first mandate after a trial week.', 'product', 'initech crew', 'target', '2027-03-31',
     'source', 'https://claude.ai/artifact/crew',
     'questions', jsonb_build_array(jsonb_build_object('id', 'Q5', 'question', 'Who signs a mandate?', 'recommendation', null,
                                                       'blocks', jsonb_build_array('P3.4'), 'kind', 'person', 'answer', null)),
@@ -63,7 +66,7 @@ create function pg_temp.push_body(extra jsonb default '{}'::jsonb) returns jsonb
       jsonb_build_object('id', 'P3.4', 'prd', 1213, 'title', 'Stateless think endpoint', 'repos', jsonb_build_array('ai-domain'),
                          'blockers', jsonb_build_array('P1.1'), 'wave', 2, 'state', 'waiting',
                          'waitsOn', 'waits on crew#88 (P1.1 Crew API and worker skeleton): CI red',
-                         'waitsOnUrl', 'https://github.com/vertuoza/crew/pull/88'))
+                         'waitsOnUrl', 'https://github.com/initech/crew/pull/88'))
   ) || extra;
 $$;
 
@@ -85,23 +88,23 @@ reset role;
 
 -- ── Ada pushes the roadmap, then pushes it again ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
-  ws      uuid := (select id from public.workspaces where slug = 'vertuoza');
-  crew    uuid := (select p.id from public.products p join public.workspaces w on w.id = p.workspace_id where w.slug = 'vertuoza');
+  ws      uuid := (select id from public.workspaces where slug = 'initech');
+  crew    uuid := (select p.id from public.products p join public.workspaces w on w.id = p.workspace_id where w.slug = 'initech');
   answer  jsonb;
   roadmap uuid;
 begin
   answer := public.roadmap_push(pg_temp.push_body());
   roadmap := (answer ->> 'roadmapId')::uuid;
   insert into pg_temp.ids values ('crew', roadmap);
-  if (answer ->> 'created')::boolean is not true or answer ->> 'product' <> 'Vertuoza Crew' or answer -> 'unknownProduct' <> 'null'::jsonb then
+  if (answer ->> 'created')::boolean is not true or answer ->> 'product' <> 'Initech Crew' or answer -> 'unknownProduct' <> 'null'::jsonb then
     raise exception 'FAIL: a first push did not answer a new roadmap filed under its product: %', answer;
   end if;
   if not exists (
     select 1 from public.roadmaps
-     where id = roadmap and workspace_id = ws and repo = 'vertuoza/vertuo-omni-loop' and number = 1200 and product_id = crew
+     where id = roadmap and workspace_id = ws and repo = 'initech/nimbus-plan' and number = 1200 and product_id = crew
        and target_date = '2027-03-31' and source = 'https://claude.ai/artifact/crew' and questions -> 0 ->> 'kind' = 'person'
        and pushed_by = '00000000-0000-4000-8000-0000000000a1') then
     raise exception 'FAIL: the roadmap was not stored in the repository''s workspace, under its product';
@@ -109,7 +112,7 @@ begin
   if (select array_agg(row_id order by position) from public.roadmap_prds where roadmap_id = roadmap) <> '{P1.1,P3.4}'
      or not exists (select 1 from public.roadmap_prds where roadmap_id = roadmap and row_id = 'P1.1' and repos = '{crew}' and state = 'merged' and ended_at is not null)
      or not exists (select 1 from public.roadmap_prds where roadmap_id = roadmap and row_id = 'P3.4' and blockers = '{P1.1}' and wave = 2
-                      and waits_on like 'waits on crew#88%' and waits_on_url = 'https://github.com/vertuoza/crew/pull/88') then
+                      and waits_on like 'waits on crew#88%' and waits_on_url = 'https://github.com/initech/crew/pull/88') then
     raise exception 'FAIL: the roadmap''s PRDs were not stored in the table''s order';
   end if;
 
@@ -170,7 +173,7 @@ begin
 
   -- Nothing is written but through the function.
   begin
-    insert into public.roadmaps (workspace_id, repo, number, title, milestone, document) values (ws, 'vertuoza/planted', 1, 't', 'm', 'd');
+    insert into public.roadmaps (workspace_id, repo, number, title, milestone, document) values (ws, 'initech/planted', 1, 't', 'm', 'd');
     raise exception 'FAIL: a signed-in account wrote a roadmap directly';
   exception when insufficient_privilege then null; end;
   begin
@@ -200,7 +203,7 @@ end $$;
 
 -- ── Bob, of the same workspace: reads Ada's roadmap, and pushes it too ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
   roadmap uuid := (select id from pg_temp.ids where name = 'crew');
@@ -244,10 +247,10 @@ reset role;
 
 -- ── A loop's tick keeps the repositories it touched ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
-  loop_a uuid := (public.loop_push('start', null, '{"repo": "vertuoza/plan", "prds": [1213], "plan": {}}') ->> 'loopId')::uuid;
+  loop_a uuid := (public.loop_push('start', null, '{"repo": "initech/plan", "prds": [1213], "plan": {}}') ->> 'loopId')::uuid;
 begin
   perform public.loop_push('tick', loop_a, '{"step": 1, "steps": 2, "prd": 1213, "action": "ultra-wave", "result": "wave 1 built", "repos": ["Crew", "ai-domain"], "nextWakeAt": null}');
   perform public.loop_push('tick', loop_a, '{"step": 2, "steps": 2, "prd": 1213, "action": "wait", "result": "CI running", "nextWakeAt": null}');
@@ -267,13 +270,13 @@ reset role;
 -- back is open again; a stored key keeps its kind. Nobody signed in writes the table, and an account
 -- of another workspace reads none of it.
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   secret  jsonb := jsonb_build_object('key', 'outbox:1213/s2-01', 'prd', 1213, 'repo', 'AI-Domain', 'source', 'outbox',
                                       'text', 'The think endpoint needs its token', 'act', 'Add the secret CREW_TOKEN to ai-domain.',
-                                      'url', 'https://github.com/vertuoza/ai-domain/pull/9', 'ruleKind', 'dev-ops');
-  ask     jsonb := jsonb_build_object('key', 'question:Q5', 'prd', null, 'repo', 'vertuoza/vertuo-omni-loop', 'source', 'question',
+                                      'url', 'https://github.com/initech/ai-domain/pull/9', 'ruleKind', 'dev-ops');
+  ask     jsonb := jsonb_build_object('key', 'question:Q5', 'prd', null, 'repo', 'initech/nimbus-plan', 'source', 'question',
                                       'text', 'Who signs a mandate?', 'act', null, 'url', null, 'ruleKind', 'business');
   roadmap uuid;
   closed  timestamptz;
@@ -314,7 +317,7 @@ reset role;
 update public.roadmap_human_work set kind = 'delivery-ops', kind_by = 'jev'
  where roadmap_id = (select id from pg_temp.ids where name = 'human') and key = 'outbox:1213/s2-01';
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   roadmap uuid := (select id from pg_temp.ids where name = 'human');
@@ -322,7 +325,7 @@ begin
   perform public.roadmap_push(pg_temp.push_body(jsonb_build_object('number', 1400, 'humanWork', jsonb_build_array(
     jsonb_build_object('key', 'outbox:1213/s2-01', 'prd', 1213, 'repo', 'ai-domain', 'source', 'outbox', 'text', 'Still no token',
                        'ruleKind', 'development'),
-    jsonb_build_object('key', 'question:Q5', 'repo', 'vertuoza/vertuo-omni-loop', 'source', 'question', 'text', 'Who signs a mandate?',
+    jsonb_build_object('key', 'question:Q5', 'repo', 'initech/nimbus-plan', 'source', 'question', 'text', 'Who signs a mandate?',
                        'ruleKind', 'business')))));
   if not exists (select 1 from public.roadmap_human_work where roadmap_id = roadmap and key = 'question:Q5' and state = 'open' and done_at is null)
      or not exists (select 1 from public.roadmap_human_work where roadmap_id = roadmap and key = 'outbox:1213/s2-01'
@@ -385,7 +388,7 @@ reset role;
 -- The prerequisites of roadmap 1200 and this machine's last result, its fields overridden by `extra`.
 create function pg_temp.prerequisites_body(extra jsonb default '{}'::jsonb) returns jsonb language sql as $$
   select jsonb_build_object(
-    'repo', 'Vertuoza/Vertuo-Omni-Loop', 'number', 1200,
+    'repo', 'Initech/Nimbus-Plan', 'number', 1200,
     'prerequisites', jsonb_build_array(
       jsonb_build_object('id', 'p1', 'category', 'local', 'need', 'Docker is running, for the database tests', 'check', 'base:docker',
                          'fix', null, 'blocks', jsonb_build_array('P1.1'), 'who', 'check', 'repos', jsonb_build_array(),
@@ -415,7 +418,7 @@ end $$;
 reset role;
 
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   roadmap uuid := (select id from pg_temp.ids where name = 'crew');
@@ -520,10 +523,10 @@ end $$;
 reset role;
 
 -- ── A roadmap born on the server, in its product (PRD 2011 s1) ──
--- Vertuoza Crew takes the key crew. Its roadmaps are dossiers of kind roadmap, crew-R1, crew-R2, numbered
+-- Initech Crew takes the key crew. Its roadmaps are dossiers of kind roadmap, crew-R1, crew-R2, numbered
 -- by the product's own counter, apart from its PRDs.
 update public.products p set key = 'crew'
-  from public.workspaces w where w.id = p.workspace_id and w.slug = 'vertuoza' and p.name = 'Vertuoza Crew';
+  from public.workspaces w where w.id = p.workspace_id and w.slug = 'initech' and p.name = 'Initech Crew';
 update public.products p set key = 'anvils'
   from public.workspaces w where w.id = p.workspace_id and w.slug = 'acme' and p.name = 'Anvils';
 
@@ -574,11 +577,11 @@ select pg_temp.refused($q$select public.roadmap_product_push('crew', null, pg_te
 reset role;
 
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
-  ws      uuid := (select id from public.workspaces where slug = 'vertuoza');
-  crew    uuid := (select p.id from public.products p where p.key = 'crew' and p.workspace_id = (select id from public.workspaces where slug = 'vertuoza'));
+  ws      uuid := (select id from public.workspaces where slug = 'initech');
+  crew    uuid := (select p.id from public.products p where p.key = 'crew' and p.workspace_id = (select id from public.workspaces where slug = 'initech'));
   answer  jsonb;
   second  jsonb;
   dossier uuid;
@@ -590,7 +593,7 @@ begin
   dossier := (answer ->> 'dossierId')::uuid;
   roadmap := (answer ->> 'roadmapId')::uuid;
   insert into pg_temp.ids values ('crew-R1', roadmap), ('crew-R1 dossier', dossier);
-  if answer ->> 'roadmap' <> 'crew-R1' or (answer ->> 'created')::boolean is not true or answer -> 'product' ->> 'name' <> 'Vertuoza Crew'
+  if answer ->> 'roadmap' <> 'crew-R1' or (answer ->> 'created')::boolean is not true or answer -> 'product' ->> 'name' <> 'Initech Crew'
      or answer -> 'added' <> '[{"kind": "roadmap", "version": 1}, {"kind": "roadmap-prds", "version": 1}]'::jsonb
      or answer -> 'unchanged' <> '[]'::jsonb then
     raise exception 'FAIL: a first product push did not answer crew-R1 with its two versions: %', answer;
@@ -658,7 +661,7 @@ begin
   answer := public.roadmap_product_push('crew', 1, pg_temp.product_body(jsonb_build_object(
     'document', E'---\nroadmap: crew-R1\ntitle: v2\n---\n',
     'prds', jsonb_build_array(jsonb_build_object('id', 'P1.1', 'prd', 912, 'title', 'Phone sign-in', 'wave', 1, 'state', 'merged')),
-    'humanWork', jsonb_build_array(jsonb_build_object('key', 'outbox:crew-12/s2-01', 'prd', 'crew-12', 'repo', 'vertuoza/crew',
+    'humanWork', jsonb_build_array(jsonb_build_object('key', 'outbox:crew-12/s2-01', 'prd', 'crew-12', 'repo', 'initech/crew',
                                                       'source', 'outbox', 'text', 'Which sign-in?', 'ruleKind', 'business')),
     'prerequisites', jsonb_build_array(jsonb_build_object('id', 'p1', 'category', 'local', 'need', 'Docker runs', 'check', 'base:docker',
                                                           'blocks', 'all', 'who', 'check')),
@@ -711,7 +714,7 @@ begin
     raise exception 'FAIL: a refused create took a number';
   end if;
   -- A roadmap dossier takes only a roadmap's versions, and only through roadmap_product_push().
-  perform pg_temp.refused($q$select public.dossier_push('vertuoza/vertuo-omni-loop', 77, 'x', null, '[]', 'roadmap')$q$, '22023', 'dossier_push() of a roadmap');
+  perform pg_temp.refused($q$select public.dossier_push('initech/nimbus-plan', 77, 'x', null, '[]', 'roadmap')$q$, '22023', 'dossier_push() of a roadmap');
   if not public.dossier_takes('roadmap', 'roadmap-prds') or public.dossier_takes('roadmap', 'spec') or public.dossier_takes('prd', 'roadmap') then
     raise exception 'FAIL: a roadmap dossier takes other versions than a roadmap''s, or a PRD takes a roadmap''s';
   end if;
@@ -757,7 +760,7 @@ end $$;
 
 -- Bob, of the same workspace, reads crew-R1, its rows and its versions, and pushes it too.
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
   dossier uuid := (select id from pg_temp.ids where name = 'crew-R1 dossier');

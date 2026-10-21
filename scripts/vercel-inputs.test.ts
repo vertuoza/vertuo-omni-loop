@@ -97,9 +97,11 @@ describe('the command line', () => {
   });
 });
 
-// Every file galaxy's source reaches: relative imports, `vertuo-omni-plan/<path>` (the root package)
+// Every file galaxy's source reaches: relative imports, `<the root package>/<path>` (its name read from package.json)
 // and `@omni/<package>[/<path>]` (packages/<package>), followed transitively from every non-test
 // source file under apps/galaxy.
+/** The root package's name: a specifier under it reads a file from the repository root. */
+const ROOT_PACKAGE = String((JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as { name: unknown }).name);
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)['"]([^'"]+)['"]/g;
 const EXTENSIONS = ['', '.ts', '.tsx', '.mts', '.mjs', '/index.ts', '/index.tsx'];
 
@@ -113,7 +115,7 @@ function existingFile(base: string): string | null {
 
 function resolveSpecifier(fromFile: string, specifier: string): string | null {
   if (specifier.startsWith('.')) return existingFile(join(dirname(fromFile), specifier));
-  if (specifier.startsWith('vertuo-omni-plan/')) return existingFile(join(repoRoot, specifier.slice('vertuo-omni-plan/'.length)));
+  if (specifier.startsWith(`${ROOT_PACKAGE}/`)) return existingFile(join(repoRoot, specifier.slice(ROOT_PACKAGE.length + 1)));
   const pkg = /^@omni\/([^/]+)(?:\/(.*))?$/.exec(specifier);
   if (pkg?.[1]) return existingFile(join(repoRoot, 'packages', pkg[1], pkg[2] ?? 'src/index.ts'));
   return null;

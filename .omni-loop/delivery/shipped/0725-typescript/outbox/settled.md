@@ -3192,7 +3192,7 @@ C. Re-export the library from the tool, and have the app import it from there
 
 ## What I had to decide
 
-apps/omni-app/src/retro/github.schema.ts and retro.ts import 'zod'. apps/omni-app/package.json lists no zod; it resolves from the root package (vertuo-omni-plan), whose kit files the app already imports and which import zod themselves. The package.json is outside s22's territory.
+apps/omni-app/src/retro/github.schema.ts and retro.ts import 'zod'. apps/omni-app/package.json lists no zod; it resolves from the root package (omni-loop), whose kit files the app already imports and which import zod themselves. The package.json is outside s22's territory.
 
 ## What I did meanwhile
 

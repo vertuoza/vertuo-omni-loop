@@ -84,7 +84,7 @@ describe('the board\'s address', () => {
 
   it('reads owner/name from the route, in lower case, and refuses anything GitHub would not name', () => {
     expect(fullNameOf('Vertuoza', 'Vertuo-Omni-Loop')).toBe('vertuoza/vertuo-omni-loop');
-    expect(fullNameOf('vertuoza', 'pdf.builder_2')).toBe('vertuoza/pdf.builder_2');
+    expect(fullNameOf('demo-org', 'pdf.builder_2')).toBe('demo-org/pdf.builder_2');
     expect(fullNameOf('vert uoza', 'x')).toBeNull();
     expect(fullNameOf('vertuoza', '..%2F')).toBeNull();
     expect(fullNameOf('a'.repeat(40), 'x')).toBeNull();

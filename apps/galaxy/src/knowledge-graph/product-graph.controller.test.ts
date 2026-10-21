@@ -2,8 +2,8 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import type { RepositoryGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
-import { ProductNeighbourhoodSchema } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
+import type { RepositoryGraph } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
+import { ProductNeighbourhoodSchema } from 'omni-loop/kit/lib/knowledge/product-graph.ts';
 import { readProductGraph, type ProductGraphDeps } from './product-graph.controller';
 import type { ProductGraphRepository } from './product-graph.repository';
 import { productGraphService } from './product-graph.service';
@@ -48,7 +48,7 @@ function repositoryAs(token: string, fail: boolean): ProductGraphRepository {
   return {
     productByKey: (key) => (fail ? failing() : Promise.resolve(readable.find((product) => product.key === key) ?? null)),
     productById: (id) => Promise.resolve(readable.find((product) => product.id === id) ?? null),
-    links: () => Promise.resolve([{ repository: 'vertuoza/vertuo-omni-loop', knowledge: 'own' as const }, { repository: 'vertuoza/back-end', knowledge: 'own' as const }]),
+    links: () => Promise.resolve([{ repository: 'vertuoza/vertuo-omni-loop', knowledge: 'own' as const }, { repository: 'demo-org/back-end', knowledge: 'own' as const }]),
     legal: () => Promise.resolve([{ code: 'INVOICING', number: 1, statement: 'An invoice keeps its number.', retired_at: null }]),
     glossary: () => Promise.resolve([]),
     never: () => Promise.resolve([{ seq: 3, body: 'Never sell the data.', removed_at: null }]),

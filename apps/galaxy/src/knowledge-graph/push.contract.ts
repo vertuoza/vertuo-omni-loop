@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // The knowledge graph push's contract (PRD 1798; ADR-0095): what the kit's `omni kb graph push` sends to
 // `POST /api/knowledge/graphs`, and what it answers. The graph itself is read by the kit's own schema
-// (vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts: P5's version 1 nodes and edges, shape
+// (omni-loop/kit/lib/knowledge/graph-schema.ts: P5's version 1 nodes and edges, shape
 // `repository`), so the server reads exactly what the kit builds; here it is only a JSON object, checked
 // after the rest so its problem names the graph's own field. Browser-safe: zod only.
 

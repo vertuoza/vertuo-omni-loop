@@ -5,7 +5,7 @@
 // naming the step and the field. A field a kind may leave undefined is optional here, as JSON has no
 // undefined to keep.
 import { z } from 'zod';
-import { IssueNumberSchema, PrNumberSchema, SliceIdSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrNumberSchema, SliceIdSchema } from 'omni-loop/kit/lib/ids.ts';
 
 const text = z.string();
 const maybeText = z.string().nullable();

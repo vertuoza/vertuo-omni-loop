@@ -41,7 +41,7 @@
  *
  * Pure rule, unit-tested in `check-outbox.test.mjs`; `kit/bin` (Task 15) is the CLI half.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/check-outbox.mjs — changes in kit/porting/outbox--check-outbox.md.
+// Ported from nimbus-brain@c4a210122:scripts/check-outbox.mjs — changes in kit/porting/outbox--check-outbox.md.
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readRepoFile } from '../check-report.ts';

@@ -1,4 +1,4 @@
-import { defaultPitchSettings, parsePitchSettings, type PitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { defaultPitchSettings, parsePitchSettings, type PitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 
 // Settings › Products as pure data (PRD 859 s1). A product of the workspace's business
 // (supabase/migrations/20261019090000_business_store.sql) with the look its pitches are drawn in

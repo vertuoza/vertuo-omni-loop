@@ -66,7 +66,7 @@ export function sourcesUsed(counts: DraftView['counts']): string {
   return said.length === 0 ? 'nothing' : said.join(' · ');
 }
 
-/** One source of the scan: `✓ vertuo-app · README.md`, `– example.com/about · skipped (why)`. */
+/** One source of the scan: `✓ nimbus-app · README.md`, `– example.com/about · skipped (why)`. */
 export const scanLine = (s: DraftView['scanned'][number]) =>
   s.state === 'read' ? `✓ ${s.source}` : `– ${s.source} · skipped${s.why ? ` (${s.why})` : ''}`;
 

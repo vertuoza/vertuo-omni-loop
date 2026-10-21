@@ -10,11 +10,11 @@ spec: file
 **Date:** 2026-09-25 · **PRD:** #45 · **Follows:** #3 (the kit, §6 knowledge), #7 (the `omni` plugin),
 #39 (`omni init`, the one-line install) ·
 **Retires:** `.omni-loop/repo.md` (PRD 3 §3), read today by `/omni:do-work` step 1.5 ·
-**Modelled on:** `vertuoza/vertuo-ai-domain@db67fd9da` — `docs/knowledge/`, `docs/agents/`, `docs/adr/`
+**Modelled on:** `demo-org/nimbus-brain@db67fd9da` — `docs/knowledge/`, `docs/agents/`, `docs/adr/`
 
 ## Problem
 
-vertuo-ai-domain writes down two kinds of knowledge. `docs/knowledge/` says what is true about the
+nimbus-brain writes down two kinds of knowledge. `docs/knowledge/` says what is true about the
 product: principles, business rules and invariants. PRD 3 ported that half into the kit as
 `.omni-loop/knowledge/`, with its parser (`kit/lib/knowledge/registers.mjs`) and its check. The other half,
 `docs/agents/`, says how to work in the repository: how to test (`testing.md`), how CI works and which
@@ -102,7 +102,7 @@ TODO(human): is there a naming rule for fixture repositories?
 
 Required slots are in bold. The front door is the parent of `paths.playbook`.
 
-| Form | File, under the front door | Kind | Slots | Modelled on (vertuo-ai-domain) |
+| Form | File, under the front door | Kind | Slots | Modelled on (nimbus-brain) |
 |---|---|---|---|---|
 | briefing | `playbook/briefing.md` | core | **never**, hooks, next | `docs/agents/briefing.md` |
 | setup | `playbook/setup.md` | core | **prerequisites**, **install**, run, env | `README.md` › local setup |
@@ -137,7 +137,7 @@ slot, top wins, and labels where each section came from:
 
 **Kit defaults** live in the kit, in one template per form (`kit/templates/playbook/<form>.md`), and
 travel inside the bundled `omni.mjs`: a terraformed repository needs no other file. A default is doctrine
-every repository shares, ported from vertuo-ai-domain with every repository literal removed. It may name
+every repository shares, ported from nimbus-brain with every repository literal removed. It may name
 a config value as `{config:<key>}` (for example `{config:commands.test}`), which `omni kb show` fills from
 the repository's config. `omni kb init` never copies default text into a repository, so a kit upgrade
 upgrades every section a repository left blank.
@@ -262,7 +262,7 @@ object", where a person can object. Decision 13 is `s4-01-init-lays-down-the-for
   anything.
 - As a **team adopting the loop**, I run `/omni:terraform` and get one pull request that fills what the
   repository can prove and asks me only what it cannot.
-- As a **repository that already documents all this**, such as vertuo-ai-domain, I get pointers, not
+- As a **repository that already documents all this**, such as nimbus-brain, I get pointers, not
   copies, so each page keeps one source.
 - As a **person opening `.omni-loop/knowledge/`**, I find where the ADRs are, even when they live
   elsewhere.
@@ -282,7 +282,7 @@ repository installed with `omni init` and terraformed, with a session-start hook
 **Out:** `omni init`'s other duties, and `doctor`, `upgrade`, `remove` (PRD 3 §10); a session-start hook
 in any other repository, because `omni init` writes nothing outside `.omni-loop/` (PRD 39, decision 7) and
 the skills' step 0 prints the briefing instead; orientation pages; `/omni:fix-bug`; generated
-per-repository skills; terraforming vertuo-ai-domain or any other repository (each is its own
+per-repository skills; terraforming nimbus-brain or any other repository (each is its own
 `/omni:terraform` run once this ships).
 
 **Human steps** (never taken by the work):
@@ -322,7 +322,7 @@ All in the root vitest suite (`pnpm test`):
   holds only what differs from the kit default.
 - **`check all` turns a repository red.** Only a broken pointer, an unknown slot or bad front matter fails;
   a repository with no forms gets warnings.
-- **Kit defaults drift from vertuo-ai-domain.** Each template carries a provenance line pinned to
+- **Kit defaults drift from nimbus-brain.** Each template carries a provenance line pinned to
   `db67fd9da`, and its porting record lists what changed.
 - **The committed bundle is shared ground.** Every slice that changes bundled code rebuilds and commits
   `kit/dist/omni.mjs`, so no two such slices can share a wave; the plan orders them.

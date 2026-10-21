@@ -1,4 +1,4 @@
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { replayGitHub } from '../../test/github-replay.ts';
 import { upsertComment } from './verdict-comment.ts';

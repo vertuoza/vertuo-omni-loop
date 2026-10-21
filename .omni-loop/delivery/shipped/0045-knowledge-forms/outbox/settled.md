@@ -481,7 +481,7 @@ C. A pointing page carries every section heading, empty, and the check asks for 
 
 ## What I had to decide
 
-The spec says `omni kb init` writes every missing form with "the front matter with `state: blank`, the title, the opener, every slot heading and marker, empty bodies", and writes the decisions form "as a pointer" when `paths.adr` is outside the front door's `adr/` (the glossary form when `paths.glossary` is set). It does not say whether a pointer form keeps the slot headings. `omni check kb` fails on "a required slot whose marker is missing" without saying whether that holds for a pointer form, whose target resolves the whole form (s1's `resolveForm` ignores its slots). The before/after page's one pointer example, the decisions form in the vertuo-ai-domain column, has no slot.
+The spec says `omni kb init` writes every missing form with "the front matter with `state: blank`, the title, the opener, every slot heading and marker, empty bodies", and writes the decisions form "as a pointer" when `paths.adr` is outside the front door's `adr/` (the glossary form when `paths.glossary` is set). It does not say whether a pointer form keeps the slot headings. `omni check kb` fails on "a required slot whose marker is missing" without saying whether that holds for a pointer form, whose target resolves the whole form (s1's `resolveForm` ignores its slots). The before/after page's one pointer example, the decisions form in the nimbus-brain column, has no slot.
 
 ## What I did meanwhile
 

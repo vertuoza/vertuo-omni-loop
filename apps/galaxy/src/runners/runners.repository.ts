@@ -9,7 +9,7 @@
 // answers that do not match), so they are read by their code and answered, never thrown.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { JOB_OUTCOMES, QuestionSchema, RunnerHealthSchema, type Question } from './runners.contract';
 
 /** What the reads and writes need: the tables, and the database's functions. */
@@ -244,6 +244,11 @@ export function runnersRepository(db: RunnersDb) {
     /** Ends the claimed and running jobs of every runner silent since before `cutoff`: `runner lost`. */
     markLost: async (cutoff: string): Promise<number> =>
       parsed(db.rpc('runners_mark_lost', { p_cutoff: cutoff }), z.number(), 'runners_mark_lost()'),
+
+    /** The repository's own skills its workspace's owner allowed on the runners, in order (PRD 2313;
+     * repository_runner_skills_of(), supabase/migrations/20261222090000_repository_runner_skills.sql). */
+    allowedSkills: async (workspaceId: string, repo: string): Promise<string[]> =>
+      parsed(db.rpc('repository_runner_skills_of', { p_workspace: workspaceId, p_full_name: repo }), z.array(z.string()), 'repository_runner_skills_of()'),
 
     /** The oldest queued job the runner may run, claimed for it; null when none (runner_claim()). */
     claim: async (runnerId: string): Promise<JobRow | null> =>

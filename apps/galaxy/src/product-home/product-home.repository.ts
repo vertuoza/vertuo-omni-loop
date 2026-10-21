@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { IsOwner } from '../business/constituents-rows';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
 import { ArchiveAnswerSchema, type ArchiveAnswer } from './product-archive.contract';
-import { PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 // The product home's storage (PRD 1364 s9; ADR-0095): the reads behind /app/products/<id>, as the
 // signed-in person, so row-level security has the last word. The product (public.products, of the

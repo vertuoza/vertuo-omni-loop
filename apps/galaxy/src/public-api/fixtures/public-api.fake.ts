@@ -1,4 +1,4 @@
-import { parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { runnersService } from '../../runners/runners.service';
 import { API_KEY, fakeStore, OLGA, T0, WORKSPACE } from '../../runners/fixtures/store.fake';
 import { hashApiKey } from '../keys/secret';
@@ -34,9 +34,9 @@ export const SECRETS = {
   orphaned: secret('northwindOrphaned'),
   /** Southwind's, every repository. */
   south: secret('southwindAll'),
-  /** The runners' workspace's (vertuoza/app, vertuoza/other), made by its owner Olga: it starts and follows jobs. */
+  /** The runners' workspace's (demo-org/app, demo-org/other), made by its owner Olga: it starts and follows jobs. */
   runners: secret('runnersAll'),
-  /** The same workspace's, limited to vertuoza/other. */
+  /** The same workspace's, limited to demo-org/other. */
   runnersLimited: secret('runnersLimited'),
   /** Shaped as a key, but no key's. */
   unknown: secret('nobody'),
@@ -50,7 +50,7 @@ const KEYS: StoredKey[] = [
   { secret: SECRETS.revoked, row: { key_id: 'k-revoked', workspace_id: NORTHWIND, repos: [], made_by: ADA, name: 'Leaked' }, revoked: true, makerLeft: false },
   { secret: SECRETS.orphaned, row: { key_id: 'k-orphaned', workspace_id: NORTHWIND, repos: [], made_by: BEN, name: 'Ben’s tool' }, revoked: false, makerLeft: true },
   { secret: SECRETS.runners, row: { key_id: API_KEY, workspace_id: WORKSPACE, repos: [], made_by: OLGA, name: 'QA dashboard' }, revoked: false, makerLeft: false },
-  { secret: SECRETS.runnersLimited, row: { key_id: 'k-runners-limited', workspace_id: WORKSPACE, repos: ['vertuoza/other'], made_by: OLGA, name: 'Limited' }, revoked: false, makerLeft: false },
+  { secret: SECRETS.runnersLimited, row: { key_id: 'k-runners-limited', workspace_id: WORKSPACE, repos: ['demo-org/other'], made_by: OLGA, name: 'Limited' }, revoked: false, makerLeft: false },
   { secret: SECRETS.south, row: { key_id: 'k-south', workspace_id: SOUTHWIND, repos: [], made_by: DAN, name: 'South tool' }, revoked: false, makerLeft: false },
 ];
 

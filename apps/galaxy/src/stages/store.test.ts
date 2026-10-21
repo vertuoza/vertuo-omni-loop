@@ -5,7 +5,7 @@ import { item } from '../ask/test/test-item';
 import { fakeStageStore } from './store.fake';
 import { brokenRows } from '../data/broken-rows.fake';
 import { countStages, currentOf, noCounts, stageStore, StoredStageRow, type StageRecord } from './store';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const W = 'w-acme';
 const OTHER = 'w-other';

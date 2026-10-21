@@ -63,7 +63,7 @@ describe('planetService.details', () => {
 
   it('gives no dossier, and reads none, for a number two planets of the galaxy share (two repositories\' PRD 88)', async () => {
     const { view, planet } = galaxy();
-    const twin: Planet = { ...planet, home: 'vertuoza/vertuo-core', key: `vertuoza/vertuo-core#${planet.prd}` };
+    const twin: Planet = { ...planet, home: 'demo-org/nimbus-core', key: `demo-org/nimbus-core#${planet.prd}` };
     const { s, calls } = service({}, { ...view, planets: [...view.planets, twin] });
     expect(await s.details(planet.key)).toMatchObject({ ok: true, value: { dossier: 'none' } });
     expect(calls.some((c) => c.startsWith('dossier'))).toBe(false);

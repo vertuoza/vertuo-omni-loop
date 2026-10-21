@@ -1,5 +1,5 @@
 import type { Claim, ClaimKind } from './model';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { OpenRouterEnv } from '../env';
 
 // Suggested rivals (PRD 748 s3, decision 4): once offering, trade and region are picked, one call to

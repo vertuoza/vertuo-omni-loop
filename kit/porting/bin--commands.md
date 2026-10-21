@@ -2,7 +2,7 @@
 
 Every upstream script's CLI half (`if (process.argv[1] === fileURLToPath(import.meta.url)) { … }`,
 plus its `main`/`parseArgs`/`USAGE`), deleted from the library ports by the Port Protocol, rebuilt as
-one `omni` subcommand each. Source sha: `vertuo-ai-domain@c4a210122`.
+one `omni` subcommand each. Source sha: `nimbus-brain@c4a210122`.
 
 | Command file | Upstream CLI half |
 |---|---|

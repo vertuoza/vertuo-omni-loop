@@ -51,7 +51,7 @@
  * lines until a blank line or the next field. Everything else — a `Note:` paragraph explaining a
  * partial `Enforced by:` claim — is prose the guard does not need to understand.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/registers.mjs — changes in kit/porting/knowledge--registers.md.
+// Ported from nimbus-brain@c4a210122:scripts/registers.mjs — changes in kit/porting/knowledge--registers.md.
 import { existsSync, readFileSync, readdirSync, type Dirent } from 'node:fs';
 import { basename, join } from 'node:path';
 import { parseIssue, type IssueNumber } from '../ids.ts';

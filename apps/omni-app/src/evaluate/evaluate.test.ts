@@ -3,11 +3,11 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CONFIG_FILE, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { settleItem } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
-import { fixOutboxContext, gateResult } from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
+import { CONFIG_FILE, parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { createContext } from 'omni-loop/kit/lib/context.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { settleItem } from 'omni-loop/kit/lib/outbox/settle.ts';
+import { fixOutboxContext, gateResult } from 'omni-loop/kit/lib/outbox/status.ts';
 import { deferredOutput, evaluate, planPrdOf, pullKind, type Verdict } from './evaluate.ts';
 
 const KNOWLEDGE_INVARIANTS = '.omni-loop/knowledge/product/invariants.md';
@@ -28,8 +28,8 @@ function copyOf(name: string) {
 const gateSpy = vi.mocked(gateResult);
 
 // The kit's gate, wrapped so a test can see evaluate call it — the real one still runs.
-vi.mock('vertuo-omni-plan/kit/lib/outbox/status.ts', async (importOriginal) => {
-  const kit = await importOriginal<typeof import('vertuo-omni-plan/kit/lib/outbox/status.ts')>();
+vi.mock('omni-loop/kit/lib/outbox/status.ts', async (importOriginal) => {
+  const kit = await importOriginal<typeof import('omni-loop/kit/lib/outbox/status.ts')>();
   return { ...kit, gateResult: vi.fn(kit.gateResult) };
 });
 

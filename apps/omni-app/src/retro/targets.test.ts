@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { planTargets, type PlanTarget } from './targets.ts';
 import { readTarget } from './targets.read.ts';
 import type { Octokit } from './retro.types.ts';

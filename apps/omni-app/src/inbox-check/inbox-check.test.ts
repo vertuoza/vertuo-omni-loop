@@ -1,14 +1,14 @@
 // `inbox-check` end to end against the stubbed GitHub (PRD 675): the outbox check's fake, widened
 // with the two routes only the inbox check reads (the compare's commits and the PRD issue) and the
 // check run's `external_id`. No test calls GitHub.
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { type AppEvent, inngest, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import { checkRunAt, fakeGitHub, outputOf } from '../outbox-check/fake-github.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';

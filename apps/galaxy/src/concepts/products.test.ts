@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import type { Db } from '../dossier/page/source';
 import { conceptCards } from './list';
 import { conceptRow } from './list.fixture';

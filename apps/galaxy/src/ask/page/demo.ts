@@ -2,13 +2,13 @@
 // arcade's demo galaxy): three made-up terminals, one of them asking, played in the browser, so the
 // page can be seen and tried. `?demo=working|moved|closed|empty` shows the other states on the
 // first one. Nothing here is ever sent.
-import { at, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { readQuestions } from '../answer-model';
 import type { QuestionState } from './question';
 import type { AskPort, QuestionPort } from './source';
 import type { RoundRow, SessionRow, SessionState } from './view';
 import type { HistoryRow } from './workspace-history';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 export type DemoScenario = 'open' | 'working' | 'moved' | 'closed' | 'empty';
 const SCENARIOS: DemoScenario[] = ['open', 'working', 'moved', 'closed', 'empty'];
@@ -42,8 +42,8 @@ const ACCESS = {
   options: [
     {
       label: 'Google sign-in through the galaxy (Recommended)',
-      description: 'The CLI signs in once per machine; the page asks for the same @vertuoza.com account.',
-      preview: 'omni signin\n  → opens <ask.url>/ask/signin\n  ← signed in as ada@vertuoza.com\n\n~/.config/omni/credentials.json  (0600)\n{\n  "galaxy.example": {\n    "access_token": "…",\n    "refresh_token": "…"\n  }\n}',
+      description: 'The CLI signs in once per machine; the page asks for the same @example.com account.',
+      preview: 'omni signin\n  → opens <ask.url>/ask/signin\n  ← signed in as ada@example.com\n\n~/.config/omni/credentials.json  (0600)\n{\n  "galaxy.example": {\n    "access_token": "…",\n    "refresh_token": "…"\n  }\n}',
     },
     {
       label: 'gh token + secret link',
@@ -91,9 +91,9 @@ export const DEMO_OWNER = 'demo';
 
 /** The demo workspace's members (PRD 144): its owner, and two teammates to share a question with. */
 export const DEMO_MEMBERS = [
-  { user_id: DEMO_OWNER, email: 'ada@vertuoza.com', name: 'ADA' },
-  { user_id: 'demo-po', email: 'paula@vertuoza.com', name: 'PAULA' },
-  { user_id: 'demo-ux', email: 'uma@vertuoza.com', name: null },
+  { user_id: DEMO_OWNER, email: 'ada@example.com', name: 'ADA' },
+  { user_id: 'demo-po', email: 'paula@example.com', name: 'PAULA' },
+  { user_id: 'demo-ux', email: 'uma@example.com', name: null },
 ];
 
 export function demoState(id: string, scenario: DemoScenario, now: number): SessionState {
@@ -179,7 +179,7 @@ export function demoSessions(scenario: DemoScenario, now: number): SessionState[
   return [
     first,
     quiet(2, 'vertuo-omni-loop · main', DEPLOY, 2 * MIN),
-    quiet(3, 'vertuo-workflow-domain · feat/copy-quote', QUOTES, 6 * MIN),
+    quiet(3, 'nimbus-workflow-domain · feat/copy-quote', QUOTES, 6 * MIN),
   ];
 }
 
@@ -237,8 +237,8 @@ export function demoHistory(now: number): HistoryRow[] {
     options: [{ label: '14 days', description: '' }, { label: '30 days', description: '' }],
   };
   const pricing: SessionRow = {
-    id: 'demo-pricing', owner: DEMO_TEAMMATE, title: 'vertuo-app · feat/pricing', status: 'closed',
-    created_at: iso(now - 3 * 24 * 60 * MIN), last_seen_at: iso(now - 3 * 24 * 60 * MIN + 30 * MIN), repo: 'vertuoza/vertuo-app', branch: 'feat/pricing',
+    id: 'demo-pricing', owner: DEMO_TEAMMATE, title: 'nimbus-app · feat/pricing', status: 'closed',
+    created_at: iso(now - 3 * 24 * 60 * MIN), last_seen_at: iso(now - 3 * 24 * 60 * MIN + 30 * MIN), repo: 'demo-org/nimbus-app', branch: 'feat/pricing',
   };
   const trial: RoundRow = {
     id: 'demo-round-trial', questions: [TRIAL], answers: { [TRIAL.question]: '14 days' }, answered_via: 'page', status: 'answered',

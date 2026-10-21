@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IssueNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import {

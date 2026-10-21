@@ -32,7 +32,7 @@ describe('workspaceArg', () => {
 
 describe('githubOf', () => {
   it('reads the organisation and the plan repository from the workspace', () => {
-    expect(githubOf({ slug: 'vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan' })).toEqual({ org: 'vertuoza', planRepo: 'vertuo-omni-plan' });
+    expect(githubOf({ slug: 'vertuoza', github_org: 'demo-org', plan_repo: 'nimbus-plan' })).toEqual({ org: 'demo-org', planRepo: 'nimbus-plan' });
   });
 
   it('refuses a workspace that names no GitHub organisation or plan repository, naming the workspace', () => {

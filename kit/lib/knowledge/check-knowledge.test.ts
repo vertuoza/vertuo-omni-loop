@@ -477,14 +477,14 @@ describe('strictness — every line leads somewhere real', () => {
 
   it('refuses an owning library that does not exist', () => {
     const root = tree({
-      'libs/vertuo-ai-real/package.json': '{}',
+      'libs/nimbus-ai-real/package.json': '{}',
       'docs/knowledge/domains/advisor/README.md':
-        '# advisor\n\nGlossary term: Advisor\n\n## Owning libraries\n\n- `libs/vertuo-ai-real`\n- `libs/vertuo-ai-gone`\n',
+        '# advisor\n\nGlossary term: Advisor\n\n## Owning libraries\n\n- `libs/nimbus-ai-real`\n- `libs/nimbus-ai-gone`\n',
       [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'),
     });
     const { violations } = grade(root);
     expect(violations).toEqual([
-      'docs/knowledge/domains/advisor/README.md: advisor — names owning library libs/vertuo-ai-gone, which does not exist.',
+      'docs/knowledge/domains/advisor/README.md: advisor — names owning library libs/nimbus-ai-gone, which does not exist.',
     ]);
   });
 });

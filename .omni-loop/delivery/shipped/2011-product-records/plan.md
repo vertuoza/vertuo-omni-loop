@@ -112,7 +112,7 @@ and the bug counter; landing 3 the knowledge packs and the product's plan reposi
   commit's files; other merges write none; it runs in the installation's budget.
 
 **s12**
-- `omni kb pack get vertuo-api` writes and prints the folder; with the server unreachable it prints
+- `omni kb pack get nimbus-api` writes and prints the folder; with the server unreachable it prints
   the newest fetched pack with its sha and age; a pack older than `read_at` stops `/omni:do-work` with
   `pack stale: <sha> < read_at <sha>`.
 

@@ -1,6 +1,6 @@
 import { drawerKey } from '../../nav/drawer';
-import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { positionOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
+import { positionOf } from 'omni-loop/kit/lib/narrow.ts';
 import { roundAnswers, type AskQuestion, type Draft } from '../../ask/answer-model';
 import type { Called } from '../runners.client';
 import { ANSWER_CHARS, type JobQuestions, type Question } from '../runners.contract';

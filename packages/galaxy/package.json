@@ -8,6 +8,6 @@
     ".": { "types": "./src/index.ts", "default": "./src/index.ts" }
   },
   "dependencies": {
-    "vertuo-omni-plan": "workspace:*"
+    "omni-loop": "workspace:*"
   }
 }

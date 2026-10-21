@@ -7,7 +7,7 @@ import type { WoundKind } from '@omni/galaxy';
 import { heroLook, heroPose, spriteImage, STAGE_PALETTES, TILES, woundTint, type Hero, type Tint } from '@omni/design';
 import { crewLook } from '../fleets';
 import type { Stage } from './stages';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 
 /** The sky behind each palette's stage: open blue, the cave's dark, the castle's night. */
 export const SKY: Readonly<Record<string, string>> = Object.freeze({ grass: '#6f9cff', underground: '#08070f', castle: '#1c1f31' });

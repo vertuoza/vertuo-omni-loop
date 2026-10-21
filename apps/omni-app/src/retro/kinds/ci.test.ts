@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
-import { dig } from 'vertuo-omni-plan/kit/bin/dig.ts';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { at as itemAt, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { dig } from 'omni-loop/kit/bin/dig.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { at as itemAt, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { inngest } from '../../inngest-client.ts';
 import { FEATURE, JUDGE_ENV, OWNER, PLAN, REPO, SUB_PULLS, judge } from '../../../test/retro-scenario.ts';
 import { listPullsInto } from '../github.ts';

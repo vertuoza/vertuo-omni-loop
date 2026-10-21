@@ -6,7 +6,7 @@
 // no round. Every other table and function is the galaxy fake's. It answers the query shapes
 // src/data/dossiers.ts sends, records every one, and nothing else; the functions' own rules are proved
 // by supabase/checks/dossiers.sql, not here.
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { DossierListRow, DossierRoundRow } from '../dossier/store';
 import { isFakeTable, type fakeGalaxyDb, type FakeUser } from './galaxy.fake';
 

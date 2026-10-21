@@ -65,7 +65,7 @@ Whether a region in an event id and in the region column is owner/name or the ba
 
 ## What I did meanwhile
 
-Full owner/name everywhere: ids read zone:vertuoza/vertuo-ai-domain:vertuoza/vertuo-omni-loop#12:s1:secured. Sectors still match a bare name, so the existing sector rows keep working.
+Full owner/name everywhere: ids read zone:demo-org/nimbus-brain:vertuoza/vertuo-omni-loop#12:s1:secured. Sectors still match a bare name, so the existing sector rows keep working.
 
 ## What it costs to change later
 

@@ -15,7 +15,7 @@
 // out, 404 no such PRD (or item) in the caller's workspaces, 409 an item already settled, 422 a value the
 // database refuses (a rank other than medium adopted, say), 503 no database here, 500 the database failed.
 import { z } from 'zod';
-import { OutboxItemIdSchema, PrdNumberSchema, ProductPrdIdSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { OutboxItemIdSchema, PrdNumberSchema, ProductPrdIdSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** A product's key: lowercase kebab-case, each part starting with a letter, 40 characters at most. */
 const ProductKeySchema = z.string().max(40).regex(/^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/);

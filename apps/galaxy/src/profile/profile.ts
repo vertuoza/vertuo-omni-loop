@@ -1,5 +1,5 @@
 import 'server-only';
-import { at, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
@@ -121,7 +121,7 @@ export async function loadProfileBoard(db: SupabaseClient<Database>, user: Pick<
   return terminal && alerted.kind === 'profile' ? { ...alerted, terminal } : alerted;
 }
 
-const DEMO_TRACKED = ['vertuoza/vertuo-core', 'vertuoza/vertuo-api', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-web', 'vertuoza/vertuo-mobile'];
+const DEMO_TRACKED = ['demo-org/nimbus-core', 'demo-org/nimbus-api', 'demo-org/nimbus-ai-domain', 'demo-org/nimbus-web', 'demo-org/nimbus-mobile'];
 const DAY = 24 * 3_600_000;
 
 /** The demo's terminal tokens, on the demo's *you*'s own profile: one used a moment ago, one never. */
@@ -146,7 +146,7 @@ function demoProfileOf(login: string, period: Period, now: Date, galaxy: GalaxyV
   const roster = demoRoster(galaxy);
   const activity = demoActivity(roster, now);
   const merges = activity.filter((a) => a.kind === MERGED && roster.some((m) => m.login === a.login));
-  const repo = (name: string) => DEMO_TRACKED.find((r) => r.endsWith(`/${name}`)) ?? `vertuoza/${name}`;
+  const repo = (name: string) => DEMO_TRACKED.find((r) => r.endsWith(`/${name}`)) ?? `demo-org/${name}`;
   const pullRequests = merges.map((a): PullRequestRow => ({
     repo: repo(a.repo), number: a.number, author: a.login, authorIsBot: false, openedAt: new Date(Date.parse(a.at) - DAY).toISOString(),
     mergedAt: a.at, closedAt: a.at, mergedBy: null, commits: 1 + (a.number % 4), additions: 12 + ((a.number * 37) % 300),

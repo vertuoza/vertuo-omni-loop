@@ -12,13 +12,14 @@ import { rawLogPath, runJobProcess } from './job.ts';
 const STREAM = join(import.meta.dirname, 'fixtures', 'stream.jsonl');
 
 /** A job's folder, its files, and a `bin` holding the fake `claude` and `pnpm`. */
-function fixture({ lockfile = false, exit = 0 }: { lockfile?: boolean; exit?: number } = {}) {
+function fixture({ lockfile = false, exit = 0, line = '/omni:yolo 1717', mcp = false }: { lockfile?: boolean; exit?: number; line?: string; mcp?: boolean } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'omni-job-'));
   const bin = join(root, 'bin');
   const cwd = join(root, 'wt');
   mkdirSync(bin);
   mkdirSync(cwd);
   if (lockfile) writeFileSync(join(cwd, 'pnpm-lock.yaml'), '');
+  if (mcp) writeFileSync(join(cwd, '.mcp.json'), '{"mcpServers":{}}\n');
   // The fake claude: records its arguments and its standard input, prints the recorded stream with
   // a partial last line, and one line on its standard error.
   writeFileSync(
@@ -39,7 +40,7 @@ function fixture({ lockfile = false, exit = 0 }: { lockfile?: boolean; exit?: nu
   chmodSync(join(bin, 'claude'), 0o755);
   chmodSync(join(bin, 'pnpm'), 0o755);
   const files = { line: join(root, 'job-7.line'), log: join(root, 'job-7.log'), exit: join(root, 'job-7.exit') };
-  writeFileSync(files.line, '/omni:yolo 1717\n');
+  writeFileSync(files.line, `${line}\n`);
   writeFileSync(files.log, '');
   let pane = '';
   const out = { write: (chunk: string) => (pane += chunk) };
@@ -100,6 +101,32 @@ describe('runJobProcess', () => {
     const missing = fixture();
     expect(await runJobProcess({ cwd: missing.cwd, files: missing.files, out: missing.out, env: { PATH: join(missing.root, 'nowhere') } })).toBe(127);
     expect(readFileSync(missing.files.log, 'utf8')).toContain('claude: could not be started');
+  });
+});
+
+// A repository's own skill (PRD 2313, s2): its job loads the repository's MCP servers from the
+// worktree's `.mcp.json`, with no approval prompt; a fixed skill's job runs with the arguments it always had.
+describe("runJobProcess, a repository's own skill", () => {
+  const ARGS = ['--dangerously-skip-permissions', '-p', '--output-format', 'stream-json', '--verbose'];
+  const argsOf = (root: string): string[] => readFileSync(join(root, 'args'), 'utf8').trim().split('\n');
+
+  it('runs claude with --mcp-config .mcp.json when the worktree holds one', async () => {
+    const f = fixture({ line: '/validate-prd 347', mcp: true });
+    expect(await runJobProcess({ cwd: f.cwd, files: f.files, out: f.out, env: f.env })).toBe(0);
+    expect(argsOf(f.root)).toEqual([...ARGS, '--mcp-config', '.mcp.json']);
+    expect(readFileSync(join(f.root, 'stdin'), 'utf8')).toBe('/validate-prd 347\n');
+  });
+
+  it('runs claude as before when the worktree holds no .mcp.json', async () => {
+    const f = fixture({ line: '/validate-prd 347' });
+    await runJobProcess({ cwd: f.cwd, files: f.files, out: f.out, env: f.env });
+    expect(argsOf(f.root)).toEqual(ARGS);
+  });
+
+  it("leaves a fixed skill's arguments unchanged, a .mcp.json in its worktree or not", async () => {
+    const f = fixture({ line: '/omni:yolo 1717', mcp: true });
+    await runJobProcess({ cwd: f.cwd, files: f.files, out: f.out, env: f.env });
+    expect(argsOf(f.root)).toEqual(ARGS);
   });
 });
 

@@ -14,7 +14,7 @@
 //   It runs in the step before the branch, the files and the pull request are published, so
 //   `retro.md` can link each issue. On the first run the retro PR is not open yet, so the header
 //   names it only once one is open from the retro branch (a replay, or a later run).
-import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { PER_PAGE, paginate } from './github.ts';
 import { CreatedIssueSchema, IssuesSchema, RetroPullsSchema, parseGitHub } from './github.schema.ts';
 import { ISSUES_PER_RUN } from './rules.ts';

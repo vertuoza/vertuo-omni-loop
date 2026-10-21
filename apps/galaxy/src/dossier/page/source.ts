@@ -19,8 +19,8 @@ import {
   dossierList, dossierPulse, dossierReader, dossierRounds, type DossierListRow, type DossierPulse, type DossierRoundRow,
   type DossierVersionRow,
 } from '../store';
-import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
-import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { parsePlanSlices } from 'omni-loop/kit/lib/inbox/territory.ts';
+import { isOneOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { DossierRead } from './view';
 
 export type Db = Pick<SupabaseClient, 'from' | 'rpc'>;

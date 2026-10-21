@@ -40,7 +40,7 @@ describe('repoFiles', () => {
 
 describe('labels', () => {
   it('names a file by its repository and path, and a page without its scheme', () => {
-    expect(fileLabel('vertuoza/vertuo-app', 'README.md')).toBe('vertuo-app · README.md');
-    expect(pageLabel('https://vertuoza.com/pricing/')).toBe('vertuoza.com/pricing');
+    expect(fileLabel('demo-org/nimbus-app', 'README.md')).toBe('nimbus-app · README.md');
+    expect(pageLabel('https://example.com/pricing/')).toBe('example.com/pricing');
   });
 });

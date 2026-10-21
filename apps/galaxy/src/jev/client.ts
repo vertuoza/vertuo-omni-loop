@@ -1,4 +1,4 @@
-import { defined, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { z } from 'zod';
 import { maskSecrets, maskState } from './mask';
 

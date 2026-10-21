@@ -66,6 +66,12 @@
   .confirm { border: 1px solid var(--ask-line-strong); border-radius: 10px; background: var(--ask-sunk); padding: 12px 14px; font-size: 15px; max-width: 520px; }
   .confirm p { margin: 0 0 6px; }
   .confirm .btns { display: flex; gap: 8px; justify-content: flex-end; }
+  details.skills { flex-basis: 100%; border-top: 1px solid var(--ask-line); padding-top: 8px; font-size: 14px; }
+  details.skills summary { cursor: pointer; color: var(--ask-muted); }
+  .skill { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--ask-line); }
+  .skill:last-child { border-bottom: 0; }
+  .skill .what { flex: 1 1 240px; display: grid; }
+  .gone { color: var(--ask-red); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -89,12 +95,18 @@
             <span class="switch">Fix on a runner once answered <span class="toggle on"></span></span>
             <span class="switch">Tracked <span class="toggle on"></span></span>
             <button class="ask-button quiet changed">Remove</button>
+            <details class="skills changed" open>
+              <summary>Runner skills (3)</summary>
+              <div class="skill"><div class="what"><code title="Checks a PRD's criteria on its preview, with a clip per criterion.">/validate-prd</code><span class="muted small">allowed by @ada on 21 Oct</span></div><span class="switch">Allow on runner <span class="toggle on"></span></span></div>
+              <div class="skill"><div class="what"><code title="Drafts the release notes of a merged PR.">/release-notes</code></div><span class="switch">Allow on runner <span class="toggle"></span></span></div>
+              <div class="skill"><div class="what"><code>/seed-demo</code><span class="gone small">Gone: no longer on main</span><span class="muted small">allowed by @ada on 2 Oct</span></div><span class="switch">Allow on runner <span class="toggle on"></span></span></div>
+            </details>
           </li>
         </ul>
         <details class="removed changed" open>
           <summary>Removed (1)</summary>
           <ul>
-            <li><strong>vertuoza/vertuobuild</strong> <span>removed just now</span> <button class="ask-button quiet">Add back</button></li>
+            <li><strong>demo-org/vertuobuild</strong> <span>removed just now</span> <button class="ask-button quiet">Add back</button></li>
           </ul>
         </details>
       </div>

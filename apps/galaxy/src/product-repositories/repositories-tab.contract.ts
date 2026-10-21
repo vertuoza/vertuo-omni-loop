@@ -63,7 +63,7 @@ export const MemberQuerySchema = MemberSchema;
 
 /** What still holds the plan repository: what it is, and why (`step 3`, `in git`). */
 const HoldSchema = z.object({
-  /** `vertuo-web`, `roadmap 0412`, `bug 1210`, `PRD 2011`. */
+  /** `nimbus-web`, `roadmap 0412`, `bug 1210`, `PRD 2011`. */
   name: z.string(),
   /** `step 3` for a repository below step 5, `in git` for a record still open that was born there. */
   why: z.string(),

@@ -6,8 +6,8 @@
 // message and hint; an answer out of shape as the code `shape`.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import type { WorkSliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { WorkSliceId } from 'omni-loop/kit/lib/ids.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 /** What the reads and writes need: the tables, and the database's functions. */
 export type OutboxItemsDb = Pick<SupabaseClient, 'from' | 'rpc'>;

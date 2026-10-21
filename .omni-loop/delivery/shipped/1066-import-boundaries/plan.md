@@ -33,7 +33,7 @@ by file, so s1 adds a new file there and edits none of s2's.
 
 - `kit/lib/statusline/board-cache.ts` names nothing in `kit/bin`: the command line's path comes in from
   its caller; `fallow dead-code --circular-deps` reports no cycle.
-- `packages/design/package.json` declares `vertuo-omni-plan`, and its imports of the kit use the package
+- `packages/design/package.json` declares `omni-loop`, and its imports of the kit use the package
   name; the lockfile follows with pnpm 9.
 - The comments in `game/sources/parsers.ts` and `game/dossiers/folders.ts` say the game imports the kit's
   `ids` and `env` only.
@@ -42,7 +42,7 @@ by file, so s1 adds a new file there and edits none of s2's.
 **s3**
 
 - `scripts/import-guard.test.ts` reads every tracked source file's imports (static, dynamic with a literal,
-  `export … from`, type-only included) from the syntax tree, resolves relative, `vertuo-omni-plan/…` and
+  `export … from`, type-only included) from the syntax tree, resolves relative, `omni-loop/…` and
   `@omni/*` spellings to the spec's zones, and fails on every import the table forbids, naming file, line
   and rule; test files may also import `kit/test` and `kit/bin`.
 - It fails when a client-reachable arcade module (a `'use client'` file or anything it imports,

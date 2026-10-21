@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { present } from '../ask/test/test-item';
 import type { DossierListRow, DossierRoundRow } from '../dossier/store';
 import { demoDossiers, planetDossier, workspaceDossiers } from './dossiers';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { ACME, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const NOW = new Date('2026-09-27T10:00:00Z');
-const HOME = 'vertuoza/vertuo-omni-plan';
+const HOME = 'demo-org/nimbus-plan';
 
 /** A dossier as dossier_list() lists it: Vertuoza's plan repository's PRD `prd`, unless told otherwise. */
 function listed(id: string, prd: number | null, more: Partial<DossierListRow> = {}): DossierListRow {

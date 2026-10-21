@@ -6,7 +6,7 @@ import type { DossierRow, DossierVersionRow } from '../store';
 import { DossierPage } from './DossierPage';
 import { fixPageView, type FixPageView } from '../../fixes/timeline';
 import { dossierView, readPick } from './view';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -20,7 +20,7 @@ vi.mock('next/navigation', async (original) => ({
 // rendered from markdown.
 
 const ID = '00000000-0000-4000-8000-0000000000f1';
-const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
+const PIERRE = { user_id: 'u-pierre', email: 'pierre@example.com', name: 'Pierre' };
 const SUPABASE = { url: 'http://127.0.0.1:54321', key: 'anon' };
 
 const dossier = (kind: 'visual' | 'bug', prd: number): DossierRow => ({

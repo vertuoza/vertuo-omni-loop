@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { EnvError } from 'vertuo-omni-plan/kit/lib/env/group.ts';
+import { EnvError } from 'omni-loop/kit/lib/env/group.ts';
 import { readClientEnv } from './env.client';
 
 describe('readClientEnv, the browser\'s public pair', () => {

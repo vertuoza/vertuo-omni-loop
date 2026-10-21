@@ -73,7 +73,7 @@ describe('/app decides once', () => {
   });
 
   it('signed in to a workspace: streams the dashboard, each part read as that person, now', async () => {
-    given.user = { id: 'u1', email: 'ada@vertuoza.com' };
+    given.user = { id: 'u1', email: 'ada@example.com' };
     given.workspace = { id: 'w1' };
     const page = await pageOf({ period: '30d', x: '1' });
     expect(page.type).toBe(HomeStream);
@@ -91,7 +91,7 @@ describe('/app decides once', () => {
 
   it('signed in, the workspace out of reach: what the loader reads as that person, now', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    given.user = { id: 'u1', email: 'ada@vertuoza.com' };
+    given.user = { id: 'u1', email: 'ada@example.com' };
     given.workspace = new Error('down');
     given.load = { kind: 'dashboard', dashboard: { name: 'ADA' } };
     const { view } = await propsOf();

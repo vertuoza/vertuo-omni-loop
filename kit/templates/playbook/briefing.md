@@ -7,7 +7,7 @@ evidence: []
 invaded: null
 ---
 
-<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md — changes in kit/porting/templates--briefing.md -->
+<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md — changes in kit/porting/templates--briefing.md -->
 
 # Briefing
 

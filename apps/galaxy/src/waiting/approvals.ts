@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { WaitingApproval } from './waiting';
 
 // The waiting list's Approvals part (PRD 1322 s2): the approval requests that wait on the person looking,

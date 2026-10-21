@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { flowFiles, knowledgeFolders, packPaths, repositoryPath, touchesPack } from './paths.ts';
 
 const config = (yaml: string) => parseConfig(`kit: 1\n${yaml}`);

@@ -24,8 +24,8 @@
 // budget for the repository is spent (saying when it refills), 503 no database or no app here, 500 the
 // host failed.
 import { z } from 'zod';
-import { IssueNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import * as kit from 'vertuo-omni-plan/kit/lib/loop-reads/contract.ts';
+import { IssueNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import * as kit from 'omni-loop/kit/lib/loop-reads/contract.ts';
 
 /** The most changes one list answers. */
 export const MAX_CHANGES = 200;

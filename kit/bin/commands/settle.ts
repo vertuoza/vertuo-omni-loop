@@ -7,7 +7,7 @@
 // is recorded as given in the terminal by whoever is signed in, so `--channel` and `--number` name
 // nothing there. While the server cannot be reached it holds, exit 1. It runs before a context exists,
 // like `omni status`, so that a test can hand it `tokens`, `home`, `fetch`, `callMs` and `now`.
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-settle.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-settle.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 import { relative } from 'node:path';
 import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';

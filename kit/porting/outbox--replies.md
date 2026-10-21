@@ -1,6 +1,6 @@
 # `kit/lib/outbox/replies.mjs`
 
-Source: `scripts/outbox-replies.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/outbox-replies.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -35,14 +35,14 @@ Source: `scripts/outbox-replies.mjs` @ `vertuo-ai-domain@c4a210122`.
     against `ctx.root`, mirroring `status.mjs`'s own `unreworkedDrift`. Calls `parseSettledEntries`
     with `ctx.markers` (that function's signature already grew a `markers` parameter in Task 6's
     port of `settle.mjs`).
-- `OUTBOX_MARKER_PREFIX = '<!-- vertuo-outbox'` module constant: deleted. Every use rewritten to the
+- `OUTBOX_MARKER_PREFIX = '<!-- nimbus-outbox'` module constant: deleted. Every use rewritten to the
   injected `markers.any` (the task's own mapping-table row): `isCountedReply(comment)` →
   `isCountedReply(comment, markers)`.
 - The round marker literal in `formatRoundComment`
-  (`` `<!-- vertuo-outbox-round: ${round} ${numbers.join(',')} -->` ``) → `markers.round(round,
+  (`` `<!-- nimbus-outbox-round: ${round} ${numbers.join(',')} -->` ``) → `markers.round(round,
   numbers)` (the task's own mapping-table row); `formatRoundComment({ round, questions })` →
   `formatRoundComment({ round, questions, markers })`.
-- `DEFAULT_REPO = 'vertuoza/vertuo-ai-domain'`: deleted (the task's own mapping-table row) — it was
+- `DEFAULT_REPO = 'demo-org/nimbus-brain'`: deleted (the task's own mapping-table row) — it was
   only read by the deleted CLI half (`repo ?? DEFAULT_REPO`); the CLI's replacement (Task 15) reads
   `ctx.config.repo.slug` instead.
 - `appendObjection({ root = repoRoot, prd, adoptedEntry, item, answer, judgement })` →
@@ -78,10 +78,10 @@ Source: `scripts/outbox-replies.mjs` @ `vertuo-ai-domain@c4a210122`.
   call, `console.log`/`process.exit`) all deleted. Task 15 rebuilds the CLI.
 - **Comments naming a `vertuo-…` literal** (caught by `no-literals.test.mjs`'s `/vertuo/i` scan,
   which checks every line including doc comments, not just runtime string literals):
-  - Module doc comment, point 1: `` carry **no** `<!-- vertuo-outbox` marker `` → reworded to
+  - Module doc comment, point 1: `` carry **no** `<!-- nimbus-outbox` marker `` → reworded to
     `` carry **no** outbox marker (the configured marker prefix, `markers.any`) ``.
-  - Module doc comment and `interpretAnswer`'s own doc comment, each naming `` `/vertuo-yolo-fix` ``
-    (the task's own mapping-table row: `/vertuo-yolo-fix` → `COMMANDS.yoloFix`) → both reworded to
+  - Module doc comment and `interpretAnswer`'s own doc comment, each naming `` `/nimbus-yolo-fix` ``
+    (the task's own mapping-table row: `/nimbus-yolo-fix` → `COMMANDS.yoloFix`) → both reworded to
     the plain literal `` `/omni-yolo-fix` ``. Neither occurrence is executable code — both sit
     inside JSDoc prose naming which command a rework author would run next — so there is no
     `COMMANDS.yoloFix` expression to interpolate into a comment; the configured kit command name is
@@ -95,7 +95,7 @@ Source: `scripts/outbox-replies.mjs` @ `vertuo-ai-domain@c4a210122`.
     provenance, not a repository literal, and is unchanged.
 - Every other export (`WRITER_ASSOCIATIONS`, `APPROVE_ALL_TEXT`, `RECOMMENDATION_TEXT`,
   `parseReplyLines`, `interpretAnswer`, `answerableQuestions`, `time`, `chronological`, `summarize`)
-  is unchanged — none of them read `root`, a marker literal, or `/vertuo-yolo-fix`.
+  is unchanged — none of them read `root`, a marker literal, or `/nimbus-yolo-fix`.
 
 ## Test (`replies.test.mjs`)
 
@@ -104,9 +104,9 @@ Source: `scripts/outbox-replies.mjs` @ `vertuo-ai-domain@c4a210122`.
   Removed `import { formatNumbersMarker, PR_MARKER } from './outbox-comment.mjs';` — that module is
   not ported yet, and even once it is, this test's fixtures must not depend on it, since
   `outbox-comment.mjs` is a *different* module's port, not this task's.
-- Added a module-scope `const markers = makeMarkers('vertuo-outbox');`, matching `flatCtx`'s own
+- Added a module-scope `const markers = makeMarkers('nimbus-outbox');`, matching `flatCtx`'s own
   configured prefix, per the task's own clarification ("markers should reproduce it, since flatCtx
-  uses the `vertuo-outbox` prefix"). Used to build every fixture marker (`prComment`, `roundComment`,
+  uses the `nimbus-outbox` prefix"). Used to build every fixture marker (`prComment`, `roundComment`,
   the "carries an outbox marker" test) and passed to every `planReplies`/`formatRoundComment` call
   that now requires it, and to `parseSettledEntries` in `settledOf`.
 - Added a small test-only `formatNumbersMarkerFixture(numbering)` — the same round-trip algorithm
@@ -117,10 +117,10 @@ Source: `scripts/outbox-replies.mjs` @ `vertuo-ai-domain@c4a210122`.
 - `prComment(numbering, { id })`: `PR_MARKER` → `markers.prComment`; `formatNumbersMarker(numbering)`
   → `formatNumbersMarkerFixture(numbering)`.
 - `roundComment(round, numbers, { at })`: the hard-coded
-  `` `<!-- vertuo-outbox-round: ${round} ${numbers.join(',')} -->` `` → `` `${markers.round(round,
+  `` `<!-- nimbus-outbox-round: ${round} ${numbers.join(',')} -->` `` → `` `${markers.round(round,
   numbers)}` ``.
 - The "ignores a writer comment that carries an outbox marker" test's inline
-  `` `<!-- vertuo-outbox-round: 2 1 -->\n1: ok\napprove all` `` → `` `${markers.round(2,
+  `` `<!-- nimbus-outbox-round: 2 1 -->\n1: ok\napprove all` `` → `` `${markers.round(2,
   [1])}\n1: ok\napprove all` ``.
 - Every `readReplies({ prd, pr, root, ... }, client)` call → `readReplies({ ctx: flatCtx(root), prd,
   pr, ... }, client)`, `flatCtx(root)` built fresh at each call site (same convention
@@ -135,10 +135,10 @@ Source: `scripts/outbox-replies.mjs` @ `vertuo-ai-domain@c4a210122`.
   `parseSettledEntries(readFileSync(file, 'utf8'), markers)` (`settle.mjs`'s own already-ported
   signature, Task 6).
 - **Assertion changes: none.** Every `expect(...)` in the ported suite is byte-identical to
-  upstream's. Every marker literal an assertion checks (`'<!-- vertuo-outbox-round: 2 1 -->'`,
-  `'<!-- vertuo-outbox-round: 4 1 -->'`, `'<!-- vertuo-outbox-round: 3 2,4 -->'`, the
-  `^<!-- vertuo-outbox-settled: /gm` pattern in `rawEntryCount`) reproduces exactly, because
-  `flatCtx`'s configured marker prefix (`vertuo-outbox`) is byte-identical to upstream's own
+  upstream's. Every marker literal an assertion checks (`'<!-- nimbus-outbox-round: 2 1 -->'`,
+  `'<!-- nimbus-outbox-round: 4 1 -->'`, `'<!-- nimbus-outbox-round: 3 2,4 -->'`, the
+  `^<!-- nimbus-outbox-settled: /gm` pattern in `rawEntryCount`) reproduces exactly, because
+  `flatCtx`'s configured marker prefix (`nimbus-outbox`) is byte-identical to upstream's own
   hard-coded prefix — the clarification's own prediction ("it should reproduce it") held for every
   case; the `/omni-yolo-fix` rewording named in the clarification never actually appears in this
   test file (only in the module's own doc comments — see above), so there was nothing to change

@@ -2,7 +2,7 @@
 import { useReducer, useRef } from 'react';
 import Link from 'next/link';
 import { createBrowserClient } from '@supabase/ssr';
-import type { PitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import type { PitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import { repositoriesTabHref } from '../product-repositories/repositories-tab.contract';
 import { PRODUCTS_HREF, type PitchedProduct } from './model';
 import { PitchSection, type PitchHandlers } from './pitch-form';

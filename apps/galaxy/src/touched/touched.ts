@@ -28,14 +28,14 @@
 // job that waited on those answers when ../runners/continue.ts says it continues, at most once.
 import 'server-only';
 import { z } from 'zod';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { FixRef } from '../dossier/github/reader';
 import { UNREAD, type GithubSummary } from '../dossier/github/summary';
 import { outboxStand, type OutboxStand } from '../dossier/page/stage';
 import { answeredAll } from '../runners/continue';
 import { refreshSnapshot, staleSnapshot, type SnapshotDeps, type SnapshotDossier } from '../dossier/snapshot/snapshot';
-import { log as runLog, type LogEntry } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log as runLog, type LogEntry } from 'omni-loop/kit/lib/log/log.ts';
 import { STAGE_SIGNATURE_HEADER, verifySignature } from '../stages/event/event';
 
 export type Touch = { repository: string; issue?: IssueNumber; pr?: PrNumber; branch?: string };

@@ -21,7 +21,7 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, 
 const member = (userId: string, login: string | null, fleet: string | null, name: string): Member => ({ userId, name, login, avatarUrl: null, fleet });
 const READ = {
   roster: [member('u-ada', 'ada-gh', 'octo', 'ADA'), member('u-paul', 'paetienne', 'octo', 'Paul Etienne'), member('u-sol', 'sol-gh', null, 'SOL')],
-  activity: [{ kind: 'pr-merged', repo: 'vertuo-ai-domain', number: 1, login: 'paetienne', at: '2026-09-25T08:00:00Z' }],
+  activity: [{ kind: 'pr-merged', repo: 'nimbus-ai-domain', number: 1, login: 'paetienne', at: '2026-09-25T08:00:00Z' }],
   answered: [{ user_id: 'u-paul', answered: 9 }],
   prds: [],
   galaxy: {

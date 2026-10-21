@@ -13,8 +13,8 @@ import { z } from 'zod';
 import { parseRows } from '../data/parse-rows';
 import type { AskingRecord, OutboxCounts, PrdOutboxStore } from '../stages/outbox/store';
 import { prdKey } from '../stages/store';
-import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { type PrdNumber, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
 
 /** The most dossiers one call reads. */
 export const MAX_DOSSIERS = 30;

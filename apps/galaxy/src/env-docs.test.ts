@@ -2,7 +2,7 @@
 // name exactly what `src/env.ts` reads, both ways. Readers: kit/lib/env/docs.ts.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { envExampleNames, listDifference, readmeNames } from 'vertuo-omni-plan/kit/lib/env/docs.ts';
+import { envExampleNames, listDifference, readmeNames } from 'omni-loop/kit/lib/env/docs.ts';
 import { PLATFORM_VARIABLES, VARIABLES } from './env.ts';
 
 vi.mock('server-only', () => ({}));

@@ -82,7 +82,7 @@ footer{color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);paddin
 <header>
   <span class="tag">PRD 1548 · concept #1269 · area product-gate · ◆ server</span>
   <h1>One gate, no plan PR</h1>
-  <p class="lede">A PRD that spans several repositories lives on its product, on the server. Each target's feature PR gets one check that it was approved, the outbox gate is read on the product, questions are answered on the product's Questions tab, and no plan repository is needed. Example data: Mobile, with vertuo-api and vertuo-mobile.</p>
+  <p class="lede">A PRD that spans several repositories lives on its product, on the server. Each target's feature PR gets one check that it was approved, the outbox gate is read on the product, questions are answered on the product's Questions tab, and no plan repository is needed. Example data: Mobile, with nimbus-api and nimbus-app.</p>
 </header>
 
 <section>
@@ -92,13 +92,13 @@ footer{color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);paddin
       <span class="lbl">Today</span>
       <div class="gh">
         <div class="gh-top">
-          <span class="rn">vertuoza / vertuo-api</span>
+          <span class="rn">vertuoza / nimbus-api</span>
           <span class="pt">Offline photo upload: batch endpoint <span>#446</span></span>
           <span class="bdg">Draft · feat/offline-photo-upload</span>
         </div>
         <div class="row"><span class="ok">✓</span><span class="k">ci / test <small>— 4m 12s</small></span></div>
-        <div class="row"><span class="ok">✓</span><span class="k">outbox <small>— graded on vertuo-plan#918</small></span><a>Details</a></div>
-        <div class="row"><span class="ne">ⓘ</span><span class="k"><small>Part of vertuoza/vertuo-plan#918</small></span></div>
+        <div class="row"><span class="ok">✓</span><span class="k">outbox <small>— graded on nimbus-plan#918</small></span><a>Details</a></div>
+        <div class="row"><span class="ne">ⓘ</span><span class="k"><small>Part of demo-org/nimbus-plan#918</small></span></div>
       </div>
       <p class="note">The outbox check always says <b>success</b> here and points at the plan PR in the plan repository. Nothing on this PR says whether what it builds was approved.</p>
     </div>
@@ -106,7 +106,7 @@ footer{color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);paddin
       <span class="lbl">After</span>
       <div class="gh">
         <div class="gh-top">
-          <span class="rn">vertuoza / vertuo-api</span>
+          <span class="rn">vertuoza / nimbus-api</span>
           <span class="pt">Offline photo upload: batch endpoint <span>#446</span></span>
           <span class="bdg">Draft · feat/offline-photo-upload</span>
         </div>
@@ -129,7 +129,7 @@ footer{color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);paddin
         <span class="crumb">PRD 1299 · one repository, ◆ server</span>
         <p>A one-repository ◆ PRD is checked by <code>omni approval</code> in the terminal only. A target of a multi-repository PRD has no approval to read: its PRD sits in the plan repository's phase-0 PR.</p>
         <div class="term"><span class="d">$</span> omni approval 918
-<span class="r">not a plan repository: run it in vertuo-plan</span></div>
+<span class="r">not a plan repository: run it in nimbus-plan</span></div>
       </div>
     </div>
     <div class="side after">
@@ -162,10 +162,10 @@ footer{color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);paddin
       <span class="lbl">Today</span>
       <div class="gh">
         <div class="gh-top">
-          <span class="rn">vertuoza / vertuo-plan</span>
+          <span class="rn">vertuoza / nimbus-plan</span>
           <span class="pt">feat: Quotes on the phone <span>#912</span></span>
         </div>
-        <div class="row"><span class="ne">💬</span><span class="k">omni-outbox · 2 questions<br><small>s2-01 Quote totals: round per line or on the total? (vertuo-api)<br>s3-02 Show the VAT number on the phone quote? (vertuo-mobile)</small></span></div>
+        <div class="row"><span class="ne">💬</span><span class="k">omni-outbox · 2 questions<br><small>s2-01 Quote totals: round per line or on the total? (nimbus-api)<br>s3-02 Show the VAT number on the phone quote? (nimbus-app)</small></span></div>
         <div class="row"><span class="ne">↩</span><span class="k"><small>Irisa: <code>1: A</code> · <code>2: B</code></small></span></div>
       </div>
       <p class="note">Items are relayed from every target into the plan repository's files, answered as a comment on the plan PR, and read back by <code>omni replies</code>.</p>
@@ -174,8 +174,8 @@ footer{color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);paddin
       <span class="lbl">After</span>
       <div class="panel">
         <span class="crumb">vertuoza › Products › Mobile › Questions · 2</span>
-        <div class="q"><span class="chip">◆ mobile-12</span><div><div class="t">Quote totals: round per line or on the total?</div><div class="s">vertuo-api · s2-01 · for Irisa</div></div><div class="btns"><span class="btn on">A · per line</span><span class="btn">B · on the total</span><span class="btn">other…</span></div></div>
-        <div class="q"><span class="chip">◆ mobile-12</span><div><div class="t">Show the VAT number on the phone quote?</div><div class="s">vertuo-mobile · s3-02 · for Irisa</div></div><div class="btns"><span class="btn">A · yes</span><span class="btn">B · no</span><span class="btn">other…</span></div></div>
+        <div class="q"><span class="chip">◆ mobile-12</span><div><div class="t">Quote totals: round per line or on the total?</div><div class="s">nimbus-api · s2-01 · for Irisa</div></div><div class="btns"><span class="btn on">A · per line</span><span class="btn">B · on the total</span><span class="btn">other…</span></div></div>
+        <div class="q"><span class="chip">◆ mobile-12</span><div><div class="t">Show the VAT number on the phone quote?</div><div class="s">nimbus-app · s3-02 · for Irisa</div></div><div class="btns"><span class="btn">A · yes</span><span class="btn">B · no</span><span class="btn">other…</span></div></div>
       </div>
       <p class="note">Items are rows on the server, written by typed verbs (<code>omni item new --prd mobile-12</code>). An answer settles the row; the next ultra wave reads it. Nothing is posted to GitHub.</p>
     </div>
@@ -187,20 +187,20 @@ footer{color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);paddin
   <div class="pair">
     <div class="side today">
       <span class="lbl">Today</span>
-      <div class="term"><span class="d">~/vertuo-plan $</span> /omni:mega-brainstorm "offline photo upload"
-  <span class="d">●</span> issue vertuo-plan#918 · folder inbox/0918-…
-  <span class="d">●</span> phase-0 PR vertuo-plan#919 · waits for a merge
-<span class="d">~/vertuo-plan $</span> /omni:ultra-yolo 918
-  <span class="d">●</span> plan PR vertuo-plan#920 · the one outbox gate
-  <span class="d">●</span> api#446 · mobile#93 · Part of vertuo-plan#918</div>
+      <div class="term"><span class="d">~/nimbus-plan $</span> /omni:mega-brainstorm "offline photo upload"
+  <span class="d">●</span> issue nimbus-plan#918 · folder inbox/0918-…
+  <span class="d">●</span> phase-0 PR nimbus-plan#919 · waits for a merge
+<span class="d">~/nimbus-plan $</span> /omni:ultra-yolo 918
+  <span class="d">●</span> plan PR nimbus-plan#920 · the one outbox gate
+  <span class="d">●</span> api#446 · mobile#93 · Part of nimbus-plan#918</div>
       <p class="note">A repository kept only to hold the loop's state: an issue, a phase-0 PR and a plan PR, with CI on Markdown.</p>
     </div>
     <div class="side after">
       <span class="lbl">After</span>
-      <div class="term"><span class="d">~/vertuo-mobile $</span> /omni:mega-brainstorm --product mobile "offline photo upload"
+      <div class="term"><span class="d">~/nimbus-app $</span> /omni:mega-brainstorm --product mobile "offline photo upload"
   <span class="c">●</span> <span class="y">◆ mobile-12</span> on its page · no issue · no phase-0 PR
   <span class="d">  approve it on omni-loop.xyz/prd/mobile-12</span>
-<span class="d">~/vertuo-mobile $</span> /omni:ultra-yolo mobile-12
+<span class="d">~/nimbus-app $</span> /omni:ultra-yolo mobile-12
   <span class="g">● seal mobile-12 · 5/5 =</span> · building · wave 1
   <span class="d">●</span> api#446 · mobile#93 · Part of mobile-12
   <span class="d">●</span> outbox on Mobile · 0 open · targets ready

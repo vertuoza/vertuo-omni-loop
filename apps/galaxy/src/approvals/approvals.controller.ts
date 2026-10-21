@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { AskingSchema } from 'vertuo-omni-plan/kit/lib/approval/stream.ts';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { AskingSchema } from 'omni-loop/kit/lib/approval/stream.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { authenticate, callerOrigin, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import { askApprovers, waitingApprovals, type AskDeps } from './approvals.service';

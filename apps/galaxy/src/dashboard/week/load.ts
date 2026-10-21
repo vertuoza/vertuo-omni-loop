@@ -1,4 +1,4 @@
-import { at, dateParts } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, dateParts } from 'omni-loop/kit/lib/narrow.ts';
 import type { PartLoader } from '../part';
 import { chartDays, weekDays, type ChartDay, type Merge } from './chart';
 

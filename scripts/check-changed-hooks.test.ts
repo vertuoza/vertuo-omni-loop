@@ -216,6 +216,29 @@ describe('pre-push: check:changed’s typecheck and lint, nothing else', () => {
   });
 });
 
+describe('pre-push: the open-source guard first (PRD 2305)', () => {
+  it('refuses a tracked file naming an address on the maintainer’s domain, before the typecheck runs', () => {
+    const root = pushRepo();
+    writeFileSync(join(root, 'kit/lib/b.ts'), `export const author = 'jane@${'vert' + 'uoza'}.com';\n`);
+    git(root, 'add', '-A');
+    git(root, 'commit', '-qm', 'b');
+    const pnpm = stub(join(root, 'node_modules/.bin'), 'pnpm');
+    const { code, out } = runGitHook('pre-push', root);
+    expect(code).not.toBe(0);
+    expect(out).toContain('kit/lib/b.ts:1: real email — use <name>@example.com');
+    expect(out).toContain('pre-push: refused: fix what the open-source guard named above');
+    expect(pnpm.log()).toBe('');
+  });
+
+  it('lets a clean branch through to the typecheck and lint, saying so in one line', () => {
+    const root = pushRepo();
+    stub(join(root, 'node_modules/.bin'), 'pnpm');
+    const { code, out } = runGitHook('pre-push', root);
+    expect(code).toBe(0);
+    expect(out).toContain('open-source: green: 2 files read, 0 still in the baseline');
+  });
+});
+
 describe('the hooks themselves', () => {
   it.each(['pre-commit', 'pre-push'])('%s is executable POSIX shell that reads no JSON', (hook) => {
     const text = readFileSync(join(HOOKS, hook), 'utf8');

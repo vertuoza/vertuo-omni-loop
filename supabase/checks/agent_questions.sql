@@ -16,19 +16,22 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- ── The cast ──
--- Olga owns Vertuoza; Mo is its member; Carl owns Acme.
+-- Olga owns Initech; Mo is its member; Carl owns Acme.
 insert into auth.users (id, email, email_confirmed_at) values
-  ('00000000-0000-4000-8000-0000000086a1', 'olga@vertuoza.com', now()),
-  ('00000000-0000-4000-8000-0000000086b1', 'mo@vertuoza.com', now()),
+  ('00000000-0000-4000-8000-0000000086a1', 'olga@example.com', now()),
+  ('00000000-0000-4000-8000-0000000086b1', 'mo@example.com', now()),
   ('00000000-0000-4000-8000-0000000086c1', 'carl@acme.test', now());
 insert into public.workspaces (slug, name, github_org) values ('acme-asks', 'Acme', 'acme-asks');
-update public.workspaces set github_org = 'vertuoza' where slug = 'vertuoza' and github_org is null;
+update public.workspaces set github_org = 'initech' where slug = 'initech' and github_org is null;
 insert into public.workspace_members (workspace_id, user_id, role)
 select w.id, m.user_id, m.role
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000086a1'::uuid, 'owner'),
-         ('vertuoza', '00000000-0000-4000-8000-0000000086b1'::uuid, 'member'),
+         ('initech', '00000000-0000-4000-8000-0000000086a1'::uuid, 'owner'),
+         ('initech', '00000000-0000-4000-8000-0000000086b1'::uuid, 'member'),
          ('acme-asks', '00000000-0000-4000-8000-0000000086c1'::uuid, 'owner')
        ) as m (slug, user_id, role)
   join public.workspaces w on w.slug = m.slug
@@ -41,7 +44,7 @@ create function pg_temp.sign_out() returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
 $$;
 create temporary table ids (slug text primary key, id uuid);
-insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('vertuoza', 'acme-asks');
+insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('initech', 'acme-asks');
 grant select on ids to anon, authenticated, service_role;
 create function pg_temp.ws(slug text) returns uuid language sql as $$
   select i.id from ids i where i.slug = ws.slug;
@@ -83,9 +86,9 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000086b1');
 do $$
 begin
-  perform public.business_open(pg_temp.ws('vertuoza'));
-  perform public.claim_pick(pg_temp.ws('vertuoza'), null, 'region', 'Belgium', 'pick');
-  perform public.agent_token_make(pg_temp.ws('vertuoza'), 'Mo''s editor', pg_temp.hash('omb_mo_asks'), 'asks');
+  perform public.business_open(pg_temp.ws('initech'));
+  perform public.claim_pick(pg_temp.ws('initech'), null, 'region', 'Belgium', 'pick');
+  perform public.agent_token_make(pg_temp.ws('initech'), 'Mo''s editor', pg_temp.hash('omb_mo_asks'), 'asks');
 end $$;
 reset role;
 
@@ -99,11 +102,11 @@ declare
   again jsonb;
   c text;
 begin
-  got := public.agent_question_report(h, '  Do we sell in Luxembourg? ', 'vertuoza/vertuo-apps', 'src/NewQuoteForm.tsx');
+  got := public.agent_question_report(h, '  Do we sell in Luxembourg? ', 'initech/nimbus-apps', 'src/NewQuoteForm.tsx');
   if (got->>'asked')::integer <> 1 then raise exception 'FAIL: a first report answered %', got; end if;
   insert into kept values ('lux', (got->>'id')::uuid);
   -- The same question, case and spaces aside, bumps the one row.
-  again := public.agent_question_report(h, 'do we SELL  in luxembourg?', 'vertuoza/vertuo-apps', 'src/Other.tsx');
+  again := public.agent_question_report(h, 'do we SELL  in luxembourg?', 'initech/nimbus-apps', 'src/Other.tsx');
   if again->>'id' <> got->>'id' or (again->>'asked')::integer <> 2 then
     raise exception 'FAIL: the same question again answered %', again;
   end if;
@@ -116,10 +119,10 @@ begin
   perform pg_temp.refused(format('select public.agent_question_report(%L, ''Who?'')', pg_temp.hash('omb_nobody')), '28000');
 
   foreach c in array array[
-    format('select public.agent_questions_list(%L)', pg_temp.ws('vertuoza')),
-    format('select public.agent_questions_open(%L)', pg_temp.ws('vertuoza')),
-    format('select public.agent_question_dismiss(%L, %L)', pg_temp.ws('vertuoza'), pg_temp.kept('lux')),
-    format('select public.agent_question_answer(%L, %L, ''region'', ''Luxembourg'')', pg_temp.ws('vertuoza'), pg_temp.kept('lux')),
+    format('select public.agent_questions_list(%L)', pg_temp.ws('initech')),
+    format('select public.agent_questions_open(%L)', pg_temp.ws('initech')),
+    format('select public.agent_question_dismiss(%L, %L)', pg_temp.ws('initech'), pg_temp.kept('lux')),
+    format('select public.agent_question_answer(%L, %L, ''region'', ''Luxembourg'')', pg_temp.ws('initech'), pg_temp.kept('lux')),
     'select 1 from public.agent_questions',
     'select 1 from public.agent_question_reports'
   ] loop perform pg_temp.refused(c, '42501'); end loop;
@@ -131,7 +134,7 @@ do $$
 declare q public.agent_questions;
 begin
   q := pg_temp.question(pg_temp.kept('lux'));
-  if q.question <> 'Do we sell in Luxembourg?' or q.asked <> 2 or q.repo <> 'vertuoza/vertuo-apps'
+  if q.question <> 'Do we sell in Luxembourg?' or q.asked <> 2 or q.repo <> 'initech/nimbus-apps'
      or q.file <> 'src/Other.tsx' or q.state <> 'open'
      or q.token_id <> (select id from public.agent_tokens where token_hash = pg_temp.hash('omb_mo_asks')) then
     raise exception 'FAIL: the question was stored as %', q;
@@ -146,22 +149,22 @@ declare
   lux jsonb;
 begin
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000086a1');
-  listed := public.agent_questions_list(pg_temp.ws('vertuoza'));
+  listed := public.agent_questions_list(pg_temp.ws('initech'));
   select e into lux from jsonb_array_elements(listed) e where (e->>'id')::uuid = pg_temp.kept('lux');
   if jsonb_array_length(listed) <> 2 or lux->>'question' <> 'Do we sell in Luxembourg?'
      or lux->>'askedBy' <> 'Mo''s editor' or (lux->>'asked')::integer <> 2
-     or lux->>'repo' <> 'vertuoza/vertuo-apps' or lux->>'file' <> 'src/Other.tsx' or lux->>'product' is null then
+     or lux->>'repo' <> 'initech/nimbus-apps' or lux->>'file' <> 'src/Other.tsx' or lux->>'product' is null then
     raise exception 'FAIL: the owner listed %', listed;
   end if;
-  if public.agent_questions_open(pg_temp.ws('vertuoza')) <> 2 then
-    raise exception 'FAIL: the bell counts % open questions', public.agent_questions_open(pg_temp.ws('vertuoza'));
+  if public.agent_questions_open(pg_temp.ws('initech')) <> 2 then
+    raise exception 'FAIL: the bell counts % open questions', public.agent_questions_open(pg_temp.ws('initech'));
   end if;
 
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000086c1');
-  perform pg_temp.refused(format('select public.agent_questions_list(%L)', pg_temp.ws('vertuoza')), '42501');
-  perform pg_temp.refused(format('select public.agent_questions_open(%L)', pg_temp.ws('vertuoza')), '42501');
-  perform pg_temp.refused(format('select public.agent_question_dismiss(%L, %L)', pg_temp.ws('vertuoza'), pg_temp.kept('lux')), '42501');
-  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''region'', ''Luxembourg'')', pg_temp.ws('vertuoza'), pg_temp.kept('lux')), '42501');
+  perform pg_temp.refused(format('select public.agent_questions_list(%L)', pg_temp.ws('initech')), '42501');
+  perform pg_temp.refused(format('select public.agent_questions_open(%L)', pg_temp.ws('initech')), '42501');
+  perform pg_temp.refused(format('select public.agent_question_dismiss(%L, %L)', pg_temp.ws('initech'), pg_temp.kept('lux')), '42501');
+  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''region'', ''Luxembourg'')', pg_temp.ws('initech'), pg_temp.kept('lux')), '42501');
   -- Through his own workspace, the question is not his.
   perform public.business_open(pg_temp.ws('acme-asks'));
   perform pg_temp.refused(format('select public.agent_question_dismiss(%L, %L)', pg_temp.ws('acme-asks'), pg_temp.kept('lux')), 'P0002');
@@ -180,11 +183,11 @@ declare
   q public.agent_questions;
   c public.claims;
 begin
-  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''planet'', ''Mars'')', pg_temp.ws('vertuoza'), pg_temp.kept('lux')), '22023');
-  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''region'', '''')', pg_temp.ws('vertuoza'), pg_temp.kept('lux')), '22023');
-  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''size'', ''lots'')', pg_temp.ws('vertuoza'), pg_temp.kept('size')), '22023');
+  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''planet'', ''Mars'')', pg_temp.ws('initech'), pg_temp.kept('lux')), '22023');
+  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''region'', '''')', pg_temp.ws('initech'), pg_temp.kept('lux')), '22023');
+  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''size'', ''lots'')', pg_temp.ws('initech'), pg_temp.kept('size')), '22023');
 
-  got := public.agent_question_answer(pg_temp.ws('vertuoza'), pg_temp.kept('lux'), 'region', ' Luxembourg ');
+  got := public.agent_question_answer(pg_temp.ws('initech'), pg_temp.kept('lux'), 'region', ' Luxembourg ');
   q := pg_temp.question(pg_temp.kept('lux'));
   select * into c from public.claims where id = q.claim_id;
   if q.state <> 'answered' or q.closed_by <> '00000000-0000-4000-8000-0000000086b1' or q.closed_at is null
@@ -193,15 +196,15 @@ begin
     raise exception 'FAIL: answer once left % and %', q, c;
   end if;
   -- Once: it is no longer open.
-  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''region'', ''France'')', pg_temp.ws('vertuoza'), pg_temp.kept('lux')), 'P0002');
+  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''region'', ''France'')', pg_temp.ws('initech'), pg_temp.kept('lux')), 'P0002');
 
   -- A size goes to the only product.
-  perform public.agent_question_answer(pg_temp.ws('vertuoza'), pg_temp.kept('size'), 'size', '2-50');
+  perform public.agent_question_answer(pg_temp.ws('initech'), pg_temp.kept('size'), 'size', '2-50');
   select c2.* into c from public.claims c2 where c2.id = (pg_temp.question(pg_temp.kept('size'))).claim_id;
-  if c.kind <> 'size' or c.product_id is distinct from (select p.id from public.products p where p.workspace_id = pg_temp.ws('vertuoza')) then
+  if c.kind <> 'size' or c.product_id is distinct from (select p.id from public.products p where p.workspace_id = pg_temp.ws('initech')) then
     raise exception 'FAIL: the size answer was stored as %', c;
   end if;
-  if public.agent_questions_open(pg_temp.ws('vertuoza')) <> 0 or jsonb_array_length(public.agent_questions_list(pg_temp.ws('vertuoza'))) <> 0 then
+  if public.agent_questions_open(pg_temp.ws('initech')) <> 0 or jsonb_array_length(public.agent_questions_list(pg_temp.ws('initech'))) <> 0 then
     raise exception 'FAIL: answered questions are still open';
   end if;
 end $$;
@@ -226,25 +229,25 @@ reset role;
 -- ── Several products: an answer about an untracked repository names its product ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000086b1');
-select public.product_add(pg_temp.ws('vertuoza'), 'Second product');
+select public.product_add(pg_temp.ws('initech'), 'Second product');
 reset role;
 set local role anon;
 select pg_temp.sign_out();
-insert into kept select 'stray', (public.agent_question_report(pg_temp.hash('omb_mo_asks'), 'Which trade?', 'vertuoza/not-tracked')->>'id')::uuid;
+insert into kept select 'stray', (public.agent_question_report(pg_temp.hash('omb_mo_asks'), 'Which trade?', 'initech/not-tracked')->>'id')::uuid;
 reset role;
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000086b1');
 do $$
 declare
-  second uuid := (select p.id from public.products p where p.workspace_id = pg_temp.ws('vertuoza') and p.name = 'Second product');
+  second uuid := (select p.id from public.products p where p.workspace_id = pg_temp.ws('initech') and p.name = 'Second product');
   c public.claims;
 begin
-  if (select e->>'product' from jsonb_array_elements(public.agent_questions_list(pg_temp.ws('vertuoza'))) e
+  if (select e->>'product' from jsonb_array_elements(public.agent_questions_list(pg_temp.ws('initech'))) e
        where (e->>'id')::uuid = pg_temp.kept('stray')) is not null then
     raise exception 'FAIL: the list guessed a product for an untracked repository';
   end if;
-  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''trade'', ''plumbing'')', pg_temp.ws('vertuoza'), pg_temp.kept('stray')), '22023');
-  perform public.agent_question_answer(pg_temp.ws('vertuoza'), pg_temp.kept('stray'), 'trade', 'plumbing', second);
+  perform pg_temp.refused(format('select public.agent_question_answer(%L, %L, ''trade'', ''plumbing'')', pg_temp.ws('initech'), pg_temp.kept('stray')), '22023');
+  perform public.agent_question_answer(pg_temp.ws('initech'), pg_temp.kept('stray'), 'trade', 'plumbing', second);
   select c2.* into c from public.claims c2 where c2.id = (pg_temp.question(pg_temp.kept('stray'))).claim_id;
   if c.product_id is distinct from second then raise exception 'FAIL: the trade went to %', c; end if;
 end $$;
@@ -258,12 +261,12 @@ declare
   q public.agent_questions;
   claims_before integer := (select count(*) from public.claims);
 begin
-  perform public.agent_question_dismiss(pg_temp.ws('vertuoza'), pg_temp.kept('again'));
+  perform public.agent_question_dismiss(pg_temp.ws('initech'), pg_temp.kept('again'));
   q := pg_temp.question(pg_temp.kept('again'));
   if q.state <> 'dismissed' or q.claim_id is not null or q.closed_at is null or (select count(*) from public.claims) <> claims_before then
     raise exception 'FAIL: dismiss left %', q;
   end if;
-  perform pg_temp.refused(format('select public.agent_question_dismiss(%L, %L)', pg_temp.ws('vertuoza'), q.id), 'P0002');
+  perform pg_temp.refused(format('select public.agent_question_dismiss(%L, %L)', pg_temp.ws('initech'), q.id), 'P0002');
 end $$;
 reset role;
 
@@ -271,23 +274,23 @@ reset role;
 -- The owner can name the fourth decision; switching it on needs a key, so it is set Off here.
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000086a1');
-select public.set_jev_decision(pg_temp.ws('vertuoza'), 'unknown-worth-asking', 'off', 0.5, 0.4);
+select public.set_jev_decision(pg_temp.ws('initech'), 'unknown-worth-asking', 'off', 0.5, 0.4);
 reset role;
 set local role anon;
 select pg_temp.sign_out();
-insert into kept select 'junk', (public.agent_question_report(pg_temp.hash('omb_mo_asks'), 'Is the sky blue?', 'vertuoza/vertuo-apps', 'src/Sky.tsx')->>'id')::uuid;
+insert into kept select 'junk', (public.agent_question_report(pg_temp.hash('omb_mo_asks'), 'Is the sky blue?', 'initech/nimbus-apps', 'src/Sky.tsx')->>'id')::uuid;
 do $$
 begin
   -- The link names its own workspace, so galaxy can look for its Jev key before reading any question;
   -- a link that does not work names none.
-  if public.agent_link_workspace(pg_temp.hash('omb_mo_asks')) is distinct from pg_temp.ws('vertuoza') then
+  if public.agent_link_workspace(pg_temp.hash('omb_mo_asks')) is distinct from pg_temp.ws('initech') then
     raise exception 'FAIL: the link''s workspace';
   end if;
   perform pg_temp.refused(format('select public.agent_link_workspace(%L)', pg_temp.hash('omb_nobody')), '28000');
   -- Neither the link nor anybody signed in reads what Jev reads, or sets a question aside.
   perform pg_temp.refused(format('select public.agent_question_for_jev(%L)', pg_temp.kept('junk')), '42501');
   perform pg_temp.refused(format('select public.agent_question_set_aside(%L)', pg_temp.kept('junk')), '42501');
-  perform pg_temp.refused(format('select public.agent_question_bring_back(%L, %L)', pg_temp.ws('vertuoza'), pg_temp.kept('junk')), '42501');
+  perform pg_temp.refused(format('select public.agent_question_bring_back(%L, %L)', pg_temp.ws('initech'), pg_temp.kept('junk')), '42501');
 end $$;
 reset role;
 set local role authenticated;
@@ -306,8 +309,8 @@ declare
   ctx jsonb := public.agent_question_for_jev(pg_temp.kept('junk'));
   verdict jsonb;
 begin
-  if ctx->>'question' <> 'Is the sky blue?' or ctx->>'repo' <> 'vertuoza/vertuo-apps' or ctx->>'file' <> 'src/Sky.tsx'
-     or (ctx->>'workspace')::uuid <> pg_temp.ws('vertuoza') or not exists (select 1 from jsonb_array_elements_text(ctx->'claims') c where c like 'region#%: Belgium') then
+  if ctx->>'question' <> 'Is the sky blue?' or ctx->>'repo' <> 'initech/nimbus-apps' or ctx->>'file' <> 'src/Sky.tsx'
+     or (ctx->>'workspace')::uuid <> pg_temp.ws('initech') or not exists (select 1 from jsonb_array_elements_text(ctx->'claims') c where c like 'region#%: Belgium') then
     raise exception 'FAIL: Jev reads %', ctx;
   end if;
   -- Jev's counted "no": the open question is set aside.
@@ -344,29 +347,29 @@ declare
   junk jsonb;
 begin
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000086b1');
-  select e into junk from jsonb_array_elements(public.agent_questions_list(pg_temp.ws('vertuoza'))) e
+  select e into junk from jsonb_array_elements(public.agent_questions_list(pg_temp.ws('initech'))) e
    where (e->>'id')::uuid = pg_temp.kept('junk');
   if junk is null or (junk->>'setAside')::boolean is not true then raise exception 'FAIL: the set-aside question listed as %', junk; end if;
-  if exists (select 1 from jsonb_array_elements(public.agent_questions_list(pg_temp.ws('vertuoza'))) e
+  if exists (select 1 from jsonb_array_elements(public.agent_questions_list(pg_temp.ws('initech'))) e
               where (e->>'setAside')::boolean and (e->>'id')::uuid <> pg_temp.kept('junk')) then
     raise exception 'FAIL: an open question listed as set aside';
   end if;
-  open_before := public.agent_questions_open(pg_temp.ws('vertuoza'));
-  if open_before <> (select count(*) from jsonb_array_elements(public.agent_questions_list(pg_temp.ws('vertuoza'))) e
+  open_before := public.agent_questions_open(pg_temp.ws('initech'));
+  if open_before <> (select count(*) from jsonb_array_elements(public.agent_questions_list(pg_temp.ws('initech'))) e
                       where not (e->>'setAside')::boolean) then
     raise exception 'FAIL: the bell counts % with a set-aside question', open_before;
   end if;
 
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000086c1');
-  perform pg_temp.refused(format('select public.agent_question_bring_back(%L, %L)', pg_temp.ws('vertuoza'), pg_temp.kept('junk')), '42501');
+  perform pg_temp.refused(format('select public.agent_question_bring_back(%L, %L)', pg_temp.ws('initech'), pg_temp.kept('junk')), '42501');
   perform pg_temp.refused(format('select public.agent_question_bring_back(%L, %L)', pg_temp.ws('acme-asks'), pg_temp.kept('junk')), 'P0002');
 
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000086b1');
-  perform public.agent_question_bring_back(pg_temp.ws('vertuoza'), pg_temp.kept('junk'));
-  if public.agent_questions_open(pg_temp.ws('vertuoza')) <> open_before + 1 then
+  perform public.agent_question_bring_back(pg_temp.ws('initech'), pg_temp.kept('junk'));
+  if public.agent_questions_open(pg_temp.ws('initech')) <> open_before + 1 then
     raise exception 'FAIL: a question brought back is not counted in the bell';
   end if;
-  perform pg_temp.refused(format('select public.agent_question_bring_back(%L, %L)', pg_temp.ws('vertuoza'), pg_temp.kept('junk')), 'P0002');
+  perform pg_temp.refused(format('select public.agent_question_bring_back(%L, %L)', pg_temp.ws('initech'), pg_temp.kept('junk')), 'P0002');
 end $$;
 reset role;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { maskSecrets as kitMask } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
+import { maskSecrets as kitMask } from 'omni-loop/kit/lib/openrouter.ts';
 import { MASK, maskSecrets, maskState } from './mask';
 
 // The mask (PRD 812 s1, decision 10): every token-shaped string is masked before anything reaches Jev,

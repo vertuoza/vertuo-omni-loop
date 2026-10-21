@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { defaultPitchSettings, presetLook } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defaultPitchSettings, presetLook } from 'omni-loop/kit/lib/pitch/settings.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { readPitchLook, readPitchSettings, type PitchSettingsDeps } from './pitch-settings-api';
 
 // GET /api/pitch-settings?repo=<owner/name> (PRD 1108 s1) and its alias GET /api/pitch-look, with a

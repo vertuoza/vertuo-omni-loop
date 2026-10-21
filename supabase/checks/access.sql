@@ -5,56 +5,34 @@
 
 begin;
 
--- ── Vertuoza is workspace #1, with today's six fleets; the demo seed adds its own, nimbus ──
+-- ── A fresh install seeds no workspace: the only one is the demo seed's nimbus (PRD 2305) ──
 do $$
-declare w public.workspaces;
+declare left_over text[] := (select array_agg(slug order by slug) from public.workspaces);
 begin
-  if (select count(*) from public.workspaces where slug <> 'nimbus') <> 1 then raise exception 'FAIL: the migrations left % workspaces, not one', (select count(*) from public.workspaces where slug <> 'nimbus'); end if;
-  select * into w from public.workspaces where slug = 'vertuoza';
-  if not found then raise exception 'FAIL: there is no vertuoza workspace'; end if;
-  if (w.name, w.github_org, w.plan_repo, w.theme)
-     is distinct from ('Vertuoza'::text, 'vertuoza'::text, 'vertuo-omni-loop'::text, '{}'::jsonb) then
-    raise exception 'FAIL: the vertuoza workspace is not as the spec sets it: %', row_to_json(w);
+  if left_over is distinct from array['nimbus'] then
+    raise exception 'FAIL: the migrations and the demo seed left %, not the demo seed''s nimbus alone', left_over;
   end if;
-  -- The real sectors (20260926160000), and nothing the demo seed adds.
-  if exists (
-    with real (name, repos) as (values
-      ('omni-core', array['vertuo-omni-loop']::text[]),
-      ('ai-nebula', array['vertuo-ai-domain']::text[]),
-      ('flow-rim',  array['vertuo-workflow-domain']::text[]))
-    select * from real except select name, repos from public.sectors where workspace_id = w.id
-  ) then
-    raise exception 'FAIL: the vertuoza workspace does not hold its real sectors';
-  end if;
-  if exists (
-    with fleets as (select name, label, color, motto, mascot, sort::int, retired_at is not null as retired
-                      from public.teams where workspace_id = w.id),
-         today (name, label, color, motto, mascot, sort, retired) as (values
-           ('beaver',          'BEAVER',     '#d08a4a', 'Builds the dam. Secures the zone.', 'beaver',     10, false),
-           ('octopod',         'OCTOPOD',    '#b07cff', 'Eight arms, eight sub-PRs.',        'octopod',    20, false),
-           ('picsou',          'PICSOU',     '#ffd84a', 'Every coin counted twice.',         'picsou',     30, false),
-           ('cia',             'C.I.A.',     '#9aa3c8', 'Knows every open question.',        'cia',        40, false),
-           ('pirates',         'PIRATES',    '#2fc6a4', 'Takes the zones nobody claims.',    'pirate',     50, false),
-           ('invincible-team', 'INVINCIBLE', '#4fb0ff', 'Think, Mark. Then ship it.',        'invincible', 90, true))
-    (select * from fleets except select * from today) union all (select * from today except select * from fleets)
-  ) then
-    raise exception 'FAIL: the vertuoza fleets are not today''s six (labels, colours, mottos, mascots, order, invincible-team retired)';
-  end if;
-  if exists (select 1 from public.ledger_events where workspace_id = w.id) then
-    raise exception 'FAIL: the demo seed wrote into the vertuoza workspace';
+  if (select github_org from public.workspaces where slug = 'nimbus') is distinct from 'demo-org' then
+    raise exception 'FAIL: the demo seed''s workspace does not own the demo-org organisation';
   end if;
   if not exists (select 1 from public.sectors s join public.workspaces d on d.id = s.workspace_id where d.slug = 'nimbus')
      or not exists (select 1 from public.ledger_events e join public.workspaces d on d.id = e.workspace_id where d.slug = 'nimbus') then
     raise exception 'FAIL: the demo seed did not fill the nimbus workspace';
   end if;
+  if exists (select 1 from public.repositories) then
+    raise exception 'FAIL: a fresh install tracks a repository nobody added';
+  end if;
 end $$;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- ── The cast ──
--- A second workspace, Acme, with its own sector, two fleets (one named like a Vertuoza fleet) and
--- one event whose id Vertuoza's ledger holds too. Vertuoza's ledger is one event of its own: the demo
+-- A second workspace, Acme, with its own sector, two fleets (one named like an Initech fleet) and
+-- one event whose id Initech's ledger holds too. Initech's ledger is one event of its own: the demo
 -- seed writes into nimbus, never into it.
 insert into public.ledger_events (workspace_id, id, at, type, planet)
-values ((select id from public.workspaces where slug = 'vertuoza'), 'cast:planet:1:charted', now(), 'PLANET_CHARTED', 1);
+values ((select id from public.workspaces where slug = 'initech'), 'cast:planet:1:charted', now(), 'PLANET_CHARTED', 1);
 insert into public.workspaces (id, slug, name, github_org, plan_repo) values
   ('00000000-0000-4000-8000-0000000000a2', 'acme', 'Acme', 'acme', 'acme-plan');
 insert into public.sectors (workspace_id, name, repos) values
@@ -67,7 +45,7 @@ begin
   insert into public.ledger_events (workspace_id, id, at, type, planet)
   select '00000000-0000-4000-8000-0000000000a2', e.id, now(), 'PLANET_CHARTED', 1
     from public.ledger_events e
-   where e.workspace_id = (select id from public.workspaces where slug = 'vertuoza')
+   where e.workspace_id = (select id from public.workspaces where slug = 'initech')
    order by e.id
    limit 1;
 exception when unique_violation then
@@ -75,13 +53,13 @@ exception when unique_violation then
 end $$;
 
 insert into auth.users (id, email, email_confirmed_at) values
-  ('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com', now()),   -- a player
-  ('00000000-0000-4000-8000-00000000000b', 'bob@vertuoza.com', now()),   -- a player
-  ('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com', now()), -- a visitor: no GitHub linked
+  ('00000000-0000-4000-8000-00000000000a', 'ada@example.com', now()),   -- a player
+  ('00000000-0000-4000-8000-00000000000b', 'bob@example.com', now()),   -- a player
+  ('00000000-0000-4000-8000-00000000000c', 'carol@example.com', now()), -- a visitor: no GitHub linked
   ('00000000-0000-4000-8000-00000000000d', 'dan@acme.test', now()),      -- Acme's player
   ('00000000-0000-4000-8000-00000000000e', 'eve@example.com', now()),    -- an outsider, GitHub linked
   ('00000000-0000-4000-8000-00000000000f', 'fay@example.com', now()),    -- a freelancer, in both workspaces
-  ('00000000-0000-4000-8000-000000000011', 'una@vertuoza.com', null);    -- never confirmed her address
+  ('00000000-0000-4000-8000-000000000011', 'una@example.com', null);    -- never confirmed her address
 insert into auth.identities (user_id, provider, provider_id, identity_data) values
   ('00000000-0000-4000-8000-00000000000a', 'github', '424242', '{"user_name": "ada-gh"}'),
   ('00000000-0000-4000-8000-00000000000b', 'github', '1001', '{"user_name": "bob-gh"}'),
@@ -90,7 +68,7 @@ insert into auth.identities (user_id, provider, provider_id, identity_data) valu
   ('00000000-0000-4000-8000-00000000000f', 'github', '3003', '{"user_name": "fay-gh"}');
 -- Fay's orgs join nothing: she is a member of both workspaces because someone added her.
 insert into public.workspace_members (workspace_id, user_id)
-select id, '00000000-0000-4000-8000-00000000000f' from public.workspaces where slug in ('vertuoza', 'acme');
+select id, '00000000-0000-4000-8000-00000000000f' from public.workspaces where slug in ('initech', 'acme');
 
 -- Act as a signed-in user, or as nobody, for the rest of the transaction.
 create function pg_temp.sign_in(uid text, email text) returns void language sql as $$
@@ -126,30 +104,30 @@ begin
   end if;
 end $$;
 -- Both workspaces own an installation of the App, as sign-up records it; only then do their orgs join.
-update public.workspaces set github_installation_id = 91001, github_account_type = 'Organization' where slug = 'vertuoza';
+update public.workspaces set github_installation_id = 91001, github_account_type = 'Organization' where slug = 'initech';
 update public.workspaces set github_installation_id = 91002, github_account_type = 'Organization' where id = '00000000-0000-4000-8000-0000000000a2';
 set local role service_role;
 do $$
 begin
-  if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000a', array['ada-gh', 'Vertuoza']) is distinct from array['vertuoza'] then
-    raise exception 'FAIL: a member of the vertuoza org did not join vertuoza';
+  if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000a', array['ada-gh', 'Initech']) is distinct from array['initech'] then
+    raise exception 'FAIL: a member of the initech org did not join initech';
   end if;
-  if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000a', array['ada-gh', 'vertuoza']) is distinct from array['vertuoza']
+  if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000a', array['ada-gh', 'initech']) is distinct from array['initech']
      or (select count(*) from public.workspace_members where user_id = '00000000-0000-4000-8000-00000000000a') <> 1 then
     raise exception 'FAIL: joining twice changed the memberships';
   end if;
-  -- Una's address is vertuoza.com, but she is in no org: she joins nothing.
+  -- Una's address is example.com, but she is in no org: she joins nothing.
   if public.join_workspaces_by_github('00000000-0000-4000-8000-000000000011', array['una-gh']) <> '{}'::text[] then
     raise exception 'FAIL: an account in no org joined a workspace';
   end if;
   if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000e', array['eve-gh', 'example']) <> '{}'::text[] then
     raise exception 'FAIL: an account of another org joined a workspace';
   end if;
-  if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000f', array['fay-gh']) is distinct from array['acme', 'vertuoza'] then
+  if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000f', array['fay-gh']) is distinct from array['acme', 'initech'] then
     raise exception 'FAIL: joining did not answer every workspace of the caller, first joined first';
   end if;
-  perform public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000b', array['bob-gh', 'vertuoza']);
-  perform public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000c', array['carol-gh', 'vertuoza']);
+  perform public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000b', array['bob-gh', 'initech']);
+  perform public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000c', array['carol-gh', 'initech']);
   if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000d', array['dan-gh', 'ACME']) is distinct from array['acme'] then
     raise exception 'FAIL: a member of the acme org did not join acme';
   end if;
@@ -180,11 +158,11 @@ begin
   exception when insufficient_privilege then null; end;
 end $$;
 
--- ── The crew of Vertuoza ──
-select pg_temp.sign_in('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com');
+-- ── The crew of Initech ──
+select pg_temp.sign_in('00000000-0000-4000-8000-00000000000a', 'ada@example.com');
 do $$
 declare
-  v constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  v constant uuid := (select id from public.workspaces where slug = 'initech');
   ada constant uuid := '00000000-0000-4000-8000-00000000000a';
   hero constant jsonb := '{"v":1,"body":"girl","skin":2,"hair":3,"suit":0,"cape":8}';
 begin
@@ -245,12 +223,12 @@ begin
   end if;
 end $$;
 
-select pg_temp.sign_in('00000000-0000-4000-8000-00000000000b', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-00000000000b', 'bob@example.com');
 do $$
 declare n int;
 begin
   insert into public.players (workspace_id, user_id, display_name, team, hero)
-  values ((select id from public.workspaces where slug = 'vertuoza'), '00000000-0000-4000-8000-00000000000b', 'BOB', 'octopod',
+  values ((select id from public.workspaces where slug = 'initech'), '00000000-0000-4000-8000-00000000000b', 'BOB', 'octopod',
           '{"v":1,"body":"boy","skin":0,"hair":0,"suit":1,"cape":0}');
   if (select count(*) from public.players) <> 2 then raise exception 'FAIL: the crew cannot see each other'; end if;
   update public.players set team = 'cia' where user_id = '00000000-0000-4000-8000-00000000000a';
@@ -259,13 +237,13 @@ begin
 end $$;
 
 -- ── A visitor: signed in, no GitHub identity linked (a session from before PRD 359). Looks, does not play ──
-select pg_temp.sign_in('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-00000000000c', 'carol@example.com');
 do $$
 begin
   if not exists (select 1 from public.ledger_events) then raise exception 'FAIL: a visitor cannot look at the galaxy'; end if;
   begin
     insert into public.players (workspace_id, user_id, display_name, team, hero)
-    values ((select id from public.workspaces where slug = 'vertuoza'), '00000000-0000-4000-8000-00000000000c', 'CAROL', 'beaver',
+    values ((select id from public.workspaces where slug = 'initech'), '00000000-0000-4000-8000-00000000000c', 'CAROL', 'beaver',
             '{"v":1,"body":"girl","skin":0,"hair":0,"suit":0,"cape":0}');
     raise exception 'FAIL: a visitor joined a fleet without linking GitHub';
   exception when insufficient_privilege then null; end;
@@ -297,7 +275,7 @@ declare
   n int;
 begin
   for me in select * from (values
-      ('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com', 'vertuoza'),
+      ('00000000-0000-4000-8000-00000000000a', 'ada@example.com', 'initech'),
       ('00000000-0000-4000-8000-00000000000d', 'dan@acme.test', 'acme')) as m (uid, email, slug) loop
     perform pg_temp.sign_in(me.uid, me.email);
     mine := (select id from public.workspaces where slug = me.slug);
@@ -313,7 +291,7 @@ begin
     end loop;
   end loop;
 
-  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com');
+  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000a', 'ada@example.com');
   begin
     insert into public.players (workspace_id, user_id, display_name, team, hero)
     values ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-00000000000a', 'ADA', 'roadrunners',
@@ -338,7 +316,7 @@ begin
   begin
     insert into public.players (workspace_id, user_id, display_name, team, hero)
     select id, '00000000-0000-4000-8000-00000000000f', 'FAY', case slug when 'acme' then 'roadrunners' else 'pirates' end, hero
-      from public.workspaces where slug in ('vertuoza', 'acme');
+      from public.workspaces where slug in ('initech', 'acme');
   exception when unique_violation then
     raise exception 'FAIL: one GitHub login could not be a player in two workspaces (%)', sqlerrm;
   end;
@@ -368,7 +346,7 @@ select pg_temp.sign_out();
 -- ── Keys are per workspace ──
 do $$
 declare
-  v constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  v constant uuid := (select id from public.workspaces where slug = 'initech');
   shared text;
 begin
   begin
@@ -405,7 +383,7 @@ begin
     raise exception 'FAIL: the workflow may rewrite the ledger';
   end if;
   insert into public.ledger_events (workspace_id, id, at, type, planet)
-  values ((select id from public.workspaces where slug = 'vertuoza'), 'check:planet:1:charted', now(), 'PLANET_CHARTED', 1);
+  values ((select id from public.workspaces where slug = 'initech'), 'check:planet:1:charted', now(), 'PLANET_CHARTED', 1);
   begin
     update public.ledger_events set planet = 2 where id = 'check:planet:1:charted';
     raise exception 'FAIL: the ledger was rewritten';
@@ -446,7 +424,7 @@ end $$;
 set local role service_role;
 do $$
 declare
-  v constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  v constant uuid := (select id from public.workspaces where slug = 'initech');
   acme constant uuid := '00000000-0000-4000-8000-0000000000a2';
   run int;
 begin
@@ -489,8 +467,8 @@ declare
   n int;
 begin
   for me in select * from (values
-      ('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com', 'vertuoza', 'ada-gh'),
-      ('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com', 'vertuoza', 'ada-gh'),  -- a visitor reads it too
+      ('00000000-0000-4000-8000-00000000000a', 'ada@example.com', 'initech', 'ada-gh'),
+      ('00000000-0000-4000-8000-00000000000c', 'carol@example.com', 'initech', 'ada-gh'),  -- a visitor reads it too
       ('00000000-0000-4000-8000-00000000000d', 'dan@acme.test', 'acme', 'dan-gh')) as m (uid, email, slug, login) loop
     perform pg_temp.sign_in(me.uid, me.email);
     mine := (select id from public.workspaces where slug = me.slug);
@@ -504,10 +482,10 @@ begin
   perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000e', 'eve@example.com');
   if exists (select 1 from public.player_xp) then raise exception 'FAIL: an outsider read XP'; end if;
 
-  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com');
+  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000a', 'ada@example.com');
   begin
     insert into public.player_xp (workspace_id, github_login, xp, level, unlocked, computed_at)
-    values ((select id from public.workspaces where slug = 'vertuoza'), 'ada-alt', 242550, 99, '{invaders}', now());
+    values ((select id from public.workspaces where slug = 'initech'), 'ada-alt', 242550, 99, '{invaders}', now());
     raise exception 'FAIL: a member inserted XP';
   exception when insufficient_privilege then null; end;
   begin
@@ -539,7 +517,7 @@ begin
 end $$;
 
 -- ── Scores (PRD #160): a workspace's members read its scores; only submit_score() writes them ──
--- By now Ada (Vertuoza) and Dan (Acme) each have Entropy Invaders in their player_xp row; Bob is a
+-- By now Ada (Initech) and Dan (Acme) each have Entropy Invaders in their player_xp row; Bob is a
 -- player with no player_xp row, Carol a visitor with no player row, Eve an outsider.
 set local role authenticated;
 do $$
@@ -549,8 +527,8 @@ declare
   dan constant uuid := '00000000-0000-4000-8000-00000000000d';
   v uuid;
 begin
-  perform pg_temp.sign_in(ada::text, 'ada@vertuoza.com');
-  v := (select id from public.workspaces where slug = 'vertuoza');  -- read as a member
+  perform pg_temp.sign_in(ada::text, 'ada@example.com');
+  v := (select id from public.workspaces where slug = 'initech');  -- read as a member
   if public.submit_score(v, 'invaders', 500) is distinct from 500 then
     raise exception 'FAIL: submit_score() did not store a first score as the best';
   end if;
@@ -625,7 +603,7 @@ begin
     raise exception 'FAIL: a player deleted a score';
   exception when insufficient_privilege then null; end;
 
-  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000b', 'bob@vertuoza.com');
+  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000b', 'bob@example.com');
   begin
     perform public.submit_score(v, 'invaders', 100);
     raise exception 'FAIL: submit_score() stored a score for a player whose XP unlocked nothing';
@@ -635,7 +613,7 @@ begin
     raise exception 'FAIL: submit_score() stored a kart-frost-eight time for a player without kart unlocked';
   exception when insufficient_privilege then null; end;
 
-  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com');
+  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000c', 'carol@example.com');
   begin
     perform public.submit_score(v, 'invaders', 100);
     raise exception 'FAIL: submit_score() stored a visitor''s score';
@@ -659,7 +637,7 @@ begin
     raise exception 'FAIL: a member read scores of another workspace, or not their own workspace''s';
   end if;
 
-  perform pg_temp.sign_in(ada::text, 'ada@vertuoza.com');
+  perform pg_temp.sign_in(ada::text, 'ada@example.com');
   if (select array_agg(distinct user_id) from public.arcade_scores) is distinct from array[ada] then
     raise exception 'FAIL: a member read scores of another workspace, or not their own workspace''s';
   end if;
@@ -673,11 +651,11 @@ select pg_temp.sign_out();
 do $$
 declare
   ada constant uuid := '00000000-0000-4000-8000-00000000000a';
-  v constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  v constant uuid := (select id from public.workspaces where slug = 'initech');
   back constant timestamptz := now() - interval '1 hour';
 begin
   update public.arcade_scores set at = back where workspace_id = v and user_id = ada and game = 'kart';
-  perform pg_temp.sign_in(ada::text, 'ada@vertuoza.com');
+  perform pg_temp.sign_in(ada::text, 'ada@example.com');
   perform public.submit_score(v, 'kart', 1500);
   if (select s.at from public.arcade_scores s where s.workspace_id = v and s.user_id = ada and s.game = 'kart') is distinct from back then
     raise exception 'FAIL: a slower kart time moved at';
@@ -728,8 +706,8 @@ end $$;
 -- What it lets in (GitHub, with or without an email) and what it refuses: supabase/checks/signup.sql.
 do $$
 begin
-  if public.hook_before_user_created('{"user": {"email": "ada@vertuoza.com", "app_metadata": {"provider": "google"}}}') -> 'error' ->> 'http_code' is distinct from '403' then
-    raise exception 'FAIL: the hook let a vertuoza.com account in through Google';
+  if public.hook_before_user_created('{"user": {"email": "ada@example.com", "app_metadata": {"provider": "google"}}}') -> 'error' ->> 'http_code' is distinct from '403' then
+    raise exception 'FAIL: the hook let a example.com account in through Google';
   end if;
   if has_function_privilege('authenticated', 'public.hook_before_user_created(jsonb)', 'execute')
      or has_function_privilege('anon', 'public.hook_before_user_created(jsonb)', 'execute')
@@ -754,7 +732,7 @@ begin
     raise exception 'FAIL: valid_theme accepted a theme that is not an object';
   end if;
   begin
-    update public.workspaces set theme = '{"plasma": "purple"}' where slug = 'vertuoza';
+    update public.workspaces set theme = '{"plasma": "purple"}' where slug = 'initech';
     raise exception 'FAIL: a workspace stored an invalid theme';
   exception when check_violation then null; end;
 end $$;
@@ -815,7 +793,7 @@ declare
   n int;
 begin
   for me in select * from (values
-      ('00000000-0000-4000-8000-000000000011', 'una@vertuoza.com'),  -- a vertuoza.com address, in no workspace
+      ('00000000-0000-4000-8000-000000000011', 'una@example.com'),  -- a example.com address, in no workspace
       ('00000000-0000-4000-8000-00000000000e', 'eve@example.com')) as m (uid, email) loop
     perform pg_temp.sign_in(me.uid, me.email);
     if exists (select 1 from public.ask_sessions) or exists (select 1 from public.ask_rounds) then
@@ -851,7 +829,7 @@ declare
   expires timestamptz;
 begin
   for me in select * from (values
-      ('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com'),  -- a member with no GitHub linked and no player
+      ('00000000-0000-4000-8000-00000000000c', 'carol@example.com'),  -- a member with no GitHub linked and no player
       ('00000000-0000-4000-8000-00000000000d', 'dan@acme.test')) as m (uid, email) loop  -- a member of another workspace
     perform pg_temp.sign_in(me.uid, me.email);
     begin
@@ -889,7 +867,7 @@ do $$
 begin
   if (select count(*) from public.ask_cli_codes
        where (owner, code_hash) in (
-         ('00000000-0000-4000-8000-00000000000c'::uuid, md5('carol@vertuoza.com') || md5('00000000-0000-4000-8000-00000000000c')),
+         ('00000000-0000-4000-8000-00000000000c'::uuid, md5('carol@example.com') || md5('00000000-0000-4000-8000-00000000000c')),
          ('00000000-0000-4000-8000-00000000000d'::uuid, md5('dan@acme.test') || md5('00000000-0000-4000-8000-00000000000d')))) <> 2 then
     raise exception 'FAIL: the members'' sign-in codes are not bound to them';
   end if;

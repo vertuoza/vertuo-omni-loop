@@ -21,7 +21,7 @@ import { dossierPath } from '../dossier/page/view';
 import { ARTIFACT_KINDS, dossierList, dossierRounds, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, WORK_KINDS, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
 import type { DossierAnswer, DossierLatest, PlanetDossier, PlanetDossierRead } from '../arcade/types';
 import { z } from 'zod';
-import { type PrdNumber, PrdNumberSchema, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from './parse-rows';
 import { numberOf } from './unparsed';
 

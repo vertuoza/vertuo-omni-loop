@@ -298,22 +298,22 @@ const SHA_BACK = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
 const SHA_APPS = '9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921';
 
 function planRepoConfig(targets = [
-  { repo: 'vertuoza/vertuo-backend-php', role: 'back-end', knowledge: 'own' },
-  { repo: 'vertuoza/vertuo-apps', role: 'front-end', knowledge: 'own' },
+  { repo: 'demo-org/nimbus-core', role: 'back-end', knowledge: 'own' },
+  { repo: 'demo-org/nimbus-apps', role: 'front-end', knowledge: 'own' },
 ]) {
-  const lines = ['kit: 1', 'repo:', '  slug: vertuoza/vertuo-automation-plan', 'plan:', '  targets:'];
+  const lines = ['kit: 1', 'repo:', '  slug: demo-org/nimbus-plan', 'plan:', '  targets:'];
   for (const t of targets) lines.push(`    - repo: ${t.repo}`, `      role: ${t.role}`, `      knowledge: ${t.knowledge}`);
   return { '.omni-loop/config.yml': `${lines.join('\n')}\n` };
 }
 
 const REPOS_OK = [
-  `| vertuo-backend-php | back-end | ${SHA_BACK} | own |`,
-  `| vertuo-apps | front-end | ${SHA_APPS} | own |`,
+  `| nimbus-core | back-end | ${SHA_BACK} | own |`,
+  `| nimbus-apps | front-end | ${SHA_APPS} | own |`,
 ];
 const SLICES_OK = [
-  '| s1 | vertuo-backend-php | the total is served | `src/` | — | 1 |',
-  '| s2 | vertuo-apps | the screen shows it | `apps/quote/` | s1 | 2 |',
-  '| s3 | vertuo-apps | the empty quote says why | `src/` | — | 1 |',
+  '| s1 | nimbus-core | the total is served | `src/` | — | 1 |',
+  '| s2 | nimbus-apps | the screen shows it | `apps/quote/` | s1 | 2 |',
+  '| s3 | nimbus-apps | the empty quote says why | `src/` | — | 1 |',
 ];
 
 function multiPlan({
@@ -344,16 +344,16 @@ describe('omni plan check — in a plan repository (PRD 549)', () => {
     expect(out).not.toMatch(/violation/);
     expect(code).toBe(0);
     expect(out).toMatch(/3 slices · 2 waves · 2 repositories/);
-    expect(out).toMatch(/wave 1: s1 \(vertuo-backend-php\), s3 \(vertuo-apps\)/);
-    expect(out).toMatch(/wave 2: s2 \(vertuo-apps\)/);
+    expect(out).toMatch(/wave 1: s1 \(nimbus-core\), s3 \(nimbus-apps\)/);
+    expect(out).toMatch(/wave 2: s2 \(nimbus-apps\)/);
   });
 
   it('passes a slice that names the plan repository itself, its row read at —', async () => {
     const { code, out } = await check(
       planRepoConfig(),
       multiPlan({
-        repos: [...REPOS_OK, '| vertuo-automation-plan | plan | — | own |'],
-        slices: [...SLICES_OK, '| s4 | vertuo-automation-plan | the guide says so | `guide/` | — | 1 |'],
+        repos: [...REPOS_OK, '| nimbus-plan | plan | — | own |'],
+        slices: [...SLICES_OK, '| s4 | nimbus-plan | the guide says so | `guide/` | — | 1 |'],
       }),
     );
     expect(out).not.toMatch(/violation/);
@@ -362,15 +362,15 @@ describe('omni plan check — in a plan repository (PRD 549)', () => {
   });
 
   it('prints the collision matrix per repository', async () => {
-    const slices = [...SLICES_OK, '| s4 | vertuo-apps | more | `apps/` | s2 | 3 |'];
+    const slices = [...SLICES_OK, '| s4 | nimbus-apps | more | `apps/` | s2 | 3 |'];
     const { code, out } = await check(planRepoConfig(), multiPlan({ slices }));
     expect(code).toBe(0);
-    expect(out).toMatch(/collision matrix, vertuo-apps \(1 pair/);
+    expect(out).toMatch(/collision matrix, nimbus-apps \(1 pair/);
     expect(out).toMatch(/s2 · s4/);
   });
 
   it('refuses the same territory twice in one repository and one wave', async () => {
-    const slices = [...SLICES_OK, '| s4 | vertuo-apps | more | `src/lib/` | — | 1 |'];
+    const slices = [...SLICES_OK, '| s4 | nimbus-apps | more | `src/lib/` | — | 1 |'];
     const { code, out } = await check(planRepoConfig(), multiPlan({ slices }));
     expect(code).toBe(1);
     expect(out).toMatch(/s3 and s4 share src\/.*wave 1/);
@@ -386,61 +386,61 @@ describe('omni plan check — in a plan repository (PRD 549)', () => {
   });
 
   it('refuses a repo that is neither a target nor the plan repository, field first', async () => {
-    const slices = [...SLICES_OK, '| s4 | vertuo-nowhere | x | `x/` | — | 1 |'];
+    const slices = [...SLICES_OK, '| s4 | nimbus-nowhere | x | `x/` | — | 1 |'];
     const { code, out } = await check(planRepoConfig(), multiPlan({ slices }));
     expect(code).toBe(1);
-    expect(out).toMatch(/^ {2}repo: s4 names "vertuo-nowhere"/m);
+    expect(out).toMatch(/^ {2}repo: s4 names "nimbus-nowhere"/m);
   });
 
   it('refuses a short name two entries share, field first', async () => {
     const { code, out } = await check(
       planRepoConfig([
-        { repo: 'vertuoza/vertuo-backend-php', role: 'back-end', knowledge: 'own' },
-        { repo: 'vertuoza/vertuo-apps', role: 'front-end', knowledge: 'own' },
-        { repo: 'someone/vertuo-apps', role: 'mobile', knowledge: 'none' },
+        { repo: 'demo-org/nimbus-core', role: 'back-end', knowledge: 'own' },
+        { repo: 'demo-org/nimbus-apps', role: 'front-end', knowledge: 'own' },
+        { repo: 'someone/nimbus-apps', role: 'mobile', knowledge: 'none' },
       ]),
       multiPlan(),
     );
     expect(code).toBe(1);
-    expect(out).toMatch(/^ {2}repo: "vertuo-apps" is the short name of vertuoza\/vertuo-apps and someone\/vertuo-apps/m);
+    expect(out).toMatch(/^ {2}repo: "nimbus-apps" is the short name of demo-org\/nimbus-apps and someone\/nimbus-apps/m);
   });
 
   it('refuses a repository with slices and no ## Repositories row, field first', async () => {
     const { code, out } = await check(planRepoConfig(), multiPlan({ repos: [REPOS_OK[0]] }));
     expect(code).toBe(1);
-    expect(out).toMatch(/^ {2}## Repositories: vertuo-apps holds slices and has no row/m);
+    expect(out).toMatch(/^ {2}## Repositories: nimbus-apps holds slices and has no row/m);
   });
 
   it('refuses a row no slice names, field first', async () => {
-    const slices = ['| s2 | vertuo-apps | the screen shows it | `apps/quote/` | — | 1 |'];
+    const slices = ['| s2 | nimbus-apps | the screen shows it | `apps/quote/` | — | 1 |'];
     const { code, out } = await check(planRepoConfig(), multiPlan({ slices }));
     expect(code).toBe(1);
-    expect(out).toMatch(/^ {2}## Repositories: the row vertuo-backend-php names no slice's repository/m);
+    expect(out).toMatch(/^ {2}## Repositories: the row nimbus-core names no slice's repository/m);
   });
 
   it("refuses a target row whose read at is not 40 hex characters, field first", async () => {
-    const { code, out } = await check(planRepoConfig(), multiPlan({ repos: [REPOS_OK[0], '| vertuo-apps | front-end | 9b01e44 | own |'] }));
+    const { code, out } = await check(planRepoConfig(), multiPlan({ repos: [REPOS_OK[0], '| nimbus-apps | front-end | 9b01e44 | own |'] }));
     expect(code).toBe(1);
-    expect(out).toMatch(/^ {2}read at: vertuo-apps reads "9b01e44"/m);
+    expect(out).toMatch(/^ {2}read at: nimbus-apps reads "9b01e44"/m);
   });
 
   it("refuses a plan-repository row whose read at is not —, field first", async () => {
     const { code, out } = await check(
       planRepoConfig(),
       multiPlan({
-        repos: [...REPOS_OK, `| vertuo-automation-plan | plan | ${SHA_APPS} | own |`],
-        slices: [...SLICES_OK, '| s4 | vertuo-automation-plan | the guide | `guide/` | — | 1 |'],
+        repos: [...REPOS_OK, `| nimbus-plan | plan | ${SHA_APPS} | own |`],
+        slices: [...SLICES_OK, '| s4 | nimbus-plan | the guide | `guide/` | — | 1 |'],
       }),
     );
     expect(code).toBe(1);
-    expect(out).toMatch(/^ {2}read at: vertuo-automation-plan is the plan repository and reads "9b01/m);
+    expect(out).toMatch(/^ {2}read at: nimbus-plan is the plan repository and reads "9b01/m);
   });
 
   it('passes a slice blocked by another repository\'s slice in an earlier wave, and refuses the reverse', async () => {
     expect((await check(planRepoConfig(), multiPlan())).code).toBe(0);
     const reverse = [
-      '| s1 | vertuo-backend-php | the total is served | `src/` | s2 | 1 |',
-      '| s2 | vertuo-apps | the screen shows it | `apps/quote/` | — | 2 |',
+      '| s1 | nimbus-core | the total is served | `src/` | s2 | 1 |',
+      '| s2 | nimbus-apps | the screen shows it | `apps/quote/` | — | 2 |',
     ];
     const { code, out } = await check(planRepoConfig(), multiPlan({ slices: reverse }));
     expect(code).toBe(1);
@@ -452,17 +452,17 @@ describe('omni plan check — in a plan repository (PRD 549)', () => {
       '.omni-loop/config.yml': [
         'kit: 1',
         'repo:',
-        '  slug: vertuoza/vertuo-automation-plan',
+        '  slug: demo-org/nimbus-plan',
         'plan:',
         '  targets:',
-        '    - repo: vertuoza/vertuo-backend-php',
+        '    - repo: demo-org/nimbus-core',
         '      role: back-end',
         '      knowledge: own',
-        '    - repo: vertuoza/vertuo-apps',
+        '    - repo: demo-org/nimbus-apps',
         '      role: front-end',
         '      knowledge: own',
-        '      consumes: [vertuo-backend-php]',
-        '    - repo: vertuoza/vertuo-legacy',
+        '      consumes: [nimbus-core]',
+        '    - repo: demo-org/nimbus-legacy',
         '      role: legacy',
         '      knowledge: none',
         '      readOnly: true',
@@ -472,13 +472,13 @@ describe('omni plan check — in a plan repository (PRD 549)', () => {
     const { code, out } = await check(
       config,
       multiPlan({
-        repos: [...REPOS_OK, `| vertuo-legacy | legacy | ${SHA_BACK} | none |`],
-        slices: [...SLICES_OK, '| s4 | vertuo-legacy | the old screen | `old/` | — | 1 |'],
+        repos: [...REPOS_OK, `| nimbus-legacy | legacy | ${SHA_BACK} | none |`],
+        slices: [...SLICES_OK, '| s4 | nimbus-legacy | the old screen | `old/` | — | 1 |'],
       }),
     );
     expect(code).toBe(1);
-    expect(out).toMatch(/^ {2}readOnly: s4 lands in vertuo-legacy, a read-only target/m);
-    expect(out).toMatch(/^ {2}consumes: s2 \(vertuo-apps\) is blocked by s1 \(vertuo-backend-php\), and vertuo-apps consumes vertuo-backend-php/m);
+    expect(out).toMatch(/^ {2}readOnly: s4 lands in nimbus-legacy, a read-only target/m);
+    expect(out).toMatch(/^ {2}consumes: s2 \(nimbus-apps\) is blocked by s1 \(nimbus-core\), and nimbus-apps consumes nimbus-core/m);
   });
 });
 
@@ -487,35 +487,35 @@ describe("omni plan check — each target's imported flow (PRD 1089, s6)", () =>
     '.omni-loop/config.yml': [
       'kit: 1',
       'repo:',
-      '  slug: vertuoza/vertuo-automation-plan',
+      '  slug: demo-org/nimbus-plan',
       'plan:',
       '  targets:',
-      '    - repo: vertuoza/vertuo-backend-php',
+      '    - repo: demo-org/nimbus-core',
       '      role: back-end',
       '      knowledge: imported',
       `      readAt: ${SHA_BACK}`,
-      '    - repo: vertuoza/vertuo-apps',
+      '    - repo: demo-org/nimbus-apps',
       '      role: front-end',
       '      knowledge: imported',
       `      readAt: ${SHA_APPS}`,
       '',
     ].join('\n'),
-    '.omni-loop/knowledge/repos/vertuo-backend-php/flow/config.yml':
+    '.omni-loop/knowledge/repos/nimbus-core/flow/config.yml':
       "flow:\n  areas:\n    migrations:\n      paths: ['^database/migrations/']\n      rules:\n        plan:\n          - slice: { alone: true }\n",
-    '.omni-loop/knowledge/repos/vertuo-apps/flow/config.yml': 'flow:\n  rules:\n    plan:\n      - slice: { maxFiles: 1 }\n',
+    '.omni-loop/knowledge/repos/nimbus-apps/flow/config.yml': 'flow:\n  rules:\n    plan:\n      - slice: { maxFiles: 1 }\n',
   };
-  const repos = [`| vertuo-backend-php | back-end | ${SHA_BACK} | imported |`, `| vertuo-apps | front-end | ${SHA_APPS} | imported |`];
+  const repos = [`| nimbus-core | back-end | ${SHA_BACK} | imported |`, `| nimbus-apps | front-end | ${SHA_APPS} | imported |`];
 
   it('grades a back-end row against the back end\'s copy and a front-end row against the front end\'s (acceptance 12)', async () => {
     const slices = [
-      '| s1 | vertuo-backend-php | mixed | `database/migrations/x.sql` `src/` | — | 1 |',
-      '| s2 | vertuo-apps | mixed | `database/migrations/x.sql` `src/` | — | 1 |',
+      '| s1 | nimbus-core | mixed | `database/migrations/x.sql` `src/` | — | 1 |',
+      '| s2 | nimbus-apps | mixed | `database/migrations/x.sql` `src/` | — | 1 |',
     ];
     const { code, out } = await check(config, multiPlan({ repos, slices }));
     expect(code).toBe(1);
-    expect(out).toMatch(/flow \(vertuo-backend-php\): s1 touches database\/migrations\/x\.sql \(area migrations\) .* — migrations: slice alone/);
-    expect(out).toMatch(/flow \(vertuo-apps\): s2 touches 2 paths — default: slice maxFiles 1/);
-    expect(out).not.toMatch(/flow \(vertuo-apps\): s2 touches database/);
+    expect(out).toMatch(/flow \(nimbus-core\): s1 touches database\/migrations\/x\.sql \(area migrations\) .* — migrations: slice alone/);
+    expect(out).toMatch(/flow \(nimbus-apps\): s2 touches 2 paths — default: slice maxFiles 1/);
+    expect(out).not.toMatch(/flow \(nimbus-apps\): s2 touches database/);
   });
 });
 
@@ -665,11 +665,11 @@ describe('omni plan check — user-caused errors are one line, exit 2', () => {
 // since the plan read it. `gh` is faked; no test calls GitHub.
 describe('omni plan moved (PRD 563)', () => {
   const MOVED_SLICES = [
-    '| s1 | vertuo-backend-php | the total is served | `src/Quote/` | — | 1 |',
-    '| s2 | vertuo-apps | the screen shows it | `apps/quote/` | s1 | 2 |',
-    '| s3 | vertuo-automation-plan | the guide says so | `guide/` | — | 1 |',
+    '| s1 | nimbus-core | the total is served | `src/Quote/` | — | 1 |',
+    '| s2 | nimbus-apps | the screen shows it | `apps/quote/` | s1 | 2 |',
+    '| s3 | nimbus-plan | the guide says so | `guide/` | — | 1 |',
   ];
-  const MOVED_REPOS = [...REPOS_OK, '| vertuo-automation-plan | plan | — | own |'];
+  const MOVED_REPOS = [...REPOS_OK, '| nimbus-plan | plan | — | own |'];
 
   /** A fake `execFileSync` answering `gh api` from `world`: `{ slug: { compare } }`, a missing slug a 404. */
   function fakeGh(world: Record<string, Record<string, unknown>>) {
@@ -716,57 +716,57 @@ describe('omni plan moved (PRD 563)', () => {
 
   it('says ok for a head that has not moved, and never reads the plan repository itself', async () => {
     const { code, out, err, calls } = await moved([], {
-      world: { 'vertuoza/vertuo-backend-php': unmoved, 'vertuoza/vertuo-apps': unmoved },
+      world: { 'demo-org/nimbus-core': unmoved, 'demo-org/nimbus-apps': unmoved },
     });
     expect(err).toBe('');
     expect(code).toBe(0);
-    expect(out).toMatch(/^vertuo-backend-php\s+ok$/m);
-    expect(out).toMatch(/^vertuo-apps\s+ok$/m);
-    expect(out).not.toMatch(/vertuo-automation-plan/);
-    expect(calls.some((c) => c.includes('vertuo-automation-plan'))).toBe(false);
+    expect(out).toMatch(/^nimbus-core\s+ok$/m);
+    expect(out).toMatch(/^nimbus-apps\s+ok$/m);
+    expect(out).not.toMatch(/nimbus-plan/);
+    expect(calls.some((c) => c.includes('nimbus-plan'))).toBe(false);
   });
 
   it('says ok for a head that moved without touching a territory path', async () => {
     const { code, out } = await moved([], {
-      world: { 'vertuoza/vertuo-backend-php': movedElsewhere, 'vertuoza/vertuo-apps': unmoved },
+      world: { 'demo-org/nimbus-core': movedElsewhere, 'demo-org/nimbus-apps': unmoved },
     });
     expect(code).toBe(0);
-    expect(out).toMatch(/^vertuo-backend-php\s+ok$/m);
+    expect(out).toMatch(/^nimbus-core\s+ok$/m);
   });
 
   it('says moved, naming the files under the territories, and still exits 0', async () => {
     const { code, out } = await moved([], {
-      world: { 'vertuoza/vertuo-backend-php': movedInside, 'vertuoza/vertuo-apps': unmoved },
+      world: { 'demo-org/nimbus-core': movedInside, 'demo-org/nimbus-apps': unmoved },
     });
     expect(code).toBe(0);
     expect(out).toMatch(
-      /^vertuo-backend-php\s+moved\s+2 files under s1's territory \(src\/Quote\/Total\.php, src\/Quote\/Line\.php\)$/m,
+      /^nimbus-core\s+moved\s+2 files under s1's territory \(src\/Quote\/Total\.php, src\/Quote\/Line\.php\)$/m,
     );
     expect(out).not.toMatch(/docs\/x\.md/);
-    expect(out).toMatch(/^vertuo-apps\s+ok$/m);
+    expect(out).toMatch(/^nimbus-apps\s+ok$/m);
   });
 
   it('says unreachable for a target gh cannot read, and still exits 0', async () => {
-    const { code, out } = await moved([], { world: { 'vertuoza/vertuo-backend-php': unmoved } });
+    const { code, out } = await moved([], { world: { 'demo-org/nimbus-core': unmoved } });
     expect(code).toBe(0);
-    expect(out).toMatch(/^vertuo-apps\s+unreachable/m);
-    expect(out).toMatch(/^vertuo-backend-php\s+ok$/m);
+    expect(out).toMatch(/^nimbus-apps\s+unreachable/m);
+    expect(out).toMatch(/^nimbus-core\s+ok$/m);
   });
 
   it('says unreachable, naming read at, for a target that no longer has the read at commit (item s2-01)', async () => {
     const { code, out } = await moved([], {
-      world: { 'vertuoza/vertuo-backend-php': { compare: null }, 'vertuoza/vertuo-apps': unmoved },
+      world: { 'demo-org/nimbus-core': { compare: null }, 'demo-org/nimbus-apps': unmoved },
     });
     expect(code).toBe(0);
-    expect(out).toMatch(/^vertuo-backend-php\s+unreachable\s+read at 3f2a9c1 cannot be compared with main$/m);
+    expect(out).toMatch(/^nimbus-core\s+unreachable\s+read at 3f2a9c1 cannot be compared with main$/m);
   });
 
   it('prints [{ repo, state, files }] with --json', async () => {
-    const { code, out } = await moved(['--json'], { world: { 'vertuoza/vertuo-backend-php': movedInside } });
+    const { code, out } = await moved(['--json'], { world: { 'demo-org/nimbus-core': movedInside } });
     expect(code).toBe(0);
     expect(JSON.parse(out)).toEqual([
-      { repo: 'vertuo-backend-php', state: 'moved', files: ['src/Quote/Total.php', 'src/Quote/Line.php'] },
-      { repo: 'vertuo-apps', state: 'unreachable', files: [] },
+      { repo: 'nimbus-core', state: 'moved', files: ['src/Quote/Total.php', 'src/Quote/Line.php'] },
+      { repo: 'nimbus-apps', state: 'unreachable', files: [] },
     ]);
   });
 

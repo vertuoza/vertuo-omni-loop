@@ -28,7 +28,7 @@
 // loopback's.
 import 'server-only';
 import { z } from 'zod';
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import { openSecret, sealSecret } from '../jev/secret-box';
 import {
   AUTH_DOWN, devicePagePath, freshSession, hashCode, isText, loginOf, newCode, placement, readCliSignIn, refuse, renewSession, reply,

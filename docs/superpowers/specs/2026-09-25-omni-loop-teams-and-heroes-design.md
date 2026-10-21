@@ -196,7 +196,7 @@ create table public.players (
 ### 5.1 Who may do what
 
 `is_crew()` is true when the JWT's email ends in `@vertuoza.com`:
-`(auth.jwt() ->> 'email') ilike '%@vertuoza.com'`.
+`(auth.jwt() ->> 'email') ilike '%@example.com'`.
 
 | Table | anon | authenticated (crew) | service role (GitHub Actions) |
 |---|---|---|---|

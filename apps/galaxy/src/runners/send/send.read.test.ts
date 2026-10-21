@@ -9,29 +9,39 @@ import { sendSetupOf } from './send.read';
 const VIEWER = { id: '00000000-0000-4000-8000-0000018300b1', owner: false, fleet: null };
 const RUNNER: Board['runners'][number] = {
   id: '00000000-0000-4000-8000-000001830401', name: 'mac-mini', owner: '00000000-0000-4000-8000-0000018300a1', fleet: null, slots: 2, used: 0,
-  repos: ['vertuoza/app'], version: '0.0.389', lastSeenAt: '2026-10-13T12:00:00.000Z', state: 'online',
+  repos: ['demo-org/app'], version: '0.0.389', lastSeenAt: '2026-10-13T12:00:00.000Z', state: 'online',
 };
 const answering = (runners: Board['runners']) => () => Promise.resolve({ ok: true as const, value: { runners, viewer: VIEWER } });
 const quiet = () => undefined;
 
 describe('Send to terminal\'s read', () => {
   it('gives the page\'s repository and the viewer\'s choices', async () => {
-    const setup = await sendSetupOf(answering([RUNNER]), VIEWER.id, 'w1', 'vertuoza/app', quiet);
-    expect(setup?.repo).toBe('vertuoza/app');
+    const setup = await sendSetupOf(answering([RUNNER]), VIEWER.id, 'w1', 'demo-org/app', quiet);
+    expect(setup?.repo).toBe('demo-org/app');
     expect(setup?.options.map((o) => o.label)).toEqual(['Any runner', 'mac-mini']);
   });
 
+  it('carries the repository\'s allowed skills, none when they cannot be read', async () => {
+    const skills = (names: string[]) => () => Promise.resolve(names);
+    expect((await sendSetupOf(answering([RUNNER]), VIEWER.id, 'w1', 'demo-org/app', quiet, skills(['validate-prd'])))?.allowed).toEqual(['validate-prd']);
+    expect((await sendSetupOf(answering([RUNNER]), VIEWER.id, 'w1', 'demo-org/app', quiet))?.allowed).toEqual([]);
+    const logged: unknown[] = [];
+    const failing = () => Promise.reject(new Error('skills: down'));
+    expect((await sendSetupOf(answering([RUNNER]), VIEWER.id, 'w1', 'demo-org/app', (error) => logged.push(error), failing))?.allowed).toEqual([]);
+    expect(logged).toEqual([new Error('skills: down')]);
+  });
+
   it('hides the button with no runners here, no runner of the viewer\'s, or a refused read', async () => {
-    expect(await sendSetupOf(null, VIEWER.id, 'w1', 'vertuoza/app', quiet)).toBeNull();
-    expect(await sendSetupOf(answering([]), VIEWER.id, 'w1', 'vertuoza/app', quiet)).toBeNull();
-    expect(await sendSetupOf(answering([{ ...RUNNER, fleet: 'red' }]), VIEWER.id, 'w1', 'vertuoza/app', quiet)).toBeNull();
-    expect(await sendSetupOf(() => Promise.resolve({ ok: false as const }), VIEWER.id, 'w1', 'vertuoza/app', quiet)).toBeNull();
+    expect(await sendSetupOf(null, VIEWER.id, 'w1', 'demo-org/app', quiet)).toBeNull();
+    expect(await sendSetupOf(answering([]), VIEWER.id, 'w1', 'demo-org/app', quiet)).toBeNull();
+    expect(await sendSetupOf(answering([{ ...RUNNER, fleet: 'red' }]), VIEWER.id, 'w1', 'demo-org/app', quiet)).toBeNull();
+    expect(await sendSetupOf(() => Promise.resolve({ ok: false as const }), VIEWER.id, 'w1', 'demo-org/app', quiet)).toBeNull();
   });
 
   it('hides the button, and logs, when the read fails', async () => {
     const logged: unknown[] = [];
     const failing = () => Promise.reject(new Error('runners: down'));
-    expect(await sendSetupOf(failing, VIEWER.id, 'w1', 'vertuoza/app', (error) => logged.push(error))).toBeNull();
+    expect(await sendSetupOf(failing, VIEWER.id, 'w1', 'demo-org/app', (error) => logged.push(error))).toBeNull();
     expect(logged).toEqual([new Error('runners: down')]);
   });
 });
