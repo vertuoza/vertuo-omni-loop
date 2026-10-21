@@ -2,7 +2,8 @@
 // refusals, a missing media file and a wrong scene order are errors, each named; word counts and reading
 // time are warnings. A scene's eyebrow and body (PRD 2030 s3) are held to their word counts and read in
 // its reading time. A step's own media is checked as a scene's, a `wipeAt` that leaves the wipe no time
-// is an error, and a step's body is held to 12 words (PRD 2030 s4).
+// is an error, and a step's body is held to 12 words (PRD 2030 s4). A stats scene's figure without its
+// source is refused, and its labels are held to four words and read in its reading time (PRD 2030 s5).
 import { describe, expect, it } from 'vitest';
 import { checkStoryboard } from './check.ts';
 import { FIXTURE_MEDIA, REMOVED, changedStoryboard, changedStoryboardAt, fixtureStoryboard } from './storyboard.fixture.ts';
@@ -16,7 +17,7 @@ describe('checkStoryboard', () => {
     const report = check(fixtureStoryboard());
     expect(report.errors).toEqual([]);
     expect(report.warnings).toEqual([]);
-    expect(report.seconds).toBe(26 - 5 * 0.5);
+    expect(report.seconds).toBe(31 - 6 * 0.5);
   });
 
   it('gives the schema’s refusals as errors, each at its path, and checks nothing further', () => {
@@ -82,7 +83,7 @@ describe('checkStoryboard', () => {
     storyboard.scenes.reverse();
     expect(lines(check(storyboard).errors)).toEqual([
       'scenes.0: an outro at scene 1: the outro is the last scene, and the only one',
-      'scenes.5: an intro at scene 6: the intro is the first scene, and the only one',
+      'scenes.6: an intro at scene 7: the intro is the first scene, and the only one',
     ]);
   });
 
@@ -94,7 +95,7 @@ describe('checkStoryboard', () => {
   });
 
   it('names a sync point past the last scene, or past its scene’s end', () => {
-    expect(lines(check(changedStoryboard('meta.music.sync.scene', 6)).errors)).toEqual(['meta.music.sync.scene: no scene 7: the storyboard has 6']);
+    expect(lines(check(changedStoryboard('meta.music.sync.scene', 7)).errors)).toEqual(['meta.music.sync.scene: no scene 8: the storyboard has 7']);
     expect(lines(check(changedStoryboard('meta.music.sync.at', 7)).errors)).toEqual(['meta.music.sync.at: 7 s is past the end of scene 3, 6 s long']);
   });
 
@@ -120,7 +121,8 @@ describe('checkStoryboard', () => {
     ['scenes.1.text', 'A quote leaves the moment the last line is priced, signed online by the customer and paid within a day', 'scenes.1.text: 20 words; a statement holds at most 16'],
     ['scenes.2.bullets', ['One click sends the quote to the customer'], 'scenes.2.bullets.0: 8 words; a bullet holds at most 6'],
     ['scenes.3.steps.0.label', 'Price every line of the quote', 'scenes.3.steps.0.label: 6 words; a step holds at most 5'],
-    ['scenes.5.cta', 'Available now to every customer on every plan', 'scenes.5.cta: 8 words; a call to action holds at most 5'],
+    ['scenes.6.cta', 'Available now to every customer on every plan', 'scenes.6.cta: 8 words; a call to action holds at most 5'],
+    ['scenes.5.items.0.label', 'Billed in one go each month', 'scenes.5.items.0.label: 6 words; a label holds at most 4'],
     ['scenes.0.eyebrow', 'New this autumn in Widgets', 'scenes.0.eyebrow: 5 words; an eyebrow holds at most 4'],
   ])('warns on %s over its word count', (field, value, warning) => {
     expect(lines(check(changedStoryboard(field, value)).warnings)).toContain(warning);
@@ -132,6 +134,7 @@ describe('checkStoryboard', () => {
     ['scenes.3.body'],
     ['scenes.4.body'],
     ['scenes.5.body'],
+    ['scenes.6.body'],
   ])('warns on %s over 20 words, without an error', (field) => {
     const body = 'Every line of the quote is priced from the worksite, checked by the office and sent to the customer before the van leaves';
     const report = check(changedStoryboard(field, body));
@@ -181,10 +184,10 @@ describe('checkStoryboard', () => {
     const short = fixtureStoryboard();
     for (const scene of short.scenes) scene.duration = 2;
     short.scenes[1] = { type: 'statement', duration: 2, text: 'Quotes leave.' };
-    expect(lines(check(short).warnings)).toContain('scenes: 9.5 s in all; a pitch lasts 15 to 60 s');
+    expect(lines(check(short).warnings)).toContain('scenes: 11 s in all; a pitch lasts 15 to 60 s');
   });
 
-  it.each([['scenes.0.title'], ['scenes.1.text'], ['scenes.2.title'], ['scenes.3.title'], ['scenes.4.title'], ['scenes.5.closing']])(
+  it.each([['scenes.0.title'], ['scenes.1.text'], ['scenes.2.title'], ['scenes.3.title'], ['scenes.4.title'], ['scenes.5.title'], ['scenes.6.closing']])(
     'refuses an accent left open in %s, naming the field',
     (field) => {
       const report = check(changedStoryboard(field, 'Straight from the **worksite.'));
@@ -203,7 +206,7 @@ describe('checkStoryboard', () => {
     expect(check(changedStoryboard('scenes.2.title', 'Three clicks, **one invoice**.'))).toMatchObject({ errors: [], warnings: [] });
   });
 
-  it.each([['scenes.0.title'], ['scenes.1.text'], ['scenes.5.closing']])('warns on two accents in %s, without an error', (field) => {
+  it.each([['scenes.0.title'], ['scenes.1.text'], ['scenes.5.title'], ['scenes.6.closing']])('warns on two accents in %s, without an error', (field) => {
     const report = check(changedStoryboard(field, 'Send **one**, get **paid**.'));
     expect(report.errors).toEqual([]);
     expect(lines(report.warnings)).toEqual([`${field}: 2 accents; a title holds one`]);
@@ -212,6 +215,17 @@ describe('checkStoryboard', () => {
   it('leaves the accent markers out of a word count, and holds no other field to the accent', () => {
     expect(check(changedStoryboard('scenes.3.steps.0.label', 'Price ** every line, then ** send')).warnings).toEqual([]);
     expect(check(changedStoryboard('scenes.3.steps.0.label', 'Price **every line')).errors).toEqual([]);
+  });
+
+  it('refuses a figure without its source, naming it, and checks nothing further', () => {
+    const report = check(changedStoryboard('scenes.5.items.0.source', REMOVED));
+    expect(lines(report.errors)).toEqual(['scenes.5.items.0.source: where the figure came from: spec, release or asked']);
+    expect(report.warnings).toEqual([]);
+  });
+
+  it('counts the figures’ labels in the stats scene’s reading time, not their values', () => {
+    const report = check(changedStoryboard('scenes.5.duration', 1));
+    expect(lines(report.warnings)).toEqual(['scenes.5: 14 words take about 5 s to read; the scene lasts 1 s']);
   });
 
   it('reads a scene with no words as nothing to read', () => {

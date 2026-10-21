@@ -12,17 +12,21 @@
 // - Steps with their own media (PRD 2030 s4): a step takes a `body` under its label and a `media` of its
 //   own, whose times count from the step's `at`; the scene's `media` is then optional when every step
 //   brings one. The before/after takes `wipeAt`, the second into the scene its wipe starts.
+// - Figures (PRD 2030 s5): a `stats` scene holds an eyebrow, title and body, each optional, and 1 to 3
+//   `items`, each a value with its prefix, suffix and decimals (0 to 2), its label, and its `source`:
+//   where the figure came from, `spec`, `release` (the release note) or `asked` (the person gave it).
+//   An item without a source is refused. `meta.locale`, a BCP 47 tag, says how figures are written.
 // - Media: a clip or a screenshot, by its path in the run's folder, with `start`, `end`, `rate`, `crop`, a
 //   `device` frame, and keyframed `camera` (zoom 1 to 4 on a focus point), `callouts` (a ring or a
 //   spotlight, a label of at most four words) and `cursor` (moves and clicks). Coordinates are 0..1 of
 //   the media; times are seconds into the scene.
-// - Meta: 30 fps, 1920×1080, the transition's length, the music and its sync point (`{ scene, at }`), and
-//   the sources the words came from.
+// - Meta: 30 fps, 1920×1080, the transition's length, the music and its sync point (`{ scene, at }`), the
+//   sources the words came from, and the locale figures are written for (`en` when absent).
 import { z } from 'zod';
 
 export const STORYBOARD_FILE = 'storyboard.json';
 const STORYBOARD_VERSION = 1;
-export const SCENE_TYPES = Object.freeze(['intro', 'statement', 'feature', 'steps', 'beforeAfter', 'outro'] as const);
+export const SCENE_TYPES = Object.freeze(['intro', 'statement', 'feature', 'steps', 'beforeAfter', 'stats', 'outro'] as const);
 type SceneType = (typeof SCENE_TYPES)[number];
 
 const text = z.string().trim().min(1);
@@ -63,6 +67,19 @@ const duration = z.number().min(1).max(20);
 const scene = <T extends SceneType, Shape extends z.ZodRawShape>(type: T, shape: Shape) =>
   z.strictObject({ type: z.literal(type), duration, ...shape });
 
+/** Where a figure came from: the spec, the release note, or the person, asked. */
+const FIGURE_SOURCES =Object.freeze(['spec', 'release', 'asked'] as const);
+
+/** A figure of a stats scene: its prefix and suffix kept as written, spaces included. */
+const FigureSchema = z.strictObject({
+  value: z.number(),
+  prefix: z.string().min(1).optional(),
+  suffix: z.string().min(1).optional(),
+  decimals: z.number().int().min(0).max(2).optional(),
+  label: text,
+  source: z.enum(FIGURE_SOURCES, { error: 'where the figure came from: spec, release or asked' }),
+});
+
 /** A scene's supporting lines: the small line above its title, and the sentence under it. */
 const lines = { eyebrow: text.optional(), body: text.optional() };
 
@@ -90,9 +107,19 @@ const SceneSchema = z.discriminatedUnion('type', [
     labels: z.strictObject({ before: text, after: text }).optional(),
     wipeAt: seconds.optional(),
   }),
+  scene('stats', { title: text.optional(), ...lines, items: z.array(FigureSchema).min(1).max(3) }),
   scene('outro', { cta: text, closing: text.optional(), body: text.optional(), team: text.optional(), credits: z.boolean().optional() }),
 ]);
 export type Scene = z.infer<typeof SceneSchema>;
+
+/** Whether `tag` is a BCP 47 language tag. */
+function isLanguageTag(tag: string): boolean {
+  try {
+    return Intl.getCanonicalLocales(tag).length === 1;
+  } catch {
+    return false;
+  }
+}
 
 const MetaSchema = z.strictObject({
   fps: z.literal(30),
@@ -101,6 +128,7 @@ const MetaSchema = z.strictObject({
   transition: z.number().min(0).max(2),
   music: z.strictObject({ sync: z.strictObject({ scene: z.number().int().min(0), at: seconds }) }).optional(),
   sources: z.array(text).min(1),
+  locale: z.string().refine(isLanguageTag, 'a BCP 47 language tag, such as en or fr-BE').optional(),
 });
 
 const StoryboardSchema = z.strictObject({

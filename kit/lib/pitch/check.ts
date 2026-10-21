@@ -8,7 +8,8 @@
 // than its 1.4 s (PRD 2030 s4); a step's own media is checked as a scene's. Warnings: a field over its word
 // count (a body over 20, a step's body over 12, PRD 2030; the accent markers are no words), a title with
 // more than one accent, a scene whose words take longer to read than it lasts (its eyebrow and body
-// counted, and its steps' bodies), and a whole outside 15 to 60 seconds. Each finding names its path in
+// counted, and its steps' bodies; a stats scene's figure labels, held to four words, PRD 2030 s5), and a
+// whole outside 15 to 60 seconds. A figure without its source is refused by the schema. Each finding names its path in
 // the storyboard.
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
@@ -173,6 +174,7 @@ const WORD_FIELDS: readonly (readonly [string, Limit])[] = Object.freeze([
   ['labels.after', 'label'],
   ['media.callouts.*.label', 'label'],
   ['steps.*.media.callouts.*.label', 'label'],
+  ['items.*.label', 'label'],
   ['cta', 'cta'],
   ['closing', 'closing'],
 ]);

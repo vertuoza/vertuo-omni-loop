@@ -11,7 +11,7 @@ describe('parseInput', () => {
     expect(parsed.problems).toBeUndefined();
     expect(parsed.input?.look).toEqual({ ...presetLook('keynote'), colors: { ...presetLook('keynote').colors, accent: '#112233' } });
     expect(parsed.input).toMatchObject({ fonts: {}, logo: null, credits: [], clips: {} });
-    expect(parsed.input?.storyboard.scenes).toHaveLength(6);
+    expect(parsed.input?.storyboard.scenes).toHaveLength(7);
   });
 
   it('keeps the fonts, the logo, the credits and the decoded clips it is given', () => {

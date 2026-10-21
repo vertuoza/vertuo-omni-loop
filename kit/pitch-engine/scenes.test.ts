@@ -112,7 +112,7 @@ describe('a scene’s supporting lines', () => {
   });
 
   it('draws the outro’s body under its closing line, and its credits after it', () => {
-    const scene = fixtureScene(5, { body: 'Live for every customer' });
+    const scene = fixtureScene(6, { body: 'Live for every customer' });
     const markup = drawn(scene, 2.9);
     expect(markup.indexOf('Live for every customer')).toBeGreaterThan(markup.indexOf('</h1>'));
     expect(markup.indexOf('Music: none')).toBeGreaterThan(markup.indexOf('Live for every customer'));

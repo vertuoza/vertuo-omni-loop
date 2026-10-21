@@ -14,7 +14,8 @@ export type TimelineScene = Readonly<{
   exit: number;
 }>;
 
-export type Timeline = Readonly<{ fps: number; width: number; height: number; frames: number; scenes: readonly TimelineScene[] }>;
+/** The video's size, frame rate, length and scenes, and the locale its figures are written for (PRD 2030 s5), none when the storyboard names none. */
+export type Timeline = Readonly<{ fps: number; width: number; height: number; frames: number; scenes: readonly TimelineScene[]; locale: string | undefined }>;
 
 /** How far into its arriving overlap a scene's entrances start: once the scene leaving is mostly gone. */
 const ENTRY_SHARE = 0.55;
@@ -37,7 +38,7 @@ export function buildTimeline(storyboard: Storyboard): Timeline {
     from += frames - placed.exit;
     return placed;
   });
-  return { fps, width, height, frames: from, scenes };
+  return { fps, width, height, frames: from, scenes, locale: storyboard.meta.locale };
 }
 
 /** The scenes on screen at the video's frame `frame`: one, or two in an overlap, in order. */

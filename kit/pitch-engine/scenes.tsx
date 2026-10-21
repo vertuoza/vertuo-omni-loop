@@ -1,14 +1,18 @@
-// The six scene templates (PRD 1108 s4): intro, statement, feature, steps, before/after and outro, each
+// The seven scene templates (PRD 1108 s4): intro, statement, feature, steps, before/after, stats (PRD 2030
+// s5) and outro, each
 // laid out on the 1920×1080 frame in the look's colours and fonts. Every scene but the intro shows its
 // supporting lines (PRD 2030 s3): an eyebrow above its title and a body under it, the outro a body under
 // its closing line, and its credits one line each: `Built by <team>`, then the music's (PRD 2030 s6).
 // A step shows its body under its label, and its own media rises in over the one before it at the step's
-// time; the before/after's wipe starts at its `wipeAt` (PRD 2030 s4).
+// time; the before/after's wipe starts at its `wipeAt` (PRD 2030 s4). The stats scene's figures count up
+// one after another once its title has arrived, written for the storyboard's locale (PRD 2030 s5).
 import type { CSSProperties, ReactNode } from 'react';
 import { EASINGS, SPRINGS, interpolate, mix, spring } from './animation.ts';
 import { useEngine, useEntryFrame, useSceneTime } from './core.tsx';
 import { AFTER_BODY, Column, FILL, GRID, Lines, PosedMedia, Slot, linesTimes, useCardPose } from './layout.tsx';
 import type { Region, SceneLines, Side } from './layout.tsx';
+import { figureAt, figureStarts } from './figures.ts';
+import type { Figure } from './figures.ts';
 import { DeviceFrame, MediaCard, Surface, useFitted } from './media.tsx';
 import type { Fitted } from './fit.ts';
 import { alpha } from './palette.ts';
@@ -294,6 +298,46 @@ function BeforeAfter({ scene }: { scene: SceneOf<'beforeAfter'> }): ReactNode {
   );
 }
 
+/** The figures' size, by how many share the row: one, two or three. */
+const FIGURE_SIZES = Object.freeze([200, 168, 136]);
+
+/** One figure: its value counting up from `start`, the first in the accent, and its label under it in upper case. */
+function StatFigure({ item, index, start, size }: { item: Figure & { label: string }; index: number; start: number; size: number }): ReactNode {
+  const { palette, fonts, timeline } = useEngine();
+  const entry = useEntryFrame();
+  const p = spring(entry - start * timeline.fps, timeline.fps, SPRINGS.smooth);
+  return (
+    <div data-figure={index} style={{ display: 'flex', flexDirection: 'column', gap: 14, opacity: p, transform: `translateY(${(1 - p) * 30}px)` }}>
+      <span
+        data-value=""
+        style={{ fontFamily: fonts.heading.stack, fontWeight: fonts.heading.weight, fontSize: size, lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: index === 0 ? palette.accent : palette.ink }}
+      >
+        {figureAt(item, start, entry / timeline.fps, timeline.locale)}
+      </span>
+      <span data-label="" style={{ fontFamily: fonts.text.stack, fontWeight: 700, fontSize: 26, letterSpacing: '0.08em', textTransform: 'uppercase', color: palette.muted }}>
+        {item.label}
+      </span>
+    </div>
+  );
+}
+
+/** The stats scene: its words, then its figures in a row, each counting up a beat after the one before. */
+function Stats({ scene }: { scene: SceneOf<'stats'> }): ReactNode {
+  const lines = linesOf(scene, scene.title);
+  const starts = figureStarts(scene.items.length, linesTimes(lines).after);
+  const exit = useExitStyle();
+  return (
+    <Column left={GRID} width={1680} gap={56}>
+      <Lines lines={lines} size={96} width={1500} />
+      <div style={{ display: 'flex', gap: 96, alignItems: 'flex-start', ...exit }}>
+        {scene.items.map((item, index) => (
+          <StatFigure key={index} item={item} index={index} start={starts[index] ?? 0} size={FIGURE_SIZES[scene.items.length - 1] ?? 136} />
+        ))}
+      </div>
+    </Column>
+  );
+}
+
 /** The outro's call to action: a pill in the call-to-action colour, pulsing gently. */
 function CallToAction({ text }: { text: string }): ReactNode {
   const t = useSceneTime();
@@ -339,7 +383,7 @@ function Outro({ scene }: { scene: SceneOf<'outro'> }): ReactNode {
 
 type Templates = { [K in keyof SceneMap]: (props: { scene: SceneMap[K] }) => ReactNode };
 
-const TEMPLATES: Templates = { intro: Intro, statement: Statement, feature: Feature, steps: Steps, beforeAfter: BeforeAfter, outro: Outro };
+const TEMPLATES: Templates = { intro: Intro, statement: Statement, feature: Feature, steps: Steps, beforeAfter: BeforeAfter, stats: Stats, outro: Outro };
 
 /** The template of a scene of type `type`. */
 const templateOf = <K extends keyof SceneMap>(type: K, scene: SceneMap[K]): ReactNode => {
