@@ -61321,17 +61321,30 @@ import { join as join140 } from "node:path";
 init_define_OMNI_BUNDLE();
 var RUNNABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "bug-fix", "mega-bug-fix", "visual-fix", "plan", "pitch", "prove"]);
 var LINE_MAX2 = 200;
+var SKILL_NAME_MAX = 64;
 var SHAPE = /^\/omni:([a-z][a-z-]*)(?: (.*))?$/s;
+var OWN_SHAPE = /^\/([a-z][a-z0-9-]*)(?: (.*))?$/s;
 var ARGS = /^[A-Za-z0-9 ._/:#-]*$/;
-function checkRunnerLine(line2) {
+var BAD_ARGS = "the arguments hold a character other than letters, digits, spaces and ._/:#-";
+function checkRunnerLine(line2, allowed = []) {
   if (line2.length > LINE_MAX2) return { ok: false, reason: `the line is over ${String(LINE_MAX2)} characters` };
-  const match = SHAPE.exec(line2);
-  if (!match) return { ok: false, reason: "the line does not read /omni:<skill> <arguments>" };
-  const skill = match[1] ?? "";
-  const args = match[2] ?? "";
+  const fixed2 = SHAPE.exec(line2);
+  if (fixed2) return checkFixed(fixed2[1] ?? "", fixed2[2] ?? "");
+  const own2 = OWN_SHAPE.exec(line2);
+  if (!own2) return { ok: false, reason: "the line does not read /omni:<skill> <arguments> or /<skill> <arguments>" };
+  return checkOwn(own2[1] ?? "", own2[2] ?? "", allowed);
+}
+function checkFixed(skill, args) {
   if (!RUNNABLE_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
-  if (!ARGS.test(args)) return { ok: false, reason: "the arguments hold a character other than letters, digits, spaces and ._/:#-" };
-  return { ok: true, skill, args };
+  if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
+  return { ok: true, kind: "omni", skill, args };
+}
+function checkOwn(skill, args, allowed) {
+  if (skill.length > SKILL_NAME_MAX) return { ok: false, reason: `a skill's name is ${String(SKILL_NAME_MAX)} characters at most` };
+  if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
+  if (RUNNABLE_SKILLS.includes(skill)) return { ok: false, reason: `/${skill} is the loop's own skill: send /omni:${skill}` };
+  if (!allowed.includes(skill)) return { ok: false, reason: `/${skill} is not allowed on a runner for this repository` };
+  return { ok: true, kind: "repository", skill, args };
 }
 
 // kit/lib/runner/tokens.ts
