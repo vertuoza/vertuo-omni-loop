@@ -62303,7 +62303,8 @@ async function send3(args, io) {
   const { positional, flags } = parseArgs("runner", args, { values: ["to"] });
   const [line2] = positional;
   if (positional.length !== 1 || line2 === void 0 || flags.to === "") throw usageError(SEND_USAGE);
-  const checked5 = checkRunnerLine(line2);
+  const own2 = /^\/([a-z][a-z0-9-]*)(?: |$)/.exec(line2)?.[1];
+  const checked5 = checkRunnerLine(line2, own2 === void 0 ? [] : [own2]);
   if (!checked5.ok) {
     println(io.stderr, `omni runner: ${checked5.reason}`);
     return 1;
