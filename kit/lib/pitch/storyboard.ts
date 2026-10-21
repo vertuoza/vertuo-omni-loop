@@ -9,6 +9,9 @@
 // - Supporting lines (PRD 2030): the statement, feature, steps and before/after take an `eyebrow` above
 //   their title and a `body` under it, one plain sentence; the outro a `body` under its closing line,
 //   and the `team` that built the feature, the words after "Built by" as the person gave them.
+// - Steps with their own media (PRD 2030 s4): a step takes a `body` under its label and a `media` of its
+//   own, whose times count from the step's `at`; the scene's `media` is then optional when every step
+//   brings one. The before/after takes `wipeAt`, the second into the scene its wipe starts.
 // - Media: a clip or a screenshot, by its path in the run's folder, with `start`, `end`, `rate`, `crop`, a
 //   `device` frame, and keyframed `camera` (zoom 1 to 4 on a focus point), `callouts` (a ring or a
 //   spotlight, a label of at most four words) and `cursor` (moves and clicks). Coordinates are 0..1 of
@@ -53,6 +56,9 @@ const MediaSchema = z.strictObject({
 });
 export type Media = z.infer<typeof MediaSchema>;
 
+/** How long the before/after's wipe takes, in seconds. */
+export const WIPE_SECONDS = 1.4;
+
 const duration = z.number().min(1).max(20);
 const scene = <T extends SceneType, Shape extends z.ZodRawShape>(type: T, shape: Shape) =>
   z.strictObject({ type: z.literal(type), duration, ...shape });
@@ -73,10 +79,17 @@ const SceneSchema = z.discriminatedUnion('type', [
   scene('steps', {
     title: text.optional(),
     ...lines,
-    media: MediaSchema,
-    steps: z.array(z.strictObject({ label: text, at: seconds })).min(2).max(4),
+    media: MediaSchema.optional(),
+    steps: z.array(z.strictObject({ label: text, at: seconds, body: text.optional(), media: MediaSchema.optional() })).min(2).max(4),
+  }).refine((steps) => steps.media !== undefined || steps.steps.every((step) => step.media !== undefined), 'a steps scene shows a media: give the scene one, or every step its own'),
+  scene('beforeAfter', {
+    title: text.optional(),
+    ...lines,
+    before: MediaSchema,
+    after: MediaSchema,
+    labels: z.strictObject({ before: text, after: text }).optional(),
+    wipeAt: seconds.optional(),
   }),
-  scene('beforeAfter', { title: text.optional(), ...lines, before: MediaSchema, after: MediaSchema, labels: z.strictObject({ before: text, after: text }).optional() }),
   scene('outro', { cta: text, closing: text.optional(), body: text.optional(), team: text.optional(), credits: z.boolean().optional() }),
 ]);
 export type Scene = z.infer<typeof SceneSchema>;
@@ -107,10 +120,14 @@ export function parseStoryboard(value: unknown): { storyboard: Storyboard; probl
   return { problems: parsed.error.issues.map((issue) => ({ path: issue.path.map(String).join('.'), message: issue.message })) };
 }
 
-/** Every media a scene shows, with the path of its object in the storyboard. */
+/** Every media a scene shows, with the path of its object in the storyboard: a steps scene's own, then each step's. */
 export function mediaOf(scene: Scene, index: number): { path: string; media: Media }[] {
   const at = (key: string, media: Media) => ({ path: `scenes.${index}.${key}`, media });
-  if (scene.type === 'feature' || scene.type === 'steps') return [at('media', scene.media)];
+  if (scene.type === 'feature') return [at('media', scene.media)];
+  if (scene.type === 'steps') {
+    const own = scene.media === undefined ? [] : [at('media', scene.media)];
+    return [...own, ...scene.steps.flatMap((step, n) => (step.media === undefined ? [] : [at(`steps.${n}.media`, step.media)]))];
+  }
   if (scene.type === 'beforeAfter') return [at('before', scene.before), at('after', scene.after)];
   return [];
 }

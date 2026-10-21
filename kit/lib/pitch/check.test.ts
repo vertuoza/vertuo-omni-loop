@@ -1,10 +1,11 @@
 // `checkStoryboard()` (PRD 1108 s3, spec "The engine, the studio and the render"): the schema's
 // refusals, a missing media file and a wrong scene order are errors, each named; word counts and reading
 // time are warnings. A scene's eyebrow and body (PRD 2030 s3) are held to their word counts and read in
-// its reading time.
+// its reading time. A step's own media is checked as a scene's, a `wipeAt` that leaves the wipe no time
+// is an error, and a step's body is held to 12 words (PRD 2030 s4).
 import { describe, expect, it } from 'vitest';
 import { checkStoryboard } from './check.ts';
-import { FIXTURE_MEDIA, REMOVED, changedStoryboard, fixtureStoryboard } from './storyboard.fixture.ts';
+import { FIXTURE_MEDIA, REMOVED, changedStoryboard, changedStoryboardAt, fixtureStoryboard } from './storyboard.fixture.ts';
 
 const allMedia = (file: string): boolean => FIXTURE_MEDIA.includes(file);
 const check = (value: unknown, hasFile = allMedia) => checkStoryboard(value, { hasFile });
@@ -26,6 +27,27 @@ describe('checkStoryboard', () => {
   it('names each missing media file at its path', () => {
     const report = check(fixtureStoryboard(), (file) => file !== 'shots/after.png');
     expect(lines(report.errors)).toEqual(['scenes.4.after.file: shots/after.png is missing']);
+  });
+
+  it('names a step’s missing media file at its path', () => {
+    const report = check(changedStoryboard('scenes.3.steps.1.media.file', 'clips/send.webm'));
+    expect(lines(report.errors)).toEqual(['scenes.3.steps.1.media.file: clips/send.webm is missing']);
+  });
+
+  it('checks a step’s media as a scene’s: outside the run folder, or a clip ending before it starts', () => {
+    expect(lines(check(changedStoryboard('scenes.3.steps.1.media.file', '../walk.webm'), () => true).errors)).toEqual(['scenes.3.steps.1.media.file: ../walk.webm is outside the run folder']);
+    expect(lines(check(changedStoryboard('scenes.3.steps.1.media.end', 9)).errors)).toEqual(['scenes.3.steps.1.media.end: the clip ends at 9 s, before it starts at 10 s']);
+  });
+
+  it('refuses a wipe that starts too late to finish before its scene ends', () => {
+    expect(lines(check(changedStoryboard('scenes.4.wipeAt', 2.8)).errors)).toEqual(['scenes.4.wipeAt: the wipe starts at 2.8 s and takes 1.4 s; the scene ends at 4 s']);
+    expect(lines(check(changedStoryboard('scenes.4.wipeAt', 9)).errors)).toEqual(['scenes.4.wipeAt: the wipe starts at 9 s and takes 1.4 s; the scene ends at 4 s']);
+  });
+
+  it('passes a wipe that finishes as its scene ends, or before', () => {
+    expect(check(changedStoryboard('scenes.4.wipeAt', 2.6)).errors).toEqual([]);
+    expect(check(changedStoryboard('scenes.4.wipeAt', 1.8)).errors).toEqual([]);
+    expect(check(changedStoryboard('scenes.4.wipeAt', 0)).errors).toEqual([]);
   });
 
   it('refuses a media file outside the run folder', () => {
@@ -83,6 +105,7 @@ describe('checkStoryboard', () => {
     expect(lines(report.errors)).toEqual([
       'scenes.2.media.file: clips/walk.webm is missing',
       'scenes.3.media.file: clips/walk.webm is missing',
+      'scenes.3.steps.1.media.file: clips/walk.webm is missing',
       'scenes: no outro: the last scene is the outro',
     ]);
   });
@@ -114,6 +137,23 @@ describe('checkStoryboard', () => {
     const report = check(changedStoryboard(field, body));
     expect(report.errors).toEqual([]);
     expect(lines(report.warnings)).toContain(`${field}: 23 words; a body holds at most 20`);
+  });
+
+  it('warns on a step body over 12 words, without an error, and holds one of 12 to no count', () => {
+    const report = check(changedStoryboard('scenes.3.steps.0.body', 'Each line takes its price from the catalogue, then the margin you set for it'));
+    expect(report.errors).toEqual([]);
+    expect(lines(report.warnings)).toContain('scenes.3.steps.0.body: 15 words; a step body holds at most 12');
+    const twelve = check(changedStoryboard('scenes.3.steps.0.body', 'Each line takes its price from the catalogue, then your own margin')).warnings;
+    expect(twelve.map(({ path }) => path)).not.toContain('scenes.3.steps.0.body');
+  });
+
+  it('counts a step’s body in its scene’s reading time', () => {
+    const report = check(changedStoryboardAt(changedStoryboard('scenes.3.duration', 1), 'scenes.3.steps.0.body', 'Priced from the catalogue'));
+    expect(lines(report.warnings)).toContain('scenes.3: 10 words take about 4 s to read; the scene lasts 1 s');
+  });
+
+  it('holds a callout label of a step’s media to its word count', () => {
+    expect(lines(check(changedStoryboardAt(fixtureStoryboard(), 'scenes.3.steps.1.media.callouts', [{ at: 1, kind: 'ring', box: { x: 0, y: 0, w: 0.1, h: 0.1 }, label: 'Send' }])).warnings)).toEqual([]);
   });
 
   it('holds a body of 20 words to no word count', () => {

@@ -2,17 +2,20 @@
 // laid out on the 1920×1080 frame in the look's colours and fonts. Every scene but the intro shows its
 // supporting lines (PRD 2030 s3): an eyebrow above its title and a body under it, the outro a body under
 // its closing line, and its credits one line each: `Built by <team>`, then the music's (PRD 2030 s6).
-import type { ReactNode } from 'react';
+// A step shows its body under its label, and its own media rises in over the one before it at the step's
+// time; the before/after's wipe starts at its `wipeAt` (PRD 2030 s4).
+import type { CSSProperties, ReactNode } from 'react';
 import { EASINGS, SPRINGS, interpolate, mix, spring } from './animation.ts';
 import { useEngine, useEntryFrame, useSceneTime } from './core.tsx';
 import { AFTER_BODY, Column, FILL, GRID, Lines, PosedMedia, Slot, linesTimes, useCardPose } from './layout.tsx';
 import type { Region, SceneLines, Side } from './layout.tsx';
-import { DeviceFrame, Surface, useFitted } from './media.tsx';
+import { DeviceFrame, MediaCard, Surface, useFitted } from './media.tsx';
 import type { Fitted } from './fit.ts';
 import { alpha } from './palette.ts';
 import { revealEnd } from './text.ts';
 import { Bullets, Eyebrow, Line, Pill, Title, useExitStyle } from './words.tsx';
-import type { Scene } from '../lib/pitch/storyboard.ts';
+import { WIPE_SECONDS } from '../lib/pitch/storyboard.ts';
+import type { Media, Scene } from '../lib/pitch/storyboard.ts';
 
 type SceneMap = { [K in Scene['type']]: Extract<Scene, { type: K }> };
 type SceneOf<K extends Scene['type']> = SceneMap[K];
@@ -97,16 +100,31 @@ function useStepColours(active: number): { color: string; background: string; bo
   return { color: on ? palette.onAccent : palette.accent, background: alpha(palette.accent, active), border: `2px solid ${on ? palette.accent : palette.hairline}` };
 }
 
-/** One step of a list: its number in a disc, and its label. */
-function Step({ label, index, active, done, arrived }: { label: string; index: number; active: number; done: number; arrived: number }): ReactNode {
+type StepOf = SceneOf<'steps'>['steps'][number];
+
+/** A step's words: its label, and its body under it, muted. */
+function StepWords({ step }: { step: StepOf }): ReactNode {
   const { palette, fonts } = useEngine();
+  const label = <div style={{ fontFamily: fonts.text.stack, fontWeight: 700, fontSize: 36, color: palette.ink, lineHeight: 1.15 }}>{step.label}</div>;
+  if (step.body === undefined) return label;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {label}
+      <p style={{ margin: 0, fontFamily: fonts.text.stack, fontWeight: 400, fontSize: 26, color: palette.muted, lineHeight: 1.3 }}>{step.body}</p>
+    </div>
+  );
+}
+
+/** One step of a list: its number in a disc, its label and its body. */
+function Step({ step, index, active, done, arrived }: { step: StepOf; index: number; active: number; done: number; arrived: number }): ReactNode {
+  const { fonts } = useEngine();
   const colours = useStepColours(active);
   return (
     <div style={{ display: 'flex', gap: 24, alignItems: 'center', opacity: arrived * mix(0.42, 1, Math.max(active, done * 0.55)), transform: `translateX(${(1 - arrived) * -20}px)` }}>
       <div style={{ flex: 'none', width: 60, height: 60, borderRadius: '50%', display: 'grid', placeItems: 'center', fontFamily: fonts.text.stack, fontWeight: 700, fontSize: 24, transform: `scale(${mix(1, 1.08, active)})`, ...colours }}>
         {String(index + 1).padStart(2, '0')}
       </div>
-      <div style={{ fontFamily: fonts.text.stack, fontWeight: 700, fontSize: 36, color: palette.ink, lineHeight: 1.15 }}>{label}</div>
+      <StepWords step={step} />
     </div>
   );
 }
@@ -129,8 +147,70 @@ function StepList({ scene }: { scene: SceneOf<'steps'> }): ReactNode {
       {scene.steps.map((step, index) => {
         const done = lit(t, scene.steps[index + 1]?.at);
         const arrived = spring(entry - (listAt + index * STEP_STAGGER) * timeline.fps, timeline.fps, SPRINGS.smooth);
-        return <Step key={index} label={step.label} index={index} active={lit(t, step.at) * (1 - done)} done={done} arrived={arrived} />;
+        return <Step key={index} step={step} index={index} active={lit(t, step.at) * (1 - done)} done={done} arrived={arrived} />;
       })}
+    </div>
+  );
+}
+
+/** How a step's media rises in over the one before it: how long it takes, and from how far below. */
+const LAYER_RISE = Object.freeze({ seconds: 0.6, pixels: 70 });
+
+/**
+ * One media a steps scene shows: what it shows, its times counted from the scene's start; from when it is
+ * on screen and until when (once the next one has risen over it); the step that brings it, or none for
+ * the scene's own.
+ */
+export type StepLayer = Readonly<{ media: Media; from: number; until: number; step: number | null }>;
+
+type Keyed = { at: number; until?: number | undefined };
+
+/** Keys whose times are `by` seconds later. */
+const later = <K extends Keyed>(keys: readonly K[], by: number): K[] =>
+  keys.map((key) => ({ ...key, at: key.at + by, ...(key.until === undefined ? {} : { until: key.until + by }) }));
+
+/** `media`, its times (its camera, callouts, cursor and the second of its file) counted from `by` seconds into its scene instead of its start. */
+export function shiftedMedia(media: Media, by: number): Media {
+  const { camera, callouts, cursor } = media;
+  return {
+    ...media,
+    start: (media.start ?? 0) - by * (media.rate ?? 1),
+    ...(camera === undefined ? {} : { camera: later(camera, by) }),
+    ...(callouts === undefined ? {} : { callouts: later(callouts, by) }),
+    ...(cursor === undefined ? {} : { cursor: later(cursor, by) }),
+  };
+}
+
+/** A steps scene's media, bottom to top: the scene's own first, then each step's own from its time, each kept until the next has risen over it. */
+export function stepLayers(scene: SceneOf<'steps'>): StepLayer[] {
+  const own = scene.media === undefined ? [] : [{ media: scene.media, from: 0, step: null }];
+  const brought = scene.steps.flatMap((step, index) => (step.media === undefined ? [] : [{ media: shiftedMedia(step.media, step.at), from: step.at, step: index }]));
+  const layers = [...own, ...brought];
+  return layers.map((layer, index) => ({ ...layer, until: (layers[index + 1]?.from ?? Number.POSITIVE_INFINITY) + LAYER_RISE.seconds }));
+}
+
+/** The media a steps scene shows on top at `t` seconds into it: the last to have started rising in; none before the first. */
+export const stepLayerAt = (scene: SceneOf<'steps'>, t: number): StepLayer | undefined => stepLayers(scene).findLast((layer) => layer.from <= t);
+
+/** How a step's media rises in: from below, fading in, from its time. The scene's own is there from the start. */
+function useRise(layer: StepLayer): CSSProperties {
+  const { fps } = useEngine().timeline;
+  const t = useSceneTime();
+  if (layer.step === null) return FILL;
+  const p = spring((t - layer.from) * fps, fps, SPRINGS.smooth);
+  return { ...FILL, opacity: interpolate(p, [0, 0.4], [0, 1]), translate: `0 ${(1 - p) * LAYER_RISE.pixels}px` };
+}
+
+/** One media of a steps scene, on screen from its time until the next has risen over it. */
+function StepMedia({ layer }: { layer: StepLayer }): ReactNode {
+  const t = useSceneTime();
+  const rise = useRise(layer);
+  const fitted = useFitted(layer.media, SIDE_REGION);
+  const pose = useCardPose('right');
+  if (t < layer.from || t >= layer.until) return null;
+  return (
+    <div data-step-media={layer.step ?? 'scene'} style={rise}>
+      <Slot region={SIDE_REGION}>{fitted === null ? null : <MediaCard media={layer.media} fitted={fitted} style={pose} />}</Slot>
     </div>
   );
 }
@@ -142,13 +222,18 @@ function Steps({ scene }: { scene: SceneOf<'steps'> }): ReactNode {
         <Lines lines={linesOf(scene, scene.title)} size={80} width={620} />
         <StepList scene={scene} />
       </Column>
-      <PosedMedia media={scene.media} region={SIDE_REGION} side="right" />
+      {stepLayers(scene).map((layer) => (
+        <StepMedia key={layer.step ?? 'scene'} layer={layer} />
+      ))}
     </div>
   );
 }
 
-const WIPE_SECONDS = 1.4;
+/** Where the wipe starts without a `wipeAt`: this share into the scene. */
 const WIPE_STARTS = 0.35;
+
+/** The second into a before/after its wipe starts: its `wipeAt`, or 35% of the scene. */
+export const wipeStart = (scene: SceneOf<'beforeAfter'>): number => scene.wipeAt ?? scene.duration * WIPE_STARTS;
 
 /** The before and after markers above the card, the after taking over as the wipe passes. */
 function WipeLabels({ labels, p, start }: { labels: SceneOf<'beforeAfter'>['labels']; p: number; start: number }): ReactNode {
@@ -169,7 +254,7 @@ function WipeLabels({ labels, p, start }: { labels: SceneOf<'beforeAfter'>['labe
 function Wipe({ scene, fitted }: { scene: SceneOf<'beforeAfter'>; fitted: Fitted }): ReactNode {
   const { palette } = useEngine();
   const t = useSceneTime();
-  const start = scene.duration * WIPE_STARTS;
+  const start = wipeStart(scene);
   const p = interpolate(t, [start, start + WIPE_SECONDS], [0, 1], { easing: EASINGS.inOut });
   const edge = { position: 'absolute', top: 0, bottom: 0, left: p * fitted.width - 2, width: 4, background: palette.accent, boxShadow: `0 0 24px 6px ${alpha(palette.accent, 0.6)}`, opacity: interpolate(p, [0, 0.06, 0.94, 1], [0, 1, 1, 0]) } as const;
   return (

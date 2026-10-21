@@ -1,6 +1,7 @@
 // The engine rendered in a browser (PRD 1108 s4): the built page, `kit/dist/pitch-engine/`, draws the
 // fixture storyboard at fixed frames — the intro at 0.5 s, the feature's camera at its zoom's peak, the
-// outro settled, the intro settled with its accented title (PRD 2030 s1) — and each matches its reference
+// outro settled, the intro settled with its accented title (PRD 2030 s1), the steps settled on the media
+// their second step brings (PRD 2030 s4) — and each matches its reference
 // image within a small tolerance. The same frame drawn in two looks holds each look's colours. Runs in
 // Playwright's Chromium, where that browser is installed.
 //
@@ -46,12 +47,13 @@ const sceneAt = (index: number) => {
   return scene;
 };
 
-/** The frames compared with references: the intro at 0.5 s, the feature at its camera's peak, the outro settled, the intro settled with its accent. */
+/** The frames compared with references: the intro at 0.5 s, the feature at its camera's peak, the outro settled, the intro settled with its accent, the steps settled on their second step's own media. */
 const FIXED = Object.freeze([
   { name: 'intro-0.5s', frame: 15 },
   { name: 'feature-zoom-peak', frame: sceneAt(2).from + 2 * 30 },
   { name: 'outro', frame: stillFrame(sceneAt(5), 30) },
   { name: 'intro-accent', frame: stillFrame(sceneAt(0), 30) },
+  { name: 'steps-own-media', frame: stillFrame(sceneAt(3), 30) },
 ]);
 
 const inputOf = (look: PitchLook, logo: boolean) => ({
