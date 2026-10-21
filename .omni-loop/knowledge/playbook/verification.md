@@ -62,7 +62,9 @@ for them: a break in a file the change did not touch slips past it.
 tests, and in a bug fix, run `pnpm mutation:changed --base origin/<feature branch>` (a few minutes per
 file) and add or tighten a test for each survivor in the code you changed. A pull request never lowers a
 floor in `mutation/floor.json`; the `mutation` workflow runs the whole core every night at 02:00 UTC and on
-demand, outside the required checks, and shows a module below its floor in its job summary.
+demand, outside the required checks, and shows a module below its floor in its job summary. A red
+night on `main` opens one `Mutation: the nightly run is red` issue assigned to the laws' owners,
+commented each later red night and closed once green (`scripts/mutation-alert.ts`).
 
 `pnpm install` turns on two git hooks (`.githooks/`) for every agent and person: **pre-commit**
 runs `fallow audit` of the work tree committed (~1 s), **pre-push** `check:changed`'s typecheck and
