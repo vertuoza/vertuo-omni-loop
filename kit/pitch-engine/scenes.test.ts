@@ -22,7 +22,7 @@ const BODY = 'Every line priced, the quote leaves on its own.';
 function fixtureScene(index: number, fields: Record<string, unknown>): Scene {
   const scene = fixtureStoryboard().scenes[index];
   if (scene === undefined) throw new Error(`the fixture has no scene ${index}`);
-  return { ...scene, ...fields } as Scene;
+  return { ...scene, ...fields };
 }
 
 /** `scene` drawn alone, `seconds` into it, as markup. */
