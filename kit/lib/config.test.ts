@@ -61,6 +61,16 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nreleaseNotes:\n  on: true\n')).toThrow(/releaseNotes.*on/s);
   });
 
+  it('keeps retro guards off unless the file switches them on, and refuses a switch that is not a boolean (PRD 2338)', () => {
+    expect(parseConfig('kit: 1\n').retro).toEqual({ guards: false });
+    expect(parseConfig('kit: 1\nretro:\n  guards: true\n').retro).toEqual({ guards: true });
+    expect(parseConfig('kit: 1\nretro: { guards: false }\n').retro).toEqual({ guards: false });
+    expect(() => parseConfig('kit: 1\nretro:\n  guards: yes please\n', 'c.yml')).toThrow(/c\.yml.*retro\.guards/);
+    expect(() => parseConfig('kit: 1\nretro:\n  guards: "true"\n')).toThrow(/retro\.guards/);
+    expect(() => parseConfig('kit: 1\nretro:\n  guards: 1\n')).toThrow(/retro\.guards/);
+    expect(() => parseConfig('kit: 1\nretro:\n  tests: true\n')).toThrow(/retro.*tests/s);
+  });
+
   it('keeps design craft off with no screen paths unless the file switches it on, and refuses a bad switch or path (PRD 1369)', () => {
     expect(parseConfig('kit: 1\n').design).toEqual({ enabled: false, paths: [], screens: '.omni-loop/knowledge/design/screens/', words: { sentence: 7, screen: '[data-screen]', primary: '[data-primary]', avoid: [] } });
     expect(parseConfig('kit: 1\ndesign:\n  enabled: true\n  paths: [src/ui/**, "**/*.css"]\n').design).toEqual({
@@ -507,6 +517,15 @@ describe('omni config', () => {
     }
   });
 
+  it('prints retro.guards, false when the file does not set it and true once it does (PRD 2338)', async () => {
+    for (const [text, value] of [[files['.omni-loop/config.yml'], 'false'], ['kit: 1\nretro:\n  guards: true\n', 'true']]) {
+      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': text } });
+      const s = io();
+      expect(await main(['config', 'retro.guards'], { cwd: root, ...s })).toBe(0);
+      expect(s.out.join('')).toBe(`${value}\n`);
+    }
+  });
+
   it('prints design.enabled, design.paths and commands.design, off, empty and null by default (PRD 1369)', async () => {
     const cases = [
       [files['.omni-loop/config.yml'], ['false', '[]', 'null']],
@@ -629,7 +648,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'agents', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature', 'sync',
+      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'retro', 'proof', 'e2e', 'design', 'markers', 'signature', 'sync',
     ]);
   });
 
