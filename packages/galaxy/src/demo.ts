@@ -87,7 +87,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
 
   const planets: SnapshotPlanet[] = [
     planet({
-      prd: parsePrd(985), title: 'Default Country per Company', captain: 'pm-otto', created: 400,
+      prd: parsePrd(985), title: 'Default Locale per Account', captain: 'pm-otto', created: 400,
       regions: [['nimbus-core', 380]],
       feature: { created: 300, ready: 210, merged: 190 },
       zones: [
@@ -95,10 +95,10 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
         zone('s2', 'nimbus-core', 2, ['s1'], sub('kraken-k', 279, 250)),
         zone('s3', 'nimbus-core', 2, ['s1'], sub('dime', 279, 240)),
       ],
-      outbox: [item('s1-01-default-country', 'nimbus-core', 'high', 285, { verdict: 'agreed', h: 260, by: 'pm-otto' })],
+      outbox: [item('s1-01-default-locale', 'nimbus-core', 'high', 285, { verdict: 'agreed', h: 260, by: 'pm-otto' })],
     }),
     planet({
-      prd: parsePrd(2299), title: 'Stock Movements', captain: 'pm-penny', created: 500,
+      prd: parsePrd(2299), title: 'Inventory Ledger', captain: 'pm-penny', created: 500,
       regions: [['nimbus-core', 480], ['nimbus-api', 470]],
       feature: { created: 330, ready: 160, merged: 150 },
       zones: [
@@ -109,7 +109,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       bugs: [{ repo: 'nimbus-core', number: parseIssue(4411), createdAt: ago(40), closedAt: null, fixedBy: null }],
     }),
     planet({
-      prd: parsePrd(2332), title: 'Generic Import Engine', captain: 'pm-lina', created: 260,
+      prd: parsePrd(2332), title: 'Bulk Data Import', captain: 'pm-lina', created: 260,
       regions: [['nimbus-core', 250], ['nimbus-brain', 248]],
       feature: { created: 120, activity: 2 },
       zones: [
@@ -128,7 +128,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       ],
     }),
     planet({
-      prd: parsePrd(2350), title: 'Invoice Reminders', captain: 'pm-penny', created: 300,
+      prd: parsePrd(2350), title: 'Payment Nudges', captain: 'pm-penny', created: 300,
       regions: [['nimbus-core', 280], ['nimbus-web', 278]],
       feature: { created: 160, ready: 80, merged: 70 },
       zones: [
@@ -139,14 +139,14 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       outbox: [item('s2-01-reminder-cadence', 'nimbus-web', 'human-action', 120, { verdict: 'drifted', h: 110, by: 'pm-penny', reworkH: 95, reworkBy: 'dime' })],
     }),
     planet({
-      prd: parsePrd(2388), title: 'Time Tracking Mobile', captain: 'pm-otto', created: 700,
+      prd: parsePrd(2388), title: 'Mobile Check-ins', captain: 'pm-otto', created: 700,
       regions: [['nimbus-app', 680]],
       feature: { created: 600, activity: 500 },
       zones: [zone('s1', 'nimbus-app', 1, [], sub('inky', 599, 560)), zone('s2', 'nimbus-app', 2, ['s1'], sub('kraken-k', 559, null))],
       closedH: 48,
     }),
     planet({
-      prd: parsePrd(2410), title: 'Peppol e-Invoicing', captain: 'pm-penny', created: 240,
+      prd: parsePrd(2410), title: 'Partner Webhooks', captain: 'pm-penny', created: 240,
       regions: [['nimbus-core', 230], ['nimbus-api', 228], ['nimbus-web', 226]],
       feature: { created: 140 },
       zones: [
@@ -156,12 +156,12 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
         zone('s4', 'nimbus-core', 3, ['s2', 's3']),
       ],
       outbox: [
-        item('s1-01-ubl-version', 'nimbus-api', 'human-action', 131),
-        item('s1-02-vat-rounding', 'nimbus-api', 'high', 130),
+        item('s1-01-payload-version', 'nimbus-api', 'human-action', 131),
+        item('s1-02-retry-window', 'nimbus-api', 'high', 130),
       ],
     }),
     planet({
-      prd: parsePrd(2455), title: 'Site Diary Photos', captain: 'pm-cecil', created: 220,
+      prd: parsePrd(2455), title: 'Photo Notes', captain: 'pm-cecil', created: 220,
       regions: [['nimbus-app', 210]],
       feature: { created: 100, ready: 10 },
       zones: [
@@ -172,15 +172,15 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       outbox: [item('s2-01-exif-strip', 'nimbus-app', 'medium', 60, { verdict: 'agreed', h: 20, by: 'pm-cecil' })],
     }),
     planet({
-      prd: parsePrd(2471), title: 'Supplier Price Sync', captain: 'pm-anne', created: 150,
+      prd: parsePrd(2471), title: 'Catalog Price Sync', captain: 'pm-anne', created: 150,
       regions: [['nimbus-api', 140, [parsePrd(2410)]], ['nimbus-brain', 138]],
     }),
     planet({
-      prd: parsePrd(2502), title: 'Quote Templates v2', captain: 'pm-lina', created: 60,
+      prd: parsePrd(2502), title: 'Proposal Templates v2', captain: 'pm-lina', created: 60,
       regions: [['nimbus-web', 30]],
     }),
     planet({
-      prd: parsePrd(2520), title: 'Planning Drag & Drop', captain: 'pm-cecil', created: 260,
+      prd: parsePrd(2520), title: 'Calendar Drag & Drop', captain: 'pm-cecil', created: 260,
       regions: [['nimbus-web', 250], ['nimbus-app', 245]],
       feature: { created: 170, activity: 1 },
       zones: [
@@ -190,7 +190,7 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       ],
     }),
     planet({
-      prd: parsePrd(2533), title: 'Client Portal', captain: 'pm-anne', created: 200,
+      prd: parsePrd(2533), title: 'Customer Portal', captain: 'pm-anne', created: 200,
       regions: [['nimbus-web', 190]],
       feature: { created: 90, activity: 3 },
       zones: [
@@ -200,12 +200,12 @@ export function demoSnapshot(now: Date = new Date()): Snapshot {
       ],
       outbox: [item('s2-01-session-length', 'nimbus-web', 'high', 50, { verdict: 'drifted', h: 30, by: 'pm-anne' })],
     }),
-    planet({ prd: parsePrd(2541), title: 'VAT Rules Belgium', captain: 'pm-lina', created: 12 }),
+    planet({ prd: parsePrd(2541), title: 'Tax Rules Engine', captain: 'pm-lina', created: 12 }),
   ];
   // A pull request merged into a tracked repository's default branch pays its author and its
   // reviewers (PRD 1975); a sub-PR, merged into a feature branch, pays nothing.
   const merged = [
-    { repo: 'demo-org/nimbus-web', number: parsePr(2602), title: 'feat(quotes): duplicate a quote line', kind: 'feat' as const, author: 'gold-rush', mergedAt: ago(60), reviewers: ['dime'] },
+    { repo: 'demo-org/nimbus-web', number: parsePr(2602), title: 'feat(proposals): duplicate a proposal line', kind: 'feat' as const, author: 'gold-rush', mergedAt: ago(60), reviewers: ['dime'] },
   ];
   return { at: iso(now), teams: DEMO_TEAMS, planets, merged };
 }
