@@ -29,6 +29,7 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-inbox.mjs — changes in kit/porting/inbox--check-inbox.md.
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
+import { productAvoids } from '../design/words/product.ts';
 import { gradeBeforeAfter } from '../before-after/grade.ts';
 import { readRepoFile } from '../check-report.ts';
 import { domainsDir } from '../knowledge/registers.ts';
@@ -203,4 +204,31 @@ export function findInboxViolations({ ctx }: { ctx: Ctx }): string[] {
   violations.push(...findRoadmapViolations(ctx));
 
   return violations;
+}
+
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * PRD 2299: one warning line per avoided word of the product's glossary an inbox spec holds,
+ * `<spec file>: "<word>" ×<n> → say <term>`, matched whole and without case, never inside another
+ * word. Read from the local copy only; no copy, no warning. Never a violation: the caller prints
+ * these beside the check's result and its exit code does not change.
+ */
+export function inboxAvoidWarnings({ ctx }: { ctx: Ctx }): string[] {
+  const { words, says } = productAvoids(ctx.root);
+  if (words.length === 0) return [];
+  const patterns = words.map((word) => ({
+    word,
+    pattern: new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(word.trim()).replace(/\s+/g, '\\s+')}(?![\\p{L}\\p{N}])`, 'giu'),
+  }));
+  const lines: string[] = [];
+  for (const file of ctx.layout.specFiles()) {
+    if (!existsSync(join(ctx.root, file))) continue;
+    const text = readRepoFile(ctx, file);
+    for (const { word, pattern } of patterns) {
+      const count = text.match(pattern)?.length ?? 0;
+      if (count > 0) lines.push(`${file}: "${word}" ×${count} → say ${says.get(word) ?? word}`);
+    }
+  }
+  return lines;
 }

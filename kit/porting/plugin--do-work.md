@@ -275,3 +275,11 @@ human-action accounts for.
 ### Tests
 
 `kit/test/briefing-text-skills.test.ts`.
+
+## PRD 2299, slice s3 — the product's glossary and legal entries
+
+Not a re-port: kit-local prose. Step 1, item 4 (the context read) gains `omni kb glossary`, read where
+the slice's words come from, and `omni kb legal` when the slice touches personal data, keys, logs or
+licences. Where a term is in both the page and `paths.glossary`, the page wins; an offline or
+product-less read carries on with what it has. Tested in `kit/test/plugin.test.ts`, "the skills read
+the product knowledge (PRD 2299)".

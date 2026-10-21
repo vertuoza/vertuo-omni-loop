@@ -24,8 +24,8 @@ const message = async (promise: Promise<unknown>): Promise<string> => {
 
 describe('knowledgeOfReply', () => {
   it('reads both lists, and [] for a server from before the page', () => {
-    expect(knowledgeOfReply(REPLY, 'acme/api')).toEqual({ product: 'Invoicing', legal: LEGAL, glossary: GLOSSARY });
-    expect(knowledgeOfReply({ product: { name: 'Invoicing' } }, 'acme/api')).toEqual({ product: 'Invoicing', legal: [], glossary: [] });
+    expect(knowledgeOfReply(REPLY, 'acme/api')).toEqual({ product: 'Invoicing', legal: LEGAL, glossary: GLOSSARY, personas: [] });
+    expect(knowledgeOfReply({ product: { name: 'Invoicing' } }, 'acme/api')).toEqual({ product: 'Invoicing', legal: [], glossary: [], personas: [] });
   });
 
   it('refuses a reply out of shape, and a repository of no product', () => {
@@ -38,11 +38,11 @@ describe('productKnowledge', () => {
   it('keeps a fresh read, then prints it from the copy when the page answers 5xx or never', async () => {
     const dir = root();
     const fresh = await productKnowledge({ repo: 'acme/api', root: dir, now: () => NOW, fetchBusiness: () => Promise.resolve(REPLY) });
-    expect(fresh).toEqual({ from: 'server', product: 'Invoicing', legal: LEGAL, glossary: GLOSSARY });
-    expect(JSON.parse(readFileSync(join(dir, PRODUCT_KNOWLEDGE_FILE), 'utf8'))).toEqual({ product: 'Invoicing', readAt: NOW.toISOString(), legal: LEGAL, glossary: GLOSSARY });
+    expect(fresh).toEqual({ from: 'server', product: 'Invoicing', legal: LEGAL, glossary: GLOSSARY, personas: [] });
+    expect(JSON.parse(readFileSync(join(dir, PRODUCT_KNOWLEDGE_FILE), 'utf8'))).toEqual({ product: 'Invoicing', readAt: NOW.toISOString(), legal: LEGAL, glossary: GLOSSARY, personas: [] });
     for (const status of [503, null]) {
       const copy = await productKnowledge({ repo: 'acme/api', root: dir, now: () => NOW, fetchBusiness: fail(status) });
-      expect(copy).toEqual({ from: 'copy', readAt: NOW.toISOString(), product: 'Invoicing', legal: LEGAL, glossary: GLOSSARY });
+      expect(copy).toEqual({ from: 'copy', readAt: NOW.toISOString(), product: 'Invoicing', legal: LEGAL, glossary: GLOSSARY, personas: [] });
     }
   });
 
@@ -72,7 +72,7 @@ describe('readCachedKnowledge (PRD 1797): the copy on disk, never the server', (
     const dir = root();
     expect(readCachedKnowledge(dir)).toEqual({ state: 'absent' });
     await productKnowledge({ repo: 'acme/api', root: dir, now: () => NOW, fetchBusiness: () => Promise.resolve(REPLY) });
-    expect(readCachedKnowledge(dir)).toEqual({ state: 'cached', product: 'Invoicing', readAt: NOW.toISOString(), legal: LEGAL, glossary: GLOSSARY });
+    expect(readCachedKnowledge(dir)).toEqual({ state: 'cached', product: 'Invoicing', readAt: NOW.toISOString(), legal: LEGAL, glossary: GLOSSARY, personas: [] });
     writeFileSync(join(dir, PRODUCT_KNOWLEDGE_FILE), '{ nope');
     expect(readCachedKnowledge(dir)).toEqual({ state: 'unreadable' });
     writeFileSync(join(dir, PRODUCT_KNOWLEDGE_FILE), '{"product": 3}');

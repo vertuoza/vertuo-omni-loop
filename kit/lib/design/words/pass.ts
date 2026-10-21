@@ -33,7 +33,7 @@ export type WordRules = {
 /** One visible string of a screen: a control's whole label, or a run of text outside any control. */
 export type Phrase = { readonly text: string; readonly words: number; readonly control: boolean };
 
-export type Finding = { readonly rule: 'sentence-on-control' | 'two-primaries' | 'explains-at-rest' | 'avoided-word'; readonly message: string };
+export type Finding = { readonly rule: 'sentence-on-control' | 'two-primaries' | 'explains-at-rest' | 'avoided-word'; readonly message: string; /** How the line names the rule, when not by its id. */ readonly label?: string };
 
 /** One screen read: its own strings and their words, the words of the content it shows, and its findings. */
 export type ScreenWords = {
@@ -195,7 +195,7 @@ function avoidedWord(phrases: readonly Phrase[], { avoid, says }: WordRules): Fi
   return phrases.flatMap((phrase) =>
     terms.filter(({ pattern }) => pattern.test(phrase.text)).map(({ term, say }): Finding => ({
       rule: 'avoided-word',
-      message: say === undefined ? `"${term}" in "${phrase.text}"` : `"${term}": avoid, the product says "${say}" (in "${phrase.text}")`,
+      ...(say === undefined ? { message: `"${term}" in "${phrase.text}"` } : { label: 'avoided word', message: `${term} → say ${say} (in "${phrase.text}")` }),
     })));
 }
 
@@ -241,7 +241,7 @@ export function formatPage(page: string, { skipped, screens }: PageWords, rules:
     for (const phrase of screen.phrases) lines.push(`    ${phrase.control ? '[control] ' : ''}${phrase.text} (${phrase.words})`);
     if (screen.content > 0) lines.push(`    content · ${wordsOf(screen.content)}`);
     if (screen.findings.length === 0) lines.push('    findings: none');
-    for (const finding of screen.findings) lines.push(`    ! ${finding.rule}: ${finding.message}`);
+    for (const finding of screen.findings) lines.push(`    ! ${finding.label ?? finding.rule}: ${finding.message}`);
   }
   return lines;
 }

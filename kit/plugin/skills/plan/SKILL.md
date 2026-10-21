@@ -69,7 +69,9 @@ The input is a PRD number. It is also the PRD's issue number, which `{prd}` in a
 
    A ◇ PRD (no `birthplace:` line) never reads any of the four: it is `inbox` or not, as always.
 2. The spec, in full. Then every file in `paths.context`, the glossary at `paths.glossary` when it
-   is set, and each ADR the spec cites under `paths.adr`.
+   is set, `node .omni-loop/bin/omni.mjs kb glossary` (the product's glossary: where a term is in
+   both, the page wins; offline or product-less it prints its copy or one line, and you carry on),
+   and each ADR the spec cites under `paths.adr`.
 3. `gh issue view <n> --json body,comments`: the issue and any answer a person already gave on it.
    (Piped, `--comments` alone prints nothing when there are no comments; read the JSON.)
 4. `node .omni-loop/bin/omni.mjs flow show`: what this repository changes from the kit's defaults,

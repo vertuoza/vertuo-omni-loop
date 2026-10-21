@@ -226,9 +226,11 @@ Edit the triage comment in place, found by its marker `<!-- omni-bug:triage -->`
 
 ## 6. Words first
 
-List the nouns and verbs the reproduction needs. When `paths.glossary` is set, each is in it; a
-missing term is added there, in the section that owns it, in the same commit as the reproduction.
-With no glossary, the words come from `paths.knowledge` and `paths.context`. A term that cannot be
+List the nouns and verbs the reproduction needs. Read `node .omni-loop/bin/omni.mjs kb glossary` for
+them: where a term is in both it and `paths.glossary`, the page wins. When `paths.glossary` is set,
+each is in it; a missing term is added there, in the section that owns it, in the same commit as the
+reproduction. With no glossary, the words come from `paths.knowledge` and `paths.context`. An offline
+or product-less read prints its copy or one line, and the skill carries on with what it has. A term that cannot be
 defined without inventing product behaviour stops the skill with a question to the person, naming
 the term (stop rule 2).
 

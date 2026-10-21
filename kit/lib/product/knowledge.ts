@@ -4,7 +4,7 @@
 //
 // - A reply from before the page held either sends neither: both read as `[]`.
 // - Each read is kept in `.omni-loop/local/product-knowledge.json` (`{ product, readAt, legal,
-//   glossary }`), the way `targets.ts` keeps `product-targets.json`. When the server cannot be reached
+//   glossary, personas }`; `personas` is the name and stance of each, PRD 2299, and a copy without it still reads), the way `targets.ts` keeps `product-targets.json`. When the server cannot be reached
 //   (no answer within the client's 5 seconds, or a 5xx), the copy is read instead, said by
 //   `unreachableLine`; with no copy, the read stops with `NOTHING_READ`.
 // - An archived product (PRD 2232) is an answer too: the read stops with `product <name> is archived: …`, the
@@ -21,11 +21,15 @@ export const PRODUCT_KNOWLEDGE_FILE = join(LOCAL_DIR, 'product-knowledge.json');
 
 const LegalSchema = z.object({ id: z.string().min(1), statement: z.string(), source: z.string(), owner: z.string() });
 const TermSchema = z.object({ term: z.string().min(1), meaning: z.string(), avoid: z.array(z.string()) });
+const PersonaSchema = z.object({ name: z.string().min(1), stance: z.string() });
 
 /** One active Legal entry, as the business read carries it. */
 export type LegalEntry = z.infer<typeof LegalSchema>;
 /** One glossary term, as the business read carries it. */
 export type GlossaryTerm = z.infer<typeof TermSchema>;
+
+/** One persona of the product, as the copy keeps it: its name and stance (PRD 2299). */
+export type KnowledgePersona = z.infer<typeof PersonaSchema>;
 
 /** The business read, as far as the product's knowledge goes. */
 const ReplySchema = z.object({
@@ -33,6 +37,8 @@ const ReplySchema = z.object({
   product: z.object({ name: z.string().min(1) }).nullable().optional(),
   legal: z.array(LegalSchema).optional(),
   glossary: z.array(TermSchema).optional(),
+  // Only the name and stance are kept; a persona the page sends out of shape is left out, never a refusal.
+  personas: z.array(z.unknown()).optional(),
 });
 
 const CopySchema = z.object({
@@ -40,14 +46,26 @@ const CopySchema = z.object({
   readAt: z.iso.datetime(),
   legal: z.array(LegalSchema),
   glossary: z.array(TermSchema),
+  // A copy from before PRD 2299 has none: it still reads, with no persona.
+  personas: z.array(PersonaSchema).default([]),
 });
 
 /** What a read gives: the knowledge, and whether it came from the server or the last copy. */
-export type ProductKnowledge = { product: string; legal: LegalEntry[]; glossary: GlossaryTerm[] };
+export type ProductKnowledge = { product: string; legal: LegalEntry[]; glossary: GlossaryTerm[]; personas?: KnowledgePersona[] | undefined };
 export type ProductKnowledgeRead = ({ from: 'server' } | { from: 'copy'; readAt: string }) & ProductKnowledge;
 
 /** The one line for a product an owner archived (PRD 2232): an answer, not an outage, so no copy is served for it. */
 export const archivedLine = (name: string): string => `product ${name} is archived: an owner restores it on its page`;
+
+/** Why a read stopped, for the one line it prints: `state` tells an answer (archived, no product, refused) from an outage. */
+export class KnowledgeStop extends Error {
+  readonly state: 'archived' | 'none' | 'unreachable' | 'refused';
+  constructor(state: KnowledgeStop['state'], message: string) {
+    super(message);
+    this.name = 'KnowledgeStop';
+    this.state = state;
+  }
+}
 
 export const NOTHING_READ = 'no product knowledge: the Omni page is unreachable and nothing was read yet';
 
@@ -56,12 +74,16 @@ export function knowledgeOfReply(reply: unknown, repo: string): ProductKnowledge
   const parsed = ReplySchema.safeParse(reply);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    throw new Error(`the Omni page answered no product knowledge for ${repo}: ${issue ? `${issue.path.join('.')} ${issue.message}` : 'out of shape'}`);
+    throw new KnowledgeStop('refused', `the Omni page answered no product knowledge for ${repo}: ${issue ? `${issue.path.join('.')} ${issue.message}` : 'out of shape'}`);
   }
-  const { state, product, legal = [], glossary = [] } = parsed.data;
-  if (state === 'archived' && product) throw new Error(archivedLine(product.name));
-  if (!product) throw new Error(`no product knowledge: ${repo} belongs to no product on the Omni page`);
-  return { product: product.name, legal, glossary };
+  const { state, product, legal = [], glossary = [], personas = [] } = parsed.data;
+  if (state === 'archived' && product) throw new KnowledgeStop('archived', archivedLine(product.name));
+  if (!product) throw new KnowledgeStop('none', `no product knowledge: ${repo} belongs to no product on the Omni page`);
+  const kept = personas.flatMap((one) => {
+    const persona = PersonaSchema.safeParse(one);
+    return persona.success ? [{ name: persona.data.name, stance: persona.data.stance }] : [];
+  });
+  return { product: product.name, legal, glossary, personas: kept };
 }
 
 function readCopy(root: string): (ProductKnowledge & { readAt: string }) | null {
@@ -117,10 +139,10 @@ export async function productKnowledge({ repo, root, now, fetchBusiness }: {
     if (!(error instanceof AskCallError)) throw error;
     if (unanswered(error)) {
       const copy = readCopy(root);
-      if (copy === null) throw new Error(NOTHING_READ);
+      if (copy === null) throw new KnowledgeStop('unreachable', NOTHING_READ);
       return { from: 'copy', ...copy };
     }
-    throw new Error(`the Omni page refused the product knowledge of ${repo} (${error.status}): ${error.reason ?? error.message}`);
+    throw new KnowledgeStop('refused', `the Omni page refused the product knowledge of ${repo} (${error.status}): ${error.reason ?? error.message}`);
   }
   const known = knowledgeOfReply(reply, repo);
   ensureLocalDir(root);
