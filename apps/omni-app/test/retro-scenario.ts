@@ -244,6 +244,23 @@ export const KNOWLEDGE_FILES = Object.freeze({
     'Source: spec.md',
     '',
   ].join('\n'),
+  '.omni-loop/knowledge/playbook/conventions.md': [
+    '---',
+    'form: conventions',
+    'form-version: 1',
+    'state: filled',
+    'points-to: null',
+    'evidence: []',
+    'invaded: null',
+    '---',
+    '',
+    '# Conventions',
+    '',
+    '## Naming',
+    '<!-- slot: naming · required -->',
+    '- **A migration stays the newest until it merges.** A branch overtaken by `main` re-dates it.',
+    '',
+  ].join('\n'),
   '.omni-loop/knowledge/adr/0001-colours-stored-per-widget.md':
     '# ADR-0001 — Colours are stored per widget\n\n**Status:** accepted · **Date:** 2026-09-01\n\n## Context\n\nA widget forgets.\n',
   '.omni-loop/delivery/shipped/0003-older/retro.json': `${JSON.stringify({
