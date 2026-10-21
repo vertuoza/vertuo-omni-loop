@@ -8,12 +8,13 @@ import { buildTimeline, entryDelay, scenesAt, stillFrame } from './timeline.ts';
 describe('buildTimeline', () => {
   it('places each scene where the one before ends, less the transition, and sums the frames', () => {
     const timeline = buildTimeline(fixtureStoryboard());
-    // 3 + 4 + 6 + 6 + 4 + 3 seconds at 30 fps, five overlaps of 0.5 s.
-    expect(timeline.frames).toBe(26 * 30 - 5 * 15);
-    expect(timeline.scenes.map((scene) => scene.from)).toEqual([0, 75, 180, 345, 510, 615]);
-    expect(timeline.scenes.map((scene) => scene.frames)).toEqual([90, 120, 180, 180, 120, 90]);
+    // 3 + 4 + 6 + 6 + 4 + 5 + 3 seconds at 30 fps, six overlaps of 0.5 s.
+    expect(timeline.frames).toBe(31 * 30 - 6 * 15);
+    expect(timeline.scenes.map((scene) => scene.from)).toEqual([0, 75, 180, 345, 510, 615, 750]);
+    expect(timeline.scenes.map((scene) => scene.frames)).toEqual([90, 120, 180, 180, 120, 150, 90]);
     expect(timeline.scenes.map((scene) => [scene.enter, scene.exit])).toEqual([
       [0, 15],
+      [15, 15],
       [15, 15],
       [15, 15],
       [15, 15],
@@ -49,7 +50,7 @@ describe('scenesAt', () => {
     expect(scenesAt(timeline, 10).map((scene) => scene.index)).toEqual([0]);
     expect(scenesAt(timeline, 80).map((scene) => scene.index)).toEqual([0, 1]);
     expect(scenesAt(timeline, 90).map((scene) => scene.index)).toEqual([1]);
-    expect(scenesAt(timeline, timeline.frames - 1).map((scene) => scene.index)).toEqual([5]);
+    expect(scenesAt(timeline, timeline.frames - 1).map((scene) => scene.index)).toEqual([6]);
     expect(scenesAt(timeline, timeline.frames)).toEqual([]);
   });
 });
@@ -58,7 +59,7 @@ describe('stillFrame', () => {
   it('takes each scene 0.3 s before it starts to leave, the last one 0.3 s before the video ends', () => {
     const timeline = buildTimeline(fixtureStoryboard());
     // 0.3 s at 30 fps is 9 frames before the exit's 15-frame overlap; the outro has no exit.
-    expect(timeline.scenes.map((scene) => stillFrame(scene, timeline.fps))).toEqual([66, 171, 336, 501, 606, 696]);
+    expect(timeline.scenes.map((scene) => stillFrame(scene, timeline.fps))).toEqual([66, 171, 336, 501, 606, 741, 831]);
     const outro = timeline.scenes.at(-1);
     if (outro === undefined) throw new Error('the fixture has scenes');
     expect(stillFrame(outro, timeline.fps)).toBe(timeline.frames - 9);

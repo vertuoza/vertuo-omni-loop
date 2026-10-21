@@ -1,7 +1,8 @@
-// A storyboard holding all six scene types, for the tests of the schema, the check and, later, the
+// A storyboard holding all seven scene types, for the tests of the schema, the check and, later, the
 // engine. Its media are `clips/walk.webm` and `shots/before.png` / `shots/after.png` of the run folder.
 // Its intro title carries an accent and a final stop (PRD 2030 s1); its steps' second step brings its own
-// media, a later moment of the walk-through with its camera zooming in (PRD 2030 s4).
+// media, a later moment of the walk-through with its camera zooming in (PRD 2030 s4); its stats scene shows
+// three figures, one from each source, before the outro (PRD 2030 s5).
 import type { Storyboard } from './storyboard.ts';
 
 export const FIXTURE_MEDIA = Object.freeze(['clips/walk.webm', 'shots/before.png', 'shots/after.png']);
@@ -58,6 +59,16 @@ export function fixtureStoryboard(): Storyboard {
         before: { kind: 'screenshot', file: 'shots/before.png' },
         after: { kind: 'screenshot', file: 'shots/after.png', crop: { x: 0, y: 0, w: 1, h: 0.8 } },
         labels: { before: 'Before', after: 'Now' },
+      },
+      {
+        type: 'stats',
+        duration: 5,
+        title: 'Quotes out **the same day**.',
+        items: [
+          { value: 16790, prefix: '€', label: 'Billed in one go', source: 'spec' },
+          { value: 92, suffix: '%', label: 'Signed online', source: 'release' },
+          { value: 1.5, decimals: 1, suffix: ' days', label: 'To get paid', source: 'asked' },
+        ],
       },
       { type: 'outro', duration: 3, cta: 'Available now', closing: 'Every quote, on its way.', credits: true },
     ],
