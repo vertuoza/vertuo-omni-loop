@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canAnswer, canCancel, canSendAgain, madeByWords, prdPageLink, prWords, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
+import { afterAnswersWords, answeredOf, canAnswer, canCancel, fixLineOf, canSendAgain, madeByWords, prdLineOf, prdPageLink, prWords, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
 
 // The Runners page's words and rules (PRD 1830 s3), pure: how long ago, where a job is sent again, and
 // which jobs take Cancel or Send again.
@@ -98,6 +98,62 @@ describe('a done job\'s outcome (PRD 2223)', () => {
     expect(prdPageLink({ ...done, outcome: null })).toBeNull();
     expect(prdPageLink({ ...done, status: 'failed' })).toBeNull();
     expect(prdPageLink({ ...done, line: '/omni:yolo Issue 5' })).toBeNull();
+  });
+});
+
+describe('a job that waited, once its answers are in (PRD 2270 s2)', () => {
+  const waited = { id: '11111111-aaaa-4000-8000-000000000001', status: 'done', outcome: 'answers' } as const;
+  const fix = (status: 'queued' | 'claimed' | 'running' | 'done' | 'failed' | 'cancelled') => ({ id: '22222222-bbbb-4000-8000-000000000002', status, continues: waited.id });
+
+  it('reads Answered · fixing, linking the fix, while its continuation is queued, starting or running', () => {
+    for (const status of ['queued', 'claimed', 'running'] as const) {
+      expect(answeredOf(waited, [fix(status)], [])).toEqual({ words: 'Answered · fixing', tone: 'run', fix: fix(status).id, button: false });
+    }
+  });
+
+  it('reads Answered · fixed once the continuation ended, however it ended', () => {
+    for (const status of ['done', 'failed', 'cancelled'] as const) {
+      expect(answeredOf(waited, [fix(status)], [])).toEqual({ words: 'Answered · fixed', tone: 'done', fix: fix(status).id, button: false });
+    }
+  });
+
+  it('reads Answered with the button when every asked item is answered and nothing continued it', () => {
+    expect(answeredOf(waited, [], [waited.id])).toEqual({ words: 'Answered', tone: 'wait', fix: null, button: true });
+  });
+
+  it('keeps Waiting on answers (null) while answers are missing, and for a job that did not wait', () => {
+    expect(answeredOf(waited, [], [])).toBeNull();
+    expect(answeredOf({ ...waited, outcome: 'held' }, [fix('running')], [waited.id])).toBeNull();
+    expect(answeredOf({ ...waited, status: 'failed' }, [], [waited.id])).toBeNull();
+  });
+
+  it('says `after answers · job <8 characters>` under the fix job and nothing under another', () => {
+    expect(afterAnswersWords({ continues: waited.id })).toBe('after answers · job 11111111');
+    expect(afterAnswersWords({ continues: null })).toBeNull();
+    expect(afterAnswersWords({})).toBeNull();
+  });
+
+  it('asks /omni:yolo-fix for the PRD the job\'s line names', () => {
+    expect(fixLineOf({ line: '/omni:yolo 2270' })).toBe('/omni:yolo-fix 2270');
+    expect(fixLineOf({ line: '/omni:do-work 2270 s1' })).toBe('/omni:yolo-fix 2270');
+    expect(fixLineOf({ line: '/omni:bug-fix Issue 548 totals' })).toBeNull();
+  });
+});
+
+describe('prdLineOf', () => {
+  const prds = { 'acme/widgets#1717': 'Widgets sync', 'acme/widgets#42': 'A, B & <C>' };
+
+  it('names the PRD a /omni:<skill> <n> line builds, linking its page, with its title', () => {
+    expect(prdLineOf({ line: '/omni:yolo 1717', repo: 'acme/widgets' }, prds)).toEqual({ number: 1717, href: '/prd/at/acme/widgets/1717?to=page', title: 'Widgets sync' });
+    expect(prdLineOf({ line: '/omni:yolo-fix 42', repo: 'Acme/Widgets' }, prds)?.title).toBe('A, B & <C>');
+  });
+
+  it('is null for a PRD the repository has no dossier of, or a line that names none', () => {
+    expect(prdLineOf({ line: '/omni:yolo 9', repo: 'acme/widgets' }, prds)).toBeNull();
+    expect(prdLineOf({ line: '/omni:yolo 1717', repo: 'acme/mobile' }, prds)).toBeNull();
+    expect(prdLineOf({ line: '/omni:bug-fix Issue 548 totals', repo: 'acme/widgets' }, prds)).toBeNull();
+    expect(prdLineOf({ line: '/omni:yolo 1717 now', repo: 'acme/widgets' }, prds)).toBeNull();
+    expect(prdLineOf({ line: 'yolo 1717', repo: 'acme/widgets' }, prds)).toBeNull();
   });
 });
 

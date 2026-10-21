@@ -75,3 +75,15 @@ Bug section are PRD 556's spec, carried whole.
 - **`briefing-text`** (PRD 1793): **A change to a law**'s rule table gains the row for a change to
   the briefing's files, raised as a change to a rule is; its test is
   `kit/test/briefing-text-skills.test.ts`.
+- **The smoke level** (PRD 2275): a passing reproduction has a third reading, this level cannot see
+  it, and step 7 moves up to `setup` then `commands.smoke`; stop rule 7 stops with no runnable smoke
+  (rule 6 is PRD 2255's `--answers` stop); stops 3, 4 and 7 keep the reproduction on a pushed branch; a `critical` stop opens its comment with
+  `> [!CAUTION]`; step 9's guard is the smoke run by CI; the record's **Reproduction** names its
+  **Level**. Its tests are `kit/test/bug-fix-smoke.test.ts`.
+- **The triage at once, and production read against releases** (PRD 2275): step 3 posts the triage
+  with **Reproduction** and **Branch** `pending`, steps 5 and 7 edit those lines in place by the
+  marker, a `Production:` line gives the deployed version and the first occurrence in UTC matched
+  against releases and deployments, and a release range is regression evidence.
+- **The product's glossary for the reproduction's words** (PRD 2299, slice s3): step 6 reads
+  `omni kb glossary` for the nouns and verbs; the page wins over `paths.glossary` on a shared term.
+  Tested in `kit/test/plugin.test.ts`, "the skills read the product knowledge (PRD 2299)".

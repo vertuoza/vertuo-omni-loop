@@ -32,7 +32,7 @@ describe('the demo dossier\'s GitHub summary', () => {
     vi.stubGlobal('fetch', fetch);
     const view = dossierView(demoDossier(NOW), DEMO_VIEWER, { tab: 'outbox', version: null }, NOW);
     expect(view.stage?.words).toBe('Stage: building');
-    expect(view.stage?.badge).toEqual({ label: '2 questions waiting', href: 'https://github.com/vertuoza/vertuo-omni-loop/pull/76#issuecomment-4242' });
+    expect(view.stage?.badge).toEqual({ label: '2 questions waiting', href: 'https://github.com/demo-org/nimbus-plan/pull/76#issuecomment-4242' });
     expect(view.stage?.synced).toMatch(/^last synced /);
     expect(view.stage?.action).toMatchObject({ kind: 'link', label: 'Answer the outbox' });
     expect(view.stage?.links.map((l) => l.label)).toEqual(['issue #71', 'phase-0 #74', 'feature #76 · draft']);

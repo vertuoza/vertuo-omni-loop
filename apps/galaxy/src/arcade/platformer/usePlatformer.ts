@@ -1,4 +1,4 @@
-// Super Omni World as the arcade holds it around the Phaser scene (PRD 817), which plays itself and
+// Starhop as the arcade holds it around the Phaser scene (PRD 817), which plays itself and
 // reads the held buttons: the stage and the screen up, where Phaser's import stands, the retries
 // asked for, and the grid the game started on (it keeps it, as Invaders does). Kept out of ArcadeApp,
 // which only starts the game, answers its presses and draws it.

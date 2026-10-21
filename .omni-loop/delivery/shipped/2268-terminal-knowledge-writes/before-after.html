@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knowledge from the terminal</title>
+<style>
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-cyan: #5ee7ff; --ask-red: #ff7a8a;
+    --ask-body: "Atkinson Hyperlegible Next", system-ui, sans-serif; --ask-mono: ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 16px/1.6 var(--ask-body); }
+  .doc { max-width: 1240px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  h2 { margin: 44px 0 8px; font-size: 22px; border-bottom: 1px solid var(--ask-line-strong); padding-bottom: 6px; }
+  h3 { margin: 26px 0 8px; font-size: 17px; color: var(--ask-cyan); }
+  .lede, .cap { color: var(--ask-muted); }
+  .cap { font-size: 14px; margin: 8px 0 0; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  .pair h4 { margin: 0 0 8px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .pair > div:last-child h4 { color: var(--ask-plasma); }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+  pre { margin: 0; padding: 12px 14px; background: var(--ask-ground); border: 1px solid var(--ask-line-strong); border-radius: 10px; font: 13px/1.55 var(--ask-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .after pre { border-color: var(--ask-plasma); }
+  .p { color: var(--ask-cyan); } .ok { color: #7dffb0; } .no { color: var(--ask-red); } .m { color: var(--ask-muted); } .y { color: var(--ask-plasma); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--ask-line); vertical-align: top; }
+  th { color: var(--ask-muted); font-weight: 600; }
+  code { font: 13px var(--ask-mono); color: var(--ask-cyan); }
+</style>
+</head>
+<body>
+<main class="doc">
+  <h1>Knowledge from the terminal</h1>
+  <p class="lede">PRD 2268 · add and edit a product's Statement, Never lines, Legal entries and Glossary terms from the terminal, one item at a time. Today beside after.</p>
+
+  <h2>Functional</h2>
+
+  <h3>From a terminal</h3>
+  <div class="pair">
+    <div>
+      <h4>Today: read only</h4>
+<pre><span class="p">$</span> omni kb legal
+L-GDPR-1  Only members of a workspace may read …
+L-GDPR-4  Logs that record decisions are kept …
+
+<span class="p">$</span> omni kb legal add --code VAT …
+<span class="no">omni: unknown sub-command "add"</span>
+<span class="m"># open omni-loop.xyz › Products › omni-loop › Knowledge › Legal, type it again</span></pre>
+    </div>
+    <div class="after">
+      <h4>After: add and edit</h4>
+<pre><span class="p">$</span> omni kb legal add --code VAT --statement "Invoices are kept ten years." --source "Belgian VAT Code, art. 60"
+<span class="ok">added L-VAT-1</span> · https://www.omni-loop.xyz/app/products/…/knowledge/legal/L-VAT-1
+
+<span class="p">$</span> omni constituents add --never "We never store card numbers."
+<span class="ok">added never#4</span> · https://www.omni-loop.xyz/app/products/…/knowledge/constituents/never-4
+
+<span class="p">$</span> omni kb glossary edit "Credit note" --avoid refund,credit
+<span class="ok">edited Credit note</span> · https://www.omni-loop.xyz/app/products/…/knowledge/glossary/…
+
+<span class="m"># a member who does not own Glossary</span>
+<span class="p">$</span> omni kb glossary add --term "Quote" --meaning "A priced offer before an order."
+<span class="y">proposed</span> · waits for @pierrederval · https://www.omni-loop.xyz/app/products/…/knowledge/glossary
+
+<span class="m"># a member changing a constituent</span>
+<span class="p">$</span> omni constituents add --never "…"
+<span class="no">refused: only a workspace owner changes the constituents</span>   <span class="m">(exit 1)</span></pre>
+      <p class="cap">The page's rules, unchanged. Remove and retire stay on the Knowledge tab.</p>
+    </div>
+  </div>
+
+  <h3>In a Claude session</h3>
+  <div class="pair">
+    <div>
+      <h4>Today</h4>
+<pre><span class="p">you ›</span> add a legal entry: invoices are kept ten years
+<span class="m">claude ›</span> I can't add it from here. Open the product's Knowledge tab › Legal and add it there.</pre>
+    </div>
+    <div class="after">
+      <h4>After: one item, shown, Yes first</h4>
+<pre><span class="p">you ›</span> add a legal entry: invoices are kept ten years, and a never line: we never store card numbers
+<span class="m">claude ›</span> Which law requires the Legal entry? <span class="m">(asked, never filled in)</span>
+<span class="p">you ›</span> Belgian VAT Code, art. 60
+<span class="m">claude ›</span> Item 1 of 2 · Legal entry L-VAT-1
+          Statement   Invoices are kept ten years.
+          Source law  Belgian VAT Code, art. 60
+          <span class="y">[ Yes ]</span>  [ Change ]  [ Cancel ]
+<span class="p">you ›</span> Yes
+<span class="m">claude ›</span> <span class="ok">added L-VAT-1</span> · https://…/knowledge/legal/L-VAT-1
+<span class="m">claude ›</span> Item 2 of 2 · Never line never#4
+          Text  We never store card numbers.
+          <span class="y">[ Yes ]</span>  [ Change ]  [ Cancel ]</pre>
+      <p class="cap">One item per Yes. Nothing is written in an unattended run.</p>
+    </div>
+  </div>
+
+  <h3>The exchange: POST /api/knowledge/changes</h3>
+  <div class="pair">
+    <div>
+      <h4>Today</h4>
+<pre>POST /app/products/&lt;id&gt;/knowledge/changes   <span class="m">browser sign-in only, Legal and Glossary</span>
+<span class="m">constituents: no route; the page calls constituent_add from the browser</span></pre>
+    </div>
+    <div class="after">
+      <h4>After: a terminal route beside it</h4>
+<pre>POST /api/knowledge/changes      <span class="m">Authorization: Bearer &lt;omni signin&gt;</span>
+{ "repo": "vertuoza/vertuo-omni-loop", "product": null,
+  "kind": "legal", "action": "add",
+  "fields": { "code": "VAT", "statement": "…", "source": "…" } }
+
+200 { "done": "applied",  "id": "L-VAT-1", "url": "…" }
+200 { "done": "proposed", "id": null,      "url": "…" }
+403 { "error": "only a workspace owner changes the constituents" }
+409 { "error": "this repository is in 2 products: omni-loop, Vertuo UX; pass --product" }</pre>
+      <p class="cap">Runs as the caller, through the page's own service and database functions. One new read-only database function finds the product from the repository.</p>
+    </div>
+  </div>
+
+  <h3>What stays the same</h3>
+  <table>
+    <tr><th>Who</th><th>Legal / Glossary</th><th>Constituents</th></tr>
+    <tr><td>Section owner or delegate</td><td>saved</td><td>—</td></tr>
+    <tr><td>Workspace owner</td><td>saved while none is named, else proposed</td><td>saved</td></tr>
+    <tr><td>Any other member</td><td>proposed</td><td>refused</td></tr>
+  </table>
+
+  <h2>Pixel perfect</h2>
+  <p class="lede">Pixel perfect: no screen changes</p>
+</main>
+</body>
+</html>

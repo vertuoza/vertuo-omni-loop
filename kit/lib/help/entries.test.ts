@@ -107,11 +107,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 61 commands and the 33 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(61);
-    expect(skillFolders()).toHaveLength(33);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(61);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(33);
+  it('holds the 62 commands and the 35 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(62);
+    expect(skillFolders()).toHaveLength(35);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(62);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(35);
   });
 
   it('lists /omni:enforce for you under Every day, after /omni:prove, with when and an example (PRD 1342)', () => {
@@ -125,6 +125,14 @@ describe('the help table in this repository', () => {
     for (const words of [/\blaw issue\b/, /pending #<n>/, /\bred\b/, /\bgreen\b/, /\{defaultBranch\}/, /never merges/]) {
       expect(enforce.detail, String(words)).toMatch(words);
     }
+  });
+
+  it('lists the add and edit sub-commands of omni constituents (PRD 2268)', () => {
+    const command = ENTRIES.find((e) => e.kind === 'command' && e.name === 'constituents');
+    assertDefined(command, 'constituents');
+    expect(command.usage.join('\n')).toMatch(/omni constituents add --statement .* --never /);
+    expect(command.usage.join('\n')).toMatch(/omni constituents edit statement\|never#<n> --text /);
+    for (const words of [/\badd and edit\b/, /workspace owner/, /--json/]) expect(command.detail, String(words)).toMatch(words);
   });
 
   it('names omni roadmap prereqs and omni roadmap tick, with what each does (PRD 1218)', () => {
@@ -392,10 +400,10 @@ describe('the help table in this repository', () => {
     const byGroup = Object.fromEntries(GROUP_IDS.map((id) => [id, ENTRIES.filter((e) => e.kind === 'skill' && e.group === id).map((e) => e.name).sort()]));
     expect(byGroup).toEqual({
       start: ['brainstorm', 'bug-fix', 'roadmap', 'think-big', 'visual-fix'],
-      build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
+      build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix', 'yolo-runner'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'enforce', 'help', 'pitch', 'pixel-perfect', 'prove', 'status', 'validate-e2e'],
+      everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'status', 'validate-e2e'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
   });
@@ -589,6 +597,16 @@ describe('the e2e field', () => {
     expect(detail('skill', 'yolo')).toContain('e2e: validate');
     expect(detail('skill', 'yolo')).not.toContain('/omni:validate-e2e');
     expect(detail('skill', 'validate-e2e')).toContain('e2e: validate');
+  });
+});
+
+describe('omni help kb lists the knowledge writes (PRD 2268, s2)', () => {
+  it('names legal and glossary add and edit, and the exit codes', () => {
+    const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'kb');
+    assertDefined(entry, 'kb');
+    for (const sub of ['legal add', 'legal edit', 'glossary add', 'glossary edit']) expect(entry.usage.join('\n')).toContain(`omni kb ${sub}`);
+    expect(entry.detail).toContain('proposed');
+    expect(entry.detail).toContain('exits 1');
   });
 });
 

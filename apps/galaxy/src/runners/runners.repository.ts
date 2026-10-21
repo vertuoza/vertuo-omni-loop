@@ -9,7 +9,7 @@
 // answers that do not match), so they are read by their code and answered, never thrown.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { IssueNumberSchema, type IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import { JOB_OUTCOMES, QuestionSchema, RunnerHealthSchema, type Question } from './runners.contract';
 
 /** What the reads and writes need: the tables, and the database's functions. */
@@ -56,6 +56,8 @@ const JobRow = z.object({
   release_error: z.string().nullable().catch(null).optional(),
   /** What it ended on (PRD 2223, 2255); a value out of shape reads as none. */
   outcome: z.enum(JOB_OUTCOMES).nullable().catch(null).optional(),
+  /** The job this one continues, once its answers were in (PRD 2270); one out of shape reads as none. */
+  continues: z.string().nullable().catch(null).optional(),
   queued_at: z.string(),
   claimed_at: z.string().nullable(),
   running_at: z.string().nullable(),
@@ -65,7 +67,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, continues, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */
@@ -325,3 +327,41 @@ export function runnersRepository(db: RunnersDb) {
 }
 
 export type RunnersRepository = ReturnType<typeof runnersRepository>;
+
+/** How many of a repository's jobs whose line may name a PRD are read: its newest, enough to hold the
+ * one that waited and any queued or running beside it. */
+const PRD_JOBS_READ = 50;
+
+/** A continuation's columns (PRD 2270): a new job's, and the job it continues. */
+type NewContinuation = NewJob & { continues: string };
+
+const SwitchRow = z.object({ fix_when_answered: z.boolean() }).nullable();
+
+/** The continuation's storage (PRD 2270 s1; supabase/migrations/20261220090000_fix_when_answered.sql), a
+ * port of its own beside the runners': the repository's switch, a PRD's jobs, and the continuation's
+ * insert, which the unique runner_jobs.continues refuses a second time. */
+export function continuationsRepository(db: RunnersDb) {
+  return {
+    /** Whether the repository's Fix on a runner once answered is on; null when the workspace does not list it. */
+    fixWhenAnswered: async (workspaceId: string, repo: string): Promise<boolean | null> =>
+      (await parsed(db.from('repositories').select('fix_when_answered').eq('workspace_id', workspaceId).eq('full_name', repo).maybeSingle(), SwitchRow, 'repositories'))?.fix_when_answered ?? null,
+
+    /** The repository's newest jobs whose line may name the PRD (`/omni:<skill> <n>…`), newest first: a cut
+     * the decision reads exactly (./continue.ts). */
+    prdJobs: async (workspaceId: string, repo: string, prd: PrdNumber): Promise<JobRow[]> =>
+      parsed(db.from('runner_jobs').select(JOB_COLUMNS).eq('workspace_id', workspaceId).eq('repo', repo).like('line', `/omni:% ${String(prd)}%`)
+        .order('queued_at', { ascending: false }).limit(PRD_JOBS_READ), z.array(JobRow), 'runner_jobs'),
+
+    /** Queues the continuation; null when the job was continued already (23505, runner_jobs_continues_key). */
+    insertContinuation: async (job: NewContinuation): Promise<JobRow | null> => {
+      const { data, error } = await db.from('runner_jobs').insert({
+        workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy,
+        sent_by_key: job.sentByKey, continues: job.continues,
+      }).select(JOB_COLUMNS).single();
+      if (error?.code === '23505') return null;
+      return parsed(Promise.resolve({ data, error }), JobRow, 'runner_jobs');
+    },
+  };
+}
+
+export type ContinuationsRepository = ReturnType<typeof continuationsRepository>;

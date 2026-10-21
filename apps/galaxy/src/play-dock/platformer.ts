@@ -1,4 +1,4 @@
-// SUPER OMNI WORLD in the play dock (PRD 817), as pure steps: the arcade's own session around the
+// STARHOP in the play dock (PRD 817), as pure steps: the arcade's own session around the
 // Phaser scene (arcade/platformer/session.ts), under the dock's rules. A question pauses the game at
 // once, and while it is open every press but B waits; once it is gone, only START resumes the game.
 // Leaving the game goes back: to the picker on B, and the dock folds on SELECT.

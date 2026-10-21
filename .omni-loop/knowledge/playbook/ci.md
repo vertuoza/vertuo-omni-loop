@@ -4,7 +4,7 @@ form-version: 1
 state: filled
 points-to: null
 evidence:
-  - .github/workflows/supabase.yml@a4bc540
+  - .github/workflows/supabase.yml@cbc038a
   - .github/workflows/game.yml@4bf6bd0
   - apps/omni-app/README.md@a655cb8
   - .github/workflows/checks.yml@af9027a

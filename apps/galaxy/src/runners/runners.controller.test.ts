@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TokenCheck } from '../ask/auth';
 import {
-  answerQuestions, askQuestions, cancelJob, dismissQuestions, jobLines, nextJob, readQuestions, registerRunner, reportHealth, reportJob, sendJob, setRunnerFleet, type RunnersDeps,
+  answerQuestions, askQuestions, cancelJob, dismissQuestions, jobLines, listRunners, nextJob, prdJobs, readQuestions, registerRunner, reportHealth, reportJob, sendJob, setRunnerFleet, type RunnersDeps,
 } from './runners.controller';
 import { ANSWER_CHARS } from './runners.contract';
 import type { JobLineRow, JobRow, QuestionsRow } from './runners.repository';
@@ -327,6 +327,73 @@ describe('GET /api/runners/jobs/<id>/lines', () => {
     expect((await jobLines(get(job.id, '?after=-1'), job.id, world({ jobs: [job] }).deps)).status).toBe(400);
     expect((await jobLines(get(job.id, '?after=1&x=2'), job.id, world({ jobs: [job] }).deps)).status).toBe(400);
     expect(await read(await jobLines(get(job.id), job.id, world({ jobs: [job], viewer: null }).deps))).toEqual({ status: 401, body: { error: 'Sign in first.' } });
+  });
+});
+
+// PRD 2251 s1: the terminal's own reads. The kit's sign-in reads the runners and a PRD's jobs of the
+// workspace its repository belongs to, and a job's live lines, a member of that workspace only.
+describe('GET /api/runners, from the terminal (PRD 2251)', () => {
+  it('answers a member the workspace\'s runners, in the contract\'s shape', async () => {
+    const response = await listRunners(kit('?repo=vertuoza/app', 'mo-token'), world().deps);
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    expect(await read(response)).toMatchObject({
+      status: 200, body: { runners: [{ name: 'cia-box', fleet: 'cia', state: 'online', used: 0, slots: 4, repos: ['vertuoza/app'] }, { name: 'other' }, { name: 'shared' }] },
+    });
+  });
+
+  it('refuses a missing or bad token with 401, even beside a valid session', async () => {
+    expect((await listRunners(kit('?repo=vertuoza/app', null), world({ viewer: MO }).deps)).status).toBe(401);
+    expect((await listRunners(kit('?repo=vertuoza/app', 'stolen-token'), world({ viewer: MO }).deps)).status).toBe(401);
+  });
+
+  it('refuses a person outside the workspace with 403, and a query that names no repository with 400', async () => {
+    expect((await listRunners(kit('?repo=vertuoza/app', 'eve-token'), world().deps)).status).toBe(403);
+    expect(await read(await listRunners(kit('', 'mo-token'), world().deps))).toEqual({ status: 400, body: { error: 'Name the repository as `repo=owner/name`.' } });
+    expect((await listRunners(kit('?repo=app', 'mo-token'), world().deps)).status).toBe(400);
+  });
+});
+
+describe('GET /api/runners/jobs, from the terminal (PRD 2251)', () => {
+  it('answers a member the PRD\'s jobs in the repository, newest first', async () => {
+    const older = jobRow({ line: '/omni:yolo 2251', queued_at: new Date(T0.getTime() - 60_000).toISOString() });
+    const newer = jobRow({ line: '/omni:yolo-fix 2251' });
+    const w = world({ jobs: [older, newer, jobRow({ line: '/omni:yolo 1717' })] });
+    const answered = await read(await prdJobs(kit('/jobs?repo=vertuoza/app&prd=2251', 'mo-token'), w.deps));
+    expect(answered.status).toBe(200);
+    expect((answered.body as { jobs: { id: string }[] }).jobs.map((job) => job.id)).toEqual([newer.id, older.id]);
+  });
+
+  it('refuses a missing token with 401, a person outside the workspace with 403, and a malformed query with 400', async () => {
+    const w = world({ jobs: [jobRow({ line: '/omni:yolo 2251' })], viewer: MO });
+    expect((await prdJobs(kit('/jobs?repo=vertuoza/app&prd=2251', null), w.deps)).status).toBe(401);
+    expect((await prdJobs(kit('/jobs?repo=vertuoza/app&prd=2251', 'eve-token'), w.deps)).status).toBe(403);
+    for (const query of ['?repo=vertuoza/app', '?prd=2251', '?repo=vertuoza/app&prd=x', '?repo=vertuoza/app&prd=0']) {
+      expect(await read(await prdJobs(kit(`/jobs${query}`, 'mo-token'), w.deps)))
+        .toEqual({ status: 400, body: { error: 'Name the repository as `repo=owner/name` and the PRD as `prd=<number>`.' } });
+    }
+  });
+});
+
+describe('GET /api/runners/jobs/<id>/lines, from the terminal (PRD 2251)', () => {
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+  const get = (id: string, token: string | null, query = '') => kit(`/jobs/${id}/lines${query}`, token);
+
+  it('answers a member of the job\'s workspace with the kit\'s sign-in', async () => {
+    const job = running();
+    const w = world({ jobs: [job], lines: lineRows(job, 1, 3), viewer: null });
+    expect(await read(await jobLines(get(job.id, 'mo-token', '?after=2'), job.id, w.deps)))
+      .toEqual({ status: 200, body: { status: 'running', lines: [{ seq: 3, text: 'line 3' }], more: false, first: 1, logTail: null } });
+  });
+
+  it('answers 404 to a token outside the job\'s workspace, as to a session there', async () => {
+    const job = running();
+    const w = world({ jobs: [job], lines: lineRows(job, 1, 3), viewer: MO });
+    expect(await read(await jobLines(get(job.id, 'eve-token'), job.id, w.deps))).toEqual({ status: 404, body: { error: 'No such job.' } });
+  });
+
+  it('refuses a bad token with 401, even beside a valid session', async () => {
+    const job = running();
+    expect((await jobLines(get(job.id, 'stolen-token'), job.id, world({ jobs: [job], viewer: MO }).deps)).status).toBe(401);
   });
 });
 

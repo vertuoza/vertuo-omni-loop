@@ -26,7 +26,8 @@ each one's switches. A member reads the same list, and only switches Public idea
   - its `owner/name`, when it was last collected, `Omni App has no access · Give access on GitHub →`
     when the App cannot read it, and Ideas board →;
   - one chip per product that links it;
-  - the Public ideas, Phase 0 on the server and Tracked switches;
+  - the Public ideas, Phase 0 on the server, Tracked and Fix on a runner once answered (PRD 2270,
+    on by default) switches;
   - **Remove**, quiet, for the owner.
 - **Removed (n),** collapsed, under the list, absent at 0: each removed repository, `removed <ago>`,
   and **Add back** for the owner.
@@ -60,3 +61,4 @@ each one's switches. A member reads the same list, and only switches Public idea
 ## Source
 
 /omni:brainstorm, PRD 2188: .omni-loop/delivery/shipped/2188-remove-repository/before-after.html
+/omni:brainstorm, PRD 2270: .omni-loop/delivery/shipped/2270-fix-when-answered/before-after.html

@@ -162,6 +162,8 @@ function textField(body: Json, key: string): string | undefined {
  *                                what `POST /api/business/citations` answers (PRD 748); absent: a 404
  *   claim?: (body: object) => ({ status?: number, body: object }),
  *                                what `POST /api/business/claims` answers (PRD 822); absent: a 404
+ *   change?: (body: object) => ({ status?: number, body: object }),
+ *                                what `POST /api/knowledge/changes` answers (PRD 2268); absent: a 404
  *   tokenExtras?: object,        more fields in every token reply (the real one adds login, workspace, reason)
  *   heartbeat?: (body: object) => ({ status: number, delayMs?: number }),
  *                                how a well-formed heartbeat is answered, and after how long
@@ -184,6 +186,7 @@ export async function startFakeAskServer({
   business = null,
   cite = null,
   claim = null,
+  change = null,
   tokenExtras = {},
   heartbeat = () => ({ status: 204 }),
 }: {
@@ -201,6 +204,7 @@ export async function startFakeAskServer({
   business?: ((repo: string) => Reply) | null | undefined;
   cite?: ((body: Json) => Reply) | null | undefined;
   claim?: ((body: Json) => Reply) | null | undefined;
+  change?: ((body: Json) => Reply) | null | undefined;
   tokenExtras?: Record<string, unknown>;
   heartbeat?: (body: Json) => { status?: number; delayMs?: number } | null | undefined;
 } = {}) {
@@ -368,12 +372,10 @@ export async function startFakeAskServer({
       const { status = 200, body: reply } = business(repo);
       return json(response, status, reply);
     }
-    if (method === 'POST' && path === '/api/business/citations' && cite) {
-      const { status = 200, body: reply } = cite(body);
-      return json(response, status, reply);
-    }
-    if (method === 'POST' && path === '/api/business/claims' && claim) {
-      const { status = 200, body: reply } = claim(body);
+    const posted = new Map([['/api/business/citations', cite], ['/api/business/claims', claim], ['/api/knowledge/changes', change]]);
+    const answers = method === 'POST' ? posted.get(path) : null;
+    if (answers) {
+      const { status = 200, body: reply } = answers(body);
       return json(response, status, reply);
     }
     if (method === 'GET' && path === '/api/ask/workspace' && place) {

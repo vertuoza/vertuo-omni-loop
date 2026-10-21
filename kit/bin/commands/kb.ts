@@ -1,3 +1,4 @@
+// `omni kb index` (PRD 2299) prints the capped block of the product's knowledge a session starts with.
 // `omni kb legal | glossary` (PRD 1795) print the product's Legal entries or glossary terms from the Omni page, or
 // the local copy when it is unreachable. `omni kb init | show <form> [--json] [--all] | status [--json] | graph [--json] | laws […]` — the playbook: one form
 // per question an agent asks while delivering. `init` lays down every missing form, blank, and prints
@@ -39,6 +40,8 @@ import { ID_SHAPE, isLaw, readKnowledge, type KnowledgeEntry } from '../../lib/k
 import { readThesis } from '../../lib/knowledge/thesis.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
 import { messageOf } from '../../lib/narrow.ts';
+import { INDEX_BUDGET_MS, readIndex, withDeadline } from '../../lib/product/index.ts';
+import type { IndexBody, IndexIo } from '../../lib/product/index.ts';
 import { glossaryLines, legalLines, productKnowledge, readCachedKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
 import { ghReader } from '../../lib/plan-repo/targets.ts';
 import { productTargetList } from '../../lib/product/targets.ts';
@@ -58,6 +61,7 @@ import type { Context } from '../../lib/context.ts';
 import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
 import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
 import { synchronous } from '../synchronous.ts';
+import { knowledgeWrite } from '../kb-write.ts';
 
 /** The one flag every `omni kb` verb reads. */
 type KbFlags = { json?: true; all?: true };
@@ -71,7 +75,7 @@ const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
 const GRAPH_USAGE = 'usage: omni kb graph [<id> | --paths <file>[,<file>…] [<file>…]] [--depth <1-3>] [--json]';
 const GRAPH_PRODUCT_USAGE = 'usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]';
 const GRAPH_PUSH_USAGE = 'usage: omni kb graph push';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal | omni kb glossary`;
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit …] | omni kb glossary [add|edit …] | omni kb index [--json]`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -503,6 +507,58 @@ async function productVerb(verb: 'legal' | 'glossary', positional: string[], { c
   }
 }
 
+/** `omni kb legal | glossary`: the read, or with `add` or `edit` (PRD 2268) the write of `../kb-write.ts`. */
+function productCommand(verb: 'legal' | 'glossary', args: string[], io: CommandIo & PackOptions, options: PackOptions & { cwd: string }): Promise<number> {
+  if (args[0] === 'add' || args[0] === 'edit') return knowledgeWrite(verb, args, io, options);
+  return productVerb(verb, args, io, options, options.cwd);
+}
+
+/**
+ * `omni kb index [--json]` (PRD 2299): the capped block of the product's knowledge a session starts with
+ * (see `../../lib/product/index.ts`). It never holds up a session: one budget for the whole read, and
+ * every outcome exits 0. Exit 2 is only for a usage error.
+ */
+async function index(args: string[], io: FreeIo & PackOptions & { budgetMs?: number }): Promise<number> {
+  const { positional, flags } = parseArgs('kb index', args, { booleans: ['json'] });
+  if (positional.length > 0) throw usageError('usage: omni kb index [--json]');
+  const { cwd, exec, stdout, fetch = globalThis.fetch, now = () => new Date(), budgetMs = INDEX_BUDGET_MS } = io;
+  let result: [IndexBody, string[]];
+  try {
+    result = await readIndex(indexIo(cwd, exec, { ...io, fetch, now, budgetMs }));
+  } catch (error) {
+    const why = error instanceof Error && error.name === 'ConfigError' ? error.message.split('\n')[0] : 'the read failed';
+    result = [
+      { state: error instanceof Error && error.name === 'ConfigError' ? 'no-kit' : 'unreachable', product: null, words: [], legal: [], personas: [], syncedAt: null, cut: { words: 0, legal: 0, personas: 0 } },
+      [`no product knowledge: ${why} — agents carry on`],
+    ];
+  }
+  if (flags.json === true) println(stdout, JSON.stringify(result[0]));
+  else for (const line of result[1]) println(stdout, line);
+  return 0;
+}
+
+/** What `readIndex` is handed for this checkout; throws a `ConfigError` when the kit is not set up. */
+function indexIo(cwd: string, exec: Exec, options: PackOptions & { fetch: Fetch; now: () => Date; budgetMs: number }): IndexIo {
+  const ctx = loadContext(cwd, { exec });
+  const repo = ctx.config.repo.slug;
+  const askUrl = ctx.config.ask.url;
+  const { fetch, now, budgetMs } = options;
+  const client = (signal: AbortSignal) => (askUrl ? signedInClient({ askUrl, tokens: options.tokens, home: options.home, fetch: withDeadline(fetch, signal), callMs: budgetMs }) : null);
+  const base = { repo, root: mainCheckout(cwd, exec) ?? ctx.root, now, budgetMs };
+  if (!askUrl) return { ...base, reach: { state: 'no-sign-in', why: 'no Omni page is set here (ask.url)' } };
+  if (!repo) return { ...base, reach: { state: 'refused', why: 'no repository slug (repo.slug)' } };
+  if (client(new AbortController().signal) === null) return { ...base, reach: { state: 'no-sign-in', why: 'no sign-in (omni signin)' } };
+  return {
+    ...base,
+    reach: {
+      fetchBusiness: (signal) => {
+        const signed = client(signal);
+        return signed === null ? Promise.reject(new Error('no sign-in')) : signed.readBusiness(repo);
+      },
+    },
+  };
+}
+
 /** `omni kb graph push` (PRD 1798, s2): see `../../lib/knowledge/graph-push.ts`. */
 async function graphPush(args: string[], io: CommandIo & PackOptions): Promise<number> {
   const { ctx, stdout, exec } = io;
@@ -563,12 +619,13 @@ const basic = synchronous((args: string[], io: CommandIo): number => {
 export const kb: FreeCommand = {
   withoutContext: true,
   run: (args: string[], io: FreeIo & PackOptions): Promise<number> => {
-    const full = { ...io, ctx: loadContext(io.cwd, { exec: io.exec }) };
     const [sub, ...rest] = args;
+    if (sub === 'index') return index(rest, io);
+    const full = { ...io, ctx: loadContext(io.cwd, { exec: io.exec }) };
     if (sub === 'pack') return pack(rest, full);
     if (sub === 'graph' && rest[0] === 'push') return graphPush(rest.slice(1), full);
     if (sub === 'graph' && rest.includes('--product')) return graphProduct(rest, full);
-    if (sub === 'legal' || sub === 'glossary') return productVerb(sub, rest, full, io, io.cwd);
+    if (sub === 'legal' || sub === 'glossary') return productCommand(sub, rest, { ...full, vars: io.vars }, io);
     return basic(args, full);
   },
 };

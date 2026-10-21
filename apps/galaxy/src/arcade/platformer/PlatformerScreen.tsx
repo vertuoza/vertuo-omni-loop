@@ -1,5 +1,5 @@
 'use client';
-// The one way into Super Omni World (PRD 817), for the arcade's `platformer` scene and the play
+// The one way into Starhop (PRD 817), for the arcade's `platformer` scene and the play
 // dock alike. It imports Phaser on demand, the first time it mounts, so no other page or scene ever
 // downloads it; starts a pixel-art Phaser.Game in its own box on the grid it is given; hands the
 // scene the arcade's held buttons each frame; pauses and resumes when told; and destroys the game,

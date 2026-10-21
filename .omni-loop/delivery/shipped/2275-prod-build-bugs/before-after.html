@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 2275 · prod-build bugs · before/after</title>
+<style>
+  /* Layout: one column of today/after pairs, two columns from 820px; the galaxy's own tokens. */
+  :root { --ground: #03020f; --sunk: #0e0d33; --surface: #120f3a; --line: #5a60c4; --ink: #f2f4ff; --muted: #8a90d6; --plasma: #ffd84a; --on-plasma: #07061c; --green: #4ee08a; --red: #ff6b86;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, monospace; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .doc { max-width: 1100px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1 { font-size: 26px; margin: 0 0 4px; text-wrap: balance; }
+  h3 { font-size: 17px; margin: 32px 0 10px; text-wrap: balance; }
+  .lead { color: var(--muted); margin: 0 0 20px; max-width: 80ch; }
+  .part { margin: 36px 0 6px; font: 700 13px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--plasma); }
+  .pair { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 820px) { .pair { grid-template-columns: 1fr 1fr; } }
+  .side { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
+  .tag { font: 700 12px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  .today .tag { color: var(--red); }
+  .after .tag { color: var(--green); }
+  .side p { margin: 0; color: var(--muted); font-size: 15px; }
+  pre { margin: 0; background: var(--sunk); border-radius: 8px; padding: 12px; overflow-x: auto; font: 13px/1.5 var(--mono); color: var(--ink); white-space: pre; }
+  .r { color: var(--red); } .g { color: var(--green); } .y { color: var(--plasma); } .m { color: var(--muted); }
+  ol.flow { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; }
+  ol.flow li::marker { color: var(--muted); font-family: var(--mono); }
+  .stop { color: var(--red); font-weight: 700; }
+  .ok { color: var(--green); font-weight: 700; }
+  .note { margin-top: 32px; padding: 14px 16px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); }
+  code { font-family: var(--mono); font-size: .92em; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>Bug fixes prove a bug that only shows in a production build</h1>
+  <p class="lead">PRD 2275. <code>/omni:bug-fix</code> and <code>/omni:mega-bug-fix</code>, replayed on the crash of
+    vertuoza/vertuo-apps v3.14.22: 983 React #130 errors on <code>/crm/opportunities</code>, first seen
+    2026-10-20 10:32 UTC, caused by a CommonJS default import the production bundle wraps in
+    <code>__toESM(require_realistic(), 1)</code>.</p>
+
+  <div class="part">Functional</div>
+
+  <h3>1. The run on this bug</h3>
+  <div class="pair">
+    <div class="side today">
+      <span class="tag">Today</span>
+      <ol class="flow">
+        <li>Locate reads <code>main</code> only; the suspect import is found.</li>
+        <li>Triage waits for the Reproduction and Branch lines: nothing is posted yet.</li>
+        <li>A vitest test of the import passes.</li>
+        <li><span class="stop">Stop rule 3:</span> "it misses the bug, or the bug is already gone".</li>
+        <li>The test, the worktree and the branch are deleted. The issue holds no triage.</li>
+      </ol>
+    </div>
+    <div class="side after">
+      <span class="tag">After</span>
+      <ol class="flow">
+        <li>Triage is posted at once: Production line, release range, Reproduction <code>pending</code>.</li>
+        <li>Locate reads the target at <code>v3.14.22</code>, the deployed tag, and at <code>main</code>.</li>
+        <li>The vitest test passes. Third reading: <em>this level cannot see it</em> (CJS/ESM interop, a bundler change in the range).</li>
+        <li>Move up: <code>setup</code>, then <code>commands.smoke</code> with <code>/crm/opportunities</code> added. <span class="stop">Red:</span> React #130.</li>
+        <li>Fix test-first; <code>smoke</code> <span class="ok">green</span>, preflight green. Guard: the route in smoke, run by CI.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3>2. What a target commits</h3>
+  <div class="pair">
+    <div class="side today">
+      <span class="tag">Today</span>
+      <pre><span class="m"># vertuo-apps .omni-loop/config.yml</span>
+commands:
+  setup: bun install --frozen-lockfile
+  preflightFull: bun run fmt:check &amp;&amp; bun run lint:ws
+    &amp;&amp; bun run lint:agent &amp;&amp; bun run test:unit
+<span class="m"># nothing builds what ships</span></pre>
+      <p>The skill may run only these two commands in a target. The production bundle is never built.</p>
+    </div>
+    <div class="side after">
+      <span class="tag">After</span>
+      <pre><span class="m"># vertuo-apps .omni-loop/config.yml</span>
+commands:
+  setup: bun install --frozen-lockfile
+  preflightFull: bun run fmt:check &amp;&amp; …
+<span class="g">  smoke: bun run build &amp;&amp; bun run test:smoke</span>
+<span class="m"># builds what ships, then loads each route</span></pre>
+      <p>Still only committed commands: <code>setup</code>, the preflight, then <code>smoke</code> when step 7 moves up.</p>
+    </div>
+  </div>
+
+  <h3>3. The triage comment</h3>
+  <div class="pair">
+    <div class="side today">
+      <span class="tag">Today</span>
+      <pre>## Triage
+
+- **Kind:** behaviour bug
+- **Domain:** vertuo-front › CRM opportunities
+- **Risk:** critical — the kanban crashes for every user
+- **Regression:** <span class="r">new bug — no evidence this ever worked</span>
+- **Reproduction:** `…`   <span class="m">← needed before posting</span>
+- **Branch:** `fix/…`     <span class="m">← needed before posting</span></pre>
+      <p>The first occurrence was read as 2026-10-07 from the issue, not the tracker.</p>
+    </div>
+    <div class="side after">
+      <span class="tag">After</span>
+      <pre>## Triage
+
+- **Kind:** behaviour bug
+- **Domain:** vertuo-front › CRM opportunities
+- **Risk:** critical — the kanban crashes for every user
+- **Regression:** <span class="g">yes — v3.14.21..v3.14.22 (first seen
+  2026-10-20 10:32 UTC, none before)</span>
+- <span class="y">**Production:** v3.14.22 · first seen 2026-10-20 10:32 UTC
+  (error tracker) · 983 occurrences</span>
+- **Reproduction:** <span class="y">pending</span>
+- **Branch:** <span class="y">pending</span></pre>
+      <p>Posted in step 3, edited in place by its marker at steps 5 and 7.</p>
+    </div>
+  </div>
+
+  <h3>4. A stop: no runnable smoke</h3>
+  <div class="pair">
+    <div class="side today">
+      <span class="tag">Today</span>
+      <pre>The reproduction passes before any fix:
+it misses the bug, or the bug is already gone.
+
+Maybe: #…</pre>
+      <p>The reproduction is gone with its worktree. A critical stop reads like a low one.</p>
+    </div>
+    <div class="side after">
+      <span class="tag">After</span>
+      <pre><span class="r">&gt; [!CAUTION]
+&gt; critical — nothing is fixed.</span>
+
+The bug lives in the build and vertuo-apps commits
+no commands.smoke: stop rule 7.
+
+Suspect: opportunities-confetti.tsx:4
+Production: v3.14.22 · first seen 2026-10-20 10:32 UTC
+Reproduction kept: fix/&lt;n&gt;-confetti-import (draft PR, omni:needs-fix)
+
+Commit in .omni-loop/config.yml, then rerun:
+<span class="g">commands:
+  smoke: &lt;builds and loads /crm/opportunities&gt;</span></pre>
+      <p>Never an unproven fix. The branch and the reproduction stay.</p>
+    </div>
+  </div>
+
+  <h3>5. The guard</h3>
+  <div class="pair">
+    <div class="side today">
+      <span class="tag">Today</span>
+      <pre>Guard: none — &lt;reason&gt;</pre>
+      <p>Nothing leads to the check that would have stopped v3.14.22: a smoke of the production build in CI.</p>
+    </div>
+    <div class="side after">
+      <span class="tag">After</span>
+      <pre><span class="g">Guard: /crm/opportunities in commands.smoke, run by CI</span>
+<span class="m">or, when CI does not run it:</span>
+Guard: none — vertuo-apps's CI does not run commands.smoke</pre>
+      <p>The second form names the CI step to add, in the PR and on the issue. The skill never edits CI.</p>
+    </div>
+  </div>
+
+  <p class="note"><strong>Pixel perfect: no screen changes.</strong> This PRD changes two skills, one config key, a
+    playbook form and a guide page. Every "after" above is skill output in a GitHub comment or a config file.</p>
+</div>
+</body>
+</html>

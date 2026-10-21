@@ -35,6 +35,11 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
   repository, who sent it, where it went, its status and its action.
   - Each row has a Terminal button, which opens the `runner-terminal` panel on that job and sets
     `?terminal=<job id>` on the URL.
+  - A job whose line names a PRD of its repository shows, under the line, `PRD <n>` linking the
+    PRD's page, then its title (PRD 2251).
+  - A job that waited on answers reads Answered · fixing, then Answered · fixed, linking the
+    `/omni:yolo-fix` job the answers started; that job reads `after answers · job <id>`. With the
+    repository's switch off, it reads Answered with a Fix with answers button (PRD 2270).
   - A done job links its pull request. A yolo job that ended on its hand-off's last line reads its
     outcome in place of Done (PRD 2223): Waiting on answers or Held in `--ask-plasma`, Ready in
     `--ask-green`, with a PRD page link beside its pull request.
@@ -95,4 +100,6 @@ health · Released · Could not release this job's claims · Need human.
 /omni:brainstorm, PRD 2102: .omni-loop/delivery/shipped/2102-runner-health/before-after.html
 /omni:brainstorm, PRD 2175: .omni-loop/delivery/shipped/2175-runner-dead-claims/before-after.html
 /omni:brainstorm, PRD 2223: .omni-loop/delivery/shipped/2223-outbox-waiting/before-after.html
+/omni:brainstorm, PRD 2251: .omni-loop/delivery/shipped/2251-runner-follow/before-after.html
 /omni:brainstorm, PRD 2255: .omni-loop/delivery/shipped/2255-need-human/before-after.html
+/omni:brainstorm, PRD 2270: .omni-loop/delivery/shipped/2270-fix-when-answered/before-after.html

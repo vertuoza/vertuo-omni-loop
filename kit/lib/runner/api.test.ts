@@ -4,7 +4,7 @@
 // carries the app's own words when it refuses.
 import { describe, expect, it } from 'vitest';
 import type { Tokens } from '../ask/schema.ts';
-import { parseIssue } from '../ids.ts';
+import { parseIssue, parsePrd } from '../ids.ts';
 import { jobQuestionsApi, RunnerRefused, RunnerUnreachable, runnerApi } from './api.ts';
 import type { HealthReport, JobQuestions } from './api.ts';
 
@@ -47,6 +47,43 @@ describe('runnerApi().health()', () => {
     await expect(api(status(503)).client.health('r1', REPORT)).rejects.toThrow(RunnerUnreachable);
     const timedOut = api(() => Promise.reject(Object.assign(new Error('aborted'), { name: 'TimeoutError' })));
     await expect(timedOut.client.health('r1', REPORT)).rejects.toThrow(new RunnerUnreachable('POST /api/runners/r1/health: timed out'));
+  });
+});
+
+describe('runnerApi() terminal reads (PRD 2251)', () => {
+  const body = (value: unknown) => () => Promise.resolve(new Response(JSON.stringify(value), { status: 200 }));
+  const RUNNER = { id: 'r1', name: 'box-1', fleet: null, state: 'online', used: 1, slots: 4, repos: ['acme/widgets'] };
+
+  it("reads the workspace's runners by repository, with the sign-in", async () => {
+    const { client, calls } = api(body({ runners: [RUNNER] }));
+    expect(await client.runners('acme/widgets')).toEqual([RUNNER]);
+    expect(calls[0]?.url).toBe('https://omni.test/api/runners?repo=acme%2Fwidgets');
+    expect(calls[0]?.init).toMatchObject({ method: 'GET', headers: { authorization: 'Bearer access-1' } });
+  });
+
+  it("reads a PRD's jobs and a job's lines after a number, an outcome missing reading as none", async () => {
+    const job = { id: 'j1', line: '/omni:yolo 7', status: 'done', runner: 'box-1', prUrl: null, exitCode: 0, reason: null, queuedAt: 't' };
+    const jobs = api(body({ jobs: [job] }));
+    expect(await jobs.client.prdJobs('acme/widgets', parsePrd(7))).toEqual([{ ...job, outcome: null }]);
+    expect(jobs.calls[0]?.url).toBe('https://omni.test/api/runners/jobs?repo=acme%2Fwidgets&prd=7');
+    const lines = api(body({ status: 'running', lines: [{ seq: 4, text: 'x' }], more: false, first: 1, logTail: null }));
+    expect(await lines.client.lines('j 1', 3)).toMatchObject({ status: 'running', lines: [{ seq: 4, text: 'x' }], more: false });
+    expect(lines.calls[0]?.url).toBe('https://omni.test/api/runners/jobs/j%201/lines?after=3');
+  });
+
+  it('names a repository outside the workspace, an answer it cannot read and an unreachable app', async () => {
+    await expect(api(status(403)).client.runners('a/b')).rejects.toThrow(new RunnerRefused('refused (403: this repository is not in your workspace)'));
+    await expect(api(body({ nope: 1 })).client.prdJobs('a/b', parsePrd(1))).rejects.toThrow(RunnerRefused);
+    await expect(api(status(503)).client.lines('j', 0)).rejects.toThrow(RunnerUnreachable);
+  });
+
+  it("sends a line to the jobs route and answers the job's id, or the app's refusal in its words", async () => {
+    const sent = api(body({ job: { id: 'j9' } }));
+    expect(await sent.client.send({ line: '/omni:yolo 7', repo: 'a/b', target: { kind: 'any' } })).toEqual({ id: 'j9' });
+    expect(sent.calls[0]?.url).toBe('https://omni.test/api/runners/jobs');
+    expect(sent.calls[0]?.init).toMatchObject({ method: 'POST' });
+    const refused = api(() => Promise.resolve(new Response(JSON.stringify({ error: 'No runner takes that.' }), { status: 400 })));
+    await expect(refused.client.send({ line: '/omni:yolo 7', repo: 'a/b', target: { kind: 'any' } })).rejects.toThrow(new RunnerRefused('No runner takes that.'));
   });
 });
 
