@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# The settle gate of the `checks` workflow (PRD 598), cut down from vertuoza/vnext's
+# The settle gate of the `checks` workflow (PRD 598), cut down from another repository's
 # scripts/settle-head.sh: no staging, no sweep.
 #
 # A ready pull request into main WAITS before its test and fallow jobs start. A push in that window
 # cancels this run while it is still one idle runner (the workflow's concurrency group does that);
 # a branch tip that moved past this run's sha anyway makes the run stale, and every job behind the
-# gate skips. vnext measured the cost this saves: 599 of 1000 of its CI runs were cancelled by a
-# later push, and a cancelled run cost more than a green one.
+# gate skips. That repository measured the cost this saves: 599 of 1000 of its CI runs were cancelled
+# by a later push, and a cancelled run cost more than a green one.
 #
-# Here the wait is 30 seconds, not vnext's 180. Agents mark a pull request ready once its work is done,
+# Here the wait is 30 seconds, not its 180. Agents mark a pull request ready once its work is done,
 # so pushes rarely come in bursts: from 2026-09-30 to 10-07, 58 runs settled, none went stale and 4 were
 # cancelled while waiting, so 180 seconds (4 billed minutes a run) cost about 217 minutes to save about
 # 37. 30 seconds bills one minute and still absorbs a push straight after another.
