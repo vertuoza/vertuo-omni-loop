@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { parseOutboxItemId, parseProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseOutboxItemId, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import type { QuestionsPort } from './questions.client';
 import type { QuestionView } from './questions.contract';
 import { EMPTY_QUESTIONS, QuestionRow, QuestionsList } from './QuestionsList';
@@ -18,7 +18,7 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, 
 
 const Q: QuestionView = {
   dossier: 'd-m12', prdHref: '/prd/d-m12', outboxHref: '/prd/d-m12?tab=outbox', prdLabel: 'mobile-12', title: 'Quotes on the phone',
-  repo: 'vertuoza/vertuo-api', id: 's2-01-quote-totals', rank: 'high', question: 'Quote totals: round per line or on the total?', forWhom: 'for irisa',
+  repo: 'demo-org/nimbus-api', id: 's2-01-quote-totals', rank: 'high', question: 'Quote totals: round per line or on the total?', forWhom: 'for irisa',
   options: [{ letter: 'A', text: 'Per line (built).' }, { letter: 'B', text: 'On the total.' }], answerOn: 'mobile-12',
 };
 const REPO_Q: QuestionView = {
@@ -39,7 +39,7 @@ async function answer(port: QuestionsPort, form: QuestionsForm, letter: string):
 describe('a question on the Questions tab', () => {
   it('shows its PRD, its question, its repository, its id and who it is for, its options as buttons and "other…"', () => {
     const html = row(initialQuestionsForm([Q]));
-    expect(text(html)).toBe('mobile-12 Quote totals: round per line or on the total? vertuoza/vertuo-api s2-01-quote-totals for irisa Quotes on the phone A · Per line (built). B · On the total. other… high');
+    expect(text(html)).toBe('mobile-12 Quote totals: round per line or on the total? demo-org/nimbus-api s2-01-quote-totals for irisa Quotes on the phone A · Per line (built). B · On the total. other… high');
     expect([...html.matchAll(/<button type="button"[^>]*>/g)]).toHaveLength(3);
     expect(html).toContain('role="group" aria-label="Answer s2-01-quote-totals"');
     expect(html).toContain('aria-expanded="false"');

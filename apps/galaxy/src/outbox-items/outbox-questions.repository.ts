@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../data/parse-rows';
 
 // The workspace's open outbox items, read for Work › Questions › Outbox (PRD 2011 s14; ADR-0095): as the

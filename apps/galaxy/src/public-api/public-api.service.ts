@@ -1,4 +1,4 @@
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { workPath } from '../dossier/page/work';
 import { currentStage } from '../stages/stage';
 import { decodeCursor, encodeCursor, type CursorList } from './cursor';

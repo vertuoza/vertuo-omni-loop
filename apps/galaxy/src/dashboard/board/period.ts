@@ -1,4 +1,4 @@
-import { at, dateParts, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, dateParts, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { seasonBounds } from '../season';
 
 // The board's period (PRD 572): the switch at the top of every dashboard page, kept in the URL as

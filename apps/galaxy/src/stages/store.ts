@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { orThrow, parseRows } from '../data/parse-rows';
 import { numberOf, textOf } from '../data/unparsed';
 import { currentStage, isStoredStage, STORED_STAGES, type StageRow, type StoredStage } from './stage';
-import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const STAGES_TABLE = 'prd_stages';
 const TOPICS_TABLE = 'prd_topics';

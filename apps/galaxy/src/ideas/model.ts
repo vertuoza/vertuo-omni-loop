@@ -4,7 +4,7 @@
 // board is private or there is no such repository: the page answers both the same. The answer is
 // parsed where it comes in (src/data/parse-rows.ts), then split into its three lanes here.
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** The three lanes, in the board's order: Now, Next, Later. A member sets an idea's lane. */
 export const LANES = ['now', 'next', 'later'] as const;

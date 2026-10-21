@@ -7,7 +7,7 @@ import { GAMES } from '../games';
 import { cabinetDoor, cabinets, xpStatus } from '../games/room';
 import { allowed } from '../onboarding';
 import type { Session } from '../types';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import {
   bannerLine, duetPress, duetRetry, loadDuet, NOT_LOADED, overLines, PAGES, playfield, readyLine, readyParts, sameDuetHud, TALL_SCENES, waveLine,
   type ArcadeDuet, type DuetGame, type DuetHud, type DuetStatus,

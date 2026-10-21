@@ -4,7 +4,7 @@ import { UNREAD } from '../dossier/github/summary';
 import { peopleOf } from '../people/load';
 import { fixAddress, fixChoices, fixItems, readFixFilters } from './list';
 import { sure } from '../arcade/test/sure';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // /visual and /bugs (PRD 627), as pure functions of the rows dossier_list() gives the viewer and the
 // filters in the address: only the dossiers of the list's kind, newest activity first, Mine (the ones
@@ -25,7 +25,7 @@ const SIDEBAR = row('00000000-0000-4000-8000-0000000000f1', {
   },
 });
 const TOPBAR = row('00000000-0000-4000-8000-0000000000f2', {
-  prd: parsePrd(561), title: 'Top bar spacing', opened_by: null, home_repo: 'vertuoza/vertuo-core', repos: ['vertuoza/vertuo-core'],
+  prd: parsePrd(561), title: 'Top bar spacing', opened_by: null, home_repo: 'demo-org/nimbus-core', repos: ['demo-org/nimbus-core'],
   last_activity: '2026-09-28T09:00:00Z',
 });
 const CRASH = row('00000000-0000-4000-8000-0000000000f3', {
@@ -50,7 +50,7 @@ const ids = (items: { id: string }[]) => items.map((i) => i.id);
 describe('the filters in the address', () => {
   it('reads Mine by default, All, a repository and a search; anything else is no filter', () => {
     expect(readFixFilters({})).toEqual({ who: 'mine' });
-    expect(readFixFilters({ who: 'all', repo: ' Vertuoza/Vertuo-Core ', q: '  bar ', state: 'draft' })).toEqual({ who: 'all', repo: 'vertuoza/vertuo-core', search: 'bar' });
+    expect(readFixFilters({ who: 'all', repo: ' Demo-Org/Nimbus-Core ', q: '  bar ', state: 'draft' })).toEqual({ who: 'all', repo: 'demo-org/nimbus-core', search: 'bar' });
     expect(readFixFilters({ who: 'no body', repo: '', q: ' ' })).toEqual({ who: 'mine' });
   });
 
@@ -61,7 +61,7 @@ describe('the filters in the address', () => {
 
   it('writes each filter back into the list\'s own address', () => {
     expect(fixAddress('visual', { who: 'mine' })).toBe('/visual');
-    expect(fixAddress('bug', { who: 'all', repo: 'vertuoza/vertuo-core', search: 'crash' })).toBe('/bugs?repo=vertuoza%2Fvertuo-core&q=crash&who=all');
+    expect(fixAddress('bug', { who: 'all', repo: 'demo-org/nimbus-core', search: 'crash' })).toBe('/bugs?repo=demo-org%2Fnimbus-core&q=crash&who=all');
   });
 });
 
@@ -100,7 +100,7 @@ describe('the rows', () => {
   });
 
   it('filters by any of its repositories, and by every word of the search', () => {
-    expect(ids(fixItems(ROWS, 'visual', { who: 'all', repo: 'vertuoza/vertuo-core' }, ME))).toEqual([TOPBAR.id]);
+    expect(ids(fixItems(ROWS, 'visual', { who: 'all', repo: 'demo-org/nimbus-core' }, ME))).toEqual([TOPBAR.id]);
     expect(ids(fixItems(ROWS, 'visual', { who: 'all', search: 'SIDEBAR dark' }, ME))).toEqual([SIDEBAR.id]);
     expect(ids(fixItems(ROWS, 'visual', { who: 'all', search: 'sidebar light' }, ME))).toEqual([]);
   });
@@ -153,7 +153,7 @@ describe('the rows', () => {
   });
 
   it('offers the repositories of its own kind only', () => {
-    expect(fixChoices(ROWS, 'visual')).toEqual({ repos: ['vertuoza/vertuo-core', 'vertuoza/vertuo-omni-loop'] });
+    expect(fixChoices(ROWS, 'visual')).toEqual({ repos: ['demo-org/nimbus-core', 'vertuoza/vertuo-omni-loop'] });
     expect(fixChoices(ROWS, 'bug')).toEqual({ repos: ['vertuoza/vertuo-omni-loop'] });
   });
 });

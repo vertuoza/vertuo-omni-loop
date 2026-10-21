@@ -2,7 +2,7 @@
 // first sleeping between ticks with two plan versions (PRD 1017 waits on PRD 1030, both touching the
 // sidebar, and a stuck slice moved it up), its ledger and a parked PRD on the second. Every time is
 // counted back from `now`, so the same `now` draws the same page.
-import { parseOutboxItemId, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseOutboxItemId, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { RosterRow } from '../../people/load';
 import { detailOf, runnersOf, summaryOf, type LoopPageView } from './model';
 import type { LoopRow, PlanRow, TickRow } from './rows';

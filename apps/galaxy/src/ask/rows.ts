@@ -11,7 +11,7 @@
 // wrote before asking, sent by the kit with the round.
 import type { Category } from './classify';
 import { type Outcome, StoreError } from '../data/store-error';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** A session with no call for this long reads as closed (the spec's 12 hours). */
 export const IDLE_CLOSE_MS = 12 * 60 * 60 * 1000;

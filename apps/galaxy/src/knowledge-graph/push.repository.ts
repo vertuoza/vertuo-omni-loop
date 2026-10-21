@@ -6,7 +6,7 @@
 // the database's code and message; an answer out of shape as the code `shape`.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import type { RepositoryGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
+import type { RepositoryGraph } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
 
 /** What the push needs: the database's functions. */
 export type GraphPushDb = Pick<SupabaseClient, 'rpc'>;

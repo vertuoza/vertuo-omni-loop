@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IssueNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { Job, JobQuestions, Question } from '../runners.contract';
 import { emptyDraft, pickOption, typeOther } from '../../ask/answer-model';
 import {

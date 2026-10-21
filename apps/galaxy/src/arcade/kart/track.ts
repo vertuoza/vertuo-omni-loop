@@ -9,7 +9,7 @@
 //   ?  an item box (road)   S  a starting place (road)   +  a boost pad (road)   ^  a ramp (road)
 // Stands (PRD 1775) and shortcuts are not in the map either: they are listed beside it.
 // Props (PRD 1427) are not in the map: they are listed beside it, each a kind and a tile of void.
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { buildLine, crossings, gatesOf, inGapAt, isRoad as onTheRoad, locate, pointAt, roadInSpan, type Gate, type Line, type Located, type Piece, type Sample, type Span } from './line';
 
 /** A tile's side in game pixels: the circuit's texture is one tile = 16×16 pixels. */

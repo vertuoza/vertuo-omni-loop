@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import type { DossierRow, DossierVersionRow } from '../store';
 import { fixPageView } from '../../fixes/timeline';
 import { dossierView, PAGE_TABS, readPick } from './view';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // A fix's page (PRD 627): the page of /prd/<id>, its tabs chosen by the dossier's kind. A visual fix
 // reads Before/after, Variations — a round each, picked as Round k — and Questions; a bug fix reads Bug
 // record and Questions; a PRD exactly today's tabs. The header badges the kind and links the issue,
 // and has no stage; every link stays on the kind's own route.
 
-const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
+const PIERRE = { user_id: 'u-pierre', email: 'pierre@example.com', name: 'Pierre' };
 const ID = '00000000-0000-4000-8000-0000000000f1';
 
 const fix = (kind: 'visual' | 'bug' | 'prd' | undefined, prd = 548): DossierRow => ({

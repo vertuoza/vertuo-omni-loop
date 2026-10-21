@@ -8,11 +8,11 @@ import type { ApiKeysPageView } from './model';
 // live keys, 20 at most), so the page plays as it will.
 
 const DEMO_ME = { id: 'demo-me', login: 'you', name: 'You' };
-const DEMO_TRACKED = ['vertuoza/backend-php', 'vertuoza/vertuo-apps', 'vertuoza/vertuo-omni-loop'];
+const DEMO_TRACKED = ['demo-org/backend-php', 'demo-org/nimbus-apps', 'vertuoza/vertuo-omni-loop'];
 
 const DEMO_KEYS: ApiKey[] = [
   {
-    id: 'demo-key-1', name: 'QA dashboard', lastFour: '9fQe', repos: ['vertuoza/backend-php'], createdAt: '2026-10-15T09:12:00Z',
+    id: 'demo-key-1', name: 'QA dashboard', lastFour: '9fQe', repos: ['demo-org/backend-php'], createdAt: '2026-10-15T09:12:00Z',
     lastUsedAt: '2026-10-15T09:58:00Z', revokedAt: null, maker: DEMO_ME, working: true,
   },
   {

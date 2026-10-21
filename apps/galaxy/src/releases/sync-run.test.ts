@@ -13,7 +13,7 @@ import { settled } from '../stages/settled';
 import type { ReleaseRow } from './row';
 import { missingVariables, releasesSync, syncReleases } from './sync-run';
 import type { ReleasesTable } from './sync-table';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 

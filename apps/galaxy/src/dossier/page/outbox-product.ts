@@ -1,5 +1,5 @@
-import { sortItems } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
-import { parseOutboxItem } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
+import { sortItems } from 'omni-loop/kit/lib/outbox/comment.ts';
+import { parseOutboxItem } from 'omni-loop/kit/lib/outbox/outbox.ts';
 import { z } from 'zod';
 import type { QuestionView } from '../../questions/questions.contract';
 import { outboxTabPath } from './history-at';

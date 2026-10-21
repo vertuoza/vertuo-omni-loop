@@ -3,7 +3,7 @@ import { KIND_LABEL, KIND_ORDER, maxValue, type ClaimKind, type Product } from '
 import { dayLabel } from '../tokens/model';
 import type { AgentQuestion } from './model';
 import type { Answering, QuestionsState } from './state';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // Settings › Business › Questions agents couldn't answer, drawn from its state (PRD 855 s3). One row per
 // open question, the latest asked first: the question, the link that asked it, the repository and file,

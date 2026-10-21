@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 // The voids' storage (PRD 1322 s6): the only file of the voiding that reaches Supabase. It calls the
 // database's functions (supabase/migrations/20261126090000_approval_voiding.sql) and parses what they

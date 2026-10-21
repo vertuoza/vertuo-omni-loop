@@ -3,7 +3,7 @@
 // its body under MAX_TOKEN_BODY_BYTES, as /api/ask/token does, and every answer is no-store.
 import 'server-only';
 import { z } from 'zod';
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import { MAX_TOKEN_BODY_BYTES, refuse, reply } from './cli-code';
 import type { PollAnswer } from './device.contract';
 import { readDeviceRequest, type DeviceService } from './device.service';

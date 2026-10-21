@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RepositoryGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
+import type { RepositoryGraph } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
 import { joinProductGraph, type ProductSources } from './join';
 
 // joinProductGraph (PRD 1798 s3): every repository of a product, joined with the product's own Legal
@@ -38,10 +38,10 @@ const BACK: RepositoryGraph = {
 const SOURCES: ProductSources = {
   links: [
     { repository: 'vertuoza/vertuo-omni-loop', knowledge: 'own', pushed: { commit: SHA, pushedAt: AT, pushedBy: 'pierrederval', graph: FRONT } },
-    { repository: 'vertuoza/back-end', knowledge: 'own', pushed: { commit: SHA.replace(/a/g, 'b'), pushedAt: AT, pushedBy: null, graph: BACK } },
-    { repository: 'vertuoza/mobile', knowledge: 'own', pushed: null },
-    { repository: 'vertuoza/design', knowledge: 'imported', pushed: { commit: SHA, pushedAt: AT, pushedBy: 'ada', graph: FRONT } },
-    { repository: 'vertuoza/docs', knowledge: 'none', pushed: null },
+    { repository: 'demo-org/back-end', knowledge: 'own', pushed: { commit: SHA.replace(/a/g, 'b'), pushedAt: AT, pushedBy: null, graph: BACK } },
+    { repository: 'demo-org/mobile', knowledge: 'own', pushed: null },
+    { repository: 'demo-org/design', knowledge: 'imported', pushed: { commit: SHA, pushedAt: AT, pushedBy: 'ada', graph: FRONT } },
+    { repository: 'demo-org/docs', knowledge: 'none', pushed: null },
   ],
   legal: [
     { id: 'L-INVOICING-1', statement: 'An invoice keeps its number. Even after a correction.', retired: false },

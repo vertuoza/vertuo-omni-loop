@@ -2,7 +2,7 @@
 // card shows, and what the add and edit forms read, checked against the board's rules before a write
 // (the database checks them again: supabase/migrations/20261115090000_ideas.sql).
 import { z } from 'zod';
-import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { NewIdeaRow } from '../api/store';
 import { LANES, type Idea, type Lane } from '../model';
 import { MEMBERS } from './words';

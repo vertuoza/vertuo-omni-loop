@@ -1,4 +1,4 @@
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import 'server-only';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';

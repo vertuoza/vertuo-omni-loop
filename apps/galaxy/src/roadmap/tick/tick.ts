@@ -23,9 +23,9 @@
 import 'server-only';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import { parsePr, type IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { tickComment } from 'vertuo-omni-plan/kit/lib/roadmap/prereqs/ticks.ts';
+import { parsePr, type IssueNumber } from 'omni-loop/kit/lib/ids.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
+import { tickComment } from 'omni-loop/kit/lib/roadmap/prereqs/ticks.ts';
 import { requestOrigin } from '../../ask/page/sign-in';
 import { GitHubError, sendCallbackPath, type GitHubUser } from '../../outbox/send';
 import { RowIdSchema, type RoadmapPrerequisiteRow } from '../store';

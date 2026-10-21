@@ -4,7 +4,7 @@ import {
   type ProductGraphNode,
   type ProductNeighbourhood,
   type ProductNodeKind,
-} from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
+} from 'omni-loop/kit/lib/knowledge/product-graph.ts';
 import type { JoinedGraph, JoinedNode } from './join';
 
 // The walk over a product's joined graph (PRD 1798 s3), as P5 walks one repository

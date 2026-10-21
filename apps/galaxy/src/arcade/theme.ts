@@ -6,7 +6,7 @@
 // gradient from `mark-*` (mark.ts) and the sprite forge its stripes from `stripe-*` (`stripesOf`).
 // Adding a token means adding it to `valid_theme()` too, in a migration: theme.test.ts holds the two
 // lists equal. Fonts are not tokens.
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { z } from 'zod';
 import { COLOURS, FLAT, type Flat } from '@omni/design';
 

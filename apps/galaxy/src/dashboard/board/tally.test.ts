@@ -6,7 +6,7 @@ import {
   type Activity, type Member, type PrdNow,
 } from './tally';
 import { sure } from '../../arcade/test/sure';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The board's pure functions (PRD 572): who is in the scope, what of the workspace's contributions
 // falls in the period, and every number the tiles, the charts, the repositories and the People table
@@ -26,7 +26,7 @@ const ROSTER: Member[] = [
   member('u-nog', null, 'octo', 'No Github'),
   member('u-bob', 'bob-gh', 'beaver', 'BOB'),
 ];
-const act = (kind: string, login: string, at: string, repo = 'vertuo-core', number = 1): Activity => ({ kind, repo, number, login, at });
+const act = (kind: string, login: string, at: string, repo = 'nimbus-core', number = 1): Activity => ({ kind, repo, number, login, at });
 
 describe('circleOf and inCircle: who the scope holds', () => {
   it('you: your login, ignoring case, and your account', () => {
@@ -73,7 +73,7 @@ describe('inPeriod', () => {
 describe('the charts', () => {
   const rows = inPeriod([
     act('pr-merged', 'ada-gh', '2026-09-26T08:00:00Z'),
-    act('pr-merged', 'bob-gh', '2026-09-26T09:00:00Z', 'vertuo-api', 2),
+    act('pr-merged', 'bob-gh', '2026-09-26T09:00:00Z', 'nimbus-api', 2),
     act('pr-merged', 'ada-gh', '2026-09-20T08:00:00Z'),
     act('prd-opened', 'ada-gh', '2026-09-24T08:00:00Z', 'vertuo-omni-loop', 12),
     act('prd-started', 'ada-gh', '2026-09-24T09:00:00Z', 'vertuo-omni-loop', 12),
@@ -105,8 +105,8 @@ describe('the charts', () => {
   it('repositories involved: each with its PRs and PRD events, most active first, then by name', () => {
     expect(repositoriesOf(rows)).toEqual([
       { repo: 'vertuo-omni-loop', prs: 0, prdEvents: 4 },
-      { repo: 'vertuo-core', prs: 2, prdEvents: 0 },
-      { repo: 'vertuo-api', prs: 1, prdEvents: 0 },
+      { repo: 'nimbus-core', prs: 2, prdEvents: 0 },
+      { repo: 'nimbus-api', prs: 1, prdEvents: 0 },
     ]);
   });
 
@@ -125,10 +125,10 @@ describe('the charts', () => {
 
 describe('peopleRows', () => {
   const rows = inPeriod([
-    ...Array.from({ length: 7 }, (_, i) => act('pr-merged', 'PaEtienne', '2026-09-25T08:00:00Z', 'vertuo-ai-domain', 100 + i)),
-    act('pr-merged', 'ada-gh', '2026-09-25T08:00:00Z', 'vertuo-core', 5),
+    ...Array.from({ length: 7 }, (_, i) => act('pr-merged', 'PaEtienne', '2026-09-25T08:00:00Z', 'nimbus-ai-domain', 100 + i)),
+    act('pr-merged', 'ada-gh', '2026-09-25T08:00:00Z', 'nimbus-core', 5),
     act('prd-opened', 'ada-gh', '2026-09-25T08:00:00Z', 'vertuo-omni-loop', 12),
-    act('pr-merged', 'stranger', '2026-09-25T08:00:00Z', 'vertuo-core', 6),
+    act('pr-merged', 'stranger', '2026-09-25T08:00:00Z', 'nimbus-core', 6),
   ], WEEK);
   const FLEETS = [{ name: 'octo', label: 'OCTO', color: '#3355ff', mascot: null }, { name: 'beaver', label: 'BEAVER', color: '#8a5a2b', mascot: 'beaver' }];
   const HEROES = [{ name: 'Ada-GH', points: 120 }, { name: 'bob-gh', points: 300 }];
@@ -170,9 +170,9 @@ describe('peopleRows', () => {
     ];
     const heroes = [{ name: 'a-gh', points: 125 }, { name: 'b-gh', points: 50 }, { name: 'c-gh', points: 50 }];
     const merged = inPeriod([
-      act('pr-merged', 'c-gh', '2026-09-25T08:00:00Z', 'vertuo-core', 1),
-      act('pr-merged', 'e-gh', '2026-09-25T08:00:00Z', 'vertuo-core', 2),
-      act('pr-merged', 'e-gh', '2026-09-25T08:00:00Z', 'vertuo-core', 3),
+      act('pr-merged', 'c-gh', '2026-09-25T08:00:00Z', 'nimbus-core', 1),
+      act('pr-merged', 'e-gh', '2026-09-25T08:00:00Z', 'nimbus-core', 2),
+      act('pr-merged', 'e-gh', '2026-09-25T08:00:00Z', 'nimbus-core', 3),
     ], WEEK);
     const table = (over: Partial<Parameters<typeof peopleRows>[1]> = {}) =>
       peopleRows(players, { activity: merged, answered: new Map(), heroes, fleets: [], prds: [], ...over }, null);
@@ -233,16 +233,16 @@ describe('PRDs now (PRD 587): each PRD at its current stage, and who opened it',
   const STAGES_READ = [
     { repository: 'vertuoza/vertuo-omni-loop', prd: parsePrd(12), stage: 'shipped' as const },
     { repository: 'vertuoza/vertuo-omni-loop', prd: parsePrd(13), stage: 'building' as const },
-    { repository: 'vertuoza/vertuo-core', prd: parsePrd(4), stage: 'prd' as const },
+    { repository: 'demo-org/nimbus-core', prd: parsePrd(4), stage: 'prd' as const },
   ];
   const OPENERS = [
     { repo: 'vertuo-omni-loop', number: 12, login: 'Ada-GH' },
-    { repo: 'vertuo-core', number: 13, login: 'bob-gh' }, // another repository's #13
+    { repo: 'nimbus-core', number: 13, login: 'bob-gh' }, // another repository's #13
   ];
   const DOSSIERS = [
     { home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(13), opened_by: 'u-bob', answered: 2 },
-    { home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-sol', answered: 1 },
-    { home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-ada', answered: 0 },
+    { home_repo: 'demo-org/nimbus-core', prd: null, opened_by: 'u-sol', answered: 1 },
+    { home_repo: 'demo-org/nimbus-core', prd: null, opened_by: 'u-ada', answered: 0 },
   ];
 
   it('a stored PRD gets its opener\'s login from its prd-opened row, matched by repository name and number, and its dossier\'s opener', () => {

@@ -359,7 +359,7 @@ Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
 ### Layers: client → controller → service → repository (PRD 1318)
 
 Each feature folder (`src/<area>/`) splits a request into five roles, named by the file's suffix
-(ADR-0095, after vertuo-ai-domain's `libs/LIBRARY_STYLE_RULES.md` §5):
+(ADR-0095, after nimbus-ai-domain's `libs/LIBRARY_STYLE_RULES.md` §5):
 
 | role | file | does | never |
 |---|---|---|---|

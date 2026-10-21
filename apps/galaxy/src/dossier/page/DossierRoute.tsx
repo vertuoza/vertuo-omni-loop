@@ -43,7 +43,7 @@ import { attestationOf } from './Attestation.service';
 import { liveSendSetup } from '../../runners/send/send.live';
 import { continuationsRepository, runnersRepository } from '../../runners/runners.repository';
 import { fixingOf, type Fixing } from './stage';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
 // person, so row-level security decides: signed out, a sign-in card that comes back here through

@@ -1,7 +1,7 @@
 // The Concepts list's fixtures (PRD 1272, s2): concept #1269 as /omni:think-big recorded it, its
 // sections cut short, its six areas kept, and the rows dossier_list() returns for a concept and for the
 // other kinds.
-import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { ConceptRow } from './list';
 
 /** Concept #1269's concept.md, its sections shortened: six areas, none with a PRD yet. */

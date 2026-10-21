@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sentView, type SendRow } from '../../outbox/sent';
 import { ReadAnswer, readAnswerOf, StartAnswer, startAnswerOf } from './outbox-send-answers';
-import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // What /api/outbox/send answers, parsed where the Outbox tab reads it (PRD 1030): the bodies the
 // route writes parse as they are, and a body that does not is the tab's failed read.

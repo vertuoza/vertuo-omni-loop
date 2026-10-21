@@ -15,7 +15,7 @@ import { SortableList } from '../../nav/SortableList';
 import { peopleColumn, peopleSortOf, PEOPLE_ANCHOR, PEOPLE_COLUMNS, SORT_KEYS, type PeopleSort, type SortKey } from './sort';
 import { byDefault, EVENTS, GROUPS, type ChartDay, type EventDay, type PersonRow, type PrdEvent, type RepoRow, type StageTally } from './tally';
 import './board.css';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 
 // A board (PRD 572), drawn on the server, top to bottom: the period switch, the four tiles, the two
 // per-day charts, the People table, the repositories involved and, where the page asks, the season's

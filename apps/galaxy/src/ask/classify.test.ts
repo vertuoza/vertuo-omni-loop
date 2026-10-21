@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CATEGORIES, classifierFromEnv, isCategory, openRouterClassifier, readCategory, type ClassifyInput } from './classify';
 import { readEnv } from '../env';
 import { item } from './test/test-item';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { loadLoopPage, loopIdOf, type LoopPageReads } from './load';
 import type { LoopRow, PlanRow, TickRow } from './rows';
 

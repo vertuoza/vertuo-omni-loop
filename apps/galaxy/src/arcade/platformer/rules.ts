@@ -3,7 +3,7 @@
 // how long A is held. Phaser does the gravity, the collisions and the drawing; each frame the scene
 // asks these rules how fast the hero runs and whether the jump still lifts.
 import type { Action } from '../keys';
-import { at, positionOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, positionOf } from 'omni-loop/kit/lib/narrow.ts';
 
 /**
  * What the scene reports to the rules: the only things that happen in the game. `second` is the

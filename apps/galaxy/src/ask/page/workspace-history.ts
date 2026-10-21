@@ -9,7 +9,7 @@ import { one, type Query } from '../../nav/query';
 import type { Face } from '../../people/face';
 import { faceOfMember, nameOf, type Member } from './question';
 import { contextParts, entry, type RoundRow, type SessionRow } from './view';
-import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** A round and its session, as the history reads them. */
 export type HistoryRow = { round: RoundRow; session: SessionRow };

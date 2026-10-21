@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseWorkSliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseWorkSliceId } from 'omni-loop/kit/lib/ids.ts';
 import { outboxItemsRepository, type OutboxItemsDb } from './outbox-items.repository';
 
 // A product PRD's outbox storage (PRD 1548 s7): the reads and RPCs it sends, as the signed-in person, each

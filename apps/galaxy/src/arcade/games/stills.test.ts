@@ -8,7 +8,7 @@
 // them again.
 import { describe, expect, it } from 'vitest';
 import { drawStarfield, fleetSprite, makeStarfield, spritePixels, STAGE_PALETTES, TILES, type Pixels, type SpriteLook } from '@omni/design';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { DEFAULT_THEME, stripesOf } from '../theme';
 import type { GridName } from '../grid';
 import { ARCH_WORLD, BOX_WORLD, DRIVER_ROWS, DRIVER_W, HAZE, KART_W, KART_WORLD, PROP_ART, SEAT, SHADOW } from '../kart/art';

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { EnvError } from 'vertuo-omni-plan/kit/lib/env/group.ts';
+import { EnvError } from 'omni-loop/kit/lib/env/group.ts';
 import { readCommit, readEnv } from './env';
 
 vi.mock('server-only', () => ({}));

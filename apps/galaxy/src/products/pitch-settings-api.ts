@@ -13,7 +13,7 @@
 // repository outside the caller's workspaces (the database's reason, and the App's install link after
 // its install hint), 503 no database here, 500 the database failed or stored settings out of shape.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { parsePitchSettings, presetOf, type PitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { parsePitchSettings, presetOf, type PitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 

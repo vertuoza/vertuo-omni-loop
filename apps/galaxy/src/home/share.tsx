@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactElement } from 'react';
 import { COLOURS, logoSvg } from '@omni/design';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { siteUrl } from '../seo/seo';
 
 // HOME shared as the ad (PRD 261, reworded by PRD 285): what a link to `/` previews as. The page's

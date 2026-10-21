@@ -1,6 +1,6 @@
-import { ENTRIES, SKILL_GROUPS } from 'vertuo-omni-plan/kit/lib/help/entries.ts';
+import { ENTRIES, SKILL_GROUPS } from 'omni-loop/kit/lib/help/entries.ts';
 import { DOCS_PATH } from './paths';
-import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
 
 // The skills pages of the docs (PRD 580): /docs/skills, every skill grouped by what you want to do,
 // and /docs/skills/<name>, one page per skill. Pure: built from the skill entries of the help table

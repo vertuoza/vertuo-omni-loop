@@ -14,8 +14,8 @@ import { serverBornStore } from './approvals';
 import { stagesReader, type StagesReader } from './github';
 import { syncSnapshotStore } from './snapshots';
 import type { ConceptSyncDeps, FixSyncDeps, SnapshotSyncDeps, SyncDeps, SyncWorkspace } from './sync';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { log as runLog } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
+import { log as runLog } from 'omni-loop/kit/lib/log/log.ts';
 
 // The stages sync's real deps (PRD 587, s2): the bearer secret (STAGES_SYNC_SECRET), the service role's
 // client (SUPABASE_SERVICE_ROLE_KEY) for the workspaces and the stage store, and GitHub as the Omni Loop
