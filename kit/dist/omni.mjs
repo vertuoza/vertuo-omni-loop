@@ -27495,6 +27495,67 @@ function hookFileViolations(root, flow2, maxBytes = DEFAULT_HOOK_MAX_BYTES) {
   return violations;
 }
 
+// kit/lib/layers/layers.ts
+init_define_OMNI_BUNDLE();
+var CANONICAL_LAYERS = Object.freeze({
+  ui: "screens and components",
+  api: "REST or RPC routes and their payloads",
+  schema: "GraphQL or other typed contracts callers compile against",
+  db: "stored shapes, migrations, row-level security",
+  auth: "identity, sign-in, access",
+  event: "webhooks, queues, messages between services",
+  cli: "commands a person or an agent types",
+  job: "cron, workers, background runs",
+  infra: "deploy, environments, hosting",
+  ci: "pipelines, hooks, checks"
+});
+var CANONICAL_ROLES = Object.freeze({
+  api: "serves routes, data and business rules to other repositories",
+  web: "a web application a person opens in a browser",
+  mobile: "a mobile application",
+  ui: "a shared set of screens, components or design tokens",
+  library: "code other repositories install and call",
+  infra: "deploy, environments and hosting for the product",
+  plan: "holds the product's plans and delivery, and builds no feature itself",
+  doc: "documentation, guides and written knowledge",
+  monorepo: "several of the roles above in one repository"
+});
+var ROLE_LAYERS = Object.freeze({
+  api: ["api", "schema", "db", "auth", "event", "job"],
+  web: ["ui", "auth", "api"],
+  mobile: ["ui", "auth", "api"],
+  ui: ["ui"],
+  library: ["api", "cli"],
+  infra: ["infra", "ci"],
+  plan: ["cli", "ci"],
+  doc: [],
+  monorepo: ["ui", "api", "schema", "db", "auth", "event", "cli", "job", "infra", "ci"]
+});
+var LAYER_ALIASES = Object.freeze({
+  rest: "api",
+  graphql: "schema",
+  database: "db",
+  migration: "db"
+});
+var ROLE_ALIASES = Object.freeze({
+  "back-end": "api",
+  backend: "api",
+  "front-end": "web",
+  frontend: "web",
+  docs: "doc"
+});
+var has = (table, word2) => Object.hasOwn(table, word2);
+var isLayer = (word2) => has(CANONICAL_LAYERS, word2);
+var isRole = (word2) => has(CANONICAL_ROLES, word2);
+function layerOf(word2) {
+  return has(LAYER_ALIASES, word2) ? LAYER_ALIASES[word2] ?? word2 : word2;
+}
+function roleOf(word2) {
+  return has(ROLE_ALIASES, word2) ? ROLE_ALIASES[word2] ?? word2 : word2;
+}
+var layerList = () => Object.keys(CANONICAL_LAYERS).join(", ");
+var roleList = () => Object.keys(CANONICAL_ROLES).join(", ");
+
 // kit/lib/schema/messages.ts
 init_define_OMNI_BUNDLE();
 var NAMED_CLASSES = [
@@ -27637,9 +27698,16 @@ function releasedLabel(labels2) {
   return labels2.released ?? DEFAULT_RELEASED_LABEL;
 }
 var contractKind = external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
-var contractKinds = external_exports.array(contractKind).min(1, "at least one kind, such as api").superRefine((kinds, issues) => {
+var contractKinds = external_exports.array(contractKind).min(1, "at least one kind, such as api").transform((kinds) => kinds.map(layerOf)).superRefine((kinds, issues) => {
   const twice = kinds.find((kind, index2) => kinds.indexOf(kind) !== index2);
   if (twice !== void 0) issues.addIssue({ code: "custom", message: `"${twice}" is listed twice` });
+});
+var layersSection = external_exports.record(external_exports.string(), external_exports.array(regexSource).min(1, "at least one path pattern")).superRefine((layers, issues) => {
+  for (const key2 of Object.keys(layers)) {
+    if (!Object.hasOwn(CANONICAL_LAYERS, key2)) {
+      issues.addIssue({ code: "custom", path: [key2], message: `${key2} is not a layer (${layerList()})` });
+    }
+  }
 });
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = external_exports.object({
@@ -27885,6 +27953,10 @@ var ConfigSchema = external_exports.object({
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
   landings: section({ alone: external_exports.array(regexSource).default([]) }),
+  // PRD 2346: the repository's map from canonical layers to the paths that hold them: regular
+  // expressions over repository paths, as a flow area's `paths`. A file may be in several layers.
+  // Optional: a config without it parses with no `layers` key, and no entry is narrowed by layer.
+  layers: layersSection.optional(),
   // PRD 1870: whether every slice that lands in this repository must declare, in its plan's
   // `contract` column, what it changes for the repository's callers — one or more of `kinds`, or
   // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
@@ -40548,9 +40620,9 @@ function prdsOf(section6, readPrd3, cellWords) {
   if (!section6) return { rows: [], repos: false, faults: ['sections: no "## PRDs" section.'] };
   const table = firstTable(section6.lines);
   if (!table) return { rows: [], repos: false, faults: [`PRDs: no table; it holds one with the columns ${PRD_COLUMNS.join(", ")}.`] };
-  const { faults, has, cell: cell2 } = columns(table, PRD_COLUMNS, "PRDs");
+  const { faults, has: has2, cell: cell2 } = columns(table, PRD_COLUMNS, "PRDs");
   if (faults.length > 0) return { rows: [], repos: false, faults };
-  const repos = has("repos");
+  const repos = has2("repos");
   const rows2 = [];
   table.rows.forEach((row, index2) => {
     const id = cell2(row, "id");
@@ -40664,7 +40736,7 @@ function prerequisiteRow(row, index2, cell2) {
 function prerequisitesOf(section6) {
   const table = section6 ? firstTable(section6.lines) : null;
   if (!section6 || !table) return { prerequisites: [], faults: [] };
-  const { faults, has, cell: cell2 } = columns(table, PREREQUISITE_COLUMNS, WHERE);
+  const { faults, has: has2, cell: cell2 } = columns(table, PREREQUISITE_COLUMNS, WHERE);
   if (faults.length > 0) return { prerequisites: [], faults };
   const cards = cardsOf(section6.lines);
   const ids2 = new Set(table.rows.map((row) => cell2(row, "id")));
@@ -40673,7 +40745,7 @@ function prerequisitesOf(section6) {
     const { record: record2, faults: rowFaults } = prerequisiteRow(row, index2, cell2);
     faults.push(...rowFaults);
     if (record2 === null) return;
-    prerequisites.push({ ...record2, repos: has("repos") ? listCell(cell2(row, "repos")) : null, card: cards.get(record2.id) ?? null });
+    prerequisites.push({ ...record2, repos: has2("repos") ? listCell(cell2(row, "repos")) : null, card: cards.get(record2.id) ?? null });
   });
   for (const id of cards.keys()) if (!ids2.has(id)) faults.push(`${WHERE}: the card "### ${id}" is for no row of the table.`);
   return { prerequisites, faults };
@@ -44227,6 +44299,27 @@ function generatedViolations(entries4, ground) {
   return entries4.flatMap((entry3, index2) => entryViolations(entry3, index2, ground));
 }
 
+// kit/lib/layers/check.ts
+init_define_OMNI_BUNDLE();
+function mapViolations(config3, files, targets2 = []) {
+  const out = [];
+  for (const kind of config3.contracts.kinds) {
+    if (!isLayer(kind)) out.push(`contracts.kinds: ${kind} is not a layer (${layerList()}) \u2014 replace it`);
+  }
+  for (const { repo, role } of targets2) {
+    if (!isRole(roleOf(role))) out.push(`plan.targets: ${repo} has the role ${role}, which is not a role (${roleList()}) \u2014 pick one`);
+  }
+  const unmatched = (where, patterns) => {
+    for (const pattern of patterns) {
+      const regex = new RegExp(pattern);
+      if (!files.some((file2) => regex.test(file2))) out.push(`${where}: ${pattern} matches no tracked file \u2014 fix or remove it`);
+    }
+  };
+  for (const [layer, patterns] of Object.entries(config3.layers ?? {})) unmatched(`layers.${layer}`, patterns);
+  for (const [area2, { paths }] of Object.entries(config3.flow?.areas ?? {})) unmatched(`flow.areas.${area2}.paths`, paths);
+  return out;
+}
+
 // kit/bin/commands/check.ts
 var USAGE12 = "usage: omni check [config|inbox|outbox|knowledge|kb|releases|agents|design|coverage|context|all] [--base <ref>] [--prd <n>]";
 function report3(stdout, title, violations, passLine) {
@@ -44358,7 +44451,9 @@ function checkConfig3({ ctx, stdout }) {
   const areas = Object.keys(flow2?.areas ?? {}).length;
   const violations = [
     ...hookFileViolations(ctx.root, flow2, limits.hookMaxBytes ?? DEFAULT_HOOK_MAX_BYTES),
-    ...generated2 === void 0 ? [] : generatedViolations(generated2, readGround(ctx.root))
+    ...generated2 === void 0 ? [] : generatedViolations(generated2, readGround(ctx.root)),
+    // PRD 2346: the words of the knowledge map, and the patterns that match nothing.
+    ...mapViolations(ctx.config, hasPatterns(ctx.config) ? trackedFiles(ctx) : [], targetsOf(ctx) ?? [])
   ];
   return report3(
     stdout,
@@ -44366,6 +44461,9 @@ function checkConfig3({ ctx, stdout }) {
     violations,
     `check config \u2014 ${CONFIG_FILE} is valid; ${flow2 ? `flow: ${areas} area(s), every hook file present` : "no flow"}${generatedNote(generated2)}.`
   );
+}
+function hasPatterns({ layers, flow: flow2 }) {
+  return Object.keys(layers ?? {}).length > 0 || Object.keys(flow2?.areas ?? {}).length > 0;
 }
 var CONFIG_TITLE = "check config \u2014 the config does not hold what it claims:";
 function checkDesign({ ctx, stdout, stderr, exec }, { base, baseKnown }) {
@@ -50894,11 +50992,11 @@ function packageManager(root) {
 function fromPackageJson(root) {
   const scripts = readScripts(join89(root, "package.json"));
   const pm = packageManager(root);
-  const has = (name3) => Object.hasOwn(scripts, name3);
-  const test = has("test") ? `${pm} test` : null;
-  const preflightScript = ["preflight", "quality:preflight"].find(has);
+  const has2 = (name3) => Object.hasOwn(scripts, name3);
+  const test = has2("test") ? `${pm} test` : null;
+  const preflightScript = ["preflight", "quality:preflight"].find(has2);
   const preflight = preflightScript ? `${pm} run ${preflightScript}` : test;
-  const preflightFull = has("preflight:full") ? `${pm} run preflight:full` : preflight;
+  const preflightFull = has2("preflight:full") ? `${pm} run preflight:full` : preflight;
   return { test, preflight, preflightFull };
 }
 function fromComposer(root) {
@@ -52831,10 +52929,10 @@ function indexLines({ product: product2, glossary, legal, personas = [] }, synce
     kept.push(body.kept);
   });
   const keptOf = (label2) => kept[sections.findIndex((section6) => section6.label === label2)] ?? 0;
-  const has = (label2) => sections.some((section6) => section6.label === label2);
-  const words4 = has("Words: ") ? glossary.slice(0, keptOf("Words: ")) : [];
-  const legalShown = has("Legal: ") ? legal.slice(0, keptOf("Legal: ")) : [];
-  const personasShown = has("Personas: ") ? personas.slice(0, keptOf("Personas: ")) : [];
+  const has2 = (label2) => sections.some((section6) => section6.label === label2);
+  const words4 = has2("Words: ") ? glossary.slice(0, keptOf("Words: ")) : [];
+  const legalShown = has2("Legal: ") ? legal.slice(0, keptOf("Legal: ")) : [];
+  const personasShown = has2("Personas: ") ? personas.slice(0, keptOf("Personas: ")) : [];
   return {
     lines: sections.length === 0 ? [] : lines2,
     shown: {

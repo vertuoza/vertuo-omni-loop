@@ -625,6 +625,60 @@ var FlowSchema = z6.object({
   }
 });
 
+// kit/lib/layers/layers.ts
+var CANONICAL_LAYERS = Object.freeze({
+  ui: "screens and components",
+  api: "REST or RPC routes and their payloads",
+  schema: "GraphQL or other typed contracts callers compile against",
+  db: "stored shapes, migrations, row-level security",
+  auth: "identity, sign-in, access",
+  event: "webhooks, queues, messages between services",
+  cli: "commands a person or an agent types",
+  job: "cron, workers, background runs",
+  infra: "deploy, environments, hosting",
+  ci: "pipelines, hooks, checks"
+});
+var CANONICAL_ROLES = Object.freeze({
+  api: "serves routes, data and business rules to other repositories",
+  web: "a web application a person opens in a browser",
+  mobile: "a mobile application",
+  ui: "a shared set of screens, components or design tokens",
+  library: "code other repositories install and call",
+  infra: "deploy, environments and hosting for the product",
+  plan: "holds the product's plans and delivery, and builds no feature itself",
+  doc: "documentation, guides and written knowledge",
+  monorepo: "several of the roles above in one repository"
+});
+var ROLE_LAYERS = Object.freeze({
+  api: ["api", "schema", "db", "auth", "event", "job"],
+  web: ["ui", "auth", "api"],
+  mobile: ["ui", "auth", "api"],
+  ui: ["ui"],
+  library: ["api", "cli"],
+  infra: ["infra", "ci"],
+  plan: ["cli", "ci"],
+  doc: [],
+  monorepo: ["ui", "api", "schema", "db", "auth", "event", "cli", "job", "infra", "ci"]
+});
+var LAYER_ALIASES = Object.freeze({
+  rest: "api",
+  graphql: "schema",
+  database: "db",
+  migration: "db"
+});
+var ROLE_ALIASES = Object.freeze({
+  "back-end": "api",
+  backend: "api",
+  "front-end": "web",
+  frontend: "web",
+  docs: "doc"
+});
+var has = (table, word) => Object.hasOwn(table, word);
+function layerOf(word) {
+  return has(LAYER_ALIASES, word) ? LAYER_ALIASES[word] ?? word : word;
+}
+var layerList = () => Object.keys(CANONICAL_LAYERS).join(", ");
+
 // kit/lib/config.ts
 var CONFIG_FILE = ".omni-loop/config.yml";
 var CONFIG_VERSION = 1;
@@ -684,9 +738,16 @@ var ownerWithDelegate = z7.preprocess(
 var lawOwnerEntry = z7.union([lawOwner, ownerWithDelegate]);
 var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
 var contractKind = z7.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
-var contractKinds = z7.array(contractKind).min(1, "at least one kind, such as api").superRefine((kinds, issues) => {
+var contractKinds = z7.array(contractKind).min(1, "at least one kind, such as api").transform((kinds) => kinds.map(layerOf)).superRefine((kinds, issues) => {
   const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
   if (twice !== void 0) issues.addIssue({ code: "custom", message: `"${twice}" is listed twice` });
+});
+var layersSection = z7.record(z7.string(), z7.array(regexSource).min(1, "at least one path pattern")).superRefine((layers, issues) => {
+  for (const key of Object.keys(layers)) {
+    if (!Object.hasOwn(CANONICAL_LAYERS, key)) {
+      issues.addIssue({ code: "custom", path: [key], message: `${key} is not a layer (${layerList()})` });
+    }
+  }
 });
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = z7.object({
@@ -932,6 +993,10 @@ var ConfigSchema = z7.object({
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
   landings: section({ alone: z7.array(regexSource).default([]) }),
+  // PRD 2346: the repository's map from canonical layers to the paths that hold them: regular
+  // expressions over repository paths, as a flow area's `paths`. A file may be in several layers.
+  // Optional: a config without it parses with no `layers` key, and no entry is narrowed by layer.
+  layers: layersSection.optional(),
   // PRD 1870: whether every slice that lands in this repository must declare, in its plan's
   // `contract` column, what it changes for the repository's callers — one or more of `kinds`, or
   // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when

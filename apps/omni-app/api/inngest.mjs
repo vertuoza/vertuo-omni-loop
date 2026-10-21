@@ -1261,6 +1261,60 @@ var FlowSchema = z7.object({
   }
 });
 
+// kit/lib/layers/layers.ts
+var CANONICAL_LAYERS = Object.freeze({
+  ui: "screens and components",
+  api: "REST or RPC routes and their payloads",
+  schema: "GraphQL or other typed contracts callers compile against",
+  db: "stored shapes, migrations, row-level security",
+  auth: "identity, sign-in, access",
+  event: "webhooks, queues, messages between services",
+  cli: "commands a person or an agent types",
+  job: "cron, workers, background runs",
+  infra: "deploy, environments, hosting",
+  ci: "pipelines, hooks, checks"
+});
+var CANONICAL_ROLES = Object.freeze({
+  api: "serves routes, data and business rules to other repositories",
+  web: "a web application a person opens in a browser",
+  mobile: "a mobile application",
+  ui: "a shared set of screens, components or design tokens",
+  library: "code other repositories install and call",
+  infra: "deploy, environments and hosting for the product",
+  plan: "holds the product's plans and delivery, and builds no feature itself",
+  doc: "documentation, guides and written knowledge",
+  monorepo: "several of the roles above in one repository"
+});
+var ROLE_LAYERS = Object.freeze({
+  api: ["api", "schema", "db", "auth", "event", "job"],
+  web: ["ui", "auth", "api"],
+  mobile: ["ui", "auth", "api"],
+  ui: ["ui"],
+  library: ["api", "cli"],
+  infra: ["infra", "ci"],
+  plan: ["cli", "ci"],
+  doc: [],
+  monorepo: ["ui", "api", "schema", "db", "auth", "event", "cli", "job", "infra", "ci"]
+});
+var LAYER_ALIASES = Object.freeze({
+  rest: "api",
+  graphql: "schema",
+  database: "db",
+  migration: "db"
+});
+var ROLE_ALIASES = Object.freeze({
+  "back-end": "api",
+  backend: "api",
+  "front-end": "web",
+  frontend: "web",
+  docs: "doc"
+});
+var has = (table, word) => Object.hasOwn(table, word);
+function layerOf(word) {
+  return has(LAYER_ALIASES, word) ? LAYER_ALIASES[word] ?? word : word;
+}
+var layerList = () => Object.keys(CANONICAL_LAYERS).join(", ");
+
 // kit/lib/config.ts
 var CONFIG_FILE = ".omni-loop/config.yml";
 var CONFIG_VERSION = 1;
@@ -1320,9 +1374,16 @@ var ownerWithDelegate = z8.preprocess(
 var lawOwnerEntry = z8.union([lawOwner, ownerWithDelegate]);
 var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
 var contractKind = z8.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
-var contractKinds = z8.array(contractKind).min(1, "at least one kind, such as api").superRefine((kinds, issues) => {
+var contractKinds = z8.array(contractKind).min(1, "at least one kind, such as api").transform((kinds) => kinds.map(layerOf)).superRefine((kinds, issues) => {
   const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
   if (twice !== void 0) issues.addIssue({ code: "custom", message: `"${twice}" is listed twice` });
+});
+var layersSection = z8.record(z8.string(), z8.array(regexSource).min(1, "at least one path pattern")).superRefine((layers, issues) => {
+  for (const key of Object.keys(layers)) {
+    if (!Object.hasOwn(CANONICAL_LAYERS, key)) {
+      issues.addIssue({ code: "custom", path: [key], message: `${key} is not a layer (${layerList()})` });
+    }
+  }
 });
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = z8.object({
@@ -1568,6 +1629,10 @@ var ConfigSchema = z8.object({
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
   landings: section({ alone: z8.array(regexSource).default([]) }),
+  // PRD 2346: the repository's map from canonical layers to the paths that hold them: regular
+  // expressions over repository paths, as a flow area's `paths`. A file may be in several layers.
+  // Optional: a config without it parses with no `layers` key, and no entry is narrowed by layer.
+  layers: layersSection.optional(),
   // PRD 1870: whether every slice that lands in this repository must declare, in its plan's
   // `contract` column, what it changes for the repository's callers — one or more of `kinds`, or
   // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
@@ -5403,9 +5468,9 @@ function prdsOf(section4, readPrd, cellWords) {
   if (!section4) return { rows: [], repos: false, faults: ['sections: no "## PRDs" section.'] };
   const table = firstTable(section4.lines);
   if (!table) return { rows: [], repos: false, faults: [`PRDs: no table; it holds one with the columns ${PRD_COLUMNS.join(", ")}.`] };
-  const { faults, has, cell: cell3 } = columns(table, PRD_COLUMNS, "PRDs");
+  const { faults, has: has2, cell: cell3 } = columns(table, PRD_COLUMNS, "PRDs");
   if (faults.length > 0) return { rows: [], repos: false, faults };
-  const repos = has("repos");
+  const repos = has2("repos");
   const rows = [];
   table.rows.forEach((row, index) => {
     const id = cell3(row, "id");
@@ -5519,7 +5584,7 @@ function prerequisiteRow(row, index, cell3) {
 function prerequisitesOf(section4) {
   const table = section4 ? firstTable(section4.lines) : null;
   if (!section4 || !table) return { prerequisites: [], faults: [] };
-  const { faults, has, cell: cell3 } = columns(table, PREREQUISITE_COLUMNS, WHERE);
+  const { faults, has: has2, cell: cell3 } = columns(table, PREREQUISITE_COLUMNS, WHERE);
   if (faults.length > 0) return { prerequisites: [], faults };
   const cards = cardsOf(section4.lines);
   const ids = new Set(table.rows.map((row) => cell3(row, "id")));
@@ -5528,7 +5593,7 @@ function prerequisitesOf(section4) {
     const { record, faults: rowFaults } = prerequisiteRow(row, index, cell3);
     faults.push(...rowFaults);
     if (record === null) return;
-    prerequisites.push({ ...record, repos: has("repos") ? listCell(cell3(row, "repos")) : null, card: cards.get(record.id) ?? null });
+    prerequisites.push({ ...record, repos: has2("repos") ? listCell(cell3(row, "repos")) : null, card: cards.get(record.id) ?? null });
   });
   for (const id of cards.keys()) if (!ids.has(id)) faults.push(`${WHERE}: the card "### ${id}" is for no row of the table.`);
   return { prerequisites, faults };
