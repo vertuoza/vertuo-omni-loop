@@ -53,15 +53,18 @@ export class RunnerRefused extends Error {
 /** What `register` answers: the runner's id. */
 const RegisteredSchema = z.object({ id: z.union([z.string().min(1), z.number()]).transform(String) });
 
-/** A job `next` hands over. */
+/** A job `next` hands over. `allowedSkills` are the skills of its repository's own an owner allowed,
+ * read when it was claimed (PRD 2313): an older app sends none, and the job allows none, as before. */
 const JobSchema = z.object({
   id: z.union([z.string().min(1), z.number()]).transform(String),
   line: z.string(),
   repo: z.string(),
   sentBy: z.string().nullish().transform((value) => value ?? null),
+  allowedSkills: z.array(z.string()).nullish().transform((value) => value ?? []),
 });
 
-/** A job as the runner reads it: its id, its line, its repository (`owner/name`), and who sent it. */
+/** A job as the runner reads it: its id, its line, its repository (`owner/name`), who sent it, and the
+ * repository's own skills it may run. */
 export type RunnerJob = z.output<typeof JobSchema>;
 
 /** What a job update answers: whether a cancel waits. */

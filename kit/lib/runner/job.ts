@@ -6,10 +6,13 @@
 // for a person attached to it, while the raw stream goes to `job-<id>.jsonl` beside the log and never
 // leaves the machine. The install's output and claude's standard error are written as they are. The
 // exit code goes to a file of its own once the run ends, which is how the runner learns it ended.
+// A job of a repository's own skill whose worktree holds `.mcp.json` runs claude with
+// `--mcp-config .mcp.json` too (PRD 2313), so the repository's MCP servers load with no prompt.
 import { spawn } from 'node:child_process';
-import { appendFileSync, closeSync, existsSync, openSync, writeFileSync } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
+import { checkRunnerLine } from './line.ts';
 import type { Out } from './runner.ts';
 import { stepLine } from './steps.ts';
 
@@ -21,6 +24,19 @@ const LOCKFILE = 'pnpm-lock.yaml';
 
 /** The arguments claude runs a job with: unattended, printing one JSON event per line. */
 const CLAUDE_ARGS: readonly string[] = ['--dangerously-skip-permissions', '-p', '--output-format', 'stream-json', '--verbose'];
+
+/** The MCP servers a repository declares, in its worktree's root. */
+const MCP_CONFIG = '.mcp.json';
+
+/**
+ * The arguments claude runs the job on `line` with in `cwd`. A line of a repository's own skill (PRD 2313)
+ * — any line but a fixed skill's, since the runner let nothing else through — loads the repository's MCP
+ * servers when the worktree holds `.mcp.json`; allowing the skill allowed them. A fixed skill's are as ever.
+ */
+function claudeArgs(cwd: string, line: string): readonly string[] {
+  if (checkRunnerLine(line).ok || !existsSync(join(cwd, MCP_CONFIG))) return CLAUDE_ARGS;
+  return [...CLAUDE_ARGS, '--mcp-config', MCP_CONFIG];
+}
 
 /** Where a job's raw stream goes: its log's path with `.jsonl` for `.log`. */
 export function rawLogPath(log: string): string {
@@ -97,9 +113,10 @@ export async function runJobProcess({ cwd, files, out, env }: { cwd: string; fil
     const raw = rawLogPath(files.log);
     writeFileSync(raw, '');
     const reader = streamReader({ log: files.log, raw, out });
+    const args = claudeArgs(cwd, readFileSync(files.line, 'utf8').replace(/\n$/, ''));
     const stdin = openSync(files.line, 'r');
     try {
-      code = await run('claude', CLAUDE_ARGS, { cwd, stdin, log: files.log, out, env, stdout: (chunk) => { reader.chunk(chunk); } });
+      code = await run('claude', args, { cwd, stdin, log: files.log, out, env, stdout: (chunk) => { reader.chunk(chunk); } });
     } finally {
       reader.end();
       closeSync(stdin);
