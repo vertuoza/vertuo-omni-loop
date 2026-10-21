@@ -1,0 +1,35 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-21",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "If the agent sees the rule for the screen I touch, it stops shipping slop that breaks a rule nobody showed it.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "Another map of paths to maintain by hand, which I expect to go stale.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "The same words, api and web, across every repository of a product means one idea can land in all of them.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 5, "reaction": "One page defining each layer and role is the cohesion I try to keep across teams.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 3, "reaction": "I will not tag layers myself; it only helps if invade proposes it and I just review.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "Another map of paths to keep in sync with my code. Nobody will update it, so in six months the agent misses rules again and I am back to not trusting it.",
+        "citations": ["persona:B-E DEv"],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-21",
+      "personas": [
+        { "name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Five real misses turned into a test that must pass is proof I can check, not a promise.", "citations": ["persona:F-E Developer"] },
+        { "name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "A stale pattern turning omni check red answers my worry; I still expect to fix that red myself.", "citations": ["persona:B-E DEv"] },
+        { "name": "Paul - Product Manager", "stance": "excited", "score": 4, "reaction": "Nothing breaks for a repository that declares nothing, so I can roll it out without blocking anyone.", "citations": ["persona:Paul - Product Manager"] },
+        { "name": "Lead Engineer", "stance": "neutral", "score": 5, "reaction": "Canonical roles with an alias table, flagged rather than refused, is a migration I can explain to the team.", "citations": ["persona:Lead Engineer"] },
+        { "name": "Irisa", "stance": "neutral", "score": 4, "reaction": "A role picked from a list on the Repositories tab is simpler for me than typing a word.", "citations": ["persona:Irisa"] }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:B-E DEv ✓"
+    }
+  ]
+}

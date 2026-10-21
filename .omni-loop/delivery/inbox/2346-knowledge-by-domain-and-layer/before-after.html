@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="2">
+<title>PRD 2346: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+.term { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+.term .hl { color: var(--add-fg); font-weight: 600; }
+.term .dim { color: var(--muted); }
+.term .miss { color: var(--del-fg); }
+.cap { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+/* The mockups use Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+.mock { --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+  --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-on-plasma: #07061c; --ask-cyan: #6ff0ff; --ask-red: #ff6b86;
+  background: var(--ask-ground); color: var(--ask-ink); border: 1px solid var(--ask-line); border-radius: 12px; padding: 16px;
+  font: 15px/1.5 "Atkinson Hyperlegible Next", system-ui, sans-serif; display: grid; gap: 12px; }
+.mock h2 { margin: 0; font-size: 18px; }
+.mock .row { display: grid; gap: 8px; padding: 12px; background: var(--ask-surface); border: 1px solid var(--ask-line); border-radius: 10px; }
+.mock .row strong { font: 600 14px/1.3 "JetBrains Mono", ui-monospace, monospace; }
+.mock .fields { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+.mock label { display: grid; gap: 2px; font-size: 13px; color: var(--ask-muted); }
+.mock .input, .mock .select { min-width: 140px; padding: 5px 10px; border: 1px solid var(--ask-line-strong); border-radius: 8px; background: var(--ask-sunk); color: var(--ask-ink); font-size: 14px; }
+.mock .select::after { content: " ▾"; color: var(--ask-muted); }
+.mock .flag { font-size: 13px; color: var(--ask-red); }
+.mock .btn { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--ask-line-strong); background: transparent; color: var(--ask-ink); font-size: 14px; }
+.mock .btn.primary { background: var(--ask-plasma); color: var(--ask-on-plasma); border-color: var(--ask-plasma); font-weight: 600; justify-self: start; }
+.mock .menu { display: grid; padding: 4px 0; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 8px; font-size: 14px; max-width: 220px; }
+.mock .menu span { padding: 2px 10px; }
+.mock .menu .old { color: var(--ask-red); }
+</style>
+</head>
+<body>
+<h1>PRD 2346: before and after</h1>
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional &amp; design</label><label for="tab-technical">Technical</label></div>
+<section data-tab="functional">
+<div data-service="kit">
+<h3>kit</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<p>An agent about to change <code>apps/galaxy/src/ask/ask.service.ts</code> asks what applies.</p>
+<div class="compare">
+<div><div class="label">Today</div>
+<div class="term"><span class="dim">$ omni kb laws --paths apps/galaxy/src/ask/ask.service.ts</span>
+law BR-PRODUCT-3 — An agent never applies the override label itself…
+law BR-PRODUCT-5 — A feature stays a draft while any question is open…
+<span class="dim">… 18 more locked laws, whatever the file</span>
+rule BR-PRODUCT-14 — When a multi-select question has ticked choices…
+<span class="miss">BR-PRODUCT-12 "an answer never changes" is one line among the 20: nothing says it applies</span>
+16 rule(s) say no "Governs:", so none of them is shown here</div></div>
+<div><div class="label">After</div>
+<div class="term"><span class="dim">$ omni kb laws --paths apps/galaxy/src/ask/ask.service.ts</span>
+<span class="hl">Applies here</span>
+law BR-PRODUCT-12 — An answer never changes after it is given… (domain ask)
+law BR-PRODUCT-29 — Ask mode lets in only the workspace's members… (domain ask)
+rule BR-PRODUCT-14 — When a multi-select question has ticked choices… (domain ask)
+adr ADR-0029 — The ask API answers each refusal with a standard HTTP code… (layer api)
+<span class="hl">Global</span>
+law N-PRODUCT-15 — Only a person merges into the main branch…
+legal L-GDPR-2 — Credentials are never stored or logged in clear…
+<span class="dim">14 locked laws of other areas: not shown (omni kb laws prints them all).</span></div></div>
+</div>
+<p class="cap">Every part is optional: a repository that declares no <code>layers</code> and no knowledge area gets every entry under Global, the same list as today. The ids above are illustrative of this repository after its refresh.</p>
+<div class="compare">
+<div><div class="label">Today: the map</div>
+<div class="term">Governs: ^apps/galaxy/src/ask/rounds-sql\.test\.ts$, ^supabase/migrations/
+<span class="dim">one regular expression per entry, written by hand; 16 entries have none</span></div></div>
+<div><div class="label">After: the map, once per repository</div>
+<div class="term">layers:
+  db:  [^supabase/migrations/, ^supabase/checks/]
+flow:
+  areas:
+    ask: { paths: [^kit/lib/ask/, ^apps/galaxy/src/ask/], knowledge: ask }
+<span class="dim">ADR status line: · **Layers:** api, db   (canonical layers only)</span></div></div>
+</div>
+<p class="cap">The layer words are one canonical list (ui, api, schema, db, auth, event, cli, job, infra, ci), defined on <code>docs/guide/knowledge-map.md</code>. <code>/omni:invade --refresh</code> proposes the map; <code>omni check config</code> flags a pattern that matches no file.</p>
+</div>
+<div data-section="pixel-perfect" data-state="na">
+<h4>Pixel perfect</h4>
+<p>N/A — the kit's change is terminal output; it draws no screen.</p>
+</div>
+</div>
+<div data-service="galaxy">
+<h3>galaxy</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">Today</div><p>On a product's Repositories tab, an owner types any word as a repository's role: <code>back-end</code>, <code>api</code>, <code>backend</code>. Two repositories doing the same job can carry two words.</p></div>
+<div><div class="label">After</div><p>The owner picks the role from nine: api, web, mobile, ui, library, infra, plan, doc, monorepo. A role saved before that the list does not hold stays, shown as not a role until the owner picks one.</p></div>
+</div>
+</div>
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p>screens: product-repositories</p>
+<div class="compare">
+<div><div class="label">Today</div>
+<div class="mock" data-screen="product-repositories">
+<h2>Repositories</h2>
+<div class="row">
+<strong>acme/widgets-api</strong>
+<div class="fields">
+<label>Role<span class="input">back-end-legacy</span></label>
+<label>Knowledge<span class="select">Its own</span></label>
+<span class="btn">Save</span>
+</div>
+</div>
+<span class="btn primary" data-primary>Add a repository</span>
+</div>
+<p class="cap">Role is a free text field (<code>LinksSection.tsx</code>), placeholder <code>api</code>.</p>
+</div>
+<div><div class="label">After</div>
+<div class="mock" data-screen="product-repositories">
+<h2>Repositories</h2>
+<div class="row">
+<strong>acme/widgets-api</strong>
+<div class="fields">
+<label>Role<span class="select">back-end-legacy</span></label>
+<label>Knowledge<span class="select">Its own</span></label>
+<span class="btn">Save</span>
+</div>
+<span class="flag">back-end-legacy is not a role: pick one</span>
+<div class="menu"><span class="old">back-end-legacy</span><span>api</span><span>web</span><span>mobile</span><span>ui</span><span>library</span><span>infra</span><span>plan</span><span>doc</span><span>monorepo</span></div>
+</div>
+<span class="btn primary" data-primary>Add a repository</span>
+</div>
+<p class="cap">Role becomes a select of the nine roles, like Knowledge beside it; a flagged old value is its first option until it is changed. The open menu is shown for the review only. The repository is fictional.</p>
+</div>
+</div>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">Today</div><p>A product's repository role is any kebab-case word of up to 40 characters.</p></div>
+<div><div class="label">After</div><p>Known old words become their role once (<code>back-end</code> → <code>api</code>, <code>front-end</code> → <code>web</code>, <code>docs</code> → <code>doc</code>); a new role must be one of the nine; any other old word is kept as it is.</p></div>
+</div>
+</div>
+<div data-section="pixel-perfect" data-state="na">
+<h4>Pixel perfect</h4>
+<p>N/A — the database draws no screen.</p>
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="filled">
+<h4>Flow</h4>
+<figure class="mermaid-diagram" data-source="flowchart LR
+  A[agent: omni kb laws --paths file] --&gt; R[kit resolver]
+  C[(.omni-loop/config.yml: layers, flow.areas)] --&gt; R
+  K[(knowledge folder: domain folders, ADRs with Layers)] --&gt; R
+  P[(Omni page: Legal entries)] --&gt;|kb legal copy| R
+  R --&gt;|Applies here, Global, hidden count| A
+  O[owner on Repositories tab] --&gt;|role from nine| G[galaxy service]
+  G --&gt;|product_repository_link| D[(Supabase: product_repositories.role)]"><svg aria-roledescription="flowchart-v2" role="graphics-document document" viewBox="0 0.000003814697265625 1122.8125 681.7291870117188" style="max-width: 1122.8125px;" class="flowchart" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-0"><style>#mermaid-0{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-0 .error-icon{fill:#552222;}#mermaid-0 .error-text{fill:#552222;stroke:#552222;}#mermaid-0 .edge-thickness-normal{stroke-width:1px;}#mermaid-0 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-0 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-0 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-0 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-0 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-0 .marker{fill:#333333;stroke:#333333;}#mermaid-0 .marker.cross{stroke:#333333;}#mermaid-0 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-0 p{margin:0;}#mermaid-0 .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#mermaid-0 .cluster-label text{fill:#333;}#mermaid-0 .cluster-label span{color:#333;}#mermaid-0 .cluster-label span p{background-color:transparent;}#mermaid-0 .label text,#mermaid-0 span{fill:#333;color:#333;}#mermaid-0 .node rect,#mermaid-0 .node circle,#mermaid-0 .node ellipse,#mermaid-0 .node polygon,#mermaid-0 .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#mermaid-0 .rough-node .label text,#mermaid-0 .node .label text,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-anchor:middle;}#mermaid-0 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-0 .rough-node .label,#mermaid-0 .node .label,#mermaid-0 .image-shape .label,#mermaid-0 .icon-shape .label{text-align:center;}#mermaid-0 .node.clickable{cursor:pointer;}#mermaid-0 .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#mermaid-0 .arrowheadPath{fill:#333333;}#mermaid-0 .edgePath .path{stroke:#333333;stroke-width:2.0px;}#mermaid-0 .flowchart-link{stroke:#333333;fill:none;}#mermaid-0 .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#mermaid-0 .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#mermaid-0 .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#mermaid-0 .cluster text{fill:#333;}#mermaid-0 .cluster span{color:#333;}#mermaid-0 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#mermaid-0 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-0 rect.text{fill:none;stroke-width:0;}#mermaid-0 .icon-shape,#mermaid-0 .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#mermaid-0 .icon-shape p,#mermaid-0 .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#mermaid-0 .icon-shape rect,#mermaid-0 .image-shape rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#mermaid-0 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerHeight="8" markerWidth="8" markerUnits="userSpaceOnUse" refY="5" refX="4.5" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="11" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5" refX="-1" viewBox="0 0 10 10" class="marker flowchart-v2" id="mermaid-0_flowchart-v2-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="12" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerHeight="11" markerWidth="11" markerUnits="userSpaceOnUse" refY="5.2" refX="-1" viewBox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-0_flowchart-v2-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_A_R_0" d="M268,175.764L288.833,170.69C309.667,165.616,351.333,155.468,397.576,164.276C443.818,173.085,494.636,200.85,520.046,214.733L545.455,228.615"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_C_R_1" d="M245.5,63.213L270.083,63.213C294.667,63.213,343.833,63.213,397.407,90.642C450.98,118.07,508.96,172.927,537.95,200.356L566.94,227.784"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_K_R_2" d="M245.5,351.64L270.083,351.64C294.667,351.64,343.833,351.64,392.22,340.733C440.607,329.826,488.214,308.013,512.017,297.106L535.82,286.199"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_P_R_3" d="M235.281,499.184L261.568,499.184C287.854,499.184,340.427,499.184,396.688,463.917C452.948,428.65,512.896,358.115,542.871,322.848L572.845,287.581"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_R_A_4" d="M527.727,257.533L505.272,257.533C482.818,257.533,437.909,257.533,395.275,253.568C352.642,249.603,312.283,241.673,292.104,237.707L271.925,233.742"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_O_G_5" d="M261.242,618.516L283.202,618.516C305.161,618.516,349.081,618.516,391.207,618.516C433.333,618.516,473.667,618.516,493.833,618.516L514,618.516"></path><path marker-end="url(#mermaid-0_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_G_D_6" d="M678.766,618.516L697.186,618.516C715.607,618.516,752.448,618.516,788.622,618.516C824.797,618.516,860.305,618.516,878.059,618.516L895.813,618.516"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignObject height="0" width="0"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignObject></g></g><g transform="translate(393, 499.1844596862793)" class="edgeLabel"><g transform="translate(-47.2734375, -12)" class="label"><foreignObject height="24" width="94.546875"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>kb legal copy</p></span></div></foreignObject></g></g><g transform="translate(393, 257.53309440612793)" class="edgeLabel"><g transform="translate(-100, -24)" class="label"><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>Applies here, Global, hidden count</p></span></div></foreignObject></g></g><g transform="translate(393, 618.5159683227539)" class="edgeLabel"><g transform="translate(-51.3359375, -12)" class="label"><foreignObject height="24" width="102.671875"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>role from nine</p></span></div></foreignObject></g></g><g transform="translate(789.2890625, 618.5159683227539)" class="edgeLabel"><g transform="translate(-85.5234375, -12)" class="label"><foreignObject height="24" width="171.046875"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" class="labelBkg" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"><p>product_repository_link</p></span></div></foreignObject></g></g></g><g class="nodes"><g transform="translate(138, 207.42647552490234)" id="flowchart-A-0" class="node default"><rect height="78" width="260" y="-39" x="-130" style="" class="basic label-container"></rect><g transform="translate(-100, -24)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>agent: omni kb laws --paths file</p></span></div></foreignObject></g></g><g transform="translate(598.3828125, 257.53309440612793)" id="flowchart-R-1" class="node default"><rect height="54" width="141.3125" y="-27" x="-70.65625" style="" class="basic label-container"></rect><g transform="translate(-40.65625, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="81.3125"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>kit resolver</p></span></div></foreignObject></g></g><g transform="translate(138, 63.21323776245117)" id="flowchart-C-2" class="node default"><path transform="translate(-107.5, -55.21323529411765)" style="" class="basic label-container" d="M0,15.808823529411764 a107.5,15.808823529411764 0,0,0 215,0 a107.5,15.808823529411764 0,0,0 -215,0 l0,78.80882352941177 a107.5,15.808823529411764 0,0,0 215,0 l0,-78.80882352941177"></path><g transform="translate(-100, -14)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>.omni-loop/config.yml: layers, flow.areas</p></span></div></foreignObject></g></g><g transform="translate(138, 351.6397132873535)" id="flowchart-K-4" class="node default"><path transform="translate(-107.5, -55.21323529411765)" style="" class="basic label-container" d="M0,15.808823529411764 a107.5,15.808823529411764 0,0,0 215,0 a107.5,15.808823529411764 0,0,0 -215,0 l0,78.80882352941177 a107.5,15.808823529411764 0,0,0 215,0 l0,-78.80882352941177"></path><g transform="translate(-100, -14)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>knowledge folder: domain folders, ADRs with Layers</p></span></div></foreignObject></g></g><g transform="translate(138, 499.1844596862793)" id="flowchart-P-6" class="node default"><path transform="translate(-97.28125, -42.33150792098573)" style="" class="basic label-container" d="M0,15.221005280657149 a97.28125,15.221005280657149 0,0,0 194.5625,0 a97.28125,15.221005280657149 0,0,0 -194.5625,0 l0,54.22100528065715 a97.28125,15.221005280657149 0,0,0 194.5625,0 l0,-54.22100528065715"></path><g transform="translate(-89.78125, -2)" style="" class="label"><rect></rect><foreignObject height="24" width="179.5625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Omni page: Legal entries</p></span></div></foreignObject></g></g><g transform="translate(138, 618.5159683227539)" id="flowchart-O-10" class="node default"><rect height="54" width="246.484375" y="-27" x="-123.2421875" style="" class="basic label-container"></rect><g transform="translate(-93.2421875, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="186.484375"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>owner on Repositories tab</p></span></div></foreignObject></g></g><g transform="translate(598.3828125, 618.5159683227539)" id="flowchart-G-11" class="node default"><rect height="54" width="160.765625" y="-27" x="-80.3828125" style="" class="basic label-container"></rect><g transform="translate(-50.3828125, -12)" style="" class="label"><rect></rect><foreignObject height="24" width="100.765625"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>galaxy service</p></span></div></foreignObject></g></g><g transform="translate(1007.3125, 618.5159683227539)" id="flowchart-D-13" class="node default"><path transform="translate(-107.5, -55.21323529411765)" style="" class="basic label-container" d="M0,15.808823529411764 a107.5,15.808823529411764 0,0,0 215,0 a107.5,15.808823529411764 0,0,0 -215,0 l0,78.80882352941177 a107.5,15.808823529411764 0,0,0 215,0 l0,-78.80882352941177"></path><g transform="translate(-100, -14)" style="" class="label"><rect></rect><foreignObject height="48" width="200"><div style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Supabase: product_repositories.role</p></span></div></foreignObject></g></g></g></g></g></svg></figure>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<ol>
+<li>The migration (maps role aliases, tightens <code>product_repository_link()</code>).</li>
+<li>The galaxy app (the Role select) in the same merge; Vercel deploys it after the migration has run.</li>
+<li>The kit release (<code>chore(release)</code> after the merge); repositories take it with <code>omni update</code>.</li>
+<li>This repository's refresh pull request, from <code>/omni:invade --refresh</code>, reviewed and merged by a person.</li>
+</ol>
+</div>
+<div data-service="kit">
+<h3>kit <span class="badge" data-role>CLI</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — the kit stores nothing.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table>
+<tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td><code>layers</code> (config)</td><td><span class="badge added">added</span></td><td>none</td><td>canonical layer → list of path patterns, optional</td><td>kit</td></tr>
+<tr><td><code>contracts.kinds</code> (config)</td><td>changed</td><td>any lowercase word</td><td>canonical layers; an alias reads as its layer; another word flagged, still accepted</td><td>kit</td></tr>
+<tr><td><code>plan.targets[].role</code> (config)</td><td>changed</td><td>any kebab-case word</td><td>canonical roles; an alias reads as its role; another word flagged</td><td>kit</td></tr>
+<tr><td><code>Layers:</code> (register entry), <code>**Layers:**</code>, <code>**Domain:**</code> (ADR)</td><td><span class="badge added">added</span></td><td>none</td><td>optional fields</td><td>kit</td></tr>
+<tr><td><code>omni kb laws --json</code></td><td>changed</td><td><code>{ laws, rules, ungoverned }</code></td><td>adds <code>applies</code>, <code>global</code>, <code>hidden</code>; keeps <code>laws</code></td><td>kit</td></tr>
+<tr><td>graph edge kinds</td><td><span class="badge added">added</span></td><td>serves … same-prd, uses-term</td><td>+ <code>domain</code>, <code>layer</code></td><td>kit</td></tr>
+</table>
+<p class="cap">Nothing breaking: every new field is optional and the JSON keeps its old keys. Followed: the breaking-change rule of this skill; no conventions page here is stricter.</p>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare">
+<div><div class="label">Today</div><ul><li><code>kb laws --paths</code> prints every locked law, then the rules whose <code>Governs:</code> matches.</li><li><code>omni check knowledge</code> refuses a locked law with no <code>Governs:</code>.</li><li><code>/omni:invade</code> proposes no domain, area or layer.</li></ul></div>
+<div><div class="label">After</div><ul><li>It prints what applies (by <code>Governs:</code>, domain or layer), then what is global, then a count of what is hidden.</li><li>A law with no <code>Governs:</code> is accepted: reachable by its domain or layers, or global.</li><li><code>/omni:invade --refresh</code> proposes <code>layers</code>, knowledge areas, domain folders (ids kept) and ADR layers.</li></ul></div>
+</div>
+</div>
+</div>
+<div data-service="galaxy">
+<h3>galaxy <span class="badge" data-role>FRONT-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — the app's tables are the supabase service's.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table>
+<tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr>
+<tr><td>product link <code>role</code> (write contract)</td><td>changed</td><td>kebab-case word or null</td><td>one of the nine roles, or null; the old value is accepted only unchanged</td><td>galaxy</td></tr>
+<tr><td>product link <code>roleFlagged</code> (read contract)</td><td><span class="badge added">added</span></td><td>none</td><td>true when the stored role is not one of the nine</td><td>galaxy</td></tr>
+</table>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<p><code>omni targets</code> reads each target's role from the page and flags a role that is not one of the nine, naming it.</p>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase <span class="badge" data-role>DATABASE</span></h3>
+<div data-section="db" data-state="filled">
+<h4>Database</h4>
+<figure class="mermaid-diagram" data-source="erDiagram
+  product_repositories {
+    text repository
+    text role &quot;~ altered · was any kebab-case word&quot;
+  }"><svg aria-roledescription="er" role="graphics-document document" viewBox="0 0 302.75 108.18359375" style="max-width: 302.75px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-1"><style>#mermaid-1{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-1 .error-icon{fill:#552222;}#mermaid-1 .error-text{fill:#552222;stroke:#552222;}#mermaid-1 .edge-thickness-normal{stroke-width:1px;}#mermaid-1 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-1 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1 .marker{fill:#333333;stroke:#333333;}#mermaid-1 .marker.cross{stroke:#333333;}#mermaid-1 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-1 p{margin:0;}#mermaid-1 .entityBox{fill:#ECECFF;stroke:#9370DB;}#mermaid-1 .attributeBoxOdd{fill:#ffffff;stroke:#9370DB;}#mermaid-1 .attributeBoxEven{fill:#f2f2f2;stroke:#9370DB;}#mermaid-1 .relationshipLabelBox{fill:hsl(80, 100%, 96.2745098039%);opacity:0.7;background-color:hsl(80, 100%, 96.2745098039%);}#mermaid-1 .relationshipLabelBox rect{opacity:0.5;}#mermaid-1 .relationshipLine{stroke:#333333;}#mermaid-1 .entityTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-1 #MD_PARENT_START{fill:#f5f5f5!important;stroke:#333333!important;stroke-width:1;}#mermaid-1 #MD_PARENT_END{fill:#f5f5f5!important;stroke:#333333!important;stroke-width:1;}#mermaid-1 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><defs><marker orient="auto" markerHeight="240" markerWidth="190" refY="7" refX="0" id="MD_PARENT_START"><path d="M 18,7 L9,13 L1,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="28" markerWidth="20" refY="7" refX="19" id="MD_PARENT_END"><path d="M 18,7 L9,13 L1,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="18" refY="9" refX="0" id="ONLY_ONE_START"><path d="M9,0 L9,18 M15,0 L15,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="18" refY="9" refX="18" id="ONLY_ONE_END"><path d="M3,0 L3,18 M9,0 L9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="30" refY="9" refX="0" id="ZERO_OR_ONE_START"><circle r="6" cy="9" cx="21" fill="white" stroke="gray"></circle><path d="M9,0 L9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="30" refY="9" refX="30" id="ZERO_OR_ONE_END"><circle r="6" cy="9" cx="9" fill="white" stroke="gray"></circle><path d="M21,0 L21,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="45" refY="18" refX="18" id="ONE_OR_MORE_START"><path d="M0,18 Q 18,0 36,18 Q 18,36 0,18 M42,9 L42,27" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="45" refY="18" refX="27" id="ONE_OR_MORE_END"><path d="M3,9 L3,27 M9,18 Q27,0 45,18 Q27,36 9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="57" refY="18" refX="18" id="ZERO_OR_MORE_START"><circle r="6" cy="18" cx="48" fill="white" stroke="gray"></circle><path d="M0,18 Q18,0 36,18 Q18,36 0,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="57" refY="18" refX="39" id="ZERO_OR_MORE_END"><circle r="6" cy="18" cx="9" fill="white" stroke="gray"></circle><path d="M21,18 Q39,0 57,18 Q39,36 21,18" fill="none" stroke="gray"></path></marker></defs><g transform="translate(20,20 )" id="entity-productrepositories-e5ba38d2-6027-5090-93d3-33902bca8efe"><rect height="68.18359375" width="262.75" y="0" x="0" class="er entityBox"></rect><text style="dominant-baseline: middle; text-anchor: middle; font-size: 12px;" transform="translate(131.375,12)" y="0" x="0" id="text-entity-productrepositories-e5ba38d2-6027-5090-93d3-33902bca8efe" class="er entityLabel">product_repositories</text><rect height="22.091796875" width="28.765625" y="24" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,35.0458984375)" y="0" x="0" id="text-entity-productrepositories-e5ba38d2-6027-5090-93d3-33902bca8efe-attr-1-type" class="er entityLabel">text</text><rect height="22.091796875" width="56.234375" y="24" x="28.765625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(33.765625,35.0458984375)" y="0" x="0" id="text-entity-productrepositories-e5ba38d2-6027-5090-93d3-33902bca8efe-attr-1-name" class="er entityLabel">repository</text><rect height="22.091796875" width="177.75" y="24" x="85" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(90,35.0458984375)" y="0" x="0" id="text-entity-productrepositories-e5ba38d2-6027-5090-93d3-33902bca8efe-attr-1-comment" class="er entityLabel"></text><rect height="22.091796875" width="28.765625" y="46.091796875" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,57.1376953125)" y="0" x="0" id="text-entity-productrepositories-e5ba38d2-6027-5090-93d3-33902bca8efe-attr-2-type" class="er entityLabel">text</text><rect height="22.091796875" width="56.234375" y="46.091796875" x="28.765625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(33.765625,57.1376953125)" y="0" x="0" id="text-entity-productrepositories-e5ba38d2-6027-5090-93d3-33902bca8efe-attr-2-name" class="er entityLabel">role</text><rect height="22.091796875" width="177.75" y="46.091796875" x="85" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(90,57.1376953125)" y="0" x="0" id="text-entity-productrepositories-e5ba38d2-6027-5090-93d3-33902bca8efe-attr-2-comment" class="er entityLabel">~ altered · was any kebab-case word</text></g></svg></figure>
+<div class="compare">
+<div><div class="label">Today</div><pre><span class="line ctx">role text check (role ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$')</span><span class="line ctx">product_repository_link(): any such word</span></pre></div>
+<div><div class="label">After</div><pre><span class="line ctx">role text check (role ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$')</span><span class="line add">update … set role = 'api' where role in ('back-end','backend') …</span><span class="line add">product_repository_link(): one of the nine, or the row's own old value</span></pre></div>
+</div>
+<table>
+<tr><th>table</th><th>change</th><th>detail</th></tr>
+<tr><td><code>product_repositories</code></td><td>data mapped</td><td>alias roles rewritten once; no column added or dropped</td></tr>
+<tr><td><code>product_repository_link()</code></td><td>function replaced</td><td>refuses a new role outside the nine (22023, hint <code>role</code>)</td></tr>
+</table>
+</div>
+<div data-section="api" data-state="na">
+<h4>API / schema</h4>
+<p>N/A — the function keeps its signature; only what it accepts narrows.</p>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<p>A caller sending <code>back-end</code> as a new role is refused with <code>Role: back-end is not a role (api, web, mobile, ui, library, infra, plan, doc, monorepo).</code>; re-saving a row with its own old value is accepted.</p>
+</div>
+</div>
+</section>
+<script>if (location.hash === '#technical') document.getElementById('tab-technical').checked = true;</script>
+</body>
+</html>

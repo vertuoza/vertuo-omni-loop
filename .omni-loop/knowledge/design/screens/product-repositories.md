@@ -3,7 +3,7 @@ screen: product-repositories
 status: draft
 kind: page
 mock: product-repositories.html
-implements: ["apps/galaxy/app/app/products/[id]/repositories/page.tsx", apps/galaxy/src/product-repositories/RepositoriesTab.tsx, apps/galaxy/src/product-repositories/RepositoriesTabPage.tsx]
+implements: ["apps/galaxy/app/app/products/[id]/repositories/page.tsx", apps/galaxy/src/product-repositories/RepositoriesTab.tsx, apps/galaxy/src/product-repositories/RepositoriesTabPage.tsx, apps/galaxy/src/product-repositories/LinksSection.tsx]
 reads: [apps/galaxy/src/product-repositories/repositories-tab.service.ts, apps/galaxy/src/product-home/ProductHome.tsx]
 routes: [/app/products/<id>/repositories]
 supersedes: null
@@ -24,7 +24,9 @@ way (PRD 2011). The plan repository is the one `POST /api/v1/mega-bug-fixes` acc
 - Still in the plan repository: one line each for a repository below step 5 (`nimbus-web · step 3`)
   and for an open record born in git (`roadmap 0412 · in git`).
 - The one primary action: Add a repository, as PRD 1364 drew it.
-- Below, the repositories and approvers as PRD 1364 drew them.
+- Below, the repositories and approvers as PRD 1364 drew them. A repository's **Role** is a select of
+  the nine canonical roles (api, web, mobile, ui, library, infra, plan, doc, monorepo), beside
+  Knowledge (PRD 2346).
 
 ## States
 
@@ -35,10 +37,13 @@ way (PRD 2011). The plan repository is the one `POST /api/v1/mega-bug-fixes` acc
 - A refused save says why under the picker, in the database's words: not an owner, a repository the
   workspace does not list (or removed), an archived product.
 
+- A role saved before PRD 2346 that is not one of the nine stays selected, as the select's first
+  option, with `<role> is not a role: pick one` under the row, until an owner picks one.
+
 ## Words
 
 `Plan repository`, `None`, `Save`, `Only a workspace owner changes the plan repository.`,
-`Still in the plan repository`, `step <n>`, `in git`.
+`Still in the plan repository`, `step <n>`, `in git`, `Role`, `<role> is not a role: pick one`.
 
 ## Refusals
 
@@ -49,8 +54,12 @@ way (PRD 2011). The plan repository is the one `POST /api/v1/mega-bug-fixes` acc
 
 - The words of the list when nothing is left in the plan repository.
 
+- Whether the nine roles show their one-line definitions (from `docs/guide/knowledge-map.md`) as
+  tooltips on the select.
+
 ## Source
 
 /omni:brainstorm, PRD 2011: .omni-loop/delivery/shipped/2011-product-records/before-after.html (reworked
 2026-10-16: no archive, the plan repository is kept). The plan repository's picker: 2026-10-20, so an
 owner names it from the app, not only through product_plan_repository_set().
+The Role select: /omni:brainstorm, PRD 2346: .omni-loop/delivery/inbox/2346-knowledge-by-domain-and-layer/before-after.html.
