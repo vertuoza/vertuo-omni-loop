@@ -37,24 +37,24 @@
 <body>
 <div class="wrap">
   <h1>PRD 1870 — A plan declares the contract each slice changes</h1>
-  <p class="sub">Nothing on a screen changes. What changes is one column of a plan's slice table, one key of a repository's config, what <code>omni plan check</code> refuses, and which targets a plan repository copies the planning config of. Today beside after, on the case that found the gap: PRD 229's plan in <code>vertuo-automation-plan</code>.</p>
+  <p class="sub">Nothing on a screen changes. What changes is one column of a plan's slice table, one key of a repository's config, what <code>omni plan check</code> refuses, and which targets a plan repository copies the planning config of. Today beside after, on the case that found the gap: PRD 229's plan in <code>nimbus-plan</code>.</p>
 
   <h2>1. The slice table</h2>
   <div class="cols">
     <div class="col today"><h3>Today</h3>
 <pre>| id | repo               | slice                                | territory                                  | blocked by | wave |
 | --- | ------------------ | ------------------------------------ | ------------------------------------------ | ---------- | ---- |
-| s1 | vertuo-backend-php | the kernel renders the mail types… | `packages/services/kernel/src/graphql/…`   | —          | 1    |
-| s2 | vertuo-apps        | the V3 page lists the templates…   | `apps/vertuo-front/src/views/…`            | s1         | 2    |
-| s4 | vertuo-backend-php | the kernel creates and edits…      | `packages/services/kernel/src/usecases/…`  | s1         | 2    |</pre>
+| s1 | nimbus-backend-php | the kernel renders the mail types… | `packages/services/kernel/src/graphql/…`   | —          | 1    |
+| s2 | nimbus-apps        | the V3 page lists the templates…   | `apps/nimbus-front/src/views/…`            | s1         | 2    |
+| s4 | nimbus-backend-php | the kernel creates and edits…      | `packages/services/kernel/src/usecases/…`  | s1         | 2    |</pre>
       <p>What s1 and s4 change for their callers is in the "done when" prose, three screens down. A machine cannot read it; a reviewer may miss it.</p>
     </div>
     <div class="col after"><h3>After</h3>
 <pre>| id | repo               | slice                                | territory                                  | <span class="green">contract</span> | blocked by | wave |
 | --- | ------------------ | ------------------------------------ | ------------------------------------------ | <span class="green">--------</span> | ---------- | ---- |
-| s1 | vertuo-backend-php | the kernel renders the mail types… | `packages/services/kernel/src/graphql/…`   | <span class="green">api</span>      | —          | 1    |
-| s2 | vertuo-apps        | the V3 page lists the templates…   | `apps/vertuo-front/src/views/…`            | —        | s1         | 2    |
-| s4 | vertuo-backend-php | the kernel creates and edits…      | `packages/services/kernel/src/usecases/…`  | <span class="green">none</span>     | s1         | 2    |</pre>
+| s1 | nimbus-backend-php | the kernel renders the mail types… | `packages/services/kernel/src/graphql/…`   | <span class="green">api</span>      | —          | 1    |
+| s2 | nimbus-apps        | the V3 page lists the templates…   | `apps/nimbus-front/src/views/…`            | —        | s1         | 2    |
+| s4 | nimbus-backend-php | the kernel creates and edits…      | `packages/services/kernel/src/usecases/…`  | <span class="green">none</span>     | s1         | 2    |</pre>
       <p>A column read by its name: one or more of the receiving repository's kinds (<code>api</code>, <code>db</code>, <code>api, db</code> by default) or <code>none</code> on every slice of a repository that asks; <code>—</code> on the others. s4 changes nothing for its callers and now says so.</p>
     </div>
   </div>
@@ -62,7 +62,7 @@
   <h2>2. The repository that receives the slice asks</h2>
   <div class="cols">
     <div class="col today"><h3>Today</h3>
-<pre># vertuo-backend-php/.omni-loop/config.yml
+<pre># nimbus-backend-php/.omni-loop/config.yml
 flow:
   areas:
     migrations:
@@ -71,7 +71,7 @@ flow:
       <p>The back-end already writes the rules of its own paths. No key says "my slices declare their contract".</p>
     </div>
     <div class="col after"><h3>After</h3>
-<pre># vertuo-backend-php/.omni-loop/config.yml
+<pre># nimbus-backend-php/.omni-loop/config.yml
 flow:
   areas:
     migrations: …
@@ -106,23 +106,23 @@ collisions: none
   <div class="cols">
     <div class="col today"><h3>Today</h3>
 <pre>.omni-loop/knowledge/repos/
-└── vertuo-apps/            knowledge: imported
+└── nimbus-apps/            knowledge: imported
     ├── playbook/ …
     └── flow/config.yml     ← its planning config, copied
 
-(vertuo-backend-php is knowledge: own → no folder, nothing copied)</pre>
+(nimbus-backend-php is knowledge: own → no folder, nothing copied)</pre>
       <p>Only an <code>imported</code> target's planning config reaches the plan repository. An <code>own</code> target's flow areas and <code>landings.alone</code> are never read by <code>plan check</code> here.</p>
     </div>
     <div class="col after"><h3>After</h3>
 <pre>.omni-loop/knowledge/repos/
-├── vertuo-apps/            knowledge: imported
+├── nimbus-apps/            knowledge: imported
 │   ├── playbook/ …
 │   └── flow/config.yml
-<span class="green">└── vertuo-backend-php/     knowledge: own
+<span class="green">└── nimbus-backend-php/     knowledge: own
     └── flow/config.yml     ← flow, landings, pr, contracts — and nothing else</span>
 
 $ omni targets
-vertuo-backend-php  back-end  own  v0.0.395  <span class="red">stale (flow not copied)</span>   ← until mega-invade --sync</pre>
+nimbus-backend-php  back-end  own  v0.0.395  <span class="red">stale (flow not copied)</span>   ← until mega-invade --sync</pre>
       <p>Every target's planning config is copied, <code>own</code> and <code>none</code> included; a knowledge base is still never copied unless imported. <code>omni targets</code> says when a copy is missing or behind; <code>--sync</code> redraws it.</p>
     </div>
   </div>

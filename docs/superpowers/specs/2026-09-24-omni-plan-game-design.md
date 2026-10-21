@@ -24,16 +24,16 @@ The central object is the planet (the PRD), and the goal is to terraform it toge
 
 ## 3. The delivery layer (what exists, and two changes)
 
-The delivery machinery lives in each engineering repository today (`vertuo-ai-domain` is the reference):
+The delivery machinery lives in each engineering repository today (`nimbus-brain` is the reference):
 
 - `docs/inbox/<prd>-<topic>.md`: the PRD's charter. Front matter only: `prd`, `title`, `blocked-by`, `plan`, `spec`. No status, priority or value field, ever.
 - A plan splits the PRD into **waves** of **slices**; each slice is a sub-PR into `feat/<topic>`; one feature PR goes into `main`.
 - `docs/outbox/<prd>/<slice>-<nn>-<slug>.md`: a decision an agent took and kept building on. Ranks `human-action`, `high`, `medium`; items bearing on an invariant or business rule floor at `high`. Settling yields `agreed` (closed) or `drifted` (build is wrong; a rework sub-PR closes it).
-- `/vertuo-yolo #<prd>` runs every wave, asks nothing, ends with the feature PR ready and `ci/outbox` red, which is the expected end state. The board is rebuilt from GitHub each run; re-running resumes.
+- `/nimbus-yolo #<prd>` runs every wave, asks nothing, ends with the feature PR ready and `ci/outbox` red, which is the expected end state. The board is rebuilt from GitHub each run; re-running resumes.
 
 Two changes, both justified without the game:
 
-**3.1 `/omni-yolo <prd>`** is `/vertuo-yolo` moved to `vertuo-omni-plan`, so it can dispatch to whichever engineering repository carries an inbox file for the PRD. Same behaviour, same guardrails (never asks, never merges `main`, never labels `outbox:go`).
+**3.1 `/omni-yolo <prd>`** is `/nimbus-yolo` moved to `nimbus-plan`, so it can dispatch to whichever engineering repository carries an inbox file for the PRD. Same behaviour, same guardrails (never asks, never merges `main`, never labels `outbox:go`).
 
 **3.2 Claim first.** Today a slice is runnable when every blocker is merged and no sub-PR is open, and the sub-PR is opened after the build. Two concurrent runs therefore build the same slices. The slice subagent will open its draft sub-PR (`pr:sub`, `pr:in-progress`, one empty commit) **before** building. A second run excludes claimed slices. A claim whose status comment is older than an hour and whose branch has no new commits is stale and may be taken over, which is the existing "in flight" rule.
 
@@ -41,7 +41,7 @@ Two changes, both justified without the game:
 
 > **Superseded (2026-09-25).** Sectors and fleets now live in Supabase, and players pick their fleet in the arcade instead of GitHub teams deciding it: [`2026-09-25-omni-loop-teams-and-heroes-design.md`](2026-09-25-omni-loop-teams-and-heroes-design.md) §4–§7. `projects.yml` is gone. The text below is kept as the original design.
 
-`projects.yml` at the root of `vertuo-omni-plan` is a plain org fact OmniMan needs to dispatch, not a game file:
+`projects.yml` at the root of `nimbus-plan` is a plain org fact OmniMan needs to dispatch, not a game file:
 
 ```yaml
 # placeholders: fill with the real repositories and home sectors
@@ -64,7 +64,7 @@ Working calendar: Monday to Friday, 09:00 to 18:00, `Europe/Brussels`. One const
 
 ### 5.1 Planet = PRD
 
-A planet is born when an issue labelled `prd` is opened in `vertuo-omni-plan`. Its **regions** are the engineering repositories carrying an inbox file for that `prd` number. Its **captain** is the PRD's assignee (the PM); its **owning team** is the captain's team.
+A planet is born when an issue labelled `prd` is opened in `nimbus-plan`. Its **regions** are the engineering repositories carrying an inbox file for that `prd` number. Its **captain** is the PRD's assignee (the PM); its **owning team** is the captain's team.
 
 | State | Derived from |
 |---|---|
@@ -222,7 +222,7 @@ Modules as built, flat under `game/`: `rulebook.mjs`, `calendar.mjs`, `events.mj
 
 ### 7.1 Events
 
-Each event: `{ id, at, type, planet, region?, contributor?, team?, data }`. `id` is deterministic, `source:identity:state` (e.g. `pr:vertuo-ai-domain#1042:merged`, `outbox:985/s7-01-default-country:settled`), so replaying history appends nothing new.
+Each event: `{ id, at, type, planet, region?, contributor?, team?, data }`. `id` is deterministic, `source:identity:state` (e.g. `pr:nimbus-brain#1042:merged`, `outbox:985/s7-01-default-country:settled`), so replaying history appends nothing new.
 
 Types: `PLANET_CHARTED`, `REGION_SURVEYED`, `PLANET_LOCKED`, `PLANET_UNLOCKED`, `ZONE_OPENED`, `ZONE_CLAIMED`, `ZONE_SECURED`, `ZONE_REVERTED`, `WOUND_OPENED`, `WOUND_CLOSED`, `DISTRESS`, `RESCUE`, `PLANET_READY`, `PLANET_TERRAFORMED`, `PLANET_LOST`, `PLANET_DECOMMISSIONED`. There is no plan-change event: a plan change surfaces as new `ZONE_OPENED` events.
 
@@ -232,7 +232,7 @@ A wound event carries its kind (5.3) and, for outbox items, the rank. Decay is n
 
 > **Superseded (2026-09-25).** The ledger now lives in Supabase (`public.ledger_events`), written directly by the game workflow; nothing is committed to git. See [`2026-09-25-omni-loop-teams-and-heroes-design.md`](2026-09-25-omni-loop-teams-and-heroes-design.md) §7.
 
-Option A now: the ledger lives in git, in `vertuo-omni-plan` under `game/ledger/`, one file per month. A GitHub Action polls every 15 minutes, with a `concurrency` group so two polls never append together, and commits with `[skip ci]`. The projector also runs on demand (`pnpm game:project`).
+Option A now: the ledger lives in git, in `nimbus-plan` under `game/ledger/`, one file per month. A GitHub Action polls every 15 minutes, with a `concurrency` group so two polls never append together, and commits with `[skip ci]`. The projector also runs on demand (`pnpm game:project`).
 
 The event format is the contract. When a live galaxy page needs it, the ledger is imported into a database (Supabase) behind a web UI (Vercel); nothing upstream changes.
 
@@ -240,7 +240,7 @@ The event format is the contract. When a live galaxy page needs it, the ledger i
 
 | Need | Read from |
 |---|---|
-| Planets, captain, owning team | `vertuo-omni-plan` issues labelled `prd`, assignee, GitHub teams |
+| Planets, captain, owning team | `nimbus-plan` issues labelled `prd`, assignee, GitHub teams |
 | Regions, `blocked-by` | `docs/inbox/*.md` in each repository named in `projects.yml` |
 | Zones, phases, claims | sub-PRs into `feat/<topic>`: labels `pr:sub`, `pr:in-progress`, `pr:needs-fix`, `merged_at`, head branch |
 | Outbox wounds | open `docs/outbox/<prd>/*.md` (rank from front matter); `settled.md` entries (verdict, `--at`, `--by`) |
@@ -273,13 +273,13 @@ Your run: claiming s4, s6
 - `economy.mjs` is pure: fixture ledgers cover a beacon ignored for a week, a night shift, a cross-team rescue, an abandonment with clawback, a season boundary, a streak reset. Each fixture asserts the exact points per person and team.
 - `projector.mjs` runs against recorded GitHub JSON fixtures; replaying the same fixtures twice must append nothing (idempotency).
 - `render/` is snapshot-tested on the banner.
-- Claim-first is tested in the engineering repository's `vertuo-parallel-wave` tests: two boards built from the same fixtures, the second excluding the first's claims.
+- Claim-first is tested in the engineering repository's `nimbus-parallel-wave` tests: two boards built from the same fixtures, the second excluding the first's claims.
 
 ## 10. MVP, in order
 
-1. **Claim first** in `vertuo-parallel-wave`, and `/omni-yolo` in `vertuo-omni-plan`. Usable without any game.
+1. **Claim first** in `nimbus-parallel-wave`, and `/omni-yolo` in `nimbus-plan`. Usable without any game.
 2. **Projector + ledger + banner.** `/omni-yolo` prints the planet. A donor feels they joined something.
-3. **Economy + rankings.** The scheduled Action writes the season snapshot and posts a weekly rankings comment (individuals and teams) on a pinned issue in `vertuo-omni-plan`.
+3. **Economy + rankings.** The scheduled Action writes the season snapshot and posts a weekly rankings comment (individuals and teams) on a pinned issue in `nimbus-plan`.
 4. **Galaxy page**, static, from the season snapshot: sectors, planets as circles, threat as colour, wound counts, distress pulses.
 
 Not in the MVP: animations, sprites, hero profiles, fleet screens, OmniMan recommending missions, Supabase/Vercel.

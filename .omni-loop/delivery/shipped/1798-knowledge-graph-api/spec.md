@@ -130,7 +130,7 @@ Authorization: Bearer <access token>
 - The push route, `POST /api/knowledge/graphs {repo, commit, graph}`, receives through
   `receivePush` (`apps/galaxy/src/data/kit-push.ts`) with a 2 MiB cap (413 above it). It validates
   `graph` with the schema the kit exports beside P5's types (imported from
-  `vertuo-omni-plan/kit/lib/knowledge/neighbourhood.ts`, as `src/roadmap/api.ts` imports the kit's
+  `omni-loop/kit/lib/knowledge/neighbourhood.ts`, as `src/roadmap/api.ts` imports the kit's
   ids), and refuses an unknown field. It refuses with 403 a repository no workspace of the caller
   tracks, as `src/roadmap/api.ts` does. It answers `{repo, commit, nodes, edges, products: [{key,
   href}]}`; a repository in no product is stored, and `products` is empty.

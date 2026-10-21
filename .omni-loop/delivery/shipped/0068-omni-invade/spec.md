@@ -218,7 +218,7 @@ PRD.
 **Human steps** (never taken by the work):
 
 1. Merge PRD 45 first.
-2. After this PRD ships, run `/omni:invade` on `vertuoza/vertuo-workflow-domain` (PHP), the kit's
+2. After this PRD ships, run `/omni:invade` on `demo-org/nimbus-workflow-domain` (PHP), the kit's
    acceptance repository (PRD 39), and review its pull request.
 
 ## Test seams

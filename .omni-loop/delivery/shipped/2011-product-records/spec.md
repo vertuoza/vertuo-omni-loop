@@ -113,7 +113,7 @@ back down changes only where new records are born.
   copies keep working exactly as today, side by side with the product way: a repository below step 5
   stays on the old way, and a record born in git finishes in git.
 - A product's Repositories tab shows, as information only, each repository's ladder step and what
-  still lives in its plan repository (`vertuo-web · step 3`, `roadmap 0412 · born in git, open`). It
+  still lives in its plan repository (`nimbus-web · step 3`, `roadmap 0412 · born in git, open`). It
   offers no archive action, and the App gets no new GitHub permission.
 
 ## Decisions
@@ -260,7 +260,7 @@ None of these laws changes: the design must keep each, and its test must stay gr
    unmerged leaves its row `closed, not merged` and the record open.
 6. `/omni:mega-bug-fix --product mobile` opens fix PRs whose body holds `Fixes mobile-B<n> · <link>`,
    the reproduction line and the guard line, and opens no record PR.
-7. After a merge touching `vertuo-api`'s knowledge folder, `omni kb pack get vertuo-api` writes a
+7. After a merge touching `nimbus-api`'s knowledge folder, `omni kb pack get nimbus-api` writes a
    folder whose files hash to that commit's files and prints its path; with the server unreachable it
    prints the newest pack already fetched with its sha and age; when the newest pack is older than
    the link's `read_at`, `/omni:do-work` stops with `pack stale: <sha> < read_at <sha>`.

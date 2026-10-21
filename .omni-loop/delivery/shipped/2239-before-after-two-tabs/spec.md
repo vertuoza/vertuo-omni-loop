@@ -10,8 +10,8 @@ phase0: server
 
 **Date:** 2026-10-20 · **PRD:** #2239 · **Follows:** PRD 1584 (design memory, round 3), which split the
 page into a Functional part and a Pixel perfect part. **Compared with:** PRD 0117 of
-`vertuoza/vertuo-automation-plan` (fiscal years per subsidiary), whose page showed each repository's
-table and GraphQL API as TODAY / AFTER code blocks, and `vertuo-backend-php`'s `plan-brief` skill, whose
+`demo-org/nimbus-plan` (fiscal years per subsidiary), whose page showed each repository's
+table and GraphQL API as TODAY / AFTER code blocks, and `nimbus-backend-php`'s `plan-brief` skill, whose
 brief gives a GraphQL change table and a before/after SDL block per type. **Touches:** a new
 `kit/lib/before-after/` module, `kit/templates/before-after/page.html`, two new `omni` verbs,
 `kit/lib/inbox/check-inbox.ts`, the skills `brainstorm` (step 5 and **Rework**) and `mega-brainstorm`
@@ -196,7 +196,7 @@ A page without the meta is graded as today, on its size alone: no PRD already in
    not bundle Mermaid (its size, and `kit/dist` is committed). Reversible: a later PRD may vendor it.
 6. **Six types at most per API section**, breaking first; the change table still lists every element.
    `plan-brief` stops at four; a multi-repository PRD often touches more.
-7. **The breaking rule is the kit's own, generic**, not `vertuo-backend-php`'s ADR-0001: a target's
+7. **The breaking rule is the kit's own, generic**, not `nimbus-backend-php`'s ADR-0001: a target's
    conventions may make it stricter.
 8. **Proof video: none** (the person said no).
 

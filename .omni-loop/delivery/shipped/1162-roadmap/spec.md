@@ -40,8 +40,8 @@ open questions, each naming the phase it blocks. Today, turning that plan into d
   repository PRD: nothing loops across repositories.
 - **A wait says too little.** A blocked PRD's step reads "blocked by it until it ships", never which
   pull request a person must review or merge to move it.
-- **Rules a plan repository cannot state.** A target nobody may change (`vertuo-backend-php`) and a
-  package a consumer installs only once its provider merged (`@vertuoza/ai-sdk`) live in people's
+- **Rules a plan repository cannot state.** A target nobody may change (`nimbus-backend-php`) and a
+  package a consumer installs only once its provider merged (`@demo-org/ai-sdk`) live in people's
   heads; `omni plan check` passes a plan that breaks either.
 - **Omni has no place for it.** The app shows PRDs one by one; nothing shows a milestone, its order,
   and what blocks it.
@@ -257,8 +257,8 @@ prints the `/omni:mega-drive` line and stops; `/omni:mega-drive` in a repository
   to review first.
 - As a lead engineer, I open **Roadmaps**, pick the Crew product, and see the milestone's Gantt: what
   merged, what builds, what waits on whom.
-- As a back-end developer, `omni plan check` refuses a plan that touches `vertuo-backend-php`, or that
-  installs `@vertuoza/ai-sdk` in crew before ai-domain's change merged.
+- As a back-end developer, `omni plan check` refuses a plan that touches `nimbus-backend-php`, or that
+  installs `@demo-org/ai-sdk` in crew before ai-domain's change merged.
 - As a single-repository team, `/omni:roadmap` and `/loop /omni:drive --roadmap <n>` give me the same
   without a plan repository.
 

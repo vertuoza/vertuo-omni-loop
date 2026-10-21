@@ -9,7 +9,7 @@ phase0: server
 ## Problem
 
 `/omni:bug-fix` and `/omni:mega-bug-fix` run on runners with no one watching: an API key sends them
-(`POST /api/v1/bug-fixes`, `POST /api/v1/mega-bug-fixes`, PRD 2022), and vertuo-cleaner sends one per
+(`POST /api/v1/bug-fixes`, `POST /api/v1/mega-bug-fixes`, PRD 2022), and nimbus-cleaner sends one per
 error group. When the right behaviour is a decision, not a restoration, both skills stop by design
 (`bug-fix/SKILL.md` › The stop, `mega-bug-fix/SKILL.md` › the design boundary). They post a comment on
 the issue that ends with a `/omni:brainstorm` or `/omni:mega-brainstorm` line, and the job ends **Done**,
@@ -19,7 +19,7 @@ Nobody is told. The Runners page shows the job as Done, like a fix that worked. 
 comment on a GitHub issue that nobody watches, and its next step needs a person at a terminal. The
 automation stops at the first bug that needs a choice.
 
-The first real case was vertuoza/vertuo-automation-plan#314, on 2026-10-20. The planning query fails
+The first real case was demo-org/nimbus-plan#314, on 2026-10-20. The planning query fails
 for 31 tenants. The agent found the cause and three ways to fix it: make `project` nullable, drop the
 access check, or filter out the assignments the user may not see. It could not pick one alone, and
 nothing in Omni asked anyone.
@@ -154,7 +154,7 @@ service's words.
 
 - As anyone in the workspace, I see a badge on Runners, open the job that reads Need human, read why
   the fix stopped, pick an option and press Send answers. The fix starts again on its own.
-- As the person who set up vertuo-cleaner, a bug whose fix needs a choice no longer ends silently: it
+- As the person who set up nimbus-cleaner, a bug whose fix needs a choice no longer ends silently: it
   waits on the Runners page until someone answers.
 - As a reviewer of the fix's pull requests, I read on the issue who decided what, and when.
 - As a member who knows nobody should act on a question, I press Dismiss and the badge goes down.

@@ -90,7 +90,7 @@ Open on Omni · No video, no post.
 
 - Does Slack play an uploaded MP4 inline and muted in the feed? It is not documented; Craft and the
   Skeptic ask for a test post in a test channel before anything else.
-- The render engine: Thomas Margraff's `vertuoza/release-videos` as the provider behind
+- The render engine: Thomas Margraff's `demo-org/release-videos` as the provider behind
   `kit/lib/pitch/providers`, or Omni's own `kit/pitch-engine` porting its best parts (music sync,
   −16 LUFS, its check).
 - The narration provider for Spotlight: free Kokoro (not installed anywhere today, French and

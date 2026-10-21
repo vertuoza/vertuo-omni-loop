@@ -77,7 +77,7 @@
           "name": "B-E DEv",
           "stance": "skeptical",
           "score": 3,
-          "reaction": "readOnly on vertuo-backend-php and a check that refuses a consumer before its provider are rules I can trust.",
+          "reaction": "readOnly on nimbus-backend-php and a check that refuses a consumer before its provider are rules I can trust.",
           "citations": [
             "persona:B-E DEv"
           ]

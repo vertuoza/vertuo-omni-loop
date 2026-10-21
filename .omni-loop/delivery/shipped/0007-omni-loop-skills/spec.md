@@ -13,7 +13,7 @@ spec: file
 
 The kit can check, gate, settle and ship, but nothing drives it. The loop's steps are brainstorm → plan
 → build the slices wave by wave → record decisions → answer → rework → ship. Those steps live as
-`vertuo-*` skills inside `vertuo-ai-domain`, and they hard-code that repository. This repository cannot
+`vertuo-*` skills inside `nimbus-brain`, and they hard-code that repository. This repository cannot
 run its own loop, so every Omni Loop PRD so far has been built by hand.
 
 ## 2. Solution
@@ -23,9 +23,9 @@ types:
 
 | Command | Does | From upstream |
 |---|---|---|
-| `/omni:brainstorm` | an idea → the PRD issue, `inbox/<prd>-<topic>/{spec,plan}.md` and `before-after.html`, a docs-only phase-0 PR | `vertuo-brainstorming` (the superpowers steps written in; no `superpowers:` dependency) |
-| `/omni:yolo <prd>` | builds every wave and asks nothing. When items are open it ends with the gate red, the feature PR still in draft and the questions posted on it. When nothing is open it runs the ship step, then marks the feature PR ready (rule 7) | `vertuo-yolo` (deliver with the ask-nothing policy) |
-| `/omni:yolo-fix <prd>` | reads the replies on the PR, settles them, reworks each drifted decision as a slice, then ships | `vertuo-yolo-fix` (origin/main: replies, settle PR, post-merge path) |
+| `/omni:brainstorm` | an idea → the PRD issue, `inbox/<prd>-<topic>/{spec,plan}.md` and `before-after.html`, a docs-only phase-0 PR | `nimbus-brainstorming` (the superpowers steps written in; no `superpowers:` dependency) |
+| `/omni:yolo <prd>` | builds every wave and asks nothing. When items are open it ends with the gate red, the feature PR still in draft and the questions posted on it. When nothing is open it runs the ship step, then marks the feature PR ready (rule 7) | `nimbus-yolo` (deliver with the ask-nothing policy) |
+| `/omni:yolo-fix <prd>` | reads the replies on the PR, settles them, reworks each drifted decision as a slice, then ships | `nimbus-yolo-fix` (origin/main: replies, settle PR, post-merge path) |
 
 It also has four internal skills, which the three above follow and a person may also run:
 `/omni:plan`, `/omni:wave`, `/omni:do-work`, `/omni:pr`.

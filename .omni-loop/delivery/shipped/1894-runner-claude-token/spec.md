@@ -20,7 +20,7 @@ and gives that session only `PATH` and `OMNI_TOKEN` (`jobEnv` in `kit/bin/comman
 tmux session takes the rest of its variables from the tmux server, not from the runner. So a runner
 started with `CLAUDE_CODE_OAUTH_TOKEN` set runs jobs that never see it: Claude falls back to its
 stored sign-in, and when that has expired the job fails with "OAuth session expired". On
-vertuo-agents, on 2026-10-14, that is how the first `/omni:pr-care` job ended. The start script now
+nimbus-agents, on 2026-10-14, that is how the first `/omni:pr-care` job ended. The start script now
 works around it with `tmux set-environment -g CLAUDE_CODE_OAUTH_TOKEN …`.
 
 ## Solution
@@ -57,7 +57,7 @@ works around it with `tmux set-environment -g CLAUDE_CODE_OAUTH_TOKEN …`.
 In: the env group, `jobEnv`, their tests, and the README line.
 
 Out: any other variable passed to jobs, refreshing or checking the token, and the start script on
-vertuo-agents, which is the infrastructure repository's and drops its workaround after this ships.
+nimbus-agents, which is the infrastructure repository's and drops its workaround after this ships.
 
 ## Test seams
 
@@ -71,7 +71,7 @@ Every test runs on fixtures: none calls Claude, GitHub or the Omni page (testing
 
 ## Risks
 
-- **What merging publishes:** the next kit release carries it; the runner on vertuo-agents picks it
+- **What merging publishes:** the next kit release carries it; the runner on nimbus-agents picks it
   up after a `git pull` and a restart.
 - **The token on the command line:** tmux receives each session variable as an argument, so the token
   shows in `ps` on the box for the instant tmux starts, as `OMNI_TOKEN` already does. A runner's box
@@ -87,5 +87,5 @@ Every test runs on fixtures: none calls Claude, GitHub or the Omni page (testing
 3. The runner never prints the token, in any line.
 4. The kit README's runner section says to export `CLAUDE_CODE_OAUTH_TOKEN` from
    `claude setup-token` on a headless server.
-5. On vertuo-agents, with the `tmux set-environment` line removed from the start script, a job sent
+5. On nimbus-agents, with the `tmux set-environment` line removed from the start script, a job sent
    from the app signs in to Claude and runs.

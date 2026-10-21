@@ -155,7 +155,7 @@ Low. Reading a Mac's memory without its cache is one function in the sampler (pa
 
 (author) The PRD, the registers and the glossary do not settle this:
 
-- (author) The spec names `total − os.freemem()` for every platform but Linux, and its user stories name Linux runners (vertuo-agents); whether anyone runs a runner on a Mac today is not written anywhere.
+- (author) The spec names `total − os.freemem()` for every platform but Linux, and its user stories name Linux runners (nimbus-agents); whether anyone runs a runner on a Mac today is not written anywhere.
 
 ```
 

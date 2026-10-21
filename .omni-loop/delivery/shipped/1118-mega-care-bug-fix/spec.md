@@ -206,7 +206,7 @@ to any other target. Every other stop rule is `/omni:bug-fix`'s, said once for t
 
 1. As a PM, after `/omni:ultra-yolo`, I run `/omni:mega-pr-care 1200` once, and the plan PR and every
    target PR stay conflict-free, green and review-handled while I do other things.
-2. As a front-end developer, my PR shows `waits on vertuo-backend-php#41` instead of a pile of failed
+2. As a front-end developer, my PR shows `waits on nimbus-backend-php#41` instead of a pile of failed
    fix attempts, and it goes green by itself once the back-end PR merges.
 3. As a back-end developer, a wave building in the front-end never stops care from handling the
    review comments on my PR.
