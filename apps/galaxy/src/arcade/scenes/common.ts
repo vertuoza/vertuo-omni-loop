@@ -64,7 +64,7 @@ export interface FrameState {
   game?: Game | null;   // the game being played (invaders), laid out for `grid`
   kart?: KartDraw | null; // OMNI KART once its code has loaded (kart); null while it loads or when it did not
   duet?: DuetDraw | null; // OMNI DUET once its code has loaded (duet); null while it loads or when it did not
-  pong?: PongDraw | null; // OMNI PONG once its code has loaded (pong); null while it loads or when it did not
+  pong?: PongDraw | null; // PULSAR VOLLEY once its code has loaded (pong); null while it loads or when it did not
 }
 
 /**
@@ -79,7 +79,7 @@ export interface KartDraw { draw(ctx: CanvasRenderingContext2D, s: FrameState): 
  */
 export interface DuetDraw { draw(ctx: CanvasRenderingContext2D, s: FrameState): void }
 
-/** OMNI PONG as the canvas holds it once `arcade/pong/` has been imported (PRD 2101): it draws its court on the frame's whole grid. */
+/** PULSAR VOLLEY as the canvas holds it once `arcade/pong/` has been imported (PRD 2101): it draws its court on the frame's whole grid. */
 export interface PongDraw { draw(ctx: CanvasRenderingContext2D, s: FrameState): void }
 
 /** What the star chart's two scenes draw: the knowledge, its suns and the open system, laid out on the frame's grid. */

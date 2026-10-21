@@ -383,10 +383,10 @@ describe('How to play\'s LEVELS', () => {
     expect([1, 2, 3, 4, 5].map((n) => beside(text, `LV ${n}`))).toEqual(['1', '50', '150', '300', '500']);
     expect(text).not.toContain('LV 6');
     expect(beside(text, 'ENTROPY INVADERS')).toBe('LV 1');
-    expect(beside(text, 'SUPER OMNI WORLD')).toBe('LV 2');
+    expect(beside(text, 'STARHOP')).toBe('LV 2');
     expect(beside(text, 'OMNI KART')).toBe('LV 3');
     expect(beside(text, 'OMNI DUET')).toBe('LV 4');
-    expect(beside(text, 'OMNI PONG')).toBe('LV 5');
+    expect(beside(text, 'PULSAR VOLLEY')).toBe('LV 5');
     expect(text.some((s) => s.includes('UP TO LV 99')), text.join(' | ')).toBe(true);
   });
 

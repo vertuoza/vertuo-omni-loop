@@ -1,5 +1,5 @@
 'use client';
-// Super Omni World's text layer (PRD 817), over the game's own canvas: the score line (the score,
+// Starhop's text layer (PRD 817), over the game's own canvas: the score line (the score,
 // the coins, the lives, the stage and the time left) and the screen over the stage when one is up:
 // the ready screen, the pause, the stage clear, WORLD CLEAR, the game over with where sending its
 // score stands, and the way back when Phaser did not load. Laid out for the grid the game is drawn

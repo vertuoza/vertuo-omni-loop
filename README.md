@@ -134,3 +134,10 @@ real repositories.
 The workflow polls every 15 minutes and posts rankings every Monday. It does nothing until it is
 switched on. The token, rankings issue and `GAME_ENABLED` steps are described in
 [`game/README.md` › Setup](game/README.md#setup).
+
+## License
+
+Omni Loop is free software under the [GNU Affero General Public License v3.0](LICENSE)
+(`AGPL-3.0-only`). You may copy, change and share it; anyone who runs a changed version as a
+network service must publish its full source under the same license. The fonts in
+`packages/design/fonts/` keep their own SIL Open Font License, beside each font.

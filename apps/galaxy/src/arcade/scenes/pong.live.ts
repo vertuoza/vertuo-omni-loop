@@ -1,4 +1,4 @@
-// OMNI PONG inside the arcade shell (PRD 2101): the game as the arcade holds it while its scene is up.
+// PULSAR VOLLEY inside the arcade shell (PRD 2101): the game as the arcade holds it while its scene is up.
 // A hook of ArcadeApp: the import when the cabinet opens (and again on A after a failure), the game
 // stepped by the canvas loop, the presses, the pause from outside, the microphone stopped when the
 // scene closes, and the text layer, set only when it changes. The import itself is handed in by
@@ -18,7 +18,7 @@ export interface PongHooks { over(score: number): void; again(): void }
 
 const NO_HOOKS: PongHooks = { over: () => {}, again: () => {} };
 
-/** The loaded game OMNI PONG draws with, while its scene shows. */
+/** The loaded game PULSAR VOLLEY draws with, while its scene shows. */
 export const pongDrawOf = (scene: SceneName, pong: ArcadePong | null): PongGame | null => (scene === 'pong' ? pong?.game ?? null : null);
 
 /** The pong state once its game has loaded, or failed to. */

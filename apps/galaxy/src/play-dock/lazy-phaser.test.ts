@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { sure } from '../arcade/test/sure';
 
-// The lazy loading guard (PRD 817): Phaser is about 350 KB gzipped, and only SUPER OMNI WORLD needs
+// The lazy loading guard (PRD 817): Phaser is about 350 KB gzipped, and only STARHOP needs
 // it. It is fetched with a dynamic import('phaser') by the platformer's one way in
 // (arcade/platformer/PlatformerScreen.tsx), so a page that never opens the game never downloads it.
 // This walks the static imports from the dock's game and the arcade's Invaders scene, and fails if

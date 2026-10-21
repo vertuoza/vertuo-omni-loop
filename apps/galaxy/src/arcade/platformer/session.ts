@@ -1,4 +1,4 @@
-// A game of Super Omni World as the arcade holds it around the Phaser scene (PRD 817): the run the
+// A game of Starhop as the arcade holds it around the Phaser scene (PRD 817): the run the
 // rules keep (stage, score, coins, lives, clock) and which screen is up. The scene reads the held
 // buttons itself; a press reaches this file only for what the scene does not read: START to start
 // and pause, SELECT or B to leave the pause, A or START on a stage clear to go on to the next stage,
