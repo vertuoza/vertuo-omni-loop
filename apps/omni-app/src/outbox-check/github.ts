@@ -10,9 +10,9 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
-import type { CommentId, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { CONFIG_FILE, ConfigError, parseConfig } from 'omni-loop/kit/lib/config.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
+import type { CommentId, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { deferredOutput, NOT_ACTIVE_ON_PR, planPrdOf, prdDirs, prdOfTopic, pullKind, type PlanPrd } from '../evaluate/evaluate.ts';
 import { productPrdOf, type ProductPrdRef } from '../approved-check/state.ts';
 import { DEFAULT_CHECK_NAME } from '../publish/publish.ts';

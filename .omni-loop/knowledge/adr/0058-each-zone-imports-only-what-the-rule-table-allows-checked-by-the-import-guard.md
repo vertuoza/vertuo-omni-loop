@@ -38,7 +38,7 @@ PRD 1066 fixed the breaches and wrote the rules down as one table that a test en
 
    A test (`*.test.ts`, or a file in a `test/` folder) may also import `kit/test` and `kit/bin`; every
    other rule holds for tests too. A type-only import counts: it couples the layers all the same. An
-   import by package name (`vertuo-omni-plan/…`, `@omni/*`) names a package the importing package
+   import by package name (`omni-loop/…`, `@omni/*`) names a package the importing package
    declares. The `kit/test`, config and `game`-to-`supabase` rows are beyond PRD 1066's spec (items
    s3-01 and s3-03).
    `kit/pitch-engine` (PRD 1108) is the pitch's render engine, a React page `pnpm kit:build` bundles for
@@ -60,7 +60,7 @@ PRD 1066 fixed the breaches and wrote the rules down as one table that a test en
 5. **No import cycle:** `fallow dead-code --circular-deps` on the whole tree finds none.
 6. **The guard,** `scripts/import-guard.test.ts`, reads every tracked TypeScript file's imports from its
    syntax tree (static, `export … from`, dynamic `import('literal')`, `import x = require(…)`, and a
-   type's `import('…')`), resolves a relative path, `vertuo-omni-plan/…` and `@omni/*` (through each
+   type's `import('…')`), resolves a relative path, `omni-loop/…` and `@omni/*` (through each
    workspace package's name and `exports`) to a zone, checks the table, the client rule and the marker
    rule, naming the file, the line and the rule, and runs fallow's cycle check. No allowlist, no
    comment escape. It runs in `pnpm test`.

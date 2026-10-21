@@ -65,7 +65,7 @@ describe('the kit\'s sign-in', () => {
     ['bad', 'stolen-token'],
   ])('refuses a %s token before anything runs', async (_, token) => {
     const w = world({ jobs: [jobRow()] });
-    expect((await registerRunner(post('/register', token, { name: 'x', slots: 1, repos: ['vertuoza/app'], version: '1' }), w.deps)).status).toBe(401);
+    expect((await registerRunner(post('/register', token, { name: 'x', slots: 1, repos: ['demo-org/app'], version: '1' }), w.deps)).status).toBe(401);
     expect((await nextJob(kit(`/next?runner=${SHARED}`, token), w.deps)).status).toBe(401);
     expect((await reportJob(post('/jobs/x', token, { status: 'running' }), 'x', w.deps)).status).toBe(401);
     expect(w.state.jobs[0]?.status).toBe('queued');
@@ -82,15 +82,15 @@ describe('the kit\'s sign-in', () => {
 describe('POST /api/runners/register', () => {
   it('registers the runner and answers its id', async () => {
     const w = world();
-    const answered = await read(await registerRunner(post('/register', 'olga-token', { name: 'vertuo-agents', slots: 4, repos: ['vertuoza/app'], version: '0.0.387' }), w.deps));
-    expect(answered).toMatchObject({ status: 200, body: { name: 'vertuo-agents', fleet: null } });
+    const answered = await read(await registerRunner(post('/register', 'olga-token', { name: 'nimbus-agents', slots: 4, repos: ['demo-org/app'], version: '0.0.387' }), w.deps));
+    expect(answered).toMatchObject({ status: 200, body: { name: 'nimbus-agents', fleet: null } });
   });
 
   it('refuses a malformed body, and a name someone else registered', async () => {
     const w = world();
-    expect((await registerRunner(post('/register', 'olga-token', { name: 'x', slots: 9, repos: ['vertuoza/app'], version: '1' }), w.deps)).status).toBe(400);
+    expect((await registerRunner(post('/register', 'olga-token', { name: 'x', slots: 9, repos: ['demo-org/app'], version: '1' }), w.deps)).status).toBe(400);
     expect((await registerRunner(kit('/register', 'olga-token', { method: 'POST', body: 'not json' }), w.deps)).status).toBe(400);
-    expect((await registerRunner(post('/register', 'mo-token', { name: 'shared', slots: 1, repos: ['vertuoza/app'], version: '1' }), w.deps)).status).toBe(403);
+    expect((await registerRunner(post('/register', 'mo-token', { name: 'shared', slots: 1, repos: ['demo-org/app'], version: '1' }), w.deps)).status).toBe(403);
   });
 });
 
@@ -99,7 +99,7 @@ describe('GET /api/runners/next', () => {
     const job = jobRow({ line: '/omni:yolo 1717' });
     const w = world({ jobs: [job] });
     expect(await read(await nextJob(kit(`/next?runner=${SHARED}`, 'olga-token'), w.deps)))
-      .toEqual({ status: 200, body: { id: job.id, line: '/omni:yolo 1717', repo: 'vertuoza/app', sentBy: 'mo', allowedSkills: [] } });
+      .toEqual({ status: 200, body: { id: job.id, line: '/omni:yolo 1717', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: [] } });
   });
 
   it('answers 204 after the hold, and counts the check-in', async () => {
@@ -182,29 +182,29 @@ describe('POST /api/runners/jobs/<id>, a runner\'s report', () => {
 describe('POST /api/runners/jobs, from the browser', () => {
   it('queues a job and answers it', async () => {
     const w = world({ viewer: MO });
-    const answered = await read(await sendJob(browser('/jobs', { line: '/omni:yolo 1717', repo: 'vertuoza/app', target: { kind: 'fleet', fleet: 'cia' } }), w.deps));
+    const answered = await read(await sendJob(browser('/jobs', { line: '/omni:yolo 1717', repo: 'demo-org/app', target: { kind: 'fleet', fleet: 'cia' } }), w.deps));
     expect(answered).toMatchObject({ status: 200, body: { job: { line: '/omni:yolo 1717', toFleet: 'cia', status: 'queued', sentByLogin: 'mo' } } });
   });
 
   it('refuses a sender outside the fleet, a line off the list and a repository outside the workspace', async () => {
     const w = world({ viewer: PIA });
-    expect(await read(await sendJob(browser('/jobs', { line: '/omni:yolo 1717', repo: 'vertuoza/app', target: { kind: 'runner', runner: CIA_BOX } }), w.deps)))
+    expect(await read(await sendJob(browser('/jobs', { line: '/omni:yolo 1717', repo: 'demo-org/app', target: { kind: 'runner', runner: CIA_BOX } }), w.deps)))
       .toEqual({ status: 403, body: { error: 'cia-box serves cia: only its players and the workspace\'s owners send to it.' } });
-    expect((await sendJob(browser('/jobs', { line: '/omni:brainstorm x', repo: 'vertuoza/app', target: { kind: 'any' } }), w.deps)).status).toBe(400);
+    expect((await sendJob(browser('/jobs', { line: '/omni:brainstorm x', repo: 'demo-org/app', target: { kind: 'any' } }), w.deps)).status).toBe(400);
     expect((await sendJob(browser('/jobs', { line: '/omni:yolo 1', repo: 'elsewhere/app', target: { kind: 'any' } }), w.deps)).status).toBe(403);
     expect(w.state.jobs).toEqual([]);
   });
 
   it('refuses a browser with no session', async () => {
     const w = world({ viewer: null });
-    expect(await read(await sendJob(browser('/jobs', { line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } }), w.deps)))
+    expect(await read(await sendJob(browser('/jobs', { line: '/omni:yolo 1', repo: 'demo-org/app', target: { kind: 'any' } }), w.deps)))
       .toEqual({ status: 401, body: { error: 'Sign in first.' } });
   });
 });
 
 describe('POST /api/runners/jobs, from a service (PRD 1972)', () => {
-  const send = (token: string | null, repo = 'vertuoza/app') =>
-    post('/jobs', token, { line: '/omni:bug-fix https://github.com/vertuoza/app/issues/1', repo, target: { kind: 'any' } });
+  const send = (token: string | null, repo = 'demo-org/app') =>
+    post('/jobs', token, { line: '/omni:bug-fix https://github.com/demo-org/app/issues/1', repo, target: { kind: 'any' } });
 
   it('queues the job of a member\'s Bearer, sent by its person', async () => {
     const w = world({ viewer: null });
@@ -228,7 +228,7 @@ describe('POST /api/runners/jobs, from a service (PRD 1972)', () => {
 
   it('judges a header with no token by the header alone, never by the session', async () => {
     const w = world({ viewer: MO });
-    const body = JSON.stringify({ line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } });
+    const body = JSON.stringify({ line: '/omni:yolo 1', repo: 'demo-org/app', target: { kind: 'any' } });
     expect((await sendJob(new Request(`${URL_BASE}/jobs`, { method: 'POST', headers: { authorization: 'Bearer ' }, body }), w.deps)).status).toBe(401);
   });
 
@@ -334,20 +334,20 @@ describe('GET /api/runners/jobs/<id>/lines', () => {
 // workspace its repository belongs to, and a job's live lines, a member of that workspace only.
 describe('GET /api/runners, from the terminal (PRD 2251)', () => {
   it('answers a member the workspace\'s runners, in the contract\'s shape', async () => {
-    const response = await listRunners(kit('?repo=vertuoza/app', 'mo-token'), world().deps);
+    const response = await listRunners(kit('?repo=demo-org/app', 'mo-token'), world().deps);
     expect(response.headers.get('cache-control')).toContain('no-store');
     expect(await read(response)).toMatchObject({
-      status: 200, body: { runners: [{ name: 'cia-box', fleet: 'cia', state: 'online', used: 0, slots: 4, repos: ['vertuoza/app'] }, { name: 'other' }, { name: 'shared' }] },
+      status: 200, body: { runners: [{ name: 'cia-box', fleet: 'cia', state: 'online', used: 0, slots: 4, repos: ['demo-org/app'] }, { name: 'other' }, { name: 'shared' }] },
     });
   });
 
   it('refuses a missing or bad token with 401, even beside a valid session', async () => {
-    expect((await listRunners(kit('?repo=vertuoza/app', null), world({ viewer: MO }).deps)).status).toBe(401);
-    expect((await listRunners(kit('?repo=vertuoza/app', 'stolen-token'), world({ viewer: MO }).deps)).status).toBe(401);
+    expect((await listRunners(kit('?repo=demo-org/app', null), world({ viewer: MO }).deps)).status).toBe(401);
+    expect((await listRunners(kit('?repo=demo-org/app', 'stolen-token'), world({ viewer: MO }).deps)).status).toBe(401);
   });
 
   it('refuses a person outside the workspace with 403, and a query that names no repository with 400', async () => {
-    expect((await listRunners(kit('?repo=vertuoza/app', 'eve-token'), world().deps)).status).toBe(403);
+    expect((await listRunners(kit('?repo=demo-org/app', 'eve-token'), world().deps)).status).toBe(403);
     expect(await read(await listRunners(kit('', 'mo-token'), world().deps))).toEqual({ status: 400, body: { error: 'Name the repository as `repo=owner/name`.' } });
     expect((await listRunners(kit('?repo=app', 'mo-token'), world().deps)).status).toBe(400);
   });
@@ -358,16 +358,16 @@ describe('GET /api/runners/jobs, from the terminal (PRD 2251)', () => {
     const older = jobRow({ line: '/omni:yolo 2251', queued_at: new Date(T0.getTime() - 60_000).toISOString() });
     const newer = jobRow({ line: '/omni:yolo-fix 2251' });
     const w = world({ jobs: [older, newer, jobRow({ line: '/omni:yolo 1717' })] });
-    const answered = await read(await prdJobs(kit('/jobs?repo=vertuoza/app&prd=2251', 'mo-token'), w.deps));
+    const answered = await read(await prdJobs(kit('/jobs?repo=demo-org/app&prd=2251', 'mo-token'), w.deps));
     expect(answered.status).toBe(200);
     expect((answered.body as { jobs: { id: string }[] }).jobs.map((job) => job.id)).toEqual([newer.id, older.id]);
   });
 
   it('refuses a missing token with 401, a person outside the workspace with 403, and a malformed query with 400', async () => {
     const w = world({ jobs: [jobRow({ line: '/omni:yolo 2251' })], viewer: MO });
-    expect((await prdJobs(kit('/jobs?repo=vertuoza/app&prd=2251', null), w.deps)).status).toBe(401);
-    expect((await prdJobs(kit('/jobs?repo=vertuoza/app&prd=2251', 'eve-token'), w.deps)).status).toBe(403);
-    for (const query of ['?repo=vertuoza/app', '?prd=2251', '?repo=vertuoza/app&prd=x', '?repo=vertuoza/app&prd=0']) {
+    expect((await prdJobs(kit('/jobs?repo=demo-org/app&prd=2251', null), w.deps)).status).toBe(401);
+    expect((await prdJobs(kit('/jobs?repo=demo-org/app&prd=2251', 'eve-token'), w.deps)).status).toBe(403);
+    for (const query of ['?repo=demo-org/app', '?prd=2251', '?repo=demo-org/app&prd=x', '?repo=demo-org/app&prd=0']) {
       expect(await read(await prdJobs(kit(`/jobs${query}`, 'mo-token'), w.deps)))
         .toEqual({ status: 400, body: { error: 'Name the repository as `repo=owner/name` and the PRD as `prd=<number>`.' } });
     }

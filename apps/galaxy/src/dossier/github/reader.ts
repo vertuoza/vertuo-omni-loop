@@ -19,12 +19,12 @@
 // budget refused (deferred or paused) is said once by the client, never per part, and is not kept, so
 // the next caller asks again.
 // The token never leaves this module: the summary holds only numbers, states and github.com links.
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { defined, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
-import { parseOutboxItem, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
-import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { defined, group } from 'omni-loop/kit/lib/narrow.ts';
+import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
+import { makeMarkers } from 'omni-loop/kit/lib/markers.ts';
+import { parseOutboxItem, SETTLED_FILE } from 'omni-loop/kit/lib/outbox/outbox.ts';
+import { ADOPTED_VERDICT, parseSettledEntries } from 'omni-loop/kit/lib/outbox/settle.ts';
 import { githubClient, type GithubStore, type Priority } from '@omni/github';
 import { z } from 'zod';
 import { orThrow, parseRow } from '../../data/parse-rows';
@@ -34,7 +34,7 @@ import { outboxReplies, type KitAdopted, type KitItem, type PrComment } from './
 import { readRetro } from './retro';
 import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../../signup/github-app';
 import { isBudgetRefusal, readPart, UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxDetails, type OutboxItem, type OutboxReplies, type PullRef, type Read, type SettledItem } from './summary';
-import { CommentIdSchema, type IssueNumber, IssueNumberSchema, type PrdNumber, type PrNumber, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { CommentIdSchema, type IssueNumber, IssueNumberSchema, type PrdNumber, type PrNumber, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 

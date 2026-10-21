@@ -14,8 +14,8 @@
 // stays closed, as the push reads it; stages that cannot be read leave the rows as pushed, logged.
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import { memberWorkspace, type Workspace } from '../../data/workspace';

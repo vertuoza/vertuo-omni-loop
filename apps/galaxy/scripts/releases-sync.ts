@@ -8,7 +8,7 @@
 // Exits 1, having written nothing, when a release note breaks the rules or a variable is missing, and
 // exits 1 when Supabase refuses. The rules live in src/releases/, which plain Node loads as TypeScript.
 import { fileURLToPath } from 'node:url';
-import { EnvError } from 'vertuo-omni-plan/kit/lib/env/group.ts';
+import { EnvError } from 'omni-loop/kit/lib/env/group.ts';
 import './server-only.ts';
 
 const { serverEnv } = await import('../src/env.ts');

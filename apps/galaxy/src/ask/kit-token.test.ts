@@ -41,7 +41,7 @@ const Body = z.looseObject({
 });
 
 type Account = { id: string; email?: string | null; user_metadata?: { user_name?: string } };
-const ADA: Account = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', user_metadata: { user_name: 'ada' } };
+const ADA: Account = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com', user_metadata: { user_name: 'ada' } };
 const BOB: Account = { id: '00000000-0000-4000-8000-0000000000b1', email: null, user_metadata: { user_name: 'bob' } };
 
 const ORIGIN = 'https://ask.example';
@@ -185,7 +185,7 @@ function world() {
       revoked.push(accessToken);
       return Promise.resolve();
     },
-    place: (_userId, repo) => Promise.resolve(repo === 'vertuoza/api' ? { workspace: VERTUOZA, reason: null } : { workspace: null, reason: `no workspace owns ${repo} yet` }),
+    place: (_userId, repo) => Promise.resolve(repo === 'demo-org/api' ? { workspace: VERTUOZA, reason: null } : { workspace: null, reason: `no workspace owns ${repo} yet` }),
     kit: kitExchange({
       store,
       box,
@@ -533,7 +533,7 @@ describe('POST /api/ask/token {omni_token}', () => {
     const w = world();
     const token = await w.tokenFor(ADA);
     w.clock.now += 5 * DAY;
-    const reply = await w.trade({ omni_token: token, repo: 'vertuoza/api' });
+    const reply = await w.trade({ omni_token: token, repo: 'demo-org/api' });
     expect(reply.status).toBe(200);
     expect(reply.body).toEqual({
       access_token: 'access-2', refresh_token: null, expires_at: Math.floor(w.clock.now / 1000) + HOUR_S,

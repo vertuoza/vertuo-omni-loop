@@ -3,7 +3,7 @@
 // on the bottom row. `stageProblems` holds each stage to the checks that make it playable, and
 // stages.test.ts runs them on every stage here.
 import { highestLedge, longestPit } from './rules';
-import { isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf, keysOf } from 'omni-loop/kit/lib/narrow.ts';
 
 /**
  * The legend, for every map below:

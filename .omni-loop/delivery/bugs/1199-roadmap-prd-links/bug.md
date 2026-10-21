@@ -9,7 +9,7 @@
 ## Reproduction
 
 - **File:** `apps/galaxy/src/roadmap/gantt.test.ts`
-- **Red:** AssertionError: expected '/prd/1201' to be '/prd/at/vertuoza/vertuo-vibe-master-p…' // Object.is equality
+- **Red:** AssertionError: expected '/prd/1201' to be '/prd/at/demo-org/nimbus-vibe-master-p…' // Object.is equality
 
 ## Fix
 

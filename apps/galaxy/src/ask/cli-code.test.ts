@@ -32,8 +32,8 @@ const A_STRING: unknown = expect.any(String);
 const A_NUMBER: unknown = expect.any(Number);
 
 type Account = { id: string; email?: string | null; user_metadata?: { user_name?: string } };
-const ADA: Account = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', user_metadata: { user_name: 'ada' } };
-const BOB: Account = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com', user_metadata: { user_name: 'bob' } };
+const ADA: Account = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com', user_metadata: { user_name: 'ada' } };
+const BOB: Account = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com', user_metadata: { user_name: 'bob' } };
 const EVE: Account = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com', user_metadata: { user_name: 'eve' } };
 /** A GitHub account that keeps its email private, in no workspace. */
 const NED: Account = { id: '00000000-0000-4000-8000-0000000000f1', email: null, user_metadata: { user_name: 'ned' } };
@@ -64,7 +64,7 @@ function world() {
   /** repo_workspace(), for the accounts and repositories these tests name (PRD 459's table). */
   const places: Record<string, Record<string, { workspace_id: string | null; refusal: string | null }>> = {
     [ADA.id]: {
-      'vertuoza/api': { workspace_id: 'w-vertuoza', refusal: null },
+      'demo-org/api': { workspace_id: 'w-vertuoza', refusal: null },
       'globex/web': { workspace_id: null, refusal: 'you are not a member of Globex, which owns globex/web' },
       'ada/scratch': { workspace_id: 'w-vertuoza', refusal: null },
     },
@@ -275,10 +275,10 @@ describe('the auth callback, for omni signin', () => {
 
   it('comes back to the sign-in page with Google\'s or Supabase\'s reason, exchanging nothing', async () => {
     const w = world();
-    const url = new URL(`${ORIGIN}/auth/callback?next=ask-cli&port=49152&state=${STATE}&error=access_denied&error_description=OMNI+LOOP+is+for+%40vertuoza.com+accounts+only.`);
+    const url = new URL(`${ORIGIN}/auth/callback?next=ask-cli&port=49152&state=${STATE}&error=access_denied&error_description=OMNI+LOOP+is+for+%40example.com+accounts+only.`);
     const back = new URL(await cliSignInReturn(url, ORIGIN, w.callbackDeps));
     expect(back.pathname).toBe('/ask/signin');
-    expect(back.searchParams.get('signin_error')).toBe('OMNI LOOP is for @vertuoza.com accounts only.');
+    expect(back.searchParams.get('signin_error')).toBe('OMNI LOOP is for @example.com accounts only.');
     expect(w.calls.exchange).toEqual([]);
   });
 
@@ -397,11 +397,11 @@ describe('POST /api/ask/token', () => {
 
   it('names the workspace the repository goes to, given the code and the repository (PRD 459)', async () => {
     const w = world();
-    const reply = await w.token({ code: await w.codeFor(ADA), repo: 'vertuoza/api' });
+    const reply = await w.token({ code: await w.codeFor(ADA), repo: 'demo-org/api' });
     expect(reply.status).toBe(200);
     expect(reply.body).toMatchObject({ login: 'ada', workspace: { slug: 'vertuoza', name: 'Vertuoza' }, email: ADA.email });
     expect(reply.body).not.toHaveProperty('reason');
-    expect(w.calls.place).toEqual([`${ADA.id} vertuoza/api`]);
+    expect(w.calls.place).toEqual([`${ADA.id} demo-org/api`]);
     // A repository no workspace owns takes the person's first workspace (the fallback).
     expect((await w.token({ code: await w.codeFor(ADA), repo: 'ada/scratch' })).body.workspace).toEqual({ slug: 'vertuoza', name: 'Vertuoza' });
   });
@@ -438,13 +438,13 @@ describe('POST /api/ask/token', () => {
     w.state.placeFails = true;
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
-      const reply = await w.token({ code: await w.codeFor(ADA), repo: 'vertuoza/api' });
+      const reply = await w.token({ code: await w.codeFor(ADA), repo: 'demo-org/api' });
       expect(reply.status).toBe(200);
       expect(reply.body).toMatchObject({ login: 'ada', workspace: null });
       expect(reply.body).not.toHaveProperty('reason');
       expect(spy).toHaveBeenCalledTimes(1);
       // No lookup on this deployment at all: the same.
-      const bare = await w.token({ code: await w.codeFor(ADA), repo: 'vertuoza/api' }, { ...w.tokenDeps, place: undefined });
+      const bare = await w.token({ code: await w.codeFor(ADA), repo: 'demo-org/api' }, { ...w.tokenDeps, place: undefined });
       expect(bare.body).toMatchObject({ workspace: null });
     } finally {
       spy.mockRestore();
@@ -506,7 +506,7 @@ describe('the auth callback\'s device= branch, for a terminal the browser cannot
     const code = present('code' in answer ? answer.code : null, 'answer.code');
     expect([...w.codes.keys()]).toEqual([hashCode(code)]);
     expect(await devices.poll(issued.device_code)).toEqual({ status: 'expired' });
-    const redeemed = await w.token({ code, repo: 'vertuoza/api' });
+    const redeemed = await w.token({ code, repo: 'demo-org/api' });
     expect(redeemed.status).toBe(200);
     expect(redeemed.body).toMatchObject({ login: 'ada', workspace: { slug: 'vertuoza', name: 'Vertuoza' } });
     expect(w.revoked).toEqual([]);

@@ -6,7 +6,7 @@
 // (./state-chip.tsx); the page links the concept PR it read.
 import type { ConceptFacts } from '../dossier/github/fix';
 import { UNREAD } from '../dossier/github/summary';
-import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { prdKey } from '../stages/store';
 import type { StoredStage } from '../stages/stage';
 

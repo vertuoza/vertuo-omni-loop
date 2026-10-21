@@ -17,7 +17,7 @@
 // the values the column's check constraint allows, so a value outside them fails the read instead of
 // flowing on as a claim.
 import { z } from 'zod';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 
 /** public.claims.kind's check constraint (20261027090000_never_lines.sql). */
 const ClaimKind = z.enum(['region', 'offering', 'size', 'trade', 'rival', 'never']);

@@ -1,6 +1,6 @@
 # `kit/lib/inbox/inbox.mjs`
 
-Source: `scripts/inbox.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/inbox.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 

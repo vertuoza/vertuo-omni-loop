@@ -22,17 +22,17 @@ function db(answer: { data?: unknown; error?: unknown } | Error) {
 }
 
 const STORED = {
-  workspace_id: 'ws-1', full_name: 'vertuoza/vertuo-apps', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: 'u-1',
+  workspace_id: 'ws-1', full_name: 'demo-org/nimbus-apps', tracked: true, added_at: '2026-10-08T09:00:00Z', added_by: 'u-1',
   collected_at: null, collected_until: null, collect_error: null, public_ideas: false, phase0: 'pr', fix_when_answered: true, removed_at: null,
 };
 
 describe('the database calls', () => {
   it('adds a repository with add_repository(), answering the row it saved', async () => {
     const d = db({ data: STORED });
-    expect(await databaseRepositories(d, 'ws-1').add('Vertuoza/vertuo-apps')).toEqual({
-      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr', fixWhenAnswered: true, removedAt: null, planProducts: [] },
+    expect(await databaseRepositories(d, 'ws-1').add('Demo-Org/nimbus-apps')).toEqual({
+      ok: true, repository: { fullName: 'demo-org/nimbus-apps', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false, phase0: 'pr', fixWhenAnswered: true, removedAt: null, planProducts: [] },
     });
-    expect(d.calls).toEqual([['add_repository', { p_workspace: 'ws-1', p_full_name: 'Vertuoza/vertuo-apps' }]]);
+    expect(d.calls).toEqual([['add_repository', { p_workspace: 'ws-1', p_full_name: 'Demo-Org/nimbus-apps' }]]);
   });
 
   it('no longer points a repository at a product: its products are changed on each product\'s home (PRD 1364 s11)', () => {
@@ -42,14 +42,14 @@ describe('the database calls', () => {
 
   it('switches tracking with set_repository_tracked()', async () => {
     const d = db({ data: { ...STORED, tracked: false } });
-    expect(await databaseRepositories(d, 'ws-1').setTracked('vertuoza/vertuo-apps', false)).toMatchObject({ ok: true, repository: { tracked: false } });
-    expect(d.calls).toEqual([['set_repository_tracked', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps', p_tracked: false }]]);
+    expect(await databaseRepositories(d, 'ws-1').setTracked('demo-org/nimbus-apps', false)).toMatchObject({ ok: true, repository: { tracked: false } });
+    expect(d.calls).toEqual([['set_repository_tracked', { p_workspace: 'ws-1', p_full_name: 'demo-org/nimbus-apps', p_tracked: false }]]);
   });
 
   it('turns a repository\'s ideas board public or private with set_repository_public_ideas(), any member\'s to do (PRD 1246 s4)', async () => {
     const d = db({ data: { ...STORED, public_ideas: true } });
-    expect(await databaseRepositories(d, 'ws-1').setPublicIdeas('vertuoza/vertuo-apps', true)).toMatchObject({ ok: true, repository: { publicIdeas: true } });
-    expect(d.calls).toEqual([['set_repository_public_ideas', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps', p_public: true }]]);
+    expect(await databaseRepositories(d, 'ws-1').setPublicIdeas('demo-org/nimbus-apps', true)).toMatchObject({ ok: true, repository: { publicIdeas: true } });
+    expect(d.calls).toEqual([['set_repository_public_ideas', { p_workspace: 'ws-1', p_full_name: 'demo-org/nimbus-apps', p_public: true }]]);
     expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').setPublicIdeas('a/b', true)).toEqual({ ok: false, message: NOT_A_BOARD_MEMBER });
     expect(await databaseRepositories(db({ error: { code: '23505' } }), 'ws-1').setPublicIdeas('a/b', true)).toEqual({ ok: false, message: PUBLIC_ELSEWHERE });
     expect(await databaseRepositories(db({ error: { code: 'XX000' } }), 'ws-1').setPublicIdeas('a/b', false)).toEqual({ ok: false, message: COULD_NOT_SAVE });
@@ -63,8 +63,8 @@ describe('the database calls', () => {
 
   it('switches where a repository\'s phase 0 is approved with set_repository_phase0(), the owner\'s only (PRD 1299 s1)', async () => {
     const d = db({ data: { ...STORED, phase0: 'server' } });
-    expect(await databaseRepositories(d, 'ws-1').setPhase0('vertuoza/vertuo-apps', 'server')).toMatchObject({ ok: true, repository: { phase0: 'server' } });
-    expect(d.calls).toEqual([['set_repository_phase0', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps', p_phase0: 'server' }]]);
+    expect(await databaseRepositories(d, 'ws-1').setPhase0('demo-org/nimbus-apps', 'server')).toMatchObject({ ok: true, repository: { phase0: 'server' } });
+    expect(d.calls).toEqual([['set_repository_phase0', { p_workspace: 'ws-1', p_full_name: 'demo-org/nimbus-apps', p_phase0: 'server' }]]);
     expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').setPhase0('a/b', 'server')).toEqual({ ok: false, message: NOT_OWNER });
     expect(await databaseRepositories(db({ error: { code: 'P0002' } }), 'ws-1').setPhase0('a/b', 'pr')).toMatchObject({ ok: false, message: containing('Reload') });
     expect(await databaseRepositories(db({ data: { ...STORED, phase0: 'both' } }), 'ws-1').setPhase0('a/b', 'pr')).toEqual({ ok: false, message: COULD_NOT_SAVE });
@@ -79,8 +79,8 @@ describe('the database calls', () => {
 
   it('switches Fix on a runner once answered with set_repository_fix_when_answered(), the owner\'s only (PRD 2270 s3)', async () => {
     const d = db({ data: { ...STORED, fix_when_answered: false } });
-    expect(await databaseRepositories(d, 'ws-1').setFixWhenAnswered('vertuoza/vertuo-apps', false)).toMatchObject({ ok: true, repository: { fixWhenAnswered: false } });
-    expect(d.calls).toEqual([['set_repository_fix_when_answered', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps', p_on: false }]]);
+    expect(await databaseRepositories(d, 'ws-1').setFixWhenAnswered('demo-org/nimbus-apps', false)).toMatchObject({ ok: true, repository: { fixWhenAnswered: false } });
+    expect(d.calls).toEqual([['set_repository_fix_when_answered', { p_workspace: 'ws-1', p_full_name: 'demo-org/nimbus-apps', p_on: false }]]);
     expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').setFixWhenAnswered('a/b', true)).toEqual({ ok: false, message: NOT_OWNER });
     expect(await databaseRepositories(db({ error: { code: 'P0002' } }), 'ws-1').setFixWhenAnswered('a/b', true)).toMatchObject({ ok: false, message: containing('Reload') });
   });
@@ -94,10 +94,10 @@ describe('the database calls', () => {
 
   it('removes a repository with remove_repository(), answering the row it removed (PRD 2188 s1)', async () => {
     const d = db({ data: { ...STORED, tracked: false, removed_at: '2026-10-19T10:00:00Z' } });
-    expect(await databaseRepositories(d, 'ws-1').remove('vertuoza/vertuo-apps')).toMatchObject({
-      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: false, removedAt: '2026-10-19T10:00:00Z' },
+    expect(await databaseRepositories(d, 'ws-1').remove('demo-org/nimbus-apps')).toMatchObject({
+      ok: true, repository: { fullName: 'demo-org/nimbus-apps', tracked: false, removedAt: '2026-10-19T10:00:00Z' },
     });
-    expect(d.calls).toEqual([['remove_repository', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps' }]]);
+    expect(d.calls).toEqual([['remove_repository', { p_workspace: 'ws-1', p_full_name: 'demo-org/nimbus-apps' }]]);
   });
 
   it('answers a remove refused for a member, or for a repository no longer listed, as the page says it (PRD 2188 s1)', async () => {

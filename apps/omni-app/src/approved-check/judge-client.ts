@@ -6,8 +6,8 @@
 // It never throws: no secret here, a refusal (401, 404, 5xx), a timeout, a network error or an answer
 // that is no approval each come back as `held`, with why. Held is never failed (the spec's table).
 import { createHmac } from 'node:crypto';
-import { parseApprovalReply, type ApprovalReply } from 'vertuo-omni-plan/kit/lib/approval/approval.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseApprovalReply, type ApprovalReply } from 'omni-loop/kit/lib/approval/approval.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
 import { STAGE_SIGNATURE_HEADER } from '../stage-forward/stage-forward.ts';
 

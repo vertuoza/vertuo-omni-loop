@@ -1,4 +1,4 @@
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -79,7 +79,7 @@ describe('phase0Topic — the topic a head branch names through branches.phase0'
 
 describe('inboxPrd — the PRD whose inbox folder carries the topic', () => {
   it('finds the number in the head snapshot, or null', async () => {
-    const { parseConfig } = await import('vertuo-omni-plan/kit/lib/config.ts');
+    const { parseConfig } = await import('omni-loop/kit/lib/config.ts');
     const config = parseConfig('kit: 1\nrepo:\n  slug: acme/widgets\n', 'config.yml');
     expect(inboxPrd({ head: fixture('inbox-head-complete'), config, topic: 'widget' })).toBe(42);
     expect(inboxPrd({ head: fixture('inbox-head-complete'), config, topic: 'gadget' })).toBeNull();

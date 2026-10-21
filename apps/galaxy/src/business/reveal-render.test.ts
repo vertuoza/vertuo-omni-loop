@@ -29,17 +29,17 @@ const found = (seq: number, kind: Claim['kind'], value: string, where: string, q
   });
 
 const FOUND: Claim[] = [
-  found(1, 'offering', 'ERP', 'acme/vertuo-app/README.md', 'The ERP for construction companies'),
+  found(1, 'offering', 'ERP', 'acme/nimbus-app/README.md', 'The ERP for construction companies'),
   found(2, 'size', '2-50', 'https://example.com/pricing', 'Pro: up to 50 users. Starter for teams of 2.'),
-  found(3, 'region', 'Belgium', 'acme/vertuo-app/README.md', 'Peppol e-invoicing for Belgium, built in.'),
-  found(4, 'rival', 'Brick & Co', 'acme/vertuo-app/docs/positioning.md', 'Brick & Co is too heavy for a 10-person firm.'),
+  found(3, 'region', 'Belgium', 'acme/nimbus-app/README.md', 'Peppol e-invoicing for Belgium, built in.'),
+  found(4, 'rival', 'Brick & Co', 'acme/nimbus-app/docs/positioning.md', 'Brick & Co is too heavy for a 10-person firm.'),
 ];
 
 const DONE: DraftView = {
   id: 'd-1', kind: 'draft', state: 'done', reason: null,
   counts: { readmes: 2, docs: 0, prds: 14, pages: 1, kept: 4 },
   scanned: [
-    { source: 'vertuo-app · README.md', state: 'read' },
+    { source: 'nimbus-app · README.md', state: 'read' },
     { source: 'example.com/pricing', state: 'read' },
     { source: 'example.com/about', state: 'skipped', why: 'no answer in 10 s' },
   ],
@@ -104,7 +104,7 @@ describe('the scan', () => {
   it('lists each source as it is read or skipped, while the draft runs', () => {
     const html = render([], { actions: [{ type: 'draft', draft: { ...RUNNING, scanned: DONE.scanned } }] });
     const scan = text(section(html, 'business-scan'));
-    expect(scan).toContain('✓ vertuo-app · README.md');
+    expect(scan).toContain('✓ nimbus-app · README.md');
     expect(scan).toContain('– example.com/about · skipped (no answer in 10 s)');
     expect(html).toContain('aria-live="polite"');
   });
@@ -125,7 +125,7 @@ describe('the reveal', () => {
     expect(text(list)).toContain('What we found');
     const erp = foundRow(list, 'offering#1');
     expect(text(erp)).toContain('Offering ERP');
-    expect(text(erp)).toContain('vertuo-app/README.md');
+    expect(text(erp)).toContain('nimbus-app/README.md');
     expect(text(erp)).toContain('“The ERP for construction companies”');
     expect(erp).toContain('<details class="business-receipt"');
     expect(text(foundRow(list, 'size#2'))).toContain('example.com/pricing');

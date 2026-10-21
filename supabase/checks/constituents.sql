@@ -17,6 +17,9 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- ── Nothing seeded ──
 do $$
 begin
@@ -29,33 +32,33 @@ begin
 end $$;
 
 -- ── The cast ──
--- Olga owns Vertuoza (github_org vertuoza) and Mo is a member of it; Carl owns Acme; Sam belongs to no
+-- Olga owns Initech (github_org initech) and Mo is a member of it; Carl owns Acme; Sam belongs to no
 -- workspace.
 insert into auth.users (id, email, email_confirmed_at) values
-  ('00000000-0000-4000-8000-0000000087a1', 'olga@vertuoza.com', now()),
-  ('00000000-0000-4000-8000-0000000087b1', 'mo@vertuoza.com', now()),
+  ('00000000-0000-4000-8000-0000000087a1', 'olga@example.com', now()),
+  ('00000000-0000-4000-8000-0000000087b1', 'mo@example.com', now()),
   ('00000000-0000-4000-8000-0000000087c1', 'carl@acme.test', now()),
   ('00000000-0000-4000-8000-0000000087d1', 'sam@nowhere.test', now());
 insert into public.workspaces (slug, name, github_org) values ('acme-con', 'Acme', 'acme-con');
-update public.workspaces set github_org = 'vertuoza' where slug = 'vertuoza' and github_org is null;
+update public.workspaces set github_org = 'initech' where slug = 'initech' and github_org is null;
 insert into public.workspace_members (workspace_id, user_id, role)
 select w.id, m.user_id, m.role
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000087a1'::uuid, 'owner'),
-         ('vertuoza', '00000000-0000-4000-8000-0000000087b1'::uuid, 'member'),
+         ('initech', '00000000-0000-4000-8000-0000000087a1'::uuid, 'owner'),
+         ('initech', '00000000-0000-4000-8000-0000000087b1'::uuid, 'member'),
          ('acme-con', '00000000-0000-4000-8000-0000000087c1'::uuid, 'owner')
        ) as m (slug, user_id, role)
   join public.workspaces w on w.slug = m.slug
 on conflict (workspace_id, user_id) do nothing;
 insert into public.repositories (workspace_id, full_name)
-select w.id, 'vertuoza/con-web' from public.workspaces w where w.slug = 'vertuoza'
+select w.id, 'initech/con-web' from public.workspaces w where w.slug = 'initech'
 on conflict do nothing;
 
 create function pg_temp.sign_in(uid text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
 $$;
 create temporary table ids (slug text primary key, id uuid);
-insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('vertuoza', 'acme-con');
+insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('initech', 'acme-con');
 grant select on ids to anon, authenticated, service_role;
 create function pg_temp.ws(slug text) returns uuid language sql as $$
   select i.id from ids i where i.slug = ws.slug;
@@ -98,17 +101,17 @@ create function pg_temp.events(constituent uuid) returns bigint language sql sec
   select count(*) from public.constituent_events e where e.constituent_id = constituent;
 $$;
 
--- ── The business, opened by the owner (its first product serves vertuoza/con-web) ──
+-- ── The business, opened by the owner (its first product serves initech/con-web) ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000087a1');
 do $$
 declare
-  b public.businesses := public.business_open(pg_temp.ws('vertuoza'));
+  b public.businesses := public.business_open(pg_temp.ws('initech'));
 begin
   insert into made select 'product', p.id from public.products p where p.business_id = b.id order by p.ordinal limit 1;
   if not exists (select 1 from public.product_repositories l
-                  where l.repository = 'vertuoza/con-web' and l.product_id = pg_temp.made('product')) then
-    raise exception 'FAIL: vertuoza/con-web does not serve the first product';
+                  where l.repository = 'initech/con-web' and l.product_id = pg_temp.made('product')) then
+    raise exception 'FAIL: initech/con-web does not serve the first product';
   end if;
 end $$;
 reset role;
@@ -119,9 +122,9 @@ do $$
 declare c text;
 begin
   foreach c in array array[
-    format('select public.constituent_add(%L, %L, ''never'', ''Planted'')', pg_temp.ws('vertuoza'), pg_temp.made('product')),
-    'select public.constituents_for_repo(''vertuoza/con-web'')',
-    'select public.constituents_for_repo_app(''vertuoza/con-web'')',
+    format('select public.constituent_add(%L, %L, ''never'', ''Planted'')', pg_temp.ws('initech'), pg_temp.made('product')),
+    'select public.constituents_for_repo(''initech/con-web'')',
+    'select public.constituents_for_repo_app(''initech/con-web'')',
     'select public.constituents_move_never_claims()'
   ] loop perform pg_temp.forbidden(c, 'anon'); end loop;
   begin perform 1 from public.constituents; raise exception 'FAIL: anon read public.constituents';
@@ -136,13 +139,13 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000087a1');
 do $$
 declare
-  ws uuid := pg_temp.ws('vertuoza');
+  ws uuid := pg_temp.ws('initech');
   product uuid := pg_temp.made('product');
   c public.constituents;
   e public.constituent_events;
   got jsonb;
 begin
-  got := public.constituents_for_repo('vertuoza/con-web');
+  got := public.constituents_for_repo('initech/con-web');
   if got <> jsonb_build_object('state', 'none', 'product', jsonb_build_object('name', (select p.name from public.products p where p.id = product)),
                                'statement', null, 'never', '[]'::jsonb, 'latestEventId', null) then
     raise exception 'FAIL: the read of a product with no constituent: %', got;
@@ -160,7 +163,7 @@ begin
     raise exception 'FAIL: adding the Statement did not log one `added` event: %', e;
   end if;
 
-  c := public.constituent_add(ws, product, 'never', 'Calls real Vertuoza APIs');
+  c := public.constituent_add(ws, product, 'never', 'Calls real Initech APIs');
   if c.kind <> 'never' or c.seq <> 1 then raise exception 'FAIL: the first Never line is not never#1: %', c; end if;
   insert into made values ('never-1', c.id);
   c := public.constituent_add(ws, product, 'never', 'Holds business logic');
@@ -171,13 +174,13 @@ begin
   end if;
 
   -- Edit: before and after; the same text again changes nothing and logs nothing.
-  c := public.constituent_edit(ws, pg_temp.made('statement'), 'The component workshop for Vertuoza');
+  c := public.constituent_edit(ws, pg_temp.made('statement'), 'The component workshop for Initech');
   select * into e from public.constituent_events x where x.constituent_id = c.id order by x.id desc limit 1;
-  if c.body <> 'The component workshop for Vertuoza' or pg_temp.events(c.id) <> 2 or e.action <> 'edited'
-     or e.before <> 'The component workshop, with fixtures' or e.after <> 'The component workshop for Vertuoza' then
+  if c.body <> 'The component workshop for Initech' or pg_temp.events(c.id) <> 2 or e.action <> 'edited'
+     or e.before <> 'The component workshop, with fixtures' or e.after <> 'The component workshop for Initech' then
     raise exception 'FAIL: editing the Statement did not log one `edited` event with before and after: % %', c, e;
   end if;
-  c := public.constituent_edit(ws, pg_temp.made('statement'), ' The component workshop for Vertuoza ');
+  c := public.constituent_edit(ws, pg_temp.made('statement'), ' The component workshop for Initech ');
   if pg_temp.events(c.id) <> 2 then raise exception 'FAIL: the same text again logged an event'; end if;
 
   -- Remove: the row and its id are kept, the event carries the text it had; the next line is never#3.
@@ -209,11 +212,11 @@ begin
   if char_length(c.body) <> 200 then raise exception 'FAIL: a Never line of 200 characters was not kept'; end if;
 
   -- The terminal's read: the live Statement and Never lines, in order, and the newest event.
-  got := public.constituents_for_repo('Vertuoza/Con-Web');
+  got := public.constituents_for_repo('Initech/Con-Web');
   if got->>'state' <> 'ok'
-     or got->'statement' <> '{"id": "statement", "text": "The component workshop for Vertuoza"}'::jsonb
+     or got->'statement' <> '{"id": "statement", "text": "The component workshop for Initech"}'::jsonb
      or (select string_agg(x->>'id', ',') from jsonb_array_elements(got->'never') x) <> 'never#1,never#3,never#4'
-     or got->'never'->0->>'text' <> 'Calls real Vertuoza APIs'
+     or got->'never'->0->>'text' <> 'Calls real Initech APIs'
      or got->>'latestEventId' <> (select max(x.id)::text from public.constituent_events x where x.product_id = product) then
     raise exception 'FAIL: the terminal''s read: %', got;
   end if;
@@ -227,21 +230,21 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000087b1');
 do $$
 declare
-  ws uuid := pg_temp.ws('vertuoza');
+  ws uuid := pg_temp.ws('initech');
   c text;
 begin
   if (select count(*) from public.constituents) <> 5 or (select count(*) from public.constituent_events) <> 7 then
     raise exception 'FAIL: a member does not read every constituent and event: % %',
       (select count(*) from public.constituents), (select count(*) from public.constituent_events);
   end if;
-  if public.constituents_for_repo('vertuoza/con-web')->>'state' <> 'ok' then
+  if public.constituents_for_repo('initech/con-web')->>'state' <> 'ok' then
     raise exception 'FAIL: a member cannot read the terminal''s read';
   end if;
   foreach c in array array[
     format('select public.constituent_add(%L, %L, ''never'', ''Planted'')', ws, pg_temp.made('product')),
     format('select public.constituent_edit(%L, %L, ''Planted'')', ws, pg_temp.made('statement')),
     format('select public.constituent_remove(%L, %L)', ws, pg_temp.made('never-1')),
-    'select public.constituents_for_repo_app(''vertuoza/con-web'')',
+    'select public.constituents_for_repo_app(''initech/con-web'')',
     'select public.constituents_move_never_claims()',
     format('insert into public.constituents (workspace_id, product_id, kind, seq, body) values (%L, %L, ''never'', 9, ''Planted'')', ws, pg_temp.made('product')),
     format('update public.constituents set body = ''Planted'' where id = %L', pg_temp.made('never-1')),
@@ -256,7 +259,7 @@ reset role;
 set local role authenticated;
 do $$
 declare
-  ws uuid := pg_temp.ws('vertuoza');
+  ws uuid := pg_temp.ws('initech');
   who text;
   c text;
 begin
@@ -266,13 +269,13 @@ begin
       format('select public.constituent_add(%L, %L, ''never'', ''Planted'')', ws, pg_temp.made('product')),
       format('select public.constituent_edit(%L, %L, ''Planted'')', ws, pg_temp.made('statement')),
       format('select public.constituent_remove(%L, %L)', ws, pg_temp.made('never-1')),
-      'select public.constituents_for_repo(''vertuoza/con-web'')'
+      'select public.constituents_for_repo(''initech/con-web'')'
     ] loop perform pg_temp.forbidden(c, who); end loop;
     if exists (select 1 from public.constituents) or exists (select 1 from public.constituent_events) then
-      raise exception 'FAIL: % reads Vertuoza''s constituents', who;
+      raise exception 'FAIL: % reads Initech''s constituents', who;
     end if;
   end loop;
-  -- Carl owns Acme, so he passes the owner check there, but Vertuoza's product is not Acme's.
+  -- Carl owns Acme, so he passes the owner check there, but Initech's product is not Acme's.
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000087c1');
   perform pg_temp.gone(format('select public.constituent_add(%L, %L, ''never'', ''Planted'')', pg_temp.ws('acme-con'), pg_temp.made('product')));
   perform pg_temp.gone(format('select public.constituent_remove(%L, %L)', pg_temp.ws('acme-con'), pg_temp.made('never-1')));
@@ -297,22 +300,22 @@ declare
   got jsonb;
   repo text;
 begin
-  got := public.constituents_for_repo_app('vertuoza/con-web');
+  got := public.constituents_for_repo_app('initech/con-web');
   if got <> (select v from app_expected) or got->>'state' <> 'ok' then
     raise exception 'FAIL: the App''s read of con-web: %', got;
   end if;
-  foreach repo in array array['vertuoza/nowhere', 'acme-con/web'] loop
+  foreach repo in array array['initech/nowhere', 'acme-con/web'] loop
     got := public.constituents_for_repo_app(repo);
     if got <> '{"state": "none", "product": null, "statement": null, "never": [], "latestEventId": null}'::jsonb then
       raise exception 'FAIL: the App read something for %: %', repo, got;
     end if;
   end loop;
   perform pg_temp.invalid('select public.constituents_for_repo_app(''not a repository'')');
-  perform pg_temp.forbidden(format('select public.constituent_add(%L, %L, ''never'', ''Planted'')', pg_temp.ws('vertuoza'), pg_temp.made('product')), 'the service role');
+  perform pg_temp.forbidden(format('select public.constituent_add(%L, %L, ''never'', ''Planted'')', pg_temp.ws('initech'), pg_temp.made('product')), 'the service role');
   perform pg_temp.forbidden('select public.constituents_move_never_claims()', 'the service role');
   begin
     insert into public.constituent_events (workspace_id, product_id, constituent_id, action, after)
-    values (pg_temp.ws('vertuoza'), pg_temp.made('product'), pg_temp.made('never-1'), 'added', 'Planted');
+    values (pg_temp.ws('initech'), pg_temp.made('product'), pg_temp.made('never-1'), 'added', 'Planted');
     raise exception 'FAIL: the service role wrote an event directly';
   exception when insufficient_privilege then null; end;
 end $$;
@@ -330,10 +333,10 @@ declare
   e public.constituent_events;
 begin
   insert into public.claims (workspace_id, business_id, product_id, seq, kind, value, source, state, created_by) values
-    (pg_temp.ws('vertuoza'), biz, product, 41, 'never', 'Build for groups of companies', 'pick', 'confirmed', '00000000-0000-4000-8000-0000000087b1'),
-    (pg_temp.ws('vertuoza'), biz, product, 42, 'never', 'Sell to accountants', 'evidence', 'proposed', null),
-    (pg_temp.ws('vertuoza'), biz, product, 43, 'never', 'Build a mobile game', 'pick', 'confirmed', '00000000-0000-4000-8000-0000000087a1'),
-    (pg_temp.ws('vertuoza'), biz, product, 44, 'never', 'Ship without tests', 'pick', 'rejected', null);
+    (pg_temp.ws('initech'), biz, product, 41, 'never', 'Build for groups of companies', 'pick', 'confirmed', '00000000-0000-4000-8000-0000000087b1'),
+    (pg_temp.ws('initech'), biz, product, 42, 'never', 'Sell to accountants', 'evidence', 'proposed', null),
+    (pg_temp.ws('initech'), biz, product, 43, 'never', 'Build a mobile game', 'pick', 'confirmed', '00000000-0000-4000-8000-0000000087a1'),
+    (pg_temp.ws('initech'), biz, product, 44, 'never', 'Ship without tests', 'pick', 'rejected', null);
 
   moved := public.constituents_move_never_claims();
   if moved <> 2 then raise exception 'FAIL: the move moved % claims, not the 2 confirmed ones', moved; end if;
@@ -364,7 +367,7 @@ end $$;
 -- ── claim_pick and claim_propose_evidence refuse kind `never` (business.sql proves the rest) ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000087a1');
-select pg_temp.invalid(format('select public.claim_pick(%L, %L, ''never'', ''Planted'', ''pick'')', pg_temp.ws('vertuoza'), pg_temp.made('product')));
+select pg_temp.invalid(format('select public.claim_pick(%L, %L, ''never'', ''Planted'', ''pick'')', pg_temp.ws('initech'), pg_temp.made('product')));
 reset role;
 
 rollback;

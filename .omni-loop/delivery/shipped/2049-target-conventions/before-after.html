@@ -50,7 +50,7 @@ th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--lin
   <header style="display:grid;gap:8px">
     <p class="note">PRD 2049 · vertuo-omni-loop · the kit</p>
     <h1>Brainstorms and plans follow each repository's written conventions</h1>
-    <p class="lede">Functional part only. Replayed on the case that started it: PRD 278 of vertuo-automation-plan, adding timestamps to vertuo-backend-php's <code>avancement</code> table.</p>
+    <p class="lede">Functional part only. Replayed on the case that started it: PRD 278 of nimbus-plan, adding timestamps to nimbus-backend-php's <code>avancement</code> table.</p>
   </header>
 
   <section>
@@ -63,14 +63,14 @@ th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--lin
     <div class="pair">
       <div class="today">
         <h3>Today</h3>
-        <pre><code>gh repo clone vertuo-backend-php --depth 1
+        <pre><code>gh repo clone nimbus-backend-php --depth 1
 read: the paths the design touches
 read: .omni-loop/knowledge/ (playbook)</code></pre>
         <p class="note">The playbook's conventions form says nothing about audit timestamps. <code>CLAUDE.md</code>, <code>docs/readme.md</code> and <code>docs/migrations.md</code> are never opened.</p>
       </div>
       <div class="after">
         <h3>After</h3>
-        <pre><code>omni conventions --root &lt;scratch&gt;/vertuo-backend-php
+        <pre><code>omni conventions --root &lt;scratch&gt;/nimbus-backend-php
 
 CLAUDE.md               Vertuoza back-end         (root)
 CONTEXT.md              Context                   paths.context
@@ -119,9 +119,9 @@ docs/repositories_and_models.md  Repositories     docs/readme.md
           <table>
             <thead><tr><th>repo</th><th>layer</th><th>name</th><th>source</th></tr></thead>
             <tbody>
-              <tr><td>vertuo-backend-php</td><td>database</td><td><code>avancement._created_at</code></td><td><code>docs/migrations.md:207</code></td></tr>
-              <tr><td>vertuo-backend-php</td><td>database</td><td><code>avancement._updated_at</code></td><td><code>docs/migrations.md:207</code></td></tr>
-              <tr><td>vertuo-backend-php</td><td>GraphQL</td><td><code>WorksiteProgress.updatedAt</code></td><td><code>docs/Queries/readme.md</code></td></tr>
+              <tr><td>nimbus-backend-php</td><td>database</td><td><code>avancement._created_at</code></td><td><code>docs/migrations.md:207</code></td></tr>
+              <tr><td>nimbus-backend-php</td><td>database</td><td><code>avancement._updated_at</code></td><td><code>docs/migrations.md:207</code></td></tr>
+              <tr><td>nimbus-backend-php</td><td>GraphQL</td><td><code>WorksiteProgress.updatedAt</code></td><td><code>docs/Queries/readme.md</code></td></tr>
             </tbody>
           </table>
         </div>

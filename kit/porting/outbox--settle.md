@@ -1,6 +1,6 @@
 # `kit/lib/outbox/settle.mjs`
 
-Source: `scripts/outbox-settle.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/outbox-settle.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -13,14 +13,14 @@ Source: `scripts/outbox-settle.mjs` @ `vertuo-ai-domain@c4a210122`.
   literal, and dropped the now-unused `fileURLToPath` (`node:url`) import (only the deleted CLI
   half used it).
 - `ENTRY_OPEN(id)` / `ENTRY_CLOSE(id)` / `ENTRY_OPEN_RE` module constants (hardcoding the
-  `vertuo-outbox` prefix): deleted. Every caller now takes an injected `markers` object
+  `nimbus-outbox` prefix): deleted. Every caller now takes an injected `markers` object
   (`kit/lib/markers.mjs`'s `makeMarkers(prefix)`) and calls `markers.settledOpen(id)` /
   `markers.settledClose(id)` / matches `markers.settledOpenRe` instead:
   - `renderSettledEntry({ item, itemText, answer, judgement })` →
     `renderSettledEntry({ item, itemText, answer, judgement, markers })`.
   - `rawSettledEntries(text)` → `rawSettledEntries(text, markers)`.
   - `parseSettledEntries(text)` → `parseSettledEntries(text, markers)`.
-- `(/vertuo-yolo-fix)` in `closedLine`'s drifted `Closed:` text → `` `(${COMMANDS.yoloFix})` ``,
+- `(/nimbus-yolo-fix)` in `closedLine`'s drifted `Closed:` text → `` `(${COMMANDS.yoloFix})` ``,
   i.e. `(/omni-yolo-fix)`.
 - `` `docs/outbox/SETTLING.md` `` in `settledHeader`'s body text → the module took a second
   parameter, `settledHeader(prd, { ctx })`, and the line now reads
@@ -71,7 +71,7 @@ Source: `scripts/outbox-settle.mjs` @ `vertuo-ai-domain@c4a210122`.
 - Every other export (`VERDICTS`, `ADOPTED_VERDICT`, `CHANNEL_KINDS`, `AnswerSchema`,
   `channelLabel`, `judgeAnswer`, `fenceFor`, `verbatimBlock`, `closedLine`'s non-drifted branches,
   `latestPerId`, `locate`, `adoptedJudgement`) is unchanged — none of them read `root`, a marker
-  literal, or `/vertuo-yolo-fix`.
+  literal, or `/nimbus-yolo-fix`.
 
 ## Test (`settle.test.mjs`)
 
@@ -80,8 +80,8 @@ Source: `scripts/outbox-settle.mjs` @ `vertuo-ai-domain@c4a210122`.
   `flatCtx` (`kit/test/flat-layout.mjs`). Removed `execFileSync` (`node:child_process`) and
   `import { repoRoot as realRepoRoot } from './check-utils.mjs'` — both were only used by the
   deleted CLI test (see below).
-- Added a module-scope `const markers = makeMarkers('vertuo-outbox');`, matching `flatCtx`'s own
-  configured prefix, per the task's own clarification ("markers = makeMarkers('vertuo-outbox')").
+- Added a module-scope `const markers = makeMarkers('nimbus-outbox');`, matching `flatCtx`'s own
+  configured prefix, per the task's own clarification ("markers = makeMarkers('nimbus-outbox')").
   Used by every direct call to `parseSettledEntries`, `renderSettledEntry`, `renderAdoptedEntry`.
 - Every `settleItem({ root, ... })` / `adoptItem({ root, ... })` call → `settleItem({ ctx:
   flatCtx(root), ... })` / `adoptItem({ ctx: flatCtx(root), ... })`. The `settle()` test helper
@@ -93,9 +93,9 @@ Source: `scripts/outbox-settle.mjs` @ `vertuo-ai-domain@c4a210122`.
 - Every `renderSettledEntry({...})` / `renderAdoptedEntry({...})` call → same call plus `markers`.
 - **Changed assertions** (both pre-authorized by the task's own clarification; neither actually
   fires in the ported suite as inherited, because upstream's own test never asserted either literal
-  in an `expect(...)` — only named `/vertuo-yolo-fix` once, in a comment, not a check):
+  in an `expect(...)` — only named `/nimbus-yolo-fix` once, in a comment, not a check):
   - The comment `// An objection appends a \`drifted\` entry for the SAME id, exactly as
-    \`/vertuo-yolo-fix\` will do once slice s6 wires the reply that reads it` → reworded to
+    \`/nimbus-yolo-fix\` will do once slice s6 wires the reply that reads it` → reworded to
     `/omni-yolo-fix` and "once a later slice wires the reply that reads it" (no upstream slice
     numbering exists in the kit). Not a functional assertion change — no `expect(...)` in the
     upstream file names either the yolo-fix command or `SETTLING.md`/the header text at all — but
@@ -111,7 +111,7 @@ Source: `scripts/outbox-settle.mjs` @ `vertuo-ai-domain@c4a210122`.
   where a CLI test for `adopt` belongs.
 - **Added**, per Task 6's own steps:
   - Step 3's exact test (`'reads Became: as a list of ids'`, using a locally-scoped
-    `makeMarkers('omni-outbox')`, not the module-scope `vertuo-outbox` one — matches the task's own
+    `makeMarkers('omni-outbox')`, not the module-scope `nimbus-outbox` one — matches the task's own
     snippet verbatim), plus one more (`'is an empty list when the entry carries no Became: field'`)
     proving the field defaults to `[]` rather than `undefined` on an ordinary settled entry. Both
     live in a new `describe('Became: is parsed as a list of ids', …)`.

@@ -9,7 +9,7 @@ proof: video
 # Pitch studio — animated, on-brand launch videos with per-product Pitch settings
 
 **Date:** 2026-10-06 · **PRD:** #1108 · **Follows:** PRD 859 (Pitch a shipped PRD), whose button, Pitch
-tab, storage, audiences and `omni pitch push` stay. **Inspired by:** `vertuoza/release-videos`
+tab, storage, audiences and `omni pitch push` stay. **Inspired by:** `demo-org/release-videos`
 (storyboard JSON → React scenes → frames in a browser → ffmpeg), whose approach is brought into the
 kit without its brand. **Touches:** `kit/lib/pitch/` (storyboard, settings, providers, check, render,
 studio), a new `kit/pitch-engine/` (the React engine, built into `kit/dist/pitch-engine/`),

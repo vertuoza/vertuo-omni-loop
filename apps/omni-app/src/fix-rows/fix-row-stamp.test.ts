@@ -6,7 +6,7 @@
 import { createHmac } from 'node:crypto';
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
-import { parsePr, parseProductBugId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parseProductBugId } from 'omni-loop/kit/lib/ids.ts';
 import { inngest } from '../inngest-client.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import { createFixRowStamp, FIX_ROW_STAMP_FUNCTION_ID } from './fix-row-stamp.ts';

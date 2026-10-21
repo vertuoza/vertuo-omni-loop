@@ -8,7 +8,7 @@
 import '../src/arcade/arcade.css';
 import { createRoot } from 'react-dom/client';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf } from '@omni/galaxy';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { ArcadeApp } from '../src/arcade/ArcadeApp';
 import { demoAccount } from '../src/arcade/account-demo';
 import { demoDossiers } from '../src/data/dossiers';

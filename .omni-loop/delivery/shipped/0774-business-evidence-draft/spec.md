@@ -52,7 +52,7 @@ A click runs the draft in galaxy:
    source `evidence` and their receipts.
 
 **The reveal** (vision step 2). While the draft runs, the headline shows the sources as they are
-read ("✓ vertuo-app · README.md", "– vertuoza.com/pricing · skipped"). Then the sentence types itself
+read ("✓ nimbus-app · README.md", "– vertuoza.com/pricing · skipped"). Then the sentence types itself
 as **"We think you sell … to …-person … in …, up against …"**, with a "Sources used" line (for
 example "2 READMEs · 14 PRDs · 1 web page"). Under it, **What we found**: one row per proposed
 claim, with its kind, value, a receipt chip per quote (hover or tap shows the quote) and ✓ Right /

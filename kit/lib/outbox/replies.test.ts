@@ -26,9 +26,9 @@ type OptionedSpec = { rank?: string; options?: string[] };
 const PRD = parsePrd(1071);
 const PR = parsePr(1080);
 
-// flatCtx (kit/test/flat-layout.ts) is configured with prefix `vertuo-outbox` — the exact prefix
+// flatCtx (kit/test/flat-layout.ts) is configured with prefix `nimbus-outbox` — the exact prefix
 // upstream hard-coded — so every marker literal below reproduces upstream's own text byte for byte.
-const markers = makeMarkers('vertuo-outbox');
+const markers = makeMarkers('nimbus-outbox');
 
 function withFixtureRoot<T>(run: (root: string) => T): T {
   const root = mkdtempSync(join(tmpdir(), 'outbox-replies-'));
@@ -310,7 +310,7 @@ describe('readReplies — an unclear answer is asked again in a new round', () =
       assertDefined(result.round, 'the round');
       expect(result.round.number).toBe(2);
       const body = result.round.body;
-      expect(body.split('\n')[0]).toBe('<!-- vertuo-outbox-round: 2 1 -->');
+      expect(body.split('\n')[0]).toBe('<!-- nimbus-outbox-round: 2 1 -->');
       expect(body).toContain('**Outbox round 2**');
       expect(body).toContain('**Question 1** · needs a person');
       expect(body).toContain('Which country should a new contact get?');
@@ -352,7 +352,7 @@ describe('readReplies — an unclear answer is asked again in a new round', () =
 
       assertDefined(result.round, 'the round');
       expect(result.round.number).toBe(4);
-      expect(result.round.body.split('\n')[0]).toBe('<!-- vertuo-outbox-round: 4 1 -->');
+      expect(result.round.body.split('\n')[0]).toBe('<!-- nimbus-outbox-round: 4 1 -->');
       expect(result.round.body).toContain('You answered: “still unsure”');
     });
   });
@@ -510,7 +510,7 @@ describe('formatRoundComment', () => {
       ],
       markers,
     });
-    expect(body.split('\n')[0]).toBe('<!-- vertuo-outbox-round: 3 2,4 -->');
+    expect(body.split('\n')[0]).toBe('<!-- nimbus-outbox-round: 3 2,4 -->');
     expect(body.indexOf('**Question 2** · medium')).toBeLessThan(
       body.indexOf('**Question 4** · high'),
     );
@@ -585,7 +585,7 @@ function settledText(root: string) {
 
 /** Every entry the ledger holds, repeats included — `parseSettledEntries` keeps only the latest. */
 function rawEntryCount(root: string) {
-  return settledText(root).match(/^<!-- vertuo-outbox-settled: /gm)?.length ?? 0;
+  return settledText(root).match(/^<!-- nimbus-outbox-settled: /gm)?.length ?? 0;
 }
 
 describe('parseReplyLines — go with recommendation', () => {
@@ -758,7 +758,7 @@ describe('readReplies — options and recommendation', () => {
       expect(existsSync(join(root, file))).toBe(true);
       expect(result.held.map((h) => [h.number, h.answer, h.due])).toEqual([[1, 'D', true]]);
       assertDefined(result.round, 'the round');
-      expect(result.round.body.split('\n')[0]).toBe('<!-- vertuo-outbox-round: 2 1 -->');
+      expect(result.round.body.split('\n')[0]).toBe('<!-- nimbus-outbox-round: 2 1 -->');
     });
   });
 });

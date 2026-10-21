@@ -9,7 +9,7 @@
 // answers that do not match), so they are read by their code and answered, never thrown.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { JOB_OUTCOMES, QuestionSchema, RunnerHealthSchema, type Question } from './runners.contract';
 
 /** What the reads and writes need: the tables, and the database's functions. */

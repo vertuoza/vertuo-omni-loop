@@ -10,9 +10,9 @@ import { FAKE_WORKSPACE, fakeSupabase } from './store.fake';
 
 vi.mock('server-only', () => ({}));
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com' };
 const OTHER = '00000000-0000-4000-8000-00000000aced';
-const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: [OTHER] };
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@example.com', workspaces: [OTHER] };
 const START = Date.parse('2026-10-11T09:00:00Z');
 
 const SPEC = '---\ntitle: Offline photo upload\n---\n\n# Offline photo upload\n';
@@ -33,7 +33,7 @@ function world() {
   const push = async (body: unknown, token = 'ada-token') => read(await pushDossier(send('/api/dossiers/push', 'POST', token, body), deps));
   const find = async (query: string, token = 'ada-token') => read(await findDossier(send(`/api/dossiers${query}`, 'GET', token), deps));
   const get = async (query: string, token = 'ada-token') => read(await getDossier(send(`/api/dossiers/get${query}`, 'GET', token), deps));
-  const mobile = fake.seedProduct('Mobile', ['acme/vertuo-mobile'], { key: 'mobile' });
+  const mobile = fake.seedProduct('Mobile', ['acme/nimbus-mobile'], { key: 'mobile' });
   return { clock, fake, push, find, get, mobile, tells };
 }
 
@@ -67,7 +67,7 @@ describe('POST /api/dossiers/push with a product key: a product PRD', () => {
 
   it('sends the repository it runs from, to choose between two workspaces holding the key', async () => {
     const w = world();
-    expect((await w.push({ ...NEW, repo: 'acme/vertuo-mobile' })).body.prdId).toBe('mobile-1');
+    expect((await w.push({ ...NEW, repo: 'acme/nimbus-mobile' })).body.prdId).toBe('mobile-1');
   });
 
   it('refuses 404 a key no product of the caller\'s workspaces has, and a number it has not reached', async () => {
@@ -115,8 +115,8 @@ describe('GET /api/dossiers?product=<key>&prd=<n>: a product PRD by its id', () 
 
   it('a lookup by repository and number answers exactly as before, with no product PRD field', async () => {
     const w = world();
-    const pushed = await w.push({ repo: 'acme/vertuo-mobile', prd: 7, title: 'Seven', artifacts: [] });
-    expect(await w.find('?repo=acme/vertuo-mobile&prd=7')).toEqual({ status: 200, body: { id: pushed.body.id, url: pushed.body.url, product: 'Mobile' } });
+    const pushed = await w.push({ repo: 'acme/nimbus-mobile', prd: 7, title: 'Seven', artifacts: [] });
+    expect(await w.find('?repo=acme/nimbus-mobile&prd=7')).toEqual({ status: 200, body: { id: pushed.body.id, url: pushed.body.url, product: 'Mobile' } });
   });
 });
 

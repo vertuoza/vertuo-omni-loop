@@ -14,9 +14,9 @@
 // The loop's status comment (PRD 714 s3) is read in a second, small query, and only for the pull
 // requests of a batch where a status can hold a run: open, Omni-man-signed and into `main`, `master` or
 // `develop`. A batch with none sends no second query.
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { makeMarkers } from 'omni-loop/kit/lib/markers.ts';
 import type { z } from 'zod';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { type Actor, type BudgetSchema, parseAnswer, type PullDetail, PullCommentsSchema, PullDetailSchema, PullDetailsSchema, PullsUpdatedSchema, RateLimited } from './schema.ts';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RepositoryGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
+import type { RepositoryGraph } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
 import { graphPushRepository, type GraphPushDb } from './push.repository';
 
 // The push's storage (PRD 1798 s1): one call of knowledge_graph_push() as the caller, its answer parsed

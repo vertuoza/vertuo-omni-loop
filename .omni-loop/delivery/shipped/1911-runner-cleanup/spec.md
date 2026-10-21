@@ -19,7 +19,7 @@ Each job `omni runner` runs creates a local branch, `agent/job-<id>`, and a work
 `~/wt/<repo>-job-<id>`, and writes `~/logs/job-<id>.*`. When a job ends, the runner removes its
 worktree and nothing else. The branch stays, the worktree's record can stay (a job like
 `/omni:yolo` makes worktrees of its own inside it), and the logs stay forever. A worktree whose job
-died with the runner is never removed. On vertuo-agents, after one day, six `agent/job-*` branches
+died with the runner is never removed. On nimbus-agents, after one day, six `agent/job-*` branches
 and a prunable worktree record were left. A runner left running for weeks fills its disk.
 
 ## Solution

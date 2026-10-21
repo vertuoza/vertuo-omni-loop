@@ -5,9 +5,9 @@
 // page reads them.
 //
 // No Next.js, no Node-only import: the page and the sync's plain Node script both load this module.
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 export const RELEASES_TABLE = 'releases';
 /** Every column, in the table's order: what a read selects. */

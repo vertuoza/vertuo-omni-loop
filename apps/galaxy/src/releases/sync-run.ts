@@ -6,7 +6,7 @@
 // The script (apps/galaxy/scripts/releases-sync.ts) calls releasesSync() with the service role's group. It runs
 // on plain Node, so this module and those it imports name their files with their extension.
 import { createClient } from '@supabase/supabase-js';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { ServiceRoleEnv } from '../env.ts';
 import type { Git } from './git.ts';

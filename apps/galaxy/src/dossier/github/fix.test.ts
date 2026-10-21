@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { readConceptFacts, readFix, type FixGet } from './fix';
 import { UNREAD } from './summary';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 
 // A fix on GitHub (PRD 627, s5), read from a fixture: its issue (author, time, risk and regression
 // labels), its `fix/<n>-…` pull request (open or merged, with who merged it), each approving review,

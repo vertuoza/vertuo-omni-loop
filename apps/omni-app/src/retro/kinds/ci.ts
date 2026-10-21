@@ -13,8 +13,8 @@
 // lines as the evidence item's `excerpt`, which `narrate` sends to the model and `render` leaves out.
 // Those lines are masked as they are read (`maskSecrets`): `retro.json` keeps them, and a key a job
 // printed (the local Supabase keys `supabase start` prints) must never reach the retro PR.
-import type { SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { maskSecrets } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
+import type { SliceId } from 'omni-loop/kit/lib/ids.ts';
+import { maskSecrets } from 'omni-loop/kit/lib/openrouter.ts';
 import { LIMITS, THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { cleanLog, readTestLog, tailOf } from './ci-logs.ts';
@@ -26,7 +26,7 @@ import type { Job, WorkflowRun } from './schema.ts';
 import { CiRecordsSchema, type JobRecordSchema } from './records.ts';
 import type { z } from 'zod';
 import { sliceOf } from './slice-of.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 
 /** One job of one run, as the kind keeps it. */
 type JobRecord = z.infer<typeof JobRecordSchema>;

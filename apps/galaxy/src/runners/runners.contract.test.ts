@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
+import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'omni-loop/kit/lib/runner/line.ts';
 import {
   AnswerRequestSchema, AskRequestSchema, checkLine, checkLineShape, HealthReportSchema, JOB_OUTCOMES, JobLinesQuerySchema, JobQuestionsSchema, JobReplySchema, JobUpdateSchema,
   KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
@@ -150,7 +150,7 @@ describe('the job a runner claims (PRD 2313)', () => {
 
 describe('the requests', () => {
   it('registers a runner with 1 to 8 slots and at least one repository', () => {
-    const runner = { name: 'vertuo-agents', slots: 4, repos: ['vertuoza/vertuo-omni-loop'], version: '0.0.387' };
+    const runner = { name: 'nimbus-agents', slots: 4, repos: ['vertuoza/vertuo-omni-loop'], version: '0.0.387' };
     expect(RegisterRequestSchema.parse(runner)).toEqual(runner);
     for (const slots of [0, 9, 1.5]) expect(RegisterRequestSchema.safeParse({ ...runner, slots }).success).toBe(false);
     expect(RegisterRequestSchema.safeParse({ ...runner, repos: [] }).success).toBe(false);
@@ -345,7 +345,7 @@ describe('the PRD a line names', () => {
 
   it.each([
     ['no argument', '/omni:wave'],
-    ['an issue link', '/omni:bug-fix https://github.com/vertuoza/app/issues/1'],
+    ['an issue link', '/omni:bug-fix https://github.com/demo-org/app/issues/1'],
     ['a word first', '/omni:yolo s1 2251'],
     ['a number glued to a word', '/omni:yolo 2251abc'],
     ['zero', '/omni:yolo 0'],
@@ -359,23 +359,23 @@ describe('the PRD a line names', () => {
 
 describe('the kit\'s queries', () => {
   it('reads the runners by a repository, and nothing else', () => {
-    expect(RunnersQuerySchema.parse({ repo: 'vertuoza/app' })).toEqual({ repo: 'vertuoza/app' });
-    for (const query of [{}, { repo: 'app' }, { repo: 'vertuoza/app', x: '1' }]) expect(RunnersQuerySchema.safeParse(query).success).toBe(false);
+    expect(RunnersQuerySchema.parse({ repo: 'demo-org/app' })).toEqual({ repo: 'demo-org/app' });
+    for (const query of [{}, { repo: 'app' }, { repo: 'demo-org/app', x: '1' }]) expect(RunnersQuerySchema.safeParse(query).success).toBe(false);
   });
 
   it('reads a PRD\'s jobs by a repository and a PRD number', () => {
-    expect(PrdJobsQuerySchema.parse({ repo: 'vertuoza/app', prd: '2251' })).toEqual({ repo: 'vertuoza/app', prd: 2251 });
-    for (const prd of ['0', '-1', '1.5', 'x', '']) expect(PrdJobsQuerySchema.safeParse({ repo: 'vertuoza/app', prd }).success).toBe(false);
-    expect(PrdJobsQuerySchema.safeParse({ repo: 'vertuoza/app' }).success).toBe(false);
+    expect(PrdJobsQuerySchema.parse({ repo: 'demo-org/app', prd: '2251' })).toEqual({ repo: 'demo-org/app', prd: 2251 });
+    for (const prd of ['0', '-1', '1.5', 'x', '']) expect(PrdJobsQuerySchema.safeParse({ repo: 'demo-org/app', prd }).success).toBe(false);
+    expect(PrdJobsQuerySchema.safeParse({ repo: 'demo-org/app' }).success).toBe(false);
     expect(PrdJobsQuerySchema.safeParse({ prd: '2251' }).success).toBe(false);
   });
 });
 
 describe('the kit\'s answers', () => {
-  const runner = { id: '00000000-0000-4000-8000-0000018301a1', name: 'vertuo-agents', fleet: null, state: 'online', used: 1, slots: 4, repos: ['vertuoza/app'] };
+  const runner = { id: '00000000-0000-4000-8000-0000018301a1', name: 'nimbus-agents', fleet: null, state: 'online', used: 1, slots: 4, repos: ['demo-org/app'] };
   const job = {
-    id: '00000000-0000-4000-8000-000022510001', line: '/omni:yolo 2251', repo: 'vertuoza/app', status: 'done', runner: 'vertuo-agents',
-    prUrl: 'https://github.com/vertuoza/app/pull/7', exitCode: 0, reason: null, outcome: 'ready',
+    id: '00000000-0000-4000-8000-000022510001', line: '/omni:yolo 2251', repo: 'demo-org/app', status: 'done', runner: 'nimbus-agents',
+    prUrl: 'https://github.com/demo-org/app/pull/7', exitCode: 0, reason: null, outcome: 'ready',
     queuedAt: '2026-10-20T12:00:00.000Z', claimedAt: '2026-10-20T12:00:02.000Z', runningAt: '2026-10-20T12:00:03.000Z', endedAt: '2026-10-20T13:00:00.000Z',
   };
 

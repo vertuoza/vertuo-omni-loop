@@ -26,7 +26,7 @@ laws:
   source: knowledge
   # Who may lock a law and must approve a change to one (PRD 1726); `omni kb owners` writes them
   # into .github/CODEOWNERS.
-  owners: [pierrederval]
+  owners: [pierrederval, dervalp]
   # Product leadership (PRD 1794): asked last about a question nobody answered. No delegate.
   leadership: [pierrederval]
 # Ask mode (PRD #71, ADR-0002): questions answered on the page the galaxy app serves. The Vercel

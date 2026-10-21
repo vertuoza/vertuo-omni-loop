@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { copyLink } from '../../ask/page/share';
 import { sentView, UNCOUNTED, type SentView } from '../../outbox/sent';
 import { droppedWords, KEPT, readSending, returned, sendingKey } from '../../outbox/sending';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { decodeCursor, encodeCursor } from './cursor';
 import { dossierId, momentOf, NORTHWIND, SOUTHWIND } from './fixtures/public-api.fake';
 import { publicApiRepository, type PublicApiDb } from './public-api.repository';

@@ -9,7 +9,7 @@
 // - The OPEN_WEEKS newest weeks are open; each older one is folded, its counts on its summary.
 //
 // No Next.js, no Node-only import: the page's server render and the tests load it alike.
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { releaseVersion, type ReleaseRow } from './row.ts';
 
 /** The time zone a release's day and week are read in. */

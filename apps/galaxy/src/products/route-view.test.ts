@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultPitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { defaultPitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import type { MemberSession } from '../data/member-session';
 import type { ProductLoad } from './load';
 import { DEMO_PRODUCTS } from './ProductsScreen';

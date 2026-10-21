@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { group, messageOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { group, messageOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { HastElement, HastNode } from './badges';
 
 // A diagram of the guide: an SVG file beside the pages, under docs/guide/diagrams/, shown by a line of

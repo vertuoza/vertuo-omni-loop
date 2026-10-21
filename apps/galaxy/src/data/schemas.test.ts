@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { z } from 'zod';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -63,14 +63,14 @@ describe('the arcade\'s data schemas', () => {
 
   it('parse a dossier as dossier_list() lists it, its counts numbers even when sent as text, and refuse a broken one', () => {
     const row = {
-      id: 'd-12', workspace_id: VERTUOZA, home_repo: 'vertuoza/vertuo-omni-plan', prd: 12, kind: 'prd', title: 'PRD 12', opened_by: PEOPLE.ada.id,
-      created_at: '2026-09-20T09:00:00Z', numbered_at: '2026-09-20T10:00:00Z', repos: ['vertuoza/vertuo-omni-plan'],
+      id: 'd-12', workspace_id: VERTUOZA, home_repo: 'demo-org/nimbus-plan', prd: 12, kind: 'prd', title: 'PRD 12', opened_by: PEOPLE.ada.id,
+      created_at: '2026-09-20T09:00:00Z', numbered_at: '2026-09-20T10:00:00Z', repos: ['demo-org/nimbus-plan'],
       latest: { spec: { id: 'v-spec-3', version: 3, source: 'kit', created_at: '2026-09-25T08:00:00Z' } }, asked: 12, answered: 11,
       last_activity: '2026-09-25T08:00:00Z',
     };
     expect(DossierListEntry.parse(row)).toEqual(row);
     expect(DossierListEntry.parse({ ...row, asked: '12' }).asked).toBe(12);
-    refuses(DossierListEntry, row, { missing: 'latest', wrongType: ['repos', 'vertuoza/vertuo-omni-plan'], notNull: 'title' });
+    refuses(DossierListEntry, row, { missing: 'latest', wrongType: ['repos', 'demo-org/nimbus-plan'], notNull: 'title' });
     expect(DossierListEntry.safeParse({ ...row, latest: { roadmap: row.latest.spec } }).success).toBe(false);
   });
 });
@@ -81,7 +81,7 @@ function assertRow<T>(row: T | undefined): T {
 }
 
 describe('the session a sign-in hands back', () => {
-  const session = { access_token: 'jwt', provider_token: 'gho_x', user: { id: PEOPLE.ada.id, email: 'ada@vertuoza.com' } };
+  const session = { access_token: 'jwt', provider_token: 'gho_x', user: { id: PEOPLE.ada.id, email: 'ada@example.com' } };
 
   it('is its user\'s id and GitHub\'s token, its other fields left as they came', () => {
     expect(sessionOf({ session, user: session.user }, 'test')).toEqual({ provider_token: 'gho_x', user: { id: PEOPLE.ada.id } });

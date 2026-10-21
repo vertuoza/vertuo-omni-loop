@@ -26,7 +26,7 @@
 // that is not served), 409 a run registered already, 413 a body over its cap or a file over 50 MB, 503 no
 // database here.
 import 'server-only';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { randomUUID } from 'node:crypto';
 import { authenticate, callerOrigin as origin, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
@@ -34,7 +34,7 @@ import {
   GIF_LINK_SECONDS, isProofType, isVerdict, PROOF_CLIP_NAMES, PROOF_CRITERIA_MAX, PROOF_FILE_MAX_BYTES, PROOF_FILE_NAME, PROOF_FILES_MAX,
   PROOF_GIF_NAME, PROOF_KINDS, PROOF_TYPES, ProofStoreError, VERDICTS, type ProofCriterion, type ProofKind, type ProofPublic, type ProofStore,
 } from './store';
-import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 /** A client acting as one access token: the Auth server's check and the proof store. */
 export type ProofClient = TokenCheck & { proofs: ProofStore };

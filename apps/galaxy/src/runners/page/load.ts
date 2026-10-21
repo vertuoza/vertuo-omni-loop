@@ -1,9 +1,9 @@
-import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { Workspace } from '../../data/workspace';
 import type { OutboxStand } from '../../dossier/page/stage';
 import { prdOfLine, shouldContinue } from '../continue';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Board, Job } from '../runners.contract';
 import type { Served } from '../runners.service';
 import type { Fleet, PrdTitles, RunnersPageView } from './model';

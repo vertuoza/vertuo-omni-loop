@@ -4,7 +4,7 @@
 // (640×360, 5 rows × 10, four shields) or the tall one (320×288, 5 rows × 6, three shields). The
 // score line, the ready screen's score table, the pause and the game over are the text layer's
 // (invaders.tsx).
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import type { WoundKind } from '@omni/galaxy';
 import { woundTint, type Tint } from '@omni/design';
 import { alienAt, FIELDS } from '../games/invaders';

@@ -23,7 +23,7 @@ import { ofWork, WORK_PATHS, workPath } from '../dossier/page/work';
 import { NOBODY, type PeopleIn } from './people';
 import { readWho, whoParam, type HistoryWho, type Whom } from '../dossier/page/history';
 import { one, type Query } from '../nav/query';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { People } from '../people/load';
 import type { ProductLabels } from '../product-filter/product-filter.service';
 import type { Person } from '../people/types';

@@ -3,7 +3,7 @@ name: brainstorm
 description: Turns an idea into an approved design, then into a PRD the loop can build — the PRD issue, the spec, the before/after page and the pending acceptance scenarios in the PRD's inbox folder, its plan through /omni:plan, and a docs-only phase-0 PR a person reviews and merges before any code is written — or, when the repository's phase 0 is on the server, no phase-0 PR and an approval on the PRD's page. Use before any change someone wants made. With --concept <n> <area>, starts from one area of a concept /omni:think-big left in the inbox. Writes no code, merges nothing. Ends with the /omni:yolo line. Triggers on "brainstorm", "I have an idea", "let's design this", "turn this into a PRD", "/omni:brainstorm".
 ---
 
-<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-brainstorming/SKILL.md (with the superpowers brainstorming steps written in) — changes in kit/porting/plugin--brainstorm.md -->
+<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-brainstorming/SKILL.md (with the superpowers brainstorming steps written in) — changes in kit/porting/plugin--brainstorm.md -->
 
 # Brainstorm: an idea into a PRD the loop can build
 

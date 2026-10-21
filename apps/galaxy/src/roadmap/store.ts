@@ -7,7 +7,7 @@
 // workspace reads as missing. Every answer is parsed where it comes in (data/parse-rows.ts).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber, type ProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { orEmpty, orNull, orThrow, parseRow, parseRows } from '../data/parse-rows';
 import { StoreError } from '../data/store-error';
 

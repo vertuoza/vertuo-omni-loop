@@ -146,8 +146,8 @@ describe('the repositories an installation reaches (PRD 612)', () => {
 
 describe('the installation\'s settings page on GitHub (PRD 612)', () => {
   it('is the org\'s installation page for an org, the account\'s own for a person', () => {
-    expect(installationSettingsUrl({ id: 5001, account: { login: 'vertuoza', type: 'Organization' } }))
-      .toBe('https://github.com/organizations/vertuoza/settings/installations/5001');
+    expect(installationSettingsUrl({ id: 5001, account: { login: 'demo-org', type: 'Organization' } }))
+      .toBe('https://github.com/organizations/demo-org/settings/installations/5001');
     expect(installationSettingsUrl({ id: 7, account: { login: 'pierre', type: 'User' } }))
       .toBe('https://github.com/settings/installations/7');
   });

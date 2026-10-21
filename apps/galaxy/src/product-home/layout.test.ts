@@ -10,16 +10,16 @@ const SEED = '7f3c2a10-0b5e-4c1d-9a8e-2174aaaabbbb';
 
 /** Repository names shaped like a real product's: short, long, and past 28 characters. */
 const NAMES = [
-  'vertuo-apps', 'vertuo-backend-php', 'vertuo-mobile', 'vertuo-automation-plan', 'vertuo-design-system',
-  'vertuo-pdf-renderer-and-exports-service', 'api', 'vertuo-ai-domain', 'vertuo-infra', 'vertuo-docs',
-  'vertuo-quotes', 'vertuo-invoicing', 'vertuo-planning', 'vertuo-identity', 'vertuo-notifications',
-  'vertuo-search', 'vertuo-reporting-and-analytics-warehouse', 'web', 'vertuo-integrations-hub', 'vertuo-sync',
-  'vertuo-files', 'vertuo-timesheets', 'vertuo-crm', 'vertuo-gateway', 'vertuo-billing', 'vertuo-catalog',
-  'vertuo-admin-console', 'vertuo-webhooks', 'vertuo-scheduler', 'vertuo-emails',
+  'nimbus-apps', 'nimbus-backend-php', 'nimbus-mobile', 'nimbus-automation-plan', 'nimbus-design-system',
+  'nimbus-pdf-renderer-and-exports-service', 'api', 'nimbus-ai-domain', 'nimbus-infra', 'nimbus-docs',
+  'nimbus-quotes', 'nimbus-invoicing', 'nimbus-planning', 'nimbus-identity', 'nimbus-notifications',
+  'nimbus-search', 'nimbus-reporting-and-analytics-warehouse', 'web', 'nimbus-integrations-hub', 'nimbus-sync',
+  'nimbus-files', 'nimbus-timesheets', 'nimbus-crm', 'nimbus-gateway', 'nimbus-billing', 'nimbus-catalog',
+  'nimbus-admin-console', 'nimbus-webhooks', 'nimbus-scheduler', 'nimbus-emails',
 ];
 
 const starsOf = (n: number): LayoutStar[] =>
-  NAMES.slice(0, n).map((name, i) => ({ repository: `vertuoza/${name}`, role: i % 3 === 0 ? 'the main web app' : null }));
+  NAMES.slice(0, n).map((name, i) => ({ repository: `demo-org/${name}`, role: i % 3 === 0 ? 'the main web app' : null }));
 
 /** A web of plan lines: each star joined to the next, and the first few to many, weights 1 to 9. */
 function linesOf(stars: readonly LayoutStar[]): LayoutLine[] {
@@ -65,7 +65,7 @@ describe('a label box', () => {
   });
 
   it('measures a name longer than 28 characters at 28', () => {
-    const long = labelBoxOf({ repository: 'acme/vertuo-pdf-renderer-and-exports-service', role: null }, { x: 0, y: 0 });
+    const long = labelBoxOf({ repository: 'acme/nimbus-pdf-renderer-and-exports-service', role: null }, { x: 0, y: 0 });
     expect(long.width).toBeCloseTo(28 * 7.8 + 44);
   });
 
@@ -83,8 +83,8 @@ describe('layoutOf', () => {
 
   it('places a lone star inside the sky', () => {
     const map = layoutOf(starsOf(1), [], SEED);
-    const at = get(map.at, 'vertuoza/vertuo-apps');
-    expect(get(map.boxes, 'vertuoza/vertuo-apps')).toEqual(labelBoxOf({ repository: 'vertuoza/vertuo-apps', role: 'the main web app' }, at));
+    const at = get(map.at, 'demo-org/nimbus-apps');
+    expect(get(map.boxes, 'demo-org/nimbus-apps')).toEqual(labelBoxOf({ repository: 'demo-org/nimbus-apps', role: 'the main web app' }, at));
   });
 
   it('gives the same points on two calls, and whatever order the rows come in', () => {
@@ -103,7 +103,7 @@ describe('layoutOf', () => {
 
   it('ignores a line to a star it does not place, and a line from a star to itself', () => {
     const stars = starsOf(5);
-    const lines: LayoutLine[] = [{ a: 'vertuoza/vertuo-apps', b: 'vertuoza/elsewhere', weight: 3 }, { a: 'vertuoza/api', b: 'vertuoza/api', weight: 2 }];
+    const lines: LayoutLine[] = [{ a: 'demo-org/nimbus-apps', b: 'demo-org/elsewhere', weight: 3 }, { a: 'demo-org/api', b: 'demo-org/api', weight: 2 }];
     expect(Object.fromEntries(layoutOf(stars, lines, SEED).at)).toEqual(Object.fromEntries(layoutOf(stars, [], SEED).at));
   });
 });

@@ -1,6 +1,6 @@
 # `kit/lib/knowledge/describe.mjs`
 
-Source: `scripts/knowledge.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/knowledge.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -23,7 +23,7 @@ Source: `scripts/knowledge.mjs` @ `vertuo-ai-domain@c4a210122`.
   `flatCtx`'s `knowledgeRoot` is `docs/knowledge`, the same path upstream used.
 - All four scenario assertions unchanged.
 - **Deleted**: `it('prints the product principle the two moved rules serve, from the real
-  folder', …)` — called `readKnowledge()` with no root, against the real `vertuo-ai-domain`
+  folder', …)` — called `readKnowledge()` with no root, against the real `nimbus-brain`
   checkout. The Port Protocol's explicit real-repo exclusion; no fixture stand-in was substituted,
   since the scenario ("the two moved rules") names entries specific to that repository's own
   history and has no equivalent in a kit-agnostic fixture.

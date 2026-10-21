@@ -68,7 +68,7 @@ import type { GridSession, RaceStart } from './kart/index';
 import { loadedInto, useKartLive } from './scenes/kart.live';
 import type { GridPlayer } from './kart/net';
 import type { Account, DossiersRead, FleetRow, Player, PlayerPatch, ScoresRead, Session, XpRead } from './types';
-import { at, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import './shell.css';
 
 // The music each screen plays; the rest are silent but for their effects.

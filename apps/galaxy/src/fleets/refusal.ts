@@ -1,4 +1,4 @@
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // A refusal from the fleet functions (supabase/migrations/20261003090000_own_fleets.sql, PRD 400), as
 // /app/settings/fleets shows it. A field's refusal carries SQLSTATE 22023 and the field's name as its hint,

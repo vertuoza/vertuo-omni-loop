@@ -17,7 +17,7 @@ install the forms join.
 | id | slice | territory | blocked by | wave |
 | --- | --- | --- | --- | --- |
 | s1 | A form is a typed thing the kit reads: `paths.playbook` and `branches.terraform` exist in the config, the layout names the front door, the playbook folder and each form's file, the one parser reads a form's front matter, slots, `See:` lines and holes and resolves each slot from pointer, repository section or a given kit default (filling `{config:<key>}`); a settled `Became: playbook/<form>#<slot>` resolves in `omni check outbox`, and decision coverage no longer counts the ADR folder's `README.md` as law text | `kit/lib/config.mjs` `kit/lib/config.test.mjs` `kit/lib/layout.mjs` `kit/lib/layout.test.mjs` `kit/lib/playbook/forms` `kit/lib/playbook/resolve` `kit/lib/outbox/check-outbox` `kit/lib/outbox/decision-coverage` `kit/test/fixture.mjs` `kit/dist/omni.mjs` | — | 1 |
-| s2 | The kit defaults: the thirteen form templates and the front door README, ported from vertuo-ai-domain with every repository literal removed, loadable from source and bundled into `omni.mjs` | `kit/templates/` `kit/lib/playbook/templates` `kit/build.mjs` `kit/test/no-literals.test.mjs` `kit/porting/templates--` `kit/dist/omni.mjs` | s1 | 2 |
+| s2 | The kit defaults: the thirteen form templates and the front door README, ported from nimbus-brain with every repository literal removed, loadable from source and bundled into `omni.mjs` | `kit/templates/` `kit/lib/playbook/templates` `kit/build.mjs` `kit/test/no-literals.test.mjs` `kit/porting/templates--` `kit/dist/omni.mjs` | s1 | 2 |
 | s3 | `omni kb init`, `omni kb show`, `omni kb status` and `omni check kb` inside `check all`; `omni kb init` writes the empty `product/` registers when they are missing; `omni kb show decisions` reads the ADR folder live; the committed bundle alone prints the kit defaults | `kit/bin/commands/kb.mjs` `kit/bin/commands/index.mjs` `kit/bin/commands/check.mjs` `kit/bin/kb.test.mjs` `kit/bin/omni.test.mjs` `kit/lib/playbook/write-forms` `kit/lib/playbook/check-playbook` `kit/lib/playbook/decisions` `kit/lib/playbook/status` `kit/test/profiles.test.mjs` `kit/test/bundle-playbook.test.mjs` `kit/dist/omni.mjs` | s1, s2 | 3 |
 | s4 | `omni init` lays down the forms after the config and the bin, names `/omni:terraform` in its closing steps, and reads `laws.source: knowledge` from registers that hold an entry, not from the folder existing | `kit/bin/commands/init.mjs` `kit/bin/init.test.mjs` `kit/lib/init/steps.mjs` `kit/lib/init/detect.mjs` `kit/dist/omni.mjs` | s3 | 4 |
 | s5 | `/omni:terraform`: stop when not installed, `omni kb init`, survey, point before writing, fill from evidence, run each command green, leave holes, propose config, one docs-only pull request; `--refresh` | `kit/plugin/skills/terraform/` | s3 | 4 |
@@ -64,8 +64,8 @@ decision-coverage fix, which lets it write `adr/README.md` without an account, i
   - Thirteen templates and the front door README template exist under `kit/templates/`; each form
     template parses with s1's parser and declares exactly the slots of the spec's forms table, required as
     marked, in that order.
-  - A slot carries a kit default wherever the vertuo-ai-domain page it is modelled on holds doctrine; each
-    template carries a provenance line pinned to `vertuo-ai-domain@db67fd9da`, and
+  - A slot carries a kit default wherever the nimbus-brain page it is modelled on holds doctrine; each
+    template carries a provenance line pinned to `nimbus-brain@db67fd9da`, and
     `kit/porting/templates--<form>.md` lists every literal removed.
   - `kit/test/no-literals.test.mjs` scans `kit/templates/` and passes.
   - From source and from the committed bundle, the same loader returns the same template text.

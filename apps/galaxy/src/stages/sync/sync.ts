@@ -43,9 +43,9 @@ import type { ConceptFactsStore, FixFactsStore } from '../../fixes/facts/store';
 import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
 import { changedPrds, stagesOfRepo, type RepoSnapshot, type ServerBorn } from './core';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { Logger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
-import { firstPart, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { Logger } from 'omni-loop/kit/lib/log/log.ts';
+import { firstPart, group } from 'omni-loop/kit/lib/narrow.ts';
 
 /** A workspace, and where its repositories are found on GitHub. */
 export type SyncWorkspace = { id: string; slug: string; github_org: string | null; github_installation_id: number | null };

@@ -6,7 +6,7 @@ import type { DossierRow } from '../store';
 import { DossierPage } from './DossierPage';
 import type { ProofRead } from './proof';
 import { dossierView, readPick } from './view';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -20,7 +20,7 @@ vi.mock('next/navigation', async (original) => ({
 // the version picker for older runs.
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
-const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
+const PIERRE = { user_id: 'u-pierre', email: 'pierre@example.com', name: 'Pierre' };
 const SUPABASE = { url: 'http://127.0.0.1:54321', key: 'anon' };
 
 const numbered: DossierRow = {

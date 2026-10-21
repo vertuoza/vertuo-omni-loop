@@ -7,9 +7,9 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { CONFIG_FILE, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { CONFIG_FILE, parseConfig } from 'omni-loop/kit/lib/config.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import type { GitHubClient } from '../outbox-check/github-schema.ts';
 import { snapshot } from '../snapshot/snapshot.ts';

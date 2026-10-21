@@ -21,7 +21,7 @@ way (PRD 2011). The plan repository is the one `POST /api/v1/mega-bug-fixes` acc
 - The ladder: one line per repository, five steps, the reached ones filled.
 - Plan repository: an owner picks it among the workspace's repositories, or `None`, and saves it;
   Save waits until the pick changes. Any other member reads it as text.
-- Still in the plan repository: one line each for a repository below step 5 (`vertuo-web · step 3`)
+- Still in the plan repository: one line each for a repository below step 5 (`nimbus-web · step 3`)
   and for an open record born in git (`roadmap 0412 · in git`).
 - The one primary action: Add a repository, as PRD 1364 drew it.
 - Below, the repositories and approvers as PRD 1364 drew them.

@@ -13,7 +13,7 @@
 
 ## Fix
 
-`/omni:wave` starts one background agent per slice and ends its turn while they work. Under `claude -p`, claude stops background work 10 minutes after the last turn and exits 0, so the job ended Done with its slices half built (job 631c499f on vertuo-agents, PRD 1904). Every job session now starts with `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` (`kit/lib/runner/runner.ts`), so claude waits for its agents to end; the runner's own timeout still bounds the job.
+`/omni:wave` starts one background agent per slice and ends its turn while they work. Under `claude -p`, claude stops background work 10 minutes after the last turn and exits 0, so the job ended Done with its slices half built (job 631c499f on nimbus-agents, PRD 1904). Every job session now starts with `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` (`kit/lib/runner/runner.ts`), so claude waits for its agents to end; the runner's own timeout still bounds the job.
 
 ## Guard
 

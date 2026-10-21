@@ -1,21 +1,21 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { UNREAD, type GithubSummary, type OutboxItem } from '../github/summary';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { peopleOf } from '../../people/load';
 import { REPLIES_UNREAD, SEND_OFF, SIGN_IN_TO_ANSWER } from './outbox-view';
 import type { CareState } from '../github/care';
 import { dossierView, GITHUB_UNREAD, isQuick, OUTBOX_EMPTY, readPick, RETRO_EMPTY, sandboxPath, shortDay, stamp, versionSource, watcherOf, wayBack } from './view';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
 // what the address picks: the header, the tabs, each artifact's versions, newest first, and the
 // questions that shaped it.
 
-const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
-const MARIE = { user_id: 'u-marie', email: 'marie@vertuoza.com', name: null };
+const PIERRE = { user_id: 'u-pierre', email: 'pierre@example.com', name: 'Pierre' };
+const MARIE = { user_id: 'u-marie', email: 'marie@example.com', name: null };
 const MEMBERS = [PIERRE, MARIE];
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
@@ -119,7 +119,7 @@ describe('the header', () => {
   });
 
   it('names an opener by their email when they chose no name, and one who left as such', () => {
-    expect(view(readPick({}), { ...numbered, opened_by: MARIE.user_id }).opened).toMatch(/^opened by marie@vertuoza\.com · /);
+    expect(view(readPick({}), { ...numbered, opened_by: MARIE.user_id }).opened).toMatch(/^opened by marie@example\.com · /);
     expect(view(readPick({}), { ...numbered, opened_by: 'u-gone' }).opened).toMatch(/^opened by someone who left the workspace · /);
   });
 
@@ -129,7 +129,7 @@ describe('the header', () => {
 
   it('chips every repository of the dossier as the history lists them, else its home repository alone', () => {
     const read = { dossier: numbered, versions, members: MEMBERS, rounds };
-    const repos = ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-core'];
+    const repos = ['vertuoza/vertuo-omni-loop', 'demo-org/nimbus-ai-domain', 'demo-org/nimbus-core'];
     expect(dossierView({ ...read, repos }, PIERRE.user_id, readPick({})).repos).toEqual(repos);
     expect(dossierView({ ...read, repos: null }, PIERRE.user_id, readPick({})).repos).toEqual(['vertuoza/vertuo-omni-loop']);
     expect(dossierView({ ...read, repos: [] }, PIERRE.user_id, readPick({})).repos).toEqual(['vertuoza/vertuo-omni-loop']);
@@ -304,7 +304,7 @@ describe('the version picker', () => {
   it('lists the tab\'s versions newest first, each with its number, day and source', () => {
     expect(view(readPick({ tab: 'spec' })).versions.map((v) => [v.number, v.label, v.current])).toEqual([
       [3, 'v3 · 28 Sep · commit a1b2c3d (github)', true],
-      [2, 'v2 · 27 Sep · marie@vertuoza.com (kit)', false],
+      [2, 'v2 · 27 Sep · marie@example.com (kit)', false],
       [1, 'v1 · 27 Sep · Pierre (kit)', false],
     ]);
   });
@@ -412,7 +412,7 @@ describe('the Questions tab', () => {
 
   it('says who answered, after how long and where, or that nobody did', () => {
     expect(questions().questions.rounds?.map((r) => r.outcome)).toEqual([
-      'answered by marie@vertuoza.com after 1 min 35 s, on the page',
+      'answered by marie@example.com after 1 min 35 s, on the page',
       'answered by Pierre after 2 h 0 min, in the terminal',
       'moved to the terminal, no answer recorded',
       'not answered yet',
@@ -423,7 +423,7 @@ describe('the Questions tab', () => {
     const [first, second, third, fourth] = questions().questions.rounds ?? [];
     expect(first).toMatchObject({ asked: 'asked by Pierre · 27 Sep 2026, 09:15 UTC', category: 'UX/UI', categoryValue: 'ux-ui', href: `/ask/q/r1?from=${ID}` });
     expect(second).toMatchObject({ category: 'Harness', categoryValue: 'harness' });
-    expect(third).toMatchObject({ asked: 'asked by marie@vertuoza.com · 28 Sep 2026, 08:00 UTC', category: 'unsorted', categoryValue: null });
+    expect(third).toMatchObject({ asked: 'asked by marie@example.com · 28 Sep 2026, 08:00 UTC', category: 'unsorted', categoryValue: null });
     assertDefined(third, 'the third round');
     assertDefined(fourth, 'the fourth round');
     expect(third.context).toEqual(['vertuoza/vertuo-omni-loop', 'feat/prd-dossiers--s3', 'PRD #216', '/omni:do-work']);
@@ -603,7 +603,7 @@ describe('a quick round, answered on the list (PRD 384)', () => {
       canAnswer: true,
       owner: 'Pierre',
       next: 'q2',
-      names: { [PIERRE.user_id]: 'Pierre', [MARIE.user_id]: 'marie@vertuoza.com' },
+      names: { [PIERRE.user_id]: 'Pierre', [MARIE.user_id]: 'marie@example.com' },
       ownerFace: { kind: 'initial', letter: 'P' },
       faces: { [PIERRE.user_id]: { kind: 'initial', letter: 'P' }, [MARIE.user_id]: { kind: 'initial', letter: 'M' } },
     });
@@ -785,7 +785,7 @@ describe('the faces of the people it names (PRD 652)', () => {
     expect(first.askedBy).toMatchObject({ name: 'Pierre', face: { kind: 'hero' } });
     expect(first.askedAt).toBe('27 Sep 2026, 09:15 UTC');
     expect(first.answeredBy).toEqual({
-      person: { name: 'marie@vertuoza.com', face: { kind: 'photo', url: 'https://a.test/marie.png' }, fleet: 'solo', login: 'marie-gh' },
+      person: { name: 'marie@example.com', face: { kind: 'photo', url: 'https://a.test/marie.png' }, fleet: 'solo', login: 'marie-gh' },
       rest: ' after 1 min 35 s, on the page',
     });
     assertDefined(first.answeredBy, 'who answered the first round');

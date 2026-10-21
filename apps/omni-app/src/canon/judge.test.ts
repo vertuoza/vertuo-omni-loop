@@ -1,7 +1,7 @@
 // The canon gate's judge port, against a recording fetch: nothing here calls galaxy.
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { JUDGE_NOT_CONFIGURED, type JudgeRequest } from './canon.ts';
 import { readEnv } from '../env.ts';
 import { constituentJudge, judgeUrl } from './judge.ts';

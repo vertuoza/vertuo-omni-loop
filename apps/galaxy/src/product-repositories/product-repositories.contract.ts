@@ -13,7 +13,7 @@
 // sign-in, 403 an import by someone who is no owner of the workspace, 404 a repository no workspace of
 // the caller lists or no such product, 409 a name two products share, 422 a link the database refuses
 // (in its words), 503 no database here, 500 the database failed.
-export { ProductTargetsSchema } from 'vertuo-omni-plan/kit/lib/product/targets.ts';
-export type { ProductTargetsReply } from 'vertuo-omni-plan/kit/lib/product/targets.ts';
-export { ProductImportRequestSchema, ProductImportSchema, ProductsWhichSchema } from 'vertuo-omni-plan/kit/lib/product/import.ts';
-export type { ProductImportReply, ProductImportRequest, ProductsWhichReply } from 'vertuo-omni-plan/kit/lib/product/import.ts';
+export { ProductTargetsSchema } from 'omni-loop/kit/lib/product/targets.ts';
+export type { ProductTargetsReply } from 'omni-loop/kit/lib/product/targets.ts';
+export { ProductImportRequestSchema, ProductImportSchema, ProductsWhichSchema } from 'omni-loop/kit/lib/product/import.ts';
+export type { ProductImportReply, ProductImportRequest, ProductsWhichReply } from 'omni-loop/kit/lib/product/import.ts';

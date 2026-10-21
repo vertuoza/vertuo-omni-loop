@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { approvalsRepository, reachRepository } from './approvals.repository';
 
 // The approvals' storage (PRD 1322 s2), on a stubbed Supabase client: which function it calls with

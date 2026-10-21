@@ -438,7 +438,7 @@ Outside sources:
 
 Gap questions ride ask mode, which already exists.
 
-*Smallest proof:* invade on vertuo-omni-plan posts 5 proposed claims, they are confirmed with 3 taps, and think-big quotes one.
+*Smallest proof:* invade on nimbus-plan posts 5 proposed claims, they are confirmed with 3 taps, and think-big quotes one.
 
 *Yes, and…* each claim stores a `source` of `evidence`, `pick` or `answer`, so E's picks and F's answers are the same row, not three features.
 
@@ -600,4 +600,4 @@ Screens (3–5):
 1. **Terminal**: `omni business show` on an empty workspace prints "No business yet — agents carry on." exit 0; on a filled one prints the confirmed claims with receipts; `--json` shows the exact same fields the MCP returns.
 2. **"Connect an agent" row** on the Business page: copy the MCP URL + a read-only, revocable token (name it, see last used, revoke); snippet tabs for Claude Code / Cursor.
 3. **Cursor chat pane** (an editor-like look): the user asks "who is our customer?"; the answer arrives citing claim ids and receipts; a second question ("do we sell in Luxembourg?") gets "Not known yet — sent to the Business page".
-4. **Back on the Business page**: "3 questions agents couldn't answer" as unknown rows, each naming who asked ("think-big on vertuo-app", "Cursor · Tom"), with "Answer once".
+4. **Back on the Business page**: "3 questions agents couldn't answer" as unknown rows, each naming who asked ("think-big on nimbus-app", "Cursor · Tom"), with "Answer once".

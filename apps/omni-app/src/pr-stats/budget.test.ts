@@ -2,7 +2,7 @@
 // through a 90-day backfill), and the outbox check, which shares that budget, failed with 403 for most
 // of each hour. The collector must read pull requests without REST calls per pull request, and never
 // drive a budget of the installation below half.
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { type CollectStep, collectAll } from './collect.ts';
 import { fakeGitHub, fakeStore, pull } from './fake.ts';
@@ -27,8 +27,8 @@ function run(github: ReturnType<typeof fakeGitHub>, store: ReturnType<typeof fak
 
 describe('prStats — the installation budget the outbox check shares (bug 638)', () => {
   it('collects 200 pull requests without one REST call per pull request', async () => {
-    const github = fakeGitHub({ 'vertuoza/apps': { pulls: recentPulls(200) } });
-    const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+    const github = fakeGitHub({ 'demo-org/apps': { pulls: recentPulls(200) } });
+    const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'demo-org/apps' }]);
 
     await run(github, store);
 
@@ -39,10 +39,10 @@ describe('prStats — the installation budget the outbox check shares (bug 638)'
 
   it('never drives a budget below half, and leaves the cursor at what it wrote', async () => {
     const budgets = { core: { limit: 5000, remaining: 2520 }, graphql: { limit: 5000, remaining: 2520 } };
-    const github = fakeGitHub({ 'vertuoza/apps': { pulls: recentPulls(600) }, 'vertuoza/web': { pulls: recentPulls(5) } }, budgets);
+    const github = fakeGitHub({ 'demo-org/apps': { pulls: recentPulls(600) }, 'demo-org/web': { pulls: recentPulls(5) } }, budgets);
     const store = fakeStore([
-      { workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' },
-      { workspaceId: WS, installationId: 7, fullName: 'vertuoza/web' },
+      { workspaceId: WS, installationId: 7, fullName: 'demo-org/apps' },
+      { workspaceId: WS, installationId: 7, fullName: 'demo-org/web' },
     ]);
 
     await run(github, store);
@@ -52,7 +52,7 @@ describe('prStats — the installation budget the outbox check shares (bug 638)'
     const [apps, web] = store.state.repositories as [(typeof store.state.repositories)[number], (typeof store.state.repositories)[number]];
     expect(apps.collectError).toBeNull();
     expect(apps.collectedAt).toBeNull();
-    const saved = [...store.state.pulls.values()].filter((row) => row.repo === 'vertuoza/apps').map((row) => row.number);
+    const saved = [...store.state.pulls.values()].filter((row) => row.repo === 'demo-org/apps').map((row) => row.number);
     expect(saved.length).toBeLessThan(600);
     expect(apps.collectedUntil).toBe(saved.length ? daysAgo(60 - (saved.length - 1) * 0.1) : daysAgo(90));
     expect(web.collectedAt).toBeNull();
@@ -60,8 +60,8 @@ describe('prStats — the installation budget the outbox check shares (bug 638)'
 
   it('reads nothing when a budget is already under half', async () => {
     const budgets = { core: { limit: 5000, remaining: 2000 }, graphql: { limit: 5000, remaining: 2000 } };
-    const github = fakeGitHub({ 'vertuoza/apps': { pulls: recentPulls(3) } }, budgets);
-    const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/apps' }]);
+    const github = fakeGitHub({ 'demo-org/apps': { pulls: recentPulls(3) } }, budgets);
+    const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'demo-org/apps' }]);
 
     const result = await run(github, store);
 

@@ -20,7 +20,7 @@ const ROSTER = [
   member('u-paul', 'paetienne', 'octo', 'Paul Etienne'),
   member('u-bob', 'bob-gh', 'beaver', 'BOB'),
 ];
-const merged = (login: string, n: number): Activity => ({ kind: 'pr-merged', repo: 'vertuo-ai-domain', number: n, login, at: '2026-09-25T08:00:00Z' });
+const merged = (login: string, n: number): Activity => ({ kind: 'pr-merged', repo: 'nimbus-ai-domain', number: n, login, at: '2026-09-25T08:00:00Z' });
 const ACTIVITY = [merged('ada-gh', 1), merged('ada-gh', 2), merged('bob-gh', 3), merged('bob-gh', 4), merged('bob-gh', 5)];
 const ANSWERED: AnsweredCount[] = [{ user_id: 'u-ada', answered: 4 }, { user_id: 'u-bob', answered: 6 }];
 const GALAXY = {

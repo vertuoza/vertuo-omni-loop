@@ -82,7 +82,7 @@ describe('the week, read', () => {
 
   it('never counts a PRD opened, nor a merge before the week', async () => {
     const w = world((w) => {
-      w.tables.contributions.push(contribution(VERTUOZA, 'prd-opened', 'vertuo-core', 8, 'ada-gh', '2026-09-25T08:00:00Z'));
+      w.tables.contributions.push(contribution(VERTUOZA, 'prd-opened', 'nimbus-core', 8, 'ada-gh', '2026-09-25T08:00:00Z'));
     });
     const week = await loadWeek(inputOf(w, PEOPLE.ada, VERTUOZA, 'ada-gh'));
     expect(counts(week)).toEqual([0, 0, 1, 0, 2, 0, 0]);
@@ -90,14 +90,14 @@ describe('the week, read', () => {
 
   it('matches your login ignoring case: a row stored as Ada-GH is yours', async () => {
     const w = world((w) => {
-      w.tables.contributions.push({ ...contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 105, 'x', '2026-09-26T08:00:00Z'), login: 'Ada-GH' });
+      w.tables.contributions.push({ ...contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 105, 'x', '2026-09-26T08:00:00Z'), login: 'Ada-GH' });
     });
     expect(counts(await loadWeek(inputOf(w, PEOPLE.ada, VERTUOZA, 'ada-gh')))).toEqual([0, 0, 1, 0, 2, 0, 1]);
   });
 
   it('counts a merge late on Sunday evening in summer on Monday, as Brussels reads it', async () => {
     const w = world((w) => {
-      w.tables.contributions.push(contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 106, 'ada-gh', '2026-09-20T22:30:00Z'));
+      w.tables.contributions.push(contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 106, 'ada-gh', '2026-09-20T22:30:00Z'));
     });
     expect(counts(await loadWeek(inputOf(w, PEOPLE.ada, VERTUOZA, 'ada-gh')))).toEqual([0, 1, 1, 0, 2, 0, 0]);
   });

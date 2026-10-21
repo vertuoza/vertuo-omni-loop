@@ -12,7 +12,7 @@
 import { openThreads, type CareState } from '../github/care';
 import { UNREAD, type GithubSummary, type IssueRef, type PullRef, type Read } from '../github/summary';
 import { storedStageOf, type CurrentStage, type OpenOutbox, type StageId, type StageRow } from '../../stages/stage';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export { STAGES, STAGE_LABELS, type StageId } from '../../stages/stage';
 

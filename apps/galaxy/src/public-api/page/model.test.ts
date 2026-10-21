@@ -77,7 +77,7 @@ describe('a key’s row', () => {
   });
 
   it('names a repository by its name, and the maker by their login', () => {
-    expect(repoChip('vertuoza/backend-php')).toBe('backend-php');
+    expect(repoChip('demo-org/backend-php')).toBe('backend-php');
     expect(makerOf(key('k-1'))).toBe('@ada');
     expect(makerOf(key('k-1', 'x', { maker: { id: 'u', login: null, name: 'Ada' } }))).toBe('Ada');
     expect(makerOf(key('k-1', 'x', { maker: { id: 'u', login: null, name: null } }))).toBe('someone');

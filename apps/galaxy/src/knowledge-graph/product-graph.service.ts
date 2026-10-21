@@ -1,4 +1,4 @@
-import type { ProductNeighbourhood } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
+import type { ProductNeighbourhood } from 'omni-loop/kit/lib/knowledge/product-graph.ts';
 import { joinProductGraph, type JoinedGraph, type LinkedRepository } from './join';
 import type { ProductGraphRepository, StoredGraphRow, StoredProductRow } from './product-graph.repository';
 import { prefixedMatches, productNeighbourhood } from './walk';

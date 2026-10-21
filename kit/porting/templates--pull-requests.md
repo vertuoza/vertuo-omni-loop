@@ -1,6 +1,6 @@
 # `kit/templates/playbook/pull-requests.md`
 
-Source: `docs/agents/pull-request.md` @ `vertuo-ai-domain@db67fd9da`, with the Conventional Commit
+Source: `docs/agents/pull-request.md` @ `nimbus-brain@db67fd9da`, with the Conventional Commit
 title from `docs/agents/definition-of-done.md` › Commit Shape. The kit default of the pull-requests
 form: slots `body`, `title`, `labels`, `reviewers`, in the spec's order.
 
@@ -16,12 +16,12 @@ form: slots `body`, `title`, `labels`, `reviewers`, in the spec's order.
 
 ## Dropped (repository literals)
 
-- **The skill pointer:** `vertuo-pull-request`.
+- **The skill pointer:** `nimbus-pull-request`.
 - **Kinds' mechanics:** `feat/<topic>`, `feat/<topic>--<slice>`, `docs/phase-0-<topic>`,
-  `Closes #<prd>`, `Part of #<prd>`, `Refs #<prd>`, ADR 0069, `vertuo-plan`, `vertuo-deliver`,
-  `vertuo-yolo`, `vertuo-brainstorming`, `ci/outbox`, `outbox:go`,
+  `Closes #<prd>`, `Part of #<prd>`, `Refs #<prd>`, ADR 0069, `nimbus-plan`, `nimbus-deliver`,
+  `nimbus-yolo`, `nimbus-brainstorming`, `ci/outbox`, `outbox:go`,
   `docs/agents/implementation-workflow.md`, `pnpm quality:preflight --full`, `.pending.feature`,
-  `.claude/skills/vertuo-brainstorming/phase-0-policy.mjs`, "the label with a comment more than an
+  `.claude/skills/nimbus-brainstorming/phase-0-policy.mjs`, "the label with a comment more than an
   hour old". The kit's `/omni:pr` owns the kinds; the form keeps each kind's label and the status
   comment rule (slot `labels`).
 - **`.github/PULL_REQUEST_TEMPLATE.md`**: now "the repository's pull request template, when it has

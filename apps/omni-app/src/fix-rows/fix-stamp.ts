@@ -8,7 +8,7 @@
 // `/omni:mega-bug-fix --product` writes), so a fix merged into an integration branch is stamped too. A
 // sub-PR into its feature branch names none, and sends nothing (#1409: each event is a run).
 import { z } from 'zod';
-import { PrNumberSchema, ProductBugIdSchema, type ProductBugId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrNumberSchema, ProductBugIdSchema, type ProductBugId } from 'omni-loop/kit/lib/ids.ts';
 import { proseLines } from '../evaluate/prose-lines.ts';
 
 /** The event `/api/github` sends for a pull request closed, merged or not, or reopened. */

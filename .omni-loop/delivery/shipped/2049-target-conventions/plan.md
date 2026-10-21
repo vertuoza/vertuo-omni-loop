@@ -18,7 +18,7 @@ after merging and is listed in no territory.
 
 ### s1
 
-- `omni conventions --root <fixture>` on a fixture shaped like vertuo-backend-php (a `CLAUDE.md`
+- `omni conventions --root <fixture>` on a fixture shaped like nimbus-backend-php (a `CLAUDE.md`
   whose table routes "Migration" to `docs/migrations.md`, a `docs/readme.md`, a `docs/adr/` folder)
   prints `CLAUDE.md`, `docs/readme.md`, `docs/migrations.md` and the ADR index, each with its title
   and the file that led to it, and exits 0 (spec, acceptance 1).

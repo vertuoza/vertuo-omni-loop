@@ -4,7 +4,7 @@ import {
 } from './model';
 import { COULD_NOT_SAVE } from '../business/store';
 import { parseRow } from '../data/parse-rows';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { settled } from '../stages/settled';
 
 // The constituents' writes (PRD 871). In production, the functions of

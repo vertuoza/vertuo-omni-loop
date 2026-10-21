@@ -16,8 +16,8 @@ mode has one rule: **one plan, one phase-0, one gate**. You approve the whole fe
 plan repository, and you answer every decision the agents took once, in the plan repository, while
 the code's pull requests open in each target.
 
-The example on this page is the same throughout: PRD 600 lives in `vertuo-automation-plan`; its
-slice s1 lands in `vertuo-backend-php`, and s2 and s3 in `vertuo-apps`.
+The example on this page is the same throughout: PRD 600 lives in `nimbus-plan`; its
+slice s1 lands in `nimbus-backend-php`, and s2 and s3 in `nimbus-apps`.
 
 There is a second way, with no plan repository at all: a **product PRD**, kept on a
 [product](/docs/products) on the Omni page and run from any of its repositories.
@@ -97,15 +97,15 @@ target say what may change in it, and in what order:
 ```yaml file=.omni-loop/config.yml
 plan:
   targets:
-    - repo: vertuoza/vertuo-backend-php
+    - repo: demo-org/nimbus-backend-php
       role: back-end
       knowledge: imported
       readAt: 3f9c2a7e1b0d4c8a9e6f5d2b1a0c9e8d7f6a5b4c
-    - repo: vertuoza/vertuo-apps
+    - repo: demo-org/nimbus-apps
       role: front-end
       knowledge: own
-      consumes: [vertuo-backend-php]
-    - repo: vertuoza/vertuo-legacy
+      consumes: [nimbus-backend-php]
+    - repo: demo-org/nimbus-legacy
       role: legacy
       knowledge: none
       readOnly: true
@@ -152,7 +152,7 @@ plan:
 A config names `product` or `targets`, never both: with both it is refused, naming the two keys.
 `omni targets` then reads the product's links from the Omni page, signed in as you (`omni signin`),
 and prints the same table. A link with no role is refused by name:
-`vertuoza/vertuo-backend-php has no role in product Mobile: set it on the product page`. Each read
+`demo-org/nimbus-backend-php has no role in product Mobile: set it on the product page`. Each read
 is kept in `.omni-loop/local/product-targets.json`: when the Omni page does not answer within five
 seconds, `omni targets` reads that copy and says `targets from the last read, <date> · server
 unreachable`; with no copy yet, it stops with `no targets: the server is unreachable and nothing was
@@ -335,7 +335,7 @@ side with the product way: a repository below step 5 stays on the old way, and a
 record born in git finishes in git.
 
 A [product](/docs/products)'s **Repositories & approvers** tab shows, as information only, each
-repository's ladder step and what still lives in its plan repository, such as `vertuo-web · step 3`
+repository's ladder step and what still lives in its plan repository, such as `nimbus-web · step 3`
 or `roadmap 0412 · in git`. It has no action on the plan repository.
 
 The skills and checks read an imported target's knowledge from its pack, which the server keeps,

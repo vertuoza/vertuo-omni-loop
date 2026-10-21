@@ -5,7 +5,7 @@
 // A read the installation is not allowed to make, or that finds nothing (403, 404, or GraphQL
 // refusing the same way), gives `null`: unknown, which the detector says, never an empty list it
 // would count as "none". Any other failure fails the step, so Inngest retries it.
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { MAX_PAGES, PER_PAGE, paginate } from '../github.ts';
 import { hasRedCircle, isBotLogin, stuckAttempts } from './delivery.facts.ts';
 import type { Octokit } from './index.ts';

@@ -26,7 +26,7 @@
  * An empty inbox passes trivially. A missing `plan.md` is never graded here — whether a PRD has
  * been planned yet is a status question, never a violation.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/check-inbox.mjs — changes in kit/porting/inbox--check-inbox.md.
+// Ported from nimbus-brain@c4a210122:scripts/check-inbox.mjs — changes in kit/porting/inbox--check-inbox.md.
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { productAvoids } from '../design/words/product.ts';

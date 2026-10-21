@@ -3,7 +3,7 @@
 // part GitHub could not read is the string 'unread'; a part a summary made before it left out stays out.
 import { z } from 'zod';
 import { UNREAD, type GithubSummary } from '../github/summary';
-import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** A part as stored: its value, or UNREAD. */
 const read = <T extends z.ZodType>(part: T) => z.union([z.literal(UNREAD), part]);

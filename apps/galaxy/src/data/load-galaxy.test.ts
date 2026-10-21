@@ -37,11 +37,11 @@ function world(ledger: Record<string, unknown>[]) {
 
 describe('loadGalaxy keys a planet by its home (PRD 728)', () => {
   it('reads each row\'s home, so two repositories\' PRD 88 are two planets', async () => {
-    const db = world([...twins('vertuoza/vertuo-omni-plan', 'ada-gh'), ...twins('vertuoza/vertuo-automation-plan', 'paul-gh')]);
+    const db = world([...twins('demo-org/nimbus-plan', 'ada-gh'), ...twins('demo-org/nimbus-automation-plan', 'paul-gh')]);
     const view = await loadGalaxy(db, VERTUOZA, NOW, null);
     expect(view.planets.map((p) => [p.key, p.home, p.title])).toEqual([
-      ['vertuoza/vertuo-automation-plan#88', 'vertuoza/vertuo-automation-plan', '88 of vertuoza/vertuo-automation-plan'],
-      ['vertuoza/vertuo-omni-plan#88', 'vertuoza/vertuo-omni-plan', '88 of vertuoza/vertuo-omni-plan'],
+      ['demo-org/nimbus-automation-plan#88', 'demo-org/nimbus-automation-plan', '88 of demo-org/nimbus-automation-plan'],
+      ['demo-org/nimbus-plan#88', 'demo-org/nimbus-plan', '88 of demo-org/nimbus-plan'],
     ]);
     expect(view.planets.map((p) => p.secured)).toEqual([1, 1]);
     expect(Object.fromEntries(view.heroes.map((h) => [h.name, h.points]))).toEqual({ 'ada-gh': 10, 'paul-gh': 10 });

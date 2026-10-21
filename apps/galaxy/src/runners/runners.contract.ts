@@ -24,7 +24,7 @@
 // on it), 409 a job that has ended (a runner stops it) or a status that goes back, or questions already
 // asked, answered or dismissed, 503 no database here, 500 the database failed.
 import { z } from 'zod';
-import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
 export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove'] as const;

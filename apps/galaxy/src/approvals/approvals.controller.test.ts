@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { AskingSchema } from 'vertuo-omni-plan/kit/lib/approval/stream.ts';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { AskingSchema } from 'omni-loop/kit/lib/approval/stream.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { emailSender, type EmailLib } from '../notify/email';
 import type { Channels } from '../notify/notify';
 import { pushSender, type WebPushLib } from '../notify/push';

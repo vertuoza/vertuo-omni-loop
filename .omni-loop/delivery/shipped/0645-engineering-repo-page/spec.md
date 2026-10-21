@@ -83,9 +83,9 @@ that repository.
 
 - As a member reading the Engineering board, I see at a glance who leads each list, by how much,
   and with the face I know them by.
-- As a member, I click `vertuoza/pdf-builder` in the table and read that repository's own
+- As a member, I click `demo-org/pdf-builder` in the table and read that repository's own
   opened/merged counts, time to merge, per-day chart and top people, for the same period.
-- As a member, I send `/app/engineering/vertuoza/pdf-builder?period=30d` to a colleague, and it
+- As a member, I send `/app/engineering/demo-org/pdf-builder?period=30d` to a colleague, and it
   opens on the same view for them.
 
 ## Scope
@@ -116,7 +116,7 @@ Following `omni kb show testing`: vitest beside the code; no test calls GitHub o
   renders the back link, the heading, and no Repositories table.
 - `page.test.ts` for the new route: demo, closed, signed out, no workspace, a tracked repository,
   and an untracked one (`notFound`). The period defaults to 7d.
-- `src/nav/sidebar.test.ts`: `/app/engineering/vertuoza/pdf-builder` marks Engineering current.
+- `src/nav/sidebar.test.ts`: `/app/engineering/demo-org/pdf-builder` marks Engineering current.
 
 A manual browser pass at 1280 px and at 393 px, light and Omni themes: rows do not wrap the count
 under the name, the bars line up, and both kinds of avatar show.

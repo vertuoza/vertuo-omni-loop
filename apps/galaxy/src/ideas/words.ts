@@ -1,5 +1,5 @@
 // The words of /ideas/<owner>/<repo> (PRD 1246, s1), in one place. English, whatever the server's locale.
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Lane } from './model';
 
 export const IDEAS = {

@@ -2,7 +2,7 @@
 // (`readPull`, `readBaseConfig`) and `snapshot`: the inbox check run, started and failed closed with
 // the inbox's `external_id`; the compare's changed paths and commits; and the PRD issue. Every call
 // goes through `octokit.request(route, params)`, so a test stubs one function.
-import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import { INBOX_EXTERNAL_ID } from '../inngest-client.ts';
 import { completeAsFailure } from '../outbox-check/github.ts';
 import {

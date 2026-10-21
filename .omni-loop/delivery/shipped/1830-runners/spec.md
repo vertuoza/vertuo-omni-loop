@@ -23,8 +23,8 @@ pod, conversational skills (`/omni:brainstorm`, `/omni:think-big`), `/omni:drive
 Every command the Omni app gives a person ends as a line to copy (`/omni:yolo 1717`, `/omni:pr-care
 1801`) into a terminal they have open. Work starts only when someone sits at a computer with
 Claude Code, the repository and its sign-ins. A server set up for agents (the first one,
-`vertuo-agents`, is a Hetzner box reachable over Tailscale only) can run that line headless today,
-but only over SSH, by hand: `ssh agent@vertuo-agents yolo 1717`.
+`nimbus-agents`, is a Hetzner box reachable over Tailscale only) can run that line headless today,
+but only over SSH, by hand: `ssh agent@nimbus-agents yolo 1717`.
 
 Nothing carries a command from the app to a terminal. Terminals push their status (`working_pings`,
 keyed by Claude session, not by machine) and poll for answers (`/api/ask/rounds/<id>/wait`) and
@@ -236,7 +236,7 @@ Every test runs on fixtures: none calls GitHub, Supabase or Claude (testing play
 | the migration | the migration-order and database checks the repository already runs |
 | layering | `scripts/layering-guard.test.ts` and `scripts/import-guard.test.ts`, with no new baseline line |
 
-By hand, once, on `vertuo-agents`: send `/omni:yolo` for a small PRD from its page, watch the job
+By hand, once, on `nimbus-agents`: send `/omni:yolo` for a small PRD from its page, watch the job
 on the Runners page, and open its pull request.
 
 ## Risks
@@ -258,7 +258,7 @@ on the Runners page, and open its pull request.
 
 ## Acceptance criteria
 
-1. `omni runner --name vertuo-agents --repos ~/repos` on a server with a kit token shows the runner
+1. `omni runner --name nimbus-agents --repos ~/repos` on a server with a kit token shows the runner
    online on `/app/runners` within 10 seconds, with its slots and repositories. It shows as
    offline within 2 minutes of being stopped.
 2. A workspace owner sets the runner's fleet on the Runners page. The runner then takes only jobs

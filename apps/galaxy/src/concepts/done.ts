@@ -10,7 +10,7 @@
 // concept in the inbox, and that is where the rule lives (BR-PRODUCT-121). The token never reaches the
 // browser (N-PRODUCT-17).
 import { z } from 'zod';
-import { parseIssue, type IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, type IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import { refuse, reply } from '../business-api/reply';
 import type { FixIssue } from '../dossier/github/fix';
 import { UNREAD } from '../dossier/github/summary';

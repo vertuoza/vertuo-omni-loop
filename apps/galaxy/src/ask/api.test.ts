@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { abandonRound, addAttachment, addRound, answerRound, categorizeRound, closeSession, deleteSession, LEAD_MAX_BYTES, removeAttachment, LEAD_NOTE_BYTES, openSession, shareRound, waitRound, whereQuestionsGo, type AskDeps, type CookieSession } from './api';
 import type { JevOutcome } from '../jev/client';
 import type { JevDecideDeps } from '../jev/resolve';
@@ -15,14 +15,14 @@ import { FAKE_WORKSPACE, fakeSupabase } from './store.fake';
 
 vi.mock('server-only', () => ({}));
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
-const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com' };
+const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com' };
 // Dan belongs to Ada's workspace too, under the arcade name he picked there.
-const DAN = { id: '00000000-0000-4000-8000-0000000000d1', email: 'dan@vertuoza.com', name: 'DAN' };
+const DAN = { id: '00000000-0000-4000-8000-0000000000d1', email: 'dan@example.com', name: 'DAN' };
 // Eve, of no Vertuoza address, belongs to no workspace.
 const EVE = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com', workspaces: [] };
 // Ada and Bob belong to one workspace (the fake's default), Carl to another.
-const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: ['00000000-0000-4000-8000-00000000aced'] };
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@example.com', workspaces: ['00000000-0000-4000-8000-00000000aced'] };
 const START = Date.parse('2026-09-26T09:00:00Z');
 const HOUR = 60 * 60 * 1000;
 const MISSING = '00000000-0000-4000-8000-00000000ffff';
@@ -179,7 +179,7 @@ describe('every ask call checks the bearer token, and leaves membership to the d
     it(`${name}: lets an account of any address through, and the database refuses one in no workspace`, async () => {
       const w = world();
       const { status, body } = await w.read(await call(w, { token: 'eve-token' }));
-      expect(body.error ?? '').not.toMatch(/vertuoza\.com/);
+      expect(body.error ?? '').not.toMatch(/example\.com/);
       if (name === 'POST /sessions') {
         expect(status).toBe(403);
         expect(body.error).toBe(`no workspace owns this repository yet — install the Omni App: ${INSTALL}`);
@@ -1228,10 +1228,10 @@ describe('the first answer wins (PRD 144)', () => {
     const w = world();
     const roundId = await shared(w);
     await pageAnswer(w, 'bob-token', roundId);
-    expect((await w.read(await terminal(w, roundId))).body.answeredBy).toEqual({ id: BOB.id, name: 'bob@vertuoza.com' });
+    expect((await w.read(await terminal(w, roundId))).body.answeredBy).toEqual({ id: BOB.id, name: 'bob@example.com' });
     const own = await w.round(await w.session());
     await pageAnswer(w, 'ada-token', own);
-    expect((await w.read(await terminal(w, own))).body).toMatchObject({ answeredBy: { id: ADA.id, name: 'ada@vertuoza.com' }, via: 'page' });
+    expect((await w.read(await terminal(w, own))).body).toMatchObject({ answeredBy: { id: ADA.id, name: 'ada@example.com' }, via: 'page' });
   });
 
   it('keeps the owner\'s answer when the shared member comes second', async () => {

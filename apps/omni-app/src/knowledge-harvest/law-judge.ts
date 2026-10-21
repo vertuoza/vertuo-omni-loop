@@ -13,8 +13,8 @@
 // no verdict, a network failure or galaxy keeping today's answer all come back as `worth: null` with the
 // reason, and the harvest carries on with the classifier's answer.
 import { z } from 'zod';
-import type { LawQuestion } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
-import type { LawWorth } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
+import type { LawQuestion } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
+import type { LawWorth } from 'omni-loop/kit/lib/knowledge/write.ts';
 import { STAGE_SIGNATURE_HEADER, signStageEvent, stageEventUrl } from '../stage-forward/stage-forward.ts';
 
 const LAW_JUDGE_SECRET_VAR = 'LAW_JUDGE_SECRET';

@@ -21,7 +21,7 @@
  *
  * Either shape refuses a malformed account file by name.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/check-decision-coverage.mjs — changes in kit/porting/outbox--check-decision-coverage.md.
+// Ported from nimbus-brain@c4a210122:scripts/check-decision-coverage.mjs — changes in kit/porting/outbox--check-decision-coverage.md.
 import type { Context } from '../context.ts';
 import { compare, readAccounts } from './account.ts';
 import type { RiskyChange } from './decision-coverage.ts';

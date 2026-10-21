@@ -11,7 +11,7 @@
 // malformed request or a product of another workspace, 401 signed out, 404 no such PRD the caller reads,
 // 409 locked, 500 the database failed.
 import { z } from 'zod';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** The picker's route. */
 export const PRODUCT_ROUTE = '/api/dossiers/product';

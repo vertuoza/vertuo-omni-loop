@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { authenticate, bearerToken, withInstallLink } from './auth';
 import { fakeSupabase } from './store.fake';
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com' };
 const EVE = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com' };
 
 describe('bearerToken', () => {

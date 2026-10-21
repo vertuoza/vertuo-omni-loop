@@ -13,42 +13,45 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-0000020110a1', 'ada@packs.test'),
   ('00000000-0000-4000-8000-0000020110c1', 'carl@packs.test'),
   ('00000000-0000-4000-8000-0000020110e1', 'eve@packs.test');
--- Ada belongs to Vertuoza, Carl to Acme, Eve to none.
+-- Ada belongs to Initech, Carl to Acme, Eve to none.
 insert into public.workspaces (slug, name, github_org) values ('acme-packs', 'Acme', 'acme-packs');
 insert into public.workspace_members (workspace_id, user_id)
 select w.id, m.user_id
-  from (values ('vertuoza', '00000000-0000-4000-8000-0000020110a1'::uuid),
+  from (values ('initech', '00000000-0000-4000-8000-0000020110a1'::uuid),
                ('acme-packs', '00000000-0000-4000-8000-0000020110c1'::uuid)) as m (slug, user_id)
   join public.workspaces w on w.slug = m.slug;
 insert into public.businesses (workspace_id, name)
 select w.id, w.name from public.workspaces w
- where w.slug in ('vertuoza', 'acme-packs') and not exists (select 1 from public.businesses b where b.workspace_id = w.id);
+ where w.slug in ('initech', 'acme-packs') and not exists (select 1 from public.businesses b where b.workspace_id = w.id);
 insert into public.products (workspace_id, business_id, name, key)
-select b.workspace_id, b.id, case w.slug when 'vertuoza' then 'Pack Mobile' else 'Acme Packs' end, 'packs'
+select b.workspace_id, b.id, case w.slug when 'initech' then 'Pack Mobile' else 'Acme Packs' end, 'packs'
   from public.businesses b join public.workspaces w on w.id = b.workspace_id
- where w.slug in ('vertuoza', 'acme-packs');
--- Pack Mobile holds vertuoza/pack-api; vertuoza/pack-web is tracked but in no product. Acme Packs holds
--- acme-packs/api, and Acme also tracks vertuoza/pack-api, in no product of its own.
+ where w.slug in ('initech', 'acme-packs');
+-- Pack Mobile holds initech/pack-api; initech/pack-web is tracked but in no product. Acme Packs holds
+-- acme-packs/api, and Acme also tracks initech/pack-api, in no product of its own.
 insert into public.repositories (workspace_id, full_name)
 select w.id, r.name
-  from (values ('vertuoza', 'vertuoza/pack-api'), ('vertuoza', 'vertuoza/pack-web'),
-               ('acme-packs', 'acme-packs/api'), ('acme-packs', 'vertuoza/pack-api')) as r (slug, name)
+  from (values ('initech', 'initech/pack-api'), ('initech', 'initech/pack-web'),
+               ('acme-packs', 'acme-packs/api'), ('acme-packs', 'initech/pack-api')) as r (slug, name)
   join public.workspaces w on w.slug = r.slug;
 insert into public.product_repositories (product_id, workspace_id, repository, added_by)
 select p.id, p.workspace_id, r.name, 'person'
-  from (values ('vertuoza', 'vertuoza/pack-api'), ('acme-packs', 'acme-packs/api')) as r (slug, name)
+  from (values ('initech', 'initech/pack-api'), ('acme-packs', 'acme-packs/api')) as r (slug, name)
   join public.workspaces w on w.slug = r.slug
   join public.products p on p.workspace_id = w.id and p.key = 'packs';
--- Two agent links (business) and a kit token: Ada's for Vertuoza, Carl's for Acme, Ada's kit token.
+-- Two agent links (business) and a kit token: Ada's for Initech, Carl's for Acme, Ada's kit token.
 insert into public.agent_tokens (workspace_id, made_by, name, token_hash, last_four, scope, expires_at)
 select w.id, t.made_by, t.name, encode(sha256(convert_to(t.token, 'UTF8')), 'hex'), right(t.token, 4), t.scope, t.expires_at
-  from (values ('vertuoza', '00000000-0000-4000-8000-0000020110a1'::uuid, 'ada link', 'omb_packs_vertuoza_0001', 'business', null::timestamptz),
+  from (values ('initech', '00000000-0000-4000-8000-0000020110a1'::uuid, 'ada link', 'omb_packs_initech_0001', 'business', null::timestamptz),
                ('acme-packs', '00000000-0000-4000-8000-0000020110c1'::uuid, 'carl link', 'omb_packs_acme_0002', 'business', null),
-               ('vertuoza', '00000000-0000-4000-8000-0000020110a1'::uuid, 'ada kit', 'omk_packs_vertuoza_0003', 'kit', now() + interval '30 days'))
+               ('initech', '00000000-0000-4000-8000-0000020110a1'::uuid, 'ada kit', 'omk_packs_initech_0003', 'kit', now() + interval '30 days'))
        as t (slug, made_by, name, token, scope, expires_at)
   join public.workspaces w on w.slug = t.slug;
 
@@ -115,22 +118,22 @@ begin
   end if;
 end $$;
 
--- ── The App keeps vertuoza/pack-api at commit a: one pack, in the workspace that holds it in a product ──
+-- ── The App keeps initech/pack-api at commit a: one pack, in the workspace that holds it in a product ──
 set local role service_role;
 do $$
 declare
-  answer jsonb := public.knowledge_pack_put('Vertuoza/Pack-API', pg_temp.sha('a'), '2026-12-12 09:00+00', pg_temp.files());
+  answer jsonb := public.knowledge_pack_put('Initech/Pack-API', pg_temp.sha('a'), '2026-12-12 09:00+00', pg_temp.files());
   pack   uuid;
 begin
-  if answer ->> 'repository' <> 'vertuoza/pack-api' or answer ->> 'sha' <> pg_temp.sha('a')
+  if answer ->> 'repository' <> 'initech/pack-api' or answer ->> 'sha' <> pg_temp.sha('a')
      or jsonb_array_length(answer -> 'packs') <> 1
-     or answer -> 'packs' -> 0 ->> 'workspace' <> pg_temp.ws('vertuoza')::text
+     or answer -> 'packs' -> 0 ->> 'workspace' <> pg_temp.ws('initech')::text
      or (answer -> 'packs' -> 0 ->> 'created')::boolean is not true or (answer -> 'packs' -> 0 ->> 'newest')::boolean is not true
      or (answer -> 'packs' -> 0 ->> 'files')::integer <> 2 then
-    raise exception 'FAIL: a first pack did not answer one new newest pack of two files in Vertuoza: %', answer;
+    raise exception 'FAIL: a first pack did not answer one new newest pack of two files in Initech: %', answer;
   end if;
   pack := (answer -> 'packs' -> 0 ->> 'packId')::uuid;
-  -- Acme tracks vertuoza/pack-api but holds it in none of its products: it gets no pack.
+  -- Acme tracks initech/pack-api but holds it in none of its products: it gets no pack.
   if exists (select 1 from public.knowledge_packs p where p.workspace_id = pg_temp.ws('acme-packs')) then
     raise exception 'FAIL: a workspace that holds the repository in no product got its pack';
   end if;
@@ -140,19 +143,19 @@ begin
     raise exception 'FAIL: the pack''s files are not kept with the sha256 of their content';
   end if;
   if not exists (select 1 from public.knowledge_packs p
-                  where p.id = pack and p.repository = 'vertuoza/pack-api' and p.sha = pg_temp.sha('a')
+                  where p.id = pack and p.repository = 'initech/pack-api' and p.sha = pg_temp.sha('a')
                     and p.committed_at = '2026-12-12 09:00+00' and p.newest) then
     raise exception 'FAIL: the pack does not hold its repository, commit and date';
   end if;
   -- The same commit again: nothing new, nothing changed, even with other words.
-  answer := public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('a'), '2026-12-12 09:00+00', pg_temp.files(E'# Other\n'));
+  answer := public.knowledge_pack_put('initech/pack-api', pg_temp.sha('a'), '2026-12-12 09:00+00', pg_temp.files(E'# Other\n'));
   if (answer -> 'packs' -> 0 ->> 'created')::boolean or (answer -> 'packs' -> 0 ->> 'packId')::uuid <> pack
      or (select count(*) from public.knowledge_packs) <> 1
      or (select f.sha256 from public.knowledge_pack_files f where f.pack_id = pack and f.path like '%rules.md') <> pg_temp.hash(E'# Rules\n') then
     raise exception 'FAIL: the same commit again made or changed a pack: %', answer;
   end if;
   -- A sender's sha256 is taken when it is the content's.
-  answer := public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('b'), '2026-12-12 10:00+00', jsonb_build_array(
+  answer := public.knowledge_pack_put('initech/pack-api', pg_temp.sha('b'), '2026-12-12 10:00+00', jsonb_build_array(
     jsonb_build_object('path', '.omni-loop/knowledge/product/rules.md', 'content', E'# Rules, b\n', 'sha256', pg_temp.hash(E'# Rules, b\n'))));
   if (answer -> 'packs' -> 0 ->> 'newest')::boolean is not true
      or (select count(*) from public.knowledge_packs where newest) <> 1
@@ -160,19 +163,19 @@ begin
     raise exception 'FAIL: the later commit b is not the one newest pack: %', answer;
   end if;
   -- Commit c, older than b, arrives late: kept, not the newest.
-  answer := public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('c'), '2026-12-12 09:30+00', pg_temp.files());
+  answer := public.knowledge_pack_put('initech/pack-api', pg_temp.sha('c'), '2026-12-12 09:30+00', pg_temp.files());
   if (answer -> 'packs' -> 0 ->> 'created')::boolean is not true or (answer -> 'packs' -> 0 ->> 'newest')::boolean
      or (select p.sha from public.knowledge_packs p where p.newest) <> pg_temp.sha('b') then
     raise exception 'FAIL: an older commit arriving late took the newest pack: %', answer;
   end if;
   -- A pack with no file: the knowledge folder was removed at commit d.
-  answer := public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('d'), '2026-12-12 11:00+00', '[]'::jsonb);
+  answer := public.knowledge_pack_put('initech/pack-api', pg_temp.sha('d'), '2026-12-12 11:00+00', '[]'::jsonb);
   if (answer -> 'packs' -> 0 ->> 'files')::integer <> 0 or (select p.sha from public.knowledge_packs p where p.newest) <> pg_temp.sha('d') then
     raise exception 'FAIL: an empty pack at the latest commit is not the newest: %', answer;
   end if;
   -- A repository no workspace holds in a product: nothing kept, said as no pack.
-  answer := public.knowledge_pack_put('vertuoza/pack-web', pg_temp.sha('e'), now(), pg_temp.files());
-  if answer -> 'packs' <> '[]'::jsonb or exists (select 1 from public.knowledge_packs where repository = 'vertuoza/pack-web') then
+  answer := public.knowledge_pack_put('initech/pack-web', pg_temp.sha('e'), now(), pg_temp.files());
+  if answer -> 'packs' <> '[]'::jsonb or exists (select 1 from public.knowledge_packs where repository = 'initech/pack-web') then
     raise exception 'FAIL: a repository in no product got a pack: %', answer;
   end if;
 end $$;
@@ -182,23 +185,23 @@ do $$
 declare
   before text := pg_temp.packs_of();
 begin
-  perform pg_temp.refused($q$select public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
+  perform pg_temp.refused($q$select public.knowledge_pack_put('initech/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
       jsonb_build_object('path', '.omni-loop/knowledge/../../etc/passwd', 'content', 'x')))$q$, '22023', 'a path climbing out', '..');
-  perform pg_temp.refused($q$select public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
+  perform pg_temp.refused($q$select public.knowledge_pack_put('initech/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
       jsonb_build_object('path', '/etc/passwd', 'content', 'x')))$q$, '22023', 'an absolute path');
-  perform pg_temp.refused($q$select public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
+  perform pg_temp.refused($q$select public.knowledge_pack_put('initech/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
       jsonb_build_object('path', '.omni-loop//rules.md', 'content', 'x')))$q$, '22023', 'an empty segment');
-  perform pg_temp.refused($q$select public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
+  perform pg_temp.refused($q$select public.knowledge_pack_put('initech/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
       jsonb_build_object('path', E'.omni-loop\\rules.md', 'content', 'x')))$q$, '22023', 'a backslash');
-  perform pg_temp.refused($q$select public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
+  perform pg_temp.refused($q$select public.knowledge_pack_put('initech/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
       jsonb_build_object('path', 'a.md', 'content', 'x'), jsonb_build_object('path', 'a.md', 'content', 'y')))$q$, '22023', 'one path twice', 'a.md');
-  perform pg_temp.refused($q$select public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
+  perform pg_temp.refused($q$select public.knowledge_pack_put('initech/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
       jsonb_build_object('path', 'a.md', 'content', 'x', 'sha256', pg_temp.hash('y'))))$q$, '22023', 'a hash that is not the content''s', 'a.md');
-  perform pg_temp.refused($q$select public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
+  perform pg_temp.refused($q$select public.knowledge_pack_put('initech/pack-api', pg_temp.sha('f'), now(), jsonb_build_array(
       jsonb_build_object('path', 'a.md')))$q$, '22023', 'a file with no content');
-  perform pg_temp.refused($q$select public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('f'), now(), '{}'::jsonb)$q$, '22023', 'files not a list');
-  perform pg_temp.refused($q$select public.knowledge_pack_put('vertuoza/pack-api', 'abc', now(), pg_temp.files())$q$, '22023', 'a short sha');
-  perform pg_temp.refused($q$select public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('f'), null, pg_temp.files())$q$, '22023', 'no commit date');
+  perform pg_temp.refused($q$select public.knowledge_pack_put('initech/pack-api', pg_temp.sha('f'), now(), '{}'::jsonb)$q$, '22023', 'files not a list');
+  perform pg_temp.refused($q$select public.knowledge_pack_put('initech/pack-api', 'abc', now(), pg_temp.files())$q$, '22023', 'a short sha');
+  perform pg_temp.refused($q$select public.knowledge_pack_put('initech/pack-api', pg_temp.sha('f'), null, pg_temp.files())$q$, '22023', 'no commit date');
   perform pg_temp.refused($q$select public.knowledge_pack_put('not a repo', pg_temp.sha('f'), now(), pg_temp.files())$q$, '22023', 'a repository out of shape');
   if pg_temp.packs_of() <> before then
     raise exception 'FAIL: a refused pack wrote something';
@@ -208,23 +211,23 @@ end $$;
 select public.knowledge_pack_put('acme-packs/api', pg_temp.sha('9'), now(), pg_temp.files(E'# Acme secret\n'));
 reset role;
 
--- ── Ada, a member, reads Vertuoza's packs and none of Acme's ──
+-- ── Ada, a member, reads Initech's packs and none of Acme's ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000020110a1');
 do $$
 begin
   if (select count(*) from public.knowledge_packs) <> 4
-     or exists (select 1 from public.knowledge_packs where workspace_id <> pg_temp.ws('vertuoza'))
+     or exists (select 1 from public.knowledge_packs where workspace_id <> pg_temp.ws('initech'))
      or exists (select 1 from public.knowledge_pack_files where content like '%Acme secret%')
      or (select count(*) from public.knowledge_pack_files) <> 5 then
     raise exception 'FAIL: a member does not read exactly their workspace''s packs and files';
   end if;
 end $$;
 select pg_temp.refused($q$insert into public.knowledge_packs (workspace_id, repository, sha, committed_at)
-  values (pg_temp.ws('vertuoza'), 'vertuoza/pack-api', pg_temp.sha('f'), now())$q$, '42501', 'a member writing a pack');
+  values (pg_temp.ws('initech'), 'initech/pack-api', pg_temp.sha('f'), now())$q$, '42501', 'a member writing a pack');
 select pg_temp.refused($q$update public.knowledge_pack_files set content = 'changed'$q$, '42501', 'a member changing a file');
 select pg_temp.refused($q$delete from public.knowledge_packs$q$, '42501', 'a member deleting packs');
-select pg_temp.refused($q$select public.knowledge_pack_put('vertuoza/pack-api', pg_temp.sha('f'), now(), pg_temp.files())$q$, '42501', 'a member putting a pack');
+select pg_temp.refused($q$select public.knowledge_pack_put('initech/pack-api', pg_temp.sha('f'), now(), pg_temp.files())$q$, '42501', 'a member putting a pack');
 reset role;
 
 -- ── Carl, of Acme, reads only Acme's; Eve, of no workspace, and anyone signed out, nothing ──
@@ -234,7 +237,7 @@ do $$
 begin
   if (select count(*) from public.knowledge_packs) <> 1 or (select repository from public.knowledge_packs) <> 'acme-packs/api'
      or exists (select 1 from public.knowledge_pack_files where content not like '%Acme secret%' and path like '%rules.md') then
-    raise exception 'FAIL: a member of Acme reads a pack of Vertuoza';
+    raise exception 'FAIL: a member of Acme reads a pack of Initech';
   end if;
 end $$;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000020110e1');
@@ -253,18 +256,18 @@ reset role;
 set local role anon;
 do $$
 declare
-  ada  text := pg_temp.hash('omb_packs_vertuoza_0001');
+  ada  text := pg_temp.hash('omb_packs_initech_0001');
   carl text := pg_temp.hash('omb_packs_acme_0002');
   got  jsonb;
 begin
-  -- Vertuoza's link reads the newest pack of its repository, its files with their hashes, in path order.
-  got := public.knowledge_pack_for_token(ada, 'vertuoza/pack-api');
-  if got ->> 'repository' <> 'vertuoza/pack-api' or got ->> 'sha' <> pg_temp.sha('d') or (got ->> 'newest')::boolean is not true
+  -- Initech's link reads the newest pack of its repository, its files with their hashes, in path order.
+  got := public.knowledge_pack_for_token(ada, 'initech/pack-api');
+  if got ->> 'repository' <> 'initech/pack-api' or got ->> 'sha' <> pg_temp.sha('d') or (got ->> 'newest')::boolean is not true
      or got -> 'files' <> '[]'::jsonb then
     raise exception 'FAIL: a link did not read its repository''s newest pack: %', got;
   end if;
   -- Or the pack of one commit.
-  got := public.knowledge_pack_for_token(ada, 'Vertuoza/Pack-Api', pg_temp.sha('a'));
+  got := public.knowledge_pack_for_token(ada, 'Initech/Pack-Api', pg_temp.sha('a'));
   if got ->> 'sha' <> pg_temp.sha('a') or (got ->> 'newest')::boolean
      or got -> 'files' <> jsonb_build_array(
           jsonb_build_object('path', '.omni-loop/config.yml', 'sha256', pg_temp.hash(E'flow:\n  do-work.start: []\n'), 'content', E'flow:\n  do-work.start: []\n'),
@@ -272,14 +275,14 @@ begin
     raise exception 'FAIL: a link did not read the pack of commit a, its files in path order: %', got;
   end if;
   -- A listed repository with no pack, and a commit with none: no pack, not a refusal.
-  if public.knowledge_pack_for_token(ada, 'vertuoza/pack-web') is not null
-     or public.knowledge_pack_for_token(ada, 'vertuoza/pack-api', pg_temp.sha('7')) is not null then
+  if public.knowledge_pack_for_token(ada, 'initech/pack-web') is not null
+     or public.knowledge_pack_for_token(ada, 'initech/pack-api', pg_temp.sha('7')) is not null then
     raise exception 'FAIL: a link read a pack that does not exist';
   end if;
-  -- Acme's link: the repository Acme tracks but holds in no product has no pack of Acme's, and never Vertuoza's.
-  if public.knowledge_pack_for_token(carl, 'vertuoza/pack-api') is not null
-     or public.knowledge_pack_for_token(carl, 'vertuoza/pack-api', pg_temp.sha('a')) is not null then
-    raise exception 'FAIL: a link of another workspace read a pack of Vertuoza';
+  -- Acme's link: the repository Acme tracks but holds in no product has no pack of Acme's, and never Initech's.
+  if public.knowledge_pack_for_token(carl, 'initech/pack-api') is not null
+     or public.knowledge_pack_for_token(carl, 'initech/pack-api', pg_temp.sha('a')) is not null then
+    raise exception 'FAIL: a link of another workspace read a pack of Initech';
   end if;
   got := public.knowledge_pack_for_token(carl, 'acme-packs/api');
   if got -> 'files' -> 1 ->> 'content' <> E'# Acme secret\n' then
@@ -287,22 +290,22 @@ begin
   end if;
   -- A repository the workspace neither lists nor owns is refused, named, before any read.
   perform pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''acme-packs/api'')', ada), '42501',
-    'Vertuoza''s link reading Acme''s repository', 'acme-packs/api');
-  perform pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''vertuoza/pack-web'')', carl), '42501',
-    'Acme''s link reading a repository Acme does not list', 'vertuoza/pack-web');
+    'Initech''s link reading Acme''s repository', 'acme-packs/api');
+  perform pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''initech/pack-web'')', carl), '42501',
+    'Acme''s link reading a repository Acme does not list', 'initech/pack-web');
   perform pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''not a repo'')', ada), '22023', 'a repository out of shape');
-  perform pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''vertuoza/pack-api'', ''abc'')', ada), '22023', 'a sha out of shape');
+  perform pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''initech/pack-api'', ''abc'')', ada), '22023', 'a sha out of shape');
   -- A kit token, an unknown link and no link at all read nothing.
-  perform pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''vertuoza/pack-api'')', pg_temp.hash('omk_packs_vertuoza_0003')), '28000', 'a kit token');
-  perform pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''vertuoza/pack-api'')', pg_temp.hash('omb_nobody')), '28000', 'an unknown link');
-  perform pg_temp.refused('select public.knowledge_pack_for_token(null, ''vertuoza/pack-api'')', '28000', 'no link');
+  perform pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''initech/pack-api'')', pg_temp.hash('omk_packs_initech_0003')), '28000', 'a kit token');
+  perform pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''initech/pack-api'')', pg_temp.hash('omb_nobody')), '28000', 'an unknown link');
+  perform pg_temp.refused('select public.knowledge_pack_for_token(null, ''initech/pack-api'')', '28000', 'no link');
 end $$;
 reset role;
 
 -- ── A link stops when its maker leaves (BR-PRODUCT-64) ──
 delete from public.workspace_members where user_id = '00000000-0000-4000-8000-0000020110a1';
 set local role anon;
-select pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''vertuoza/pack-api'')', pg_temp.hash('omb_packs_vertuoza_0001')),
+select pg_temp.refused(format('select public.knowledge_pack_for_token(%L, ''initech/pack-api'')', pg_temp.hash('omb_packs_initech_0001')),
   '28000', 'a link whose maker left');
 reset role;
 

@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
-import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import { emptyDraft, pickOption, shownLabel, toggleOther, typeOther, type AskQuestion, type Draft, type Pick } from '../../ask/answer-model';
 import { OptionDescription, QuestionHeading } from '../../ask/page/QuestionText';
 import { renderMarkdownBody } from '../../dossier/markdown';
