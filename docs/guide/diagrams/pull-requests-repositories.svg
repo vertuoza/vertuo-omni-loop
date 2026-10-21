@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640" width="800" height="640">
   <title>Pull requests of one PRD across repositories</title>
-  <desc>PRD 600 lives in the plan repository vertuo-automation-plan: its one phase-0 PR carries the PRD into the default branch, and its plan PR holds the one outbox. Once a person merges the phase-0 PR, each target opens a feature PR: vertuo-backend-php builds s1, vertuo-apps builds s2 in wave 1 and s3 in wave 2, each slice a sub-PR the agents merge into its target's feature branch. Every slice's decisions come back, dashed, into the plan PR's outbox. A person then merges in order: the back-end PR, the front-end PR, and the plan PR last, which closes the PRD.</desc>
+  <desc>PRD 600 lives in the plan repository nimbus-plan: its one phase-0 PR carries the PRD into the default branch, and its plan PR holds the one outbox. Once a person merges the phase-0 PR, each target opens a feature PR: nimbus-backend-php builds s1, nimbus-apps builds s2 in wave 1 and s3 in wave 2, each slice a sub-PR the agents merge into its target's feature branch. Every slice's decisions come back, dashed, into the plan PR's outbox. A person then merges in order: the back-end PR, the front-end PR, and the plan PR last, which closes the PRD.</desc>
   <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
        tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
   <style>
@@ -46,7 +46,7 @@
 
   <!-- the plan repository -->
   <text x="16" y="18" class="dg-tag dg-muted">PLAN REPOSITORY</text>
-  <text x="16" y="34" class="dg-code">vertuo-automation-plan</text>
+  <text x="16" y="34" class="dg-code">nimbus-plan</text>
   <text x="16" y="64" class="dg-small dg-muted">phase-0 PR</text>
   <text x="16" y="115" class="dg-small">default branch</text>
   <text x="16" y="176" class="dg-small">plan PR</text>
@@ -75,7 +75,7 @@
 
   <!-- a target: the back-end -->
   <text x="16" y="236" class="dg-tag dg-muted">TARGET, BACK-END</text>
-  <text x="16" y="252" class="dg-code">vertuo-backend-php</text>
+  <text x="16" y="252" class="dg-code">nimbus-backend-php</text>
   <text x="16" y="285" class="dg-small">default branch</text>
   <text x="16" y="326" class="dg-small">target PR</text>
   <text x="16" y="342" class="dg-code dg-muted">feat/&lt;topic&gt;</text>
@@ -94,7 +94,7 @@
 
   <!-- a target: the front-end -->
   <text x="16" y="426" class="dg-tag dg-muted">TARGET, FRONT-END</text>
-  <text x="16" y="442" class="dg-code">vertuo-apps</text>
+  <text x="16" y="442" class="dg-code">nimbus-apps</text>
   <text x="16" y="475" class="dg-small">default branch</text>
   <text x="16" y="516" class="dg-small">target PR</text>
   <text x="16" y="532" class="dg-code dg-muted">feat/&lt;topic&gt;</text>

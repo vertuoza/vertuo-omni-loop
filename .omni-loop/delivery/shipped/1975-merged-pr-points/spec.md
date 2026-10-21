@@ -9,7 +9,7 @@ phase0: server
 ## Problem
 
 A player's points do not follow the work they ship into main. Kevin reported 590 points after many
-pull requests on backend-php, vertuo-soft and vertuo-build (#1948). Today, in `game/economy.ts`:
+pull requests on backend-php, nimbus-soft and nimbus-build (#1948). Today, in `game/economy.ts`:
 
 - a **sub-PR** pays its author `RULEBOOK.zoneSecured` (10) when it secures a slice's zone, and the
   terraform pays each sub-PR author `terraformExpedition` (50). Sub-PRs merge into feature branches,
@@ -116,7 +116,7 @@ was closed for breaking the rule.
   still earns, which the rule's test names as the exception.
 - **Multi-repository.** Each target already has its own feature branch and feature PR into its
   default branch: it pays by the same table, per repository. Tracking a repository stays a setting:
-  backend-php, vertuo-soft and vertuo-build pay only once tracked in Settings › Repositories.
+  backend-php, nimbus-soft and nimbus-build pay only once tracked in Settings › Repositories.
 - **The arcade's words** (taken without asking, the most reversible): the secured zone's line, card
   and sentence are replaced by the merged pull request's, and the night-shift note loses its zone
   part. The screens `arcade-menu` and `home` are drafts in the screen library, not locked.

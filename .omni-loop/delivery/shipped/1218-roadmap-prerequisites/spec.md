@@ -49,7 +49,7 @@ An optional `## Prerequisites` section, after `## Open questions`, with this tab
 | id | category | need | check | fix | blocks | who |
 |---|---|---|---|---|---|---|
 | p1 | local | Docker is running, for the database tests | `base:docker` | | r2, r3 | check |
-| p2 | access | the `@vertuoza/ui` package installs | `npm view @vertuoza/ui version` | | all | check |
+| p2 | access | the `@demo-org/ui` package installs | `npm view @demo-org/ui version` | | all | check |
 | p3 | permissions | the Vercel preview has `DATABASE_URL` | | | r4 | person |
 
 - **id:** `p1`, `p2`, …, unique in the table.

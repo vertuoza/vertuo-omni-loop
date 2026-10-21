@@ -63,11 +63,11 @@ C. Leave that screen out of the screenshots and check it by hand.
 
 ## What I had to decide
 
-How `pnpm galaxy:shots` reaches the `outsider` scene (WRONG CARTRIDGE). The demo account's guest is always `guest@vertuoza.com` with `crew: true`, so the demo flow never shows it, while the plan asks for a screenshot of every scene and s1's territory holds only the script, the package files, the gitignore and the README.
+How `pnpm galaxy:shots` reaches the `outsider` scene (WRONG CARTRIDGE). The demo account's guest is always `guest@example.com` with `crew: true`, so the demo flow never shows it, while the plan asks for a screenshot of every scene and s1's territory holds only the script, the package files, the gitignore and the README.
 
 ## What I did meanwhile
 
-A second browser context per size intercepts the dev server's `/_next/static/**/*.js` chunks and rewrites the demo guest (`guest@vertuoza.com`, `crew: true`) to `guest@example.com`, `crew: false`. It signs in, goes back to the title through GitHub link (B) and the menu (B), and presses START, which opens `outsider`. If no chunk held the guest, the run says so, lists `outsider` as missed and exits 1.
+A second browser context per size intercepts the dev server's `/_next/static/**/*.js` chunks and rewrites the demo guest (`guest@example.com`, `crew: true`) to `guest@example.com`, `crew: false`. It signs in, goes back to the title through GitHub link (B) and the menu (B), and presses START, which opens `outsider`. If no chunk held the guest, the run says so, lists `outsider` as missed and exits 1.
 
 ## What it costs to change later
 

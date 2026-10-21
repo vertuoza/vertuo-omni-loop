@@ -172,11 +172,11 @@ are added. A cursor that does not decode answers 422.
 
 ## User stories
 
-1. As a workspace owner, I make an API key named "QA dashboard" limited to `vertuoza/backend-php`,
+1. As a workspace owner, I make an API key named "QA dashboard" limited to `demo-org/backend-php`,
    copy it once, and give it to the team that builds the tool.
 2. As that team's developer, I open `/docs/api`, read each route with its examples, and page through
    the bug fixes with the cursor in a `curl`.
-3. As that tool, I start a bug fix on `vertuoza/backend-php` with one POST, then poll its job until
+3. As that tool, I start a bug fix on `demo-org/backend-php` with one POST, then poll its job until
    it is done and read the pull request's link.
 4. As a lead engineer, I see on the Runners page, and in the pull request, that "API key QA
    dashboard" sent the job, and which owner made the key.

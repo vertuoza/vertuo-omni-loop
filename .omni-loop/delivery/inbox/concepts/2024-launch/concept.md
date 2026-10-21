@@ -43,7 +43,7 @@ What the person (Martin) said, with Pierre Derval, who owns the topic:
   - time saved, with quality and efficiency.
 - **At the crown:** if a video could not be generated, the message must not go to Slack. Build on the existing
   `/omni:pitch` skill and the product settings. A colleague has a local engine for Vertuoza-branded release videos that
-  could be integrated: `vertuoza/release-videos`, by Thomas Margraff.
+  could be integrated: `demo-org/release-videos`, by Thomas Margraff.
 
 What was assumed:
 
@@ -163,7 +163,7 @@ into it.
 - `notify.slack` in the config, which today posts only CI outbox notes. Nothing posts to Slack from the Omni page.
 - The design form and the `prd-dossier` and `products` screens.
 - Thomas Margraff's #release-won post of 2026-10-08.
-- `vertuoza/release-videos`, Thomas Margraff's engine: storyboard JSON → Vertuoza-branded MP4 for Slack, music sync,
+- `demo-org/release-videos`, Thomas Margraff's engine: storyboard JSON → Vertuoza-branded MP4 for Slack, music sync,
   last pushed 2026-09-30.
 
 **References looked at:**
@@ -198,7 +198,7 @@ into it.
 | id | area | brief | PRD |
 |---|---|---|---|
 | launch-post | Post inline to Slack | An Omni Slack app posts a PRD's rendered video as the message in #release-won (three-step upload, three lines with Limits and links), only on the PM's "Post the launch". No video means no post, and the PM gets the reason and Retry. Reuses the MP4 `/omni:pitch` already pushes, and proves inline playback first. | |
-| launch-on-ship | Ready on ship | The one-toggle opt-in (Post when shipped / Add to Friday), "Waiting for prod", a CI render of the after footage in a fixed format (Flash, Feature, Spotlight, Still) from the Pitch settings, and Launch replacing the Pitch tab and the terminal run. Settles `vertuoza/release-videos` as the render provider versus porting its best parts. | |
+| launch-on-ship | Ready on ship | The one-toggle opt-in (Post when shipped / Add to Friday), "Waiting for prod", a CI render of the after footage in a fixed format (Flash, Feature, Spotlight, Still) from the Pitch settings, and Launch replacing the Pitch tab and the terminal run. Settles `demo-org/release-videos` as the render provider versus porting its best parts. | |
 | tech-news | Friday Tech News | The per-product Tech News page of the week's "Add to Friday" launches, each PM able to untick theirs. At 11:00 on Friday one group video posts itself inline (cover, a chapter per feature, outro, chapter times). It skips under two, and posts nothing if the group render fails. | |
 | launch-adapt | Adapt by prompt | One prompt line plus chips rewrite the storyboard within its schema. The check refuses unsourced claims, a strip of changed stills shows the diff, and each adapt is a new version with "Use this version", Undo, and an upload of your own video. | |
 | launch-from-scratch | New video from screenshots or a prompt | For a launch with nothing filmed, or no PRD: screenshots and/or a prompt go into the same storyboard, check, render and post, with words only from what was given plus the linked spec. | |

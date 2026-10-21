@@ -13,7 +13,7 @@ phase0: server
 
 ## Problem
 
-A workspace owner added `vertuoza/vertuobuild` to Settings › Repositories. The Omni App lost access
+A workspace owner added `demo-org/vertuobuild` to Settings › Repositories. The Omni App lost access
 to it. Its card now says **Omni App has no access · Give access on GitHub →**, and nothing on the
 page removes it. That is by design today: `public.repositories` says "nothing deletes one"
 (`supabase/migrations/20261008090000_repositories.sql`), and the only control is Tracked. Switching
@@ -170,7 +170,7 @@ database's rules are proved by `supabase/checks/`.
 
 ## Acceptance criteria
 
-1. An owner presses Remove on `vertuoza/vertuobuild` and confirms. Its card leaves the list,
+1. An owner presses Remove on `demo-org/vertuobuild` and confirms. Its card leaves the list,
    **Removed (1)** appears under the list, and the repository is gone from every product's
    Repositories tab, its picker and the Engineering board.
 2. Cancelling the confirm changes nothing.

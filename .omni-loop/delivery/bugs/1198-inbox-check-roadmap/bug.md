@@ -9,7 +9,7 @@
 ## Reproduction
 
 - **File:** `apps/omni-app/src/inbox-check/evaluate-inbox.test.ts`
-- **Red:** `× a green roadmap of two PRDs with no plan is success, listing each PRD wave by wave — AssertionError: expected 'failure' to be 'success'` (and on vertuo-vibe-master-plan PR #36: "no inbox folder for topic `roadmap-vertuoza-crew`")
+- **Red:** `× a green roadmap of two PRDs with no plan is success, listing each PRD wave by wave — AssertionError: expected 'failure' to be 'success'` (and on nimbus-vibe-master-plan PR #36: "no inbox folder for topic `roadmap-vertuoza-crew`")
 
 ## Fix
 

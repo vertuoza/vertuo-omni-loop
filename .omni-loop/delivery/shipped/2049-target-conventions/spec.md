@@ -13,13 +13,13 @@ or field, a use case, a service, a repository class. Today it picks those names 
 design touches and from the repository's knowledge base, and never from the pages where the
 repository writes its conventions down.
 
-PRD 278 of vertuo-automation-plan shows the cost. Its plan proposed a migration adding `created_at`
-and `updated_at` to vertuo-backend-php's `avancement` table. The spec had even noticed that two
+PRD 278 of nimbus-plan shows the cost. Its plan proposed a migration adding `created_at`
+and `updated_at` to nimbus-backend-php's `avancement` table. The spec had even noticed that two
 conventions coexist (`updated_at` and `_updated_at`), and picked one without a source. The rule was
-written all along: vertuo-backend-php's `docs/migrations.md` says the underscore prefix is the
+written all along: nimbus-backend-php's `docs/migrations.md` says the underscore prefix is the
 convention for audit timestamps, its `CLAUDE.md` routes "Migration" to that page and to the
 `create-migration` skill, and its kernel-migrations `CLAUDE.md` points to that skill too. A reviewer had to
-correct the name in five comments on the three files of the phase-0 PR. A session opened inside vertuo-backend-php would
+correct the name in five comments on the three files of the phase-0 PR. A session opened inside nimbus-backend-php would
 have read those files; `/omni:mega-brainstorm` reads only the paths the design touches and the
 target's knowledge base (`kit/plugin/skills/mega-brainstorm/SKILL.md`, step 3), and `/omni:plan`
 reads the plan repository's own `paths.context`, never a target's.
@@ -89,10 +89,10 @@ during the design and never picks silently. A spec that names nothing writes the
   `## Conventions` (rejected for now: telling that a spec "names a column" is fragile, and the
   refusal can be added later if names still slip through).
 - **One level of links.** The readmes and `CLAUDE.md` are tables of contents: one level reaches the
-  pages they route to (vertuo-backend-php's "Migration → docs/migrations.md") without walking a
+  pages they route to (nimbus-backend-php's "Migration → docs/migrations.md") without walking a
   whole documentation tree.
 - **Skills are not read as a source in this PRD.** `.claude/skills/` is left out of the discovery:
-  the person named the documentation folders and the agent files, and in vertuo-backend-php the
+  the person named the documentation folders and the agent files, and in nimbus-backend-php the
   rule that went wrong is in `docs/migrations.md` too. A skill a `CLAUDE.md` links to with a
   relative Markdown link is found by rule 5 all the same.
 - **The priority the person gave** (the GraphQL schema, then use case and service names, then the
@@ -100,7 +100,7 @@ during the design and never picks silently. A spec that names nothing writes the
   schema must work; the other layers follow when their pages exist.
 - **No check in `/omni:do-work`.** A slice is built in a session inside its own repository, which
   reads that repository's `CLAUDE.md` already.
-- **The backend side is out of scope.** Writing vertuo-backend-php's timestamp rule into its own
+- **The backend side is out of scope.** Writing nimbus-backend-php's timestamp rule into its own
   playbook is done in another session.
 - **The voice.** B-E DEv (`persona:B-E DEv`) objected that a list of files proves nothing was read,
   and that a reviewer needs the line that justifies each name. Accepted: the `## Conventions`
@@ -127,7 +127,7 @@ In:
 
 Out:
 
-- Any change in a target repository, vertuo-backend-php's playbook included.
+- Any change in a target repository, nimbus-backend-php's playbook included.
 - A new config key, and a check in `omni check inbox` or `omni plan check`.
 - Reading `.claude/skills/` directly, and following links more than one level deep.
 - `/omni:do-work`, `/omni:ultra-wave` and the other skills that build.
@@ -144,7 +144,7 @@ As `omni kb show testing` says, on fixtures, with no call to GitHub:
   printed; a file found twice printed once.
 - **The command**, through `main()` on a fixture, in text and with `--json`, with `--root` on a
   directory that has no omni config, and an unreadable or missing `--root` refused with one line.
-- **The regression of PRD 278**: a fixture shaped like vertuo-backend-php, whose `CLAUDE.md` routes
+- **The regression of PRD 278**: a fixture shaped like nimbus-backend-php, whose `CLAUDE.md` routes
   "Migration" to `docs/migrations.md`; the command's output holds `docs/migrations.md`.
 - **The skills**, read as text as `kit/test/brainstorm-concept.test.ts` reads the brainstorm: each of
   the three `SKILL.md` runs `omni conventions` at the step named in **Scope**, and the brainstorms
@@ -167,7 +167,7 @@ As `omni kb show testing` says, on fixtures, with no call to GitHub:
 
 ## Acceptance criteria
 
-1. `omni conventions --root <dir>` on a directory shaped like vertuo-backend-php (a `CLAUDE.md`
+1. `omni conventions --root <dir>` on a directory shaped like nimbus-backend-php (a `CLAUDE.md`
    whose table routes "Migration" to `docs/migrations.md`, a `docs/readme.md`, a `docs/adr/`
    folder) prints `CLAUDE.md`, `docs/readme.md`, `docs/migrations.md` and the ADR index, each with
    its title and the file that led to it, and exits 0.

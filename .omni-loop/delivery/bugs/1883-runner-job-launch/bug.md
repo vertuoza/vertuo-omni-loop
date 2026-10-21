@@ -4,7 +4,7 @@
 
 - **Domain:** runners (PRD 1830): the kit's launcher (`kit/lib/launch/launch.ts`), `omni runner` (`kit/lib/runner/`) and the `next` route (`apps/galaxy/src/runners/`)
 - **Risk:** high — every job sent to a runner dies at once, stays Running for up to 3 hours, and a runner's `next` call is sometimes cut off with a 504; Send to terminal does nothing, with no workaround but running the line by hand
-- **Regression:** new bug — no evidence this ever worked: the first job a runner took, `/omni:pr-care 1737` on vertuo-agents, never ran
+- **Regression:** new bug — no evidence this ever worked: the first job a runner took, `/omni:pr-care 1737` on nimbus-agents, never ran
 
 ## Reproduction
 
