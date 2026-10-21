@@ -6,8 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AskCallError } from '../ask/client.ts';
-import type { TargetRow } from '../plan-repo/targets.ts';
-import { flagRoles, lastReadLine, PRODUCT_TARGETS_FILE, productTargets, targetsOfProduct } from './targets.ts';
+import { lastReadLine, PRODUCT_TARGETS_FILE, productTargets, roleFlag, targetsOfProduct } from './targets.ts';
 
 const SHA = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
 const REPLY = {
@@ -126,21 +125,15 @@ describe('productTargets', () => {
   });
 });
 
-describe('flagRoles (PRD 2346)', () => {
-  const row = (role: string, state: TargetRow['state'] = 'ok', detail: string | null = null): TargetRow => ({ repo: 'acme/x', role, knowledge: 'own', loop: 'v1', state, detail });
-
-  it('leaves a canonical role as it is', () => {
-    expect(flagRoles([row('api'), row('monorepo')])).toEqual([row('api'), row('monorepo')]);
+describe('roleFlag (PRD 2346)', () => {
+  it('says nothing of a canonical role', () => {
+    expect(roleFlag('api')).toBeNull();
+    expect(roleFlag('monorepo')).toBeNull();
   });
 
-  it('flags a role outside the nine, naming it and the nine, an alias included', () => {
-    const flagged = flagRoles([row('back-end'), row('widget')]);
-    expect(flagged[0]).toMatchObject({ state: 'drifted', detail: 'role back-end is not a role: pick one of api, web, mobile, ui, library, infra, plan, doc, monorepo' });
-    expect(flagged[1]?.detail).toContain('role widget is not a role');
-  });
-
-  it('keeps a worse state and adds the flag to what the row already says', () => {
-    expect(flagRoles([row('docs', 'stale', 'flow moved')])[0]).toMatchObject({ state: 'stale', detail: expect.stringMatching(/^flow moved; role docs is not a role/) as unknown });
+  it('names a role outside the nine and the nine, an alias included', () => {
+    expect(roleFlag('back-end')).toBe('role back-end is not a role: pick one of api, web, mobile, ui, library, infra, plan, doc, monorepo');
+    expect(roleFlag('widget')).toContain('role widget is not a role');
   });
 });
 

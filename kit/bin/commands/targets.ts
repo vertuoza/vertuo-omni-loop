@@ -19,8 +19,8 @@ import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
 import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { readTargets, targetsTable } from '../../lib/plan-repo/targets.ts';
-import type { Target } from '../../lib/plan-repo/targets.ts';
-import { flagRoles, productTargetList } from '../../lib/product/targets.ts';
+import type { Target, TargetRow } from '../../lib/plan-repo/targets.ts';
+import { productTargetList, roleFlag } from '../../lib/product/targets.ts';
 import { githubEnv } from '../github.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo, Out } from '../io.ts';
@@ -46,6 +46,15 @@ async function targetList(
   const repo = ctx.config.repo.slug;
   if (!repo) throw usageError('omni targets: no repository slug — set repo.slug in the config.');
   return productTargetList({ ctx, product, repo }, io, note);
+}
+
+/** The rows with each role outside the nine flagged: `drifted` when it was `ok`, the flag added to the detail. */
+function flagRoles(rows: readonly TargetRow[]): TargetRow[] {
+  return rows.map((row) => {
+    const flag = roleFlag(row.role);
+    if (flag === null) return row;
+    return { ...row, state: row.state === 'ok' ? 'drifted' : row.state, detail: row.detail === null ? flag : `${row.detail}; ${flag}` };
+  });
 }
 
 export const targets: FreeCommand = {

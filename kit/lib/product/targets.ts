@@ -30,7 +30,6 @@ import { createContext } from '../context.ts';
 import type { Context, ExecText } from '../context.ts';
 import { mainCheckout } from '../dossier/local.ts';
 import { messageOf } from '../narrow.ts';
-import type { TargetRow } from '../plan-repo/targets.ts';
 import type { Config } from '../types.ts';
 
 /** One target, as `plan.targets` holds it. */
@@ -201,15 +200,8 @@ export async function withProductTargets(ctx: Context, io: ProductTargetsIo, not
 }
 
 /**
- * `omni targets` rows with each role that is not one of the nine canonical roles (PRD 2346) flagged: the
- * row reads `drifted` (when it was `ok`), its detail naming the role and the nine, so a person picks one on
- * the product's Repositories tab or in `plan.targets`. An alias such as `back-end` is flagged too: the
- * migration maps what it can, and a role that is still an alias was never mapped.
+ * What `omni targets` says of a role that is not one of the nine canonical roles (PRD 2346), or null when
+ * it is one. An alias such as `back-end` is flagged too: the migration maps what it can, and a role that
+ * is still an alias was never mapped.
  */
-export function flagRoles(rows: readonly TargetRow[]): TargetRow[] {
-  return rows.map((row) => {
-    if (isRole(row.role)) return row;
-    const flag = `role ${row.role} is not a role: pick one of ${roleList()}`;
-    return { ...row, state: row.state === 'ok' ? 'drifted' : row.state, detail: row.detail === null ? flag : `${row.detail}; ${flag}` };
-  });
-}
+export const roleFlag = (role: string): string | null => (isRole(role) ? null : `role ${role} is not a role: pick one of ${roleList()}`);
