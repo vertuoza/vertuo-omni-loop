@@ -82,12 +82,13 @@ export function areaOf(path: string): string | null {
 }
 
 const lineAt = (text: string, index: number): number => text.slice(0, index).split('\n').length;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** The JWT's claims, or null when its middle part is not base64url JSON. */
 function claims(token: string): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString('utf8'));
-    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : null;
+    return isRecord(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -247,7 +248,6 @@ export function trackedFiles(root: string): SourceFile[] {
   return files;
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
 
 /** The allowlist under `root`: none when the file is missing. */
