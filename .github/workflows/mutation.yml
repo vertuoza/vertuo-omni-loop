@@ -9,6 +9,10 @@
 # timeout; `score` merges their JSON reports into one, writes the table to the job summary, uploads the
 # merged report and fails when a module is below its floor or a shard did not finish.
 #
+# A red night opens one `Mutation: the nightly run is red` issue assigned to the laws' owners, comments
+# on it each later red night, and closes it once green (scripts/mutation-alert.ts): six red nights went
+# unseen before it (2026-10-16 to 10-21). Only a run on `main` writes the issue.
+#
 # Each shard keeps Stryker's incremental file (`reports/mutation/incremental.json`) in the Actions cache,
 # so a night mutates again only what changed since the last one: a whole run bills about 220 minutes,
 # a night with nothing changed a few per shard. A shard with no cache (the first night, or after 7 days
@@ -69,6 +73,9 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -101,6 +108,7 @@ jobs:
           '
           for shard in shards/*/; do cp "${shard}mutation.html" "reports/mutation/$(basename "$shard").html"; done
       - name: Score against the floors
+        id: score
         run: |
           set +e
           pnpm --silent mutation:score > score.md
@@ -118,3 +126,13 @@ jobs:
       - name: Every shard finished
         if: always()
         run: '[ "${{ needs.mutate.result }}" = "success" ] || { echo "a mutation shard did not finish: ${{ needs.mutate.result }}" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }'
+      - name: Keep the red-night issue
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE: ${{ (needs.mutate.result == 'success' && steps.score.outcome == 'success') && 'green' || 'red' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          args=(--repo "${{ github.repository }}" --state "$STATE" --run "$RUN_URL" --score score.md)
+          for owner in $(node .omni-loop/bin/omni.mjs config laws.owners | jq -r '.[]'); do args+=(--assign "$owner"); done
+          node scripts/mutation-alert.ts "${args[@]}"
