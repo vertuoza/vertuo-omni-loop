@@ -2,16 +2,19 @@
 // video is, the stills take each scene's still frame and a contact sheet, the videos take every frame,
 // the intro's still becomes the two slides, the music starts on the sync point, pitch.json records it all,
 // and the work folder is gone after, whether the render ends well or not. A real render of the fixture
-// run is kit/bin/commands/pitch-make-render.test.ts.
+// run is kit/bin/commands/pitch-make-render.test.ts. The outro's credits (PRD 2030 s6): `Built by <team>`
+// then the music's credit, each only when present, and none when the settings hide credits.
 import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { contractNetwork, fakeExec, scratch } from './providers/fakes.ts';
 import type { CaptureBrowser, Launch } from './providers/types.ts';
-import { RenderRefused, renderRun, syncSecondsOf } from './render.ts';
+import { RenderRefused, creditsOf, renderRun, syncSecondsOf } from './render.ts';
 import type { PageInfo } from './render.ts';
+import { defaultPitchSettings } from './settings.ts';
 import { fixtureStoryboard } from './storyboard.fixture.ts';
+import type { Storyboard } from './storyboard.ts';
 
 const FIXTURE = fileURLToPath(new URL('../../test/fixtures/pitch/run/', import.meta.url));
 
@@ -82,7 +85,50 @@ describe('renderRun --stills', () => {
   });
 });
 
+const TEAM = 'the Invoicing team';
+const MUSIC = '"Advertime" from FreePD.com (public domain), archived at archive.org/details/freepd';
+
+/** `storyboard` (the fixture's by default), its outro naming `team`. */
+function withTeam(team: string, storyboard: Storyboard = fixtureStoryboard()): Storyboard {
+  return { ...storyboard, scenes: storyboard.scenes.map((scene) => (scene.type === 'outro' ? { ...scene, team } : scene)) };
+}
+
+/** The default settings, with credits shown or hidden. */
+function creditsShown(shown: boolean): ReturnType<typeof defaultPitchSettings> {
+  const settings = defaultPitchSettings();
+  return { ...settings, outro: { ...settings.outro, credits: shown } };
+}
+
+describe('creditsOf', () => {
+  it('lists `Built by <team>` then the music’s credit, when the storyboard names a team and the music owes one', () => {
+    expect(creditsOf(withTeam(TEAM), creditsShown(true), MUSIC)).toEqual([`Built by ${TEAM}`, MUSIC]);
+  });
+
+  it('lists each only when present: the team with no music, the music with no team, nothing with neither', () => {
+    expect(creditsOf(withTeam(TEAM), creditsShown(true), null)).toEqual([`Built by ${TEAM}`]);
+    expect(creditsOf(fixtureStoryboard(), creditsShown(true), MUSIC)).toEqual([MUSIC]);
+    expect(creditsOf(fixtureStoryboard(), creditsShown(true), null)).toEqual([]);
+  });
+
+  it('lists neither when the settings hide credits', () => {
+    expect(creditsOf(withTeam(TEAM), creditsShown(false), MUSIC)).toEqual([]);
+  });
+});
+
 describe('renderRun', () => {
+  it("gives the page the outro's team above the music's credit, and neither when the settings hide credits", async () => {
+    const dir = fixtureRun();
+    const settings = JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8')) as Record<string, unknown>;
+    const storyboard = JSON.parse(readFileSync(join(dir, 'storyboard.json'), 'utf8')) as Storyboard;
+    writeFileSync(join(dir, 'storyboard.json'), JSON.stringify(withTeam(TEAM, storyboard)));
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ ...settings, music: { provider: 'freepd', mood: 'upbeat' } }));
+    const shown = await renderRun(dir, { stills: true }, tools(dir, reportingBrowser().launch).tools);
+    expect(JSON.parse(readFileSync(join(dir, 'input.json'), 'utf8'))).toMatchObject({ credits: [`Built by ${TEAM}`, shown.music.credit] });
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ ...settings, outro: { cta: 'Available now', credits: false }, music: { provider: 'freepd', mood: 'upbeat' } }));
+    await renderRun(dir, { stills: true }, tools(dir, reportingBrowser().launch).tools);
+    expect(JSON.parse(readFileSync(join(dir, 'input.json'), 'utf8'))).toMatchObject({ credits: [] });
+  });
+
   it('captures every frame, encodes the three files with the music on the sync point, and the intro as the two slides', async () => {
     const dir = fixtureRun();
     writeFileSync(join(dir, 'settings.json'), JSON.stringify({ look: { preset: 'keynote', heading: { provider: 'system', family: 'System', weight: 700 }, text: { provider: 'system', family: 'System', weight: 400 } }, music: { provider: 'freepd', mood: 'upbeat' } }));

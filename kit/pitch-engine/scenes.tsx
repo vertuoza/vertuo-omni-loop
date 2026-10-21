@@ -1,7 +1,7 @@
 // The six scene templates (PRD 1108 s4): intro, statement, feature, steps, before/after and outro, each
 // laid out on the 1920×1080 frame in the look's colours and fonts. Every scene but the intro shows its
 // supporting lines (PRD 2030 s3): an eyebrow above its title and a body under it, the outro a body under
-// its closing line.
+// its closing line, and its credits one line each: `Built by <team>`, then the music's (PRD 2030 s6).
 import type { ReactNode } from 'react';
 import { EASINGS, SPRINGS, interpolate, mix, spring } from './animation.ts';
 import { useEngine, useEntryFrame, useSceneTime } from './core.tsx';
@@ -216,11 +216,20 @@ function CallToAction({ text }: { text: string }): ReactNode {
   return <Pill text={text} delay={0.15} tone="cta" size={34} glow={pulse} />;
 }
 
-/** The credits the input gives, under the closing line, when the storyboard asks for them. */
+/** The beat between one credit line arriving and the next. */
+const CREDIT_STAGGER = 0.15;
+
+/** The credits the input gives, one line each (`Built by <team>`, then the music's), under the closing line, when the storyboard asks for them. */
 function Credits({ shown, delay }: { shown: boolean; delay: number }): ReactNode {
   const { credits } = useEngine();
   if (!shown || credits.length === 0) return null;
-  return <Line text={credits.join(' · ')} delay={delay} size={26} maxWidth={1300} />;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {credits.map((credit, index) => (
+        <Line key={credit} text={credit} delay={delay + index * CREDIT_STAGGER} size={26} maxWidth={1300} />
+      ))}
+    </div>
+  );
 }
 
 const CLOSING_AT = 0.45;

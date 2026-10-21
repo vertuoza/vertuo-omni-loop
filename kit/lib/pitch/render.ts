@@ -3,7 +3,9 @@
 // by the encode provider. Every outside tool is a provider reached through the registry; the page is
 // served from memory by ./render-server.ts.
 //
-// 1. The settings, the music (through its provider, for its credit) and the page's `input.json`.
+// 1. The settings, the music (through its provider, for its credit) and the page's `input.json`, whose
+//    credits are `Built by <team>` then the music's credit, each when present, and none when the
+//    settings hide credits (PRD 2030 s6).
 // 2. The page says what the video is: its frames and each scene's settled still frame.
 // 3. With `--stills`: one image per scene, `stills/<nn>-<type>.png`, and `stills/contact-sheet.png`.
 //    Without: every frame, encoded into `pitch.mp4` (1920×1080), `pitch-square.mp4` (1080×1080) and
@@ -149,12 +151,19 @@ async function inSession<T>(dir: string, tools: RenderTools, run: (session: Sess
   }
 }
 
+/** The outro's credit lines: `Built by <team>` when the storyboard names one, then the music's credit when it owes one; none when the settings hide credits. */
+export function creditsOf(storyboard: Storyboard, settings: PitchSettings, music: string | null): string[] {
+  if (!settings.outro.credits) return [];
+  const teams = storyboard.scenes.flatMap((scene) => (scene.type === 'outro' && scene.team !== undefined ? [`Built by ${scene.team}`] : []));
+  return music === null ? teams : [...teams, music];
+}
+
 /** The settings, the music and the page's input, before the page is opened. */
 async function prepare(dir: string, tools: RenderTools): Promise<{ storyboard: Storyboard; settings: PitchSettings; music: PickedMusic }> {
   const storyboard = runStoryboard(dir);
   const settings = runSettings(dir);
   const music = await pickRunMusic(settings.music, { dir, seconds: longest(storyboard), fetch: tools.fetch, asset: runAssets(dir), warn: tools.warn, ...(tools.registry === undefined ? {} : { registry: tools.registry }) });
-  await writePageInput(dir, { storyboard, settings, credits: music.credit === null ? [] : [music.credit], fetch: tools.fetch, warn: tools.warn });
+  await writePageInput(dir, { storyboard, settings, credits: creditsOf(storyboard, settings, music.credit), fetch: tools.fetch, warn: tools.warn });
   return { storyboard, settings, music };
 }
 
