@@ -1,0 +1,1251 @@
+{
+  "prd": 2305,
+  "runs": [
+    {
+      "run": "merge",
+      "rules": {
+        "version": 1,
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "thresholds": {
+          "slowSliceFactor": 3,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "failingTestRuns": 2,
+          "churnRangeCommits": 3,
+          "churnFilePercent": 50,
+          "churnFileLines": 40,
+          "afterMergeDays": 14
+        },
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "fieldCaps": {
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600,
+          "lesson": 400,
+          "reason": 300,
+          "why": 300
+        }
+      },
+      "prd": {
+        "number": 2305,
+        "title": "The code base is safe to be open source",
+        "topic": "open-source-safe",
+        "state": "shipped",
+        "folder": ".omni-loop/delivery/shipped/2305-open-source-safe"
+      },
+      "featurePr": {
+        "number": 2307,
+        "title": "feat: the code base is safe to be open source (PRD 2305)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2307",
+        "openedAt": "2026-10-21T11:09:54Z",
+        "mergedAt": "2026-10-21T15:42:47Z",
+        "mergeSha": "0816414dcd1919d8ae4cea3660ca39103d4709f8"
+      },
+      "kinds": {
+        "churn": {
+          "added": 6192,
+          "churn": 1317,
+          "commits": 30,
+          "files": [
+            {
+              "added": 586,
+              "churn": 586,
+              "commits": 2,
+              "finalAdded": 0,
+              "path": "scripts/open-source.baseline/galaxy.json",
+              "percent": null
+            },
+            {
+              "added": 200,
+              "churn": 200,
+              "commits": 2,
+              "finalAdded": 0,
+              "path": "scripts/open-source.baseline/history.json",
+              "percent": null
+            },
+            {
+              "added": 153,
+              "churn": 153,
+              "commits": 2,
+              "finalAdded": 0,
+              "path": "scripts/open-source.baseline/omni-app.json",
+              "percent": null
+            },
+            {
+              "added": 136,
+              "churn": 136,
+              "commits": 2,
+              "finalAdded": 0,
+              "path": "scripts/open-source.baseline/kit.json",
+              "percent": null
+            },
+            {
+              "added": 342,
+              "churn": 107,
+              "commits": 5,
+              "finalAdded": 235,
+              "path": "scripts/open-source.ts",
+              "percent": 46
+            },
+            {
+              "added": 258,
+              "churn": 55,
+              "commits": 2,
+              "finalAdded": 203,
+              "path": "scripts/open-source.test.ts",
+              "percent": 27
+            },
+            {
+              "added": 42,
+              "churn": 42,
+              "commits": 2,
+              "finalAdded": 0,
+              "path": "scripts/open-source.baseline/supabase.json",
+              "percent": null
+            },
+            {
+              "added": 38,
+              "churn": 38,
+              "commits": 2,
+              "finalAdded": 0,
+              "path": "scripts/open-source.baseline/packages.json",
+              "percent": null
+            }
+          ],
+          "finalAdded": 4875,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/bugs/0876-outbox-skip-non-omni-prs/bug.md",
+              ".omni-loop/delivery/bugs/1178-wave-judges-sub-pr-threads/bug.md",
+              ".omni-loop/delivery/bugs/1198-inbox-check-roadmap/bug.md",
+              ".omni-loop/delivery/bugs/1199-roadmap-prd-links/bug.md",
+              ".omni-loop/delivery/bugs/1883-runner-job-launch/bug.md",
+              ".omni-loop/delivery/bugs/1912-runner-bg-wait/bug.md",
+              ".omni-loop/delivery/bugs/2018-people-prs-tracked-repos/bug.md",
+              ".omni-loop/delivery/inbox/1277-e2e-after-deploy-on-qa/spec.md",
+              ".omni-loop/delivery/inbox/2030-pitch-scenes/spec.md",
+              ".omni-loop/delivery/inbox/2038-pitch-music-sync/spec.md",
+              ".omni-loop/delivery/inbox/2039-pitch-own-media/spec.md",
+              ".omni-loop/delivery/inbox/concepts/0746-business-context/board-r1.html",
+              ".omni-loop/delivery/inbox/concepts/0746-business-context/board-r2.html",
+              ".omni-loop/delivery/inbox/concepts/0746-business-context/debate.md",
+              ".omni-loop/delivery/inbox/concepts/0746-business-context/vision.html",
+              ".omni-loop/delivery/inbox/concepts/1269-products-umbrella/board-r1.html",
+              ".omni-loop/delivery/inbox/concepts/1269-products-umbrella/board-r2.html",
+              ".omni-loop/delivery/inbox/concepts/1269-products-umbrella/vision.html",
+              ".omni-loop/delivery/inbox/concepts/2024-launch/board-r2.html",
+              ".omni-loop/delivery/inbox/concepts/2024-launch/concept.md",
+              ".omni-loop/delivery/inbox/concepts/2024-launch/debate.md",
+              ".omni-loop/delivery/inbox/concepts/2024-launch/vision.html",
+              ".omni-loop/delivery/inbox/roadmaps/1280-e2e-validation/roadmap.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/accounts/s2.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/accounts/s3.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/accounts/s4.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/accounts/s5.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/accounts/s6.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/s1-01-baseline-skips-names-only.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/s1-02-guard-runs-in-security-workflow.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/s1-03-ci-form-names-new-jobs.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/s2-01-s2-law-proof-fixtures-renamed.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/s3-01-s3-law-proof-fixtures-renamed.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/s4-01-kit-law-proof-fixtures-renamed.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/s5-01-packages-law-proof-fixtures-renamed.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/s6-01-checks-own-workspace-initech.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/s6-02-old-migration-keeps-its-file-name.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/s6-03-law-proofs-renamed-fixtures.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/s8-01-open-source-green-line-keeps-baseline-wording.md",
+              ".omni-loop/delivery/outbox/2305-open-source-safe/settled.md",
+              ".omni-loop/delivery/shipped/0003-omni-loop-kit/before-after.html",
+              ".omni-loop/delivery/shipped/0003-omni-loop-kit/plan.md",
+              ".omni-loop/delivery/shipped/0003-omni-loop-kit/spec.md",
+              ".omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/settled.md",
+              ".omni-loop/delivery/shipped/0007-omni-loop-skills/spec.md",
+              ".omni-loop/delivery/shipped/0039-omni-init/before-after.html",
+              ".omni-loop/delivery/shipped/0039-omni-init/plan.md",
+              ".omni-loop/delivery/shipped/0039-omni-init/spec.md",
+              ".omni-loop/delivery/shipped/0045-knowledge-forms/before-after.html",
+              ".omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md",
+              ".omni-loop/delivery/shipped/0045-knowledge-forms/plan.md",
+              ".omni-loop/delivery/shipped/0045-knowledge-forms/spec.md",
+              ".omni-loop/delivery/shipped/0068-omni-invade/before-after.html",
+              ".omni-loop/delivery/shipped/0068-omni-invade/spec.md",
+              ".omni-loop/delivery/shipped/0094-game-boy-handheld/outbox/settled.md",
+              ".omni-loop/delivery/shipped/0099-omni-man-credits/before-after.html",
+              ".omni-loop/delivery/shipped/0099-omni-man-credits/spec.md",
+              ".omni-loop/delivery/shipped/0100-workspaces/before-after.html",
+              ".omni-loop/delivery/shipped/0100-workspaces/plan.md",
+              ".omni-loop/delivery/shipped/0100-workspaces/spec.md",
+              ".omni-loop/delivery/shipped/0216-prd-dossiers/before-after.html",
+              ".omni-loop/delivery/shipped/0315-help-and-status/before-after.html",
+              ".omni-loop/delivery/shipped/0315-help-and-status/spec.md",
+              ".omni-loop/delivery/shipped/0347-cli-releases/before-after.html",
+              ".omni-loop/delivery/shipped/0347-cli-releases/spec.md",
+              ".omni-loop/delivery/shipped/0522-mega-invade/before-after.html",
+              ".omni-loop/delivery/shipped/0522-mega-invade/plan.md",
+              ".omni-loop/delivery/shipped/0522-mega-invade/spec.md",
+              ".omni-loop/delivery/shipped/0523-knowledge-repo-menu/before-after.html",
+              ".omni-loop/delivery/shipped/0533-roomier-questions/before-after.html",
+              ".omni-loop/delivery/shipped/0549-mega-brainstorm/before-after.html",
+              ".omni-loop/delivery/shipped/0549-mega-brainstorm/plan.md",
+              ".omni-loop/delivery/shipped/0549-mega-brainstorm/spec.md",
+              ".omni-loop/delivery/shipped/0556-bug-fix/spec.md",
+              ".omni-loop/delivery/shipped/0563-ultra-yolo/before-after.html",
+              ".omni-loop/delivery/shipped/0563-ultra-yolo/spec.md",
+              ".omni-loop/delivery/shipped/0572-dashboards/before-after.html",
+              ".omni-loop/delivery/shipped/0572-dashboards/spec.md",
+              ".omni-loop/delivery/shipped/0598-pr-checks/spec.md",
+              ".omni-loop/delivery/shipped/0603-several-repositories-guide/before-after.html",
+              ".omni-loop/delivery/shipped/0603-several-repositories-guide/spec.md",
+              ".omni-loop/delivery/shipped/0612-engineering-board/before-after.html",
+              ".omni-loop/delivery/shipped/0612-engineering-board/spec.md",
+              ".omni-loop/delivery/shipped/0645-engineering-repo-page/before-after.html",
+              ".omni-loop/delivery/shipped/0645-engineering-repo-page/plan.md",
+              ".omni-loop/delivery/shipped/0645-engineering-repo-page/spec.md",
+              ".omni-loop/delivery/shipped/0714-loop-health/before-after.html",
+              ".omni-loop/delivery/shipped/0725-typescript/outbox/settled.md",
+              ".omni-loop/delivery/shipped/0728-points-every-repo/before-after.html",
+              ".omni-loop/delivery/shipped/0728-points-every-repo/outbox/settled.md",
+              ".omni-loop/delivery/shipped/0728-points-every-repo/spec.md",
+              ".omni-loop/delivery/shipped/0748-business-store/before-after.html",
+              ".omni-loop/delivery/shipped/0752-readable-questions/before-after.html",
+              ".omni-loop/delivery/shipped/0752-readable-questions/spec.md",
+              ".omni-loop/delivery/shipped/0774-business-evidence-draft/before-after.html",
+              ".omni-loop/delivery/shipped/0774-business-evidence-draft/spec.md",
+              ".omni-loop/delivery/shipped/0839-canon-check/before-after.html",
+              ".omni-loop/delivery/shipped/0855-agent-connect/before-after.html",
+              ".omni-loop/delivery/shipped/0855-agent-connect/spec.md",
+              ".omni-loop/delivery/shipped/0976-ts-lint/outbox/settled.md",
+              ".omni-loop/delivery/shipped/1066-import-boundaries/before-after.html",
+              ".omni-loop/delivery/shipped/1066-import-boundaries/outbox/settled.md",
+              ".omni-loop/delivery/shipped/1066-import-boundaries/plan.md",
+              ".omni-loop/delivery/shipped/1066-import-boundaries/spec.md",
+              ".omni-loop/delivery/shipped/1108-pitch-studio/spec.md",
+              ".omni-loop/delivery/shipped/1118-mega-care-bug-fix/before-after.html",
+              ".omni-loop/delivery/shipped/1118-mega-care-bug-fix/spec.md",
+              ".omni-loop/delivery/shipped/1130-mega-retro/before-after.html",
+              ".omni-loop/delivery/shipped/1139-loop-drive/before-after.html",
+              ".omni-loop/delivery/shipped/1162-roadmap/before-after.html",
+              ".omni-loop/delivery/shipped/1162-roadmap/spec.md",
+              ".omni-loop/delivery/shipped/1162-roadmap/voice.json",
+              ".omni-loop/delivery/shipped/1218-roadmap-prerequisites/before-after.html",
+              ".omni-loop/delivery/shipped/1218-roadmap-prerequisites/spec.md",
+              ".omni-loop/delivery/shipped/1276-e2e-first-product-use/spec.md",
+              ".omni-loop/delivery/shipped/1299-server-approval/before-after.html",
+              ".omni-loop/delivery/shipped/1318-layered-data-access/plan.md",
+              ".omni-loop/delivery/shipped/1318-layered-data-access/spec.md",
+              ".omni-loop/delivery/shipped/1318-layered-data-access/voice.json",
+              ".omni-loop/delivery/shipped/1322-approval-handshake/before-after.html",
+              ".omni-loop/delivery/shipped/1364-product-home/before-after.html",
+              ".omni-loop/delivery/shipped/1548-product-gate/before-after.html",
+              ".omni-loop/delivery/shipped/1548-product-gate/spec.md",
+              ".omni-loop/delivery/shipped/1548-product-gate/voice.json",
+              ".omni-loop/delivery/shipped/1612-approved-gate/before-after.html",
+              ".omni-loop/delivery/shipped/1628-cloud-sign-in/before-after.html",
+              ".omni-loop/delivery/shipped/1679-context-budgets/spec.md",
+              ".omni-loop/delivery/shipped/1726-locked-laws/spec.md",
+              ".omni-loop/delivery/shipped/1798-knowledge-graph-api/spec.md",
+              ".omni-loop/delivery/shipped/1814-same-gate-every-agent/spec.md",
+              ".omni-loop/delivery/shipped/1830-runners/before-after.html",
+              ".omni-loop/delivery/shipped/1830-runners/plan.md",
+              ".omni-loop/delivery/shipped/1830-runners/spec.md",
+              ".omni-loop/delivery/shipped/1870-plan-contract-column/before-after.html",
+              ".omni-loop/delivery/shipped/1870-plan-contract-column/spec.md",
+              ".omni-loop/delivery/shipped/1894-runner-claude-token/spec.md",
+              ".omni-loop/delivery/shipped/1904-runner-live-logs/before-after.html",
+              ".omni-loop/delivery/shipped/1911-runner-cleanup/before-after.html",
+              ".omni-loop/delivery/shipped/1911-runner-cleanup/spec.md",
+              ".omni-loop/delivery/shipped/1972-bug-fix-service-proof/before-after.html",
+              ".omni-loop/delivery/shipped/1972-bug-fix-service-proof/spec.md",
+              ".omni-loop/delivery/shipped/1972-bug-fix-service-proof/voice.json",
+              ".omni-loop/delivery/shipped/1975-merged-pr-points/before-after.html",
+              ".omni-loop/delivery/shipped/1975-merged-pr-points/spec.md",
+              ".omni-loop/delivery/shipped/2011-product-records/before-after.html",
+              ".omni-loop/delivery/shipped/2011-product-records/plan.md",
+              ".omni-loop/delivery/shipped/2011-product-records/spec.md",
+              ".omni-loop/delivery/shipped/2022-api-keys-v1/before-after.html",
+              ".omni-loop/delivery/shipped/2022-api-keys-v1/spec.md",
+              ".omni-loop/delivery/shipped/2049-target-conventions/before-after.html",
+              ".omni-loop/delivery/shipped/2049-target-conventions/plan.md",
+              ".omni-loop/delivery/shipped/2049-target-conventions/spec.md",
+              ".omni-loop/delivery/shipped/2100-bug-proof-guard/before-after.html",
+              ".omni-loop/delivery/shipped/2100-bug-proof-guard/spec.md",
+              ".omni-loop/delivery/shipped/2102-runner-health/before-after.html",
+              ".omni-loop/delivery/shipped/2102-runner-health/outbox/settled.md",
+              ".omni-loop/delivery/shipped/2102-runner-health/spec.md",
+              ".omni-loop/delivery/shipped/2124-outbox-all-prds/before-after.html",
+              ".omni-loop/delivery/shipped/2174-constellation-real-scale/before-after.html",
+              ".omni-loop/delivery/shipped/2174-constellation-real-scale/spec.md",
+              ".omni-loop/delivery/shipped/2175-runner-dead-claims/before-after.html",
+              ".omni-loop/delivery/shipped/2175-runner-dead-claims/spec.md",
+              ".omni-loop/delivery/shipped/2188-remove-repository/before-after.html",
+              ".omni-loop/delivery/shipped/2188-remove-repository/spec.md",
+              ".omni-loop/delivery/shipped/2232-archive-product/before-after.html",
+              ".omni-loop/delivery/shipped/2239-before-after-two-tabs/spec.md",
+              ".omni-loop/delivery/shipped/2251-runner-follow/before-after.html",
+              ".omni-loop/delivery/shipped/2251-runner-follow/spec.md",
+              ".omni-loop/delivery/shipped/2255-need-human/before-after.html",
+              ".omni-loop/delivery/shipped/2255-need-human/spec.md",
+              ".omni-loop/delivery/shipped/2270-fix-when-answered/before-after.html",
+              ".omni-loop/delivery/shipped/2270-fix-when-answered/spec.md",
+              ".omni-loop/delivery/shipped/2275-prod-build-bugs/before-after.html",
+              ".omni-loop/delivery/shipped/2275-prod-build-bugs/spec.md",
+              ".omni-loop/delivery/shipped/2305-open-source-safe/outbox/s7-01-s7-adr-names-renamed.md",
+              ".omni-loop/delivery/shipped/2305-open-source-safe/outbox/settled.md",
+              ".omni-loop/delivery/visual/0703-prd-list-pill-and-filters/before-after.html",
+              ".omni-loop/delivery/visual/0703-prd-list-pill-and-filters/variations-r1.html",
+              ".omni-loop/delivery/visual/0703-prd-list-pill-and-filters/variations-r2.html",
+              ".omni-loop/delivery/visual/0850-dashboard-phone/before-after.html",
+              ".omni-loop/delivery/visual/0850-dashboard-phone/variations-r1.html",
+              ".omni-loop/delivery/visual/1010-product-select-arrow/before-after.html",
+              ".omni-loop/delivery/visual/1010-product-select-arrow/variations-r1.html",
+              ".omni-loop/delivery/visual/1598-products-page/before-after.html",
+              ".omni-loop/delivery/visual/1598-products-page/variations-r1.html"
+            ],
+            "generated": [],
+            "lockfile": [
+              "pnpm-lock.yaml"
+            ]
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 10,
+          "ranges": [
+            {
+              "commits": [
+                "cb2da9e",
+                "4b4c5e2",
+                "bd8e780"
+              ],
+              "from": 165,
+              "path": "scripts/open-source.ts",
+              "slices": [
+                "s1",
+                "s8"
+              ],
+              "to": 166
+            },
+            {
+              "commits": [
+                "cb2da9e",
+                "4b4c5e2",
+                "bd8e780"
+              ],
+              "from": 170,
+              "path": "scripts/open-source.ts",
+              "slices": [
+                "s1",
+                "s8"
+              ],
+              "to": 170
+            },
+            {
+              "commits": [
+                "cb2da9e",
+                "4b4c5e2",
+                "bd8e780"
+              ],
+              "from": 184,
+              "path": "scripts/open-source.ts",
+              "slices": [
+                "s1",
+                "s8"
+              ],
+              "to": 184
+            }
+          ],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [
+            {
+              "check": "check",
+              "red": 2,
+              "redCommits": [
+                "c6f2b46",
+                "444e26a"
+              ],
+              "redSlices": [
+                "s3",
+                "s2"
+              ],
+              "redThenGreen": [],
+              "runs": 4
+            },
+            {
+              "check": "gitleaks",
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": [],
+              "runs": 26
+            },
+            {
+              "check": "open-source",
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": [],
+              "runs": 26
+            },
+            {
+              "check": "quick",
+              "red": 3,
+              "redCommits": [
+                "c6f2b46",
+                "444e26a",
+                "615208d"
+              ],
+              "redSlices": [
+                "s3",
+                "s2",
+                "s7"
+              ],
+              "redThenGreen": [],
+              "runs": 19
+            },
+            {
+              "check": "settle",
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": [],
+              "runs": 21
+            }
+          ],
+          "redRuns": [
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "c6f2b46",
+              "counts": null,
+              "excerpt": "Applying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nApplying migration 20261126090000_approval_voiding.sql...\nApplying migration 20261127090000_approval_people.sql...\nApplying migration 20261128090000_ask_attachments_4mb.sql...\nApplying migration 20261128140000_law_worth.sql...\nApplying migration 20261129090000_product_repositories.sql...\nApplying migration 20261129100000_prd_product.sql...\nApplying migration 20261129110000_product_lookups.sql...\nApplying migration 20261201090000_arcade_kart_times.sql...\nApplying migration 20261202090000_drop_repository_product.sql...\nApplying migration 20261203090000_arcade_kart_grid.sql...\nApplying migration 20261203100000_product_prd_ids.sql...\nApplying migration 20261204090000_kit_tokens.sql...\nApplying migration 20261204100000_outbox_items.sql...\nApplying migration 20261205090000_ask_cli_devices.sql...\nApplying migration 20261206090000_arcade_kart_relief_times.sql...\nApplying migration 20261207090000_rls_membership_once.sql...\nApplying migration 20261207100000_runners.sql...\nApplying migration 20261208090000_runner_job_lines.sql...\nApplying migration 20261208100000_arcade_kart_frost_eight.sql...\nApplying migration 20261208110000_arcade_kart_comet_ring_times.sql...\nApplying migration 20261209090000_game_pr_merged.sql...\nApplying migration 20261210090000_api_keys.sql...\nApplying migration 20261210100000_product_roadmaps.sql...\nApplying migration 20261211090000_fix_rows.sql...\nApplying migration 20261211100000_runner_health.sql...\nApplying migration 20261212090000_runner_tokens.sql...\nApplying migration 20261212100000_knowledge_packs.sql...\nApplying migration 20261212110000_product_knowledge.sql...\nApplying migration 20261213090000_api_key_names.sql...\nApplying migration 20261214090000_runner_released.sql...\nApplying migration 20261214100000_prd_targets.sql...\nApplying migration 20261215090000_remove_repository.sql...\nApplying migration 20261215100000_knowledge_graphs.sql...\nApplying migration 20261216090000_knowledge_graph_for_token.sql...\nApplying migration 20261217090000_runner_outcome.sql...\nApplying migration 20261217100000_archive_product.sql...\nApplying migration 20261218090000_product_knowledge_authors.sql...\nApplying migration 20261218100000_runner_job_questions.sql...\nApplying migration 20261219090000_knowledge_product_for_repo.sql...\nApplying migration 20261220090000_fix_when_answered.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ [masked] │\n│ Secret      │ [masked]      │\nLocal dev security notice\n╰─────────────┴────────────────────────────────────────────────╯\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n\nA new version of Supabase CLI is available: v2.121.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5735) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.14.0 is available)\n\nDone in 5.9s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5788) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n(node:5788) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 121634816 of 263159719 (46.2%), 115.9 MBs/sec\nReceived 263159719 of 263159719 (100.0%), 126.4 MBs/sec\nCache Size: ~251 MB (263159719 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/24486733-7df1-4b6d-b6e2-f3858e29f8c7/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n##[group]Run git fetch --no-tags --depth=1 origin main\ngit fetch --no-tags --depth=1 origin main\nnode scripts/migration-order.ts --base origin/main\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFrom https://github.com/vertuoza/vertuo-omni-loop\n * branch            main       -> FETCH_HEAD\n * [new branch]      main       -> origin/main\nevery new migration is dated after the newest on origin/main\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nError: ERR_PNPM_OUTDATED_LOCKFILE\n\n  × installing dependencies\n  ╰─▶ Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up\n      to date with package.json.\n      \n        Failure reason:\n        specifiers in the lockfile don't match specifiers in package.json:\n      * in importers[\"apps/omni-app\"]:\n      * 1 dependency was added: omni-loop@workspace:*\n      * 1 dependency was removed: vertuo-omni-plan@workspace:*\n  help: Regenerate the lockfile with `pnpm install --lockfile-only` so that\n        pnpm-lock.yaml reflects the current package.json, then re-run `pnpm\n        install --frozen-lockfile`.\n\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/fb30f990-aa34-4602-96d2-1511d34e92c0' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 119213664362,
+              "log": "read",
+              "reporter": null,
+              "slice": "s3",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39597592902/job/119213664362"
+            },
+            {
+              "attempt": 1,
+              "check": "quick",
+              "commit": "c6f2b46",
+              "counts": null,
+              "excerpt": " * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             19ebe9465e993ab3619058e2f2ea1d0dca73aa66 -> pull/2310/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2310/merge\nNote: switching to 'refs/remotes/pull/2310/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 19ebe9465 Merge c6f2b468d3f723b41dc749b33cebafe3a39b33a6 into c6f35b7ebd004af3c9503659e902289ea72e513d\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n19ebe9465e993ab3619058e2f2ea1d0dca73aa66\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:2325) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.14.0 is available)\n\nDone in 8.1s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:2357) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n(node:2357) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 121634816 of 263159719 (46.2%), 116.0 MBs/sec\nReceived 263159719 of 263159719 (100.0%), 136.5 MBs/sec\nCache Size: ~251 MB (263159719 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/08782c0a-0152-43c2-ba77-2c7319e2e159/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nError: ERR_PNPM_OUTDATED_LOCKFILE\n\n  × installing dependencies\n  ╰─▶ Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up\n      to date with package.json.\n      \n        Failure reason:\n        specifiers in the lockfile don't match specifiers in package.json:\n      * in importers[\"apps/omni-app\"]:\n      * 1 dependency was added: omni-loop@workspace:*\n      * 1 dependency was removed: vertuo-omni-plan@workspace:*\n  help: Regenerate the lockfile with `pnpm install --lockfile-only` so that\n        pnpm-lock.yaml reflects the current package.json, then re-run `pnpm\n        install --frozen-lockfile`.\n\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/a93452b3-9a02-489a-ae51-a79253ff2d5f' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 119214261364,
+              "log": "read",
+              "reporter": null,
+              "slice": "s3",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39597621777/job/119214261364"
+            },
+            {
+              "attempt": 1,
+              "check": "quick",
+              "commit": "444e26a",
+              "counts": null,
+              "excerpt": " * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             0ce8f723f759737b1739fa8aabad5d81a741b2fe -> pull/2309/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2309/merge\nNote: switching to 'refs/remotes/pull/2309/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 0ce8f723f Merge 444e26a5220f4fdf1376bc95dbd1b890bcdcd2fa into c6f35b7ebd004af3c9503659e902289ea72e513d\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n0ce8f723f759737b1739fa8aabad5d81a741b2fe\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:2310) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.14.0 is available)\n\nDone in 6.6s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:2345) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n(node:2345) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 117440512 of 263159719 (44.6%), 111.9 MBs/sec\nReceived 263159719 of 263159719 (100.0%), 134.0 MBs/sec\nCache Size: ~251 MB (263159719 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/edc7a89b-0b01-43ff-9265-42c05108d399/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nError: ERR_PNPM_OUTDATED_LOCKFILE\n\n  × installing dependencies\n  ╰─▶ Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up\n      to date with package.json.\n      \n        Failure reason:\n        specifiers in the lockfile don't match specifiers in package.json:\n      * in importers[\"apps/galaxy\"]:\n      * 1 dependency was added: omni-loop@workspace:*\n      * 1 dependency was removed: vertuo-omni-plan@workspace:*\n  help: Regenerate the lockfile with `pnpm install --lockfile-only` so that\n        pnpm-lock.yaml reflects the current package.json, then re-run `pnpm\n        install --frozen-lockfile`.\n\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/4baffcf0-bf1e-4768-bd79-e5a8ba7ee869' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 119214846859,
+              "log": "read",
+              "reporter": null,
+              "slice": "s2",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39597798550/job/119214846859"
+            },
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "444e26a",
+              "counts": null,
+              "excerpt": "Applying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nApplying migration 20261126090000_approval_voiding.sql...\nApplying migration 20261127090000_approval_people.sql...\nApplying migration 20261128090000_ask_attachments_4mb.sql...\nApplying migration 20261128140000_law_worth.sql...\nApplying migration 20261129090000_product_repositories.sql...\nApplying migration 20261129100000_prd_product.sql...\nApplying migration 20261129110000_product_lookups.sql...\nApplying migration 20261201090000_arcade_kart_times.sql...\nApplying migration 20261202090000_drop_repository_product.sql...\nApplying migration 20261203090000_arcade_kart_grid.sql...\nApplying migration 20261203100000_product_prd_ids.sql...\nApplying migration 20261204090000_kit_tokens.sql...\nApplying migration 20261204100000_outbox_items.sql...\nApplying migration 20261205090000_ask_cli_devices.sql...\nApplying migration 20261206090000_arcade_kart_relief_times.sql...\nApplying migration 20261207090000_rls_membership_once.sql...\nApplying migration 20261207100000_runners.sql...\nApplying migration 20261208090000_runner_job_lines.sql...\nApplying migration 20261208100000_arcade_kart_frost_eight.sql...\nApplying migration 20261208110000_arcade_kart_comet_ring_times.sql...\nApplying migration 20261209090000_game_pr_merged.sql...\nApplying migration 20261210090000_api_keys.sql...\nApplying migration 20261210100000_product_roadmaps.sql...\nApplying migration 20261211090000_fix_rows.sql...\nApplying migration 20261211100000_runner_health.sql...\nApplying migration 20261212090000_runner_tokens.sql...\nApplying migration 20261212100000_knowledge_packs.sql...\nApplying migration 20261212110000_product_knowledge.sql...\nApplying migration 20261213090000_api_key_names.sql...\nApplying migration 20261214090000_runner_released.sql...\nApplying migration 20261214100000_prd_targets.sql...\nApplying migration 20261215090000_remove_repository.sql...\nApplying migration 20261215100000_knowledge_graphs.sql...\nApplying migration 20261216090000_knowledge_graph_for_token.sql...\nApplying migration 20261217090000_runner_outcome.sql...\nApplying migration 20261217100000_archive_product.sql...\nApplying migration 20261218090000_product_knowledge_authors.sql...\nApplying migration 20261218100000_runner_job_questions.sql...\nApplying migration 20261219090000_knowledge_product_for_repo.sql...\nApplying migration 20261220090000_fix_when_answered.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ [masked] │\n│ Secret      │ [masked]      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\nA new version of Supabase CLI is available: v2.121.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5746) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.14.0 is available)\n\nDone in 6.5s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5796) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n(node:5796) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 16777216 of 263159719 (6.4%), 16.0 MBs/sec\nReceived 130023424 of 263159719 (49.4%), 62.0 MBs/sec\nReceived 205520896 of 263159719 (78.1%), 65.3 MBs/sec\nReceived 263159719 of 263159719 (100.0%), 74.8 MBs/sec\nCache Size: ~251 MB (263159719 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/87fceaca-b67f-4237-9f1c-7e62273b2729/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n##[group]Run git fetch --no-tags --depth=1 origin main\ngit fetch --no-tags --depth=1 origin main\nnode scripts/migration-order.ts --base origin/main\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFrom https://github.com/vertuoza/vertuo-omni-loop\n * branch            main       -> FETCH_HEAD\n * [new branch]      main       -> origin/main\nevery new migration is dated after the newest on origin/main\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nError: ERR_PNPM_OUTDATED_LOCKFILE\n\n  × installing dependencies\n  ╰─▶ Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up\n      to date with package.json.\n      \n        Failure reason:\n        specifiers in the lockfile don't match specifiers in package.json:\n      * in importers[\"apps/galaxy\"]:\n      * 1 dependency was added: omni-loop@workspace:*\n      * 1 dependency was removed: vertuo-omni-plan@workspace:*\n  help: Regenerate the lockfile with `pnpm install --lockfile-only` so that\n        pnpm-lock.yaml reflects the current package.json, then re-run `pnpm\n        install --frozen-lockfile`.\n\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/494dc8e5-3a7c-4224-91ac-a1c5f5bdad0d' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 119214211344,
+              "log": "read",
+              "reporter": null,
+              "slice": "s2",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39597756409/job/119214211344"
+            },
+            {
+              "attempt": 1,
+              "check": "quick",
+              "commit": "615208d",
+              "counts": null,
+              "excerpt": " * [new tag]             v0.0.479                  -> v0.0.479\n * [new tag]             v0.0.48                   -> v0.0.48\n * [new tag]             v0.0.480                  -> v0.0.480\n * [new tag]             v0.0.481                  -> v0.0.481\n * [new tag]             v0.0.482                  -> v0.0.482\n * [new tag]             v0.0.483                  -> v0.0.483\n * [new tag]             v0.0.484                  -> v0.0.484\n * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             28af6914db7b32d111e9475f98c914f3af1a95f8 -> pull/2315/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2315/merge\nNote: switching to 'refs/remotes/pull/2315/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 28af6914d Merge 615208d840db79d2619d3c2a39d6992c1432a263 into c49de1bfaabd61a3c5e07dd4cadf98ffb3b77d15\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n28af6914db7b32d111e9475f98c914f3af1a95f8\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:2341) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.14.0 is available)\n\nDone in 5.8s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:2372) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nError: ERR_PNPM_OUTDATED_LOCKFILE\n\n  × installing dependencies\n  ╰─▶ Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up\n      to date with package.json.\n      \n        Failure reason:\n        specifiers in the lockfile don't match specifiers in package.json:\n      * in importers[\"apps/galaxy\"]:\n      * 1 dependency was added: vertuo-omni-plan@workspace:*\n      * 1 dependency was removed: omni-loop@workspace:*\n  help: Regenerate the lockfile with `pnpm install --lockfile-only` so that\n        pnpm-lock.yaml reflects the current package.json, then re-run `pnpm\n        install --frozen-lockfile`.\n\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/84104121-66b1-4838-b24f-1a24673df075' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 119236344431,
+              "log": "read",
+              "reporter": null,
+              "slice": "s7",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39604086667/job/119236344431"
+            }
+          ],
+          "slices": [
+            "s1",
+            "s2",
+            "s3",
+            "s6",
+            "s4",
+            "s7",
+            "s5",
+            "s8"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 5,
+            "commits": 19,
+            "red": 5,
+            "runs": 96,
+            "slices": 8
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 6,
+            "agreed": 6,
+            "byRank": {
+              "high": 6,
+              "medium": 6
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/2305-open-source-safe/outbox/settled.md",
+            "raised": 12,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2308
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2309
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2310
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2311
+                ],
+                "slice": "s6",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2314
+                ],
+                "slice": "s4",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2315
+                ],
+                "slice": "s7",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2319
+                ],
+                "slice": "s5",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  2327
+                ],
+                "slice": "s8",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 9,
+              "red": 0,
+              "reviews": 1,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 1,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 2307,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 1
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2307"
+              },
+              {
+                "pr": 2308,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2308"
+              },
+              {
+                "pr": 2309,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2309"
+              },
+              {
+                "pr": 2310,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2310"
+              },
+              {
+                "pr": 2311,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s6",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2311"
+              },
+              {
+                "pr": 2314,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2314"
+              },
+              {
+                "pr": 2315,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s7",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2315"
+              },
+              {
+                "pr": 2319,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2319"
+              },
+              {
+                "pr": 2327,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s8",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2327"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 1,
+              "graded": 8,
+              "shared": 0,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [],
+                "files": 21,
+                "pr": 2308,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2308"
+              },
+              {
+                "breaches": [],
+                "files": 592,
+                "pr": 2309,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2309"
+              },
+              {
+                "breaches": [],
+                "files": 152,
+                "pr": 2310,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2310"
+              },
+              {
+                "breaches": [],
+                "files": 49,
+                "pr": 2311,
+                "shared": [],
+                "slice": "s6",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2311"
+              },
+              {
+                "breaches": [],
+                "files": 135,
+                "pr": 2314,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2314"
+              },
+              {
+                "breaches": [
+                  "pnpm-lock.yaml"
+                ],
+                "files": 199,
+                "pr": 2315,
+                "shared": [],
+                "slice": "s7",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2315"
+              },
+              {
+                "breaches": [],
+                "files": 38,
+                "pr": 2319,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2319"
+              },
+              {
+                "breaches": [],
+                "files": 3,
+                "pr": 2327,
+                "shared": [],
+                "slice": "s8",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2327"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "scripts/",
+              "scripts/open-source"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-10-21T15:42:47Z",
+            "minutes": 273,
+            "number": 2307,
+            "openedAt": "2026-10-21T11:09:54Z",
+            "readyAt": "2026-10-21T14:18:31Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2307"
+          },
+          "medianMinutes": 48,
+          "sliceCount": 8,
+          "slices": [
+            {
+              "closedAt": "2026-10-21T11:43:03Z",
+              "mergedAt": "2026-10-21T11:43:03Z",
+              "mergedWave": 1,
+              "minutes": 31,
+              "openedAt": "2026-10-21T11:12:33Z",
+              "plannedWave": 1,
+              "pr": 2308,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2308"
+            },
+            {
+              "closedAt": "2026-10-21T13:04:10Z",
+              "mergedAt": "2026-10-21T13:04:10Z",
+              "mergedWave": 2,
+              "minutes": 73,
+              "openedAt": "2026-10-21T11:50:59Z",
+              "plannedWave": 2,
+              "pr": 2309,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2309"
+            },
+            {
+              "closedAt": "2026-10-21T13:02:20Z",
+              "mergedAt": "2026-10-21T13:02:20Z",
+              "mergedWave": 2,
+              "minutes": 71,
+              "openedAt": "2026-10-21T11:51:10Z",
+              "plannedWave": 2,
+              "pr": 2310,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2310"
+            },
+            {
+              "closedAt": "2026-10-21T12:46:21Z",
+              "mergedAt": "2026-10-21T12:46:21Z",
+              "mergedWave": 2,
+              "minutes": 55,
+              "openedAt": "2026-10-21T11:51:21Z",
+              "plannedWave": 2,
+              "pr": 2311,
+              "slice": "s6",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2311"
+            },
+            {
+              "closedAt": "2026-10-21T12:54:24Z",
+              "mergedAt": "2026-10-21T12:54:24Z",
+              "mergedWave": 2,
+              "minutes": 42,
+              "openedAt": "2026-10-21T12:12:06Z",
+              "plannedWave": 2,
+              "pr": 2314,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2314"
+            },
+            {
+              "closedAt": "2026-10-21T13:05:47Z",
+              "mergedAt": "2026-10-21T13:05:47Z",
+              "mergedWave": 2,
+              "minutes": 53,
+              "openedAt": "2026-10-21T12:13:09Z",
+              "plannedWave": 2,
+              "pr": 2315,
+              "slice": "s7",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2315"
+            },
+            {
+              "closedAt": "2026-10-21T13:17:39Z",
+              "mergedAt": "2026-10-21T13:17:39Z",
+              "mergedWave": 2,
+              "minutes": 31,
+              "openedAt": "2026-10-21T12:47:09Z",
+              "plannedWave": 2,
+              "pr": 2319,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2319"
+            },
+            {
+              "closedAt": "2026-10-21T13:49:32Z",
+              "mergedAt": "2026-10-21T13:49:32Z",
+              "mergedWave": 3,
+              "minutes": 17,
+              "openedAt": "2026-10-21T13:32:15Z",
+              "plannedWave": 3,
+              "pr": 2327,
+              "slice": "s8",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2327"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 3,
+            "planned": 3
+          }
+        }
+      },
+      "findings": [
+        {
+          "id": "repeated-red:quick",
+          "kind": "repeated-red",
+          "title": "Check quick was red again and again",
+          "happened": "The check `quick` was red on 3 commits in 3 slices (s3, s2, s7): 3 of its 19 runs were red. The rules flag a check red on 2 or more commits, or in 2 or more slices.",
+          "evidence": [
+            {
+              "label": "quick on c6f2b46 in s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39597621777/job/119214261364",
+              "excerpt": " * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             19ebe9465e993ab3619058e2f2ea1d0dca73aa66 -> pull/2310/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2310/merge\nNote: switching to 'refs/remotes/pull/2310/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 19ebe9465 Merge c6f2b468d3f723b41dc749b33cebafe3a39b33a6 into c6f35b7ebd004af3c9503659e902289ea72e513d\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n19ebe9465e993ab3619058e2f2ea1d0dca73aa66\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:2325) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.14.0 is available)\n\nDone in 8.1s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:2357) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n(node:2357) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 121634816 of 263159719 (46.2%), 116.0 MBs/sec\nReceived 263159719 of 263159719 (100.0%), 136.5 MBs/sec\nCache Size: ~251 MB (263159719 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/08782c0a-0152-43c2-ba77-2c7319e2e159/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nError: ERR_PNPM_OUTDATED_LOCKFILE\n\n  × installing dependencies\n  ╰─▶ Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up\n      to date with package.json.\n      \n        Failure reason:\n        specifiers in the lockfile don't match specifiers in package.json:\n      * in importers[\"apps/omni-app\"]:\n      * 1 dependency was added: omni-loop@workspace:*\n      * 1 dependency was removed: vertuo-omni-plan@workspace:*\n  help: Regenerate the lockfile with `pnpm install --lockfile-only` so that\n        pnpm-lock.yaml reflects the current package.json, then re-run `pnpm\n        install --frozen-lockfile`.\n\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/a93452b3-9a02-489a-ae51-a79253ff2d5f' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "quick on 444e26a in s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39597798550/job/119214846859",
+              "excerpt": " * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             0ce8f723f759737b1739fa8aabad5d81a741b2fe -> pull/2309/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2309/merge\nNote: switching to 'refs/remotes/pull/2309/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 0ce8f723f Merge 444e26a5220f4fdf1376bc95dbd1b890bcdcd2fa into c6f35b7ebd004af3c9503659e902289ea72e513d\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n0ce8f723f759737b1739fa8aabad5d81a741b2fe\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:2310) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.14.0 is available)\n\nDone in 6.6s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:2345) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n(node:2345) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 117440512 of 263159719 (44.6%), 111.9 MBs/sec\nReceived 263159719 of 263159719 (100.0%), 134.0 MBs/sec\nCache Size: ~251 MB (263159719 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/edc7a89b-0b01-43ff-9265-42c05108d399/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nError: ERR_PNPM_OUTDATED_LOCKFILE\n\n  × installing dependencies\n  ╰─▶ Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up\n      to date with package.json.\n      \n        Failure reason:\n        specifiers in the lockfile don't match specifiers in package.json:\n      * in importers[\"apps/galaxy\"]:\n      * 1 dependency was added: omni-loop@workspace:*\n      * 1 dependency was removed: vertuo-omni-plan@workspace:*\n  help: Regenerate the lockfile with `pnpm install --lockfile-only` so that\n        pnpm-lock.yaml reflects the current package.json, then re-run `pnpm\n        install --frozen-lockfile`.\n\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/4baffcf0-bf1e-4768-bd79-e5a8ba7ee869' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "quick on 615208d in s7",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39604086667/job/119236344431",
+              "excerpt": " * [new tag]             v0.0.479                  -> v0.0.479\n * [new tag]             v0.0.48                   -> v0.0.48\n * [new tag]             v0.0.480                  -> v0.0.480\n * [new tag]             v0.0.481                  -> v0.0.481\n * [new tag]             v0.0.482                  -> v0.0.482\n * [new tag]             v0.0.483                  -> v0.0.483\n * [new tag]             v0.0.484                  -> v0.0.484\n * [new tag]             v0.0.485                  -> v0.0.485\n * [new tag]             v0.0.486                  -> v0.0.486\n * [new tag]             v0.0.487                  -> v0.0.487\n * [new tag]             v0.0.488                  -> v0.0.488\n * [new tag]             v0.0.489                  -> v0.0.489\n * [new tag]             v0.0.49                   -> v0.0.49\n * [new tag]             v0.0.490                  -> v0.0.490\n * [new tag]             v0.0.491                  -> v0.0.491\n * [new tag]             v0.0.492                  -> v0.0.492\n * [new tag]             v0.0.493                  -> v0.0.493\n * [new tag]             v0.0.494                  -> v0.0.494\n * [new tag]             v0.0.495                  -> v0.0.495\n * [new tag]             v0.0.496                  -> v0.0.496\n * [new tag]             v0.0.497                  -> v0.0.497\n * [new tag]             v0.0.498                  -> v0.0.498\n * [new tag]             v0.0.499                  -> v0.0.499\n * [new tag]             v0.0.5                    -> v0.0.5\n * [new tag]             v0.0.50                   -> v0.0.50\n * [new tag]             v0.0.500                  -> v0.0.500\n * [new tag]             v0.0.501                  -> v0.0.501\n * [new tag]             v0.0.502                  -> v0.0.502\n * [new tag]             v0.0.503                  -> v0.0.503\n * [new tag]             v0.0.51                   -> v0.0.51\n * [new tag]             v0.0.52                   -> v0.0.52\n * [new tag]             v0.0.53                   -> v0.0.53\n * [new tag]             v0.0.54                   -> v0.0.54\n * [new tag]             v0.0.55                   -> v0.0.55\n * [new tag]             v0.0.56                   -> v0.0.56\n * [new tag]             v0.0.57                   -> v0.0.57\n * [new tag]             v0.0.58                   -> v0.0.58\n * [new tag]             v0.0.59                   -> v0.0.59\n * [new tag]             v0.0.6                    -> v0.0.6\n * [new tag]             v0.0.60                   -> v0.0.60\n * [new tag]             v0.0.61                   -> v0.0.61\n * [new tag]             v0.0.62                   -> v0.0.62\n * [new tag]             v0.0.63                   -> v0.0.63\n * [new tag]             v0.0.64                   -> v0.0.64\n * [new tag]             v0.0.65                   -> v0.0.65\n * [new tag]             v0.0.66                   -> v0.0.66\n * [new tag]             v0.0.67                   -> v0.0.67\n * [new tag]             v0.0.68                   -> v0.0.68\n * [new tag]             v0.0.69                   -> v0.0.69\n * [new tag]             v0.0.7                    -> v0.0.7\n * [new tag]             v0.0.70                   -> v0.0.70\n * [new tag]             v0.0.71                   -> v0.0.71\n * [new tag]             v0.0.72                   -> v0.0.72\n * [new tag]             v0.0.73                   -> v0.0.73\n * [new tag]             v0.0.74                   -> v0.0.74\n * [new tag]             v0.0.75                   -> v0.0.75\n * [new tag]             v0.0.76                   -> v0.0.76\n * [new tag]             v0.0.77                   -> v0.0.77\n * [new tag]             v0.0.78                   -> v0.0.78\n * [new tag]             v0.0.79                   -> v0.0.79\n * [new tag]             v0.0.8                    -> v0.0.8\n * [new tag]             v0.0.80                   -> v0.0.80\n * [new tag]             v0.0.81                   -> v0.0.81\n * [new tag]             v0.0.82                   -> v0.0.82\n * [new tag]             v0.0.83                   -> v0.0.83\n * [new tag]             v0.0.84                   -> v0.0.84\n * [new tag]             v0.0.85                   -> v0.0.85\n * [new tag]             v0.0.86                   -> v0.0.86\n * [new tag]             v0.0.87                   -> v0.0.87\n * [new tag]             v0.0.88                   -> v0.0.88\n * [new tag]             v0.0.89                   -> v0.0.89\n * [new tag]             v0.0.9                    -> v0.0.9\n * [new tag]             v0.0.90                   -> v0.0.90\n * [new tag]             v0.0.91                   -> v0.0.91\n * [new tag]             v0.0.92                   -> v0.0.92\n * [new tag]             v0.0.93                   -> v0.0.93\n * [new tag]             v0.0.94                   -> v0.0.94\n * [new tag]             v0.0.95                   -> v0.0.95\n * [new tag]             v0.0.96                   -> v0.0.96\n * [new tag]             v0.0.97                   -> v0.0.97\n * [new tag]             v0.0.98                   -> v0.0.98\n * [new tag]             v0.0.99                   -> v0.0.99\n * [new ref]             28af6914db7b32d111e9475f98c914f3af1a95f8 -> pull/2315/merge\n##[endgroup]\n##[group]Determining the checkout info\n##[endgroup]\n[command]/usr/bin/git sparse-checkout disable\n[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig\n##[group]Checking out the ref\n[command]/usr/bin/git checkout --progress --force refs/remotes/pull/2315/merge\nNote: switching to 'refs/remotes/pull/2315/merge'.\n\nYou are in 'detached HEAD' state. You can look around, make experimental\nchanges and commit them, and you can discard any commits you make in this\nstate without impacting any branches by switching back to a branch.\n\nIf you want to create a new branch to retain commits you create, you may\ndo so (now or later) by using -c with the switch command. Example:\n\n  git switch -c <new-branch-name>\n\nOr undo this operation with:\n\n  git switch -\n\nTurn off this advice by setting config variable advice.detachedHead to false\n\nHEAD is now at 28af6914d Merge 615208d840db79d2619d3c2a39d6992c1432a263 into c49de1bfaabd61a3c5e07dd4cadf98ffb3b77d15\n##[endgroup]\n[command]/usr/bin/git log -1 --format=%H\n28af6914db7b32d111e9475f98c914f3af1a95f8\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:2341) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.14.0 is available)\n\nDone in 5.8s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:2372) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\npnpm cache is not found\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nError: ERR_PNPM_OUTDATED_LOCKFILE\n\n  × installing dependencies\n  ╰─▶ Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up\n      to date with package.json.\n      \n        Failure reason:\n        specifiers in the lockfile don't match specifiers in package.json:\n      * in importers[\"apps/galaxy\"]:\n      * 1 dependency was added: vertuo-omni-plan@workspace:*\n      * 1 dependency was removed: omni-loop@workspace:*\n  help: Regenerate the lockfile with `pnpm install --lockfile-only` so that\n        pnpm-lock.yaml reflects the current package.json, then re-run `pnpm\n        install --frozen-lockfile`.\n\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/84104121-66b1-4838-b24f-1a24673df075' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            }
+          ],
+          "source": "ci",
+          "ref": "F1"
+        },
+        {
+          "id": "repeated-red:check",
+          "kind": "repeated-red",
+          "title": "Check check was red again and again",
+          "happened": "The check `check` was red on 2 commits in 2 slices (s3, s2): 2 of its 4 runs were red. The rules flag a check red on 2 or more commits, or in 2 or more slices.",
+          "evidence": [
+            {
+              "label": "check on c6f2b46 in s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39597592902/job/119213664362",
+              "excerpt": "Applying migration 20261101090000_products_pitch_look.sql...\nApplying migration 20261101100000_pitch_runs.sql...\nApplying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nApplying migration 20261126090000_approval_voiding.sql...\nApplying migration 20261127090000_approval_people.sql...\nApplying migration 20261128090000_ask_attachments_4mb.sql...\nApplying migration 20261128140000_law_worth.sql...\nApplying migration 20261129090000_product_repositories.sql...\nApplying migration 20261129100000_prd_product.sql...\nApplying migration 20261129110000_product_lookups.sql...\nApplying migration 20261201090000_arcade_kart_times.sql...\nApplying migration 20261202090000_drop_repository_product.sql...\nApplying migration 20261203090000_arcade_kart_grid.sql...\nApplying migration 20261203100000_product_prd_ids.sql...\nApplying migration 20261204090000_kit_tokens.sql...\nApplying migration 20261204100000_outbox_items.sql...\nApplying migration 20261205090000_ask_cli_devices.sql...\nApplying migration 20261206090000_arcade_kart_relief_times.sql...\nApplying migration 20261207090000_rls_membership_once.sql...\nApplying migration 20261207100000_runners.sql...\nApplying migration 20261208090000_runner_job_lines.sql...\nApplying migration 20261208100000_arcade_kart_frost_eight.sql...\nApplying migration 20261208110000_arcade_kart_comet_ring_times.sql...\nApplying migration 20261209090000_game_pr_merged.sql...\nApplying migration 20261210090000_api_keys.sql...\nApplying migration 20261210100000_product_roadmaps.sql...\nApplying migration 20261211090000_fix_rows.sql...\nApplying migration 20261211100000_runner_health.sql...\nApplying migration 20261212090000_runner_tokens.sql...\nApplying migration 20261212100000_knowledge_packs.sql...\nApplying migration 20261212110000_product_knowledge.sql...\nApplying migration 20261213090000_api_key_names.sql...\nApplying migration 20261214090000_runner_released.sql...\nApplying migration 20261214100000_prd_targets.sql...\nApplying migration 20261215090000_remove_repository.sql...\nApplying migration 20261215100000_knowledge_graphs.sql...\nApplying migration 20261216090000_knowledge_graph_for_token.sql...\nApplying migration 20261217090000_runner_outcome.sql...\nApplying migration 20261217100000_archive_product.sql...\nApplying migration 20261218090000_product_knowledge_authors.sql...\nApplying migration 20261218100000_runner_job_questions.sql...\nApplying migration 20261219090000_knowledge_product_for_repo.sql...\nApplying migration 20261220090000_fix_when_answered.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ [masked] │\n│ Secret      │ [masked]      │\nLocal dev security notice\n╰─────────────┴────────────────────────────────────────────────╯\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\n\nA new version of Supabase CLI is available: v2.121.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5735) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.14.0 is available)\n\nDone in 5.9s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5788) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n(node:5788) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 121634816 of 263159719 (46.2%), 115.9 MBs/sec\nReceived 263159719 of 263159719 (100.0%), 126.4 MBs/sec\nCache Size: ~251 MB (263159719 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/24486733-7df1-4b6d-b6e2-f3858e29f8c7/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n##[group]Run git fetch --no-tags --depth=1 origin main\ngit fetch --no-tags --depth=1 origin main\nnode scripts/migration-order.ts --base origin/main\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFrom https://github.com/vertuoza/vertuo-omni-loop\n * branch            main       -> FETCH_HEAD\n * [new branch]      main       -> origin/main\nevery new migration is dated after the newest on origin/main\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nError: ERR_PNPM_OUTDATED_LOCKFILE\n\n  × installing dependencies\n  ╰─▶ Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up\n      to date with package.json.\n      \n        Failure reason:\n        specifiers in the lockfile don't match specifiers in package.json:\n      * in importers[\"apps/omni-app\"]:\n      * 1 dependency was added: omni-loop@workspace:*\n      * 1 dependency was removed: vertuo-omni-plan@workspace:*\n  help: Regenerate the lockfile with `pnpm install --lockfile-only` so that\n        pnpm-lock.yaml reflects the current package.json, then re-run `pnpm\n        install --frozen-lockfile`.\n\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/fb30f990-aa34-4602-96d2-1511d34e92c0' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            },
+            {
+              "label": "check on 444e26a in s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39597756409/job/119214211344",
+              "excerpt": "Applying migration 20261107090000_pitch_settings.sql...\nApplying migration 20261108090000_loops.sql...\nApplying migration 20261109090000_game_answered_rounds.sql...\nApplying migration 20261110090000_roadmaps.sql...\nApplying migration 20261113090000_roadmap_human_work.sql...\nApplying migration 20261113100000_hitl_category.sql...\nApplying migration 20261114090000_roadmap_prerequisites.sql...\nApplying migration 20261115090000_ideas.sql...\nApplying migration 20261116090000_ideas_member_votes.sql...\nApplying migration 20261117090000_game_feature_merged.sql...\nApplying migration 20261118090000_every_answer_pays.sql...\nApplying migration 20261119090000_concept_dossiers.sql...\nApplying migration 20261120090000_dossier_list_custom_plan.sql...\nApplying migration 20261122090000_phase0_flag.sql...\nApplying migration 20261123090000_approvals.sql...\nApplying migration 20261124090000_product_approvers.sql...\nApplying migration 20261125090000_approval_requests.sql...\nApplying migration 20261126090000_approval_voiding.sql...\nApplying migration 20261127090000_approval_people.sql...\nApplying migration 20261128090000_ask_attachments_4mb.sql...\nApplying migration 20261128140000_law_worth.sql...\nApplying migration 20261129090000_product_repositories.sql...\nApplying migration 20261129100000_prd_product.sql...\nApplying migration 20261129110000_product_lookups.sql...\nApplying migration 20261201090000_arcade_kart_times.sql...\nApplying migration 20261202090000_drop_repository_product.sql...\nApplying migration 20261203090000_arcade_kart_grid.sql...\nApplying migration 20261203100000_product_prd_ids.sql...\nApplying migration 20261204090000_kit_tokens.sql...\nApplying migration 20261204100000_outbox_items.sql...\nApplying migration 20261205090000_ask_cli_devices.sql...\nApplying migration 20261206090000_arcade_kart_relief_times.sql...\nApplying migration 20261207090000_rls_membership_once.sql...\nApplying migration 20261207100000_runners.sql...\nApplying migration 20261208090000_runner_job_lines.sql...\nApplying migration 20261208100000_arcade_kart_frost_eight.sql...\nApplying migration 20261208110000_arcade_kart_comet_ring_times.sql...\nApplying migration 20261209090000_game_pr_merged.sql...\nApplying migration 20261210090000_api_keys.sql...\nApplying migration 20261210100000_product_roadmaps.sql...\nApplying migration 20261211090000_fix_rows.sql...\nApplying migration 20261211100000_runner_health.sql...\nApplying migration 20261212090000_runner_tokens.sql...\nApplying migration 20261212100000_knowledge_packs.sql...\nApplying migration 20261212110000_product_knowledge.sql...\nApplying migration 20261213090000_api_key_names.sql...\nApplying migration 20261214090000_runner_released.sql...\nApplying migration 20261214100000_prd_targets.sql...\nApplying migration 20261215090000_remove_repository.sql...\nApplying migration 20261215100000_knowledge_graphs.sql...\nApplying migration 20261216090000_knowledge_graph_for_token.sql...\nApplying migration 20261217090000_runner_outcome.sql...\nApplying migration 20261217100000_archive_product.sql...\nApplying migration 20261218090000_product_knowledge_authors.sql...\nApplying migration 20261218100000_runner_job_questions.sql...\nApplying migration 20261219090000_knowledge_product_for_repo.sql...\nApplying migration 20261220090000_fix_when_answered.sql...\nSeeding data from supabase/seed.sql...\nStarting containers...\nWaiting for health checks...\nStarted supabase local development setup.\n\n\n╭─────────────────────────────────────────────────╮\n│ 🌐 APIs                                         │\n├─────────────┬───────────────────────────────────┤\n│ Project URL │ http://127.0.0.1:54321            │\n│ REST        │ http://127.0.0.1:54321/rest/v1    │\n│ GraphQL     │ http://127.0.0.1:54321/graphql/v1 │\n╰─────────────┴───────────────────────────────────╯\n\n╭───────────────────────────────────────────────────────────────╮\n│ ⛁ Database                                                    │\n├─────┬─────────────────────────────────────────────────────────┤\n│ URL │ ***127.0.0.1:54322/postgres │\n╰─────┴─────────────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────╮\n│ 🔑 Authentication Keys                                       │\n├─────────────┬────────────────────────────────────────────────┤\n│ Publishable │ [masked] │\n│ Secret      │ [masked]      │\n╰─────────────┴────────────────────────────────────────────────╯\n\nLocal dev security notice\nAll services bind to 0.0.0.0 (network-accessible, not just localhost)\nAPI keys and JWT secrets are shared defaults. Do not use in production\nStudio, pgMeta (/pg/*), and analytics have no authentication\n\nA new version of Supabase CLI is available: v2.121.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run pnpm/action-setup@v4\nwith:\n  dest: ~/setup-pnpm\n  run_install: null\n  cache: false\n  cache_dependency_path: pnpm-lock.yaml\n  package_json_file: package.json\n  standalone: false\n##[endgroup]\n##[group]Running self-installer...\n(node:5746) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nProgress: resolved 1, reused 0, downloaded 0, added 0\nPackages: +3\n+++\nProgress: resolved 15, reused 0, downloaded 3, added 3, done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm preinstall: Done\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall$ node install.js\n.../.pnpm/pnpm@12.11.2/node_modules/pnpm postinstall: Done\n\ndependencies:\n+ pnpm 12.11.2 (12.14.0 is available)\n\nDone in 6.5s\n##[endgroup]\nInstallation Completed!\n##[group]Run actions/setup-node@v4\nwith:\n  node-version: 22\n  cache: pnpm\n  always-auth: false\n  check-latest: false\n  token: ***\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFound in cache @ /opt/hostedtoolcache/node/22.23.3/x64\n(node:5796) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n##[group]Environment details\nnode: v22.23.3\nnpm: 10.9.9\nyarn: 1.22.22\n##[endgroup]\n[command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent\n/home/runner/setup-pnpm/node_modules/.bin/store/v11\nCache hit for: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n(node:5796) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\nReceived 16777216 of 263159719 (6.4%), 16.0 MBs/sec\nReceived 130023424 of 263159719 (49.4%), 62.0 MBs/sec\nReceived 205520896 of 263159719 (78.1%), 65.3 MBs/sec\nReceived 263159719 of 263159719 (100.0%), 74.8 MBs/sec\nCache Size: ~251 MB (263159719 B)\n[command]/usr/bin/tar -xf /home/runner/work/_temp/87fceaca-b67f-4237-9f1c-7e62273b2729/cache.tzst -P -C /home/runner/work/vertuo-omni-loop/vertuo-omni-loop --use-compress-program unzstd\nCache restored successfully\nCache restored from key: node-cache-Linux-x64-pnpm-5a4da17020a73cc82a3d048ebb20cb4fb71a3becf251ff4ec4d4d22b4c6d8b1a\n##[group]Run git fetch --no-tags --depth=1 origin main\ngit fetch --no-tags --depth=1 origin main\nnode scripts/migration-order.ts --base origin/main\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nFrom https://github.com/vertuoza/vertuo-omni-loop\n * branch            main       -> FETCH_HEAD\n * [new branch]      main       -> origin/main\nevery new migration is dated after the newest on origin/main\n##[group]Run pnpm install --frozen-lockfile\npnpm install --frozen-lockfile\nshell: /usr/bin/bash -e {0}\nenv:\n  PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin\n##[endgroup]\nScope: all 6 workspace projects\nError: ERR_PNPM_OUTDATED_LOCKFILE\n\n  × installing dependencies\n  ╰─▶ Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up\n      to date with package.json.\n      \n        Failure reason:\n        specifiers in the lockfile don't match specifiers in package.json:\n      * in importers[\"apps/galaxy\"]:\n      * 1 dependency was added: omni-loop@workspace:*\n      * 1 dependency was removed: vertuo-omni-plan@workspace:*\n  help: Regenerate the lockfile with `pnpm install --lockfile-only` so that\n        pnpm-lock.yaml reflects the current package.json, then re-run `pnpm\n        install --frozen-lockfile`.\n\n##[error]Process completed with exit code 1.\nPost job cleanup.\nPruning is unnecessary.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/494dc8e5-3a7c-4224-91ac-a1c5f5bdad0d' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/"
+            }
+          ],
+          "source": "ci",
+          "ref": "F2"
+        },
+        {
+          "id": "territory:s7",
+          "kind": "territory",
+          "title": "Slice s7 changed files outside its territory",
+          "happened": "Slice s7 changed 1 path outside its territory and off the plan’s shared ground: `pnpm-lock.yaml`.",
+          "evidence": [
+            {
+              "label": "#2315",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/2315/files"
+            }
+          ],
+          "source": "delivery",
+          "ref": "F3"
+        },
+        {
+          "id": "churn:scripts/open-source.baseline/galaxy.json",
+          "kind": "churn",
+          "title": "Much of `scripts/open-source.baseline/galaxy.json` was written, then rewritten",
+          "happened": "`scripts/open-source.baseline/galaxy.json` had 586 lines added across 2 commits, none of them in the final diff: 586 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "evidence": [
+            {
+              "label": "cb2da9e (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/cb2da9e7ac894e59444381a1d64377b153ec4dad"
+            },
+            {
+              "label": "762fe61 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/762fe61659750c892d08bb17dec55aa1daac6bfd"
+            }
+          ],
+          "source": "churn",
+          "ref": "F4"
+        },
+        {
+          "id": "churn:scripts/open-source.baseline/history.json",
+          "kind": "churn",
+          "title": "Much of `scripts/open-source.baseline/history.json` was written, then rewritten",
+          "happened": "`scripts/open-source.baseline/history.json` had 200 lines added across 2 commits, none of them in the final diff: 200 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "evidence": [
+            {
+              "label": "cb2da9e (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/cb2da9e7ac894e59444381a1d64377b153ec4dad"
+            },
+            {
+              "label": "615208d (s7)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/615208d840db79d2619d3c2a39d6992c1432a263"
+            }
+          ],
+          "source": "churn",
+          "ref": "F5"
+        },
+        {
+          "id": "churn:scripts/open-source.baseline/omni-app.json",
+          "kind": "churn",
+          "title": "Much of `scripts/open-source.baseline/omni-app.json` was written, then rewritten",
+          "happened": "`scripts/open-source.baseline/omni-app.json` had 153 lines added across 2 commits, none of them in the final diff: 153 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "evidence": [
+            {
+              "label": "cb2da9e (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/cb2da9e7ac894e59444381a1d64377b153ec4dad"
+            },
+            {
+              "label": "66a72c6 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/66a72c683b09d7b5f6b1df36d085419df6c9911e"
+            }
+          ],
+          "source": "churn",
+          "ref": "F6"
+        },
+        {
+          "id": "churn:scripts/open-source.baseline/kit.json",
+          "kind": "churn",
+          "title": "Much of `scripts/open-source.baseline/kit.json` was written, then rewritten",
+          "happened": "`scripts/open-source.baseline/kit.json` had 136 lines added across 2 commits, none of them in the final diff: 136 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "evidence": [
+            {
+              "label": "cb2da9e (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/cb2da9e7ac894e59444381a1d64377b153ec4dad"
+            },
+            {
+              "label": "11e80c1 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/11e80c1b1371b980af6ba56c99cdb219995dfac6"
+            }
+          ],
+          "source": "churn",
+          "ref": "F7"
+        },
+        {
+          "id": "churn:scripts/open-source.baseline/supabase.json",
+          "kind": "churn",
+          "title": "Much of `scripts/open-source.baseline/supabase.json` was written, then rewritten",
+          "happened": "`scripts/open-source.baseline/supabase.json` had 42 lines added across 2 commits, none of them in the final diff: 42 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "evidence": [
+            {
+              "label": "cb2da9e (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/cb2da9e7ac894e59444381a1d64377b153ec4dad"
+            },
+            {
+              "label": "1b34f8e (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/1b34f8e43fd787771ce96f85d9267f688a4eacb1"
+            }
+          ],
+          "source": "churn",
+          "ref": "F8"
+        },
+        {
+          "id": "churn:scripts/open-source.ts:165-166",
+          "kind": "churn",
+          "title": "Lines 165-166 of `scripts/open-source.ts` were rewritten again and again",
+          "happened": "Lines 165-166 of `scripts/open-source.ts`, as merged, were written and rewritten in 3 commits, in s1 and s8; the rules flag a line range rewritten in 3 or more commits.",
+          "evidence": [
+            {
+              "label": "cb2da9e (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/cb2da9e7ac894e59444381a1d64377b153ec4dad"
+            },
+            {
+              "label": "4b4c5e2 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/4b4c5e22a4fd6379432bccc55f113b5a090f3769"
+            },
+            {
+              "label": "bd8e780 (s8)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/bd8e78067df9a556b7c8d3068fb2cbac492e801b"
+            },
+            {
+              "label": "`scripts/open-source.ts` lines 165-166, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/26b666b996cd2b05a48b9df082c32084bb9e6844/scripts/open-source.ts#L165-L166"
+            }
+          ],
+          "source": "churn",
+          "ref": "F9"
+        },
+        {
+          "id": "churn:scripts/open-source.ts:170-170",
+          "kind": "churn",
+          "title": "Lines 170-170 of `scripts/open-source.ts` were rewritten again and again",
+          "happened": "Lines 170-170 of `scripts/open-source.ts`, as merged, were written and rewritten in 3 commits, in s1 and s8; the rules flag a line range rewritten in 3 or more commits.",
+          "evidence": [
+            {
+              "label": "cb2da9e (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/cb2da9e7ac894e59444381a1d64377b153ec4dad"
+            },
+            {
+              "label": "4b4c5e2 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/4b4c5e22a4fd6379432bccc55f113b5a090f3769"
+            },
+            {
+              "label": "bd8e780 (s8)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/bd8e78067df9a556b7c8d3068fb2cbac492e801b"
+            },
+            {
+              "label": "`scripts/open-source.ts` lines 170-170, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/26b666b996cd2b05a48b9df082c32084bb9e6844/scripts/open-source.ts#L170-L170"
+            }
+          ],
+          "source": "churn",
+          "ref": "F10"
+        },
+        {
+          "id": "churn:scripts/open-source.ts:184-184",
+          "kind": "churn",
+          "title": "Lines 184-184 of `scripts/open-source.ts` were rewritten again and again",
+          "happened": "Lines 184-184 of `scripts/open-source.ts`, as merged, were written and rewritten in 3 commits, in s1 and s8; the rules flag a line range rewritten in 3 or more commits.",
+          "evidence": [
+            {
+              "label": "cb2da9e (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/cb2da9e7ac894e59444381a1d64377b153ec4dad"
+            },
+            {
+              "label": "4b4c5e2 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/4b4c5e22a4fd6379432bccc55f113b5a090f3769"
+            },
+            {
+              "label": "bd8e780 (s8)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/bd8e78067df9a556b7c8d3068fb2cbac492e801b"
+            },
+            {
+              "label": "`scripts/open-source.ts` lines 184-184, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/26b666b996cd2b05a48b9df082c32084bb9e6844/scripts/open-source.ts#L184-L184"
+            }
+          ],
+          "source": "churn",
+          "ref": "F11"
+        }
+      ],
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "verdict": {
+        "worthIt": true,
+        "reason": "The stale lockfile after a workspace package rename yields a lesson that neither the knowledge nor earlier lessons state."
+      },
+      "lessons": [
+        {
+          "text": "A change that renames a workspace package, or changes which workspace packages depend on it, regenerates `pnpm-lock.yaml` in the same commit. The plan gives that rename and its lockfile update to one slice that lands first.",
+          "findings": [
+            "repeated-red:quick",
+            "repeated-red:check",
+            "territory:s7"
+          ]
+        }
+      ],
+      "issues": {
+        "repeated-red:quick": {
+          "number": 2341,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/2341",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
