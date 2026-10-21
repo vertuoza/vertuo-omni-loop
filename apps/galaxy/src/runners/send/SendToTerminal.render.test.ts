@@ -48,6 +48,12 @@ describe('Send to terminal', () => {
     expect(view({ kind: 'closed' }, SETUP, '/omni:drive')).toBe('');
   });
 
+  it('is drawn for a repository\'s own skill only when the repository allows it (PRD 2313)', () => {
+    expect(view({ kind: 'closed' }, SETUP, '/validate-prd 347')).toBe('');
+    expect(view({ kind: 'closed' }, { ...SETUP, allowed: ['audit'] }, '/validate-prd 347')).toBe('');
+    expect(view({ kind: 'closed' }, { ...SETUP, allowed: ['validate-prd'] }, '/validate-prd 347')).toContain('Send to terminal');
+  });
+
   it('shows the button alone while closed', () => {
     const html = view({ kind: 'closed' });
     expect(html).toContain('<button type="button" class="ask-button quiet" aria-expanded="false">Send to terminal</button>');

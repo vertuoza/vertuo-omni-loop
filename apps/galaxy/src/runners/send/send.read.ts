@@ -9,15 +9,33 @@ import { sendOptions, type SendSetup } from './targets';
 /** The Runners page's read, as the service answers it. */
 type BoardRead = (caller: string, workspaceId: string) => Promise<{ ok: true; value: Pick<Board, 'runners' | 'viewer'> } | { ok: false }>;
 
-/** Send to terminal's setup for `caller` on a page of `repo` in `workspaceId`; null when it shows nowhere. */
-export async function sendSetupOf(board: BoardRead | null, caller: string, workspaceId: string, repo: string, log: (error: unknown) => void): Promise<SendSetup | null> {
+/** The repository's allowed skills (PRD 2313), as the service answers them: the names, or nothing. */
+type SkillsRead = (caller: string, workspaceId: string, repo: string) => Promise<{ ok: true; value: string[] } | { ok: false } | string[]>;
+
+/** Send to terminal's setup for `caller` on a page of `repo` in `workspaceId`; null when it shows nowhere.
+ * `skills` reads the repository's allowed skills: a read that fails (logged) or is absent leaves none. */
+export async function sendSetupOf(
+  board: BoardRead | null, caller: string, workspaceId: string, repo: string, log: (error: unknown) => void, skills?: SkillsRead,
+): Promise<SendSetup | null> {
   if (!board) return null;
   try {
     const read = await board(caller, workspaceId);
     const options = read.ok ? sendOptions(read.value, repo) : [];
-    return options.length ? { repo, options } : null;
+    return options.length ? { repo, options, allowed: await allowedOf(skills, caller, workspaceId, repo, log) } : null;
   } catch (error) {
     log(error);
     return null;
+  }
+}
+
+async function allowedOf(skills: SkillsRead | undefined, caller: string, workspaceId: string, repo: string, log: (error: unknown) => void): Promise<string[]> {
+  if (!skills) return [];
+  try {
+    const read = await skills(caller, workspaceId, repo);
+    if (Array.isArray(read)) return read;
+    return read.ok ? read.value : [];
+  } catch (error) {
+    log(error);
+    return [];
   }
 }

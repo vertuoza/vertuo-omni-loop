@@ -154,6 +154,20 @@ describe('a repository\'s own skill (PRD 2313)', () => {
   });
 });
 
+describe('the skills Send to terminal offers (PRD 2313)', () => {
+  const allowed = (skill: string, full_name = 'vertuoza/app'): AllowedSkillRow => ({ workspace_id: WORKSPACE, full_name, skill });
+
+  it('reads the repository\'s allowed skills, sorted, for a member, however the repository is spelt', async () => {
+    const w = world({ skills: [allowed('validate-prd'), allowed('audit'), allowed('lint', 'vertuoza/other')] });
+    expect(value(await w.service.allowedSkills(SAM, WORKSPACE, 'Vertuoza/App'))).toEqual(['audit', 'validate-prd']);
+  });
+
+  it('reads none to someone outside the workspace', async () => {
+    const w = world({ skills: [allowed('validate-prd')] });
+    expect(await w.service.allowedSkills(EVE, WORKSPACE, 'vertuoza/app')).toMatchObject({ ok: false, kind: 'forbidden' });
+  });
+});
+
 describe('the long poll', () => {
   it('answers a job at once, counted as a check-in', async () => {
     const { service, state, slept } = world({ jobs: [jobRow()], runners: [runnerRow({ id: SHARED, name: 'shared', last_seen_at: at(-60).toISOString() })] });
@@ -1293,6 +1307,26 @@ describe('a job\'s questions (PRD 2255)', () => {
       const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
       expect(await w.service.answer(MO, job.id, { answers: ANSWERS })).toMatchObject({ ok: false, kind: 'malformed' });
       expect(w.state.jobs).toHaveLength(1);
+    });
+  });
+
+  describe('a repository skill\'s job (PRD 2313)', () => {
+    const own = () => waiting({ line: '/validate-prd 347' });
+
+    it('is never resumed by answers: it is refused, and nothing is stored or queued', async () => {
+      const job = own();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })], skills: [{ workspace_id: WORKSPACE, full_name: 'vertuoza/app', skill: 'validate-prd' }] });
+      expect(await w.service.answer(MO, job.id, { answers: ANSWERS })).toEqual({
+        ok: false, kind: 'malformed', error: '/validate-prd is a repository\'s own skill: its questions can only be dismissed.',
+      });
+      expect(w.state.jobs).toHaveLength(1);
+      expect(w.state.questions[0]?.closed_at).toBeNull();
+    });
+
+    it('has its questions dismissed as any job\'s', async () => {
+      const job = own();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      expect(value(await w.service.dismiss(MO, job.id))).toMatchObject({ job: job.id, state: 'dismissed', by: MO });
     });
   });
 

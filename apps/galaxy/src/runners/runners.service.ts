@@ -247,6 +247,15 @@ const targetOf = (job: JobRow): Target => {
   return job.to_fleet === null ? { kind: 'any' } : { kind: 'fleet', fleet: job.to_fleet };
 };
 
+/** The line that resumes the job, checked as Send checks it; a repository's own skill (PRD 2313) is never resumed. */
+function resumeOf(firstLine: string, issue: IssueNumber, jobId: string): Served<null> {
+  const first = checkLineShape(firstLine);
+  if (!first.ok) return no('malformed', first.reason);
+  if (first.kind === 'repository') return no('malformed', `/${first.skill} is a repository's own skill: its questions can only be dismissed.`);
+  const line = checkLine(resumeLine(first.skill, issue, jobId));
+  return line.ok ? ok(null) : no('malformed', line.reason);
+}
+
 const NOT_WAITING = 'This job is not waiting for an answer.';
 const NO_QUESTION = 'This job asked no question.';
 const EACH_ANSWERED = 'Answer each question once, and only the ones asked.';
@@ -568,6 +577,13 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       return ok(runners.map((runner) => kitRunnerOf(runner, usedBy(active, runner.id), now)));
     },
 
+    /** The repository's own skills its owner allowed, for Send to terminal's choice of line (PRD 2313): a
+     * member of the workspace reads them, sorted, however the repository is spelt. */
+    async allowedSkills(caller: string, workspaceId: string, repo: string): Promise<Served<string[]>> {
+      if (!(await store.member(workspaceId, caller))) return no('forbidden', 'You are not a member of this workspace.');
+      return ok(await store.allowedSkills(workspaceId, repo.toLowerCase()));
+    },
+
     /** The terminal's read of a PRD's jobs (PRD 2251): the jobs of the repository whose line names the PRD,
      * among the ones the Runners page lists (queued and running, then the last 50 that ended), newest
      * first. A member of the workspace the repository belongs to only. */
@@ -614,10 +630,8 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const { job, row, member } = waiting.value;
       const asked = row.questions.map((question) => question.question);
       if (Object.keys(request.answers).length !== asked.length || !asked.every((text) => Object.hasOwn(request.answers, text))) return no('malformed', EACH_ANSWERED);
-      const first = checkLine(job.line);
-      if (!first.ok) return no('malformed', first.reason);
-      const line = checkLine(resumeLine(first.skill, row.issue, jobId));
-      if (!line.ok) return no('malformed', line.reason);
+      const resumed = resumeOf(job.line, row.issue, jobId);
+      if (!resumed.ok) return resumed;
       const placed = await placement(caller, job.repo, job.workspace_id);
       if (!placed.ok) return placed;
       const target = await mayTarget(store, job.workspace_id, member, targetOf(job));

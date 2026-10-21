@@ -70,6 +70,15 @@ describe('Send to terminal\'s targets', () => {
     expect(sendable('/omni:yolo 1; rm -rf /')).toBe(false);
   });
 
+  it('sends a repository\'s own skill only when the repository allows it, and never a fixed skill\'s name', () => {
+    expect(sendable('/validate-prd 347')).toBe(false);
+    expect(sendable('/validate-prd 347', ['validate-prd'])).toBe(true);
+    expect(sendable('/validate-prd 347', ['audit'])).toBe(false);
+    expect(sendable('/validate-prd 347; rm -rf /', ['validate-prd'])).toBe(false);
+    expect(sendable('/yolo 1717', ['yolo'])).toBe(false);
+    expect(sendable('/omni:yolo 1717', ['validate-prd'])).toBe(true);
+  });
+
   it('words the queued line and links the job on the Runners page', () => {
     const [any, fleet] = sendOptions(board([runner('mac-mini'), runner('box', { fleet: 'cyan' })]), REPO);
     expect(any && queuedWords(any)).toBe('Queued for any runner');
