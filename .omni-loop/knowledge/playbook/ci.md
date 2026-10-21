@@ -13,7 +13,7 @@ evidence:
   - apps/galaxy/package.json@c9781fd
   - scripts/lint-repository.ts@b154f4c
   - .github/workflows/quick.yml@2fe8e9e
-  - scripts/check-changed-hooks.ts@c844953
+  - scripts/check-changed-hooks.ts@d6db638
   - .github/workflows/preview-debounce.yml@12349c8
   - .githooks/pre-commit@097e115
   - .githooks/pre-push@4ba5c3d
@@ -51,7 +51,7 @@ previews (`vercel/preview/<project>`, PRD 1646). The `supabase` workflow's `depl
 and `business-recheck` on a schedule or by hand.
 
 First, the git hooks `pnpm install` turns on (`.githooks/`): pre-commit the fallow audit, pre-push
-the typecheck and lint of what changed. They fail closed, so a red `fallow` usually means a
+the typecheck and lint of what changed, and the types drift check when a migration changed. They fail closed, so a red `fallow` usually means a
 `--no-verify` commit, which the pull request must explain.
 
 ## What gates a merge

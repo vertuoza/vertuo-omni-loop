@@ -56,6 +56,13 @@ New server code logs through `kit/lib/log`, never a bare `console` string (ADR-0
   `check` job refuses an overtaken migration (`node scripts/migration-order.ts`), and its `deploy` job
   pushes with `--include-all`, so one that merges after its check ran still applies rather than
   blocking every deploy after it (PRD 1364, 2026-10-11, fixed by #1456).
+- **The database types are generated, never written.** `supabase/database.types.ts` is exactly what
+  `supabase gen types --local` prints for the migrations, compared byte for byte, a space included.
+  A change that adds or alters a migration regenerates it in the same commit, against a fresh local
+  database: `supabase stop --no-backup && supabase db start` (a kept backup restores stale tables),
+  then `node scripts/supabase-types.ts`, and commits the file as written. Never hand-edit it. A
+  migration re-dated after `main` moved on is regenerated again. The pre-push hook checks it when a
+  local database is up, and the `supabase` workflow always does (three retros: #1349, #1649, #2207).
 - **A new database check runs in CI.** Each file under `supabase/checks/` is its own named step in
   the `supabase` workflow's `check` job, added in the pull request that adds the check; a check CI
   does not run proves nothing (PRD 902, s1-02).

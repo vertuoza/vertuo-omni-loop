@@ -15,7 +15,7 @@ evidence:
   - scripts/lint.ts@efc3f1b
   - scripts/lint-repository.ts@b154f4c
   - .github/workflows/checks.yml@af9027a
-  - scripts/check-changed-hooks.ts@c844953
+  - scripts/check-changed-hooks.ts@d6db638
   - .github/workflows/quick.yml@2fe8e9e
 invaded: 2026-10-20
 ---
@@ -66,7 +66,9 @@ demand, outside the required checks, and shows a module below its floor in its j
 
 `pnpm install` turns on two git hooks (`.githooks/`) for every agent and person: **pre-commit**
 runs `fallow audit` of the work tree committed (~1 s), **pre-push** `check:changed`'s typecheck and
-lint from the upstream, else `origin/main` (~10 s). Both fail closed. Tests are left to CI: a hook
+lint from the upstream, else `origin/main` (~10 s), plus, when the push touches a migration or
+`supabase/database.types.ts`, the types drift check against the local database (refused on drift,
+only warned when no local database answers). Both fail closed. Tests are left to CI: a hook
 that costs minutes buys the habit of skipping it. A green commit is not a green branch. Never skip
 a hook.
 
