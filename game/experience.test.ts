@@ -138,7 +138,7 @@ describe('xpKindOf', () => {
     const lostPlanet = 7;
     const events = [
       charted,
-      E('region:2332:vertuo-core:surveyed', '2026-09-02T08:00:00Z', 'REGION_SURVEYED', { region: 'vertuo-core' }),
+      E('region:2332:nimbus-core:surveyed', '2026-09-02T08:00:00Z', 'REGION_SURVEYED', { region: 'nimbus-core' }),
       E('planet:2332:locked', '2026-09-03T08:00:00Z', 'PLANET_LOCKED'),
       E('planet:2332:unlocked', '2026-09-04T08:00:00Z', 'PLANET_UNLOCKED'),
       E('zone:r:2332:s1:opened', '2026-09-20T08:00:00Z', 'ZONE_OPENED'),
