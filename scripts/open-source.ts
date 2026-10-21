@@ -37,8 +37,8 @@ const OWN_NAMES: ReadonlySet<string> = new Set([OWN_REPOSITORY, `${OWN_REPOSITOR
 /** Paths never read: the bundles built from the sources read here, and the lockfile's hashes. */
 const SKIPPED = [/^kit\/dist\//, /^apps\/omni-app\/api\//, /^pnpm-lock\.yaml$/];
 
-export const ALLOW_FILE = 'scripts/open-source.allow.json';
-export const BASELINE_DIR = 'scripts/open-source.baseline';
+const ALLOW_FILE = 'scripts/open-source.allow.json';
+const BASELINE_DIR = 'scripts/open-source.baseline';
 
 /** The areas a baseline file covers, by the paths each one owns; a path in none has no baseline. */
 const AREAS: ReadonlyArray<{ area: string; owns: RegExp }> = [
@@ -177,16 +177,10 @@ function readAllow(allow: readonly AllowEntry[]): { byFile: Map<string, RegExp[]
   return { byFile, problems };
 }
 
-const sameFinding = (a: Finding, b: Finding): boolean => a.path === b.path && a.line === b.line && a.rule === b.rule;
-
-/**
- * Judges `files` (the tracked files, read) against the allowlist and the baseline (`area` → the files
- * it lists): the findings, one per file, line and rule, and the problems of the baseline and the
- * allowlist themselves.
- */
-export function judge(files: readonly SourceFile[], allow: readonly AllowEntry[], baseline: ReadonlyMap<string, readonly string[]>): Verdict {
-  const { byFile, problems } = readAllow(allow);
+/** The baseline's files, each with its area, and a problem for each one listed in another area's file. */
+function readListing(baseline: ReadonlyMap<string, readonly string[]>): { listed: Map<string, string>; problems: string[] } {
   const listed = new Map<string, string>();
+  const problems: string[] = [];
   for (const [area, paths] of baseline) {
     for (const path of paths) {
       const owner = areaOf(path);
@@ -194,20 +188,38 @@ export function judge(files: readonly SourceFile[], allow: readonly AllowEntry[]
       listed.set(path, area);
     }
   }
-  const findings: Finding[] = [];
-  const stillOffending = new Set<string>();
+  return { listed, problems };
+}
+
+/**
+ * Every file's findings, one per line and rule. A listed file skips the internal-delivery rules, and is
+ * named in `offending` while it still breaks one.
+ */
+function scan(files: readonly SourceFile[], allowed: ReadonlyMap<string, RegExp[]>, listed: ReadonlyMap<string, string>): { findings: Finding[]; offending: Set<string> } {
+  const findings = new Map<string, Finding>();
+  const offending = new Set<string>();
   for (const { path, text } of files) {
     if (SKIPPED.some((skip) => skip.test(path))) continue;
     const internal = internalFindings(path, text);
-    if (internal.length > 0 && listed.has(path)) stillOffending.add(path);
-    const judged = [...(listed.has(path) ? [] : internal), ...secretFindings(path, text, byFile.get(path) ?? [])];
-    for (const finding of judged) if (!findings.some((seen) => sameFinding(seen, finding))) findings.push(finding);
+    if (listed.has(path) && internal.length > 0) offending.add(path);
+    const judged = [...(listed.has(path) ? [] : internal), ...secretFindings(path, text, allowed.get(path) ?? [])];
+    for (const finding of judged) findings.set(`${finding.path}\0${String(finding.line)}\0${finding.rule}`, finding);
   }
-  for (const [path, area] of listed) {
-    if (!stillOffending.has(path)) problems.push(`${BASELINE_DIR}/${area}.json: remove ${path} from the baseline`);
-  }
+  return { findings: [...findings.values()], offending };
+}
+
+/**
+ * Judges `files` (the tracked files, read) against the allowlist and the baseline (`area` → the files
+ * it lists): the findings, one per file, line and rule, and the problems of the baseline and the
+ * allowlist themselves.
+ */
+export function judge(files: readonly SourceFile[], allow: readonly AllowEntry[], baseline: ReadonlyMap<string, readonly string[]>): Verdict {
+  const allowed = readAllow(allow);
+  const listing = readListing(baseline);
+  const { findings, offending } = scan(files, allowed.byFile, listing.listed);
+  const stale = [...listing.listed].filter(([path]) => !offending.has(path)).map(([path, area]) => `${BASELINE_DIR}/${area}.json: remove ${path} from the baseline`);
   findings.sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line || a.rule.localeCompare(b.rule));
-  return { findings, problems: problems.sort() };
+  return { findings, problems: [...allowed.problems, ...listing.problems, ...stale].sort() };
 }
 
 /** The finding as the guard prints it: no value, ever. */
