@@ -163,18 +163,23 @@ function readAllow(allow: readonly AllowEntry[]): { byFile: Map<string, RegExp[]
   const byFile = new Map<string, RegExp[]>();
   const problems: string[] = [];
   allow.forEach((entry, index) => {
-    const at = `${ALLOW_FILE}: entry ${String(index + 1)}`;
-    if (!entry.file || !entry.pattern) return problems.push(`${at} needs a file and a pattern`);
-    if (!entry.reason.trim()) return problems.push(`${at} (${entry.file}) needs its reason`);
-    let pattern: RegExp;
-    try {
-      pattern = new RegExp(entry.pattern);
-    } catch {
-      return problems.push(`${at} (${entry.file}) has a pattern that is no regular expression`);
-    }
-    byFile.set(entry.file, [...(byFile.get(entry.file) ?? []), pattern]);
+    const problem = allowProblem(entry);
+    if (problem) problems.push(`${ALLOW_FILE}: entry ${String(index + 1)}${entry.file ? ` (${entry.file})` : ''} ${problem}`);
+    else byFile.set(entry.file, [...(byFile.get(entry.file) ?? []), new RegExp(entry.pattern)]);
   });
   return { byFile, problems };
+}
+
+/** Why an allowlist entry cannot count, or null when it can. */
+function allowProblem(entry: AllowEntry): string | null {
+  if (!entry.file || !entry.pattern) return 'needs a file and a pattern';
+  if (!entry.reason.trim()) return 'needs its reason';
+  try {
+    new RegExp(entry.pattern);
+  } catch {
+    return 'has a pattern that is no regular expression';
+  }
+  return null;
 }
 
 /** The baseline's files, each with its area, and a problem for each one listed in another area's file. */
