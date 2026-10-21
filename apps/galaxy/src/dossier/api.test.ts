@@ -5,20 +5,20 @@ import { z } from 'zod';
 import { findDossier, MAX_OPEN_BYTES, MAX_PUSH_BYTES, openDossier, pushDossier, type DossierDeps } from './api';
 import { ARTIFACT_MAX_BYTES } from './store';
 import { FAKE_WORKSPACE, fakeSupabase } from './store.fake';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
-const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com' };
+const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com' };
 const EVE = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com' };
 // Ada and Bob belong to one workspace (the fake's default), which owns the GitHub organisation acme.
 // Carl belongs to another; Nell to none.
 const OTHER = '00000000-0000-4000-8000-00000000aced';
-const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: [OTHER] };
-const NELL = { id: '00000000-0000-4000-8000-0000000000f1', email: 'nell@vertuoza.com', workspaces: [] };
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@example.com', workspaces: [OTHER] };
+const NELL = { id: '00000000-0000-4000-8000-0000000000f1', email: 'nell@example.com', workspaces: [] };
 // Dana belongs to both workspaces.
-const DANA = { id: '00000000-0000-4000-8000-0000000000d1', email: 'dana@vertuoza.com', workspaces: [OTHER, FAKE_WORKSPACE] };
+const DANA = { id: '00000000-0000-4000-8000-0000000000d1', email: 'dana@example.com', workspaces: [OTHER, FAKE_WORKSPACE] };
 const START = Date.parse('2026-09-28T09:00:00Z');
 const MISSING = '00000000-0000-4000-8000-00000000ffff';
 const INSTALL = 'https://github.com/apps/omni-loop-invader/installations/new';

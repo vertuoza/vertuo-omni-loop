@@ -14,8 +14,8 @@
 // counts them. The PRDs' stages come from StageStore.currentStages, one read per workspace, never GitHub.
 import type { ReactNode } from 'react';
 import { z } from 'zod';
-import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { parseConcept, type ConceptKind, type ConceptScale } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
+import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseConcept, type ConceptKind, type ConceptScale } from 'omni-loop/kit/lib/concept/parse.ts';
 import { shortDay } from '../dossier/page/dates';
 import { workPath } from '../dossier/page/work';
 import { dossierList, dossierReader } from '../dossier/store';

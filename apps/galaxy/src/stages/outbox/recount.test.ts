@@ -5,8 +5,8 @@ import { settled } from '../settled';
 import { fakeStageStore } from '../store.fake';
 import { countsOf, recountOutboxes } from './recount';
 import { fakePrdOutboxStore } from './store.fake';
-import { parsePr, parsePrd, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { RecordLine } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
+import { parsePr, parsePrd, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
 
 // PRD 657, s5: a PRD's open outbox questions, taken from its GitHub summary and stored in prd_outbox, so
 // /prd and the waiting outbox read them without GitHub. A PRD at building or outbox stores its counts; a

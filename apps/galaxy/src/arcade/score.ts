@@ -3,7 +3,7 @@
 // `s` (snare), `h` (hat) and `c` (crash). Pure: sound.ts turns the parsed notes into Web Audio.
 // All of it is original, written for OMNI LOOP in an SNES style: two pulse leads, a triangle bass,
 // noise drums, and a shared echo added by the engine.
-import { defined, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined, group } from 'omni-loop/kit/lib/narrow.ts';
 
 export type Voice = 'lead' | 'harm' | 'bass' | 'drums';
 export interface Song {

@@ -7,7 +7,7 @@ import type { WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 import { item } from '../ask/test/test-item';
 import { z } from 'zod';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The app's sidebar as the server renders it (PRD 438): the crest, the workspace's name, the
 // Dashboard and Work groups (PRD 572), then the foot's Settings entry and Omni's row (PRD 733), the current

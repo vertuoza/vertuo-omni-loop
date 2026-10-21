@@ -1,6 +1,6 @@
 import 'server-only';
-import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { serviceDb } from '../../data/sign-in-live';
 import { supabaseEnv, supabaseServer } from '../../data/supabase-server';
 import { serverEnv } from '../../env';

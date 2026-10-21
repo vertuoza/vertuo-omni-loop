@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { RoundRow, SessionRow } from './view';
 import { historyChoices, historyList, readHistoryFilters, type HistoryRow } from './workspace-history';
 import { present } from '../test/test-item';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The workspace's history (PRD 144), as a pure function of the rows the caller may read, the
 // workspace's members and the filters in the address: newest first, each filter narrowing it.
@@ -12,12 +12,12 @@ const at = (minute: number) => new Date(Date.parse('2026-09-26T09:00:00Z') + min
 const ADA = 'ada';
 const BOB = 'bob';
 const MEMBERS = [
-  { user_id: ADA, email: 'ada@vertuoza.com', name: 'ADA' },
-  { user_id: BOB, email: 'bob@vertuoza.com', name: null },
+  { user_id: ADA, email: 'ada@example.com', name: 'ADA' },
+  { user_id: BOB, email: 'bob@example.com', name: null },
 ];
 
 const ONE = { id: 's1', owner: ADA, title: 'vertuo-omni-loop · feat/ask', status: 'open', created_at: at(0), last_seen_at: at(0), repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/ask' } satisfies SessionRow;
-const TWO = { id: 's2', owner: BOB, title: 'vertuo-app · feat/pricing', status: 'closed', created_at: at(0), last_seen_at: at(0), repo: 'vertuoza/vertuo-app', branch: 'feat/pricing' } satisfies SessionRow;
+const TWO = { id: 's2', owner: BOB, title: 'nimbus-app · feat/pricing', status: 'closed', created_at: at(0), last_seen_at: at(0), repo: 'demo-org/nimbus-app', branch: 'feat/pricing' } satisfies SessionRow;
 
 const q = (question: string, header = '') => [{ question, header, multiSelect: false, options: [{ label: 'Yes' }, { label: 'No' }] }];
 
@@ -62,10 +62,10 @@ describe('the workspace history', () => {
     const [, trial, storage] = historyList(ROWS, {}, MEMBERS);
     expect(trial).toMatchObject({
       question: 'Should the trial last 30 days?', answer: 'Fourteen days, invoiced monthly', status: 'answered',
-      askedBy: 'bob@vertuoza.com', answeredBy: 'bob@vertuoza.com', via: 'terminal', category: 'Business', at: at(5),
+      askedBy: 'bob@example.com', answeredBy: 'bob@example.com', via: 'terminal', category: 'Business', at: at(5),
     });
-    expect(present(trial, 'trial').context).toEqual(['vertuoza/vertuo-app', 'feat/pricing', 'PRD #94', '/omni:yolo', 'answered in 1 min 0 s']);
-    expect(storage).toMatchObject({ askedBy: 'ADA', answeredBy: 'bob@vertuoza.com', category: 'Architecture' });
+    expect(present(trial, 'trial').context).toEqual(['demo-org/nimbus-app', 'feat/pricing', 'PRD #94', '/omni:yolo', 'answered in 1 min 0 s']);
+    expect(storage).toMatchObject({ askedBy: 'ADA', answeredBy: 'bob@example.com', category: 'Architecture' });
     expect(storage).toMatchObject({ askedByFace: { kind: 'initial', letter: 'A' }, answeredByFace: { kind: 'initial', letter: 'B' } });
     const open = historyList(ROWS, {}, MEMBERS)[0];
     expect(open).toMatchObject({ answer: null, answeredBy: null, answeredByFace: null, status: 'open', category: 'unsorted' });
@@ -99,8 +99,8 @@ describe('the workspace history', () => {
 describe('the filters, read from the address', () => {
   it('reads each filter, and ignores what is empty or not a filter value', () => {
     expect(readHistoryFilters({
-      category: 'product', repo: 'vertuoza/vertuo-app', prd: '94', skill: '/omni:yolo', asked: BOB, answered: ADA, q: '  trial  ',
-    })).toEqual({ category: 'product', repo: 'vertuoza/vertuo-app', prd: parsePrd(94), skill: '/omni:yolo', askedBy: BOB, answeredBy: ADA, search: 'trial' });
+      category: 'product', repo: 'demo-org/nimbus-app', prd: '94', skill: '/omni:yolo', asked: BOB, answered: ADA, q: '  trial  ',
+    })).toEqual({ category: 'product', repo: 'demo-org/nimbus-app', prd: parsePrd(94), skill: '/omni:yolo', askedBy: BOB, answeredBy: ADA, search: 'trial' });
     expect(readHistoryFilters({ category: 'finance', prd: 'x', repo: '', q: ' ', skill: ['/a', '/b'] })).toEqual({ skill: '/a' });
     expect(readHistoryFilters({ category: 'unsorted' })).toEqual({ category: 'unsorted' });
   });
@@ -109,11 +109,11 @@ describe('the filters, read from the address', () => {
 describe('the choices each filter offers', () => {
   it('lists the repos, PRDs, skills, askers and answerers the rows hold, once each, sorted', () => {
     expect(historyChoices(ROWS, MEMBERS)).toEqual({
-      repos: ['vertuoza/vertuo-app', 'vertuoza/vertuo-omni-loop'],
+      repos: ['demo-org/nimbus-app', 'vertuoza/vertuo-omni-loop'],
       prds: [71, 94],
       skills: ['/omni:brainstorm', '/omni:yolo'],
-      askedBy: [{ id: ADA, label: 'ADA' }, { id: BOB, label: 'bob@vertuoza.com' }],
-      answeredBy: [{ id: BOB, label: 'bob@vertuoza.com' }],
+      askedBy: [{ id: ADA, label: 'ADA' }, { id: BOB, label: 'bob@example.com' }],
+      answeredBy: [{ id: BOB, label: 'bob@example.com' }],
     });
   });
 });

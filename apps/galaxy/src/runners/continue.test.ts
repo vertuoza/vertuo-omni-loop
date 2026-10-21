@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { OutboxStand } from '../dossier/page/stage';
 import { answeredAll, prdOfLine, shouldContinue, type JobSeen } from './continue';
 

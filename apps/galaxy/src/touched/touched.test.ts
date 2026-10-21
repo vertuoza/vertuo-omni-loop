@@ -7,7 +7,7 @@ import { fakeSnapshotStore, type FakeSnapshotStore } from '../dossier/snapshot/s
 import type { SnapshotDeps } from '../dossier/snapshot/snapshot';
 import { STAGE_SIGNATURE_HEADER } from '../stages/event/event';
 import type { FixRef } from '../dossier/github/reader';
-import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { parseTouch, receiveTouch, refreshAfterTouch, topicOfBranch, type TouchedDeps } from './touched';
 
 vi.mock('server-only', () => ({}));

@@ -1,4 +1,4 @@
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { notifyAll, type Channels, type Message } from '../notify/notify';
 import type { PushVoid, VoidReachRepository, VoidRepository } from './void.repository';
 

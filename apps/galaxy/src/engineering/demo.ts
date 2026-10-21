@@ -1,4 +1,4 @@
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { periodWindow, type Period } from '../dashboard/board/period';
 import { peopleOf } from '../people/load';
 import { withPeople } from './faced';

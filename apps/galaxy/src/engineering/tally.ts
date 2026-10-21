@@ -1,6 +1,6 @@
-import { at, defined, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { deadClaimRules, isClaimedStale } from 'vertuo-omni-plan/kit/lib/board.ts';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { at, defined, isOneOf } from 'omni-loop/kit/lib/narrow.ts';
+import { deadClaimRules, isClaimedStale } from 'omni-loop/kit/lib/board.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { brusselsDay, type PeriodWindow } from '../dashboard/board/period';
 import type { Face } from '../people/face';
 

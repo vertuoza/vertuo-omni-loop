@@ -1,4 +1,4 @@
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Answer } from './answer';
 import type { ApprovalRow, JudgeRepository, VoidRow } from './judge.repository';
 

@@ -5,7 +5,7 @@
 // another workspace reads as missing. Every answer is parsed where it comes in (data/parse-rows.ts).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { OutboxItemIdSchema, PrdNumberSchema, PrNumberSchema, type OutboxItemId, type PrdNumber, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { OutboxItemIdSchema, PrdNumberSchema, PrNumberSchema, type OutboxItemId, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { orEmpty, orNull, parseRow, parseRows } from '../data/parse-rows';
 
 /** A plan as the kit computed it: an object the app stores and shows, never reshapes. */

@@ -6,7 +6,7 @@
 // not count; failed, with why; or waiting, when no outcome was recorded (the person came back some other
 // way). Pure and safe in the browser: the tab's client code receives it as it is.
 
-import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** A row of outbox_sends, as its owner reads it. */
 export type SendRow = {

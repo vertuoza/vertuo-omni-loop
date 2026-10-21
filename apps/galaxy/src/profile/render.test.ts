@@ -9,7 +9,7 @@ import { ALERTS_LINE } from './alerts';
 import { profileOf, type ProfileAlerts, type ProfileRead } from './load';
 import { ProfileScreen, type ProfileView } from './ProfileScreen';
 import { sure } from '../arcade/test/sure';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 const { demoProfile } = await import('./profile');
@@ -185,7 +185,7 @@ describe('the other situations', () => {
     expect(view.kind).toBe('profile');
     const t = text(screen(view));
     expect(t).toContain('PAUL');
-    expect(t).toContain('Pull requests vertuoza/');
+    expect(t).toContain('Pull requests demo-org/');
     expect(demoProfile('nobody', '7d', NOW)).toEqual({ kind: 'not-member', login: 'nobody' });
     // A fixed clock, never today's (bug 864): mid-season, and a season's first morning, before you score.
     for (const at of [NOW, new Date('2026-10-01T08:00:00Z')]) {

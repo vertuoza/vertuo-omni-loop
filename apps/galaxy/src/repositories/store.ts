@@ -1,4 +1,4 @@
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { parseRow } from '../data/parse-rows';
 import { repositoryRowOf, SavedRepository, type Phase0, type RepositoryRow } from './model';
 

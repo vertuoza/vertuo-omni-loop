@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { IsOwner, RosterRow } from '../business/constituents-rows';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
 import { APPROVER_COLUMNS, StoredApprover, type ApproverState } from '../products/approvers';

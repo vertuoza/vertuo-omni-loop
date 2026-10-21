@@ -2,7 +2,7 @@
 // a given second, and the loop that draws it onto a canvas with the game's own drawPlanet. Kept
 // apart from the component so it runs with a stubbed canvas, a stubbed frame clock and a stubbed page.
 import { drawPlanet } from '@omni/design';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { PLANET, PLANET_PROGRESS } from './art';
 
 /** The planet's label: what the planet's box says, whether the frames or the canvas show. */

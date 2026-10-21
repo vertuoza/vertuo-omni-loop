@@ -13,7 +13,7 @@
 //
 // No markdown is rendered here: this module is safe in the browser. The tab renders item text on the
 // server (./OutboxPane.tsx), raw HTML off.
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { UNREAD, type GithubSummary, type OutboxItem, type PendingAnswer, type SettledItem } from '../github/summary';
 import { outboxAnswerUrl } from './stage';
 import type { Face } from '../../people/face';

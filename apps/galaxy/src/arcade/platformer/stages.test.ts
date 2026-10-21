@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { highestLedge, longestPit, WORLD } from './rules';
 import { LEGEND, MAX_COLS, parseStage, pits, SOLID, STAGE_ROWS, stageProblems, STAGES, StageError } from './stages';
 import { sure } from '../test/sure';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 
 // Super Omni World's stages as data (PRD 817): each one a text map, checked here so a stage that
 // cannot be played never ships.

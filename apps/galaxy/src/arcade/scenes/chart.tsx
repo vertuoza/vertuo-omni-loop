@@ -3,7 +3,7 @@
 // lane's count and the dialog of the sun under the cursor; on `system`, the HUD, the panel of the
 // world under the cursor and the reading card A opens over it. Laid out for the grid the screen is
 // drawn on (chart.css places each for `.grid-wide` and `.grid-tall`). Without a graph, both say why.
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import type { KnowledgeEntry, KnowledgeGraph } from '../../data/knowledge';
 import { cited, servedBy, serving } from '../../data/knowledge';
 import { Hint } from '../hint';

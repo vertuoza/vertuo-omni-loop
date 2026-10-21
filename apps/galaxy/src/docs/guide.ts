@@ -2,7 +2,7 @@ import 'server-only';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { defined, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined, group } from 'omni-loop/kit/lib/narrow.ts';
 import { fenceProblem } from './badges';
 import { diagramsNamed, svgProblem } from './diagrams';
 import { pageUrl } from './paths';

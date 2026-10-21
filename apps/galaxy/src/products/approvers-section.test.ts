@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
 import { initialApproversForm, NOBODY_ASKED, NOT_OWNER, ONLY_ASKED, type Approvers } from './approvers';
 import { APPROVERS_HINT, APPROVERS_READ_ONLY, APPROVERS_UNREADABLE, ApproversSection, NO_APPROVERS } from './approvers-section';
 

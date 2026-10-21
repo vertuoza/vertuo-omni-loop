@@ -16,7 +16,7 @@
  */
 import 'server-only';
 import { z } from 'zod';
-import { envGroup, envReader, variablesOf, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
+import { envGroup, envReader, variablesOf, type EnvSource } from 'omni-loop/kit/lib/env/group.ts';
 import { arcadeMode } from './data/mode.ts';
 
 /** A value that is set: trimmed, never blank. */

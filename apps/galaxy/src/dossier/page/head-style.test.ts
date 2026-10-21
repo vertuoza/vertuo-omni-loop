@@ -3,8 +3,8 @@
 // bottom rule — the tabs' rule spanning the whole header, and the PRD list free of its width cap.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { firstPart } from 'omni-loop/kit/lib/narrow.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 
 const CSS = readFileSync(new URL('./dossier.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 

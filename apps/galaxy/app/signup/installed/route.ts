@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { requestOrigin } from '../../../src/ask/page/sign-in';
 import { githubSignIn } from '../../../src/data/sign-in-github';
 import { supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';

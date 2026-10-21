@@ -2,7 +2,7 @@
 // line, karts pushing each other apart, laps counted along the line and places read from the progress
 // along it. Pure and seeded, like race.ts, which plays all of it.
 import type { Tint } from '@omni/design';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { airborne, leanOf, NO_FX, stepFx, type Fx, type Kart, type Pad } from './kart';
 import type { KartLook } from './look';
 import { slopeAt } from './relief';

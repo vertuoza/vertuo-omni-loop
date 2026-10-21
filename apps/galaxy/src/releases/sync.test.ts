@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ReleaseRow } from './row';
 import { applySync, planSync, type ShippedPrd } from './sync';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 /** A shipped PRD as the repository reads it: its note (or its spec title), and when it reached main. */
 function shipped(prd: number, at: string, over: Partial<ShippedPrd> = {}): ShippedPrd {

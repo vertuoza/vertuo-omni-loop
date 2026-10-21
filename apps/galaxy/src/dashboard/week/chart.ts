@@ -1,4 +1,4 @@
-import { at, dateParts, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, dateParts, defined } from 'omni-loop/kit/lib/narrow.ts';
 
 // The week of merges' days (PRD 328): seven days in Brussels, the six before today and today, today
 // last, each counting your pull requests merged into their repository's default branch on it. A

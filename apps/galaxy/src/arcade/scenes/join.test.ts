@@ -182,7 +182,7 @@ describe('the join group\'s text layer', () => {
     }
   });
 
-  it('never names Google or @vertuoza.com on the way in', () => {
+  it('never names Google or @example.com on the way in', () => {
     const all = [
       createElement(CoinOverlay, { away: false, error: null, demo: false, closed: false }),
       createElement(CoinOverlay, { away: false, error: null, demo: false, closed: true }),
@@ -190,7 +190,7 @@ describe('the join group\'s text layer', () => {
       createElement(OutsiderOverlay, { who: '@eve-gh' }),
     ].map((el) => words(el, WIDE)).join(' ');
     expect(all).not.toMatch(/google/i);
-    expect(all).not.toMatch(/@vertuoza\.com/i);
+    expect(all).not.toMatch(/@example\.com/i);
   });
 
   it('points the outsider at /signup, to install Omni Loop and get a workspace', () => {

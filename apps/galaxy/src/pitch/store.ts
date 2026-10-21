@@ -10,10 +10,10 @@
 // - `PitchPublic`, as the service role: the one read without sign-in, the GIF's stable link. It reads
 //   only a run's dossier and files and signs a 5-minute link to its GIF.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf, keysOf } from 'omni-loop/kit/lib/narrow.ts';
 import { listOf } from '../data/unparsed';
 import { dossierReader } from '../dossier/store';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** The bucket, private (the migration's). */
 const PITCH_BUCKET = 'pitches';

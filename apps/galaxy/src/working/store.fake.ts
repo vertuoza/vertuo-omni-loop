@@ -12,7 +12,7 @@
 // Reading runs under the migration's policy: a member of the row's workspace reads it. That the
 // database holds these rules is proved by supabase/checks/working_pings.sql, not here.
 
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };

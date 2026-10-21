@@ -1,7 +1,7 @@
 // The GitHub snapshot store (PRD 902, s2): its Supabase calls on a recording client, and its fake's
 // rules. No test reaches Supabase.
 import { describe, expect, it, vi } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { GithubSummary } from '../github/summary';
 import { snapshotStore } from './store';
 import { fakeSnapshotStore } from './store.fake';

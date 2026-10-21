@@ -3,7 +3,7 @@
 // entries as worlds on still orbits (principles inside, rules in the middle, invariants outside),
 // laws terraformed and proposed entries barren, and the selected world's links. Where everything
 // sits is chart-layout.ts; the labels, the panel and the reading card are the text layer, chart.tsx.
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { drawPlanet, drawSun } from '@omni/design';
 import { servedBy, serving, type EntryKind, type KnowledgeGraph } from '../../data/knowledge';
 import { sunSeed, type WorldSlot } from './chart-layout.ts';

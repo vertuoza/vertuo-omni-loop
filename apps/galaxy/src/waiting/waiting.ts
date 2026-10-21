@@ -4,7 +4,7 @@ import { tabsOf, type TabRow } from '../ask/page/tabs';
 import type { SessionRow } from '../ask/page/view';
 import { faceOf, type Face } from '../people/face';
 import type { People } from '../people/load';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 // The waiting list (PRD 499): what waits for the person looking, on every app-shell page, as pure
 // functions. Two parts: Questions, the open rounds of their own sessions and the ones shared with

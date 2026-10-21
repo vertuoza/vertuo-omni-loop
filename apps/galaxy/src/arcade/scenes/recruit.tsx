@@ -3,7 +3,7 @@
 // and the hero builder, laid over the canvas in recruit.ts on the grid the scene is drawn on. The
 // classes place each part per grid (recruit.css, under `.grid-tall`); on the tall grid the parts that
 // sit side by side on the wide one stack, and nothing is left out.
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { Fragment, type ReactNode } from 'react';
 import type { Hero } from '@omni/design';
 import { BUILDER_ROWS, rowValue, type BuilderRow } from '../builder';

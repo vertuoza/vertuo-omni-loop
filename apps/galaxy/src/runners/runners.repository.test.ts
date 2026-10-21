@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { continuationsRepository, runnersRepository, type RunnersDb } from './runners.repository';
 import { jobRow, MO, questionsRow, runnerRow, SHARED, WORKSPACE } from './fixtures/store.fake';
 
@@ -107,8 +107,8 @@ describe('the rows', () => {
     const job = jobRow();
     const { db, lines } = fakeDb([{ data: runner, error: null }, { data: job, error: null }, { data: [{ user_id: 'u1', github_login: 'mo' }, { user_id: 'u2', github_login: null }], error: null }]);
     const repository = runnersRepository(db);
-    expect(await repository.insertRunner({ workspaceId: 'w1', owner: 'u1', name: 'shared', slots: 1, repos: ['vertuoza/app'], version: '1', seenAt: 't' })).toEqual(runner);
-    expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:yolo 1', repo: 'vertuoza/app', toRunner: null, toFleet: 'cia', sentBy: 'u1', sentByKey: null })).toEqual(job);
+    expect(await repository.insertRunner({ workspaceId: 'w1', owner: 'u1', name: 'shared', slots: 1, repos: ['demo-org/app'], version: '1', seenAt: 't' })).toEqual(runner);
+    expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:yolo 1', repo: 'demo-org/app', toRunner: null, toFleet: 'cia', sentBy: 'u1', sentByKey: null })).toEqual(job);
     expect(await repository.logins('w1', ['u1', 'u2'])).toEqual(new Map([['u1', 'mo']]));
     expect(lines[1]).toContain('"to_fleet":"cia"');
     expect(await repository.logins('w1', [])).toEqual(new Map());
@@ -157,7 +157,7 @@ describe('a job an API key sent (PRD 2022 s4)', () => {
     const job = jobRow({ sent_by_key: 'k1' });
     const { db, lines } = fakeDb([{ data: job, error: null }, { data: { k1: 'QA dashboard' }, error: null }]);
     const repository = runnersRepository(db);
-    expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:bug-fix x', repo: 'vertuoza/app', toRunner: null, toFleet: null, sentBy: 'u1', sentByKey: 'k1' })).toEqual(job);
+    expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:bug-fix x', repo: 'demo-org/app', toRunner: null, toFleet: null, sentBy: 'u1', sentByKey: 'k1' })).toEqual(job);
     expect(lines[0]).toContain('"sent_by_key":"k1"');
     expect(await repository.keyNames('w1', ['k1'])).toEqual(new Map([['k1', 'QA dashboard']]));
     // Through api_key_names(): the service role may not read agent_tokens itself (issue 2165).
@@ -172,26 +172,26 @@ describe('a continuation (PRD 2270)', () => {
   it('reads the repository\'s switch, and none for a repository the workspace does not list', async () => {
     const { db, lines } = fakeDb([{ data: { fix_when_answered: false }, error: null }, { data: null, error: null }]);
     const repository = continuationsRepository(db);
-    expect(await repository.fixWhenAnswered('w1', 'vertuoza/app')).toBe(false);
-    expect(await repository.fixWhenAnswered('w1', 'vertuoza/gone')).toBeNull();
-    expect(lines[0]).toBe('from("repositories").select("fix_when_answered").eq("workspace_id","w1").eq("full_name","vertuoza/app").maybeSingle()');
+    expect(await repository.fixWhenAnswered('w1', 'demo-org/app')).toBe(false);
+    expect(await repository.fixWhenAnswered('w1', 'demo-org/gone')).toBeNull();
+    expect(lines[0]).toBe('from("repositories").select("fix_when_answered").eq("workspace_id","w1").eq("full_name","demo-org/app").maybeSingle()');
   });
 
   it('reads the repository\'s jobs whose line may name the PRD, newest first, with what each continues', async () => {
     const job = jobRow({ status: 'done', outcome: 'answers' });
     const { db, lines } = fakeDb([{ data: [{ ...job, continues: null }], error: null }, { data: [{ ...job, continues: 42 }], error: null }]);
     const repository = continuationsRepository(db);
-    expect(await repository.prdJobs('w1', 'vertuoza/app', parsePrd(2270))).toEqual([{ ...job, continues: null }]);
-    expect(lines[0]).toMatch(/^from\("runner_jobs"\)\.select\(".*continues.*"\)\.eq\("workspace_id","w1"\)\.eq\("repo","vertuoza\/app"\)\.like\("line","\/omni:% 2270%"\)\.order\("queued_at",\{"ascending":false\}\)\.limit\(50\)$/);
+    expect(await repository.prdJobs('w1', 'demo-org/app', parsePrd(2270))).toEqual([{ ...job, continues: null }]);
+    expect(lines[0]).toMatch(/^from\("runner_jobs"\)\.select\(".*continues.*"\)\.eq\("workspace_id","w1"\)\.eq\("repo","demo-org\/app"\)\.like\("line","\/omni:% 2270%"\)\.order\("queued_at",\{"ascending":false\}\)\.limit\(50\)$/);
     // A link out of shape reads as none.
-    expect((await repository.prdJobs('w1', 'vertuoza/app', parsePrd(2270)))[0]?.continues).toBeNull();
+    expect((await repository.prdJobs('w1', 'demo-org/app', parsePrd(2270)))[0]?.continues).toBeNull();
   });
 
   it('inserts the continuation with the job it continues, and answers none when the job was continued already', async () => {
     const fix = jobRow({ line: '/omni:yolo-fix 2270', continues: 'j1' });
     const { db, lines } = fakeDb([{ data: fix, error: null }, { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "runner_jobs_continues_key"' } }]);
     const repository = continuationsRepository(db);
-    const continuation = { workspaceId: 'w1', line: '/omni:yolo-fix 2270', repo: 'vertuoza/app', toRunner: null, toFleet: 'cia', sentBy: 'u1', sentByKey: null, continues: 'j1' };
+    const continuation = { workspaceId: 'w1', line: '/omni:yolo-fix 2270', repo: 'demo-org/app', toRunner: null, toFleet: 'cia', sentBy: 'u1', sentByKey: null, continues: 'j1' };
     expect(await repository.insertContinuation(continuation)).toEqual(fix);
     expect(lines[0]).toContain('"continues":"j1"');
     expect(lines[0]).toContain('"to_fleet":"cia"');
@@ -200,7 +200,7 @@ describe('a continuation (PRD 2270)', () => {
 
   it('throws on any other refusal, naming the table', async () => {
     const { db } = fakeDb([{ data: null, error: { code: '42501', message: 'permission denied for table runner_jobs' } }]);
-    await expect(continuationsRepository(db).insertContinuation({ workspaceId: 'w1', line: '/omni:yolo-fix 1', repo: 'vertuoza/app', toRunner: null, toFleet: null, sentBy: 'u1', sentByKey: null, continues: 'j1' }))
+    await expect(continuationsRepository(db).insertContinuation({ workspaceId: 'w1', line: '/omni:yolo-fix 1', repo: 'demo-org/app', toRunner: null, toFleet: null, sentBy: 'u1', sentByKey: null, continues: 'j1' }))
       .rejects.toThrow('runner_jobs: permission denied for table runner_jobs');
   });
 });

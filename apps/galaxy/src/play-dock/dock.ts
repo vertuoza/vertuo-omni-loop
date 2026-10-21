@@ -4,7 +4,7 @@
 // door (games/room.ts): the dock never has a rule of its own on levels or XP. With more than one game
 // open (PRD 817: SUPER OMNI WORLD from LV 2), the device opens on a picker between them.
 import { GAMES } from '../arcade/games/index';
-import { at, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { cabinetDoor, cabinets, xpStatus } from '../arcade/games/room';
 import type { Action } from '../arcade/keys';
 import type { XpRead } from '../arcade/types';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RepositoryGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
+import type { RepositoryGraph } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
 import { productGraphRepository, type ProductGraphDb } from './product-graph.repository';
 
 // The product graph's reads (PRD 1798 s3), on a stubbed Supabase client acting as the caller: which table

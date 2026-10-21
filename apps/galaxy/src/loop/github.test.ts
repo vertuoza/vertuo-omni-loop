@@ -1,7 +1,7 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { memoryGithubStore } from '@omni/github';
-import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { changeOf, checkRunState, commitStatusState, githubLoopHost, issueOf, MAX_LIST_PAGES, MAX_PAGES, stateOf } from './github';
 import { ChangeDetailSchema, ChangeSchema, ChangesQuerySchema, CommentsQuerySchema, IssueDetailSchema, IssueSchema, IssuesQuerySchema } from './loop.contract';
 import { HostSpent, HostUnreadable } from './loop.service';

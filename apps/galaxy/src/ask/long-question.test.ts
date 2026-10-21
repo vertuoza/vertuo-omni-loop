@@ -7,10 +7,10 @@ import { present } from './test/test-item';
 
 const ERP =
   "The two customer-facing screens are painted by the ERP out of the package this work publishes, and that package now expects the ERP to install AG Grid itself and point Tailwind at the package's dist. " +
-  'Nobody in this repository can make that change — it belongs to vertuo-apps. ' +
+  'Nobody in this repository can make that change — it belongs to nimbus-apps. ' +
   'Until it lands, those two screens render unstyled and nothing errors to say so. ' +
-  'Steps: (1) open a change in vertuo-apps declaring ag-grid-community and ag-grid-react at the version the guide names; ' +
-  "(2) in the same change add the @source line pointing Tailwind at this package's dist, plus the two stylesheet imports — libs/vertuo-workflow-ui/README.md gives all three word for word; " +
+  'Steps: (1) open a change in nimbus-apps declaring ag-grid-community and ag-grid-react at the version the guide names; ' +
+  "(2) in the same change add the @source line pointing Tailwind at this package's dist, plus the two stylesheet imports — libs/nimbus-workflow-ui/README.md gives all three word for word; " +
   "(3) merge it before or with the ERP's next update of this package, and tell whoever cuts the release here. " +
   'Has that been done?';
 
@@ -35,7 +35,7 @@ describe('a long question', () => {
   it('turns inline steps into a numbered list and counts them', () => {
     const long = present(longQuestion(ERP), 'longQuestion(ERP)');
     expect(long.steps).toBe(3);
-    expect(long.rest).toContain('Steps:\n\n1. open a change in vertuo-apps');
+    expect(long.rest).toContain('Steps:\n\n1. open a change in nimbus-apps');
     expect(long.rest).toContain('\n2. in the same change add the @source line');
     expect(long.rest).toMatch(/\n3\. merge it before or with the ERP's next update of this package, and tell whoever cuts the release here\.$/);
     expect(long.rest).not.toContain('(2)');

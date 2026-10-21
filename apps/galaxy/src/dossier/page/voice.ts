@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { PersonaAvatar } from '@omni/design';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 // The User voice tab (PRD 822, s3), as pure functions: a version of the PRD's `voice` artifact read
 // through galaxy's own schema (the kit's `kit/lib/voice/` refuses a bad file before it is pushed; this

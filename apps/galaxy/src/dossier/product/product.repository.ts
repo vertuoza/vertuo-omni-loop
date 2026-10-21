@@ -6,7 +6,7 @@
 // message and hint; an answer out of shape as the code `shape`.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { ProductRefSchema, UuidSchema } from './product.contract';
 
 /** What the picker's reads need: the tables and the database's functions. */

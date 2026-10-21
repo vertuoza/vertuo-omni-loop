@@ -1,4 +1,4 @@
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { isFakeTable, type FakeUser, type fakeGalaxyDb } from '../../data/galaxy.fake';
 
 // A stubbed Supabase client for the counts' loader tests (PRD 328): the galaxy's fake database

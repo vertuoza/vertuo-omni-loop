@@ -10,7 +10,7 @@
 import type { GithubSummary } from '../dossier/github/summary';
 import type { OutboxSource, SendStore, SendTarget } from './send';
 import type { SendRow } from './sent';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 
 export type FakeDossier = { id: string; homeRepo: string; prd: PrdNumber | null; members: string[] };
