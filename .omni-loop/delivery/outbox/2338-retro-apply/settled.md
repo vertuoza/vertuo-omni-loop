@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 2338
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s2-01-retro-job-prd-number -->
+
+## s2-01-retro-job-prd-number — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-21
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-21
+- Slice: s2
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s2-01-retro-job-prd-number
 prd: 2338
@@ -47,3 +77,7 @@ A person reading the page sees a pull request number instead of the PRD number u
 (author) The PRD, the registers and the glossary do not settle this:
 
 - The migration holds only the sender, as the spec's slice says, so no PRD number is stored on the job (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-retro-job-prd-number -->
