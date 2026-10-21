@@ -10,7 +10,7 @@ import { DossierPage } from './DossierPage';
 import { isWide, subscribe, WIDE } from './outbox-context';
 import { SEND_OFF } from './outbox-view';
 import { dossierView, readPick } from './view';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -21,7 +21,7 @@ vi.mock('server-only', () => ({}));
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
 const PR = 'https://github.com/acme/widgets/pull/12';
-const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
+const PIERRE = { user_id: 'u-pierre', email: 'pierre@example.com', name: 'Pierre' };
 const dossier: DossierRow = {
   id: ID, workspace_id: 'w1', home_repo: 'acme/widgets', prd: parsePrd(7), title: 'Team inbox',
   opened_by: PIERRE.user_id, created_at: '2026-09-27T09:12:00Z', numbered_at: '2026-09-27T10:00:00Z',

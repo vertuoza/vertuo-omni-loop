@@ -13,7 +13,7 @@
 // A refusal is `{ error: <kind> }` (with the `field` of an `invalid` one): 401 `signed-out`, 404
 // `not-found` (missing, or of another workspace), 422 `invalid`, 500 `database`.
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { CATEGORIES } from './classify';
 
 const ASK_ERRORS = ['signed-out', 'not-a-member', 'not-found', 'too-large', 'invalid', 'database'] as const;

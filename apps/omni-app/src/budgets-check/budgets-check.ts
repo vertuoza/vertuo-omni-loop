@@ -21,8 +21,8 @@
 // deferred, is never sent; the step logs one line and is retried once the pause or the window ends.
 import { RetryAfterError, type Inngest } from 'inngest';
 import { GithubDeferred, GithubPaused } from '@omni/github';
-import { contextBudget } from 'vertuo-omni-plan/kit/lib/config.ts';
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { contextBudget } from 'omni-loop/kit/lib/config.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { BUDGETS_CHECK_EVENT, BUDGETS_EXTERNAL_ID, CheckRequestDataSchema, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { readBaseConfig, readPull, type GitHubClient, type PullFacts, type Repo } from '../outbox-check/github.ts';

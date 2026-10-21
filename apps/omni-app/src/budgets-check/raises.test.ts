@@ -1,11 +1,11 @@
 // The raises the budgets check reads (PRD 1679 s3): a product PRD's outbox rows as the service role,
 // never calling Supabase, and what reading them gives when it cannot.
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { parsePrd, parseProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { raiseLine } from 'vertuo-omni-plan/kit/lib/budgets/ratchet.ts';
-import { makeRepo } from 'vertuo-omni-plan/kit/test/fixture.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { createContext } from 'omni-loop/kit/lib/context.ts';
+import { parsePrd, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
+import { raiseLine } from 'omni-loop/kit/lib/budgets/ratchet.ts';
+import { makeRepo } from 'omni-loop/kit/test/fixture.ts';
 import { outboxRowsReader, raisesFor, type OutboxRowsReader } from './raises.ts';
 
 const MOBILE_12 = parseProductPrdId('mobile-12');

@@ -1,5 +1,5 @@
-import { parseProductPrdId, type PrdNumber, type ProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { parseOutboxItem } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
+import { parseProductPrdId, type PrdNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
+import { parseOutboxItem } from 'omni-loop/kit/lib/outbox/outbox.ts';
 import { OutboxRowSchema, type ItemsQuery, type ItemsReply, type OutboxRefusal, type PutRequest, type SettleRequest } from './outbox-items.contract';
 import type { ItemColumns, OutboxItemsRepository, PrdOnProduct, Stored, StoredItemRow } from './outbox-items.repository';
 

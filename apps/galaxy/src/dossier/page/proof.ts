@@ -8,7 +8,7 @@
 // could not be signed reads as missing, never as an error.
 import { nameOf, type Member } from '../../ask/page/question';
 import type { ProofRunRow, Verdict } from '../../proof/store';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { shortDay, stamp } from './dates';
 import type { VersionEntry } from './view';
 

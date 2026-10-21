@@ -59,7 +59,7 @@ describe('the product home\'s storage', () => {
 
   it('reads the product\'s product PRDs, newest first, their outbox items with their settlements, and the authors\' logins (PRD 1548 s9)', async () => {
     const prd = { id: 'd-m12', product_seq: 12, title: 'Quotes', opened_by: 'u-1', created_at: '2026-10-01T00:00:00Z' };
-    const item = { dossier_id: 'd-m12', item: 's2-01-quote-totals', rank: 'high', repository: 'vertuoza/vertuo-api', body: '---', raised_at: '2026-10-11T09:00:00Z', outbox_settlements: [] };
+    const item = { dossier_id: 'd-m12', item: 's2-01-quote-totals', rank: 'high', repository: 'demo-org/nimbus-api', body: '---', raised_at: '2026-10-11T09:00:00Z', outbox_settlements: [] };
     const { calls, repo } = stub({ dossiers: { data: [prd] }, outbox_items: { data: [item] }, players: { data: [{ user_id: 'u-1', github_login: 'paul' }] } });
     expect(await repo.productPrds('ws-1', 'p-1')).toEqual([prd]);
     expect(await repo.items(['d-m12'])).toEqual([item]);

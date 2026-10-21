@@ -11,15 +11,15 @@ import type { SendSetup } from './targets';
 
 const RUNNER = '00000000-0000-4000-8000-000001830401';
 const SETUP: SendSetup = {
-  repo: 'vertuoza/app',
+  repo: 'demo-org/app',
   options: [
     { key: 'any', group: 'any', label: 'Any runner', state: null, target: { kind: 'any' } },
     { key: 'fleet:cyan', group: 'fleet', label: 'cyan', state: '1 online', target: { kind: 'fleet', fleet: 'cyan' } },
-    { key: `runner:${RUNNER}`, group: 'runner', label: 'vertuo-agents', state: 'Busy', target: { kind: 'runner', runner: RUNNER } },
+    { key: `runner:${RUNNER}`, group: 'runner', label: 'nimbus-agents', state: 'Busy', target: { kind: 'runner', runner: RUNNER } },
   ],
 };
 const JOB: Job = {
-  id: '00000000-0000-4000-8000-000001830201', line: '/omni:yolo 1717', repo: 'vertuoza/app', toRunner: null, toFleet: 'cyan',
+  id: '00000000-0000-4000-8000-000001830201', line: '/omni:yolo 1717', repo: 'demo-org/app', toRunner: null, toFleet: 'cyan',
   sentBy: '00000000-0000-4000-8000-0000018300b1', sentByLogin: 'mo', sentByKey: null, status: 'queued', runner: null, cancelRequested: false,
   logTail: '', prUrl: null, exitCode: null, reason: null, queuedAt: '2026-10-13T12:00:00.000Z', claimedAt: null, runningAt: null, endedAt: null,
 };
@@ -64,7 +64,7 @@ describe('Send to terminal', () => {
     expect(html.indexOf('>Fleets<')).toBeLessThan(html.indexOf('>cyan'));
     expect(html.indexOf('>cyan')).toBeLessThan(html.indexOf('>Runners<'));
     expect(html).toContain('checked="" value="fleet:cyan"');
-    expect(html).toContain('vertuo-agents <span class="send-state">Busy</span>');
+    expect(html).toContain('nimbus-agents <span class="send-state">Busy</span>');
     expect(html.match(/data-primary/g)).toHaveLength(1);
     expect(html).toContain('<button type="button" class="ask-button stage-action" data-primary="true">Send</button>');
   });
@@ -93,12 +93,12 @@ describe('Send to terminal', () => {
   it('sends the line for the page\'s repository to the chosen target, and reads back where it went', async () => {
     const { fake, calls } = fetcher(200, { job: JOB });
     expect(await sendTo('/omni:yolo 1717', SETUP, 'fleet:cyan', fake)).toEqual({ kind: 'queued', words: 'Queued for cyan', href: `/app/runners#job-${JOB.id}` });
-    expect(calls).toEqual([{ url: '/api/runners/jobs', body: { line: '/omni:yolo 1717', repo: 'vertuoza/app', target: { kind: 'fleet', fleet: 'cyan' } } }]);
+    expect(calls).toEqual([{ url: '/api/runners/jobs', body: { line: '/omni:yolo 1717', repo: 'demo-org/app', target: { kind: 'fleet', fleet: 'cyan' } } }]);
   });
 
   it('gives the route\'s words when it refuses, and refuses a choice that is not listed', async () => {
-    const { fake } = fetcher(403, { error: 'vertuoza/app is not in your workspace.' });
-    expect(await sendTo('/omni:yolo 1717', SETUP, 'any', fake)).toEqual({ kind: 'refused', error: 'vertuoza/app is not in your workspace.' });
+    const { fake } = fetcher(403, { error: 'demo-org/app is not in your workspace.' });
+    expect(await sendTo('/omni:yolo 1717', SETUP, 'any', fake)).toEqual({ kind: 'refused', error: 'demo-org/app is not in your workspace.' });
     const unused = fetcher(200, { job: JOB });
     expect(await sendTo('/omni:yolo 1717', SETUP, 'fleet:red', unused.fake)).toEqual({ kind: 'refused', error: 'Pick where to send it.' });
     expect(unused.calls).toEqual([]);

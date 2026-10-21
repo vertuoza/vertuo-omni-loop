@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseOutboxItemId, parseProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseOutboxItemId, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import type { ItemsQuery, OutboxRefusal } from '../outbox-items/outbox-items.contract';
 import type { Settlement } from '../outbox-items/outbox-items.service';
 import { questionsService, UNDETERMINED, type QuestionsDeps } from './questions.service';
@@ -63,7 +63,7 @@ One function.
 
 const settledRow = { verdict: 'agreed' as const, basis: 'stated', answer: 'A', channel: 'terminal' as const, settledBy: 'irisa', settledAt: '2026-10-11T10:00:00Z' };
 const row = (over: Record<string, unknown> = {}) => ({
-  item: ITEM, rank: 'high' as const, repository: 'vertuoza/vertuo-api', body: itemBody(), raisedAt: '2026-10-11T09:00:00Z', settlement: null, ...over,
+  item: ITEM, rank: 'high' as const, repository: 'demo-org/nimbus-api', body: itemBody(), raisedAt: '2026-10-11T09:00:00Z', settlement: null, ...over,
 });
 
 function fake(over: Partial<QuestionsDeps> = {}) {

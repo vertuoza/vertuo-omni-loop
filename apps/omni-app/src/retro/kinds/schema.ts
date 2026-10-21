@@ -3,7 +3,7 @@
 // many more. A field the kind reads with a fallback is optional here, so an answer the kinds read
 // today reads the same; an answer missing what they cannot do without fails, naming that field.
 import { z } from 'zod';
-import { IssueNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** One issue event: `GET /repos/{owner}/{repo}/issues/{issue_number}/events`. */
 export const IssueEventSchema = z.looseObject({

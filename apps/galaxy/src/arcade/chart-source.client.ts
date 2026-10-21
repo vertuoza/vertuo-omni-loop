@@ -1,4 +1,4 @@
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { KnowledgeGraph } from '../data/knowledge';
 
 // The star chart from the browser (PRD 1808, s4): `GET /api/arcade/chart` (src/arcade-api/chart.controller.ts),

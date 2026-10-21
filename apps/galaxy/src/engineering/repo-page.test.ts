@@ -108,22 +108,22 @@ describe('/app/engineering/<owner>/<repo> decides once', () => {
 
   it('signed in, a tracked repository: its board, for 7 days when the period is unknown', async () => {
     given.user = { id: 'u-member' };
-    given.load = { kind: 'board', name: 'Vertuoza', board: {}, repo: 'vertuoza/pdf-builder' };
-    const { view, period } = await open('vertuoza', 'pdf-builder', { period: 'forever' });
+    given.load = { kind: 'board', name: 'Vertuoza', board: {}, repo: 'demo-org/pdf-builder' };
+    const { view, period } = await open('demo-org', 'pdf-builder', { period: 'forever' });
     expect(view).toEqual(given.load);
     expect(period).toBe('7d');
-    expect(loadEngineeringRepositoryBoard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining(given.user), 'vertuoza/pdf-builder', { period: '7d', sort: 'merged', now: A_DATE });
+    expect(loadEngineeringRepositoryBoard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining(given.user), 'demo-org/pdf-builder', { period: '7d', sort: 'merged', now: A_DATE });
   });
 
   it('signed in, a repository the workspace does not track: not found', async () => {
     given.user = { id: 'u-member' };
     given.load = { kind: 'not-tracked' };
-    await expect(open('vertuoza', 'nope')).rejects.toMatchObject(notFound);
+    await expect(open('demo-org', 'nope')).rejects.toMatchObject(notFound);
   });
 
   it('an address whose escaping is broken: not found, nothing read', async () => {
     given.user = { id: 'u-member' };
-    await expect(open('vertuoza', '%E0%A4%A')).rejects.toMatchObject(notFound);
+    await expect(open('demo-org', '%E0%A4%A')).rejects.toMatchObject(notFound);
     expect(loadEngineeringRepositoryBoard).not.toHaveBeenCalled();
   });
 });

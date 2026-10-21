@@ -1004,9 +1004,9 @@ describe('laws.max and laws.owners (PRD 1726)', () => {
   });
 
   it('reads a cap, logins and teams', () => {
-    const config = parseConfig('kit: 1\nlaws:\n  max: 5\n  owners: [pierrederval, vertuoza/core, a-b-1]\n');
+    const config = parseConfig('kit: 1\nlaws:\n  max: 5\n  owners: [pierrederval, demo-org/core, a-b-1]\n');
     expect(config.laws.max).toBe(5);
-    expect(config.laws.owners).toEqual(['pierrederval', 'vertuoza/core', 'a-b-1']);
+    expect(config.laws.owners).toEqual(['pierrederval', 'demo-org/core', 'a-b-1']);
   });
 
   it.each([

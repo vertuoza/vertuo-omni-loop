@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { PRODUCT_GRAPH_DEPTH } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
+import { PRODUCT_GRAPH_DEPTH } from 'omni-loop/kit/lib/knowledge/product-graph.ts';
 
 // The product graph's read contract (PRD 1798 s3; ADR-0095): what
 // `GET /api/products/<key>/knowledge/graph?id=…&depth=…` takes. Its answer is the kit's own schema
-// (vertuo-omni-plan/kit/lib/knowledge/product-graph.ts: P5's neighbourhood at version 2), so the CLI reads
+// (omni-loop/kit/lib/knowledge/product-graph.ts: P5's neighbourhood at version 2), so the CLI reads
 // exactly what the server sends. Browser-safe: zod only.
 
 /** A product's key, as products.key holds it (supabase/migrations/20261203100000_product_prd_ids.sql). */

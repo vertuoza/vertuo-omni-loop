@@ -33,8 +33,8 @@ const NOW = new Date('2026-09-26T10:00:00Z');
 
 /** A feat pull request reviewed this season, credited to a login of a fleet: 10 points (PRD 1975). */
 const reviewed = (pr: number, contributor: string, team: string, at: string): LedgerEvent & Record<string, unknown> => ({
-  workspace_id: VERTUOZA, id: `pr:vertuoza/vertuo-core#${String(pr)}:reviewed:${contributor}`, at, type: 'PR_REVIEWED', planet: 0,
-  home: 'vertuoza/vertuo-core', region: 'vertuoza/vertuo-core', contributor, team, data: { pr, kind: 'feat' },
+  workspace_id: VERTUOZA, id: `pr:demo-org/nimbus-core#${String(pr)}:reviewed:${contributor}`, at, type: 'PR_REVIEWED', planet: 0,
+  home: 'demo-org/nimbus-core', region: 'demo-org/nimbus-core', contributor, team, data: { pr, kind: 'feat' },
 });
 
 /** Vertuoza's season so far: BOTH (BEAVER) reviewed two pull requests, ADA (PIRATES) one. */
@@ -45,7 +45,7 @@ const SEASON = [
 ];
 
 /** A member of Vertuoza whose player row never got a GitHub login, and whose account links none. */
-const NOGH: FakeUser = { id: '00000000-0000-4000-8000-0000000000f1', email: 'nogh@vertuoza.com' };
+const NOGH: FakeUser = { id: '00000000-0000-4000-8000-0000000000f1', email: 'nogh@example.com' };
 
 function world(arrange: (w: ReturnType<typeof fakeGalaxyDb>) => void = () => {}) {
   const seed = twoWorkspaces();

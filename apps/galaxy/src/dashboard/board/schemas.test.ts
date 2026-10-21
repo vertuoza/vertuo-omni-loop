@@ -14,7 +14,7 @@ async function contributions(columns: string): Promise<unknown> {
 describe('the board\'s contribution schemas', () => {
   it('parse every contribution as ACTIVITY_COLUMNS reads it, and refuse a broken one', async () => {
     const rows = StoredActivity.array().parse(await contributions(ACTIVITY_COLUMNS));
-    expect(rows).toContainEqual({ kind: 'pr-merged', repo: 'vertuo-core', number: 101, login: 'ada-gh', at: '2026-09-22T09:30:00Z' });
+    expect(rows).toContainEqual({ kind: 'pr-merged', repo: 'nimbus-core', number: 101, login: 'ada-gh', at: '2026-09-22T09:30:00Z' });
     const [row] = rows;
     if (!row) throw new Error('the fixture holds a contribution');
     for (const [how, broken] of brokenRows(row, { missing: 'kind', wrongType: ['number', '101'], notNull: 'login' })) {
@@ -26,7 +26,7 @@ describe('the board\'s contribution schemas', () => {
     const rows = StoredOpener.array().parse(await contributions(OPENER_COLUMNS));
     const [row] = rows;
     if (!row) throw new Error('the fixture holds a contribution');
-    expect(row).toEqual({ repo: 'vertuo-core', number: 101, login: 'ada-gh' });
+    expect(row).toEqual({ repo: 'nimbus-core', number: 101, login: 'ada-gh' });
     for (const [how, broken] of brokenRows(row, { missing: 'repo', wrongType: ['login', 7], notNull: 'number' })) {
       expect(StoredOpener.safeParse(broken).success, how).toBe(false);
     }

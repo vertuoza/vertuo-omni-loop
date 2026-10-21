@@ -31,7 +31,7 @@
  * byte-identical, which is what slice s5's round-trip test proves and this module's tests prove
  * again after a closure.
  */
-// Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-yolo-fix/rework.mjs — changes in kit/porting/policy--rework.md.
+// Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-yolo-fix/rework.mjs — changes in kit/porting/policy--rework.md.
 import { ConfigSchema } from '../config.ts';
 import { parsePlanSlices, sharedGround } from '../inbox/territory.ts';
 import { parseOutboxItem } from '../outbox/outbox.ts';

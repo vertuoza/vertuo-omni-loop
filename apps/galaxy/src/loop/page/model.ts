@@ -2,7 +2,7 @@
 // the workspace's loops, each with who runs it, its repository, its state and its last tick; and one
 // loop opened, with every version of its plan as a timeline per PRD, its ledger and its parked PRDs.
 // The page decides the situation (closed, signed out, in no workspace) before any of this.
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { peopleOf, type RosterRow } from '../../people/load';
 import type { Person } from '../../people/types';
 import type { LoopState } from '../state';

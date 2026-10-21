@@ -4,7 +4,7 @@ import type { Extractor } from './extract';
 import { mergeOf, productFor, snapSize, type MergeOutcome } from './merge';
 import { fileLabel, fileWhere, pageLabel, repoFiles, repoLabel, type FileKind, type RepoListing } from './sources';
 import { MAX_QUOTE, verified, type Candidate } from './verify';
-import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { firstPart } from 'omni-loop/kit/lib/narrow.ts';
 
 // One run of the draft (PRD 774, spec steps 1 to 4), for a draft row already started: for each tracked
 // repository of the workspace, the files ./sources.ts picks, read as the Omni Loop App; then each pasted
@@ -37,7 +37,7 @@ const DraftCounts = z.object({
 });
 export type DraftCounts = z.infer<typeof DraftCounts>;
 
-/** One source as the page lists it while the draft runs: `✓ vertuo-app · README.md`, `– vertuoza.com/pricing · skipped`. */
+/** One source as the page lists it while the draft runs: `✓ nimbus-app · README.md`, `– example.com/pricing · skipped`. */
 const Scanned = z.object({
   source: z.string(),
   state: z.enum(['read', 'skipped']),

@@ -3,7 +3,7 @@
 // Entropy, log, and its PRD's dossier). On the wide grid the panel stands beside the planet; on the
 // tall grid it runs across the screen under the band the header and the planet share (TALL_BAND in
 // planet.ts), with the same rows.
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import type { GalaxyView, LogLine, Planet } from '@omni/galaxy';
 import { woundTint } from '@omni/design';

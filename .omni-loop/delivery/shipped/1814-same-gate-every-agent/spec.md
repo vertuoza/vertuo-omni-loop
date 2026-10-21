@@ -15,7 +15,7 @@ the push hook's steps), `package.json` (`prepare`), `.github/workflows/quick.yml
 
 ## Problem
 
-A neutral audit of this repository's agent setup, done beside vertuoza/vnext's on 2026-10-13, named
+A neutral audit of this repository's agent setup, done beside demo-org/vnext's on 2026-10-13, named
 one weakness first: **the grade is self-reported.** Three facts make it so.
 
 1. **There is no git hook.** `.git/hooks` holds only git's samples, and nothing sets

@@ -11,7 +11,7 @@ vi.mock('server-only', () => ({}));
 const fleet = (name: string, retired = false): FleetRow => ({ name, home: null, label: name.toUpperCase(), color: '#2fc6a4', motto: '', mascot: null, sort: 0, retired });
 const FLEETS = [fleet('beaver'), fleet('pirates'), fleet('invincible-team', true)];
 /** Signed in with GitHub, in a workspace: a player at once (PRD 359). */
-const crew: Session = { id: 'u1', email: 'ada@vertuoza.com', givenName: 'ADA', crew: true, github: 'ada-gh' };
+const crew: Session = { id: 'u1', email: 'ada@example.com', givenName: 'ADA', crew: true, github: 'ada-gh' };
 /** Signed in with GitHub, in no workspace: the outsider screen sends them to sign up. */
 const outsider: Session = { ...crew, email: 'eve@example.com', crew: false, github: 'eve-gh' };
 const player = (over: Partial<Player> = {}): Player => ({
@@ -50,7 +50,7 @@ describe('crew is membership', () => {
     }
   });
 
-  it('sends a session without one to the outsider screen, a vertuoza.com address and an org member who has not signed in since included', async () => {
+  it('sends a session without one to the outsider screen, a example.com address and an org member who has not signed in since included', async () => {
     for (const person of [PEOPLE.eve, PEOPLE.una, PEOPLE.bea]) {
       const session = await sessionOf(person);
       expect(session?.crew, person.email).toBe(false);

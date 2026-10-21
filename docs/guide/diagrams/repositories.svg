@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 460" width="800" height="460">
   <title>A plan repository and its targets</title>
-  <desc>The plan repository vertuo-automation-plan sits in the middle: it holds the PRDs, their plans, the one outbox and the imported knowledge drafts, and no product code. Around it, its target repositories, each with its role and where its knowledge lives: vertuo-backend-php, the back-end, with imported knowledge, builds s1 of PRD 600; vertuo-apps, the front-end, with knowledge of its own, builds s2 and s3; vertuo-legacy, with none, gets no slice. /omni:mega-invade sets up the map, and omni targets says where each target stands.</desc>
+  <desc>The plan repository nimbus-plan sits in the middle: it holds the PRDs, their plans, the one outbox and the imported knowledge drafts, and no product code. Around it, its target repositories, each with its role and where its knowledge lives: nimbus-backend-php, the back-end, with imported knowledge, builds s1 of PRD 600; nimbus-apps, the front-end, with knowledge of its own, builds s2 and s3; nimbus-legacy, with none, gets no slice. /omni:mega-invade sets up the map, and omni targets says where each target stands.</desc>
   <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
        tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
   <style>
@@ -44,7 +44,7 @@
   <rect x="273" y="179" width="260" height="120" class="dg-shadow"/>
   <rect x="270" y="176" width="260" height="120" class="dg-box"/>
   <text x="400" y="198" class="dg-tag dg-you" text-anchor="middle">PLAN REPOSITORY</text>
-  <text x="400" y="220" class="dg-code" text-anchor="middle">vertuo-automation-plan</text>
+  <text x="400" y="220" class="dg-code" text-anchor="middle">nimbus-plan</text>
   <text x="400" y="242" class="dg-small" text-anchor="middle">PRDs, plans, the one outbox</text>
   <text x="400" y="262" class="dg-small dg-muted" text-anchor="middle">imported knowledge drafts</text>
   <text x="400" y="282" class="dg-small dg-muted" text-anchor="middle">no product code</text>
@@ -53,21 +53,21 @@
   <rect x="33" y="43" width="230" height="96" class="dg-shadow"/>
   <rect x="30" y="40" width="230" height="96" class="dg-box"/>
   <text x="145" y="60" class="dg-tag dg-agents" text-anchor="middle">TARGET</text>
-  <text x="145" y="80" class="dg-code" text-anchor="middle">vertuo-backend-php</text>
+  <text x="145" y="80" class="dg-code" text-anchor="middle">nimbus-backend-php</text>
   <text x="145" y="100" class="dg-small" text-anchor="middle">role: back-end</text>
   <text x="145" y="120" class="dg-small dg-muted" text-anchor="middle">knowledge: imported</text>
 
   <rect x="543" y="43" width="230" height="96" class="dg-shadow"/>
   <rect x="540" y="40" width="230" height="96" class="dg-box"/>
   <text x="655" y="60" class="dg-tag dg-agents" text-anchor="middle">TARGET</text>
-  <text x="655" y="80" class="dg-code" text-anchor="middle">vertuo-apps</text>
+  <text x="655" y="80" class="dg-code" text-anchor="middle">nimbus-apps</text>
   <text x="655" y="100" class="dg-small" text-anchor="middle">role: front-end</text>
   <text x="655" y="120" class="dg-small dg-muted" text-anchor="middle">knowledge: own</text>
 
   <rect x="288" y="343" width="230" height="96" class="dg-shadow"/>
   <rect x="285" y="340" width="230" height="96" class="dg-box"/>
   <text x="400" y="360" class="dg-tag dg-agents" text-anchor="middle">TARGET</text>
-  <text x="400" y="380" class="dg-code" text-anchor="middle">vertuo-legacy</text>
+  <text x="400" y="380" class="dg-code" text-anchor="middle">nimbus-legacy</text>
   <text x="400" y="400" class="dg-small" text-anchor="middle">role: legacy</text>
   <text x="400" y="420" class="dg-small dg-muted" text-anchor="middle">knowledge: none</text>
 

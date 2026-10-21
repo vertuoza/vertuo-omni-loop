@@ -23,9 +23,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
-import { ProductNeighbourhoodSchema } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
-import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { ProductNeighbourhoodSchema } from 'omni-loop/kit/lib/knowledge/product-graph.ts';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { RpcAnswer } from '../../business/answer';
 import { archivedLine, businessReader, BusinessStoreError } from '../../business-api/read';
 import { linkGraphRepository } from '../../knowledge-graph/link.repository';

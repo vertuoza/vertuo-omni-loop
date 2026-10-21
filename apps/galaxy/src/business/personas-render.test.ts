@@ -195,7 +195,7 @@ describe('the demo', () => {
   it('names no company: no sample text holds a capitalised company word', () => {
     const said = DEMO_PERSONAS.flatMap((p) => [p.who, p.usage]).join(' ');
     expect(said).not.toMatch(/\b(?:Inc|Ltd|SA|SRL|BV|GmbH|NV|LLC)\b/);
-    expect(said).not.toMatch(/Vertuoza/i);
+    expect(said).not.toMatch(/Demo-Org/i);
   });
 
   it('draws no Personas section on Settings › Business: they are a section of the product\'s Knowledge home (PRD 2240 s4)', () => {

@@ -1,6 +1,6 @@
 # `kit/lib/knowledge/check-knowledge.mjs`
 
-Source: `scripts/check-registers.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/check-registers.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -9,7 +9,7 @@ Source: `scripts/check-registers.mjs` @ `vertuo-ai-domain@c4a210122`.
 - `GLOSSARY_FILE` → `ctx.config.paths.glossary`. When it is `null` (no glossary configured), a
   domain README's `Glossary term:` line must still be present (unchanged), but its word is never
   looked up — `findLayoutViolations` skips `glossaryHolds(...)` entirely in that case. This is new
-  behaviour (upstream had no "no glossary configured" case; `vertuo-ai-domain` always has one) —
+  behaviour (upstream had no "no glossary configured" case; `nimbus-brain` always has one) —
   exercised by the new folders-layout test (see below), which has no `domains/` folder at all, so
   the glossary-null branch itself is not directly hit by an assertion, only reachable safely.
 - `OLD_REGISTER_PATHS` / `findOldRegisterCitations`: deleted per the task's own mapping table — an
@@ -116,7 +116,7 @@ every scenario keeps checking the same fact it checked before:
   artefact); no equivalent exists to test.
 - `describe('the knowledge folder this repo ships', …)` (1 `it`, `'grades green, the two moved
   rules serving the product principle stub'`): called `readKnowledge()` with no root, i.e. against
-  the real `vertuo-ai-domain` checkout — the Port Protocol's explicit real-repo exclusion.
+  the real `nimbus-brain` checkout — the Port Protocol's explicit real-repo exclusion.
 
 **Added, per the task brief (Step 4)**: the folders-layout `it('grades a knowledge folder at the
 configured path with no glossary', …)` test, using `makeRepo` and the kit's default (folders-layout)

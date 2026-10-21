@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import { copyLink } from '../../ask/page/share';
 import { answerCommand } from './model';
 

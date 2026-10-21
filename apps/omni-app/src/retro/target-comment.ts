@@ -11,7 +11,7 @@
 // 404: the App may read a target without writing to it) is saved as refused with its status, and the
 // retro goes on: a thinner retro, never a failed one.
 import { z } from 'zod';
-import { CommentIdSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { CommentIdSchema, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { savedStep, type StepRun } from '../saved-step.ts';
 import { upsertComment } from '../verdict-comment/verdict-comment.ts';

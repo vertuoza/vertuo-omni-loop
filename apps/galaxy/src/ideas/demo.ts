@@ -1,7 +1,7 @@
 // The demo board (PRD 1246, s1): what /ideas/vertuoza/vertuo-omni-loop shows in development, with no
 // database. The ideas are the spec's own; the votes, ages and the PRD link are fictional. One idea is
 // archived, so the demo shows it leaves the board.
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { Board, Idea } from './model';
 
 /** The one repository whose board the demo has; any other address is a board that does not exist. */

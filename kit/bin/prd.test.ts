@@ -9,7 +9,7 @@ function io() {
   return { out, err, stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } };
 }
 
-const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: vertuoza/vertuo-automation-plan\n' };
+const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: demo-org/nimbus-plan\n' };
 const DIR = '.omni-loop/delivery/inbox/0007-quote';
 
 const MULTI = [
@@ -19,15 +19,15 @@ const MULTI = [
   '',
   '| repo | role | read at | knowledge |',
   '| --- | --- | --- | --- |',
-  '| vertuo-backend-php | back-end | 3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4 | imported (stale) |',
-  '| vertuo-apps | front-end | 9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921 | own |',
+  '| nimbus-core | back-end | 3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4 | imported (stale) |',
+  '| nimbus-apps | front-end | 9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921 | own |',
   '',
   '## Slices',
   '',
   '| id | repo | slice | territory | blocked by | wave |',
   '| --- | --- | --- | --- | --- | --- |',
-  '| s1 | vertuo-apps | the screen | `apps/quote/` | s2 | 2 |',
-  '| s2 | vertuo-backend-php | the total | `src/Quote/` | — | 1 |',
+  '| s1 | nimbus-apps | the screen | `apps/quote/` | s2 | 2 |',
+  '| s2 | nimbus-core | the total | `src/Quote/` | — | 1 |',
   '',
 ].join('\n');
 
@@ -63,8 +63,8 @@ describe('omni prd', () => {
   it('prints a repos line, in ## Repositories order, for a plan with a repo column', async () => {
     const { code, text } = await prdOut({ [`${DIR}/plan.md`]: MULTI });
     expect(code).toBe(0);
-    expect(text).toMatch(/^repos: vertuo-backend-php, vertuo-apps$/m);
-    expect(text.trimEnd().split('\n')).toEqual([...expectedLines(['plan.md', 'spec.md']), 'repos: vertuo-backend-php, vertuo-apps']);
+    expect(text).toMatch(/^repos: nimbus-core, nimbus-apps$/m);
+    expect(text.trimEnd().split('\n')).toEqual([...expectedLines(['plan.md', 'spec.md']), 'repos: nimbus-core, nimbus-apps']);
   });
 
   it('prints no repos line and every other line as before for an ordinary plan', async () => {
@@ -91,6 +91,6 @@ describe('omni prd', () => {
     const plan = MULTI.split('## Slices')[1];
     const { code, text } = await prdOut({ [`${DIR}/plan.md`]: `# Plan\n${plan}` });
     expect(code).toBe(0);
-    expect(text).toMatch(/^repos: vertuo-apps, vertuo-backend-php$/m);
+    expect(text).toMatch(/^repos: nimbus-apps, nimbus-core$/m);
   });
 });

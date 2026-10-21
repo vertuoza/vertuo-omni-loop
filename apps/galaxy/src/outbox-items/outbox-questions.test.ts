@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { outboxViewOf, type OutboxRows } from './outbox-questions';
 import type { StoredItemPrd, StoredOpenItem } from './outbox-questions.repository';
 

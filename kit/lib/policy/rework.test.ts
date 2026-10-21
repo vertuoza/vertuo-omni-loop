@@ -62,7 +62,7 @@ const ITEM_TEXT = [
   '',
   '## What it costs to change later',
   '',
-  'One constant in `libs/vertuo-domain-contact/src/contact-builder.ts`, and a re-read of the',
+  'One constant in `libs/nimbus-domain-contact/src/contact-builder.ts`, and a re-read of the',
   'contacts already saved with the default.',
   '',
   '## What I could not know',
@@ -228,7 +228,7 @@ describe('A feature that drifted is brought back in line', () => {
 
       expect(rework.answer).toBe(DRIFTED.answer);
       expect(rework.bound).toBe(
-        'One constant in `libs/vertuo-domain-contact/src/contact-builder.ts`, and a re-read of the\ncontacts already saved with the default.',
+        'One constant in `libs/nimbus-domain-contact/src/contact-builder.ts`, and a re-read of the\ncontacts already saved with the default.',
       );
       expect(rework.choice).toBe(
         "I default to the tenant's own country, because a constant is the most reversible option.",
@@ -243,7 +243,7 @@ describe('A feature that drifted is brought back in line', () => {
       expect(rework.territory).toEqual([
         'scripts/outbox-settle*',
         'docs/outbox/SETTLING.md',
-        'libs/vertuo-domain-contact/src/contact-builder.ts',
+        'libs/nimbus-domain-contact/src/contact-builder.ts',
       ]);
       expect(rework.territoryKnown).toBe(true);
     });
@@ -253,7 +253,7 @@ describe('A feature that drifted is brought back in line', () => {
       assertDefined(entry, 'the drifted entry');
       const rework = deriveRework(entry, { planSlices: [] });
 
-      expect(rework.territory).toEqual(['libs/vertuo-domain-contact/src/contact-builder.ts']);
+      expect(rework.territory).toEqual(['libs/nimbus-domain-contact/src/contact-builder.ts']);
       expect(rework.unknownPlanSlice).toBe(true);
     });
 
@@ -295,7 +295,7 @@ describe('A feature that drifted is brought back in line', () => {
         text: ITEM_TEXT.replace('id: s5-01-default-country', 'id: s9-01-closure-shape')
           .replace('slice: s5', 'slice: s9')
           .replace(
-            'One constant in `libs/vertuo-domain-contact/src/contact-builder.ts`, and a re-read of the',
+            'One constant in `libs/nimbus-domain-contact/src/contact-builder.ts`, and a re-read of the',
             'One line of `kit/lib/policy/rework.ts`, and nothing else in the',
           ),
         file: 's9-01-closure-shape.md',
@@ -357,7 +357,7 @@ describe('A feature that drifted is brought back in line', () => {
     it('a closed rework keeps the verdict it earned — drift is history, not a mistake', () => {
       const closed = closeDriftedEntry(settledLedger([DRIFTED]), {
         id: 's5-01-default-country',
-        pullRequest: 'https://github.com/vertuoza/vertuo-ai-domain/pull/1001',
+        pullRequest: 'https://github.com/demo-org/nimbus-brain/pull/1001',
         markers: MARKERS,
       });
 
@@ -365,7 +365,7 @@ describe('A feature that drifted is brought back in line', () => {
       assertDefined(entry, 'the entry');
       expect(entry.verdict).toBe('drifted');
       expect(reworkPullRequest(entry)).toBe(
-        'https://github.com/vertuoza/vertuo-ai-domain/pull/1001',
+        'https://github.com/demo-org/nimbus-brain/pull/1001',
       );
     });
 
@@ -538,7 +538,7 @@ const OPTIONED_ITEM_TEXT = [
   '',
   '## What it costs to change later',
   '',
-  'One filter in `libs/vertuo-domain-quote/src/components.ts`.',
+  'One filter in `libs/nimbus-domain-quote/src/components.ts`.',
   '',
   '## What I could not know',
   '',
@@ -590,7 +590,7 @@ describe('A rework goes towards the option chosen (PRD #1166 s6)', () => {
     expect(rework.chosenOption).toEqual({ letter: 'B', text: 'All of them, costs hidden' });
     expect(rework.reason).toBe('we need all of them');
     expect(rework.answer).toBe('B. All of them, costs hidden — because we need all of them');
-    expect(rework.territory).toContain('libs/vertuo-domain-quote/src/components.ts');
+    expect(rework.territory).toContain('libs/nimbus-domain-quote/src/components.ts');
   });
 
   it('a prose answer names no option, and the rework reads the answer itself', () => {
@@ -634,7 +634,7 @@ const E2E_ITEM_TEXT = OPTIONED_ITEM_TEXT.replace('id: s3-01-components', 'id: e2
   .replace('None, and the quote says so.', 'It stays standard, as written.')
   .replace('A. None, and it says so', 'A. standard, as written')
   .replace('B. All of them, costs hidden', 'B. critical, with the tag flow-quote-checkout')
-  .replace('`libs/vertuo-domain-quote/src/components.ts`', `\`${E2E_TEST_FILE}\``);
+  .replace('`libs/nimbus-domain-quote/src/components.ts`', `\`${E2E_TEST_FILE}\``);
 
 describe('An answer to the e2e criticality question sets the test level (PRD #1941, s2)', () => {
   it('answered B, the rework has the test file as its whole ground and option B as its choice', () => {
@@ -685,8 +685,8 @@ describe('A rework lands in the repository its decision was taken in (PRD 563, s
     '',
     '| id  | repo               | slice            | territory       | wave |',
     '| --- | ------------------ | ---------------- | --------------- | ---- |',
-    '| s5  | vertuo-backend-php | The settled item | `src/Contact/`  | 3    |',
-    '| s9  | vertuo-apps        | The screen       | `apps/contact/` | 5    |',
+    '| s5  | nimbus-core | The settled item | `src/Contact/`  | 3    |',
+    '| s9  | nimbus-apps        | The screen       | `apps/contact/` | 5    |',
     '',
   ].join('\n');
 
@@ -699,7 +699,7 @@ describe('A rework lands in the repository its decision was taken in (PRD 563, s
       markers: MARKERS,
       planRepository: true,
     });
-    expect(result.reworks[0]).toMatchObject({ slice: 's5', repo: 'vertuo-backend-php' });
+    expect(result.reworks[0]).toMatchObject({ slice: 's5', repo: 'nimbus-core' });
   });
 
   it('names no repo when the plan holds no such slice', () => {

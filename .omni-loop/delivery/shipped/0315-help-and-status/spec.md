@@ -126,7 +126,7 @@ omni status · vertuoza/vertuo-omni-loop · origin/main, fetched 2 hours ago
   delivered  ██████████████████████████░░░░  26 of 29 · 89%
              3 in progress: 2 in the inbox, 1 in the outbox
 
-  Yours · pierre.derval@vertuoza.com
+  Yours · pierre.derval@example.com
   outbox     #251  outbox-answers     3 open items wait for an answer
   inbox      #285  home-value         ready to build: /omni:yolo 285
   in review  #310  cli-help-status    its phase-0 PR waits for a merge

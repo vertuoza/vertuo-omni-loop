@@ -54,7 +54,7 @@ Anything not listed is refused; a type-only import counts.
 | `scripts`, the repository's config (`eslint.config.ts`, `vitest.config.ts`, `.claude/`) | anything |
 
 - A test may also import `kit/test` and `kit/bin`; every other rule holds for tests. An import by
-  package name (`vertuo-omni-plan/…`, `@omni/*`) names a package the importer's manifest declares.
+  package name (`omni-loop/…`, `@omni/*`) names a package the importer's manifest declares.
 - The kit's public surface is `kit/lib`: nothing outside the kit imports `kit/bin` or `kit/test` from
   source.
 - In the arcade, a module the client can reach (a `'use client'` file and its runtime imports,

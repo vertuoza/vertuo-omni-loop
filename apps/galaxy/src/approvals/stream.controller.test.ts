@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { approvalEvent, sseReader } from 'vertuo-omni-plan/kit/lib/approval/stream.ts';
+import { approvalEvent, sseReader } from 'omni-loop/kit/lib/approval/stream.ts';
 import type { Answer, ApprovalHistory, HistoryRepository } from './approvals.repository';
 import { streamApproval, type StreamDeps } from './stream.controller';
 

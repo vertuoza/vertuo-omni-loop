@@ -9,7 +9,7 @@ import type { Exchange, Join } from '../../ask/page/sign-in';
 import type { DossierListRow } from '../store';
 import { historySignInReturn } from './sign-in';
 import { dossierPath } from './view';
-import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 /** A PRD of a repository, as the short address names it. */
 export type AtKey = { owner: string; repo: string; prd: PrdNumber };

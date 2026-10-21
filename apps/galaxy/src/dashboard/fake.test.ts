@@ -47,14 +47,14 @@ describe('the fake\'s contributions', () => {
     const w = world();
     const before = w.tables.contributions.length;
     const insert = await w.client(PEOPLE.ada).from('contributions')
-      .insert(contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 999, 'ada-gh', '2026-09-26T08:00:00Z'));
+      .insert(contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 999, 'ada-gh', '2026-09-26T08:00:00Z'));
     expect(insert.error?.code).toBe('42501');
     expect(w.tables.contributions).toHaveLength(before);
   });
 
   it('can be seeded and failed like every other table', async () => {
     const w = fakeGalaxyDb({ ...twoWorkspaces(), contributions: [] }, Object.values(PEOPLE));
-    w.tables.contributions.push(contribution(VERTUOZA, 'prd-opened', 'vertuo-core', 7, 'ada-gh', '2026-09-03T08:00:00Z'));
+    w.tables.contributions.push(contribution(VERTUOZA, 'prd-opened', 'nimbus-core', 7, 'ada-gh', '2026-09-03T08:00:00Z'));
     const read = await w.client(PEOPLE.ada).from('contributions').select('number').eq('workspace_id', VERTUOZA);
     expect(read.data).toEqual([{ number: 7 }]);
     w.state.failOn = 'contributions';
@@ -67,30 +67,30 @@ describe('the fake\'s filters', () => {
   const seeded = () => fakeGalaxyDb({
     ...twoWorkspaces(),
     contributions: [
-      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 1, 'ada-gh', '2026-08-31T23:59:59Z'),
-      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 2, 'ada-gh', '2026-09-01T00:00:00Z'),
-      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 3, 'ada-gh', '2026-09-15T12:00:00Z'),
-      contribution(VERTUOZA, 'prd-opened', 'vertuo-core', 4, 'both-gh', '2026-09-30T23:59:59Z'),
-      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 5, 'both-gh', '2026-10-01T00:00:00Z'),
+      contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 1, 'ada-gh', '2026-08-31T23:59:59Z'),
+      contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 2, 'ada-gh', '2026-09-01T00:00:00Z'),
+      contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 3, 'ada-gh', '2026-09-15T12:00:00Z'),
+      contribution(VERTUOZA, 'prd-opened', 'nimbus-core', 4, 'both-gh', '2026-09-30T23:59:59Z'),
+      contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 5, 'both-gh', '2026-10-01T00:00:00Z'),
     ],
   }, Object.values(PEOPLE));
   const read = () => seeded().client(PEOPLE.ada).from('contributions').select('*').eq('workspace_id', VERTUOZA);
 
   it('reads a range of instants: gte and lt, gt and lte', async () => {
-    expect(numbers((await read().gte('at', '2026-09-01T00:00:00Z').lt('at', '2026-10-01T00:00:00Z')).data)).toEqual(['vertuo-core#2', 'vertuo-core#3', 'vertuo-core#4']);
-    expect(numbers((await read().gt('at', '2026-09-01T00:00:00Z').lte('at', '2026-09-30T23:59:59Z')).data)).toEqual(['vertuo-core#3', 'vertuo-core#4']);
+    expect(numbers((await read().gte('at', '2026-09-01T00:00:00Z').lt('at', '2026-10-01T00:00:00Z')).data)).toEqual(['nimbus-core#2', 'nimbus-core#3', 'nimbus-core#4']);
+    expect(numbers((await read().gt('at', '2026-09-01T00:00:00Z').lte('at', '2026-09-30T23:59:59Z')).data)).toEqual(['nimbus-core#3', 'nimbus-core#4']);
   });
 
   it('compares instants as instants, whatever their spelling', async () => {
-    expect(numbers((await read().gte('at', '2026-09-01T02:00:00+02:00').lt('at', '2026-09-01T00:00:01.000Z')).data)).toEqual(['vertuo-core#2']);
+    expect(numbers((await read().gte('at', '2026-09-01T02:00:00+02:00').lt('at', '2026-09-01T00:00:01.000Z')).data)).toEqual(['nimbus-core#2']);
   });
 
   it('reads a list, a difference and a pattern: in, neq, like and ilike', async () => {
-    expect(numbers((await read().in('number', [1, 5])).data)).toEqual(['vertuo-core#1', 'vertuo-core#5']);
-    expect(numbers((await read().neq('kind', 'pr-merged')).data)).toEqual(['vertuo-core#4']);
-    expect(numbers((await read().like('login', 'both%')).data)).toEqual(['vertuo-core#4', 'vertuo-core#5']);
+    expect(numbers((await read().in('number', [1, 5])).data)).toEqual(['nimbus-core#1', 'nimbus-core#5']);
+    expect(numbers((await read().neq('kind', 'pr-merged')).data)).toEqual(['nimbus-core#4']);
+    expect(numbers((await read().like('login', 'both%')).data)).toEqual(['nimbus-core#4', 'nimbus-core#5']);
     expect(numbers((await read().like('login', 'BOTH%')).data)).toEqual([]);
-    expect(numbers((await read().ilike('login', 'BOTH-G_')).data)).toEqual(['vertuo-core#4', 'vertuo-core#5']);
+    expect(numbers((await read().ilike('login', 'BOTH-G_')).data)).toEqual(['nimbus-core#4', 'nimbus-core#5']);
   });
 
   it('counts, with or without the rows: select(…, { count: \'exact\', head })', async () => {

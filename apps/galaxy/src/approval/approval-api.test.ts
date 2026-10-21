@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseApprovalReply } from 'vertuo-omni-plan/kit/lib/approval/approval.ts';
+import { parseApprovalReply } from 'omni-loop/kit/lib/approval/approval.ts';
 import { approveDossier, answerApproval, type ApprovalDeps } from './approval-api';
 
 // The approval route (PRD 1299 s2), with a stubbed Supabase client and a stubbed labeller:

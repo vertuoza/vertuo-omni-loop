@@ -1,7 +1,7 @@
-import { parsePrd, productPrdParts, type ProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { parseOutboxItem } from 'vertuo-omni-plan/kit/lib/outbox/outbox.ts';
-import { interpretAnswer } from 'vertuo-omni-plan/kit/lib/outbox/replies.ts';
-import { judgeAnswer } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
+import { parsePrd, productPrdParts, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
+import { parseOutboxItem } from 'omni-loop/kit/lib/outbox/outbox.ts';
+import { interpretAnswer } from 'omni-loop/kit/lib/outbox/replies.ts';
+import { judgeAnswer } from 'omni-loop/kit/lib/outbox/settle.ts';
 import type { OutboxRefusal } from '../outbox-items/outbox-items.contract';
 import type { OutboxItemsService } from '../outbox-items/outbox-items.service';
 import { AnswerReplySchema, type AnswerRefusal, type AnswerReply, type AnswerRequest } from './questions.contract';

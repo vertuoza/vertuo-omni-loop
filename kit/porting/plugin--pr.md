@@ -1,6 +1,6 @@
 # `kit/plugin/skills/pr/SKILL.md` (`/omni:pr`)
 
-Source: `vertuo-ai-domain@c4a210122:.claude/skills/vertuo-pull-request/SKILL.md`. The skill keeps
+Source: `nimbus-brain@c4a210122:.claude/skills/nimbus-pull-request/SKILL.md`. The skill keeps
 upstream's shape: three kinds, merging rules, body, status comment, lifecycle loop, stuck path,
 sub-PR lifecycle.
 
@@ -30,7 +30,7 @@ sub-PR lifecycle.
   or posted when absent (item s4-01). The comment gains a `human steps` line.
 - **Merge guard.** "Never merge into `main`" is now "never merge a PR whose base is
   `repo.defaultBranch`". Merging `<repo.remote>/<base>` into a branch to resolve a conflict is kept.
-- **`BEHIND`.** Upstream deferred to `vertuo-pr-monitor`, which PRD 7 does not port; now "a person
+- **`BEHIND`.** Upstream deferred to `nimbus-pr-monitor`, which PRD 7 does not port; now "a person
   decides".
 - **Red outbox context.** New row: a red `ci.outboxContext` alone is the gate, not a CI failure; the
   skill runs `omni status <prd>` and stops when only person-answered items remain (item s4-03).
@@ -73,13 +73,13 @@ sub-PR lifecycle.
   `claimed-stale` state of `omni board <prd>` decides, and `/omni:wave` reads it.
 - **Remote and slug.** `origin` becomes `repo.remote`. The comment API path uses `repo.slug`, and
   falls back to gh's `{owner}/{repo}` when the slug is null.
-- **Sub-PR orchestrator.** `vertuo-parallel-wave` → `/omni:wave`.
+- **Sub-PR orchestrator.** `nimbus-parallel-wave` → `/omni:wave`.
 - **Step 0** added (spec §2.1 rule 1).
 - **Phase-0 PR** added as one line: `/omni:brainstorm` opens it; it uses `labels.phase0` and
   `prLinks.phase0` with this lifecycle.
 - The `coverage` job's 25-minute example was dropped; the background-watch rule stays.
 
-## Dropped (specific to vertuo-ai-domain)
+## Dropped (specific to nimbus-brain)
 
 - `gh label create` lines with their colours and the `prd` label definition.
 - References: its PR authoring guide, ADR 0069, CI-triage page, Definition of Done page. The three
@@ -90,7 +90,7 @@ sub-PR lifecycle.
 - Translation checklist, French-first wording (ADR 0037) and "where does this string live" (ADR 0040,
   its feature-UI lib, `pnpm i18n:catalogs`, `system-*` primitives).
 - `VERTUO_PREFLIGHT_SKIP` and the "Preflight skipped" summary line.
-- The `/vertuo-fix-bug` **Bug** section of its template.
+- The `/nimbus-fix-bug` **Bug** section of its template.
 - The `acceptance-not-needed` label and its push-timing rule.
 - The feature PR's `.feature` path shape (now `acceptance.dir`).
 

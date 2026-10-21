@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { renderMarkdown } from '../markdown';
 import { UNREAD, type GithubSummary, type PullRef } from '../github/summary';
 import type { StageRow } from '../../stages/stage';
@@ -19,7 +19,7 @@ import { PitchAction, PitchPanel, pitchCommand, PITCH_HINT } from './PitchAction
 import { StageAction } from './StageHeader';
 import { stageView } from './stage';
 import { dossierView, readPick, type DossierPick } from './view';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -34,8 +34,8 @@ vi.mock('next/navigation', async (original) => ({
 // the opener of a draft, the sign-in, and the Questions tab with its rounds, none, or none readable.
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
-const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
-const MARIE = { user_id: 'u-marie', email: 'marie@vertuoza.com', name: 'Marie' };
+const PIERRE = { user_id: 'u-pierre', email: 'pierre@example.com', name: 'Pierre' };
+const MARIE = { user_id: 'u-marie', email: 'marie@example.com', name: 'Marie' };
 const SUPABASE = { url: 'http://127.0.0.1:54321', key: 'anon' };
 
 const numbered: DossierRow = {
@@ -363,9 +363,9 @@ describe('the header box (PRD 476)', () => {
   });
 
   it('says Repos for more than one repository, each a chip', () => {
-    const html = page({ repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-web'] });
+    const html = page({ repos: ['vertuoza/vertuo-omni-loop', 'demo-org/nimbus-web'] });
     expect(cells(html)).toEqual(['Repos', 'Opened']);
-    expect(cell(html, 'Repos')).toContain('<ul class="dossier-repos" aria-label="Repositories"><li class="dossier-repo">vertuoza/vertuo-omni-loop</li><li class="dossier-repo">vertuoza/vertuo-web</li></ul>');
+    expect(cell(html, 'Repos')).toContain('<ul class="dossier-repos" aria-label="Repositories"><li class="dossier-repo">vertuoza/vertuo-omni-loop</li><li class="dossier-repo">demo-org/nimbus-web</li></ul>');
   });
 
   it('shows a draft its idea stage, with no On GitHub cell', () => {

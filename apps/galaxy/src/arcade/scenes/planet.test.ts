@@ -15,7 +15,7 @@ import { drawPlanetScene, planetStage, TALL_BAND, TALL_SCENES } from './planet.t
 import { DOSSIER_TAB, dossierLink, dossierOf, PLANET_TABS, PlanetOverlay, startLink, statusRows, type DossierShown, type LogShown } from './planet.tsx';
 import { twinEvents, twinGalaxy } from '../test/twins.fake';
 import { sure } from '../test/sure';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
@@ -67,7 +67,7 @@ function frame(sel: number, t: number, grid: Grid): FrameState {
 function crowded(): Planet {
   const p = sure(view.planets.find((x) => x.state === 'distress'), 'view.planets.find((x) => x.state === "distress")');
   const teams = ['no-mascot-fleet', ...fleets.map((f) => f.name)]; // five fly: the stand-in among them
-  return { ...p, zones: teams.map((team, i) => ({ id: `s${i + 1}`, region: 'vertuo-core', wave: 1, state: 'claimed', contributor: 'dime', team, at: sure(p.chartedAt, 'p.chartedAt') })) };
+  return { ...p, zones: teams.map((team, i) => ({ id: `s${i + 1}`, region: 'nimbus-core', wave: 1, state: 'claimed', contributor: 'dime', team, at: sure(p.chartedAt, 'p.chartedAt') })) };
 }
 
 describe('the planet on the tall grid', () => {

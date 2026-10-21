@@ -26,5 +26,5 @@ milestone: The e2e validation moves from a manual beta to a delivery practice: t
 | Q4 | Who on QA confirms or rejects a healed step when it lands in the outbox? | – | P3 | person |
 | Q5 | Which existing e2e suites should this sit beside, and what would make QA trust it enough to keep it? | – | P3 | person |
 | Q6 | Which stack is the mobile app built on (React Native, Flutter, native)? | – | P6 | person |
-| Q7 | Where do the recordings of a product spanning several repositories live? | The plan repository (vertuo-automation-plan), which starts the environment they run against. | P4, P5 | default |
+| Q7 | Where do the recordings of a product spanning several repositories live? | The plan repository (nimbus-plan), which starts the environment they run against. | P4, P5 | default |
 | Q8 | For the job after each deploy on QA: which runner (Node 24.8 or newer) and which access to the target? | – | P5 | person |

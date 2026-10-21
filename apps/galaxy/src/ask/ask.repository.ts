@@ -6,7 +6,7 @@
 // readers other areas still import from src/ask/page/source.ts pass theirs until their own PRD moves
 // them.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import type { Category } from './classify';
 import {
   ATTACHMENTS_BUCKET, AskStoreError, SIGNED_LINK_SECONDS, settle,

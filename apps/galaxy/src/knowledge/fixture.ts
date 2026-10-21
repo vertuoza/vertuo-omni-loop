@@ -1,5 +1,5 @@
 import type { KnowledgeEntry, KnowledgeGraph } from '../data/knowledge';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // A small knowledge graph for the /knowledge page's tests: the product with two served principles,
 // an unserved one, a loose rule and a loose invariant; a billing domain whose rule serves a product

@@ -58,7 +58,7 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
 <header>
   <h1>PRD 522 · mega-invade</h1>
   <p class="lede">A plan repository that knows its target repositories. Part 1 of the multi-repository mode:
-  <code>vertuo-automation-plan</code> learns which repositories hold the code, what each one does, and where
+  <code>nimbus-plan</code> learns which repositories hold the code, what each one does, and where
   each one's knowledge lives. Planning across them (mega-brainstorm) and building across them (ultra-yolo) come next.</p>
 </header>
 
@@ -69,17 +69,17 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
       <span class="tag">today</span>
       <svg viewBox="0 0 440 220" role="img" aria-label="Today: each repository runs the loop alone; the plan repository knows none of them">
         <rect x="150" y="12" width="140" height="48" rx="6" fill="var(--code)" stroke="var(--line)"/>
-        <text x="220" y="33" text-anchor="middle" fill="var(--ink)">vertuo-automation-plan</text>
+        <text x="220" y="33" text-anchor="middle" fill="var(--ink)">nimbus-plan</text>
         <text x="220" y="50" text-anchor="middle" fill="var(--muted)">knows no target</text>
         <g>
           <rect x="10" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
-          <text x="75" y="171" text-anchor="middle" fill="var(--ink)">vertuo-backend-php</text>
+          <text x="75" y="171" text-anchor="middle" fill="var(--ink)">nimbus-backend-php</text>
           <text x="75" y="188" text-anchor="middle" fill="var(--muted)">no loop</text>
           <rect x="155" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
-          <text x="220" y="171" text-anchor="middle" fill="var(--ink)">vertuo-apps</text>
+          <text x="220" y="171" text-anchor="middle" fill="var(--ink)">nimbus-apps</text>
           <text x="220" y="188" text-anchor="middle" fill="var(--muted)">loop, alone</text>
           <rect x="300" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
-          <text x="365" y="171" text-anchor="middle" fill="var(--ink)">vertuo-soft</text>
+          <text x="365" y="171" text-anchor="middle" fill="var(--ink)">nimbus-soft</text>
           <text x="365" y="188" text-anchor="middle" fill="var(--muted)">no loop</text>
         </g>
         <text x="220" y="112" text-anchor="middle" fill="var(--muted)">no link between them</text>
@@ -94,7 +94,7 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
       <span class="tag">after</span>
       <svg viewBox="0 0 440 220" role="img" aria-label="After: the plan repository lists three targets, each with a role and a knowledge state">
         <rect x="150" y="12" width="140" height="48" rx="6" fill="var(--accent-bg)" stroke="var(--accent)"/>
-        <text x="220" y="33" text-anchor="middle" fill="var(--ink)">vertuo-automation-plan</text>
+        <text x="220" y="33" text-anchor="middle" fill="var(--ink)">nimbus-plan</text>
         <text x="220" y="50" text-anchor="middle" fill="var(--accent)">plan repository</text>
         <line x1="190" y1="60" x2="75" y2="150" stroke="var(--accent)"/>
         <line x1="220" y1="60" x2="220" y2="150" stroke="var(--accent)"/>
@@ -103,13 +103,13 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
         <text x="220" y="112" text-anchor="middle" fill="var(--muted)">front-end</text>
         <text x="335" y="100" text-anchor="middle" fill="var(--muted)">legacy</text>
         <rect x="10" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
-        <text x="75" y="171" text-anchor="middle" fill="var(--ink)">vertuo-backend-php</text>
+        <text x="75" y="171" text-anchor="middle" fill="var(--ink)">nimbus-backend-php</text>
         <text x="75" y="188" text-anchor="middle" fill="var(--warn)">imported copy</text>
         <rect x="155" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
-        <text x="220" y="171" text-anchor="middle" fill="var(--ink)">vertuo-apps</text>
+        <text x="220" y="171" text-anchor="middle" fill="var(--ink)">nimbus-apps</text>
         <text x="220" y="188" text-anchor="middle" fill="var(--accent)">own, read in place</text>
         <rect x="300" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
-        <text x="365" y="171" text-anchor="middle" fill="var(--ink)">vertuo-soft</text>
+        <text x="365" y="171" text-anchor="middle" fill="var(--ink)">nimbus-soft</text>
         <text x="365" y="188" text-anchor="middle" fill="var(--muted)">none</text>
       </svg>
       <ul>
@@ -127,7 +127,7 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
     <div class="side">
       <span class="tag">today · .omni-loop/config.yml</span>
 <pre>repo:
-  slug: vertuoza/vertuo-automation-plan
+  slug: demo-org/nimbus-plan
   remote: origin
   defaultBranch: main
 # nothing names another repository</pre>
@@ -135,18 +135,18 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
     <div class="side after">
       <span class="tag">after · .omni-loop/config.yml</span>
 <pre>repo:
-  slug: vertuoza/vertuo-automation-plan
+  slug: demo-org/nimbus-plan
 plan:
   guide: docs/git-repositories/README.md
   targets:
-    - repo: vertuoza/vertuo-backend-php
+    - repo: demo-org/nimbus-backend-php
       role: back-end
       knowledge: imported
       readAt: 3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4
-    - repo: vertuoza/vertuo-apps
+    - repo: demo-org/nimbus-apps
       role: front-end
       knowledge: own
-    - repo: vertuoza/vertuo-soft
+    - repo: demo-org/nimbus-soft
       role: legacy
       knowledge: none</pre>
     </div>
@@ -167,9 +167,9 @@ plan:
       <table>
         <thead><tr><th>repo</th><th>role</th><th>knowledge</th><th>loop</th><th>state</th></tr></thead>
         <tbody>
-          <tr><td>vertuoza/vertuo-backend-php</td><td>back-end</td><td>imported</td><td>not installed</td><td><span class="st stale">stale · 4 evidence files changed</span></td></tr>
-          <tr><td>vertuoza/vertuo-apps</td><td>front-end</td><td>own</td><td>v0.0.40</td><td><span class="st ok">ok</span></td></tr>
-          <tr><td>vertuoza/vertuo-soft</td><td>legacy</td><td>none</td><td>not installed</td><td><span class="st ok">ok</span></td></tr>
+          <tr><td>demo-org/nimbus-backend-php</td><td>back-end</td><td>imported</td><td>not installed</td><td><span class="st stale">stale · 4 evidence files changed</span></td></tr>
+          <tr><td>demo-org/nimbus-apps</td><td>front-end</td><td>own</td><td>v0.0.40</td><td><span class="st ok">ok</span></td></tr>
+          <tr><td>demo-org/nimbus-soft</td><td>legacy</td><td>none</td><td>not installed</td><td><span class="st ok">ok</span></td></tr>
         </tbody>
       </table>
       </div>

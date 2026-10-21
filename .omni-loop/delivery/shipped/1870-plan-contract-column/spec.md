@@ -13,14 +13,14 @@ slice table has an `id`, a `slice`, a `territory`, a `blocked by` and a `wave`; 
 for its callers sits in prose, in the "done when" bullets, where only a person reading the whole
 plan finds it.
 
-The plan repository `vertuoza/vertuo-automation-plan` needed that signal and built a gate on it: a
+The plan repository `demo-org/nimbus-plan` needed that signal and built a gate on it: a
 required GitHub check holds any phase-0 or feature pull request whose plan commits
-`vertuo-backend-php` to a contract change until a member of the `backend-admin` team approves it
+`nimbus-backend-php` to a contract change until a member of the `backend-admin` team approves it
 (its `plan-gate/` folder). The gate reads a `contract` column of the slice table. The repository's
 playbook briefing told `/omni:plan` to write that column, and the planner never did: the plan
 skill says the header row is "exactly" `| id | repo | slice | territory | blocked by | wave |`, and
 a playbook form adds to a skill's steps but never overrides its rules. So on 2026-10-13, PRD 229's
-phase-0 pull request there (`vertuoza/vertuo-automation-plan#231`) was held with "slice s1 declares
+phase-0 pull request there (`demo-org/nimbus-plan#231`) was held with "slice s1 declares
 no contract", and every backend slice of every plan will be, with no way for a plan to say "this
 slice changes nothing for its callers".
 
@@ -75,7 +75,7 @@ cannot tell a schema change from a behaviour change, and nearly every backend sl
   areas do. A list of repositories in the plan repository's config was considered and rejected: the
   plan repository would decide for a target it does not own.
 - **The planning config of every target is copied, `own` included.** The alternative, switching a
-  target such as `vertuo-backend-php` to `imported`, would put a draft of its knowledge base in the
+  target such as `nimbus-backend-php` to `imported`, would put a draft of its knowledge base in the
   plan repository, which `own` exists to avoid. Copying `flow/` alone copies nothing a person wrote.
   A consequence worth naming: a target's `landings.alone` and flow areas, written in its own config,
   reach `omni plan check` of the plan repository for the first time too. It is a change of its
@@ -86,8 +86,8 @@ cannot tell a schema change from a behaviour change, and nearly every backend sl
   rejected: every new kind would wait for a kit release, and the kit would hold the words of one
   consumer. The default keeps the common case at one line: `api` groups a GraphQL schema change
   and a REST change, `db` is a migration or any stored shape change. A downstream gate reads the
-  words its repository chose; `vertuo-automation-plan`'s backend gate can keep `schema` and `rest`
-  by having `vertuo-backend-php` declare `kinds: [schema, rest, db]`.
+  words its repository chose; `nimbus-plan`'s backend gate can keep `schema` and `rest`
+  by having `nimbus-backend-php` declare `kinds: [schema, rest, db]`.
 - **Words are checked only where a list exists.** A slice of a repository that asks nothing, or of
   a target with no copy, has no `kinds` to check against: its cell is checked for form alone
   (`none` beside a kind). Checking it against the default would refuse a target's own words the
@@ -163,8 +163,8 @@ cannot tell a schema change from a behaviour change, and nearly every backend sl
 - Any reader of the declaration beyond `Slice` and the two printed lines: no merge-time check of
   a sub-PR's diff against it, no label, no comment.
 - `plan.product` targets read from the server: no copy carries their `contracts.declare` yet.
-- The backend plan gate of `vertuoza/vertuo-automation-plan`: it already reads the column. Whether
-  `vertuo-backend-php` keeps the gate's `schema`/`rest` through `kinds`, or the gate moves to the
+- The backend plan gate of `demo-org/nimbus-plan`: it already reads the column. Whether
+  `nimbus-backend-php` keeps the gate's `schema`/`rest` through `kinds`, or the gate moves to the
   default `api`, is decided there.
 
 ## Test seams
@@ -210,8 +210,8 @@ release commit that follows it hands out the previous kit again.
   is graded with the kit's defaults, as today. What changes on update is `omni targets`, which may
   report an `own` target `stale (flow not copied)` until `--sync` runs; that is information, not a
   refusal.
-- **A target's flow areas start applying in the plan repository.** `vertuo-backend-php`'s
-  `landings.alone` and its `migrations` area reach `vertuo-automation-plan`'s `plan check` once its
+- **A target's flow areas start applying in the plan repository.** `nimbus-backend-php`'s
+  `landings.alone` and its `migrations` area reach `nimbus-plan`'s `plan check` once its
   copy exists; a plan that already violates them goes red at its next check. That is the rule the
   target wrote for itself finally being read; the plan repository's maintainer sees it in `omni
   targets` before syncing. It reaches every plan repository with an `own` target, not only the

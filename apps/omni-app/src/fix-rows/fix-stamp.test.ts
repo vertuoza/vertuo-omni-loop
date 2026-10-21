@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { FixStampDataSchema, fixedRecordOf, fixStampId } from './fix-stamp.ts';
 
 describe('fixedRecordOf — the bug record a fix pull request\'s body names (PRD 2011 s7)', () => {

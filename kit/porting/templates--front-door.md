@@ -1,6 +1,6 @@
 # `kit/templates/README.md`
 
-Source: `docs/knowledge/README.md` @ `vertuo-ai-domain@db67fd9da` (its opening and its three
+Source: `docs/knowledge/README.md` @ `nimbus-brain@db67fd9da` (its opening and its three
 layers), with the two halves and the override order from the PRD 45 spec. The front door's page:
 `omni kb init` writes it as the `README.md` of the playbook folder's parent, filling its
 `{config:<key>}` placeholders then (item `s2-01-front-door-page-filled-from-settings`). It is not a
@@ -18,7 +18,7 @@ form: no front matter, no slots.
 
 - `scripts/registers.mjs` ("the one parser"): the kit's parser is not the page's business.
 - **One example, all the way down:** `P-PRODUCT-1`, `BR-QUOTE-1`, `from-document`,
-  `apps/vertuo-ai-api/src/features/offer/quote-extraction.controller.test.ts`,
+  `apps/nimbus-api/src/features/offer/quote-extraction.controller.test.ts`,
   `pnpm knowledge P-PRODUCT-1`.
 - **The layout and the eleven domains:** `advisor`, `agent-session`, `credits`, `identity`,
   `erp-write`, `folder`, `prompt`, `evaluation`, `micro-feedback`, `extraction`, `erp`, the Vertuo

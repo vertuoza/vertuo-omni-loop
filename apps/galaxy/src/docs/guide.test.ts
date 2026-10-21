@@ -7,7 +7,7 @@ import { diagramsNamed } from './diagrams';
 import { commandsNamed, guideProblems, parsePage, readGuide, skillsNamed } from './guide';
 import { pageUrl } from './paths';
 import { sure } from '../arcade/test/sure';
-import { RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
+import { RUNNABLE_SKILLS } from 'omni-loop/kit/lib/runner/line.ts';
 
 vi.mock('server-only', () => ({}));
 

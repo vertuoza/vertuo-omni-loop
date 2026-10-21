@@ -15,7 +15,7 @@
 // `THRESHOLDS.churnFileLines`; a run of lines each written in `THRESHOLDS.churnRangeCommits` commits or
 // more is one. A file GitHub sent without a patch counts by its totals and is named; its lines are no
 // longer followed. What GitHub did not return is named, never guessed.
-import { SliceIdSchema, type PrNumber, type SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { SliceIdSchema, type PrNumber, type SliceId } from 'omni-loop/kit/lib/ids.ts';
 import { THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate, readContent } from '../github.ts';
 import { leftOutAs } from './churn-generated.ts';
@@ -27,8 +27,8 @@ import { ChurnRecordsSchema } from './records.ts';
 import type { z } from 'zod';
 import { ChangedFileSchema, CommitPageSchema, PullCommitSchema } from './schema.ts';
 import type { ChangedFile, PullCommit } from './schema.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 
 type Records = z.infer<typeof ChurnRecordsSchema>;
 type FinalFile = NonNullable<Records['final']>[number];

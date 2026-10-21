@@ -157,7 +157,7 @@ describe('POST /api/v1/bug-fixes and GET /api/v1/jobs/{id} (PRD 2022 s4)', () =>
   const post = (body: unknown, authorization: string | null = `Bearer ${SECRETS.runners}`) => new Request(`${ORIGIN}/api/v1/bug-fixes`, {
     method: 'POST', headers: authorization === null ? {} : { authorization }, body: typeof body === 'string' ? body : JSON.stringify(body),
   });
-  const FIX = { repo: 'vertuoza/app', description: 'Issue 548 the invoice total is off by a cent' };
+  const FIX = { repo: 'demo-org/app', description: 'Issue 548 the invoice total is off by a cent' };
 
   it('queues the bug fix on the runners and answers 202 with the job, sent by the key', async () => {
     const api = fakePublicApi();
@@ -165,7 +165,7 @@ describe('POST /api/v1/bug-fixes and GET /api/v1/jobs/{id} (PRD 2022 s4)', () =>
     expect(response.status).toBe(202);
     expect(response.headers.get('cache-control')).toBe('no-store');
     const job = JobSchema.parse(await response.json());
-    expect(job).toMatchObject({ status: 'queued', repo: 'vertuoza/app', runner: null, pr_url: null, line: `/omni:bug-fix ${FIX.description}` });
+    expect(job).toMatchObject({ status: 'queued', repo: 'demo-org/app', runner: null, pr_url: null, line: `/omni:bug-fix ${FIX.description}` });
     expect(api.runnersState.jobs[0]).toMatchObject({ id: job.id, sent_by_key: API_KEY, sent_by: OLGA, line: job.line });
   });
 
@@ -193,7 +193,7 @@ describe('POST /api/v1/bug-fixes and GET /api/v1/jobs/{id} (PRD 2022 s4)', () =>
     expect((await errorOf(elsewhere)).code).toBe('forbidden');
     const limited = await startBugFix(post(FIX, `Bearer ${SECRETS.runnersLimited}`), deps(api));
     expect(limited.status).toBe(403);
-    expect((await errorOf(limited)).message).toContain('vertuoza/app');
+    expect((await errorOf(limited)).message).toContain('demo-org/app');
     expect(api.runnersState.jobs).toEqual([]);
   });
 
@@ -233,16 +233,16 @@ describe('POST /api/v1/bug-fixes and GET /api/v1/jobs/{id} (PRD 2022 s4)', () =>
     expect(await (await asked()).json()).toMatchObject({ id: queued.id, status: 'queued', runner: null });
     const job = api.runnersState.jobs[0];
     if (!job) throw new Error('queued');
-    Object.assign(job, { status: 'done', runner_id: '00000000-0000-4000-8000-0000018301a1', pr_url: 'https://github.com/vertuoza/app/pull/549', exit_code: 0 });
+    Object.assign(job, { status: 'done', runner_id: '00000000-0000-4000-8000-0000018301a1', pr_url: 'https://github.com/demo-org/app/pull/549', exit_code: 0 });
     const done = await asked();
     expect(done.status).toBe(200);
-    expect(JobSchema.parse(await done.json())).toMatchObject({ status: 'done', runner: 'shared', pr_url: 'https://github.com/vertuoza/app/pull/549', exit_code: 0 });
+    expect(JobSchema.parse(await done.json())).toMatchObject({ status: 'done', runner: 'shared', pr_url: 'https://github.com/demo-org/app/pull/549', exit_code: 0 });
   });
 
   it('answers 404 to a job of another workspace, a person’s job, an unknown job and an id that is none', async () => {
     const api = fakePublicApi();
     const queued = JobSchema.parse(await (await startBugFix(post(FIX), deps(api))).json());
-    const person = await api.runners.send('00000000-0000-4000-8000-0000018300b1', { line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } });
+    const person = await api.runners.send('00000000-0000-4000-8000-0000018300b1', { line: '/omni:yolo 1', repo: 'demo-org/app', target: { kind: 'any' } });
     const personId = person.ok ? person.value.id : '';
     for (const [id, secret] of [
       [queued.id, SECRETS.all],
@@ -277,13 +277,13 @@ describe('POST /api/v1/mega-bug-fixes', () => {
   const post = (body: unknown, authorization: string | null = `Bearer ${SECRETS.runners}`) => new Request(`${ORIGIN}/api/v1/mega-bug-fixes`, {
     method: 'POST', headers: authorization === null ? {} : { authorization }, body: typeof body === 'string' ? body : JSON.stringify(body),
   });
-  const ISSUE = 'https://github.com/vertuoza/plan/issues/612';
-  const FIX = { repo: 'vertuoza/plan', description: ISSUE };
+  const ISSUE = 'https://github.com/demo-org/plan/issues/612';
+  const FIX = { repo: 'demo-org/plan', description: ISSUE };
 
-  /** The fake, with vertuoza/plan named as a plan repository of the runners' workspace. */
+  /** The fake, with demo-org/plan named as a plan repository of the runners' workspace. */
   function withPlan(): FakePublicApi {
     const api = fakePublicApi();
-    api.planRepository(WORKSPACE, 'vertuoza/plan');
+    api.planRepository(WORKSPACE, 'demo-org/plan');
     return api;
   }
 
@@ -293,7 +293,7 @@ describe('POST /api/v1/mega-bug-fixes', () => {
     expect(response.status).toBe(202);
     expect(response.headers.get('cache-control')).toBe('no-store');
     const job = JobSchema.parse(await response.json());
-    expect(job).toMatchObject({ status: 'queued', repo: 'vertuoza/plan', runner: null, pr_url: null, line: `/omni:mega-bug-fix ${ISSUE}` });
+    expect(job).toMatchObject({ status: 'queued', repo: 'demo-org/plan', runner: null, pr_url: null, line: `/omni:mega-bug-fix ${ISSUE}` });
     expect(api.runnersState.jobs[0]).toMatchObject({ id: job.id, sent_by_key: API_KEY, sent_by: OLGA, line: job.line });
   });
 
@@ -319,12 +319,12 @@ describe('POST /api/v1/mega-bug-fixes', () => {
     const api = withPlan();
     const response = await startMegaBugFix(post(FIX, `Bearer ${SECRETS.runnersLimited}`), deps(api));
     expect(response.status).toBe(403);
-    expect(await errorOf(response)).toEqual({ code: 'forbidden', message: 'vertuoza/plan is not on this API key’s list of repositories.' });
+    expect(await errorOf(response)).toEqual({ code: 'forbidden', message: 'demo-org/plan is not on this API key’s list of repositories.' });
     expect(api.runnersState.jobs).toEqual([]);
   });
 
   for (const [what, body, field] of [
-    ['a repository that is no plan repository', { ...FIX, repo: 'vertuoza/app' }, 'repo: vertuoza/app is not a plan repository'],
+    ['a repository that is no plan repository', { ...FIX, repo: 'demo-org/app' }, 'repo: demo-org/app is not a plan repository'],
     ['a repository outside the workspace', { ...FIX, repo: 'elsewhere/plan' }, 'repo: elsewhere/plan is not a plan repository'],
     ['a field it does not know', { ...FIX, skill: 'bug-fix' }, 'skill: '],
     ['a --product flag', { ...FIX, description: `${ISSUE} --product mobile` }, 'description: '],

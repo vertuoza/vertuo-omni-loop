@@ -1,5 +1,5 @@
 'use client';
-import { positionOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { positionOf } from 'omni-loop/kit/lib/narrow.ts';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { CLOSED, drawer, drawerKey, type DrawerEvent } from './drawer';
 

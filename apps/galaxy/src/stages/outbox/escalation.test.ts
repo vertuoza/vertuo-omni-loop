@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderRecord, type RecordLine } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
+import { renderRecord, type RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
 import { lawQuestion, recordIn, withEscalation } from './escalation';
 import type { WaitingQuestion } from './store';
 

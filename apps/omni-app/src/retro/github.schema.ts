@@ -3,8 +3,8 @@
 // when it is missing may be missing or null; what it reads as is stays required. A field missing or
 // of the wrong type fails, naming it.
 import { z } from 'zod';
-import { CommentIdSchema, IssueNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
+import { CommentIdSchema, IssueNumberSchema, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { parseOrThrow } from 'omni-loop/kit/lib/schema/parse-or-throw.ts';
 
 const label = z.union([z.string(), z.object({ name: z.string() })]);
 

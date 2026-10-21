@@ -9,7 +9,7 @@ import { recountLive } from '../stages/outbox/live';
 import { liveSendSnapshot, liveStaleSnapshot } from '../dossier/snapshot/live';
 import { sendOpen } from './open';
 import { githubUser, type OutboxSource, type SendDeps, type SendStore, type SendTarget } from './send';
-import { parsePr, parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 // Ported from archive/outbox-answers-v1:apps/galaxy/src/outbox/send-live.ts (PRD 251, s11); the outbox
 // is read through PRD 426's GitHub reader, not a stored copy.

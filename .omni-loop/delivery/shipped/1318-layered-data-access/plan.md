@@ -40,7 +40,7 @@ feature branch, with `Part of #1318`.
 - `apps/galaxy/src/data/db.ts` builds the signed-in person's client from the request's cookies and the
   service-role client; `SignInCard` signs out through `sign-in.client.ts` and builds no Supabase
   client.
-- A new ADR records the layering rule and its shrinking baseline, citing vertuo-ai-domain's
+- A new ADR records the layering rule and its shrinking baseline, citing nimbus-brain's
   `libs/LIBRARY_STYLE_RULES.md` §5 and ADR-0058 as unchanged; the architecture form's Boundaries and
   the galaxy README name the five roles and the check.
 - `pnpm test`, `pnpm typecheck` and `pnpm lint` are green.

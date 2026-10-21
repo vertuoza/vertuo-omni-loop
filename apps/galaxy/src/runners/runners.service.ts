@@ -49,7 +49,7 @@
 //   job that ended `human` is answered or dismissed. The Runners page keeps a job waiting for an answer
 //   whatever its age, and reads one whose questions are closed as Done (outcome null): the stored
 //   outcome stays `human`.
-import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
   type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type RegisterReply, type RegisterRequest,

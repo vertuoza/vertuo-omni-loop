@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { archiveIdea, brainstormLine, readForm, submitIdea, type MembersPort } from './members';
 import { membersPort, workspaceBoard, type MembersDb } from './store';
 import { MEMBERS } from './words';

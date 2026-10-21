@@ -142,7 +142,7 @@ Out:
    plus "Has that been done?" as the lead. Its three steps are a numbered list inside the fold, and
    the summary reads "3 steps".
 3. A question of 280 characters or fewer renders exactly as before.
-4. `libs/vertuo-workflow-ui/README.md` written in backticks in a question renders as code. `<b>x</b>`
+4. `libs/nimbus-workflow-ui/README.md` written in backticks in a question renders as code. `<b>x</b>`
    in a question renders as the literal text `<b>x</b>`.
 5. When Claude writes a design and then asks, the page shows that design above the question, under
    "Claude wrote before asking", folded after about 12 lines with "Show all".

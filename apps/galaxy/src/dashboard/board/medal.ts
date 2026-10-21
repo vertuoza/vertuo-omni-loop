@@ -1,6 +1,6 @@
 import { decorative } from '../../people/face';
 import { pixelSvg } from '../../design/pixel-svg';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 
 // The pixel medal of the fleet ranking's top three (issue 958): a disc on a red-and-blue ribbon, its
 // rank stamped in it, in gold, silver or bronze; past third place, no medal and the plain rank. Drawn

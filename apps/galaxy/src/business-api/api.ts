@@ -18,7 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
 import { ANSWER_KINDS, ANSWER_STATES, businessReader, BusinessStoreError, type AnswerKind, type AnswerState } from './read';
 import { refuse, reply } from './reply';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 
 /** A Supabase client acting as one access token: the Auth server's check and the functions. */
 export type BusinessClient = TokenCheck & Pick<SupabaseClient, 'rpc'>;

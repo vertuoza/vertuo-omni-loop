@@ -6,7 +6,7 @@
  * or an invariant, the print also names the principle it serves. A contract (PRD 1796) prints its
  * `Points to:` line, the files that enforce it, just before its `Source:`.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/knowledge.mjs — changes in kit/porting/knowledge--describe.md.
+// Ported from nimbus-brain@c4a210122:scripts/knowledge.mjs — changes in kit/porting/knowledge--describe.md.
 import { servedBy, type KnowledgeEntry } from './registers.ts';
 
 /** The entry fields printed as lines, each with its label. */

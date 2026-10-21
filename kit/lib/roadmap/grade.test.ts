@@ -122,9 +122,9 @@ describe('gradeRoadmap — one repository', () => {
 });
 
 const TARGETS: RoadmapTarget[] = [
-  { repo: 'vertuoza/crew', consumes: ['ai-domain'] },
-  { repo: 'vertuoza/ai-domain' },
-  { repo: 'vertuoza/backend-php', readOnly: true },
+  { repo: 'demo-org/crew', consumes: ['ai-domain'] },
+  { repo: 'demo-org/ai-domain' },
+  { repo: 'demo-org/backend-php', readOnly: true },
 ];
 
 describe('gradeRoadmap — a plan repository', () => {

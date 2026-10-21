@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { replayGitHub } from '../../test/github-replay.ts';
 import { DefaultBranchError, addCommit, branchHead, pullsFrom, refuseDefault, upsertPull } from './git-write.ts';
 

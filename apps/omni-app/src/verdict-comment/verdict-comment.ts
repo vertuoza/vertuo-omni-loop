@@ -3,7 +3,7 @@
 // found by its marker and edited in place, or created when there is none, so a replay rewrites it
 // and never adds a second. Each caller keeps its own marker: two functions finishing at once never
 // edit each other's comment.
-import { CommentIdSchema, type CommentId, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { CommentIdSchema, type CommentId, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { listComments } from '../outbox-check/github.ts';
 import { CommentWrittenSchema, type GitHubClient } from '../outbox-check/github-schema.ts';
 import type { OctokitFor } from '../octokit-for.ts';

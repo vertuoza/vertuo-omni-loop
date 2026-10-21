@@ -1,5 +1,5 @@
-// Test-only. Reproduces upstream vertuo-ai-domain's flat layout (docs/outbox/<prd>/, docs/adr,
-// docs/knowledge) and its `vertuo-outbox` markers, so ported upstream tests keep their assertions
+// Test-only. Reproduces upstream nimbus-brain's flat layout (docs/outbox/<prd>/, docs/adr,
+// docs/knowledge) and its `nimbus-outbox` markers, so ported upstream tests keep their assertions
 // byte for byte. Never shipped: kit/lib knows only the folders layout.
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -36,10 +36,10 @@ export function flatLayout(root: string) {
 export function flatCtx(rootDir: string | undefined, overrides: Overrides = {}) {
   const root = rootDir as string;
   const ctx = testContext(root, {
-    markers: { prefix: 'vertuo-outbox' },
+    markers: { prefix: 'nimbus-outbox' },
     laws: { source: 'knowledge' },
     paths: { knowledge: 'docs/knowledge', adr: 'docs/adr', glossary: 'docs/glossary.md' },
-    repo: { slug: 'vertuoza/vertuo-ai-domain' },
+    repo: { slug: 'demo-org/nimbus-brain' },
     ...overrides,
   });
   return Object.freeze({ ...ctx, layout: flatLayout(root) });

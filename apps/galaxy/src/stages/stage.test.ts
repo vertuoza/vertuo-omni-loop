@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { currentStage, STAGES, storedStageOf, STORED_STAGES, type StageRow } from './stage';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // Where a PRD is (PRD 587), from its stored stages alone: the current stage, the track and the questions
 // badge. A draft is read from its rounds, a numbered PRD with no rows is not synced yet.

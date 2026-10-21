@@ -8,7 +8,7 @@ const read = vi.hoisted(() => ({
 vi.mock('../data/workspace', () => ({ memberWorkspace: () => read.workspace() }));
 
 import type { User } from '@supabase/supabase-js';
-import { defaultPitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { defaultPitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import { loadProduct, loadProducts } from './load';
 
 // Settings › Products's reads (PRD 859 s1), as the signed-in person (stubbed: no test calls

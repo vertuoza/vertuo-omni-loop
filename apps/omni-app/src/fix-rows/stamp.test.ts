@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePr, parseProductBugId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parseProductBugId } from 'omni-loop/kit/lib/ids.ts';
 import { fixRowStamper } from './stamp.ts';
 
 type Call = { path: string; body: unknown; key: string | null };

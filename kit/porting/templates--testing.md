@@ -1,6 +1,6 @@
 # `kit/templates/playbook/testing.md`
 
-Source: `docs/agents/testing.md` @ `vertuo-ai-domain@db67fd9da`, with two lines from
+Source: `docs/agents/testing.md` @ `nimbus-brain@db67fd9da`, with two lines from
 `docs/agents/ci-triage.md` (wall-clock waits) and one from `docs/agents/verification.md` (what a
 shared environment keeps). The kit default of the testing form: slots `commands`, `layout`,
 `levels`, `never`, `data`, in the spec's order.
@@ -13,8 +13,8 @@ shared environment keeps). The kit default of the testing form: slots `commands`
 
 ## Dropped (repository literals)
 
-- **The skill pointer:** "Use the repo-local Claude skill `vertuo-testing` …". No `/omni:` twin.
-- **Database Tests, whole:** `createTestDatabase(migrations)`, `@vertuo-ai/system-db-core/server`,
+- **The skill pointer:** "Use the repo-local Claude skill `nimbus-testing` …". No `/omni:` twin.
+- **Database Tests, whole:** `createTestDatabase(migrations)`, `@nimbus-ai/system-db-core/server`,
   `createDatabase`, `engine.test.ts`, `await db.destroy()` in an `afterEach`, in-memory SQLite, the
   `docker run … postgres:17` recipe, `TEST_DB_DIALECT`, `TEST_DATABASE_URL`, the `test` and
   `test-postgres` jobs, `all-green`, Kysely's `db.introspection.getTables()`, `pragma_table_info`,
@@ -33,10 +33,10 @@ shared environment keeps). The kit default of the testing form: slots `commands`
   `sessionId`, `feature`, HTTP / WebSocket / async correlation, LLM and session records. Kept: a log
   assertion reads emitted records, never a spy, and never expects sensitive content (slot `never`).
 - **Canonical References:** `libs/system-logs/src/server/logger.test.ts`,
-  `apps/vertuo-ai-api/src/common/correlation.middleware.test.ts`,
-  `apps/vertuo-ai-api/src/common/http-logging.interceptor.test.ts`,
-  `apps/vertuo-ai-api/src/common/ws-logging.test.ts`,
-  `apps/vertuo-ai-api/src/voices/voice-stream.service.test.ts`, and the link to `./verification.md`.
+  `apps/nimbus-api/src/common/correlation.middleware.test.ts`,
+  `apps/nimbus-api/src/common/http-logging.interceptor.test.ts`,
+  `apps/nimbus-api/src/common/ws-logging.test.ts`,
+  `apps/nimbus-api/src/voices/voice-stream.service.test.ts`, and the link to `./verification.md`.
   Kept as the rule behind them: name one existing test per kind, and start a new one from it (slot
   `layout`).
 - **Test-level table rows:** "Zod schema" (now "A schema"), "Repository/persistence test" (now "A

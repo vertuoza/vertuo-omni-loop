@@ -11,7 +11,7 @@ spec: file
 `scripts/settle-head.sh` (new), `.claude/hooks/fallow-gate.sh` (new), `.claude/settings.json`,
 `.fallowrc.jsonc` (new), `fallow/` (new baselines), the root `package.json` and `pnpm-lock.yaml`,
 and the playbook's `ci.md`. No change to the kit, the plugin, the apps or any existing workflow.
-Ideas taken from `vertuoza/vnext` (`quality.yml`, `scripts/settle-head.sh`,
+Ideas taken from `demo-org/vnext` (`quality.yml`, `scripts/settle-head.sh`,
 `.claude/hooks/fallow-gate.sh`); this repository only, nothing shipped through `omni init`.
 
 ## Problem

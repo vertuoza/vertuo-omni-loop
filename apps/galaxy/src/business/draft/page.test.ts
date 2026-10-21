@@ -7,8 +7,8 @@ vi.mock('server-only', () => ({}));
 // and link-local hosts are refused, and a redirect to one; a page over 1 MB is cut. Nothing leaves.
 
 const DNS: Record<string, string[]> = {
-  'vertuoza.com': ['76.76.21.21'],
-  'www.vertuoza.com': ['76.76.21.22', '2606:4700::6810:84e5'],
+  'example.com': ['76.76.21.21'],
+  'www.example.com': ['76.76.21.22', '2606:4700::6810:84e5'],
   'intranet.example.com': ['10.0.0.8'],
   'sneaky.example.com': ['76.76.21.23', '192.168.1.1'],
   'metadata.example.com': ['169.254.169.254'],
@@ -42,11 +42,11 @@ describe('privateAddress', () => {
 
 describe('checkUrl', () => {
   it('takes an https page on a public host', async () => {
-    expect((await checkUrl('https://vertuoza.com/pricing', lookup)).toString()).toBe('https://vertuoza.com/pricing');
+    expect((await checkUrl('https://example.com/pricing', lookup)).toString()).toBe('https://example.com/pricing');
   });
 
   it('refuses http:', async () => {
-    expect(await refused(checkUrl('http://vertuoza.com/pricing', lookup))).toBe('Only https:// pages can be read.');
+    expect(await refused(checkUrl('http://example.com/pricing', lookup))).toBe('Only https:// pages can be read.');
   });
 
   it.each([
@@ -87,43 +87,43 @@ function site(routes: Record<string, Route>) {
 
 describe('fetchPage', () => {
   it('reads an HTML page as its text', async () => {
-    const { fetch } = site({ 'https://vertuoza.com/pricing': { body: '<html><head><style>p{}</style><script>x()</script></head><body><h1>Pricing</h1><p>For construction&nbsp;firms in <b>Belgium</b> &amp; France.</p></body></html>' } });
-    expect(await fetchPage('https://vertuoza.com/pricing', { fetch, lookup })).toBe('Pricing\nFor construction firms in Belgium & France.');
+    const { fetch } = site({ 'https://example.com/pricing': { body: '<html><head><style>p{}</style><script>x()</script></head><body><h1>Pricing</h1><p>For construction&nbsp;firms in <b>Belgium</b> &amp; France.</p></body></html>' } });
+    expect(await fetchPage('https://example.com/pricing', { fetch, lookup })).toBe('Pricing\nFor construction firms in Belgium & France.');
   });
 
   it('follows a redirect to a public page, checking it again', async () => {
     const { fetch, asked } = site({
-      'https://vertuoza.com/': { status: 301, headers: { location: 'https://www.vertuoza.com/en' } },
-      'https://www.vertuoza.com/en': { body: 'Welcome', headers: { 'content-type': 'text/plain' } },
+      'https://example.com/': { status: 301, headers: { location: 'https://www.example.com/en' } },
+      'https://www.example.com/en': { body: 'Welcome', headers: { 'content-type': 'text/plain' } },
     });
-    expect(await fetchPage('https://vertuoza.com/', { fetch, lookup })).toBe('Welcome');
-    expect(asked).toEqual(['https://vertuoza.com/', 'https://www.vertuoza.com/en']);
+    expect(await fetchPage('https://example.com/', { fetch, lookup })).toBe('Welcome');
+    expect(asked).toEqual(['https://example.com/', 'https://www.example.com/en']);
   });
 
   it('refuses a redirect to a private host, and never asks it', async () => {
-    const { fetch, asked } = site({ 'https://vertuoza.com/go': { status: 302, headers: { location: 'https://metadata.example.com/latest' } } });
-    expect(await refused(fetchPage('https://vertuoza.com/go', { fetch, lookup }))).toBe('That address is not on the public internet.');
-    expect(asked).toEqual(['https://vertuoza.com/go']);
+    const { fetch, asked } = site({ 'https://example.com/go': { status: 302, headers: { location: 'https://metadata.example.com/latest' } } });
+    expect(await refused(fetchPage('https://example.com/go', { fetch, lookup }))).toBe('That address is not on the public internet.');
+    expect(asked).toEqual(['https://example.com/go']);
   });
 
   it('refuses a redirect to http:', async () => {
-    const { fetch } = site({ 'https://vertuoza.com/go': { status: 302, headers: { location: 'http://vertuoza.com/' } } });
-    expect(await refused(fetchPage('https://vertuoza.com/go', { fetch, lookup }))).toBe('Only https:// pages can be read.');
+    const { fetch } = site({ 'https://example.com/go': { status: 302, headers: { location: 'http://example.com/' } } });
+    expect(await refused(fetchPage('https://example.com/go', { fetch, lookup }))).toBe('Only https:// pages can be read.');
   });
 
   it('cuts a page over 1 MB', async () => {
     const big = 'a'.repeat(MAX_PAGE_BYTES + 5000);
-    const { fetch } = site({ 'https://vertuoza.com/big': { body: big, headers: { 'content-type': 'text/plain' } } });
-    expect((await fetchPage('https://vertuoza.com/big', { fetch, lookup })).length).toBe(MAX_PAGE_BYTES);
+    const { fetch } = site({ 'https://example.com/big': { body: big, headers: { 'content-type': 'text/plain' } } });
+    expect((await fetchPage('https://example.com/big', { fetch, lookup })).length).toBe(MAX_PAGE_BYTES);
   });
 
   it('refuses an answer that is not ok, or not text', async () => {
     const { fetch } = site({
-      'https://vertuoza.com/gone': { status: 500 },
-      'https://vertuoza.com/deck.pdf': { body: '%PDF', headers: { 'content-type': 'application/pdf' } },
+      'https://example.com/gone': { status: 500 },
+      'https://example.com/deck.pdf': { body: '%PDF', headers: { 'content-type': 'application/pdf' } },
     });
-    expect(await refused(fetchPage('https://vertuoza.com/gone', { fetch, lookup }))).toBe('The page answered 500.');
-    expect(await refused(fetchPage('https://vertuoza.com/deck.pdf', { fetch, lookup }))).toBe('The page is not text.');
+    expect(await refused(fetchPage('https://example.com/gone', { fetch, lookup }))).toBe('The page answered 500.');
+    expect(await refused(fetchPage('https://example.com/deck.pdf', { fetch, lookup }))).toBe('The page is not text.');
   });
 });
 

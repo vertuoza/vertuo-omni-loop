@@ -111,6 +111,6 @@ rebuilds it once after merging.
   - the picker listing only allowed targets;
   - the queued and refused states.
 - The dossier page's render tests still pass.
-- By hand, once, on `vertuo-agents`, after the wave merges: `/omni:yolo` for a small PRD sent from
+- By hand, once, on `nimbus-agents`, after the wave merges: `/omni:yolo` for a small PRD sent from
   its page runs on the runner, shows on `/app/runners` with its log tail, and ends Done with its pull
   request's link.

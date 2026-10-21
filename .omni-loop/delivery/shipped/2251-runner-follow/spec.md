@@ -24,7 +24,7 @@ a runner with Send to terminal. From then on:
      the page included) and follows it rather than sending a second one.
    - Otherwise it sends `/omni:yolo <n>`. With more than one runner online for this repository, it
      asks once where (in Claude: `AskUserQuestion`): **Any runner** first, then each fleet and each
-     online runner, with its free slots (`vertuo-agents · 2 of 4 free`). Under `OMNI_UNATTENDED` it asks
+     online runner, with its free slots (`nimbus-agents · 2 of 4 free`). Under `OMNI_UNATTENDED` it asks
      nothing and sends to any runner. With none online, it sends anyway and says the job waits in the
      queue.
    - Then it follows the job (below) until it ends, and hands off on the ending's next step:
@@ -57,7 +57,7 @@ a runner with Send to terminal. From then on:
      online for this repository (persona:B-E DEv's objection, accepted); hidden otherwise, and hidden
      when the read fails. The read is cached for 30 seconds.
    - while `omni runner follow` runs in this session, a **runner** row with its last milestone:
-     `PRD 2223 on vertuo-agents · 1/2 slices merged`.
+     `PRD 2223 on nimbus-agents · 1/2 slices merged`.
 7. **The hand-offs:** where `/omni:brainstorm` and `/omni:yolo-fix` end on `/omni:yolo <n>`, the
    **What is next?** block adds one line above the command: "To build it on a runner instead:
    `/omni:yolo-runner <n>`." The last line stays `/omni:yolo <n>`.

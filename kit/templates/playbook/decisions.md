@@ -7,7 +7,7 @@ evidence: []
 invaded: null
 ---
 
-<!-- Ported from vertuo-ai-domain@db67fd9da:docs/adr/index.md — changes in kit/porting/templates--decisions.md -->
+<!-- Ported from nimbus-brain@db67fd9da:docs/adr/index.md — changes in kit/porting/templates--decisions.md -->
 
 # Decision records
 
