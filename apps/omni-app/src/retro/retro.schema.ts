@@ -211,9 +211,15 @@ export const RunRecordSchema = z.object({
   issues: IssueLinksSchema.exactOptional(),
 });
 
-/** The step "gather-knowledge": the knowledge summary and the lessons of the retros already merged. */
+/** The step "gather-knowledge": the knowledge summary, the playbook's rules (a step saved before them
+ * has none) and the lessons of the retros already merged. */
 export const KnownSchema = z.object({
-  knowledge: z.object({ principles: z.array(z.unknown()), laws: z.array(z.unknown()), decisions: z.array(z.unknown()) }),
+  knowledge: z.object({
+    principles: z.array(z.unknown()),
+    laws: z.array(z.unknown()),
+    decisions: z.array(z.unknown()),
+    playbook: z.array(z.object({ id: text, line: text })).exactOptional(),
+  }),
   lessons: z.array(text),
 });
 
