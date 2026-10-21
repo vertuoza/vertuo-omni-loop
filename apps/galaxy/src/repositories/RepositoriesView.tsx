@@ -117,7 +117,7 @@ function SkillList({ row, read, disabled, on }: { row: RepositoryRow; read: Skil
   return (
     <>
       {read.error && <p className="repositories-skills-error" role="status">Skills could not be read: {read.error}</p>}
-      {!read.error && read.skills.length === 0 && <p className="ask-muted">No skills in .claude/skills on the default branch.</p>}
+      {!read.error && read.skills.length === 0 && <p className="ask-muted">No skills on the default branch.</p>}
       <ul className="repositories-skill-list">
         {read.skills.map((skill) => (
           <li key={skill.name} className="repositories-skill" data-skill={skill.name}>
