@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { RUNNER_SKILLS } from './runners.contract';
 
 const read = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../${path}`, import.meta.url)), 'utf8');
-const MIGRATION = read('supabase/migrations/20261221090000_repository_runner_skills.sql');
+const MIGRATION = read('supabase/migrations/20261222090000_repository_runner_skills.sql');
 const CODE = MIGRATION.replace(/--.*$/gm, '').replace(/\s+/g, ' ');
 const TYPES = read('supabase/database.types.ts');
 

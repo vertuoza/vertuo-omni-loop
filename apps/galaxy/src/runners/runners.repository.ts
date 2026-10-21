@@ -246,7 +246,7 @@ export function runnersRepository(db: RunnersDb) {
       parsed(db.rpc('runners_mark_lost', { p_cutoff: cutoff }), z.number(), 'runners_mark_lost()'),
 
     /** The repository's own skills its workspace's owner allowed on the runners, in order (PRD 2313;
-     * repository_runner_skills_of(), supabase/migrations/20261221090000_repository_runner_skills.sql). */
+     * repository_runner_skills_of(), supabase/migrations/20261222090000_repository_runner_skills.sql). */
     allowedSkills: async (workspaceId: string, repo: string): Promise<string[]> =>
       parsed(db.rpc('repository_runner_skills_of', { p_workspace: workspaceId, p_full_name: repo }), z.array(z.string()), 'repository_runner_skills_of()'),
 
