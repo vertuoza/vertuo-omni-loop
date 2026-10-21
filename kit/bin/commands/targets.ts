@@ -10,7 +10,8 @@
 // `.omni-loop/local/product-targets.json`; when the server cannot be reached, that copy is read and
 // `targets from the last read, <date> · server unreachable` is printed first (on stderr with
 // `--json`). With no copy, no Omni page, no sign-in, a link with no role or the server's refusal, it
-// prints the one line saying so and exits 1.
+// prints the one line saying so and exits 1. A target whose role is not one of the nine canonical roles
+// (PRD 2346) reads `drifted`, its detail naming the role and the nine.
 //
 // It runs before a context exists, like `roadmap`, so that a test can hand it `tokens`, `home`,
 // `fetch`, `callMs` and `now`; it loads the context itself.
@@ -19,7 +20,7 @@ import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { readTargets, targetsTable } from '../../lib/plan-repo/targets.ts';
 import type { Target } from '../../lib/plan-repo/targets.ts';
-import { productTargetList } from '../../lib/product/targets.ts';
+import { flagRoles, productTargetList } from '../../lib/product/targets.ts';
 import { githubEnv } from '../github.ts';
 import { parseArgs, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo, Out } from '../io.ts';
@@ -64,7 +65,7 @@ export const targets: FreeCommand = {
       println(stdout, list);
       return 1;
     }
-    const rows = readTargets(list, { ctx, exec, env: githubEnv(ctx, { exec, env }) });
+    const rows = flagRoles(readTargets(list, { ctx, exec, env: githubEnv(ctx, { exec, env }) }));
     if (flags.json) println(stdout, JSON.stringify(rows, null, 2));
     else for (const line of targetsTable(rows)) println(stdout, line);
     return rows.every((row) => row.state === 'ok') ? 0 : 1;

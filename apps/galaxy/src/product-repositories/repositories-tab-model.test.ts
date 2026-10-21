@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Link } from './repositories-tab.contract';
-import { demoTabPort, draftOf, initialLinksForm, initialPlanForm, ladderHolds, linksReducer, newLinkWrite, planReducer, writeOf } from './repositories-tab-model';
+import { demoTabPort, draftOf, initialLinksForm, initialPlanForm, ladderHolds, linksReducer, newLinkWrite, planReducer, roleFlag, writeOf } from './repositories-tab-model';
 
 // The Repositories & approvers tab's links as pure data (PRD 1364 s11): the list through its actions, a
 // draft and the write it sends, the plan repository through its actions and what holds it on the ladder,
@@ -71,13 +71,24 @@ describe('the plan repository', () => {
 describe('the demo\'s port', () => {
   it('keeps the database\'s rules on a link', async () => {
     const port = demoTabPort([link('acme/api', { addedBy: 'prd' })], []);
-    expect(await port.saveLink({ ...newLinkWrite('acme/web'), role: 'Web App' })).toEqual({ ok: false, message: 'Role: Web App is not one kebab-case word.' });
+    expect(await port.saveLink({ ...newLinkWrite('acme/web'), role: 'Web App' })).toEqual({ ok: false, message: 'Role: Web App is not a role: api, web, mobile, ui, library, infra, plan, doc or monorepo.' });
+    expect(await port.saveLink({ ...newLinkWrite('acme/web'), role: 'back-end' })).toMatchObject({ ok: false, message: expect.stringContaining('Role: back-end is not a role') as unknown });
     expect(await port.saveLink({ ...newLinkWrite('acme/web'), knowledge: 'imported' })).toEqual({ ok: false, message: 'Read at: an imported knowledge base names the commit it was read at.' });
     expect(await port.saveLink({ ...newLinkWrite('acme/web'), readAt: 'abc' })).toMatchObject({ ok: false, message: 'Read at: abc is not a 40-hex commit.' });
     expect(await port.saveLink({ ...newLinkWrite('acme/web'), consumes: ['acme/web'] })).toMatchObject({ ok: false, message: 'Consumes: acme/web cannot consume itself.' });
     expect(await port.saveLink({ ...newLinkWrite('acme/web'), consumes: ['acme/zed'] })).toMatchObject({ ok: false, message: 'Consumes: acme/zed is not in this product.' });
     expect(await port.saveLink({ ...newLinkWrite('Acme/Web'), consumes: ['acme/api'] })).toEqual({ ok: true, link: link('acme/web', { consumes: ['acme/api'] }) });
     expect(await port.saveLink({ ...newLinkWrite('acme/api'), role: 'api' })).toEqual({ ok: true, link: link('acme/api', { role: 'api', addedBy: 'prd' }) });
+  });
+
+  it('keeps a link\'s own old role editable, and flags it until it is one of the nine', async () => {
+    const port = demoTabPort([link('acme/api', { role: 'back-end' })], []);
+    expect(roleFlag('back-end')).toBe('back-end is not a role: pick one');
+    expect(roleFlag('api')).toBeNull();
+    expect(roleFlag(null)).toBeNull();
+    expect(await port.saveLink({ ...newLinkWrite('acme/api'), role: 'back-end', knowledge: 'none' })).toMatchObject({ ok: true });
+    expect(await port.saveLink({ ...newLinkWrite('acme/api'), role: 'other-old' })).toMatchObject({ ok: false });
+    expect(await port.saveLink({ ...newLinkWrite('acme/api'), role: 'library' })).toMatchObject({ ok: true });
   });
 
   it('refuses to remove a repository another consumes, then removes it once it is free', async () => {

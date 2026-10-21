@@ -25,10 +25,12 @@ import type { Fetch, TokenStore } from '../ask/client.ts';
 import { credentialsHost, signedInClient } from '../ask/credentials.ts';
 import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
 import { TARGET_KNOWLEDGE } from '../config.ts';
+import { isRole, roleList } from '../layers/layers.ts';
 import { createContext } from '../context.ts';
 import type { Context, ExecText } from '../context.ts';
 import { mainCheckout } from '../dossier/local.ts';
 import { messageOf } from '../narrow.ts';
+import type { TargetRow } from '../plan-repo/targets.ts';
 import type { Config } from '../types.ts';
 
 /** One target, as `plan.targets` holds it. */
@@ -196,4 +198,18 @@ export async function withProductTargets(ctx: Context, io: ProductTargetsIo, not
   if (plan?.product === undefined) return ctx;
   const targets = await productTargetList({ ctx, product: plan.product, repo: ctx.config.repo.slug }, io, note);
   return typeof targets === 'string' ? targets : createContext(ctx.root, { ...ctx.config, plan: { ...plan, targets } });
+}
+
+/**
+ * `omni targets` rows with each role that is not one of the nine canonical roles (PRD 2346) flagged: the
+ * row reads `drifted` (when it was `ok`), its detail naming the role and the nine, so a person picks one on
+ * the product's Repositories tab or in `plan.targets`. An alias such as `back-end` is flagged too: the
+ * migration maps what it can, and a role that is still an alias was never mapped.
+ */
+export function flagRoles(rows: readonly TargetRow[]): TargetRow[] {
+  return rows.map((row) => {
+    if (isRole(row.role)) return row;
+    const flag = `role ${row.role} is not a role: pick one of ${roleList()}`;
+    return { ...row, state: row.state === 'ok' ? 'drifted' : row.state, detail: row.detail === null ? flag : `${row.detail}; ${flag}` };
+  });
 }
