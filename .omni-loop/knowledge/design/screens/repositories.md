@@ -28,7 +28,11 @@ each one's switches. A member reads the same list, and only switches Public idea
   - one chip per product that links it;
   - the Public ideas, Phase 0 on the server, Tracked and Fix on a runner once answered (PRD 2270,
     on by default) switches;
-  - **Remove**, quiet, for the owner.
+  - **Remove**, quiet, for the owner;
+  - **Runner skills (n),** closed by default (PRD 2313): one line per `.claude/skills/<name>/SKILL.md`
+    on the default branch, its `/name` with its description as a tooltip, `allowed by @<login> on
+    <date>` once allowed, **Gone: no longer on <default branch>** for an allowed skill that left it,
+    and an **Allow on runner** switch, the owner's only.
 - **Removed (n),** collapsed, under the list, absent at 0: each removed repository, `removed <ago>`,
   and **Add back** for the owner.
 - **Missing one? Give the Omni App access on GitHub →** under the list.
@@ -38,6 +42,8 @@ each one's switches. A member reads the same list, and only switches Public idea
 - No repositories yet.
 - Busy: every control waits while a call is on its way.
 - Refused: the refusal in the head card.
+- Runner skills could not be read: `Skills could not be read: <why>`, the allowed skills still
+  listed.
 - Remove pressed: the browser's confirm, naming the products it leaves and the plan repository it
   clears; cancelled, nothing changes.
 
@@ -50,6 +56,8 @@ each one's switches. A member reads the same list, and only switches Public idea
 
 ## Refusals
 
+- A member never turns Allow on runner on or off.
+- A skill's description is never text at rest.
 - A member never sees Remove or Add back.
 - Remove never deletes a repository's ideas, pull requests or knowledge packs.
 
@@ -62,3 +70,4 @@ each one's switches. A member reads the same list, and only switches Public idea
 
 /omni:brainstorm, PRD 2188: .omni-loop/delivery/shipped/2188-remove-repository/before-after.html
 /omni:brainstorm, PRD 2270: .omni-loop/delivery/shipped/2270-fix-when-answered/before-after.html
+/omni:brainstorm, PRD 2313: .omni-loop/delivery/inbox/2313-runner-repo-skills/before-after.html
