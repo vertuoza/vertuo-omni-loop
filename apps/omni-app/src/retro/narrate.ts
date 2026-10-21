@@ -8,7 +8,8 @@
 // title, what happened and its evidence — a label, a URL and, when the kind gave one, an `excerpt`
 // (a failed job's log tail, a churned hunk, a comment's text). A finding's evidence is listed oldest
 // first. For the judge (PRD 487) it is also given the knowledge summary — one line per principle,
-// rule, invariant and ADR, from the kit's `knowledgeSummary` — and the lessons of the retros already
+// rule, invariant and ADR, from the kit's `knowledgeSummary`, and per playbook rule, from its
+// `playbookLines` — and the lessons of the retros already
 // merged, and its system prompt quotes the kit's `LOOK_RULE` word for word. Every string is masked of
 // token-shaped secrets first. The whole request is capped at `LIMITS.modelInputTokens`, counted as
 // `CHARS_PER_TOKEN` characters a token: past it, the older log excerpts of each check go first,
@@ -25,7 +26,8 @@
 // The contract the function relies on:
 //   in:  { sheet, prd: { title, problem }, knowledge?, lessons?, openrouter, fetch }
 //        `knowledge` is what the kit's `knowledgeSummary` returns (its `principles`, `laws` and
-//        `decisions` are read), `lessons` the `lessons[].text` of earlier retros, oldest first.
+//        `decisions` are read), with `playbook`, the kit's `playbookLines`; `lessons` the
+//        `lessons[].text` of earlier retros, oldest first.
 //   out: { model: string | null, reply: object | null, reason: string | null }
 //        `reply` null means facts only, and `reason` says why ("no model key", "model unavailable (500)").
 //        `reply` is the model's JSON: `{ summary, findings: { [id]: { title, whyItMatters, lesson?,
@@ -65,7 +67,7 @@ export type NarrateSheet = { findings?: readonly NarratedFinding[] } | null;
 export type NarratePrd = { title?: string | null; problem?: string | null } | null;
 
 /** The kit's knowledge summary, as far as the model is given it. */
-export type KnowledgeInput = { principles?: unknown; laws?: unknown; decisions?: unknown } | null;
+export type KnowledgeInput = { principles?: unknown; laws?: unknown; decisions?: unknown; playbook?: unknown } | null;
 
 /** One finding's words, as the model wrote them. */
 const ReplyFindingSchema = z.object({
@@ -180,18 +182,20 @@ export function modelInput({
 }
 
 /**
- * The knowledge summary, one `{ id, line }` per principle, rule or invariant (its statement) and ADR
- * (its title), in that order.
+ * The knowledge summary, one `{ id, line }` per principle, rule or invariant (its statement), playbook
+ * rule (`playbook/<form>#<slot>`, its line) and ADR (its title), in that order: the input's cut drops
+ * the last first, so an ADR title goes before a rule agents follow.
  */
 export function knowledgeLines(summary: KnowledgeInput | undefined): { id: string; line: string }[] {
   const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
   const read = propertyOf;
   const entries = [...list(summary?.principles), ...list(summary?.laws)].map((entry) => ({ id: read(entry, 'id'), line: read(entry, 'statement') }));
+  const playbook = list(summary?.playbook).map((entry) => ({ id: read(entry, 'id'), line: read(entry, 'line') }));
   const records = list(summary?.decisions).map((record) => ({
     id: `ADR-${String(read(record, 'number')).padStart(4, '0')}`,
     line: read(record, 'title'),
   }));
-  return [...entries, ...records]
+  return [...entries, ...playbook, ...records]
     .filter((entry): entry is { id: string; line: string } => typeof entry.id === 'string' && typeof entry.line === 'string')
     .map((entry) => ({ id: maskSecrets(entry.id), line: maskSecrets(firstLineOf(entry.line)) }));
 }

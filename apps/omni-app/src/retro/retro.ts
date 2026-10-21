@@ -67,6 +67,7 @@ import { listComments } from '../outbox-check/github.ts';
 import { firstLine } from '../outbox-check/github-schema.ts';
 import { detect } from './detect.ts';
 import { knowledgeSummary } from 'vertuo-omni-plan/kit/lib/knowledge/classify.ts';
+import { playbookLines } from 'vertuo-omni-plan/kit/lib/playbook/lines.ts';
 import { withTreeAt } from '../knowledge-harvest/github.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { parseSaved, savedStep, type StepRun } from '../saved-step.ts';
@@ -459,8 +460,9 @@ function lessonsOf(prose: Prose | null): Lesson[] {
 
 /**
  * What the judge compares a retro with, read at the merge commit `sha`: the knowledge summary (the
- * kit's `knowledgeSummary`, over the knowledge folder snapshotted through the harvest's `withTreeAt`)
- * and the lessons of the retros already merged (every `lessons[].text` of each run in the
+ * kit's `knowledgeSummary`, over the knowledge folder snapshotted through the harvest's `withTreeAt`),
+ * the playbook's rules, one line each (the kit's `playbookLines`: a rule kept only in a form was once
+ * judged "stated nowhere", #2207), and the lessons of the retros already merged (every `lessons[].text` of each run in the
  * `retro.json` files of the shipped folder), oldest PRD first, each once. Only the config and the
  * knowledge folders are snapshotted, never the whole delivery folder: of it, the shipped folder is
  * listed in one request and only its `retro.json` files are read.
@@ -469,13 +471,14 @@ export async function gatherKnowledge(
   octokit: Octokit,
   { owner, repo, sha, config }: { owner: string; repo: string; sha: string; config: Config },
 ): Promise<Known> {
-  const narrowed = { ...config, paths: { ...config.paths, delivery: null, playbook: null, glossary: null } };
-  const summary = await withTreeAt(octokit, { owner, repo, sha, config: narrowed }, (ctx: Parameters<typeof knowledgeSummary>[0]['ctx']) =>
-    knowledgeSummary({ ctx }),
-  );
+  const narrowed = { ...config, paths: { ...config.paths, delivery: null, glossary: null } };
+  const summary = await withTreeAt(octokit, { owner, repo, sha, config: narrowed }, (ctx) => ({
+    ...knowledgeSummary({ ctx }),
+    playbook: playbookLines({ ctx }),
+  }));
   const shipped = foldersLayout('', config.paths).dirs.shipped;
   return {
-    knowledge: { principles: summary.principles, laws: summary.laws, decisions: summary.decisions },
+    knowledge: { principles: summary.principles, laws: summary.laws, decisions: summary.decisions, playbook: summary.playbook },
     lessons: lessonsIn(await retroFilesAt(octokit, { owner, repo, sha, dir: shipped })),
   };
 }

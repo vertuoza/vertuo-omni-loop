@@ -1,5 +1,5 @@
 {
-  "about": "PRD 438 (feature PR #440 and its sub-PRs #449, #456, #457, #458), as GitHub returned them to the retro's reads, recorded 2026-09-28 from the GitHub API through the retro function itself. Trimmed to what the retro reads: API links, node ids, user and repository objects dropped; the pull requests' file lists without their patches (the commits keep theirs); the shipped retro.json blobs reduced to each run's name, since the judge reads only their lessons and none held any yet. The trees and the other blobs at the merge SHA are the merge commit's own git objects.",
+  "about": "PRD 438 (feature PR #440 and its sub-PRs #449, #456, #457, #458), as GitHub returned them to the retro's reads, recorded 2026-09-28 from the GitHub API through the retro function itself. Trimmed to what the retro reads: API links, node ids, user and repository objects dropped; the pull requests' file lists without their patches (the commits keep theirs); the shipped retro.json blobs reduced to each run's name, since the judge reads only their lessons and none held any yet. The trees and the other blobs at the merge SHA are the merge commit's own git objects. The playbook folder's tree at the merge was added on 2026-10-21, fetched from the GitHub API and trimmed the same way, when the judge began reading the playbook: a commit's tree never changes.",
   "notRecorded": [
     "Writes: the double keeps them in memory.",
     "The feature PR's comments: the double answers them from what the run wrote."
@@ -9932,6 +9932,105 @@
         "size": 44470,
         "encoding": "base64",
         "content": "ewogICJwcmQiOiAzMjQsCiAgInJ1bnMiOiBbCiAgICB7CiAgICAgICJydW4iOiAibWVyZ2UiCiAgICB9CiAgXQp9Cg=="
+      }
+    },
+    {
+      "route": "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+      "params": {
+        "owner": "vertuoza",
+        "repo": "vertuo-omni-loop",
+        "tree_sha": "1b602b529aba85f5bd734a3e9fc39ff9f9a33a05",
+        "recursive": "1"
+      },
+      "data": {
+        "sha": "1b602b529aba85f5bd734a3e9fc39ff9f9a33a05",
+        "tree": [
+          {
+            "path": "architecture.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "6ab935fdfe387c999b6ed3543b9747c0a021fa3e",
+            "size": 2406
+          },
+          {
+            "path": "briefing.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "340089225c9113e39b5e4bfe7ddc3197f8d6de90",
+            "size": 1587
+          },
+          {
+            "path": "bug-fixing.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "fe0c8f69208ae78d98dbf36a25c1ddc13b8380c0",
+            "size": 260
+          },
+          {
+            "path": "ci.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "cf27debdc05f547382434b962b17a26ca67e5925",
+            "size": 1553
+          },
+          {
+            "path": "conventions.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "27fdc554411fccc500354d92a3537ccc684e6b9b",
+            "size": 930
+          },
+          {
+            "path": "definition-of-done.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "085772c8b1c328c5e61dcffcfc06c7dc85435c8a",
+            "size": 347
+          },
+          {
+            "path": "glossary.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "416db575bf6ab23855929e7f4fc0433a0e90d77c",
+            "size": 237
+          },
+          {
+            "path": "pull-requests.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "465f1cbf94bb6845f43899be44f31549bca6639a",
+            "size": 509
+          },
+          {
+            "path": "releasing.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "cc64626039c2838f3fcc9842753bf184e3de4789",
+            "size": 1685
+          },
+          {
+            "path": "setup.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "6b69acc8ed51dbf5e4d831753a0dd8b624ceb743",
+            "size": 1627
+          },
+          {
+            "path": "testing.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "81eeb9e7928a6d6f7a637a68e703831aaae51931",
+            "size": 1922
+          },
+          {
+            "path": "verification.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "45c110da9650a14625a10cb0f0a5c83d43fec8c5",
+            "size": 1138
+          }
+        ],
+        "truncated": false
       }
     }
   ]
