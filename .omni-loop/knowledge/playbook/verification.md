@@ -15,7 +15,7 @@ evidence:
   - scripts/lint.ts@efc3f1b
   - scripts/lint-repository.ts@b154f4c
   - .github/workflows/checks.yml@af9027a
-  - scripts/check-changed-hooks.ts@c844953
+  - scripts/check-changed-hooks.ts@d6db638
   - .github/workflows/quick.yml@2fe8e9e
 invaded: 2026-10-20
 ---
@@ -62,11 +62,15 @@ for them: a break in a file the change did not touch slips past it.
 tests, and in a bug fix, run `pnpm mutation:changed --base origin/<feature branch>` (a few minutes per
 file) and add or tighten a test for each survivor in the code you changed. A pull request never lowers a
 floor in `mutation/floor.json`; the `mutation` workflow runs the whole core every night at 02:00 UTC and on
-demand, outside the required checks, and shows a module below its floor in its job summary.
+demand, outside the required checks, and shows a module below its floor in its job summary. A red
+night on `main` opens one `Mutation: the nightly run is red` issue assigned to the laws' owners,
+commented each later red night and closed once green (`scripts/mutation-alert.ts`).
 
 `pnpm install` turns on two git hooks (`.githooks/`) for every agent and person: **pre-commit**
 runs `fallow audit` of the work tree committed (~1 s), **pre-push** `check:changed`'s typecheck and
-lint from the upstream, else `origin/main` (~10 s). Both fail closed. Tests are left to CI: a hook
+lint from the upstream, else `origin/main` (~10 s), plus, when the push touches a migration or
+`supabase/database.types.ts`, the types drift check against the local database (refused on drift,
+only warned when no local database answers). Both fail closed. Tests are left to CI: a hook
 that costs minutes buys the habit of skipping it. A green commit is not a green branch. Never skip
 a hook.
 

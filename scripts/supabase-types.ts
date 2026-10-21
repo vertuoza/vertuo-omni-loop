@@ -9,7 +9,8 @@
 // --workdir is passed to the CLI (a copy of supabase/ on other ports, say); --file names another
 // committed file (the tests use it).
 //
-// Exit codes: 0 written (or no drift), 1 drift, a generator failure, or a bad argument.
+// Exit codes: 0 written (or no drift), 1 drift or a bad argument, 2 the generator could not run (no
+// local database, no `supabase` CLI): the pre-push hook tells that apart from drift.
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -85,7 +86,7 @@ export function main(argv: string[]): number {
   const generated = generate(args.workdir);
   if (!generated.ok) {
     console.error(generated.error);
-    return 1;
+    return 2;
   }
   if (!args.check) {
     writeFileSync(args.file, generated.types);

@@ -108,9 +108,9 @@ describe('node scripts/supabase-types.ts', () => {
     expect(r.stderr).toMatch(/no committed types/);
   });
 
-  it('fails, writing nothing, when the generator fails', () => {
+  it('fails with exit 2, writing nothing, when the generator cannot run', () => {
     const r = run([], { generated: GENERATED, genExit: 1 });
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(2);
     expect(r.stderr).toContain('supabase: no database');
     expect(r.file).toBeNull();
   });
