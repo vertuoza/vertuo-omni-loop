@@ -17311,6 +17311,40 @@ function detect({ run, pr, prd, config, pulls, records, kinds = kindsFor(run) })
   };
 }
 
+// kit/lib/playbook/lines.ts
+var LINE_MAX = 240;
+var BOLD_HEAD = /^\*\*(.+?)\*\*\s*/;
+var NOT_PROSE = /^[|`#>]/;
+function firstSentence2(text15) {
+  const end = text15.search(/[.?!]\s/);
+  return end === -1 ? text15 : text15.slice(0, end + 1);
+}
+function lineOf3(item) {
+  const flat = item.replace(/\s+/g, " ").trim();
+  const bold = BOLD_HEAD.exec(flat);
+  const line = bold ? `${bold[1] ?? ""} ${firstSentence2(flat.slice(bold[0].length))}`.trim() : firstSentence2(flat);
+  return line.length > LINE_MAX ? `${line.slice(0, LINE_MAX - 1)}\u2026` : line;
+}
+function rulesOf(paragraph) {
+  const rows = paragraph.split("\n");
+  const starts = rows.flatMap((row, at4) => /^[-*] /.test(row) ? [at4] : []);
+  const items = starts.length > 0 ? starts.map((at4, k) => rows.slice(at4, starts[k + 1]).join(" ").slice(2)) : [paragraph];
+  return items.filter((item) => !NOT_PROSE.test(item.trim())).map(lineOf3).filter(Boolean);
+}
+function formLines(form2) {
+  return form2.slots.flatMap((slot) => {
+    if (slot.body.kind !== "text") return [];
+    const id = `playbook/${form2.id}#${slot.id}`;
+    return slot.body.text.split(/\n\s*\n/).flatMap(rulesOf).map((line) => ({ id, line }));
+  });
+}
+function playbookLines({ ctx }) {
+  return FORM_IDS.flatMap((id) => {
+    const read = readForm(id, { ctx });
+    return read.exists && read.ok ? formLines(read.form) : [];
+  });
+}
+
 // apps/omni-app/src/retro/retro.schema.ts
 import { z as z58 } from "zod";
 
@@ -17384,11 +17418,12 @@ function knowledgeLines(summary2) {
   const list2 = (value) => Array.isArray(value) ? value : [];
   const read = propertyOf;
   const entries = [...list2(summary2?.principles), ...list2(summary2?.laws)].map((entry) => ({ id: read(entry, "id"), line: read(entry, "statement") }));
+  const playbook = list2(summary2?.playbook).map((entry) => ({ id: read(entry, "id"), line: read(entry, "line") }));
   const records = list2(summary2?.decisions).map((record) => ({
     id: `ADR-${String(read(record, "number")).padStart(4, "0")}`,
     line: read(record, "title")
   }));
-  return [...entries, ...records].filter((entry) => typeof entry.id === "string" && typeof entry.line === "string").map((entry) => ({ id: maskSecrets(entry.id), line: maskSecrets(firstLineOf(entry.line)) }));
+  return [...entries, ...playbook, ...records].filter((entry) => typeof entry.id === "string" && typeof entry.line === "string").map((entry) => ({ id: maskSecrets(entry.id), line: maskSecrets(firstLineOf(entry.line)) }));
 }
 function firstLineOf(text15) {
   return text15.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
@@ -17663,7 +17698,12 @@ var RunRecordSchema = z58.object({
   issues: IssueLinksSchema.exactOptional()
 });
 var KnownSchema = z58.object({
-  knowledge: z58.object({ principles: z58.array(z58.unknown()), laws: z58.array(z58.unknown()), decisions: z58.array(z58.unknown()) }),
+  knowledge: z58.object({
+    principles: z58.array(z58.unknown()),
+    laws: z58.array(z58.unknown()),
+    decisions: z58.array(z58.unknown()),
+    playbook: z58.array(z58.object({ id: text13, line: text13 })).exactOptional()
+  }),
   lessons: z58.array(text13)
 });
 var PublishedSchema2 = z58.object({
@@ -18628,15 +18668,14 @@ function lessonsOf(prose) {
   return (prose?.lessons ?? []).filter((lesson) => lesson.text && !lesson.text.startsWith("_Dropped: ")).map((lesson) => ({ text: lesson.text, findings: [...lesson.findings] }));
 }
 async function gatherKnowledge(octokit, { owner, repo, sha, config }) {
-  const narrowed = { ...config, paths: { ...config.paths, delivery: null, playbook: null, glossary: null } };
-  const summary2 = await withTreeAt(
-    octokit,
-    { owner, repo, sha, config: narrowed },
-    (ctx) => knowledgeSummary({ ctx })
-  );
+  const narrowed = { ...config, paths: { ...config.paths, delivery: null, glossary: null } };
+  const summary2 = await withTreeAt(octokit, { owner, repo, sha, config: narrowed }, (ctx) => ({
+    ...knowledgeSummary({ ctx }),
+    playbook: playbookLines({ ctx })
+  }));
   const shipped = foldersLayout("", config.paths).dirs.shipped;
   return {
-    knowledge: { principles: summary2.principles, laws: summary2.laws, decisions: summary2.decisions },
+    knowledge: { principles: summary2.principles, laws: summary2.laws, decisions: summary2.decisions, playbook: summary2.playbook },
     lessons: lessonsIn(await retroFilesAt(octokit, { owner, repo, sha, dir: shipped }))
   };
 }
