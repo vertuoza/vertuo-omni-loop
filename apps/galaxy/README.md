@@ -7,8 +7,8 @@ GitHub makes you a member of the workspace of every GitHub org of yours that has
 fleet, enter a name and build a hero, and your pull requests score for that fleet. Every point also
 counts as XP, which never resets (it restarted at 0 once, at PRD 728's fresh start, keeping every
 game already unlocked: [`game/README.md` › The fresh start](../../game/README.md#the-fresh-start)),
-and levels open arcade games in the game room: Entropy Invaders from LV 1, SUPER OMNI WORLD
-from LV 2, OMNI KART from LV 3, OMNI DUET from LV 4, then OMNI PONG from LV 5 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
+and levels open arcade games in the game room: Entropy Invaders from LV 1, STARHOP
+from LV 2, OMNI KART from LV 3, OMNI DUET from LV 4, then PULSAR VOLLEY from LV 5 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
 Game Boy's buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
@@ -129,7 +129,7 @@ HOME.
 | Hall of Heroes | Season high-score table from `game/economy.ts`, with each player's hero and name |
 | Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
-| SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
+| STARHOP | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
 | OMNI KART | The third game, from LV 3: a Mode 7 kart race of three laps on COMET RING or FROST EIGHT (picked at the CIRCUIT step) against five rivals, item boxes (BOOST, BLOB, ORB), the race time sent at the finish to the circuit's board (the lowest is kept) |
 | How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.ts` so they never drift |
 
@@ -837,8 +837,8 @@ off, no row exists, and every player sees NO XP YET.
 - **`games`**, the room (`src/arcade/games/room.ts`): the level, the XP bar and the XP to the next
   level (`LV 3 · 180 / 300 XP`, `120 XP to LV 4`), then a cabinet per game in the registry
   (`src/arcade/games/index.ts`). A lit cabinet shows the crew's top five, the player's own line
-  highlighted, and A · PLAY; a locked one is dark and shows the level it opens at (SUPER OMNI WORLD:
-  `REACH LV 2 TO PLAY`; OMNI KART: `REACH LV 3 TO PLAY`; OMNI DUET: `REACH LV 4 TO PLAY`; OMNI PONG:
+  highlighted, and A · PLAY; a locked one is dark and shows the level it opens at (STARHOP:
+  `REACH LV 2 TO PLAY`; OMNI KART: `REACH LV 3 TO PLAY`; OMNI DUET: `REACH LV 4 TO PLAY`; PULSAR VOLLEY:
   `REACH LV 5 TO PLAY`). A visitor
   sees every cabinet locked and "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE
   YOUR FIRST POINT", and XP that could not be read "XP OUT OF REACH". The wide grid stands a window of
@@ -868,7 +868,7 @@ off, no row exists, and every player sees NO XP YET.
   The screen says SAVING SCORE…, then NEW BEST, YOUR BEST n, or SCORE NOT SAVED, where A retries
   once and B goes back to the room; otherwise A, B or START go back. Playing never earns points or
   XP.
-- **`platformer`**, SUPER OMNI WORLD (PRD 817), opened at LV 2 (`xp.unlocks.platformer` in the
+- **`platformer`**, STARHOP (PRD 817), opened at LV 2 (`xp.unlocks.platformer` in the
   rulebook): an original side-scrolling platformer in the SNES style, on Phaser 4, which is imported
   only when the game opens (`src/arcade/platformer/PlatformerScreen.tsx`, the one way in; a failed
   import says `GAME DID NOT LOAD · A TO RETRY`). The player's own hero runs (◀ ▶, B held to run),
@@ -1187,7 +1187,7 @@ off, no row exists, and every player sees NO XP YET.
   to the room. The run is a pure phase machine in fixed 1/60 s steps (`duet/run.ts`), so it plays the
   same at any frame rate, in one 320×288 playfield on both grids; its numbers are one block,
   `duet/rules.ts`. It is silent.
-- **`pong`**, OMNI PONG (PRD 2101), opened at LV 5 (`xp.unlocks.pong` in the rulebook): a Pong against
+- **`pong`**, PULSAR VOLLEY (PRD 2101), opened at LV 5 (`xp.unlocks.pong` in the rulebook): a Pong against
   an AI, steered by the player's voice alone. Its code is `src/arcade/pong/`, imported only when the
   cabinet opens (`LOADING…` meanwhile; a failed import says `GAME DID NOT LOAD · A TO RETRY`); nothing
   outside that folder imports it at run time (`pong/guard.test.ts`). The ready screen reads
@@ -1214,10 +1214,10 @@ off, no row exists, and every player sees NO XP YET.
   (`pong/policy.test.ts`). It is silent.
 - **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
   `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
-  picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a
+  picker, `ENTROPY INVADERS` and `STARHOP`, ▲ ▼ to choose, A to play, B to fold. B on a
   game's ready, pause or game-over screen goes back to the picker, and the last choice is
   remembered for the tab's session. A question on the page pauses the game at once and only START
-  resumes it. The dock does not send SUPER OMNI WORLD's score.
+  resumes it. The dock does not send STARHOP's score.
 
 ## PRD dossiers
 

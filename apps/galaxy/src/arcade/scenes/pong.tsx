@@ -1,5 +1,5 @@
 'use client';
-// OMNI PONG's text layer (PRD 2101), over the arcade's canvas: the loading line, the failure line with
+// PULSAR VOLLEY's text layer (PRD 2101), over the arcade's canvas: the loading line, the failure line with
 // its way back, and the ready screen: the title, the limit (◀ PITCH · MID ▶), how to steer
 // (HIGH ▲ · LOW ▼) and A to turn on the microphone; once it is on, the pitch meter live and START to
 // play; refused or missing, MIC REQUIRED with its reason and A to ask again. Then the match's HUD (the
@@ -151,7 +151,7 @@ export function PongOverlay({ status, hud = null, back = 'BACK', send = null }: 
   return <Notice line={status === 'failed' ? NOT_LOADED : LOADING_LINE} back={back} />;
 }
 
-/** The arcade's OMNI PONG layer: its overlay once the cabinet has opened, nothing before. */
+/** The arcade's PULSAR VOLLEY layer: its overlay once the cabinet has opened, nothing before. */
 export function PongLayer({ pong, send = null }: { pong: ArcadePong | null; send?: ScoreSend | null }) {
   return pong ? <PongOverlay status={pong.status} hud={pong.hud} send={send} /> : null;
 }

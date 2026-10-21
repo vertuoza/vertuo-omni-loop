@@ -1,4 +1,4 @@
-// Super Omni World's Phaser scene (PRD 817): the stage as a tilemap, the hero in the arcade
+// Starhop's Phaser scene (PRD 817): the stage as a tilemap, the hero in the arcade
 // physics, the camera following to the right, the Entropy blobs walking, the coins to take and the
 // ? blocks to bump. It only plays: the arcade's held buttons come in each frame (`held`), and what
 // happens goes out as events (`onEvent`: a coin, a stomp, a hurt, a pit, the flag, and each second

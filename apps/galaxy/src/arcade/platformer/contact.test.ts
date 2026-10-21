@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { blockBumped, clockSeconds, enemyContact, enemyTurn, enemyWakes, heroFell, heroAtFlag } from './contact';
 import { PHYSICS, TILE } from './rules';
 
-// How Super Omni World's scene turns what Phaser's arcade physics reports into the rules' events
+// How Starhop's scene turns what Phaser's arcade physics reports into the rules' events
 // (PRD 817), with Phaser stubbed: the bodies and tiles below are plain objects shaped like the ones
 // Phaser hands the scene's collision callbacks, and nothing here loads Phaser.
 

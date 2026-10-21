@@ -6,7 +6,7 @@ import { failedPress, NOT_LOADED, ScreenNotice, startPlatformer, worldScenes, ty
 import type { SceneOptions } from './scene';
 import { sure } from '../test/sure';
 
-// The one way into Super Omni World (PRD 817), with Phaser replaced by a stub module: nothing here
+// The one way into Starhop (PRD 817), with Phaser replaced by a stub module: nothing here
 // loads Phaser. The controller is what the component runs on mount (start), on its props (pause,
 // resume, retry) and on unmount (destroy); the React wiring itself is checked in the browser.
 

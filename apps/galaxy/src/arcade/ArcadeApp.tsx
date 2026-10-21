@@ -83,13 +83,13 @@ const playGame = (e: GameEvent, g: Game) => { if (e === 'march') march(g.marchSt
 const GAME_GRID = { wide: WIDE, tall: TALL } as const;
 // Entropy Invaders' key in the registry: its crew table's, and the one its scores are sent under.
 const INVADERS = GAMES.find((g) => g.scene === 'invaders')?.id ?? 'invaders';
-// Super Omni World's key in the registry: its scores are sent under it (PRD 817).
+// Starhop's key in the registry: its scores are sent under it (PRD 817).
 const PLATFORMER = GAMES.find((g) => g.scene === 'platformer')?.id ?? 'platformer';
 // OMNI KART's key in the registry: its scores are sent under it (PRD 1359).
 const KART = GAMES.find((g) => g.scene === 'kart')?.id ?? 'kart';
 // OMNI DUET's key in the registry: its scores are sent under it (PRD 1633).
 const DUET = GAMES.find((g) => g.scene === 'duet')?.id ?? 'duet';
-// OMNI PONG's key in the registry: its scores are sent under it (PRD 2101).
+// PULSAR VOLLEY's key in the registry: its scores are sent under it (PRD 2101).
 const PONG = GAMES.find((g) => g.scene === 'pong')?.id ?? 'pong';
 // The games: they read the pad's buttons held, so a key held down is never a repeat of its press.
 /** Keys that are not an answer for KEYS: a modifier on its own. */
@@ -355,7 +355,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const attempt = sending(score, tries);
     const board = scoresRef.current[game];
     const before = board && board !== 'unreadable' ? board.mine : null;
-    // Super Omni World is silent (PRD 817): only Invaders sounds its score.
+    // Starhop is silent (PRD 817): only Invaders sounds its score.
     const loud = game === INVADERS;
     showSend(attempt);
     void submitSend(account, game, attempt, before).then(({ send: done, best }) => {
@@ -374,7 +374,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const sendScoreRef = useRef(sendScore);
   sendScoreRef.current = sendScore;
 
-  // Super Omni World (PRD 817): the game as the arcade holds it around the Phaser scene; a pause
+  // Starhop (PRD 817): the game as the arcade holds it around the Phaser scene; a pause
   // from outside reaches it only while it is the scene up.
   const { pf, pfRef, setPf, onEvent: onPlatformerEvent, onStatus: onPlatformerStatus, pause: pausePlatformer } =
     usePlatformer(sendScoreRef, PLATFORMER, () => uiRef.current.scene === 'platformer');
@@ -476,7 +476,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     over: (score) => { sendScoreRef.current(DUET, score); },
     again: () => { held.clear(); runRef.current += 1; showSend(null); },
   });
-  // OMNI PONG (PRD 2101): imported when its cabinet opens, never before, as OMNI DUET is; its
+  // PULSAR VOLLEY (PRD 2101): imported when its cabinet opens, never before, as OMNI DUET is; its
   // microphone is stopped on a pause from outside and when the scene closes. The match says once when
   // it ends, whichever way: the score reached is sent then, under `pong`; A on its game over goes back
   // to the ready screen, and the next match's score is sent in its turn.
@@ -534,7 +534,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     go({ scene: 'invaders' }, 'start');
   }, [view, problem, go, showHud, showSend, held]);
 
-  /** A on Super Omni World's unlocked cabinet: a new game from 1-1, on the grid it is shown on. */
+  /** A on Starhop's unlocked cabinet: a new game from 1-1, on the grid it is shown on. */
   const playPlatformer = useCallback(() => {
     held.clear();
     runRef.current += 1;
@@ -797,7 +797,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       openDuet(gridFor(formRef.current, 'duet'));
       go({ scene: 'duet' }, 'start');
     };
-    /** A on OMNI PONG's unlocked cabinet: the game's code is imported now, on the grid the cabinet is shown on. */
+    /** A on PULSAR VOLLEY's unlocked cabinet: the game's code is imported now, on the grid the cabinet is shown on. */
     const playPong = () => {
       held.clear();
       runRef.current += 1;
@@ -806,7 +806,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       go({ scene: 'pong' }, 'start');
     };
     /**
-     * Opens `scene` from the game room or a level-up: OMNI RUNNER, OMNI KART, OMNI DUET and OMNI PONG through
+     * Opens `scene` from the game room or a level-up: OMNI RUNNER, OMNI KART, OMNI DUET and PULSAR VOLLEY through
      * their own start, any other scene at once.
      */
     const openGame = (scene: SceneName, effect: Sfx) => {
@@ -826,7 +826,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       if (s?.state === 'failed' && duetRetry(duetRef.current?.hud ?? null, s, action)) { sendScore(DUET, s.score, s.tries + 1); return; }
       if (pressDuet(action)) go({ scene: 'games' }, 'back');
     };
-    /** A press in OMNI PONG: at the game over, A retries a score that was not saved, once; otherwise the game's. */
+    /** A press in PULSAR VOLLEY: at the game over, A retries a score that was not saved, once; otherwise the game's. */
     const actPong = () => {
       const s = sendRef.current;
       if (s?.state === 'failed' && pongRetry(pongRef.current?.hud ?? null, s, action)) { sendScore(PONG, s.score, s.tries + 1); return; }
@@ -1016,7 +1016,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         return;
       }
       case 'kart': {
-        // The race reads ◀ ▶, A and ▼ held; a press answers START, SELECT, B and the screens. Silent, as Super Omni World is.
+        // The race reads ◀ ▶, A and ▼ held; a press answers START, SELECT, B and the screens. Silent, as Starhop is.
         const k = kartRef.current;
         if (!k) { if (action === 'b') go({ scene: 'games' }, 'back'); return; }
         // At the finish, A retries a score that was not saved, once; otherwise A races again and B goes back.

@@ -219,7 +219,7 @@ describe('unlockedFor', () => {
     expect(unlockedFor(5, [], more)).toEqual(['invaders', 'maze']);
   });
 
-  it('opens Super Omni World at LV 2 under the rulebook, and keeps it after a rule change moves it later (PRD 817)', () => {
+  it('opens Starhop at LV 2 under the rulebook, and keeps it after a rule change moves it later (PRD 817)', () => {
     expect(unlockedFor(1, [])).toEqual(['invaders']);
     expect(unlockedFor(2, [])).toEqual(['invaders', 'platformer']);
     const later = rules({ unlocks: { invaders: 1, platformer: 9 } });
@@ -240,7 +240,7 @@ describe('unlockedFor', () => {
     expect(unlockedFor(4, ['duet', 'invaders', 'kart', 'platformer'], later)).toEqual(['duet', 'invaders', 'kart', 'platformer']);
   });
 
-  it('opens OMNI PONG at LV 5 under the rulebook, and keeps it after a rule change moves it later (PRD 2101)', () => {
+  it('opens PULSAR VOLLEY at LV 5 under the rulebook, and keeps it after a rule change moves it later (PRD 2101)', () => {
     expect(unlockedFor(4, [])).toEqual(['duet', 'invaders', 'kart', 'platformer']);
     expect(unlockedFor(5, [])).toEqual(['duet', 'invaders', 'kart', 'platformer', 'pong']);
     const later = rules({ unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 4, pong: 9 } });

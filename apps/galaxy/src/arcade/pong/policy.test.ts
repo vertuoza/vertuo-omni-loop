@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-// OMNI PONG asks for the microphone on /play (PRD 2101): a `Permissions-Policy` header that leaves the
+// PULSAR VOLLEY asks for the microphone on /play (PRD 2101): a `Permissions-Policy` header that leaves the
 // microphone out would turn every ask into MIC BLOCKED IN THE BROWSER. Neither of the two places the
 // app's headers are set sends one that blocks it.
 

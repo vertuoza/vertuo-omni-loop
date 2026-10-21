@@ -5,7 +5,7 @@ import { fakeMic, settle } from './mic.fake';
 import { AUDIO_CONSTRAINTS, browserMic, refusalOf, type MicBrowser } from './mic';
 import { PITCH, VOICE } from './rules';
 
-// OMNI PONG's microphone (PRD 2101): the browser's, behind the PitchSource port, and what each answer
+// PULSAR VOLLEY's microphone (PRD 2101): the browser's, behind the PitchSource port, and what each answer
 // does to the ready screen, through a fake one.
 
 /** A stand-in for the browser: a stream of one track, an audio graph that hears a sine, and what was asked of them. */
