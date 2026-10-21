@@ -12,18 +12,21 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 insert into auth.users (id, email) values
-  ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
-  ('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com'),
+  ('00000000-0000-4000-8000-0000000000b1', 'bob@example.com'),
   ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
--- Ada and Bob belong to Vertuoza; Carl to Acme, which owns the GitHub organisation acme; Eve to none.
+-- Ada and Bob belong to Initech; Carl to Acme, which owns the GitHub organisation acme; Eve to none.
 insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme');
 insert into public.workspace_members (workspace_id, user_id)
 select w.id, m.user_id
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000000a1'::uuid),
-         ('vertuoza', '00000000-0000-4000-8000-0000000000b1'::uuid),
+         ('initech', '00000000-0000-4000-8000-0000000000a1'::uuid),
+         ('initech', '00000000-0000-4000-8000-0000000000b1'::uuid),
          ('acme',     '00000000-0000-4000-8000-0000000000c1'::uuid)
        ) as m (slug, user_id)
   join public.workspaces w on w.slug = m.slug;
@@ -47,21 +50,21 @@ begin
   exception when insufficient_privilege then null; end;
   begin perform 1 from public.loop_plans limit 1; raise exception 'FAIL: anon read the loop plans';
   exception when insufficient_privilege then null; end;
-  begin perform public.loop_push('start', null, '{"repo": "vertuoza/vertuo-omni-loop", "prds": [7], "plan": {}}'); raise exception 'FAIL: anon started a loop';
+  begin perform public.loop_push('start', null, '{"repo": "initech/nimbus-plan", "prds": [7], "plan": {}}'); raise exception 'FAIL: anon started a loop';
   exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 
 -- ── Ada's loop: started, ticked, replanned, parked, stopped ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
-  ws     uuid := (select id from public.workspaces where slug = 'vertuoza');
+  ws     uuid := (select id from public.workspaces where slug = 'initech');
   answer jsonb;
   loop_a uuid;
 begin
-  answer := public.loop_push('start', null, '{"repo": "Vertuoza/Vertuo-Omni-Loop", "prds": [7, 9], "plan": {"steps": [{"prd": 7, "slice": "s1"}]}}');
+  answer := public.loop_push('start', null, '{"repo": "Initech/Nimbus-Plan", "prds": [7, 9], "plan": {"steps": [{"prd": 7, "slice": "s1"}]}}');
   loop_a := (answer ->> 'loopId')::uuid;
   insert into pg_temp.ids values ('a', loop_a);
   if answer ->> 'state' <> 'running' or (answer ->> 'planVersion')::integer <> 1 then
@@ -70,7 +73,7 @@ begin
   if not exists (
     select 1 from public.loops
      where id = loop_a and user_id = '00000000-0000-4000-8000-0000000000a1' and workspace_id = ws
-       and repo = 'vertuoza/vertuo-omni-loop' and prds = '{7,9}' and state = 'running' and parked = '[]'
+       and repo = 'initech/nimbus-plan' and prds = '{7,9}' and state = 'running' and parked = '[]'
        and next_wake_at is null and stopped_at is null) then
     raise exception 'FAIL: a loop was not stored as its owner''s, in the repository''s workspace, running';
   end if;
@@ -80,13 +83,13 @@ begin
 
   -- A second start on the same repository is refused, naming the first.
   begin
-    perform public.loop_push('start', null, '{"repo": "vertuoza/vertuo-omni-loop", "prds": [7], "plan": {}}');
+    perform public.loop_push('start', null, '{"repo": "initech/nimbus-plan", "prds": [7], "plan": {}}');
     raise exception 'FAIL: a second running loop on the same repository was opened';
   exception when object_not_in_prerequisite_state then
     if sqlerrm not like '%' || loop_a::text || '%' then raise exception 'FAIL: the refusal did not name the running loop: %', sqlerrm; end if;
   end;
   begin
-    perform public.loop_push('start', null, '{"repo": "vertuoza/vertuo-omni-loop", "prds": [7], "plan": {}, "takeOver": true}');
+    perform public.loop_push('start', null, '{"repo": "initech/nimbus-plan", "prds": [7], "plan": {}, "takeOver": true}');
     raise exception 'FAIL: a loop that is not silent was taken over';
   exception when object_not_in_prerequisite_state then null; end;
 
@@ -122,13 +125,13 @@ begin
   exception when invalid_parameter_value then null; end;
   begin perform public.loop_push('start', null, '{"repo": "widgets", "prds": [7], "plan": {}}'); raise exception 'FAIL: a repository not owner/name was taken';
   exception when invalid_parameter_value then null; end;
-  begin perform public.loop_push('start', null, '{"repo": "vertuoza/other", "prds": [], "plan": {}}'); raise exception 'FAIL: a loop driving no PRD was taken';
+  begin perform public.loop_push('start', null, '{"repo": "initech/other", "prds": [], "plan": {}}'); raise exception 'FAIL: a loop driving no PRD was taken';
   exception when invalid_parameter_value then null; end;
   begin perform public.loop_push('tick', '00000000-0000-4000-8000-00000000dead', '{}'); raise exception 'FAIL: a push to no loop was taken';
   exception when no_data_found then null; end;
 
   -- Park PRD 9 on a person, then stop: the loop ends parked.
-  perform public.loop_push('park', loop_a, '{"prd": 9, "who": "Pierre", "what": "the outbox questions", "link": "https://github.com/vertuoza/vertuo-omni-loop/pull/9"}');
+  perform public.loop_push('park', loop_a, '{"prd": 9, "who": "Pierre", "what": "the outbox questions", "link": "https://github.com/initech/nimbus-plan/pull/9"}');
   if not exists (select 1 from public.loops where id = loop_a and parked -> 0 ->> 'who' = 'Pierre' and (parked -> 0 ->> 'prd')::integer = 9) then
     raise exception 'FAIL: the parked PRD was not recorded';
   end if;
@@ -140,7 +143,7 @@ begin
   exception when object_not_in_prerequisite_state then null; end;
 
   -- A loop whose parked PRD moved again stops stopped.
-  answer := public.loop_push('start', null, '{"repo": "vertuoza/vertuo-omni-loop", "prds": [7], "plan": {}}');
+  answer := public.loop_push('start', null, '{"repo": "initech/nimbus-plan", "prds": [7], "plan": {}}');
   insert into pg_temp.ids values ('b', (answer ->> 'loopId')::uuid);
   perform public.loop_push('park', (answer ->> 'loopId')::uuid, '{"prd": 7, "who": "Pierre", "what": "phase-0"}');
   perform public.loop_push('tick', (answer ->> 'loopId')::uuid, '{"step": 1, "steps": 1, "prd": 7, "action": "yolo", "result": "ready", "nextWakeAt": null}');
@@ -150,7 +153,7 @@ begin
 
   -- Nothing is written but through the function.
   begin
-    insert into public.loops (user_id, workspace_id, repo, prds) values ('00000000-0000-4000-8000-0000000000a1', ws, 'vertuoza/planted', '{1}');
+    insert into public.loops (user_id, workspace_id, repo, prds) values ('00000000-0000-4000-8000-0000000000a1', ws, 'initech/planted', '{1}');
     raise exception 'FAIL: a signed-in account wrote a loop directly';
   exception when insufficient_privilege then null; end;
   begin
@@ -171,10 +174,10 @@ reset role;
 -- ── A silent loop: refused without a take-over, taken over with one ──
 -- Its session died: its next wake is long past (set as the database owner, which no account can do).
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 begin
-  insert into pg_temp.ids values ('silent', (public.loop_push('start', null, '{"repo": "vertuoza/vertuo-omni-loop", "prds": [7], "plan": {}}') ->> 'loopId')::uuid);
+  insert into pg_temp.ids values ('silent', (public.loop_push('start', null, '{"repo": "initech/nimbus-plan", "prds": [7], "plan": {}}') ->> 'loopId')::uuid);
 end $$;
 reset role;
 update public.loops set next_wake_at = now() - interval '6 minutes' where id = (select id from pg_temp.ids where name = 'silent');
@@ -185,12 +188,12 @@ declare
   taken  uuid;
 begin
   begin
-    perform public.loop_push('start', null, '{"repo": "vertuoza/vertuo-omni-loop", "prds": [7], "plan": {}}');
+    perform public.loop_push('start', null, '{"repo": "initech/nimbus-plan", "prds": [7], "plan": {}}');
     raise exception 'FAIL: a silent loop was replaced without a take-over';
   exception when object_not_in_prerequisite_state then
     if sqlerrm not like '%' || silent::text || '%' then raise exception 'FAIL: the refusal did not name the silent loop: %', sqlerrm; end if;
   end;
-  taken := (public.loop_push('start', null, '{"repo": "vertuoza/vertuo-omni-loop", "prds": [7], "plan": {}, "takeOver": true}') ->> 'loopId')::uuid;
+  taken := (public.loop_push('start', null, '{"repo": "initech/nimbus-plan", "prds": [7], "plan": {}, "takeOver": true}') ->> 'loopId')::uuid;
   if taken = silent or not exists (select 1 from public.loops where id = silent and state = 'stopped')
      or not exists (select 1 from public.loops where id = taken and state = 'running') then
     raise exception 'FAIL: the take-over did not stop the silent loop and open a new one';
@@ -201,7 +204,7 @@ reset role;
 
 -- ── Bob, of the same workspace: reads Ada's loops, cannot push to them ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
   loop_a uuid := (select id from pg_temp.ids where name = 'a');
@@ -217,7 +220,7 @@ begin
     raise exception 'FAIL: another account stopped Ada''s loop';
   exception when insufficient_privilege then null; end;
   -- His own loop on the same repository is his: one running loop per person, not per repository.
-  perform public.loop_push('start', null, '{"repo": "vertuoza/vertuo-omni-loop", "prds": [7], "plan": {}}');
+  perform public.loop_push('start', null, '{"repo": "initech/nimbus-plan", "prds": [7], "plan": {}}');
 end $$;
 reset role;
 do $$
@@ -240,7 +243,7 @@ begin
     raise exception 'FAIL: an account of another workspace pushed to Ada''s loop';
   exception when insufficient_privilege then null; end;
   begin
-    perform public.loop_push('start', null, '{"repo": "vertuoza/vertuo-omni-loop", "prds": [7], "plan": {}}');
+    perform public.loop_push('start', null, '{"repo": "initech/nimbus-plan", "prds": [7], "plan": {}}');
     raise exception 'FAIL: an account of another workspace started a loop on its repository';
   exception when insufficient_privilege then null; end;
 end $$;
@@ -249,7 +252,7 @@ do $$
 begin
   if exists (select 1 from public.loops) then raise exception 'FAIL: an account in no workspace read a loop'; end if;
   begin
-    perform public.loop_push('start', null, '{"repo": "vertuoza/vertuo-omni-loop", "prds": [7], "plan": {}}');
+    perform public.loop_push('start', null, '{"repo": "initech/nimbus-plan", "prds": [7], "plan": {}}');
     raise exception 'FAIL: an account in no workspace started a loop';
   exception when insufficient_privilege then null; end;
 end $$;

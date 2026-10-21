@@ -9,22 +9,25 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- The fixture is written as the database owner, without the tables' guards: they check who writes,
 -- which is not what this check is about.
 set local session_replication_role = replica;
 
-insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 insert into public.workspace_members (workspace_id, user_id)
-select w.id, '00000000-0000-4000-8000-0000000000a1' from public.workspaces w where w.slug = 'vertuoza';
+select w.id, '00000000-0000-4000-8000-0000000000a1' from public.workspaces w where w.slug = 'initech';
 
 -- 1400 numbered dossiers, each opened in its own Claude session: PRDs, bug fixes and visual fixes.
 insert into public.dossiers (workspace_id, home_repo, prd, kind, title, opened_by, claude_session_id, created_at, numbered_at)
-select w.id, 'vertuoza/vertuo-omni-loop', g,
+select w.id, 'initech/nimbus-plan', g,
        case when g % 10 = 0 then 'bug' when g % 25 = 0 then 'visual' else 'prd' end,
        'Dossier ' || g, '00000000-0000-4000-8000-0000000000a1', 'claude-' || g,
        now() - (1400 - g) * interval '30 minutes', now() - (1400 - g) * interval '30 minutes' + interval '5 minutes'
   from public.workspaces w, generate_series(1, 1400) g
- where w.slug = 'vertuoza';
+ where w.slug = 'initech';
 
 -- Six versions each.
 insert into public.dossier_versions (dossier_id, kind, content, sha256, bytes, source, created_at)
@@ -34,7 +37,7 @@ select d.id, (array['spec', 'plan', 'before-after'])[1 + v % 3], 'v' || v, encod
 
 -- Two ask sessions each: the brainstorm's, in the dossier's Claude session, and a delivery session.
 insert into public.ask_sessions (owner, title, repo, claude_session_id, workspace_id, created_at)
-select '00000000-0000-4000-8000-0000000000a1', 'Session', 'vertuoza/vertuo-omni-loop', s.claude_session_id, d.workspace_id, d.created_at
+select '00000000-0000-4000-8000-0000000000a1', 'Session', 'initech/nimbus-plan', s.claude_session_id, d.workspace_id, d.created_at
   from public.dossiers d
   cross join lateral (values (d.claude_session_id), ('delivery-' || d.prd)) s (claude_session_id);
 

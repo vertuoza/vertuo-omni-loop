@@ -7,9 +7,12 @@
 
 begin;
 
-insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
+insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 insert into public.workspace_members (workspace_id, user_id, joined_at)
-select id, '00000000-0000-4000-8000-0000000000a1', now() - interval '1 day' from public.workspaces where slug = 'vertuoza';
+select id, '00000000-0000-4000-8000-0000000000a1', now() - interval '1 day' from public.workspaces where slug = 'initech';
 
 create function pg_temp.sign_in(uid text, email text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'email', email, 'role', 'authenticated')::text, true);
@@ -20,10 +23,10 @@ set local role service_role;
 do $$
 begin
   insert into public.github_etags (installation_id, url, etag, body, content_type, read_at) values
-    (42, 'https://api.github.com/repos/vertuoza/vertuo-omni-loop/issues/902', 'W/"a1"', '{"number":902}', 'application/json', '2026-10-01T09:00:00Z'),
-    (42, 'https://api.github.com/repos/vertuoza/vertuo-omni-loop/contents/.omni-loop/config.yml', '"c1"', 'kit: 1', 'application/vnd.github.raw+json', '2026-09-20T09:00:00Z');
+    (42, 'https://api.github.com/repos/initech/nimbus-plan/issues/902', 'W/"a1"', '{"number":902}', 'application/json', '2026-10-01T09:00:00Z'),
+    (42, 'https://api.github.com/repos/initech/nimbus-plan/contents/.omni-loop/config.yml', '"c1"', 'kit: 1', 'application/vnd.github.raw+json', '2026-09-20T09:00:00Z');
   insert into public.github_etags (installation_id, url, etag, body, read_at)
-  values (42, 'https://api.github.com/repos/vertuoza/vertuo-omni-loop/issues/902', 'W/"a2"', '{"number":902,"state":"closed"}', '2026-10-01T09:05:00Z')
+  values (42, 'https://api.github.com/repos/initech/nimbus-plan/issues/902', 'W/"a2"', '{"number":902,"state":"closed"}', '2026-10-01T09:05:00Z')
   on conflict (installation_id, url) do update set etag = excluded.etag, body = excluded.body, read_at = excluded.read_at;
   if (select etag from public.github_etags where url like '%/issues/902') <> 'W/"a2"' or (select count(*) from public.github_etags) <> 2 then
     raise exception 'FAIL: an ETag was not refreshed in place';
@@ -75,7 +78,7 @@ reset role;
 
 -- ── Ada, a member of the installation's workspace: nothing either ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 begin
   begin perform 1 from public.github_etags limit 1; raise exception 'FAIL: a member read the ETags';

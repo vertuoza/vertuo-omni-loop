@@ -82,7 +82,7 @@ reset role;
 
 -- ── Signed in: the same, no more ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 select pg_temp.reads_every_release_and_writes_none('a signed-in account');
 reset role;
 

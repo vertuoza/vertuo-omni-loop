@@ -12,6 +12,9 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- ── The flag is off by default ──
 do $$
 begin
@@ -21,13 +24,13 @@ begin
 end $$;
 
 -- ── The cast ──
--- Mia is a member of Vertuoza; Vic and Val are signed in with GitHub and belong to no workspace.
+-- Mia is a member of Initech; Vic and Val are signed in with GitHub and belong to no workspace.
 insert into auth.users (id, email, email_confirmed_at) values
-  ('00000000-0000-4000-8000-0000000012a1', 'mia@vertuoza.com', now()),
+  ('00000000-0000-4000-8000-0000000012a1', 'mia@example.com', now()),
   ('00000000-0000-4000-8000-0000000012b1', 'vic@voters.test', now()),
   ('00000000-0000-4000-8000-0000000012c1', 'val@voters.test', now());
 insert into public.workspace_members (workspace_id, user_id, role)
-select w.id, '00000000-0000-4000-8000-0000000012a1', 'member' from public.workspaces w where w.slug = 'vertuoza';
+select w.id, '00000000-0000-4000-8000-0000000012a1', 'member' from public.workspaces w where w.slug = 'initech';
 
 create function pg_temp.sign_in(uid text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -36,7 +39,7 @@ create function pg_temp.sign_out() returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
 $$;
 create temporary table ids (name text primary key, id uuid);
-insert into ids select 'vertuoza', w.id from public.workspaces w where w.slug = 'vertuoza';
+insert into ids select 'initech', w.id from public.workspaces w where w.slug = 'initech';
 grant select, insert on ids to anon, authenticated, service_role;
 create function pg_temp.id(name text) returns uuid language sql as $$
   select i.id from ids i where i.name = id.name;
@@ -55,22 +58,22 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000012a1');
 do $$
 begin
-  if not (public.set_repository_public_ideas(pg_temp.id('vertuoza'), 'vertuoza/vertuo-omni-loop', true)).public_ideas then
+  if not (public.set_repository_public_ideas(pg_temp.id('initech'), 'initech/nimbus-plan', true)).public_ideas then
     raise exception 'FAIL: a member could not make the board public';
   end if;
 end $$;
 with made as (
   insert into public.ideas (workspace_id, repo, title, pitch, lane, prd)
-  values (pg_temp.id('vertuoza'), 'vertuoza/vertuo-omni-loop', 'A better HUD', 'More useful information in the session HUD.', 'now', null),
-         (pg_temp.id('vertuoza'), 'vertuoza/vertuo-omni-loop', 'Track our own tokens', 'Switch the token tracking to omni-loop.', 'next', 1246),
-         (pg_temp.id('vertuoza'), 'vertuoza/vertuo-omni-loop', 'Archived idea', 'Gone from the board.', 'later', null)
+  values (pg_temp.id('initech'), 'initech/nimbus-plan', 'A better HUD', 'More useful information in the session HUD.', 'now', null),
+         (pg_temp.id('initech'), 'initech/nimbus-plan', 'Track our own tokens', 'Switch the token tracking to omni-loop.', 'next', 1246),
+         (pg_temp.id('initech'), 'initech/nimbus-plan', 'Archived idea', 'Gone from the board.', 'later', null)
   returning id, title
 )
 insert into ids
 select case title when 'A better HUD' then 'public-hud' when 'Track our own tokens' then 'public-tokens' else 'public-archived' end, id from made;
 with made as (
   insert into public.ideas (workspace_id, repo, title, pitch)
-  values (pg_temp.id('vertuoza'), 'vertuoza/vertuo-apps', 'A private idea', 'Nobody outside reads it.')
+  values (pg_temp.id('initech'), 'initech/nimbus-apps', 'A private idea', 'Nobody outside reads it.')
   returning id
 )
 insert into ids select 'private-hud', id from made;
@@ -85,19 +88,19 @@ begin
   end if;
   -- An idea's words are bounded.
   begin
-    insert into public.ideas (workspace_id, repo, title, pitch) values (pg_temp.id('vertuoza'), 'vertuoza/vertuo-omni-loop', repeat('t', 121), 'p');
+    insert into public.ideas (workspace_id, repo, title, pitch) values (pg_temp.id('initech'), 'initech/nimbus-plan', repeat('t', 121), 'p');
     raise exception 'FAIL: a title over 120 characters was stored';
   exception when check_violation then null; end;
   begin
-    insert into public.ideas (workspace_id, repo, title, pitch) values (pg_temp.id('vertuoza'), 'vertuoza/vertuo-omni-loop', 't', repeat('p', 601));
+    insert into public.ideas (workspace_id, repo, title, pitch) values (pg_temp.id('initech'), 'initech/nimbus-plan', 't', repeat('p', 601));
     raise exception 'FAIL: a pitch over 600 characters was stored';
   exception when check_violation then null; end;
   begin
-    insert into public.ideas (workspace_id, repo, title, pitch, lane) values (pg_temp.id('vertuoza'), 'vertuoza/vertuo-omni-loop', 't', 'p', 'someday');
+    insert into public.ideas (workspace_id, repo, title, pitch, lane) values (pg_temp.id('initech'), 'initech/nimbus-plan', 't', 'p', 'someday');
     raise exception 'FAIL: a lane other than now, next or later was stored';
   exception when check_violation then null; end;
   -- A member reads a private board through ideas_board() too.
-  if (public.ideas_board('vertuoza/vertuo-apps') ->> 'member')::boolean is not true then
+  if (public.ideas_board('initech/nimbus-apps') ->> 'member')::boolean is not true then
     raise exception 'FAIL: a member does not read their own private board';
   end if;
 end $$;
@@ -110,27 +113,27 @@ do $$
 declare
   board jsonb;
 begin
-  if (select count(*) from public.ideas where repo = 'vertuoza/vertuo-omni-loop') <> 3 then
+  if (select count(*) from public.ideas where repo = 'initech/nimbus-plan') <> 3 then
     raise exception 'FAIL: anyone signed out does not read the ideas of a public board';
   end if;
-  if exists (select 1 from public.ideas where repo = 'vertuoza/vertuo-apps') then
+  if exists (select 1 from public.ideas where repo = 'initech/nimbus-apps') then
     raise exception 'FAIL: anyone signed out reads the ideas of a private board';
   end if;
   begin perform 1 from public.idea_votes; raise exception 'FAIL: anon read public.idea_votes';
   exception when insufficient_privilege then null; end;
-  board := public.ideas_board('Vertuoza/Vertuo-Omni-Loop');
-  if board is null or board ->> 'repo' <> 'vertuoza/vertuo-omni-loop' or not (board ->> 'public')::boolean or (board ->> 'member')::boolean then
+  board := public.ideas_board('Initech/Nimbus-Plan');
+  if board is null or board ->> 'repo' <> 'initech/nimbus-plan' or not (board ->> 'public')::boolean or (board ->> 'member')::boolean then
     raise exception 'FAIL: ideas_board() does not answer a public board signed out: %', board;
   end if;
   if jsonb_array_length(board -> 'ideas') <> 3
      or (select count(*) from jsonb_array_elements(board -> 'ideas') i where (i ->> 'archived')::boolean and i ->> 'title' = 'Archived idea') <> 1 then
     raise exception 'FAIL: ideas_board() does not mark the archived idea: %', board -> 'ideas';
   end if;
-  if public.ideas_board('vertuoza/vertuo-apps') is not null or public.ideas_board('nobody/nothing') is not null then
+  if public.ideas_board('initech/nimbus-apps') is not null or public.ideas_board('nobody/nothing') is not null then
     raise exception 'FAIL: ideas_board() tells a private board from a missing one';
   end if;
-  perform pg_temp.forbidden(format('select public.set_repository_public_ideas(%L, ''vertuoza/vertuo-apps'', true)', pg_temp.id('vertuoza')), 'anon');
-  perform pg_temp.forbidden(format('insert into public.ideas (workspace_id, repo, title, pitch) values (%L, ''vertuoza/vertuo-omni-loop'', ''t'', ''p'')', pg_temp.id('vertuoza')), 'anon');
+  perform pg_temp.forbidden(format('select public.set_repository_public_ideas(%L, ''initech/nimbus-apps'', true)', pg_temp.id('initech')), 'anon');
+  perform pg_temp.forbidden(format('insert into public.ideas (workspace_id, repo, title, pitch) values (%L, ''initech/nimbus-plan'', ''t'', ''p'')', pg_temp.id('initech')), 'anon');
   perform pg_temp.forbidden(format('insert into public.idea_votes (idea_id) values (%L)', pg_temp.id('public-hud')), 'anon');
 end $$;
 reset role;
@@ -154,15 +157,15 @@ begin
   perform pg_temp.forbidden(format('insert into public.idea_votes (idea_id) values (%L)', pg_temp.id('private-hud')), 'a voter, on a private board');
   perform pg_temp.forbidden(format('insert into public.idea_votes (idea_id) values (%L)', pg_temp.id('public-archived')), 'a voter, on an archived idea');
   -- An idea written by a non-member: added, changed, archived, or the flag switched.
-  perform pg_temp.forbidden(format('insert into public.ideas (workspace_id, repo, title, pitch) values (%L, ''vertuoza/vertuo-omni-loop'', ''t'', ''p'')', pg_temp.id('vertuoza')), 'a non-member');
-  perform pg_temp.forbidden(format('select public.set_repository_public_ideas(%L, ''vertuoza/vertuo-omni-loop'', false)', pg_temp.id('vertuoza')), 'a non-member');
-  update public.ideas set lane = 'now', title = 'Hijacked', archived = true, prd = 1 where repo = 'vertuoza/vertuo-omni-loop';
+  perform pg_temp.forbidden(format('insert into public.ideas (workspace_id, repo, title, pitch) values (%L, ''initech/nimbus-plan'', ''t'', ''p'')', pg_temp.id('initech')), 'a non-member');
+  perform pg_temp.forbidden(format('select public.set_repository_public_ideas(%L, ''initech/nimbus-plan'', false)', pg_temp.id('initech')), 'a non-member');
+  update public.ideas set lane = 'now', title = 'Hijacked', archived = true, prd = 1 where repo = 'initech/nimbus-plan';
   begin delete from public.ideas; raise exception 'FAIL: a non-member could delete an idea';
   exception when insufficient_privilege then null; end;
-  if exists (select 1 from public.ideas where repo = 'vertuoza/vertuo-apps') then
+  if exists (select 1 from public.ideas where repo = 'initech/nimbus-apps') then
     raise exception 'FAIL: a non-member reads the ideas of a private board';
   end if;
-  board := public.ideas_board('vertuoza/vertuo-omni-loop');
+  board := public.ideas_board('initech/nimbus-plan');
   if (select (i ->> 'votes')::int from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A better HUD') <> 1
      or (select (i ->> 'voted')::boolean from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A better HUD') is not true
      or (select (i ->> 'voted')::boolean from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'Track our own tokens') is not false then
@@ -186,7 +189,7 @@ delete from public.idea_votes where user_id = '00000000-0000-4000-8000-000000001
 delete from public.idea_votes where idea_id = pg_temp.id('public-hud') and user_id = '00000000-0000-4000-8000-0000000012b1';
 do $$
 begin
-  if (select (i ->> 'votes')::int from jsonb_array_elements(public.ideas_board('vertuoza/vertuo-omni-loop') -> 'ideas') i where i ->> 'title' = 'A better HUD') <> 1 then
+  if (select (i ->> 'votes')::int from jsonb_array_elements(public.ideas_board('initech/nimbus-plan') -> 'ideas') i where i ->> 'title' = 'A better HUD') <> 1 then
     raise exception 'FAIL: taking back a vote did not leave exactly the other voter''s';
   end if;
   begin update public.idea_votes set created_at = now(); raise exception 'FAIL: a voter could change a vote';
@@ -202,7 +205,7 @@ begin
   if exists (select 1 from public.ideas where title = 'Hijacked' or prd = 1 or (lane = 'now' and title <> 'A better HUD')) then
     raise exception 'FAIL: a non-member changed an idea';
   end if;
-  if not (select public_ideas from public.repositories where full_name = 'vertuoza/vertuo-omni-loop') then
+  if not (select public_ideas from public.repositories where full_name = 'initech/nimbus-plan') then
     raise exception 'FAIL: a non-member switched the board private';
   end if;
 end $$;
@@ -210,11 +213,11 @@ end $$;
 -- ── A board turned private again: nothing read, no vote taken or removed ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000012a1');
-select public.set_repository_public_ideas(pg_temp.id('vertuoza'), 'vertuoza/vertuo-omni-loop', false);
+select public.set_repository_public_ideas(pg_temp.id('initech'), 'initech/nimbus-plan', false);
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000012c1');
 do $$
 begin
-  if exists (select 1 from public.ideas) or public.ideas_board('vertuoza/vertuo-omni-loop') is not null then
+  if exists (select 1 from public.ideas) or public.ideas_board('initech/nimbus-plan') is not null then
     raise exception 'FAIL: a board turned private is still read from outside';
   end if;
   perform pg_temp.forbidden(format('insert into public.idea_votes (idea_id) values (%L)', pg_temp.id('public-tokens')), 'a voter, on a board turned private');
@@ -234,7 +237,7 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000012a1');
 with made as (
   insert into public.ideas (workspace_id, repo, title, pitch)
-  values (pg_temp.id('vertuoza'), 'vertuoza/vertuo-apps', 'A shelved private idea', 'Archived before anyone voted.')
+  values (pg_temp.id('initech'), 'initech/nimbus-apps', 'A shelved private idea', 'Archived before anyone voted.')
   returning id
 )
 insert into ids select 'private-archived', id from made;
@@ -244,7 +247,7 @@ do $$
 declare
   board jsonb;
 begin
-  board := public.ideas_board('vertuoza/vertuo-apps');
+  board := public.ideas_board('initech/nimbus-apps');
   if (board ->> 'public')::boolean
      or (select (i ->> 'votes')::int from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') <> 1
      or (select (i ->> 'voted')::boolean from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') is not true then
@@ -256,7 +259,7 @@ begin
   exception when unique_violation then null; end;
   perform pg_temp.forbidden(format('insert into public.idea_votes (idea_id) values (%L)', pg_temp.id('private-archived')), 'a member, on an archived idea of their private board');
   delete from public.idea_votes where idea_id = pg_temp.id('private-hud');
-  board := public.ideas_board('vertuoza/vertuo-apps');
+  board := public.ideas_board('initech/nimbus-apps');
   if (select (i ->> 'votes')::int from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') <> 0
      or (select (i ->> 'voted')::boolean from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') is not false then
     raise exception 'FAIL: a member could not take back their vote on their private board: %', board;
@@ -271,13 +274,13 @@ begin
   perform pg_temp.forbidden(format('insert into public.idea_votes (idea_id) values (%L)', pg_temp.id('private-hud')), 'a voter in no workspace, on a private board');
 end $$;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000012a1');
-select public.set_repository_public_ideas(pg_temp.id('vertuoza'), 'vertuoza/vertuo-apps', true);
+select public.set_repository_public_ideas(pg_temp.id('initech'), 'initech/nimbus-apps', true);
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000012c1');
 do $$
 declare
   board jsonb;
 begin
-  board := public.ideas_board('vertuoza/vertuo-apps');
+  board := public.ideas_board('initech/nimbus-apps');
   if board is null or not (board ->> 'public')::boolean
      or (select (i ->> 'votes')::int from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') <> 1
      or (select (i ->> 'voted')::boolean from jsonb_array_elements(board -> 'ideas') i where i ->> 'title' = 'A private idea') is not false then
@@ -285,7 +288,7 @@ begin
   end if;
 end $$;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000012a1');
-select public.set_repository_public_ideas(pg_temp.id('vertuoza'), 'vertuoza/vertuo-apps', false);
+select public.set_repository_public_ideas(pg_temp.id('initech'), 'initech/nimbus-apps', false);
 reset role;
 
 -- ── One public board per owner/name, whichever workspace lists it ──
@@ -294,8 +297,8 @@ declare
   other uuid;
 begin
   insert into public.workspaces (slug, name, github_org) values ('ideas-other', 'Other', 'ideas-other') returning id into other;
-  insert into public.repositories (workspace_id, full_name, public_ideas) values (other, 'vertuoza/vertuo-apps', true);
-  update public.repositories set public_ideas = true where workspace_id = pg_temp.id('vertuoza') and full_name = 'vertuoza/vertuo-apps';
+  insert into public.repositories (workspace_id, full_name, public_ideas) values (other, 'initech/nimbus-apps', true);
+  update public.repositories set public_ideas = true where workspace_id = pg_temp.id('initech') and full_name = 'initech/nimbus-apps';
   raise exception 'FAIL: two workspaces made the same repository''s board public';
 exception when unique_violation then null;
 end $$;
