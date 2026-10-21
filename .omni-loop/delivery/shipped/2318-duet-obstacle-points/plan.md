@@ -1,8 +1,8 @@
 # Plan: OMNI DUET scores each obstacle passed, 1 in a chapter and 2 in endless mode
 
-PRD #2159, its spec beside this plan (`spec.md`). The feature branch `feat/duet-obstacle-score`
-merges into `main` with `Closes #2159`; each slice is a sub-PR from `feat/duet-obstacle-score--<slice>`
-into the feature branch, with `Part of #2159`.
+PRD #2318, its spec beside this plan (`spec.md`). The feature branch `feat/duet-obstacle-points`
+merges into `main` with `Closes #2318`; each slice is a sub-PR from `feat/duet-obstacle-points--<slice>`
+into the feature branch, with `Part of #2318`.
 
 ## Slices
 
@@ -34,6 +34,6 @@ and `duet/run.test.ts` are inside s1's territory (the `run.` and `waves.` prefix
   - A migration under `supabase/migrations/`, dated after the newest on the feature branch, sets
     `game = 'duet-waves'` on every `arcade_scores` row whose `game` is `duet`, and does nothing else:
     no `delete`, no other game, no other table, `submit_score()` and the table's shape unchanged.
-  - Its header comment says why (PRD 2159, Martin's reset) and how to undo it (the spec's Risks).
+  - Its header comment says why (PRD 2318, Martin's reset) and how to undo it (the spec's Risks).
   - `supabase/database.types.ts` is unchanged.
   - `pnpm test`, `pnpm lint` and `pnpm typecheck` are green.
