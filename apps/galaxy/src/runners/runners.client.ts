@@ -9,9 +9,9 @@ import { JobLinesSchema, JobQuestionsSchema, JobReplySchema, RunnerReplySchema, 
 export type Called<T> = { ok: true; value: T } | { ok: false; error: string };
 
 const RefusalSchema = z.object({ error: z.string() });
-const UNREACHABLE = 'The Omni app could not be reached. Try again.';
+export const UNREACHABLE = 'The Omni app could not be reached. Try again.';
 
-async function call<T>(fetcher: typeof fetch, url: string, init: RequestInit, read: (body: unknown) => T): Promise<Called<T>> {
+export async function call<T>(fetcher: typeof fetch, url: string, init: RequestInit, read: (body: unknown) => T): Promise<Called<T>> {
   let response: Response;
   try {
     response = await fetcher(url, { ...init, headers: { 'content-type': 'application/json' }, credentials: 'same-origin' });

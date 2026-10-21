@@ -77,16 +77,16 @@ type PageOptions = {
   dossier?: DossierRow; rows?: typeof versions; pick?: DossierPick; me?: string; markdown?: string | null;
   supabase?: typeof SUPABASE | null; questions?: DossierRoundRow[] | null;
   answerable?: string[]; now?: number; github?: GithubSummary | null; slices?: number | null;
-  repos?: string[] | null; stages?: StageRow[] | null;
+  repos?: string[] | null; stages?: StageRow[] | null; fixing?: { runner: string } | null;
 };
 
 function page({
   dossier = numbered, rows = versions, pick = readPick({}), me = MARIE.user_id, markdown = null,
   supabase = SUPABASE, questions = rounds,
   answerable = [], now = Date.now(), github, slices = null,
-  repos = null, stages,
+  repos = null, stages, fixing,
 }: PageOptions = {}) {
-  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, repos, answerable, github, slices, stages }, me, pick, now);
+  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, repos, answerable, github, slices, stages, fixing }, me, pick, now);
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: markdown === null ? null : renderMarkdown(markdown), supabase }));
 }
 /** The Pitch button of a shipped or retro PRD (PRD 859), closed as the server renders it. */
@@ -210,6 +210,20 @@ describe('the stage header (PRD 426, PRD 587)', () => {
     expect(button(unread)).toEqual([comment, 'Answer the outbox']);
     expect(unread).not.toContain('slices · ');
     expect(unread).not.toContain('Fix with answers');
+  });
+
+  it('the head reads fixing on <runner> in place of answered while the PRD\'s fix job is queued or running (PRD 2270)', () => {
+    const item = (id: string) => ({ id, rank: 'high' as const, question: 'Q?', decision: 'D.', options: [], personSteps: null });
+    const answer = (number: number, id: string) => ({ number, id, text: 'B', by: 'paula', at: null, url: null, counted: true, door: 'github' as const });
+    const github = summary({
+      phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 3, outbox: { open: [item('a')], settled: [] },
+      outboxComment: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7', replies: { numbering: [{ number: 1, id: 'a' }], pending: [answer(1, 'a')] },
+    });
+    const fixing = page({ github, slices: 3, stages: at('building'), fixing: { runner: 'pierre-laptop' } });
+    expect(fixing).toContain('<span class="ask-hint"> · 3/3 slices · fixing on pierre-laptop</span>');
+    expect(fixing).not.toContain('Fix with answers');
+    expect(fixing).not.toContain('slices · answered');
+    expect(page({ github, slices: 3, stages: at('building'), fixing: null })).toContain('slices · answered</span>');
   });
 
   it('says when the stage was last synced on hover, and Syncing… with nothing lit before the first sync', () => {

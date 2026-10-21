@@ -67,8 +67,11 @@ never overrides this skill's rules.
    outbox item and account files, and the ceilings file `budgets.context.file` names, for a budget
    raise, step 5), what blocks it, its wave. Read the plan's "done when" for it.
 3. The spec, in full.
-4. Every file in `paths.context`, the glossary at `paths.glossary` when set, and — when
-   `laws.source` is `knowledge` — only the knowledge this slice touches, never the whole folder at
+4. Every file in `paths.context`, the glossary at `paths.glossary` when set, `node .omni-loop/bin/omni.mjs kb glossary`
+   (the product's glossary, read where the slice's words come from: where a term is in both, the page
+   wins; offline or product-less it prints its copy or one line, and you carry on with what you have),
+   `node .omni-loop/bin/omni.mjs kb legal` when the slice touches personal data, keys, logs or licences,
+   and — when `laws.source` is `knowledge` — only the knowledge this slice touches, never the whole folder at
    `paths.knowledge`:
 
    ```bash

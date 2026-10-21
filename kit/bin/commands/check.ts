@@ -12,7 +12,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { formatFailure, formatPass, trackedFiles } from '../../lib/check-report.ts';
 import { baseKnowledge, rangeChanges } from '../../lib/git.ts';
-import { findInboxViolations } from '../../lib/inbox/check-inbox.ts';
+import { findInboxViolations, inboxAvoidWarnings } from '../../lib/inbox/check-inbox.ts';
 import { gradeKnowledge } from '../../lib/knowledge/check-knowledge.ts';
 import { verifyServedLegal, type LegalReach } from '../../lib/knowledge/check-knowledge-legal.ts';
 import { COPIES_DIR, gradeCopies } from '../../lib/knowledge/copies.ts';
@@ -64,12 +64,15 @@ function report(stdout: Out, title: string, violations: readonly string[], passL
 function checkInbox({ ctx, stdout }: CommandIo): boolean {
   const violations = findInboxViolations({ ctx });
   const count = ctx.layout.specFiles().length;
-  return report(
+  // PRD 2299: the product's avoided words in a spec are warnings, never a violation.
+  const green = report(
     stdout,
     'check inbox — an inbox file does not hold what it claims:',
     violations,
     `check inbox — ${count} inbox file(s), all well-formed.`,
   );
+  for (const warning of inboxAvoidWarnings({ ctx })) println(stdout, warning);
+  return green;
 }
 
 function checkOutbox({ ctx, stdout }: CommandIo): boolean {

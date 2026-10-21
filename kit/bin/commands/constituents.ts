@@ -9,6 +9,8 @@
 // cache, it prints one line ending "— agents carry on". A reply with no product, or a product with no
 // constituent, is one line too, and is kept like any reply.
 //
+// `omni constituents add | edit` (PRD 2268) change them: see `../constituents-write.ts`.
+//
 // It never holds up a session: every outcome exits 0, within a 3-second budget for the whole read
 // (the sign-in's renewal included). Exit 2 is only for a usage error.
 //
@@ -34,6 +36,7 @@ import type { Constituents } from '../../lib/constituents/read.ts';
 import { loadContext } from '../../lib/context.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
 import { parseArgs, println, usageError } from '../args.ts';
+import { constituentsWrite } from '../constituents-write.ts';
 import type { Exec, FreeCommand, FreeIo } from '../io.ts';
 
 /** What `--json` says of the read. */
@@ -164,8 +167,11 @@ export const constituents = {
   withoutContext: true,
   async run(
     args: string[],
-    { cwd, stdout, exec, tokens, home, fetch = globalThis.fetch, now = Date.now, budgetMs = CONSTITUENTS_BUDGET_MS }: FreeIo & ConstituentsOptions,
+    io: FreeIo & ConstituentsOptions,
   ) {
+    const { cwd, stdout, exec, tokens, home, fetch = globalThis.fetch, now = Date.now, budgetMs = CONSTITUENTS_BUDGET_MS } = io;
+    // PRD 2268: `add` and `edit` write; the read below stays as it was, and never writes through them.
+    if (args[0] === 'add' || args[0] === 'edit') return constituentsWrite(args, io, { tokens, home, fetch });
     const { positional, flags } = parseArgs('constituents', args, { booleans: ['json'] });
     if (positional.length > 0) throw usageError(USAGE);
     let body: Body;

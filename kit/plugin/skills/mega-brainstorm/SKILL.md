@@ -210,11 +210,15 @@ for an architectural design, the same written-spec review), with two additions:
 
 ## 6. The before/after page
 
-As `/omni:brainstorm` step 5, one page, **grouped by repository**: a section per repository the
-design touches, each with its own today beside after, headed by the repository's name and role.
-Each repository's section carries its contract blocks (**The contract blocks** there): one block per
+As `/omni:brainstorm` step 5, one page in its two tabs, written through
+`node .omni-loop/bin/omni.mjs before-after new <n> --services <repo>,<repo>…`, `render`, the word
+pass and `omni check inbox`, in that order. Each repository the design touches is one **service**,
+headed by its name and role, and `--services` lists them in the order the plan builds them. Each
+repository's blocks carry their own today beside after, in both tabs, every section in one of the
+three states of step 5.
+Each repository's technical sections carry its contract blocks (**The contract blocks** there): one block per
 kind its `Contract:` line of step 5 names, today beside after, headed `Contract: <kind> — <repository>`
-and marked `data-contract="<kind>"`, beside that repository's screens and never below them. A
+and marked `data-contract="<kind>"`, in that repository's block of the Technical tab, never below the screens. A
 repository whose line reads `Contract: none` has no block. `omni plan check` (step 8) refuses a slice
 declaring a kind the page has no block for.
 Acceptance scenarios, when `acceptance.enabled`, as `/omni:brainstorm` step 6.

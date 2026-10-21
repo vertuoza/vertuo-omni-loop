@@ -211,3 +211,9 @@ In a plan repository, step 2 gains a paragraph after the feature branch: `omni c
 runs on the clone of each target a slice may land in, and the pages the slice's names bear on are read
 as `/omni:brainstorm` step 4 says. The one new verb, `conventions`, is recorded in
 `kit/test/skill-steps.snapshot.json`; no step is lost. Read by `kit/test/conventions-skills.test.ts`.
+
+## PRD 2299, slice s3 — the product's glossary
+
+Not a re-port: step 2 reads `omni kb glossary` beside `paths.glossary`; the page wins on a term both
+define, and an offline or product-less read carries on. Tested in `kit/test/plugin.test.ts`, "the
+skills read the product knowledge (PRD 2299)".

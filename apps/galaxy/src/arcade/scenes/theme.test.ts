@@ -170,7 +170,7 @@ describe('OMNI DUET\'s playfield on both grids, in a workspace\'s theme (PRD 163
   });
 });
 
-describe('OMNI PONG\'s court on both grids, in a workspace\'s theme (PRD 2101)', () => {
+describe('PULSAR VOLLEY\'s court on both grids, in a workspace\'s theme (PRD 2101)', () => {
   const pong = createPong({ mic: fakeMic(), store: () => ({ getItem: () => null, setItem: () => {} }) });
 
   it('draws the sky, then the court\'s line and paddles in the theme\'s colours, across the whole grid', () => {

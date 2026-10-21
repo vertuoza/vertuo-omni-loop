@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { sure } from '../test/sure';
 
-// The loaded-on-demand guard (PRD 2101): everything under arcade/pong/ is OMNI PONG's own, its
+// The loaded-on-demand guard (PRD 2101): everything under arcade/pong/ is PULSAR VOLLEY's own, its
 // microphone included, and a page that never opens its cabinet must never download it. The arcade
 // imports it with a dynamic `import('./pong/index')` when the cabinet opens (ArcadeApp.tsx). This walks
 // the static, run-time import graph from the arcade's entries and fails if any file outside arcade/pong/
@@ -49,7 +49,7 @@ function pongReachedFrom(read: Read): { files: string[]; offenders: string[] } {
 const disk: Read = (file) => (/\.(ts|tsx)$/.test(file) && existsSync(file) ? readFileSync(file, 'utf8') : null);
 const withLine = (target: string, line: string): Read => (file) => (file === join(SRC, target) ? `${line}\n${disk(file) ?? ''}` : disk(file));
 
-describe('OMNI PONG\'s loaded-on-demand guard', () => {
+describe('PULSAR VOLLEY\'s loaded-on-demand guard', () => {
   it('walks the arcade from its entries, through the pong scene and the games', () => {
     const { files } = pongReachedFrom(disk);
     for (const f of ['arcade/ArcadeApp.tsx', 'arcade/scenes/pong.tsx', 'arcade/scenes/pong.ts', 'arcade/scenes/pong.live.ts', 'arcade/games/index.ts']) {

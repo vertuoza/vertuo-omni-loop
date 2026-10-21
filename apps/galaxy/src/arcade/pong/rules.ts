@@ -1,4 +1,4 @@
-// OMNI PONG's numbers, in one place so a follow-up retunes the feel without touching the engine.
+// PULSAR VOLLEY's numbers, in one place so a follow-up retunes the feel without touching the engine.
 
 /** The pitch a player's voice is steered around, set on the ready screen. Hz. */
 export const LIMITS = Object.freeze({ LOW: 160, MID: 220, HIGH: 300 });

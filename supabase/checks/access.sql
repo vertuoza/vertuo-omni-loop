@@ -5,18 +5,18 @@
 
 begin;
 
--- ── Vertuoza is workspace #1, with today's six fleets ──
+-- ── Vertuoza is workspace #1, with today's six fleets; the demo seed adds its own, nimbus ──
 do $$
 declare w public.workspaces;
 begin
-  if (select count(*) from public.workspaces) <> 1 then raise exception 'FAIL: the migrations left % workspaces, not one', (select count(*) from public.workspaces); end if;
+  if (select count(*) from public.workspaces where slug <> 'nimbus') <> 1 then raise exception 'FAIL: the migrations left % workspaces, not one', (select count(*) from public.workspaces where slug <> 'nimbus'); end if;
   select * into w from public.workspaces where slug = 'vertuoza';
   if not found then raise exception 'FAIL: there is no vertuoza workspace'; end if;
   if (w.name, w.github_org, w.plan_repo, w.theme)
      is distinct from ('Vertuoza'::text, 'vertuoza'::text, 'vertuo-omni-loop'::text, '{}'::jsonb) then
     raise exception 'FAIL: the vertuoza workspace is not as the spec sets it: %', row_to_json(w);
   end if;
-  -- The real sectors (20260926160000), whatever the demo seed adds beside them.
+  -- The real sectors (20260926160000), and nothing the demo seed adds.
   if exists (
     with real (name, repos) as (values
       ('omni-core', array['vertuo-omni-loop']::text[]),
@@ -40,15 +40,21 @@ begin
   ) then
     raise exception 'FAIL: the vertuoza fleets are not today''s six (labels, colours, mottos, mascots, order, invincible-team retired)';
   end if;
-  if not exists (select 1 from public.sectors where workspace_id = w.id)
-     or not exists (select 1 from public.ledger_events where workspace_id = w.id) then
-    raise exception 'FAIL: the demo seed did not fill the vertuoza workspace';
+  if exists (select 1 from public.ledger_events where workspace_id = w.id) then
+    raise exception 'FAIL: the demo seed wrote into the vertuoza workspace';
+  end if;
+  if not exists (select 1 from public.sectors s join public.workspaces d on d.id = s.workspace_id where d.slug = 'nimbus')
+     or not exists (select 1 from public.ledger_events e join public.workspaces d on d.id = e.workspace_id where d.slug = 'nimbus') then
+    raise exception 'FAIL: the demo seed did not fill the nimbus workspace';
   end if;
 end $$;
 
 -- ── The cast ──
 -- A second workspace, Acme, with its own sector, two fleets (one named like a Vertuoza fleet) and
--- one event whose id Vertuoza's ledger holds too.
+-- one event whose id Vertuoza's ledger holds too. Vertuoza's ledger is one event of its own: the demo
+-- seed writes into nimbus, never into it.
+insert into public.ledger_events (workspace_id, id, at, type, planet)
+values ((select id from public.workspaces where slug = 'vertuoza'), 'cast:planet:1:charted', now(), 'PLANET_CHARTED', 1);
 insert into public.workspaces (id, slug, name, github_org, plan_repo) values
   ('00000000-0000-4000-8000-0000000000a2', 'acme', 'Acme', 'acme', 'acme-plan');
 insert into public.sectors (workspace_id, name, repos) values
@@ -84,7 +90,7 @@ insert into auth.identities (user_id, provider, provider_id, identity_data) valu
   ('00000000-0000-4000-8000-00000000000f', 'github', '3003', '{"user_name": "fay-gh"}');
 -- Fay's orgs join nothing: she is a member of both workspaces because someone added her.
 insert into public.workspace_members (workspace_id, user_id)
-select id, '00000000-0000-4000-8000-00000000000f' from public.workspaces;
+select id, '00000000-0000-4000-8000-00000000000f' from public.workspaces where slug in ('vertuoza', 'acme');
 
 -- Act as a signed-in user, or as nobody, for the rest of the transaction.
 create function pg_temp.sign_in(uid text, email text) returns void language sql as $$
@@ -332,7 +338,7 @@ begin
   begin
     insert into public.players (workspace_id, user_id, display_name, team, hero)
     select id, '00000000-0000-4000-8000-00000000000f', 'FAY', case slug when 'acme' then 'roadrunners' else 'pirates' end, hero
-      from public.workspaces;
+      from public.workspaces where slug in ('vertuoza', 'acme');
   exception when unique_violation then
     raise exception 'FAIL: one GitHub login could not be a player in two workspaces (%)', sqlerrm;
   end;
@@ -432,7 +438,7 @@ end $$;
 do $$
 begin
   if not exists (select 1 from public.player_xp
-                  where workspace_id = (select id from public.workspaces where slug = 'vertuoza') and level > 0) then
+                  where workspace_id = (select id from public.workspaces where slug = 'nimbus') and level > 0) then
     raise exception 'FAIL: the demo seed wrote no player_xp rows';
   end if;
 end $$;

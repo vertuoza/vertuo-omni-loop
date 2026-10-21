@@ -266,7 +266,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb legal', 'omni kb glossary', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb index [--json]', 'omni kb legal', 'omni kb glossary', 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', '  [--product <name>] [--json]', 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', '  [--product <name>] [--json]', 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', '  [--product <name>] [--json]', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:
@@ -278,10 +278,19 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "as one graph, or with an <id> the neighbourhood of one entry (--paths <file>… for every entry " +
       'that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood ' +
       'document); graph push sends the whole repository graph, at HEAD, to the Omni page ' +
-      '(a clean knowledge folder and a sign-in needed); legal and glossary print ' +
+      '(a clean knowledge folder and a sign-in needed); index prints the capped block a session ' +
+      "starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, " +
+      'at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always ' +
+      'exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print ' +
       "the product's active Legal entries and its glossary " +
       'terms, one line each, read from the Omni page and kept as a local copy, which they print, ' +
-      'saying so, when the page is unreachable; init lays down every missing form, blank, and ' +
+      'saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change ' +
+      'one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the ' +
+      'fields given and names its item by the id or term the reads print, and --product names the ' +
+      'product when the repository is in several. They print added <id>, edited <id> or proposed (a ' +
+      "member who does not own the section proposes, and waits for its owner) with the item's link; " +
+      "--json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or " +
+      'retired from the terminal; init lays down every missing form, blank, and ' +
       'changes no file that exists.',
   },
   {
@@ -334,7 +343,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'runner',
     kind: 'command',
     who: 'you',
-    usage: ['omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]', 'omni runner sender'],
+    usage: ['omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h]', 'omni runner sender', "omni runner send '<line>' [--to <runner|fleet>]", 'omni runner follow <n>'],
     label: 'omni runner',
     summary: 'run the lines the Omni app sends, on this machine',
     detail:
@@ -359,7 +368,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'not installed fails it with the line to install it; a list that does not read lets the job ' +
       'run, its log saying so. At start and once an hour it updates the plugin, printing a line only ' +
       'when its version changed or the update failed. sender prints the line /omni:pr writes in a ' +
-      'pull request a job opens, naming who sent it and the runner.',
+      'pull request a job opens, naming who sent it and the runner. send "<line>" [--to <runner|fleet>] ' +
+      'queues a line for this repository\'s workspace with your own sign-in and prints the job\'s id (a line no ' +
+      'runner runs is refused before any call; --to names a runner, else a fleet). follow <n> finds the PRD\'s ' +
+      'newest job in this repository and prints one line per milestone until it ends (queued, claimed by <runner>, ' +
+      'waiting for approval, PR: <link>, <k>/<total> slices merged, then Waiting on answers, Held, Ready, Done, ' +
+      'Failed: <reason>, Cancelled or Runner lost, with the PRD page link): exit 0 on done, 1 on failed, cancelled ' +
+      'or runner lost; Ctrl-C stops the following only, the job runs on.',
   },
   {
     name: 'dossier',
@@ -422,6 +437,23 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'It never holds up the skill that runs it: anything that stops it exits 1 with one line, as ' +
       'omni dossier link does. omni proof session writes the signed-in browser session a run films ' +
       'with, from your omni signin, to <file> or PROOF_STORAGE_STATE: set proof.setup to it.',
+  },
+  {
+    name: 'before-after',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni before-after new <n> --services <name>,<name>… [--force]', 'omni before-after render <n>'],
+    summary: "writes a PRD's before/after page in two tabs, and draws its diagrams",
+    detail:
+      'The verbs /omni:brainstorm runs. new writes before-after.html into PRD n\'s inbox folder from the ' +
+      "kit's skeleton: the Functional & design tab first and open, the Technical tab second, one block " +
+      'per named service in each, every section a <!-- FILL --> to replace with filled, na or gap. It ' +
+      'refuses, writing nothing, a PRD with no inbox folder, a page already there unless --force, and ' +
+      'a missing or empty --services, each with one line and exit 1. render replaces each ' +
+      '<pre class="mermaid"> of the page with the SVG Mermaid draws for it, inline, in a headless ' +
+      'Chromium from the repository\'s Playwright; it prints one line per diagram and refuses, with the ' +
+      'install line, when no browser starts. omni check inbox grades a page of this shape: both tabs, ' +
+      'a valid state on every section, no FILL marker, no diagram left unrendered, no external resource.',
   },
   {
     name: 'pitch',
@@ -493,7 +525,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'constituents',
     kind: 'command',
     who: 'skills',
-    usage: ['omni constituents [--json]'],
+    usage: ['omni constituents [--json]', 'omni constituents add --statement "<text>" | --never "<text>"', '  [--product <name>] [--json]', 'omni constituents edit statement|never#<n> --text "<text>"', '  [--product <name>] [--json]'],
     summary: "the product's Statement and Never list, read at every session's start",
     detail:
       "Prints the constituents of the product this repository serves: its Statement (what the product " +
@@ -502,7 +534,13 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'before the briefing. It reads them from the Omni page with your omni signin, keeps a copy on this ' +
       'computer, and says "synced just now"; offline or failing, it prints that copy with its age. With ' +
       'no copy, no product or no sign-in it prints one line. It always exits 0 within 3 seconds. --json ' +
-      'prints the same for skills: state, product, statement, never and syncedAt.',
+      'prints the same for skills: state, product, statement, never and syncedAt. add and edit change them ' +
+      'as you, signed in with omni signin or OMNI_TOKEN: add --statement or --never saves a Statement ' +
+      'or a new Never line, edit statement or edit never#<n> with --text rewrites one, and --product ' +
+      'names the product when the repository is in several. They print added <id> or edited <id> with ' +
+      "the item's link; --json prints the page's answer. Only a workspace owner changes a constituent: " +
+      "a member's refusal is printed in the page's words and exits 1, wrong usage exits 2. Reading " +
+      'is unchanged and a change never writes its copy. Nothing is removed from the terminal.',
   },
   {
     name: 'session',
@@ -1461,6 +1499,25 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     },
   },
   {
+    name: 'yolo-runner',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:yolo-runner <n>'],
+    label: '/omni:yolo-runner <n>',
+    summary: 'build a PRD on a runner, and follow it from here',
+    detail:
+      "The /omni:yolo of a runner: follows the PRD's queued or running job when there is one, " +
+      "else sends /omni:yolo <n> to a runner of the workspace, then prints the job's milestones " +
+      'until it ends and hands off on the ending. It builds nothing in this terminal and never ' +
+      'merges into {defaultBranch}; Ctrl-C stops the following only.',
+    group: 'build',
+    when: 'Use it when you want a runner to build the PRD while you follow it, or to pick up a job sent from the page.',
+    example: {
+      type: '/omni:yolo-runner 580',
+      result: "the PRD's job followed milestone by milestone, then the hand-off on how it ended",
+    },
+  },
+  {
     name: 'visual-fix',
     kind: 'skill',
     who: 'you',
@@ -1900,6 +1957,27 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:pixel-perfect polish the quote page',
       result: 'one batch of fixes in your tokens and components, checked at mobile and desktop widths',
+    },
+  },
+  {
+    name: 'knowledge-add',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:knowledge-add <what to add or edit>'],
+    label: '/omni:knowledge-add',
+    summary: "add or edit one item of a product's knowledge",
+    detail:
+      "Adds or edits one Statement, Never line, Legal entry or Glossary term of the product's " +
+      'Knowledge tab from the terminal. It turns what you said into exactly one item, asks for any ' +
+      'field you did not give and never fills one, shows the item whole and asks Yes / Change / ' +
+      'Cancel, and writes only on Yes, with omni constituents or omni kb legal and glossary. The ' +
+      'next item starts only after the last one\'s line printed. It never writes unattended and ' +
+      'never removes or retires anything.',
+    group: 'everyday',
+    when: "Use it when a product's constituents, legal entries or glossary should change without leaving the terminal.",
+    example: {
+      type: '/omni:knowledge-add add a never line: we never store card numbers',
+      result: 'the item shown whole, then on Yes its line and link, as added never#4',
     },
   },
   {

@@ -9,7 +9,7 @@ evidence:
   - kit/test/dist.test.ts@0f196ea
   - apps/galaxy/package.json@c9781fd
   - .github/workflows/game.yml@4bf6bd0
-  - .github/workflows/supabase.yml@a4bc540
+  - .github/workflows/supabase.yml@cbc038a
   - scripts/check-changed.ts@1d62baa
   - scripts/check-changed-steps.ts@2d48772
   - scripts/lint.ts@efc3f1b

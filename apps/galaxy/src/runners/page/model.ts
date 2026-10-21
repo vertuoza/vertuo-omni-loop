@@ -19,7 +19,7 @@ export type RunnersPageView =
   | { kind: 'unreadable' }
   // `demoQuestions` is the demo's alone (PRD 2255): the questions its Need human drawer reads and answers in the
   // browser, with no route to call. A page read from the database never carries it.
-  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; now: string; demoQuestions?: readonly JobQuestions[] };
+  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; now: string; answered: readonly string[]; demoQuestions?: readonly JobQuestions[] };
 
 /** The command that starts a runner, as the empty page shows it. */
 export const START_COMMAND = 'omni runner --name <name> --repos <dir>';
@@ -52,6 +52,32 @@ export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'> & { heal
 
 /** A done job's outcome in words (PRD 2223; `human`, PRD 2255: it ended with questions for a person). */
 const OUTCOME_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human' } as const;
+
+/** What a job that waited on answers reads once they are in (PRD 2270): Answered · fixing while its
+ * continuation is queued, starting or running, Answered · fixed once that ended, linking it; Answered with a
+ * Fix with answers button when every asked item is answered and nothing continued it (`answered` holds the
+ * ids of the jobs the page's read found so). Null: it still reads Waiting on answers, or is no such job. */
+export type Answered = { words: 'Answered · fixing' | 'Answered · fixed' | 'Answered'; tone: 'run' | 'done' | 'wait'; fix: string | null; button: boolean };
+
+export function answeredOf(job: Pick<Job, 'id' | 'status' | 'outcome'>, jobs: readonly Pick<Job, 'id' | 'status' | 'continues'>[], answered: readonly string[]): Answered | null {
+  if (job.status !== 'done' || job.outcome !== 'answers') return null;
+  const fix = jobs.find((other) => other.continues === job.id);
+  if (fix) {
+    const going = fix.status === 'queued' || fix.status === 'claimed' || fix.status === 'running';
+    return going ? { words: 'Answered · fixing', tone: 'run', fix: fix.id, button: false } : { words: 'Answered · fixed', tone: 'done', fix: fix.id, button: false };
+  }
+  return answered.includes(job.id) ? { words: 'Answered', tone: 'wait', fix: null, button: true } : null;
+}
+
+/** Under the fix job's line: `after answers · job <8 characters>`; null for any other job. */
+export const afterAnswersWords = (job: Pick<Job, 'continues'>): string | null =>
+  job.continues ? `after answers · job ${job.continues.slice(0, 8)}` : null;
+
+/** The fix a job that waited asks for once answered: the same PRD's `/omni:yolo-fix <n>`; null when its line names none. */
+export function fixLineOf(job: Pick<Job, 'line'>): string | null {
+  const number = /^\/omni:[a-z-]+ (\d+)/.exec(job.line)?.[1];
+  return number === undefined ? null : `/omni:yolo-fix ${number}`;
+}
 
 /** A job's status in words. */
 export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'runningAt' | 'claimedAt'> & { outcome?: Job['outcome'] }, now: Date): string {
@@ -132,6 +158,23 @@ export function prdPageLink(job: Pick<Job, 'line' | 'repo' | 'outcome' | 'status
   const number = /^\/omni:[a-z-]+ (\d+)$/.exec(job.line)?.[1];
   if (job.status !== 'done' || !job.outcome || job.outcome === 'human' || number === undefined) return null;
   return `/prd/at/${job.repo.split('/').map(encodeURIComponent).join('/')}/${number}`;
+}
+
+/** The PRD titles the page knows, by `<owner/repo in lower case>#<n>`: the repository's dossiers the viewer may read. */
+export type PrdTitles = Readonly<Record<string, string>>;
+
+/** The key of a PRD in `PrdTitles`. */
+export const prdKey = (repo: string, number: number): string => `${repo.toLowerCase()}#${String(number)}`;
+
+/** The PRD a job's line builds (PRD 2251), for the line under it: its number, the link to its page and its
+ * title; null when the line is not `/omni:<skill> <n>` or the job's repository has no dossier of PRD n. */
+export function prdLineOf(job: Pick<Job, 'line' | 'repo'>, prds: PrdTitles): { number: number; href: string; title: string } | null {
+  const digits = /^\/omni:[a-z-]+ (\d+)$/.exec(job.line)?.[1];
+  if (digits === undefined) return null;
+  const number = Number(digits);
+  const title = prds[prdKey(job.repo, number)];
+  if (title === undefined) return null;
+  return { number, href: `/prd/at/${job.repo.split('/').map(encodeURIComponent).join('/')}/${digits}?to=page`, title };
 }
 
 /** A pull request link's words: `PR #1838`, or `Pull request` when the link names no number. */

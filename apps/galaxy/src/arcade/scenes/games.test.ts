@@ -27,7 +27,7 @@ const player: Player = {
 };
 const LEVEL_3 = xpStatus(true, { xp: 180, level: 3, unlocked: ['invaders'] });
 const CABINETS = cabinets(LEVEL_3).length;
-const GAMES_IN_ORDER = ['ENTROPY INVADERS', 'SUPER OMNI WORLD', 'OMNI KART', 'OMNI DUET', 'OMNI PONG'];
+const GAMES_IN_ORDER = ['ENTROPY INVADERS', 'STARHOP', 'OMNI KART', 'OMNI DUET', 'PULSAR VOLLEY'];
 
 /** The text a screen shows, one run of text per entry, as a player reads it on `grid`. */
 function textOf(el: ReactElement, grid: Grid): string[] {
@@ -69,12 +69,12 @@ describe('the game room, for a player with a level', () => {
     expect(wide).toContain('120 XP to LV 4');
   });
 
-  it('stands three of its five cabinets side by side on the wide grid: Entropy Invaders lit, Super Omni World, then OMNI KART, and no SOON', () => {
+  it('stands three of its five cabinets side by side on the wide grid: Entropy Invaders lit, Starhop, then OMNI KART, and no SOON', () => {
     expect(CABINETS).toBe(5);
     expect(wide).not.toContain('OMNI DUET');
-    expect(wide).not.toContain('OMNI PONG');
+    expect(wide).not.toContain('PULSAR VOLLEY');
     expect(wide).toContain('ENTROPY INVADERS');
-    expect(wide).toContain('SUPER OMNI WORLD');
+    expect(wide).toContain('STARHOP');
     expect(wide).toContain('CREW TOP 5');
     expect(wide).toContain('NO SCORES YET');
     expect(wide).toContain('A · PLAY');
@@ -84,7 +84,7 @@ describe('the game room, for a player with a level', () => {
     expect(wide.some((s) => s.startsWith('PAGE'))).toBe(false);
   });
 
-  it('shows a level on each locked cabinet: Super Omni World\'s LV 2 and OMNI KART\'s LV 3, locked until the stored row unlocks them', () => {
+  it('shows a level on each locked cabinet: Starhop\'s LV 2 and OMNI KART\'s LV 3, locked until the stored row unlocks them', () => {
     expect(levels(wide).sort()).toEqual(['120 XP to LV 4', `P1 INKY · ${sure(fleets[1], 'fleets[1]').label} · LV 3`, 'LV 2', 'LV 3', 'LV 3'].sort());
   });
 
@@ -111,9 +111,9 @@ describe('the wide grid\'s window of three cabinets (PRD 1633)', () => {
       createElement(GamesOverlay, { xp, me: player, index, onPick: () => {} })));
     return [...html.matchAll(/class="(cabinet[^"]*)"[^>]*><span class="marquee">([^<]*)</g)].map((m) => ({ title: m[2], active: (m[1] ?? '').includes('active') }));
   };
-  const FIRST = ['ENTROPY INVADERS', 'SUPER OMNI WORLD', 'OMNI KART'];
-  const MIDDLE = ['SUPER OMNI WORLD', 'OMNI KART', 'OMNI DUET'];
-  const LAST = ['OMNI KART', 'OMNI DUET', 'OMNI PONG'];
+  const FIRST = ['ENTROPY INVADERS', 'STARHOP', 'OMNI KART'];
+  const MIDDLE = ['STARHOP', 'OMNI KART', 'OMNI DUET'];
+  const LAST = ['OMNI KART', 'OMNI DUET', 'PULSAR VOLLEY'];
 
   it.each([
     [0, FIRST], [1, FIRST], [2, FIRST], [3, MIDDLE], [4, LAST],
@@ -131,12 +131,12 @@ describe('the wide grid\'s window of three cabinets (PRD 1633)', () => {
     expect(text).toContain('CHOOSE');
   });
 
-  it('shows OMNI PONG locked with LV 5 below its level, cabinets 3 to 5 in the window (PRD 2101)', () => {
+  it('shows PULSAR VOLLEY locked with LV 5 below its level, cabinets 3 to 5 in the window (PRD 2101)', () => {
     const text = room(LEVEL_3, WIDE, 4);
-    expect(text).toContain('OMNI PONG');
+    expect(text).toContain('PULSAR VOLLEY');
     expect(text).toContain('LV 5');
     expect(text).toContain('OMNI KART');
-    expect(text).not.toContain('SUPER OMNI WORLD');
+    expect(text).not.toContain('STARHOP');
   });
 
   it('turns back to the first three when the cursor comes back to the first cabinet', () => {
@@ -161,16 +161,16 @@ describe('the screen of a lit cabinet', () => {
   it('shows each game\'s own screen: the Invaders formation, a slice of stage 1-1, a still of the race', () => {
     const cabs = byTitle(WIDE);
     expect(sure(cabs.get('ENTROPY INVADERS'), 'the Invaders cabinet')).toContain('cab-row');
-    for (const title of ['SUPER OMNI WORLD', 'OMNI KART']) {
+    for (const title of ['STARHOP', 'OMNI KART']) {
       const cab = sure(cabs.get(title), title);
       expect(cab, title).not.toContain('cab-row');
       expect(cab, title).toContain('cab-still');
     }
   });
 
-  it('puts the player in their own game: their hero running in Super Omni World, their kart and hero on the circuit', () => {
+  it('puts the player in their own game: their hero running in Starhop, their kart and hero on the circuit', () => {
     const cabs = byTitle(WIDE);
-    expect(sure(cabs.get('SUPER OMNI WORLD'), 'the Super Omni World cabinet')).toContain('cab-runner');
+    expect(sure(cabs.get('STARHOP'), 'the Starhop cabinet')).toContain('cab-runner');
     expect(sure(cabs.get('OMNI KART'), 'the OMNI KART cabinet')).toContain('cab-kart');
     const visitor = byTitle(WIDE, null);
     expect(sure(visitor.get('OMNI KART'), 'the OMNI KART cabinet')).not.toContain('cab-kart');
@@ -337,7 +337,7 @@ describe('the game room on the tall grid', () => {
     });
     expect(pages[0]).toContain('ENTROPY INVADERS');
     expect(pages[0]).not.toContain('SOON');
-    expect(pages[1]).toContain('SUPER OMNI WORLD');
+    expect(pages[1]).toContain('STARHOP');
     expect(pages[1]).not.toContain('ENTROPY INVADERS');
     expect(pages[2]).toContain('OMNI KART');
     expect(pages[2]).not.toContain('SOON');
@@ -345,7 +345,7 @@ describe('the game room on the tall grid', () => {
     expect(pages[3]).toContain('OMNI DUET');
     expect(pages[3]).toContain('LV 4');
     expect(pages[3]).not.toContain('OMNI KART');
-    expect(pages[4]).toContain('OMNI PONG');
+    expect(pages[4]).toContain('PULSAR VOLLEY');
     expect(pages[4]).toContain('LV 5');
     expect(pages[4]).not.toContain('OMNI DUET');
   });

@@ -35,6 +35,9 @@
 //   runner releases a lost job's claims after the job ended. Nothing else of the job changes.
 // - A job's outcome (PRD 2223): a done job's last report may say what its yolo hand-off ended on
 //   (answers, held, ready), stored in `runner_jobs.outcome`; a report on another status stores none.
+// - The terminal's reads (PRD 2251): a member of the workspace a repository belongs to reads its
+//   runners, and the jobs of that repository whose line names a PRD (its first argument), among the ones
+//   the Runners page lists, newest first; anyone else is refused, and another workspace is never read.
 // - A job's questions (PRD 2255): a running job asks once, from the owner of its runner; any member of
 //   the workspace reads them (a runner's owner or a person). A job reported done with its questions
 //   still open stores the outcome `human` (a failed or cancelled one stores none, and neither does one
@@ -46,13 +49,15 @@
 //   job that ended `human` is answered or dismissed. The Runners page keeps a job waiting for an answer
 //   whatever its age, and reads one whose questions are closed as Done (outcome null): the stored
 //   outcome stays `human`.
-import type { IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 import {
-  checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
+  checkLine, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
   type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type RegisterReply, type RegisterRequest,
-  type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyJob, type KeySend, type RunnerState, type SendRequest, type Target,
+  type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyJob, type KeySend, type KitRunner, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
-import type { JobPatch, JobRow, JobRowStatus, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
+import type { OutboxStand } from '../dossier/page/stage';
+import { shouldContinue, unansweredWhy } from './continue';
+import type { ContinuationsRepository, JobPatch, JobRow, JobRowStatus, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
 
 /** The time, and a pause: real in production, fixed in tests. */
 export type Clock = { now: () => Date; sleep: (ms: number) => Promise<void> };
@@ -107,7 +112,7 @@ function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, strin
     id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, sentBy: row.sent_by,
     sentByLogin: logins.get(row.sent_by) ?? null, sentByKey: row.sent_by_key === null ? null : keys.get(row.sent_by_key) ?? null, status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
     logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null,
-    released: row.released ?? null, releaseError: row.release_error ?? null, outcome: row.outcome ?? null, queuedAt: row.queued_at,
+    released: row.released ?? null, releaseError: row.release_error ?? null, outcome: row.outcome ?? null, continues: row.continues ?? null, queuedAt: row.queued_at,
     claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
 }
@@ -185,7 +190,42 @@ function keyJobOf(row: JobRow, runnerName: string | null): KeyJob {
   };
 }
 
+/** A runner as the terminal reads it (PRD 2251). */
+const kitRunnerOf = (row: RunnerRow, used: number, now: Date): KitRunner => ({
+  id: row.id, name: row.name, fleet: row.fleet, state: runnerState(row, used, now), used, slots: row.slots, repos: row.repos,
+});
+
+/** A PRD's job as the terminal follows it (PRD 2251): its runner by name. */
+const prdJobOf = (row: JobRow, runnerName: string | null): PrdJob => ({
+  id: row.id, line: row.line, repo: row.repo, status: row.status, runner: runnerName, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason,
+  outcome: row.outcome ?? null, queuedAt: row.queued_at, claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
+});
+
 const usedBy = (jobs: JobRow[], runnerId: string) => jobs.filter((job) => job.runner_id === runnerId && ACTIVE.includes(job.status)).length;
+
+/** What the target rules read: the workspace's fleets and its runners. */
+type TargetStore = Pick<RunnersRepository, 'fleetExists' | 'runner'>;
+
+async function mayFleet(store: TargetStore, workspaceId: string, sender: Sender, fleet: string): Promise<Served<Addressed>> {
+  if (!(await store.fleetExists(workspaceId, fleet))) return no('missing', `No fleet ${fleet} in this workspace.`);
+  if (!inFleet(sender, fleet)) return no('forbidden', `Only the players of ${fleet} and the workspace's owners send to its runners.`);
+  return ok({ toRunner: null, toFleet: fleet });
+}
+
+async function mayRunner(store: TargetStore, workspaceId: string, sender: Sender, runnerId: string): Promise<Served<Addressed>> {
+  const runner = await store.runner(runnerId);
+  if (runner?.workspace_id !== workspaceId) return no('missing', 'No such runner in this workspace.');
+  if (runner.fleet !== null && !inFleet(sender, runner.fleet)) {
+    return no('forbidden', `${runner.name} serves ${runner.fleet}: only its players and the workspace's owners send to it.`);
+  }
+  return ok({ toRunner: runner.id, toFleet: null });
+}
+
+/** Whether a person of the workspace may send to this target, or why not. */
+async function mayTarget(store: TargetStore, workspaceId: string, sender: Sender, target: Target): Promise<Served<Addressed>> {
+  if (target.kind === 'any') return ok({ toRunner: null, toFleet: null });
+  return target.kind === 'fleet' ? mayFleet(store, workspaceId, sender, target.fleet) : mayRunner(store, workspaceId, sender, target.runner);
+}
 
 /** What the page and the routes read of a job's questions (PRD 2255): open until someone closed them,
  * answered when they left answers, dismissed when they did not; who closed them by id and login. */
@@ -223,27 +263,6 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     return ok(runner);
   }
 
-  /** Whether a person of the workspace may send to this target, or why not. */
-  async function mayTarget(workspaceId: string, sender: Sender, target: Target): Promise<Served<Addressed>> {
-    if (target.kind === 'any') return ok({ toRunner: null, toFleet: null });
-    return target.kind === 'fleet' ? mayFleet(workspaceId, sender, target.fleet) : mayRunner(workspaceId, sender, target.runner);
-  }
-
-  async function mayFleet(workspaceId: string, sender: Sender, fleet: string): Promise<Served<Addressed>> {
-    if (!(await store.fleetExists(workspaceId, fleet))) return no('missing', `No fleet ${fleet} in this workspace.`);
-    if (!inFleet(sender, fleet)) return no('forbidden', `Only the players of ${fleet} and the workspace's owners send to its runners.`);
-    return ok({ toRunner: null, toFleet: fleet });
-  }
-
-  async function mayRunner(workspaceId: string, sender: Sender, runnerId: string): Promise<Served<Addressed>> {
-    const runner = await store.runner(runnerId);
-    if (runner?.workspace_id !== workspaceId) return no('missing', 'No such runner in this workspace.');
-    if (runner.fleet !== null && !inFleet(sender, runner.fleet)) {
-      return no('forbidden', `${runner.name} serves ${runner.fleet}: only its players and the workspace's owners send to it.`);
-    }
-    return ok({ toRunner: runner.id, toFleet: null });
-  }
-
   /** The one workspace all the repositories belong to for the caller, or why not. */
   async function workspaceOf(caller: string, repos: string[]): Promise<Served<string>> {
     let workspaceId: string | null = null;
@@ -274,7 +293,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     if (!placed.ok) return placed;
     const sender = await store.member(placed.value, caller);
     if (!sender) return no('forbidden', `${repo} is not in your workspace.`);
-    const target = await mayTarget(placed.value, sender, request.target);
+    const target = await mayTarget(store, placed.value, sender, request.target);
     if (!target.ok) return target;
     return ok(await store.insertJob({ workspaceId: placed.value, line: request.line, repo, ...target.value, sentBy: caller, sentByKey: key?.id ?? null }));
   }
@@ -286,6 +305,13 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       return no('forbidden', `${repo} is not in your workspace${placed.refusal ? `: ${placed.refusal}` : ''}.`);
     }
     return ok(placed.workspaceId);
+  }
+
+  /** The workspace the repository belongs to for the caller, who must be one of its members; why not otherwise. */
+  async function memberPlacement(caller: string, repo: string): Promise<Served<string>> {
+    const placed = await placement(caller, repo, null);
+    if (!placed.ok) return placed;
+    return (await store.member(placed.value, caller)) ? placed : no('forbidden', `${repo} is not in your workspace.`);
   }
 
   /** Stores the report's lines once each, then keeps the job's last 20,000. */
@@ -512,6 +538,33 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       return ok({ status: job.status, lines: read.slice(0, JOB_LINES_PAGE), more: read.length > JOB_LINES_PAGE, first, logTail });
     },
 
+    /** The terminal's read of the runners (PRD 2251): every runner of the workspace the repository belongs
+     * to for the caller, with its state and slots, by name. A member only. */
+    async runnersFor(caller: string, repo: string): Promise<Served<KitRunner[]>> {
+      const workspace = await memberPlacement(caller, repo.toLowerCase());
+      if (!workspace.ok) return workspace;
+      await markLost();
+      const [runners, active] = await Promise.all([store.runners(workspace.value), store.activeJobs(workspace.value)]);
+      const now = clock.now();
+      return ok(runners.map((runner) => kitRunnerOf(runner, usedBy(active, runner.id), now)));
+    },
+
+    /** The terminal's read of a PRD's jobs (PRD 2251): the jobs of the repository whose line names the PRD,
+     * among the ones the Runners page lists (queued and running, then the last 50 that ended), newest
+     * first. A member of the workspace the repository belongs to only. */
+    async prdJobs(caller: string, repo: string, prd: PrdNumber): Promise<Served<PrdJob[]>> {
+      const named = repo.toLowerCase();
+      const workspace = await memberPlacement(caller, named);
+      if (!workspace.ok) return workspace;
+      await markLost();
+      const [runners, active, ended] = await Promise.all([store.runners(workspace.value), store.activeJobs(workspace.value), store.endedJobs(workspace.value, ENDED_JOBS_SHOWN)]);
+      const names = new Map(runners.map((runner) => [runner.id, runner.name]));
+      return ok([...active, ...ended]
+        .filter((job) => job.repo === named && linePrd(job.line) === prd)
+        .sort((a, b) => b.queued_at.localeCompare(a.queued_at) || b.id.localeCompare(a.id))
+        .map((job) => prdJobOf(job, job.runner_id === null ? null : names.get(job.runner_id) ?? null)));
+    },
+
     /** A running job asks its questions (PRD 2255), once: from the owner of its runner. Answers them open. */
     async ask(caller: string, jobId: string, request: AskRequest): Promise<Served<JobQuestions>> {
       const runnerId = await reporting(caller, jobId);
@@ -548,7 +601,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       if (!line.ok) return no('malformed', line.reason);
       const placed = await placement(caller, job.repo, job.workspace_id);
       if (!placed.ok) return placed;
-      const target = await mayTarget(job.workspace_id, member, targetOf(job));
+      const target = await mayTarget(store, job.workspace_id, member, targetOf(job));
       if (!target.ok) return target;
       const answered = await store.answer(jobId, request.answers, caller);
       if (!answered.ok) return refused(answered.refusal, jobId);
@@ -595,3 +648,52 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
 }
 
 export type RunnersService = ReturnType<typeof runnersService>;
+
+/** What a continuation asks (PRD 2270): the PRD of a repository of the workspace, and where its asked
+ * questions stand after the touch's read. */
+type ContinueRequest = {
+  workspaceId: string; repo: string; prd: PrdNumber; stand: OutboxStand | null;
+  /** A person pressing Fix with answers (PRD 2270 s2): the fix is sent in their name and the repository's switch is not asked. */
+  by?: string | undefined;
+};
+
+/** The fix queued, or why none was. */
+type Continued = { queued: Job; why: null } | { queued: null; why: string };
+
+/** Why a continuation has no sender: the job's sender left the workspace, or the person pressing never joined it. */
+const senderGone = (by: string | undefined): string => (by === undefined ? 'its sender is no longer a member of the workspace' : 'you are not a member of this workspace');
+
+/** The API key a continuation is sent by: the job's own, unless a person pressed Fix with answers. */
+const keyOf = (job: Pick<JobRow, 'sent_by_key'>, by: string | undefined): string | null => (by === undefined ? job.sent_by_key : null);
+
+/** The continuation's rules (PRD 2270 s1): once every asked item of a PRD has a counted reply, its newest
+ * runner job, which waited on answers, is continued by `/omni:yolo-fix <n>`, queued to the same runner or
+ * fleet in its sender's name (the API key that sent it, too), and linked to it. The decision is
+ * ./continue.ts's; the sender must still be a member who may send there, as when they sent it; and the
+ * database's unique runner_jobs.continues refuses a second continuation, so two touches at once queue one. */
+export function continuationsService(store: RunnersRepository, continuations: ContinuationsRepository) {
+  const none = (why: string): Continued => ({ queued: null, why });
+  return {
+    async continueAnswered({ workspaceId, repo, prd, stand, by }: ContinueRequest): Promise<Continued> {
+      // Nothing is read until every asked item is answered: most touches stop here.
+      const unanswered = unansweredWhy(stand);
+      if (unanswered !== null) return none(unanswered);
+      const repoKey = repo.toLowerCase();
+      const [switchOn, jobs] = await Promise.all([continuations.fixWhenAnswered(workspaceId, repoKey), continuations.prdJobs(workspaceId, repoKey, prd)]);
+      const decision = shouldContinue({ prd, stand, jobs, switchOn: by !== undefined || switchOn === true });
+      if (!decision.continue) return none(decision.why);
+      const job = decision.job;
+      const sentBy = by ?? job.sent_by;
+      const sender = await store.member(workspaceId, sentBy);
+      if (!sender) return none(senderGone(by));
+      const target = await mayTarget(store, workspaceId, sender, targetOf(job));
+      if (!target.ok) return none(target.error);
+      const row = await continuations.insertContinuation({
+        workspaceId, line: `/omni:yolo-fix ${String(prd)}`, repo: job.repo, ...target.value, sentBy, sentByKey: keyOf(job, by), continues: job.id,
+      });
+      if (!row) return none(`job ${job.id} was continued already`);
+      const keys = row.sent_by_key === null ? new Map<string, string>() : await store.keyNames(workspaceId, [row.sent_by_key]);
+      return { queued: jobOf(row, await store.logins(workspaceId, [row.sent_by]), keys), why: null };
+    },
+  };
+}

@@ -27,16 +27,19 @@ signed.
 
 **Code runs only from a target's own config.** In a target, the only commands ever run beyond `git`
 and `gh` are its own committed setup (`commands.setup`), then its own committed preflight
-(`commands.preflightFull`, else `commands.preflight`), both read from its `.omni-loop/config.yml` on
-its default branch, never from a branch:
+(`commands.preflightFull`, else `commands.preflight`), then its own committed smoke
+(`commands.smoke`), the last only when step 7 moves up to it, all read from its `.omni-loop/config.yml`
+on its default branch, never from a branch:
 `git -C <clone> show <clone remote>/<target default branch>:.omni-loop/config.yml`. The setup runs
 first, when it has one, in the same worktree as the preflight, before each preflight run. A target
 without a preflight runs nothing locally, its setup included: its PR's CI is the check. A target
 without a setup runs its preflight alone. **A red setup** holds that target as stuck, quoting its
 failing line: it counts toward no attempt, and the target is never edited to make it pass. Never
-install in a target beyond its committed setup; never a script, or a command from an imported copy's
-playbook. Everywhere `/omni:bug-fix` says "run the preflight", in a target it means its setup, then
-this one, or nothing.
+install in a target beyond its committed setup; never a script or a build of your own, or a command
+from an imported copy's playbook. The smoke runs in the same worktree, after the setup, and a red
+setup holds it as stuck the same way. Everywhere `/omni:bug-fix` says "run the preflight", in a
+target it means its setup, then this one, or nothing; where it says "run `commands.smoke`", in a
+target it means its setup, then the target's own committed `commands.smoke`, or stop rule 7.
 
 **All or nothing across targets.** A target that cannot be cloned or pushed to stops the whole fix:
 a bug half-fixed across repositories is worse than none. Comment on the issue naming the target and
@@ -164,14 +167,19 @@ comment adds one line, after **Domain**, naming every target that must change, b
 ```
 
 Its **Reproduction** and **Branch** lines name one per target, `<name>: <path>` and
-`<name>: <fix branch>`. A regression's evidence is read in the target it happened in.
+`<name>: <fix branch>`. A regression's evidence is read in the target it happened in, and so is the
+**Production** line: the deployed version, the releases and the deployments are those of the target
+the report comes from, not the plan repository's.
 
 ## 4. Locate
 
 New. Read the targets from their clones at `<worktrees>/targets/<name>` (`<worktrees>` is
 `omni config worktrees`), cloned or fetched as `/omni:ultra-yolo` step 2 item 1 does, each with its
 own default branch (`gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`).
-Read only: find where the cause is, and which targets must change. Their knowledge is read where
+When the triage names a deployed version (its **Production** line), read each target at that deployed
+tag too, besides its default branch (`git -C <clone> show <tag>:<path>`, `git -C <clone> log
+<previous tag>..<tag>`): the cause is often in what the tag changed. The fix is still cut from the
+target's default branch. Read only: find where the cause is, and which targets must change. Their knowledge is read where
 `plan.targets` says it lives. A target that cannot be cloned or fetched stops the whole fix (**All
 or nothing across targets**).
 
@@ -236,7 +244,17 @@ differs:
   setup run first (when it has one), then the preflight run on it, and its failing line is the red.
   **Without a preflight,** push the reproduction alone, open the draft PR (below), and the red is
   the failing CI run's link. A preflight or CI run that passes on the reproduction alone is
-  `/omni:bug-fix`'s stop rule 3. Red is seen **before** the fix, in every target, and never by running anything the target did not commit.
+  `/omni:bug-fix`'s stop rule 3, unless the third reading applies (next item). Red is seen **before** the fix, in every target, and never by running anything the target did not commit.
+- **The third reading moves up to the target's smoke.** When `/omni:bug-fix` step 7's third reading
+  (**this level cannot see it**) applies in a target, the reproduction becomes one more case of the
+  target's `commands.smoke`, read from its default branch's config, and runs as its setup, then
+  `commands.smoke`, in that worktree, before any fix; its failing line is the red, and `commands.smoke`
+  green is the proof the fix works. A target with no `commands.smoke` it can run (none committed, or a
+  tool the session lacks and no CI run of it) is stop rule 7: the comment on the plan repository's
+  issue names the target, the suspect, its **Production** line and the YAML line to commit in the
+  target's `.omni-loop/config.yml`, and nothing is pushed to any other target (**All or nothing across
+  targets**); the reproduction stays on its pushed branch in that target. Each target PR's
+  reproduction line names its level.
 - **Stop rule 3 names the fix,** as `/omni:bug-fix`'s **Who fixed it** does, in that target's clone,
   and writes the same comment on the issue in the plan repository: `Fixed by #<n>` for a pull
   request of the plan repository, `Fixed by <PR URL>` for one in a target, only for a candidate proven
@@ -378,6 +396,7 @@ runner**. With `--product <key>` there is no issue to resume on: stop with one l
   be read: stop with the line `omni runner answers` printed.
 - **Never create a label in a target,** and never run a command from an imported copy's playbook.
 - **Never run a command in a target other than its own committed setup, then its own committed
-  preflight** (beyond `git` and `gh`).
+  preflight, then its own committed `commands.smoke` when step 7 moves up to it** (beyond `git` and
+  `gh`).
 - Never commit on any repository's default branch, and never report anything as proven that was not
   run.

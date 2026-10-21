@@ -1,6 +1,6 @@
 // The game room on the canvas: space and a nebula behind the cabinets, on the wide grid (640×360)
 // and on the tall one (320×288). The cabinets, the XP bar and the words are the text layer's
-// (games.tsx), laid out for each grid by games.css. Super Omni World (PRD 817) is the room's too
+// (games.tsx), laid out for each grid by games.css. Starhop (PRD 817) is the room's too
 // here: its canvas is nothing but the dark behind the game, which draws itself on its own Phaser
 // canvas in the text layer's box (platformer/PlatformerScreen), under its text layer (platformer.tsx).
 import { nebulaFor, space, type FrameState, type Pages, type SceneName } from './common.ts';
@@ -8,7 +8,7 @@ import { nebulaFor, space, type FrameState, type Pages, type SceneName } from '.
 /**
  * The games group's scenes laid out on the tall grid. On it the room shows one cabinet a page, which
  * ◀ ▶ turn; on the wide grid three stand side by side, a window that follows the cursor (grid.ts
- * reads this list). Super Omni World's stage is 18 tiles high, the tall grid's height.
+ * reads this list). Starhop's stage is 18 tiles high, the tall grid's height.
  */
 export const TALL_SCENES: readonly SceneName[] = ['games', 'platformer'];
 
