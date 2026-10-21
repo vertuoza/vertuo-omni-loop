@@ -1,4 +1,4 @@
--- OMNI DUET's board starts over (PRD #2159), as Martin asked when its scoring moved to one point per obstacle.
+-- OMNI DUET's board starts over (PRD #2318, first written as PRD 2159), as Martin asked when its scoring moved to one point per obstacle.
 --
 -- DUET used to score 10 a wave (20 in endless mode); it now scores 1 an obstacle passed (2 in endless mode),
 -- so the bests set before are not on the new scale. Every row of `arcade_scores` on the board `duet` moves,
