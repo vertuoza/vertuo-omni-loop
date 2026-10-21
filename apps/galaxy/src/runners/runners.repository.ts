@@ -337,7 +337,7 @@ type NewContinuation = NewJob & { continues: string };
 
 const SwitchRow = z.object({ fix_when_answered: z.boolean() }).nullable();
 
-/** The continuation's storage (PRD 2270 s1; supabase/migrations/20261219090000_fix_when_answered.sql), a
+/** The continuation's storage (PRD 2270 s1; supabase/migrations/20261220090000_fix_when_answered.sql), a
  * port of its own beside the runners': the repository's switch, a PRD's jobs, and the continuation's
  * insert, which the unique runner_jobs.continues refuses a second time. */
 export function continuationsRepository(db: RunnersDb) {

@@ -16,7 +16,7 @@ import { repositoryRowOf, SavedRepository, type Phase0, type RepositoryRow } fro
 // supabase/migrations/20261215090000_remove_repository.sql, the owner's only: the repository is hidden,
 // untracked, its board private, out of every product, and keeps its history; add_repository() lists it
 // again, tracked. PRD 2270 s3 adds set_repository_fix_when_answered() of
-// supabase/migrations/20261219090000_fix_when_answered.sql, the owner's only: it switches whether a runner
+// supabase/migrations/20261220090000_fix_when_answered.sql, the owner's only: it switches whether a runner
 // job that waited on answers is fixed by itself once they are in.
 
 export type Saved = { ok: true; repository: RepositoryRow } | { ok: false; message: string };
