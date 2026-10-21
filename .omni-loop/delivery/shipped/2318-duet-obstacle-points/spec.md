@@ -1,5 +1,5 @@
 ---
-prd: 2159
+prd: 2318
 title: OMNI DUET scores each obstacle passed, 1 in a chapter and 2 in endless mode
 blocked-by: none
 spec: file
@@ -7,7 +7,7 @@ spec: file
 
 # OMNI DUET scores each obstacle passed, 1 in a chapter and 2 in endless mode
 
-**Date:** 2026-10-17 · **PRD:** #2159
+**Date:** 2026-10-17 · **PRD:** #2318 (it replaces PRD 2159, whose issue and pull requests are hidden while the account that opened them is suspended)
 **Touches:**
 - `apps/galaxy/src/arcade/duet/waves.ts` (how many of a wave's obstacles are fully below the circle at a sub-step)
 - `apps/galaxy/src/arcade/duet/run.ts` (the score: per obstacle, no longer per wave)
