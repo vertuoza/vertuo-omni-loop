@@ -4,17 +4,18 @@
 // button, and `pause` a pause from outside. Each returns a new run and what happened.
 //
 // The run is a phase machine: `ready` waits for START; in `play` the chapter's waves fall one after
-// another, each passed adding 10; a hit costs a life, restarts the chapter from its first wave with
-// the score it began with, and goes back to `ready`; passing a chapter's last wave shows the next
-// chapter's banner (`chapter`) for 2 seconds, during which nothing falls. After chapter IV the banner
-// says ENDLESS · ×2 and endless mode begins: waves drawn from one seed, each passed adding 20, where a
-// hit begins the wave hit again with the score it began with. START pauses (`paused`), and so does a
+// another, each obstacle adding 1 once it is entirely below the circle (PRD 2318); a hit costs a life,
+// restarts the chapter from its first wave with the score it began with, and goes back to `ready`;
+// passing a chapter's last wave shows the next chapter's banner (`chapter`) for 2 seconds, during
+// which nothing falls. After chapter IV the banner says ENDLESS · ×2 and endless mode begins: waves
+// drawn from one seed, each obstacle adding 2, where a hit begins the wave hit again with the score it
+// began with. START pauses (`paused`), and so does a
 // blurred window, a hidden tab or the scene left; only START resumes. The run ends (`over`) at the
 // last life lost, on SELECT on the pause screen, or on B on a ready screen once play has started:
 // the move into `over` is told once, by the event `over`, so the score reached is sent once.
 import type { Action } from '../keys';
 import { RULES, turn } from './rules';
-import { blocksAt, CHAPTERS, endlessWave, passedAt, struck, type Wave } from './waves';
+import { blocksAt, CHAPTERS, clearedAt, endlessWave, struck, type Wave } from './waves';
 
 /** The chapters' titles, in the order they are played: each one's numeral and name, as the screens say them. */
 export const CHAPTER_TITLES: readonly { numeral: string; name: string }[] = Object.freeze(CHAPTERS.map(({ numeral, name }) => ({ numeral, name })));
@@ -35,11 +36,11 @@ export interface Crash {
   readonly left: number;
 }
 
-/** What a wave passed in a chapter adds to the score. */
-export const WAVE_POINTS = 10;
+/** What an obstacle passed in a chapter adds to the score: a gate is one obstacle. */
+export const OBSTACLE_POINTS = 1;
 
-/** What a wave passed in endless mode adds to the score: twice a chapter's. */
-export const ENDLESS_POINTS = 20;
+/** What an obstacle passed in endless mode adds to the score: twice a chapter's. */
+export const ENDLESS_POINTS = 2;
 
 /** How long a chapter's banner shows, in seconds, before its first wave falls. */
 export const BANNER_SECONDS = 2;
@@ -69,6 +70,8 @@ export interface Run {
   readonly chapterScore: number;
   /** The score when the wave falling now began: what a hit in endless mode sets it back to. */
   readonly waveScore: number;
+  /** The obstacles of the wave falling now that have scored. */
+  readonly cleared: number;
   /** The waves passed in the whole run. */
   readonly passed: number;
   /** Whether play has started: B on a ready screen then ends the game rather than leaving it. */
@@ -97,7 +100,7 @@ export interface Stepped { run: Run; events: readonly RunEvent[] }
 export function newRun({ seed }: { seed: number }): Run {
   return {
     phase: 'ready', seed, chapter: 0, endless: false, wave: 0, tick: 0, banner: 0, lives: LIVES, score: 0, chapterScore: 0, waveScore: 0,
-    passed: 0, started: false, resume: 'play', angle: 0, carry: 0, trail: [], crash: null,
+    cleared: 0, passed: 0, started: false, resume: 'play', angle: 0, carry: 0, trail: [], crash: null,
   };
 }
 
@@ -122,16 +125,23 @@ function hit(run: Run): Stepped {
   const lives = run.lives - 1;
   const crash: Crash = { chapter: run.chapter, endless: run.endless, wave: run.wave, tick: run.tick, angle: run.angle, left: CRASH_SECONDS };
   const back = run.endless
-    ? { ...run, lives, score: run.waveScore, tick: 0, carry: 0, trail: [], crash }
-    : { ...run, lives, score: run.chapterScore, waveScore: run.chapterScore, wave: 0, tick: 0, carry: 0, trail: [], crash };
+    ? { ...run, lives, score: run.waveScore, tick: 0, cleared: 0, carry: 0, trail: [], crash }
+    : { ...run, lives, score: run.chapterScore, waveScore: run.chapterScore, wave: 0, tick: 0, cleared: 0, carry: 0, trail: [], crash };
   if (lives <= 0) return { run: { ...back, lives: 0, phase: 'over' }, events: ['hit', 'over'] };
   return { run: { ...back, phase: 'ready' }, events: ['hit'] };
 }
 
-/** The run after its wave was passed: 10 more (20 in endless mode), then the next wave, or a banner. */
+/** The run with the obstacles of its wave now below the circle scored: 1 each (2 in endless mode), each once. */
+function scored(run: Run, cleared: number): Run {
+  const fresh = Math.max(0, cleared - run.cleared);
+  if (fresh === 0) return run;
+  return { ...run, score: run.score + fresh * (run.endless ? ENDLESS_POINTS : OBSTACLE_POINTS), cleared: run.cleared + fresh };
+}
+
+/** The run after its wave was passed, its obstacles already scored: the next wave, or a banner. */
 function passed(run: Run): Stepped {
-  const score = run.score + (run.endless ? ENDLESS_POINTS : WAVE_POINTS);
-  const done = { ...run, score, waveScore: score, passed: run.passed + 1, tick: 0 };
+  const { score } = run;
+  const done = { ...run, waveScore: score, cleared: 0, passed: run.passed + 1, tick: 0 };
   if (run.endless || run.wave + 1 < wavesIn(run)) return { run: { ...done, wave: run.wave + 1 }, events: ['pass'] };
   const banner = { ...done, phase: 'chapter' as const, wave: 0, banner: BANNER_STEPS, chapterScore: score };
   if (run.chapter + 1 < CHAPTERS.length) return { run: { ...banner, chapter: run.chapter + 1 }, events: ['pass', 'chapter'] };
@@ -141,7 +151,7 @@ function passed(run: Run): Stepped {
 // A sum of frames that lands on a whole sub-step is one: the float error of the carry never drops it.
 const EPSILON = 1e-9;
 
-/** One sub-step: the orbs turn, the wave falls one step, then a hit or a pass is counted. */
+/** One sub-step: the orbs turn, the wave falls one step, then a hit, or the obstacles passed and the wave's pass, are counted. */
 function sub(run: Run, held: ReadonlySet<Action>): Stepped {
   const angle = turn(run.angle, held, RULES.subStep);
   const trail = [run.angle, ...run.trail].slice(0, RULES.trail);
@@ -154,8 +164,9 @@ function sub(run: Run, held: ReadonlySet<Action>): Stepped {
   if (!wave) return { run: moved, events: [] };
   const tick = run.tick + 1;
   if (struck(angle, blocksAt(wave, tick))) return hit({ ...moved, tick });
-  if (passedAt(wave, tick)) return passed({ ...moved, tick });
-  return { run: { ...moved, tick }, events: [] };
+  const cleared = clearedAt(wave, tick);
+  const next = scored({ ...moved, tick }, cleared);
+  return cleared === wave.pieces.length ? passed(next) : { run: next, events: [] };
 }
 
 /** Plays `dt` seconds (at most `RULES.maxDt`) with `held`: in play and on a banner, whole sub-steps, the rest carried. Otherwise nothing moves. */
