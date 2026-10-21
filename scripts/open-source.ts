@@ -13,15 +13,10 @@
 //   its value matches, and the reason it is no secret.
 //
 // A finding prints `<file>:<line>: <rule> — <what to use instead>`, never the value it found, and
-// the guard exits 1. Clean, it prints one line and exits 0.
-//
-// The ratchet: scripts/open-source.baseline/<area>.json lists the files that still carried an
-// internal name or a real email when the guard landed, one file per area. The two rules skip a file
-// listed there; the secret rule never does. The baseline only shrinks: a listed file that is now
-// clean (or gone) fails, `remove <file> from the baseline`, and so does a file listed in another
-// area's baseline than its own. The pre-push hook and the `security` workflow run it.
+// the guard exits 1. Clean, it prints one line and exits 0. There is no baseline: every file passes
+// the internal-delivery rules as written. The pre-push hook and the `security` workflow run it.
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -38,17 +33,6 @@ const OWN_NAMES: ReadonlySet<string> = new Set([OWN_REPOSITORY, `${OWN_REPOSITOR
 const SKIPPED = [/^kit\/dist\//, /^apps\/omni-app\/api\//, /^pnpm-lock\.yaml$/];
 
 const ALLOW_FILE = 'scripts/open-source.allow.json';
-const BASELINE_DIR = 'scripts/open-source.baseline';
-
-/** The areas a baseline file covers, by the paths each one owns; a path in none has no baseline. */
-const AREAS: ReadonlyArray<{ area: string; owns: RegExp }> = [
-  { area: 'galaxy', owns: /^apps\/galaxy\// },
-  { area: 'omni-app', owns: /^apps\/omni-app\// },
-  { area: 'kit', owns: /^kit\// },
-  { area: 'packages', owns: /^(packages|game)\// },
-  { area: 'supabase', owns: /^supabase\// },
-  { area: 'history', owns: /^(\.omni-loop\/(delivery|knowledge)\/|docs\/|fallow\/|README\.md$|\.fallowrc\.jsonc$|package\.json$)/ },
-];
 
 export interface SourceFile {
   path: string;
@@ -70,16 +54,11 @@ export interface Finding {
 
 export interface Verdict {
   findings: Finding[];
-  /** One line per problem with the baseline or the allowlist themselves. */
+  /** One line per problem with the allowlist itself. */
   problems: string[];
 }
 
 const SECRET_FIX = `build the fake at runtime, or list it in ${ALLOW_FILE} with its reason; a real one is rotated`;
-
-/** The baseline area that owns `path`, or null. */
-export function areaOf(path: string): string | null {
-  return AREAS.find(({ owns }) => owns.test(path))?.area ?? null;
-}
 
 const lineAt = (text: string, index: number): number => text.slice(0, index).split('\n').length;
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -183,49 +162,26 @@ function allowProblem(entry: AllowEntry): string | null {
   return null;
 }
 
-/** The baseline's files, each with its area, and a problem for each one listed in another area's file. */
-function readListing(baseline: ReadonlyMap<string, readonly string[]>): { listed: Map<string, string>; problems: string[] } {
-  const listed = new Map<string, string>();
-  const problems: string[] = [];
-  for (const [area, paths] of baseline) {
-    for (const path of paths) {
-      const owner = areaOf(path);
-      if (owner !== area) problems.push(`${BASELINE_DIR}/${area}.json lists ${path}, which ${owner ? `belongs to ${owner}.json` : 'no area owns: clean it'}`);
-      listed.set(path, area);
-    }
-  }
-  return { listed, problems };
-}
-
-/**
- * Every file's findings, one per line and rule. A listed file skips the internal-delivery rules, and is
- * named in `offending` while it still breaks one.
- */
-function scan(files: readonly SourceFile[], allowed: ReadonlyMap<string, RegExp[]>, listed: ReadonlyMap<string, string>): { findings: Finding[]; offending: Set<string> } {
+/** Every file's findings, one per line and rule. */
+function scan(files: readonly SourceFile[], allowed: ReadonlyMap<string, RegExp[]>): Finding[] {
   const findings = new Map<string, Finding>();
-  const offending = new Set<string>();
   for (const { path, text } of files) {
     if (SKIPPED.some((skip) => skip.test(path))) continue;
-    const internal = internalFindings(path, text);
-    if (listed.has(path) && internal.length > 0) offending.add(path);
-    const judged = [...(listed.has(path) ? [] : internal), ...secretFindings(path, text, allowed.get(path) ?? [])];
+    const judged = [...internalFindings(path, text), ...secretFindings(path, text, allowed.get(path) ?? [])];
     for (const finding of judged) findings.set(`${finding.path}\0${String(finding.line)}\0${finding.rule}`, finding);
   }
-  return { findings: [...findings.values()], offending };
+  return [...findings.values()];
 }
 
 /**
- * Judges `files` (the tracked files, read) against the allowlist and the baseline (`area` → the files
- * it lists): the findings, one per file, line and rule, and the problems of the baseline and the
- * allowlist themselves.
+ * Judges `files` (the tracked files, read) against the allowlist: the findings, one per file, line and
+ * rule, and the problems of the allowlist itself.
  */
-export function judge(files: readonly SourceFile[], allow: readonly AllowEntry[], baseline: ReadonlyMap<string, readonly string[]>): Verdict {
+export function judge(files: readonly SourceFile[], allow: readonly AllowEntry[]): Verdict {
   const allowed = readAllow(allow);
-  const listing = readListing(baseline);
-  const { findings, offending } = scan(files, allowed.byFile, listing.listed);
-  const stale = [...listing.listed].filter(([path]) => !offending.has(path)).map(([path, area]) => `${BASELINE_DIR}/${area}.json: remove ${path} from the baseline`);
+  const findings = scan(files, allowed.byFile);
   findings.sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line || a.rule.localeCompare(b.rule));
-  return { findings, problems: [...allowed.problems, ...listing.problems, ...stale].sort() };
+  return { findings, problems: allowed.problems.sort() };
 }
 
 /** The finding as the guard prints it: no value, ever. */
@@ -248,8 +204,6 @@ export function trackedFiles(root: string): SourceFile[] {
   return files;
 }
 
-const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
-
 /** The allowlist under `root`: none when the file is missing. */
 export function readAllowFile(root: string): AllowEntry[] {
   const file = join(root, ALLOW_FILE);
@@ -263,32 +217,18 @@ export function readAllowFile(root: string): AllowEntry[] {
   });
 }
 
-/** The baseline under `root`, by area: none when the folder is missing. */
-export function readBaseline(root: string): Map<string, string[]> {
-  const dir = join(root, BASELINE_DIR);
-  const baseline = new Map<string, string[]>();
-  if (!existsSync(dir)) return baseline;
-  for (const name of readdirSync(dir).filter((file) => file.endsWith('.json')).sort()) {
-    const json: unknown = JSON.parse(readFileSync(join(dir, name), 'utf8'));
-    baseline.set(name.slice(0, -'.json'.length), isRecord(json) ? strings(json.files) : []);
-  }
-  return baseline;
-}
-
 /** Runs the guard on the repository holding `cwd`, writing its lines; answers its exit code. */
 export function main(cwd: string, write: (line: string) => void = console.log, warn: (line: string) => void = console.error): number {
   const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' }).trim();
   const files = trackedFiles(root);
-  const baseline = readBaseline(root);
-  const { findings, problems } = judge(files, readAllowFile(root), baseline);
+  const { findings, problems } = judge(files, readAllowFile(root));
   for (const finding of findings) warn(formatFinding(finding));
   for (const problem of problems) warn(problem);
   if (findings.length + problems.length > 0) {
     warn(`open-source: red: ${String(findings.length)} finding(s), ${String(problems.length)} baseline or allowlist problem(s)`);
     return 1;
   }
-  const kept = [...baseline.values()].reduce((sum, paths) => sum + paths.length, 0);
-  write(`open-source: green: ${String(files.length)} files read, ${String(kept)} still in the baseline`);
+  write(`open-source: green: ${String(files.length)} files read, 0 still in the baseline`);
   return 0;
 }
 
