@@ -44,6 +44,8 @@ import { outboxStore } from '../../lib/outbox/stores.ts';
 import { gradeDesign, headSnapshot, snapshotAt } from '../../lib/design/check-design.ts';
 import { DEFAULT_HOOK_MAX_BYTES, hookFileViolations } from '../../lib/flow/schema.ts';
 import { generatedViolations, readGround } from '../../lib/generated/check.ts';
+import { mapViolations } from '../../lib/layers/check.ts';
+import { targetsOf } from '../../lib/plan-repo/target-list.ts';
 import { parseArgs, prdArg, println, usageError, type Flags } from '../args.ts';
 import type { CommandIo, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { loadContext, type Context } from '../../lib/context.ts';
@@ -213,6 +215,8 @@ function checkConfig({ ctx, stdout }: CommandIo): boolean {
   const violations = [
     ...hookFileViolations(ctx.root, flow, limits.hookMaxBytes ?? DEFAULT_HOOK_MAX_BYTES),
     ...(generated === undefined ? [] : generatedViolations(generated, readGround(ctx.root))),
+    // PRD 2346: the words of the knowledge map, and the patterns that match nothing.
+    ...mapViolations(ctx.config, hasPatterns(ctx.config) ? trackedFiles(ctx) : [], targetsOf(ctx) ?? []),
   ];
   return report(
     stdout,
@@ -220,6 +224,11 @@ function checkConfig({ ctx, stdout }: CommandIo): boolean {
     violations,
     `check config — ${CONFIG_FILE} is valid; ${flow ? `flow: ${areas} area(s), every hook file present` : 'no flow'}${generatedNote(generated)}.`,
   );
+}
+
+/** Whether the config holds a `layers` or flow-area pattern, so that the tracked files are worth listing. */
+function hasPatterns({ layers, flow }: Pick<Context['config'], 'layers' | 'flow'>): boolean {
+  return Object.keys(layers ?? {}).length > 0 || Object.keys(flow?.areas ?? {}).length > 0;
 }
 
 const CONFIG_TITLE = 'check config — the config does not hold what it claims:';

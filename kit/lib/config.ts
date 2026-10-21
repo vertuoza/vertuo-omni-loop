@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { isOneOf, messageOf } from './narrow.ts';
 import { parseSelector } from './design/words/selector.ts';
 import { FlowSchema, hooksByMode, regexSource } from './flow/schema.ts';
+import { CANONICAL_LAYERS, layerList, layerOf } from './layers/layers.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
 export const CONFIG_FILE = '.omni-loop/config.yml';
@@ -126,13 +127,26 @@ const contractKind = z
   .regex(/^[a-z][a-z0-9-]*$/, 'one lowercase word, such as api or db')
   .refine((kind) => kind !== 'none', 'none is what a slice declares when it changes nothing — it is no kind');
 
+// PRD 2346: a kind is read through `LAYER_ALIASES` (`rest` is `api`); any other word is kept, and
+// `omni check config` flags it, so a repository's plans are never refused on what already exists.
 const contractKinds = z
   .array(contractKind)
   .min(1, 'at least one kind, such as api')
+  .transform((kinds) => kinds.map(layerOf))
   .superRefine((kinds, issues) => {
     const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
     if (twice !== undefined) issues.addIssue({ code: 'custom', message: `"${twice}" is listed twice` });
   });
+
+// PRD 2346: `layers.<layer>` is a list of path patterns; a key outside the canonical list is refused
+// by name, with the list.
+const layersSection = z.record(z.string(), z.array(regexSource).min(1, 'at least one path pattern')).superRefine((layers, issues) => {
+  for (const key of Object.keys(layers)) {
+    if (!Object.hasOwn(CANONICAL_LAYERS, key)) {
+      issues.addIssue({ code: 'custom', path: [key], message: `${key} is not a layer (${layerList()})` });
+    }
+  }
+});
 
 // PRD 522: what a plan repository knows of each target repository's knowledge base.
 export const TARGET_KNOWLEDGE = Object.freeze(['own', 'imported', 'none']);
@@ -442,6 +456,10 @@ export const ConfigSchema = z
     // repository's migrations directories, say). Regex sources over repository paths, compiled once
     // by `omni plan check`; empty, no plan is refused for what it puts together.
     landings: section({ alone: z.array(regexSource).default([]) }),
+    // PRD 2346: the repository's map from canonical layers to the paths that hold them: regular
+    // expressions over repository paths, as a flow area's `paths`. A file may be in several layers.
+    // Optional: a config without it parses with no `layers` key, and no entry is narrowed by layer.
+    layers: layersSection.optional(),
     // PRD 1870: whether every slice that lands in this repository must declare, in its plan's
     // `contract` column, what it changes for the repository's callers — one or more of `kinds`, or
     // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
