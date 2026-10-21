@@ -468,3 +468,403 @@ Low: one misleading word in one output line until a later slice rewrites it.
 ```
 
 <!-- /omni-outbox-settled: s8-01-open-source-green-line-keeps-baseline-wording -->
+
+<!-- omni-outbox-settled: s6-03-law-proofs-renamed-fixtures -->
+
+## s6-03-law-proofs-renamed-fixtures — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-21T13:58:46Z
+- Channel: feature pull request #2307
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2307#issuecomment-6317920919
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: N-PRODUCT-16
+- Raised: 2026-10-21
+- Slice: s6
+- Wave: 2
+- Stays here: the lasting rule (fixtures use fictional names) is the open-source guard itself, scripts/open-source.ts; this answer only approves renamed law proofs
+
+### The answer, as it was given
+
+```text
+A. The renamed proofs stand as they are (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-law-proofs-renamed-fixtures
+prd: 2305
+slice: s6
+rank: high
+bears-on: N-PRODUCT-16
+raised: 2026-10-21
+wave: 2
+---
+
+## The question, in plain words
+
+Four database checks that prove product rules, one of them the locked rule that the game's history is only ever added to, had their made-up names changed and now build their own workspace. Do they still prove what they proved before?
+
+## The decision, in plain words
+
+Only the names and the workspace they run in changed: every assertion about the rules is the same, and all four pass against a fresh database. The locked rule's check gained one proof, that a fresh install creates no workspace but the demo one.
+
+## The intro, for fun
+
+The witnesses changed their names, but they still saw the same thing.
+
+## The punchline, for fun
+
+Same testimony, new badges, and the history book still only grows.
+
+## The options, in plain words
+
+A. The renamed proofs stand as they are (built).
+B. Restore a proof the reviewer finds weakened, inside the same fixture.
+
+## What I had to decide
+
+Whether the renamed proofs in supabase/checks/access.sql (N-PRODUCT-16), roadmaps.sql (BR-PRODUCT-81), agent_tokens.sql (BR-PRODUCT-110, BR-PRODUCT-111) and knowledge_graphs.sql (BR-PRODUCT-120) still prove their rules; the locked one needs an approving review from its owner on the feature pull request.
+
+## What I did meanwhile
+
+Each check includes supabase/checks/fixtures/initech.sql instead of reading the workspace the migrations used to seed; names follow PRD 2305's rule. access.sql's first block now proves a fresh install holds only the demo seed's nimbus workspace and no repository, where it used to check the seeded workspace's fleets and sectors.
+
+## What it costs to change later
+
+Reverting is a revert of this slice's check commit; no production data or schema is involved.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The four checks were run against a local fresh database only; the supabase workflow on the pull request is the first CI run (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-03-law-proofs-renamed-fixtures -->
+
+<!-- omni-outbox-settled: s4-01-kit-law-proof-fixtures-renamed -->
+
+## s4-01-kit-law-proof-fixtures-renamed — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-21T13:58:46Z
+- Channel: feature pull request #2307
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2307#issuecomment-6317920919
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-10-21
+- Slice: s4
+- Wave: 2
+- Stays here: the lasting rule (fixtures use fictional names) is the open-source guard itself, scripts/open-source.ts; this answer only approves renamed law proofs
+
+### The answer, as it was given
+
+```text
+A. A. Keep the fictional names in the six tests, as built.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-kit-law-proof-fixtures-renamed
+prd: 2305
+slice: s4
+rank: high
+bears-on: none
+raised: 2026-10-21
+wave: 2
+---
+
+## The question, in plain words
+
+Six tests that prove the loop's rules used the maintainer's repository names in their sample data. Do you approve renaming that sample data to fictional names?
+
+## The decision, in plain words
+
+The sample names in those tests now read as made-up ones, and each test still checks the same rule with the same steps.
+
+## The intro, for fun
+
+Six tests changed their costumes but kept their jobs.
+
+## The punchline, for fun
+
+Please check the badge, not the outfit.
+
+## The options, in plain words
+
+A. A. Keep the fictional names in the six tests, as built.
+B. B. Put the original names back in those six tests and exclude them from the guard.
+
+## What I had to decide
+
+Law-proof tests changed: kit/bin/roadmap.test.ts, kit/lib/config.test.ts, kit/lib/knowledge/check-knowledge.test.ts, kit/lib/policy/phase-0.test.ts, kit/lib/roadmap/grade.test.ts, kit/lib/roadmap/parse.test.ts. Only fixture names changed (the maintainer's repositories to demo-org/nimbus-*); no assertion was weakened. The owner of the laws they prove approves the feature PR.
+
+## What I did meanwhile
+
+The tests stay green with the new names and keep proving their laws.
+
+## What it costs to change later
+
+Undoing it means renaming the sample data back, a mechanical edit.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Which law each of the six tests proves was read from the register, not re-judged (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-kit-law-proof-fixtures-renamed -->
+
+<!-- omni-outbox-settled: s2-01-s2-law-proof-fixtures-renamed -->
+
+## s2-01-s2-law-proof-fixtures-renamed — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-21T13:58:46Z
+- Channel: feature pull request #2307
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2307#issuecomment-6317920919
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-10-21
+- Slice: s2
+- Wave: 2
+- Stays here: the lasting rule (fixtures use fictional names) is the open-source guard itself, scripts/open-source.ts; this answer only approves renamed law proofs
+
+### The answer, as it was given
+
+```text
+A. A. Keep the renamed tests, as built.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-s2-law-proof-fixtures-renamed
+prd: 2305
+slice: s2
+rank: high
+bears-on: none
+raised: 2026-10-21
+wave: 2
+---
+
+## The question, in plain words
+
+Twenty-six arcade tests that prove locked rules had fictional names swapped in for the maintainer's real repository names and email domain. Is that rename fine to keep?
+
+## The decision, in plain words
+
+I renamed the sample repositories, organisation and email addresses inside those tests, and the assertions that read them, and changed nothing else about what they check.
+
+## The intro, for fun
+
+Twenty-six tests changed their name tags, and none of them changed their minds.
+
+## The punchline, for fun
+
+The rules still get the same checks, only the guests list now reads like a fiction.
+
+## The options, in plain words
+
+A. A. Keep the renamed tests, as built.
+B. B. Revert those tests to the old names and leave them on the guard's baseline until a person renames them.
+
+## What I had to decide
+
+Approve the feature PR on GitHub as the law's owner once you have read the renamed tests; the rename is mechanical (a name or an address, never an expected value's meaning).
+
+## What I did meanwhile
+
+The tests are green with the new names and prove the same behaviour.
+
+## What it costs to change later
+
+A reviewer reads twenty-six test files whose only change is a name.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Which of the locked rules each renamed test proves was not traced one by one (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-s2-law-proof-fixtures-renamed -->
+
+<!-- omni-outbox-settled: s3-01-s3-law-proof-fixtures-renamed -->
+
+## s3-01-s3-law-proof-fixtures-renamed — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-21T13:58:46Z
+- Channel: feature pull request #2307
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2307#issuecomment-6317920919
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-10-21
+- Slice: s3
+- Wave: 2
+- Stays here: the lasting rule (fixtures use fictional names) is the open-source guard itself, scripts/open-source.ts; this answer only approves renamed law proofs
+
+### The answer, as it was given
+
+```text
+A. A. Keep the renamed fixtures, as the PRD's rule says.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-s3-law-proof-fixtures-renamed
+prd: 2305
+slice: s3
+rank: high
+bears-on: none
+raised: 2026-10-21
+wave: 2
+---
+
+## The question, in plain words
+
+Six tests that prove locked rules of the GitHub App now use the fictional example names in their fixtures. Do you approve the renamed proofs?
+
+## The decision, in plain words
+
+Only the fixture names changed in those tests; no assertion, rule or expected result was edited, and the whole GitHub App test run stays green.
+
+## The intro, for fun
+
+Six tests got a costume change, and they swear the plot stayed the same.
+
+## The punchline, for fun
+
+Please check that the actors still say their lines.
+
+## The options, in plain words
+
+A. A. Keep the renamed fixtures, as the PRD's rule says.
+B. B. Keep the old fixture names in these six tests and list them as an exception, which the PRD ruled out.
+
+## What I had to decide
+
+Approve the renamed fixtures in the six law-proof test files, or ask for them to be renamed another way.
+
+## What I did meanwhile
+
+The renamed tests run in the full preflight and stay green; nothing else waits on this answer.
+
+## What it costs to change later
+
+A different answer costs a re-rename of fixture strings in six test files, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the law's owner wants fixture names in a law proof left untouched (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-s3-law-proof-fixtures-renamed -->
+
+<!-- omni-outbox-settled: s5-01-packages-law-proof-fixtures-renamed -->
+
+## s5-01-packages-law-proof-fixtures-renamed — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-21T13:58:46Z
+- Channel: feature pull request #2307
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2307#issuecomment-6317920919
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-10-21
+- Slice: s5
+- Wave: 2
+- Stays here: the lasting rule (fixtures use fictional names) is the open-source guard itself, scripts/open-source.ts; this answer only approves renamed law proofs
+
+### The answer, as it was given
+
+```text
+A. A. Keep the fictional names in the four tests, as built.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-packages-law-proof-fixtures-renamed
+prd: 2305
+slice: s5
+rank: high
+bears-on: none
+raised: 2026-10-21
+wave: 2
+---
+
+## The question, in plain words
+
+Four tests in the game and the shared packages that prove the product's rules used the maintainer's repository names in their sample data. Do you approve renaming that sample data to fictional names?
+
+## The decision, in plain words
+
+The sample names in those tests now read as made-up ones, and each test still checks the same rule with the same steps.
+
+## The intro, for fun
+
+Four more tests swapped costumes and kept their jobs.
+
+## The punchline, for fun
+
+Same badge, new outfit.
+
+## The options, in plain words
+
+A. A. Keep the fictional names in the four tests, as built.
+B. B. Put the original names back in those four tests and exclude them from the guard.
+
+## What I had to decide
+
+Law-proof tests changed: game/cli/scripts.test.ts, game/sources/parsers.test.ts, game/sources/supabase.test.ts, packages/design/src/mascots.test.ts. Only fixture names changed (the maintainer's repositories to demo-org/nimbus-*, a colleague's login to jane.doe); no assertion was weakened. The owner of the rules they prove approves the feature PR.
+
+## What I did meanwhile
+
+The tests stay green with the new names and keep proving their rules.
+
+## What it costs to change later
+
+Undoing it means renaming the sample data back, a mechanical edit.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Which rule each of the four tests proves was read from the register, not re-judged (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-packages-law-proof-fixtures-renamed -->
