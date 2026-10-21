@@ -1316,6 +1316,25 @@ describe('omni runner send', () => {
     expect(page.calls).toEqual([]);
   });
 
+  it('sends a repository\'s own skill to the app, which decides, and prints its refusal (PRD 2313)', async () => {
+    const page = fakePage();
+    const run = await terminal(fixture(), page, ['send', '/validate-prd 347']);
+    expect(run).toMatchObject({ code: 0, stdout: 'job-9\n' });
+    expect(page.calls).toEqual([{ method: 'POST', path: '/api/runners/jobs', body: { line: '/validate-prd 347', repo: 'acme/widgets', target: { kind: 'any' } } }]);
+    const refused = await terminal(fixture(), fakePage({ sendStatus: 403 }), ['send', '/validate-prd 347']);
+    expect(refused).toMatchObject({ code: 1, stderr: 'omni runner: Not in this workspace.\n' });
+  });
+
+  it('still refuses a malformed or a fixed skill\'s bare line locally', async () => {
+    const page = fakePage();
+    for (const line of ['/Bad_Name 1', '/validate-prd 347; rm -rf /', '/yolo 7', `/validate-prd ${'1'.repeat(200)}`]) {
+      const run = await terminal(fixture(), page, ['send', line]);
+      expect(run.code, line).toBe(1);
+      expect(run.stderr).toMatch(/^omni runner: /);
+    }
+    expect(page.calls).toEqual([]);
+  });
+
   it('queues the line for any runner and prints the job id', async () => {
     const page = fakePage();
     const run = await terminal(fixture(), page, ['send', '/omni:yolo 2251']);

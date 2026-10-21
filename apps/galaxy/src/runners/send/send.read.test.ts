@@ -21,6 +21,16 @@ describe('Send to terminal\'s read', () => {
     expect(setup?.options.map((o) => o.label)).toEqual(['Any runner', 'mac-mini']);
   });
 
+  it('carries the repository\'s allowed skills, none when they cannot be read', async () => {
+    const skills = (names: string[]) => () => Promise.resolve(names);
+    expect((await sendSetupOf(answering([RUNNER]), VIEWER.id, 'w1', 'demo-org/app', quiet, skills(['validate-prd'])))?.allowed).toEqual(['validate-prd']);
+    expect((await sendSetupOf(answering([RUNNER]), VIEWER.id, 'w1', 'demo-org/app', quiet))?.allowed).toEqual([]);
+    const logged: unknown[] = [];
+    const failing = () => Promise.reject(new Error('skills: down'));
+    expect((await sendSetupOf(answering([RUNNER]), VIEWER.id, 'w1', 'demo-org/app', (error) => logged.push(error), failing))?.allowed).toEqual([]);
+    expect(logged).toEqual([new Error('skills: down')]);
+  });
+
   it('hides the button with no runners here, no runner of the viewer\'s, or a refused read', async () => {
     expect(await sendSetupOf(null, VIEWER.id, 'w1', 'demo-org/app', quiet)).toBeNull();
     expect(await sendSetupOf(answering([]), VIEWER.id, 'w1', 'demo-org/app', quiet)).toBeNull();

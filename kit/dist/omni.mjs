@@ -57018,7 +57018,8 @@ var JobSchema = external_exports.object({
   id: external_exports.union([external_exports.string().min(1), external_exports.number()]).transform(String),
   line: external_exports.string(),
   repo: external_exports.string(),
-  sentBy: external_exports.string().nullish().transform((value) => value ?? null)
+  sentBy: external_exports.string().nullish().transform((value) => value ?? null),
+  allowedSkills: external_exports.array(external_exports.string()).nullish().transform((value) => value ?? [])
 });
 var UpdatedSchema = external_exports.object({ cancel: external_exports.boolean().optional() }).loose();
 var KitRunnerSchema = external_exports.object({
@@ -60776,7 +60777,7 @@ var roadmap = {
 
 // kit/bin/commands/runner.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync111 } from "node:fs";
+import { readFileSync as readFileSync112 } from "node:fs";
 import { homedir as homedir3 } from "node:os";
 import { resolve as resolve14 } from "node:path";
 
@@ -60932,9 +60933,39 @@ function nextPause(state, reason2) {
 // kit/lib/runner/job.ts
 init_define_OMNI_BUNDLE();
 import { spawn as spawn2 } from "node:child_process";
-import { appendFileSync, closeSync as closeSync2, existsSync as existsSync86, openSync as openSync2, writeFileSync as writeFileSync51 } from "node:fs";
+import { appendFileSync, closeSync as closeSync2, existsSync as existsSync86, openSync as openSync2, readFileSync as readFileSync109, writeFileSync as writeFileSync51 } from "node:fs";
 import { join as join135 } from "node:path";
 import { StringDecoder } from "node:string_decoder";
+
+// kit/lib/runner/line.ts
+init_define_OMNI_BUNDLE();
+var RUNNABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "bug-fix", "mega-bug-fix", "visual-fix", "plan", "pitch", "prove"]);
+var LINE_MAX2 = 200;
+var SKILL_NAME_MAX = 64;
+var SHAPE = /^\/omni:([a-z][a-z-]*)(?: (.*))?$/s;
+var OWN_SHAPE = /^\/([a-z][a-z0-9-]*)(?: (.*))?$/s;
+var ARGS = /^[A-Za-z0-9 ._/:#-]*$/;
+var BAD_ARGS = "the arguments hold a character other than letters, digits, spaces and ._/:#-";
+function checkRunnerLine(line2, allowed = []) {
+  if (line2.length > LINE_MAX2) return { ok: false, reason: `the line is over ${String(LINE_MAX2)} characters` };
+  const fixed2 = SHAPE.exec(line2);
+  if (fixed2) return checkFixed(fixed2[1] ?? "", fixed2[2] ?? "");
+  const own2 = OWN_SHAPE.exec(line2);
+  if (!own2) return { ok: false, reason: "the line does not read /omni:<skill> <arguments> or /<skill> <arguments>" };
+  return checkOwn(own2[1] ?? "", own2[2] ?? "", allowed);
+}
+function checkFixed(skill, args) {
+  if (!RUNNABLE_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
+  if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
+  return { ok: true, kind: "omni", skill, args };
+}
+function checkOwn(skill, args, allowed) {
+  if (skill.length > SKILL_NAME_MAX) return { ok: false, reason: `a skill's name is ${String(SKILL_NAME_MAX)} characters at most` };
+  if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
+  if (RUNNABLE_SKILLS.includes(skill)) return { ok: false, reason: `/${skill} is the loop's own skill: send /omni:${skill}` };
+  if (!allowed.includes(skill)) return { ok: false, reason: `/${skill} is not allowed on a runner for this repository` };
+  return { ok: true, kind: "repository", skill, args };
+}
 
 // kit/lib/runner/steps.ts
 init_define_OMNI_BUNDLE();
@@ -61038,6 +61069,11 @@ function stepLine(line2, { now: now2 = /* @__PURE__ */ new Date(), seen = /* @__
 // kit/lib/runner/job.ts
 var LOCKFILE = "pnpm-lock.yaml";
 var CLAUDE_ARGS = ["--dangerously-skip-permissions", "-p", "--output-format", "stream-json", "--verbose"];
+var MCP_CONFIG = ".mcp.json";
+function claudeArgs(cwd, line2) {
+  if (checkRunnerLine(line2).ok || !existsSync86(join135(cwd, MCP_CONFIG))) return CLAUDE_ARGS;
+  return [...CLAUDE_ARGS, "--mcp-config", MCP_CONFIG];
+}
 function rawLogPath(log) {
   return `${log.replace(/\.log$/, "")}.jsonl`;
 }
@@ -61102,9 +61138,10 @@ async function runJobProcess({ cwd, files, out, env }) {
     const raw = rawLogPath(files.log);
     writeFileSync51(raw, "");
     const reader = streamReader({ log: files.log, raw, out });
+    const args = claudeArgs(cwd, readFileSync109(files.line, "utf8").replace(/\n$/, ""));
     const stdin = openSync2(files.line, "r");
     try {
-      code = await run("claude", CLAUDE_ARGS, { cwd, stdin, log: files.log, out, env, stdout: (chunk) => {
+      code = await run("claude", args, { cwd, stdin, log: files.log, out, env, stdout: (chunk) => {
         reader.chunk(chunk);
       } });
     } finally {
@@ -61314,29 +61351,12 @@ function releaser({ exec, checkouts }) {
 
 // kit/lib/runner/runner.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync89, mkdirSync as mkdirSync35, readFileSync as readFileSync110, rmSync as rmSync19, writeFileSync as writeFileSync52 } from "node:fs";
+import { existsSync as existsSync89, mkdirSync as mkdirSync35, readFileSync as readFileSync111, rmSync as rmSync19, writeFileSync as writeFileSync52 } from "node:fs";
 import { join as join140 } from "node:path";
-
-// kit/lib/runner/line.ts
-init_define_OMNI_BUNDLE();
-var RUNNABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "bug-fix", "mega-bug-fix", "visual-fix", "plan", "pitch", "prove"]);
-var LINE_MAX2 = 200;
-var SHAPE = /^\/omni:([a-z][a-z-]*)(?: (.*))?$/s;
-var ARGS = /^[A-Za-z0-9 ._/:#-]*$/;
-function checkRunnerLine(line2) {
-  if (line2.length > LINE_MAX2) return { ok: false, reason: `the line is over ${String(LINE_MAX2)} characters` };
-  const match = SHAPE.exec(line2);
-  if (!match) return { ok: false, reason: "the line does not read /omni:<skill> <arguments>" };
-  const skill = match[1] ?? "";
-  const args = match[2] ?? "";
-  if (!RUNNABLE_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
-  if (!ARGS.test(args)) return { ok: false, reason: "the arguments hold a character other than letters, digits, spaces and ._/:#-" };
-  return { ok: true, skill, args };
-}
 
 // kit/lib/runner/tokens.ts
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync39, readFileSync as readFileSync109, statSync as statSync25 } from "node:fs";
+import { readdirSync as readdirSync39, readFileSync as readFileSync110, statSync as statSync25 } from "node:fs";
 import { join as join137 } from "node:path";
 var HOUR_MS = 60 * 60 * 1e3;
 var DAY_MS2 = 24 * HOUR_MS;
@@ -61359,7 +61379,7 @@ function entryOf2(raw) {
 }
 var entriesOf = (text15) => text15.split("\n").flatMap((raw) => raw.trim() ? [entryOf2(raw)] : []).filter((entry3) => entry3 !== null);
 var missing = (error62) => typeof error62 === "object" && error62 !== null && "code" in error62 && error62.code === "ENOENT";
-function tokenSource({ projects, now: now2 = Date.now, readFile: readFile3 = (path) => readFileSync109(path, "utf8") }) {
+function tokenSource({ projects, now: now2 = Date.now, readFile: readFile3 = (path) => readFileSync110(path, "utf8") }) {
   const cache = /* @__PURE__ */ new Map();
   function entriesAt(path, since) {
     try {
@@ -61722,7 +61742,7 @@ function withLines(update2, live, lines2) {
 var QUIET16 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var readText4 = (path) => {
   try {
-    return readFileSync110(path, "utf8");
+    return readFileSync111(path, "utf8");
   } catch {
     return "";
   }
@@ -61877,7 +61897,7 @@ function worktreeOf(loop2, job2) {
   return join140(loop2.home, "wt", `${job2.repo.split("/").at(-1) ?? job2.repo}-job-${job2.id}`);
 }
 function placeOf4(loop2, job2) {
-  const line2 = checkRunnerLine(job2.line);
+  const line2 = checkRunnerLine(job2.line, job2.allowedSkills);
   if (!line2.ok) return { status: "failed", reason: `refused: ${line2.reason}` };
   const checkout = loop2.checkouts.get(job2.repo);
   if (checkout === void 0) return { status: "failed", reason: `${job2.repo} is not held by this runner` };
@@ -61888,7 +61908,8 @@ function placeOf4(loop2, job2) {
     session: `job-${job2.id}`,
     line: join140(logs, `job-${job2.id}.line`),
     log: join140(logs, `job-${job2.id}.log`),
-    exit: join140(logs, `job-${job2.id}.exit`)
+    exit: join140(logs, `job-${job2.id}.exit`),
+    skill: line2.kind === "repository" ? line2.skill : null
   };
 }
 function makeWorktree(loop2, job2, place) {
@@ -61897,10 +61918,14 @@ function makeWorktree(loop2, job2, place) {
     const base = defaultBranch(loop2.exec, place.checkout);
     mkdirSync35(join140(loop2.home, "wt"), { recursive: true });
     loop2.exec("git", ["-C", place.checkout, "worktree", "add", "--no-track", "-b", `agent/job-${job2.id}`, place.worktree, `origin/${base}`], QUIET16);
-    return true;
+    return base;
   } catch {
-    return false;
+    return null;
   }
+}
+function skillMissing(place, base) {
+  if (place.skill === null || existsSync89(join140(place.worktree, ".claude", "skills", place.skill, "SKILL.md"))) return null;
+  return { status: "failed", reason: `refused: /${place.skill} is not on ${base}` };
 }
 function cleanUp(loop2, job2, place) {
   try {
@@ -61966,8 +61991,11 @@ async function watch2(loop2, job2, place, live) {
 async function runJob(loop2, job2) {
   const place = placeOf4(loop2, job2);
   if ("status" in place) return { last: place, live: null };
-  if (!makeWorktree(loop2, job2, place)) return { last: { status: "failed", reason: "the worktree could not be made" }, live: null };
+  const base = makeWorktree(loop2, job2, place);
+  if (base === null) return { last: { status: "failed", reason: "the worktree could not be made" }, live: null };
   try {
+    const missing2 = skillMissing(place, base);
+    if (missing2 !== null) return { last: missing2, live: null };
     const plugin = await loop2.plugin.forJob(place.worktree, job2.repo);
     if ("failed" in plugin) return { last: { status: "failed", reason: plugin.failed }, live: null };
     if (!startSession(loop2, job2, place, plugin.note)) return { last: { status: "failed", reason: "the tmux session could not be started" }, live: null };
@@ -62275,7 +62303,8 @@ async function send3(args, io) {
   const { positional, flags } = parseArgs("runner", args, { values: ["to"] });
   const [line2] = positional;
   if (positional.length !== 1 || line2 === void 0 || flags.to === "") throw usageError(SEND_USAGE);
-  const checked5 = checkRunnerLine(line2);
+  const own2 = /^\/([a-z][a-z0-9-]*)(?: |$)/.exec(line2)?.[1];
+  const checked5 = checkRunnerLine(line2, own2 === void 0 ? [] : [own2]);
   if (!checked5.ok) {
     println(io.stderr, `omni runner: ${checked5.reason}`);
     return 1;
@@ -62543,7 +62572,7 @@ function refused2(stderr, words4) {
 }
 function textOf8(cwd, path) {
   try {
-    return { text: readFileSync111(resolve14(cwd, path), "utf8") };
+    return { text: readFileSync112(resolve14(cwd, path), "utf8") };
   } catch {
     return { refusal: `cannot read ${path}.` };
   }
@@ -62633,7 +62662,7 @@ var runner = {
 
 // kit/bin/commands/rework.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync112, writeFileSync as writeFileSync54 } from "node:fs";
+import { readFileSync as readFileSync113, writeFileSync as writeFileSync54 } from "node:fs";
 import { join as join142 } from "node:path";
 
 // kit/lib/policy/rework.ts
@@ -62829,7 +62858,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync112(join142(ctx.root, path), "utf8");
+    return readFileSync113(join142(ctx.root, path), "utf8");
   } catch (error62) {
     if (errorCode(error62) === "ENOENT") return "";
     throw error62;
@@ -64505,7 +64534,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/sync/kit.ts
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync113 } from "node:fs";
+import { readFileSync as readFileSync114 } from "node:fs";
 import { join as join143 } from "node:path";
 
 // kit/lib/sync/setup.ts
@@ -64629,7 +64658,7 @@ function targetRepos({ root, config: config3 }) {
   const planned = config3.plan?.targets ?? [];
   if (planned.length > 0) return planned.map((target3) => target3.repo);
   try {
-    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync113(join143(root, PRODUCT_TARGETS_FILE), "utf8")));
+    const copy = ProductTargetsCopySchema.parse(JSON.parse(readFileSync114(join143(root, PRODUCT_TARGETS_FILE), "utf8")));
     return copy.targets.map((target3) => target3.repo).filter((repo) => repo !== config3.repo.slug);
   } catch {
     return [];
@@ -64637,7 +64666,7 @@ function targetRepos({ root, config: config3 }) {
 }
 function readTargetKits(root) {
   try {
-    return TargetKitsSchema.parse(JSON.parse(readFileSync113(join143(root, TARGET_KITS_FILE), "utf8")));
+    return TargetKitsSchema.parse(JSON.parse(readFileSync114(join143(root, TARGET_KITS_FILE), "utf8")));
   } catch {
     return {};
   }
@@ -64949,7 +64978,7 @@ var sync2 = {
 
 // kit/bin/commands/update.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync90, mkdtempSync as mkdtempSync5, readFileSync as readFileSync114, rmSync as rmSync21 } from "node:fs";
+import { existsSync as existsSync90, mkdtempSync as mkdtempSync5, readFileSync as readFileSync115, rmSync as rmSync21 } from "node:fs";
 import { tmpdir as tmpdir5 } from "node:os";
 import { join as join144 } from "node:path";
 var USAGE49 = "usage: omni update [--to <version>]";
@@ -64980,7 +65009,7 @@ function claudeListed(root) {
   const file2 = root ? join144(root, CONFIG_FILE) : null;
   if (!file2 || !existsSync90(file2)) return true;
   try {
-    return parseConfig(readFileSync114(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");
+    return parseConfig(readFileSync115(file2, "utf8"), CONFIG_FILE, { migrate: true, ignoreUnknownKeys: true }).agents.includes("claude");
   } catch {
     return true;
   }

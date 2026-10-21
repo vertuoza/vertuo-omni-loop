@@ -161,3 +161,50 @@ describe('the saved row\'s schema (PRD 1030)', () => {
     expect(await databaseRepositories(db({ data: { ...STORED, tracked: 'yes' } }), 'ws-1').add('a/b')).toEqual({ ok: false, message: COULD_NOT_SAVE });
   });
 });
+
+describe('the Runner skills calls (PRD 2313 s3)', () => {
+  const READ = { skills: [{ name: 'validate-prd', description: null, allowed: { by: 'ada', at: '2026-10-21T09:30:00Z' }, gone: false }], branch: 'main', error: null };
+  const answering = (status: number, body: unknown) => {
+    const urls: string[] = [];
+    return { urls, fetch: (url: string) => { urls.push(url); return Promise.resolve({ ok: status < 400, json: () => Promise.resolve(body) }); } };
+  };
+
+  it('reads a repository\'s skills from the route', async () => {
+    const f = answering(200, READ);
+    expect(await databaseRepositories(db({}), 'ws-1', f.fetch).skills('acme/widgets')).toEqual(READ);
+    expect(f.urls).toEqual(['/api/repositories/skills?repo=acme%2Fwidgets']);
+  });
+
+  it('says why the route refused, or that its answer was out of shape, as a read that failed', async () => {
+    expect(await databaseRepositories(db({}), 'ws-1', answering(403, { error: 'Not a member.' }).fetch).skills('a/b')).toEqual({ skills: [], branch: null, error: 'Not a member.' });
+    expect(await databaseRepositories(db({}), 'ws-1', answering(200, { skills: 3 }).fetch).skills('a/b')).toMatchObject({ error: 'try again in a moment.' });
+    const down = () => Promise.reject(new Error('offline'));
+    expect(await databaseRepositories(db({}), 'ws-1', down).skills('a/b')).toMatchObject({ error: 'try again in a moment.' });
+  });
+
+  it('allows a skill with set_repository_runner_skill(), then reads the block again', async () => {
+    const d = db({});
+    const f = answering(200, READ);
+    expect(await databaseRepositories(d, 'ws-1', f.fetch).setSkill('acme/widgets', 'validate-prd', true)).toEqual({ ok: true, read: READ });
+    expect(d.calls).toEqual([['set_repository_runner_skill', { p_workspace: 'ws-1', p_full_name: 'acme/widgets', p_skill: 'validate-prd', p_allowed: true }]]);
+    expect(f.urls).toHaveLength(1);
+  });
+
+  it('refuses a member with the owner-only line, and carries a malformed name\'s own words', async () => {
+    const f = answering(200, READ);
+    expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1', f.fetch).setSkill('a/b', 'x', true)).toEqual({ ok: false, message: NOT_OWNER });
+    expect(await databaseRepositories(db({ error: { code: '22023', message: 'Skill: a skill\'s name.' } }), 'ws-1', f.fetch).setSkill('a/b', 'X', true)).toEqual({ ok: false, message: 'Skill: a skill\'s name.' });
+    expect(await databaseRepositories(db(new Error('boom')), 'ws-1', f.fetch).setSkill('a/b', 'x', true)).toEqual({ ok: false, message: COULD_NOT_SAVE });
+    expect(f.urls).toEqual([]);
+  });
+
+  it('keeps the same in the demo: two skills, allowed by the switch, taken back by it', async () => {
+    const demo = demoRepositoriesPort([{ fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null, products: [], publicIdeas: false }]);
+    expect((await demo.skills('acme/widgets')).skills.map((s) => [s.name, s.allowed !== null])).toEqual([['validate-prd', false], ['release-notes', false]]);
+    const on = await demo.setSkill('acme/widgets', 'validate-prd', true);
+    expect(on.ok && on.read.skills[0]?.allowed?.by).toBe('ada');
+    const off = await demo.setSkill('acme/widgets', 'validate-prd', false);
+    expect(off.ok && off.read.skills[0]?.allowed).toBeNull();
+    expect(await demo.setSkill('other/none', 'validate-prd', true)).toEqual({ ok: false, message: GONE });
+  });
+});

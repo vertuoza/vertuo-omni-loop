@@ -99,7 +99,7 @@ describe('GET /api/runners/next', () => {
     const job = jobRow({ line: '/omni:yolo 1717' });
     const w = world({ jobs: [job] });
     expect(await read(await nextJob(kit(`/next?runner=${SHARED}`, 'olga-token'), w.deps)))
-      .toEqual({ status: 200, body: { id: job.id, line: '/omni:yolo 1717', repo: 'demo-org/app', sentBy: 'mo' } });
+      .toEqual({ status: 200, body: { id: job.id, line: '/omni:yolo 1717', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: [] } });
   });
 
   it('answers 204 after the hold, and counts the check-in', async () => {

@@ -98,7 +98,7 @@ async function productsOf(store: ReturnType<typeof repositoriesRepository>, work
 }
 
 /** The workspace's installation: its stored id's, else its org's or the person's own. */
-async function installationOf(github: GithubOf, stored: number | null, app: RepositoriesApp): Promise<Installation | null> {
+export async function installationOf(github: GithubOf, stored: number | null, app: RepositoriesApp): Promise<Installation | null> {
   if (stored) return app.installation(stored);
   if (!github.github_org) return null;
   return (await app.orgInstallation(github.github_org)) ?? (await app.userInstallation(github.github_org));

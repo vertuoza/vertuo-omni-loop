@@ -97,6 +97,8 @@ describe('prdOfLine', () => {
 
   it('reads none from a fix\'s line, a product PRD\'s, a line with no number, or a line off the list', () => {
     expect(prdOfLine('/omni:bug-fix 2270')).toBeNull();
+    expect(prdOfLine('/validate-prd 2270')).toBeNull();
+    expect(prdOfLine('/yolo 2270')).toBeNull();
     expect(prdOfLine('/omni:yolo mobile-12')).toBeNull();
     expect(prdOfLine('/omni:yolo')).toBeNull();
     expect(prdOfLine('/omni:yolo 22x')).toBeNull();

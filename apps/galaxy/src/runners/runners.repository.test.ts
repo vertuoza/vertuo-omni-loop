@@ -166,6 +166,23 @@ describe('a job an API key sent (PRD 2022 s4)', () => {
   });
 });
 
+describe('a repository\'s allowed skills (PRD 2313)', () => {
+  it('are read by repository_runner_skills_of(), for the workspace and the repository', async () => {
+    const { db, lines } = fakeDb([{ data: ['audit', 'validate-prd'], error: null }, { data: [], error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.allowedSkills('w1', 'acme/widgets')).toEqual(['audit', 'validate-prd']);
+    expect(await repository.allowedSkills('w1', 'acme/other')).toEqual([]);
+    expect(lines[0]).toBe('rpc("repository_runner_skills_of",{"p_workspace":"w1","p_full_name":"acme/widgets"})');
+  });
+
+  it('throw on the database\'s refusal or an answer out of shape, naming the call', async () => {
+    const refused = fakeDb([{ data: null, error: { message: 'permission denied' } }]);
+    await expect(runnersRepository(refused.db).allowedSkills('w1', 'acme/widgets')).rejects.toThrow('repository_runner_skills_of(): permission denied');
+    const odd = fakeDb([{ data: [1], error: null }]);
+    await expect(runnersRepository(odd.db).allowedSkills('w1', 'acme/widgets')).rejects.toThrow('repository_runner_skills_of() answered out of shape');
+  });
+});
+
 // A job continued once its answers are in (PRD 2270 s1): the switch read per repository, the PRD's jobs
 // cut by their line, and a continuation the unique index refuses answered as none.
 describe('a continuation (PRD 2270)', () => {
