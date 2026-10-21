@@ -1,13 +1,13 @@
 // The open-source guard (PRD 2305, s1): no tracked file carries the maintainer's internal delivery (a
 // repository other than this one, an address on its domain) or a secret. The rules are proven red and
 // green on fixtures first, each offending string assembled at runtime so this file holds none, then
-// the allowlist, the shrink-only baseline and the command itself, and last the guard on every file
-// git tracks, with this repository's baseline and allowlist.
+// the allowlist and the command itself, and last the guard on every file git tracks, with this
+// repository's allowlist.
 import { rmSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { makeRepo } from '../kit/test/fixture.ts';
-import { type AllowEntry, type SourceFile, areaOf, formatFinding, judge, main, readAllowFile, readBaseline, trackedFiles } from './open-source.ts';
+import { type AllowEntry, type SourceFile, formatFinding, judge, main, readAllowFile, trackedFiles } from './open-source.ts';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -16,11 +16,9 @@ const ORG = 'vert' + 'uoza';
 const PREFIX = 'vert' + 'uo';
 const DOMAIN = ORG + '.com';
 
-const NO_BASELINE: ReadonlyMap<string, readonly string[]> = new Map();
-
 /** The findings for one file holding `text`, as the guard prints them. */
 function linesFor(text: string, path = 'kit/lib/a.ts', allow: readonly AllowEntry[] = []): string[] {
-  return judge([{ path, text }], allow, NO_BASELINE).findings.map(formatFinding);
+  return judge([{ path, text }], allow).findings.map(formatFinding);
 }
 
 const b64 = (value: unknown): string => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -132,58 +130,18 @@ describe('the allowlist', () => {
 
   it('requires each entry’s reason, and a pattern that is a regular expression', () => {
     const files: SourceFile[] = [{ path: 'kit/lib/a.test.ts', text: `k = '${fake}'\n` }];
-    const noReason = judge(files, [{ ...entry, reason: '  ' }], NO_BASELINE);
+    const noReason = judge(files, [{ ...entry, reason: '  ' }]);
     expect(noReason.problems).toEqual(['scripts/open-source.allow.json: entry 1 (kit/lib/a.test.ts) needs its reason']);
     expect(noReason.findings).toHaveLength(1);
-    expect(judge(files, [{ ...entry, pattern: '(' }], NO_BASELINE).problems).toEqual([
+    expect(judge(files, [{ ...entry, pattern: '(' }]).problems).toEqual([
       'scripts/open-source.allow.json: entry 1 (kit/lib/a.test.ts) has a pattern that is no regular expression',
     ]);
-    expect(judge(files, [{ ...entry, file: '' }], NO_BASELINE).problems).toEqual(['scripts/open-source.allow.json: entry 1 needs a file and a pattern']);
+    expect(judge(files, [{ ...entry, file: '' }]).problems).toEqual(['scripts/open-source.allow.json: entry 1 needs a file and a pattern']);
   });
 
   it('never lets an internal name through: it holds secrets only', () => {
     const allow: AllowEntry = { file: 'kit/lib/a.ts', pattern: '.*', reason: 'everything' };
     expect(linesFor(`${ORG}/back-office\n`, 'kit/lib/a.ts', [allow])).toHaveLength(1);
-  });
-});
-
-describe('the baseline: it only shrinks', () => {
-  const offending: SourceFile = { path: 'apps/galaxy/src/a.ts', text: `const repo = '${ORG}/back-office';\n` };
-  const clean: SourceFile = { path: 'apps/galaxy/src/b.ts', text: "const repo = 'demo-org/nimbus-brain';\n" };
-
-  it('does not judge a listed file for an internal name', () => {
-    const verdict = judge([offending, clean], [], new Map([['galaxy', [offending.path]]]));
-    expect(verdict).toEqual({ findings: [], problems: [] });
-  });
-
-  it('still judges a listed file for a secret', () => {
-    const leaked: SourceFile = { path: offending.path, text: `${offending.text}const t = '${'gh' + 'p_' + 'a'.repeat(36)}';\n` };
-    expect(judge([leaked], [], new Map([['galaxy', [offending.path]]])).findings.map(formatFinding)).toEqual([
-      'apps/galaxy/src/a.ts:2: secret (GitHub token) — build the fake at runtime, or list it in scripts/open-source.allow.json with its reason; a real one is rotated',
-    ]);
-  });
-
-  it('fails a listed file that is now clean, or gone: remove it from the baseline', () => {
-    const verdict = judge([clean], [], new Map([['galaxy', [clean.path, 'apps/galaxy/src/gone.ts']]]));
-    expect(verdict.problems).toEqual([
-      'scripts/open-source.baseline/galaxy.json: remove apps/galaxy/src/b.ts from the baseline',
-      'scripts/open-source.baseline/galaxy.json: remove apps/galaxy/src/gone.ts from the baseline',
-    ]);
-  });
-
-  it("fails a file listed in another area's baseline, or in none", () => {
-    const misplaced = judge([offending], [], new Map([['kit', [offending.path]]]));
-    expect(misplaced.problems).toEqual(['scripts/open-source.baseline/kit.json lists apps/galaxy/src/a.ts, which belongs to galaxy.json']);
-    const script: SourceFile = { path: 'scripts/a.ts', text: offending.text };
-    expect(judge([script], [], new Map([['history', [script.path]]])).problems).toEqual([
-      'scripts/open-source.baseline/history.json lists scripts/a.ts, which no area owns: clean it',
-    ]);
-  });
-
-  it('gives each path the area of the slice that cleans it', () => {
-    expect(['apps/galaxy/x', 'apps/omni-app/x', 'kit/x', 'packages/x', 'game/x', 'supabase/x'].map(areaOf)).toEqual(['galaxy', 'omni-app', 'kit', 'packages', 'packages', 'supabase']);
-    for (const path of ['.omni-loop/delivery/x', '.omni-loop/knowledge/x', 'docs/x', 'fallow/x', 'README.md', '.fallowrc.jsonc', 'package.json']) expect(areaOf(path)).toBe('history');
-    for (const path of ['scripts/x', '.github/workflows/x', '.omni-loop/config.yml', 'apps/galaxy-x/y']) expect(areaOf(path)).toBeNull();
   });
 });
 
@@ -216,12 +174,11 @@ describe('the command', () => {
     expect(out).toEqual(['open-source: green: 1 files read, 0 still in the baseline']);
   });
 
-  it('reads the allowlist and the baseline from the repository it judges', () => {
+  it('reads the allowlist from the repository it judges', () => {
     const files = {
-      'kit/lib/a.ts': `export const a = '${ORG}/back-office';\n`,
+      'kit/lib/a.ts': 'export const a = 1;\n',
       'kit/lib/b.test.ts': `const k = '${'sk-' + 'fake-' + '0123456789abcdefghij'}';\n`,
       'scripts/open-source.allow.json': JSON.stringify({ allow: [{ file: 'kit/lib/b.test.ts', pattern: '^sk-fake-', reason: 'a fake' }] }),
-      'scripts/open-source.baseline/kit.json': JSON.stringify({ files: ['kit/lib/a.ts'] }),
     };
     expect(run(files).code).toBe(0);
   });
@@ -236,11 +193,11 @@ describe('this repository', () => {
   it('the guard and its test pass their own rules', () => {
     const files = ['scripts/open-source.ts', 'scripts/open-source.test.ts'].map((path) => trackedFiles(repoRoot).find((file) => file.path === path) ?? { path, text: '' });
     expect(files.every((file) => file.text.length > 0)).toBe(true);
-    expect(judge(files, [], NO_BASELINE)).toEqual({ findings: [], problems: [] });
+    expect(judge(files, [])).toEqual({ findings: [], problems: [] });
   });
 
-  it('every tracked file passes, with its baseline and its allowlist', () => {
-    const { findings, problems } = judge(trackedFiles(repoRoot), readAllowFile(repoRoot), readBaseline(repoRoot));
+  it('every tracked file passes, with its allowlist', () => {
+    const { findings, problems } = judge(trackedFiles(repoRoot), readAllowFile(repoRoot));
     expect([...findings.map(formatFinding), ...problems], 'run node scripts/open-source.ts, and fix what it names').toEqual([]);
   });
 });
