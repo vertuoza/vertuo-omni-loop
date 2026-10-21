@@ -3,7 +3,7 @@
 // terminal shows it before any sign-in. Yes opens the existing sign-in card, its way back the auth
 // callback's device= branch (./cli-code.ts); No marks the request denied. Nothing here signs anyone in.
 import 'server-only';
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { CardPurpose } from './cli-code-card';
 import { deviceCallbackPath, devicePagePath } from './cli-code';
 import type { DeviceCardView } from './device-card';

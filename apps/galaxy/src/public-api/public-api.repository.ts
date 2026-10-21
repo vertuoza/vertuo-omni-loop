@@ -7,7 +7,7 @@
 // shape, throws, naming the call: the controller answers 500 and logs it.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRow } from '../data/parse-rows';
 import { PRD_STAGES } from './public-api.contract';
 

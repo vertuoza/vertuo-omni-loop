@@ -29,9 +29,9 @@ describe('signing in from the knowledge map', () => {
   });
 
   it("comes back with Google's or Supabase's reason when the sign-in was refused", async () => {
-    const back = new URL(await knowledgeSignInReturn(callback('?error=access_denied&error_description=Only+%40vertuoza.com+accounts'), ORIGIN, ok));
+    const back = new URL(await knowledgeSignInReturn(callback('?error=access_denied&error_description=Only+%40example.com+accounts'), ORIGIN, ok));
     expect(back.pathname).toBe('/knowledge');
-    expect(back.searchParams.get('signin_error')).toBe('Only @vertuoza.com accounts');
+    expect(back.searchParams.get('signin_error')).toBe('Only @example.com accounts');
   });
 
   it('says so when the code cannot be exchanged', async () => {

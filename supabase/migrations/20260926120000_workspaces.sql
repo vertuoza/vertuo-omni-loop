@@ -1,9 +1,9 @@
--- Workspaces (PRD #100): Vertuoza becomes the first of many. A workspace owns everything the game
+-- Workspaces (PRD #100): one company becomes the first of many. A workspace owns everything the game
 -- holds (its fleets, sectors, players and ledger, its GitHub organisation, its look), and a person
 -- reaches a workspace by being a member of it, instead of by the domain of their email.
 --
 -- The four game tables are dropped and rebuilt with a workspace scope: production's rows are not
--- carried over (the spec's D3). People sign in again, join_by_domain() puts them back in Vertuoza,
+-- carried over (the spec's D3). People sign in again, join_by_domain() puts them back in theirs,
 -- and they pick a fleet, a name and a hero again. auth.users is untouched.
 --
 -- Every grant below is explicit: revoked first, then granted, so the result is the same whether or
@@ -408,22 +408,9 @@ grant execute on function public.link_github() to authenticated;
 revoke execute on function public.hook_before_user_created(jsonb) from public, anon, authenticated;
 grant execute on function public.hook_before_user_created(jsonb) to supabase_auth_admin;
 
--- ── 5. Vertuoza, workspace #1, and its fleets ────────────────────────────────────
+-- ── 5. No workspace is seeded ────────────────────────────────────────────────────
 
-insert into public.workspaces (slug, name, github_org, plan_repo, join_domain, theme)
-values ('vertuoza', 'Vertuoza', 'vertuoza', 'vertuo-omni-plan', 'vertuoza.com', '{}');
-
--- Today's six, with the same look and order. INVINCIBLE stays retired: history that names it keeps
--- its look. No sectors: the real ones come in a migration of their own.
-insert into public.teams (workspace_id, name, label, color, motto, mascot, sort, retired_at)
-select w.id, f.name, f.label, f.color, f.motto, f.mascot, f.sort, f.retired_at
-  from public.workspaces w,
-       (values
-         ('beaver',          'BEAVER',     '#d08a4a', 'Builds the dam. Secures the zone.', 'beaver',     10, null::timestamptz),
-         ('octopod',         'OCTOPOD',    '#b07cff', 'Eight arms, eight sub-PRs.',        'octopod',    20, null),
-         ('picsou',          'PICSOU',     '#ffd84a', 'Every coin counted twice.',         'picsou',     30, null),
-         ('cia',             'C.I.A.',     '#9aa3c8', 'Knows every open question.',        'cia',        40, null),
-         ('pirates',         'PIRATES',    '#2fc6a4', 'Takes the zones nobody claims.',    'pirate',     50, null),
-         ('invincible-team', 'INVINCIBLE', '#4fb0ff', 'Think, Mark. Then ship it.',        'invincible', 90, now())
-       ) as f (name, label, color, motto, mascot, sort, retired_at)
- where w.slug = 'vertuoza';
+-- A fresh install starts with no workspace (PRD 2305): each one is made by whoever installs the
+-- GitHub App, and supabase/seed.sql makes the demo world's. This section once seeded the
+-- maintainer's own workspace and fleets; production applied it long ago and records a migration by
+-- its version, never its content, so this edit changes fresh installs only.

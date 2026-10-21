@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { TokenCheck } from '../ask/auth';
 import { refuse } from '../business-api/reply';
 import { callerOf, refusalOf } from './approvals.controller';

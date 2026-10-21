@@ -6,7 +6,7 @@
 // ask.repository.ts): the controller and the server's first paint pass the viewer's.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../data/parse-rows';
 
 /** What the waiting reads need: the tables and the database's functions. */

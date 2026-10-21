@@ -9,9 +9,9 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CONFIG_FILE } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { foldersLayout, parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { CONFIG_FILE } from 'omni-loop/kit/lib/config.ts';
+import { foldersLayout, parseFolderName } from 'omni-loop/kit/lib/layout.ts';
+import type { PrNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { readBaseConfig } from '../outbox-check/github.ts';
 import { listFolder, readFiles, readPull } from './github.ts';
 import type { Config, FeaturePull, Octokit, Pull, PrdFacts } from './retro.types.ts';

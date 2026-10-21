@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultPitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { defaultPitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import { COULD_NOT_SAVE, databaseProducts, demoProductsPort, GONE, NOT_EDITOR, OUT_OF_SHAPE, refusalOf } from './store';
 
 // Settings › Products's calls: set_pitch_look() (PRD 859 s1) and set_pitch_settings() (PRD 1108 s1), as

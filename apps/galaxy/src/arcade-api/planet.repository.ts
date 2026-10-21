@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { GalaxyView } from '@omni/galaxy';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { PlanetDossierRead } from '../arcade/types';
 import { readPlanetDossier } from '../data/dossiers';

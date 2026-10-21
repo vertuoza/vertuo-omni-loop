@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { Answer, ApprovalHistory, HistoryRepository } from './approvals.repository';
 import { eventsOf, openFeed, startOf } from './stream.service';
 

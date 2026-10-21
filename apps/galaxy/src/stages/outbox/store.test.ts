@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { prdOutboxStore, waitingOf } from './store';
 import { fakePrdOutboxStore } from './store.fake';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const W = 'w-acme';
 const REPO = 'acme/widgets';

@@ -4,7 +4,7 @@ import { parsePrd } from '../kit/lib/ids.ts';
 
 describe('events', () => {
   it('builds a deterministic id', () => {
-    expect(eventId('pr', 'vertuo-ai-domain#1042', 'merged')).toBe('pr:vertuo-ai-domain#1042:merged');
+    expect(eventId('pr', 'nimbus-ai-domain#1042', 'merged')).toBe('pr:nimbus-ai-domain#1042:merged');
   });
 
   it('names every type and wound kind the spec lists', () => {

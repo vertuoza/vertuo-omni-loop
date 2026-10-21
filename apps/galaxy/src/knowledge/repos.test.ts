@@ -24,11 +24,11 @@ function reader(repos: Record<number, string[] | Error>, installations: Record<s
 
 describe('installedRepos — the repositories the menu offers', () => {
   it('gives every workspace\'s repositories by name, each with the installation that reads it', async () => {
-    const read = reader({ 1: ['vertuoza/vertuo-core', 'vertuoza/Api'], 2: ['acme/widgets'] });
+    const read = reader({ 1: ['demo-org/nimbus-core', 'demo-org/Api'], 2: ['acme/widgets'] });
     expect(await installedRepos(read, () => Promise.resolve([ACME, VERTUOZA, SOLO]))).toEqual([
       { repo: 'acme/widgets', installation: 2 },
-      { repo: 'vertuoza/Api', installation: 1 },
-      { repo: 'vertuoza/vertuo-core', installation: 1 },
+      { repo: 'demo-org/Api', installation: 1 },
+      { repo: 'demo-org/nimbus-core', installation: 1 },
     ]);
   });
 

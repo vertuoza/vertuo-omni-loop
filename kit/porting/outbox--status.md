@@ -1,6 +1,6 @@
 # `kit/lib/outbox/status.mjs`
 
-Source: `scripts/outbox-status.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/outbox-status.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 

@@ -4,7 +4,7 @@
 
 ## Context
 
-Upstream vertuo-parallel-wave carried a consultation policy: under vertuo-deliver it asked about high and human-action items in the prompt and settled the answers on the spot. PRD 7 ships only /omni:yolo, which asks nothing; /omni:deliver is out of scope (spec §4).
+Upstream nimbus-parallel-wave carried a consultation policy: under nimbus-deliver it asked about high and human-action items in the prompt and settled the answers on the spot. PRD 7 ships only /omni:yolo, which asks nothing; /omni:deliver is out of scope (spec §4).
 
 ## Decision
 

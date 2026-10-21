@@ -1,6 +1,6 @@
 # `kit/lib/inbox/territory.mjs`
 
-Source: `scripts/check-territory.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/check-territory.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -23,8 +23,8 @@ Source: `scripts/check-territory.mjs` @ `vertuo-ai-domain@c4a210122`.
   out; the task's own interface list names every one of them with no new parameter, and the task's
   own clarification says this module is "pure … port their upstream tests verbatim." No literal in
   the task's own mapping table names anything in this module to replace.
-- Module doc comment: reworded to drop `.claude/skills/vertuo-plan/`, `.claude/skills/vertuo-yolo/`,
-  `.claude/skills/vertuo-yolo-fix/`, `vertuo-parallel-wave` (all match
+- Module doc comment: reworded to drop `.claude/skills/nimbus-plan/`, `.claude/skills/nimbus-yolo/`,
+  `.claude/skills/nimbus-yolo-fix/`, `nimbus-parallel-wave` (all match
   `kit/test/no-literals.test.mjs`'s `/vertuo/i` pattern) and the CLI usage line (`node
   scripts/check-territory.mjs <plan> <slice> <base>`, since the CLI is gone) in favor of generic
   wording ("a plan", "a slice", "a merge step", "two sibling directories"); adds a closing sentence
@@ -66,7 +66,7 @@ exactly the duplication the territory discipline (see the module doc comment) ex
 this slice widens `parsePlanSlices` itself rather than adding a third copy, and both commands now
 read `slice.blockedBy` and carry no local copy of any kind.
 
-This is **not** a re-port from `vertuo-ai-domain`: upstream's `scripts/check-territory.mjs` never
+This is **not** a re-port from `nimbus-brain`: upstream's `scripts/check-territory.mjs` never
 read a `blocked by` column at all (`blocked by` grading was invented downstream, once here, twice
 over, by `omni plan check` and `omni board`). It is a kit-local widening of the ported function,
 recorded here per the slice's own instructions rather than in a separate porting file, since

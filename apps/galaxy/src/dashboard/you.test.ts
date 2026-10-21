@@ -40,7 +40,7 @@ describe('scoreOf', () => {
 
 describe('who you are', () => {
   const user = (over: Record<string, unknown> = {}) => ({
-    email: 'pierre@vertuoza.com', user_metadata: { given_name: 'Pierre', full_name: 'Pierre Derval' }, identities: [], ...over,
+    email: 'pierre@example.com', user_metadata: { given_name: 'Pierre', full_name: 'Pierre Derval' }, identities: [], ...over,
   }) as never;
   const player = (over: Partial<Player> = {}): Player => ({
     id: 'u1', display_name: 'PIERRE', team: 'beaver', team_since: null, hero: { v: 1, body: 'boy', skin: 0, hair: 0, suit: 0, cape: 0 }, github_login: 'Pierre-GH', ...over,

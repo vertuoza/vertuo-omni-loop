@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { RoadmapRecordRead } from '../../dossier/page/RoadmapRecord';
 import type { RoadmapHumanWorkRow, RoadmapPrdRow, RoadmapRow } from '../store';
 import { loadRoadmapPage, productOf, roadmapIdOf, type RoadmapPageReads } from './load';

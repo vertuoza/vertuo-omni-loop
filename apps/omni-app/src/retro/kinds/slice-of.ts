@@ -1,5 +1,5 @@
 // The slice a sub-PR's head branch names, read the same way by every kind that groups pull requests by slice.
-import { SliceIdSchema, type SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { SliceIdSchema, type SliceId } from 'omni-loop/kit/lib/ids.ts';
 
 /**
  * The slice id a head branch names through `branches.slice` (its topic filled), or `null`: a branch

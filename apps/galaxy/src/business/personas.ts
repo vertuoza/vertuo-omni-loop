@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { PERSONA_TRADES, personaVariations, randomAvatar, validPersonaAvatar, type PersonaAvatar } from '@omni/design';
 import { hasProducts, type Product } from './model';
-import { at, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // Settings → Business → Personas (PRD 799 s3): a product's cast, the team's own picture of its
 // customers. Each persona has a name, a stance, a trade, an avatar into that trade's sprite variations

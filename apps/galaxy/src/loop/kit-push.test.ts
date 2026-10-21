@@ -9,10 +9,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { parseOutboxItemId, parsePr, parsePrd, parseWorkSliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { parkBody, startBody, stopBody, tickBody } from 'vertuo-omni-plan/kit/lib/loop/body.ts';
-import type { LoopPlan } from 'vertuo-omni-plan/kit/lib/next/plan.ts';
-import { readLoopPlans, writeLoopPlans } from 'vertuo-omni-plan/kit/lib/next/store.ts';
+import { parseOutboxItemId, parsePr, parsePrd, parseWorkSliceId } from 'omni-loop/kit/lib/ids.ts';
+import { parkBody, startBody, stopBody, tickBody } from 'omni-loop/kit/lib/loop/body.ts';
+import type { LoopPlan } from 'omni-loop/kit/lib/next/plan.ts';
+import { readLoopPlans, writeLoopPlans } from 'omni-loop/kit/lib/next/store.ts';
 import { loopPush, type LoopDeps } from './api';
 import { fakeLoops, type FakeAccount } from './store.fake';
 

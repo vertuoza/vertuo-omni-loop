@@ -1,4 +1,4 @@
--- Linking GitHub is what turns a visitor into a player. Signing in with a @vertuoza.com Google
+-- Linking GitHub is what turns a visitor into a player. Signing in with a company Google
 -- account lets someone into the arcade as a visitor: they may look at the galaxy. Only once they
 -- have linked their GitHub account (the login their pull requests score under) may they join a
 -- fleet, and their player row then starts with that login.
@@ -69,7 +69,7 @@ declare
   ident record;
 begin
   if auth.uid() is null or not public.is_crew() then
-    raise exception 'Sign in with your vertuoza.com account first.' using errcode = '42501';
+    raise exception 'Sign in with your company account first.' using errcode = '42501';
   end if;
   select g.github_id, g.github_login into ident from public.my_github() g;
   if not found or ident.github_login is null then

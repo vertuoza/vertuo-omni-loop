@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { refuse, reply } from '../../business-api/reply';
 import type { OutboxStand } from '../../dossier/page/stage';
 import { prdOfLine } from '../continue';

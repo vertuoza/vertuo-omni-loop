@@ -18,7 +18,7 @@ and runners pages, the kit README.
 
 PRD 1972 shipped on 2026-10-15: every bug-fix pull request opens with a `## Proof` section holding a
 before/after GIF, or as a draft saying `GIF not produced - <reason>`. The next morning,
-vertuoza/vertuo-backend-php#6720, opened by a runner job on 2026-10-16 at 09:53Z, has no `## Proof`
+demo-org/nimbus-backend-php#6720, opened by a runner job on 2026-10-16 at 09:53Z, has no `## Proof`
 section and is not a draft. Its body follows `/omni:bug-fix` as it read before #1973.
 
 - **A stale plugin.** The release after #1973 is v0.0.426, which both target repositories pin: their
@@ -35,8 +35,8 @@ section and is not a draft. Its body follows `/omni:bug-fix` as it read before #
 - **A component bug's clips are invisible.** The filmed GIF is all a reviewer gets: the two clips
   are uploaded to the proof run, but nothing links them.
 - **A bug fixed before the fix.** When the reproduction passes before any fix (stop rule 3),
-  `/omni:bug-fix` comments with "the two readings" and stops. In vertuoza/vertuo-apps#791, Omni found
-  that #749 had already fixed the bug, but wrote it as prose. vertuo-cleaner cannot follow the fix to
+  `/omni:bug-fix` comments with "the two readings" and stops. In demo-org/nimbus-apps#791, Omni found
+  that #749 had already fixed the bug, but wrote it as prose. nimbus-cleaner cannot follow the fix to
   its release and verdict. It reads a merged pull request named by a `Fixed by #<n>` or
   `Fixed by <PR URL>` line at the start of a comment line (its branch `omni-fixed-by`).
 
@@ -207,7 +207,7 @@ that fixed the bug before it comments.
 | vertuo-omni-loop | galaxy route | `apps/galaxy/app/api/proofs/[run]/[clip]/route.ts` | no written convention: follows `apps/galaxy/app/api/proofs/[run]/preview.gif/route.ts` |
 | vertuo-omni-loop | skill text | `GIF not produced - <reason>`, `Storybook not filmed - <reason>` | kept as `kit/plugin/skills/bug-fix/SKILL.md:427-429` writes them |
 | vertuo-omni-loop | runner reason | `omni plugin v<x> is older than <owner/repo>'s omni v<y>: …` | no written convention: follows the reasons of `kit/lib/runner/runner.ts:334-337` |
-| vertuo-cleaner | issue comment | `Fixed by #<n>`, `Fixed by <PR URL>` | vertuo-cleaner's reader, branch `omni-fixed-by` (outside this repository) |
+| nimbus-cleaner | issue comment | `Fixed by #<n>`, `Fixed by <PR URL>` | nimbus-cleaner's reader, branch `omni-fixed-by` (outside this repository) |
 
 ## Decisions
 
@@ -241,7 +241,7 @@ that fixed the bug before it comments.
   job's log. Refusing would stop every job on a `claude plugin list` failure that the plugin's age
   did not cause.
 - **`Fixed by` only on proof** (asked): red at the merge's first parent, green at the merge.
-  Otherwise the comment writes `Maybe:` lines, which vertuo-cleaner does not read.
+  Otherwise the comment writes `Maybe:` lines, which nimbus-cleaner does not read.
 - **`omni proof push` prints the clip links** (taken alone), rather than the skill building them from
   the GIF's link: the URL's shape stays the server's.
 - **The window keeps the highlighted line in view** (taken alone, shown in the design and not
@@ -260,7 +260,7 @@ that fixed the bug before it comments.
   that says why.
 - As Pierre, who runs the runner on agent-box, I never have to remember to update the plugin: the
   runner does it before a job needs it, and refuses the job when it cannot.
-- As vertuo-cleaner, I read `Fixed by #<n>` on an issue whose bug was already fixed, and follow that
+- As nimbus-cleaner, I read `Fixed by #<n>` on an issue whose bug was already fixed, and follow that
   pull request to its release and verdict.
 
 ## Scope
@@ -278,8 +278,8 @@ that fixed the bug before it comments.
 **Out:**
 - **Other people's systems:**
   - agent-box's unit and its `git pull` (Pierre);
-  - `omni update` in vertuo-backend-php and vertuo-apps, which follows this PRD's release;
-  - vertuo-cleaner's reader (its branch `omni-fixed-by`).
+  - `omni update` in nimbus-backend-php and nimbus-apps, which follows this PRD's release;
+  - nimbus-cleaner's reader (its branch `omni-fixed-by`).
 - **Later or not at all:**
   - a GIF in `/omni:mega-bug-fix`'s target pull requests;
   - a Proof tab on the bug page;

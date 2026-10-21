@@ -3,11 +3,11 @@
 // (game/projector.ts), so the events are exactly what `pnpm game:project` would append.
 // Every PRD, repository and login below is invented. Every PRD lives in one invented home repository
 // (PRD 728: every event names its home).
-import { projectEvents, type Skip } from 'vertuo-omni-plan/game/projector.ts';
-import type { GameEvent } from 'vertuo-omni-plan/game/events.ts';
-import type { Bug, OutboxEntry, Snapshot, SnapshotPlanet, SnapshotZone, ZonePr } from 'vertuo-omni-plan/game/types.ts';
+import { projectEvents, type Skip } from 'omni-loop/game/projector.ts';
+import type { GameEvent } from 'omni-loop/game/events.ts';
+import type { Bug, OutboxEntry, Snapshot, SnapshotPlanet, SnapshotZone, ZonePr } from 'omni-loop/game/types.ts';
 import type { Projects } from './types.ts';
-import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export const DEMO_PROJECTS: Projects = Object.freeze({
   sectors: {

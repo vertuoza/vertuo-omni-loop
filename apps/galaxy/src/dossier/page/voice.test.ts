@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { readVoice, reworkCommand, voiceView, type VoiceCast } from './voice';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The User voice tab's reading (PRD 822, s3): a voice.json version as galaxy's own schema reads it, then
 // one row per persona and one column per round, each score with its move from the round before, each

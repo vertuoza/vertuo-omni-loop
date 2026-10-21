@@ -3,7 +3,7 @@ name: do-work
 description: Build ONE slice of a PRD to standard — grounded in the repository's own context, test-first through red-green-refactor, inside the slice's territory only, every decision taken without asking recorded as an outbox item — then ship it as a sub-PR. The job every /omni:wave subagent does; a person may also run it on one slice. Under --target, a product PRD (<key>-<n>) takes its plan through omni dossier get and its items go to the server. Triggers on "do the slice", "build s3", "/omni:do-work".
 ---
 
-<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-do-work/SKILL.md — changes in kit/porting/plugin--do-work.md -->
+<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-do-work/SKILL.md — changes in kit/porting/plugin--do-work.md -->
 
 # Do work: one slice, to standard
 

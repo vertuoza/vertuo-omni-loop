@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { ReleaseRow } from './row';
 import { brusselsDay, mondayOf, OPEN_WEEKS, releasesOf, weeksOf } from './weeks';
 import { sure } from '../arcade/test/sure';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const row = (prd: number, release: number, released_at: string, title = `PRD ${prd}'s title`): ReleaseRow =>
   ({ prd: parsePrd(prd), release, released_at, title, description: `What PRD ${prd} changed.` });

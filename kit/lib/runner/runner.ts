@@ -41,6 +41,12 @@
 // claims are released too, reason `runner lost`, and a report carrying only what was released follows
 // when there is something to say. An app that refuses those two fields gets the report again without
 // them.
+//
+// A repository's own skill (PRD 2313): a job carries the skills its repository's owner allowed, read when
+// it was claimed, and its line is checked against them before anything is made. Once its worktree is cut
+// from `origin/<default branch>`, the skill's `.claude/skills/<name>/SKILL.md` must be there, or the job
+// fails `refused: /<name> is not on <default branch>` before Claude starts. Such a job has no outcome: it
+// ends done or failed from its exit code alone.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -164,8 +170,8 @@ function withLines(update: JobUpdate, live: Live, lines: readonly string[]): Job
   return lines.length === 0 ? update : { ...update, from: live.cursor + 1, lines: [...lines] };
 }
 
-/** Where a job runs and what it writes. */
-type Place = { checkout: string; worktree: string; session: string; line: string; log: string; exit: string };
+/** Where a job runs and what it writes, and the repository's own skill it runs (`null` for a fixed skill). */
+type Place = { checkout: string; worktree: string; session: string; line: string; log: string; exit: string; skill: string | null };
 
 const QUIET: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
 
@@ -363,9 +369,10 @@ function worktreeOf(loop: Loop, job: RunnerJob): string {
   return join(loop.home, 'wt', `${job.repo.split('/').at(-1) ?? job.repo}-job-${job.id}`);
 }
 
-/** Where `job` runs, or the status it ends on before it runs: a line refused, a repository not held. */
+/** Where `job` runs, or the status it ends on before it runs: a line refused (a repository's own skill
+ * the job does not carry included, PRD 2313), a repository not held. */
 function placeOf(loop: Loop, job: RunnerJob): Place | JobUpdate {
-  const line = checkRunnerLine(job.line);
+  const line = checkRunnerLine(job.line, job.allowedSkills);
   if (!line.ok) return { status: 'failed', reason: `refused: ${line.reason}` };
   const checkout = loop.checkouts.get(job.repo);
   if (checkout === undefined) return { status: 'failed', reason: `${job.repo} is not held by this runner` };
@@ -377,20 +384,28 @@ function placeOf(loop: Loop, job: RunnerJob): Place | JobUpdate {
     line: join(logs, `job-${job.id}.line`),
     log: join(logs, `job-${job.id}.log`),
     exit: join(logs, `job-${job.id}.exit`),
+    skill: line.kind === 'repository' ? line.skill : null,
   };
 }
 
-/** Fetches, then adds the job's worktree on its own branch from the default branch: whether it worked. */
-function makeWorktree(loop: Loop, job: RunnerJob, place: Place): boolean {
+/** Fetches, then adds the job's worktree on its own branch from the default branch: the branch, or `null` when it failed. */
+function makeWorktree(loop: Loop, job: RunnerJob, place: Place): string | null {
   try {
     loop.exec('git', ['-C', place.checkout, 'fetch', 'origin'], QUIET);
     const base = defaultBranch(loop.exec, place.checkout);
     mkdirSync(join(loop.home, 'wt'), { recursive: true });
     loop.exec('git', ['-C', place.checkout, 'worktree', 'add', '--no-track', '-b', `agent/job-${job.id}`, place.worktree, `origin/${base}`], QUIET);
-    return true;
+    return base;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** The status a job of a repository's own skill ends on when the worktree, cut from `base`, lacks the
+ * skill's `SKILL.md` (PRD 2313): a skill only on a branch never runs. `null` when it may run. */
+function skillMissing(place: Place, base: string): JobUpdate | null {
+  if (place.skill === null || existsSync(join(place.worktree, '.claude', 'skills', place.skill, 'SKILL.md'))) return null;
+  return { status: 'failed', reason: `refused: /${place.skill} is not on ${base}` };
 }
 
 /** Removes the job's worktree, the records left stale, then its branch unless it was pushed. */
@@ -471,8 +486,11 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
 async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; live: Live | null }> {
   const place = placeOf(loop, job);
   if ('status' in place) return { last: place, live: null };
-  if (!makeWorktree(loop, job, place)) return { last: { status: 'failed', reason: 'the worktree could not be made' }, live: null };
+  const base = makeWorktree(loop, job, place);
+  if (base === null) return { last: { status: 'failed', reason: 'the worktree could not be made' }, live: null };
   try {
+    const missing = skillMissing(place, base);
+    if (missing !== null) return { last: missing, live: null };
     const plugin = await loop.plugin.forJob(place.worktree, job.repo);
     if ('failed' in plugin) return { last: { status: 'failed', reason: plugin.failed }, live: null };
     if (!startSession(loop, job, place, plugin.note)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };

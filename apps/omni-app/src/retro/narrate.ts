@@ -43,9 +43,9 @@ import {
   REFUSED,
   askModel,
   maskSecrets,
-} from 'vertuo-omni-plan/kit/lib/openrouter.ts';
-import { LOOK_RULE } from 'vertuo-omni-plan/kit/lib/knowledge/look-rule.ts';
-import { at, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+} from 'omni-loop/kit/lib/openrouter.ts';
+import { LOOK_RULE } from 'omni-loop/kit/lib/knowledge/look-rule.ts';
+import { at, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { z } from 'zod';
 import { FIELD_CAPS, LIMITS, REFUSED_WORDS } from './rules.ts';
 import type { OpenRouterEnv } from '../env.ts';

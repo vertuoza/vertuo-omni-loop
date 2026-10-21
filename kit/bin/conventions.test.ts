@@ -26,7 +26,7 @@ async function run(argv: readonly string[], cwd: string) {
 
 const paths = (root: string) => readConventions(root).map((entry) => entry.path);
 
-/** A directory shaped like vertuo-backend-php. */
+/** A directory shaped like nimbus-core. */
 const BACKEND = {
   'CLAUDE.md': '# Backend\n\n| Task | Read |\n| --- | --- |\n| Migration | [migrations](docs/migrations.md) |\n',
   'docs/readme.md': '# Docs\n',
@@ -35,7 +35,7 @@ const BACKEND = {
 };
 
 describe('omni conventions', () => {
-  it('prints the index of a directory shaped like vertuo-backend-php, with title and origin (the PRD 278 regression)', async () => {
+  it('prints the index of a directory shaped like nimbus-core, with title and origin (the PRD 278 regression)', async () => {
     const root = fixture(BACKEND);
     const { code, out } = await run(['conventions', '--root', root], process.cwd());
     expect(code).toBe(0);

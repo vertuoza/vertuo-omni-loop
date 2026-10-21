@@ -12,12 +12,18 @@ import { checkLine, type Board, type Runner, type RunnerState, type Target } fro
 export type SendOption = { key: string; group: 'any' | 'fleet' | 'runner'; label: string; state: string | null; target: Target };
 
 /** What Send to terminal needs on a page: the page's repository and the choices the viewer has. */
-export type SendSetup = { repo: string; options: SendOption[] };
+export type SendSetup = {
+  repo: string;
+  options: SendOption[];
+  /** The repository's own skills its owner allowed on a runner (PRD 2313): a `/<name>` line of one is sendable. */
+  allowed?: readonly string[];
+};
 
 const STATE_WORDS: Record<RunnerState, string> = { online: 'Online', busy: 'Busy', offline: 'Offline' };
 
-/** Whether a runner may run `line`: a listed skill with checked arguments. */
-export const sendable = (line: string): boolean => checkLine(line).ok;
+/** Whether a runner may run `line`: a listed skill with checked arguments, or a skill of `allowed`, the
+ * repository's own (PRD 2313). */
+export const sendable = (line: string, allowed: readonly string[] = []): boolean => checkLine(line, allowed).ok;
 
 /** Whether the viewer may send to this runner: it has no fleet, or the viewer is its player or an owner. */
 const mayUse = (viewer: Board['viewer'], runner: Runner) => runner.fleet === null || viewer.owner || viewer.fleet === runner.fleet;

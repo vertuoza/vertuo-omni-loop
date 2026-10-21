@@ -17,8 +17,8 @@ use cases.
 
 ## Problem
 
-vertuo-cleaner, Vertuoza's internal dashboard, groups production errors and opens an `omni:bug`
-issue for an error group, in `vertuoza/vertuo-backend-php` for the back end or `vertuoza/vertuo-apps`
+nimbus-cleaner, Vertuoza's internal dashboard, groups production errors and opens an `omni:bug`
+issue for an error group, in `demo-org/nimbus-backend-php` for the back end or `demo-org/nimbus-apps`
 for the front end. Then it asks a person to paste `/omni:bug-fix <issue url>` into Claude Code.
 Nothing starts the fix by itself: `POST /api/runners/jobs` queues a job only from a signed-in
 browser (`sendJob` reads the session alone), while the runner's own routes (register, next, report)
@@ -42,8 +42,8 @@ it at `POST /api/ask/token` for an access token, keeps that until its `expires_a
 ```
 POST /api/runners/jobs
 Authorization: Bearer <access token>
-{"line": "/omni:bug-fix https://github.com/vertuoza/vertuo-backend-php/issues/123",
- "repo": "vertuoza/vertuo-backend-php", "target": {"kind": "any"}}
+{"line": "/omni:bug-fix https://github.com/demo-org/nimbus-backend-php/issues/123",
+ "repo": "demo-org/nimbus-backend-php", "target": {"kind": "any"}}
 → 200 {"job": {…, "sentBy": "<the token's person>"}}
 ```
 
@@ -153,15 +153,15 @@ omni bug film <n> --before <file> --after <file> [--out <dir>]
   decoration: the red line is already in the PR and in CI. If I have to watch an animation to review
   a PHP fix, I won't." Settled `accepted`: `## Proof` also writes the failing line and the passing
   line as text under the GIF, so a reviewer reads the proof without watching it.
-- **The two addresses.** vertuo-backend-php's `ask.url` is `https://vertuo-omni-loop-galaxy.vercel.app`,
-  vertuo-apps' is `https://www.omni-loop.xyz`. On 2026-10-14 both served the galaxy app at the same
+- **The two addresses.** nimbus-backend-php's `ask.url` is `https://vertuo-omni-loop-galaxy.vercel.app`,
+  nimbus-apps' is `https://www.omni-loop.xyz`. On 2026-10-14 both served the galaxy app at the same
   commit (`69dffde`, `GET /api/health`, uncached), and the first is the Vercel project's default
   production address (PRD 71). That both read the same workspace is proven once Pierre's token
   exists: the same `omk_` exchanged on each names the same `workspace` (acceptance criterion 3).
 
 ## User stories
 
-- As vertuo-cleaner, I queue `/omni:bug-fix <issue url>` on the workspace's runners with Pierre's kit
+- As nimbus-cleaner, I queue `/omni:bug-fix <issue url>` on the workspace's runners with Pierre's kit
   token, so a bug starts being fixed without anyone pasting a line.
 - As a reviewer of a bug-fix pull request, I see the bug, then the bug gone, in one GIF at the top of
   the body, and the failing and passing lines beside it, so I trust the fix before reading the diff.
@@ -177,8 +177,8 @@ omni bug film <n> --before <file> --after <file> [--out <dir>]
 exchange, the call, its refusals); the guide's use cases (the `## Proof` section); `kit/dist/` and
 `apps/omni-app/api/` rebuilt.
 
-**Out:** the runner unit on agent-box (`vertuoza/agent-box`); the cleaner's side
-(`vertuoza/vertuo-cleaner`); `omni update` in vertuo-backend-php and vertuo-apps; Pierre's token
+**Out:** the runner unit on agent-box (`demo-org/agent-box`); the cleaner's side
+(`demo-org/nimbus-cleaner`); `omni update` in nimbus-backend-php and nimbus-apps; Pierre's token
 itself; a Proof tab on the bug page; filming in `/omni:mega-bug-fix`'s targets; a sign-in to a QA
 environment; a migration.
 
@@ -219,8 +219,8 @@ Every test runs on fixtures: never GitHub, Supabase or a real ffmpeg (`omni kb s
   the cleaner keeps its access token until `expires_at` rather than exchanging one per job.
 - **The plugin moves before the pinned CLI.** The marketplace serves `kit/plugin` from `main`, so the
   merge changes `/omni:bug-fix` in every repository at once, while each repository's pinned omni
-  learns `omni bug film` and `--kind bug` at its next `omni update`. Until vertuo-backend-php and
-  vertuo-apps update, every bug-fix pull request there opens as a draft ("the pinned omni is too
+  learns `omni bug film` and `--kind bug` at its next `omni update`. Until nimbus-backend-php and
+  nimbus-apps update, every bug-fix pull request there opens as a draft ("the pinned omni is too
   old"). Their two updates follow this PRD's release.
 - **Storybook on the runner's machine.** Starting Storybook takes time and memory, and a story may
   need what the machine lacks; the fallback to the test output keeps the GIF.

@@ -1,7 +1,7 @@
 import type { PartDemo } from '../part';
 import { weekDays } from './chart';
 import type { WeekValue } from './load';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 
 // The week of merges in the demo (PRD 328): the demo world holds no merges, so the week is made up
 // and fixed, as the spec draws it: nine pull requests over the seven days up to today, two of them

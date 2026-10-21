@@ -25,8 +25,8 @@ beforeEach(async () => {
   chmodSync(join(tmp, 'gh'), 0o755);
   writeFileSync(join(tmp, 'gh.log'), '');
   world = {
-    'vertuoza/vertuo-core': { commit: COMMIT, files: { 'README.md': '# core\n' } },
-    'vertuoza/vertuo-omni-plan': {
+    'demo-org/nimbus-core': { commit: COMMIT, files: { 'README.md': '# core\n' } },
+    'demo-org/nimbus-plan': {
       commit: COMMIT,
       files: {
         '.omni-loop/config.yml': 'kit: 1\nask:\n  url: https://ask.example.com\ndossier:\n  enabled: true\n',
@@ -36,10 +36,10 @@ beforeEach(async () => {
   };
   server = await serveDossiers({
     workspaces: [
-      { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan' },
+      { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'demo-org', plan_repo: 'nimbus-plan' },
       { id: BARE, slug: 'bare', name: 'Bare', github_org: null, plan_repo: null },
     ],
-    sectors: [{ workspace_id: VERTUOZA, name: 'core', repos: ['vertuo-core'] }],
+    sectors: [{ workspace_id: VERTUOZA, name: 'core', repos: ['nimbus-core'] }],
     teams: [{ workspace_id: VERTUOZA, name: 'beaver', home: 'core', label: 'BEAVER', color: '#d08a4a', motto: '', mascot: 'beaver', sort: 10, retired_at: null }],
     players: [],
   });
@@ -91,10 +91,10 @@ describe('pnpm game:dossiers', () => {
   it('reads every sector repository and the plan repository, creates the dossiers, and adds nothing the second time', async () => {
     const first = await dossiers([], { OMNI_LOOP_WORKSPACE: 'vertuoza' });
     expect(first.code, first.stderr).toBe(0);
-    expect(first.stdout).toContain('  - skipped vertuoza/vertuo-core: no .omni-loop/config.yml on main');
-    expect(first.stdout).toContain('vertuoza/vertuo-omni-plan @ c1000000 (main): 1 PRD folder · 1 dossier created · 1 file fetched · added: #7 spec v1');
+    expect(first.stdout).toContain('  - skipped demo-org/nimbus-core: no .omni-loop/config.yml on main');
+    expect(first.stdout).toContain('demo-org/nimbus-plan @ c1000000 (main): 1 PRD folder · 1 dossier created · 1 file fetched · added: #7 spec v1');
     expect(first.stdout.trim().split('\n').at(-1)).toBe('dossiers: 1 of 2 repositories read · 1 created · 1 version added');
-    expect(server.tables.dossiers).toEqual([expect.objectContaining({ workspace_id: VERTUOZA, home_repo: 'vertuoza/vertuo-omni-plan', prd: 7, title: 'Rockets' })]);
+    expect(server.tables.dossiers).toEqual([expect.objectContaining({ workspace_id: VERTUOZA, home_repo: 'demo-org/nimbus-plan', prd: 7, title: 'Rockets' })]);
     expect(server.tables.dossier_versions).toEqual([expect.objectContaining({ kind: 'spec', content: SPEC, source: 'github', commit_sha: COMMIT })]);
 
     const blobs = () => ghCalls().filter((c) => c.includes('/git/blobs/')).length;

@@ -10,9 +10,9 @@ import { askReadService, askWayBack } from './ask.service';
 // session and shares. Characterization first: what the page's readers (src/ask/page/source.ts) gave
 // on the fakes before the move is pinned here, and the same comes back through the service after it.
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
-const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
-const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: ['00000000-0000-4000-8000-00000000aced'] };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com' };
+const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com' };
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@example.com', workspaces: ['00000000-0000-4000-8000-00000000aced'] };
 const START = Date.parse('2026-09-26T09:00:00Z');
 const QUESTIONS = [{ question: 'Which storage?', header: 'Storage', multiSelect: false, options: [{ label: 'Postgres (Recommended)' }, { label: 'Memory' }] }];
 const LATER = [{ question: 'Which cache?', header: 'Cache', multiSelect: false, options: [{ label: 'None' }] }];

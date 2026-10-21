@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RepositoryGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
+import type { RepositoryGraph } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
 import { MAX_GRAPH_PUSH_BYTES } from './push.contract';
 import { pushKnowledgeGraph, type GraphPushDeps } from './push.controller';
 import type { GraphPushRepository, Pushed, Stored } from './push.repository';

@@ -279,7 +279,7 @@ Out:
     the root `package.json`'s `bin.omni`. In a scratch git repository,
     `npx --yes <path to this checkout> init` writes the config and the bin and prints the closing
     steps, and the installed `.omni-loop/bin/omni.mjs` is byte-identical to `kit/dist/omni.mjs`.
-11. **Live, on `vertuoza/vertuo-workflow-domain`** (the omni-loop-invader App installed on it by
+11. **Live, on `demo-org/nimbus-workflow-domain`** (the omni-loop-invader App installed on it by
     hand):
     - Before `omni init`, a throwaway PR there shows the outbox check *skipped — omni-loop is not
       active on this repo*.

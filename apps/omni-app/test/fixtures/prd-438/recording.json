@@ -3567,12 +3567,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T12:38:19Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T12:38:19Z"
             },
             "message": "chore(s1): claim\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -3610,12 +3610,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T12:42:43Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T12:42:43Z"
             },
             "message": "feat(galaxy): the app sidebar as data, with the current item and the page title (PRD 438 s1)\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -3653,12 +3653,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T12:45:43Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T12:45:43Z"
             },
             "message": "feat(galaxy): the viewer read and the app sidebar, current item and For me badge (PRD 438 s1)\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -3696,12 +3696,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T12:57:15Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T12:57:15Z"
             },
             "message": "feat(galaxy): every app page sits in one AppShell, the sidebar and the top bar (PRD 438 s1)\n\n/app, /prd, /ask and /knowledge render through AppShell: the sidebar (Work, Omni, the current\nitem, the For me badge) and the top bar (the page's title, the theme switch, Game mode). AskBar,\nthe ask bar's History and For me links, /knowledge's own bar, /app's section cards (Cards.tsx,\nSECTIONS) are gone; the tests follow.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -3750,12 +3750,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T12:38:19Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T12:38:19Z"
           },
           "message": "chore(s1): claim\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -3809,12 +3809,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T12:42:43Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T12:42:43Z"
           },
           "message": "feat(galaxy): the app sidebar as data, with the current item and the page title (PRD 438 s1)\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -3887,12 +3887,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T12:45:43Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T12:45:43Z"
           },
           "message": "feat(galaxy): the viewer read and the app sidebar, current item and For me badge (PRD 438 s1)\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4001,12 +4001,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T12:57:15Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T12:57:15Z"
           },
           "message": "feat(galaxy): every app page sits in one AppShell, the sidebar and the top bar (PRD 438 s1)\n\n/app, /prd, /ask and /knowledge render through AppShell: the sidebar (Work, Omni, the current\nitem, the For me badge) and the top bar (the page's title, the theme switch, Game mode). AskBar,\nthe ask bar's History and For me links, /knowledge's own bar, /app's section cards (Cards.tsx,\nSECTIONS) are gone; the tests follow.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4368,12 +4368,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:09:06Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:09:06Z"
             },
             "message": "chore(s2): claim\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4411,12 +4411,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:15:23Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:15:23Z"
             },
             "message": "feat(galaxy): the top bar ends with you — the avatar's user menu and Sign out, or Sign in with GitHub (s2)\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4454,12 +4454,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:18:09Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:18:09Z"
             },
             "message": "test(galaxy): every app page's top bar ends with you, after Game mode (s2)\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4508,12 +4508,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:09:06Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:09:06Z"
           },
           "message": "chore(s2): claim\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4567,12 +4567,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:15:23Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:15:23Z"
           },
           "message": "feat(galaxy): the top bar ends with you — the avatar's user menu and Sign out, or Sign in with GitHub (s2)\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4690,12 +4690,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:18:09Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:18:09Z"
           },
           "message": "test(galaxy): every app page's top bar ends with you, after Game mode (s2)\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4769,12 +4769,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:09:15Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:09:15Z"
             },
             "message": "chore(s4): claim\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4812,12 +4812,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:12:59Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:12:59Z"
             },
             "message": "feat(galaxy): the public bar holds Omni's pages and opens the app (PRD 438, s4)\n\nThe bar on /docs and /releases: its menu reads Release notes then Docs\n(PRDs left it for the app's sidebar), and it gains Open the app → to\n/app, shown to everyone, before the theme switch and Game mode.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4855,12 +4855,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:12:59Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:12:59Z"
             },
             "message": "chore(delivery): s4 decision — where Open the app → sits (PRD 438)\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4909,12 +4909,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:09:15Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:09:15Z"
           },
           "message": "chore(s4): claim\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -4968,12 +4968,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:12:59Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:12:59Z"
           },
           "message": "feat(galaxy): the public bar holds Omni's pages and opens the app (PRD 438, s4)\n\nThe bar on /docs and /releases: its menu reads Release notes then Docs\n(PRDs left it for the app's sidebar), and it gains Open the app → to\n/app, shown to everyone, before the theme switch and Game mode.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -5073,12 +5073,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:12:59Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:12:59Z"
           },
           "message": "chore(delivery): s4 decision — where Open the app → sits (PRD 438)\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -5143,12 +5143,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:24:44Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:24:44Z"
             },
             "message": "chore(s3): claim\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -5186,12 +5186,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:29:50Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:29:50Z"
             },
             "message": "feat(galaxy): the phone drawer: below 900px ☰ opens the sidebar (PRD 438 s3)\n\nBelow 900px the sidebar hides and the top bar opens with ☰ (\"Menu\") and\nthe crest; its first row holds ☰, the crest, the title and you, and the\ntheme switch and Game mode wrap to a second row. ☰ opens the sidebar as\na drawer with the focus inside it; Escape, a tap on the scrim or choosing\nan item closes it and gives the focus back to ☰. Tab wraps inside it.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -5229,12 +5229,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:33:23Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:33:23Z"
             },
             "message": "fix(galaxy): keep the top bar's end together; the page-header check expects ☰ and the crest (PRD 438 s3)\n\nThe theme switch and Game mode, and you, stay inside .app-bar-end, which\nwraps on a computer and gives its two halves their own places in the\nbar's grid on a phone. The shared page-header check now expects ☰ and\nthe crest first (outbox item s3-01).\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -5272,12 +5272,12 @@
           "commit": {
             "author": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:33:23Z"
             },
             "committer": {
               "name": "pierre-derval",
-              "email": "pierre.derval@vertuoza.com",
+              "email": "pierre.derval@example.com",
               "date": "2026-09-28T13:33:23Z"
             },
             "message": "chore(delivery): PRD 438 s3 — record the page-header check decision\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -5326,12 +5326,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:24:44Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:24:44Z"
           },
           "message": "chore(s3): claim\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -5385,12 +5385,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:29:50Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:29:50Z"
           },
           "message": "feat(galaxy): the phone drawer: below 900px ☰ opens the sidebar (PRD 438 s3)\n\nBelow 900px the sidebar hides and the top bar opens with ☰ (\"Menu\") and\nthe crest; its first row holds ☰, the crest, the title and you, and the\ntheme switch and Game mode wrap to a second row. ☰ opens the sidebar as\na drawer with the focus inside it; Escape, a tap on the scrim or choosing\nan item closes it and gives the focus back to ☰. Tab wraps inside it.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -5544,12 +5544,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:33:23Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:33:23Z"
           },
           "message": "fix(galaxy): keep the top bar's end together; the page-header check expects ☰ and the crest (PRD 438 s3)\n\nThe theme switch and Game mode, and you, stay inside .app-bar-end, which\nwraps on a computer and gives its two halves their own places in the\nbar's grid on a phone. The shared page-header check now expects ☰ and\nthe crest first (outbox item s3-01).\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",
@@ -5631,12 +5631,12 @@
         "commit": {
           "author": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:33:23Z"
           },
           "committer": {
             "name": "pierre-derval",
-            "email": "pierre.derval@vertuoza.com",
+            "email": "pierre.derval@example.com",
             "date": "2026-09-28T13:33:23Z"
           },
           "message": "chore(delivery): PRD 438 s3 — record the page-header check decision\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>\nCo-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>",

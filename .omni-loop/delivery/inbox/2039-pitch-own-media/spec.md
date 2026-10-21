@@ -9,7 +9,7 @@ spec: file
 
 **Date:** 2026-10-15 · **PRD:** #2039 · **Build after:** PRD 2030 has shipped (see Decisions) · **Follows:** PRD 1108 (Pitch studio) and PRD 2030 (Pitch scenes),
 whose settings, providers, filmed moments, scenes, check, studio, render and push stay. **Compared with:**
-`vertuoza/release-videos`, the engine PRD 1108 names as its inspiration: it builds its videos from
+`demo-org/release-videos`, the engine PRD 1108 names as its inspiration: it builds its videos from
 recordings the team already has, decodes every clip into images before the render, and reads a
 recording's coordinates with a probe. PRD 2030 left this piece to "a later PRD": this is it.
 **Touches:** `kit/lib/pitch/` (run, render input, render, studio, check, a new probe module, the ffmpeg

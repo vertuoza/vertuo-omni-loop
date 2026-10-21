@@ -1,8 +1,8 @@
-import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { MERGE_SHA, OWNER, REPO, widgetScenario } from '../../test/retro-scenario.ts';
 import { publishRetro } from './publish.ts';
 import { rulesSheet } from './rules.ts';

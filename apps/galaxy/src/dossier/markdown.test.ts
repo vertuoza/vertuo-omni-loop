@@ -73,8 +73,8 @@ describe('rendering a spec or a plan', () => {
 // (PRD 752, decision 6): a lead or a description as one line, the rest of a question as a body.
 describe('rendering a line of a question', () => {
   it('renders code and emphasis without wrapping the line in a paragraph', () => {
-    expect(renderInlineMarkdown('Open `libs/vertuo-workflow-ui/README.md` **now**')).toBe(
-      'Open <code>libs/vertuo-workflow-ui/README.md</code> <strong>now</strong>',
+    expect(renderInlineMarkdown('Open `libs/nimbus-workflow-ui/README.md` **now**')).toBe(
+      'Open <code>libs/nimbus-workflow-ui/README.md</code> <strong>now</strong>',
     );
   });
 
@@ -88,8 +88,8 @@ describe('rendering a line of a question', () => {
   });
 
   it('renders the rest of a question as a body, its steps as a numbered list, nothing taken as front matter', () => {
-    const html = renderMarkdownBody('Steps:\n\n1. open `vertuo-apps`\n2. merge <b>it</b>');
-    expect(html).toBe('<p>Steps:</p>\n<ol>\n<li>open <code>vertuo-apps</code></li>\n<li>merge &lt;b&gt;it&lt;/b&gt;</li>\n</ol>\n');
+    const html = renderMarkdownBody('Steps:\n\n1. open `nimbus-apps`\n2. merge <b>it</b>');
+    expect(html).toBe('<p>Steps:</p>\n<ol>\n<li>open <code>nimbus-apps</code></li>\n<li>merge &lt;b&gt;it&lt;/b&gt;</li>\n</ol>\n');
     expect(renderMarkdownBody('---\nnot: front\n---\n')).toContain('not: front');
   });
 });

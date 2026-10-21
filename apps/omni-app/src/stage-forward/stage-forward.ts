@@ -20,9 +20,9 @@
 // label is the kit's default, as the branch shapes are.
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
 import { noteTo } from '../run-log/run-log.ts';
 

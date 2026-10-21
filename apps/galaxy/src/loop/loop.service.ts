@@ -6,7 +6,7 @@ import {
   MAX_CHANGES, MAX_ISSUES,
   type Change, type ChangeDetail, type ChangesQuery, type Comment, type CommentsQuery, type Issue, type IssueDetail, type IssuesQuery,
 } from './loop.contract';
-import type { IssueNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { LoopWorkspaces } from './loop.repository';
 
 /** The host cannot read the repository: its app is not installed there, or its token is refused. */

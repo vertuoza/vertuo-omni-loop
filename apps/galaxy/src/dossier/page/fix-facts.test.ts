@@ -3,7 +3,7 @@ import type { Priority } from '@omni/github';
 import type { ConceptFacts, FixSummary } from '../github/fix';
 import { UNREAD } from '../github/summary';
 import { conceptFacts, fixFacts, type FixFactsDeps, type StoredFactsDeps } from './fix-facts';
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 
 // A fix's page renders from fix_facts (PRD 902, s2): stored facts at once, refreshed after the response
 // while not final; none stored, one interactive read, stored after.

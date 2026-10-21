@@ -1,4 +1,4 @@
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import type { Question } from '../runners.contract';
 import type { Acted, JobLineRow, JobPatch, JobRow, JobRowStatus, NewJob, NewRunner, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from '../runners.repository';
 
@@ -46,18 +46,18 @@ const KEYS = [{ id: API_KEY, workspaceId: WORKSPACE, name: 'QA dashboard' }];
 const FLEETS = [{ workspaceId: WORKSPACE, name: 'cia' }, { workspaceId: WORKSPACE, name: 'pirates' }];
 
 /** Which workspace owns a repository's GitHub organisation. */
-const ORGS: Record<string, string> = { vertuoza: WORKSPACE, elsewhere: ELSEWHERE };
+const ORGS: Record<string, string> = { 'demo-org': WORKSPACE, elsewhere: ELSEWHERE };
 
 /** A runner row, seen at `T0` unless told otherwise. */
 export function runnerRow(more: Partial<RunnerRow> & Pick<RunnerRow, 'id' | 'name'>): RunnerRow {
-  return { workspace_id: WORKSPACE, owner: OLGA, fleet: null, slots: 4, repos: ['vertuoza/app'], version: '0.0.387', last_seen_at: T0.toISOString(), health: null, ...more };
+  return { workspace_id: WORKSPACE, owner: OLGA, fleet: null, slots: 4, repos: ['demo-org/app'], version: '0.0.387', last_seen_at: T0.toISOString(), health: null, ...more };
 }
 
 /** Olga's three runners: a shared one with one slot, one of the fleet cia, one that holds another repository. */
 export const RUNNERS: RunnerRow[] = [
   runnerRow({ id: SHARED, name: 'shared', slots: 1 }),
   runnerRow({ id: CIA_BOX, name: 'cia-box', fleet: 'cia' }),
-  runnerRow({ id: OTHER, name: 'other', repos: ['vertuoza/other'] }),
+  runnerRow({ id: OTHER, name: 'other', repos: ['demo-org/other'] }),
 ];
 
 let jobSeq = 0;
@@ -67,7 +67,7 @@ export function jobRow(more: Partial<JobRow> = {}): JobRow {
   jobSeq += 1;
   return {
     id: `00000000-0000-4000-8000-${String(1830020000 + jobSeq).padStart(12, '0')}`, workspace_id: WORKSPACE, line: '/omni:yolo 1717',
-    repo: 'vertuoza/app', to_runner: null, to_fleet: null, sent_by: MO, sent_by_key: null, status: 'queued', runner_id: null, cancel_requested: false,
+    repo: 'demo-org/app', to_runner: null, to_fleet: null, sent_by: MO, sent_by_key: null, status: 'queued', runner_id: null, cancel_requested: false,
     log_tail: '', pr_url: null, exit_code: null, reason: null, queued_at: T0.toISOString(), claimed_at: null, running_at: null,
     ended_at: null, ...more,
   };
@@ -97,14 +97,17 @@ export function lineRows(job: Pick<JobRow, 'id' | 'workspace_id'>, from: number,
 
 const ENDED_STATUSES: readonly JobRowStatus[] = ['done', 'failed', 'cancelled'];
 
+/** A skill of a repository's own its owner allowed on the runners (PRD 2313), as repository_runner_skills holds it. */
+export type AllowedSkillRow = { workspace_id: string; full_name: string; skill: string };
+
 /** The fake's tables, and the clock it stamps writes with. */
-export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], questions = [], now = () => T0 }: {
-  runners?: RunnerRow[]; jobs?: JobRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; now?: () => Date;
+export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], questions = [], skills = [], now = () => T0 }: {
+  runners?: RunnerRow[]; jobs?: JobRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; skills?: AllowedSkillRow[]; now?: () => Date;
 } = {}) {
   const calls: string[] = [];
   const state = {
     runners: runners.map((row) => ({ ...row })), jobs: jobs.map((row) => ({ ...row })), lines: lines.map((row) => ({ ...row })),
-    samples: samples.map((row) => ({ ...row })), questions: questions.map((row) => ({ ...row })), calls,
+    samples: samples.map((row) => ({ ...row })), questions: questions.map((row) => ({ ...row })), skills: skills.map((row) => ({ ...row })), calls,
   };
   const stamp = () => now().toISOString();
   // As runner_claim() reads them: a queued job of its workspace, for a repository it holds…
@@ -137,6 +140,9 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       m.workspaceId === workspaceId && userIds.includes(m.userId) && m.login ? [[m.userId, m.login] as const] : []
     )))),
     keyNames: (workspaceId, keyIds) => Promise.resolve(new Map(KEYS.filter((k) => k.workspaceId === workspaceId && keyIds.includes(k.id)).map((k) => [k.id, k.name] as const))),
+    // As repository_runner_skills_of() reads them: the repository's names, in order.
+    allowedSkills: (workspaceId, repo) => Promise.resolve(state.skills
+      .filter((row) => row.workspace_id === workspaceId && row.full_name === repo.toLowerCase()).map((row) => row.skill).sort()),
     runner: (id) => Promise.resolve(state.runners.find((r) => r.id === id) ?? null),
     runnerNamed: (workspaceId, name) => Promise.resolve(state.runners.find((r) => r.workspace_id === workspaceId && r.name === name) ?? null),
     runners: (workspaceId) => Promise.resolve(state.runners.filter((r) => r.workspace_id === workspaceId).sort((a, b) => a.name.localeCompare(b.name))),

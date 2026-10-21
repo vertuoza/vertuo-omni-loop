@@ -28,7 +28,7 @@ principles, 96 rules and 12 invariants. Four gaps follow.
    (`kit/plugin/skills/do-work/SKILL.md:66`), which is 189 entries here. Brainstorm, plan, wave and
    bug-fix read none of it. No command returns the entries that govern a given file.
 
-vertuoza/vnext writes its laws from the top: a `PRODUCT.md`, then a constitution of laws N1–N35. Its
+demo-org/vnext writes its laws from the top: a `PRODUCT.md`, then a constitution of laws N1–N35. Its
 `test/invariants/` folder is owned by a person and guarded by CODEOWNERS and an approval trailer.
 This PRD gives omni-loop the same property, for every repository that installs the kit, and keeps
 agents from being swamped.

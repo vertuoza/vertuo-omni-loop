@@ -113,7 +113,7 @@ ul.same{margin:0;padding-left:18px;color:var(--muted);display:grid;gap:4px;max-w
   P3.1 Timers loop       crew       ← P1.1  <span class="m">the worker runs the timers</span>
   P3.4 Think endpoint    ai-domain  ← P1.1  <span class="m">called by the worker</span>
   Q5   production writes <span class="a">person</span> → parks P4.4
-<span class="a">  ! P2.x names vertuo-backend-php: readOnly</span>
+<span class="a">  ! P2.x names nimbus-backend-php: readOnly</span>
 <span class="m">  answer once ›</span> move it to crew
 <span class="g">✓</span> omni roadmap check · omni phase0 ok
 <span class="g">✓</span> roadmap #1200 · 25 PRD issues · phase-0 PR #1226
@@ -148,7 +148,7 @@ step 5/31 · PRD 1213 · <span class="a">wait</span> · waits on crew#41 (P1.1):
 <div class="doc"><p><b>PRD 1213</b> · <span class="chip amber">waiting</span></p><p>blocked by 1201 until it ships</p></div></div>
 <div class="side"><span class="tag after">After</span>
 <div class="doc"><p><b>PRD 1213 · P3.4 Stateless think endpoint</b> · <span class="chip amber">held</span></p>
-<p class="waitline">waits on vertuoza/vertuo-crew-domain#41 (P1.1 Crew API and worker skeleton): ready, waiting for your merge</p>
+<p class="waitline">waits on demo-org/nimbus-crew-domain#41 (P1.1 Crew API and worker skeleton): ready, waiting for your merge</p>
 <p>The same line on the terminal, the Loop page, the roadmap's page and PRD 1213's issue.</p></div></div>
 </div>
 </section>
@@ -160,12 +160,12 @@ step 5/31 · PRD 1213 · <span class="a">wait</span> · waits on crew#41 (P1.1):
 <div class="side"><span class="tag">Today</span>
 <pre class="term"><span class="m">$</span> omni plan check 1213
 <span class="g">✓</span> plan ok · 3 waves
-<span class="m">  s2 vertuo-backend-php   (nobody may change it)</span>
+<span class="m">  s2 nimbus-backend-php   (nobody may change it)</span>
 <span class="m">  s4 crew installs ai-sdk ← s3 ai-domain adds think</span>
 <span class="r">  passes: s4 fails after merge, ai-sdk publishes from main only</span></pre></div>
 <div class="side"><span class="tag after">After</span>
 <pre class="term"><span class="m">$</span> omni plan check 1213
-<span class="r">✗</span> s2 names vertuo-backend-php, a readOnly target
+<span class="r">✗</span> s2 names nimbus-backend-php, a readOnly target
 <span class="r">✗</span> s4 (crew) is blocked by s3 (ai-domain), and crew consumes
   ai-domain: make s3 its own earlier PRD in the roadmap</pre></div>
 </div>

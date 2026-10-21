@@ -1,4 +1,4 @@
-import type { ProductNeighbourhood } from 'vertuo-omni-plan/kit/lib/knowledge/product-graph.ts';
+import type { ProductNeighbourhood } from 'omni-loop/kit/lib/knowledge/product-graph.ts';
 import type { LinkGraphBundle, LinkGraphRepository } from './link.repository';
 import type { ProductGraphRepository } from './product-graph.repository';
 import { productGraphService } from './product-graph.service';

@@ -3,8 +3,8 @@ import { SOLO, type FleetTag } from '../../people/types';
 import type { StageId, StoredStage } from '../../stages/stage';
 import { UNREADABLE, type Read } from '../part';
 import { brusselsDay, type PeriodWindow } from './period';
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 // The board's numbers (PRD 572), in pure functions over what the loader read: the workspace's roster
 // (workspace_roster), its `contributions` over the period, the answered counts per member

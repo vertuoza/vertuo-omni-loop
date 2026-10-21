@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { failing, replayGitHub } from '../../test/github-replay.ts';
 import { refusedWordsIn } from './rules.ts';
 import type { FeaturePull, Octokit, SheetFinding, TargetRead } from './retro.types.ts';

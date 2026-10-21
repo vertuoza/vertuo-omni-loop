@@ -1,6 +1,6 @@
 import { spritePixels } from '@omni/design';
 import { Fragment } from 'react';
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { pixelSvg } from '../../design/pixel-svg';
 import { LINGO } from '../lingo';
 import { Svg } from '../poster/Poster';

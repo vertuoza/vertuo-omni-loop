@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { ConceptFacts } from '../dossier/github/fix';
 import { UNREAD } from '../dossier/github/summary';
 import type { Db } from '../dossier/page/source';

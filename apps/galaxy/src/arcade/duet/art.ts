@@ -9,7 +9,7 @@
 // a theme token is read from the frame's theme (ADR-0046). Under reduced motion the backdrop stands
 // still and no trail is drawn.
 import { RAMPS, rampFrom } from '@omni/design';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import type { Action } from '../keys';
 import type { FrameState } from '../scenes/common.ts';
 import type { DuetGame, DuetHud } from '../scenes/duet.ts';

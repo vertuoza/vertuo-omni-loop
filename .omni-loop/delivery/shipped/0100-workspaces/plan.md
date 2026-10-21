@@ -77,7 +77,7 @@ throughout, because no test calls Supabase.
   - The supabase workflow's check applies every migration and the demo seed to an empty database,
     and `supabase/checks/access.sql` passes.
   - After the migration, `public.workspaces` holds `vertuoza` (`github_org 'vertuoza'`,
-    `plan_repo 'vertuo-omni-plan'`, `join_domain 'vertuoza.com'`, theme `{}`), and its six fleets
+    `plan_repo 'nimbus-plan'`, `join_domain 'vertuoza.com'`, theme `{}`), and its six fleets
     carry today's labels, colours, mottos, mascots and order, with `invincible-team` retired.
   - `access.sql` proves every criterion below; each failure stops the run with `FAIL:`.
     - **Isolation:** a member of one workspace reads zero rows of another from the six tables, and

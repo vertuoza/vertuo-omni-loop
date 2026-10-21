@@ -1,6 +1,6 @@
 # `kit/plugin/skills/plan/SKILL.md` (`/omni:plan`)
 
-Source: `vertuo-ai-domain@c4a210122:.claude/skills/vertuo-plan/SKILL.md`. The skill keeps upstream's
+Source: `nimbus-brain@c4a210122:.claude/skills/nimbus-plan/SKILL.md`. The skill keeps upstream's
 shape: read the PRD, stop on unclear acceptance, the feature branch, thin vertical slices with a
 territory and a computed wave, the plan file, the draft feature PR, the hand-off, the guardrails.
 
@@ -17,14 +17,14 @@ territory and a computed wave, the plan file, the draft feature PR, the hand-off
 | `docs/superpowers/plans/<date>-<topic>.md` | `plan.md` beside `spec.md`, in the PRD folder `omni prd` names as `dir` (it lists only files that exist) |
 | `node -e "import('./scripts/check-territory.mjs')…"` (`collisionRows`, `sameWaveCollisions`) | `omni plan check <n>`, rerun until it exits 0; it also catches duplicate ids and bad blockers |
 | `--label pr:feature --label pr:in-progress`, `Closes #<prd>` | `/omni:pr`'s feature kind: `labels.feature`, `labels.inProgress` under its **Labels** rules, `prLinks.feature` |
-| `vertuo-pull-request`'s feature shape | "follow `/omni:pr`'s feature kind" |
+| `nimbus-pull-request`'s feature shape | "follow `/omni:pr`'s feature kind" |
 | scenarios as `.pending.feature` files | only when `acceptance.enabled`; named in each slice's "done when" |
-| `vertuo-deliver` (caller and hand-off line) | `/omni:yolo`; the last line run alone is `/omni:yolo <n>` |
-| `vertuo-parallel-wave` grades territory | `/omni:wave` |
+| `nimbus-deliver` (caller and hand-off line) | `/omni:yolo`; the last line run alone is `/omni:yolo <n>` |
+| `nimbus-parallel-wave` grades territory | `/omni:wave` |
 
 ## Dropped
 
-- **The `tier` column** (small / mid / top, from `vertuo-do-work`'s "Right-Size The Model").
+- **The `tier` column** (small / mid / top, from `nimbus-do-work`'s "Right-Size The Model").
   `/omni:do-work` has no right-sizing section, and the kit's table is
   `| id | slice | territory | blocked by | wave |`.
 - **The `scenarios` column.** Scenarios exist only when `acceptance.enabled`; they go in "done when".
@@ -38,7 +38,7 @@ territory and a computed wave, the plan file, the draft feature PR, the hand-off
   The PR link goes on the PRD issue comment and the feature PR names the PRD.
 - **"One slice only means no sub-PR"**: upstream built a lone slice on the feature branch. Here every
   slice is a sub-PR, since `/omni:do-work` and `/omni:wave` only know that path (item s7-02).
-- **`vertuo-brainstorming` created the branch with the `.pending.feature` files.** Here a phase-0 PR
+- **`nimbus-brainstorming` created the branch with the `.pending.feature` files.** Here a phase-0 PR
   lands the spec on the default branch, so the feature branch is reused when it exists on the
   remote (`git ls-remote`) and cut from `<remote>/<defaultBranch>` otherwise.
 

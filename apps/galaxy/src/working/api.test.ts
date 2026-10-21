@@ -4,7 +4,7 @@ import { heartbeat, MAX_HEARTBEAT_BYTES, type WorkingDeps } from './api';
 import { fakeWorking, type FakeAccount } from './store.fake';
 import { workingReader } from './store';
 import { workingState } from './state';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // What an answer of the heartbeat carries, checked as it is read.
 const Answer = z.looseObject({ error: z.string().optional() });

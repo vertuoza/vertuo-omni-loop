@@ -1,10 +1,10 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { memoryGithubStore } from '@omni/github';
-import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { firstPart } from 'omni-loop/kit/lib/narrow.ts';
 import { githubReader, latestPull, SUMMARY_TTL_MS } from './reader';
 import { UNREAD } from './summary';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 

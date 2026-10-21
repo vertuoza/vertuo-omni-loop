@@ -21,7 +21,7 @@
  * that shape out of a plan's markdown (or a fixture), by composing `parsePlanSlices` — it is not a
  * second way of reading a slice table.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/inbox-collisions.mjs — changes in kit/porting/inbox--collisions.md.
+// Ported from nimbus-brain@c4a210122:scripts/inbox-collisions.mjs — changes in kit/porting/inbox--collisions.md.
 import type { Slice } from '../types.ts';
 import { parsePlanSlices, sharedGround } from './territory.ts';
 import type { PrdNumber, WorkSliceId } from '../ids.ts';

@@ -15,7 +15,7 @@
 // shared with may then answer it on the page while it is open, and nothing else. `ask_members` lists
 // a workspace's members to anyone in it.
 
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { isCategory } from './classify';
 
 type Row = Record<string, unknown>;

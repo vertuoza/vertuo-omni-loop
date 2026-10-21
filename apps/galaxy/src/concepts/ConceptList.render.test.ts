@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import { nestedLinks } from '../people/nested-links';
 import { ConceptList, ConceptListLoading, ConceptListScreen } from './ConceptList';
 import { conceptCards, type ConceptCard, type ConceptListState } from './list';

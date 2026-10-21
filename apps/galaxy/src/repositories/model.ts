@@ -150,10 +150,46 @@ export function removeConfirm(row: RepositoryRow): string {
   return lines.join('\n');
 }
 
+// ── Runner skills (PRD 2313 s3) ──────────────────────────────────────────────────
+
+/** A skill of a repository as the Runner skills block draws it: what is on its default branch, or an
+ * allowed one that left it (`gone`). `allowed` says who allowed it and when (`by` is the login, null
+ * when the person has none), null while it is off. */
+const RunnerSkillSchema = z.strictObject({
+  name: z.string(),
+  description: z.string().nullable(),
+  allowed: z.strictObject({ by: z.string().nullable(), at: z.string() }).nullable(),
+  gone: z.boolean(),
+});
+export type RunnerSkillRow = z.infer<typeof RunnerSkillSchema>;
+
+/** What GET /api/repositories/skills answers: the skills, the default branch's name when known, and why
+ * the live read failed, or null (the allowed skills are listed anyway). */
+export const SkillsReadSchema = z.strictObject({
+  skills: z.array(RunnerSkillSchema),
+  branch: z.string().nullable(),
+  error: z.string().nullable(),
+});
+export type SkillsRead = z.infer<typeof SkillsReadSchema>;
+
+/** One repository's block: opened and reading, or read. Closed is no entry. */
+export type SkillsBlock = { status: 'loading' } | { status: 'read'; read: SkillsRead };
+
+/** What Runner skills says of an allowed skill: who and when. */
+export function allowedLabel(allowed: NonNullable<RunnerSkillRow['allowed']>): string {
+  return allowed.by ? `allowed by @${allowed.by} on ${allowed.at.slice(0, 10)}` : `allowed on ${allowed.at.slice(0, 10)}`;
+}
+
+/** The block's title: its count once read, gone skills included. */
+export const skillsTitle = (block: SkillsBlock | undefined): string =>
+  block?.status === 'read' ? `Runner skills (${block.read.skills.length})` : 'Runner skills';
+
 // ── The page's state ─────────────────────────────────────────────────────────────
 
 export interface RepositoriesState {
   repositories: RepositoryRow[];
+  /** The Runner skills blocks that are open, by repository (PRD 2313 s3). */
+  skills: Record<string, SkillsBlock>;
   /** The Add list is open. */
   picking: boolean;
   /** A call is on its way: every control waits. */
@@ -169,7 +205,11 @@ export type RepositoriesAction =
   | { type: 'saved'; repository: RepositoryRow }
   /** The row remove_repository() answered (PRD 2188 s1). */
   | { type: 'removed'; repository: RepositoryRow }
-  | { type: 'refused'; message: string };
+  | { type: 'refused'; message: string }
+  /** A repository's Runner skills block opened, closed (PRD 2313 s3), or read: what a switch changed ends the busy. */
+  | { type: 'skills-open'; repository: string }
+  | { type: 'skills-close'; repository: string }
+  | { type: 'skills-read'; repository: string; read: SkillsRead };
 
 const sorted = (rows: RepositoryRow[]) => [...rows].sort((a, b) => byName(a.fullName, b.fullName));
 
@@ -180,7 +220,7 @@ function split(state: RepositoriesState, repository: RepositoryRow): { was: Repo
 }
 
 export const initialState = (repositories: RepositoryRow[]): RepositoriesState =>
-  ({ repositories: sorted(repositories), picking: false, busy: false, refusal: null });
+  ({ repositories: sorted(repositories), skills: {}, picking: false, busy: false, refusal: null });
 
 export function repositoriesReducer(state: RepositoriesState, action: RepositoriesAction): RepositoriesState {
   switch (action.type) {
@@ -208,5 +248,11 @@ export function repositoriesReducer(state: RepositoriesState, action: Repositori
     }
     case 'refused':
       return { ...state, busy: false, refusal: action.message };
+    case 'skills-open':
+      return { ...state, skills: { ...state.skills, [key(action.repository)]: { status: 'loading' } }, refusal: null };
+    case 'skills-close':
+      return { ...state, skills: Object.fromEntries(Object.entries(state.skills).filter(([name]) => name !== key(action.repository))) };
+    case 'skills-read':
+      return { ...state, skills: { ...state.skills, [key(action.repository)]: { status: 'read', read: action.read } }, busy: false, refusal: null };
   }
 }

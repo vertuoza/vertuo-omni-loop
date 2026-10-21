@@ -6,7 +6,7 @@ import type { PlanForm } from './repositories-tab-model';
 // product-repositories): one line per repository with the five steps of the ladder, the reached ones
 // filled; under it, the product's plan repository, which a workspace owner picks among the workspace's
 // repositories, or none, and any other member reads as text; then what is still in it (`Held by
-// vertuo-web · step 3`, `Held by roadmap 0412 · in git`), as information only. There is no archive
+// nimbus-web · step 3`, `Held by roadmap 0412 · in git`), as information only. There is no archive
 // action: the plan repository is never archived, and keeps working beside the product.
 // RepositoriesTabPage.tsx wires it.
 

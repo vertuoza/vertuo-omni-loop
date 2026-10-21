@@ -8,18 +8,21 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 insert into auth.users (id, email) values
-  ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
-  ('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com'),
+  ('00000000-0000-4000-8000-0000000000b1', 'bob@example.com'),
   ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
--- A second workspace, Acme. Ada and Bob belong to Vertuoza, Carl to Acme, Eve to none.
+-- A second workspace, Acme. Ada and Bob belong to Initech, Carl to Acme, Eve to none.
 insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme');
 insert into public.workspace_members (workspace_id, user_id, joined_at)
 select w.id, m.user_id, now() - interval '1 day'
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000000a1'::uuid),
-         ('vertuoza', '00000000-0000-4000-8000-0000000000b1'::uuid),
+         ('initech', '00000000-0000-4000-8000-0000000000a1'::uuid),
+         ('initech', '00000000-0000-4000-8000-0000000000b1'::uuid),
          ('acme',     '00000000-0000-4000-8000-0000000000c1'::uuid)
        ) as m (slug, user_id)
   join public.workspaces w on w.slug = m.slug;
@@ -35,7 +38,7 @@ grant select, insert on ids to authenticated, service_role;
 with made as (
   insert into public.dossiers (workspace_id, home_repo, prd, title, numbered_at)
   select w.id, d.repo, d.prd, d.title, now()
-    from (values ('vertuoza', 'vertuoza/vertuo-omni-loop', 7, 'Team inbox'),
+    from (values ('initech', 'initech/nimbus-plan', 7, 'Team inbox'),
                  ('acme',     'acme/widgets',              3, 'Widgets')) as d (slug, repo, prd, title)
     join public.workspaces w on w.slug = d.slug
   returning id, home_repo
@@ -60,7 +63,7 @@ reset role;
 
 -- ── Ada, a member: sends, and records her send's outcome once ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   kept uuid := (select id from ids where name = 'dossier');
@@ -96,7 +99,7 @@ begin
     perform public.outbox_send_done(sent, 'https://x', 'ada', true, 'both');
     raise exception 'FAIL: a send was recorded with both a link and an error';
   exception when invalid_parameter_value then null; end;
-  perform public.outbox_send_done(sent, 'https://github.com/vertuoza/vertuo-omni-loop/pull/12#issuecomment-1', 'ada', true, null);
+  perform public.outbox_send_done(sent, 'https://github.com/initech/nimbus-plan/pull/12#issuecomment-1', 'ada', true, null);
   if not exists (select 1 from public.outbox_sends where id = sent and posted_at is not null and login = 'ada' and counted
                   and comment_url like '%issuecomment-1' and error is null) then
     raise exception 'FAIL: a send''s outcome was not recorded';
@@ -127,7 +130,7 @@ reset role;
 
 -- ── Bob, a member who is not the owner: never reads Ada's send, records nothing of it ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
   kept uuid := (select id from ids where name = 'dossier');
@@ -160,7 +163,7 @@ begin
   end if;
 end $$;
 
--- ── Carl, of another workspace: reads no send, sends nothing on Vertuoza's dossier ──
+-- ── Carl, of another workspace: reads no send, sends nothing on Initech's dossier ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
 do $$
@@ -170,7 +173,7 @@ begin
   end if;
   begin
     insert into public.outbox_sends (dossier_id, pr_number, reply, nonce_hash) values ((select id from ids where name = 'dossier'), 12, '1: A', 'hash-c');
-    raise exception 'FAIL: a member of another workspace sent on Vertuoza''s dossier';
+    raise exception 'FAIL: a member of another workspace sent on Initech''s dossier';
   exception when insufficient_privilege then null; end;
   begin
     perform public.outbox_send_done((select id from ids where name = 'ada-send'), null, null, null, 'not mine');

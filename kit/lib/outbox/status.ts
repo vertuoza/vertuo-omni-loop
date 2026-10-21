@@ -39,7 +39,7 @@
  * still name the actual configured label in its override line, byte-identically to upstream's own
  * hard-coded text when the label is left at its default.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-status.mjs — changes in kit/porting/outbox--status.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-status.mjs — changes in kit/porting/outbox--status.md.
 import { existsSync } from 'node:fs';
 import { readRepoFile } from '../check-report.ts';
 import { COMMANDS } from '../commands.ts';

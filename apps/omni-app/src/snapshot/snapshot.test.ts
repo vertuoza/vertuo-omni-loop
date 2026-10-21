@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { BLOB_CONCURRENCY, MAX_BYTES, MAX_FILES, SnapshotBoundError, snapshot } from './snapshot.ts';
 
 /** A request's parameters, as `snapshot` hands them to `octokit.request`. */

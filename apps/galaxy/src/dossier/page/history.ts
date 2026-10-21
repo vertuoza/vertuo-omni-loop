@@ -32,7 +32,7 @@ import type { ProductLabels } from '../../product-filter/product-filter.service'
 import { listOf } from '../../data/unparsed';
 import type { ViewerDb } from '../../data/viewer';
 import { dossierPath, stamp, TAB_LABELS, TABS } from './view';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** The history's own address, and where its sign-in comes back to. */
 export const HISTORY_PATH = '/prd';

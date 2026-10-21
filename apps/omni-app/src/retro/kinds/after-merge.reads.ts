@@ -2,7 +2,7 @@
 // PRD's fix plans (PRD 72, PRD 1130): a pull request's files reduced to change blocks, a read GitHub
 // may refuse, and the window a date falls within. What GitHub will not let the app read is named,
 // never guessed; any other failure is thrown, so Inngest retries the step.
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { changeBlocks } from './churn-lines.ts';
 import type { Block } from './churn-lines.ts';

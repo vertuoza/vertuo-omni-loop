@@ -2,8 +2,8 @@
 // built in three slices over two waves and merged through feature PR #12. Each part can be swapped:
 // the config, where the PRD folder sits, the feature PR, its sub-PRs and its issue events. Test
 // support only; nothing in the app imports it.
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { z } from 'zod';
 import { RETRO_EVENT } from '../src/inngest-client.ts';
 import { type Recorded, replayGitHub } from './github-replay.ts';

@@ -5,9 +5,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { inngest } from '../inngest-client.ts';
 import { widgetScenario } from '../../test/retro-scenario.ts';
-import { dig } from 'vertuo-omni-plan/kit/bin/dig.ts';
-import { LOOK_RULE } from 'vertuo-omni-plan/kit/lib/knowledge/look-rule.ts';
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { dig } from 'omni-loop/kit/bin/dig.ts';
+import { LOOK_RULE } from 'omni-loop/kit/lib/knowledge/look-rule.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import {
   CHARS_PER_TOKEN,
   DEFAULT_MODEL,

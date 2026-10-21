@@ -15,9 +15,9 @@
 // missing secret or a failed POST is logged and never thrown: the 15-minute sync is the safety net.
 import { posix } from 'node:path';
 import { z } from 'zod';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { IssueNumberSchema, PrNumberSchema, type IssueNumber, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { IssueNumberSchema, PrNumberSchema, type IssueNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import { match, postSigned, type SignedPost } from './stage-forward.ts';
 
 export type Touch = { repository: string; issue?: IssueNumber; pr?: PrNumber; branch?: string };

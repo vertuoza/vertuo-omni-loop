@@ -11,12 +11,12 @@
 // so it steps back first when the installation's budget runs low, and stops while GitHub has paused it.
 import { githubClient, type GithubStore } from '@omni/github';
 import { z } from 'zod';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import { githubApp, REPO, type AppCredentials } from '../../signup/github-app';
 import { keptInstallationTokens } from '../../signup/installation-tokens';
 import { syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
-import { PrdNumberSchema, PrNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { RecordLine } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
+import { PrdNumberSchema, PrNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
 import { recordIn } from '../outbox/escalation';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;

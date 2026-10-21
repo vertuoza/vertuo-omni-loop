@@ -3,8 +3,15 @@
 # scripts/check-changed-hooks.ts; the tests run in CI. `pnpm install` turns the hooks on
 # (scripts/install-hooks.ts). It fails closed: a tool it cannot find refuses the push. The
 # emergency hatch is `git push --no-verify`, and the pull request says why it was used.
+#
+# First the open-source guard (PRD 2305), scripts/open-source.ts: no tracked file names another
+# repository of the maintainer, an address on its domain or a secret.
 if ! command -v node >/dev/null 2>&1; then
   echo "pre-push: node not found on PATH: install Node >= 22.18, then run pnpm install" >&2
+  exit 1
+fi
+if ! node "$(dirname "$0")/../scripts/open-source.ts"; then
+  echo "pre-push: refused: fix what the open-source guard named above" >&2
   exit 1
 fi
 exec node "$(dirname "$0")/../scripts/check-changed.ts" --hook pre-push

@@ -5,8 +5,8 @@
 // and each of the five files uploaded to the run's folder (22023). Uploads land only in a folder of a
 // shipped dossier the caller reads and of a run not yet registered, as the bucket's insert rule says.
 // That the database holds those rules is proved against a real database (supabase/checks/pitch.sql).
-import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { firstPart } from 'omni-loop/kit/lib/narrow.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   isAudience, isLook, pitchPath, PITCH_FILE_NAMES, PitchStoreError, type PitchPublic, type PitchRunNew, type PitchRunRow, type PitchStore,
 } from './store';

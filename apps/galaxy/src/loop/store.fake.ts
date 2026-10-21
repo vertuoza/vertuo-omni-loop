@@ -15,7 +15,7 @@
 // The body is trusted: the route validated it, and the database's own checks are proved by
 // supabase/checks/loops.sql, not here. Reading runs under the migration's policies: a member of the
 // loop's workspace reads it, its ticks and its plans.
-import { parsePr, parsePrd, parseOutboxItemId, type OutboxItemId, type PrdNumber, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd, parseOutboxItemId, type OutboxItemId, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { fakeClient, fakeRecorder, listOf, objectOf, placeRepo, refused, tableQuery, textOf, type FakeAccount, type FakeResult as Result } from '../data/repo-tables.fake';
 import { loopState } from './state';
 

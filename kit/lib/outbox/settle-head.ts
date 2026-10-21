@@ -16,7 +16,7 @@
  * half (a later task), not to this function — `decideStale` only ever answers the pull_request
  * question.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/settle-head.mjs — changes in kit/porting/outbox--settle-head.md.
+// Ported from nimbus-brain@c4a210122:scripts/settle-head.mjs — changes in kit/porting/outbox--settle-head.md.
 
 /**
  * @param {string} runSha - the head commit this workflow run was triggered for.

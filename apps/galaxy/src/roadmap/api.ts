@@ -53,7 +53,7 @@
 // 413 a body over its cap, 503 no database here or the sign-in service down, 500 the database failed.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { IssueNumberSchema, PrdNumberSchema, ProductPrdIdSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, ProductPrdIdSchema } from 'omni-loop/kit/lib/ids.ts';
 import { withInstallLink, type TokenCheck } from '../ask/auth';
 import { Line, receivePush, refuse, WebLink, When } from '../data/kit-push';
 import {

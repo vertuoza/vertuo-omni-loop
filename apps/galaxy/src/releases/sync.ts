@@ -13,7 +13,7 @@
 //    description (the repository reading, sync-shipped.ts, hands it over that way).
 // 6. Nothing is ever deleted: a plan holds inserts and updates, and nothing else.
 import { INITIAL_RELEASE, type ReleaseRow } from './row.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** A PRD the repository has shipped, as the sync reads it. */
 export type ShippedPrd = {

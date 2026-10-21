@@ -1,6 +1,6 @@
 # `kit/lib/outbox/decision-coverage.mjs`
 
-Source: `scripts/decision-coverage.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/decision-coverage.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 

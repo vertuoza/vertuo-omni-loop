@@ -14,7 +14,7 @@ PRD 1804 (`commands.setup`), PRD 2100 (bug-fix proof) · **Touches:** `kit/plugi
 
 ## Problem
 
-On 2026-10-20, vertuoza/vertuo-apps v3.14.22 moved vertuo-front to TanStack Start (Vite 8, rolldown,
+On 2026-10-20, demo-org/nimbus-apps v3.14.22 moved nimbus-front to TanStack Start (Vite 8, rolldown,
 `"type": "module"`). Once it reached production, the Opportunities kanban crashed for every user:
 983 React #130 errors on `/crm/opportunities`, the first at 10:32 UTC, none before. The cause was one
 import, `import Realistic from "react-canvas-confetti/dist/presets/realistic"`, of a CommonJS file.
@@ -24,7 +24,7 @@ object, and the component renders it unconditionally. The team fixed it by hand.
 `/omni:mega-bug-fix` had the right suspect and stopped. In order of weight:
 
 1. **It could not build what ships.** In a target it may run only the target's committed
-   `commands.setup` and `commands.preflightFull` (else `commands.preflight`). vertuo-apps commits
+   `commands.setup` and `commands.preflightFull` (else `commands.preflight`). nimbus-apps commits
    `setup: bun install --frozen-lockfile` and a preflight of format, lint and unit tests, with no
    build. The bug existed only in the production bundle, so no command it was allowed to run could
    see it.
@@ -214,7 +214,7 @@ reproduction line names its level. `omni bug` reads the record as today: it requ
 
 **Out:**
 
-- vertuo-apps itself: its fix (made by hand), its `commands.smoke` and its CI step.
+- nimbus-apps itself: its fix (made by hand), its `commands.smoke` and its CI step.
 - Editing any repository's CI from a skill.
 - Detecting a smoke script in `omni init`.
 - A server-side alert (phone, email) for a critical stop.

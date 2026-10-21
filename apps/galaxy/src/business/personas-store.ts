@@ -2,7 +2,7 @@ import { validPersonaAvatar } from '@omni/design';
 import { NAME_MAX, personaOf, STANCES, StoredPersona, TEXT_MAX, type Persona, type PersonaFields } from './personas';
 import { parseRow } from '../data/parse-rows';
 import { COULD_NOT_SAVE } from './store';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // Settings → Business → Personas' calls (PRD 799 s3). In production, the functions of
 // supabase/migrations/20261022090000_personas.sql, called as the signed-in person: persona_add(),

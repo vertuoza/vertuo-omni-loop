@@ -1,5 +1,5 @@
 import 'server-only';
-import { log } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { viewer } from '../data/viewer';
 import { PLANET_REFUSALS, type PlanetRefusal } from './planet.contract';
 import { MISSING, planetServiceOf, SIGNED_OUT, type PlanetService } from './planet.service';

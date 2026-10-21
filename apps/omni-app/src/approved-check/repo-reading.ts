@@ -6,12 +6,12 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { judgeApproval, UNREACHABLE_LINE, type ApprovalReading } from 'vertuo-omni-plan/kit/lib/approval/approval.ts';
-import { birthplaceOf } from 'vertuo-omni-plan/kit/lib/approval/prd-state.ts';
-import { ARTIFACT_KINDS } from 'vertuo-omni-plan/kit/lib/dossier/folder.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { foldersLayout } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { judgeApproval, UNREACHABLE_LINE, type ApprovalReading } from 'omni-loop/kit/lib/approval/approval.ts';
+import { birthplaceOf } from 'omni-loop/kit/lib/approval/prd-state.ts';
+import { ARTIFACT_KINDS } from 'omni-loop/kit/lib/dossier/folder.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { foldersLayout } from 'omni-loop/kit/lib/layout.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 import type { GitHubClient } from '../outbox-check/github.ts';
 import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.ts';
 import type { JudgeAnswer } from './judge-client.ts';

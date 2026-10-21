@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ReleaseRow } from './row';
 import { releasesTable } from './sync-table';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 type Refusal = { message: string; code?: string } | null;
 

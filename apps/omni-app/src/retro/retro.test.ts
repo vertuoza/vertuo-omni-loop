@@ -7,8 +7,8 @@ import { z } from 'zod';
 import { inngest, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { failing } from '../../test/github-replay.ts';
 import { savingRun, savingSteps } from '../../test/saved-steps.ts';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import {
   FEATURE,
   JUDGE_ENV,

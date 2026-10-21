@@ -8,7 +8,7 @@
 // way, its issue and its concept PR only, on a `branches.concept` branch.
 import { z } from 'zod';
 import { readPart, UNREAD, type Read } from './summary';
-import { type IssueNumber, IssueNumberSchema, type PrNumber, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type IssueNumber, IssueNumberSchema, type PrNumber, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** A GitHub answer on the repository's route, as JSON; null on 404. Throws on any other failure. */
 export type FixGet = (route: string) => Promise<unknown>;

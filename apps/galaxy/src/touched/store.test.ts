@@ -1,9 +1,9 @@
 // The snapshots a touch is matched against (PRD 902, s3): its Supabase call on a recording client. No
 // test reaches Supabase.
 import { describe, expect, it, vi } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { GithubSummary } from '../dossier/github/summary';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import { conceptOf, snapshotsOf } from './store';
 
 const SUMMARY: GithubSummary = {

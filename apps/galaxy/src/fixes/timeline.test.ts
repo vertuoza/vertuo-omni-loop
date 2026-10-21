@@ -3,7 +3,7 @@ import { UNREAD } from '../dossier/github/summary';
 import type { FixSummary } from '../dossier/github/fix';
 import { fixState, readPickLine, STATE_LABELS, timelineOf, type PickRead } from './timeline';
 import { sure } from '../arcade/test/sure';
-import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr } from 'omni-loop/kit/lib/ids.ts';
 
 // A fix's state and its Timeline (PRD 627, s5), as pure functions of what GitHub said of it and of the
 // pick line of its latest before/after page: Asked, Picked (a visual fix only), Approved, Merged and

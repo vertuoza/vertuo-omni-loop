@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_WORKSPACE, fakeSupabase } from '../dossier/store.fake';
 import { sure } from '../arcade/test/sure';
 import { settled as answering } from '../stages/settled';
-import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr } from 'omni-loop/kit/lib/ids.ts';
 
 // The routes of PRD 627, called as the server calls them, reading as the viewer through the stubbed
 // client of ../dossier/store.fake.ts: /visual and /bugs list only their kind, /prd only PRDs; a fix's
@@ -14,8 +14,8 @@ import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // PRD 691 s3: the lists read the stored fix facts (the fake store of ../fixes/facts/store.fake.ts) and
 // make no GitHub call, which a reader that throws on any call proves; a fix's page stores what it read.
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', name: 'ADA' };
-const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com', name: 'ADA' };
+const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com' };
 
 const given = vi.hoisted(() => ({
   mode: 'supabase',

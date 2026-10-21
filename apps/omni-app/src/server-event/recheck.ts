@@ -18,7 +18,7 @@
 // step logs one line and is retried once the pause or the window ends.
 import { RetryAfterError, type Inngest } from 'inngest';
 import { GithubDeferred, GithubPaused } from '@omni/github';
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { productPrdOf } from '../approved-check/state.ts';
 import { OUTBOX_CHECK_EVENT, type CheckRequest } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';

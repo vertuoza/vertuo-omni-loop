@@ -1,7 +1,8 @@
 // The runner's health call (PRD 2102, s1): `runnerApi().health()` on a fake fetch. It posts the report
 // to the runner's own route with the sign-in, and names each failure the runner then prints. Then a
 // job's questions (PRD 2255, s2): `jobQuestionsApi()` posts them, reads them back with their answers, and
-// carries the app's own words when it refuses.
+// carries the app's own words when it refuses. And the job `next` hands over, with the skills of its
+// repository's own it may run (PRD 2313, s2).
 import { describe, expect, it } from 'vitest';
 import type { Tokens } from '../ask/schema.ts';
 import { parseIssue, parsePrd } from '../ids.ts';
@@ -47,6 +48,29 @@ describe('runnerApi().health()', () => {
     await expect(api(status(503)).client.health('r1', REPORT)).rejects.toThrow(RunnerUnreachable);
     const timedOut = api(() => Promise.reject(Object.assign(new Error('aborted'), { name: 'TimeoutError' })));
     await expect(timedOut.client.health('r1', REPORT)).rejects.toThrow(new RunnerUnreachable('POST /api/runners/r1/health: timed out'));
+  });
+});
+
+// A repository's own skills (PRD 2313, s2): the job `next` hands over carries the skills its repository
+// allowed, read when it was claimed; an older app's job carries none and reads as none, so it runs as before.
+describe('runnerApi().next()', () => {
+  const job = (value: unknown) => () => Promise.resolve(new Response(JSON.stringify(value), { status: 200 }));
+
+  it('reads the job with the repository skills it carries', async () => {
+    const { client, calls } = api(job({ id: 7, line: '/validate-prd 347', repo: 'acme/widgets', sentBy: 'ada', allowedSkills: ['audit', 'validate-prd'] }));
+    expect(await client.next('r 1')).toEqual({ id: '7', line: '/validate-prd 347', repo: 'acme/widgets', sentBy: 'ada', allowedSkills: ['audit', 'validate-prd'] });
+    expect(calls[0]?.url).toBe('https://omni.test/api/runners/next?runner=r+1');
+  });
+
+  it('reads a job with no allowed skills, or with none listed, as allowing none', async () => {
+    expect(await api(job({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null })).client.next('r1'))
+      .toEqual({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, allowedSkills: [] });
+    expect(await api(job({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', allowedSkills: null })).client.next('r1'))
+      .toMatchObject({ allowedSkills: [] });
+  });
+
+  it('answers none when the hold ended with no job', async () => {
+    expect(await api(status(204)).client.next('r1')).toBeNull();
   });
 });
 

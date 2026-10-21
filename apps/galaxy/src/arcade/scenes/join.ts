@@ -2,7 +2,7 @@
 // intro, ready and welcome back. Each scene stands its pieces where its grid's
 // stage says: the wide grid as it always was, or the tall one (the Game Boy held upright), where
 // the same pieces stack in a narrower, taller frame.
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { drawPlanet } from '@omni/design';
 import { fleet } from '../fleets';
 import {

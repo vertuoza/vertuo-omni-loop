@@ -9,7 +9,7 @@ import { TerminalView, type TerminalJob, type TerminalViewProps } from './Termin
 // scrolled up, each state in the spec's words, and no input of any kind.
 
 const ID = '7f3a9c21-0000-4000-8000-00000000d201';
-const JOB: TerminalJob = { id: ID, repo: 'vertuoza/vertuo-omni-loop', runner: 'vertuo-agents', status: 'running' };
+const JOB: TerminalJob = { id: ID, repo: 'vertuoza/vertuo-omni-loop', runner: 'nimbus-agents', status: 'running' };
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const read = (over: Partial<TerminalState>): TerminalState => ({ ...EMPTY_TERMINAL, read: true, status: 'running', ...over });
 const draw = (over: Partial<TerminalViewProps> = {}) =>
@@ -28,7 +28,7 @@ describe('the header', () => {
   it('names the job, its repository and its runner, its status, and has a close button', () => {
     const html = draw();
     expect(html).toContain('data-screen="runner-terminal"');
-    expect(text(html)).toContain('job 7f3a9c21 · vertuo-omni-loop · vertuo-agents Running');
+    expect(text(html)).toContain('job 7f3a9c21 · vertuo-omni-loop · nimbus-agents Running');
     expect(html).toContain('aria-label="Close"');
   });
 

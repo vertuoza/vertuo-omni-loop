@@ -15,10 +15,10 @@
  * `entries/inngest.ts`); passing them would duplicate the SDK's own reading and its rules for each.
  */
 import { z } from 'zod';
-import { envGroup, envReader, variablesOf, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
-import { KEY_VAR, MODEL_VAR } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
+import { envGroup, envReader, variablesOf, type EnvSource } from 'omni-loop/kit/lib/env/group.ts';
+import { KEY_VAR, MODEL_VAR } from 'omni-loop/kit/lib/openrouter.ts';
 
-export { EnvError, requireGroup, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
+export { EnvError, requireGroup, type EnvSource } from 'omni-loop/kit/lib/env/group.ts';
 
 /** Galaxy's host when `GALAXY_URL` names none. */
 export const DEFAULT_GALAXY_URL = 'https://www.omni-loop.xyz';

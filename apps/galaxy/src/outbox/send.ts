@@ -32,14 +32,14 @@
 import 'server-only';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import { writeReply } from 'vertuo-omni-plan/kit/lib/outbox/answers.ts';
-import { WRITER_ASSOCIATIONS } from 'vertuo-omni-plan/kit/lib/outbox/replies.ts';
-import { defined, group, messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { writeReply } from 'omni-loop/kit/lib/outbox/answers.ts';
+import { WRITER_ASSOCIATIONS } from 'omni-loop/kit/lib/outbox/replies.ts';
+import { defined, group, messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import { requestOrigin } from '../ask/page/sign-in';
 import type { DossierRef } from '../dossier/github/reader';
 import { UNREAD, type GithubSummary } from '../dossier/github/summary';
 import { sentView, type SendErrorCode, type SendRow } from './sent';
-import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export type { SendRow } from './sent';
 

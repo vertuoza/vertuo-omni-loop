@@ -19,17 +19,29 @@
 #      status of the failed read; a new token in the same secret fixes it.
 #   3. Create the label once (labels.autoCreate is false here, so nothing else creates it):
 #      gh label create omni:security --color B60205 --description "Secret scanning or push protection is off, or an alert is open"
+#
+# On every pull request (PRD 2305), two jobs that hold no secret and write nothing:
+# - `open-source` runs `node scripts/open-source.ts`: no tracked file names another repository of the
+#   maintainer, an address on its domain or a secret (the pre-push hook runs it too).
+# - `gitleaks` downloads the gitleaks binary (MIT) at a pinned version, checks its SHA-256 and scans
+#   the pull request's commits with .gitleaks.toml, whose allowlist holds the visible fakes. Not
+#   gitleaks-action, which needs a paid licence on an organisation's repositories. To move to a newer
+#   version, change GITLEAKS_VERSION and GITLEAKS_SHA256 together: the release's
+#   gitleaks_<version>_checksums.txt holds the linux_x64 archive's checksum.
 name: security
 on:
   schedule:
     - cron: '17 6 * * *'
   workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 permissions:
   contents: read
-  issues: write
 jobs:
   token:
-    # A job's `if` cannot read a secret: this job reads it and says only whether it is set.
+    # A job's `if` cannot read a secret: this job reads it and says only whether it is set. A pull
+    # request runs neither this job nor the watch.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -45,6 +57,9 @@ jobs:
     needs: token
     if: needs.token.outputs.set == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     timeout-minutes: 10
     concurrency:
       group: security    # two runs never open two issues
@@ -103,3 +118,45 @@ jobs:
           CODE: ${{ steps.report.outputs.code }}
         run: |
           exit "$CODE"
+
+  # The open-source guard (PRD 2305): Node's built-ins only, so nothing is installed.
+  open-source:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node scripts/open-source.ts
+
+  # gitleaks over the pull request's commits (PRD 2305): the binary at a pinned version, refused unless
+  # its archive matches the checksum. --redact keeps a value it finds out of the log.
+  gitleaks:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      # The whole history, so the range from the base to the head is there to read.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download gitleaks and check its SHA-256
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$archive" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$archive" > "$RUNNER_TEMP/gitleaks.sha256"
+          sha256sum -c "$RUNNER_TEMP/gitleaks.sha256"
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+      - name: Scan the pull request's commits
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          "$RUNNER_TEMP/gitleaks" git --config .gitleaks.toml --redact --no-banner --log-opts="$BASE_SHA..$HEAD_SHA" .

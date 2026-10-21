@@ -19,7 +19,7 @@
 // sign-in service down, 500 the database failed.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { OutboxItemIdSchema, PrdNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { OutboxItemIdSchema, PrdNumberSchema, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { withInstallLink, type TokenCheck } from '../ask/auth';
 import { Line, receivePush, refuse, WebLink, When } from '../data/kit-push';
 import { loopStore, LoopStoreError, type LoopEvent } from './store';

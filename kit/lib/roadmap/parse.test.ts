@@ -189,7 +189,7 @@ const PREREQUISITES = [
   '| id | category | need | check | fix | blocks | who |',
   '|---|---|---|---|---|---|---|',
   '| p1 | local | Docker is running, for the database tests | `base:docker` | | P3.4 | check |',
-  '| p2 | access | the `@vertuoza/ui` package installs | `npm view @vertuoza/ui version` | – | all | check |',
+  '| p2 | access | the `@demo-org/ui` package installs | `npm view @demo-org/ui version` | – | all | check |',
   '| p3 | permissions | the Vercel preview has `DATABASE_URL` | | | P1.1, P3.4 | person |',
   '| p4 | access | the dependencies install | `base:install` | `base:install` | all | agent |',
   '',
@@ -239,7 +239,7 @@ describe('parseRoadmap — prerequisites', () => {
           whoCanDoIt: 'Anyone with this laptop.',
         },
       },
-      { id: 'p2', category: 'access', need: 'the `@vertuoza/ui` package installs', check: 'npm view @vertuoza/ui version', fix: null, blocks: 'all', who: 'check', repos: null, card: null },
+      { id: 'p2', category: 'access', need: 'the `@demo-org/ui` package installs', check: 'npm view @demo-org/ui version', fix: null, blocks: 'all', who: 'check', repos: null, card: null },
       {
         id: 'p3',
         category: 'permissions',

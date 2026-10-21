@@ -1,4 +1,4 @@
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { isRecord } from '../is-record';
 import { JEV_DECISIONS, jevEntry } from '../decisions';
 import { JevStoreError, type JevDecisionSettings, type JevMode, type JevStore } from '../store';

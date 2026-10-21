@@ -179,7 +179,7 @@ workspace's packs.
 ### The Repositories tab
 
 A product's **Repositories & approvers** tab shows each repository's ladder step, and, under it, what
-still lives in the repository's plan repository: a repository below step 5 (`vertuo-web · step 3`),
+still lives in the repository's plan repository: a repository below step 5 (`nimbus-web · step 3`),
 and any open roadmap or bug record that is still born in git (`roadmap 0412 · in git`). This is
 information only. The plan repository is kept: the loop never archives it, and the tab has no archive
 action. A plan repository keeps its roadmaps, bug records and imported knowledge copies working side
@@ -285,7 +285,7 @@ product PRD is the other way to build across repositories.
   requests cannot take a product PRD. To check, type:
 
 ```bash terminal agent
-omni product phase0 vertuoza/vertuo-mobile vertuoza/vertuo-api
+omni product phase0 demo-org/nimbus-app demo-org/nimbus-api
 ```
 
 It prints one line per repository: `is phase0: server`, or

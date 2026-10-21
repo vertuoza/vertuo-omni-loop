@@ -9,6 +9,9 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- ── The sign-up hook: GitHub, with or without an email, and nothing else ──
 do $$
 declare refusal jsonb;
@@ -25,9 +28,9 @@ begin
     raise exception 'FAIL: the hook refused a GitHub account whose email is absent';
   end if;
   foreach refusal in array array[
-    '{"user": {"email": "ada@vertuoza.com", "app_metadata": {"provider": "google", "providers": ["google"]}}}',
-    '{"user": {"email": "ada@vertuoza.com", "app_metadata": {"provider": "email", "providers": ["email"]}}}',
-    '{"user": {"email": "ada@vertuoza.com"}}'
+    '{"user": {"email": "ada@example.com", "app_metadata": {"provider": "google", "providers": ["google"]}}}',
+    '{"user": {"email": "ada@example.com", "app_metadata": {"provider": "email", "providers": ["email"]}}}',
+    '{"user": {"email": "ada@example.com"}}'
   ]::jsonb[] loop
     refusal := public.hook_before_user_created(refusal);
     if refusal -> 'error' ->> 'http_code' is distinct from '403'
@@ -49,7 +52,7 @@ insert into auth.users (id, email, email_confirmed_at) values
   ('00000000-0000-4000-8000-0000000005b2', null, null),                -- a hidden email
   ('00000000-0000-4000-8000-0000000005c3', 'cleo@example.com', now()),
   ('00000000-0000-4000-8000-0000000005d4', 'dan@example.com', now()),
-  ('00000000-0000-4000-8000-0000000005e5', 'eli@vertuoza.com', now());
+  ('00000000-0000-4000-8000-0000000005e5', 'eli@example.com', now());
 
 create function pg_temp.sign_in(uid text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -103,21 +106,21 @@ begin
     raise exception 'FAIL: a second person on an installed org did not join as a member: %', made;
   end if;
 
-  -- Vertuoza has a workspace and no installation: the installation is recorded on it, and Eli joins
+  -- Initech has a workspace and no installation: the installation is recorded on it, and Eli joins
   -- as a member. No second workspace.
-  made := public.create_workspace_from_installation(eli, 7007, 'vertuoza', 'Organization');
-  select * into w from public.workspaces where slug = 'vertuoza';
+  made := public.create_workspace_from_installation(eli, 7007, 'initech', 'Organization');
+  select * into w from public.workspaces where slug = 'initech';
   if (select count(*) from public.workspaces) <> before_count
      or (w.github_installation_id, w.github_account_type) is distinct from (7007::bigint, 'Organization'::text)
-     or pg_temp.role_in('vertuoza', eli) is distinct from 'member'
-     or (made ->> 'slug', made ->> 'role', (made ->> 'created')::boolean) is distinct from ('vertuoza'::text, 'member'::text, false) then
-    raise exception 'FAIL: installing on vertuoza did not record the installation on its workspace: % %', row_to_json(w), made;
+     or pg_temp.role_in('initech', eli) is distinct from 'member'
+     or (made ->> 'slug', made ->> 'role', (made ->> 'created')::boolean) is distinct from ('initech'::text, 'member'::text, false) then
+    raise exception 'FAIL: installing on initech did not record the installation on its workspace: % %', row_to_json(w), made;
   end if;
   -- Another installation on an account that already has one never replaces it.
-  made := public.create_workspace_from_installation(cleo, 7008, 'VERTUOZA', 'Organization');
-  if (select github_installation_id from public.workspaces where slug = 'vertuoza') <> 7007
+  made := public.create_workspace_from_installation(cleo, 7008, 'INITECH', 'Organization');
+  if (select github_installation_id from public.workspaces where slug = 'initech') <> 7007
      or (select count(*) from public.workspaces) <> before_count then
-    raise exception 'FAIL: a second installation replaced vertuoza''s';
+    raise exception 'FAIL: a second installation replaced initech''s';
   end if;
   delete from public.workspace_members where user_id = cleo;
 
@@ -185,8 +188,8 @@ begin
     raise exception 'FAIL: joining by org did not add exactly the installed workspace';
   end if;
   -- Again: idempotent, and it answers every workspace of the person, first joined first.
-  joined := public.join_workspaces_by_github(dan, array['acme-corp', 'Vertuoza']);
-  if joined is distinct from array['acme-corp', 'vertuoza'] or pg_temp.role_in('vertuoza', dan) is distinct from 'member' then
+  joined := public.join_workspaces_by_github(dan, array['acme-corp', 'Initech']);
+  if joined is distinct from array['acme-corp', 'initech'] or pg_temp.role_in('initech', dan) is distinct from 'member' then
     raise exception 'FAIL: a second join answered %', joined;
   end if;
   -- An owner stays owner.

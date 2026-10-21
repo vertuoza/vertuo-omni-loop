@@ -17,7 +17,7 @@
  * number never falsely matches a shorter one: `Closes #123` never matches `Closes #1234`.
  */
 import type { PrdNumber } from '../ids.ts';
-// Ported from vertuo-ai-domain@c4a210122:scripts/inbox-status.mjs — changes in kit/porting/inbox--status.md.
+// Ported from nimbus-brain@c4a210122:scripts/inbox-status.mjs — changes in kit/porting/inbox--status.md.
 
 /** What the rule reads of one pull request, in whichever shape its list payload carries. */
 export type StatusPr = {

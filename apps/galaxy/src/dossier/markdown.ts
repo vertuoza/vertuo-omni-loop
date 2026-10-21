@@ -7,7 +7,7 @@
 // same renderer, with the same settings, in the browser: it reads its rounds there, so it renders a
 // question's lead and an option's description as one line, and the rest of a question as a body.
 import MarkdownIt from 'markdown-it';
-import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
 
 const renderer = new MarkdownIt({ html: false, linkify: false, typographer: false });
 
