@@ -1,6 +1,7 @@
 // The storyboard's schema (PRD 1108 s3): the fixture with all six scene types reads, and each malformed
 // field is refused with its path. A scene's supporting lines (PRD 2030 s3): an eyebrow and a body on the
-// statement, feature, steps and before/after, a body on the outro.
+// statement, feature, steps and before/after, a body on the outro. The team that built it, on the outro
+// (PRD 2030 s6).
 import { describe, expect, it } from 'vitest';
 import { SCENE_TYPES, mediaOf, parseStoryboard } from './storyboard.ts';
 import { REMOVED, changedStoryboard, fixtureStoryboard } from './storyboard.fixture.ts';
@@ -57,6 +58,8 @@ describe('parseStoryboard', () => {
     ['an empty body', 'scenes.2.body', ' ', 'scenes.2.body'],
     ['an empty eyebrow', 'scenes.3.eyebrow', '', 'scenes.3.eyebrow'],
     ['an eyebrow on the outro', 'scenes.5.eyebrow', 'Now', 'scenes.5'],
+    ['an empty team', 'scenes.5.team', ' ', 'scenes.5.team'],
+    ['a team on a feature', 'scenes.2.team', 'the Invoicing team', 'scenes.2'],
   ])('refuses %s, at its path', (_name, field, value, path) => {
     expect(refusedAt(changedStoryboard(field, value))).toContain(path);
   });
@@ -75,6 +78,11 @@ describe('parseStoryboard', () => {
   it('reads an outro with a body under its closing line', () => {
     const scene = parseStoryboard(withFields(5, { body: 'Live for every customer' })).storyboard?.scenes[5];
     expect(scene).toMatchObject({ type: 'outro', body: 'Live for every customer' });
+  });
+
+  it('reads an outro with the team that built it, in the words given', () => {
+    const scene = parseStoryboard(withFields(5, { team: 'the Invoicing team' })).storyboard?.scenes[5];
+    expect(scene).toMatchObject({ type: 'outro', team: 'the Invoicing team' });
   });
 
   it('names every refused field, not the first only', () => {
