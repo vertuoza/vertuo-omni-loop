@@ -16,26 +16,29 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- Storage refuses a delete outside its API unless this is set; the policies still decide whose delete
 -- touches a row, which is what this check proves.
 do $$ begin perform set_config('storage.allow_delete_query', 'true', true); end $$;
 
 -- ── The cast ──
--- Olga owns Vertuoza and Mo is a member of it (github_org vertuoza); Carl owns Acme; Sam belongs to
+-- Olga owns Initech and Mo is a member of it (github_org initech); Carl owns Acme; Sam belongs to
 -- no workspace.
 insert into auth.users (id, email, email_confirmed_at) values
-  ('00000000-0000-4000-8000-0000001108a1', 'olga@vertuoza.com', now()),
-  ('00000000-0000-4000-8000-0000001108b1', 'mo@vertuoza.com', now()),
+  ('00000000-0000-4000-8000-0000001108a1', 'olga@example.com', now()),
+  ('00000000-0000-4000-8000-0000001108b1', 'mo@example.com', now()),
   ('00000000-0000-4000-8000-0000001108c1', 'carl@acme.test', now()),
   ('00000000-0000-4000-8000-0000001108d1', 'sam@nowhere.test', now())
 on conflict (id) do nothing;
 insert into public.workspaces (slug, name, github_org) values ('acme-pitch', 'Acme', 'acme-pitch');
-update public.workspaces set github_org = 'vertuoza' where slug = 'vertuoza' and github_org is null;
+update public.workspaces set github_org = 'initech' where slug = 'initech' and github_org is null;
 insert into public.workspace_members (workspace_id, user_id, role)
 select w.id, m.user_id, m.role
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000001108a1'::uuid, 'owner'),
-         ('vertuoza', '00000000-0000-4000-8000-0000001108b1'::uuid, 'member'),
+         ('initech', '00000000-0000-4000-8000-0000001108a1'::uuid, 'owner'),
+         ('initech', '00000000-0000-4000-8000-0000001108b1'::uuid, 'member'),
          ('acme-pitch', '00000000-0000-4000-8000-0000001108c1'::uuid, 'owner')
        ) as m (slug, user_id, role)
   join public.workspaces w on w.slug = m.slug
@@ -45,7 +48,7 @@ create function pg_temp.sign_in(uid text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
 $$;
 create temporary table ids (slug text primary key, id uuid);
-insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('vertuoza', 'acme-pitch');
+insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('initech', 'acme-pitch');
 grant select on ids to anon, authenticated, service_role;
 create function pg_temp.ws(slug text) returns uuid language sql as $$
   select i.id from ids i where i.slug = ws.slug;
@@ -115,14 +118,14 @@ declare
   b public.businesses;
   second public.products;
 begin
-  b := public.business_open(pg_temp.ws('vertuoza'));
+  b := public.business_open(pg_temp.ws('initech'));
   insert into made select 'first', p.id from public.products p where p.business_id = b.id order by p.ordinal limit 1;
-  second := public.product_add(pg_temp.ws('vertuoza'), 'Second product');
+  second := public.product_add(pg_temp.ws('initech'), 'Second product');
   insert into made values ('second', second.id);
   if second.pitch <> '{}'::jsonb or second.pitch_look <> 'arcade' then
     raise exception 'FAIL: a new product starts with % in %', second.pitch, second.pitch_look;
   end if;
-  perform pg_temp.move_to('vertuoza/vertuo-apps', pg_temp.made('first'));
+  perform pg_temp.move_to('initech/nimbus-apps', pg_temp.made('first'));
 end $$;
 
 -- ── Mo saves the second product's settings; the first keeps its own, and pitch_look follows ──
@@ -131,7 +134,7 @@ declare
   saved jsonb := '{"look": {"preset": "keynote", "colors": {"accent": "#3D5AFE"}}, "voice": {"preset": "formal", "instructions": "Say worksite."}, "length": {"min": 20, "max": 40}}';
   changed public.products;
 begin
-  changed := public.set_pitch_settings(pg_temp.ws('vertuoza'), pg_temp.made('second'), saved);
+  changed := public.set_pitch_settings(pg_temp.ws('initech'), pg_temp.made('second'), saved);
   if changed.pitch <> saved or changed.pitch_look <> 'keynote' or changed.id <> pg_temp.made('second') then
     raise exception 'FAIL: set_pitch_settings answered %', changed;
   end if;
@@ -142,31 +145,31 @@ begin
     raise exception 'FAIL: changing one product''s settings changed another''s';
   end if;
   -- Settings naming no preset keep the product's pitch_look.
-  changed := public.set_pitch_settings(pg_temp.ws('vertuoza'), pg_temp.made('second'), '{"music": {"provider": "freepd", "mood": "upbeat"}}');
+  changed := public.set_pitch_settings(pg_temp.ws('initech'), pg_temp.made('second'), '{"music": {"provider": "freepd", "mood": "upbeat"}}');
   if changed.pitch_look <> 'keynote' then
     raise exception 'FAIL: settings with no preset changed pitch_look to %', changed.pitch_look;
   end if;
-  changed := public.set_pitch_settings(pg_temp.ws('vertuoza'), pg_temp.made('second'), saved);
+  changed := public.set_pitch_settings(pg_temp.ws('initech'), pg_temp.made('second'), saved);
   -- PRD 859's dropdown resets the look to its preset and keeps the rest.
-  changed := public.set_pitch_look(pg_temp.ws('vertuoza'), pg_temp.made('second'), 'arcade');
+  changed := public.set_pitch_look(pg_temp.ws('initech'), pg_temp.made('second'), 'arcade');
   if changed.pitch_look <> 'arcade' or changed.pitch -> 'look' <> '{"preset": "arcade"}'::jsonb
      or changed.pitch -> 'voice' <> saved -> 'voice' then
     raise exception 'FAIL: set_pitch_look left %', changed.pitch;
   end if;
-  changed := public.set_pitch_settings(pg_temp.ws('vertuoza'), pg_temp.made('second'), saved);
+  changed := public.set_pitch_settings(pg_temp.ws('initech'), pg_temp.made('second'), saved);
 end $$;
 
 -- ── The kit's read: the stored value of the repository's product, {} for one with no product ──
 do $$
 begin
-  if public.pitch_settings_for_repo('vertuoza/vertuo-apps') <> (select p.pitch from public.products p where p.id = pg_temp.made('first')) then
+  if public.pitch_settings_for_repo('initech/nimbus-apps') <> (select p.pitch from public.products p where p.id = pg_temp.made('first')) then
     raise exception 'FAIL: pitch_settings_for_repo did not read the first product''s settings';
   end if;
-  if public.pitch_settings_for_repo('vertuoza/not-listed') <> '{}'::jsonb then
+  if public.pitch_settings_for_repo('initech/not-listed') <> '{}'::jsonb then
     raise exception 'FAIL: a repository with no product did not read {}';
   end if;
-  perform pg_temp.move_to('vertuoza/vertuo-apps', pg_temp.made('second'));
-  if public.pitch_settings_for_repo('VERTUOZA/vertuo-apps') #>> '{look,preset}' <> 'keynote' then
+  perform pg_temp.move_to('initech/nimbus-apps', pg_temp.made('second'));
+  if public.pitch_settings_for_repo('INITECH/nimbus-apps') #>> '{look,preset}' <> 'keynote' then
     raise exception 'FAIL: pitch_settings_for_repo did not read the second product''s settings';
   end if;
 end $$;
@@ -183,7 +186,7 @@ begin
   if pg_temp.assets_seen() <> 1 then raise exception 'FAIL: Mo could not remove a pitch asset'; end if;
   -- A path that names no product of the workspace, or the wrong shape, takes nothing.
   perform pg_temp.forbidden(format('insert into storage.objects (bucket_id, name) values (''pitch-assets'', %L)',
-    pg_temp.ws('vertuoza')::text || '/' || gen_random_uuid()::text || '/logo.svg'), 'a product the workspace does not hold');
+    pg_temp.ws('initech')::text || '/' || gen_random_uuid()::text || '/logo.svg'), 'a product the workspace does not hold');
   perform pg_temp.forbidden(format('insert into storage.objects (bucket_id, name) values (''pitch-assets'', %L)',
     pg_temp.made('second')::text || '/logo.svg'), 'a path with no workspace');
 end $$;
@@ -207,14 +210,14 @@ begin
     '{"length": {"min": 10}}', '{"length": {"max": 61}}', '{"length": {"min": "20"}}',
     jsonb_build_object('blob', repeat('x', 17000))
   ] loop
-    perform pg_temp.out_of_shape(format('select public.set_pitch_settings(%L, %L, %L)', pg_temp.ws('vertuoza'), pg_temp.made('first'), bad), bad::text);
+    perform pg_temp.out_of_shape(format('select public.set_pitch_settings(%L, %L, %L)', pg_temp.ws('initech'), pg_temp.made('first'), bad), bad::text);
   end loop;
-  perform pg_temp.out_of_shape(format('select public.set_pitch_settings(%L, %L, null)', pg_temp.ws('vertuoza'), pg_temp.made('first')), 'null');
+  perform pg_temp.out_of_shape(format('select public.set_pitch_settings(%L, %L, null)', pg_temp.ws('initech'), pg_temp.made('first')), 'null');
   -- 600 characters of instructions are taken (then put back as they were).
-  perform public.set_pitch_settings(pg_temp.ws('vertuoza'), pg_temp.made('first'), jsonb_build_object('voice', jsonb_build_object('instructions', repeat('x', 600))));
-  perform public.set_pitch_settings(pg_temp.ws('vertuoza'), pg_temp.made('first'), '{}');
+  perform public.set_pitch_settings(pg_temp.ws('initech'), pg_temp.made('first'), jsonb_build_object('voice', jsonb_build_object('instructions', repeat('x', 600))));
+  perform public.set_pitch_settings(pg_temp.ws('initech'), pg_temp.made('first'), '{}');
   begin
-    perform public.set_pitch_settings(pg_temp.ws('vertuoza'), gen_random_uuid(), '{}');
+    perform public.set_pitch_settings(pg_temp.ws('initech'), gen_random_uuid(), '{}');
     raise exception 'FAIL: set_pitch_settings took a product the workspace does not hold';
   exception when no_data_found then null; end;
   -- Nobody signed in writes the column directly.
@@ -227,14 +230,14 @@ declare who text;
 begin
   foreach who in array array['00000000-0000-4000-8000-0000001108c1', '00000000-0000-4000-8000-0000001108d1'] loop
     perform pg_temp.sign_in(who);
-    perform pg_temp.forbidden(format('select public.set_pitch_settings(%L, %L, ''{}'')', pg_temp.ws('vertuoza'), pg_temp.made('second')), who);
-    perform pg_temp.forbidden('select public.pitch_settings_for_repo(''vertuoza/vertuo-apps'')', who);
+    perform pg_temp.forbidden(format('select public.set_pitch_settings(%L, %L, ''{}'')', pg_temp.ws('initech'), pg_temp.made('second')), who);
+    perform pg_temp.forbidden('select public.pitch_settings_for_repo(''initech/nimbus-apps'')', who);
     if pg_temp.assets_seen() <> 0 then raise exception 'FAIL: % reads a pitch asset', who; end if;
     perform pg_temp.forbidden(format('insert into storage.objects (bucket_id, name) values (''pitch-assets'', %L)', pg_temp.asset('second', 'mine.svg')), who);
     update storage.objects set name = pg_temp.asset('second', 'stolen.svg') where bucket_id = 'pitch-assets';
     delete from storage.objects where bucket_id = 'pitch-assets';
   end loop;
-  -- Carl names his own workspace with Vertuoza's product: still nothing to change.
+  -- Carl names his own workspace with Initech's product: still nothing to change.
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000001108c1');
   begin
     perform public.set_pitch_settings(pg_temp.ws('acme-pitch'), pg_temp.made('second'), '{}');
@@ -247,8 +250,8 @@ reset role;
 set local role anon;
 do $$
 begin
-  perform pg_temp.forbidden(format('select public.set_pitch_settings(%L, %L, ''{}'')', pg_temp.ws('vertuoza'), pg_temp.made('second')), 'anon');
-  perform pg_temp.forbidden('select public.pitch_settings_for_repo(''vertuoza/vertuo-apps'')', 'anon');
+  perform pg_temp.forbidden(format('select public.set_pitch_settings(%L, %L, ''{}'')', pg_temp.ws('initech'), pg_temp.made('second')), 'anon');
+  perform pg_temp.forbidden('select public.pitch_settings_for_repo(''initech/nimbus-apps'')', 'anon');
   if (select count(*) from storage.objects o where o.bucket_id = 'pitch-assets') <> 0 then
     raise exception 'FAIL: anon reads a pitch asset';
   end if;

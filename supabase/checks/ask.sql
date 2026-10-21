@@ -9,21 +9,24 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 insert into auth.users (id, email) values
-  ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
-  ('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com'),
+  ('00000000-0000-4000-8000-0000000000b1', 'bob@example.com'),
   ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
 -- Ask mode's crew is whoever belongs to a workspace (PRD 100). A second workspace, Acme, owns the
 -- GitHub organisation acme, and a third, Globex, owns globex and has no member here. Ada joined
--- Vertuoza first, then Acme; Bob belongs to Vertuoza, Carl to Acme, Eve to none.
+-- Initech first, then Acme; Bob belongs to Initech, Carl to Acme, Eve to none.
 insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme'), ('globex', 'Globex', 'globex');
 insert into public.workspace_members (workspace_id, user_id, joined_at)
 select w.id, m.user_id, m.joined_at
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000000a1'::uuid, now() - interval '2 days'),
+         ('initech', '00000000-0000-4000-8000-0000000000a1'::uuid, now() - interval '2 days'),
          ('acme',     '00000000-0000-4000-8000-0000000000a1'::uuid, now() - interval '1 day'),
-         ('vertuoza', '00000000-0000-4000-8000-0000000000b1'::uuid, now() - interval '1 day'),
+         ('initech', '00000000-0000-4000-8000-0000000000b1'::uuid, now() - interval '1 day'),
          ('acme',     '00000000-0000-4000-8000-0000000000c1'::uuid, now() - interval '1 day')
        ) as m (slug, user_id, joined_at)
   join public.workspaces w on w.slug = m.slug;
@@ -50,7 +53,7 @@ reset role;
 
 -- ── Account A (Ada) opens a session and asks in it ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   sid uuid;
@@ -60,7 +63,7 @@ declare
   asked constant jsonb := '[{"question": "Which colour?", "header": "Colour", "multiSelect": false,
                              "options": [{"label": "Blue (Recommended)", "description": "calm"}, {"label": "Red", "description": "loud"}]}]';
 begin
-  insert into public.ask_sessions (title) values ('vertuoza/vertuo-omni-loop · feat/ask-mode') returning id into sid;
+  insert into public.ask_sessions (title) values ('initech/nimbus-plan · feat/ask-mode') returning id into sid;
   if (select owner from public.ask_sessions where id = sid) <> '00000000-0000-4000-8000-0000000000a1' then
     raise exception 'FAIL: a new session is not owned by the account that opened it';
   end if;
@@ -74,7 +77,7 @@ begin
 
   -- The session's workspace is picked by the database: the one whose GitHub organisation owns the
   -- repo, and otherwise the one Ada joined first.
-  if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = sid) <> 'vertuoza' then
+  if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = sid) <> 'initech' then
     raise exception 'FAIL: a session with no repo did not go to the workspace its owner joined first';
   end if;
   insert into public.ask_sessions (title, repo) values ('acme widgets', 'Acme/widgets') returning id into second;
@@ -83,7 +86,7 @@ begin
   end if;
   insert into ids values ('acme', second);
   insert into public.ask_sessions (title, repo) values ('elsewhere', 'someone-else/tool') returning id into second;
-  if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = second) <> 'vertuoza' then
+  if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = second) <> 'initech' then
     raise exception 'FAIL: a session of a repo no workspace owns did not go to the workspace its owner joined first';
   end if;
   begin
@@ -114,7 +117,7 @@ begin
 end $$;
 
 -- ── Account B (Bob), a member of Ada's workspace who is not the owner: reads, never writes ──
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
   sid constant uuid := (select id from ids where name = 'session');
@@ -153,7 +156,7 @@ begin
   exception when insufficient_privilege then null; end;
 end $$;
 
--- ── Account C (Carl), of another workspace: nothing of Ada's Vertuoza sessions ──
+-- ── Account C (Carl), of another workspace: nothing of Ada's Initech sessions ──
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
 do $$
 declare
@@ -177,7 +180,7 @@ begin
 end $$;
 
 -- ── Categories (PRD 144, step 3): any member sets one; the model's guess never overrides a person ──
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   rid constant uuid := (select id from ids where name = 'round');
@@ -212,7 +215,7 @@ begin
 end $$;
 
 -- Bob, a member who is not the owner, moves it; the model then cannot move it back.
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
   rid constant uuid := (select id from ids where name = 'round');
@@ -225,7 +228,7 @@ begin
   if public.ask_round_classified(rid, 'business') then raise exception 'FAIL: a member who did not ask recorded the model''s guess'; end if;
 end $$;
 
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   rid constant uuid := (select id from ids where name = 'round');
@@ -246,7 +249,7 @@ begin
     raise exception 'FAIL: an account of another workspace set a round''s category';
   end if;
 end $$;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
   rid constant uuid := (select id from ids where name = 'round');
@@ -339,7 +342,7 @@ begin
 end $$;
 
 -- ── Back to Ada: her rows are intact, and a round only moves forward ──
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   sid constant uuid := (select id from ids where name = 'session');
@@ -416,12 +419,12 @@ end $$;
 reset role;
 
 -- ── Sharing (PRD 144, step 4): the owner shares a live round; the first answer wins ──
--- Dan belongs to Vertuoza too, and nothing is shared with him.
-insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000000000d1', 'dan@vertuoza.com');
+-- Dan belongs to Initech too, and nothing is shared with him.
+insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000000000d1', 'dan@example.com');
 insert into public.workspace_members (workspace_id, user_id)
-select id, '00000000-0000-4000-8000-0000000000d1' from public.workspaces where slug = 'vertuoza';
+select id, '00000000-0000-4000-8000-0000000000d1' from public.workspaces where slug = 'initech';
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   sid uuid;
@@ -469,15 +472,15 @@ begin
     raise exception 'FAIL: a share was written directly';
   exception when insufficient_privilege then null; end;
 
-  -- The members Ada may share with: Vertuoza's, not Acme's.
+  -- The members Ada may share with: Initech's, not Acme's.
   if (select array_agg(email order by email) from public.ask_members((select workspace_id from public.ask_sessions where id = sid)))
-     <> array['ada@vertuoza.com', 'bob@vertuoza.com', 'dan@vertuoza.com'] then
+     <> array['ada@example.com', 'bob@example.com', 'dan@example.com'] then
     raise exception 'FAIL: the members of the workspace are not the ones who belong to it';
   end if;
 end $$;
 
 -- Bob, the member it is shared with: answers the open round, and nothing else.
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@example.com');
 do $$
 declare
   n int;
@@ -519,7 +522,7 @@ begin
 end $$;
 
 -- Ada comes second: her answer is not written, and Bob's stands.
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 declare
   n int;
@@ -539,7 +542,7 @@ begin
 end $$;
 
 -- Dan, a member it is not shared with: reads the rounds and their shares, answers nothing.
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000d1', 'dan@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000d1', 'dan@example.com');
 do $$
 declare
   n int;
@@ -554,12 +557,12 @@ begin
   if n <> 0 then raise exception 'FAIL: a member who is neither owner nor shared answered a round'; end if;
 end $$;
 
--- Carl, of another workspace: no share, no member of Vertuoza.
+-- Carl, of another workspace: no share, no member of Initech.
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
 do $$
 begin
   if exists (select 1 from public.ask_shares) then raise exception 'FAIL: an account of another workspace read a share'; end if;
-  if exists (select 1 from public.ask_members((select id from public.workspaces where slug = 'vertuoza'))) then
+  if exists (select 1 from public.ask_members((select id from public.workspaces where slug = 'initech'))) then
     raise exception 'FAIL: an account of another workspace listed its members';
   end if;
 end $$;

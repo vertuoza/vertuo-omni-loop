@@ -8,16 +8,19 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 insert into auth.users (id, email) values
-  ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com'),
   ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
--- A second workspace, Acme. Ada belongs to Vertuoza, Carl to Acme, Eve to none.
+-- A second workspace, Acme. Ada belongs to Initech, Carl to Acme, Eve to none.
 insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme');
 insert into public.workspace_members (workspace_id, user_id, joined_at)
 select w.id, m.user_id, now() - interval '1 day'
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000000a1'::uuid),
+         ('initech', '00000000-0000-4000-8000-0000000000a1'::uuid),
          ('acme',     '00000000-0000-4000-8000-0000000000c1'::uuid)
        ) as m (slug, user_id)
   join public.workspaces w on w.slug = m.slug;
@@ -30,20 +33,20 @@ $$;
 set local role service_role;
 do $$
 declare
-  vertuoza uuid := (select id from public.workspaces where slug = 'vertuoza');
+  initech uuid := (select id from public.workspaces where slug = 'initech');
   acme     uuid := (select id from public.workspaces where slug = 'acme');
 begin
   insert into public.prd_outbox (workspace_id, repository, prd, open_questions, waiting) values
-    (vertuoza, 'vertuoza/vertuo-omni-loop', 7, 2, '[{"id":"s1-01-a","rank":"high","question":"Which one?"}]'),
-    (vertuoza, 'vertuoza/vertuo-omni-loop', 8, 0, '[]'),
+    (initech, 'initech/nimbus-plan', 7, 2, '[{"id":"s1-01-a","rank":"high","question":"Which one?"}]'),
+    (initech, 'initech/nimbus-plan', 8, 0, '[]'),
     (acme,     'acme/widgets',              3, 1, '[]');
 
   -- A recount, as the sync, an event or a send writes it: an upsert.
   insert into public.prd_outbox (workspace_id, repository, prd, open_questions, waiting, synced_at)
-  values (vertuoza, 'vertuoza/vertuo-omni-loop', 7, 0, '[]', '2026-09-20T09:00:00Z')
+  values (initech, 'initech/nimbus-plan', 7, 0, '[]', '2026-09-20T09:00:00Z')
   on conflict (workspace_id, repository, prd)
   do update set open_questions = excluded.open_questions, waiting = excluded.waiting, synced_at = excluded.synced_at;
-  if (select open_questions from public.prd_outbox where workspace_id = vertuoza and prd = 7) <> 0 then
+  if (select open_questions from public.prd_outbox where workspace_id = initech and prd = 7) <> 0 then
     raise exception 'FAIL: a recount did not replace the count';
   end if;
   if (select count(*) from public.prd_outbox) <> 3 then
@@ -51,15 +54,15 @@ begin
   end if;
 
   begin
-    insert into public.prd_outbox (workspace_id, repository, prd, open_questions) values (vertuoza, 'vertuoza/vertuo-omni-loop', 9, -1);
+    insert into public.prd_outbox (workspace_id, repository, prd, open_questions) values (initech, 'initech/nimbus-plan', 9, -1);
     raise exception 'FAIL: a negative count was stored';
   exception when check_violation then null; end;
   begin
-    insert into public.prd_outbox (workspace_id, repository, prd, open_questions) values (vertuoza, 'Vertuoza/Vertuo-Omni-Loop', 9, 1);
+    insert into public.prd_outbox (workspace_id, repository, prd, open_questions) values (initech, 'Initech/Nimbus-Plan', 9, 1);
     raise exception 'FAIL: a repository was stored in upper case';
   exception when check_violation then null; end;
   begin
-    insert into public.prd_outbox (workspace_id, repository, prd, waiting) values (vertuoza, 'vertuoza/vertuo-omni-loop', 9, '{}');
+    insert into public.prd_outbox (workspace_id, repository, prd, waiting) values (initech, 'initech/nimbus-plan', 9, '{}');
     raise exception 'FAIL: waiting was stored as something else than a list';
   exception when check_violation then null; end;
   begin
@@ -80,7 +83,7 @@ reset role;
 
 -- ── Ada, a member: reads her workspace's rows only, and writes nothing ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 begin
   if (select count(*) from public.prd_outbox) <> 2 or exists (select 1 from public.prd_outbox where repository = 'acme/widgets') then
@@ -88,7 +91,7 @@ begin
   end if;
   begin
     insert into public.prd_outbox (workspace_id, repository, prd, open_questions)
-    values ((select id from public.workspaces where slug = 'vertuoza'), 'vertuoza/vertuo-omni-loop', 10, 5);
+    values ((select id from public.workspaces where slug = 'initech'), 'initech/nimbus-plan', 10, 5);
     raise exception 'FAIL: a member recorded an outbox';
   exception when insufficient_privilege then null; end;
   begin
@@ -108,7 +111,7 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test')
 do $$
 begin
   if (select count(*) from public.prd_outbox) <> 1 or exists (select 1 from public.prd_outbox where repository <> 'acme/widgets') then
-    raise exception 'FAIL: a member of another workspace read Vertuoza''s outboxes';
+    raise exception 'FAIL: a member of another workspace read Initech''s outboxes';
   end if;
 end $$;
 reset role;

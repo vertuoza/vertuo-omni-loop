@@ -6,8 +6,9 @@
 -- once and never changes; nothing deletes a fleet; at most 12 are active per workspace. A player may
 -- have no fleet (players.team was already nullable, and players_guard() accepts null).
 --
--- Every statement can run twice (create or replace, one update): supabase/checks/fleets.sql re-applies
--- this file to prove the Vertuoza owner step once that member exists.
+-- Every statement can run twice (create or replace). It once also made one named member the owner
+-- of the maintainer's own workspace; since PRD 2305 a fresh install seeds no workspace, so that step
+-- is gone (production applied it long ago and records a migration by its version, never its content).
 --
 -- Proven by supabase/checks/fleets.sql.
 -- Rollback: a follow-up migration drops the four fleet functions, fleet_mascots() and is_owner().
@@ -235,17 +236,3 @@ comment on table public.players is
   'One row per player and workspace: a member who linked their GitHub account. Arcade name, fleet (null: a solo player, whose points are their own), hero, and the GitHub login their points are earned under.';
 comment on column public.players.team is
   'The player''s fleet, a name of public.teams. Null: they play solo.';
-
--- ── Vertuoza's owner ─────────────────────────────────────────────────────────────
-
--- The member whose linked GitHub login is pierrederval owns the vertuoza workspace, when that account
--- is a member. Vertuoza's fleets stay its own.
-update public.workspace_members m
-   set role = 'owner'
-  from public.workspaces w
- where w.id = m.workspace_id and w.slug = 'vertuoza' and m.role <> 'owner'
-   and exists (
-     select 1 from auth.identities i
-      where i.user_id = m.user_id and i.provider = 'github'
-        and lower(coalesce(i.identity_data ->> 'user_name', i.identity_data ->> 'preferred_username')) = 'pierrederval'
-   );
