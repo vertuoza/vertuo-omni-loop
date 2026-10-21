@@ -149,14 +149,14 @@ export const senderWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'> & { sent
 export type RetroPrds = Readonly<Record<string, number>>;
 
 /** The key of a retro pull request in `RetroPrds`. */
-const retroKey = (repo: string, pr: number): string => `${repo.toLowerCase()}#${String(pr)}`;
+const retroKey = (repo: string, digits: string): string => `${repo.toLowerCase()}#${digits}`;
 
 /** Under `Omni app`, what the app sent the job for (PRD 2338): `retro of PRD <n>` linked to the retro pull
  * request, or `retro PR #<pr>` when the page does not know the PRD; null for any other job. */
 export function retroLineOf(job: Pick<Job, 'line' | 'repo'> & { sentByApp?: Job['sentByApp'] }, retros: RetroPrds): { words: string; href: string } | null {
   const pr = /^\/omni:retro-apply --retro (\d+)$/.exec(job.line)?.[1];
   if (job.sentByApp !== 'omni-app' || pr === undefined) return null;
-  const prd = retros[retroKey(job.repo, Number(pr))];
+  const prd = retros[retroKey(job.repo, pr)];
   return { words: prd === undefined ? `retro PR #${pr}` : `retro of PRD ${String(prd)}`, href: `https://github.com/${job.repo}/pull/${pr}` };
 }
 
