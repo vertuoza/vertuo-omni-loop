@@ -4,8 +4,9 @@
 // Errors: a field the schema refuses (and nothing further is checked then), a media file missing from the
 // run folder or outside it, a clip that ends before it starts, an intro that is not the first scene or an
 // outro that is not the last (or none), and a music sync point past its scene. Warnings: a field over its
-// word count, a scene whose words take longer to read than it lasts, and a whole outside 15 to 60
-// seconds. Each finding names its path in the storyboard.
+// word count (a body over 20, PRD 2030), a scene whose words take longer to read than it lasts (its
+// eyebrow and body counted), and a whole outside 15 to 60 seconds. Each finding names its path in the
+// storyboard.
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
 import { messageOf, propertyOf } from '../narrow.ts';
@@ -34,6 +35,7 @@ const WORD_LIMITS = Object.freeze({
   eyebrow: { max: 4, name: 'an eyebrow' },
   tag: { max: 4, name: 'a tag' },
   closing: { max: 12, name: 'a closing line' },
+  body: { max: 20, name: 'a body' },
   label: { max: 4, name: 'a label' },
 });
 type Limit = keyof typeof WORD_LIMITS;
@@ -146,6 +148,7 @@ const WORD_FIELDS: readonly (readonly [string, Limit])[] = Object.freeze([
   ['title', 'title'],
   ['tag', 'tag'],
   ['text', 'text'],
+  ['body', 'body'],
   ['bullets.*', 'bullet'],
   ['steps.*.label', 'step'],
   ['labels.before', 'label'],

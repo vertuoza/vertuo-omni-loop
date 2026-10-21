@@ -1,6 +1,7 @@
 // `checkStoryboard()` (PRD 1108 s3, spec "The engine, the studio and the render"): the schema's
 // refusals, a missing media file and a wrong scene order are errors, each named; word counts and reading
-// time are warnings.
+// time are warnings. A scene's eyebrow and body (PRD 2030 s3) are held to their word counts and read in
+// its reading time.
 import { describe, expect, it } from 'vitest';
 import { checkStoryboard } from './check.ts';
 import { FIXTURE_MEDIA, REMOVED, changedStoryboard, fixtureStoryboard } from './storyboard.fixture.ts';
@@ -100,6 +101,35 @@ describe('checkStoryboard', () => {
     ['scenes.0.eyebrow', 'New this autumn in Widgets', 'scenes.0.eyebrow: 5 words; an eyebrow holds at most 4'],
   ])('warns on %s over its word count', (field, value, warning) => {
     expect(lines(check(changedStoryboard(field, value)).warnings)).toContain(warning);
+  });
+
+  it.each([
+    ['scenes.1.body'],
+    ['scenes.2.body'],
+    ['scenes.3.body'],
+    ['scenes.4.body'],
+    ['scenes.5.body'],
+  ])('warns on %s over 20 words, without an error', (field) => {
+    const body = 'Every line of the quote is priced from the worksite, checked by the office and sent to the customer before the van leaves';
+    const report = check(changedStoryboard(field, body));
+    expect(report.errors).toEqual([]);
+    expect(lines(report.warnings)).toContain(`${field}: 23 words; a body holds at most 20`);
+  });
+
+  it('holds a body of 20 words to no word count', () => {
+    const body = 'Every line of the quote is priced from the worksite, checked by the office and sent before the van leaves';
+    const warnings = check(changedStoryboard('scenes.2.body', body)).warnings;
+    expect(warnings.map(({ path }) => path)).not.toContain('scenes.2.body');
+  });
+
+  it('warns on an eyebrow over its word count on any scene that takes one', () => {
+    expect(lines(check(changedStoryboard('scenes.3.eyebrow', 'Three steps from the worksite')).warnings)).toContain('scenes.3.eyebrow: 5 words; an eyebrow holds at most 4');
+  });
+
+  it('counts the eyebrow and the body in a scene’s reading time', () => {
+    const storyboard = fixtureStoryboard();
+    const scenes: unknown[] = storyboard.scenes.map((scene, n) => (n === 1 ? { ...scene, eyebrow: 'New in Widgets', body: 'Signed online by the customer, paid within the day.' } : scene));
+    expect(lines(check({ ...storyboard, scenes }).warnings)).toEqual(['scenes.1: 22 words take about 8 s to read; the scene lasts 4 s']);
   });
 
   it('warns when a scene’s words take longer to read than it lasts', () => {
