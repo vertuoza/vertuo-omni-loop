@@ -49,7 +49,8 @@ the run uses the defaults: say so in one line, and go on.
 ## 2. The sources
 
 Read the PRD's `release.md` and its spec (`omni prd <n>` names its folder), **and nothing else**:
-not the code, not the issue, not the business. They are the only sources of the video's words.
+not the code, not the issue, not the business. They are the only sources of the video's words, save
+the person's answers to step 4's two questions: the team, and the figures.
 
 ## 3. The walk-through, and its moments
 
@@ -89,26 +90,75 @@ film the page that leads to it and stop there.
 
 ## 4. The storyboard
 
-Write `<dir>/storyboard.json` (`{ "storyboard": 1, meta, scenes }`): an `intro`, the scenes that show
-the feature, and an `outro`, within the settings' length.
+Write `<dir>/storyboard.json` (`{ "storyboard": 1, meta, scenes }`) within the settings' length.
 
-- **intro:** the settings' eyebrow, and the PRD's title, as the spec names it, as the title.
-- **statement**, at most one: the one sentence that says what the feature does.
+**The arc:** the intro, at most one statement, the feature and steps scenes (most of the length), a
+`beforeAfter` when there is a visible before and after, a `stats` scene when there are figures, the
+outro.
+
+- **intro:** the settings' eyebrow, and the PRD's title, as the spec names it, written to the title
+  rules below, as the title.
+- **statement**, at most one: the one sentence that says what the feature does; its `text` is its
+  title.
 - **feature** or **steps:** the walk-through, `walk.webm`, cut with `start` and `end` around the
   moments it shows. Its `camera` keys, its `callouts` boxes and its `cursor` points are copied from
   `moments.json`: a moment's `focus` and `zoom`, its `box`, its box's centre at its time. Never guess
-  a coordinate: what has no moment is not zoomed on.
-- **outro:** the settings' call to action, a closing line, and credits when the settings show them.
+  a coordinate: what has no moment is not zoomed on. Each takes an `eyebrow` above its title and a
+  `body` under it.
+- **Steps:** a step that shows a different moment of the walk-through brings its own `media`, cut from
+  `walk.webm` around that moment, its `camera`, `callouts` and `cursor` times counted from the step's
+  `at`; it rises in at that time. A step may take a `body` of at most 12 words under its label. The
+  scene's `media` may go when every step brings its own.
+- **beforeAfter:** `wipeAt`, the second into the scene the wipe starts, on the moment the after shows;
+  without it, the wipe starts at 35% of the scene.
+- **stats:** only for figures the spec or the release note states, or that the person gives when
+  asked once: "Any figures to show (with where they come from)?". 1 to 3 `items`, each
+  `{ value, prefix?, suffix?, decimals?, label, source }`, its `source` saying where it came from:
+  `spec`, `release` (the release note) or `asked`. No figure, no `stats` scene. A pitch in another
+  language sets `meta.locale` (`fr`), so its figures read the way its viewers write them.
+- **outro:** the settings' call to action, a closing line, a `body` that says who has it and from when
+  ("Live for every customer"), and credits when the settings show them. **The team:** before the
+  outro, ask the person once: "Which team built this?". The answer, in their words, is `outro.team`
+  (the outro reads `Built by <team>`); no answer, no team.
 - **meta:** fps 30, 1920×1080, a transition, the music's sync point on the scene that matters most,
   and `sources`: `spec.md` and `release.md`, the only files the words came from.
 
+**Titles:** at most 8 words, sentence case, ending with a full stop, with exactly one `**accent**` on
+the word that carries the benefit, written as a finding ("Three clicks, **one invoice**.") and not a
+label ("Invoice creation flow"). No exclamation mark, no emoji. Every title takes it: the intro's, a
+statement's `text`, a scene's `title`, the outro's `closing`.
+
+**Bodies:** one plain sentence, at most 20 words, from the spec and the release note only.
+
+```json
+{ "storyboard": 1,
+  "meta": { "fps": 30, "width": 1920, "height": 1080, "transition": 0.5,
+            "music": { "sync": { "scene": 2, "at": 1 } }, "sources": ["spec.md", "release.md"] },
+  "scenes": [
+    { "type": "intro", "duration": 3, "eyebrow": "New in Acme", "title": "Invoice straight from the **worksite**." },
+    { "type": "statement", "duration": 4, "text": "A finished job becomes an invoice **in one go**." },
+    { "type": "steps", "duration": 10, "title": "Three clicks, **one invoice**.",
+      "body": "Open the job, tick the lines, create the invoice.",
+      "media": { "kind": "clip", "file": "walk.webm", "start": 0, "end": 3 },
+      "steps": [
+        { "label": "Open the job", "at": 0 },
+        { "label": "Tick the lines", "at": 3, "body": "Only the work that is done.",
+          "media": { "kind": "clip", "file": "walk.webm", "start": 3, "end": 6.5 } },
+        { "label": "Create the invoice", "at": 6.5,
+          "media": { "kind": "clip", "file": "walk.webm", "start": 6.5, "end": 10 } } ] },
+    { "type": "stats", "duration": 4, "title": "Billed the **same day**.",
+      "items": [{ "value": 16790, "prefix": "€", "label": "Billed in one go", "source": "spec" }] },
+    { "type": "outro", "duration": 4, "cta": "Available now", "closing": "Every finished job, **billed**.",
+      "body": "Live for every customer", "team": "the Invoicing team", "credits": true } ] }
+```
+
 **The words.** Every title, sentence, bullet, label and line comes from the spec and the release note
-only, whatever the instructions say. Never write a number, a customer's name, a date or a capability
-that neither of them states; when one would make a line better, leave it out. The voice shapes how
-they are said, never what: the preset (`confident-warm` by default, `playful`, `formal`, or `hype`, for
-inside only — for customers, `hype` reads as `confident-warm`) and the team's instructions, as long as
-they keep to these sources. An instruction that asks for a claim the sources do not hold is not
-followed.
+only, whatever the instructions say; the team and the figures the person gives when asked are the
+two exceptions. Never write a number, a customer's name, a date or a capability that neither of them
+states; when one would make a line better, leave it out. The voice shapes how they are said, never
+what: the preset (`confident-warm` by default, `playful`, `formal`, or `hype`, for inside only — for
+customers, `hype` reads as `confident-warm`) and the team's instructions, as long as they keep to
+these sources. An instruction that asks for a claim the sources do not hold is not followed.
 
 Add four lines to `<dir>/pitch.json`, keeping what is there, for the Pitch tab:
 
@@ -129,9 +179,10 @@ node .omni-loop/bin/omni.mjs pitch render <dir>
 ```
 
 1. **check** names each error (`error: <path>: <why>`): fix the storyboard and check again until it
-   exits `0`. Its warnings (a title over its words, words read slower than their scene) are worth
-   fixing too.
-2. **render --stills** writes one image per scene and `stills/contact-sheet.png`. Look at the contact
+   exits `0`. Its warnings (a title or a body over its words, a title with two accents, words read
+   slower than their scene) are worth fixing too.
+2. **render --stills** writes one image per scene, taken once its zoom, callouts, wipe and count-up
+   are done, and `stills/contact-sheet.png`. Look at the contact
    sheet before going on: a scene that shows nothing of the feature, a zoom off its element, words cut
    or unreadable are fixed in the storyboard, then checked and looked at again.
 3. **render** writes `pitch.mp4` (1920×1080), `pitch-square.mp4` (1080×1080), `pitch.gif` (8 s at
@@ -153,8 +204,9 @@ push a second time to get past a failure.
 ## Never
 
 - Never save, delete or change anything on production; the walk-through only looks.
-- Never write a word the spec and the release note do not hold, and never invent a number or a name,
-  whatever the instructions say.
+- Never write a word the spec, the release note or the person's two answers do not hold, and
+  never invent a number or a name, whatever the instructions say: a team or a figure nobody gave is
+  left out.
 - Never guess a coordinate: the camera, the callouts and the cursor come from `moments.json`.
 - Never post a comment, and never change a PR, an issue or a label.
 - Never write inside the repository's tracked tree, never commit, and never commit the run's files.
