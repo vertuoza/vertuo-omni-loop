@@ -3,10 +3,11 @@
 //
 // Errors: a field the schema refuses (and nothing further is checked then), a media file missing from the
 // run folder or outside it, a clip that ends before it starts, an intro that is not the first scene or an
-// outro that is not the last (or none), and a music sync point past its scene. Warnings: a field over its
-// word count (a body over 20, PRD 2030), a scene whose words take longer to read than it lasts (its
-// eyebrow and body counted), and a whole outside 15 to 60 seconds. Each finding names its path in the
-// storyboard.
+// outro that is not the last (or none), a music sync point past its scene, and a title whose accent is
+// left open (a `**` with no closing one, PRD 2030). Warnings: a field over its word count (a body over 20,
+// PRD 2030; the accent markers are no words), a title with more than one accent, a scene whose words take
+// longer to read than it lasts (its eyebrow and body counted), and a whole outside 15 to 60 seconds. Each
+// finding names its path in the storyboard.
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
 import { messageOf, propertyOf } from '../narrow.ts';
@@ -43,7 +44,10 @@ type Limit = keyof typeof WORD_LIMITS;
 /** A piece of on-screen words: its path, its text and the limit it is held to. */
 type Words = { path: string; text: string; limit: Limit };
 
-const countWords = (text: string): number => text.trim().split(/\s+/).filter(Boolean).length;
+/** What marks a title's accent: `**word**` or `**a few words**`. */
+const ACCENT_MARKER = '**';
+
+const countWords = (text: string): number => text.split(ACCENT_MARKER).join('').trim().split(/\s+/).filter(Boolean).length;
 const plural = (count: number, word: string): string => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 /** The checked `storyboard.json` of the run folder `dir`, which holds one; JSON that does not read is an error. */
@@ -67,8 +71,8 @@ export function checkStoryboard(value: unknown, { hasFile }: { hasFile: (file: s
   const { storyboard } = parsed;
   const seconds = lengthOf(storyboard);
   return {
-    errors: [...mediaErrors(storyboard, hasFile), ...orderErrors(storyboard.scenes), ...syncErrors(storyboard)],
-    warnings: [...storyboard.scenes.flatMap(sceneWarnings), ...lengthWarnings(seconds)],
+    errors: [...mediaErrors(storyboard, hasFile), ...orderErrors(storyboard.scenes), ...syncErrors(storyboard), ...storyboard.scenes.flatMap(accentErrors)],
+    warnings: [...storyboard.scenes.flatMap(sceneWarnings), ...storyboard.scenes.flatMap(accentWarnings), ...lengthWarnings(seconds)],
     scenes: storyboard.scenes.length,
     seconds,
   };
@@ -169,6 +173,29 @@ function textsAt(value: unknown, path: string[], at: string): { path: string; te
 /** Every piece of words a scene shows, with its path. */
 function wordsOf(scene: Scene, at: string): Words[] {
   return WORD_FIELDS.flatMap(([field, limit]) => textsAt(scene, field.split('.'), at).map((piece) => ({ ...piece, limit })));
+}
+
+/** The fields that hold a scene's title: the statement's text is its title, the outro's closing line its own. */
+const TITLE_FIELDS = Object.freeze(['title', 'text', 'closing']);
+
+/** A scene's titles, each with its path and how many accent markers it holds. */
+function titlesOf(scene: Scene, index: number): { path: string; markers: number }[] {
+  return TITLE_FIELDS.flatMap((field) => textsAt(scene, [field], `scenes.${index}`)).map(({ path, text }) => ({ path, markers: text.split(ACCENT_MARKER).length - 1 }));
+}
+
+/** A title whose last `**` opens an accent that never closes. */
+function accentErrors(scene: Scene, index: number): Finding[] {
+  return titlesOf(scene, index)
+    .filter(({ markers }) => markers % 2 === 1)
+    .map(({ path }) => ({ path, message: `an accent is left open: close it with another ${ACCENT_MARKER}` }));
+}
+
+/** A title with more than one accent: one word, or a few, carries it. */
+function accentWarnings(scene: Scene, index: number): Finding[] {
+  return titlesOf(scene, index)
+    .map(({ path, markers }) => ({ path, accents: Math.floor(markers / 2) }))
+    .filter(({ accents }) => accents > 1)
+    .map(({ path, accents }) => ({ path, message: `${plural(accents, 'accent')}; a title holds one` }));
 }
 
 function lengthWarnings(seconds: number): Finding[] {

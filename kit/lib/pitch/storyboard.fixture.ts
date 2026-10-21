@@ -1,5 +1,6 @@
 // A storyboard holding all six scene types, for the tests of the schema, the check and, later, the
 // engine. Its media are `clips/walk.webm` and `shots/before.png` / `shots/after.png` of the run folder.
+// Its intro title carries an accent and a final stop (PRD 2030 s1).
 import type { Storyboard } from './storyboard.ts';
 
 export const FIXTURE_MEDIA = Object.freeze(['clips/walk.webm', 'shots/before.png', 'shots/after.png']);
@@ -17,7 +18,7 @@ export function fixtureStoryboard(): Storyboard {
       sources: ['spec.md', 'release-note.md'],
     },
     scenes: [
-      { type: 'intro', duration: 3, eyebrow: 'New in Widgets', title: 'Quotes that send themselves', tag: 'PRD 7' },
+      { type: 'intro', duration: 3, eyebrow: 'New in Widgets', title: 'Quotes that send **themselves**.', tag: 'PRD 7' },
       { type: 'statement', duration: 4, text: 'A quote leaves the moment the last line is priced.' },
       {
         type: 'feature',
