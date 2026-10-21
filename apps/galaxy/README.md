@@ -1602,7 +1602,7 @@ pnpm galaxy:dev          # http://localhost:3000: HOME; the demo galaxy at /play
 Needs Docker and the Supabase CLI (`npx supabase`).
 
 ```bash
-npx supabase start       # applies supabase/migrations and loads supabase/seed.sql (the demo galaxy, in the vertuoza workspace)
+npx supabase start       # applies supabase/migrations and loads supabase/seed.sql (the demo galaxy, in its own nimbus workspace)
 npx supabase status      # prints the API URL, the anon key and the service_role key
 cp apps/galaxy/.env.example apps/galaxy/.env.local   # paste the URL and both keys
 pnpm galaxy:dev          # now reads from Supabase: the menu shows "SUPABASE LEDGER"
@@ -1621,8 +1621,8 @@ Signing in locally needs a GitHub OAuth client: export `SUPABASE_AUTH_EXTERNAL_G
 `.env.example`) whose setup URL is `http://localhost:3000/signup/installed`. Without them, work on the
 demo galaxy instead.
 
-`pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now, in the `vertuoza`
-workspace the migrations create, with the demo world's invented fleets.
+`pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now, in a
+`nimbus` workspace the seed creates, with the demo world's invented fleets: no real workspace holds a demo row.
 
 ### Screenshots of every scene, and of `/app`
 

@@ -697,9 +697,9 @@ describe('the history', () => {
     const page = await list();
     expect(page).toContain('<span class="dossier-number">#71</span>');
     expect(page).toContain('<span class="dossier-draft">DRAFT</span>');
-    expect(rows(await list({ repo: 'vertuoza/vertuo-web' }))).toHaveLength(1);
-    expect(rows(await list({ repo: 'vertuoza/vertuo-omni-loop' }))).toHaveLength(2);
-    expect(rows(await list({ repo: 'vertuoza/vertuo-omni-loop', who: 'all' }))).toHaveLength(3);
+    expect(rows(await list({ repo: 'demo-org/nimbus-web' }))).toHaveLength(1);
+    expect(rows(await list({ repo: 'demo-org/nimbus-plan' }))).toHaveLength(2);
+    expect(rows(await list({ repo: 'demo-org/nimbus-plan', who: 'all' }))).toHaveLength(3);
   });
 });
 
