@@ -28,7 +28,7 @@ function accountText({ frontMatter = {}, body }: { frontMatter?: Record<string, 
   const defaultBody = [
     '## Risky changes',
     '',
-    '- `libs/vertuo-ai-credit/src/server/migrations.ts`',
+    '- `libs/nimbus-ai-credit/src/server/migrations.ts`',
     '  stored-shape',
     '  item s3-01-credit-ledger-shape',
     '',
@@ -96,7 +96,7 @@ describe('parseAccount — the happy path', () => {
       graded: '2026-09-23',
       entries: [
         {
-          path: 'libs/vertuo-ai-credit/src/server/migrations.ts',
+          path: 'libs/nimbus-ai-credit/src/server/migrations.ts',
           rule: 'stored-shape',
           account: { kind: 'item', id: 's3-01-credit-ledger-shape' },
         },
@@ -284,7 +284,7 @@ describe('readAccounts', () => {
 
     expect(view(s2Result).account.entries).toEqual([
       {
-        path: 'libs/vertuo-ai-credit/src/server/migrations.ts',
+        path: 'libs/nimbus-ai-credit/src/server/migrations.ts',
         rule: 'stored-shape',
         account: { kind: 'item', id: 's3-01-credit-ledger-shape', rank: 'high' },
       },
@@ -313,7 +313,7 @@ describe('readAccounts', () => {
 
 describe('compare', () => {
   const risky = [
-    { path: 'libs/vertuo-ai-credit/src/server/migrations.ts', status: 'M', rule: 'stored-shape' },
+    { path: 'libs/nimbus-ai-credit/src/server/migrations.ts', status: 'M', rule: 'stored-shape' },
   ];
 
   function account(entries: AccountEntry[], overrides: Partial<Account> = {}) {
@@ -324,7 +324,7 @@ describe('compare', () => {
     const accounts = [
       account([
         {
-          path: 'libs/vertuo-ai-credit/src/server/migrations.ts',
+          path: 'libs/nimbus-ai-credit/src/server/migrations.ts',
           rule: 'stored-shape',
           account: { kind: 'item', id: 's3-01-credit-ledger-shape' },
         },

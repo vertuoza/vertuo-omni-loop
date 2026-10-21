@@ -68,7 +68,7 @@
  * to supersede it, which earns a `high` item rather than a stop): {@link resolveBearsOn} simply
  * forwards to `laws.resolve`, and {@link bearsOnFloorsHigh} to `laws.floorsHigh`.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox.mjs — changes in kit/porting/outbox--outbox.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox.mjs — changes in kit/porting/outbox--outbox.md.
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { z } from 'zod';

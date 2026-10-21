@@ -18,7 +18,7 @@
  * separate inputs, so `compare` only ever sees the `riskyChanges` output a caller already computed,
  * never the rules themselves.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-account.mjs — changes in kit/porting/outbox--account.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-account.mjs — changes in kit/porting/outbox--account.md.
 import { existsSync, readdirSync } from 'node:fs';
 import { basename } from 'node:path';
 import { readRepoFile } from '../check-report.ts';

@@ -40,7 +40,7 @@
  * `ctx` to read the registers from. It shells out to nothing, reads no account, and touches no
  * gate — those are later slices (s2, s3, s4).
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/decision-coverage.mjs — changes in kit/porting/outbox--decision-coverage.md.
+// Ported from nimbus-brain@c4a210122:scripts/decision-coverage.mjs — changes in kit/porting/outbox--decision-coverage.md.
 import type { Context } from '../context.ts';
 
 /** What the rules read: the root, the config, and where the knowledge and decisions live. */

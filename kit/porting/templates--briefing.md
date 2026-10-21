@@ -1,6 +1,6 @@
 # `kit/templates/playbook/briefing.md`
 
-Source: `docs/agents/briefing.md` @ `vertuo-ai-domain@db67fd9da`. The kit default of the briefing
+Source: `docs/agents/briefing.md` @ `nimbus-brain@db67fd9da`. The kit default of the briefing
 form: slots `never`, `hooks`, `next`, in the spec's order.
 
 ## Read from config instead of hard-coded
@@ -15,8 +15,8 @@ form: slots `never`, `hooks`, `next`, in the spec's order.
 
 ## Dropped (repository literals)
 
-- **The opening:** "You are working in `vertuo-ai-domain`", and the three commands that carry the
-  flow (`/vertuo-brainstorming`, `/clear`, `/vertuo-deliver`, `/vertuo-yolo`), with
+- **The opening:** "You are working in `nimbus-brain`", and the three commands that carry the
+  flow (`/nimbus-brainstorming`, `/clear`, `/nimbus-deliver`, `/nimbus-yolo`), with
   `docs/delivery/inbox/<prd>-<topic>/spec.md` and the `pr:phase-0` label. The loop's own skills say
   this; the briefing keeps only the rules.
 - **Formatting:** "Never run `pnpm format` (it rewrites ~760 files). Fix drift with
@@ -24,7 +24,7 @@ form: slots `never`, `hooks`, `next`, in the spec's order.
 - **ADR 0069** (who merges sub-pull requests into the feature branch): the kit's `/omni:wave` says
   it.
 - **`docs/agents/ci-triage.md`**: now "the CI page", the ci form.
-- **The outbox line's names:** `high`, `/vertuo-deliver`, `/vertuo-yolo`, `ci/outbox`, `outbox:go`.
+- **The outbox line's names:** `high`, `/nimbus-deliver`, `/nimbus-yolo`, `ci/outbox`, `outbox:go`.
   Kept: take the most reversible option and record the decision as an outbox item; two principles
   pulling against each other stop the slice.
 - **The hook paragraph:** `pnpm quality:preflight` and its steps (build, typecheck, lint, test,

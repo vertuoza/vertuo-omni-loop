@@ -3,7 +3,7 @@
 // same pixels however often, and in whatever order, it is asked for.
 //
 // The approach (a frame-driven runtime of easings and springs sampled per frame, its springs integrated
-// once and cached) follows vertuoza/release-videos' engine; the code is written afresh for the kit.
+// once and cached) follows demo-org/release-videos' engine; the code is written afresh for the kit.
 
 export type Easing = (t: number) => number;
 

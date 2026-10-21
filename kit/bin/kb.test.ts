@@ -929,7 +929,7 @@ describe('omni check kb — acceptance criterion 5: check all runs it', () => {
 
 describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
   const K = '.omni-loop/knowledge';
-  const COPY = `${K}/repos/vertuo-backend-php`;
+  const COPY = `${K}/repos/nimbus-core`;
   const READ_AT = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
   const PLAN_CONFIG = {
     '.omni-loop/config.yml': [
@@ -937,11 +937,11 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
       'plan:',
       '  guide: null',
       '  targets:',
-      '    - repo: acme/vertuo-backend-php',
+      '    - repo: acme/nimbus-core',
       '      role: back-end',
       '      knowledge: imported',
       `      readAt: ${READ_AT}`,
-      '    - repo: acme/vertuo-apps',
+      '    - repo: acme/nimbus-apps',
       '      role: front-end',
       '      knowledge: own',
       '',
@@ -958,7 +958,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
   // The copy's evidence, its See: line and its registers' paths all name files of the target, none
   // of which exists on the plan repository's disk.
   const COPY_FILES = {
-    [`${COPY}/README.md`]: `# acme/vertuo-backend-php — imported\n\nRead at ${READ_AT}. A draft.\n`,
+    [`${COPY}/README.md`]: `# acme/nimbus-core — imported\n\nRead at ${READ_AT}. A draft.\n`,
     [`${COPY}/playbook/testing.md`]: testingForm({
       frontMatter: { evidence: ['composer.json@abcdef1', 'phpunit.xml@1234567'] },
       slots: { never: { body: 'See: docs/testing.md' } },
@@ -1008,7 +1008,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
     const { root } = makeRepo({ git: true, files });
     const { code, out } = await omni(root, ['check', 'kb']);
     expect(code).toBe(1);
-    expect(violations(out)).toEqual([`${COPY}: missing — plan.targets lists acme/vertuo-backend-php as imported, so its copy lives here`]);
+    expect(violations(out)).toEqual([`${COPY}: missing — plan.targets lists acme/nimbus-core as imported, so its copy lives here`]);
   });
 
   it('the plan repository’s own registers never read a copy, even for an id both hold', async () => {
@@ -1033,7 +1033,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
     const [copy] = status.targets;
     assertDefined(copy, 'the copy');
     expect(Object.keys(copy)).toEqual(['repo', 'folder', 'forms', 'registers']);
-    expect(copy.repo).toBe('acme/vertuo-backend-php');
+    expect(copy.repo).toBe('acme/nimbus-core');
     expect(copy.folder).toBe(COPY);
     expect(copy.registers).toEqual([{ folder: `${COPY}/product`, laws: 3, proposals: 0 }]);
     expect(copy.forms.map(({ form }) => form)).toEqual(status.forms.map(({ form }) => form));
@@ -1046,7 +1046,7 @@ describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
     const lines = (await omni(root, ['kb', 'status'])).out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
     expect(lines.slice(lines.indexOf('Imported copies: 1'), lines.indexOf('Imported copies: 1') + 2)).toEqual([
       'Imported copies: 1',
-      `acme/vertuo-backend-php ${COPY} · 1 filled · 14 missing · 1 register folder(s)`,
+      `acme/nimbus-core ${COPY} · 1 filled · 14 missing · 1 register folder(s)`,
     ]);
     const { root: plain } = makeRepo({ git: true, files: CONFIG });
     expect(dig(JSON.parse((await omni(plain, ['kb', 'status', '--json'])).out), 'targets')).toEqual([]);

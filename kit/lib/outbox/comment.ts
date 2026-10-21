@@ -85,7 +85,7 @@
  * This module builds the writer; `kit/bin` (a later task) is the caller that runs it from the gate
  * job, against the feature pull request.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-comment.mjs — changes in kit/porting/outbox--comment.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-comment.mjs — changes in kit/porting/outbox--comment.md.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { z } from 'zod';
 import { readRepoFile } from '../check-report.ts';

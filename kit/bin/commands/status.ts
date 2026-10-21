@@ -1,7 +1,7 @@
 // `omni status [--fetch]` — the repository's overview, read from git: exit 0, or 2 when the default
 // branch cannot be read (`kit/lib/status/`).
 // `omni status <prd> [--labels a,b] [--base <ref> | --changes]` — the outbox gate: exit 0 green, 1 red.
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-status.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-status.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 //
 // PRD 1299, slice s5: the overview places each ◆ PRD the checkout's inbox holds through `prdState()`
 // (`kit/lib/status/server.ts`): waiting for approval is PRD, approved is in the inbox, and drifted,
