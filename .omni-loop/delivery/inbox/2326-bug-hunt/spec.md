@@ -22,8 +22,7 @@ phase0: server
   score; `hunt` in `HELD_SCENES`)
 - `apps/galaxy/src/arcade/onboarding.ts` (`hunt` in `SIGNED_IN_ONLY`)
 - `apps/galaxy/README.md` (The game room: the sixth game)
-- `.omni-loop/knowledge/design/screens/` (the drafts `hunt-ready` and `hunt-match`; `game-room`'s
-  Source)
+- `.omni-loop/knowledge/design/screens/` (the draft `hunt-match`; `game-room`'s Source)
 
 ## Problem
 
