@@ -1,6 +1,7 @@
 // A storyboard holding all six scene types, for the tests of the schema, the check and, later, the
 // engine. Its media are `clips/walk.webm` and `shots/before.png` / `shots/after.png` of the run folder.
-// Its intro title carries an accent and a final stop (PRD 2030 s1).
+// Its intro title carries an accent and a final stop (PRD 2030 s1); its steps' second step brings its own
+// media, a later moment of the walk-through with its camera zooming in (PRD 2030 s4).
 import type { Storyboard } from './storyboard.ts';
 
 export const FIXTURE_MEDIA = Object.freeze(['clips/walk.webm', 'shots/before.png', 'shots/after.png']);
@@ -42,7 +43,14 @@ export function fixtureStoryboard(): Storyboard {
         type: 'steps',
         duration: 6,
         media: { kind: 'clip', file: 'clips/walk.webm', start: 7, end: 13 },
-        steps: [{ label: 'Price the lines', at: 0 }, { label: 'Send the quote', at: 3 }],
+        steps: [
+          { label: 'Price the lines', at: 0 },
+          {
+            label: 'Send the quote',
+            at: 3,
+            media: { kind: 'clip', file: 'clips/walk.webm', start: 10, end: 13, camera: [{ at: 0, zoom: 1, focus: { x: 0.5, y: 0.5 } }, { at: 1, zoom: 1.8, focus: { x: 0.75, y: 0.3 } }] },
+          },
+        ],
       },
       {
         type: 'beforeAfter',
@@ -73,8 +81,11 @@ function setField(parent: unknown, key: string, value: unknown): void {
 }
 
 /** The fixture as plain data, with the field at the dotted `path` set to `value`, or removed. */
-export function changedStoryboard(path: string, value: unknown): unknown {
-  const root: unknown = JSON.parse(JSON.stringify(fixtureStoryboard()));
+export const changedStoryboard = (path: string, value: unknown): unknown => changedStoryboardAt(fixtureStoryboard(), path, value);
+
+/** A copy of the storyboard `storyboard` as plain data, with the field at the dotted `path` set to `value`, or removed. */
+export function changedStoryboardAt(storyboard: unknown, path: string, value: unknown): unknown {
+  const root: unknown = JSON.parse(JSON.stringify(storyboard));
   const keys = path.split('.');
   const last = keys.pop() ?? '';
   const parent = keys.reduce<unknown>((node, key) => (isObject(node) ? node[key] : undefined), root);
