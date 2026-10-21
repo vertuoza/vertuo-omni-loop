@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseIssue, parsePrd, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePrd, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { OutboxStand } from '../dossier/page/stage';
 import { ENDED_JOBS_SHOWN } from './runners.contract';
 import type { ContinuationsRepository, JobLineRow, JobRow, QuestionsRow, RunnerRow, SampleRow } from './runners.repository';
@@ -62,7 +62,7 @@ describe('which job a runner claims', () => {
   });
 
   it('never takes a job for a repository it does not hold, even one sent to it', async () => {
-    const { service } = world({ jobs: [jobRow({ to_runner: OTHER, repo: 'vertuoza/app' })] });
+    const { service } = world({ jobs: [jobRow({ to_runner: OTHER, repo: 'demo-org/app' })] });
     expect(value(await service.next(OLGA, OTHER))).toBeNull();
   });
 
@@ -77,7 +77,7 @@ describe('which job a runner claims', () => {
   it('hands the runner the line, the repository and the sender\'s login', async () => {
     const job = jobRow({ line: '/omni:pr-care 1801', sent_by: MO });
     const { service } = world({ jobs: [job] });
-    expect(value(await service.next(OLGA, SHARED))).toEqual({ id: job.id, line: '/omni:pr-care 1801', repo: 'vertuoza/app', sentBy: 'mo' });
+    expect(value(await service.next(OLGA, SHARED))).toEqual({ id: job.id, line: '/omni:pr-care 1801', repo: 'demo-org/app', sentBy: 'mo' });
   });
 });
 
@@ -159,10 +159,10 @@ describe('a runner\'s reports', () => {
     w.setNow(at(30));
     expect(value(await w.service.update(OLGA, job.id, { status: 'running', logTail: 'half way' }))).toEqual({ cancel: false });
     w.setNow(at(60));
-    expect(value(await w.service.update(OLGA, job.id, { status: 'done', prUrl: 'https://github.com/vertuoza/app/pull/12', exitCode: 0, logTail: 'opened #12' })))
+    expect(value(await w.service.update(OLGA, job.id, { status: 'done', prUrl: 'https://github.com/demo-org/app/pull/12', exitCode: 0, logTail: 'opened #12' })))
       .toEqual({ cancel: false });
     expect(w.state.jobs[0]).toMatchObject({
-      status: 'done', running_at: T0.toISOString(), ended_at: at(60).toISOString(), pr_url: 'https://github.com/vertuoza/app/pull/12', exit_code: 0, log_tail: 'opened #12',
+      status: 'done', running_at: T0.toISOString(), ended_at: at(60).toISOString(), pr_url: 'https://github.com/demo-org/app/pull/12', exit_code: 0, log_tail: 'opened #12',
     });
   });
 
@@ -243,11 +243,11 @@ describe('a runner\'s state', () => {
 describe('registering', () => {
   it('creates the runner in the workspace its repositories belong to, and registers it again by name', async () => {
     const w = world({ runners: [] });
-    const first = value(await w.service.register(OLGA, { name: 'vertuo-agents', slots: 4, repos: ['Vertuoza/App', 'vertuoza/app', 'vertuoza/other'], version: '0.0.387' }));
-    expect(first).toMatchObject({ name: 'vertuo-agents', fleet: null });
-    expect(w.state.runners[0]).toMatchObject({ owner: OLGA, repos: ['vertuoza/app', 'vertuoza/other'], slots: 4 });
+    const first = value(await w.service.register(OLGA, { name: 'nimbus-agents', slots: 4, repos: ['Demo-Org/App', 'demo-org/app', 'demo-org/other'], version: '0.0.387' }));
+    expect(first).toMatchObject({ name: 'nimbus-agents', fleet: null });
+    expect(w.state.runners[0]).toMatchObject({ owner: OLGA, repos: ['demo-org/app', 'demo-org/other'], slots: 4 });
     w.setNow(at(300));
-    const again = value(await w.service.register(OLGA, { name: 'vertuo-agents', slots: 2, repos: ['vertuoza/app'], version: '0.0.388' }));
+    const again = value(await w.service.register(OLGA, { name: 'nimbus-agents', slots: 2, repos: ['demo-org/app'], version: '0.0.388' }));
     expect(again.id).toBe(first.id);
     expect(w.state.runners).toHaveLength(1);
     expect(w.state.runners[0]).toMatchObject({ slots: 2, version: '0.0.388', last_seen_at: at(300).toISOString() });
@@ -259,22 +259,22 @@ describe('registering', () => {
     const elsewhere = jobRow({ status: 'running', runner_id: CIA_BOX, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
     const queued = jobRow();
     const w = world({ jobs: [starting, running, elsewhere, queued], start: at(10) });
-    value(await w.service.register(OLGA, { name: 'shared', slots: 1, repos: ['vertuoza/app'], version: '1' }));
+    value(await w.service.register(OLGA, { name: 'shared', slots: 1, repos: ['demo-org/app'], version: '1' }));
     expect(w.state.jobs.map((j) => [j.status, j.reason])).toEqual([['failed', 'runner lost'], ['failed', 'runner lost'], ['running', null], ['queued', null]]);
     expect(value(await w.service.next(OLGA, SHARED))?.id).toBe(queued.id);
   });
 
   it('refuses a name another person registered, a repository outside the workspace, and two workspaces', async () => {
     const w = world();
-    expect(await w.service.register(MO, { name: 'shared', slots: 1, repos: ['vertuoza/app'], version: '1' })).toMatchObject({ ok: false, kind: 'forbidden' });
+    expect(await w.service.register(MO, { name: 'shared', slots: 1, repos: ['demo-org/app'], version: '1' })).toMatchObject({ ok: false, kind: 'forbidden' });
     expect(await w.service.register(OLGA, { name: 'x', slots: 1, repos: ['elsewhere/app'], version: '1' }))
       .toMatchObject({ ok: false, kind: 'forbidden', error: 'elsewhere/app is not in your workspace: you are not a member of the workspace that owns elsewhere/app.' });
-    expect(await w.service.register(EVE, { name: 'x', slots: 1, repos: ['elsewhere/app', 'vertuoza/app'], version: '1' })).toMatchObject({ ok: false, kind: 'forbidden' });
+    expect(await w.service.register(EVE, { name: 'x', slots: 1, repos: ['elsewhere/app', 'demo-org/app'], version: '1' })).toMatchObject({ ok: false, kind: 'forbidden' });
   });
 });
 
 describe('who may send where', () => {
-  const send = (target: Parameters<ReturnType<typeof runnersService>['send']>[1]['target'], line = '/omni:yolo 1717', repo = 'vertuoza/app') => ({ line, repo, target });
+  const send = (target: Parameters<ReturnType<typeof runnersService>['send']>[1]['target'], line = '/omni:yolo 1717', repo = 'demo-org/app') => ({ line, repo, target });
 
   it('lets any member send to any runner, or to a runner with no fleet', async () => {
     const w = world();
@@ -313,7 +313,7 @@ describe('who may send where', () => {
 
 describe('a job an API key sends (PRD 2022 s4)', () => {
   const key = { id: API_KEY, name: 'QA dashboard', workspace: '00000000-0000-4000-8000-000001830001', maker: OLGA };
-  const fix = { repo: 'vertuoza/app', line: '/omni:bug-fix Issue 548 totals' };
+  const fix = { repo: 'demo-org/app', line: '/omni:bug-fix Issue 548 totals' };
 
   it('queues it as the key\'s maker, marked as the key\'s, to any runner, a runner by its name or a fleet', async () => {
     const w = world();
@@ -351,17 +351,17 @@ describe('a job an API key sends (PRD 2022 s4)', () => {
   it('reads as sent by the key, with its maker, to the runner and on the Runners page', async () => {
     const w = world();
     const queued = value(await w.service.sendByKey(key, fix));
-    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: fix.line, repo: 'vertuoza/app', sentBy: 'API key QA dashboard (@olga)' });
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: fix.line, repo: 'demo-org/app', sentBy: 'API key QA dashboard (@olga)' });
     const board = value(await w.service.board(OLGA, key.workspace));
     expect(board.jobs).toMatchObject([{ id: queued.id, sentByKey: 'QA dashboard', sentByLogin: 'olga' }]);
-    const person = value(await w.service.send(MO, { line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } }));
+    const person = value(await w.service.send(MO, { line: '/omni:yolo 1', repo: 'demo-org/app', target: { kind: 'any' } }));
     expect(person.sentByKey).toBeNull();
   });
 
   it('follows only a job a key of the workspace queued: not a person\'s, not another workspace\'s', async () => {
     const w = world();
     const queued = value(await w.service.sendByKey(key, fix));
-    const person = value(await w.service.send(MO, { line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } }));
+    const person = value(await w.service.send(MO, { line: '/omni:yolo 1', repo: 'demo-org/app', target: { kind: 'any' } }));
     expect(value(await w.service.keyJob(key.workspace, queued.id))).toMatchObject({ id: queued.id, status: 'queued', runner: null, prUrl: null });
     expect(await w.service.keyJob(key.workspace, person.id)).toMatchObject({ ok: false, kind: 'missing' });
     expect(await w.service.keyJob('00000000-0000-4000-8000-000001830002', queued.id)).toMatchObject({ ok: false, kind: 'missing' });
@@ -372,9 +372,9 @@ describe('a job an API key sends (PRD 2022 s4)', () => {
     const w = world();
     const queued = value(await w.service.sendByKey(key, fix));
     await w.service.next(OLGA, SHARED);
-    await w.service.update(OLGA, queued.id, { status: 'done', prUrl: 'https://github.com/vertuoza/app/pull/549', exitCode: 0 });
+    await w.service.update(OLGA, queued.id, { status: 'done', prUrl: 'https://github.com/demo-org/app/pull/549', exitCode: 0 });
     expect(value(await w.service.keyJob(key.workspace, queued.id))).toMatchObject({
-      status: 'done', runner: 'shared', prUrl: 'https://github.com/vertuoza/app/pull/549', exitCode: 0, endedAt: T0.toISOString(),
+      status: 'done', runner: 'shared', prUrl: 'https://github.com/demo-org/app/pull/549', exitCode: 0, endedAt: T0.toISOString(),
     });
   });
 });
@@ -430,7 +430,7 @@ describe('a runner\'s fleet', () => {
 describe('the Runners page\'s read', () => {
   it('lists the runners with their state and the jobs, active first, then the last that ended', async () => {
     const running = jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
-    const done = jobRow({ status: 'done', runner_id: CIA_BOX, claimed_at: T0.toISOString(), ended_at: at(-10).toISOString(), pr_url: 'https://github.com/vertuoza/app/pull/1' });
+    const done = jobRow({ status: 'done', runner_id: CIA_BOX, claimed_at: T0.toISOString(), ended_at: at(-10).toISOString(), pr_url: 'https://github.com/demo-org/app/pull/1' });
     const queued = jobRow({ queued_at: at(-5).toISOString() });
     const w = world({ jobs: [done, running, queued] });
     const board = value(await w.service.board(PIA, RUNNERS[0]?.workspace_id ?? ''));
@@ -821,13 +821,13 @@ describe('a continuation', () => {
     return { state, service: continuationsService(store, continuations(state, switches)) };
   }
 
-  const ask = (stand: OutboxStand | null = ANSWERED) => ({ workspaceId: WORKSPACE, repo: 'Vertuoza/App', prd: PRD, stand });
+  const ask = (stand: OutboxStand | null = ANSWERED) => ({ workspaceId: WORKSPACE, repo: 'Demo-Org/App', prd: PRD, stand });
 
   it('queues /omni:yolo-fix <n> to the runner the job was sent to, sent by its sender, linked as its continuation', async () => {
     const job = waited({ to_runner: CIA_BOX, sent_by: MO });
     const { service, state } = continuing([job]);
     const done = await service.continueAnswered(ask());
-    expect(done).toMatchObject({ queued: { line: '/omni:yolo-fix 1717', repo: 'vertuoza/app', toRunner: CIA_BOX, toFleet: null, sentBy: MO, sentByLogin: 'mo', status: 'queued', continues: job.id } });
+    expect(done).toMatchObject({ queued: { line: '/omni:yolo-fix 1717', repo: 'demo-org/app', toRunner: CIA_BOX, toFleet: null, sentBy: MO, sentByLogin: 'mo', status: 'queued', continues: job.id } });
     expect(state.jobs).toHaveLength(2);
   });
 
@@ -866,8 +866,8 @@ describe('a continuation', () => {
   });
 
   it('queues nothing with the switch off, or for a repository the workspace does not list', async () => {
-    expect(await continuing([waited()], { 'vertuoza/app': false }).service.continueAnswered(ask())).toEqual({ queued: null, why: 'Fix on a runner once answered is off for this repository' });
-    expect(await continuing([waited()], { 'vertuoza/app': null }).service.continueAnswered(ask())).toMatchObject({ queued: null });
+    expect(await continuing([waited()], { 'demo-org/app': false }).service.continueAnswered(ask())).toEqual({ queued: null, why: 'Fix on a runner once answered is off for this repository' });
+    expect(await continuing([waited()], { 'demo-org/app': null }).service.continueAnswered(ask())).toMatchObject({ queued: null });
   });
 
   it('queues nothing in its sender\'s name once they may no longer send there', async () => {
@@ -889,14 +889,14 @@ describe('a continuation', () => {
 
   it('queues the fix in the name of the person pressing Fix with answers, with the switch off, to where the job went (PRD 2270 s2)', async () => {
     const job = waited({ to_runner: CIA_BOX, sent_by: OLGA, sent_by_key: API_KEY });
-    const { service, state } = continuing([job], { 'vertuoza/app': false });
+    const { service, state } = continuing([job], { 'demo-org/app': false });
     expect(await service.continueAnswered({ ...ask(), by: MO })).toMatchObject({ queued: { line: '/omni:yolo-fix 1717', toRunner: CIA_BOX, sentBy: MO, sentByKey: null, continues: job.id } });
     expect(await service.continueAnswered({ ...ask(), by: MO })).toMatchObject({ queued: null });
     expect(state.jobs).toHaveLength(2);
   });
 
   it('refuses Fix with answers to someone who is no member of the workspace, and while an asked item waits', async () => {
-    const { service, state } = continuing([waited()], { 'vertuoza/app': false });
+    const { service, state } = continuing([waited()], { 'demo-org/app': false });
     expect(await service.continueAnswered({ ...ask(), by: EVE })).toEqual({ queued: null, why: 'you are not a member of this workspace' });
     expect(await service.continueAnswered({ ...ask({ asked: 2, answered: 1, answers: [] }), by: MO })).toMatchObject({ queued: null });
     expect(state.jobs).toHaveLength(1);
@@ -913,28 +913,28 @@ describe('the terminal\'s reads (PRD 2251)', () => {
     it('lists the workspace\'s runners with their state, slots used, slots, fleet and repositories', async () => {
       const running = jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
       const w = world({ jobs: [running] });
-      expect(value(await w.service.runnersFor(PIA, 'vertuoza/app'))).toEqual([
-        { id: CIA_BOX, name: 'cia-box', fleet: 'cia', state: 'online', used: 0, slots: 4, repos: ['vertuoza/app'] },
-        { id: OTHER, name: 'other', fleet: null, state: 'online', used: 0, slots: 4, repos: ['vertuoza/other'] },
-        { id: SHARED, name: 'shared', fleet: null, state: 'busy', used: 1, slots: 1, repos: ['vertuoza/app'] },
+      expect(value(await w.service.runnersFor(PIA, 'demo-org/app'))).toEqual([
+        { id: CIA_BOX, name: 'cia-box', fleet: 'cia', state: 'online', used: 0, slots: 4, repos: ['demo-org/app'] },
+        { id: OTHER, name: 'other', fleet: null, state: 'online', used: 0, slots: 4, repos: ['demo-org/other'] },
+        { id: SHARED, name: 'shared', fleet: null, state: 'busy', used: 1, slots: 1, repos: ['demo-org/app'] },
       ]);
     });
 
     it('reads a repository named in capitals as GitHub does', async () => {
-      expect(value(await world().service.runnersFor(MO, 'Vertuoza/App'))).toHaveLength(3);
+      expect(value(await world().service.runnersFor(MO, 'Demo-Org/App'))).toHaveLength(3);
     });
 
     it('marks a silent runner offline, and its running job lost', async () => {
       const running = jobRow({ status: 'running', runner_id: CIA_BOX, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
       const w = world({ jobs: [running], start: at(91) });
-      const runners = value(await w.service.runnersFor(MO, 'vertuoza/app'));
+      const runners = value(await w.service.runnersFor(MO, 'demo-org/app'));
       expect(runners.map((r) => [r.name, r.state, r.used])).toEqual([['cia-box', 'offline', 0], ['other', 'offline', 0], ['shared', 'offline', 0]]);
       expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'runner lost' });
     });
 
     it('is refused to a person outside the workspace, and for a repository no workspace of theirs holds', async () => {
       const w = world();
-      expect(await w.service.runnersFor(EVE, 'vertuoza/app')).toMatchObject({ ok: false, kind: 'forbidden' });
+      expect(await w.service.runnersFor(EVE, 'demo-org/app')).toMatchObject({ ok: false, kind: 'forbidden' });
       expect(await w.service.runnersFor(MO, 'elsewhere/app')).toMatchObject({ ok: false, kind: 'forbidden' });
       expect(await w.service.runnersFor(MO, 'nobody/app')).toMatchObject({ ok: false, kind: 'forbidden' });
     });
@@ -942,7 +942,7 @@ describe('the terminal\'s reads (PRD 2251)', () => {
     it('never answers another workspace\'s runners, even to its own member', async () => {
       const theirs = runnerRow({ id: '00000000-0000-4000-8000-0000018301d1', name: 'theirs', workspace_id: THEIRS, owner: EVE, repos: ['elsewhere/app'] });
       const w = world({ runners: [...RUNNERS, theirs] });
-      expect(value(await w.service.runnersFor(MO, 'vertuoza/app')).map((r) => r.name)).toEqual(['cia-box', 'other', 'shared']);
+      expect(value(await w.service.runnersFor(MO, 'demo-org/app')).map((r) => r.name)).toEqual(['cia-box', 'other', 'shared']);
       expect(value(await w.service.runnersFor(EVE, 'elsewhere/app')).map((r) => r.name)).toEqual(['theirs']);
     });
   });
@@ -950,23 +950,23 @@ describe('the terminal\'s reads (PRD 2251)', () => {
   describe('a PRD\'s jobs', () => {
     it('answers the PRD\'s jobs in the repository, newest first, with their runner by name', async () => {
       const older = jobRow({
-        line: '/omni:yolo 2251', status: 'done', runner_id: SHARED, outcome: 'answers', pr_url: 'https://github.com/vertuoza/app/pull/7', exit_code: 0,
+        line: '/omni:yolo 2251', status: 'done', runner_id: SHARED, outcome: 'answers', pr_url: 'https://github.com/demo-org/app/pull/7', exit_code: 0,
         queued_at: at(-600).toISOString(), claimed_at: at(-599).toISOString(), ended_at: at(-60).toISOString(),
       });
       const newer = jobRow({ line: '/omni:yolo-fix 2251', status: 'running', runner_id: CIA_BOX, queued_at: at(-30).toISOString(), claimed_at: at(-29).toISOString(), running_at: at(-28).toISOString() });
       const queued = jobRow({ line: '/omni:pr-care 2251 --once', queued_at: at(-5).toISOString() });
       const w = world({ jobs: [older, newer, queued] });
-      expect(value(await w.service.prdJobs(MO, 'vertuoza/app', PRD))).toEqual([
+      expect(value(await w.service.prdJobs(MO, 'demo-org/app', PRD))).toEqual([
         {
-          id: queued.id, line: '/omni:pr-care 2251 --once', repo: 'vertuoza/app', status: 'queued', runner: null, prUrl: null, exitCode: null, reason: null,
+          id: queued.id, line: '/omni:pr-care 2251 --once', repo: 'demo-org/app', status: 'queued', runner: null, prUrl: null, exitCode: null, reason: null,
           outcome: null, queuedAt: at(-5).toISOString(), claimedAt: null, runningAt: null, endedAt: null,
         },
         {
-          id: newer.id, line: '/omni:yolo-fix 2251', repo: 'vertuoza/app', status: 'running', runner: 'cia-box', prUrl: null, exitCode: null, reason: null,
+          id: newer.id, line: '/omni:yolo-fix 2251', repo: 'demo-org/app', status: 'running', runner: 'cia-box', prUrl: null, exitCode: null, reason: null,
           outcome: null, queuedAt: at(-30).toISOString(), claimedAt: at(-29).toISOString(), runningAt: at(-28).toISOString(), endedAt: null,
         },
         {
-          id: older.id, line: '/omni:yolo 2251', repo: 'vertuoza/app', status: 'done', runner: 'shared', prUrl: 'https://github.com/vertuoza/app/pull/7', exitCode: 0,
+          id: older.id, line: '/omni:yolo 2251', repo: 'demo-org/app', status: 'done', runner: 'shared', prUrl: 'https://github.com/demo-org/app/pull/7', exitCode: 0,
           reason: null, outcome: 'answers', queuedAt: at(-600).toISOString(), claimedAt: at(-599).toISOString(), runningAt: null, endedAt: at(-60).toISOString(),
         },
       ]);
@@ -976,25 +976,25 @@ describe('the terminal\'s reads (PRD 2251)', () => {
       const mine = jobRow({ line: '/omni:yolo 2251' });
       const w = world({ jobs: [
         mine, jobRow({ line: '/omni:yolo 22510' }), jobRow({ line: '/omni:yolo 225' }), jobRow({ line: '/omni:wave' }),
-        jobRow({ line: '/omni:bug-fix https://github.com/vertuoza/app/issues/2251' }), jobRow({ line: '/omni:yolo 2251', repo: 'vertuoza/other' }),
+        jobRow({ line: '/omni:bug-fix https://github.com/demo-org/app/issues/2251' }), jobRow({ line: '/omni:yolo 2251', repo: 'demo-org/other' }),
       ] });
-      expect(value(await w.service.prdJobs(MO, 'vertuoza/app', PRD)).map((job) => job.id)).toEqual([mine.id]);
+      expect(value(await w.service.prdJobs(MO, 'demo-org/app', PRD)).map((job) => job.id)).toEqual([mine.id]);
     });
 
     it('answers a job its silent runner lost as failed, runner lost', async () => {
       const running = jobRow({ line: '/omni:yolo 2251', status: 'running', runner_id: CIA_BOX, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
       const w = world({ jobs: [running], start: at(91) });
-      expect(value(await w.service.prdJobs(MO, 'vertuoza/app', PRD))).toMatchObject([{ status: 'failed', reason: 'runner lost', runner: 'cia-box' }]);
+      expect(value(await w.service.prdJobs(MO, 'demo-org/app', PRD))).toMatchObject([{ status: 'failed', reason: 'runner lost', runner: 'cia-box' }]);
     });
 
     it('answers none when the PRD has no job yet', async () => {
-      expect(value(await world({ jobs: [jobRow({ line: '/omni:yolo 1717' })] }).service.prdJobs(MO, 'vertuoza/app', PRD))).toEqual([]);
+      expect(value(await world({ jobs: [jobRow({ line: '/omni:yolo 1717' })] }).service.prdJobs(MO, 'demo-org/app', PRD))).toEqual([]);
     });
 
     it('is refused to a person outside the workspace, and never reads another workspace\'s jobs', async () => {
       const theirs = jobRow({ line: '/omni:yolo 2251', workspace_id: THEIRS, repo: 'elsewhere/app', sent_by: EVE });
       const w = world({ jobs: [jobRow({ line: '/omni:yolo 2251' }), theirs] });
-      expect(await w.service.prdJobs(EVE, 'vertuoza/app', PRD)).toMatchObject({ ok: false, kind: 'forbidden' });
+      expect(await w.service.prdJobs(EVE, 'demo-org/app', PRD)).toMatchObject({ ok: false, kind: 'forbidden' });
       expect(await w.service.prdJobs(MO, 'elsewhere/app', PRD)).toMatchObject({ ok: false, kind: 'forbidden' });
       expect(value(await w.service.prdJobs(EVE, 'elsewhere/app', PRD)).map((job) => job.id)).toEqual([theirs.id]);
     });
@@ -1120,7 +1120,7 @@ describe('a job\'s questions (PRD 2255)', () => {
       const job = waiting();
       const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
       const resume = value(await w.service.answer(MO, job.id, { answers: ANSWERS }));
-      expect(resume).toMatchObject({ line: `/omni:bug-fix #314 --answers ${job.id}`, repo: 'vertuoza/app', toRunner: null, toFleet: 'cia', sentBy: MO, sentByLogin: 'mo', status: 'queued' });
+      expect(resume).toMatchObject({ line: `/omni:bug-fix #314 --answers ${job.id}`, repo: 'demo-org/app', toRunner: null, toFleet: 'cia', sentBy: MO, sentByLogin: 'mo', status: 'queued' });
       expect(w.state.jobs.map((j) => j.id)).toEqual([job.id, resume.id]);
       expect(w.state.questions[0]).toMatchObject({ answers: ANSWERS, closed_by: MO, closed_at: T0.toISOString(), resume_job: resume.id });
     });

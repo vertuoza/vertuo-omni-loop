@@ -3,12 +3,12 @@
 // requests of the other repositories a test names (a plan repository's). It answers exactly the
 // routes the app's units use through `octokit.request(route, params)` and records every request.
 // Test support only; nothing in the app imports it.
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { cpSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 
 /** A request's parameters, as a unit hands them to `octokit.request`. */
 type Params = Record<string, unknown>;

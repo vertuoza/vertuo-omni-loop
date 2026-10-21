@@ -58,13 +58,13 @@ function rulesFiredOn(path: string, status = 'M') {
 
 describe('riskyChanges — stored-shape', () => {
   it('fires on a library migrations file', () => {
-    expect(rulesFiredOn('libs/vertuo-ai-credit/src/server/migrations.ts')).toEqual([
+    expect(rulesFiredOn('libs/nimbus-ai-credit/src/server/migrations.ts')).toEqual([
       'stored-shape',
     ]);
   });
 
   it('does not fire on an ordinary server file in the same library', () => {
-    expect(rulesFiredOn('libs/vertuo-ai-credit/src/server/credit.repository.ts')).toEqual([]);
+    expect(rulesFiredOn('libs/nimbus-ai-credit/src/server/credit.repository.ts')).toEqual([]);
   });
 });
 
@@ -172,17 +172,17 @@ describe('riskyChanges — law-text on a domain contract (PRD 1796)', () => {
 
 describe('riskyChanges — test-removed', () => {
   it('fires on a deleted test file', () => {
-    expect(rulesFiredOn('apps/vertuo-ai-api/src/foo.service.test.ts', 'D')).toEqual([
+    expect(rulesFiredOn('apps/nimbus-api/src/foo.service.test.ts', 'D')).toEqual([
       'test-removed',
     ]);
   });
 
   it('fires on a deleted .feature file', () => {
-    expect(rulesFiredOn('apps/vertuo-ai-api/test/foo.feature', 'D')).toEqual(['test-removed']);
+    expect(rulesFiredOn('apps/nimbus-api/test/foo.feature', 'D')).toEqual(['test-removed']);
   });
 
   it('does not fire on the same file merely edited', () => {
-    expect(rulesFiredOn('apps/vertuo-ai-api/src/foo.service.test.ts', 'M')).toEqual([]);
+    expect(rulesFiredOn('apps/nimbus-api/src/foo.service.test.ts', 'M')).toEqual([]);
   });
 });
 
@@ -254,12 +254,12 @@ describe('riskyChanges — law-proof', () => {
         'A fixture business rule.',
         '',
         'Serves: P-PRODUCT-1',
-        'Enforced by: apps/vertuo-ai-api/src/quote.controller.test.ts',
+        'Enforced by: apps/nimbus-api/src/quote.controller.test.ts',
         'Stated: 2026-09-22',
         '',
       ].join('\n'),
     );
-    expect(rulesFiredOn('apps/vertuo-ai-api/src/quote.controller.test.ts')).toEqual([
+    expect(rulesFiredOn('apps/nimbus-api/src/quote.controller.test.ts')).toEqual([
       'law-proof',
     ]);
   });
@@ -274,12 +274,12 @@ describe('riskyChanges — law-proof', () => {
         '',
         'Kind: rule',
         'Serves: P-PRODUCT-1',
-        'Enforced by: `libs/vertuo-ai-credit/src/server/credit.service.test.ts`',
+        'Enforced by: `libs/nimbus-ai-credit/src/server/credit.service.test.ts`',
         'Stated: 2026-09-24',
         '',
       ].join('\n'),
     );
-    expect(rulesFiredOn('libs/vertuo-ai-credit/src/server/credit.service.test.ts')).toEqual([
+    expect(rulesFiredOn('libs/nimbus-ai-credit/src/server/credit.service.test.ts')).toEqual([
       'law-proof',
     ]);
   });
@@ -297,7 +297,7 @@ describe('riskyChanges — law-proof', () => {
 
 describe('riskyChanges — a change firing two rules at once', () => {
   it('reports both rules, neither shadowing the other, for a deleted test that is also the proof of a law', () => {
-    const path = 'apps/vertuo-ai-api/src/quote.controller.test.ts';
+    const path = 'apps/nimbus-api/src/quote.controller.test.ts';
     seedInvariants(path);
 
     const risky = riskyChanges([change(path, 'D')], { ctx });
@@ -313,9 +313,9 @@ describe('riskyChanges — ordinary work', () => {
   it('fires nothing over a range of ordinary source and tests', () => {
     seedInvariants('scripts/check-fixture-thing.mjs');
     const changes = [
-      change('apps/vertuo-ai-api/src/features/offer/quote.service.ts', 'M'),
-      change('apps/vertuo-ai-api/src/features/offer/quote.service.test.ts', 'M'),
-      change('libs/vertuo-ai-credit/src/server/credit.repository.ts', 'A'),
+      change('apps/nimbus-api/src/features/offer/quote.service.ts', 'M'),
+      change('apps/nimbus-api/src/features/offer/quote.service.test.ts', 'M'),
+      change('libs/nimbus-ai-credit/src/server/credit.repository.ts', 'A'),
       change('docs/glossary.md', 'M'),
     ];
     expect(riskyChanges(changes, { ctx })).toEqual([]);

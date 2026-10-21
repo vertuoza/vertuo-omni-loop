@@ -1,7 +1,7 @@
 # `kit/plugin/skills/yolo/SKILL.md` (`/omni:yolo`)
 
-Source: `.claude/skills/vertuo-yolo/SKILL.md` @ `vertuo-ai-domain@c4a210122`, plus §1–3 of
-`.claude/skills/vertuo-deliver/SKILL.md` at the same commit (find the plan, the board, the wave
+Source: `.claude/skills/nimbus-yolo/SKILL.md` @ `nimbus-brain@c4a210122`, plus §1–3 of
+`.claude/skills/nimbus-deliver/SKILL.md` at the same commit (find the plan, the board, the wave
 loop), which upstream yolo reused with the ask-nothing policy. The per-wave body (the board, claim,
 dispatch, merge, the Slices checklist) went to `/omni:wave` (see `plugin--wave.md`).
 
@@ -22,7 +22,7 @@ dispatch, merge, the Slices checklist) went to `/omni:wave` (see `plugin--wave.m
 
 ## Dropped
 
-- **The consultation policy** (`CONSULTATION_POLICIES['/vertuo-yolo']`, `asksAbout: []`) and
+- **The consultation policy** (`CONSULTATION_POLICIES['/nimbus-yolo']`, `asksAbout: []`) and
   deliver §3.1 (ask in the prompt, settle with `outbox-settle.mjs`): `/omni:deliver` is out of scope
   (spec §4), so there is nothing to contrast with. "It asks nothing" is one line of prose; recording
   is `/omni:do-work`'s.

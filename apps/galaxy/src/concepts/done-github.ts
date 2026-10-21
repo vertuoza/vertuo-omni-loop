@@ -5,7 +5,7 @@
 // the App is not installed there or GitHub refuses; the comment, once the state changed, is best-effort.
 import { githubClient, type GithubStore } from '@omni/github';
 import { z } from 'zod';
-import { IssueNumberSchema, type IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, type IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { FixIssue } from '../dossier/github/fix';
 import { githubApp, type AppCredentials } from '../signup/github-app';
 

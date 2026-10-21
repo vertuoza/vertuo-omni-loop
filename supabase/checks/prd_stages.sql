@@ -8,16 +8,19 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 insert into auth.users (id, email) values
-  ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com'),
   ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
--- A second workspace, Acme. Ada belongs to Vertuoza, Carl to Acme, Eve to none.
+-- A second workspace, Acme. Ada belongs to Initech, Carl to Acme, Eve to none.
 insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme');
 insert into public.workspace_members (workspace_id, user_id, joined_at)
 select w.id, m.user_id, now() - interval '1 day'
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000000a1'::uuid),
+         ('initech', '00000000-0000-4000-8000-0000000000a1'::uuid),
          ('acme',     '00000000-0000-4000-8000-0000000000c1'::uuid)
        ) as m (slug, user_id)
   join public.workspaces w on w.slug = m.slug;
@@ -30,30 +33,30 @@ $$;
 set local role service_role;
 do $$
 declare
-  vertuoza uuid := (select id from public.workspaces where slug = 'vertuoza');
+  initech uuid := (select id from public.workspaces where slug = 'initech');
   acme     uuid := (select id from public.workspaces where slug = 'acme');
 begin
   insert into public.prd_stages (workspace_id, repository, prd, stage, reached_at, synced_at) values
-    (vertuoza, 'vertuoza/vertuo-omni-loop', 7, 'prd',   '2026-09-01T09:00:00Z', '2026-09-01T09:00:00Z'),
-    (vertuoza, 'vertuoza/vertuo-omni-loop', 7, 'inbox', '2026-09-02T09:00:00Z', '2026-09-02T09:00:00Z'),
+    (initech, 'initech/nimbus-plan', 7, 'prd',   '2026-09-01T09:00:00Z', '2026-09-01T09:00:00Z'),
+    (initech, 'initech/nimbus-plan', 7, 'inbox', '2026-09-02T09:00:00Z', '2026-09-02T09:00:00Z'),
     (acme,     'acme/widgets',              3, 'prd',   '2026-09-03T09:00:00Z', '2026-09-03T09:00:00Z');
   insert into public.prd_topics (workspace_id, repository, prd, topic) values
-    (vertuoza, 'vertuoza/vertuo-omni-loop', 7, 'team-inbox'),
+    (initech, 'initech/nimbus-plan', 7, 'team-inbox'),
     (acme,     'acme/widgets',              3, 'widgets');
 
   -- The same stage again, as the sync or an event writes it: an upsert.
   insert into public.prd_stages (workspace_id, repository, prd, stage, reached_at, synced_at)
-  values (vertuoza, 'vertuoza/vertuo-omni-loop', 7, 'inbox', '2026-09-20T09:00:00Z', '2026-09-20T09:00:00Z')
+  values (initech, 'initech/nimbus-plan', 7, 'inbox', '2026-09-20T09:00:00Z', '2026-09-20T09:00:00Z')
   on conflict (workspace_id, repository, prd, stage)
   do update set reached_at = excluded.reached_at, synced_at = excluded.synced_at;
-  if (select reached_at from public.prd_stages where workspace_id = vertuoza and prd = 7 and stage = 'inbox') <> '2026-09-02T09:00:00Z' then
+  if (select reached_at from public.prd_stages where workspace_id = initech and prd = 7 and stage = 'inbox') <> '2026-09-02T09:00:00Z' then
     raise exception 'FAIL: a second write of a stage moved its date';
   end if;
-  if (select synced_at from public.prd_stages where workspace_id = vertuoza and prd = 7 and stage = 'inbox') <> '2026-09-20T09:00:00Z' then
+  if (select synced_at from public.prd_stages where workspace_id = initech and prd = 7 and stage = 'inbox') <> '2026-09-20T09:00:00Z' then
     raise exception 'FAIL: a second write of a stage did not refresh synced_at';
   end if;
-  update public.prd_stages set reached_at = '2026-01-01T00:00:00Z' where workspace_id = vertuoza and prd = 7 and stage = 'prd';
-  if (select reached_at from public.prd_stages where workspace_id = vertuoza and prd = 7 and stage = 'prd') <> '2026-09-01T09:00:00Z' then
+  update public.prd_stages set reached_at = '2026-01-01T00:00:00Z' where workspace_id = initech and prd = 7 and stage = 'prd';
+  if (select reached_at from public.prd_stages where workspace_id = initech and prd = 7 and stage = 'prd') <> '2026-09-01T09:00:00Z' then
     raise exception 'FAIL: an update moved a stage''s date';
   end if;
   if (select count(*) from public.prd_stages) <> 3 then
@@ -61,15 +64,15 @@ begin
   end if;
 
   begin
-    insert into public.prd_stages (workspace_id, repository, prd, stage, reached_at) values (vertuoza, 'vertuoza/vertuo-omni-loop', 7, 'idea', now());
+    insert into public.prd_stages (workspace_id, repository, prd, stage, reached_at) values (initech, 'initech/nimbus-plan', 7, 'idea', now());
     raise exception 'FAIL: idea was stored';
   exception when check_violation then null; end;
   begin
-    insert into public.prd_stages (workspace_id, repository, prd, stage, reached_at) values (vertuoza, 'Vertuoza/Vertuo-Omni-Loop', 8, 'prd', now());
+    insert into public.prd_stages (workspace_id, repository, prd, stage, reached_at) values (initech, 'Initech/Nimbus-Plan', 8, 'prd', now());
     raise exception 'FAIL: a repository was stored in upper case';
   exception when check_violation then null; end;
   begin
-    insert into public.prd_topics (workspace_id, repository, prd, topic) values (vertuoza, 'vertuoza/vertuo-omni-loop', 8, 'team-inbox');
+    insert into public.prd_topics (workspace_id, repository, prd, topic) values (initech, 'initech/nimbus-plan', 8, 'team-inbox');
     raise exception 'FAIL: two PRDs of one repository took the same topic';
   exception when unique_violation then null; end;
   begin
@@ -92,7 +95,7 @@ reset role;
 
 -- ── Ada, a member: reads her workspace's rows only, and writes nothing ──
 set local role authenticated;
-select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@example.com');
 do $$
 begin
   if (select count(*) from public.prd_stages) <> 2 or exists (select 1 from public.prd_stages where repository = 'acme/widgets') then
@@ -103,7 +106,7 @@ begin
   end if;
   begin
     insert into public.prd_stages (workspace_id, repository, prd, stage, reached_at)
-    values ((select id from public.workspaces where slug = 'vertuoza'), 'vertuoza/vertuo-omni-loop', 7, 'shipped', now());
+    values ((select id from public.workspaces where slug = 'initech'), 'initech/nimbus-plan', 7, 'shipped', now());
     raise exception 'FAIL: a member recorded a stage';
   exception when insufficient_privilege then null; end;
   begin
@@ -116,7 +119,7 @@ begin
   exception when insufficient_privilege then null; end;
   begin
     insert into public.prd_topics (workspace_id, repository, prd, topic)
-    values ((select id from public.workspaces where slug = 'vertuoza'), 'vertuoza/vertuo-omni-loop', 9, 'forged');
+    values ((select id from public.workspaces where slug = 'initech'), 'initech/nimbus-plan', 9, 'forged');
     raise exception 'FAIL: a member recorded a topic';
   exception when insufficient_privilege then null; end;
 end $$;
@@ -129,7 +132,7 @@ do $$
 begin
   if exists (select 1 from public.prd_stages where repository <> 'acme/widgets')
      or exists (select 1 from public.prd_topics where repository <> 'acme/widgets') then
-    raise exception 'FAIL: a member of another workspace read Vertuoza''s stages or topics';
+    raise exception 'FAIL: a member of another workspace read Initech''s stages or topics';
   end if;
 end $$;
 reset role;

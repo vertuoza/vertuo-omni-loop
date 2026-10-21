@@ -15,7 +15,7 @@
 // its questions badge. Its outbox (PRD 251, s9) reads like a real one on the Outbox tab: a
 // human action and a decision open, in the pull request's numbering, one answered on GitHub and not
 // yet settled, a medium adopted when raised, and Send off (the dossier is marked `demo`).
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
 import { peopleOf } from '../../people/load';
 import type { StageRow } from '../../stages/stage';
@@ -23,7 +23,7 @@ import type { GithubSummary } from '../github/summary';
 import { DOSSIER_KINDS, latestVersions, type DossierListRow, type DossierRoundRow, type DossierVersionRow } from '../store';
 import type { DossierRead } from './view';
 import type { VoiceCast } from './voice';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const DEMO_DOSSIER_ID = '00000000-0000-4000-8000-00000000d055';
 export const DEMO_VIEWER = DEMO_OWNER;

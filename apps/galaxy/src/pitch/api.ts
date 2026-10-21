@@ -21,7 +21,7 @@
 // run registered already, 413 a body over its cap or a file over 50 MB, 422 a PRD not shipped, 503 no
 // database here.
 import 'server-only';
-import { keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { keysOf } from 'omni-loop/kit/lib/narrow.ts';
 import { randomUUID } from 'node:crypto';
 import { authenticate, callerOrigin as origin, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
@@ -29,7 +29,7 @@ import {
   isAudience, isLook, isPitchFile, PITCH_FILE_MAX_BYTES, PITCH_FILE_NAMES, PITCH_FILES, PITCH_GIF, PITCH_GIF_LINK_SECONDS,
   PitchStoreError, WORD_MAX, type PitchStore, type PitchPublic, type PitchRunNew, type PitchWords,
 } from './store';
-import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 /** A client acting as one access token: the Auth server's check and the pitch store. */
 export type PitchClient = TokenCheck & { pitches: PitchStore };

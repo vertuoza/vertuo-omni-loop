@@ -3,7 +3,7 @@ import type { DocumentGroup } from '../waiting/documents';
 import { EMPTY_WAITING, type WaitingApproval, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
 import { bell, bellName, bellPanel, CLOSED_BELL, waitedFor } from './bell';
 import { item } from '../ask/test/test-item';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The top bar's bell (PRD 499), as pure functions: its accessible name, how long a question has
 // waited, the panel's groups and lines, and the panel's open and close.

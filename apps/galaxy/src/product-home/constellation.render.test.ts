@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { Filter } from './constellation';
 import { ConstellationTab, NO_EDGES, NO_REPOSITORIES } from './ConstellationTab';
 import { demoProductHome } from './ProductHome';

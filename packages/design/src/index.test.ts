@@ -3,8 +3,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as index from './index.ts';
-import { dig } from 'vertuo-omni-plan/kit/bin/dig.ts';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { dig } from 'omni-loop/kit/bin/dig.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 const src = dirname(fileURLToPath(import.meta.url));
 const pkg: unknown = JSON.parse(readFileSync(join(src, '..', 'package.json'), 'utf8'));

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { readPhase0, type Phase0Deps } from './phase0-api';
 
 // GET /api/repositories/phase0?repo=<owner/name> (PRD 1299 s1), with a stubbed Supabase client: where

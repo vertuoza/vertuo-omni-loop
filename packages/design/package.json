@@ -18,6 +18,6 @@
     "./fonts/*": "./fonts/*"
   },
   "dependencies": {
-    "vertuo-omni-plan": "workspace:*"
+    "omni-loop": "workspace:*"
   }
 }

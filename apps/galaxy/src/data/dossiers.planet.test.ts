@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { present } from '../ask/test/test-item';
 import type { DossierListRow, DossierRoundRow } from '../dossier/store';
 import { readPlanetDossier } from './dossiers';
@@ -12,7 +12,7 @@ import { ACME, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } fr
 // dossier of the planet's PRD number, as the DOSSIER tab shows it, in at most three database calls, on
 // the stubbed database (dossiers.fake.ts, galaxy.fake.ts). No test here calls Supabase.
 
-const HOME = 'vertuoza/vertuo-omni-plan';
+const HOME = 'demo-org/nimbus-plan';
 
 /** A dossier as dossier_list() lists it: Vertuoza's plan repository's PRD `prd`, unless told otherwise. */
 function listed(id: string, prd: number, more: Partial<DossierListRow> = {}): DossierListRow {
@@ -38,7 +38,7 @@ describe('readPlanetDossier', () => {
 
   const DOSSIERS: FakeDossier[] = [
     { row: listed('d-12', 12, { asked: 2, answered: 1 }), rounds: [ask(1, 'Which formats first?', 'CSV', '2026-09-21T10:00:00Z')] },
-    { row: listed('d-14-core', 14, { home_repo: 'vertuoza/vertuo-core' }), rounds: [] }, // PRD 14 of another repository
+    { row: listed('d-14-core', 14, { home_repo: 'demo-org/nimbus-core' }), rounds: [] }, // PRD 14 of another repository
     { row: listed('d-acme-12', 12, { workspace_id: ACME, home_repo: 'acme/acme-plan' }), rounds: [] },
   ];
 
@@ -81,7 +81,7 @@ describe('readPlanetDossier', () => {
 
   it('matches the plan repository in lower case, as the dossier keeps it', async () => {
     const { galaxy, read } = world();
-    present(galaxy.tables.workspaces.find((w) => w.id === VERTUOZA), 'vertuoza').plan_repo = 'Vertuo-Omni-Plan';
+    present(galaxy.tables.workspaces.find((w) => w.id === VERTUOZA), 'vertuoza').plan_repo = 'Nimbus-Plan';
     expect(await read(12)).toMatchObject({ id: 'd-12' });
   });
 

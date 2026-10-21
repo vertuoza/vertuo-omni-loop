@@ -105,19 +105,19 @@ pre .k{color:var(--cyan)}pre .y{color:var(--yel)}pre .d{color:var(--dim)}pre .r{
       <div class="side b"><div class="lbl">Today · Settings › Repositories</div>
         <div class="today">
           <div class="crumb">Settings › Repositories</div>
-          <div class="rowt"><span class="mono">vertuoza/vertuo-mobile</span><select aria-label="product"><option>Mobile</option></select></div>
-          <div class="rowt"><span class="mono">vertuoza/vertuo-api</span><select aria-label="product"><option>Mobile</option></select></div>
-          <div class="rowt"><span class="mono">vertuoza/vertuo-estimates</span><select aria-label="product"><option>Estimates</option></select></div>
+          <div class="rowt"><span class="mono">demo-org/nimbus-app</span><select aria-label="product"><option>Mobile</option></select></div>
+          <div class="rowt"><span class="mono">demo-org/nimbus-api</span><select aria-label="product"><option>Mobile</option></select></div>
+          <div class="rowt"><span class="mono">demo-org/nimbus-estimates</span><select aria-label="product"><option>Estimates</option></select></div>
           <div class="rowt"><span class="mono">vertuoza/vertuo-omni-loop</span><select aria-label="product"><option>Mobile</option></select></div>
-          <div class="pain">One product per repository: vertuo-api cannot also be in Estimates. Every new repository lands in the first product, here Mobile.</div>
+          <div class="pain">One product per repository: nimbus-api cannot also be in Estimates. Every new repository lands in the first product, here Mobile.</div>
         </div>
       </div>
       <div class="side a"><div class="lbl">After · /app/products</div>
         <div class="after">
           <div><div class="tag">vertuoza · workspace</div><h2 style="font-size:30px">Products</h2></div>
           <div class="prods">
-            <div class="prod"><div class="nm">Mobile</div><div class="rp"><span class="chip">vertuo-mobile</span><span class="chip sh">vertuo-api · shared</span></div><div class="dim" style="font-size:12px">6 PRDs · 2 ideas</div><div class="wt">● 2 wait on you</div></div>
-            <div class="prod"><div class="nm">Estimates</div><div class="rp"><span class="chip">vertuo-estimates</span><span class="chip sh">vertuo-api · shared</span></div><div class="dim" style="font-size:12px">4 PRDs · 1 idea</div><div class="dim" style="font-size:12px">nothing waits on you</div></div>
+            <div class="prod"><div class="nm">Mobile</div><div class="rp"><span class="chip">nimbus-app</span><span class="chip sh">nimbus-api · shared</span></div><div class="dim" style="font-size:12px">6 PRDs · 2 ideas</div><div class="wt">● 2 wait on you</div></div>
+            <div class="prod"><div class="nm">Estimates</div><div class="rp"><span class="chip">nimbus-estimates</span><span class="chip sh">nimbus-api · shared</span></div><div class="dim" style="font-size:12px">4 PRDs · 1 idea</div><div class="dim" style="font-size:12px">nothing waits on you</div></div>
           </div>
           <div class="tag">Repositories in no product</div>
           <div class="ones"><span class="chip rep">vertuo-omni-loop</span><button class="btn">Add to a product</button></div>
@@ -148,14 +148,14 @@ pre .k{color:var(--cyan)}pre .y{color:var(--yel)}pre .d{color:var(--dim)}pre .r{
             <div class="lane">
               <div class="tag">Waits on you, Irisa</div>
               <div class="row"><div class="n">918</div><div><div class="t">Offline photo upload</div><div class="m"><span class="chip srv">◆ 918</span> waits on Irisa or Paul · approval</div></div><span class="st w"><i></i>waiting</span></div>
-              <div class="row"><div class="n seal">912</div><div><div class="t">Quotes on the phone</div><div class="m">1 question · vertuo-api · round per line or on the total?</div></div><span class="st w"><i></i>question</span></div>
+              <div class="row"><div class="n seal">912</div><div><div class="t">Quotes on the phone</div><div class="m">1 question · nimbus-api · round per line or on the total?</div></div><span class="st w"><i></i>question</span></div>
               <div class="tag" style="margin-top:6px">Waits on the agent</div>
               <div class="row"><div class="n seal">905</div><div><div class="t">Invoice reminders</div><div class="m">api #447 · mobile #94</div></div><span class="st b"><i></i>building</span></div>
             </div>
             <aside class="panel">
               <h4>Repositories</h4>
-              <div class="repo"><span class="nm">vertuo-mobile</span><span class="sub">role mobile · own knowledge · consumes vertuo-api</span></div>
-              <div class="repo"><span class="nm">vertuo-api <span class="chip sh">also in Estimates</span></span><span class="sub">role api · own knowledge · added by PRD 905</span></div>
+              <div class="repo"><span class="nm">nimbus-app</span><span class="sub">role mobile · own knowledge · consumes nimbus-api</span></div>
+              <div class="repo"><span class="nm">nimbus-api <span class="chip sh">also in Estimates</span></span><span class="sub">role api · own knowledge · added by PRD 905</span></div>
               <button class="btn" style="justify-self:start">Add a repository</button>
               <h4 style="margin-top:6px">Approvers</h4>
               <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip"><span class="av" style="background:var(--cyan)">I</span>Irisa</span><span class="chip"><span class="av" style="background:var(--yel)">P</span>Paul</span></div>
@@ -172,16 +172,16 @@ pre .k{color:var(--cyan)}pre .y{color:var(--yel)}pre .d{color:var(--dim)}pre .r{
     <div class="pair">
       <div class="side b"><div class="lbl">Today · the PRD's product is implied</div>
         <div class="today">
-          <pre><span class="d">PRD 905 · home vertuoza/vertuo-api</span>
-product      <span class="d">= vertuo-api's one product</span> → Mobile
+          <pre><span class="d">PRD 905 · home demo-org/nimbus-api</span>
+product      <span class="d">= nimbus-api's one product</span> → Mobile
 approvers    <span class="d">= Mobile's</span>
 claims, personas <span class="d">= Mobile's</span></pre>
-          <div class="pain">An Estimates PRD in vertuo-api gets Mobile's approvers and voice. A workspace with two products and a token that names no repository fails: "several products".</div>
+          <div class="pain">An Estimates PRD in nimbus-api gets Mobile's approvers and voice. A workspace with two products and a token that names no repository fails: "several products".</div>
         </div>
       </div>
       <div class="side a"><div class="lbl">After · brainstorm in a shared repository, then the PRD page</div>
         <div class="after">
-          <pre><span class="d">~/vertuo-api · /omni:brainstorm 'quote PDF in Estimates'</span>
+          <pre><span class="d">~/nimbus-api · /omni:brainstorm 'quote PDF in Estimates'</span>
 <span class="k">?</span> Which product is this PRD for?
   <span class="y">▸ Estimates</span>
     Mobile
@@ -191,7 +191,7 @@ claims, personas <span class="d">= Mobile's</span></pre>
             <div class="opt on"><i></i>Estimates</div>
             <div class="opt"><i></i>Mobile</div>
             <div class="opt"><i></i>No product</div>
-            <div class="dim" style="font-size:12px">Approvers, claims and personas follow Estimates. vertuo-api is already in Estimates, so no new link is needed.</div>
+            <div class="dim" style="font-size:12px">Approvers, claims and personas follow Estimates. nimbus-api is already in Estimates, so no new link is needed.</div>
           </div>
           <div class="lock">product is locked: PRD 912 is approved</div>
         </div>
@@ -208,9 +208,9 @@ claims, personas <span class="d">= Mobile's</span></pre>
           <pre>"plan": {
   "guide": "README.md",
   "targets": [
-    { "repo": "vertuoza/vertuo-api",
+    { "repo": "demo-org/nimbus-api",
       "role": "api", "knowledge": "own" },
-    { "repo": "vertuoza/vertuo-mobile",
+    { "repo": "demo-org/nimbus-app",
       "role": "mobile", "knowledge": "imported",
       "readAt": "3e9a1c0…", "consumes": ["api"] }
   ]
@@ -222,12 +222,12 @@ claims, personas <span class="d">= Mobile's</span></pre>
         <div class="after">
           <pre>"plan": { "guide": "README.md", "product": "Mobile" }</pre>
           <pre><span class="d">$ omni product import --product Mobile</span>
-added vertuoza/vertuo-api (api) · updated vertuoza/vertuo-mobile (mobile)
+added demo-org/nimbus-api (api) · updated demo-org/nimbus-app (mobile)
 
 <span class="d">$ omni targets</span>
 repo                     role    knowledge  read at   consumes
-vertuoza/vertuo-api      api     own        —         —
-vertuoza/vertuo-mobile   mobile  imported   3e9a1c0   api
+demo-org/nimbus-api      api     own        —         —
+demo-org/nimbus-app   mobile  imported   3e9a1c0   api
 
 <span class="d">$ omni targets   # offline</span>
 <span class="y">targets from the last read, 2026-10-09 · server unreachable</span></pre>

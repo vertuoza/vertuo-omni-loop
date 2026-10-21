@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { Member } from '../../ask/page/question';
 import { renderMarkdownBody } from '../markdown';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { DossierRow, DossierVersionRow } from '../store';
 import { lineDiff, type DiffLine } from './approval-diff';
 import { stamp } from './dates';

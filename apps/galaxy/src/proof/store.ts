@@ -12,7 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listOf } from '../data/unparsed';
 import { dossierReader } from '../dossier/store';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** The bucket, private (the migration's). */
 const PROOF_BUCKET = 'proof-videos';

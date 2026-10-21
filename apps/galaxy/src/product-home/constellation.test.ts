@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { constellationOf, NOW_MAX, touchesOf, type Filter } from './constellation';
 import { layoutOf } from './layout';
 import type { HomeFlight, HomeRepository } from './product-home.service';

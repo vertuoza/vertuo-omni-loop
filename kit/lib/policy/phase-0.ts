@@ -28,7 +28,7 @@
  * that forgot to sign. {@link phase0Verdict} grades the commits it is given; with `signature: null`
  * in the config it grades none.
  */
-// Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-brainstorming/phase-0-policy.mjs — changes in kit/porting/policy--phase-0.md.
+// Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-brainstorming/phase-0-policy.mjs — changes in kit/porting/policy--phase-0.md.
 import { carriesTrailer, trailerLine } from '../signature.ts';
 import type { TrailerSignature } from '../signature.ts';
 import type { Context } from '../context.ts';

@@ -5,7 +5,7 @@
 // where it is used, and the page's stage is unknown.
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import type { CareState } from './care';
-import type { IssueNumber, PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber, PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** A part of the summary whose read failed. Never guessed: the stage reads it as unknown. */
 export const UNREAD = 'unread' as const;

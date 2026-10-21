@@ -10,11 +10,11 @@
 //
 // A store that cannot be read gives no raise, as the command reads it: a raised ceiling then stays red
 // until the next event reads the yes.
-import { settledRaises, type Raise } from 'vertuo-omni-plan/kit/lib/budgets/ratchet.ts';
-import type { Context } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { isProductPrdId, productPrdParts, type PrdNumber, type ProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { gitOutboxStore } from 'vertuo-omni-plan/kit/lib/outbox/git-store.ts';
-import { serverOutboxStore, type OutboxServerClient } from 'vertuo-omni-plan/kit/lib/outbox/server-store.ts';
+import { settledRaises, type Raise } from 'omni-loop/kit/lib/budgets/ratchet.ts';
+import type { Context } from 'omni-loop/kit/lib/context.ts';
+import { isProductPrdId, productPrdParts, type PrdNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
+import { gitOutboxStore } from 'omni-loop/kit/lib/outbox/git-store.ts';
+import { serverOutboxStore, type OutboxServerClient } from 'omni-loop/kit/lib/outbox/server-store.ts';
 import { z } from 'zod';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';

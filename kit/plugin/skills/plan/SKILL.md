@@ -3,7 +3,7 @@ name: plan
 description: Turns one PRD in the inbox into a plan of thin tracer-bullet slices, each with a territory, a blocker list and a wave, written as plan.md beside its spec and graded by omni plan check — then commits it on the PRD's feature branch and opens the draft feature PR. Writes no code, files no issues, merges nothing. /omni:yolo follows it when a PRD has no plan yet; a person may run it alone. Triggers on "plan PRD 7", "slice this PRD", "tracer bullets", "/omni:plan".
 ---
 
-<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-plan/SKILL.md — adaptations in kit/porting/plugin--plan.md -->
+<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-plan/SKILL.md — adaptations in kit/porting/plugin--plan.md -->
 
 # Plan: one PRD into slices
 

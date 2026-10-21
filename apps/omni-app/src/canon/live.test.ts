@@ -1,7 +1,7 @@
 // The canon gate's live ports, against a recording fetch: nothing here calls Supabase or OpenRouter.
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { readEnv } from '../env.ts';
 import { CANON_MODEL, businessReader, liveCanon, constituentsReader } from './live.ts';
 

@@ -14,7 +14,7 @@ the omni-app or the dashboard's own code.
 
 ## Problem
 
-Paul shipped vertuoza/vertuo-automation-plan#88 through the Omni Loop on 2026-09-29 (phase-0 #90,
+Paul shipped demo-org/nimbus-plan#88 through the Omni Loop on 2026-09-29 (phase-0 #90,
 feature PR #89 merged) and the dashboard shows him 0 points. It is not only Paul: nobody earns
 points for a PRD delivered the way the kit delivers today.
 
@@ -23,7 +23,7 @@ points for a PRD delivered the way the kit delivers today.
   kit moved to one folder per PRD under `.omni-loop/delivery/` (2026-09-25), no repository has that
   layout, so no PRD opens a region, finds its feature PR, or secures a zone.
 - Every event of a PRD is named by its number alone (`planet:149:charted`). The legacy file
-  `vertuo-workflow-domain/docs/inbox/0149-file-import.md` was matched to a different PRD,
+  `nimbus-workflow-domain/docs/inbox/0149-file-import.md` was matched to a different PRD,
   vertuo-omni-loop #149, and the 115 points Pierre shows today are outbox answers of that
   workflow-domain PRD paid through the wrong planet.
 - Multi-repository PRDs (a PRD in a plan repository, a `Part of <owner>/<plan>#<n>` feature PR in
@@ -90,7 +90,7 @@ and count for nothing.
 
 ## User stories
 
-- As Paul, when I ship a PRD in vertuo-automation-plan, my slices and my answers earn me points on
+- As Paul, when I ship a PRD in nimbus-plan, my slices and my answers earn me points on
   the dashboard within one poll.
 - As a workspace owner, adding a repository in Settings → Repositories is all it takes for its PRDs
   to score.

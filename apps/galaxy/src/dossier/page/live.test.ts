@@ -5,7 +5,7 @@ import {
   FAILURES_BEFORE_PROBLEM, LIVE_PROBLEM, githubPulse, pulseOf, signature, watchChanges,
 } from './live';
 import type { DossierRead } from './view';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The page refreshes itself (PRD 384, part 5): a signature of the dossier's counts compared tick to
 // tick, and a watcher that asks for a refresh only when it moves, saying so only after three failed

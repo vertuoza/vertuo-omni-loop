@@ -1,4 +1,4 @@
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { makeStarfield } from '@omni/design';
 import { layoutOf, SKY_WIDTH, type Point } from './layout';
 import type { HomeFlight, HomeRepository, PrChip, ProductHome } from './product-home.service';

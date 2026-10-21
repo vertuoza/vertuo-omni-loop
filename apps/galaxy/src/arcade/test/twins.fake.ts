@@ -1,6 +1,6 @@
 // Two repositories each with a PRD 88 (PRD 728): the ledger the arcade's tests read when a planet is
 // keyed by `<home>#<n>`, not by its number alone. Every repository, login and fleet is invented.
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { buildGalaxy, type GalaxyView, type LedgerEvent, type Projects } from '@omni/galaxy';
 
 export const TWIN_NOW = new Date('2026-09-23T14:00:00Z');

@@ -54,5 +54,5 @@ wave 2, so it starts from s1's merged board, and the repository page shows the n
   The repository page renders `← All repositories` (keeping the period), the tracked spelling as the
   one `<h1>`, period links that stay on the page, and no Repositories table.
 - `demoEngineeringBoard` takes a repository, and the demo's repository page renders.
-- `src/nav/sidebar.test.ts`: `/app/engineering/vertuoza/pdf-builder` marks Engineering current.
+- `src/nav/sidebar.test.ts`: `/app/engineering/demo-org/pdf-builder` marks Engineering current.
 - `pnpm test` is green.

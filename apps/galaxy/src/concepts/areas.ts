@@ -3,8 +3,8 @@
 // issue on the concept's home repository. The first area without a PRD carries the line that starts it,
 // `/omni:brainstorm --concept <n> <area>`, for the page's copy button. Which PRDs have a page is read by
 // `readAreaPages`, as the viewer, one lookup per PRD the areas name; a lookup that fails links the issue.
-import type { ConceptArea } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
-import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { ConceptArea } from 'omni-loop/kit/lib/concept/parse.ts';
+import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { DossierReader } from '../dossier/store';
 import { workPath } from '../dossier/page/work';
 import { STAGE_LABELS, type StoredStage } from '../stages/stage';

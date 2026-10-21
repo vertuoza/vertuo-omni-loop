@@ -12,8 +12,8 @@
 // home repository (supabase/migrations/20261203100000_product_prd_ids.sql): dossier_push() creates or
 // pushes to one by its product's key, and dossier_approval() finds one by it, as every RPC does.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { isOneOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
+import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { type Outcome, StoreError } from '../data/store-error';
 
 /** The three artifacts of a PRD's folder, in the order a push sends them. */

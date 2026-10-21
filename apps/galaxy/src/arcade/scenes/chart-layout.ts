@@ -7,7 +7,7 @@ import { entriesOf, lanes, orbits, systems, type EntryKind, type KnowledgeEntry,
 import type { Action } from '../keys';
 import type { Grid, GridName } from './common.ts';
 import { neighbour } from './map.ts';
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 
 export interface Box { x: number; y: number; w: number; h: number }
 export type Dir = 'up' | 'down' | 'left' | 'right';

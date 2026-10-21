@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseOutboxItemId, parseProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseOutboxItemId, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { questionsClient } from './questions.client';
 
 // The Questions tab's call from the browser (PRD 1548 s9), on a stubbed fetch: the request it sends, the

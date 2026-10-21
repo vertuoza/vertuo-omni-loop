@@ -1,4 +1,4 @@
-<!-- Ported from vertuo-ai-domain@db67fd9da:docs/knowledge/README.md — changes in kit/porting/templates--front-door.md -->
+<!-- Ported from nimbus-brain@db67fd9da:docs/knowledge/README.md — changes in kit/porting/templates--front-door.md -->
 
 # Knowledge
 

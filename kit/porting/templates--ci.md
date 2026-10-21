@@ -1,6 +1,6 @@
 # `kit/templates/playbook/ci.md`
 
-Source: `docs/agents/ci-triage.md` @ `vertuo-ai-domain@db67fd9da`, with the PR gate's "a skipped job
+Source: `docs/agents/ci-triage.md` @ `nimbus-brain@db67fd9da`, with the PR gate's "a skipped job
 counts as a failure" from `docs/agents/verification.md`. The kit default of the ci form: slots
 `workflows`, `gating`, `known-reds`, `rerun`, in the spec's order, then `budgets` (PRD 1679).
 
@@ -13,16 +13,16 @@ counts as a failure" from `docs/agents/verification.md`. The kit default of the 
 
 ## Dropped (repository literals)
 
-- **The page's own reader:** "The Ship step of `vertuo-do-work` reads this page".
+- **The page's own reader:** "The Ship step of `nimbus-do-work` reads this page".
 - **The rule's commands:** `git diff --name-only $(git merge-base origin/main HEAD)..HEAD --
   <package dir>` and `gh run rerun <run-id> --failed`. Kept, in words: your branch changes nothing
   the red names; one re-run at most (slot `rerun`).
 - **Every known signature**, which is this repository's own history: the `coverage` job,
-  `libs/vertuo-ai-agent-ui`, `AgentChatPage.test.tsx`, `findByText('Devis toiture')`,
+  `libs/nimbus-ai-agent-ui`, `AgentChatPage.test.tsx`, `findByText('Devis toiture')`,
   `apps/vertuoza-rest-api`, `*.e2e.test.ts`, supertest, `ECONNRESET`, `scripts/run-coverage.mjs`,
   PR #120; `ReferencePickerDialog.test.tsx`, `useReferenceSearch`, `searchQuietMs`,
   `asyncUtilTimeout: 5000`, `pnpm exec turbo run test --force`, PR #374; `test-postgres`,
-  `apps/vertuo-ai-api`, `AnalysisService`, the AISession ledger, PR #224; the `audit` job's
+  `apps/nimbus-api`, `AnalysisService`, the AISession ledger, PR #224; the `audit` job's
   registry timeout. Kept: what a known red lists, and that a fixed one is a finding again on a
   branch holding the fix (slot `known-reds`). The wall-clock lesson moved to the testing form
   (`never`).

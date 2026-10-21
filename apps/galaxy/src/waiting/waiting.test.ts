@@ -5,7 +5,7 @@ import type { TabRow } from '../ask/page/tabs';
 import { peopleOf } from '../people/load';
 import { EMPTY_WAITING, mergeQuestions, ownQuestions, sharedQuestions, titled, WAITING_MS, waitingCounts, type WaitingQuestion } from './waiting';
 import { sure } from '../arcade/test/sure';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The waiting list (PRD 499), as pure functions: the Questions part merged from the person's own
 // sessions and the rounds shared with them, its counts, and the tab title's `(N) ` prefix.

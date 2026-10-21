@@ -36,7 +36,7 @@
  * (`listComments` / `createComment` / `updateComment`) — this module does no network I/O and never
  * shells out to `gh` itself.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-replies.mjs — changes in kit/porting/outbox--replies.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-replies.mjs — changes in kit/porting/outbox--replies.md.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';

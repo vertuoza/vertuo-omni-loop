@@ -1,6 +1,6 @@
 import type { DocumentGroup, DocumentKind } from './documents';
 import type { WaitingItem } from './waiting';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // Alerts for what is new (PRD 499, s5), as pure functions over the browser's parts, each passed in so
 // the tests hand fakes. New is an item, by its id, in a read's result that was not in the list before

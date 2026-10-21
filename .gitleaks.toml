@@ -1,0 +1,26 @@
+# gitleaks' configuration for the `gitleaks` job of the `security` workflow (PRD 2305): its default
+# rules, and an allowlist of the visible fakes the tests and the loop's history hold. Each regular
+# expression is matched against the value gitleaks found; none is a secret, and none names a value
+# whole. A new fake is better built at runtime ('ghp_' + 'a'.repeat(36)) than listed here; a real
+# secret is rotated, never listed.
+title = "omni-loop"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Visible fakes in the tests and the loop's history"
+regexes = [
+  # A fake Omni key, the same in every kit test that signs in.
+  '''^omk_Zq9xW3vK7pL2mN8b''',
+  # A fake Jev key with counting digits, in the arcade's tests.
+  '''^ts_live_0123456789abcdef''',
+  # The placeholder value of the environment module's tests.
+  '''^private_Key-1$''',
+  # The jwt.io sample's subject: a token every library's docs show, masked in the tests.
+  '''\.eyJzdWIiOiIxMjM0NTY3ODkwI''',
+  # The bearer value the masking tests hide after `Authorization: Bearer`.
+  '''^abc\.def-ghi$''',
+  # Google's hosted-domain parameter, quoted in old specs: a domain, not a key.
+  '''^hd=[a-z0-9.-]+$''',
+]

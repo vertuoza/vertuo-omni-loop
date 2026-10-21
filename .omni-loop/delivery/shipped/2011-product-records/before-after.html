@@ -97,7 +97,7 @@
   <div class="pair">
     <div class="side"><p class="lab">Today</p>
       <div class="flow">
-        <div>/omni:mega-roadmap  <span class="dim">(in vertuo-plan)</span></div>
+        <div>/omni:mega-roadmap  <span class="dim">(in nimbus-plan)</span></div>
         <div class="dim">→ issue #412 · inbox/roadmaps/0412-field-work/roadmap.md</div>
         <div class="dim">→ phase-0 PR, a person merges it</div>
         <div>omni roadmap push 412 <span class="dim">→ roadmaps.document overwritten</span></div>
@@ -123,7 +123,7 @@
     <div class="side"><p class="lab">Today</p>
       <div class="flow">
         <div>/omni:mega-bug-fix "photo upload stuck at 99%"</div>
-        <div class="dim">→ issue #77 in vertuo-plan · bugs/0077-photo-upload/bug.md</div>
+        <div class="dim">→ issue #77 in nimbus-plan · bugs/0077-photo-upload/bug.md</div>
         <div class="dim">→ api#301, mobile#86 · "Merge after …"</div>
         <div class="dim">→ record PR "Closes #77", merged last by a person</div>
         <div class="no">omni bug 77 under plan.product: repository not in plan.targets[]</div>
@@ -135,7 +135,7 @@
         <div class="dim">api#301 body: Fixes mobile-B74 · &lt;link&gt; · repro … · guard …</div>
         <div>webhook: api#301 merged <span class="ok">→ row 1 merged</span></div>
         <div>webhook: mobile#86 merged <span class="ok">→ row 2 merged → mobile-B74 shipped</span></div>
-        <div class="dim">no record PR · no issue in vertuo-plan</div>
+        <div class="dim">no record PR · no issue in nimbus-plan</div>
       </div></div>
   </div>
 </div>
@@ -147,15 +147,15 @@
     <div class="side"><p class="lab">Today</p>
       <div class="flow">
         <div>/omni:mega-invade --sync</div>
-        <div class="dim">→ knowledge/repos/vertuo-web/  (copy)</div>
-        <div class="dim">→ knowledge/repos/vertuo-web/flow/  (copy)</div>
+        <div class="dim">→ knowledge/repos/nimbus-web/  (copy)</div>
+        <div class="dim">→ knowledge/repos/nimbus-web/flow/  (copy)</div>
         <div>/omni:do-work reads the copy <span class="no">· may be weeks old</span></div>
       </div></div>
     <div class="side after"><p class="lab">After</p>
       <div class="flow">
         <div>web#220 merged, touches .omni-loop/knowledge/ <span class="ok">→ pack 92c04aa</span></div>
-        <div>omni kb pack get vertuo-web</div>
-        <div class="dim">→ .omni-loop/local/packs/vertuo-web@92c04aa/  (read-only, not in git)</div>
+        <div>omni kb pack get nimbus-web</div>
+        <div class="dim">→ .omni-loop/local/packs/nimbus-web@92c04aa/  (read-only, not in git)</div>
         <div>server down <span class="hl">→ held: newest fetched pack 92c04aa · 2 h old</span></div>
         <div>pack older than read_at <span class="no">→ pack stale: 81aa < read_at 92c0 · slice stopped</span></div>
       </div></div>
@@ -230,8 +230,8 @@
         <div class="page">
           <div class="tabs"><span class="tab">Before/after</span><span class="tab">Spec</span><span class="tab">Plan</span><span class="tab on">Outbox<span class="count">2</span></span></div>
           <ul class="rows">
-            <li class="row"><span class="t">Keep the upload retry at 3 tries?</span><span class="chip you">waits on you</span><span class="m">s3 · vertuo-mobile · high</span></li>
-            <li class="row"><span class="t">Store thumbnails on the device?</span><span class="chip">open</span><span class="m">s4 · vertuo-api · medium</span></li>
+            <li class="row"><span class="t">Keep the upload retry at 3 tries?</span><span class="chip you">waits on you</span><span class="m">s3 · nimbus-app · high</span></li>
+            <li class="row"><span class="t">Store thumbnails on the device?</span><span class="chip">open</span><span class="m">s4 · nimbus-api · medium</span></li>
             <li class="row"><span class="t">Name the queue upload-jobs</span><span class="chip ok">settled</span><span class="m">s1 · adopted by Irisa</span></li>
           </ul>
           <a class="btn primary" data-primary href="#">Answer</a>
@@ -247,12 +247,12 @@
   <div class="pair">
     <div class="side"><p class="lab">Today</p>
       <div class="frame" data-screen="bug-record">
-        <div class="bar"><b>Bug fix #77</b> · vertuoza/vertuo-plan</div>
+        <div class="bar"><b>Bug fix #77</b> · demo-org/nimbus-plan</div>
         <div class="page">
           <h1>Photo upload stuck at 99%</h1>
           <table><tr><th>order</th><th>repository</th><th>pull request</th><th>what changes</th></tr>
-            <tr><td>1</td><td>vertuo-api</td><td><code>api#301</code></td><td>Close the upload when the last part lands.</td></tr>
-            <tr><td>2</td><td>vertuo-mobile</td><td><code>mobile#86</code></td><td>Retry the last part.</td></tr></table>
+            <tr><td>1</td><td>nimbus-api</td><td><code>api#301</code></td><td>Close the upload when the last part lands.</td></tr>
+            <tr><td>2</td><td>nimbus-app</td><td><code>mobile#86</code></td><td>Retry the last part.</td></tr></table>
           <a class="btn primary" data-primary href="#">Open the record PR</a>
         </div>
       </div>
@@ -264,8 +264,8 @@
         <div class="page">
           <h1>Photo upload stuck at 99%</h1>
           <table><tr><th>order</th><th>repository</th><th>pull request</th><th>state</th></tr>
-            <tr><td>1</td><td>vertuo-api</td><td><code>api#301</code></td><td><span class="chip ok">merged</span></td></tr>
-            <tr><td>2</td><td>vertuo-mobile</td><td><code>mobile#86</code></td><td><span class="chip">open</span></td></tr></table>
+            <tr><td>1</td><td>nimbus-api</td><td><code>api#301</code></td><td><span class="chip ok">merged</span></td></tr>
+            <tr><td>2</td><td>nimbus-app</td><td><code>mobile#86</code></td><td><span class="chip">open</span></td></tr></table>
           <p class="lede">Ships on the last merge.</p>
           <p class="lede"><span class="chip no">unmatched</span> web#230</p>
           <a class="btn primary" data-primary href="#">Open mobile#86</a>
@@ -284,9 +284,9 @@
         <div class="bar"><b>Mobile</b> · Repositories</div>
         <div class="page">
           <ul class="rows">
-            <li class="row"><span class="t mono">vertuo-mobile</span><span class="chip">own knowledge</span></li>
-            <li class="row"><span class="t mono">vertuo-api</span><span class="chip">own knowledge</span></li>
-            <li class="row"><span class="t mono">vertuo-web</span><span class="chip">imported</span></li>
+            <li class="row"><span class="t mono">nimbus-app</span><span class="chip">own knowledge</span></li>
+            <li class="row"><span class="t mono">nimbus-api</span><span class="chip">own knowledge</span></li>
+            <li class="row"><span class="t mono">nimbus-web</span><span class="chip">imported</span></li>
           </ul>
           <a class="btn primary" data-primary href="#">Add a repository</a>
         </div>
@@ -298,12 +298,12 @@
         <div class="page">
           <div class="ladder">
             <span></span><span class="mono">1</span><span class="mono">2</span><span class="mono">3</span><span class="mono">4</span><span class="mono">5</span>
-            <span class="mono">vertuo-mobile</span><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i>
-            <span class="mono">vertuo-api</span><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i>
-            <span class="mono">vertuo-web</span><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c"></i><i class="c"></i>
+            <span class="mono">nimbus-app</span><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i>
+            <span class="mono">nimbus-api</span><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c on"></i>
+            <span class="mono">nimbus-web</span><i class="c on"></i><i class="c on"></i><i class="c on"></i><i class="c"></i><i class="c"></i>
           </div>
           <ul class="rows">
-            <li class="row"><span class="t mono">vertuo-web</span><span class="chip">step 3</span></li>
+            <li class="row"><span class="t mono">nimbus-web</span><span class="chip">step 3</span></li>
             <li class="row"><span class="t mono">roadmap 0412</span><span class="chip">in git</span></li>
           </ul>
           <a class="btn primary" data-primary href="#">Add a repository</a>

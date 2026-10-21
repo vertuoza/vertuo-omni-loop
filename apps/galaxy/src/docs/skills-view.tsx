@@ -1,5 +1,5 @@
 import type { TOCItemType } from 'fumadocs-core/toc';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { badgeLabel } from './badges';
 import { skillNames, skillPage, SKILLS_PATH, type SkillLink, type SkillPageModel, type SkillSection } from './skills';
 import type { SidebarItem } from './tree';

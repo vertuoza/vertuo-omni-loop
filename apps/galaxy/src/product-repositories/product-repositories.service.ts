@@ -10,7 +10,7 @@
 //   run writes nothing. The new links go in first with nothing consumed, then every link that still
 //   differs is written whole: a link consumes only repositories already in the product.
 // - productsOf: the products of the workspaces listing a repository that link it, by name.
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { ProductImportReply, ProductImportRequest, ProductsWhichReply, ProductTargetsReply } from './product-repositories.contract';
 import type { LinkWritten, ProductRepositoriesRepository, StoredLinkRow, StoredProductRow } from './product-repositories.repository';
 

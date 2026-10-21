@@ -5,7 +5,7 @@
 // N to check", linking to the page; at 0 the group is gone. Like New documents it never adds to the
 // bell's badge, the tab's `(N)` or the favicon dot, and it raises no alert: no email, no sound.
 // A failed read keeps the last count and marks the part unreadable.
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 /** How often the Business part is read while the tab is visible, and the least time between two reads. */
 export const BUSINESS_MS = 60_000;

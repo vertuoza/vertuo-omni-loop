@@ -10,8 +10,8 @@ import { settled } from '../settled';
 import { fakeStageStore } from '../store.fake';
 import { syncConfig, type RepoSnapshot } from './core';
 import { syncStages, type SnapshotSyncDeps, type SyncDeps, type SyncWorkspace } from './sync';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { createLogger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { createLogger } from 'omni-loop/kit/lib/log/log.ts';
 
 vi.mock('server-only', () => ({}));
 

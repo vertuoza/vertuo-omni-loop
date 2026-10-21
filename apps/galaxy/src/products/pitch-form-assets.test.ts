@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { parsePitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import {
   acceptOf, ASSET_MAX_BYTES, assetNameOf, COULD_NOT_UPLOAD, databaseAssets, demoAssets, fileRefusalOf, NOT_MEMBER, type AssetBucket, type AssetFile,
 } from './pitch-form-assets';

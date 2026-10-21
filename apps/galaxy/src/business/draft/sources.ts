@@ -1,4 +1,4 @@
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 
 // What a draft reads in one repository (PRD 774, spec step 1 and decision 3): its README.md, its
 // top-level docs/*.md and, only when it has the kit layout (a `.omni-loop/config.yml` naming the
@@ -50,13 +50,13 @@ export function repoFiles(listing: RepoListing): RepoFile[] {
   return files.slice(0, MAX_FILES_PER_REPO);
 }
 
-/** A repository as the page names it: `vertuo-app`. */
+/** A repository as the page names it: `nimbus-app`. */
 export const repoLabel = (repository: string) => repository.split('/').pop() ?? repository;
 
-/** A repository file as the page names it: `vertuo-app · README.md`. */
+/** A repository file as the page names it: `nimbus-app · README.md`. */
 export const fileLabel = (repository: string, path: string) => `${repoLabel(repository)} · ${path}`;
 
-/** A web page as the page names it: `vertuoza.com/pricing`. */
+/** A web page as the page names it: `example.com/pricing`. */
 export const pageLabel = (url: string) => url.replace(/^https:\/\//i, '').replace(/\/$/, '');
 
 /** Where a receipt says a repository file's quote is: `owner/name/path`. */

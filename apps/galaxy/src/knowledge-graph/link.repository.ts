@@ -8,8 +8,8 @@
 // one join and one walk serve both. Its answer is parsed where it comes in, each graph by the kit's own
 // schema; a refusal is answered as the database's code and one line, an out-of-shape answer throws.
 import { z } from 'zod';
-import { RepositoryGraphSchema } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { RepositoryGraphSchema } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { orThrow, parseRow } from '../data/parse-rows';
 
 /** The one call the read makes: a database function by name, as nobody. */

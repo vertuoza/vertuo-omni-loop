@@ -12,7 +12,7 @@ const root = () => mkdtempSync(join(tmpdir(), 'product-checkout-'));
 
 describe('isProductKey', () => {
   it('takes a lowercase kebab-case key of at most 40 characters, each part starting with a letter', () => {
-    for (const key of ['mobile', 'vertuo-mobile', 'a1-b2', 'a'.repeat(40)]) expect(isProductKey(key), key).toBe(true);
+    for (const key of ['mobile', 'nimbus-app', 'a1-b2', 'a'.repeat(40)]) expect(isProductKey(key), key).toBe(true);
   });
 
   it('refuses anything a product PRD id could not start with', () => {

@@ -3,7 +3,7 @@ import { playerXp, XP_RULES, type XpRules } from '@omni/galaxy';
 import { GAMES } from './index';
 import { barFill, cabinetDoor, cabinets, gamesHint, levelTag, ROOM_CABINETS, roomWindow, WIDE_WINDOW, XP_LINE, xpStatus, type Cabinet } from './room';
 import { sure } from '../test/sure';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 
 const row = (xp: number, level: number, unlocked: string[] = level >= 1 ? ['invaders'] : []) => ({ xp, level, unlocked });
 

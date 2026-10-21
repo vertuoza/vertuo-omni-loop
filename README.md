@@ -100,7 +100,7 @@ migration in `supabase/migrations/`:
 
 ```sql
 insert into public.sectors (workspace_id, name, repos)
-select id, 'core-belt', array['vertuo-core', 'vertuo-api'] from public.workspaces where slug = 'vertuoza';
+select id, 'core-belt', array['nimbus-core', 'nimbus-api'] from public.workspaces where slug = 'vertuoza';
 insert into public.teams (workspace_id, name, label, color, motto, mascot, home, sort)
 select id, 'pirates', 'PIRATES', '#2fc6a4', 'Takes the zones nobody claims.', 'pirate', 'core-belt', 50
   from public.workspaces where slug = 'vertuoza';

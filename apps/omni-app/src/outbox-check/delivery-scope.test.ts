@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { deliveryFetched } from './delivery-scope.ts';
 
 const config = parseConfig('kit: 1\nrepo:\n  defaultBranch: main\nlaws:\n  source: knowledge\n', '.omni-loop/config.yml');

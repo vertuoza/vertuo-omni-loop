@@ -14,15 +14,15 @@
 // `publish` to post).
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CONFIG_FILE, ConfigError, parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { createContext, type Context } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { parsePrd, type CommentId, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { foldersLayout, parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import { bugRoot } from 'vertuo-omni-plan/kit/lib/bug/verdict.ts';
-import { issuePrefix, numberedFolders } from 'vertuo-omni-plan/kit/lib/fix-verdict.ts';
-import { diskSource, type KnowledgeSource } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
-import type { Change } from 'vertuo-omni-plan/kit/lib/outbox/account.ts';
-import { upsertOutboxPrComment } from 'vertuo-omni-plan/kit/lib/outbox/comment.ts';
+import { CONFIG_FILE, ConfigError, parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { createContext, type Context } from 'omni-loop/kit/lib/context.ts';
+import { parsePrd, type CommentId, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { foldersLayout, parseFolderName } from 'omni-loop/kit/lib/layout.ts';
+import { bugRoot } from 'omni-loop/kit/lib/bug/verdict.ts';
+import { issuePrefix, numberedFolders } from 'omni-loop/kit/lib/fix-verdict.ts';
+import { diskSource, type KnowledgeSource } from 'omni-loop/kit/lib/knowledge/registers.ts';
+import type { Change } from 'omni-loop/kit/lib/outbox/account.ts';
+import { upsertOutboxPrComment } from 'omni-loop/kit/lib/outbox/comment.ts';
 import {
   fixGateResult,
   fixLawFailures,
@@ -32,9 +32,9 @@ import {
   lawsTouched,
   type GateResult,
   type TouchedLaw,
-} from 'vertuo-omni-plan/kit/lib/outbox/status.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
-import { visualRoot } from 'vertuo-omni-plan/kit/lib/visual/verdict.ts';
+} from 'omni-loop/kit/lib/outbox/status.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
+import { visualRoot } from 'omni-loop/kit/lib/visual/verdict.ts';
 import { proseLines } from './prose-lines.ts';
 
 export const NOT_ACTIVE_ON_REPO = 'omni-loop is not active on this repo';

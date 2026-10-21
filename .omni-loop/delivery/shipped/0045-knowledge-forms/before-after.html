@@ -141,7 +141,7 @@ ol.decide .rec b{color:var(--accent);font-weight:600}
 <header class="top">
   <p class="eyebrow">PRD #45 · vertuo-omni-loop · 25 September 2026 · re-planned after PRD #39 (omni init)</p>
   <h1>Omni knowledge forms</h1>
-  <p class="lede">vertuo-ai-domain writes down two kinds of knowledge. <code>docs/knowledge/</code> says what is true about the product. <code>docs/agents/</code> says how to work in the repository: how to test, how CI works, when a pull request is done. Omni already carries the first kind. This PRD adds the second: fixed forms inside <code>.omni-loop/knowledge/</code>, a <code>/omni:terraform</code> skill that fills them from the repository, and a pointer wherever the repository already has the page.</p>
+  <p class="lede">nimbus-brain writes down two kinds of knowledge. <code>docs/knowledge/</code> says what is true about the product. <code>docs/agents/</code> says how to work in the repository: how to test, how CI works, when a pull request is done. Omni already carries the first kind. This PRD adds the second: fixed forms inside <code>.omni-loop/knowledge/</code>, a <code>/omni:terraform</code> skill that fills them from the repository, and a pointer wherever the repository already has the page.</p>
   <div class="legend" aria-label="Legend">
     <span class="item"><span class="chip pointer">pointer</span> the repo already has it</span>
     <span class="item"><span class="chip filled">filled</span> from evidence</span>
@@ -356,10 +356,10 @@ Beside the code, as `*.test.mjs`, under `game/`, `kit/`,
 
 <section id="pointer" aria-labelledby="ptr-h">
   <h2 id="ptr-h">Pointers: the ADR case</h2>
-  <p class="intro">When a repository already has an ADR folder, the knowledge base records where that folder is instead of copying it. Every other form works the same way. Here is vertuo-ai-domain, which keeps its records in <code>docs/adr/</code>.</p>
+  <p class="intro">When a repository already has an ADR folder, the knowledge base records where that folder is instead of copying it. Every other form works the same way. Here is nimbus-brain, which keeps its records in <code>docs/adr/</code>.</p>
   <div class="twoup">
     <figure>
-      <figcaption>.omni-loop/knowledge/adr/README.md · vertuo-ai-domain</figcaption>
+      <figcaption>.omni-loop/knowledge/adr/README.md · nimbus-brain</figcaption>
 <pre>---
 <span class="k">form:</span> decisions
 <span class="k">form-version:</span> 1
@@ -462,7 +462,7 @@ index at docs/adr/index.md.
       <p class="note"><code>--refresh</code> redoes only the forms whose evidence changed, and never touches a <code>by: human</code> section.</p>
     </article>
   </div>
-  <h3>Rules carried over from vertuo-ai-domain</h3>
+  <h3>Rules carried over from nimbus-brain</h3>
   <ul class="rules">
     <li><p>A wrong claim is worse than an honest blank.</p> <span>The <code>Enforced by: unenforced</code> rule, <code>docs/knowledge/README.md</code></span></li>
     <li><p>A list that can be derived is never kept by hand.</p> <span>The <code>Serves:</code> rule: "two copies of a link drift"</span></li>
@@ -475,10 +475,10 @@ index at docs/adr/index.md.
 
 <section id="repos" aria-labelledby="repos-h">
   <h2 id="repos-h">Two repositories, two outcomes</h2>
-  <p class="intro">The same skill run on two repositories. vertuo-ai-domain already has every page, so terraform writes only pointers. This repository has almost none, so terraform fills what it can prove and asks about the rest.</p>
+  <p class="intro">The same skill run on two repositories. nimbus-brain already has every page, so terraform writes only pointers. This repository has almost none, so terraform fills what it can prove and asks about the rest.</p>
   <div class="tablewrap">
     <table>
-      <thead><tr><th style="width:16%">Form</th><th style="width:34%">vertuo-ai-domain · has the pages</th><th>vertuo-omni-loop · this repository</th></tr></thead>
+      <thead><tr><th style="width:16%">Form</th><th style="width:34%">nimbus-brain · has the pages</th><th>vertuo-omni-loop · this repository</th></tr></thead>
       <tbody>
         <tr><td><span class="form">briefing</span></td><td><span class="chip pointer">pointer</span><br><code>docs/agents/briefing.md</code></td><td><span class="chip hole">hole</span><br>There is no CLAUDE.md. Terraform proposes one line from the README: <code>pnpm game:project</code> writes permanent history, so run it only once <code>projects.yml</code> holds the real repositories.</td></tr>
         <tr><td><span class="form">setup</span></td><td><span class="chip pointer">pointer</span><br><code>README.md</code></td><td><span class="chip filled">filled</span><br>Node 22 or later (<code>engines</code>), pnpm (lockfile), <code>pnpm install</code>, <code>gh auth status</code>.</td></tr>
@@ -590,7 +590,7 @@ warnings
       </tbody>
     </table>
   </div>
-  <p class="foot">Sources read for this page: vertuo-ai-domain <code>AGENTS.md</code>, <code>CONTEXT.md</code>, <code>docs/knowledge/README.md</code>, <code>docs/agents/</code> (21 pages), <code>docs/orientation/</code> (8 pages) and <code>docs/adr/</code> (63 records); vertuo-omni-loop <code>.omni-loop/</code>, the PRD #3 kit spec, <code>kit/lib/config.mjs</code>, <code>kit/lib/knowledge/</code>, the plugin skills and <code>.github/workflows/</code>.</p>
+  <p class="foot">Sources read for this page: nimbus-brain <code>AGENTS.md</code>, <code>CONTEXT.md</code>, <code>docs/knowledge/README.md</code>, <code>docs/agents/</code> (21 pages), <code>docs/orientation/</code> (8 pages) and <code>docs/adr/</code> (63 records); vertuo-omni-loop <code>.omni-loop/</code>, the PRD #3 kit spec, <code>kit/lib/config.mjs</code>, <code>kit/lib/knowledge/</code>, the plugin skills and <code>.github/workflows/</code>.</p>
 </section>
 
 </main>

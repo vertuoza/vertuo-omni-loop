@@ -11,16 +11,16 @@
 import 'server-only';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { parseSpec } from 'vertuo-omni-plan/kit/lib/inbox/inbox.ts';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
-import { releaseNotePath } from 'vertuo-omni-plan/kit/lib/releases/check-releases.ts';
-import { gradeReleaseNote, INITIAL_VERSION, parseReleaseNote } from 'vertuo-omni-plan/kit/lib/releases/note.ts';
+import { loadConfig } from 'omni-loop/kit/lib/config.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
+import { createContext } from 'omni-loop/kit/lib/context.ts';
+import { parseSpec } from 'omni-loop/kit/lib/inbox/inbox.ts';
+import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
+import { releaseNotePath } from 'omni-loop/kit/lib/releases/check-releases.ts';
+import { gradeReleaseNote, INITIAL_VERSION, parseReleaseNote } from 'omni-loop/kit/lib/releases/note.ts';
 import { firstAdded, type Git } from './git.ts';
 import type { ShippedPrd } from './sync.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export type ShippedReading = {
   /** Every shipped PRD main holds, by PRD number. */

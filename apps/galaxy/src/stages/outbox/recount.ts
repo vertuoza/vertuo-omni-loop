@@ -12,9 +12,9 @@ import { UNREAD, type GithubSummary } from '../../dossier/github/summary';
 import type { StoredStage } from '../stage';
 import { prdKey, type PrdRef, type StageStore } from '../store';
 import type { OutboxCounts, OutboxRecord, PrdOutboxStore, WaitingQuestion } from './store';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import type { RecordLine } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
+import type { RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { withEscalation } from './escalation';
 
 /** The stages whose outbox is counted: the feature is being built, or waits on its outbox. */

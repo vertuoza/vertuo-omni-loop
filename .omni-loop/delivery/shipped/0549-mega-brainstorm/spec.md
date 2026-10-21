@@ -15,12 +15,12 @@ PRD 522 mega-invade, before ultra-yolo) · **Touches:** the slice table's parser
 
 ## Problem
 
-PRD 522 made a **plan repository** (`vertuoza/vertuo-automation-plan`) know its **target
+PRD 522 made a **plan repository** (`demo-org/nimbus-plan`) know its **target
 repositories**: the config's `plan.targets` lists each one with a role and where its knowledge
 lives, and `omni targets` says whether that knowledge is current. But nothing can plan across
 them yet. `/omni:brainstorm` designs for the checkout it runs in, and a plan's slice table has no
-place to say that the quote-total API goes into `vertuo-backend-php` while the screen that shows it
-goes into `vertuo-apps`. A territory is a path, and a path means nothing without its repository.
+place to say that the quote-total API goes into `nimbus-backend-php` while the screen that shows it
+goes into `nimbus-apps`. A territory is a path, and a path means nothing without its repository.
 
 A PM who wants one feature across the back-end and the front-end would have to brainstorm it twice,
 in two repositories, with two phase-0 pull requests nobody sees side by side.
@@ -35,16 +35,16 @@ section), `plan.md` carries two tables.
 
 | repo | role | read at | knowledge |
 | --- | --- | --- | --- |
-| vertuo-backend-php | back-end | 3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4 | imported (stale) |
-| vertuo-apps | front-end | 9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921 | own |
+| nimbus-backend-php | back-end | 3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4 | imported (stale) |
+| nimbus-apps | front-end | 9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921 | own |
 
 ## Slices
 
 | id | repo | slice | territory | blocked by | wave |
 | --- | --- | --- | --- | --- | --- |
-| s1 | vertuo-backend-php | the quote total is served | `src/Quote/` | — | 1 |
-| s2 | vertuo-apps | the quote screen shows the total | `apps/quote/` | s1 | 2 |
-| s3 | vertuo-apps | the empty quote says why | `apps/i18n/` | — | 1 |
+| s1 | nimbus-backend-php | the quote total is served | `src/Quote/` | — | 1 |
+| s2 | nimbus-apps | the quote screen shows the total | `apps/quote/` | s1 | 2 |
+| s3 | nimbus-apps | the empty quote says why | `apps/i18n/` | — | 1 |
 ```
 
 - `repo` is the **short name** (the part after the `/`) of a repository in `plan.targets`, or of
@@ -69,7 +69,7 @@ section), `plan.md` carries two tables.
     repository's row.
 - Collisions are computed per repository: the same path in two repositories is not a collision.
 - It prints each wave with the repository beside each slice
-  (`wave 1: s1 (vertuo-backend-php), s3 (vertuo-apps)`), and the collision matrix per repository.
+  (`wave 1: s1 (nimbus-backend-php), s3 (nimbus-apps)`), and the collision matrix per repository.
 - **Outside a plan repository** it refuses a `repo` column
   (`a repo column needs a plan repository`) and a `## Repositories` table, and otherwise behaves
   exactly as today.
@@ -214,7 +214,7 @@ Commands are tested through `main()` on a fixture repository (`makeRepo()` in
 - **Clones read at one commit.** A target that moves after the brainstorm makes territories stale;
   `read at` records the commit so ultra-yolo can detect it, and this PRD does not re-read.
 - **Proof on a real plan repository is owed.** Tests run on fixtures; a first live run in
-  `vertuoza/vertuo-automation-plan` follows the merge, after PRD 522's own live run.
+  `demo-org/nimbus-plan` follows the merge, after PRD 522's own live run.
 
 ## Acceptance criteria
 

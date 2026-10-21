@@ -1,4 +1,4 @@
-import { parseOutboxItemId, parseProductPrdId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseOutboxItemId, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import type { Answered, QuestionsPort } from './questions.client';
 import type { AnswerReply, QuestionView } from './questions.contract';
 

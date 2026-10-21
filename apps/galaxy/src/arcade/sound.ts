@@ -2,7 +2,7 @@
 // Two pulse leads (25% and 12.5% duty), a triangle bass, noise drums, and one shared echo that gives
 // the "room". Browsers only allow sound after a key or a tap, so the context is created by `unlock()`
 // on the first action, and any music asked for before that starts then.
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { freqOf, parseSong, SONGS, stepSeconds, type Song, type SongName, type Voice } from './score';
 
 export type Sfx =

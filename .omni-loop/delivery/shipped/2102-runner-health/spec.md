@@ -150,7 +150,7 @@ sparkline of the last hour from `runner_samples`.
 - **Paused:** a paused runner's state reads `Paused: memory 91%` in `--ask-red`, in place of
   Online or Busy. Paused is drawn from the last report; it is not a stored state.
 - **A queued job** whose every possible runner is online and paused reads, under its status,
-  `Waiting: vertuo-agents paused (memory 91%)` when it can go to one runner, or `Waiting: every
+  `Waiting: nimbus-agents paused (memory 91%)` when it can go to one runner, or `Waiting: every
   runner paused (memory 91%)` when it can go to several, naming the first reason. A job some free
   runner could take shows nothing new.
 - **A job's row** shows its tokens beside its status, `1.4M tokens`, once a report carried them.
@@ -197,7 +197,7 @@ sparkline of the last hour from `runner_samples`.
 ## User stories
 
 - As the person who drives the loop, I open the Runners page on my phone and see that
-  vertuo-agents is at 91 % memory and paused, so I know why my job waits, and I don't SSH in.
+  nimbus-agents is at 91 % memory and paused, so I know why my job waits, and I don't SSH in.
 - As a runner's owner, I start `omni runner --max-memory 80` on a small machine, and it stops
   taking jobs before it swaps.
 - As a PM, I see that `/omni:yolo 1717` used 14M tokens, and that the machine burned 40M today.

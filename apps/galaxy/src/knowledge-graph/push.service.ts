@@ -1,4 +1,4 @@
-import type { RepositoryGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
+import type { RepositoryGraph } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
 import type { GraphPushRefusal } from './push.contract';
 import type { GraphPushRepository } from './push.repository';
 

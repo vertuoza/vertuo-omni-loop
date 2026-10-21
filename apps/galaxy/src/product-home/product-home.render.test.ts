@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
 import { demoProductHome, NO_PRDS, ProductHome, type ProductHomeTab, type ProductHomeView } from './ProductHome';
 import { EMPTY as EMPTY_TABS } from './HomeTabs';
 import { DEMO_CHANGES_NOTHING, pressArchive, pressRestore, type PressDeps } from './ArchiveControls';
@@ -233,7 +233,7 @@ describe('archive a product (PRD 2232 s1)', () => {
 });
 
 describe('pressing Archive and Restore (PRD 2232 s1)', () => {
-  const REPOS = ['vertuoza/vertuo-omni-loop', 'vertuoza/omni-docs'];
+  const REPOS = ['vertuoza/vertuo-omni-loop', 'demo-org/omni-docs'];
   function deps(confirmed: boolean, answer: ArchiveResult, demo = false) {
     const asked: string[] = [];
     const calls: string[] = [];
@@ -255,7 +255,7 @@ describe('pressing Archive and Restore (PRD 2232 s1)', () => {
     const { asked, calls, gone, d } = deps(false, ARCHIVED_ANSWER);
     expect(await pressArchive('omni-loop', REPOS, d)).toBeNull();
     expect(asked).toEqual(['Archive omni-loop? It leaves every member\'s list, and its repositories stop reading its Legal entries and glossary.'
-      + '\n\nRepositories: vertuoza/vertuo-omni-loop, vertuoza/omni-docs']);
+      + '\n\nRepositories: vertuoza/vertuo-omni-loop, demo-org/omni-docs']);
     expect(calls).toEqual([]);
     expect(gone).toEqual([]);
   });

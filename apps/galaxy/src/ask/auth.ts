@@ -5,7 +5,7 @@
 // workspace membership (PRD 459), and a refusal carries the database's reason. Asking needs no player
 // row and no GitHub link.
 
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 export type AskCaller = { id: string; email: string | null; token: string };
 

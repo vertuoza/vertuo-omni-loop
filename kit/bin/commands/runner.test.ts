@@ -1325,18 +1325,18 @@ describe('omni runner send', () => {
 
   it('sends to a runner by its name first, else to a fleet, else refuses', async () => {
     const runners = [
-      { id: 'r-1', name: 'box-1', fleet: 'vertuo-agents', state: 'online', used: 0, slots: 4, repos: ['acme/widgets'] },
-      { id: 'r-2', name: 'vertuo-agents', fleet: null, state: 'online', used: 0, slots: 4, repos: [] },
+      { id: 'r-1', name: 'box-1', fleet: 'nimbus-agents', state: 'online', used: 0, slots: 4, repos: ['acme/widgets'] },
+      { id: 'r-2', name: 'nimbus-agents', fleet: null, state: 'online', used: 0, slots: 4, repos: [] },
     ];
     const byRunner = fakePage({ runners });
     await terminal(fixture(), byRunner, ['send', '/omni:yolo 2251', '--to', 'box-1']);
     expect(byRunner.calls.at(-1)?.body).toMatchObject({ target: { kind: 'runner', runner: 'r-1' } });
     const first = fakePage({ runners });
-    await terminal(fixture(), first, ['send', '/omni:yolo 2251', '--to', 'vertuo-agents']);
+    await terminal(fixture(), first, ['send', '/omni:yolo 2251', '--to', 'nimbus-agents']);
     expect(first.calls.at(-1)?.body).toMatchObject({ target: { kind: 'runner', runner: 'r-2' } });
     const byFleet = fakePage({ runners: [runners[0]] });
-    await terminal(fixture(), byFleet, ['send', '/omni:yolo 2251', '--to', 'vertuo-agents']);
-    expect(byFleet.calls.at(-1)?.body).toMatchObject({ target: { kind: 'fleet', fleet: 'vertuo-agents' } });
+    await terminal(fixture(), byFleet, ['send', '/omni:yolo 2251', '--to', 'nimbus-agents']);
+    expect(byFleet.calls.at(-1)?.body).toMatchObject({ target: { kind: 'fleet', fleet: 'nimbus-agents' } });
     const unknown = fakePage({ runners });
     const run = await terminal(fixture(), unknown, ['send', '/omni:yolo 2251', '--to', 'nobody']);
     expect(run.code).toBe(1);

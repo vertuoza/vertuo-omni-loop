@@ -4,7 +4,7 @@
 -- no longer reads a domain, so join_by_domain() and workspaces.join_domain have no reader left.
 --
 -- Proven by supabase/checks/access.sql (neither exists; joining by org fills the memberships).
--- Rollback: a follow-up migration adds join_domain back (vertuoza.com on the vertuoza workspace) and
+-- Rollback: a follow-up migration adds join_domain back (the domain each workspace had) and
 -- recreates join_by_domain() as 20260926120000_workspaces.sql wrote it, with its grant to authenticated.
 
 drop function public.join_by_domain();

@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type FleetConfig, type GalaxyView, type LedgerEvent, type Projects } from '@omni/galaxy';
 import type { FleetRow, Player } from '../arcade/types';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { LEDGER_COLUMNS, LedgerRow } from './ledger-row';
 import { orThrow, parseRow, parseRows } from './parse-rows';
 import { PLAYER_COLUMNS, StoredPlayer } from './players';

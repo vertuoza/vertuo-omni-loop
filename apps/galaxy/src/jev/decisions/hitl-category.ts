@@ -1,4 +1,4 @@
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { HUMAN_WORK_KINDS, type HumanWorkKind, type HumanWorkSource } from '../../roadmap/store';
 import type { JevDecisionEntry } from './entry';
 

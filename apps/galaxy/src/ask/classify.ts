@@ -5,8 +5,8 @@
 // rounds stay unsorted. Any member may set or change a category on the page, so a wrong guess costs
 // a click. Pure apart from the one fetch, which a test stubs.
 
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { OpenRouterEnv } from '../env';
 
 /** The six values, in the spec's order. Stored as they are; the page shows CATEGORY_LABELS. */

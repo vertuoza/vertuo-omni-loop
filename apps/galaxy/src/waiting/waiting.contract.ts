@@ -9,7 +9,7 @@
 //
 // A refusal is `{ error: <kind> }`: 401 `signed-out`, 500 `database`.
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 const WAITING_ERRORS = ['signed-out', 'database'] as const;
 export type WaitingErrorKind = (typeof WAITING_ERRORS)[number];

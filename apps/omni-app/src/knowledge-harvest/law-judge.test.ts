@@ -1,8 +1,8 @@
 // The harvest's law judge port (PRD 1342 s5), against a recording fetch: nothing here calls galaxy.
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
-import type { LawQuestion } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
+import type { LawQuestion } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
 import { readEnv } from '../env.ts';
 import { lawJudge, lawJudgeUrl } from './law-judge.ts';
 

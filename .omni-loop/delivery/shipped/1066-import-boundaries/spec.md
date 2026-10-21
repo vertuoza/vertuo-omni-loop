@@ -60,7 +60,7 @@ The root package has no `exports` map, so any deep path resolves, the kit's test
 4. **No import cycle:** `fallow --circular-deps` on the whole tree finds none.
 5. **The guard,** `scripts/import-guard.test.ts`, like the other source guards: it reads every source
    file's imports from the TypeScript syntax tree, resolves the three spellings this repository uses
-   (relative, `vertuo-omni-plan/…`, `@omni/*`) to a zone, and checks the table, the client rule and the
+   (relative, `omni-loop/…`, `@omni/*`) to a zone, and checks the table, the client rule and the
    cycle count. No allowlist, no comment escape. It runs in `pnpm test`, so `pnpm check:changed` meets it.
 6. **The breaches are fixed in code:** the three arcade files move under a `test/` folder, or the helper
    they need moves into `kit/lib`; the sixteen files get `server-only`; `board-cache.ts` takes the
@@ -116,7 +116,7 @@ Out:
   importing the arcade is refused; an app's source importing `kit/test` is refused, the same import from a
   test file passes; a `'use client'` file reaching a `server-only` module two imports away is refused with
   the chain; an arcade file importing `node:fs` without `server-only` is refused.
-- **Spellings:** a relative path, `vertuo-omni-plan/kit/lib/x.ts` and `@omni/design` each resolve to the
+- **Spellings:** a relative path, `omni-loop/kit/lib/x.ts` and `@omni/design` each resolve to the
   right zone; a type-only import is checked like any other.
 - **The whole tree:** the guard finds nothing; `fallow --circular-deps` finds no cycle.
 - **Nothing breaks:** the full suite, both typechecks, lint (0 findings), the fallow audit, the arcade's

@@ -11,36 +11,39 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- ── The cast ──
--- Ada is a member of Vertuoza; Carl owns Acme; Eve belongs to no workspace.
+-- Ada is a member of Initech; Carl owns Acme; Eve belongs to no workspace.
 insert into auth.users (id, email, email_confirmed_at) values
-  ('00000000-0000-4000-8000-0000000859a3', 'ada@vertuoza.com', now()),
+  ('00000000-0000-4000-8000-0000000859a3', 'ada@example.com', now()),
   ('00000000-0000-4000-8000-0000000859c3', 'carl@acme.test', now()),
   ('00000000-0000-4000-8000-0000000859e3', 'eve@nowhere.test', now());
 insert into public.workspaces (slug, name, github_org) values ('acme-pitch', 'Acme', 'acme-pitch');
 insert into public.workspace_members (workspace_id, user_id, role)
 select w.id, m.user_id, m.role
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000859a3'::uuid, 'member'),
+         ('initech', '00000000-0000-4000-8000-0000000859a3'::uuid, 'member'),
          ('acme-pitch', '00000000-0000-4000-8000-0000000859c3'::uuid, 'owner')
        ) as m (slug, user_id, role)
   join public.workspaces w on w.slug = m.slug
 on conflict (workspace_id, user_id) do nothing;
 
--- Four PRD dossiers of Vertuoza: 7 shipped, 8 at retro, 9 still building, 10 a visual fix's number.
+-- Four PRD dossiers of Initech: 7 shipped, 8 at retro, 9 still building, 10 a visual fix's number.
 insert into public.dossiers (id, workspace_id, home_repo, kind, prd, title, numbered_at)
-select d.id, w.id, 'vertuoza/vertuo-omni-loop', d.kind, d.prd, d.title, now()
+select d.id, w.id, 'initech/nimbus-plan', d.kind, d.prd, d.title, now()
   from (values
          ('00000000-0000-4000-8000-000000859d07'::uuid, 'prd',    7,  'A shipped PRD'),
          ('00000000-0000-4000-8000-000000859d08'::uuid, 'prd',    8,  'A PRD at retro'),
          ('00000000-0000-4000-8000-000000859d09'::uuid, 'prd',    9,  'A PRD being built'),
          ('00000000-0000-4000-8000-000000859d10'::uuid, 'visual', 10, 'A visual fix')
        ) as d (id, kind, prd, title)
-  cross join public.workspaces w where w.slug = 'vertuoza';
+  cross join public.workspaces w where w.slug = 'initech';
 insert into public.prd_stages (workspace_id, repository, prd, stage, reached_at)
-select w.id, 'vertuoza/vertuo-omni-loop', s.prd, s.stage, now()
+select w.id, 'initech/nimbus-plan', s.prd, s.stage, now()
   from (values (7, 'building'), (7, 'outbox'), (7, 'shipped'), (8, 'shipped'), (8, 'retro'), (9, 'inbox'), (9, 'building'), (10, 'shipped')) as s (prd, stage)
-  cross join public.workspaces w where w.slug = 'vertuoza';
+  cross join public.workspaces w where w.slug = 'initech';
 
 create function pg_temp.sign_in(uid text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);

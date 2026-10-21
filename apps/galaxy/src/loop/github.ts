@@ -15,7 +15,7 @@
 // module: no answer, error or log line carries it.
 import { GithubDeferred, GithubPaused, githubClient, type GithubStore } from '@omni/github';
 import { z } from 'zod';
-import { CommentIdSchema, IssueNumberSchema, PrNumberSchema, type IssueNumber, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { CommentIdSchema, IssueNumberSchema, PrNumberSchema, type IssueNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { githubApp, type AppCredentials, type InstallationToken } from '../signup/github-app';
 import type {
   Change, ChangeDetail, ChangesQuery, ChangeState, Check, CheckState, Comment, CommentsQuery, Issue, IssueDetail, IssuesQuery, Thread,

@@ -21,7 +21,7 @@ vi.mock('../board/load', () => ({ loadBoard: reads.board, supabaseReads: reads.s
 const { homeParts } = await import('./home');
 
 const DB = {} as SupabaseClient<Database>;
-const USER = { id: 'u-ada', email: 'ada@vertuoza.com', user_metadata: {}, identities: [] } as unknown as User;
+const USER = { id: 'u-ada', email: 'ada@example.com', user_metadata: {}, identities: [] } as unknown as User;
 const NOW = new Date('2026-09-28T10:00:00Z');
 const A_STRING: unknown = expect.any(String);
 const QUESTION = { kind: 'question', id: 'r1', sessionTitle: 's', question: 'q', askedAt: 0, sharedBy: null } as const;

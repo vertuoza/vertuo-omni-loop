@@ -8,7 +8,7 @@ import type { Database } from '../../../../../supabase/database.types.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import { settle } from '../store';
 import type { ServerBorn } from './core';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 export type ServerBornStore = {
   /** The repository's PRDs born on the server, each with its first approval. */

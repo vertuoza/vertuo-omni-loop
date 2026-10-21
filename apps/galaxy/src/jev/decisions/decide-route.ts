@@ -1,4 +1,4 @@
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { isRecord } from '../is-record';
 import { authenticate, withInstallLink, type TokenCheck } from '../../ask/auth';
 import { refuse, reply } from '../../business-api/reply';

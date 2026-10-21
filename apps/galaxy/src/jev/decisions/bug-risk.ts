@@ -1,4 +1,4 @@
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { z } from 'zod';
 import type { JevDecisionEntry } from './entry';
 

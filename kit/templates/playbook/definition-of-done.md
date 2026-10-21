@@ -7,7 +7,7 @@ evidence: []
 invaded: null
 ---
 
-<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/definition-of-done.md — changes in kit/porting/templates--definition-of-done.md -->
+<!-- Ported from nimbus-brain@db67fd9da:docs/agents/definition-of-done.md — changes in kit/porting/templates--definition-of-done.md -->
 
 # Definition of done
 

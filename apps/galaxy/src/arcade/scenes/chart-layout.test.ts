@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
+import { loadConfig } from 'omni-loop/kit/lib/config.ts';
+import { createContext } from 'omni-loop/kit/lib/context.ts';
+import { readGraph } from 'omni-loop/kit/lib/knowledge/graph.ts';
 import { KINDS, type EntryKind, type KnowledgeEntry, type KnowledgeGraph } from '../../data/knowledge';
 import { TALL, WIDE, type Grid } from './common.ts';
 import {
@@ -10,7 +10,7 @@ import {
   type ChartCursor, type ChartLayout, type Dir, type SystemLayout,
 } from './chart-layout.ts';
 import { sure } from '../test/sure';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 
 // This repository's own knowledge, read through the kit as the app reads it on the server.
 const root = fileURLToPath(new URL('../../../../../', import.meta.url));

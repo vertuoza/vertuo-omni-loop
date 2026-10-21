@@ -14,8 +14,8 @@ import { assertDefined } from '../../kit/test/assert.ts';
 import { parsePrd } from '../../kit/lib/ids.ts';
 
 // The roster comes from Supabase with the config: pm and alice fly with beaver. The game reads the
-// workspace's tracked repositories (PRD 728): here, vertuoza/core-repo.
-const R = 'vertuoza/core-repo';
+// workspace's tracked repositories (PRD 728): here, demo-org/core-repo.
+const R = 'demo-org/core-repo';
 const config = configFrom({
   sectors: [{ name: 'core', repos: ['core-repo'] }],
   teams: [{ name: 'beaver', home: 'core' }],
@@ -287,7 +287,7 @@ describe('buildSnapshot', () => {
   describe('bug fixes (F5c)', () => {
     const bug = (number: number) => ({ number, createdAt: '2026-09-22T09:00:00Z', closedAt: '2026-09-23T09:00:00Z', closedBy: { login: 'pm' } });
     const bugsOf = async (extra: readonly Fixture[]) => nth((await snap(extra)).planets, 0, 'the planet').bugs;
-    const ref = (number: number) => ({ number, url: `https://github.com/${R}/pull/${number}`, repository: { name: 'core-repo', owner: { login: 'vertuoza' } } });
+    const ref = (number: number) => ({ number, url: `https://github.com/${R}/pull/${number}`, repository: { name: 'core-repo', owner: { login: 'demo-org' } } });
 
     it('credits a closed bug to the author of a merged PR that closed it', async () => {
       const bugs = await bugsOf([
@@ -369,8 +369,8 @@ describe('buildSnapshot', () => {
   });
 
   it('reads a repository that cannot be read as empty, and still reads the others (spec §8)', async () => {
-    const two = configFrom({ ...configRows(), repositories: [{ full_name: 'vertuoza/broken', tracked: true }, { full_name: R, tracked: true }] });
-    const s = await buildSnapshot({ config: two, exec: fakeExec([['issue list -R vertuoza/broken', new Error('gh: HTTP 404')], ...world()]), now: NOW });
+    const two = configFrom({ ...configRows(), repositories: [{ full_name: 'demo-org/broken', tracked: true }, { full_name: R, tracked: true }] });
+    const s = await buildSnapshot({ config: two, exec: fakeExec([['issue list -R demo-org/broken', new Error('gh: HTTP 404')], ...world()]), now: NOW });
     expect(s.planets.map((p) => `${p.home}#${p.prd}`)).toEqual([`${R}#2332`]);
   });
 
@@ -421,13 +421,13 @@ function configRows() {
 // PRD 728's done-when for s1, end to end: a PRD of a tracked repository that is not the plan
 // repository, delivered in the kit layout, earns its people points as game:score folds them.
 describe('a PRD delivered in any tracked repository earns its people points (PRD 728)', () => {
-  const PLAN_REPO = 'vertuoza/vertuo-automation-plan';
+  const PLAN_REPO = 'demo-org/nimbus-automation-plan';
   const SHIPPED = '.omni-loop/delivery/shipped/0088-points';
   const cfg = configFrom({
     sectors: [{ name: 'omni-core', repos: ['vertuo-omni-loop'] }],
     teams: [{ name: 'beaver', home: 'omni-core' }, { name: 'octopod', home: null }],
     roster: [{ github_login: 'paul', team: 'beaver' }, { github_login: 'alice', team: 'octopod' }, { github_login: 'pierre', team: 'beaver' }],
-    repositories: [{ full_name: 'vertuoza/vertuo-omni-loop', tracked: true }, { full_name: PLAN_REPO, tracked: true }],
+    repositories: [{ full_name: 'demo-org/vertuo-omni-loop', tracked: true }, { full_name: PLAN_REPO, tracked: true }],
   });
   const sub = (number: number, slice: string, author: string, mergedAt: string | null) => ({ number, title: `feat: ${slice}`, headRefName: `feat/points--${slice}`, author: { login: author }, createdAt: '2026-09-29T08:00:00Z', labels: [{ name: 'omni:sub' }], mergedAt, body: 'Part of #88', state: 'MERGED' });
   const SETTLED = [
@@ -435,7 +435,7 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
     '<!-- omni-outbox-settled: s2-01-b -->', '', '## s2-01-b — adopted', '', '- Verdict: adopted', '- Approved by: nobody', '- Approved at: 2026-09-29', '- Rank: medium', '- Slice: s2', '',
   ].join('\n');
   const exec = fakeExec([
-    ['issue list -R vertuoza/vertuo-omni-loop --label omni:prd', []],
+    ['issue list -R demo-org/vertuo-omni-loop --label omni:prd', []],
     [`issue list -R ${PLAN_REPO} --label omni:prd`, [{ number: 88, title: 'Points', assignees: [], author: { login: 'paul' }, createdAt: '2026-09-28T08:00:00Z', closedAt: '2026-09-29T14:00:00Z' }]],
     ...repoCalls(PLAN_REPO, { shipped: '0088-points\n' }),
     [`api repos/${PLAN_REPO}/contents/${SHIPPED}/spec.md`, '---\nprd: 88\nblocked-by: none\n---\n'],
@@ -464,8 +464,8 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
   });
 
   it('keeps two repositories\' PRD 88 apart: no shared id, owner, clawback or terraform', async () => {
-    const both = configFrom({ ...cfg, sectors: [], teams: [{ name: 'beaver', home: null }, { name: 'octopod', home: null }], roster: [{ github_login: 'paul', team: 'beaver' }, { github_login: 'alice', team: 'octopod' }], repositories: [{ full_name: 'vertuoza/vertuo-omni-loop', tracked: true }, { full_name: PLAN_REPO, tracked: true }] });
-    const other = 'vertuoza/vertuo-omni-loop';
+    const both = configFrom({ ...cfg, sectors: [], teams: [{ name: 'beaver', home: null }, { name: 'octopod', home: null }], roster: [{ github_login: 'paul', team: 'beaver' }, { github_login: 'alice', team: 'octopod' }], repositories: [{ full_name: 'demo-org/vertuo-omni-loop', tracked: true }, { full_name: PLAN_REPO, tracked: true }] });
+    const other = 'demo-org/vertuo-omni-loop';
     const twin = fakeExec([
       [`issue list -R ${other} --label omni:prd`, [{ number: 88, title: 'Other 88', assignees: [{ login: 'alice' }], author: { login: 'alice' }, createdAt: '2026-09-28T08:00:00Z', closedAt: '2026-09-29T15:00:00Z' }]],
       ...repoCalls(other, { inbox: '0088-other\n' }),
@@ -497,12 +497,12 @@ describe('a PRD delivered in any tracked repository earns its people points (PRD
 // each target's feature PR saying `Part of <owner>/<plan>#<n>`. Each target is a region: its sub-PRs
 // secure zones for their authors, and the planet terraforms only once every region's feature PR merged.
 describe('a multi-repository PRD: each `Part of` feature PR is one more region (PRD 728)', () => {
-  const PLAN_REPO = 'vertuoza/vertuo-automation-plan';
-  const APPS = 'vertuoza/vertuo-apps';
-  const PHP = 'vertuoza/vertuo-backend-php';
+  const PLAN_REPO = 'demo-org/nimbus-automation-plan';
+  const APPS = 'demo-org/nimbus-app';
+  const PHP = 'demo-org/nimbus-backend-php';
   const SHIPPED = '.omni-loop/delivery/shipped/0088-points';
   const cfg = configFrom({
-    sectors: [{ name: 'front', repos: ['vertuo-apps'] }, { name: 'back', repos: ['vertuo-backend-php'] }],
+    sectors: [{ name: 'front', repos: ['nimbus-app'] }, { name: 'back', repos: ['nimbus-backend-php'] }],
     teams: [{ name: 'beaver', home: 'front' }, { name: 'octopod', home: 'back' }],
     roster: [{ github_login: 'paul', team: 'beaver' }, { github_login: 'alice', team: 'beaver' }, { github_login: 'bob', team: 'octopod' }],
     repositories: [PLAN_REPO, APPS, PHP].map((full_name) => ({ full_name, tracked: true })),
@@ -510,8 +510,8 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
   const MULTI_PLAN = [
     '## Slices', '',
     '| id | repo | slice | territory | blocked by | wave |', '| --- | --- | --- | --- | --- | --- |',
-    '| s1 | vertuo-backend-php | API | `src/` | — | 1 |',
-    '| s2 | vertuo-apps | Screen | `apps/` | s1 | 2 |', '',
+    '| s1 | nimbus-backend-php | API | `src/` | — | 1 |',
+    '| s2 | nimbus-app | Screen | `apps/` | s1 | 2 |', '',
   ].join('\n');
   const feature = (number: number, over: Record<string, unknown> = {}) => ({ number, headRefName: 'feat/points', createdAt: '2026-09-29T07:00:00Z', isDraft: false, mergedAt: null, updatedAt: '2026-09-29T09:00:00Z', labels: [{ name: 'omni:feature' }], body: `Part of ${PLAN_REPO}#88\n\n## Slices`, ...over });
   const sub = (number: number, slice: string, author: string, mergedAt: string | null) => ({ number, title: `feat: ${slice}`, headRefName: `feat/points--${slice}`, author: { login: author }, createdAt: '2026-09-29T08:00:00Z', labels: [{ name: 'omni:sub' }], mergedAt, body: `Part of ${PLAN_REPO}#88 · slice ${slice}`, state: 'MERGED' });
@@ -528,8 +528,8 @@ describe('a multi-repository PRD: each `Part of` feature PR is one more region (
     [`api repos/${PLAN_REPO}/contents/${SHIPPED}/plan.md?ref=main`, MULTI_PLAN],
     [`api repos/${APPS} --jq`, 'develop\n'],
     [`api repos/${PHP} --jq`, 'main\n'],
-    // Two more PRs into vertuo-apps' default branch: one names a PRD whose home is not tracked, one says Closes.
-    [`pr list -R ${APPS} --search "Part of" in:body --base develop`, [...apps, feature(290, { body: 'Part of vertuoza/old-plan#88' }), feature(291, { body: 'Closes #88' })]],
+    // Two more PRs into nimbus-app' default branch: one names a PRD whose home is not tracked, one says Closes.
+    [`pr list -R ${APPS} --search "Part of" in:body --base develop`, [...apps, feature(290, { body: 'Part of demo-org/old-plan#88' }), feature(291, { body: 'Closes #88' })]],
     [`pr list -R ${PHP} --search "Part of" in:body --base main`, php],
     [`pr list -R ${APPS} --base feat/points`, [sub(285, 's2', 'alice', '2026-09-29T13:00:00Z')]],
     [`pr list -R ${PHP} --base feat/points`, [sub(41, 's1', 'bob', '2026-09-29T11:00:00Z')]],
@@ -641,7 +641,7 @@ describe('the pull requests merged into each tracked repository\'s default branc
   it('pays its author and its reviewers through the projector and the economy, once however many polls see it', async () => {
     const s = await buildSnapshot({ config, exec: fakeExec([[`pr list -R ${R} --base main --state merged`, [merged(7, { latestReviews: [{ author: { login: 'bob' }, state: 'APPROVED' }] })]], ...world()]), now: NOW });
     const events = projectEvents(s, { config, now: NOW }).filter((e) => e.type.startsWith('PR_'));
-    expect(events.map((e) => e.id)).toEqual(['pr:vertuoza/core-repo#7:merged', 'pr:vertuoza/core-repo#7:reviewed:bob', 'pr:vertuoza/core-repo#7:reviewed:pm']);
+    expect(events.map((e) => e.id)).toEqual(['pr:demo-org/core-repo#7:merged', 'pr:demo-org/core-repo#7:reviewed:bob', 'pr:demo-org/core-repo#7:reviewed:pm']);
     expect(score(events, { season: '2026-09', now: NOW }).individuals).toEqual({ alice: 30, bob: 10, pm: 10 });
     expect(projectEvents(s, { config, now: NOW }).filter((e) => e.type.startsWith('PR_'))).toEqual(events);
   });

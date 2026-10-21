@@ -2,23 +2,23 @@
 // acceptance criteria 1–6, which a person re-runs live once the app is registered and installed. The
 // check reads the stub through the app's own installation Octokit, built on the shared budget-aware
 // client (PRD 902, s5), so every call spends installation 7's budget, and a paused budget refuses it.
-import { parsePr, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { createHmac, generateKeyPairSync } from 'node:crypto';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { adoptItem, settleItem } from 'vertuo-omni-plan/kit/lib/outbox/settle.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { createContext } from 'omni-loop/kit/lib/context.ts';
+import { adoptItem, settleItem } from 'omni-loop/kit/lib/outbox/settle.ts';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
 import { githubClient, memoryGithubStore, type GithubStore } from '@omni/github';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { type AppEvent, inngest } from '../inngest-client.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';
 import { installationOctokitFor } from '../octokit-for.ts';
-import { RECORD_MARKER } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
+import { RECORD_MARKER } from 'omni-loop/kit/lib/escalation/comments.ts';
 import { checkRunAt, commitOf, fakeGitHub, outputOf, overHttp } from './fake-github.ts';
 import { createOutboxCheck } from './outbox-check.ts';
 

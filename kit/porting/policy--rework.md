@@ -1,6 +1,6 @@
 # `kit/lib/policy/rework.mjs`
 
-Source: `.claude/skills/vertuo-yolo-fix/rework.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `.claude/skills/nimbus-yolo-fix/rework.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -12,24 +12,24 @@ Source: `.claude/skills/vertuo-yolo-fix/rework.mjs` @ `vertuo-ai-domain@c4a21012
 - `import { parsePlanSlices, sharedGround } from '../../../scripts/check-territory.mjs'` → `import
   { parsePlanSlices, sharedGround } from '../inbox/territory.mjs'` (Task 12's own rename;
   unchanged signatures).
-- `` `<!-- vertuo-outbox-settled: ${id} -->` ``/`` `<!-- /vertuo-outbox-settled: ${id} -->` `` (the
+- `` `<!-- nimbus-outbox-settled: ${id} -->` ``/`` `<!-- /nimbus-outbox-settled: ${id} -->` `` (the
   module-level `CLOSED_FIELD`/open/close marker literals): replaced by `markers`, per the task's
-  own mapping table row (`` `<!-- vertuo-outbox-settled: … -->` in rework | `markers` ``):
+  own mapping table row (`` `<!-- nimbus-outbox-settled: … -->` in rework | `markers` ``):
   - `driftedEntries(settledText)` → `driftedEntries(settledText, markers)`; body
     `parseSettledEntries(settledText ?? '')` → `parseSettledEntries(settledText ?? '', markers)`.
   - `planRework({ settledText, planMarkdown, prd, featureBranch })` → gained a required `markers`
     field, threaded into both `parseSettledEntries` and `driftedEntries`.
   - `closeDriftedEntry(settledText, { id, pullRequest })` → gained a required `markers` field in
     its options object; body `parseSettledEntries(settledText)` → `parseSettledEntries(settledText,
-    markers)`; the two module-level literal markers (`` `<!-- vertuo-outbox-settled: ${id} -->` ``,
-    `` `<!-- /vertuo-outbox-settled: ${id} -->` ``) → `markers.settledOpen(id)` /
+    markers)`; the two module-level literal markers (`` `<!-- nimbus-outbox-settled: ${id} -->` ``,
+    `` `<!-- /nimbus-outbox-settled: ${id} -->` ``) → `markers.settledOpen(id)` /
     `markers.settledClose(id)`; `` `${CLOSED_FIELD}yes — reworked by …` `` (`CLOSED_FIELD =
     '- Closed: '`) → the literal `'- Closed: '` prefix inlined directly (the constant carried no
     other meaning once `markers` replaced the open/close lines, so it was dropped rather than kept
     as a single-use alias).
-- `/vertuo-yolo-fix` (two prose mentions: the module doc's opening line, and `renderReworkPlan`'s
-  "Derived by `/vertuo-yolo-fix` from…" line; and the `closeDriftedEntry` refusal message "…and
-  /vertuo-yolo-fix re-decides nothing") → `/omni-yolo-fix` (`COMMANDS.yoloFix`'s own literal value,
+- `/nimbus-yolo-fix` (two prose mentions: the module doc's opening line, and `renderReworkPlan`'s
+  "Derived by `/nimbus-yolo-fix` from…" line; and the `closeDriftedEntry` refusal message "…and
+  /nimbus-yolo-fix re-decides nothing") → `/omni-yolo-fix` (`COMMANDS.yoloFix`'s own literal value,
   `kit/lib/commands.mjs`) throughout — inlined as the literal string rather than importing
   `COMMANDS`, since nothing else in this module needs the `COMMANDS` object and the task's own
   mapping table names only the command literals, not a new import.
@@ -37,9 +37,9 @@ Source: `.claude/skills/vertuo-yolo-fix/rework.mjs` @ `vertuo-ai-domain@c4a21012
   `reworkPullRequest`: bodies unchanged — none of them reads a marker, a root, or a repository
   literal.
 - Module doc comment: reworded to drop `docs/outbox/SETTLING.md` and every `vertuo`-prefixed
-  literal (`/vertuo-yolo-fix`, `<!-- vertuo-outbox-settled: … -->`) in favour of "nothing closes
+  literal (`/nimbus-yolo-fix`, `<!-- nimbus-outbox-settled: … -->`) in favour of "nothing closes
   that but a rework", "the settled ledger" and generic prose about `markers`.
-- No CLI half to remove: `.claude/skills/vertuo-yolo-fix/rework.mjs` never had a
+- No CLI half to remove: `.claude/skills/nimbus-yolo-fix/rework.mjs` never had a
   `process.argv[1] === fileURLToPath(...)` block, so rule 3 applies vacuously.
 
 ## Test (`rework.test.mjs`)
@@ -51,8 +51,8 @@ Source: `.claude/skills/vertuo-yolo-fix/rework.mjs` @ `vertuo-ai-domain@c4a21012
   table row implies by naming `comment.mjs`/`registers.mjs`); `adoptItem`, `parseSettledEntries`,
   `settleItem` from `../outbox/settle.mjs`; `parseOutboxItem` from `../outbox/outbox.mjs`.
 - Added a module-level `MARKERS = flatCtx('/virtual-repo').markers` constant — `flatCtx`'s markers
-  never depend on `root` (always the `vertuo-outbox` prefix, per the task's own instruction to use
-  `makeMarkers('vertuo-outbox')`/`flatCtx`), so a placeholder root is enough to derive them without
+  never depend on `root` (always the `nimbus-outbox` prefix, per the task's own instruction to use
+  `makeMarkers('nimbus-outbox')`/`flatCtx`), so a placeholder root is enough to derive them without
   an extra fixture directory.
 - `settledLedger(settlings)`: gained `const ctx = flatCtx(root);` right after `mkdtempSync`;
   `settleItem({ root, file, answer })` → `settleItem({ ctx, file, answer })`.
@@ -74,13 +74,13 @@ Source: `.claude/skills/vertuo-yolo-fix/rework.mjs` @ `vertuo-ai-domain@c4a21012
   `{ settledText, markers: ctx.markers }`, since its two call sites both now need the markers
   alongside the text (Port Protocol rule 6 covers threading a grown signature; this is the same
   idea one level up, in a test-only helper).
-- `PLAN`'s `s9` row: `` `.claude/skills/vertuo-yolo-fix/` `` (a territory declaration in the
+- `PLAN`'s `s9` row: `` `.claude/skills/nimbus-yolo-fix/` `` (a territory declaration in the
   fixture markdown table, not a real path any kit module reads) → `` `kit/lib/policy/rework.mjs` ``
   — kept as a plausible-looking territory string for the "runs two reworks that share no ground"
   case, which also renames the matching `## What it costs to change later` bound text from `` `.
-  claude/skills/vertuo-yolo-fix/rework.mjs` `` to `` `kit/lib/policy/rework.mjs` `` for the same
+  claude/skills/nimbus-yolo-fix/rework.mjs` `` to `` `kit/lib/policy/rework.mjs` `` for the same
   reason (both are fixture data, not code the kit resolves against).
-- Every other fixture literal (`libs/vertuo-domain-contact/…`, `libs/vertuo-domain-quote/…`,
+- Every other fixture literal (`libs/nimbus-domain-contact/…`, `libs/nimbus-domain-quote/…`,
   `libs/system-api-contract/…`, `scripts/outbox-settle*`, `docs/outbox/SETTLING.md`,
   `pierrederval`): **unchanged** — these are fixture *content* (territory declarations, item
   bodies) the test asserts against verbatim, not literals this task's own mapping table names, and

@@ -2,7 +2,7 @@ import { CouldNotLoad, LinkGithub } from '../Notes';
 import { UNREADABLE, type PartProps } from '../part';
 import { axisTicks, dayName, weekTotal, type ChartDay } from './chart';
 import type { WeekValue } from './load';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 
 // The week of merges' view (PRD 328): the pull requests you got into main on each of the last seven
 // Brussels days, as a bar chart drawn on the server in inline SVG, with no chart library and no

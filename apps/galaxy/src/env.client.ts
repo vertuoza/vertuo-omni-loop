@@ -9,7 +9,7 @@
  * never a value. The server's startup parse (`instrumentation.ts`) refuses the same build first. No
  * zod here: the check is two lines, and the home page ships as little JavaScript as it can.
  */
-import { EnvError, type EnvSource } from 'vertuo-omni-plan/kit/lib/env/group.ts';
+import { EnvError, type EnvSource } from 'omni-loop/kit/lib/env/group.ts';
 
 /** The galaxy's Supabase as the browser reaches it. */
 export type PublicSupabase = { url: string; key: string };

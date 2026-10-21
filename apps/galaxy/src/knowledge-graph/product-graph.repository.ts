@@ -6,7 +6,7 @@
 // stored graph by the kit's own schema; a failed or out-of-shape read throws. No rule lives here.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { RepositoryGraphSchema } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
+import { RepositoryGraphSchema } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
 import type { Database } from '../../../../supabase/database.types.ts';
 import { orThrow, parseRows } from '../data/parse-rows';
 

@@ -9,6 +9,9 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- 1. No policy calls is_member(): each reads the person's workspaces once, through
 --    public.my_workspaces(), whose answer does not depend on the row.
 do $$
@@ -28,13 +31,13 @@ end $$;
 -- 2. A member's count over a workspace's ledger reads membership once: at the size production reached,
 --    the statement stays within a buffer budget the per-row check exceeds a hundredfold.
 set local session_replication_role = replica;
-insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000000018a1', 'rls-once@vertuoza.com');
+insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000000018a1', 'rls-once@example.com');
 insert into public.workspace_members (workspace_id, user_id)
-select w.id, '00000000-0000-4000-8000-0000000018a1' from public.workspaces w where w.slug = 'vertuoza';
+select w.id, '00000000-0000-4000-8000-0000000018a1' from public.workspaces w where w.slug = 'initech';
 insert into public.ledger_events (workspace_id, id, at, type, planet, home, data)
-select w.id, 'rls-once:' || g, now() - g * interval '1 minute', 'PLANET_CHARTED', 1 + g % 300, 'vertuoza/vertuo-omni-loop', '{}'::jsonb
+select w.id, 'rls-once:' || g, now() - g * interval '1 minute', 'PLANET_CHARTED', 1 + g % 300, 'initech/nimbus-plan', '{}'::jsonb
   from public.workspaces w, generate_series(1, 10000) g
- where w.slug = 'vertuoza';
+ where w.slug = 'initech';
 set local session_replication_role = origin;
 analyze public.ledger_events;
 
@@ -49,9 +52,9 @@ declare
 begin
   execute $q$explain (analyze, buffers, format json)
     select count(*) from public.ledger_events
-     where workspace_id = (select id from public.workspaces where slug = 'vertuoza')$q$ into plan;
+     where workspace_id = (select id from public.workspaces where slug = 'initech')$q$ into plan;
   buffers := (plan -> 0 -> 'Plan' ->> 'Shared Hit Blocks')::bigint + (plan -> 0 -> 'Plan' ->> 'Shared Read Blocks')::bigint;
-  select count(*) into counted from public.ledger_events where workspace_id = (select id from public.workspaces where slug = 'vertuoza');
+  select count(*) into counted from public.ledger_events where workspace_id = (select id from public.workspaces where slug = 'initech');
   if counted < 10000 then
     raise exception 'FAIL: the member counts % of their workspace''s ledger events, not every one', counted;
   end if;

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Priority } from '@omni/github';
 import { UNREAD, type GithubSummary } from '../github/summary';
 import type { DossierRef } from '../github/reader';
-import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { LEASE_MS, mergeSummary, pageSnapshot, recountSnapshot, refreshSnapshot, sendSnapshot, staleSnapshot, type SnapshotDeps } from './snapshot';
 import { fakeSnapshotStore, type FakeSnapshotStore } from './store.fake';
 import { StoredSummary } from './schema';

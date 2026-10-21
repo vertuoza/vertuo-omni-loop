@@ -9,8 +9,8 @@
 //
 // A merge makes a pack when one of the files it changed (a rename by its old path too) is under one of
 // the folders or is one of the files. Any other merge makes none.
-import { CONFIG_FILE } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { hooksByMode, type Flow, type FlowHooks } from 'vertuo-omni-plan/kit/lib/flow/schema.ts';
+import { CONFIG_FILE } from 'omni-loop/kit/lib/config.ts';
+import { hooksByMode, type Flow, type FlowHooks } from 'omni-loop/kit/lib/flow/schema.ts';
 
 /** The parts of a config a pack is read from. */
 export type PackConfig = {

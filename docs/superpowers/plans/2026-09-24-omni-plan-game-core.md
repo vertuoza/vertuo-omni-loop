@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A removable, read-only game projection of PRD delivery: GitHub history → append-only ledger → points and rankings → a text banner, run by a scheduled GitHub Action in `vertuo-omni-plan`.
+**Goal:** A removable, read-only game projection of PRD delivery: GitHub history → append-only ledger → points and rankings → a text banner, run by a scheduled GitHub Action in `nimbus-plan`.
 
 **Architecture:** Five pure modules with one direction of dependency: `calendar` (working hours) → `events`/`ledger` (schema, deterministic ids, idempotent append) → `planet-state` (a world snapshot → planet, zone and wound states) → `projector` (snapshot → events) → `economy` (events + rulebook → credits, decay, clawback, rankings). One impure module, `sources/github.mjs`, builds the snapshot through the `gh` CLI via an injected `exec`, so every test runs on fixtures. Three CLIs and one workflow wire them together.
 
@@ -10,11 +10,11 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-24-omni-plan-game-design.md`
 
-**Scope of this plan:** spec §10 steps 2, 3 and the ledger of §7. Step 1 (claim-first in `vertuo-parallel-wave`, `/omni-yolo`) changes the delivery layer in `vertuo-ai-domain` and gets its own plan there, under that repository's process. Step 4 (galaxy page) is a later plan; it reads the `game/season/<yyyy-mm>.json` this plan produces. Until step 1 lands, two concurrent runs can still race on a zone; the projector already handles it (earlier sub-PR wins).
+**Scope of this plan:** spec §10 steps 2, 3 and the ledger of §7. Step 1 (claim-first in `nimbus-parallel-wave`, `/omni-yolo`) changes the delivery layer in `nimbus-brain` and gets its own plan there, under that repository's process. Step 4 (galaxy page) is a later plan; it reads the `game/season/<yyyy-mm>.json` this plan produces. Until step 1 lands, two concurrent runs can still race on a zone; the projector already handles it (earlier sub-PR wins).
 
 ## Global Constraints
 
-- The game never writes to the delivery layer: no labels, comments, files or issues in engineering repositories. The only writes are files under `game/ledger/`, `game/season/` and one weekly comment on a pinned issue in `vertuo-omni-plan` (spec §2, §10).
+- The game never writes to the delivery layer: no labels, comments, files or issues in engineering repositories. The only writes are files under `game/ledger/`, `game/season/` and one weekly comment on a pinned issue in `nimbus-plan` (spec §2, §10).
 - No delivery file carries game vocabulary. Game words live only in `game/` (spec §2.1).
 - Every number the economy uses is a fact of the delivery layer or a constant in `game/rulebook.mjs` (spec §2.2).
 - Event ids are deterministic, `source:identity:state`; replaying the same history appends nothing (spec §7.1).
@@ -74,7 +74,7 @@ game/
 
 ```json
 {
-  "name": "vertuo-omni-plan",
+  "name": "nimbus-plan",
   "private": true,
   "type": "module",
   "engines": { "node": ">=22" },
@@ -353,7 +353,7 @@ import { EVENT_TYPES, WOUND_KINDS, eventId, makeEvent } from './events.mjs';
 
 describe('events', () => {
   it('builds a deterministic id', () => {
-    expect(eventId('pr', 'vertuo-ai-domain#1042', 'merged')).toBe('pr:vertuo-ai-domain#1042:merged');
+    expect(eventId('pr', 'nimbus-brain#1042', 'merged')).toBe('pr:nimbus-brain#1042:merged');
   });
 
   it('names every type and wound kind the spec lists', () => {
@@ -554,8 +554,8 @@ import { parseProjects } from './config.mjs';
 
 const text = `
 sectors:
-  ai: { repos: [vertuo-ai-domain, vertuo-mcp] }
-  core: { repos: [vertuo-core] }
+  ai: { repos: [nimbus-brain, nimbus-mcp] }
+  core: { repos: [nimbus-core] }
 teams:
   beaver: { home: core }
   octopod: { home: ai }
@@ -564,8 +564,8 @@ teams:
 describe('config', () => {
   it('parses sectors and teams and answers lookups', () => {
     const c = parseProjects(text);
-    expect(c.repos).toEqual(['vertuo-ai-domain', 'vertuo-mcp', 'vertuo-core']);
-    expect(c.sectorOf('vertuo-mcp')).toBe('ai');
+    expect(c.repos).toEqual(['nimbus-brain', 'nimbus-mcp', 'nimbus-core']);
+    expect(c.sectorOf('nimbus-mcp')).toBe('ai');
     expect(c.sectorOf('unknown')).toBeNull();
     expect(c.homeOf('beaver')).toBe('core');
     expect(c.homeOf('nobody')).toBeNull();
@@ -1413,13 +1413,13 @@ git commit -m "feat(game): the economy, credits and decay over a season"
 - Consumes: `Config` (Task 4).
 - Produces:
   - `parsers.mjs`: `parseFrontMatter(text): Record<string,string>`, `parseInbox(text): { prd, title, blockedBy: number[] }`, `parseOutboxItem(text): { id, rank }`, `parseSettled(text): Map<id, { verdict, at, by }>`, `parsePlanSlices(text): [{ id, blockedBy: string[], wave }]`.
-  - `github.mjs`: `buildSnapshot({ config, exec, now, org = 'vertuoza', planRepo = 'vertuo-omni-plan' }): Promise<Snapshot>` where `exec(args: string[]): Promise<string>` runs `gh` with those args and returns stdout. `ghExec` is the default, `(args) => execFile('gh', args)`.
+  - `github.mjs`: `buildSnapshot({ config, exec, now, org = 'vertuoza', planRepo = 'nimbus-plan' }): Promise<Snapshot>` where `exec(args: string[]): Promise<string>` runs `gh` with those args and returns stdout. `ghExec` is the default, `(args) => execFile('gh', args)`.
 
 Reads, in order (every call through `exec`, so the test fakes them by argument prefix):
 
 1. `gh api graphql` is avoided; plain REST via `gh api` only.
-2. PRD issues: `gh issue list -R vertuoza/vertuo-omni-plan --label prd --state all --limit 500 --json number,title,assignees,createdAt,closedAt`.
-3. Teams: for each team in `config.teams`: `gh api orgs/vertuoza/teams/<team>/members --paginate --jq .[].login`.
+2. PRD issues: `gh issue list -R demo-org/nimbus-plan --label prd --state all --limit 500 --json number,title,assignees,createdAt,closedAt`.
+3. Teams: for each team in `config.teams`: `gh api orgs/demo-org/teams/<team>/members --paginate --jq .[].login`.
 4. Per repo in `config.repos`:
    - inbox listing: `gh api repos/vertuoza/<repo>/contents/docs/inbox --jq .[].name`; each file: `gh api repos/vertuoza/<repo>/contents/docs/inbox/<file> -H "Accept: application/vnd.github.raw"`; its first commit: `gh api "repos/vertuoza/<repo>/commits?path=docs/inbox/<file>&per_page=1&page=1" --jq .[-1].commit.committer.date` (surveyedAt; the API returns newest first, so the plan takes the last page — simplified here to the oldest of the first page, which is exact when the file has one commit, and documented).
    - feature PR: `gh pr list -R vertuoza/<repo> --search "Closes #<prd> in:body" --base main --state all --json number,headRefName,createdAt,isDraft,mergedAt,updatedAt`; `readyAt` = `createdAt` when never draft, else the `ready_for_review` timeline event: `gh api repos/vertuoza/<repo>/issues/<n>/timeline --paginate --jq '[.[] | select(.event=="ready_for_review")][0].created_at'`.
@@ -1454,17 +1454,17 @@ describe('parsers', () => {
   it('reads the settled ledger', () => {
     const text = `# Settled outbox items — PRD 1007
 
-<!-- vertuo-outbox-settled: s1-01-customer-door -->
+<!-- nimbus-outbox-settled: s1-01-customer-door -->
 
 ## s1-01-customer-door — agreed
 
 - Verdict: agreed
-- Approved by: claude-code-session (asked of clement.noterdaem inline, /vertuo-deliver)
+- Approved by: claude-code-session (asked of clement.noterdaem inline, /nimbus-deliver)
 - Approved at: 2026-09-23T07:25:59Z
 - Channel: feature pull request #1021
 - Rank: high
 
-<!-- vertuo-outbox-settled: s2-01-other -->
+<!-- nimbus-outbox-settled: s2-01-other -->
 
 ## s2-01-other — drifted
 
@@ -1530,7 +1530,7 @@ export function parseOutboxItem(text) {
 
 export function parseSettled(text) {
   const entries = new Map();
-  const parts = text.split(/<!-- vertuo-outbox-settled: ([^\s]+) -->/);
+  const parts = text.split(/<!-- nimbus-outbox-settled: ([^\s]+) -->/);
   for (let i = 1; i < parts.length; i += 2) {
     const id = parts[i];
     const body = parts[i + 1] ?? '';
@@ -1582,20 +1582,20 @@ function fakeExec(calls) {
 describe('buildSnapshot', () => {
   it('assembles a planet from issues, inbox, plan, sub-PRs, outbox and bugs', async () => {
     const exec = fakeExec([
-      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
-      ['api orgs/vertuoza/teams/beaver/members', 'pm\nalice\n'],
-      ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\nREADME.md\n'],
-      ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
-      ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
-      ['pr list -R vertuoza/core-repo --search', [{ number: 500, headRefName: 'feat/generic-import', createdAt: '2026-09-21T08:00:00Z', isDraft: true, mergedAt: null, updatedAt: '2026-09-23T08:00:00Z' }]],
-      ['api repos/vertuoza/core-repo/contents/docs/superpowers/plans/p.md?ref=feat/generic-import', PLAN],
-      ['pr list -R vertuoza/core-repo --base feat/generic-import', [
+      ['issue list -R demo-org/nimbus-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
+      ['api orgs/demo-org/teams/beaver/members', 'pm\nalice\n'],
+      ['api repos/demo-org/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\nREADME.md\n'],
+      ['api repos/demo-org/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
+      ['api repos/demo-org/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
+      ['pr list -R demo-org/core-repo --search', [{ number: 500, headRefName: 'feat/generic-import', createdAt: '2026-09-21T08:00:00Z', isDraft: true, mergedAt: null, updatedAt: '2026-09-23T08:00:00Z' }]],
+      ['api repos/demo-org/core-repo/contents/docs/superpowers/plans/p.md?ref=feat/generic-import', PLAN],
+      ['pr list -R demo-org/core-repo --base feat/generic-import', [
         { number: 501, title: 'feat: a', headRefName: 'feat/generic-import--s1', author: { login: 'alice' }, createdAt: '2026-09-21T09:00:00Z', labels: [{ name: 'pr:sub' }], mergedAt: '2026-09-21T12:00:00Z', body: 'Part of #2332' },
       ]],
-      ['api repos/vertuoza/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', 's1-01-a.md\n'],
-      ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/s1-01-a.md?ref=feat/generic-import', ITEM],
-      ['api repos/vertuoza/core-repo/commits?path=docs/outbox/2332/s1-01-a.md', '2026-09-21T10:00:00Z\n'],
-      ['issue list -R vertuoza/core-repo --label bug', []],
+      ['api repos/demo-org/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', 's1-01-a.md\n'],
+      ['api repos/demo-org/core-repo/contents/docs/outbox/2332/s1-01-a.md?ref=feat/generic-import', ITEM],
+      ['api repos/demo-org/core-repo/commits?path=docs/outbox/2332/s1-01-a.md', '2026-09-21T10:00:00Z\n'],
+      ['issue list -R demo-org/core-repo --label bug', []],
     ]);
     const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
     expect(snap.teams).toEqual({ pm: 'beaver', alice: 'beaver' });
@@ -1614,9 +1614,9 @@ describe('buildSnapshot', () => {
 
   it('keeps a planet charted and unsurveyed when no repo carries an inbox file', async () => {
     const exec = fakeExec([
-      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2400, title: 'New', assignees: [], createdAt: '2026-09-20T08:00:00Z', closedAt: null }]],
-      ['api orgs/vertuoza/teams/beaver/members', ''],
-      ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', ''],
+      ['issue list -R demo-org/nimbus-plan --label prd', [{ number: 2400, title: 'New', assignees: [], createdAt: '2026-09-20T08:00:00Z', closedAt: null }]],
+      ['api orgs/demo-org/teams/beaver/members', ''],
+      ['api repos/demo-org/core-repo/contents/docs/inbox --jq', ''],
     ]);
     const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
     expect(snap.planets[0]).toMatchObject({ prd: 2400, captain: null, ownerTeam: null, regions: [], featurePr: null, zones: [], outbox: [], bugs: [] });
@@ -1644,7 +1644,7 @@ const lines = (s) => s.split('\n').map((l) => l.trim()).filter(Boolean);
 const json = (s) => (s.trim() ? JSON.parse(s) : []);
 const soft = (p) => p.catch(() => ''); // a 404 (no outbox dir yet, no plan yet) is an empty read
 
-export async function buildSnapshot({ config, exec = ghExec, now = new Date(), org = 'vertuoza', planRepo = 'vertuo-omni-plan' }) {
+export async function buildSnapshot({ config, exec = ghExec, now = new Date(), org = 'vertuoza', planRepo = 'nimbus-plan' }) {
   const issues = json(await exec(['issue', 'list', '-R', `${org}/${planRepo}`, '--label', 'prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,createdAt,closedAt']));
 
   const teams = {};
@@ -2039,7 +2039,7 @@ git commit -m "ci(game): poll the delivery layer every 15 minutes, post rankings
 
 ## Self-review
 
-**Spec coverage.** §2 principles → Global Constraints, Task 9 README. §3.1–3.2 → out of scope here (own plan in `vertuo-ai-domain`), stated in the header. §4 → Task 1 `projects.yml`, Task 4 config, Task 2 calendar, Task 7 teams. §5.1–5.5 states → Task 4; §5.6 roles → Task 8 banner; §5.7 Entropy → naming only, no code needed. §6.1–6.4 → Task 1 constants, Task 6 rules; §6.5 audit → pinned by Task 6 tests (drifted = 0, revert nets 0, clawback). §7 architecture and events → Tasks 3, 5; §7.2 storage → Tasks 3, 9; §7.3 sources → Task 7; §7.4 banner → Task 8. §8 error handling → Task 7 `soft()` reads, Task 4 uncrewed planet (null owner → no decay, no team bonus, banner says uncrewed), Task 7 concurrent claim (lowest sub-PR number wins). §9 testing → each task. §10 steps 2–3 → Tasks 5–9.
+**Spec coverage.** §2 principles → Global Constraints, Task 9 README. §3.1–3.2 → out of scope here (own plan in `nimbus-brain`), stated in the header. §4 → Task 1 `projects.yml`, Task 4 config, Task 2 calendar, Task 7 teams. §5.1–5.5 states → Task 4; §5.6 roles → Task 8 banner; §5.7 Entropy → naming only, no code needed. §6.1–6.4 → Task 1 constants, Task 6 rules; §6.5 audit → pinned by Task 6 tests (drifted = 0, revert nets 0, clawback). §7 architecture and events → Tasks 3, 5; §7.2 storage → Tasks 3, 9; §7.3 sources → Task 7; §7.4 banner → Task 8. §8 error handling → Task 7 `soft()` reads, Task 4 uncrewed planet (null owner → no decay, no team bonus, banner says uncrewed), Task 7 concurrent claim (lowest sub-PR number wins). §9 testing → each task. §10 steps 2–3 → Tasks 5–9.
 
 **Deviations from the spec, deliberate:** `PLAN_CHANGED` is not emitted; the spec itself says a plan change is just new zones, and a `ZONE_OPENED` covers it. Distress and rescue are per zone, which is the precise form of "first claim after 8 idle working hours". A settled item's `raisedAt` is its settle time in the GitHub source (Task 7 step 5), so decay is only exact for still-open items; the spec's ledger will carry the exact opening once the item's first commit is read from the settled entry's verbatim block, a follow-up.
 

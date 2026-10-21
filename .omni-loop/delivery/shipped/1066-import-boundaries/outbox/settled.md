@@ -376,7 +376,7 @@ What the guard does where the spec's rule table has no row, and how far its decl
 
 ## What I did meanwhile
 
-kit/test may import kit/lib and kit/bin (it is the kit's own test fixtures); the supabase types and the root manifest import nothing; the repository's config files and Claude Code's hooks may import anything, like scripts. Any import by package name (vertuo-omni-plan/..., @omni/*) from another workspace package must be declared in the importing package's manifest, for every package, not only packages/design: it holds on the whole tree today.
+kit/test may import kit/lib and kit/bin (it is the kit's own test fixtures); the supabase types and the root manifest import nothing; the repository's config files and Claude Code's hooks may import anything, like scripts. Any import by package name (omni-loop/..., @omni/*) from another workspace package must be declared in the importing package's manifest, for every package, not only packages/design: it holds on the whole tree today.
 
 ## What it costs to change later
 

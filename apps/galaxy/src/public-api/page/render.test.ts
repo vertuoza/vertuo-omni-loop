@@ -16,7 +16,7 @@ const key = (id: string, name: string, more: Partial<ApiKey> = {}): ApiKey => ({
   id, name, lastFour: '9fQe', repos: [], createdAt: '2026-10-15T09:00:00Z', lastUsedAt: null, revokedAt: null,
   maker: { id: 'u-1', login: 'pierrederval', name: null }, working: true, ...more,
 });
-const QA = key('k-1', 'QA dashboard', { repos: ['vertuoza/backend-php'], lastUsedAt: '2026-10-15T11:58:00Z' });
+const QA = key('k-1', 'QA dashboard', { repos: ['demo-org/backend-php'], lastUsedAt: '2026-10-15T11:58:00Z' });
 const DIGEST = key('k-2', 'Weekly digest', { lastFour: 'A1c0', maker: { id: 'u-2', login: 'irisa', name: null } });
 
 const view = (state: ApiKeysState, owner: boolean, tracked: string[] = []) =>
@@ -38,7 +38,7 @@ describe('an owner’s view', () => {
     const [qa, digest] = rows(html);
     expect(qa?.id).toBe('k-1');
     expect(text(qa?.html ?? '')).toContain('QA dashboard @pierrederval · 15 Oct 2026 oma_…9fQe backend-php Last used 2 min ago Revoke');
-    expect(qa?.html).toContain('title="vertuoza/backend-php"');
+    expect(qa?.html).toContain('title="demo-org/backend-php"');
     expect(text(digest?.html ?? '')).toContain(`Weekly digest @irisa · 15 Oct 2026 oma_…A1c0 ${ALL_REPOSITORIES} Last used Never Revoke`);
     expect(html).toContain(`aria-label="${REVOKE} QA dashboard"`);
     expect(html).not.toContain(ONLY_OWNERS);
@@ -52,15 +52,15 @@ describe('an owner’s view', () => {
 
   it('opens the New key form with a name, All repositories, or a pick among the tracked ones', () => {
     const open = apiKeysReducer(initialApiKeysState([]), { type: 'open' });
-    const form = view(open, true, ['vertuoza/backend-php', 'vertuoza/web']);
+    const form = view(open, true, ['demo-org/backend-php', 'demo-org/web']);
     expect(form).toContain('<form class="api-keys-form" aria-label="New key">');
     expect(form).toMatch(/<input type="text" maxLength="40"[^>]* name="name"/);
     expect(text(form)).toContain(`Repositories ${ALL_REPOSITORIES} Only these:`);
     expect(buttons(form)).not.toContain(NEW_KEY);
-    expect(form).not.toContain('vertuoza/web');
-    const picking = view(apiKeysReducer(open, { type: 'all', all: false }), true, ['vertuoza/backend-php', 'vertuoza/web']);
-    expect(picking).toContain('value="vertuoza/backend-php"');
-    expect(picking).toContain('value="vertuoza/web"');
+    expect(form).not.toContain('demo-org/web');
+    const picking = view(apiKeysReducer(open, { type: 'all', all: false }), true, ['demo-org/backend-php', 'demo-org/web']);
+    expect(picking).toContain('value="demo-org/backend-php"');
+    expect(picking).toContain('value="demo-org/web"');
   });
 
   it('marks a key whose maker left as no longer working', () => {

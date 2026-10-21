@@ -8,7 +8,7 @@ import type { GithubSummary } from '../github/summary';
 import { OutboxPane, sendOffOf } from './OutboxPane';
 import { OutboxSend, SendResult } from './OutboxSend';
 import { outboxView, SEND_OFF } from './outbox-view';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 

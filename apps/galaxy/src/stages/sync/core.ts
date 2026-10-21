@@ -13,11 +13,11 @@
 // branch until it ships. Its inbox is dated at its first approval, read from the database beside the
 // snapshot, never at a phase-0 merge nor at the sync's time; while it waits for approval it has no
 // inbox. Every stage after inbox is read from GitHub as for any PRD.
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import type { StoredStage } from '../stage';
-import type { PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 
 const CONFIG_PATH = '.omni-loop/config.yml';
 

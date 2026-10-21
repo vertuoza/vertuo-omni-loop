@@ -8,7 +8,7 @@
 // close value as it is passed in: the view's `rules.woundClose`, the rulebook's own numbers.
 import type { WoundKind } from '@omni/galaxy';
 import type { Action } from '../keys';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 
 export type Layout = 'wide' | 'tall';
 

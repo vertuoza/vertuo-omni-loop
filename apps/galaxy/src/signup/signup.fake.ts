@@ -2,7 +2,7 @@
 // each visitor's GitHub account, and the rows create_workspace_from_installation() and
 // signup_requests keep, applying the same rules as supabase/migrations/20261001090000_github_sign_up.sql.
 import { vi } from 'vitest';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import type { GithubAccount } from '../data/github-orgs';
 import type { LinkPort, SignedIn, SignInDeps } from '../data/sign-in';
 import type { Installation, SignupDeps, WorkspaceMade } from './installation';

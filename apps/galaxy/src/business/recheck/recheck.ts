@@ -4,7 +4,7 @@ import { reply as json } from '../../business-api/reply';
 import type { DraftRow } from '../draft/run';
 import { z } from 'zod';
 import { orThrow, parseRows } from '../../data/parse-rows';
-import { firstPart, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { firstPart, group } from 'omni-loop/kit/lib/narrow.ts';
 
 // POST /api/business/recheck (PRD 774, s4): the weekly recheck. .github/workflows/business-recheck.yml
 // calls it every Sunday at 22:00 UTC with `Authorization: Bearer <BUSINESS_RECHECK_SECRET>`; any other

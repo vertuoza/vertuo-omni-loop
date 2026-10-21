@@ -2,7 +2,7 @@
 // which throws (PRD 1723 s6).
 import { vi } from 'vitest';
 import { z } from 'zod';
-import { createLogger, type Logger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { createLogger, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 
 /** A log line, parsed. */
 const LineSchema = z.record(z.string(), z.unknown());

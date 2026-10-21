@@ -5,7 +5,7 @@ import {
   filtered, historyAddress, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds,
   readOpenCounts, stageKeyOf, type CurrentStages, type HistoryFilters, type OpenCounts,
 } from './history';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // /prd, the history (PRD 216's spec, "The pages"), as pure functions of the rows dossier_list() gives the
 // viewer and the filters in the address: newest activity first, filtered by repository — any of a
@@ -24,7 +24,7 @@ const row = (id: string, more: Partial<DossierListRow> = {}): DossierListRow => 
 
 const DOSSIERS = row('00000000-0000-4000-8000-0000000000d1', {
   prd: parsePrd(216), title: 'PRD dossiers', numbered_at: '2026-09-27T10:00:00Z',
-  repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-core'],
+  repos: ['vertuoza/vertuo-omni-loop', 'demo-org/nimbus-ai-domain', 'demo-org/nimbus-core'],
   latest: {
     spec: { id: 's3', version: 3, source: 'github', created_at: '2026-09-28T08:00:00Z' },
     'before-after': { id: 'b1', version: 1, source: 'kit', created_at: '2026-09-27T10:00:00Z' },
@@ -32,7 +32,7 @@ const DOSSIERS = row('00000000-0000-4000-8000-0000000000d1', {
   asked: 12, answered: 11, last_activity: '2026-09-28T08:00:00Z',
 });
 const QUOTES = row('00000000-0000-4000-8000-0000000000d2', {
-  title: 'Offline quotes on the site app', repos: ['vertuoza/vertuo-mobile'], home_repo: 'vertuoza/vertuo-mobile',
+  title: 'Offline quotes on the site app', repos: ['demo-org/nimbus-mobile'], home_repo: 'demo-org/nimbus-mobile',
   asked: 2, answered: 0, last_activity: '2026-09-28T09:30:00Z',
 });
 const ASK = row('00000000-0000-4000-8000-0000000000d3', {
@@ -44,8 +44,8 @@ const ROWS = [ASK, DOSSIERS, QUOTES];
 describe('the filters in the address', () => {
   it('reads a repository, draft or PRD, and a search; anything else is no filter', () => {
     expect(readHistoryFilters({})).toEqual({ who: 'mine' });
-    expect(readHistoryFilters({ repo: ' Vertuoza/Vertuo-Core ', state: 'draft', q: '  dossier  ' })).toEqual({
-      who: 'mine', repo: 'vertuoza/vertuo-core', state: 'draft', search: 'dossier',
+    expect(readHistoryFilters({ repo: ' Demo-Org/Nimbus-Core ', state: 'draft', q: '  dossier  ' })).toEqual({
+      who: 'mine', repo: 'demo-org/nimbus-core', state: 'draft', search: 'dossier',
     });
     expect(readHistoryFilters({ state: 'prd' })).toEqual({ who: 'mine', state: 'prd' });
     expect(readHistoryFilters({ repo: '', state: 'shipped', q: ' ' })).toEqual({ who: 'mine' });
@@ -84,8 +84,8 @@ describe('the addresses', () => {
   it('carries every filter, and who=all last only for All', () => {
     expect(historyAddress({ who: 'mine' })).toBe('/prd');
     expect(historyAddress(ALL)).toBe('/prd?who=all');
-    expect(historyAddress({ who: 'mine', repo: 'vertuoza/vertuo-core', state: 'prd', search: 'ask mode' }))
-      .toBe('/prd?repo=vertuoza%2Fvertuo-core&state=prd&q=ask+mode');
+    expect(historyAddress({ who: 'mine', repo: 'demo-org/nimbus-core', state: 'prd', search: 'ask mode' }))
+      .toBe('/prd?repo=demo-org%2Fnimbus-core&state=prd&q=ask+mode');
     expect(historyAddress(all({ repo: 'a/b', state: 'draft', search: 'x' }))).toBe('/prd?repo=a%2Fb&state=draft&q=x&who=all');
   });
 
@@ -105,7 +105,7 @@ describe('the rows', () => {
   it('shows #n or DRAFT, the repository chips, which artifacts it has with how many versions, and answered out of asked', () => {
     const [quotes, dossiers, ask] = historyItems(ROWS, ALL, 'u-pierre');
     expect(dossiers).toMatchObject({
-      heading: '#216', draft: false, repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-core'],
+      heading: '#216', draft: false, repos: ['vertuoza/vertuo-omni-loop', 'demo-org/nimbus-ai-domain', 'demo-org/nimbus-core'],
       artifacts: [{ kind: 'before-after', label: 'Before/after', badge: 'v1' }, { kind: 'spec', label: 'Spec', badge: 'v3' }],
       questions: '11/12 answered', activity: 'last activity 28 Sep 2026, 08:00 UTC', at: '2026-09-28T08:00:00Z',
     });
@@ -116,8 +116,8 @@ describe('the rows', () => {
   it('keeps each dossier whose repositories include the one picked: one with three shows under each', () => {
     for (const repo of DOSSIERS.repos) expect(historyItems(ROWS, all({ repo }), 'u-pierre').map((i) => i.title), repo).toContain('PRD dossiers');
     expect(historyItems(ROWS, all({ repo: 'vertuoza/vertuo-omni-loop' }), 'u-pierre').map((i) => i.title)).toEqual(['PRD dossiers', 'Ask mode — questions on a page']);
-    expect(historyItems(ROWS, all({ repo: 'vertuoza/vertuo-mobile' }), 'u-pierre').map((i) => i.title)).toEqual(['Offline quotes on the site app']);
-    expect(historyItems(ROWS, all({ repo: 'vertuoza/elsewhere' }), 'u-pierre')).toEqual([]);
+    expect(historyItems(ROWS, all({ repo: 'demo-org/nimbus-mobile' }), 'u-pierre').map((i) => i.title)).toEqual(['Offline quotes on the site app']);
+    expect(historyItems(ROWS, all({ repo: 'demo-org/elsewhere' }), 'u-pierre')).toEqual([]);
   });
 
   it('keeps the drafts, or the numbered PRDs', () => {
@@ -164,7 +164,7 @@ describe('Mine and All', () => {
 
   it('combines with the repository, the state and the search', () => {
     expect(historyItems(EVERY, { who: 'mine', state: 'prd' }, 'u-pierre').map((i) => i.heading)).toEqual(['#216', '#71']);
-    expect(historyItems(EVERY, { who: 'mine', repo: 'vertuoza/vertuo-mobile' }, 'u-pierre').map((i) => i.heading)).toEqual(['DRAFT']);
+    expect(historyItems(EVERY, { who: 'mine', repo: 'demo-org/nimbus-mobile' }, 'u-pierre').map((i) => i.heading)).toEqual(['DRAFT']);
     expect(historyItems(EVERY, { who: 'mine', search: 'ask' }, 'u-pierre').map((i) => i.heading)).toEqual(['#71']);
     expect(historyItems(EVERY, { who: 'mine', state: 'prd', search: 'paula' }, 'u-pierre')).toEqual([]);
     expect(historyItems(EVERY, all({ state: 'prd', search: 'paula' }), 'u-pierre').map((i) => i.heading)).toEqual(['#300']);
@@ -174,7 +174,7 @@ describe('Mine and All', () => {
 describe('what the repository filter offers', () => {
   it('every repository of every dossier, once each, in order', () => {
     expect(historyChoices(ROWS).repos).toEqual([
-      'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-core', 'vertuoza/vertuo-mobile', 'vertuoza/vertuo-omni-loop',
+      'demo-org/nimbus-ai-domain', 'demo-org/nimbus-core', 'demo-org/nimbus-mobile', 'vertuoza/vertuo-omni-loop',
     ]);
     expect(historyChoices([]).repos).toEqual([]);
   });
@@ -220,7 +220,7 @@ describe('the open questions (PRD 251)', () => {
       { workspace_id: 'w1', repository: DOSSIERS.home_repo, prd: parsePrd(216), open_questions: 2, waiting: [] },
       { workspace_id: 'w1', repository: WAITING.home_repo, prd: parsePrd(251), open_questions: 0, waiting: [] },
       { workspace_id: 'w2', repository: OTHER.home_repo, prd: parsePrd(216), open_questions: 5, waiting: [] },
-      { workspace_id: 'w1', repository: 'vertuoza/elsewhere', prd: parsePrd(71), open_questions: 9, waiting: [] },
+      { workspace_id: 'w1', repository: 'demo-org/elsewhere', prd: parsePrd(71), open_questions: 9, waiting: [] },
     ]);
     const github = vi.fn();
     vi.stubGlobal('fetch', github);
@@ -301,7 +301,7 @@ describe('the stages (PRD 587)', () => {
     expect(counts(ALL)).toEqual({ ...none, idea: 1, inbox: 2, shipped: 1 });
     expect(counts(all({ stage: 'shipped' }))).toEqual(counts(ALL));
     expect(counts({ who: 'mine' })).toEqual({ ...none, idea: 1, inbox: 1, shipped: 1 });
-    expect(counts(all({ repo: 'vertuoza/vertuo-core' }))).toEqual({ ...none, inbox: 1 });
+    expect(counts(all({ repo: 'demo-org/nimbus-core' }))).toEqual({ ...none, inbox: 1 });
     expect(counts(all({ state: 'draft' }))).toEqual({ ...none, idea: 1 });
     expect(counts(all({ search: 'ask' }))).toEqual({ ...none, shipped: 1 });
     expect(counts(all({ needsAnswer: true }), new Map([[PAULAS.id, 2]]))).toEqual({ ...none, inbox: 1 });

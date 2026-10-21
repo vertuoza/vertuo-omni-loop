@@ -1,4 +1,4 @@
-import { graphProblem, RepositoryGraphSchema } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
+import { graphProblem, RepositoryGraphSchema } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
 import { callerOrigin, type TokenCheck } from '../ask/auth';
 import { reply } from '../business-api/reply';
 import { bodyOf, receivePush, refuse } from '../data/kit-push';
