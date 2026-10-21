@@ -1,7 +1,7 @@
 // What the knowledge harvest reads (PRD 725, s20): its event and GitHub's answers, extra fields and
 // all; one missing what the harvest uses fails, naming the field.
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { asSaved } from '../saved-step.ts';
 import {
   ClassificationOutSchema,

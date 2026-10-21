@@ -39,7 +39,7 @@ Do not pass `--type-aware` to the commands above, and leave `typeAware.enabled` 
 `.fallowrc.jsonc`. A type-aware baseline records an `analysis_identity.completeness` that
 describes the run, not the config: the same commit reports `complete` on one machine and
 `partial` on another, and `fallow audit` then fails with exit 2 whatever the baseline holds
-(vertuoza/vnext hit this and runs syntactic baselines for the same reason). The optional
+(demo-org/vnext hit this and runs syntactic baselines for the same reason). The optional
 `fallow-type-aware` package is not installed here (`pnpm.ignoredOptionalDependencies` in the root
 `package.json`).
 

@@ -3,7 +3,7 @@
 // each, and in `acme/mobile`, where the App is not installed. The plan PR is #12; the back-end's
 // feature PR #40 took three slices, one of them slow; the front-end's #50 took one. Test support
 // only; nothing in the app imports it.
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { type Recorded, httpError, replayGitHub } from '../../../test/github-replay.ts';
 import { addedPatch, hunkPatch } from '../kinds/churn.fixtures/delivery.ts';
 import { MERGE_SHA, MERGED_AT, SPEC, retroEvent } from '../../../test/retro-scenario.ts';

@@ -36,7 +36,7 @@
 <div class="doc">
   <h1>Bug fixes prove a bug that only shows in a production build</h1>
   <p class="lead">PRD 2275. <code>/omni:bug-fix</code> and <code>/omni:mega-bug-fix</code>, replayed on the crash of
-    vertuoza/vertuo-apps v3.14.22: 983 React #130 errors on <code>/crm/opportunities</code>, first seen
+    demo-org/nimbus-apps v3.14.22: 983 React #130 errors on <code>/crm/opportunities</code>, first seen
     2026-10-20 10:32 UTC, caused by a CommonJS default import the production bundle wraps in
     <code>__toESM(require_realistic(), 1)</code>.</p>
 
@@ -70,7 +70,7 @@
   <div class="pair">
     <div class="side today">
       <span class="tag">Today</span>
-      <pre><span class="m"># vertuo-apps .omni-loop/config.yml</span>
+      <pre><span class="m"># nimbus-apps .omni-loop/config.yml</span>
 commands:
   setup: bun install --frozen-lockfile
   preflightFull: bun run fmt:check &amp;&amp; bun run lint:ws
@@ -80,7 +80,7 @@ commands:
     </div>
     <div class="side after">
       <span class="tag">After</span>
-      <pre><span class="m"># vertuo-apps .omni-loop/config.yml</span>
+      <pre><span class="m"># nimbus-apps .omni-loop/config.yml</span>
 commands:
   setup: bun install --frozen-lockfile
   preflightFull: bun run fmt:check &amp;&amp; …
@@ -97,7 +97,7 @@ commands:
       <pre>## Triage
 
 - **Kind:** behaviour bug
-- **Domain:** vertuo-front › CRM opportunities
+- **Domain:** nimbus-front › CRM opportunities
 - **Risk:** critical — the kanban crashes for every user
 - **Regression:** <span class="r">new bug — no evidence this ever worked</span>
 - **Reproduction:** `…`   <span class="m">← needed before posting</span>
@@ -109,7 +109,7 @@ commands:
       <pre>## Triage
 
 - **Kind:** behaviour bug
-- **Domain:** vertuo-front › CRM opportunities
+- **Domain:** nimbus-front › CRM opportunities
 - **Risk:** critical — the kanban crashes for every user
 - **Regression:** <span class="g">yes — v3.14.21..v3.14.22 (first seen
   2026-10-20 10:32 UTC, none before)</span>
@@ -136,7 +136,7 @@ Maybe: #…</pre>
       <pre><span class="r">&gt; [!CAUTION]
 &gt; critical — nothing is fixed.</span>
 
-The bug lives in the build and vertuo-apps commits
+The bug lives in the build and nimbus-apps commits
 no commands.smoke: stop rule 7.
 
 Suspect: opportunities-confetti.tsx:4
@@ -161,7 +161,7 @@ Commit in .omni-loop/config.yml, then rerun:
       <span class="tag">After</span>
       <pre><span class="g">Guard: /crm/opportunities in commands.smoke, run by CI</span>
 <span class="m">or, when CI does not run it:</span>
-Guard: none — vertuo-apps's CI does not run commands.smoke</pre>
+Guard: none — nimbus-apps's CI does not run commands.smoke</pre>
       <p>The second form names the CI step to add, in the PR and on the issue. The skill never edits CI.</p>
     </div>
   </div>

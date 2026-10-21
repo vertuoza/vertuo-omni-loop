@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { dossierRounds } from '../store';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { pulseOf, signature } from './live';
 import { fakeSupabase as askFake } from '../../ask/store.fake';
 import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPlanSlices, readPulse, readSandboxed } from './source';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -13,10 +13,10 @@ vi.mock('server-only', () => ({}));
 // ../store.fake.ts, which keeps the migration's access rules), so a member of the dossier's workspace
 // reads it and anyone else reads nothing, exactly as if it never was.
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', name: 'ADA' };
-const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com', name: 'ADA' };
+const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com' };
 const OTHER = '00000000-0000-4000-8000-00000000aced';
-const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: [OTHER] };
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@example.com', workspaces: [OTHER] };
 const MISSING = '00000000-0000-4000-8000-00000000ffff';
 
 const SPEC = '---\nprd: 7\n---\n# Team inbox\n';
@@ -45,7 +45,7 @@ describe('reading a dossier as the viewer', () => {
     expect(read?.dossier).toMatchObject({ id: numbered, prd: 7, title: 'Team inbox', home_repo: 'acme/widgets', opened_by: ADA.id });
     expect(read?.versions.map((v) => [v.kind, v.uploaded_by])).toEqual([['spec', ADA.id], ['before-after', ADA.id], ['before-after', BOB.id]]);
     expect(read?.versions[0]).not.toHaveProperty('content');
-    expect(read?.members.map((m) => m.email).sort()).toEqual(['ada@vertuoza.com', 'bob@vertuoza.com']);
+    expect(read?.members.map((m) => m.email).sort()).toEqual(['ada@example.com', 'bob@example.com']);
   });
 
   it('gives a member of another workspace nothing, as if it never was', async () => {
@@ -344,7 +344,7 @@ describe('reading the change check (PRD 384)', () => {
 });
 
 describe('who may answer a round on the list (PRD 384), decided on the server', () => {
-  const DORA = { id: '00000000-0000-4000-8000-0000000000d7', email: 'dora@vertuoza.com' };
+  const DORA = { id: '00000000-0000-4000-8000-0000000000d7', email: 'dora@example.com' };
   const ACCOUNTS = { ada: ADA, bob: BOB, dora: DORA };
 
   async function asked() {

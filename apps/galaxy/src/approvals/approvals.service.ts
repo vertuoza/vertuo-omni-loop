@@ -1,5 +1,5 @@
-import type { Asking } from 'vertuo-omni-plan/kit/lib/approval/stream.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Asking } from 'omni-loop/kit/lib/approval/stream.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { renderMarkdownBody } from '../dossier/markdown';
 import { notifyAll, type Channels, type Message } from '../notify/notify';
 import type { Answer, ApprovalsRepository, ReachRepository, Refusal, Requested } from './approvals.repository';

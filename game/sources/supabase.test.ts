@@ -9,7 +9,7 @@ const ev = (id: string, at: string, extra: Record<string, unknown> = {}) => ({ i
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
 const ACME = 'b0000000-0000-4000-8000-000000000002';
 const workspaces = () => [
-  { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', theme: {}, created_at: '2026-09-26T12:00:00+00:00' },
+  { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'demo-org', plan_repo: 'nimbus-plan', theme: {}, created_at: '2026-09-26T12:00:00+00:00' },
   { id: ACME, slug: 'acme', name: 'Acme', github_org: 'acme-gh', plan_repo: 'acme-plan', theme: { plasma: '#2fc6a4' }, created_at: '2026-09-27T12:00:00+00:00' },
 ];
 const restOn = (fake: { fetch: (href: string, init?: Init) => Promise<Reply> }) => supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fake.fetch });
@@ -100,8 +100,8 @@ describe('loadConfig', () => {
       { workspace_id: ACME, github_login: 'wile', team: 'roadrunner' },
     ],
     repositories: [
-      { workspace_id: VERTUOZA, full_name: 'vertuoza/core-repo', tracked: true },
-      { workspace_id: VERTUOZA, full_name: 'vertuoza/old-repo', tracked: false },
+      { workspace_id: VERTUOZA, full_name: 'demo-org/core-repo', tracked: true },
+      { workspace_id: VERTUOZA, full_name: 'demo-org/old-repo', tracked: false },
       { workspace_id: ACME, full_name: 'acme-gh/acme-rockets', tracked: true },
     ],
   });
@@ -109,7 +109,7 @@ describe('loadConfig', () => {
   it('builds the config from one workspace\'s four tables, with only linked players on the roster', async () => {
     const c = await loadConfig(restOn(fakeSupabase(tables())), VERTUOZA);
     expect(c.repos).toEqual(['core-repo']);
-    expect(c.tracked).toEqual(['vertuoza/core-repo']); // PRD 728: only the workspace's tracked repositories are read
+    expect(c.tracked).toEqual(['demo-org/core-repo']); // PRD 728: only the workspace's tracked repositories are read
     expect(Object.keys(c.teams)).toEqual(['beaver']);
     expect(c.teams.beaver).toMatchObject({ label: 'BEAVER', retired: false });
     expect(c.roster).toEqual({ alice: 'beaver' });
@@ -261,7 +261,7 @@ describe('exportWorkspace', () => {
 
 describe('the answered rounds (PRD 1180)', () => {
   const ROUND = '00000000-0000-4000-8000-0000000000a1';
-  const row = (over: Record<string, unknown> = {}) => ({ round_id: ROUND, answered_at: '2026-10-02T09:30:00.123456+00:00', prd: 1180, home: 'vertuoza/vertuo-omni-loop', login: 'alice', ...over });
+  const row = (over: Record<string, unknown> = {}) => ({ round_id: ROUND, answered_at: '2026-10-02T09:30:00.123456+00:00', prd: 1180, home: 'demo-org/vertuo-omni-loop', login: 'alice', ...over });
   type RpcCall = { fn: string | undefined; method: string | undefined; body: unknown; headers: Init['headers'] };
   // The tables answer through the fake; a call to /rpc/<fn> answers `rows`, or fails with `status`.
   const withRpc = (tables: Parameters<typeof fakeSupabase>[0], { rows = [row()], status = 200 }: { rows?: unknown[]; status?: number } = {}) => {
@@ -291,10 +291,10 @@ describe('the answered rounds (PRD 1180)', () => {
   });
 
   it('reads the workspace\'s rounds since its game_since, as the projector takes them', async () => {
-    const { rest, rpcCalls } = withRpc(tables(), { rows: [row(), row({ round_id: 'r2', login: 'Pierre-Derval', home: 'Vertuoza/Plan', answered_at: '2026-10-03T10:00:00+00:00' })] });
+    const { rest, rpcCalls } = withRpc(tables(), { rows: [row(), row({ round_id: 'r2', login: 'Pierre-Derval', home: 'Demo-Org/Plan', answered_at: '2026-10-03T10:00:00+00:00' })] });
     expect(await loadAnsweredRounds(rest, VERTUOZA)).toEqual([
-      { roundId: ROUND, answeredAt: '2026-10-02T09:30:00Z', prd: 1180, home: 'vertuoza/vertuo-omni-loop', login: 'alice' },
-      { roundId: 'r2', answeredAt: '2026-10-03T10:00:00Z', prd: 1180, home: 'vertuoza/plan', login: 'pierre-derval' },
+      { roundId: ROUND, answeredAt: '2026-10-02T09:30:00Z', prd: 1180, home: 'demo-org/vertuo-omni-loop', login: 'alice' },
+      { roundId: 'r2', answeredAt: '2026-10-03T10:00:00Z', prd: 1180, home: 'demo-org/plan', login: 'pierre-derval' },
     ]);
     expect(rpcCalls.map((c) => c.body)).toEqual([{ workspace: VERTUOZA, since: '2026-09-15T08:00:00+00:00' }]);
   });

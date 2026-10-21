@@ -6,7 +6,7 @@
 // - The releases after it are a sample, not a record: plausible notes written by the rules every
 //   note follows, spread over five weeks so the page shows four open and folds the oldest.
 import type { ReleaseRow } from './row.ts';
-import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const initial = (prd: PrdNumber, released_at: string, title: string, description: string): ReleaseRow =>
   ({ prd, release: 1, released_at, title, description });

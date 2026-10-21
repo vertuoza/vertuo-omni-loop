@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RepositoryGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph-schema.ts';
+import type { RepositoryGraph } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
 import type { ProductGraphRepository, StoredProductRow } from './product-graph.repository';
 import { productGraphService } from './product-graph.service';
 
@@ -26,8 +26,8 @@ function repositoryOf({ product = PRODUCT }: { product?: StoredProductRow | null
     productById: (id) => Promise.resolve(product?.id === id ? product : null),
     links: () => Promise.resolve([
       { repository: 'vertuoza/vertuo-omni-loop', knowledge: 'own' as const },
-      { repository: 'vertuoza/back-end', knowledge: 'own' as const },
-      { repository: 'vertuoza/design', knowledge: 'imported' as const },
+      { repository: 'demo-org/back-end', knowledge: 'own' as const },
+      { repository: 'demo-org/design', knowledge: 'imported' as const },
     ]),
     legal: () => Promise.resolve([
       { code: 'INVOICING', number: 1, statement: 'An invoice keeps its number.', retired_at: null },
@@ -57,7 +57,7 @@ describe('productGraphService', () => {
       { repo: 'back-end', commit: null, pushedAt: null, pushedBy: null, graph: 'own' },
       { repo: 'design', commit: null, pushedAt: null, pushedBy: null, graph: 'none' },
     ]);
-    expect(asked).toEqual(['vertuoza/vertuo-omni-loop', 'vertuoza/back-end']);
+    expect(asked).toEqual(['vertuoza/vertuo-omni-loop', 'demo-org/back-end']);
   });
 
   it('answers the neighbourhood of a node by the product’s key', async () => {

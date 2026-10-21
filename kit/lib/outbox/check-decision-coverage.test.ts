@@ -102,7 +102,7 @@ describe('findFormatViolations — every account file, whatever the PRD', () => 
 
 describe('gradePrd', () => {
   const risky = [
-    { path: 'libs/vertuo-ai-credit/src/server/migrations.ts', status: 'M', rule: 'stored-shape' },
+    { path: 'libs/nimbus-ai-credit/src/server/migrations.ts', status: 'M', rule: 'stored-shape' },
   ];
 
   it('a risky change with no account anywhere is unaccounted, and the printed line names path and rule', () => {
@@ -114,14 +114,14 @@ describe('gradePrd', () => {
 
     assertDefined(result.unaccounted[0], 'result.unaccounted[0]');
     const line = describeUnaccounted(parsePrd(1044), result.unaccounted[0]);
-    expect(line).toBe('PRD #1044: `libs/vertuo-ai-credit/src/server/migrations.ts` is risky (stored-shape) and no account names it.');
+    expect(line).toBe('PRD #1044: `libs/nimbus-ai-credit/src/server/migrations.ts` is risky (stored-shape) and no account names it.');
   });
 
   it('a risky change named by an account is accounted for', () => {
     const body = [
       '## Risky changes',
       '',
-      '- `libs/vertuo-ai-credit/src/server/migrations.ts`',
+      '- `libs/nimbus-ai-credit/src/server/migrations.ts`',
       '  stored-shape',
       '  spec Solution, §2 — The account.',
       '',
@@ -235,10 +235,10 @@ describe('rangeChanges, on a real repository', () => {
   });
 
   it('ordinary work is not risky, and with no account file anywhere the grade is green', () => {
-    write('apps/vertuo-ai-api/src/foo.service.ts', 'export const foo = 1;\n');
+    write('apps/nimbus-api/src/foo.service.ts', 'export const foo = 1;\n');
     commit('ordinary change');
     const changes = rangeChanges({ ctx, base: 'origin/main' });
-    expect(changes).toEqual([{ status: 'A', path: 'apps/vertuo-ai-api/src/foo.service.ts' }]);
+    expect(changes).toEqual([{ status: 'A', path: 'apps/nimbus-api/src/foo.service.ts' }]);
     expect(riskyChanges(changes, { ctx })).toEqual([]);
 
     const result = gradePrd(parsePrd(1044), riskyChanges(changes, { ctx }), { ctx });
@@ -257,7 +257,7 @@ describe('rangeChanges, on a real repository', () => {
   });
 
   it('a merge of main widens nothing (the three-dot property)', () => {
-    write('apps/vertuo-ai-api/src/foo.service.ts', 'export const foo = 1;\n');
+    write('apps/nimbus-api/src/foo.service.ts', 'export const foo = 1;\n');
     commit('feature change');
 
     git(['checkout', '-q', 'main']);
@@ -268,7 +268,7 @@ describe('rangeChanges, on a real repository', () => {
     git(['merge', '-q', '--no-edit', 'main']);
 
     expect(rangeChanges({ ctx, base: 'origin/main' })).toEqual([
-      { status: 'A', path: 'apps/vertuo-ai-api/src/foo.service.ts' },
+      { status: 'A', path: 'apps/nimbus-api/src/foo.service.ts' },
     ]);
   });
 

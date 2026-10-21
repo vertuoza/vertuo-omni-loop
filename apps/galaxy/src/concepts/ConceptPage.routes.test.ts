@@ -10,10 +10,10 @@ import { CONCEPT_1269 } from './list.fixture';
 // its two sandboxed frame routes open for a member of the concept's workspace, and are not found to anyone
 // else and for a dossier of another kind; a concept opened on /prd/<id> is sent to /concepts/<id>.
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', name: 'ADA' };
-const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com', name: 'ADA' };
+const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com' };
 const OTHER = '00000000-0000-4000-8000-00000000aced';
-const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: [OTHER] };
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@example.com', workspaces: [OTHER] };
 
 const given = vi.hoisted(() => ({
   mode: 'supabase',

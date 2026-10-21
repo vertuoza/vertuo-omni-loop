@@ -34,7 +34,7 @@
 // and `ask(request)` (the kit's OpenRouter client, bound to its key and model). ./live.ts binds them.
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { NO_KEY } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
+import { NO_KEY } from 'omni-loop/kit/lib/openrouter.ts';
 import { type Business, type Claim, type Constituent, type Constituents, FindingSchema, type Legal, type Persona, ReplyPersonaSchema } from './schema.ts';
 
 /** A break the gate keeps: the spec's words, the claims they break, and why. */

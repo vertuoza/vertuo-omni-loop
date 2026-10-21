@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { OutboxStand } from '../dossier/page/stage';
 import { answeredAll, prdOfLine, shouldContinue, type JobSeen } from './continue';
 
@@ -97,6 +97,8 @@ describe('prdOfLine', () => {
 
   it('reads none from a fix\'s line, a product PRD\'s, a line with no number, or a line off the list', () => {
     expect(prdOfLine('/omni:bug-fix 2270')).toBeNull();
+    expect(prdOfLine('/validate-prd 2270')).toBeNull();
+    expect(prdOfLine('/yolo 2270')).toBeNull();
     expect(prdOfLine('/omni:yolo mobile-12')).toBeNull();
     expect(prdOfLine('/omni:yolo')).toBeNull();
     expect(prdOfLine('/omni:yolo 22x')).toBeNull();

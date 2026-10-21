@@ -1,5 +1,5 @@
 import { personaGrid } from '@omni/design';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { pixelSvg } from '../../design/pixel-svg';
 import { StageHeaderCopy } from './StageHeaderCopy';
 import type { VoiceCell, VoiceRow, VoiceView } from './voice';

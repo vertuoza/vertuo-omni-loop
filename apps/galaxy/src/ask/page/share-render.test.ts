@@ -35,7 +35,7 @@ describe('Share, on the session page', () => {
 });
 
 describe('the Share button', () => {
-  const candidates = [{ id: 'po', label: 'PAULA', face: PHOTO }, { id: 'ux', label: 'uma@vertuoza.com' }];
+  const candidates = [{ id: 'po', label: 'PAULA', face: PHOTO }, { id: 'ux', label: 'uma@example.com' }];
   const button = (initial: Parameters<typeof ShareButton>[0]['initial']) =>
     renderToStaticMarkup(createElement(ShareButton, { roundId: 'r1', candidates, onShare: () => Promise.resolve(true), origin: 'https://galaxy.example', initial }));
 
@@ -43,7 +43,7 @@ describe('the Share button', () => {
     const html = button({ kind: 'picking' });
     expect(html).toMatch(/<select[^>]*class="ask-share-pick"/);
     expect(html).toContain('<option value="po" selected="">PAULA</option>');
-    expect(html).toContain('<option value="ux">uma@vertuoza.com</option>');
+    expect(html).toContain('<option value="ux">uma@example.com</option>');
   });
 
   it('then gives the link to copy, and who it went to', () => {
@@ -61,7 +61,7 @@ describe('the Share button', () => {
   });
 
   it('draws the initial of a member shared with whose face is not known, and keeps the options text only (PRD 652)', () => {
-    expect(button({ kind: 'shared', with: 'ux', copy: 'idle' })).toContain('<span class="person-face is-initial" aria-hidden="true" data-initial="U"></span>uma@vertuoza.com');
+    expect(button({ kind: 'shared', with: 'ux', copy: 'idle' })).toContain('<span class="person-face is-initial" aria-hidden="true" data-initial="U"></span>uma@example.com');
     expect(button({ kind: 'picking' })).not.toMatch(/<option[^>]*>[^<]*<(?:img|span)/);
   });
 
@@ -105,18 +105,18 @@ describe('the shared question, at /ask/q/<round>', () => {
 describe('For me', () => {
   it('lists each question with its session, who shared it and its time left, linking to it', () => {
     const html = renderToStaticMarkup(createElement(ForMe, {
-      entries: [{ roundId: 'r1', question: 'Which plan?', sessionTitle: 'vertuo-core · feat/plans', sharedBy: 'ADA', minutesLeft: 4 }],
+      entries: [{ roundId: 'r1', question: 'Which plan?', sessionTitle: 'nimbus-core · feat/plans', sharedBy: 'ADA', minutesLeft: 4 }],
     }));
     expect(html).toContain('<a class="ask-for-me-link" href="/ask/q/r1">');
     expect(html).toContain('Which plan?');
-    expect(text(html)).toContain('vertuo-core · feat/plans · shared by ADA · 4 min left');
+    expect(text(html)).toContain('nimbus-core · feat/plans · shared by ADA · 4 min left');
     expect(html).toContain('shared by <span class="person-chip is-inline"><span class="person-face is-initial" aria-hidden="true" data-initial="A"></span>ADA</span>');
     expect(html).toContain('4 min left');
   });
 
   it('keeps who shared plain inside the question\'s link: no link in a link (PRD 698)', () => {
     const html = renderToStaticMarkup(createElement(ForMe, {
-      entries: [{ roundId: 'r1', question: 'Which plan?', sessionTitle: 'vertuo-core', sharedBy: 'PAULA', sharedByFace: PHOTO, minutesLeft: 4 }],
+      entries: [{ roundId: 'r1', question: 'Which plan?', sessionTitle: 'nimbus-core', sharedBy: 'PAULA', sharedByFace: PHOTO, minutesLeft: 4 }],
     }));
     expect(html).toContain('person-chip');
     expect(nestedLinks(html)).toBe(0);
@@ -124,10 +124,10 @@ describe('For me', () => {
 
   it('draws the sharer\'s face before their name, when the directory decided one (PRD 652)', () => {
     const html = renderToStaticMarkup(createElement(ForMe, {
-      entries: [{ roundId: 'r1', question: 'Which plan?', sessionTitle: 'vertuo-core', sharedBy: 'PAULA', sharedByFace: PHOTO, minutesLeft: 4 }],
+      entries: [{ roundId: 'r1', question: 'Which plan?', sessionTitle: 'nimbus-core', sharedBy: 'PAULA', sharedByFace: PHOTO, minutesLeft: 4 }],
     }));
     expect(html).toContain('<img class="person-face is-photo" src="https://github.com/paula.png?size=48" alt=""');
-    expect(text(html)).toContain('vertuo-core · shared by PAULA · 4 min left');
+    expect(text(html)).toContain('nimbus-core · shared by PAULA · 4 min left');
   });
 
   it('says when nothing waits', () => {

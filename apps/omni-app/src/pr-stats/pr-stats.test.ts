@@ -1,4 +1,4 @@
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { InngestTestEngine } from '@inngest/test';
 import { internalEvents } from 'inngest';
 import { describe, expect, it, vi } from 'vitest';
@@ -26,9 +26,9 @@ describe('prStats — the Inngest function', () => {
   });
 
   it('collects every tracked repository of every installed workspace, through each installation', async () => {
-    const github = fakeGitHub({ 'vertuoza/apps': { pulls: [pull(parsePr(1), { updated_at: '2026-09-28T10:00:00Z' })] }, 'acme/web': { pulls: [pull(parsePr(4), { updated_at: '2026-09-27T10:00:00Z' })] } });
+    const github = fakeGitHub({ 'demo-org/apps': { pulls: [pull(parsePr(1), { updated_at: '2026-09-28T10:00:00Z' })] }, 'acme/web': { pulls: [pull(parsePr(4), { updated_at: '2026-09-27T10:00:00Z' })] } });
     const store = fakeStore([
-      { workspaceId: 'ws-vertuoza', installationId: 7, fullName: 'vertuoza/apps' },
+      { workspaceId: 'ws-vertuoza', installationId: 7, fullName: 'demo-org/apps' },
       { workspaceId: 'ws-acme', installationId: 9, fullName: 'acme/web' },
     ]);
     const octokitFor = vi.fn<(installationId: number) => Promise<typeof github.octokit>>(() => Promise.resolve(github.octokit));
@@ -41,7 +41,7 @@ describe('prStats — the Inngest function', () => {
     expect(storeFor).toHaveBeenCalledWith({ url: ENV.SUPABASE_URL, key: ENV.SUPABASE_SERVICE_ROLE_KEY });
     expect(octokitFor.mock.calls.map(([id]) => id).sort()).toEqual([7, 9]);
     expect(result).toMatchObject({ repositories: 2, collected: 2, failed: 0, saved: 2 });
-    expect([...store.state.pulls.keys()].sort()).toEqual(['ws-acme|acme/web|4', 'ws-vertuoza|vertuoza/apps|1']);
+    expect([...store.state.pulls.keys()].sort()).toEqual(['ws-acme|acme/web|4', 'ws-vertuoza|demo-org/apps|1']);
   });
 
   it('says it by default as a JSON note line at warn, today’s sentence as its message (PRD 1723 s6)', async () => {

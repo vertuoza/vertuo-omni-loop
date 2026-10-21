@@ -1,5 +1,5 @@
 import { questionsOf, type AgentQuestion } from './model';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // The questions' read for Settings › Business (PRD 855 s3): the workspace's open questions, as the
 // signed-in person. One the page can do without: unreadable (or a database from before PRD 855 s3), it

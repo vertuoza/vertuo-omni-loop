@@ -16,9 +16,9 @@
 // The fix PRs are read with the Octokit the kind is given, the plan repository's installation: a
 // target in another installation is answered 403 or 404 and listed as not read (item of PRD 1130 s3).
 import { z } from 'zod';
-import { IssueNumberSchema, PrNumberSchema, type IssueNumber, type PrNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { fixPlanRows, linksPrd, FIX_PLAN_MARKER } from 'vertuo-omni-plan/kit/lib/care/list.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import { IssueNumberSchema, PrNumberSchema, type IssueNumber, type PrNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { fixPlanRows, linksPrd, FIX_PLAN_MARKER } from 'omni-loop/kit/lib/care/list.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { shortName } from '../targets.ts';
 import type { FactSheet, TargetRead } from '../retro.types.ts';

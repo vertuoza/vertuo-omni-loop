@@ -16,7 +16,7 @@ import { CARD_FIT, cardPages, ChartOverlay, servesLine, SystemOverlay, wrap } fr
 import type { FrameState } from './common.ts';
 import { drawFrame, layoutMap } from './index.ts';
 import { sure } from '../test/sure';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const entry = (id: string, kind: KnowledgeEntry['kind'], domain: string | null, over: Partial<KnowledgeEntry> = {}): KnowledgeEntry => ({
   id, kind, domain, domains: domain ? [domain] : [], statement: `${id} holds.`, why: null, status: 'proposed', serves: null,

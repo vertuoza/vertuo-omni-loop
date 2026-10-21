@@ -2,7 +2,7 @@
 // built-ins and npm packages. Every TypeScript file git tracks is read from its syntax tree: a static
 // import, an `export … from`, a dynamic `import('literal')`, an `import x = require(…)` and a type's
 // `import('…')`, type-only ones included, since a type couples the layers all the same. The three
-// spellings this repository uses (a relative path, `vertuo-omni-plan/…` and `@omni/*`, through the
+// spellings this repository uses (a relative path, `<the root package>/…` and `@omni/*`, through the
 // workspace packages' names and exports) resolve to a zone, and the zone's row of the rule table
 // decides. A test may also import `kit/test` and `kit/bin`; every other rule holds for tests too.
 // Then the arcade's client and server: a module the client can reach never reaches one marked
@@ -23,6 +23,8 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
+/** The root package's name, read from its package.json: the fixtures import through it as the sources do. */
+const ROOT = z.object({ name: z.string() }).parse(JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))).name;
 
 /** One fixture file's findings, as `line rule`. */
 const found = (path: string, text: string): string[] => findViolations([{ path, text }]).map((v) => `${v.line} ${v.rule}`);
@@ -68,39 +70,39 @@ describe('the import guard, on fixtures: the rule table', () => {
   });
 
   it('lets packages/galaxy import the game, @omni/design and kit/lib/ids, and refuses it the apps and the rest of the kit', () => {
-    expect(found('packages/galaxy/src/a.ts', "import { rulebook } from 'vertuo-omni-plan/game/rulebook.ts';\nimport { tokens } from '../../design/src/index.ts';\nimport type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';\n")).toEqual([]);
+    expect(found('packages/galaxy/src/a.ts', `import { rulebook } from '${ROOT}/game/rulebook.ts';\nimport { tokens } from '../../design/src/index.ts';\nimport type { PrdNumber } from '${ROOT}/kit/lib/ids.ts';\n`)).toEqual([]);
     expect(found('packages/galaxy/src/a.ts', "import { x } from '../../../apps/galaxy/src/x.ts';\n")).toEqual(['1 packages/galaxy may import game, packages/design, kit/lib/ids, not apps/galaxy']);
-    expect(found('packages/galaxy/src/a.ts', "import { narrow } from 'vertuo-omni-plan/kit/lib/narrow.ts';\n")).toEqual(['1 packages/galaxy may import game, packages/design, kit/lib/ids, not kit/lib']);
+    expect(found('packages/galaxy/src/a.ts', `import { narrow } from '${ROOT}/kit/lib/narrow.ts';\n`)).toEqual(['1 packages/galaxy may import game, packages/design, kit/lib/ids, not kit/lib']);
   });
 
   it('lets packages/design import kit/lib by package name only, and refuses it the apps and the game', () => {
-    expect(found('packages/design/src/a.ts', "import { narrow } from 'vertuo-omni-plan/kit/lib/narrow.ts';\n")).toEqual([]);
+    expect(found('packages/design/src/a.ts', `import { narrow } from '${ROOT}/kit/lib/narrow.ts';\n`)).toEqual([]);
     expect(found('packages/design/src/a.ts', "import { narrow } from '../../../kit/lib/narrow.ts';\n")).toEqual([
       '1 packages/design may import kit/lib (by package name), not kit/lib by a relative path',
     ]);
-    expect(found('packages/design/src/a.ts', "import { rulebook } from 'vertuo-omni-plan/game/rulebook.ts';\n")).toEqual(['1 packages/design may import kit/lib (by package name), not game']);
+    expect(found('packages/design/src/a.ts', `import { rulebook } from '${ROOT}/game/rulebook.ts';\n`)).toEqual(['1 packages/design may import kit/lib (by package name), not game']);
     expect(found('packages/design/src/a.ts', "import { x } from '../../../apps/galaxy/src/x.ts';\n")).toEqual(['1 packages/design may import kit/lib (by package name), not apps/galaxy']);
   });
 
   it('lets the GitHub App import kit/lib, @omni/design and the supabase types, and refuses it the arcade, kit/bin, kit/test and the game', () => {
-    expect(found('apps/omni-app/src/a.ts', "import { x } from 'vertuo-omni-plan/kit/lib/x.ts';\nimport type { Database } from '../../../supabase/database.types.ts';\n")).toEqual([]);
+    expect(found('apps/omni-app/src/a.ts', `import { x } from '${ROOT}/kit/lib/x.ts';\nimport type { Database } from '../../../supabase/database.types.ts';\n`)).toEqual([]);
     expect(found('apps/omni-app/src/a.ts', "import { ask } from '../../galaxy/src/ask/api.ts';\n")).toEqual([
       '1 apps/omni-app may import kit/lib, packages/design, the supabase types, not apps/galaxy',
     ]);
-    expect(found('apps/omni-app/src/a.ts', "import { dig } from 'vertuo-omni-plan/kit/bin/dig.ts';\n")).toEqual([
+    expect(found('apps/omni-app/src/a.ts', `import { dig } from '${ROOT}/kit/bin/dig.ts';\n`)).toEqual([
       '1 apps/omni-app may import kit/lib, packages/design, the supabase types, not kit/bin',
     ]);
-    expect(found('apps/omni-app/src/a.ts', "import { rulebook } from 'vertuo-omni-plan/game/rulebook.ts';\n")).toEqual([
+    expect(found('apps/omni-app/src/a.ts', `import { rulebook } from '${ROOT}/game/rulebook.ts';\n`)).toEqual([
       '1 apps/omni-app may import kit/lib, packages/design, the supabase types, not game',
     ]);
   });
 
   it('lets the arcade import kit/lib, @omni/*, the game, the supabase types and the root manifest, and refuses it the GitHub App, kit/bin and kit/test', () => {
     const text = [
-      "import { narrow } from 'vertuo-omni-plan/kit/lib/narrow.ts';",
+      `import { narrow } from '${ROOT}/kit/lib/narrow.ts';`,
       "import { Button } from '@omni/design';",
       "import { Galaxy } from '@omni/galaxy';",
-      "import { rulebook } from 'vertuo-omni-plan/game/rulebook.ts';",
+      `import { rulebook } from '${ROOT}/game/rulebook.ts';`,
       "import type { Database } from '../../../supabase/database.types';",
       "import pkg from '../../../package.json' with { type: 'json' };",
       '',
@@ -109,10 +111,10 @@ describe('the import guard, on fixtures: the rule table', () => {
     expect(found('apps/galaxy/src/a.ts', "import { check } from '../../omni-app/src/check.ts';\n")).toEqual([
       '1 apps/galaxy may import kit/lib, packages/design, packages/galaxy, game, the supabase types, the root manifest, not apps/omni-app',
     ]);
-    expect(found('apps/galaxy/src/a.ts', "import { dig } from 'vertuo-omni-plan/kit/bin/dig.ts';\n")).toEqual([
+    expect(found('apps/galaxy/src/a.ts', `import { dig } from '${ROOT}/kit/bin/dig.ts';\n`)).toEqual([
       '1 apps/galaxy may import kit/lib, packages/design, packages/galaxy, game, the supabase types, the root manifest, not kit/bin',
     ]);
-    expect(found('apps/galaxy/src/a.ts', "import { sure } from 'vertuo-omni-plan/kit/test/assert.ts';\n")).toEqual([
+    expect(found('apps/galaxy/src/a.ts', `import { sure } from '${ROOT}/kit/test/assert.ts';\n`)).toEqual([
       '1 apps/galaxy may import kit/lib, packages/design, packages/galaxy, game, the supabase types, the root manifest, not kit/test',
     ]);
   });
@@ -122,8 +124,8 @@ describe('the import guard, on fixtures: the rule table', () => {
   });
 
   it('lets a test also import kit/test and kit/bin, and holds every other rule for it', () => {
-    expect(found('apps/galaxy/src/a.test.ts', "import { sure } from 'vertuo-omni-plan/kit/test/assert.ts';\nimport { dig } from 'vertuo-omni-plan/kit/bin/dig.ts';\n")).toEqual([]);
-    expect(found('apps/galaxy/src/ask/test/helper.ts', "import { sure } from 'vertuo-omni-plan/kit/test/assert.ts';\n")).toEqual([]);
+    expect(found('apps/galaxy/src/a.test.ts', `import { sure } from '${ROOT}/kit/test/assert.ts';\nimport { dig } from '${ROOT}/kit/bin/dig.ts';\n`)).toEqual([]);
+    expect(found('apps/galaxy/src/ask/test/helper.ts', `import { sure } from '${ROOT}/kit/test/assert.ts';\n`)).toEqual([]);
     expect(found('kit/lib/a.test.ts', "import { makeRepo } from '../test/fixture.ts';\nimport { main } from '../bin/omni.ts';\n")).toEqual([]);
     expect(found('apps/omni-app/src/a.test.ts', "import { ask } from '../../galaxy/src/ask/api.ts';\n")).toEqual([
       '1 apps/omni-app may import kit/lib, packages/design, the supabase types (a test also kit/test, kit/bin), not apps/galaxy',
@@ -167,7 +169,7 @@ describe('the import guard, on fixtures: the rule table', () => {
       '1 the root package does not declare @omni/design',
       '1 kit/lib may import nothing beyond its zone, not packages/design',
     ]);
-    expect(found('apps/galaxy/src/a.ts', "import { Galaxy } from '@omni/galaxy';\nimport { x } from 'vertuo-omni-plan/kit/lib/x.ts';\n")).toEqual([]);
+    expect(found('apps/galaxy/src/a.ts', `import { Galaxy } from '@omni/galaxy';\nimport { x } from '${ROOT}/kit/lib/x.ts';\n`)).toEqual([]);
   });
 
   it('reads no comment as an escape', () => {
@@ -209,9 +211,9 @@ describe('the import guard, on fixtures: every way to import, in every spelling'
     expect(found('kit/lib/a.ts', text)).toEqual([]);
   });
 
-  it('resolves a relative path, vertuo-omni-plan/… and @omni/* to the zone they name', () => {
+  it('resolves a relative path, the root package’s name and @omni/* to the zone they name', () => {
     expect(found('game/a.ts', "import { x } from '../kit/lib/config.ts';\n")).toEqual(['1 game may import kit/lib/ids, kit/lib/env, the supabase types, not kit/lib']);
-    expect(found('game/a.ts', "import { x } from 'vertuo-omni-plan/kit/lib/config.ts';\n")).toEqual(['1 game may import kit/lib/ids, kit/lib/env, the supabase types, not kit/lib']);
+    expect(found('game/a.ts', `import { x } from '${ROOT}/kit/lib/config.ts';\n`)).toEqual(['1 game may import kit/lib/ids, kit/lib/env, the supabase types, not kit/lib']);
     const game = (specifier: string): string[] => found('game/a.ts', `import '${specifier}';\n`).slice(1);
     expect(game('@omni/design')).toEqual(['1 game may import kit/lib/ids, kit/lib/env, the supabase types, not packages/design']);
     expect(game('@omni/design/tokens.css')).toEqual(['1 game may import kit/lib/ids, kit/lib/env, the supabase types, not packages/design']);
@@ -227,7 +229,7 @@ describe('the import guard, on fixtures: every way to import, in every spelling'
     expect(resolve('apps/galaxy/src/a.ts', '@omni/design', known)?.path).toBe('packages/design/src/index.ts');
     expect(resolve('apps/galaxy/src/a.ts', '@omni/design/tokens.css', known)?.path).toBe('packages/design/tokens.css');
     expect(resolve('apps/galaxy/src/a.ts', '@omni/design/fonts/inter.woff2', known)?.path).toBe('packages/design/fonts/inter.woff2');
-    expect(resolve('apps/galaxy/src/a.ts', 'vertuo-omni-plan/kit/lib/ids.ts', known)?.path).toBe('kit/lib/ids.ts');
+    expect(resolve('apps/galaxy/src/a.ts', `${ROOT}/kit/lib/ids.ts`, known)?.path).toBe('kit/lib/ids.ts');
     expect(resolve('apps/galaxy/src/a/b.ts', '../c', new Set(['apps/galaxy/src/c.tsx']))?.path).toBe('apps/galaxy/src/c.tsx');
     expect(resolve('apps/galaxy/src/a.ts', 'zod', known)).toBeUndefined();
     expect(resolve('apps/galaxy/src/a.ts', 'node:fs', known)).toBeUndefined();

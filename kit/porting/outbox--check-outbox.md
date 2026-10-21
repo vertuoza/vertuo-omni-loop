@@ -1,6 +1,6 @@
 # `kit/lib/outbox/check-outbox.mjs`
 
-Source: `scripts/check-outbox.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/check-outbox.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -80,7 +80,7 @@ Source: `scripts/check-outbox.mjs` @ `vertuo-ai-domain@c4a210122`.
 - Added imports: `makeRepo` (`kit/test/fixture.mjs`), `flatCtx` (`kit/test/flat-layout.mjs`),
   `lawsFor` (`kit/lib/laws.mjs`), `makeMarkers` (`kit/lib/markers.mjs`).
 - **Fixture-root strategy changed.** Upstream ran every `checkItemText` call with an *implicit*
-  default root — the real, checked-out `vertuo-ai-domain` repository — falling back to a
+  default root — the real, checked-out `nimbus-brain` repository — falling back to a
   `withFixtureRoot` helper (its own `mkdtempSync`/`rmSync` pair) only for the handful of tests that
   needed a *different* fixture (an ADR, a domain principle). That default no longer exists:
   `checkItemText` now always needs an explicit `laws`, and `laws.resolve` always touches

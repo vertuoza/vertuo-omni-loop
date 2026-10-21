@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { ganttOf, type GanttPrd, type GanttRow } from './gantt';
 import { readAt } from '../dossier/page/history-at';
 import { sure } from '../arcade/test/sure';
@@ -44,10 +44,10 @@ describe('ganttOf: rows and arrows', () => {
 
   it('links each row to its PRD\'s page, by the roadmap\'s repository and the PRD\'s number (#1199)', () => {
     // /prd/<n> is Not found: /prd/<id> opens a dossier by its id, which the roadmap does not hold.
-    const href = rowOf(ganttOf(prds, NOW, 'vertuoza/vertuo-vibe-master-plan').rows, 'P1').href ?? '';
-    expect(href).toBe('/prd/at/vertuoza/vertuo-vibe-master-plan/1201?to=page');
+    const href = rowOf(ganttOf(prds, NOW, 'demo-org/nimbus-vibe-master-plan').rows, 'P1').href ?? '';
+    expect(href).toBe('/prd/at/demo-org/nimbus-vibe-master-plan/1201?to=page');
     const [owner = '', repo = '', n = ''] = new URL(href, 'https://omni.test').pathname.split('/').slice(3);
-    expect(readAt({ owner, repo, n })).toEqual({ owner: 'vertuoza', repo: 'vertuo-vibe-master-plan', prd: parsePrd(1201) });
+    expect(readAt({ owner, repo, n })).toEqual({ owner: 'demo-org', repo: 'nimbus-vibe-master-plan', prd: parsePrd(1201) });
   });
 
   it('draws nothing for a roadmap with no PRD', () => {

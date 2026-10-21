@@ -76,7 +76,7 @@
     "dupesBaseline": "./fallow/dupes.json",
     "healthBaseline": "./fallow/health.json",
   },
-  // Off, as in vertuoza/vnext: a type-aware baseline's `analysis_identity.completeness` differs
+  // Off, as in demo-org/vnext: a type-aware baseline's `analysis_identity.completeness` differs
   // between machines, and `audit` then fails with exit 2 whatever the baseline holds. The
   // `fallow-type-aware` package is not even installed (package.json `pnpm.ignoredOptionalDependencies`).
   "typeAware": {

@@ -3,7 +3,7 @@
 // in another shape fails by the name of the field, not with an `undefined` three calls later. Each
 // schema names only the fields the units read; GitHub's other fields pass through untouched.
 import { z } from 'zod';
-import { CommentIdSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { CommentIdSchema, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /**
  * The one seam every unit calls GitHub through: `octokit.request(route, params)`. Every Octokit

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ReleaseRow } from './row';
 import { readEnv } from '../env';
 import { readReleases } from './store';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 

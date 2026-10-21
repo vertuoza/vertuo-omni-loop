@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { FakeProofWorld } from '../../proof/store.fake';
 import { proofPath } from '../../proof/store';
 import { PROOF_LINK_SECONDS, readProofs } from './proof-read';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // What /prd/<id> reads for its Proof tab (PRD 798, s4), as the viewer, on the proof store's fake: the
 // runs they may read, and for the shown run only its files' signed links and its scripts' text.

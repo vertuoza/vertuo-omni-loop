@@ -35,7 +35,7 @@
  * nothing here touches a filesystem or shells out. Reading the plan and computing a diff against a
  * base branch is a caller's job.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/check-territory.mjs — changes in kit/porting/inbox--territory.md.
+// Ported from nimbus-brain@c4a210122:scripts/check-territory.mjs — changes in kit/porting/inbox--territory.md.
 import { WorkSliceIdSchema } from '../ids.ts';
 import type { WorkSliceId } from '../ids.ts';
 import type { Slice, Tier } from '../types.ts';

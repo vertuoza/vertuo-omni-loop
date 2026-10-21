@@ -1,10 +1,12 @@
-// The daily `security` workflow (PRD 1717, s3), read from .github/workflows/security.yml: once a day
-// and by hand, off until the repository secret SECURITY_READ_TOKEN is set, it runs
+// The `security` workflow, read from .github/workflows/security.yml. Its daily watch (PRD 1717, s3):
+// once a day and by hand, off until the repository secret SECURITY_READ_TOKEN is set, it runs
 // `node scripts/security-settings.ts` with that token, then opens one `omni:security` issue on red (or
-// comments on the open one) and closes it on green. The issue step's shell runs here against a `gh`
-// stub on PATH that logs every call: nothing here runs the workflow or calls GitHub.
+// comments on the open one) and closes it on green. On every pull request (PRD 2305): the open-source
+// guard, and gitleaks at a pinned, checksum-verified version. The issue step and the gitleaks download
+// run here against stubs on PATH that log every call: nothing here runs the workflow or calls GitHub.
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +27,7 @@ interface Job {
   if?: string;
   needs?: string | string[];
   permissions?: unknown;
+  env?: Record<string, string>;
   outputs?: Record<string, string>;
   steps?: Step[];
 }
@@ -51,14 +54,22 @@ function step(id: string): Step {
   return found;
 }
 
+/** The step of that name in the job; a missing one fails the test that asked for it. */
+function named(jobId: string, name: string): Step {
+  const found = (job(jobId).steps ?? []).find((s) => s.name === name);
+  if (!found) throw new Error(`the ${jobId} job has no step ${name}`);
+  return found;
+}
+
 /** Every `${{ secrets.X }}` the workflow names, anywhere. */
 function secretsNamed(): string[] {
   return [...new Set([...source.matchAll(/secrets\.(\w+)/g)].map((match) => match[1] ?? ''))];
 }
 
 describe('the security workflow, when it runs', () => {
-  it('runs once a day and by hand, nothing else', () => {
-    expect(Object.keys(workflow.on).sort()).toEqual(['schedule', 'workflow_dispatch']);
+  it('runs once a day, by hand, and on every pull request', () => {
+    expect(Object.keys(workflow.on).sort()).toEqual(['pull_request', 'schedule', 'workflow_dispatch']);
+    expect(workflow.on.pull_request).toEqual({ types: ['opened', 'synchronize', 'reopened', 'ready_for_review'] });
     const schedule = workflow.on.schedule as { cron: string }[];
     expect(schedule).toHaveLength(1);
     // minute hour * * *: one run a day.
@@ -73,19 +84,28 @@ describe('the security workflow, when it runs', () => {
     expect(token.outputs?.set).toBe(`\${{ steps.${tokenStep?.id ?? ''}.outputs.set }}`);
     expect([job('watch').needs].flat()).toEqual(['token']);
     expect(job('watch').if).toBe("needs.token.outputs.set == 'true'");
-    expect(Object.keys(workflow.jobs).sort()).toEqual(['token', 'watch']);
+    expect(Object.keys(workflow.jobs).sort()).toEqual(['gitleaks', 'open-source', 'token', 'watch']);
+  });
+
+  it('runs the watch on a schedule or by hand, and the guard and gitleaks on a pull request only', () => {
+    expect(job('token').if).toBe("github.event_name != 'pull_request'");
+    expect(job('open-source').if).toBe("github.event_name == 'pull_request'");
+    expect(job('gitleaks').if).toBe("github.event_name == 'pull_request'");
   });
 });
 
 describe('the security workflow, what it may do', () => {
-  it('reads the repository and writes issues, nothing else', () => {
-    expect(workflow.permissions).toEqual({ contents: 'read', issues: 'write' });
-    for (const id of Object.keys(workflow.jobs)) expect(job(id).permissions).toBeUndefined();
+  it('reads the repository, and only the watch writes issues', () => {
+    expect(workflow.permissions).toEqual({ contents: 'read' });
+    expect(job('watch').permissions).toEqual({ contents: 'read', issues: 'write' });
+    for (const id of ['token', 'open-source', 'gitleaks']) expect(job(id).permissions).toBeUndefined();
   });
 
   it('checks out without keeping a credential, and pushes nothing', () => {
-    const checkout = (job('watch').steps ?? []).find((s) => s.uses?.startsWith('actions/checkout'));
-    expect(checkout?.with?.['persist-credentials']).toBe(false);
+    for (const id of ['watch', 'open-source', 'gitleaks']) {
+      const checkout = (job(id).steps ?? []).find((s) => s.uses?.startsWith('actions/checkout'));
+      expect(checkout?.with?.['persist-credentials'], id).toBe(false);
+    }
     expect(source).not.toMatch(/git push/);
   });
 
@@ -232,5 +252,69 @@ describe('the issue step', () => {
     expect(status).toBe(0);
     expect(calls[1]).toMatch(/^issue create --title Security settings: the check did not finish --label omni:security /);
     expect(bodies).toContain('node: something broke');
+  });
+});
+
+describe('the pull request jobs (PRD 2305)', () => {
+  it('runs the open-source guard with Node alone, nothing installed', () => {
+    const runs = (job('open-source').steps ?? []).flatMap((s) => (s.run ? [s.run.trim()] : []));
+    expect(runs).toEqual(['node scripts/open-source.ts']);
+  });
+
+  it('pins gitleaks to one version and one checksum, never the paid action', () => {
+    const env = job('gitleaks').env ?? {};
+    expect(env.GITLEAKS_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(env.GITLEAKS_SHA256).toMatch(/^[0-9a-f]{64}$/);
+    expect(named('gitleaks', 'Download gitleaks and check its SHA-256').run).toContain('https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/');
+    expect(source).not.toMatch(/uses:\s*gitleaks\//);
+  });
+
+  it("scans the pull request's commits, from its base to its head, with the repository's config, redacted", () => {
+    const checkout = (job('gitleaks').steps ?? []).find((s) => s.uses?.startsWith('actions/checkout'));
+    expect(checkout?.with?.['fetch-depth']).toBe(0);
+    const scan = named('gitleaks', "Scan the pull request's commits");
+    expect(scan.env).toEqual({ BASE_SHA: '${{ github.event.pull_request.base.sha }}', HEAD_SHA: '${{ github.event.pull_request.head.sha }}' });
+    expect(scan.run?.trim()).toBe('"$RUNNER_TEMP/gitleaks" git --config .gitleaks.toml --redact --no-banner --log-opts="$BASE_SHA..$HEAD_SHA" .');
+  });
+
+  it("extends gitleaks' default rules, and allows only values, never a path", () => {
+    const config = readFileSync(fileURLToPath(new URL('../.gitleaks.toml', import.meta.url)), 'utf8');
+    expect(config).toMatch(/^\[extend\]\nuseDefault = true$/m);
+    expect(config).toContain('[[allowlists]]');
+    expect(config).not.toMatch(/^\s*paths\s*=/m);
+  });
+
+  /** Runs the download step with a `curl` stub that saves a fake archive wherever it is asked, checked against `sha256`. */
+  function download(sha256: (archive: Buffer) => string) {
+    const dir = mkdtempSync(join(tmpdir(), 'security-gitleaks-'));
+    dirs.push(dir);
+    const bin = join(dir, 'bin');
+    const runner = join(dir, 'runner');
+    mkdirSync(bin);
+    mkdirSync(runner);
+    writeFileSync(join(dir, 'gitleaks'), '#!/bin/sh\necho fake\n');
+    const archive = join(dir, 'fake.tar.gz');
+    spawnSync('tar', ['-czf', archive, '-C', dir, 'gitleaks']);
+    const curl = ['#!/usr/bin/env bash', `printf "%s\\n" "$*" >> '${dir}/curl.log'`, 'while [ $# -gt 0 ]; do if [ "$1" = "-o" ]; then out="$2"; fi; shift; done', `cp '${archive}' "$out"`, ''].join('\n');
+    writeFileSync(join(bin, 'curl'), curl);
+    chmodSync(join(bin, 'curl'), 0o755);
+    const run = spawnSync('bash', ['-e', '-c', named('gitleaks', 'Download gitleaks and check its SHA-256').run ?? ''], {
+      encoding: 'utf8',
+      env: { PATH: `${bin}:${process.env.PATH ?? ''}`, RUNNER_TEMP: runner, GITLEAKS_VERSION: '8.30.1', GITLEAKS_SHA256: sha256(readFileSync(archive)) },
+    });
+    return { status: run.status, extracted: existsSync(join(runner, 'gitleaks')), curl: readFileSync(join(dir, 'curl.log'), 'utf8') };
+  }
+
+  it('unpacks the binary when the archive matches its checksum', () => {
+    const { status, extracted, curl } = download((archive) => createHash('sha256').update(archive).digest('hex'));
+    expect(status).toBe(0);
+    expect(extracted).toBe(true);
+    expect(curl).toContain('https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz');
+  });
+
+  it('refuses an archive that does not match, and unpacks nothing', () => {
+    const { status, extracted } = download(() => '0'.repeat(64));
+    expect(status).not.toBe(0);
+    expect(extracted).toBe(false);
   });
 });

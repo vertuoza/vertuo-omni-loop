@@ -3,14 +3,14 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import type { DossierRow, DossierVersionRow } from '../store';
 import { DEMO_VIEWER, demoContent, demoDossier } from './demo';
 import { DossierPage } from './DossierPage';
 import { readVoice, voiceView, VOICE_EMPTY, type VoiceCast } from './voice';
 import { REWORK_LABEL } from './VoicePane';
 import { dossierView, type DossierRead } from './view';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -19,7 +19,7 @@ vi.mock('server-only', () => ({}));
 // was settled, the Rework button's command, a layout that holds at 393 px, and demo mode.
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
-const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
+const PIERRE = { user_id: 'u-pierre', email: 'pierre@example.com', name: 'Pierre' };
 const dossier: DossierRow = {
   id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(822), title: 'The customer voice',
   opened_by: PIERRE.user_id, created_at: '2026-09-30T09:00:00Z', numbered_at: '2026-09-30T10:00:00Z',

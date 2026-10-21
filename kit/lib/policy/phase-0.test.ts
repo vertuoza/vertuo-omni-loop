@@ -75,7 +75,7 @@ describe('An approved design lands in the PRD-s own delivery folder', () => {
     const { ctx } = docsOnlyRepo();
     const paths = phase0Paths(PRD, { ctx });
     const docsOnly = [paths.spec, paths.plan, paths.beforeAfter];
-    const withSource = [...docsOnly, 'libs/vertuo-ai-agent/src/inbox.ts'];
+    const withSource = [...docsOnly, 'libs/nimbus-ai-agent/src/inbox.ts'];
 
     expect(isDocsOnly(docsOnly, { ctx })).toBe(true);
     expect(isDocsOnly(withSource, { ctx })).toBe(false);
@@ -83,8 +83,8 @@ describe('An approved design lands in the PRD-s own delivery folder', () => {
     const verdict = phase0Verdict(withSource, { ctx, prd: PRD });
     expect(verdict.ok).toBe(false);
     expect(verdict.docsOnly).toBe(false);
-    expect(verdict.sourceFiles).toEqual(['libs/vertuo-ai-agent/src/inbox.ts']);
-    expect(verdict.reason).toContain('libs/vertuo-ai-agent/src/inbox.ts');
+    expect(verdict.sourceFiles).toEqual(['libs/nimbus-ai-agent/src/inbox.ts']);
+    expect(verdict.reason).toContain('libs/nimbus-ai-agent/src/inbox.ts');
     expect(verdict.reason).toContain('carries no source file');
   });
 

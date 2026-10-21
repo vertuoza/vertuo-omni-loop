@@ -6,7 +6,7 @@
 // (closed, signed out, in no workspace) before any of this. Its human work (PRD 1217): each card the open
 // count of each kind that has one; the roadmap's page a chip per kind with its open count, the open
 // entries grouped by kind, and the done ones with when they were settled.
-import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { prdPagePath } from '../../dossier/page/history-at';
 import {
   roadmapApprovalView, roadmapStatus, shownVersion, versionsView, PART_LABELS, type PartView, type RoadmapApprovalView, type RoadmapRecordRead,

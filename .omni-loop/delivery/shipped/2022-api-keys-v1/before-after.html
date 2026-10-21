@@ -92,9 +92,9 @@ curl https://www.omni-loop.xyz/api/dossiers \
 {
   <span class="k">"data"</span>: [
     { "id": "6f1c…", "number": 1790, "title": "Quote total rounds wrong",
-      "repo": "vertuoza/backend-php", "created_at": "2026-10-14T09:12:00Z",
+      "repo": "demo-org/backend-php", "created_at": "2026-10-14T09:12:00Z",
       "links": { "page": "https://www.omni-loop.xyz/bugs/…",
-                 "issue": "https://github.com/vertuoza/backend-php/issues/1790" } },
+                 "issue": "https://github.com/demo-org/backend-php/issues/1790" } },
     { "id": "a20e…", "number": 1781, … }
   ],
   <span class="k">"next_cursor"</span>: "MjAyNi0xMC0xMlQxMDow…"
@@ -115,15 +115,15 @@ Person ──▶ PRD page ──▶ Send to terminal ──▶ runner</pre>
       <p class="label after">After</p>
 <pre>curl -X POST https://www.omni-loop.xyz/api/v1/bug-fixes \
   -H "Authorization: Bearer oma_Xk3…9fQe" \
-  -d '{"repo":"vertuoza/backend-php",
+  -d '{"repo":"demo-org/backend-php",
        "description":"quote total rounds wrong with 21% VAT"}'
 
 <span class="ok">202</span>  { "job": { "id": "j_81d…", "status": "queued",
           "line": "/omni:bug-fix 'quote total rounds wrong with 21% VAT'" } }
 
 curl https://www.omni-loop.xyz/api/v1/jobs/j_81d… -H "Authorization: Bearer oma_…"
-<span class="ok">200</span>  { "status": "done", "runner": "vertuo-agents",
-        "pr_url": "https://github.com/vertuoza/backend-php/pull/1842" }</pre>
+<span class="ok">200</span>  { "status": "done", "runner": "nimbus-agents",
+        "pr_url": "https://github.com/demo-org/backend-php/pull/1842" }</pre>
     </div>
   </div>
 
@@ -250,7 +250,7 @@ curl https://www.omni-loop.xyz/api/v1/jobs/j_81d… -H "Authorization: Bearer om
           </div>
         </div>
       </div>
-      <p class="cap">The pull request the job opens says: Sent from the Omni app by API key QA dashboard (@pierrederval) on runner vertuo-agents.</p>
+      <p class="cap">The pull request the job opens says: Sent from the Omni app by API key QA dashboard (@pierrederval) on runner nimbus-agents.</p>
     </div>
   </div>
 </main>

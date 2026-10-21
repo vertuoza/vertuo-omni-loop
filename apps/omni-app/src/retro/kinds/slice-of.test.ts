@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseSliceId } from 'omni-loop/kit/lib/ids.ts';
 import { sliceOf } from './slice-of.ts';
 
 describe('sliceOf — the slice a sub-PR head branch names', () => {

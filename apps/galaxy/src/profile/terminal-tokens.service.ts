@@ -1,4 +1,4 @@
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import { UNREADABLE, type Read } from '../dashboard/part';
 import type { KitTokensMine } from './terminal-tokens.contract';
 import type { TerminalTokensRepository } from './terminal-tokens.repository';

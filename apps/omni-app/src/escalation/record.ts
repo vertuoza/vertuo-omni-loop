@@ -12,9 +12,9 @@
 // It never decides: the check's verdict is completed before it runs, and nothing here approves,
 // adopts, answers, labels or sets a verdict. The record mentions nobody: an edited comment notifies
 // nobody, so asking is the sweep's own new comment.
-import { decide, escalates, type EscalationSettings } from 'vertuo-omni-plan/kit/lib/escalation/escalation.ts';
-import { readRecord, renderRecord, type RecordLine } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { decide, escalates, type EscalationSettings } from 'omni-loop/kit/lib/escalation/escalation.ts';
+import { readRecord, renderRecord, type RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { listComments, type GitHubClient } from '../outbox-check/github.ts';
 import type { Held, HeldNow } from './held.ts';
 

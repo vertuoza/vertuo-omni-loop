@@ -3,7 +3,7 @@
 ## Triage
 
 - **Domain:** delivery loop — `/omni:wave` step 4 (merge) and `omni care state` (`kit/plugin/skills/wave/SKILL.md`, `kit/lib/care/decide.ts`, `kit/bin/commands/care.ts`)
-- **Risk:** medium — teams whose repository has an automated reviewer get its findings on sub-PRs merged past silently into the feature branch (a real migration bug on vertuoza/vertuo-backend-php#6486); the workaround is a person triaging every sub-PR's threads by hand before the wave merges
+- **Risk:** medium — teams whose repository has an automated reviewer get its findings on sub-PRs merged past silently into the feature branch (a real migration bug on demo-org/nimbus-backend-php#6486); the workaround is a person triaging every sub-PR's threads by hand before the wave merges
 - **Regression:** new bug — no evidence this ever worked
 
 ## Reproduction

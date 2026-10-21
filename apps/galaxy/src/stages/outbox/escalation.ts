@@ -4,7 +4,7 @@
 // who is asked about it (`asked`, GitHub logins in lower case), and each held law becomes a waiting
 // item of its own, ranked human-action, so the waiting list of every person asked shows it. Pure: it
 // reads no comment and writes no row.
-import { readRecord, type RecordLine } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
+import { readRecord, type RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
 import type { WaitingQuestion } from './store';
 
 /** The question a held law asks of whoever is asked about it. */

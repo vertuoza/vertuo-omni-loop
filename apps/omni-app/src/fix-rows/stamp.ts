@@ -9,7 +9,7 @@
 // a product holding the repository, is kept once on that record as an unmatched merge. It writes nothing
 // on GitHub and never merges anything. Throws when the database refuses or answers out of shape.
 import { z } from 'zod';
-import { ProductBugIdSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { ProductBugIdSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { serviceDb } from '../server-event/service-db.ts';
 import type { FixStampData } from './fix-stamp.ts';

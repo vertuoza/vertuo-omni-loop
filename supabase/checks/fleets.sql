@@ -6,29 +6,26 @@
 -- workspace and anyone signed out are refused each one, and nothing changes. Each field is checked at
 -- its edges and a refusal names its field; a mascot is one of the library's eleven (PRD 517); at most
 -- 12 fleets are active. A fleet's name is derived from its label, unique in its workspace, and never
--- changes. Nobody signed in writes public.teams directly. The Vertuoza owner step of
--- 20261003090000_own_fleets.sql is proven by applying that file again once the member it names
--- exists. One transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- changes. Nobody signed in writes public.teams directly. One transaction, rolled back at the end.
+-- Any `FAIL:` stops the run.
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- ── The cast ──
--- Olga owns Vertuoza and Mo is a member of it; Carl owns Acme, which starts with no fleet. Pierre is a
--- plain member of Vertuoza, with the GitHub login the migration names.
+-- Olga owns Initech and Mo is a member of it; Carl owns Acme, which starts with no fleet.
 insert into auth.users (id, email, email_confirmed_at) values
-  ('00000000-0000-4000-8000-0000000040a1', 'olga@vertuoza.com', now()),
-  ('00000000-0000-4000-8000-0000000040b1', 'mo@vertuoza.com', now()),
-  ('00000000-0000-4000-8000-0000000040c1', 'carl@acme.test', now()),
-  ('00000000-0000-4000-8000-0000000040d1', 'pierre@vertuoza.com', now());
-insert into auth.identities (user_id, provider, provider_id, identity_data) values
-  ('00000000-0000-4000-8000-0000000040d1', 'github', '40401', '{"user_name": "PierreDerval"}');
+  ('00000000-0000-4000-8000-0000000040a1', 'olga@example.com', now()),
+  ('00000000-0000-4000-8000-0000000040b1', 'mo@example.com', now()),
+  ('00000000-0000-4000-8000-0000000040c1', 'carl@acme.test', now());
 insert into public.workspaces (slug, name, github_org) values ('acme-fleets', 'Acme', 'acme-fleets');
 insert into public.workspace_members (workspace_id, user_id, role)
 select w.id, m.user_id, m.role
   from (values
-         ('vertuoza',    '00000000-0000-4000-8000-0000000040a1'::uuid, 'owner'),
-         ('vertuoza',    '00000000-0000-4000-8000-0000000040b1'::uuid, 'member'),
-         ('vertuoza',    '00000000-0000-4000-8000-0000000040d1'::uuid, 'member'),
+         ('initech',     '00000000-0000-4000-8000-0000000040a1'::uuid, 'owner'),
+         ('initech',     '00000000-0000-4000-8000-0000000040b1'::uuid, 'member'),
          ('acme-fleets', '00000000-0000-4000-8000-0000000040c1'::uuid, 'owner')
        ) as m (slug, user_id, role)
   join public.workspaces w on w.slug = m.slug;
@@ -38,7 +35,7 @@ create function pg_temp.sign_in(uid text) returns void language sql as $$
 $$;
 -- The workspaces' ids, read here once: a signed-in account reads only its own workspaces.
 create temporary table ids (slug text primary key, id uuid);
-insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('vertuoza', 'acme-fleets');
+insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('initech', 'acme-fleets');
 grant select on ids to anon, authenticated;
 create function pg_temp.ws(slug text) returns uuid language sql as $$
   select i.id from ids i where i.slug = ws.slug;
@@ -74,12 +71,12 @@ end;
 $$;
 
 create temporary table fleets_before (slug text primary key, fleets text);
-insert into fleets_before select s, pg_temp.fleets(s) from unnest(array['vertuoza', 'acme-fleets']) s;
+insert into fleets_before select s, pg_temp.fleets(s) from unnest(array['initech', 'acme-fleets']) s;
 
--- The calls every outsider tries, on Vertuoza's beaver fleet.
+-- The calls every outsider tries, on Initech's beaver fleet.
 create temporary table calls (stmt text);
 insert into calls
-select format(c, pg_temp.ws('vertuoza'))
+select format(c, pg_temp.ws('initech'))
   from unnest(array[
     'select public.create_fleet(%L, ''RAIDERS'', ''#123456'', ''m'', ''beaver'')',
     'select public.update_fleet(%L, ''beaver'', ''HIJACKED'', ''#123456'', '''', null)',
@@ -94,18 +91,18 @@ do $$
 declare c text;
 begin
   for c in select stmt from calls loop perform pg_temp.forbidden(c, 'anon'); end loop;
-  begin perform public.is_owner(pg_temp.ws('vertuoza')); raise exception 'FAIL: anon asked is_owner()';
+  begin perform public.is_owner(pg_temp.ws('initech')); raise exception 'FAIL: anon asked is_owner()';
   exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 
--- ── A member of Vertuoza, and Acme's owner: every function refused ──
+-- ── A member of Initech, and Acme's owner: every function refused ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000040b1');
 do $$
 declare c text;
 begin
-  if public.is_owner(pg_temp.ws('vertuoza')) then raise exception 'FAIL: a member reads as the owner'; end if;
+  if public.is_owner(pg_temp.ws('initech')) then raise exception 'FAIL: a member reads as the owner'; end if;
   for c in select stmt from calls loop perform pg_temp.forbidden(c, 'a member'); end loop;
 end $$;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000040c1');
@@ -113,14 +110,14 @@ do $$
 declare c text;
 begin
   if not public.is_owner(pg_temp.ws('acme-fleets')) then raise exception 'FAIL: Acme''s owner does not read as its owner'; end if;
-  if public.is_owner(pg_temp.ws('vertuoza')) then raise exception 'FAIL: Acme''s owner reads as Vertuoza''s'; end if;
+  if public.is_owner(pg_temp.ws('initech')) then raise exception 'FAIL: Acme''s owner reads as Initech''s'; end if;
   for c in select stmt from calls loop perform pg_temp.forbidden(c, 'the owner of another workspace'); end loop;
 end $$;
 reset role;
 do $$
 begin
-  if pg_temp.fleets('vertuoza') <> (select fleets from fleets_before where slug = 'vertuoza') then
-    raise exception 'FAIL: a refused call changed Vertuoza''s fleets';
+  if pg_temp.fleets('initech') <> (select fleets from fleets_before where slug = 'initech') then
+    raise exception 'FAIL: a refused call changed Initech''s fleets';
   end if;
 end $$;
 
@@ -130,15 +127,15 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000040a1');
 do $$
 begin
   begin
-    insert into public.teams (workspace_id, name, label, color) values (pg_temp.ws('vertuoza'), 'planted', 'PLANTED', '#123456');
+    insert into public.teams (workspace_id, name, label, color) values (pg_temp.ws('initech'), 'planted', 'PLANTED', '#123456');
     raise exception 'FAIL: the owner inserted a fleet directly';
   exception when insufficient_privilege then null; end;
   begin
-    update public.teams set label = 'RENAMED' where workspace_id = pg_temp.ws('vertuoza');
+    update public.teams set label = 'RENAMED' where workspace_id = pg_temp.ws('initech');
     raise exception 'FAIL: the owner updated a fleet directly';
   exception when insufficient_privilege then null; end;
   begin
-    delete from public.teams where workspace_id = pg_temp.ws('vertuoza');
+    delete from public.teams where workspace_id = pg_temp.ws('initech');
     raise exception 'FAIL: the owner deleted a fleet directly';
   exception when insufficient_privilege then null; end;
   if has_table_privilege('authenticated', 'public.teams', 'insert') or has_table_privilege('authenticated', 'public.teams', 'update')
@@ -151,7 +148,7 @@ end $$;
 do $$
 declare
   f public.teams;
-  v uuid := pg_temp.ws('vertuoza');
+  v uuid := pg_temp.ws('initech');
 begin
   if not public.is_owner(v) then raise exception 'FAIL: the owner does not read as the owner'; end if;
 
@@ -203,13 +200,13 @@ begin
   exception when no_data_found then null; end;
   begin
     perform public.retire_fleet(pg_temp.ws('acme-fleets'), 'beaver');
-    raise exception 'FAIL: Vertuoza''s owner retired a fleet of Acme';
+    raise exception 'FAIL: Initech''s owner retired a fleet of Acme';
   exception when insufficient_privilege then null; end;
 end $$;
 
 -- ── Every field at its edges, each refusal naming its field ──
 do $$
-declare v uuid := pg_temp.ws('vertuoza');
+declare v uuid := pg_temp.ws('initech');
 begin
   perform pg_temp.refused_for(format('select public.create_fleet(%L, '''', ''#000000'')', v), 'label', 'Label');
   perform pg_temp.refused_for(format('select public.create_fleet(%L, ''   '', ''#000000'')', v), 'label', 'Label');
@@ -260,7 +257,7 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000040a1');
 do $$
 declare
-  v uuid := pg_temp.ws('vertuoza');
+  v uuid := pg_temp.ws('initech');
   m text;
   f public.teams;
   msg text;
@@ -320,28 +317,17 @@ begin
 end $$;
 reset role;
 
--- ── Vertuoza's owner: the member whose GitHub login is pierrederval ──
-do $$
-begin
-  if (select role from public.workspace_members m join public.workspaces w on w.id = m.workspace_id
-       where w.slug = 'vertuoza' and m.user_id = '00000000-0000-4000-8000-0000000040d1') <> 'member' then
-    raise exception 'FAIL: the cast is not as this check assumes';
-  end if;
-end $$;
+-- ── 20261003090000_own_fleets.sql runs twice, and makes nobody an owner (PRD 2305) ──
 \ir ../migrations/20261003090000_own_fleets.sql
 do $$
 begin
   if (select role from public.workspace_members m join public.workspaces w on w.id = m.workspace_id
-       where w.slug = 'vertuoza' and m.user_id = '00000000-0000-4000-8000-0000000040d1') <> 'owner' then
-    raise exception 'FAIL: the member whose GitHub login is pierrederval does not own vertuoza';
-  end if;
-  if (select role from public.workspace_members m join public.workspaces w on w.id = m.workspace_id
-       where w.slug = 'vertuoza' and m.user_id = '00000000-0000-4000-8000-0000000040b1') <> 'member' then
-    raise exception 'FAIL: the owner step made another member an owner';
+       where w.slug = 'initech' and m.user_id = '00000000-0000-4000-8000-0000000040b1') <> 'member' then
+    raise exception 'FAIL: the migration made a member an owner';
   end if;
   if (select role from public.workspace_members m join public.workspaces w on w.id = m.workspace_id
        where w.slug = 'acme-fleets' and m.user_id = '00000000-0000-4000-8000-0000000040c1') <> 'owner' then
-    raise exception 'FAIL: the owner step changed another workspace';
+    raise exception 'FAIL: the migration changed another workspace''s owner';
   end if;
 end $$;
 

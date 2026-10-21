@@ -9,34 +9,37 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-0000020111a1', 'olga@plans.test'),
   ('00000000-0000-4000-8000-0000020111b1', 'mia@plans.test'),
   ('00000000-0000-4000-8000-0000020111c1', 'oscar@plans.test');
--- Olga owns Vertuoza and Mia is a member of it; Oscar owns Acme.
+-- Olga owns Initech and Mia is a member of it; Oscar owns Acme.
 insert into public.workspaces (slug, name, github_org) values ('acme-plans', 'Acme', 'acme-plans');
 insert into public.workspace_members (workspace_id, user_id, role)
 select w.id, m.user_id, m.role
-  from (values ('vertuoza', '00000000-0000-4000-8000-0000020111a1'::uuid, 'owner'),
-               ('vertuoza', '00000000-0000-4000-8000-0000020111b1'::uuid, 'member'),
+  from (values ('initech', '00000000-0000-4000-8000-0000020111a1'::uuid, 'owner'),
+               ('initech', '00000000-0000-4000-8000-0000020111b1'::uuid, 'member'),
                ('acme-plans', '00000000-0000-4000-8000-0000020111c1'::uuid, 'owner')) as m (slug, user_id, role)
   join public.workspaces w on w.slug = m.slug;
 insert into public.businesses (workspace_id, name)
 select w.id, w.name from public.workspaces w
- where w.slug in ('vertuoza', 'acme-plans') and not exists (select 1 from public.businesses b where b.workspace_id = w.id);
+ where w.slug in ('initech', 'acme-plans') and not exists (select 1 from public.businesses b where b.workspace_id = w.id);
 insert into public.products (workspace_id, business_id, name, key)
 select b.workspace_id, b.id, 'Plan Mobile', 'planmobile'
-  from public.businesses b join public.workspaces w on w.id = b.workspace_id where w.slug = 'vertuoza';
+  from public.businesses b join public.workspaces w on w.id = b.workspace_id where w.slug = 'initech';
 -- Plan Mobile holds plan-api (step 5) and plan-web (step 3); plan-hub is the plan repository, listed and in
 -- no product; acme-plans/hub is Acme's.
 insert into public.repositories (workspace_id, full_name)
 select w.id, r.name
-  from (values ('vertuoza', 'vertuoza/plan-api'), ('vertuoza', 'vertuoza/plan-web'), ('vertuoza', 'vertuoza/plan-hub'),
+  from (values ('initech', 'initech/plan-api'), ('initech', 'initech/plan-web'), ('initech', 'initech/plan-hub'),
                ('acme-plans', 'acme-plans/hub')) as r (slug, name)
   join public.workspaces w on w.slug = r.slug;
 insert into public.product_repositories (product_id, workspace_id, repository, added_by, ladder_step)
 select p.id, p.workspace_id, r.name, 'person', r.step
-  from (values ('vertuoza/plan-api', 5), ('vertuoza/plan-web', 3)) as r (name, step)
+  from (values ('initech/plan-api', 5), ('initech/plan-web', 3)) as r (name, step)
   join public.products p on p.name = 'Plan Mobile';
 
 create function pg_temp.sign_in(uid text) returns void language sql as $$
@@ -82,14 +85,14 @@ end $$;
 
 -- ── Signed out, a member, another workspace's owner: refused, nothing changes ──
 set local role anon;
-select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''vertuoza/plan-hub'')', pg_temp.product()), '42501', 'anon setting a plan repository');
+select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''initech/plan-hub'')', pg_temp.product()), '42501', 'anon setting a plan repository');
 reset role;
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000020111b1');
-select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''vertuoza/plan-hub'')', pg_temp.product()), '42501', 'a member setting a plan repository');
-select pg_temp.refused($q$update public.products set plan_repository = 'vertuoza/plan-hub'$q$, '42501', 'a member writing the column');
+select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''initech/plan-hub'')', pg_temp.product()), '42501', 'a member setting a plan repository');
+select pg_temp.refused($q$update public.products set plan_repository = 'initech/plan-hub'$q$, '42501', 'a member writing the column');
 select pg_temp.sign_in('00000000-0000-4000-8000-0000020111c1');
-select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''vertuoza/plan-hub'')', pg_temp.product()), '42501', 'another workspace''s owner');
+select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''initech/plan-hub'')', pg_temp.product()), '42501', 'another workspace''s owner');
 reset role;
 do $$ begin
   if pg_temp.plan() <> '-' then raise exception 'FAIL: a refused call changed the plan repository: %', pg_temp.plan(); end if;
@@ -99,13 +102,13 @@ end $$;
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000020111a1');
 select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''acme-plans/hub'')', pg_temp.product()), 'P0002', 'another workspace''s repository', 'acme-plans/hub');
-select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''vertuoza/nowhere'')', pg_temp.product()), 'P0002', 'a repository nobody listed', 'vertuoza/nowhere');
-select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''vertuoza/plan-hub'')', gen_random_uuid()), 'P0002', 'no such product');
+select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''initech/nowhere'')', pg_temp.product()), 'P0002', 'a repository nobody listed', 'initech/nowhere');
+select pg_temp.refused(format('select public.product_plan_repository_set(%L, ''initech/plan-hub'')', gen_random_uuid()), 'P0002', 'no such product');
 do $$
 declare
-  got public.products := public.product_plan_repository_set(pg_temp.product(), ' Vertuoza/Plan-Hub ');
+  got public.products := public.product_plan_repository_set(pg_temp.product(), ' Initech/Plan-Hub ');
 begin
-  if got.plan_repository <> 'vertuoza/plan-hub' then
+  if got.plan_repository <> 'initech/plan-hub' then
     raise exception 'FAIL: setting the plan repository answered %', row_to_json(got);
   end if;
 end $$;

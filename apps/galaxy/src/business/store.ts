@@ -1,6 +1,6 @@
 import { claimOf, maxValue, Product, StoredClaim, type Claim, type ClaimKind } from './model';
 import { orEmpty, parseRow, parseRows } from '../data/parse-rows';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // Settings → Business's calls (PRD 748 s2). In production, the functions of
 // supabase/migrations/20261019090000_business_store.sql, called as the signed-in person: claim_pick()

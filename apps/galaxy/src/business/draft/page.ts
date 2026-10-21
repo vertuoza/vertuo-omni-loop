@@ -1,6 +1,6 @@
 import 'server-only';
 import { isIP } from 'node:net';
-import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
 
 // The safe fetch of a pasted web page (PRD 774, decision 11). A member pastes a URL; the server then
 // reads it, so the address must not reach inside the network the server runs in. Only `https:`, only a

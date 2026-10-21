@@ -9,7 +9,7 @@ spec: file
 
 **Date:** 2026-09-24
 **Status:** design, awaiting review
-**Scope:** turning the delivery loop that `vertuo-ai-domain` runs by hand (brainstorm → inbox → yolo →
+**Scope:** turning the delivery loop that `nimbus-brain` runs by hand (brainstorm → inbox → yolo →
 outbox → yolo-fix → shipped) into a kit that installs into any repository, reads everything specific to
 that repository from one removable `.omni-loop/` folder, and ships its skills once, as a Claude Code
 plugin. Not the game (`docs/superpowers/specs/2026-09-24-omni-plan-game-design.md`), which only reads
@@ -17,10 +17,10 @@ what this kit produces.
 
 ## 1. Why
 
-The loop has been ported twice by hand into `vertuo-workflow` (2026-09-11, 2026-09-23). Each port is a
+The loop has been ported twice by hand into `nimbus-workflow` (2026-09-11, 2026-09-23). Each port is a
 fork: its `.claude/skills/PORTED.md` lists, skill by skill, every literal that had to change — ADR
 numbers, register paths, labels, check names, the preflight command, the acceptance layout, the repo
-slug. One day after the second port, upstream (`vertuo-ai-domain` `origin/main`, `c4a21012`) had
+slug. One day after the second port, upstream (`nimbus-brain` `origin/main`, `c4a21012`) had
 already moved on: options A–D, adopted medium items, reply intake on the pull request, Slack, and the
 `docs/knowledge/` registers. A copy per repository cannot keep up.
 
@@ -35,7 +35,7 @@ repository literals in the kit.**
 2. **No literal of any repository in the kit.** A path, label, command, check name, ADR number or slug
    is read from `.omni-loop/config.yml`. A skill that needs a value the config does not hold says so and
    stops; it never falls back to another repository's habit.
-3. **Behaviour comes from `vertuo-ai-domain` `origin/main`; seams come from `vertuo-workflow`.** The
+3. **Behaviour comes from `nimbus-brain` `origin/main`; seams come from `nimbus-workflow`.** The
    port's injection style (`invariantAdrs(root)` passed in, labels never auto-created, board matched by
    base branch, statuses read by name) is the template for configurability.
 4. **Independent of upstream PRD #1229.** The kit borrows its good ideas (one folder per PRD, the folder
@@ -84,7 +84,7 @@ Written by `omni-loop init` (§10), checked by `omni-loop doctor`. Sketch — th
 ```yaml
 kit: 1                               # config schema version
 repo:
-  slug: vertuoza/vertuo-workflow-domain   # default: read from the origin remote
+  slug: demo-org/nimbus-workflow-domain   # default: read from the origin remote
   remote: origin
   defaultBranch: main
 github:
@@ -185,7 +185,7 @@ markers:
 
 ## 6. Knowledge: where truth lives
 
-The split `vertuo-ai-domain` settled in #1081, made portable:
+The split `nimbus-brain` settled in #1081, made portable:
 
 | Layer | Id | Who decides | Proven by a test? |
 |---|---|---|---|
@@ -198,14 +198,14 @@ The split `vertuo-ai-domain` settled in #1081, made portable:
 A rule names the one principle it `Serves:`; a principle nothing serves is a *wish* (a warning, never a
 failure). Ids are never renamed or reused. "A decision about how we build is a decision record; a
 decision about what the product should do is a principle." The entry format, the id grammar and the
-checks are `vertuo-ai-domain`'s `registers.mjs` / `check-registers.mjs` / `knowledge.mjs`, ported with
+checks are `nimbus-brain`'s `registers.mjs` / `check-registers.mjs` / `knowledge.mjs`, ported with
 the paths from config.
 
 **Laws** — what raises an outbox item's rank floor to `high` and what stops a slice outright — come
 from `laws.source`:
 
 - `knowledge`: any `P-`/`BR-`/`N-`/`X-` id resolved in the registers.
-- `claudeMdInvariants`: the ADRs cited under `laws.claudeMdHeading` in `CLAUDE.md` (vertuo-workflow
+- `claudeMdInvariants`: the ADRs cited under `laws.claudeMdHeading` in `CLAUDE.md` (nimbus-workflow
   today).
 - `none`: no floor; `bears-on` may still cite an ADR.
 
@@ -267,17 +267,17 @@ target enables it in `.claude/settings.json`.
 
 | Skill | User-facing | Upstream origin |
 |---|---|---|
-| `omni-brainstorm` | yes | `vertuo-brainstorming` (+ superpowers steps inlined) |
-| `omni-yolo` | yes | `vertuo-yolo` ≡ deliver with the ask-nothing policy |
-| `omni-yolo-fix` | yes | `vertuo-yolo-fix` (origin/main: replies, settle PR, post-merge path) |
-| `omni-plan` | internal | `vertuo-plan` |
-| `omni-wave` | internal | `vertuo-parallel-wave` (+ claim first) |
-| `omni-do-work` | internal | `vertuo-do-work`; repository rules come from `.omni-loop/repo.md` |
-| `omni-pr` | internal | `vertuo-pull-request`, reduced to the three PR kinds and their lifecycle |
+| `omni-brainstorm` | yes | `nimbus-brainstorming` (+ superpowers steps inlined) |
+| `omni-yolo` | yes | `nimbus-yolo` ≡ deliver with the ask-nothing policy |
+| `omni-yolo-fix` | yes | `nimbus-yolo-fix` (origin/main: replies, settle PR, post-merge path) |
+| `omni-plan` | internal | `nimbus-plan` |
+| `omni-wave` | internal | `nimbus-parallel-wave` (+ claim first) |
+| `omni-do-work` | internal | `nimbus-do-work`; repository rules come from `.omni-loop/repo.md` |
+| `omni-pr` | internal | `nimbus-pull-request`, reduced to the three PR kinds and their lifecycle |
 
-Not carried over: `vertuo-deliver` (yolo with asking; later, as a policy flag), `vertuo-planner`
-(later), `vertuo-bbq`, `vertuo-pr-monitor` (repo-specific, the one skill that merges `main`),
-`vertuo-testing` / `vertuo-fix-bug` / `vertuo-react-*`.
+Not carried over: `nimbus-deliver` (yolo with asking; later, as a policy flag), `nimbus-planner`
+(later), `nimbus-bbq`, `nimbus-pr-monitor` (repo-specific, the one skill that merges `main`),
+`nimbus-testing` / `nimbus-fix-bug` / `nimbus-react-*`.
 
 Every skill starts with the same step: read `.omni-loop/config.yml` through `omni config` (which also
 checks the bundled bin's version against the plugin's and says which to upgrade); stop if the repository
@@ -291,7 +291,7 @@ without a conflict is to be verified in phase 3; if not, the plugin is named `om
 ## 10. Terraforming: `omni-loop`
 
 ```text
-npx github:vertuoza/vertuo-omni-plan init     # in the target repository
+npx github:demo-org/nimbus-plan init     # in the target repository
 omni-loop doctor                              # config valid, bin version, labels, workflow, settings
 omni-loop upgrade                             # new bin + workflow template, config migrated
 omni-loop remove                              # delete every manifest file, unmerge settings keys, rm .omni-loop/
@@ -339,14 +339,14 @@ Nothing else changes: the game still only reads.
 | 2 | `kit/ci/omni-outbox.yml`: status, both comments, Slack, drift stays red | shape test; a run on a scratch GitHub repo |
 | 3 | The plugin and its seven skills | on a scratch repo: brainstorm → phase-0 → yolo → red gate → reply → yolo-fix → green → shipped |
 | 4 | `omni-loop init / doctor / upgrade / remove` | `init` then `remove` leaves `git status` clean; `doctor` catches each broken install in a fixture list |
-| 5 | Pilot: terraform `vertuo-workflow`, retiring its hand port; the game reads it | one real PRD shipped through `/omni-yolo` |
+| 5 | Pilot: terraform `nimbus-workflow`, retiring its hand port; the game reads it | one real PRD shipped through `/omni-yolo` |
 | 6 | Later | the sweep (a closed PRD still in inbox, an open one in shipped), reply intake on `issue_comment` without an agent, `/omni-deliver` (asking policy), the planner, other repositories |
 
 ## 14. Out of scope
 
 - Migrating an existing repository's `docs/inbox`, `docs/outbox`, `docs/superpowers` history into
   `.omni-loop/delivery/` — the pilot starts empty and a migration is its own piece of work.
-- Changing `vertuo-ai-domain`.
+- Changing `nimbus-brain`.
 - The game's visual layer.
 
 ## 15. Dogfooding

@@ -1,5 +1,5 @@
 import { tokenOf, tokensOf, type AgentToken } from './model';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // The links' store (PRD 855 s1): the functions of supabase/migrations/20261028090000_agent_tokens.sql,
 // called as the signed-in person, so the database decides who may make, list and revoke. A refusal

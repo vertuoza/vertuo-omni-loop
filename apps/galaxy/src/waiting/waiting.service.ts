@@ -20,7 +20,7 @@ import { loadPeople, type People } from '../people/load';
 import { DOCUMENT_KINDS, DOCS_DAYS, type DocumentRow } from './documents';
 import { mergeQuestions, ownQuestions, sharedQuestions, type WaitingQuestion } from './waiting';
 import { waitingRepository, type DocumentReadRow, type WaitingDb, type WaitingRepository } from './waiting.repository';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 
 const WINDOW = DOCS_DAYS * 24 * 60 * 60_000;
 

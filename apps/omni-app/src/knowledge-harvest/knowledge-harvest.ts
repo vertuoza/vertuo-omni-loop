@@ -35,17 +35,17 @@
 // promotion, the kit's `finishHarvest` writes no "Stays here" note. Settling and shipping never need
 // the model.
 import { type Inngest, NonRetriableError } from 'inngest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { classifyCandidate, finishHarvest, keptPaths, lawQuestions, noEdits, prepareHarvest, withoutWorth } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { classifyCandidate, finishHarvest, keptPaths, lawQuestions, noEdits, prepareHarvest, withoutWorth } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
 import { addCommit, branchHead, refuseDefault, upsertPull } from '../git-write/git-write.ts';
 import { HARVEST_EVENT } from '../inngest-client.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { qualify } from '../retro/qualify.ts';
 import { firstLine } from '../outbox-check/github-schema.ts';
 import { commentOnFailure, FailureCommentSchema, upsertComment } from '../verdict-comment/verdict-comment.ts';
-import type { Classification, LawQuestion } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
-import type { ChangedFile, LawIssue, LawWorth } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
-import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Classification, LawQuestion } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
+import type { ChangedFile, LawIssue, LawWorth } from 'omni-loop/kit/lib/knowledge/write.ts';
+import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { filesIn, openLawIssue, pullFiles, readMerge, type RequestOctokit, takenElsewhere, tipOf, withTreeAt } from './github.ts';
 import type { LawJudge, LawJudgement } from './law-judge.ts';
 import { commitMarker, commitMessage, knowledgeBody, knowledgeTitle, toCommit } from './render.ts';

@@ -1,14 +1,14 @@
 // `canon-action` against the stubbed GitHub (PRD 839): a click of a canon button posts one comment on
 // the phase-0 PR, a second click of the same button edits it, and a click on any other PR posts
 // nothing. No test calls GitHub.
-import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { type AppEvent, inngest, INBOX_EXTERNAL_ID } from '../inngest-client.ts';
 import { fakeGitHub } from '../outbox-check/fake-github.ts';
 import { receiveWebhook } from '../webhook/webhook.ts';

@@ -58,7 +58,7 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
 <header>
   <h1>PRD 549 · mega-brainstorm</h1>
   <p class="lede">One plan across repositories, reviewed in one phase-0. Part 2 of the multi-repository mode:
-  in <code>vertuo-automation-plan</code>, a PM runs <code>/omni:mega-brainstorm</code> and gets one PRD whose
+  in <code>nimbus-plan</code>, a PM runs <code>/omni:mega-brainstorm</code> and gets one PRD whose
   slices each name the repository their code lands in. Building across them (ultra-yolo) comes next.</p>
 </header>
 
@@ -74,10 +74,10 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
         <line x1="250" y1="50" x2="350" y2="96" stroke="var(--line)" stroke-width="1.5"/>
         <rect x="10" y="96" width="160" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
         <text x="90" y="117" text-anchor="middle" fill="var(--ink)">/omni:brainstorm</text>
-        <text x="90" y="134" text-anchor="middle" fill="var(--muted)">in vertuo-backend-php</text>
+        <text x="90" y="134" text-anchor="middle" fill="var(--muted)">in nimbus-backend-php</text>
         <rect x="270" y="96" width="160" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
         <text x="350" y="117" text-anchor="middle" fill="var(--ink)">/omni:brainstorm</text>
-        <text x="350" y="134" text-anchor="middle" fill="var(--muted)">in vertuo-apps</text>
+        <text x="350" y="134" text-anchor="middle" fill="var(--muted)">in nimbus-apps</text>
         <rect x="10" y="172" width="160" height="44" rx="6" fill="var(--bad-bg)" stroke="var(--bad)"/>
         <text x="90" y="199" text-anchor="middle" fill="var(--bad)">phase-0 #1</text>
         <rect x="270" y="172" width="160" height="44" rx="6" fill="var(--bad-bg)" stroke="var(--bad)"/>
@@ -96,17 +96,17 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
       <svg viewBox="0 0 440 230" role="img" aria-label="After: one mega-brainstorm in the plan repository, one phase-0, slices naming their repository">
         <rect x="120" y="10" width="200" height="48" rx="6" fill="var(--accent-bg)" stroke="var(--accent)"/>
         <text x="220" y="31" text-anchor="middle" fill="var(--ink)">/omni:mega-brainstorm</text>
-        <text x="220" y="48" text-anchor="middle" fill="var(--muted)">in vertuo-automation-plan</text>
+        <text x="220" y="48" text-anchor="middle" fill="var(--muted)">in nimbus-plan</text>
         <line x1="220" y1="58" x2="220" y2="84" stroke="var(--accent)" stroke-width="1.5"/>
         <rect x="80" y="84" width="280" height="44" rx="6" fill="var(--accent-bg)" stroke="var(--accent)"/>
         <text x="220" y="111" text-anchor="middle" fill="var(--accent)">ONE phase-0 · What lands where</text>
         <line x1="160" y1="128" x2="90" y2="172" stroke="var(--line)" stroke-dasharray="4 3" stroke-width="1.5"/>
         <line x1="280" y1="128" x2="350" y2="172" stroke="var(--line)" stroke-dasharray="4 3" stroke-width="1.5"/>
         <rect x="10" y="172" width="160" height="44" rx="6" fill="var(--panel)" stroke="var(--line)"/>
-        <text x="90" y="192" text-anchor="middle" fill="var(--ink)">vertuo-backend-php</text>
+        <text x="90" y="192" text-anchor="middle" fill="var(--ink)">nimbus-backend-php</text>
         <text x="90" y="208" text-anchor="middle" fill="var(--muted)">s1 · read only</text>
         <rect x="270" y="172" width="160" height="44" rx="6" fill="var(--panel)" stroke="var(--line)"/>
-        <text x="350" y="192" text-anchor="middle" fill="var(--ink)">vertuo-apps</text>
+        <text x="350" y="192" text-anchor="middle" fill="var(--ink)">nimbus-apps</text>
         <text x="350" y="208" text-anchor="middle" fill="var(--muted)">s2, s3 · read only</text>
       </svg>
       <ul>
@@ -135,15 +135,15 @@ svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
       <h3>Repositories</h3>
       <div class="scroll"><table>
         <tr><th>repo</th><th>role</th><th>read at</th><th>knowledge</th></tr>
-        <tr><td>vertuo-backend-php</td><td>back-end</td><td><code>3f2a9c1…</code></td><td><span class="st stale">imported (stale)</span></td></tr>
-        <tr><td>vertuo-apps</td><td>front-end</td><td><code>9b01e44…</code></td><td><span class="st ok">own</span></td></tr>
+        <tr><td>nimbus-backend-php</td><td>back-end</td><td><code>3f2a9c1…</code></td><td><span class="st stale">imported (stale)</span></td></tr>
+        <tr><td>nimbus-apps</td><td>front-end</td><td><code>9b01e44…</code></td><td><span class="st ok">own</span></td></tr>
       </table></div>
       <h3>Slices</h3>
       <div class="scroll"><table>
         <tr><th>id</th><th>repo</th><th>slice</th><th>territory</th><th>blocked by</th><th>wave</th></tr>
-        <tr><td>s1</td><td>vertuo-backend-php</td><td>the quote total is served</td><td><code>src/Quote/</code></td><td>—</td><td>1</td></tr>
-        <tr><td>s2</td><td>vertuo-apps</td><td>the quote screen shows it</td><td><code>apps/quote/</code></td><td>s1</td><td>2</td></tr>
-        <tr><td>s3</td><td>vertuo-apps</td><td>the empty quote says why</td><td><code>apps/i18n/</code></td><td>—</td><td>1</td></tr>
+        <tr><td>s1</td><td>nimbus-backend-php</td><td>the quote total is served</td><td><code>src/Quote/</code></td><td>—</td><td>1</td></tr>
+        <tr><td>s2</td><td>nimbus-apps</td><td>the quote screen shows it</td><td><code>apps/quote/</code></td><td>s1</td><td>2</td></tr>
+        <tr><td>s3</td><td>nimbus-apps</td><td>the empty quote says why</td><td><code>apps/i18n/</code></td><td>—</td><td>1</td></tr>
       </table></div>
       <p class="lede">One wave numbering for all repositories; slices collide only inside the same repository; <code>blocked by</code> crosses repositories.</p>
     </div>
@@ -172,13 +172,13 @@ $ /omni:yolo 549
       <span class="tag">after</span>
 <pre>$ omni plan check 549
 3 slices · 2 waves · 2 repositories
-wave 1: s1 (vertuo-backend-php), s3 (vertuo-apps)
-wave 2: s2 (vertuo-apps)
+wave 1: s1 (nimbus-backend-php), s3 (nimbus-apps)
+wave 2: s2 (nimbus-apps)
 
 $ omni prd 549
 PRD 549 — 0549-quote-total
 state: inbox
-repos: vertuo-backend-php, vertuo-apps
+repos: nimbus-backend-php, nimbus-apps
 …
 
 $ /omni:yolo 549
@@ -200,8 +200,8 @@ PRD 549 spans repositories: /omni:ultra-yolo 549 builds it</pre>
       <h3>What lands where</h3>
       <div class="scroll"><table>
         <tr><th>repo</th><th>role</th><th>slices</th><th>waves</th></tr>
-        <tr><td>vertuo-backend-php</td><td>back-end</td><td>s1</td><td>1</td></tr>
-        <tr><td>vertuo-apps</td><td>front-end</td><td>s2, s3</td><td>1, 2</td></tr>
+        <tr><td>nimbus-backend-php</td><td>back-end</td><td>s1</td><td>1</td></tr>
+        <tr><td>nimbus-apps</td><td>front-end</td><td>s2, s3</td><td>1, 2</td></tr>
       </table></div>
       <p class="lede">Each team finds its part. The reply ends with <code>/omni:ultra-yolo 549</code>; until that skill ships, the line above it says the plan waits in the inbox.</p>
     </div>

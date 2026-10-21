@@ -3,7 +3,7 @@
 ## Triage
 
 - **Domain:** apps/omni-app — the `outbox-check` Inngest function and its failure handler
-- **Risk:** medium — teams on repos with the app installed see a red `outbox` check on ordinary PRs whenever GitHub rate-limits the app, which blocks merges where all checks are required; workaround: ignore the check (vertuoza/vertuo-backend-php#6341) or re-run it (Jev, 0.97)
+- **Risk:** medium — teams on repos with the app installed see a red `outbox` check on ordinary PRs whenever GitHub rate-limits the app, which blocks merges where all checks are required; workaround: ignore the check (demo-org/nimbus-backend-php#6341) or re-run it (Jev, 0.97)
 - **Regression:** new bug — no evidence this ever worked
 
 ## Reproduction

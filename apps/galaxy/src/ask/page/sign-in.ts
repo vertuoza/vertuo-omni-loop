@@ -1,7 +1,7 @@
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // Signing in from an ask page, and coming back to it. The sign-in is the galaxy's Google sign-in
-// (Supabase Auth, restricted to @vertuoza.com); only the way back differs from the arcade's: Google
+// (Supabase Auth, restricted to @example.com); only the way back differs from the arcade's: Google
 // returns to /ask/<id>/callback (or /ask/callback from the person's page, /ask), which turns the code
 // into the session cookie and goes back to the same page, carrying the reason when the sign-in was
 // refused. A shared question (/ask/q/<round>), For me (/ask/for-me) and the history (/ask/history)

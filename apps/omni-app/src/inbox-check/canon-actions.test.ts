@@ -1,6 +1,6 @@
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { CANON_ACTION, canonActions, canonComment, canonMarker, commentMarker, readCanonMarker } from './canon-actions.ts';
 
 const RED = Object.freeze({

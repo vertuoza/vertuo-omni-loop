@@ -20,7 +20,7 @@ components call `.from` or `.rpc` themselves. Row-level security keeps the data 
   enforces it. Agents build this repository, and an import that compiles is an import they keep
   (ADR-0058).
 
-vertuo-ai-domain already settled this for its own code (`libs/LIBRARY_STYLE_RULES.md` §5):
+nimbus-brain already settled this for its own code (`libs/LIBRARY_STYLE_RULES.md` §5):
 **Controller → Service → Repository → Database**, only `*.repository.ts` touches the database, zod
 contracts at every boundary, one typed client in the UI, enforced by a script.
 
@@ -90,8 +90,8 @@ Polling keeps today's pace: the bell 5 s visible / 15 s hidden, New documents 10
 
 ## Decisions
 
-- **The layering of vertuo-ai-domain, inside feature folders** (asked: the person pointed at
-  vertuo-ai-domain). Files keep living beside their feature; the role is the file's suffix. Top-level
+- **The layering of nimbus-brain, inside feature folders** (asked: the person pointed at
+  nimbus-brain). Files keep living beside their feature; the role is the file's suffix. Top-level
   layer folders and Server Actions were weighed and set aside: the first scatters every feature, the
   second gives two kinds of controller (the polls and the terminal need HTTP routes).
 - **Reads and writes** both move (asked). Sign-in and sign-out stay on Supabase Auth in the browser.

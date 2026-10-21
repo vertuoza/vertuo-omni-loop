@@ -34,8 +34,8 @@ branch (`Part of #549`).
 - The `## Repositories` table parses to `[{ repo, role, readAt, knowledge }]`, and to `[]` when the
   plan has none.
 - `collisions` reports two slices only when they share a `repo` (two `null`s count as the same) and
-  their territories meet: `src/` in `vertuo-apps` and `src/` in `vertuo-backend-php` is no
-  collision; `src/` twice in `vertuo-apps` in one wave is refused as today.
+  their territories meet: `src/` in `nimbus-apps` and `src/` in `nimbus-backend-php` is no
+  collision; `src/` twice in `nimbus-apps` in one wave is refused as today.
 - Through `main()` on a fixture repository whose config has a `plan` section, `omni plan check`
   refuses, each with the field named first: a slice table without `repo`; a `repo` that is neither
   a target's short name nor the plan repository's; a short name two entries share; a repository
@@ -43,7 +43,7 @@ branch (`Part of #549`).
   40 hex characters; a plan-repository row whose `read at` is not `—`.
 - A valid multi-repository plan passes, a slice blocked by a slice of another repository in an
   earlier wave included, and the output prints `3 slices · 2 waves · 2 repositories` and each wave
-  as `wave 1: s1 (vertuo-backend-php), s3 (vertuo-apps)`.
+  as `wave 1: s1 (nimbus-backend-php), s3 (nimbus-apps)`.
 - On a fixture repository without a `plan` section, a plan with a `repo` column is refused with
   `a repo column needs a plan repository`, one with a `## Repositories` table is refused too, and
   every existing case of `kit/bin/plan.test.mjs` passes unchanged.
@@ -53,7 +53,7 @@ branch (`Part of #549`).
 **s2: `omni prd` tells a multi-repository plan apart, and yolo and wave stop on it**
 
 - `kit/bin/prd.test.mjs` (new), through `main()` on a fixture repository: `omni prd <n>` on a PRD
-  whose `plan.md` has a `repo` column prints `repos: vertuo-backend-php, vertuo-apps` in
+  whose `plan.md` has a `repo` column prints `repos: nimbus-backend-php, nimbus-apps` in
   `## Repositories` order; on a PRD with an ordinary plan, or with no plan, it prints no `repos:`
   line and every other line exactly as before.
 - `kit/plugin/skills/yolo/SKILL.md` and `kit/plugin/skills/wave/SKILL.md` each say, at their

@@ -2,7 +2,7 @@
 // from any outbox module so a repository-agnostic caller (this task's own
 // `kit/lib/outbox/check-decision-coverage.ts`, and later `kit/lib/outbox/comment.ts`) never
 // shells out to git a second way.
-// Ported from vertuo-ai-domain@c4a210122:scripts/check-decision-coverage.mjs — changes in kit/porting/outbox--check-decision-coverage.md.
+// Ported from nimbus-brain@c4a210122:scripts/check-decision-coverage.mjs — changes in kit/porting/outbox--check-decision-coverage.md.
 import { execFileSync } from 'node:child_process';
 import type { ExecText } from './context.ts';
 import type { KnowledgeSource } from './knowledge/registers.ts';

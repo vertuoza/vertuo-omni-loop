@@ -2,7 +2,7 @@
 // and the Hall of Heroes, on the wide grid (640×360) and on the tall one (320×288).
 import { drawLogo, drawPlanet, logoPixels, spriteSize, WOUND_TINT, woundTint } from '@omni/design';
 import { fleet, MASCOTS } from '../fleets';
-import { defined, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined, keysOf } from 'omni-loop/kit/lib/narrow.ts';
 import { bootMark, frameOf, H, nebulaFor, plasmaTrail, RING, space, sprite, TALL, W, type FrameState, type Grid, type Pages, type SceneName } from './common.ts';
 
 /**

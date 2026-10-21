@@ -1,4 +1,4 @@
-import { messageOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { Database } from '../../../../supabase/database.types.ts';

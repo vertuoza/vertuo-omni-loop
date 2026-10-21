@@ -7,7 +7,7 @@
 // changed paths; for the feature PR and each merged sub-PR, its reviews and review threads
 // (`delivery.reads.mjs`). The plan and the settled file come from `qualify`, through the context.
 // `detect` (`delivery.facts.mjs`) and `describe` are pure.
-import type { PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   decisionFacts,
   frictionFacts,

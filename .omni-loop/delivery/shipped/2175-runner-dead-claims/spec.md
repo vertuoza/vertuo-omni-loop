@@ -21,7 +21,7 @@ the Claude plan's usage limits, and retrying a job the runner saw die.
 ## Problem
 
 A runner job builds a PRD with `/omni:yolo`. Each slice is claimed with a draft sub-PR that carries
-`omni:in-progress`. Sometimes the job dies mid-wave, and on vertuo-agents that has happened in four
+`omni:in-progress`. Sometimes the job dies mid-wave, and on nimbus-agents that has happened in four
 ways:
 - Claude stops after about ten minutes (#1914);
 - the weekly usage limit;
@@ -190,7 +190,7 @@ carries the reason as `releaseError` (at most 200 characters), stored in
   dead agent's half-finished commits. So a reused branch is re-verified, by the preflight and a
   review of its diff, before anything is built on it.
 - **A quiet-time fallback of 240 minutes,** for claims no watcher saw die. Long enough that an agent
-  thinking without pushing is not taken over: the longest slice job on vertuo-agents ran 1 h 21 min.
+  thinking without pushing is not taken over: the longest slice job on nimbus-agents ran 1 h 21 min.
   This is the most reversible choice, taken without asking: one config value.
 - **A label for "released",** rather than a state only the status comment holds. The board reads
   labels and never comments, so the label is what it can see.

@@ -1,7 +1,7 @@
 // An in-memory SnapshotStore for tests: dossier_github's rules (one row per dossier, a lease taken only
 // when free, a stale mark kept when already set) as ./store.ts asks the database for them. That the
 // database holds the same rules is proved by supabase/checks/dossier_github.sql, not here.
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Snapshot, SnapshotStore } from './store';
 
 export type FakeSnapshotStore = SnapshotStore & {

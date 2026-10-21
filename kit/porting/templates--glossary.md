@@ -1,6 +1,6 @@
 # `kit/templates/playbook/glossary.md`
 
-Sources: `CONTEXT.md` and `docs/glossary.md` @ `vertuo-ai-domain@db67fd9da`. The kit default of the
+Sources: `CONTEXT.md` and `docs/glossary.md` @ `nimbus-brain@db67fd9da`. The kit default of the
 glossary form, a pointer-only form: its one slot, `where`.
 
 ## Read from config instead of hard-coded

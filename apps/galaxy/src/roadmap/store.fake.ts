@@ -28,7 +28,7 @@
 // The body is trusted: the route validated it, and the database's own checks are proved by
 // supabase/checks/roadmaps.sql, not here. Reading runs under the migration's policies: a member of the
 // roadmap's workspace reads it, its PRDs and its human work.
-import { parseIssue, parsePrd, type IssueNumber, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePrd, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { fakeClient, fakeRecorder, listOf, objectOf, placeRepo, refused, tableQuery, textOf, type FakeAccount, type FakeResult as Result } from '../data/repo-tables.fake';
 import {
   HumanWorkKind, HumanWorkSource, PrerequisiteCard, PrerequisiteCategory, PrerequisiteState, PrerequisiteWho, RoadmapPrdState, RoadmapQuestion,

@@ -74,7 +74,7 @@
     <div class="flow">
       <h3>After</h3>
       <ol>
-        <li>The job gets <code>OMNI_JOB</code>, and each claim's status comment says <code>job: a8a6bf82 · runner vertuo-agents</code>.</li>
+        <li>The job gets <code>OMNI_JOB</code>, and each claim's status comment says <code>job: a8a6bf82 · runner nimbus-agents</code>.</li>
         <li>The job dies. The runner's watcher finds the claims that name it and swaps <code>omni:in-progress</code> for <code>omni:released</code>. It comments on each one, and the job row shows <i>Released #1908, #1909</i>.</li>
         <li>The board reads a released draft as <code>claimed-stale</code>: takeable at once. A claim nobody saw die becomes takeable after 240 quiet minutes.</li>
         <li><code>omni claim check 1904 s2</code> runs:
@@ -89,7 +89,7 @@
   <div class="gh">
     <b>s2: the app stores a job's lines</b> #1909 · Draft
     <div style="margin-top:6px"><span class="lbl rel">omni:released</span><span class="lbl ip" style="opacity:.4;text-decoration:line-through">omni:in-progress</span></div>
-    <div class="c">Released: runner job <code>a8a6bf82</code> on <code>vertuo-agents</code> ended (<code>weekly limit</code>) while it held this claim. The next run reuses it if the plan and its territory still match, or closes it and rebuilds the slice.</div>
+    <div class="c">Released: runner job <code>a8a6bf82</code> on <code>nimbus-agents</code> ended (<code>weekly limit</code>) while it held this claim. The next run reuses it if the plan and its territory still match, or closes it and rebuilds the slice.</div>
     <div class="c">Taken over from job <code>a8a6bf82</code>: <code>omni claim check</code> printed <code>reuse</code>. The preflight and the diff review run before any new work.</div>
   </div>
 
@@ -102,8 +102,8 @@
         <div class="page" data-screen="runners-today">
           <h2>Jobs</h2>
           <div class="table">
-            <div class="row"><code>/omni:yolo 1904</code><span class="muted">vertuo-agents</span><span class="status s-fail">Failed: exit code 1</span><span><button class="ghost" type="button">Terminal</button> <button class="ghost" type="button" data-primary>Send again</button></span></div>
-            <div class="row"><code>/omni:yolo 1904</code><span class="muted">vertuo-agents</span><span class="status s-done">Done</span><span><button class="ghost" type="button">Terminal</button> <a href="#">PR #1909</a></span></div>
+            <div class="row"><code>/omni:yolo 1904</code><span class="muted">nimbus-agents</span><span class="status s-fail">Failed: exit code 1</span><span><button class="ghost" type="button">Terminal</button> <button class="ghost" type="button" data-primary>Send again</button></span></div>
+            <div class="row"><code>/omni:yolo 1904</code><span class="muted">nimbus-agents</span><span class="status s-done">Done</span><span><button class="ghost" type="button">Terminal</button> <a href="#">PR #1909</a></span></div>
           </div>
         </div>
       </div>
@@ -115,7 +115,7 @@
         <div class="page" data-screen="runners">
           <h2>Jobs</h2>
           <div class="table">
-            <div class="row"><code>/omni:yolo 1904</code><span class="muted">vertuo-agents</span><span><span class="status s-fail">Failed: exit code 1</span><span class="why">Released <a href="#">#1908</a>, <a href="#">#1909</a></span></span><span><button class="ghost" type="button">Terminal</button> <button class="ghost" type="button" data-primary>Send again</button></span></div>
+            <div class="row"><code>/omni:yolo 1904</code><span class="muted">nimbus-agents</span><span><span class="status s-fail">Failed: exit code 1</span><span class="why">Released <a href="#">#1908</a>, <a href="#">#1909</a></span></span><span><button class="ghost" type="button">Terminal</button> <button class="ghost" type="button" data-primary>Send again</button></span></div>
             <div class="row"><code>/omni:yolo 1702</code><span class="muted">pierre-laptop</span><span><span class="status s-fail">Runner lost</span><span class="why">Could not release this job's claims: gh not signed in</span></span><span><button class="ghost" type="button">Terminal</button></span></div>
           </div>
         </div>

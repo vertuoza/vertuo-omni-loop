@@ -1,7 +1,7 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { renderRecord } from 'vertuo-omni-plan/kit/lib/escalation/comments.ts';
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { renderRecord } from 'omni-loop/kit/lib/escalation/comments.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { settled } from '../settled';
 import { escalationReader } from './github';
 

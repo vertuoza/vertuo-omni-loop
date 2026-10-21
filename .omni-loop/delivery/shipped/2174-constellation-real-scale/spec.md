@@ -32,7 +32,7 @@ no declared `consumes`, about 15 PRDs in flight), reproduced with an 18-reposito
 #2166 took the tab out of the row; its address still answers.
 
 What the product does know: a multi-repository PRD's plan names the repositories it targets, in its
-`## Repositories` table (a plan repository's PRDs, such as vertuo-automation-plan's, and product PRDs
+`## Repositories` table (a plan repository's PRDs, such as nimbus-plan's, and product PRDs
 like `mobile-12`). The latest plan of every PRD is on its dossier (`dossier_versions`, kind `plan`),
 and the database already parses that table on every plan push (`plan_repository_names()`, called by
 `dossier_link_repositories()` from the `dossier_versions_product` trigger), but only to link the
@@ -106,7 +106,7 @@ on the server.
   or larger to tap.
 - **Plan lines:** curves 1.5 to 5 px wide by weight; a shipped-only line dim `--dim`, an in-flight one
   `--cyan`, with three dots moving along it. Each is a link (`?pair=`) with a `<title>`
-  (`vertuo-apps ↔ vertuo-backend-php · 7 PRDs`). **Consumes lines:** 1 px `--slate`, an arrowhead at
+  (`nimbus-apps ↔ nimbus-backend-php · 7 PRDs`). **Consumes lines:** 1 px `--slate`, an arrowhead at
   the provider.
 - **Motion, capped** (the voice): at most 60 background stars twinkle, CSS only; the motion pauses
   while the tab is hidden; under `prefers-reduced-motion: reduce` nothing twinkles, pulses or flows.
@@ -174,7 +174,7 @@ is second in the row again, and restores its row in `docs/guide/products.md`, de
   so the server needs no font metrics; a name longer than 28 characters is cut with `…` and its
   `<title>` keeps it whole.
 - **The home repository is not a target** (agent, found while drawing the after): a plan repository's
-  PRDs are homed in it, so counting it would make vertuo-automation-plan the hub of every line.
+  PRDs are homed in it, so counting it would make nimbus-plan the hub of every line.
 - **A PRD without a pushed plan draws no line** (agent): a PRD shipped before plans were pushed to its
   dossier has none, and nothing is read from git.
 - **Screens:** the draft `product-constellation` is brought up to this design; no locked screen is

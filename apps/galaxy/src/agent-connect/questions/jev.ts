@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { unknownWorthAsking, type UnknownInput } from '../../jev/decisions/unknown-worth-asking';
 import { decide, type JevDecideDeps } from '../../jev/resolve';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // Jev's Unknown worth asking after a report (PRD 855 s4, decision 13): once report_unknown has answered,
 // Jev reads the new question, its repository and file and the product's confirmed claims, and says whether

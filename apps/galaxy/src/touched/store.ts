@@ -9,7 +9,7 @@ import type { Database } from '../../../../supabase/database.types.ts';
 import { orEmpty, parseRows } from '../data/parse-rows';
 import { StoredSummary } from '../dossier/snapshot/schema';
 import type { FixRef } from '../dossier/github/reader';
-import { IssueNumberSchema, type IssueNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, type IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { TouchedSnapshot } from './touched';
 
 export const TOUCHED_COLUMNS = 'dossier_id, summary';

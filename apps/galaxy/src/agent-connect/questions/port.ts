@@ -1,7 +1,7 @@
 import { NEVER_INVALID, refusalOf } from '../../business/store';
 import type { ClaimKind } from '../../business/model';
 import type { AgentQuestion } from './model';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 // The questions' calls from the browser (PRD 855 s3). In production, the functions of
 // supabase/migrations/20261028100000_agent_questions.sql, called as the signed-in person like the rest of

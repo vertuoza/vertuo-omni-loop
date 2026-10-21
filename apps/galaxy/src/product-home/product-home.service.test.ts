@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { productHomeOf, productHomeService, type ProductHomeRows } from './product-home.service';
 import type { ProductHomeRepository, StoredHomePrd, StoredItem, StoredProductPrd } from './product-home.repository';
 
@@ -207,8 +207,8 @@ describe('the Ideas, Roadmap, Bug fixes, Visual fixes and Questions tabs (s10)',
       key: 'mobile',
       productPrds: [productPrd('d-m12', 12, { title: 'Quotes on the phone', opened_by: 'u-paul' }), productPrd('d-m11', 11, { opened_by: ME })],
       items: [
-        item('d-m12', 's2-01-quote-totals', 'medium', 'vertuoza/vertuo-api'),
-        item('d-m12', 's3-02-vat-number', 'high', 'vertuoza/vertuo-mobile'),
+        item('d-m12', 's2-01-quote-totals', 'medium', 'demo-org/nimbus-api'),
+        item('d-m12', 's3-02-vat-number', 'high', 'demo-org/nimbus-mobile'),
         item('d-m12', 's1-01-settled-one', 'high', null, [{ id: 'st-1' }]),
         item('d-m11', 's1-01-add-the-secret', 'human-action', null),
         item('d-m11', 's1-02-keep-the-cache', 'high', null),
@@ -217,8 +217,8 @@ describe('the Ideas, Roadmap, Bug fixes, Visual fixes and Questions tabs (s10)',
     });
     const questions = productHomeOf(rows).questions;
     expect(questions.map((q) => [q.prdLabel, q.id, q.repo, q.rank, q.forWhom, q.answerOn])).toEqual([
-      ['mobile-12', 's3-02-vat-number', 'vertuoza/vertuo-mobile', 'high', 'for paul', 'mobile-12'],
-      ['mobile-12', 's2-01-quote-totals', 'vertuoza/vertuo-api', 'medium', 'for paul', 'mobile-12'],
+      ['mobile-12', 's3-02-vat-number', 'demo-org/nimbus-mobile', 'high', 'for paul', 'mobile-12'],
+      ['mobile-12', 's2-01-quote-totals', 'demo-org/nimbus-api', 'medium', 'for paul', 'mobile-12'],
       ['mobile-11', 's1-01-add-the-secret', null, 'human-action', 'for a person who can do it', 'mobile-11'],
       ['mobile-11', 's1-02-keep-the-cache', null, 'high', 'for you', 'mobile-11'],
     ]);
@@ -322,7 +322,7 @@ describe('the product home\'s service', () => {
       restore: (id) => { calls.push(`restore ${id}`); return Promise.resolve({ ok: true as const, answer: { id, name: 'Mobile', archivedAt: null } }); },
       prds: (ws, id) => { calls.push(`prds ${ws} ${id}`); return Promise.resolve([prd('d-1', 7, { home_repo: 'vertuo/api' })]); },
       productPrds: (ws, id) => { calls.push(`product prds ${ws} ${id}`); return Promise.resolve([productPrd('d-m12', 12, { opened_by: 'u-paul' })]); },
-      items: (ids) => { calls.push(`items ${ids.join()}`); return Promise.resolve([item('d-m12', 's2-01-quote-totals', 'high', 'vertuoza/vertuo-api')]); },
+      items: (ids) => { calls.push(`items ${ids.join()}`); return Promise.resolve([item('d-m12', 's2-01-quote-totals', 'high', 'demo-org/nimbus-api')]); },
       players: (ws, users) => { calls.push(`players ${ws} ${users.join()}`); return Promise.resolve([{ user_id: 'u-paul', github_login: 'paul' }]); },
       links: (ws, id) => { calls.push(`links ${ws} ${id}`); return Promise.resolve([{ repository: 'vertuo/api', role: 'api', consumes: [] }, { repository: 'vertuo/app', role: null, consumes: ['vertuo/api'] }]); },
       otherLinks: (_ws, _id, repos) => { calls.push(`other links ${repos.join()}`); return Promise.resolve([{ repository: 'vertuo/api', products: { name: 'Web' } }]); },

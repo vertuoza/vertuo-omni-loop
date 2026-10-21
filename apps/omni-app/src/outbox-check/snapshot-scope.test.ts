@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { InngestTestEngine } from '@inngest/test';
 import { afterEach, describe, expect, it } from 'vitest';
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.ts';
 import { fakeGitHub } from './fake-github.ts';
 import { createOutboxCheck } from './outbox-check.ts';

@@ -8,7 +8,7 @@ import type { Database } from '../../../../../supabase/database.types.ts';
 import type { GithubSummary } from '../github/summary';
 import { orNull, parseRow } from '../../data/parse-rows';
 import { settle } from '../../stages/store';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { StoredSummary } from './schema';
 
 const TABLE = 'dossier_github';

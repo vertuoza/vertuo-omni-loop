@@ -15,7 +15,7 @@ No change to the ledger, the economy, points, Game mode, `/prd`, `/ask` or `/kno
 ## Problem
 
 A member who works does not show up. Paul (GitHub `paetienne`) signed in, merged seven pull requests
-into `vertuo-ai-domain`'s `main` in the last week and answered questions, and the dashboard shows
+into `nimbus-brain`'s `main` in the last week and answered questions, and the dashboard shows
 nothing of him to anyone:
 
 - `/app` is about the person looking only: their hero, *their* week of merges, *their* counts.
@@ -23,7 +23,7 @@ nothing of him to anyone:
   ledger **with points this season**: the top 3 and the people around you. Points come only from
   Omni Loop PRD delivery (planets, zones, wounds), so ordinary merged pull requests and answered
   questions give none, and a member with 0 points, or with no player row, is never listed.
-- His merges *are* recorded (`contributions`, kind `pr-merged`, `vertuo-ai-domain` is a sector), but
+- His merges *are* recorded (`contributions`, kind `pr-merged`, `nimbus-brain` is a sector), but
   nothing reads them for anyone but their author.
 
 There is also no view of a fleet or of the workspace as a whole, no count of PRDs moving through

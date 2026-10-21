@@ -15,7 +15,7 @@ import type { ConceptFacts, FixSummary } from '../../dossier/github/fix';
 import { UNREAD } from '../../dossier/github/summary';
 import { textOf } from '../../data/unparsed';
 import { settle } from '../../stages/store';
-import { IssueNumberSchema, PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { IssueNumberSchema, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 const TABLE = 'fix_facts';
 

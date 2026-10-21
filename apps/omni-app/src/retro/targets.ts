@@ -7,8 +7,8 @@
 // none (the retro then says it could not read it). Its feature branches are the ones
 // `/omni:ultra-yolo` opened there: `branches.feature`, or one `branches.landing` per landing the
 // target has slices in.
-import { landingPlan } from 'vertuo-omni-plan/kit/lib/landings/landing-plan.ts';
-import { parsePlanLandings, parsePlanRepositories, parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.ts';
+import { landingPlan } from 'omni-loop/kit/lib/landings/landing-plan.ts';
+import { parsePlanLandings, parsePlanRepositories, parsePlanSlices } from 'omni-loop/kit/lib/inbox/territory.ts';
 import type { Config } from './retro.types.ts';
 
 /** One target of the plan: its short name, its `owner/name` (`null`: not a target of the config), its feature branches. */

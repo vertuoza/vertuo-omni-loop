@@ -32,8 +32,8 @@
 // deferred, is never sent; the step logs one line and is retried once the pause or the window ends.
 import { RetryAfterError, type Inngest } from 'inngest';
 import { GithubDeferred, GithubPaused } from '@omni/github';
-import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import type { PrNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 import {
   APPROVED_CHECK_EVENT,
   APPROVED_EXTERNAL_ID,

@@ -1,6 +1,6 @@
 # `kit/templates/playbook/decisions.md`
 
-Source: `docs/adr/index.md` @ `vertuo-ai-domain@db67fd9da`, with the record shape of
+Source: `docs/adr/index.md` @ `nimbus-brain@db67fd9da`, with the record shape of
 `docs/adr/0058-identifiers-are-english-interface-copy-is-french.md` and "Records are never deleted"
 from `docs/knowledge/README.md` › Decision record or principle?. The kit default of the decisions
 form, which lives at `adr/README.md` under the front door: slots `where`, `format`, `numbering`, in

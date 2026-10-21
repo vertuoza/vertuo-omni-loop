@@ -18,9 +18,9 @@
 // The header carries the concept's state chip (PRD 1272, s4, ./state.ts), from the facts the route read.
 // The concept PR's link is that pull request once the facts name it; until then, GitHub's search for the
 // pull request that refers to the concept's issue (`Refs #<n>`, as /omni:think-big writes it).
-import { CONCEPT_SECTIONS, parseConcept } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
-import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { CONCEPT_SECTIONS, parseConcept } from 'omni-loop/kit/lib/concept/parse.ts';
+import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { renderMarkdown, renderMarkdownBody } from '../dossier/markdown';
 import { WORK_NAMES, workPath } from '../dossier/page/work';
 import type { ConceptFacts } from '../dossier/github/fix';

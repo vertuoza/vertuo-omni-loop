@@ -15,10 +15,10 @@
 //
 // When the retro is not worth a pull request, or was not judged, nothing of that is written:
 // `verdictComment` gives instead the one comment the retro keeps on the merged feature PR.
-import type { PrNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { z } from 'zod';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
+import { parseOrThrow } from 'omni-loop/kit/lib/schema/parse-or-throw.ts';
 import { RetroDocSchema } from './github.schema.ts';
 import { RunRecordSchema } from './retro.schema.ts';
 import { KINDS, type Kind } from './kinds/index.ts';

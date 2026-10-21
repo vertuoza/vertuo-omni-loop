@@ -5,7 +5,7 @@ import type { PullRequestRow, ReviewRow } from '../engineering/tally';
 import { loadProfile, placeOf, type ProfileReads, type ProfileRequest } from './load';
 import { sure } from '../arcade/test/sure';
 import { settled } from '../stages/settled';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // A profile's loader on fake reads (PRD 698 s3): a member's header, board and work of the period; a
 // login outside the workspace; no tracked repository; and each read failing alone.

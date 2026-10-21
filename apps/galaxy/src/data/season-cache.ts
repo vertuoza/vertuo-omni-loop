@@ -5,7 +5,7 @@ import { unstable_cache } from 'next/cache';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../supabase/database.types.ts';
 import type { GalaxyView, LedgerEvent, Projects } from '@omni/galaxy';
-import { log, type LogEntry } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log, type LogEntry } from 'omni-loop/kit/lib/log/log.ts';
 import { serverEnv } from '../env';
 
 // The season, cached per workspace (PRD 657, s8). Folding the whole ledger through buildGalaxy on every

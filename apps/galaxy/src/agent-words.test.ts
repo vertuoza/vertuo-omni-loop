@@ -36,6 +36,10 @@ const ALLOWED: readonly Allowed[] = [
     file: 'apps/galaxy/src/agent-connect/tokens/ConnectAgentCard.tsx', sample: 'in Cursor, Claude Code or any MCP client',
     reason: 'the Connect agent hint names the editors the setup has a row for, Cursor and any MCP client beside Claude Code',
   },
+  {
+    file: 'apps/galaxy/src/repositories/skills.ts', literal: /^\.claude\/skills$/, sample: '.claude/skills',
+    reason: 'the folder a repository keeps its own skills in, read from its default branch: a path on GitHub, never the app\'s voice (PRD 2313)',
+  },
   { file: 'apps/galaxy/src/ask/prices.ts', literal: MODEL_ID, sample: 'claude-sonnet-4-6', reason: 'the price table is keyed by model id' },
   { file: 'apps/galaxy/src/ask/classify.ts', literal: MODEL_ID, sample: 'anthropic/claude-haiku-4.5', reason: 'the model the classifier calls, by its id' },
   { file: 'apps/galaxy/src/business/suggest.ts', literal: MODEL_ID, sample: 'anthropic/claude-haiku-4.5', reason: 'the model the suggestion calls, by its id' },

@@ -1,6 +1,6 @@
 # `kit/templates/playbook/definition-of-done.md`
 
-Source: `docs/agents/definition-of-done.md` @ `vertuo-ai-domain@db67fd9da`. The kit default of the
+Source: `docs/agents/definition-of-done.md` @ `nimbus-brain@db67fd9da`. The kit default of the
 definition-of-done form: slots `done`, `docs`, `commits`, in the spec's order.
 
 ## Read from config instead of hard-coded
@@ -15,14 +15,14 @@ definition-of-done form: slots `done`, `docs`, `commits`, in the spec's order.
 
 ## Dropped (repository literals)
 
-- **The skill pointers:** `vertuo-deliver`, `vertuo-yolo`, `vertuo-do-work`, `vertuo-testing`,
-  `vertuo-pull-request`.
+- **The skill pointers:** `nimbus-deliver`, `nimbus-yolo`, `nimbus-do-work`, `nimbus-testing`,
+  `nimbus-pull-request`.
 - **Done Means' repository rules:** structured logging metadata and correlation ids (the testing
   form's `never` keeps the log rule); "Shared contracts remain Zod-first" (the architecture form's
   `patterns`); "Layering still matches `libs/LIBRARY_STYLE_RULES.md`, especially the forbidden
   `ai → domain` edge" (the architecture form's `boundaries`); `.github/PULL_REQUEST_TEMPLATE.md`
-  (now "the pull request body explains …"); ADR 0069; `ci/outbox`; `/vertuo-deliver`,
-  `/vertuo-yolo` and `docs/agents/implementation-workflow.md`, "The Outbox".
+  (now "the pull request body explains …"); ADR 0069; `ci/outbox`; `/nimbus-deliver`,
+  `/nimbus-yolo` and `docs/agents/implementation-workflow.md`, "The Outbox".
 - **Documentation Updates:** "Update capability docs when inputs, outputs, prompt behavior, eval
   flow, status, or known gaps change" (this repository's capability docs); "provider rule" in the
   ADR line; "README or setup docs" now "the setup page"; "agent docs" now "this playbook".

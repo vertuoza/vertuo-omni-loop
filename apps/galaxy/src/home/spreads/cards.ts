@@ -1,5 +1,5 @@
-import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { RULEBOOK } from 'omni-loop/game/rulebook.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import type { FleetRow } from '../../arcade/types';
 
 // COLLECT ALL THE FLEETS! (PRD 261): fleets as trading cards (HOME deals its own example fleets,

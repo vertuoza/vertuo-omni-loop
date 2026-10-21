@@ -2,7 +2,7 @@
 // renderers, so HOME paints them with no script: the crest, OmniMan pointing, the invaded planet and
 // the starfield behind it. Each is an SVG string, crisp at a whole-number scale.
 import { drawPlanet, drawStarfield, logoSvg, makeStarfield, OMNI_LOOP, spritePixels } from '@omni/design';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { pixelSvg, type PixelGrid } from '../../design/pixel-svg';
 
 /** The crest's form on the poster: the full wordmark, where the ad puts its logo. */

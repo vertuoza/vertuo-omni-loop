@@ -3,7 +3,7 @@ import { UNREAD, type GithubSummary, type PendingAnswer, type PullRef } from '..
 import type { StageRow } from '../../stages/stage';
 import type { CareState } from '../github/care';
 import { careChipOf, fixingOf, outboxStand, stageOf, stageView, syncedWords } from './stage';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // PRD 426's reading of the stage from the GitHub summary, which only the page's pulse still uses: each
 // row of its spec's table, tried from the latest stage down, and unknown whenever what decides it could

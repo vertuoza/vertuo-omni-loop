@@ -1,6 +1,6 @@
 -- Fleets, players and sign-in (docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md).
 -- Supabase becomes the game's source of truth: a fleet is a row here, a player is a signed-in
--- @vertuoza.com account, and the galaxy is readable only by that crew.
+-- account on the company's email domain (example.com here), and the galaxy is readable only by that crew.
 
 -- ── Fleets carry their own look ──────────────────────────────────────────────
 
@@ -47,15 +47,15 @@ on conflict (name) do update
   set label = excluded.label, color = excluded.color, motto = excluded.motto, mascot = excluded.mascot,
       sort = excluded.sort, retired_at = coalesce(public.teams.retired_at, excluded.retired_at);
 
--- ── The crew: signed-in @vertuoza.com accounts ───────────────────────────────
+-- ── The crew: signed-in accounts on the company's domain ────────────────────
 
--- True when the caller's token belongs to a Vertuoza account. Every read and write of the galaxy
+-- True when the caller's token belongs to the company's domain. Every read and write of the galaxy
 -- checks it, so the domain holds even if the sign-in hook below is switched off.
 create function public.is_crew() returns boolean
 language sql stable
 set search_path = ''
 as $$
-  select coalesce(lower(auth.jwt() ->> 'email') like '%@vertuoza.com', false)
+  select coalesce(lower(auth.jwt() ->> 'email') like '%@example.com', false)
 $$;
 
 -- Supabase Auth's "before user created" hook (Authentication › Hooks): an account from any other
@@ -65,12 +65,12 @@ language plpgsql stable
 set search_path = ''
 as $$
 begin
-  if lower(coalesce(event -> 'user' ->> 'email', '')) like '%@vertuoza.com' then
+  if lower(coalesce(event -> 'user' ->> 'email', '')) like '%@example.com' then
     return '{}'::jsonb;
   end if;
   return jsonb_build_object('error', jsonb_build_object(
     'http_code', 403,
-    'message', 'OMNI LOOP is for @vertuoza.com accounts only.'));
+    'message', 'OMNI LOOP is for @example.com accounts only.'));
 end;
 $$;
 
@@ -150,7 +150,7 @@ declare
   me public.players;
 begin
   if auth.uid() is null or not public.is_crew() then
-    raise exception 'Sign in with your vertuoza.com account first.' using errcode = '42501';
+    raise exception 'Sign in with your company account first.' using errcode = '42501';
   end if;
   select i.provider_id, coalesce(i.identity_data ->> 'user_name', i.identity_data ->> 'preferred_username') as login
     into ident

@@ -1,5 +1,5 @@
 import { InngestTestEngine, mockCtx } from '@inngest/test';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { inngest } from '../inngest-client.ts';

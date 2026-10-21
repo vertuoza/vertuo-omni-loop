@@ -25,7 +25,7 @@ const PLAN = `# Plan: a plan
 | --- | ------------------ | --------- | ---------------------------------------------------- | ---------- | ---- | ---- |
 | s1  | The registers      | …         | \`docs/knowledge/product/invariants.md\`, \`scripts/registers*\`, \`package.json\` | —          | 1    | mid  |
 | s2  | The item           | …         | \`scripts/outbox.mjs\`, \`package.json\`                   | s1         | 2    | mid  |
-| s6  | The territory      | …         | \`.claude/skills/vertuo-plan/\`, \`scripts/check-territory*\` | —          | 1    | top  |
+| s6  | The territory      | …         | \`.claude/skills/nimbus-plan/\`, \`scripts/check-territory*\` | —          | 1    | top  |
 
 ### s1 — The registers
 
@@ -57,7 +57,7 @@ describe('parsePlanSlices', () => {
     expect(slices[2]).toMatchObject({
       id: 's6',
       wave: 1,
-      territory: ['.claude/skills/vertuo-plan/', 'scripts/check-territory*'],
+      territory: ['.claude/skills/nimbus-plan/', 'scripts/check-territory*'],
     });
   });
 
@@ -227,23 +227,23 @@ describe('covers', () => {
   it('a sibling directory whose name merely starts the same is not covered', () => {
     // Two sibling skill directories whose names merely start the same are two slices' ground in
     // the same wave; the trailing slash is what keeps them apart.
-    expect(covers(['.claude/skills/vertuo-yolo/'], '.claude/skills/vertuo-yolo-fix/SKILL.md')).toBe(
+    expect(covers(['.claude/skills/nimbus-yolo/'], '.claude/skills/nimbus-yolo-fix/SKILL.md')).toBe(
       false,
     );
   });
 });
 
 describe('breaches', () => {
-  const declared = ['.claude/skills/vertuo-plan/', 'scripts/check-territory*'];
+  const declared = ['.claude/skills/nimbus-plan/', 'scripts/check-territory*'];
 
   it('says nothing when every changed path is inside the declaration', () => {
     expect(
-      breaches(['.claude/skills/vertuo-plan/SKILL.md', 'scripts/check-territory.mjs'], declared),
+      breaches(['.claude/skills/nimbus-plan/SKILL.md', 'scripts/check-territory.mjs'], declared),
     ).toEqual([]);
   });
 
   it('names the path that reached outside', () => {
-    expect(breaches(['.claude/skills/vertuo-plan/SKILL.md', 'package.json'], declared)).toEqual([
+    expect(breaches(['.claude/skills/nimbus-plan/SKILL.md', 'package.json'], declared)).toEqual([
       'package.json',
     ]);
   });
@@ -337,7 +337,7 @@ describe('Feature: Slices declare the ground they stand on — a slice that reac
 
   it('flags the breach, names the path, and stays non-fatal so the merge proceeds', () => {
     const verdict = territoryVerdict(plan, parseWorkSliceId('s6'), [
-      '.claude/skills/vertuo-plan/SKILL.md',
+      '.claude/skills/nimbus-plan/SKILL.md',
       'docs/glossary.md',
     ]);
     expect(verdict.breaches).toEqual(['docs/glossary.md']);
@@ -368,24 +368,24 @@ const MULTI_PLAN = `# Plan: across repositories
 
 | repo | role | read at | knowledge |
 | --- | --- | --- | --- |
-| vertuo-backend-php | back-end | 3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4 | imported (stale) |
-| \`vertuo-apps\` | front-end | 9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921 | own |
+| nimbus-core | back-end | 3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4 | imported (stale) |
+| \`nimbus-apps\` | front-end | 9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921 | own |
 
 ## Slices
 
 | id | repo | slice | territory | blocked by | wave |
 | --- | --- | --- | --- | --- | --- |
-| s1 | vertuo-backend-php | the quote total is served | \`src/\` | — | 1 |
-| s2 | vertuo-apps | the quote screen shows the total | \`apps/quote/\` | s1 | 2 |
-| s3 | \`vertuo-apps\` | the empty quote says why | \`src/\` | — | 1 |
+| s1 | nimbus-core | the quote total is served | \`src/\` | — | 1 |
+| s2 | nimbus-apps | the quote screen shows the total | \`apps/quote/\` | s1 | 2 |
+| s3 | \`nimbus-apps\` | the empty quote says why | \`src/\` | — | 1 |
 `;
 
 describe('PRD 549: a slice names its repository', () => {
   it("reads each slice's repo from a repo column, backticks stripped", () => {
     expect(parsePlanSlices(MULTI_PLAN).map((slice) => slice.repo)).toEqual([
-      'vertuo-backend-php',
-      'vertuo-apps',
-      'vertuo-apps',
+      'nimbus-core',
+      'nimbus-apps',
+      'nimbus-apps',
     ]);
   });
 
@@ -396,12 +396,12 @@ describe('PRD 549: a slice names its repository', () => {
   it('reads the ## Repositories rows in order', () => {
     expect(parsePlanRepositories(MULTI_PLAN)).toEqual([
       {
-        repo: 'vertuo-backend-php',
+        repo: 'nimbus-core',
         role: 'back-end',
         readAt: '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4',
         knowledge: 'imported (stale)',
       },
-      { repo: 'vertuo-apps', role: 'front-end', readAt: '9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921', knowledge: 'own' },
+      { repo: 'nimbus-apps', role: 'front-end', readAt: '9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921', knowledge: 'own' },
     ]);
   });
 
@@ -415,8 +415,8 @@ describe('PRD 549: a slice names its repository', () => {
 
   it('the same territory twice in one repository and one wave is refused', () => {
     const same = MULTI_PLAN.replace(
-      '| s2 | vertuo-apps | the quote screen shows the total | `apps/quote/` | s1 | 2 |',
-      '| s2 | vertuo-apps | the quote screen shows the total | `src/quote/` | — | 1 |',
+      '| s2 | nimbus-apps | the quote screen shows the total | `apps/quote/` | s1 | 2 |',
+      '| s2 | nimbus-apps | the quote screen shows the total | `src/quote/` | — | 1 |',
     );
     expect(sameWaveCollisions(parsePlanSlices(same))).toEqual([
       { left: 's2', right: 's3', shared: ['src/'], wave: 1 },

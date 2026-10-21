@@ -5,7 +5,7 @@ import { nestedLinks } from '../../people/nested-links';
 import { DEMO_MEMBERS, demoHistory } from './demo';
 import { WorkspaceHistory } from './WorkspaceHistory';
 import { historyChoices, historyList, type HistoryFilters } from './workspace-history';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // /ask/history (PRD 144), as the server renders it: a form of filters that works before any script
 // runs (a GET to the same page), and a list of rounds, each opening /ask/q/<round>.

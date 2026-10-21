@@ -5,7 +5,7 @@
 // its own in `scenes/<group>.ts`, and `scenes/index.ts` picks the one to draw. A colour that is a
 // theme token is read from the frame's theme (`FrameState.theme`), never written here, and every
 // sprite is drawn through `sprite()`, in the theme's stripes.
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import {
   drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero, type LogoForm, type Tint,
 } from '@omni/design';
@@ -16,7 +16,7 @@ import { stripesOf, type Theme } from '../theme';
 import type { Game } from '../games/invaders';
 import type { FleetRow } from '../types';
 import type { ChartLayout, ChartSource, SystemLayout } from './chart-layout.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** The wide grid's size: the grid every scene is drawn on until its group lays it out tall. */
 export const W = 640;
