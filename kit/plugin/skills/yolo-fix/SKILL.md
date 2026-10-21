@@ -3,7 +3,7 @@ name: yolo-fix
 description: Bring a PRD back in line with what a person answered — read the replies on the feature PR, settle them in one sub-PR, rework every drifted decision as its own slice (one sub-PR each into the feature branch, inside the bound the item stated), check the whole feature, then ship before ready when the gate is green. Raises no question of its own and never merges into the default branch. Triggers on "yolo-fix this PRD", "fix the drift", "rework what I disagreed with", "/omni:yolo-fix".
 ---
 
-<!-- Ported from vertuo-ai-domain@2af3d72f7:.claude/skills/vertuo-yolo-fix/SKILL.md — changes in kit/porting/plugin--yolo-fix.md -->
+<!-- Ported from nimbus-brain@2af3d72f7:.claude/skills/nimbus-yolo-fix/SKILL.md — changes in kit/porting/plugin--yolo-fix.md -->
 
 # Yolo fix: replies, settle, rework, ship
 

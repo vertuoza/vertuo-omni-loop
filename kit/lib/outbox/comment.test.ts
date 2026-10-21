@@ -36,9 +36,9 @@ import type { OutboxItem, OutboxSections } from '../types.ts';
 import type { IssueComment, SettledEntryView } from './comment.ts';
 import { type CommentId, parseCommentId, parseOutboxItemId, parsePrd, parseWorkSliceId } from '../ids.ts';
 
-/** The markers every ported test below renders and parses through — `vertuo-outbox`, matching
+/** The markers every ported test below renders and parses through — `nimbus-outbox`, matching
  * `flatCtx`'s own configured prefix (`kit/test/flat-layout.ts`). */
-const markers = makeMarkers('vertuo-outbox');
+const markers = makeMarkers('nimbus-outbox');
 
 /** A ctx with no real files behind it, for every test that only renders text or parses a marker —
  * none of them read `ctx.root`, only `ctx.markers`/`ctx.config`/`ctx.layout`'s pure `outboxDir`. A
@@ -188,8 +188,8 @@ describe('sortItems', () => {
 describe('formatOutboxComment', () => {
   const base = {
     prd: parsePrd(985),
-    owner: 'vertuoza',
-    repo: 'vertuo-ai-domain',
+    owner: 'demo-org',
+    repo: 'nimbus-brain',
     branch: 'feat/agent-outbox',
     ctx,
   };
@@ -221,10 +221,10 @@ describe('formatOutboxComment', () => {
     expect(body).toContain('`high`');
     expect(body).toContain('`medium`');
     expect(body).toContain(
-      'https://github.com/vertuoza/vertuo-ai-domain/blob/feat/agent-outbox/docs/outbox/985/s7-01-default-country.md',
+      'https://github.com/demo-org/nimbus-brain/blob/feat/agent-outbox/docs/outbox/985/s7-01-default-country.md',
     );
     expect(body).toContain(
-      'https://github.com/vertuoza/vertuo-ai-domain/blob/feat/agent-outbox/docs/outbox/985/s2-01-something.md',
+      'https://github.com/demo-org/nimbus-brain/blob/feat/agent-outbox/docs/outbox/985/s2-01-something.md',
     );
   });
 
@@ -275,7 +275,7 @@ describe('formatOutboxComment', () => {
     const items = [item({ id: 's7-01-default-country', rank: 'high' })];
     const body = formatOutboxComment({ ...base, ref: 'abc1234', items });
     expect(body).toContain(
-      'https://github.com/vertuoza/vertuo-ai-domain/blob/abc1234/docs/outbox/985/s7-01-default-country.md',
+      'https://github.com/demo-org/nimbus-brain/blob/abc1234/docs/outbox/985/s7-01-default-country.md',
     );
     expect(body).not.toContain(`/blob/${base.branch}/`);
   });
@@ -284,7 +284,7 @@ describe('formatOutboxComment', () => {
     const items = [item({ id: 's7-01-default-country', rank: 'high' })];
     const body = formatOutboxComment({ ...base, items });
     expect(body).toContain(
-      `https://github.com/vertuoza/vertuo-ai-domain/blob/${base.branch}/docs/outbox/985/s7-01-default-country.md`,
+      `https://github.com/demo-org/nimbus-brain/blob/${base.branch}/docs/outbox/985/s7-01-default-country.md`,
     );
   });
 
@@ -460,8 +460,8 @@ function fakeClient(initialComments: IssueComment[] = []) {
 describe('upsertOutboxComment', () => {
   const args = {
     prd: parsePrd(985),
-    owner: 'vertuoza',
-    repo: 'vertuo-ai-domain',
+    owner: 'demo-org',
+    repo: 'nimbus-brain',
     branch: 'feat/agent-outbox',
   };
 
@@ -2432,7 +2432,7 @@ describe('the Omni page line (PRD 251, "The Outbox tab")', () => {
     { ...item({ id: 's2-01-a', rank: 'high' }), sections: { questionPlain: 'q', decisionPlain: 'd' } },
   ];
   const numbering = [{ number: 1, id: parseOutboxItemId('s2-01-a'), since: 't' }];
-  const LINE = `Answer here, or on the Omni page: ${ASK}/prd/at/vertuoza/vertuo-ai-domain/985`;
+  const LINE = `Answer here, or on the Omni page: ${ASK}/prd/at/demo-org/nimbus-brain/985`;
 
   it('sits right under the header when the switch is on and ask.url is set', () => {
     const body = formatOutboxPrComment({ items: open, numbering, prd: parsePrd(985), ctx: pageCtx() });
@@ -2491,7 +2491,7 @@ describe('the Omni page line (PRD 251, "The Outbox tab")', () => {
         fakeClient(),
       );
       expect(result.body).toContain(
-        `Answer here, or on the Omni page: ${ASK}/prd/at/vertuoza/vertuo-ai-domain/1166`,
+        `Answer here, or on the Omni page: ${ASK}/prd/at/demo-org/nimbus-brain/1166`,
       );
     });
   });

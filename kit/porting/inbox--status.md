@@ -1,6 +1,6 @@
 # `kit/lib/inbox/status.mjs`
 
-Source: `scripts/inbox-status.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/inbox-status.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -41,7 +41,7 @@ Source: `scripts/inbox-status.mjs` @ `vertuo-ai-domain@c4a210122`.
   through, and the stall check reads the injected `stallDays` instead of the deleted `STALL_DAYS`.
 - `isMerged(pr)`, `daysSince(date, now)`: unchanged.
 - Module doc comment: reworded to drop `.github/workflows/outbox.yml`, `docs/agents/pull-request.md`
-  and `.claude/skills/vertuo-pull-request/SKILL.md` literals/references (the last one matches
+  and `.claude/skills/nimbus-pull-request/SKILL.md` literals/references (the last one matches
   `kit/test/no-literals.test.mjs`'s `/vertuo/i` pattern) in favor of "a workflow greps for" and "the
   configured `prLinks.feature`/`prLinks.sub`"; adds a sentence on the new word-boundary guarantee.
 

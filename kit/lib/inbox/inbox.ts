@@ -23,7 +23,7 @@
  * free-form prose (the PRD's moved spec, when `spec: file`) this parser does not need to
  * understand.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/inbox.mjs — changes in kit/porting/inbox--inbox.md.
+// Ported from nimbus-brain@c4a210122:scripts/inbox.mjs — changes in kit/porting/inbox--inbox.md.
 import { existsSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { readRepoFile } from '../check-report.ts';

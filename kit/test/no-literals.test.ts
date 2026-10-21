@@ -16,7 +16,7 @@ const SCANNED = [
 ];
 const FORBIDDEN = [/vertuo/i, /\bdocs\//, /\brepoRoot\b/, /pierrederval/, /'omni:outbox-go'/, /'omni:feature'/];
 // A provenance line, in code (`// …`) or in Markdown (`<!-- … -->`).
-const PROVENANCE = /^(?:\/\/|<!--) Ported from vertuo-ai-domain@/;
+const PROVENANCE = /^(?:\/\/|<!--) Ported from nimbus-brain@/;
 
 // Controller ruling: exempt kit/lib/config.ts from exactly these patterns (per-pattern list)
 const EXEMPT_PATHS: Record<string, string[]> = {
@@ -68,7 +68,7 @@ describe('kit source carries no repository literal', () => {
       writeFileSync(join(root, path), text);
     };
     write('templates/playbook/testing.md', [
-      '<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/testing.md — changes in kit/porting/templates--testing.md -->',
+      '<!-- Ported from nimbus-brain@db67fd9da:docs/agents/testing.md — changes in kit/porting/templates--testing.md -->',
       'Run `{config:commands.test}`, never `pnpm test`.',
       'Read docs/agents/testing.md first.',
       'See ADR 0058, and #120.',
@@ -109,7 +109,7 @@ describe('kit source carries no repository literal', () => {
       writeFileSync(join(root, path), text);
     };
     write('plugin/skills/s/SKILL.md', [
-      '<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-x/SKILL.md -->',
+      '<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-x/SKILL.md -->',
       'Read the spec in docs/specs.',
       'Label it `omni:outbox-go`.',
       'Run it the Vertuoza way.',

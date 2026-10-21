@@ -7,7 +7,7 @@ evidence: []
 invaded: null
 ---
 
-<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/pull-request.md — changes in kit/porting/templates--pull-requests.md -->
+<!-- Ported from nimbus-brain@db67fd9da:docs/agents/pull-request.md — changes in kit/porting/templates--pull-requests.md -->
 
 # Pull requests
 

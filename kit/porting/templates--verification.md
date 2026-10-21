@@ -1,6 +1,6 @@
 # `kit/templates/playbook/verification.md`
 
-Source: `docs/agents/verification.md` @ `vertuo-ai-domain@db67fd9da`, with the briefing's
+Source: `docs/agents/verification.md` @ `nimbus-brain@db67fd9da`, with the briefing's
 before-every-push line (`docs/agents/briefing.md`). The kit default of the verification form: slots
 `preflight`, `before-push`, `checks`, in the spec's order.
 
@@ -42,7 +42,7 @@ before-every-push line (`docs/agents/briefing.md`). The kit default of the verif
   gate never rewrites its own thresholds (slot `checks`). "Format only what you touched" is the
   conventions form's (`formatting`).
 - **Driving a browser scenario, whole:** `E2E_BASE_URL`, the Railway preview URL, `E2E_DOOR_SECRET`,
-  `AUTH_SERVICE_DOOR_SECRET`, the `E2E_TENANT_*` credentials, `pnpm --filter @vertuo-ai/e2e`,
+  `AUTH_SERVICE_DOOR_SECRET`, the `E2E_TENANT_*` credentials, `pnpm --filter @nimbus-ai/e2e`,
   `playwright install chromium`, `bddgen`, `railway variables`, QA and the ERP. The acceptance run is
   the kit's `acceptance.run`; "a scenario that passes once has not been shown to pass" stays in
   `/omni:do-work`, and "what a run writes, it keeps" moved to the testing form (`data`).

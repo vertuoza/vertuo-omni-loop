@@ -11,8 +11,8 @@ import type { GatherIo } from './facts.ts';
 import { kitFactsOf, TARGET_KITS_FILE } from './kit.ts';
 
 const NOW = Date.parse('2026-10-15T12:00:00Z');
-const RUNNING: RunningKit = { home: 'vertuoza/omni-kit', version: '0.0.423', source: false };
-const stamp = (version: string): string => `var define_OMNI_BUNDLE_default = { home: "vertuoza/omni-kit", version: "${version}" };\n`;
+const RUNNING: RunningKit = { home: 'demo-org/omni-kit', version: '0.0.423', source: false };
+const stamp = (version: string): string => `var define_OMNI_BUNDLE_default = { home: "demo-org/omni-kit", version: "${version}" };\n`;
 const PLUGINS = JSON.stringify([{ id: 'omni@omni-loop', version: '0.0.423' }, { id: 'omni-hud@omni-loop', version: '0.0.420' }]);
 const BIN = '.omni-loop/bin/omni.mjs';
 
@@ -35,7 +35,7 @@ function fake(answers: Record<string, Answer>) {
 const failure = (code: string, stderr = ''): Error => Object.assign(new Error('failed'), { code, stderr });
 const API = (repo: string): string => `gh api repos/${repo}/contents/${BIN}`;
 const RAW = (repo: string): string => `gh api -H Accept: application/vnd.github.raw repos/${repo}/contents/${BIN}`;
-const RELEASE = 'gh release view --repo vertuoza/omni-kit --json tagName --jq .tagName';
+const RELEASE = 'gh release view --repo demo-org/omni-kit --json tagName --jq .tagName';
 const BASE: Record<string, Answer> = { [RELEASE]: 'v0.0.423\n', 'claude plugin list --json': PLUGINS };
 
 /** A repository with `files` and `config`, gathering with `answers`. */

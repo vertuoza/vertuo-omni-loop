@@ -1,6 +1,6 @@
 # `kit/lib/policy/phase-0.mjs`
 
-Source: `.claude/skills/vertuo-brainstorming/phase-0-policy.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `.claude/skills/nimbus-brainstorming/phase-0-policy.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -104,11 +104,11 @@ clarification names the new shape directly:
   says so. This **is a real loosening of upstream's own rule** ("the right place is named"), and is
   reflected in the rewritten test below, since it could no longer be proven with this signature.
 - `refusal(value, reason)`: unchanged.
-- Module doc comment: reworded throughout to drop `.claude/skills/vertuo-brainstorming/SKILL.md`,
+- Module doc comment: reworded throughout to drop `.claude/skills/nimbus-brainstorming/SKILL.md`,
   `scripts/inbox.mjs`, `docs/inbox/`, `docs/public/inbox/`, `docs/superpowers/plans` literals in
   favour of "the brainstorming skill", `ctx.layout.specPath`/`planPath`/`beforeAfterPath`, and the
   PRD's own delivery folder.
-- No CLI half to remove: `.claude/skills/vertuo-brainstorming/phase-0-policy.mjs` never had a
+- No CLI half to remove: `.claude/skills/nimbus-brainstorming/phase-0-policy.mjs` never had a
   `process.argv[1] === fileURLToPath(...)` block, so rule 3 applies vacuously.
 
 ## Test (`phase-0.test.mjs`)

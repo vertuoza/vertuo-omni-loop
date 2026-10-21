@@ -1,6 +1,6 @@
 # `kit/lib/inbox/collisions.mjs`
 
-Source: `scripts/inbox-collisions.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/inbox-collisions.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -13,7 +13,7 @@ Source: `scripts/inbox-collisions.mjs` @ `vertuo-ai-domain@c4a210122`.
   **unchanged**. Neither takes a `root`, a `ctx`, nor any literal this task's mapping table
   replaces — the task's own interface list names both exports with no new parameter, and its own
   clarification says this module is "pure … port their upstream tests verbatim."
-- Module doc comment: reworded to drop the one `libs/vertuo-domain-tenant/` example path (matches
+- Module doc comment: reworded to drop the one `libs/nimbus-domain-tenant/` example path (matches
   `kit/test/no-literals.test.mjs`'s `/vertuo/i` pattern) in favor of "the same shared library",
   and `scripts/check-territory.mjs` → `territory.mjs` (the sibling module's new kit path).
 
@@ -23,7 +23,7 @@ Pure module, ported verbatim — only the import path changes.
 
 - `import { planCollisions, planFromMarkdown } from './inbox-collisions.mjs'` → `from
   './collisions.mjs'`. Nothing else in the file changes: every fixture (`plan(rows)`, `row(id,
-  territory)`, including their own `libs/vertuo-domain-tenant/`-style literal paths — fine here,
+  territory)`, including their own `libs/nimbus-domain-tenant/`-style literal paths — fine here,
   since `kit/test/no-literals.test.mjs` only scans non-test `.mjs` files) and every `expect(...)`
   is byte-identical to upstream.
 - **Deleted:** nothing — no case here reads the real upstream repository or depends on anything

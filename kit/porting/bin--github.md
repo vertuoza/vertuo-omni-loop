@@ -1,6 +1,6 @@
 # `kit/bin/github.mjs`
 
-Source: `scripts/outbox-comment.mjs` @ `vertuo-ai-domain@c4a210122` — its `ghClient` export (deleted
+Source: `scripts/outbox-comment.mjs` @ `nimbus-brain@c4a210122` — its `ghClient` export (deleted
 from `kit/lib/outbox/comment.mjs` by Task 11 because it shells out to `gh`). `scripts/outbox-replies.mjs`'s
 CLI half builds no client of its own: it imports that same `ghClient` and calls it with `issue: pr`, so
 there is no second client to port.
