@@ -1371,7 +1371,7 @@ Decided: @pierrederval, 2026-10-20
 In the arcade duet game, each obstacle a player gets past scores once, the first moment all of it is below the lowest point the orbs reach: 1 in a chapter, 2 in endless mode, a gate counting as one obstacle; finishing a wave adds nothing more, and a hit gives back every point scored since the chapter began (in endless mode, since the wave began).
 
 Serves: P-PRODUCT-86
-Source: .omni-loop/delivery/outbox/2318-duet-obstacle-points/settled.md, entry s1-01-duet-obstacle-scored-once, PRD #2318
+Source: .omni-loop/delivery/shipped/2318-duet-obstacle-points/outbox/settled.md, entry s1-01-duet-obstacle-scored-once, PRD #2318
 Enforced by: apps/galaxy/src/arcade/duet/run.test.ts, apps/galaxy/src/arcade/duet/waves.test.ts
 Governs: ^apps/galaxy/src/arcade/duet/run\.
 Stated: 2026-10-21
