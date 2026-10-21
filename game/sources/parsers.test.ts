@@ -44,12 +44,12 @@ describe('parsers', () => {
   it('reads the settled ledger, whatever the marker prefix', () => {
     const text = `# Settled outbox items — PRD 1007
 
-<!-- vertuo-outbox-settled: s1-01-customer-door -->
+<!-- nimbus-outbox-settled: s1-01-customer-door -->
 
 ## s1-01-customer-door — agreed
 
 - Verdict: agreed
-- Approved by: claude-code-session (asked of clement.noterdaem inline, /vertuo-deliver)
+- Approved by: claude-code-session (asked of jane.doe inline, /nimbus-deliver)
 - Approved at: 2026-09-23T07:25:59Z
 - Channel: feature pull request #1021
 - Rank: high
@@ -65,7 +65,7 @@ describe('parsers', () => {
 <!-- /omni-outbox-settled: s2-01-other -->
 `;
     const m = parseSettled(text);
-    expect(m.get('s1-01-customer-door')).toEqual({ verdict: 'agreed', at: '2026-09-23T07:25:59Z', by: 'clement.noterdaem', rank: 'high' });
+    expect(m.get('s1-01-customer-door')).toEqual({ verdict: 'agreed', at: '2026-09-23T07:25:59Z', by: 'jane.doe', rank: 'high' });
     expect(m.get('s2-01-other')).toEqual({ verdict: 'drifted', at: '2026-09-24T09:00:00Z', by: 'pierrederval', rank: null });
     expect([...m.keys()]).toEqual(['s1-01-customer-door', 's2-01-other']);
   });

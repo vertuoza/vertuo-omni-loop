@@ -46,7 +46,7 @@ function setup(world: World, tables: DossierTables = {}) {
   const log = { log: (m: string) => lines.push(m), warn: (m: string) => lines.push(m) };
   // `github.exec` is read at each call, so a test can put a failing gh in front of the fake.
   // Each report is read as a repository's: a skipped one is compared whole, never read field by field.
-  const run = (repos = ['vertuo-omni-loop'], { org = 'vertuoza', using = store }: { org?: string; using?: DossierStore } = {}) =>
+  const run = (repos = ['vertuo-omni-loop'], { org = 'demo-org', using = store }: { org?: string; using?: DossierStore } = {}) =>
     syncDossiers({ exec: (args) => github.exec(args), store: using, workspaceId: VERTUOZA, org, repos, now: NOW, log }) as Promise<RepositoryReport[]>;
   const blobReads = () => github.calls.filter((c) => c.includes('/git/blobs/'));
   const versions = (prd: number) => {
@@ -58,33 +58,33 @@ function setup(world: World, tables: DossierTables = {}) {
 
 describe('syncDossiers: the first run', () => {
   it('creates a dossier per PRD folder, titled from the spec or else the topic, with versions from GitHub at the head commit', async () => {
-    const { fake, run, github, lines } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() });
+    const { fake, run, github, lines } = setup({ 'demo-org/vertuo-omni-loop': omniLoop() });
     const [report] = await run();
     assertDefined(report, 'the report');
     expect(report).toEqual({
-      slug: 'vertuoza/vertuo-omni-loop', commit: C1, folders: 2, created: [3, 216], fetched: 4,
+      slug: 'demo-org/vertuo-omni-loop', commit: C1, folders: 2, created: [3, 216], fetched: 4,
       added: [{ prd: 3, kind: 'spec', version: 1 }, { prd: 216, kind: 'spec', version: 1 }, { prd: 216, kind: 'plan', version: 1 }, { prd: 216, kind: 'before-after', version: 1 }],
     });
     expect(present(fake.tables.dossiers, 'dossiers').map((d) => [d.workspace_id, d.home_repo, d.prd, d.title, d.numbered_at, d.opened_by])).toEqual([
-      [VERTUOZA, 'vertuoza/vertuo-omni-loop', 3, 'ask-mode', NOW.toISOString(), null],
-      [VERTUOZA, 'vertuoza/vertuo-omni-loop', 216, 'PRD dossiers — versioned and shareable', NOW.toISOString(), null],
+      [VERTUOZA, 'demo-org/vertuo-omni-loop', 3, 'ask-mode', NOW.toISOString(), null],
+      [VERTUOZA, 'demo-org/vertuo-omni-loop', 216, 'PRD dossiers — versioned and shareable', NOW.toISOString(), null],
     ]);
     const spec216 = present(fake.tables.dossier_versions, 'dossier_versions').find((v) => v.content === SPEC);
     expect(spec216).toMatchObject({ source: 'github', commit_sha: C1, git_blob: gitBlobSha(SPEC), uploaded_by: null });
     expect(github.calls.filter((c) => c.includes('/git/trees/'))).toHaveLength(1);
-    expect(lines[0]).toBe('vertuoza/vertuo-omni-loop @ c1000000 (main): 2 PRD folders · 2 dossiers created · 4 files fetched · added: #3 spec v1, #216 spec v1, #216 plan v1, #216 before-after v1');
+    expect(lines[0]).toBe('demo-org/vertuo-omni-loop @ c1000000 (main): 2 PRD folders · 2 dossiers created · 4 files fetched · added: #3 spec v1, #216 spec v1, #216 plan v1, #216 before-after v1');
   });
 
   it('keeps the home repository in lower case, as the kit and the migration do', async () => {
-    const { fake, run } = setup({ 'Vertuoza/Vertuo-Omni-Loop': omniLoop() });
-    await run(['Vertuo-Omni-Loop'], { org: 'Vertuoza' });
-    expect(present(fake.tables.dossiers, 'dossiers').map((d) => d.home_repo)).toEqual(['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-omni-loop']);
+    const { fake, run } = setup({ 'Demo-Org/Vertuo-Omni-Loop': omniLoop() });
+    await run(['Vertuo-Omni-Loop'], { org: 'Demo-Org' });
+    expect(present(fake.tables.dossiers, 'dossiers').map((d) => d.home_repo)).toEqual(['demo-org/vertuo-omni-loop', 'demo-org/vertuo-omni-loop']);
   });
 });
 
 describe('syncDossiers: the runs after', () => {
   it('adds nothing and fetches no blob when nothing changed', async () => {
-    const { run, blobReads, fake, lines } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() });
+    const { run, blobReads, fake, lines } = setup({ 'demo-org/vertuo-omni-loop': omniLoop() });
     await run();
     const before = { dossiers: present(fake.tables.dossiers, 'dossiers').length, versions: present(fake.tables.dossier_versions, 'dossier_versions').length, blobs: blobReads().length };
     const [report] = await run();
@@ -93,15 +93,15 @@ describe('syncDossiers: the runs after', () => {
     expect(fake.tables.dossiers).toHaveLength(before.dossiers);
     expect(fake.tables.dossier_versions).toHaveLength(before.versions);
     expect(blobReads()).toHaveLength(before.blobs);
-    expect(lines.at(-1)).toBe('vertuoza/vertuo-omni-loop @ c1000000 (main): 2 PRD folders · nothing added');
+    expect(lines.at(-1)).toBe('demo-org/vertuo-omni-loop @ c1000000 (main): 2 PRD folders · nothing added');
   });
 
   it('fetches only the changed file and adds one version of it, at the new commit, retitling from a changed spec', async () => {
-    const { run, blobReads, fake, versions, world } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() });
+    const { run, blobReads, fake, versions, world } = setup({ 'demo-org/vertuo-omni-loop': omniLoop() });
     await run();
     const spec2 = SPEC.replace('versioned and shareable', 'every version kept');
-    present(world['vertuoza/vertuo-omni-loop'], 'the repository').commit = C2;
-    present(world['vertuoza/vertuo-omni-loop'], 'the repository').files[`${D}/inbox/0216-prd-dossiers/spec.md`] = spec2;
+    present(world['demo-org/vertuo-omni-loop'], 'the repository').commit = C2;
+    present(world['demo-org/vertuo-omni-loop'], 'the repository').files[`${D}/inbox/0216-prd-dossiers/spec.md`] = spec2;
     const fetchedBefore = blobReads().length;
     const [report] = await run();
     assertDefined(report, 'the report');
@@ -113,12 +113,12 @@ describe('syncDossiers: the runs after', () => {
   });
 
   it('adds a version when a file goes back to an earlier content, as the version rule says', async () => {
-    const { run, versions, world } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() });
+    const { run, versions, world } = setup({ 'demo-org/vertuo-omni-loop': omniLoop() });
     const path = `${D}/inbox/0216-prd-dossiers/plan.md`;
     await run();
-    present(world['vertuoza/vertuo-omni-loop'], 'the repository').files[path] = `${PLAN}| s1 | changed |\n`;
+    present(world['demo-org/vertuo-omni-loop'], 'the repository').files[path] = `${PLAN}| s1 | changed |\n`;
     await run();
-    present(world['vertuoza/vertuo-omni-loop'], 'the repository').files[path] = PLAN;
+    present(world['demo-org/vertuo-omni-loop'], 'the repository').files[path] = PLAN;
     const [report] = await run();
     assertDefined(report, 'the report');
     expect(report.added).toEqual([{ prd: 216, kind: 'plan', version: 3 }]);
@@ -126,9 +126,9 @@ describe('syncDossiers: the runs after', () => {
   });
 
   it('finds the dossier the kit pushed, and fetches a file only when it differs from what the kit stored', async () => {
-    const kitDossier = { id: 'd-kit', workspace_id: VERTUOZA, home_repo: 'vertuoza/vertuo-omni-loop', prd: 216, title: 'PRD dossiers — versioned and shareable', opened_by: 'u1', claude_session_id: 's1', created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T09:00:00Z' };
+    const kitDossier = { id: 'd-kit', workspace_id: VERTUOZA, home_repo: 'demo-org/vertuo-omni-loop', prd: 216, title: 'PRD dossiers — versioned and shareable', opened_by: 'u1', claude_session_id: 's1', created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T09:00:00Z' };
     const kit = (id: string, kind: string, content: string, at: string) => ({ id, dossier_id: 'd-kit', kind, content, sha256: 'x'.repeat(64), bytes: Buffer.byteLength(content), source: 'kit', uploaded_by: 'u1', commit_sha: null, git_blob: null, created_at: at });
-    const { run, blobReads, fake, lines } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() }, {
+    const { run, blobReads, fake, lines } = setup({ 'demo-org/vertuo-omni-loop': omniLoop() }, {
       dossiers: [kitDossier] as unknown as DossierRow[],
       // The spec as the kit pushed it; a plan the kit pushed before its last change on the branch.
       dossier_versions: [kit('k1', 'spec', SPEC, '2026-09-27T09:00:00Z'), kit('k2', 'plan', PLAN.replace('Plan', 'Plan!'), '2026-09-27T09:00:01Z')],
@@ -149,26 +149,26 @@ describe('syncDossiers: what it skips, and logs, without failing', () => {
   it('skips a repository with no config, with the switch off, or with ask.url unset, before listing its tree', async () => {
     const off = (config: string | null) => ({ commit: C1, files: { ...(config === null ? {} : { '.omni-loop/config.yml': config }), [`${D}/inbox/0001-a/spec.md`]: SPEC } });
     const { run, github, fake, lines } = setup({
-      'vertuoza/no-config': off(null),
-      'vertuoza/switch-off': off('kit: 1\nask:\n  url: https://ask.example.com\n'),
-      'vertuoza/no-ask-url': off('kit: 1\ndossier:\n  enabled: true\n'),
-      'vertuoza/vertuo-omni-loop': omniLoop(),
+      'demo-org/no-config': off(null),
+      'demo-org/switch-off': off('kit: 1\nask:\n  url: https://ask.example.com\n'),
+      'demo-org/no-ask-url': off('kit: 1\ndossier:\n  enabled: true\n'),
+      'demo-org/vertuo-omni-loop': omniLoop(),
     });
     const reports = await run(['no-config', 'switch-off', 'no-ask-url', 'vertuo-omni-loop']);
     // `run` reads each report as a repository's; here some are skipped, so each is read as either.
     const either = (r: RepositoryReport | SkippedReport) => [r.slug, r.skipped ?? null];
     expect(reports.map(either)).toEqual([
-      ['vertuoza/no-config', 'no .omni-loop/config.yml on main'],
-      ['vertuoza/switch-off', 'dossier.enabled is false'],
-      ['vertuoza/no-ask-url', 'ask.url is not set'],
-      ['vertuoza/vertuo-omni-loop', null],
+      ['demo-org/no-config', 'no .omni-loop/config.yml on main'],
+      ['demo-org/switch-off', 'dossier.enabled is false'],
+      ['demo-org/no-ask-url', 'ask.url is not set'],
+      ['demo-org/vertuo-omni-loop', null],
     ]);
-    expect(github.calls.filter((c) => c.includes('/git/'))).toEqual(github.calls.filter((c) => c.includes('repos/vertuoza/vertuo-omni-loop/git/')));
-    expect(new Set(present(fake.tables.dossiers, 'dossiers').map((d) => d.home_repo))).toEqual(new Set(['vertuoza/vertuo-omni-loop']));
+    expect(github.calls.filter((c) => c.includes('/git/'))).toEqual(github.calls.filter((c) => c.includes('repos/demo-org/vertuo-omni-loop/git/')));
+    expect(new Set(present(fake.tables.dossiers, 'dossiers').map((d) => d.home_repo))).toEqual(new Set(['demo-org/vertuo-omni-loop']));
     expect(lines.slice(0, 3)).toEqual([
-      '  - skipped vertuoza/no-config: no .omni-loop/config.yml on main',
-      '  - skipped vertuoza/switch-off: dossier.enabled is false',
-      '  - skipped vertuoza/no-ask-url: ask.url is not set',
+      '  - skipped demo-org/no-config: no .omni-loop/config.yml on main',
+      '  - skipped demo-org/switch-off: dossier.enabled is false',
+      '  - skipped demo-org/no-ask-url: ask.url is not set',
     ]);
   });
 
@@ -177,27 +177,27 @@ describe('syncDossiers: what it skips, and logs, without failing', () => {
     const repo = omniLoop();
     repo.files[`${D}/inbox/drafts/spec.md`] = SPEC;
     repo.files[`${D}/inbox/0216-prd-dossiers/before-after.html`] = big;
-    const { run, blobReads, versions, lines } = setup({ 'vertuoza/vertuo-omni-loop': repo });
+    const { run, blobReads, versions, lines } = setup({ 'demo-org/vertuo-omni-loop': repo });
     const [report] = await run();
     assertDefined(report, 'the report');
     expect(report.created).toEqual([3, 216]);
     expect(versions(216).map(([kind]) => kind)).toEqual(['spec', 'plan']);
     expect(blobReads().some((c) => c.includes(gitBlobSha(big)))).toBe(false);
-    expect(lines).toContain(`  ! skipped ${D}/inbox/0216-prd-dossiers/before-after.html in vertuoza/vertuo-omni-loop: ${Buffer.byteLength(big)} bytes, over 512 KiB`);
-    expect(lines).toContain(`  ! skipped ${D}/inbox/drafts in vertuoza/vertuo-omni-loop: the folder name does not read as <nnnn>-<topic>`);
+    expect(lines).toContain(`  ! skipped ${D}/inbox/0216-prd-dossiers/before-after.html in demo-org/vertuo-omni-loop: ${Buffer.byteLength(big)} bytes, over 512 KiB`);
+    expect(lines).toContain(`  ! skipped ${D}/inbox/drafts in demo-org/vertuo-omni-loop: the folder name does not read as <nnnn>-<topic>`);
   });
 
   it('skips and logs a repository that cannot be read, and reads the next', async () => {
-    const { run, fake, lines } = setup({ 'vertuoza/gone': { unreadable: true, commit: C1, files: {} }, 'vertuoza/vertuo-omni-loop': omniLoop() });
+    const { run, fake, lines } = setup({ 'demo-org/gone': { unreadable: true, commit: C1, files: {} }, 'demo-org/vertuo-omni-loop': omniLoop() });
     const reports = await run(['gone', 'vertuo-omni-loop']);
-    expect(reports[0]).toEqual({ slug: 'vertuoza/gone', skipped: 'cannot be read: gh: Not Found (HTTP 404)' });
+    expect(reports[0]).toEqual({ slug: 'demo-org/gone', skipped: 'cannot be read: gh: Not Found (HTTP 404)' });
     expect(nth(reports, 1, 'the second report').created).toEqual([3, 216]);
-    expect(lines[0]).toBe('  ! skipped vertuoza/gone: cannot be read: gh: Not Found (HTTP 404)');
+    expect(lines[0]).toBe('  ! skipped demo-org/gone: cannot be read: gh: Not Found (HTTP 404)');
     expect(fake.tables.dossiers).toHaveLength(2);
   });
 
   it('skips a file whose blob cannot be fetched, and fetches it at the next run', async () => {
-    const { github, run, versions, lines } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() });
+    const { github, run, versions, lines } = setup({ 'demo-org/vertuo-omni-loop': omniLoop() });
     const planBlob = gitBlobSha(PLAN);
     const exec = github.exec;
     let failing = true;
@@ -208,7 +208,7 @@ describe('syncDossiers: what it skips, and logs, without failing', () => {
     const [first] = await run();
     assertDefined(first, 'the first report');
     expect(first.added.map((a) => `${a.prd} ${a.kind}`)).toEqual(['3 spec', '216 spec', '216 before-after']);
-    expect(lines).toContain(`  ! skipped ${D}/inbox/0216-prd-dossiers/plan.md in vertuoza/vertuo-omni-loop: cannot be read: gh: Server Error (HTTP 502)`);
+    expect(lines).toContain(`  ! skipped ${D}/inbox/0216-prd-dossiers/plan.md in demo-org/vertuo-omni-loop: cannot be read: gh: Server Error (HTTP 502)`);
     failing = false;
     const [second] = await run();
     assertDefined(second, 'the second report');
@@ -217,25 +217,25 @@ describe('syncDossiers: what it skips, and logs, without failing', () => {
   });
 
   it('logs a PRD it could not store, and goes on with the next', async () => {
-    const { run, store, lines } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() });
+    const { run, store, lines } = setup({ 'demo-org/vertuo-omni-loop': omniLoop() });
     const refusing = { ...store, open: async (d: Parameters<DossierStore['open']>[0]) => (d.prd === 3 ? Promise.reject(new Error('Supabase: write dossiers 0–1 failed (503)')) : store.open(d)) };
     const [report] = await run(['vertuo-omni-loop'], { using: refusing });
     assertDefined(report, 'the report');
     expect(report.created).toEqual([216]);
-    expect(lines).toContain('  ! skipped PRD 3 of vertuoza/vertuo-omni-loop: Supabase: write dossiers 0–1 failed (503)');
+    expect(lines).toContain('  ! skipped PRD 3 of demo-org/vertuo-omni-loop: Supabase: write dossiers 0–1 failed (503)');
   });
 
   it('logs a file whose version is refused, and still adds its siblings', async () => {
-    const { run, store, versions, lines } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() });
+    const { run, store, versions, lines } = setup({ 'demo-org/vertuo-omni-loop': omniLoop() });
     const refusing = { ...store, addVersion: async (v: Parameters<DossierStore['addVersion']>[0]) => (v.kind === 'plan' ? Promise.reject(new Error('Supabase: add a plan version failed (400)')) : store.addVersion(v)) };
     await run(['vertuo-omni-loop'], { using: refusing });
     expect(versions(216).map(([kind]) => kind)).toEqual(['spec', 'before-after']);
-    expect(lines).toContain(`  ! skipped ${D}/inbox/0216-prd-dossiers/plan.md in vertuoza/vertuo-omni-loop: Supabase: add a plan version failed (400)`);
+    expect(lines).toContain(`  ! skipped ${D}/inbox/0216-prd-dossiers/plan.md in demo-org/vertuo-omni-loop: Supabase: add a plan version failed (400)`);
   });
 
   it('takes the dossier the kit opened between the listing and the insert, rather than a second one', async () => {
-    const kitDossier = { id: 'd-kit', workspace_id: VERTUOZA, home_repo: 'vertuoza/vertuo-omni-loop', prd: 216, title: 'From the kit', opened_by: 'u1', claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z' };
-    const { run, store, fake } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() }, { dossiers: [kitDossier] as unknown as DossierRow[] });
+    const kitDossier = { id: 'd-kit', workspace_id: VERTUOZA, home_repo: 'demo-org/vertuo-omni-loop', prd: 216, title: 'From the kit', opened_by: 'u1', claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z' };
+    const { run, store, fake } = setup({ 'demo-org/vertuo-omni-loop': omniLoop() }, { dossiers: [kitDossier] as unknown as DossierRow[] });
     const stale = { ...store, dossiersOf: (w: string, r: string, prd: PrdNumber | IssueNumber | null = null) => (prd === null ? Promise.resolve(new Map<number, Dossier>()) : store.dossiersOf(w, r, prd)) };
     const [report] = await run(['vertuo-omni-loop'], { using: stale });
     assertDefined(report, 'the report');
@@ -267,7 +267,7 @@ describe('syncDossiers: visual and bug fixes (PRD 627)', () => {
   };
 
   it('makes two visual and one bug dossier for #548, #561 and #571, titled after their issues or else their topics', async () => {
-    const { fake, run, lines } = setup({ 'vertuoza/vertuo-omni-loop': withFixes() });
+    const { fake, run, lines } = setup({ 'demo-org/vertuo-omni-loop': withFixes() });
     const [report] = await run();
     assertDefined(report, 'the report');
     expect(fixes(fake, 'visual')).toEqual([
@@ -285,11 +285,11 @@ describe('syncDossiers: visual and bug fixes (PRD 627)', () => {
       created: [{ kind: 'visual', prd: 548 }, { kind: 'visual', prd: 561 }, { kind: 'bug', prd: 571 }],
       added: [{ fix: 'visual', prd: 548, kind: 'before-after', version: 1 }, { fix: 'visual', prd: 561, kind: 'before-after', version: 1 }, { fix: 'bug', prd: 571, kind: 'bug-record', version: 1 }],
     });
-    expect(lines.at(-1)).toBe('vertuoza/vertuo-omni-loop @ c1000000 (main): 2 PRD folders · 3 fix folders · 5 dossiers created · 7 files fetched · added: #3 spec v1, #216 spec v1, #216 plan v1, #216 before-after v1, visual #548 before-after v1, visual #561 before-after v1, bug #571 bug-record v1');
+    expect(lines.at(-1)).toBe('demo-org/vertuo-omni-loop @ c1000000 (main): 2 PRD folders · 3 fix folders · 5 dossiers created · 7 files fetched · added: #3 spec v1, #216 spec v1, #216 plan v1, #216 before-after v1, visual #548 before-after v1, visual #561 before-after v1, bug #571 bug-record v1');
   });
 
   it('adds no version and fetches nothing on a second run, and reads an issue\'s title only when it opens its dossier', async () => {
-    const { fake, run, github, blobReads } = setup({ 'vertuoza/vertuo-omni-loop': withFixes() });
+    const { fake, run, github, blobReads } = setup({ 'demo-org/vertuo-omni-loop': withFixes() });
     await run();
     const before = { versions: present(fake.tables.dossier_versions, 'dossier_versions').length, blobs: blobReads().length, issues: github.calls.filter((c) => c.includes('/issues/')).length };
     const [report] = await run();
@@ -302,8 +302,8 @@ describe('syncDossiers: visual and bug fixes (PRD 627)', () => {
   });
 
   it('adds each variations round in order, then only a new round, fetching only it', async () => {
-    const { fake, run, world, blobReads } = setup({ 'vertuoza/vertuo-omni-loop': withFixes() });
-    const files = present(world['vertuoza/vertuo-omni-loop'], 'the repository').files;
+    const { fake, run, world, blobReads } = setup({ 'demo-org/vertuo-omni-loop': withFixes() });
+    const files = present(world['demo-org/vertuo-omni-loop'], 'the repository').files;
     files[`${D}/visual/0548-omni-links-new-tab/variations-r1.html`] = R1;
     await run();
     files[`${D}/visual/0548-omni-links-new-tab/variations-r2.html`] = R2;
@@ -316,12 +316,12 @@ describe('syncDossiers: visual and bug fixes (PRD 627)', () => {
   });
 
   it('finds the fix the kit pushed, fetching a round only when no round the kit stored hashes the same', async () => {
-    const kitFix = { id: 'd-kit', workspace_id: VERTUOZA, home_repo: 'vertuoza/vertuo-omni-loop', kind: 'visual', prd: 548, title: 'From the kit', opened_by: 'u1', claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z' };
+    const kitFix = { id: 'd-kit', workspace_id: VERTUOZA, home_repo: 'demo-org/vertuo-omni-loop', kind: 'visual', prd: 548, title: 'From the kit', opened_by: 'u1', claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z' };
     const kit = (id: string, kind: string, content: string, at: string) => ({ id, dossier_id: 'd-kit', kind, content, sha256: 'x'.repeat(64), bytes: Buffer.byteLength(content), source: 'kit', uploaded_by: 'u1', commit_sha: null, git_blob: null, created_at: at });
     const repo = withFixes();
     repo.files[`${D}/visual/0548-omni-links-new-tab/variations-r1.html`] = R1;
     repo.files[`${D}/visual/0548-omni-links-new-tab/variations-r2.html`] = R2;
-    const { run, fake, blobReads } = setup({ 'vertuoza/vertuo-omni-loop': repo }, {
+    const { run, fake, blobReads } = setup({ 'demo-org/vertuo-omni-loop': repo }, {
       dossiers: [kitFix],
       dossier_versions: [kit('k1', 'before-after', V548, '2026-09-27T08:00:01Z'), kit('k2', 'variations', R1, '2026-09-27T08:00:02Z')],
     });
@@ -336,7 +336,7 @@ describe('syncDossiers: visual and bug fixes (PRD 627)', () => {
   });
 
   it('titles a fix after its folder\'s topic when its issue cannot be read, and logs it', async () => {
-    const { run, fake, github, lines } = setup({ 'vertuoza/vertuo-omni-loop': withFixes() });
+    const { run, fake, github, lines } = setup({ 'demo-org/vertuo-omni-loop': withFixes() });
     const exec = github.exec;
     github.exec = async (args) => {
       if (nth(args, 1, 'the gh path').endsWith('/issues/548')) throw Object.assign(new Error('Command failed'), { stderr: 'gh: Server Error (HTTP 502)\n' });
@@ -344,23 +344,23 @@ describe('syncDossiers: visual and bug fixes (PRD 627)', () => {
     };
     await run();
     expect(fixes(fake, 'visual').map(([prd, title]) => [prd, title])).toEqual([[548, 'omni-links-new-tab'], [561, 'omni-links-footer']]);
-    expect(lines).toContain('  ! vertuoza/vertuo-omni-loop: the title of issue 548 cannot be read (gh: Server Error (HTTP 502)): titled omni-links-new-tab');
+    expect(lines).toContain('  ! demo-org/vertuo-omni-loop: the title of issue 548 cannot be read (gh: Server Error (HTTP 502)): titled omni-links-new-tab');
   });
 
   it('reads the fixes of a repository with no PRD folder, and skips a fix folder whose name does not parse', async () => {
-    const { run, fake, lines } = setup({ 'vertuoza/vertuo-core': { commit: C1, files: { '.omni-loop/config.yml': ON, [`${D}/bugs/0012-crash/bug.md`]: BUG, [`${D}/visual/draft/before-after.html`]: V548 } } });
-    const [report] = await run(['vertuo-core']);
+    const { run, fake, lines } = setup({ 'demo-org/nimbus-core': { commit: C1, files: { '.omni-loop/config.yml': ON, [`${D}/bugs/0012-crash/bug.md`]: BUG, [`${D}/visual/draft/before-after.html`]: V548 } } });
+    const [report] = await run(['nimbus-core']);
     assertDefined(report, 'the report');
     expect(report.folders).toBe(0);
     expect(fixes(fake, 'bug').map(([prd, title]) => [prd, title])).toEqual([[12, 'crash']]);
-    expect(lines).toContain(`  ! skipped ${D}/visual/draft in vertuoza/vertuo-core: the folder name does not read as <nnnn>-<topic>`);
+    expect(lines).toContain(`  ! skipped ${D}/visual/draft in demo-org/nimbus-core: the folder name does not read as <nnnn>-<topic>`);
   });
 });
 
 describe('syncDossiers: whose dossiers', () => {
   it('writes the workspace it runs for, reads each repository once, and leaves another workspace\'s dossier of the same key alone', async () => {
-    const acmeDossier = { id: 'd-acme', workspace_id: ACME, home_repo: 'vertuoza/vertuo-omni-loop', prd: 216, title: 'Theirs', opened_by: null, claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z' };
-    const { run, github, fake } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() }, { dossiers: [acmeDossier] as unknown as DossierRow[] });
+    const acmeDossier = { id: 'd-acme', workspace_id: ACME, home_repo: 'demo-org/vertuo-omni-loop', prd: 216, title: 'Theirs', opened_by: null, claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z' };
+    const { run, github, fake } = setup({ 'demo-org/vertuo-omni-loop': omniLoop() }, { dossiers: [acmeDossier] as unknown as DossierRow[] });
     const reports = await run(['vertuo-omni-loop', 'vertuo-omni-loop']);
     expect(reports).toHaveLength(1);
     expect(github.calls.filter((c) => c.includes('/git/trees/'))).toHaveLength(1);

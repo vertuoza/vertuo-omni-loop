@@ -100,9 +100,9 @@ function fakeGh(world: GhWorld): { exec: Exec; calls: string[] } {
 
 const person = (login: string): Person => ({ id: `U_${login}`, is_bot: false, login, name: '' });
 
-// Vertuoza's sectors hold three repositories: vertuo-core and vertuo-flow read, vertuo-api does not.
+// Vertuoza's sectors hold three repositories: nimbus-core and nimbus-flow read, nimbus-api does not.
 const world = (): GhWorld => ({
-  'vertuoza/vertuo-core': {
+  'demo-org/nimbus-core': {
     branch: 'main',
     merged: [
       { number: 41, author: person('Alice'), mergedAt: '2026-09-27T22:30:00Z' },
@@ -117,7 +117,7 @@ const world = (): GhWorld => ({
       { number: 330, author: person('bob'), createdAt: '2026-09-28T08:00:00Z', labels: ['bug'] },
     ],
   },
-  'vertuoza/vertuo-flow': {
+  'demo-org/nimbus-flow': {
     branch: 'develop',
     merged: [{ number: 7, author: { id: 'B_1', is_bot: true, login: 'app/dependabot', name: '' }, mergedAt: '2026-09-20T10:00:00Z' }],
     issues: [
@@ -125,13 +125,13 @@ const world = (): GhWorld => ({
       { number: 4, author: { id: '', is_bot: false, login: '', name: '' }, createdAt: '2026-09-06T12:00:00Z' }, // no login: a deleted account
     ],
   },
-  'vertuoza/vertuo-api': { unreadable: true },
+  'demo-org/nimbus-api': { unreadable: true },
 });
 
 const tablesOf = () => ({
   sectors: [
-    { workspace_id: VERTUOZA, name: 'core-belt', repos: ['vertuo-core', 'vertuo-api'] },
-    { workspace_id: VERTUOZA, name: 'flow-rim', repos: ['vertuo-flow', 'vertuo-core'] }, // a repository two sectors name is read once
+    { workspace_id: VERTUOZA, name: 'core-belt', repos: ['nimbus-core', 'nimbus-api'] },
+    { workspace_id: VERTUOZA, name: 'flow-rim', repos: ['nimbus-flow', 'nimbus-core'] }, // a repository two sectors name is read once
     { workspace_id: ACME, name: 'dust-belt', repos: ['acme-api'] },
   ],
   teams: [],
@@ -141,11 +141,11 @@ const tablesOf = () => ({
 
 // What Vertuoza's world holds within the window, as rows: sorted by kind, repository and number.
 const EXPECTED = [
-  { workspace_id: VERTUOZA, kind: 'pr-merged', repo: 'vertuo-core', number: 40, login: 'bob', at: '2026-09-01T08:00:00Z' },
-  { workspace_id: VERTUOZA, kind: 'pr-merged', repo: 'vertuo-core', number: 41, login: 'alice', at: '2026-09-27T22:30:00Z' },
-  { workspace_id: VERTUOZA, kind: 'pr-merged', repo: 'vertuo-flow', number: 7, login: 'app/dependabot', at: '2026-09-20T10:00:00Z' },
-  { workspace_id: VERTUOZA, kind: 'prd-opened', repo: 'vertuo-core', number: 328, login: 'pierre-d', at: '2026-09-28T07:00:00Z' },
-  { workspace_id: VERTUOZA, kind: 'prd-opened', repo: 'vertuo-flow', number: 3, login: 'carol', at: '2026-09-05T12:00:00Z' },
+  { workspace_id: VERTUOZA, kind: 'pr-merged', repo: 'nimbus-core', number: 40, login: 'bob', at: '2026-09-01T08:00:00Z' },
+  { workspace_id: VERTUOZA, kind: 'pr-merged', repo: 'nimbus-core', number: 41, login: 'alice', at: '2026-09-27T22:30:00Z' },
+  { workspace_id: VERTUOZA, kind: 'pr-merged', repo: 'nimbus-flow', number: 7, login: 'app/dependabot', at: '2026-09-20T10:00:00Z' },
+  { workspace_id: VERTUOZA, kind: 'prd-opened', repo: 'nimbus-core', number: 328, login: 'pierre-d', at: '2026-09-28T07:00:00Z' },
+  { workspace_id: VERTUOZA, kind: 'prd-opened', repo: 'nimbus-flow', number: 3, login: 'carol', at: '2026-09-05T12:00:00Z' },
 ];
 
 const restOn = (fake: { fetch: (href: string, init?: Init) => Promise<Reply> }) => supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fake.fetch });
@@ -154,7 +154,7 @@ const quiet = () => {
   const lines: string[] = [];
   return { log: (line: string) => lines.push(line), lines };
 };
-const run = (fake: { fetch: (href: string, init?: Init) => Promise<Reply> }, gh: { exec: Exec }, over: Partial<Parameters<typeof runContributions>[0]> = {}) => runContributions({ exec: gh.exec, rest: restOn(fake), workspaceId: VERTUOZA, org: 'vertuoza', now: NOW, log: quiet().log, ...over });
+const run = (fake: { fetch: (href: string, init?: Init) => Promise<Reply> }, gh: { exec: Exec }, over: Partial<Parameters<typeof runContributions>[0]> = {}) => runContributions({ exec: gh.exec, rest: restOn(fake), workspaceId: VERTUOZA, org: 'demo-org', now: NOW, log: quiet().log, ...over });
 
 describe('the window', () => {
   it('opens 40 days before now', () => {
@@ -168,14 +168,14 @@ describe('runContributions', () => {
     const gh = fakeGh(world());
     await run(fakeSupabase(tablesOf()), gh);
     const reads = (repo: string, branch: string) => [
-      `api repos/vertuoza/${repo} --jq .default_branch`,
-      `pr list -R vertuoza/${repo} --base ${branch} --state merged --search merged:>=2026-08-19 --limit 1000 --json number,author,mergedAt,labels,body`,
-      `issue list -R vertuoza/${repo} --label omni:prd --state all --search created:>=2026-08-19 --limit 1000 --json number,author,createdAt`,
+      `api repos/demo-org/${repo} --jq .default_branch`,
+      `pr list -R demo-org/${repo} --base ${branch} --state merged --search merged:>=2026-08-19 --limit 1000 --json number,author,mergedAt,labels,body`,
+      `issue list -R demo-org/${repo} --label omni:prd --state all --search created:>=2026-08-19 --limit 1000 --json number,author,createdAt`,
     ];
     expect(gh.calls).toEqual([
-      ...reads('vertuo-core', 'main'),
-      reads('vertuo-api', 'main')[0],
-      ...reads('vertuo-flow', 'develop'),
+      ...reads('nimbus-core', 'main'),
+      reads('nimbus-api', 'main')[0],
+      ...reads('nimbus-flow', 'develop'),
     ]);
   });
 
@@ -198,7 +198,7 @@ describe('runContributions', () => {
     const fake = fakeSupabase(tablesOf());
     await run(fake, fakeGh(world()));
     const keys = present(fake.tables.contributions, 'contributions').map((r) => `${String(r.repo)}#${String(r.number)}`);
-    for (const left of ['vertuo-core#38', 'vertuo-core#330', 'vertuo-core#39', 'vertuo-flow#4', 'vertuo-core#12', 'vertuo-core#5']) {
+    for (const left of ['nimbus-core#38', 'nimbus-core#330', 'nimbus-core#39', 'nimbus-flow#4', 'nimbus-core#12', 'nimbus-core#5']) {
       expect(keys).not.toContain(left);
     }
   });
@@ -207,33 +207,33 @@ describe('runContributions', () => {
     const fake = fakeSupabase(tablesOf());
     const { log, lines } = quiet();
     const report = await run(fake, fakeGh(world()), { log });
-    expect(report.skipped).toEqual([{ repo: 'vertuo-api', why: 'gh: Not Found (HTTP 404)' }]);
-    expect(lines).toEqual(['vertuoza/vertuo-api skipped: gh: Not Found (HTTP 404)']);
+    expect(report.skipped).toEqual([{ repo: 'nimbus-api', why: 'gh: Not Found (HTTP 404)' }]);
+    expect(lines).toEqual(['demo-org/nimbus-api skipped: gh: Not Found (HTTP 404)']);
     expect(report.read).toEqual([
-      { repo: 'vertuo-core', merged: 2, opened: 1, started: 0, shipped: 0 },
-      { repo: 'vertuo-flow', merged: 1, opened: 1, started: 0, shipped: 0 },
+      { repo: 'nimbus-core', merged: 2, opened: 1, started: 0, shipped: 0 },
+      { repo: 'nimbus-flow', merged: 1, opened: 1, started: 0, shipped: 0 },
     ]);
     expect(fake.tables.contributions).toEqual(EXPECTED);
   });
 
   it('keeps nothing of a repository whose second read fails', async () => {
     const fake = fakeSupabase(tablesOf());
-    const broken = { ...world(), 'vertuoza/vertuo-flow': { ...world()['vertuoza/vertuo-flow'], unreadableIssues: true } };
+    const broken = { ...world(), 'demo-org/nimbus-flow': { ...world()['demo-org/nimbus-flow'], unreadableIssues: true } };
     const report = await run(fake, fakeGh(broken));
-    expect(report.skipped.map((s) => s.repo)).toEqual(['vertuo-api', 'vertuo-flow']);
-    expect(fake.tables.contributions).toEqual(EXPECTED.filter((r) => r.repo === 'vertuo-core'));
+    expect(report.skipped.map((s) => s.repo)).toEqual(['nimbus-api', 'nimbus-flow']);
+    expect(fake.tables.contributions).toEqual(EXPECTED.filter((r) => r.repo === 'nimbus-core'));
   });
 
   it('skips a repository whose answer does not read, rather than guess', async () => {
     const fake = fakeSupabase(tablesOf());
-    const exec: Exec = (args) => new Promise((resolve) => { resolve(args[0] === 'pr' && args.includes('vertuoza/vertuo-flow') ? 'not json' : answerGh(world(), args)); });
+    const exec: Exec = (args) => new Promise((resolve) => { resolve(args[0] === 'pr' && args.includes('demo-org/nimbus-flow') ? 'not json' : answerGh(world(), args)); });
     const report = await run(fake, { exec });
-    expect(report.skipped.map((s) => s.repo)).toEqual(['vertuo-api', 'vertuo-flow']);
-    expect(present(fake.tables.contributions, 'contributions').map((r) => r.repo)).not.toContain('vertuo-flow');
+    expect(report.skipped.map((s) => s.repo)).toEqual(['nimbus-api', 'nimbus-flow']);
+    expect(present(fake.tables.contributions, 'contributions').map((r) => r.repo)).not.toContain('nimbus-flow');
   });
 
   it('writes identical rows when run again on the same outputs, and leaves a row outside the window as it is', async () => {
-    const old = { workspace_id: VERTUOZA, kind: 'pr-merged', repo: 'vertuo-core', number: 2, login: 'alice', at: '2026-07-01T08:00:00Z', seen_at: '2026-07-01T08:15:00Z' };
+    const old = { workspace_id: VERTUOZA, kind: 'pr-merged', repo: 'nimbus-core', number: 2, login: 'alice', at: '2026-07-01T08:00:00Z', seen_at: '2026-07-01T08:15:00Z' };
     const fake = fakeSupabase({ ...tablesOf(), contributions: [{ ...old }] });
     await run(fake, fakeGh(world()));
     const first = structuredClone(fake.tables.contributions);
@@ -248,7 +248,7 @@ describe('runContributions', () => {
   });
 
   it('reads only the named workspace\'s sectors, and writes only its rows', async () => {
-    const theirs = { workspace_id: ACME, kind: 'pr-merged', repo: 'vertuo-core', number: 41, login: 'mallory', at: '2026-09-27T22:30:00Z' };
+    const theirs = { workspace_id: ACME, kind: 'pr-merged', repo: 'nimbus-core', number: 41, login: 'mallory', at: '2026-09-27T22:30:00Z' };
     const fake = fakeSupabase({ ...tablesOf(), contributions: [{ ...theirs }] });
     const gh = fakeGh(world());
     await run(fake, gh);
@@ -261,27 +261,27 @@ describe('runContributions', () => {
   });
 
   it('also reads each repository the workspace tracks that no sector names, so its merges count on the People table (#2018)', async () => {
-    const vertuoBuild = { branch: 'main', merged: [{ number: 102, author: person('KevinVermeulen'), mergedAt: '2026-09-27T12:00:00Z' }] };
+    const nimbusBuild = { branch: 'main', merged: [{ number: 102, author: person('KevinVermeulen'), mergedAt: '2026-09-27T12:00:00Z' }] };
     const fake = fakeSupabase({
       ...tablesOf(),
       repositories: [
-        { workspace_id: VERTUOZA, full_name: 'vertuoza/VertuoBuild', tracked: true },
-        { workspace_id: VERTUOZA, full_name: 'vertuoza/vertuo-core', tracked: true }, // a sector's: read once
-        { workspace_id: VERTUOZA, full_name: 'vertuoza/vertuo-old', tracked: false },
+        { workspace_id: VERTUOZA, full_name: 'demo-org/NimbusBuild', tracked: true },
+        { workspace_id: VERTUOZA, full_name: 'demo-org/nimbus-core', tracked: true }, // a sector's: read once
+        { workspace_id: VERTUOZA, full_name: 'demo-org/nimbus-old', tracked: false },
         { workspace_id: ACME, full_name: 'acme/acme-web', tracked: true },
       ],
     });
-    const gh = fakeGh({ ...world(), 'vertuoza/VertuoBuild': vertuoBuild });
+    const gh = fakeGh({ ...world(), 'demo-org/NimbusBuild': nimbusBuild });
     const report = await run(fake, gh);
 
-    expect(report.rows).toContainEqual({ workspace_id: VERTUOZA, kind: 'pr-merged', repo: 'VertuoBuild', number: 102, login: 'kevinvermeulen', at: '2026-09-27T12:00:00Z' });
-    expect(report.read.map((r) => r.repo)).toEqual(['vertuo-core', 'vertuo-flow', 'VertuoBuild']);
-    expect(gh.calls.join('\n')).not.toMatch(/vertuo-old|acme/);
+    expect(report.rows).toContainEqual({ workspace_id: VERTUOZA, kind: 'pr-merged', repo: 'NimbusBuild', number: 102, login: 'kevinvermeulen', at: '2026-09-27T12:00:00Z' });
+    expect(report.read.map((r) => r.repo)).toEqual(['nimbus-core', 'nimbus-flow', 'NimbusBuild']);
+    expect(gh.calls.join('\n')).not.toMatch(/nimbus-old|acme/);
   });
 
   it('writes nothing when no repository holds anything within the window', async () => {
     const fake = fakeSupabase(tablesOf());
-    const report = await run(fake, fakeGh({ 'vertuoza/vertuo-core': {}, 'vertuoza/vertuo-flow': {} }));
+    const report = await run(fake, fakeGh({ 'demo-org/nimbus-core': {}, 'demo-org/nimbus-flow': {} }));
     expect(report.rows).toEqual([]);
     expect(posts(fake)).toEqual([]);
   });
@@ -316,9 +316,9 @@ describe('PRD stages', () => {
     expect(stageOf({ labels: [{ name: 'omni:feature' }], body: 'Closes #328' })).toEqual({ kind: 'prd-shipped', prd: 328 });
   });
 
-  // vertuo-core's PRD 328 was opened in the window; PRD 12 before it, so only `gh issue view` knows its author.
+  // nimbus-core's PRD 328 was opened in the window; PRD 12 before it, so only `gh issue view` knows its author.
   const stages = (): GhWorld => ({
-    'vertuoza/vertuo-core': {
+    'demo-org/nimbus-core': {
       merged: [
         { number: 50, author: person('Bob'), mergedAt: '2026-09-20T10:00:00Z', labels: ['omni:phase-0'], body: 'The spec and the plan.\n\nRefs #328\n' },
         { number: 51, author: person('alice'), mergedAt: '2026-09-27T18:00:00Z', labels: ['omni:feature', 'omni:in-progress'], body: 'Closes #328' },
@@ -332,26 +332,26 @@ describe('PRD stages', () => {
       older: [{ number: 12, author: person('Carol'), createdAt: '2026-07-01T07:00:00Z' }],
     },
   });
-  const oneRepo = () => ({ ...tablesOf(), sectors: [{ workspace_id: VERTUOZA, name: 'core-belt', repos: ['vertuo-core'] }] });
+  const oneRepo = () => ({ ...tablesOf(), sectors: [{ workspace_id: VERTUOZA, name: 'core-belt', repos: ['nimbus-core'] }] });
   const stageRows = (rows: Row[] | undefined) => present(rows, 'the rows').filter((r) => r.kind === 'prd-started' || r.kind === 'prd-shipped').map((r) => [r.kind, r.repo, r.number, r.login, r.at]);
 
   it('writes prd-started for a merged omni:phase-0 PR that refs a PRD, and prd-shipped for a merged omni:feature PR that closes one, credited to the PRD issue\'s author at the merge', async () => {
     const fake = fakeSupabase(oneRepo());
     const report = await run(fake, fakeGh(stages()));
     expect(stageRows(fake.tables.contributions)).toEqual([
-      ['prd-shipped', 'vertuo-core', 12, 'carol', '2026-09-10T08:00:00Z'],
-      ['prd-shipped', 'vertuo-core', 328, 'pierre-d', '2026-09-27T18:00:00Z'],
-      ['prd-started', 'vertuo-core', 12, 'carol', '2026-09-02T08:00:00Z'],
-      ['prd-started', 'vertuo-core', 328, 'pierre-d', '2026-09-20T10:00:00Z'],
+      ['prd-shipped', 'nimbus-core', 12, 'carol', '2026-09-10T08:00:00Z'],
+      ['prd-shipped', 'nimbus-core', 328, 'pierre-d', '2026-09-27T18:00:00Z'],
+      ['prd-started', 'nimbus-core', 12, 'carol', '2026-09-02T08:00:00Z'],
+      ['prd-started', 'nimbus-core', 328, 'pierre-d', '2026-09-20T10:00:00Z'],
     ]);
-    expect(report.read).toEqual([{ repo: 'vertuo-core', merged: 7, opened: 1, started: 2, shipped: 2 }]);
+    expect(report.read).toEqual([{ repo: 'nimbus-core', merged: 7, opened: 1, started: 2, shipped: 2 }]);
   });
 
   it('reads a PRD\'s author from the listed omni:prd issues, else with gh issue view, once per PRD', async () => {
     const gh = fakeGh(stages());
     await run(fakeSupabase(oneRepo()), gh);
     const views = gh.calls.filter((c) => c.startsWith('issue view'));
-    expect(views).toEqual(['issue view 12 -R vertuoza/vertuo-core --json author']);
+    expect(views).toEqual(['issue view 12 -R demo-org/nimbus-core --json author']);
   });
 
   it('writes no stage for a labelled PR with no link, nor for a linked PR with no stage label, and keeps every merge a pr-merged row', async () => {
@@ -366,9 +366,9 @@ describe('PRD stages', () => {
   it('skips and logs a PRD whose issue cannot be read, and still writes the rest', async () => {
     const fake = fakeSupabase(oneRepo());
     const { log, lines } = quiet();
-    const world = { 'vertuoza/vertuo-core': { ...stages()['vertuoza/vertuo-core'], unreadablePrds: [12] } };
+    const world = { 'demo-org/nimbus-core': { ...stages()['demo-org/nimbus-core'], unreadablePrds: [12] } };
     const report = await run(fake, fakeGh(world), { log });
-    expect(lines).toEqual(['vertuoza/vertuo-core PRD #12 skipped: gh: Not Found (HTTP 404)']);
+    expect(lines).toEqual(['demo-org/nimbus-core PRD #12 skipped: gh: Not Found (HTTP 404)']);
     expect(report.skipped).toEqual([]);
     expect(stageRows(fake.tables.contributions).map((r) => [r[0], r[2]])).toEqual([['prd-shipped', 328], ['prd-started', 328]]);
     expect(present(fake.tables.contributions, 'contributions').filter((r) => r.kind === 'pr-merged')).toHaveLength(7);
@@ -376,7 +376,7 @@ describe('PRD stages', () => {
 
   it('writes no stage for a PRD whose author is a deleted account', async () => {
     const world = stages();
-    present(world['vertuoza/vertuo-core'], 'the repository').older = [{ number: 12, author: null, createdAt: '2026-07-01T07:00:00Z' }];
+    present(world['demo-org/nimbus-core'], 'the repository').older = [{ number: 12, author: null, createdAt: '2026-07-01T07:00:00Z' }];
     const fake = fakeSupabase(oneRepo());
     await run(fake, fakeGh(world));
     expect(stageRows(fake.tables.contributions).map((r) => r[2])).toEqual([328, 328]);
@@ -395,17 +395,17 @@ describe('pnpm game:contributions, as a process', () => {
   });
 
   const workspaces = [
-    { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-loop', theme: {}, created_at: '2026-09-26T12:00:00+00:00' },
+    { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'demo-org', plan_repo: 'vertuo-omni-loop', theme: {}, created_at: '2026-09-26T12:00:00+00:00' },
     { id: ACME, slug: 'acme', name: 'Acme', github_org: null, plan_repo: null, theme: {}, created_at: '2026-09-27T12:00:00+00:00' },
   ];
   // The process reads the clock: its world is dated from now.
   const ago = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
   const liveWorld = (): GhWorld => ({
-    'vertuoza/vertuo-core': {
+    'demo-org/nimbus-core': {
       merged: [{ number: 41, author: person('Alice'), mergedAt: ago(3) }],
       issues: [{ number: 328, author: person('Pierre-D'), createdAt: ago(30) }],
     },
-    'vertuoza/vertuo-api': { unreadable: true },
+    'demo-org/nimbus-api': { unreadable: true },
   });
 
   async function contributions(args: string[], { env = {}, gh = liveWorld() }: { env?: Record<string, string>; gh?: GhWorld } = {}) {
@@ -432,19 +432,19 @@ try {
   }
 
   it('writes the workspace OMNI_LOOP_WORKSPACE names, logs the repository it skipped, and exits 0', async () => {
-    server = await serveFake({ workspaces, sectors: [{ workspace_id: VERTUOZA, name: 'core-belt', repos: ['vertuo-core', 'vertuo-api'] }], teams: [], players: [], contributions: [] });
+    server = await serveFake({ workspaces, sectors: [{ workspace_id: VERTUOZA, name: 'core-belt', repos: ['nimbus-core', 'nimbus-api'] }], teams: [], players: [], contributions: [] });
     const done = await contributions([], { env: { OMNI_LOOP_WORKSPACE: 'vertuoza' } });
     expect(done.code, done.stderr).toBe(0);
-    expect(done.stderr).toContain('vertuoza/vertuo-api skipped: gh: Not Found (HTTP 404)');
+    expect(done.stderr).toContain('demo-org/nimbus-api skipped: gh: Not Found (HTTP 404)');
     expect(done.stdout).toMatch(/vertuoza: 1 of 2 repositories read · 1 merged pull request · 1 PRD issue · 0 PRD stages · written to contributions/);
     expect(present(server.tables.contributions, 'contributions').map((r) => [r.kind, r.repo, r.number, r.login])).toEqual([
-      ['pr-merged', 'vertuo-core', 41, 'alice'],
-      ['prd-opened', 'vertuo-core', 328, 'pierre-d'],
+      ['pr-merged', 'nimbus-core', 41, 'alice'],
+      ['prd-opened', 'nimbus-core', 328, 'pierre-d'],
     ]);
   });
 
   it('exits 1 and writes nothing when the rows cannot be written', async () => {
-    server = await serveFake({ workspaces, sectors: [{ workspace_id: VERTUOZA, name: 'core-belt', repos: ['vertuo-core'] }], teams: [], players: [] }, { failOn: 'contributions' });
+    server = await serveFake({ workspaces, sectors: [{ workspace_id: VERTUOZA, name: 'core-belt', repos: ['nimbus-core'] }], teams: [], players: [] }, { failOn: 'contributions' });
     const done = await contributions(['--workspace', 'vertuoza']);
     expect(done.code).toBe(1);
     expect(done.stderr).toMatch(/write contributions failed \(503/);

@@ -3,7 +3,7 @@ import { configFrom } from './config.ts';
 import { present } from './test/present.ts';
 
 const rows = {
-  sectors: [{ name: 'ai', repos: ['vertuo-ai-domain', 'vertuo-mcp'] }, { name: 'core', repos: ['vertuo-core'] }],
+  sectors: [{ name: 'ai', repos: ['nimbus-ai-domain', 'nimbus-mcp'] }, { name: 'core', repos: ['nimbus-core'] }],
   teams: [
     { name: 'beaver', home: 'core', label: 'BEAVER', color: '#d08a4a', motto: 'Dams.', mascot: 'beaver', sort: 10, retired_at: null },
     { name: 'octopod', home: 'ai' },
@@ -20,8 +20,8 @@ const rows = {
 describe('config', () => {
   it('turns the sectors into lookups', () => {
     const c = configFrom(rows);
-    expect(c.repos).toEqual(['vertuo-ai-domain', 'vertuo-mcp', 'vertuo-core']);
-    expect(c.sectorOf('vertuo-mcp')).toBe('ai');
+    expect(c.repos).toEqual(['nimbus-ai-domain', 'nimbus-mcp', 'nimbus-core']);
+    expect(c.sectorOf('nimbus-mcp')).toBe('ai');
     expect(c.sectorOf('unknown')).toBeNull();
     expect(c.homeOf('beaver')).toBe('core');
     expect(c.homeOf('invincible-team')).toBeNull();
@@ -48,14 +48,14 @@ describe('config', () => {
     const c = configFrom({
       ...rows,
       repositories: [
-        { full_name: 'vertuoza/vertuo-ai-domain', tracked: true },
-        { full_name: 'vertuoza/old-thing', tracked: false },
-        { full_name: 'Vertuoza/Vertuo-Apps', tracked: true },
+        { full_name: 'demo-org/nimbus-ai-domain', tracked: true },
+        { full_name: 'demo-org/old-thing', tracked: false },
+        { full_name: 'Demo-Org/Nimbus-App', tracked: true },
       ],
     });
-    expect(c.tracked).toEqual(['vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-apps']);
-    expect(c.sectorOf('vertuoza/vertuo-ai-domain')).toBe('ai');
-    expect(c.sectorOf('vertuoza/vertuo-apps')).toBeNull();
+    expect(c.tracked).toEqual(['demo-org/nimbus-ai-domain', 'demo-org/nimbus-app']);
+    expect(c.sectorOf('demo-org/nimbus-ai-domain')).toBe('ai');
+    expect(c.sectorOf('demo-org/nimbus-app')).toBeNull();
     expect(configFrom(rows).tracked).toEqual([]);
   });
 
