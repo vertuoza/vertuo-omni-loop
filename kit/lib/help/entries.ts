@@ -222,7 +222,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'check',
     kind: 'command',
     who: 'you',
-    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|design|', '  coverage|context|all] [--base <ref>] [--prd <n>] [--retro <prd>]'],
+    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|design|retro|', '  coverage|context|all] [--base <ref>] [--prd <n>] [--retro <prd>]'],
     label: 'omni check [all]',
     summary: "the repository's guards",
     detail:

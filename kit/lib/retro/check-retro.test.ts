@@ -98,6 +98,12 @@ describe('gradeRetros', () => {
     expect(violations[2]).toMatch(new RegExp(`^${c}: not a retro record — prd: `));
   });
 
+  it('names every way a retro.json is not a retro record, not only the first', () => {
+    const file = `${D}/shipped/0042-a/retro.json`;
+    const [violation] = grade({ [file]: JSON.stringify({ runs: 'none' }) }).violations;
+    expect(violation).toMatch(new RegExp(`^${file}: not a retro record — prd: [^;]+; runs: [^;]+$`));
+  });
+
   it('reads only the retro.json of a PRD folder, never one elsewhere in the delivery folder', () => {
     const files = { [`${D}/inbox/concepts/0003-c/retro.json`]: '{', [`${D}/shipped/notes/retro.json`]: '{', [`${D}/retro.json`]: '{' };
     expect(grade(files)).toEqual({ violations: [], retros: 0, outcomes: 0, kept: null });

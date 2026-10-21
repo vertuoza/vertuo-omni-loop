@@ -39,7 +39,7 @@ export type RetroGrade = { violations: string[]; retros: number; outcomes: numbe
 
 type Read = { ok: true; doc: RetroFile } | { ok: false; violation: string };
 
-/** The `retro.json` at `file`, parsed, or the one violation saying why it cannot be read. */
+/** The `retro.json` at `file`, parsed, or the one violation saying why it cannot be read, every schema issue named. */
 function readRetro(root: string, file: string): Read {
   let data: unknown;
   try {
@@ -49,8 +49,8 @@ function readRetro(root: string, file: string): Read {
   }
   const parsed = RetroFileSchema.safeParse(data);
   if (parsed.success) return { ok: true, doc: parsed.data };
-  const [issue] = parsed.error.issues;
-  return { ok: false, violation: `${file}: not a retro record — ${issue ? `${issue.path.join('.')}: ${issue.message}` : 'unreadable'}` };
+  const why = parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+  return { ok: false, violation: `${file}: not a retro record — ${why}` };
 }
 
 /** Every kept lesson's retro issue, by its finding id, across the runs: a later run's issue wins. */
