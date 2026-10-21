@@ -1,3 +1,36 @@
+# Settled outbox items — PRD 2318
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-duet-obstacle-scored-once -->
+
+## s1-01-duet-obstacle-scored-once — agreed
+
+- Verdict: agreed
+- Approved by: mart-lej
+- Approved at: 2026-10-21T13:02:19Z
+- Channel: feature pull request #2321
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2321#issuecomment-6316720519
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-102
+- Raised: 2026-10-17
+- Slice: s1
+- Wave: 1
+- Became: BR-PRODUCT-122
+
+### The answer, as it was given
+
+```text
+A. Score each obstacle the first moment all of it is below the circle, once, and keep it until a hit (built).
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-duet-obstacle-scored-once
 prd: 2318
@@ -47,3 +80,7 @@ A different moment is one line in the waves' count and the tests that read it: n
 (author) The PRD, the registers and the glossary do not settle this:
 
 - Every chapter wave and the first 50 endless ones were checked: the count never falls in any of them, so the keep-once rule never had to act there; later endless waves were not checked (author).
+
+```
+
+<!-- /omni-outbox-settled: s1-01-duet-obstacle-scored-once -->
