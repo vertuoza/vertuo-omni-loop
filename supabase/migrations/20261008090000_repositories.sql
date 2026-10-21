@@ -8,8 +8,9 @@
 -- any of the three tables directly. These tables are not the game's `sectors`: the game neither reads
 -- nor writes them.
 --
--- Vertuoza, and only Vertuoza, starts with six tracked repositories. Any other workspace starts with
--- none.
+-- Every workspace starts with none. This migration once gave the maintainer's own workspace its
+-- repositories; since PRD 2305 a fresh install seeds no workspace, so that step is gone (production
+-- applied it long ago and records a migration by its version, never its content).
 --
 -- Proven by supabase/checks/repositories.sql.
 -- Rollback: a follow-up migration drops the three tables and the three functions; nothing else reads
@@ -168,21 +169,3 @@ revoke execute on function public.add_repository(uuid, text) from public, anon;
 grant execute on function public.add_repository(uuid, text) to authenticated;
 revoke execute on function public.set_repository_tracked(uuid, text, boolean) from public, anon;
 grant execute on function public.set_repository_tracked(uuid, text, boolean) to authenticated;
-
--- ── Vertuoza's six ───────────────────────────────────────────────────────────────
-
--- Only the workspace whose slug is vertuoza; nothing when there is none. No other workspace is
--- seeded with anything.
-insert into public.repositories (workspace_id, full_name)
-select w.id, r.full_name
-  from public.workspaces w
- cross join (values
-   ('vertuoza/vertuo-ai-domain'),
-   ('vertuoza/vertuo-workflow-domain'),
-   ('vertuoza/vertuo-omni-loop'),
-   ('vertuoza/vertuo-backend-php'),
-   ('vertuoza/vertuo-apps'),
-   ('vertuoza/pdf-builder')
- ) as r (full_name)
- where w.slug = 'vertuoza'
-on conflict (workspace_id, full_name) do nothing;
