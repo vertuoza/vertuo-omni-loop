@@ -180,4 +180,3 @@ Enforced by: apps/galaxy/src/push/sw.test.ts
 Stated: 2026-10-09
 Decided: nobody — adopted when raised (medium), 2026-10-09
 Merged: @pierrederval, 2026-10-09, PR #1324
-Proposed: harvest 2026-10-09
