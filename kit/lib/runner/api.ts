@@ -20,7 +20,7 @@ import { askClient } from '../ask/client.ts';
 import type { Fetch, TokenStore } from '../ask/client.ts';
 import { field, jsonObject } from '../ask/schema.ts';
 import type { JsonObject } from '../ask/schema.ts';
-import type { IssueNumber } from '../ids.ts';
+import type { IssueNumber, PrdNumber } from '../ids.ts';
 import type { Sample } from './health.ts';
 import type { RunOutcome } from './log.ts';
 import type { JobQuestionList } from './questions.ts';
@@ -106,6 +106,55 @@ export type RunnerApi = {
   health(runner: string, report: HealthReport): Promise<void>;
 };
 
+/** A runner of the workspace, as the terminal reads it (`GET /api/runners?repo=`). */
+const KitRunnerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  fleet: z.string().nullable(),
+  state: z.enum(['online', 'busy', 'offline']),
+  used: z.number(),
+  slots: z.number(),
+  repos: z.array(z.string()),
+});
+export type KitRunner = z.output<typeof KitRunnerSchema>;
+
+/** A PRD's job, as the terminal follows it (`GET /api/runners/jobs?repo=&prd=`). */
+const PrdJobSchema = z.object({
+  id: z.string(),
+  line: z.string(),
+  status: z.enum(['queued', 'claimed', 'running', 'done', 'failed', 'cancelled']),
+  runner: z.string().nullable(),
+  prUrl: z.string().nullable(),
+  exitCode: z.number().nullable(),
+  reason: z.string().nullable(),
+  outcome: z.enum(['answers', 'held', 'ready', 'human']).nullable().optional().transform((value) => value ?? null),
+  queuedAt: z.string(),
+});
+export type PrdJob = z.output<typeof PrdJobSchema>;
+
+/** A read of a job's live lines (`GET /api/runners/jobs/<id>/lines?after=`): the lines are numbered. */
+const JobLinesSchema = z.object({
+  status: PrdJobSchema.shape.status,
+  lines: z.array(z.object({ seq: z.number(), text: z.string() })),
+  more: z.boolean(),
+});
+export type JobLinesRead = z.output<typeof JobLinesSchema>;
+
+/** Where a job goes: any runner of the workspace, a fleet's, or one runner (by its id). */
+export type SendTarget = { kind: 'any' } | { kind: 'fleet'; fleet: string } | { kind: 'runner'; runner: string };
+
+/** The reads and the send the terminal makes with its own sign-in (PRD 2251). */
+export type KitReads = {
+  /** The runners of `repo`'s workspace. */
+  runners(repo: string): Promise<KitRunner[]>;
+  /** `prd`'s jobs in `repo`, newest first. */
+  prdJobs(repo: string, prd: PrdNumber): Promise<PrdJob[]>;
+  /** The lines of job `job` after sequence number `after`. */
+  lines(job: string, after: number): Promise<JobLinesRead>;
+  /** Queues `line` for `repo`; answers the job's id. A refusal throws `RunnerRefused` with the app's words. */
+  send(request: { line: string; repo: string; target: SendTarget }): Promise<{ id: string }>;
+};
+
 /** What a running job asks the person (PRD 2255): the issue its skill stopped on, why it stopped, and the questions. */
 export type JobQuestions = { issue: IssueNumber; lead: string; questions: JobQuestionList };
 
@@ -126,10 +175,10 @@ function refusalWords(status: number, body: unknown): string {
 }
 
 /** `response` when it may be read: a refused sign-in, a 5xx and any other refusal but `allow` throw. */
-function checked(response: Response, what: string, allow: number | undefined): Response {
-  if (response.status === 401 || (response.status === 403 && allow !== 403)) throw new RunnerRefused(NO_SIGN_IN);
+function checked(response: Response, what: string, allow: readonly number[] = []): Response {
+  if (response.status === 401 || (response.status === 403 && !allow.includes(403))) throw new RunnerRefused(NO_SIGN_IN);
   if (response.status >= 500) throw new RunnerUnreachable(`${what}: ${String(response.status)}`);
-  if (!response.ok && response.status !== allow) throw new RunnerRefused(`refused (${String(response.status)})`);
+  if (!response.ok && !allow.includes(response.status)) throw new RunnerRefused(`refused (${String(response.status)})`);
   return response;
 }
 
@@ -181,7 +230,7 @@ function transport({ askUrl, tokens, fetch }: Wiring) {
    * A 2xx response: a 401 renews the sign-in once and tries again. With `words`, any other refusal below 500
    * (a 403 included) throws the app's own words, as `refusalWords` reads them.
    */
-  async function call(method: string, path: string, options: { body?: unknown; timeoutMs?: number; signal?: AbortSignal | undefined; allow?: number; words?: true } = {}): Promise<Response> {
+  async function call(method: string, path: string, options: { body?: unknown; timeoutMs?: number; signal?: AbortSignal | undefined; allow?: readonly number[]; words?: true } = {}): Promise<Response> {
     const timeoutMs = options.timeoutMs ?? CALL_MS;
     const held = tokens.read(host)?.access_token;
     const token = held ? held : await renewed();
@@ -196,7 +245,13 @@ function transport({ askUrl, tokens, fetch }: Wiring) {
   return { call, json, segment };
 }
 
-export function runnerApi(wiring: Wiring): RunnerApi {
+/** A 403 on a read is a repository outside the workspace, not a refused sign-in. */
+function forbidden(response: Response): Response {
+  if (response.status === 403) throw new RunnerRefused('refused (403: this repository is not in your workspace)');
+  return response;
+}
+
+export function runnerApi(wiring: Wiring): RunnerApi & KitReads {
   const { call, json, segment } = transport(wiring);
   return {
     async register(registration) {
@@ -211,15 +266,41 @@ export function runnerApi(wiring: Wiring): RunnerApi {
       return job.success ? job.data : null;
     },
     async update(job, update) {
-      const response = await call('POST', `/api/runners/jobs/${segment(job)}`, { body: update, allow: 409 });
+      const response = await call('POST', `/api/runners/jobs/${segment(job)}`, { body: update, allow: [409] });
       if (response.status === 409) return { cancel: true };
       const reply = UpdatedSchema.safeParse(await json(response));
       return { cancel: reply.success && reply.data.cancel === true };
     },
     async health(runner, report) {
       // A 403 is another owner's runner, not a refused sign-in: it is named as the refusal it is.
-      const response = await call('POST', `/api/runners/${segment(runner)}/health`, { body: report, timeoutMs: HEALTH_MS, allow: 403 });
+      const response = await call('POST', `/api/runners/${segment(runner)}/health`, { body: report, timeoutMs: HEALTH_MS, allow: [403] });
       if (response.status === 403) throw new RunnerRefused('refused (403)');
+    },
+    async runners(repo) {
+      const reply = z.object({ runners: z.array(KitRunnerSchema) }).safeParse(await json(await call('GET', `/api/runners?${new URLSearchParams({ repo })}`, { allow: [403] }).then(forbidden)));
+      if (!reply.success) throw new RunnerRefused('refused (the app answered no runners)');
+      return reply.data.runners;
+    },
+    async prdJobs(repo, prd) {
+      const query = new URLSearchParams({ repo, prd: String(prd) });
+      const reply = z.object({ jobs: z.array(PrdJobSchema) }).safeParse(await json(await call('GET', `/api/runners/jobs?${query}`, { allow: [403] }).then(forbidden)));
+      if (!reply.success) throw new RunnerRefused('refused (the app answered no jobs)');
+      return reply.data.jobs;
+    },
+    async lines(job, after) {
+      const reply = JobLinesSchema.safeParse(await json(await call('GET', `/api/runners/jobs/${segment(job)}/lines?after=${String(after)}`)));
+      if (!reply.success) throw new RunnerRefused('refused (the app answered no lines)');
+      return reply.data;
+    },
+    async send(request) {
+      const response = await call('POST', '/api/runners/jobs', { body: request, allow: [400, 403] });
+      if (!response.ok) {
+        const error = z.object({ error: z.string() }).safeParse(await json(response));
+        throw new RunnerRefused(error.success ? error.data.error : `refused (${String(response.status)})`);
+      }
+      const reply = z.object({ job: z.object({ id: z.union([z.string().min(1), z.number()]).transform(String) }) }).safeParse(await json(response));
+      if (!reply.success) throw new RunnerRefused('refused (the app answered no job)');
+      return { id: reply.data.job.id };
     },
   };
 }

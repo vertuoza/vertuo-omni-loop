@@ -6,7 +6,7 @@ import { fakeMic, settle } from './mic.fake';
 import { OPTIONS_KEY, type OptionsStore } from './options';
 import { BAND_HZ, LIMITS, MATCH } from './rules';
 
-// OMNI PONG's ready screen as the game holds it (PRD 2101): the limit set and kept, the microphone
+// PULSAR VOLLEY's ready screen as the game holds it (PRD 2101): the limit set and kept, the microphone
 // asked for once at a time, and the pitch meter's three states as the voice moves.
 
 /** A browser's storage that keeps what it is given, across pages. */

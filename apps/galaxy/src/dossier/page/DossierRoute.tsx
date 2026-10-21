@@ -41,6 +41,8 @@ import { productOutboxView } from './outbox-product';
 import { approvalView, readApproval, readApproveScreen, readAskedApprovers, readVoids, type ApprovalFacts, type ApprovalRead } from './approval';
 import { attestationOf } from './Attestation.service';
 import { liveSendSetup } from '../../runners/send/send.live';
+import { continuationsRepository, runnersRepository } from '../../runners/runners.repository';
+import { fixingOf, type Fixing } from './stage';
 import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
@@ -96,6 +98,8 @@ import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // PRD 1830 s4: a numbered PRD's page reads, beside its approval, the workspace's runners the viewer may
 // send to that hold its repository (../../runners/send/send.live.ts), for Send to terminal beside each
 // button that copies a line a runner runs. None, or a read that fails, leaves the button out, never the page.
+// PRD 2270 s4: it also reads the PRD's /omni:yolo-fix job while queued or running, for the status line's
+// `fixing on <runner>`; a read that fails leaves the line as it was, never hides the page.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -126,6 +130,23 @@ async function approvalOf(db: Db, read: DossierRead, me: string): Promise<Pick<D
   if (!view?.canApprove) return { approval, approvalFacts: facts };
   const screen = await readApproveScreen((id) => readContent(db, id), read.versions, approval, view);
   return { approval, approvalFacts: { ...facts, screen } };
+}
+
+/** The runner the PRD's fix job is queued or running on (PRD 2270); null when none is, or the jobs could not be read. */
+async function fixingRead(dossier: DossierRead['dossier'], prd: PrdNumber): Promise<Fixing | null> {
+  try {
+    const db = serviceDb();
+    const jobs = await continuationsRepository(db).prdJobs(dossier.workspace_id, dossier.home_repo, prd);
+    const names = new Map<string, string>();
+    for (const id of new Set(jobs.flatMap((job) => (job.runner_id === null ? [] : [job.runner_id])))) {
+      const runner = await runnersRepository(db).runner(id);
+      if (runner) names.set(id, runner.name);
+    }
+    return fixingOf(prd, jobs.map((job) => ({ ...job, runner: job.runner_id === null ? null : names.get(job.runner_id) ?? null })));
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
 }
 
 /** The GitHub summary, the plan's slice count and the stored stages of a numbered PRD dossier the member
@@ -289,7 +310,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   if (prd !== null && kindOf(read.dossier) === 'prd') {
     const approval = approvalOf(db, read, user.id);
     const send = liveSendSetup(user.id, dossier.workspace_id, dossier.home_repo);
-    read = { ...read, proofs: await proofs, pitches: await pitches, ...(await approval) };
+    const fixing = fixingRead(dossier, prd);
+    read = { ...read, proofs: await proofs, pitches: await pitches, ...(await approval), fixing: await fixing };
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
     const first = dossierView(read, user.id, pick);
     const markdown = shownMarkdown(first, (shownId) => readContent(db, shownId));

@@ -9,7 +9,7 @@ import { PlatformerOverlay } from './platformer.tsx';
 import { TALL_SCENES } from './games.ts';
 import { sending, type ScoreSend } from './invaders-score';
 
-// Super Omni World's text layer (PRD 817): what shows over the game on each of its screens.
+// Starhop's text layer (PRD 817): what shows over the game on each of its screens.
 
 const text = (session: Session, status: ScreenStatus = 'ready', grid: Grid = WIDE, form: 'full' | 'handheld' = 'full', send: ScoreSend | null = null) =>
   renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form, grid, page: 0, pages: 1 } },

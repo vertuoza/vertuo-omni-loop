@@ -519,6 +519,16 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ state: 'ok' | 'none', product: { name: string } | null, statement: { id: 'statement', text: string } | null,
      *   never: Array<{ id: string, text: string }>, latestEventId: string | null }>} */
     readConstituents: (repo: string) => call('GET', `/api/constituents?${new URLSearchParams({ repo })}`),
+    /** PRD 2268: adds or edits one Legal entry or Glossary term of the product `repo` belongs to (`product`, when
+     * the repository is in several), as the caller: the section's owner saves it, any other member proposes it.
+     * `entry` names the item an edit changes, by the id or term the reads print.
+     * @returns {Promise<{ done: 'applied' | 'proposed', id?: string, url: string, owner?: string }>} */
+    changeKnowledge: ({ repo, product, kind, action, entry, fields }: {
+      repo: string; product?: string | undefined; kind: 'legal' | 'glossary' | 'constituent'; action: 'add' | 'edit'; entry?: string | undefined; fields: Record<string, unknown>;
+    }) =>
+      call('POST', '/api/knowledge/changes', {
+        body: { repo, ...(product === undefined ? {} : { product }), kind, action, ...(entry === undefined ? {} : { entry }), fields },
+      }),
     /** PRD 1665: one of the loop's reads, `path` under `/api/loop/` (`changes`, `changes/<n>`, `comments`,
      * `issues`, `issues/<n>`) with its query (`repo` and its filters); `../loop-reads/omni.ts` reads the answer. */
     readLoop: (path: string, query: Record<string, string>) => call('GET', `/api/loop/${path}?${new URLSearchParams(query)}`),

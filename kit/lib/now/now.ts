@@ -65,7 +65,13 @@ export type NowWait = { prd: PrdNumber; line: string; toast: boolean; until: num
 export type NowSync = { status: 'blue' | 'red' | 'orange' | 'green'; headline: string | null; checkedAt: string; setupDone?: number };
 
 /** `omni now`'s answer; `wait` only while an approval wait shows something, `sync` only when `omni sync` has kept a record. */
-export type Now = { headline: NowHeadline | null; work: NowWork | null; doing: string | null; wait?: NowWait; sync?: NowSync };
+export type Now = { headline: NowHeadline | null; work: NowWork | null; doing: string | null; wait?: NowWait; sync?: NowSync; runners?: NowRunners | null; runner?: NowRunner };
+
+/** The runner slots free while a runner of the workspace is online for this repository (PRD 2251); `null` when none is or the read failed. */
+export type NowRunners = { free: number; slots: number };
+
+/** The last milestone of the `omni runner follow` running in this session (PRD 2251). */
+export type NowRunner = { line: string };
 
 /** The answer for a session on nothing. */
 export const NOTHING: Now = Object.freeze({ headline: null, work: null, doing: null });
@@ -162,6 +168,13 @@ export function nowLines({ headline, work, doing, wait }: Now): string[] {
 
 /** `answer` with the approval `wait` it shows, when there is one. */
 export const withWait = (answer: Now, wait: NowWait | null): Now => (wait ? { ...answer, wait } : answer);
+
+/** `answer` with the runners' free slots (`undefined`: not read, no key) and the followed job's last milestone, when there is one. */
+export const withRunners = (answer: Now, runners: NowRunners | null | undefined, runner: NowRunner | null): Now => ({
+  ...answer,
+  ...(runners === undefined ? {} : { runners }),
+  ...(runner ? { runner } : {}),
+});
 
 /** `answer` with the `sync` record's status, headline and time, when `omni sync` kept one. */
 export const withSync = (answer: Now, sync: NowSync | null): Now => (sync ? { ...answer, sync } : answer);

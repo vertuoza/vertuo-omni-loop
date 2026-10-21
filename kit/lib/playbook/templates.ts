@@ -77,3 +77,8 @@ export function formTemplate(id: string): string {
 export function frontDoorTemplate(): string {
   return templateText(FRONT_DOOR_TEMPLATE);
 }
+
+/** The text of the kit's template at `path` under the templates folder (PRD 2239: the before/after page's skeleton). */
+export function kitTemplate(path: string): string {
+  return templateText(path);
+}

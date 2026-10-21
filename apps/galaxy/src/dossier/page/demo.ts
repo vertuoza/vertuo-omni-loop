@@ -172,7 +172,7 @@ const THEME = {
 function demoRounds(opened: number): DossierRoundRow[] {
   const round = (n: number, question: typeof MODE, at: number, more: Partial<DossierRoundRow> = {}): DossierRoundRow => ({
     rule: 'brainstorm', round_id: `demo-dossier-round-${n}`, session_id: 'demo-terminal-1', asked_by: DEMO_OWNER,
-    repo: 'vertuoza/vertuo-omni-loop', branch: 'main', questions: [question], answers: null, status: 'open', answered_via: null,
+    repo: 'demo-org/nimbus-plan', branch: 'main', questions: [question], answers: null, status: 'open', answered_via: null,
     answered_by: null, category: null, category_by: null, prd: null, skill: '/omni:brainstorm', created_at: iso(at), answered_at: null, ...more,
   });
   const answered = (question: typeof MODE, answer: string, by: string, via: 'page' | 'terminal', at: number) => ({
@@ -190,7 +190,7 @@ function demoRounds(opened: number): DossierRoundRow[] {
   ];
 }
 
-const DEMO_REPO = 'vertuoza/vertuo-omni-loop';
+const DEMO_REPO = 'demo-org/nimbus-plan';
 const pull = (n: number) => `https://github.com/${DEMO_REPO}/pull/${n}`;
 const DEMO_PRD = parsePrd(71);
 
@@ -273,7 +273,7 @@ export const DEMO_GITHUB: GithubSummary = {
 };
 
 /** The demo dossier's repositories: its home, then its planet's regions. */
-const DEMO_REPOS = [DEMO_REPO, 'vertuoza/vertuo-core', 'vertuoza/vertuo-web'];
+const DEMO_REPOS = [DEMO_REPO, 'demo-org/nimbus-core', 'demo-org/nimbus-web'];
 
 /** The demo PRD's stored stages: opened, its phase-0 merged, its first slice merged; synced 5 minutes ago. */
 function demoStages(opened: number): StageRow[] {
@@ -304,7 +304,7 @@ export function demoDossier(now: number): DossierRead {
   });
   return {
     dossier: {
-      id: DEMO_DOSSIER_ID, workspace_id: 'demo', home_repo: 'vertuoza/vertuo-omni-loop', prd: DEMO_PRD,
+      id: DEMO_DOSSIER_ID, workspace_id: 'demo', home_repo: 'demo-org/nimbus-plan', prd: DEMO_PRD,
       title: 'Ask mode — the agent\'s questions on a page made for reading', opened_by: DEMO_OWNER,
       created_at: iso(opened), numbered_at: iso(opened + 90 * MIN),
     },
@@ -348,15 +348,15 @@ export function demoHistory(now: number): DossierListRow[] {
   return [
     listed(demoDossier(now)),
     {
-      id: '00000000-0000-4000-8000-00000000d056', workspace_id: 'demo', home_repo: 'vertuoza/vertuo-omni-loop', prd: null,
+      id: '00000000-0000-4000-8000-00000000d056', workspace_id: 'demo', home_repo: 'demo-org/nimbus-plan', prd: null,
       title: 'Offline quotes on the site app', opened_by: DEMO_OWNER, created_at: at(3 * 60), numbered_at: null,
-      repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-mobile'], latest: {}, asked: 3, answered: 2, last_activity: at(2 * 60),
+      repos: ['demo-org/nimbus-plan', 'demo-org/nimbus-app'], latest: {}, asked: 3, answered: 2, last_activity: at(2 * 60),
     },
     {
-      id: '00000000-0000-4000-8000-00000000d057', workspace_id: 'demo', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(144),
+      id: '00000000-0000-4000-8000-00000000d057', workspace_id: 'demo', home_repo: 'demo-org/nimbus-plan', prd: parsePrd(144),
       title: 'Question history — every question kept, sorted and shareable', opened_by: null,
       created_at: at(9 * 24 * 60), numbered_at: at(9 * 24 * 60),
-      repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain'],
+      repos: ['demo-org/nimbus-plan', 'demo-org/nimbus-brain'],
       latest: {
         spec: { id: 'demo-144-spec-2', version: 2, source: read, created_at: at(6 * 24 * 60) },
         plan: { id: 'demo-144-plan-1', version: 1, source: read, created_at: at(9 * 24 * 60) },

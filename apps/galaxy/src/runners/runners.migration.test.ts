@@ -163,3 +163,31 @@ describe('the runner outcome migration (PRD 2223)', () => {
     expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*log_tail: string\n\s+outcome: string \| null\n\s+pr_url: string \| null\n/);
   });
 });
+
+const CONTINUES = read('supabase/migrations/20261220090000_fix_when_answered.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+
+describe('the fix-when-answered migration (PRD 2270)', () => {
+  it('adds the job a job continues, empty for any other job, and holds each job continued once', () => {
+    expect(CONTINUES).toContain('alter table public.runner_jobs add column continues uuid references public.runner_jobs (id) on delete set null;');
+    expect(CONTINUES).toContain('create unique index runner_jobs_continues_key on public.runner_jobs (continues) where continues is not null;');
+  });
+
+  it('adds the repository\'s switch, on by default', () => {
+    expect(CONTINUES).toContain('alter table public.repositories add column fix_when_answered boolean not null default true;');
+  });
+
+  it('lets only the workspace\'s owner switch it, as Phase 0 on the server, and changes no grant on the tables', () => {
+    expect(CONTINUES).toContain('create function public.set_repository_fix_when_answered(p_workspace uuid, p_full_name text, p_on boolean) returns public.repositories language plpgsql security definer set search_path = \'\'');
+    expect(CONTINUES).toContain('perform public.repository_owner_only(p_workspace);');
+    expect(CONTINUES).toContain('revoke execute on function public.set_repository_fix_when_answered(uuid, text, boolean) from public, anon;');
+    expect(CONTINUES).toContain('grant execute on function public.set_repository_fix_when_answered(uuid, text, boolean) to authenticated;');
+    expect(CONTINUES).not.toMatch(/(grant|revoke) [^;]* on public\.(runner_jobs|repositories)/);
+  });
+
+  it('is named in the database\'s types: both columns and the switch\'s function', () => {
+    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{\n\s+cancel_requested: boolean\n\s+claimed_at: string \| null\n\s+continues: string \| null\n/);
+    expect(TYPES).toContain('foreignKeyName: "runner_jobs_continues_fkey"');
+    expect(TYPES).toMatch(/repositories: \{\n\s+Row: \{[^}]*collected_until: string \| null\n\s+fix_when_answered: boolean\n/);
+    expect(TYPES).toContain('set_repository_fix_when_answered: {\n        Args: { p_full_name: string; p_on: boolean; p_workspace: string }');
+  });
+});

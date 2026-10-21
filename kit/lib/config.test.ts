@@ -100,6 +100,12 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\ndesign:\n  words:\n    length: 3\n')).toThrow(/design\.words.*length/s);
   });
 
+  it('has no smoke command unless the config sets one, reads it as written and refuses an empty one (PRD 2275)', () => {
+    expect(parseConfig('kit: 1\n').commands.smoke).toBeNull();
+    expect(parseConfig('kit: 1\ncommands:\n  smoke: bun run build && bun run test:smoke\n').commands.smoke).toBe('bun run build && bun run test:smoke');
+    expect(() => parseConfig('kit: 1\ncommands:\n  smoke: ""\n')).toThrow(/commands\.smoke/);
+  });
+
   it('has no design lint command unless the config sets one (PRD 1369)', () => {
     expect(parseConfig('kit: 1\n').commands.design).toBeNull();
     expect(parseConfig('kit: 1\ncommands:\n  design: npx impeccable detect src\n').commands.design).toBe('npx impeccable detect src');

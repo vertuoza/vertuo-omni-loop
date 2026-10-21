@@ -1,4 +1,4 @@
-// OMNI PONG's match against the AI: pure and seeded, no DOM, no clock of its own. `step` plays the time
+// PULSAR VOLLEY's match against the AI: pure and seeded, no DOM, no clock of its own. `step` plays the time
 // since the last frame in fixed sub-steps, carrying the remainder, so the same seed and steering give the
 // same match at 60 or 120 frames a second. A point is scored when the AI misses; a point conceded costs a
 // life and never adds; the third conceded ends the match, and the move into `over` is told once.

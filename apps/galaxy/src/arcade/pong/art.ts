@@ -1,4 +1,4 @@
-// OMNI PONG as the arcade drives it (PRD 2101): the ready screen and the match, its court drawn on the
+// PULSAR VOLLEY as the arcade drives it (PRD 2101): the ready screen and the match, its court drawn on the
 // canvas. ◀ ▶ set the limit, kept in the browser; A asks for the microphone; once it is on, START plays
 // the match, steered each frame by what the voice's pitch makes of it. START pauses and only START
 // resumes; a pause stops the microphone and resuming asks for it again. A track that ends by itself

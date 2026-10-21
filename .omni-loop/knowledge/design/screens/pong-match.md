@@ -11,7 +11,7 @@ supersedes: null
 
 ## Purpose
 
-OMNI PONG's match against the AI (PRD 2101), from the first serve to the game over: the player's
+PULSAR VOLLEY's match against the AI (PRD 2101), from the first serve to the game over: the player's
 paddle steered by their voice, the AI's paddle, the ball that speeds up at every return, the score
 and the lives.
 

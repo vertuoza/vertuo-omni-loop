@@ -93,6 +93,22 @@ export function stageOf(prd: PrdNumber | null, summary: GithubSummary | null, sl
   return { id: 'prd', ...actionOf('prd', prd, summary, slices) };
 }
 
+/** The runner a PRD's fix job runs on (PRD 2270): shown as `fixing on <runner>` while it is queued or running. */
+export type Fixing = { runner: string };
+
+/** A runner job, as the fix's reading needs it: `runner` is the name of the runner that claimed it, once one did. */
+export type FixJobSeen = {
+  line: string; status: 'queued' | 'claimed' | 'running' | 'done' | 'failed' | 'cancelled';
+  runner: string | null; to_runner: string | null; to_fleet: string | null;
+};
+
+/** The PRD's `/omni:yolo-fix <n>` job that is queued, claimed or running, with the runner it runs on (its
+ * runner once claimed, else the runner or fleet it was sent to); null when none is. */
+export function fixingOf(prd: PrdNumber, jobs: readonly FixJobSeen[]): Fixing | null {
+  const job = jobs.find((j) => j.line.trim() === `/omni:yolo-fix ${String(prd)}` && (j.status === 'queued' || j.status === 'claimed' || j.status === 'running'));
+  return job ? { runner: job.runner ?? job.to_runner ?? job.to_fleet ?? 'a runner' } : null;
+}
+
 type Action = {
   action: NextAction | null; caption: string | null;
   /** Under Fix with answers (PRD 2223): the answers it acts on, `Fixes with 1: A · 4: B`. */
@@ -100,7 +116,7 @@ type Action = {
 };
 const none: Action = { action: null, caption: null };
 
-type ActionInput = { prd: PrdNumber | null; read: GithubSummary | null; slices: number | null };
+type ActionInput = { prd: PrdNumber | null; read: GithubSummary | null; slices: number | null; fixing: Fixing | null };
 
 const caption = (text: string): Action => ({ action: null, caption: text });
 const link = (label: string, href: string): Action => ({ action: { kind: 'link', label, href }, caption: null });
@@ -131,6 +147,10 @@ function reviewAction({ read }: ActionInput): Action {
   return known(feature) && feature ? link('Review & merge', feature.url) : none;
 }
 
+/** `2 of 3 answered`; once all are, `answered`, or `fixing on <runner>` while the PRD's fix job runs (PRD 2270). */
+const standWords = (stand: OutboxStand, fixing: Fixing | null) =>
+  stand.answered !== stand.asked ? `${stand.answered} of ${stand.asked} answered` : fixing ? `fixing on ${fixing.runner}` : 'answered';
+
 /** Open outbox items come first: the button answers them, whatever the stage would show otherwise. */
 const outboxFirst =
   (otherwise: (input: ActionInput) => Action) =>
@@ -143,9 +163,9 @@ const outboxFirst =
     const done = stand.answered === stand.asked;
     const caption = [
       ...(known(merged) && merged > 0 ? [builtWords(merged, input.slices)] : []),
-      done ? 'answered' : `${stand.answered} of ${stand.asked} answered`,
+      standWords(stand, input.fixing),
     ].join(' · ');
-    if (!done || input.prd === null) return { ...link('Answer the outbox', open.href), caption };
+    if (!done || input.prd === null || input.fixing) return { ...link('Answer the outbox', open.href), caption };
     const fixes = `Fixes with ${stand.answers.map(({ number, letter }) => (letter ? `${number}: ${letter}` : String(number))).join(' · ')}`;
     return { action: { kind: 'copy', label: 'Fix with answers', command: `/omni:yolo-fix ${input.prd}` }, caption, fixes };
   };
@@ -170,8 +190,8 @@ const ACTIONS: Readonly<Record<CurrentStage['id'], (input: ActionInput) => Actio
 };
 
 /** The one button and the caption of a stage, by PRD 426's rules, from what the GitHub summary holds. */
-function actionOf(id: CurrentStage['id'], prd: PrdNumber | null, summary: GithubSummary | null | undefined, slices: number | null = null): Action {
-  return ACTIONS[id]({ prd, read: summary ?? null, slices });
+function actionOf(id: CurrentStage['id'], prd: PrdNumber | null, summary: GithubSummary | null | undefined, slices: number | null = null, fixing: Fixing | null = null): Action {
+  return ACTIONS[id]({ prd, read: summary ?? null, slices, fixing });
 }
 
 /** The feature PR's health chip (PRD 790, s2): `CI ✓ · no conflict · 2 open`, red on CI red or a
@@ -238,13 +258,15 @@ export type StageViewInput = {
   /** The GitHub summary, for the button, the links and the badge only; null or left out when not read. */
   github?: GithubSummary | null | undefined;
   slices?: number | null;
+  /** The PRD's fix job while it is queued or running (PRD 2270): the caption reads `fixing on <runner>` once answered. */
+  fixing?: Fixing | null | undefined;
 };
 
-export function stageView({ prd, answered = false, rows, github = null, slices = null }: StageViewInput): StageView {
+export function stageView({ prd, answered = false, rows, github = null, slices = null, fixing = null }: StageViewInput): StageView {
   const stage = storedStageOf({ prd, answered, rows, openOutbox: openOutboxOf(github) });
   return {
     ...stage,
-    ...actionOf(stage.id, prd, github, slices),
+    ...actionOf(stage.id, prd, github, slices, fixing),
     links: prd === null ? [] : linksOf(github),
     synced: prd === null ? null : syncedWords(stage.syncedAt),
   };

@@ -2,7 +2,7 @@
 // is imported only when its cabinet opens, so this file, like every other scene's, imports nothing from
 // that folder at run time (guard.test.ts): the loaded game comes in as `FrameState.kart` and draws
 // itself, and until then, or if it never loads, the canvas is the dark behind the text layer's line
-// (kart.tsx). The grid the race is drawn on is the one it started on, as SUPER OMNI WORLD keeps its own.
+// (kart.tsx). The grid the race is drawn on is the one it started on, as STARHOP keeps its own.
 import type { Hero, Tint } from '@omni/design';
 import type { Action } from '../keys';
 import type { KartOptions, OptionsView } from '../kart/options';
