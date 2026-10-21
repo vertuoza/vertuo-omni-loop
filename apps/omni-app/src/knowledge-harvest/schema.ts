@@ -2,9 +2,9 @@
 // and GitHub's answers about the merged pull request, a branch, the open pull requests and a commit.
 // Each schema names only the fields the harvest uses and lets every other field through.
 import { z } from 'zod';
-import { ClassificationSchema } from 'vertuo-omni-plan/kit/lib/knowledge/classify.ts';
-import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/schema/config.ts';
-import { CommentIdSchema, IssueNumberSchema, PrNumberSchema, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { ClassificationSchema } from 'omni-loop/kit/lib/knowledge/classify.ts';
+import { ConfigSchema } from 'omni-loop/kit/lib/schema/config.ts';
+import { CommentIdSchema, IssueNumberSchema, PrNumberSchema, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** `omni-loop/knowledge.harvest.requested`: where a pull request merged. */
 export const HarvestEventSchema = z.looseObject({

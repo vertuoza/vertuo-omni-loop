@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ApprovalReading } from 'vertuo-omni-plan/kit/lib/approval/approval.ts';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { ApprovalReading } from 'omni-loop/kit/lib/approval/approval.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { heldReading } from './repo-reading.ts';
 import { dossierOf, repoApprovedVerdict } from './repo-verdict.ts';
 

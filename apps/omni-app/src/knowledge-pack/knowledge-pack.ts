@@ -22,7 +22,7 @@
 // changes nothing for a commit it already keeps. It writes nothing on GitHub and never merges anything.
 import { type Inngest, NonRetriableError } from 'inngest';
 import { z } from 'zod';
-import { PrNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { HARVEST_EVENT } from '../inngest-client.ts';
 import { readMerge, type RequestOctokit } from '../knowledge-harvest/github.ts';
 import type { OctokitFor } from '../octokit-for.ts';

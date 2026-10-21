@@ -4,8 +4,8 @@
 // `retro.json` keeps, is the type its schema in `retro.schema.ts` parses to (PRD 1030), so what is read
 // back is what the retro wrote; what is read from GitHub is parsed by the schemas in `github.schema.ts`.
 import type { z } from 'zod';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type {
   DroppedSchema,
   EvidenceSchema,

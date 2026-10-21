@@ -1,9 +1,9 @@
-import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { z } from 'zod';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { replayGitHub } from '../../test/github-replay.ts';
 import { FEATURE, OWNER, PLAN, REPO, SUB_PULLS } from '../../test/retro-scenario.ts';
 import { detect } from './detect.ts';

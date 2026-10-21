@@ -8,7 +8,7 @@
 // the network), so a malformed event fails by the name of its field.
 import { Inngest } from 'inngest';
 import { z } from 'zod';
-import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export const APP_ID = 'omni-loop';
 

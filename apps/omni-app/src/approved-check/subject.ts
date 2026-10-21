@@ -9,8 +9,8 @@
 // Never a sub-PR (its base is not the default branch) and never a pull request naming no PRD. Whether
 // the PRD was born on the server (◆) is read later, from its spec: a ◇ PRD's pull request gets no
 // check either.
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 import { planPrdOf, pullKind } from '../evaluate/evaluate.ts';
 
 /** What a pull request is to the check: a feature PR of a topic here, a target PR of another

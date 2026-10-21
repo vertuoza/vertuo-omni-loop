@@ -1,7 +1,7 @@
 // The canon gate (PRD 839) with a stubbed business and a stubbed model: nothing here calls Supabase or
 // OpenRouter.
 import { describe, expect, it, vi } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { type Ask, CANON_SPEC_LIMIT, createCanon, type Judge, type JudgeAnswer, quoted } from './canon.ts';
 import type { Business, Constituents } from './schema.ts';
 

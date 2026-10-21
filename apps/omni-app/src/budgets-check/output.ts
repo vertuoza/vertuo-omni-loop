@@ -11,8 +11,8 @@
 // | a target could not be measured        | neutral    | `not measured`: why, and that it blocks nothing (D6) |
 // | the whole measure could not run       | neutral    | `not measured`, the reason                           |
 // | the ceilings file does not parse      | failure    | `the ceilings file does not parse`, as the command reds it |
-import { budgetTable, neutralLines, redMessage, type MessageContext } from 'vertuo-omni-plan/kit/lib/budgets/message.ts';
-import { overall, type TargetVerdict } from 'vertuo-omni-plan/kit/lib/budgets/ratchet.ts';
+import { budgetTable, neutralLines, redMessage, type MessageContext } from 'omni-loop/kit/lib/budgets/message.ts';
+import { overall, type TargetVerdict } from 'omni-loop/kit/lib/budgets/ratchet.ts';
 import { MAX_SUMMARY } from '../publish/publish.ts';
 
 /** The check run's name on every pull request of a repository with budgets on. */

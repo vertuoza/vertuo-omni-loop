@@ -5,8 +5,8 @@
 // co-author trailer with Omni-man's e-mail (the e-mail is the key, whatever the name), its body carries
 // the footer marker, or `omni-loop-invader[bot]` opened it. His identity is the kit's default
 // signature, the one every repository running the loop signs with.
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { botLogin, isSignedBody } from 'vertuo-omni-plan/kit/lib/signature.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { botLogin, isSignedBody } from 'omni-loop/kit/lib/signature.ts';
 
 const DEFAULT_SIGNATURE = parseConfig('kit: 1\n').signature;
 if (!DEFAULT_SIGNATURE) throw new Error("the kit's default config signs as Omni-man");
