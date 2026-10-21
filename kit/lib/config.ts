@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { isOneOf, messageOf } from './narrow.ts';
 import { parseSelector } from './design/words/selector.ts';
 import { FlowSchema, hooksByMode, regexSource } from './flow/schema.ts';
-import { CANONICAL_LAYERS, layerList, layerOf, roleOf } from './layers/layers.ts';
+import { CANONICAL_LAYERS, layerList, layerOf } from './layers/layers.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
 export const CONFIG_FILE = '.omni-loop/config.yml';
@@ -163,10 +163,7 @@ const target = z
     // PRD 1162: the short names of the targets whose default-branch packages this one installs.
     consumes: z.array(z.string()).optional(),
   })
-  .strict()
-  // PRD 2346: a role is read through `ROLE_ALIASES` (`back-end` is `api`); any other word is kept and
-  // flagged by `omni check config`.
-  .transform((entry) => ({ ...entry, role: roleOf(entry.role) }));
+  .strict();
 
 /** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column and a target's
  * `consumes` use. */

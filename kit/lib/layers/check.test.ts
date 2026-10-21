@@ -16,8 +16,8 @@ describe('mapViolations', () => {
   });
 
   it('names a target role that is no role, and accepts the nine', () => {
-    const plan = { targets: [{ repo: 'a/b', role: 'api' }, { repo: 'a/c', role: 'legacy' }] };
-    const lines = mapViolations({ ...BASE, plan }, FILES);
+    const targets = [{ repo: 'a/b', role: 'api' }, { repo: 'a/d', role: 'back-end' }, { repo: 'a/c', role: 'legacy' }];
+    const lines = mapViolations(BASE, FILES, targets);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatch(/a\/c has the role legacy, which is not a role \(api, web/);
   });

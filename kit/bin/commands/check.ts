@@ -45,6 +45,7 @@ import { gradeDesign, headSnapshot, snapshotAt } from '../../lib/design/check-de
 import { DEFAULT_HOOK_MAX_BYTES, hookFileViolations } from '../../lib/flow/schema.ts';
 import { generatedViolations, readGround } from '../../lib/generated/check.ts';
 import { mapViolations } from '../../lib/layers/check.ts';
+import { targetsOf } from '../../lib/plan-repo/target-list.ts';
 import { parseArgs, prdArg, println, usageError, type Flags } from '../args.ts';
 import type { CommandIo, Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { loadContext, type Context } from '../../lib/context.ts';
@@ -215,7 +216,7 @@ function checkConfig({ ctx, stdout }: CommandIo): boolean {
     ...hookFileViolations(ctx.root, flow, limits.hookMaxBytes ?? DEFAULT_HOOK_MAX_BYTES),
     ...(generated === undefined ? [] : generatedViolations(generated, readGround(ctx.root))),
     // PRD 2346: the words of the knowledge map, and the patterns that match nothing.
-    ...mapViolations(ctx.config, hasPatterns(ctx.config) ? trackedFiles(ctx) : []),
+    ...mapViolations(ctx.config, hasPatterns(ctx.config) ? trackedFiles(ctx) : [], targetsOf(ctx) ?? []),
   ];
   return report(
     stdout,

@@ -661,13 +661,8 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
   it('reads a valid plan section: the guide, then each target in order, readAt null where it has none', () => {
     expect(parseConfig(plan([IMPORTED, OWN, NONE])).plan).toEqual({
       guide: 'docs/git-repositories/README.md',
-      targets: [{ ...IMPORTED, role: 'api' }, { ...OWN, role: 'web', readAt: null }, { ...NONE, readAt: null }],
+      targets: [IMPORTED, { ...OWN, readAt: null }, { ...NONE, readAt: null }],
     });
-  });
-
-  it('reads a role through the alias table (PRD 2346) and keeps a word the table does not hold', () => {
-    const roles = parseConfig(plan([IMPORTED, { repo: 'acme/d', role: 'docs', knowledge: 'own' }, NONE])).plan?.targets.map((t) => t.role);
-    expect(roles).toEqual(['api', 'doc', 'legacy']);
   });
 
   it('takes a null guide, and reads a guide left out as null', () => {

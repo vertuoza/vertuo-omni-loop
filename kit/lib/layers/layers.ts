@@ -1,6 +1,6 @@
 // The words a repository and the Omni page share for what a file is and what a repository is for
 // (PRD 2346): ten layers and nine roles, each with a one-line definition, and the alias tables that
-// read the words in use before them. `docs/guide/knowledge-map.md` documents the same lists.
+// read the words in use before them. The guide's knowledge map page documents the same lists.
 
 /** The ten canonical layers, each with what it covers. A file may be in several. */
 export const CANONICAL_LAYERS: Readonly<Record<string, string>> = Object.freeze({
