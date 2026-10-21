@@ -112,6 +112,66 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-21",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The check now catches an open accent or an unsourced figure, but the three new reference frames are still to be drawn in a browser.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Stills taken once the scene has settled make the contact sheet worth reading, and a revert rolls it all back.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "One highlighted word, a line under each scene, our team named and sourced figures: the launch video I wanted.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Every new field is optional in the same storyboard version, so existing pitches render as before.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Being asked once for the team and the figures is quick, and every figure says where it came from.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "The accent, the steps' own media and the stats scene shipped without their reference frames: until someone runs the render test with a browser and commits them, nothing pins how they look.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ~"
     }
   ]
 }
