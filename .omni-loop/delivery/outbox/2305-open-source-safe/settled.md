@@ -236,3 +236,158 @@ Three lines in the CI form of the playbook, whenever they land.
 ```
 
 <!-- /omni-outbox-settled: s1-03-ci-form-names-new-jobs -->
+
+<!-- omni-outbox-settled: s6-01-checks-own-workspace-initech -->
+
+## s6-01-checks-own-workspace-initech — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-21
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-21
+- Slice: s6
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-checks-own-workspace-initech
+prd: 2305
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-21
+wave: 2
+---
+
+## The question, in plain words
+
+The database checks used to lean on the company's own workspace, which a fresh install no longer creates. What should the checks' own made-up workspace be called, and should every check share one copy of it?
+
+## The decision, in plain words
+
+The checks share one made-up workspace called Initech, with its own GitHub organisation, instead of the demo-org name the plan suggests, because the demo world already owns demo-org and two workspaces of one organisation would make the checks read the demo world's data.
+
+## The intro, for fun
+
+Every test needs a company to pretend to be, and the demo world had already taken the nice name.
+
+## The punchline, for fun
+
+So the checks moved into Initech, where the printers jam but the tests pass.
+
+## The options, in plain words
+
+A. One shared fixture, Initech with organisation initech, included by each check (built).
+B. The same shared fixture, renamed to a name the reviewer prefers.
+C. Inline the fixture in every check that needs it, with no shared file.
+
+## What I had to decide
+
+Whether the checks' fixture workspace is Initech (organisation initech), shared through supabase/checks/fixtures/initech.sql that each check includes after its begin, or whether it should be renamed or inlined.
+
+## What I did meanwhile
+
+Every check that needed a playing workspace includes the shared fixture and passes locally against a fresh database; the open-source guard is green with the supabase baseline deleted.
+
+## What it costs to change later
+
+Renaming the fixture is a find-and-replace over supabase/checks; inlining it copies about forty lines into each of thirty-three checks. No migration, no production data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The conventions form says each file under supabase/checks is a CI step; the fixture sits in a subfolder and is no check of its own (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-01-checks-own-workspace-initech -->
+
+<!-- omni-outbox-settled: s6-02-old-migration-keeps-its-file-name -->
+
+## s6-02-old-migration-keeps-its-file-name — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-21
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-21
+- Slice: s6
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-old-migration-keeps-its-file-name
+prd: 2305
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-21
+wave: 2
+---
+
+## The question, in plain words
+
+One old database step now does nothing, but its file name still carries the company's name. Should the file be renamed, or kept as it is?
+
+## The decision, in plain words
+
+The file keeps its name. Its content no longer names the company or does anything, and renaming a step the live database already ran is a risk the plan never asked to take.
+
+## The intro, for fun
+
+The step was emptied out, but its name tag is still sewn into the collar.
+
+## The punchline, for fun
+
+A label on an empty box is history, not a secret.
+
+## The options, in plain words
+
+A. Keep the file name; only its content changed (built).
+B. Rename it to a neutral name with the same version, after checking the deploy job accepts it.
+
+## What I had to decide
+
+Whether supabase/migrations/20260926160000_vertuoza_sectors.sql keeps its name (built), or is renamed with its version unchanged, once someone confirms the deploy job treats a renamed applied migration as already applied.
+
+## What I did meanwhile
+
+The file holds a comment and `select 1;` only; a fresh install applies it and creates nothing. The open-source guard reads contents, not file names, so it passes.
+
+## What it costs to change later
+
+Renaming later is one git mv, after checking supabase db push against production's migration history; keeping it costs nothing.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether supabase db push --include-all compares a migration's name as well as its version was not checked against production (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-02-old-migration-keeps-its-file-name -->
