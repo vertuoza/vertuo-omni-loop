@@ -4,7 +4,7 @@
 // button, and `pause` a pause from outside. Each returns a new run and what happened.
 //
 // The run is a phase machine: `ready` waits for START; in `play` the chapter's waves fall one after
-// another, each obstacle adding 1 once it is entirely below the circle (PRD 2159); a hit costs a life,
+// another, each obstacle adding 1 once it is entirely below the circle (PRD 2318); a hit costs a life,
 // restarts the chapter from its first wave with the score it began with, and goes back to `ready`;
 // passing a chapter's last wave shows the next chapter's banner (`chapter`) for 2 seconds, during
 // which nothing falls. After chapter IV the banner says ENDLESS · ×2 and endless mode begins: waves

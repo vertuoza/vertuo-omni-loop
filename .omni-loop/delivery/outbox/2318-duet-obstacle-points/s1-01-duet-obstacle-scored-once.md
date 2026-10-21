@@ -1,8 +1,8 @@
 ---
 id: s1-01-duet-obstacle-scored-once
-prd: 2159
+prd: 2318
 slice: s1
-rank: medium
+rank: high
 bears-on: BR-PRODUCT-102
 raised: 2026-10-17
 wave: 1
@@ -26,9 +26,9 @@ Too late: the point was already on the board.
 
 ## The options, in plain words
 
-A. A. Score each obstacle the first moment all of it is below the circle, once, and keep it until a hit (built).
-B. B. Score a spinning rod only once the whole disc it sweeps is below the circle: a little later than its blocks, the wave still passed at the same moment.
-C. C. Score every obstacle of a wave only when the wave is passed, 1 each (2 in endless mode): the points arrive together, as before, on the new scale.
+A. Score each obstacle the first moment all of it is below the circle, once, and keep it until a hit (built).
+B. Score a spinning rod only once the whole disc it sweeps is below the circle: a little later than its blocks, the wave still passed at the same moment.
+C. Score every obstacle of a wave only when the wave is passed, 1 each (2 in endless mode): the points arrive together, as before, on the new scale.
 
 ## What I had to decide
 

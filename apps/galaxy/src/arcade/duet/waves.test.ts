@@ -795,7 +795,7 @@ describe('the moment to change pose (issue 2156)', () => {
   });
 });
 
-describe('the obstacles passed (PRD 2159)', () => {
+describe('the obstacles passed (PRD 2318)', () => {
   /** The count of obstacles passed at each sub-step, from 0 to the sub-step the wave is passed. */
   function counts(wave: Wave): number[] {
     const seen = [clearedAt(wave, 0)];

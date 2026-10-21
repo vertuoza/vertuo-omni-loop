@@ -1176,7 +1176,7 @@ off, no row exists, and every player sees NO XP YET.
   both in the theme's colours, the backdrop still and no trail under reduced motion; and as each wave
   begins, a short line of the game's own (`duet/lines.ts`, one for every chapter wave and a few for
   endless mode) shows in the middle of the playfield for 2 seconds and fades. Each obstacle passed scores 1, 2 in
-  endless mode, as soon as it is entirely below the circle (PRD 2159): a gate is one obstacle, its
+  endless mode, as soon as it is entirely below the circle (PRD 2318): a gate is one obstacle, its
   two bars together, and finishing a wave scores nothing more. Three lives: a hit restarts the
   chapter from its first wave with the score it began with (in endless mode, the wave hit with the
   score it began with), giving back every obstacle passed since, on a ready screen that waits for
