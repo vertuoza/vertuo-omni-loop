@@ -3,7 +3,7 @@
 // and a close once the floors hold again, and nothing on a green night with none open. Everything
 // runs on an injected `gh` runner and reader; nothing here calls GitHub.
 import { describe, expect, it } from 'vitest';
-import { type Deps, keep, type Options, parseArgs, TITLE } from './mutation-alert.ts';
+import { type Deps, keep, main, type Options, parseArgs, TITLE } from './mutation-alert.ts';
 
 const RUN = 'https://github.com/acme/widgets/actions/runs/1';
 const TABLE = '| module | score | floor | verdict |\n|---|---|---|---|\n| ids | 91.37 | 97 | below |\n';
@@ -99,5 +99,28 @@ describe('a green night', () => {
     const { deps, writes } = world();
     expect(await keep(green, deps)).toBe('green');
     expect(writes()).toEqual([]);
+  });
+});
+
+describe('main', () => {
+  it('says what it did and exits 0', async () => {
+    const said: string[] = [];
+    expect(await main(['--repo', 'acme/widgets', '--state', 'green', '--run', RUN], world().deps, (line) => said.push(line))).toBe(0);
+    expect(said).toEqual(['mutation-alert: green']);
+  });
+
+  it('exits 1 with its usage on bad arguments, calling gh not at all', async () => {
+    const said: string[] = [];
+    const { deps, writes } = world();
+    expect(await main(['--state', 'red'], deps, (line) => said.push(line))).toBe(1);
+    expect(said[0]).toMatch(/^mutation-alert: needs --repo/);
+    expect(writes()).toEqual([]);
+  });
+
+  it('exits 1 naming the error when gh fails, so the alert is not lost', async () => {
+    const said: string[] = [];
+    const deps: Deps = { gh: () => Promise.reject(new Error('HTTP 403')), read: () => null };
+    expect(await main(['--repo', 'acme/widgets', '--state', 'red', '--run', RUN], deps, (line) => said.push(line))).toBe(1);
+    expect(said).toEqual(['mutation-alert: gh failed: HTTP 403']);
   });
 });

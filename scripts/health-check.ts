@@ -11,10 +11,10 @@
 //   node scripts/health-check.ts --repo <owner>/<repo> --app galaxy=<url> [--app omni-app=<url>]
 // It exits 0 whatever it found: a down app is reported by its issue, never by a red run. It exits 1
 // only when its arguments are wrong or gh could not write what it found, so the alert is not lost.
-import { execFile } from 'node:child_process';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { findOpenIssue, gh } from './gh-issues.ts';
 
 export const PROBE_LIMIT_MS = 10_000;
 export const BETWEEN_PROBES_MS = 30_000;
@@ -123,26 +123,10 @@ function describeDown(result: Probe, at: Date): string {
   return lines.join('\n');
 }
 
-/** The number of the open issue titled exactly `Health: <app> is down`, or null. */
-async function findOpen(repo: string, app: string, deps: Deps): Promise<string | null> {
-  const out = await deps.gh([
-    'api',
-    '--paginate',
-    `repos/${repo}/issues?state=open&per_page=100`,
-    '--jq',
-    '.[] | select(.pull_request == null) | "\\(.number)\\t\\(.title)"',
-  ]);
-  for (const line of out.split('\n')) {
-    const tab = line.indexOf('\t');
-    if (tab > 0 && line.slice(tab + 1) === title(app)) return line.slice(0, tab);
-  }
-  return null;
-}
-
 /** Probes one app and keeps its issue; returns what it did, in one line. */
 async function keep(repo: string, target: App, deps: Deps): Promise<string> {
   const result = await check(target, deps);
-  const openNumber = await findOpen(repo, target.app, deps);
+  const openNumber = await findOpenIssue(repo, title(target.app), deps.gh);
   const at = deps.now();
   if (result.up) {
     if (openNumber === null) return `${target.app}: up`;
@@ -183,13 +167,7 @@ export async function run(options: Options, deps: Deps, say: (line: string) => v
 
 const realDeps: Deps = {
   fetch: (url, init) => fetch(url, { signal: init.signal, headers: { accept: 'application/json' }, cache: 'no-store' }),
-  gh: (args) =>
-    new Promise((done, fail) => {
-      execFile('gh', args, { maxBuffer: 16 * 1024 * 1024 }, (error, stdout, stderr) => {
-        if (error) fail(new Error(stderr.trim() || error.message));
-        else done(stdout);
-      });
-    }),
+  gh,
   now: () => new Date(),
   wait: (ms, signal) => delay(ms, undefined, signal ? { signal } : {}).catch(() => undefined),
 };
