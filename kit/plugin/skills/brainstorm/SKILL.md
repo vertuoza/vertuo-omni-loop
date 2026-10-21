@@ -362,6 +362,10 @@ spec: file
   tests, at which levels, and what a test must never do.
 - **Risks** names what merging this PRD would publish, and how that is rolled back: read
   `omni kb show releasing`.
+- **The Legal entries it touches**, in **Risks**: run `node .omni-loop/bin/omni.mjs kb legal` and
+  name each entry the design touches (its id and what it governs), as the locked laws are named
+  above. A design touching none says `The Legal entries: none touched.` An offline read carries on
+  with its copy, or with the one line it prints.
 - **The locked laws it touches**, in **Risks**, when `laws.source` is `knowledge`. List the files
   the design will change or add (best guess, from the design as approved), then run
   `node .omni-loop/bin/omni.mjs kb laws --paths <file>…` on them. Each locked law it prints gets
@@ -376,7 +380,11 @@ spec: file
   `no written convention: follows <file>`, naming the neighbouring code it copies. When two conventions
   coexist and no page says which one a new name follows, ask the person during the design and never pick
   silently. A spec that names nothing writes the one line `No name chosen.`
-- Words come from `paths.glossary` when it is set, and from the files in `paths.context`.
+- Words come from `paths.glossary` when it is set, from the files in `paths.context`, and from
+  `node .omni-loop/bin/omni.mjs kb glossary`, the product's own glossary, read here where the spec's
+  words come from. Where a term is in both, the page wins: it is shared by every repository of the
+  product. Offline or with no product, the command prints its copy or one line, and the skill carries
+  on with what it has.
 
 **Self-review,** before anyone reads it: no placeholder or "TBD", no two sections contradicting each
 other, a scope one plan can carry, and no requirement readable two ways (pick one and say it). Fix
@@ -560,7 +568,9 @@ where the dossier push sends it).
 Only when `acceptance.enabled` is true, and only for behaviour a browser (or the configured harness,
 `acceptance.run`) can observe.
 
-1. **Words first.** Every noun and verb exists in `paths.glossary` when it is set. When the area has
+1. **Words first.** Every noun and verb exists in `paths.glossary` when it is set, and reads as the
+   product's own term in `node .omni-loop/bin/omni.mjs kb glossary` (the page wins over
+   `paths.glossary` on a term both define). When the area has
    not defined its verbs, add them to the glossary now, in the same commit. Never invent vocabulary
    in a scenario.
 2. **Write** each scenario file under `acceptance.dir`, its name ending in `acceptance.pendingSuffix`:

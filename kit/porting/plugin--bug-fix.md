@@ -84,3 +84,6 @@ Bug section are PRD 556's spec, carried whole.
   with **Reproduction** and **Branch** `pending`, steps 5 and 7 edit those lines in place by the
   marker, a `Production:` line gives the deployed version and the first occurrence in UTC matched
   against releases and deployments, and a release range is regression evidence.
+- **The product's glossary for the reproduction's words** (PRD 2299, slice s3): step 6 reads
+  `omni kb glossary` for the nouns and verbs; the page wins over `paths.glossary` on a shared term.
+  Tested in `kit/test/plugin.test.ts`, "the skills read the product knowledge (PRD 2299)".

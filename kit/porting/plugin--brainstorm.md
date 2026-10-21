@@ -334,3 +334,10 @@ names `omni dossier link`, which the skill already named, so the snapshot is unc
 Not a re-port. Step 10 gains, above the command in each of its two **What is next?** blocks, the line
 "To build it on a runner instead: `/omni:yolo-runner <n>`."; the command stays the last line,
 `/omni:yolo <n>`. Tested in `kit/test/plugin.test.ts`, `/omni:yolo-runner and the hand-offs that name it`.
+
+## PRD 2299, slice s3 — the product's glossary and legal entries
+
+Not a re-port: kit-local prose. The words of step 4 and step 6 (**Words first**) read `omni kb
+glossary`, the page winning over `paths.glossary` on a shared term. **Risks** names each Legal entry
+the design touches, from `omni kb legal`, as it names locked laws. Tested in
+`kit/test/plugin.test.ts`, "the skills read the product knowledge (PRD 2299)".

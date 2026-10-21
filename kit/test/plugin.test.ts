@@ -3269,3 +3269,15 @@ describe('a slice agent in its own worktree runs one command at a time', () => {
     }
   });
 });
+
+describe('the skills read the product knowledge (PRD 2299)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+
+  it.each(['brainstorm', 'plan', 'do-work', 'bug-fix'])('/omni:%s reads kb glossary', (skill: string) => {
+    expect(read(skill)).toContain('omni.mjs kb glossary');
+  });
+
+  it.each(['brainstorm', 'do-work'])('/omni:%s reads kb legal', (skill: string) => {
+    expect(read(skill)).toContain('omni.mjs kb legal');
+  });
+});
