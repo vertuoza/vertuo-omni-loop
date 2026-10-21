@@ -30,7 +30,7 @@ export type DecisionRecord = {
   file: string;
   title: string | null;
   prd: PrdNumber | null;
-  /** The layer words of the header's `**Layers:** db, auth` (PRD 2346), as written; `[]` with none (absent on a record built by hand). */
+  /** The layer words of the header's `**Layers:** db, auth` (PRD 2346), as written; absent with none. */
   layers?: string[];
   /** The knowledge domain of the header's `**Domain:** ask`; `null` with none. */
   domain?: string | null;
@@ -74,6 +74,13 @@ function headerPrd(text: string): PrdNumber | null {
   return prd.success ? prd.data : null;
 }
 
+/** The tags a record's header carries, a key only when it has the tag: a record with none reads as before. */
+function tagsOf(text: string): Pick<DecisionRecord, 'layers' | 'domain'> {
+  const layers = headerLayers(text);
+  const domain = headerDomain(text);
+  return { ...(layers.length > 0 ? { layers } : {}), ...(domain === null ? {} : { domain }) };
+}
+
 /**
  * `{ dir, records: [{ number, file, title, prd }], shared: [{ number, files }], next }`: the records in
  * number order (a shared number's files by name), `title` `null` when the file has no `# `
@@ -97,8 +104,7 @@ export function readDecisions({ ctx }: { ctx: { root: string; layout: { adrDir: 
       file,
       title: text.match(TITLE)?.[1] ?? null,
       prd: headerPrd(text),
-      layers: headerLayers(text),
-      domain: headerDomain(text),
+      ...tagsOf(text),
     };
   });
 

@@ -16,7 +16,7 @@ describe('readDecisions', () => {
     });
     expect(readDecisions({ ctx })).toEqual({
       dir: 'records',
-      records: [{ number: '0001', file: 'records/0001-a.md', title: '0001 — A', prd: null, layers: [], domain: null }],
+      records: [{ number: '0001', file: 'records/0001-a.md', title: '0001 — A', prd: null }],
       shared: [],
       next: '0002',
     });
@@ -54,8 +54,8 @@ describe('readDecisions', () => {
     });
     expect(readDecisions({ ctx }).records.map(({ number, layers, domain }) => [number, layers, domain])).toEqual([
       ['0001', ['db', 'auth'], 'ask'],
-      ['0002', ['api'], null],
-      ['0003', [], null],
+      ['0002', ['api'], undefined],
+      ['0003', undefined, undefined],
     ]);
   });
 });
