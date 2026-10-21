@@ -222,14 +222,16 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'check',
     kind: 'command',
     who: 'you',
-    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|design|', '  coverage|context|all] [--base <ref>] [--prd <n>]'],
+    usage: ['omni check [config|inbox|outbox|knowledge|kb|releases|design|', '  coverage|context|all] [--base <ref>] [--prd <n>] [--retro <prd>]'],
     label: 'omni check [all]',
     summary: "the repository's guards",
     detail:
       "The repository's guards, each printing its violations or one line saying it passed: config " +
       '(the config file, its flow and every hook file the flow names, each refusal naming its key), inbox ' +
       '(the PRDs waiting to be built, a spec\'s front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers), kb (the ' +
-      "playbook's forms), releases (the release notes), coverage (every risky change of a branch " +
+      "playbook's forms), releases (the release notes), retro (the outcome of each lesson a retro " +
+      'kept: a became naming a filled playbook slot, a staysHere giving its reason; with --retro, ' +
+      "the PRD a retro PR carries, every kept lesson of its retro has one), coverage (every risky change of a branch " +
       'accounted for, against --base) and context (what every agent session reads, held to the ' +
       'ceilings of budgets.context.file against --base: red on a target over budget, or on a ceiling ' +
       "raised with no person's yes, a settled raise item of the branch's PRD or --prd; neutral, exit " +
