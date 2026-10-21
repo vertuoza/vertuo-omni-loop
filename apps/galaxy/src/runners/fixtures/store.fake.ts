@@ -97,14 +97,17 @@ export function lineRows(job: Pick<JobRow, 'id' | 'workspace_id'>, from: number,
 
 const ENDED_STATUSES: readonly JobRowStatus[] = ['done', 'failed', 'cancelled'];
 
+/** A skill of a repository's own its owner allowed on the runners (PRD 2313), as repository_runner_skills holds it. */
+export type AllowedSkillRow = { workspace_id: string; full_name: string; skill: string };
+
 /** The fake's tables, and the clock it stamps writes with. */
-export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], questions = [], now = () => T0 }: {
-  runners?: RunnerRow[]; jobs?: JobRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; now?: () => Date;
+export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], questions = [], skills = [], now = () => T0 }: {
+  runners?: RunnerRow[]; jobs?: JobRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; skills?: AllowedSkillRow[]; now?: () => Date;
 } = {}) {
   const calls: string[] = [];
   const state = {
     runners: runners.map((row) => ({ ...row })), jobs: jobs.map((row) => ({ ...row })), lines: lines.map((row) => ({ ...row })),
-    samples: samples.map((row) => ({ ...row })), questions: questions.map((row) => ({ ...row })), calls,
+    samples: samples.map((row) => ({ ...row })), questions: questions.map((row) => ({ ...row })), skills: skills.map((row) => ({ ...row })), calls,
   };
   const stamp = () => now().toISOString();
   // As runner_claim() reads them: a queued job of its workspace, for a repository it holds…
@@ -137,6 +140,9 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       m.workspaceId === workspaceId && userIds.includes(m.userId) && m.login ? [[m.userId, m.login] as const] : []
     )))),
     keyNames: (workspaceId, keyIds) => Promise.resolve(new Map(KEYS.filter((k) => k.workspaceId === workspaceId && keyIds.includes(k.id)).map((k) => [k.id, k.name] as const))),
+    // As repository_runner_skills_of() reads them: the repository's names, in order.
+    allowedSkills: (workspaceId, repo) => Promise.resolve(state.skills
+      .filter((row) => row.workspace_id === workspaceId && row.full_name === repo.toLowerCase()).map((row) => row.skill).sort()),
     runner: (id) => Promise.resolve(state.runners.find((r) => r.id === id) ?? null),
     runnerNamed: (workspaceId, name) => Promise.resolve(state.runners.find((r) => r.workspace_id === workspaceId && r.name === name) ?? null),
     runners: (workspaceId) => Promise.resolve(state.runners.filter((r) => r.workspace_id === workspaceId).sort((a, b) => a.name.localeCompare(b.name))),

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'vertuo-omni-plan/kit/lib/runner/line.ts';
 import {
-  AnswerRequestSchema, AskRequestSchema, checkLine, HealthReportSchema, JOB_OUTCOMES, JobLinesQuerySchema, JobQuestionsSchema, JobReplySchema, JobUpdateSchema,
-  KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
+  AnswerRequestSchema, AskRequestSchema, checkLine, checkLineShape, HealthReportSchema, JOB_OUTCOMES, JobLinesQuerySchema, JobQuestionsSchema, JobReplySchema, JobUpdateSchema,
+  KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
 // The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines of 200 characters at
@@ -11,7 +11,7 @@ import {
 
 describe('the line check', () => {
   it.each(RUNNER_SKILLS)('lets /omni:%s through, with its arguments', (skill) => {
-    expect(checkLine(`/omni:${skill} 1830 s1 --in-wave`)).toEqual({ ok: true, skill, args: '1830 s1 --in-wave' });
+    expect(checkLine(`/omni:${skill} 1830 s1 --in-wave`)).toEqual({ ok: true, kind: 'omni', skill, args: '1830 s1 --in-wave' });
   });
 
   it('lists exactly the skills `omni runner` runs, so the app never queues a line a runner refuses', () => {
@@ -19,11 +19,11 @@ describe('the line check', () => {
   });
 
   it('lets /omni:mega-bug-fix through with a plan repository issue’s URL', () => {
-    expect(checkLine('/omni:mega-bug-fix https://github.com/acme/plan/issues/612')).toEqual({ ok: true, skill: 'mega-bug-fix', args: 'https://github.com/acme/plan/issues/612' });
+    expect(checkLine('/omni:mega-bug-fix https://github.com/acme/plan/issues/612')).toEqual({ ok: true, kind: 'omni', skill: 'mega-bug-fix', args: 'https://github.com/acme/plan/issues/612' });
   });
 
   it('lets a line with no arguments through', () => {
-    expect(checkLine('/omni:wave')).toEqual({ ok: true, skill: 'wave', args: '' });
+    expect(checkLine('/omni:wave')).toEqual({ ok: true, kind: 'omni', skill: 'wave', args: '' });
   });
 
   it('takes every character the list allows', () => {
@@ -69,6 +69,82 @@ describe('the line check', () => {
       expect([checkLine(longest).ok, checkRunnerLine(longest).ok], skill).toEqual([true, true]);
       expect([checkLine(`${longest}a`).ok, checkRunnerLine(`${longest}a`).ok], skill).toEqual([false, false]);
     }
+  });
+});
+
+// A repository's own skills (PRD 2313): `/<name> <args>`, its name one the repository's owner allowed,
+// never a fixed skill's. The app checks the line before it queues the job, the runner again before it
+// runs it: one table, through both, and the same verdict.
+describe('the line check, for a repository\'s own skills (PRD 2313)', () => {
+  const own = (skill: string, args: string) => ({ ok: true, kind: 'repository', skill, args });
+  const omni = (skill: string, args: string) => ({ ok: true, kind: 'omni', skill, args });
+  const longest = `/validate-prd ${'a'.repeat(LINE_MAX - '/validate-prd '.length)}`;
+  const longName = `a${'b'.repeat(63)}`;
+
+  it.each<[string, string, readonly string[], ReturnType<typeof own> | null]>([
+    ['a fixed skill', '/omni:yolo 1', [], omni('yolo', '1')],
+    ['a fixed skill beside allowed ones', '/omni:yolo 1', ['validate-prd'], omni('yolo', '1')],
+    ['an allowed skill', '/validate-prd 347', ['validate-prd'], own('validate-prd', '347')],
+    ['an allowed skill with no arguments', '/validate-prd', ['other', 'validate-prd'], own('validate-prd', '')],
+    ['an allowed skill with every character the list allows', '/validate-prd acme/widgets#12 v1.2_3:x', ['validate-prd'], own('validate-prd', 'acme/widgets#12 v1.2_3:x')],
+    ['a skill nobody allowed', '/validate-prd 347', [], null],
+    ['a skill allowed under another name', '/validate-prd 347', ['validate'], null],
+    ['a fixed skill\'s name, even allowed', '/yolo 1', ['yolo'], null],
+    ['a name with capitals and an underscore', '/Bad_Name 1', ['Bad_Name'], null],
+    ['a name starting with a digit', '/1st 1', ['1st'], null],
+    ['a name of 64 characters', `/${longName} 1`, [longName], own(longName, '1')],
+    ['a name of 65 characters', `/${longName}b 1`, [`${longName}b`], null],
+    ['a line of 200 characters', longest, ['validate-prd'], own('validate-prd', longest.slice('/validate-prd '.length))],
+    ['a line of 201 characters', `${longest}a`, ['validate-prd'], null],
+    ['a ; in the arguments', '/validate-prd 347; rm -rf ~', ['validate-prd'], null],
+    ['a subshell in the arguments', '/validate-prd $(id)', ['validate-prd'], null],
+    ['another plugin\'s skill', '/vercel:deploy prod', ['vercel', 'vercel:deploy'], null],
+    ['an allowed name behind /omni:', '/omni:validate-prd 347', ['validate-prd'], null],
+  ])('gives the app and the runner the same verdict on %s', (_, line, allowed, verdict) => {
+    const app = checkLine(line, allowed);
+    const runner = checkRunnerLine(line, allowed);
+    if (verdict === null) {
+      expect([app.ok, runner.ok]).toEqual([false, false]);
+    } else {
+      expect(app).toEqual(verdict);
+      expect(runner).toEqual(verdict);
+    }
+  });
+
+  it('allows no repository skill by default', () => {
+    expect(checkLine('/validate-prd 347')).toMatchObject({ ok: false });
+  });
+
+  it('says why in plain words: a fixed skill\'s name, and a name nobody allowed', () => {
+    expect(checkLine('/yolo 1', ['yolo'])).toEqual({ ok: false, reason: '/yolo is the loop\'s own skill: send /omni:yolo.' });
+    expect(checkLine('/validate-prd 347')).toEqual({ ok: false, reason: '/validate-prd is not allowed on a runner for this repository.' });
+    expect(checkLine('/Bad_Name 1')).toEqual({ ok: false, reason: 'A line reads `/omni:<skill> <arguments>` or `/<skill> <arguments>`.' });
+  });
+
+  it('reads the shape alone, every name but a fixed skill\'s counted allowed, before the repository is known', () => {
+    expect(checkLineShape('/validate-prd 347')).toEqual(own('validate-prd', '347'));
+    expect(checkLineShape('/omni:yolo 1')).toEqual(omni('yolo', '1'));
+    for (const line of ['/yolo 1', '/Bad_Name 1', '/validate-prd 347; rm', `${longest}a`, '/omni:drive 1']) expect(checkLineShape(line).ok, line).toBe(false);
+  });
+});
+
+describe('the job a runner claims (PRD 2313)', () => {
+  const job = { id: '00000000-0000-4000-8000-000023130001', line: '/omni:yolo 2313', repo: 'acme/widgets', sentBy: 'olga', allowedSkills: [] };
+
+  it('carries its repository\'s allowed skills, and takes a fixed skill\'s line as before', () => {
+    expect(RunnerJobSchema.parse(job)).toEqual(job);
+    expect(RunnerJobSchema.parse({ ...job, allowedSkills: ['validate-prd'] })).toMatchObject({ allowedSkills: ['validate-prd'] });
+  });
+
+  it('takes a repository skill\'s line only when its allowed skills name it', () => {
+    expect(RunnerJobSchema.safeParse({ ...job, line: '/validate-prd 347', allowedSkills: ['validate-prd'] }).success).toBe(true);
+    expect(RunnerJobSchema.safeParse({ ...job, line: '/validate-prd 347' }).success).toBe(false);
+  });
+
+  it('refuses a job without its allowed skills, or with a name that is no skill\'s', () => {
+    const without = { id: job.id, line: job.line, repo: job.repo, sentBy: job.sentBy };
+    expect(RunnerJobSchema.safeParse(without).success).toBe(false);
+    expect(RunnerJobSchema.safeParse({ ...job, allowedSkills: ['Bad_Name'] }).success).toBe(false);
   });
 });
 
@@ -262,6 +338,7 @@ describe('the PRD a line names', () => {
     ['/omni:yolo-fix 2251', 2251],
     ['/omni:do-work 2251 s1 --in-wave', 2251],
     ['/omni:pr-care 7 --once', 7],
+    ['/validate-prd 347', 347],
   ])('reads %s as PRD %i', (line, prd) => {
     expect(linePrd(line)).toBe(prd);
   });
@@ -273,6 +350,8 @@ describe('the PRD a line names', () => {
     ['a number glued to a word', '/omni:yolo 2251abc'],
     ['zero', '/omni:yolo 0'],
     ['a line no runner runs', '/omni:brainstorm 2251'],
+    ['a fixed skill\'s name with no /omni:', '/yolo 2251'],
+    ['a name that is no skill\'s', '/Validate_PRD 2251'],
   ])('names none for %s', (_, line) => {
     expect(linePrd(line)).toBeNull();
   });

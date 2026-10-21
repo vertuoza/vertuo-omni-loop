@@ -6,6 +6,7 @@ import type { ContinuationsRepository, JobLineRow, JobRow, QuestionsRow, RunnerR
 import { continuationsService, cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
   API_KEY, CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, QUESTION, questionsRow, runnerRow, RUNNERS, SAM, SHARED, T0, WORKSPACE,
+  type AllowedSkillRow,
 } from './fixtures/store.fake';
 
 // The runners' rules (PRD 1830 s1), on realistic rows in memory and a fixed clock: which jobs a runner
@@ -15,12 +16,13 @@ import {
 const at = (seconds: number) => new Date(T0.getTime() + seconds * 1000);
 
 /** The service on the fake store, with a clock that a held `next` moves forward as it sleeps. */
-function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], questions = [], start = T0, onSleep }: {
-  jobs?: JobRow[]; runners?: RunnerRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; start?: Date; onSleep?: (jobs: JobRow[]) => void;
+function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], questions = [], skills = [], start = T0, onSleep }: {
+  jobs?: JobRow[]; runners?: RunnerRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; skills?: AllowedSkillRow[]; start?: Date;
+  onSleep?: (jobs: JobRow[]) => void;
 } = {}) {
   let now = start;
   const slept: number[] = [];
-  const { store, state } = fakeStore({ jobs, runners, lines, samples, questions, now: () => now });
+  const { store, state } = fakeStore({ jobs, runners, lines, samples, questions, skills, now: () => now });
   const service = runnersService(store, {
     now: () => now,
     sleep: (ms) => {
@@ -77,7 +79,78 @@ describe('which job a runner claims', () => {
   it('hands the runner the line, the repository and the sender\'s login', async () => {
     const job = jobRow({ line: '/omni:pr-care 1801', sent_by: MO });
     const { service } = world({ jobs: [job] });
-    expect(value(await service.next(OLGA, SHARED))).toEqual({ id: job.id, line: '/omni:pr-care 1801', repo: 'vertuoza/app', sentBy: 'mo' });
+    expect(value(await service.next(OLGA, SHARED))).toEqual({ id: job.id, line: '/omni:pr-care 1801', repo: 'vertuoza/app', sentBy: 'mo', allowedSkills: [] });
+  });
+});
+
+// A repository's own skills (PRD 2313 s1): queue() reads what the repository's owner allowed and takes
+// `/<name> <args>` only for one of them; a fixed skill's line is queued as before. The claim hands the
+// runner the allowed skills as they stand when it claims, so one turned off while its job waited is
+// absent.
+describe('a repository\'s own skill (PRD 2313)', () => {
+  const allowed = (skill: string, full_name = 'vertuoza/app', workspace_id = WORKSPACE): AllowedSkillRow => ({ workspace_id, full_name, skill });
+  const send = (line: string, repo = 'vertuoza/app') => ({ line, repo, target: { kind: 'any' as const } });
+  const NOT_ALLOWED = '/validate-prd is not allowed on a runner for vertuoza/app: an owner allows it in Settings › Repositories.';
+
+  it('queues /validate-prd 347 when the repository allows it', async () => {
+    const w = world({ skills: [allowed('validate-prd')] });
+    expect(value(await w.service.send(SAM, send('/validate-prd 347')))).toMatchObject({ status: 'queued', line: '/validate-prd 347', repo: 'vertuoza/app' });
+  });
+
+  it('takes the repository however it is spelt', async () => {
+    const w = world({ skills: [allowed('validate-prd')] });
+    expect(value(await w.service.send(SAM, send('/validate-prd 347', 'Vertuoza/App')))).toMatchObject({ status: 'queued', repo: 'vertuoza/app' });
+  });
+
+  it('refuses it, with the reason and where an owner allows it, when the repository does not, and queues nothing', async () => {
+    const w = world({ skills: [allowed('audit'), allowed('validate-prd', 'vertuoza/other'), allowed('validate-prd', 'vertuoza/app', '00000000-0000-4000-8000-000001830002')] });
+    expect(await w.service.send(SAM, send('/validate-prd 347'))).toEqual({ ok: false, kind: 'malformed', error: NOT_ALLOWED });
+    expect(w.state.jobs).toEqual([]);
+  });
+
+  it('refuses it to an API key as to a person', async () => {
+    const w = world();
+    const key = { id: API_KEY, name: 'QA dashboard', workspace: WORKSPACE, maker: OLGA };
+    expect(await w.service.sendByKey(key, { repo: 'vertuoza/app', line: '/validate-prd 347' })).toEqual({ ok: false, kind: 'malformed', error: NOT_ALLOWED });
+  });
+
+  it('refuses a fixed skill\'s name with no /omni:, even allowed, and a name that is no skill\'s, before anything else', async () => {
+    const w = world({ skills: [allowed('yolo')] });
+    expect(await w.service.send(SAM, send('/yolo 1'))).toEqual({ ok: false, kind: 'malformed', error: '/yolo is the loop\'s own skill: send /omni:yolo.' });
+    expect(await w.service.send(EVE, send('/Bad_Name 1'))).toMatchObject({ ok: false, kind: 'malformed' });
+    expect(await w.service.send(EVE, send('/validate-prd 347; rm -rf ~'))).toMatchObject({ ok: false, kind: 'malformed' });
+    expect(w.state.jobs).toEqual([]);
+  });
+
+  it('refuses a repository outside the workspace before it reads any allowance', async () => {
+    const w = world({ skills: [allowed('validate-prd')] });
+    expect(await w.service.send(EVE, send('/validate-prd 347'))).toMatchObject({ ok: false, kind: 'forbidden' });
+    expect(await w.service.send(SAM, send('/validate-prd 347', 'elsewhere/app'))).toMatchObject({ ok: false, kind: 'forbidden' });
+  });
+
+  it('queues a fixed skill\'s line as before, whatever the repository allows', async () => {
+    const w = world();
+    expect(value(await w.service.send(SAM, send('/omni:yolo 2313')))).toMatchObject({ status: 'queued', line: '/omni:yolo 2313' });
+    expect(await w.service.send(SAM, send('/omni:drive 2313'))).toMatchObject({ ok: false, kind: 'malformed' });
+  });
+
+  it('hands the runner the allowed skills as they stand when it claims the job', async () => {
+    const w = world({ skills: [allowed('validate-prd'), allowed('audit'), allowed('lint', 'vertuoza/other')] });
+    const queued = value(await w.service.send(MO, send('/validate-prd 347')));
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: '/validate-prd 347', repo: 'vertuoza/app', sentBy: 'mo', allowedSkills: ['audit', 'validate-prd'] });
+  });
+
+  it('hands none back for a skill turned off while its job waited, so the runner refuses it', async () => {
+    const w = world({ skills: [allowed('validate-prd')] });
+    value(await w.service.send(SAM, send('/validate-prd 347')));
+    w.state.skills.length = 0;
+    expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({ line: '/validate-prd 347', allowedSkills: [] });
+  });
+
+  it('names its PRD to the terminal by its first argument', async () => {
+    const w = world({ skills: [allowed('validate-prd')] });
+    const queued = value(await w.service.send(SAM, send('/validate-prd 347')));
+    expect(value(await w.service.prdJobs(SAM, 'vertuoza/app', parsePrd(347))).map((job) => job.id)).toEqual([queued.id]);
   });
 });
 
@@ -351,7 +424,7 @@ describe('a job an API key sends (PRD 2022 s4)', () => {
   it('reads as sent by the key, with its maker, to the runner and on the Runners page', async () => {
     const w = world();
     const queued = value(await w.service.sendByKey(key, fix));
-    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: fix.line, repo: 'vertuoza/app', sentBy: 'API key QA dashboard (@olga)' });
+    expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: fix.line, repo: 'vertuoza/app', sentBy: 'API key QA dashboard (@olga)', allowedSkills: [] });
     const board = value(await w.service.board(OLGA, key.workspace));
     expect(board.jobs).toMatchObject([{ id: queued.id, sentByKey: 'QA dashboard', sentByLogin: 'olga' }]);
     const person = value(await w.service.send(MO, { line: '/omni:yolo 1', repo: 'vertuoza/app', target: { kind: 'any' } }));

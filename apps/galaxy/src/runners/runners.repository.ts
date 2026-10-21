@@ -245,6 +245,11 @@ export function runnersRepository(db: RunnersDb) {
     markLost: async (cutoff: string): Promise<number> =>
       parsed(db.rpc('runners_mark_lost', { p_cutoff: cutoff }), z.number(), 'runners_mark_lost()'),
 
+    /** The repository's own skills its workspace's owner allowed on the runners, in order (PRD 2313;
+     * repository_runner_skills_of(), supabase/migrations/20261221090000_repository_runner_skills.sql). */
+    allowedSkills: async (workspaceId: string, repo: string): Promise<string[]> =>
+      parsed(db.rpc('repository_runner_skills_of', { p_workspace: workspaceId, p_full_name: repo }), z.array(z.string()), 'repository_runner_skills_of()'),
+
     /** The oldest queued job the runner may run, claimed for it; null when none (runner_claim()). */
     claim: async (runnerId: string): Promise<JobRow | null> =>
       (await parsed(db.rpc('runner_claim', { p_runner: runnerId }), z.array(JobRow), 'runner_claim()'))[0] ?? null,
