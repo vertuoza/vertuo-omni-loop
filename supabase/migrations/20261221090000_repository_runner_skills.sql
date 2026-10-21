@@ -88,7 +88,7 @@ $$;
 alter table public.repository_runner_skills enable row level security;
 
 create policy "a member reads their workspace's runner skills" on public.repository_runner_skills
-  for select to authenticated using (public.is_member(workspace_id));
+  for select to authenticated using (workspace_id in (select public.my_workspaces()));
 
 -- Signed out: nothing. Signed in: reads only, the rows above. The service role reads everything. Only
 -- set_repository_runner_skill() writes.

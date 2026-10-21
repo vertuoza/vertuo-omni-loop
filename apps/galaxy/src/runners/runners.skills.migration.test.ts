@@ -39,7 +39,8 @@ describe('the repository_runner_skills table', () => {
 
   it('lets a member of the workspace read it, and nobody signed in write it', () => {
     expect(CODE).toContain('alter table public.repository_runner_skills enable row level security;');
-    expect(CODE).toContain('on public.repository_runner_skills for select to authenticated using (public.is_member(workspace_id));');
+    expect(CODE).toContain('on public.repository_runner_skills for select to authenticated using (workspace_id in (select public.my_workspaces()));');
+    expect(CODE).not.toMatch(/create policy [^;]* using \([^;]*is_member\(/);
     expect(CODE).toContain('revoke all on public.repository_runner_skills from public, anon, authenticated, service_role;');
     expect(CODE).toContain('grant select on public.repository_runner_skills to authenticated, service_role;');
     expect(CODE).not.toMatch(/grant [^;]*(insert|update|delete|all)[^;]* on public\.repository_runner_skills/);
