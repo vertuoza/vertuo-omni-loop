@@ -1,0 +1,15 @@
+{
+  "allow": [
+    { "file": "apps/galaxy/src/env.test.ts", "pattern": "^sk-fake-", "reason": "a visible fake key, named fake, read by the environment module's tests" },
+    { "file": "apps/galaxy/src/health/health.service.test.ts", "pattern": "^sk-fake-", "reason": "a visible fake key, named fake: the health page must never print it" },
+    { "file": "apps/galaxy/src/jev/mask.test.ts", "pattern": "^sk-or-v1-(0123456789abcdef)", "reason": "a counting-digits fake OpenRouter key the mask must hide" },
+    { "file": "apps/omni-app/src/env.test.ts", "pattern": "^sk-fake-", "reason": "a visible fake key, named fake, read by the environment module's tests" },
+    { "file": "apps/omni-app/src/health/health.test.ts", "pattern": "^sk-fake-", "reason": "a visible fake key, named fake: the health check must never print it" },
+    { "file": "apps/omni-app/src/retro/narrate.test.ts", "pattern": "^sk-or-v1-(0123456789abcdef|test-key-not-real-)", "reason": "fake OpenRouter keys, a counting-digits one and one named not real, the narration must never send or print" },
+    { "file": "kit/bin/omni.test.ts", "pattern": "^sk-fake-", "reason": "a visible fake key, named fake, read by the CLI's tests" },
+    { "file": "kit/lib/env/group.test.ts", "pattern": "^sk-fake-", "reason": "a visible fake key, named fake, read by the environment groups' tests" },
+    { "file": "kit/lib/env/read.test.ts", "pattern": "^sk-fake-", "reason": "a visible fake key, named fake, read by the environment reader's tests" },
+    { "file": "kit/lib/log/log.test.ts", "pattern": "^sk-or-v1-(0123456789abcdef)", "reason": "a counting-digits fake OpenRouter key the log must mask" },
+    { "file": "kit/lib/openrouter.test.ts", "pattern": "^sk-or-v1-(0123456789abcdef|test-key-not-real-)", "reason": "fake OpenRouter keys, a counting-digits one and one named not real, the client must never print" }
+  ]
+}
