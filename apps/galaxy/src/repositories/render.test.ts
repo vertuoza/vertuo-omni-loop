@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { initialState, removeConfirm, repositoriesReducer, type RepositoriesAction, type RepositoryRow } from './model';
+import { initialState, removeConfirm, repositoriesReducer, type RepositoriesAction, type RepositoryRow, type SkillsRead } from './model';
 import { RepositoriesScreen, type RepositoriesScreenView } from './RepositoriesScreen';
 import { MISSING_ONE, NO_ACCESS, ONLY_OWNER, RepositoriesView, type Access } from './RepositoriesView';
 import { sure } from '../arcade/test/sure';
@@ -139,7 +139,7 @@ describe('the ideas board switch (PRD 1246 s4)', () => {
 
   it('turns the board public and private again through its handler', () => {
     const calls: [string, boolean][] = [];
-    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPhase0() {}, setFixWhenAnswered() {}, remove() {}, setPublicIdeas: (name: string, on: boolean) => { calls.push([name, on]); } };
+    const on = { pick() {}, toggleSkills() {}, setSkill() {}, close() {}, add() {}, setTracked() {}, setPhase0() {}, setFixWhenAnswered() {}, remove() {}, setPublicIdeas: (name: string, on: boolean) => { calls.push([name, on]); } };
     const tree = RepositoriesView({ state: state([row('a/b', { publicIdeas: true })]), owner: false, access: INSTALLED, now: NOW, on });
     const press = (node: unknown): void => {
       if (!node || typeof node !== 'object') return;
@@ -187,7 +187,7 @@ describe('the phase 0 switch (PRD 1299 s1)', () => {
 
   it('switches it both ways through its handler', () => {
     const calls: [string, string][] = [];
-    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, remove() {}, setFixWhenAnswered() {}, setPhase0: (name: string, to: string) => { calls.push([name, to]); } };
+    const on = { pick() {}, toggleSkills() {}, setSkill() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, remove() {}, setFixWhenAnswered() {}, setPhase0: (name: string, to: string) => { calls.push([name, to]); } };
     const view = (r: RepositoryRow) => RepositoriesView({ state: state([r]), owner: true, access: INSTALLED, now: NOW, on });
     press(view(row('a/b')), 'Phase 0 on the server for a/b');
     press(view(row('a/b', { phase0: 'server' })), 'Phase 0 on the server for a/b');
@@ -197,7 +197,7 @@ describe('the phase 0 switch (PRD 1299 s1)', () => {
 
 describe('the Fix on a runner once answered switch (PRD 2270 s3)', () => {
   const fix = (html: string) => switches(html, 'Fix on a runner once answered for ');
-  const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, remove() {} };
+  const on = { pick() {}, toggleSkills() {}, setSkill() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, remove() {} };
 
   it('shows each row\'s switch, on by default and off when the row says so', () => {
     const html = render([APPS, row('vertuoza/legacy', { fixWhenAnswered: false })]);
@@ -274,7 +274,7 @@ describe('removing a repository (PRD 2188 s1)', () => {
     const r = row('vertuoza/vertuobuild', { products: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Mobile' }], planProducts: [{ id: 'p-2', name: 'Mobile' }] });
     const asked: string[] = [];
     const removed: string[] = [];
-    const on = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, setFixWhenAnswered() {}, remove: (name: string) => { removed.push(name); } };
+    const on = { pick() {}, toggleSkills() {}, setSkill() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, setFixWhenAnswered() {}, remove: (name: string) => { removed.push(name); } };
     const view = () => RepositoriesView({ state: state([r]), owner: true, access: INSTALLED, now: NOW, on });
 
     vi.stubGlobal('window', { confirm: (message: string) => { asked.push(message); return false; } });
@@ -320,7 +320,7 @@ describe('the removed repositories (PRD 2188 s2)', () => {
 
   it('adds back through the page\'s add handler', () => {
     const added: string[] = [];
-    const on = { pick() {}, close() {}, add: (name: string) => { added.push(name); }, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, setFixWhenAnswered() {}, remove() {} };
+    const on = { pick() {}, toggleSkills() {}, setSkill() {}, close() {}, add: (name: string) => { added.push(name); }, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, setFixWhenAnswered() {}, remove() {} };
     const view = RepositoriesView({ state: state([GONE]), owner: true, access: INSTALLED, now: NOW, on });
     press(view, 'Add back vertuoza/vertuobuild');
     expect(added).toEqual(['vertuoza/vertuobuild']);
@@ -395,5 +395,63 @@ describe('the page\'s situations', () => {
       const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
       expect(tabs, view.kind).toEqual([['Fleets', false], ['Repositories', true], ['Business', false], ['API keys', false], ['Jev', false]]);
     }
+  });
+});
+
+describe('the Runner skills block (PRD 2313 s3)', () => {
+  const READ = {
+    skills: [
+      { name: 'validate-prd', description: 'Checks a PRD\'s criteria on its preview.', allowed: { by: 'ada', at: '2026-10-21T09:30:00Z' }, gone: false },
+      { name: 'release-notes', description: null, allowed: null, gone: false },
+      { name: 'seed-demo', description: null, allowed: { by: 'ada', at: '2026-10-02T08:00:00Z' }, gone: true },
+    ],
+    branch: 'main',
+    error: null,
+  };
+  const opened = (read: SkillsRead, owner = true) => render([APPS], {
+    owner,
+    actions: [{ type: 'skills-open', repository: APPS.fullName }, { type: 'skills-read', repository: APPS.fullName, read }],
+  });
+  const skillsOf = (html: string) => html.slice(html.indexOf('<section class="repositories-skills"'), html.indexOf('</section>', html.indexOf('<section class="repositories-skills"')));
+
+  it('is closed by default: a title with no skill under it', () => {
+    expect(text(skillsOf(render([APPS])))).toBe('Runner skills');
+    expect(render([APPS])).toContain('aria-expanded="false"');
+  });
+
+  it('reads while it opens, then lists each /name with its description as the tooltip', () => {
+    const reading = render([APPS], { actions: [{ type: 'skills-open', repository: APPS.fullName }] });
+    expect(text(skillsOf(reading))).toContain('Reading the skills…');
+    const html = skillsOf(opened(READ));
+    expect(text(html)).toContain('Runner skills (3)');
+    expect(html).toContain('<code title="Checks a PRD&#x27;s criteria on its preview.">/validate-prd</code>');
+    expect(html).toContain('<code>/release-notes</code>');
+  });
+
+  it('says who allowed a skill and when, and which one is gone from the default branch', () => {
+    const block = text(skillsOf(opened(READ)));
+    expect(block).toContain('/validate-prd allowed by @ada on 2026-10-21');
+    expect(block).toContain('/seed-demo Gone: no longer on main allowed by @ada on 2026-10-02');
+    expect(block).not.toContain('/release-notes allowed');
+  });
+
+  it('leaves the owner\'s switches on and a member\'s disabled, a gone skill\'s still on', () => {
+    const owner = switches(skillsOf(opened(READ)), 'Allow /');
+    expect(owner.map((s) => /aria-checked="true"/.test(sure(s.attrs, 's.attrs')))).toEqual([true, false, true]);
+    expect(owner.every((s) => !/disabled/.test(sure(s.attrs, 's.attrs')))).toBe(true);
+    const member = switches(skillsOf(opened(READ, false)), 'Allow /');
+    expect(member).toHaveLength(3);
+    expect(member.every((s) => /disabled/.test(sure(s.attrs, 's.attrs')))).toBe(true);
+  });
+
+  it('says why the read failed and keeps the allowed skills listed', () => {
+    const block = text(skillsOf(opened({ skills: READ.skills.slice(0, 1), branch: null, error: 'GitHub answered 502' })));
+    expect(block).toContain('Skills could not be read: GitHub answered 502');
+    expect(block).toContain('/validate-prd');
+  });
+
+  it('is closed again by skills-close', () => {
+    const closed = render([APPS], { actions: [{ type: 'skills-open', repository: APPS.fullName }, { type: 'skills-close', repository: APPS.fullName }] });
+    expect(text(skillsOf(closed))).toBe('Runner skills');
   });
 });
