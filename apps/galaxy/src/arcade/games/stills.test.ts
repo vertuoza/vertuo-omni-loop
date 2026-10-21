@@ -1,7 +1,7 @@
 // Draws each game's still for its lit cabinet's screen (still.ts) from the game's own pieces, and
 // checks stills.ts holds them as they are drawn now: OMNI KART's race over its circuit, rendered by
-// its Mode 7 floor with its rivals, boxes, props and arch, and a slice of Super Omni World's stage 1-1
-// in its tiles, OMNI DUET's two orbs on their circle under a falling wave, and OMNI PONG's court, the
+// its Mode 7 floor with its rivals, boxes, props and arch, and a slice of Starhop's stage 1-1
+// in its tiles, OMNI DUET's two orbs on their circle under a falling wave, and PULSAR VOLLEY's court, the
 // player's paddle lifted by a hum, its notes rising. The player's own kart and hero are not in a still:
 // the cabinet draws them over it.
 // After a game's art changes, `npx vitest run apps/galaxy/src/arcade/games/stills.test.ts -u` draws
@@ -279,7 +279,7 @@ function frostRace({ w, h }: { w: number; h: number }): Canvas {
   return c;
 }
 
-// ── Super Omni World: a slice of stage 1-1, its ground on the screen's bottom edge ─
+// ── Starhop: a slice of stage 1-1, its ground on the screen's bottom edge ─
 
 /** The tile's side in the slice, in grid pixels (half the game's), and the stage's first column in it. */
 const TILE = 8;
@@ -341,7 +341,7 @@ function duet({ w, h }: { w: number; h: number }): Canvas {
   return c;
 }
 
-// ── OMNI PONG: the court mid-rally, the player's paddle lifted by a hum ─────────
+// ── PULSAR VOLLEY: the court mid-rally, the player's paddle lifted by a hum ─────────
 
 /** A pixel ring of radius `r` round cx, cy, its right side only: a sound wave leaving the paddle. */
 function wave(c: Canvas, cx: number, cy: number, r: number, colour: string, alpha: number) {

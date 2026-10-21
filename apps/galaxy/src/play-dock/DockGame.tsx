@@ -3,7 +3,7 @@
 // tall grid. With one game open it goes straight into it, as before; with both, it opens on the
 // picker, on the game chosen last, and B from a game's ready, pause or game-over screen comes back to
 // it. Loaded only when the dock first opens (PlayDock's dynamic import), so a page where nobody opens
-// it downloads none of this, and Phaser only when SUPER OMNI WORLD starts (PlatformerScreen).
+// it downloads none of this, and Phaser only when STARHOP starts (PlatformerScreen).
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { WoundKind } from '@omni/galaxy';
 import type { Hero } from '@omni/design';

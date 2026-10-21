@@ -1,4 +1,4 @@
-// A game's score at its end (Entropy Invaders' game over; Super Omni World's game over or WORLD
+// A game's score at its end (Entropy Invaders' game over; Starhop's game over or WORLD
 // CLEAR, PRD 817), as pure functions: sent once, with one retry on A when that fails; NEW BEST when
 // it is one; and the crew's table it changes, which the cabinet's top five and the HI on the score
 // line show. The sending itself is the account's (Account.submitScore(), through submitSend()). Each reads the game's measure (`points`, the default, or

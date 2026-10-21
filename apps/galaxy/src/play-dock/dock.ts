@@ -2,7 +2,7 @@
 // pill, or the mini Game Boy, and what the device shows — the game, the game paused on a question,
 // CLAUDE IS DONE, or the arcade's own refusal. Who plays is the arcade's rule, through its game room's
 // door (games/room.ts): the dock never has a rule of its own on levels or XP. With more than one game
-// open (PRD 817: SUPER OMNI WORLD from LV 2), the device opens on a picker between them.
+// open (PRD 817: STARHOP from LV 2), the device opens on a picker between them.
 import { GAMES } from '../arcade/games/index';
 import { at, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { cabinetDoor, cabinets, xpStatus } from '../arcade/games/room';

@@ -11,12 +11,12 @@ supersedes: null
 
 ## Purpose
 
-OMNI PONG's ready screen (PRD 2101): the player sets the pitch limit, turns on the microphone, tries
+PULSAR VOLLEY's ready screen (PRD 2101): the player sets the pitch limit, turns on the microphone, tries
 their voice on the pitch meter, and starts the match. No match starts without the microphone.
 
 ## Regions
 
-- **The title:** `OMNI PONG`.
+- **The title:** `PULSAR VOLLEY`.
 - **The limit:** `◀ PITCH · MID ▶`; ◀ ▶ step through `LOW` (160 Hz), `MID` (220 Hz) and `HIGH`
   (300 Hz), kept in the browser under `omni-loop:pong-options`.
 - **The middle line:** `HIGH ▲ · LOW ▼` before the microphone; the pitch meter once it is on (▲, ·
@@ -34,7 +34,7 @@ their voice on the pitch meter, and starts the match. No match starts without th
 
 ## Words
 
-OMNI PONG · PITCH · LOW · MID · HIGH · HIGH ▲ · LOW ▼ · A · TURN ON MIC · START · PLAY · MIC REQUIRED ·
+PULSAR VOLLEY · PITCH · LOW · MID · HIGH · HIGH ▲ · LOW ▼ · A · TURN ON MIC · START · PLAY · MIC REQUIRED ·
 MIC BLOCKED IN THE BROWSER · NO MIC FOUND · A · ASK AGAIN · B BACK · LOADING… · GAME DID NOT LOAD ·
 A TO RETRY
 

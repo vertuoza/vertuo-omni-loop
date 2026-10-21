@@ -1,4 +1,4 @@
-// Super Omni World's rules, without Phaser (PRD 817): the physics numbers the scene plays by, in one
+// Starhop's rules, without Phaser (PRD 817): the physics numbers the scene plays by, in one
 // block so a follow-up can tune the feel without touching the scene, and the jump that grows with
 // how long A is held. Phaser does the gravity, the collisions and the drawing; each frame the scene
 // asks these rules how fast the hero runs and whether the jump still lifts.

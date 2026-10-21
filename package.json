@@ -1,7 +1,8 @@
 {
   "name": "omni-loop",
-  "version": "0.0.502",
+  "version": "0.0.505",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "bin": {
     "omni": "kit/dist/omni.mjs"

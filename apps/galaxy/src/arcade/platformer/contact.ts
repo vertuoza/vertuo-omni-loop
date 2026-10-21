@@ -1,4 +1,4 @@
-// How Super Omni World's scene reads what Phaser's arcade physics reports (PRD 817): a touch with an
+// How Starhop's scene reads what Phaser's arcade physics reports (PRD 817): a touch with an
 // enemy is a stomp or a hurt, a tile bumped from below may be a ? block, a fall below the stage is a
 // pit, and the pole is the flag. Pure: the shapes below are the parts of Phaser's bodies and tiles
 // the scene hands in, so a test stubs them and nothing here loads Phaser.

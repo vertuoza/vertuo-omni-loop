@@ -13,7 +13,7 @@ evidence:
   - apps/galaxy/package.json@c9781fd
   - scripts/lint-repository.ts@b154f4c
   - .github/workflows/quick.yml@2fe8e9e
-  - scripts/check-changed-hooks.ts@c844953
+  - scripts/check-changed-hooks.ts@d6db638
   - .github/workflows/preview-debounce.yml@12349c8
   - .githooks/pre-commit@097e115
   - .githooks/pre-push@4ba5c3d
@@ -37,8 +37,8 @@ Use this page when a check on your pull request is red.
 | `checks` › `lint` | after every lint shard, even a failed one, unless `settle` went stale | gathers the shards into the one `lint` check, as `test` does. 2-minute timeout |
 | `checks` › `fallow` | after `settle` answered `stale=false`, side by side with the others | `pnpm fallow:audit` measured from the pull request's base: red only on a dead-code, duplication or complexity finding the pull request adds beyond the baselines in `fallow/` (`fallow/README.md` says when they are regenerated). 10-minute timeout |
 | `quick` › `settle`, `quick` | a draft, or a pull request whose base is not `main` (a sub-pull request), never a `docs/phase-0-` head (`.github/workflows/quick.yml`) | the same `settle` gate, then `pnpm check:changed --base origin/<base>`: typecheck, lint of the changed files, related tests, fallow. Group `quick-<head branch>`. 20-minute timeout |
-| `security` › `open-source` | every pull request | `node scripts/open-source.ts`: red on a tracked file naming another repository of the maintainer, an address on its domain or a secret; prints `<file>:<line>: <rule> — <fix>`, never the value. A visible fake is listed in `scripts/open-source.allow.json` with its reason |
-| `security` › `gitleaks` | every pull request | a pinned gitleaks binary, SHA-256 checked, over the pull request's commits with `.gitleaks.toml` (allowlist: the visible fakes). Upgrade: change `GITLEAKS_VERSION` and `GITLEAKS_SHA256` together |
+| `security` › `open-source` | every pull request | `node scripts/open-source.ts`: red on another maintainer repository, an address on its domain or a secret in a tracked file; prints `<file>:<line>: <rule> — <fix>`, never the value. Visible fakes: `scripts/open-source.allow.json`, each with its reason |
+| `security` › `gitleaks` | every pull request | pinned gitleaks, SHA-256 checked, on the pull request's commits with `.gitleaks.toml` (allowlist: the visible fakes); upgrade `GITLEAKS_VERSION` and `GITLEAKS_SHA256` together |
 | `outbox` | every pull request, posted by the omni-loop GitHub App, not by a workflow (ADR-0001) | `skipped` on a sub-pull request and on any pull request that is not a PRD's feature pull request; red on a feature pull request while an outbox item is open, drift is unreworked or a risky change is unaccounted |
 
 A draft, and a sub-pull request into a feature branch, get `quick` on every push: only what
@@ -52,7 +52,7 @@ previews. The `supabase` workflow's `deploy` job, `release`
 and `business-recheck` on a schedule or by hand.
 
 First, the git hooks `pnpm install` turns on (`.githooks/`): pre-commit the fallow audit, pre-push
-the open-source guard (`scripts/open-source.ts`), then the typecheck and lint of what changed. They fail closed, so a red `fallow` usually means a
+the open-source guard, then the typecheck and lint of what changed, and the types drift check when a migration changed. They fail closed, so a red `fallow` usually means a
 `--no-verify` commit, which the pull request must explain.
 
 ## What gates a merge

@@ -1,4 +1,4 @@
-// What Super Omni World draws with (PRD 817): the stage's tiles from @omni/design in its palette,
+// What Starhop draws with (PRD 817): the stage's tiles from @omni/design in its palette,
 // laid out as one strip Phaser reads as a tileset, and the player's own hero in three poses. The
 // canvases are made here, in the browser, and handed to the scene; `tileFrame` says which tile of
 // the strip each cell of a stage wears. Each stage has its own look: its palette's tiles, its sky,

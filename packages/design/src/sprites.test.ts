@@ -52,7 +52,7 @@ const FORGED: Record<string, string> = {
   'menu-roadmaps': '9567df2dd6d75f43',
   // The Concepts entry (PRD 1272), pinned as first drawn.
   'menu-concepts': 'cb48dea0f79c5aad',
-  // Super Omni World's tiles (PRD 817), pinned as first drawn.
+  // Starhop's tiles (PRD 817), pinned as first drawn.
   'tile-ground': 'edf856e91ad82ad1', 'tile-soil': 'd30e24cd67c0e2c4', 'tile-brick': '4a7786aef594b279',
   'tile-block': '069bbba61b3e2d1b', 'tile-block-empty': '03a9ee17e8723994', 'tile-pipe-top-l': '0763de80ab794672',
   'tile-pipe-top-r': '99d97f7eb7ad0cd7', 'tile-pipe-l': 'b73278ee64ceefba', 'tile-pipe-r': 'ca8cb73824a059cd',
