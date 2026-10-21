@@ -12,14 +12,14 @@ import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'vertuo-omni-plan/
 export const DEMO_PROJECTS: Projects = Object.freeze({
   sectors: {
     'core-belt': { repos: ['nimbus-core', 'nimbus-api'] },
-    'ai-nebula': { repos: ['nimbus-brain'] },
+    'arc-nebula': { repos: ['nimbus-brain'] },
     'field-rim': { repos: ['nimbus-web', 'nimbus-app'] },
   },
   // Invented fleets, like everything else here: no workspace's own (PRD 400). Each flies a mascot of
   // the sprite library but one, drawn as a hero in its colour, and one is retired.
   teams: {
     builders: { home: 'core-belt', label: 'BUILDERS', color: '#c9824a', motto: 'Every zone gets a wall.', mascot: 'beaver', sort: 10, retired: false },
-    inklings: { home: 'ai-nebula', label: 'INKLINGS', color: '#a070f0', motto: 'All arms on deck.', mascot: 'octopod', sort: 20, retired: false },
+    inklings: { home: 'arc-nebula', label: 'INKLINGS', color: '#a070f0', motto: 'All arms on deck.', mascot: 'octopod', sort: 20, retired: false },
     coiners: { home: 'core-belt', label: 'COINERS', color: '#f5c842', motto: 'Pays out in shipped slices.', mascot: 'picsou', sort: 30, retired: false },
     'night-owls': { home: 'field-rim', label: 'NIGHT OWLS', color: '#8f9ac0', motto: 'Reads every open question.', mascot: null, sort: 40, retired: false },
     corsairs: { home: 'field-rim', label: 'CORSAIRS', color: '#35b89a', motto: 'Boards the zones nobody holds.', mascot: 'pirate', sort: 50, retired: false },
