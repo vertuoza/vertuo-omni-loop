@@ -52,15 +52,16 @@ New server code logs through `kit/lib/log`, never a bare `console` string (ADR-0
   merge of `main` and before it is marked ready. The `supabase` workflow's
   `check` refuses an overtaken migration (`node scripts/migration-order.ts`), and its `deploy`
   pushes with `--include-all`, so one merged after its check still applies (PRD 1364, #1456).
-- **The database types are generated, never written.** `supabase/database.types.ts` is exactly what
-  `supabase gen types --local` prints for the migrations, byte for byte.
-  A change to a migration regenerates it in the same commit from a fresh local database
-  (`supabase stop --no-backup && supabase db start`: a kept backup restores stale tables) with
-  `node scripts/supabase-types.ts`; never hand-edit it, and regenerate it after a re-date. The pre-push hook checks it when a
-  local database is up, and the `supabase` workflow always does (retros #1349, #1649, #2207).
+- **The database types are generated, never written.** `supabase/database.types.ts` is what
+  `node scripts/supabase-types.ts` writes from a fresh local database (`supabase stop --no-backup`
+  first), with each migration change or re-date; the pre-push hook and
+  the `supabase` workflow check it (retros #1349, #1649, #2207).
 - **A new database check runs in CI.** Each file under `supabase/checks/` is its own named step in
   the `supabase` workflow's `check` job, added in the pull request that adds the check; a check CI
   does not run proves nothing (PRD 902, s1-02).
+- **A new returned column lands with its readers.** A migration that adds a column to returned
+  rows extends every parse schema reading them in the same change: they refuse unknown keys
+  and `pnpm schemas:verify` stays red (retro of PRD 2270, #2295).
 
 ## Formatting
 <!-- slot: formatting · optional · by: invade -->
