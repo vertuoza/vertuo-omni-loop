@@ -157,7 +157,7 @@ const BoardSchema = z.object({ slices: z.array(z.object({ state: z.string() })) 
 const DossierSchema = z.object({ url: z.string().min(1) });
 
 /** `omni board <n> --json` as it runs here: how many slices are merged of how many; `null` when it cannot be read. */
-async function boardCount(prd: PrdNumber, io: Io): Promise<MergedCount> {
+export async function boardCount(prd: PrdNumber, io: Io): Promise<MergedCount> {
   let text = '';
   const sink: Out = { write: () => undefined };
   const capture: Out = { write: (chunk) => (text += chunk) };
