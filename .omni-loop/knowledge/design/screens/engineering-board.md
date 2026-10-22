@@ -47,4 +47,4 @@ Time per step; Step, Median, PRDs; Slowest step: <step>, median <duration>. Dura
 
 ## Source
 
-- /omni:brainstorm, PRD 2370: .omni-loop/delivery/inbox/2370-prd-timeline/before-after.html
+- /omni:brainstorm, PRD 2370: .omni-loop/delivery/shipped/2370-prd-timeline/before-after.html
