@@ -1274,12 +1274,13 @@ Small: the statuses are a few lines in the service and its tests. A runner alrea
 - Channel: feature pull request #2434
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2434#issuecomment-6351861855
 - Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #2456, the sub-pull request that brought the build back in line
 - Rank: high
 - Bears on: BR-PRODUCT-63
 - Raised: 2026-10-22
 - Slice: s7
 - Wave: 3
+- Became: BR-ACCESS-1
 
 ### The answer, as it was given
 
