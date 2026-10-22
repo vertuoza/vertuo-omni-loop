@@ -112,7 +112,7 @@ export async function withTreeAt<T>(
 ): Promise<T> {
   const root = mkdtempSync(join(tmpdir(), 'omni-harvest-tree-'));
   const delivery = config.paths.delivery;
-  const fetchIf = prd === undefined || !delivery ? undefined : harvestFetched(delivery, prd);
+  const fetchIf = prd === undefined || !delivery ? () => true : harvestFetched(delivery, prd);
   try {
     await snapshot(octokit, { owner, repo, ref: sha, paths: [...new Set([...loopPaths(config), ...also])], dest: root, fetchIf });
     return await fn(createContext(root, loadConfig(root)), root);

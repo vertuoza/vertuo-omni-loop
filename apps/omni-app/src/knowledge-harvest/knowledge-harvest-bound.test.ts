@@ -20,7 +20,8 @@ const noFiles = (octokit: RequestOctokit): RequestOctokit => ({
 });
 
 function run() {
-  const github = harvestScenario({ files: { ...FILES, [HISTORY]: BIG } });
+  const files: Record<string, string> = { ...FILES, [HISTORY]: BIG };
+  const github = harvestScenario({ files: files as typeof FILES });
   const fn = createKnowledgeHarvest({ client: inngest, octokitFor: () => noFiles(github.octokit), openrouter: readEnv({ OPENROUTER_API_KEY: KEY }).openrouter, fetch: fakeFetch(), now: () => '2026-09-27' });
   return { github, engine: new InngestTestEngine({ function: fn, events: [harvestEvent()] }) };
 }
