@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import { PrdTimelinePane } from '../../timeline/TimelineView';
@@ -323,11 +324,11 @@ export function DossierPage({ view, markdown, supabase, live, voice, attestation
         </dl>
         <nav className="dossier-tabs" aria-label="Artifacts">
           {view.tabs.map((t) => (
-            <a key={t.kind} className={t.empty ? 'dossier-tab dossier-tab-empty' : 'dossier-tab'} href={t.href} aria-current={t.current ? 'page' : undefined}>
+            <Link key={t.kind} className={t.empty ? 'dossier-tab dossier-tab-empty' : 'dossier-tab'} href={t.href} aria-current={t.current ? 'page' : undefined}>
               {t.label}
               {t.badge !== null && <small>{t.badge}</small>}
               {t.alert !== null && <span className="dossier-left">{t.alert}</span>}
-            </a>
+            </Link>
           ))}
         </nav>
       </PinnedHead>

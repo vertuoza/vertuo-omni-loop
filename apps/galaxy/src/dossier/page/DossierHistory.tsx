@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { StagePill } from '../../stages/stage-pill';
 import { profileHref } from '../../people/PersonChip';
 import { filtered, HISTORY_PATH, historyAddress, whoLogin, whoParam, type HistoryFilters, type HistoryItem, type StageBarEntry } from './history';
@@ -38,7 +39,7 @@ function Pick({ name, label, any, value, options }: { name: string; label: strin
 
 function Who({ filters }: { filters: HistoryFilters }) {
   const link = (who: HistoryFilters['who'], label: string) => (
-    <a className="dossier-history-who" aria-current={filters.who === who ? 'page' : undefined} href={historyAddress({ ...filters, who })}>{label}</a>
+    <Link className="dossier-history-who" aria-current={filters.who === who ? 'page' : undefined} href={historyAddress({ ...filters, who })}>{label}</Link>
   );
   return (
     <nav className="dossier-history-whos" aria-label="Whose PRDs">
@@ -63,7 +64,7 @@ function Filters({ choices, filters }: { choices: Choices; filters: HistoryFilte
           />
           <button type="submit" className="ask-button">Filter</button>
         </div>
-        {filtered(filters) && <a className="dossier-history-clear" href={historyAddress({ who: filters.who })}>Clear</a>}
+        {filtered(filters) && <Link className="dossier-history-clear" href={historyAddress({ who: filters.who })}>Clear</Link>}
       </div>
       <details className="dossier-history-more" open={folded}>
         <summary>More filters <span className="ask-hint">repository, draft or PRD, outbox</span></summary>
@@ -92,12 +93,12 @@ function StageBar({ stages }: { stages: StageBarEntry[] }) {
   return (
     <nav className="stage-track dossier-history-stages" aria-label="PRDs by stage" style={BAR_STYLE}>
       {stages.map((s) => (
-        <a
+        <Link
           key={s.id} className={`stage-stop stage-${s.selected ? 'current' : 'passed'}`} aria-current={s.selected ? 'page' : undefined}
           href={s.href} style={STOP_STYLE}
         >
           {s.label} <small>{s.count}</small>
-        </a>
+        </Link>
       ))}
     </nav>
   );
@@ -106,7 +107,7 @@ function StageBar({ stages }: { stages: StageBarEntry[] }) {
 function Row({ item }: { item: HistoryItem }) {
   return (
     <li>
-      <a className="dossier-history-row" href={item.href}>
+      <Link className="dossier-history-row" href={item.href}>
         <span className="dossier-history-top">
           <span className="dossier-history-title">
             {item.draft ? <span className="dossier-draft">DRAFT</span> : <span className="dossier-number">{item.heading}</span>}{' '}
@@ -128,7 +129,7 @@ function Row({ item }: { item: HistoryItem }) {
           <span className="ask-hint">{item.questions}</span>
           <time className="ask-hint" dateTime={item.at}>{item.activity}</time>
         </span>
-      </a>
+      </Link>
     </li>
   );
 }
@@ -139,7 +140,7 @@ const OpenedBy = ({ login }: { login: string }) => (
 );
 
 const ToAll = ({ filters, children }: { filters: HistoryFilters; children: string }) => (
-  <a className="dossier-history-to-all" href={historyAddress({ ...filters, who: 'all' })}>{children}</a>
+  <Link className="dossier-history-to-all" href={historyAddress({ ...filters, who: 'all' })}>{children}</Link>
 );
 
 /** Below the filters: the rows, or why there are none (theirs, yours, or none matching). */
