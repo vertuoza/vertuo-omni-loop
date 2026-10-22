@@ -14,6 +14,10 @@
 // A claim naming another job, or none, is never touched. Whatever fails is said in `releaseError`, at
 // most 200 characters, beside the numbers released, at most 50: the job's final report carries both,
 // as the app stores them. A `gh` that cannot list releases nothing.
+//
+// A job that ran as a GitHub App (PRD 2433, s3) is released as that app: every `gh` call runs with the job's
+// token as `GH_TOKEN`, so the label and the comment are the app's bot's, never the machine's account. The
+// caller names the token (`EndedJob.ghToken`); a job that had one and has none now is not released here.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -68,6 +72,11 @@ function why(error: unknown): string {
 
 /** A string cut to `max` characters, its last one an ellipsis when cut. */
 const cut = (text: string, max: number): string => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
+
+/** What a release that could not run came to: nothing released, and `why`, cut to what the app stores. */
+export function notReleased(why: string): Released {
+  return { released: [], releaseError: cut(why, MAX_RELEASE_ERROR) };
+}
 
 /** The open pull requests, draft or ready, that carry `labels.inProgress`: their numbers. Throws what `gh` throws, or an unreadable answer. */
 function candidates(repo: ClaimsRepo, gh: Gh): number[] {
@@ -138,8 +147,12 @@ export function release(job: ReleasedJob, repo: ClaimsRepo, reason: string, gh: 
   return { released: released.slice(0, MAX_RELEASED), releaseError: problems.length === 0 ? null : cut(problems.join('; '), MAX_RELEASE_ERROR) };
 }
 
-/** A job that ended, as the runner releases it: its id, its runner, its repository and why it ended. */
-export type EndedJob = ReleasedJob & { repo: string; reason: string };
+/**
+ * A job that ended, as the runner releases it: its id, its runner, its repository and why it ended. `ghToken`
+ * is the token of the GitHub App the job ran as (PRD 2433): the `gh` calls run with it. `null`, or none, is
+ * the machine's own `gh`, as a job with no app always had.
+ */
+export type EndedJob = ReleasedJob & { repo: string; reason: string; ghToken?: string | null };
 
 /** Releases an ended job's claims. */
 export type Releaser = (ended: EndedJob) => Released;
@@ -153,9 +166,12 @@ const NOTHING: Released = { released: [], releaseError: null };
  * job ran in, then releases with `gh`. A repository it does not hold, or one with no config, has no
  * claim to release; a config it cannot read is said.
  */
-export function releaser({ exec, checkouts }: { exec: ExecText; checkouts: ReadonlyMap<string, string> }): Releaser {
-  const gh: Gh = (args) => exec('gh', args, QUIET);
+export function releaser({ exec, checkouts, env = {} }: { exec: ExecText; checkouts: ReadonlyMap<string, string>; env?: Readonly<Record<string, string | undefined>> }): Releaser {
   return (ended) => {
+    // A job's token is `GH_TOKEN`, which `gh` reads before any login of the machine, on top of the runner's own environment.
+    const token = ended.ghToken ?? null;
+    const options: ExecFileSyncOptionsWithStringEncoding = token === null ? QUIET : { ...QUIET, env: { ...env, GH_TOKEN: token } };
+    const gh: Gh = (args) => exec('gh', args, options);
     const checkout = checkouts.get(ended.repo);
     if (checkout === undefined || !existsSync(join(checkout, CONFIG_FILE))) return { ...NOTHING };
     let repo: ClaimsRepo;

@@ -51,6 +51,44 @@ describe('runnerApi().health()', () => {
   });
 });
 
+// A fresh token of the job's GitHub App (PRD 2433, s3): the runner's sign-in asks, nothing else goes with it,
+// and the token never appears in what a refusal says.
+describe('runnerApi().githubToken()', () => {
+  const TOKEN = ['ghs', 'fakeFreshTokenOfTheJob0123456789ABCDEF'].join('_');
+  const FRESH = { token: TOKEN, expiresAt: '2026-10-22T14:00:00Z' };
+
+  it('posts to the job’s github-token route with the sign-in and no body, and answers the token and its expiry alone', async () => {
+    const { client, calls } = api(reply(200, { ...FRESH, login: 'omni-acme[bot]', email: '42+omni-acme[bot]@users.noreply.github.com' }));
+    expect(await client.githubToken('job 7')).toEqual(FRESH);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe('https://omni.test/api/runners/jobs/job%207/github-token');
+    expect(calls[0]?.init).toMatchObject({ method: 'POST', headers: { authorization: 'Bearer access-1' } });
+    expect(calls[0]?.init.body).toBeUndefined();
+  });
+
+  it('carries the app’s own words when it refuses (a job that ended, another runner’s job), and `refused (<status>)` when it has none', async () => {
+    for (const [code, words] of [[403, 'This job runs on another runner.'], [404, 'No such job.'], [409, 'This job ended more than 10 minutes ago.'], [400, 'The job runs as no app.']] as const) {
+      await expect(api(reply(code, { error: words })).client.githubToken('job-7')).rejects.toThrow(new RunnerRefused(words));
+    }
+    await expect(api(reply(404)).client.githubToken('job-7')).rejects.toThrow(new RunnerRefused('refused (404)'));
+    await expect(api(reply(409, { error: '  ' })).client.githubToken('job-7')).rejects.toThrow(new RunnerRefused('refused (409)'));
+  });
+
+  it('refuses an answer that holds no token, or no date it can read, without echoing it', async () => {
+    for (const body of [{}, { token: TOKEN }, { token: '', expiresAt: FRESH.expiresAt }, { token: TOKEN, expiresAt: 'tomorrow-ish' }, { token: 7, expiresAt: FRESH.expiresAt }]) {
+      const refused = api(reply(200, body)).client.githubToken('job-7');
+      await expect(refused).rejects.toThrow(new RunnerRefused('refused (the app answered no token)'));
+    }
+    await expect(api(() => Promise.resolve(new Response('not json', { status: 200 }))).client.githubToken('job-7')).rejects.toThrow(new RunnerRefused('refused (the app answered no token)'));
+  });
+
+  it('names a server error and a timeout as the app unreachable', async () => {
+    await expect(api(reply(503, { error: 'down' })).client.githubToken('job-7')).rejects.toThrow(RunnerUnreachable);
+    const timedOut = api(() => Promise.reject(Object.assign(new Error('aborted'), { name: 'TimeoutError' })));
+    await expect(timedOut.client.githubToken('job-7')).rejects.toThrow(new RunnerUnreachable('POST /api/runners/jobs/job-7/github-token: timed out'));
+  });
+});
+
 // A repository's own skills (PRD 2313, s2): the job `next` hands over carries the skills its repository
 // allowed, read when it was claimed; an older app's job carries none and reads as none, so it runs as before.
 describe('runnerApi().next()', () => {

@@ -2,13 +2,20 @@
 // one job each. The job's session starts as the app, with the token only in a file the session reads through
 // `omni runner github-token`; nothing the runner sends holds the token, current or past; a job with no app
 // starts with the environment it always had. No test holds a real token.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+//
+// Kept current (s3): a token with less than 5 minutes left is asked for again, on a fake clock; a refusal is
+// tried again every minute; a token that expired with no fresh one ends the job `failed`, `github app: <why>`;
+// the claims of a job that ran as an app are released with its token, never the machine's.
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { RunnerRefused } from './api.ts';
 import type { JobUpdate, Registration, RunnerApi, RunnerJob } from './api.ts';
 import { ghShimDir } from './github-app.ts';
 import { githubTokenFile, saveGithubToken } from './github-token.ts';
+import type { GithubToken } from './github-token.ts';
+import type { EndedJob } from './release.ts';
 import { runRunner } from './runner.ts';
 import type { RunnerOptions } from './runner.ts';
 import type { JobSession, Terminal } from './terminal.ts';
@@ -19,6 +26,8 @@ const TOKEN = ['ghs', 'fakeRunnerTokenForTheJob0123456789ABC'].join('_');
 const PAST = ['ghs', 'fakePastTokenOfTheSameJob9876543210XYZ'].join('_');
 const GRANT = { token: TOKEN, expiresAt: '2026-10-22T13:00:00Z', login: 'omni-acme[bot]', email: '42+omni-acme[bot]@users.noreply.github.com' };
 const TOKEN_COMMAND = ['/usr/bin/node', '/opt/omni.mjs', 'runner', 'github-token'];
+/** How often the runner looks at a running job. */
+const TICK_MS = 5000;
 
 const job = (over: Partial<RunnerJob> = {}): RunnerJob => ({ id: '7', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, sentByKey: null, github: null, allowedSkills: [], ...over });
 
@@ -42,19 +51,58 @@ const machine = () => {
 
 type Seen = { session: JobSession; tokenFile: string | null };
 
+/** What the fake app answers when the runner asks for a fresh token: a token, or the refusal it says (an `Error`). */
+type Fresh = GithubToken | Error;
+
+/** A wait that ends only when `signal` aborts. */
+function untilAborted(signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((resolve) => {
+    signal?.addEventListener('abort', () => {
+      resolve();
+    }, { once: true });
+  });
+}
+
 /**
  * Runs the one job `given` on a fake app until its last report. The session the fake terminal "starts" writes
  * `log`, then its exit code, and reports what its token file held at that moment.
  */
-async function runOne(given: RunnerJob, over: Partial<RunnerOptions> & { log?: string; during?: (home: string, session: JobSession) => void; home?: string } = {}) {
-  const { log = '', during, ...options } = over;
+async function runOne(
+  given: RunnerJob,
+  over: Partial<RunnerOptions> & {
+    log?: string;
+    during?: (home: string, session: JobSession) => void;
+    home?: string;
+    /** The app's answers to the runner asking for a fresh token, in turn; asking more often than that is a refusal. */
+    fresh?: Fresh[];
+    /** How long, on the fake clock, the session runs before it exits 0: it exits at once unless given. */
+    exitAfter?: number;
+    /** A line the session writes to its log once that long has passed on the fake clock. */
+    append?: { after: number; text: string };
+  } = {},
+) {
+  const { log = '', during, fresh = [], exitAfter, append, ...options } = over;
   const home = options.home ?? mkdtempSync(join(tmpdir(), 'omni-runner-github-'));
   const registered: Registration[] = [];
   const updates: JobUpdate[] = [];
   const seen: Seen[] = [];
   const clock = { now: T0 };
   const stop = new AbortController();
+  const asked: { job: string; at: number }[] = [];
+  const stopped: string[] = [];
+  let exitFile: string | null = null;
+  let logFile: string | null = null;
+  let appended = false;
   let handed = false;
+  /** What the running session does as the fake clock moves: writes its log line, then exits. */
+  const sessionMoves = (): void => {
+    const elapsed = clock.now - T0;
+    if (logFile !== null && append !== undefined && !appended && elapsed >= append.after) {
+      appended = true;
+      appendFileSync(logFile, `${append.text}\n`);
+    }
+    if (exitFile !== null && exitAfter !== undefined && elapsed >= exitAfter) writeFileSync(exitFile, '0\n');
+  };
   const api: RunnerApi = {
     register: (registration) => {
       registered.push(registration);
@@ -76,6 +124,12 @@ async function runOne(given: RunnerJob, over: Partial<RunnerOptions> & { log?: s
       if (update.status !== 'running') stop.abort();
       return Promise.resolve({ cancel: false });
     },
+    githubToken: (job) => {
+      asked.push({ job, at: clock.now });
+      const next = fresh.shift();
+      if (next === undefined) return Promise.reject(new RunnerRefused('refused (no answer was queued)'));
+      return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
+    },
     health: () => Promise.resolve(),
   };
   const flag = (session: JobSession, name: string): string => session.argv[session.argv.indexOf(name) + 1] ?? '';
@@ -84,35 +138,36 @@ async function runOne(given: RunnerJob, over: Partial<RunnerOptions> & { log?: s
       const file = githubTokenFile(home, given.id);
       seen.push({ session, tokenFile: file !== null && existsSync(file) ? readFileSync(file, 'utf8') : null });
       during?.(home, session);
-      writeFileSync(flag(session, '--log'), log);
-      writeFileSync(flag(session, '--exit'), '0\n');
+      logFile = flag(session, '--log');
+      writeFileSync(logFile, log);
+      if (exitAfter === undefined) writeFileSync(flag(session, '--exit'), '0\n');
+      else exitFile = flag(session, '--exit');
     },
-    stop: () => undefined,
+    stop: (name) => {
+      stopped.push(name);
+    },
     alive: () => true,
   };
   const printed: string[] = [];
   const code = await runRunner({
-    name: 'box-1', slots: 1, timeoutMs: 60_000, version: '0.0.526', checkouts: new Map([['acme/widgets', join(home, 'widgets')]]), api, terminal,
+    // A session that runs on for minutes is given a day, as a job is.
+    name: 'box-1', slots: 1, timeoutMs: exitAfter === undefined ? 60_000 : 24 * 60 * 60_000, version: '0.0.526', checkouts: new Map([['acme/widgets', join(home, 'widgets')]]), api, terminal,
     exec: () => '', home, wrapper: ['/usr/bin/node', '/opt/omni.mjs', 'runner', 'job'], env: { PATH: '/usr/bin' },
     print: (line) => printed.push(line), stop: stop.signal, now: () => clock.now,
-    sleep: (ms, signal) => new Promise((resolve) => {
-      if (signal?.aborted) {
-        resolve();
-        return;
-      }
-      if (ms === 60 * 60 * 1000) {
-        signal?.addEventListener('abort', () => {
-          resolve();
-        }, { once: true });
-        return;
-      }
-      clock.now += ms;
-      setImmediate(resolve);
-    }),
+    sleep: (ms, signal) => {
+      if (signal?.aborted) return Promise.resolve();
+      if (ms === 60 * 60 * 1000) return untilAborted(signal);
+      // Only the look at the running job (every 5 s) moves the clock, so every other wait of the runner, the
+      // health report's among them, leaves the minutes of a session to the ticks that count them.
+      if (ms === TICK_MS) clock.now += ms;
+      sessionMoves();
+      return new Promise((resolve) => setImmediate(resolve));
+    },
     machine: machine(),
+    tickMs: TICK_MS,
     ...options,
   });
-  return { code, home, registered, updates, seen, printed };
+  return { code, home, registered, updates, seen, printed, asked, stopped, clock };
 }
 
 describe('registering', () => {
@@ -267,5 +322,154 @@ describe('the shim', () => {
     await runOne(job({ github: GRANT }), { githubToken: TOKEN_COMMAND, home });
     expect(existsSync(join(ghShimDir(home), 'gh'))).toBe(true);
     expect(readFileSync(join(ghShimDir(home), 'gh'), 'utf8')).not.toContain(TOKEN);
+  });
+});
+
+const SECOND = ['ghs', 'fakeSecondTokenOfTheSameJob5555555555ZZ'].join('_');
+const MIN = 60_000;
+const expiry = (ms: number): string => new Date(T0 + ms).toISOString();
+/** A job whose app token expires `expiresIn` after the job is handed over. */
+const asApp = (expiresIn: number): RunnerJob => job({ sentBy: 'ada', github: { ...GRANT, expiresAt: expiry(expiresIn) } });
+const fresh = (token: string, expiresIn: number): GithubToken => ({ token, expiresAt: expiry(expiresIn) });
+/** The app turning the runner down `times` times, in its own words. */
+const refused = (times: number, why = 'refused (503)'): Error[] => Array.from({ length: times }, () => new RunnerRefused(why));
+/** What the runner sent last, whatever it was. */
+const last = (updates: JobUpdate[]): JobUpdate | undefined => updates.at(-1);
+
+describe('keeping the token current (PRD 2433, s3)', () => {
+  it('does not ask while the token has 5 minutes or more left', async () => {
+    const { asked, updates, code } = await runOne(asApp(60 * MIN), { githubToken: TOKEN_COMMAND, exitAfter: 30 * MIN });
+    expect(code).toBe(0);
+    expect(asked).toEqual([]);
+    expect(last(updates)).toMatchObject({ status: 'done' });
+  });
+
+  it('asks the app for a fresh token the first time the current one has less than 5 minutes left, and keeps it beside the old one', async () => {
+    const { asked, updates, printed } = await runOne(asApp(10 * MIN), {
+      githubToken: TOKEN_COMMAND,
+      exitAfter: 8 * MIN,
+      fresh: [fresh(SECOND, 70 * MIN)],
+      // Written once the fresh token is kept: the old token and the fresh one are both masked.
+      append: { after: 7 * MIN, text: `remote: https://x-access-token:${SECOND}@github.com/acme/widgets.git\nthe old one ${TOKEN}` },
+    });
+    // The tick after 5 minutes left is the first to see less.
+    expect(asked).toEqual([{ job: '7', at: T0 + 5 * MIN + 5000 }]);
+    expect(last(updates)).toMatchObject({ status: 'done' });
+    const lines = updates.flatMap((update) => update.lines ?? []);
+    expect(lines).toContain('remote: https://x-access-token:***@github.com/acme/widgets.git');
+    expect(lines).toContain('the old one ***');
+    expect(JSON.stringify([updates, printed])).not.toContain(SECOND);
+    expect(JSON.stringify([updates, printed])).not.toContain(TOKEN);
+  });
+
+  it('asks again every minute while the app refuses, and the job runs on until a fresh token comes', async () => {
+    const { asked, updates, stopped } = await runOne(asApp(10 * MIN), {
+      githubToken: TOKEN_COMMAND,
+      exitAfter: 9 * MIN,
+      fresh: [...refused(2), fresh(SECOND, 70 * MIN)],
+    });
+    expect(asked.map((ask) => ask.at - T0)).toEqual([5 * MIN + 5000, 6 * MIN + 5000, 7 * MIN + 5000]);
+    expect(last(updates)).toMatchObject({ status: 'done' });
+    expect(stopped).toEqual([]);
+  });
+
+  it('ends the job failed, github app: <why>, once its token expired with no fresh one, and stops its session', async () => {
+    const { asked, updates, stopped, home, printed } = await runOne(asApp(10 * MIN), {
+      githubToken: TOKEN_COMMAND,
+      exitAfter: 60 * MIN,
+      fresh: refused(30, 'This job ended more than 10 minutes ago.'),
+    });
+    // Every minute from the first tick under 5 minutes, up to the minute the token runs out.
+    expect(asked.map((ask) => ask.at - T0)).toEqual([5 * MIN + 5000, 6 * MIN + 5000, 7 * MIN + 5000, 8 * MIN + 5000, 9 * MIN + 5000]);
+    expect(last(updates)).toMatchObject({ status: 'failed', reason: 'github app: its token expired and no fresh one came (This job ended more than 10 minutes ago.)' });
+    expect(stopped).toHaveLength(1);
+    expect(printed.some((line) => line.startsWith('job 7 failed · github app: '))).toBe(true);
+    const file = githubTokenFile(home, '7');
+    expect(file === null || existsSync(file)).toBe(false);
+    expect(JSON.stringify([updates, printed])).not.toContain(TOKEN);
+  });
+
+  it('never carries a token the app echoes in its refusal, in the reason, the reports or the lines the runner prints', async () => {
+    const { updates, printed } = await runOne(asApp(10 * MIN), { githubToken: TOKEN_COMMAND, exitAfter: 60 * MIN, fresh: refused(30, `bad credentials for ${TOKEN}`) });
+    expect(last(updates)).toMatchObject({ status: 'failed', reason: 'github app: its token expired and no fresh one came (bad credentials for ***)' });
+    expect(JSON.stringify([updates, printed])).not.toContain(TOKEN);
+  });
+
+  it('keeps nothing and asks nothing for a job with no app', async () => {
+    const { asked, updates, home } = await runOne(job(), { githubToken: TOKEN_COMMAND, exitAfter: 30 * MIN, fresh: refused(30) });
+    expect(asked).toEqual([]);
+    expect(last(updates)).toMatchObject({ status: 'done' });
+    expect(existsSync(ghShimDir(home))).toBe(false);
+  });
+
+  it('keeps the Omni page to ask in the job’s file when the runner knows it, for the session’s own refresh', async () => {
+    const { seen } = await runOne(asApp(60 * MIN), { githubToken: TOKEN_COMMAND, askUrl: 'https://omni.example/app' });
+    expect(JSON.parse(seen[0]?.tokenFile ?? 'null')).toEqual({
+      runner: 'box-1',
+      page: 'https://omni.example/app',
+      tokens: [{ token: TOKEN, expiresAt: expiry(60 * MIN) }],
+    });
+  });
+});
+
+describe('releasing the claims of a job as the app (PRD 2433, s3)', () => {
+  /** A releaser that keeps what it was asked and releases PR 3. */
+  const releaser = () => {
+    const ended: EndedJob[] = [];
+    return {
+      ended,
+      release: (asked: EndedJob) => {
+        ended.push(asked);
+        return { released: [3], releaseError: null };
+      },
+    };
+  };
+
+  it('runs the release with the job’s token when the job had an app', async () => {
+    const { ended, release } = releaser();
+    const { updates, printed } = await runOne(asApp(60 * MIN), { githubToken: TOKEN_COMMAND, release });
+    expect(ended).toEqual([{ id: '7', runner: 'box-1', repo: 'acme/widgets', reason: 'done', ghToken: TOKEN }]);
+    expect(last(updates)).toMatchObject({ status: 'done', released: [3], releaseError: null });
+    expect(printed).toContain('job 7 released #3');
+  });
+
+  it('runs it as the machine does when the job had none: no token, as always', async () => {
+    const { ended, release } = releaser();
+    await runOne(job(), { githubToken: TOKEN_COMMAND, release });
+    expect(ended).toEqual([{ id: '7', runner: 'box-1', repo: 'acme/widgets', reason: 'done', ghToken: null }]);
+  });
+
+  it('runs it with a fresh token when the job ended with less than 5 minutes left', async () => {
+    const { ended, release } = releaser();
+    const { asked } = await runOne(asApp(3 * MIN), { githubToken: TOKEN_COMMAND, release, fresh: [fresh(SECOND, 63 * MIN)] });
+    expect(asked).toHaveLength(1);
+    expect(ended.map((entry) => entry.ghToken)).toEqual([SECOND]);
+  });
+
+  it('runs it with the token the job still holds when no fresh one comes, while it has not expired', async () => {
+    const { ended, release } = releaser();
+    const { asked } = await runOne(asApp(3 * MIN), { githubToken: TOKEN_COMMAND, release, fresh: refused(1) });
+    expect(asked).toHaveLength(1);
+    expect(ended.map((entry) => entry.ghToken)).toEqual([TOKEN]);
+  });
+
+  it('releases nothing, and says why, when the job ran as an app and has no token now: never as the machine', async () => {
+    const { ended, release } = releaser();
+    const { updates, printed } = await runOne(asApp(-MIN), { githubToken: TOKEN_COMMAND, release, fresh: refused(1, 'This job ended more than 10 minutes ago.') });
+    expect(ended).toEqual([]);
+    expect(last(updates)).toMatchObject({
+      status: 'done',
+      released: [],
+      releaseError: 'github app: its token expired and no fresh one came (This job ended more than 10 minutes ago.)',
+    });
+    expect(printed.some((line) => line.includes('could not release its claims: github app: its token expired'))).toBe(true);
+  });
+
+  it('hides the job’s tokens in the lines the release prints', async () => {
+    const release = (): { released: number[]; releaseError: string | null } => ({ released: [], releaseError: `gh said no to ${TOKEN}` });
+    const { updates, printed } = await runOne(asApp(60 * MIN), { githubToken: TOKEN_COMMAND, release });
+    expect(printed.some((line) => line.includes('could not release its claims: gh said no to ***'))).toBe(true);
+    expect(JSON.stringify(printed)).not.toContain(TOKEN);
+    expect(last(updates)).toMatchObject({ released: [], releaseError: 'gh said no to ***' });
   });
 });

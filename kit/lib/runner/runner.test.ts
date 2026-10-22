@@ -61,6 +61,7 @@ function fakeApp(answers: ('ok' | Error)[], { reportMs = 0 } = {}) {
       });
     },
     update: () => Promise.resolve({ cancel: false }),
+    githubToken: () => Promise.reject(new RunnerRefused('refused (404)')),
     health: (runner, report) => {
       expect(runner).toBe('r1');
       reports.push(report);
@@ -192,6 +193,7 @@ function holdingApp(reports: number, onReport: (n: number) => void = () => undef
       updates.push(update);
       return Promise.resolve({ cancel: false });
     },
+    githubToken: () => Promise.reject(new RunnerRefused('refused (404)')),
     health: (_runner, report) => {
       heard.push(report);
       onReport(heard.length);

@@ -4,7 +4,8 @@ import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { forgetGithubToken, githubTokenFile, jobGithubToken, maskJobTokens, maskTokens, readGithubToken, saveGithubToken } from './github-token.ts';
+import type { RunnerJobEnv } from '../env/read.ts';
+import { forgetGithubToken, githubTokenFile, jobGithubToken, maskJobTokens, maskTokens, noteFailedRefresh, ownJobToken, readGithubToken, saveGithubToken } from './github-token.ts';
 
 const home = (): string => mkdtempSync(join(tmpdir(), 'omni-github-token-'));
 const T1 = ['ghs', 'firstInstallationToken0123456789ABCDEF'].join('_');
@@ -65,6 +66,94 @@ describe("a job's token file", () => {
     writeFileSync(regular, 'a log');
     expect(() => { forgetGithubToken(join(regular, 'job-7.github')); }).not.toThrow();
     expect(readFileSync(regular, 'utf8')).toBe('a log');
+  });
+});
+
+describe('what a refresh keeps in the file (PRD 2433, s3)', () => {
+  const fileOf = (dir: string): string => {
+    const file = githubTokenFile(dir, '7');
+    if (file === null) throw new Error('no file');
+    return file;
+  };
+
+  it('keeps the Omni page a session asks for a fresh token, as the file had it unless one is given', () => {
+    const file = fileOf(home());
+    saveGithubToken(file, 'box-1', { token: T1, expiresAt: '2026-10-22T17:33:17Z' }, 'https://omni.example/app');
+    saveGithubToken(file, 'box-1', { token: T2, expiresAt: '2026-10-22T18:33:17Z' });
+    expect(readGithubToken(file)).toEqual({
+      runner: 'box-1',
+      page: 'https://omni.example/app',
+      tokens: [{ token: T1, expiresAt: '2026-10-22T17:33:17Z' }, { token: T2, expiresAt: '2026-10-22T18:33:17Z' }],
+    });
+    saveGithubToken(file, 'box-1', { token: T2, expiresAt: '2026-10-22T18:33:17Z' }, 'https://other.example/app');
+    expect(readGithubToken(file)?.page).toBe('https://other.example/app');
+  });
+
+  it('has no page when none was given, and none from the file of another runner', () => {
+    const file = fileOf(home());
+    saveGithubToken(file, 'box-1', { token: T1, expiresAt: '2026-10-22T17:33:17Z' });
+    expect(readGithubToken(file)).not.toHaveProperty('page');
+    saveGithubToken(file, 'box-1', { token: T1, expiresAt: '2026-10-22T17:33:17Z' }, 'https://omni.example/app');
+    saveGithubToken(file, 'box-2', { token: T2, expiresAt: '2026-10-22T18:33:17Z' });
+    expect(readGithubToken(file)).toEqual({ runner: 'box-2', tokens: [{ token: T2, expiresAt: '2026-10-22T18:33:17Z' }] });
+  });
+
+  it('keeps the wait of a failed refresh beside the tokens, and a fresh token ends it', () => {
+    const file = fileOf(home());
+    saveGithubToken(file, 'box-1', { token: T1, expiresAt: '2026-10-22T17:33:17Z' }, 'https://omni.example/app');
+    noteFailedRefresh(file, 'box-1', { at: 1_000, why: 'refused (503)' });
+    expect(readGithubToken(file)).toEqual({
+      runner: 'box-1',
+      page: 'https://omni.example/app',
+      tokens: [{ token: T1, expiresAt: '2026-10-22T17:33:17Z' }],
+      retry: { at: 1_000, why: 'refused (503)' },
+    });
+    expect(statSync(file).mode & 0o777).toBe(0o600);
+    saveGithubToken(file, 'box-1', { token: T2, expiresAt: '2026-10-22T18:33:17Z' });
+    expect(readGithubToken(file)).not.toHaveProperty('retry');
+  });
+
+  it('notes nothing in a file that is missing or is another runner’s', () => {
+    const file = fileOf(home());
+    noteFailedRefresh(file, 'box-1', { at: 1_000, why: 'refused (503)' });
+    expect(readGithubToken(file)).toBeNull();
+    saveGithubToken(file, 'box-2', { token: T2, expiresAt: '2026-10-22T18:33:17Z' });
+    noteFailedRefresh(file, 'box-1', { at: 1_000, why: 'refused (503)' });
+    expect(readGithubToken(file)).toEqual({ runner: 'box-2', tokens: [{ token: T2, expiresAt: '2026-10-22T18:33:17Z' }] });
+  });
+});
+
+describe('ownJobToken: the file a session may refresh', () => {
+  it('names the file, the runner, the job and what the file holds, inside a job of the runner that wrote it', () => {
+    const dir = home();
+    const file = githubTokenFile(dir, '7');
+    if (file === null) throw new Error('no file');
+    saveGithubToken(file, 'box-1', { token: T1, expiresAt: '2026-10-22T17:33:17Z' }, 'https://omni.example/app');
+    expect(ownJobToken({ job: '7', runner: 'box-1' }, dir)).toEqual({
+      file,
+      runner: 'box-1',
+      job: '7',
+      held: { runner: 'box-1', page: 'https://omni.example/app', tokens: [{ token: T1, expiresAt: '2026-10-22T17:33:17Z' }] },
+      current: { token: T1, expiresAt: '2026-10-22T17:33:17Z' },
+    });
+  });
+
+  it('refuses in the same words as jobGithubToken, and never holds a token in a refusal', () => {
+    const dir = home();
+    const file = githubTokenFile(dir, '7');
+    if (file === null) throw new Error('no file');
+    saveGithubToken(file, 'box-2', { token: T1, expiresAt: '2026-10-22T17:33:17Z' });
+    const refused: [RunnerJobEnv | null, string][] = [
+      [null, 'this session is not a runner job.'],
+      [{ job: '7', runner: null }, 'this runner job names no runner.'],
+      [{ job: '8', runner: 'box-2' }, 'job 8 does not run as a GitHub App.'],
+      [{ job: '7', runner: 'box-1' }, "the token of job 7 is another runner's."],
+      [{ job: '../7', runner: 'box-2' }, 'job ../7 does not run as a GitHub App.'],
+    ];
+    for (const [job, refusal] of refused) {
+      expect(ownJobToken(job, dir)).toEqual({ refusal });
+      expect(jobGithubToken(job, dir)).toEqual({ refusal });
+    }
   });
 });
 

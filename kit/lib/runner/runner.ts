@@ -55,6 +55,12 @@
 // every token the job had, and the file goes once the job is reported. A job whose app cannot be set up ends
 // `failed`, `github app: <why>`, before its session starts: it never runs as a person. A job with no `github`
 // starts exactly as it always did.
+//
+// Its token lasts an hour (PRD 2433, s3): at every look at the running job the runner keeps it current
+// (`github-refresh.ts`), asking the app for a fresh one with less than 5 minutes left and again every minute
+// while that fails. A job whose token expires with no fresh one is stopped and ends `failed`,
+// `github app: <why>`. Its claims are released with the job's token too, and with no token a job that ran as an
+// app is released by no one: never as the machine's account.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -69,7 +75,9 @@ import { DEFAULT_LIMITS, machineReads, nextPause, pressure, sample } from './hea
 import type { CpuTimes, MachineReads, PauseState } from './health.ts';
 import type { MergedCount } from './follow.ts';
 import { githubJobEnv, installGhShim } from './github-app.ts';
-import { forgetGithubToken, githubTokenFile, jobTokens, maskTokens, saveGithubToken } from './github-token.ts';
+import { keepGithubToken } from './github-refresh.ts';
+import type { RefreshOptions } from './github-refresh.ts';
+import { forgetGithubToken, githubTokenFile, jobTokens, maskTokens, readGithubToken, saveGithubToken } from './github-token.ts';
 import { checkRunnerLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
@@ -77,6 +85,7 @@ import { lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from '.
 import type { RunOutcome } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
 import type { PluginKeeper } from './plugin.ts';
+import { notReleased } from './release.ts';
 import type { Released, Releaser } from './release.ts';
 import { dropJobBranch, pruneWorktrees, strandedJobs, sweep, sweptLine } from './sweep.ts';
 import type { Terminal } from './terminal.ts';
@@ -148,6 +157,8 @@ export type RunnerOptions = {
    * A runner given one registers as able to run a job as an app; without one a job that carries an app fails.
    */
   githubToken?: readonly string[] | undefined;
+  /** The Omni page, kept in each app job's token file for `omni runner github-token` to ask a fresh token of (PRD 2433, s3). */
+  askUrl?: string | undefined;
   /** The PRD's slices merged of all, read in the job's worktree when a job ended `stopped` (PRD 2375): never read unless given. */
   slices?: ((prd: PrdNumber, cwd: string) => Promise<MergedCount>) | undefined;
 };
@@ -470,7 +481,7 @@ function asApp(loop: Loop, job: RunnerJob): { env: Record<string, string> } | { 
   const file = githubTokenFile(loop.home, job.id);
   if (loop.githubToken === undefined || file === null) return { failed: 'github app: this runner cannot give the job its token' };
   try {
-    saveGithubToken(file, loop.name, job.github);
+    saveGithubToken(file, loop.name, job.github, loop.askUrl);
     const shimDir = installGhShim({ home: loop.home, tokenCommand: loop.githubToken, path: loop.env.PATH });
     return { env: githubJobEnv({ bot: job.github, tokenCommand: loop.githubToken, shimDir, path: loop.env.PATH }) };
   } catch (error) {
@@ -547,6 +558,27 @@ function killed(loop: Loop, job: string, place: Place, update: JobUpdate): JobUp
   return { ...update, logTail: logTail(readLog(loop, job, place.log)) };
 }
 
+/** What keeps a token current for `job` in `file`: the app's refresh route, the runner's clock and sleep (PRD 2433, s3). */
+const refreshOf = (loop: Loop, job: string, file: string): RefreshOptions => ({
+  file,
+  runner: loop.name,
+  job,
+  fetchToken: (id) => loop.api.githubToken(id),
+  now: loop.now,
+  sleep: (ms) => loop.sleep(ms),
+});
+
+/**
+ * Keeps the token of a running job that runs as an app current (PRD 2433, s3): `null` while it has one, and
+ * the reason the job ends on once it has none, `github app: <why>`. A job with no app has nothing to keep.
+ */
+async function appLacking(loop: Loop, job: RunnerJob): Promise<string | null> {
+  const file = job.github === null ? null : githubTokenFile(loop.home, job.id);
+  if (file === null) return null;
+  const kept = await keepGithubToken(refreshOf(loop, job.id, file));
+  return kept.token === null ? `github app: ${kept.failed}` : null;
+}
+
 /** Looks at the running job every tick, until it ends, is cancelled or runs past the timeout. */
 async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Promise<JobUpdate> {
   const started = loop.now();
@@ -557,6 +589,8 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
     if (existsSync(place.exit)) return withSlices(loop, job, place, ended(log, readText(place.exit), job));
     if (!loop.terminal.alive(place.session)) return vanished(readLog(loop, job.id, place.log), job);
     if (loop.now() - started > loop.timeoutMs) return killed(loop, job.id, place, { status: 'failed', reason: 'timeout' });
+    const noApp = await appLacking(loop, job);
+    if (noApp !== null) return killed(loop, job.id, place, { status: 'failed', reason: noApp });
     if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, job.id, place, { status: 'cancelled' });
   }
 }
@@ -607,28 +641,60 @@ function releaseLines(job: string, { released, releaseError }: Released): string
   ];
 }
 
+/**
+ * Releases the claims of an ended job, `ran` saying whether it ran as an app (PRD 2433, s3): with the job's
+ * token, kept current (the app answers its refresh route for 10 minutes after the end), so the label and the
+ * comment are the app's. A job that ran as an app and has no token now releases nothing, and says why: its
+ * claims are never released as the machine's account. A job that ran as the machine is released as it always was.
+ */
+async function releasedAs(loop: Loop, release: Releaser, ended: { id: string; repo: string; reason: string }, ran: boolean): Promise<Released> {
+  const file = ran ? githubTokenFile(loop.home, ended.id) : null;
+  let ghToken: string | null = null;
+  let lacking: Released | null = null;
+  if (ran) {
+    const kept = file === null ? null : await keepGithubToken(refreshOf(loop, ended.id, file));
+    if (kept === null || kept.token === null) lacking = notReleased(`github app: ${kept === null ? 'the job has no token kept on this machine' : kept.failed}`);
+    else ghToken = kept.token.token;
+  }
+  const done = lacking ?? release({ id: ended.id, runner: loop.name, repo: ended.repo, reason: ended.reason, ghToken });
+  const hide = (text: string): string => (ghToken === null ? text : maskTokens(text, jobTokens(loop.home, ended.id)));
+  for (const line of releaseLines(ended.id, done)) loop.print(hide(line));
+  return done;
+}
+
 /** Releases the claims of `job`, which ended on `last`: `last` with what was released, or as it is when the runner releases nothing. */
-function releasing(loop: Loop, job: RunnerJob, last: JobUpdate): JobUpdate {
+async function releasing(loop: Loop, job: RunnerJob, last: JobUpdate): Promise<JobUpdate> {
   if (loop.release === undefined) return last;
-  const done = loop.release({ id: job.id, runner: loop.name, repo: job.repo, reason: endReason(last) });
-  for (const line of releaseLines(job.id, done)) loop.print(line);
+  const done = await releasedAs(loop, loop.release, { id: job.id, repo: job.repo, reason: endReason(last) }, job.github !== null);
   return { ...last, released: done.released, releaseError: done.releaseError };
+}
+
+/** Whether the job left a token file: it ran as an app, whoever's the file is. */
+function ranAsApp(loop: Loop, job: string): boolean {
+  const file = githubTokenFile(loop.home, job);
+  return file !== null && readGithubToken(file) !== null;
 }
 
 /**
  * Releases the claims of a job the app marked lost, `runner lost`, and reports what it released when
  * there is something to say. The job has ended on the app: a report it refuses, or never answers,
- * prints one line and stops nothing.
+ * prints one line and stops nothing. `ran` says whether it ran as an app, read before the sweep, which takes
+ * an old token file with the rest: it is released as that app, or not at all.
  */
-async function releaseLost(loop: Loop, lost: { job: string; repo: string }): Promise<void> {
+async function releaseLost(loop: Loop, lost: { job: string; repo: string; ran: boolean }): Promise<void> {
   if (loop.release === undefined) return;
-  const done = loop.release({ id: lost.job, runner: loop.name, repo: lost.repo, reason: 'runner lost' });
-  for (const line of releaseLines(lost.job, done)) loop.print(line);
-  if (done.released.length === 0 && done.releaseError === null) return;
+  const { ran } = lost;
   try {
-    await loop.api.update(lost.job, hideTokens(loop, lost.job, { status: 'failed', released: done.released, releaseError: done.releaseError }));
-  } catch (error) {
-    loop.print(`job ${lost.job}: its release was not reported (${error instanceof Error ? error.message : String(error)})`);
+    const done = await releasedAs(loop, loop.release, { id: lost.job, repo: lost.repo, reason: 'runner lost' }, ran);
+    if (done.released.length === 0 && done.releaseError === null) return;
+    try {
+      await loop.api.update(lost.job, hideTokens(loop, lost.job, { status: 'failed', released: done.released, releaseError: done.releaseError }));
+    } catch (error) {
+      loop.print(`job ${lost.job}: its release was not reported (${error instanceof Error ? error.message : String(error)})`);
+    }
+  } finally {
+    // Once its release is reported: the token of a job that is gone is kept no longer.
+    if (ran) forgetJobToken(loop, lost.job);
   }
 }
 
@@ -664,7 +730,7 @@ async function slot(loop: Loop, runner: string): Promise<void> {
     try {
       const { last, live } = await runJob(loop, job);
       // A job whose session never started made no claim: it has nothing to release.
-      const report = live === null ? last : releasing(loop, job, last);
+      const report = live === null ? last : await releasing(loop, job, last);
       await finish(loop, job.id, withTokens(loop, report, worktreeOf(loop, job)), live);
       loop.print(endLine(job, last));
     } finally {
@@ -723,7 +789,8 @@ async function reporter(loop: Loop, runner: string): Promise<void> {
 async function sweeper(loop: Loop): Promise<void> {
   const keepLogsDays = loop.keepLogsDays ?? KEEP_LOGS_DAYS;
   while (!loop.halt.aborted) {
-    const lost = strandedJobs({ home: loop.home, checkouts: loop.checkouts, running: loop.jobs });
+    // Whether each ran as an app is read first: the sweep removes a token file older than `keepLogsDays`.
+    const lost = strandedJobs({ home: loop.home, checkouts: loop.checkouts, running: loop.jobs }).map((stranded) => ({ ...stranded, ran: ranAsApp(loop, stranded.job) }));
     const line = sweptLine(sweep({ home: loop.home, checkouts: loop.checkouts, exec: loop.exec, running: loop.jobs, keepLogsDays, now: loop.now() }));
     if (line !== null) loop.print(line);
     for (const job of lost) await releaseLost(loop, job);
