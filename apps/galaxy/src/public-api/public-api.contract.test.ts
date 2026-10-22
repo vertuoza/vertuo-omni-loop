@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { STORED_STAGES } from '../stages/stage';
 import { decodeCursor } from './cursor';
 import {
-  API_OUTCOMES, BugFixSchema, JobLineListSchema, JobSchema, ListQuerySchema, MEGA_DESCRIPTION_MAX, PRD_STAGES, PrdSchema, PUBLIC_API_ERRORS, PublicApiErrorSchema,
-  StartBugFixSchema, StartMegaBugFixSchema,
+  ACTING_FOR_MAX, AnswerJobSchema, API_OUTCOMES, BugFixSchema, DismissJobSchema, JobLineListSchema, JobSchema, ListQuerySchema, MEGA_DESCRIPTION_MAX, PRD_STAGES, PrdSchema,
+  PUBLIC_API_ERRORS, PublicApiErrorSchema, QuestionsSchema, StartBugFixSchema, StartMegaBugFixSchema,
 } from './public-api.contract';
 
 // The public API's contract (PRD 2022 s2): a list's query, valid and refused; the shapes the spec names;
@@ -211,9 +211,124 @@ describe('a job’s lines (PRD 2425 s4)', () => {
   });
 });
 
+// PRD 2425 s6: a key answers or dismisses the questions of its job, saying whom it acts for.
+describe('whom a key acts for (PRD 2425 s6)', () => {
+  const ANSWERS = { 'Which fix?': 'Guard the input' };
+  const accepted = ['Jane D.', 'José', 'Zoë O\'Neil', '田中 太郎', 'Анна', 'jane@acme.test', 'bot_7-b', 'a·b', '  spaced  ', 'ñ', 'नमस्ते', 'Zoë', '٣٤', 'Team 42', 'x'.repeat(ACTING_FOR_MAX)];
+  const refused = ['', 'x'.repeat(ACTING_FOR_MAX + 1), 'Jane <b>', 'a/b', 'line\nbreak', 'tab\t', 'emoji 😀', '“quoted”', 'a;b', 'a,b', 'a:b', 'a(b)', '50%', 'zero​width', 'a\\b', 'a"b'];
+
+  it('takes 1 to 80 characters of letters of any alphabet, digits, spaces and . _ \' @ - · only', () => {
+    for (const actingFor of accepted) {
+      expect(AnswerJobSchema.safeParse({ answers: ANSWERS, acting_for: actingFor }).success, actingFor).toBe(true);
+      expect(DismissJobSchema.safeParse({ acting_for: actingFor }).success, actingFor).toBe(true);
+    }
+    for (const actingFor of refused) {
+      expect(AnswerJobSchema.safeParse({ answers: ANSWERS, acting_for: actingFor }).error?.issues[0]?.path, actingFor).toEqual(['acting_for']);
+      expect(DismissJobSchema.safeParse({ acting_for: actingFor }).error?.issues[0]?.path, actingFor).toEqual(['acting_for']);
+    }
+  });
+
+  it('is stored as given: never trimmed, folded or normalised', () => {
+    expect(AnswerJobSchema.parse({ answers: ANSWERS, acting_for: '  Jane  D.  ' }).acting_for).toBe('  Jane  D.  ');
+    expect(DismissJobSchema.parse({ acting_for: 'ñ' }).acting_for).toBe('ñ');
+  });
+
+  it('is optional, and never null or anything but a string', () => {
+    expect(AnswerJobSchema.parse({ answers: ANSWERS })).toEqual({ answers: ANSWERS });
+    expect(DismissJobSchema.parse({})).toEqual({});
+    for (const actingFor of [null, 3, true, ['Jane'], {}]) {
+      expect(AnswerJobSchema.safeParse({ answers: ANSWERS, acting_for: actingFor }).error?.issues[0]?.path, JSON.stringify(actingFor)).toEqual(['acting_for']);
+      expect(DismissJobSchema.safeParse({ acting_for: actingFor }).success, JSON.stringify(actingFor)).toBe(false);
+    }
+  });
+});
+
+describe('the answers a key sends (PRD 2425 s6)', () => {
+  it('takes the answers as the page takes them, one to each question by its text, and whom the key acts for', () => {
+    expect(AnswerJobSchema.parse({ answers: { 'Which fix?': 'Guard the input' } })).toEqual({ answers: { 'Which fix?': 'Guard the input' } });
+    const both = { answers: { 'Which fix?': 'Design it first', 'And the tests?': 'A free answer, in the key’s own words.' }, acting_for: 'Jane D.' };
+    expect(AnswerJobSchema.parse(both)).toEqual(both);
+  });
+
+  it('takes the page’s limits: 1 to 4 answers, each of 1 to 2,000 characters, to a question of at least one', () => {
+    const many = (count: number) => Object.fromEntries(Array.from({ length: count }, (_, i) => [`Question ${String(i)}?`, 'Yes']));
+    expect(AnswerJobSchema.safeParse({ answers: many(4) }).success).toBe(true);
+    expect(AnswerJobSchema.safeParse({ answers: { 'Which fix?': 'x'.repeat(2000) } }).success).toBe(true);
+    for (const answers of [{}, many(5), { 'Which fix?': '' }, { 'Which fix?': 'x'.repeat(2001) }, { '': 'Yes' }, { 'Which fix?': 3 }, 'Guard the input', ['Guard the input'], null]) {
+      expect(AnswerJobSchema.safeParse({ answers }).error?.issues[0]?.path[0], JSON.stringify(answers)).toBe('answers');
+    }
+  });
+
+  it('refuses a body with no answers, and a field it does not know, naming it', () => {
+    expect(AnswerJobSchema.safeParse({}).error?.issues[0]?.path).toEqual(['answers']);
+    const unknown = AnswerJobSchema.safeParse({ answers: { 'Which fix?': 'Guard the input' }, acted_for: 'Jane D.' }).error?.issues[0];
+    expect(unknown).toMatchObject({ code: 'unrecognized_keys', keys: ['acted_for'] });
+  });
+
+  it('describes each field for the reference', () => {
+    expect(AnswerJobSchema.shape.answers.meta()?.description).toEqual(expect.any(String));
+    expect(AnswerJobSchema.shape.acting_for.meta()?.description).toEqual(expect.any(String));
+  });
+});
+
+describe('the dismissal a key sends (PRD 2425 s6)', () => {
+  it('takes nothing, or whom the key acts for, and no other field', () => {
+    expect(DismissJobSchema.parse({})).toEqual({});
+    expect(DismissJobSchema.parse({ acting_for: 'Jane D.' })).toEqual({ acting_for: 'Jane D.' });
+    expect(DismissJobSchema.safeParse({ answers: { 'Which fix?': 'Guard the input' } }).error?.issues[0]).toMatchObject({ code: 'unrecognized_keys', keys: ['answers'] });
+    expect(DismissJobSchema.safeParse(null).success).toBe(false);
+    expect(DismissJobSchema.safeParse([]).success).toBe(false);
+  });
+
+  it('describes its field for the reference', () => {
+    expect(DismissJobSchema.shape.acting_for.meta()?.description).toEqual(expect.any(String));
+  });
+});
+
+describe('a job’s questions, as a key reads them (PRD 2425 s6)', () => {
+  const OPTIONS = [{ label: 'Guard the input', description: 'Check the tenant before the query' }, { label: 'Design it first', description: 'Stop here and brainstorm the behaviour' }];
+  const OPEN = {
+    lead: 'The planning query fails for 31 tenants.',
+    questions: [{ question: 'Which fix?', header: 'Fix', multi_select: false, options: OPTIONS }],
+    state: 'open', answers: null, closed_by: null,
+  };
+
+  it('reads an open round: the lead, the questions, no answers and nobody who closed it', () => {
+    expect(QuestionsSchema.parse(OPEN)).toEqual(OPEN);
+  });
+
+  it('reads who closed it: a key by its name and whom it acted for, or a person by their login', () => {
+    const answered = { ...OPEN, state: 'answered', answers: { 'Which fix?': 'Guard the input' } };
+    for (const closedBy of [{ key: 'Support bot', acting_for: 'Jane D.' }, { key: 'Support bot', acting_for: null }, { login: 'mo' }, { login: null }]) {
+      expect(QuestionsSchema.parse({ ...answered, closed_by: closedBy }).closed_by, JSON.stringify(closedBy)).toEqual(closedBy);
+    }
+    expect(QuestionsSchema.parse({ ...OPEN, state: 'dismissed', closed_by: { key: 'QA dashboard', acting_for: null } }).answers).toBeNull();
+  });
+
+  it('refuses a state it does not name, and a closer that is a key and a person at once, or a key with no acting_for', () => {
+    expect(QuestionsSchema.safeParse({ ...OPEN, state: 'closed' }).error?.issues[0]?.path).toEqual(['state']);
+    for (const closedBy of [{ key: 'Support bot', login: 'mo' }, { key: 'Support bot' }, { login: 'mo', acting_for: 'Jane D.' }, 'mo', {}]) {
+      expect(QuestionsSchema.safeParse({ ...OPEN, state: 'answered', closed_by: closedBy }).success, JSON.stringify(closedBy)).toBe(false);
+    }
+  });
+
+  it('refuses a read missing any field, so a client may rely on all of them', () => {
+    for (const field of ['lead', 'questions', 'state', 'answers', 'closed_by']) {
+      const without = Object.fromEntries(Object.entries(OPEN).filter(([name]) => name !== field));
+      expect(QuestionsSchema.safeParse(without).error?.issues[0]?.path, field).toEqual([field]);
+    }
+  });
+
+  it('describes each field for the reference', () => {
+    for (const field of ['lead', 'questions', 'state', 'answers', 'closed_by'] as const) {
+      expect(QuestionsSchema.shape[field].meta()?.description, field).toEqual(expect.any(String));
+    }
+  });
+});
+
 describe('the errors', () => {
-  it('answer one shape, with the spec’s statuses', () => {
-    expect(PUBLIC_API_ERRORS).toEqual({ unauthorized: 401, forbidden: 403, not_found: 404, invalid_request: 422, internal: 500 });
+  it('answer one shape, with the spec’s statuses, a 409 for a round already closed included (PRD 2425 s6)', () => {
+    expect(PUBLIC_API_ERRORS).toEqual({ unauthorized: 401, forbidden: 403, not_found: 404, conflict: 409, invalid_request: 422, internal: 500 });
     for (const code of Object.keys(PUBLIC_API_ERRORS)) expect(PublicApiErrorSchema.safeParse({ error: { code, message: 'm' } }).success).toBe(true);
     expect(PublicApiErrorSchema.safeParse({ error: { code: 'teapot', message: 'm' } }).success).toBe(false);
     expect(PublicApiErrorSchema.safeParse({ error: 'Sign in first.' }).success).toBe(false);

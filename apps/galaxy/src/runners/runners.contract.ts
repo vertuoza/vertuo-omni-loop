@@ -372,6 +372,9 @@ export type KeyJob = {
 /** What a key asks to send: a bug-fix line, for a repository, to a runner by name or a fleet, or to any. */
 export type KeySend = { repo: string; line: string; runner?: string | undefined; fleet?: string | undefined };
 
+/** The API key that answers or dismisses a job's questions (PRD 2425 s6): its id and workspace, and whom it says it acts for. */
+export type KeyCloser = { id: string; workspace: string; actingFor: string | null };
+
 export const JobReplySchema = z.object({ job: JobSchema });
 
 /** `lines`' query: the lines after this sequence number (none: from the first). */

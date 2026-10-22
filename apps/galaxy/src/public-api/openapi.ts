@@ -1,7 +1,8 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import {
-  BugFixListSchema, JobLineListSchema, JobSchema, ListQuerySchema, PrdListSchema, PublicApiErrorSchema, StartBugFixSchema, StartMegaBugFixSchema,
+  AnswerJobSchema, BugFixListSchema, DismissJobSchema, JobLineListSchema, JobSchema, ListQuerySchema, PrdListSchema, PublicApiErrorSchema, QuestionsSchema,
+  StartBugFixSchema, StartMegaBugFixSchema,
 } from './public-api.contract';
 
 // The public API's reference (PRD 2022 s3, spec "The reference"): every /api/v1 route registered with
@@ -13,8 +14,9 @@ import {
 const ERROR_ANSWERS = {
   401: 'No key, an unknown key, a revoked key, or a key whose maker left the workspace.',
   403: 'A repository outside the workspace or outside the key’s list of repositories, to start a job in or to read the job of.',
-  404: 'A job that does not exist, that a person sent, or that no key of this workspace queued.',
-  422: 'A query or body the contract refuses, a cursor that does not decode, a description the runners refuse, or a repository that is not a plan repository; the message names the field.',
+  404: 'A job that does not exist, that a person sent, that no key of this workspace queued, or, for its questions, that asked none.',
+  409: 'The job’s questions were already answered or dismissed, by a key or by a person on the Runners page (the first close wins), or the job is not waiting for an answer; the message names who closed them.',
+  422: 'A query or body the contract refuses, a cursor that does not decode, a description the runners refuse, a repository that is not a plan repository, or answers that are not one to each question the job asked; the message names the field.',
   500: 'The API could not answer; the message never carries a stack or a database error.',
 } as const;
 
@@ -98,7 +100,7 @@ function openApiRegistry(): OpenAPIRegistry {
     path: '/api/v1/jobs/{id}',
     tags: ['Bug fixes'],
     summary: 'Follow a job',
-    description: 'A job a key of this workspace queued, whichever key it was: its status, the runner, the `pr_url` (the pull request a mega bug fix’s record is), the exit code, the reason and the times. A key whose list of repositories leaves the job’s repository out is refused.\n\nFor a bug fix or a mega bug fix it also says what the job did:\n\n- `outcome`: `pr_opened`, `already_fixed`, `need_human`, `needs_brainstorm`, `not_a_bug`, `stuck` or `blocked`; null while it runs, when it failed, or when its runner reported none.\n- `fixed_by`: the pull request that already fixed the bug, with `already_fixed` only.\n- `prs`: every pull request it opened, in order, a mega bug fix’s record last.\n- `questions`: the state of the questions it asked.\n- `continues`, `continued_by`: the job it carries on and the one that carries it on.\n- `acting_for`, `cancelled_by`: whom the key acted for, and the key that cancelled the job.\n- `log_tail`: the last lines of its log; `GET /api/v1/jobs/{id}/lines` reads the whole of it, a page at a time.',
+    description: 'A job a key of this workspace queued, whichever key it was: its status, the runner, the `pr_url` (the pull request a mega bug fix’s record is), the exit code, the reason and the times. A key whose list of repositories leaves the job’s repository out is refused.\n\nFor a bug fix or a mega bug fix it also says what the job did:\n\n- `outcome`: `pr_opened`, `already_fixed`, `need_human`, `needs_brainstorm`, `not_a_bug`, `stuck` or `blocked`; null while it runs, when it failed, or when its runner reported none.\n- `fixed_by`: the pull request that already fixed the bug, with `already_fixed` only.\n- `prs`: every pull request it opened, in order, a mega bug fix’s record last.\n- `questions`: the state of the questions it asked; `GET /api/v1/jobs/{id}/questions` reads them, and `POST /api/v1/jobs/{id}/answers` and `POST /api/v1/jobs/{id}/dismiss` close them.\n- `continues`, `continued_by`: the job it carries on and the one that carries it on.\n- `acting_for`, `cancelled_by`: whom the key acted for, and the key that cancelled the job.\n- `log_tail`: the last lines of its log; `GET /api/v1/jobs/{id}/lines` reads the whole of it, a page at a time.',
     security: [{ bearerAuth: [] }],
     request: { params: JobParams },
     responses: {
@@ -118,6 +120,48 @@ function openApiRegistry(): OpenAPIRegistry {
     responses: {
       200: { description: 'A page of the job’s lines.', content: { 'application/json': { schema: JobLineListSchema } } },
       ...errors(401, 403, 404, 422, 500),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/api/v1/jobs/{id}/questions',
+    tags: ['Bug fixes'],
+    summary: 'Read the questions a job asked',
+    description: 'A job that ends with `outcome` `need_human` has stopped to ask: its `questions` field on `GET /api/v1/jobs/{id}` says whether they are `open`, `answered` or `dismissed`. This reads them: the `lead` that says why it stopped, each question with its `header`, its `options` (two to four, each a `label` and what it changes) and whether it allows more than one pick, the `state`, the `answers` once given, and `closed_by`, who answered or dismissed them: `{key, acting_for}` for an API key, `{login}` for a person on the Runners page, null while they are open.\n\nA job that asked none, one a person sent, one that no key of this workspace queued, and one that does not exist are 404, a key whose list of repositories leaves the job’s repository out is refused, as for the job itself.',
+    security: [{ bearerAuth: [] }],
+    request: { params: JobParams },
+    responses: {
+      200: { description: 'The questions.', content: { 'application/json': { schema: QuestionsSchema } } },
+      ...errors(401, 403, 404, 500),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/api/v1/jobs/{id}/answers',
+    tags: ['Bug fixes'],
+    summary: 'Answer the questions a job asked',
+    description: 'Answers the open questions of a job a key of this workspace queued, whichever key it was: one answer to each question, a pick (an option’s `label`) or a free one, and no other. The job resumes: this queues a new job on the same runner target, as the key that sent the first and its maker, whoever answers, and answers 202 with it. Its `continues` is the first job’s id, and the first job’s `continued_by` is the new one, which the key that sent the job reads with `GET /api/v1/jobs/{id}`.\n\n`acting_for` says whom the key acts for, if anyone: 1 to 80 characters of letters of any alphabet, digits, spaces and `. _ \' @ - ·`, stored as given and shown beside the key’s name on the Runners page. The first close wins: a second answer or dismissal, from a key or from a person on the Runners page, is 409 and changes nothing. A repository’s own skill, whose questions can only be dismissed, is 422.',
+    security: [{ bearerAuth: [] }],
+    request: { params: JobParams, body: { required: true, content: { 'application/json': { schema: AnswerJobSchema } } } },
+    responses: {
+      202: { description: 'The job that resumes the first one, queued.', content: { 'application/json': { schema: JobSchema } } },
+      ...errors(401, 403, 404, 409, 422, 500),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/api/v1/jobs/{id}/dismiss',
+    tags: ['Bug fixes'],
+    summary: 'Dismiss the questions a job asked',
+    description: 'Closes the open questions of a job a key of this workspace queued with no answer, and queues nothing: the job stays as it ended, and its `questions` read `dismissed`. Answers 200 with the job. The body is optional: send none, `{}`, or `{"acting_for": "…"}` to say whom the key acts for (1 to 80 characters, as for an answer). The first close wins: a second dismissal or answer, from a key or from a person on the Runners page, is 409.',
+    security: [{ bearerAuth: [] }],
+    request: { params: JobParams, body: { required: false, content: { 'application/json': { schema: DismissJobSchema } } } },
+    responses: {
+      200: { description: 'The job, its questions dismissed.', content: { 'application/json': { schema: JobSchema } } },
+      ...errors(401, 403, 404, 409, 422, 500),
     },
   });
 

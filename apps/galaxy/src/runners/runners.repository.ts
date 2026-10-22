@@ -109,17 +109,24 @@ type NewQuestions = { jobId: string; workspaceId: string; issue: IssueNumber; le
 
 /** Why runner_job_answer() or runner_job_dismiss() refused, read by the code the database raised: `none` no row
  * for the job (P0002), `closed` the row is closed or the job is not waiting (55000), `stranger` the person is not a
- * member of the workspace (42501), `mismatch` the answers do not match the questions (22023). */
-export type QuestionsRefusal = 'none' | 'closed' | 'stranger' | 'mismatch';
+ * member of the workspace (42501), `key` the API key may not close this job's round (42501: the job was not sent by
+ * a key, or the key is revoked, of another workspace, off the repository's allow-list or not its maker's: PRD 2425),
+ * `mismatch` the answers do not match the questions (22023). */
+export type QuestionsRefusal = 'none' | 'closed' | 'stranger' | 'key' | 'mismatch';
 
 /** What acting on a job's questions answered: the value, or the refusal. */
 export type Acted<T> = { ok: true; value: T } | { ok: false; refusal: QuestionsRefusal };
+
+/** What runner_job_closer_check() says when an API key may not close a round (42501): a plain permission denied is
+ * neither this nor a stranger, it is a failure. */
+const KEY_REFUSALS = ['an API key closes only the questions of a job an API key sent', 'this API key does not act on this job'];
 
 /** The refusal a database error is, or null when it is anything else (a failure the controller logs). */
 function refusalOf(error: { code?: string; message?: string }): QuestionsRefusal | null {
   if (error.code === 'P0002') return 'none';
   if (error.code === '55000') return 'closed';
   if (error.code === '42501' && error.message?.startsWith('not a member')) return 'stranger';
+  if (error.code === '42501' && KEY_REFUSALS.some((message) => error.message?.startsWith(message))) return 'key';
   if (error.code === '22023') return 'mismatch';
   return null;
 }
@@ -349,6 +356,16 @@ export function runnersRepository(db: RunnersDb) {
     /** Dismisses a job's questions for the person (runner_job_dismiss()). Answers the closed row, or why the database refused. */
     dismiss: async (jobId: string, by: string): Promise<Acted<QuestionsRow>> =>
       acted(db.rpc('runner_job_dismiss', { p_job: jobId, p_by: by }), QuestionsRow, 'runner_job_dismiss()'),
+
+    /** Answers a job's questions for an API key (runner_job_answer(), PRD 2425): the same transaction as the person's,
+     * closed by the key and whom it says it acted for (null when it said no one), with no person. Answers the resume
+     * job, or why the database refused: a key that may not close this round is `key`. */
+    answerByKey: async (jobId: string, answers: Record<string, string>, key: string, actingFor: string | null): Promise<Acted<JobRow>> =>
+      acted(db.rpc('runner_job_answer', { p_job: jobId, p_answers: answers, p_key: key, p_acting_for: actingFor }), JobRow, 'runner_job_answer()'),
+
+    /** Dismisses a job's questions for an API key (runner_job_dismiss(), PRD 2425). Answers the closed row, or why the database refused. */
+    dismissByKey: async (jobId: string, key: string, actingFor: string | null): Promise<Acted<QuestionsRow>> =>
+      acted(db.rpc('runner_job_dismiss', { p_job: jobId, p_key: key, p_acting_for: actingFor }), QuestionsRow, 'runner_job_dismiss()'),
   };
 }
 

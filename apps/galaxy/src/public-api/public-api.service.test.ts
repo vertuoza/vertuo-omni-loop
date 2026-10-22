@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { checkRunnerLine, LINE_MAX } from 'omni-loop/kit/lib/runner/line.ts';
-import { API_KEY, jobRow, lineRows, OLGA, OTHER_KEY, questionsRow, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
+import { API_KEY, jobRow, lineRows, OLGA, OTHER_KEY, questionsRow, SAM, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
 import { encodeCursor, encodeLinesCursor } from './cursor';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
 import { BugFixListSchema, DESCRIPTION_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, type ListQuery } from './public-api.contract';
@@ -743,5 +743,231 @@ describe('reading a job’s lines (PRD 2425 s4)', () => {
     const broken = { ...api.runners, keyJob: () => Promise.resolve({ ok: false as const, kind: 'unavailable' as const, error: 'runner_jobs: permission denied' }) };
     const service = publicApiService(api.repository, broken);
     await expect(service.jobLines(await caller(api, SECRETS.runners), job.id, FIRST)).rejects.toThrow('runner_jobs: permission denied');
+  });
+});
+
+// PRD 2425 s6: a key reads the questions of a job a key of its workspace sent, answers them (the resume stays the
+// key's and continues the job) or dismisses them with no job queued; the first close wins, whoever closes.
+describe('a key answering and dismissing its job’s questions (PRD 2425 s6)', () => {
+  const ANSWERS = { 'Which fix?': 'Guard the input' };
+  const UNKNOWN_JOB = '00000000-0000-4000-8000-00000000dead';
+
+  /** A bug fix the first key of the workspace sent, ended `done` with its questions open, in demo-org/app. */
+  function seed(api: FakePublicApi, more: Partial<ReturnType<typeof jobRow>> = {}, asked = true) {
+    const job = jobRow({
+      status: 'done', outcome: 'human', runner_id: SHARED, line: '/omni:bug-fix #314', sent_by: OLGA, sent_by_key: API_KEY, exit_code: 0,
+      claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+    });
+    api.runnersState.jobs.push(job);
+    if (asked) api.runnersState.questions.push(questionsRow({ job_id: job.id }));
+    return job;
+  }
+  const service = (api: FakePublicApi) => publicApiService(api.repository, api.runners);
+  const valueOf = <T>(answered: { ok: true; value: T } | { ok: false; message: string }): T => {
+    if (!answered.ok) throw new Error(answered.message);
+    return answered.value;
+  };
+
+  describe('reading the questions', () => {
+    it('reads an open round in the API’s words: the lead, the questions, no answers and nobody who closed it', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const read = valueOf(await service(api).jobQuestions(await caller(api, SECRETS.runnersOther), job.id));
+      expect(read).toEqual({
+        lead: 'The planning query fails for 31 tenants.',
+        questions: [{
+          question: 'Which fix?', header: 'Fix', multi_select: false,
+          options: [{ label: 'Guard the input', description: 'Check the tenant before the query' }, { label: 'Design it first', description: 'Stop here and brainstorm the behaviour' }],
+        }],
+        state: 'open', answers: null, closed_by: null,
+      });
+    });
+
+    it('reads who closed a round: a key by its name and whom it acted for, or a person by their login', async () => {
+      const api = fakePublicApi();
+      const [byKey, byPerson, noLogin, dismissed, gone] = [seed(api, {}, false), seed(api, {}, false), seed(api, {}, false), seed(api, {}, false), seed(api, {}, false)];
+      const closed_at = T0.toISOString();
+      api.runnersState.questions.push(
+        questionsRow({ job_id: byKey.id, answers: ANSWERS, closed_by_key: OTHER_KEY, closed_for: 'Jane D.', closed_at }),
+        questionsRow({ job_id: byPerson.id, answers: ANSWERS, closed_by: OLGA, closed_at }),
+        questionsRow({ job_id: noLogin.id, answers: ANSWERS, closed_by: SAM, closed_at }),
+        questionsRow({ job_id: dismissed.id, closed_by_key: API_KEY, closed_at }),
+        // A key that was deleted since: the database leaves no closer on the round.
+        questionsRow({ job_id: gone.id, closed_at }),
+      );
+      const key = await caller(api, SECRETS.runners);
+      expect(valueOf(await service(api).jobQuestions(key, byKey.id))).toMatchObject({ state: 'answered', answers: ANSWERS, closed_by: { key: 'Support bot', acting_for: 'Jane D.' } });
+      expect(valueOf(await service(api).jobQuestions(key, byPerson.id))).toMatchObject({ state: 'answered', answers: ANSWERS, closed_by: { login: 'olga' } });
+      expect(valueOf(await service(api).jobQuestions(key, noLogin.id))).toMatchObject({ state: 'answered', closed_by: { login: null } });
+      expect(valueOf(await service(api).jobQuestions(key, dismissed.id))).toMatchObject({ state: 'dismissed', answers: null, closed_by: { key: 'QA dashboard', acting_for: null } });
+      expect(valueOf(await service(api).jobQuestions(key, gone.id))).toMatchObject({ state: 'dismissed', answers: null, closed_by: null });
+    });
+
+    it('answers 404 for a job that asked none, in its own words, and for a person’s job, another workspace’s and none at all', async () => {
+      const api = fakePublicApi();
+      const quiet = seed(api, {}, false);
+      const person = seed(api, { sent_by_key: null });
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).jobQuestions(key, quiet.id)).toEqual({ ok: false, code: 'not_found', message: 'This job asked no question.' });
+      expect(await service(api).jobQuestions(key, person.id)).toMatchObject({ ok: false, code: 'not_found', message: 'No such job.' });
+      expect(await service(api).jobQuestions(key, UNKNOWN_JOB)).toMatchObject({ ok: false, code: 'not_found' });
+      expect(await service(api).jobQuestions(await caller(api, SECRETS.south), quiet.id)).toMatchObject({ ok: false, code: 'not_found', message: 'No such job.' });
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, and reads a job of one on it', async () => {
+      const api = fakePublicApi();
+      const off = seed(api);
+      const on = seed(api, { repo: 'demo-org/other' });
+      const limited = await caller(api, SECRETS.runnersLimited);
+      expect(await service(api).jobQuestions(limited, off.id)).toEqual({ ok: false, code: 'forbidden', message: 'demo-org/app is not on this API key’s list of repositories.' });
+      expect(await service(api).jobQuestions(limited, on.id)).toMatchObject({ ok: true, value: { state: 'open' } });
+    });
+  });
+
+  describe('answering', () => {
+    it('queues the resume as the job’s key, continuing the job, and answers it as a job: queued, acting_for, no questions yet', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const resume = valueOf(await service(api).answerJob(await caller(api, SECRETS.runnersOther), job.id, { answers: ANSWERS, acting_for: 'Jane D.' }));
+      expect(resume).toMatchObject({
+        line: `/omni:bug-fix #314 --answers ${job.id}`, repo: 'demo-org/app', status: 'queued', continues: job.id, continued_by: null,
+        acting_for: 'Jane D.', questions: null, outcome: null, prs: [],
+      });
+      // The key that answered is not the key that sent the job: the resume stays the sender’s.
+      expect(api.runnersState.jobs.find((j) => j.id === resume.id)).toMatchObject({ sent_by: OLGA, sent_by_key: API_KEY, continues: job.id });
+    });
+
+    it('reads the first job as carried on by the resume and answered, and the resume by the key that sent the job', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const resume = valueOf(await service(api).answerJob(await caller(api, SECRETS.runnersOther), job.id, { answers: ANSWERS }));
+      const sender = await caller(api, SECRETS.runners);
+      expect(valueOf(await service(api).job(sender, job.id))).toMatchObject({ continued_by: resume.id, questions: { state: 'answered' } });
+      expect(valueOf(await service(api).job(sender, resume.id))).toMatchObject({ id: resume.id, continues: job.id });
+      expect(valueOf(await service(api).jobQuestions(sender, job.id))).toMatchObject({ state: 'answered', answers: ANSWERS, closed_by: { key: 'Support bot', acting_for: null } });
+    });
+
+    it('stores whom the key acted for as given, and no one when it said none', async () => {
+      const api = fakePublicApi();
+      const [named, anonymous] = [seed(api), seed(api)];
+      const key = await caller(api, SECRETS.runnersOther);
+      await service(api).answerJob(key, named.id, { answers: ANSWERS, acting_for: '  José O\'Neil · ops  ' });
+      await service(api).answerJob(key, anonymous.id, { answers: ANSWERS });
+      const closed = new Map(api.runnersState.questions.map((q) => [q.job_id, q.closed_for]));
+      expect(closed.get(named.id)).toBe('  José O\'Neil · ops  ');
+      expect(closed.get(anonymous.id)).toBeNull();
+    });
+
+    it('answers 409 conflict to a second answer or dismissal, from a key or the page, naming the first: the first wins', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const key = await caller(api, SECRETS.runnersOther);
+      valueOf(await service(api).answerJob(key, job.id, { answers: ANSWERS }));
+      const closed = { ok: false, code: 'conflict', message: 'Already answered by API key Support bot' };
+      expect(await service(api).answerJob(await caller(api, SECRETS.runners), job.id, { answers: ANSWERS })).toEqual(closed);
+      expect(await service(api).dismissJob(key, job.id, {})).toEqual(closed);
+      expect(await api.runners.answer(OLGA, job.id, { answers: ANSWERS })).toEqual({ ok: false, kind: 'conflict', error: 'Already answered by API key Support bot' });
+      expect(api.runnersState.jobs.filter((j) => j.continues === job.id)).toHaveLength(1);
+    });
+
+    it('answers 409 conflict to a key whose round a person on the page closed first, naming them', async () => {
+      const api = fakePublicApi();
+      const [dismissed, answered] = [seed(api), seed(api)];
+      expect(await api.runners.dismiss(OLGA, dismissed.id)).toMatchObject({ ok: true });
+      expect(await api.runners.answer(OLGA, answered.id, { answers: ANSWERS })).toMatchObject({ ok: true });
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).answerJob(key, dismissed.id, { answers: ANSWERS })).toEqual({ ok: false, code: 'conflict', message: 'Dismissed by @olga' });
+      expect(await service(api).dismissJob(key, answered.id, {})).toEqual({ ok: false, code: 'conflict', message: 'Already answered by @olga' });
+    });
+
+    it('answers 409 conflict to a job that is not waiting for an answer', async () => {
+      const api = fakePublicApi();
+      const failed = seed(api, { status: 'failed', outcome: null });
+      expect(await service(api).answerJob(await caller(api, SECRETS.runners), failed.id, { answers: ANSWERS })).toEqual({ ok: false, code: 'conflict', message: 'This job is not waiting for an answer.' });
+    });
+
+    it('answers 422 to answers that are not one to each question, naming the field, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const key = await caller(api, SECRETS.runners);
+      for (const answers of [{ 'And the tests?': 'Add one' }, { 'Which fix?': 'Guard the input', 'And the tests?': 'Add one' }]) {
+        expect(await service(api).answerJob(key, job.id, { answers })).toEqual({ ok: false, code: 'invalid_request', message: 'answers: Answer each question once, and only the ones asked.' });
+      }
+      expect(api.runnersState.jobs).toHaveLength(1);
+      expect(api.runnersState.questions[0]?.closed_at).toBeNull();
+    });
+
+    it('answers 422 to a repository’s own skill, whose questions can only be dismissed, and dismisses them', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { line: '/triage-bug 314' });
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).answerJob(key, job.id, { answers: ANSWERS })).toEqual({
+        ok: false, code: 'invalid_request', message: 'answers: /triage-bug is a repository\'s own skill: its questions can only be dismissed.',
+      });
+      expect(await service(api).dismissJob(key, job.id, {})).toMatchObject({ ok: true, value: { questions: { state: 'dismissed' } } });
+    });
+
+    it('answers 404 for what a key learns nothing of: a person’s job, another workspace’s, none at all, a job that asked none', async () => {
+      const api = fakePublicApi();
+      const person = seed(api, { sent_by_key: null });
+      const quiet = seed(api, {}, false);
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).answerJob(key, person.id, { answers: ANSWERS })).toEqual({ ok: false, code: 'not_found', message: 'No such job.' });
+      expect(await service(api).answerJob(key, UNKNOWN_JOB, { answers: ANSWERS })).toMatchObject({ ok: false, code: 'not_found' });
+      expect(await service(api).answerJob(key, quiet.id, { answers: ANSWERS })).toEqual({ ok: false, code: 'not_found', message: 'This job asked no question.' });
+      expect(await service(api).answerJob(await caller(api, SECRETS.south), person.id, { answers: ANSWERS })).toMatchObject({ ok: false, code: 'not_found' });
+      expect(api.runnersState.jobs).toHaveLength(2);
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      expect(await service(api).answerJob(await caller(api, SECRETS.runnersLimited), job.id, { answers: ANSWERS })).toEqual({
+        ok: false, code: 'forbidden', message: 'demo-org/app is not on this API key’s list of repositories.',
+      });
+      expect(api.runnersState.jobs).toHaveLength(1);
+      expect(api.runnersState.questions[0]?.closed_at).toBeNull();
+    });
+
+    it('answers 403 when the person who made the job’s key left the workspace, as the resume would be queued as them', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { sent_by: '00000000-0000-4000-8000-0000018300e1' });
+      expect(await service(api).answerJob(await caller(api, SECRETS.runners), job.id, { answers: ANSWERS })).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(api.runnersState.jobs).toHaveLength(1);
+    });
+  });
+
+  describe('dismissing', () => {
+    it('closes the round with no answer and no job queued, and answers the job with its questions dismissed', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const dismissed = valueOf(await service(api).dismissJob(await caller(api, SECRETS.runnersOther), job.id, { acting_for: 'Jane D.' }));
+      expect(dismissed).toMatchObject({ id: job.id, status: 'done', outcome: 'need_human', questions: { state: 'dismissed' }, continued_by: null });
+      expect(api.runnersState.jobs).toHaveLength(1);
+      expect(api.runnersState.questions[0]).toMatchObject({ answers: null, closed_by: null, closed_by_key: OTHER_KEY, closed_for: 'Jane D.', resume_job: null });
+    });
+
+    it('reads the dismissal back with the key by name, and answers 409 to a second close', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const key = await caller(api, SECRETS.runnersOther);
+      valueOf(await service(api).dismissJob(key, job.id, {}));
+      expect(valueOf(await service(api).jobQuestions(key, job.id))).toMatchObject({ state: 'dismissed', answers: null, closed_by: { key: 'Support bot', acting_for: null } });
+      const closed = { ok: false, code: 'conflict', message: 'Dismissed by API key Support bot' };
+      expect(await service(api).dismissJob(key, job.id, {})).toEqual(closed);
+      expect(await service(api).answerJob(key, job.id, { answers: ANSWERS })).toEqual(closed);
+    });
+
+    it('answers 404 and 403 as an answer does, and 409 for a job not waiting', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const person = seed(api, { sent_by_key: null });
+      const failed = seed(api, { status: 'failed', outcome: null });
+      expect(await service(api).dismissJob(await caller(api, SECRETS.runners), person.id, {})).toEqual({ ok: false, code: 'not_found', message: 'No such job.' });
+      expect(await service(api).dismissJob(await caller(api, SECRETS.south), job.id, {})).toMatchObject({ ok: false, code: 'not_found' });
+      expect(await service(api).dismissJob(await caller(api, SECRETS.runnersLimited), job.id, {})).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(await service(api).dismissJob(await caller(api, SECRETS.runners), failed.id, {})).toEqual({ ok: false, code: 'conflict', message: 'This job is not waiting for an answer.' });
+      expect(api.runnersState.questions.filter((q) => q.closed_at !== null)).toEqual([]);
+    });
   });
 });

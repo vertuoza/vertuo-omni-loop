@@ -1,6 +1,7 @@
 import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { BugFixOutcome } from 'omni-loop/kit/lib/runner/log.ts';
 import { z } from 'zod';
+import { AnswerRequestSchema } from '../runners/runners.contract';
 
 // The public API's contract (PRD 2022 s2, spec "The routes"; ADR-0095): what a program outside the loop
 // sends /api/v1 with its workspace's key, and what it is answered. Each route validates with these zod 4
@@ -12,6 +13,9 @@ import { z } from 'zod';
 //   POST /api/v1/mega-bug-fixes            202 Job: queues `/omni:mega-bug-fix <description>` in a plan repository
 //   GET /api/v1/jobs/{id}                  200 Job: a job a key of this workspace queued (s4), with what it did (PRD 2425 s3)
 //   GET /api/v1/jobs/{id}/lines?limit=&cursor=  200 {data: {seq, text}[], next_cursor}: that job's lines, oldest first (PRD 2425 s4)
+//   GET /api/v1/jobs/{id}/questions        200 Questions: the lead, the questions, the state, the answers once given, who closed them (PRD 2425 s6)
+//   POST /api/v1/jobs/{id}/answers         202 Job: the resume job, queued as the job's key; 409 when the round is closed (PRD 2425 s6)
+//   POST /api/v1/jobs/{id}/dismiss         200 Job: the questions closed with no answer and no job queued; 409 when closed (PRD 2425 s6)
 //
 // Every refusal answers one shape, `{error: {code, message}}`, with the status PUBLIC_API_ERRORS names.
 
@@ -181,17 +185,84 @@ export const JobLineListSchema = z.object({ data: z.array(JobLineSchema), next_c
   .meta({ description: 'A page of a job’s lines, oldest first.' });
 export type JobLineList = z.infer<typeof JobLineListSchema>;
 
+// ── A job's questions (PRD 2425 s6) ─────────────────────────────────────────────
+
+/** The longest `acting_for`, in characters (the database's `char_length` bound). */
+export const ACTING_FOR_MAX = 80;
+
+/** Letters of any alphabet (with their marks, which a name in most of them needs), digits, spaces and `. _ ' @ - ·`. */
+const ACTING_FOR_CHARS = /^[\p{L}\p{M}\p{Nd} ._'@·-]+$/u;
+
+/** Whom a key says it acts for when it answers or dismisses: stored as given, shown beside the key's name. */
+const ActingForSchema = z.string().min(1).max(ACTING_FOR_MAX).regex(ACTING_FOR_CHARS, 'letters of any alphabet, digits, spaces and . _ \' @ - · only');
+
+const ACTING_FOR_META = {
+  description: `Whom the key acts for, 1 to ${String(ACTING_FOR_MAX)} characters of letters of any alphabet, digits, spaces and . _ ' @ - · only. It is stored as given, never trimmed or changed, and the Runners page shows it beside the key’s name. Leave it out when the key acts for no one.`,
+  example: 'Jane D.',
+};
+
+/** What a key answers a job's questions with: the answers as the page takes them, and whom it acts for. Strict: a field this server does not know is refused, never ignored. */
+export const AnswerJobSchema = z.strictObject({
+  answers: AnswerRequestSchema.shape.answers.meta({
+    description: 'One answer to each question the job asked, and no other: each question’s text to its answer, a pick (an option’s label) or a free one of 1 to 2,000 characters. One to four answers.',
+    example: { 'Which fix?': 'Guard the input' },
+  }),
+  acting_for: ActingForSchema.optional().meta(ACTING_FOR_META),
+});
+export type AnswerJob = z.infer<typeof AnswerJobSchema>;
+
+/** What a key dismisses a job's questions with: nothing, or whom it acts for. Strict, as the answers are. */
+export const DismissJobSchema = z.strictObject({ acting_for: ActingForSchema.optional().meta(ACTING_FOR_META) });
+export type DismissJob = z.infer<typeof DismissJobSchema>;
+
+/** One option of a question the job asked. */
+const QuestionOptionSchema = z.object({
+  label: z.string().meta({ description: 'What the option is: the text to answer with to pick it.', example: 'Guard the input' }),
+  description: z.string().meta({ description: 'What it changes.', example: 'Check the tenant before the query' }),
+});
+
+/** One question a job asked. */
+const QuestionSchema = z.object({
+  question: z.string().meta({ description: 'The question. It is also the key of its answer.', example: 'Which fix?' }),
+  header: z.string().meta({ description: 'Its short heading.', example: 'Fix' }),
+  multi_select: z.boolean().meta({ description: 'Whether the question allows more than one pick.', example: false }),
+  options: z.array(QuestionOptionSchema).meta({ description: 'Its two to four options. A free answer is allowed beside them.' }),
+});
+
+/** Who closed a round: an API key, by its name, and whom it said it acted for. */
+const ClosedByKeySchema = z.strictObject({
+  key: z.string().meta({ description: 'The name of the API key that closed the questions.', example: 'Support bot' }),
+  acting_for: z.string().nullable().meta({ description: 'Whom that key said it acted for, or null.', example: 'Jane D.' }),
+});
+
+/** Who closed a round: a person, by their GitHub login (null when they have none). */
+const ClosedByPersonSchema = z.strictObject({
+  login: z.string().nullable().meta({ description: 'The GitHub login of the person who closed the questions, or null when they have none.', example: 'mo' }),
+});
+
+/** The questions a job asked, as a key reads them. */
+export const QuestionsSchema = z.object({
+  lead: z.string().meta({ description: 'Why the job stopped to ask.', example: 'The planning query fails for 31 tenants.' }),
+  questions: z.array(QuestionSchema).meta({ description: 'The questions, one to four.' }),
+  state: z.enum(['open', 'answered', 'dismissed']).meta({ description: 'open until someone answers or dismisses them.', example: 'open' }),
+  answers: z.record(z.string(), z.string()).nullable().meta({ description: 'The answers, each question’s text to its answer, once given; null while the questions are open and when they were dismissed.', example: { 'Which fix?': 'Guard the input' } }),
+  closed_by: z.union([ClosedByKeySchema, ClosedByPersonSchema]).nullable()
+    .meta({ description: 'Who answered or dismissed them: `{key, acting_for}` for an API key, `{login}` for a person on the Runners page; null while they are open.' }),
+}).meta({ description: 'The questions a job asked.' });
+export type ApiQuestions = z.infer<typeof QuestionsSchema>;
+
 /** Each error's status. */
 export const PUBLIC_API_ERRORS = {
   unauthorized: 401,
   forbidden: 403,
   not_found: 404,
+  conflict: 409,
   invalid_request: 422,
   internal: 500,
 } as const;
 export type PublicApiErrorCode = keyof typeof PUBLIC_API_ERRORS;
 
-const ERROR_CODES = ['unauthorized', 'forbidden', 'not_found', 'invalid_request', 'internal'] as const satisfies readonly PublicApiErrorCode[];
+const ERROR_CODES = ['unauthorized', 'forbidden', 'not_found', 'conflict', 'invalid_request', 'internal'] as const satisfies readonly PublicApiErrorCode[];
 
 export const PublicApiErrorSchema = z.object({
   error: z.object({

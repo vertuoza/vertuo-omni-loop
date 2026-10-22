@@ -14,7 +14,7 @@ import { publicApiService, type PublicApiService } from './public-api.service';
 // api_key_of() is the service role's alone. Without Supabase or the service role key (the demo galaxy)
 // every call answers 500, said in its words.
 
-// The runners' rules, as the runners' own routes build them (a key only queues and reads; it never holds).
+// The runners' rules, as the runners' own routes build them (a key queues, reads, answers and dismisses; it never holds).
 const clock = {
   now: () => new Date(),
   sleep: (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); }),
