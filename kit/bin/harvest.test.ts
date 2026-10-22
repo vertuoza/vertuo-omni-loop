@@ -557,3 +557,33 @@ describe('the pipeline halves', () => {
     expect(prepared.edits).toEqual({ deletes: [], moves: [], writes: [] });
   });
 });
+
+// Issue 2442: a merged pull request that changed many files. `gh api … --paginate --slurp` prints
+// every page at once, and execFileSync refuses more than its maxBuffer (1 MB unless set) with ENOBUFS.
+describe('omni harvest — a pull request with many changed files (issue 2442)', () => {
+  /** Pages of GitHub's file list, about two megabytes once printed: 1,200 files of a long path each. */
+  const MANY_FILES = Array.from({ length: 12 }, (_, page) =>
+    Array.from({ length: 100 }, (_, n) => ({ filename: `kit/lib/many/${'deep/'.repeat(250)}file-${String(page * 100 + n)}.ts`, status: 'modified' })),
+  );
+
+  /** `gh` faked as execFileSync answers: past the call's maxBuffer, Node throws ENOBUFS. */
+  function bounded(pr: unknown) {
+    return (cmd: string, args: readonly string[], options?: ExecFileSyncOptions) => {
+      if (cmd !== 'gh') return realExec(cmd, args, options);
+      const out = JSON.stringify(String(args[1]).endsWith('/files') ? MANY_FILES : pr);
+      if (Buffer.byteLength(out) > (options?.maxBuffer ?? 1024 * 1024)) {
+        throw Object.assign(new Error('spawnSync gh ENOBUFS'), { code: 'ENOBUFS' });
+      }
+      return out;
+    };
+  }
+
+  it('reads every page of the files, and harvests', async () => {
+    expect(Buffer.byteLength(JSON.stringify(MANY_FILES))).toBeGreaterThan(1024 * 1024);
+    const r = repo();
+    const streams = io();
+    const code = await main(['harvest', '42', '--pr', '43'], { cwd: r.root, exec: bounded(MERGED_PR), env: { OPENROUTER_API_KEY: KEY }, ...streams });
+    expect(streams.err.join('')).toBe('');
+    expect(code).toBe(0);
+  });
+});
