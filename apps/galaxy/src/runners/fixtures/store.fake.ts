@@ -1,6 +1,6 @@
 import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import type { Question } from '../runners.contract';
-import type { Acted, JobLineRow, JobPatch, JobRow, JobRowStatus, NewJob, NewRelaunch, NewRunner, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from '../runners.repository';
+import type { Acted, JobLineRow, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, NewRunner, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from '../runners.repository';
 
 // The runners' storage in memory (PRD 1830 s1), for the service's and the controller's tests: the same
 // rows the two tables hold, the claim's rules as runner_claim() applies them, and runners_mark_lost(),
@@ -161,13 +161,13 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
   };
 
   // The resume job runner_job_answer() queues, to the first job's repository and target: a key's job resumes as that job's key
-  // and maker and continues it, whoever answered; any other job, as the answerer.
+  // and maker and continues it, whoever answered; any other job, as the answerer. It keeps the first job's notify_url (PRD 2425 s8).
   const resumeFor = (asked: JobRow, row: QuestionsRow, closer: Closer, actingFor: string | null): JobRow => {
     const key = sentByKey(asked) ? { sent_by_key: asked.sent_by_key, continues: asked.id } : {};
     return jobRow({
       workspace_id: asked.workspace_id, line: `/omni:${skillOf(asked.line) ?? ''} #${String(row.issue)} --answers ${asked.id}`, repo: asked.repo,
       to_runner: asked.to_runner, to_fleet: asked.to_fleet, sent_by: sentByKey(asked) ? asked.sent_by : 'by' in closer ? closer.by : null, queued_at: stamp(),
-      ...key, ...(actingFor === null ? {} : { acting_for: actingFor }),
+      ...key, ...(actingFor === null ? {} : { acting_for: actingFor }), notify_url: asked.notify_url ?? null,
     });
   };
 
@@ -275,8 +275,12 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
     continuedBy: (jobId) => Promise.resolve(state.jobs
       .filter((j) => j.continues === jobId)
       .sort((a, b) => b.queued_at.localeCompare(a.queued_at))[0]?.id ?? null),
-    insertJob: (job: NewJob) => {
-      const row = jobRow({ workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy, sent_by_key: job.sentByKey, queued_at: stamp() });
+    insertJob: (job: NewJob & KeyStart) => {
+      const row = jobRow({
+        workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy, sent_by_key: job.sentByKey, queued_at: stamp(),
+        // As the columns' nulls: a start that says neither stores neither (PRD 2425 s8).
+        acting_for: job.actingFor ?? null, notify_url: job.notifyUrl ?? null,
+      });
       state.jobs.push(row);
       return Promise.resolve({ ...row });
     },

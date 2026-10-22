@@ -81,7 +81,50 @@ export const BUG_FIX = '/omni:bug-fix';
  * `/omni:bug-fix `, so a line the app queues is always one a runner runs. */
 export const DESCRIPTION_MAX = 200 - BUG_FIX.length - 1;
 
-/** What starts a bug fix: the repository, what is wrong, and optionally where it runs. */
+/** The longest `acting_for`, in characters (the database's `char_length` bound). */
+export const ACTING_FOR_MAX = 80;
+
+/** Letters of any alphabet (with their marks, which a name in most of them needs), digits, spaces and `. _ ' @ - ·`. */
+const ACTING_FOR_CHARS = /^[\p{L}\p{M}\p{Nd} ._'@·-]+$/u;
+
+/** Whom a key says it acts for when it sends, answers, dismisses, cancels or relaunches: stored as given, shown beside the key’s name. */
+const ActingForSchema = z.string().min(1).max(ACTING_FOR_MAX).regex(ACTING_FOR_CHARS, 'letters of any alphabet, digits, spaces and . _ \' @ - · only');
+
+const ACTING_FOR_META = {
+  description: `Whom the key acts for, 1 to ${String(ACTING_FOR_MAX)} characters of letters of any alphabet, digits, spaces and . _ ' @ - · only. It is stored as given, never trimmed or changed, and the Runners page shows it beside the key’s name. Leave it out when the key acts for no one.`,
+  example: 'Jane D.',
+};
+
+/** The longest `notify_url`, in characters (the database's `char_length` bound). */
+export const NOTIFY_URL_MAX = 500;
+
+/** The link a job's changes are pinged to (PRD 2425 s8): https, the database's `^https://` and 500 characters, and
+ * no user name or password in it. That its host is public is not a shape: the service resolves it and refuses a
+ * host that is not (a 422), as the ping does again before every try. */
+const NotifyUrlSchema = z.url({ protocol: /^https$/ }).max(NOTIFY_URL_MAX).regex(/^https:\/\//, 'https only')
+  .refine((link) => {
+    try {
+      const { username, password } = new URL(link);
+      return username === '' && password === '';
+    } catch {
+      return false;
+    }
+  }, 'no user name or password');
+
+const NOTIFY_URL_META = {
+  description: `An https link to ping when the job changes: when its status, outcome or questions change, the server posts \`{"job_id", "event", "at"}\` to it, \`event\` being \`status\`, \`outcome\` or \`questions\`. The ping says that something changed and never what: read the job with the key. It is sent after the response, three tries within about 30 seconds, and a job that is answered, resumed or continued keeps the link. At most ${String(NOTIFY_URL_MAX)} characters, no user name or password, and a host that resolves to public addresses only: any other is refused with a 422, a redirect is never followed. Leave it out for no ping.`,
+  example: 'https://hooks.example.com/omni/jobs',
+};
+
+/** What both starts end with: the fleet that may run the job, whom it is for and where to ping (PRD 2425 s8). */
+const START_TAIL = {
+  fleet: z.string().min(1).max(40).optional()
+    .meta({ description: 'The key of the fleet whose runners may run it.', example: 'comets' }),
+  acting_for: ActingForSchema.optional().meta(ACTING_FOR_META),
+  notify_url: NotifyUrlSchema.optional().meta(NOTIFY_URL_META),
+};
+
+/** What starts a bug fix: the repository, what is wrong, and optionally where it runs, whom it is for and where to ping. */
 export const StartBugFixSchema = z.object({
   repo: z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/, 'owner/name')
     .meta({ description: 'The repository to fix, `owner/name`. It must be one of the workspace and on the key’s allow-list.', example: 'acme/backend' }),
@@ -89,8 +132,7 @@ export const StartBugFixSchema = z.object({
     .meta({ description: `What is wrong, 1 to ${DESCRIPTION_MAX} characters of letters, digits, spaces and . _ / : # - only: after \`/omni:bug-fix \`, the runners’ 200-character line.`, example: 'Issue 548 the invoice total is off by a cent' }),
   runner: z.string().min(1).max(40).optional()
     .meta({ description: 'The name of the runner to run it on. Send at most one of `runner` and `fleet`; neither means any runner of the workspace.', example: 'mac-mini-office' }),
-  fleet: z.string().min(1).max(40).optional()
-    .meta({ description: 'The key of the fleet whose runners may run it.', example: 'comets' }),
+  ...START_TAIL,
 });
 export type StartBugFix = z.infer<typeof StartBugFixSchema>;
 
@@ -117,8 +159,7 @@ export const StartMegaBugFixSchema = z.strictObject({
     }),
   runner: z.string().min(1).max(40).optional()
     .meta({ description: 'The name of the runner to run it on: one that holds a checkout of the plan repository. Send at most one of `runner` and `fleet`; neither means any runner of the workspace.', example: 'mac-mini-office' }),
-  fleet: z.string().min(1).max(40).optional()
-    .meta({ description: 'The key of the fleet whose runners may run it.', example: 'comets' }),
+  ...START_TAIL,
 });
 export type StartMegaBugFix = z.infer<typeof StartMegaBugFixSchema>;
 
@@ -186,20 +227,6 @@ export const JobLineListSchema = z.object({ data: z.array(JobLineSchema), next_c
 export type JobLineList = z.infer<typeof JobLineListSchema>;
 
 // ── A job's questions (PRD 2425 s6) ─────────────────────────────────────────────
-
-/** The longest `acting_for`, in characters (the database's `char_length` bound). */
-export const ACTING_FOR_MAX = 80;
-
-/** Letters of any alphabet (with their marks, which a name in most of them needs), digits, spaces and `. _ ' @ - ·`. */
-const ACTING_FOR_CHARS = /^[\p{L}\p{M}\p{Nd} ._'@·-]+$/u;
-
-/** Whom a key says it acts for when it answers, dismisses, cancels or relaunches: stored as given, shown beside the key’s name. */
-const ActingForSchema = z.string().min(1).max(ACTING_FOR_MAX).regex(ACTING_FOR_CHARS, 'letters of any alphabet, digits, spaces and . _ \' @ - · only');
-
-const ACTING_FOR_META = {
-  description: `Whom the key acts for, 1 to ${String(ACTING_FOR_MAX)} characters of letters of any alphabet, digits, spaces and . _ ' @ - · only. It is stored as given, never trimmed or changed, and the Runners page shows it beside the key’s name. Leave it out when the key acts for no one.`,
-  example: 'Jane D.',
-};
 
 /** What a key answers a job's questions with: the answers as the page takes them, and whom it acts for. Strict: a field this server does not know is refused, never ignored. */
 export const AnswerJobSchema = z.strictObject({
