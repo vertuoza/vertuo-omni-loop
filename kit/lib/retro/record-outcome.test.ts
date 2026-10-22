@@ -77,10 +77,13 @@ describe('recordOutcome', () => {
   it('refuses a PRD with no folder, no retro.json, an unreadable one and one with no runs', () => {
     expect(record({}).result).toEqual({ ok: false, reason: `PRD 42 has no folder in ${D}/inbox or ${D}/shipped` });
     expect(record({ [`${D}/shipped/0042-a/spec.md`]: 'x' }).result).toEqual({ ok: false, reason: `${JSON_FILE} is missing — PRD 42 has no retro` });
-    const broken = record({ [JSON_FILE]: '{' }).result;
-    expect(broken).toMatchObject({ ok: false, reason: expect.stringMatching(new RegExp(`^${JSON_FILE} is not a retro record — `)) });
-    expect(record({ [JSON_FILE]: '[]' }).result).toMatchObject({ ok: false, reason: expect.stringMatching(new RegExp(`^${JSON_FILE} is not a retro record — `)) });
-    expect(record({ [JSON_FILE]: '{"runs":3}' }).result).toMatchObject({ ok: false, reason: expect.stringMatching(new RegExp(`^${JSON_FILE} is not a retro record — runs: `)) });
+    const reason = (text: string) => {
+      const { result } = record({ [JSON_FILE]: text });
+      return result.ok ? null : result.reason;
+    };
+    expect(reason('{')).toMatch(new RegExp(`^${JSON_FILE} is not a retro record — `));
+    expect(reason('[]')).toMatch(new RegExp(`^${JSON_FILE} is not a retro record — `));
+    expect(reason('{"runs":3}')).toMatch(new RegExp(`^${JSON_FILE} is not a retro record — runs: `));
   });
 
   it('writes the json and leaves retro.md alone when it has no such finding', () => {
