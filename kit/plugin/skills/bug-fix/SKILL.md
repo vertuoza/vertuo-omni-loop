@@ -33,6 +33,14 @@ opens ends its body with the line `omni sign footer` prints, as a paragraph of i
 your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
 signed. A command that prints nothing means signing is off here: add nothing.
 
+**Under `OMNI_GITHUB_APP`.** While `OMNI_GITHUB_APP` is set (a runner job that runs as an API key's own
+GitHub App, PRD 2433), everything this skill writes on GitHub is that app's, and no person is named in
+it: request no reviewer on any pull request, even one the `pull-requests` form names; add no assignee to
+the issue or the pull request; and mention no `@login` in anything written on GitHub (an issue, a comment,
+a body, a commit message). Where a step below writes `@<login>` (the `Decided in Omni by` line), write the
+login with no `@`. A `CODEOWNERS` file still makes GitHub request its owners: that is the repository's own
+rule, outside the job. With `OMNI_GITHUB_APP` unset, nothing here applies.
+
 ## Input
 
 | input | example | what it is |
