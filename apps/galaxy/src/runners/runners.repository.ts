@@ -64,6 +64,8 @@ const JobRow = z.object({
   prs: z.array(z.string()).catch([]).optional(),
   /** Whom the app said it acted for when it queued the job (PRD 2425). */
   acting_for: z.string().nullable().catch(null).optional(),
+  /** The https link its changes are pinged to, which a relaunch and a resume of it keep (PRD 2425); one out of shape reads as none. */
+  notify_url: z.string().nullable().catch(null).optional(),
   /** The API key that cancelled it, and whom that key acted for (PRD 2425). */
   cancelled_by_key: z.string().nullable().catch(null).optional(),
   cancelled_for: z.string().nullable().catch(null).optional(),
@@ -81,7 +83,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, fixed_by, prs, acting_for, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, fixed_by, prs, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */
@@ -157,8 +159,11 @@ export type NewRunner = { workspaceId: string; owner: string; name: string; slot
 /** A new job's columns. */
 export type NewJob = { workspaceId: string; line: string; repo: string; toRunner: string | null; toFleet: string | null; sentBy: string; sentByKey: string | null };
 
+/** A relaunch's columns (PRD 2425 s7): a new job's, the job it continues, whom the key said it acted for and the link its changes are pinged to. */
+export type NewRelaunch = NewJob & { continues: string; actingFor: string | null; notifyUrl: string | null };
+
 /** What a job's update may change. */
-export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'released' | 'release_error' | 'outcome' | 'fixed_by' | 'prs' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
+export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'cancelled_by_key' | 'cancelled_for' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'released' | 'release_error' | 'outcome' | 'fixed_by' | 'prs' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
 
 type Raw = { data: unknown; error: { code?: string; message?: string } | null };
 
@@ -183,6 +188,17 @@ async function acted<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, what: stri
   const read = z.union([schema, z.array(schema).length(1).transform((rows) => rows[0])]).safeParse(data);
   if (!read.success || read.data === undefined) throw new Error(`${what} answered out of shape`);
   return { ok: true, value: read.data };
+}
+
+/** Queues a job that carries another on (PRD 2270, 2425): `more` are its columns beyond a new job's and `continues`. Null when that
+ * job was carried on already: runner_jobs.continues is unique (23505, runner_jobs_continues_key). */
+async function insertContinuing(db: RunnersDb, job: NewJob & { continues: string }, more: Record<string, string | null> = {}): Promise<JobRow | null> {
+  const { data, error } = await db.from('runner_jobs').insert({
+    workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy,
+    sent_by_key: job.sentByKey, continues: job.continues, ...more,
+  }).select(JOB_COLUMNS).single();
+  if (error?.code === '23505') return null;
+  return parsed(Promise.resolve({ data, error }), JobRow, 'runner_jobs');
 }
 
 const MemberRow = z.object({ role: z.string() }).nullable();
@@ -291,6 +307,10 @@ export function runnersRepository(db: RunnersDb) {
         sent_by_key: job.sentByKey,
       }).select(JOB_COLUMNS).single(), JobRow, 'runner_jobs'),
 
+    /** Queues the job a key relaunches (PRD 2425 s7): a new job that carries the first on, with whom the key said it acted for and the
+     * first job's notify_url; null when that job was carried on already (23505, runner_jobs_continues_key). */
+    insertRelaunch: (job: NewRelaunch): Promise<JobRow | null> => insertContinuing(db, job, { acting_for: job.actingFor, notify_url: job.notifyUrl }),
+
     /** Changes the job while its status is still one of `from`; null when it moved on meanwhile. */
     updateJob: async (id: string, from: readonly JobRowStatus[], patch: JobPatch): Promise<JobRow | null> =>
       parsed(db.from('runner_jobs').update(patch).eq('id', id).in('status', [...from]).select(JOB_COLUMNS).maybeSingle(), JobRow.nullable(), 'runner_jobs'),
@@ -396,14 +416,7 @@ export function continuationsRepository(db: RunnersDb) {
         .order('queued_at', { ascending: false }).limit(PRD_JOBS_READ), z.array(JobRow), 'runner_jobs'),
 
     /** Queues the continuation; null when the job was continued already (23505, runner_jobs_continues_key). */
-    insertContinuation: async (job: NewContinuation): Promise<JobRow | null> => {
-      const { data, error } = await db.from('runner_jobs').insert({
-        workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy,
-        sent_by_key: job.sentByKey, continues: job.continues,
-      }).select(JOB_COLUMNS).single();
-      if (error?.code === '23505') return null;
-      return parsed(Promise.resolve({ data, error }), JobRow, 'runner_jobs');
-    },
+    insertContinuation: (job: NewContinuation): Promise<JobRow | null> => insertContinuing(db, job),
   };
 }
 
