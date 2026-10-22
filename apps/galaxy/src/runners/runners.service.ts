@@ -131,9 +131,14 @@ function senderFields(row: JobRow, logins: Map<string, string>, keys: Map<string
 const isPageOutcome = (outcome: StoredOutcome): outcome is NonNullable<Job['outcome']> => JOB_OUTCOMES.some((word) => word === outcome);
 const pageOutcome = (outcome: StoredOutcome | null | undefined): NonNullable<Job['outcome']> | null => (outcome && isPageOutcome(outcome) ? outcome : null);
 
+/** What the page reads of a key's part in a job (PRD 2425): whom the key said it acted for, and the key that cancelled it, by its name. */
+function keyActionFields(row: JobRow, keys: Map<string, string>): Pick<Job, 'actingFor' | 'cancelledByKey'> {
+  return { actingFor: row.acting_for ?? null, cancelledByKey: row.cancelled_by_key ? keys.get(row.cancelled_by_key) ?? null : null };
+}
+
 function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, string> = new Map()): Job {
   return {
-    id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, ...senderFields(row, logins, keys),
+    id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, ...senderFields(row, logins, keys), ...keyActionFields(row, keys),
     status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
     logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null,
     released: row.released ?? null, releaseError: row.release_error ?? null, outcome: pageOutcome(row.outcome), slicesMerged: row.slices_merged ?? null, slicesTotal: row.slices_total ?? null, continues: row.continues ?? null, queuedAt: row.queued_at,
@@ -301,11 +306,12 @@ async function mayTarget(store: TargetStore, workspaceId: string, sender: Sender
 
 /** What the page and the routes read of a job's questions (PRD 2255): open until someone closed them,
  * answered when they left answers, dismissed when they did not; who closed them by id and login. */
-function questionsView(row: QuestionsRow, logins: Map<string, string>): JobQuestions {
+function questionsView(row: QuestionsRow, logins: Map<string, string>, keys: Map<string, string> = new Map()): JobQuestions {
   return {
     job: row.job_id, issue: row.issue, lead: row.lead, questions: row.questions,
     state: questionsState(row),
     answers: row.answers, by: row.closed_by, byLogin: row.closed_by === null ? null : logins.get(row.closed_by) ?? null,
+    byKey: row.closed_by_key ? keys.get(row.closed_by_key) ?? null : null, actingFor: row.closed_for ?? null,
     at: row.closed_at, resume: row.resume_job,
   };
 }
@@ -358,7 +364,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
 
   /** The names of the API keys that sent these jobs. */
   const keysOf = (workspaceId: string, jobs: JobRow[]) =>
-    store.keyNames(workspaceId, [...new Set(jobs.flatMap((job) => (job.sent_by_key === null ? [] : [job.sent_by_key])))]);
+    store.keyNames(workspaceId, [...new Set(jobs.flatMap((job) => [job.sent_by_key, job.cancelled_by_key]).filter((id): id is string => typeof id === 'string'))]);
 
   /** The name of the runner that holds the job, or null. */
   async function runnerNameOf(job: JobRow): Promise<string | null> {
@@ -696,7 +702,11 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const found = await questionsFor(caller, jobId);
       if (!found.ok) return found;
       const { row } = found.value;
-      return ok(questionsView(row, await store.logins(row.workspace_id, row.closed_by === null ? [] : [row.closed_by])));
+      const [logins, keys] = await Promise.all([
+        store.logins(row.workspace_id, row.closed_by === null ? [] : [row.closed_by]),
+        store.keyNames(row.workspace_id, row.closed_by_key ? [row.closed_by_key] : []),
+      ]);
+      return ok(questionsView(row, logins, keys));
     },
 
     /** The first member to answer a job's questions queues the run that resumes it, as themselves: one answer

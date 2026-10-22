@@ -93,13 +93,16 @@ const QuestionsRow = z.object({
   questions: z.array(QuestionSchema),
   answers: z.record(z.string(), z.string()).nullable(),
   closed_by: z.string().nullable(),
+  // The key that closed the round and whom it said it acted for (PRD 2425): read for the page, never failing a read.
+  closed_by_key: z.string().nullable().catch(null).optional(),
+  closed_for: z.string().nullable().catch(null).optional(),
   closed_at: z.string().nullable(),
   resume_job: z.string().nullable(),
   asked_at: z.string(),
 });
 export type QuestionsRow = z.infer<typeof QuestionsRow>;
 
-const QUESTIONS_COLUMNS = 'job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_at, resume_job, asked_at';
+const QUESTIONS_COLUMNS = 'job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_by_key, closed_for, closed_at, resume_job, asked_at';
 
 /** A new row of questions: the job that asks, its workspace, its issue, its lead and its questions. */
 type NewQuestions = { jobId: string; workspaceId: string; issue: IssueNumber; lead: string; questions: Question[] };

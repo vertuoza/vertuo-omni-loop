@@ -1132,7 +1132,7 @@ describe('a job\'s questions (PRD 2255)', () => {
       const asked = value(await w.service.ask(OLGA, job.id, ASK));
       expect(w.state.questions).toEqual([questionsRow({ job_id: job.id, issue: ASK.issue, lead: ASK.lead, questions: ASK.questions })]);
       expect(asked).toEqual({
-        job: job.id, issue: 314, lead: ASK.lead, questions: [QUESTION], state: 'open', answers: null, by: null, byLogin: null, at: null, resume: null,
+        job: job.id, issue: 314, lead: ASK.lead, questions: [QUESTION], state: 'open', answers: null, by: null, byLogin: null, byKey: null, actingFor: null, at: null, resume: null,
       });
     });
 
@@ -1575,10 +1575,51 @@ describe('what a bug fix reports and what a key reads of its job (PRD 2425 s3)',
       expect(terminal.filter((job) => job.outcome === 'human')).toHaveLength(1);
     });
 
-    it('do not carry what only a key reads: the Runners page reads the job as it did', async () => {
+    it('do not carry what only a key reads: the proved pull request and the pull requests stay out of the page\'s job', async () => {
       const job = ended({ outcome: 'already-fixed', fixed_by: PROVED, prs: [PR], acting_for: 'Jane D.' });
       const board = value(await world({ jobs: [job] }).service.board(PIA, WORKSPACE));
-      for (const field of ['fixedBy', 'prs', 'actingFor']) expect(Object.keys(board.jobs[0] ?? {}), field).not.toContain(field);
+      for (const field of ['fixedBy', 'prs']) expect(Object.keys(board.jobs[0] ?? {}), field).not.toContain(field);
+    });
+
+    it('carry whom a key said it acted for, and the key that cancelled a job by its name, for the page to show', async () => {
+      const acted = ended({ acting_for: 'Jane D.' });
+      const cancelled = ended({ status: 'cancelled', exit_code: null, cancel_requested: true, cancelled_by_key: OTHER_KEY, cancelled_for: 'Jane D.' });
+      const plain = ended();
+      const board = value(await world({ jobs: [acted, cancelled, plain] }).service.board(PIA, WORKSPACE));
+      const read = new Map(board.jobs.map((job) => [job.id, { actingFor: job.actingFor, cancelledByKey: job.cancelledByKey }]));
+      expect(read.get(acted.id)).toEqual({ actingFor: 'Jane D.', cancelledByKey: null });
+      expect(read.get(cancelled.id)).toEqual({ actingFor: null, cancelledByKey: 'Support bot' });
+      expect(read.get(plain.id)).toEqual({ actingFor: null, cancelledByKey: null });
+    });
+
+    it('carry the cancelling key\'s name in the job a cancel answers, too', async () => {
+      const queued = jobRow({ sent_by: OLGA, sent_by_key: API_KEY, acting_for: 'Jane D.' });
+      const w = world({ jobs: [queued] });
+      expect(value(await w.service.cancel(OLGA, queued.id))).toMatchObject({ status: 'cancelled', actingFor: 'Jane D.', cancelledByKey: null });
+    });
+
+    it('read a round a key closed: the key by its name, and whom it acted for, with no person', async () => {
+      const job = ended({ outcome: 'human' });
+      const closed = questionsRow({ job_id: job.id, closed_by_key: OTHER_KEY, closed_for: 'Jane D.', closed_at: T0.toISOString(), answers: { 'Which fix?': 'Guard the input' } });
+      const w = world({ jobs: [job], questions: [closed] });
+      expect(value(await w.service.questions(MO, job.id))).toMatchObject({ state: 'answered', by: null, byLogin: null, byKey: 'Support bot', actingFor: 'Jane D.' });
+    });
+
+    it('read a round a key dismissed the same way, and one a person closed or one still open with no key', async () => {
+      const dismissed = ended({ outcome: 'human' });
+      const byPerson = ended({ outcome: 'human' });
+      const open = ended({ outcome: 'human' });
+      const w = world({
+        jobs: [dismissed, byPerson, open],
+        questions: [
+          questionsRow({ job_id: dismissed.id, closed_by_key: API_KEY, closed_at: T0.toISOString() }),
+          questionsRow({ job_id: byPerson.id, closed_by: MO, closed_at: T0.toISOString(), answers: { 'Which fix?': 'Guard the input' } }),
+          questionsRow({ job_id: open.id }),
+        ],
+      });
+      expect(value(await w.service.questions(MO, dismissed.id))).toMatchObject({ state: 'dismissed', byKey: 'QA dashboard', actingFor: null });
+      expect(value(await w.service.questions(MO, byPerson.id))).toMatchObject({ state: 'answered', by: MO, byKey: null, actingFor: null });
+      expect(value(await w.service.questions(MO, open.id))).toMatchObject({ state: 'open', byKey: null, actingFor: null });
     });
   });
 

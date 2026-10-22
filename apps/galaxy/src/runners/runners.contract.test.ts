@@ -504,6 +504,18 @@ describe('the questions a job asks (PRD 2255)', () => {
     expect(JobQuestionsSchema.parse(answered).state).toBe('answered');
     expect(JobQuestionsSchema.safeParse({ ...read, state: 'closed' }).success).toBe(false);
   });
+
+  it('reads the key that closed a round by its name and whom it acted for (PRD 2425), and a read without them as before', () => {
+    const read = {
+      job: '00000000-0000-4000-8000-000001830201', issue: 314, lead: ask.lead, questions: ask.questions, state: 'answered',
+      answers: { 'Which fix for Planning?': 'Make project nullable' }, by: null, byLogin: null, at: 't', resume: '00000000-0000-4000-8000-000001830202',
+    };
+    expect(JobQuestionsSchema.parse(read)).toEqual(read);
+    const byKey = { ...read, byKey: 'Support bot', actingFor: 'Jane D.' };
+    expect(JobQuestionsSchema.parse(byKey)).toEqual(byKey);
+    expect(JobQuestionsSchema.parse({ ...read, byKey: null, actingFor: null })).toMatchObject({ byKey: null, actingFor: null });
+    expect(JobQuestionsSchema.safeParse({ ...read, byKey: 7 }).success).toBe(false);
+  });
 });
 
 describe('the answers (PRD 2255)', () => {

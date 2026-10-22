@@ -304,7 +304,7 @@ describe('a job\'s questions (PRD 2255)', () => {
     const { db, lines } = fakeDb([{ data: row, error: null }]);
     const stored = await runnersRepository(db).insertQuestions({ jobId: JOB, workspaceId: WORKSPACE, issue: row.issue, lead: row.lead, questions: row.questions });
     expect(stored).toEqual(row);
-    expect(lines).toEqual([`from("runner_job_questions").insert(${JSON.stringify({ job_id: JOB, workspace_id: WORKSPACE, issue: 314, lead: row.lead, questions: row.questions })}).select("job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_at, resume_job, asked_at").single()`]);
+    expect(lines).toEqual([`from("runner_job_questions").insert(${JSON.stringify({ job_id: JOB, workspace_id: WORKSPACE, issue: 314, lead: row.lead, questions: row.questions })}).select("job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_by_key, closed_for, closed_at, resume_job, asked_at").single()`]);
   });
 
   it('answers none when the job asked already (one row per job: the primary key refuses a second)', async () => {
@@ -323,13 +323,20 @@ describe('a job\'s questions (PRD 2255)', () => {
     const repository = runnersRepository(db);
     expect(await repository.questionsOf(JOB)).toEqual(row);
     expect(await repository.questionsOf('00000000-0000-4000-8000-0000022552b1')).toBeNull();
-    expect(lines[0]).toBe(`from("runner_job_questions").select("job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_at, resume_job, asked_at").eq("job_id","${JOB}").maybeSingle()`);
+    expect(lines[0]).toBe(`from("runner_job_questions").select("job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_by_key, closed_for, closed_at, resume_job, asked_at").eq("job_id","${JOB}").maybeSingle()`);
   });
 
   it('reads a closed row with its answers, who closed it and the resume job', async () => {
     const closed = questionsRow({ job_id: JOB, answers, closed_by: MO, closed_at: '2026-10-13T12:05:00.000Z', resume_job: '00000000-0000-4000-8000-0000022552c1' });
     const { db } = fakeDb([{ data: closed, error: null }]);
     expect(await runnersRepository(db).questionsOf(JOB)).toEqual(closed);
+  });
+
+  it('reads the key that closed a round and whom it acted for (PRD 2425), and never fails on a value out of shape there', async () => {
+    const byKey = questionsRow({ job_id: JOB, answers, closed_by_key: '00000000-0000-4000-8000-0000018302a2', closed_for: 'Jane D.', closed_at: '2026-10-13T12:05:00.000Z' });
+    expect(await runnersRepository(fakeDb([{ data: byKey, error: null }]).db).questionsOf(JOB)).toMatchObject({ closed_by_key: byKey.closed_by_key, closed_for: 'Jane D.' });
+    const odd = await runnersRepository(fakeDb([{ data: { ...byKey, closed_by_key: 7, closed_for: ['x'] }, error: null }]).db).questionsOf(JOB);
+    expect(odd).toMatchObject({ closed_by_key: null, closed_for: null });
   });
 
   it('throws on a row whose questions are out of shape', async () => {

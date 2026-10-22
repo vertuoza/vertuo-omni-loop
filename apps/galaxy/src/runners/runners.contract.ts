@@ -335,6 +335,10 @@ const JobSchema = z.object({
   slicesTotal: z.number().int().nullable().optional(),
   /** The job it continues (PRD 2270): a `/omni:yolo-fix` queued once that job's answers were in; null for any other. */
   continues: IdSchema.nullable().optional(),
+  /** Whom the API key that sent it said it acted for (PRD 2425); null when it said none, and for a person's job. */
+  actingFor: z.string().nullable().optional(),
+  /** The name of the API key that cancelled it (PRD 2425); null for a job no key cancelled. */
+  cancelledByKey: z.string().nullable().optional(),
   queuedAt: z.string(),
   claimedAt: z.string().nullable(),
   runningAt: z.string().nullable(),
@@ -434,7 +438,8 @@ export type AnswerRequest = z.infer<typeof AnswerRequestSchema>;
 const QUESTION_STATES = ['open', 'answered', 'dismissed'] as const;
 
 /** A job's questions, as the routes answer them: the questions, and once someone acted, the answers, who closed
- * them (by id and GitHub login), when, and the job that resumes the run. */
+ * them (by id and GitHub login, or by the name of the API key, PRD 2425, and whom that key said it acted for), when,
+ * and the job that resumes the run. */
 export const JobQuestionsSchema = z.object({
   job: IdSchema,
   issue: IssueNumberSchema,
@@ -444,6 +449,8 @@ export const JobQuestionsSchema = z.object({
   answers: z.record(z.string(), z.string()).nullable(),
   by: IdSchema.nullable(),
   byLogin: z.string().nullable(),
+  byKey: z.string().nullable().optional(),
+  actingFor: z.string().nullable().optional(),
   at: z.string().nullable(),
   resume: IdSchema.nullable(),
 });
