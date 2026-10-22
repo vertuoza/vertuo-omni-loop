@@ -99,6 +99,13 @@ export function readingOf(called: Called<JobQuestions>): Reading {
   return words === null ? { kind: 'open', row: called.value, asked: questionsOf(called.value.questions) } : { kind: 'closed', words, issue: called.value.issue };
 }
 
+/** What the drawer shows after a send refused because someone came first: the row read again, which names an API key by its
+ * name (the refusal's own words know a login only), else the refusal's words, when the row cannot be read or reads open still. */
+export function closedAfter(words: string, again: Called<JobQuestions>, issue: IssueNumber | null): Extract<Reading, { kind: 'closed' }> {
+  const next = readingOf(again);
+  return next.kind === 'closed' ? next : { kind: 'closed', words, issue };
+}
+
 /** Which drawer is open, and where the focus goes: into the drawer once it opened, back to the job's button once
  * it closed (Escape, the close button, the dimmed page, or a send), nowhere before either. */
 export type AnswerState = { open: string | null; focus: 'drawer' | 'button' | 'none'; job: string | null };

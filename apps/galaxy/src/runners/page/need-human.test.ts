@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { IssueNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { Job, JobQuestions, Question } from '../runners.contract';
+import type { Called } from '../runners.client';
 import { emptyDraft, pickOption, typeOther } from '../../ask/answer-model';
 import {
-  answerParamOf, answersOf, closed, closedWords, demoPort, drawerMove, issueUrl, listedAnswer, NONE, opened, readingOf, refusedAsClosed, questionsOf, withAnswer, WORDS,
+  answerParamOf, answersOf, closed, closedAfter, closedWords, demoPort, drawerMove, issueUrl, listedAnswer, NONE, opened, readingOf, refusedAsClosed, questionsOf, withAnswer, WORDS,
 } from './need-human';
 
 // The Need human drawer's rules (PRD 2255 s3, the `runner-need-human` screen), pure or driven through seams, so
@@ -183,6 +184,19 @@ describe('a read of the questions', () => {
 
   it('is failed, with the words, for any other refusal', () => {
     expect(readingOf({ ok: false, error: 'The Omni app could not be reached. Try again.' })).toEqual({ kind: 'failed', words: 'The Omni app could not be reached. Try again.' });
+  });
+});
+
+describe('the drawer after a refusal that says someone came first', () => {
+  it('names the API key that closed the row, as the row read again says: the service\'s own words name a login only (PRD 2425)', () => {
+    const again: Called<JobQuestions> = { ok: true, value: { ...ROW, by: null, byLogin: null, byKey: 'cleaner', actingFor: 'Jane D.', state: 'answered', answers: { q: 'a' } } };
+    expect(closedAfter('Already answered by someone', again, ROW.issue)).toEqual({ kind: 'closed', words: 'Already answered by API key cleaner · for Jane D.', issue: ROW.issue });
+  });
+
+  it('keeps the refusal\'s own words when the row cannot be read again, or still reads open', () => {
+    const lost: Called<JobQuestions> = { ok: false, error: 'The Omni app could not be reached. Try again.' };
+    expect(closedAfter('Already answered by @mo', lost, ROW.issue)).toEqual({ kind: 'closed', words: 'Already answered by @mo', issue: ROW.issue });
+    expect(closedAfter('Dismissed by someone', { ok: true, value: ROW }, ROW.issue)).toEqual({ kind: 'closed', words: 'Dismissed by someone', issue: ROW.issue });
   });
 });
 
