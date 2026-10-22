@@ -35,6 +35,13 @@
 //   runner releases a lost job's claims after the job ended. Nothing else of the job changes.
 // - A job's outcome (PRD 2223): a done job's last report may say what its yolo hand-off ended on
 //   (answers, held, ready, or stopped with its slice count, PRD 2375), stored in `runner_jobs.outcome`; a report on another status stores none.
+// - A bug fix's end (PRD 2425): a done job's last report may also say how a bug fix ended (pr-opened,
+//   already-fixed, needs-brainstorm, not-a-bug, stuck, blocked, or need-human, stored as the `human` the
+//   server sets for open questions), the pull request it proved had fixed the bug, and every pull request it
+//   opened (also on a failed report, with no outcome). The page and the terminal read those words as Done; a
+//   key reads them with its job (`keyJob`): the words of the log, the proved pull request with already-fixed
+//   only, the pull requests, the state of its questions, the job it continues and the one that continues it,
+//   whom the app acted for, the key that cancelled it, and its log tail.
 // - The terminal's reads (PRD 2251): a member of the workspace a repository belongs to reads its
 //   runners, and the jobs of that repository whose line names a PRD (its first argument), among the ones
 //   the Runners page lists, newest first; anyone else is refused, and another workspace is never read.
@@ -51,8 +58,8 @@
 //   outcome stays `human`.
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
-  checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
-  type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
+  checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
+  type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyJob, type KeySend, type KitRunner, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
@@ -119,12 +126,17 @@ function senderFields(row: JobRow, logins: Map<string, string>, keys: Map<string
   };
 }
 
+/** What the page and the terminal read of a stored outcome: the yolo hand-off's words and `human`; a bug fix's own end
+ * reads as none, which the page shows as Done, as it did before PRD 2425. */
+const isPageOutcome = (outcome: StoredOutcome): outcome is NonNullable<Job['outcome']> => JOB_OUTCOMES.some((word) => word === outcome);
+const pageOutcome = (outcome: StoredOutcome | null | undefined): NonNullable<Job['outcome']> | null => (outcome && isPageOutcome(outcome) ? outcome : null);
+
 function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, string> = new Map()): Job {
   return {
     id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, ...senderFields(row, logins, keys),
     status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
     logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null,
-    released: row.released ?? null, releaseError: row.release_error ?? null, outcome: row.outcome ?? null, slicesMerged: row.slices_merged ?? null, slicesTotal: row.slices_total ?? null, continues: row.continues ?? null, queuedAt: row.queued_at,
+    released: row.released ?? null, releaseError: row.release_error ?? null, outcome: pageOutcome(row.outcome), slicesMerged: row.slices_merged ?? null, slicesTotal: row.slices_total ?? null, continues: row.continues ?? null, queuedAt: row.queued_at,
     claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
 }
@@ -181,14 +193,21 @@ function reportRefusal(job: JobRow, report: JobUpdate): Served<never> | null {
   return null;
 }
 
+/** The word a report's outcome is stored as: a bug fix's `need-human` is the `human` the server sets for open questions (PRD 2425). */
+const storedOutcome = (word: JobUpdate['outcome']): JobPatch['outcome'] => (word === 'need-human' ? 'human' : word);
+
 /** The columns a report writes: its status, what it carries, and the time it starts or ends the run. */
 function reportPatch(job: JobRow, report: JobUpdate, now: string): JobPatch {
+  const done = report.status === 'done';
   const carried = {
     log_tail: report.logTail === undefined ? undefined : cutLogTail(report.logTail),
     pr_url: report.prUrl, exit_code: report.exitCode, reason: report.reason, tokens: report.tokens,
     released: report.released, release_error: report.releaseError,
-    // Only a done job has an outcome (PRD 2223): a failed or cancelled report's is never stored.
-    outcome: report.status === 'done' ? report.outcome : undefined,
+    // Only a done job has an outcome (PRD 2223): a failed or cancelled report's is never stored. Nor has it a proved
+    // pull request (PRD 2425); the pull requests it opened are stored whatever its end, a failed run's draft first.
+    outcome: done ? storedOutcome(report.outcome) : undefined,
+    fixed_by: done ? report.fixedBy : undefined,
+    prs: report.prs,
     // The slice count of a stopped job (PRD 2375): stored with its outcome, on a done report only.
     slices_merged: report.status === 'done' ? report.slicesMerged : undefined,
     slices_total: report.status === 'done' ? report.slicesTotal : undefined,
@@ -198,10 +217,48 @@ function reportPatch(job: JobRow, report: JobUpdate, now: string): JobPatch {
   return { ...given, status: report.status, ...(starts ? { running_at: now } : {}), ...(ENDED.includes(report.status) ? { ended_at: now } : {}) };
 }
 
-function keyJobOf(row: JobRow, runnerName: string | null): KeyJob {
+/** A bug fix's words in its log, by the outcome stored for them (PRD 2425): `human` is `need-human`. */
+const LOG_WORDS: Partial<Record<StoredOutcome, NonNullable<KeyJob['outcome']>>> = {
+  human: 'need-human', 'pr-opened': 'pr-opened', 'already-fixed': 'already-fixed', 'needs-brainstorm': 'needs-brainstorm',
+  'not-a-bug': 'not-a-bug', stuck: 'stuck', blocked: 'blocked',
+};
+
+/** How a done bug fix ended, in the words of its log: none while it runs, when it failed, when its runner reported none
+ * and for a yolo hand-off's word (PRD 2425). */
+const keyOutcome = (row: JobRow): KeyJob['outcome'] => (row.status === 'done' && row.outcome ? LOG_WORDS[row.outcome] ?? null : null);
+
+/** Whether a job's questions are open, answered or dismissed. */
+const questionsState = (row: QuestionsRow): JobQuestions['state'] => (row.closed_at === null ? 'open' : row.answers === null ? 'dismissed' : 'answered');
+
+/** What a key reads of a job besides its row (PRD 2425): the runner's name, the questions it asked, the job that
+ * carries it on and the names of the keys the row names. */
+type KeyJobReads = { runner: string | null; questions: QuestionsRow | null; continuedBy: string | null; keys: Map<string, string> };
+
+/** What a key reads of what a bug fix did (PRD 2425): how it ended, the pull request it proved had fixed the bug (with
+ * already-fixed only), the pull requests it opened, its questions' state and its log tail. */
+function keyDidOf(row: JobRow, questions: QuestionsRow | null): Pick<KeyJob, 'outcome' | 'fixedBy' | 'prs' | 'questions' | 'logTail'> {
+  const outcome = keyOutcome(row);
   return {
-    id: row.id, line: row.line, repo: row.repo, status: row.status, runner: runnerName, prUrl: row.pr_url, exitCode: row.exit_code,
+    outcome, fixedBy: outcome === 'already-fixed' ? row.fixed_by ?? null : null, prs: row.prs ?? [],
+    questions: questions && questionsState(questions), logTail: row.log_tail === '' ? null : row.log_tail,
+  };
+}
+
+/** Who a key's job belongs to besides the sender (PRD 2425): the job it carries on and the one that carries it on, whom the
+ * app acted for, and the key that cancelled it, by its name, with whom it acted for. */
+function keyThreadOf(row: JobRow, reads: KeyJobReads): Pick<KeyJob, 'continues' | 'continuedBy' | 'actingFor' | 'cancelledBy'> {
+  const cancelling = row.cancelled_by_key;
+  return {
+    continues: row.continues ?? null, continuedBy: reads.continuedBy, actingFor: row.acting_for ?? null,
+    cancelledBy: cancelling ? { key: reads.keys.get(cancelling) ?? 'unknown key', actingFor: row.cancelled_for ?? null } : null,
+  };
+}
+
+function keyJobOf(row: JobRow, reads: KeyJobReads): KeyJob {
+  return {
+    id: row.id, line: row.line, repo: row.repo, status: row.status, runner: reads.runner, prUrl: row.pr_url, exitCode: row.exit_code,
     reason: row.reason, queuedAt: row.queued_at, claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
+    ...keyDidOf(row, reads.questions), ...keyThreadOf(row, reads),
   };
 }
 
@@ -213,7 +270,7 @@ const kitRunnerOf = (row: RunnerRow, used: number, now: Date): KitRunner => ({
 /** A PRD's job as the terminal follows it (PRD 2251): its runner by name. */
 const prdJobOf = (row: JobRow, runnerName: string | null): PrdJob => ({
   id: row.id, line: row.line, repo: row.repo, status: row.status, runner: runnerName, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason,
-  outcome: row.outcome ?? null, queuedAt: row.queued_at, claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
+  outcome: pageOutcome(row.outcome), queuedAt: row.queued_at, claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
 });
 
 const usedBy = (jobs: JobRow[], runnerId: string) => jobs.filter((job) => job.runner_id === runnerId && ACTIVE.includes(job.status)).length;
@@ -247,7 +304,7 @@ async function mayTarget(store: TargetStore, workspaceId: string, sender: Sender
 function questionsView(row: QuestionsRow, logins: Map<string, string>): JobQuestions {
   return {
     job: row.job_id, issue: row.issue, lead: row.lead, questions: row.questions,
-    state: row.closed_at === null ? 'open' : row.answers === null ? 'dismissed' : 'answered',
+    state: questionsState(row),
     answers: row.answers, by: row.closed_by, byLogin: row.closed_by === null ? null : logins.get(row.closed_by) ?? null,
     at: row.closed_at, resume: row.resume_job,
   };
@@ -530,15 +587,21 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
         target = { kind: 'runner', runner: named.id };
       }
       const queued = await queue(key.maker, { line: request.line, repo: request.repo, target }, key);
-      return queued.ok ? ok(keyJobOf(queued.value, await runnerNameOf(queued.value))) : queued;
+      // A job just queued asked nothing, carries nothing on and was cancelled by nobody: nothing else to read.
+      return queued.ok ? ok(keyJobOf(queued.value, { runner: await runnerNameOf(queued.value), questions: null, continuedBy: null, keys: new Map() })) : queued;
     },
 
-    /** A job a key of this workspace queued, as a key reads it: none for another workspace's, or a person's. */
+    /** A job a key of this workspace queued, as a key reads it, with what it did (PRD 2425): none for another
+     * workspace's, or a person's. */
     async keyJob(workspaceId: string, jobId: string): Promise<Served<KeyJob>> {
       await markLost();
       const job = await store.job(jobId);
       if (job?.workspace_id !== workspaceId || job.sent_by_key === null) return no('missing', 'No such job.');
-      return ok(keyJobOf(job, await runnerNameOf(job)));
+      const [runner, questions, continuedBy, keys] = await Promise.all([
+        runnerNameOf(job), store.questionsOf(job.id), store.continuedBy(job.id),
+        store.keyNames(workspaceId, job.cancelled_by_key ? [job.cancelled_by_key] : []),
+      ]);
+      return ok(keyJobOf(job, { runner, questions, continuedBy, keys }));
     },
 
     /** Cancels a job: a queued or claimed one at once, a running one at its runner's next report. */
@@ -735,7 +798,9 @@ export function continuationsService(store: RunnersRepository, continuations: Co
       const unanswered = unansweredWhy(stand);
       if (unanswered !== null) return none(unanswered);
       const repoKey = repo.toLowerCase();
-      const [switchOn, jobs] = await Promise.all([continuations.fixWhenAnswered(workspaceId, repoKey), continuations.prdJobs(workspaceId, repoKey, prd)]);
+      const [switchOn, rows] = await Promise.all([continuations.fixWhenAnswered(workspaceId, repoKey), continuations.prdJobs(workspaceId, repoKey, prd)]);
+      // A bug fix's own end (PRD 2425) is no hand-off to continue from: it reads as none here, as it does on the page.
+      const jobs = rows.map((row) => ({ ...row, outcome: pageOutcome(row.outcome) }));
       const decision = shouldContinue({ prd, stand, jobs, switchOn: by !== undefined || switchOn === true });
       if (!decision.continue) return none(decision.why);
       const job = decision.job;

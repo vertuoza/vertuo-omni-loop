@@ -82,6 +82,35 @@ describe('the rows', () => {
     expect(await repository.job('j2')).toMatchObject({ outcome: null });
   });
 
+  it('read what a bug fix reported and what a key did with the row, selecting the columns, and a value out of shape as none (PRD 2425)', async () => {
+    const proved = 'https://github.com/demo-org/app/pull/512';
+    const job = jobRow({ status: 'done', outcome: 'already-fixed', fixed_by: proved, prs: ['https://github.com/demo-org/app/pull/549'], acting_for: 'Jane D.', cancelled_by_key: 'k1', cancelled_for: 'Sam' });
+    const crooked = { ...jobRow({ status: 'done' }), outcome: 'pr-opened', fixed_by: 12, prs: 'nope', acting_for: 3, cancelled_by_key: {}, cancelled_for: [] };
+    const { db, lines } = fakeDb([{ data: job, error: null }, { data: crooked, error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.job('j1')).toMatchObject({ outcome: 'already-fixed', fixed_by: proved, prs: ['https://github.com/demo-org/app/pull/549'], acting_for: 'Jane D.', cancelled_by_key: 'k1', cancelled_for: 'Sam' });
+    for (const column of ['fixed_by', 'prs', 'acting_for', 'cancelled_by_key', 'cancelled_for']) expect(lines[0], column).toContain(column);
+    expect(await repository.job('j2')).toMatchObject({ outcome: 'pr-opened', fixed_by: null, prs: [], acting_for: null, cancelled_by_key: null, cancelled_for: null });
+  });
+
+  it('read every outcome the database keeps, and an unknown word as none (PRD 2425)', async () => {
+    const words = ['answers', 'held', 'ready', 'human', 'stopped', 'pr-opened', 'already-fixed', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'];
+    const { db } = fakeDb([...words, 'need-human', 'pr_opened'].map((outcome) => ({ data: { ...jobRow({ status: 'done' }), outcome }, error: null })));
+    const repository = runnersRepository(db);
+    const read: unknown[] = [];
+    for (let at = 0; at < words.length + 2; at += 1) read.push((await repository.job(`j${String(at)}`))?.outcome);
+    expect(read).toEqual([...words, null, null]);
+  });
+
+  it('read the id of the newest job that carries a job on, and none when none does (PRD 2425)', async () => {
+    const { db, lines } = fakeDb([{ data: { id: 'j2' }, error: null }, { data: null, error: null }, { data: null, error: { code: '42501', message: 'permission denied for table runner_jobs' } }]);
+    const repository = runnersRepository(db);
+    expect(await repository.continuedBy('j1')).toBe('j2');
+    expect(lines[0]).toBe('from("runner_jobs").select("id").eq("continues","j1").order("queued_at",{"ascending":false}).limit(1).maybeSingle()');
+    expect(await repository.continuedBy('j3')).toBeNull();
+    await expect(repository.continuedBy('j4')).rejects.toThrow('runner_jobs: permission denied for table runner_jobs');
+  });
+
   it('read a person\'s place in a workspace: owner or member, and their fleet', async () => {
     const { db, lines } = fakeDb([{ data: { role: 'owner' }, error: null }, { data: { team: 'cia', github_login: 'olga' }, error: null }]);
     expect(await runnersRepository(db).member('w1', 'u1')).toEqual({ owner: true, fleet: 'cia' });

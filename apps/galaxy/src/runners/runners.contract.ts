@@ -3,7 +3,7 @@
 //
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
-//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, slicesMerged?, slicesTotal?} → {cancel}
+//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, fixedBy?, prs?, slicesMerged?, slicesTotal?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser or terminal (PRD 2251)        → JobLines
 //   GET   /api/runners?repo=<owner/name>   terminal (PRD 2251)                              → {runners: [KitRunner]}
@@ -25,6 +25,7 @@
 // asked, answered or dismissed, 503 no database here, 500 the database failed.
 import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { BUG_FIX_OUTCOMES, PRS_MAX, type BugFixOutcome } from 'omni-loop/kit/lib/runner/log.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
 export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply'] as const;
@@ -186,8 +187,15 @@ export type TokenCounts = z.infer<typeof TokenCountsSchema>;
  * `/omni:yolo` or `/omni:yolo-fix` run that exited with no hand-off line, so it is not done. */
 export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human', 'stopped'] as const;
 
-/** What a runner's report may say: the server alone sets `human`, from the questions a job stored. */
-const REPORTED_OUTCOMES = ['answers', 'held', 'ready', 'stopped'] as const;
+/** What `runner_jobs.outcome` holds (PRD 2425): the words above and a bug fix's own, `need-human` excepted, which is
+ * stored as the `human` the server already sets for questions left open. The page and the terminal read only the
+ * words above: a bug fix's end reads Done there, as it did before. */
+export const STORED_OUTCOMES = [...JOB_OUTCOMES, 'pr-opened', 'already-fixed', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'] as const satisfies readonly (Exclude<BugFixOutcome, 'need-human'> | (typeof JOB_OUTCOMES)[number])[];
+export type StoredOutcome = (typeof STORED_OUTCOMES)[number];
+
+/** What a runner's report may say: the yolo words, and the seven a bug fix's hand-off ends on (PRD 2425, `BUG_FIX_OUTCOMES`).
+ * The server alone sets `human`, from the questions a job stored: a bug fix's `need-human` is stored as `human`. */
+const REPORTED_OUTCOMES = ['answers', 'held', 'ready', 'stopped', ...BUG_FIX_OUTCOMES] as const;
 
 /** The most claims a job's report says its runner released, and the longest reason a release failed (PRD 2175). */
 const RELEASED_MAX = 50;
@@ -212,6 +220,10 @@ export const JobUpdateSchema = z.object({
   releaseError: z.string().max(RELEASE_ERROR_CHARS).nullable().optional(),
   /** What a done yolo job's hand-off ended on (PRD 2223), stored in `runner_jobs.outcome`; an unknown value, and `human`, are refused. */
   outcome: z.enum(REPORTED_OUTCOMES).nullable().optional(),
+  /** The pull request a bug fix proved had already fixed its bug (PRD 2425), stored in `runner_jobs.fixed_by`. */
+  fixedBy: PrUrlSchema.optional(),
+  /** Every pull request a bug fix or a mega bug fix opened, in order, at most 50 (PRD 2425), stored in `runner_jobs.prs`. */
+  prs: z.array(PrUrlSchema).max(PRS_MAX).optional(),
   /** The PRD's slices merged and its slices in all, read when a job ended `stopped` (PRD 2375), stored in `runner_jobs.slices_merged` and `slices_total`. */
   slicesMerged: z.number().int().nonnegative().optional(),
   slicesTotal: z.number().int().nonnegative().optional(),
@@ -330,10 +342,27 @@ const JobSchema = z.object({
 });
 export type Job = z.infer<typeof JobSchema>;
 
-/** A job a program's API key queued, as that key reads it (PRD 2022): the runner by its name. */
+/** A job a program's API key queued, as a key reads it (PRD 2022): the runner by its name, and what the job did (PRD 2425). */
 export type KeyJob = {
   id: string; line: string; repo: string; status: Job['status']; runner: string | null; prUrl: string | null;
   exitCode: number | null; reason: string | null; queuedAt: string; claimedAt: string | null; runningAt: string | null; endedAt: string | null;
+  /** How a bug fix ended, in the words of its log (`need-human` for the stored `human`); null while it runs, when it failed and when its runner reported none. */
+  outcome: BugFixOutcome | null;
+  /** The pull request a bug fix proved had already fixed the bug: with `already-fixed` only. */
+  fixedBy: string | null;
+  /** Every pull request the job opened, in order. */
+  prs: string[];
+  /** Whether the questions the job asked are open, answered or dismissed; null when it asked none. */
+  questions: JobQuestions['state'] | null;
+  /** The job this one carries on, and the newest job that carries this one on. */
+  continues: string | null;
+  continuedBy: string | null;
+  /** Whom the app said it acted for when it queued the job. */
+  actingFor: string | null;
+  /** The key that cancelled it, by its name, and whom that key said it acted for. */
+  cancelledBy: { key: string; actingFor: string | null } | null;
+  /** The tail of the log, as the Runners page keeps it; null while it holds none. */
+  logTail: string | null;
 };
 
 /** What a key asks to send: a bug-fix line, for a repository, to a runner by name or a fleet, or to any. */
