@@ -757,7 +757,7 @@ carries (**The outcome line**):
    `Outcome: stuck`.
 6. `--answers <job>` whose answers `omni runner answers` cannot read, or reads empty: stop with its
    line and touch nothing: `Outcome: blocked`.
-7. The bug lives in the build and the repository commits no `commands.smoke` it can run: stop, keep the reproduction, comment on the issue with the suspect, the production evidence and the line to commit. Never fix without red: `Outcome: blocked`.
+7. The bug lives in the build and the repository commits no `commands.smoke` it can run: stop, keep the reproduction, comment on the issue with the suspect, the production evidence and the line to commit. Never fix without red. `Outcome: blocked`.
 
 For rules 3, 4 and 7, the reproduction is committed alone on the fix branch and the branch is pushed
 (step 7, **A stop keeps the reproduction**).
@@ -776,9 +776,9 @@ comment on the issue with the PR's link.
 - **Never edit a repository's CI workflows**, and never run a build script or a probe of your own:
   the build level is reached only through `commands.smoke`.
 - **Never open the PR before `omni bug <n> --body-file` printed `ok`**, unless the pinned omni refused the flag.
-- **Never write a `Fixed by` line for a pull request that is not proven**, in the comment or in the
-  hand-off, and never close the issue.
-- **Never write two `Outcome:` lines**, nor one for an end the run did not take.
+- **Never write a `Fixed by` line for a pull request that is not proven**, and never close the issue.
+- **Never write two `Outcome:` lines**, nor one for an end the run did not take, nor a hand-off
+  `Fixed by` line for a pull request that is not proven.
 - **Never cross the boundary** to finish a fix: stop, and hand over the `/omni:brainstorm` line.
 - **Never ask on a job unless `OMNI_UNATTENDED` is set**: a person in a terminal gets the stop as it is.
   Never carry on from answers that could not be read, and never read the answers as a leave to merge.
