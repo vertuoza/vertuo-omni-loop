@@ -33,13 +33,11 @@ export const MainWatchDataSchema = z.looseObject({
 });
 export type MainWatchData = z.infer<typeof MainWatchDataSchema>;
 
-/** A red check suite of the default branch: where, and the commit it ran on. */
-const MainWatchCiDataSchema = z.looseObject({
-  installationId: z.number(),
-  repository: slug,
-  sha: z.string().min(1),
-});
-export type MainWatchCiData = z.infer<typeof MainWatchCiDataSchema>;
+/**
+ * A red check suite of the default branch: where, and the commit it ran on. A type only: no code of
+ * the app reads it back, Inngest matches its `sha` against a waiting watch's merge commits.
+ */
+export type MainWatchCiData = { installationId: number; repository: string; sha: string };
 
 /** One main watch event, as the webhook sends it; its `id` makes a redelivery one event. */
 export type MainWatchRequest =
