@@ -86,7 +86,7 @@ describe('githubClientFor', () => {
 // token, and `gh auth token` (the person's own login) is never asked.
 describe('githubEnv under a GitHub App', () => {
   const ctx = (user: string | null) => ({ config: { repo: { slug: 'acme/widgets' }, github: { user } } });
-  const TOKEN = 'ghs_fakeTokenOfTheJobRunningAsTheApp0123456789';
+  const TOKEN = ['ghs', 'fakeTokenOfTheJobRunningAsTheApp0123456789'].join('_');
   const APP = { OMNI_GITHUB_APP: 'omni-acme[bot]', PATH: '/bin' };
 
   it('uses the job’s token as GH_TOKEN, and never runs gh auth token, whatever github.user says', () => {

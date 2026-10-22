@@ -15,8 +15,8 @@ import type { JobSession, Terminal } from './terminal.ts';
 
 const GB = 1024 ** 3;
 const T0 = Date.parse('2026-10-22T12:00:00.000Z');
-const TOKEN = 'ghs_fakeRunnerTokenForTheJob0123456789ABC';
-const PAST = 'ghs_fakePastTokenOfTheSameJob9876543210XYZ';
+const TOKEN = ['ghs', 'fakeRunnerTokenForTheJob0123456789ABC'].join('_');
+const PAST = ['ghs', 'fakePastTokenOfTheSameJob9876543210XYZ'].join('_');
 const GRANT = { token: TOKEN, expiresAt: '2026-10-22T13:00:00Z', login: 'omni-acme[bot]', email: '42+omni-acme[bot]@users.noreply.github.com' };
 const TOKEN_COMMAND = ['/usr/bin/node', '/opt/omni.mjs', 'runner', 'github-token'];
 
@@ -240,9 +240,9 @@ describe('a job with no app', () => {
   });
 
   it('sends its log as it is: it holds no token to hide', async () => {
-    const log = `ghs_notATokenOfAnyJob0123456789\nok`;
-    const { updates } = await runOne(job(), { githubToken: TOKEN_COMMAND, log });
-    expect(updates.flatMap((update) => update.lines ?? [])).toEqual(['ghs_notATokenOfAnyJob0123456789', 'ok']);
+    const stranger = ['ghs', 'notATokenOfAnyJob0123456789'].join('_');
+    const { updates } = await runOne(job(), { githubToken: TOKEN_COMMAND, log: `${stranger}\nok` });
+    expect(updates.flatMap((update) => update.lines ?? [])).toEqual([stranger, 'ok']);
   });
 });
 

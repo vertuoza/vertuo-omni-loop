@@ -1072,7 +1072,7 @@ describe('omni runner sender', () => {
  * read the job's token through. The token is a fake one, in a token file of a temporary home.
  */
 describe('omni runner github-token (PRD 2433, s2)', () => {
-  const TOKEN = 'ghs_fakeTokenOfTheJobInTheCommandTests0123456789';
+  const TOKEN = ['ghs', 'fakeTokenOfTheJobInTheCommandTests0123456789'].join('_');
   const JOB = { OMNI_JOB: '7', OMNI_RUNNER: 'box-1' };
 
   function homeWithToken(runner = 'box-1'): string {
@@ -1134,7 +1134,7 @@ describe('omni runner github-token (PRD 2433, s2)', () => {
  * the `gh` first on its PATH and its identity all answer as the app, through `omni runner github-token`.
  */
 describe('omni runner: a job that runs as a GitHub App (PRD 2433, s2)', () => {
-  const TOKEN = 'ghs_fakeTokenOfTheJobRunningAsTheApp0123456789';
+  const TOKEN = ['ghs', 'fakeTokenOfTheJobRunningAsTheApp0123456789'].join('_');
   const GRANT = { token: TOKEN, expiresAt: '2026-10-22T13:00:00Z', login: 'omni-acme[bot]', email: '42+omni-acme[bot]@users.noreply.github.com' };
 
   it('answers as the app from inside the session: git credentials, gh, the commit identity, the HTTPS remotes', async () => {

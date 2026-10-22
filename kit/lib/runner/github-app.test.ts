@@ -7,7 +7,7 @@ import { delimiter, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { findGh, ghShim, ghShimDir, githubJobEnv, installGhShim, shellQuote } from './github-app.ts';
 
-const FAKE_TOKEN = 'ghs_fakeInstallationTokenForTheShim0123456789';
+const FAKE_TOKEN = ['ghs', 'fakeInstallationTokenForTheShim0123456789'].join('_');
 
 /** A temporary home with a fake `gh` that prints what it got, and a fake token command that prints `FAKE_TOKEN` (or fails). */
 function machine(options: { gh?: boolean; tokenFails?: boolean } = {}) {

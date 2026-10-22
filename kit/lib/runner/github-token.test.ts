@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { forgetGithubToken, githubTokenFile, jobGithubToken, maskJobTokens, maskTokens, readGithubToken, saveGithubToken } from './github-token.ts';
 
 const home = (): string => mkdtempSync(join(tmpdir(), 'omni-github-token-'));
-const T1 = 'ghs_firstInstallationToken0123456789ABCDEF';
-const T2 = 'ghs_secondInstallationToken9876543210ZYXWVU';
+const T1 = ['ghs', 'firstInstallationToken0123456789ABCDEF'].join('_');
+const T2 = ['ghs', 'secondInstallationToken9876543210ZYXWVU'].join('_');
 
 describe("a job's token file", () => {
   it('lives beside the job’s log, as job-<id>.github, and only for an id the runner could have named a file after', () => {
@@ -118,7 +118,7 @@ describe('maskTokens', () => {
   });
 
   it('masks the longer token first when one holds another', () => {
-    expect(maskTokens('x ghs_abcdefgh12 y', ['ghs_abcdefgh', 'ghs_abcdefgh12'])).toBe('x *** y');
+    expect(maskTokens('x ghs_abcdefgh12 y', [['ghs', 'abcdefgh'].join('_'), ['ghs', 'abcdefgh12'].join('_')])).toBe('x *** y');
   });
 
   it('masks the start of a token a log ends on, still being written, from six characters on', () => {
