@@ -27,7 +27,7 @@ describe('SIDEBAR', () => {
     const drawn = [...dashboard.items, ...work.items, SETTINGS];
     expect(drawn.map((i) => [i.id, i.sprite])).toEqual([
       ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['loop', 'menu-loop'], ['runners', 'item-box'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
-      ['products', 'coin'], ['roadmaps', 'menu-roadmaps'], ['ideas', 'tile-block'], ['concepts', 'menu-concepts'], ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
+      ['products', 'coin'], ['roadmaps', 'menu-roadmaps'], ['ideas', 'tile-block'], ['concepts', 'menu-concepts'], ['prds', 'menu-prds'], ['waiting', 'menu-waiting'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
       ['settings', 'menu-settings'],
     ]);
     for (const item of drawn) expect([SPRITE_DEFS[present(item.sprite, item.id)]?.w, SPRITE_DEFS[present(item.sprite, item.id)]?.h], item.id).toEqual([16, 16]);
@@ -50,7 +50,7 @@ describe('SIDEBAR', () => {
     expect(dashboard.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds Products first (PRD 1364), Roadmaps (PRD 1162), Ideas (PRD 1246), Concepts (PRD 1272), then PRDs, Bug Fixes, Visual Updates, Questions and Knowledge under Work, Questions\' pages not drawn as menu lines (PRD 733)', () => {
+  it('holds Products first (PRD 1364), Roadmaps (PRD 1162), Ideas (PRD 1246), Concepts (PRD 1272), then PRDs, Waiting (PRD 2377), Bug Fixes, Visual Updates, Questions and Knowledge under Work, Questions\' pages not drawn as menu lines (PRD 733)', () => {
     const [, work] = SIDEBAR;
     assertDefined(work, 'the Work group');
     expect(work.items[0]?.id).toBe('products');
@@ -60,6 +60,7 @@ describe('SIDEBAR', () => {
       ['ideas', 'Ideas', '/ideas', []],
       ['concepts', 'Concepts', '/concepts', []],
       ['prds', 'PRDs', '/prd', []],
+      ['waiting', 'Waiting', '/app/waiting', []],
       ['bugs', 'Bug Fixes', '/bugs', []],
       ['visual', 'Visual Updates', '/visual', []],
       ['questions', 'Questions', '/ask', [['Shared with me', '/ask/for-me'], ['History', '/ask/history']]],
@@ -127,6 +128,8 @@ describe('currentItem and pageTrail', () => {
     ['/prd', 'prds', 'Work › PRDs'],
     ['/prd/3f2a', 'prds', 'Work › PRDs'],
     ['/prd?who=all', 'prds', 'Work › PRDs'],
+    ['/app/waiting', 'waiting', 'Work › Waiting'],
+    ['/app/waiting?tab=mine', 'waiting', 'Work › Waiting'],
     ['/bugs', 'bugs', 'Work › Bug Fixes'],
     ['/bugs/3f2a', 'bugs', 'Work › Bug Fixes'],
     ['/visual', 'visual', 'Work › Visual Updates'],
