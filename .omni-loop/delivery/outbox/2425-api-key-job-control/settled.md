@@ -1248,3 +1248,390 @@ Changing it later means changing one mapping function and the tests that name th
 ```
 
 <!-- /omni-outbox-settled: s7-03-relaunch-refusals-in-the-runners-words -->
+
+<!-- omni-outbox-settled: s8-01-one-ping-per-change -->
+
+## s8-01-one-ping-per-change — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s8
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-one-ping-per-change
+prd: 2425
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 6
+---
+
+## The question, in plain words
+
+A job can finish and settle on an outcome in the same moment, which changes both its status and its outcome. Should the app that asked for it get one ping or two?
+
+## The decision, in plain words
+
+One ping per change: it says outcome when the job ended with an outcome, and status otherwise, so the app reads the job once and sees everything that changed.
+
+## The intro, for fun
+
+A job finishes, and two things changed at once.
+
+## The punchline, for fun
+
+The app gets one knock at the door, not two.
+
+## The options, in plain words
+
+A. One ping per stored change: outcome when the job ended with one, otherwise status.
+B. Two pings when both changed: status first, then outcome.
+
+## What I had to decide
+
+The spec names three events (`status`, `outcome`, `questions`) and says a ping goes out when the status, the outcome or the questions change, but not what a change of two at once sends. I send one ping per stored change: `outcome` when the job ended with an outcome stored (or its outcome changed), otherwise `status`; `questions` when a round opens or closes, on the job that asked. A claim and a run send `status`. A running job asked to stop sends none, since nothing is stored yet and its end will; a runner reporting only a release or only log lines sends none.
+
+## What I did meanwhile
+
+Built the event rule as one small function in the runners' rules and tested each transition: claimed, running, ended with and without an outcome, released, log lines only, stop requested, runner lost, questions asked, answered and dismissed.
+
+## What it costs to change later
+
+Changing it is one function and its tests. An app that reads the job on any ping sees no difference; an app that expects a status ping before the outcome ping would need the second ping added.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say whether an app wants a separate status ping before the outcome ping when a job ends.
+
+```
+
+<!-- /omni-outbox-settled: s8-01-one-ping-per-change -->
+
+<!-- omni-outbox-settled: s8-02-links-refused-at-send -->
+
+## s8-02-links-refused-at-send — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s8
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-02-links-refused-at-send
+prd: 2425
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 6
+---
+
+## The question, in plain words
+
+Besides a host that is not public, which other links should a key be told no to when it sends a job: a link that carries a user name and password, a host name that does not exist yet, or any link at all on a server that has no way to ping?
+
+## The decision, in plain words
+
+All three are refused with a 422 when the job is sent, so the key learns at once that its link could never be pinged, and the job is not queued.
+
+## The intro, for fun
+
+A link that can never be reached is easier to refuse than to wait for.
+
+## The punchline, for fun
+
+The key hears no at the door, not silence three tries later.
+
+## The options, in plain words
+
+A. Refuse all three at send, with a 422 that names the link and says why.
+B. Refuse only what the spec names, a host that is not public, and let the rest fail quietly when the ping is tried.
+
+## What I had to decide
+
+The spec refuses a host that resolves to a loopback, private or link-local address, checked again before every ping. It says nothing of a link with credentials in it, a name that does not resolve at send time, or a server wired without a way to ping. I refuse each with a 422 on `notify_url` that says why, and I read every spelling of an address (decimal, hex, short, bracketed, the IPv4-mapped IPv6 form) as the address it is. A log line never says more than the job, the event and the host, since a path or a query may hold a secret.
+
+## What I did meanwhile
+
+The check at send and the check before each ping are the same rules, so a link accepted at send is the link vetted again later. A runners' service built with no notifier refuses every link rather than accept one it cannot ping.
+
+## What it costs to change later
+
+Loosening it is a change to one vetting function: a key that sends a link with credentials or a host that does not exist yet would then be accepted instead of refused, which breaks no client.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether an app can create its host name after sending a job and expects the ping to wait for it, which the spec does not say.
+
+```
+
+<!-- /omni-outbox-settled: s8-02-links-refused-at-send -->
+
+<!-- omni-outbox-settled: s8-03-link-not-read-back -->
+
+## s8-03-link-not-read-back — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s8
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-03-link-not-read-back
+prd: 2425
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 6
+---
+
+## The question, in plain words
+
+May a key read back the link a job pings when it reads the job? The link can carry a secret in its address.
+
+## The decision, in plain words
+
+No: the link is stored with the job and used, never shown, so reading a job never reveals it to another key of the same workspace.
+
+## The intro, for fun
+
+A link may hold a secret, so the job keeps it to itself.
+
+## The punchline, for fun
+
+Whoever sent it knows it, and nobody else reads it back.
+
+## The options, in plain words
+
+A. Never returned: stored, used and never shown.
+B. Returned as sent, to every key of the workspace that reads the job.
+C. Returned with its address cut to the host, so a secret in the path stays hidden.
+
+## What I had to decide
+
+The spec's table of what `GET /api/v1/jobs/{id}` adds does not include `notify_url`, and any key of the workspace can read the jobs another key sent, so a link with a token in its path would pass from one key to another. I store it, use it and never return it, in a job's read, in a list or in a log.
+
+## What I did meanwhile
+
+Left the link out of the job's public shape, and tested that a job sent with a link reads back without it, through both start routes and the job's read.
+
+## What it costs to change later
+
+Adding it later is one new optional field on the job, which breaks no client; hiding it again after clients rely on it would.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the app that sent the link wants to read it back to check what it registered, which the spec does not say.
+
+```
+
+<!-- /omni-outbox-settled: s8-03-link-not-read-back -->
+
+<!-- omni-outbox-settled: s8-04-lost-runner-tells-its-link -->
+
+## s8-04-lost-runner-tells-its-link — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s8
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-04-lost-runner-tells-its-link
+prd: 2425
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 6
+---
+
+## The question, in plain words
+
+When a runner registers again, the jobs it was holding end as lost. Should the apps that asked for those jobs be pinged, given that the spec says a change the database makes alone sends nothing?
+
+## The decision, in plain words
+
+Yes for those jobs, because the server's own code ends them and each pings its new status. No for the scheduled sweep in the database that ends a silent runner's jobs, as the spec says.
+
+## The intro, for fun
+
+A runner starts over, and the jobs it was holding are written off.
+
+## The punchline, for fun
+
+Only the endings the server writes itself get announced.
+
+## The options, in plain words
+
+A. Ping the jobs the server ends when a runner registers again, and none for the database's sweep.
+B. Ping nothing for lost jobs at all, as for the sweep.
+C. Ping both, by letting the database call out when its sweep ends a job.
+
+## What I had to decide
+
+The spec says a change the database makes alone, a stale claim its scheduled sweep ends, sends no ping. A runner registering again ends the jobs it held as lost from this server's own code, a change this process makes and stores, so each one pings `status`. Pinging the sweep's changes too would need a database trigger that calls out to an address an app named, which the spec rules out: polling, slowly, stays the truth.
+
+## What I did meanwhile
+
+Wired the ping into the registration's own rule and left the database's sweep alone, with a test for each: the registration pings the status of every job it ends, and the sweep's path pings nothing.
+
+## What it costs to change later
+
+Removing the registration's pings is one line and a test; adding the sweep's would mean a trigger in the database and a way for it to reach the network, which is a new design.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether an app that waits on a ping would rather be told about every lost job, sweep included, even at the price of a database that calls out.
+
+```
+
+<!-- /omni-outbox-settled: s8-04-lost-runner-tells-its-link -->
+
+<!-- omni-outbox-settled: s8-05-ping-follows-no-redirect -->
+
+## s8-05-ping-follows-no-redirect — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s8
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-05-ping-follows-no-redirect
+prd: 2425
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 6
+---
+
+## The question, in plain words
+
+A link may answer a ping by sending the server somewhere else. Should the server follow that, or count the ping as not delivered?
+
+## The decision, in plain words
+
+It follows nothing: the ping goes to the address the server just checked, and an answer that points elsewhere counts as a failed try, so a public link can never lead the server to a private address.
+
+## The intro, for fun
+
+A public link could politely point the server at a private door.
+
+## The punchline, for fun
+
+The server only ever knocks where it checked first.
+
+## The options, in plain words
+
+A. No redirect followed: a redirect counts as a failed try.
+B. Follow a few redirects, each hop checked as the first was.
+
+## What I had to decide
+
+The spec says the host is checked again before every ping, which a redirect would defeat, since the next address is never checked. I pin the connection to the address vetted for this try (the certificate and the Host header keep the link's own name), follow no redirect, and treat a 3xx like any other answer that is not a success: a failed try, retried up to three times within about 30 seconds.
+
+## What I did meanwhile
+
+Built the post over node's https with the connection pinned to the checked address and no redirect handling, and tested it on a stand-in for the transport: the response is dropped as soon as its status is read, and a failure says only an error code, never the link.
+
+## What it costs to change later
+
+Following redirects later means vetting each hop with the same rules and a cap on their number; nothing stored depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether apps put their link behind a redirecting front door, which would make every ping fail until they send the final address.
+
+```
+
+<!-- /omni-outbox-settled: s8-05-ping-follows-no-redirect -->
