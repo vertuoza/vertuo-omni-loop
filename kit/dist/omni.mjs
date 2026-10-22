@@ -29600,7 +29600,7 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     requestPitchUploads: ({ repo, prd: prd2, files }) => call("POST", "/api/pitches/uploads", { body: { repo, prd: prd2, files } }),
     /** PRD 859: stores a pitch once its five files are up, and answers the Pitch tab's link and the GIF's
      * stable link. @returns {Promise<{ url: string, gif: string }>} */
-    registerPitch: ({ repo, prd: prd2, run: run2, audience, look, commit, hook, benefit, kicker, closing }) => call("POST", "/api/pitches", { body: { repo, prd: prd2, run: run2, audience, look, commit, hook, benefit, kicker, closing } }),
+    registerPitch: ({ repo, prd: prd2, run: run2, audience, look: look2, commit, hook, benefit, kicker, closing }) => call("POST", "/api/pitches", { body: { repo, prd: prd2, run: run2, audience, look: look2, commit, hook, benefit, kicker, closing } }),
     /** PRD 1108: the Pitch settings of the product `repo` (owner/name) belongs to, filled from its preset
      * and the defaults. @returns {Promise<{ settings: unknown }>} */
     readPitchSettings: (repo) => call("GET", `/api/pitch-settings?${new URLSearchParams({ repo })}`),
@@ -30060,9 +30060,9 @@ function sendHeartbeat(argv, { cwd, exec, env, vars, script: script2, seams }) {
     const spawn3 = spawnOf(seams);
     if (!spawn3 || !vars.heartbeat || !beatsAfter(argv)) return;
     const now2 = (seams.now ?? Date.now)();
-    const due = dueSession(cwd, exec, vars, now2);
-    if (!due || !heartbeatTarget(cwd, exec, tokensOf(seams, vars))) return;
-    if (claimWindow(due.home, due.sessionId, now2)) startHeartbeat({ spawn: spawn3, script: script2, cwd, env });
+    const due2 = dueSession(cwd, exec, vars, now2);
+    if (!due2 || !heartbeatTarget(cwd, exec, tokensOf(seams, vars))) return;
+    if (claimWindow(due2.home, due2.sessionId, now2)) startHeartbeat({ spawn: spawn3, script: script2, cwd, env });
   } catch {
   }
 }
@@ -34172,8 +34172,8 @@ function planFor({ comments: all, items, adopted, markers }) {
     const { answer, judgement } = readAnswer(raw, item2);
     if (judgement.verdict === null) {
       const lastRound = reaskedAt.get(number5);
-      const due = lastRound === void 0 || time3(answer.approvedAt) > lastRound;
-      held2.push({ number: number5, item: item2, answer, due });
+      const due2 = lastRound === void 0 || time3(answer.approvedAt) > lastRound;
+      held2.push({ number: number5, item: item2, answer, due: due2 });
       continue;
     }
     if (adoptedEntry && judgement.verdict !== "drifted") continue;
@@ -34338,11 +34338,11 @@ function readReplies({ ctx, prd: prd2, pr, post: post3 = false }, client) {
   return {
     settled: settled2,
     failed: failed4,
-    held: plan2.held.map(({ number: number5, item: item2, answer, due }) => ({
+    held: plan2.held.map(({ number: number5, item: item2, answer, due: due2 }) => ({
       number: number5,
       id: item2.id,
       answer: answer.text,
-      due
+      due: due2
     })),
     round: round2
   };
@@ -34685,7 +34685,13 @@ var MASK = "***";
 var JOB_ID = /^[A-Za-z0-9_-]+$/;
 var MIN_START = 6;
 var StoredTokenSchema = external_exports.object({ token: external_exports.string().min(1), expiresAt: external_exports.string() });
-var TokenFileSchema = external_exports.object({ runner: external_exports.string().min(1), tokens: external_exports.array(StoredTokenSchema).min(1) });
+var RetrySchema = external_exports.object({ at: external_exports.number(), why: external_exports.string() });
+var TokenFileSchema = external_exports.object({
+  runner: external_exports.string().min(1),
+  tokens: external_exports.array(StoredTokenSchema).min(1),
+  page: external_exports.string().min(1).optional(),
+  retry: RetrySchema.optional()
+});
 function githubTokenFile(home, job2) {
   return JOB_ID.test(job2) ? join32(home, "logs", `job-${job2}.github`) : null;
 }
@@ -34697,15 +34703,23 @@ function readGithubToken(file2) {
     return null;
   }
 }
-function saveGithubToken(file2, runner2, grant) {
-  const held2 = readGithubToken(file2);
-  const past3 = held2 !== null && held2.runner === runner2 ? held2.tokens.filter((entry3) => entry3.token !== grant.token) : [];
-  const text15 = JSON.stringify({ runner: runner2, tokens: [...past3, { token: grant.token, expiresAt: grant.expiresAt }] });
+function writeTokenFile(file2, content) {
   mkdirSync11(dirname8(file2), { recursive: true });
   const next2 = `${file2}tmp`;
-  writeFileSync15(next2, text15, { mode: 384 });
+  writeFileSync15(next2, JSON.stringify(content), { mode: 384 });
   chmodSync4(next2, 384);
   renameSync2(next2, file2);
+}
+function saveGithubToken(file2, runner2, grant, page2) {
+  const held2 = readGithubToken(file2);
+  const same2 = held2 !== null && held2.runner === runner2;
+  const past3 = same2 ? held2.tokens.filter((entry3) => entry3.token !== grant.token) : [];
+  const asked = page2 ?? (same2 ? held2.page : void 0);
+  writeTokenFile(file2, { runner: runner2, tokens: [...past3, { token: grant.token, expiresAt: grant.expiresAt }], ...asked === void 0 ? {} : { page: asked } });
+}
+function noteFailedRefresh(file2, runner2, retry) {
+  const held2 = readGithubToken(file2);
+  if (held2 !== null && held2.runner === runner2) writeTokenFile(file2, { ...held2, retry });
 }
 function forgetGithubToken(file2) {
   try {
@@ -34713,15 +34727,19 @@ function forgetGithubToken(file2) {
   } catch {
   }
 }
-function jobGithubToken(job2, home) {
+function ownJobToken(job2, home) {
   if (job2 === null) return { refusal: "this session is not a runner job." };
   if (job2.runner === null) return { refusal: "this runner job names no runner." };
   const file2 = githubTokenFile(home, job2.job);
   const held2 = file2 === null ? null : readGithubToken(file2);
   const current = held2?.tokens.at(-1);
-  if (held2 === null || current === void 0) return { refusal: `job ${job2.job} does not run as a GitHub App.` };
+  if (file2 === null || held2 === null || current === void 0) return { refusal: `job ${job2.job} does not run as a GitHub App.` };
   if (held2.runner !== job2.runner) return { refusal: `the token of job ${job2.job} is another runner's.` };
-  return current;
+  return { file: file2, runner: job2.runner, job: job2.job, held: held2, current };
+}
+function jobGithubToken(job2, home) {
+  const own2 = ownJobToken(job2, home);
+  return "refusal" in own2 ? own2 : own2.current;
 }
 function startedAtEnd(text15, tokens2) {
   let longest2 = 0;
@@ -41275,10 +41293,10 @@ function bound(times, pick2) {
   const known2 = times.filter((time5) => time5 !== null).sort();
   return (pick2 === "first" ? known2[0] : known2.at(-1)) ?? null;
 }
-function prdTimes(standing3, state) {
-  const startedAt = bound(standing3.prs.map((pr) => pr.createdAt), "first");
-  if (state === "merged") return { startedAt, endedAt: bound(standing3.prs.map((pr) => pr.mergedAt), "last") };
-  if (state === "closed") return { startedAt, endedAt: bound(standing3.prs.filter((pr) => pr.state === "CLOSED").map((pr) => pr.closedAt), "last") };
+function prdTimes(standing4, state) {
+  const startedAt = bound(standing4.prs.map((pr) => pr.createdAt), "first");
+  if (state === "merged") return { startedAt, endedAt: bound(standing4.prs.map((pr) => pr.mergedAt), "last") };
+  if (state === "closed") return { startedAt, endedAt: bound(standing4.prs.filter((pr) => pr.state === "CLOSED").map((pr) => pr.closedAt), "last") };
   return { startedAt, endedAt: null };
 }
 var questionsWord = (n) => `${n} question${n === 1 ? "" : "s"}`;
@@ -41292,7 +41310,7 @@ var cut2 = (line2, max) => {
   const flat2 = line2.replace(/\s+/g, " ").trim();
   return flat2.length > max ? `${flat2.slice(0, max - 1).trimEnd()}\u2026` : flat2;
 };
-var namedPr = (standing3) => standing3.prs.find((pr) => pr.state === "OPEN") ?? standing3.prs.find((pr) => pr.state === "CLOSED") ?? null;
+var namedPr = (standing4) => standing4.prs.find((pr) => pr.state === "OPEN") ?? standing4.prs.find((pr) => pr.state === "CLOSED") ?? null;
 function waitsOn(row, rows2, live = /* @__PURE__ */ new Map()) {
   for (const id of row.blockedBy) {
     const blocker = rows2.get(id);
@@ -41308,8 +41326,8 @@ function waitsOn(row, rows2, live = /* @__PURE__ */ new Map()) {
 function rowStates(roadmap2, standings) {
   const none = { shipped: false, prs: [], expected: 1 };
   return new Map(roadmap2.prds.map((row) => {
-    const standing3 = standings.get(row.id) ?? none;
-    return [row.id, { row, standing: standing3, state: prdState2(standing3) }];
+    const standing4 = standings.get(row.id) ?? none;
+    return [row.id, { row, standing: standing4, state: prdState2(standing4) }];
   }));
 }
 function prerequisitesOf2(roadmap2, result2) {
@@ -41332,7 +41350,7 @@ function pushedQuestions(roadmap2, answers2) {
 }
 function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers: answers2, prdWork: prdWork2, result: result2 = null }) {
   const rows2 = rowStates(roadmap2, standings);
-  const prds = [...rows2.values()].map(({ row, standing: standing3, state }) => ({
+  const prds = [...rows2.values()].map(({ row, standing: standing4, state }) => ({
     id: row.id,
     prd: row.prd,
     title: row.title,
@@ -41341,7 +41359,7 @@ function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers
     wave: row.wave,
     state,
     ...state === "waiting" ? waitsOn(row, rows2) : { waitsOn: null, waitsOnUrl: null },
-    ...prdTimes(standing3, state)
+    ...prdTimes(standing4, state)
   }));
   const questions2 = pushedQuestions(roadmap2, answers2);
   const { title, milestone, product: product2, target: target3, source: source2 } = roadmap2;
@@ -41500,8 +41518,8 @@ async function openPrWork(ctx, row, branch, pr, readers) {
     ...parkWork(row.prd, status5, { repo, prUrl: pr.url })
   ];
 }
-async function readPrdWork(ctx, row, standing3, own2, readers) {
-  const state = prdState2(standing3);
+async function readPrdWork(ctx, row, standing4, own2, readers) {
+  const state = prdState2(standing4);
   const branch = featureBranchOf(ctx, row);
   if (branch === null || state === "merged" || state === "closed") return [];
   const slug = ctx.config.repo.slug ?? "";
@@ -41512,10 +41530,10 @@ async function readPrdWork(ctx, row, standing3, own2, readers) {
 async function readRoadmapPrds(ctx, roadmap2, readers) {
   const read3 = [];
   for (const row of roadmap2.prds) read3.push({ row, ...await readStanding(ctx, row, readers) });
-  const standings = new Map(read3.map(({ row, standing: standing3 }) => [row.id, standing3]));
+  const standings = new Map(read3.map(({ row, standing: standing4 }) => [row.id, standing4]));
   try {
     const work = [];
-    for (const { row, standing: standing3, own: own2 } of read3) work.push(...await readPrdWork(ctx, row, standing3, own2, readers));
+    for (const { row, standing: standing4, own: own2 } of read3) work.push(...await readPrdWork(ctx, row, standing4, own2, readers));
     return { standings, prdWork: work };
   } catch {
     return { standings, prdWork: null };
@@ -42311,12 +42329,12 @@ function subBlocks(bytes2) {
   return out;
 }
 var sideFits = (side) => Number.isInteger(side) && side >= 1 && side <= MAX_SIDE;
-function checkedFrame({ pixels, delay: delay2 }, width, height) {
+function checkedFrame({ pixels, delay: delay3 }, width, height) {
   if (pixels.length !== width * height) {
     throw new RangeError(`a frame of ${pixels.length} pixels does not fill a ${width}x${height} image (${width * height})`);
   }
-  if (!Number.isInteger(delay2) || delay2 < 0 || delay2 > 65535) {
-    throw new RangeError(`a frame's delay is 0 to 65535 hundredths of a second, not ${delay2}`);
+  if (!Number.isInteger(delay3) || delay3 < 0 || delay3 > 65535) {
+    throw new RangeError(`a frame's delay is 0 to 65535 hundredths of a second, not ${delay3}`);
   }
 }
 function checked({ width, height, frames }) {
@@ -42339,8 +42357,8 @@ function encodeGif(image) {
     bytes2.push(colour2 >>> 16 & 255, colour2 >>> 8 & 255, colour2 & 255);
   }
   bytes2.push(33, 255, 11, ...Array.from("NETSCAPE2.0", (letter) => letter.charCodeAt(0)), 3, 1, ...word(0), 0);
-  for (const { pixels, delay: delay2 } of frames) {
-    bytes2.push(33, 249, 4, 4, ...word(delay2), 0, 0);
+  for (const { pixels, delay: delay3 } of frames) {
+    bytes2.push(33, 249, 4, 4, ...word(delay3), 0, 0);
     bytes2.push(44, ...word(0), ...word(0), ...word(width), ...word(height), 0);
     const indices = Uint8Array.from(pixels, (pixel) => palette.get(pixel & 16777215) ?? 0);
     bytes2.push(minCode);
@@ -43641,11 +43659,11 @@ function staleEvidence(evidence, { ctx, exec }) {
   const out = [];
   if (ctx.copyOf) return out;
   for (const { path, hash: hash2 } of evidence) {
-    const exists = existsSync43(join61(ctx.root, path));
-    const now2 = exists ? blobHash(path, { ctx, exec }) : null;
+    const exists2 = existsSync43(join61(ctx.root, path));
+    const now2 = exists2 ? blobHash(path, { ctx, exec }) : null;
     if (now2 !== null && now2.startsWith(hash2)) continue;
     if (now2 !== null && versionOnly(path, hash2, { ctx, exec })) continue;
-    out.push({ path, hash: hash2, now: now2, exists });
+    out.push({ path, hash: hash2, now: now2, exists: exists2 });
   }
   return out;
 }
@@ -43692,8 +43710,8 @@ function gradeForm({ id, kind }, { ctx, exec }) {
   }
   if (form2.pointsTo !== null && gone(form2.pointsTo)) violations.push(`${file2}: points-to ${form2.pointsTo} does not exist`);
   if (form2.index !== null && gone(form2.index)) violations.push(`${file2}: index ${form2.index} does not exist`);
-  for (const { path, hash: hash2, now: now2, exists } of staleEvidence(form2.evidence, { ctx, exec })) {
-    if (!exists) violations.push(`${file2}: evidence ${path} does not exist`);
+  for (const { path, hash: hash2, now: now2, exists: exists2 } of staleEvidence(form2.evidence, { ctx, exec })) {
+    if (!exists2) violations.push(`${file2}: evidence ${path} does not exist`);
     else if (now2 === null) warnings.push(`${file2}: evidence ${path}@${hash2} could not be hashed`);
     else warnings.push(`${file2}: evidence ${path}@${hash2} is stale \u2014 the file has changed since (now ${now2.slice(0, 7)})`);
   }
@@ -46254,7 +46272,7 @@ iframe { display: block; width: 100%; height: 80vh; min-height: 360px; resize: v
 .problems { color: var(--muted); }
 `;
 function section2(screen, readMock) {
-  const lock = screen.lockedBy !== null || screen.lockedOn !== null ? ` \xB7 locked by ${escape3([screen.lockedBy, screen.lockedOn].filter((part) => part !== null).join(" on "))}` : "";
+  const lock2 = screen.lockedBy !== null || screen.lockedOn !== null ? ` \xB7 locked by ${escape3([screen.lockedBy, screen.lockedOn].filter((part) => part !== null).join(" on "))}` : "";
   const routes = screen.routes.length ? ` \xB7 ${escape3(screen.routes.join(", "))}` : "";
   let body = '<p class="none">no mockup</p>';
   if (screen.mock !== null) {
@@ -46264,7 +46282,7 @@ function section2(screen, readMock) {
   const kind = screen.kind === "shared" ? " shared" : "";
   return `<section class="${screen.status}${kind}">
 <h2>${escape3(screen.screen)}</h2>
-<p class="meta"><span class="status">${screen.status}</span>${lock}${routes}</p>
+<p class="meta"><span class="status">${screen.status}</span>${lock2}${routes}</p>
 ${body}
 </section>`;
 }
@@ -48975,7 +48993,7 @@ function proofOf({
   proposed = [],
   changed,
   pr,
-  exists
+  exists: exists2
 }) {
   const status5 = new Map(changed.map((file2) => [file2.path, file2.status]));
   const kept = [];
@@ -48984,7 +49002,7 @@ function proofOf({
     const given = status5.get(path);
     if (given === "removed") dropped.push({ path, reason: `removed by #${pr}` });
     else if (!KEPT_STATUSES.includes(given ?? "")) dropped.push({ path, reason: `not changed by #${pr}` });
-    else if (!exists(path)) dropped.push({ path, reason: "no longer in the tree" });
+    else if (!exists2(path)) dropped.push({ path, reason: "no longer in the tree" });
     else kept.push(path);
   }
   return { kept, dropped };
@@ -51887,10 +51905,10 @@ function currentBranch3(root, exec) {
 function switchToInstallBranch(root, { exec }) {
   const branch = INSTALL_BRANCH;
   if (currentBranch3(root, exec) === branch) return { outcome: "stayed", branch };
-  const exists = attempt7(() => exec("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: root, ...QUIET10 })).ok;
-  const args = exists ? ["switch", branch] : ["switch", "-c", branch];
+  const exists2 = attempt7(() => exec("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: root, ...QUIET10 })).ok;
+  const args = exists2 ? ["switch", branch] : ["switch", "-c", branch];
   if (!attempt7(() => exec("git", args, { cwd: root, ...QUIET10 })).ok) return { outcome: "failed", branch };
-  return { outcome: exists ? "switched" : "created", branch };
+  return { outcome: exists2 ? "switched" : "created", branch };
 }
 function findPr2(root, exec) {
   const listed2 = attempt7(() => GhPullRequestsSchema.parse(JSON.parse(exec("gh", ["pr", "list", "--head", INSTALL_BRANCH, "--state", "open", "--json", "url,number"], { cwd: root, ...QUIET10 }))));
@@ -54863,8 +54881,8 @@ function refuse2(stderr, line2) {
   println(stderr, line2);
   return 1;
 }
-function blocksStart(standing3, takeOver) {
-  return standing3 === "live" || standing3 === "sleeping" || standing3 === "silent" && !takeOver;
+function blocksStart(standing4, takeOver) {
+  return standing4 === "live" || standing4 === "sleeping" || standing4 === "silent" && !takeOver;
 }
 function loopBody(body, kept, plan2) {
   if (!kept || kept.state !== "running") return "no loop (omni loop push start)";
@@ -54873,8 +54891,8 @@ function loopBody(body, kept, plan2) {
 function startingBody(prepared, kept, plan2, at2) {
   if (!plan2) return "no loop plan (omni next --plan)";
   if (!kept) return prepared.body(plan2);
-  const standing3 = loopState(kept, at2);
-  return blocksStart(standing3, prepared.takeOver) ? standingLine(kept, standing3) : prepared.body(plan2);
+  const standing4 = loopState(kept, at2);
+  return blocksStart(standing4, prepared.takeOver) ? standingLine(kept, standing4) : prepared.body(plan2);
 }
 async function sendBody(client, body) {
   let reply;
@@ -55255,9 +55273,9 @@ function liveWords(state, facts, slices) {
 }
 function closedBlocker(blockedBy, standings) {
   for (const id of blockedBy) {
-    const standing3 = standings.get(id);
-    if (!standing3 || prdState2(standing3) !== "closed") continue;
-    const closed = standing3.prs.find((pr) => pr.state === "CLOSED");
+    const standing4 = standings.get(id);
+    if (!standing4 || prdState2(standing4) !== "closed") continue;
+    const closed = standing4.prs.find((pr) => pr.state === "CLOSED");
     if (closed) return closed;
   }
   return null;
@@ -56443,7 +56461,7 @@ async function beforeInbox(prd2, phase02, reader) {
 function standingsOf(own2, outbox, across, reader) {
   const questions2 = own2?.state === "OPEN" && own2.isDraft ? outbox.questions : 0;
   const targets2 = (across?.listed ?? []).map((listed2) => standingPr(listed2.repo, listed2.pr, 0));
-  return [...own2 === null ? [] : [standingPr(shortName9(reader.slug), own2, questions2)], ...targets2].filter((standing3) => standing3 !== null);
+  return [...own2 === null ? [] : [standingPr(shortName9(reader.slug), own2, questions2)], ...targets2].filter((standing4) => standing4 !== null);
 }
 var shortName9 = (slug) => slug.slice(slug.indexOf("/") + 1);
 function targetSlug(name3, reader) {
@@ -56554,9 +56572,9 @@ async function gatesOf(roadmap2, reads, reader) {
   for (const row of roadmap2.prds) {
     const read3 = reads.get(row.prd);
     if (!read3) continue;
-    const standing3 = { shipped: read3.facts.shipped, prs: read3.prs, expected: 1 + (read3.facts.across?.targets.length ?? 0) };
-    standings.set(row.id, standing3);
-    const words4 = liveWords(prdState2(standing3), read3.facts, read3.slices);
+    const standing4 = { shipped: read3.facts.shipped, prs: read3.prs, expected: 1 + (read3.facts.across?.targets.length ?? 0) };
+    standings.set(row.id, standing4);
+    const words4 = liveWords(prdState2(standing4), read3.facts, read3.slices);
     if (words4 !== null) live.set(row.id, words4);
   }
   const { answers: answers2, ticks: ticks2 } = await issueReadOf(roadmap2, reader);
@@ -57411,8 +57429,8 @@ function oneLine6(error62) {
 }
 async function refreshLinks({ root, kind, n, now: now2, build }) {
   ensureLinksDir(root);
-  const lock = linksLock(root, kind, n);
-  const owner = takeLockAt(lock, now2);
+  const lock2 = linksLock(root, kind, n);
+  const owner = takeLockAt(lock2, now2);
   if (owner === null) return "held";
   try {
     let entry3;
@@ -57424,7 +57442,7 @@ async function refreshLinks({ root, kind, n, now: now2, build }) {
     }
     writeJsonAt(linksFile(root, kind, n), entry3);
   } finally {
-    releaseLockAt(lock, owner);
+    releaseLockAt(lock2, owner);
   }
   return "written";
 }
@@ -57568,6 +57586,7 @@ var GithubGrantSchema = external_exports.object({
   login: external_exports.string().min(1),
   email: external_exports.string().min(1)
 });
+var FreshTokenSchema = external_exports.object({ token: GithubGrantSchema.shape.token, expiresAt: GithubGrantSchema.shape.expiresAt });
 var JobSchema = external_exports.object({
   id: external_exports.union([external_exports.string().min(1), external_exports.number()]).transform(String),
   line: external_exports.string(),
@@ -57692,6 +57711,11 @@ function runnerApi(wiring2) {
     async health(runner2, report7) {
       const response = await call("POST", `/api/runners/${segment(runner2)}/health`, { body: report7, timeoutMs: HEALTH_MS, allow: [403] });
       if (response.status === 403) throw new RunnerRefused("refused (403)");
+    },
+    async githubToken(job2) {
+      const reply = FreshTokenSchema.safeParse(await json3(await call("POST", `/api/runners/jobs/${segment(job2)}/github-token`, { words: true })));
+      if (!reply.success) throw new RunnerRefused("refused (the app answered no token)");
+      return reply.data;
     },
     async runners(repo) {
       const reply = external_exports.object({ runners: external_exports.array(KitRunnerSchema) }).safeParse(await json3(await call("GET", `/api/runners?${new URLSearchParams({ repo })}`, { allow: [403] }).then(forbidden)));
@@ -58460,8 +58484,8 @@ async function pushPitch({
   const reply = await client.requestPitchUploads({ repo, prd: prd2, files: run2.files.map(({ name: name3, bytes: bytes2, type }) => ({ name: name3, bytes: bytes2, type })) });
   const { runId, links: links2 } = linksOf3(reply, run2.files);
   for (const [index2, file2] of run2.files.entries()) await client.upload(at(links2, index2, `the upload link of ${file2.name}`), read3(file2.path), file2.type);
-  const { audience, look, commit, hook, benefit, kicker, closing } = run2;
-  const registered = await client.registerPitch({ repo, prd: prd2, run: runId, audience, look, commit, hook, benefit, kicker, closing });
+  const { audience, look: look2, commit, hook, benefit, kicker, closing } = run2;
+  const registered = await client.registerPitch({ repo, prd: prd2, run: runId, audience, look: look2, commit, hook, benefit, kicker, closing });
   const tab = isRecord5(registered) ? registered.url : void 0;
   const gif = isRecord5(registered) ? registered.gif : void 0;
   if (!isText7(tab)) throw new PitchReplyError("no link in the reply");
@@ -58527,14 +58551,14 @@ function readPitchRun(dir, prd2) {
   if (!existsSync77(file2)) return null;
   const sent = parsedOrNull(readFileSync101(file2, "utf8"));
   if (!isRecord6(sent)) return refuse3(`${PITCH_RUN_FILE} is not a JSON object`);
-  const { audience, look, commit } = sent;
+  const { audience, look: look2, commit } = sent;
   if (sent.prd !== void 0 && sent.prd !== prd2) refuse3(`${PITCH_RUN_FILE} is for PRD ${shown5(sent.prd)}, not ${prd2}`);
   if (!isOneOf(AUDIENCES, audience)) return refuse3(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
-  if (!isOneOf(LOOKS, look)) return refuse3(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look)}`);
+  if (!isOneOf(LOOKS, look2)) return refuse3(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look2)}`);
   if (typeof commit !== "string" || !COMMIT3.test(commit)) return refuse3(`${PITCH_RUN_FILE}: commit is the hash of the commit the pitch was made at`);
   const words4 = wordsOf3(sent);
   const files = keysOf(PITCH_FILES).map((name3) => fileOf(dir, name3));
-  return { audience, look, commit, ...words4, files };
+  return { audience, look: look2, commit, ...words4, files };
 }
 
 // kit/bin/commands/pitch-make.ts
@@ -59615,8 +59639,8 @@ function overlay2(base, over2) {
   return merged;
 }
 function storedPreset(value) {
-  const look = value["look"];
-  const named4 = isPlain(look) ? look["preset"] : void 0;
+  const look2 = value["look"];
+  const named4 = isPlain(look2) ? look2["preset"] : void 0;
   return PITCH_PRESETS.find((preset) => preset === named4) ?? DEFAULT_PRESET;
 }
 function parsePitchSettings(value) {
@@ -59685,8 +59709,8 @@ function startSettings(answer) {
 }
 var ASSET = "asset:";
 var assetName = (ref) => ref?.startsWith(ASSET) ? ref.slice(ASSET.length) : null;
-function assetsOf({ look, music: music2 }) {
-  const names = [look.logo, look.heading.family, look.text.family, music2.file].map(assetName).filter((name3) => name3 !== null);
+function assetsOf({ look: look2, music: music2 }) {
+  const names = [look2.logo, look2.heading.family, look2.text.family, music2.file].map(assetName).filter((name3) => name3 !== null);
   return [...new Set(names)];
 }
 function fontRequestOf({ provider: provider2, family, weight }) {
@@ -59709,8 +59733,8 @@ var RenderRefused = class extends Error {
 function runSettings(dir) {
   const file2 = join131(dir, RUN_SETTINGS);
   if (!existsSync81(file2)) {
-    const look = readPitchJson(dir)?.["look"];
-    return defaultPitchSettings(isOneOf(PITCH_PRESETS, look) ? look : void 0);
+    const look2 = readPitchJson(dir)?.["look"];
+    return defaultPitchSettings(isOneOf(PITCH_PRESETS, look2) ? look2 : void 0);
   }
   let value;
   try {
@@ -59734,11 +59758,11 @@ function runAssets(dir) {
     return existsSync81(file2) ? Promise.resolve(file2) : Promise.reject(new Error(`the run holds no ${ASSETS_DIR}/${name3}`));
   };
 }
-async function fontsOf(dir, look, { fetch, warn }) {
+async function fontsOf(dir, look2, { fetch, warn }) {
   const context = { dir, fetch, asset: runAssets(dir) };
-  const heading2 = await loadFont(fontRequestOf(look.heading), context, warn);
-  const same2 = look.text.provider === look.heading.provider && look.text.family === look.heading.family && look.text.weight === look.heading.weight;
-  const text15 = same2 ? heading2 : await loadFont(fontRequestOf(look.text), context, warn);
+  const heading2 = await loadFont(fontRequestOf(look2.heading), context, warn);
+  const same2 = look2.text.provider === look2.heading.provider && look2.text.family === look2.heading.family && look2.text.weight === look2.heading.weight;
+  const text15 = same2 ? heading2 : await loadFont(fontRequestOf(look2.text), context, warn);
   const css = same2 ? heading2.css : `${heading2.css}${text15.css}`;
   return { css, heading: heading2.stack, text: text15.stack };
 }
@@ -60175,9 +60199,9 @@ function openRun(ctx, { prd: prd2, audience, settings, exec, now: now2 }) {
   mkdirSync35(join133(dir, "assets"), { recursive: true });
   writeFileSync50(join133(dir, RUN_SETTINGS), `${JSON.stringify(settings, null, 2)}
 `);
-  const look = settings.look.preset;
-  writePitchJson(dir, { prd: prd2, audience, look, commit });
-  return { dir, look, url: ctx.config.proof.url, commit };
+  const look2 = settings.look.preset;
+  writePitchJson(dir, { prd: prd2, audience, look: look2, commit });
+  return { dir, look: look2, url: ctx.config.proof.url, commit };
 }
 async function start(args, { cwd, stdout, stderr, exec, tokens: tokens2, home, fetch, callMs, now: now2 = () => /* @__PURE__ */ new Date() }) {
   const { arg, flags } = oneArg("start", args, ["for"]);
@@ -61492,6 +61516,7 @@ init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync115 } from "node:fs";
 import { homedir as homedir4 } from "node:os";
 import { resolve as resolve15 } from "node:path";
+import { setTimeout as delay2 } from "node:timers/promises";
 
 // kit/lib/runner/checkouts.ts
 init_define_OMNI_BUNDLE();
@@ -61523,6 +61548,105 @@ function listCheckouts(dir, exec) {
     if (repo && !found2.has(repo)) found2.set(repo, path);
   }
   return new Map([...found2].sort(([a], [b]) => a.localeCompare(b)));
+}
+
+// kit/lib/runner/github-refresh.ts
+init_define_OMNI_BUNDLE();
+import { closeSync as closeSync2, openSync as openSync2, rmSync as rmSync19, statSync as statSync25 } from "node:fs";
+var REFRESH_BEFORE_MS = 5 * 60 * 1e3;
+var RETRY_MS = 60 * 1e3;
+var LOCK_WAIT_MS = 2e4;
+var LOCK_STALE_MS = 6e4;
+var LOCK_POLL_MS = 100;
+var MAX_WHY = 200;
+function due(current, at2) {
+  const left = Date.parse(current.expiresAt) - at2;
+  return { expired: !(left > 0), soon: !(left >= REFRESH_BEFORE_MS) };
+}
+function standing(current, at2, why3) {
+  return due(current, at2).expired ? { token: null, failed: `its token expired and no fresh one came (${why3})` } : { token: current, failed: why3 };
+}
+function look(file2, runner2, at2) {
+  const held2 = readGithubToken(file2);
+  if (held2 === null) return { done: { token: null, failed: "the job has no token kept on this machine" } };
+  if (held2.runner !== runner2) return { done: { token: null, failed: "the token of the job is another runner's" } };
+  const current = held2.tokens.at(-1);
+  if (current === void 0) return { done: { token: null, failed: "the job has no token kept on this machine" } };
+  if (!due(current, at2).soon) return { done: { token: current, failed: null } };
+  if (held2.retry !== void 0 && held2.retry.at > at2) return { done: standing(current, at2, held2.retry.why) };
+  return { current };
+}
+function isStale(path) {
+  try {
+    return Date.now() - statSync25(path).mtimeMs > LOCK_STALE_MS;
+  } catch {
+    return true;
+  }
+}
+var exists = (error62) => error62 instanceof Error && "code" in error62 && error62.code === "EEXIST";
+async function lock(file2, { now: now2, sleep: sleep2 }) {
+  const path = `${file2}lock`;
+  const deadline = now2() + LOCK_WAIT_MS;
+  for (; ; ) {
+    try {
+      closeSync2(openSync2(path, "wx", 384));
+      return () => {
+        rmSync19(path, { force: true });
+      };
+    } catch (error62) {
+      if (!exists(error62)) return null;
+    }
+    if (isStale(path)) {
+      try {
+        rmSync19(path, { force: true });
+      } catch {
+        return null;
+      }
+      continue;
+    }
+    if (now2() >= deadline) return null;
+    await sleep2(LOCK_POLL_MS);
+  }
+}
+function reasonOf4(error62, tokens2) {
+  const text15 = error62 instanceof Error ? error62.message : String(error62);
+  const line2 = maskTokens(text15.split("\n")[0]?.trim() ?? "", tokens2);
+  const why3 = line2 === "" ? "the app did not say why" : line2;
+  return why3.length <= MAX_WHY ? why3 : `${why3.slice(0, MAX_WHY - 1)}\u2026`;
+}
+async function keepGithubToken(options) {
+  const { file: file2, runner: runner2, job: job2, fetchToken, now: now2, sleep: sleep2 } = options;
+  const first = look(file2, runner2, now2());
+  if ("done" in first) return first.done;
+  const release2 = await lock(file2, { now: now2, sleep: sleep2 });
+  if (release2 === null) return standing(first.current, now2(), "another refresh of the job\u2019s token is taking too long");
+  try {
+    const again = look(file2, runner2, now2());
+    if ("done" in again) return again.done;
+    const known2 = (readGithubToken(file2)?.tokens ?? []).map((entry3) => entry3.token);
+    let fresh;
+    try {
+      fresh = await fetchToken(job2);
+    } catch (error62) {
+      const why3 = reasonOf4(error62, known2);
+      try {
+        noteFailedRefresh(file2, runner2, { at: now2() + RETRY_MS, why: why3 });
+      } catch {
+      }
+      return standing(again.current, now2(), why3);
+    }
+    try {
+      saveGithubToken(file2, runner2, fresh);
+    } catch {
+      return standing(again.current, now2(), "the fresh token could not be kept on this machine");
+    }
+    return { token: fresh, failed: null };
+  } finally {
+    try {
+      release2();
+    } catch {
+    }
+  }
 }
 
 // kit/lib/runner/health.ts
@@ -61645,7 +61769,7 @@ function nextPause(state, reason2) {
 // kit/lib/runner/job.ts
 init_define_OMNI_BUNDLE();
 import { spawn as spawn2 } from "node:child_process";
-import { appendFileSync, closeSync as closeSync2, existsSync as existsSync88, openSync as openSync2, readFileSync as readFileSync112, writeFileSync as writeFileSync53 } from "node:fs";
+import { appendFileSync, closeSync as closeSync3, existsSync as existsSync88, openSync as openSync3, readFileSync as readFileSync112, writeFileSync as writeFileSync53 } from "node:fs";
 import { join as join138 } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 
@@ -61866,14 +61990,14 @@ async function runJobProcess({ cwd, files, out, env }) {
     writeFileSync53(raw, "");
     const reader = streamReader({ log: files.log, raw, out });
     const args = claudeArgs(cwd, readFileSync112(files.line, "utf8").replace(/\n$/, ""));
-    const stdin = openSync2(files.line, "r");
+    const stdin = openSync3(files.line, "r");
     try {
       code = await run("claude", args, { cwd, stdin, log: files.log, out, env, stdout: (chunk) => {
         reader.chunk(chunk);
       } });
     } finally {
       reader.end();
-      closeSync2(stdin);
+      closeSync3(stdin);
     }
   }
   writeFileSync53(files.exit, `${String(code)}
@@ -62009,6 +62133,9 @@ function why2(error62) {
   return text15.trim().split("\n")[0]?.trim() ?? "";
 }
 var cut5 = (text15, max) => text15.length <= max ? text15 : `${text15.slice(0, max - 1)}\u2026`;
+function notReleased(why3) {
+  return { released: [], releaseError: cut5(why3, MAX_RELEASE_ERROR) };
+}
 function candidates(repo, gh) {
   const out = gh(["pr", "list", "--repo", repo.slug, "--state", "open", "--label", repo.inProgress, "--limit", "100", "--json", "number,labels"]);
   let listed2;
@@ -62069,9 +62196,11 @@ function release(job2, repo, reason2, gh) {
 }
 var QUIET13 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var NOTHING3 = { released: [], releaseError: null };
-function releaser({ exec, checkouts }) {
-  const gh = (args) => exec("gh", args, QUIET13);
+function releaser({ exec, checkouts, env = {} }) {
   return (ended2) => {
+    const token = ended2.ghToken ?? null;
+    const options = token === null ? QUIET13 : { ...QUIET13, env: { ...env, GH_TOKEN: token } };
+    const gh = (args) => exec("gh", args, options);
     const checkout = checkouts.get(ended2.repo);
     if (checkout === void 0 || !existsSync89(join139(checkout, CONFIG_FILE))) return { ...NOTHING3 };
     let repo;
@@ -62087,12 +62216,12 @@ function releaser({ exec, checkouts }) {
 
 // kit/lib/runner/runner.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync91, mkdirSync as mkdirSync37, readFileSync as readFileSync114, rmSync as rmSync20, writeFileSync as writeFileSync55 } from "node:fs";
+import { existsSync as existsSync91, mkdirSync as mkdirSync37, readFileSync as readFileSync114, rmSync as rmSync21, writeFileSync as writeFileSync55 } from "node:fs";
 import { join as join144 } from "node:path";
 
 // kit/lib/runner/github-app.ts
 init_define_OMNI_BUNDLE();
-import { accessSync, chmodSync as chmodSync7, constants as constants2, mkdirSync as mkdirSync36, renameSync as renameSync7, statSync as statSync25, writeFileSync as writeFileSync54 } from "node:fs";
+import { accessSync, chmodSync as chmodSync7, constants as constants2, mkdirSync as mkdirSync36, renameSync as renameSync7, statSync as statSync26, writeFileSync as writeFileSync54 } from "node:fs";
 import { delimiter, join as join140, resolve as resolve14 } from "node:path";
 function shellQuote(text15) {
   return `'${text15.replace(/'/g, `'\\''`)}'`;
@@ -62105,7 +62234,7 @@ function findGh(path, skip) {
     if (dir === "" || resolve14(dir) === resolve14(skip)) continue;
     const candidate = join140(dir, "gh");
     try {
-      if (!statSync25(candidate).isFile()) continue;
+      if (!statSync26(candidate).isFile()) continue;
       accessSync(candidate, constants2.X_OK);
       return candidate;
     } catch {
@@ -62157,7 +62286,7 @@ function githubJobEnv({ bot, tokenCommand, shimDir, path }) {
 
 // kit/lib/runner/tokens.ts
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync39, readFileSync as readFileSync113, statSync as statSync26 } from "node:fs";
+import { readdirSync as readdirSync39, readFileSync as readFileSync113, statSync as statSync27 } from "node:fs";
 import { join as join141 } from "node:path";
 var HOUR_MS = 60 * 60 * 1e3;
 var DAY_MS2 = 24 * HOUR_MS;
@@ -62184,7 +62313,7 @@ function tokenSource({ projects, now: now2 = Date.now, readFile: readFile3 = (pa
   const cache = /* @__PURE__ */ new Map();
   function entriesAt(path, since) {
     try {
-      const stats = statSync26(path);
+      const stats = statSync27(path);
       if (!stats.isFile() || stats.mtimeMs < since) return [];
       let held2 = cache.get(path);
       if (held2?.size !== stats.size || held2.mtimeMs !== stats.mtimeMs) {
@@ -62327,7 +62456,7 @@ function readPlugin(exec) {
   const version3 = versionOfEntries(entries4.flatMap((entry3) => entry3 === null ? [] : [entry3]));
   return version3 === null ? { kind: "unread", why: `${OMNI_PLUGIN_ID} has no version in claude plugin list` } : { kind: "version", version: version3 };
 }
-function standing(read3, pinned) {
+function standing2(read3, pinned) {
   if (read3.kind === "unread") return { note: `omni plugin version not read: ${read3.why}` };
   if (read3.kind === "missing") return { failed: `the omni plugin is not installed: claude plugin install ${OMNI_PLUGIN_ID}` };
   return compareVersions(read3.version, pinned) >= 0 ? { note: null } : { older: read3.version };
@@ -62348,17 +62477,17 @@ function pluginKeeper({ exec, running, bundle, print: print2 }) {
   };
   const updateFor = (pinned, repo) => {
     const again = readPlugin(exec);
-    const before2 = standing(again, pinned);
+    const before2 = standing2(again, pinned);
     if (!("older" in before2)) return before2;
     const { after, said: said2 } = update2(again);
-    const now2 = standing(after, pinned);
+    const now2 = standing2(after, pinned);
     return "older" in now2 ? { failed: `omni plugin v${now2.older} is older than ${repo}'s omni v${pinned}: claude plugin update failed: ${said2}` } : now2;
   };
   return {
     forJob(worktree, repo) {
       const pinned = pinnedOmni({ root: worktree, running, bundle });
       if (pinned === null) return Promise.resolve({ note: null });
-      const first = standing(readPlugin(exec), pinned);
+      const first = standing2(readPlugin(exec), pinned);
       if (!("older" in first)) return Promise.resolve(first);
       return inTurn(() => updateFor(pinned, repo));
     },
@@ -62372,7 +62501,7 @@ function pluginKeeper({ exec, running, bundle, print: print2 }) {
 
 // kit/lib/runner/sweep.ts
 init_define_OMNI_BUNDLE();
-import { lstatSync, readdirSync as readdirSync40, rmSync as rmSync19 } from "node:fs";
+import { lstatSync, readdirSync as readdirSync40, rmSync as rmSync20 } from "node:fs";
 import { join as join143 } from "node:path";
 var DAY_MS3 = 24 * 60 * 60 * 1e3;
 var QUIET15 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
@@ -62461,7 +62590,7 @@ function sweepWorktrees({ home, checkouts, running }) {
     const path = join143(wt, name3);
     if (job2 === null || running.has(job2) || !lstatSync(path).isDirectory()) continue;
     const size = sizeOf(path);
-    rmSync19(path, { recursive: true, force: true });
+    rmSync20(path, { recursive: true, force: true });
     count5 += 1;
     bytes2 += size;
   }
@@ -62490,7 +62619,7 @@ function sweepLogs({ home, running, keepLogsDays, now: now2 }) {
     const path = join143(logs, name3);
     const stat = lstatSync(path);
     if (!stat.isFile() || now2 - stat.mtimeMs <= keepLogsDays * DAY_MS3) continue;
-    rmSync19(path, { force: true });
+    rmSync20(path, { force: true });
     count5 += 1;
     bytes2 += stat.size;
   }
@@ -62591,20 +62720,20 @@ async function unpaused(loop2) {
   }
   return !loop2.halt.aborted;
 }
-async function backOff(loop2, delay2, error62, signal) {
-  loop2.print(`the app is unreachable (${error62.message}): trying again in ${String(Math.round(delay2 / 1e3))} s`);
-  await loop2.sleep(delay2, signal);
-  return Math.min(delay2 * 2, loop2.maxMs);
+async function backOff(loop2, delay3, error62, signal) {
+  loop2.print(`the app is unreachable (${error62.message}): trying again in ${String(Math.round(delay3 / 1e3))} s`);
+  await loop2.sleep(delay3, signal);
+  return Math.min(delay3 * 2, loop2.maxMs);
 }
 async function register(loop2) {
-  let delay2 = loop2.firstMs;
+  let delay3 = loop2.firstMs;
   const repos = [...loop2.checkouts.keys()];
   while (!loop2.halt.aborted) {
     try {
       return (await loop2.api.register({ name: loop2.name, slots: loop2.slots, repos, version: loop2.version ?? "unknown", githubApp: loop2.githubToken !== void 0 })).id;
     } catch (error62) {
       if (error62 instanceof RunnerRefused) loop2.refuse(error62);
-      else if (error62 instanceof RunnerUnreachable) delay2 = await backOff(loop2, delay2, error62, loop2.halt);
+      else if (error62 instanceof RunnerUnreachable) delay3 = await backOff(loop2, delay3, error62, loop2.halt);
       else throw error62;
     }
   }
@@ -62746,7 +62875,7 @@ function cleanUp(loop2, job2, place) {
   try {
     loop2.exec("git", ["-C", place.checkout, "worktree", "remove", "--force", place.worktree], QUIET16);
   } catch {
-    rmSync20(place.worktree, { recursive: true, force: true });
+    rmSync21(place.worktree, { recursive: true, force: true });
   }
   pruneWorktrees(loop2.exec, place.checkout);
   dropJobBranch(loop2.exec, place.checkout, `agent/job-${job2.id}`);
@@ -62757,7 +62886,7 @@ function asApp(loop2, job2) {
   const file2 = githubTokenFile(loop2.home, job2.id);
   if (loop2.githubToken === void 0 || file2 === null) return { failed: "github app: this runner cannot give the job its token" };
   try {
-    saveGithubToken(file2, loop2.name, job2.github);
+    saveGithubToken(file2, loop2.name, job2.github, loop2.askUrl);
     const shimDir = installGhShim({ home: loop2.home, tokenCommand: loop2.githubToken, path: loop2.env.PATH });
     return { env: githubJobEnv({ bot: job2.github, tokenCommand: loop2.githubToken, shimDir, path: loop2.env.PATH }) };
   } catch (error62) {
@@ -62771,7 +62900,7 @@ function startSession(loop2, job2, place, note, app) {
 `);
   writeFileSync55(place.log, note === null ? "" : `${note}
 `);
-  rmSync20(place.exit, { force: true });
+  rmSync21(place.exit, { force: true });
   try {
     loop2.terminal.start({
       name: place.session,
@@ -62820,6 +62949,20 @@ function killed(loop2, job2, place, update2) {
   loop2.terminal.stop(place.session);
   return { ...update2, logTail: logTail(readLog(loop2, job2, place.log)) };
 }
+var refreshOf = (loop2, job2, file2) => ({
+  file: file2,
+  runner: loop2.name,
+  job: job2,
+  fetchToken: (id) => loop2.api.githubToken(id),
+  now: loop2.now,
+  sleep: (ms) => loop2.sleep(ms)
+});
+async function appLacking(loop2, job2) {
+  const file2 = job2.github === null ? null : githubTokenFile(loop2.home, job2.id);
+  if (file2 === null) return null;
+  const kept = await keepGithubToken(refreshOf(loop2, job2.id, file2));
+  return kept.token === null ? `github app: ${kept.failed}` : null;
+}
 async function watch2(loop2, job2, place, live) {
   const started = loop2.now();
   if (await tick2(loop2, job2.id, { status: "running", logTail: "" })) return killed(loop2, job2.id, place, { status: "cancelled" });
@@ -62829,6 +62972,8 @@ async function watch2(loop2, job2, place, live) {
     if (existsSync91(place.exit)) return withSlices(loop2, job2, place, ended(log, readText4(place.exit), job2));
     if (!loop2.terminal.alive(place.session)) return vanished(readLog(loop2, job2.id, place.log), job2);
     if (loop2.now() - started > loop2.timeoutMs) return killed(loop2, job2.id, place, { status: "failed", reason: "timeout" });
+    const noApp = await appLacking(loop2, job2);
+    if (noApp !== null) return killed(loop2, job2.id, place, { status: "failed", reason: noApp });
     if (await tick2(loop2, job2.id, withTokens(loop2, { status: "running", logTail: logTail(log) }, place.worktree), live, log)) return killed(loop2, job2.id, place, { status: "cancelled" });
   }
 }
@@ -62868,21 +63013,42 @@ function releaseLines(job2, { released, releaseError }) {
     ...releaseError === null ? [] : [`job ${job2} could not release its claims: ${releaseError}`]
   ];
 }
-function releasing(loop2, job2, last) {
+async function releasedAs(loop2, release2, ended2, ran) {
+  const file2 = ran ? githubTokenFile(loop2.home, ended2.id) : null;
+  let ghToken = null;
+  let lacking = null;
+  if (ran) {
+    const kept = file2 === null ? null : await keepGithubToken(refreshOf(loop2, ended2.id, file2));
+    if (kept === null || kept.token === null) lacking = notReleased(`github app: ${kept === null ? "the job has no token kept on this machine" : kept.failed}`);
+    else ghToken = kept.token.token;
+  }
+  const done = lacking ?? release2({ id: ended2.id, runner: loop2.name, repo: ended2.repo, reason: ended2.reason, ghToken });
+  const hide2 = (text15) => ghToken === null ? text15 : maskTokens(text15, jobTokens(loop2.home, ended2.id));
+  for (const line2 of releaseLines(ended2.id, done)) loop2.print(hide2(line2));
+  return done;
+}
+async function releasing(loop2, job2, last) {
   if (loop2.release === void 0) return last;
-  const done = loop2.release({ id: job2.id, runner: loop2.name, repo: job2.repo, reason: endReason(last) });
-  for (const line2 of releaseLines(job2.id, done)) loop2.print(line2);
+  const done = await releasedAs(loop2, loop2.release, { id: job2.id, repo: job2.repo, reason: endReason(last) }, job2.github !== null);
   return { ...last, released: done.released, releaseError: done.releaseError };
+}
+function ranAsApp(loop2, job2) {
+  const file2 = githubTokenFile(loop2.home, job2);
+  return file2 !== null && readGithubToken(file2) !== null;
 }
 async function releaseLost(loop2, lost) {
   if (loop2.release === void 0) return;
-  const done = loop2.release({ id: lost.job, runner: loop2.name, repo: lost.repo, reason: "runner lost" });
-  for (const line2 of releaseLines(lost.job, done)) loop2.print(line2);
-  if (done.released.length === 0 && done.releaseError === null) return;
+  const { ran } = lost;
   try {
-    await loop2.api.update(lost.job, hideTokens(loop2, lost.job, { status: "failed", released: done.released, releaseError: done.releaseError }));
-  } catch (error62) {
-    loop2.print(`job ${lost.job}: its release was not reported (${error62 instanceof Error ? error62.message : String(error62)})`);
+    const done = await releasedAs(loop2, loop2.release, { id: lost.job, repo: lost.repo, reason: "runner lost" }, ran);
+    if (done.released.length === 0 && done.releaseError === null) return;
+    try {
+      await loop2.api.update(lost.job, hideTokens(loop2, lost.job, { status: "failed", released: done.released, releaseError: done.releaseError }));
+    } catch (error62) {
+      loop2.print(`job ${lost.job}: its release was not reported (${error62 instanceof Error ? error62.message : String(error62)})`);
+    }
+  } finally {
+    if (ran) forgetJobToken(loop2, lost.job);
   }
 }
 async function nextJob(loop2, runner2, wait5) {
@@ -62913,7 +63079,7 @@ async function slot(loop2, runner2) {
     loop2.print(`job ${job2.id} claimed: ${job2.line} (${job2.repo})`);
     try {
       const { last, live } = await runJob(loop2, job2);
-      const report7 = live === null ? last : releasing(loop2, job2, last);
+      const report7 = live === null ? last : await releasing(loop2, job2, last);
       await finish(loop2, job2.id, withTokens(loop2, report7, worktreeOf(loop2, job2)), live);
       loop2.print(endLine(job2, last));
     } finally {
@@ -62957,7 +63123,7 @@ async function reporter(loop2, runner2) {
 async function sweeper(loop2) {
   const keepLogsDays = loop2.keepLogsDays ?? KEEP_LOGS_DAYS;
   while (!loop2.halt.aborted) {
-    const lost = strandedJobs({ home: loop2.home, checkouts: loop2.checkouts, running: loop2.jobs });
+    const lost = strandedJobs({ home: loop2.home, checkouts: loop2.checkouts, running: loop2.jobs }).map((stranded) => ({ ...stranded, ran: ranAsApp(loop2, stranded.job) }));
     const line2 = sweptLine(sweep2({ home: loop2.home, checkouts: loop2.checkouts, exec: loop2.exec, running: loop2.jobs, keepLogsDays, now: loop2.now() }));
     if (line2 !== null) loop2.print(line2);
     for (const job2 of lost) await releaseLost(loop2, job2);
@@ -63046,7 +63212,7 @@ function missingTool(exec) {
 
 // kit/bin/commands/runner-follow.ts
 init_define_OMNI_BUNDLE();
-import { mkdirSync as mkdirSync38, rmSync as rmSync21, writeFileSync as writeFileSync56 } from "node:fs";
+import { mkdirSync as mkdirSync38, rmSync as rmSync22, writeFileSync as writeFileSync56 } from "node:fs";
 import { join as join145 } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -63311,7 +63477,7 @@ async function followCommand(args, io) {
     return await follow2({ prd: prd2, at: at2, io, seen: null, job: null, cursor: 0, merged: null, reads: 0 }, stop.signal);
   } finally {
     stop.release();
-    rmSync21(followFile(at2.root, prd2), { force: true });
+    rmSync22(followFile(at2.root, prd2), { force: true });
   }
 }
 
@@ -63411,8 +63577,9 @@ async function start2(args, io) {
       home,
       wrapper: [process.execPath, script2, "runner", "job"],
       githubToken: [process.execPath, script2, "runner", "github-token"],
+      askUrl: page2.askUrl,
       env: jobEnv(io),
-      release: releaser({ exec, checkouts }),
+      release: releaser({ exec, checkouts, env: io.env }),
       slices: (prd2, dir) => (io.mergedOf ?? ((n) => boardCount(n, { ...io, cwd: dir })))(prd2),
       print: (line2) => {
         println(stdout, line2);
@@ -63494,16 +63661,36 @@ async function askOnJob(args, io) {
   println(stdout, waitingLine2(page2.askUrl, jobId));
   return 0;
 }
-function githubTokenOfJob(args, io) {
+async function githubTokenOfJob(args, io) {
+  const asked = githubTokenAsked(args);
+  if (asked === "nothing") return 0;
+  const own2 = ownJobToken(runnerJobOf(io.env), io.home ?? homedir4());
+  if ("refusal" in own2) return refused2(io.stderr, own2.refusal);
+  const kept = await keepGithubToken({
+    file: own2.file,
+    runner: own2.runner,
+    job: own2.job,
+    fetchToken: askForGithubToken(own2.held.page, io),
+    now: io.now ?? Date.now,
+    sleep: (ms) => (io.sleep ?? delay2)(ms)
+  });
+  if (kept.token === null) return refused2(io.stderr, `github app: ${kept.failed}`);
+  println(io.stdout, asked === "credential" ? `username=x-access-token
+password=${kept.token.token}` : kept.token.token);
+  return 0;
+}
+function githubTokenAsked(args) {
   const { positional, flags } = parseArgs("runner", args, { booleans: ["git"] });
   const [action, ...extra] = positional;
   if (extra.length || flags.git !== true && action !== void 0) throw usageError(GITHUB_TOKEN_USAGE);
-  if (flags.git === true && action !== "get") return 0;
-  const read3 = jobGithubToken(runnerJobOf(io.env), io.home ?? homedir4());
-  if ("refusal" in read3) return refused2(io.stderr, read3.refusal);
-  println(io.stdout, flags.git === true ? `username=x-access-token
-password=${read3.token}` : read3.token);
-  return 0;
+  if (flags.git !== true) return "token";
+  return action === "get" ? "credential" : "nothing";
+}
+function askForGithubToken(page2, io) {
+  return (job2) => {
+    if (page2 === void 0) return Promise.reject(new Error("this job names no Omni page to ask"));
+    return runnerApi({ askUrl: page2, tokens: tokensOf2(io), fetch: io.fetch ?? globalThis.fetch }).githubToken(job2);
+  };
 }
 async function answersOfJob(args, io) {
   const { stdout, stderr } = io;
@@ -64468,7 +64655,7 @@ var TOPIC_GAP = "    ";
 var SEPARATOR3 = " \xB7 ";
 var cut6 = (text15, width) => text15.length <= width ? text15 : `${text15.slice(0, Math.max(0, width - 1))}\u2026`;
 var stageColumn = (stage2) => `${INDENT2}${STAGE_WORDS[stage2].padEnd(UNDER_BAR.length - INDENT2.length)}`;
-function standing2({ stage: stage2, prd: prd2, openItems: openItems3 = 0, approval: approval3 }) {
+function standing3({ stage: stage2, prd: prd2, openItems: openItems3 = 0, approval: approval3 }) {
   const waiting = openItems3 > 0 ? `${plural6(openItems3, "open item")} wait${openItems3 === 1 ? "s" : ""} for an answer` : null;
   if (stage2 === "outbox") return waiting ?? "its feature PR waits for your review";
   if (stage2 === "building") return waiting ?? "being built";
@@ -64476,7 +64663,7 @@ function standing2({ stage: stage2, prd: prd2, openItems: openItems3 = 0, approv
   return approval3 ? "waits for approval on its page" : "its phase-0 PR waits for a merge";
 }
 function rows(entries4) {
-  const lines3 = entries4.map((row) => ({ stage: stageColumn(row.stage), number: `#${row.prd}`, topic: row.topic, words: standing2(row) }));
+  const lines3 = entries4.map((row) => ({ stage: stageColumn(row.stage), number: `#${row.prd}`, topic: row.topic, words: standing3(row) }));
   const numberWidth = Math.max(...lines3.map(({ number: number5 }) => number5.length)) + NUMBER_GAP.length;
   const wordsWidth = Math.max(...lines3.map(({ words: words4 }) => words4.length));
   const room = WIDTH - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
@@ -65866,7 +66053,7 @@ var sync2 = {
 
 // kit/bin/commands/update.ts
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync92, mkdtempSync as mkdtempSync5, readFileSync as readFileSync118, rmSync as rmSync22 } from "node:fs";
+import { existsSync as existsSync92, mkdtempSync as mkdtempSync5, readFileSync as readFileSync118, rmSync as rmSync23 } from "node:fs";
 import { tmpdir as tmpdir5 } from "node:os";
 import { join as join148 } from "node:path";
 var USAGE50 = "usage: omni update [--to <version>]";
@@ -65883,7 +66070,7 @@ function handOver2({ cwd, home, from, target: target3, exec }) {
       return typeof status5 === "number" && Number.isInteger(status5) ? status5 : 1;
     }
   } finally {
-    rmSync22(dir, { recursive: true, force: true });
+    rmSync23(dir, { recursive: true, force: true });
   }
 }
 function rootOf(cwd, exec) {
