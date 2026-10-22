@@ -8,6 +8,8 @@ import { waitingReads, type WaitingReads } from './waiting.service';
 //
 //   GET /api/waiting/questions   the Questions part, every 5 s visible and 15 s hidden
 //   GET /api/waiting/documents   the New documents part, every 10 s visible
+//   GET /api/waiting/reviews     the Reviews part (PRD 2377 s5): the open review, merge and law waits whose turn
+//                                names the person by login, for the workspace they joined first
 //   GET /api/waiting/runners     the Runners badge (PRD 2255), every 15 s visible: how many of the workspace's
 //                                runner jobs wait for an answer, for the workspace the person joined first,
 //                                as the Runners page reads it
@@ -49,6 +51,11 @@ export function waitingReadHandlers(deps: WaitingReadDeps) {
       answer(deps, async ({ userId, reads }) => ({ questions: await reads.questionsReader(userId)(deps.now()) })),
     documents: (): Promise<Response> =>
       answer(deps, async ({ userId, reads }) => ({ documents: await reads.documents(userId, deps.now()) })),
+    reviews: (): Promise<Response> =>
+      answer(deps, async ({ userId, reads, workspace }) => {
+        const joined = await workspace();
+        return { items: joined ? await reads.reviews(userId, joined.id) : [] };
+      }),
     runners: (): Promise<Response> =>
       answer(deps, async ({ reads, workspace }) => {
         const joined = await workspace();
@@ -69,5 +76,7 @@ const live = waitingReadHandlers({
 export const getQuestions = (): Promise<Response> => live.questions();
 /** GET /api/waiting/documents */
 export const getDocuments = (): Promise<Response> => live.documents();
+/** GET /api/waiting/reviews */
+export const getReviews = (): Promise<Response> => live.reviews();
 /** GET /api/waiting/runners */
 export const getRunners = (): Promise<Response> => live.runners();

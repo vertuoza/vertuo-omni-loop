@@ -8,7 +8,7 @@ import { EMPTY_WAITING, type WaitingList, type WaitingOutbox, type WaitingQuesti
 import { BellView } from './Bell.tsx';
 import type { BellAlerts, BellUnread } from './bell';
 import { item } from '../ask/test/test-item';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The top bar's bell (PRD 499) as the server renders it: its count badge and accessible name, and its
 // panel, closed at first, listing the Questions and Outbox groups, or that nothing waits.
@@ -43,6 +43,18 @@ describe('the bell', () => {
     expect(button(html)).toContain('aria-label="Waiting for you: 2"');
     expect(text(panel(html))).toContain('Approvals PRD 1322 · Handshake Waits for your approval');
     expect(panel(html)).toContain('href="/prd/d-1322"');
+  });
+
+  it('counts the reviews waiting on the person in its badge, and lists them after the approvals (PRD 2377 s5)', () => {
+    const review = { kind: 'merge' as const, id: 'w1', prd: parsePrd(7), pr: parsePr(70), repo: 'acme/widgets', since: NOW - MIN };
+    const html = renderToStaticMarkup(createElement(BellView, { list: { questions: [q('a', MIN)], outbox: [] }, reviews: [review], unread: {}, now: NOW }));
+    expect(button(html)).toContain('aria-label="Waiting for you: 2"');
+    expect(text(panel(html))).toContain('Reviews PRD 7 Merge today');
+    expect(panel(html)).toContain('href="https://github.com/acme/widgets/pull/70"');
+  });
+
+  it('says when the Reviews part could not be read', () => {
+    expect(text(panel(render(EMPTY_WAITING, { reviews: true })))).toContain('Reviews Reviews couldn\'t be read — retrying.');
   });
 
   it('carries the count as a badge, and says it in its name', () => {
