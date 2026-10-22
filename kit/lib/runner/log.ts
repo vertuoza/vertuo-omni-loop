@@ -65,11 +65,26 @@ export function reportBatch(lines: readonly string[]): string[] {
 
 const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** The last `https://github.com/<repo>/pull/<n>` in `log`, or `null`: another repository's never counts. */
+/** The readable log's `Done: …` line, which the run's hand-off follows, and a `PR: <link>` line. */
+const DONE_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Done: (?:ok|error) · /;
+const PR_LINE = /^(?:\d{2}:\d{2}:\d{2} )?PR: (\S+)$/;
+
+/**
+ * The job's pull request in its readable log (bug 2365), or `null`: the first
+ * `https://github.com/<repo>/pull/<n>` its hand-off (the lines after `Done: …`) names, else the last
+ * `PR: <link>` line, which only a pull request the job opened writes. A link the job only read never
+ * counts, nor another repository's.
+ */
 export function lastPullRequest(log: string, repo: string): string | null {
-  const pattern = new RegExp(`https://github\\.com/${escape(repo)}/pull/\\d+(?!\\d)`, 'gi');
-  const found = log.match(pattern);
-  return found?.at(-1) ?? null;
+  const link = new RegExp(`https://github\\.com/${escape(repo)}/pull/\\d+(?!\\d)`, 'i');
+  const lines = log.split('\n');
+  const done = lines.findLastIndex((line) => DONE_LINE.test(line));
+  const handedOff = done < 0 ? undefined : lines.slice(done + 1).flatMap((line) => link.exec(line)?.[0] ?? [])[0];
+  const opened = lines.flatMap((line) => {
+    const found = PR_LINE.exec(line)?.[1];
+    return found === undefined ? [] : (link.exec(found)?.[0] ?? []);
+  });
+  return handedOff ?? opened.at(-1) ?? null;
 }
 
 /**
