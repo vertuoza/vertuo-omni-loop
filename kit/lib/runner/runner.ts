@@ -462,6 +462,15 @@ function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
   return { status: 'failed', logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` };
 }
 
+/** The status a run whose session ended before it wrote its exit code reports: done on its hand-off's
+ * outcome when it printed one (#2388), since what it waits for is a person, else failed. */
+function vanished(log: string, job: RunnerJob): JobUpdate {
+  const reason = 'the job stopped before it wrote its exit code';
+  const outcome = outcomeOf(log, job.line);
+  if (outcome === null) return { status: 'failed', logTail: logTail(log), reason };
+  return { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: null, reason, outcome };
+}
+
 /** Stops the job's session and answers `update`. */
 function killed(loop: Loop, place: Place, update: JobUpdate): JobUpdate {
   loop.terminal.stop(place.session);
@@ -476,7 +485,7 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
     await loop.sleep(loop.tickMs);
     const log = readText(place.log);
     if (existsSync(place.exit)) return ended(log, readText(place.exit), job);
-    if (!loop.terminal.alive(place.session)) return { status: 'failed', logTail: logTail(log), reason: 'the job stopped before it wrote its exit code' };
+    if (!loop.terminal.alive(place.session)) return vanished(readText(place.log), job);
     if (loop.now() - started > loop.timeoutMs) return killed(loop, place, { status: 'failed', reason: 'timeout' });
     if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, place, { status: 'cancelled' });
   }
