@@ -11,7 +11,7 @@ The kit reads a repository's knowledge from that repository alone, plus a produc
 
 ## Solution
 
-The knowledge tree (decided by @pierrederval, 2026-10-22, roadmap "Repository knowledge at the right level"): knowledge sits on three levels, each optional: **Omni settings** (the workspace and its products, on the Omni page), **plan repository**, **repository**. Two sides read the tree in opposite directions:
+The knowledge tree (decided by @pierrederval, 2026-10-22, roadmap "Repository knowledge at the right level"): knowledge sits on three levels, each optional: **Omni settings** (the workspace's settings repository: its plan repository when it has one, else a repository the workspace names; plain files, shown and edited on the Omni page through pull requests), **plan repository**, **repository**. Every level is a repository's plain files, so a workspace's knowledge stays in its own repositories (Never 6). Two sides read the tree in opposite directions:
 
 - **Product knowledge** (what the product is and must do, and product decisions) is **top-down**: a higher level holds for every level under it; a lower level may add to it, never contradict it.
 - **Tech knowledge** (how to work in a codebase: the playbook, and the decision records, ADRs) is **bottom-up**: a repository's own wins; where it has none, its plan repository's applies; where that has none, the Omni settings'.
