@@ -135,14 +135,15 @@ function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = f
 
 /** The fake tmux: runs the session's command as a child process, its variables added to this one's.
  * `dies` starts each session's command as one that ends at once, writing no exit code. */
-function fakeTerminal({ dies = false }: { dies?: boolean } = {}) {
+function fakeTerminal({ dies = false, says = null }: { dies?: boolean; says?: string | null } = {}) {
   const sessions: JobSession[] = [];
   const stopped: string[] = [];
   const children = new Map<string, ChildProcess>();
   const terminal: Terminal = {
     start(session) {
       sessions.push(session);
-      const [file = '', ...args] = dies ? ['false'] : session.argv;
+      const log = session.argv[session.argv.indexOf('--log') + 1] ?? '';
+      const [file = '', ...args] = says !== null ? [process.execPath, '-e', `require('node:fs').appendFileSync(${JSON.stringify(log)}, ${JSON.stringify(says)})`] : dies ? ['false'] : session.argv;
       children.set(session.name, spawn(file, args, { cwd: session.cwd, env: { ...process.env, ...session.env }, stdio: 'ignore' }));
     },
     stop(name) {
@@ -603,6 +604,27 @@ describe('omni runner', () => {
     const f = fixture();
     const app = fakeApp({ jobs: [{ id: 18, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }] });
     const run = startRunner(f, app, { terminal: fakeTerminal({ dies: true }) });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(app.updates().at(-1)).toMatchObject({ status: 'failed', reason: 'the job stopped before it wrote its exit code' });
+  });
+
+  it('ends a job whose session ends without an exit code after its hand-off on that hand-off, not failed (#2388)', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 19, line: '/omni:yolo 2370', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const says = 'What is next?\n09:36:39 /omni:yolo 2370\nSessionEnd hook [omni heartbeat --end] failed: Hook cancelled\n';
+    const run = startRunner(f, app, { terminal: fakeTerminal({ says }) });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(app.updates().at(-1)).toMatchObject({ status: 'done', outcome: 'held', exitCode: null, reason: 'the job stopped before it wrote its exit code' });
+  });
+
+  it('still fails a job whose session ends without an exit code and without a hand-off', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 20, line: '/omni:yolo 2370', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app, { terminal: fakeTerminal({ says: 'halfway through s2\n' }) });
     await until(ended(app), 'the job to end');
     run.stop.abort();
     await run.done;

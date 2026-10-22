@@ -106,6 +106,12 @@ describe('runOutcome (PRD 2223)', () => {
     expect(runOutcome('x\n14:03:09 /omni:yolo-fix 2223\n\n  \n', prd)).toBe('answers');
   });
 
+  it('skips the lines claude prints once a session hook fails after the hand-off (#2388)', () => {
+    const hook = 'SessionEnd hook [node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" heartbeat --end || true] failed: Hook cancelled';
+    expect(runOutcome(`09:36:39 /omni:yolo 2223\n${hook}\n`, prd)).toBe('held');
+    expect(runOutcome(`09:36:39 /omni:yolo 2223\nStop hook [x] failed: exit 1\n${hook}\n`, prd)).toBe('held');
+  });
+
   it('is null for another PRD, another line, a line that only mentions one, or no final message', () => {
     expect(runOutcome('/omni:yolo-fix 2224\n', prd)).toBeNull();
     expect(runOutcome('/omni:yolo-fix 22230\n', prd)).toBeNull();

@@ -755,10 +755,42 @@ describe('a law is a locked entry (PRD 1726)', () => {
     ]);
   });
 
-  it('refuses a lock with no Governs:', () => {
+  it('accepts a locked law with no Governs: (PRD 2346): it is reached through its domain or its layers, or it is global', () => {
     const root = lawTree(law('BR-ADVISOR-1').replace(`${GOVERNS}\n`, ''));
+    expect(gradeWith(root).violations).toEqual([]);
+  });
+
+  it('refuses a Layers: word outside the canonical list, naming the entry and what an old word means (PRD 2346)', () => {
+    const root = lawTree(
+      [rule('BR-ADVISOR-1', { extra: ['Layers: db, database-ish'] }), rule('BR-ADVISOR-2', { extra: ['Layers: database'] }), rule('BR-ADVISOR-3', { extra: ['Layers: db, auth'] })].join('\n'),
+    );
     expect(gradeWith(root).violations.map(parseLine)).toEqual([
-      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: 'is locked, but carries no "Governs:" line — a law names the paths it rules over.' },
+      {
+        file: ADVISOR_RULES,
+        id: 'BR-ADVISOR-1',
+        detail: '"Layers:" lists "database-ish", which is not a layer — the layers are ui, api, schema, db, auth, event, cli, job, infra, ci.',
+      },
+      {
+        file: ADVISOR_RULES,
+        id: 'BR-ADVISOR-2',
+        detail: '"Layers:" lists "database", which is not a layer ("database" is an old word for "db") — the layers are ui, api, schema, db, auth, event, cli, job, infra, ci.',
+      },
+    ]);
+  });
+
+  it('refuses an ADR tagged with a non-canonical layer or a domain with no folder, and accepts a good tag (PRD 2346)', () => {
+    const adr = (n: string, tags: string) => [`docs/adr/${n}-x.md`, `# ADR-${n} — X\n\n**Status:** accepted · **Date:** 2026-10-21 · ${tags}\n\n## Context\n\nx\n`] as const;
+    const root = lawTree(
+      rule('BR-ADVISOR-1'),
+      principle('P-ADVISOR-1'),
+    );
+    for (const [path, text] of [adr('0001', '**Layers:** db · **Domain:** advisor'), adr('0002', '**Layers:** database-ish'), adr('0003', '**Domain:** ask')]) {
+      mkdirSync(join(root, path, '..'), { recursive: true });
+      writeFileSync(join(root, path), text);
+    }
+    expect(gradeWith(root).violations).toEqual([
+      'docs/adr/0002-x.md: ADR-0002 — "**Layers:**" lists "database-ish", which is not a layer — the layers are ui, api, schema, db, auth, event, cli, job, infra, ci.',
+      'docs/adr/0003-x.md: ADR-0003 — "**Domain:**" names "ask", which is no domain folder — the folders are product, advisor.',
     ]);
   });
 

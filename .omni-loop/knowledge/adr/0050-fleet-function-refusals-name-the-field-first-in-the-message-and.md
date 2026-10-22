@@ -1,6 +1,6 @@
 # ADR-0050 — Fleet function refusals name the field first in the message and carry it as a hint
 
-**Status:** adopted · **Date:** 2026-09-28 · **PRD:** #400 · **Decided:** nobody — adopted when raised (medium), 2026-09-28 · **Merged:** @pierrederval, 2026-09-28, PR #403
+**Status:** adopted · **Date:** 2026-09-28 · **PRD:** #400 · **Decided:** nobody — adopted when raised (medium), 2026-09-28 · **Merged:** @pierrederval, 2026-09-28, PR #403 · **Layers:** db · **Domain:** game
 
 ## Context
 

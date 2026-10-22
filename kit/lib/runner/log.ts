@@ -84,15 +84,18 @@ export type HandOffSkill = 'yolo' | 'yolo-fix';
 
 const OUTCOMES: Readonly<Record<string, RunOutcome>> = { 'yolo-fix': 'answers', yolo: 'held', 'pr-care': 'ready' };
 const STAMP = /^\d{2}:\d{2}:\d{2} /;
+/** The line claude prints when one of the session's hooks fails, which may come after the hand-off (#2388). */
+const HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
 
 /**
  * The outcome the run's last non-empty line names for PRD `prd` (the yolo skill's hand-off always ends
  * on its next command), or `null` for any other line, a line naming another PRD, or an empty log. The
- * runner's `hh:mm:ss ` stamp, when the line has one, is ignored. For a job of `skill` (`yolo` or
- * `yolo-fix`, PRD 2375) a last line that is no hand-off for `prd` is `stopped` instead of `null`.
+ * runner's `hh:mm:ss ` stamp, when the line has one, is ignored, and so is a failed hook's line after it.
+ * For a job of `skill` (`yolo` or `yolo-fix`, PRD 2375) a last line that is no hand-off for `prd` is
+ * `stopped` instead of `null`.
  */
 export function runOutcome(log: string, prd: PrdNumber, skill?: HandOffSkill): RunOutcome | null {
-  const last = log.split('\n').map((line) => line.trim()).filter((line) => line !== '').at(-1) ?? '';
+  const last = log.split('\n').map((line) => line.trim()).filter((line) => line !== '' && !HOOK_FAILED.test(line)).at(-1) ?? '';
   const match = /^\/omni:([a-z-]+) (\d+)$/.exec(last.replace(STAMP, ''));
   const outcome = match?.[1] !== undefined && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : undefined;
   if (outcome !== undefined && match?.[2] === String(prd)) return outcome;
