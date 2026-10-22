@@ -1,3 +1,5 @@
+import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import type { BugFixOutcome } from 'omni-loop/kit/lib/runner/log.ts';
 import { z } from 'zod';
 
 // The public API's contract (PRD 2022 s2, spec "The routes"; ADR-0095): what a program outside the loop
@@ -8,7 +10,7 @@ import { z } from 'zod';
 //   GET /api/v1/bug-fixes?limit=&cursor=   200 {data: BugFix[], next_cursor}
 //   POST /api/v1/bug-fixes                 202 Job: queues `/omni:bug-fix <description>` on the runners (s4)
 //   POST /api/v1/mega-bug-fixes            202 Job: queues `/omni:mega-bug-fix <description>` in a plan repository
-//   GET /api/v1/jobs/{id}                  200 Job: a job a key of this workspace queued (s4)
+//   GET /api/v1/jobs/{id}                  200 Job: a job a key of this workspace queued (s4), with what it did (PRD 2425 s3)
 //
 // Every refusal answers one shape, `{error: {code, message}}`, with the status PUBLIC_API_ERRORS names.
 
@@ -119,6 +121,20 @@ const JOB_STATUSES = ['queued', 'claimed', 'running', 'done', 'failed', 'cancell
 
 const MaybeTimeSchema = z.string().nullable().meta({ description: 'When it happened, ISO 8601, or null while it has not.', example: '2026-10-15T13:42:10.000+00:00' });
 
+type Underscored<S extends string> = S extends `${infer Head}-${infer Tail}` ? `${Head}_${Underscored<Tail>}` : S;
+
+/** How a bug fix or a mega bug fix ended, in the words of its log with an underscore for each hyphen (PRD 2425). */
+export const API_OUTCOMES = ['pr_opened', 'already_fixed', 'need_human', 'needs_brainstorm', 'not_a_bug', 'stuck', 'blocked'] as const satisfies readonly Underscored<BugFixOutcome>[];
+
+/** A pull request a job opened: its link, the repository it is in and its number there. */
+const PullRequestSchema = z.object({
+  url: z.url().meta({ description: 'The pull request’s link.', example: 'https://github.com/acme/backend/pull/549' }),
+  repo: z.string().meta({ description: 'The repository it is in, `owner/name`.', example: 'acme/backend' }),
+  number: PrNumberSchema.meta({ description: 'Its number in that repository.', example: 549 }),
+});
+
+const JOB_ID_EXAMPLE = '0b4c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3';
+
 /** A runner job a key queued, as the key follows it. */
 export const JobSchema = z.object({
   id: z.uuid(),
@@ -133,6 +149,23 @@ export const JobSchema = z.object({
   claimed_at: MaybeTimeSchema,
   running_at: MaybeTimeSchema,
   ended_at: MaybeTimeSchema,
+  outcome: z.enum(API_OUTCOMES).nullable().meta({
+    description: 'How a bug fix or a mega bug fix ended: `pr_opened`, `already_fixed`, `need_human`, `needs_brainstorm`, `not_a_bug`, `stuck` or `blocked`. null while it runs, when it failed, and when its runner reported none (a runner from before it did).',
+    example: 'pr_opened',
+  }),
+  fixed_by: z.url().nullable().meta({ description: 'With `already_fixed` only: the pull request the bug fix proved had already fixed the bug. null otherwise.', example: 'https://github.com/acme/backend/pull/512' }),
+  prs: z.array(PullRequestSchema).meta({ description: 'Every pull request the job opened, in the order it opened them (a mega bug fix: its target pull requests, then its record). Empty when it opened none; a failed or stuck job lists its draft here.' }),
+  questions: z.object({
+    state: z.enum(['open', 'answered', 'dismissed']).meta({ description: 'open until the questions are answered or dismissed.', example: 'open' }),
+  }).nullable().meta({ description: 'The questions the job asked, or null when it asked none.' }),
+  continues: z.uuid().nullable().meta({ description: 'The job this one carries on: the answer to its questions, or its relaunch. null for a job that carries none on.', example: JOB_ID_EXAMPLE }),
+  continued_by: z.uuid().nullable().meta({ description: 'The newest job that carries this one on, or null when none does.', example: JOB_ID_EXAMPLE }),
+  acting_for: z.string().nullable().meta({ description: 'Whom the key said it acted for when it queued the job, or null.', example: 'Jane D.' }),
+  cancelled_by: z.object({
+    key: z.string().meta({ description: 'The name of the API key that cancelled it.', example: 'QA dashboard' }),
+    acting_for: z.string().nullable().meta({ description: 'Whom that key said it acted for, or null.', example: 'Jane D.' }),
+  }).nullable().meta({ description: 'The API key that cancelled the job, or null when no key did.' }),
+  log_tail: z.string().nullable().meta({ description: 'The last lines of the job’s log, or null while it holds none.', example: '13:49:58 PR: https://github.com/acme/backend/pull/549' }),
 }).meta({ description: 'A runner job a key queued.' });
 export type ApiJob = z.infer<typeof JobSchema>;
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { checkRunnerLine, LINE_MAX } from 'omni-loop/kit/lib/runner/line.ts';
-import { WORKSPACE } from '../runners/fixtures/store.fake';
+import { API_KEY, jobRow, OLGA, OTHER_KEY, questionsRow, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
 import { encodeCursor } from './cursor';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
 import { BugFixListSchema, DESCRIPTION_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, type ListQuery } from './public-api.contract';
@@ -327,5 +327,227 @@ describe('starting a mega bug fix in a plan repository', () => {
     expect(line).toHaveLength(LINE_MAX);
     expect(checkRunnerLine(line)).toMatchObject({ ok: true, skill: 'mega-bug-fix' });
     expect(checkRunnerLine(`${line}a`)).toMatchObject({ ok: false });
+  });
+});
+
+// PRD 2425 s3: a key reads, with its job, what a bug fix did; any key of the workspace reads any job a key of it sent,
+// within its own list of repositories.
+describe('following a job and what it did (PRD 2425 s3)', () => {
+  type Seed = Partial<ReturnType<typeof jobRow>>;
+  const PR = 'https://github.com/demo-org/app/pull/549';
+  const SECOND = 'https://github.com/demo-org/app/pull/550';
+  const PROVED = 'https://github.com/demo-org/app/pull/512';
+  const PUBLIC_WORDS = [
+    ['pr-opened', 'pr_opened'], ['already-fixed', 'already_fixed'], ['needs-brainstorm', 'needs_brainstorm'],
+    ['not-a-bug', 'not_a_bug'], ['stuck', 'stuck'], ['blocked', 'blocked'], ['human', 'need_human'],
+  ] as const;
+
+  /** A bug fix the first key of the workspace sent, ended `done` on the shared runner, in demo-org/app. */
+  function seed(api: FakePublicApi, more: Seed = {}) {
+    const job = jobRow({
+      status: 'done', runner_id: SHARED, line: '/omni:bug-fix 548 totals', sent_by: OLGA, sent_by_key: API_KEY, exit_code: 0,
+      claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+    });
+    api.runnersState.jobs.push(job);
+    return job;
+  }
+  async function read(api: FakePublicApi, secret: string, id: string) {
+    return publicApiService(api.repository, api.runners).job(await caller(api, secret), id);
+  }
+  const valueOf = <T>(answered: { ok: true; value: T } | { ok: false; message: string }): T => {
+    if (!answered.ok) throw new Error(answered.message);
+    return answered.value;
+  };
+
+  describe('what the job did', () => {
+    it('reads already_fixed with the pull request the fix proved, and no pull request of its own', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'already-fixed', fixed_by: PROVED, prs: [] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({
+        status: 'done', outcome: 'already_fixed', fixed_by: PROVED, prs: [], pr_url: null,
+      });
+    });
+
+    it.each(PUBLIC_WORDS)('reads the stored word %s as %s', async (stored, word) => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: stored });
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).outcome).toBe(word);
+    });
+
+    it('reads need_human with its questions open', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'human' });
+      api.runnersState.questions.push(questionsRow({ job_id: job.id }));
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ outcome: 'need_human', questions: { state: 'open' } });
+    });
+
+    it('reads pr_opened with the pull request in prs, as a link, its repository and its number', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'pr-opened', pr_url: PR, prs: [PR] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({
+        pr_url: PR, prs: [{ url: PR, repo: 'demo-org/app', number: 549 }],
+      });
+    });
+
+    it('reads the repository of a pull request in lower case, as the allow-lists and the PRD lists name it', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'pr-opened', prs: ['https://github.com/Demo-Org/Plan/pull/7'] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).prs).toEqual([{ url: 'https://github.com/Demo-Org/Plan/pull/7', repo: 'demo-org/plan', number: 7 }]);
+    });
+
+    it('reads stuck with its draft in prs', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'stuck', prs: [PR] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ outcome: 'stuck', prs: [{ number: 549 }] });
+    });
+
+    it('reads a failed job with no outcome and its draft in prs', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { status: 'failed', exit_code: 1, reason: 'the run exited 1', prs: [PR] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ status: 'failed', outcome: null, fixed_by: null, prs: [{ url: PR }] });
+    });
+
+    it('reads a job from an older runner, which reported none of it, as outcome null with no pull request', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { pr_url: PR });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ status: 'done', outcome: null, fixed_by: null, prs: [], questions: null, pr_url: PR });
+    });
+
+    it('reads a running job with no outcome yet', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { status: 'running', exit_code: null, ended_at: null });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ status: 'running', outcome: null });
+    });
+
+    it('lists the three pull requests of a mega bug fix with its record last, and keeps pr_url as the record', async () => {
+      const api = fakePublicApi();
+      const record = 'https://github.com/demo-org/plan/pull/9';
+      const job = seed(api, { repo: 'demo-org/plan', line: '/omni:mega-bug-fix 612', outcome: 'pr-opened', pr_url: record, prs: [PR, 'https://github.com/demo-org/other/pull/3', record] });
+      const mega = valueOf(await read(api, SECRETS.runners, job.id));
+      expect(mega.prs.map((pr) => pr.number)).toEqual([549, 3, 9]);
+      expect(mega.prs.map((pr) => pr.repo)).toEqual(['demo-org/app', 'demo-org/other', 'demo-org/plan']);
+      expect(mega.pr_url).toBe(record);
+    });
+
+    it('keeps the order the runner reported the pull requests in', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'pr-opened', prs: [SECOND, PR] });
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).prs.map((pr) => pr.number)).toEqual([550, 549]);
+    });
+
+    it('reads the proved pull request of an already_fixed job only: another job’s fixed_by stays null', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'pr-opened', fixed_by: PROVED });
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).fixed_by).toBeNull();
+    });
+
+    it('reads the log tail, and null when the job holds none', async () => {
+      const api = fakePublicApi();
+      const tail = seed(api, { log_tail: '12:00:01 Outcome: pr-opened' });
+      const none = seed(api, { log_tail: '' });
+      expect(valueOf(await read(api, SECRETS.runners, tail.id)).log_tail).toBe('12:00:01 Outcome: pr-opened');
+      expect(valueOf(await read(api, SECRETS.runners, none.id)).log_tail).toBeNull();
+    });
+
+    it('reads the state of the questions, open, answered or dismissed, and none as null', async () => {
+      const api = fakePublicApi();
+      const open = seed(api, { outcome: 'human' });
+      const answered = seed(api, { outcome: 'human' });
+      const dismissed = seed(api, { outcome: 'human' });
+      const none = seed(api);
+      const closed = { closed_by: OLGA, closed_at: T0.toISOString() };
+      api.runnersState.questions.push(
+        questionsRow({ job_id: open.id }),
+        questionsRow({ job_id: answered.id, ...closed, answers: { 'Which fix?': 'Guard the input' } }),
+        questionsRow({ job_id: dismissed.id, ...closed }),
+      );
+      const states = await Promise.all([open, answered, dismissed, none].map(async (job) => valueOf(await read(api, SECRETS.runners, job.id)).questions));
+      expect(states).toEqual([{ state: 'open' }, { state: 'answered' }, { state: 'dismissed' }, null]);
+    });
+  });
+
+  describe('who it continues and who it acted for', () => {
+    it('reads the job it continues and the job that continues it, each from the other', async () => {
+      const api = fakePublicApi();
+      const first = seed(api, { outcome: 'human' });
+      const second = seed(api, { status: 'queued', exit_code: null, ended_at: null, continues: first.id, acting_for: 'Jane D.' });
+      expect(valueOf(await read(api, SECRETS.runners, first.id))).toMatchObject({ continues: null, continued_by: second.id });
+      expect(valueOf(await read(api, SECRETS.runnersOther, second.id))).toMatchObject({ continues: first.id, continued_by: null, acting_for: 'Jane D.' });
+    });
+
+    it('reads a job that continues nothing, and acted for no one, with nulls', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ continues: null, continued_by: null, acting_for: null, cancelled_by: null });
+    });
+
+    it('reads the key that cancelled the job by its name, and whom it acted for', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { status: 'cancelled', exit_code: null, cancel_requested: true, cancelled_by_key: OTHER_KEY, cancelled_for: 'Jane D.' });
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toMatchObject({ status: 'cancelled', outcome: null, cancelled_by: { key: 'Support bot', acting_for: 'Jane D.' } });
+    });
+
+    it('reads a cancellation by a key that acted for no one with acting_for null', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { status: 'cancelled', exit_code: null, cancel_requested: true, cancelled_by_key: API_KEY });
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).cancelled_by).toEqual({ key: 'QA dashboard', acting_for: null });
+    });
+  });
+
+  describe('which jobs a key reads', () => {
+    it('lets a second key of the workspace read the first key’s job', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { outcome: 'pr-opened', prs: [PR] });
+      expect(await read(api, SECRETS.runnersOther, job.id)).toMatchObject({ ok: true, value: { id: job.id, outcome: 'pr_opened' } });
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, and reads a job of one on it', async () => {
+      const api = fakePublicApi();
+      const off = seed(api);
+      const on = seed(api, { repo: 'demo-org/other' });
+      const refused = await read(api, SECRETS.runnersLimited, off.id);
+      expect(refused).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(!refused.ok && refused.message).toBe('demo-org/app is not on this API key’s list of repositories.');
+      expect(await read(api, SECRETS.runnersLimited, on.id)).toMatchObject({ ok: true, value: { id: on.id, repo: 'demo-org/other' } });
+    });
+
+    it('answers 404 for a job a person sent, whatever the key’s list', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { sent_by_key: null });
+      for (const secret of [SECRETS.runners, SECRETS.runnersOther, SECRETS.runnersLimited]) {
+        expect(await read(api, secret, job.id), secret).toMatchObject({ ok: false, code: 'not_found' });
+      }
+    });
+
+    it('answers 404 for another workspace’s job, a limited key included, and never 403', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      for (const secret of [SECRETS.all, SECRETS.backend, SECRETS.south]) {
+        expect(await read(api, secret, job.id), secret).toMatchObject({ ok: false, code: 'not_found' });
+      }
+    });
+
+    it('answers 404 for a job that does not exist', async () => {
+      const api = fakePublicApi();
+      expect(await read(api, SECRETS.runners, '00000000-0000-4000-8000-00000000dead')).toMatchObject({ ok: false, code: 'not_found' });
+    });
+  });
+
+  describe('the job a key has just sent', () => {
+    it('reads queued with nothing done yet: no outcome, no pull request, no questions, no thread', async () => {
+      const api = fakePublicApi();
+      const started = await publicApiService(api.repository, api.runners).startBugFix(await caller(api, SECRETS.runners), { repo: 'demo-org/app', description: 'Issue 548 totals' });
+      expect(valueOf(started)).toMatchObject({
+        status: 'queued', outcome: null, fixed_by: null, prs: [], questions: null, continues: null, continued_by: null,
+        acting_for: null, cancelled_by: null, log_tail: null,
+      });
+    });
+
+    it('reads the same shape when the job is a mega bug fix', async () => {
+      const api = fakePublicApi();
+      api.planRepository(WORKSPACE, 'demo-org/plan');
+      const started = await publicApiService(api.repository, api.runners).startMegaBugFix(await caller(api, SECRETS.runners), { repo: 'demo-org/plan', description: 'https://github.com/demo-org/plan/issues/612' });
+      expect(valueOf(started)).toMatchObject({ outcome: null, prs: [], questions: null, cancelled_by: null });
+    });
   });
 });
