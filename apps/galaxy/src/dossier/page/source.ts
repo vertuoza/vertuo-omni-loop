@@ -24,6 +24,8 @@ import { parsePlanSlices } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { isOneOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { createTimings, type Timings } from './timing';
 import type { DossierRead } from './view';
+import { productFilterReads, type ProductFilterReads } from '../../product-filter/product-filter.service';
+import { listOf } from '../../data/unparsed';
 
 export type Db = Pick<SupabaseClient, 'from' | 'rpc'>;
 
@@ -79,12 +81,14 @@ export async function readDossier(db: Db, id: string, me: string | null = null, 
   const reader = dossierReader(db);
   const dossier = await timings.time('dossier', reader.dossier(id));
   if (!dossier) return null;
-  const [versions, members, rounds, repos, people] = await Promise.all([
+  // PRD 2401 s4: the answerable rounds start as soon as the rounds are read, beside the other reads.
+  const rounds = timings.time('rounds', readRounds(db, id));
+  const [versions, members, repos, people, answerable] = await Promise.all([
     timings.time('versions', reader.versions(id)), timings.time('members', readMembers(db, dossier.workspace_id)),
-    timings.time('rounds', readRounds(db, id)), timings.time('repos', readRepos(db, id)),
-    timings.time('people', loadPeople(db, dossier.workspace_id)),
+    timings.time('repos', readRepos(db, id)), timings.time('people', loadPeople(db, dossier.workspace_id)),
+    timings.time('answerable', rounds.then((read) => readAnswerable(db, read, me))),
   ]);
-  return { dossier, versions, members, rounds, repos, answerable: await timings.time('answerable', readAnswerable(db, rounds, me)), people };
+  return { dossier, versions, members, rounds: await rounds, repos, answerable, people };
 }
 
 /** What one click on a quick round did: answered it, or found it taken — answered first by someone
@@ -115,6 +119,64 @@ export async function readPulse(db: Pick<Db, 'rpc'>, id: string): Promise<Dossie
 /** Every dossier of the viewer's workspaces, as the history lists them; only those of `kind` when given,
  * the database leaving the others out (PRD 2401 s3: /prd reads its PRDs alone). */
 export const readHistory = (db: Pick<Db, 'rpc'>, kind: WorkKind | null = null): Promise<DossierListRow[]> => dossierList(db, null, kind);
+
+/** The viewer's workspaces, by id; null when they cannot be read. */
+async function readMyWorkspaces(db: Pick<Db, 'from'>, me: string): Promise<string[] | null> {
+  try {
+    const { data, error } = await db.from('workspace_members').select('workspace_id').eq('user_id', me);
+    if (error) throw new Error(error.message);
+    return listOf<{ workspace_id: string }>(data).map((row) => row.workspace_id);
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
+/** A workspace's members as workspace_roster gives them to the viewer (history.ts's `rosterReader`). */
+type RosterReader = (workspace: string) => Promise<ReadonlyArray<{ user_id: string; github_login: string | null }>>;
+
+/** The reads the history's scope waits on (PRD 2401 s4): the product reads of /prd, and the rosters `who=<login>` asks. */
+export interface ListScopeReads {
+  scope: Pick<ProductFilterReads, 'products' | 'dossierProducts' | 'dossierNumbers'>;
+  roster: RosterReader;
+}
+
+/** Starts, beside `dossier_list`, what the list's scope reads once it knows its rows: the products, the
+ * dossiers' products and numbers, and, with a `login`, the rosters (PRD 2401 s4). They are read for every
+ * workspace the viewer belongs to, a superset of the listed rows' workspaces; a scope that asks for a
+ * workspace this did not read, or when it could not read the viewer's workspaces, is read as it was, after
+ * the list. Starts nothing for a viewer with no workspace. */
+export function startListScope(db: Pick<Db, 'from'>, me: string, login: string | null, roster: RosterReader): ListScopeReads {
+  const reads = productFilterReads(db);
+  const mine = readMyWorkspaces(db, me);
+  const ahead = mine.then(async (workspaces) => {
+    if (!workspaces?.length) return null;
+    const [products, carriers, numbers] = await Promise.all([reads.products(workspaces), reads.dossierProducts(workspaces), reads.dossierNumbers(workspaces)]);
+    return { workspaces: new Set(workspaces), products, carriers, numbers };
+  }).catch((error: unknown) => {
+    console.error(error);
+    return null;
+  });
+  const rosters = new Map<string, ReturnType<RosterReader>>();
+  if (login !== null) {
+    void mine.then((workspaces) => {
+      for (const workspace of workspaces ?? []) rosters.set(workspace, roster(workspace));
+      for (const read of rosters.values()) read.catch(() => undefined);
+    });
+  }
+  const covers = async (workspaces: readonly string[]) => {
+    const read = await ahead;
+    return read && workspaces.every((workspace) => read.workspaces.has(workspace)) ? read : null;
+  };
+  return {
+    scope: {
+      products: async (workspaces) => (await covers(workspaces))?.products.filter((p) => workspaces.includes(p.workspace_id)) ?? reads.products(workspaces),
+      dossierProducts: async (workspaces) => (await covers(workspaces))?.carriers ?? reads.dossierProducts(workspaces),
+      dossierNumbers: async (workspaces) => (await covers(workspaces))?.numbers ?? reads.dossierNumbers(workspaces),
+    },
+    roster: (workspace) => rosters.get(workspace) ?? roster(workspace),
+  };
+}
 
 /** The slices of the dossier's latest plan version (PRD 426: the stage's "m/t slices"); null when
  * there is no plan version, or it cannot be read or holds no slice table. The count stored on the

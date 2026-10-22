@@ -7,14 +7,14 @@ import { DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/de
 import { DossierHistory } from '../../src/dossier/page/DossierHistory';
 import { DossierSignIn } from '../../src/dossier/page/DossierSignIn';
 import '../../src/product-filter/product-filter.css';
-import { productListScope } from '../../src/product-filter/ProductFilter';
-import type { ProductLabels } from '../../src/product-filter/product-filter.service';
+import { ProductFilter } from '../../src/product-filter/ProductFilter';
+import { scopeDossiers, type ProductLabels } from '../../src/product-filter/product-filter.service';
 import {
-  HISTORY_CALLBACK, HISTORY_PATH, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds, readOpenCounts,
-  rosterReader, whoLogin, type CurrentStages, type OpenCounts, type Whom,
+  HISTORY_CALLBACK, HISTORY_PATH, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds, readOpenCounts, rosterReader,
+  whoLogin, type CurrentStages, type OpenCounts, type Whom,
 } from '../../src/dossier/page/history';
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from '../../src/dossier/page/route-gate';
-import { readHistory } from '../../src/dossier/page/source';
+import { readHistory, startListScope } from '../../src/dossier/page/source';
 import { ofWork } from '../../src/dossier/page/work';
 import { PrdListLoading } from '../../src/skeleton/pages';
 import { Streamed } from '../../src/skeleton/Streamed';
@@ -87,6 +87,8 @@ export default async function HistoryRoute({ searchParams }: Props) {
 
   /** The list as the signed-in person reads it: the dossiers, then their open questions and stages. */
   async function history(userId: string): Promise<ReactNode> {
+    // PRD 2401 s4: what the scope and `who=<login>` read once the rows are known starts now, beside the list.
+    const early = startListScope(db, userId, login, rosterReader(db));
     let listed: DossierListRow[];
     try {
       // PRD 2401 s3: the database lists the PRDs alone, the fixes never read.
@@ -95,8 +97,9 @@ export default async function HistoryRoute({ searchParams }: Props) {
       console.error(error);
       return <DossierDatabaseDown />;
     }
-    const { rows, above, labels } = await timings.time('scope', productListScope(HISTORY_PATH)(db, listed, query));
-    const whom = login ? await timings.time('login_ids', readLoginIds(rows, login, rosterReader(db))) : undefined;
+    const { rows, filter, unreadable, labels } = await timings.time('scope', scopeDossiers(early.scope, listed, query, HISTORY_PATH));
+    const above = <ProductFilter filter={filter} unreadable={unreadable} />;
+    const whom = login ? await timings.time('login_ids', readLoginIds(rows, login, early.roster)) : undefined;
     const [open, stages] = await Promise.all([
       timings.time('counts', readOpenCounts(historyToRead(rows, filters, userId, whom), prdOutboxStore(db))),
       timings.time('stages', readCurrentStages(rows, stageStore(db))),
