@@ -13624,10 +13624,20 @@ function loopPaths2(config) {
     (path) => typeof path === "string" && path.length > 0
   );
 }
-async function withTreeAt(octokit, { owner, repo, sha, config, also = [] }, fn) {
+function harvestFetched(delivery2, prd) {
+  const root = `${delivery2.replace(/\/+$/, "")}/`;
+  return (path) => {
+    if (!path.startsWith(root)) return true;
+    const [, folder, ...rest] = path.slice(root.length).split("/");
+    return folder === void 0 || rest.length === 0 || parseFolderName(folder)?.prd === prd;
+  };
+}
+async function withTreeAt(octokit, { owner, repo, sha, config, also = [], prd }, fn) {
   const root = mkdtempSync11(join64(tmpdir11(), "omni-harvest-tree-"));
+  const delivery2 = config.paths.delivery;
+  const fetchIf = prd === void 0 || !delivery2 ? () => true : harvestFetched(delivery2, prd);
   try {
-    await snapshot(octokit, { owner, repo, ref: sha, paths: [.../* @__PURE__ */ new Set([...loopPaths2(config), ...also])], dest: root });
+    await snapshot(octokit, { owner, repo, ref: sha, paths: [.../* @__PURE__ */ new Set([...loopPaths2(config), ...also])], dest: root, fetchIf });
     return await fn(createContext(root, loadConfig(root)), root);
   } finally {
     rmSync15(root, { recursive: true, force: true });
@@ -13875,7 +13885,7 @@ function createKnowledgeHarvest({ client, octokitFor, openrouter, lawJudge: lawJ
         const octokit = await github();
         const changed = await pullFiles(octokit, { owner, repo, prNumber });
         const tip2 = await tipOf(octokit, { owner, repo, branch: base });
-        const prepared2 = await withTreeAt(octokit, { owner, repo, sha: tip2, config }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge, changed }));
+        const prepared2 = await withTreeAt(octokit, { owner, repo, sha: tip2, config, prd: prd.number }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge, changed }));
         if (!prepared2.ok) {
           throw new NonRetriableError3(`PRD ${prd.number} cannot be harvested at ${base}: ${prepared2.errors.join("; ")}`);
         }
@@ -13893,7 +13903,7 @@ function createKnowledgeHarvest({ client, octokitFor, openrouter, lawJudge: lawJ
         judge: lawJudge2,
         laws: config.laws.source === "knowledge",
         classified,
-        questions: async (replies) => withTreeAt(await github(), { owner, repo, sha: tip, config, also }, (ctx) => lawQuestions({ ctx, prepared, classified: replies, prdTitle: prd.title })),
+        questions: async (replies) => withTreeAt(await github(), { owner, repo, sha: tip, config, also, prd: prd.number }, (ctx) => lawQuestions({ ctx, prepared, classified: replies, prdTitle: prd.title })),
         repo: `${owner}/${repo}`,
         prd: prd.number
       });
@@ -13901,7 +13911,7 @@ function createKnowledgeHarvest({ client, octokitFor, openrouter, lawJudge: lawJ
         write: (id, lawIssues) => savedStep(step, id, WrittenSchema, async () => {
           const octokit = await github();
           const taken = await takenElsewhere(octokit, { owner, repo, config, own: branch });
-          return withTreeAt(octokit, { owner, repo, sha: tip, config, also }, (ctx, root) => {
+          return withTreeAt(octokit, { owner, repo, sha: tip, config, also, prd: prd.number }, (ctx, root) => {
             const result = finishHarvest({ ctx, prepared, classified: answered, merge, taken, date: now(), lawIssues });
             return { ...result, commit: toCommit(result.edits, filesIn(root)), taken: taken.branches };
           });
