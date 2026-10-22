@@ -45,6 +45,20 @@ export type StageRow = z.infer<typeof StageRow>;
 /** The kinds of dossier the lists read. */
 export type ListedKind = 'prd' | 'bug';
 
+const JobLineRow = z.object({ seq: z.number().int().positive(), text: z.string() });
+/** One line of a job's live log, as runner_job_lines holds it (PRD 1904). */
+type JobLineRow = z.infer<typeof JobLineRow>;
+
+/** One page of a job's lines, oldest first. */
+type JobLinesPage = {
+  workspace: string;
+  job: string;
+  /** Only the lines numbered above this one: the last line of the page before, 0 for the first page. */
+  after: number;
+  /** How many lines at most. */
+  take: number;
+};
+
 /** One page of a workspace's dossiers of `kind`, newest first. */
 export type DossierPage = {
   workspace: string;
@@ -94,6 +108,21 @@ export function publicApiRepository(db: PublicApiDb) {
       return settled(
         query.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(page.take),
         z.array(DossierRow), 'dossiers',
+      );
+    },
+
+    /** One page of a job's live lines (PRD 2425 s4), oldest first, by the keyset `seq > after`: the lines the
+     * job still holds, none for one past the workspace's retention. The service has already found the job a
+     * key may read; the workspace filter keeps this read inside it all the same. */
+    jobLines(page: JobLinesPage): Promise<JobLineRow[]> {
+      return settled(
+        db.from('runner_job_lines').select('seq, text')
+          .eq('workspace_id', page.workspace)
+          .eq('job_id', page.job)
+          .gt('seq', page.after)
+          .order('seq', { ascending: true })
+          .limit(page.take),
+        z.array(JobLineRow), 'runner_job_lines',
       );
     },
 

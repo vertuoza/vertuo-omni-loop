@@ -1,7 +1,7 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import {
-  BugFixListSchema, JobSchema, ListQuerySchema, PrdListSchema, PublicApiErrorSchema, StartBugFixSchema, StartMegaBugFixSchema,
+  BugFixListSchema, JobLineListSchema, JobSchema, ListQuerySchema, PrdListSchema, PublicApiErrorSchema, StartBugFixSchema, StartMegaBugFixSchema,
 } from './public-api.contract';
 
 // The public API's reference (PRD 2022 s3, spec "The reference"): every /api/v1 route registered with
@@ -22,6 +22,11 @@ const errors = (...statuses: (keyof typeof ERROR_ANSWERS)[]) => Object.fromEntri
   status,
   { description: ERROR_ANSWERS[status], content: { 'application/json': { schema: PublicApiErrorSchema } } },
 ]));
+
+/** The path parameter of every route under /api/v1/jobs/{id}. */
+const JobParams = z.object({
+  id: z.uuid().meta({ description: 'The job’s id, as `POST /api/v1/bug-fixes` or `POST /api/v1/mega-bug-fixes` answered it.', example: '0b4c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3' }),
+});
 
 /** Every /api/v1 route and the security scheme, in a registry. */
 function openApiRegistry(): OpenAPIRegistry {
@@ -93,12 +98,26 @@ function openApiRegistry(): OpenAPIRegistry {
     path: '/api/v1/jobs/{id}',
     tags: ['Bug fixes'],
     summary: 'Follow a job',
-    description: 'A job a key of this workspace queued, whichever key it was: its status, the runner, the `pr_url` (the pull request a mega bug fix’s record is), the exit code, the reason and the times. A key whose list of repositories leaves the job’s repository out is refused.\n\nFor a bug fix or a mega bug fix it also says what the job did:\n\n- `outcome`: `pr_opened`, `already_fixed`, `need_human`, `needs_brainstorm`, `not_a_bug`, `stuck` or `blocked`; null while it runs, when it failed, or when its runner reported none.\n- `fixed_by`: the pull request that already fixed the bug, with `already_fixed` only.\n- `prs`: every pull request it opened, in order, a mega bug fix’s record last.\n- `questions`: the state of the questions it asked.\n- `continues`, `continued_by`: the job it carries on and the one that carries it on.\n- `acting_for`, `cancelled_by`: whom the key acted for, and the key that cancelled the job.\n- `log_tail`: the last lines of its log.',
+    description: 'A job a key of this workspace queued, whichever key it was: its status, the runner, the `pr_url` (the pull request a mega bug fix’s record is), the exit code, the reason and the times. A key whose list of repositories leaves the job’s repository out is refused.\n\nFor a bug fix or a mega bug fix it also says what the job did:\n\n- `outcome`: `pr_opened`, `already_fixed`, `need_human`, `needs_brainstorm`, `not_a_bug`, `stuck` or `blocked`; null while it runs, when it failed, or when its runner reported none.\n- `fixed_by`: the pull request that already fixed the bug, with `already_fixed` only.\n- `prs`: every pull request it opened, in order, a mega bug fix’s record last.\n- `questions`: the state of the questions it asked.\n- `continues`, `continued_by`: the job it carries on and the one that carries it on.\n- `acting_for`, `cancelled_by`: whom the key acted for, and the key that cancelled the job.\n- `log_tail`: the last lines of its log; `GET /api/v1/jobs/{id}/lines` reads the whole of it, a page at a time.',
     security: [{ bearerAuth: [] }],
-    request: { params: z.object({ id: z.uuid().meta({ description: 'The job’s id, as `POST /api/v1/bug-fixes` or `POST /api/v1/mega-bug-fixes` answered it.', example: '0b4c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3' }) }) },
+    request: { params: JobParams },
     responses: {
       200: { description: 'The job.', content: { 'application/json': { schema: JobSchema } } },
       ...errors(401, 403, 404, 500),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/api/v1/jobs/{id}/lines',
+    tags: ['Bug fixes'],
+    summary: 'Read a job’s log',
+    description: 'The lines of a job a key of this workspace queued, whichever key it was, oldest first, a page at a time: each is `{seq, text}`, `seq` counting from 1 in the order the job wrote it. `next_cursor` is the cursor of the next page, null on the last: send it back unchanged as `cursor`, and a page never repeats or skips a line while the job writes more. A job that is still running grows between pages; read on until `next_cursor` is null, and again later for what it wrote since.\n\nThe workspace keeps the lines of its 50 newest ended jobs: a job past that answers an empty `data`, and its `log_tail` on `GET /api/v1/jobs/{id}` still holds the last lines of its log. A job that has not started has no lines yet and answers the same. The key rules are the job’s own: a key whose list of repositories leaves the job’s repository out is refused.',
+    security: [{ bearerAuth: [] }],
+    request: { params: JobParams, query: ListQuerySchema },
+    responses: {
+      200: { description: 'A page of the job’s lines.', content: { 'application/json': { schema: JobLineListSchema } } },
+      ...errors(401, 403, 404, 422, 500),
     },
   });
 

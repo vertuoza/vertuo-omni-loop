@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { reply } from '../business-api/reply';
 import {
-  BugFixListSchema, DESCRIPTION_MAX, JobSchema, ListQuerySchema, LIMIT_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, PUBLIC_API_ERRORS,
-  StartBugFixSchema, StartMegaBugFixSchema, type ListQuery, type PublicApiErrorCode,
+  BugFixListSchema, DESCRIPTION_MAX, JobLineListSchema, JobSchema, ListQuerySchema, LIMIT_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, PUBLIC_API_ERRORS,
+  StartBugFixSchema, StartMegaBugFixSchema, type JobLineList, type ListQuery, type PublicApiErrorCode,
 } from './public-api.contract';
 import type { ApiKeyCaller, PublicApiService, Answered } from './public-api.service';
 
@@ -15,6 +15,7 @@ import type { ApiKeyCaller, PublicApiService, Answered } from './public-api.serv
 //   POST /api/v1/mega-bug-fixes            202 job: queues /omni:mega-bug-fix in a plan repository; never 404,
 //                                          so a 404 there is a deployment older than the route
 //   GET /api/v1/jobs/{id}                  200 job: a job a key of the workspace queued, else 404
+//   GET /api/v1/jobs/{id}/lines?limit=&cursor=  200 {data, next_cursor}: that job's lines, oldest first (PRD 2425 s4)
 //
 // The key is checked first: no `Authorization: Bearer oma_…`, or a key api_key_of() does not answer live
 // (unknown, revoked, its maker gone), is 401, and nothing else runs. The query is read next: a bad `limit`
@@ -154,4 +155,13 @@ export function getJob(request: Request, id: string, deps: PublicApiDeps): Promi
     const served = await service.job(key, id);
     return served.ok ? reply(200, JobSchema.parse(served.value)) : refusal(served.code, served.message);
   });
+}
+
+/** GET /api/v1/jobs/{id}/lines: the lines of a job a key of the key's workspace queued, oldest first, a page at a
+ * time; any other job is 404, as for the job itself. An id that is no uuid is a job that does not exist, and never
+ * reaches the database, whose uuid column would refuse it. */
+export function getJobLines(request: Request, id: string, deps: PublicApiDeps): Promise<Response> {
+  return list(request, deps, JobLineListSchema, (service, key, query) => (z.uuid().safeParse(id).success
+    ? service.jobLines(key, id, query)
+    : Promise.resolve<Answered<JobLineList>>({ ok: false, code: 'not_found', message: NO_SUCH_JOB })));
 }

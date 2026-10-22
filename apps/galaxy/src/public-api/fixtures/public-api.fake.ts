@@ -98,6 +98,11 @@ export function fakePublicApi() {
     return dossier;
   };
 
+  // The runners' own rules over their own fake store: what a key starts and follows a job with, and the live
+  // lines (PRD 1904) the lines route reads.
+  const { store, state: runnersState } = fakeStore();
+  const runners = runnersService(store, { now: () => T0, sleep: () => Promise.resolve() });
+
   const repository: PublicApiRepository = {
     async keyOf(hash) {
       calls.push('keyOf');
@@ -116,6 +121,14 @@ export function fakePublicApi() {
         .slice(0, page.take)
         .map(({ id, prd, product_seq, product_id, title, home_repo, created_at }) => ({ id, prd, product_seq, product_id, title, home_repo, created_at })));
     },
+    jobLines(page) {
+      calls.push('jobLines');
+      return Promise.resolve(runnersState.lines
+        .filter((row) => row.workspace_id === page.workspace && row.job_id === page.job && row.seq > page.after)
+        .sort((a, b) => a.seq - b.seq)
+        .slice(0, page.take)
+        .map(({ seq, text }) => ({ seq, text })));
+    },
     products(workspace, ids) {
       calls.push('products');
       return Promise.resolve(products.filter((p) => p.workspace === workspace && ids.includes(p.id)).map(({ id, key, name }) => ({ id, key, name })));
@@ -131,10 +144,6 @@ export function fakePublicApi() {
       return Promise.resolve(plans.some((plan) => plan.workspace === workspace && plan.repository === repository));
     },
   };
-
-  // The runners' own rules over their own fake store: what a key starts and follows a job with.
-  const { store, state: runnersState } = fakeStore();
-  const runners = runnersService(store, { now: () => T0, sleep: () => Promise.resolve() });
 
   return {
     repository,

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { STORED_STAGES } from '../stages/stage';
 import { decodeCursor } from './cursor';
 import {
-  API_OUTCOMES, BugFixSchema, JobSchema, ListQuerySchema, MEGA_DESCRIPTION_MAX, PRD_STAGES, PrdSchema, PUBLIC_API_ERRORS, PublicApiErrorSchema,
+  API_OUTCOMES, BugFixSchema, JobLineListSchema, JobSchema, ListQuerySchema, MEGA_DESCRIPTION_MAX, PRD_STAGES, PrdSchema, PUBLIC_API_ERRORS, PublicApiErrorSchema,
   StartBugFixSchema, StartMegaBugFixSchema,
 } from './public-api.contract';
 
@@ -185,6 +185,29 @@ describe('a job a key follows, with what it did (PRD 2425 s3)', () => {
     for (const field of ['outcome', 'fixed_by', 'prs', 'questions', 'continues', 'continued_by', 'acting_for', 'cancelled_by', 'log_tail'] as const) {
       expect(JobSchema.shape[field].meta()?.description, field).toEqual(expect.any(String));
     }
+  });
+});
+
+describe('a job’s lines (PRD 2425 s4)', () => {
+  it('reads a page of lines, each its sequence number and its text, and a cursor or none', () => {
+    const page = { data: [{ seq: 1, text: '12:00:01 /omni:bug-fix 548' }, { seq: 2, text: '' }], next_cursor: 'WyJsaW5lcyIsIjBiNGMxZDJlLTNmNDAtNGE1Yi04YzZkLTdlOGY5MGExYjJjMyIsMl0' };
+    expect(JobLineListSchema.parse(page)).toEqual(page);
+    expect(JobLineListSchema.parse({ data: [], next_cursor: null })).toEqual({ data: [], next_cursor: null });
+  });
+
+  it('refuses a line with no text, a text that is not one, and a sequence number that is not a positive whole number', () => {
+    for (const line of [{ seq: 1 }, { seq: 1, text: 3 }, { seq: 0, text: 'x' }, { seq: -1, text: 'x' }, { seq: 1.5, text: 'x' }, { seq: '1', text: 'x' }, { text: 'x' }]) {
+      expect(JobLineListSchema.safeParse({ data: [line], next_cursor: null }).success, JSON.stringify(line)).toBe(false);
+    }
+  });
+
+  it('refuses a page with no next_cursor, so a client may rely on it, null on the last page', () => {
+    expect(JobLineListSchema.safeParse({ data: [] }).error?.issues[0]?.path).toEqual(['next_cursor']);
+  });
+
+  it('describes the page for the reference', () => {
+    expect(JobLineListSchema.meta()?.description).toEqual(expect.any(String));
+    expect(JobLineListSchema.shape.next_cursor.meta()?.description).toEqual(expect.any(String));
   });
 });
 
