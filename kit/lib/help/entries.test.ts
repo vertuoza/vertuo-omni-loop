@@ -107,10 +107,10 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 62 commands and the 35 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(62);
+  it('holds the 63 commands and the 35 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(63);
     expect(skillFolders()).toHaveLength(35);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(62);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(63);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(35);
   });
 
