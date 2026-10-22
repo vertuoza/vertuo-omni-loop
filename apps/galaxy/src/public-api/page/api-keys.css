@@ -1,8 +1,9 @@
 /* Settings › API keys (PRD 2022 s1; the `api-keys` screen of the design library): the title with New key,
    the lead and the API reference link, the New key form, the key just made once, then the table of keys.
    Ask's reading tokens only. Below 700 px a key's row stacks: its name and meta, then its key, its
-   repositories, when it was last used and Revoke, each wrapping; the secret and the curl break anywhere,
-   so nothing is wider than the screen. */
+   repositories, its GitHub App, when it was last used and Revoke, each wrapping; the secret and the curl
+   break anywhere, so nothing is wider than the screen. A key's GitHub App (PRD 2433 s5) is a column: its
+   slug, for an owner the last token and the actions under it, and the attach form beside the New key form. */
 .api-keys { width: 100%; justify-self: start; display: grid; gap: 14px; min-width: 0; }
 .api-keys-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .api-keys-head h1 { margin: 0; margin-right: auto; overflow-wrap: anywhere; }
@@ -12,7 +13,12 @@
 
 .api-keys-form { display: grid; gap: 12px; max-width: 900px; padding: 14px; border: 1.5px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
 .api-keys-field { display: grid; gap: 4px; min-width: 0; }
-.api-keys-field span { font-size: 14px; color: var(--ask-muted); }
+.api-keys-field > span:first-child { font-size: 14px; color: var(--ask-muted); }
+.api-keys-form-title { margin: 0; }
+.api-keys-file { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+.api-keys-choose { position: relative; display: inline-block; cursor: pointer; }
+.api-keys-choose:has(input:focus-visible) { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.api-keys-file-name { font-size: 14px; overflow-wrap: anywhere; }
 .api-keys-field input {
   box-sizing: border-box;
   width: 100%;
@@ -47,8 +53,13 @@
 .api-keys-chip { padding: 0 8px; border: 1px solid var(--ask-line-strong); border-radius: 999px; font-family: var(--ask-mono); font-size: 13px; }
 .api-keys-revoke { text-align: right; white-space: nowrap; }
 .api-keys-confirm { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.api-keys-slug { font-family: var(--ask-mono); overflow-wrap: anywhere; }
+.api-keys-token { display: block; font-size: 14px; }
+.api-keys-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.api-keys-acts .ask-button { padding: 6px 12px; font-size: 14px; }
 .api-keys-label { display: none; }
 .api-keys-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.api-keys-field input.api-keys-hidden { width: 1px; padding: 0; border: 0; }
 .api-keys-empty { margin: 0; padding: 26px 16px; text-align: center; color: var(--ask-muted); border: 1.5px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
 
 @media (max-width: 700px) {
@@ -58,5 +69,8 @@
   .api-keys-table td { padding: 0; border-top: 0; }
   .api-keys-table td:first-child { grid-column: 1 / -1; }
   .api-keys-label { display: inline; }
+  .api-keys-app { grid-column: 1 / -1; }
+  .api-keys-acts { gap: 8px; }
+  .api-keys-acts .ask-button { min-height: 44px; }
   .api-keys-revoke { grid-column: 1 / -1; text-align: left; white-space: normal; }
 }

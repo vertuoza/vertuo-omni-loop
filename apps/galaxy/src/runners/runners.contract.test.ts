@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'omni-loop/kit/lib/runner/line.ts';
 import {
   AnswerRequestSchema, AskRequestSchema, checkLine, checkLineShape, HealthReportSchema, JOB_OUTCOMES, JobLinesQuerySchema, JobQuestionsSchema, JobReplySchema, JobUpdateSchema,
-  KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
+  GithubTokenReplySchema, KitRunnersSchema, linePrd, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
 // The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines of 200 characters at
@@ -133,7 +133,7 @@ describe('the line check, for a repository\'s own skills (PRD 2313)', () => {
 });
 
 describe('the job a runner claims (PRD 2313)', () => {
-  const job = { id: '00000000-0000-4000-8000-000023130001', line: '/omni:yolo 2313', repo: 'acme/widgets', sentBy: 'olga', allowedSkills: [] };
+  const job = { id: '00000000-0000-4000-8000-000023130001', line: '/omni:yolo 2313', repo: 'acme/widgets', sentBy: 'olga', allowedSkills: [], sentByKey: null, github: null };
 
   it('carries its repository\'s allowed skills, and takes a fixed skill\'s line as before', () => {
     expect(RunnerJobSchema.parse(job)).toEqual(job);
@@ -152,6 +152,34 @@ describe('the job a runner claims (PRD 2313)', () => {
   });
 });
 
+describe('the job an API key\'s App runs (PRD 2433)', () => {
+  const job = { id: '00000000-0000-4000-8000-000024330001', line: '/omni:bug-fix 2433', repo: 'acme/widgets', sentBy: 'API key QA dashboard', allowedSkills: [], sentByKey: 'QA dashboard' };
+  const github = { token: 'a-token-for-the-tests', expiresAt: '2026-10-22T11:00:00Z', login: 'acme-bugs[bot]', email: '777+acme-bugs[bot]@users.noreply.github.com' };
+
+  it('carries the key\'s name and the App\'s token, expiry, bot login and email', () => {
+    expect(RunnerJobSchema.parse({ ...job, github })).toEqual({ ...job, github });
+  });
+
+  it('carries no App for a job a person sent or a key with none, saying so with null', () => {
+    expect(RunnerJobSchema.parse({ ...job, sentByKey: null, github: null })).toMatchObject({ sentByKey: null, github: null });
+    expect(RunnerJobSchema.safeParse(job).success).toBe(false);
+    expect(RunnerJobSchema.safeParse({ ...job, github: null }).success).toBe(true);
+  });
+
+  it('never reads an App that holds less than all four, so no job goes out half-set', () => {
+    for (const field of ['token', 'expiresAt', 'login', 'email'] as const) {
+      const rest = Object.fromEntries(Object.entries(github).filter(([key]) => key !== field));
+      expect(RunnerJobSchema.safeParse({ ...job, github: rest }).success, field).toBe(false);
+      expect(RunnerJobSchema.safeParse({ ...job, github: { ...github, [field]: '' } }).success, field).toBe(false);
+    }
+  });
+
+  it('answers a refresh with the token and its expiry alone', () => {
+    expect(GithubTokenReplySchema.parse({ ...github })).toEqual({ token: github.token, expiresAt: github.expiresAt });
+    expect(GithubTokenReplySchema.safeParse({ token: github.token }).success).toBe(false);
+  });
+});
+
 describe('the requests', () => {
   it('registers a runner with 1 to 8 slots and at least one repository', () => {
     const runner = { name: 'nimbus-agents', slots: 4, repos: ['vertuoza/vertuo-omni-loop'], version: '0.0.387' };
@@ -160,6 +188,14 @@ describe('the requests', () => {
     expect(RegisterRequestSchema.safeParse({ ...runner, repos: [] }).success).toBe(false);
     expect(RegisterRequestSchema.safeParse({ ...runner, name: 'two words' }).success).toBe(false);
     expect(RegisterRequestSchema.safeParse({ ...runner, owner: 'someone' }).success).toBe(false);
+  });
+
+  it('registers a runner that can run a job as an API key\'s GitHub App, or one that says nothing (PRD 2433)', () => {
+    const runner = { name: 'nimbus-agents', slots: 4, repos: ['vertuoza/vertuo-omni-loop'], version: '0.0.530' };
+    expect(RegisterRequestSchema.parse({ ...runner, githubApp: true })).toEqual({ ...runner, githubApp: true });
+    expect(RegisterRequestSchema.parse({ ...runner, githubApp: false })).toEqual({ ...runner, githubApp: false });
+    expect(RegisterRequestSchema.parse(runner)).toEqual(runner);
+    for (const githubApp of ['true', 1, null]) expect(RegisterRequestSchema.safeParse({ ...runner, githubApp }).success).toBe(false);
   });
 
   it('sends to any runner, a fleet or one runner, and nowhere else', () => {
