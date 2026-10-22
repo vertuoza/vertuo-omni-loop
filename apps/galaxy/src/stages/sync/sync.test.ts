@@ -8,8 +8,9 @@ import { fakeConceptFactsStore, fakeFixFactsStore } from '../../fixes/facts/stor
 import { fakePrdOutboxStore } from '../outbox/store.fake';
 import { settled } from '../settled';
 import { fakeStageStore } from '../store.fake';
+import { fakeMilestoneStore, type FakeMilestoneStore } from '../../timeline/store.fake';
 import { fakeWaitStore } from './waits.fake';
-import { syncConfig, type RepoSnapshot } from './core';
+import { syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
 import { syncStages, type SnapshotSyncDeps, type SyncDeps, type SyncWorkspace } from './sync';
 import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { createLogger } from 'omni-loop/kit/lib/log/log.ts';
@@ -556,6 +557,234 @@ describe('the sync is the safety net (PRD 902, s4)', () => {
     expect(store.stages.map((s) => `${s.repository}#${s.prd} ${s.stage}`).sort()).toEqual(['acme/gears#7 inbox', 'acme/widgets#42 shipped', 'globex/core#3 prd']);
     expect(refreshed).toEqual([]);
     for (const what of ['old', 'changed', 'etags', 'stale', 'refresh']) expect(lines.some((l) => l.includes(`Supabase refused: ${what}`))).toBe(true);
+  });
+});
+
+describe('the milestones (PRD 2370, s1)', () => {
+  /** acme/widgets: PRD 42 shipped through feature PR #9, after a phase-0 and two slices, each dated by GitHub. */
+  const SHIPPED: Partial<RepoSnapshot> = {
+    shipped: ['0042-dark-mode'],
+    issues: [{ number: parsePrd(42), created_at: '2026-09-18T00:00:00Z' }],
+    pulls: [
+      { number: parsePr(5), head: 'docs/phase-0-dark-mode', base: 'main', state: 'closed', draft: false, merged_at: '2026-09-19T09:00:00Z', created_at: '2026-09-18T10:00:00Z', ready_at: null, ...UNREAD_WAITS },
+      { number: parsePr(6), head: 'feat/dark-mode--s1', base: 'feat/dark-mode', state: 'closed', draft: false, merged_at: '2026-09-21T00:00:00Z', created_at: '2026-09-20T10:00:00Z', ready_at: null, ...UNREAD_WAITS },
+      { number: parsePr(7), head: 'feat/dark-mode--s2', base: 'feat/dark-mode', state: 'closed', draft: false, merged_at: '2026-09-23T00:00:00Z', created_at: '2026-09-20T11:00:00Z', ready_at: null, ...UNREAD_WAITS },
+      { number: parsePr(9), head: 'feat/dark-mode', base: 'main', state: 'closed', draft: false, merged_at: '2026-09-28T10:00:00Z', created_at: '2026-09-20T08:00:00Z', ready_at: null, first_ready_at: '2026-09-26T12:00:00Z', ...UNREAD_WAITS },
+      // No time GitHub gives: a pull request still open and never marked ready, read without its events.
+      { number: parsePr(10), head: 'feat/dark-mode--s3', base: 'feat/dark-mode', state: 'open', draft: true, merged_at: null, created_at: '2026-09-27T00:00:00Z', ready_at: null, ...UNREAD_WAITS },
+    ],
+  };
+  const lines = (store: FakeMilestoneStore) => store.milestones.map((m) => `${m.workspace_id} ${m.repository}#${m.prd} ${m.lane} ${m.milestone} ${m.pr ?? '-'} ${m.reached_at}`).sort();
+
+  function withMilestones(repos: Record<string, string[]> = { acme: ['acme/widgets'] }) {
+    const made = deps({}, repos);
+    made.snapshots['acme/widgets'] = snap('acme/widgets', SHIPPED);
+    const milestones = fakeMilestoneStore(() => NOW);
+    made.d.milestones = milestones;
+    return { ...made, milestones };
+  }
+
+  it('records the merged PRD\'s milestones of its one lane, each with GitHub\'s own time and its pull request', async () => {
+    const { d, milestones } = withMilestones();
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(lines(milestones)).toEqual([
+      'w-acme acme/widgets#42 acme/widgets approved - 2026-09-19T09:00:00Z',
+      'w-acme acme/widgets#42 acme/widgets first-slice 6 2026-09-21T00:00:00Z',
+      'w-acme acme/widgets#42 acme/widgets last-slice 7 2026-09-23T00:00:00Z',
+      'w-acme acme/widgets#42 acme/widgets merged 9 2026-09-28T10:00:00Z',
+      'w-acme acme/widgets#42 acme/widgets opened 9 2026-09-20T08:00:00Z',
+      'w-acme acme/widgets#42 acme/widgets ready 9 2026-09-26T12:00:00Z',
+    ]);
+    expect(milestones.milestones.every((m) => m.synced_at === NOW)).toBe(true);
+  });
+
+  it('moves nothing on a second sync, and leaves the stages as they were', async () => {
+    const { d, milestones, store } = withMilestones();
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    const stages = store.stages.map((s) => `${s.stage} ${s.reached_at}`);
+    const first = lines(milestones);
+    await syncStages(post(`Bearer ${SECRET}`), { ...d, now: () => '2026-09-29T12:15:00.000Z' });
+    expect(lines(milestones)).toEqual(first);
+    expect(milestones.writes).toHaveLength(6);
+    expect(store.stages.map((s) => `${s.stage} ${s.reached_at}`)).toEqual(stages);
+  });
+
+  it('reads a repository in full until its milestones are recorded, then from the earlier of its stages\' and milestones\' last sync', async () => {
+    const seen: (string | null)[] = [];
+    const { d, store, milestones } = withMilestones();
+    await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: parsePrd(42), stage: 'prd', reached_at: '2026-09-18T00:00:00Z' }], '2026-09-29T11:00:00.000Z');
+    const base = { ...d };
+    d.snapshot = (w, repo, since) => { seen.push(since); return base.snapshot(w, repo, since); };
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    await milestones.recordMilestones([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: parsePrd(42), lane: 'acme/widgets', milestone: 'approved', pr: null, reached_at: '2026-09-19T09:00:00Z' }], '2026-09-29T08:00:00.000Z');
+    milestones.milestones = milestones.milestones.map((m) => ({ ...m, synced_at: '2026-09-29T08:00:00.000Z' }));
+    await syncStages(post(`Bearer ${SECRET}`), { ...d, now: () => '2026-09-29T12:15:00.000Z' });
+    expect(seen).toEqual([null, '2026-09-29T07:55:00.000Z']);
+  });
+
+  it('logs milestones it cannot read or record, and the stages still land from what changed since their last sync', async () => {
+    const seen: (string | null)[] = [];
+    const { d, store, milestones, lines: logged } = withMilestones();
+    await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: parsePrd(42), stage: 'prd', reached_at: '2026-09-18T00:00:00Z' }], '2026-09-29T11:00:00.000Z');
+    const base = { ...d };
+    d.snapshot = (w, repo, since) => { seen.push(since); return base.snapshot(w, repo, since); };
+    milestones.fail = 'down';
+    const res = await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(res.status).toBe(200);
+    expect((await answerOf(res)).skipped).toEqual([]);
+    expect(seen).toEqual(['2026-09-29T10:55:00.000Z']);
+    expect(store.stages.some((s) => s.stage === 'shipped')).toBe(true);
+    expect(logged).toEqual([
+      'stages sync: when the milestones of acme/widgets were last synced cannot be read — Supabase refused: down',
+      'stages sync: the milestones of acme/widgets were not recorded — Supabase refused: down',
+    ]);
+  });
+});
+
+describe('the dossier milestones (PRD 2370, s3)', () => {
+  const PHASE0: Partial<RepoSnapshot> = {
+    shipped: ['0042-dark-mode'],
+    pulls: [
+      { number: parsePr(5), head: 'docs/phase-0-dark-mode', base: 'main', state: 'closed', draft: false, merged_at: '2026-09-19T09:00:00Z', created_at: '2026-09-18T10:00:00Z', ready_at: null, ...UNREAD_WAITS },
+    ],
+  };
+  const lines = (store: FakeMilestoneStore) => store.milestones.map((m) => `${m.repository}#${m.prd} ${m.lane} ${m.milestone} ${m.pr ?? '-'} ${m.reached_at}`).sort();
+
+  function world() {
+    const made = deps({}, { acme: ['acme/widgets'] });
+    made.snapshots['acme/widgets'] = snap('acme/widgets', PHASE0);
+    const milestones = fakeMilestoneStore(() => NOW);
+    made.d.milestones = milestones;
+    return { ...made, milestones };
+  }
+
+  it('records idea at the dossier\'s opening and plan at its first plan version, on the PRD\'s own repository', async () => {
+    const { d, milestones } = world();
+    d.dossierTimes = (_w, repo) => Promise.resolve(repo === 'acme/widgets' ? [{ prd: parsePrd(42), opened_at: '2026-09-10T08:00:00.000Z', plan_at: '2026-09-12T08:00:00.000Z' }] : []);
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(lines(milestones)).toEqual([
+      'acme/widgets#42 acme/widgets approved - 2026-09-19T09:00:00Z',
+      'acme/widgets#42 acme/widgets idea - 2026-09-10T08:00:00.000Z',
+      'acme/widgets#42 acme/widgets plan - 2026-09-12T08:00:00.000Z',
+    ]);
+  });
+
+  it('gives a PRD with no dossier neither, and a dossier with no plan only its idea', async () => {
+    const { d, milestones } = world();
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(lines(milestones)).toEqual(['acme/widgets#42 acme/widgets approved - 2026-09-19T09:00:00Z']);
+    d.dossierTimes = () => Promise.resolve([{ prd: parsePrd(42), opened_at: '2026-09-10T08:00:00.000Z', plan_at: null }]);
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(lines(milestones)).toContain('acme/widgets#42 acme/widgets idea - 2026-09-10T08:00:00.000Z');
+    expect(lines(milestones).some((l) => l.includes(' plan '))).toBe(false);
+  });
+
+  it('logs dossier times it cannot read, and still records the snapshot\'s milestones', async () => {
+    const { d, milestones, lines: logged } = world();
+    d.dossierTimes = () => Promise.reject(new Error('Supabase is down'));
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(lines(milestones)).toEqual(['acme/widgets#42 acme/widgets approved - 2026-09-19T09:00:00Z']);
+    expect(logged).toEqual(['stages sync: the dossier times of acme/widgets cannot be read — Supabase is down']);
+  });
+});
+
+describe('the target lanes of a plan repository\'s PRD (PRD 2370, s4)', () => {
+  /** A pull request into `base`, merged at `merged_at` when given. */
+  const pr = (number: number, head: string, more: Partial<SnapshotPull> = {}): SnapshotPull => ({
+    number: parsePr(number), head, base: 'main', state: 'open', draft: false, merged_at: null, created_at: '2026-09-20T00:00:00Z', ready_at: null, ...UNREAD_WAITS, ...more,
+  });
+  const merged = (number: number, head: string, at: string, more: Partial<SnapshotPull> = {}) => pr(number, head, { state: 'closed', merged_at: at, ...more });
+
+  /** acme/plan holds PRD 7, approved by its phase-0; acme/api and acme/web each land it through a target feature PR. */
+  function world(repos: string[] = ['acme/api', 'acme/plan', 'acme/web']) {
+    const made = deps({}, { acme: repos });
+    made.snapshots['acme/plan'] = snap('acme/plan', {
+      inbox: ['0007-dark-mode'],
+      pulls: [merged(2, 'docs/phase-0-dark-mode', '2026-09-19T09:00:00Z')],
+    });
+    made.snapshots['acme/api'] = snap('acme/api', {
+      pulls: [
+        merged(10, 'feat/dark-mode', '2026-09-27T10:00:00Z', { body: 'Part of acme/plan#7', created_at: '2026-09-20T08:00:00Z', first_ready_at: '2026-09-25T00:00:00Z' }),
+        merged(11, 'feat/dark-mode--s1', '2026-09-21T00:00:00Z', { base: 'feat/dark-mode', body: 'Part of acme/plan#7' }),
+        merged(12, 'feat/dark-mode--s2', '2026-09-23T00:00:00Z', { base: 'feat/dark-mode', body: 'Part of acme/plan#7' }),
+      ],
+    });
+    made.snapshots['acme/web'] = snap('acme/web', {
+      pulls: [
+        merged(20, 'feat/dark-mode', '2026-09-28T16:00:00Z', { body: 'Part of acme/plan#7\n\nThe web side.', created_at: '2026-09-22T08:00:00Z', first_ready_at: null }),
+        merged(21, 'feat/dark-mode--s1', '2026-09-24T00:00:00Z', { base: 'feat/dark-mode' }),
+        // Another PRD of acme/plan that it does not hold, a repository the workspace does not sync, a product PRD.
+        pr(22, 'feat/other', { body: 'Part of acme/plan#8' }),
+        pr(23, 'feat/elsewhere', { body: 'Part of acme/elsewhere#7' }),
+        pr(24, 'feat/mobile', { body: 'Part of mobile-12' }),
+      ],
+    });
+    const milestones = fakeMilestoneStore(() => NOW);
+    made.d.milestones = milestones;
+    return { ...made, milestones };
+  }
+  const lines = (store: FakeMilestoneStore) => store.milestones.map((m) => `${m.workspace_id} ${m.repository}#${m.prd} ${m.lane} ${m.milestone} ${m.pr ?? '-'} ${m.reached_at}`).sort();
+  const PRD_7 = [
+    'w-acme acme/plan#7 acme/api first-slice 11 2026-09-21T00:00:00Z',
+    'w-acme acme/plan#7 acme/api last-slice 12 2026-09-23T00:00:00Z',
+    'w-acme acme/plan#7 acme/api merged 10 2026-09-27T10:00:00Z',
+    'w-acme acme/plan#7 acme/api opened 10 2026-09-20T08:00:00Z',
+    'w-acme acme/plan#7 acme/api ready 10 2026-09-25T00:00:00Z',
+    'w-acme acme/plan#7 acme/plan approved - 2026-09-19T09:00:00Z',
+    'w-acme acme/plan#7 acme/web first-slice 21 2026-09-24T00:00:00Z',
+    'w-acme acme/plan#7 acme/web last-slice 21 2026-09-24T00:00:00Z',
+    'w-acme acme/plan#7 acme/web merged 20 2026-09-28T16:00:00Z',
+    'w-acme acme/plan#7 acme/web opened 20 2026-09-22T08:00:00Z',
+    'w-acme acme/plan#7 acme/web ready 20 2026-09-22T08:00:00Z',
+  ];
+
+  it('gives the PRD one lane per target, each with its own milestones, whatever order the repositories are read in (acceptance 2)', async () => {
+    const { d, milestones } = world();
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(lines(milestones)).toEqual(PRD_7);
+    const reversed = world(['acme/web', 'acme/plan', 'acme/api']);
+    await syncStages(post(`Bearer ${SECRET}`), reversed.d);
+    expect(lines(reversed.milestones)).toEqual(PRD_7);
+  });
+
+  it('adds no lane for a PRD the plan repository does not hold, a repository the workspace does not sync or a product PRD', async () => {
+    const { d, milestones } = world();
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(milestones.milestones.map((m) => `${m.repository}#${m.prd}`).filter((k) => k !== 'acme/plan#7')).toEqual([]);
+  });
+
+  it('gives a lane to a PRD the plan repository holds as born on the server, its folder not on the default branch', async () => {
+    const { d, snapshots, milestones } = world();
+    snapshots['acme/plan'] = snap('acme/plan');
+    d.approvals = (_w, repo) => Promise.resolve(repo === 'acme/plan' ? [{ prd: parsePrd(7), approved_at: '2026-09-18T15:00:00.000Z' }] : []);
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(lines(milestones)).toContain('w-acme acme/plan#7 acme/plan approved - 2026-09-18T15:00:00.000Z');
+    expect(lines(milestones).filter((l) => l.includes(' acme/api ') || l.includes(' acme/web '))).toHaveLength(10);
+  });
+
+  it('records no target lane while the plan repository cannot be read, and the targets\' own reads still land', async () => {
+    const { d, snapshots, milestones, lines: logged } = world();
+    snapshots['acme/plan'] = new Error('GitHub answered 502');
+    const res = await syncStages(post(`Bearer ${SECRET}`), d);
+    expect((await answerOf(res)).repositories.map((r) => r.repository)).toEqual(['acme/api', 'acme/web']);
+    expect(milestones.milestones).toEqual([]);
+    expect(logged).toEqual(['stages sync: acme/plan of acme is skipped — GitHub answered 502']);
+  });
+
+  it('moves nothing on a second sync', async () => {
+    const { d, milestones } = world();
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    await syncStages(post(`Bearer ${SECRET}`), { ...d, now: () => '2026-09-29T12:15:00.000Z' });
+    expect(lines(milestones)).toEqual(PRD_7);
+    expect(milestones.writes).toHaveLength(PRD_7.length);
+  });
+
+  it('logs target lanes it cannot record, and the stages still land', async () => {
+    const { d, store, milestones, lines: logged } = world();
+    milestones.fail = 'down';
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(store.stages.some((s) => s.repository === 'acme/plan')).toBe(true);
+    expect(logged).toContain('stages sync: the target lanes of acme were not recorded — Supabase refused: down');
   });
 });
 

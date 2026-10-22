@@ -1,8 +1,13 @@
-import { at, defined, isOneOf } from 'omni-loop/kit/lib/narrow.ts';
+import { defined, isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { deadClaimRules, isClaimedStale } from 'omni-loop/kit/lib/board.ts';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { brusselsDay, type PeriodWindow } from '../dashboard/board/period';
 import type { Face } from '../people/face';
+import type { WorkspaceMilestone } from '../timeline/store';
+import { median } from './median';
+import { timePerStepOf, type TimePerStep } from './steps';
+
+export { median };
 
 // The Engineering board's math (PRD 612 s3), pure, so the loader, the demo and the tests draw the
 // same board. It reads the rows omni-app's prStats collector writes (public.pull_requests and
@@ -160,6 +165,8 @@ export interface EngineeringRead {
   tracked: string[];
   pullRequests: PullRequestRow[];
   reviews: ReviewRow[];
+  /** The workspace's PRD milestones (PRD 2370 s6), for the Time per step panel; none when not read. */
+  milestones?: WorkspaceMilestone[];
 }
 
 export interface EngineeringTiles {
@@ -216,6 +223,7 @@ export type EngineeringValue =
     health: LoopHealth;
     needsFixRate: NeedsFixRate;
     perDay: MergedDay[];
+    steps: TimePerStep;
   };
 
 // ── Sorting the table ───────────────────────────────────────────────────
@@ -256,24 +264,6 @@ function sortRows(rows: RepositoryStats[], sort: SortKey): RepositoryStats[] {
 
 // ── The pieces ──────────────────────────────────────────────────────────
 
-/** The median of some numbers: the middle one, the mean of the two middle ones, or null for none. */
-export function median(values: readonly number[]): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? at(sorted, mid, 'the middle value') : (at(sorted, mid - 1, 'the value below the middle') + at(sorted, mid, 'the middle value')) / 2;
-}
-
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-
-/** A duration as the board says it: `42 min`, `4.1 h`, `3.0 d`; a dash for none. */
-export function durationWords(ms: number | null): string {
-  if (ms === null) return '–';
-  if (ms < HOUR) return `${Math.round(ms / MINUTE)} min`;
-  if (ms < 48 * HOUR) return `${(ms / HOUR).toFixed(1)} h`;
-  return `${(ms / (24 * HOUR)).toFixed(1)} d`;
-}
 
 /** A bot account: a login ending in `[bot]`, Omni-man's included. */
 export function isBot(login: string | null | undefined): boolean {
@@ -368,5 +358,5 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
     else day.rest++;
   }
 
-  return { kind: 'board', window, sort, tiles, repositories, people, omni, health: loopHealthOf(all, now), needsFixRate: needsFixRateOf(subPrsMerged), perDay };
+  return { kind: 'board', window, sort, tiles, repositories, people, omni, health: loopHealthOf(all, now), needsFixRate: needsFixRateOf(subPrsMerged), perDay, steps: timePerStepOf(read.milestones ?? [], tracked, from, to, now) };
 }

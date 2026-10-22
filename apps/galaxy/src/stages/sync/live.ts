@@ -10,7 +10,10 @@ import { knowledgeReader, type KnowledgeReader } from '../../knowledge/github';
 import { appCredentials } from '../../signup/github-app';
 import { outboxDeps } from '../outbox/live';
 import { stageStore, type StageStore } from '../store';
+import type { MilestoneStore } from '../../timeline/store';
+import { milestoneStore } from '../../timeline/store.repository';
 import { serverBornStore } from './approvals';
+import { dossierTimesStore } from './dossier-times.repository';
 import { stagesReader, type StagesReader } from './github';
 import type { WaitStore } from './waits';
 import { waitsRepository } from './waits.repository';
@@ -38,6 +41,8 @@ import { log as runLog } from 'omni-loop/kit/lib/log/log.ts';
 // PRD 1299 (s6): each repository's PRDs born on the server are read with their first approval, as the
 // service role (./approvals.ts), so their inbox is dated at it.
 // PRD 1723 (s7): each run's one `stages-sync` line goes to stdout as JSON, through kit/lib/log.
+// PRD 2370 (s1): each PRD's milestones are recorded in prd_milestones, as the service role.
+// PRD 2370 (s3): each PRD's idea and plan times are read from its dossier (./dossier-times.ts).
 // PRD 2377 (s1, s2): each repository's waits are kept in public.waits, as the service role (./waits.repository.ts).
 
 let knowledge: KnowledgeReader | undefined;
@@ -62,6 +67,18 @@ function lazyStore(): StageStore {
     currentStages: (workspace, prds) => get().currentStages(workspace, prds),
     stageCounts: (workspace, prds) => get().stageCounts(workspace, prds),
     prdByTopic: (workspace, repository, topic) => get().prdByTopic(workspace, repository, topic),
+    lastSynced: (workspace, repository) => get().lastSynced(workspace, repository),
+  };
+}
+
+/** The milestone store on the service role's client, made at its first call (PRD 2370). */
+function lazyMilestones(): MilestoneStore {
+  let store: MilestoneStore | undefined;
+  const get = () => (store ??= milestoneStore(serviceDb()));
+  return {
+    recordMilestones: (rows, syncedAt) => get().recordMilestones(rows, syncedAt),
+    milestonesOf: (key) => get().milestonesOf(key),
+    workspaceMilestones: (workspace) => get().workspaceMilestones(workspace),
     lastSynced: (workspace, repository) => get().lastSynced(workspace, repository),
   };
 }
@@ -151,6 +168,8 @@ export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv())
     snapshot: async (workspace, repository, since) => stages().snapshot(await installationOf(workspace), repository, since),
     approvals: (workspace, repository) => serverBornStore(serviceDb()).serverBorn(workspace.id, repository),
     store: lazyStore(),
+    milestones: lazyMilestones(),
+    dossierTimes: (workspace, repository) => dossierTimesStore(serviceDb()).dossierTimes(workspace.id, repository),
     outbox: outboxDeps(),
     fixes: fixDeps(),
     concepts: conceptDeps(),
