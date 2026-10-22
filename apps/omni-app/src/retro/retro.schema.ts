@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import { ConfigSchema } from 'omni-loop/kit/lib/schema/config.ts';
 import { CommentIdSchema, IssueNumberSchema, PrNumberSchema, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { LessonOutcomesSchema } from 'omni-loop/kit/lib/retro/outcome.ts';
 import { ModelReplySchema } from './narrate.ts';
 
 const text = z.string();
@@ -202,13 +203,19 @@ export const IssueLinkSchema = z.object({ number: IssueNumberSchema, url: text, 
 /** The step "publish-issues": each published finding's issue, by its id. */
 export const IssueLinksSchema = z.record(z.string(), IssueLinkSchema);
 
-/** A run's record, as `retro.json` keeps it: the fact sheet, the narration's outcome, the verdict, the lessons and the issues. */
+/**
+ * A run's record, as `retro.json` keeps it: the fact sheet, the narration's outcome, the verdict, the
+ * lessons, the issues and, once `/omni:retro-apply` or `omni retro outcome` wrote them, the outcomes
+ * of its kept lessons (PRD 2338), by the same key as `issues`: the retro never writes one, and keeps
+ * every one it reads.
+ */
 export const RunRecordSchema = z.object({
   ...factSheetFields,
   narration: NarrationSchema.exactOptional(),
   verdict: VerdictSchema.nullable().exactOptional(),
   lessons: z.array(LessonSchema).exactOptional(),
   issues: IssueLinksSchema.exactOptional(),
+  outcomes: LessonOutcomesSchema.exactOptional(),
 });
 
 /** The step "gather-knowledge": the knowledge summary, the playbook's rules (a step saved before them
@@ -223,13 +230,24 @@ export const KnownSchema = z.object({
   lessons: z.array(text),
 });
 
-/** The step "publish": the retro's branch, its commit and its pull request. */
+/**
+ * The step "publish": the retro's branch, its commit and its pull request; and, while that pull
+ * request is open and holds a kept lesson with no outcome, the line that settles them (PRD 2338),
+ * which a step saved before it has none of.
+ */
 export const PublishedSchema = z.object({
   branch: text,
   committed: z.boolean(),
   commit: text,
   pr: z.object({ number: PrNumberSchema, url: text, created: z.boolean() }).nullable(),
+  apply: text.nullable().exactOptional(),
 });
+
+/**
+ * A step "queue-apply" (PRD 2338): the runner job the line was queued as, `created` when this step
+ * made it, or why none was: the job already queued is found again, never a second one.
+ */
+export const QueuedSchema = z.object({ job: text.nullable(), created: z.boolean(), reason: maybeText });
 
 /** The step "verdict": the comment kept on the merged feature PR. */
 export const CommentedSchema = z.object({ commentId: CommentIdSchema, created: z.boolean() });

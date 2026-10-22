@@ -13,6 +13,8 @@ export default {
     'kit/lib/ids.ts',
     // PRD 1679: the budgets' ratchet, which turns a pull request red or lets a raise through.
     'kit/lib/budgets/ratchet.ts',
+    // PRD 2338: the outcomes of the retros' kept lessons, which keep a retro PR red until each one has one.
+    'kit/lib/retro/**/*.ts',
     '!kit/lib/**/*.test.ts',
   ],
   // Named, not globbed: under pnpm, Stryker's own folder cannot see its sibling plugins.
