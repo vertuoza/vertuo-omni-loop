@@ -467,3 +467,239 @@ Changing it later means storing the repository and the number too: one backfill 
 ```
 
 <!-- /omni-outbox-settled: s3-01-prs-stored-as-links -->
+
+<!-- omni-outbox-settled: s4-01-lines-read-by-the-api-itself -->
+
+## s4-01-lines-read-by-the-api-itself — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-lines-read-by-the-api-itself
+prd: 2425
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 3
+---
+
+## The question, in plain words
+
+The spec says how a key pages through a job's log lines but not where the API reads them from, nor what the marker for the next page holds. Should the API read the lines itself, and should each marker work for one job only?
+
+## The decision, in plain words
+
+The API reads a job's lines itself, only after the runners' rule has found a job this key may read, and each next-page marker holds the job and the number of the last line, so it works for that job alone. A marker from a list or from another job is refused like any other bad marker.
+
+## The intro, for fun
+
+Every list had its bookmark, and the log wanted one of its own.
+
+## The punchline, for fun
+
+A bookmark for one book is no use in another.
+
+## The options, in plain words
+
+A. The API reads the lines itself, after the runners' rule has found a job the key may read, and each next-page marker works for one job only.
+B. The runners' own code gets a read of the lines for the API to call, as it does for the job: the same rules in one place, but it changes code another slice of this wave builds on.
+
+## What I had to decide
+
+The spec gives the route, the paging and the key rules, not where the read lives or what the cursor holds. The runners' files belong to other slices of waves 2 and 3, so the lines are read by a new `jobLines` in the public API's own repository, filtered by workspace and job, after `runners.keyJob` has applied the key rules: any key of the workspace reads the job, a key off its repository list gets 403, a person's job and another workspace's get 404. A line has no creation time and no id of its own, so the cursor cannot be the one the PRD and bug fix lists use: it is the opaque base64url of `['lines', job, seq]` and a page reads `seq > last`, oldest first. It is tagged with its job, as the lists' cursors are tagged with their list, so another job's cursor, a list's cursor and a tampered one all answer 422 with the lists' own message. A job past the PRD 1904 retention reads as an empty `data` with no cursor, and its `log_tail` stays on the job. An id that is no uuid is 404 before the database sees it.
+
+## What I did meanwhile
+
+Built the route, the read and the cursor in the public API's own files, with tests for paging by 50 and by 100, a line added between two pages, a job whose first lines were trimmed, an empty page past the retention, a second key of the workspace, a key off its list, a person's job, another workspace's job and each kind of bad cursor.
+
+## What it costs to change later
+
+Moving the read into the runners' code later means moving one function and its tests; no stored data changes. A cursor handed out before the move would still decode, because its shape would not change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a client that reads a running job should be told that the job is still writing, so it knows to read again: the spec does not ask for it, and the page does not say it.
+- (author) Whether a cursor held across the retention, whose lines have since been deleted, should answer an empty last page or an error: the spec says an empty page for a job past the retention, so it reads as an empty last page.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-lines-read-by-the-api-itself -->
+
+<!-- omni-outbox-settled: s5-01-refusal-names-the-key -->
+
+## s5-01-refusal-names-the-key — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-refusal-names-the-key
+prd: 2425
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 3
+---
+
+## The question, in plain words
+
+When a person sends an answer just after an API key already answered or dismissed the same question, who tells them which key came first: the page or the server?
+
+## The decision, in plain words
+
+The page does: after a refused send it reads the question again and shows who closed it, an API key by its name and the person it acted for, while the server's own refusal words stay as they are.
+
+## The intro, for fun
+
+Two answers crossed on the way, so the page checks who got there first.
+
+## The punchline, for fun
+
+The key signed the round first, and now the page says so.
+
+## The options, in plain words
+
+A. A. The page reads the question again after a refused send and names the key itself, the server's words unchanged.
+B. B. The server's refusal words name the key and the page shows them as they are, with no second read.
+
+## What I had to decide
+
+Which side names the API key in the closed state a person sees after a refused send: the page, by reading again, or the server, in its refusal words.
+
+Decided by: Jev (hardToRevert 0.62) · agent said false
+
+## What I did meanwhile
+
+Built the page's side: after a refused send the drawer reads the question again and shows its closed words, and when the row cannot be read the refusal's words stand. The server was left as it is.
+
+## What it costs to change later
+
+One small function in the page. If the server's refusal words name the key later, the page's second read can go.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The server's refusal words name a login only and read someone for a key, and the server belongs to the slice that builds the key's own answers, so this slice did not change them.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-refusal-names-the-key -->
+
+<!-- omni-outbox-settled: s5-02-sender-line-wraps-on-a-phone -->
+
+## s5-02-sender-line-wraps-on-a-phone — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-sender-line-wraps-on-a-phone
+prd: 2425
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 3
+---
+
+## The question, in plain words
+
+On a phone, the sender of a key's job reads over three or four lines in a narrow column, and the words for whom it acted split across two of them. Leave it, or give that column more room?
+
+## The decision, in plain words
+
+Left as it is. Every word reads in full, nothing is cut off and the contrast is above the floor; the narrow column is how the table folds on a phone for every job today, so widening it would move the whole table.
+
+## The intro, for fun
+
+A long name in a short column wraps, but every word still shows.
+
+## The punchline, for fun
+
+More room for one cell means moving every row, so that waits for a say.
+
+## The options, in plain words
+
+A. A. Leave the folded table as it is, so the sender line wraps in its narrow column.
+B. B. Give the sender cell more room in the folded table, and let the Where cell wrap sooner.
+
+## What I had to decide
+
+Whether the table of jobs, folded for a phone, gives the sender cell more room than it has today.
+
+Decided by: Jev (hardToRevert 0.80) · agent said false
+
+## What I did meanwhile
+
+Looked at the page at phone and desktop widths: the words read in full and nothing overflows. Balancing the lines was tried and left out, because it leaves a dot opening the second line.
+
+## What it costs to change later
+
+One style rule for the folded table, and every row of the jobs table moves with it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a key's sender line should keep the words for whom it acted on one line, which needs the page to draw them apart from the maker's name.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-sender-line-wraps-on-a-phone -->
