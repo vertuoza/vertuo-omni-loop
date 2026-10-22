@@ -21,6 +21,8 @@ import { Streamed } from '../../src/skeleton/Streamed';
 import { countsOf } from '../../src/stages/outbox/recount';
 import { prdOutboxStore, type OutboxCounts, type PrdOutboxStore } from '../../src/stages/outbox/store';
 import { prdKey, stageStore } from '../../src/stages/store';
+import { createTimings } from '../../src/dossier/page/timing';
+import { ServerTimingMark } from '../../src/dossier/page/timing-mark';
 
 // /prd, the history (PRD 216): every dossier of the signed-in person's workspaces, newest activity
 // first, filtered by repository (any of a dossier's repositories) and by draft or PRD, and searched by
@@ -75,7 +77,9 @@ export default async function HistoryRoute({ searchParams }: Props) {
     const rows = ofWork(demoHistory(Date.now()), 'prd');
     return listing(rows, DEMO_VIEWER, await readOpenCounts(historyToRead(rows, filters, DEMO_VIEWER), DEMO_READER));
   }
-  const session = await dossierSession(mode);
+  // PRD 2401 s1: each read is timed under its name and the timings are said at the end of the page.
+  const timings = createTimings();
+  const session = await timings.time('viewer', dossierSession(mode));
   if (!session) return <DossiersClosed />;
   const { env, db, user } = session;
   if (!user) return <DossierSignIn supabase={env} returnPath={HISTORY_CALLBACK} error={one(query.signin_error)} what="history" />;
@@ -84,18 +88,18 @@ export default async function HistoryRoute({ searchParams }: Props) {
   async function history(userId: string): Promise<ReactNode> {
     let listed: DossierListRow[];
     try {
-      listed = ofWork(await readHistory(db), 'prd');
+      listed = ofWork(await timings.time('dossier_list', readHistory(db)), 'prd');
     } catch (error) {
       console.error(error);
       return <DossierDatabaseDown />;
     }
-    const { rows, above, labels } = await productListScope(HISTORY_PATH)(db, listed, query);
-    const whom = login ? await readLoginIds(rows, login, rosterReader(db)) : undefined;
+    const { rows, above, labels } = await timings.time('scope', productListScope(HISTORY_PATH)(db, listed, query));
+    const whom = login ? await timings.time('login_ids', readLoginIds(rows, login, rosterReader(db))) : undefined;
     const [open, stages] = await Promise.all([
-      readOpenCounts(historyToRead(rows, filters, userId, whom), prdOutboxStore(db)),
-      readCurrentStages(rows, stageStore(db)),
+      timings.time('counts', readOpenCounts(historyToRead(rows, filters, userId, whom), prdOutboxStore(db))),
+      timings.time('stages', readCurrentStages(rows, stageStore(db))),
     ]);
-    return <>{above}{listing(rows, userId, open, stages, whom, labels)}</>;
+    return <>{above}{listing(rows, userId, open, stages, whom, labels)}<ServerTimingMark timings={timings} /></>;
   }
   return <Streamed read={history(user.id)} skeleton={<PrdListLoading />} failed={<DossierDatabaseDown />}>{(list) => list}</Streamed>;
 }

@@ -6,6 +6,7 @@ import { pulseOf, signature } from './live';
 import { fakeSupabase as askFake } from '../../ask/store.fake';
 import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPlanSlices, readPulse, readSandboxed } from './source';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { createTimings } from './timing';
 
 vi.mock('server-only', () => ({}));
 
@@ -46,6 +47,20 @@ describe('reading a dossier as the viewer', () => {
     expect(read?.versions.map((v) => [v.kind, v.uploaded_by])).toEqual([['spec', ADA.id], ['before-after', ADA.id], ['before-after', BOB.id]]);
     expect(read?.versions[0]).not.toHaveProperty('content');
     expect(read?.members.map((m) => m.email).sort()).toEqual(['ada@example.com', 'bob@example.com']);
+  });
+
+  it('times each read under its name, for the Server-Timing of the page (PRD 2401 s1)', async () => {
+    const { as, numbered } = await world();
+    const timings = createTimings();
+    await readDossier(as('bob'), numbered, BOB.id, timings);
+    expect(timings.entries().map((entry) => entry.name).sort()).toEqual(['answerable', 'dossier', 'members', 'people', 'repos', 'rounds', 'versions']);
+  });
+
+  it('times only the dossier when the viewer may not read it', async () => {
+    const { as, numbered } = await world();
+    const timings = createTimings();
+    await readDossier(as('carl'), numbered, null, timings);
+    expect(timings.entries().map((entry) => entry.name)).toEqual(['dossier']);
   });
 
   it('gives a member of another workspace nothing, as if it never was', async () => {
