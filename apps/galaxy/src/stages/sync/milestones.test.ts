@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { syncConfig, type RepoSnapshot, type ServerBorn, type SnapshotPull } from './core';
-import { milestonesOfRepo } from './milestones';
+import { milestonesOfRepo, targetMilestones } from './milestones';
 import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The milestones a repository shows (PRD 2370, s1): a snapshot in, each PRD's milestones out, for a PRD of
@@ -124,5 +124,69 @@ describe('the milestones a repository shows', () => {
 
   it('gives nothing for a repository without a config', () => {
     expect(milestonesOfRepo(snapshot({ ...SHIPPED, config: null }))).toEqual([]);
+  });
+});
+
+describe('the target lanes a repository shows for a plan repository\'s PRD (PRD 2370, s4)', () => {
+  // acme/widgets is a target of the plan repository acme/plan: its feature PR into the default branch says
+  // `Part of acme/plan#7`, and its sub-PRs merge into that PR's head branch.
+  const laneLines = (snap: RepoSnapshot) =>
+    targetMilestones(snap).map((m) => `${m.repository}#${m.prd} ${m.lane} ${m.milestone} ${m.pr === null ? '-' : `#${m.pr}`} ${m.reached_at}`).sort();
+  const PART_OF_7: SnapshotPull[] = [
+    merged(30, 'feature/dark-mode', '2026-09-28T10:00:00Z', { body: 'Part of acme/plan#7\n\nThe widgets side.', created_at: '2026-09-20T08:00:00Z', first_ready_at: '2026-09-26T12:00:00Z' }),
+    merged(31, 'feature/dark-mode--s1', '2026-09-21T00:00:00Z', { base: 'feature/dark-mode', body: 'Part of acme/plan#7' }),
+    merged(32, 'feature/dark-mode--s2', '2026-09-24T00:00:00Z', { base: 'feature/dark-mode', body: 'Part of acme/plan#7' }),
+    merged(33, 'feature/dark-mode--s3', '2026-09-29T00:00:00Z', { base: 'feature/dark-mode' }),
+  ];
+
+  it('gives the plan repository\'s PRD a lane named after this repository, dated by its feature PR and the sub-PRs merged into its head branch', () => {
+    expect(laneLines(snapshot({ pulls: PART_OF_7 }))).toEqual([
+      'acme/plan#7 acme/widgets first-slice #31 2026-09-21T00:00:00Z',
+      'acme/plan#7 acme/widgets last-slice #32 2026-09-24T00:00:00Z',
+      'acme/plan#7 acme/widgets merged #30 2026-09-28T10:00:00Z',
+      'acme/plan#7 acme/widgets opened #30 2026-09-20T08:00:00Z',
+      'acme/plan#7 acme/widgets ready #30 2026-09-26T12:00:00Z',
+    ]);
+  });
+
+  it('reads the claim only where the body starts with it, whatever its case and the blank before it, one lane per PRD named', () => {
+    const snap = snapshot({
+      pulls: [
+        pull(40, 'feature/a', { body: '\n  Part of Acme/Plan#7 · https://www.omni-loop.xyz/prd/7', created_at: '2026-09-20T00:00:00Z' }),
+        pull(41, 'feature/b', { body: 'Part of acme/plan#8', created_at: '2026-09-21T00:00:00Z' }),
+        pull(42, 'feature/c', { body: 'The c side.\n\nPart of acme/plan#9', created_at: '2026-09-22T00:00:00Z' }),
+      ],
+    });
+    expect(laneLines(snap)).toEqual([
+      'acme/plan#7 acme/widgets opened #40 2026-09-20T00:00:00Z',
+      'acme/plan#8 acme/widgets opened #41 2026-09-21T00:00:00Z',
+    ]);
+  });
+
+  it('adds no lane for a product PRD, this repository itself, a sub-PR, a closed pull request or a body naming no PRD', () => {
+    const snap = snapshot({
+      pulls: [
+        pull(50, 'feature/a', { body: 'Part of mobile-12 · https://www.omni-loop.xyz/prd/d-12' }),
+        pull(51, 'feature/b', { body: 'Part of acme/widgets#7' }),
+        pull(52, 'feature/c--s1', { body: 'Part of acme/plan#7', base: 'feature/c' }),
+        pull(53, 'feature/d', { body: 'Part of acme/plan#7', state: 'closed' }),
+        pull(54, 'feature/e', { body: 'Part of acme/plan#' }),
+        pull(55, 'feature/f', { body: 'Part of acme/plan#77x' }),
+        pull(56, 'feature/g', { body: 'Closes #7' }),
+        pull(57, 'feature/h', { body: null }),
+        pull(58, 'feature/i'),
+      ],
+    });
+    expect(laneLines(snap)).toEqual([]);
+  });
+
+  it('takes the merged feature PR of a PRD over one still open, and gives nothing without a config', () => {
+    const snap = snapshot({ pulls: [pull(60, 'feature/first-try', { body: 'Part of acme/plan#7', created_at: '2026-09-10T00:00:00Z' }), ...PART_OF_7] });
+    expect(laneLines(snap).filter((l) => l.includes(' opened '))).toEqual(['acme/plan#7 acme/widgets opened #30 2026-09-20T08:00:00Z']);
+    expect(targetMilestones(snapshot({ pulls: PART_OF_7, config: null }))).toEqual([]);
+  });
+
+  it('leaves the repository\'s own PRDs to milestonesOfRepo, which reads no target lane', () => {
+    expect(lines(snapshot({ pulls: PART_OF_7 }))).toEqual([]);
   });
 });

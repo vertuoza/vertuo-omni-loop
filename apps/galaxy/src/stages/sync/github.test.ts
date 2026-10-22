@@ -235,4 +235,26 @@ describe('the stages sync reader and the timeline (PRD 2370, s1)', () => {
     ]);
     expect(eventCalls(gh.calls)).toEqual(['/repos/acme/widgets/issues/20/events?per_page=100']);
   });
+
+  it('reads when a target feature PR of a plan repository\'s PRD was first marked ready, its body read from the list (PRD 2370, s4)', async () => {
+    const gh = fakeGithub({
+      pulls: [
+        pull(30, 'feat/dark-mode', { body: 'Part of acme/plan#7\n\nThe widgets side.', state: 'closed', merged_at: '2026-09-28T00:00:00Z' }),
+        pull(31, 'feat/dark-mode--s1', { body: 'Part of acme/plan#7', base: { ref: 'feat/dark-mode' }, state: 'closed', merged_at: '2026-09-22T00:00:00Z' }),
+        pull(32, 'feat/sky', { body: 'Part of acme/plan#8', draft: true }),
+        pull(33, 'feat/sea', { body: 'Part of mobile-12' }),
+        pull(34, 'feat/own', { body: 'Part of acme/widgets#7' }),
+      ],
+      events: { 30: READY },
+    });
+    const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
+    expect(snap.pulls.map((p) => [p.number, p.ready_at, p.first_ready_at])).toEqual([
+      [30, null, '2026-09-23T00:00:00Z'],
+      [31, null, undefined],
+      [32, null, undefined],
+      [33, null, undefined],
+      [34, null, undefined],
+    ]);
+    expect(eventCalls(gh.calls)).toEqual(['/repos/acme/widgets/issues/30/events?per_page=100']);
+  });
 });

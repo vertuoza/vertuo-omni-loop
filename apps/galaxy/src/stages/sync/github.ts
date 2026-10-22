@@ -13,12 +13,14 @@
 // PRD 2370 (s1): for the timeline's milestones, each pull request keeps its body, as the list gives it, and
 // a feature PR's events are read once it merged too, for when it was first marked ready. A ◆ PRD's feature
 // PR, whose folder is not on the default branch, is the one whose body carries the config's feature link.
+// PRD 2370 (s4): a target feature PR of a plan repository's PRD (its body starts `Part of <owner/repo>#<n>`,
+// read from the same list) is a feature PR too: its events are read as theirs are, for its lane's ready.
 import { githubClient, type GithubStore } from '@omni/github';
 import { z } from 'zod';
 import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import { githubApp, REPO, type AppCredentials } from '../../signup/github-app';
 import { keptInstallationTokens } from '../../signup/installation-tokens';
-import { anyTopic, featureLinkOf, linkPattern, syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
+import { anyTopic, featureLinkOf, linkPattern, planPrdOf, syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
 import { PrdNumberSchema, PrNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
 import { recordIn } from '../outbox/escalation';
@@ -130,8 +132,10 @@ export function stagesReader(
       const featureLink = featureLinkOf(text, repository);
       const linked = linkPattern(featureLink);
       const featureShape = anyTopic(config.branches.feature);
-      const isFeature = (p: Listed) => features.has(p.head.ref) || isLinked(p);
+      const isFeature = (p: Listed) => features.has(p.head.ref) || isLinked(p) || isTarget(p);
       const isLinked = (p: Listed) => linked !== null && featureShape.test(p.head.ref) && linked.test(p.body ?? '');
+      // PRD 2370 (s4): a plan repository's target feature PR, into the default branch, whose body names its PRD.
+      const isTarget = (p: Listed) => p.base.ref === config.defaultBranch && planPrdOf(p.body, repository) !== null;
       /** Every time it was marked ready, oldest first; null when its events are not read. A feature PR's are
        * read while it is open and ready, and once merged (PRD 2370). */
       const readiedOf = async (p: Listed): Promise<string[] | null> => {
