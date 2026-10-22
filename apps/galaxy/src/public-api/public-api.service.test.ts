@@ -4,8 +4,8 @@ import { checkRunnerLine, LINE_MAX } from 'omni-loop/kit/lib/runner/line.ts';
 import { API_KEY, EVE, jobRow, lineRows, OLGA, OTHER_KEY, questionsRow, SAM, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
 import { encodeCursor, encodeLinesCursor } from './cursor';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
-import { BugFixListSchema, DESCRIPTION_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, type ListQuery } from './public-api.contract';
-import { BAD_CURSOR, publicApiService, type ApiKeyCaller } from './public-api.service';
+import { BugFixListSchema, DESCRIPTION_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, type ApiJob, type ListQuery, type StartBugFix } from './public-api.contract';
+import { BAD_CURSOR, publicApiService, type Answered, type ApiKeyCaller, type RunnersPort } from './public-api.service';
 
 // The public API's rules (PRD 2022 s2) on realistic rows in memory: a key is a live key of its shape;
 // a key lists only its own workspace's dossiers (BR-PRODUCT-63), only those of its allow-list when it has
@@ -1154,6 +1154,158 @@ describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
       const job = failed(api);
       const broken = { ...api.runners, relaunchByKey: () => Promise.resolve({ ok: false as const, kind: 'unavailable' as const, error: 'runner_jobs: permission denied' }) };
       await expect(publicApiService(api.repository, broken).relaunchJob(await caller(api, SECRETS.runners), job.id, {})).rejects.toThrow('runners: unavailable runner_jobs: permission denied');
+    });
+  });
+});
+
+// PRD 2425 s8: a start says whom the job is for and a link to ping. The link is checked before anything is queued (a host that is not
+// public is a 422), the job stores both as given, and what it does afterwards is pinged to the link once the response has gone.
+describe('a key starting a job that pings a link (PRD 2425 s8)', () => {
+  const LINK = 'https://hooks.example.com/omni/jobs';
+  const BUG = { repo: 'demo-org/app', description: 'Issue 548 totals' };
+  const MEGA = { repo: 'demo-org/plan', description: 'https://github.com/demo-org/plan/issues/612' };
+  type Says = Partial<Pick<StartBugFix, 'acting_for' | 'notify_url'>>;
+  type Start = (api: FakePublicApi, key: ApiKeyCaller, says: Says, port?: RunnersPort) => Promise<Answered<ApiJob>>;
+  /** Both starts, the same rules: a bug fix and a mega bug fix (whose plan repository is set up here). */
+  const both: [string, Start][] = [
+    ['a bug fix', (api, key, says, port = api.runners) => publicApiService(api.repository, port).startBugFix(key, { ...BUG, ...says })],
+    ['a mega bug fix', (api, key, says, port = api.runners) => {
+      api.planRepository(WORKSPACE, 'demo-org/plan');
+      return publicApiService(api.repository, port).startMegaBugFix(key, { ...MEGA, ...says });
+    }],
+  ];
+  /** The runners, the links they were asked about recorded. */
+  const watched = (api: FakePublicApi) => {
+    const asked: string[] = [];
+    const port: RunnersPort = { ...api.runners, notifyCheck: (url) => { asked.push(url); return api.runners.notifyCheck(url); } };
+    return { port, asked };
+  };
+  /** A link that carries a login, built here so none stands in the source. */
+  const carrying = (login: string[]) => ['https://', login.join(':'), '@hooks.example.com/omni'].join('');
+  const bodies = (api: FakePublicApi) => api.posts.map((post) => JSON.parse(post.body) as Record<string, string>);
+
+  describe.each(both)('%s', (_name, start) => {
+    it('stores whom it is for and the link as given, answers whom it is for and never the link, and pings nothing yet', async () => {
+      const api = fakePublicApi();
+      const started = await start(api, await caller(api, SECRETS.runners), { acting_for: 'Jane D.', notify_url: LINK });
+      expect(started).toMatchObject({ ok: true, value: { status: 'queued', acting_for: 'Jane D.' } });
+      expect(JSON.stringify(started)).not.toContain(LINK);
+      expect(api.runnersState.jobs).toHaveLength(1);
+      expect(api.runnersState.jobs[0]).toMatchObject({ acting_for: 'Jane D.', notify_url: LINK, sent_by_key: API_KEY });
+      await api.flushPings();
+      expect(api.posts).toEqual([]);
+    });
+
+    it('stores neither when the start says neither, and checks no link', async () => {
+      const api = fakePublicApi();
+      const { port, asked } = watched(api);
+      const started = await start(api, await caller(api, SECRETS.runners), {}, port);
+      expect(started).toMatchObject({ ok: true, value: { acting_for: null } });
+      expect(api.runnersState.jobs[0]).toMatchObject({ acting_for: null, notify_url: null });
+      expect(asked).toEqual([]);
+    });
+
+    it('takes a link without whom it is for, and whom it is for without a link', async () => {
+      const api = fakePublicApi();
+      const key = await caller(api, SECRETS.runners);
+      expect(await start(api, key, { notify_url: LINK })).toMatchObject({ ok: true, value: { acting_for: null } });
+      expect(await start(api, key, { acting_for: 'Jane D.' })).toMatchObject({ ok: true, value: { acting_for: 'Jane D.' } });
+      expect(api.runnersState.jobs.map((job) => [job.acting_for, job.notify_url])).toEqual([[null, LINK], ['Jane D.', null]]);
+    });
+
+    it.each([
+      ['is not https', 'http://hooks.example.com/omni', 'must be an https link'],
+      ['carries a user name and a password', carrying(['user', 'pw']), 'must not carry a user name or a password'],
+      ['carries a user name', carrying(['user']), 'must not carry a user name or a password'],
+      ['names a host of the private network', 'https://intranet.example.com/omni', 'intranet.example.com resolves to a private address, which is not public'],
+      ['names a host that resolves to loopback', 'https://loopback.example.com/omni', 'loopback.example.com resolves to a loopback address, which is not public'],
+      ['is the address of a cloud metadata service', 'https://169.254.169.254/latest/meta-data', 'is a link-local address, not a public one'],
+      ['is a private address', 'https://10.0.0.1/omni', 'is a private address, not a public one'],
+      ['is the loopback address of IPv6', 'https://[::1]/omni', 'is a loopback address, not a public one'],
+      ['names a host that does not resolve', 'https://nowhere.example.com/omni', 'nowhere.example.com does not resolve'],
+    ])('answers 422 on notify_url when it %s, and queues nothing', async (_why, link, reason) => {
+      const api = fakePublicApi();
+      expect(await start(api, await caller(api, SECRETS.runners), { acting_for: 'Jane D.', notify_url: link })).toEqual({ ok: false, code: 'invalid_request', message: `notify_url: ${reason}` });
+      expect(api.runnersState.jobs).toEqual([]);
+      expect(api.posts).toEqual([]);
+    });
+
+    it('keeps the allow-list in front of the link: a repository off the key’s list is a 403 whatever the link is, and no link is checked', async () => {
+      const api = fakePublicApi();
+      const { port, asked } = watched(api);
+      const refused = await start(api, await caller(api, SECRETS.runnersLimited), { notify_url: 'https://intranet.example.com/omni' }, port);
+      expect(refused).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(asked).toEqual([]);
+    });
+  });
+
+  it('keeps the plan check in front of the link for a mega bug fix: a repository no product names is refused on repo, no link checked', async () => {
+    const api = fakePublicApi();
+    const { port, asked } = watched(api);
+    const refused = await publicApiService(api.repository, port).startMegaBugFix(await caller(api, SECRETS.runners), { ...MEGA, notify_url: 'https://intranet.example.com/omni' });
+    expect(refused).toMatchObject({ ok: false, code: 'invalid_request', message: expect.stringMatching(/^repo: /) as string });
+    expect(asked).toEqual([]);
+  });
+
+  it('checks the link it is given, once, before queueing', async () => {
+    const api = fakePublicApi();
+    const { port, asked } = watched(api);
+    expect(await both[0]?.[1](api, await caller(api, SECRETS.runners), { notify_url: LINK }, port)).toMatchObject({ ok: true });
+    expect(asked).toEqual([LINK]);
+  });
+
+  describe('the pings', () => {
+    /** A job started with the link, claimed by Olga's shared runner. */
+    async function claimed(api: FakePublicApi) {
+      const started = await publicApiService(api.repository, api.runners).startBugFix(await caller(api, SECRETS.runners), { ...BUG, notify_url: LINK });
+      const id = started.ok ? started.value.id : '';
+      expect((await api.runners.next(OLGA, SHARED)).ok).toBe(true);
+      return id;
+    }
+
+    it('are posted to the link after the response, each with `{job_id, event, at}` and nothing else, to the address just checked', async () => {
+      const api = fakePublicApi();
+      const id = await claimed(api);
+      expect(api.posts).toEqual([]);
+      await api.flushPings();
+      expect(api.posts).toEqual([{ url: LINK, address: '93.184.216.34', body: JSON.stringify({ job_id: id, event: 'status', at: T0.toISOString() }) }]);
+      expect(Object.keys(bodies(api)[0] ?? {})).toEqual(['job_id', 'event', 'at']);
+
+      expect(await api.runners.update(OLGA, id, { status: 'running' })).toMatchObject({ ok: true });
+      expect(await api.runners.update(OLGA, id, { status: 'done', exitCode: 0, outcome: 'pr-opened' })).toMatchObject({ ok: true });
+      await api.flushPings();
+      expect(bodies(api).map((body) => body.event)).toEqual(['status', 'status', 'outcome']);
+      expect(api.pingLogs).toEqual([]);
+    });
+
+    it('are posted for a change a key makes, as the page’s Cancel does', async () => {
+      const api = fakePublicApi();
+      const started = await publicApiService(api.repository, api.runners).startBugFix(await caller(api, SECRETS.runners), { ...BUG, notify_url: LINK });
+      const id = started.ok ? started.value.id : '';
+      expect(await publicApiService(api.repository, api.runners).cancelJob(await caller(api, SECRETS.runners), id, {})).toMatchObject({ ok: true });
+      await api.flushPings();
+      expect(bodies(api)).toEqual([{ job_id: id, event: 'status', at: T0.toISOString() }]);
+    });
+
+    it('are three tries at most when the link answers an error, and then a log that names the job and the host, never the path', async () => {
+      const api = fakePublicApi();
+      api.answer.status = 500;
+      const id = await claimed(api);
+      await api.flushPings();
+      expect(api.posts).toHaveLength(3);
+      expect(api.pingLogs).toHaveLength(1);
+      expect(api.pingLogs[0]).toContain(id);
+      expect(api.pingLogs[0]).toContain('hooks.example.com');
+      expect(api.pingLogs[0]).not.toContain('/omni/jobs');
+    });
+
+    it('check the host again, so a name that moved to a private address since the start gets no post', async () => {
+      const api = fakePublicApi();
+      const id = await claimed(api);
+      api.hosts.set('hooks.example.com', ['10.0.0.9']);
+      await api.flushPings();
+      expect(api.posts).toEqual([]);
+      expect(api.pingLogs).toEqual([`ping ${id} (status) to hooks.example.com was not delivered: hooks.example.com resolves to a private address, which is not public`]);
     });
   });
 });
