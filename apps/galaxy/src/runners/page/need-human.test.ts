@@ -135,10 +135,26 @@ describe('a closed row', () => {
     expect(closedWords({ state: 'open', answers: null, byLogin: null })).toBeNull();
   });
 
+  it('names the API key that closed it, then whom the app said it acted for, never as a person (PRD 2425)', () => {
+    const key = { byLogin: null, byKey: 'cleaner' };
+    expect(closedWords({ ...key, state: 'answered', answers: { q: 'a' }, actingFor: 'Jane D.' })).toBe('Already answered by API key cleaner · for Jane D.');
+    expect(closedWords({ ...key, state: 'dismissed', answers: null, actingFor: 'Jane D.' })).toBe('Dismissed by API key cleaner · for Jane D.');
+    expect(closedWords({ ...key, state: 'answered', answers: { q: 'a' }, actingFor: null })).toBe('Already answered by API key cleaner');
+    expect(closedWords({ ...key, state: 'dismissed', answers: null })).toBe('Dismissed by API key cleaner');
+  });
+
+  it('reads a person\'s close as before, and never adds a for part to it', () => {
+    expect(closedWords({ state: 'answered', answers: { q: 'a' }, byLogin: 'mo', byKey: null, actingFor: null })).toBe('Already answered by @mo');
+    expect(closedWords({ state: 'answered', answers: { q: 'a' }, byLogin: 'mo', byKey: null, actingFor: 'Jane D.' })).toBe('Already answered by @mo');
+    expect(closedWords({ state: 'dismissed', answers: null, byLogin: null, byKey: null, actingFor: 'Jane D.' })).toBe('Dismissed by someone');
+  });
+
   it('is what a refused answer says when someone came first, and nothing for any other refusal', () => {
     expect(refusedAsClosed('Already answered by @mo')).toBe('Already answered by @mo');
     expect(refusedAsClosed('Dismissed by @olga')).toBe('Dismissed by @olga');
     expect(refusedAsClosed('Already answered by someone')).toBe('Already answered by someone');
+    expect(refusedAsClosed('Already answered by API key cleaner · for Jane D.')).toBe('Already answered by API key cleaner · for Jane D.');
+    expect(refusedAsClosed('Dismissed by API key cleaner')).toBe('Dismissed by API key cleaner');
     expect(refusedAsClosed('That runner is not yours to send to.')).toBeNull();
     expect(refusedAsClosed('The Omni app could not be reached. Try again.')).toBeNull();
   });
@@ -152,6 +168,12 @@ describe('a read of the questions', () => {
   it('is closed, with its words and the issue, once someone answered or dismissed', () => {
     expect(readingOf({ ok: true, value: { ...ROW, state: 'answered', answers: { q: 'a' }, byLogin: 'mo', by: 'u1' } })).toEqual({ kind: 'closed', words: 'Already answered by @mo', issue: 314 });
     expect(readingOf({ ok: true, value: { ...ROW, state: 'dismissed', byLogin: 'olga', by: 'u2' } })).toEqual({ kind: 'closed', words: 'Dismissed by @olga', issue: 314 });
+  });
+
+  it('is closed, naming the key and for whom, once an API key answered or dismissed (PRD 2425)', () => {
+    const byKey = { by: null, byLogin: null, byKey: 'cleaner', actingFor: 'Jane D.' };
+    expect(readingOf({ ok: true, value: { ...ROW, ...byKey, state: 'answered', answers: { q: 'a' } } })).toEqual({ kind: 'closed', words: 'Already answered by API key cleaner · for Jane D.', issue: 314 });
+    expect(readingOf({ ok: true, value: { ...ROW, ...byKey, state: 'dismissed' } })).toEqual({ kind: 'closed', words: 'Dismissed by API key cleaner · for Jane D.', issue: 314 });
   });
 
   it('is missing for a job nobody sees or that asked no question: the drawer does not open', () => {
@@ -219,6 +241,13 @@ describe('the demo\'s port (nothing leaves the browser)', () => {
     expect(await demo.answer(JOB, { q: 'b' })).toEqual({ ok: false, error: 'Already answered by @you' });
     const read = await demo.read(JOB);
     expect(read.ok && read.value).toMatchObject({ state: 'answered', byLogin: 'you', answers: { q: 'a' }, resume: 'r1' });
+  });
+
+  it('refuses an answer to a row an API key closed, naming the key and for whom (PRD 2425)', async () => {
+    const closedByKey: JobQuestions = { ...ROW, state: 'answered', answers: { q: 'a' }, byKey: 'cleaner', actingFor: 'Jane D.' };
+    const demo = demoPort([closedByKey], 'you', resume);
+    expect(await demo.answer(JOB, { q: 'b' })).toEqual({ ok: false, error: 'Already answered by API key cleaner · for Jane D.' });
+    expect(await demo.dismiss(JOB)).toEqual({ ok: false, error: 'Already answered by API key cleaner · for Jane D.' });
   });
 
   it('dismisses once, and refuses an answer after it', async () => {

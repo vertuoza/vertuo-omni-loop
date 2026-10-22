@@ -1,6 +1,9 @@
-import type { Board, Job, JobQuestions, Runner, Target } from '../runners.contract';
+import type { Board, Job, JobQuestions, Runner, StoredOutcome, Target } from '../runners.contract';
 
 type RunnerHealth = NonNullable<Runner['health']>;
+
+/** What a job ended on, as the page's rules read it: the words the board sends, and the ones a bug fix's own end is stored as (PRD 2425). */
+type Ended = StoredOutcome | null | undefined;
 
 // The Runners page's words (PRD 1830 s3), from the board the service reads: pure, so each runner state
 // and each job status is tested without a page. A runner reads Online, Busy, or Offline with when it
@@ -50,8 +53,9 @@ export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'> & { heal
   return ago === 'now' ? 'Offline' : `Offline, ${ago} ago`;
 }
 
-/** A done job's outcome in words (PRD 2223; `human`, PRD 2255: it ended with questions for a person). */
-const OUTCOME_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human', stopped: 'Stopped mid-way' } as const;
+/** A done job's outcome in words (PRD 2223; `human`, PRD 2255: it ended with questions for a person). A bug fix's own end
+ * (`already-fixed`, `pr-opened`…, PRD 2425) has none: it reads Done, as a bug fix's stop does, and showing it is a later change. */
+const OUTCOME_WORDS: Readonly<Partial<Record<StoredOutcome, string>>> = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human', stopped: 'Stopped mid-way' };
 
 /** What a job that waited on answers reads once they are in (PRD 2270): Answered · fixing while its
  * continuation is queued, starting or running, Answered · fixed once that ended, linking it; Answered with a
@@ -80,7 +84,7 @@ export function fixLineOf(job: Pick<Job, 'line'>): string | null {
 }
 
 /** A job's status in words. */
-export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'runningAt' | 'claimedAt'> & { outcome?: Job['outcome'] }, now: Date): string {
+export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'runningAt' | 'claimedAt'> & { outcome?: Ended }, now: Date): string {
   switch (job.status) {
     case 'queued': return 'Queued';
     case 'claimed': return 'Starting';
@@ -88,7 +92,7 @@ export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'r
       const from = job.runningAt ?? job.claimedAt;
       return from ? `Running ${spanOf(since(from, now))}` : 'Running';
     }
-    case 'done': return job.outcome ? OUTCOME_WORDS[job.outcome] : 'Done';
+    case 'done': return (job.outcome ? OUTCOME_WORDS[job.outcome] : undefined) ?? 'Done';
     case 'cancelled': return 'Cancelled';
     case 'failed':
       if (job.reason === 'runner lost') return 'Runner lost';
@@ -99,7 +103,7 @@ export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'r
 }
 
 /** The tone a status is drawn in. */
-export function statusTone(status: Job['status'], outcome?: Job['outcome']): 'queue' | 'run' | 'done' | 'fail' | 'off' | 'wait' {
+export function statusTone(status: Job['status'], outcome?: Ended): 'queue' | 'run' | 'done' | 'fail' | 'off' | 'wait' {
   if (status === 'done' && outcome === 'stopped') return 'fail';
   if (status === 'done' && (outcome === 'answers' || outcome === 'held' || outcome === 'human')) return 'wait';
   if (status === 'queued') return 'queue';
@@ -118,7 +122,7 @@ export const canSendAgain = (job: Pick<Job, 'status'>): boolean => job.status ==
 
 /** Whether a job may be resumed (PRD 2375): it ended done but stopped mid-way, before its hand-off. Resume sends
  * its line again, as Send again does, and only a person's press does it. */
-export const canResume = (job: Pick<Job, 'status'> & { outcome?: Job['outcome'] }): boolean => job.status === 'done' && job.outcome === 'stopped';
+export const canResume = (job: Pick<Job, 'status'> & { outcome?: Ended }): boolean => job.status === 'done' && job.outcome === 'stopped';
 
 /** What a stopped job left (PRD 2375): `<k> / <n> slices merged`, or null when its runner could not read the board. */
 export function slicesWords(job: Pick<Job, 'status'> & { outcome?: Job['outcome']; slicesMerged?: Job['slicesMerged']; slicesTotal?: Job['slicesTotal'] }): string | null {
@@ -129,7 +133,7 @@ export function slicesWords(job: Pick<Job, 'status'> & { outcome?: Job['outcome'
 /** Whether a job shows the Need human button (PRD 2255): it ended done with its questions still open, which the
  * board reads as outcome `human`. Answered or dismissed, the board sends no outcome and it reads Done; a job
  * that asked and then failed or was cancelled never shows it. */
-export const canAnswer = (job: Pick<Job, 'status'> & { outcome?: Job['outcome'] }): boolean => job.status === 'done' && job.outcome === 'human';
+export const canAnswer = (job: Pick<Job, 'status'> & { outcome?: Ended }): boolean => job.status === 'done' && job.outcome === 'human';
 
 /** Where a job first went, to send it there again. */
 export function targetOf(job: Pick<Job, 'toRunner' | 'toFleet'>): Target {
@@ -171,19 +175,32 @@ export function retroLineOf(job: Pick<Job, 'line' | 'repo'> & { sentByApp?: Job[
   return { words: prd === undefined ? `retro PR #${pr}` : `retro of PRD ${String(prd)}`, href: `https://github.com/${job.repo}/pull/${pr}` };
 }
 
-/** Under a key's name, who made the key: `made by @<login>`; nothing for a person's job. */
-export const madeByWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'>): string | null =>
-  job.sentByKey !== null && job.sentByLogin ? `made by @${job.sentByLogin}` : null;
+/** Under a key's name, who made the key, then whom the app said it acted for (PRD 2425): `made by @<login> · for <acting_for>`,
+ * as given and never matched to a member; each part only when known, and nothing for a person's job. */
+export function madeByWords(job: Pick<Job, 'sentByLogin' | 'sentByKey' | 'actingFor'>): string | null {
+  if (job.sentByKey === null) return null;
+  const parts = [job.sentByLogin ? `made by @${job.sentByLogin}` : null, job.actingFor ? `for ${job.actingFor}` : null];
+  const known = parts.filter((part): part is string => part !== null);
+  return known.length === 0 ? null : known.join(' · ');
+}
+
+/** Under Cancelled, the key that cancelled the job (PRD 2425): `by API key <name>`; nothing for a job a person cancelled, and
+ * nothing for a job that is not cancelled. */
+export const cancelledByWords = (job: Pick<Job, 'status' | 'cancelledByKey'>): string | null =>
+  job.status === 'cancelled' && job.cancelledByKey ? `by API key ${job.cancelledByKey}` : null;
 
 /** A repository's name, without its owner. */
 export const repoName = (repo: string): string => repo.slice(repo.indexOf('/') + 1);
 
+/** The outcomes of a PRD's hand-off (PRD 2223, 2375): the only ones whose line's number is a PRD's. */
+const PRD_OUTCOMES: ReadonlySet<Ended> = new Set<Ended>(['answers', 'held', 'ready', 'stopped']);
+
 /** The link to the PRD page of a job with an outcome (PRD 2223): `/prd/at/<owner>/<repo>/<n>`, the PRD being
- * the number its line names; null for a job without an outcome (and for Need human, whose number is a bug's
- * issue, not a PRD) or a line that names no PRD. */
-export function prdPageLink(job: Pick<Job, 'line' | 'repo' | 'outcome' | 'status'>): string | null {
+ * the number its line names; null for a job without an outcome (and for Need human, or a bug fix's own end
+ * (PRD 2425), whose number is a bug's issue, not a PRD) or a line that names no PRD. */
+export function prdPageLink(job: Pick<Job, 'line' | 'repo' | 'status'> & { outcome?: Ended }): string | null {
   const number = /^\/omni:[a-z-]+ (\d+)$/.exec(job.line)?.[1];
-  if (job.status !== 'done' || !job.outcome || job.outcome === 'human' || number === undefined) return null;
+  if (job.status !== 'done' || !PRD_OUTCOMES.has(job.outcome) || number === undefined) return null;
   return `/prd/at/${job.repo.split('/').map(encodeURIComponent).join('/')}/${number}`;
 }
 
