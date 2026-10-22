@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-22",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Stopped mid-way in red with its slice count, and Resume as the page's primary: I know what to press.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The two counts are stored together or not at all, and an older app that refuses the new outcome still ends the job.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The note says it plainly: a job that stops halfway no longer reads Done.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The follow now exits 1 on a stopped job, so a script that waits on it fails loudly instead of moving on.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One red line with the slices merged and the claims released, and one button to carry on.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓"
     }
   ]
 }
