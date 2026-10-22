@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { timeline, GAPS, GAP_WAITS_ON, type Milestone, type MilestoneId } from './timeline';
+import { timeline, GAPS, GAP_WAITS_ON, type Milestone } from './timeline';
+import type { MilestoneId } from './store';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 
 // A PRD's timeline (PRD 2370): the six gaps from recorded milestones and a fixed `now`.

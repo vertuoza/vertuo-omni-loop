@@ -4,8 +4,8 @@
 // `not recorded`, ../fixes/timeline.ts).
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { durationWords } from '../engineering/tally';
-import { timeline, type Gap, type GapId, type Milestone, type MilestoneId, type Timeline } from './timeline';
-import type { MilestoneRow } from './store';
+import { timeline, type Gap, type GapId, type Milestone, type Timeline } from './timeline';
+import type { MilestoneId, MilestoneRow } from './store';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const pad = (n: number) => String(n).padStart(2, '0');

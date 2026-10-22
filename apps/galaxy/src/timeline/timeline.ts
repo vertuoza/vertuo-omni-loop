@@ -2,8 +2,7 @@
 // The gaps are computed, never stored. A gap whose start is recorded and whose end is not yet is
 // running, counted up to `now`; a gap missing its start is not recorded, never zero and never guessed.
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
-
-export type MilestoneId = 'idea' | 'plan' | 'approved' | 'opened' | 'first-slice' | 'last-slice' | 'ready' | 'merged';
+import type { MilestoneId } from './store';
 
 /** The milestones in the order a PRD reaches them. */
 const MILESTONES: readonly MilestoneId[] =

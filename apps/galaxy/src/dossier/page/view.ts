@@ -753,6 +753,9 @@ function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: 
   };
 }
 
+/** A PRD's stored milestones (PRD 2370); undefined for a fix and a draft, which have no timeline. */
+const ownMilestones = (page: Page, read: DossierRead) => (page.work === 'prd' && read.dossier.prd !== null ? read.milestones : undefined);
+
 export function dossierView(read: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now()): DossierView {
   const page = pageOf(read, me, pick);
   const questions = questionsView(read.rounds, read.members, read.dossier.id, read.answerable ?? [], now, page.people);
@@ -763,7 +766,7 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
   const count = (kind: ArtifactKind) => read.versions.filter((v) => v.kind === kind).length;
   const runs = page.tabs.includes('proof') ? read.proofs?.runs.length ?? 0 : 0;
   const pitches = page.tabs.includes('pitch') ? read.pitches?.runs.length ?? 0 : 0;
-  const own = pageTimeline(page.work === 'prd' && read.dossier.prd !== null ? read.milestones : undefined, now);
+  const own = pageTimeline(ownMilestones(page, read), now);
   const badges: Badges = { retro: retroBadge(page.numbered), care: careBadge(care), outbox, counted: questionsCount(questions), count, runs, pitches, milestones: own.count };
   const versions = versionEntries(page, pick.version);
   const railSpec = page.tab === 'outbox' && context === 'spec' ? railSpecOf(page) : null;

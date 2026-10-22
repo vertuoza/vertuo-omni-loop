@@ -1,8 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { parsePr } from 'omni-loop/kit/lib/ids.ts';
-import type { MilestoneId } from './timeline';
-import type { MilestoneRow } from './store';
+import type { MilestoneId, MilestoneRow } from './store';
 import { PrdTimelinePane } from './TimelineView';
 import { demoDossier, DEMO_VIEWER } from '../dossier/page/demo';
 import { dossierView } from '../dossier/page/view';
