@@ -2,7 +2,8 @@
 // to the last 200 lines and at most 16 KB, and the last pull request of the job's repository the run
 // printed, which the app links once the job is done. And its live lines (PRD 1904): the whole lines
 // after the runner's cursor, each numbered by its 1-based line number in the log, sent at most 2,000
-// lines and 256 KB per report.
+// lines and 256 KB per report. And how a bug fix ended (PRD 2425): its `Outcome:` word, the pull request
+// it proved had fixed the bug and every pull request it opened.
 
 import type { PrdNumber } from '../ids.ts';
 
@@ -85,6 +86,46 @@ export function lastPullRequest(log: string, repo: string): string | null {
     return found === undefined ? [] : (link.exec(found)?.[0] ?? []);
   });
   return handedOff ?? opened.at(-1) ?? null;
+}
+
+/**
+ * The words a `/omni:bug-fix` or `/omni:mega-bug-fix` hand-off gives its `Outcome:` line (PRD 2425), one
+ * per end the skills' stop rules name.
+ */
+export const BUG_FIX_OUTCOMES = ['pr-opened', 'already-fixed', 'need-human', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'] as const;
+
+/** How a bug fix or a mega bug fix ended: one of {@link BUG_FIX_OUTCOMES}. */
+export type BugFixOutcome = (typeof BUG_FIX_OUTCOMES)[number];
+
+/** The most pull requests a report carries (the app's limit, PRD 2425). */
+export const PRS_MAX = 50;
+
+/** What a bug fix's log says of how it ended: its outcome, the pull request it proved had already fixed the bug, and the pull requests it opened. */
+export type BugFixReading = { outcome: BugFixOutcome | null; fixedBy: string | null; prs: string[] };
+
+/** The hand-off's `Outcome: <word>` and `Fixed by: <link>` lines, each a line of its own, as a `PR: <link>` line is. */
+const OUTCOME_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Outcome: (\S+)\s*$/;
+const FIXED_BY_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Fixed by: (\S+)\s*$/;
+const PULL_REQUEST_LINK = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/i;
+
+const isOutcome = (word: string | undefined): word is BugFixOutcome => BUG_FIX_OUTCOMES.some((known) => known === word);
+const isPullRequest = (link: string): boolean => PULL_REQUEST_LINK.test(link);
+
+/**
+ * What a bug fix's or a mega bug fix's readable log says of its end (PRD 2425). The `outcome` is the word
+ * of the last `Outcome:` line, `null` when that word is none of {@link BUG_FIX_OUTCOMES} or no line is
+ * there (a skill from before this PRD). `fixedBy` is the pull request link of the last `Fixed by:` line,
+ * the one the skill proved had fixed the bug. `prs` is every `PR:` line's pull request, of any repository,
+ * in order and once each, at most {@link PRS_MAX}: a link the job only read is no `PR:` line, and the
+ * proved one is left out, since the job opened no pull request for it.
+ */
+export function bugFixReading(log: string): BugFixReading {
+  const lines = log.split('\n');
+  const valuesOf = (line: RegExp): string[] => lines.flatMap((each) => line.exec(each)?.[1] ?? []);
+  const word = valuesOf(OUTCOME_LINE).at(-1);
+  const fixedBy = valuesOf(FIXED_BY_LINE).filter(isPullRequest).at(-1) ?? null;
+  const opened = valuesOf(PR_LINE).filter((link) => isPullRequest(link) && link !== fixedBy);
+  return { outcome: isOutcome(word) ? word : null, fixedBy, prs: [...new Set(opened)].slice(0, PRS_MAX) };
 }
 
 /**
