@@ -61,6 +61,10 @@ New server code logs through `kit/lib/log`, never a bare `console` string (ADR-0
 - **A new database check runs in CI.** Each file under `supabase/checks/` is its own named step in
   the `supabase` workflow's `check` job, added in the pull request that adds the check; a check CI
   does not run proves nothing (PRD 902, s1-02).
+- **A new returned column lands with its readers.** When a migration adds a column to the rows a
+  function or table returns, the same change extends every parse schema that reads those rows: the
+  readers refuse a key they do not know, so `pnpm schemas:verify` stays red until they learn it
+  (retro of PRD 2270, #2295).
 
 ## Formatting
 <!-- slot: formatting · optional · by: invade -->

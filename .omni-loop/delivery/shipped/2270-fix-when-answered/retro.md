@@ -21,6 +21,7 @@ The delivery made a runner job waiting on answers fix itself once the answers ar
 - **Proposed lesson:** When a migration adds a column to rows that a function or table returns, the slice that adds it also extends every parse schema that reads those rows, in the same change. The schema verify step refuses unknown keys, so the column and its reader must land together.
 - **Kept:** Earlier lessons cover regenerating the types file and migration dating, but none says that strict reader schemas must gain a new returned column in the same slice.
 - **Evidence:** [check on a15c45c in s1](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39446738956/job/118710527471), [check on 2a5662e in s1](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39447394025/job/118712832632), [check on c68d11a in s1](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39449808262/job/118721288532), [check on c7707d5 in s4](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39458980232/job/118753156221), [check on 8353a4e in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/39460873068/job/118759693190)
+- **Became:** `playbook/conventions#naming`
 
 ### F2 · A slice edited the runners service outside its territory — `territory:s2`
 

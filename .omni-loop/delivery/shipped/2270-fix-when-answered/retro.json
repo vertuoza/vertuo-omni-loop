@@ -612,6 +612,11 @@
           "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/2295",
           "state": "open"
         }
+      },
+      "outcomes": {
+        "repeated-red:check": {
+          "became": "playbook/conventions#naming"
+        }
       }
     }
   ]
