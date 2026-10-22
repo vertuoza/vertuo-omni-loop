@@ -269,8 +269,6 @@ async function productOutboxOf(db: Db, dossier: DossierRead['dossier'], tab: str
   return rows === null ? null : productOutboxView(rows);
 }
 
-const noLive = () => null;
-
 /** The change check of a numbered PRD's page, outside what waits for the approval, Send to terminal and the runner, so it stays mounted. */
 async function LivePart({ live, read }: { live: (read: DossierRead) => Promise<ReactNode>; read: DossierRead }) {
   return <>{await live(read)}</>;
@@ -285,9 +283,23 @@ async function Settled<T>({ late, children }: { late: Promise<T>; children: (lat
   return <>{children(await late)}</>;
 }
 
+export interface WithLatePartsProps<T> {
+  late: Promise<T>;
+  shell: ReactNode;
+  /** The change check, from the page `read` as the database has it: beside what waits, never inside it. */
+  live: (read: DossierRead) => Promise<ReactNode>;
+  read: DossierRead;
+  children: (late: T) => ReactNode;
+}
+
 /** Sends `shell` at once and, once `late` has settled, the page `children` makes of it in its place (PRD 2401 s4). */
-export function WithLateParts<T>({ late, shell, children }: { late: Promise<T>; shell: ReactNode; children: (late: T) => ReactNode }) {
-  return <Suspense fallback={shell}><Settled late={late}>{children}</Settled></Suspense>;
+export function WithLateParts<T>({ late, shell, live, read, children }: WithLatePartsProps<T>) {
+  return (
+    <>
+      <Suspense fallback={null}><LivePart live={live} read={read} /></Suspense>
+      <Suspense fallback={shell}><Settled late={late}>{children}</Settled></Suspense>
+    </>
+  );
 }
 
 /** The page of dossier `id` on `route`'s route: /prd/<id>, /visual/<id> or /bugs/<id>. */
@@ -348,16 +360,13 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
     const voice = shownVoice(first, (shownId) => readContent(db, shownId), () => readVoiceCast(db, dossier.workspace_id));
     const reads = prdReads(db, read, prd);
     const page = (seen: DossierRead, send: Awaited<typeof late>[1], timing: ReactNode) => (
-      <DossierStream read={seen} me={user.id} pick={pick} reads={reads} markdown={markdown} voice={voice} supabase={env} live={noLive} send={send} timing={timing} />
+      <DossierStream read={seen} me={user.id} pick={pick} reads={reads} markdown={markdown} voice={voice} supabase={env} live={() => null} send={send} timing={timing} />
     );
     const base = read;
     return (
-      <>
-        <Suspense fallback={null}><LivePart live={live} read={base} /></Suspense>
-        <WithLateParts late={late} shell={page(shellOf(base), null, null)}>
-          {([approval, send, fixing]) => page({ ...base, ...approval, fixing }, send, <ServerTimingMark timings={timings} />)}
-        </WithLateParts>
-      </>
+      <WithLateParts late={late} shell={page(shellOf(base), null, null)} live={live} read={base}>
+        {([approval, send, fixing]) => page({ ...base, ...approval, fixing }, send, <ServerTimingMark timings={timings} />)}
+      </WithLateParts>
     );
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };

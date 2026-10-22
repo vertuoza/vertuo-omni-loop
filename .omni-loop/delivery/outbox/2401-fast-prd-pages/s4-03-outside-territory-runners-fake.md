@@ -10,11 +10,11 @@ wave: 3
 
 ## The question, in plain words
 
-Reading several runners in one query added a method to the runners' storage, and the test double that stands in for that storage had to learn it too, a file outside this slice's ground. May that one line stand?
+Reading several runners in one query added a method to the runners' storage, and the page's route now answers in a new shape, so the test double of the storage and the two files the page's tests read it through had to follow, files outside this slice's ground. May those small changes stand?
 
 ## The decision, in plain words
 
-One line was added to the runners' test double so the code still compiles; nothing else outside the slice's ground changed, and the new tests of the PRD's page sit in the route's own test file next to the reads.
+One line was added to the runners' test double so the code still compiles; the page's existing test helper and its page test were taught the route's new shape (a few lines each), and nothing else outside the slice's ground changed. The new tests sit in the one test file of the slice's ground.
 
 ## The intro, for fun
 
@@ -31,7 +31,7 @@ B. B. Move the line and the page's tests to a slice that owns those files.
 
 ## What I had to decide
 
-Add the new method to the runners' test double (apps/galaxy/src/runners/fixtures/store.fake.ts), one line returning the runners whose id is asked for, and keep the page's new tests in source.test.ts, the one test file of the slice's ground.
+Add the new method to the runners' test double (apps/galaxy/src/runners/fixtures/store.fake.ts), one line returning the runners whose id is asked for, teach the test helper dossier/page/stream/settled.ts to read a page whose late parts are awaited, and point one assertion of dossier/page/page.test.ts at the route's new root.
 Decided by: Jev (hardToRevert 0.82) · agent said false
 
 ## What I did meanwhile

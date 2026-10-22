@@ -632,9 +632,14 @@ describe('a PRD\'s shell streams without its approval, send and runners (PRD 240
     const late = Promise.resolve(['approved']);
     const never = new Promise<string[]>(() => {});
     const page = (parts: string[]) => createElement('p', null, `with ${parts.join(',')}`);
-    const element = (pending: Promise<string[]>) => createElement('main', null, createElement(WithLateParts<string[]>, { late: pending, shell: createElement('p', null, 'the shell'), children: page }));
-    expect(await html(element(never), 30)).toContain('the shell');
-    expect(await html(element(never), 30)).not.toContain('with ');
+    const check = () => Promise.resolve(createElement('i', null, 'the change check'));
+    const element = (pending: Promise<string[]>) => createElement('main', null, createElement(WithLateParts<string[]>, {
+      late: pending, shell: createElement('p', null, 'the shell'), live: check, read: demoDossier(Date.parse('2026-09-29T10:00:00Z')), children: page,
+    }));
+    const sent = await html(element(never), 30);
+    expect(sent).toContain('the shell');
+    expect(sent).toContain('the change check');
+    expect(sent).not.toContain('with ');
     const done = await html(element(late));
     expect(done).toContain('with approved');
   });
