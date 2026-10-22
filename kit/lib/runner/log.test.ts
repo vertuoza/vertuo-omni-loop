@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from '../ids.ts';
-import { LINE_CHARS, lastPullRequest, linesAfter, logTail, parseDuration, reportBatch, runOutcome, REPORT_BYTES, REPORT_LINES, TAIL_BYTES, TAIL_LINES } from './log.ts';
+import { BUG_FIX_OUTCOMES, LINE_CHARS, PRS_MAX, bugFixReading, lastPullRequest, linesAfter, logTail, parseDuration, reportBatch, runOutcome, REPORT_BYTES, REPORT_LINES, TAIL_BYTES, TAIL_LINES } from './log.ts';
 
 describe('logTail', () => {
   it('keeps the last 200 lines', () => {
@@ -154,6 +154,100 @@ describe('runOutcome of a yolo job (PRD 2375)', () => {
     expect(runOutcome('/omni:yolo 2375\n', prd, 'yolo-fix')).toBe('held');
     expect(runOutcome('/omni:pr-care 2375\n', prd, 'yolo')).toBe('ready');
     expect(runOutcome('Done\n', prd)).toBeNull();
+  });
+});
+
+// What a bug fix's log says of how it ended (PRD 2425, s2): its `Outcome:` line, the `Fixed by:` line of the
+// pull request it proved, and every `PR:` line, whichever repository it names.
+describe('bugFixReading (PRD 2425)', () => {
+  const pr = (repo: string, n: number): string => `https://github.com/${repo}/pull/${String(n)}`;
+
+  it.each([
+    ['pr-opened'], ['already-fixed'], ['need-human'], ['needs-brainstorm'], ['not-a-bug'], ['stuck'], ['blocked'],
+  ] as const)('reads %s from the hand-off\'s Outcome line, stamped or not', (word) => {
+    expect(bugFixReading(`10:00:02 Done: ok · 3 turns · $0.10 · 4s\n10:00:02 Outcome: ${word}\n10:00:02 > Review the PR`).outcome).toBe(word);
+    expect(bugFixReading(`Outcome: ${word}\n`).outcome).toBe(word);
+  });
+
+  it('knows exactly the seven words of the skills\' stop rules', () => {
+    expect([...BUG_FIX_OUTCOMES]).toEqual(['pr-opened', 'already-fixed', 'need-human', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked']);
+  });
+
+  it('lets the last Outcome line win', () => {
+    expect(bugFixReading('10:00:00 Outcome: stuck\n10:00:09 Outcome: pr-opened\n').outcome).toBe('pr-opened');
+    expect(bugFixReading('10:00:00 Outcome: pr-opened\n10:00:09 Outcome: blocked\n').outcome).toBe('blocked');
+  });
+
+  it('gives no outcome for an unknown word, a last line that is unknown, or no line at all', () => {
+    expect(bugFixReading('10:00:00 Outcome: shrugged\n').outcome).toBeNull();
+    expect(bugFixReading('10:00:00 Outcome: pr-opened\n10:00:09 Outcome: shrugged\n').outcome).toBeNull();
+    expect(bugFixReading('10:00:00 Outcome: PR-OPENED\n').outcome).toBeNull();
+    expect(bugFixReading('10:00:00 Outcome:\n').outcome).toBeNull();
+    expect(bugFixReading('Done: ok · 1 turns · $0.00 · 1s\nnothing else').outcome).toBeNull();
+    expect(bugFixReading('').outcome).toBeNull();
+  });
+
+  it('reads an Outcome only when it is a line of its own, never one quoted or formatted in a sentence', () => {
+    for (const line of ['› Outcome: pr-opened', '- Outcome: pr-opened', '**Outcome:** pr-opened', 'the Outcome: pr-opened', '10:00:00   Outcome: pr-opened', 'Outcome: pr-opened and more']) {
+      expect(bugFixReading(line).outcome).toBeNull();
+    }
+  });
+
+  it('reads the Fixed by line as the pull request\'s URL, the last one winning, and nothing else', () => {
+    expect(bugFixReading(`10:00:02 Fixed by: ${pr('acme/widgets', 12)}\n`).fixedBy).toBe(pr('acme/widgets', 12));
+    expect(bugFixReading(`Fixed by: ${pr('acme/widgets', 12)}\nFixed by: ${pr('acme/api', 7)}\n`).fixedBy).toBe(pr('acme/api', 7));
+    for (const line of ['Fixed by #12', 'Fixed by: #12', 'Fixed by: https://github.com/acme/widgets/issues/12', 'Fixed by: soon', '- Fixed by: https://github.com/acme/widgets/pull/12', 'Maybe: https://github.com/acme/widgets/pull/12']) {
+      expect(bugFixReading(line).fixedBy).toBeNull();
+    }
+    expect(bugFixReading('').fixedBy).toBeNull();
+  });
+
+  it('reads every PR line of any repository, in order, once each', () => {
+    const log = [
+      `10:00:00 PR: ${pr('acme/api', 3)}`,
+      `10:00:01 PR: ${pr('acme/widgets', 12)}`,
+      `10:00:02 PR: ${pr('acme/api', 3)}`,
+      `PR: ${pr('acme/plan', 40)}`,
+    ].join('\n');
+    expect(bugFixReading(log).prs).toEqual([pr('acme/api', 3), pr('acme/widgets', 12), pr('acme/plan', 40)]);
+    expect(bugFixReading('').prs).toEqual([]);
+  });
+
+  it('never counts a link the job only read, or a PR line that names no pull request', () => {
+    const log = [
+      `10:00:00 › see ${pr('acme/widgets', 99)}`,
+      `10:00:01 Read: ${pr('acme/widgets', 98)}`,
+      `10:00:02 PR: ${pr('acme/widgets', 12)}`,
+      `10:00:03 PR: https://github.com/acme/widgets/issues/5`,
+      '10:00:04 PR: n/a',
+      `10:00:05 PR: ${pr('acme/widgets', 13)} and more`,
+      `10:00:06 the PR: ${pr('acme/widgets', 14)}`,
+    ].join('\n');
+    expect(bugFixReading(log).prs).toEqual([pr('acme/widgets', 12)]);
+  });
+
+  it(`keeps the first ${String(PRS_MAX)} pull requests`, () => {
+    const log = Array.from({ length: 60 }, (_, index) => `PR: ${pr('acme/widgets', index + 1)}`).join('\n');
+    const { prs } = bugFixReading(log);
+    expect(prs).toHaveLength(PRS_MAX);
+    expect(prs[0]).toBe(pr('acme/widgets', 1));
+    expect(prs.at(-1)).toBe(pr('acme/widgets', PRS_MAX));
+  });
+
+  it('leaves the pull request it proved out of the ones it opened, since it opened none of them', () => {
+    const log = [`10:00:00 Outcome: already-fixed`, `10:00:00 Fixed by: ${pr('acme/widgets', 12)}`, `10:00:00 PR: ${pr('acme/widgets', 12)}`, `10:00:00 PR: ${pr('acme/widgets', 20)}`].join('\n');
+    expect(bugFixReading(log)).toEqual({ outcome: 'already-fixed', fixedBy: pr('acme/widgets', 12), prs: [pr('acme/widgets', 20)] });
+  });
+
+  it('reads all three from one log, as a runner meets it', () => {
+    const log = [
+      `10:00:00 PR: ${pr('acme/widgets', 31)}`,
+      '10:00:09 Done: ok · 40 turns · $2.10 · 12m 3s',
+      '10:00:09 Fix: the total is right again',
+      '10:00:09 Outcome: pr-opened',
+      '10:00:09 > Review the PR and merge it if it is right.',
+    ].join('\n');
+    expect(bugFixReading(log)).toEqual({ outcome: 'pr-opened', fixedBy: null, prs: [pr('acme/widgets', 31)] });
   });
 });
 

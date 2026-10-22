@@ -321,8 +321,13 @@ merged pull request fixed it since it was first seen. Look before commenting.
   `Fixed by #<n>` names a pull request of this repository, `Fixed by <PR URL>` one elsewhere. The line
   starts its line, stands alone on it and is written once, for the one proven candidate (the earlier
   merge, when two qualify; the other becomes a `Maybe:` line).
-- **No proven candidate:** no line starts with `Fixed by`. Each candidate gets a `Maybe: #<n>` line
-  and the comment keeps the two readings, the reproduction misses the bug or the bug is already gone:
+- **The hand-off's line** (PRD 2425): for that one proven candidate, the hand-off (step 13) carries
+  `Fixed by: <PR URL>` too, the proven pull request's full link on a line of its own, right after the
+  `Outcome:` line (**The outcome line**), whichever repository it is in. That is the only place the
+  hand-off writes it.
+- **No proven candidate:** no line starts with `Fixed by`, in the comment or in the hand-off. Each
+  candidate gets a `Maybe: #<n>` line and the comment keeps the two readings, the reproduction misses
+  the bug or the bug is already gone:
 
   ```markdown
   The reproduction passes before any fix: it misses the bug, or the bug is already gone.
@@ -623,7 +628,8 @@ not an attempt at the fix. The PR's body and the hand-off name each item and the
 
 Print, in a few lines: the issue, the PR, the fix's page beside it, what was proven and what was
 not (the red line, the preflight, the `omni bug` line, the guard, the mutation line), each item a
-change to a law raised and the law it bears on, then:
+change to a law raised and the law it bears on, then the line `Outcome: pr-opened` (**The outcome
+line**), then:
 
 > Review the PR and merge it if it is right.
 
@@ -632,7 +638,8 @@ The fix's page is the link step 12's push printed. When the push was skipped, ru
 app, say the fix has no page yet and give its issue, `https://github.com/<repo.slug>/issues/<n>`.
 
 **A person merges.** After a stop, the hand-off is the issue, the comment the stop posted (and the
-`/omni:brainstorm` line, after **The stop**), and the worktree left behind, when there is one.
+`/omni:brainstorm` line, after **The stop**), the worktree left behind, when there is one, and the
+`Outcome:` line the stop rule names (**The outcome line**).
 
 ## Asking on a runner
 
@@ -666,12 +673,14 @@ This is more than a bug fix: <what crossed the line, in one or two sentences>.
 Waiting for an answer on Omni: <the Runners page link, with ?answer=<job>>
 ```
 
-Then end with exit 0: open no pull request and push nothing, as for any stop. The job reads Done on the
-runner and **Need human** on the Omni page.
+Then end with exit 0: open no pull request and push nothing, as for any stop. The hand-off carries
+`Outcome: need-human` (stop rule 4 on a runner). The job reads Done on the runner and **Need human** on
+the Omni page.
 
 **When it does not go through.** On any other exit (an Omni app without the route, a refusal, no
 sign-in, a questions file it rejects), post today's stop comment, with the `/omni:brainstorm` line, and
-end as **The stop** says. The hand-off says the one line `omni runner ask` printed.
+end as **The stop** says, with `Outcome: needs-brainstorm`. The hand-off says the one line
+`omni runner ask` printed.
 
 ## Resuming with answers
 
@@ -682,7 +691,7 @@ Only with `--answers <job>` (PRD 2255): the run resumes one that stopped at step
 one line of JSON: its `questions`, its `answers` (each question's text to its answer: an option's label,
 the labels of a multi-select, or the person's own words) and `byLogin`, the login of whoever answered.
 When it exits 1, or the row holds no answers, stop with the line it printed and touch nothing: no
-comment, no branch, no push (stop rule 6).
+comment, no branch, no push (stop rule 6, `Outcome: blocked`).
 
 **Say what was decided.** Post on the issue one comment, found by its first line and the line
 `Job <job>`, and edited in place on a rerun. A decision of another job is a comment of its own:
@@ -706,24 +715,49 @@ other reason, at step 4 or after, is a new stop. The reproduction, the fix, the 
 request run as written, and a person merges the pull request.
 
 **Design it first.** When an answer is `Design it first`, stop as step 4 does: post the stop comment with
-the `/omni:brainstorm` line, open no pull request, push nothing, and end with exit 0.
+the `/omni:brainstorm` line, open no pull request, push nothing, and end with exit 0, the hand-off
+carrying `Outcome: needs-brainstorm`.
 
 **Another decision.** When the fix meets another decision, it asks again, as **Asking on a runner**: this
 resume is a job of its own, and gets its own **Need human**. It asks nothing it was already told.
 
+## The outcome line
+
+Every end of the skill, the pull request or any stop, writes one line to the hand-off that says how the
+run ended (PRD 2425), `Outcome: <word>`. A runner reads it from the job's log and the Omni page shows
+it. The line is plain text that starts its line and stands alone on it: no bullet, no quote, no bold, no
+code span. It is written once, before the hand-off's closing line, and its word is the end the run took,
+never another.
+
+| The word | The run ended |
+|---|---|
+| `pr-opened` | at step 12 with the pull request open: step 13's hand-off |
+| `already-fixed` | at stop rule 3: the reproduction passes before the fix |
+| `need-human` | at stop rule 2, or at stop rule 4 on a runner whose `omni runner ask` exited 0 |
+| `needs-brainstorm` | at stop rule 4 anywhere else, or on an answer `Design it first` |
+| `not-a-bug` | at stop rule 1 |
+| `stuck` | at stop rule 5 |
+| `blocked` | at stop rule 6 or 7 |
+
+Stop rule 3 adds one line after it, `Fixed by: <PR URL>`, and only for a pull request **Who fixed it**
+has proven: its full link, whichever repository it is in, on a line of its own. A `Maybe:` candidate
+never gets one, nor does any other end, and a run that proved none writes none.
+
 ## Stop rules
 
-Written verbatim, so they are never argued away:
+Written verbatim, so they are never argued away. Each ends on the word its hand-off's `Outcome:` line
+carries (**The outcome line**):
 
-1. Not a behaviour bug: triage comment `Kind: tooling`, stop.
-2. A term cannot be defined without inventing behaviour: stop and ask.
-3. The reproduction passes before the fix (a unit-level pass alone never reaches this rule while the third reading applies): stop, comment on the issue, with `Fixed by #<n>` (or `Fixed by <PR URL>`) only for a pull request proven red at its merge's first parent and green at its merge (**Who fixed it**), else `Maybe:` lines. Never close the issue.
-4. The boundary is crossed: stop, comment with the `/omni:brainstorm` line (on a runner, ask first: **Asking on a runner**).
+1. Not a behaviour bug: triage comment `Kind: tooling`, stop: `Outcome: not-a-bug`.
+2. A term cannot be defined without inventing behaviour: stop and ask: `Outcome: need-human`.
+3. The reproduction passes before the fix (a unit-level pass alone never reaches this rule while the third reading applies): stop, comment on the issue, with `Fixed by #<n>` (or `Fixed by <PR URL>`) only for a pull request proven red at its merge's first parent and green at its merge (**Who fixed it**), else `Maybe:` lines. Never close the issue. The hand-off: `Outcome: already-fixed`, then `Fixed by: <PR URL>` for that proven pull request only.
+4. The boundary is crossed: stop, comment with the `/omni:brainstorm` line (on a runner, ask first: **Asking on a runner**): `Outcome: needs-brainstorm`, or `Outcome: need-human` on a runner whose `omni runner ask` exited 0.
 5. `limits.attempts` red attempts at the fix, or at CI on the PR: the PR stays draft, labelled
-   `labels.needsFix`, with a comment saying what is stuck, and the issue gets a comment linking it.
+   `labels.needsFix`, with a comment saying what is stuck, and the issue gets a comment linking it:
+   `Outcome: stuck`.
 6. `--answers <job>` whose answers `omni runner answers` cannot read, or reads empty: stop with its
-   line and touch nothing.
-7. The bug lives in the build and the repository commits no `commands.smoke` it can run: stop, keep the reproduction, comment on the issue with the suspect, the production evidence and the line to commit. Never fix without red.
+   line and touch nothing: `Outcome: blocked`.
+7. The bug lives in the build and the repository commits no `commands.smoke` it can run: stop, keep the reproduction, comment on the issue with the suspect, the production evidence and the line to commit. Never fix without red. `Outcome: blocked`.
 
 For rules 3, 4 and 7, the reproduction is committed alone on the fix branch and the branch is pushed
 (step 7, **A stop keeps the reproduction**).
@@ -743,6 +777,8 @@ comment on the issue with the PR's link.
   the build level is reached only through `commands.smoke`.
 - **Never open the PR before `omni bug <n> --body-file` printed `ok`**, unless the pinned omni refused the flag.
 - **Never write a `Fixed by` line for a pull request that is not proven**, and never close the issue.
+- **Never write two `Outcome:` lines**, nor one for an end the run did not take, nor a hand-off
+  `Fixed by` line for a pull request that is not proven.
 - **Never cross the boundary** to finish a fix: stop, and hand over the `/omni:brainstorm` line.
 - **Never ask on a job unless `OMNI_UNATTENDED` is set**: a person in a terminal gets the stop as it is.
   Never carry on from answers that could not be read, and never read the answers as a leave to merge.
