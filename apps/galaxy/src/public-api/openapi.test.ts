@@ -117,6 +117,71 @@ describe('the OpenAPI reference', () => {
     });
   });
 
+  describe('a job’s questions, answers and dismissal (PRD 2425 s6)', () => {
+    const route = (name: string) => document.paths?.[`/api/v1/jobs/{id}/${name}`];
+    const questions = () => route('questions')?.get;
+    const answers = () => route('answers')?.post;
+    const dismissal = () => route('dismiss')?.post;
+    const statuses = (operation: { responses?: object } | undefined) => Object.keys(operation?.responses ?? {}).sort();
+
+    it('lists the three routes in the Bug fixes group, read with a key, by the job’s id', () => {
+      for (const operation of [questions(), answers(), dismissal()]) {
+        expect(operation?.tags).toEqual(['Bug fixes']);
+        expect(operation?.security).toEqual([{ bearerAuth: [] }]);
+        expect(operation?.parameters?.map((p) => ('name' in p ? p.name : ''))).toEqual(['id']);
+        expect(operation?.summary).toBeTruthy();
+      }
+      expect(route('questions')).not.toHaveProperty('post');
+      expect(route('answers')).not.toHaveProperty('get');
+      expect(route('dismiss')).not.toHaveProperty('get');
+    });
+
+    it('answers a read with 200 and the job’s own refusals, an answer with 202 and a dismissal with 200, each also 409 and 422', () => {
+      expect(statuses(questions())).toEqual(['200', '401', '403', '404', '500']);
+      expect(statuses(answers())).toEqual(['202', '401', '403', '404', '409', '422', '500']);
+      expect(statuses(dismissal())).toEqual(['200', '401', '403', '404', '409', '422', '500']);
+    });
+
+    it('says what the 409 is: the first close wins, a key’s or a person’s, and the message names who closed them', () => {
+      const conflict = JSON.stringify(answers()?.responses?.['409']);
+      expect(conflict).toMatch(/already answered or dismissed/);
+      expect(conflict).toMatch(/Runners page/);
+      expect(conflict).toContain('"conflict"');
+    });
+
+    it('describes the questions: the lead, each question with its options, the state, the answers and who closed them', () => {
+      const text = JSON.stringify(questions()?.responses?.['200']);
+      for (const part of ['"lead"', '"questions"', '"header"', '"multi_select"', '"options"', '"label"', '"state"', '"answers"', '"closed_by"', '"acting_for"', '"login"']) {
+        expect(text, part).toContain(part);
+      }
+      for (const state of ['open', 'answered', 'dismissed']) expect(text).toContain(`"${state}"`);
+    });
+
+    it('takes the answers strictly: answers required, acting_for of 1 to 80 characters of a set, no other field', () => {
+      const body = JSON.stringify(answers()?.requestBody);
+      expect(answers()?.requestBody).toMatchObject({ required: true });
+      for (const part of ['"answers"', '"acting_for"', '"minLength":1', '"maxLength":80', '"pattern"', '"additionalProperties":false']) expect(body, part).toContain(part);
+      expect(body).toContain('"required":["answers"]');
+    });
+
+    it('takes a dismissal with no body at all, or an acting_for, and nothing else', () => {
+      const body = JSON.stringify(dismissal()?.requestBody);
+      expect(dismissal()?.requestBody).not.toMatchObject({ required: true });
+      for (const part of ['"acting_for"', '"maxLength":80', '"additionalProperties":false']) expect(body, part).toContain(part);
+    });
+
+    it('says the resume continues the job as the key that sent it, and that a dismissal queues nothing', () => {
+      expect(answers()?.description).toMatch(/continues/);
+      expect(answers()?.description).toMatch(/key that sent/);
+      expect(dismissal()?.description).toMatch(/queues nothing/);
+    });
+
+    it('is named from the job’s own read, which says where its questions are read and closed', () => {
+      const description = document.paths?.['/api/v1/jobs/{id}']?.get?.description;
+      for (const route of ['GET /api/v1/jobs/{id}/questions', 'POST /api/v1/jobs/{id}/answers', 'POST /api/v1/jobs/{id}/dismiss']) expect(description).toContain(route);
+    });
+  });
+
   it('describes starting a mega bug fix, with a strict body and no 404', () => {
     const post = document.paths?.['/api/v1/mega-bug-fixes']?.post;
     expect(post?.requestBody).toBeDefined();

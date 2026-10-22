@@ -3,8 +3,8 @@ import { workPath } from '../dossier/page/work';
 import { currentStage } from '../stages/stage';
 import { decodeCursor, decodeLinesCursor, encodeCursor, encodeLinesCursor, type CursorList } from './cursor';
 import { hashApiKey, isApiKeyShaped } from './keys/secret';
-import type { RunnerRefusal, KeyJob, KeySend } from '../runners/runners.contract';
-import { BUG_FIX, MEGA_BUG_FIX, type ApiJob, type BugFix, type BugFixList, type JobLineList, type ListQuery, type Prd, type PrdList, type PublicApiErrorCode, type StartBugFix, type StartMegaBugFix } from './public-api.contract';
+import type { RunnerRefusal, JobQuestions, KeyCloser, KeyJob, KeySend } from '../runners/runners.contract';
+import { BUG_FIX, MEGA_BUG_FIX, type AnswerJob, type ApiJob, type ApiQuestions, type BugFix, type BugFixList, type DismissJob, type JobLineList, type ListQuery, type Prd, type PrdList, type PublicApiErrorCode, type StartBugFix, type StartMegaBugFix } from './public-api.contract';
 import type { DossierRow, ListedKind, PublicApiRepository, StageRow } from './public-api.repository';
 
 // The public API's rules (PRD 2022 s2, spec "The routes"; ADR-0095), over the repository as the service
@@ -30,10 +30,14 @@ export type Answered<T> = { ok: true; value: T } | { ok: false; code: PublicApiE
 
 export const BAD_CURSOR = 'cursor: not a cursor of this list. Pass the `next_cursor` the last page answered, unchanged.';
 
-/** The runners' own rules a key starts and follows a job with (PRD 2022 s4): the same service a person's Send to terminal uses. */
+/** The runners' own rules a key starts, follows and answers a job with (PRD 2022 s4, PRD 2425 s6): the same service a person's
+ * Send to terminal and Runners page use. */
 export type RunnersPort = {
   sendByKey: (key: { id: string; name: string; workspace: string; maker: string }, request: KeySend) => Promise<Result<KeyJob>>;
   keyJob: (workspaceId: string, jobId: string) => Promise<Result<KeyJob>>;
+  questionsByKey: (workspaceId: string, jobId: string) => Promise<Result<JobQuestions>>;
+  answerByKey: (key: KeyCloser, jobId: string, answers: Record<string, string>) => Promise<Result<KeyJob>>;
+  dismissByKey: (key: KeyCloser, jobId: string) => Promise<Result<KeyJob>>;
 };
 type Result<T> = { ok: true; value: T } | { ok: false; kind: RunnerRefusal; error: string };
 
@@ -46,6 +50,33 @@ function startRefusal(kind: RunnerRefusal, error: string): Answered<never> {
   if (kind === 'missing') return { ok: false, code: 'invalid_request', message: `runner or fleet: ${error}` };
   throw new Error(`runners: ${kind} ${error}`);
 }
+
+/** What a refusal to read, answer or dismiss a job's questions is called here (BR-PRODUCT-12 for the second close: a conflict). */
+const CLOSE_REFUSALS: Partial<Record<RunnerRefusal, PublicApiErrorCode>> = {
+  missing: 'not_found', conflict: 'conflict', forbidden: 'forbidden', malformed: 'invalid_request',
+};
+
+/** The runners' refusal of a read, an answer or a dismissal as ours: their words, with `answers:` first for answers that do not fit the questions. */
+function closeRefusal(kind: RunnerRefusal, error: string): Answered<never> {
+  const code = CLOSE_REFUSALS[kind];
+  if (code === undefined) throw new Error(`runners: ${kind} ${error}`);
+  return { ok: false, code, message: kind === 'malformed' ? `answers: ${error}` : error };
+}
+
+/** Who closed a round, as the API says it: the key by its name with whom it acted for, or the person by login (null when they have none);
+ * null while it is open, and for a round whose key was deleted since, which leaves no closer. */
+function closedByOf(asked: JobQuestions): ApiQuestions['closed_by'] {
+  if (typeof asked.byKey === 'string') return { key: asked.byKey, acting_for: asked.actingFor ?? null };
+  return asked.by === null ? null : { login: asked.byLogin };
+}
+
+const questionsOf = (asked: JobQuestions): ApiQuestions => ({
+  lead: asked.lead,
+  questions: asked.questions.map((q) => ({
+    question: q.question, header: q.header, multi_select: q.multiSelect, options: q.options.map(({ label, description }) => ({ label, description })),
+  })),
+  state: asked.state, answers: asked.answers, closed_by: closedByOf(asked),
+});
 
 /** A bug fix's words in its log, as the API says them (PRD 2425): an underscore for each hyphen. */
 const OUTCOME_WORDS: Record<NonNullable<KeyJob['outcome']>, NonNullable<ApiJob['outcome']>> = {
@@ -222,6 +253,34 @@ export function publicApiService(repository: Port, runners: RunnersPort) {
       const data = read.slice(0, query.limit);
       const last = data.at(-1);
       return { ok: true, value: { data, next_cursor: read.length > query.limit && last ? encodeLinesCursor({ job: id, seq: last.seq }) : null } };
+    },
+
+    /** The questions a job the key may read asked (PRD 2425 s6): the lead and the questions, where they stand, the answers once given
+     * and who closed them. A job that asked none is not found, in its own words. */
+    async jobQuestions(key: ApiKeyCaller, id: string): Promise<Answered<ApiQuestions>> {
+      const found = await readJob(key, id);
+      if (!found.ok) return found;
+      const asked = await runners.questionsByKey(key.workspace, id);
+      return asked.ok ? { ok: true, value: questionsOf(asked.value) } : closeRefusal(asked.kind, asked.error);
+    },
+
+    /** The key answers the questions of a job it may read (PRD 2425 s6), as the Runners page's answer would: the answers one to each
+     * question, the resume job queued as the job's key and maker, continuing the job, and the round closed as this key in one
+     * step. Answers the resume job. The first close wins: a second answer or dismissal, a key's or a person's, is a conflict. */
+    async answerJob(key: ApiKeyCaller, id: string, body: AnswerJob): Promise<Answered<ApiJob>> {
+      const found = await readJob(key, id);
+      if (!found.ok) return found;
+      const answered = await runners.answerByKey({ id: key.id, workspace: key.workspace, actingFor: body.acting_for ?? null }, id, body.answers);
+      return answered.ok ? { ok: true, value: jobOf(answered.value) } : closeRefusal(answered.kind, answered.error);
+    },
+
+    /** The key closes the questions of a job it may read with no answer and no job queued (PRD 2425 s6). Answers the job, its questions
+     * dismissed; a second close is a conflict. */
+    async dismissJob(key: ApiKeyCaller, id: string, body: DismissJob): Promise<Answered<ApiJob>> {
+      const found = await readJob(key, id);
+      if (!found.ok) return found;
+      const dismissed = await runners.dismissByKey({ id: key.id, workspace: key.workspace, actingFor: body.acting_for ?? null }, id);
+      return dismissed.ok ? { ok: true, value: jobOf(dismissed.value) } : closeRefusal(dismissed.kind, dismissed.error);
     },
   };
 }
