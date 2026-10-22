@@ -145,6 +145,11 @@ jobs:
         # its first date. A member reads their own workspace's rows; anyone else reads nothing, and
         # nobody signed in writes.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_stages.sql
+      - name: Who may read and write the PRD milestones
+        # Only the service role records a PRD's milestones; a second write keeps the first time, but a
+        # later last-slice moves it (PRD 2370). A member reads their own workspace's rows; anyone else
+        # reads nothing, and nobody signed in writes.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_milestones.sql
       - name: Who may read and write the PRD outboxes
         # Only the service role records and recounts a PRD's open outbox questions. A member reads
         # their own workspace's rows; anyone else reads nothing, and nobody signed in writes.

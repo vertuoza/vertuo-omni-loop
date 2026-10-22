@@ -40,6 +40,11 @@ export type SnapshotPull = {
   merged_at: string | null;
   created_at: string;
   ready_at: string | null;
+  /** Its body as GitHub lists it (PRD 2370); absent or null when it has none. */
+  body?: string | null;
+  /** When it was first marked ready for review (PRD 2370): null when its events were read and it never
+   * was (opened ready); absent when they were not read. */
+  first_ready_at?: string | null;
 };
 
 /** A `labels.prd` issue: its number and when it was opened. */
@@ -53,6 +58,8 @@ export type RepoSnapshot = {
   shipped: string[];
   issues: SnapshotIssue[];
   pulls: SnapshotPull[];
+  /** The config's `prLinks.feature` (`Closes #{prd}`), read with the config (PRD 2370); absent without one. */
+  featureLink?: string;
 };
 
 /** A stage seen, without its workspace: the route adds it. */
@@ -61,6 +68,11 @@ export type SeenTopic = { repository: string; prd: PrdNumber; topic: string };
 
 /** A PRD of the repository born on the server (◆), and when it was first approved; null while it waits. */
 export type ServerBorn = { prd: PrdNumber; approved_at: string | null };
+
+/** The config's feature PR link, `Closes #{prd}` by default (PRD 2370). Throws as syncConfig() does. */
+export function featureLinkOf(text: string, repository: string): string {
+  return parseConfig(text, `${repository}:${CONFIG_PATH}`).prLinks.feature;
+}
 
 /** The sync's reading of a repository's config. Throws, naming the repository, when it is not valid. */
 export function syncConfig(text: string, repository: string): SyncConfig {
@@ -75,13 +87,28 @@ export function syncConfig(text: string, repository: string): SyncConfig {
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** A branch shape as a pattern: `{topic}` is the topic given, any other placeholder one path segment. */
-function branchPattern(shape: string, topic: string): RegExp {
+/** A branch shape as a pattern: `{topic}` is `topic`, a pattern, any other placeholder one path segment. */
+function shapePattern(shape: string, topic: string): RegExp {
   const parts = shape.split(/(\{\w+\})/).map((part) => {
-    if (part === '{topic}') return escape(topic);
+    if (part === '{topic}') return topic;
     return /^\{\w+\}$/.test(part) ? '[^/]+' : escape(part);
   });
   return new RegExp(`^${parts.join('')}$`);
+}
+
+/** A branch shape as a pattern: `{topic}` is the topic given, any other placeholder one path segment. */
+export const branchPattern = (shape: string, topic: string): RegExp => shapePattern(shape, escape(topic));
+
+/** A branch shape as a pattern for any topic, one or more characters (PRD 2370). */
+export const anyTopic = (shape: string): RegExp => shapePattern(shape, '.+');
+
+/** The config's feature PR link (`Closes #{prd}`) as the pattern a body carries for PRD `prd`, or for any
+ * PRD when none is given, never matching a longer number; null when the link names no PRD (PRD 2370). */
+export function linkPattern(link: string, prd?: PrdNumber): RegExp | null {
+  const placeholder = escape('{prd}');
+  const text = escape(link);
+  if (!text.includes(placeholder)) return null;
+  return new RegExp(`(?:^|\\W)${text.replace(placeholder, prd === undefined ? '\\d+' : String(prd))}(?!\\d)`);
 }
 
 const earliest = (dates: readonly (string | null)[]): string | null =>
@@ -92,7 +119,7 @@ const counted = (pull: SnapshotPull) => pull.state === 'open' || pull.merged_at 
 type Folder = { prd: PrdNumber; topic: string; place: 'inbox' | 'shipped' };
 
 /** Each PRD's folder, the first one found (inbox before shipped), in PRD order. */
-function foldersOf(snapshot: RepoSnapshot): Folder[] {
+export function foldersOf(snapshot: RepoSnapshot): Folder[] {
   const folders = new Map<PrdNumber, Folder>();
   for (const [place, names] of [['inbox', snapshot.inbox], ['shipped', snapshot.shipped]] as const) {
     for (const name of names) {

@@ -35,6 +35,12 @@
 // the workspaces cannot be read (500) or the run throws, which is rethrown unchanged; each with its status
 // and how long it took. The per-repository sentences above are still written through `log`, and a run
 // logger that throws changes no answer.
+//
+// PRD 2370 (s1): from the same snapshot, each PRD's milestones (./milestones.ts) are recorded through the
+// milestone store (../../timeline/store.ts), which keeps the first time of each. A repository whose
+// milestones were never recorded is read in full once, so the first sync fills the timelines of every PRD
+// it can read, the shipped ones included. Milestones that cannot be recorded are logged; the stages still
+// land.
 import 'server-only';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { ConceptReader, DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
@@ -42,7 +48,9 @@ import { isFinal, refreshConceptFacts, refreshFixFacts } from '../../fixes/facts
 import type { ConceptFactsStore, FixFactsStore } from '../../fixes/facts/store';
 import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
+import type { MilestoneStore } from '../../timeline/store';
 import { changedPrds, stagesOfRepo, type RepoSnapshot, type ServerBorn } from './core';
+import { milestonesOfRepo } from './milestones';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Logger } from 'omni-loop/kit/lib/log/log.ts';
 import { firstPart, group } from 'omni-loop/kit/lib/narrow.ts';
@@ -61,6 +69,8 @@ export type SyncDeps = {
   /** The repository's PRDs born on the server, each with its first approval; none given, there are none. */
   approvals?(workspace: SyncWorkspace, repository: string): Promise<ServerBorn[]>;
   store: StageStore;
+  /** Where each PRD's milestones are recorded (PRD 2370); none, the sync records none. */
+  milestones?: MilestoneStore;
   /** The GitHub summaries and the outbox store the open questions are recounted with; none, no recount. */
   outbox?: Pick<RecountDeps, 'summary' | 'store' | 'escalation'>;
   /** The workspace's fix dossiers, the reader their facts are read with and where they are stored; none, no refresh. */
@@ -152,10 +162,37 @@ async function refreshSnapshots(deps: SyncDeps, workspace: SyncWorkspace, reposi
   }
 }
 
-/** When to read a repository's changes from: its last sync less OVERLAP_MS; null, never synced, reads it all. */
+/** When the repository's milestones were last recorded; `stages` (its stages' last sync) without a milestone
+ * store, or when it cannot be read (logged); null when it holds none (PRD 2370). */
+async function milestonesSynced(deps: SyncDeps, workspace: SyncWorkspace, repository: string, stages: string): Promise<string | null> {
+  if (!deps.milestones) return stages;
+  try {
+    return await deps.milestones.lastSynced(workspace.id, repository);
+  } catch (error) {
+    deps.log(`stages sync: when the milestones of ${repository} were last synced cannot be read — ${why(error)}`);
+    return stages;
+  }
+}
+
+/** When to read a repository's changes from: the earlier of its stages' and its milestones' last sync, less
+ * OVERLAP_MS; null, either never synced, reads it all. */
 async function sinceOf(deps: SyncDeps, workspace: SyncWorkspace, repository: string): Promise<string | null> {
   const last = await deps.store.lastSynced(workspace.id, repository);
-  return last === null ? null : new Date(Date.parse(last) - OVERLAP_MS).toISOString();
+  if (last === null) return null;
+  const milestones = await milestonesSynced(deps, workspace, repository, last);
+  if (milestones === null) return null;
+  return new Date(Math.min(Date.parse(last), Date.parse(milestones)) - OVERLAP_MS).toISOString();
+}
+
+/** Records the milestones the snapshot shows; logs, never throws (PRD 2370). */
+async function recordMilestones(deps: SyncDeps, workspace: SyncWorkspace, snapshot: RepoSnapshot, born: readonly ServerBorn[], syncedAt: string): Promise<void> {
+  if (!deps.milestones) return;
+  try {
+    const seen = milestonesOfRepo(snapshot, born);
+    await deps.milestones.recordMilestones(seen.map((m) => ({ ...m, workspace_id: workspace.id })), syncedAt);
+  } catch (error) {
+    deps.log(`stages sync: the milestones of ${snapshot.repository} were not recorded — ${why(error)}`);
+  }
 }
 
 /** Whether the request carries `Bearer <secret>`; never, without a secret. Compared in constant time. */
@@ -182,8 +219,10 @@ async function serverBornOf(deps: SyncDeps, workspace: SyncWorkspace, repository
 async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: string, syncedAt: string): Promise<SyncedRepo> {
   const since = await sinceOf(deps, workspace, repository);
   const snapshot = await deps.snapshot(workspace, repository, since);
-  const { stages, topics } = stagesOfRepo(snapshot, syncedAt, await serverBornOf(deps, workspace, repository));
+  const born = await serverBornOf(deps, workspace, repository);
+  const { stages, topics } = stagesOfRepo(snapshot, syncedAt, born);
   await deps.store.recordStages(stages.map((s) => ({ ...s, workspace_id: workspace.id })), syncedAt);
+  await recordMilestones(deps, workspace, snapshot, born, syncedAt);
   let learnt = 0;
   for (const topic of topics) {
     try {
