@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-10-22
 - Slice: s1
 - Wave: 1
+- Became: ADR-0120
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A: one full read per repository after the merge (about 220 PRDs here, so about 2
 - Raised: 2026-10-22
 - Slice: s1
 - Wave: 1
+- Became: ADR-0121
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ A: none beyond the description already in the list, and the events of that one p
 - Raised: 2026-10-22
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-123, P-PRODUCT-101
 
 ### The answer, as it was given
 
@@ -250,6 +253,7 @@ A: none. B: a constant each in the sync's milestone code; a time already recorde
 - Raised: 2026-10-22
 - Slice: s4
 - Wave: 3
+- Became: ADR-0122
 
 ### The answer, as it was given
 
@@ -328,6 +332,7 @@ Low. Lanes are dated by GitHub's own times, so reading more repositories later (
 - Raised: 2026-10-22
 - Slice: s4
 - Wave: 3
+- Became: BR-PRODUCT-124, P-PRODUCT-102
 
 ### The answer, as it was given
 
