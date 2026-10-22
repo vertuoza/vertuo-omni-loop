@@ -128,8 +128,8 @@ function milestonesOf(now: Date): WorkspaceMilestone[] {
     const times: [WorkspaceMilestone['milestone'], number][] = [
       ['idea', opened - 4 * DAY], ['plan', opened - 3 * DAY], ['approved', opened - DAY], ['opened', opened],
       ['first-slice', first], ['last-slice', last], ['ready', ready],
-      ...(merged === null ? [] : [['merged', merged] as [WorkspaceMilestone['milestone'], number]]),
     ];
+    if (merged !== null) times.push(['merged', merged]);
     for (const [milestone, at] of times) {
       const own = milestone === 'idea' || milestone === 'plan' || milestone === 'approved';
       rows.push({ repository, prd, lane: repository, milestone, pr: own ? null : parsePr(200 + i), reached_at: new Date(at).toISOString() });
