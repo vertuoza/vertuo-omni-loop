@@ -84,6 +84,11 @@ jobs:
         # A member lists 1400 dossiers, with their versions and 25,200 answered rounds, through
         # dossier_list() as /prd does, inside production's 8 second statement timeout (bug #1308).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossier_list_volume.sql
+      - name: The PRD list's and a PRD page's lighter reads
+        # dossier_list(p_kind) lists only that kind, every kind without it; dossier_repos() gives a
+        # dossier's repositories and counts as dossier_list() does, and nothing of another workspace;
+        # a plan version keeps its slice count as the kit counts it (PRD 2401 s3).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossier_reads.sql
       - name: Membership is read once per statement
         # No policy calls is_member() with a row's column, and a member's count over 10,000 ledger
         # events stays within 2,000 buffers: membership read per row cost 20,928 on production (bug #1832).
