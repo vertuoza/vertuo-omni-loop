@@ -38,7 +38,7 @@ jobs:
       - run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }  # runs the scripts' TypeScript natively (Node >= 22.18)
+        with: { node-version: 24, cache: pnpm }  # runs the scripts' TypeScript natively (Node >= 22.18)
       - name: Every new migration is dated after the newest on main
         # `supabase db push` refuses a migration dated before the newest one production applied (PRD
         # 1364, 2026-10-11): re-date it after the one this names. main is read as it is now, not as the

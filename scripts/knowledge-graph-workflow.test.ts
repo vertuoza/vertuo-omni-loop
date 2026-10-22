@@ -48,7 +48,7 @@ describe('what the knowledge-graph job runs', () => {
     expect(steps[0]?.uses?.startsWith('actions/checkout@')).toBe(true);
     expect(steps[1]?.uses?.startsWith('pnpm/action-setup@')).toBe(true);
     expect(steps[2]?.uses?.startsWith('actions/setup-node@')).toBe(true);
-    expect(steps[2]?.with?.['node-version']).toBe(22);
+    expect(steps[2]?.with?.['node-version']).toBe(24);
     expect(steps[3]?.run).toBe('pnpm install --frozen-lockfile');
   });
 
