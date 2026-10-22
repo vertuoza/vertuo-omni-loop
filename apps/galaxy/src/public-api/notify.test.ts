@@ -126,8 +126,9 @@ describe('the link a job may be pinged at', () => {
     const w = world();
     expect(await w.service.check('http://hooks.example.com/ping')).toContain('https');
     // Built here, so no `user:password@host` stands in the source.
-    expect(await w.service.check(`https://${'user'}:${'pw'}@hooks.example.com/ping`)).toContain('user name');
-    expect(await w.service.check(`https://${'user'}@hooks.example.com/ping`)).toContain('user name');
+    const carrying = (login: string[]) => ['https://', login.join(':'), '@hooks.example.com/ping'].join('');
+    expect(await w.service.check(carrying(['user', 'pw']))).toContain('user name');
+    expect(await w.service.check(carrying(['user']))).toContain('user name');
     expect(await w.service.check('not a link')).toContain('link');
     expect(w.resolved).toEqual([]);
   });
