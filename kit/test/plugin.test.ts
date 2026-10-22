@@ -3269,3 +3269,28 @@ describe('a slice agent in its own worktree runs one command at a time', () => {
     }
   });
 });
+
+// PRD 2346, slice s6: `/omni:invade` proposes the knowledge map (layers, areas, domain folders with
+// kept ids, ADR layers) and `/omni:mega-invade` copies each target's `layers` beside its `flow`.
+describe('the knowledge map in /omni:invade and /omni:mega-invade (PRD 2346)', () => {
+  const read = (skill: string) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+
+  it('/omni:invade proposes layers, areas, domain folders with Kept id: and ADR layers, as proposed entries', () => {
+    const text = read('invade');
+    const section = skillSection(text, 'The knowledge map');
+    for (const word of ['`layers:`', 'knowledge:', 'Domain folders', 'Kept id:', 'byte for byte', '**Layers:**', '**Domain:**', 'Proposed: invade', 'TODO(human)', 'omni.mjs check config']) {
+      expect(section, word).toContain(word);
+    }
+    expect(section).toContain('ten layers and nine roles');
+  });
+
+  it('/omni:invade --refresh redoes the map from evidence only', () => {
+    expect(skillSection(read('invade'), '--refresh')).toContain('knowledge map');
+  });
+
+  it('/omni:mega-invade copies each target\'s `layers` beside its `flow`', () => {
+    const text = read('mega-invade');
+    expect(text).toContain('`layers`');
+    expect(text).toContain('`layers` key beside its `flow`');
+  });
+});
