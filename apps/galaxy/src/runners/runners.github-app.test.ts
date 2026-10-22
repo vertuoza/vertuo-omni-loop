@@ -10,7 +10,8 @@ import { API_KEY, fakeStore, jobRow, KEY_APP, MO, OLGA, runnerRow, SHARED, T0, t
 // installation and mints a token for the job's repository, the job that fails when no token can be minted,
 // and the refresh a runner asks for while the job runs and for 10 minutes after it ends. The App's own
 // calls to GitHub are proven in ../public-api/keys/github-app.test.ts and the wiring over them in
-// ./runners.github.test.ts; the stub is ./fixtures/github.fake.ts.
+// ./runners.github.test.ts; the stub is ./fixtures/github.fake.ts. Which repositories a token covers beyond the job's own, and
+// that it never reaches past the key's allow-list: ./runners.github-repositories.test.ts.
 
 /** A runner of Olga's that registered `githubApp`, and one that did not. */
 const APP_RUNNER = runnerRow({ id: SHARED, name: 'shared', slots: 1, github_app: true });
@@ -88,7 +89,7 @@ describe('a key\'s job that runs as the key\'s App', () => {
     expect(w.asked.minted).toEqual([{ appId: '123456', privateKey: PRIVATE_KEY, installation: 9001, repositories: ['demo-org/app'] }]);
   });
 
-  it('mints for a mega bug fix\'s plan repository alone: the repositories its product names are not added (outbox, s7)', async () => {
+  it('mints for a mega bug fix in no product for its plan repository alone (its product\'s repositories: runners.github-repositories.test.ts)', async () => {
     const w = world({ jobs: [keyJob({ line: '/omni:mega-bug-fix #12', repo: 'demo-org/app' })] });
     value(await w.service.next(OLGA, SHARED));
     expect(w.asked.minted.map((minted) => minted.repositories)).toEqual([['demo-org/app']]);

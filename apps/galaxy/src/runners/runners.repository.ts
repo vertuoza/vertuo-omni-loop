@@ -170,13 +170,18 @@ async function acted<T>(call: PromiseLike<Raw>, schema: z.ZodType<T>, what: stri
 
 /** The App an API key's job runs as, as api_key_github_app_of_job() answers (supabase/migrations/20261228090000_api_key_github_apps.sql):
  * `working` while the key is not revoked and its maker is still a member; `needs_app` while the key holds an App or the job
- * was queued while it did; `app` null once the key holds none. `ciphertext` and `iv` are the sealed private key. */
+ * was queued while it did; `app` null once the key holds none. `ciphertext` and `iv` are the sealed private key. `repos` is
+ * the key's allow-list (agent_tokens.repos, `owner/name`, lower case; an empty one means every repository of the workspace),
+ * and `product_repos` the repositories of the live products that name the job's repository, in its workspace. Both are
+ * required: a list the database did not send must never read as an empty allow-list, which allows everything. */
 const AppOfJobRow = z.object({
   key_id: z.string(),
   workspace_id: z.string(),
   working: z.boolean(),
   needs_app: z.boolean(),
   app: z.object({ app_id: z.number().int(), slug: z.string(), bot_id: z.number().int(), ciphertext: z.string(), iv: z.string() }).nullable(),
+  repos: z.array(z.string()),
+  product_repos: z.array(z.string()),
 }).nullable();
 export type AppOfJob = NonNullable<z.infer<typeof AppOfJobRow>>;
 

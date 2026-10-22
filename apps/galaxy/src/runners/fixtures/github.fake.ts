@@ -15,6 +15,8 @@ export const PRIVATE_KEY = 'the private key, opened';
 export const MASTER = Buffer.alloc(32, 7);
 /** The App's installation on the demo organisation, with write access where a job needs it. */
 export const INSTALLATION: AppInstallation = { id: 9001, account: 'demo-org', permissions: { contents: 'write', pull_requests: 'write', issues: 'write', metadata: 'read' } };
+/** The App's installation on another organisation: a repository there is held by this one, never by `INSTALLATION`. */
+export const OTHER_INSTALLATION: AppInstallation = { id: 9002, account: 'other-org', permissions: { contents: 'write', pull_requests: 'write', issues: 'write', metadata: 'read' } };
 /** The bot a key's App with `KEY_APP` (store.fake.ts) runs as. */
 export const BOT = { login: 'acme-bugs[bot]', email: '777+acme-bugs[bot]@users.noreply.github.com' };
 
@@ -24,8 +26,12 @@ export type GithubAsked = {
   minted: { appId: string; privateKey: string; installation: number; repositories: readonly string[] }[];
 };
 
-/** The stubbed deps, any of them replaced by `more`, and what the service asked of them. */
-export function stubGithub(more: Partial<GithubDeps> = {}): { deps: GithubDeps; asked: GithubAsked } {
+/** What the stub answers for a repository: the installation that holds it, null when the App is not installed on it, or the error GitHub fails with. */
+export type Installed = AppInstallation | null | Error;
+
+/** The stubbed deps, any of them replaced by `more`, and what the service asked of them. `installed` says what GitHub answers
+ * for a repository's installation (`INSTALLATION` for any it does not list). */
+export function stubGithub(more: Partial<GithubDeps> = {}, installed: Readonly<Record<string, Installed>> = {}): { deps: GithubDeps; asked: GithubAsked } {
   const asked: GithubAsked = { opened: [], installations: [], minted: [] };
   const deps: GithubDeps = {
     master: () => MASTER,
@@ -36,7 +42,8 @@ export function stubGithub(more: Partial<GithubDeps> = {}): { deps: GithubDeps; 
     },
     installation: (_credentials, repo) => {
       asked.installations.push(repo);
-      return Promise.resolve(INSTALLATION);
+      const answer = repo in installed ? installed[repo] ?? null : INSTALLATION;
+      return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer);
     },
     lacks: (installation) => ['contents', 'pull_requests', 'issues'].find((permission) => installation.permissions[permission] !== 'write') ?? null,
     mint: (credentials, installation, repositories) => {
