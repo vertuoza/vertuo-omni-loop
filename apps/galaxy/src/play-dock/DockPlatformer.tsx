@@ -1,5 +1,5 @@
 'use client';
-// SUPER OMNI WORLD in the play dock (PRD 817): the arcade's game on the tall grid, through its one
+// STARHOP in the play dock (PRD 817): the arcade's game on the tall grid, through its one
 // way in (PlatformerScreen, which fetches Phaser only now) and its text layer, under the dock's rules
 // (platformer.ts): a question pauses it at once and only START resumes it; Claude done lets it run
 // to its end; it is silent. B from a screen over the stage goes back to the picker.

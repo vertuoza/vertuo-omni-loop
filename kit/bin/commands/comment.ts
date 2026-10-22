@@ -2,7 +2,7 @@
 // [--slack-note f] [--title] [--owner-slack-id] [--owner-login] [--pr-comment f]) [--repo]` — the two
 // outbox comments (the feature pull request's, then the PRD issue's) and the Slack note file. Each
 // comment reads the PRD's outbox through its outbox store (PRD 1548, s6).
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-comment.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-comment.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 import { writeFileSync } from 'node:fs';
 import { rangeChanges } from '../../lib/git.ts';
 import { maybeWriteSlackNote, readPrCommentResult, slackOwner } from '../../lib/outbox/comment.ts';

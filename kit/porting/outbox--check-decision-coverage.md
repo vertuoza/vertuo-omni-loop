@@ -1,6 +1,6 @@
 # `kit/lib/outbox/check-decision-coverage.mjs` and `kit/lib/git.mjs`
 
-Source: `scripts/check-decision-coverage.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/check-decision-coverage.mjs` @ `nimbus-brain@c4a210122`.
 
 Two files come out of this one source, per the task's own clarification: `rangeChanges` moves to
 `kit/lib/git.mjs` (the only `git diff --name-status` caller; Tasks 9 and 11 import it from there),
@@ -74,7 +74,7 @@ provenance line, pointing at this one record.
   `findFormatViolations` (every account's format, no range needed) and `gradePrd` (one PRD's
   accounts against an already-computed `riskyChanges` result) — and drops every
   `docs/outbox/<prd>/accounts/*.md`, `check-territory.mjs`, `check-openapi-label.mjs`,
-  `vertuo-do-work` literal/reference upstream's doc named, none of which exist in the kit.
+  `nimbus-do-work` literal/reference upstream's doc named, none of which exist in the kit.
 
 ### Test (`check-decision-coverage.test.mjs`)
 

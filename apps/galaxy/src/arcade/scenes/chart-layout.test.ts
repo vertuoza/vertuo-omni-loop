@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
+import { loadConfig } from 'omni-loop/kit/lib/config.ts';
+import { createContext } from 'omni-loop/kit/lib/context.ts';
+import { readGraph } from 'omni-loop/kit/lib/knowledge/graph.ts';
 import { KINDS, type EntryKind, type KnowledgeEntry, type KnowledgeGraph } from '../../data/knowledge';
 import { TALL, WIDE, type Grid } from './common.ts';
 import {
@@ -10,7 +10,7 @@ import {
   type ChartCursor, type ChartLayout, type Dir, type SystemLayout,
 } from './chart-layout.ts';
 import { sure } from '../test/sure';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 
 // This repository's own knowledge, read through the kit as the app reads it on the server.
 const root = fileURLToPath(new URL('../../../../../', import.meta.url));
@@ -214,9 +214,16 @@ function sunsOutside(layout: ChartLayout, grid: Grid): string[] {
   return layout.suns.filter((s) => s.x - s.r < band.x || s.x + s.r > band.x + band.w || s.y - s.r < band.y || s.y + s.r > band.y + band.h).map((s) => s.name);
 }
 
+/** This repository's product domain alone: one domain, whatever domain folders the repository grows (PRD 2346). */
+const PRODUCT_ONLY: KnowledgeGraph = {
+  ...REPO,
+  domains: REPO.domains.filter((d) => d.name === 'product'),
+  entries: REPO.entries.filter((e) => e.domain === 'product'),
+};
+
 describe('the chart: a sun per domain', () => {
-  it.each(GRIDS)('puts this repository\'s one domain in the middle of the %s grid, at the largest size', (_, grid) => {
-    const layout = layoutChart(REPO, grid);
+  it.each(GRIDS)('puts this repository\'s product domain, alone, in the middle of the %s grid, at the largest size', (_, grid) => {
+    const layout = layoutChart(PRODUCT_ONLY, grid);
     const { band, label, sun } = CHART_LINES[grid.name];
     expect(layout.suns).toHaveLength(1);
     expect(sure(layout.suns[0], 'layout.suns[0]').name).toBe('product');

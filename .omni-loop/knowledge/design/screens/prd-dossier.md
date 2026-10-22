@@ -21,7 +21,9 @@ its spec, its plan) is content, marked `data-content` in the mockup.
 ## Regions
 
 - **The head, one box in three rows** (`dossier/page/DossierPage.tsx`, `StageHeader.tsx`): the
-  title with its actions (the stage's one button; beside a button that copies an `/omni:` line
+  title with its actions (the stage's one button: while the feature PR's outbox has open high
+  questions, Answer the outbox, then, once each has a reply the kit counts, Fix with answers, which
+  copies `/omni:yolo-fix <n>` and names the answers under it as `Fixes with 1: A · 4: B` (PRD 2223); beside a button that copies an `/omni:` line
   a runner may run, Send to terminal, which opens a picker of the runners the viewer may send to and
   says `Queued for <target>` once sent, shown only when the workspace has one; Copy link, Delete
   draft for a draft's opener); the
@@ -88,5 +90,7 @@ Repo, Repos, On GitHub, Opened.
 - apps/galaxy/src/page-width.test.ts@7302b0d
 - /omni:invade 2026-10-10 (written by hand from its screen-library step, PRD 1407 s9)
 - /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html (Send to terminal)
+- /omni:brainstorm, PRD 2011: .omni-loop/delivery/shipped/2011-product-records/before-after.html (a product PRD's Outbox tab reads the server's rows)
 - /omni:brainstorm, PRD 1915: .omni-loop/delivery/shipped/1915-agent-words-website/before-after.html
 - /omni:think-big, concept #2024, crowned L on 2026-10-15: .omni-loop/delivery/inbox/concepts/2024-launch/vision.html (Launch replaces Pitch)
+- /omni:brainstorm, PRD 2223: .omni-loop/delivery/shipped/2223-outbox-waiting/before-after.html

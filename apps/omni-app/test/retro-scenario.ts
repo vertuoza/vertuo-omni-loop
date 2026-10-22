@@ -2,8 +2,8 @@
 // built in three slices over two waves and merged through feature PR #12. Each part can be swapped:
 // the config, where the PRD folder sits, the feature PR, its sub-PRs and its issue events. Test
 // support only; nothing in the app imports it.
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { z } from 'zod';
 import { RETRO_EVENT } from '../src/inngest-client.ts';
 import { type Recorded, replayGitHub } from './github-replay.ts';
@@ -242,6 +242,23 @@ export const KNOWLEDGE_FILES = Object.freeze({
     'Why: nothing is chosen twice.',
     'Decided: @ada, 2026-09-01',
     'Source: spec.md',
+    '',
+  ].join('\n'),
+  '.omni-loop/knowledge/playbook/conventions.md': [
+    '---',
+    'form: conventions',
+    'form-version: 1',
+    'state: filled',
+    'points-to: null',
+    'evidence: []',
+    'invaded: null',
+    '---',
+    '',
+    '# Conventions',
+    '',
+    '## Naming',
+    '<!-- slot: naming · required -->',
+    '- **A migration stays the newest until it merges.** A branch overtaken by `main` re-dates it.',
     '',
   ].join('\n'),
   '.omni-loop/knowledge/adr/0001-colours-stored-per-widget.md':

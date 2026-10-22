@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakePrdOutboxStore } from '../stages/outbox/store.fake';
 import type { OutboxCounts, WaitingQuestion } from '../stages/outbox/store';
 import { MAX_DOSSIERS, waitingItems, waitingOutbox, type WaitingDb, type WaitingDeps } from './outbox';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const ME = 'user-me';
 
@@ -17,11 +17,13 @@ const waiting = (id: string, rank: WaitingQuestion['rank']): WaitingQuestion => 
 
 type Row = Record<string, unknown>;
 
-/** A fake Supabase client: `user` signed in (or nobody), and the dossiers table filtered the way the query asks. */
-function fakeDb(user: string | null, rows: Dossier[]) {
+/** A fake Supabase client: `user` signed in (or nobody), with their GitHub login when given, and the
+ * dossiers table filtered the way the query asks. */
+function fakeDb(user: string | null, rows: Dossier[], login: string | null = null) {
   const calls: string[] = [];
+  const identities = login ? [{ provider: 'github', identity_data: { user_name: login } }] : [];
   const db: WaitingDb = {
-    auth: { getUser: () => Promise.resolve({ data: { user: user ? { id: user } : null } }) },
+    auth: { getUser: () => Promise.resolve({ data: { user: user ? { id: user, identities } : null } }) },
     from(table: string) {
       calls.push(`from ${table}`);
       let result: Row[] = [...rows];
@@ -42,6 +44,11 @@ function fakeDb(user: string | null, rows: Dossier[]) {
           result.sort((a, b) => (ascending ? 1 : -1) * String(a[column]).localeCompare(String(b[column])));
           return query;
         },
+        in(column: string, values: unknown[]) {
+          calls.push(`in ${column}`);
+          result = result.filter((r) => values.includes(r[column]));
+          return query;
+        },
         limit(n: number) { calls.push(`limit ${n}`); result = result.slice(0, n); return query; },
         then(resolve: (value: { data: Row[]; error: null }) => unknown) { return Promise.resolve({ data: result, error: null }).then(resolve); },
       };
@@ -58,7 +65,13 @@ async function storeWith(counts: Record<number, OutboxCounts>, workspace = 'w-ac
   return store;
 }
 
-const deps = (db: WaitingDb, store: Awaited<ReturnType<typeof storeWith>> | null): WaitingDeps => ({ db: () => Promise.resolve(db), outbox: () => store });
+/** The GitHub login of a signed-in person, as the live route reads it (nav/viewer.ts). */
+const githubLogin = (user: { identities?: ReadonlyArray<{ provider: string; identity_data?: Record<string, unknown> }> }) => {
+  const name = user.identities?.find((i) => i.provider === 'github')?.identity_data?.user_name;
+  return typeof name === 'string' ? name : null;
+};
+
+const deps = (db: WaitingDb, store: Awaited<ReturnType<typeof storeWith>> | null): WaitingDeps => ({ db: () => Promise.resolve(db), outbox: () => store, login: githubLogin });
 
 const body = async (res: Response) => res.json() as Promise<{ items: Array<Record<string, unknown>>; unread: number; error?: string }>;
 
@@ -143,5 +156,49 @@ describe('GET /api/waiting/outbox (PRD 657, s5: read from prd_outbox, never GitH
   it('answers no items and every dossier unread when there is no outbox store', async () => {
     const { db } = fakeDb(ME, [dossier(1), dossier(2)]);
     expect(await body(await waitingOutbox(deps(db, null)))).toEqual({ items: [], unread: 2 });
+  });
+
+  describe('PRD 1794, s5: what the escalation record asks of the person', () => {
+    const asked = (id: string, logins: string[]): WaitingQuestion => ({ ...waiting(id, 'human-action'), asked: logins });
+
+    it('answers an item that asks the person\'s login, for a PRD they did not open, and not a stranger', async () => {
+      const rows = [dossier(7, { opened_by: 'someone-else' }), dossier(8, { opened_by: 'someone-else' })];
+      const store = await storeWith({
+        7: { open_questions: 1, waiting: [asked('N-PRODUCT-4', ['jdoe']), waiting('a', 'high')] },
+        8: { open_questions: 1, waiting: [waiting('b', 'high')] },
+      });
+      const delegate = await body(await waitingOutbox(deps(fakeDb(ME, rows, 'JDoe').db, store)));
+      expect(delegate.items).toEqual([
+        { id: 'd7:N-PRODUCT-4', prd: parsePrd(7), dossierId: 'd7', title: 'PRD 7 title', rank: 'human-action', question: 'Question of N-PRODUCT-4?' },
+      ]);
+      expect((await body(await waitingOutbox(deps(fakeDb(ME, rows, 'stranger').db, store)))).items).toEqual([]);
+      expect((await body(await waitingOutbox(deps(fakeDb(ME, rows).db, store)))).items).toEqual([]);
+    });
+
+    it('lists a PRD the person opened once, with all its waiting items, even when it also asks them', async () => {
+      const store = await storeWith({ 3: { open_questions: 2, waiting: [asked('a', ['jdoe']), waiting('b', 'high')] } });
+      const { items } = await body(await waitingOutbox(deps(fakeDb(ME, [dossier(3)], 'jdoe').db, store)));
+      expect(items.map((i) => i.id)).toEqual(['d3:a', 'd3:b']);
+    });
+
+    it('leaves out an asked item whose PRD has no dossier, and orders the rest by PRD with the person\'s own', async () => {
+      const rows = [dossier(5), dossier(9, { opened_by: 'someone-else' })];
+      const store = await storeWith({
+        5: { open_questions: 1, waiting: [waiting('e', 'high')] },
+        9: { open_questions: 1, waiting: [asked('x', ['jdoe'])] },
+        4: { open_questions: 1, waiting: [asked('y', ['jdoe'])] },
+      });
+      const { items } = await body(await waitingOutbox(deps(fakeDb(ME, rows, 'jdoe').db, store)));
+      expect(items.map((i) => i.id)).toEqual(['d5:e', 'd9:x']);
+    });
+
+    it('keeps the person\'s own items when what asks them cannot be read, and logs it', async () => {
+      const store = await storeWith({ 3: { open_questions: 1, waiting: [waiting('a', 'high')] } });
+      store.asking = () => Promise.reject(new Error('Supabase refused'));
+      const logged = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      const { items } = await body(await waitingOutbox(deps(fakeDb(ME, [dossier(3)], 'jdoe').db, store)));
+      expect(items.map((i) => i.id)).toEqual(['d3:a']);
+      expect(logged.mock.calls.join('\n')).toContain('waiting-outbox');
+    });
   });
 });

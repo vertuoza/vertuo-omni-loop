@@ -12,21 +12,24 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- ── The cast ──
--- Olga owns Vertuoza and Mo is a member of it (github_org vertuoza); Carl owns Acme; Sam belongs to
+-- Olga owns Initech and Mo is a member of it (github_org initech); Carl owns Acme; Sam belongs to
 -- no workspace.
 insert into auth.users (id, email, email_confirmed_at) values
-  ('00000000-0000-4000-8000-0000000859a1', 'olga@vertuoza.com', now()),
-  ('00000000-0000-4000-8000-0000000859b1', 'mo@vertuoza.com', now()),
+  ('00000000-0000-4000-8000-0000000859a1', 'olga@example.com', now()),
+  ('00000000-0000-4000-8000-0000000859b1', 'mo@example.com', now()),
   ('00000000-0000-4000-8000-0000000859c1', 'carl@acme.test', now()),
   ('00000000-0000-4000-8000-0000000859d1', 'sam@nowhere.test', now());
 insert into public.workspaces (slug, name, github_org) values ('acme-look', 'Acme', 'acme-look');
-update public.workspaces set github_org = 'vertuoza' where slug = 'vertuoza' and github_org is null;
+update public.workspaces set github_org = 'initech' where slug = 'initech' and github_org is null;
 insert into public.workspace_members (workspace_id, user_id, role)
 select w.id, m.user_id, m.role
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000859a1'::uuid, 'owner'),
-         ('vertuoza', '00000000-0000-4000-8000-0000000859b1'::uuid, 'member'),
+         ('initech', '00000000-0000-4000-8000-0000000859a1'::uuid, 'owner'),
+         ('initech', '00000000-0000-4000-8000-0000000859b1'::uuid, 'member'),
          ('acme-look', '00000000-0000-4000-8000-0000000859c1'::uuid, 'owner')
        ) as m (slug, user_id, role)
   join public.workspaces w on w.slug = m.slug
@@ -36,7 +39,7 @@ create function pg_temp.sign_in(uid text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
 $$;
 create temporary table ids (slug text primary key, id uuid);
-insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('vertuoza', 'acme-look');
+insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('initech', 'acme-look');
 grant select on ids to anon, authenticated, service_role;
 create function pg_temp.ws(slug text) returns uuid language sql as $$
   select i.id from ids i where i.slug = ws.slug;
@@ -75,11 +78,11 @@ declare
   b public.businesses;
   second public.products;
 begin
-  b := public.business_open(pg_temp.ws('vertuoza'));
+  b := public.business_open(pg_temp.ws('initech'));
   insert into made select 'first', p.id from public.products p where p.business_id = b.id;
-  second := public.product_add(pg_temp.ws('vertuoza'), 'Second product');
+  second := public.product_add(pg_temp.ws('initech'), 'Second product');
   insert into made values ('second', second.id);
-  if exists (select 1 from public.products p where p.workspace_id = pg_temp.ws('vertuoza') and p.pitch_look <> 'arcade') then
+  if exists (select 1 from public.products p where p.workspace_id = pg_temp.ws('initech') and p.pitch_look <> 'arcade') then
     raise exception 'FAIL: a product does not start in arcade';
   end if;
 end $$;
@@ -87,10 +90,10 @@ end $$;
 -- ── The kit's read: the first product's look, arcade, for a repository pointed at it ──
 do $$
 begin
-  if public.pitch_look_for_repo('vertuoza/vertuo-apps') <> 'arcade' then
+  if public.pitch_look_for_repo('initech/nimbus-apps') <> 'arcade' then
     raise exception 'FAIL: pitch_look_for_repo did not answer arcade by default';
   end if;
-  if public.pitch_look_for_repo('vertuoza/not-listed') <> 'arcade' then
+  if public.pitch_look_for_repo('initech/not-listed') <> 'arcade' then
     raise exception 'FAIL: a repository with no product did not read arcade';
   end if;
 end $$;
@@ -100,7 +103,7 @@ do $$
 declare
   changed public.products;
 begin
-  changed := public.set_pitch_look(pg_temp.ws('vertuoza'), pg_temp.made('second'), 'keynote');
+  changed := public.set_pitch_look(pg_temp.ws('initech'), pg_temp.made('second'), 'keynote');
   if changed.pitch_look <> 'keynote' or changed.id <> pg_temp.made('second') then
     raise exception 'FAIL: set_pitch_look answered %', changed;
   end if;
@@ -111,16 +114,16 @@ begin
     raise exception 'FAIL: changing one product''s look changed another''s';
   end if;
   -- A repository pointed at the second product reads keynote; one on the first still arcade.
-  perform pg_temp.move_to('vertuoza/vertuo-apps', pg_temp.made('second'));
-  if public.pitch_look_for_repo('vertuoza/vertuo-apps') <> 'keynote' then
+  perform pg_temp.move_to('initech/nimbus-apps', pg_temp.made('second'));
+  if public.pitch_look_for_repo('initech/nimbus-apps') <> 'keynote' then
     raise exception 'FAIL: pitch_look_for_repo did not read the repository''s product''s look';
   end if;
   -- Back to arcade, as any member may.
-  changed := public.set_pitch_look(pg_temp.ws('vertuoza'), pg_temp.made('second'), 'arcade');
+  changed := public.set_pitch_look(pg_temp.ws('initech'), pg_temp.made('second'), 'arcade');
   if changed.pitch_look <> 'arcade' then
     raise exception 'FAIL: set_pitch_look could not change the look back';
   end if;
-  changed := public.set_pitch_look(pg_temp.ws('vertuoza'), pg_temp.made('second'), 'keynote');
+  changed := public.set_pitch_look(pg_temp.ws('initech'), pg_temp.made('second'), 'keynote');
 end $$;
 
 -- ── A look other than arcade or keynote, and a product of another workspace, are refused ──
@@ -134,16 +137,16 @@ declare look text;
 begin
   foreach look in array array['custom', 'Keynote', ''] loop
     begin
-      perform public.set_pitch_look(pg_temp.ws('vertuoza'), pg_temp.made('first'), look);
+      perform public.set_pitch_look(pg_temp.ws('initech'), pg_temp.made('first'), look);
       raise exception 'FAIL: set_pitch_look took the look %', look;
     exception when invalid_parameter_value then null; end;
   end loop;
   begin
-    perform public.set_pitch_look(pg_temp.ws('vertuoza'), pg_temp.made('first'), null);
+    perform public.set_pitch_look(pg_temp.ws('initech'), pg_temp.made('first'), null);
     raise exception 'FAIL: set_pitch_look took a null look';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.set_pitch_look(pg_temp.ws('vertuoza'), gen_random_uuid(), 'keynote');
+    perform public.set_pitch_look(pg_temp.ws('initech'), gen_random_uuid(), 'keynote');
     raise exception 'FAIL: set_pitch_look took a product the workspace does not hold';
   exception when no_data_found then null; end;
   -- Nobody signed in writes the column directly.
@@ -154,16 +157,16 @@ end $$;
 do $$
 begin
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000859c1');
-  perform pg_temp.forbidden(format('select public.set_pitch_look(%L, %L, ''arcade'')', pg_temp.ws('vertuoza'), pg_temp.made('second')), 'the owner of another workspace');
-  perform pg_temp.forbidden('select public.pitch_look_for_repo(''vertuoza/vertuo-apps'')', 'the owner of another workspace');
-  -- Carl names his own workspace with Vertuoza's product: still nothing to change.
+  perform pg_temp.forbidden(format('select public.set_pitch_look(%L, %L, ''arcade'')', pg_temp.ws('initech'), pg_temp.made('second')), 'the owner of another workspace');
+  perform pg_temp.forbidden('select public.pitch_look_for_repo(''initech/nimbus-apps'')', 'the owner of another workspace');
+  -- Carl names his own workspace with Initech's product: still nothing to change.
   begin
     perform public.set_pitch_look(pg_temp.ws('acme-look'), pg_temp.made('second'), 'arcade');
     raise exception 'FAIL: set_pitch_look changed another workspace''s product';
   exception when no_data_found then null; end;
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000859d1');
-  perform pg_temp.forbidden(format('select public.set_pitch_look(%L, %L, ''arcade'')', pg_temp.ws('vertuoza'), pg_temp.made('second')), 'a stranger');
-  perform pg_temp.forbidden('select public.pitch_look_for_repo(''vertuoza/vertuo-apps'')', 'a stranger');
+  perform pg_temp.forbidden(format('select public.set_pitch_look(%L, %L, ''arcade'')', pg_temp.ws('initech'), pg_temp.made('second')), 'a stranger');
+  perform pg_temp.forbidden('select public.pitch_look_for_repo(''initech/nimbus-apps'')', 'a stranger');
 end $$;
 reset role;
 
@@ -171,8 +174,8 @@ reset role;
 set local role anon;
 do $$
 begin
-  perform pg_temp.forbidden(format('select public.set_pitch_look(%L, %L, ''arcade'')', pg_temp.ws('vertuoza'), pg_temp.made('second')), 'anon');
-  perform pg_temp.forbidden('select public.pitch_look_for_repo(''vertuoza/vertuo-apps'')', 'anon');
+  perform pg_temp.forbidden(format('select public.set_pitch_look(%L, %L, ''arcade'')', pg_temp.ws('initech'), pg_temp.made('second')), 'anon');
+  perform pg_temp.forbidden('select public.pitch_look_for_repo(''initech/nimbus-apps'')', 'anon');
 end $$;
 reset role;
 

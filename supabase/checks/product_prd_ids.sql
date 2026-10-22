@@ -321,7 +321,7 @@ select pg_temp.refused($$insert into public.dossiers (workspace_id, kind, produc
   values ('00000000-0000-4000-8000-000001548100', 'prd', '00000000-0000-4000-8000-0000015481e1', 7, 7, 'Two numbers', now())$$,
   '23514', 'a product PRD with a repository number was written');
 select pg_temp.refused($$insert into public.dossiers (workspace_id, kind, product_id, product_seq, prd, title, numbered_at)
-  values ('00000000-0000-4000-8000-000001548100', 'bug', '00000000-0000-4000-8000-0000015481e1', 7, null, 'A bug', now())$$,
+  values ('00000000-0000-4000-8000-000001548100', 'visual', '00000000-0000-4000-8000-0000015481e1', 7, null, 'A visual fix', now())$$,
   '23514', 'a product dossier of another kind was written');
 select pg_temp.refused($$insert into public.dossiers (workspace_id, kind, product_id, product_seq, title)
   values ('00000000-0000-4000-8000-000001548100', 'prd', '00000000-0000-4000-8000-0000015481e1', 7, 'Unnumbered')$$,

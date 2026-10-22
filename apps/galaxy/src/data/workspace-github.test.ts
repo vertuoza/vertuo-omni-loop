@@ -15,12 +15,12 @@ describe('memberGithub — the workspaces a person belongs to, as GitHub knows t
   it('gives each of their workspaces, by slug, with its org and installation', async () => {
     expect(await memberGithub(as(PEOPLE.both), PEOPLE.both.id)).toEqual([
       { slug: 'acme', github_org: 'acme', github_installation_id: 91002 },
-      { slug: 'vertuoza', github_org: 'vertuoza', github_installation_id: 91001 },
+      { slug: 'vertuoza', github_org: 'demo-org', github_installation_id: 91001 },
     ]);
   });
 
   it('gives only their own workspaces, and none to someone in none', async () => {
-    expect(await memberGithub(as(PEOPLE.ada), PEOPLE.ada.id)).toEqual([{ slug: 'vertuoza', github_org: 'vertuoza', github_installation_id: 91001 }]);
+    expect(await memberGithub(as(PEOPLE.ada), PEOPLE.ada.id)).toEqual([{ slug: 'vertuoza', github_org: 'demo-org', github_installation_id: 91001 }]);
     expect(await memberGithub(as(PEOPLE.eve), PEOPLE.eve.id)).toEqual([]);
   });
 
@@ -28,7 +28,7 @@ describe('memberGithub — the workspaces a person belongs to, as GitHub knows t
     const seed = twoWorkspaces();
     seed.workspaces = present(seed.workspaces, 'the workspaces').map((w) => (w.slug === 'vertuoza' ? { ...w, github_installation_id: null } : w));
     const db = fakeGalaxyDb(seed, Object.values(PEOPLE)).client(PEOPLE.ada) as unknown as SupabaseClient<Database>;
-    expect(await memberGithub(db, PEOPLE.ada.id)).toEqual([{ slug: 'vertuoza', github_org: 'vertuoza', github_installation_id: null }]);
+    expect(await memberGithub(db, PEOPLE.ada.id)).toEqual([{ slug: 'vertuoza', github_org: 'demo-org', github_installation_id: null }]);
   });
 
   it('says so when the workspaces cannot be read', async () => {

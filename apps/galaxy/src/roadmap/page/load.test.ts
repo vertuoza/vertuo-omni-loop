@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { parseIssue, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import type { RoadmapRecordRead } from '../../dossier/page/RoadmapRecord';
 import type { RoadmapHumanWorkRow, RoadmapPrdRow, RoadmapRow } from '../store';
 import { loadRoadmapPage, productOf, roadmapIdOf, type RoadmapPageReads } from './load';
 
@@ -36,8 +37,12 @@ function reads(over: Partial<RoadmapPageReads> = {}): RoadmapPageReads {
       roadmap_id: ID, position: 1, row_id: 'p1', category: 'local', need: 'Docker runs', check_with: 'base:docker', fix_with: null,
       blocks_all: true, blocks: [], who: 'check', repos: [], card: null, state: 'waits', detail: null,
     }] : []),
-    products: () => Promise.resolve([{ id: 'p-1', name: 'Crew' }]),
+    products: () => Promise.resolve([{ id: 'p-1', name: 'Crew', key: 'crew' }]),
+    seqs: () => Promise.resolve(new Map()),
+    roadmapOfDossier: () => Promise.resolve(null),
+    record: () => Promise.resolve(null),
     humanWork: (id) => Promise.resolve(id === ID ? [work(ID, 'outbox:881/s1-01', 'dev-ops', 'open'), work(ID, 'park:881', 'business', 'done')] : []),
+    shipped: () => Promise.resolve(new Map()),
     ...over,
   };
 }
@@ -118,6 +123,41 @@ describe('loadRoadmapPage', () => {
   });
 });
 
+// Issue #2258: the rows are as the last `omni roadmap push` left them, and a person's merge after the
+// drive stopped is never pushed. The PRD's shipped stage, which the app records from the merge itself,
+// reads it as merged all the same.
+describe('a PRD merged after the last push (#2258)', () => {
+  const MERGED_AT = '2026-10-19T14:14:59Z';
+  const pushed = (state: RoadmapPrdRow['state']): RoadmapPrdRow => ({ ...prd(ID, state), started_at: '2026-10-18T09:00:00Z' });
+  const shippedRead = vi.fn<RoadmapPageReads['shipped']>(() => Promise.resolve(new Map([[parsePrd(881), MERGED_AT]])));
+  const stale = (state: RoadmapPrdRow['state'], shipped = shippedRead) => reads({ prds: () => Promise.resolve([pushed(state)]), shipped });
+
+  it('reads a PRD pushed as waiting for merge as merged once the app recorded it shipped, ended at its merge', async () => {
+    const view = await loadRoadmapPage(stale('ready'), { id: ID, product: null }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    expect(view.roadmap.gantt.rows.map((r) => [r.state, r.waitsOn])).toEqual([['merged', null]]);
+    expect(view.roadmap.gantt.median).toBe(Date.parse(MERGED_AT) - Date.parse('2026-10-18T09:00:00Z'));
+    expect(shippedRead).toHaveBeenCalledWith(OURS, 'acme/widgets', [parsePrd(881)]);
+  });
+
+  it('counts it merged in the list, with nothing left waiting on a merge', async () => {
+    const view = await loadRoadmapPage(stale('ready'), { id: null, product: null }, NOW);
+    expect(view.kind === 'list' ? view.roadmaps.filter((r) => r.id === ID).map((r) => [r.merged, r.ready, r.total]) : view.kind).toEqual([[1, 0, 1]]);
+  });
+
+  it('leaves a PRD closed unmerged as it was pushed', async () => {
+    const view = await loadRoadmapPage(stale('closed'), { id: ID, product: null }, NOW);
+    expect(view.kind === 'roadmap' ? view.roadmap.gantt.rows.map((r) => r.state) : view.kind).toEqual(['closed']);
+  });
+
+  it('keeps the pushed rows when the stages cannot be read, and logs it', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const view = await loadRoadmapPage(stale('ready', vi.fn(() => Promise.reject(new Error('down')))), { id: ID, product: null }, NOW);
+    expect(view.kind === 'roadmap' ? view.roadmap.gantt.rows.map((r) => r.state) : view.kind).toEqual(['ready']);
+    expect(logged).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('the path\'s and the query\'s ids', () => {
   it('reads a roadmap\'s id, and a product\'s, only as an id', () => {
     expect(roadmapIdOf(ID.toUpperCase())).toBe(ID);
@@ -125,5 +165,77 @@ describe('the path\'s and the query\'s ids', () => {
     expect(productOf(ID)).toBe(ID);
     expect(productOf('x')).toBeNull();
     expect(productOf(null)).toBeNull();
+  });
+});
+
+describe('a roadmap born on the server (PRD 2011, s3)', () => {
+  const DOSSIER = '00000000-0000-4000-8000-0000000000e1';
+  const PRODUCT_ROW: RoadmapRow = { ...roadmap(ID, OURS, 'p-1'), repo: null, number: null, dossier_id: DOSSIER };
+  const RECORD: RoadmapRecordRead = {
+    dossier: DOSSIER, approval: null, voids: [], asked: [], text: '# Mobile',
+    versions: [{ id: 'd1', kind: 'roadmap', bytes: 8, source: 'kit', created_at: '2026-10-15T08:00:00Z' }],
+  };
+  const MOBILE = { id: 'p-1', name: 'Mobile', key: 'mobile' };
+  const product = (over: Partial<RoadmapPageReads> = {}) => reads({
+    roadmaps: () => Promise.resolve([PRODUCT_ROW]),
+    roadmap: (id) => Promise.resolve(id === ID ? PRODUCT_ROW : null),
+    roadmapOfDossier: (id) => Promise.resolve(id === DOSSIER ? PRODUCT_ROW : null),
+    products: () => Promise.resolve([MOBILE]),
+    seqs: () => Promise.resolve(new Map([[DOSSIER, 3]])),
+    record: () => Promise.resolve(RECORD),
+    ...over,
+  });
+
+  it('lists it with its product id, `mobile-R3`, and its product', async () => {
+    const view = await loadRoadmapPage(product(), { id: null, product: null }, NOW);
+    expect(view.kind === 'list' ? view.roadmaps.map((r) => [r.ref, r.product, r.repo, r.number]) : view.kind).toEqual([['mobile-R3', 'Mobile', null, null]]);
+  });
+
+  it('opens it with its approval waiting, its status held, a Versions tab counting its versions and no issue', async () => {
+    const view = await loadRoadmapPage(product(), { id: ID, product: null, me: 'u-ada' }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    const { roadmap: opened } = view;
+    expect(opened.issueUrl).toBeNull();
+    expect(opened.record).toMatchObject({ status: 'held', count: 1, approval: { state: 'waiting', canApprove: true } });
+    expect(opened.tabs.map((t) => [t.label, t.badge])).toEqual([['Overview', null], ['Prerequisites', 1], ['Versions', 1]]);
+  });
+
+  it('opens on its dossier\'s id too, which the approval route answers with', async () => {
+    const view = await loadRoadmapPage(product(), { id: DOSSIER, product: null }, NOW);
+    expect(view.kind === 'roadmap' ? view.roadmap.id : view.kind).toBe(ID);
+  });
+
+  it('shows the version asked for under the Versions tab, and reads versions it cannot read as such', async () => {
+    const view = await loadRoadmapPage(product(), { id: ID, product: null, tab: 'versions', version: { part: 'roadmap', version: 1 } }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    expect(view.roadmap.tab).toBe('versions');
+    expect(view.roadmap.record?.shown).toEqual({ label: 'Document', number: 1, text: '# Mobile' });
+    const down = await loadRoadmapPage(product({ record: () => Promise.resolve(null) }), { id: ID, product: null, tab: 'versions' }, NOW);
+    if (down.kind !== 'roadmap') throw new Error(down.kind);
+    expect(down.roadmap.record).toMatchObject({ parts: null, shown: null, approval: { state: 'unread', canApprove: false } });
+  });
+
+  it('offers no Mark as done: it has no issue to comment on', async () => {
+    const person = product({ prerequisites: () => Promise.resolve([{
+      roadmap_id: ID, position: 1, row_id: 'p3', category: 'permissions', need: 'the preview has its secret', check_with: null, fix_with: null,
+      blocks_all: false, blocks: [], who: 'person', repos: [], card: null, state: 'waits', detail: null,
+    }]) });
+    const view = await loadRoadmapPage(person, { id: ID, product: null, tab: 'prerequisites', tickable: true }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    expect(view.roadmap.prerequisites.groups[0]?.rows[0]?.tickable).toBe(false);
+  });
+
+  it('keeps a roadmap born in git on two tabs, Versions asked for or not', async () => {
+    const view = await loadRoadmapPage(reads(), { id: ID, product: null, tab: 'versions' }, NOW);
+    if (view.kind !== 'roadmap') throw new Error(view.kind);
+    expect([view.roadmap.tab, view.roadmap.record, view.roadmap.tabs.map((t) => t.label)]).toEqual(['overview', null, ['Overview', 'Prerequisites']]);
+  });
+
+  it('names no id when its product has no key, or when its number could not be read', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const keyless = await loadRoadmapPage(product({ products: () => Promise.resolve([{ ...MOBILE, key: null }]) }), { id: null, product: null }, NOW);
+    expect(keyless.kind === 'list' ? keyless.roadmaps.map((r) => r.ref) : keyless.kind).toEqual([null]);
+    const down = await loadRoadmapPage(product({ seqs: () => Promise.reject(new Error('down')) }), { id: null, product: null }, NOW);
+    expect(down.kind === 'list' ? down.roadmaps.map((r) => r.ref) : down.kind).toEqual([null]);
   });
 });

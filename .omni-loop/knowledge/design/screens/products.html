@@ -5,167 +5,152 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Products mockup</title>
 <style>
-  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). Faces named first,
-     served by the app; here they fall back to system faces. */
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts): the app pages' own
+     look, one dark theme. Faces named first, served by the app; here they fall back to system faces. */
   :root {
+    color-scheme: dark;
     --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
     --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
-    --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-yellow: #ff3ea5; --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
     --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
     --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-    --ask-px: "Press Start 2P", ui-monospace, monospace;
+    --note: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: #03020f; color: var(--ask-ink); font: 17px/1.6 var(--ask-body); }
-  .note { max-width: 1180px; margin: 0 auto; padding: 24px 16px 8px; font: 14px/1.55 system-ui, sans-serif; color: var(--ask-muted); }
-  .note h1 { margin: 0 0 6px; font-size: 20px; color: var(--ask-ink); }
-  .note p { margin: 0 0 6px; max-width: 80ch; }
-  .note b { color: var(--ask-ink); }
-  .variant { max-width: 1180px; margin: 28px auto 0; padding: 0 16px; }
-  .variant > h2 { margin: 0 0 4px; font: 700 15px/1.3 system-ui, sans-serif; color: var(--ask-plasma); letter-spacing: .02em; }
-  .variant > p { margin: 0 0 10px; font: 14px/1.5 system-ui, sans-serif; color: var(--ask-muted); max-width: 90ch; }
-  .variant > p.words { font-size: 13px; color: #6f75b8; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+  .note { font: 14px/1.55 var(--note); color: var(--ask-muted); display: grid; gap: 6px; }
+  .note h1 { margin: 0; font-size: 22px; color: var(--ask-ink); }
+  .note h2 { margin: 12px 0 0; font-size: 18px; color: var(--ask-plasma); letter-spacing: .02em; }
+  .note h3 { margin: 6px 0 0; font-size: 15px; color: var(--ask-ink); }
+  .note p { margin: 0; max-width: 90ch; }
+  .note b, .note code { color: var(--ask-ink); }
+  .note code { font: 13px var(--ask-mono); }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  @media (max-width: 980px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .side { display: grid; gap: 8px; min-width: 0; }
+  .side > h4 { margin: 0; font: 700 12px/1 var(--note); letter-spacing: .12em; text-transform: uppercase; color: var(--ask-muted); }
+  .side > h4.after { color: var(--ask-plasma); }
+  .cap { margin: 0; font: 13px/1.5 var(--note); color: var(--ask-muted); }
+  .cap b { color: var(--ask-ink); }
 
-  /* The page area, as the app draws it under its top bar (the app shell is its own shared screen). */
-  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; }
-  .bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong);
-    font: 600 15px/1.3 var(--ask-body); color: var(--ask-muted); }
+  /* Functional part: exchanges and the row. */
+  pre { margin: 0; padding: 14px 16px; overflow-x: auto; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 10px;
+    font: 13px/1.6 var(--ask-mono); color: var(--ask-ink); }
+  pre .p { color: var(--ask-muted); }
+  pre .r { color: var(--ask-red); }
+  pre .g { color: var(--ask-green); }
+  pre .y { color: var(--ask-plasma); }
+  table.facts { width: 100%; border-collapse: collapse; font: 14px/1.5 var(--note); }
+  table.facts th, table.facts td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--ask-line); vertical-align: top; }
+  table.facts th { color: var(--ask-muted); font-weight: 600; }
+  table.facts td:first-child { color: var(--ask-ink); font-weight: 600; }
+  .tbl { overflow-x: auto; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 10px; }
+
+  /* The page area under the app bar (the app shell is its own shared screen). */
+  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; min-width: 0; }
+  .bar { padding: 10px 16px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong); font: 600 14px/1.3 var(--ask-body); color: var(--ask-muted); }
   .bar b { color: var(--ask-ink); }
-  .page { padding: 24px; display: grid; gap: 20px; }
+  .col { padding: 20px; display: grid; gap: 22px; min-width: 0; }
   a { color: var(--ask-cyan); text-underline-offset: 3px; }
   ul { list-style: none; margin: 0; padding: 0; }
+  .muted { color: var(--ask-muted); }
 
-  /* ---------- today: products.css as written ---------- */
-  .t-head { padding: 22px 24px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
-  .t-head h1 { margin: 0 0 8px; font-size: 24px; }
-  .t-head p { margin: 0; color: var(--ask-muted); }
-  .t-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
-  .t-card { display: grid; grid-template-rows: auto 1fr auto; gap: 10px; height: 100%; padding: 14px 16px; background: var(--ask-surface);
-    border: 1px solid var(--ask-line-strong); border-radius: 12px; color: var(--ask-ink); text-decoration: none; min-width: 0; }
-  .t-card strong { font-size: 18px; color: var(--ask-cyan); }
-  .t-repos { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; font-size: 14px; }
-  .t-chip { padding: 2px 8px; border: 1px solid var(--ask-line-strong); border-radius: 999px; overflow-wrap: anywhere; color: var(--ask-cyan); }
-  .t-chip em { font-style: normal; color: var(--ask-muted); }
-  .t-counts { display: flex; gap: 16px; font-size: 14px; color: var(--ask-muted); }
-  .t-fold { position: relative; height: 380px; overflow: hidden; }
-  .t-fold::after { content: ''; position: absolute; inset: auto 0 0 0; height: 40px; background: linear-gradient(transparent, var(--ask-ground)); }
+  /* ask.css: card, buttons. */
+  .ask-card { display: grid; gap: 12px; justify-items: start; padding: 22px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .ask-card h1 { margin: 0; font-size: 22px; line-height: 1.3; }
+  .ask-card p { margin: 0; }
+  .ask-button { font: 700 16px/1 var(--ask-body); color: var(--ask-on-plasma); background: var(--ask-plasma); border: 0; border-radius: 8px; padding: 13px 20px; white-space: nowrap; }
+  .ask-button.quiet { color: var(--ask-ink); background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); }
+  .ask-button.small { padding: 9px 14px; font-size: 15px; }
 
-  /* ---------- shared pieces of the variations ---------- */
-  .v-intro h1 { margin: 0; font-size: 26px; line-height: 1.2; }
-  .v-intro p { margin: 4px 0 0; color: var(--ask-muted); font-size: 16px; }
-  .owner { font: 500 13px/1 var(--ask-mono); color: var(--ask-muted); }
-  .chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 2px 9px; border: 1px solid var(--ask-line-strong); border-radius: 6px;
-    font: 500 13px/1.6 var(--ask-mono); color: var(--ask-ink); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-  .shared { font: 700 10px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-cyan); padding: 2px 5px;
-    border: 1px solid var(--ask-cyan); border-radius: 4px; }
-  .stat { display: grid; gap: 0; }
-  .stat b { font-size: 22px; line-height: 1.1; }
-  .stat span { font-size: 13px; color: var(--ask-muted); }
-  .wait b { color: var(--ask-plasma); }
-  .zero b { color: var(--ask-muted); }
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font: 700 15px/1 var(--ask-body);
-    background: var(--ask-plasma); color: var(--ask-on-plasma); text-decoration: none; border: 0; white-space: nowrap; }
-  .ghost { display: inline-flex; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 14px/1 var(--ask-body);
-    color: var(--ask-ink); text-decoration: none; white-space: nowrap; }
-  .unlinked { display: grid; gap: 8px; }
-  .unlinked h2 { margin: 0; font-size: 16px; }
-  .unlinked li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 8px 14px;
-    border: 1px dashed var(--ask-line-strong); border-radius: 10px; font: 500 14px/1.4 var(--ask-mono); }
-  .unlinked li a { font: 600 14px/1 var(--ask-body); }
+  /* products.css */
+  .products-head h1 { margin: 0; font-size: 26px; line-height: 1.2; }
+  .products-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .products-sum > div { display: flex; flex-direction: column-reverse; justify-content: flex-end; padding: 12px 14px; border-left: 1px solid var(--ask-line); min-width: 0; }
+  .products-sum > div:first-child { border-left: 0; }
+  .products-sum dt { font-size: 13px; color: var(--ask-muted); }
+  .products-sum dd { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .products-sum > div[data-waiting] dd { color: var(--ask-plasma); }
+  .products-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .products-tile { display: grid; grid-template-rows: auto auto 1fr auto; gap: 8px; min-height: 160px; padding: 14px; background: var(--ask-surface);
+    border: 1px solid var(--ask-line-strong); border-left: 4px solid var(--ask-line-strong); border-radius: 10px; min-width: 0; }
+  .products-tile[data-waiting] { border-left-color: var(--ask-plasma); }
+  .products-tile-name { font-size: 19px; font-weight: 700; color: var(--ask-ink); text-decoration: none; }
+  .products-tile-line { font-size: 14px; color: var(--ask-muted); }
+  .products-tile-repos { margin: 0; font: 500 13px/1.6 var(--ask-mono); overflow-wrap: anywhere; }
+  .products-tile-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+  .products-waiting { color: var(--ask-muted); }
+  .products-waiting[data-waiting] { color: var(--ask-plasma); font-weight: 700; }
+  .products-open { display: inline-flex; padding: 6px 12px; border: 1px solid var(--ask-line-strong); border-radius: 8px; font-weight: 700; color: var(--ask-ink); text-decoration: none; }
+  .products-open-first { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .products-shared { margin-left: 4px; padding: 1px 4px; border: 1px solid var(--ask-cyan); border-radius: 4px; font: 700 10px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-cyan); }
+  .products-unlinked { display: grid; gap: 10px; }
+  .products-unlinked h2 { margin: 0; font-size: 16px; }
+  .products-repo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding: 10px 16px; border: 1px dashed var(--ask-line-strong); border-radius: 12px; }
+  /* After: Archived (n), as Removed (n) of repositories.css (PRD 2188). */
+  .products-archived summary { cursor: pointer; color: var(--ask-muted); }
+  .products-archived ul { margin: 10px 0 0; display: grid; gap: 8px; }
+  .products-archived-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; }
+  .products-archived-row strong { overflow-wrap: anywhere; }
 
-  /* ---------- A: cards that fit their content ---------- */
-  .a-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: start; }
-  .a-card { display: grid; gap: 14px; padding: 18px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; min-width: 0; }
-  .a-card.hot { border-color: var(--ask-plasma); }
-  .a-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-  .a-top strong { font-size: 20px; }
-  .a-stats { display: flex; gap: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--ask-line); }
-  .a-repos { display: flex; flex-wrap: wrap; gap: 6px; }
-  .a-more { font: 600 13px/1.6 var(--ask-body); color: var(--ask-cyan); align-self: center; }
-  .a-empty { font-size: 14px; color: var(--ask-muted); }
+  /* The product home: head card, section tabs, the Ledger (product-home.css, section-tabs.css). */
+  .products-back { font-size: 14px; color: var(--ask-muted); }
+  .head-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; width: 100%; }
+  .section-tabs ul { display: flex; flex-wrap: wrap; gap: 4px 18px; border-bottom: 1.5px solid var(--ask-line-strong); }
+  .section-tab { display: inline-flex; margin-bottom: -1.5px; padding: 8px 2px; font: 700 14px/1.2 var(--ask-body); color: var(--ask-muted); text-decoration: none; border-bottom: 3px solid transparent; }
+  .section-tab[aria-current="page"] { color: var(--ask-plasma); border-bottom-color: var(--ask-plasma); }
+  .product-home-summary { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--ask-muted); font-size: 14px; }
+  .product-home-summary b { font: 700 22px/1 var(--ask-mono); margin-right: 6px; }
+  .product-home-summary b[data-tone="building"] { color: var(--ask-green); }
+  .product-home-summary b[data-tone="waiting"] { color: var(--ask-yellow); }
+  .product-home-summary b[data-tone="drifted"] { color: var(--ask-red); }
+  .lane { display: grid; gap: 10px; }
+  .lane h2 { margin: 0; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ask-muted); }
+  .product-home-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px;
+    background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  .product-home-n { display: inline-grid; place-items: center; min-width: 44px; height: 44px; padding: 0 6px; border: 1.5px solid var(--ask-line-strong); border-radius: 999px; font: 700 13px/1 var(--ask-mono); }
+  .product-home-title { font-weight: 700; color: var(--ask-ink); text-decoration: none; overflow-wrap: anywhere; }
+  .product-home-state { font-size: 13px; font-weight: 700; color: var(--ask-yellow); white-space: nowrap; }
+  /* After: the archived banner, above the head card. */
+  .archived-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 18px;
+    background: var(--ask-plasma-soft); border: 1px solid var(--ask-plasma); border-radius: 12px; }
+  .archived-banner p { margin: 0; font-weight: 700; }
 
-  /* ---------- B: one row per product ---------- */
-  .b-table { display: grid; border: 1px solid var(--ask-line-strong); border-radius: 12px; overflow: hidden; background: var(--ask-surface); }
-  .b-row { display: grid; grid-template-columns: minmax(150px, 1.1fr) minmax(0, 2.6fr) 80px 120px 96px; gap: 16px; align-items: center;
-    padding: 14px 18px; border-top: 1px solid var(--ask-line); min-width: 0; }
-  .b-row:first-child { border-top: 0; }
-  .b-headrow { font: 700 12px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); padding-block: 10px; }
-  .b-name { font-size: 18px; font-weight: 700; }
-  .b-repos { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
-  .b-num { font-size: 18px; font-weight: 700; text-align: right; }
-  .b-num.w { color: var(--ask-plasma); }
-  .b-num.z { color: var(--ask-muted); font-weight: 400; }
-  .b-go { justify-self: end; }
-  @media (max-width: 760px) { .b-row { grid-template-columns: 1fr auto; } .b-repos, .b-headrow { display: none; } }
-
-  /* ---------- C: what waits on you first ---------- */
-  .c-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding: 16px 20px;
-    border-radius: 12px; background: var(--ask-plasma-soft); border: 1px solid var(--ask-plasma); }
-  .c-strip p { margin: 0; font-size: 18px; }
-  .c-strip b { color: var(--ask-plasma); }
-  .c-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; align-items: start; }
-  .c-card { display: grid; gap: 10px; padding: 16px 18px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
-  .c-card strong { font-size: 19px; }
-  .c-badge { justify-self: start; padding: 4px 10px; border-radius: 999px; font: 700 13px/1 var(--ask-body); background: var(--ask-plasma); color: var(--ask-on-plasma); }
-  .c-quiet { justify-self: start; font-size: 13px; color: var(--ask-muted); }
-  .c-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; color: var(--ask-muted); }
-  details.c-repos summary { cursor: pointer; font: 600 14px/1.4 var(--ask-body); color: var(--ask-cyan); }
-  details.c-repos ul { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-
-  /* ---------- D: a summary, then compact tiles ---------- */
-  .d-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-sunk); }
-  .d-sum .stat { padding: 14px 18px; border-left: 1px solid var(--ask-line); }
-  .d-sum .stat:first-child { border-left: 0; }
-  .d-sum .stat b { font-size: 28px; }
-  @media (max-width: 640px) { .d-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  .d-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-  .d-tile { display: grid; grid-template-rows: auto auto 1fr auto; gap: 8px; padding: 16px; background: var(--ask-surface);
-    border: 1px solid var(--ask-line-strong); border-left: 4px solid var(--ask-line-strong); border-radius: 10px; min-height: 168px; }
-  .d-tile.hot { border-left-color: var(--ask-plasma); }
-  .d-tile strong { font-size: 19px; }
-  .d-line { font-size: 14px; color: var(--ask-muted); }
-  .d-repolist { margin: 0; font: 500 13px/1.6 var(--ask-mono); color: var(--ask-ink); overflow-wrap: anywhere; }
-  .d-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
-  .d-foot .w { color: var(--ask-plasma); font-weight: 700; }
-
-  /* ---------- E: one product per band, repositories in columns ---------- */
-  .e-band { display: grid; grid-template-columns: 240px minmax(0, 1fr); border: 1px solid var(--ask-line-strong); border-radius: 12px; overflow: hidden; background: var(--ask-surface); }
-  .e-side { display: grid; align-content: start; gap: 12px; padding: 18px; background: var(--ask-sunk); border-right: 1px solid var(--ask-line); }
-  .e-side strong { font-size: 20px; }
-  .e-side .row { display: flex; gap: 20px; }
-  .e-side > a { justify-self: start; }
-  .e-main { padding: 16px 18px; min-width: 0; }
-  .e-main ul { columns: 3 210px; column-gap: 18px; font: 500 13.5px/2 var(--ask-mono); }
-  .e-main li { break-inside: avoid; display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .e-main li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .e-empty { font-size: 14px; color: var(--ask-muted); }
-  .e-stack { display: grid; gap: 12px; }
-  @media (max-width: 760px) { .e-band { grid-template-columns: 1fr; } .e-side { border-right: 0; border-bottom: 1px solid var(--ask-line); } }
+  /* The browser's own confirm, drawn outside the marked screen: its words are the spec's. */
+  .confirm { max-width: 460px; padding: 18px 20px; background: #2b2b33; color: #f2f2f5; border-radius: 12px; font: 14px/1.5 var(--note);
+    box-shadow: 0 12px 40px rgb(0 0 0 / .5); display: grid; gap: 12px; }
+  .confirm .host { font-weight: 700; }
+  .confirm .btns { display: flex; justify-content: flex-end; gap: 8px; }
+  .confirm .btns span { padding: 5px 14px; border-radius: 6px; background: #4a4a55; }
+  .confirm .btns span.ok { background: #3b82f6; color: #fff; }
 </style>
 </head>
 <body>
-<div class="note"><p><b>Products at /app/products, pick D of #1598.</b> Drawn from the source (apps/galaxy/src/products/), with the app shell outside the marked screen. The figures are examples; the repositories are the workspace's of 2026-10-11.</p></div>
-<section class="variant">
-  <h2>D · A summary, then even tiles</h2>
-  <p>Four totals across the top, then tiles of one fixed height: name, one line of figures, the repositories as a plain mono list cut at three lines, and a foot with what waits and Open. A tile waiting on you gets a yellow left edge. Calm and even, the grid never stretches to one long list.</p>
-  <div class="frame"><div class="bar">Work › <b>Products</b></div>
-    <div class="page" data-screen="D">
-      <header class="v-intro"><h1>Products</h1></header>
-      <div class="d-sum" data-content><span class="stat"><b>4</b><span>products</span></span><span class="stat"><b>15</b><span>repositories</span></span><span class="stat"><b>66</b><span>PRDs</span></span><span class="stat wait"><b>5</b><span>waiting on you</span></span></div>
-      <ul class="d-tiles">
-        <li class="d-tile hot"><strong>Vertuoza</strong><span class="d-line" data-content>23 PRDs · 13 repositories</span>
-          <p class="d-repolist">pdf-builder · teamleaddashboard · vertuo-ai-domain · vertuo-apps · vertuo-automation-plan · vertuo-backend-php · +7</p>
-          <span class="d-foot"><span class="w" data-content>3 waiting on you</span><a class="btn" href="#" data-primary>Open</a></span></li>
-        <li class="d-tile hot"><strong>omni-loop</strong><span class="d-line" data-content>41 PRDs · 1 repository</span>
-          <p class="d-repolist">vertuo-omni-loop</p><span class="d-foot"><span class="w" data-content>2 waiting on you</span><a class="ghost" href="#">Open</a></span></li>
-        <li class="d-tile"><strong>Vertuo UX</strong><span class="d-line" data-content>2 PRDs · 1 repository</span>
-          <p class="d-repolist">vertuo-ux-research-domain <span class="shared">shared</span></p><span class="d-foot"><span style="color:var(--ask-muted)">Nothing waiting</span><a class="ghost" href="#">Open</a></span></li>
-        <li class="d-tile"><strong>Vertuoza ERP</strong><span class="d-line">No repository yet</span><p class="d-repolist"></p>
-          <span class="d-foot"><a href="#">Add a repository</a><a class="ghost" href="#">Open</a></span></li>
-      </ul>
-      <section class="unlinked"><h2>Repositories in no product</h2><ul data-content><li>vertuoza/vertuo-docs <a href="#">Add to a product</a></li></ul></section>
+<div class="wrap">
+<header class="note"><p><b>Products at /app/products, read by an owner</b> (pick D of #1598, Archived (n) of PRD 2232). The app shell sits outside the marked screen. Archived (n) is closed by default and drawn open here; a member sees no Archived line. The figures are examples.</p></header>
+<div class="frame"><div class="bar">Work › <b>Products</b></div>
+      <div class="col" data-screen="products">
+        <header class="products-head"><h1>Products</h1></header>
+        <dl class="products-sum" data-content><div><dt>products</dt><dd>3</dd></div><div><dt>repositories</dt><dd>14</dd></div><div><dt>PRDs</dt><dd>25</dd></div><div data-waiting><dt>waiting on you</dt><dd>3</dd></div></dl>
+        <ul class="products-tiles">
+          <li class="products-tile" data-waiting><a class="products-tile-name" href="#">Vertuoza</a><span class="products-tile-line" data-content>23 PRDs · 13 repositories</span>
+            <p class="products-tile-repos" data-content>pdf-builder · nimbus-apps · nimbus-backend-php · +10</p>
+            <span class="products-tile-foot"><span class="products-waiting" data-waiting data-content>3 waiting on you</span><a class="products-open products-open-first" href="#" data-primary>Open</a></span></li>
+          <li class="products-tile"><a class="products-tile-name" href="#">Vertuo UX</a><span class="products-tile-line" data-content>2 PRDs · 1 repository</span>
+            <p class="products-tile-repos" data-content>nimbus-ux-research-domain <span class="products-shared">shared</span></p>
+            <span class="products-tile-foot"><span class="products-waiting">Nothing waiting</span><a class="products-open" href="#">Open</a></span></li>
+          <li class="products-tile"><a class="products-tile-name" href="#">Vertuoza ERP</a><span class="products-tile-line" data-content>0 PRDs · No repository yet</span>
+            <p class="products-tile-repos"></p>
+            <span class="products-tile-foot"><a href="#">Add a repository</a><a class="products-open" href="#">Open</a></span></li>
+        </ul>
+        <details class="products-archived" open>
+          <summary>Archived (1)</summary>
+          <ul><li class="products-archived-row"><strong>omni-loop</strong><span class="muted" data-content>archived 2 days ago by pierrederval</span><button type="button" class="ask-button quiet small" aria-label="Restore omni-loop">Restore</button></li></ul>
+        </details>
+        <section class="products-unlinked"><h2>Repositories in no product</h2><ul data-content><li class="products-repo">demo-org/nimbus-docs <a href="#">Add to a product</a></li></ul></section>
+      </div>
     </div>
-  </div>
-</section>
+</div>
 </body>
 </html>

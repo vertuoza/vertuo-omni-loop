@@ -1,11 +1,13 @@
 import type { ApproverState } from '../products/approvers';
 import type { Changed, RepositoriesTabPort } from './repositories-tab.client';
-import type { Knowledge, Link, LinkWrite } from './repositories-tab.contract';
+import { isRole } from 'omni-loop/kit/lib/layers/layers.ts';
+import { ROLES, type Hold, type Knowledge, type Link, type LinkWrite, type PlanRepository } from './repositories-tab.contract';
 
 // The Repositories & approvers tab's links as pure data (PRD 1364 s11): the list's state through its
-// actions, a link's fields as its editor holds them (a draft), the write a draft sends, and the demo's
-// port, which keeps product_repository_link()'s and product_repository_unlink()'s rules in memory so
-// the tab can be tried with no database.
+// actions, a link's fields as its editor holds them (a draft), the write a draft sends, the plan
+// repository's state through its actions, what holds the plan repository on the ladder, and the demo's
+// port, which keeps product_repository_link()'s, product_repository_unlink()'s and
+// product_plan_repository_set()'s rules in memory so the tab can be tried with no database.
 
 export interface LinksForm {
   links: Link[];
@@ -52,6 +54,34 @@ export function linksReducer(form: LinksForm, action: LinksAction): LinksForm {
   }
 }
 
+/** The plan repository as last saved, and the last call's state. */
+export interface PlanForm {
+  plan: PlanRepository | null;
+  /** A call is on its way: the picker waits. */
+  busy: boolean;
+  /** What the last call was refused with, or null. */
+  message: string | null;
+}
+
+export type PlanAction = { type: 'busy' } | { type: 'saved'; plan: PlanRepository | null } | { type: 'refused'; message: string };
+
+export const initialPlanForm = (plan: PlanRepository | null): PlanForm => ({ plan, busy: false, message: null });
+
+export function planReducer(form: PlanForm, action: PlanAction): PlanForm {
+  switch (action.type) {
+    case 'busy':
+      return { ...form, busy: true, message: null };
+    case 'saved':
+      return { plan: action.plan, busy: false, message: null };
+    case 'refused':
+      return { ...form, busy: false, message: action.message };
+  }
+}
+
+/** The repositories of the product below step 5, but the plan repository itself, by name. */
+export const ladderHolds = (links: readonly Link[], plan: string): Hold[] =>
+  links.filter((l) => l.ladderStep < 5 && l.repo !== plan).map((l) => ({ name: l.repo.split('/').at(-1) ?? l.repo, why: `step ${String(l.ladderStep)}` }));
+
 /** A link's fields as its editor holds them: text where the person types, the rest as chosen. */
 export interface LinkDraft {
   role: string;
@@ -89,12 +119,21 @@ export const KNOWLEDGE_LABELS: Readonly<Record<Knowledge, string>> = {
   none: 'None',
 };
 
-const ROLE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const COMMIT = /^[0-9a-f]{40}$/;
 
+/** The note under a link whose saved role is not one of the nine (PRD 2346), or null. */
+export const roleFlag = (role: string | null): string | null => (role !== null && !isRole(role) ? `${role} is not a role: pick one` : null);
+
+/** Why product_repository_link() refuses a role: one outside the nine, unless it is the link's own saved one. */
+function roleRefusal(role: string | null, was: Link | undefined): string | null {
+  if (role === null || isRole(role) || role === was?.role) return null;
+  return `Role: ${role} is not a role: ${ROLES.slice(0, -1).join(', ')} or ${ROLES[ROLES.length - 1] ?? ''}.`;
+}
+
 /** Why product_repository_link() refuses the write's own fields, or null. */
-function fieldRefusal(write: LinkWrite): string | null {
-  if (write.role !== null && !(ROLE.test(write.role) && write.role.length <= 40)) return `Role: ${write.role} is not one kebab-case word.`;
+function fieldRefusal(write: LinkWrite, was: Link | undefined): string | null {
+  const role = roleRefusal(write.role, was);
+  if (role) return role;
   if (write.knowledge === 'imported' && write.readAt === null) return 'Read at: an imported knowledge base names the commit it was read at.';
   if (write.readAt !== null && !COMMIT.test(write.readAt.toLowerCase())) return `Read at: ${write.readAt} is not a 40-hex commit.`;
   return null;
@@ -107,17 +146,21 @@ function consumesRefusal(repo: string, consumes: readonly string[], links: reado
   return missing ? `Consumes: ${missing} is not in this product.` : null;
 }
 
-/** product_repository_link()'s and unlink()'s rules, and the approvers' functions, over the demo's links. */
-export function demoTabPort(initial: readonly Link[]): RepositoriesTabPort {
+/**
+ * product_repository_link()'s, unlink()'s and product_plan_repository_set()'s rules, and the approvers'
+ * functions, over the demo's links and its workspace's repositories. The demo opens no record in git: a
+ * plan repository is held by the ladder only.
+ */
+export function demoTabPort(initial: readonly Link[], repositories: readonly string[]): RepositoriesTabPort {
   let links = [...initial];
   const refuse = (message: string): Promise<Changed<never>> => Promise.resolve({ ok: false, message });
   return {
     saveLink(write) {
       const repo = write.repo.toLowerCase();
-      const refusal = fieldRefusal(write) ?? consumesRefusal(repo, write.consumes, links);
-      if (refusal) return refuse(refusal);
       const was = links.find((l) => l.repo === repo);
-      const link: Link = { ...write, repo, readAt: write.readAt?.toLowerCase() ?? null, addedBy: was?.addedBy ?? 'person' };
+      const refusal = fieldRefusal(write, was) ?? consumesRefusal(repo, write.consumes, links);
+      if (refusal) return refuse(refusal);
+      const link: Link = { ...write, repo, readAt: write.readAt?.toLowerCase() ?? null, addedBy: was?.addedBy ?? 'person', ladderStep: was?.ladderStep ?? 1 };
       links = [...links.filter((l) => l.repo !== repo), link];
       return Promise.resolve({ ok: true, link });
     },
@@ -126,6 +169,12 @@ export function demoTabPort(initial: readonly Link[]): RepositoriesTabPort {
       if (user) return refuse(`Consumes: ${user.repo} consumes ${repo}; take it out of its consumes first.`);
       links = links.filter((l) => l.repo !== repo);
       return Promise.resolve({ ok: true, repo });
+    },
+    setPlan(repo) {
+      if (repo === null) return Promise.resolve({ ok: true, plan: null });
+      const slug = repo.trim().toLowerCase();
+      if (!repositories.includes(slug)) return refuse(`Repository: ${slug} is not one of this workspace's repositories.`);
+      return Promise.resolve({ ok: true, plan: { repository: slug, holds: ladderHolds(links, slug) } });
     },
     setApprover: (_member: string, state: ApproverState) => Promise.resolve({ ok: true, state }),
     removeApprover: () => Promise.resolve({ ok: true }),

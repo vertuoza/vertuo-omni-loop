@@ -6,7 +6,7 @@ import { UNREAD, type GithubSummary } from '../github/summary';
 import type { DossierRow } from '../store';
 import { DossierPage } from './DossierPage';
 import { dossierView, readPick } from './view';
-import { parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -15,7 +15,7 @@ vi.mock('server-only', () => ({}));
 // with GitHub unread. The chip's three looks are in render.test.ts, beside the stage header's.
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
-const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
+const PIERRE = { user_id: 'u-pierre', email: 'pierre@example.com', name: 'Pierre' };
 const dossier: DossierRow = {
   id: ID, workspace_id: 'w1', home_repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), title: 'PRD dossiers',
   opened_by: PIERRE.user_id, created_at: '2026-09-27T09:12:00Z', numbered_at: '2026-09-27T10:00:00Z',

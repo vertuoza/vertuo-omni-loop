@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { at, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, group } from 'omni-loop/kit/lib/narrow.ts';
 
 // What the spreads' tests share: a spread rendered as the server renders it, and the text a visitor
 // reads in it, with scripts and tags left out.

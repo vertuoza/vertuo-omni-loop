@@ -57,6 +57,9 @@ const timedOut = (error: unknown): boolean =>
 
 /** The calls whose default timeout is not the `wait` call's own. */
 export const CALL_TIMEOUT_MS = 5000;
+/** How long a knowledge pack's read may take: it carries a whole knowledge folder. */
+const PACK_TIMEOUT_MS = 30_000;
+
 /** How long one proof file's upload may take: a clip is up to 50 MB. */
 const UPLOAD_TIMEOUT_MS = 120_000;
 
@@ -481,6 +484,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * the reply. @returns {Promise<{ product: { name: string }, added: string[], changed: string[], unchanged: string[] }>} */
     importProductTargets: ({ repo, product, targets }: { repo: string; product: string; targets: unknown }) =>
       call('POST', '/api/products/import', { body: { repo, product, targets } }),
+    /** PRD 2011: the newest knowledge pack of `repo` (owner/name), or the one of commit `sha`, as the caller
+     * reads it; a 404 when the caller's workspace holds none. `../knowledge/packs/store.ts` reads the reply. */
+    readKnowledgePack: ({ repo, sha }: { repo: string; sha?: string | undefined }) =>
+      call('GET', `/api/knowledge-packs?${new URLSearchParams({ repo, ...(sha === undefined ? {} : { sha }) })}`, { timeoutMs: PACK_TIMEOUT_MS }),
     /** PRD 1364: the products `repo` (owner/name) is in; `../product/import.ts` reads the reply.
      * @returns {Promise<{ products: Array<{ name: string }> }>} */
     readProductsOf: (repo: string) => call('GET', `/api/products/which?${new URLSearchParams({ repo })}`),
@@ -512,6 +519,16 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ state: 'ok' | 'none', product: { name: string } | null, statement: { id: 'statement', text: string } | null,
      *   never: Array<{ id: string, text: string }>, latestEventId: string | null }>} */
     readConstituents: (repo: string) => call('GET', `/api/constituents?${new URLSearchParams({ repo })}`),
+    /** PRD 2268: adds or edits one Legal entry or Glossary term of the product `repo` belongs to (`product`, when
+     * the repository is in several), as the caller: the section's owner saves it, any other member proposes it.
+     * `entry` names the item an edit changes, by the id or term the reads print.
+     * @returns {Promise<{ done: 'applied' | 'proposed', id?: string, url: string, owner?: string }>} */
+    changeKnowledge: ({ repo, product, kind, action, entry, fields }: {
+      repo: string; product?: string | undefined; kind: 'legal' | 'glossary' | 'constituent'; action: 'add' | 'edit'; entry?: string | undefined; fields: Record<string, unknown>;
+    }) =>
+      call('POST', '/api/knowledge/changes', {
+        body: { repo, ...(product === undefined ? {} : { product }), kind, action, ...(entry === undefined ? {} : { entry }), fields },
+      }),
     /** PRD 1665: one of the loop's reads, `path` under `/api/loop/` (`changes`, `changes/<n>`, `comments`,
      * `issues`, `issues/<n>`) with its query (`repo` and its filters); `../loop-reads/omni.ts` reads the answer. */
     readLoop: (path: string, query: Record<string, string>) => call('GET', `/api/loop/${path}?${new URLSearchParams(query)}`),
@@ -533,6 +550,16 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** PRD 1162: one push of a roadmap (`../roadmap/push.ts` shapes it), sent as it is.
      * @returns {Promise<{ roadmapId: string, created: boolean, product: unknown, unknownProduct: string | null, note: string | null }>} */
     pushRoadmap: (body: unknown) => call('POST', '/api/roadmaps', { body }),
+    /** PRD 1798, s5: the neighbourhood of node `id` in product `key`'s knowledge graph, `depth` (1 to 3) hops, as the caller. */
+    readKnowledgeGraph: ({ key, id, depth }: { key: string; id: string; depth: number | null }) =>
+      call('GET', `/api/products/${encodeURIComponent(key)}/knowledge/graph?${new URLSearchParams(depth === null ? { id } : { id, depth: String(depth) })}`),
+    /** PRD 1798: one repository's knowledge graph at one commit (`../knowledge/graph-push.ts` builds it), sent as it is.
+     * @returns {Promise<{ repo: string, commit: string, nodes: number, edges: number, products: Array<{ key: string | null, href: string }> }>} */
+    pushKnowledgeGraph: ({ repo, commit, graph }: { repo: string; commit: string; graph: unknown }) =>
+      call('POST', '/api/knowledge/graphs', { body: { repo, commit, graph }, timeoutMs: UPLOAD_TIMEOUT_MS }),
+    /** PRD 2011: one push of a product bug record, or its check (`../bug/product.ts` shapes it), sent as it is.
+     * @returns {Promise<{ dossierId: string, bug: string, created: boolean, rows: unknown[], added: unknown[], unchanged: string[] }>} */
+    pushBug: (body: unknown) => call('POST', '/api/fixes', { body }),
     /** PRD 1246: adds an idea to `repo`'s board (owner/name), for a member of the workspace that lists
      * it. @returns {Promise<{ id: string, url: string }>} */
     addIdea: ({ repo, title, pitch, lane }: { repo: string; title: string; pitch: string; lane: string }) =>

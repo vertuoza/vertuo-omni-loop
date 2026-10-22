@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 2223 before/after</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts), as the library mockups write them. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-on-plasma: #07061c;
+    --ask-yellow: #ff3ea5; --ask-on-yellow: #07061c; --ask-cyan: #6ff0ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ask-ground); color: var(--ask-ink); font: 16px/1.55 var(--ask-body); }
+  a { color: var(--ask-cyan); }
+  .page { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 22px; }
+  h1 { margin: 0; font-size: 26px; } h2 { margin: 18px 0 0; font-size: 20px; border-top: 1px solid var(--ask-line-strong); padding-top: 16px; }
+  h3 { margin: 0 0 8px; font: 700 12px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .lede, .cap { color: var(--ask-muted); margin: 0; max-width: 80ch; } .cap { font-size: 14px; margin-top: 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .flow { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 10px; padding: 14px; font-size: 14px; }
+  .flow ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+  .flow code, code { font: 13px/1.4 var(--ask-mono); }
+  .bad { color: var(--ask-red); } .good { color: var(--ask-green); } .warn { color: var(--ask-plasma); }
+
+  /* The PRD page's head (dossier/page/dossier.css, as prd-dossier.html draws it). */
+  .head { background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); border-radius: 10px; padding: 14px; display: grid; gap: 12px; }
+  .top { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: start; }
+  .title { margin: 0; font-size: 19px; line-height: 1.3; flex: 1 1 200px; } .num { color: var(--ask-plasma); text-decoration: none; }
+  .actions { display: grid; gap: 6px; justify-items: end; }
+  .row-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: end; }
+  .btn { display: inline-block; padding: 7px 12px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); color: var(--ask-ink); font: 700 14px/1.2 var(--ask-body); text-decoration: none; }
+  .btn.stage { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .fixes { font-size: 13px; color: var(--ask-muted); }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 0; }
+  .fact { padding: 0 14px; border-left: 1px solid var(--ask-line-strong); display: grid; gap: 5px; align-content: start; }
+  .fact:first-child { border-left: 0; padding-left: 0; }
+  .fact dt { font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .fact dd { margin: 0; font-size: 14px; }
+  .track { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 3px; font: 600 11px/1 var(--ask-mono); }
+  .stop { padding: 5px 7px; border-radius: 999px; border: 1px solid var(--ask-line-strong); color: var(--ask-muted); }
+  .passed { color: var(--ask-ink); background: var(--ask-sunk); } .current { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); font-weight: 800; }
+  .badge { font-size: 12px; color: var(--ask-on-yellow); background: var(--ask-yellow); padding: 3px 8px; border-radius: 999px; text-decoration: none; }
+  .words { margin: 4px 0 0; } .hint { color: var(--ask-muted); }
+  .links { list-style: none; margin: 0; padding: 0; display: flex; gap: 10px; flex-wrap: wrap; }
+  .chip { font: 600 12px/1 var(--ask-mono); padding: 3px 6px; border-radius: 999px; border: 1px solid var(--ask-line-strong); color: var(--ask-muted); }
+
+  /* The Runners page's jobs table (runners/page/runners.css, as runners.html draws it). */
+  .jobs { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 10px; font-size: 14px; }
+  .jrow { display: grid; grid-template-columns: minmax(0, 1.4fr) 120px minmax(0, 1.6fr); gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--ask-line); }
+  .jrow:first-child { border-top: 0; } .jhead { color: var(--ask-muted); font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; }
+  .status { font: 700 12px/1 var(--ask-body); padding: 4px 8px; border-radius: 999px; justify-self: start; border: 1px solid var(--ask-line-strong); white-space: nowrap; }
+  .s-done { border-color: var(--ask-green); color: var(--ask-green); } .s-wait { border-color: var(--ask-plasma); color: var(--ask-plasma); }
+  .acts { display: flex; gap: 8px; justify-content: end; flex-wrap: wrap; align-items: center; }
+  .ghost { display: inline-flex; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 12px/1 var(--ask-body); color: var(--ask-ink); background: none; white-space: nowrap; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>PRD 2223 · A red outbox waits on your answers, then fixes with them</h1>
+  <p class="lede">Today a yolo run that stops on open questions reads Done, and the PRD page never offers the next step. After, both pages say the PR is a draft waiting on you, and the PRD page offers Fix with answers once you have answered.</p>
+
+  <h2>Functional</h2>
+  <div class="pair">
+    <div class="flow"><h3>Today</h3><ol>
+      <li><code>/omni:yolo 2213</code> runs on a runner and builds 3/3 slices.</li>
+      <li>The outbox has 2 high questions: the feature PR stays a draft, the outbox check is red.</li>
+      <li>The run exits 0 → the job reads <span class="good">Done</span>, linking the last PR in its log.</li>
+      <li>The PRD page shows <b>Answer the outbox</b>; the slice count is gone.</li>
+      <li>You answer on GitHub → the button still says <b>Answer the outbox</b>. <span class="bad">The next step, <code>/omni:yolo-fix 2213</code>, is nowhere on the page.</span></li>
+    </ol></div>
+    <div class="flow"><h3>After</h3><ol>
+      <li><code>/omni:yolo 2213</code> runs and builds 3/3 slices, as today.</li>
+      <li>The run's last line is <code>/omni:yolo-fix 2213</code> → the runner reports outcome <code>answers</code>.</li>
+      <li>The job reads <span class="warn">Waiting on answers</span>, with a <b>PRD page</b> link.</li>
+      <li>The PRD page: <i>3/3 slices · 1 of 2 answered</i>, the PR link <i>feature #2214 · draft</i>, button <b>Answer the outbox</b>.</li>
+      <li>Every high question has a counted reply → <b>Fix with answers</b> (<code>/omni:yolo-fix 2213</code>) with Send to terminal, and <i>Fixes with 1: A · 4: B</i> under it.</li>
+    </ol></div>
+  </div>
+  <p class="cap">The outcome comes from the hand-off's last line: <code>/omni:yolo-fix n</code> → Waiting on answers, <code>/omni:yolo n</code> → Held, <code>/omni:pr-care n</code> → Ready, anything else → Done. Stored in a new nullable <code>runner_jobs.outcome</code>; the status stays done.</p>
+
+  <h2>Pixel perfect</h2>
+  <p class="cap">screens: prd-dossier · runners</p>
+
+  <h3>The PRD page's head, at building, after answering</h3>
+  <div class="pair">
+    <div>
+      <div class="head" data-screen="prd-dossier">
+        <div class="top">
+          <p class="title"><a class="num" href="#">PRD #2213 ↗</a> <span data-content>A concept reads as shipped</span></p>
+          <div class="actions"><div class="row-acts"><a class="btn stage" href="#" data-primary>Answer the outbox</a><button class="btn" type="button">Copy link</button></div></div>
+        </div>
+        <dl class="facts">
+          <div class="fact"><dt>Stage</dt><dd>
+            <ol class="track"><li class="stop passed">PRD</li><li class="stop passed">inbox</li><li class="stop current">building</li><li class="stop">outbox</li></ol>
+            <a class="badge" href="#">2 questions waiting →</a>
+            <p class="words"><strong>Stage: building</strong></p>
+          </dd></div>
+          <div class="fact"><dt>On GitHub</dt><dd><ul class="links"><li><a href="#">issue #2213</a></li><li><a href="#">feature #2214</a> <span class="chip">CI red · no conflict</span></li></ul></dd></div>
+        </dl>
+      </div>
+      <p class="cap">Today: the answers are in, but the button still links the outbox, the slice count is gone, and nothing says the PR is a draft.</p>
+    </div>
+    <div>
+      <div class="head" data-screen="prd-dossier">
+        <div class="top">
+          <p class="title"><a class="num" href="#">PRD #2213 ↗</a> <span data-content>A concept reads as shipped</span></p>
+          <div class="actions">
+            <div class="row-acts"><button class="btn stage" type="button" data-primary>Fix with answers</button><button class="btn" type="button">Send to terminal</button><button class="btn" type="button">Copy link</button></div>
+            <a class="fixes" href="#">Fixes with 1: A · 4: B</a>
+          </div>
+        </div>
+        <dl class="facts">
+          <div class="fact"><dt>Stage</dt><dd>
+            <ol class="track"><li class="stop passed">PRD</li><li class="stop passed">inbox</li><li class="stop current">building</li><li class="stop">outbox</li></ol>
+            <a class="badge" href="#">2 questions waiting →</a>
+            <p class="words"><strong>Stage: building</strong> <span>· 3/3 slices</span> <span>· answered</span></p>
+          </dd></div>
+          <div class="fact"><dt>On GitHub</dt><dd><ul class="links"><li><a href="#">issue #2213</a></li><li><a href="#">feature #2214 · draft</a> <span class="chip">CI red · no conflict</span></li></ul></dd></div>
+        </dl>
+      </div>
+      <p class="cap">After: Fix with answers copies <code>/omni:yolo-fix 2213</code>; before every high question is answered, the button stays Answer the outbox and the line reads <i>· 1 of 2 answered</i>.</p>
+    </div>
+  </div>
+
+  <h3>The Runners page's job row</h3>
+  <div class="pair">
+    <div>
+      <div class="jobs" data-screen="runners">
+        <div class="jrow jhead"><span>Line</span><span>Status</span><span></span></div>
+        <div class="jrow"><code data-content>/omni:yolo 2213</code><span class="status s-done">Done</span><span class="acts"><button class="ghost" type="button" data-primary>Terminal</button><a href="#">PR #2219</a></span></div>
+      </div>
+      <p class="cap">Today: Done, and the link is the last PR in the log (here a sub-PR), not the feature PR.</p>
+    </div>
+    <div>
+      <div class="jobs" data-screen="runners">
+        <div class="jrow jhead"><span>Line</span><span>Status</span><span></span></div>
+        <div class="jrow"><code data-content>/omni:yolo 2213</code><span class="status s-wait">Waiting on answers</span><span class="acts"><a class="ghost" href="#" data-primary>PRD page</a><button class="ghost" type="button">Terminal</button><a href="#">PR #2219</a></span></div>
+      </div>
+      <p class="cap">After: Waiting on answers (Held reads the same tone; Ready reads green), and PRD page leads to the answers and the button. The PR link is unchanged.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

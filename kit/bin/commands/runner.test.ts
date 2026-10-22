@@ -1,6 +1,7 @@
 // `omni runner` through `main()` (PRD 1830, s2): a fixture checkout with its own origin, a fake Omni app
 // (an injected `fetch`), a fake `claude` on the PATH and a fake tmux that runs the job's command as a
-// plain child process. Nothing here calls GitHub, the Omni app or Claude.
+// plain child process. Nothing here calls GitHub, the Omni app or Claude, nor reads the real machine's
+// health: each runner samples a fixed machine, quiet unless a test says otherwise (PRD 2102).
 import { execFileSync, spawn } from 'node:child_process';
 import type { ChildProcess, ExecFileSyncOptions } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
@@ -10,6 +11,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import { repoOfRemote } from '../../lib/runner/checkouts.ts';
+import type { MachineReads } from '../../lib/runner/health.ts';
 import { senderLine } from '../../lib/runner/sender.ts';
 import { tmuxArgs, tmuxTerminal } from '../../lib/runner/terminal.ts';
 import type { JobSession, Terminal } from '../../lib/runner/terminal.ts';
@@ -19,8 +21,11 @@ const ASK = 'https://omni.test';
 const git = (cwd: string, ...args: string[]): string =>
   execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 
-/** A checkout `repos/widgets` of `acme/widgets`, its origin a bare repository beside it, and an empty home. */
-function fixture() {
+/**
+ * A checkout `repos/widgets` of `acme/widgets`, its origin a bare repository beside it, and an empty home.
+ * With `pin`, the repository's bin carries that omni version, as a built bundle does (PRD 2100, s4).
+ */
+function fixture({ pin }: { pin?: string } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'omni-runner-'));
   const origin = join(root, 'remote', 'acme', 'widgets.git');
   mkdirSync(origin, { recursive: true });
@@ -28,6 +33,10 @@ function fixture() {
   const seed = join(root, 'seed');
   mkdirSync(join(seed, '.omni-loop'), { recursive: true });
   writeFileSync(join(seed, '.omni-loop', 'config.yml'), `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${ASK}\n`);
+  if (pin !== undefined) {
+    mkdirSync(join(seed, '.omni-loop', 'bin'), { recursive: true });
+    writeFileSync(join(seed, '.omni-loop', 'bin', 'omni.mjs'), `define_OMNI_BUNDLE_default = { home: "acme/kit", version: "${pin}" };\n`);
+  }
   git(seed, 'init', '-q', '-b', 'main');
   git(seed, 'add', '-A');
   git(seed, 'commit', '-q', '-m', 'seed');
@@ -39,7 +48,8 @@ function fixture() {
   const home = join(root, 'home');
   mkdirSync(home);
   // The fake claude: prints the line it read on its standard input, sleeps when the line says so,
-  // then prints a pull request of another repository and one of the job's.
+  // then prints a pull request of another repository, and ends on a hand-off naming one of the job's
+  // (bug 2365: the job's pull request is one its hand-off or a `gh pr create` names).
   const bin = join(root, 'bin');
   mkdirSync(bin);
   writeFileSync(
@@ -51,7 +61,7 @@ function fixture() {
       'case "$line" in *sleep-*) sleep "${line##*sleep-}" ;; esac',
       'case "$line" in *lines-*) seq -f "line %g" 1 "${line##*lines-}" ;; esac',
       'echo "see https://github.com/acme/other/pull/9"',
-      'echo "opened https://github.com/acme/widgets/pull/42"',
+      `echo '${JSON.stringify({ type: 'result', subtype: 'success', num_turns: 1, total_cost_usd: 0, duration_ms: 1000, result: 'opened https://github.com/acme/widgets/pull/42' })}'`,
       'case "$line" in *push*) git push -q -u origin HEAD 2>/dev/null ;; esac',
       'case "$line" in *fail*) exit 3 ;; esac',
       '',
@@ -64,10 +74,12 @@ function fixture() {
 type Call = { method: string; path: string; body: unknown };
 
 /** The fake Omni app: register answers `r1`, `next` hands each queued job once, then holds briefly. */
-function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = false, lost = 0 }: {
+function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = false, lost = 0, strict = false }: {
   jobs?: unknown[]; cancel?: boolean; unreachable?: number; status?: number; ended?: boolean;
   /** How many job reports carrying lines answer 503 first, storing nothing. */
   lost?: number;
+  /** An app older than PRD 2175: a job report carrying `released` or `releaseError` answers 400. */
+  strict?: boolean;
 } = {}) {
   const calls: Call[] = [];
   const queue = [...jobs];
@@ -94,14 +106,18 @@ function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = f
     await new Promise((resolve) => setTimeout(resolve, 20));
     return reply(204);
   };
+  /** Whether a report carries what a runner released (PRD 2175). */
+  const carriesRelease = (body: unknown): boolean => typeof body === 'object' && body !== null && ('released' in body || 'releaseError' in body);
+  const report = (body: unknown): Response => {
+    if (strict && carriesRelease(body)) return reply(400, { error: 'unknown keys' });
+    if (ended) return reply(409, { error: 'This job has ended.' });
+    return store(body) ?? reply(200, cancel ? { cancel: true } : {});
+  };
   const route = (pathname: string, body: unknown): Promise<Response> | Response => {
     if (status !== undefined) return reply(status, { error: 'no' });
     if (pathname === '/api/runners/register') return reply(200, { id: 'r1' });
     if (pathname === '/api/runners/next') return next();
-    if (pathname.startsWith('/api/runners/jobs/')) {
-      if (ended) return reply(409, { error: 'This job has ended.' });
-      return store(body) ?? reply(200, cancel ? { cancel: true } : {});
-    }
+    if (pathname.startsWith('/api/runners/jobs/')) return report(body);
     return reply(404);
   };
   const fetch = async (url: string, init: RequestInit): Promise<Response> => {
@@ -120,14 +136,15 @@ function fakeApp({ jobs = [], cancel = false, unreachable = 0, status, ended = f
 
 /** The fake tmux: runs the session's command as a child process, its variables added to this one's.
  * `dies` starts each session's command as one that ends at once, writing no exit code. */
-function fakeTerminal({ dies = false }: { dies?: boolean } = {}) {
+function fakeTerminal({ dies = false, says = null }: { dies?: boolean; says?: string | null } = {}) {
   const sessions: JobSession[] = [];
   const stopped: string[] = [];
   const children = new Map<string, ChildProcess>();
   const terminal: Terminal = {
     start(session) {
       sessions.push(session);
-      const [file = '', ...args] = dies ? ['false'] : session.argv;
+      const log = session.argv[session.argv.indexOf('--log') + 1] ?? '';
+      const [file = '', ...args] = says !== null ? [process.execPath, '-e', `require('node:fs').appendFileSync(${JSON.stringify(log)}, ${JSON.stringify(says)})`] : dies ? ['false'] : session.argv;
       children.set(session.name, spawn(file, args, { cwd: session.cwd, env: { ...process.env, ...session.env }, stdio: 'ignore' }));
     },
     stop(name) {
@@ -142,12 +159,58 @@ function fakeTerminal({ dies = false }: { dies?: boolean } = {}) {
   return { terminal, sessions, stopped };
 }
 
-/** `claude` installed and signed in, and tmux, unless told otherwise; every other command runs. */
-function fakeExec({ claude = true, signedIn = true }: { claude?: boolean; signedIn?: boolean } = {}) {
+/**
+ * The Omni plugin as `claude plugin list --json` shows it, and what `claude plugin update` does to it:
+ * each update takes the next of `outcomes` (a version it moves the plugin to, `nothing`, or `fails`),
+ * `nothing` once they run out (PRD 2100, s4).
+ */
+function fakePlugin({ version, installed = true, outcomes = [] }: { version: string; installed?: boolean; outcomes?: string[] }) {
+  const state = { version };
+  const calls: string[] = [];
+  const handle = (args: readonly string[]): string => {
+    const call = args.join(' ');
+    calls.push(call);
+    if (call === 'plugin list --json') return JSON.stringify(installed ? [{ id: 'omni@omni-loop', version: state.version, scope: 'user' }] : []);
+    if (call === 'plugin update omni@omni-loop') {
+      const outcome = outcomes.shift() ?? 'nothing';
+      if (outcome === 'fails') throw Object.assign(new Error('Command failed: claude plugin update'), { stderr: 'could not reach the marketplace\n' });
+      if (outcome !== 'nothing') state.version = outcome;
+      return 'omni is up to date\n';
+    }
+    return '';
+  };
+  return { handle, calls, state, updates: () => calls.filter((call) => call === 'plugin update omni@omni-loop').length };
+}
+
+/**
+ * GitHub as `gh` shows it to the runner's release (PRD 2175): `pr list` answers `prs`, every one an open
+ * draft carrying `omni:in-progress`, `api …/comments` the comments of one, and every other call
+ * succeeds. Each call is kept. Nothing reaches GitHub.
+ */
+function fakeGh(prs: { number: number; comments: string[] }[] = []) {
+  const calls: string[] = [];
+  const handle = (args: readonly string[]): string => {
+    const call = args.join(' ');
+    calls.push(call);
+    if (args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs.map((pr) => ({ number: pr.number, isDraft: true, labels: [{ name: 'omni:in-progress' }] })));
+    const comments = /^api repos\/[^/]+\/[^/]+\/issues\/(\d+)\/comments/.exec(call);
+    if (comments) return `${JSON.stringify(prs.find((pr) => pr.number === Number(comments[1]))?.comments ?? [])}\n`;
+    return '';
+  };
+  return { handle, calls };
+}
+
+/** A claim's status comment, as `/omni:pr` writes it for a runner's job. */
+const claimedBy = (job: string): string => `<!-- omni-outbox-status -->\n**Status:** claimed\n- job: ${job} · runner box-1`;
+
+/** `claude` installed and signed in, and tmux, unless told otherwise; `gh` answers from `gh`; every other command runs. */
+function fakeExec({ claude = true, signedIn = true, plugin, gh = fakeGh() }: { claude?: boolean; signedIn?: boolean; plugin?: ReturnType<typeof fakePlugin>; gh?: ReturnType<typeof fakeGh> } = {}) {
   return (file: string, args: readonly string[], options: ExecFileSyncOptions): string => {
+    if (file === 'gh') return gh.handle(args);
     if (file === 'claude') {
       if (!claude) throw new Error('spawnSync claude ENOENT');
       if (args[0] === 'auth') return signedIn ? '{"loggedIn": true}' : '{"loggedIn": false}';
+      if (plugin && args[0] === 'plugin') return plugin.handle(args);
       return '2.0.0 (Claude Code)';
     }
     if (file === 'tmux') return 'tmux 3.4';
@@ -170,20 +233,36 @@ afterEach(() => {
   for (const stop of running.splice(0)) stop.abort();
 });
 
+const GB = 1024 ** 3;
+
+/** A machine of 4 cores at load 1, with `memPercent` of its 16 GB used and 100 GB of disk free. */
+function machineAt(memPercent = 50): MachineReads {
+  const times = { user: 100, nice: 0, sys: 0, idle: 900, irq: 0 };
+  return {
+    cpus: () => [{ times }],
+    loadavg: () => [1, 1, 1],
+    cores: () => 4,
+    totalmem: () => 16 * GB,
+    freemem: () => ((100 - memPercent) / 100) * 16 * GB,
+    meminfo: () => null,
+    statfs: () => ({ bsize: 4096, blocks: (200 * GB) / 4096, bavail: (100 * GB) / 4096 }),
+  };
+}
+
 /** Starts `omni runner` on the fixture: its exit code once stopped, and what it printed. */
 function startRunner(
   f: ReturnType<typeof fixture>,
   app: ReturnType<typeof fakeApp>,
-  { args = [], exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {}, tickMs = 50, now }: {
-    args?: string[]; exec?: ReturnType<typeof fakeExec>; tokens?: ReturnType<typeof memoryTokens>; sleep?: (ms: number, signal?: AbortSignal) => Promise<void>; terminal?: ReturnType<typeof fakeTerminal>;
-    env?: Record<string, string>; tickMs?: number; now?: () => number;
+  { args = [], slots = 1, exec = fakeExec(), tokens = memoryTokens(), sleep, terminal = fakeTerminal(), env = {}, tickMs = 50, now, machine = machineAt() }: {
+    args?: string[]; slots?: number; exec?: ReturnType<typeof fakeExec>; tokens?: ReturnType<typeof memoryTokens>; sleep?: (ms: number, signal?: AbortSignal) => Promise<void>; terminal?: ReturnType<typeof fakeTerminal>;
+    env?: Record<string, string>; tickMs?: number; now?: () => number; machine?: MachineReads;
   } = {},
 ) {
   const stop = new AbortController();
   running.push(stop);
   const stdout = out();
   const stderr = out();
-  const done = main(['runner', '--name', 'box-1', '--repos', f.repos, '--slots', '1', ...args], {
+  const done = main(['runner', '--name', 'box-1', '--repos', f.repos, '--slots', String(slots), ...args], {
     cwd: f.root,
     stdout: stdout.stream,
     stderr: stderr.stream,
@@ -195,6 +274,7 @@ function startRunner(
     terminal: terminal.terminal,
     stop: stop.signal,
     tickMs,
+    machine,
     ...(sleep ? { sleep } : {}),
     ...(now ? { now } : {}),
   });
@@ -460,7 +540,8 @@ describe('omni runner', () => {
         await until(ended(app), 'the job to end');
         run.stop.abort();
         expect(await run.done).toBe(0);
-        expect(Object.keys(run.terminal.sessions[0]?.env ?? {})).toEqual(['PATH', 'CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS']);
+        // PRD 2175: the job's own three variables, beside the PATH and bug 1912's.
+        expect(Object.keys(run.terminal.sessions[0]?.env ?? {})).toEqual(['PATH', 'OMNI_JOB', 'OMNI_RUNNER', 'OMNI_UNATTENDED', 'CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS']);
       });
     }
   });
@@ -524,6 +605,27 @@ describe('omni runner', () => {
     const f = fixture();
     const app = fakeApp({ jobs: [{ id: 18, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }] });
     const run = startRunner(f, app, { terminal: fakeTerminal({ dies: true }) });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(app.updates().at(-1)).toMatchObject({ status: 'failed', reason: 'the job stopped before it wrote its exit code' });
+  });
+
+  it('ends a job whose session ends without an exit code after its hand-off on that hand-off, not failed (#2388)', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 19, line: '/omni:yolo 2370', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const says = 'What is next?\n09:36:39 /omni:yolo 2370\nSessionEnd hook [omni heartbeat --end] failed: Hook cancelled\n';
+    const run = startRunner(f, app, { terminal: fakeTerminal({ says }) });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(app.updates().at(-1)).toMatchObject({ status: 'done', outcome: 'held', exitCode: null, reason: 'the job stopped before it wrote its exit code' });
+  });
+
+  it('still fails a job whose session ends without an exit code and without a hand-off', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 20, line: '/omni:yolo 2370', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app, { terminal: fakeTerminal({ says: 'halfway through s2\n' }) });
     await until(ended(app), 'the job to end');
     run.stop.abort();
     await run.done;
@@ -613,6 +715,64 @@ describe('omni runner', () => {
     expect(run.stdout.text().trim().split('\n').at(-1)).toBe('runner box-1 stopped');
   });
 
+  describe('the limits it pauses at (PRD 2102)', () => {
+    const healthReports = (app: ReturnType<typeof fakeApp>) => app.calls.filter((call) => call.path === '/api/runners/r1/health').map((call) => call.body as Record<string, unknown>);
+    const nexts = (app: ReturnType<typeof fakeApp>) => app.calls.filter((call) => call.path === '/api/runners/next');
+
+    it('pauses at 85 % of memory, 10 GB of disk and 1.5 × the cores when no flag says otherwise, and reports them', async () => {
+      const f = fixture();
+      const app = fakeApp();
+      const run = startRunner(f, app);
+      await until(() => healthReports(app).length > 0 && nexts(app).length > 0, 'a health report and a next');
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+      expect(healthReports(app)[0]).toMatchObject({ paused: null, limits: { maxMemory: 85, minDiskGb: 10, maxLoad: 1.5 } });
+    });
+
+    it('pauses at --max-memory, --min-disk and --max-load, opening no next, and reports why and at which limits', async () => {
+      const f = fixture();
+      const app = fakeApp();
+      const run = startRunner(f, app, { args: ['--max-memory', '70', '--min-disk', '20', '--max-load', '1'], machine: machineAt(75) });
+      await until(() => healthReports(app).length > 0, 'a health report');
+      await delay(100);
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+      expect(healthReports(app)[0]).toMatchObject({ paused: 'memory 75%', limits: { maxMemory: 70, minDiskGb: 20, maxLoad: 1 } });
+      expect(nexts(app)).toEqual([]);
+      expect(run.stdout.text()).toContain('paused: memory 75%');
+    });
+
+    it('takes a decimal limit, and 100 % of memory or 0 GB of disk as no limit at all', async () => {
+      const f = fixture();
+      const app = fakeApp();
+      const run = startRunner(f, app, { args: ['--max-memory', '100', '--min-disk', '0', '--max-load', '2.5'], machine: machineAt(99) });
+      await until(() => nexts(app).length > 0, 'a next');
+      run.stop.abort();
+      expect(await run.done).toBe(0);
+      expect(healthReports(app)[0]).toMatchObject({ paused: null, limits: { maxMemory: 100, minDiskGb: 0, maxLoad: 2.5 } });
+    });
+
+    it('refuses a limit out of range in plain words, before it registers', async () => {
+      for (const [args, words] of [
+        [['--max-memory', '0'], '--max-memory is the share of memory used, in percent, the runner pauses above: a number from 1 to 100, got "0".'],
+        [['--max-memory', '101'], '--max-memory is the share of memory used, in percent, the runner pauses above: a number from 1 to 100, got "101".'],
+        [['--max-memory', '1e2'], 'a number from 1 to 100, got "1e2".'],
+        [['--min-disk', '-1'], '--min-disk is the free disk, in GB, the runner pauses below: a number of 0 or more, got "-1".'],
+        [['--min-disk', 'lots'], 'a number of 0 or more, got "lots".'],
+        [['--max-load', '0'], '--max-load is the 1-minute load, in times the cores, the runner pauses above: a number above 0, got "0".'],
+        [['--max-load', '-2'], 'a number above 0, got "-2".'],
+      ] as const) {
+        const err = out();
+        const app = fakeApp();
+        const code = await main(['runner', '--name', 'box-1', '--repos', '.', ...args], { stdout: out().stream, stderr: err.stream, env: {}, fetch: app.fetch });
+        expect(code).toBe(2);
+        expect(err.text()).toMatch(/^omni runner: /);
+        expect(err.text()).toContain(words);
+        expect(app.calls).toEqual([]);
+      }
+    });
+  });
+
   it('refuses a bad --slots, --timeout, --name or --keep-logs', async () => {
     for (const args of [['--slots', '9'], ['--slots', '0'], ['--timeout', '3d'], ['--name', 'a b'], ['--keep-logs', '0'], ['--keep-logs', 'x'], ['--keep-logs', '1.5']]) {
       const err = out();
@@ -620,6 +780,263 @@ describe('omni runner', () => {
       expect(code).toBe(2);
       expect(err.text()).toMatch(/^omni runner: /);
     }
+  });
+});
+
+describe('omni runner: a dead job\'s claims (PRD 2175, s2)', () => {
+  /** A worktree a runner that died left for job `id`, on its branch. */
+  const strand = (f: ReturnType<typeof fixture>, id: string): void => {
+    git(f.checkout, 'worktree', 'add', '-q', '--no-track', '-b', `agent/job-${id}`, join(f.home, 'wt', `widgets-job-${id}`), 'origin/main');
+  };
+
+  it('starts every job session with OMNI_JOB, OMNI_RUNNER and OMNI_UNATTENDED, a job with no sender too', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 21, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: null }] });
+    const run = startRunner(f, app);
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(run.terminal.sessions[0]?.env).toMatchObject({ OMNI_JOB: '21', OMNI_RUNNER: 'box-1', OMNI_UNATTENDED: '1' });
+    expect(run.terminal.sessions[0]?.env).not.toHaveProperty('OMNI_SENT_BY');
+  });
+
+  it('releases the claims a failed job still holds, and its last report carries them', async () => {
+    const f = fixture();
+    const gh = fakeGh([{ number: 1908, comments: [claimedBy('22')] }, { number: 1909, comments: [claimedBy('other')] }]);
+    const app = fakeApp({ jobs: [{ id: 22, line: '/omni:yolo fail', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app, { exec: fakeExec({ gh }) });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(app.updates().at(-1)).toMatchObject({ status: 'failed', exitCode: 3, released: [1908], releaseError: null });
+    expect(gh.calls).toContain('pr list --repo acme/widgets --state open --label omni:in-progress --limit 100 --json number,labels');
+    expect(gh.calls).toContain('pr edit 1908 --repo acme/widgets --remove-label omni:in-progress --add-label omni:released');
+    expect(gh.calls.filter((call) => call.startsWith('pr edit'))).toHaveLength(1);
+    expect(gh.calls.find((call) => call.startsWith('pr comment 1908'))).toContain('Released: runner job `22` on `box-1` ended (`exit code 3`)');
+    expect(run.stdout.text()).toContain('job 22 released #1908');
+  });
+
+  it('releases on every ending: done, timeout and cancelled, each named in the alarm', async () => {
+    const cases = [
+      { id: 23, line: '/omni:yolo 1717', args: [], cancel: false, reason: 'done' },
+      { id: 24, line: '/omni:yolo sleep-5', args: ['--timeout', '1s'], cancel: false, reason: 'timeout' },
+      { id: 25, line: '/omni:yolo sleep-5', args: [], cancel: true, reason: 'cancelled' },
+    ];
+    for (const { id, line, args, cancel, reason } of cases) {
+      const f = fixture();
+      const gh = fakeGh([{ number: 40, comments: [claimedBy(String(id))] }]);
+      const app = fakeApp({ jobs: [{ id, line, repo: 'acme/widgets', sentBy: 'ada' }], cancel });
+      const run = startRunner(f, app, { args, exec: fakeExec({ gh }) });
+      await until(ended(app), `job ${String(id)} to end`);
+      run.stop.abort();
+      await run.done;
+      expect(app.updates().at(-1)).toMatchObject({ released: [40], releaseError: null });
+      expect(gh.calls.find((call) => call.startsWith('pr comment 40'))).toContain(`ended (\`${reason}\`)`);
+    }
+  });
+
+  it('reports a release that failed, and the job\'s status still reaches the app', async () => {
+    const f = fixture();
+    const refusing = {
+      calls: [] as string[],
+      handle: (): string => {
+        throw Object.assign(new Error('Command failed: gh'), { stderr: 'HTTP 401: Bad credentials\n' });
+      },
+    };
+    const app = fakeApp({ jobs: [{ id: 26, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app, { exec: fakeExec({ gh: refusing }) });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    await run.done;
+    expect(app.updates().at(-1)).toMatchObject({ status: 'done', released: [], releaseError: 'HTTP 401: Bad credentials' });
+    expect(run.stdout.text()).toContain('job 26 could not release its claims: HTTP 401: Bad credentials');
+  });
+
+  it('sends the last report again without what it released to an app that refuses it, and keeps running', async () => {
+    const f = fixture();
+    const gh = fakeGh([{ number: 1908, comments: [claimedBy('27')] }]);
+    const app = fakeApp({ jobs: [{ id: 27, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }], strict: true });
+    const run = startRunner(f, app, { exec: fakeExec({ gh }) });
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    const last = app.updates().at(-1);
+    expect(last).toMatchObject({ status: 'done', prUrl: 'https://github.com/acme/widgets/pull/42' });
+    expect(last).not.toHaveProperty('released');
+    expect(run.stdout.text()).not.toContain('refused (400)');
+  });
+
+  it('releases, at the first sweep, the claims of a job a runner that died left, and reports them as runner lost', async () => {
+    const f = fixture();
+    strand(f, 'old1');
+    const gh = fakeGh([{ number: 1908, comments: [claimedBy('old1')] }]);
+    const app = fakeApp();
+    const run = startRunner(f, app, { exec: fakeExec({ gh }) });
+    await until(() => app.calls.some((call) => call.path === '/api/runners/jobs/old1'), 'the lost job\'s report');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    expect(app.calls.find((call) => call.path === '/api/runners/jobs/old1')?.body).toEqual({ status: 'failed', released: [1908], releaseError: null });
+    expect(gh.calls.find((call) => call.startsWith('pr comment 1908'))).toContain('ended (`runner lost`)');
+    expect(run.stdout.text()).toContain('job old1 released #1908');
+  });
+
+  it('sends nothing for a lost job that held no claim', async () => {
+    const f = fixture();
+    strand(f, 'old2');
+    const app = fakeApp();
+    const run = startRunner(f, app);
+    await until(() => run.stdout.text().includes('swept:'), 'the first sweep');
+    run.stop.abort();
+    await run.done;
+    expect(app.calls.filter((call) => call.path.startsWith('/api/runners/jobs/'))).toEqual([]);
+  });
+
+  it('prints one line when the app refuses a lost job\'s release report, and keeps running', async () => {
+    const f = fixture();
+    strand(f, 'old3');
+    const app = fakeApp({ strict: true });
+    const run = startRunner(f, app, { exec: fakeExec({ gh: fakeGh([{ number: 5, comments: [claimedBy('old3')] }]) }) });
+    await until(() => run.stdout.text().includes('its release was not reported'), 'the refused report');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    expect(run.stdout.text()).toContain('job old3: its release was not reported (refused (400))');
+  });
+});
+
+describe('omni runner: the Omni plugin (PRD 2100, s4)', () => {
+  const PINNED = '0.0.450';
+  const jobsOn = (...ids: number[]) => ids.map((id) => ({ id, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }));
+  /** The calls of `claude plugin` the runner makes at start: its sweep reads the plugin, updates it, reads it again. */
+  const SWEEP_CALLS = ['plugin list --json', 'plugin marketplace update omni-loop', 'plugin update omni@omni-loop', 'plugin list --json'];
+  const failure = (app: ReturnType<typeof fakeApp>) => app.updates().find((update) => update.status === 'failed')?.reason;
+  const stop = async (run: ReturnType<typeof startRunner>) => {
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+  };
+
+  it("brings an older plugin up to the job repository's omni before claude starts, once for two slots, and prints the change", async () => {
+    const f = fixture({ pin: PINNED });
+    // The update the sweep runs at start changes nothing, so the jobs find the plugin old; the next moves it.
+    const plugin = fakePlugin({ version: '0.0.440', outcomes: ['nothing', PINNED] });
+    const started: string[] = [];
+    const base = fakeTerminal();
+    const terminal = {
+      ...base,
+      terminal: {
+        ...base.terminal,
+        start(session: JobSession) {
+          started.push(plugin.state.version);
+          base.terminal.start(session);
+        },
+      },
+    };
+    const app = fakeApp({ jobs: jobsOn(1, 2) });
+    const run = startRunner(f, app, { slots: 2, exec: fakeExec({ plugin }), terminal });
+    await until(() => run.stdout.text().includes('job 1 done') && run.stdout.text().includes('job 2 done'), 'both jobs to end');
+    await stop(run);
+
+    expect(plugin.updates()).toBe(2);
+    expect(started).toEqual([PINNED, PINNED]);
+    expect(run.stdout.text().match(/omni plugin v0\.0\.440 → v0\.0\.450/g)).toHaveLength(1);
+  });
+
+  it('fails a job whose plugin is still older after the update, with the reason, before claude starts', async () => {
+    const f = fixture({ pin: PINNED });
+    const plugin = fakePlugin({ version: '0.0.440' });
+    const app = fakeApp({ jobs: jobsOn(3) });
+    const run = startRunner(f, app, { exec: fakeExec({ plugin }) });
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    const reason = "omni plugin v0.0.440 is older than acme/widgets's omni v0.0.450: claude plugin update failed: omni is up to date";
+    expect(failure(app)).toBe(reason);
+    expect(run.terminal.sessions).toEqual([]);
+    expect(run.stdout.text()).toContain(`job 3 failed · ${reason}`);
+    expect(existsSync(join(f.home, 'wt', 'widgets-job-3'))).toBe(false);
+    expect(git(f.checkout, 'branch', '--list', 'agent/job-*').trim()).toBe('');
+  });
+
+  it('says the update failed, and fails the job with the line the update ended on', async () => {
+    const f = fixture({ pin: PINNED });
+    const plugin = fakePlugin({ version: '0.0.440', outcomes: ['fails', 'fails'] });
+    const app = fakeApp({ jobs: jobsOn(4) });
+    const run = startRunner(f, app, { exec: fakeExec({ plugin }) });
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    expect(failure(app)).toBe("omni plugin v0.0.440 is older than acme/widgets's omni v0.0.450: claude plugin update failed: could not reach the marketplace");
+    expect(run.terminal.sessions).toEqual([]);
+    expect(run.stdout.text().match(/^omni plugin update failed: could not reach the marketplace$/gm)).toHaveLength(2);
+  });
+
+  it('fails a job whose plugin is not installed with the line to install it, and updates nothing for it', async () => {
+    const f = fixture({ pin: PINNED });
+    const plugin = fakePlugin({ version: '0.0.440', installed: false });
+    const app = fakeApp({ jobs: jobsOn(5) });
+    const run = startRunner(f, app, { exec: fakeExec({ plugin }) });
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    expect(failure(app)).toBe('the omni plugin is not installed: claude plugin install omni@omni-loop');
+    expect(run.terminal.sessions).toEqual([]);
+    expect(plugin.updates()).toBe(1);
+  });
+
+  it.each(['0.0.450', '0.0.462'])('starts no update for a plugin at %s, as new as the pinned omni or newer', async (version) => {
+    const f = fixture({ pin: PINNED });
+    const plugin = fakePlugin({ version });
+    const app = fakeApp({ jobs: jobsOn(6) });
+    const run = startRunner(f, app, { exec: fakeExec({ plugin }) });
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    expect(lastStatus(app)).toBe('done');
+    expect(plugin.calls).toEqual([...SWEEP_CALLS, 'plugin list --json']);
+  });
+
+  it('asks nothing of a repository that pins no omni', async () => {
+    const f = fixture();
+    const plugin = fakePlugin({ version: '0.0.1' });
+    const app = fakeApp({ jobs: jobsOn(7) });
+    const run = startRunner(f, app, { exec: fakeExec({ plugin }) });
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    expect(lastStatus(app)).toBe('done');
+    expect(plugin.calls).toEqual(SWEEP_CALLS);
+  });
+
+  it('runs a job whose plugin list does not read, with its log starting on the line that says so', async () => {
+    const f = fixture({ pin: PINNED });
+    const app = fakeApp({ jobs: jobsOn(9) });
+    const run = startRunner(f, app);
+    await until(ended(app), 'the job to end');
+    await stop(run);
+
+    expect(lastStatus(app)).toBe('done');
+    const log = readFileSync(join(f.home, 'logs', 'job-9.log'), 'utf8').split('\n');
+    expect(log[0]).toBe('omni plugin version not read: claude plugin list was unreadable');
+    expect(log).toContain('claude read: /omni:yolo 1717');
+  });
+
+  it('updates the plugin at start and every hour, and prints a line only on a change or a failure', async () => {
+    const f = fixture();
+    const plugin = fakePlugin({ version: '0.0.440', outcomes: ['0.0.441', 'nothing', 'fails'] });
+    const hours: number[] = [];
+    const sleep = async (ms: number) => {
+      if (ms === 60 * 60 * 1000) {
+        hours.push(ms);
+        if (hours.length <= 2) return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    };
+    const run = startRunner(f, fakeApp(), { exec: fakeExec({ plugin }), sleep });
+    await until(() => hours.length >= 3, 'two hours to pass');
+    await stop(run);
+
+    const lines = run.stdout.text().split('\n').filter((line) => line.startsWith('omni plugin'));
+    expect(lines).toEqual(['omni plugin v0.0.440 → v0.0.441', 'omni plugin update failed: could not reach the marketplace']);
+    expect(plugin.updates()).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -639,6 +1056,182 @@ describe('omni runner sender', () => {
   it('reads a login given with its @ once', () => {
     expect(senderLine({ sentBy: '@ada', runner: 'box-1' })).toBe('Sent from the Omni app by @ada on runner box-1');
     expect(senderLine({ sentBy: ' ', runner: 'box-1' })).toBeNull();
+  });
+});
+
+/**
+ * `omni runner ask` and `omni runner answers` (PRD 2255, s2): run in a job's session, on the `acme/widgets`
+ * checkout whose config names the Omni page, against a stubbed app that answers the job's questions route.
+ */
+describe('omni runner ask and omni runner answers (PRD 2255, s2)', () => {
+  const QUESTIONS = {
+    questions: [
+      {
+        question: 'How should the planning query treat an assignment the user may not see?',
+        header: 'Planning',
+        options: [
+          { label: 'Make project nullable', description: 'The column accepts no project and the query reads it.' },
+          { label: 'Filter it out', description: 'The query skips the assignments the user may not see.' },
+          { label: 'Design it first', description: 'Stop here and brainstorm the behaviour' },
+        ],
+        multiSelect: false,
+      },
+    ],
+  };
+  const LEAD = 'The planning query fails for 31 tenants, and the fix is a choice a person has to make.';
+  // The app's row (apps/galaxy/src/runners/runners.contract.ts, JobQuestionsSchema): each question's text to its answer.
+  const ANSWERS = { 'How should the planning query treat an assignment the user may not see?': 'Filter it out' };
+  const ROW = { job: 'job-7', issue: 314, lead: LEAD, questions: QUESTIONS.questions, state: 'answered', answers: ANSWERS, byLogin: 'ada' };
+
+  /** The stubbed app: every call is recorded, and `reply` answers the questions route. */
+  function app(reply: (call: Call) => Response | Promise<Response> = () => new Response('{}', { status: 200 })) {
+    const calls: (Call & { authorization: string | null })[] = [];
+    const fetch = async (url: string, init: RequestInit): Promise<Response> => {
+      const headers = new Headers(init.headers);
+      const call = { method: init.method ?? 'GET', path: new URL(url).pathname, body: typeof init.body === 'string' ? (JSON.parse(init.body) as unknown) : null };
+      calls.push({ ...call, authorization: headers.get('authorization') });
+      return reply(call);
+    };
+    return { calls, fetch };
+  }
+  const refusal = (code: number, words?: string) => () => new Response(words === undefined ? null : JSON.stringify({ error: words }), { status: code });
+
+  /** `omni runner <args>` in the checkout, as a job's session runs it. */
+  async function run(f: ReturnType<typeof fixture>, args: string[], { stub = app(), env = { OMNI_JOB: 'job-7' } }: { stub?: ReturnType<typeof app>; env?: Record<string, string> } = {}) {
+    const stdout = out();
+    const stderr = out();
+    const code = await main(['runner', ...args], {
+      cwd: f.checkout,
+      stdout: stdout.stream,
+      stderr: stderr.stream,
+      env: { PATH: String(process.env.PATH), ...env },
+      tokens: memoryTokens(),
+      home: f.home,
+      fetch: stub.fetch,
+    });
+    return { code, out: stdout.text(), err: stderr.text(), calls: stub.calls };
+  }
+
+  /** The checkout, with the questions file and the lead file the skill writes in its scratch folder. */
+  function asking(questions: unknown = QUESTIONS, lead = `${LEAD}\n`) {
+    const f = fixture();
+    writeFileSync(join(f.root, 'questions.json'), typeof questions === 'string' ? questions : JSON.stringify(questions));
+    writeFileSync(join(f.root, 'lead.txt'), lead);
+    const ask = (...more: string[]) => ['ask', '--file', join(f.root, 'questions.json'), '--issue', '314', '--lead', join(f.root, 'lead.txt'), ...more];
+    return { f, ask };
+  }
+
+  describe('ask', () => {
+    it("posts the issue, the lead and the questions on the job's route with the runner's sign-in, exits 0, and prints the line the comment ends on", async () => {
+      const { f, ask } = asking();
+      const result = await run(f, ask());
+      expect(result).toMatchObject({ code: 0, err: '', out: 'Waiting for an answer on Omni: https://omni.test/app/runners?answer=job-7\n' });
+      expect(result.calls).toEqual([{ method: 'POST', path: '/api/runners/jobs/job-7/questions', authorization: 'Bearer access-1', body: { issue: 314, lead: LEAD, questions: QUESTIONS.questions } }]);
+    });
+
+    it('reads its files from the folder it runs in when they are named relative to it', async () => {
+      const { f } = asking();
+      const result = await run(f, ['ask', '--file', '../../questions.json', '--issue', '314', '--lead', '../../lead.txt']);
+      expect(result).toMatchObject({ code: 0, err: '' });
+      expect(result.calls).toHaveLength(1);
+    });
+
+    it('refuses more than 4 questions, naming the field, and sends nothing', async () => {
+      const five = { questions: Array.from({ length: 5 }, () => QUESTIONS.questions[0]) };
+      const { f, ask } = asking(five);
+      const result = await run(f, ask());
+      expect(result).toMatchObject({ code: 1, out: '', calls: [] });
+      expect(result.err).toBe(`omni runner: ${join(f.root, 'questions.json')} does not read: questions: at most 4 questions, got 5.\n`);
+    });
+
+    it('refuses an option with no label, naming the field as omni ask does, and sends nothing', async () => {
+      const [first] = QUESTIONS.questions;
+      const unlabelled = { questions: [{ ...first, options: [{ label: 'Filter it out', description: 'x' }, { label: '', description: 'y' }] }] };
+      const { f, ask } = asking(unlabelled);
+      const result = await run(f, ask());
+      expect(result).toMatchObject({ code: 1, out: '', calls: [] });
+      expect(result.err).toContain('does not read: questions.0.options.1.label:');
+    });
+
+    it('refuses a file that is not JSON, one that is not there, and an empty lead, each in one line', async () => {
+      const notJson = asking('not json');
+      expect(await run(notJson.f, notJson.ask())).toMatchObject({ code: 1, err: `omni runner: ${join(notJson.f.root, 'questions.json')} does not read: (file): not JSON.\n`, calls: [] });
+      const missing = asking();
+      const gone = await run(missing.f, ['ask', '--file', join(missing.f.root, 'none.json'), '--issue', '314', '--lead', join(missing.f.root, 'lead.txt')]);
+      expect(gone).toMatchObject({ code: 1, calls: [] });
+      expect(gone.err).toBe(`omni runner: cannot read ${join(missing.f.root, 'none.json')}.\n`);
+      const blank = asking(QUESTIONS, '  \n');
+      const empty = await run(blank.f, blank.ask());
+      expect(empty).toMatchObject({ code: 1, calls: [] });
+      expect(empty.err).toBe(`omni runner: ${join(blank.f.root, 'lead.txt')} is empty: the lead says why the fix stopped.\n`);
+    });
+
+    it('refuses to ask outside a runner job, with no OMNI_JOB, and sends nothing', async () => {
+      const { f, ask } = asking();
+      for (const env of [{}, { OMNI_JOB: '  ' }]) {
+        expect(await run(f, ask(), { env })).toEqual({ code: 1, out: '', err: 'omni runner: no job to ask on: OMNI_JOB is not set, this is not a runner job.\n', calls: [] });
+      }
+    });
+
+    it("exits 1 with the app's words on a 409, on a 404, and with `refused (<status>)` from an app that has none", async () => {
+      const { f, ask } = asking();
+      const conflict = await run(f, ask(), { stub: app(refusal(409, 'This job already asked.')) });
+      expect(conflict).toMatchObject({ code: 1, out: '', err: 'omni runner: This job already asked.\n' });
+      const notFound = await run(f, ask(), { stub: app(refusal(404, 'No such job.')) });
+      expect(notFound).toMatchObject({ code: 1, out: '', err: 'omni runner: No such job.\n' });
+      const old = await run(f, ask(), { stub: app(refusal(404)) });
+      expect(old).toMatchObject({ code: 1, out: '', err: 'omni runner: refused (404)\n' });
+    });
+
+    it('exits 1 in one line when the app is down', async () => {
+      const { f, ask } = asking();
+      const result = await run(f, ask(), { stub: app(refusal(503, 'down')) });
+      expect(result).toMatchObject({ code: 1, out: '', err: 'omni runner: POST /api/runners/jobs/job-7/questions: 503\n' });
+    });
+
+    it('is a usage error, exit 2, without its three flags, with a bad issue number, or with a stray argument', async () => {
+      const { f, ask } = asking();
+      for (const args of [['ask'], ['ask', '--file', 'q.json', '--issue', '314'], [...ask(), 'extra'], ask().map((arg) => (arg === '314' ? 'three' : arg))]) {
+        const result = await run(f, args);
+        expect(result, args.join(' ')).toMatchObject({ code: 2, out: '', calls: [] });
+        expect(result.err).toMatch(/^(usage: )?omni runner/);
+      }
+      expect((await run(f, ['ask'])).err).toBe('usage: omni runner ask --file <file> --issue <n> --lead <file>\n');
+    });
+  });
+
+  describe('answers', () => {
+    it("prints the job's questions and their answers as the app holds them, and exits 0", async () => {
+      const stub = app(() => new Response(JSON.stringify(ROW), { status: 200 }));
+      const result = await run(asking().f, ['answers', 'job-7'], { stub });
+      expect(result).toMatchObject({ code: 0, err: '' });
+      expect(JSON.parse(result.out)).toEqual(ROW);
+      expect(result.out.trim().split('\n')).toHaveLength(1);
+      expect(result.calls).toEqual([{ method: 'GET', path: '/api/runners/jobs/job-7/questions', authorization: 'Bearer access-1', body: null }]);
+    });
+
+    it('exits 1 with one line when the job has no row, with the app\'s words or without', async () => {
+      const { f } = asking();
+      const words = await run(f, ['answers', 'job-7'], { stub: app(refusal(404, 'No questions on this job.')) });
+      expect(words).toMatchObject({ code: 1, out: '', err: 'omni runner: No questions on this job.\n' });
+      const none = await run(f, ['answers', 'job-7'], { stub: app(refusal(404)) });
+      expect(none).toMatchObject({ code: 1, out: '', err: 'omni runner: no questions found for job job-7.\n' });
+    });
+
+    it('exits 1 with one line when the app answers something that is no row of questions', async () => {
+      const result = await run(asking().f, ['answers', 'job-7'], { stub: app() });
+      expect(result).toMatchObject({ code: 1, out: '', err: 'omni runner: refused (the app answered no questions)\n' });
+    });
+
+    it('is a usage error, exit 2, without a job or with two', async () => {
+      const { f } = asking();
+      for (const args of [['answers'], ['answers', 'job-7', 'job-8'], ['answers', 'job-7', '--file', 'x']]) {
+        const result = await run(f, args);
+        expect(result, args.join(' ')).toMatchObject({ code: 2, out: '', calls: [] });
+        expect(result.err).toMatch(/^(usage: )?omni runner/);
+      }
+      expect((await run(f, ['answers'])).err).toBe('usage: omni runner answers <job>\n');
+    });
   });
 });
 
@@ -664,5 +1257,264 @@ describe('the runner pieces', () => {
     expect(repoOfRemote('https://github.com/acme/widgets')).toBe('acme/widgets');
     expect(repoOfRemote('/tmp/remote/acme/widgets.git')).toBe('acme/widgets');
     expect(repoOfRemote('widgets')).toBeNull();
+  });
+});
+
+// `omni runner send` and `omni runner follow` (PRD 2251, s3) against a fake page: the terminal's own sign-in,
+// no runner, no tmux, nothing from GitHub.
+type FakeJob = { id: string; status: string; runner: string | null; outcome?: string | null; reason?: string | null; exitCode?: number | null; line?: string };
+
+/** A fake page: `jobs` is what each read of the PRD's jobs answers, in turn (the last one again once they run out). */
+function fakePage({ jobs = [[]], lines = [[]], runners = [], dossier = `${ASK}/prd/2251`, down = 0, sendStatus = 200 }: {
+  jobs?: FakeJob[][]; lines?: { seq: number; text: string }[][]; runners?: unknown[]; dossier?: string | null; down?: number; sendStatus?: number;
+} = {}) {
+  const calls: Call[] = [];
+  let reads = 0;
+  let linesRead = 0;
+  let unreachable = down;
+  /** The next read of the PRD's jobs. */
+  const jobsRead = (): unknown => {
+    const read = jobs[Math.min(reads, jobs.length - 1)] ?? [];
+    reads += 1;
+    return { jobs: read.map((job) => ({ line: '/omni:yolo 2251', prUrl: null, exitCode: null, reason: null, outcome: null, queuedAt: 't', ...job })) };
+  };
+  /** The next read of a job's lines. */
+  const linesAnswer = (): unknown => {
+    const page = lines[Math.min(linesRead, lines.length - 1)] ?? [];
+    linesRead += 1;
+    return { status: 'running', lines: page, more: false, first: 1, logTail: null };
+  };
+  /** What the page answers a call, by its route: a status and a body. */
+  const answer = (pathname: string, method: string): [number, unknown] => {
+    if (pathname === '/api/runners') return [200, { runners }];
+    if (pathname === '/api/dossiers') return dossier === null ? [404, { error: 'none' }] : [200, { url: dossier }];
+    if (pathname.endsWith('/lines')) return [200, linesAnswer()];
+    if (pathname !== '/api/runners/jobs') return [404, {}];
+    if (method !== 'POST') return [200, jobsRead()];
+    return sendStatus === 200 ? [200, { job: { id: 'job-9' } }] : [sendStatus, { error: 'Not in this workspace.' }];
+  };
+  const fetch = (url: string, init: RequestInit): Promise<Response> => {
+    const { pathname, search } = new URL(url);
+    const body: unknown = typeof init.body === 'string' ? JSON.parse(init.body) : null;
+    calls.push({ method: init.method ?? 'GET', path: `${pathname}${search}`, body });
+    if (unreachable > 0) {
+      unreachable -= 1;
+      return Promise.reject(new TypeError('fetch failed'));
+    }
+    const [code, value] = answer(pathname, init.method ?? 'GET');
+    return Promise.resolve(new Response(JSON.stringify(value), { status: code }));
+  };
+  return { calls, fetch };
+}
+
+/** `omni runner <args>` from the fixture's checkout, as a terminal runs it. */
+async function terminal(f: ReturnType<typeof fixture>, page: { fetch: (url: string, init: RequestInit) => Promise<Response> }, args: string[], extra: { tokens?: ReturnType<typeof memoryTokens>; stop?: AbortSignal; sleep?: (ms: number, signal?: AbortSignal) => Promise<void>; mergedOf?: () => Promise<{ merged: number; total: number } | null> } = {}) {
+  const stdout = out();
+  const stderr = out();
+  const code = await main(['runner', ...args], {
+    cwd: f.checkout,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    exec: fakeExec(),
+    env: { PATH: String(process.env.PATH) },
+    tokens: extra.tokens ?? memoryTokens(),
+    home: f.home,
+    fetch: page.fetch,
+    followMs: 1,
+    mergedOf: extra.mergedOf ?? (() => Promise.resolve(null)),
+    ...(extra.stop ? { stop: extra.stop } : {}),
+    ...(extra.sleep ? { sleep: extra.sleep } : {}),
+  });
+  return { code, stdout: stdout.text(), stderr: stderr.text() };
+}
+
+describe('omni runner send', () => {
+  it('refuses a line no runner runs before any call', async () => {
+    const page = fakePage();
+    for (const line of ['yolo 7', '/omni:brainstorm 7', '/omni:yolo 7; rm -rf /']) {
+      const run = await terminal(fixture(), page, ['send', line]);
+      expect(run.code, line).toBe(1);
+      expect(run.stderr).toMatch(/^omni runner: /);
+    }
+    expect(page.calls).toEqual([]);
+  });
+
+  it('sends a repository\'s own skill to the app, which decides, and prints its refusal (PRD 2313)', async () => {
+    const page = fakePage();
+    const run = await terminal(fixture(), page, ['send', '/validate-prd 347']);
+    expect(run).toMatchObject({ code: 0, stdout: 'job-9\n' });
+    expect(page.calls).toEqual([{ method: 'POST', path: '/api/runners/jobs', body: { line: '/validate-prd 347', repo: 'acme/widgets', target: { kind: 'any' } } }]);
+    const refused = await terminal(fixture(), fakePage({ sendStatus: 403 }), ['send', '/validate-prd 347']);
+    expect(refused).toMatchObject({ code: 1, stderr: 'omni runner: Not in this workspace.\n' });
+  });
+
+  it('still refuses a malformed or a fixed skill\'s bare line locally', async () => {
+    const page = fakePage();
+    for (const line of ['/Bad_Name 1', '/validate-prd 347; rm -rf /', '/yolo 7', `/validate-prd ${'1'.repeat(200)}`]) {
+      const run = await terminal(fixture(), page, ['send', line]);
+      expect(run.code, line).toBe(1);
+      expect(run.stderr).toMatch(/^omni runner: /);
+    }
+    expect(page.calls).toEqual([]);
+  });
+
+  it('queues the line for any runner and prints the job id', async () => {
+    const page = fakePage();
+    const run = await terminal(fixture(), page, ['send', '/omni:yolo 2251']);
+    expect(run).toMatchObject({ code: 0, stdout: 'job-9\n' });
+    expect(page.calls).toEqual([{ method: 'POST', path: '/api/runners/jobs', body: { line: '/omni:yolo 2251', repo: 'acme/widgets', target: { kind: 'any' } } }]);
+  });
+
+  it('sends to a runner by its name first, else to a fleet, else refuses', async () => {
+    const runners = [
+      { id: 'r-1', name: 'box-1', fleet: 'nimbus-agents', state: 'online', used: 0, slots: 4, repos: ['acme/widgets'] },
+      { id: 'r-2', name: 'nimbus-agents', fleet: null, state: 'online', used: 0, slots: 4, repos: [] },
+    ];
+    const byRunner = fakePage({ runners });
+    await terminal(fixture(), byRunner, ['send', '/omni:yolo 2251', '--to', 'box-1']);
+    expect(byRunner.calls.at(-1)?.body).toMatchObject({ target: { kind: 'runner', runner: 'r-1' } });
+    const first = fakePage({ runners });
+    await terminal(fixture(), first, ['send', '/omni:yolo 2251', '--to', 'nimbus-agents']);
+    expect(first.calls.at(-1)?.body).toMatchObject({ target: { kind: 'runner', runner: 'r-2' } });
+    const byFleet = fakePage({ runners: [runners[0]] });
+    await terminal(fixture(), byFleet, ['send', '/omni:yolo 2251', '--to', 'nimbus-agents']);
+    expect(byFleet.calls.at(-1)?.body).toMatchObject({ target: { kind: 'fleet', fleet: 'nimbus-agents' } });
+    const unknown = fakePage({ runners });
+    const run = await terminal(fixture(), unknown, ['send', '/omni:yolo 2251', '--to', 'nobody']);
+    expect(run.code).toBe(1);
+    expect(run.stderr).toContain('no runner or fleet named "nobody"');
+    expect(unknown.calls.some((call) => call.method === 'POST')).toBe(false);
+  });
+
+  it('prints the page\'s refusal, and holds when signed out', async () => {
+    const refused = await terminal(fixture(), fakePage({ sendStatus: 403 }), ['send', '/omni:yolo 2251']);
+    expect(refused).toMatchObject({ code: 1, stderr: 'omni runner: Not in this workspace.\n' });
+    const signedOut = await terminal(fixture(), fakePage(), ['send', '/omni:yolo 2251'], { tokens: memoryTokens(null) });
+    expect(signedOut).toMatchObject({ code: 1, stdout: 'no sign-in (omni signin) · held\n' });
+  });
+});
+
+describe('omni runner follow', () => {
+  const running = (over: Partial<FakeJob> = {}): FakeJob => ({ id: 'job-1', status: 'running', runner: 'box-1', ...over });
+
+  it('prints each milestone once, in order, and exits 0 on done', async () => {
+    const f = fixture();
+    const page = fakePage({
+      jobs: [[{ id: 'job-1', status: 'queued', runner: null }], [running()], [running()], [running({ status: 'done', outcome: 'ready' })]],
+      lines: [[], [{ seq: 1, text: '10:00:00 ◌ PRD 2251 · waiting for Paul' }], [{ seq: 2, text: '10:05:00 PR: https://github.com/acme/widgets/pull/42' }], [{ seq: 3, text: '10:09:00 PR: https://github.com/acme/widgets/pull/42' }]],
+    });
+    const run = await terminal(f, page, ['follow', '2251']);
+    expect(run.code).toBe(0);
+    expect(run.stdout.split('\n')).toEqual(['queued', 'claimed by box-1', 'waiting for approval', 'PR: https://github.com/acme/widgets/pull/42', `Ready · ${ASK}/prd/2251`, '']);
+    expect(page.calls.find((call) => call.path.startsWith('/api/runners/jobs?'))?.path).toBe('/api/runners/jobs?repo=acme%2Fwidgets&prd=2251');
+    expect(existsSync(join(f.checkout, '.omni-loop', 'local', 'runner-follow', '2251.json'))).toBe(false);
+  });
+
+  it('reads only the lines after the last one it saw', async () => {
+    const page = fakePage({
+      jobs: [[running()], [running({ status: 'done' })]],
+      lines: [[{ seq: 1, text: 'a' }, { seq: 2, text: 'b' }], []],
+    });
+    await terminal(fixture(), page, ['follow', '2251']);
+    expect(page.calls.filter((call) => call.path.includes('/lines')).map((call) => call.path)).toEqual([
+      '/api/runners/jobs/job-1/lines?after=0', '/api/runners/jobs/job-1/lines?after=2',
+    ]);
+  });
+
+  it('keeps the last milestone for the HUD while it follows', async () => {
+    const f = fixture();
+    const file = join(f.checkout, '.omni-loop', 'local', 'runner-follow', '2251.json');
+    const kept: unknown[] = [];
+    const page = fakePage({ jobs: [[running()], [running({ status: 'done' })]] });
+    await terminal(f, page, ['follow', '2251'], { sleep: () => { kept.push(JSON.parse(readFileSync(file, 'utf8'))); return Promise.resolve(); } });
+    expect(kept).toMatchObject([{ prd: 2251, runner: 'box-1', line: 'claimed by box-1' }]);
+  });
+
+  it('prints the board count when it goes up', async () => {
+    const counts = [{ merged: 0, total: 2 }, { merged: 1, total: 2 }];
+    const page = fakePage({ jobs: [[running()], [running()], [running({ status: 'done' })]] });
+    const run = await terminal(fixture(), page, ['follow', '2251'], { mergedOf: () => Promise.resolve(counts.shift() ?? { merged: 1, total: 2 }) });
+    expect(run.code).toBe(0);
+    expect(run.stdout).toContain('claimed by box-1\n1/2 slices merged\n');
+  });
+
+  it.each([
+    ['failed', { status: 'failed', reason: 'timeout' }, 'Failed: timeout'],
+    ['cancelled', { status: 'cancelled' }, 'Cancelled'],
+    ['runner lost', { status: 'failed', reason: 'runner lost' }, 'Runner lost'],
+  ] as const)('exits 1 when the job %s', async (_name, over, words) => {
+    const page = fakePage({ jobs: [[running(over)]] });
+    const run = await terminal(fixture(), page, ['follow', '2251']);
+    expect(run.code).toBe(1);
+    expect(run.stdout).toContain(`${words} · ${ASK}/prd/2251\n`);
+  });
+
+  it('exits 0 on a done job that held or waits on answers, naming each ending', async () => {
+    for (const [outcome, words] of [['held', 'Held'], ['answers', 'Waiting on answers']] as const) {
+      const run = await terminal(fixture(), fakePage({ jobs: [[running({ status: 'done', outcome })]] }), ['follow', '2251']);
+      expect(run.code).toBe(0);
+      expect(run.stdout).toContain(`${words} · `);
+    }
+  });
+
+  it('ends a stopped job on its slice count and the line to send again, and exits 1 (PRD 2375)', async () => {
+    const page = fakePage({ jobs: [[running({ status: 'done', outcome: 'stopped', line: '/omni:yolo 2338' })]] });
+    const run = await terminal(fixture(), page, ['follow', '2251'], { mergedOf: () => Promise.resolve({ merged: 0, total: 5 }) });
+    expect(run.code).toBe(1);
+    expect(run.stdout).toContain(`Stopped mid-way · 0 / 5 slices merged · ${ASK}/prd/2251\nsend it again: omni runner send '/omni:yolo 2338'\n`);
+    const alone = await terminal(fixture(), fakePage({ jobs: [[running({ status: 'done', outcome: 'stopped' })]] }), ['follow', '2251'], { mergedOf: () => Promise.resolve(null) });
+    expect(alone.stdout).toContain(`Stopped mid-way · ${ASK}/prd/2251\n`);
+  });
+
+  it('keeps waiting while the PRD has no job, then follows the one that appears', async () => {
+    const page = fakePage({ jobs: [[], [], [running({ status: 'done' })]] });
+    const run = await terminal(fixture(), page, ['follow', '2251']);
+    expect(run.code).toBe(0);
+    expect(run.stdout.split('\n').slice(0, 2)).toEqual(['waiting for a job of PRD 2251', 'queued']);
+    expect(run.stdout.match(/waiting for a job/g)).toHaveLength(1);
+  });
+
+  it('follows the newest job and never a second one', async () => {
+    const page = fakePage({ jobs: [[running({ id: 'job-2' }), running({ id: 'job-1', status: 'failed', reason: 'timeout' })], [running({ id: 'job-2', status: 'done' }), running({ id: 'job-1', status: 'failed' })]] });
+    const run = await terminal(fixture(), page, ['follow', '2251']);
+    expect(run.code).toBe(0);
+    expect(page.calls.some((call) => call.path.includes('/job-1/'))).toBe(false);
+    expect(page.calls.some((call) => call.method === 'POST')).toBe(false);
+  });
+
+  it('ends held, not failed, when the page stays unreadable, and carries on through a short outage', async () => {
+    const held = await terminal(fixture(), fakePage({ down: 99 }), ['follow', '2251']);
+    expect(held).toMatchObject({ code: 1, stdout: 'server unreachable · held, not failed\n' });
+    expect(held.stdout).not.toContain('Failed');
+    const brief = await terminal(fixture(), fakePage({ down: 2, jobs: [[running({ status: 'done' })]] }), ['follow', '2251']);
+    expect(brief.code).toBe(0);
+  });
+
+  it('refuses a page that has no routes, and holds when signed out', async () => {
+    const page = { fetch: () => Promise.resolve(new Response('{}', { status: 404 })) };
+    expect((await terminal(fixture(), page, ['follow', '2251'])).stdout).toBe('refused (404)\n');
+    const signedOut = await terminal(fixture(), fakePage(), ['follow', '2251'], { tokens: memoryTokens(null) });
+    expect(signedOut).toMatchObject({ code: 1, stdout: 'no sign-in (omni signin) · held\n' });
+  });
+
+  it('stops on Ctrl-C and leaves the job running: it cancels nothing', async () => {
+    const stop = new AbortController();
+    const page = fakePage({ jobs: [[running()]] });
+    const run = await terminal(fixture(), page, ['follow', '2251'], { stop: stop.signal, sleep: () => { stop.abort(); return Promise.resolve(); } });
+    expect(run.code).toBe(130);
+    expect(run.stdout).toContain('stopped following PRD 2251 · the job runs on');
+    expect(page.calls.some((call) => call.method === 'POST')).toBe(false);
+  });
+
+  it('is named, with send, by omni help runner', async () => {
+    const stdout = out();
+    expect(await main(['help', 'runner'], { cwd: fixture().checkout, stdout: stdout.stream, stderr: out().stream, exec: fakeExec(), env: {} })).toBe(0);
+    expect(stdout.text()).toContain("omni runner send '<line>' [--to <runner|fleet>]");
+    expect(stdout.text()).toContain('omni runner follow <n>');
+  });
+
+  it('refuses a missing or bad PRD number', async () => {
+    expect(await terminal(fixture(), fakePage(), ['follow'])).toMatchObject({ code: 2, stderr: 'usage: omni runner follow <n>\n' });
+    expect((await terminal(fixture(), fakePage(), ['follow', 'abc'])).code).toBe(2);
   });
 });

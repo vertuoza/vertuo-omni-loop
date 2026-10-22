@@ -8,7 +8,7 @@ import { afterStart, arrive } from './onboarding';
 import { twinEvents, twinGalaxy } from './test/twins.fake';
 import type { FleetRow, Player, Session } from './types';
 import { sure } from './test/sure';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 
 // The arcade's deep links (moved out of ArcadeApp.tsx; PRD 238 adds #menu): the screen an address's
 // hash opens, past the boot and the title, through the one door every route goes through; and the
@@ -18,7 +18,7 @@ const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
 const planet = view.planets[2];
 assertDefined(planet, 'planet');
-const crew: Session = { id: 'u1', email: 'ada@vertuoza.com', givenName: 'Ada', crew: true, github: 'ada-gh' };
+const crew: Session = { id: 'u1', email: 'ada@example.com', givenName: 'Ada', crew: true, github: 'ada-gh' };
 const outsider: Session = { ...crew, email: 'eve@elsewhere.example', crew: false, github: null };
 
 describe('the deep links', () => {

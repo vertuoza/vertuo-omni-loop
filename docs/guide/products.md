@@ -106,6 +106,7 @@ A card opens its product home, at `/app/products/<id>`. It shows only that produ
 | tab | what it shows |
 |---|---|
 | **Ledger** (it opens on it) | what waits on whom, in three lanes: *on you*, *on GitHub review*, *on the agent*; each PRD with its number or seal, ◆ or ◇, one state word and its pull requests; above them, how many are building, waiting on a person and drifted |
+| **Constellation** | the product's repositories as a night sky, each a star sized by how many of its PRDs target it, ringed by its state; a bright line joins two repositories a PRD's plan names together (wider for more PRDs, moving dots while one is in flight), a thin arrowed line is a declared `consumes`; click a star or a line for its card, with *Now in* the product's PRDs in flight beside the sky |
 | **PRDs** | every PRD of the product, newest first, with where it was born and its state |
 | **Ideas** | the product's ideas, each with its board, its lane and its `/omni:brainstorm` line |
 | **Roadmap** | the product's roadmaps |
@@ -118,8 +119,145 @@ A PRD waits *on you* when it waits for your approval or for your answer; one und
 GitHub review*, and one being built or ready to build *on the agent*.
 
 The workspace's own lists stay as they are, each with a product filter: all, one product, or no
-product. They are the PRDs, the bug fixes and the visual fixes, and each repository's ideas board,
-whose filter only the workspace's members see.
+product. They are the PRDs, the roadmaps, the bug fixes and the visual fixes, and the concepts. Each
+item shows its product id beside its number: `mobile-12` for a product PRD, `mobile-R3` for a
+roadmap, `mobile-B74` for a bug fix. Each repository's ideas board stays as it was, and its filter
+only the workspace's members see.
+
+**Work › Questions** is the workspace's own list of questions, in two tabs. **Inbox** holds the
+questions the ask mode put to you. **Outbox** holds the open outbox items of every PRD of the workspace, product PRDs and repository
+PRDs alike, with their product and PRD id, the ones waiting on you first. A product PRD's question is
+answered in place, as before. A repository PRD's question is answered on its PRD page's Outbox tab
+(`/prd/<id>?tab=outbox`), which sends the answer to its feature pull request; its row links there and
+shows `as of <time>`, the last time the server read it, which can lag up to 15 minutes behind an
+answer typed on GitHub. A repository PRD's medium items are not listed.
+
+## The rollout ladder
+
+Each repository of a product climbs a **rollout ladder** of five steps, one at a time:
+
+| step | what the repository has |
+|---|---|
+| 1 | approval on the Omni page |
+| 2 | the gate, read from the Omni page |
+| 3 | the outbox, its open questions answered on the page |
+| 4 | phase 0 born on the server |
+| 5 | roadmaps and bug records born on the server |
+
+A repository at step 5 gets the new records: a roadmap is `<key>-R<n>` and a bug record is
+`<key>-B<n>`, both in its product (see [Roadmaps](/docs/roadmaps#in-a-product-on-the-server) and the
+bug records below). A repository below step 5 keeps working the way it always has, from git.
+
+A record keeps the place it was born in for life. A roadmap or bug record born in git finishes in
+git, and moving a repository back down the ladder changes only where its new records are born.
+
+### Bug records
+
+At step 5, a bug fix is a record on the product, `<key>-B<n>` (such as `mobile-B74`), with its own
+counter apart from the PRDs'. Its **Fixes** rows, one per fix (its repository, its pull request,
+what changes, its reproduction and its guard), are on its page, and `omni bug push --product mobile`
+writes them. Each row's repository must be one of the product's; a row naming another is refused by
+name, and nothing is written.
+
+Every fix pull request's description carries the record: `Fixes mobile-B74 · <link>`, then the
+reproduction and the guard, so `git log` and blame still lead to the why. The merge stamps each row
+as its pull request merges, and the record **ships** on the last merge. A pull request closed without
+merging leaves its row not merged and the record open. No record pull request is opened and no issue
+is made, in a plan repository either.
+
+### Knowledge packs
+
+Imported knowledge is served as a **pack** from the product, not copied into a repository. On a merge
+that touches a repository's knowledge folder or flow config, the Omni App takes a snapshot of those
+files at that commit, and the newest snapshot is the pack. `omni kb pack get <repo>` writes it to
+`.omni-loop/local/packs/` in your checkout, read-only and ignored by git, and prints the folder. When
+the server cannot be reached, it prints the newest pack already fetched, with its commit and its age.
+A pack older than the commit your product link was read at is refused, never used, and `/omni:do-work`
+stops the slice with `pack stale: <sha> < read_at <sha>`. A workspace's token reads only its own
+workspace's packs.
+
+### The Repositories tab
+
+A product's **Repositories & approvers** tab shows each repository's ladder step, and, under it, what
+still lives in the repository's plan repository: a repository below step 5 (`nimbus-web · step 3`),
+and any open roadmap or bug record that is still born in git (`roadmap 0412 · in git`). This is
+information only. The plan repository is kept: the loop never archives it, and the tab has no archive
+action. A plan repository keeps its roadmaps, bug records and imported knowledge copies working side
+by side with the product way.
+
+## A product PRD
+
+## Product knowledge
+
+A product keeps two kinds of knowledge on its Omni page, shared by every repository it links:
+
+- **Legal** entries: one sentence of what a law or regulation requires, with its source and an
+  owner. Each has an id such as `L-INVOICING-1`, which never changes and is never reused.
+- **Glossary** terms: a term, its meaning in one sentence and the words to avoid in its place, such
+  as *Credit note*, avoid *refund*.
+
+Both are edited on the product's **Knowledge** tab, after Questions. Each kind names one owner and
+one delegate. The owner or the delegate adds, edits and retires Legal entries (a retired entry keeps
+its id) and adds, edits and removes glossary terms (a removed term is kept, marked removed). Any other
+member of the workspace proposes a change, and the owner or the delegate approves or rejects it.
+
+Two verbs read them in a repository of the product, with the computer's sign-in:
+
+```bash terminal agent
+omni kb legal
+omni kb glossary
+```
+
+Each writes a local copy, `.omni-loop/local/product-knowledge.json`. When the Omni page cannot be
+reached, the verbs print the copy and the date it was read, and exit 0. With no copy yet, they exit 1.
+
+A rule or an invariant can cite a Legal entry in place of a principle: `Serves: L-INVOICING-1`.
+`omni check knowledge` verifies the id against the product, and reads the page only when a rule
+serves an `L-` id. An id the product does not hold, or one it retired, fails the check. With the page
+unreachable or no sign-in, the check passes and says that the Legal entry was not verified; it never
+blocks on the network.
+
+The glossary feeds the words check. `omni design words` adds the avoided words of the product's
+glossary, read from the local copy only, so a screen that says *refund* is reported as
+`"refund": avoid, the product says "Credit note"`. With no copy, the check uses its usual word lists.
+
+### Knowledge graph
+
+A repository's knowledge graph (its rules, invariants, decisions and the code they cite) reaches the
+product's Omni page on every push to `main`. The workflow `.github/workflows/knowledge-graph.yml`
+runs `node .omni-loop/bin/omni.mjs kb graph push` with the kit token in the `OMNI_TOKEN` secret, and holds
+only `contents: read`. Without the secret the step does nothing and the run stays green. A release
+commit (`chore(release): `) is skipped, since it only stamps versions. Run `omni kb graph push` by
+hand to push the graph of the checkout you are in; it refuses a dirty knowledge folder in one line.
+
+Another repository of the product adds the same workflow, calling the kit it installed:
+
+```yaml file=.github/workflows/knowledge-graph.yml
+name: knowledge-graph
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  push:
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release): ') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Push the knowledge graph of main
+        env:
+          OMNI_TOKEN: ${{ secrets.OMNI_TOKEN }}
+        run: |
+          if [ -z "$OMNI_TOKEN" ]; then
+            echo "OMNI_TOKEN is not set: no knowledge graph push"
+            exit 0
+          fi
+          node .omni-loop/bin/omni.mjs kb graph push
+```
 
 ## A product PRD
 
@@ -147,7 +285,7 @@ product PRD is the other way to build across repositories.
   requests cannot take a product PRD. To check, type:
 
 ```bash terminal agent
-omni product phase0 vertuoza/vertuo-mobile vertuoza/vertuo-api
+omni product phase0 demo-org/nimbus-app demo-org/nimbus-api
 ```
 
 It prints one line per repository: `is phase0: server`, or

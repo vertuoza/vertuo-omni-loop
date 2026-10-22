@@ -1,5 +1,5 @@
 import { WOUND_TINT } from '@omni/design';
-import { WOUND_KINDS } from 'vertuo-omni-plan/game/events.ts';
+import { WOUND_KINDS } from 'omni-loop/game/events.ts';
 import { describe, expect, it } from 'vitest';
 
 // The arcade is where the game's wounds meet the design's sprites: the design never imports the game

@@ -229,3 +229,11 @@ a.products-open-first { background: var(--ask-plasma); border-color: var(--ask-p
 /* Add to a product, with several products (PRD 1364 s11): a list of them, each opening its tab. */
 details.products-add summary { cursor: pointer; color: var(--ask-ink); }
 .products-add-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+
+/* Archived (n), an owner only (PRD 2232): collapsed under the tiles, each product with its Restore. */
+.products-archived { font-size: 14px; }
+.products-archived summary { cursor: pointer; color: var(--ask-muted); }
+.products-archived ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.products-archived-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 10px 16px; border: 1px dashed var(--ask-line-strong); border-radius: 12px; }
+.products-archived-name { font-weight: 700; overflow-wrap: anywhere; }
+.products-archived-line { flex: 1 1 160px; color: var(--ask-muted); }

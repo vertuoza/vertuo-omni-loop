@@ -8,7 +8,7 @@
 // on the Omni page, through the `server` store: nothing in the repository changes. While the server
 // cannot be reached it holds, exit 1. It runs before a context exists, like `omni status`, so that a
 // test can hand it `tokens`, `home`, `fetch`, `callMs` and `now`; it loads the context itself.
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-settle.mjs (its CLI half, `adopt`) — changes in kit/porting/bin--commands.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-settle.mjs (its CLI half, `adopt`) — changes in kit/porting/bin--commands.md.
 import { isAbsolute, relative } from 'node:path';
 import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';

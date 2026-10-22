@@ -7,8 +7,8 @@ GitHub makes you a member of the workspace of every GitHub org of yours that has
 fleet, enter a name and build a hero, and your pull requests score for that fleet. Every point also
 counts as XP, which never resets (it restarted at 0 once, at PRD 728's fresh start, keeping every
 game already unlocked: [`game/README.md` › The fresh start](../../game/README.md#the-fresh-start)),
-and levels open arcade games in the game room: Entropy Invaders from LV 1, SUPER OMNI WORLD
-from LV 2, then OMNI KART from LV 3 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
+and levels open arcade games in the game room: Entropy Invaders from LV 1, STARHOP
+from LV 2, OMNI KART from LV 3, OMNI DUET from LV 4, then PULSAR VOLLEY from LV 5 ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
 Game Boy's buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
@@ -129,7 +129,7 @@ HOME.
 | Hall of Heroes | Season high-score table from `game/economy.ts`, with each player's hero and name |
 | Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) ([The game room](#the-game-room)) |
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
-| SUPER OMNI WORLD | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
+| STARHOP | The second game, from LV 2: a side-scrolling platformer over three stages, the score sent at game over or WORLD CLEAR |
 | OMNI KART | The third game, from LV 3: a Mode 7 kart race of three laps on COMET RING or FROST EIGHT (picked at the CIRCUIT step) against five rivals, item boxes (BOOST, BLOB, ORB), the race time sent at the finish to the circuit's board (the lowest is kept) |
 | How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.ts` so they never drift |
 
@@ -359,7 +359,7 @@ Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
 ### Layers: client → controller → service → repository (PRD 1318)
 
 Each feature folder (`src/<area>/`) splits a request into five roles, named by the file's suffix
-(ADR-0095, after vertuo-ai-domain's `libs/LIBRARY_STYLE_RULES.md` §5):
+(ADR-0095, after nimbus-ai-domain's `libs/LIBRARY_STYLE_RULES.md` §5):
 
 | role | file | does | never |
 |---|---|---|---|
@@ -577,6 +577,16 @@ the App cannot read shows *Omni App has no access*, with a link to the installat
 GitHub. Vertuoza, and only Vertuoza, starts with six tracked repositories; any other workspace starts
 with none. omni-app's `prStats` Inngest function collects the tracked repositories every 15 minutes
 into `pull_requests` and `pull_request_reviews` ([`apps/omni-app/README.md`](../omni-app/README.md)).
+
+**Runner skills** (PRD 2313). Each row ends with a **Runner skills** block, closed by default. Opened,
+it reads the repository's `.claude/skills/<name>/SKILL.md` on its default branch live, as the Omni App
+(`GET /api/repositories/skills?repo=`, `src/repositories/skills.ts`; nothing is stored), and lists each
+`/name` with its description as the tooltip and an **Allow on runner** switch. Only the owner flips it,
+through `set_repository_runner_skill()`; a member sees it disabled. An allowed skill reads `allowed by
+@<login> on <date>`; one no longer on the branch reads **Gone: no longer on <default branch>**, its switch
+still on; a failed read says `Skills could not be read: <why>` and the allowed skills stay listed. A
+folder with no `SKILL.md`, a name that is not `[a-z][a-z0-9-]*` or not its folder's, and the loop's own
+skills are left out.
 
 **Phase 0 on the server** (PRD 1299). Each row also has a **Phase 0 on the server** switch
 (`repositories.phase0`, `pr` or `server`, `pr` by default), which only the owner flips, through the
@@ -837,12 +847,13 @@ off, no row exists, and every player sees NO XP YET.
 - **`games`**, the room (`src/arcade/games/room.ts`): the level, the XP bar and the XP to the next
   level (`LV 3 · 180 / 300 XP`, `120 XP to LV 4`), then a cabinet per game in the registry
   (`src/arcade/games/index.ts`). A lit cabinet shows the crew's top five, the player's own line
-  highlighted, and A · PLAY; a locked one is dark and shows the level it opens at (SUPER OMNI WORLD:
-  `REACH LV 2 TO PLAY`; OMNI KART: `REACH LV 3 TO PLAY`; OMNI DUET: `REACH LV 4 TO PLAY`). A visitor
+  highlighted, and A · PLAY; a locked one is dark and shows the level it opens at (STARHOP:
+  `REACH LV 2 TO PLAY`; OMNI KART: `REACH LV 3 TO PLAY`; OMNI DUET: `REACH LV 4 TO PLAY`; PULSAR VOLLEY:
+  `REACH LV 5 TO PLAY`). A visitor
   sees every cabinet locked and "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE
   YOUR FIRST POINT", and XP that could not be read "XP OUT OF REACH". The wide grid stands a window of
   three cabinets side by side, ◀ ▶ choosing, which scrolls by one so the cabinet under the cursor is
-  always in it (cabinets 1–3 with the cursor on 1 to 3, 2–4 on the fourth); the tall grid shows one a
+  always in it (cabinets 1–3 with the cursor on 1 to 3, 2–4 on the fourth, 3–5 on the fifth); the tall grid shows one a
   page.
 - **`levelup`** (`src/arcade/levelup.ts`): arriving at the menu by any route, a player whose level
   is higher than the one last celebrated on this device (`omni-loop:level-seen:<login>` in browser
@@ -867,7 +878,7 @@ off, no row exists, and every player sees NO XP YET.
   The screen says SAVING SCORE…, then NEW BEST, YOUR BEST n, or SCORE NOT SAVED, where A retries
   once and B goes back to the room; otherwise A, B or START go back. Playing never earns points or
   XP.
-- **`platformer`**, SUPER OMNI WORLD (PRD 817), opened at LV 2 (`xp.unlocks.platformer` in the
+- **`platformer`**, STARHOP (PRD 817), opened at LV 2 (`xp.unlocks.platformer` in the
   rulebook): an original side-scrolling platformer in the SNES style, on Phaser 4, which is imported
   only when the game opens (`src/arcade/platformer/PlatformerScreen.tsx`, the one way in; a failed
   import says `GAME DID NOT LOAD · A TO RETRY`). The player's own hero runs (◀ ▶, B held to run),
@@ -907,7 +918,7 @@ off, no row exists, and every player sees NO XP YET.
   race time (PRD 1440), the whole race of three laps in tenths of a second, is sent once under the circuit's board (`kart` for COMET RING, `kart-frost-eight` for FROST EIGHT): each
   board keeps the best time, the lowest, and has its own send lines, SAVING TIME…, NEW BEST, YOUR BEST 1:42.3
   or TIME NOT SAVED (A retries once). The cabinet's CREW TOP 5 shows times, fastest first, for each circuit in turn (see **The circuits** below). What it sounds like is in the sound section above.
-  **The options** (PRD 1762): OPTIONS on the ready screen holds KEYS (the five actions of a keyboard: GAS, BRAKE, LEFT, RIGHT, ITEM),
+  **The options** (PRD 1762): OPTIONS on the ready screen holds KEYS (the six actions of a keyboard: GAS, BRAKE, LEFT, RIGHT, ITEM, HOP; PRD 1963),
   KART (eight colours and three designs, CLASSIC, ROCKET and RACER, drawn on the track, the minimap and the podium), LAPS (3, 5 or 7),
   DIFFICULTY (EASY, NORMAL or HARD, the rivals' pace and how long they hold an item) and DEFAULTS. They are kept in this browser only,
   under `omni-loop:kart-options` (`kart/options.ts`), never sent anywhere; a MULTI grid takes the first arrival's laps and each player's
@@ -1057,11 +1068,62 @@ off, no row exists, and every player sees NO XP YET.
   road"). **The tree line:** one tile inside the map's edge a kart stops, as at a wall. **Ice and the slide:** the kart
   has a direction of travel beside its heading, which turns towards the heading by at most the surface's grip times the
   step; on `road` and `powder` the grip has no limit, so the direction of travel is the heading and the kart drives as
-  before, while on `ice` the grip is `RULES.iceGrip` (1.2 radians a second) and the top speed is kept, so a kart that
+  before, while on `ice` the grip is `RULES.iceGrip` (0.4 radians a second, PRD 1963) and the top speed is kept, so a kart that
   steers on the lake turns its nose before its path and comes out of the X off its line, the gap between heading and
-  travel never passing `RULES.iceSlip` (0.6 radians); leaving the ice, travel is the heading again. The rivals drive the
-  same model, slide too and finish their three laps (seeds 1, 7 and 42, at every level), and karts that meet at the X
-  push each other apart as anywhere else.
+  travel never passing `RULES.iceSlip` (1.0 radian); on ice the gas adds `RULES.iceAccel` (0.6) times what it adds on road,
+  the brake takes off `RULES.iceBrake` (0.4) times and letting go `RULES.iceCoast` (0.3) times, reversing alike. **The way
+  back:** a kart that carries a direction of travel on `road` or `powder` and is not drifting turns it towards the heading
+  at `RULES.grip` (6 radians a second) and drops it within 0.01 radian; COMET RING has no ice, so a kart there carries
+  `travel` only after a drift. **Two frozen patches:** beside the lake, two discs of ice 6 tiles across, centred on the
+  middle of bend 4 (`[16, 8]`) and bend 8 (`[16, 64]`); the track's `lake` is a list of ice discs, the lake first, drawn as
+  the lake is and in light blue on the minimap. The rivals pick their speed for a bend as before: on an icy bend they slide
+  wide into the powder as a player who does not brake does, and finish their three laps (seeds 1, 7 and 42, at every
+  level), and karts that meet at the X push each other apart as anywhere else.
+  **The drift** (PRD 1963; every number is named in `RULES`): HOP, a sixth drive key (SPACE; ▲ on the Game Boy's pad,
+  ITEM staying B), makes a grounded kart hop `RULES.hopHeight` (4 pixels) over `RULES.hopTime` (0.25 seconds). The hop is
+  drawn only: `airborne` never sees it, so a hopping kart takes boxes, pads, BLOBs, ORBs and pushes, tips over and falls as
+  on the ground; HOP in the air or during a hop does nothing. A hop that lands with HOP still held, ◀ or ▶ held (its side
+  is the drift's) and the speed at least `RULES.driftMin` (0.5 of the top speed) starts a drift; with no arrow the hop was
+  only a hop. While drifting the kart turns towards the drift's side at `RULES.driftTight` (2.2 radians a second) with
+  its arrow, `RULES.driftMid` (1.5) with neither and `RULES.driftWide` (0.9) with the other; the direction of travel
+  follows the heading at `RULES.driftGrip` (0.8) and lags it by at most `RULES.driftSlip` (0.45), and on ice the lower grip
+  and larger slip hold. The charge (`fx.charge`) grows on road and ice and stands still on powder: blue from
+  `RULES.chargeBlue` (0.8 seconds), orange from `RULES.chargeOrange` (1.8). Releasing HOP gives today's BOOST for
+  `RULES.miniOrange` (1 second) or `RULES.miniBlue` (0.5), nothing under blue, and never shortens a BOOST already
+  running; every turbo of this PRD is that BOOST. A drift is lost, with no turbo, on ▼, a BLOB or ORB hit, a fall, a
+  tip-over, the tree line, a speed under `driftMin` or a ramp's jump, and when the race ends. **The HARD rivals drift:**
+  at HARD only, a rival hops at a bend's entry when its look ahead finds a turn tighter than `RULES.rivalDriftRadius` (8
+  tiles) at `driftMin` speed, drifts towards its side, and releases when the turn opens, taking the turbo it earned; it
+  never starts a drift with a wheel over the void within its look and releases at once when the void comes into it. EASY and
+  NORMAL rivals never hop.
+  **The rocket start and the stall:** the countdown shows 3, 2 and 1 for one second each (`RULES.countdown`) and keeps
+  when GAS last went down during it (GAS already held counts as pressed during the 3). At GO with GAS held: last pressed
+  during the 2, a BOOST of `RULES.rocketTime` (0.8 seconds) and `TURBO` under GO; last pressed during the 3, the engine
+  stalls for `RULES.stallTime` (0.5 seconds), the kart does not move, black smoke puffs and the engine sputters; during the
+  1, or GAS not held, a normal start. The rivals draw a rocket start at GO from the race's seed (`RULES.levels.<level>.rocket`:
+  0.2 EASY, 0.4 NORMAL, 0.7 HARD) and never stall; in MULTI each player's start is their own.
+  **The slipstream:** a kart at `RULES.draftMin` (0.6 of the top speed) or more, within `RULES.draftRange` (48 pixels)
+  behind another kart also at `draftMin` or more and within `RULES.draftLine` (0.3 radian) of the line straight back from
+  its heading, builds a slipstream; `RULES.draftTime` (1.2 seconds) in a row give a BOOST of `RULES.draftBoost` (0.6
+  seconds) and start the count again, and leaving the cone resets it. Every kart gives one and takes one (the player, the
+  rivals, and in MULTI the other players' karts at their carried positions); a kart in the air or falling neither gives nor
+  takes.
+  **What a player sees and hears** (`art.ts` from the pure, seeded state of `fx.ts`, under its particle cap; `sound.ts`, no
+  audio file): snow behind the rear wheels of a kart on powder faster than `draftMin`; skid marks while the gap between
+  heading and travel is over `RULES.skidGap` (0.15 radian) or a drift runs, white on ice and snow and dark on road, fading
+  over 3 seconds, at most `MAX_MARKS` at once (the player's own lie under its rear wheels, over its shadow and under its
+  sprite; a rival's trail behind it); blue then orange sparks at the rear wheels of a drifting kart; white wind lines
+  while a slipstream builds. The player's own kart alone is heard: a screech (a continuous voice under the music, louder as
+  the gap grows), a tick when the sparks turn blue and again orange, a whoosh at each mini-turbo, rocket start and
+  slipstream, a sputter on a stall, and the engine's hum rising while GAS is held during the countdown. With reduced motion
+  no particle moves: the sparks stay as a still glow in their colour, the snow, smoke and wind are not drawn and the marks
+  stay. In MULTI the others' karts are drawn without hop, sparks or marks and nothing is added to MULTI's messages.
+  **The six keys:** GAS ▲, BRAKE ▼, LEFT ◀, RIGHT ▶, ITEM SHIFT and HOP SPACE by default; OPTIONS › KEYS lists the six, HOP
+  last, and DEFAULTS restores them; the countdown's line reads `▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE HOP SHIFT ITEM` with the
+  player's own keys. ENTER, TAB, ESC, M and F stay reserved; SHIFT can be bound and stands for SELECT in OMNI KART only
+  when none of the player's keys is SHIFT (TAB is SELECT always), so ITEM never leaves a paused race. Five saved keys equal
+  to the old defaults read as the new six defaults; any other five are kept and HOP takes the first of SPACE, X, C and V
+  that none holds.
   **SINGLE and MULTI** (PRD 1572): the ready screen offers `SINGLE` (everything above, unchanged) and
   `MULTI`, which reads `MULTI · SIGN IN TO RACE` and cannot be picked where no other player can be
   reached (the demo, the closed arcade). `MULTI` joins the workspace's one **grid**, a private Supabase
@@ -1123,10 +1185,12 @@ off, no row exists, and every player sees NO XP YET.
   endless mode a darker one of faint chevrons), every block a soft trail fading about R above it,
   both in the theme's colours, the backdrop still and no trail under reduced motion; and as each wave
   begins, a short line of the game's own (`duet/lines.ts`, one for every chapter wave and a few for
-  endless mode) shows in the middle of the playfield for 2 seconds and fades. A wave passed scores 10, 20 in endless mode;
-  nothing else scores. Three lives: a hit restarts the chapter from its first wave with the score it
-  began with (in endless mode, the wave hit with the score it began with), on a ready screen that
-  waits for START, so no death ever earns a point. START pauses, and so does a blurred window, a
+  endless mode) shows in the middle of the playfield for 2 seconds and fades. Each obstacle passed scores 1, 2 in
+  endless mode, as soon as it is entirely below the circle (PRD 2318): a gate is one obstacle, its
+  two bars together, and finishing a wave scores nothing more. Three lives: a hit restarts the
+  chapter from its first wave with the score it began with (in endless mode, the wave hit with the
+  score it began with), giving back every obstacle passed since, on a ready screen that waits for
+  START, so no death ever earns a point. START pauses, and so does a blurred window, a
   hidden tab or OPEN THE APP?; only START resumes. The game ends at the last life lost, on SELECT on
   the pause, or on B on a ready screen once play has started (B on the first one leaves with no
   score), and every way shows the game over: the score, the waves passed and where the run got to.
@@ -1135,12 +1199,37 @@ off, no row exists, and every player sees NO XP YET.
   to the room. The run is a pure phase machine in fixed 1/60 s steps (`duet/run.ts`), so it plays the
   same at any frame rate, in one 320×288 playfield on both grids; its numbers are one block,
   `duet/rules.ts`. It is silent.
+- **`pong`**, PULSAR VOLLEY (PRD 2101), opened at LV 5 (`xp.unlocks.pong` in the rulebook): a Pong against
+  an AI, steered by the player's voice alone. Its code is `src/arcade/pong/`, imported only when the
+  cabinet opens (`LOADING…` meanwhile; a failed import says `GAME DID NOT LOAD · A TO RETRY`); nothing
+  outside that folder imports it at run time (`pong/guard.test.ts`). The ready screen reads
+  `◀ PITCH · MID ▶`: ◀ ▶ set the limit the voice is steered around, `LOW` 160 Hz, `MID` 220 Hz or
+  `HIGH` 300 Hz, kept in the browser under `omni-loop:pong-options`. A asks for the microphone, with
+  the browser's echo cancellation, noise suppression and auto gain off (`pong/mic.ts`, the one file
+  that calls `getUserMedia`); refused, missing or on an insecure page it reads `MIC REQUIRED` and why,
+  and there is no way to play without it. Once it is on, the pitch meter shows `▲`, `·` or `▼` live
+  and START plays. Each frame `pitchOf` reads the voice's pitch by normalised autocorrelation, or none
+  for silence, speech and noise (`pong/pitch.ts`); above the limit by more than 10 Hz the paddle moves
+  up, below it by more than 10 Hz down, at one speed, and it holds still in between and in silence
+  (`pong/steer.ts`), the steering sign beside the paddle. The ball speeds up at every return to a
+  cap, and the AI follows it late and no faster than its top speed, so a long rally outruns it. A
+  point is scored when the AI misses; the third point conceded ends the match, and a point conceded
+  never adds. START pauses, as do a blurred window and a hidden tab, and only START resumes; the
+  microphone is stopped while paused and asked for again on resume, and a microphone that stops
+  during a match pauses it with `MIC LOST · A TO RETRY`. The third point conceded or SELECT · QUIT on
+  the pause sends the points scored once under `pong`, with the same SAVING SCORE…, NEW BEST, YOUR
+  BEST n or SCORE NOT SAVED (A retries once) as Invaders; otherwise A plays again from the ready
+  screen, the microphone kept, and B goes back to the room. The sound is read in the browser frame by
+  frame and never recorded, stored or sent. The match is pure and seeded in fixed 1/120 s sub-steps
+  (`pong/match.ts`), the same at any frame rate, on one 320×288 field on both grids; its numbers are
+  one block, `pong/rules.ts`. `/play` sends no `Permissions-Policy` that blocks the microphone
+  (`pong/policy.test.ts`). It is silent.
 - **The play dock**, the corner Game Boy that plays while Claude works (PRD 757,
   `src/play-dock/`): below LV 2 it goes straight into Entropy Invaders; from LV 2 it opens on a
-  picker, `ENTROPY INVADERS` and `SUPER OMNI WORLD`, ▲ ▼ to choose, A to play, B to fold. B on a
+  picker, `ENTROPY INVADERS` and `STARHOP`, ▲ ▼ to choose, A to play, B to fold. B on a
   game's ready, pause or game-over screen goes back to the picker, and the last choice is
   remembered for the tab's session. A question on the page pauses the game at once and only START
-  resumes it. The dock does not send SUPER OMNI WORLD's score.
+  resumes it. The dock does not send STARHOP's score.
 
 ## PRD dossiers
 
@@ -1385,6 +1474,34 @@ is the planet's PRD.
   single-file artifact shows them without the OPEN hint, since it has no page to open.
 - **In the demo**, a planet's OPEN opens the pages' demo dossier, whichever planet it was pressed on.
 
+### Records born on the product (PRD 2011)
+
+A repository at step 5 of its product's rollout ladder has its new roadmaps and bug records born on
+the server ([`docs/guide/products.md`](../../docs/guide/products.md#the-rollout-ladder)). The app
+shows them beside the rest of the workspace:
+
+- **Roadmaps** (`mobile-R3`) and **Bug fixes** (`mobile-B74`) are listed with their product id and
+  product, and filtered by product like PRDs. A product roadmap's page is approved on the page, has
+  no issue and no phase-0 pull request, and keeps every push as a version, as a PRD's dossier does.
+  Its PRD rows accept a repository's number or a product PRD's id.
+- **A bug record** shows its **Fixes** rows: each repository, pull request, what changes, its
+  reproduction and its guard, and the merge state of each. The record ships on its last merge; a merge
+  matching no row is listed on the page as `unmatched merge <repo>#<n>`, and a pull request closed
+  without merging leaves its row open.
+- **Knowledge packs** are kept per repository and per commit, snapshotted when a merge touches the
+  repository's knowledge folder or flow config. `GET /api/knowledge-packs` answers the newest one to an
+  agent link of the same workspace, and no other workspace's token reads it.
+
+**Work › Questions** has two tabs. **Inbox** lists the ask-mode questions put to you. **Outbox** lists
+every open outbox item of the workspace's product PRDs, across products, with a product filter and
+the viewer's own first; answering there writes the same answer as the product's Questions tab. A
+product PRD's own page has an Outbox tab that reads its rows from the server, open and settled, and
+answers need your sign-in. **Concepts** has the product filter too.
+
+A product's **Repositories & approvers** tab shows each repository's ladder step and, as information
+only, what still lives in its plan repository. The plan repository is kept, and the loop never
+archives it.
+
 ## PRD stages (PRD 587)
 
 Where each PRD is (PRD, inbox, building, outbox, shipped, retro) is stored in `public.prd_stages`,
@@ -1497,7 +1614,7 @@ pnpm galaxy:dev          # http://localhost:3000: HOME; the demo galaxy at /play
 Needs Docker and the Supabase CLI (`npx supabase`).
 
 ```bash
-npx supabase start       # applies supabase/migrations and loads supabase/seed.sql (the demo galaxy, in the vertuoza workspace)
+npx supabase start       # applies supabase/migrations and loads supabase/seed.sql (the demo galaxy, in its own nimbus workspace)
 npx supabase status      # prints the API URL, the anon key and the service_role key
 cp apps/galaxy/.env.example apps/galaxy/.env.local   # paste the URL and both keys
 pnpm galaxy:dev          # now reads from Supabase: the menu shows "SUPABASE LEDGER"
@@ -1516,8 +1633,8 @@ Signing in locally needs a GitHub OAuth client: export `SUPABASE_AUTH_EXTERNAL_G
 `.env.example`) whose setup URL is `http://localhost:3000/signup/installed`. Without them, work on the
 demo galaxy instead.
 
-`pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now, in the `vertuoza`
-workspace the migrations create, with the demo world's invented fleets.
+`pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now, in a
+`nimbus` workspace the seed creates, with the demo world's invented fleets: no real workspace holds a demo row.
 
 ### Screenshots of every scene, and of `/app`
 

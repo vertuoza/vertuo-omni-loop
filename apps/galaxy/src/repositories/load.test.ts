@@ -11,6 +11,7 @@ import type { User } from '@supabase/supabase-js';
 import { githubClient, memoryGithubStore, type GithubClient, type GithubStore } from '@omni/github';
 import type { Installation } from '../signup/installation';
 import { loadRepositoriesPage, type RepositoriesApp } from './load';
+import { listedOf } from './model';
 
 // Settings → Repositories's read (PRD 612 s1): the workspace's repositories and the caller's role, as
 // the signed-in person; the installation and the repositories it can see, as the Omni App (stubbed:
@@ -18,11 +19,11 @@ import { loadRepositoriesPage, type RepositoriesApp } from './load';
 
 const USER = { id: 'u-1' } as User;
 const INSTALL = 'https://github.com/apps/omni-loop/installations/new';
-const VERTUOZA: Installation = { id: 5001, account: { login: 'vertuoza', type: 'Organization' } };
+const VERTUOZA: Installation = { id: 5001, account: { login: 'demo-org', type: 'Organization' } };
 const NOW = Date.parse('2026-10-05T10:00:00Z');
 const STORED = [
-  { full_name: 'vertuoza/vertuo-apps', tracked: true, collected_at: '2026-10-08T11:57:00Z', collect_error: null },
-  { full_name: 'vertuoza/pdf-builder', tracked: false, collected_at: null, collect_error: '404' },
+  { full_name: 'demo-org/nimbus-apps', tracked: true, collected_at: '2026-10-08T11:57:00Z', collect_error: null },
+  { full_name: 'demo-org/pdf-builder', tracked: false, collected_at: null, collect_error: '404' },
 ];
 
 type Answer = { data?: unknown; error?: unknown };
@@ -30,7 +31,7 @@ type Answer = { data?: unknown; error?: unknown };
 function db({
   owner = { data: true },
   repositories = { data: STORED },
-  workspace = { data: { github_org: 'vertuoza', github_installation_id: 5001 } },
+  workspace = { data: { github_org: 'demo-org', github_installation_id: 5001 } },
   products = { data: [{ id: 'p-1', name: 'Vertuoza' }] },
   links = { data: [] },
 }: { owner?: Answer | Error; repositories?: Answer; workspace?: Answer; products?: Answer; links?: Answer } = {}) {
@@ -81,7 +82,7 @@ function github({ status = 200, store = null }: { status?: number; store?: Githu
     log: () => {},
     fetch: (url, init) => {
       sent.push({ url, headers: new Headers(init.headers) });
-      const body = status === 200 ? { total_count: 2, repositories: [{ full_name: 'vertuoza/vertuo-apps' }, { full_name: 'vertuoza/new-one' }] } : { message: 'boom' };
+      const body = status === 200 ? { total_count: 2, repositories: [{ full_name: 'demo-org/nimbus-apps' }, { full_name: 'demo-org/new-one' }] } : { message: 'boom' };
       return Promise.resolve(new Response(JSON.stringify(body), { status }));
     },
   });
@@ -103,13 +104,13 @@ describe('the repositories page\'s read', () => {
       workspace: { id: 'ws-1', name: 'Vertuoza' },
       owner: true,
       repositories: [
-        { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr' },
-        { fullName: 'vertuoza/pdf-builder', tracked: false, collectedAt: null, collectError: '404', products: [], publicIdeas: false, phase0: 'pr' },
+        { fullName: 'demo-org/nimbus-apps', tracked: true, collectedAt: '2026-10-08T11:57:00Z', collectError: null, products: [], publicIdeas: false, phase0: 'pr', fixWhenAnswered: true, removedAt: null, planProducts: [] },
+        { fullName: 'demo-org/pdf-builder', tracked: false, collectedAt: null, collectError: '404', products: [], publicIdeas: false, phase0: 'pr', fixWhenAnswered: true, removedAt: null, planProducts: [] },
       ],
       access: {
         kind: 'installed',
-        settingsUrl: 'https://github.com/organizations/vertuoza/settings/installations/5001',
-        reachable: ['vertuoza/vertuo-apps', 'vertuoza/new-one'],
+        settingsUrl: 'https://github.com/organizations/demo-org/settings/installations/5001',
+        reachable: ['demo-org/nimbus-apps', 'demo-org/new-one'],
       },
     });
     expect(d.calls).toContainEqual(['rpc', 'is_owner', { workspace: 'ws-1' }]);
@@ -121,7 +122,7 @@ describe('the repositories page\'s read', () => {
   it('reads whether each repository\'s ideas board is public (PRD 1246 s4)', async () => {
     const d = db({ repositories: { data: [{ ...STORED[0], public_ideas: true }] } });
     expect(await loadRepositoriesPage(d as never, USER, app(), INSTALL, github())).toMatchObject({
-      repositories: [{ fullName: 'vertuoza/vertuo-apps', publicIdeas: true }],
+      repositories: [{ fullName: 'demo-org/nimbus-apps', publicIdeas: true }],
     });
     expect(d.calls).toContainEqual(['select', expect.stringContaining('public_ideas')]);
   });
@@ -129,24 +130,32 @@ describe('the repositories page\'s read', () => {
   it('reads where each repository\'s phase 0 is approved (PRD 1299 s1)', async () => {
     const d = db({ repositories: { data: [{ ...STORED[0], phase0: 'server' }] } });
     expect(await loadRepositoriesPage(d as never, USER, app(), INSTALL, github())).toMatchObject({
-      repositories: [{ fullName: 'vertuoza/vertuo-apps', phase0: 'server' }],
+      repositories: [{ fullName: 'demo-org/nimbus-apps', phase0: 'server' }],
     });
     expect(d.calls).toContainEqual(['select', expect.stringContaining('phase0')]);
+  });
+
+  it('reads whether each repository fixes by itself once answered (PRD 2270 s3)', async () => {
+    const d = db({ repositories: { data: [{ ...STORED[0], fix_when_answered: false }] } });
+    expect(await loadRepositoriesPage(d as never, USER, app(), INSTALL, github())).toMatchObject({
+      repositories: [{ fullName: 'demo-org/nimbus-apps', fixWhenAnswered: false }],
+    });
+    expect(d.calls).toContainEqual(['select', expect.stringContaining('fix_when_answered')]);
   });
 
   it('reads the products that link each repository, first first, none, one or several (PRD 1364 s11)', async () => {
     const d = db({
       products: { data: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }] },
       links: { data: [
-        { product_id: 'p-2', repository: 'vertuoza/vertuo-apps' },
-        { product_id: 'p-1', repository: 'vertuoza/vertuo-apps' },
-        { product_id: 'p-9', repository: 'vertuoza/vertuo-apps' },
+        { product_id: 'p-2', repository: 'demo-org/nimbus-apps' },
+        { product_id: 'p-1', repository: 'demo-org/nimbus-apps' },
+        { product_id: 'p-9', repository: 'demo-org/nimbus-apps' },
       ] },
     });
     expect(await loadRepositoriesPage(d as never, USER, app(), INSTALL, github())).toMatchObject({
       repositories: [
-        { fullName: 'vertuoza/vertuo-apps', products: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }] },
-        { fullName: 'vertuoza/pdf-builder', products: [] },
+        { fullName: 'demo-org/nimbus-apps', products: [{ id: 'p-1', name: 'Vertuoza' }, { id: 'p-2', name: 'Omni Loop' }] },
+        { fullName: 'demo-org/pdf-builder', products: [] },
       ],
     });
     expect(d.calls).toContainEqual(['from', 'product_repositories']);
@@ -154,10 +163,38 @@ describe('the repositories page\'s read', () => {
     expect(d.calls).not.toContainEqual(['select', expect.stringContaining('product_id, public_ideas')]);
   });
 
+  it('reads when each repository was removed, so the page lists only the others (PRD 2188 s1)', async () => {
+    const d = db({ repositories: { data: [STORED[0], { ...STORED[1], removed_at: '2026-10-19T10:00:00Z' }] } });
+    const load = await loadRepositoriesPage(d as never, USER, app(), INSTALL, github());
+    expect(load).toMatchObject({
+      repositories: [{ fullName: 'demo-org/nimbus-apps', removedAt: null }, { fullName: 'demo-org/pdf-builder', removedAt: '2026-10-19T10:00:00Z' }],
+    });
+    expect(d.calls).toContainEqual(['select', expect.stringContaining('removed_at')]);
+    expect(load.kind === 'repositories' && listedOf(load.repositories).map((r) => r.fullName)).toEqual(['demo-org/nimbus-apps']);
+  });
+
+  it('reads the products that plan in each repository, for the confirm before a remove (PRD 2188 s1)', async () => {
+    const d = db({
+      products: { data: [
+        { id: 'p-1', name: 'Vertuoza', plan_repository: null },
+        { id: 'p-2', name: 'Mobile', plan_repository: 'Demo-Org/Nimbus-Apps' },
+        { id: 'p-3', name: 'Estimates', plan_repository: 'demo-org/nimbus-apps' },
+      ] },
+      links: { data: [{ product_id: 'p-2', repository: 'demo-org/nimbus-apps' }] },
+    });
+    expect(await loadRepositoriesPage(d as never, USER, app(), INSTALL, github())).toMatchObject({
+      repositories: [
+        { fullName: 'demo-org/nimbus-apps', products: [{ id: 'p-2', name: 'Mobile' }], planProducts: [{ id: 'p-2', name: 'Mobile' }, { id: 'p-3', name: 'Estimates' }] },
+        { fullName: 'demo-org/pdf-builder', products: [], planProducts: [] },
+      ],
+    });
+    expect(d.calls).toContainEqual(['select', expect.stringContaining('plan_repository')]);
+  });
+
   it('keeps the list, with no chip, when the products or their links cannot be read', async () => {
     for (const broken of [{ products: { error: { message: 'down' } } }, { links: { error: { message: 'down' } } }]) {
-      expect(await loadRepositoriesPage(db({ links: { data: [{ product_id: 'p-1', repository: 'vertuoza/vertuo-apps' }] }, ...broken }) as never, USER, app(), INSTALL, github()))
-        .toMatchObject({ kind: 'repositories', repositories: [{ fullName: 'vertuoza/vertuo-apps', products: [] }, { fullName: 'vertuoza/pdf-builder', products: [] }] });
+      expect(await loadRepositoriesPage(db({ links: { data: [{ product_id: 'p-1', repository: 'demo-org/nimbus-apps' }] }, ...broken }) as never, USER, app(), INSTALL, github()))
+        .toMatchObject({ kind: 'repositories', repositories: [{ fullName: 'demo-org/nimbus-apps', products: [] }, { fullName: 'demo-org/pdf-builder', products: [] }] });
     }
   });
 
@@ -168,8 +205,8 @@ describe('the repositories page\'s read', () => {
 
   it('finds the App\'s installation on the workspace\'s GitHub org when none is stored', async () => {
     const a = app({ orgInstallation: () => Promise.resolve(VERTUOZA) });
-    const load = await loadRepositoriesPage(db({ workspace: { data: { github_org: 'vertuoza', github_installation_id: null } } }) as never, USER, a, INSTALL, github());
-    expect(load).toMatchObject({ access: { kind: 'installed', reachable: ['vertuoza/vertuo-apps', 'vertuoza/new-one'] } });
+    const load = await loadRepositoriesPage(db({ workspace: { data: { github_org: 'demo-org', github_installation_id: null } } }) as never, USER, a, INSTALL, github());
+    expect(load).toMatchObject({ access: { kind: 'installed', reachable: ['demo-org/nimbus-apps', 'demo-org/new-one'] } });
   });
 
   it('reads a workspace with no installation as such, with the install link', async () => {
@@ -181,7 +218,7 @@ describe('the repositories page\'s read', () => {
 
   it('keeps the list when the App\'s listing cannot be read, with nothing to offer', async () => {
     expect(await loadRepositoriesPage(db() as never, USER, app(), INSTALL, github({ status: 500 }))).toMatchObject({
-      kind: 'repositories', access: { kind: 'installed', settingsUrl: 'https://github.com/organizations/vertuoza/settings/installations/5001', reachable: null },
+      kind: 'repositories', access: { kind: 'installed', settingsUrl: 'https://github.com/organizations/demo-org/settings/installations/5001', reachable: null },
     });
   });
 
@@ -189,14 +226,14 @@ describe('the repositories page\'s read', () => {
     const low = memoryGithubStore();
     await low.saveBudget(5001, 'core', { limit: 5000, remaining: 10, resetAt: NOW + 60_000, at: NOW });
     expect(await loadRepositoriesPage(db() as never, USER, app(), INSTALL, github({ store: low }))).toMatchObject({
-      access: { reachable: ['vertuoza/vertuo-apps', 'vertuoza/new-one'] },
+      access: { reachable: ['demo-org/nimbus-apps', 'demo-org/new-one'] },
     });
 
     const paused = memoryGithubStore();
     await paused.pause(5001, 'core', NOW + 60_000, NOW);
     const gh = github({ store: paused });
     expect(await loadRepositoriesPage(db() as never, USER, app(), INSTALL, gh)).toMatchObject({
-      access: { kind: 'installed', settingsUrl: 'https://github.com/organizations/vertuoza/settings/installations/5001', reachable: null },
+      access: { kind: 'installed', settingsUrl: 'https://github.com/organizations/demo-org/settings/installations/5001', reachable: null },
     });
     expect(gh.sent).toEqual([]);
   });

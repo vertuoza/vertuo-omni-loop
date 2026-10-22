@@ -6,14 +6,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { prdKey, settle, type PrdRef, type StageKey } from '../store';
-import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { numberOf, textOf } from '../../data/unparsed';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const TABLE = 'prd_outbox';
 
-/** An open outbox item that waits on a person: ranked human-action or high, its feature PR open. */
-export type WaitingQuestion = { id: string; rank: 'human-action' | 'high'; question: string };
+/** An open outbox item that waits on a person: ranked human-action or high, its feature PR open. PRD
+ * 1794 (s5): `asked`, the GitHub logins in lower case the escalation record asks about it beyond the
+ * PRD's opener, left out when it asks nobody; a held law is stored as a human-action item too. */
+export type WaitingQuestion = { id: string; rank: 'human-action' | 'high'; question: string; asked?: string[] };
 
 /** What a PRD's outbox holds open: every open item, and those that wait on a person. */
 export type OutboxCounts = { open_questions: number; waiting: WaitingQuestion[] };
@@ -21,12 +23,21 @@ export type OutboxCounts = { open_questions: number; waiting: WaitingQuestion[] 
 /** A PRD's counts, as stored. */
 export type OutboxRecord = StageKey & OutboxCounts;
 
+/** A PRD's waiting items that ask one person (PRD 1794, s5). */
+export type AskingRecord = StageKey & { waiting: WaitingQuestion[] };
+
 export type PrdOutboxStore = {
   /** Records each PRD's counts, replacing the ones it had, taken at `syncedAt`. */
   record(rows: readonly OutboxRecord[], syncedAt?: string): Promise<void>;
   /** The stored counts of the workspace's PRDs among `prds`, keyed by `prdKey`; a PRD with none is left out. */
   countsOf(workspace: string, prds: readonly PrdRef[]): Promise<Map<string, OutboxCounts>>;
+  /** Every stored PRD, of the workspaces the reader may read, with the waiting items whose `asked`
+   * holds `login` (compared in lower case); a PRD that does not ask it is left out. */
+  asking(login: string): Promise<AskingRecord[]>;
 };
+
+/** Whether `question` asks `login`, given in lower case. */
+export const asks = (question: WaitingQuestion, login: string): boolean => question.asked?.includes(login) ?? false;
 
 const RANKS: readonly WaitingQuestion['rank'][] = ['human-action', 'high'];
 
@@ -38,7 +49,9 @@ export function waitingOf(value: unknown): WaitingQuestion[] {
     const rank = propertyOf(raw, 'rank');
     const question = propertyOf(raw, 'question');
     if (typeof id !== 'string' || typeof question !== 'string' || !isOneOf(RANKS, rank)) return [];
-    return [{ id, rank, question }];
+    const asked = propertyOf(raw, 'asked');
+    const logins = Array.isArray(asked) ? asked.filter((login): login is string => typeof login === 'string') : [];
+    return [logins.length > 0 ? { id, rank, question, asked: logins } : { id, rank, question }];
   });
 }
 
@@ -68,6 +81,19 @@ export function prdOutboxStore(db: Pick<SupabaseClient<Database>, 'from'>): PrdO
         counts.set(key, { open_questions: numberOf(row.open_questions) || 0, waiting: waitingOf(row.waiting) });
       }
       return counts;
+    },
+
+    async asking(login) {
+      const lower = login.toLowerCase();
+      // jsonb containment (`@>`): one item of `waiting` whose `asked` holds the login.
+      const { data, error } = await db.from(TABLE).select('workspace_id, repository, prd, waiting')
+        .filter('waiting', 'cs', JSON.stringify([{ asked: [lower] }]));
+      settle('read the outboxes that ask a person', error);
+      return (data ?? []).flatMap((row): AskingRecord[] => {
+        const waiting = waitingOf(row.waiting).filter((question) => asks(question, lower));
+        if (waiting.length === 0) return [];
+        return [{ workspace_id: textOf(row.workspace_id), repository: textOf(row.repository), prd: parsePrd(numberOf(row.prd)), waiting }];
+      });
     },
   };
 }

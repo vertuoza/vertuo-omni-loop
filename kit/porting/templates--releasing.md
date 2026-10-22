@@ -1,6 +1,6 @@
 # `kit/templates/playbook/releasing.md`
 
-Source: `docs/agents/releasing.md` @ `vertuo-ai-domain@db67fd9da`. The kit default of the releasing
+Source: `docs/agents/releasing.md` @ `nimbus-brain@db67fd9da`. The kit default of the releasing
 form: slots `publishes`, `how`, `rollback`, in the spec's order, then `notes`, which has no upstream
 source (PRD 262, below).
 
@@ -22,8 +22,8 @@ source (PRD 262, below).
 - **The OpenAPI snapshot cut, whole:** the `cut` job, `apps/vertuoza-rest-api/openapi/v<next>.json`,
   `OPENAPI_CUT_DEPLOY_KEY`, ADR 0049, `pnpm check:openapi-label`, `scripts/next-release.mjs`,
   PRD #988.
-- **Getting the Release into the ERP, whole:** `apps/vertuo-front`, `vertuoza/vertuo-apps`,
-  `@vertuoza/ai-agent-ui`, GitHub Packages, `.github/workflows/bump-ai-agent-ui.yml`, `bun.lock`,
+- **Getting the Release into the ERP, whole:** `apps/nimbus-front`, `demo-org/nimbus-apps`,
+  `@demo-org/ai-agent-ui`, GitHub Packages, `.github/workflows/bump-ai-agent-ui.yml`, `bun.lock`,
   the caret range `^0.3.1` and the thirty-two Releases.
 - **The labels' names:** `release:minor`, `release:major`, `acceptance-not-needed`. Kept: asking for
   more than a patch is a label on the pull request before it merges (slot `how`).

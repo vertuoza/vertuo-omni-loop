@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
 import { ALL_IN_A_PRODUCT, DEMO_PRODUCTS_LIST, NO_PRODUCTS_YET, ProductsHome } from './ProductsHome';
 import type { ProductsList } from './products.service';
 
@@ -20,9 +20,12 @@ const LIST: ProductsList = {
     { id: 'p-estimates', name: 'Estimates', repositories: [], prds: 1, waiting: 0 },
   ],
   unlinked: ['vertuo/scripts'],
+  archived: [],
+  owner: false,
 };
 
-const render = (list: ProductsList) => renderToStaticMarkup(createElement(ProductsHome, { view: { kind: 'products', list } }));
+const NOW = Date.parse('2026-10-20T12:00:00Z');
+const render = (list: ProductsList) => renderToStaticMarkup(createElement(ProductsHome, { view: { kind: 'products', list }, now: NOW }));
 
 describe('the products list, filled', () => {
   it('draws each product as a tile whose name and Open link to its product home, with its PRDs, repositories and what waits on you', () => {
@@ -84,7 +87,7 @@ describe('the products list, filled', () => {
 
 describe('the products list, empty', () => {
   it('says products are optional when there is none, and still lists the repositories', () => {
-    const html = render({ products: [], unlinked: ['vertuo/api'] });
+    const html = render({ ...LIST, products: [], unlinked: ['vertuo/api'] });
     expect(text(html)).toContain(NO_PRODUCTS_YET);
     expect(links(html)).toEqual([
       { href: '/app/settings/products', text: 'Open Settings › Products →' },
@@ -113,5 +116,30 @@ describe('the products list\'s situations', () => {
     const html = render(DEMO_PRODUCTS_LIST);
     expect(html).toContain('data-shared="true"');
     expect(html).toContain('data-repo="acme/scripts"');
+  });
+});
+
+describe('the products list, archived (PRD 2232)', () => {
+  const ARCHIVED = [
+    { id: 'p-old', name: 'Legacy', at: '2026-10-18T12:00:00Z', by: 'pierrederval' },
+    { id: 'p-gone', name: 'Pilot', at: '2026-10-20T11:30:00Z', by: null },
+  ];
+  const archived = (html: string) => /<details class="products-archived"[^>]*>([\s\S]*?)<\/details>/.exec(html)?.[1] ?? '';
+
+  it('has no Archived line when nothing is archived, even for an owner', () => {
+    expect(render({ ...LIST, owner: true })).not.toContain('products-archived');
+  });
+
+  it('shows an owner a collapsed Archived (n) under the tiles, each product with when, by whom, and Restore', () => {
+    const html = render({ ...LIST, owner: true, archived: ARCHIVED });
+    expect(html).toMatch(/<details class="products-archived">/);
+    expect(html).not.toMatch(/<details class="products-archived"[^>]* open/);
+    expect(text(archived(html))).toBe('Archived (2) Legacy archived 2 days ago by pierrederval Restore Pilot archived 30 minutes ago Restore');
+    expect(html.indexOf('products-archived')).toBeGreaterThan(html.indexOf('data-product="p-estimates"'));
+    expect(archived(html)).toContain('aria-label="Restore Legacy"');
+  });
+
+  it('shows a member no Archived line', () => {
+    expect(render({ ...LIST, owner: false, archived: ARCHIVED })).not.toContain('products-archived');
   });
 });

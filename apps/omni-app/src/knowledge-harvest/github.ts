@@ -6,17 +6,17 @@
 import { mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CONFIG_FILE, loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { PullFilesSchema } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.ts';
-import { readKnowledge } from 'vertuo-omni-plan/kit/lib/knowledge/registers.ts';
-import { readDecisions } from 'vertuo-omni-plan/kit/lib/playbook/decisions.ts';
-import type { IssueNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { ChangedFile, LawIssue } from 'vertuo-omni-plan/kit/lib/knowledge/write.ts';
+import { CONFIG_FILE, loadConfig } from 'omni-loop/kit/lib/config.ts';
+import { createContext } from 'omni-loop/kit/lib/context.ts';
+import { PullFilesSchema } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
+import { readKnowledge } from 'omni-loop/kit/lib/knowledge/registers.ts';
+import { readDecisions } from 'omni-loop/kit/lib/playbook/decisions.ts';
+import type { IssueNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { ChangedFile, LawIssue } from 'omni-loop/kit/lib/knowledge/write.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { ListSchema } from '../retro/github.schema.ts';
 import { topicOf } from '../retro/qualify.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
 import { ListedIssueSchema, OpenPullSchema, parsedOr, PullMergeSchema, RefSchema } from './schema.ts';
 

@@ -15,8 +15,8 @@ the game.
 
 ## Problem
 
-At Vertuoza one feature usually lands in several repositories: the screen in `vertuo-apps`, the
-business logic in `vertuo-backend-php`, the switch in `vertuo-soft`. The loop only knows one
+At Vertuoza one feature usually lands in several repositories: the screen in `nimbus-apps`, the
+business logic in `nimbus-backend-php`, the switch in `nimbus-soft`. The loop only knows one
 repository. Its config holds a single `repo.slug`, every `gh` and `git` step acts on the checkout it
 runs in, and a plan's slices have no repository. A PM cannot brainstorm one feature and get pull
 requests in the back-end and the front-end from it.
@@ -24,7 +24,7 @@ requests in the back-end and the front-end from it.
 The multi-repository mode keeps **one plan in one place**: a **plan repository** that holds no
 product code, carries the PRD issue, its folder and its one phase-0 PR, while the code's pull
 requests open in the **target repositories**. Vertuoza's plan repository is
-`vertuoza/vertuo-automation-plan`, which already holds a routing guide
+`demo-org/nimbus-plan`, which already holds a routing guide
 (`docs/git-repositories/README.md`) saying which repository does what.
 
 Before a plan can name repositories, the plan repository must know them: which repositories are its
@@ -42,14 +42,14 @@ exactly as today.
 plan:
   guide: docs/git-repositories/README.md
   targets:
-    - repo: vertuoza/vertuo-backend-php
+    - repo: demo-org/nimbus-backend-php
       role: back-end
       knowledge: imported
       readAt: 3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4
-    - repo: vertuoza/vertuo-apps
+    - repo: demo-org/nimbus-apps
       role: front-end
       knowledge: own
-    - repo: vertuoza/vertuo-soft
+    - repo: demo-org/nimbus-soft
       role: legacy
       knowledge: none
 ```
@@ -91,10 +91,10 @@ clone) and prints one row per target, in config order:
 
 ```text
 repo                          role        knowledge  loop          state
-vertuoza/vertuo-backend-php   back-end    imported   not installed stale (12 commits, 4 evidence files changed)
-vertuoza/vertuo-apps          front-end   own        v0.0.40       ok
-vertuoza/vertuo-soft          legacy      none       not installed ok
-vertuoza/vertuo-typo          front-end   own        —             unreachable
+demo-org/nimbus-backend-php   back-end    imported   not installed stale (12 commits, 4 evidence files changed)
+demo-org/nimbus-apps          front-end   own        v0.0.40       ok
+demo-org/nimbus-soft          legacy      none       not installed ok
+demo-org/nimbus-typo          front-end   own        —             unreachable
 ```
 
 - `loop`: the kit version its default branch's `.omni-loop/config.yml` was installed at
@@ -155,7 +155,7 @@ only `imported` targets, never an `own` one.
 
 ## Decisions
 
-- **The plan repository is `vertuoza/vertuo-automation-plan`,** reused: the loop's footprint sits
+- **The plan repository is `demo-org/nimbus-plan`,** reused: the loop's footprint sits
   beside its `psd/`, `product-health/` and `plan-delivery/`. The kit itself names no repository:
   whichever repository runs mega-invade becomes a plan repository.
 - **One plan in one place** (for the series): one mega phase-0 in the plan repository and no

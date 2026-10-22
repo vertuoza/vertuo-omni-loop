@@ -1,8 +1,9 @@
 // The waiting list's reads, as rules over the repositories (PRD 1318, s4; ADR-0095): the Questions part
 // (PRD 499) and the New documents part (PRD 579), read on the server as the signed-in person, for the
 // server's first paint (src/data/viewer.ts) and for GET /api/waiting/questions and
-// GET /api/waiting/documents, which the bell polls (src/waiting/waiting.controller.ts). A failed read
-// throws, so the controller answers 500 rather than an empty bell.
+// GET /api/waiting/documents, which the bell polls (src/waiting/waiting.controller.ts), and the Runners
+// part (PRD 2255), the count behind the sidebar's badge on Runners, for GET /api/waiting/runners. A
+// failed read throws, so the controller answers 500 rather than an empty bell.
 //
 // The Questions part is the ask pages' own reads (src/ask/ask.service.ts for the tab list; the rounds
 // shared with the person, and a workspace's members and people for who shared one), plus the first
@@ -19,7 +20,7 @@ import { loadPeople, type People } from '../people/load';
 import { DOCUMENT_KINDS, DOCS_DAYS, type DocumentRow } from './documents';
 import { mergeQuestions, ownQuestions, sharedQuestions, type WaitingQuestion } from './waiting';
 import { waitingRepository, type DocumentReadRow, type WaitingDb, type WaitingRepository } from './waiting.repository';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 
 const WINDOW = DOCS_DAYS * 24 * 60 * 60_000;
 
@@ -42,7 +43,7 @@ function documentOf(r: DocumentReadRow): DocumentRow[] {
     : [];
 }
 
-function waitingService(ask: WaitingAskReads, store: Pick<WaitingRepository, 'roundQuestions' | 'documents'>) {
+function waitingService(ask: WaitingAskReads, store: Pick<WaitingRepository, 'roundQuestions' | 'documents' | 'openQuestionJobs' | 'jobStates'>) {
   return {
     /** A reader of the Questions part for `me`, keeping what it read before. */
     questionsReader(me: string): (now: number) => Promise<WaitingQuestion[]> {
@@ -74,6 +75,16 @@ function waitingService(ask: WaitingAskReads, store: Pick<WaitingRepository, 'ro
      * the kinds the part shows. */
     async documents(me: string, now: number): Promise<DocumentRow[]> {
       return (await store.documents(me, new Date(now - WINDOW).toISOString())).flatMap(documentOf);
+    },
+
+    /** How many of the workspace's runner jobs wait for an answer (PRD 2255): the job ended `done` with
+     * outcome `human`, as the Runners page reads Need human, and its questions are still open, whatever
+     * the job's age. A job still running, or failed or cancelled, with questions open waits for nobody:
+     * no one can answer or dismiss it. */
+    async runnersWaiting(workspace: string): Promise<number> {
+      const open = await store.openQuestionJobs(workspace);
+      if (open.length === 0) return 0;
+      return (await store.jobStates(workspace, open)).filter((job) => job.status === 'done' && job.outcome === 'human').length;
     },
   };
 }

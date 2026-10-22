@@ -1,6 +1,6 @@
-import { at, defined, isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
-import { isClaimedStale } from 'vertuo-omni-plan/kit/lib/board.ts';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { at, defined, isOneOf } from 'omni-loop/kit/lib/narrow.ts';
+import { deadClaimRules, isClaimedStale } from 'omni-loop/kit/lib/board.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { brusselsDay, type PeriodWindow } from '../dashboard/board/period';
 import type { Face } from '../people/face';
 
@@ -24,7 +24,8 @@ import type { Face } from '../people/face';
 //   stuck, whatever the period, one row each under the first kind it meets: stuck (labelled
 //   omni:needs-fix), then held (s3: an open signed pull request into main, master or develop whose
 //   status comment says `state: stuck`), then stale claim (an open draft sub-PR the kit's own rule
-//   calls stale, with the kit's default minutes). At most 10 rows, oldest first; the rest counted.
+//   calls stale, with the kit's default labels and minutes: cold, released or quiet, PRD 2175). At most
+//   10 rows, oldest first; the rest counted.
 // - Loop health in the period (PRD 714 s4): of the sub-PRs merged in the window, those that got
 //   omni:needs-fix at or before their merge (`needs_fix_at`, when the label was first added).
 
@@ -55,6 +56,9 @@ export interface PullRequestRow {
   labels?: string[];
   /** The committed date of its latest commit (PRD 714 s2); null when not read. */
   headCommittedAt?: string | null;
+  /** When it was last updated (PRD 2175), for the kit's quiet-claim rule; null or absent when not read,
+   * and a claim whose update time is not read is never quiet. */
+  updatedAt?: string | null;
   /** The `state:` of the loop's status comment (PRD 714 s3), read only for open signed pull requests into
    * a main branch; null otherwise or with no status comment. */
   statusState?: string | null | undefined;
@@ -80,6 +84,9 @@ const KIT = parseConfig('kit: 1\n');
 const NEEDS_FIX_LABEL: string = KIT.labels.needsFix;
 /** How old a claim with nothing beyond it is before it reads as stale: the kit's 60 minutes. */
 const CLAIM_STALE_MINUTES: number = KIT.limits.claimStaleMinutes;
+/** The kit's dead-claim rules (PRD 2175): a draft labelled omni:released is stale at once, and one on
+ * omni:in-progress with no commit and no update for 240 minutes is stale too. */
+const DEAD_CLAIMS = deadClaimRules(KIT.labels, KIT.limits);
 /** The most rows Loop health lists right now. */
 const HEALTH_ROWS = 10;
 
@@ -102,7 +109,12 @@ const KINDS: readonly { kind: HealthKind; meets: (p: PullRequestRow, now: Date) 
   {
     kind: 'stale-claim',
     meets: (p, now) => isSubPr(p)
-      && isClaimedStale({ isDraft: Boolean(p.draft), createdAt: p.openedAt, headCommitDate: p.headCommittedAt ?? null }, now.getTime(), CLAIM_STALE_MINUTES),
+      && isClaimedStale(
+        { isDraft: Boolean(p.draft), createdAt: p.openedAt, headCommitDate: p.headCommittedAt ?? null, labels: p.labels ?? [], updatedAt: p.updatedAt ?? undefined },
+        now.getTime(),
+        CLAIM_STALE_MINUTES,
+        DEAD_CLAIMS,
+      ),
   },
 ];
 

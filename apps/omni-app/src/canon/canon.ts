@@ -12,8 +12,14 @@
 // One model call per evaluation, the spec capped at CANON_SPEC_LIMIT characters. A finding is kept only
 // when its quote is in the spec word for word (whitespace and case aside, as PRD 774's receipts) and it
 // cites a claim the business holds, a live `never#<n>` or the `statement`. The model's verdict is cached
-// by the repository, the spec's hash, the claims' latest update and the constituents' latest event id,
-// so a re-run with nothing changed asks the model nothing, and any constituent change re-judges.
+// by the repository, the spec's hash, the claims' latest update, the constituents' latest event id and
+// the product knowledge's newest event id, so a re-run with nothing changed asks the model nothing, and
+// any constituent or Legal change re-judges.
+//
+// Legal (PRD 1795): the product's active Legal entries, read with the business, are judged as a Never
+// line is. A finding that cites one is kept only when it quotes the spec word for word and names a
+// live `L-<CODE>-<n>`; a retired entry is not in the read, so it is never cited. Legal does not go to
+// the `constituent-break` judge: only the Statement and the Never lines do.
 //
 // When the product has constituents, whether they are broken is the `constituent-break` Jev decision's
 // to say, asked on every evaluation through galaxy's App-signed judge route, where the workspace's mode
@@ -28,8 +34,8 @@
 // and `ask(request)` (the kit's OpenRouter client, bound to its key and model). ./live.ts binds them.
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { NO_KEY } from 'vertuo-omni-plan/kit/lib/openrouter.ts';
-import { type Business, type Claim, type Constituent, type Constituents, FindingSchema, type Persona, ReplyPersonaSchema } from './schema.ts';
+import { NO_KEY } from 'omni-loop/kit/lib/openrouter.ts';
+import { type Business, type Claim, type Constituent, type Constituents, FindingSchema, type Legal, type Persona, ReplyPersonaSchema } from './schema.ts';
 
 /** A break the gate keeps: the spec's words, the claims they break, and why. */
 export type Finding = { quote: string; claims: string[]; why: string };
@@ -129,11 +135,11 @@ export function quoted(text: string | null | undefined, quote: string | null | u
 }
 
 const SYSTEM = [
-  "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), the business claims its team confirmed, and its personas.",
-  'Report a finding only when the spec designs something that is not the product the Statement describes, breaks a Never line, or designs for a customer outside the size, trade or region claims.',
+  "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), its Legal entries (what the law requires of it), the business claims its team confirmed, and its personas.",
+  'Report a finding only when the spec designs something that is not the product the Statement describes, breaks a Never line or a Legal entry, or designs for a customer outside the size, trade or region claims.',
   'Answer one JSON object and nothing else: {"findings": [{"quote", "claims", "why"}], "persona": {"name", "line"}}.',
   '- quote: the exact words of the spec that break the claim, copied character for character, at most 300 characters.',
-  '- claims: the ids of what it breaks, exactly as given (e.g. "statement", "never#4", "size#1").',
+  '- claims: the ids of what it breaks, exactly as given (e.g. "statement", "never#4", "size#1", "L-INVOICING-1").',
   '- why: one short sentence.',
   '- persona: of the personas given, the one the spec fits worst, by name, and one line in their own voice about the spec, at most 200 characters. Empty name and line when there is no persona.',
   'No finding when the spec fits: "findings": [].',
@@ -191,7 +197,14 @@ export const stringOf = (value: unknown) => String(value);
 export const thrownMessage = (error: unknown): unknown =>
   error !== null && typeof error === 'object' && 'message' in error ? error.message : undefined;
 
-function userPrompt({ spec, claims, constituents, personas }: { spec: string; claims: Claim[]; constituents: Constituent[]; personas: Persona[] }): string {
+function userPrompt({ spec, claims, constituents, legal, personas }: {
+  spec: string;
+  claims: Claim[];
+  constituents: Constituent[];
+  legal: Legal[];
+  personas: Persona[];
+}): string {
+  const legalLines = legal.length ? legal.map((entry) => `${entry.id}: ${entry.statement}`) : ['(none)'];
   const constituentLines = constituents.length ? constituents.map((c) => `${c.id}: ${c.text}`) : ['(none)'];
   const claimLines = claims.length ? claims.map((claim) => `${claim.id}: ${claim.kind} — ${claim.value}`) : ['(none)'];
   const personaLines = personas.length
@@ -200,6 +213,9 @@ function userPrompt({ spec, claims, constituents, personas }: { spec: string; cl
   return [
     'Constituents (the Statement and the Never lines):',
     ...constituentLines,
+    '',
+    'Legal entries (what the law requires of the product):',
+    ...legalLines,
     '',
     'Claims (confirmed):',
     ...claimLines,
@@ -225,14 +241,15 @@ export const neutral = (reason: string): CanonGate => ({
 });
 
 /** The findings the spec, the business and the live constituents prove, and the persona named, if it is one. */
-function kept({ spec, reply, claims, constituents, personas }: {
+function kept({ spec, reply, claims, constituents, legal, personas }: {
   spec: string;
   reply: Reply;
   claims: Claim[];
   constituents: Constituent[];
+  legal: Legal[];
   personas: Persona[];
 }): Verdict {
-  const ids = new Set([...claims.map((claim) => claim.id), ...constituents.map((c) => c.id)]);
+  const ids = new Set([...claims.map((claim) => claim.id), ...constituents.map((c) => c.id), ...legal.map((entry) => entry.id)]);
   const findings: Finding[] = [];
   for (const finding of reply.findings) {
     if (finding.quote.length > MAX_QUOTE || !quoted(spec, finding.quote)) continue;
@@ -247,16 +264,21 @@ function kept({ spec, reply, claims, constituents, personas }: {
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-function judged({ claims, constituents, findings, persona, judge }: {
+function judged({ claims, constituents, legal, findings, persona, judge }: {
   claims: Claim[];
   constituents: Constituent[];
+  legal: Legal[];
   findings: Finding[];
   persona: PersonaLine | null;
   judge: JudgeFacts | null;
 }): CanonGate {
   const claimsRead = claims.length;
   if (findings.length === 0) {
-    const read = constituents.length ? `${plural(claimsRead, 'claim')}, ${plural(constituents.length, 'constituent')}` : plural(claimsRead, 'claim');
+    const read = [
+      plural(claimsRead, 'claim'),
+      ...(constituents.length ? [plural(constituents.length, 'constituent')] : []),
+      ...(legal.length ? [`${legal.length} Legal`] : []),
+    ].join(', ');
     const reason = `canon ✓ · ${read} read`;
     return { name: CANON_GATE, ok: true, neutral: false, reason, details: [], canon: { state: 'green', reason, claimsRead, findings, persona, judge } };
   }
@@ -264,6 +286,7 @@ function judged({ claims, constituents, findings, persona, judge }: {
   const values = new Map<string, string | null | undefined>([
     ...claims.map((claim) => [claim.id, claim.value] as const),
     ...constituents.map((c) => [c.id, c.text] as const),
+    ...legal.map((entry) => [entry.id, entry.statement] as const),
   ]);
   const details = findings.map(
     (finding) => `${finding.claims.map((id) => `${id} "${values.get(id)}"`).join(', ')} — the spec: "${finding.quote}"`,
@@ -282,7 +305,7 @@ function liveConstituents(read: Constituents | null): Constituent[] {
 }
 
 /** What the gate judges by, once both reads answered. */
-type Canon = { business: Business; claims: Claim[]; personas: Persona[]; constituents: Constituent[]; version: string };
+type Canon = { business: Business; claims: Claim[]; personas: Persona[]; constituents: Constituent[]; legal: Legal[]; version: string };
 
 /**
  * The repository's business, its claims, personas and constituents; or `{ gate }`, neutral, when there
@@ -312,13 +335,19 @@ async function attempt<T>(read: () => Promise<T>, what: string): Promise<{ gate:
 /** What the gate judges by, or `{ gate }`, neutral, when there is neither a claim nor a constituent. */
 function enough(repo: string, business: Business, read: Constituents | null): { gate: CanonGate } | ({ gate?: undefined } & Canon) {
   const constituents = liveConstituents(read);
+  const legal = liveLegal(business);
   const claims = business.claims ?? [];
-  if (constituents.length === 0 && !business.business) return { gate: neutral(`no business: no workspace tracking ${repo} has one`) };
-  if (constituents.length === 0 && claims.length === 0) {
-    return { gate: neutral("no confirmed claim or constituent for this repository's product") };
-  }
-  return { business, claims, personas: business.personas ?? [], constituents, version: read?.latestEventId ?? '' };
+  const nothing = constituents.length + legal.length === 0;
+  if (nothing && !business.business) return { gate: neutral(`no business: no workspace tracking ${repo} has one`) };
+  if (nothing && claims.length === 0) return { gate: neutral("no confirmed claim or constituent for this repository's product") };
+  return { business, claims, personas: business.personas ?? [], constituents, legal, version: versionOf(business, read) };
 }
+
+/** The product's active Legal entries that say something. */
+const liveLegal = (business: Business): Legal[] => (business.legal ?? []).filter((entry) => entry.statement.trim());
+
+/** The cache key's knowledge part: the constituents' latest event id and the product knowledge's. */
+const versionOf = (business: Business, read: Constituents | null) => [read?.latestEventId ?? '', business.knowledgeEventId ?? ''].join('|');
 
 const isConstituent = (id: string) => id === 'statement' || /^never#\d+$/.test(id);
 
@@ -358,15 +387,15 @@ export function createCanon({ readBusiness, readConstituents = () => Promise.res
 }) {
   /** The model's kept findings and persona, asked once per spec, claims and constituents; or `{ gate }`. */
   async function modelVerdict({ repo, spec, read }: { repo: string; spec: string; read: Canon }): Promise<{ gate: CanonGate } | ({ gate?: undefined } & Verdict)> {
-    const { business, claims, constituents, personas, version } = read;
+    const { business, claims, constituents, legal, personas, version } = read;
     const key = [repo, createHash('sha256').update(spec).digest('hex'), business.updatedAt ?? '', version].join('\n');
     const hit = cache.get(key);
     if (hit) return hit;
-    const answer = await ask({ system: SYSTEM, user: userPrompt({ spec, claims, constituents, personas }), check: checkReply, schema: SCHEMA });
+    const answer = await ask({ system: SYSTEM, user: userPrompt({ spec, claims, constituents, legal, personas }), check: checkReply, schema: SCHEMA });
     if (!answer.ok) {
       return { gate: neutral(answer.error === NO_KEY ? `model not configured (${answer.reason})` : `model error: ${answer.reason}`) };
     }
-    const verdict = kept({ spec, reply: CheckedReplySchema.parse(answer.reply), claims, constituents, personas });
+    const verdict = kept({ spec, reply: CheckedReplySchema.parse(answer.reply), claims, constituents, legal, personas });
     cache.set(key, verdict);
     for (const oldest of cache.keys()) {
       if (cache.size <= limit) break;
@@ -379,11 +408,11 @@ export function createCanon({ readBusiness, readConstituents = () => Promise.res
     async grade({ repo, spec, ref = null }: { repo: string; spec: string; ref?: string | null }): Promise<CanonGate> {
       const read = await canonOf({ readBusiness, readConstituents }, repo);
       if (read.gate) return read.gate;
-      const { claims, constituents } = read;
+      const { claims, constituents, legal } = read;
 
       const verdict = await modelVerdict({ repo, spec, read });
       if (verdict.gate) return verdict.gate;
-      if (constituents.length === 0) return judged({ claims, constituents, ...verdict, judge: null });
+      if (constituents.length === 0) return judged({ claims, constituents, legal, ...verdict, judge: null });
 
       const state = judgeState({ spec, constituents, findings: verdict.findings });
       const said = await judge({ repo, state, old: state.verdict.broken ? 'true' : 'false', ref });
@@ -391,7 +420,7 @@ export function createCanon({ readBusiness, readConstituents = () => Promise.res
         return neutral(said.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said.reason})` : `judge error: ${said.reason}`);
       }
       const findings = counted(verdict.findings, said.answer === 'true');
-      return judged({ claims, constituents, findings, persona: verdict.persona, judge: { decidedBy: said.decidedBy, confidence: said.confidence } });
+      return judged({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said.decidedBy, confidence: said.confidence } });
     },
   };
 }

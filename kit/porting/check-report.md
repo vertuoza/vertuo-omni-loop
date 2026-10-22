@@ -1,6 +1,6 @@
 # `kit/lib/check-report.mjs`
 
-Source: `scripts/check-utils.mjs` @ `vertuo-ai-domain@c4a210122` (72 lines). A reduced port, per the
+Source: `scripts/check-utils.mjs` @ `nimbus-brain@c4a210122` (72 lines). A reduced port, per the
 controller's clarification for Task 3: only four of upstream's functions are kept, each turned pure.
 
 ## What was kept, and how it changed
@@ -28,7 +28,7 @@ controller's clarification for Task 3: only four of upstream's functions are kep
   repository), so a repository this function would ever run against always has `git ls-files`
   available — the fallback has no reachable case to cover.
 - `isSourceTs(path)`, `isTestFile(path)`, `sourceFiles(predicate)` — TypeScript-source-file helpers
-  specific to `vertuo-ai-domain`'s own guards (e.g. its Zod-first check); no ported module in this
+  specific to `nimbus-brain`'s own guards (e.g. its Zod-first check); no ported module in this
   task, nor any module the brief describes for later tasks, filters files by `.ts`/`.spec.tsx?`.
 - `importStatements(source)` — an import-statement scanner used by upstream's own import-hygiene
   guards; no equivalent guard exists yet in the kit.

@@ -1,4 +1,4 @@
-import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { CheckRequestDataSchema } from '../inngest-client.ts';
 import { readIssue } from '../inbox-check/github.ts';

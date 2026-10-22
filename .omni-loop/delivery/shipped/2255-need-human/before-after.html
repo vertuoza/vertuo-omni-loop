@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 2255 before/after</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts), as the runners mockup writes them. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-plasma-soft: #2a2350; --ask-on-plasma: #07061c;
+    --ask-cyan: #5ee7ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 16px/1.55 var(--ask-body); }
+  a { color: var(--ask-cyan); text-underline-offset: 3px; }
+  code { font: 500 13px/1.45 var(--ask-mono); }
+  .doc { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 22px; }
+  .doc > h1 { margin: 0; font-size: 26px; line-height: 1.25; }
+  h2.part { margin: 18px 0 0; font-size: 21px; border-top: 2px solid var(--ask-line-strong); padding-top: 16px; }
+  h3 { margin: 0 0 8px; font: 700 12px/1.2 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .lede, .cap { color: var(--ask-muted); margin: 0; max-width: 90ch; } .cap { font-size: 14px; margin-top: 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .pair > div { min-width: 0; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+  .flow { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; padding: 14px 16px; font-size: 14px; }
+  .flow ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+  .bad { color: var(--ask-red); } .good { color: var(--ask-green); } .warn { color: var(--ask-plasma); }
+  .wire { margin: 0; padding: 12px 14px; background: var(--ask-sunk); border: 1px solid var(--ask-line); border-radius: 10px; font: 12.5px/1.6 var(--ask-mono); color: var(--ask-ink); white-space: pre-wrap; word-break: break-word; }
+  .wire .m { color: var(--ask-muted); } .wire .k { color: var(--ask-plasma); }
+
+  /* The runners screen, as runners.html draws it. */
+  .frame { background: var(--ask-ground); border: 1px solid var(--ask-line); border-radius: 12px; overflow: hidden; position: relative; }
+  .bar { padding: 8px 14px; background: var(--ask-surface); border-bottom: 2px solid var(--ask-line-strong); font: 600 13px/1.3 var(--ask-body); color: var(--ask-muted); }
+  .bar b { color: var(--ask-ink); }
+  .page { padding: 16px; display: grid; gap: 14px; }
+  .page h2 { margin: 0 0 6px; font-size: 15px; }
+  .table { border: 1px solid var(--ask-line-strong); border-radius: 10px; overflow: hidden; background: var(--ask-surface); }
+  .row { display: grid; gap: 10px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--ask-line); font-size: 13.5px; min-width: 0; }
+  .row:first-child { border-top: 0; }
+  .jobs .row { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 104px auto; }
+  .row.head { font: 700 11px/1 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); background: var(--ask-sunk); padding-block: 9px; }
+  .muted { color: var(--ask-muted); font-size: 12.5px; }
+  .status { font: 700 12px/1 var(--ask-body); padding: 4px 8px; border-radius: 999px; justify-self: start; border: 1px solid var(--ask-line-strong); white-space: nowrap; }
+  .s-run { border-color: var(--ask-plasma); color: var(--ask-plasma); }
+  .s-done { border-color: var(--ask-green); color: var(--ask-green); }
+  .s-human { border-color: var(--ask-plasma); color: var(--ask-on-plasma); background: var(--ask-plasma); }
+  .s-queue { color: var(--ask-cyan); border-color: var(--ask-cyan); }
+  .acts { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+  .ghost { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 12px/1 var(--ask-body); color: var(--ask-ink); background: none; white-space: nowrap; text-decoration: none; }
+  .ghost.primary { background: var(--ask-plasma); color: var(--ask-on-plasma); border-color: var(--ask-plasma); }
+  @media (max-width: 600px) { .jobs .row { grid-template-columns: 1fr auto; } .row.head { display: none; } .hide-s { display: none; } }
+
+  /* The Terminal panel and the drawer, as runner-terminal.html draws the panel. */
+  .scrim { position: absolute; inset: 0; background: rgba(3, 2, 15, .55); }
+  .term, .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--ask-sunk); border-left: 2px solid var(--ask-line-strong); display: flex; flex-direction: column; }
+  .term-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--ask-surface); border-bottom: 1px solid var(--ask-line); font-size: 13px; }
+  .term-head .t { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .x { border: 0; background: none; color: var(--ask-muted); font-size: 18px; line-height: 1; padding: 2px 6px; }
+  .lines { flex: 1; overflow: auto; margin: 0; padding: 10px 12px; font: 12px/1.6 var(--ask-mono); color: var(--ask-ink); white-space: pre-wrap; word-break: break-word; }
+  .lines .ts { color: var(--ask-muted); } .lines .done { font-weight: 700; color: var(--ask-green); }
+  .tall { height: 640px; }
+
+  .d-body { flex: 1; overflow: auto; padding: 14px 16px; display: grid; gap: 16px; align-content: start; font-size: 15px; }
+  .d-lead { margin: 0; color: var(--ask-ink); max-width: 900px; }
+  .q { margin: 0; padding: 0; border: 0; display: grid; gap: 8px; min-width: 0; }
+  .q legend { padding: 0; margin-bottom: 4px; font-weight: 700; }
+  .q .hd { display: block; font: 700 11px/1.2 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); margin-bottom: 4px; }
+  .opt { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; align-items: start; padding: 9px 10px; border: 1px solid var(--ask-line-strong); border-radius: 8px; background: var(--ask-surface); }
+  .opt.on { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); }
+  .opt input { margin: 3px 0 0; accent-color: var(--ask-plasma); }
+  .opt b { display: block; font-size: 14px; } .opt span { display: block; color: var(--ask-muted); font-size: 13px; }
+  .free { display: grid; gap: 4px; font-size: 13px; color: var(--ask-muted); }
+  .free textarea { width: 100%; min-height: 56px; resize: vertical; font: 14px/1.5 var(--ask-body); color: var(--ask-ink); background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 8px; padding: 8px 10px; }
+  .d-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding: 10px 16px; background: var(--ask-surface); border-top: 1px solid var(--ask-line); }
+  .btn { display: inline-flex; padding: 8px 14px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); color: var(--ask-ink); font: 700 14px/1.2 var(--ask-body); }
+  .btn.primary { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+
+  /* The sidebar's Dashboard group, as app-shell.html draws nav/sidebar.css. */
+  .side { background: var(--ask-surface); border: 1px solid var(--ask-line); border-radius: 12px; padding: 16px; max-width: 260px; }
+  .side-label { margin: 0 0 4px; padding: 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); }
+  .side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .side a { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; border: 1px solid transparent; font: 700 15px/1.3 var(--ask-body); color: var(--ask-ink); text-decoration: none; }
+  .side a[aria-current='page'] { color: var(--ask-plasma); border-color: var(--ask-plasma); background: var(--ask-ground); }
+  .side svg { flex: none; }
+  .side-badge { margin-left: auto; min-width: 20px; padding: 3px 6px; border-radius: 999px; font: 700 12px/1 var(--ask-body); text-align: center; color: var(--ask-on-plasma); background: var(--ask-plasma); }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>PRD 2255 · A stopped bug fix asks for a human answer on its job, then resumes with it</h1>
+  <p class="lede">Today a bug fix that needs a decision stops with a comment on its issue and reads Done on the Runners page: nobody knows, and the next step needs a terminal. After, the job reads Need human, the sidebar counts it, and anyone in the workspace answers in a drawer; the answer queues the fix again, on the same runner, with that answer.</p>
+
+  <h2 class="part">Functional</h2>
+  <div class="pair">
+    <div class="flow"><h3>Today</h3><ol>
+      <li>nimbus-cleaner sends <code>/omni:mega-bug-fix #314</code> for nimbus-plan; a runner claims it.</li>
+      <li>The agent finds the cause and three ways to fix it, but the right one is a decision about access.</li>
+      <li>It posts a stop comment on #314 ending with <code>/omni:mega-brainstorm …</code>, and exits 0.</li>
+      <li>The job reads <span class="good">Done</span>, like a fix that worked. <span class="bad">Nobody is told.</span></li>
+      <li><span class="bad">The next step needs someone who reads the issue, opens a terminal and runs the line.</span></li>
+    </ol></div>
+    <div class="flow"><h3>After</h3><ol>
+      <li>Same run, same stop. The agent writes 1 to 4 questions (its fixes as options, plus <b>Design it first</b>).</li>
+      <li><code>omni runner ask</code> stores them on its job; the stop comment ends <i>Waiting for an answer on Omni: &lt;link&gt;</i>.</li>
+      <li>The job reads <span class="warn">Need human</span>; the sidebar reads <i>Runners 1</i>. Nobody is pinged.</li>
+      <li>Anyone opens the drawer, picks an option, presses <b>Send answers</b>: one transaction stores the answer and queues <code>/omni:mega-bug-fix #314 --answers &lt;job&gt;</code> on the same runner.</li>
+      <li>The resume posts <i>Decided in Omni by @irisa</i> on #314, then fixes from its triage: red test, fix, PRs. A person merges.</li>
+    </ol></div>
+  </div>
+
+  <div class="pair">
+    <div>
+      <h3>The exchange at the stop</h3>
+<pre class="wire"><span class="m"># the runner's agent, OMNI_JOB set</span>
+<span class="k">omni runner ask</span> --file q.json --issue 314 --lead lead.md
+<span class="m">→ POST /api/runners/jobs/&lt;job&gt;/questions   (runner sign-in)</span>
+{ "issue": 314, "lead": "…", "questions": [ { "question": "…",
+  "header": "Fix", "options": [ …, { "label": "Design it first" } ],
+  "multiSelect": false } ] }
+<span class="m">← 201 stored · exit 0      (any refusal: exit 1, today's comment)</span>
+<span class="m"># then the runner reports done → outcome "human"</span></pre>
+    </div>
+    <div>
+      <h3>The exchange at the answer and the resume</h3>
+<pre class="wire"><span class="m"># the drawer, a person's session only</span>
+<span class="k">POST /api/runners/jobs/&lt;job&gt;/answers</span>
+{ "answers": { "How should …?": "Filter those assignments out" } }
+<span class="m">→ runner_job_answer(): lock row · queue resume · store answers</span>
+<span class="m">← 201 { "resume": "&lt;job2&gt;" }   ·   409 Already answered by Paul</span>
+<span class="m"># the resume job, on the runner</span>
+<span class="k">omni runner answers</span> &lt;job&gt;
+<span class="m">→ GET /api/runners/jobs/&lt;job&gt;/questions   (runner sign-in)</span></pre>
+    </div>
+  </div>
+  <p class="cap">Run by a person in a terminal, neither skill changes. <code>/omni:yolo</code> and every other skill stop as they do today. The badge and the job are the only signal: no email, no push.</p>
+
+  <h2 class="part">Pixel perfect</h2>
+  <p class="cap">screens: runners · runner-need-human (new) · runner-terminal · app-shell</p>
+
+  <h3>The job on the Runners page</h3>
+  <div class="pair">
+    <div>
+      <div class="frame">
+        <div class="bar">Dashboard › <b>Runners</b></div>
+        <div class="page" data-screen="runners">
+          <section>
+            <h2>Jobs</h2>
+            <div class="table jobs">
+              <div class="row head"><span>Line</span><span>Repository</span><span>Status</span><span></span></div>
+              <div class="row"><code data-content>/omni:mega-bug-fix #314</code><span class="muted hide-s" data-content>nimbus-plan</span><span class="status s-done">Done</span><span class="acts"><button class="ghost" type="button" data-primary>Terminal</button></span></div>
+              <div class="row"><code data-content>/omni:yolo 2213</code><span class="muted hide-s" data-content>vertuo-omni-loop</span><span class="status s-run">Running 8 min</span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <p class="cap">Today: the stopped fix reads Done, with no pull request link, and nothing on the page says it waits on anyone.</p>
+    </div>
+    <div>
+      <div class="frame">
+        <div class="bar">Dashboard › <b>Runners</b></div>
+        <div class="page" data-screen="runners">
+          <section>
+            <h2>Jobs</h2>
+            <div class="table jobs">
+              <div class="row head"><span>Line</span><span>Repository</span><span>Status</span><span></span></div>
+              <div class="row"><code data-content>/omni:mega-bug-fix #314</code><span class="muted hide-s" data-content>nimbus-plan</span><span class="status s-human">Need human</span><span class="acts"><button class="ghost primary" type="button" data-primary>Need human</button><button class="ghost" type="button">Terminal</button></span></div>
+              <div class="row"><code data-content>/omni:yolo 2213</code><span class="muted hide-s" data-content>vertuo-omni-loop</span><span class="status s-run">Running 8 min</span><span class="acts"><button class="ghost" type="button">Terminal</button><button class="ghost" type="button">Cancel</button></span></div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <p class="cap">After: Need human, filled in plasma, and the Need human button opens the drawer. The job stays on the board until someone answers or dismisses it, however many jobs end after it.</p>
+    </div>
+  </div>
+
+  <h3>Runners in the sidebar</h3>
+  <div class="pair">
+    <div>
+      <nav class="side" data-screen="app-shell" aria-label="Sections">
+        <p class="side-label">Dashboard</p>
+        <ul>
+          <li><a href="#" aria-current="page"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Home</a></li>
+          <li><a href="#"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Fleet</a></li>
+          <li><a href="#"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Loop</a></li>
+          <li><a href="#"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Runners</a></li>
+          <li><a href="#"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Workspace</a></li>
+        </ul>
+      </nav>
+      <p class="cap">Today: Runners carries no count; only PRDs and Questions do.</p>
+    </div>
+    <div>
+      <nav class="side" data-screen="app-shell" aria-label="Sections">
+        <p class="side-label">Dashboard</p>
+        <ul>
+          <li><a href="#" aria-current="page"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Home</a></li>
+          <li><a href="#"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Fleet</a></li>
+          <li><a href="#"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Loop</a></li>
+          <li><a href="#" aria-label="Runners: 1 waiting"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Runners<span class="side-badge" aria-hidden="true" data-content>1</span></a></li>
+          <li><a href="#"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" fill="#5a60c4"/></svg>Workspace</a></li>
+        </ul>
+      </nav>
+      <p class="cap">After: the badge counts the workspace's jobs waiting for an answer, read every 15 seconds, and is spoken "Runners: 1 waiting". At zero it is gone.</p>
+    </div>
+  </div>
+
+  <h3>Where the decision is made</h3>
+  <div class="pair">
+    <div>
+      <div class="frame tall">
+        <div class="bar">Dashboard › <b>Runners</b></div>
+        <div class="scrim"></div>
+        <aside class="term" data-screen="runner-terminal" aria-label="Terminal">
+          <div class="term-head"><span class="t">/omni:mega-bug-fix #314 · nimbus-agents</span><span class="status s-done">Done</span><button class="x" type="button" aria-label="Close">×</button></div>
+<pre class="lines" data-content><span class="ts">11:42:08</span> Triage: risk high · cause in nimbus-backend-php
+<span class="ts">11:42:08</span> WorkerAssignment.project is non-null, the use case returns null under the access check
+<span class="ts">11:42:09</span> Three ways to restore it, each a decision about access:
+<span class="ts">11:42:09</span>   1. make project nullable
+<span class="ts">11:42:09</span>   2. drop the access check
+<span class="ts">11:42:09</span>   3. filter out the assignments the user may not see
+<span class="ts">11:42:10</span> Stopped at the design boundary. Posted on #314.
+<span class="ts">11:42:10</span> /omni:mega-brainstorm demo-org/nimbus-plan#314
+<span class="done">Done · exit 0</span></pre>
+        </aside>
+      </div>
+      <p class="cap">Today: the choice lives in the job's log and in a comment on #314. Acting on it means reading the issue, opening a terminal and running the last line by hand.</p>
+    </div>
+    <div>
+      <div class="frame tall">
+        <div class="bar">Dashboard › <b>Runners</b></div>
+        <div class="scrim"></div>
+        <aside class="drawer" data-screen="runner-need-human" role="dialog" aria-modal="true" aria-labelledby="nh-title">
+          <div class="term-head"><span class="t" id="nh-title">Need human · <span data-content>nimbus-plan</span> · <a href="#" data-content>#314</a></span><button class="x" type="button" aria-label="Close">×</button></div>
+          <div class="d-body">
+            <p class="d-lead" data-content>The planning query fails for 31 tenants. A worker assignment points at a project the user may not open, and the schema says that project is never empty. Each fix changes what a user may see, so the agent stopped for a decision.</p>
+            <fieldset class="q">
+              <legend><span class="hd">Fix</span><span data-content>How should the planning show an assignment whose project the user may not open?</span></legend>
+              <label class="opt"><input type="radio" name="q1"><span><b data-content>Make the project nullable</b><span data-content>The assignment shows with no project; the API contract changes.</span></span></label>
+              <label class="opt"><input type="radio" name="q1"><span><b data-content>Drop the access check</b><span data-content>Every assignment shows its project, whatever the user may open.</span></span></label>
+              <label class="opt on"><input type="radio" name="q1" checked><span><b data-content>Filter those assignments out</b><span data-content>The user sees only the assignments whose project they may open.</span></span></label>
+              <label class="opt"><input type="radio" name="q1"><span><b>Design it first</b><span>Stop here and brainstorm the behaviour</span></span></label>
+              <label class="free">Or your own answer<textarea maxlength="2000"></textarea></label>
+            </fieldset>
+          </div>
+          <div class="d-foot"><button class="btn" type="button">Dismiss</button><button class="btn primary" type="button" data-primary>Send answers</button></div>
+        </aside>
+      </div>
+      <p class="cap">After: the Need human button, or the issue's link with <code>?answer=&lt;job&gt;</code>, opens the drawer. Send answers stays disabled until every question has an answer; it queues the fix again and closes the drawer. Dismiss closes the question with no resume. When someone already acted, the drawer reads <i>Already answered by Paul</i> (or <i>Dismissed by Paul</i>) and offers neither.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

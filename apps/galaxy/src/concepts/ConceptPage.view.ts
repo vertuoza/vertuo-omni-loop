@@ -18,14 +18,15 @@
 // The header carries the concept's state chip (PRD 1272, s4, ./state.ts), from the facts the route read.
 // The concept PR's link is that pull request once the facts name it; until then, GitHub's search for the
 // pull request that refers to the concept's issue (`Refs #<n>`, as /omni:think-big writes it).
-import { CONCEPT_SECTIONS, parseConcept } from 'vertuo-omni-plan/kit/lib/concept/parse.ts';
-import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { isOneOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { CONCEPT_SECTIONS, parseConcept } from 'omni-loop/kit/lib/concept/parse.ts';
+import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 import { renderMarkdown, renderMarkdownBody } from '../dossier/markdown';
 import { WORK_NAMES, workPath } from '../dossier/page/work';
 import type { ConceptFacts } from '../dossier/github/fix';
 import { areaViews, issueLink, type AreaView } from './areas';
-import { conceptPull, conceptState, type ConceptState } from './state';
+import type { StoredStage } from '../stages/stage';
+import { conceptPull, conceptState, shippedByPerson, type ConceptProgress, type ConceptState } from './state';
 
 const CONCEPT_TABS = ['overview', 'areas', 'vision', 'boards', 'debate'] as const;
 export type ConceptTab = (typeof CONCEPT_TABS)[number];
@@ -78,6 +79,8 @@ export type ConceptRead = {
   debate: string | null;
   /** The dossier id of each PRD of its areas that has a page. */
   pages: ReadonlyMap<PrdNumber, string>;
+  /** The stored stage of each PRD its areas name (PRD 2213), by `prdKey`; none when it could not be read. */
+  stages: ReadonlyMap<string, StoredStage>;
   /** Its issue and its concept PR, as stored or read (PRD 1272, s4); null when neither could be had. */
   facts: ConceptFacts | null;
 };
@@ -85,6 +88,9 @@ export type ConceptRead = {
 export type ConceptTabEntry = { kind: ConceptTab; label: string; href: string; current: boolean; notSent: boolean };
 
 export type ConceptRound = { number: number; label: string; href: string; current: boolean };
+
+/** What the header's button does: closes the concept's issue (`mark`) or reopens it (`reopen`). */
+export type ConceptDone = 'mark' | 'reopen';
 
 export type ConceptPane =
   | { kind: 'not-sent'; words: string }
@@ -104,8 +110,10 @@ export type ConceptPageView = {
   link: string;
   /** The concept's issue; null with no number. */
   issueUrl: string | null;
-  /** In review, in the inbox, or state unknown. */
+  /** In review, in the inbox, shipped, or state unknown. */
   state: ConceptState;
+  /** The button of its header (PRD 2213, s3): Mark done in the inbox, Reopen once a person shipped it, else none. */
+  done: ConceptDone | null;
   /** On GitHub: its issue and its concept PR. */
   links: { label: string; href: string }[];
   tabs: ConceptTabEntry[];
@@ -126,11 +134,11 @@ const tabHref = (link: string, tab: ConceptTab, round: number | null = null) => 
 const unreadWords = (file: string) => `${file} could not be read. Reload the page in a moment.`;
 const notSentWords = (file: string) => `${file} was ${NOT_SENT}: a concept's push sends each file up to 512 KiB.`;
 
-function recordPane(read: ConceptRead, tab: 'overview' | 'areas'): ConceptPane {
+function recordPane(read: ConceptRead, tab: 'overview' | 'areas', state: ConceptState, byPerson: boolean): ConceptPane {
   const parsed = read.record === null ? null : parseConcept(read.record);
   if (!parsed?.ok) return { kind: 'unread', words: unreadWords('concept.md') };
   const { record } = parsed;
-  if (tab === 'areas') return { kind: 'areas', areas: areaViews(record.areas, read.number, read.repo, read.pages) };
+  if (tab === 'areas') return { kind: 'areas', areas: areaViews(record.areas, read.number, read.repo, read.pages, read.stages, state === 'shipped', byPerson) };
   return { kind: 'overview', sections: OVERVIEW.map((heading) => ({ heading, html: renderMarkdownBody(record.sections[heading] ?? '') })) };
 }
 
@@ -142,15 +150,21 @@ function boardsPane(link: string, boards: number, picked: number | null): Concep
   return { kind: 'frame', src: `${link}/r/${shown}/page`, title: `Boards, Round ${shown}`, rounds };
 }
 
-function paneOf(read: ConceptRead, pick: ConceptPick, link: string, count: (kind: string) => number): ConceptPane {
+function paneOf(read: ConceptRead, pick: ConceptPick, link: string, count: (kind: string) => number, state: ConceptState, byPerson: boolean): ConceptPane {
   const { tab } = pick;
   const { kind, file } = TAB_FILE[tab];
   const sent = count(kind);
   if (sent === 0) return { kind: 'not-sent', words: notSentWords(file) };
-  if (tab === 'overview' || tab === 'areas') return recordPane(read, tab);
+  if (tab === 'overview' || tab === 'areas') return recordPane(read, tab, state, byPerson);
   if (tab === 'vision') return { kind: 'frame', src: `${link}/v/${sent}/page`, title: 'Vision tour', rounds: null };
   if (tab === 'boards') return boardsPane(link, sent, pick.round);
   return read.debate === null ? { kind: 'unread', words: unreadWords(file) } : { kind: 'markdown', html: renderMarkdown(read.debate).html };
+}
+
+/** What decides whether the concept shipped by itself; null when its concept.md does not parse. */
+function progressOf(read: ConceptRead): ConceptProgress | null {
+  const parsed = read.record === null ? null : parseConcept(read.record);
+  return parsed?.ok ? { repo: read.repo, areas: parsed.record.areas, stages: read.stages } : null;
 }
 
 export function conceptView(read: ConceptRead, pick: ConceptPick): ConceptPageView {
@@ -158,6 +172,9 @@ export function conceptView(read: ConceptRead, pick: ConceptPick): ConceptPageVi
   const count = (kind: string) => read.versions.filter((v) => v.kind === kind).length;
   const issueUrl = read.number === null ? null : issueLink(read.repo, read.number);
   const pull = conceptPull(read.facts);
+  const progress = progressOf(read);
+  const state = conceptState(read.facts, progress);
+  const byPerson = shippedByPerson(read.facts, progress);
   return {
     id: read.id,
     heading: read.number === null ? null : `#${read.number}`,
@@ -165,7 +182,8 @@ export function conceptView(read: ConceptRead, pick: ConceptPick): ConceptPageVi
     title: read.title,
     link,
     issueUrl,
-    state: conceptState(read.facts),
+    state,
+    done: read.number === null ? null : state === 'in-inbox' ? 'mark' : byPerson ? 'reopen' : null,
     links: read.number === null || issueUrl === null ? [] : [
       { label: `issue #${read.number}`, href: issueUrl },
       pull ? { label: `concept PR #${pull.number}`, href: pull.url } : { label: 'concept PR', href: conceptPrSearch(read.repo, read.number) },
@@ -174,6 +192,6 @@ export function conceptView(read: ConceptRead, pick: ConceptPick): ConceptPageVi
       kind: tab, label: CONCEPT_TAB_LABELS[tab], href: tabHref(link, tab), current: tab === pick.tab, notSent: count(TAB_FILE[tab].kind) === 0,
     })),
     tab: pick.tab,
-    pane: paneOf(read, pick, link, count),
+    pane: paneOf(read, pick, link, count, state, byPerson),
   };
 }

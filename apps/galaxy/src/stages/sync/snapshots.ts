@@ -10,7 +10,7 @@ import type { Database } from '../../../../../supabase/database.types.ts';
 import type { DossierRef } from '../../dossier/github/reader';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import { settle } from '../store';
-import { PrdNumberSchema, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export type SyncSnapshotStore = {
   /** Marks stale since `at` the current snapshot of each of the repository's PRDs given. */

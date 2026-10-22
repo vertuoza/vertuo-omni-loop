@@ -1,16 +1,13 @@
 import type { ReactNode } from 'react';
 import { Notice } from '../ask/page/Notice';
-import { SectionTabs } from '../nav/SectionTabs';
-import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
 import { PRODUCTS_HREF, type ProductRow } from './model';
 import { ProductPage, type ProductPageProps } from './ProductPage';
-import { ProductsView } from './ProductsView';
 
-// Settings › Products in each situation (PRD 859 s1), decided once by the page: no database here;
-// signed out (sign in on /app, then come back); an account in no workspace; the products that could
-// not be read; a product the workspace does not hold; or the list, or one product's page. Every
-// situation starts with the Settings tabs, Products marked.
+// A product's Pitch page in each situation (PRD 859 s1, moved into Knowledge › Pitch by PRD 2240 s5),
+// decided once by the page: no database here; signed out (sign in on /app, then come back); an account in
+// no workspace; the products that could not be read; a product the workspace does not hold; or the
+// product's page. Settings › Products and its list are gone: /app/products lists the products.
 
 /** The demo's two products: one in each look, so both read as they will. */
 export const DEMO_PRODUCTS: ProductRow[] = [
@@ -20,13 +17,7 @@ export const DEMO_PRODUCTS: ProductRow[] = [
 
 export type Situation = { kind: 'closed' } | { kind: 'sign-in' } | { kind: 'no-workspace' } | { kind: 'unreadable' };
 
-export type ProductsScreenView = Situation | { kind: 'products'; products: ProductRow[] };
-
 export type ProductScreenView = Situation | { kind: 'not-found' } | ({ kind: 'product' } & ProductPageProps);
-
-function Tabs() {
-  return <SectionTabs label="Settings" tabs={SETTINGS_TABS} current={PRODUCTS_HREF} />;
-}
 
 export function SituationNotice({ view }: { view: Situation }): ReactNode {
   switch (view.kind) {
@@ -57,16 +48,8 @@ export function SituationNotice({ view }: { view: Situation }): ReactNode {
   }
 }
 
-export function ProductsScreen({ view }: { view: ProductsScreenView }) {
-  return (
-    <>
-      <Tabs />
-      {view.kind === 'products' ? <ProductsView products={view.products} /> : <SituationNotice view={view} />}
-    </>
-  );
-}
-
-function ProductBody({ view }: { view: ProductScreenView }) {
+/** The product's page, or the situation that stands in for it; `framed` false leaves out its own header, for a page that has one. */
+export function ProductBody({ view, framed = true }: { view: ProductScreenView; framed?: boolean }) {
   if (view.kind === 'not-found') {
     return (
       <Notice title="No such product">
@@ -75,16 +58,7 @@ function ProductBody({ view }: { view: ProductScreenView }) {
     );
   }
   if (view.kind === 'product') {
-    return <ProductPage source={view.source} editable={view.editable} product={view.product} />;
+    return <ProductPage source={view.source} editable={view.editable} product={view.product} framed={framed} />;
   }
   return <SituationNotice view={view} />;
-}
-
-export function ProductScreen({ view }: { view: ProductScreenView }) {
-  return (
-    <>
-      <Tabs />
-      <ProductBody view={view} />
-    </>
-  );
 }

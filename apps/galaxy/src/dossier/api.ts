@@ -45,7 +45,7 @@ import {
   ARTIFACT_MAX_BYTES, dossierReader, dossierStore, DossierStoreError, isPulseKind, isPushedArtifactKind, isPushKind, isRoundKind, KIND_ARTIFACTS,
   productPrdOf, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, TITLE_MAX, type DossierArtifact, type DossierProduct, type PushKind,
 } from './store';
-import { type PrdNumber, PrdNumberSchema, ProductPrdIdSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema, ProductPrdIdSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** The largest push: seven artifacts of 512 KiB and their JSON (PRD 1272: a concept's vision tour and
  * boards together). */

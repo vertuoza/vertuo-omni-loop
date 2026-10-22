@@ -4,7 +4,9 @@
 // (PRD 549) it prints the waves and the collision matrix per repository. A plan of more than one
 // landing gets one line per landing, its name, its waves and its slices; a plan of one prints as it
 // always did. After the collision matrix, one line names every slice that declares a contract kind,
-// with its kinds (PRD 1870): `contracts: s1 api, db · s4 api`, nothing when none does.
+// with its kinds (PRD 1870): `contracts: s1 api, db · s4 api`, nothing when none does. The PRD's
+// `before-after.html` is read beside the plan, so a declared kind the page carries no
+// `data-contract="<kind>"` block for is refused where the repository asks.
 //
 // `omni plan moved <prd> [--json]` (PRD 563) reads, for each target row of a plan repository's
 // `## Repositories`, what changed on the target's default branch since `read at` under the
@@ -65,10 +67,23 @@ function readPlan(prd: PrdNumber, { ctx, verb }: { ctx: Context; verb: string })
   return { planPath, slices, repositories: parsePlanRepositories(markdown) };
 }
 
-/** PRD n's plan, graded; a slice table that cannot be read is a usage error, as it always was. */
+/** PRD n's before/after page, or `null` when its folder has none. */
+function readBeforeAfter(prd: PrdNumber, { ctx }: { ctx: Context }): string | null {
+  const pagePath = ctx.layout.beforeAfterPath(prd);
+  if (pagePath === null) return null;
+  try {
+    return readFileSync(join(ctx.root, pagePath), 'utf8');
+  } catch (error) {
+    if (errorCode(error) === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+/** PRD n's plan, graded with its before/after page; a slice table that cannot be read is a usage
+ * error, as it always was. */
 function checkPlan(prd: PrdNumber, { ctx }: { ctx: Context }) {
   const { planPath, markdown } = readPlanText(prd, { ctx, verb: 'check' });
-  const graded = gradePlan(markdown, { config: ctx.config, targets: targetFlows(ctx) });
+  const graded = gradePlan(markdown, { config: ctx.config, targets: targetFlows(ctx), beforeAfter: readBeforeAfter(prd, { ctx }) });
   if (graded.parseError !== null) throw usageError(`omni plan check: ${planPath}: ${graded.parseError}`);
   return { planPath, ...graded };
 }

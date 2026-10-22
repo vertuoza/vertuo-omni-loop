@@ -1,4 +1,4 @@
-// Super Omni World's Phaser scene (PRD 817): the stage as a tilemap, the hero in the arcade
+// Starhop's Phaser scene (PRD 817): the stage as a tilemap, the hero in the arcade
 // physics, the camera following to the right, the Entropy blobs walking, the coins to take and the
 // ? blocks to bump. It only plays: the arcade's held buttons come in each frame (`held`), and what
 // happens goes out as events (`onEvent`: a coin, a stomp, a hurt, a pit, the flag, and each second
@@ -16,7 +16,7 @@ import { BLOCK, EMPTY_BLOCK, tileData } from './art';
 import { blockBumped, clockSeconds, enemyContact, enemyTurn, enemyWakes, heroAtFlag, heroFell } from './contact';
 import { heroSpeed, JUMP_IDLE, jumpStep, LIFE_EVENTS, PHYSICS, STAGE_SECONDS, TILE, type JumpState, type PlatformerEvent } from './rules';
 import type { Stage } from './stages';
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { phaserNarrow } from '../phaser-narrow';
 
 export type PhaserModule = typeof import('phaser');

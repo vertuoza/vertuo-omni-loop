@@ -1,7 +1,7 @@
 import { SPRITE_DEFS } from '@omni/design';
 import { describe, expect, it, vi } from 'vitest';
 import { OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, pageTrail, type SidebarItem } from './sidebar';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { present } from '../ask/test/test-item';
 
 // /app/settings' page only redirects: next/navigation's redirect, recorded instead of thrown.
@@ -70,7 +70,7 @@ describe('SIDEBAR', () => {
 
   it('holds one Settings entry at /app/settings, its pages Fleets, Repositories, Business, Products and Jev (PRD 733, PRD 748, PRD 859, PRD 812)', () => {
     expect(rows([SETTINGS])).toEqual([
-      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business'], ['Products', '/app/settings/products'], ['Jev', '/app/settings/jev']]],
+      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business'], ['Jev', '/app/settings/jev']]],
     ]);
     expect(SETTINGS.leavesApp).toBeFalsy();
   });
@@ -108,15 +108,13 @@ describe('currentItem and pageTrail', () => {
     ['/app/workspace?period=season', 'workspace', 'Dashboard › Workspace'],
     ['/app/engineering', 'engineering', 'Dashboard › Engineering'],
     ['/app/engineering?period=30d&sort=merged', 'engineering', 'Dashboard › Engineering'],
-    ['/app/engineering/vertuoza/pdf-builder', 'engineering', 'Dashboard › Engineering'],
-    ['/app/engineering/vertuoza/pdf-builder?period=30d', 'engineering', 'Dashboard › Engineering'],
+    ['/app/engineering/demo-org/pdf-builder', 'engineering', 'Dashboard › Engineering'],
+    ['/app/engineering/demo-org/pdf-builder?period=30d', 'engineering', 'Dashboard › Engineering'],
     ['/app/settings', 'settings', 'Settings'],
     ['/app/settings/fleets', 'settings', 'Settings › Fleets'],
     ['/app/settings/fleets?fleet=beaver', 'settings', 'Settings › Fleets'],
     ['/app/settings/repositories', 'settings', 'Settings › Repositories'],
     ['/app/settings/business', 'settings', 'Settings › Business'],
-    ['/app/settings/products', 'settings', 'Settings › Products'],
-    ['/app/settings/products/p-1', 'settings', 'Settings › Products'],
     ['/app/settings/jev', 'settings', 'Settings › Jev'],
     ['/app/settingsx', 'home', 'Dashboard › Home'],
     ['/app/products', 'products', 'Work › Products'],
@@ -173,7 +171,7 @@ describe('currentItem and pageTrail', () => {
 
   it('links the last crumb back to its page from a page under it, and not on the page itself, whatever the query', () => {
     expect(pageTrail('/prd/3f2a')?.crumbs.at(-1)).toEqual({ label: 'PRDs', path: '/prd' });
-    expect(pageTrail('/app/engineering/vertuoza/pdf-builder')?.crumbs.at(-1)).toEqual({ label: 'Engineering', path: '/app/engineering' });
+    expect(pageTrail('/app/engineering/demo-org/pdf-builder')?.crumbs.at(-1)).toEqual({ label: 'Engineering', path: '/app/engineering' });
     expect(pageTrail('/ask/history')?.crumbs.at(-1)).toEqual({ label: 'History' });
     expect(pageTrail('/prd')?.crumbs.at(-1)).toEqual({ label: 'PRDs' });
     expect(pageTrail('/prd/?who=all')?.crumbs.at(-1)).toEqual({ label: 'PRDs' });
@@ -193,15 +191,6 @@ describe('currentItem and pageTrail', () => {
       { label: 'Settings', path: '/app/settings' },
       { label: 'Business' },
     ]);
-    expect(pageTrail('/app/settings/products')?.crumbs).toEqual([
-      { label: 'Settings', path: '/app/settings' },
-      { label: 'Products' },
-    ]);
-    // A product's own page links back to the list (PRD 859).
-    expect(pageTrail('/app/settings/products/p-1')?.crumbs).toEqual([
-      { label: 'Settings', path: '/app/settings' },
-      { label: 'Products', path: '/app/settings/products' },
-    ]);
   });
 
   it('carries the section\'s sprite, a page its section\'s, and none for an entry without one', () => {
@@ -214,7 +203,7 @@ describe('currentItem and pageTrail', () => {
 });
 
 describe('badgeOf', () => {
-  const counts = { questions: 3, shared: 1, outbox: 2, approvals: 0, total: 5 };
+  const counts = { questions: 3, shared: 1, outbox: 2, approvals: 0, runners: 4, total: 5 };
 
   it('gives Questions the Questions part, the shared ones included', () => {
     expect(badgeOf('questions', counts)).toBe(3);
@@ -225,8 +214,13 @@ describe('badgeOf', () => {
     expect(badgeOf('prds', { ...counts, outbox: 0 })).toBeNull();
   });
 
-  it('gives no badge at 0, nor to any other entry: only Questions and PRDs count (PRD 733)', () => {
+  it('gives Runners the jobs waiting for an answer, none at 0 (PRD 2255)', () => {
+    expect(badgeOf('runners', counts)).toBe(4);
+    expect(badgeOf('runners', { ...counts, runners: 0 })).toBeNull();
+  });
+
+  it('gives no badge at 0, nor to any other entry: only Questions, PRDs and Runners count (PRD 733, PRD 2255)', () => {
     expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
-    for (const id of ['home', 'fleet', 'loop', 'runners', 'workspace', 'engineering', 'roadmaps', 'ideas', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
+    for (const id of ['home', 'fleet', 'loop', 'workspace', 'engineering', 'roadmaps', 'ideas', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
 });

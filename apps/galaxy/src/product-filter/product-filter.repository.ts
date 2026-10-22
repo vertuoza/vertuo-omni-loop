@@ -12,14 +12,18 @@ import { orThrow, parseRows } from '../data/parse-rows';
 /** What the reads need: the tables. */
 export type ProductFilterDb = Pick<SupabaseClient, 'from'>;
 
-const PRODUCT_COLUMNS = 'id, name, workspace_id';
+const PRODUCT_COLUMNS = 'id, name, workspace_id, key';
 /** A product a list can be filtered by: its id, its name and its workspace. */
-export const StoredFilterProduct = z.object({ id: z.string(), name: z.string(), workspace_id: z.string() });
+export const StoredFilterProduct = z.object({ id: z.string(), name: z.string(), workspace_id: z.string(), key: z.string().nullish() });
 type StoredFilterProduct = z.infer<typeof StoredFilterProduct>;
 
 const CARRIER_COLUMNS = 'id, product_id';
 /** A dossier or an idea that carries a product: its id and its product. */
 export const StoredCarrier = z.object({ id: z.string(), product_id: z.string() });
+
+const NUMBER_COLUMNS = 'id, product_seq';
+/** A dossier born on a product (PRD 2011): its id and its number on the product (`mobile-12`, `mobile-B74`). */
+export const StoredNumber = z.object({ id: z.string(), product_seq: z.number().int().positive() });
 
 /** A workspace a repository belongs to. */
 const StoredRepositoryWorkspace = z.object({ workspace_id: z.string() });
@@ -29,6 +33,9 @@ export const filterProductsOf = (db: ProductFilterDb) => db.from('products').sel
 
 /** Every dossier the caller reads that carries a product; the repository narrows it to the listed workspaces. */
 export const productDossiersIn = (db: ProductFilterDb) => db.from('dossiers').select(CARRIER_COLUMNS).not('product_id', 'is', null);
+
+/** Every dossier the caller reads that is numbered on its product; the repository narrows it to the listed workspaces. */
+export const productNumbersIn = (db: ProductFilterDb) => db.from('dossiers').select(NUMBER_COLUMNS).not('product_seq', 'is', null);
 
 /** Every idea the caller reads that carries a product; the repository narrows it to one board. */
 export const productIdeasOf = (db: ProductFilterDb) => db.from('ideas').select(CARRIER_COLUMNS).not('product_id', 'is', null);
@@ -51,6 +58,13 @@ export function productFilterRepository(db: ProductFilterDb) {
       const { data, error } = await productDossiersIn(db).in('workspace_id', [...workspaces]);
       if (error) throw new Error(`Supabase: could not read the dossiers' products (${why(error)})`);
       return byId(orThrow(parseRows(StoredCarrier, data, 'product-filter/product-filter.repository: dossiers')));
+    },
+
+    /** The number on its product of each dossier of these workspaces that has one, by dossier id. */
+    async dossierNumbers(workspaces: readonly string[]): Promise<Map<string, number>> {
+      const { data, error } = await productNumbersIn(db).in('workspace_id', [...workspaces]);
+      if (error) throw new Error(`Supabase: could not read the dossiers' product numbers (${why(error)})`);
+      return new Map(orThrow(parseRows(StoredNumber, data, 'product-filter/product-filter.repository: numbers')).map((r): [string, number] => [r.id, r.product_seq]));
     },
 
     /** The workspaces whose repositories hold `repo` (`owner/name`). */

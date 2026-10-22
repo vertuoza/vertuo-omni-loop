@@ -11,10 +11,11 @@ import type { Query } from './links';
 import type { BoardValue } from './load';
 import type { Period } from './period';
 import { PeriodSwitch } from './PeriodSwitch';
-import { headerOf, peopleSortOf, sortPeople, type PeopleSort, type SortKey } from './sort';
-import { EVENTS, GROUPS, type ChartDay, type EventDay, type PersonRow, type PrdEvent, type RepoRow, type StageTally } from './tally';
+import { SortableList } from '../../nav/SortableList';
+import { peopleColumn, peopleSortOf, PEOPLE_ANCHOR, PEOPLE_COLUMNS, SORT_KEYS, type PeopleSort, type SortKey } from './sort';
+import { byDefault, EVENTS, GROUPS, type ChartDay, type EventDay, type PersonRow, type PrdEvent, type RepoRow, type StageTally } from './tally';
 import './board.css';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 
 // A board (PRD 572), drawn on the server, top to bottom: the period switch, the four tiles, the two
 // per-day charts, the People table, the repositories involved and, where the page asks, the season's
@@ -216,18 +217,16 @@ function failed(rows: PersonRow[]): string[] {
 /** Where the People table is drawn: the page's path and query, and the sort the query asks for. */
 interface TableAt { path: string; query: Query; sort: PeopleSort }
 
-const MARK = { ascending: '▲', descending: '▼' } as const;
-
-/** A People header: a link that sorts by its column; the sorted one marked, for the eye and for a screen reader. */
-function SortHeader({ table, sortKey, num = false, note, children }: { table: TableAt; sortKey: SortKey; num?: boolean; note?: string; children: string }) {
-  const header = headerOf(table.path, table.query, table.sort, sortKey);
-  return (
-    <th scope="col" className={num ? 'is-num' : undefined} aria-sort={header.sorted ?? undefined}>
-      <a className="board-sort" href={header.href}>{children}{header.sorted && <span className="board-sort-mark" aria-hidden="true">{MARK[header.sorted]}</span>}</a>
-      {note && <span className="board-th-note">{note}</span>}
-    </th>
-  );
-}
+/** The People table's columns: each key's label, and whether it is a count, for the shared list. */
+const HEAD: Record<SortKey, { label: string; num: boolean; note?: string }> = {
+  rank: { label: 'Rank', num: true }, name: { label: 'Name', num: false }, fleet: { label: 'Fleet', num: false },
+  points: { label: 'Points', num: true }, prs: { label: 'PRs', num: true }, prds: { label: 'PRDs', num: true, note: GROUPS.join(' · ') },
+  questions: { label: 'Questions', num: true },
+};
+const PEOPLE_LIST_COLUMNS = PEOPLE_COLUMNS.map((column) => {
+  const head = HEAD[SORT_KEYS.find((k) => k === column.key) ?? 'points'];
+  return { ...column, label: head.label, num: head.num, ...(head.note ? { note: head.note } : {}) };
+});
 
 function People({ people, title, note, table }: { people: Read<PersonRow[]>; title: ReactNode; note?: ReactNode; table: TableAt }) {
   return (
@@ -236,35 +235,24 @@ function People({ people, title, note, table }: { people: Read<PersonRow[]>; tit
       {people === UNREADABLE ? <CouldNotLoad /> : (
         <>
           <div className="board-scroll">
-            <table className="board-table">
-              <thead>
-                <tr>
-                  <SortHeader table={table} sortKey="rank" num>Rank</SortHeader>
-                  <SortHeader table={table} sortKey="name">Name</SortHeader>
-                  <SortHeader table={table} sortKey="fleet">Fleet</SortHeader>
-                  <SortHeader table={table} sortKey="points" num>Points</SortHeader>
-                  <SortHeader table={table} sortKey="prs" num>PRs</SortHeader>
-                  <SortHeader table={table} sortKey="prds" num note={GROUPS.join(' · ')}>PRDs</SortHeader>
-                  <SortHeader table={table} sortKey="questions" num>Questions</SortHeader>
+            <SortableList
+              classes="board" columns={PEOPLE_LIST_COLUMNS} rows={people} sort={{ column: peopleColumn(table.sort), dir: table.sort.dir, tie: byDefault }}
+              path={table.path} query={table.query} anchor={PEOPLE_ANCHOR} rowKey={(p) => p.userId}
+              row={(p) => (
+                <tr aria-current={p.you ? 'true' : undefined}>
+                  <td className="is-num">{p.rank === null ? <span aria-label="no rank">{DASH}</span> : n(p.rank)}</td>
+                  <th scope="row" className="board-name">
+                    <PersonChip person={p} />
+                    {p.you && <span className="board-you"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (you)</span></span>}
+                  </th>
+                  <td><FleetChip fleet={p.fleet} /></td>
+                  <td className="is-num">{cell(p.points)}</td>
+                  <td className="is-num">{cell(p.prs)}</td>
+                  <td className="is-num"><PrdsCell prds={p.prds} /></td>
+                  <td className="is-num">{cell(p.answered)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {sortPeople(people, table.sort).map((p) => (
-                  <tr key={p.userId} aria-current={p.you ? 'true' : undefined}>
-                    <td className="is-num">{p.rank === null ? <span aria-label="no rank">{DASH}</span> : n(p.rank)}</td>
-                    <th scope="row" className="board-name">
-                      <PersonChip person={p} />
-                      {p.you && <span className="board-you"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (you)</span></span>}
-                    </th>
-                    <td><FleetChip fleet={p.fleet} /></td>
-                    <td className="is-num">{cell(p.points)}</td>
-                    <td className="is-num">{cell(p.prs)}</td>
-                    <td className="is-num"><PrdsCell prds={p.prds} /></td>
-                    <td className="is-num">{cell(p.answered)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              )}
+            />
           </div>
           {failed(people).length > 0 && <p className="dash-note">{`Couldn’t load the ${failed(people).join(', ')}. Reload in a moment.`}</p>}
         </>

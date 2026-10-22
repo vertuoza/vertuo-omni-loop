@@ -1,6 +1,6 @@
 # `kit/plugin/skills/yolo-fix/SKILL.md` (`/omni:yolo-fix`)
 
-Source: `.claude/skills/vertuo-yolo-fix/SKILL.md` @ `vertuo-ai-domain@2af3d72f7` (origin/main, as
+Source: `.claude/skills/nimbus-yolo-fix/SKILL.md` @ `nimbus-brain@2af3d72f7` (origin/main, as
 spec §2 asks: replies, the settle PR, the after-merge path). Its `rework.mjs` was already ported as
 `kit/lib/policy/rework.mjs` (see `policy--rework.md`) and is reached through `omni rework`.
 
@@ -21,7 +21,7 @@ spec §2 asks: replies, the settle PR, the after-merge path). Its `rework.mjs` w
 | `pnpm quality:preflight --full` | `/omni:yolo` §4: `commands.preflightFull` (or `commands.preflight`), `commands.checks`, `omni check all` |
 | `node scripts/outbox-status.mjs <prd>`, `pnpm delivery:ship <prd>` | `omni status <prd>`, `omni ship <prd>`, through `/omni:yolo` §4–5 |
 | `node scripts/outbox-comment.mjs --prd --pr` | `omni comment --prd <n> --pr <n>` |
-| `vertuo-pull-request`, `vertuo-parallel-wave` | `/omni:pr`, `/omni:wave`'s steps |
+| `nimbus-pull-request`, `nimbus-parallel-wave` | `/omni:pr`, `/omni:wave`'s steps |
 
 ## Dropped
 
@@ -38,7 +38,7 @@ spec §2 asks: replies, the settle PR, the after-merge path). Its `rework.mjs` w
 - **The `SETTLING.md` references, "Why one line is amended in an append-only ledger"** and PRD
   #1166, #1229, ADR 0069: upstream history. The rule survives as the guardrail "the ledger grows
   only"; `omni rework close` is what proves the one-line amendment.
-- **`/vertuo-yolo`'s consultation policy object:** the rework brief says "record no item and ask
+- **`/nimbus-yolo`'s consultation policy object:** the rework brief says "record no item and ask
   nothing" in its own words.
 
 ## Changed
@@ -150,3 +150,16 @@ rewrites the note, and restates none of the voice's limits.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## A rework agent runs one command at a time
+
+The rework prompt of step 5 says, as `/omni:wave`'s do, to run each command alone, from the
+worktree, and git as `git -C <your worktree> …`: an agent in its own worktree refuses a chained
+command it cannot keep inside it. Tested in `kit/test/plugin.test.ts`, `a slice agent in its own
+worktree runs one command at a time`.
+
+## PRD 2251, slice s4 — the runner line in the held ending
+
+Not a re-port. Step 8 says the held ending's **What is next?** adds the line "To build it on a runner
+instead: `/omni:yolo-runner <n>`." above its command, which stays `/omni:yolo-fix <n>`. The ending
+itself is `/omni:yolo` section 7's, outside this slice's territory. Tested in `kit/test/plugin.test.ts`.

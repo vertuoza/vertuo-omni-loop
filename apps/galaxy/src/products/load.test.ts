@@ -8,7 +8,7 @@ const read = vi.hoisted(() => ({
 vi.mock('../data/workspace', () => ({ memberWorkspace: () => read.workspace() }));
 
 import type { User } from '@supabase/supabase-js';
-import { defaultPitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { defaultPitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import { loadProduct, loadProducts } from './load';
 
 // Settings › Products's reads (PRD 859 s1), as the signed-in person (stubbed: no test calls
@@ -50,7 +50,12 @@ describe('the products list', () => {
       editable: true,
       products: [{ id: 'p-1', name: 'Vertuoza', look: 'arcade' }, { id: 'p-2', name: 'Omni Loop', look: 'keynote' }],
     });
-    expect(d.calls).toEqual([['from', 'products'], ['select', 'id, name, pitch_look, pitch'], ['eq', 'workspace_id', 'ws-1'], ['order', 'ordinal']]);
+    expect(d.calls).toEqual([['from', 'products'], ['select', 'id, name, pitch_look, pitch, archived_at, archived_by'], ['eq', 'workspace_id', 'ws-1'], ['order', 'ordinal']]);
+  });
+
+  it('leaves an archived product out: an owner reads it, but it is no product to set a look on (PRD 2232)', async () => {
+    const archived = { id: 'p-3', name: 'Old', pitch_look: null, archived_at: '2026-10-18T12:00:00Z', archived_by: null };
+    expect(await loadProducts(asDb(db({ data: [...STORED, archived] })), USER)).toMatchObject({ products: [{ id: 'p-1' }, { id: 'p-2' }] });
   });
 
   it('reads none while the business holds none', async () => {

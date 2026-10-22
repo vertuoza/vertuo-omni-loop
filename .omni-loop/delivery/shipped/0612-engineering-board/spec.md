@@ -18,8 +18,8 @@ board, or the kit.
 ## Problem
 
 A workspace's repositories live only in the game's `sectors` table, and a migration is the only way
-to change it. Vertuoza has three of them there (vertuo-omni-loop, vertuo-ai-domain,
-vertuo-workflow-domain). vertuo-backend-php, vertuo-apps and pdf-builder show up nowhere, even
+to change it. Vertuoza has three of them there (vertuo-omni-loop, nimbus-brain,
+nimbus-workflow-domain). nimbus-backend-php, nimbus-apps and pdf-builder show up nowhere, even
 though Vertuoza's engineers merge pull requests in them every day. No owner can add a repository.
 
 The only pull request numbers the app has come from the game's `contributions` poller
@@ -62,9 +62,9 @@ as the other boards) shows, over tracked repositories only:
 - A chart of merged pull requests per day, with the part Omni-man signed.
 - With nothing collected yet: "No tracked repositories yet → Settings → Repositories".
 
-**Vertuoza, and only Vertuoza,** starts with six tracked repositories: `vertuoza/vertuo-ai-domain`,
-`vertuoza/vertuo-workflow-domain`, `vertuoza/vertuo-omni-loop`, `vertuoza/vertuo-backend-php`,
-`vertuoza/vertuo-apps` and `vertuoza/pdf-builder`. They come from a migration that inserts them for
+**Vertuoza, and only Vertuoza,** starts with six tracked repositories: `demo-org/nimbus-brain`,
+`demo-org/nimbus-workflow-domain`, `vertuoza/vertuo-omni-loop`, `demo-org/nimbus-backend-php`,
+`demo-org/nimbus-apps` and `demo-org/pdf-builder`. They come from a migration that inserts them for
 the workspace whose slug is `vertuoza`, and does nothing when there is no such workspace. No other
 workspace is seeded with anything: a new workspace starts with an empty list.
 
@@ -133,7 +133,7 @@ workspace is seeded with anything: a new workspace starts with an empty list.
   season.
 - As the person running Omni Loop, I see what share of merged work Omni-man signed, and whether it
   merges faster.
-- As a Vertuoza member, I find vertuo-backend-php, vertuo-apps and pdf-builder on the board without
+- As a Vertuoza member, I find nimbus-backend-php, nimbus-apps and pdf-builder on the board without
   anyone typing them in.
 
 ## Scope

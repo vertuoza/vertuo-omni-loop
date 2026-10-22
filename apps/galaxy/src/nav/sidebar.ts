@@ -15,8 +15,8 @@
 // Fleet, not Home, and /app/settings/fleets is Settings), and the top bar's trail (issue 704): the
 // group (the foot has none), the entry, then the page, with the entry's sprite. The query and the hash
 // never count. An entry that counts what waits for the person (PRD 499) carries its count as a badge,
-// none at 0.
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+// none at 0: Questions, PRDs and, since PRD 2255, Runners (the workspace's jobs waiting for an answer).
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
 
@@ -108,7 +108,6 @@ export const SETTINGS: SidebarItem = {
     { label: 'Fleets', path: SETTINGS_LANDING },
     { label: 'Repositories', path: REPOSITORIES_PATH },
     { label: 'Business', path: '/app/settings/business' },
-    { label: 'Products', path: '/app/settings/products' },
     { label: 'Jev', path: '/app/settings/jev' },
   ],
 };
@@ -186,8 +185,9 @@ export function pageTrail(pathname: string | null | undefined): Trail | null {
 }
 
 /** The badge an entry carries: Questions the Questions part, the shared ones included, PRDs the Outbox
- * part; null at 0, and for an entry that counts nothing. */
+ * part, Runners the workspace's jobs waiting for an answer (PRD 2255); null at 0, and for an entry that
+ * counts nothing. */
 export function badgeOf(id: SidebarId, counts: WaitingCounts): number | null {
-  const count = id === 'questions' ? counts.questions : id === 'prds' ? counts.outbox : 0;
+  const count = id === 'questions' ? counts.questions : id === 'prds' ? counts.outbox : id === 'runners' ? counts.runners : 0;
   return count > 0 ? count : null;
 }

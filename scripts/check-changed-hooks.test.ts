@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { makeRepo } from '../kit/test/fixture.ts';
-import { type HookIO, preCommit, prePush, runHook, searchPath } from './check-changed-hooks.ts';
+import { type HookIO, preCommit, prePush, runHook, searchPath, touchesDatabase } from './check-changed-hooks.ts';
 
 const HOOKS = fileURLToPath(new URL('../.githooks/', import.meta.url));
 
@@ -216,6 +216,29 @@ describe('pre-push: check:changed’s typecheck and lint, nothing else', () => {
   });
 });
 
+describe('pre-push: the open-source guard first (PRD 2305)', () => {
+  it('refuses a tracked file naming an address on the maintainer’s domain, before the typecheck runs', () => {
+    const root = pushRepo();
+    writeFileSync(join(root, 'kit/lib/b.ts'), `export const author = 'jane@${'vert' + 'uoza'}.com';\n`);
+    git(root, 'add', '-A');
+    git(root, 'commit', '-qm', 'b');
+    const pnpm = stub(join(root, 'node_modules/.bin'), 'pnpm');
+    const { code, out } = runGitHook('pre-push', root);
+    expect(code).not.toBe(0);
+    expect(out).toContain('kit/lib/b.ts:1: real email — use <name>@example.com');
+    expect(out).toContain('pre-push: refused: fix what the open-source guard named above');
+    expect(pnpm.log()).toBe('');
+  });
+
+  it('lets a clean branch through to the typecheck and lint, saying so in one line', () => {
+    const root = pushRepo();
+    stub(join(root, 'node_modules/.bin'), 'pnpm');
+    const { code, out } = runGitHook('pre-push', root);
+    expect(code).toBe(0);
+    expect(out).toContain('open-source: green: 2 files read, 0 still in the baseline');
+  });
+});
+
 describe('the hooks themselves', () => {
   it.each(['pre-commit', 'pre-push'])('%s is executable POSIX shell that reads no JSON', (hook) => {
     const text = readFileSync(join(HOOKS, hook), 'utf8');
@@ -295,5 +318,63 @@ describe('runHook, with git and the tools faked', () => {
     const { io, ran } = fakeIO({ refs: upstream });
     expect(prePush(root, [bin], io)).toBe(0);
     expect(ran).toEqual(['pnpm typecheck', 'pnpm lint kit/lib/a.ts']);
+  });
+});
+
+describe('pre-push: the committed database types against the local database', () => {
+  const CHECK = 'node scripts/supabase-types.ts';
+
+  /** pushRepo, plus a new migration committed on `work`. */
+  function migrationRepo(): string {
+    const root = pushRepo();
+    mkdirSync(join(root, 'supabase/migrations'), { recursive: true });
+    writeFileSync(join(root, 'supabase/migrations/20990101000000_x.sql'), 'select 1;\n');
+    git(root, 'add', '-A');
+    git(root, 'commit', '-qm', 'migration');
+    return root;
+  }
+
+  function push(root: string, codes: Record<string, number> = {}) {
+    const bin = join(root, 'node_modules/.bin');
+    stub(bin, 'pnpm');
+    const base = git(root, 'merge-base', 'HEAD', 'main').trim();
+    const fake = fakeIO({ codes, refs: { 'merge-base HEAD origin/main': base } });
+    return { code: prePush(root, [bin], fake.io), ...fake };
+  }
+
+  it('touchesDatabase: a migration or the types file, tracked or new, and nothing else under supabase/', () => {
+    expect(touchesDatabase({ tracked: ['supabase/migrations/1_a.sql'], untracked: [] })).toBe(true);
+    expect(touchesDatabase({ tracked: [], untracked: ['supabase/database.types.ts'] })).toBe(true);
+    expect(touchesDatabase({ tracked: ['supabase/seed.sql', 'supabase/checks/a.sql', 'kit/lib/a.ts'], untracked: [] })).toBe(false);
+  });
+
+  it('never checks the types when the push touches no migration', () => {
+    const { code, ran } = push(pushRepo());
+    expect(code).toBe(0);
+    expect(ran.some((line) => line.startsWith(CHECK))).toBe(false);
+  });
+
+  it('checks them after typecheck and lint when a migration changed, and passes when they match', () => {
+    const { code, ran } = push(migrationRepo());
+    expect(code).toBe(0);
+    expect(ran.at(-1)).toBe(`${CHECK} --check`);
+  });
+
+  it('refuses on drift, saying never to hand-edit the file and how to regenerate it', () => {
+    const { code, warned } = push(migrationRepo(), { [CHECK]: 1 });
+    expect(code).toBe(1);
+    expect(warned.join('')).toMatch(/Never hand-edit it: supabase stop --no-backup && supabase db start, then node scripts\/supabase-types.ts/);
+  });
+
+  it('only warns when no local database answers: CI runs the same check', () => {
+    const { code, warned } = push(migrationRepo(), { [CHECK]: 2 });
+    expect(code).toBe(0);
+    expect(warned.join('')).toMatch(/not checked, no local database answered; CI will check them/);
+  });
+
+  it('never checks the types when lint already refused', () => {
+    const { code, ran } = push(migrationRepo(), { 'pnpm lint': 1 });
+    expect(code).toBe(1);
+    expect(ran.some((line) => line.startsWith(CHECK))).toBe(false);
   });
 });

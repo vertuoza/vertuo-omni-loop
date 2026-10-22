@@ -13,7 +13,7 @@
 // The check's name is `ci.outboxContext`, read by the caller from the base branch's config; with no
 // config (an inactive repository) the kit's default applies (decision 10), so the name is the same
 // everywhere. The Octokit seam is `octokit.request(route, params)` alone.
-import { ConfigSchema } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { ConfigSchema } from 'omni-loop/kit/lib/config.ts';
 import { CreatedSchema, PullHeadSchema, type GitHubClient } from '../outbox-check/github-schema.ts';
 
 /** `ci.outboxContext` when a repository sets none, taken from the kit's own schema. */

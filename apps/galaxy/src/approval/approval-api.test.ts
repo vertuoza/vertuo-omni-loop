@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseApprovalReply } from 'vertuo-omni-plan/kit/lib/approval/approval.ts';
+import { parseApprovalReply } from 'omni-loop/kit/lib/approval/approval.ts';
 import { approveDossier, answerApproval, type ApprovalDeps } from './approval-api';
 
 // The approval route (PRD 1299 s2), with a stubbed Supabase client and a stubbed labeller:
@@ -185,6 +185,30 @@ describe('POST /api/dossiers/approval — a product PRD (PRD 1548)', () => {
     expect((await w.post({ dossier: DOSSIER })).status).toBe(500);
     expect(w.labelled).toEqual([]);
     expect(w.told).toEqual([]);
+  });
+});
+
+describe('POST /api/dossiers/approval — a product roadmap (PRD 2011)', () => {
+  const approved = { dossier_approve: { data: { id: 'a1', repo: null, prd: null, roadmap: 'mobile-R3' }, error: null } };
+
+  it('approves a roadmap by its dossier and answers its id and its roadmap page, reading no PRD approval', async () => {
+    const w = world({ answers: approved });
+    expect(await w.post({ dossier: DOSSIER })).toEqual({
+      status: 201, body: { url: `https://omni.example/roadmaps/${DOSSIER}`, roadmap: 'mobile-R3', approval: { id: 'a1' } },
+    });
+    expect(w.calls.map((c) => c.fn)).toEqual(['dossier_approve']);
+  });
+
+  it('labels no issue and tells the App of no PRD: a roadmap has neither', async () => {
+    const w = world({ answers: approved });
+    await w.post({ dossier: DOSSIER });
+    expect(w.labelled).toEqual([]);
+    expect(w.told).toEqual([]);
+  });
+
+  it('answers 500 when the roadmap\'s id is out of shape', async () => {
+    const w = world({ answers: { dossier_approve: { data: { id: 'a1', repo: null, prd: null, roadmap: 'R3' }, error: null } } });
+    expect((await w.post({ dossier: DOSSIER })).status).toBe(500);
   });
 });
 

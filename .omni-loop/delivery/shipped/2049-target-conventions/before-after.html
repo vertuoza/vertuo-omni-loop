@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 2049 · Target conventions</title>
+<style>
+/* Layout: one reading column; each step is today beside after, stacking at phone width. */
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --fg: #1d2330; --muted: #5b6475; --line: #d8dde6;
+  --today: #b4472f; --after: #1f7a55; --code-bg: #eef1f5;
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12151c; --surface: #1a1f29; --fg: #e4e8f0; --muted: #9aa3b5; --line: #2c3442;
+  --today: #f08a6f; --after: #5fcf9c; --code-bg: #232a36; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12151c; --surface: #1a1f29; --fg: #e4e8f0; --muted: #9aa3b5; --line: #2c3442;
+  --today: #f08a6f; --after: #5fcf9c; --code-bg: #232a36; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font-body); padding-inline: 16px; padding-block: 32px 48px; }
+main { max-width: 980px; margin: 0 auto; display: grid; gap: 28px; }
+h1 { font-size: 1.6rem; line-height: 1.25; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.15rem; margin: 0; }
+h3 { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); }
+section { display: grid; gap: 14px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pair > div { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
+.today h3 { color: var(--today); }
+.after h3 { color: var(--after); }
+pre, code { font-family: var(--font-mono); font-size: .82rem; }
+pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 10px 12px; overflow-x: auto; }
+code { background: var(--code-bg); border-radius: 4px; padding: 1px 4px; }
+pre code { background: none; padding: 0; }
+.bad { color: var(--today); font-weight: 600; }
+.good { color: var(--after); font-weight: 600; }
+.note { color: var(--muted); font-size: .9rem; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; font-size: .85rem; min-width: 100%; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+@media (max-width: 680px) { .pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:8px">
+    <p class="note">PRD 2049 · vertuo-omni-loop · the kit</p>
+    <h1>Brainstorms and plans follow each repository's written conventions</h1>
+    <p class="lede">Functional part only. Replayed on the case that started it: PRD 278 of nimbus-plan, adding timestamps to nimbus-backend-php's <code>avancement</code> table.</p>
+  </header>
+
+  <section>
+    <h2>Functional</h2>
+    <p>What <code>/omni:mega-brainstorm</code> reads in a target before it names a column, and what the spec says about it.</p>
+  </section>
+
+  <section>
+    <h2>1. What is read in the target's clone</h2>
+    <div class="pair">
+      <div class="today">
+        <h3>Today</h3>
+        <pre><code>gh repo clone nimbus-backend-php --depth 1
+read: the paths the design touches
+read: .omni-loop/knowledge/ (playbook)</code></pre>
+        <p class="note">The playbook's conventions form says nothing about audit timestamps. <code>CLAUDE.md</code>, <code>docs/readme.md</code> and <code>docs/migrations.md</code> are never opened.</p>
+      </div>
+      <div class="after">
+        <h3>After</h3>
+        <pre><code>omni conventions --root &lt;scratch&gt;/nimbus-backend-php
+
+CLAUDE.md               Vertuoza back-end         (root)
+CONTEXT.md              Context                   paths.context
+docs/readme.md          Documentation             (docs readme)
+docs/adr/ADR-0007-…     No ORM, repository layer  (docs/adr)
+docs/migrations.md      Migrations                CLAUDE.md
+docs/resolvers.md       Resolvers                 CLAUDE.md
+docs/repositories_and_models.md  Repositories     docs/readme.md
+…</code></pre>
+        <p class="note">An index, no content. The agent reads the pages its design bears on: here the database pages, since a column is added. Titles shown are illustrative.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. The name the spec picks</h2>
+    <div class="pair">
+      <div class="today">
+        <h3>Today</h3>
+        <pre><code>ALTER TABLE avancement
+  ADD <span class="bad">created_at</span> …,
+  ADD <span class="bad">updated_at</span> …</code></pre>
+        <p class="note">The spec saw that <code>updated_at</code> and <code>_updated_at</code> coexist, and chose without a source. A reviewer corrected it in five comments.</p>
+      </div>
+      <div class="after">
+        <h3>After</h3>
+        <pre><code>ALTER TABLE avancement
+  ADD <span class="good">_created_at</span> …,
+  ADD <span class="good">_updated_at</span> …</code></pre>
+        <p class="note"><code>docs/migrations.md</code>: "Note the underscore prefix (<code>_created_at</code>, not <code>created_at</code>)." Two conventions with no page to settle them become a question to the person, never a silent pick.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. What the reviewer reads in the spec</h2>
+    <div class="pair">
+      <div class="today">
+        <h3>Today</h3>
+        <p>No section names where a name comes from. The reviewer checks each one against the docs by hand.</p>
+      </div>
+      <div class="after">
+        <h3>After</h3>
+        <p>A <code>## Conventions</code> section after <code>## Solution</code>:</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>repo</th><th>layer</th><th>name</th><th>source</th></tr></thead>
+            <tbody>
+              <tr><td>nimbus-backend-php</td><td>database</td><td><code>avancement._created_at</code></td><td><code>docs/migrations.md:207</code></td></tr>
+              <tr><td>nimbus-backend-php</td><td>database</td><td><code>avancement._updated_at</code></td><td><code>docs/migrations.md:207</code></td></tr>
+              <tr><td>nimbus-backend-php</td><td>GraphQL</td><td><code>WorksiteProgress.updatedAt</code></td><td><code>docs/Queries/readme.md</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">A name no page settles reads <code>no written convention: follows &lt;file&gt;</code>. A spec that names nothing writes <code>No name chosen.</code></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. Which skills read it</h2>
+    <div class="pair">
+      <div class="today">
+        <h3>Today</h3>
+        <p>None reads a target's agent files or docs. <code>/omni:plan</code> reads the plan repository's own <code>paths.context</code>.</p>
+      </div>
+      <div class="after">
+        <h3>After</h3>
+        <p><code>/omni:mega-brainstorm</code> step 3 on each clone, <code>/omni:plan</code> step 2 on each target's clone, and <code>/omni:brainstorm</code> step 1 on its own repository. <code>/omni:do-work</code> is unchanged: it builds inside the repository, whose <code>CLAUDE.md</code> its session already reads.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Pixel perfect</h2>
+    <p>Pixel perfect: no screen changes</p>
+  </section>
+</main>
+</body>
+</html>

@@ -5,7 +5,8 @@
 //
 // Two routes, never both for one delivery: a merged `pull_request.closed` becomes the retro event
 // (PRD 72) and the knowledge harvest event (PRD 82), and nothing else; every other handled action
-// becomes the outbox check event, exactly as before. An unmerged `closed` becomes nothing.
+// becomes the outbox check event, exactly as before. An unmerged `closed` becomes nothing on either
+// route; beside them, a `closed` or `reopened` may also become a fix stamp (below).
 //
 // The inbox check (PRD 675) listens to that same outbox check event, so every handled pull request
 // action re-evaluates both. A re-run of an inbox check run (its `external_id` is the inbox's) becomes
@@ -28,6 +29,12 @@
 // (src/stage-forward/touch.ts), whether or not it also becomes an event. The app's `touch` POSTs each to
 // galaxy's `/api/github/touched`, signed as the stage event is. It never changes the reply either.
 //
+// The fix stamp (PRD 2011 s7): a pull request closed, merged or not, or reopened, into the repository's
+// default branch, or on any branch when its body names a bug record (`Fixes mobile-B74`), also becomes one
+// fix stamp event, beside whatever else it becomes, handed to `sendStamps`; the `fix-row-stamp` function
+// stamps the Fixes rows of that repository and pull request (../fix-rows/). A sub-PR into its feature
+// branch names no record, and becomes none.
+//
 // The approved label (PRD 1612): an issue of a PRD gaining or losing the kit's approved label
 // (`labels.approved`'s default, as the stage events read it) becomes one approved label event alone;
 // the `approved-rerun` function runs the `omni/approved` check again on every open pull request of that
@@ -37,8 +44,8 @@
 // sends becomes no event at all.
 import { Webhooks } from '@octokit/webhooks';
 import { z } from 'zod';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   APPROVED_CHECK_EVENT,
   APPROVED_EXTERNAL_ID,
@@ -57,6 +64,7 @@ import {
   type HarvestRequest,
   type RetroRequest,
 } from '../inngest-client.ts';
+import { FIX_STAMP_EVENT, fixedRecordOf, fixStampId, type FixStampKind, type FixStampRequest } from '../fix-rows/fix-stamp.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
 import { noteTo } from '../run-log/run-log.ts';
@@ -94,6 +102,11 @@ export const APPROVED_LABEL_ACTIONS = Object.freeze({
   issues: Object.freeze(['labeled', 'unlabeled']),
 });
 
+/** The actions that may stamp a fix's row (PRD 2011 s7): a pull request closed, merged or not, or reopened. */
+export const FIX_STAMP_ACTIONS = Object.freeze({
+  pull_request: Object.freeze(['closed', 'reopened']),
+});
+
 /** The kit's approved label: a repository that renames it gets no rerun on its label. */
 const APPROVED_LABEL = parseConfig('kit: 1').labels.approved;
 
@@ -127,9 +140,12 @@ const PayloadSchema = z.looseObject({
     })
     .nullish(),
   pull_request: PullRefSchema.extend({
+    body: z.string().nullish(),
     merged: z.boolean().nullish(),
     merge_commit_sha: z.string().nullish(),
     merged_at: z.string().nullish(),
+    closed_at: z.string().nullish(),
+    updated_at: z.string().nullish(),
   }).nullish(),
   check_run: z
     .looseObject({
@@ -155,6 +171,7 @@ export async function receiveWebhook({
   secret,
   send,
   sendApproved = () => Promise.resolve(),
+  sendStamps = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
   log = noteTo('webhook'),
@@ -165,6 +182,8 @@ export async function receiveWebhook({
   send: (events: AppEvent[]) => Promise<unknown>;
   /** Sends the approved label's events (PRD 1612); none given, they go nowhere. */
   sendApproved?: (events: ApprovedLabelRequest[]) => Promise<unknown>;
+  /** Sends the fix stamp events (PRD 2011 s7); none given, they go nowhere. */
+  sendStamps?: (events: FixStampRequest[]) => Promise<unknown>;
   forward: (stageEvent: StageEvent) => Promise<unknown>;
   /** Forwards one touch; none given, touches go nowhere. */
   touch?: (touch: Touch) => Promise<unknown>;
@@ -202,15 +221,18 @@ export async function receiveWebhook({
 
   const events = toEvents(event, payload);
   const approved = toApprovedLabelRequests(event, payload);
-  if (events.length + approved.length === 0) return reply(200, 'ignored');
+  const stamps = toFixStampRequests(event, payload);
+  const total = events.length + approved.length + stamps.length;
+  if (total === 0) return reply(200, 'ignored');
 
   try {
     if (events.length > 0) await send(events);
     if (approved.length > 0) await sendApproved(approved);
+    if (stamps.length > 0) await sendStamps(stamps);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf(error))}`);
   }
-  return reply(200, `sent ${events.length + approved.length}`);
+  return reply(200, `sent ${total}`);
 }
 
 /**
@@ -308,6 +330,34 @@ export function toHarvestRequests(event: string, payload: unknown): HarvestReque
     name: HARVEST_EVENT,
     data: { installationId, owner, repo, repository, prNumber },
   }));
+}
+
+/**
+ * The fix stamp's filter, pure (PRD 2011 s7): a pull request closed (merged, at its merge; unmerged, at its
+ * close) or reopened (at its last update) becomes one fix stamp event, carrying the record its body names
+ * or none; any other action becomes none. Only a pull request into the repository's default branch, or one
+ * whose body names a record, becomes one: a sub-PR into its feature branch is no fix (#1409). A delivery
+ * naming no default branch is sent. One missing the time of its change becomes none.
+ */
+export function toFixStampRequests(event: string, delivery: unknown): FixStampRequest[] {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(FIX_STAMP_ACTIONS, event, payload.action)) return [];
+
+  const source = sourceOf(payload);
+  const pull = payload.pull_request;
+  const prNumber = pull?.number ?? payload.number;
+  if (!source || !pull || prNumber === null || prNumber === undefined) return [];
+
+  const bug = fixedRecordOf(pull.body);
+  const defaultBranch = payload.repository?.default_branch;
+  if (bug === null && defaultBranch && pull.base?.ref !== defaultBranch) return [];
+
+  const kind: FixStampKind = payload.action === 'reopened' ? 'reopened' : pull.merged === true ? 'merged' : 'closed';
+  const at = { merged: pull.merged_at, closed: pull.closed_at, reopened: pull.updated_at }[kind];
+  if (!at) return [];
+
+  const data = { installationId: source.installationId, repository: source.repository, prNumber, kind, at, bug };
+  return [{ name: FIX_STAMP_EVENT, id: fixStampId(data), data }];
 }
 
 /** The parts of an issue's label event the approved label reads. */

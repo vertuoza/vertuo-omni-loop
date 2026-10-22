@@ -5,10 +5,10 @@ state: filled
 points-to: null
 evidence:
   - .omni-loop/knowledge/adr/0001-outbox-check-as-github-app.md@3ae738d
-  - .omni-loop/knowledge/product/principles.md@dfa5a26
-  - .omni-loop/knowledge/product/rules.md@76417f1
-  - .omni-loop/knowledge/product/invariants.md@b7b2573
-terraformed: 2026-09-25
+  - .omni-loop/knowledge/product/principles.md@3837f52
+  - .omni-loop/knowledge/product/rules.md@1c17512
+  - .omni-loop/knowledge/product/invariants.md@00edca5
+invaded: 2026-10-20
 ---
 
 # Decision records
@@ -16,11 +16,12 @@ terraformed: 2026-09-25
 Use this page when recording a decision about how this repository is built, or looking one up.
 
 ## Where they live
-<!-- slot: where · required · by: terraform -->
-Here, in `.omni-loop/knowledge/adr/`; the product registers are in `.omni-loop/knowledge/product/`.
+<!-- slot: where · required · by: invade -->
+Here, in `.omni-loop/knowledge/adr/`; the product registers are in `.omni-loop/knowledge/product/`,
+and each domain's in `.omni-loop/knowledge/domains/<domain>/`.
 
 ## Format
-<!-- slot: format · required · by: terraform -->
+<!-- slot: format · required · by: invade -->
 One file per record, `NNNN-<slug>.md`:
 
 - Title: `# ADR-NNNN — <the decision>`.
@@ -30,6 +31,9 @@ One file per record, `NNNN-<slug>.md`:
   @<merger>, <YYYY-MM-DD>, PR #<n>`. `Decided:` is `@<answerer> via <channel>, <date>` (a person
   answered: `accepted`), `nobody — adopted when raised (medium), <date>` or
   `@<merger> — merged over a red outbox, <date>` (both `adopted`).
+- A record that applies to some files only ends its status line with `· **Layers:** <layer>, …`
+  (canonical layers, `docs/guide/knowledge-map.md`) and, when it is about one area,
+  `· **Domain:** <a folder of knowledge/domains/>`: `omni kb laws --paths` lists it for those files.
 - Then `## Context`, `## Decision`, `## What it supersedes in <that spec>` (if so, naming each
   section it changes), `## Consequences`; a harvested record ends with `## Source` (ledger file,
   entry).

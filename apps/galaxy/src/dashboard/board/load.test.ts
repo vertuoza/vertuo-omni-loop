@@ -3,7 +3,7 @@ import { fakeStageStore } from '../../stages/store.fake';
 import { loadBoard, supabaseReads, type BoardReads, type BoardRequest } from './load';
 import type { Activity, Member, PrdNow } from './tally';
 import { sure } from '../../arcade/test/sure';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The board's loader on fake reads (PRD 572): the Paul case (a member with no player row and no
 // points, who merged seven PRs and answered nine questions, is a People row with 7, 9 and 0 points),
@@ -20,12 +20,12 @@ const ROSTER: Member[] = [
   member('u-paul', 'paetienne', 'octo', 'Paul Etienne'),
   member('u-bob', 'bob-gh', 'beaver', 'BOB'),
 ];
-const merged = (login: string, n: number, repo = 'vertuo-ai-domain'): Activity =>
+const merged = (login: string, n: number, repo = 'nimbus-ai-domain'): Activity =>
   ({ kind: 'pr-merged', repo, number: n, login, at: '2026-09-25T08:00:00Z' });
 const ACTIVITY: Activity[] = [
   ...Array.from({ length: 7 }, (_, i) => merged('paetienne', 100 + i)),
-  merged('bob-gh', 1, 'vertuo-core'),
-  merged('stranger', 2, 'vertuo-core'),
+  merged('bob-gh', 1, 'nimbus-core'),
+  merged('stranger', 2, 'nimbus-core'),
   { kind: 'prd-opened', repo: 'vertuo-omni-loop', number: 12, login: 'ada-gh', at: '2026-09-24T08:00:00Z' },
 ];
 /** Ada opened three PRDs (one shipped, one building, one an idea), Paul one at inbox, Bob one shipped;
@@ -98,8 +98,8 @@ describe('loadBoard', () => {
     const board = await loadBoard(reads(), WORKSPACE);
     expect(board.tiles).toEqual({ prs: 9, prds: tallyOf({ idea: 1, inbox: 1, building: 1, shipped: 2, retro: 1 }), repositories: 3, answered: 11 });
     expect(board.repositories).toEqual([
-      { repo: 'vertuo-ai-domain', prs: 7, prdEvents: 0 },
-      { repo: 'vertuo-core', prs: 2, prdEvents: 0 },
+      { repo: 'nimbus-ai-domain', prs: 7, prdEvents: 0 },
+      { repo: 'nimbus-core', prs: 2, prdEvents: 0 },
       { repo: 'vertuo-omni-loop', prs: 0, prdEvents: 1 },
     ]);
     expect((board.people as unknown[]).length).toBe(3);
@@ -246,7 +246,7 @@ describe('supabaseReads', () => {
     await store.recordStages([
       { workspace_id: 'w-1', repository: 'Vertuoza/Vertuo-Omni-Loop', prd: parsePrd(12), stage: 'inbox', reached_at: '2026-09-01T00:00:00Z' },
       { workspace_id: 'w-1', repository: 'vertuoza/vertuo-omni-loop', prd: parsePrd(12), stage: 'shipped', reached_at: '2026-09-20T00:00:00Z' },
-      { workspace_id: 'w-1', repository: 'vertuoza/vertuo-core', prd: parsePrd(3), stage: 'prd', reached_at: '2026-09-02T00:00:00Z' },
+      { workspace_id: 'w-1', repository: 'demo-org/nimbus-core', prd: parsePrd(3), stage: 'prd', reached_at: '2026-09-02T00:00:00Z' },
       { workspace_id: 'w-2', repository: 'other/repo', prd: parsePrd(1), stage: 'retro', reached_at: '2026-09-02T00:00:00Z' },
     ]);
     const filters: unknown[][] = [];
@@ -263,8 +263,8 @@ describe('supabaseReads', () => {
       last_activity: '2026-09-01T00:00:00Z', ...row,
     });
     const dossiers = [
-      listed({ id: 'd1', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: 3, opened_by: 'u-bob', answered: 0 }),
-      listed({ id: 'd2', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-ada', answered: 2 }),
+      listed({ id: 'd1', workspace_id: 'w-1', home_repo: 'demo-org/nimbus-core', prd: 3, opened_by: 'u-bob', answered: 0 }),
+      listed({ id: 'd2', workspace_id: 'w-1', home_repo: 'demo-org/nimbus-core', prd: null, opened_by: 'u-ada', answered: 2 }),
       listed({ id: 'd3', workspace_id: 'w-2', home_repo: 'other/repo', prd: null, opened_by: 'u-x', answered: 5 }),
     ];
     const rpc = vi.fn((_fn: string, args: { p_workspace?: string }) => Promise.resolve({

@@ -1,7 +1,7 @@
 'use client';
 // The play dock (PRD 757): the corner pill "● ▶ Play while the agent works" while the page says Claude
 // works, and, once pressed, a mini Game Boy about 260 px wide playing Entropy Invaders, or, from LV 2,
-// a picker between it and SUPER OMNI WORLD (PRD 817) (DockGame, loaded on first open). Its open or
+// a picker between it and STARHOP (PRD 817) (DockGame, loaded on first open). Its open or
 // folded state, and the game picked last, are kept for the tab, so it stays open across the page's tabs. Who plays is the arcade's rule (dockDoor): anyone else sees the arcade's own line and
 // a way to it. A question pauses the game and points at it; Claude done lets the game end.
 //

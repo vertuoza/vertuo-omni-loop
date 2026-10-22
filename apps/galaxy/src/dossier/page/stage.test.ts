@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { UNREAD, type GithubSummary, type PullRef } from '../github/summary';
+import { UNREAD, type GithubSummary, type PendingAnswer, type PullRef } from '../github/summary';
 import type { StageRow } from '../../stages/stage';
 import type { CareState } from '../github/care';
-import { careChipOf, stageOf, stageView, syncedWords } from './stage';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { careChipOf, fixingOf, outboxStand, stageOf, stageView, syncedWords } from './stage';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // PRD 426's reading of the stage from the GitHub summary, which only the page's pulse still uses: each
 // row of its spec's table, tried from the latest stage down, and unknown whenever what decides it could
@@ -106,7 +106,7 @@ describe('the header\'s view of the stage (PRD 587)', () => {
     expect(view.links).toEqual([
       { label: 'issue #426', href: 'https://github.com/acme/widgets/issues/426', done: false },
       { label: 'phase-0 #431', href: 'https://github.com/acme/widgets/pull/431', done: true },
-      { label: 'feature #433', href: 'https://github.com/acme/widgets/pull/433', done: false },
+      { label: 'feature #433 · draft', href: 'https://github.com/acme/widgets/pull/433', done: false },
     ]);
   });
 
@@ -193,5 +193,97 @@ describe('the feature PR\'s health chip (PRD 790, s2)', () => {
     for (const more of [{ care: UNREAD }, { care: null }, { care: undefined }, { feature: pr(433, 'merged') }] as Partial<GithubSummary>[]) {
       expect(feature({ ...open, ...more })?.chip ?? null).toBeNull();
     }
+  });
+});
+
+// PRD 2223: where the asked questions stand, and the one button once every one has a counted reply.
+describe('the outbox stand and Fix with answers (PRD 2223)', () => {
+  const COMMENT = 'https://github.com/acme/widgets/pull/433#issuecomment-9';
+  const item = (id: string, rank: 'high' | 'human-action' | 'medium') => ({ id, rank, question: 'Q?', decision: 'D.', options: [], personSteps: null });
+  const numbering = [{ number: 1, id: 'a' }, { number: 2, id: 'm' }, { number: 4, id: 'b' }];
+  const reply = (number: number, id: string, more: Partial<PendingAnswer> = {}): PendingAnswer =>
+    ({ number, id, text: 'A', by: 'paula', at: null, url: null, counted: true, door: 'github', ...more });
+  const github = (pending: PendingAnswer[], open = [item('a', 'high'), item('m', 'medium'), item('b', 'human-action')]): GithubSummary =>
+    summary({
+      phase0: pr(431, 'merged'), feature: pr(433, 'open', true), mergedSlices: 3, outbox: { open, settled: [] }, outboxComment: COMMENT,
+      replies: { numbering, pending },
+    });
+  const view = (g: GithubSummary) => stageView({ prd: parsePrd(426), rows: [row('building')], github: g, slices: 3 });
+
+  it('counts the asked items only, a reply only once counted and not held', () => {
+    expect(outboxStand(github([]))).toEqual({ asked: 2, answered: 0, answers: [] });
+    expect(outboxStand(github([reply(1, 'a')]))).toEqual({ asked: 2, answered: 1, answers: [{ number: 1, letter: 'A' }] });
+    expect(outboxStand(github([reply(2, 'm')]))?.answered).toBe(0);
+    expect(outboxStand(github([reply(1, 'a', { held: true }), reply(4, 'b', { counted: false })]))?.answered).toBe(0);
+    expect(outboxStand(github([reply(4, 'b', { text: 'B because cheaper' }), reply(1, 'a', { text: 'approve all' })]))?.answers)
+      .toEqual([{ number: 1, letter: 'A' }, { number: 4, letter: 'B' }]);
+  });
+
+  it('is null when nothing asked is open, or the outbox or the replies were not read', () => {
+    expect(outboxStand(github([], [item('m', 'medium')]))).toBeNull();
+    expect(outboxStand({ ...github([]), replies: UNREAD })).toBeNull();
+    expect(outboxStand({ ...github([]), outbox: UNREAD })).toBeNull();
+    expect(outboxStand({ ...github([]), replies: null })).toBeNull();
+    expect(outboxStand(null)).toBeNull();
+  });
+
+  it('keeps Answer the outbox and adds N of M answered to the slice count until every asked item is answered', () => {
+    const v = view(github([reply(1, 'a')]));
+    expect(v.action).toEqual({ kind: 'link', label: 'Answer the outbox', href: COMMENT });
+    expect(v.caption).toBe('3/3 slices · 1 of 2 answered');
+    expect(v.fixes).toBeUndefined();
+  });
+
+  it('turns into Fix with answers, copying /omni:yolo-fix, with the answers it fixes with', () => {
+    const v = view(github([reply(1, 'a'), reply(4, 'b', { text: 'B because cheaper' })]));
+    expect(v.action).toEqual({ kind: 'copy', label: 'Fix with answers', command: '/omni:yolo-fix 426' });
+    expect(v.caption).toBe('3/3 slices · answered');
+    expect(v.fixes).toBe('Fixes with 1: A · 4: B');
+  });
+
+  it('reads fixing on <runner> in place of answered, with no Fix with answers, while the fix job runs (PRD 2270)', () => {
+    const g = github([reply(1, 'a'), reply(4, 'b')]);
+    const v = stageView({ prd: parsePrd(426), rows: [row('building')], github: g, slices: 3, fixing: { runner: 'laptop' } });
+    expect(v.caption).toBe('3/3 slices · fixing on laptop');
+    expect(v.action).toEqual({ kind: 'link', label: 'Answer the outbox', href: COMMENT });
+    expect(v.fixes).toBeUndefined();
+  });
+
+  it('leaves the caption alone while a question is still open, whatever runs', () => {
+    const g = github([reply(1, 'a')]);
+    expect(stageView({ prd: parsePrd(426), rows: [row('building')], github: g, slices: 3, fixing: { runner: 'laptop' } }).caption).toBe('3/3 slices · 1 of 2 answered');
+  });
+
+  it('is today\'s button and caption with only mediums open, or the outbox or the replies unread', () => {
+    for (const g of [github([], [item('m', 'medium')]), { ...github([]), replies: UNREAD }, { ...github([]), replies: undefined }]) {
+      expect(view(g).action).toEqual({ kind: 'link', label: 'Answer the outbox', href: COMMENT });
+      expect(view(g).caption).toBeNull();
+    }
+  });
+
+  it('reads feature #n · draft while the feature PR is a draft', () => {
+    const feature = (g: GithubSummary) => view(g).links.find((l) => l.label.startsWith('feature'))?.label;
+    expect(feature(github([]))).toBe('feature #433 · draft');
+    expect(feature({ ...github([]), feature: pr(433, 'open') })).toBe('feature #433');
+  });
+});
+
+describe('the PRD\'s fix job (PRD 2270)', () => {
+  const job = (more: Partial<Parameters<typeof fixingOf>[1][number]> = {}) =>
+    ({ line: '/omni:yolo-fix 426', status: 'running' as const, runner: 'laptop', to_runner: null, to_fleet: null, ...more });
+  const prd = parsePrd(426);
+
+  it('names the runner of a queued, claimed or running /omni:yolo-fix of the PRD', () => {
+    expect(fixingOf(prd, [job()])).toEqual({ runner: 'laptop' });
+    expect(fixingOf(prd, [job({ status: 'claimed' })])).toEqual({ runner: 'laptop' });
+    expect(fixingOf(prd, [job({ status: 'queued', runner: null, to_runner: 'desk' })])).toEqual({ runner: 'desk' });
+    expect(fixingOf(prd, [job({ status: 'queued', runner: null, to_fleet: 'crew' })])).toEqual({ runner: 'crew' });
+    expect(fixingOf(prd, [job({ status: 'queued', runner: null })])).toEqual({ runner: 'a runner' });
+  });
+
+  it('is none for an ended job, another PRD\'s fix, or another skill', () => {
+    expect(fixingOf(prd, [job({ status: 'done' }), job({ status: 'failed' }), job({ status: 'cancelled' })])).toBeNull();
+    expect(fixingOf(prd, [job({ line: '/omni:yolo-fix 4260' }), job({ line: '/omni:yolo 426' }), job({ line: '/omni:yolo-fix 42' })])).toBeNull();
+    expect(fixingOf(prd, [])).toBeNull();
   });
 });

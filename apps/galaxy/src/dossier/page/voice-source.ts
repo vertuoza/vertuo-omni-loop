@@ -1,4 +1,4 @@
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { validPersonaAvatar } from '@omni/design';
 import { z } from 'zod';
 import { orEmpty, parseRows } from '../../data/parse-rows';

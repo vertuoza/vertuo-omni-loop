@@ -54,6 +54,7 @@ this repository at all: its registers never read `repos/`.
 
 | input | notes |
 |---|---|
+| `--product <key>` | a product's repositories are read through their knowledge packs (`omni kb pack get <repo>`), so this run writes **no copy**: no `repos/<name>/`, no `repos/<name>/flow/`, no import commit. It surveys and maps as below, writes the plan section only when the config has one, and says that `omni plan check`, `omni flow show --repo` and `/omni:do-work` read the packs |
 | none | survey every candidate, ask once, import what the person answers "import", write the plan section: the first run, or a run after the guide or the targets changed |
 | `--sync` | redraw what changed in each stale imported copy, redraw every target's stale planning config, `own` and `none` included, propose `own` for each imported target that now has its own knowledge base, and show new candidates of the guide (see **--sync**) |
 
@@ -154,7 +155,7 @@ For each target answered **import**, one at a time:
      `required` or `optional`, order) as this repository's form of that name. Never its bodies: each
      slot is written from the clone's evidence, or left empty, or holds a `TODO(human)` question.
    - **Evidence** names a path **in the target** at its blob hash in the clone, in today's shape:
-     `printf '  - %s@%s\n' "<path>" "$(git -C <scratch>/<name> hash-object -- "<path>" | cut -c1-7)"`.
+     `git -C <scratch>/<name> hash-object -- "<path>"`, then the line `  - <path>@<its first 7 hex>`.
    - **A command** a section would name (install, test, the preflight) is written with a
      `TODO(human)` line under it asking a person to confirm it runs in the target, and its marker
      carries no `verified:`.
@@ -169,14 +170,14 @@ Commit each copy as its own commit, so a person can drop one alone:
 **Every target's planning config.** For **every** target, whatever its `knowledge` answer (`own`,
 `imported` or `none`), the plan repository keeps a copy of the config that shapes its plans, so
 `omni plan check` grades a slice landing there by the target's own rules. Only when the target's
-`.omni-loop/config.yml` has a `flow` key, a non-empty `landings.alone`, a `pr.openWith` or
+`.omni-loop/config.yml` has a `flow` key, a `layers` key, a non-empty `landings.alone`, a `pr.openWith` or
 `contracts.declare: true`:
 
 - **Read it** from the import's clone, or, for an `own` or `none` target, from a shallow read-only
   clone made as in item 1 above and deleted once the copy is written. Nothing runs in it.
 - **Write `<paths.knowledge>/repos/<name>/flow/`, and nothing else** for an `own` or `none` target:
   its knowledge base is still never copied. `flow/config.yml` holds those keys, copied as the
-  target commits them and nothing else (`contracts` whole, its `kinds` included), and every hook
+  target commits them and nothing else (`contracts` whole, its `kinds` included; the `layers` key beside its `flow`, as written), and every hook
   file that flow names is copied byte for byte at its own repository path under `flow/` (the
   target's `.omni-loop/flow/kernel/tests.md` is `flow/.omni-loop/flow/kernel/tests.md`). A
   `pr.openWith` naming a skill copies no file.

@@ -3,7 +3,7 @@ name: plan
 description: Turns one PRD in the inbox into a plan of thin tracer-bullet slices, each with a territory, a blocker list and a wave, written as plan.md beside its spec and graded by omni plan check — then commits it on the PRD's feature branch and opens the draft feature PR. Writes no code, files no issues, merges nothing. /omni:yolo follows it when a PRD has no plan yet; a person may run it alone. Triggers on "plan PRD 7", "slice this PRD", "tracer bullets", "/omni:plan".
 ---
 
-<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-plan/SKILL.md — adaptations in kit/porting/plugin--plan.md -->
+<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-plan/SKILL.md — adaptations in kit/porting/plugin--plan.md -->
 
 # Plan: one PRD into slices
 
@@ -69,7 +69,9 @@ The input is a PRD number. It is also the PRD's issue number, which `{prd}` in a
 
    A ◇ PRD (no `birthplace:` line) never reads any of the four: it is `inbox` or not, as always.
 2. The spec, in full. Then every file in `paths.context`, the glossary at `paths.glossary` when it
-   is set, and each ADR the spec cites under `paths.adr`.
+   is set, `node .omni-loop/bin/omni.mjs kb glossary` (the product's glossary: where a term is in
+   both, the page wins; offline or product-less it prints its copy or one line, and you carry on),
+   and each ADR the spec cites under `paths.adr`.
 3. `gh issue view <n> --json body,comments`: the issue and any answer a person already gave on it.
    (Piped, `--comments` alone prints nothing when there are no comments; read the JSON.)
 4. `node .omni-loop/bin/omni.mjs flow show`: what this repository changes from the kit's defaults,
@@ -78,7 +80,14 @@ The input is a PRD number. It is also the PRD's issue number, which `{prd}` in a
    Keep its `contracts:` line: `contracts: declare <kinds>` means this repository asks every slice
    to declare its contract (step 4), `contracts: none` that it asks nothing. In a plan repository,
    run `node .omni-loop/bin/omni.mjs flow show --repo <name>` too, for each target a slice may land
-   in, and keep each target's line.
+   in, and keep each target's line. A target with no copied flow (`has no copied flow`, `stale` in
+   `omni targets`, `own` targets included) makes that command fail: its contracts are then
+   **unknown**, never `contracts: none`. Read the `contracts` key of the target's committed
+   `.omni-loop/config.yml` instead — from its clone when the design made one, else
+   `gh api repos/<owner>/<name>/contents/.omni-loop/config.yml -H 'Accept: application/vnd.github.raw'`
+   — and keep that as the target's line (`declare: true` with its `kinds`, the kit's default kinds
+   when it names none). Only a config with no `contracts.declare: true` is `contracts: none`. Say in
+   the plan's shared-ground note that the copy is missing and `/omni:mega-invade --sync` repairs it.
 
 **Stop with `needs clarification`** when the spec's acceptance criteria are missing, ambiguous, or
 contradict the spec itself or an ADR it cites. The criteria are the spec's acceptance section, or,
@@ -102,6 +111,11 @@ git merge <repo.remote>/<repo.defaultBranch>                 # inside the worktr
 ```
 
 Never commit on the default branch.
+
+In a plan repository, before the slices are cut, run `node .omni-loop/bin/omni.mjs conventions --root <clone>`
+on the clone of each target a slice may land in, and read the pages the names of that slice bear on, as
+`/omni:brainstorm` step 4 says. A slice that names a table, a column or a GraphQL field follows the
+convention its page states, and its `done when` names that page.
 
 A plan of more than one landing (step 4) has one branch per landing instead, cut once the plan is
 green (step 6). Start in the feature branch's worktree all the same: the plan is written there, and
@@ -225,8 +239,10 @@ A slice no glob meets is not marked. With the flag off, or `design.paths` empty,
 never changes a slice's territory, blockers or wave, and `omni plan check` does not read it.
 
 **Law slices.** Only when `laws.source` is `knowledge`. Once the table is written, run
-`node .omni-loop/bin/omni.mjs kb laws --slice <n> <id>` for each slice. A slice that will change a
-locked law it prints (the law's text in its register, or the test its `Enforced by:` names, sits
+`node .omni-loop/bin/omni.mjs kb laws --slice <n> <id>` for each slice: it prints what applies to
+the slice's territory under **Applies here**, each line saying why, then what is global under
+**Global**, the Legal entries included, and counts the locked laws of other areas. A slice that will change a locked law it
+prints, in either group (the law's text in its register, or the test its `Enforced by:` names, sits
 in the territory) is marked on its done-when heading, after its id, with the law's id and the
 person the law line names:
 
@@ -258,6 +274,17 @@ and the plan repository's, below). Read each slice, then write in its cell:
 
 When no repository a slice lands in asks, write no column. The column is read by name, like
 `landing`, and `omni plan check` refuses an undeclared cell (step 5).
+
+**The page carries each kind.** A kind a slice declares is a block of the PRD's `before-after.html`
+(`/omni:brainstorm` step 5, **The contract blocks**): one block per kind, today beside after, headed
+`Contract: <kind> — <repository>` and marked `data-contract="<kind>"`. Before step 5, read the page
+beside the plan and compare: for each kind a slice declares where the repository asks, the page has
+an element marked `data-contract="<kind>"`, or `omni plan check` refuses the slice, naming the kind.
+When the page lacks one, add the block, from the spec: `db` shows the table(s) and their columns
+before and after, `schema` the GraphQL types, fields and mutations, `rest` or `api` the endpoints
+and their payloads, in a plan repository under that repository's section. Commit the page with the
+plan (step 6). When the spec does not say what the contract changes, so no honest block can be
+drawn, stop with `needs clarification` (step 1): a plan never declares a kind the page cannot show.
 
 **Landings.** A PRD reaches the default branch in one pull request unless something in it must be
 deployed apart from the rest: a database migration the code needs in place first, or a contract
@@ -359,7 +386,11 @@ repository asks for contracts, it refuses three more, each naming the slice: a c
 nothing (`<id>: contract: declares nothing — <kinds> or none`), a word that is not one of that
 repository's kinds (`<id>: contract: "<word>" is no kind of this repository — <kinds> or none`),
 and, wherever the slice sits, `none` beside a kind (`<id>: contract: "none" beside a kind — one or
-the other`). It prints the declared contracts on a `contracts:` line after the waves. Fix
+the other`). It reads the folder's `before-after.html` beside the plan and refuses, where the
+repository asks, each declared kind the page has no block for (`<id>: contract: <kind> —
+before-after.html has no data-contract="<kind>" block`, or `… — the folder has no before-after.html
+to carry its data-contract="<kind>" block`): add the block (step 4, **The page carries each kind**),
+never drop the declaration. It prints the declared contracts on a `contracts:` line after the waves. Fix
 the plan and rerun until it exits `0`. A same-wave collision is resolved by moving one slice to a
 later wave (and every slice it blocks with it), or by narrowing a territory so the two no longer
 meet. Merging the two into one slice is also allowed. **Never** leave the check red, and never

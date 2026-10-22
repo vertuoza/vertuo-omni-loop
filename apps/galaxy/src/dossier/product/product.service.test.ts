@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { DossierProductRepository, ProductDossier, Stored } from './product.repository';
 import { lockedLine } from './product.contract';
 import { productService } from './product.service';

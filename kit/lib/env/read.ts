@@ -9,7 +9,7 @@
  * is passed on is below, with its reason.
  */
 import { z } from 'zod';
-import { envGroup, envReader, variablesOf, type EnvSource } from './group.ts';
+import { envGroup, envReader, variablesOf, type EnvNames, type EnvSource } from './group.ts';
 
 export { EnvError, requireGroup, type EnvSource } from './group.ts';
 
@@ -183,6 +183,33 @@ const ASK = envGroup({
 /** How `OMNI_ASK` switches ask mode: `on`, `off`, or `null` when it is unset and `ask.json` decides. */
 export type AskSwitch = 'on' | 'off' | null;
 
+/**
+ * An unattended run (PRD 2175): `omni runner` sets `OMNI_UNATTENDED=1` on each job's session, where
+ * nobody is there to answer. Set to anything but empty, `0`, `off` or `false`, a skill asks no one.
+ */
+const UNATTENDED = envGroup({
+  label: 'an unattended run',
+  schema: z.object({ flag: z.string() }),
+  variables: { flag: 'OMNI_UNATTENDED' },
+});
+
+/**
+ * The runner job a session runs (PRD 2175): `omni runner` sets `OMNI_JOB` to the job's id on each job's
+ * session, beside `OMNI_RUNNER` (the sender's pair, above) and `OMNI_UNATTENDED`. `/omni:pr`'s Claim
+ * mode writes it in a claim's status comment, so the runner can release the claims a dead job held.
+ */
+const RUNNER_JOB = envGroup({
+  label: 'the runner job',
+  schema: z.object({ job: z.string() }),
+  variables: { job: 'OMNI_JOB' },
+});
+
+/** Whether the run is unattended: `OMNI_UNATTENDED` set to something other than empty, `0`, `off` or `false`. */
+function flagIsOn(group: z.output<typeof UNATTENDED.schema> | null): boolean {
+  const flag = group?.flag.trim().toLowerCase() ?? '';
+  return flag !== '' && flag !== '0' && flag !== 'off' && flag !== 'false';
+}
+
 /** The test runner a command runs under: vitest sets `VITEST`, and no heartbeat leaves a test. */
 const TEST_RUNNER = envGroup({
   label: 'the test runner',
@@ -217,7 +244,7 @@ export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABAS
  * a sign-in reads, the test runner, the sender `omni runner` sets on each job, and the Claude token
  * it hands them.
  */
-export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN]);
+export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN, UNATTENDED, RUNNER_JOB]);
 
 const DEFAULT_COLUMNS = 80;
 
@@ -268,6 +295,42 @@ export function readEnv(source: EnvSource) {
   };
   reader.done();
   return env;
+}
+
+/** Whether `source` marks the run unattended, read alone: a runner job's session has nobody to answer. */
+export function unattendedOf(source: EnvSource): boolean {
+  const reader = envReader(source);
+  const on = flagIsOn(reader.group(UNATTENDED));
+  reader.done();
+  return on;
+}
+
+/** The runner job a session runs: its id and its runner's name, or `null` outside a runner's job. */
+export type RunnerJobEnv = { job: string; runner: string | null };
+
+/**
+ * The runner job `source` names, read alone: `OMNI_JOB` trimmed, with `OMNI_RUNNER` when it is set;
+ * `null` when `OMNI_JOB` is unset or blank, as in a session a person started.
+ */
+export function runnerJobOf(source: EnvSource): RunnerJobEnv | null {
+  const reader = envReader(source);
+  const job = reader.group(RUNNER_JOB)?.job.trim() ?? '';
+  const runner = reader.group(RUNNER_SENDER)?.runner?.trim() ?? '';
+  reader.done();
+  return job === '' ? null : { job, runner: runner === '' ? null : runner };
+}
+
+/**
+ * The variables `omni runner` sets on a job's session (PRD 2175), named here as every variable is
+ * (ADR-0057): the job's id, the runner's name, and the mark of an unattended run.
+ */
+export function runnerJobVariables(job: string, runner: string): Record<string, string> {
+  return { [setName(RUNNER_JOB.variables.job)]: job, [setName(RUNNER_SENDER.variables.runner)]: runner, [setName(UNATTENDED.variables.flag)]: '1' };
+}
+
+/** The variable a member is set under: its first name, the one the kit writes. */
+function setName(names: EnvNames): string {
+  return typeof names === 'string' ? names : names[0];
 }
 
 /**

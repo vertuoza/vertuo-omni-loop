@@ -7,12 +7,13 @@ import type { WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 import { item } from '../ask/test/test-item';
 import { z } from 'zod';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The app's sidebar as the server renders it (PRD 438): the crest, the workspace's name, the
 // Dashboard and Work groups (PRD 572), then the foot's Settings entry and Omni's row (PRD 733), the current
 // entry marked, and what waits for the person as badges, from the waiting provider (PRD 499): Questions
-// the Questions part, shared ones included, PRDs the Outbox part.
+// the Questions part, shared ones included, PRDs the Outbox part, and Runners (PRD 2255) the Runners part,
+// the workspace's jobs waiting for an answer.
 
 const at = { path: '/app' as string | null };
 vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
@@ -43,9 +44,9 @@ const waiting = (questions: WaitingQuestion[]): WaitingView => ({ questions, unr
 
 const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', ideasBoard: 'acme/widgets', waiting: waiting(FIVE) };
 
-const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = []) => {
+const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = [], runners = 0) => {
   at.path = path;
-  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, children: createElement(Sidebar, { viewer }) }));
+  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, runners, children: createElement(Sidebar, { viewer }) }));
 };
 const gate = (id: string): WaitingOutbox => ({ kind: 'outbox', id, prd: parsePrd(459), dossierId: 'd459', title: 'Gate', rank: 'high', question: 'Why?' });
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -117,6 +118,19 @@ describe('the sidebar', () => {
   it('shows the Outbox part\'s count on PRDs, and none at 0', () => {
     expect(render(ADA, '/app', [gate('a'), gate('b')])).toMatch(/<a class="app-sidebar-item" href="\/prd" title="PRDs" aria-label="PRDs: 2 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">PRDs<\/span><span class="app-sidebar-badge" aria-hidden="true">2<\/span><\/a>/);
     expect(render()).toMatch(/<a class="app-sidebar-item" href="\/prd" title="PRDs">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">PRDs<\/span><\/a>/);
+  });
+
+  it('shows the Runners part\'s count on Runners, spoken as how many wait, and none at 0 (PRD 2255)', () => {
+    expect(render(ADA, '/app', [], 2)).toMatch(/<a class="app-sidebar-item" href="\/app\/runners" title="Runners" aria-label="Runners: 2 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Runners<\/span><span class="app-sidebar-badge" aria-hidden="true">2<\/span><\/a>/);
+    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/app\/runners" title="Runners">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Runners<\/span><\/a>/);
+  });
+
+  it('shows the Runners badge beside the others, each on its own entry', () => {
+    const html = render(ADA, '/app', [gate('a')], 1);
+    expect(html.match(/app-sidebar-badge/g)).toHaveLength(3);
+    expect(html).toContain('aria-label="Questions: 5 waiting"');
+    expect(html).toContain('aria-label="PRDs: 1 waiting"');
+    expect(html).toContain('aria-label="Runners: 1 waiting"');
   });
 
   it('shows no badge at 0, nor signed out', () => {

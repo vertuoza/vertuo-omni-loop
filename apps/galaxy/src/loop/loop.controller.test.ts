@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCommentId, parseIssue, parsePr, type IssueNumber, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseCommentId, parseIssue, parsePr, type IssueNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   ChangeDetailSchema, ChangesSchema, CommentsSchema, IssueDetailSchema, IssuesSchema, LoopRefusalSchema, MAX_CHANGES, MAX_ISSUES,
   type Change, type ChangesQuery, type Comment, type CommentsQuery, type Issue, type IssuesQuery,

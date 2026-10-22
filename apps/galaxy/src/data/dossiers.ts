@@ -21,7 +21,7 @@ import { dossierPath } from '../dossier/page/view';
 import { ARTIFACT_KINDS, dossierList, dossierRounds, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, WORK_KINDS, type DossierKind, type DossierListRow, type DossierRoundRow } from '../dossier/store';
 import type { DossierAnswer, DossierLatest, PlanetDossier, PlanetDossierRead } from '../arcade/types';
 import { z } from 'zod';
-import { type PrdNumber, PrdNumberSchema, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from './parse-rows';
 import { numberOf } from './unparsed';
 
@@ -182,18 +182,18 @@ type DemoDossier = {
 
 const DEMO: DemoDossier[] = [
   {
-    prd: parsePrd(2410), title: 'Peppol e-Invoicing',
+    prd: parsePrd(2410), title: 'Partner Webhooks',
     latest: { 'before-after': { version: 1, hoursAgo: 70 }, spec: { version: 2, hoursAgo: 30 } },
     asked: 4, answered: 3,
     rounds: [
-      { question: 'Which Peppol access point should send the invoices?', answer: 'Storecove (Recommended)', hoursAgo: 71 },
+      { question: 'Which relay should deliver the events?', answer: 'A managed relay (Recommended)', hoursAgo: 71 },
       { question: 'Should a failed delivery fall back to email?', answer: 'Yes, after two retries', hoursAgo: 52 },
-      { question: 'Where does a client\'s Peppol ID live?', answer: 'On the client\'s company record', more: { 'Who may edit it?': 'Admins only' }, hoursAgo: 29 },
-      { question: 'Should credit notes go through Peppol too?', answer: null, hoursAgo: 4 },
+      { question: 'Where does a partner\'s endpoint live?', answer: 'On the partner\'s account record', more: { 'Who may edit it?': 'Admins only' }, hoursAgo: 29 },
+      { question: 'Should refunds send events too?', answer: null, hoursAgo: 4 },
     ],
   },
   {
-    prd: parsePrd(2332), title: 'Generic Import Engine',
+    prd: parsePrd(2332), title: 'Bulk Data Import',
     latest: { 'before-after': { version: 1, hoursAgo: 400 }, spec: { version: 3, hoursAgo: 60 }, plan: { version: 2, hoursAgo: 58 } },
     asked: 12, answered: 11,
     rounds: [
@@ -204,7 +204,7 @@ const DEMO: DemoDossier[] = [
     ],
   },
   {
-    prd: parsePrd(2520), title: 'Planning Drag & Drop',
+    prd: parsePrd(2520), title: 'Calendar Drag & Drop',
     latest: { 'before-after': { version: 2, hoursAgo: 90 }, spec: { version: 1, hoursAgo: 200 }, plan: { version: 1, hoursAgo: 190 } },
     asked: 6, answered: 6,
     rounds: [
@@ -214,7 +214,7 @@ const DEMO: DemoDossier[] = [
     ],
   },
   {
-    prd: parsePrd(985), title: 'Default Country per Company',
+    prd: parsePrd(985), title: 'Default Locale per Account',
     latest: { spec: { version: 1, hoursAgo: 900, source: 'github' }, plan: { version: 1, hoursAgo: 900, source: 'github' } },
     asked: 0, answered: 0, rounds: [],
   },
@@ -230,15 +230,15 @@ function demoRow(d: DemoDossier, now: number): { row: DossierListRow; rounds: Do
     id: `${id}-${kind}-${v.version}`, version: v.version, source: v.source ?? 'kit', created_at: at(v.hoursAgo),
   }]));
   const rounds = d.rounds.map((r, i): DossierRoundRow => ({
-    rule: 'brainstorm', round_id: `${id}-round-${i + 1}`, session_id: 'demo-terminal', asked_by: 'demo', repo: 'vertuoza/vertuo-omni-plan',
+    rule: 'brainstorm', round_id: `${id}-round-${i + 1}`, session_id: 'demo-terminal', asked_by: 'demo', repo: 'demo-org/nimbus-plan',
     branch: 'main', questions: [r.question, ...Object.keys(r.more ?? {})].map((question) => ({ question, header: '', multiSelect: false, options: [] })),
     answers: r.answer === null ? null : { [r.question]: r.answer, ...r.more }, status: r.answer === null ? 'open' : 'answered',
     answered_via: r.answer === null ? null : 'page', answered_by: r.answer === null ? null : 'demo', category: null, category_by: null,
     prd: d.prd, skill: null, created_at: at(r.hoursAgo + 0.1), answered_at: r.answer === null ? null : at(r.hoursAgo),
   }));
   const row: DossierListRow = {
-    id, workspace_id: 'demo', home_repo: 'vertuoza/vertuo-omni-plan', prd: d.prd, title: d.title, opened_by: null,
-    created_at: at(1000), numbered_at: at(999), repos: ['vertuoza/vertuo-omni-plan'], latest, asked: d.asked, answered: d.answered,
+    id, workspace_id: 'demo', home_repo: 'demo-org/nimbus-plan', prd: d.prd, title: d.title, opened_by: null,
+    created_at: at(1000), numbered_at: at(999), repos: ['demo-org/nimbus-plan'], latest, asked: d.asked, answered: d.answered,
     last_activity: at(Math.min(...d.rounds.map((r) => r.hoursAgo), ...Object.values(d.latest).map((v) => v.hoursAgo))),
   };
   return { row, rounds };

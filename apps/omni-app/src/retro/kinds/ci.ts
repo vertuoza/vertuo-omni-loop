@@ -11,7 +11,10 @@
 //
 // Each finding's evidence links the red runs; a red run whose log was read also carries its last
 // lines as the evidence item's `excerpt`, which `narrate` sends to the model and `render` leaves out.
-import type { SliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
+// Those lines are masked as they are read (`maskSecrets`): `retro.json` keeps them, and a key a job
+// printed (the local Supabase keys `supabase start` prints) must never reach the retro PR.
+import type { SliceId } from 'omni-loop/kit/lib/ids.ts';
+import { maskSecrets } from 'omni-loop/kit/lib/openrouter.ts';
 import { LIMITS, THRESHOLDS } from '../rules.ts';
 import { PER_PAGE, paginate } from '../github.ts';
 import { cleanLog, readTestLog, tailOf } from './ci-logs.ts';
@@ -23,7 +26,7 @@ import type { Job, WorkflowRun } from './schema.ts';
 import { CiRecordsSchema, type JobRecordSchema } from './records.ts';
 import type { z } from 'zod';
 import { sliceOf } from './slice-of.ts';
-import type { Config } from 'vertuo-omni-plan/kit/lib/types.ts';
+import type { Config } from 'omni-loop/kit/lib/types.ts';
 
 /** One job of one run, as the kind keeps it. */
 type JobRecord = z.infer<typeof JobRecordSchema>;
@@ -113,7 +116,7 @@ export const ci: Kind<Records | null, Facts> = Object.freeze({
     const red = jobs.filter((job) => job.status === 'completed' && RED.has(job.conclusion));
     const tails = await inParallel(red, async (job): Promise<Log> => {
       const read = await readOrRefused(() => octokit.request(LOGS, { owner, repo, job_id: job.id }).then(({ data }) => data));
-      return read.status ? { tail: null, status: read.status } : { tail: tailOf(cleanLog(asText(read.value)), LIMITS.logTailLines) };
+      return read.status ? { tail: null, status: read.status } : { tail: maskSecrets(tailOf(cleanLog(asText(read.value)), LIMITS.logTailLines)) };
     });
     const logs: Record<string, Log | undefined> = Object.fromEntries(red.map((job, index) => [job.id, tails[index]]));
 

@@ -1,13 +1,14 @@
 // Draws each game's still for its lit cabinet's screen (still.ts) from the game's own pieces, and
 // checks stills.ts holds them as they are drawn now: OMNI KART's race over its circuit, rendered by
-// its Mode 7 floor with its rivals, boxes, props and arch, and a slice of Super Omni World's stage 1-1
-// in its tiles, and OMNI DUET's two orbs on their circle under a falling wave. The player's own kart
-// and hero are not in a still: the cabinet draws them over it.
+// its Mode 7 floor with its rivals, boxes, props and arch, and a slice of Starhop's stage 1-1
+// in its tiles, OMNI DUET's two orbs on their circle under a falling wave, and PULSAR VOLLEY's court, the
+// player's paddle lifted by a hum, its notes rising. The player's own kart and hero are not in a still:
+// the cabinet draws them over it.
 // After a game's art changes, `npx vitest run apps/galaxy/src/arcade/games/stills.test.ts -u` draws
 // them again.
 import { describe, expect, it } from 'vitest';
 import { drawStarfield, fleetSprite, makeStarfield, spritePixels, STAGE_PALETTES, TILES, type Pixels, type SpriteLook } from '@omni/design';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { DEFAULT_THEME, stripesOf } from '../theme';
 import type { GridName } from '../grid';
 import { ARCH_WORLD, BOX_WORLD, DRIVER_ROWS, DRIVER_W, HAZE, KART_W, KART_WORLD, PROP_ART, SEAT, SHADOW } from '../kart/art';
@@ -278,7 +279,7 @@ function frostRace({ w, h }: { w: number; h: number }): Canvas {
   return c;
 }
 
-// ── Super Omni World: a slice of stage 1-1, its ground on the screen's bottom edge ─
+// ── Starhop: a slice of stage 1-1, its ground on the screen's bottom edge ─
 
 /** The tile's side in the slice, in grid pixels (half the game's), and the stage's first column in it. */
 const TILE = 8;
@@ -340,10 +341,85 @@ function duet({ w, h }: { w: number; h: number }): Canvas {
   return c;
 }
 
+// ── PULSAR VOLLEY: the court mid-rally, the player's paddle lifted by a hum ─────────
+
+/** A pixel ring of radius `r` round cx, cy, its right side only: a sound wave leaving the paddle. */
+function wave(c: Canvas, cx: number, cy: number, r: number, colour: string, alpha: number) {
+  for (let py = Math.floor(cy - r); py <= Math.ceil(cy + r); py++) {
+    for (let px = Math.floor(cx + 1); px <= Math.ceil(cx + r); px++) {
+      const d = Math.hypot(px + 0.5 - cx, py + 0.5 - cy);
+      if (Math.abs(d - r) < 0.5 && Math.abs(py + 0.5 - cy) < r * 0.7) paint(c, px, py, colour, alpha);
+    }
+  }
+}
+
+/** A tiny pixel picture, `#` for a lit pixel, drawn at x, y in `colour`. */
+function glyph(c: Canvas, rows: readonly string[], x: number, y: number, colour: string, alpha = 1) {
+  rows.forEach((row, dy) => {
+    for (let dx = 0; dx < row.length; dx++) if (row.charAt(dx) === '#') paint(c, x + dx, y + dy, colour, alpha);
+  });
+}
+
+/** An eighth note, the voice's sign, and the three digits the score needs, in the classic 3×5 Pong digits. */
+const NOTE = ['..##.', '..#.#', '..#..', '..#..', '###..', '###..', '.#...'];
+const DIGITS: Readonly<Record<string, readonly string[]>> = {
+  '0': ['###', '#.#', '#.#', '#.#', '###'],
+  '3': ['###', '..#', '###', '..#', '###'],
+  '7': ['###', '..#', '..#', '..#', '..#'],
+};
+
+/** A paddle with a one-pixel glow round it. */
+function glowingPaddle(c: Canvas, x: number, y: number, w: number, h: number, colour: string) {
+  fill(c, x - 1, y - 1, w + 2, h + 2, colour, { alpha: 0.25 });
+  fill(c, x, y, w, h, colour);
+}
+
+function pong({ w, h }: { w: number; h: number }): Canvas {
+  const t = DEFAULT_THEME;
+  const c = blank(w, h, t.void);
+  // The arcade's space behind the court: bands deepening to the floor, and its stars.
+  const bands = [t.void, '#0a0824', '#0d0a2c', '#110c34', '#160e3c'];
+  bands.forEach((colour, i) => { fill(c, 0, Math.floor((h / bands.length) * i), w, Math.ceil(h / bands.length), colour); });
+  const sink = {
+    fillStyle: '' as CanvasRenderingContext2D['fillStyle'],
+    fillRect(x: number, y: number, fw: number, fh: number) {
+      if (typeof sink.fillStyle !== 'string') throw new Error('a star painted with a gradient');
+      if (y > 2 && y < h - 3) fill(c, x, y, fw, fh, sink.fillStyle, { alpha: 0.4 });
+    },
+  };
+  drawStarfield(sink, makeStarfield(2101, w, h, Math.round((w * h) / 240)), 0, { w, h });
+
+  // The court: its two walls, the net down the middle and the score over it, the player's 7 to the AI's 3.
+  fill(c, 0, 1, w, 1, t.white, { alpha: 0.55 });
+  fill(c, 0, h - 2, w, 1, t.white, { alpha: 0.55 });
+  for (let y = 3; y < h - 2; y += 4) fill(c, Math.floor(w / 2), y, 1, 2, t.white, { alpha: 0.35 });
+  const digit = (ch: string) => DIGITS[ch] ?? [];
+  glyph(c, digit('0'), Math.floor(w / 2) - 12, 4, t.white, 0.7);
+  glyph(c, digit('7'), Math.floor(w / 2) - 8, 4, t.white, 0.7);
+  glyph(c, digit('0'), Math.floor(w / 2) + 6, 4, t.white, 0.7);
+  glyph(c, digit('3'), Math.floor(w / 2) + 10, 4, t.white, 0.7);
+
+  // The player's paddle, lifted by the hum: its waves leave it and its notes rise.
+  const ph = Math.round(h * 0.3);
+  const px = 8, py = Math.round(h * 0.22);
+  glowingPaddle(c, px, py, 3, ph, t.cyan);
+  [4, 7, 10].forEach((r, i) => { wave(c, px + 3, py + ph / 2, r, t.cyan, 0.9 - i * 0.28); });
+  glyph(c, NOTE, px + 14, py - 4, t.cyan);
+  glyph(c, NOTE, px + 22, py - 9 < 3 ? 3 : py - 9, t.plasma, 0.85);
+
+  // The AI's paddle, low and late, and the ball on its way back to the player, glowing, its trail behind it.
+  glowingPaddle(c, w - 11, Math.round(h * 0.52), 3, ph, t.plasma);
+  const ball = { x: Math.round(w * 0.36), y: Math.round(h * 0.42) };
+  [4, 3, 2, 1].forEach((k) => { fill(c, ball.x + k * 4, ball.y + k * 2, 2, 2, t.white, { alpha: 0.08 * (5 - k) }); });
+  fill(c, ball.x - 1, ball.y - 1, 5, 5, t.yellow, { alpha: 0.2 });
+  fill(c, ball.x, ball.y, 3, 3, t.yellow);
+  return c;
+}
+
 // ── The stills as stills.ts keeps them ────────────────────────────────────────
 
 /** Each still, by its game's id, or by its board's when a game has a still for each of its circuits (OMNI KART's FROST EIGHT, PRD 1923): the games whose screen is not the Invaders formation. */
-const DRAWN: Readonly<Record<string, (screen: { w: number; h: number }) => Canvas>> = { kart: race, 'kart-frost-eight': frostRace, platformer: stage, duet };
+const DRAWN: Readonly<Record<string, (screen: { w: number; h: number }) => Canvas>> = { kart: race, 'kart-frost-eight': frostRace, platformer: stage, duet, pong };
 
 function encode(c: Canvas): Still {
   const palette = [...new Set(c.px)];

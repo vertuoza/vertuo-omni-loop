@@ -7,7 +7,7 @@ evidence: []
 invaded: null
 ---
 
-<!-- Ported from vertuo-ai-domain@db67fd9da:README.md#getting-started — changes in kit/porting/templates--setup.md -->
+<!-- Ported from nimbus-brain@db67fd9da:README.md#getting-started — changes in kit/porting/templates--setup.md -->
 
 # Setup
 

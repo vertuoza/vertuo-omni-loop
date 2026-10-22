@@ -10,6 +10,8 @@ import { flatCtx as untypedFlatCtx } from '../../test/flat-layout.ts';
 const flatCtx = (root: string, overrides: Record<string, unknown> = {}): Context =>
   untypedFlatCtx(root, overrides) as unknown as Context;
 import { memorySource } from '../knowledge/registers.ts';
+import { gateResult } from './status.ts';
+import { parsePrd } from '../ids.ts';
 import { enforcedByPaths, LAW_LOCKED, lawsAwaitingOwners, lockedLawChanges, riskyChanges, RULE_IDS } from './decision-coverage.ts';
 
 function change(path: string, status = 'M') {
@@ -56,13 +58,13 @@ function rulesFiredOn(path: string, status = 'M') {
 
 describe('riskyChanges — stored-shape', () => {
   it('fires on a library migrations file', () => {
-    expect(rulesFiredOn('libs/vertuo-ai-credit/src/server/migrations.ts')).toEqual([
+    expect(rulesFiredOn('libs/nimbus-ai-credit/src/server/migrations.ts')).toEqual([
       'stored-shape',
     ]);
   });
 
   it('does not fire on an ordinary server file in the same library', () => {
-    expect(rulesFiredOn('libs/vertuo-ai-credit/src/server/credit.repository.ts')).toEqual([]);
+    expect(rulesFiredOn('libs/nimbus-ai-credit/src/server/credit.repository.ts')).toEqual([]);
   });
 });
 
@@ -103,19 +105,84 @@ describe('riskyChanges — law-text', () => {
   });
 });
 
+describe('riskyChanges — law-text on a domain contract (PRD 1796)', () => {
+  it("fires on the product's contracts file and on a domain's", () => {
+    expect(rulesFiredOn('docs/knowledge/product/contracts.md')).toEqual(['law-text']);
+    expect(rulesFiredOn('docs/knowledge/domains/invoicing/contracts.md', 'A')).toEqual(['law-text']);
+    expect(rulesFiredOn('docs/knowledge/domains/invoicing/contracts.md', 'D')).toEqual(['law-text']);
+  });
+
+  it('fires on no other contracts file: nested deeper, outside the registers, or a near name', () => {
+    for (const path of [
+      'docs/knowledge/contracts.md',
+      'docs/knowledge/domains/contracts.md',
+      'docs/knowledge/domains/invoicing/notes/contracts.md',
+      'docs/knowledge/product/contracts.md.bak',
+      'docs/knowledge/product/contract.md',
+      'docs/knowledge/product/my-contracts.md',
+      'docs/contracts.md',
+      'src/invoicing/contracts.md',
+    ]) {
+      expect(rulesFiredOn(path)).toEqual([]);
+    }
+  });
+
+  it('a change to the file a contract points to fires nothing by itself', () => {
+    seed(
+      'docs/knowledge/product/contracts.md',
+      ['## DC-PRODUCT-1', '', 'An outbox item has exactly one rank.', '', 'Points to: kit/lib/schema/front-matter.ts', 'Source: PRD 1796', 'Stated: 2026-10-15', ''].join('\n'),
+    );
+    expect(rulesFiredOn('kit/lib/schema/front-matter.ts')).toEqual([]);
+    expect(rulesFiredOn('kit/lib/schema/front-matter.ts', 'D')).toEqual([]);
+  });
+
+  it('the outbox gate stays red on a contracts change until an item ranked high covers it', () => {
+    const CONTRACTS = 'docs/knowledge/product/contracts.md';
+    const changes = [change(CONTRACTS)];
+    const account = (line: string) => {
+      seed(
+        'docs/outbox/1796/accounts/s1.md',
+        ['---', 'prd: 1796', 'slice: s1', 'graded: 2026-10-15', '---', '', '## Risky changes', '', `- \`${CONTRACTS}\``, 'law-text', line, ''].join('\n'),
+      );
+    };
+    const item = (rank: string) => {
+      seed(
+        'docs/outbox/1796/s1-01-contract.md',
+        [
+          '---', 'id: s1-01-contract', 'prd: 1796', 'slice: s1', `rank: ${rank}`, 'bears-on: none', 'raised: 2026-10-15', 'wave: 1', '---', '',
+          '## The question, in plain words', '', 'Should this contract read so?', '',
+          '## The decision, in plain words', '', 'Yes, as written.', '',
+          '## What I had to decide', '', 'x', '', '## What I did meanwhile', '', 'y', '',
+          '## What it costs to change later', '', 'z', '', '## What I could not know', '', '(author) w', '',
+        ].join('\n'),
+      );
+    };
+    expect(gateResult(parsePrd(1796), { ctx, changes }).unaccounted?.map((one) => one.rule)).toEqual(['law-text']);
+    account('spec Solution');
+    expect(gateResult(parsePrd(1796), { ctx, changes }).unaccounted?.map((one) => one.rule)).toEqual(['law-text']);
+    item('medium');
+    account('item s1-01-contract');
+    expect(gateResult(parsePrd(1796), { ctx, changes }).unaccounted?.map((one) => one.rule)).toEqual(['law-text']);
+    item('high');
+    const covered = gateResult(parsePrd(1796), { ctx, changes });
+    expect(covered.unaccounted).toEqual([]);
+    expect(covered.ok).toBe(false);
+  });
+});
+
 describe('riskyChanges — test-removed', () => {
   it('fires on a deleted test file', () => {
-    expect(rulesFiredOn('apps/vertuo-ai-api/src/foo.service.test.ts', 'D')).toEqual([
+    expect(rulesFiredOn('apps/nimbus-api/src/foo.service.test.ts', 'D')).toEqual([
       'test-removed',
     ]);
   });
 
   it('fires on a deleted .feature file', () => {
-    expect(rulesFiredOn('apps/vertuo-ai-api/test/foo.feature', 'D')).toEqual(['test-removed']);
+    expect(rulesFiredOn('apps/nimbus-api/test/foo.feature', 'D')).toEqual(['test-removed']);
   });
 
   it('does not fire on the same file merely edited', () => {
-    expect(rulesFiredOn('apps/vertuo-ai-api/src/foo.service.test.ts', 'M')).toEqual([]);
+    expect(rulesFiredOn('apps/nimbus-api/src/foo.service.test.ts', 'M')).toEqual([]);
   });
 });
 
@@ -187,12 +254,12 @@ describe('riskyChanges — law-proof', () => {
         'A fixture business rule.',
         '',
         'Serves: P-PRODUCT-1',
-        'Enforced by: apps/vertuo-ai-api/src/quote.controller.test.ts',
+        'Enforced by: apps/nimbus-api/src/quote.controller.test.ts',
         'Stated: 2026-09-22',
         '',
       ].join('\n'),
     );
-    expect(rulesFiredOn('apps/vertuo-ai-api/src/quote.controller.test.ts')).toEqual([
+    expect(rulesFiredOn('apps/nimbus-api/src/quote.controller.test.ts')).toEqual([
       'law-proof',
     ]);
   });
@@ -207,12 +274,12 @@ describe('riskyChanges — law-proof', () => {
         '',
         'Kind: rule',
         'Serves: P-PRODUCT-1',
-        'Enforced by: `libs/vertuo-ai-credit/src/server/credit.service.test.ts`',
+        'Enforced by: `libs/nimbus-ai-credit/src/server/credit.service.test.ts`',
         'Stated: 2026-09-24',
         '',
       ].join('\n'),
     );
-    expect(rulesFiredOn('libs/vertuo-ai-credit/src/server/credit.service.test.ts')).toEqual([
+    expect(rulesFiredOn('libs/nimbus-ai-credit/src/server/credit.service.test.ts')).toEqual([
       'law-proof',
     ]);
   });
@@ -230,7 +297,7 @@ describe('riskyChanges — law-proof', () => {
 
 describe('riskyChanges — a change firing two rules at once', () => {
   it('reports both rules, neither shadowing the other, for a deleted test that is also the proof of a law', () => {
-    const path = 'apps/vertuo-ai-api/src/quote.controller.test.ts';
+    const path = 'apps/nimbus-api/src/quote.controller.test.ts';
     seedInvariants(path);
 
     const risky = riskyChanges([change(path, 'D')], { ctx });
@@ -246,9 +313,9 @@ describe('riskyChanges — ordinary work', () => {
   it('fires nothing over a range of ordinary source and tests', () => {
     seedInvariants('scripts/check-fixture-thing.mjs');
     const changes = [
-      change('apps/vertuo-ai-api/src/features/offer/quote.service.ts', 'M'),
-      change('apps/vertuo-ai-api/src/features/offer/quote.service.test.ts', 'M'),
-      change('libs/vertuo-ai-credit/src/server/credit.repository.ts', 'A'),
+      change('apps/nimbus-api/src/features/offer/quote.service.ts', 'M'),
+      change('apps/nimbus-api/src/features/offer/quote.service.test.ts', 'M'),
+      change('libs/nimbus-ai-credit/src/server/credit.repository.ts', 'A'),
       change('docs/glossary.md', 'M'),
     ];
     expect(riskyChanges(changes, { ctx })).toEqual([]);
@@ -284,6 +351,63 @@ describe('riskyChanges — the risky paths are config, not literals (Task 8, Ste
     expect(riskyChanges([change('.omni-loop/knowledge/adr/0002-x.md', 'A')], { ctx: defaultCtx })).toEqual([
       { path: '.omni-loop/knowledge/adr/0002-x.md', status: 'A', rule: 'law-text' },
     ]);
+  });
+});
+
+describe('riskyChanges — briefing-text (PRD 1793)', () => {
+  const BRIEFING = '.omni-loop/knowledge/playbook/briefing.md';
+
+  /** The briefing's text: a filled form whose one section's body is `body`, or a pointer form. */
+  function briefingText({ body = '- Never merge.', pointsTo = null }: { body?: string; pointsTo?: string | null } = {}) {
+    const state = pointsTo === null ? 'filled' : 'pointer';
+    return ['---', 'form: briefing', 'form-version: 1', `state: ${state}`, `points-to: ${pointsTo ?? 'null'}`, 'evidence: []', 'invaded: null', '---', '', '# Briefing', '', '## Never', '<!-- slot: never · required -->', body, ''].join('\n');
+  }
+
+  it.each(['A', 'M', 'D'])('fires on the briefing %s', (status) => {
+    expect(rulesFiredOn(BRIEFING, status)).toEqual(['briefing-text']);
+  });
+
+  it('fires on a briefing moved away, at its delete', () => {
+    const moved = [change(BRIEFING, 'D'), change('docs/old-briefing.md', 'A')];
+    expect(riskyChanges(moved, { ctx })).toEqual([{ path: BRIEFING, status: 'D', rule: 'briefing-text' }]);
+  });
+
+  it('fires at a custom paths.playbook, and not at the default one there', () => {
+    const custom = flatCtx(root, { paths: { knowledge: 'docs/knowledge', adr: 'docs/adr', playbook: 'handbook/how-we-work' } });
+    expect(riskyChanges([change('handbook/how-we-work/briefing.md')], { ctx: custom }).map((entry) => entry.rule)).toEqual(['briefing-text']);
+    expect(riskyChanges([change(BRIEFING)], { ctx: custom })).toEqual([]);
+  });
+
+  it("fires on a pointer form's points-to file, read at the head", () => {
+    seed(BRIEFING, briefingText({ body: '', pointsTo: 'docs/agents/rules.md' }));
+    expect(rulesFiredOn('docs/agents/rules.md')).toEqual(['briefing-text']);
+  });
+
+  it("fires on a section's See: file, the whole file, its anchor dropped", () => {
+    seed(BRIEFING, briefingText({ body: 'See: README.md#never' }));
+    expect(rulesFiredOn('README.md')).toEqual(['briefing-text']);
+  });
+
+  it('never fires on another form, on the kit template, or on a file only another form points to', () => {
+    seed(BRIEFING, briefingText());
+    seed('.omni-loop/knowledge/playbook/testing.md', briefingText({ body: 'See: docs/testing.md' }).replace('form: briefing', 'form: testing'));
+    expect(rulesFiredOn('.omni-loop/knowledge/playbook/testing.md')).toEqual([]);
+    expect(rulesFiredOn('kit/templates/playbook/briefing.md')).toEqual([]);
+    expect(rulesFiredOn('docs/testing.md')).toEqual([]);
+  });
+
+  it('reports both rules on a change that fires another one too', () => {
+    seed(BRIEFING, briefingText({ body: 'See: docs/adr/0001-rules.md' }));
+    expect(rulesFiredOn('docs/adr/0001-rules.md')).toEqual(['law-text', 'briefing-text']);
+  });
+
+  it('fires whatever laws.source says', () => {
+    const elsewhere = flatCtx(root, { laws: { source: 'none' } });
+    expect(riskyChanges([change(BRIEFING)], { ctx: elsewhere }).map((entry) => entry.rule)).toEqual(['briefing-text']);
+  });
+
+  it('is one of RULE_IDS', () => {
+    expect(RULE_IDS).toContain('briefing-text');
   });
 });
 
@@ -388,6 +512,15 @@ describe('riskyChanges — law-demoted (PRD 1342)', () => {
       { path: DOMAIN, status: 'A', rule: 'law-demoted' },
     ]);
     expect(riskyChanges([], { ctx, base })).toEqual([{ path: DOMAIN, status: 'M', rule: 'law-demoted' }]);
+  });
+
+  it('does not fire for a law moved to another domain folder with a Kept id: line (PRD 2346)', () => {
+    const MOVED = 'docs/knowledge/domains/ask/invariants.md';
+    const kept = ['## N1', '', 'Invariant N1.', '', 'Kept id: N1', `Enforced by: ${PROOF}`, ''].join('\n');
+    seed(INVARIANTS, '');
+    seed(MOVED, kept);
+    const base = baseWith([['N1', PROOF]]);
+    expect(riskyChanges([change(INVARIANTS, 'M'), change(MOVED, 'A')], { ctx, base }).map((entry) => entry.rule)).not.toContain('law-demoted');
   });
 
   it('never fires without a base to compare with', () => {
@@ -529,7 +662,7 @@ describe('lockedLawChanges — law-locked (PRD 1726)', () => {
   });
 
   it('is no rule of riskyChanges: no account ever covers it', () => {
-    expect(RULE_IDS).toEqual(['stored-shape', 'law-proof', 'law-text', 'test-removed', 'shared-contract', 'law-demoted']);
+    expect(RULE_IDS).toEqual(['stored-shape', 'law-proof', 'law-text', 'test-removed', 'shared-contract', 'briefing-text', 'law-demoted']);
     expect(LAW_LOCKED).toBe('law-locked');
   });
 });

@@ -32,7 +32,7 @@
 // failed or answered out of shape.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { authenticate, callerOrigin, withInstallLink, type TokenCheck } from '../ask/auth';
 import { refuse, reply } from '../business-api/reply';
 import type { ServerEvent } from '../server-event/server-event.service';
@@ -84,6 +84,9 @@ const InForce = z.object({
 const PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
 const KEY_MAX = 40;
 
+/** A product roadmap's id, `<key>-R<n>`. */
+const ROADMAP_ID = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-R[1-9]\d{0,9}$/;
+
 /** Which PRD a call names: a repository's by its number, or a product's by its key and number. */
 export type PrdKey = { repo: string; prd: PrdNumber; product: null } | { repo: string; seq: number; product: string };
 
@@ -100,6 +103,8 @@ function productPrdOf(id: string): { product: string; seq: number } | null {
 const Approved = z.union([
   z.object({ id: text, repo: z.string().regex(REPO), prd: PrdNumberSchema }),
   z.object({ id: text, repo: z.null(), prd: z.null(), prdId: z.string().refine((id) => productPrdOf(id) !== null) }),
+  // A product roadmap (PRD 2011): approved by its dossier, answered by its id `<key>-R<n>`.
+  z.object({ id: text, repo: z.null(), prd: z.null(), roadmap: z.string().regex(ROADMAP_ID) }),
 ]);
 
 /** The approval in force as the route answers it: the PRD page's link, the time in ISO 8601, and a
@@ -210,7 +215,7 @@ async function dossierOf(request: Request): Promise<string | Response> {
 }
 
 /** The PRD dossier_approve() says it approved: a repository's, or a product's by its id (no repository hint). */
-function keyOf(approved: z.infer<typeof Approved>): PrdKey {
+function keyOf(approved: Exclude<z.infer<typeof Approved>, { roadmap: string }>): PrdKey {
   if (approved.repo !== null) return { repo: approved.repo, prd: approved.prd, product: null };
   const { product, seq } = productPrdOf(approved.prdId) ?? { product: '', seq: 0 };
   return { repo: '', seq, product };
@@ -231,6 +236,9 @@ export async function approveDossier(request: Request, deps: ApprovalDeps): Prom
     console.error(`approval: dossier_approve() answered out of shape for ${dossier}`);
     return refuse(500, NOT_WRITTEN);
   }
+  // A product roadmap has no issue to label and no target pull request to tell the App of: its approval is the
+  // record, and the roadmap's page (dossier_approval() finds PRDs only) reads it from the approvals table.
+  if ('roadmap' in approved.data) return reply(201, { url: `${callerOrigin(request)}/roadmaps/${dossier}`, roadmap: approved.data.roadmap, approval: { id: approved.data.id } });
   const key = keyOf(approved.data);
   if (key.product === null) {
     try {

@@ -1,0 +1,565 @@
+/**
+ * **The neighbourhood of an entry** (PRD 1797): what one rule rests on and what rests on it, one
+ * plain line per node, never a whole register. `omni kb graph <id>` prints it; with `--json` it is a
+ * versioned document whose types PRD 1798 (P6) imports and publishes from the server unchanged:
+ *
+ * ```text
+ * { version: 1, shape: 'neighbourhood', repo, start, depth, product, nodes, edges }
+ * ```
+ *
+ * Built only from what the one parser, `readKnowledge` (`registers.ts`), returns and from the
+ * decision records (`../playbook/decisions.ts`): nothing here reads a file. Each edge is read from a
+ * line that exists, and stored in its natural direction (a rule `serves` a principle, whichever end
+ * the walk started from):
+ *
+ * - `serves`: a rule, an invariant or a contract → the principle its `Serves:` line names;
+ * - `enforced-by`: an entry → a `test:<path>` node per path its `Enforced by:` line names (none for
+ *   `unenforced` or `pending #<n>`);
+ * - `governs`: an entry → a `path:<pattern>` node per pattern of its `Governs:` line;
+ * - `points-to`: a contract → a `schema:<path>` node per file of its `Points to:` line;
+ * - `cites`: an entry → an entry whose id its statement or `Why:` names (PRD 149's link), read both
+ *   ways from the start;
+ * - `sibling`: an entry → another entry serving the same principle or Legal entry;
+ * - `same-prd`: an entry → each decision record whose `**PRD:** #n` header is the PRD its `Source:`
+ *   names;
+ * - `screen` (s2): an entry → a `screen:<name>` node per library screen whose `implements` or `reads`
+ *   holds a path its `Governs:` matches;
+ * - `uses-term` (s2): an entry → a `term:<word>` node per glossary term of the cached product
+ *   knowledge its statement uses as a whole word, in any case. A `Serves: L-…` line reaches a `legal`
+ *   node of that cache (or the label {@link LEGAL_MISSING}). Both read the cache only: never the network;
+ * - `domain` and `layer` (PRD 2346): a rule or an invariant → each decision record tagged with its
+ *   domain (`**Domain:**`) or with one of its layers (`**Layers:**`), the records an agent changing
+ *   that area must read. Under `--paths`, an entry the files reach also links the records tagged with
+ *   the files' own domain or layers, as the lookup (`disclose-lookup.ts`) resolves them.
+ *
+ * Only entry nodes are walked further; a test, a path, a schema and a decision record are leaves. A
+ * node reached twice is kept once, at the first hop that reaches it. The product line says whether
+ * the product's cached knowledge (its Legal entries and Glossary) is in the walk.
+ */
+import { layerOf } from '../layers/layers.ts';
+import { governsPath, headline } from './disclose.ts';
+import { lookup, placeOf, type FilePlace, type KnowledgeMap } from './disclose-lookup.ts';
+import { prdOf } from './graph.ts';
+import { idsCitedIn, isLaw, LEGAL_ID_SHAPE, type KnowledgeEntry } from './registers.ts';
+import type { DecisionRecord } from '../playbook/decisions.ts';
+import type { Screen } from '../design/screens.ts';
+import type { CachedKnowledge, GlossaryTerm, LegalEntry } from '../product/knowledge.ts';
+
+export const NEIGHBOURHOOD_VERSION = 1;
+export const NEIGHBOURHOOD_SHAPE = 'neighbourhood';
+
+/** The kinds of node: the entries, which are walked, and the leaves, which are not. */
+export type NodeKind = 'principle' | 'rule' | 'invariant' | 'legal' | 'contract' | 'test' | 'path' | 'schema' | 'screen' | 'adr' | 'term';
+
+/** The edge vocabulary: eleven edges, each stored in its natural direction. */
+export type EdgeKind = 'serves' | 'enforced-by' | 'governs' | 'points-to' | 'cites' | 'sibling' | 'screen' | 'same-prd' | 'uses-term' | 'domain' | 'layer';
+
+/** A rule's or an invariant's standing; `null` on every other node. */
+export type NodeStatus = 'law' | 'rule' | 'proposed';
+
+/** Where a node is read from: this repository's files, or the product's cached knowledge. */
+export type NodeOrigin = 'repository' | 'product';
+
+/** Whether the product's Legal entries and Glossary are in the walk. */
+export type ProductState = 'cached' | 'offline' | 'none';
+
+export type NeighbourhoodProduct = { state: ProductState; key: string | null; cachedOn: string | null };
+
+export type NeighbourhoodNode = {
+  id: string;
+  kind: NodeKind;
+  label: string | null;
+  status: NodeStatus | null;
+  /** The file the node is read from: `null` for a product node and for a path pattern. */
+  file: string | null;
+  origin: NodeOrigin;
+  hop: number;
+};
+
+export type NeighbourhoodEdge = { from: string; to: string; kind: EdgeKind };
+
+/** The neighbourhood as `--json` prints it: a field is added only with a new `version`. */
+export type Neighbourhood = {
+  version: typeof NEIGHBOURHOOD_VERSION;
+  shape: typeof NEIGHBOURHOOD_SHAPE;
+  repo: string | null;
+  start: string[];
+  depth: number;
+  product: NeighbourhoodProduct;
+  nodes: NeighbourhoodNode[];
+  edges: NeighbourhoodEdge[];
+};
+
+/** The label of a Legal node whose entry the cached product knowledge does not hold. */
+const LEGAL_MISSING = 'not in the cached product knowledge';
+
+/** What the neighbourhood is built from. The legal entries and terms are read only when `product.state` is `cached`. */
+export type NeighbourhoodSources = {
+  entries: readonly KnowledgeEntry[];
+  records: readonly DecisionRecord[];
+  repo: string | null;
+  product: NeighbourhoodProduct;
+  /** The screen library and the folder it is read from; none given, no `screen` edge. */
+  screens?: readonly Screen[];
+  screensDir?: string | null;
+  legal?: readonly LegalEntry[];
+  glossary?: readonly GlossaryTerm[];
+  /** Where the files a `--paths` walk starts from sit on the knowledge map: their records are linked from the start. */
+  places?: readonly FilePlace[];
+};
+
+/** An entry whose kind could be read: the only entries a walk reaches. */
+type Walked = KnowledgeEntry & { kind: NonNullable<KnowledgeEntry['kind']> };
+const isWalked = (entry: KnowledgeEntry): entry is Walked => entry.kind !== null;
+
+/** One step out of an entry: the edge, and the node at its other end. */
+type Link = { edge: NeighbourhoodEdge; node: Omit<NeighbourhoodNode, 'hop'> };
+
+/** A Legal entry of the cached product knowledge, walked like an entry: only what serves it is below it. */
+type LegalSubject = { kind: 'legal'; id: string; statement: string };
+type Subject = Walked | LegalSubject;
+
+type Index = {
+  walked: readonly Walked[];
+  byId: ReadonlyMap<string, Walked>;
+  records: readonly DecisionRecord[];
+  screens: readonly Screen[];
+  screensDir: string | null;
+  cached: boolean;
+  legal: ReadonlyMap<string, LegalEntry>;
+  glossary: readonly GlossaryTerm[];
+  places: readonly FilePlace[];
+  /** The entries a `--paths` walk starts from: the only ones that link the records of the files' own area. */
+  anchor: ReadonlySet<string>;
+};
+
+const legalNode = (id: string, legal: LegalEntry | undefined): Link['node'] => ({
+  id,
+  kind: 'legal',
+  label: legal === undefined ? LEGAL_MISSING : headline(legal.statement),
+  status: null,
+  file: null,
+  origin: 'product',
+});
+
+/** A rule's or an invariant's standing: a law once locked, else proposed or a rule. */
+function statusOf(entry: Walked): NodeStatus | null {
+  if (entry.kind !== 'rule' && entry.kind !== 'invariant') return null;
+  if (isLaw(entry)) return 'law';
+  return entry.proposed === null ? 'rule' : 'proposed';
+}
+
+const entryNode = (entry: Walked): Link['node'] => ({
+  id: entry.id,
+  kind: entry.kind,
+  label: headline(entry.statement),
+  status: statusOf(entry),
+  file: entry.file,
+  origin: 'repository',
+});
+
+const leaf = (id: string, kind: NodeKind, file: string | null, label: string | null = null): Link['node'] => ({
+  id,
+  kind,
+  label,
+  status: null,
+  file,
+  origin: 'repository',
+});
+
+const link = (from: string, to: string, kind: EdgeKind, node: Link['node']): Link => ({ edge: { from, to, kind }, node });
+
+/** The paths a comma-separated line names, backticks stripped. */
+const pathsOf = (value: string): string[] => value.split(',').map((path) => path.replace(/`/g, '').trim()).filter(Boolean);
+
+/** A decision record's title without its `ADR-nnnn — ` prefix. */
+const recordLabel = (title: string | null): string | null => title?.replace(/^ADR-\d{4}\s*[—–-]\s*/, '') ?? null;
+
+const citedBy = (entry: Walked): string[] => idsCitedIn([entry.statement, entry.why ?? ''].join('\n'));
+
+/** Whether `entry` serves something siblings can share: a principle of the repository or a Legal entry. */
+function servesShared(entry: Walked, byId: Index['byId']): entry is Walked & { serves: string } {
+  if (entry.kind === 'principle' || entry.serves === null) return false;
+  return byId.get(entry.serves)?.kind === 'principle' || LEGAL_ID_SHAPE.test(entry.serves);
+}
+
+/** `serves`, up to the principle `entry` serves, or down from a principle to every entry serving it. */
+function servesLinks(entry: Subject, { walked, byId, cached, legal }: Index): Link[] {
+  if (entry.kind === 'principle' || entry.kind === 'legal') {
+    return walked.filter((other) => other.kind !== 'principle' && other.serves === entry.id).map((other) => link(other.id, entry.id, 'serves', entryNode(other)));
+  }
+  const served = entry.serves === null ? undefined : byId.get(entry.serves);
+  if (served?.kind === 'principle') return [link(entry.id, served.id, 'serves', entryNode(served))];
+  if (cached && entry.serves !== null && LEGAL_ID_SHAPE.test(entry.serves)) return [link(entry.id, entry.serves, 'serves', legalNode(entry.serves, legal.get(entry.serves)))];
+  return [];
+}
+
+/** The leaves below `entry`: its tests, the patterns it governs, the schema files it points to. */
+function leafLinks(entry: Walked): Link[] {
+  const tests = entry.enforced && entry.enforcedBy !== null ? pathsOf(entry.enforcedBy) : [];
+  return [
+    ...tests.map((path) => link(entry.id, `test:${path}`, 'enforced-by', leaf(`test:${path}`, 'test', path))),
+    ...(entry.governs ?? []).map((pattern) => link(entry.id, `path:${pattern}`, 'governs', leaf(`path:${pattern}`, 'path', null))),
+    ...(entry.pointsTo ?? []).map((path) => link(entry.id, `schema:${path}`, 'points-to', leaf(`schema:${path}`, 'schema', path))),
+  ];
+}
+
+/** `cites`, both ways: the entries `entry` names, then the entries that name it. */
+function citeLinks(entry: Walked, { walked, byId }: Index): Link[] {
+  const cited = citedBy(entry).flatMap((id) => {
+    const other = id === entry.id ? undefined : byId.get(id);
+    return other === undefined ? [] : [link(entry.id, other.id, 'cites', entryNode(other))];
+  });
+  const citing = walked.filter((other) => other.id !== entry.id && citedBy(other).includes(entry.id));
+  return [...cited, ...citing.map((other) => link(other.id, entry.id, 'cites', entryNode(other)))];
+}
+
+/** `screen`, to every library screen whose `implements` or `reads` holds a path `entry` governs. */
+function screenLinks(entry: Walked, { screens, screensDir }: Index): Link[] {
+  const governs = entry.governs ?? [];
+  if (governs.length === 0) return [];
+  const dir = screensDir === null ? '' : `${screensDir.replace(/\/+$/, '')}/`;
+  return screens
+    .filter((screen) => [...screen.implements, ...screen.reads].some((path) => governsPath(governs, path)))
+    .map((screen) => link(entry.id, `screen:${screen.screen}`, 'screen', leaf(`screen:${screen.screen}`, 'screen', `${dir}${screen.file}`, screen.status)));
+}
+
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** `uses-term`, to every glossary term the statement uses as a whole word, in any case. */
+function termLinks(entry: Walked, { cached, glossary }: Index): Link[] {
+  if (!cached) return [];
+  return glossary
+    .filter(({ term }) => new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegExp(term)}(?![\\p{L}\\p{N}_])`, 'iu').test(entry.statement))
+    .map(({ term, meaning }) => {
+      const node: Link['node'] = { ...leaf(`term:${term}`, 'term', null, meaning), origin: 'product' };
+      return link(entry.id, node.id, 'uses-term', node);
+    });
+}
+
+/** `sibling`, to every other entry serving what `entry` serves. */
+function siblingLinks(entry: Walked, { walked, byId }: Index): Link[] {
+  if (!servesShared(entry, byId)) return [];
+  const siblings = walked.filter((other) => other.id !== entry.id && other.kind !== 'principle' && other.serves === entry.serves);
+  return siblings.map((other) => link(entry.id, other.id, 'sibling', entryNode(other)));
+}
+
+/** A decision record as a leaf: `ADR-<number>`, its file and its title. */
+const recordNode = ({ number, file, title }: DecisionRecord): Link['node'] => leaf(`ADR-${number}`, 'adr', file, recordLabel(title));
+
+/** `same-prd`, to every decision record whose header names the PRD of `entry`'s `Source:`. */
+function samePrdLinks(entry: Walked, { records }: Index): Link[] {
+  const prd = prdOf(entry.source);
+  if (prd === null) return [];
+  return records
+    .filter((record) => record.prd === prd)
+    .map((record) => link(entry.id, `ADR-${record.number}`, 'same-prd', recordNode(record)));
+}
+
+/** A rule's or an invariant's domains: its folder, or both of a cross-domain file's (`a--b`). */
+const domainsOf = (entry: Walked): string[] => (entry.scope === 'cross-domain' ? entry.domain.split('--') : [entry.domain]);
+
+/** A list of layer words read as layers: an old word (`database`) as its layer. */
+const layersOf = (words: readonly string[] | null | undefined): string[] => (words ?? []).map(layerOf);
+
+/**
+ * `domain` and `layer`, to every decision record tagged with the domain or a layer of `entry`, and,
+ * for an entry the walk starts from, with the domain or a layer of the files looked up.
+ */
+function tagLinks(entry: Walked, { records, places, anchor }: Index): Link[] {
+  if (entry.kind !== 'rule' && entry.kind !== 'invariant') return [];
+  const here = anchor.has(entry.id);
+  const domains = new Set([...domainsOf(entry), ...(here ? places.flatMap(({ domain }) => (domain === null ? [] : [domain])) : [])]);
+  const layers = new Set([...layersOf(entry.layers), ...(here ? places.flatMap((place) => place.layers) : [])]);
+  return records.flatMap((record) => {
+    const node = recordNode(record);
+    const byDomain = record.domain != null && domains.has(record.domain);
+    const byLayer = layersOf(record.layers).some((layer) => layers.has(layer));
+    return [
+      ...(byDomain ? [link(entry.id, node.id, 'domain', node)] : []),
+      ...(byLayer ? [link(entry.id, node.id, 'layer', node)] : []),
+    ];
+  });
+}
+
+/** Every step out of `entry`, in the order the text prints them: up, then down, then side. */
+function linksOf(entry: Subject, index: Index): Link[] {
+  if (entry.kind === 'legal') return servesLinks(entry, index);
+  return [
+    ...servesLinks(entry, index),
+    ...leafLinks(entry),
+    ...citeLinks(entry, index),
+    ...siblingLinks(entry, index),
+    ...samePrdLinks(entry, index),
+    ...tagLinks(entry, index),
+    ...screenLinks(entry, index),
+    ...termLinks(entry, index),
+  ];
+}
+
+/** An edge's identity: a sibling is the same edge read from either end. */
+function edgeKey({ from, to, kind }: NeighbourhoodEdge): string {
+  const ends = kind === 'sibling' ? [from, to].sort() : [from, to];
+  return `${kind} ${ends.join(' ')}`;
+}
+
+/** A walk in progress: what it reads, the nodes and edges it has reached, and the edges it has seen. */
+type Walk = { index: Index; nodes: Map<string, NeighbourhoodNode>; edges: NeighbourhoodEdge[]; seen: Set<string> };
+
+/** The entry or cached Legal entry `id` names, when there is one. */
+function subjectOf({ byId, legal }: Index, id: string): Subject | undefined {
+  const entry = byId.get(id);
+  if (entry !== undefined) return entry;
+  const known = legal.get(id);
+  return known === undefined ? undefined : { kind: 'legal', id, statement: known.statement };
+}
+
+/** One hop out of `entry`: records each new edge and each new node at `hop`; returns the entries reached, to walk next. */
+function step(walk: Walk, entry: Subject, hop: number): Subject[] {
+  const reached: Subject[] = [];
+  for (const { edge, node } of linksOf(entry, walk.index)) {
+    const key = edgeKey(edge);
+    if (!walk.seen.has(key)) {
+      walk.seen.add(key);
+      walk.edges.push(edge);
+    }
+    if (walk.nodes.has(node.id)) continue;
+    walk.nodes.set(node.id, { ...node, hop });
+    const next = subjectOf(walk.index, node.id);
+    if (next !== undefined) reached.push(next);
+  }
+  return reached;
+}
+
+/**
+ * The neighbourhood of the entries `start` names, walked `depth` hops between entries (1 by
+ * default). An id that names no entry whose kind can be read is left out: the command refuses it
+ * before building.
+ */
+export function buildNeighbourhood(sources: NeighbourhoodSources, { start, depth = 1 }: { start: readonly string[]; depth?: number }): Neighbourhood {
+  const walked = sources.entries.filter(isWalked);
+  const byId = new Map(walked.map((entry) => [entry.id, entry]));
+  const cached = sources.product.state === 'cached';
+  const index: Index = {
+    walked,
+    byId,
+    records: sources.records,
+    screens: sources.screens ?? [],
+    screensDir: sources.screensDir ?? null,
+    cached,
+    legal: new Map(cached ? (sources.legal ?? []).map((legal) => [legal.id, legal]) : []),
+    glossary: cached ? (sources.glossary ?? []) : [],
+    places: sources.places ?? [],
+    anchor: new Set(start),
+  };
+  const walk: Walk = { index, nodes: new Map(), edges: [], seen: new Set() };
+
+  let frontier = [...new Set(start)].flatMap((id) => {
+    const subject = subjectOf(index, id);
+    return subject === undefined ? [] : [subject];
+  });
+  for (const record of sources.records) if (start.includes(`ADR-${record.number}`)) walk.nodes.set(`ADR-${record.number}`, { ...recordNode(record), hop: 0 });
+  for (const subject of frontier) walk.nodes.set(subject.id, { ...(subject.kind === 'legal' ? legalNode(subject.id, index.legal.get(subject.id)) : entryNode(subject)), hop: 0 });
+  for (let hop = 1; hop <= depth; hop += 1) frontier = frontier.flatMap((entry) => step(walk, entry, hop));
+  const { nodes, edges } = walk;
+
+  return {
+    version: NEIGHBOURHOOD_VERSION,
+    shape: NEIGHBOURHOOD_SHAPE,
+    repo: sources.repo,
+    start: [...nodes.values()].filter(({ hop }) => hop === 0).map(({ id }) => id),
+    depth,
+    product: sources.product,
+    nodes: [...nodes.values()],
+    edges,
+  };
+}
+
+/** The product, read without its cache: none with no Omni page to belong to, offline otherwise. */
+export function productWithoutCache(askUrl: string | null): NeighbourhoodProduct {
+  return { state: askUrl ? 'offline' : 'none', key: null, cachedOn: null };
+}
+
+/**
+ * The product as the cache on disk tells it (PRD 1797, s2): `cached` with the copy's product and day,
+ * `offline` when the copy does not read (`unreadable`) or there is none beside an Omni page, `none`
+ * with neither. Reads nothing itself.
+ */
+export function productFromCache(cache: CachedKnowledge, askUrl: string | null): { product: NeighbourhoodProduct; unreadable: boolean } {
+  if (cache.state === 'cached') return { product: { state: 'cached', key: cache.product, cachedOn: cache.readAt.slice(0, 10) }, unreadable: false };
+  if (cache.state === 'unreadable') return { product: { state: 'offline', key: null, cachedOn: null }, unreadable: true };
+  return { product: productWithoutCache(askUrl), unreadable: false };
+}
+
+/** The last line of the text: whether the product's Legal entries and Glossary are in the walk. */
+export function productLine({ state, key, cachedOn }: NeighbourhoodProduct, unreadable = false): string {
+  if (state === 'offline' && unreadable) return 'product knowledge: offline — the cached product knowledge could not be read.';
+  if (state === 'cached') return `product knowledge: cached ${cachedOn ?? 'on an unknown day'} (${key ?? 'no key'}).`;
+  if (state === 'offline') return "product knowledge: offline — no cached copy of the product's Legal and Glossary; only this repository's links are shown.";
+  return 'product knowledge: none — this repository belongs to no product.';
+}
+
+/** At most this many lines per edge kind under one node; the JSON lists them all. */
+const LINES_PER_EDGE = 6;
+
+/** How an edge reads from the node it is printed under: up, down or side. */
+function directionOf(edge: NeighbourhoodEdge, from: string): 'up' | 'down' | 'side' {
+  if (edge.kind === 'serves') return edge.from === from ? 'up' : 'down';
+  return edge.kind === 'enforced-by' || edge.kind === 'governs' || edge.kind === 'points-to' ? 'down' : 'side';
+}
+
+/**
+ * What the text prints: a node of a neighbourhood, or of a product's (PRD 1798, s5), which adds the
+ * repository's short name (`repo`, `null` on a node of the product, absent in version 1) and the kind `never`.
+ */
+export type PrintNode = Pick<NeighbourhoodNode, 'id' | 'label' | 'status' | 'hop'> & { kind: string; repo?: string | null };
+
+/** The part of a neighbourhood the text reads, version 1 or 2. */
+export type PrintGraph = { start: readonly string[]; nodes: readonly PrintNode[]; edges: readonly NeighbourhoodEdge[] };
+
+/** One printed row: its indent, its direction and edge, and either a node or the count of those cut. */
+type Row = { indent: string; direction: string; edge: EdgeKind } & ({ node: PrintNode } | { more: number });
+
+/** A node's id as printed: a repository's node leads with that repository's short name. */
+const idCell = ({ id, repo }: PrintNode): string => (repo === undefined || repo === null ? id : `${repo} ${id}`);
+
+/** The other end of `edge` from `id`, or `null` when the edge does not touch it. */
+function otherEnd(edge: NeighbourhoodEdge, id: string): string | null {
+  if (edge.from === id) return edge.to;
+  return edge.to === id ? edge.from : null;
+}
+
+/** The nodes one hop past `parent` that no line printed yet, each with the first edge reaching it; marks them printed. */
+function childrenOf(parent: PrintNode, built: PrintGraph, printed: Set<string>): { edge: NeighbourhoodEdge; node: PrintNode }[] {
+  const byId = new Map(built.nodes.map((node) => [node.id, node]));
+  const children: { edge: NeighbourhoodEdge; node: PrintNode }[] = [];
+  for (const edge of built.edges) {
+    const node = byId.get(otherEnd(edge, parent.id) ?? '');
+    if (node === undefined || node.hop !== parent.hop + 1 || printed.has(node.id)) continue;
+    printed.add(node.id);
+    children.push({ edge, node });
+  }
+  return children;
+}
+
+/** The rows under `parent`: each node one hop further first reached through an edge of `parent`, cut per edge kind. */
+function rowsUnder(parent: PrintNode, built: PrintGraph, printed: Set<string>): Row[] {
+  const indent = '  '.repeat(parent.hop + 1);
+  const children = childrenOf(parent, built, printed);
+  const rows: Row[] = [];
+  const shown = new Map<EdgeKind, number>();
+  for (const [at, { edge, node }] of children.entries()) {
+    const count = shown.get(edge.kind) ?? 0;
+    shown.set(edge.kind, count + 1);
+    const direction = directionOf(edge, parent.id);
+    if (count < LINES_PER_EDGE) {
+      rows.push({ indent, direction, edge: edge.kind, node }, ...rowsUnder(node, built, printed));
+    } else if (count === LINES_PER_EDGE) {
+      const more = children.slice(at).filter((child) => child.edge.kind === edge.kind).length;
+      rows.push({ indent, direction, edge: edge.kind, more });
+    }
+  }
+  return rows;
+}
+
+/** The start's line: id, kind, status, a pending proof, and its headline. */
+function startLine(node: PrintNode, entry: KnowledgeEntry | undefined): string {
+  const parts = [idCell(node), node.kind];
+  if (node.status === 'law') parts.push(`law${entry?.locked?.by ? `, locked by @${entry.locked.by}` : ''}`);
+  else if (node.status !== null) parts.push(node.status);
+  const pending = entry?.pending ?? null;
+  if (pending !== null) parts.push(`enforced by: pending #${pending}`);
+  return `${parts.join(' · ')} — ${node.label ?? ''}`;
+}
+
+/** The rows as aligned columns: direction, edge, node id, node kind, label. */
+function rowLines(rows: readonly Row[]): string[] {
+  const width = (cells: readonly string[]) => Math.max(0, ...cells.map((cell) => cell.length));
+  const lead = width(rows.map(({ indent, direction }) => indent + direction));
+  const edge = width(rows.map((row) => row.edge));
+  const nodes = rows.flatMap((row) => ('node' in row ? [row.node] : []));
+  const id = width(nodes.map(idCell));
+  const kind = width(nodes.map((node) => node.kind));
+  return rows.map((row) => {
+    const head = `${(row.indent + row.direction).padEnd(lead)}  ${row.edge.padEnd(edge)}  `;
+    if (!('node' in row)) return `${head}… and ${row.more} more (--json lists them all)`;
+    return `${head}${idCell(row.node).padEnd(id)}  ${row.node.kind.padEnd(kind)}  ${row.node.label ?? ''}`.trimEnd();
+  });
+}
+
+/**
+ * The neighbourhood as text, without its product line: per start, its line and one aligned line per
+ * node under it, at most {@link LINES_PER_EDGE} per edge kind, indented two spaces per hop. `entries`
+ * gives the start's lock and its pending proof, which the JSON does not carry.
+ */
+export function neighbourhoodBody(built: PrintGraph, entries: readonly KnowledgeEntry[]): string[] {
+  const printed = new Set(built.start);
+  const lines: string[] = [];
+  for (const node of built.nodes.filter(({ hop }) => hop === 0)) {
+    lines.push(startLine(node, entries.find(({ id }) => id === node.id)), ...rowLines(rowsUnder(node, built, printed)));
+  }
+  return lines;
+}
+
+/** The neighbourhood as text: its body, then the product line. */
+export function neighbourhoodText(built: Neighbourhood, entries: readonly KnowledgeEntry[], unreadable = false): string {
+  return [...neighbourhoodBody(built, entries), productLine(built.product, unreadable)].join('\n');
+}
+
+/** A node of a pushed graph: the neighbourhood's node without its hop, always read from the repository. */
+export type RepositoryGraphNode = Omit<NeighbourhoodNode, 'hop' | 'origin'> & { origin: 'repository' };
+
+/** The whole repository's graph as `omni kb graph push` sends it (`graph-schema.ts` reads it). */
+export type RepositoryGraphBody = { version: typeof NEIGHBOURHOOD_VERSION; shape: 'repository'; nodes: RepositoryGraphNode[]; edges: NeighbourhoodEdge[] };
+
+/**
+ * **Every node and edge of the repository** (PRD 1798, s2): the links {@link buildNeighbourhood}
+ * walks out of one entry, taken out of all of them. The product's own nodes (a Legal entry, a
+ * glossary term: `origin: 'product'`) are left out, since the server holds them; an edge may still
+ * end at an `L-…` id or a `term:<word>` for the server to join, and a `serves` edge to an `L-…` id
+ * is kept whether or not the cache holds that entry. The terms come from the cached glossary alone.
+ */
+export function buildRepositoryGraph(sources: Pick<NeighbourhoodSources, 'entries' | 'records' | 'screens' | 'screensDir' | 'legal' | 'glossary'>): RepositoryGraphBody {
+  const walked = sources.entries.filter(isWalked);
+  const index: Index = {
+    walked,
+    byId: new Map(walked.map((entry) => [entry.id, entry])),
+    records: sources.records,
+    screens: sources.screens ?? [],
+    screensDir: sources.screensDir ?? null,
+    cached: true,
+    legal: new Map((sources.legal ?? []).map((legal) => [legal.id, legal])),
+    glossary: sources.glossary ?? [],
+    places: [],
+    anchor: new Set(),
+  };
+  const nodes = new Map<string, RepositoryGraphNode>();
+  const edges = new Map<string, NeighbourhoodEdge>();
+  const keep = (node: Link['node']): void => {
+    if (node.origin === 'repository' && !nodes.has(node.id)) nodes.set(node.id, { ...node, origin: 'repository' });
+  };
+  for (const entry of walked) {
+    keep(entryNode(entry));
+    for (const { edge, node } of linksOf(entry, index)) {
+      keep(node);
+      edges.set(edgeKey(edge), edge);
+    }
+  }
+  return { version: NEIGHBOURHOOD_VERSION, shape: 'repository', nodes: [...nodes.values()], edges: [...edges.values()] };
+}
+
+/** The files a `--paths` walk starts from: where they sit, the entries that apply to them, and the records that do. */
+export type FilesStart = { ids: string[]; records: string[]; start: string[]; places: FilePlace[] };
+
+/**
+ * The start of `omni kb graph --paths <file>…` (PRD 2346): the rules, invariants and laws that apply to
+ * the files, as the lookup (`omni kb laws --paths`) resolves them (a `Governs:` match, the files' domain
+ * or layers), laws first, and the decision records that apply. The records start the walk only when no
+ * entry does: otherwise a `domain` or `layer` edge reaches them.
+ */
+export function startFromFiles(sources: Pick<NeighbourhoodSources, 'entries' | 'records'>, map: KnowledgeMap, files: readonly string[]): FilesStart {
+  const { applies } = lookup({ ...sources, legal: [], thesis: null }, map, files);
+  const ids = applies.filter(({ kind }) => kind !== 'adr' && kind !== 'legal').map(({ id }) => id);
+  const records = applies.filter(({ kind }) => kind === 'adr').map(({ id }) => id);
+  return { ids, records, start: ids.length > 0 ? ids : records, places: files.map((file) => placeOf(map, file)) };
+}

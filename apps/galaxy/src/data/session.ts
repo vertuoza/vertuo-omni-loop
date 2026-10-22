@@ -1,7 +1,7 @@
 // The session a sign-in hands back (PRD 359), parsed where it comes in (PRD 1030): exchangeCodeForSession()
 // answers it to both GitHub callbacks (app/auth/callback, app/signup/installed/callback), which read
 // whose it is and GitHub's token, as joining needs them (src/data/sign-in.ts).
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import { z } from 'zod';
 import { orNull, parseRow } from './parse-rows';
 

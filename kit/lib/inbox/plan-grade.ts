@@ -39,6 +39,11 @@
 // own `contracts`; in one, each target's copied `contracts` (`targets`), never the plan repository's.
 // Where it asks (`declare` on), a slice that declares nothing is refused, and so is a word outside its
 // `kinds`. A target whose copy asks nothing, or that has no readable copy, is checked for form alone.
+//
+// A declared kind must also show on the PRD's before/after page (`beforeAfter`, the page's HTML, or
+// `null` when the folder has none): where the receiving repository asks, each kind a slice declares
+// needs a block marked `data-contract="<kind>"` there, and one missing is refused naming the slice
+// and the kind. A caller that gives no page (`undefined`) grades the plan's Markdown alone.
 import { planRuleViolations } from '../flow/plan-rules.ts';
 import { resolveFlow } from '../flow/resolve.ts';
 import { NO_FLOW } from '../plan-repo/copy-flow.ts';
@@ -354,6 +359,29 @@ function contractViolations(slice: Slice, asks: { kinds: readonly string[] } | n
   return [...strangers.map((word) => `${slice.id}: contract: "${word}" is no kind of this repository — ${choices}`), ...beside];
 }
 
+/**
+ * The kinds `slice` declares that `page`, the PRD's before/after page, does not carry as a
+ * `data-contract="<kind>"` block, each a line naming the slice and the kind; `page` is `null` when
+ * the folder has no page, and then every declared kind is missing. Nothing where the receiving
+ * repository asks nothing (`asks` is `null`), as `contractViolations` reads it.
+ */
+function contractPageViolations(slice: Slice, asks: { kinds: readonly string[] } | null, page: string | null): string[] {
+  const { contract } = slice;
+  if (asks === null || contract === null || contract === 'none') return [];
+  return contract.kinds
+    .filter((kind) => kind !== 'none' && (page === null || !carriesContractBlock(page, kind)))
+    .map((kind) =>
+      page === null
+        ? `${slice.id}: contract: ${kind} — the folder has no before-after.html to carry its data-contract="${kind}" block`
+        : `${slice.id}: contract: ${kind} — before-after.html has no data-contract="${kind}" block`,
+    );
+}
+
+/** Whether `page` marks a block with `data-contract="<kind>"` (single or double quotes). */
+function carriesContractBlock(page: string, kind: string): boolean {
+  return page.includes(`data-contract="${kind}"`) || page.includes(`data-contract='${kind}'`);
+}
+
 /** What an ordinary repository's plan may not carry: either table of a plan repository. */
 function notPlanRepositoryViolations(slices: readonly Slice[], repositories: readonly PlanRepository[]): string[] {
   const violations: string[] = [];
@@ -375,13 +403,15 @@ function byRepository(slices: readonly Slice[]): Map<string | null, Slice[]> {
  * then the only violation. Never throws on a plan's content.
  *
  * @param {string} markdown   the plan's `plan.md`
- * @param {{ config: object, targets?: Map }} options   the parsed config (`plan`, `repo.slug`, `landings.alone`
- *   and `flow` are read), and in a plan repository each target's copied flow by its short name
- *   (`targetFlows`): a target absent from it meets the kit's defaults
+ * @param {{ config: object, targets?: Map, beforeAfter?: string | null }} options   the parsed config
+ *   (`plan`, `repo.slug`, `landings.alone` and `flow` are read), in a plan repository each target's
+ *   copied flow by its short name (`targetFlows`): a target absent from it meets the kit's defaults,
+ *   and the PRD's `before-after.html` (`null` when the folder has none), whose `data-contract`
+ *   blocks each declared kind must have where the repository asks; left out, the page is not graded
  */
 export function gradePlan(
   markdown: string,
-  { config, targets = new Map() }: { config: GradeConfig; targets?: ReadonlyMap<string, TargetFlow> },
+  { config, targets = new Map(), beforeAfter }: { config: GradeConfig; targets?: ReadonlyMap<string, TargetFlow>; beforeAfter?: string | null },
 ): PlanGrade {
   let slices: Slice[];
   try {
@@ -420,7 +450,10 @@ export function gradePlan(
     ...unknownTiers(markdown).map(({ slice, value }) => `tier: ${slice} reads "${value}", not deep, build, light, a blank or —.`),
     ...(multi ? repositoryFlowViolations(slices, { config, targets }) : planRuleViolations(slices, resolveFlow(config))),
     ...blockedByViolations(slices),
-    ...slices.flatMap((slice) => contractViolations(slice, contractAsk(slice, { config, multi, targets }))),
+    ...slices.flatMap((slice) => {
+      const asks = contractAsk(slice, { config, multi, targets });
+      return [...contractViolations(slice, asks), ...(beforeAfter === undefined ? [] : contractPageViolations(slice, asks, beforeAfter))];
+    }),
     ...collisions.map(
       (collision) =>
         `${collision.left} and ${collision.right} share ${collision.shared.join(', ')} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf.get(collision.left)}` : ''} — two slices in one wave may never share territory.`,

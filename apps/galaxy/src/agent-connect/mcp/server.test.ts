@@ -4,7 +4,13 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import type { RepositoryGraph } from 'omni-loop/kit/lib/knowledge/graph-schema.ts';
 import { readBusiness, type BusinessDeps } from '../../business-api/api';
+import type { LinkGraphBundle } from '../../knowledge-graph/link.repository';
+import { GRAPH_READ_REFUSALS } from '../../knowledge-graph/product-graph.contract';
+import { readProductGraph } from '../../knowledge-graph/product-graph.controller';
+import type { ProductGraphRepository } from '../../knowledge-graph/product-graph.repository';
+import { productGraphService } from '../../knowledge-graph/product-graph.service';
 import { hashToken } from '../tokens/token';
 import { handleMcp, LINK_REFUSED, REPORTED, type McpDeps } from './server';
 import { sure } from '../../arcade/test/sure';
@@ -44,13 +50,40 @@ const READ = {
     { id: 'never#4', kind: 'never', value: 'Build for groups of companies', source: 'pick', state: 'confirmed', receipt: null, lastSeen: null },
   ],
   personas: [{ name: 'Marc', stance: 'skeptical', trade: 'plumber', who: 'Runs five plumbers', usage: 'Quotes' }],
+  legal: [{ id: 'L-INVOICING-1', statement: 'Invoice numbers follow each other with no gaps.', source: 'https://law.example/vat-53', owner: 'anna' }],
+  glossary: [{ term: 'Credit note', meaning: 'A document that cancels an invoice.', avoid: ['refund'] }],
 };
-const NONE = { state: 'none', business: null, product: null, claims: [], personas: [] };
+// The product's knowledge graph (PRD 1798 s4), as knowledge_graph_for_token() reads it for the link
+// (supabase/migrations/20261216090000_knowledge_graph_for_token.sql): acme/widgets pushed, acme/api never.
+const SHA = '9086e70'.padEnd(40, 'a');
+const WIDGETS: RepositoryGraph = {
+  version: 1,
+  shape: 'repository',
+  nodes: [
+    { id: 'P-PRODUCT-1', kind: 'principle', label: 'Quotes stay readable.', status: null, file: '.omni-loop/knowledge/product/principles.md', origin: 'repository' },
+    { id: 'BR-PRODUCT-3', kind: 'rule', label: 'A quote shows its total.', status: 'law', file: '.omni-loop/knowledge/product/rules.md', origin: 'repository' },
+  ],
+  edges: [
+    { from: 'BR-PRODUCT-3', to: 'L-INVOICING-1', kind: 'serves' },
+    { from: 'BR-PRODUCT-3', to: 'P-PRODUCT-1', kind: 'serves' },
+    { from: 'BR-PRODUCT-3', to: 'L-TAX-7', kind: 'serves' },
+  ],
+};
+const GRAPH: LinkGraphBundle = {
+  product: { id: 'p-acme', key: 'acme-app', name: 'Acme App' },
+  links: [{ repository: 'acme/api', knowledge: 'own' }, { repository: 'acme/widgets', knowledge: 'own' }],
+  legal: [{ code: 'INVOICING', number: 1, statement: 'Invoice numbers follow each other with no gaps.', retired_at: null }],
+  glossary: [{ term: 'Credit note', meaning: 'A document that cancels an invoice.', removed_at: null }],
+  never: [{ seq: 4, body: 'Build for groups of companies', removed_at: null }],
+  graphs: [{ repository: 'acme/widgets', sha: SHA, graph: WIDGETS, pushed_at: '2026-10-13T14:02:00+00:00', pushed_by_login: 'pierrederval' }],
+};
+
+const NONE = { state: 'none', business: null, product: null, claims: [], personas: [], legal: [], glossary: [] };
 
 type Call = { fn: string; args: Record<string, unknown> };
 
-async function world({ read = READ, products = 1, database = true, reported = 0, judge = (): void => {} }: {
-  read?: unknown; products?: number; database?: boolean; reported?: number; judge?: (id: string) => void;
+async function world({ read = READ, graph = GRAPH, products = 1, database = true, reported = 0, judge = (): void => {} }: {
+  read?: unknown; graph?: unknown; products?: number; database?: boolean; reported?: number; judge?: (id: string) => void;
 } = {}) {
   const live = await hashToken(LIVE);
   const revoked = await hashToken(REVOKED);
@@ -68,12 +101,19 @@ async function world({ read = READ, products = 1, database = true, reported = 0,
     }
     return { data: read, error: null };
   };
+  // knowledge_graph_for_token() (PRD 1798 s4): the same repository checks, then the product's rows.
+  const graphFor = (repo: string | null) => {
+    const refusal = businessFor(repo);
+    return refusal.error ? refusal : { data: graph, error: null };
+  };
   const rpc = (fn: string, args: Record<string, unknown>) => {
     calls.push({ fn, args });
     if (args.p_hash !== live || args.p_hash === revoked) {
       return Promise.resolve({ data: null, error: { code: '28000', message: 'This link does not work: make a new one on Settings › Business.' } });
     }
-    return Promise.resolve(fn === 'agent_question_report' ? report() : businessFor(args.p_repo as string | null));
+    const repo = typeof args.p_repo === 'string' ? args.p_repo : null;
+    if (fn === 'knowledge_graph_for_token') return Promise.resolve(graphFor(repo));
+    return Promise.resolve(fn === 'agent_question_report' ? report() : businessFor(repo));
   };
   // Jev's Unknown worth asking (s4): the questions handed to it once reported.
   const judged: string[] = [];
@@ -112,15 +152,24 @@ async function world({ read = READ, products = 1, database = true, reported = 0,
 }
 
 describe('/api/mcp, the MCP link', () => {
-  it('lists three tools, whose descriptions say to cite claim ids and to report rather than guess', async () => {
+  it('lists four tools, whose descriptions say to cite the ids and to report rather than guess', async () => {
     const w = await world();
     const client = await w.connect(LIVE);
     const { tools } = await client.listTools();
     await client.close();
-    expect(tools.map((t) => t.name).sort()).toEqual(['get_business', 'get_claims', 'report_unknown']);
+    expect(tools.map((t) => t.name).sort()).toEqual(['get_business', 'get_claims', 'get_knowledge_graph', 'report_unknown']);
+    const graph = sure(tools.find((t) => t.name === 'get_knowledge_graph'), 'tools.find((t) => t.name === \'get_knowledge_graph\')');
+    expect(graph.description).toMatch(/[Cc]ite the ids/);
+    expect(graph.description).toContain('L-INVOICING-1');
+    expect(graph.description).toContain('vertuo-omni-loop/BR-PRODUCT-3');
+    expect(graph.annotations?.readOnlyHint).toBe(true);
+    expect(Object.keys(graph.inputSchema.properties ?? {}).sort()).toEqual(['depth', 'id', 'repo']);
+    expect(graph.inputSchema.required).toEqual(['id']);
     const business = sure(tools.find((t) => t.name === 'get_business'), 'tools.find((t) => t.name === \'get_business\')');
     expect(business.description).toMatch(/region#1/);
     expect(business.description).toMatch(/report_unknown/);
+    expect(business.description).toMatch(/Legal entries/);
+    expect(business.description).toMatch(/glossary/);
     expect(business.annotations?.readOnlyHint).toBe(true);
     expect(Object.keys(business.inputSchema.properties ?? {})).toEqual(['repo']);
     const claims = sure(tools.find((t) => t.name === 'get_claims'), 'tools.find((t) => t.name === \'get_claims\')');
@@ -213,6 +262,108 @@ describe('/api/mcp, the MCP link', () => {
     await w.call(null, 'get_business', { repo: 'acme/widgets' });
     await w.call('Basic xyz', 'get_business', { repo: 'acme/widgets' });
     expect(w.calls).toEqual([]);
+  });
+
+  // ── get_knowledge_graph (PRD 1798 s4) ──
+
+  it('get_knowledge_graph is byte-equal to GET /api/products/<key>/knowledge/graph for the same product, id and depth', async () => {
+    // The read route's member reads the same rows through row-level security (s3's repository).
+    const asMember: ProductGraphRepository = {
+      productByKey: (key) => Promise.resolve(key === 'acme-app' ? GRAPH.product : null),
+      productById: () => Promise.resolve(null),
+      links: () => Promise.resolve(GRAPH.links),
+      legal: () => Promise.resolve(GRAPH.legal),
+      glossary: () => Promise.resolve(GRAPH.glossary),
+      never: () => Promise.resolve(GRAPH.never),
+      latestGraph: (name) => Promise.resolve(name === 'acme/widgets' ? { sha: SHA, graph: WIDGETS, pushed_at: '2026-10-13T14:02:00+00:00', pushed_by_login: 'pierrederval' } : null),
+    };
+    const route = {
+      connect: () => ({
+        auth: { getUser: () => Promise.resolve({ data: { user: { id: 'ada', email: null } }, error: null }) },
+        service: productGraphService(asMember),
+      }),
+      log: (): void => {},
+    };
+    for (const [id, depth] of [['L-INVOICING-1', 2], ['widgets/BR-PRODUCT-3', undefined], ['term:credit note', 3], ['never#4', 1]] as const) {
+      const w = await world();
+      const { isError, text } = await w.call(LIVE, 'get_knowledge_graph', { id, ...(depth === undefined ? {} : { depth }), repo: 'acme/widgets' });
+      expect(isError).toBe(false);
+      expect(w.calls).toEqual([{ fn: 'knowledge_graph_for_token', args: { p_hash: await hashToken(LIVE), p_repo: 'acme/widgets' } }]);
+      const query = new URLSearchParams({ id, ...(depth === undefined ? {} : { depth: String(depth) }) });
+      const http = await readProductGraph(new Request(`https://omni.example/api/products/acme-app/knowledge/graph?${query.toString()}`, {
+        headers: { authorization: 'Bearer ada-token' },
+      }), 'acme-app', route);
+      expect(http.status).toBe(200);
+      expect(text).toBe(await http.text());
+    }
+  });
+
+  it('get_knowledge_graph answers P5\'s neighbourhood at version 2, every repository node prefixed by its repository', async () => {
+    const w = await world();
+    const { text } = await w.call(LIVE, 'get_knowledge_graph', { id: 'L-INVOICING-1', depth: 2 });
+    const body = JSON.parse(text) as { version: number; start: string[]; depth: number; product: unknown; nodes: Array<{ id: string; repo: string | null }>; unresolved: unknown; repositories: unknown };
+    expect(sure(w.calls[0], 'w.calls[0]').args).toEqual({ p_hash: await hashToken(LIVE), p_repo: null });
+    expect(body.version).toBe(2);
+    expect(body.start).toEqual(['L-INVOICING-1']);
+    expect(body.depth).toBe(2);
+    expect(body.product).toEqual({ state: 'server', key: 'acme-app', cachedOn: null });
+    expect(body.nodes.map((n) => [n.id, n.repo])).toEqual([['L-INVOICING-1', null], ['widgets/BR-PRODUCT-3', 'widgets'], ['widgets/P-PRODUCT-1', 'widgets']]);
+    expect(body.unresolved).toEqual([{ repo: 'widgets', node: 'widgets/BR-PRODUCT-3', id: 'L-TAX-7' }]);
+    expect(body.repositories).toEqual([
+      { repo: 'api', commit: null, pushedAt: null, pushedBy: null, graph: 'own' },
+      { repo: 'widgets', commit: SHA, pushedAt: '2026-10-13T14:02:00.000Z', pushedBy: 'pierrederval', graph: 'own' },
+    ]);
+  });
+
+  it('get_knowledge_graph: no token, an unknown one and a revoked one each get the one line', async () => {
+    for (const token of [null, 'not-a-token', UNKNOWN, REVOKED]) {
+      const w = await world();
+      const { isError, text } = await w.call(token, 'get_knowledge_graph', { id: 'L-INVOICING-1' });
+      expect(isError).toBe(true);
+      expect(text).toBe(LINK_REFUSED);
+    }
+  });
+
+  it('get_knowledge_graph: a depth outside 1 to 3, or no id, is one line, and never reaches the database', async () => {
+    const w = await world();
+    for (const depth of [0, 4, 1.5]) {
+      const { isError, text } = await w.call(LIVE, 'get_knowledge_graph', { id: 'L-INVOICING-1', depth });
+      expect(isError).toBe(true);
+      expect(text).toBe(GRAPH_READ_REFUSALS.depth);
+    }
+    const blank = await w.call(LIVE, 'get_knowledge_graph', { id: '  ' });
+    expect(blank).toEqual({ isError: true, text: GRAPH_READ_REFUSALS.id });
+    expect(w.calls).toEqual([]);
+  });
+
+  it('get_knowledge_graph: an id the product\'s graph does not hold is one line naming it', async () => {
+    const w = await world();
+    const { isError, text } = await w.call(LIVE, 'get_knowledge_graph', { id: 'widgets/BR-PRODUCT-99' });
+    expect(isError).toBe(true);
+    expect(text).toBe('No node widgets/BR-PRODUCT-99 in the knowledge graph of acme-app.');
+  });
+
+  it('get_knowledge_graph: another workspace\'s repository, or no single product, is the database\'s one line', async () => {
+    const w = await world();
+    const other = await w.call(LIVE, 'get_knowledge_graph', { id: 'L-INVOICING-1', repo: 'other/thing' });
+    expect(other).toEqual({ isError: true, text: 'Repository: other/thing is not one of this workspace\'s repositories.' });
+    const several = await (await world({ products: 2 })).call(LIVE, 'get_knowledge_graph', { id: 'L-INVOICING-1' });
+    expect(several.isError).toBe(true);
+    expect(several.text).toContain('acme/app, acme/site');
+  });
+
+  it('get_knowledge_graph: no database, or an answer out of shape, is one line', async () => {
+    const none = await (await world({ database: false })).call(LIVE, 'get_knowledge_graph', { id: 'L-INVOICING-1' });
+    expect(none).toEqual({ isError: true, text: GRAPH_READ_REFUSALS.noDatabase });
+    const lines: unknown[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => { lines.push(args); };
+    try {
+      const broken = await (await world({ graph: { product: null } })).call(LIVE, 'get_knowledge_graph', { id: 'L-INVOICING-1' });
+      expect(broken).toEqual({ isError: true, text: GRAPH_READ_REFUSALS.notRead });
+    } finally {
+      console.error = original;
+    }
   });
 
   it('report_unknown stores the question with its repository and file, and says it was sent to Settings › Business', async () => {

@@ -2,7 +2,7 @@
 // is imported only when its cabinet opens, so this file, like every other scene's, imports nothing from
 // that folder at run time (guard.test.ts): the loaded game comes in as `FrameState.kart` and draws
 // itself, and until then, or if it never loads, the canvas is the dark behind the text layer's line
-// (kart.tsx). The grid the race is drawn on is the one it started on, as SUPER OMNI WORLD keeps its own.
+// (kart.tsx). The grid the race is drawn on is the one it started on, as STARHOP keeps its own.
 import type { Hero, Tint } from '@omni/design';
 import type { Action } from '../keys';
 import type { KartOptions, OptionsView } from '../kart/options';
@@ -25,6 +25,8 @@ export interface KartHud {
   /** In a MULTI race (PRD 1572): whether the race's menu (BACK TO RACE / LEAVE RACE) is open over the race. Absent in a SINGLE race. */
   menu?: boolean;
   beat: '3' | '2' | '1' | 'GO' | null;
+  /** PRD 1963: `TURBO` shows under GO on a rocket start. */
+  turbo?: true;
   /** The race's own line, once it has begun: the player's place (1 to 6), the lap (1 to `laps`), the race time in tenths of a second and whether FINAL LAP shows. */
   run?: KartRun;
   /** The results table, once the player crossed the line at the end of the last lap. */
@@ -88,7 +90,9 @@ export type KartCue =
   | { kind: 'item'; item: KartItem; you: boolean; tiles: number }
   | { kind: 'box' }
   | { kind: 'hit'; item: 'blob' | 'orb'; you: boolean; tiles: number }
-  | { kind: 'spin' } | { kind: 'fall' } | { kind: 'finalLap' };
+  | { kind: 'spin' } | { kind: 'fall' } | { kind: 'finalLap' }
+  // PRD 1963, the player's own kart only: a tick as the sparks turn blue and orange, a whoosh at a mini-turbo, a rocket start or a slipstream, a sputter on a stall.
+  | { kind: 'tick'; color: 'blue' | 'orange' } | { kind: 'whoosh' } | { kind: 'sputter' };
 
 /** How far a rival's sound carries, in tiles: beyond it nothing is heard. */
 export const HEARD_TILES = 20;
@@ -105,6 +109,9 @@ export function soundOf(cue: KartCue): { sfx: Sfx; far: number } | null {
     case 'spin': return { sfx: 'spin', far: 0 };
     case 'fall': return { sfx: 'fall', far: 0 };
     case 'finalLap': return { sfx: 'finalLap', far: 0 };
+    case 'tick': return { sfx: cue.color === 'blue' ? 'tickBlue' : 'tickOrange', far: 0 };
+    case 'whoosh': return { sfx: 'whoosh', far: 0 };
+    case 'sputter': return { sfx: 'sputter', far: 0 };
     case 'item':
     case 'hit': {
       const effect: Sfx = cue.kind === 'hit' ? 'impact' : cue.item;
@@ -130,6 +137,15 @@ export function kartSong(hud: KartHud | null): SongName | null {
 /** Whether the race's engine hums: during the countdown and the race, not on the ready screen, the pause or the results. */
 export const kartEngineOn = (hud: KartHud | null): boolean => hud?.phase === 'countdown' || hud?.phase === 'race';
 
+/** The level the engine's hum rises to while GAS is held in the countdown (PRD 1963), a share of the top speed. */
+export const REV_LEVEL = 0.7;
+
+/** The engine's level, 0 to 1, or null when it does not hum: the speed on the road, and while GAS (A) is held in the countdown, the rev of a start. */
+export function kartEngineLevel(hud: KartHud | null, speed: number, held: ReadonlySet<Action>): number | null {
+  if (!kartEngineOn(hud)) return null;
+  return hud?.phase === 'countdown' && held.has('a') ? Math.max(speed, REV_LEVEL) : speed;
+}
+
 /**
  * The race itself, as the arcade drives it (PRD 1359, slice 2): stepped by the canvas loop with the
  * buttons held, answering presses, paused from outside, and read by the text layer through `hud()`.
@@ -146,10 +162,17 @@ export interface KartGame extends KartDraw {
   /** The id of the crew board this race's time goes to (PRD 1923): its circuit's. */
   board: string;
   hud(): KartHud;
+  /**
+   * Builds what the race's first frame draws, its circuit's ground, a slice at a time, waiting on `pause` between
+   * two slices so the page keeps drawing (bug 2152); resolves once it is built. A race drawn before builds it at once.
+   */
+  ready(pause?: () => Promise<void>): Promise<void>;
   /** The cues since the last call, in order, then forgotten. */
   cues(): readonly KartCue[];
   /** The player's speed as a share of its top speed on the road, 0 to 1. */
   speed(): number;
+  /** How loud the player's tyres screech, 0 (silent) to 1 (PRD 1963). */
+  skid(): number;
 }
 
 /** Where the game's import stands: on its way, the game ready, or the import failed. */
@@ -297,12 +320,15 @@ export const READY_LINE = readyLine(3);
 export type KartModule = typeof import('../kart/index');
 
 /**
- * Imports the game and makes it. A failed import (offline, or a chunk gone after a deploy) is logged
- * with `console.error` and answers null, so the screen can say so and A can try again.
+ * Imports the game, makes it and builds its circuit's ground (bug 2152). A failed import (offline, or a
+ * chunk gone after a deploy) is logged with `console.error` and answers null, so the screen can say so
+ * and A can try again.
  */
 export async function loadKart(load: () => Promise<Pick<KartModule, 'createKart'>>, seed = 1359, cast: readonly KartDriver[] = [], rules: Pick<KartOptions, 'laps' | 'difficulty' | 'look' | 'track'> | null = null): Promise<KartGame | null> {
   try {
-    return (await load()).createKart({ seed, cast, ...(rules ? { laps: rules.laps, difficulty: rules.difficulty, look: rules.look, circuit: rules.track } : {}) });
+    const game = (await load()).createKart({ seed, cast, ...(rules ? { laps: rules.laps, difficulty: rules.difficulty, look: rules.look, circuit: rules.track } : {}) });
+    await game.ready(); // the circuit's ground, built while LOADING… shows, not on the race's first frame (bug 2152)
+    return game;
   } catch (err) {
     console.error(err);
     return null;

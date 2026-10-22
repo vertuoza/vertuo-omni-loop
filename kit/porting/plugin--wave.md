@@ -1,8 +1,8 @@
 # `kit/plugin/skills/wave/SKILL.md` (`/omni:wave`)
 
-Source: `.claude/skills/vertuo-parallel-wave/SKILL.md` @ `vertuo-ai-domain@c4a210122`, plus the
+Source: `.claude/skills/nimbus-parallel-wave/SKILL.md` @ `nimbus-brain@c4a210122`, plus the
 board (§2), the per-wave loop body (§3 steps 2–4) and the "never merge into main" guardrail of
-`.claude/skills/vertuo-deliver/SKILL.md` at the same commit. The rest of `vertuo-deliver` (every
+`.claude/skills/nimbus-deliver/SKILL.md` at the same commit. The rest of `nimbus-deliver` (every
 wave, finishing the feature PR) belongs to `/omni:yolo`.
 
 ## Read from config instead of hard-coded
@@ -114,7 +114,7 @@ SKILL.md names exists now covers `sign`.
 ## Issue 1178 — the wave judges a sub-PR's review threads before it merges it
 
 Not a re-port: a kit-local bug fix. Upstream, and the kit until now, assumed a sub-PR is never
-reviewed, so a reviewer bot's threads on one (seven on vertuoza/vertuo-backend-php#6486, a real
+reviewed, so a reviewer bot's threads on one (seven on demo-org/nimbus-core#6486, a real
 migration bug among them) were merged past into the feature branch. Step 4 gains item 5, **Review
 threads**, before the gate (which becomes item 6): `omni care state <prd> --pr <n>` names the
 sub-PR's `slice` and gives it a sub-PR's round (`decideSubPrRound`, `kit/lib/care/decide.ts`):
@@ -204,3 +204,19 @@ again. The guardrails gained "Never claim on a branch behind the default branch"
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.ts kit/bin/board.test.ts` and `pnpm test`, green.
+
+## A slice agent runs one command at a time
+
+An agent started in its own worktree (in Claude, `isolation: "worktree"`) refuses a command it
+cannot prove stays inside that worktree, such as a `cd … && …` chain that runs git, and the slice
+loses a turn on each refusal; runner jobs met it on every slice. Both dispatch prompts (step 3 and
+**Inline wave**) now say to run each command alone, from the worktree, and git as
+`git -C <your worktree> …`; step 3 says why, under **One command at a time**.
+
+### Tests
+
+`kit/test/plugin.test.ts`, `a slice agent in its own worktree runs one command at a time`.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.ts` and `pnpm test`, green.

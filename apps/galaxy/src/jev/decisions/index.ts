@@ -6,7 +6,7 @@ import { lawWorth } from './law-worth';
 import { outboxRisk } from './outbox-risk';
 import { questionCategory } from './question-category';
 import { unknownWorthAsking } from './unknown-worth-asking';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 
 // The registry of Jev decisions (PRD 812, decision 9): one file per decision, listed here. The seven
 // rows (PRD 855 s4 added Unknown worth asking, PRD 871 s4 `constituent-break`, PRD 1217 s3 `hitl-category`, PRD 1342 s3 `law-worth`) are the ones public.jev_decision_names() allows, in the page's order; a decision whose entry is

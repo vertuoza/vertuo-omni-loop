@@ -4,16 +4,17 @@ form-version: 1
 state: filled
 points-to: null
 evidence:
-  - package.json@39e6355
-  - vitest.config.ts@7a03f3b
-  - kit/test/fixture.ts@2b8d897
-  - kit/bin/kb.test.ts@aef9a95
-  - kit/lib/playbook/forms.test.ts@2d0d280
-  - apps/omni-app/src/outbox-check/end-to-end.test.ts@6d46f08
-  - README.md@7eaaaa0
-  - game/README.md@1654a62
-  - apps/omni-app/README.md@ed64d66
-terraformed: 2026-09-25
+  - package.json@9870eaf
+  - vitest.config.ts@731c58f
+  - kit/test/fixture.ts@e399cda
+  - kit/bin/kb.test.ts@cf5d524
+  - kit/lib/playbook/forms.test.ts@d7eacc8
+  - apps/omni-app/src/outbox-check/end-to-end.test.ts@862e637
+  - README.md@e0d3c68
+  - game/README.md@04db6c1
+  - apps/omni-app/README.md@a655cb8
+  - stryker.config.ts@2cdd709
+invaded: 2026-10-20
 ---
 
 # Testing
@@ -21,7 +22,7 @@ terraformed: 2026-09-25
 Use this page when adding, changing, or choosing tests.
 
 ## Commands
-<!-- slot: commands · required · by: terraform · verified: 2026-09-25 -->
+<!-- slot: commands · required · by: invade · verified: 2026-09-25 -->
 | What | Command |
 |---|---|
 | everything | `pnpm test` (runs `vitest run` over the whole workspace) |
@@ -31,7 +32,8 @@ Use this page when adding, changing, or choosing tests.
 
 **Mutation testing** (PRD 1072, ADR-0059) proves the tests catch bugs, not only run lines: Stryker changes
 the delivery core's code (`kit/lib/outbox/`, `kit/lib/policy/`, `kit/lib/inbox/`, `kit/lib/env/`,
-`kit/lib/board.ts`, `kit/lib/config.ts`, `kit/lib/layout.ts`, `kit/lib/ids.ts`) one mutant at a time and
+`kit/lib/board.ts`, `kit/lib/config.ts`, `kit/lib/layout.ts`, `kit/lib/ids.ts`,
+`kit/lib/budgets/ratchet.ts`) one mutant at a time and
 runs the kit library's own tests against each. After writing or changing tests for core code, and in
 every bug fix that touches it, run `pnpm mutation:changed` from the worktree, passing
 `--base origin/<feature branch>` in a slice: it mutates only the changed core files and ends with
@@ -52,13 +54,18 @@ A test outside them never runs.
   with its fixture repositories under `apps/omni-app/test/fixtures/`.
 - A file that proves a law stays its owner's: tests of other behaviour go in a test file of their
   own, and the law's file is left untouched (PRD 1972, s4-01; it replaces PRD 1739, s2-01, which
-  let them sit beside the proof).
+  let them sit beside the proof). The owner may let them sit beside the proof, on the PRD's
+  outbox, when the law's own tests stay unchanged (PRD 1795, s3-01). PRD 1796's contract tests do,
+  in `kit/lib/knowledge/check-knowledge.test.ts`, beside BR-PRODUCT-95's proof, which they leave
+  untouched (PRD 1796, s1-04). PRD 1798's `get_knowledge_graph` tests do too, in
+  `apps/galaxy/src/agent-connect/mcp/server.test.ts`, beside BR-PRODUCT-66's proof, with the
+  tool-listing test counting four tools (PRD 1798, s4-01).
 
 ## Choosing the level
 <!-- slot: levels · optional -->
 
 ## Never
-<!-- slot: never · required · by: terraform -->
+<!-- slot: never · required · by: invade -->
 - A test never calls GitHub or Supabase: everything runs on fixtures, and the GitHub App's tests
   run against a stubbed GitHub.
 - A floor in `mutation/floor.json` never goes down, and no module leaves it:

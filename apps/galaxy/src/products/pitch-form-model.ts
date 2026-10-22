@@ -1,4 +1,4 @@
-import { presetLook, type PitchPreset, type PitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import { presetLook, type PitchPreset, type PitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 
 // A product's Pitch section as pure data (PRD 1108 s2, spec "1. Pitch settings, per product"): the
 // choices each field offers, the edits the form makes to a draft of the settings, and the page's state

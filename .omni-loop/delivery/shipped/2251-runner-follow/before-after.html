@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 2251 before/after</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts), as the library mockups write them. */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-on-plasma: #07061c;
+    --ask-cyan: #6ff0ff; --ask-green: #4ee08a; --ask-red: #ff6b86;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ask-ground); color: var(--ask-ink); font: 16px/1.55 var(--ask-body); }
+  a { color: var(--ask-cyan); }
+  .page { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 22px; }
+  h1 { margin: 0; font-size: 26px; } h2 { margin: 18px 0 0; font-size: 20px; border-top: 1px solid var(--ask-line-strong); padding-top: 16px; }
+  h3 { margin: 0 0 8px; font: 700 12px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .lede, .cap { color: var(--ask-muted); margin: 0; max-width: 80ch; } .cap { font-size: 14px; margin-top: 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .term { background: #000; border: 1px solid var(--ask-line-strong); border-radius: 10px; padding: 12px 14px; font: 13px/1.6 var(--ask-mono); white-space: pre-wrap; overflow-x: auto; }
+  .term .me { color: var(--ask-cyan); } .term .dim { color: var(--ask-muted); } .term .ok { color: var(--ask-green); } .term .warn { color: var(--ask-plasma); }
+  .band { margin-top: 8px; border-top: 1px dashed var(--ask-line-strong); padding-top: 6px; color: var(--ask-muted); }
+
+  /* The Runners page's jobs table (runners/page/runners.css, as runners.html draws it). */
+  .jobs { background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 10px; font-size: 14px; }
+  .jrow { display: grid; grid-template-columns: minmax(0, 1.6fr) 140px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--ask-line); }
+  .jrow:first-child { border-top: 0; } .jhead { color: var(--ask-muted); font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; }
+  .jline { display: grid; gap: 2px; } .prd { font-size: 13px; }
+  code { font: 13px/1.4 var(--ask-mono); }
+  .status { font: 700 12px/1 var(--ask-body); padding: 4px 8px; border-radius: 999px; justify-self: start; border: 1px solid var(--ask-plasma); color: var(--ask-plasma); white-space: nowrap; }
+  .acts { display: flex; gap: 8px; justify-content: end; flex-wrap: wrap; align-items: center; }
+  .ghost { display: inline-flex; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--ask-line-strong); font: 700 12px/1 var(--ask-body); color: var(--ask-ink); background: none; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>PRD 2251 · The terminal sends a PRD to a runner and follows it</h1>
+  <p class="lede">Today a PRD sent to a runner leaves the terminal silent, and the Runners page does not say which PRD a job builds. After, <code>/omni:yolo-runner</code> sends it (or picks up the job sent from the page) and follows it to the end; the page names the PRD; the band shows the free slots.</p>
+
+  <h2>Functional</h2>
+  <div class="pair">
+    <div>
+      <h3>Today, in the terminal</h3>
+      <div class="term"><span class="me">› /omni:brainstorm 'a red outbox waits on answers'</span>
+<span class="dim">… PRD 2223 written, waiting for approval on its page.</span>
+<span class="dim">/omni:yolo 2223</span>
+
+<span class="dim">(you approve on the page, then Send to terminal → nimbus-agents)</span>
+
+<span class="dim">(nothing more here: the build runs on the runner, out of sight)</span></div>
+    </div>
+    <div>
+      <h3>After, in the terminal</h3>
+      <div class="term"><span class="me">› /omni:yolo-runner 2223</span>
+<span class="dim">runners online: nimbus-agents · 2 of 4 free</span>
+sent /omni:yolo 2223 · job 66fa712d
+09:41 queued
+09:41 claimed by nimbus-agents
+09:41 <span class="warn">waiting for approval</span> · approve on its page
+09:52 PR: https://github.com/vertuoza/vertuo-omni-loop/pull/2234
+09:53 PR: https://github.com/vertuoza/vertuo-omni-loop/pull/2235
+10:20 1/2 slices merged
+10:22 2/2 slices merged
+10:41 <span class="ok">Ready</span> · PRD page: omni-loop.xyz/prd/at/…/2223
+<span class="dim">Next: review and merge #2225.</span>
+<div class="band">runners 2/4 slots free · PRD 2223 on nimbus-agents · 2/2 slices merged</div></div>
+    </div>
+  </div>
+  <p class="cap">A job already sent from the page is followed, never sent twice. Ending on Waiting on answers, it says to answer on the feature PR, then <code>/omni:yolo-fix 2223</code>. The band's runners row shows only while a runner is online for this repository.</p>
+
+  <h2>Pixel perfect</h2>
+  <p class="cap">screens: runners</p>
+  <div class="pair">
+    <div>
+      <div class="jobs" data-screen="runners">
+        <div class="jrow jhead"><span>Line</span><span>Status</span><span></span></div>
+        <div class="jrow"><span class="jline"><code data-content>/omni:yolo 2223</code></span><span class="status">Running 12 min</span><span class="acts"><button class="ghost" type="button" data-primary>Terminal</button></span></div>
+      </div>
+      <p class="cap">Today: the line only.</p>
+    </div>
+    <div>
+      <div class="jobs" data-screen="runners">
+        <div class="jrow jhead"><span>Line</span><span>Status</span><span></span></div>
+        <div class="jrow"><span class="jline"><code data-content>/omni:yolo 2223</code><span class="prd"><a href="#">PRD 2223</a> · <span data-content>A red outbox waits on your answers</span></span></span><span class="status">Running 12 min</span><span class="acts"><button class="ghost" type="button" data-primary>Terminal</button></span></div>
+      </div>
+      <p class="cap">After: the PRD's number, linking its page, and its title under the line. A line that names no known PRD shows as today.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

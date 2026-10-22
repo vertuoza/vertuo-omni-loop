@@ -16,8 +16,8 @@ mode has one rule: **one plan, one phase-0, one gate**. You approve the whole fe
 plan repository, and you answer every decision the agents took once, in the plan repository, while
 the code's pull requests open in each target.
 
-The example on this page is the same throughout: PRD 600 lives in `vertuo-automation-plan`; its
-slice s1 lands in `vertuo-backend-php`, and s2 and s3 in `vertuo-apps`.
+The example on this page is the same throughout: PRD 600 lives in `nimbus-plan`; its
+slice s1 lands in `nimbus-backend-php`, and s2 and s3 in `nimbus-apps`.
 
 There is a second way, with no plan repository at all: a **product PRD**, kept on a
 [product](/docs/products) on the Omni page and run from any of its repositories.
@@ -97,15 +97,15 @@ target say what may change in it, and in what order:
 ```yaml file=.omni-loop/config.yml
 plan:
   targets:
-    - repo: vertuoza/vertuo-backend-php
+    - repo: demo-org/nimbus-backend-php
       role: back-end
       knowledge: imported
       readAt: 3f9c2a7e1b0d4c8a9e6f5d2b1a0c9e8d7f6a5b4c
-    - repo: vertuoza/vertuo-apps
+    - repo: demo-org/nimbus-apps
       role: front-end
       knowledge: own
-      consumes: [vertuo-backend-php]
-    - repo: vertuoza/vertuo-legacy
+      consumes: [nimbus-backend-php]
+    - repo: demo-org/nimbus-legacy
       role: legacy
       knowledge: none
       readOnly: true
@@ -152,7 +152,7 @@ plan:
 A config names `product` or `targets`, never both: with both it is refused, naming the two keys.
 `omni targets` then reads the product's links from the Omni page, signed in as you (`omni signin`),
 and prints the same table. A link with no role is refused by name:
-`vertuoza/vertuo-backend-php has no role in product Mobile: set it on the product page`. Each read
+`demo-org/nimbus-backend-php has no role in product Mobile: set it on the product page`. Each read
 is kept in `.omni-loop/local/product-targets.json`: when the Omni page does not answer within five
 seconds, `omni targets` reads that copy and says `targets from the last read, <date> · server
 unreachable`; with no copy yet, it stops with `no targets: the server is unreachable and nothing was
@@ -183,6 +183,33 @@ The phase-0 pull request adds a **What lands where** table, so each team finds i
 repository, with its role, its slices and the waves they sit in. Every team reads the whole feature
 side by side before any code exists. A person reviews it and merges it, which puts the PRD in the
 plan repository's inbox.
+
+### Names follow each repository's conventions
+
+Before it names a table, a column, a GraphQL field or a service in a target, the brainstorm reads
+where that target writes its conventions down. `omni conventions --root <clone>` lists those files
+from the target's read-only copy, and the agent reads the pages the design bears on: the pages on
+the database and its migrations for a new table or column, the pages on the schema for a GraphQL
+change. `/omni:plan` does the same for each target a slice may land in.
+
+The index holds, in this order:
+
+1. `CLAUDE.md` and `AGENTS.md` at the root, and every file they import with `@<path>`.
+2. The files the target's `.omni-loop/config.yml` lists under `paths.context`, when it has one.
+3. The readme of the `docs` folder (`README.md`, `readme.md` or `index.md`).
+4. The readme of `docs/adr`, or, without one, every ADR in it.
+5. Every Markdown page those files link to, one level of links only, inside the repository. A link
+   to a file that does not exist reads `missing`.
+
+So a page is read only when one of those files links to it. A `docs/migrations.md` that nothing
+links to is never found: link it from the target's `CLAUDE.md` or from the readme of its `docs`
+folder. A target needs no omni config for this.
+
+The spec then carries a `## Conventions` table, one row per name the design picks, each with the
+page and line it comes from (`_created_at ← docs/migrations.md:12`), or the neighbouring code it
+copies when no page settles it. When two conventions coexist and no page says which one wins, the
+agent asks you during the design; it never picks one silently. Read that table when you review the
+phase-0 pull request: a name without a source is the one to question.
 
 ## The pull requests over time
 
@@ -221,6 +248,29 @@ with your PRD's number. It is `/omni:yolo` for several repositories:
   earliest wave, then the plan repository's, which closes the PRD.
 
 It never merges into any repository's default branch. You do.
+
+### A target's smoke, for a bug only the build shows
+
+`/omni:mega-bug-fix` runs the same two commands in a target, then one more when it needs it. A target
+that wants bug fixes proven against what it ships commits `commands.smoke` in its
+`.omni-loop/config.yml`, beside `setup` and `preflight`:
+
+```yaml file=.omni-loop/config.yml
+commands:
+  setup: bun install --frozen-lockfile
+  preflight: bun run lint && bun run test
+  smoke: bun run build && bun run test:smoke
+```
+
+`smoke` **builds what the repository ships to production, then checks the built output**: for a
+front-end it serves the production bundle and loads each route; for a server-rendered app it renders
+each route from the built server. The bug-fix skills run it only when a passing reproduction cannot
+see the bug (an error that only the production bundle produces, or a regression range that changes the
+bundler or the framework): the reproduction is added as one more case of `smoke`, which must fail
+before any fix and pass after it. They read it from the target's default branch, run it after its
+`setup`, and never edit the target's CI. A target with no `smoke` it can run makes the skill stop, keep
+the reproduction on a pushed branch, and comment the line to commit. Run `smoke` in CI too: it is then
+the guard that keeps the bug from coming back.
 
 A PRD whose spec was merged without a plan, as a roadmap leaves them, is planned first: the plan says
 which slice lands in which target, and `omni plan check` grades it before the first wave.
@@ -275,6 +325,22 @@ type:
 It reads your answers on the plan pull request and reworks each decision you changed **in the
 repository it was taken in**: a sub-pull request into that target's feature branch. Then it runs the
 same gate again, and marks the plan pull request ready once no question is left.
+
+## The plan repository stays
+
+A plan repository is **kept**. The loop never archives it, nor deletes it, whatever step its
+repositories have reached on the [rollout ladder](/docs/products#the-rollout-ladder). Its PRDs, its
+roadmaps, its bug records and its imported knowledge copies keep working as they do here, side by
+side with the product way: a repository below step 5 stays on the old way, and a roadmap or bug
+record born in git finishes in git.
+
+A [product](/docs/products)'s **Repositories & approvers** tab shows, as information only, each
+repository's ladder step and what still lives in its plan repository, such as `nimbus-web · step 3`
+or `roadmap 0412 · in git`. It has no action on the plan repository.
+
+The skills and checks read an imported target's knowledge from its pack, which the server keeps,
+rather than from a copy under `.omni-loop/knowledge/repos/`; `omni kb pack get <repo>` fetches it.
+The [knowledge packs](/docs/products#knowledge-packs) section says how a pack is fetched and refused.
 
 ## Without a plan repository
 

@@ -3,13 +3,18 @@
 //
 // Errors: a field the schema refuses (and nothing further is checked then), a media file missing from the
 // run folder or outside it, a clip that ends before it starts, an intro that is not the first scene or an
-// outro that is not the last (or none), and a music sync point past its scene. Warnings: a field over its
-// word count, a scene whose words take longer to read than it lasts, and a whole outside 15 to 60
-// seconds. Each finding names its path in the storyboard.
+// outro that is not the last (or none), a music sync point past its scene, and a title whose accent is
+// left open (a `**` with no closing one, PRD 2030), and a before/after's `wipeAt` that leaves its wipe less
+// than its 1.4 s (PRD 2030 s4); a step's own media is checked as a scene's. Warnings: a field over its word
+// count (a body over 20, a step's body over 12, PRD 2030; the accent markers are no words), a title with
+// more than one accent, a scene whose words take longer to read than it lasts (its eyebrow and body
+// counted, and its steps' bodies; a stats scene's figure labels, held to four words, PRD 2030 s5), and a
+// whole outside 15 to 60 seconds. A figure without its source is refused by the schema. Each finding names its path in
+// the storyboard.
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
 import { messageOf, propertyOf } from '../narrow.ts';
-import { STORYBOARD_FILE, mediaOf, parseStoryboard } from './storyboard.ts';
+import { STORYBOARD_FILE, WIPE_SECONDS, mediaOf, parseStoryboard } from './storyboard.ts';
 import type { Media, Scene, Storyboard } from './storyboard.ts';
 
 /** One finding: where in the storyboard (`scenes.2.media.file`) and what. */
@@ -30,10 +35,12 @@ const WORD_LIMITS = Object.freeze({
   text: { max: 16, name: 'a statement' },
   bullet: { max: 6, name: 'a bullet' },
   step: { max: 5, name: 'a step' },
+  stepBody: { max: 12, name: 'a step body' },
   cta: { max: 5, name: 'a call to action' },
   eyebrow: { max: 4, name: 'an eyebrow' },
   tag: { max: 4, name: 'a tag' },
   closing: { max: 12, name: 'a closing line' },
+  body: { max: 20, name: 'a body' },
   label: { max: 4, name: 'a label' },
 });
 type Limit = keyof typeof WORD_LIMITS;
@@ -41,7 +48,10 @@ type Limit = keyof typeof WORD_LIMITS;
 /** A piece of on-screen words: its path, its text and the limit it is held to. */
 type Words = { path: string; text: string; limit: Limit };
 
-const countWords = (text: string): number => text.trim().split(/\s+/).filter(Boolean).length;
+/** What marks a title's accent: `**word**` or `**a few words**`. */
+const ACCENT_MARKER = '**';
+
+const countWords = (text: string): number => text.split(ACCENT_MARKER).join('').trim().split(/\s+/).filter(Boolean).length;
 const plural = (count: number, word: string): string => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 /** The checked `storyboard.json` of the run folder `dir`, which holds one; JSON that does not read is an error. */
@@ -65,8 +75,8 @@ export function checkStoryboard(value: unknown, { hasFile }: { hasFile: (file: s
   const { storyboard } = parsed;
   const seconds = lengthOf(storyboard);
   return {
-    errors: [...mediaErrors(storyboard, hasFile), ...orderErrors(storyboard.scenes), ...syncErrors(storyboard)],
-    warnings: [...storyboard.scenes.flatMap(sceneWarnings), ...lengthWarnings(seconds)],
+    errors: [...mediaErrors(storyboard, hasFile), ...orderErrors(storyboard.scenes), ...syncErrors(storyboard), ...storyboard.scenes.flatMap(wipeErrors), ...storyboard.scenes.flatMap(accentErrors)],
+    warnings: [...storyboard.scenes.flatMap(sceneWarnings), ...storyboard.scenes.flatMap(accentWarnings), ...lengthWarnings(seconds)],
     scenes: storyboard.scenes.length,
     seconds,
   };
@@ -119,6 +129,16 @@ function syncErrors({ meta, scenes }: Storyboard): Finding[] {
   return [{ path: 'meta.music.sync.at', message: `${sync.at} s is past the end of scene ${sync.scene + 1}, ${scene.duration} s long` }];
 }
 
+/** Under this much short of the wipe's length, a scene's end still counts as leaving it its time. */
+const WIPE_SLACK = 1e-9;
+
+/** A before/after whose wipe starts too late to finish before the scene ends. */
+function wipeErrors(scene: Scene, index: number): Finding[] {
+  if (scene.type !== 'beforeAfter' || scene.wipeAt === undefined) return [];
+  if (scene.duration - scene.wipeAt >= WIPE_SECONDS - WIPE_SLACK) return [];
+  return [{ path: `scenes.${index}.wipeAt`, message: `the wipe starts at ${scene.wipeAt} s and takes ${WIPE_SECONDS} s; the scene ends at ${scene.duration} s` }];
+}
+
 /** A scene's warnings: each field over its word count, then words that take longer to read than it lasts. */
 function sceneWarnings(scene: Scene, index: number): Finding[] {
   const words = wordsOf(scene, `scenes.${index}`);
@@ -146,11 +166,15 @@ const WORD_FIELDS: readonly (readonly [string, Limit])[] = Object.freeze([
   ['title', 'title'],
   ['tag', 'tag'],
   ['text', 'text'],
+  ['body', 'body'],
   ['bullets.*', 'bullet'],
   ['steps.*.label', 'step'],
+  ['steps.*.body', 'stepBody'],
   ['labels.before', 'label'],
   ['labels.after', 'label'],
   ['media.callouts.*.label', 'label'],
+  ['steps.*.media.callouts.*.label', 'label'],
+  ['items.*.label', 'label'],
   ['cta', 'cta'],
   ['closing', 'closing'],
 ]);
@@ -166,6 +190,29 @@ function textsAt(value: unknown, path: string[], at: string): { path: string; te
 /** Every piece of words a scene shows, with its path. */
 function wordsOf(scene: Scene, at: string): Words[] {
   return WORD_FIELDS.flatMap(([field, limit]) => textsAt(scene, field.split('.'), at).map((piece) => ({ ...piece, limit })));
+}
+
+/** The fields that hold a scene's title: the statement's text is its title, the outro's closing line its own. */
+const TITLE_FIELDS = Object.freeze(['title', 'text', 'closing']);
+
+/** A scene's titles, each with its path and how many accent markers it holds. */
+function titlesOf(scene: Scene, index: number): { path: string; markers: number }[] {
+  return TITLE_FIELDS.flatMap((field) => textsAt(scene, [field], `scenes.${index}`)).map(({ path, text }) => ({ path, markers: text.split(ACCENT_MARKER).length - 1 }));
+}
+
+/** A title whose last `**` opens an accent that never closes. */
+function accentErrors(scene: Scene, index: number): Finding[] {
+  return titlesOf(scene, index)
+    .filter(({ markers }) => markers % 2 === 1)
+    .map(({ path }) => ({ path, message: `an accent is left open: close it with another ${ACCENT_MARKER}` }));
+}
+
+/** A title with more than one accent: one word, or a few, carries it. */
+function accentWarnings(scene: Scene, index: number): Finding[] {
+  return titlesOf(scene, index)
+    .map(({ path, markers }) => ({ path, accents: Math.floor(markers / 2) }))
+    .filter(({ accents }) => accents > 1)
+    .map(({ path, accents }) => ({ path, message: `${plural(accents, 'accent')}; a title holds one` }));
 }
 
 function lengthWarnings(seconds: number): Finding[] {

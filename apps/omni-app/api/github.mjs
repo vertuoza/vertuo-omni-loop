@@ -189,7 +189,10 @@ var SECRETS = Object.freeze([
   /\bgithub_pat_[A-Za-z0-9_]{16,}/g,
   /\bsk-[A-Za-z0-9_-]{16,}/g,
   /\bAKIA[0-9A-Z]{16}\b/g,
-  /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g
+  /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g,
+  /\bsb_(?:secret|publishable)_[A-Za-z0-9_-]{16,}/g,
+  /\bwhsec_[A-Za-z0-9+/=]{16,}/g,
+  /\bxox[abpr]-[A-Za-z0-9-]{10,}/g
 ]);
 var Text = z2.string().optional().catch(void 0);
 var ModelBody = z2.object({
@@ -377,6 +380,16 @@ var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
 var ProductPrdIdSchema = z4.string().regex(PRODUCT_PRD).refine((id) => {
   const cut2 = id.lastIndexOf("-");
   return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
+var ProductRoadmapIdSchema = z4.string().regex(PRODUCT_ROADMAP).refine((id) => {
+  const cut2 = id.lastIndexOf("-R");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PRODUCT_BUG = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-B([1-9]\d{0,9})$/;
+var ProductBugIdSchema = z4.string().regex(PRODUCT_BUG).refine((id) => {
+  const cut2 = id.lastIndexOf("-B");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PrNumberSchema = z4.number().int().positive().brand();
 var CommentIdSchema = z4.number().int().positive().brand();
@@ -612,6 +625,60 @@ var FlowSchema = z6.object({
   }
 });
 
+// kit/lib/layers/layers.ts
+var CANONICAL_LAYERS = Object.freeze({
+  ui: "screens and components",
+  api: "REST or RPC routes and their payloads",
+  schema: "GraphQL or other typed contracts callers compile against",
+  db: "stored shapes, migrations, row-level security",
+  auth: "identity, sign-in, access",
+  event: "webhooks, queues, messages between services",
+  cli: "commands a person or an agent types",
+  job: "cron, workers, background runs",
+  infra: "deploy, environments, hosting",
+  ci: "pipelines, hooks, checks"
+});
+var CANONICAL_ROLES = Object.freeze({
+  api: "serves routes, data and business rules to other repositories",
+  web: "a web application a person opens in a browser",
+  mobile: "a mobile application",
+  ui: "a shared set of screens, components or design tokens",
+  library: "code other repositories install and call",
+  infra: "deploy, environments and hosting for the product",
+  plan: "holds the product's plans and delivery, and builds no feature itself",
+  doc: "documentation, guides and written knowledge",
+  monorepo: "several of the roles above in one repository"
+});
+var ROLE_LAYERS = Object.freeze({
+  api: ["api", "schema", "db", "auth", "event", "job"],
+  web: ["ui", "auth", "api"],
+  mobile: ["ui", "auth", "api"],
+  ui: ["ui"],
+  library: ["api", "cli"],
+  infra: ["infra", "ci"],
+  plan: ["cli", "ci"],
+  doc: [],
+  monorepo: ["ui", "api", "schema", "db", "auth", "event", "cli", "job", "infra", "ci"]
+});
+var LAYER_ALIASES = Object.freeze({
+  rest: "api",
+  graphql: "schema",
+  database: "db",
+  migration: "db"
+});
+var ROLE_ALIASES = Object.freeze({
+  "back-end": "api",
+  backend: "api",
+  "front-end": "web",
+  frontend: "web",
+  docs: "doc"
+});
+var has = (table, word) => Object.hasOwn(table, word);
+function layerOf(word) {
+  return has(LAYER_ALIASES, word) ? LAYER_ALIASES[word] ?? word : word;
+}
+var layerList = () => Object.keys(CANONICAL_LAYERS).join(", ");
+
 // kit/lib/config.ts
 var CONFIG_FILE = ".omni-loop/config.yml";
 var CONFIG_VERSION = 1;
@@ -660,11 +727,27 @@ var proofUrl = z7.string().refine((value) => {
 var envName = z7.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
 var lawOwner = z7.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
+var personLogin = z7.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, "a GitHub login, without @, never a team");
+var ownerWithDelegate = z7.preprocess(
+  (value) => isRecord(value) ? { login: "", delegate: "", ...value } : value,
+  z7.object({ login: personLogin, delegate: personLogin }).strict().refine((entry) => entry.login.toLowerCase() !== entry.delegate.toLowerCase(), {
+    message: "a delegate other than its own owner",
+    path: ["delegate"]
+  })
+);
+var lawOwnerEntry = z7.union([lawOwner, ownerWithDelegate]);
 var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
 var contractKind = z7.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
-var contractKinds = z7.array(contractKind).min(1, "at least one kind, such as api").superRefine((kinds, issues) => {
+var contractKinds = z7.array(contractKind).min(1, "at least one kind, such as api").transform((kinds) => kinds.map(layerOf)).superRefine((kinds, issues) => {
   const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
   if (twice !== void 0) issues.addIssue({ code: "custom", message: `"${twice}" is listed twice` });
+});
+var layersSection = z7.record(z7.string(), z7.array(regexSource).min(1, "at least one path pattern")).superRefine((layers, issues) => {
+  for (const key of Object.keys(layers)) {
+    if (!Object.hasOwn(CANONICAL_LAYERS, key)) {
+      issues.addIssue({ code: "custom", path: [key], message: `${key} is not a layer (${layerList()})` });
+    }
+  }
 });
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = z7.object({
@@ -702,8 +785,8 @@ function checkTargets(targets, issues) {
   targets.forEach(({ repo, knowledge, readAt, consumes = [] }, index) => {
     const own = targetShortName(repo);
     const others = names.filter((name) => name !== own);
-    consumes.forEach((name, at) => {
-      const path = ["targets", index, "consumes", at];
+    consumes.forEach((name, at2) => {
+      const path = ["targets", index, "consumes", at2];
       if (name === own) issues.addIssue({ code: "custom", path, message: `${name} is this target itself \u2014 a target never consumes itself` });
       else if (!others.includes(name)) {
         issues.addIssue({ code: "custom", path, message: `${name} names no other target of plan.targets by its short name (${others.join(", ") || "none"})` });
@@ -828,6 +911,11 @@ var ConfigSchema = z7.object({
     approved: labelName.default("omni:approved"),
     // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
     law: labelName.default("omni:law"),
+    // PRD 2175: the label a runner swaps in for `inProgress` on a claim whose job ended while it held
+    // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`). Left
+    // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
+    // exactly as before (so `omni init` does not create it: a person does).
+    released: labelName.optional(),
     autoCreate: z7.boolean().default(false)
   }),
   prLinks: section({
@@ -863,7 +951,10 @@ var ConfigSchema = z7.object({
     // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
     mutation: nullableText.default(null),
     // PRD 1369: a design linter `/omni:pixel-perfect review` runs when it is set; it only reports.
-    design: nullableText.default(null)
+    design: nullableText.default(null),
+    // PRD 2275: it builds what the repository ships to production, then runs checks against the
+    // built output; only the bug-fix skills run it, when a passing reproduction cannot see the bug.
+    smoke: nullableText.default(null)
   }),
   acceptance: z7.object({
     enabled: z7.boolean().default(false),
@@ -888,7 +979,11 @@ var ConfigSchema = z7.object({
     max: z7.number().int().positive().default(20),
     // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
     // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
-    owners: z7.array(lawOwner).default([])
+    // PRD 1794: an entry may be `{ login, delegate }` instead; the delegate is a CODEOWNER too.
+    owners: z7.array(lawOwnerEntry).default([]),
+    // PRD 1794: product leadership, GitHub logins asked last about what still waits on a person.
+    // Never written into CODEOWNERS, so its approval never clears a law.
+    leadership: z7.array(personLogin).default([])
   }),
   risk: section({
     storedShape: z7.array(regexSource).default([]),
@@ -898,6 +993,10 @@ var ConfigSchema = z7.object({
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
   landings: section({ alone: z7.array(regexSource).default([]) }),
+  // PRD 2346: the repository's map from canonical layers to the paths that hold them: regular
+  // expressions over repository paths, as a flow area's `paths`. A file may be in several layers.
+  // Optional: a config without it parses with no `layers` key, and no entry is narrowed by layer.
+  layers: layersSection.optional(),
   // PRD 1870: whether every slice that lands in this repository must declare, in its plan's
   // `contract` column, what it changes for the repository's callers — one or more of `kinds`, or
   // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
@@ -913,13 +1012,20 @@ var ConfigSchema = z7.object({
     stallDays: z7.number().int().positive().default(5),
     attempts: z7.number().int().positive().default(3),
     claimStaleMinutes: z7.number().int().positive().default(60),
+    // PRD 2175: how long a draft still on `labels.inProgress` may go with no commit and no update
+    // before the board reads its claim as stale: the fallback for a claim no runner saw die. Left
+    // out, `DEFAULT_CLAIM_DEAD_MINUTES` applies, and a config that does not set it parses exactly as before.
+    claimDeadMinutes: z7.number().int().positive().optional(),
     beforeAfterMaxBytes: z7.number().int().positive().default(512e3),
     // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
     // was before, one step at a time.
     parallelSteps: z7.number().int().min(1).max(6).default(3),
     // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
     // and a config that does not set it parses exactly as before.
-    hookMaxBytes: z7.number().int().positive().optional()
+    hookMaxBytes: z7.number().int().positive().optional(),
+    // PRD 1794: how many working days (Monday to Friday, UTC) a thing waits on a person before the
+    // next people are asked. Its own setting: `stallDays` is unchanged.
+    escalationWorkingDays: z7.number().int().min(1).max(10).default(2)
   }),
   // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
   // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
@@ -937,6 +1043,10 @@ var ConfigSchema = z7.object({
   // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
   // opts out. The pull request takes replies either way.
   answers: section({ enabled: z7.boolean().default(true) }),
+  // PRD 2338: whether `/omni:retro-apply` writes the guard test a kept lesson is worth, proved red
+  // then green, beside the rule it appends. Off by default: the retro PR stays documents only, and a
+  // lesson worth a guard names it for a person to take up. A repository opts in.
+  retro: section({ guards: z7.boolean().default(false) }),
   // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
   // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
   // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
@@ -1065,12 +1175,12 @@ function dropUnrecognized(raw, issues) {
   let dropped = false;
   for (const issue of issues) {
     if (issue.code !== "unrecognized_keys") continue;
-    let at = raw;
-    for (const step of issue.path) at = isRecord(at) ? at[String(step)] : void 0;
-    if (!isRecord(at)) continue;
+    let at2 = raw;
+    for (const step of issue.path) at2 = isRecord(at2) ? at2[String(step)] : void 0;
+    if (!isRecord(at2)) continue;
     for (const key of issue.keys) {
-      if (Object.hasOwn(at, key)) {
-        Reflect.deleteProperty(at, key);
+      if (Object.hasOwn(at2, key)) {
+        Reflect.deleteProperty(at2, key);
         dropped = true;
       }
     }
@@ -1291,7 +1401,7 @@ function toStageEvent(event, payload, shapes = DEFAULT_SHAPES) {
 function pullOf({ pull_request: pr, repository }) {
   return { pr, repository: repository.full_name, head: pr.head.ref, base: pr.base.ref, defaultBranch: repository.default_branch ?? "main" };
 }
-var seenAt = (stage, topic, at) => ({ stage, topic, at });
+var seenAt = (stage, topic, at2) => ({ stage, topic, at: at2 });
 var now = () => (/* @__PURE__ */ new Date()).toISOString();
 var mergedStage = ({ pr, head, base, defaultBranch }, branches) => {
   if (pr.merged !== true) return null;
@@ -1534,14 +1644,60 @@ function forwardTouch(touch, post) {
 
 // apps/omni-app/src/webhook/webhook.ts
 import { Webhooks } from "@octokit/webhooks";
-import { z as z13 } from "zod";
+import { z as z14 } from "zod";
+
+// apps/omni-app/src/fix-rows/fix-stamp.ts
+import { z as z12 } from "zod";
+
+// apps/omni-app/src/evaluate/prose-lines.ts
+var OPENING = /^ {0,3}(`{3,}(?=[^`]*$)|~{3,})/;
+function proseLines(body) {
+  const out = [];
+  let fence = null;
+  for (const line of body.split(/\r?\n/)) {
+    if (fence !== null) {
+      const closing = new RegExp(`^ {0,3}${fence[0] === "`" ? "`" : "~"}{${fence.length},}[ \\t]*$`);
+      if (closing.test(line)) fence = null;
+      continue;
+    }
+    const opening = OPENING.exec(line);
+    if (opening) fence = opening[1] ?? null;
+    else out.push(line);
+  }
+  return out;
+}
+
+// apps/omni-app/src/fix-rows/fix-stamp.ts
+var FIX_STAMP_EVENT = "omni-loop/fix.stamp.requested";
+var FixStampKindSchema = z12.enum(["merged", "closed", "reopened"]);
+var at = z12.string().refine((value) => !Number.isNaN(Date.parse(value)), "a time");
+var FixStampDataSchema = z12.looseObject({
+  installationId: z12.number(),
+  repository: z12.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+  prNumber: PrNumberSchema,
+  kind: FixStampKindSchema,
+  at,
+  bug: ProductBugIdSchema.nullable()
+});
+var FIXES = /^ {0,3}Fixes ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-B[1-9]\d{0,9})(?![\w-])/;
+function fixedRecordOf(body) {
+  for (const line of proseLines(body ?? "")) {
+    const id = FIXES.exec(line)?.[1];
+    const parsed = id === void 0 ? null : ProductBugIdSchema.safeParse(id);
+    if (parsed?.success) return parsed.data;
+  }
+  return null;
+}
+function fixStampId({ repository, prNumber, kind, at: when }) {
+  return `fix-stamp:${repository.toLowerCase()}#${String(prNumber)}:${kind}:${when}`;
+}
 
 // apps/omni-app/src/inbox-check/canon-actions.ts
-import { z as z12 } from "zod";
+import { z as z13 } from "zod";
 var CANON_ACTION_EVENT = "omni-loop/canon.action.requested";
 var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
 var FACTS = /<!--\s*omni-canon\s+(\{[^\n]*?\})\s*-->/;
-var MarkerSchema = z12.looseObject({ prd: z12.unknown(), persona: z12.unknown(), claims: z12.unknown() });
+var MarkerSchema = z13.looseObject({ prd: z13.unknown(), persona: z13.unknown(), claims: z13.unknown() });
 function readCanonMarker(summary) {
   const match2 = FACTS.exec(summary === void 0 || summary === null ? "" : printed(summary));
   if (!match2) return null;
@@ -1580,6 +1736,9 @@ var CANON_ACTIONS = Object.freeze({
 var APPROVED_LABEL_ACTIONS = Object.freeze({
   issues: Object.freeze(["labeled", "unlabeled"])
 });
+var FIX_STAMP_ACTIONS = Object.freeze({
+  pull_request: Object.freeze(["closed", "reopened"])
+});
 var APPROVED_LABEL = parseConfig("kit: 1").labels.approved;
 var HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
@@ -1587,34 +1746,37 @@ var HANDLED = Object.freeze({
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z13.looseObject({
+var PullRefSchema = z14.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z13.looseObject({ sha: z13.string().nullish() }).nullish(),
-  base: z13.looseObject({ ref: z13.string().nullish() }).nullish()
+  head: z14.looseObject({ sha: z14.string().nullish() }).nullish(),
+  base: z14.looseObject({ ref: z14.string().nullish() }).nullish()
 });
-var PayloadSchema = z13.looseObject({
-  action: z13.unknown(),
+var PayloadSchema = z14.looseObject({
+  action: z14.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z13.looseObject({ id: z13.number().nullish() }).nullish(),
-  repository: z13.looseObject({
-    name: z13.string(),
-    full_name: z13.string().nullish(),
-    owner: z13.looseObject({ login: z13.string().nullish() }).nullish(),
-    default_branch: z13.string().nullish()
+  installation: z14.looseObject({ id: z14.number().nullish() }).nullish(),
+  repository: z14.looseObject({
+    name: z14.string(),
+    full_name: z14.string().nullish(),
+    owner: z14.looseObject({ login: z14.string().nullish() }).nullish(),
+    default_branch: z14.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    merged: z13.boolean().nullish(),
-    merge_commit_sha: z13.string().nullish(),
-    merged_at: z13.string().nullish()
+    body: z14.string().nullish(),
+    merged: z14.boolean().nullish(),
+    merge_commit_sha: z14.string().nullish(),
+    merged_at: z14.string().nullish(),
+    closed_at: z14.string().nullish(),
+    updated_at: z14.string().nullish()
   }).nullish(),
-  check_run: z13.looseObject({
-    id: z13.number().nullish(),
-    external_id: z13.string().nullish(),
-    head_sha: z13.string().nullish(),
-    pull_requests: z13.array(PullRefSchema).nullish(),
-    output: z13.looseObject({ summary: z13.unknown() }).nullish()
+  check_run: z14.looseObject({
+    id: z14.number().nullish(),
+    external_id: z14.string().nullish(),
+    head_sha: z14.string().nullish(),
+    pull_requests: z14.array(PullRefSchema).nullish(),
+    output: z14.looseObject({ summary: z14.unknown() }).nullish()
   }).nullish(),
-  requested_action: z13.looseObject({ identifier: z13.unknown() }).nullish()
+  requested_action: z14.looseObject({ identifier: z14.unknown() }).nullish()
 });
 async function receiveWebhook({
   body,
@@ -1622,6 +1784,7 @@ async function receiveWebhook({
   secret,
   send,
   sendApproved = () => Promise.resolve(),
+  sendStamps = () => Promise.resolve(),
   forward,
   touch = () => Promise.resolve(),
   log: log2 = noteTo("webhook")
@@ -1653,14 +1816,17 @@ async function receiveWebhook({
   }));
   const events = toEvents(event, payload);
   const approved = toApprovedLabelRequests(event, payload);
-  if (events.length + approved.length === 0) return reply(200, "ignored");
+  const stamps = toFixStampRequests(event, payload);
+  const total = events.length + approved.length + stamps.length;
+  if (total === 0) return reply(200, "ignored");
   try {
     if (events.length > 0) await send(events);
     if (approved.length > 0) await sendApproved(approved);
+    if (stamps.length > 0) await sendStamps(stamps);
   } catch (error) {
     return reply(502, `could not send the event: ${String(messageOf2(error))}`);
   }
-  return reply(200, `sent ${events.length + approved.length}`);
+  return reply(200, `sent ${total}`);
 }
 function toEvents(event, payload) {
   const action = readPayload(payload)?.action;
@@ -1718,9 +1884,25 @@ function toHarvestRequests(event, payload) {
     data: { installationId, owner, repo, repository, prNumber }
   }));
 }
-var LabelEventSchema = z13.looseObject({
-  label: z13.looseObject({ name: z13.string() }),
-  issue: z13.looseObject({ number: PrdNumberSchema, pull_request: z13.unknown().optional() })
+function toFixStampRequests(event, delivery) {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(FIX_STAMP_ACTIONS, event, payload.action)) return [];
+  const source = sourceOf(payload);
+  const pull = payload.pull_request;
+  const prNumber = pull?.number ?? payload.number;
+  if (!source || !pull || prNumber === null || prNumber === void 0) return [];
+  const bug = fixedRecordOf(pull.body);
+  const defaultBranch = payload.repository?.default_branch;
+  if (bug === null && defaultBranch && pull.base?.ref !== defaultBranch) return [];
+  const kind = payload.action === "reopened" ? "reopened" : pull.merged === true ? "merged" : "closed";
+  const at2 = { merged: pull.merged_at, closed: pull.closed_at, reopened: pull.updated_at }[kind];
+  if (!at2) return [];
+  const data = { installationId: source.installationId, repository: source.repository, prNumber, kind, at: at2, bug };
+  return [{ name: FIX_STAMP_EVENT, id: fixStampId(data), data }];
+}
+var LabelEventSchema = z14.looseObject({
+  label: z14.looseObject({ name: z14.string() }),
+  issue: z14.looseObject({ number: PrdNumberSchema, pull_request: z14.unknown().optional() })
 });
 function toApprovedLabelRequests(event, delivery) {
   const payload = readPayload(delivery);
@@ -1814,6 +1996,7 @@ function githubRoute(env, {
         secret: env.webhook?.secret,
         send,
         sendApproved: send,
+        sendStamps: send,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched)
       });

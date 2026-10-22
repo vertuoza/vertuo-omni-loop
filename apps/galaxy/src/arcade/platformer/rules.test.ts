@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { hearRun, heroSpeed, highestLedge, JUMP, JUMP_IDLE, jumpStep, LIFE_EVENTS, LIVES, longestPit, newRun, nextRun, nextStage, PHYSICS, SCORE, simulateJump, STAGE_SECONDS, TILE, WORLD, type Outcome, type PlatformerEvent, type Run } from './rules';
 
-// Super Omni World's rules without Phaser (PRD 817): the numbers the scene plays by, and the jump
+// Starhop's rules without Phaser (PRD 817): the numbers the scene plays by, and the jump
 // that grows with how long A is held.
 
 describe('the jump', () => {

@@ -186,15 +186,6 @@ describe('products', () => {
 });
 
 describe('the demo', () => {
-  const html = renderToStaticMarkup(createElement(BusinessScreen, {
-    view: { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS, personas: DEMO_PERSONAS },
-  }));
-
-  it('shows the sample personas below the claims', () => {
-    expect(cards(html)).toEqual(DEMO_PERSONAS.map((p) => p.id));
-    expect(html.indexOf('business-personas')).toBeGreaterThan(html.indexOf('data-claim='));
-  });
-
   it('holds a persona of every stance, of the demo\'s product, each on a trade the page draws', () => {
     expect(new Set(DEMO_PERSONAS.map((p) => p.stance))).toEqual(new Set(['excited', 'neutral', 'skeptical']));
     expect(DEMO_PERSONAS.every((p) => p.product === sure(DEMO_PRODUCTS[0], 'DEMO_PRODUCTS[0]').id)).toBe(true);
@@ -204,14 +195,16 @@ describe('the demo', () => {
   it('names no company: no sample text holds a capitalised company word', () => {
     const said = DEMO_PERSONAS.flatMap((p) => [p.who, p.usage]).join(' ');
     expect(said).not.toMatch(/\b(?:Inc|Ltd|SA|SRL|BV|GmbH|NV|LLC)\b/);
-    expect(said).not.toMatch(/Vertuoza/i);
+    expect(said).not.toMatch(/Demo-Org/i);
   });
 
-  it('draws an empty section on the demo with no persona', () => {
-    const empty = renderToStaticMarkup(createElement(BusinessScreen, {
-      view: { kind: 'business', source: { kind: 'demo' }, claims: [], products: DEMO_PRODUCTS },
+  it('draws no Personas section on Settings › Business: they are a section of the product\'s Knowledge home (PRD 2240 s4)', () => {
+    const html = renderToStaticMarkup(createElement(BusinessScreen, {
+      view: { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS },
     }));
-    expect(text(empty)).toContain(NO_PERSONAS);
+    expect(html).not.toContain('business-personas');
+    expect(text(html)).not.toContain(NO_PERSONAS);
+    expect(cards(html)).toEqual([]);
   });
 });
 

@@ -16,7 +16,7 @@ import {
   type Activity, type ChartDay, type Circle, type DayActivity, type EventDay, type FleetTag, type Member, type PersonRow, type PrdNow, type RepoRow, type Scope,
   type StageTally,
 } from './tally';
-import { type PrdNumber, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The board's read (PRD 572): five reads, in parallel, as the signed-in person, each on its own. A
 // read that fails leaves only the parts drawn from it saying they could not load, its error logged

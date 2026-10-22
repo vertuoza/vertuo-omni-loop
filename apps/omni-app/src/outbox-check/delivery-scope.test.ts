@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { deliveryFetched } from './delivery-scope.ts';
 
 const config = parseConfig('kit: 1\nrepo:\n  defaultBranch: main\nlaws:\n  source: knowledge\n', '.omni-loop/config.yml');
@@ -38,10 +38,18 @@ describe('deliveryFetched — the pull request\'s own folder alone (issue 1968)'
     expect(fetched('.omni-loop/delivery/inbox/README.md')).toBe(true);
   });
 
-  it('fetches everything for a pull request of any other kind, or one the check does not gate', () => {
-    for (const headRef of ['docs/knowledge-widget', 'test/law-BR-1', 'chore/tidy']) {
-      expect(deliveryFetched(config, pr(headRef))('.omni-loop/delivery/shipped/0007-gadget/spec.md')).toBe(true);
+  it('a knowledge PR or an enforce PR fetches no delivery folder: its check reads the knowledge alone (issue 2210)', () => {
+    for (const headRef of ['docs/knowledge-widget', 'test/law-BR-1']) {
+      const fetched = deliveryFetched(config, pr(headRef));
+      expect(fetched('.omni-loop/delivery/shipped/0007-gadget/spec.md')).toBe(false);
+      expect(fetched('.omni-loop/delivery/shipped/0042-widget/outbox/settled.md')).toBe(false);
+      expect(fetched('.omni-loop/delivery/README.md')).toBe(true);
+      expect(fetched('.omni-loop/knowledge/product/rules.md')).toBe(true);
     }
+  });
+
+  it('fetches everything for a pull request the check does not gate', () => {
+    expect(deliveryFetched(config, pr('chore/tidy'))('.omni-loop/delivery/shipped/0007-gadget/spec.md')).toBe(true);
     expect(deliveryFetched(config, { baseRef: 'develop', headRef: 'feat/widget' })('.omni-loop/delivery/shipped/0007-gadget/spec.md')).toBe(true);
   });
 });

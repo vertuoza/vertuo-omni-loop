@@ -189,7 +189,10 @@ var SECRETS = Object.freeze([
   /\bgithub_pat_[A-Za-z0-9_]{16,}/g,
   /\bsk-[A-Za-z0-9_-]{16,}/g,
   /\bAKIA[0-9A-Z]{16}\b/g,
-  /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g
+  /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g,
+  /\bsb_(?:secret|publishable)_[A-Za-z0-9_-]{16,}/g,
+  /\bwhsec_[A-Za-z0-9+/=]{16,}/g,
+  /\bxox[abpr]-[A-Za-z0-9-]{10,}/g
 ]);
 var Text = z2.string().optional().catch(void 0);
 var ModelBody = z2.object({
@@ -381,6 +384,16 @@ var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
 var ProductPrdIdSchema = z4.string().regex(PRODUCT_PRD).refine((id) => {
   const cut2 = id.lastIndexOf("-");
   return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
+var ProductRoadmapIdSchema = z4.string().regex(PRODUCT_ROADMAP).refine((id) => {
+  const cut2 = id.lastIndexOf("-R");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PRODUCT_BUG = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-B([1-9]\d{0,9})$/;
+var ProductBugIdSchema = z4.string().regex(PRODUCT_BUG).refine((id) => {
+  const cut2 = id.lastIndexOf("-B");
+  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PrNumberSchema = z4.number().int().positive().brand();
 var CommentIdSchema = z4.number().int().positive().brand();
@@ -680,6 +693,60 @@ var FlowSchema = z6.object({
   }
 });
 
+// kit/lib/layers/layers.ts
+var CANONICAL_LAYERS = Object.freeze({
+  ui: "screens and components",
+  api: "REST or RPC routes and their payloads",
+  schema: "GraphQL or other typed contracts callers compile against",
+  db: "stored shapes, migrations, row-level security",
+  auth: "identity, sign-in, access",
+  event: "webhooks, queues, messages between services",
+  cli: "commands a person or an agent types",
+  job: "cron, workers, background runs",
+  infra: "deploy, environments, hosting",
+  ci: "pipelines, hooks, checks"
+});
+var CANONICAL_ROLES = Object.freeze({
+  api: "serves routes, data and business rules to other repositories",
+  web: "a web application a person opens in a browser",
+  mobile: "a mobile application",
+  ui: "a shared set of screens, components or design tokens",
+  library: "code other repositories install and call",
+  infra: "deploy, environments and hosting for the product",
+  plan: "holds the product's plans and delivery, and builds no feature itself",
+  doc: "documentation, guides and written knowledge",
+  monorepo: "several of the roles above in one repository"
+});
+var ROLE_LAYERS = Object.freeze({
+  api: ["api", "schema", "db", "auth", "event", "job"],
+  web: ["ui", "auth", "api"],
+  mobile: ["ui", "auth", "api"],
+  ui: ["ui"],
+  library: ["api", "cli"],
+  infra: ["infra", "ci"],
+  plan: ["cli", "ci"],
+  doc: [],
+  monorepo: ["ui", "api", "schema", "db", "auth", "event", "cli", "job", "infra", "ci"]
+});
+var LAYER_ALIASES = Object.freeze({
+  rest: "api",
+  graphql: "schema",
+  database: "db",
+  migration: "db"
+});
+var ROLE_ALIASES = Object.freeze({
+  "back-end": "api",
+  backend: "api",
+  "front-end": "web",
+  frontend: "web",
+  docs: "doc"
+});
+var has = (table, word) => Object.hasOwn(table, word);
+function layerOf(word) {
+  return has(LAYER_ALIASES, word) ? LAYER_ALIASES[word] ?? word : word;
+}
+var layerList = () => Object.keys(CANONICAL_LAYERS).join(", ");
+
 // kit/lib/config.ts
 var CONFIG_FILE = ".omni-loop/config.yml";
 var CONFIG_VERSION = 1;
@@ -728,11 +795,27 @@ var proofUrl = z7.string().refine((value) => {
 var envName = z7.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
 var lawOwner = z7.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
+var personLogin = z7.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, "a GitHub login, without @, never a team");
+var ownerWithDelegate = z7.preprocess(
+  (value) => isRecord(value) ? { login: "", delegate: "", ...value } : value,
+  z7.object({ login: personLogin, delegate: personLogin }).strict().refine((entry) => entry.login.toLowerCase() !== entry.delegate.toLowerCase(), {
+    message: "a delegate other than its own owner",
+    path: ["delegate"]
+  })
+);
+var lawOwnerEntry = z7.union([lawOwner, ownerWithDelegate]);
 var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
 var contractKind = z7.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
-var contractKinds = z7.array(contractKind).min(1, "at least one kind, such as api").superRefine((kinds, issues) => {
+var contractKinds = z7.array(contractKind).min(1, "at least one kind, such as api").transform((kinds) => kinds.map(layerOf)).superRefine((kinds, issues) => {
   const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
   if (twice !== void 0) issues.addIssue({ code: "custom", message: `"${twice}" is listed twice` });
+});
+var layersSection = z7.record(z7.string(), z7.array(regexSource).min(1, "at least one path pattern")).superRefine((layers, issues) => {
+  for (const key of Object.keys(layers)) {
+    if (!Object.hasOwn(CANONICAL_LAYERS, key)) {
+      issues.addIssue({ code: "custom", path: [key], message: `${key} is not a layer (${layerList()})` });
+    }
+  }
 });
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
 var target = z7.object({
@@ -896,6 +979,11 @@ var ConfigSchema = z7.object({
     approved: labelName.default("omni:approved"),
     // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
     law: labelName.default("omni:law"),
+    // PRD 2175: the label a runner swaps in for `inProgress` on a claim whose job ended while it held
+    // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`). Left
+    // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
+    // exactly as before (so `omni init` does not create it: a person does).
+    released: labelName.optional(),
     autoCreate: z7.boolean().default(false)
   }),
   prLinks: section({
@@ -931,7 +1019,10 @@ var ConfigSchema = z7.object({
     // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
     mutation: nullableText.default(null),
     // PRD 1369: a design linter `/omni:pixel-perfect review` runs when it is set; it only reports.
-    design: nullableText.default(null)
+    design: nullableText.default(null),
+    // PRD 2275: it builds what the repository ships to production, then runs checks against the
+    // built output; only the bug-fix skills run it, when a passing reproduction cannot see the bug.
+    smoke: nullableText.default(null)
   }),
   acceptance: z7.object({
     enabled: z7.boolean().default(false),
@@ -956,7 +1047,11 @@ var ConfigSchema = z7.object({
     max: z7.number().int().positive().default(20),
     // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
     // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
-    owners: z7.array(lawOwner).default([])
+    // PRD 1794: an entry may be `{ login, delegate }` instead; the delegate is a CODEOWNER too.
+    owners: z7.array(lawOwnerEntry).default([]),
+    // PRD 1794: product leadership, GitHub logins asked last about what still waits on a person.
+    // Never written into CODEOWNERS, so its approval never clears a law.
+    leadership: z7.array(personLogin).default([])
   }),
   risk: section({
     storedShape: z7.array(regexSource).default([]),
@@ -966,6 +1061,10 @@ var ConfigSchema = z7.object({
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
   landings: section({ alone: z7.array(regexSource).default([]) }),
+  // PRD 2346: the repository's map from canonical layers to the paths that hold them: regular
+  // expressions over repository paths, as a flow area's `paths`. A file may be in several layers.
+  // Optional: a config without it parses with no `layers` key, and no entry is narrowed by layer.
+  layers: layersSection.optional(),
   // PRD 1870: whether every slice that lands in this repository must declare, in its plan's
   // `contract` column, what it changes for the repository's callers — one or more of `kinds`, or
   // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
@@ -981,13 +1080,20 @@ var ConfigSchema = z7.object({
     stallDays: z7.number().int().positive().default(5),
     attempts: z7.number().int().positive().default(3),
     claimStaleMinutes: z7.number().int().positive().default(60),
+    // PRD 2175: how long a draft still on `labels.inProgress` may go with no commit and no update
+    // before the board reads its claim as stale: the fallback for a claim no runner saw die. Left
+    // out, `DEFAULT_CLAIM_DEAD_MINUTES` applies, and a config that does not set it parses exactly as before.
+    claimDeadMinutes: z7.number().int().positive().optional(),
     beforeAfterMaxBytes: z7.number().int().positive().default(512e3),
     // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
     // was before, one step at a time.
     parallelSteps: z7.number().int().min(1).max(6).default(3),
     // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
     // and a config that does not set it parses exactly as before.
-    hookMaxBytes: z7.number().int().positive().optional()
+    hookMaxBytes: z7.number().int().positive().optional(),
+    // PRD 1794: how many working days (Monday to Friday, UTC) a thing waits on a person before the
+    // next people are asked. Its own setting: `stallDays` is unchanged.
+    escalationWorkingDays: z7.number().int().min(1).max(10).default(2)
   }),
   // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
   // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
@@ -1005,6 +1111,10 @@ var ConfigSchema = z7.object({
   // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
   // opts out. The pull request takes replies either way.
   answers: section({ enabled: z7.boolean().default(true) }),
+  // PRD 2338: whether `/omni:retro-apply` writes the guard test a kept lesson is worth, proved red
+  // then green, beside the rule it appends. Off by default: the retro PR stays documents only, and a
+  // lesson worth a guard names it for a person to take up. A repository opts in.
+  retro: section({ guards: z7.boolean().default(false) }),
   // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
   // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
   // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.

@@ -7,8 +7,8 @@
 // PRD 1612 s2: once that approval is voided, the same way removes it, so the App's `issues.unlabeled`
 // webhook reruns the omni/approved check (the check reads the record, never the label).
 import { githubClient, type GithubStore } from '@omni/github';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { githubApp, type AppCredentials } from '../signup/github-app';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;

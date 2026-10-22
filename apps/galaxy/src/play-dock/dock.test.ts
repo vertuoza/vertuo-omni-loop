@@ -90,7 +90,7 @@ describe('the picker, when more than one game is open', () => {
   });
 
   it('names the games as the room\'s marquees do', () => {
-    expect(DOCK_TITLE).toEqual({ invaders: 'ENTROPY INVADERS', platformer: 'SUPER OMNI WORLD' });
+    expect(DOCK_TITLE).toEqual({ invaders: 'ENTROPY INVADERS', platformer: 'STARHOP' });
   });
 
   it('moves with up and down, wrapping, plays the chosen game on A, and folds on B', () => {

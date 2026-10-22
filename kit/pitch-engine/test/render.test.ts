@@ -1,7 +1,9 @@
 // The engine rendered in a browser (PRD 1108 s4): the built page, `kit/dist/pitch-engine/`, draws the
 // fixture storyboard at fixed frames — the intro at 0.5 s, the feature's camera at its zoom's peak, the
-// outro settled — and each matches its reference image within a small tolerance. The same frame drawn in
-// two looks holds each look's colours. Runs in Playwright's Chromium, where that browser is installed.
+// outro settled, the intro settled with its accented title (PRD 2030 s1), the steps settled on the media
+// their second step brings (PRD 2030 s4), the stats scene settled on its figures (PRD 2030 s5) — and each
+// matches its reference image within a small tolerance. The same frame drawn in two looks holds each
+// look's colours. Runs in Playwright's Chromium, where that browser is installed.
 //
 // A reference image missing is written, and the test fails asking for it to be looked at and committed:
 // to renew one, delete it and run the test again.
@@ -24,6 +26,9 @@ const TitleSchema = z.object({ font: z.string(), loaded: z.boolean(), words: z.a
 
 const REFERENCES = fileURLToPath(new URL('references/', import.meta.url));
 
+/** A `#rrggbb` colour as the browser computes it, `rgb(r, g, b)`. */
+const rgb = (hex: string): string => `rgb(${[1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16)).join(', ')})`;
+
 /** The tolerance: the mean channel difference, and the share of pixels far off, at the reference size. */
 const TOLERANCE = Object.freeze({ mean: 4, off: 0.02 });
 
@@ -42,11 +47,14 @@ const sceneAt = (index: number) => {
   return scene;
 };
 
-/** The frames compared with references: the intro at 0.5 s, the feature at its camera's peak, the outro settled. */
+/** The frames compared with references: the intro at 0.5 s, the feature at its camera's peak, the outro settled, the intro settled with its accent, the steps settled on their second step's own media, the stats settled on their figures. */
 const FIXED = Object.freeze([
   { name: 'intro-0.5s', frame: 15 },
   { name: 'feature-zoom-peak', frame: sceneAt(2).from + 2 * 30 },
-  { name: 'outro', frame: stillFrame(sceneAt(5), 30) },
+  { name: 'outro', frame: stillFrame(sceneAt(6), 30) },
+  { name: 'intro-accent', frame: stillFrame(sceneAt(0), 30) },
+  { name: 'steps-own-media', frame: stillFrame(sceneAt(3), 30) },
+  { name: 'stats', frame: stillFrame(sceneAt(5), 30) },
 ]);
 
 const inputOf = (look: PitchLook, logo: boolean) => ({
@@ -150,24 +158,27 @@ describe.skipIf(!browserHere)('the engine page in a browser', () => {
     expect(again.equals(first)).toBe(true);
   });
 
-  it('builds the intro title word by word in the Heading font', async () => {
+  it('builds the intro title word by word in the Heading font, its accent and final stop in the accent', async () => {
     const page = await open('keynote');
     await page.evaluate('window.__pitchSeek(15)');
     const title = TitleSchema.parse(await page.evaluate(`(() => {
       const h1 = document.querySelector('h1');
-      const words = [...h1.querySelectorAll('span > span')].map((word) => [word.textContent, Number(getComputedStyle(word).opacity)]);
+      const words = [...h1.querySelectorAll('[data-word]')].map((word) => [word.textContent, Number(getComputedStyle(word).opacity)]);
       return { font: getComputedStyle(h1).fontFamily, loaded: document.fonts.check('400 64px "Anton"'), words };
     })()`));
     await page.evaluate('window.__pitchSeek(80)');
-    const settled = await page.evaluate("[...document.querySelector('h1').querySelectorAll('span > span')].map((word) => Number(getComputedStyle(word).opacity))");
+    const settled = await page.evaluate("[...document.querySelector('h1').querySelectorAll('[data-word]')].map((word) => Number(getComputedStyle(word).opacity))");
+    const colours = await page.evaluate("[...document.querySelector('h1').querySelectorAll('[data-word], [data-word] > span')].map((word) => getComputedStyle(word).color)");
     await page.close();
     expect(title.font).toMatch(/^"?Anton"?,/);
     expect(title.loaded).toBe(true);
     const words = title.words;
-    expect(words.map(([word]) => word)).toEqual(['Quotes', 'that', 'send', 'themselves']);
+    expect(words.map(([word]) => word)).toEqual(['Quotes', 'that', 'send', 'themselves.']);
     expect(words[0]?.[1]).toBeGreaterThan(0.5);
     expect(words[3]?.[1]).toBe(0);
     expect(settled).toEqual([1, 1, 1, 1]);
+    const { ink, accent } = presetLook('keynote').colors;
+    expect(colours).toEqual([rgb(ink), rgb(ink), rgb(ink), rgb(accent), rgb(accent)]);
   });
 
   it("zooms the feature's camera on its focus at the zoom's peak", async () => {

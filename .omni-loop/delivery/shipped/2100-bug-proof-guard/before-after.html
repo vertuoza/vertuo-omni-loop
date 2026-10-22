@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 2100 · bug-fix proof guard · before/after</title>
+<style>
+  /* Layout: one column of today/after pairs, two columns from 820px; the galaxy's own tokens. */
+  :root { --ground: #03020f; --sunk: #0e0d33; --surface: #120f3a; --line: #5a60c4; --ink: #f2f4ff; --muted: #8a90d6; --plasma: #ffd84a; --on-plasma: #07061c; --green: #4ee08a; --red: #ff6b86;
+    --card: #111111; --card-ink: #d0d0d0; --band-red: #c62828; --band-green: #2e7d32;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, monospace; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .doc { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 26px; margin: 0 0 4px; text-wrap: balance; }
+  h3 { font-size: 17px; margin: 32px 0 10px; text-wrap: balance; }
+  .lead { color: var(--muted); margin: 0 0 20px; max-width: 80ch; }
+  .part { margin: 32px 0 10px; font: 700 13px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--plasma); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .cols > div { min-width: 0; }
+  @media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+  .tag { display: inline-block; margin: 0 0 8px; font: 700 12px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 4px; }
+  .today { color: var(--muted); border: 1px solid var(--line); }
+  .after { color: var(--on-plasma); background: var(--plasma); }
+  pre { margin: 0; padding: 14px 16px; background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; font: 13px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  code { font: 13px var(--mono); }
+  .bad { color: var(--red); } .good { color: var(--green); } .dim { color: var(--muted); } .hi { color: var(--plasma); }
+  .cap { margin: 8px 0 0; font-size: 14px; color: var(--muted); max-width: 70ch; }
+  .pr { padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
+  .pr h4 { margin: 14px 0 6px; font-size: 15px; } .pr h4:first-child { margin-top: 0; }
+  .pr ul { margin: 0; padding-left: 20px; } .pr p { margin: 0; }
+  .frames { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .frames figure { margin: 0; min-width: 0; }
+  .frames svg { display: block; width: 100%; height: auto; border-radius: 6px; }
+  .frames figcaption { font: 12px/1.4 var(--mono); color: var(--muted); margin-top: 4px; }
+  .missing { display: grid; place-items: center; min-height: 120px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 14px; text-align: center; padding: 12px; }
+  .flow { display: grid; gap: 6px; }
+  .step { display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; font: 13px/1.5 var(--mono); }
+  .step b { font: 700 11px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; min-width: 64px; color: var(--muted); }
+  .step.new { border-color: var(--plasma); }
+  .step.new b { color: var(--plasma); }
+  .step.fail { border-color: var(--red); }
+  .step.fail b { color: var(--red); }
+  .none { margin-top: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>Every bug-fix PR carries its proof, and a stale plugin cannot skip it</h1>
+  <p class="lead">PRD 2100 · after demo-org/nimbus-backend-php#6720, opened by a runner job on 16 October with no <code>## Proof</code> and not a draft. Four changes: the red/green GIF without ffmpeg, links to a component bug's clips, <code>omni bug</code> checking the pull request's body, and <code>omni runner</code> keeping the plugin current. A fifth line names the fix when the bug was already gone.</p>
+
+  <h2 class="part">Functional</h2>
+
+  <h3>1 · The red/green GIF of a back-end or page bug</h3>
+  <div class="cols">
+    <div>
+      <span class="tag today">Today</span>
+      <pre><span class="dim">$</span> omni bug film 6719 --before red.txt --after green.txt
+<span class="bad">ffmpeg not found</span>
+<span class="dim"># exit 1: the PR opens as a draft
+# ## Proof: GIF not produced - ffmpeg not found</span></pre>
+      <p class="cap">Two cards drawn by ffmpeg's <code>drawtext</code>: the machine needs ffmpeg, libfreetype and fontconfig. Without them, the proof of a text output turns the pull request into a draft.</p>
+    </div>
+    <div>
+      <span class="tag after">After</span>
+      <div class="frames">
+        <figure>
+          <svg viewBox="0 0 640 360" role="img" aria-label="Frame 1: the red card, before the fix">
+            <rect width="640" height="360" fill="#111111"/>
+            <rect width="640" height="40" fill="#c62828"/>
+            <text x="16" y="27" fill="#ffffff" font-family="ui-monospace, Menlo, monospace" font-size="22" font-weight="700">Before the fix · red</text>
+            <g font-family="ui-monospace, Menlo, monospace" font-size="13" fill="#d0d0d0">
+              <text x="16" y="66">PHPUnit 10.5.20 by Sebastian Bergmann and contributors.</text>
+              <text x="16" y="96">F                                   1 / 1 (100%)</text>
+              <text x="16" y="126">There was 1 failure:</text>
+              <text x="16" y="156">1) Tests\Invoice\InvoiceTotalTest::testCreditNote</text>
+              <text x="16" y="171" fill="#ff6b86">Failed asserting that -12.0 matches expected 12.0.</text>
+              <text x="16" y="201">/app/tests/Invoice/InvoiceTotalTest.php:42</text>
+              <text x="16" y="231">FAILURES!</text>
+              <text x="16" y="246">Tests: 1, Assertions: 1, Failures: 1.</text>
+            </g>
+          </svg>
+          <figcaption>frame 1 · 3 s</figcaption>
+        </figure>
+        <figure>
+          <svg viewBox="0 0 640 360" role="img" aria-label="Frame 2: the green card, after the fix">
+            <rect width="640" height="360" fill="#111111"/>
+            <rect width="640" height="40" fill="#2e7d32"/>
+            <text x="16" y="27" fill="#ffffff" font-family="ui-monospace, Menlo, monospace" font-size="22" font-weight="700">After the fix · green</text>
+            <g font-family="ui-monospace, Menlo, monospace" font-size="13" fill="#d0d0d0">
+              <text x="16" y="66">PHPUnit 10.5.20 by Sebastian Bergmann and contributors.</text>
+              <text x="16" y="96">.                                   1 / 1 (100%)</text>
+              <text x="16" y="126">Time: 00:00.041, Memory: 10.00 MB</text>
+              <text x="16" y="156" fill="#4ee08a">OK (1 test, 1 assertion)</text>
+            </g>
+          </svg>
+          <figcaption>frame 2 · 3 s · then loops</figcaption>
+        </figure>
+      </div>
+      <p class="cap">The same <code>omni bug film</code> line, drawn by the kit's own encoder and an embedded bitmap font: no ffmpeg anywhere. Two 640×360 frames, the failing line in red and the passing line in green. The same files give the same <code>preview.gif</code>, under the same stable link. The output shown is an example.</p>
+    </div>
+  </div>
+
+  <h3>2 · A component bug's clips</h3>
+  <div class="cols">
+    <div>
+      <span class="tag today">Today</span>
+      <div class="pr">
+        <h4>## Proof</h4>
+        <p><span class="hi">[GIF: the story before, then after]</span></p>
+        <ul>
+          <li><b>Before the fix</b> (red): <code>expected "12,00 €" got "-12,00 €"</code></li>
+          <li><b>After the fix</b> (green, <code>e4f5a6b</code>): <code>✓ InvoiceTotal shows the credit note</code></li>
+        </ul>
+      </div>
+      <p class="cap">The two clips are uploaded to the proof run, but nothing links them: the reviewer gets the 640-pixel GIF only.</p>
+    </div>
+    <div>
+      <span class="tag after">After</span>
+      <div class="pr">
+        <h4>## Proof</h4>
+        <p><span class="hi">[GIF: the story before, then after]</span></p>
+        <p style="margin-top:6px">Clips: <span class="hi">before</span> · <span class="hi">after</span></p>
+        <ul>
+          <li><b>Before the fix</b> (red): <code>expected "12,00 €" got "-12,00 €"</code></li>
+          <li><b>After the fix</b> (green, <code>e4f5a6b</code>): <code>✓ InvoiceTotal shows the credit note</code></li>
+        </ul>
+      </div>
+      <p class="cap">Each clip opens at 1280×720 from <code>/api/proofs/&lt;run&gt;/before.webm</code> and <code>/after.webm</code>, links that <code>omni proof push</code> prints. A story that will not film, or a missing ffmpeg, falls back to the red/green GIF with <code>Storybook not filmed - &lt;reason&gt;</code>.</p>
+    </div>
+  </div>
+
+  <h3>3 · <code>omni bug &lt;n&gt;</code> checks the pull request's body</h3>
+  <div class="cols">
+    <div>
+      <span class="tag today">Today</span>
+      <pre><span class="dim"># a stale skill, step 12.2, before any PR exists</span>
+<span class="dim">$</span> omni bug 6719
+<span class="good">ok</span>
+<span class="dim"># the PR opens with no ## Proof, not a draft (#6720)</span></pre>
+      <p class="cap">The verdict reads the record and the commits only. Nothing reads the body the skill is about to open.</p>
+    </div>
+    <div>
+      <span class="tag after">After</span>
+      <pre><span class="dim">$</span> omni bug 6719
+<span class="bad">not ok</span>
+- no pull request body to check: make the GIF (omni bug film 6719 --before &lt;red&gt; --after &lt;green&gt;, then omni proof push --kind bug 6719 &lt;folder&gt;), write the body with its ## Proof section to a file, and rerun omni bug 6719 --body-file &lt;file&gt;; with no GIF, ## Proof is the line GIF not produced - &lt;reason&gt; and the pull request opens as a draft
+
+<span class="dim">$</span> omni bug 6719 --body-file body.md
+<span class="good">ok</span></pre>
+      <p class="cap">Without the flag, it reads the branch's open pull request through <code>gh</code>. A record with <code>## Fixes</code> (the record PR of <code>/omni:mega-bug-fix</code>) is not checked for a proof.</p>
+    </div>
+  </div>
+
+  <h3>4 · <code>omni runner</code> before each job</h3>
+  <div class="cols">
+    <div>
+      <span class="tag today">Today</span>
+      <div class="flow">
+        <div class="step"><b>worktree</b>agent/job-412 from origin/main</div>
+        <div class="step"><b>install</b>pnpm install --frozen-lockfile</div>
+        <div class="step"><b>claude</b>claude -p "/omni:bug-fix …" · plugin v0.0.408, never looked at</div>
+      </div>
+      <p class="cap">The plugin is whatever the machine installed last. nimbus-backend-php pins omni v0.0.426; the skills the job ran came from before #1973.</p>
+    </div>
+    <div>
+      <span class="tag after">After</span>
+      <div class="flow">
+        <div class="step"><b>worktree</b>agent/job-412 from origin/main</div>
+        <div class="step new"><b>plugin</b>v0.0.408 is older than the repository's omni v0.0.426</div>
+        <div class="step new"><b>update</b>claude plugin update omni@omni-loop → v0.0.442</div>
+        <div class="step"><b>install</b>pnpm install --frozen-lockfile</div>
+        <div class="step"><b>claude</b>claude -p "/omni:bug-fix …"</div>
+        <div class="step fail"><b>or</b>still older: job failed · omni plugin v0.0.408 is older than demo-org/nimbus-backend-php's omni v0.0.426: claude plugin update failed: …</div>
+      </div>
+      <p class="cap">One update at a time across the slots. A plugin as new as the pinned omni, or newer, costs nothing. The sweep also updates the plugin once an hour.</p>
+    </div>
+  </div>
+
+  <h3>5 · A reproduction that passes before the fix</h3>
+  <div class="cols">
+    <div>
+      <span class="tag today">Today</span>
+      <pre>The reproduction passes before any fix. Two readings: it misses the bug, or the bug is already gone. It looks like #749 changed this code. A person decides.</pre>
+      <p class="cap">Prose: nimbus-cleaner cannot tell which pull request fixed the bug (demo-org/nimbus-apps#791).</p>
+    </div>
+    <div>
+      <span class="tag after">After</span>
+      <pre>The reproduction passes before any fix: the bug is already gone.
+
+<span class="hi">Fixed by #749</span>
+
+Red at a1b2c3d (before #749), green at e4f5a6b: `vendor/bin/phpunit --filter InvoiceTest`</pre>
+      <p class="cap">Written only when the reproduction is red at the merge's first parent and green at the merge. nimbus-cleaner follows #749 to its release and verdict. With no proven candidate, the comment lists <code>Maybe: #&lt;n&gt;</code> lines, which it does not read.</p>
+    </div>
+  </div>
+
+  <h2 class="part">Pixel perfect</h2>
+  <p class="none">Pixel perfect: no screen changes. The GIF is the kit's output in a pull request's body, and the clip route serves files: no screen of the arcade or the Omni page changes.</p>
+</div>
+</body>
+</html>

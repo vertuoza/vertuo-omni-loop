@@ -173,6 +173,12 @@ For each target repository the approved design touches, one at a time:
 3. Read the paths the design touches (`git -C <scratch>/<name> ls-files`, then the files), so every
    territory step 8 writes is a real path of that repository, and an `own` target's knowledge base
    where it lives in the clone.
+4. Run `node .omni-loop/bin/omni.mjs conventions --root <scratch>/<name>`: the index of the files where
+   that repository writes its conventions. Read the pages the design bears on: a design that adds or
+   renames a table or a column reads the pages on the database and its migrations, a design that
+   changes a GraphQL schema reads the pages on the schema, and the pages on use cases, services and
+   the repository layer are read when the design touches those layers. Keep what each page settles for
+   step 5's `## Conventions`.
 
 A clone that fails leaves that repository out of the design: tell the person in one line, and take
 the design back to step 2 for what it held. The clones stay until step 8 has written the plan, then
@@ -192,15 +198,29 @@ for an architectural design, the same written-spec review), with two additions:
 
 - **`## Repositories`**, after `## Solution`: one paragraph per repository a slice will name, in the
   order step 8's table lists them: its role, what changes there, and which knowledge it was read from
-  (its own, the imported copy, or the guide alone).
+  (its own, the imported copy, or the guide alone). A repository whose line of step 1 reads
+  `contracts: declare <kinds>` ends its paragraph with a `Contract:` line naming the kinds the change
+  commits it to, in that repository's own words (`Contract: schema, db`), or `Contract: none`: step 6
+  draws one block per kind from it, and step 8's `contract` column declares the same kinds.
+- **`## Conventions`**, after `## Repositories`: the table of `/omni:brainstorm` step 4, one row per name
+  the design picks in any repository, its source read from that repository's pages (step 3).
 - **Risks** also names every stale or drifted copy the design relied on (step 1), and what a merge
   publishes in each target: from that target's releasing form (its own `releasing` form in the
   clone, or the imported copy's), or `unknown: no knowledge base` for a `none` target.
 
 ## 6. The before/after page
 
-As `/omni:brainstorm` step 5, one page, **grouped by repository**: a section per repository the
-design touches, each with its own today beside after, headed by the repository's name and role.
+As `/omni:brainstorm` step 5, one page in its two tabs, written through
+`node .omni-loop/bin/omni.mjs before-after new <n> --services <repo>,<repo>…`, `render`, the word
+pass and `omni check inbox`, in that order. Each repository the design touches is one **service**,
+headed by its name and role, and `--services` lists them in the order the plan builds them. Each
+repository's blocks carry their own today beside after, in both tabs, every section in one of the
+three states of step 5.
+Each repository's technical sections carry its contract blocks (**The contract blocks** there): one block per
+kind its `Contract:` line of step 5 names, today beside after, headed `Contract: <kind> — <repository>`
+and marked `data-contract="<kind>"`, in that repository's block of the Technical tab, never below the screens. A
+repository whose line reads `Contract: none` has no block. `omni plan check` (step 8) refuses a slice
+declaring a kind the page has no block for.
 Acceptance scenarios, when `acceptance.enabled`, as `/omni:brainstorm` step 6.
 
 ## 7. Commit, check, push
@@ -251,7 +271,9 @@ Its body adds, after Summary, a **What lands where** table, so each team finds i
 ```
 
 One row per `## Repositories` row, in its order: the slices whose `repo` it is, and the waves they
-sit in. The body still starts with `prLinks.phase0` filled and ends with the `omni sign footer` line.
+sit in. The body still opens with the PRD's page, the link `node .omni-loop/bin/omni.mjs dossier link <n>`
+prints when it prints one (left out otherwise, as `/omni:brainstorm` step 9 says), then `prLinks.phase0`
+filled, and ends with the `omni sign footer` line.
 
 **A person reviews and merges it.** Never merge it yourself, and never mark the feature PR ready.
 

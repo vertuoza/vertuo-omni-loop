@@ -7,7 +7,7 @@
 A plan commits a repository to a contract before a line of code exists: a GraphQL type or field, a
 REST route, a database migration. The slice table said nothing about it in a form a machine reads;
 what a slice changes for its callers sat in the "done when" prose. The plan repository
-`vertuoza/vertuo-automation-plan` built a gate that holds a plan committing `vertuo-backend-php` to
+`demo-org/nimbus-plan` built a gate that holds a plan committing `nimbus-backend-php` to
 a contract change until the back end's owners approve it, reading a `contract` column the plan skill
 never wrote: its header row was "exactly" the kit's five columns, and a playbook form cannot override
 a skill's rule. Every back-end slice of every plan was held, with no way to say "this slice changes
@@ -42,7 +42,7 @@ nothing for its callers".
   decide for a target it does not own.
 - **A closed vocabulary in the kit** (`schema`, `rest`, `db`): rejected. Every new kind would wait
   for a kit release, and the kit would hold one consumer's words.
-- **Switching a target such as `vertuo-backend-php` to `imported`** so its config travels: rejected.
+- **Switching a target such as `nimbus-backend-php` to `imported`** so its config travels: rejected.
   It would put a draft of its knowledge base in the plan repository, which `own` exists to avoid.
 
 ## Consequences

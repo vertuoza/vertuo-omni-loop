@@ -39,11 +39,11 @@
  * still name the actual configured label in its override line, byte-identically to upstream's own
  * hard-coded text when the label is left at its default.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-status.mjs — changes in kit/porting/outbox--status.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-status.mjs — changes in kit/porting/outbox--status.md.
 import { existsSync } from 'node:fs';
 import { readRepoFile } from '../check-report.ts';
 import { COMMANDS } from '../commands.ts';
-import { ACCOUNTS_DIR, LAW_RULES, compare, readAccounts } from './account.ts';
+import { ACCOUNTS_DIR, LAW_RULES, compare, lawRuleSubject, readAccounts } from './account.ts';
 import type { Change } from './account.ts';
 import { riskyChanges } from './decision-coverage.ts';
 import { readKnowledge, readRegisters } from '../knowledge/registers.ts';
@@ -213,8 +213,8 @@ export function fixOutboxContext<C extends { root: string; layout: object }>(ctx
 export type FixGateResult = GateResult & { unaccounted: UnaccountedChange[]; outbox: string | null };
 
 /**
- * The gate of a fix PR (PRD 1342): green unless its range fires one of the four law rules. A change
- * to a law is answered in the fix's own folder, `<folder>/outbox/`, exactly as a feature PR answers
+ * The gate of a fix PR (PRD 1342): green unless its range fires one of the law rules ({@link LAW_RULES}:
+ * the four a change to a law fires, and `briefing-text`, PRD 1793). A change to a law is answered in the fix's own folder, `<folder>/outbox/`, exactly as a feature PR answers
  * it in its PRD's outbox: by an item ranked high that an account names, and that a person answered.
  * The other risk rules (`stored-shape`, `shared-contract`) ask a fix nothing. `fix` null: the
  * range holds no fix folder, so every change to a law is unaccounted. Nothing is asked unless
@@ -253,17 +253,17 @@ export function fixGateResult({
 }
 
 /**
- * One line per change to a law a fix has not yet accounted for, naming the outbox it needs (what
+ * One line per change to a law (or to the briefing) a fix has not yet accounted for, naming the outbox it needs (what
  * `omni bug` and `omni visual` print). An open item is not a failure here: a person answers it on
  * the pull request.
  */
 export function fixLawFailures(result: Pick<FixGateResult, 'unaccounted' | 'outbox'>): string[] {
   const { outbox } = result;
   return result.unaccounted.map((change) => {
-    const head = `${change.path} (${change.rule}): `;
-    if (outbox === null) return `${head}a change to a law needs an outbox in the fix's folder, and this range has no fix folder.`;
-    if (change.refused !== undefined) return `${head}${change.refused}.`;
-    return `${head}a change to a law needs an item ranked high in ${outbox}/ and an account naming it in ${outbox}/${ACCOUNTS_DIR}/.`;
+    const head = `${change.path} (${change.rule}): a change to ${lawRuleSubject(change.rule)} `;
+    if (outbox === null) return `${head}needs an outbox in the fix's folder, and this range has no fix folder.`;
+    if (change.refused !== undefined) return `${change.path} (${change.rule}): ${change.refused}.`;
+    return `${head}needs an item ranked high in ${outbox}/ and an account naming it in ${outbox}/${ACCOUNTS_DIR}/.`;
   });
 }
 

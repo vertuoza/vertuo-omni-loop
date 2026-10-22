@@ -16,7 +16,7 @@ describe('sendScore: the dock sends a finished game\'s score through the arcade\
     expect(done).toEqual(shown[1]);
   });
 
-  it('sends under the key of the game it is given, SUPER OMNI WORLD\'s as well', async () => {
+  it('sends under the key of the game it is given, STARHOP\'s as well', async () => {
     const submitScore = vi.fn((_game: string, score: number) => Promise.resolve(score));
     await sendScore({ submitScore }, 'platformer', 700, () => {});
     expect(submitScore).toHaveBeenCalledWith('platformer', 700);

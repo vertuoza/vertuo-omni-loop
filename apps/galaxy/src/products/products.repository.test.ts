@@ -14,6 +14,8 @@ function stub(answers: Record<string, Answer>) {
       select: (...a: unknown[]) => { calls.push([table, 'select', ...a]); return q; },
       eq: (...a: unknown[]) => { calls.push([table, 'eq', ...a]); return q; },
       not: (...a: unknown[]) => { calls.push([table, 'not', ...a]); return q; },
+      in: (...a: unknown[]) => { calls.push([table, 'in', ...a]); return q; },
+      is: (...a: unknown[]) => { calls.push([table, 'is', ...a]); return q; },
       order: (...a: unknown[]) => { calls.push([table, 'order', ...a]); return q; },
       then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) =>
         Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null }).then(ok, ko),
@@ -29,9 +31,9 @@ function stub(answers: Record<string, Answer>) {
 
 describe('the products\' storage', () => {
   it('reads the workspace\'s products first first, with the columns Settings › Products reads', async () => {
-    const { calls, repo } = stub({ products: { data: [{ id: 'p-1', name: 'Mobile', pitch_look: null, pitch: null }] } });
-    expect(await repo.products('ws-1')).toEqual([{ id: 'p-1', name: 'Mobile', pitch_look: null, pitch: null }]);
-    expect(calls).toEqual([['products', 'select', 'id, name, pitch_look, pitch'], ['products', 'eq', 'workspace_id', 'ws-1'], ['products', 'order', 'ordinal']]);
+    const { calls, repo } = stub({ products: { data: [{ id: 'p-1', name: 'Mobile', pitch_look: null, pitch: null, archived_at: null, archived_by: null }] } });
+    expect(await repo.products('ws-1')).toEqual([{ id: 'p-1', name: 'Mobile', pitch_look: null, pitch: null, archived_at: null, archived_by: null }]);
+    expect(calls).toEqual([['products', 'select', 'id, name, pitch_look, pitch, archived_at, archived_by'], ['products', 'eq', 'workspace_id', 'ws-1'], ['products', 'order', 'ordinal']]);
   });
 
   it('reads the workspace\'s links, its repositories and its dossiers that carry a product', async () => {
@@ -45,7 +47,7 @@ describe('the products\' storage', () => {
     expect(await repo.productDossiers('ws-1')).toEqual([{ id: 'd-1', kind: 'prd', product_id: 'p-1' }]);
     expect(calls).toEqual([
       ['product_repositories', 'select', 'product_id, repository'], ['product_repositories', 'eq', 'workspace_id', 'ws-1'],
-      ['repositories', 'select', 'full_name'], ['repositories', 'eq', 'workspace_id', 'ws-1'],
+      ['repositories', 'select', 'full_name'], ['repositories', 'eq', 'workspace_id', 'ws-1'], ['repositories', 'is', 'removed_at', null],
       ['dossiers', 'select', 'id, kind, product_id'], ['dossiers', 'not', 'product_id', 'is', null], ['dossiers', 'eq', 'workspace_id', 'ws-1'],
     ]);
   });
@@ -54,6 +56,25 @@ describe('the products\' storage', () => {
     const { calls, repo } = stub({ approval_requests_waiting: { data: [{ id: 'r-1', dossier: 'd-1', repo: 'vertuo/api', prd: 7, title: 'T', askedAt: '2026-10-01T00:00:00Z' }] } });
     expect(await repo.waitingDossiers()).toEqual(['d-1']);
     expect(calls).toEqual([['approval_requests_waiting', 'rpc']]);
+  });
+
+  it('reads archived rows with their time and archiver, and whether the caller owns the workspace', async () => {
+    const { calls, repo } = stub({
+      products: { data: [{ id: 'p-1', name: 'Old', pitch_look: null, archived_at: '2026-10-18T12:00:00Z', archived_by: 'u-1' }] },
+      is_owner: { data: true },
+      players: { data: [{ user_id: 'u-1', github_login: 'pierrederval' }] },
+    });
+    expect((await repo.products('ws-1'))[0]).toMatchObject({ archived_at: '2026-10-18T12:00:00Z', archived_by: 'u-1' });
+    expect(await repo.owner('ws-1')).toBe(true);
+    expect(await repo.players('ws-1', ['u-1'])).toEqual([{ user_id: 'u-1', github_login: 'pierrederval' }]);
+    expect(await repo.players('ws-1', [])).toEqual([]);
+    expect(calls.slice(-3)).toEqual([['players', 'select', 'user_id, github_login'], ['players', 'eq', 'workspace_id', 'ws-1'], ['players', 'in', 'user_id', ['u-1']]]);
+  });
+
+  it('throws when the role or the names cannot be read', async () => {
+    const { repo } = stub({ is_owner: { error: { message: 'down' } }, players: { error: { message: 'denied' } } });
+    await expect(repo.owner('ws-1')).rejects.toThrow('could not read your role (down)');
+    await expect(repo.players('ws-1', ['u-1'])).rejects.toThrow('could not read the members\' names (denied)');
   });
 
   it('throws on a refusal, naming the read', async () => {

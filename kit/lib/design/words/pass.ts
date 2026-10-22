@@ -26,12 +26,14 @@ export type WordRules = {
   readonly primary: Selector;
   readonly content: Selector;
   readonly avoid: readonly string[];
+  /** PRD 1795 s6: for an avoided word the product's glossary lists (lower case), the term the product says instead. */
+  readonly says?: ReadonlyMap<string, string>;
 };
 
 /** One visible string of a screen: a control's whole label, or a run of text outside any control. */
 export type Phrase = { readonly text: string; readonly words: number; readonly control: boolean };
 
-export type Finding = { readonly rule: 'sentence-on-control' | 'two-primaries' | 'explains-at-rest' | 'avoided-word'; readonly message: string };
+export type Finding = { readonly rule: 'sentence-on-control' | 'two-primaries' | 'explains-at-rest' | 'avoided-word'; readonly message: string; /** How the line names the rule, when not by its id. */ readonly label?: string };
 
 /** One screen read: its own strings and their words, the words of the content it shows, and its findings. */
 export type ScreenWords = {
@@ -188,10 +190,13 @@ const explainsAtRest = (phrases: readonly Phrase[], { sentence }: WordRules): Fi
     .filter((phrase) => !phrase.control && phrase.words > sentence)
     .map((phrase) => ({ rule: 'explains-at-rest', message: `"${phrase.text}" — ${phrase.words} words at rest (more than ${sentence})` }));
 
-function avoidedWord(phrases: readonly Phrase[], { avoid }: WordRules): Finding[] {
-  const terms = avoid.map((term) => ({ term, pattern: wholeTerm(term) }));
+function avoidedWord(phrases: readonly Phrase[], { avoid, says }: WordRules): Finding[] {
+  const terms = avoid.map((term) => ({ term, pattern: wholeTerm(term), say: says?.get(squash(term).toLowerCase()) }));
   return phrases.flatMap((phrase) =>
-    terms.filter(({ pattern }) => pattern.test(phrase.text)).map(({ term }): Finding => ({ rule: 'avoided-word', message: `"${term}" in "${phrase.text}"` })));
+    terms.filter(({ pattern }) => pattern.test(phrase.text)).map(({ term, say }): Finding => ({
+      rule: 'avoided-word',
+      ...(say === undefined ? { message: `"${term}" in "${phrase.text}"` } : { label: 'avoided word', message: `${term} → say ${say} (in "${phrase.text}")` }),
+    })));
 }
 
 /** The four rules over one screen's phrases and primary actions, in the rules' order. */
@@ -236,7 +241,7 @@ export function formatPage(page: string, { skipped, screens }: PageWords, rules:
     for (const phrase of screen.phrases) lines.push(`    ${phrase.control ? '[control] ' : ''}${phrase.text} (${phrase.words})`);
     if (screen.content > 0) lines.push(`    content · ${wordsOf(screen.content)}`);
     if (screen.findings.length === 0) lines.push('    findings: none');
-    for (const finding of screen.findings) lines.push(`    ! ${finding.rule}: ${finding.message}`);
+    for (const finding of screen.findings) lines.push(`    ! ${finding.label ?? finding.rule}: ${finding.message}`);
   }
   return lines;
 }

@@ -136,7 +136,7 @@ PRs        56   (merged 53 · open 3)      phase-0 5 · feature 4 · slices 45 �
 PRD issues 26   signed 4 · before signing 22 · missed 0
 Opened by the app: 9 issues
 Co-authored commits on default branches: 11
-By repo    vertuo-omni-loop 47 · vertuo-core 9
+By repo    vertuo-omni-loop 47 · nimbus-core 9
 By month   2026-07 8 · 2026-08 21 · 2026-09 27
 ```
 

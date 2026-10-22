@@ -59,13 +59,13 @@
 // dossier, with no approval (the approval route's tests prove those), null when the caller reads no such PRD.
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { isOneOf, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { isOneOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import {
   ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, isRoundKind, KIND_ARTIFACTS, latestVersions, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, TITLE_MAX, WORK_KINDS, type DossierListRow,
   type DossierRoundRow, type PushedArtifactKind, type PushKind, type RoundRule,
 } from './store';
 import { FAKE_WORKSPACE, userOf, type FakeAccount } from '../ask/store.fake';
-import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };

@@ -1,7 +1,7 @@
 import type { SubmitEvent } from 'react';
 import { PERSONA_TRADES, personaGrid, type PersonaAvatar } from '@omni/design';
 import { pixelSvg } from '../design/pixel-svg';
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { hasProducts, type Product } from './model';
 import {
   drawable, NAME_MAX, PICKER_SIZE, pickerOf, sameAvatar, STANCES, TEXT_MAX, tradeLabel, viewPersonas,
@@ -57,7 +57,8 @@ function StanceChip({ stance }: { stance: Stance }) {
   return <span className="business-stance" data-stance={stance}>{STANCE_LABEL[stance]}</span>;
 }
 
-function Card({ persona, busy, on }: { persona: Persona; busy: boolean; on: PersonaHandlers }) {
+/** One persona's card, and the drawer that edits or adds one: the Knowledge home's pages draw them alone (PRD 2240 s4). */
+export function Card({ persona, busy, on }: { persona: Persona; busy: boolean; on: PersonaHandlers }) {
   return (
     <li className="business-persona" data-persona={persona.id}>
       <div className="business-persona-top">
@@ -107,7 +108,7 @@ function Picker({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
   );
 }
 
-function Drawer({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
+export function Drawer({ state, on }: { state: PersonasState; on: PersonaHandlers }) {
   const drawer = defined(state.drawer, 'the open drawer');
   const f = drawer.fields;
   const editing = drawer.editing !== null;

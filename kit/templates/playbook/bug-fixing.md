@@ -7,7 +7,7 @@ evidence: []
 invaded: null
 ---
 
-<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/bug-fixing.md — changes in kit/porting/templates--bug-fixing.md -->
+<!-- Ported from nimbus-brain@db67fd9da:docs/agents/bug-fixing.md — changes in kit/porting/templates--bug-fixing.md -->
 
 # Bug fixing
 
@@ -27,7 +27,9 @@ Use this page when a reported bug becomes a pull request.
 3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be
    defined without inventing product behaviour is a question for a person.
 4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and
-   run it before any fix: it must fail. If it passes, stop; it misses the bug, or the bug is gone.
+   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this
+   level cannot see it (only the build changes it): run `commands.smoke` with the case added. No
+   smoke to run: stop, keep the reproduction.
 5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.
 6. **Guard.** See below.
 7. **Open the pull request**, closing the report, and say what proved red and what proved green.
@@ -37,6 +39,6 @@ Nothing is reported as proven that was not run.
 ## Guard
 <!-- slot: guard · optional -->
 Ask which cheap check would have caught this before it shipped. When one is guard-sized (a check
-script, a lint rule, a unit test), add it, with its own test. Otherwise the pull request says
-`Guard: none — <reason>`. A regression test that lets small mutations of the fixed lines pass is not
-guarding the fix.
+script, a lint rule, a unit test), add it, with its own test; for a bug proven red by
+`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none — <reason>`. A
+regression test that lets small mutations of the fixed lines pass is not guarding the fix.

@@ -9,7 +9,7 @@
 //   ?  an item box (road)   S  a starting place (road)   +  a boost pad (road)   ^  a ramp (road)
 // Stands (PRD 1775) and shortcuts are not in the map either: they are listed beside it.
 // Props (PRD 1427) are not in the map: they are listed beside it, each a kind and a tile of void.
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { buildLine, crossings, gatesOf, inGapAt, isRoad as onTheRoad, locate, pointAt, roadInSpan, type Gate, type Line, type Located, type Piece, type Sample, type Span } from './line';
 
 /** A tile's side in game pixels: the circuit's texture is one tile = 16×16 pixels. */
@@ -46,6 +46,9 @@ export interface SourcePiece {
  * in driving order, the road's width, the gaps over the line, the pieces of the shortcuts and the tunnel's span (a start, a point of the line, and
  * a length).
  */
+/** A disc of ice: the tile coordinates [x, y] of its middle and its radius in tiles. */
+export interface IceDisc { readonly at: readonly [number, number]; readonly radius: number }
+
 export interface TrackSource {
   readonly rows: readonly string[];
   readonly waypoints: readonly (readonly [number, number, number])[];
@@ -63,10 +66,10 @@ export interface TrackSource {
   /** The shortcuts, each beside the racing line (PRD 1775); none when left out. */
   readonly shortcuts?: readonly Shortcut[];
   /**
-   * A frozen lake (PRD 1923): the tile coordinates [x, y] of its middle and its radius in tiles. A circuit that has one has a floor: `ice` inside the lake,
-   * `road` on the rest of the road, `powder` everywhere else, and no void; and a tree line at the map's edge.
+   * The frozen discs (PRD 1923, PRD 1963): the lake first, then the frozen patches, each the tile coordinates [x, y] of its middle and its radius in tiles. A circuit that has
+   * any has a floor: `ice` inside any of them, `road` on the rest of the road, `powder` everywhere else, and no void; and a tree line at the map's edge.
    */
-  readonly lake?: { readonly at: readonly [number, number]; readonly radius: number };
+  readonly ice?: readonly IceDisc[];
 }
 
 /**
@@ -294,8 +297,8 @@ export const FROST_EIGHT: TrackSource = {
   // [x, y, radius]: the 8 corners in driving order.
   waypoints: [[56, 64, 5], [56, 48, 4], [16, 24, 4], [16, 8, 5], [56, 8, 5], [56, 24, 4], [16, 48, 4], [16, 64, 5]],
   width: 5,
-  // The lake: a disc of ice 12 tiles across on the crossing.
-  lake: { at: [36, 36], radius: 6 },
+  // The ice (PRD 1923, PRD 1963): the lake first, a disc 12 tiles across on the crossing, then two frozen patches 6 tiles across, on the middle of bend 4's curve and of bend 8's.
+  ice: [{ at: [36, 36], radius: 6 }, { at: [16, 8], radius: 3 }, { at: [16, 64], radius: 3 }],
   // The relief: the diagonals stand at the base height at both ends, with no hump, so both are level over the lake; the top loop climbs to a pass on the top straight.
   relief: { heights: [0, 0, 0, 14, 14, 0, 0, 0], bumps: [0, 0, 0, 6, 0, 0, 0, 0] },
 };
@@ -447,27 +450,30 @@ function bake(line: Line, span: Span | null, cols: number, rows: number): Pick<B
   return { road, roof, gap };
 }
 
-/** The floor of a circuit with a lake (PRD 1923): ice inside the lake, road where the road is, powder everywhere else. */
-function floorOf(road: Uint8Array, w: number, lake: NonNullable<TrackSource['lake']>): Uint8Array {
+/** The floor of a circuit with ice (PRD 1923): ice inside any disc, road where the road is, powder everywhere else. */
+function floorOf(road: Uint8Array, w: number, discs: readonly IceDisc[]): Uint8Array {
   const floor = new Uint8Array(road.length);
-  const reach = lake.radius * TILE;
-  const cx = (lake.at[0] + 0.5) * TILE, cy = (lake.at[1] + 0.5) * TILE;
   for (let i = 0; i < floor.length; i++) {
     const x = (i % w) + 0.5, y = Math.floor(i / w) + 0.5;
-    floor[i] = Math.hypot(x - cx, y - cy) < reach ? FLOOR.ice : road[i] === 1 ? FLOOR.road : FLOOR.powder;
+    // A disc is measured only when the pixel is within its radius along both axes; beyond that it cannot be inside.
+    const frozen = discs.some((d) => {
+      const dx = x - (d.at[0] + 0.5) * TILE, dy = y - (d.at[1] + 0.5) * TILE, r = d.radius * TILE;
+      return Math.abs(dx) <= r && Math.abs(dy) <= r && Math.hypot(dx, dy) < r;
+    });
+    floor[i] = frozen ? FLOOR.ice : road[i] === 1 ? FLOOR.road : FLOOR.powder;
   }
   return floor;
 }
 
 /** The centre line and the baked ground of `src`, made once for the same waypoints, width, gaps, pieces, span and size. */
 function bakedOf(src: TrackSource): Baked {
-  const known = baked.get(src.waypoints)?.find((k) => k.src.width === src.width && k.src.gaps === src.gaps && k.src.pieces === src.pieces && k.src.span === src.span && k.src.lake === src.lake
+  const known = baked.get(src.waypoints)?.find((k) => k.src.width === src.width && k.src.gaps === src.gaps && k.src.pieces === src.pieces && k.src.span === src.span && k.src.ice === src.ice
     && k.src.rows.length === src.rows.length && k.src.rows[0]?.length === src.rows[0]?.length);
   if (known) return known.made;
   const { line, span } = centreOf(src);
   const cols = src.rows[0]?.length ?? 0;
   const ground = bake(line, span, cols, src.rows.length);
-  const made: Baked = { line, span, ...ground, ...(src.lake ? { floor: floorOf(ground.road, cols * TILE, src.lake) } : {}) };
+  const made: Baked = { line, span, ...ground, ...(src.ice ? { floor: floorOf(ground.road, cols * TILE, src.ice) } : {}) };
   baked.set(src.waypoints, [...(baked.get(src.waypoints) ?? []), { src, made }]);
   return made;
 }

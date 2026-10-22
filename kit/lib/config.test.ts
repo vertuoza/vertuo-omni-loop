@@ -4,9 +4,27 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.ts';
 import { makeRepo } from '../test/fixture.ts';
-import { CONFIG_FILE, ConfigError, DEFAULT_CONTRACT_KINDS, MIGRATIONS, dossierSwitch, loadConfig, migrateConfig, parseConfig } from './config.ts';
+import { CONFIG_FILE, ConfigError, DEFAULT_CONTRACT_KINDS, MIGRATIONS, dossierSwitch, lawOwnerParts, loadConfig, migrateConfig, parseConfig } from './config.ts';
 import { messageOf } from './narrow.ts';
 import { assertDefined } from '../test/assert.ts';
+
+describe('layers (PRD 2346)', () => {
+  it('parses no layers key as no key, and reads a map of canonical layers to patterns', () => {
+    expect(Object.hasOwn(parseConfig('kit: 1\n'), 'layers')).toBe(false);
+    expect(parseConfig('kit: 1\nlayers:\n  db: [^supabase/]\n  cli: [^kit/bin/, ^bin/]\n').layers).toEqual({ db: ['^supabase/'], cli: ['^kit/bin/', '^bin/'] });
+  });
+
+  it('refuses a key that is not a layer, naming it and the ten layers', () => {
+    expect(() => parseConfig('kit: 1\nlayers:\n  database: [^supabase/]\n', 'c.yml')).toThrow(
+      /c\.yml.*layers\.database: database is not a layer \(ui, api, schema, db, auth, event, cli, job, infra, ci\)/,
+    );
+  });
+
+  it('refuses an empty list and a pattern that does not compile', () => {
+    expect(() => parseConfig('kit: 1\nlayers:\n  db: []\n')).toThrow(/layers\.db/);
+    expect(() => parseConfig("kit: 1\nlayers:\n  db: ['(']\n")).toThrow(/layers\.db\.0/);
+  });
+});
 
 describe('parseConfig', () => {
   it('fills every section from defaults when only the version is given', () => {
@@ -17,7 +35,7 @@ describe('parseConfig', () => {
     expect(config.markers.prefix).toBe('omni-outbox');
     expect(config.laws.source).toBe('none');
     expect(config.ci.outboxContext).toBe('outbox');
-    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000, parallelSteps: 3 });
+    expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000, parallelSteps: 3, escalationWorkingDays: 2 });
     expect(config.risk).toEqual({ storedShape: [], sharedContract: [] });
     expect(config.notify.slack).toBeNull();
     expect(config.ask).toEqual({ url: null });
@@ -61,6 +79,16 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nreleaseNotes:\n  on: true\n')).toThrow(/releaseNotes.*on/s);
   });
 
+  it('keeps retro guards off unless the file switches them on, and refuses a switch that is not a boolean (PRD 2338)', () => {
+    expect(parseConfig('kit: 1\n').retro).toEqual({ guards: false });
+    expect(parseConfig('kit: 1\nretro:\n  guards: true\n').retro).toEqual({ guards: true });
+    expect(parseConfig('kit: 1\nretro: { guards: false }\n').retro).toEqual({ guards: false });
+    expect(() => parseConfig('kit: 1\nretro:\n  guards: yes please\n', 'c.yml')).toThrow(/c\.yml.*retro\.guards/);
+    expect(() => parseConfig('kit: 1\nretro:\n  guards: "true"\n')).toThrow(/retro\.guards/);
+    expect(() => parseConfig('kit: 1\nretro:\n  guards: 1\n')).toThrow(/retro\.guards/);
+    expect(() => parseConfig('kit: 1\nretro:\n  tests: true\n')).toThrow(/retro.*tests/s);
+  });
+
   it('keeps design craft off with no screen paths unless the file switches it on, and refuses a bad switch or path (PRD 1369)', () => {
     expect(parseConfig('kit: 1\n').design).toEqual({ enabled: false, paths: [], screens: '.omni-loop/knowledge/design/screens/', words: { sentence: 7, screen: '[data-screen]', primary: '[data-primary]', avoid: [] } });
     expect(parseConfig('kit: 1\ndesign:\n  enabled: true\n  paths: [src/ui/**, "**/*.css"]\n').design).toEqual({
@@ -98,6 +126,12 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\ndesign:\n  words:\n    avoid: utilize\n')).toThrow(/design\.words\.avoid/);
     expect(() => parseConfig('kit: 1\ndesign:\n  words:\n    avoid: [""]\n')).toThrow(/design\.words\.avoid/);
     expect(() => parseConfig('kit: 1\ndesign:\n  words:\n    length: 3\n')).toThrow(/design\.words.*length/s);
+  });
+
+  it('has no smoke command unless the config sets one, reads it as written and refuses an empty one (PRD 2275)', () => {
+    expect(parseConfig('kit: 1\n').commands.smoke).toBeNull();
+    expect(parseConfig('kit: 1\ncommands:\n  smoke: bun run build && bun run test:smoke\n').commands.smoke).toBe('bun run build && bun run test:smoke');
+    expect(() => parseConfig('kit: 1\ncommands:\n  smoke: ""\n')).toThrow(/commands\.smoke/);
   });
 
   it('has no design lint command unless the config sets one (PRD 1369)', () => {
@@ -310,7 +344,9 @@ describe('parseConfig', () => {
   it('reads contracts.declare and the repository\'s own kinds when the file says so (PRD 1870)', () => {
     expect(parseConfig('kit: 1\ncontracts:\n  declare: true\n').contracts).toEqual({ declare: true, kinds: ['api', 'db'] });
     expect(parseConfig('kit: 1\ncontracts:\n  declare: true\n  kinds: [api, event]\n').contracts).toEqual({ declare: true, kinds: ['api', 'event'] });
-    expect(parseConfig('kit: 1\ncontracts:\n  kinds: [schema, rest, db]\n').contracts).toEqual({ declare: false, kinds: ['schema', 'rest', 'db'] });
+    expect(parseConfig('kit: 1\ncontracts:\n  kinds: [schema, rest, db]\n').contracts).toEqual({ declare: false, kinds: ['schema', 'api', 'db'] });
+    expect(parseConfig('kit: 1\ncontracts:\n  kinds: [rest]\n').contracts.kinds).toEqual(['api']);
+    expect(parseConfig('kit: 1\ncontracts:\n  kinds: [eventz]\n').contracts.kinds).toEqual(['eventz']);
     expect(parseConfig('kit: 1\ncontracts: {}\n').contracts).toEqual({ declare: false, kinds: ['api', 'db'] });
   });
 
@@ -501,6 +537,15 @@ describe('omni config', () => {
     }
   });
 
+  it('prints retro.guards, false when the file does not set it and true once it does (PRD 2338)', async () => {
+    for (const [text, value] of [[files['.omni-loop/config.yml'], 'false'], ['kit: 1\nretro:\n  guards: true\n', 'true']]) {
+      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': text } });
+      const s = io();
+      expect(await main(['config', 'retro.guards'], { cwd: root, ...s })).toBe(0);
+      expect(s.out.join('')).toBe(`${value}\n`);
+    }
+  });
+
   it('prints design.enabled, design.paths and commands.design, off, empty and null by default (PRD 1369)', async () => {
     const cases = [
       [files['.omni-loop/config.yml'], ['false', '[]', 'null']],
@@ -623,7 +668,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'agents', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'proof', 'e2e', 'design', 'markers', 'signature', 'sync',
+      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'retro', 'proof', 'e2e', 'design', 'markers', 'signature', 'sync',
     ]);
   });
 
@@ -974,7 +1019,7 @@ describe('laws.requireProof, labels.law and branches.law (PRD 1342)', () => {
 
   it('reads the values a repository sets', () => {
     const config = parseConfig('kit: 1\nlaws:\n  source: knowledge\n  requireProof: true\nlabels:\n  law: law\nbranches:\n  law: laws/{id}\n');
-    expect(config.laws).toEqual({ source: 'knowledge', claudeMdHeading: '## Invariants', requireProof: true, max: 20, owners: [] });
+    expect(config.laws).toEqual({ source: 'knowledge', claudeMdHeading: '## Invariants', requireProof: true, max: 20, owners: [], leadership: [] });
     expect(config.labels.law).toBe('law');
     expect(config.branches.law).toBe('laws/{id}');
   });
@@ -998,9 +1043,9 @@ describe('laws.max and laws.owners (PRD 1726)', () => {
   });
 
   it('reads a cap, logins and teams', () => {
-    const config = parseConfig('kit: 1\nlaws:\n  max: 5\n  owners: [pierrederval, vertuoza/core, a-b-1]\n');
+    const config = parseConfig('kit: 1\nlaws:\n  max: 5\n  owners: [pierrederval, demo-org/core, a-b-1]\n');
     expect(config.laws.max).toBe(5);
-    expect(config.laws.owners).toEqual(['pierrederval', 'vertuoza/core', 'a-b-1']);
+    expect(config.laws.owners).toEqual(['pierrederval', 'demo-org/core', 'a-b-1']);
   });
 
   it.each([
@@ -1016,6 +1061,58 @@ describe('laws.max and laws.owners (PRD 1726)', () => {
     ['an owner that is no text', 'laws:\n  owners: [3]\n', /c\.yml.*laws\.owners\.0/],
   ])('refuses %s, naming the key', (_what, section, message) => {
     expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
+  });
+});
+
+describe('delegates, leadership and the escalation delay (PRD 1794)', () => {
+  it('reads a plain owner beside an owner with a delegate, as written, and product leadership', () => {
+    const config = parseConfig('kit: 1\nlaws:\n  owners:\n    - login: pierrederval\n      delegate: jdoe\n    - acme/platform\n  leadership: [cto-login]\n');
+    expect(config.laws.owners).toEqual([{ login: 'pierrederval', delegate: 'jdoe' }, 'acme/platform']);
+    expect(config.laws.leadership).toEqual(['cto-login']);
+  });
+
+  it('reads a one-letter login as an owner, a delegate and a leader', () => {
+    const config = parseConfig('kit: 1\nlaws:\n  owners:\n    - a\n    - login: b\n      delegate: c\n  leadership: [d]\n');
+    expect(config.laws.owners).toEqual(['a', { login: 'b', delegate: 'c' }]);
+    expect(config.laws.leadership).toEqual(['d']);
+  });
+
+  it('names no leader by default, and waits 2 working days before it escalates', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.laws.leadership).toEqual([]);
+    expect(config.limits.escalationWorkingDays).toBe(2);
+    expect(config.limits.stallDays).toBe(5);
+  });
+
+  it('reads a delay from 1 to 10 working days, leaving stallDays as it is', () => {
+    expect(parseConfig('kit: 1\nlimits:\n  escalationWorkingDays: 1\n').limits.escalationWorkingDays).toBe(1);
+    const config = parseConfig('kit: 1\nlimits:\n  escalationWorkingDays: 10\n  stallDays: 3\n');
+    expect(config.limits.escalationWorkingDays).toBe(10);
+    expect(config.limits.stallDays).toBe(3);
+  });
+
+  it.each([
+    ['a team delegate', 'laws:\n  owners:\n    - login: pierrederval\n      delegate: acme/core\n', /c\.yml.*laws\.owners\.0\.delegate/],
+    ['a delegate written with @', "laws:\n  owners:\n    - login: pierrederval\n      delegate: '@jdoe'\n", /c\.yml.*laws\.owners\.0\.delegate/],
+    ['a delegate equal to its owner', 'laws:\n  owners:\n    - login: pierrederval\n      delegate: pierrederval\n', /c\.yml.*laws\.owners\.0\.delegate: .*other than its own owner/],
+    ['a delegate equal to its owner but for case', 'laws:\n  owners:\n    - login: PierreDerval\n      delegate: pierrederval\n', /c\.yml.*laws\.owners\.0\.delegate/],
+    ['an owner with a delegate but no login', 'laws:\n  owners:\n    - delegate: jdoe\n', /c\.yml.*laws\.owners\.0\.login/],
+    ['an owner with a login but no delegate', 'laws:\n  owners:\n    - login: pierrederval\n', /c\.yml.*laws\.owners\.0\.delegate/],
+    ['a team owner with a delegate', 'laws:\n  owners:\n    - login: acme/core\n      delegate: jdoe\n', /c\.yml.*laws\.owners\.0\.login/],
+    ['an owner entry with an unknown key', 'laws:\n  owners:\n    - login: pierrederval\n      delegate: jdoe\n      backup: ann\n', /c\.yml.*laws\.owners\.0.*backup/s],
+    ['a team in leadership', 'laws:\n  leadership: [acme/leads]\n', /c\.yml.*laws\.leadership\.0/],
+    ['a leader written with @', "laws:\n  leadership: ['@cto']\n", /c\.yml.*laws\.leadership\.0/],
+    ['leadership given as one text', 'laws:\n  leadership: cto\n', /c\.yml.*laws\.leadership/],
+    ['a delay of 0 working days', 'limits:\n  escalationWorkingDays: 0\n', /c\.yml.*limits\.escalationWorkingDays/],
+    ['a delay of 11 working days', 'limits:\n  escalationWorkingDays: 11\n', /c\.yml.*limits\.escalationWorkingDays/],
+    ['a fractional delay', 'limits:\n  escalationWorkingDays: 1.5\n', /c\.yml.*limits\.escalationWorkingDays/],
+  ])('refuses %s, naming the key', (_what, section, message) => {
+    expect(() => parseConfig(`kit: 1\n${section}`, 'c.yml')).toThrow(message);
+  });
+
+  it('splits an entry into its owner and its delegate: a plain entry has none', () => {
+    expect(lawOwnerParts('acme/platform')).toEqual({ owner: 'acme/platform', delegate: null });
+    expect(lawOwnerParts({ login: 'pierrederval', delegate: 'jdoe' })).toEqual({ owner: 'pierrederval', delegate: 'jdoe' });
   });
 });
 

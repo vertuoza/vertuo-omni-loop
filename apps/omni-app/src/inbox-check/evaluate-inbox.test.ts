@@ -1,4 +1,4 @@
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -79,7 +79,7 @@ describe('phase0Topic — the topic a head branch names through branches.phase0'
 
 describe('inboxPrd — the PRD whose inbox folder carries the topic', () => {
   it('finds the number in the head snapshot, or null', async () => {
-    const { parseConfig } = await import('vertuo-omni-plan/kit/lib/config.ts');
+    const { parseConfig } = await import('omni-loop/kit/lib/config.ts');
     const config = parseConfig('kit: 1\nrepo:\n  slug: acme/widgets\n', 'config.yml');
     expect(inboxPrd({ head: fixture('inbox-head-complete'), config, topic: 'widget' })).toBe(42);
     expect(inboxPrd({ head: fixture('inbox-head-complete'), config, topic: 'gadget' })).toBeNull();
@@ -159,6 +159,17 @@ describe('evaluateInbox — the four gates', () => {
     const verdict = await graded(input({ head: fixture('inbox-head-bad-plan') }));
     expect(failed(verdict)).toEqual(['plan']);
     expect(verdict.summary).toContain('a blocker must sit in an earlier wave');
+  });
+
+  it('a declared contract the before/after page carries no block for is failure, naming the slice and the kind', async () => {
+    const verdict = await graded(input({ base: fixture('inbox-base-contracts'), head: fixture('inbox-head-contract-no-block') }));
+    expect(failed(verdict)).toEqual(['plan']);
+    expect(verdict.summary).toContain('s1: contract: db — before-after.html has no data-contract="db" block');
+  });
+
+  it('a declared contract with its block on the before/after page passes the plan gate', async () => {
+    const verdict = await graded(input({ base: fixture('inbox-base-contracts'), head: fixture('inbox-head-contract-block') }));
+    expect(verdict.conclusion).toBe('success');
   });
 
   it.each([

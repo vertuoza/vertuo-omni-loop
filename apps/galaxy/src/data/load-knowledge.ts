@@ -1,10 +1,10 @@
 import 'server-only';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { CONFIG_FILE, loadConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { createContext } from 'vertuo-omni-plan/kit/lib/context.ts';
-import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.ts';
-import { firstPart } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { CONFIG_FILE, loadConfig } from 'omni-loop/kit/lib/config.ts';
+import { createContext } from 'omni-loop/kit/lib/context.ts';
+import { readGraph } from 'omni-loop/kit/lib/knowledge/graph.ts';
+import { firstPart } from 'omni-loop/kit/lib/narrow.ts';
 import type { KnowledgeGraph } from './knowledge';
 
 // The knowledge map's data (PRD 149): the knowledge of the checkout the app is deployed from, read at

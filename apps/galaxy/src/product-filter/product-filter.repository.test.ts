@@ -26,10 +26,10 @@ function stub(answers: Record<string, Answer>) {
 
 describe('the product filter\'s storage', () => {
   it('reads the listed workspaces\' products, first first', async () => {
-    const { calls, repo } = stub({ products: { data: [{ id: 'p-1', name: 'Mobile', workspace_id: 'ws-1' }] } });
-    expect(await repo.products(['ws-1', 'ws-2'])).toEqual([{ id: 'p-1', name: 'Mobile', workspace_id: 'ws-1' }]);
+    const { calls, repo } = stub({ products: { data: [{ id: 'p-1', name: 'Mobile', workspace_id: 'ws-1', key: 'mobile' }] } });
+    expect(await repo.products(['ws-1', 'ws-2'])).toEqual([{ id: 'p-1', name: 'Mobile', workspace_id: 'ws-1', key: 'mobile' }]);
     expect(calls).toEqual([
-      ['products', 'select', 'id, name, workspace_id'], ['products', 'order', 'ordinal'], ['products', 'in', 'workspace_id', ['ws-1', 'ws-2']],
+      ['products', 'select', 'id, name, workspace_id, key'], ['products', 'order', 'ordinal'], ['products', 'in', 'workspace_id', ['ws-1', 'ws-2']],
     ]);
   });
 
@@ -37,6 +37,12 @@ describe('the product filter\'s storage', () => {
     const { calls, repo } = stub({ dossiers: { data: [{ id: 'd-1', product_id: 'p-1' }] } });
     expect(await repo.dossierProducts(['ws-1'])).toEqual(new Map([['d-1', 'p-1']]));
     expect(calls).toEqual([['dossiers', 'select', 'id, product_id'], ['dossiers', 'not', 'product_id', 'is', null], ['dossiers', 'in', 'workspace_id', ['ws-1']]]);
+  });
+
+  it('reads the numbers dossiers hold on their product, by id', async () => {
+    const { calls, repo } = stub({ dossiers: { data: [{ id: 'd-1', product_seq: 12 }] } });
+    expect(await repo.dossierNumbers(['ws-1'])).toEqual(new Map([['d-1', 12]]));
+    expect(calls).toEqual([['dossiers', 'select', 'id, product_seq'], ['dossiers', 'not', 'product_seq', 'is', null], ['dossiers', 'in', 'workspace_id', ['ws-1']]]);
   });
 
   it('reads a board\'s workspaces and its ideas that carry a product', async () => {

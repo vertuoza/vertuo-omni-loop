@@ -32,9 +32,19 @@
 -- lines included) and personas, never a proposed or rejected claim, and nothing for a repository no
 -- workspace tracks.
 --
+-- PRD 1795 (20261212110000_product_knowledge.sql): business_for_repo() (hence business_for_token()) and
+-- business_for_repo_app() answer `legal`, the repository's product's active Legal entries
+-- `{id: "L-<CODE>-<n>", statement, source, owner}` (the owner's login) by code then number, and `glossary`,
+-- its live terms `{term, meaning, avoid}` by term without case: never a retired entry or a removed term,
+-- never another product's, `[]` with none or no product. The App's read also answers `knowledgeEventId`,
+-- the product's newest knowledge event. Who may change them is supabase/checks/product_knowledge.sql's.
+--
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
+
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
 
 -- ── Nothing seeded ──
 do $$
@@ -48,20 +58,20 @@ begin
 end $$;
 
 -- ── The cast ──
--- Olga and Mo are members of Vertuoza (github_org vertuoza); Carl owns Acme; Sam belongs to no
+-- Olga and Mo are members of Initech (github_org initech); Carl owns Acme; Sam belongs to no
 -- workspace.
 insert into auth.users (id, email, email_confirmed_at) values
-  ('00000000-0000-4000-8000-0000000074a1', 'olga@vertuoza.com', now()),
-  ('00000000-0000-4000-8000-0000000074b1', 'mo@vertuoza.com', now()),
+  ('00000000-0000-4000-8000-0000000074a1', 'olga@example.com', now()),
+  ('00000000-0000-4000-8000-0000000074b1', 'mo@example.com', now()),
   ('00000000-0000-4000-8000-0000000074c1', 'carl@acme.test', now()),
   ('00000000-0000-4000-8000-0000000074d1', 'sam@nowhere.test', now());
 insert into public.workspaces (slug, name, github_org) values ('acme-biz', 'Acme', 'acme-biz');
-update public.workspaces set github_org = 'vertuoza' where slug = 'vertuoza' and github_org is null;
+update public.workspaces set github_org = 'initech' where slug = 'initech' and github_org is null;
 insert into public.workspace_members (workspace_id, user_id, role)
 select w.id, m.user_id, m.role
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000074a1'::uuid, 'owner'),
-         ('vertuoza', '00000000-0000-4000-8000-0000000074b1'::uuid, 'member'),
+         ('initech', '00000000-0000-4000-8000-0000000074a1'::uuid, 'owner'),
+         ('initech', '00000000-0000-4000-8000-0000000074b1'::uuid, 'member'),
          ('acme-biz', '00000000-0000-4000-8000-0000000074c1'::uuid, 'owner')
        ) as m (slug, user_id, role)
   join public.workspaces w on w.slug = m.slug
@@ -71,7 +81,7 @@ create function pg_temp.sign_in(uid text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
 $$;
 create temporary table ids (slug text primary key, id uuid);
-insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('vertuoza', 'acme-biz');
+insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('initech', 'acme-biz');
 grant select on ids to anon, authenticated, service_role;
 create function pg_temp.ws(slug text) returns uuid language sql as $$
   select i.id from ids i where i.slug = ws.slug;
@@ -125,13 +135,13 @@ do $$
 declare c text;
 begin
   foreach c in array array[
-    format('select public.business_open(%L)', pg_temp.ws('vertuoza')),
-    'select public.business_for_repo(''vertuoza/vertuo-apps'')',
-    'select public.claims_cite(''vertuoza/vertuo-apps'', array[''rival#1''], ''think-big'', null)',
-    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''proposed'', ''r'')',
-    format('select public.business_source_add(%L, ''https://vertuoza.com'')', pg_temp.ws('vertuoza')),
-    format('select public.business_draft_start(%L, ''draft'')', pg_temp.ws('vertuoza')),
-    format('select public.business_to_check(%L)', pg_temp.ws('vertuoza'))
+    format('select public.business_open(%L)', pg_temp.ws('initech')),
+    'select public.business_for_repo(''initech/nimbus-apps'')',
+    'select public.claims_cite(''initech/nimbus-apps'', array[''rival#1''], ''think-big'', null)',
+    'select public.claim_answer(''initech/nimbus-apps'', ''rival'', ''Planted'', ''proposed'', ''r'')',
+    format('select public.business_source_add(%L, ''https://example.com'')', pg_temp.ws('initech')),
+    format('select public.business_draft_start(%L, ''draft'')', pg_temp.ws('initech')),
+    format('select public.business_to_check(%L)', pg_temp.ws('initech'))
   ] loop perform pg_temp.forbidden(c, 'anon'); end loop;
   begin perform 1 from public.claims; raise exception 'FAIL: anon read public.claims';
   exception when insufficient_privilege then null; end;
@@ -140,18 +150,18 @@ begin
 end $$;
 reset role;
 
--- ── A member of Vertuoza reads none before the business is opened ──
+-- ── A member of Initech reads none before the business is opened ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000074b1');
 do $$
 declare got jsonb;
 begin
-  got := public.business_for_repo('vertuoza/vertuo-apps');
-  if got <> '{"state": "none", "business": null, "product": null, "claims": [], "personas": []}'::jsonb then
+  got := public.business_for_repo('initech/nimbus-apps');
+  if got <> '{"state": "none", "business": null, "product": null, "claims": [], "personas": [], "legal": [], "glossary": []}'::jsonb then
     raise exception 'FAIL: business_for_repo with no business answered %', got;
   end if;
   begin
-    perform public.claim_pick(pg_temp.ws('vertuoza'), null, 'region', 'Belgium', 'pick');
+    perform public.claim_pick(pg_temp.ws('initech'), null, 'region', 'Belgium', 'pick');
     raise exception 'FAIL: claim_pick ran before the business was opened';
   exception when no_data_found then null; end;
 end $$;
@@ -164,55 +174,55 @@ declare
   first uuid;
   c public.claims;
 begin
-  b := public.business_open(pg_temp.ws('vertuoza'));
-  if b.name is distinct from (select w.name from public.workspaces w where w.id = pg_temp.ws('vertuoza')) then
+  b := public.business_open(pg_temp.ws('initech'));
+  if b.name is distinct from (select w.name from public.workspaces w where w.id = pg_temp.ws('initech')) then
     raise exception 'FAIL: the business is not named after its workspace: %', b;
   end if;
-  again := public.business_open(pg_temp.ws('vertuoza'));
+  again := public.business_open(pg_temp.ws('initech'));
   if again.id <> b.id or (select count(*) from public.businesses) <> 1 or (select count(*) from public.products) <> 1 then
     raise exception 'FAIL: opening the business twice made a second business or product';
   end if;
   select p.id into first from public.products p where p.business_id = b.id;
   insert into made values ('erp', first);
   if exists (select 1 from public.repositories r
-              where r.workspace_id = pg_temp.ws('vertuoza')
+              where r.workspace_id = pg_temp.ws('initech')
                 and not exists (select 1 from public.product_repositories l
                                  where l.repository = r.full_name and l.product_id = first and l.added_by = 'person')) then
     raise exception 'FAIL: business_open did not link every repository to the first product';
   end if;
 
-  c := public.claim_pick(pg_temp.ws('vertuoza'), null, 'region', ' Belgium ', 'pick');
+  c := public.claim_pick(pg_temp.ws('initech'), null, 'region', ' Belgium ', 'pick');
   if c.seq <> 1 or c.kind <> 'region' or c.value <> 'Belgium' or c.source <> 'pick' or c.state <> 'confirmed' or c.product_id is not null then
     raise exception 'FAIL: a picked region is not region#1, confirmed, on the business: %', c;
   end if;
   -- A region takes no product, even when one is sent.
-  c := public.claim_pick(pg_temp.ws('vertuoza'), first, 'region', 'France', 'pick');
+  c := public.claim_pick(pg_temp.ws('initech'), first, 'region', 'France', 'pick');
   if c.product_id is not null or c.seq <> 2 then raise exception 'FAIL: a region was put on a product: %', c; end if;
-  c := public.claim_pick(pg_temp.ws('vertuoza'), first, 'offering', 'ERP', 'pick');
+  c := public.claim_pick(pg_temp.ws('initech'), first, 'offering', 'ERP', 'pick');
   if c.seq <> 3 or c.product_id <> first then raise exception 'FAIL: offering is not #3 on the product: %', c; end if;
-  c := public.claim_pick(pg_temp.ws('vertuoza'), first, 'size', '2-50', 'pick');
+  c := public.claim_pick(pg_temp.ws('initech'), first, 'size', '2-50', 'pick');
   if c.seq <> 4 or c.value <> '2-50' then raise exception 'FAIL: size 2-50 not stored as #4: %', c; end if;
-  c := public.claim_pick(pg_temp.ws('vertuoza'), first, 'size', '500-1000+', 'pick');
-  c := public.claim_pick(pg_temp.ws('vertuoza'), first, 'trade', 'construction', 'pick');
-  c := public.claim_pick(pg_temp.ws('vertuoza'), first, 'rival', 'Rival One', 'pick');
+  c := public.claim_pick(pg_temp.ws('initech'), first, 'size', '500-1000+', 'pick');
+  c := public.claim_pick(pg_temp.ws('initech'), first, 'trade', 'construction', 'pick');
+  c := public.claim_pick(pg_temp.ws('initech'), first, 'rival', 'Rival One', 'pick');
   insert into made values ('rival-one', c.id);
   -- A pick of a value already there adds nothing.
-  if (public.claim_pick(pg_temp.ws('vertuoza'), first, 'rival', 'rival one', 'pick')).id <> c.id then
+  if (public.claim_pick(pg_temp.ws('initech'), first, 'rival', 'rival one', 'pick')).id <> c.id then
     raise exception 'FAIL: picking a value again made a second claim';
   end if;
 
   -- Suggested rivals: proposed until confirmed.
-  c := public.claim_pick(pg_temp.ws('vertuoza'), first, 'rival', 'Rival Two', 'suggestion');
+  c := public.claim_pick(pg_temp.ws('initech'), first, 'rival', 'Rival Two', 'suggestion');
   if c.source <> 'suggestion' or c.state <> 'proposed' then raise exception 'FAIL: a suggestion is not proposed: %', c; end if;
   insert into made values ('rival-two', c.id);
-  c := public.claim_pick(pg_temp.ws('vertuoza'), first, 'rival', 'Rival Three', 'suggestion');
+  c := public.claim_pick(pg_temp.ws('initech'), first, 'rival', 'Rival Three', 'suggestion');
   insert into made values ('rival-three', c.id);
-  c := public.claim_set_state(pg_temp.ws('vertuoza'), pg_temp.made('rival-two'), 'confirmed');
+  c := public.claim_set_state(pg_temp.ws('initech'), pg_temp.made('rival-two'), 'confirmed');
   if c.state <> 'confirmed' then raise exception 'FAIL: ✓ did not confirm a suggestion'; end if;
-  c := public.claim_set_state(pg_temp.ws('vertuoza'), pg_temp.made('rival-three'), 'rejected');
+  c := public.claim_set_state(pg_temp.ws('initech'), pg_temp.made('rival-three'), 'rejected');
   if c.state <> 'rejected' then raise exception 'FAIL: ✗ did not reject a suggestion'; end if;
   -- A rejected rival, suggested again, stays rejected.
-  c := public.claim_pick(pg_temp.ws('vertuoza'), first, 'rival', 'Rival Three', 'suggestion');
+  c := public.claim_pick(pg_temp.ws('initech'), first, 'rival', 'Rival Three', 'suggestion');
   if c.state <> 'rejected' or c.id <> pg_temp.made('rival-three') then raise exception 'FAIL: a rejected rival was proposed again: %', c; end if;
 
   if (select string_agg(c2.seq::text, ',' order by c2.seq) from public.claims c2) <> '1,2,3,4,5,6,7,8,9' then
@@ -226,26 +236,26 @@ declare c text;
 begin
   create temporary table before_bad as select pg_temp.store() s;
   foreach c in array array[
-    format('select public.claim_pick(%L, %L, ''colour'', ''red'', ''pick'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-    format('select public.claim_pick(%L, %L, null, ''red'', ''pick'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-    format('select public.claim_pick(%L, %L, ''trade'', ''   '', ''pick'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-    format('select public.claim_pick(%L, %L, ''trade'', %L, ''pick'')', pg_temp.ws('vertuoza'), pg_temp.made('erp'), repeat('x', 81)),
-    format('select public.claim_pick(%L, %L, ''trade'', %L, ''pick'')', pg_temp.ws('vertuoza'), pg_temp.made('erp'), E'two\nlines'),
-    format('select public.claim_pick(%L, %L, ''size'', ''3-50'', ''pick'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-    format('select public.claim_pick(%L, %L, ''size'', ''50-2'', ''pick'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-    format('select public.claim_pick(%L, %L, ''size'', ''lots'', ''pick'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-    format('select public.claim_pick(%L, %L, ''trade'', ''retail'', ''evidence'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-    format('select public.claim_pick(%L, %L, ''trade'', ''retail'', ''suggestion'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-    format('select public.claim_pick(%L, null, ''trade'', ''retail'', ''pick'')', pg_temp.ws('vertuoza')),
-    format('select public.claim_set_state(%L, %L, ''contradicted'')', pg_temp.ws('vertuoza'), pg_temp.made('rival-one')),
-    format('select public.product_add(%L, '''')', pg_temp.ws('vertuoza')),
-    'select public.claims_cite(''vertuoza/vertuo-apps'', array[''rival-4''], ''think-big'', null)',
-    'select public.claims_cite(''vertuoza/vertuo-apps'', array[]::text[], ''think-big'', null)',
-    'select public.claims_cite(''vertuoza/vertuo-apps'', array[''rival#7''], '''', null)',
+    format('select public.claim_pick(%L, %L, ''colour'', ''red'', ''pick'')', pg_temp.ws('initech'), pg_temp.made('erp')),
+    format('select public.claim_pick(%L, %L, null, ''red'', ''pick'')', pg_temp.ws('initech'), pg_temp.made('erp')),
+    format('select public.claim_pick(%L, %L, ''trade'', ''   '', ''pick'')', pg_temp.ws('initech'), pg_temp.made('erp')),
+    format('select public.claim_pick(%L, %L, ''trade'', %L, ''pick'')', pg_temp.ws('initech'), pg_temp.made('erp'), repeat('x', 81)),
+    format('select public.claim_pick(%L, %L, ''trade'', %L, ''pick'')', pg_temp.ws('initech'), pg_temp.made('erp'), E'two\nlines'),
+    format('select public.claim_pick(%L, %L, ''size'', ''3-50'', ''pick'')', pg_temp.ws('initech'), pg_temp.made('erp')),
+    format('select public.claim_pick(%L, %L, ''size'', ''50-2'', ''pick'')', pg_temp.ws('initech'), pg_temp.made('erp')),
+    format('select public.claim_pick(%L, %L, ''size'', ''lots'', ''pick'')', pg_temp.ws('initech'), pg_temp.made('erp')),
+    format('select public.claim_pick(%L, %L, ''trade'', ''retail'', ''evidence'')', pg_temp.ws('initech'), pg_temp.made('erp')),
+    format('select public.claim_pick(%L, %L, ''trade'', ''retail'', ''suggestion'')', pg_temp.ws('initech'), pg_temp.made('erp')),
+    format('select public.claim_pick(%L, null, ''trade'', ''retail'', ''pick'')', pg_temp.ws('initech')),
+    format('select public.claim_set_state(%L, %L, ''contradicted'')', pg_temp.ws('initech'), pg_temp.made('rival-one')),
+    format('select public.product_add(%L, '''')', pg_temp.ws('initech')),
+    'select public.claims_cite(''initech/nimbus-apps'', array[''rival-4''], ''think-big'', null)',
+    'select public.claims_cite(''initech/nimbus-apps'', array[]::text[], ''think-big'', null)',
+    'select public.claims_cite(''initech/nimbus-apps'', array[''rival#7''], '''', null)',
     'select public.business_for_repo(''not a repository'')'
   ] loop perform pg_temp.invalid(c); end loop;
   begin
-    perform public.claims_cite('vertuoza/vertuo-apps', array['rival#7', 'rival#99'], 'think-big', null);
+    perform public.claims_cite('initech/nimbus-apps', array['rival#7', 'rival#99'], 'think-big', null);
     raise exception 'FAIL: claims_cite took an id the business does not hold';
   exception when no_data_found then null; end;
   if pg_temp.store() <> (select s from before_bad) then
@@ -257,7 +267,7 @@ end $$;
 do $$
 declare n integer;
 begin
-  n := public.claims_cite('Vertuoza/Vertuo-Apps', array['rival#7', 'region#1'], 'think-big', 'concept #9');
+  n := public.claims_cite('Initech/Nimbus-Apps', array['rival#7', 'region#1'], 'think-big', 'concept #9');
   if n <> 2 or (select count(*) from public.claim_citations) <> 2 then
     raise exception 'FAIL: claims_cite did not append two citations (%)', n;
   end if;
@@ -272,13 +282,13 @@ do $$
 declare
   p public.products;
 begin
-  p := public.product_add(pg_temp.ws('vertuoza'), 'Omni Loop');
+  p := public.product_add(pg_temp.ws('initech'), 'Omni Loop');
   insert into made values ('omni', p.id);
-  perform pg_temp.invalid(format('select public.product_add(%L, ''omni loop'')', pg_temp.ws('vertuoza')));
-  p := public.product_rename(pg_temp.ws('vertuoza'), p.id, 'The Loop');
+  perform pg_temp.invalid(format('select public.product_add(%L, ''omni loop'')', pg_temp.ws('initech')));
+  p := public.product_rename(pg_temp.ws('initech'), p.id, 'The Loop');
   if p.name <> 'The Loop' then raise exception 'FAIL: product_rename did not rename: %', p; end if;
-  perform pg_temp.move_to('vertuoza/vertuo-omni-loop', pg_temp.made('omni'));
-  perform public.claim_pick(pg_temp.ws('vertuoza'), pg_temp.made('omni'), 'offering', 'developer tool', 'pick');
+  perform pg_temp.move_to('initech/nimbus-plan', pg_temp.made('omni'));
+  perform public.claim_pick(pg_temp.ws('initech'), pg_temp.made('omni'), 'offering', 'developer tool', 'pick');
 end $$;
 reset role;
 
@@ -288,8 +298,8 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
 do $$
 declare r public.repositories;
 begin
-  r := public.add_repository(pg_temp.ws('vertuoza'), 'vertuoza/later-one');
-  if exists (select 1 from public.product_repositories l where l.repository = 'vertuoza/later-one') then
+  r := public.add_repository(pg_temp.ws('initech'), 'initech/later-one');
+  if exists (select 1 from public.product_repositories l where l.repository = 'initech/later-one') then
     raise exception 'FAIL: a repository tracked later was put in a product: %', r;
   end if;
 end $$;
@@ -298,40 +308,93 @@ end $$;
 do $$
 declare got jsonb;
 begin
-  -- vertuo-apps, on the first product: its region and its product's confirmed claims, never a
+  -- nimbus-apps, on the first product: its region and its product's confirmed claims, never a
   -- proposed or rejected one; `product` is named now there are two.
-  got := public.business_for_repo('vertuoza/vertuo-apps');
+  got := public.business_for_repo('initech/nimbus-apps');
   if got->>'state' <> 'ok' or got->'business'->>'name' is null or got->'product'->>'name' is distinct from
-     (select w.name from public.workspaces w where w.id = pg_temp.ws('vertuoza')) then
-    raise exception 'FAIL: business_for_repo on vertuo-apps: %', got;
+     (select w.name from public.workspaces w where w.id = pg_temp.ws('initech')) then
+    raise exception 'FAIL: business_for_repo on nimbus-apps: %', got;
   end if;
   if (select string_agg(c->>'id', ',') from jsonb_array_elements(got->'claims') c)
      <> 'region#1,region#2,offering#3,size#4,size#5,trade#6,rival#7,rival#8' then
-    raise exception 'FAIL: business_for_repo on vertuo-apps listed %', got->'claims';
+    raise exception 'FAIL: business_for_repo on nimbus-apps listed %', got->'claims';
   end if;
   if (got->'claims'->0) <> '{"id": "region#1", "kind": "region", "value": "Belgium", "source": "pick", "state": "confirmed", "receipt": null, "lastSeen": null}'::jsonb then
     raise exception 'FAIL: a claim does not read as decision 14''s shape: %', got->'claims'->0;
   end if;
-  -- vertuo-omni-loop, on its own product: the region and that product's claims only.
-  got := public.business_for_repo('vertuoza/vertuo-omni-loop');
+  -- nimbus-plan, on its own product: the region and that product's claims only.
+  got := public.business_for_repo('initech/nimbus-plan');
   if got->'product'->>'name' <> 'The Loop'
      or (select string_agg(c->>'id', ',') from jsonb_array_elements(got->'claims') c) <> 'region#1,region#2,offering#10' then
-    raise exception 'FAIL: business_for_repo on vertuo-omni-loop: %', got;
+    raise exception 'FAIL: business_for_repo on nimbus-plan: %', got;
   end if;
 end $$;
 reset role;
 
 -- A repository with no product reads the business's claims only.
 delete from public.product_repositories
- where workspace_id = pg_temp.ws('vertuoza') and repository = 'vertuoza/pdf-builder';
+ where workspace_id = pg_temp.ws('initech') and repository = 'initech/pdf-builder';
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
 do $$
 declare got jsonb;
 begin
-  got := public.business_for_repo('vertuoza/pdf-builder');
+  got := public.business_for_repo('initech/pdf-builder');
   if got->'product' <> 'null'::jsonb or (select string_agg(c->>'id', ',') from jsonb_array_elements(got->'claims') c) <> 'region#1,region#2' then
     raise exception 'FAIL: a repository with no product: %', got;
+  end if;
+end $$;
+
+-- ── PRD 1795: agents read the product's Legal entries and glossary ──
+-- Olga owns Initech and neither kind names an owner, so she writes directly.
+do $$
+declare
+  ws uuid := pg_temp.ws('initech');
+  erp uuid := pg_temp.made('erp');
+  got jsonb;
+  retired public.product_legal;
+  removed public.product_glossary;
+begin
+  got := public.business_for_repo('initech/nimbus-apps');
+  if got->'legal' <> '[]'::jsonb or got->'glossary' <> '[]'::jsonb then
+    raise exception 'FAIL: a product with no knowledge does not read [] and []: % %', got->'legal', got->'glossary';
+  end if;
+
+  perform public.product_legal_add(ws, erp, 'VAT', 'Every invoice shows the VAT rate it applies.', 'Belgian VAT Code, art. 53');
+  perform public.product_legal_add(ws, erp, 'INVOICING', 'Invoice numbers follow each other with no gaps.',
+                                   'Belgian VAT Code, art. 53', '00000000-0000-4000-8000-0000000074b1');
+  retired := public.product_legal_add(ws, erp, 'INVOICING', 'An invoice is printed on paper.', 'An old law');
+  perform public.product_legal_retire(ws, retired.id);
+  perform public.product_glossary_add(ws, erp, 'quote', 'A priced offer the customer may accept.');
+  perform public.product_glossary_add(ws, erp, 'Credit note', 'A document that cancels all or part of an invoice.', array['refund']);
+  removed := public.product_glossary_add(ws, erp, 'Bill', 'An invoice.');
+  perform public.product_glossary_remove(ws, removed.id);
+  perform public.product_legal_add(ws, pg_temp.made('omni'), 'LICENSE', 'Every release names its licence.', 'Copyright Act');
+
+  -- Active entries by code then number, the owner's login; live terms by term without case.
+  got := public.business_for_repo('initech/nimbus-apps');
+  if got->'legal' <> jsonb_build_array(
+       jsonb_build_object('id', 'L-INVOICING-1', 'statement', 'Invoice numbers follow each other with no gaps.',
+                          'source', 'Belgian VAT Code, art. 53', 'owner', 'mo@example.com'),
+       jsonb_build_object('id', 'L-VAT-1', 'statement', 'Every invoice shows the VAT rate it applies.',
+                          'source', 'Belgian VAT Code, art. 53', 'owner', 'olga@example.com')) then
+    raise exception 'FAIL: business_for_repo''s legal on nimbus-apps: %', got->'legal';
+  end if;
+  if got->'glossary' <> jsonb_build_array(
+       jsonb_build_object('term', 'Credit note', 'meaning', 'A document that cancels all or part of an invoice.', 'avoid', jsonb_build_array('refund')),
+       jsonb_build_object('term', 'quote', 'meaning', 'A priced offer the customer may accept.', 'avoid', '[]'::jsonb)) then
+    raise exception 'FAIL: business_for_repo''s glossary on nimbus-apps: %', got->'glossary';
+  end if;
+  if got->>'state' <> 'ok' then raise exception 'FAIL: Legal entries changed the read''s state: %', got->>'state'; end if;
+
+  -- Another product reads its own; a repository in no product reads none.
+  got := public.business_for_repo('initech/nimbus-plan');
+  if (select string_agg(x->>'id', ',') from jsonb_array_elements(got->'legal') x) <> 'L-LICENSE-1' or got->'glossary' <> '[]'::jsonb then
+    raise exception 'FAIL: nimbus-plan reads another product''s knowledge: % %', got->'legal', got->'glossary';
+  end if;
+  got := public.business_for_repo('initech/pdf-builder');
+  if got->'legal' <> '[]'::jsonb or got->'glossary' <> '[]'::jsonb then
+    raise exception 'FAIL: a repository in no product reads knowledge: % %', got->'legal', got->'glossary';
   end if;
 end $$;
 
@@ -341,33 +404,33 @@ declare
   s public.business_sources;
   c text;
 begin
-  s := public.business_source_add(pg_temp.ws('vertuoza'), ' https://vertuoza.com/pricing ');
-  if s.url <> 'https://vertuoza.com/pricing' or s.added_by <> '00000000-0000-4000-8000-0000000074a1'::uuid then
+  s := public.business_source_add(pg_temp.ws('initech'), ' https://example.com/pricing ');
+  if s.url <> 'https://example.com/pricing' or s.added_by <> '00000000-0000-4000-8000-0000000074a1'::uuid then
     raise exception 'FAIL: a web page was not added as pasted, by whom: %', s;
   end if;
   insert into made values ('page-pricing', s.id);
-  if (public.business_source_add(pg_temp.ws('vertuoza'), 'https://VERTUOZA.com/pricing')).id <> s.id then
+  if (public.business_source_add(pg_temp.ws('initech'), 'https://example.com/pricing')).id <> s.id then
     raise exception 'FAIL: the same web page added twice made a second one';
   end if;
-  s := public.business_source_add(pg_temp.ws('vertuoza'), 'https://vertuoza.com');
+  s := public.business_source_add(pg_temp.ws('initech'), 'https://example.com');
   insert into made values ('page-home', s.id);
-  perform public.business_source_add(pg_temp.ws('vertuoza'), 'https://vertuoza.com/about');
+  perform public.business_source_add(pg_temp.ws('initech'), 'https://example.com/about');
   foreach c in array array[
-    format('select public.business_source_add(%L, ''https://vertuoza.com/fourth'')', pg_temp.ws('vertuoza')),
-    format('select public.business_source_add(%L, ''http://vertuoza.com/plain'')', pg_temp.ws('vertuoza')),
-    format('select public.business_source_add(%L, ''https:// spaced.test'')', pg_temp.ws('vertuoza')),
-    format('select public.business_source_add(%L, ''vertuoza.com'')', pg_temp.ws('vertuoza')),
-    format('select public.business_source_add(%L, null)', pg_temp.ws('vertuoza'))
+    format('select public.business_source_add(%L, ''https://example.com/fourth'')', pg_temp.ws('initech')),
+    format('select public.business_source_add(%L, ''http://example.com/plain'')', pg_temp.ws('initech')),
+    format('select public.business_source_add(%L, ''https:// spaced.test'')', pg_temp.ws('initech')),
+    format('select public.business_source_add(%L, ''example.com'')', pg_temp.ws('initech')),
+    format('select public.business_source_add(%L, null)', pg_temp.ws('initech'))
   ] loop perform pg_temp.invalid(c); end loop;
   if (select count(*) from public.business_sources) <> 3 then
     raise exception 'FAIL: a fourth or a malformed web page was kept';
   end if;
-  perform public.business_source_remove(pg_temp.ws('vertuoza'), pg_temp.made('page-home'));
+  perform public.business_source_remove(pg_temp.ws('initech'), pg_temp.made('page-home'));
   begin
-    perform public.business_source_remove(pg_temp.ws('vertuoza'), pg_temp.made('page-home'));
+    perform public.business_source_remove(pg_temp.ws('initech'), pg_temp.made('page-home'));
     raise exception 'FAIL: a web page was removed twice';
   exception when no_data_found then null; end;
-  perform public.business_source_add(pg_temp.ws('vertuoza'), 'https://vertuoza.com/fourth');
+  perform public.business_source_add(pg_temp.ws('initech'), 'https://example.com/fourth');
 end $$;
 
 -- ── PRD 774: one draft at a time ──
@@ -376,34 +439,34 @@ declare
   d public.business_drafts;
   again public.business_drafts;
 begin
-  d := public.business_draft_start(pg_temp.ws('vertuoza'), 'draft');
+  d := public.business_draft_start(pg_temp.ws('initech'), 'draft');
   if d.state <> 'running' or d.kind <> 'draft' or d.started_by <> '00000000-0000-4000-8000-0000000074a1'::uuid then
     raise exception 'FAIL: a draft did not start running, by whom: %', d;
   end if;
-  again := public.business_draft_start(pg_temp.ws('vertuoza'), 'draft');
+  again := public.business_draft_start(pg_temp.ws('initech'), 'draft');
   if again.id <> d.id or (select count(*) from public.business_drafts) <> 1 then
     raise exception 'FAIL: a second click while a draft runs started another';
   end if;
-  again := public.business_draft_progress(pg_temp.ws('vertuoza'), d.id, '{"readmes": 1}',
-                                          '[{"label": "vertuo-apps · README.md", "read": true}]');
+  again := public.business_draft_progress(pg_temp.ws('initech'), d.id, '{"readmes": 1}',
+                                          '[{"label": "nimbus-apps · README.md", "read": true}]');
   if again.counts <> '{"readmes": 1}'::jsonb or jsonb_array_length(again.scanned) <> 1 then
     raise exception 'FAIL: a draft''s progress was not kept: %', again;
   end if;
-  perform pg_temp.invalid(format('select public.business_draft_finish(%L, %L, ''failed'', null, null, null)', pg_temp.ws('vertuoza'), d.id));
-  perform pg_temp.invalid(format('select public.business_draft_finish(%L, %L, ''running'')', pg_temp.ws('vertuoza'), d.id));
-  perform pg_temp.invalid(format('select public.business_draft_progress(%L, %L, ''[]'', null)', pg_temp.ws('vertuoza'), d.id));
-  perform pg_temp.invalid(format('select public.business_draft_start(%L, ''weekly'')', pg_temp.ws('vertuoza')));
-  again := public.business_draft_finish(pg_temp.ws('vertuoza'), d.id, 'done', '{"readmes": 2, "prds": 14, "pages": 1}');
+  perform pg_temp.invalid(format('select public.business_draft_finish(%L, %L, ''failed'', null, null, null)', pg_temp.ws('initech'), d.id));
+  perform pg_temp.invalid(format('select public.business_draft_finish(%L, %L, ''running'')', pg_temp.ws('initech'), d.id));
+  perform pg_temp.invalid(format('select public.business_draft_progress(%L, %L, ''[]'', null)', pg_temp.ws('initech'), d.id));
+  perform pg_temp.invalid(format('select public.business_draft_start(%L, ''weekly'')', pg_temp.ws('initech')));
+  again := public.business_draft_finish(pg_temp.ws('initech'), d.id, 'done', '{"readmes": 2, "prds": 14, "pages": 1}');
   if again.state <> 'done' or again.finished_at is null or again.counts->>'prds' <> '14' or again.reason is not null then
     raise exception 'FAIL: a finished draft does not read as done with its counts: %', again;
   end if;
   begin
-    perform public.business_draft_finish(pg_temp.ws('vertuoza'), d.id, 'done');
+    perform public.business_draft_finish(pg_temp.ws('initech'), d.id, 'done');
     raise exception 'FAIL: a finished draft was finished again';
   exception when no_data_found then null; end;
-  d := public.business_draft_start(pg_temp.ws('vertuoza'), 'draft');
+  d := public.business_draft_start(pg_temp.ws('initech'), 'draft');
   if d.id = again.id then raise exception 'FAIL: a draft after a finished one did not start anew'; end if;
-  d := public.business_draft_finish(pg_temp.ws('vertuoza'), d.id, 'failed', null, null, 'The model key is unset.');
+  d := public.business_draft_finish(pg_temp.ws('initech'), d.id, 'failed', null, null, 'The model key is unset.');
   if d.state <> 'failed' or d.reason <> 'The model key is unset.' then
     raise exception 'FAIL: a failed draft does not say why: %', d;
   end if;
@@ -416,7 +479,7 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
 do $$
 declare d public.business_drafts;
 begin
-  d := public.business_draft_start(pg_temp.ws('vertuoza'), 'draft');
+  d := public.business_draft_start(pg_temp.ws('initech'), 'draft');
   insert into made values ('stuck-draft', d.id);
 end $$;
 reset role;
@@ -426,14 +489,14 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
 do $$
 declare d public.business_drafts;
 begin
-  d := public.business_draft_start(pg_temp.ws('vertuoza'), 'draft');
+  d := public.business_draft_start(pg_temp.ws('initech'), 'draft');
   if d.id = pg_temp.made('stuck-draft') or d.state <> 'running' then
     raise exception 'FAIL: a draft stuck for 16 minutes still blocks the next one';
   end if;
   if (select state from public.business_drafts where id = pg_temp.made('stuck-draft')) <> 'failed' then
     raise exception 'FAIL: the stuck draft was not marked failed';
   end if;
-  perform public.business_draft_finish(pg_temp.ws('vertuoza'), d.id, 'done');
+  perform public.business_draft_finish(pg_temp.ws('initech'), d.id, 'done');
 end $$;
 
 -- ── PRD 774: evidence, merged as decision 9 says ──
@@ -442,10 +505,10 @@ declare
   got jsonb;
   n integer;
   c text;
-  luxe constant text := '[{"kind": "file", "where": "vertuoza/vertuo-apps:README.md", "quote": "Built for Luxembourg builders"}]';
+  luxe constant text := '[{"kind": "file", "where": "initech/nimbus-apps:README.md", "quote": "Built for Luxembourg builders"}]';
 begin
   -- Nothing held for that value: a proposed evidence claim, with its receipt.
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), null, 'region', 'Luxembourg', luxe::jsonb);
+  got := public.claim_propose_evidence(pg_temp.ws('initech'), null, 'region', 'Luxembourg', luxe::jsonb);
   if got <> '{"outcome": "added", "id": "region#11"}'::jsonb then raise exception 'FAIL: a new region was not added: %', got; end if;
   if not exists (select 1 from public.claims where kind = 'region' and seq = 11 and source = 'evidence' and state = 'proposed'
                    and receipt is null and last_seen is not null)
@@ -455,8 +518,8 @@ begin
   insert into made select 'luxembourg', id from public.claims where seq = 11;
 
   -- The value proposed already: its receipt is added, no second claim.
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), null, 'region', 'luxembourg',
-           '[{"kind": "link", "where": "https://vertuoza.com/pricing", "quote": "Luxembourg"}]');
+  got := public.claim_propose_evidence(pg_temp.ws('initech'), null, 'region', 'luxembourg',
+           '[{"kind": "link", "where": "https://example.com/pricing", "quote": "Luxembourg"}]');
   if got <> '{"outcome": "seen", "id": "region#11"}'::jsonb
      or (select count(*) from public.claim_receipts where claim_id = pg_temp.made('luxembourg')) <> 2 then
     raise exception 'FAIL: a proposed value quoted again did not gain a receipt: %', got;
@@ -464,8 +527,8 @@ begin
 
   -- A rejected value is never proposed again: nothing changes.
   n := (select count(*) from public.claims);
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), pg_temp.made('erp'), 'rival', 'rival three',
-           '[{"kind": "file", "where": "vertuoza/vertuo-apps:docs/market.md", "quote": "Rival Three"}]');
+  got := public.claim_propose_evidence(pg_temp.ws('initech'), pg_temp.made('erp'), 'rival', 'rival three',
+           '[{"kind": "file", "where": "initech/nimbus-apps:docs/market.md", "quote": "Rival Three"}]');
   if got <> '{"outcome": "rejected", "id": null}'::jsonb or (select count(*) from public.claims) <> n
      or exists (select 1 from public.claim_receipts where claim_id = pg_temp.made('rival-three'))
      or (select state from public.claims where id = pg_temp.made('rival-three')) <> 'rejected' then
@@ -473,8 +536,8 @@ begin
   end if;
 
   -- The value confirmed: a receipt, and nothing shown as new.
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), null, 'region', 'Belgium',
-           '[{"kind": "file", "where": "vertuoza/vertuo-apps:README.md", "quote": "our Belgian customers"}]');
+  got := public.claim_propose_evidence(pg_temp.ws('initech'), null, 'region', 'Belgium',
+           '[{"kind": "file", "where": "initech/nimbus-apps:README.md", "quote": "our Belgian customers"}]');
   if got <> '{"outcome": "seen", "id": "region#1"}'::jsonb
      or (select state from public.claims where kind = 'region' and seq = 1) <> 'confirmed' then
     raise exception 'FAIL: evidence of a confirmed value: %', got;
@@ -482,15 +545,15 @@ begin
 
   -- Bad candidates: 22023, nothing stored.
   foreach c in array array[
-    format('select public.claim_propose_evidence(%L, null, ''region'', ''France'', ''[]'')', pg_temp.ws('vertuoza')),
-    format('select public.claim_propose_evidence(%L, null, ''region'', ''France'', null)', pg_temp.ws('vertuoza')),
-    format('select public.claim_propose_evidence(%L, null, ''region'', ''France'', ''[{"kind": "deck", "where": "x", "quote": "France"}]'')', pg_temp.ws('vertuoza')),
-    format('select public.claim_propose_evidence(%L, null, ''region'', ''France'', ''[{"kind": "file", "where": "", "quote": "France"}]'')', pg_temp.ws('vertuoza')),
-    format('select public.claim_propose_evidence(%L, null, ''region'', ''France'', %L)', pg_temp.ws('vertuoza'),
+    format('select public.claim_propose_evidence(%L, null, ''region'', ''France'', ''[]'')', pg_temp.ws('initech')),
+    format('select public.claim_propose_evidence(%L, null, ''region'', ''France'', null)', pg_temp.ws('initech')),
+    format('select public.claim_propose_evidence(%L, null, ''region'', ''France'', ''[{"kind": "deck", "where": "x", "quote": "France"}]'')', pg_temp.ws('initech')),
+    format('select public.claim_propose_evidence(%L, null, ''region'', ''France'', ''[{"kind": "file", "where": "", "quote": "France"}]'')', pg_temp.ws('initech')),
+    format('select public.claim_propose_evidence(%L, null, ''region'', ''France'', %L)', pg_temp.ws('initech'),
            jsonb_build_array(jsonb_build_object('kind', 'file', 'where', 'README.md', 'quote', repeat('q', 301)))),
-    format('select public.claim_propose_evidence(%L, null, ''buyer'', ''CFO'', %L)', pg_temp.ws('vertuoza'), luxe),
-    format('select public.claim_propose_evidence(%L, %L, ''size'', ''3-40'', %L)', pg_temp.ws('vertuoza'), pg_temp.made('erp'), luxe),
-    format('select public.claim_propose_evidence(%L, null, ''trade'', ''roofing'', %L)', pg_temp.ws('vertuoza'), luxe)
+    format('select public.claim_propose_evidence(%L, null, ''buyer'', ''CFO'', %L)', pg_temp.ws('initech'), luxe),
+    format('select public.claim_propose_evidence(%L, %L, ''size'', ''3-40'', %L)', pg_temp.ws('initech'), pg_temp.made('erp'), luxe),
+    format('select public.claim_propose_evidence(%L, null, ''trade'', ''roofing'', %L)', pg_temp.ws('initech'), luxe)
   ] loop perform pg_temp.invalid(c); end loop;
 end $$;
 reset role;
@@ -503,8 +566,8 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
 do $$
 declare got jsonb;
 begin
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), null, 'region', 'Luxembourg',
-           '[{"kind": "file", "where": "vertuoza/vertuo-apps:README.md", "quote": "Built for Luxembourg builders"}]');
+  got := public.claim_propose_evidence(pg_temp.ws('initech'), null, 'region', 'Luxembourg',
+           '[{"kind": "file", "where": "initech/nimbus-apps:README.md", "quote": "Built for Luxembourg builders"}]');
   if (select count(*) from public.claim_receipts where claim_id = pg_temp.made('luxembourg')) <> 2
      or (select max(seen_at) from public.claim_receipts where claim_id = pg_temp.made('luxembourg')) <> now()
      or (select last_seen from public.claims where id = pg_temp.made('luxembourg')) <> now() then
@@ -521,8 +584,8 @@ declare
   suite uuid;
 begin
   -- Another confirmed offering: a proposed replacement, and ERP contradicted.
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), pg_temp.made('erp'), 'offering', 'CRM',
-           '[{"kind": "link", "where": "https://vertuoza.com/pricing", "quote": "the CRM for builders"}]');
+  got := public.claim_propose_evidence(pg_temp.ws('initech'), pg_temp.made('erp'), 'offering', 'CRM',
+           '[{"kind": "link", "where": "https://example.com/pricing", "quote": "the CRM for builders"}]');
   if got->>'outcome' <> 'replacing' then raise exception 'FAIL: a new offering is not a replacement: %', got; end if;
   select id into crm from public.claims where kind = 'offering' and value = 'CRM';
   if (select replaces from public.claims where id = crm) is distinct from (select id from public.claims where kind = 'offering' and seq = 3)
@@ -530,40 +593,40 @@ begin
     raise exception 'FAIL: the replacement does not name ERP, or ERP is not contradicted';
   end if;
   -- What agents read meanwhile: ERP marked contradicted, CRM (proposed) not at all.
-  got := public.business_for_repo('vertuoza/vertuo-apps');
+  got := public.business_for_repo('initech/nimbus-apps');
   if not exists (select 1 from jsonb_array_elements(got->'claims') x where x->>'id' = 'offering#3' and x->>'state' = 'contradicted')
      or got::text like '%CRM%' then
     raise exception 'FAIL: agents do not read ERP as contradicted, or read CRM: %', got->'claims';
   end if;
 
   -- ✓ Right: CRM confirmed, ERP rejected.
-  c := public.claim_settle_replacement(pg_temp.ws('vertuoza'), crm, true);
+  c := public.claim_settle_replacement(pg_temp.ws('initech'), crm, true);
   if c.state <> 'confirmed' or (select state from public.claims where kind = 'offering' and seq = 3) <> 'rejected' then
     raise exception 'FAIL: ✓ on a replacement did not confirm it and reject the old one';
   end if;
   begin
-    perform public.claim_settle_replacement(pg_temp.ws('vertuoza'), crm, true);
+    perform public.claim_settle_replacement(pg_temp.ws('initech'), crm, true);
     raise exception 'FAIL: a settled replacement was settled again';
   exception when no_data_found then null; end;
 
   -- ✗ Wrong (through claim_set_state): the new one rejected, CRM confirmed again.
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), pg_temp.made('erp'), 'offering', 'Suite',
-           '[{"kind": "file", "where": "vertuoza/vertuo-apps:docs/product.md", "quote": "the Suite"}]');
+  got := public.claim_propose_evidence(pg_temp.ws('initech'), pg_temp.made('erp'), 'offering', 'Suite',
+           '[{"kind": "file", "where": "initech/nimbus-apps:docs/product.md", "quote": "the Suite"}]');
   select id into suite from public.claims where kind = 'offering' and value = 'Suite';
   if (select state from public.claims where id = crm) <> 'contradicted' then raise exception 'FAIL: CRM not contradicted by Suite'; end if;
-  c := public.claim_set_state(pg_temp.ws('vertuoza'), suite, 'rejected');
+  c := public.claim_set_state(pg_temp.ws('initech'), suite, 'rejected');
   if c.state <> 'rejected' or (select state from public.claims where id = crm) <> 'confirmed' then
     raise exception 'FAIL: ✗ on a replacement did not reject it and confirm the old one again';
   end if;
   -- ERP, rejected, is never proposed again.
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), pg_temp.made('erp'), 'offering', 'ERP',
-           '[{"kind": "file", "where": "vertuoza/vertuo-apps:README.md", "quote": "ERP"}]');
+  got := public.claim_propose_evidence(pg_temp.ws('initech'), pg_temp.made('erp'), 'offering', 'ERP',
+           '[{"kind": "file", "where": "initech/nimbus-apps:README.md", "quote": "ERP"}]');
   if got->>'outcome' <> 'rejected' or (select state from public.claims where id = crm) <> 'confirmed' then
     raise exception 'FAIL: a rejected offering came back: %', got;
   end if;
   -- A size, snapped by the draft, contradicts the first confirmed size; left waiting below.
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), pg_temp.made('erp'), 'size', '5-10',
-           '[{"kind": "file", "where": "vertuoza/vertuo-apps:README.md", "quote": "teams of 5 to 10"}]');
+  got := public.claim_propose_evidence(pg_temp.ws('initech'), pg_temp.made('erp'), 'size', '5-10',
+           '[{"kind": "file", "where": "initech/nimbus-apps:README.md", "quote": "teams of 5 to 10"}]');
   if got->>'outcome' <> 'replacing' or (select state from public.claims where kind = 'size' and seq = 4) <> 'contradicted' then
     raise exception 'FAIL: a new size did not contradict the first confirmed one: %', got;
   end if;
@@ -576,12 +639,12 @@ declare
   n integer;
   roofing uuid;
 begin
-  perform public.claim_propose_evidence(pg_temp.ws('vertuoza'), pg_temp.made('erp'), 'trade', 'renovation',
-            '[{"kind": "file", "where": "vertuoza/vertuo-apps:README.md", "quote": "renovation companies"}]');
-  perform public.claim_propose_evidence(pg_temp.ws('vertuoza'), pg_temp.made('erp'), 'trade', 'roofing',
-            '[{"kind": "file", "where": "vertuoza/vertuo-apps:README.md", "quote": "roofing"}]');
+  perform public.claim_propose_evidence(pg_temp.ws('initech'), pg_temp.made('erp'), 'trade', 'renovation',
+            '[{"kind": "file", "where": "initech/nimbus-apps:README.md", "quote": "renovation companies"}]');
+  perform public.claim_propose_evidence(pg_temp.ws('initech'), pg_temp.made('erp'), 'trade', 'roofing',
+            '[{"kind": "file", "where": "initech/nimbus-apps:README.md", "quote": "roofing"}]');
   select id into roofing from public.claims where kind = 'trade' and value = 'roofing';
-  n := public.claims_confirm_proposed(pg_temp.ws('vertuoza'), array[roofing]);
+  n := public.claims_confirm_proposed(pg_temp.ws('initech'), array[roofing]);
   if n <> 2 or (select state from public.claims where kind = 'trade' and value = 'renovation') <> 'confirmed'
      or (select state from public.claims where id = pg_temp.made('luxembourg')) <> 'confirmed'
      or (select state from public.claims where id = roofing) <> 'rejected' then
@@ -598,7 +661,7 @@ end $$;
 do $$
 declare got jsonb;
 begin
-  got := public.business_for_repo('vertuoza/vertuo-apps');
+  got := public.business_for_repo('initech/nimbus-apps');
   if exists (select 1 from jsonb_array_elements(got->'claims') x
               where x->>'state' not in ('confirmed', 'contradicted')
                  or x->>'value' in ('Suite', 'roofing', '5-10', 'ERP', 'Rival Three')) then
@@ -610,13 +673,13 @@ begin
   end if;
   -- `receipt` is the newest receipt; a pick keeps none.
   if (select x->>'receipt' from jsonb_array_elements(got->'claims') x where x->>'id' = 'region#1')
-       <> 'vertuoza/vertuo-apps:README.md — "our Belgian customers"'
+       <> 'initech/nimbus-apps:README.md — "our Belgian customers"'
      or (select x->'receipt' from jsonb_array_elements(got->'claims') x where x->>'id' = 'region#2') <> 'null'::jsonb then
     raise exception 'FAIL: receipt is not the newest receipt, or a pick gained one: %', got->'claims';
   end if;
   -- The replacement waiting: one thing to check.
-  if public.business_to_check(pg_temp.ws('vertuoza')) <> 1 then
-    raise exception 'FAIL: the count to check is not the one replacement: %', public.business_to_check(pg_temp.ws('vertuoza'));
+  if public.business_to_check(pg_temp.ws('initech')) <> 1 then
+    raise exception 'FAIL: the count to check is not the one replacement: %', public.business_to_check(pg_temp.ws('initech'));
   end if;
 end $$;
 reset role;
@@ -630,15 +693,15 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000074b1');
 do $$
 declare c public.claims;
 begin
-  if public.business_to_check(pg_temp.ws('vertuoza')) <> 2 then
-    raise exception 'FAIL: a faded claim is not counted, or a claim without receipts faded: %', public.business_to_check(pg_temp.ws('vertuoza'));
+  if public.business_to_check(pg_temp.ws('initech')) <> 2 then
+    raise exception 'FAIL: a faded claim is not counted, or a claim without receipts faded: %', public.business_to_check(pg_temp.ws('initech'));
   end if;
-  c := public.claim_still_true(pg_temp.ws('vertuoza'), (select id from public.claims where kind = 'region' and seq = 1));
-  if c.last_seen <> now() or public.business_to_check(pg_temp.ws('vertuoza')) <> 1 then
+  c := public.claim_still_true(pg_temp.ws('initech'), (select id from public.claims where kind = 'region' and seq = 1));
+  if c.last_seen <> now() or public.business_to_check(pg_temp.ws('initech')) <> 1 then
     raise exception 'FAIL: ✓ Still true did not clear the faded claim';
   end if;
   begin
-    perform public.claim_still_true(pg_temp.ws('vertuoza'), pg_temp.made('size-5-10'));
+    perform public.claim_still_true(pg_temp.ws('initech'), pg_temp.made('size-5-10'));
     raise exception 'FAIL: ✓ Still true took a proposed claim';
   exception when no_data_found then null; end;
 end $$;
@@ -653,16 +716,16 @@ declare
   got jsonb;
   c text;
 begin
-  d := public.business_draft_start(pg_temp.ws('vertuoza'), 'recheck');
+  d := public.business_draft_start(pg_temp.ws('initech'), 'recheck');
   if d.kind <> 'recheck' or d.started_by is not null then raise exception 'FAIL: the recheck did not start as nobody: %', d; end if;
-  got := public.claim_propose_evidence(pg_temp.ws('vertuoza'), null, 'region', 'France',
-           '[{"kind": "link", "where": "https://vertuoza.com/about", "quote": "offices in France"}]');
+  got := public.claim_propose_evidence(pg_temp.ws('initech'), null, 'region', 'France',
+           '[{"kind": "link", "where": "https://example.com/about", "quote": "offices in France"}]');
   if got->>'outcome' <> 'seen' then raise exception 'FAIL: the recheck could not propose: %', got; end if;
-  perform public.business_draft_finish(pg_temp.ws('vertuoza'), d.id, 'done');
+  perform public.business_draft_finish(pg_temp.ws('initech'), d.id, 'done');
   foreach c in array array[
-    format('select public.claims_confirm_proposed(%L, ''{}'')', pg_temp.ws('vertuoza')),
-    format('select public.business_source_add(%L, ''https://planted.test'')', pg_temp.ws('vertuoza')),
-    format('select public.claim_settle_replacement(%L, %L, true)', pg_temp.ws('vertuoza'), pg_temp.made('size-5-10'))
+    format('select public.claims_confirm_proposed(%L, ''{}'')', pg_temp.ws('initech')),
+    format('select public.business_source_add(%L, ''https://planted.test'')', pg_temp.ws('initech')),
+    format('select public.claim_settle_replacement(%L, %L, true)', pg_temp.ws('initech'), pg_temp.made('size-5-10'))
   ] loop perform pg_temp.forbidden(c, 'the service role'); end loop;
 end $$;
 reset role;
@@ -676,10 +739,10 @@ declare
   got jsonb;
   c public.claims;
   stmt text;
-  product uuid := (select l.product_id from public.product_repositories l where l.repository = 'vertuoza/vertuo-apps');
-  waiting integer := public.business_to_check(pg_temp.ws('vertuoza'));
+  product uuid := (select l.product_id from public.product_repositories l where l.repository = 'initech/nimbus-apps');
+  waiting integer := public.business_to_check(pg_temp.ws('initech'));
 begin
-  got := public.claim_answer('Vertuoza/Vertuo-Apps', 'size', ' 20-50 ', 'proposed', 'brainstorm · PRD 822');
+  got := public.claim_answer('Initech/Nimbus-Apps', 'size', ' 20-50 ', 'proposed', 'brainstorm · PRD 822');
   select * into c from public.claims x where x.kind = 'size' and x.kind || '#' || x.seq = got->>'id';
   if got->>'state' <> 'proposed' or (got->>'added')::boolean is not true
      or c.value <> '20-50' or c.source <> 'answer' or c.state <> 'proposed' or c.receipt <> 'brainstorm · PRD 822'
@@ -688,52 +751,52 @@ begin
   end if;
   insert into made values ('answer-size', c.id);
   -- The overrule waits for a member: the bell counts it.
-  if public.business_to_check(pg_temp.ws('vertuoza')) <> waiting + 1 then
-    raise exception 'FAIL: the count to check does not hold the proposed answer: % after %', public.business_to_check(pg_temp.ws('vertuoza')), waiting;
+  if public.business_to_check(pg_temp.ws('initech')) <> waiting + 1 then
+    raise exception 'FAIL: the count to check does not hold the proposed answer: % after %', public.business_to_check(pg_temp.ws('initech')), waiting;
   end if;
-  if exists (select 1 from jsonb_array_elements(public.business_for_repo('vertuoza/vertuo-apps')->'claims') x where x->>'value' = '20-50') then
+  if exists (select 1 from jsonb_array_elements(public.business_for_repo('initech/nimbus-apps')->'claims') x where x->>'value' = '20-50') then
     raise exception 'FAIL: agents read a proposed answer claim';
   end if;
 
-  got := public.claim_answer('vertuoza/vertuo-apps', 'region', 'Netherlands', 'confirmed', 'brainstorm · PRD 822');
+  got := public.claim_answer('initech/nimbus-apps', 'region', 'Netherlands', 'confirmed', 'brainstorm · PRD 822');
   select * into c from public.claims x where x.kind || '#' || x.seq = got->>'id';
   if got->>'state' <> 'confirmed' or c.source <> 'answer' or c.state <> 'confirmed' or c.product_id is not null
      or c.receipt <> 'brainstorm · PRD 822' then
     raise exception 'FAIL: a gap answer is not a confirmed answer claim on the business: % %', got, c;
   end if;
-  if not exists (select 1 from jsonb_array_elements(public.business_for_repo('vertuoza/vertuo-apps')->'claims') x
+  if not exists (select 1 from jsonb_array_elements(public.business_for_repo('initech/nimbus-apps')->'claims') x
                   where x->>'id' = got->>'id' and x->>'state' = 'confirmed' and x->>'receipt' = 'brainstorm · PRD 822') then
     raise exception 'FAIL: agents do not read the confirmed answer claim with its receipt';
   end if;
 
   -- A value already held is not stored twice: a proposed answer leaves it, a confirmed one confirms it.
-  got := public.claim_answer('vertuoza/vertuo-apps', 'size', '20-50', 'proposed', 'think-big · concept #9');
+  got := public.claim_answer('initech/nimbus-apps', 'size', '20-50', 'proposed', 'think-big · concept #9');
   if (got->>'added')::boolean or got->>'state' <> 'proposed' or (select count(*) from public.claims x where x.value = '20-50') <> 1 then
     raise exception 'FAIL: a proposed answer of a held value was stored again: %', got;
   end if;
-  got := public.claim_answer('vertuoza/vertuo-apps', 'size', '20-50', 'confirmed', 'brainstorm · PRD 822');
+  got := public.claim_answer('initech/nimbus-apps', 'size', '20-50', 'confirmed', 'brainstorm · PRD 822');
   if (got->>'added')::boolean or got->>'state' <> 'confirmed' or (select x.state from public.claims x where x.id = pg_temp.made('answer-size')) <> 'confirmed' then
     raise exception 'FAIL: a confirmed answer did not confirm the held value: %', got;
   end if;
-  if public.business_to_check(pg_temp.ws('vertuoza')) <> waiting then
-    raise exception 'FAIL: the confirmed answer is still counted to check: % after %', public.business_to_check(pg_temp.ws('vertuoza')), waiting;
+  if public.business_to_check(pg_temp.ws('initech')) <> waiting then
+    raise exception 'FAIL: the confirmed answer is still counted to check: % after %', public.business_to_check(pg_temp.ws('initech')), waiting;
   end if;
-  got := public.claim_answer('vertuoza/vertuo-apps', 'rival', 'Rival Three', 'proposed', 'brainstorm · PRD 822');
+  got := public.claim_answer('initech/nimbus-apps', 'rival', 'Rival Three', 'proposed', 'brainstorm · PRD 822');
   if (got->>'added')::boolean or got->>'state' <> 'rejected' then
     raise exception 'FAIL: a proposed answer revived a rejected value: %', got;
   end if;
 
   foreach stmt in array array[
-    'select public.claim_answer(''vertuoza/vertuo-apps'', ''colour'', ''red'', ''proposed'', ''r'')',
-    'select public.claim_answer(''vertuoza/vertuo-apps'', null, ''red'', ''proposed'', ''r'')',
-    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''rejected'', ''r'')',
-    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''contradicted'', ''r'')',
-    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', null, ''r'')',
-    'select public.claim_answer(''vertuoza/vertuo-apps'', ''size'', ''3-7'', ''proposed'', ''r'')',
-    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''  '', ''proposed'', ''r'')',
-    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''proposed'', ''  '')',
-    'select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''proposed'', null)',
-    format('select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''proposed'', %L)', repeat('r', 201)),
+    'select public.claim_answer(''initech/nimbus-apps'', ''colour'', ''red'', ''proposed'', ''r'')',
+    'select public.claim_answer(''initech/nimbus-apps'', null, ''red'', ''proposed'', ''r'')',
+    'select public.claim_answer(''initech/nimbus-apps'', ''rival'', ''Planted'', ''rejected'', ''r'')',
+    'select public.claim_answer(''initech/nimbus-apps'', ''rival'', ''Planted'', ''contradicted'', ''r'')',
+    'select public.claim_answer(''initech/nimbus-apps'', ''rival'', ''Planted'', null, ''r'')',
+    'select public.claim_answer(''initech/nimbus-apps'', ''size'', ''3-7'', ''proposed'', ''r'')',
+    'select public.claim_answer(''initech/nimbus-apps'', ''rival'', ''  '', ''proposed'', ''r'')',
+    'select public.claim_answer(''initech/nimbus-apps'', ''rival'', ''Planted'', ''proposed'', ''  '')',
+    'select public.claim_answer(''initech/nimbus-apps'', ''rival'', ''Planted'', ''proposed'', null)',
+    format('select public.claim_answer(''initech/nimbus-apps'', ''rival'', ''Planted'', ''proposed'', %L)', repeat('r', 201)),
     'select public.claim_answer(''not a repository'', ''rival'', ''Planted'', ''proposed'', ''r'')'
   ] loop perform pg_temp.invalid(stmt); end loop;
   if exists (select 1 from public.claims x where x.value in ('red', 'Planted', '3-7')) then
@@ -769,22 +832,22 @@ begin
   if not public.dossier_takes('prd', 'voice') or public.dossier_takes('visual', 'voice') or public.dossier_takes('bug', 'voice') then
     raise exception 'FAIL: voice is not taken by a prd dossier alone';
   end if;
-  pushed := public.dossier_push('vertuoza/vertuo-apps', 822, 'The customer voice', null,
+  pushed := public.dossier_push('initech/nimbus-apps', 822, 'The customer voice', null,
               '[{"kind": "spec", "content": "spec one"}, {"kind": "voice", "content": "{\"rounds\": []}"}]');
   if pushed->'added' <> '[{"kind": "spec", "version": 1}, {"kind": "voice", "version": 1}]'::jsonb then
     raise exception 'FAIL: a prd dossier did not take voice: %', pushed;
   end if;
-  pushed := public.dossier_push('vertuoza/vertuo-apps', 822, 'The customer voice', null, '[{"kind": "voice", "content": "{\"rounds\": []}"}]');
+  pushed := public.dossier_push('initech/nimbus-apps', 822, 'The customer voice', null, '[{"kind": "voice", "content": "{\"rounds\": []}"}]');
   if pushed->'unchanged' <> '["voice"]'::jsonb or pushed->'added' <> '[]'::jsonb then
     raise exception 'FAIL: an unchanged voice added a version: %', pushed;
   end if;
-  pushed := public.dossier_push('vertuoza/vertuo-apps', 822, 'The customer voice', null, '[{"kind": "voice", "content": "{\"rounds\": [1]}"}]');
+  pushed := public.dossier_push('initech/nimbus-apps', 822, 'The customer voice', null, '[{"kind": "voice", "content": "{\"rounds\": [1]}"}]');
   if pushed->'added' <> '[{"kind": "voice", "version": 2}]'::jsonb then
     raise exception 'FAIL: a changed voice did not add version 2: %', pushed;
   end if;
   foreach k in array array['visual', 'bug'] loop
     perform pg_temp.invalid(format(
-      'select public.dossier_push(''vertuoza/vertuo-apps'', 823, ''A fix'', null, ''[{"kind": "voice", "content": "{}"}]'', %L)', k));
+      'select public.dossier_push(''initech/nimbus-apps'', 823, ''A fix'', null, ''[{"kind": "voice", "content": "{}"}]'', %L)', k));
   end loop;
   if exists (select 1 from public.dossiers d where d.prd = 823) then
     raise exception 'FAIL: a refused voice push made a fix dossier';
@@ -799,37 +862,37 @@ reset role;
 -- could now; agents and the App still read and cite a confirmed one like any claim.
 do $$
 declare
-  product uuid := (select l.product_id from public.product_repositories l where l.repository = 'vertuoza/vertuo-apps');
-  biz uuid := (select b.id from public.businesses b where b.workspace_id = pg_temp.ws('vertuoza'));
+  product uuid := (select l.product_id from public.product_repositories l where l.repository = 'initech/nimbus-apps');
+  biz uuid := (select b.id from public.businesses b where b.workspace_id = pg_temp.ws('initech'));
   next_seq integer := (select max(c.seq) from public.claims c where c.business_id = biz);
   c public.claims;
 begin
   insert into public.claims (workspace_id, business_id, product_id, seq, kind, value, source, state, created_by)
-  values (pg_temp.ws('vertuoza'), biz, product, next_seq + 1, 'never', 'Build for groups of companies', 'pick', 'confirmed',
+  values (pg_temp.ws('initech'), biz, product, next_seq + 1, 'never', 'Build for groups of companies', 'pick', 'confirmed',
           '00000000-0000-4000-8000-0000000074a1')
   returning * into c;
   insert into made values ('never-groups', c.id);
   insert into public.claims (workspace_id, business_id, product_id, seq, kind, value, source, state)
-  values (pg_temp.ws('vertuoza'), biz, product, next_seq + 2, 'never', 'Sell to accountants', 'evidence', 'proposed'),
-         (pg_temp.ws('vertuoza'), biz, product, next_seq + 3, 'never', 'Build a mobile game', 'evidence', 'rejected');
+  values (pg_temp.ws('initech'), biz, product, next_seq + 2, 'never', 'Sell to accountants', 'evidence', 'proposed'),
+         (pg_temp.ws('initech'), biz, product, next_seq + 3, 'never', 'Build a mobile game', 'evidence', 'rejected');
 end $$;
 
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
 do $$
 declare
-  product uuid := (select l.product_id from public.product_repositories l where l.repository = 'vertuoza/vertuo-apps');
+  product uuid := (select l.product_id from public.product_repositories l where l.repository = 'initech/nimbus-apps');
   got jsonb;
   stmt text;
 begin
   foreach stmt in array array[
-    format('select public.claim_pick(%L, %L, ''never'', ''Build for groups of companies'', ''pick'')', pg_temp.ws('vertuoza'), product),
-    format('select public.claim_pick(%L, %L, ''never'', ''Picked'', ''pick'')', pg_temp.ws('vertuoza'), product),
-    format('select public.claim_pick(%L, %L, ''never'', ''Suggested'', ''suggestion'')', pg_temp.ws('vertuoza'), product),
+    format('select public.claim_pick(%L, %L, ''never'', ''Build for groups of companies'', ''pick'')', pg_temp.ws('initech'), product),
+    format('select public.claim_pick(%L, %L, ''never'', ''Picked'', ''pick'')', pg_temp.ws('initech'), product),
+    format('select public.claim_pick(%L, %L, ''never'', ''Suggested'', ''suggestion'')', pg_temp.ws('initech'), product),
     format('select public.claim_propose_evidence(%L, %L, ''never'', ''Proposed'', ''[{"kind": "file", "where": "a", "quote": "b"}]'')',
-           pg_temp.ws('vertuoza'), product),
-    format('select public.claim_pick(%L, %L, ''rival'', %L, ''pick'')', pg_temp.ws('vertuoza'), product, repeat('x', 81)),
-    'select public.claim_answer(''vertuoza/vertuo-apps'', ''never'', ''Answered'', ''confirmed'', ''r'')'
+           pg_temp.ws('initech'), product),
+    format('select public.claim_pick(%L, %L, ''rival'', %L, ''pick'')', pg_temp.ws('initech'), product, repeat('x', 81)),
+    'select public.claim_answer(''initech/nimbus-apps'', ''never'', ''Answered'', ''confirmed'', ''r'')'
   ] loop perform pg_temp.invalid(stmt); end loop;
   if exists (select 1 from public.claims x where x.value in ('Picked', 'Suggested', 'Proposed', 'Answered'))
      or (select count(*) from public.claims x where x.kind = 'never') <> 3 then
@@ -838,7 +901,7 @@ begin
 
 
   -- Agents read and cite a confirmed Never line like any claim, never a proposed or rejected one.
-  got := public.business_for_repo('vertuoza/vertuo-apps');
+  got := public.business_for_repo('initech/nimbus-apps');
   if not exists (select 1 from jsonb_array_elements(got->'claims') x
                   where x->>'kind' = 'never' and x->>'value' = 'Build for groups of companies' and x->>'state' = 'confirmed') then
     raise exception 'FAIL: agents do not read the confirmed Never line: %', got->'claims';
@@ -847,17 +910,17 @@ begin
     raise exception 'FAIL: agents read a proposed or rejected Never line';
   end if;
   select 'never#' || x.seq into stmt from public.claims x where x.id = pg_temp.made('never-groups');
-  if public.claims_cite('vertuoza/vertuo-apps', array[stmt], 'brainstorm', 'PRD 839') <> 1 then
+  if public.claims_cite('initech/nimbus-apps', array[stmt], 'brainstorm', 'PRD 839') <> 1 then
     raise exception 'FAIL: a Never line could not be cited';
   end if;
 
-  perform public.persona_add(pg_temp.ws('vertuoza'), product, 'Marc', 'skeptical', 'plumber',
+  perform public.persona_add(pg_temp.ws('initech'), product, 'Marc', 'skeptical', 'plumber',
     '{"v": 1, "skin": 0, "hair": 0, "hairColor": 0, "outfit": 0, "accessory": 0}', 'Runs five plumbers', 'The quotes');
 end $$;
 reset role;
 
 -- An untracked repository: tracked by nobody, or switched off.
-update public.repositories set tracked = false where full_name = 'vertuoza/later-one';
+update public.repositories set tracked = false where full_name = 'initech/later-one';
 
 -- ── PRD 839: the App's read, with the service role, by repository ──
 set local role service_role;
@@ -866,16 +929,16 @@ declare
   got jsonb;
   repo text;
 begin
-  got := public.business_for_repo_app('Vertuoza/Vertuo-Apps');
+  got := public.business_for_repo_app('Initech/Nimbus-Apps');
   if got->>'state' <> 'ok' or got->'business'->>'name' is null or got->>'updatedAt' is null then
-    raise exception 'FAIL: the App''s read of vertuo-apps: %', got;
+    raise exception 'FAIL: the App''s read of nimbus-apps: %', got;
   end if;
   if exists (select 1 from jsonb_array_elements(got->'claims') x where x->>'state' <> 'confirmed') then
     raise exception 'FAIL: the App read a claim that is not confirmed: %', got->'claims';
   end if;
   if (select string_agg(x.kind || '#' || x.seq, ',' order by x.seq) from public.claims x
-       where x.workspace_id = pg_temp.ws('vertuoza') and x.state = 'confirmed'
-         and (x.product_id is null or x.product_id = (select l.product_id from public.product_repositories l where l.repository = 'vertuoza/vertuo-apps')))
+       where x.workspace_id = pg_temp.ws('initech') and x.state = 'confirmed'
+         and (x.product_id is null or x.product_id = (select l.product_id from public.product_repositories l where l.repository = 'initech/nimbus-apps')))
      <> (select string_agg(x->>'id', ',') from jsonb_array_elements(got->'claims') x) then
     raise exception 'FAIL: the App does not read exactly the region''s and the product''s confirmed claims: %', got->'claims';
   end if;
@@ -888,10 +951,21 @@ begin
   if got->'personas' <> '[{"name": "Marc", "stance": "skeptical", "trade": "plumber", "who": "Runs five plumbers", "usage": "The quotes"}]'::jsonb then
     raise exception 'FAIL: the App does not read the product''s personas: %', got->'personas';
   end if;
+  -- PRD 1795: the product's active Legal entries and live terms, as agents read them, and its newest
+  -- knowledge event.
+  if (select string_agg(x->>'id', ',') from jsonb_array_elements(got->'legal') x) <> 'L-INVOICING-1,L-VAT-1'
+     or got->'legal'->0->>'owner' <> 'mo@example.com'
+     or (select string_agg(x->>'term', ',') from jsonb_array_elements(got->'glossary') x) <> 'Credit note,quote'
+     or got->>'knowledgeEventId' is distinct from (select max(e.id)::text from public.product_knowledge_events e
+                                                    where e.product_id = (select l.product_id from public.product_repositories l
+                                                                           where l.repository = 'initech/nimbus-apps')) then
+    raise exception 'FAIL: the App does not read the product''s knowledge: % % %', got->'legal', got->'glossary', got->>'knowledgeEventId';
+  end if;
 
-  foreach repo in array array['vertuoza/nowhere', 'vertuoza/later-one', 'acme-biz/web'] loop
+  foreach repo in array array['initech/nowhere', 'initech/later-one', 'acme-biz/web'] loop
     got := public.business_for_repo_app(repo);
-    if got <> '{"state": "none", "business": null, "product": null, "claims": [], "personas": [], "updatedAt": null}'::jsonb then
+    if got <> '{"state": "none", "business": null, "product": null, "claims": [], "personas": [], "updatedAt": null,
+                "legal": [], "glossary": [], "knowledgeEventId": null}'::jsonb then
       raise exception 'FAIL: the App read something for % (untracked, or no business): %', repo, got;
     end if;
   end loop;
@@ -900,11 +974,11 @@ end $$;
 reset role;
 
 set local role anon;
-select pg_temp.forbidden('select public.business_for_repo_app(''vertuoza/vertuo-apps'')', 'anon');
+select pg_temp.forbidden('select public.business_for_repo_app(''initech/nimbus-apps'')', 'anon');
 reset role;
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000074a1');
-select pg_temp.forbidden('select public.business_for_repo_app(''vertuoza/vertuo-apps'')', 'a member');
+select pg_temp.forbidden('select public.business_for_repo_app(''initech/nimbus-apps'')', 'a member');
 reset role;
 
 set local role authenticated;
@@ -923,7 +997,7 @@ begin
     'update public.claim_citations set cited_by = ''x''',
     'delete from public.claim_citations',
     'delete from public.product_repositories',
-    format('insert into public.business_sources (workspace_id, business_id, url) select %L, id, ''https://x.test'' from public.businesses', pg_temp.ws('vertuoza')),
+    format('insert into public.business_sources (workspace_id, business_id, url) select %L, id, ''https://x.test'' from public.businesses', pg_temp.ws('initech')),
     'delete from public.business_sources',
     'update public.claim_receipts set quote = ''x''',
     'delete from public.claim_receipts',
@@ -956,38 +1030,38 @@ begin
   foreach who in array array['00000000-0000-4000-8000-0000000074c1', '00000000-0000-4000-8000-0000000074d1'] loop
     perform pg_temp.sign_in(who);
     foreach c in array array[
-      format('select public.business_open(%L)', pg_temp.ws('vertuoza')),
-      format('select public.claim_pick(%L, %L, ''rival'', ''Planted'', ''pick'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-      format('select public.claim_set_state(%L, %L, ''rejected'')', pg_temp.ws('vertuoza'), pg_temp.made('rival-one')),
-      format('select public.product_add(%L, ''Planted'')', pg_temp.ws('vertuoza')),
-      format('select public.product_rename(%L, %L, ''Planted'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-      format('select public.product_repository_link(%L, ''vertuoza/vertuo-apps'')', pg_temp.made('omni')),
-      format('select public.business_source_add(%L, ''https://planted.test'')', pg_temp.ws('vertuoza')),
-      format('select public.business_source_remove(%L, %L)', pg_temp.ws('vertuoza'), pg_temp.made('page-pricing')),
-      format('select public.business_draft_start(%L, ''draft'')', pg_temp.ws('vertuoza')),
-      format('select public.claim_propose_evidence(%L, %L, ''rival'', ''Planted'', ''[{"kind": "file", "where": "README.md", "quote": "Planted"}]'')', pg_temp.ws('vertuoza'), pg_temp.made('erp')),
-      format('select public.claims_confirm_proposed(%L, ''{}'')', pg_temp.ws('vertuoza')),
-      format('select public.claim_settle_replacement(%L, %L, true)', pg_temp.ws('vertuoza'), pg_temp.made('size-5-10')),
-      format('select public.claim_still_true(%L, %L)', pg_temp.ws('vertuoza'), pg_temp.made('rival-one')),
-      format('select public.business_to_check(%L)', pg_temp.ws('vertuoza'))
+      format('select public.business_open(%L)', pg_temp.ws('initech')),
+      format('select public.claim_pick(%L, %L, ''rival'', ''Planted'', ''pick'')', pg_temp.ws('initech'), pg_temp.made('erp')),
+      format('select public.claim_set_state(%L, %L, ''rejected'')', pg_temp.ws('initech'), pg_temp.made('rival-one')),
+      format('select public.product_add(%L, ''Planted'')', pg_temp.ws('initech')),
+      format('select public.product_rename(%L, %L, ''Planted'')', pg_temp.ws('initech'), pg_temp.made('erp')),
+      format('select public.product_repository_link(%L, ''initech/nimbus-apps'')', pg_temp.made('omni')),
+      format('select public.business_source_add(%L, ''https://planted.test'')', pg_temp.ws('initech')),
+      format('select public.business_source_remove(%L, %L)', pg_temp.ws('initech'), pg_temp.made('page-pricing')),
+      format('select public.business_draft_start(%L, ''draft'')', pg_temp.ws('initech')),
+      format('select public.claim_propose_evidence(%L, %L, ''rival'', ''Planted'', ''[{"kind": "file", "where": "README.md", "quote": "Planted"}]'')', pg_temp.ws('initech'), pg_temp.made('erp')),
+      format('select public.claims_confirm_proposed(%L, ''{}'')', pg_temp.ws('initech')),
+      format('select public.claim_settle_replacement(%L, %L, true)', pg_temp.ws('initech'), pg_temp.made('size-5-10')),
+      format('select public.claim_still_true(%L, %L)', pg_temp.ws('initech'), pg_temp.made('rival-one')),
+      format('select public.business_to_check(%L)', pg_temp.ws('initech'))
     ] loop perform pg_temp.forbidden(c, who); end loop;
     if exists (select 1 from public.businesses) or exists (select 1 from public.products)
        or exists (select 1 from public.claims) or exists (select 1 from public.claim_citations)
        or exists (select 1 from public.business_sources) or exists (select 1 from public.claim_receipts)
        or exists (select 1 from public.business_drafts) then
-      raise exception 'FAIL: % reads Vertuoza''s business', who;
+      raise exception 'FAIL: % reads Initech''s business', who;
     end if;
   end loop;
-  -- Carl: Vertuoza owns vertuo-apps, and he is not a member of it.
+  -- Carl: Initech owns nimbus-apps, and he is not a member of it.
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000074c1');
-  perform pg_temp.forbidden('select public.business_for_repo(''vertuoza/vertuo-apps'')', 'the member of another workspace');
-  perform pg_temp.forbidden('select public.claims_cite(''vertuoza/vertuo-apps'', array[''rival#7''], ''think-big'', null)', 'the member of another workspace');
-  perform pg_temp.forbidden('select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''confirmed'', ''r'')', 'the member of another workspace');
+  perform pg_temp.forbidden('select public.business_for_repo(''initech/nimbus-apps'')', 'the member of another workspace');
+  perform pg_temp.forbidden('select public.claims_cite(''initech/nimbus-apps'', array[''rival#7''], ''think-big'', null)', 'the member of another workspace');
+  perform pg_temp.forbidden('select public.claim_answer(''initech/nimbus-apps'', ''rival'', ''Planted'', ''confirmed'', ''r'')', 'the member of another workspace');
   -- Sam: in no workspace at all.
   perform pg_temp.sign_in('00000000-0000-4000-8000-0000000074d1');
-  perform pg_temp.forbidden('select public.business_for_repo(''vertuoza/vertuo-apps'')', 'a stranger');
-  perform pg_temp.forbidden('select public.claims_cite(''vertuoza/vertuo-apps'', array[''rival#7''], ''think-big'', null)', 'a stranger');
-  perform pg_temp.forbidden('select public.claim_answer(''vertuoza/vertuo-apps'', ''rival'', ''Planted'', ''confirmed'', ''r'')', 'a stranger');
+  perform pg_temp.forbidden('select public.business_for_repo(''initech/nimbus-apps'')', 'a stranger');
+  perform pg_temp.forbidden('select public.claims_cite(''initech/nimbus-apps'', array[''rival#7''], ''think-big'', null)', 'a stranger');
+  perform pg_temp.forbidden('select public.claim_answer(''initech/nimbus-apps'', ''rival'', ''Planted'', ''confirmed'', ''r'')', 'a stranger');
 end $$;
 reset role;
 

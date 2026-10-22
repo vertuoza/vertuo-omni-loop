@@ -1,6 +1,6 @@
 import { boardPath } from '../ideas/model';
 import { productHomeHref } from '../products/model';
-import { addable, collectionLabel, hasNoAccess, phase0Of, type Phase0, type RepositoriesState, type RepositoryRow } from './model';
+import { addable, allowedLabel, collectionLabel, hasNoAccess, listedOf, fixWhenAnsweredOf, phase0Of, removedLabel, removedOf, removeConfirm, skillsTitle, type Phase0, type RepositoriesState, type RepositoryRow, type SkillsBlock, type SkillsRead } from './model';
 
 // Settings → Repositories drawn from its state (PRD 612 s1). One row per repository of the
 // workspace: `owner/name`, when it was last collected, and its Tracked switch. The owner reads Add
@@ -13,7 +13,15 @@ import { addable, collectionLabel, hasNoAccess, phase0Of, type Phase0, type Repo
 // shows none, and nothing says "Product". PRD 1246 s4: each row also links to the repository's ideas board and has its Public ideas switch,
 // any member's to change: off, only the workspace's members read the board. PRD 1299 s1: each row has
 // its Phase 0 on the server switch, the owner's only: on, a PRD born in it is approved on its PRD page
-// rather than by a phase-0 pull request.
+// rather than by a phase-0 pull request. PRD 2188 s1: the owner reads a quiet Remove after each card's
+// switches; pressed, the browser asks first, naming the products the repository leaves and those that
+// lose their plan repository, and a removed repository is no longer drawn in the list. PRD 2188 s2: under
+// the list a closed Removed (n) line, absent at 0, names each removed repository and when; the owner adds it back.
+// PRD 2270 s3: each row has its Fix on a runner once answered switch, on by default, the owner's only.
+// PRD 2313 s3: each row ends with a Runner skills block, closed by default: opened, it reads the skills of
+// the repository's default branch live, one line each with its description as the name's tooltip, an
+// Allow on runner switch (the owner's only), who allowed it and when, and Gone for an allowed skill that
+// left the branch; a failed read says why and keeps the allowed skills listed.
 
 /** What a member reads instead of the controls. */
 export const ONLY_OWNER = 'Only @owner can change repositories.';
@@ -36,9 +44,17 @@ export interface RepositoriesHandlers {
   setPublicIdeas(fullName: string, on: boolean): void;
   /** A row's Phase 0 on the server switch (PRD 1299 s1). */
   setPhase0(fullName: string, phase0: Phase0): void;
+  /** A row's Fix on a runner once answered switch (PRD 2270 s3). */
+  setFixWhenAnswered(fullName: string, on: boolean): void;
+  /** A card's Remove, once the person confirmed it (PRD 2188 s1). */
+  remove(fullName: string): void;
+  /** A card's Runner skills block opened or closed (PRD 2313 s3). */
+  toggleSkills(fullName: string, open: boolean): void;
+  /** A skill's Allow on runner switch (PRD 2313 s3). */
+  setSkill(fullName: string, skill: string, allowed: boolean): void;
 }
 
-const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {} };
+const IDLE: RepositoriesHandlers = { pick() {}, close() {}, add() {}, setTracked() {}, setPublicIdeas() {}, setPhase0() {}, setFixWhenAnswered() {}, remove() {}, toggleSkills() {}, setSkill() {} };
 
 export interface RepositoriesViewProps {
   state: RepositoriesState;
@@ -90,7 +106,49 @@ function Switch({ name, label, on, disabled, press }: { name: string; label: str
   );
 }
 
-function Row({ row, owner, access, now, busy, on }: { row: RepositoryRow; owner: boolean; access: Access; now: number; busy: boolean; on: RepositoriesHandlers }) {
+/** A card's Remove, the owner's only: the browser asks first, as Delete draft does; cancelled, nothing changes. */
+function RemoveButton({ row, busy, on }: { row: RepositoryRow; busy: boolean; on: RepositoriesHandlers }) {
+  const press = () => { if (window.confirm(removeConfirm(row))) on.remove(row.fullName); };
+  return <button type="button" className="ask-button quiet repositories-remove" aria-label={`Remove ${row.fullName}`} onClick={press} disabled={busy}>Remove</button>;
+}
+
+/** What a read of the skills says: why it failed, what is empty, or one line per skill with its switch. */
+function SkillList({ row, read, disabled, on }: { row: RepositoryRow; read: SkillsRead; disabled: boolean; on: RepositoriesHandlers }) {
+  return (
+    <>
+      {read.error && <p className="repositories-skills-error" role="status">Skills could not be read: {read.error}</p>}
+      {!read.error && read.skills.length === 0 && <p className="ask-muted">No skills on the default branch.</p>}
+      <ul className="repositories-skill-list">
+        {read.skills.map((skill) => (
+          <li key={skill.name} className="repositories-skill" data-skill={skill.name}>
+            <span className="repositories-skill-what">
+              <code title={skill.description ?? undefined}>/{skill.name}</code>
+              {skill.gone && <span className="repositories-gone">Gone: no longer on {read.branch ?? 'the default branch'}</span>}
+              {skill.allowed && <span className="ask-muted">{allowedLabel(skill.allowed)}</span>}
+            </span>
+            <Switch name="Allow on runner" label={`Allow /${skill.name} on a runner for ${row.fullName}`} on={skill.allowed !== null} disabled={disabled} press={() => { on.setSkill(row.fullName, skill.name, skill.allowed === null); }} />
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/** A card's Runner skills block (PRD 2313 s3): closed until its title is pressed; a member reads the switches disabled. */
+function Skills({ row, block, owner, busy, on }: { row: RepositoryRow; block: SkillsBlock | undefined; owner: boolean; busy: boolean; on: RepositoriesHandlers }) {
+  const read = block?.status === 'read' ? block.read : null;
+  return (
+    <section className="repositories-skills" data-skills={row.fullName} aria-label={`Runner skills of ${row.fullName}`}>
+      <button type="button" className="repositories-skills-title" aria-expanded={block !== undefined} onClick={() => { on.toggleSkills(row.fullName, block === undefined); }}>
+        {skillsTitle(block)}
+      </button>
+      {block?.status === 'loading' && <p className="ask-muted">Reading the skills…</p>}
+      {read && <SkillList row={row} read={read} disabled={!owner || busy} on={on} />}
+    </section>
+  );
+}
+
+function Row({ row, owner, access, now, busy, skills, on }: { row: RepositoryRow; owner: boolean; access: Access; now: number; busy: boolean; skills: SkillsBlock | undefined; on: RepositoriesHandlers }) {
   const noAccess = access.kind === 'installed' && hasNoAccess(row, access.reachable);
   return (
     <li className="repositories-row" data-repository={row.fullName}>
@@ -108,20 +166,43 @@ function Row({ row, owner, access, now, busy, on }: { row: RepositoryRow; owner:
       <ProductChips row={row} />
       <Switch name="Public ideas" label={`Public ideas board of ${row.fullName}`} on={row.publicIdeas} disabled={busy} press={() => { on.setPublicIdeas(row.fullName, !row.publicIdeas); }} />
       <Switch name="Phase 0 on the server" label={`Phase 0 on the server for ${row.fullName}`} on={phase0Of(row) === 'server'} disabled={!owner || busy} press={() => { on.setPhase0(row.fullName, phase0Of(row) === 'server' ? 'pr' : 'server'); }} />
+      <Switch name="Fix on a runner once answered" label={`Fix on a runner once answered for ${row.fullName}`} on={fixWhenAnsweredOf(row)} disabled={!owner || busy} press={() => { on.setFixWhenAnswered(row.fullName, !fixWhenAnsweredOf(row)); }} />
       <Switch name="Tracked" label={`Track ${row.fullName}`} on={row.tracked} disabled={!owner || busy} press={() => { on.setTracked(row.fullName, !row.tracked); }} />
+      {owner && <RemoveButton row={row} busy={busy} on={on} />}
+      <Skills row={row} block={skills} owner={owner} busy={busy} on={on} />
     </li>
   );
 }
 
+/** Under the list: the removed repositories, closed by default and absent when there are none. Add back is the owner's. */
+function Removed({ rows, owner, now, busy, on }: { rows: RepositoryRow[]; owner: boolean; now: number; busy: boolean; on: RepositoriesHandlers }) {
+  if (rows.length === 0) return null;
+  return (
+    <details className="repositories-removed">
+      <summary>Removed ({rows.length})</summary>
+      <ul>
+        {rows.map((r) => (
+          <li key={r.fullName} className="repositories-removed-row" data-removed={r.fullName}>
+            <strong>{r.fullName}</strong>
+            <span className="ask-muted">{removedLabel(r, now)}</span>
+            {owner && <button type="button" className="ask-button quiet" aria-label={`Add back ${r.fullName}`} onClick={() => { on.add(r.fullName); }} disabled={busy}>Add back</button>}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export function RepositoriesView({ state, owner, access, now, on = IDLE }: RepositoriesViewProps) {
-  const rows = state.repositories;
+  const rows = listedOf(state.repositories);
+  const removed = removedOf(state.repositories);
   const canAdd = owner && access.kind === 'installed';
   return (
     <div className="ask-col repositories">
       <section className="ask-card repositories-head" aria-labelledby="repositories-title">
         <h1 id="repositories-title">Repositories</h1>
         {owner
-          ? <p className="ask-muted">Your workspace’s repositories. The Engineering board counts the tracked ones; switching one off hides it and keeps its history.</p>
+          ? <p className="ask-muted">Removing one keeps its history.</p>
           : <p className="ask-muted">{ONLY_OWNER}</p>}
         {state.refusal && <p className="repositories-refusal" role="alert">{state.refusal}</p>}
         {canAdd && !state.picking && <button type="button" className="ask-button" onClick={() => { on.pick(); }} disabled={state.busy}>Add repository</button>}
@@ -140,7 +221,8 @@ export function RepositoriesView({ state, owner, access, now, on = IDLE }: Repos
       <section className="repositories-list" aria-label="The workspace’s repositories">
         {rows.length === 0
           ? <p className="repositories-empty">No repositories yet. {owner ? 'Add one from the repositories the Omni App can see.' : 'The workspace’s owner adds them.'}</p>
-          : <ul>{rows.map((r) => <Row key={r.fullName} row={r} owner={owner} access={access} now={now} busy={state.busy} on={on} />)}</ul>}
+          : <ul>{rows.map((r) => <Row key={r.fullName} row={r} owner={owner} access={access} now={now} busy={state.busy} skills={state.skills[r.fullName.toLowerCase()]} on={on} />)}</ul>}
+        <Removed rows={removed} owner={owner} now={now} busy={state.busy} on={on} />
         {access.kind === 'installed' && access.settingsUrl && <p className="repositories-missing"><a href={access.settingsUrl}>{MISSING_ONE}</a></p>}
       </section>
     </div>

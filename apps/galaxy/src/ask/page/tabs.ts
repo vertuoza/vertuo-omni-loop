@@ -4,7 +4,7 @@
 // others, most recently active first. The page opens on the first tab, or on the one its link names,
 // and never changes the selection by itself: a question arriving elsewhere only badges that tab. The
 // browser title's count is the waiting list's, prefixed on every app page alike (PRD 499).
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { readQuestions } from '../answer-model';
 import { sessionClosed, type AskRoundStatus } from '../store';
 import { HOOK_WAIT_MS, type SessionRow, type SessionState } from './view';

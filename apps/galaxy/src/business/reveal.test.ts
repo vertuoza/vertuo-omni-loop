@@ -55,7 +55,7 @@ describe('the Sources used line', () => {
 
 describe('the scan', () => {
   it('marks a source read with ✓ and a skipped one with – and why', () => {
-    expect(scanLine({ source: 'vertuo-app · README.md', state: 'read' })).toBe('✓ vertuo-app · README.md');
+    expect(scanLine({ source: 'nimbus-app · README.md', state: 'read' })).toBe('✓ nimbus-app · README.md');
     expect(scanLine({ source: 'example.com/about', state: 'skipped', why: 'no answer in 10 s' })).toBe('– example.com/about · skipped (no answer in 10 s)');
     expect(scanLine({ source: 'example.com/about', state: 'skipped' })).toBe('– example.com/about · skipped');
   });
@@ -63,7 +63,7 @@ describe('the scan', () => {
 
 describe('a receipt chip', () => {
   it('names a repository file without its owner, and a web page without https://', () => {
-    expect(receiptLabel({ kind: 'file', where: 'acme/vertuo-app/README.md', quote: 'q', seenAt: '' })).toBe('vertuo-app/README.md');
+    expect(receiptLabel({ kind: 'file', where: 'acme/nimbus-app/README.md', quote: 'q', seenAt: '' })).toBe('nimbus-app/README.md');
     expect(receiptLabel({ kind: 'link', where: 'https://example.com/pricing/', quote: 'q', seenAt: '' })).toBe('example.com/pricing');
   });
 });

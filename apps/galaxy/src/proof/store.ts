@@ -6,12 +6,13 @@
 // - `ProofStore`, as the caller (their access token): finds the dossier they may read, signs upload
 //   links, lists what a run's folder holds, and registers the run through proof_run_add(). The bucket's
 //   rules and the function's checks decide who may do what: members of the dossier's workspace only.
-// - `ProofPublic`, as the service role: the one read without sign-in, the GIF's stable link (GitHub's
-//   image proxy cannot sign in). It reads only a run's GIF path and signs a 5-minute link to it.
+// - `ProofPublic`, as the service role: the two reads without sign-in, the GIF's stable link (GitHub's
+//   image proxy cannot sign in) and, for a bug's run, the stable link of each of its two clips (PRD 2100). It
+//   reads only a run's GIF path or the path of one of its two clips, and signs a 5-minute link to it.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listOf } from '../data/unparsed';
 import { dossierReader } from '../dossier/store';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** The bucket, private (the migration's). */
 const PROOF_BUCKET = 'proof-videos';
@@ -25,6 +26,13 @@ export const PROOF_CRITERIA_MAX = 10;
 export const PROOF_GIF_NAME = 'preview.gif';
 /** How long the GIF's signed link lives: the stable link redirects to a fresh one each time. */
 export const GIF_LINK_SECONDS = 5 * 60;
+/**
+ * The two clips of a bug's run that have a stable link (PRD 2100), as `omni bug film` names them in the run's
+ * folder (`kit/lib/proof/push.ts` links the same two). Every other file stays behind a sign-in: `red.txt` and
+ * `green.txt` are never served.
+ */
+export const PROOF_CLIP_NAMES = ['before.webm', 'after.webm'] as const;
+export type ProofClipName = (typeof PROOF_CLIP_NAMES)[number];
 
 /** What a run's dossier is of (PRD 1972): a PRD's, or a bug fix's, numbered by its issue. */
 export const PROOF_KINDS = ['prd', 'bug'] as const;
@@ -114,6 +122,8 @@ export type ProofStore = {
 export type ProofPublic = {
   /** The GIF's path in the bucket, or null for no such run or a run without a GIF. */
   gifPath(runId: string): Promise<string | null>;
+  /** The path in the bucket of `clip` of a registered run, or null for no such run or a run whose folder does not hold it. */
+  clipPath(runId: string, clip: ProofClipName): Promise<string | null>;
   /** A signed link to `path`, valid `seconds`, or null when it could not be made. */
   link(path: string, seconds: number): Promise<string | null>;
 };
@@ -178,13 +188,21 @@ export function proofStore(db: Pick<SupabaseClient, 'rpc' | 'from' | 'storage'>)
   };
 }
 
-/** The GIF's store as the service role: it reads a run's GIF path only. */
+/** The public store as the service role: it reads a run's GIF path, and whether its folder holds one of the two clips. */
 export function proofPublic(db: Pick<SupabaseClient, 'from' | 'storage'>): ProofPublic {
   return {
     async gifPath(runId) {
       const row = settle<{ dossier_id: string; gif: string | null }>('read the run', await db.from('proof_runs')
         .select('dossier_id, gif').eq('id', runId).maybeSingle());
       return row?.gif ? proofPath(row.dossier_id, runId, row.gif) : null;
+    },
+    async clipPath(runId, clip) {
+      const row = settle<{ dossier_id: string }>('read the run', await db.from('proof_runs')
+        .select('dossier_id').eq('id', runId).maybeSingle());
+      if (!row) return null;
+      const { data, error } = await db.storage.from(PROOF_BUCKET).list(`${row.dossier_id}/${runId}`, { limit: PROOF_FILES_MAX });
+      if (error) throw new ProofStoreError('list the run', undefined, error.message);
+      return listOf(data).some((file) => file.name === clip) ? proofPath(row.dossier_id, runId, clip) : null;
     },
     async link(path, seconds) {
       return (await signedLinks(db, [path], seconds))[0] ?? null;

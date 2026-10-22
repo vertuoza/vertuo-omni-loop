@@ -376,16 +376,17 @@ describe('How to play\'s LEVELS', () => {
 
   it('shows the weight of each personal credit, the curve\'s first levels and each game\'s unlock level, from the rulebook', () => {
     const text = levelsOf();
-    expect(rules).toEqual({ weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1, prMerged: 1, prReviewed: 1 }, curve: { first: 1, step: 25 }, cap: 99, unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 4 } });
+    expect(rules).toEqual({ weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1, questionAnswered: 1, featureMerged: 1, featureReviewed: 1, prMerged: 1, prReviewed: 1 }, curve: { first: 1, step: 25 }, cap: 99, unlocks: { invaders: 1, platformer: 2, kart: 3, duet: 4, pong: 5 } });
     for (const label of ['ENTROPY CLEARED', 'RESCUE', 'EXPEDITION BONUS', 'CLOSER BONUS', 'QUESTION ANSWERED', 'PR MERGED', 'PR REVIEWED']) expect(beside(text, label)).toBe('×1');
     // A secured zone and the old merge pay credit no point, so no XP: LEVELS leaves them out (PRD 1975).
     for (const label of ['ZONE SECURED', 'FEATURE MERGED', 'FEATURE APPROVED']) expect(text).not.toContain(label);
     expect([1, 2, 3, 4, 5].map((n) => beside(text, `LV ${n}`))).toEqual(['1', '50', '150', '300', '500']);
     expect(text).not.toContain('LV 6');
     expect(beside(text, 'ENTROPY INVADERS')).toBe('LV 1');
-    expect(beside(text, 'SUPER OMNI WORLD')).toBe('LV 2');
+    expect(beside(text, 'STARHOP')).toBe('LV 2');
     expect(beside(text, 'OMNI KART')).toBe('LV 3');
     expect(beside(text, 'OMNI DUET')).toBe('LV 4');
+    expect(beside(text, 'PULSAR VOLLEY')).toBe('LV 5');
     expect(text.some((s) => s.includes('UP TO LV 99')), text.join(' | ')).toBe(true);
   });
 

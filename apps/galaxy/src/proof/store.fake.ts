@@ -8,7 +8,7 @@
 import { proofPath, ProofStoreError, type ProofPublic, type ProofRunNew, type ProofRunRow, type ProofStore, isVerdict, PROOF_FILE_NAME } from './store';
 import { sure } from '../arcade/test/sure';
 import { settled } from '../stages/settled';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 export type FakeProofDossier = { id: string; workspace: string; repo: string; prd: PrdNumber; kind?: 'prd' | 'bug' };
 
@@ -106,6 +106,11 @@ export class FakeProofWorld {
       gifPath: (runId) => settled(() => {
         const run = this.runs.find((r) => r.id === runId);
         return run?.gif ? proofPath(run.dossier_id, run.id, run.gif) : null;
+      }),
+      clipPath: (runId, clip) => settled(() => {
+        const run = this.runs.find((r) => r.id === runId);
+        const path = run ? proofPath(run.dossier_id, run.id, clip) : null;
+        return path && this.files.has(path) ? path : null;
       }),
       link: (path, seconds) => settled(() => this.files.has(path) ? `https://storage.test/sign/${path}?ttl=${seconds}` : null),
     };

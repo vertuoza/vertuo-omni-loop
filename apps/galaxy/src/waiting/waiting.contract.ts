@@ -5,10 +5,11 @@
 //
 //   GET /api/waiting/questions  → { questions: WaitingQuestion[] }   the Questions part (PRD 499)
 //   GET /api/waiting/documents  → { documents: DocumentRow[] }       the New documents part (PRD 579)
+//   GET /api/waiting/runners    → { count: number }                  the Runners badge (PRD 2255)
 //
 // A refusal is `{ error: <kind> }`: 401 `signed-out`, 500 `database`.
 import { z } from 'zod';
-import { PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 const WAITING_ERRORS = ['signed-out', 'database'] as const;
 export type WaitingErrorKind = (typeof WAITING_ERRORS)[number];
@@ -46,3 +47,6 @@ const DocumentRowSchema = z.object({
 });
 
 export const DocumentsSchema = z.object({ documents: z.array(DocumentRowSchema) });
+
+/** How many of the workspace's runner jobs wait for an answer: a whole number, 0 or more. */
+export const RunnersWaitingSchema = z.object({ count: z.number().int().nonnegative() });

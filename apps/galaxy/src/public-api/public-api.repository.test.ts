@@ -1,0 +1,195 @@
+import { describe, expect, it } from 'vitest';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { decodeCursor, encodeCursor } from './cursor';
+import { dossierId, momentOf, NORTHWIND, SOUTHWIND } from './fixtures/public-api.fake';
+import { publicApiRepository, type PublicApiDb } from './public-api.repository';
+
+// The public API's storage (PRD 2022 s2) on a client that records each call and answers it from rows in
+// memory, reading the filters as PostgREST reads them, the keyset's `or` included: the repository's
+// own query pages 120 rows by 50, with rows added between pages, and returns each exactly once.
+
+type Row = Record<string, unknown>;
+type Answer = { data: unknown; error: { message: string } | null };
+type Test = (row: Row) => boolean;
+
+/** The keyset filter, as PostgREST reads `created_at.lt."t",and(created_at.eq."t",id.lt."i")`; times compare
+ * as the fixture writes them. */
+function keyset(filter: string): Test {
+  const read = /^created_at\.lt\."([^"]+)",and\(created_at\.eq\."([^"]+)",id\.lt\."([^"]+)"\)$/.exec(filter);
+  if (!read || read[1] !== read[2]) throw new Error(`the fake reads no ${filter}`);
+  const [, at = '', , id = ''] = read;
+  return (row) => String(row.created_at) < at || (row.created_at === at && String(row.id) < id);
+}
+
+function evaluating(tables: Record<string, Row[]>, rpc: Record<string, unknown> = {}) {
+  const calls: unknown[][] = [];
+  const query = (table: string) => {
+    const tests: Test[] = [];
+    const steps: unknown[] = [];
+    let columns: string[] = [];
+    let orders: { column: string; ascending: boolean }[] = [];
+    let take = Infinity;
+    const run = (): Answer => {
+      calls.push([table, ...steps]);
+      const rows = (tables[table] ?? []).filter((row) => tests.every((t) => t(row)));
+      rows.sort((a, b) => {
+        for (const { column, ascending } of orders) {
+          const [x, y] = [String(a[column]), String(b[column])];
+          if (x !== y) return (x < y ? -1 : 1) * (ascending ? 1 : -1);
+        }
+        return 0;
+      });
+      return { data: rows.slice(0, take).map((row) => Object.fromEntries(columns.map((c) => [c, row[c]]))), error: null };
+    };
+    const builder = {
+      select: (cols: string) => { steps.push(['select', cols]); columns = cols.split(',').map((c) => c.trim()); return builder; },
+      eq: (column: string, value: unknown) => { steps.push(['eq', column, value]); tests.push((row) => row[column] === value); return builder; },
+      in: (column: string, values: unknown[]) => { steps.push(['in', column, values]); tests.push((row) => values.includes(row[column])); return builder; },
+      not: (column: string, op: string, value: unknown) => {
+        steps.push(['not', column, op, value]);
+        tests.push((row) => row[column] !== null && row[column] !== undefined);
+        return builder;
+      },
+      or: (filter: string) => { steps.push(['or', filter]); tests.push(keyset(filter)); return builder; },
+      order: (column: string, options: { ascending: boolean }) => { steps.push(['order', column, options]); orders = [...orders, { column, ascending: options.ascending }]; return builder; },
+      limit: (n: number) => { steps.push(['limit', n]); take = n; return builder; },
+      then: (resolve: (answer: Answer) => unknown) => Promise.resolve(run()).then(resolve),
+    };
+    return builder;
+  };
+  const db = {
+    from: query,
+    rpc: (fn: string, args: unknown) => { calls.push(['rpc', fn, args]); return Promise.resolve({ data: rpc[fn] ?? null, error: null }); },
+  } as unknown as PublicApiDb;
+  return { db, calls };
+}
+
+function dossier(n: number, more: Row = {}): Row {
+  return {
+    id: dossierId(n), workspace_id: NORTHWIND, kind: 'prd', prd: n, product_seq: null, product_id: null, title: `PRD ${n}`,
+    home_repo: 'northwind/backend', created_at: momentOf(n), numbered_at: momentOf(n), ...more,
+  };
+}
+
+describe('the public API’s repository', () => {
+  it('reads one page of the workspace’s numbered dossiers of a kind, newest first, by the keyset', async () => {
+    const { db, calls } = evaluating({ dossiers: [] });
+    await publicApiRepository(db).dossiers({
+      workspace: NORTHWIND, kind: 'bug', repos: ['northwind/backend'], after: { createdAt: momentOf(9), id: dossierId(9) }, take: 51,
+    });
+    expect(calls).toEqual([[
+      'dossiers',
+      ['select', 'id, prd, product_seq, product_id, title, home_repo, created_at'],
+      ['eq', 'workspace_id', NORTHWIND],
+      ['eq', 'kind', 'bug'],
+      ['not', 'numbered_at', 'is', null],
+      ['in', 'home_repo', ['northwind/backend']],
+      ['or', `created_at.lt."${momentOf(9)}",and(created_at.eq."${momentOf(9)}",id.lt."${dossierId(9)}")`],
+      ['order', 'created_at', { ascending: false }],
+      ['order', 'id', { ascending: false }],
+      ['limit', 51],
+    ]]);
+  });
+
+  it('filters no repository for a key with an empty allow-list, and no keyset on the first page', async () => {
+    const { db, calls } = evaluating({ dossiers: [] });
+    await publicApiRepository(db).dossiers({ workspace: NORTHWIND, kind: 'prd', repos: [], after: null, take: 51 });
+    expect(JSON.stringify(calls)).not.toMatch(/"in"|"or"/);
+  });
+
+  it('keeps the other workspace, drafts and other kinds out', async () => {
+    const rows = [
+      dossier(1), dossier(2, { workspace_id: SOUTHWIND }), dossier(3, { prd: null, numbered_at: null }), dossier(4, { kind: 'bug' }),
+      dossier(5, { home_repo: 'northwind/web' }),
+    ];
+    const { db } = evaluating({ dossiers: rows });
+    const read = await publicApiRepository(db).dossiers({ workspace: NORTHWIND, kind: 'prd', repos: ['northwind/backend'], after: null, take: 10 });
+    expect(read.map((r) => r.id)).toEqual([dossierId(1)]);
+  });
+
+  it('pages 120 rows by 50 with rows added between pages, each exactly once', async () => {
+    const rows = [...Array(120).keys()].map((i) => dossier(i + 1));
+    const { db } = evaluating({ dossiers: rows });
+    const repository = publicApiRepository(db);
+    const seen: string[] = [];
+    let after: { createdAt: string; id: string } | null = null;
+    for (let page = 0; page < 5; page += 1) {
+      const read = await repository.dossiers({ workspace: NORTHWIND, kind: 'prd', repos: [], after, take: 51 });
+      const kept = read.slice(0, 50);
+      seen.push(...kept.map((r) => r.id));
+      const last = kept.at(-1);
+      if (read.length <= 50 || !last) break;
+      // A cursor goes out and comes back: the time is the database's, to the microsecond.
+      after = decodeCursor(encodeCursor({ list: 'prds', createdAt: last.created_at, id: last.id }), 'prds');
+      rows.push(dossier(200 + page));
+    }
+    expect(seen).toEqual(rows.slice(0, 120).reverse().map((r) => r.id));
+  });
+
+  it('parses each dossier where it comes in', async () => {
+    const { db } = evaluating({ dossiers: [dossier(1)] });
+    expect(await publicApiRepository(db).dossiers({ workspace: NORTHWIND, kind: 'prd', repos: [], after: null, take: 1 })).toEqual([{
+      id: dossierId(1), prd: 1, product_seq: null, product_id: null, title: 'PRD 1', home_repo: 'northwind/backend', created_at: momentOf(1),
+    }]);
+    const broken = evaluating({ dossiers: [dossier(1, { prd: 'one' })] });
+    await expect(publicApiRepository(broken.db).dossiers({ workspace: NORTHWIND, kind: 'prd', repos: [], after: null, take: 1 })).rejects.toThrow();
+  });
+
+  it('asks api_key_of() with the hash, and reads its key or nothing', async () => {
+    const key = { key_id: 'k-1', workspace_id: NORTHWIND, repos: ['northwind/backend'], made_by: 'u-1', name: 'QA dashboard' };
+    const live = evaluating({}, { api_key_of: key });
+    expect(await publicApiRepository(live.db).keyOf('f'.repeat(64))).toEqual(key);
+    expect(live.calls).toEqual([['rpc', 'api_key_of', { p_hash: 'f'.repeat(64) }]]);
+    expect(await publicApiRepository(evaluating({}).db).keyOf('f'.repeat(64))).toBeNull();
+  });
+
+  it('throws, naming the call, when the database refuses', async () => {
+    const db = {
+      rpc: () => Promise.resolve({ data: null, error: { message: 'permission denied for function api_key_of' } }),
+    } as unknown as PublicApiDb;
+    await expect(publicApiRepository(db).keyOf('f'.repeat(64))).rejects.toThrow('api_key_of: permission denied for function api_key_of');
+  });
+
+  it('reads the workspace’s products among the ids, and none for no id', async () => {
+    const { db, calls } = evaluating({
+      products: [
+        { id: 'p-1', workspace_id: NORTHWIND, key: 'mobile', name: 'Mobile' },
+        { id: 'p-2', workspace_id: SOUTHWIND, key: 'web', name: 'Web' },
+      ],
+    });
+    const repository = publicApiRepository(db);
+    expect(await repository.products(NORTHWIND, ['p-1', 'p-2'])).toEqual([{ id: 'p-1', key: 'mobile', name: 'Mobile' }]);
+    expect(await repository.products(NORTHWIND, [])).toEqual([]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('reads the stages of one repository’s PRDs in the workspace, and none for no PRD', async () => {
+    const { db, calls } = evaluating({
+      prd_stages: [
+        { workspace_id: NORTHWIND, repository: 'northwind/backend', prd: 7, stage: 'inbox' },
+        { workspace_id: NORTHWIND, repository: 'northwind/web', prd: 7, stage: 'retro' },
+        { workspace_id: SOUTHWIND, repository: 'northwind/backend', prd: 7, stage: 'shipped' },
+        { workspace_id: NORTHWIND, repository: 'northwind/backend', prd: 8, stage: 'prd' },
+      ],
+    });
+    const repository = publicApiRepository(db);
+    expect(await repository.stages(NORTHWIND, 'northwind/backend', [parsePrd(7)])).toEqual([{ repository: 'northwind/backend', prd: 7, stage: 'inbox' }]);
+    expect(await repository.stages(NORTHWIND, 'northwind/backend', [])).toEqual([]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('reads whether a product of the workspace names a repository as its plan repository', async () => {
+    const { db, calls } = evaluating({
+      products: [
+        { id: 'p-1', workspace_id: NORTHWIND, key: 'web', name: 'Web', plan_repository: 'northwind/plan' },
+        { id: 'p-2', workspace_id: NORTHWIND, key: 'mobile', name: 'Mobile', plan_repository: null },
+        { id: 'p-3', workspace_id: SOUTHWIND, key: 'web', name: 'Web', plan_repository: 'southwind/plan' },
+      ],
+    });
+    const repository = publicApiRepository(db);
+    expect(await repository.isPlanRepository(NORTHWIND, 'northwind/plan')).toBe(true);
+    expect(await repository.isPlanRepository(NORTHWIND, 'northwind/backend')).toBe(false);
+    expect(await repository.isPlanRepository(NORTHWIND, 'southwind/plan')).toBe(false);
+    expect(calls[0]).toEqual(['products', ['select', 'id'], ['eq', 'workspace_id', NORTHWIND], ['eq', 'plan_repository', 'northwind/plan'], ['limit', 1]]);
+  });
+});

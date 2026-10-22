@@ -1,7 +1,7 @@
 // The mask (PRD 812, decision 10): every token-shaped string is masked before anything is sent to Jev.
 // The rules are the kit's (kit/lib/openrouter.ts › maskSecrets), ported here so Galaxy's server code
 // does not load the kit's OpenRouter client; mask.test.ts holds the two to the same output. GitHub
-// tokens, `sk-` keys, AWS key ids and JWTs become `[masked]`, and so does a bearer credential after its
+// tokens, `sk-` keys, AWS key ids, JWTs, Supabase keys, webhook secrets and Slack tokens become `[masked]`, and so does a bearer credential after its
 // `Bearer`. Masking twice changes nothing.
 
 export const MASK = '[masked]';
@@ -12,6 +12,9 @@ const SECRETS: readonly RegExp[] = Object.freeze([
   /\bsk-[A-Za-z0-9_-]{16,}/g,
   /\bAKIA[0-9A-Z]{16}\b/g,
   /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g,
+  /\bsb_(?:secret|publishable)_[A-Za-z0-9_-]{16,}/g,
+  /\bwhsec_[A-Za-z0-9+/=]{16,}/g,
+  /\bxox[abpr]-[A-Za-z0-9-]{10,}/g,
 ]);
 const BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 

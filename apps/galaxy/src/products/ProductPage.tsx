@@ -2,7 +2,7 @@
 import { useReducer, useRef } from 'react';
 import Link from 'next/link';
 import { createBrowserClient } from '@supabase/ssr';
-import type { PitchSettings } from 'vertuo-omni-plan/kit/lib/pitch/settings.ts';
+import type { PitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import { repositoriesTabHref } from '../product-repositories/repositories-tab.contract';
 import { PRODUCTS_HREF, type PitchedProduct } from './model';
 import { PitchSection, type PitchHandlers } from './pitch-form';
@@ -25,6 +25,8 @@ export interface ProductPageProps {
   source: ProductsSource;
   editable: boolean;
   product: PitchedProduct;
+  /** Its own name and back link (the default); false inside the Knowledge home, whose header says them. */
+  framed?: boolean;
 }
 
 type Ports = { products: ProductsPort; assets: AssetsPort };
@@ -60,7 +62,7 @@ function ProductHead({ name }: { name: string }) {
   );
 }
 
-export function ProductPage({ source, editable, product }: ProductPageProps) {
+export function ProductPage({ source, editable, product, framed = true }: ProductPageProps) {
   const [state, dispatch] = useReducer(pitchFormReducer, product.pitch, initialPitchForm);
   const ports = useRef<Ports | null>(null);
   const getPorts = () => (ports.current ??= portsOf(source, product));
@@ -86,7 +88,7 @@ export function ProductPage({ source, editable, product }: ProductPageProps) {
 
   return (
     <div className="ask-col products">
-      <ProductHead name={product.name} />
+      {framed ? <ProductHead name={product.name} /> : null}
       <PitchSection state={state} editable={editable} on={on} />
       <ApproversMoved product={product.id} />
     </div>

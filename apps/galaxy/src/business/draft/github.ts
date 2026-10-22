@@ -32,9 +32,17 @@ export type RepoReader = {
   file(installation: number, repository: string, path: string): Promise<string | null>;
 };
 
+/** The reader with what Settings → Repositories' Runner skills block adds (PRD 2313 s3). */
+export type SkillsRepoReader = RepoReader & {
+  /** The folders under `path` on the default branch; none when it is not there. */
+  folders(installation: number, repository: string, path: string): Promise<string[]>;
+  /** The repository's default branch name, or null when GitHub did not say. */
+  defaultBranch(installation: number, repository: string): Promise<string | null>;
+};
+
 export function repoReader(
   creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now, store: GithubStore | null = null,
-): RepoReader {
+): SkillsRepoReader {
   const app = githubApp(creds, fetchImpl, clock);
   const github = githubClient({ store, fetch: fetchImpl, clock });
   const tokenFor = keptInstallationTokens((id) => app.installationToken(id), clock);
@@ -66,6 +74,20 @@ export function repoReader(
       if (typeof config !== 'string') return { root, docs, delivery: null, shipped: [] };
       const { delivery } = syncConfig(config, repository);
       return { root, docs, delivery, shipped: await entries(installation, repository, `${delivery}/shipped`, 'dir') };
+    },
+
+    /** The folders under `path` on the default branch; none when it is not there (PRD 2313 s3). */
+    folders: (installation: number, repository: string, path: string) => entries(installation, repository, path, 'dir'),
+
+    /** The repository's default branch name, or null when GitHub did not say (PRD 2313 s3). */
+    async defaultBranch(installation: number, repository: string) {
+      if (!REPO.test(repository)) throw new Error(`${repository} is not a repository name`);
+      const authorization = `Bearer ${await tokenFor(installation)}`;
+      const res = await github.fetch(`${GITHUB}/repos/${repository}`, { installation, priority: 'background', headers: { authorization, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' }, cache: 'no-store' });
+      if (!res.ok) return null;
+      const body: unknown = await res.json();
+      const branch = z.object({ default_branch: z.string() }).safeParse(body);
+      return branch.success ? branch.data.default_branch : null;
     },
 
     async file(installation, repository, path) {

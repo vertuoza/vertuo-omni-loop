@@ -3,7 +3,7 @@ name: yolo
 description: Build a whole PRD with nothing asked along the way — plan it if needed, run /omni:wave until every slice is merged or nothing more can move, then finish the feature branch, run the outbox gate, and ship before ready. Green gate — omni ship, commit, push, then the feature PR is marked ready. Red gate — the feature PR stays draft with the outbox questions posted on it, then, with answers.enabled on, it offers to take the answers here and carry on into the yolo-fix steps. Never merges into the default branch. Triggers on "yolo this PRD", "build it, I'll review the outbox after", "/omni:yolo".
 ---
 
-<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-yolo/SKILL.md (and vertuo-deliver §1–3, with the ask-nothing policy) — changes in kit/porting/plugin--yolo.md -->
+<!-- Ported from nimbus-brain@c4a210122:.claude/skills/nimbus-yolo/SKILL.md (and nimbus-deliver §1–3, with the ask-nothing policy) — changes in kit/porting/plugin--yolo.md -->
 
 # Yolo: every wave, the gate, ship before ready
 
@@ -410,7 +410,9 @@ Remove `labels.inProgress` from the feature PR (unless the Stuck path already sw
 Only when every slice merged, the gate in step 4 read red, and
 `node .omni-loop/bin/omni.mjs config answers.enabled` prints `true`. Held, stuck or green, go
 straight to step 7. When `answers.enabled` is off, skip this part too: the hand-off in step 7 says
-to answer on the pull request, as it always has.
+to answer on the pull request, as it always has. Skip it too when `OMNI_UNATTENDED` is set (a
+runner job, with nobody to answer): ask no question, and end red with the outbox posted and the
+feature PR in draft, as with `answers.enabled` off.
 
 By now the outbox comment, the draft feature PR and its final status comment are written, so
 nothing is lost if the person walks away. Count the open `human-action` and `high` items

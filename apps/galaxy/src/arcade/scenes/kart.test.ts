@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Action } from '../keys';
 import { gridFor, TALL, WIDE, type Grid } from '../grid';
 import { ScreenContext } from '../Screen';
 import { DEFAULT_THEME } from '../theme';
@@ -9,7 +10,7 @@ import { markFor } from '../mark';
 import { drawFrame } from './index.ts';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
-import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, KEY_RESERVED, OPTIONS_OPEN, PRESS_A_KEY, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, circuitName, circuitPress, type CircuitCard, NOT_LOADED, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, readyLine, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
+import { BACK_TO_CHOICE, BACK_TO_OPTIONS, choicePress, KEY_RESERVED, OPTIONS_OPEN, PRESS_A_KEY, FIRST_CHOICE, GRID_OUT_LINE, gridPress, type KartGridView, MULTI_CLOSED_LINE, kartCast, kartPress, loadKart, circuitName, circuitPress, type CircuitCard, NOT_LOADED, kartEngineLevel, kartEngineOn, kartSong, raceTime, PAGES, PAUSED_LINE, READY_LINE, readyLine, sameKartHud, soundOf, TALL_SCENES, type KartCue, type KartGame, type KartItem, type KartChoice, type KartHud, type KartStatus } from './kart.ts';
 import { KartOverlay, type KartArt } from './kart.tsx';
 import type { FrameState, KartDraw } from './common.ts';
 import { defaultOptions, optionsKey, optionsPress, type OptionsView } from '../kart/options';
@@ -23,7 +24,7 @@ const text = (status: KartStatus, grid: Grid = WIDE, form: 'full' | 'handheld' =
     .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** A game that does nothing, as the loader hands it over. */
-const stubGame = (): KartGame => ({ draw: () => {}, step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, away: () => {}, close: () => {}, hud: () => ({ phase: 'ready', beat: null }), cues: () => [], speed: () => 0, board: 'kart' });
+const stubGame = (): KartGame => ({ draw: () => {}, ready: () => Promise.resolve(), step: () => null, press: () => ({ quit: false, again: false }), pause: () => {}, away: () => {}, close: () => {}, hud: () => ({ phase: 'ready', beat: null }), cues: () => [], speed: () => 0, skid: () => 0, board: 'kart' });
 
 describe('the kart scene on its grids', () => {
   it('is laid out on the tall grid on the Game Boy held upright, and on the wide grid elsewhere', () => {
@@ -366,6 +367,25 @@ describe('the sound of a cue', () => {
   });
 });
 
+describe('the sounds of the drift (PRD 1963)', () => {
+  it('maps the ticks, the whoosh and the sputter to their own effects beside the player', () => {
+    expect(soundOf({ kind: 'tick', color: 'blue' })).toEqual({ sfx: 'tickBlue', far: 0 });
+    expect(soundOf({ kind: 'tick', color: 'orange' })).toEqual({ sfx: 'tickOrange', far: 0 });
+    expect(soundOf({ kind: 'whoosh' })).toEqual({ sfx: 'whoosh', far: 0 });
+    expect(soundOf({ kind: 'sputter' })).toEqual({ sfx: 'sputter', far: 0 });
+  });
+
+  it('revs the engine while GAS is held in the countdown, and follows the speed otherwise', () => {
+    const hud = (phase: KartHud['phase']): KartHud => ({ phase, beat: null });
+    const gas = new Set<Action>(['a']), none = new Set<Action>();
+    expect(kartEngineLevel(hud('countdown'), 0, none)).toBe(0);
+    expect(kartEngineLevel(hud('countdown'), 0, gas)).toBeGreaterThan(0.5);
+    expect(kartEngineLevel(hud('race'), 0.3, gas)).toBe(0.3);
+    expect(kartEngineLevel(hud('ready'), 0, gas)).toBeNull();
+    expect(kartEngineLevel(null, 0, gas)).toBeNull();
+  });
+});
+
 describe('the race\'s music and engine (PRD 1427)', () => {
   const run = (final: boolean) => ({ place: 1, lap: final ? 3 : 1, laps: 3, tenths: 10, final, item: null });
   const hud = (phase: KartHud['phase'], extra: Partial<KartHud> = {}): KartHud => ({ phase, beat: null, ...extra });
@@ -617,9 +637,9 @@ describe('the OPTIONS panel (PRD 1762)', () => {
     expect(options).toEqual(defaultOptions());
   });
 
-  it('lists the five actions with their keys, and says PRESS A KEY while it waits', () => {
+  it('lists the six actions with their keys, HOP last, and says PRESS A KEY while it waits', () => {
     const keys: OptionsView = { screen: 'keys', cursor: 'gas', capture: false, refused: false };
-    expect(panel(keys)).toBe('KEYS ▶ GAS ▲ BRAKE ▼ LEFT ◀ RIGHT ▶ ITEM SPACE A CHANGE B BACK');
+    expect(panel(keys)).toBe('KEYS ▶ GAS ▲ BRAKE ▼ LEFT ◀ RIGHT ▶ ITEM SHIFT HOP SPACE A CHANGE B BACK');
     expect(panel({ ...keys, capture: true })).toContain(`▶ GAS ${PRESS_A_KEY} BRAKE ▼`);
   });
 
@@ -647,9 +667,9 @@ describe('the race names the player\'s keys (PRD 1762)', () => {
       .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
   it('shows the keys on the countdown, default and own', () => {
-    expect(race({ phase: 'countdown', beat: '3' })).toContain('▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE ITEM');
-    const own = { ...defaultOptions(), keys: { gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e' } };
-    expect(race({ phase: 'countdown', beat: '3' }, own)).toContain('W GAS A D STEER S BRAKE E ITEM');
+    expect(race({ phase: 'countdown', beat: '3' })).toContain('▲ GAS ◀ ▶ STEER ▼ BRAKE SPACE HOP SHIFT ITEM');
+    const own = { ...defaultOptions(), keys: { gas: 'w', brake: 's', left: 'a', right: 'd', item: 'e', hop: 'q' } };
+    expect(race({ phase: 'countdown', beat: '3' }, own)).toContain('W GAS A D STEER S BRAKE Q HOP E ITEM');
   });
 
   it('shows no keys line on the Game Boy, whose pad keeps A and B, nor once the race is on', () => {
@@ -659,8 +679,8 @@ describe('the race names the player\'s keys (PRD 1762)', () => {
 
   it('names the ITEM key on the item panel, empty or holding one', () => {
     const run = (item: KartItem | null) => race({ phase: 'race', beat: null, run: { place: 1, lap: 1, laps: 3, tenths: 12, final: false, item } });
-    expect(run(null)).toContain('SPACE');
-    expect(run('boost')).toContain('SPACE ITEM BOOST');
+    expect(run(null)).toContain('SHIFT');
+    expect(run('boost')).toContain('SHIFT ITEM BOOST');
     const own = { ...defaultOptions(), keys: { ...defaultOptions().keys, item: 'e' } };
     expect(race({ phase: 'race', beat: null, run: { place: 1, lap: 1, laps: 3, tenths: 12, final: false, item: 'orb' } }, own)).toContain('E ITEM ORB');
   });

@@ -3,7 +3,7 @@ name: yolo-fix
 description: Bring a PRD back in line with what a person answered — read the replies on the feature PR, settle them in one sub-PR, rework every drifted decision as its own slice (one sub-PR each into the feature branch, inside the bound the item stated), check the whole feature, then ship before ready when the gate is green. Raises no question of its own and never merges into the default branch. Triggers on "yolo-fix this PRD", "fix the drift", "rework what I disagreed with", "/omni:yolo-fix".
 ---
 
-<!-- Ported from vertuo-ai-domain@2af3d72f7:.claude/skills/vertuo-yolo-fix/SKILL.md — changes in kit/porting/plugin--yolo-fix.md -->
+<!-- Ported from nimbus-brain@2af3d72f7:.claude/skills/nimbus-yolo-fix/SKILL.md — changes in kit/porting/plugin--yolo-fix.md -->
 
 # Yolo fix: replies, settle, rework, ship
 
@@ -164,8 +164,9 @@ steps over the rework rows instead:
    > row. The question: <question>. What was built: <choice>. The person's answer, verbatim:
    > <answer>. Build towards: <chosenOption text, or "the answer itself">. The bound, the item's own
    > words: <bound>. Record no item and ask nothing: the decision is made. A change the bound does
-   > not cover returns `stopped`, naming the sentence it outgrew. Do not spawn subagents. Return only
-   > do-work's result JSON.
+   > not cover returns `stopped`, naming the sentence it outgrew. Do not spawn subagents. Run each
+   > command alone, from your worktree, never chained with `cd … &&` or `;`, and git as
+   > `git -C <your worktree> …`. Return only do-work's result JSON.
 
 3. **Merge**, one at a time, exactly as `/omni:wave` §4 does, grading territory against the
    rework's `territory`. Its "not merged" table applies as written.
@@ -229,7 +230,9 @@ no rework sub-PR, no round comment. Step 7 still refreshes the outbox comment.
 Then end the reply with `/omni:yolo` §7's hand-off, as written: the PRD's folder, where it is, and
 the **What is next?** of the ending this run reached, its last line alone as the reply's last line.
 One difference: the held ending's command is `/omni:yolo-fix <n>`, since a held rework resumes with
-this skill. The red ending already runs `/omni:yolo-fix <n>`, and the green one runs nothing. As
+this skill, and its **What is next?** adds one line above that command: "To build it on a runner
+instead: `/omni:yolo-runner <n>`." The last line stays `/omni:yolo-fix <n>`. The red ending already
+runs `/omni:yolo-fix <n>`, and the green one runs nothing. As
 there, a run that stops before it picks up the feature PR (step 1) keeps its one line and prints no
 hand-off.
 

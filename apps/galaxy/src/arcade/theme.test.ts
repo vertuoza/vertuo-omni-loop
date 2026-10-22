@@ -4,7 +4,7 @@ import { COLOURS, FLAT, spritePixels, tokensCss } from '@omni/design';
 import { markFor } from './mark';
 import { DEFAULT_THEME, parseTheme, resolveTheme, stripesOf, themeVars, ThemeSchema, TOKENS, type Token } from './theme';
 import { sure } from './test/sure';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const uncommented = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');

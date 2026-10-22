@@ -3,7 +3,11 @@
 //
 // - pre-commit: `fallow audit` from that root, so a commit in a worktree is audited against it.
 // - pre-push: check:changed's typecheck and lint steps (scripts/check-changed-steps.ts) of what changed
-//   since the merge-base with the branch's upstream, else origin/main. The tests run in CI.
+//   since the merge-base with the branch's upstream, else origin/main. The tests run in CI. When the
+//   push touches supabase/migrations/ or supabase/database.types.ts, it also checks the committed types
+//   against the local database (scripts/supabase-types.ts --check): drift refuses, and no local database
+//   only warns, naming how to regenerate, since CI's `supabase` workflow runs the same check (three
+//   retros, #1349, #1649, #2207: hand-edited types went red in CI round after round).
 //
 // Both fail closed: a tool not found (in the work tree's node_modules/.bin, the main checkout's, then
 // PATH), a base not found, or an audit that cannot run refuses, in one line naming the fix.
@@ -11,7 +15,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { accessSync, constants } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 import { processEnv, withStepVariables } from '../kit/lib/env/read.ts';
-import { changedFiles, pickSteps, planChecks, runChecks } from './check-changed-steps.ts';
+import { type Changes, changedFiles, pickSteps, planChecks, runChecks } from './check-changed-steps.ts';
 
 /** Runs `file` with `args` in `cwd`, its output on the terminal, and answers its exit code. */
 type Run = (file: string, args: readonly string[], cwd: string, env?: NodeJS.ProcessEnv) => number;
@@ -84,10 +88,30 @@ export function prePush(root: string, dirs: readonly string[], io: HookIO): numb
   const ref = io.git(root, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']) ?? 'origin/main';
   const base = io.git(root, ['merge-base', 'HEAD', ref]);
   if (!base) return refuse(io, 'pre-push', `no merge-base with ${ref}: run git fetch origin`);
-  const steps = pickSteps(planChecks(changedFiles(root, base), base), ['typecheck', 'lint']);
+  const changes = changedFiles(root, base);
+  const steps = pickSteps(planChecks(changes, base), ['typecheck', 'lint']);
   const env = withStepVariables({ PATH: dirs.join(delimiter) });
   const code = runChecks(steps, { spawn: (step) => io.run(pnpm, step.args, root, env), now: () => performance.now(), write: io.write });
-  return code === 0 ? 0 : refuse(io, 'pre-push', `refused: fix what failed above (measured against ${ref})`);
+  if (code !== 0) return refuse(io, 'pre-push', `refused: fix what failed above (measured against ${ref})`);
+  return touchesDatabase(changes) ? typesDrift(root, io) : 0;
+}
+
+const REGENERATE = 'supabase stop --no-backup && supabase db start, then node scripts/supabase-types.ts, and commit the file as written';
+
+/** Whether the push changes a migration or the committed types generated from them. */
+export function touchesDatabase(changes: Changes): boolean {
+  return [...changes.tracked, ...changes.untracked].some((path) => path.startsWith('supabase/migrations/') || path === 'supabase/database.types.ts');
+}
+
+/** The committed types against the local database: drift refuses, a database that is not up only warns. */
+function typesDrift(root: string, io: HookIO): number {
+  const code = io.run(process.execPath, ['scripts/supabase-types.ts', '--check'], root);
+  if (code === 0) return 0;
+  if (code === 2) {
+    io.warn(`pre-push: the types were not checked, no local database answered; CI will check them. To check now: ${REGENERATE}\n`);
+    return 0;
+  }
+  return refuse(io, 'pre-push', `refused: supabase/database.types.ts is not what the migrations generate. Never hand-edit it: ${REGENERATE}`);
 }
 
 /** Runs the hook `hook` from `cwd`, answering its exit code. */

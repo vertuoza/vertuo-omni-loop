@@ -13,7 +13,7 @@
 // and the filters its loaders send to read a week, a season or a prefix: neq, gt, gte, lt, lte, in,
 // like, ilike and is, and a count (`select(columns, { count: 'exact', head })`).
 
-import { firstPart, group, isOneOf, keysOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { firstPart, group, isOneOf, keysOf } from 'omni-loop/kit/lib/narrow.ts';
 import { workspacesToJoin, type JoinableWorkspace } from './github-orgs';
 import { listOf, textOf } from './unparsed';
 import { betterThan, measureOf } from '../arcade/measure';
@@ -415,11 +415,11 @@ export const contribution = (
  * before GitHub sign-in, no GitHub linked, in none; EVE, in no org any workspace joins.
  */
 export const PEOPLE = {
-  ada: { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', github: { id: 11, login: 'ada-gh' } },
+  ada: { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com', github: { id: 11, login: 'ada-gh' } },
   wile: { id: '00000000-0000-4000-8000-0000000000b1', email: 'wile@acme.test', github: { id: 21, login: 'wile-gh' } },
-  both: { id: '00000000-0000-4000-8000-0000000000c1', email: 'both@vertuoza.com', github: { id: 31, login: 'both-gh' } },
-  bea: { id: '00000000-0000-4000-8000-0000000000d1', email: 'bea@vertuoza.com', github: { id: 41, login: 'bea-gh' } },
-  una: { id: '00000000-0000-4000-8000-0000000000d2', email: 'una@vertuoza.com' },
+  both: { id: '00000000-0000-4000-8000-0000000000c1', email: 'both@example.com', github: { id: 31, login: 'both-gh' } },
+  bea: { id: '00000000-0000-4000-8000-0000000000d1', email: 'bea@example.com', github: { id: 41, login: 'bea-gh' } },
+  una: { id: '00000000-0000-4000-8000-0000000000d2', email: 'una@example.com' },
   eve: { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com' },
 } satisfies Record<string, FakeUser>;
 
@@ -428,7 +428,7 @@ export function twoWorkspaces(): Partial<FakeTables> {
   const { ada, wile, both } = PEOPLE;
   return {
     workspaces: [
-      { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', github_installation_id: 91001, github_account_type: 'Organization', theme: {} },
+      { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'demo-org', plan_repo: 'nimbus-plan', github_installation_id: 91001, github_account_type: 'Organization', theme: {} },
       { id: ACME, slug: 'acme', name: 'Acme', github_org: 'acme', plan_repo: 'acme-plan', github_installation_id: 91002, github_account_type: 'Organization', theme: { plasma: '#2fc6a4', 'plasma-dark': '#178a80' } },
     ],
     workspace_members: [
@@ -438,7 +438,7 @@ export function twoWorkspaces(): Partial<FakeTables> {
       { workspace_id: VERTUOZA, user_id: both.id, role: 'member', joined_at: '2026-09-26T08:00:00Z' },
     ],
     sectors: [
-      { workspace_id: VERTUOZA, name: 'core-belt', repos: ['vertuo-core'] },
+      { workspace_id: VERTUOZA, name: 'core-belt', repos: ['nimbus-core'] },
       { workspace_id: ACME, name: 'mesa', repos: ['acme-api'] },
     ],
     teams: [
@@ -471,13 +471,13 @@ export function twoWorkspaces(): Partial<FakeTables> {
     // 1 September in Brussels, still August's season in UTC); her PRDs of this season and of the last;
     // and BOTH's in each of the two workspaces, which never mix.
     contributions: [
-      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 101, 'ada-gh', '2026-09-22T09:30:00Z'),
-      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 102, 'ada-gh', '2026-09-24T14:00:00Z'),
-      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 103, 'ada-gh', '2026-09-24T16:10:00Z'),
-      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 95, 'ada-gh', '2026-08-31T22:30:00Z'),
-      contribution(VERTUOZA, 'prd-opened', 'vertuo-core', 7, 'ada-gh', '2026-09-03T08:00:00Z'),
-      contribution(VERTUOZA, 'prd-opened', 'vertuo-core', 4, 'ada-gh', '2026-08-28T08:00:00Z'),
-      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 104, 'both-gh', '2026-09-25T10:00:00Z'),
+      contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 101, 'ada-gh', '2026-09-22T09:30:00Z'),
+      contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 102, 'ada-gh', '2026-09-24T14:00:00Z'),
+      contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 103, 'ada-gh', '2026-09-24T16:10:00Z'),
+      contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 95, 'ada-gh', '2026-08-31T22:30:00Z'),
+      contribution(VERTUOZA, 'prd-opened', 'nimbus-core', 7, 'ada-gh', '2026-09-03T08:00:00Z'),
+      contribution(VERTUOZA, 'prd-opened', 'nimbus-core', 4, 'ada-gh', '2026-08-28T08:00:00Z'),
+      contribution(VERTUOZA, 'pr-merged', 'nimbus-core', 104, 'both-gh', '2026-09-25T10:00:00Z'),
       contribution(ACME, 'pr-merged', 'acme-api', 55, 'both-gh', '2026-09-25T11:00:00Z'),
       contribution(ACME, 'prd-opened', 'acme-api', 9, 'both-gh', '2026-09-10T09:00:00Z'),
       contribution(ACME, 'pr-merged', 'acme-api', 56, 'wile-gh', '2026-09-23T12:00:00Z'),

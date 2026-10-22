@@ -25,6 +25,7 @@ import type { Fetch, TokenStore } from '../ask/client.ts';
 import { credentialsHost, signedInClient } from '../ask/credentials.ts';
 import { ensureLocalDir, LOCAL_DIR } from '../ask/local-state.ts';
 import { TARGET_KNOWLEDGE } from '../config.ts';
+import { isRole, roleList } from '../layers/layers.ts';
 import { createContext } from '../context.ts';
 import type { Context, ExecText } from '../context.ts';
 import { mainCheckout } from '../dossier/local.ts';
@@ -197,3 +198,10 @@ export async function withProductTargets(ctx: Context, io: ProductTargetsIo, not
   const targets = await productTargetList({ ctx, product: plan.product, repo: ctx.config.repo.slug }, io, note);
   return typeof targets === 'string' ? targets : createContext(ctx.root, { ...ctx.config, plan: { ...plan, targets } });
 }
+
+/**
+ * What `omni targets` says of a role that is not one of the nine canonical roles (PRD 2346), or null when
+ * it is one. An alias such as `back-end` is flagged too: the migration maps what it can, and a role that
+ * is still an alias was never mapped.
+ */
+export const roleFlag = (role: string): string | null => (isRole(role) ? null : `role ${role} is not a role: pick one of ${roleList()}`);

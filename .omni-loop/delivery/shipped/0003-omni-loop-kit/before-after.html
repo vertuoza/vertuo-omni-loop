@@ -141,7 +141,7 @@ input.chk{width:18px;height:18px;accent-color:var(--accent);margin:0;cursor:poin
   <div class="meta">
     <span>Spec <b>.omni-loop/delivery/shipped/0003-omni-loop-kit/spec.md</b></span>
     <span>Plan <b>…/0003-omni-loop-kit/plan.md</b></span><span>PRD <b>#3</b></span>
-    <span>Upstream pinned at <b>vertuo-ai-domain@c4a210122</b></span>
+    <span>Upstream pinned at <b>nimbus-brain@c4a210122</b></span>
     <span>Status <b>awaiting your review</b></span>
   </div>
 </header>
@@ -151,7 +151,7 @@ input.chk{width:18px;height:18px;accent-color:var(--accent);margin:0;cursor:poin
   <p class="sub">Asked on 2026-09-24. Everything below follows from them.</p>
   <div class="grid2">
     <div class="panel decision"><div class="q">Where the loop lives</div><div class="a">Inside .omni-loop/</div><p>Delivery folders and knowledge registers included. Deleting the folder, plus the manifest-listed workflow and settings keys, removes the loop entirely.</p></div>
-    <div class="panel decision"><div class="q">How skills arrive</div><div class="a">Claude Code plugin</div><p>Published once from this repository. No copies per repository, so there's nothing to drift the way the vertuo-workflow port did within a day.</p></div>
+    <div class="panel decision"><div class="q">How skills arrive</div><div class="a">Claude Code plugin</div><p>Published once from this repository. No copies per repository, so there's nothing to drift the way the nimbus-workflow port did within a day.</p></div>
     <div class="panel decision"><div class="q">Upstream PRD #1229</div><div class="a">Independent</div><p>The kit borrows its ideas (one folder per PRD, the feature PR carries the ship move) but does not implement or track #1229.</p></div>
   </div>
 </section>
@@ -194,7 +194,7 @@ input.chk{width:18px;height:18px;accent-color:var(--accent);margin:0;cursor:poin
 
 <section id="knowledge">
   <h2>Knowledge layers</h2>
-  <p class="sub">Taken from vertuo-ai-domain's <code>docs/knowledge/</code>. The rule is simple: how we build is an ADR, what the product should do is a principle.</p>
+  <p class="sub">Taken from nimbus-brain's <code>docs/knowledge/</code>. The rule is simple: how we build is an ADR, what the product should do is a principle.</p>
   <div class="scroll"><table>
     <thead><tr><th>Layer</th><th>Id</th><th>Who decides</th><th>Proven by a test?</th></tr></thead>
     <tbody>
@@ -207,15 +207,15 @@ input.chk{width:18px;height:18px;accent-color:var(--accent);margin:0;cursor:poin
   </table></div>
   <p style="margin-top:14px">Which of these count as <b>laws</b> (they raise an outbox item to <span class="pill amber">high</span> and can stop a slice) is a setting, <code>laws.source</code>:</p>
   <div class="grid2">
-    <div class="panel"><h3><code>knowledge</code></h3><p class="src">Any P, BR, N or X id. How vertuo-ai-domain works today.</p></div>
-    <div class="panel"><h3><code>claudeMdInvariants</code></h3><p class="src">The ADRs listed under <code>## Invariants</code> in CLAUDE.md. How vertuo-workflow works today.</p></div>
+    <div class="panel"><h3><code>knowledge</code></h3><p class="src">Any P, BR, N or X id. How nimbus-brain works today.</p></div>
+    <div class="panel"><h3><code>claudeMdInvariants</code></h3><p class="src">The ADRs listed under <code>## Invariants</code> in CLAUDE.md. How nimbus-workflow works today.</p></div>
     <div class="panel"><h3><code>none</code></h3><p class="src">Nothing raises the rank. The default for a fresh repository.</p></div>
   </div>
 </section>
 
 <section id="fixes">
   <h2>Gate changes compared with upstream</h2>
-  <p class="sub">Gaps found while exploring vertuo-ai-domain, fixed in the kit.</p>
+  <p class="sub">Gaps found while exploring nimbus-brain, fixed in the kit.</p>
   <div class="fixes">
     <div class="fix"><span class="tag pill red">was green</span><b>Drift keeps the gate red</b><span>Today a “drifted” answer closes the item, so <code>ci/outbox</code> goes green while the build is still wrong. The kit keeps it red until the rework merges. Plan task 9.</span></div>
     <div class="fix"><span class="tag pill amber">unchecked</span><b><code>Became:</code> must resolve</b><span>A settled answer that becomes a knowledge entry must name an id that exists. Upstream wrote back only 3 of 104 answers and checked none. Plan task 7.</span></div>
@@ -251,7 +251,7 @@ input.chk{width:18px;height:18px;accent-color:var(--accent);margin:0;cursor:poin
       <tr><td class="num">2</td><td>omni-outbox.yml workflow template</td><td>shape test and a run on a scratch GitHub repo</td></tr>
       <tr><td class="num">3</td><td>The plugin and its seven skills</td><td>a full brainstorm → ship run on a scratch repo</td></tr>
       <tr><td class="num">4</td><td><code>omni-loop init / doctor / upgrade / remove</code></td><td>init then remove leaves <code>git status</code> clean</td></tr>
-      <tr><td class="num">5</td><td>Pilot on vertuo-workflow, game repointed</td><td>one real PRD shipped through /omni-yolo</td></tr>
+      <tr><td class="num">5</td><td>Pilot on nimbus-workflow, game repointed</td><td>one real PRD shipped through /omni-yolo</td></tr>
       <tr><td class="num">6</td><td>Later: sweep, automatic reply intake, /omni-deliver, planner</td><td>—</td></tr>
     </tbody>
   </table></div>
@@ -283,7 +283,7 @@ input.chk{width:18px;height:18px;accent-color:var(--accent);margin:0;cursor:poin
       <li><b>Execution mode.</b> Subagent-driven (recommended: 16 tasks that depend on each other's signatures) or native in this session.</li>
       <li><b>Skill names.</b> Plugin skills may need typing as <code>/omni-loop:omni-yolo</code>. Checked in Phase 3; all names live in one constant.</li>
       <li><b>The 1,242-line comment module</b> (task 11) is ported whole, not refactored. Say if you'd rather split it.</li>
-      <li><b>Not carried over for now:</b> vertuo-deliver (yolo that asks), planner, bbq, pr-monitor, testing, react-*.</li>
+      <li><b>Not carried over for now:</b> nimbus-deliver (yolo that asks), planner, bbq, pr-monitor, testing, react-*.</li>
     </ul>
   </div>
 </section>

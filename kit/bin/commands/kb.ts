@@ -1,4 +1,6 @@
-// `omni kb init | show <form> [--json] [--all] | status [--json] | graph [--json] | laws […]` — the playbook: one form
+// `omni kb index` (PRD 2299) prints the capped block of the product's knowledge a session starts with.
+// `omni kb legal | glossary` (PRD 1795) print the product's Legal entries or glossary terms from the Omni page, or
+// the local copy when it is unreachable. `omni kb init | show <form> [--json] [--all] | status [--json] | graph [--json] | laws […]` — the playbook: one form
 // per question an agent asks while delivering. `init` lays down every missing form, blank, and prints
 // what it wrote; it never changes a file that exists. `show` prints one form resolved section by
 // section (a pointer, then the repository's section, then the kit default), each section labelled
@@ -7,9 +9,13 @@
 // prints the map: each form's state and source, each register folder's laws and proposals, every
 // open question, every stale evidence entry, and — in a plan repository — each imported copy
 // (PRD 522). `graph` prints the knowledge registers as one graph
-// (PRD #149): its summary, or with `--json` the whole document. `laws` (PRD 1726) discloses only what
-// a change touches: every locked law, one plain line each, then with `--paths`, `--slice` or `--area`
-// the rules that govern those files, that slice's territory or that domain folder; `show briefing`
+// (PRD #149): its summary, or with `--json` the whole document; `graph <id>` (PRD 1797) prints only
+// that entry's neighbourhood, or with `--json` the versioned neighbourhood document; `graph push` (PRD 1798)
+// sends the whole repository's graph to the Omni page. `laws` (PRD 1726) discloses only what
+// a change touches: every locked law, one plain line each, then with `--area` that domain folder's
+// rules; with `--paths` or `--slice` (PRD 2346) what applies to those files or that slice's territory,
+// by `Governs:`, domain or layer, then what is global, the Legal entries included, then the count of the
+// locked laws of other areas (`../../lib/knowledge/disclose-lookup.ts`); `show briefing`
 // ends with the thesis's laws section, and `status` counts the rules with no `Governs:` line. `owners`
 // (PRD 1726) writes the CODEOWNERS block that makes `laws.owners` the owners of the thesis, the
 // registers and each locked law's test, and changes no line outside its markers. None of them
@@ -17,17 +23,34 @@
 // warning, and `omni check kb` grades.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Fetch, TokenStore } from '../../lib/ask/client.ts';
+import { credentialsHost, signedInClient } from '../../lib/ask/credentials.ts';
 import { formShowText } from '../../lib/budgets/index.ts';
-import { ownerHandle } from '../../lib/codeowners.ts';
+import { lawCodeowners, ownerHandle } from '../../lib/codeowners.ts';
+import { designScreensDir, type LawOwner } from '../../lib/config.ts';
+import { readScreens } from '../../lib/design/screens.ts';
 import { writeOwnersBlock } from '../../lib/codeowners-laws.ts';
 import { parsePlanSlices } from '../../lib/inbox/territory.ts';
 import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
+import { pushKnowledgeGraph } from '../../lib/knowledge/graph-push.ts';
+import { readProductGraph } from '../../lib/knowledge/product-graph-text.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
 import { disclose, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
-import { readKnowledge } from '../../lib/knowledge/registers.ts';
+import { knowledgeMap, lookup, lookupLine, type Lookup } from '../../lib/knowledge/disclose-lookup.ts';
+import { packGet } from '../../lib/knowledge/packs/get.ts';
+import type { PackOrder } from '../../lib/knowledge/packs/get.ts';
+import { ID_SHAPE, readKnowledge } from '../../lib/knowledge/registers.ts';
 import { readThesis } from '../../lib/knowledge/thesis.ts';
+import { mainCheckout } from '../../lib/dossier/local.ts';
 import { messageOf } from '../../lib/narrow.ts';
+import { INDEX_BUDGET_MS, readIndex, withDeadline } from '../../lib/product/index.ts';
+import type { IndexBody, IndexIo } from '../../lib/product/index.ts';
+import { glossaryLines, legalLines, productKnowledge, readCachedKnowledge, unreachableLine } from '../../lib/product/knowledge.ts';
+import { ghReader } from '../../lib/plan-repo/targets.ts';
+import { productTargetList } from '../../lib/product/targets.ts';
+import { githubEnv } from '../github.ts';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.ts';
+import { buildNeighbourhood, neighbourhoodBody, productFromCache, productLine, startFromFiles } from '../../lib/knowledge/neighbourhood.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.ts';
 import { readDecisions } from '../../lib/playbook/decisions.ts';
 import { resolveForm } from '../../lib/playbook/resolve.ts';
@@ -35,11 +58,13 @@ import { playbookStatus } from '../../lib/playbook/status.ts';
 import { formTemplate } from '../../lib/playbook/templates.ts';
 import { writeForms } from '../../lib/playbook/write-forms.ts';
 import { parseArgs, prdArg, println, sliceArg, usageError, type Flags } from '../args.ts';
-import type { Command, CommandIo, Exec } from '../io.ts';
+import type { CommandIo, Exec, FreeCommand, FreeIo } from '../io.ts';
+import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import type { Graph, GraphCounts, GraphEntry } from '../../lib/knowledge/graph.ts';
 import type { ResolvedForm } from '../../lib/playbook/resolve.ts';
 import { synchronous } from '../synchronous.ts';
+import { knowledgeWrite } from '../kb-write.ts';
 
 /** The one flag every `omni kb` verb reads. */
 type KbFlags = { json?: true; all?: true };
@@ -49,7 +74,11 @@ export type StatusMap = ReturnType<typeof playbookStatus> & { targets: ReturnTyp
 
 const LAWS_USAGE = 'usage: omni kb laws [--paths <file>[,<file>…] [<file>…] | --slice <prd> <slice> | --area <domain>] [--json]';
 const SHOW_USAGE = 'usage: omni kb show <form> [--json] [--all]';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [--json] | omni kb laws […] | omni kb owners [--json]`;
+const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
+const GRAPH_USAGE = 'usage: omni kb graph [<id> | --paths <file>[,<file>…] [<file>…]] [--depth <1-3>] [--json]';
+const GRAPH_PRODUCT_USAGE = 'usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]';
+const GRAPH_PUSH_USAGE = 'usage: omni kb graph push';
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit …] | omni kb glossary [add|edit …] | omni kb index [--json]`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -194,10 +223,68 @@ function graphText({ domains, entries, links, loose, unserved }: Graph): string 
   ].join('\n');
 }
 
-function graph(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
-  if (positional.length > 0) throw usageError('usage: omni kb graph [--json]');
+/** The flags of `omni kb graph`. */
+type GraphFlags = Flags<'paths' | 'depth', 'json'>;
+
+function graph(args: string[], io: CommandIo): number {
+  const { ctx, stdout } = io;
+  const { positional, flags } = parseArgs('kb graph', args, { values: ['paths', 'depth'], booleans: ['json'] });
+  if (!/^[123]$/.test(flags.depth ?? '1')) throw usageError(GRAPH_USAGE);
+  const depth = Number(flags.depth ?? '1');
+  if (flags.paths !== undefined) return neighbourhoodOf({ files: pathsStart(flags, positional) }, depth, flags, io);
+  if (positional.length > 1) throw usageError(GRAPH_USAGE);
+  const [start] = positional;
+  if (start !== undefined) return neighbourhoodOf({ ids: [start] }, depth, flags, io);
+  if (flags.depth !== undefined) throw usageError(GRAPH_USAGE);
   const built = readGraph({ ctx });
   println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built));
+  return 0;
+}
+
+/** The files `--paths` starts from, read as `omni kb laws --paths` reads them; none, or an id beside them, is a usage error. */
+function pathsStart(flags: GraphFlags, positional: readonly string[]): string[] {
+  const files = [...(flags.paths ?? '').split(','), ...positional].map((path) => path.trim()).filter(Boolean);
+  if (files.length === 0 || files.some((file) => ID_SHAPE.test(file))) throw usageError(GRAPH_USAGE);
+  return files;
+}
+
+/**
+ * `omni kb graph <id>` and `omni kb graph --paths <file>…` (PRD 1797): the neighbourhood of one entry,
+ * or of every entry governing the files, as text or with `--json` the versioned document. Read from
+ * the repository's files only: nothing here calls the network.
+ */
+function neighbourhoodOf(from: { ids: string[] } | { files: string[] }, depth: number, flags: GraphFlags, { ctx, stdout, stderr }: CommandIo): number {
+  const { entries } = readKnowledge({ ctx });
+  const cache = readCachedKnowledge(ctx.root);
+  const { product, unreadable } = productFromCache(cache, ctx.config.ask.url);
+  const screensDir = designScreensDir(ctx.config);
+  const sources = {
+    entries,
+    records: readDecisions({ ctx }).records,
+    repo: ctx.config.repo.slug,
+    product,
+    screens: readScreens(join(ctx.root, screensDir)).screens,
+    screensDir,
+    legal: cache.state === 'cached' ? cache.legal : [],
+    glossary: cache.state === 'cached' ? cache.glossary : [],
+  };
+  const { start: ids, places } = 'files' in from ? startFromFiles(sources, knowledgeMap(ctx.config), from.files) : { start: from.ids, places: [] };
+  const walked = { ...sources, places };
+  const built = buildNeighbourhood(walked, { start: ids, depth });
+  if ('ids' in from && built.start.length === 0) {
+    println(stderr, `kb graph: no entry "${from.ids.join(' ')}" in the knowledge folder.`);
+    return 1;
+  }
+  if (flags.json) {
+    println(stdout, JSON.stringify(built, null, 2));
+    return 0;
+  }
+  if (ids.length === 0) {
+    println(stdout, ['kb graph — no entry governs those files.', productLine(product, unreadable)].join('\n'));
+    return 0;
+  }
+  const blocks = built.start.flatMap((id) => neighbourhoodBody(buildNeighbourhood(walked, { start: [id], depth }), entries));
+  println(stdout, [...blocks, productLine(product, unreadable)].join('\n'));
   return 0;
 }
 
@@ -246,17 +333,31 @@ function lawsFor(io: CommandIo, flags: LawsFlags, positional: readonly string[],
   return { area: flags.area };
 }
 
-/** The disclosure as text: one plain line per law, then one headline per rule asked for. */
-function lawsText(disclosure: Disclosure, what: DiscloseFor, owners: readonly string[]): string {
+/** The disclosure as text, with no files asked for: one plain line per law, then a domain folder's rules for `--area`. */
+function lawsText(disclosure: Disclosure, what: { area: string } | null, owners: readonly LawOwner[]): string {
   const lines = disclosure.laws.map((law) => lawLine(law, owners));
   if (lines.length === 0) lines.push('No law is locked yet.');
   if (what === null) return lines.join('\n');
   lines.push(...disclosure.rules.map(ruleLine));
-  if (disclosure.rules.length === 0) {
-    lines.push('area' in what ? `No rule in ${what.area} yet.` : 'No rule says it governs these files.');
+  if (disclosure.rules.length === 0) lines.push(`No rule in ${what.area} yet.`);
+  return lines.join('\n');
+}
+
+/**
+ * The lookup as text (PRD 2346): what applies to the files, each line saying why, then what is global,
+ * the Legal entries last; then the locked laws of other areas, counted. A repository that maps nothing
+ * hides no law, and says how many rules name no files, as before its map.
+ */
+function lookupText(found: Lookup, ungoverned: number, owners: readonly LawOwner[]): string {
+  const lines = ['Applies here', ...found.applies.map((entry) => lookupLine(entry, owners))];
+  if (found.applies.length === 0) lines.push('Nothing applies to these files in particular.');
+  lines.push('Global', ...found.global.map((entry) => lookupLine(entry, owners)));
+  if (found.global.length === 0) lines.push('Nothing is global.');
+  if (found.hidden.laws > 0) {
+    lines.push(`${found.hidden.laws} locked ${found.hidden.laws === 1 ? 'law' : 'laws'} of other areas: not shown (omni kb laws prints them all).`);
   }
-  if (!('area' in what) && disclosure.ungoverned > 0) {
-    lines.push(`${disclosure.ungoverned} rule(s) say no "Governs:", so none of them is shown here (omni kb status counts them).`);
+  if (!found.mapped && ungoverned > 0) {
+    lines.push(`${ungoverned} rule(s) say no "Governs:", so none of them is shown here (omni kb status counts them).`);
   }
   return lines.join('\n');
 }
@@ -268,15 +369,24 @@ function laws(args: string[], io: CommandIo): number {
   if (chosen > 1) throw usageError(`omni kb laws: give one of --paths, --slice and --area. ${LAWS_USAGE}`);
   const knowledge = readKnowledge({ ctx });
   const what = lawsFor(io, flags, positional, ['product', ...knowledge.domains.map(({ name }) => name)]);
-  const disclosure = disclose(knowledge.entries, readThesis(ctx), what);
-  println(stdout, flags.json ? JSON.stringify(disclosure, null, 2) : lawsText(disclosure, what, ctx.config.laws.owners));
+  const thesis = readThesis(ctx);
+  const disclosure = disclose(knowledge.entries, thesis, what);
+  const owners = ctx.config.laws.owners;
+  if (what === null || 'area' in what) {
+    println(stdout, flags.json ? JSON.stringify(disclosure, null, 2) : lawsText(disclosure, what, owners));
+    return 0;
+  }
+  const cache = readCachedKnowledge(ctx.root);
+  const sources = { entries: knowledge.entries, records: readDecisions({ ctx }).records, legal: cache.state === 'cached' ? cache.legal : [], thesis };
+  const found = lookup(sources, knowledgeMap(ctx.config), what.paths);
+  println(stdout, flags.json ? JSON.stringify({ ...disclosure, ...found }, null, 2) : lookupText(found, disclosure.ungoverned, owners));
   return 0;
 }
 
 /**
  * `omni kb owners`: writes the CODEOWNERS block for the thesis, the registers and each locked law's
- * test, owned by `laws.owners`; refused while `laws.owners` is empty, since a line with no owner
- * leaves its file unowned.
+ * test, owned by `laws.owners` and each owner's delegate (PRD 1794), never by `laws.leadership`;
+ * refused while `laws.owners` is empty, since a line with no owner leaves its file unowned.
  */
 function owners(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: CommandIo): number {
   if (positional.length > 0) throw usageError('usage: omni kb owners [--json]');
@@ -291,7 +401,7 @@ function owners(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: C
     println(stderr, `omni kb owners: ${messageOf(error)}`);
     return 1;
   }
-  const who = listed.map(ownerHandle).join(', ');
+  const who = lawCodeowners(listed).map(ownerHandle).join(', ');
   const line = written.wrote
     ? `kb owners — wrote ${written.file}: ${written.paths} path(s) owned by ${who}; no line outside its markers changed.`
     : `kb owners — ${written.file} is up to date: ${written.paths} path(s) owned by ${who}.`;
@@ -299,17 +409,244 @@ function owners(positional: string[], flags: KbFlags, { ctx, stdout, stderr }: C
   return 0;
 }
 
-export const kb: Command = {
-  run: synchronous((args: string[], io: CommandIo): number => {
-    if (args[0] === 'laws') return laws(args.slice(1), io);
-    const { positional, flags } = parseArgs('kb', args, { booleans: ['json', 'all'] });
-    const [sub, ...rest] = positional;
-    if (flags.all && sub !== 'show') throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE}`);
-    if (sub === 'init') return init(rest, flags, io);
-    if (sub === 'show') return show(rest, flags, io);
-    if (sub === 'status') return status(rest, flags, io);
-    if (sub === 'graph') return graph(rest, flags, io);
-    if (sub === 'owners') return owners(rest, flags, io);
-    throw usageError(USAGE);
-  }),
+/** What a test hands `omni kb pack get | legal | glossary` beyond the command's own io: the sign-in, the app and the clock. */
+type PackOptions = {
+  tokens?: TokenStore | undefined;
+  home?: string | undefined;
+  fetch?: Fetch | undefined;
+  callMs?: number | undefined;
+  now?: (() => Date) | undefined;
+  order?: ((repo: string, packSha: string, readAt: string) => PackOrder) | undefined;
+};
+
+/** `repo` as `owner/name`: as given, a plan target's short name, or a repository of this repository's owner. */
+function packSlug(ctx: Context, repo: string): string {
+  if (repo.includes('/')) return repo;
+  const target = (ctx.config.plan?.targets ?? []).find(({ repo: slug }) => slug.split('/')[1] === repo);
+  if (target !== undefined) return target.repo;
+  const owner = ctx.config.repo.slug?.split('/')[0];
+  if (owner === undefined) throw usageError(`omni kb pack get: ${repo} is not owner/name and this repository has no slug to take the owner from. ${PACK_USAGE}`);
+  return `${owner}/${repo}`;
+}
+
+/** The commit the link to `slug` was read at: `--read-at`, else the product's link, else the plan's target. */
+async function packReadAt(ctx: Context, slug: string, flag: string | undefined, io: CommandIo & PackOptions): Promise<string | null> {
+  if (flag !== undefined) return flag;
+  const plan = ctx.config.plan;
+  if (plan === undefined) return null;
+  const targets = plan.product === undefined
+    ? plan.targets
+    : await productTargetList({ ctx, product: plan.product, repo: ctx.config.repo.slug }, { cwd: ctx.root, ...io }, io.stderr);
+  return typeof targets === 'string' ? null : (targets.find(({ repo }) => repo === slug)?.readAt ?? null);
+}
+
+/** The arguments of `omni kb pack get`: the repository and the `--read-at` commit, validated. */
+function packArgs(args: string[]): { repo: string; readAtFlag: string | undefined } {
+  const { positional, flags } = parseArgs('kb pack', args, { values: ['read-at'] });
+  const [verb, repo, ...extra] = positional;
+  if (verb !== 'get' || repo === undefined || extra.length > 0) throw usageError(PACK_USAGE);
+  const readAtFlag = flags['read-at'];
+  if (readAtFlag !== undefined && !/^[0-9a-f]{40}$/.test(readAtFlag)) throw usageError(`omni kb pack get: --read-at takes a full commit sha. ${PACK_USAGE}`);
+  return { repo, readAtFlag };
+}
+
+/** Whether the pack at `packSha` is behind `readAt` of `slug`, as GitHub compares them (`unknown` when it cannot). */
+function packOrder(reader: ReturnType<typeof ghReader>, slug: string, packSha: string, readAt: string): PackOrder {
+  try {
+    // compare(base = read_at, head = pack): the pack is behind when GitHub says the head is.
+    const status = reader.compare(slug, readAt, packSha)?.status;
+    if (status === undefined) return 'unknown';
+    return status === 'behind' ? 'behind' : 'ok';
+  } catch {
+    return 'unknown';
+  }
+}
+
+/** `omni kb pack get <repo>` (PRD 2011, s12): see `../../lib/knowledge/packs/get.ts`. */
+async function pack(args: string[], io: CommandIo & PackOptions): Promise<number> {
+  const { ctx, stdout, stderr, exec } = io;
+  const { repo, readAtFlag } = packArgs(args);
+  const slug = packSlug(ctx, repo);
+  const askUrl = ctx.config.ask.url;
+  if (!askUrl) throw usageError('omni kb pack get: ask.url is not set — packs are served by the Omni page.');
+  const client = signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
+  const reader = ghReader({ exec, env: githubEnv(ctx, { exec, env: io.env }) });
+  const result = await packGet({
+    root: mainCheckout(ctx.root, exec) ?? ctx.root,
+    repo: slug,
+    readAt: await packReadAt(ctx, slug, readAtFlag, io),
+    now: io.now ?? (() => new Date()),
+    fetchPack: async () => {
+      if (client === null) throw new Error(`no sign-in for ${credentialsHost(askUrl)} (omni signin)`);
+      return client.readKnowledgePack({ repo: slug });
+    },
+    order: (packSha, at) => (io.order ? io.order(slug, packSha, at) : packOrder(reader, slug, packSha, at)),
+  });
+  for (const line of result.out) println(stdout, line);
+  for (const line of result.err) println(stderr, line);
+  return result.code;
+}
+
+/** The repository's slug and a client signed in to its Omni page, or the one line saying why there is none. */
+function reachOf(ctx: Context, options: PackOptions): { repo: string; client: NonNullable<ReturnType<typeof signedInClient>> } | string {
+  const askUrl = ctx.config.ask.url;
+  const repo = ctx.config.repo.slug;
+  if (!askUrl) return 'no product knowledge: ask.url is not set, so there is no Omni page to read';
+  if (!repo) return 'no product knowledge: no repository slug — set repo.slug in the config';
+  const client = signedInClient({ askUrl, tokens: options.tokens, home: options.home, fetch: options.fetch ?? globalThis.fetch, callMs: options.callMs });
+  return client === null ? `no product knowledge: no sign-in for ${credentialsHost(askUrl)} (omni signin)` : { repo, client };
+}
+
+/**
+ * `omni kb legal | glossary` (PRD 1795): the product's active Legal entries, or its glossary terms,
+ * one line each, read through the business read with the computer's sign-in and kept in
+ * `.omni-loop/local/product-knowledge.json`. The page unreachable: the copy under
+ * `last read <date>: the Omni page is unreachable`, or exit 1 with no copy. A refusal prints the
+ * server's reason and exits 1, whatever the copy.
+ */
+async function productVerb(verb: 'legal' | 'glossary', positional: string[], { ctx, stdout, exec }: CommandIo, options: PackOptions, cwd: string): Promise<number> {
+  if (positional.length > 0) throw usageError(`usage: omni kb ${verb}`);
+  const refuse = (line: string): number => {
+    println(stdout, line);
+    return 1;
+  };
+  const reach = reachOf(ctx, options);
+  if (typeof reach === 'string') return refuse(reach);
+  const { repo, client } = reach;
+  try {
+    const read = await productKnowledge({
+      repo,
+      root: mainCheckout(cwd, exec) ?? ctx.root,
+      now: options.now ?? (() => new Date()),
+      fetchBusiness: () => client.readBusiness(repo),
+    });
+    if (read.from === 'copy') println(stdout, unreachableLine(read.readAt));
+    for (const line of verb === 'legal' ? legalLines(read.legal) : glossaryLines(read.glossary)) println(stdout, line);
+    return 0;
+  } catch (error) {
+    return refuse(messageOf(error));
+  }
+}
+
+/** `omni kb legal | glossary`: the read, or with `add` or `edit` (PRD 2268) the write of `../kb-write.ts`. */
+function productCommand(verb: 'legal' | 'glossary', args: string[], io: CommandIo & PackOptions, options: PackOptions & { cwd: string }): Promise<number> {
+  if (args[0] === 'add' || args[0] === 'edit') return knowledgeWrite(verb, args, io, options);
+  return productVerb(verb, args, io, options, options.cwd);
+}
+
+/**
+ * `omni kb index [--json]` (PRD 2299): the capped block of the product's knowledge a session starts with
+ * (see `../../lib/product/index.ts`). It never holds up a session: one budget for the whole read, and
+ * every outcome exits 0. Exit 2 is only for a usage error.
+ */
+async function index(args: string[], io: FreeIo & PackOptions & { budgetMs?: number }): Promise<number> {
+  const { positional, flags } = parseArgs('kb index', args, { booleans: ['json'] });
+  if (positional.length > 0) throw usageError('usage: omni kb index [--json]');
+  const { cwd, exec, stdout, fetch = globalThis.fetch, now = () => new Date(), budgetMs = INDEX_BUDGET_MS } = io;
+  let result: [IndexBody, string[]];
+  try {
+    result = await readIndex(indexIo(cwd, exec, { ...io, fetch, now, budgetMs }));
+  } catch (error) {
+    const why = error instanceof Error && error.name === 'ConfigError' ? error.message.split('\n')[0] : 'the read failed';
+    result = [
+      { state: error instanceof Error && error.name === 'ConfigError' ? 'no-kit' : 'unreachable', product: null, words: [], legal: [], personas: [], syncedAt: null, cut: { words: 0, legal: 0, personas: 0 } },
+      [`no product knowledge: ${why} — agents carry on`],
+    ];
+  }
+  if (flags.json === true) println(stdout, JSON.stringify(result[0]));
+  else for (const line of result[1]) println(stdout, line);
+  return 0;
+}
+
+/** What `readIndex` is handed for this checkout; throws a `ConfigError` when the kit is not set up. */
+function indexIo(cwd: string, exec: Exec, options: PackOptions & { fetch: Fetch; now: () => Date; budgetMs: number }): IndexIo {
+  const ctx = loadContext(cwd, { exec });
+  const repo = ctx.config.repo.slug;
+  const askUrl = ctx.config.ask.url;
+  const { fetch, now, budgetMs } = options;
+  const client = (signal: AbortSignal) => (askUrl ? signedInClient({ askUrl, tokens: options.tokens, home: options.home, fetch: withDeadline(fetch, signal), callMs: budgetMs }) : null);
+  const base = { repo, root: mainCheckout(cwd, exec) ?? ctx.root, now, budgetMs };
+  if (!askUrl) return { ...base, reach: { state: 'no-sign-in', why: 'no Omni page is set here (ask.url)' } };
+  if (!repo) return { ...base, reach: { state: 'refused', why: 'no repository slug (repo.slug)' } };
+  if (client(new AbortController().signal) === null) return { ...base, reach: { state: 'no-sign-in', why: 'no sign-in (omni signin)' } };
+  return {
+    ...base,
+    reach: {
+      fetchBusiness: (signal) => {
+        const signed = client(signal);
+        return signed === null ? Promise.reject(new Error('no sign-in')) : signed.readBusiness(repo);
+      },
+    },
+  };
+}
+
+/** `omni kb graph push` (PRD 1798, s2): see `../../lib/knowledge/graph-push.ts`. */
+async function graphPush(args: string[], io: CommandIo & PackOptions): Promise<number> {
+  const { ctx, stdout, exec } = io;
+  if (args.length > 0) throw usageError(GRAPH_PUSH_USAGE);
+  const askUrl = ctx.config.ask.url;
+  const client = pageClient(askUrl, io);
+  let result: Awaited<ReturnType<typeof pushKnowledgeGraph>>;
+  try {
+    result = await pushKnowledgeGraph({
+      ctx,
+      client,
+      now: io.now ?? (() => new Date()),
+      git: (gitArgs) => exec('git', [...gitArgs], { cwd: ctx.root, encoding: 'utf8' }),
+    });
+  } catch (error) {
+    result = { ok: false, lines: [`kb graph push: ${messageOf(error)}`] };
+  }
+  for (const line of result.lines) println(stdout, line);
+  return result.ok ? 0 : 1;
+}
+
+/** `omni kb graph --product <key> <id> [--depth <n>] [--json]` (PRD 1798, s5): see `../../lib/knowledge/product-graph-text.ts`. */
+async function graphProduct(args: string[], io: CommandIo & PackOptions): Promise<number> {
+  const { ctx, stdout, stderr } = io;
+  const askUrl = ctx.config.ask.url;
+  const result = await readProductGraph({ askUrl, client: pageClient(askUrl, io), ...productGraphArgs(args) });
+  for (const line of result.lines) println(result.ok ? stdout : stderr, line);
+  return result.ok ? 0 : 1;
+}
+
+/** The product key, node id, depth (`null`: the server's default) and `--json` of `omni kb graph --product`; anything else is a usage error. */
+function productGraphArgs(args: string[]): { key: string; id: string; depth: number | null; json: boolean } {
+  const { positional, flags } = parseArgs('kb graph', args, { values: ['product', 'depth'], booleans: ['json'] });
+  const [id] = positional;
+  if (positional.length !== 1 || id === undefined || flags.product === undefined) throw usageError(GRAPH_PRODUCT_USAGE);
+  if (flags.depth !== undefined && !/^[123]$/.test(flags.depth)) throw usageError(GRAPH_PRODUCT_USAGE);
+  return { key: flags.product, id, depth: flags.depth === undefined ? null : Number(flags.depth), json: flags.json === true };
+}
+
+/** The signed-in client of the Omni page at `askUrl`; `null` with no `ask.url`. */
+function pageClient(askUrl: string | null, io: PackOptions) {
+  return askUrl ? signedInClient({ askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs }) : null;
+}
+
+const basic = synchronous((args: string[], io: CommandIo): number => {
+  if (args[0] === 'laws') return laws(args.slice(1), io);
+  if (args[0] === 'graph') return graph(args.slice(1), io);
+  const { positional, flags } = parseArgs('kb', args, { booleans: ['json', 'all'] });
+  const [sub, ...rest] = positional;
+  if (flags.all && sub !== 'show') throw usageError(`omni kb: --all goes with omni kb show ${DECISIONS_FORM} only. ${USAGE}`);
+  if (sub === 'init') return init(rest, flags, io);
+  if (sub === 'show') return show(rest, flags, io);
+  if (sub === 'status') return status(rest, flags, io);
+  if (sub === 'owners') return owners(rest, flags, io);
+  throw usageError(USAGE);
+});
+
+export const kb: FreeCommand = {
+  withoutContext: true,
+  run: (args: string[], io: FreeIo & PackOptions): Promise<number> => {
+    const [sub, ...rest] = args;
+    if (sub === 'index') return index(rest, io);
+    const full = { ...io, ctx: loadContext(io.cwd, { exec: io.exec }) };
+    if (sub === 'pack') return pack(rest, full);
+    if (sub === 'graph' && rest[0] === 'push') return graphPush(rest.slice(1), full);
+    if (sub === 'graph' && rest.includes('--product')) return graphProduct(rest, full);
+    if (sub === 'legal' || sub === 'glossary') return productCommand(sub, rest, { ...full, vars: io.vars }, io);
+    return basic(args, full);
+  },
 };

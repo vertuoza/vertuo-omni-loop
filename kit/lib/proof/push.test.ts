@@ -61,6 +61,54 @@ describe('pushProof', () => {
       .toEqual({ tab: TAB, gif: 'https://omni.example/api/proofs/r-1/preview.gif' });
   });
 
+  describe('the clips of a bug run (PRD 2100)', () => {
+    const ORIGIN = 'https://omni.example';
+    const BUG_TAB = `${ORIGIN}/bugs/d`;
+    const clip = (name: string, type = 'video/webm') => ({ name, path: `/run/${name}`, bytes: 3, type });
+    const clipped = (...names: string[]): ProofRun => ({
+      ...RUN,
+      criteria: [{ text: 'Red.', verdict: 'pass', video: 'before.webm' }, { text: 'Green.', verdict: 'pass', video: 'after.webm' }],
+      files: names.map((name) => clip(name, name.endsWith('.gif') ? 'image/gif' : 'video/webm')),
+    });
+    const sending = (run: ProofRun) => fakeClient({
+      requestProofUploads: () => Promise.resolve({ run: 'r-1', files: run.files.map(({ name }) => ({ name, path: `d/r-1/${name}`, url: `https://files.example/${name}` })) }),
+      registerProof: () => Promise.resolve({ url: BUG_TAB }),
+    });
+    const push = (run: ProofRun, kind?: 'bug') => pushProof({ client: sending(run).client, repo: 'acme/widgets', prd: parsePrd(7), ...(kind ? { kind } : {}), run, read });
+
+    it('a bug run holding before.webm and after.webm hands back a stable link to each, after the GIF\'s, on the page\'s origin', async () => {
+      expect(await push(clipped('before.webm', 'after.webm', 'preview.gif'), 'bug')).toEqual({
+        tab: BUG_TAB,
+        gif: `${ORIGIN}/api/proofs/r-1/preview.gif`,
+        clips: [`${ORIGIN}/api/proofs/r-1/before.webm`, `${ORIGIN}/api/proofs/r-1/after.webm`],
+      });
+    });
+
+    it('lists before first, whatever order the run\'s files are in', async () => {
+      const pushed = await push(clipped('after.webm', 'before.webm'), 'bug');
+      expect(pushed.clips).toEqual([`${ORIGIN}/api/proofs/r-1/before.webm`, `${ORIGIN}/api/proofs/r-1/after.webm`]);
+    });
+
+    it('links only the clips the run holds, and names no clip for a run of text', async () => {
+      expect((await push(clipped('before.webm'), 'bug')).clips).toEqual([`${ORIGIN}/api/proofs/r-1/before.webm`]);
+      const text: ProofRun = {
+        ...RUN,
+        criteria: [{ text: 'Red.', verdict: 'pass', script: 'red.txt' }, { text: 'Green.', verdict: 'pass', script: 'green.txt' }],
+        files: [clip('red.txt', 'text/plain'), clip('green.txt', 'text/plain'), clip('preview.gif', 'image/gif')],
+      };
+      const pushed = await push(text, 'bug');
+      expect(pushed).toEqual({ tab: BUG_TAB, gif: `${ORIGIN}/api/proofs/r-1/preview.gif` });
+      expect(pushed).not.toHaveProperty('clips');
+    });
+
+    it('hands back no clip link for a PRD run, whatever its clips are named, nor for a bug run whose clips are named otherwise', async () => {
+      const prd = await push(clipped('before.webm', 'after.webm', 'preview.gif'));
+      expect(prd).toEqual({ tab: BUG_TAB, gif: `${ORIGIN}/api/proofs/r-1/preview.gif` });
+      expect(prd).not.toHaveProperty('clips');
+      expect(await push(RUN, 'bug')).toEqual({ tab: BUG_TAB });
+    });
+  });
+
   it('a run with no file asks for no link and registers straight away', async () => {
     const { client, calls } = fakeClient();
     const bare: ProofRun = { ...RUN, criteria: [{ text: 'A key.', verdict: 'unfilmable' }], files: [] };

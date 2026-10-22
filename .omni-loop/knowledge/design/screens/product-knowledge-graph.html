@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product knowledge graph mockup</title>
+<style>
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-on-plasma: #07061c; --ask-cyan: #5ee7ff;
+    --ask-body: "Atkinson Hyperlegible Next", system-ui, sans-serif; --ask-mono: ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #03020f; color: var(--ask-ink); font: 16px/1.6 var(--ask-body); }
+  .page { max-width: 980px; margin: 0 auto; padding: 24px 16px; display: grid; gap: 16px; }
+  .card { padding: 18px 20px; background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-radius: 12px; }
+  h1, h2 { margin: 0 0 6px; }
+  .muted { color: var(--ask-muted); }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  nav a { padding: 6px 12px; border: 1px solid var(--ask-line); border-radius: 8px; color: var(--ask-ink); text-decoration: none; }
+  nav a[aria-current] { border-color: var(--ask-plasma); color: var(--ask-plasma); }
+  .row { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--ask-line); }
+  .id { font: 700 13px/1 var(--ask-mono); color: var(--ask-cyan); }
+  .origin { padding: 1px 8px; border: 1px solid var(--ask-line-strong); border-radius: 999px; font-size: 13px; }
+  code { font-family: var(--ask-mono); }
+  input { padding: 6px 8px; background: #0e0d33; color: var(--ask-ink); border: 1px solid var(--ask-line-strong); border-radius: 6px; font: inherit; }
+  button { padding: 6px 12px; border: 1px solid var(--ask-plasma); border-radius: 8px; background: var(--ask-plasma); color: var(--ask-on-plasma); font: inherit; font-weight: 700; }
+  .variant { margin-top: 20px; font: 14px system-ui; color: var(--ask-muted); }
+</style>
+</head>
+<body>
+<div class="page" data-screen="product-knowledge-graph">
+  <p class="variant">Variant 1: pushed, never pushed, a node picked.</p>
+  <section class="card"><a href="#" class="muted">← Products</a><h1>Widgets</h1>
+    <p class="muted">Knowledge graph. Read-only.</p>
+    <p><a href="#">← Knowledge</a></p></section>
+  <nav aria-label="Widgets"><a href="#">Ledger</a><a href="#">Questions</a><a href="#" aria-current="page">Knowledge</a></nav>
+  <section class="card">
+    <h2>Repositories</h2>
+    <div class="row"><strong>billing</strong><span class="muted">@9086e70 · pushed 2026-12-14 09:30 by @anna</span></div>
+    <div class="row"><strong>portal</strong><span class="muted">never pushed · run <code>omni kb graph push</code></span></div>
+  </section>
+  <section class="card">
+    <h2>Nodes</h2>
+    <form><label>Search <input type="search" value="invoice"></label> <button>Search</button></form>
+    <p class="muted">2 of 4 nodes</p>
+    <div class="row"><a class="id" href="#">L-INVOICING-1</a><span class="origin">Legal</span><span class="muted">legal · Invoice numbers follow each other with no gaps.</span></div>
+    <div class="row"><a class="id" href="#">billing/BR-BILLING-1</a><span class="origin">billing</span><span class="muted">rule · An invoice keeps its number.</span></div>
+  </section>
+  <section class="card">
+    <h2>L-INVOICING-1</h2>
+    <p class="muted">Invoice numbers follow each other with no gaps.</p>
+    <nav aria-label="Depth"><a href="#">Depth 1</a><a href="#" aria-current="true">Depth 2</a><a href="#">Depth 3</a></nav>
+    <div class="row"><a class="id" href="#">L-INVOICING-1</a><span class="origin">Legal</span><span class="muted">picked · legal</span></div>
+    <div class="row"><a class="id" href="#">billing/BR-BILLING-1</a><span class="origin">billing</span><span class="muted">1 away · rule · An invoice keeps its number.</span></div>
+    <div class="row"><a class="id" href="#">term:credit note</a><span class="origin">Glossary</span><span class="muted">2 away · term · A document that cancels all or part of an invoice.</span></div>
+    <div class="row muted">billing/BR-BILLING-1 → serves → L-INVOICING-1</div>
+  </section>
+  <section class="card">
+    <h2>Unresolved</h2>
+    <p class="muted">Missing from the product’s Knowledge.</p>
+    <div class="row"><span class="id">L-INVOICING-9</span><span class="muted">named by billing/BR-BILLING-1 in billing</span></div>
+  </section>
+
+  <p class="variant">Variant 2: a link not served.</p>
+  <section class="card">
+    <h2>Repositories</h2>
+    <div class="row"><strong>design</strong><span class="muted">Its knowledge is not pushed here.</span></div>
+  </section>
+</div>
+</body>
+</html>

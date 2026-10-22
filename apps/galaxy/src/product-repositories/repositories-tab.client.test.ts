@@ -6,7 +6,7 @@ import { repositoriesTabClient } from './repositories-tab.client';
 // connection says nothing was saved.
 
 const PRODUCT = '22222222-2222-4222-8222-222222222221';
-const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person' };
+const LINK = { repo: 'acme/api', role: 'api', knowledge: 'own', readAt: null, readOnly: false, consumes: [], addedBy: 'person', ladderStep: 1 };
 
 function stub(status: number, body: unknown) {
   const sent: { url: string; init: RequestInit }[] = [];
@@ -35,6 +35,18 @@ describe('the calls', () => {
     const unset = stub(200, { member: 'u-1', removed: true });
     expect(await unset.client.removeApprover('u-1')).toEqual({ ok: true });
     expect(unset.sent[0]?.url).toBe(`/app/products/${PRODUCT}/repositories/approvers?member=u-1`);
+  });
+
+  it('names the plan repository, or none, with a POST, answering it as saved', async () => {
+    const named = stub(200, { plan: { repository: 'acme/plan', holds: [{ name: 'web', why: 'step 3' }] } });
+    expect(await named.client.setPlan('acme/plan')).toEqual({ ok: true, plan: { repository: 'acme/plan', holds: [{ name: 'web', why: 'step 3' }] } });
+    expect(named.sent[0]).toMatchObject({ url: `/app/products/${PRODUCT}/repositories/plan`, init: { method: 'POST', credentials: 'same-origin' } });
+    expect(named.sent[0]?.init.body).toBe(JSON.stringify({ repo: 'acme/plan' }));
+    const cleared = stub(200, { plan: null });
+    expect(await cleared.client.setPlan(null)).toEqual({ ok: true, plan: null });
+    expect(cleared.sent[0]?.init.body).toBe(JSON.stringify({ repo: null }));
+    const refused = 'Repository: acme/gone is not one of this workspace\'s repositories.';
+    expect(await stub(422, { error: refused }).client.setPlan('acme/gone')).toEqual({ ok: false, message: refused });
   });
 
   it('answers a refusal in the route\'s words, and a lost connection as nothing saved', async () => {

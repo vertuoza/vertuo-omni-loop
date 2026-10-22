@@ -477,10 +477,10 @@ function s1(el){
 
 /* ---------- step 2 ---------- */
 const CLAIMS=[
- {id:'c1',kind:'one-liner',text:'An ERP for construction companies',rc:[['file','vertuo-app/README.md','“The ERP for construction companies — quotes, sites, invoices.”'],['link','vertuoza.com','“Run your building company from one place.”']]},
+ {id:'c1',kind:'one-liner',text:'An ERP for construction companies',rc:[['file','nimbus-app/README.md','“The ERP for construction companies — quotes, sites, invoices.”'],['link','vertuoza.com','“Run your building company from one place.”']]},
  {id:'c2',kind:'icp · size',text:'2–50 people, owner-run',rc:[['link','vertuoza.com/pricing','“Pro: up to 50 users. Starter for teams of 2.”']]},
  {id:'c3',kind:'icp · trade',text:'Builders and renovators',rc:[['pr','PRD #412 · merged','“For the renovation firms we serve, a site is rarely more than 3 weeks.”']]},
- {id:'c4',kind:'region',text:'Belgium',rc:[['file','vertuo-app/README.md','“Peppol e-invoicing for Belgium, built in.”']]},
+ {id:'c4',kind:'region',text:'Belgium',rc:[['file','nimbus-app/README.md','“Peppol e-invoicing for Belgium, built in.”']]},
  {id:'c5',kind:'rival',text:'Procore',rc:[['file','docs/positioning.md','“Procore is too heavy for a 10-person firm.”']]},
  {id:'c6',kind:'rival',text:'Excel + WhatsApp',rc:[['pr','PRD #288 · merged','“Today they run every site from a WhatsApp group and one big spreadsheet.”']]}
 ];
@@ -509,7 +509,7 @@ function s2(el){
   if(e.target.closest('#thatsus')){const todo=CLAIMS.filter(c=>!S.claimsOk[c.id]);todo.forEach((c,i)=>later(()=>{S.claimsOk[c.id]='right';const row=$(`.claim[data-id="${c.id}"]`);row.className='claim right';$('.v.r',row).setAttribute('aria-pressed','true')},i*110));later(()=>{S.saved=true;markSaved()},todo.length*110+80)}
  });
  if(S.saved||rm()){reveal();return}
- const lines=[['vertuo-app · README.md',1],['vertuo-site · README.md',1],['vertuoza.com/pricing',1],['14 merged PRDs · docs/positioning.md',1],['Looking for decks · none found',0]];
+ const lines=[['nimbus-app · README.md',1],['nimbus-site · README.md',1],['vertuoza.com/pricing',1],['14 merged PRDs · docs/positioning.md',1],['Looking for decks · none found',0]];
  h.innerHTML='<span class="slot">Reading your repositories…</span>';
  $('#scan').innerHTML=lines.map(([t,ok])=>`<li><span class="k">${ok?'✓':'–'}</span>${esc(t)}</li>`).join('');
  $$('#scan li').forEach((li,i)=>later(()=>li.classList.add('on'),150+i*180));
@@ -527,7 +527,7 @@ function printer(body){const t=run;let q=Promise.resolve();
 
 /* ---------- step 3 ---------- */
 function s3(el){
- el.innerHTML=termFrame('claude — vertuo-app — /omni:think-big')+`<div class="tctl"><span class="hint">Tap a claim id to see what Marc stands on. Tap the terminal to skip ahead.</span><button class="btn ghost sm" id="replay">↻ Replay</button></div>`;
+ el.innerHTML=termFrame('claude — nimbus-app — /omni:think-big')+`<div class="tctl"><span class="hint">Tap a claim id to see what Marc stands on. Tap the terminal to skip ahead.</span><button class="btn ghost sm" id="replay">↻ Replay</button></div>`;
  const body=$('#tbody');body.onclick=()=>{body.dataset.fast=1};
  $('#replay').onclick=()=>{run++;s3(el)};
  const P=printer(body);
@@ -548,7 +548,7 @@ function s3(el){
 
 /* ---------- step 4 ---------- */
 function s4(el){
- el.innerHTML=termFrame('claude — vertuo-app — /omni:think-big')+`<div class="tctl"><span class="hint">Pick an answer in the terminal. Either way, nothing is stored without a person’s ✓ Right.</span><button class="btn ghost sm" id="replay">↻ Replay</button></div>`;
+ el.innerHTML=termFrame('claude — nimbus-app — /omni:think-big')+`<div class="tctl"><span class="hint">Pick an answer in the terminal. Either way, nothing is stored without a person’s ✓ Right.</span><button class="btn ghost sm" id="replay">↻ Replay</button></div>`;
  const body=$('#tbody');$('#replay').onclick=()=>{run++;S.overrule=null;s4(el)};
  body.innerHTML=`<div class="ln m">  … Concept 2 — Site Pulse · fit ICP ✓ region ✓ beats Excel + WhatsApp ✓</div><div class="ln"><b>Concept 3 — Crew planner</b>\n  One screen for the owner: who is on which site tomorrow, sent to each phone.</div>`;
  const P=printer(body);
@@ -576,7 +576,7 @@ function s4(el){
 /* ---------- step 5 ---------- */
 function s5(el){
  const fixed=S.pr==='rewrite';
- el.innerHTML=`<div class="win pr"><div class="ph"><div class="repo">vertuoza / vertuo-app · pull request</div>
+ el.innerHTML=`<div class="win pr"><div class="ph"><div class="repo">vertuoza / nimbus-app · pull request</div>
   <h2 id="prt">${fixed?'docs(phase-0): PRD 752 — One job file across four sites':'docs(phase-0): PRD 752 — Group consolidation across entities'} <span class="num">#753</span></h2>
   <span class="open">● Open</span> <span class="muted" style="font-size:14px">sophie-v wants to merge 1 commit into <code>main</code> from <code>prd/752</code></span></div>
  <div class="pb">
@@ -610,7 +610,7 @@ const QA={
 };
 function s6(el){
  el.innerHTML=`<div class="win"><div class="ed">
- <div class="tree"><div class="f">▾ vertuo-app</div><div class="f">&nbsp;&nbsp;▾ src/quotes</div><div class="f on">&nbsp;&nbsp;&nbsp;&nbsp;NewQuoteForm.tsx</div><div class="f">&nbsp;&nbsp;&nbsp;&nbsp;quoteLines.ts</div><div class="f">&nbsp;&nbsp;&nbsp;&nbsp;vat.ts</div><div class="f">&nbsp;&nbsp;▸ src/sites</div><div class="f">&nbsp;&nbsp;▸ .omni-loop</div><div class="f">&nbsp;&nbsp;&nbsp;&nbsp;.cursor/mcp.json</div></div>
+ <div class="tree"><div class="f">▾ nimbus-app</div><div class="f">&nbsp;&nbsp;▾ src/quotes</div><div class="f on">&nbsp;&nbsp;&nbsp;&nbsp;NewQuoteForm.tsx</div><div class="f">&nbsp;&nbsp;&nbsp;&nbsp;quoteLines.ts</div><div class="f">&nbsp;&nbsp;&nbsp;&nbsp;vat.ts</div><div class="f">&nbsp;&nbsp;▸ src/sites</div><div class="f">&nbsp;&nbsp;▸ .omni-loop</div><div class="f">&nbsp;&nbsp;&nbsp;&nbsp;.cursor/mcp.json</div></div>
  <div class="code"><span class="n"> 1</span> <span class="k">export function</span> NewQuoteForm() {
 <span class="n"> 2</span>   <span class="k">const</span> vat = useVat(<span class="s">'BE'</span>)
 <span class="n"> 3</span>   <span class="k">const</span> [lines, set] = useLines()
@@ -655,7 +655,7 @@ function s7(el){
  const drift=()=>{const d=$('#drift');
   if(!S.drift){d.innerHTML=`<div class="card drift"><div class="row" style="justify-content:space-between"><span class="eyebrow" style="margin:0">region · contradicted</span><span class="mono muted" style="font-size:12px">new evidence · Fri</span></div>
    <div class="diff">Region: <del>Belgium</del> <span class="muted">→</span> <ins>Belgium + France</ins></div>
-   <div class="rcs" style="margin-bottom:10px">${rc('pr','fr-FR PR #731 · vertuo-app','“Add fr-FR locale, French SIRET and TVA numbers on invoices.”')}${rc('link','vertuoza.com/fr','“Le logiciel de gestion pour les entreprises de construction.”')}</div>
+   <div class="rcs" style="margin-bottom:10px">${rc('pr','fr-FR PR #731 · nimbus-app','“Add fr-FR locale, French SIRET and TVA numbers on invoices.”')}${rc('link','vertuoza.com/fr','“Le logiciel de gestion pour les entreprises de construction.”')}</div>
    <div class="verbs"><button class="v r" data-d="right">✓ Right</button><button class="v w" data-d="wrong">✗ Wrong</button></div></div>`}
   else d.innerHTML=`<div class="card drift settled" style="animation:none"><span class="eyebrow" style="margin:0 0 6px">region · ${S.drift==='right'?'confirmed just now':'kept'}</span><div class="diff" style="margin:0"><ins>${S.drift==='right'?'Belgium + France':'Belgium'}</ins></div></div>`;};
  const gap=()=>{const g=$('#gap');
@@ -664,7 +664,7 @@ function s7(el){
    <div class="chips">${['The owner','The office manager','Both'].map(a=>`<button class="chip" data-g="${a}">${a}</button>`).join('')}<button class="chip" data-g="">Not sure</button></div></div>`};
  const unk=()=>{const u=$('#unk');$('#unkc').textContent=S.unk?'0 open':'1 open';
   u.innerHTML=S.unk?`<div class="unk done"><p>Do we sell in Luxembourg?<small>asked by Tom’s editor agent · Thu 11:20 · answered once: <b>${esc(S.unk)}</b> — every agent reads it now</small></p></div>`
-  :`<div class="unk"><p>Do we sell in Luxembourg?<small>asked by Tom’s editor agent · Thu 11:20 · in vertuo-app, NewQuoteForm.tsx</small></p><button class="btn primary sm" id="ansonce">Answer once</button><div class="ans" id="ans" hidden><div class="chips" style="margin-top:0"><button class="chip" data-u="Not yet — no LU VAT rules">Not yet</button><button class="chip" data-u="Yes, we sell there">Yes, we sell there</button><button class="chip" data-u="Never — Belgium + France only">Never</button></div></div></div>`};
+  :`<div class="unk"><p>Do we sell in Luxembourg?<small>asked by Tom’s editor agent · Thu 11:20 · in nimbus-app, NewQuoteForm.tsx</small></p><button class="btn primary sm" id="ansonce">Answer once</button><div class="ans" id="ans" hidden><div class="chips" style="margin-top:0"><button class="chip" data-u="Not yet — no LU VAT rules">Not yet</button><button class="chip" data-u="Yes, we sell there">Yes, we sell there</button><button class="chip" data-u="Never — Belgium + France only">Never</button></div></div></div>`};
  drift();gap();unk();upd();
  el.addEventListener('click',e=>{
   const d=e.target.closest('[data-d]');if(d){S.drift=d.dataset.d;const c=$('#drift .drift');c.classList.add('settled');later(()=>{drift();upd()},200);paintH('region');return}

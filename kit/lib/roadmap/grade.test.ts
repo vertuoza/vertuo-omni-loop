@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from '../ids.ts';
 import type { PrdNumber } from '../ids.ts';
-import { PREREQUISITE_BASE_CHECKS, PREREQUISITE_BASE_FIXES, gradeRoadmap } from './grade.ts';
+import { PREREQUISITE_BASE_CHECKS, PREREQUISITE_BASE_FIXES, gradeProductRoadmap, gradeRoadmap } from './grade.ts';
 import type { PrdFacts, RoadmapTarget } from './grade.ts';
-import { parseRoadmap } from './parse.ts';
+import { parseProductRoadmap, parseRoadmap } from './parse.ts';
 import type { Roadmap } from './parse.ts';
 
 /** A roadmap from its PRD rows (`id | PRD | title | [repos |] blocked by | why | wave`) and its questions. */
@@ -122,9 +122,9 @@ describe('gradeRoadmap — one repository', () => {
 });
 
 const TARGETS: RoadmapTarget[] = [
-  { repo: 'vertuoza/crew', consumes: ['ai-domain'] },
-  { repo: 'vertuoza/ai-domain' },
-  { repo: 'vertuoza/backend-php', readOnly: true },
+  { repo: 'demo-org/crew', consumes: ['ai-domain'] },
+  { repo: 'demo-org/ai-domain' },
+  { repo: 'demo-org/backend-php', readOnly: true },
 ];
 
 describe('gradeRoadmap — a plan repository', () => {
@@ -270,5 +270,42 @@ describe('gradeRoadmap — prerequisites', () => {
       'p3: its card has no "Command" line.',
       'p3: its card has no "Who can do it" line.',
     ]);
+  });
+});
+
+describe('gradeProductRoadmap — a roadmap born on the server (PRD 2011)', () => {
+  const repositories: RoadmapTarget[] = [{ repo: 'app', consumes: ['api'] }, { repo: 'api' }, { repo: 'docs', readOnly: true }];
+  const product = (rows: string[]) => {
+    const parsed = parseProductRoadmap(
+      ['---', 'title: T', 'milestone: M', '---', '## PRDs', '| id | PRD | title | repos | blocked by | why | wave |', '|---|---|---|---|---|---|---|', ...rows, ''].join('\n'),
+    );
+    if (!parsed.ok) throw new Error(parsed.errors.join('\n'));
+    return parsed.roadmap;
+  };
+
+  it('passes rows of the product, a product PRD among them, without reading any folder', () => {
+    const rows = ['| P1 | mobile-12 | A | api | – | – | 1 |', '| P2 | #912 | B | app | P1 | calls it | 2 |'];
+    expect(gradeProductRoadmap(product(rows), { key: 'mobile', repositories })).toEqual([]);
+  });
+
+  it('names a repository outside the product and a read-only one', () => {
+    const rows = ['| P1 | mobile-12 | A | api, shop | – | – | 1 |', '| P2 | mobile-13 | B | docs | – | – | 1 |'];
+    expect(gradeProductRoadmap(product(rows), { key: 'mobile', repositories })).toEqual([
+      'P1: shop is not a repository of product mobile (app, api, docs).',
+      'P2: docs is a read-only repository — no roadmap row may name it.',
+    ]);
+  });
+
+  it('holds a consumer after the provider it waits on', () => {
+    const rows = ['| P1 | mobile-12 | A | api | – | – | 1 |', '| P2 | mobile-13 | B | app | P1 | calls it | 1 |'];
+    const lines = gradeProductRoadmap(product(rows), { key: 'mobile', repositories });
+    expect(lines).toContain('P2: changes app, which consumes api, in wave 1, not after P1 (wave 1) that changes api and that it waits on.');
+  });
+
+  it('keeps the shared rules: a cycle and a blocker without its why', () => {
+    const rows = ['| P1 | mobile-12 | A | api | P2 | x | 1 |', '| P2 | mobile-13 | B | api | P1 | – | 2 |'];
+    const lines = gradeProductRoadmap(product(rows), { key: 'mobile', repositories });
+    expect(lines).toContain('P1: a cycle — P1 → P2 → P1.');
+    expect(lines).toContain('P2: blocked by P1 with no why — every blocker says why it blocks.');
   });
 });

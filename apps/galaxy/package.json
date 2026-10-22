@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "OMNI LOOP arcade: the galaxy map of the game layer, deployed on Vercel, read from Supabase.",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
@@ -15,10 +18,12 @@
     "shots": "node scripts/shots.ts"
   },
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
     "@modelcontextprotocol/sdk": "^1.31.0",
     "@omni/design": "workspace:*",
     "@omni/galaxy": "workspace:*",
     "@omni/github": "workspace:*",
+    "@scalar/api-reference-react": "^0.9.80",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.1",
     "fumadocs-core": "^16.15.15",
@@ -30,7 +35,7 @@
     "react-dom": "^19.2.0",
     "resend": "^6.1.0",
     "server-only": "^0.0.1",
-    "vertuo-omni-plan": "workspace:*",
+    "omni-loop": "workspace:*",
     "web-push": "^3.6.7",
     "zod": "^4.6.5"
   },

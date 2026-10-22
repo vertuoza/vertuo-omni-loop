@@ -4,7 +4,7 @@ import { tabsOf, type TabRow } from '../ask/page/tabs';
 import type { SessionRow } from '../ask/page/view';
 import { faceOf, type Face } from '../people/face';
 import type { People } from '../people/load';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 // The waiting list (PRD 499): what waits for the person looking, on every app-shell page, as pure
 // functions. Two parts: Questions, the open rounds of their own sessions and the ones shared with
@@ -67,7 +67,9 @@ export type WaitingList = { questions: WaitingQuestion[]; outbox: WaitingOutbox[
 
 export const EMPTY_WAITING: WaitingList = { questions: [], outbox: [] };
 
-export type WaitingCounts = { questions: number; shared: number; outbox: number; approvals: number; total: number };
+/** The counts the shell shows. `runners` (PRD 2255) is the Runners entry's badge alone: the jobs waiting for an
+ * answer are not part of `total`, so the bell, the tab's `(N)` and the favicon dot do not move for them. */
+export type WaitingCounts = { questions: number; shared: number; outbox: number; approvals: number; runners: number; total: number };
 
 /** A session's text, trimmed; none when it has none (its row is read unparsed, so a title may be missing). */
 const trimmedOf = (text: string | null | undefined): string => text?.trim() ?? '';
@@ -120,11 +122,12 @@ export function mergeQuestions(own: readonly WaitingQuestion[], shared: readonly
 }
 
 /** The list's counts: the Questions part, the shared ones among them, the Outbox part, the approval
- * requests waiting on the person (PRD 1322, read beside the list), and all three. */
-export function waitingCounts(list: WaitingList, approvals = 0): WaitingCounts {
+ * requests waiting on the person (PRD 1322, read beside the list), and all three; and, apart from the
+ * total, the workspace's runner jobs waiting for an answer (PRD 2255, read beside the list). */
+export function waitingCounts(list: WaitingList, approvals = 0, runners = 0): WaitingCounts {
   const questions = list.questions.length;
   const outbox = list.outbox.length;
-  return { questions, shared: list.questions.filter((q) => q.sharedBy !== null).length, outbox, approvals, total: questions + outbox + approvals };
+  return { questions, shared: list.questions.filter((q) => q.sharedBy !== null).length, outbox, approvals, runners, total: questions + outbox + approvals };
 }
 
 const PREFIX = /^\(\d+\) /;

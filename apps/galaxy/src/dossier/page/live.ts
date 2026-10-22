@@ -13,7 +13,7 @@ import { UNREAD, type GithubSummary } from '../github/summary';
 import { isPulseKind, PULSE_KINDS, type DossierPulse, type PulseKind } from '../store';
 import { stageOf, type StageId } from './stage';
 import type { DossierRead } from './view';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** How many failed reads in a row before the page says so. */
 export const FAILURES_BEFORE_PROBLEM = 3;

@@ -5,7 +5,7 @@
 
 Any decision taken without asking is an outbox item. Acceptance criteria 1–10 are proven in-process
 against fixture repositories with `gh` faked. Criteria 11 and 12 are live: they need the
-omni-loop-invader App installed on `vertuoza/vertuo-workflow-domain` and they create labels on real
+omni-loop-invader App installed on `demo-org/nimbus-workflow-domain` and they create labels on real
 repositories. A person runs them after the feature PR is green. No slice runs them, and no slice
 creates a label on GitHub.
 

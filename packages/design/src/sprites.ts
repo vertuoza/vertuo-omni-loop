@@ -5,7 +5,7 @@
 
 import { RAMPS } from './forge.ts';
 import type { Painter, Tint } from './forge.ts';
-import { at, defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 
 /** A sprite's recipe: its size, how to paint frame `f` (0 or 1), and whether the forge outlines it. */
 export interface SpriteDef { w: number; h: number; draw(d: Painter, f: number): void; outline?: boolean }
@@ -677,7 +677,7 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     d.ellipse(8, 8, 1.8, 1.8, 'X');
     d.px(f ? 11 : 5, f ? 6 : 5, 'y');
   } },
-  // Super Omni World's tiles (PRD 817): 16×16 squares with no hole and no outline, so a row of
+  // Starhop's tiles (PRD 817): 16×16 squares with no hole and no outline, so a row of
   // them tiles without a seam. Each is drawn in the grass palette, the first stage's; the other
   // stages recolour their materials (STAGE_PALETTES).
   'tile-ground': { w: 16, h: 16, outline: false, draw(d) { // grass over soil
@@ -900,7 +900,7 @@ function pipe(d: Painter, side: 'l' | 'r', top: boolean): void {
   if (top) d.rect(0, 0, 16, 1, 'g', 3).rect(0, 6, 16, 2, 'g', 3).rect(left ? 1 : 0, 1, left ? 15 : 14, 1, 'g', 0);
 }
 
-/** Super Omni World's tiles, in the order its tileset lays them out (PRD 817). */
+/** Starhop's tiles, in the order its tileset lays them out (PRD 817). */
 export const TILES: readonly string[] = Object.freeze([
   'tile-ground', 'tile-soil', 'tile-brick', 'tile-block', 'tile-block-empty',
   'tile-pipe-top-l', 'tile-pipe-top-r', 'tile-pipe-l', 'tile-pipe-r', 'tile-stone',

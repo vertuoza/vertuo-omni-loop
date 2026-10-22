@@ -64,16 +64,23 @@ describe('stepLine, text, errors and links', () => {
     expect(lines.at(-1)).toBe(`${T}    FAIL test 20`);
   });
 
-  it('names a pull request link once, from a tool result or assistant text', () => {
+  it('names the pull request a call opened once, and no link of assistant text or of another call (bug 2365)', () => {
     const all = readable();
     expect(all.filter((line) => line === `${T}PR: https://github.com/acme/widgets/pull/42`)).toHaveLength(1);
     expect(all).toContain(`${T}› Opened https://github.com/acme/widgets/pull/42 for review.`);
-    const fresh = stepLine(STREAM.find((each) => each.includes('Opened https')) ?? '', { now: NOW });
-    expect(fresh).toEqual([`${T}› Opened https://github.com/acme/widgets/pull/42 for review.`, `${T}PR: https://github.com/acme/widgets/pull/42`]);
+    const said = stepLine(STREAM.find((each) => each.includes('Opened https')) ?? '', { now: NOW });
+    expect(said).toEqual([`${T}› Opened https://github.com/acme/widgets/pull/42 for review.`]);
+    const unopened = stepLine(STREAM.find((each) => each.includes('"tool_use_id":"t12"')) ?? '', { now: NOW });
+    expect(unopened).toEqual([]);
   });
 
   it('reads the result as Done with its turns, cost and duration, then every line of its text', () => {
-    expect(linesOf('"type":"result"')).toEqual([`${T}Done: ok · 12 turns · $1.23 · 12m 34s`, `${T}Built the slice.`, `${T}Opened https://github.com/acme/widgets/pull/42`]);
+    expect(linesOf('"type":"result"')).toEqual([
+      `${T}Done: ok · 12 turns · $1.23 · 12m 34s`,
+      `${T}Built the slice.`,
+      `${T}Opened https://github.com/acme/widgets/pull/42`,
+      `${T}PR: https://github.com/acme/widgets/pull/42`,
+    ]);
     const failed = JSON.stringify({ type: 'result', subtype: 'error_max_turns', is_error: true, num_turns: 3, total_cost_usd: 0.05, duration_ms: 4200 });
     expect(stepLine(failed, { now: NOW })).toEqual([`${T}Done: error · 3 turns · $0.05 · 4s`]);
     const long = JSON.stringify({ type: 'result', subtype: 'success', is_error: false, num_turns: 1, total_cost_usd: 0, duration_ms: 3_725_000, result: '' });

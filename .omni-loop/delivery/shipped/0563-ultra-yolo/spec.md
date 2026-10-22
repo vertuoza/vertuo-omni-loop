@@ -16,7 +16,7 @@ app, the GitHub App or the game.
 
 ## Problem
 
-PRD 549 lets a PM in a plan repository (`vertuoza/vertuo-automation-plan`) write one PRD whose plan
+PRD 549 lets a PM in a plan repository (`demo-org/nimbus-plan`) write one PRD whose plan
 names, slice by slice, the target repository each slice lands in, reviewed in one phase-0. Nothing
 builds it. `/omni:yolo` and `/omni:wave` stop on such a PRD (`PRD <n> spans repositories:
 /omni:ultra-yolo <n> builds it`), because every step they take acts on the checkout they run in:
@@ -51,8 +51,8 @@ repository's feature pull request, the one that closes the PRD, is marked ready 
 PRD 522) and lists the changed files that fall under that target's slice territories:
 
 ```text
-vertuo-backend-php   moved   3 files under s1's territory (src/Quote/Total.php, …)
-vertuo-apps          ok
+nimbus-backend-php   moved   3 files under s1's territory (src/Quote/Total.php, …)
+nimbus-apps          ok
 ```
 
 `ok` when nothing under the territories changed, even if the head moved; `unreachable` when `gh`
@@ -239,7 +239,7 @@ Commands are tested through `main()` on a fixture repository (`makeRepo()` in
 - **Rate limits:** one `gh pr list` per repository per board read, and a few calls per slice;
   well under GitHub's limits for a handful of targets.
 - **Proof on real repositories is owed.** Tests run on fixtures; the first live run in
-  `vertuoza/vertuo-automation-plan` with two real targets follows the merge, after the live runs of
+  `demo-org/nimbus-plan` with two real targets follows the merge, after the live runs of
   PRD 522 and PRD 549.
 
 ## Acceptance criteria

@@ -27,7 +27,7 @@ import { afterReturn, afterStart } from '../arcade/onboarding';
 import { arcadeFor, OUT_OF_REACH } from './arcade';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { ACME, authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const NOW = new Date('2026-09-26T10:00:00Z');
 const ANY_OBJECT: unknown = expect.any(Object);
@@ -43,11 +43,11 @@ const dossierRow = (id: string, workspace_id: string, home_repo: string, prd: nu
 /** Each workspace's planet #12 has a dossier in its plan repository; Vertuoza's has a spec and a question answered. */
 const DOSSIERS: FakeDossier[] = [
   {
-    row: dossierRow('d-vz-12', VERTUOZA, 'vertuoza/vertuo-omni-plan', 12, {
+    row: dossierRow('d-vz-12', VERTUOZA, 'demo-org/nimbus-plan', 12, {
       latest: { spec: { id: 'v1', version: 2, source: 'kit', created_at: '2026-09-24T08:00:00Z' } }, asked: 1, answered: 1,
     }),
     rounds: [{
-      rule: 'brainstorm', round_id: 'r1', session_id: 's1', asked_by: PEOPLE.ada.id, repo: 'vertuoza/vertuo-omni-plan', branch: 'main',
+      rule: 'brainstorm', round_id: 'r1', session_id: 's1', asked_by: PEOPLE.ada.id, repo: 'demo-org/nimbus-plan', branch: 'main',
       questions: [{ question: 'Who owns a workspace?', header: 'Owner', multiSelect: false, options: [] }], answers: { 'Who owns a workspace?': 'Its first member' },
       status: 'answered', answered_via: 'page', answered_by: PEOPLE.ada.id, category: null, category_by: null, prd: null, skill: null,
       created_at: '2026-09-20T09:05:00Z', answered_at: '2026-09-20T09:06:00Z',
@@ -260,6 +260,7 @@ describe('the crew\'s high scores', () => {
       kart: { top: [], mine: null },
       'kart-frost-eight': { top: [], mine: null },
       duet: { top: [], mine: null },
+      pong: { top: [], mine: null },
     });
     expect((await page(PEOPLE.both)).data.scores?.invaders).toEqual({ top: [containing({ name: 'WILE', best: 9210 })], mine: null });
   });
@@ -275,7 +276,7 @@ describe('the crew\'s high scores', () => {
   it('says the scores are out of reach when only they cannot be read, and keeps the galaxy and the XP', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { data } = await page(PEOPLE.ada, (world) => { world.state.failOn = 'arcade_scores'; });
-    expect(data.scores).toEqual({ invaders: 'unreadable', platformer: 'unreadable', kart: 'unreadable', 'kart-frost-eight': 'unreadable', duet: 'unreadable' });
+    expect(data.scores).toEqual({ invaders: 'unreadable', platformer: 'unreadable', kart: 'unreadable', 'kart-frost-eight': 'unreadable', duet: 'unreadable', pong: 'unreadable' });
     expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
     expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
     expect(data.problem).toBeUndefined();
@@ -307,7 +308,7 @@ describe('what the first load leaves to the planet\'s overlay (PRD 1808)', () =>
 
 describe('the session', () => {
   it('carries the Google first name, the email and the linked GitHub login', async () => {
-    expect((await page(PEOPLE.ada)).data.session).toEqual({ id: PEOPLE.ada.id, email: 'ada@vertuoza.com', givenName: 'Ada', crew: true, github: 'ada-gh' });
+    expect((await page(PEOPLE.ada)).data.session).toEqual({ id: PEOPLE.ada.id, email: 'ada@example.com', givenName: 'Ada', crew: true, github: 'ada-gh' });
     expect((await page(PEOPLE.eve)).data.session).toEqual({ id: PEOPLE.eve.id, email: 'eve@example.com', givenName: 'Eve', crew: false, github: null });
   });
 });

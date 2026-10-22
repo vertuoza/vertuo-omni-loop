@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd, parseWorkSliceId } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import { planLoop } from 'vertuo-omni-plan/kit/lib/next/plan.ts';
+import { parsePrd, parseWorkSliceId } from 'omni-loop/kit/lib/ids.ts';
+import { planLoop } from 'omni-loop/kit/lib/next/plan.ts';
 import { clockOf, ledgerOf, readPlan, stateLineOf, timelineOf } from './view';
 
 // The Loop page's reads of a loop (PRD 1139 s5), pure: the plan the kit pushed, read into steps; the

@@ -9,7 +9,7 @@ const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
 const ACME = 'b0000000-0000-4000-8000-000000000002';
 const COMMIT = 'c0ffee0000000000000000000000000000000001';
 const BLOB = 'b10b000000000000000000000000000000000001';
-const HOME = 'vertuoza/vertuo-omni-loop';
+const HOME = 'demo-org/vertuo-omni-loop';
 // Any id, as the expectation reads it.
 const AN_ID: unknown = expect.any(String);
 
@@ -28,7 +28,7 @@ describe('dossierStore: the fallback\'s one way into the dossier tables', () => 
       dossiers: [
         dossier('d-216'),
         dossier('d-draft', { prd: null, numbered_at: null }),
-        dossier('d-other-repo', { home_repo: 'vertuoza/vertuo-core' }),
+        dossier('d-other-repo', { home_repo: 'demo-org/nimbus-core' }),
         dossier('d-acme', { workspace_id: ACME }),
         dossier('d-217', { prd: 217, title: 'Another' }),
       ],

@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { renderMarkdown } from '../markdown';
 import { UNREAD, type GithubSummary, type PullRef } from '../github/summary';
 import type { StageRow } from '../../stages/stage';
@@ -19,7 +19,7 @@ import { PitchAction, PitchPanel, pitchCommand, PITCH_HINT } from './PitchAction
 import { StageAction } from './StageHeader';
 import { stageView } from './stage';
 import { dossierView, readPick, type DossierPick } from './view';
-import { parseIssue, parsePr, parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 
@@ -34,8 +34,8 @@ vi.mock('next/navigation', async (original) => ({
 // the opener of a draft, the sign-in, and the Questions tab with its rounds, none, or none readable.
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
-const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
-const MARIE = { user_id: 'u-marie', email: 'marie@vertuoza.com', name: 'Marie' };
+const PIERRE = { user_id: 'u-pierre', email: 'pierre@example.com', name: 'Pierre' };
+const MARIE = { user_id: 'u-marie', email: 'marie@example.com', name: 'Marie' };
 const SUPABASE = { url: 'http://127.0.0.1:54321', key: 'anon' };
 
 const numbered: DossierRow = {
@@ -77,16 +77,16 @@ type PageOptions = {
   dossier?: DossierRow; rows?: typeof versions; pick?: DossierPick; me?: string; markdown?: string | null;
   supabase?: typeof SUPABASE | null; questions?: DossierRoundRow[] | null;
   answerable?: string[]; now?: number; github?: GithubSummary | null; slices?: number | null;
-  repos?: string[] | null; stages?: StageRow[] | null;
+  repos?: string[] | null; stages?: StageRow[] | null; fixing?: { runner: string } | null;
 };
 
 function page({
   dossier = numbered, rows = versions, pick = readPick({}), me = MARIE.user_id, markdown = null,
   supabase = SUPABASE, questions = rounds,
   answerable = [], now = Date.now(), github, slices = null,
-  repos = null, stages,
+  repos = null, stages, fixing,
 }: PageOptions = {}) {
-  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, repos, answerable, github, slices, stages }, me, pick, now);
+  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, repos, answerable, github, slices, stages, fixing }, me, pick, now);
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: markdown === null ? null : renderMarkdown(markdown), supabase }));
 }
 /** The Pitch button of a shipped or retro PRD (PRD 859), closed as the server renders it. */
@@ -184,6 +184,46 @@ describe('the stage header (PRD 426, PRD 587)', () => {
     const html = page({ github: red, stages: at('building') });
     expect(html).toContain(`</ol><a class="stage-badge" href="${comment}" target="_blank" rel="noopener noreferrer">1 question waiting →</a>`);
     expect(button(html)).toEqual([comment, 'Answer the outbox']);
+  });
+
+  it('the head says where the outbox stands: waiting, answered, or unread (PRD 2223)', () => {
+    const item = (id: string) => ({ id, rank: 'high' as const, question: 'Q?', decision: 'D.', options: [], personSteps: null });
+    const comment = 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7';
+    const answer = (number: number, id: string) => ({ number, id, text: 'B', by: 'paula', at: null, url: null, counted: true, door: 'github' as const });
+    const base = summary({
+      phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 3, outbox: { open: [item('a'), item('b')], settled: [] }, outboxComment: comment,
+    });
+    const numbering = [{ number: 1, id: 'a' }, { number: 4, id: 'b' }];
+    const render = (replies: GithubSummary['replies']) => page({ github: { ...base, replies }, slices: 3, stages: at('building') });
+
+    const waiting = render({ numbering, pending: [answer(1, 'a')] });
+    expect(waiting).toContain('<strong>Stage: building</strong><span class="ask-hint"> · 3/3 slices · 1 of 2 answered</span>');
+    expect(button(waiting)).toEqual([comment, 'Answer the outbox']);
+    expect(waiting).toContain('feature #221 · draft</a>');
+
+    const answered = render({ numbering, pending: [answer(1, 'a'), answer(4, 'b')] });
+    expect(answered).toContain('<span class="ask-hint"> · 3/3 slices · answered</span>');
+    expect(answered).toContain('title="/omni:yolo-fix 216">Fix with answers</button>');
+    expect(answered).toContain('<a class="stage-fixes ask-hint" href="?tab=outbox">Fixes with 1: B · 4: B</a>');
+
+    const unread = render(UNREAD);
+    expect(button(unread)).toEqual([comment, 'Answer the outbox']);
+    expect(unread).not.toContain('slices · ');
+    expect(unread).not.toContain('Fix with answers');
+  });
+
+  it('the head reads fixing on <runner> in place of answered while the PRD\'s fix job is queued or running (PRD 2270)', () => {
+    const item = (id: string) => ({ id, rank: 'high' as const, question: 'Q?', decision: 'D.', options: [], personSteps: null });
+    const answer = (number: number, id: string) => ({ number, id, text: 'B', by: 'paula', at: null, url: null, counted: true, door: 'github' as const });
+    const github = summary({
+      phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 3, outbox: { open: [item('a')], settled: [] },
+      outboxComment: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7', replies: { numbering: [{ number: 1, id: 'a' }], pending: [answer(1, 'a')] },
+    });
+    const fixing = page({ github, slices: 3, stages: at('building'), fixing: { runner: 'pierre-laptop' } });
+    expect(fixing).toContain('<span class="ask-hint"> · 3/3 slices · fixing on pierre-laptop</span>');
+    expect(fixing).not.toContain('Fix with answers');
+    expect(fixing).not.toContain('slices · answered');
+    expect(page({ github, slices: 3, stages: at('building'), fixing: null })).toContain('slices · answered</span>');
   });
 
   it('says when the stage was last synced on hover, and Syncing… with nothing lit before the first sync', () => {
@@ -323,9 +363,9 @@ describe('the header box (PRD 476)', () => {
   });
 
   it('says Repos for more than one repository, each a chip', () => {
-    const html = page({ repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-web'] });
+    const html = page({ repos: ['vertuoza/vertuo-omni-loop', 'demo-org/nimbus-web'] });
     expect(cells(html)).toEqual(['Repos', 'Opened']);
-    expect(cell(html, 'Repos')).toContain('<ul class="dossier-repos" aria-label="Repositories"><li class="dossier-repo">vertuoza/vertuo-omni-loop</li><li class="dossier-repo">vertuoza/vertuo-web</li></ul>');
+    expect(cell(html, 'Repos')).toContain('<ul class="dossier-repos" aria-label="Repositories"><li class="dossier-repo">vertuoza/vertuo-omni-loop</li><li class="dossier-repo">demo-org/nimbus-web</li></ul>');
   });
 
   it('shows a draft its idea stage, with no On GitHub cell', () => {

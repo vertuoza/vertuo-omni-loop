@@ -20,7 +20,7 @@ The kit supports the plan-repository case: the e2e folder and recordings live in
 - **Q1 — waits on a person:** What are the three user flows to cover first?
 - **Q2 — recommended default, accepted when the phase-0 PR merges:** Records with a name unique to each run (the idea's own answer). (Seeded QA tenant: a reset, or records with a name unique to each run?)
 - **Q3 — waits on a person:** Which test account do automated runs sign in with, and how is it kept out of the code?
-- **Q7 — recommended default, accepted when the phase-0 PR merges:** The plan repository (vertuo-automation-plan), which starts the environment they run against. (Where do the recordings of a product spanning several repositories live?)
+- **Q7 — recommended default, accepted when the phase-0 PR merges:** The plan repository (nimbus-plan), which starts the environment they run against. (Where do the recordings of a product spanning several repositories live?)
 
 ## User stories
 

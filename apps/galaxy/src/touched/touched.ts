@@ -15,16 +15,27 @@
 // retro pull request the snapshot holds. Only a dossier with a snapshot can be stale: one with none is
 // read on its first visit anyway.
 //
+// PRD 2213 (s2): an `issues` touch whose issue is a concept's (a concept dossier of the repository, its
+// number the issue's) also refreshes that concept's stored facts after the response, so a close or a
+// reopen shows at once rather than at the next sync run. Any other issue does what it did.
+//
 // Bursts coalesce. A touch that lands while a refresh holds the lease moves the stale mark past the
 // refresh's start, so the refresh's end leaves it set; the refresh started by a touch then runs one
 // follow-up read. Every other touch's refresh finds the lease held and does nothing.
+//
+// PRD 2270 (s1): once the refresh a touch started has read, and the snapshot is current, a PRD whose asked
+// outbox items all have a counted reply is handed to the runners, which queue `/omni:yolo-fix <n>` to the
+// job that waited on those answers when ../runners/continue.ts says it continues, at most once.
 import 'server-only';
 import { z } from 'zod';
-import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.ts';
-import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseConfig } from 'omni-loop/kit/lib/config.ts';
+import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { FixRef } from '../dossier/github/reader';
 import { UNREAD, type GithubSummary } from '../dossier/github/summary';
+import { outboxStand, type OutboxStand } from '../dossier/page/stage';
+import { answeredAll } from '../runners/continue';
 import { refreshSnapshot, staleSnapshot, type SnapshotDeps, type SnapshotDossier } from '../dossier/snapshot/snapshot';
-import { log as runLog, type LogEntry } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log as runLog, type LogEntry } from 'omni-loop/kit/lib/log/log.ts';
 import { STAGE_SIGNATURE_HEADER, verifySignature } from '../stages/event/event';
 
 export type Touch = { repository: string; issue?: IssueNumber; pr?: PrNumber; branch?: string };
@@ -43,6 +54,13 @@ export type TouchedDeps = {
   snapshotsOf: (workspace: string, repository: string) => Promise<TouchedSnapshot[]>;
   /** The snapshot's own deps: its store, the reader, the clock, and what runs after the response. */
   snapshot: SnapshotDeps;
+  /** A concept: the workspace's concept dossier in the repository whose issue is `issue`; null when none. */
+  conceptOf?: (workspace: string, repository: string, issue: IssueNumber) => Promise<FixRef | null>;
+  /** Reads a concept's facts again and stores them (PRD 2213, s2). */
+  refreshConcept?: (workspace: string, concept: FixRef) => Promise<void>;
+  /** Asks the runners to continue the PRD whose asked items all have a counted reply (PRD 2270, s1): the
+   * fix's job id when one was queued, else null. None, nothing is decided. */
+  continueAnswered?: (ask: { workspace: string; repository: string; prd: PrdNumber; stand: OutboxStand }) => Promise<string | null>;
   /** Where a failure is written: console.error by default. */
   log?: (line: string) => void;
   /** Where an ordinary outcome is written (a touch that matches no dossier): kit/lib/log's info by default. */
@@ -130,8 +148,9 @@ async function markTouched(dossier: SnapshotDossier, deps: SnapshotDeps): Promis
 }
 
 /** The refresh a touch starts, after the response: none when the snapshot is current again or another
- * refresh holds the lease; else one read, and one follow-up when it is still stale at its end. */
-export async function refreshAfterTouch(dossier: SnapshotDossier, deps: SnapshotDeps): Promise<void> {
+ * refresh holds the lease; else one read, and one follow-up when it is still stale at its end. Answers
+ * whether it read GitHub. */
+export async function refreshAfterTouch(dossier: SnapshotDossier, deps: SnapshotDeps): Promise<boolean> {
   const log = deps.log ?? console.error;
   const stale = async () => {
     try {
@@ -141,9 +160,40 @@ export async function refreshAfterTouch(dossier: SnapshotDossier, deps: Snapshot
       return false;
     }
   };
-  if (!(await stale())) return;
-  if ((await refreshSnapshot(dossier, 'background', deps)) !== 'refreshed') return;
+  if (!(await stale())) return false;
+  if ((await refreshSnapshot(dossier, 'background', deps)) !== 'refreshed') return false;
   if (await stale()) await refreshSnapshot(dossier, 'background', deps);
+  return true;
+}
+
+/** After the touch's read (PRD 2270, s1): once every asked item of the PRD has a counted reply, the
+ * runners are asked to continue the job that waited (../runners/continue.ts decides the rest, and queues
+ * at most one fix). Only a snapshot read whole and not touched since decides: a partial read keeps the
+ * parts it could not read, and a later touch's own read decides then. A failure is logged, never thrown. */
+async function continueAfterRead(dossier: SnapshotDossier, deps: TouchedDeps): Promise<void> {
+  const { continueAnswered } = deps;
+  if (!continueAnswered) return;
+  const where = `${dossier.home_repo}#${String(dossier.prd)}`;
+  try {
+    const stand = await answeredStand(dossier, deps.snapshot);
+    if (stand === null) return;
+    const queued = await continueAnswered({ workspace: dossier.workspace_id, repository: dossier.home_repo, prd: dossier.prd, stand });
+    if (queued === null) return;
+    (deps.note ?? runLog.info)({
+      event: 'touch', outcome: 'ok', repo: dossier.home_repo, prd: dossier.prd,
+      message: `${where}: every asked item answered, /omni:yolo-fix ${String(dossier.prd)} queued as job ${queued}`,
+    });
+  } catch (error) {
+    (deps.log ?? console.error)(`touch: ${where} could not be continued — ${why(error)}`);
+  }
+}
+
+/** The stand of a current snapshot whose asked items all have a counted reply; null otherwise. */
+async function answeredStand(dossier: SnapshotDossier, deps: SnapshotDeps): Promise<OutboxStand | null> {
+  const kept = await deps.store.read(dossier.id);
+  if (!kept || kept.staleSince !== null) return null;
+  const stand = outboxStand(kept.summary);
+  return answeredAll(stand) ? stand : null;
 }
 
 /** The signed body's touch, or the reply that refuses it: 401 unsigned, 400 when it is no touch. */
@@ -164,6 +214,23 @@ function signedTouch({ body, headers }: { body: string; headers: Headers }, secr
   return refused(400, 'the body is not a touch');
 }
 
+/** Starts, after the response, the refresh of the concept the touch's issue is; 1 when there is one, else 0. */
+async function refreshConceptOf(touch: Touch, workspace: string, deps: TouchedDeps): Promise<number> {
+  const { conceptOf, refreshConcept } = deps;
+  if (touch.issue === undefined || !conceptOf || !refreshConcept) return 0;
+  const concept = await conceptOf(workspace, touch.repository, touch.issue);
+  if (!concept) return 0;
+  const log = deps.log ?? console.error;
+  deps.snapshot.later(async () => {
+    try {
+      await refreshConcept(workspace, concept);
+    } catch (error) {
+      log(`touch: the concept ${touch.repository}#${touch.issue ?? ''} could not be refreshed — ${why(error)}`);
+    }
+  });
+  return 1;
+}
+
 export async function receiveTouch(request: { body: string; headers: Headers }, deps: TouchedDeps): Promise<Reply> {
   const log = deps.log ?? console.error;
   if (!deps.secret) {
@@ -176,14 +243,21 @@ export async function receiveTouch(request: { body: string; headers: Headers }, 
   const what = `${touch.repository}${touch.issue ? ` issue #${touch.issue}` : ''}${touch.pr ? ` pull request #${touch.pr}` : ''}${touch.branch ? ` on ${touch.branch}` : ''}`;
   try {
     const dossiers: SnapshotDossier[] = [];
-    for (const workspace of await deps.workspacesOf(touch.repository)) dossiers.push(...(await resolve(touch, workspace, deps)));
+    let concepts = 0;
+    for (const workspace of await deps.workspacesOf(touch.repository)) {
+      dossiers.push(...(await resolve(touch, workspace, deps)));
+      concepts += await refreshConceptOf(touch, workspace, deps);
+    }
+    if (dossiers.length === 0 && concepts > 0) return { status: 200, body: { ok: true, stale: 0 } };
     if (dossiers.length === 0) {
       (deps.note ?? runLog.info)({ event: 'touch', outcome: 'ok', status: 202, repo: touch.repository, message: `${what} matched no dossier` });
       return { status: 202, body: { stale: 0 } };
     }
     for (const dossier of dossiers) {
       await markTouched(dossier, deps.snapshot);
-      deps.snapshot.later(() => refreshAfterTouch(dossier, deps.snapshot));
+      deps.snapshot.later(async () => {
+        if (await refreshAfterTouch(dossier, deps.snapshot)) await continueAfterRead(dossier, deps);
+      });
     }
     return { status: 200, body: { ok: true, stale: dossiers.length } };
   } catch (error) {

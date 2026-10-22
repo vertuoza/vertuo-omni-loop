@@ -1,7 +1,9 @@
 // A job's log as the runner reads it (PRD 1830): the tail it sends, the pull request it links, and
 // the `--timeout` it is held to.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { LINE_CHARS, lastPullRequest, linesAfter, logTail, parseDuration, reportBatch, REPORT_BYTES, REPORT_LINES, TAIL_BYTES, TAIL_LINES } from './log.ts';
+import { parsePrd } from '../ids.ts';
+import { LINE_CHARS, lastPullRequest, linesAfter, logTail, parseDuration, reportBatch, runOutcome, REPORT_BYTES, REPORT_LINES, TAIL_BYTES, TAIL_LINES } from './log.ts';
 
 describe('logTail', () => {
   it('keeps the last 200 lines', () => {
@@ -27,15 +29,31 @@ describe('logTail', () => {
 });
 
 describe('lastPullRequest', () => {
-  it("reads the last pull request of the job's repository, and no other repository's", () => {
+  it("reads the last PR line of the job's repository, and no other repository's", () => {
     const log = [
-      'opened https://github.com/acme/widgets/pull/12',
-      'see https://github.com/acme/other/pull/99',
-      'then https://github.com/acme/widgets/pull/14.',
-      'https://github.com/acme/widgets-two/pull/7',
+      '10:00:00 PR: https://github.com/acme/widgets/pull/12',
+      '10:00:01 › see https://github.com/acme/widgets/pull/99',
+      'PR: https://github.com/acme/widgets/pull/14',
+      '10:00:03 PR: https://github.com/acme/other/pull/15',
+      '10:00:04 PR: https://github.com/acme/widgets-two/pull/7',
     ].join('\n');
     expect(lastPullRequest(log, 'acme/widgets')).toBe('https://github.com/acme/widgets/pull/14');
+    expect(lastPullRequest('opened https://github.com/acme/widgets/pull/12', 'acme/widgets')).toBeNull();
     expect(lastPullRequest('nothing here', 'acme/widgets')).toBeNull();
+  });
+
+  it('reads the first pull request of the hand-off, the lines after the last Done line, before any PR line', () => {
+    const log = [
+      '10:00:00 PR: https://github.com/acme/widgets/pull/12',
+      '10:00:01 PR: https://github.com/acme/widgets/pull/14',
+      '10:00:02 Done: ok · 3 turns · $0.10 · 4s',
+      '10:00:02 See https://github.com/acme/other/pull/3',
+      '10:00:02 1. Review the change: https://github.com/acme/widgets/pull/12#issuecomment-9',
+      '10:00:02 2. Then https://github.com/acme/widgets/pull/14',
+    ].join('\n');
+    expect(lastPullRequest(log, 'acme/widgets')).toBe('https://github.com/acme/widgets/pull/12');
+    const plain = ['10:00:00 PR: https://github.com/acme/widgets/pull/12', 'Done: error · 1 turns · $0.00 · 1s', 'nothing to review'].join('\n');
+    expect(lastPullRequest(plain, 'acme/widgets')).toBe('https://github.com/acme/widgets/pull/12');
   });
 });
 
@@ -88,5 +106,64 @@ describe('reportBatch (PRD 1904)', () => {
     expect(batch.length).toBeLessThan(2000);
     expect(Buffer.byteLength(JSON.stringify(batch))).toBeLessThanOrEqual(REPORT_BYTES);
     expect(Buffer.byteLength(JSON.stringify(lines.slice(0, batch.length + 1)))).toBeGreaterThan(REPORT_BYTES);
+  });
+});
+
+describe('runOutcome (PRD 2223)', () => {
+  const prd = parsePrd(2223);
+
+  it('reads the last non-empty line: yolo-fix is answers, yolo held, pr-care ready', () => {
+    expect(runOutcome('Done: ok\n/omni:yolo-fix 2223\n', prd)).toBe('answers');
+    expect(runOutcome('Done: ok\n/omni:yolo 2223', prd)).toBe('held');
+    expect(runOutcome('Done: ok\n/omni:pr-care 2223\n', prd)).toBe('ready');
+  });
+
+  it('skips trailing blank lines and the runner\'s time stamp', () => {
+    expect(runOutcome('x\n14:03:09 /omni:yolo-fix 2223\n\n  \n', prd)).toBe('answers');
+  });
+
+  it('skips the lines claude prints once a session hook fails after the hand-off (#2388)', () => {
+    const hook = 'SessionEnd hook [node "$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs" heartbeat --end || true] failed: Hook cancelled';
+    expect(runOutcome(`09:36:39 /omni:yolo 2223\n${hook}\n`, prd)).toBe('held');
+    expect(runOutcome(`09:36:39 /omni:yolo 2223\nStop hook [x] failed: exit 1\n${hook}\n`, prd)).toBe('held');
+  });
+
+  it('is null for another PRD, another line, a line that only mentions one, or no final message', () => {
+    expect(runOutcome('/omni:yolo-fix 2224\n', prd)).toBeNull();
+    expect(runOutcome('/omni:yolo-fix 22230\n', prd)).toBeNull();
+    expect(runOutcome('/omni:plan 2223\n', prd)).toBeNull();
+    expect(runOutcome('then run /omni:yolo-fix 2223 later\n', prd)).toBeNull();
+    expect(runOutcome('/omni:yolo-fix 2223\nDone\n', prd)).toBeNull();
+    expect(runOutcome('', prd)).toBeNull();
+    expect(runOutcome('\n\n', prd)).toBeNull();
+  });
+});
+
+describe('runOutcome of a yolo job (PRD 2375)', () => {
+  const prd = parsePrd(2375);
+
+  it.each(['yolo', 'yolo-fix'] as const)('is stopped for a %s job whose last line is no hand-off for its PRD', (skill) => {
+    expect(runOutcome('built two sub-PRs\nDone\n', prd, skill)).toBe('stopped');
+    expect(runOutcome('/omni:yolo-fix 2374\n', prd, skill)).toBe('stopped');
+    expect(runOutcome('/omni:plan 2375\n', prd, skill)).toBe('stopped');
+    expect(runOutcome('', prd, skill)).toBe('stopped');
+  });
+
+  it('keeps the hand-off of a yolo job, and stays null for any other job', () => {
+    expect(runOutcome('/omni:yolo-fix 2375\n', prd, 'yolo')).toBe('answers');
+    expect(runOutcome('/omni:yolo 2375\n', prd, 'yolo-fix')).toBe('held');
+    expect(runOutcome('/omni:pr-care 2375\n', prd, 'yolo')).toBe('ready');
+    expect(runOutcome('Done\n', prd)).toBeNull();
+  });
+});
+
+describe('the yolo hand-off\'s last lines (PRD 2223)', () => {
+  it('are the three lines runOutcome reads, so a change in the skill fails here', () => {
+    const skill = readFileSync(new URL('../../plugin/skills/yolo/SKILL.md', import.meta.url), 'utf8');
+    for (const [line, outcome] of [['/omni:pr-care <n>', 'ready'], ['/omni:yolo-fix <n>', 'answers'], ['/omni:yolo <n>', 'held']] as const) {
+      expect(skill).toContain(`\n${line}\n`);
+      expect(runOutcome(line.replace('<n>', '9'), parsePrd(9))).toBe(outcome);
+    }
+    expect(skill).toContain('`/omni:pr-care <n>`, `/omni:yolo-fix <n>` or `/omni:yolo <n>`');
   });
 });

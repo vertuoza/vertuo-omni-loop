@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { poll } from '../../ask/page/poll';
 import { cancelRunnerJob, sendToRunner, setRunnerFleet, type Called } from '../runners.client';
+import { postFixWithAnswers } from './fix.client';
 import type { Target } from '../runners.contract';
 import { REFRESH_MS } from './model';
 
@@ -53,17 +54,29 @@ export function CancelButton({ job }: { job: string }) {
   );
 }
 
-/** Send again: the same line, for the same repository, to where it first went. */
-export function SendAgainButton({ line, repo, target, primary }: { line: string; repo: string; target: Target; primary: boolean }) {
+/** A ghost button that calls a route, then reads the rows again; the page's one primary action when it is. */
+function CallButton({ label, primary, call }: { label: string; primary: boolean; call: () => Promise<Called<unknown>> }) {
   const { busy, problem, act } = useAct();
   return (
     <span className="runners-action">
       <button type="button" className={primary ? 'runners-ghost is-primary' : 'runners-ghost'} data-primary={primary ? '' : undefined} disabled={busy}
-        onClick={() => { void act(() => sendToRunner(line, repo, target)); }}>Send again</button>
+        onClick={() => { void act(call); }}>{label}</button>
       <Problem problem={problem} />
     </span>
   );
 }
+
+/** Send again: the same line, for the same repository, to where it first went. */
+export const SendAgainButton = ({ line, repo, target, primary }: { line: string; repo: string; target: Target; primary: boolean }) =>
+  <CallButton label="Send again" primary={primary} call={() => sendToRunner(line, repo, target)} />;
+
+/** Resume (PRD 2375): the line of a job that stopped mid-way, sent again exactly as Send again does, by the person who presses it. */
+export const ResumeButton = ({ line, repo, target, primary }: { line: string; repo: string; target: Target; primary: boolean }) =>
+  <CallButton label="Resume" primary={primary} call={() => sendToRunner(line, repo, target)} />;
+
+/** Fix with answers (PRD 2270): `/omni:yolo-fix <n>` as the continuation of this job, to where it went. */
+export const FixWithAnswersButton = ({ job, primary }: { job: string; primary: boolean }) =>
+  <CallButton label="Fix with answers" primary={primary} call={() => postFixWithAnswers(job)} />;
 
 /** Reads the rows again every 5 s while the tab is visible. Draws nothing. */
 export function Refresh() {

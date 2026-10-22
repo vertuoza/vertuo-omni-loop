@@ -1,6 +1,6 @@
 // The recruit group on the canvas: the fleet select, the name entry and the hero builder, each on the
 // wide grid and on the tall one (the Game Boy held upright), where the same parts stack.
-import { defined } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { rampFrom, spriteSize } from '@omni/design';
 import { crewLook, fleet, SOLO } from '../fleets';
 import {

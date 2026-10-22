@@ -6,7 +6,7 @@ import { jobHref, queuedWords, sendable, sendOptions } from './targets';
 // lists them — Any runner, then each fleet with a runner, then each runner by name with its state —
 // each only when the viewer may send there, and only runners that hold the line's repository.
 
-const REPO = 'vertuoza/app';
+const REPO = 'demo-org/app';
 let n = 0;
 const runner = (name: string, more: Partial<Runner> = {}): Runner => {
   n += 1;
@@ -22,8 +22,8 @@ const labels = (b: Pick<Board, 'runners' | 'viewer'>, repo = REPO) =>
 
 describe('Send to terminal\'s targets', () => {
   it('lists Any runner, then each fleet with a runner, then each runner by name with its state', () => {
-    const b = board([runner('vertuo-agents', { fleet: 'cyan', state: 'busy', used: 2 }), runner('mac-mini'), runner('lap', { state: 'offline' })]);
-    expect(labels(b)).toEqual(['any Any runner', 'fleet cyan (1 online)', 'runner lap (Offline)', 'runner mac-mini (Online)', 'runner vertuo-agents (Busy)']);
+    const b = board([runner('nimbus-agents', { fleet: 'cyan', state: 'busy', used: 2 }), runner('mac-mini'), runner('lap', { state: 'offline' })]);
+    expect(labels(b)).toEqual(['any Any runner', 'fleet cyan (1 online)', 'runner lap (Offline)', 'runner mac-mini (Online)', 'runner nimbus-agents (Busy)']);
   });
 
   it('gives each option the target the route takes', () => {
@@ -52,9 +52,9 @@ describe('Send to terminal\'s targets', () => {
   });
 
   it('lists only runners that hold the line\'s repository, whatever its case', () => {
-    const b = board([runner('other', { repos: ['vertuoza/site'] }), runner('mac-mini', { repos: ['Vertuoza/App'] })]);
+    const b = board([runner('other', { repos: ['demo-org/site'] }), runner('mac-mini', { repos: ['Demo-Org/App'] })]);
     expect(labels(b)).toEqual(['any Any runner', 'runner mac-mini (Online)']);
-    expect(labels(b, 'vertuoza/nothing')).toEqual([]);
+    expect(labels(b, 'demo-org/nothing')).toEqual([]);
   });
 
   it('lists nothing with no runner', () => {
@@ -68,6 +68,15 @@ describe('Send to terminal\'s targets', () => {
     expect(sendable('/omni:brainstorm --rework 1717')).toBe(false);
     expect(sendable('/omni:drive')).toBe(false);
     expect(sendable('/omni:yolo 1; rm -rf /')).toBe(false);
+  });
+
+  it('sends a repository\'s own skill only when the repository allows it, and never a fixed skill\'s name', () => {
+    expect(sendable('/validate-prd 347')).toBe(false);
+    expect(sendable('/validate-prd 347', ['validate-prd'])).toBe(true);
+    expect(sendable('/validate-prd 347', ['audit'])).toBe(false);
+    expect(sendable('/validate-prd 347; rm -rf /', ['validate-prd'])).toBe(false);
+    expect(sendable('/yolo 1717', ['yolo'])).toBe(false);
+    expect(sendable('/omni:yolo 1717', ['validate-prd'])).toBe(true);
   });
 
   it('words the queued line and links the job on the Runners page', () => {

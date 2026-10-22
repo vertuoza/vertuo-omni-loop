@@ -5,7 +5,7 @@
 // where it is used, and the page's stage is unknown.
 import { GithubDeferred, GithubPaused } from '@omni/github';
 import type { CareState } from './care';
-import type { IssueNumber, PrdNumber, PrNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber, PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** A part of the summary whose read failed. Never guessed: the stage reads it as unknown. */
 export const UNREAD = 'unread' as const;
@@ -70,6 +70,9 @@ export type AnswerDoor = 'page' | 'terminal' | 'github';
  * the kit counts (owner, member, collaborator): `/omni:yolo-fix` will not read it. */
 export type PendingAnswer = {
   number: number; id: string; text: string; by: string; at: string | null; url: string | null; counted: boolean; door: AnswerDoor;
+  /** True when the kit's reply reader holds it for a round (an undetermined answer) instead of settling
+   * it: `/omni:yolo-fix` settles nothing from it. Left out by a summary made before it. */
+  held?: boolean;
 };
 
 /** What the feature PR's comments say of the outbox (PRD 251, s9): the outbox comment's numbering,

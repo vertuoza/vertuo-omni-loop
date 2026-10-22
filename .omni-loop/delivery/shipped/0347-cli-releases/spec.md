@@ -62,7 +62,7 @@ v0.0.9 → v0.0.15
   forms    1 created (.omni-loop/knowledge/playbook/security.md)
   labels   ok
   plugin   updated to v0.0.15, run /reload-plugins
-PR: https://github.com/vertuoza/vertuo-workflow-domain/pull/88
+PR: https://github.com/demo-org/nimbus-workflow-domain/pull/88
 ```
 
 ## Decisions

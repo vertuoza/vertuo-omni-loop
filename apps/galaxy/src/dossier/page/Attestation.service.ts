@@ -1,4 +1,4 @@
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { stamp } from './dates';
 import { attestationRepository, type ApprovalInForce, type AttestationDb, type AttestationRepository, type AttestationVersion, type AttestationVoid } from './Attestation.repository';
 

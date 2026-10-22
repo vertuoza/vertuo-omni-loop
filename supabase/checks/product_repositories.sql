@@ -8,10 +8,14 @@
 -- a member, the owner of another workspace and anyone signed out are refused (42501), and nobody writes
 -- the table directly. Every member reads the workspace's links; a stranger reads none. A new repository
 -- is in no product. (Landing 3 dropped repositories.product_id and repository_set_product():
--- supabase/checks/repositories.sql proves them gone.) One transaction, rolled back at the end.
+-- supabase/checks/repositories.sql proves them gone.) Each link is at step 1 of the rollout ladder until an
+-- owner moves it, up or down, between 1 and 5 (PRD 2011). One transaction, rolled back at the end.
 -- Any `FAIL:` stops the run.
 
 begin;
+
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
 
 -- ── After the migration: the default trigger is gone ──
 do $$
@@ -22,7 +26,7 @@ begin
 end $$;
 
 -- ── The cast ──
--- Olga owns Vertuoza and Mo is a member of it; Carl owns Acme; Sam belongs to no workspace.
+-- Olga owns Initech and Mo is a member of it; Carl owns Acme; Sam belongs to no workspace.
 insert into auth.users (id, email, email_confirmed_at) values
   ('00000000-0000-4000-8000-0000001364a1', 'olga@prodrepo.test', now()),
   ('00000000-0000-4000-8000-0000001364b1', 'mo@prodrepo.test', now()),
@@ -32,8 +36,8 @@ insert into public.workspaces (slug, name, github_org) values ('acme-prodrepo', 
 insert into public.workspace_members (workspace_id, user_id, role)
 select w.id, m.user_id, m.role
   from (values
-         ('vertuoza',      '00000000-0000-4000-8000-0000001364a1'::uuid, 'owner'),
-         ('vertuoza',      '00000000-0000-4000-8000-0000001364b1'::uuid, 'member'),
+         ('initech',      '00000000-0000-4000-8000-0000001364a1'::uuid, 'owner'),
+         ('initech',      '00000000-0000-4000-8000-0000001364b1'::uuid, 'member'),
          ('acme-prodrepo', '00000000-0000-4000-8000-0000001364c1'::uuid, 'owner')
        ) as m (slug, user_id, role)
   join public.workspaces w on w.slug = m.slug;
@@ -42,7 +46,7 @@ create function pg_temp.sign_in(uid text) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
 $$;
 create temporary table ids (slug text primary key, id uuid);
-insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('vertuoza', 'acme-prodrepo');
+insert into ids select w.slug, w.id from public.workspaces w where w.slug in ('initech', 'acme-prodrepo');
 grant select on ids to anon, authenticated, service_role;
 create function pg_temp.ws(slug text) returns uuid language sql as $$
   select i.id from ids i where i.slug = ws.slug;
@@ -74,13 +78,13 @@ do $$
 declare
   b public.businesses;
 begin
-  b := public.business_open(pg_temp.ws('vertuoza'));
+  b := public.business_open(pg_temp.ws('initech'));
   insert into made values ('first', (select p.id from public.products p where p.business_id = b.id order by p.ordinal limit 1));
-  insert into made values ('mobile', (public.product_add(pg_temp.ws('vertuoza'), 'Mobile')).id);
-  insert into made values ('estimates', (public.product_add(pg_temp.ws('vertuoza'), 'Estimates')).id);
+  insert into made values ('mobile', (public.product_add(pg_temp.ws('initech'), 'Mobile')).id);
+  insert into made values ('estimates', (public.product_add(pg_temp.ws('initech'), 'Estimates')).id);
   -- business_open points each repository at the first product: each one is a link to it.
   if (select count(*) from public.product_repositories l where l.product_id = pg_temp.made('first') and l.added_by = 'person')
-     <> (select count(*) from public.repositories r where r.workspace_id = pg_temp.ws('vertuoza')) then
+     <> (select count(*) from public.repositories r where r.workspace_id = pg_temp.ws('initech')) then
     raise exception 'FAIL: the repositories business_open points at the first product are not linked to it';
   end if;
 end $$;
@@ -94,15 +98,16 @@ create temporary table calls (stmt text);
 insert into calls
 select format(c, pg_temp.made('mobile'))
   from unnest(array[
-    'select public.product_repository_link(%L, ''vertuoza/vertuo-apps'', ''web'')',
-    'select public.product_repository_unlink(%L, ''vertuoza/pdf-builder'')'
+    'select public.product_repository_link(%L, ''initech/nimbus-apps'', ''web'')',
+    'select public.product_repository_unlink(%L, ''initech/pdf-builder'')',
+    'select public.product_repository_set_step(%L, ''initech/pdf-builder'', 5)'
   ]) c;
 grant select on calls to anon, authenticated;
 create temporary table writes (stmt text);
 insert into writes
-select format(c, pg_temp.made('mobile'), pg_temp.ws('vertuoza'))
+select format(c, pg_temp.made('mobile'), pg_temp.ws('initech'))
   from unnest(array[
-    'insert into public.product_repositories (product_id, workspace_id, repository) values (%L, %L, ''vertuoza/vertuo-apps'')',
+    'insert into public.product_repositories (product_id, workspace_id, repository) values (%L, %L, ''initech/nimbus-apps'')',
     'update public.product_repositories set role = ''x'' where product_id = %L or workspace_id = %L',
     'delete from public.product_repositories where product_id = %L or workspace_id = %L'
   ]) c;
@@ -119,7 +124,7 @@ begin
 end $$;
 reset role;
 
--- ── A member of Vertuoza: reads the links, writes none ──
+-- ── A member of Initech: reads the links, writes none ──
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000001364b1');
 do $$
@@ -139,7 +144,7 @@ declare c text;
 begin
   for c in select stmt from calls loop perform pg_temp.refused(c, '42501', 'the owner of another workspace'); end loop;
   if exists (select 1 from public.product_repositories) then
-    raise exception 'FAIL: the owner of another workspace reads Vertuoza''s links';
+    raise exception 'FAIL: the owner of another workspace reads Initech''s links';
   end if;
 end $$;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000001364d1');
@@ -176,77 +181,79 @@ declare
 begin
   for c in select stmt from writes loop perform pg_temp.refused(c, '42501', 'the owner, directly'); end loop;
 
-  l := public.product_repository_link(pg_temp.made('mobile'), 'vertuoza/vertuo-apps', 'mobile');
+  l := public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-apps', 'mobile');
   if l.role <> 'mobile' or l.knowledge <> 'own' or l.read_at is not null or l.read_only or l.consumes <> '{}'
-     or l.added_by <> 'person' or l.workspace_id <> pg_temp.ws('vertuoza') then
+     or l.added_by <> 'person' or l.workspace_id <> pg_temp.ws('initech') then
     raise exception 'FAIL: a link takes its defaults: %', l;
   end if;
-  l := public.product_repository_link(pg_temp.made('mobile'), '  Vertuoza/Vertuo-Backend-PHP ', 'api', 'imported', sha, false,
-                                      array['vertuoza/vertuo-apps']);
-  if l.repository <> 'vertuoza/vertuo-backend-php' then
+  l := public.product_repository_link(pg_temp.made('mobile'), '  Initech/Nimbus-Backend-PHP ', 'api', 'imported', sha, false,
+                                      array['initech/nimbus-apps']);
+  if l.repository <> 'initech/nimbus-backend-php' then
     raise exception 'FAIL: a link''s repository is not owner/name in lower case: %', l.repository;
   end if;
-  l := public.product_repository_link(pg_temp.made('estimates'), 'vertuoza/vertuo-backend-php', 'backend', 'none', null, true);
+  l := public.product_repository_link(pg_temp.made('estimates'), 'initech/nimbus-backend-php', 'library', 'none', null, true);
 
   if (select string_agg(p.name || ':' || x.role || ':' || x.knowledge || ':' || coalesce(x.read_at, '-') || ':' || x.read_only
                         || ':' || array_to_string(x.consumes, ','), ' ' order by p.name)
         from public.product_repositories x join public.products p on p.id = x.product_id
-       where x.repository = 'vertuoza/vertuo-backend-php' and p.id in (pg_temp.made('mobile'), pg_temp.made('estimates')))
-     is distinct from 'Estimates:backend:none:-:true: Mobile:api:imported:' || sha || ':false:vertuoza/vertuo-apps' then
-    raise exception 'FAIL: vertuoza/vertuo-backend-php is not in Mobile and Estimates, each link its own';
+       where x.repository = 'initech/nimbus-backend-php' and p.id in (pg_temp.made('mobile'), pg_temp.made('estimates')))
+     is distinct from 'Estimates:library:none:-:true: Mobile:api:imported:' || sha || ':false:initech/nimbus-apps' then
+    raise exception 'FAIL: initech/nimbus-backend-php is not in Mobile and Estimates, each link its own';
   end if;
 
   -- Editing a link keeps who added it.
-  l := public.product_repository_link(pg_temp.made('mobile'), 'vertuoza/vertuo-apps', 'web');
+  l := public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-apps', 'web');
   if l.role <> 'web' or l.added_by <> 'person'
-     or (select count(*) from public.product_repositories x where x.product_id = pg_temp.made('mobile') and x.repository = 'vertuoza/vertuo-apps') <> 1 then
+     or (select count(*) from public.product_repositories x where x.product_id = pg_temp.made('mobile') and x.repository = 'initech/nimbus-apps') <> 1 then
     raise exception 'FAIL: linking a linked repository again did not edit its link: %', l;
   end if;
 
   -- The refusals, each naming its field.
-  perform pg_temp.refused(format('select public.product_repository_link(%L, ''vertuoza/vertuo-apps'', ''web'', ''own'', null, false, array[''vertuoza/vertuo-apps''])', pg_temp.made('mobile')),
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''web'', ''own'', null, false, array[''initech/nimbus-apps''])', pg_temp.made('mobile')),
                           '22023', 'a self-consume');
-  perform pg_temp.refused(format('select public.product_repository_link(%L, ''vertuoza/vertuo-apps'', ''web'', ''own'', null, false, array[''vertuoza/pdf-builder-x''])', pg_temp.made('mobile')),
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''web'', ''own'', null, false, array[''initech/pdf-builder-x''])', pg_temp.made('mobile')),
                           '22023', 'a consumes outside the product');
   -- pdf-builder is in the first product only, not Mobile.
-  perform pg_temp.refused(format('select public.product_repository_link(%L, ''vertuoza/vertuo-apps'', ''web'', ''own'', null, false, array[''vertuoza/pdf-builder''])', pg_temp.made('mobile')),
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''web'', ''own'', null, false, array[''initech/pdf-builder''])', pg_temp.made('mobile')),
                           '22023', 'a consumes naming a repository of another product');
-  perform pg_temp.refused(format('select public.product_repository_link(%L, ''vertuoza/vertuo-apps'', ''web'', ''imported'')', pg_temp.made('mobile')),
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''web'', ''imported'')', pg_temp.made('mobile')),
                           '22023', 'an imported link with no read-at');
-  perform pg_temp.refused(format('select public.product_repository_link(%L, ''vertuoza/vertuo-apps'', ''web'', ''own'', %L)', pg_temp.made('mobile'), sha),
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''web'', ''own'', %L)', pg_temp.made('mobile'), sha),
                           '22023', 'a read-at on a link that is not imported');
-  perform pg_temp.refused(format('select public.product_repository_link(%L, ''vertuoza/vertuo-apps'', ''web'', ''imported'', ''abc'')', pg_temp.made('mobile')),
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''web'', ''imported'', ''abc'')', pg_temp.made('mobile')),
                           '22023', 'a read-at that is not a commit');
-  perform pg_temp.refused(format('select public.product_repository_link(%L, ''vertuoza/vertuo-apps'', ''Web App'')', pg_temp.made('mobile')),
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''Web App'')', pg_temp.made('mobile')),
                           '22023', 'a role that is not one kebab-case word');
-  perform pg_temp.refused(format('select public.product_repository_link(%L, ''vertuoza/vertuo-apps'', ''web'', ''some'')', pg_temp.made('mobile')),
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''back-end'')', pg_temp.made('mobile')),
+                          '22023', 'a new role that is not one of the nine (PRD 2346)');
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''web'', ''some'')', pg_temp.made('mobile')),
                           '22023', 'a knowledge that is not own, imported or none');
-  perform pg_temp.refused(format('select public.product_repository_link(%L, ''vertuoza/missing'', ''web'')', pg_temp.made('mobile')),
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/missing'', ''web'')', pg_temp.made('mobile')),
                           'P0002', 'a repository the workspace does not list');
-  perform pg_temp.refused('select public.product_repository_link(''00000000-0000-4000-8000-000000000000'', ''vertuoza/vertuo-apps'', ''web'')',
+  perform pg_temp.refused('select public.product_repository_link(''00000000-0000-4000-8000-000000000000'', ''initech/nimbus-apps'', ''web'')',
                           'P0002', 'a product that does not exist');
   begin
-    perform public.product_repository_link(pg_temp.made('mobile'), 'vertuoza/vertuo-apps', 'web', 'own', null, false, array['vertuoza/vertuo-apps']);
+    perform public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-apps', 'web', 'own', null, false, array['initech/nimbus-apps']);
   exception when invalid_parameter_value then
     if sqlerrm not like 'Consumes:%' then raise exception 'FAIL: a self-consume''s refusal does not name its field: %', sqlerrm; end if;
   end;
   begin
-    perform public.product_repository_link(pg_temp.made('mobile'), 'vertuoza/vertuo-apps', 'web', 'imported');
+    perform public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-apps', 'web', 'imported');
   exception when invalid_parameter_value then
     if sqlerrm not like 'Read at:%' then raise exception 'FAIL: a missing read-at''s refusal does not name its field: %', sqlerrm; end if;
   end;
 
   -- Unlinking: refused while another link of the product consumes it, then true, then false.
-  perform pg_temp.refused(format('select public.product_repository_unlink(%L, ''vertuoza/vertuo-apps'')', pg_temp.made('mobile')),
+  perform pg_temp.refused(format('select public.product_repository_unlink(%L, ''initech/nimbus-apps'')', pg_temp.made('mobile')),
                           '22023', 'unlinking a repository another link consumes');
-  perform public.product_repository_link(pg_temp.made('mobile'), 'vertuoza/vertuo-backend-php', 'api', 'imported', sha);
-  if not public.product_repository_unlink(pg_temp.made('mobile'), 'vertuoza/vertuo-apps') then
+  perform public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-backend-php', 'api', 'imported', sha);
+  if not public.product_repository_unlink(pg_temp.made('mobile'), 'initech/nimbus-apps') then
     raise exception 'FAIL: unlinking a linked repository answered false';
   end if;
-  if public.product_repository_unlink(pg_temp.made('mobile'), 'vertuoza/vertuo-apps') then
+  if public.product_repository_unlink(pg_temp.made('mobile'), 'initech/nimbus-apps') then
     raise exception 'FAIL: unlinking an unlinked repository answered true';
   end if;
-  if exists (select 1 from public.product_repositories x where x.product_id = pg_temp.made('mobile') and x.repository = 'vertuoza/vertuo-apps') then
+  if exists (select 1 from public.product_repositories x where x.product_id = pg_temp.made('mobile') and x.repository = 'initech/nimbus-apps') then
     raise exception 'FAIL: unlinking kept the link';
   end if;
 
@@ -255,14 +262,71 @@ begin
                           'P0002', 'a repository of another workspace');
 end $$;
 
+-- ── The rollout ladder (PRD 2011 s1): each link at a step from 1 to 5, moved by an owner ──
+do $$
+declare
+  l public.product_repositories;
+begin
+  if exists (select 1 from public.product_repositories x where x.ladder_step <> 1) then
+    raise exception 'FAIL: a link is not at step 1 until an owner moves it';
+  end if;
+  l := public.product_repository_set_step(pg_temp.made('mobile'), ' Initech/Nimbus-Backend-PHP ', 5);
+  if l.ladder_step <> 5 or l.repository <> 'initech/nimbus-backend-php' or l.role <> 'api' then
+    raise exception 'FAIL: moving a link to step 5 did not keep its other fields: %', l;
+  end if;
+  -- The step is the link's own: the same repository in Estimates stays at 1.
+  if (select ladder_step from public.product_repositories x
+       where x.product_id = pg_temp.made('estimates') and x.repository = 'initech/nimbus-backend-php') <> 1 then
+    raise exception 'FAIL: moving a repository in Mobile moved it in Estimates';
+  end if;
+  -- Editing the link keeps its step; a step down is a step too.
+  l := public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-backend-php', 'api', 'imported',
+                                      '0123456789abcdef0123456789abcdef01234567');
+  if l.ladder_step <> 5 then
+    raise exception 'FAIL: editing a link reset its step: %', l;
+  end if;
+  if (public.product_repository_set_step(pg_temp.made('mobile'), 'initech/nimbus-backend-php', 3)).ladder_step <> 3 then
+    raise exception 'FAIL: an owner could not step a repository back down';
+  end if;
+  perform pg_temp.refused(format('select public.product_repository_set_step(%L, ''initech/nimbus-backend-php'', 6)', pg_temp.made('mobile')),
+                          '22023', 'a step above 5');
+  perform pg_temp.refused(format('select public.product_repository_set_step(%L, ''initech/nimbus-backend-php'', 0)', pg_temp.made('mobile')),
+                          '22023', 'a step below 1');
+  perform pg_temp.refused(format('select public.product_repository_set_step(%L, ''initech/nimbus-backend-php'', null)', pg_temp.made('mobile')),
+                          '22023', 'no step');
+  perform pg_temp.refused(format('select public.product_repository_set_step(%L, ''initech/nimbus-apps'', 2)', pg_temp.made('mobile')),
+                          'P0002', 'a repository the product does not link');
+  perform pg_temp.refused(format('update public.product_repositories set ladder_step = 5 where product_id = %L', pg_temp.made('mobile')),
+                          '42501', 'the owner, moving a step directly');
+end $$;
+
 -- ── A new repository is in no product ──
 do $$
 declare r public.repositories;
 begin
-  r := public.add_repository(pg_temp.ws('vertuoza'), 'vertuoza/brand-new');
-  if exists (select 1 from public.product_repositories l where l.repository = 'vertuoza/brand-new') then
+  r := public.add_repository(pg_temp.ws('initech'), 'initech/brand-new');
+  if exists (select 1 from public.product_repositories l where l.repository = 'initech/brand-new') then
     raise exception 'FAIL: a new repository is in a product: %', r;
   end if;
+end $$;
+reset role;
+
+-- ── Canonical roles (PRD 2346): null stays accepted, a row's own old role stays editable ──
+update public.product_repositories set role = 'legacy-role'
+ where product_id = pg_temp.made('mobile') and repository = 'initech/nimbus-backend-php';
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000001364a1');
+do $$
+declare l public.product_repositories;
+begin
+  l := public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-apps', null);
+  if l.role is not null then raise exception 'FAIL: a link with no role was given one: %', l; end if;
+  l := public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-backend-php', 'legacy-role', 'own');
+  if l.role <> 'legacy-role' then raise exception 'FAIL: a link kept its own old role refused: %', l; end if;
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-backend-php'', ''other-legacy'')', pg_temp.made('mobile')),
+                          '22023', 'a different old role');
+  l := public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-backend-php', 'monorepo', 'own');
+  if l.role <> 'monorepo' then raise exception 'FAIL: a flagged link could not be given a canonical role: %', l; end if;
 end $$;
 reset role;
 

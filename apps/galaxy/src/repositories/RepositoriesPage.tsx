@@ -8,8 +8,8 @@ import { databaseRepositories, demoRepositoriesPort, type RepositoriesPort, type
 
 // Settings → Repositories in the browser (PRD 612 s1): keeps the page's state (model.ts) and calls the
 // repository functions as the signed-in person (store.ts), one call at a time; the view draws each
-// step. PRD 1246 s4 adds the ideas board's switch, PRD 1299 s1 the phase 0 switch. In the demo, the same
-// rules run in memory.
+// step. PRD 1246 s4 adds the ideas board's switch, PRD 1299 s1 the phase 0 switch, PRD 2188 s1 Remove,
+// whose answer takes the card off the list, PRD 2313 s3 the Runner skills block (its live read and its switches). In the demo, the same rules run in memory.
 
 export type RepositoriesSource =
   | { kind: 'demo' }
@@ -30,11 +30,11 @@ export function RepositoriesPage({ source, owner, repositories, access, now }: R
     ? demoRepositoriesPort(repositories)
     : databaseRepositories(createBrowserClient<Database>(source.url, source.key), source.workspace));
 
-  const run = async (call: (p: RepositoriesPort) => Promise<Saved>) => {
+  const run = async (call: (p: RepositoriesPort) => Promise<Saved>, done: 'saved' | 'removed' = 'saved') => {
     if (state.busy) return;
     dispatch({ type: 'busy' });
     const saved = await call(getPort());
-    dispatch(saved.ok ? { type: 'saved', repository: saved.repository } : { type: 'refused', message: saved.message });
+    dispatch(saved.ok ? { type: done, repository: saved.repository } : { type: 'refused', message: saved.message });
   };
 
   const on: RepositoriesHandlers = {
@@ -44,6 +44,20 @@ export function RepositoriesPage({ source, owner, repositories, access, now }: R
     setTracked: (fullName, tracked) => void run((p) => p.setTracked(fullName, tracked)),
     setPublicIdeas: (fullName, on) => void run((p) => p.setPublicIdeas(fullName, on)),
     setPhase0: (fullName, phase0) => void run((p) => p.setPhase0(fullName, phase0)),
+    setFixWhenAnswered: (fullName, on) => void run((p) => p.setFixWhenAnswered(fullName, on)),
+    remove: (fullName) => void run((p) => p.remove(fullName), 'removed'),
+    toggleSkills: (fullName, open) => {
+      if (!open) { dispatch({ type: 'skills-close', repository: fullName }); return; }
+      dispatch({ type: 'skills-open', repository: fullName });
+      void getPort().skills(fullName).then((read) => { dispatch({ type: 'skills-read', repository: fullName, read }); });
+    },
+    setSkill: (fullName, skill, allowed) => {
+      if (state.busy) return;
+      dispatch({ type: 'busy' });
+      void getPort().setSkill(fullName, skill, allowed).then((saved) => {
+        dispatch(saved.ok ? { type: 'skills-read', repository: fullName, read: saved.read } : { type: 'refused', message: saved.message });
+      });
+    },
   };
 
   return <RepositoriesView state={state} owner={owner} access={access} now={now} on={on} />;

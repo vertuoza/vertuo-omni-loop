@@ -10,8 +10,9 @@
 import type { FixApproval, FixIssue, FixPull, FixRelease, FixSummary } from '../dossier/github/fix';
 import { UNREAD, type Read } from '../dossier/github/summary';
 import { stamp } from '../dossier/page/view';
+import type { BugRowsView } from './bug-rows';
 import type { FixKind } from './list';
-import { group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
 
 /** The pick, as `/omni:visual-fix` writes it in before-after.html: `<p data-omni-pick>Picked C by @login on 2026-09-29</p>`. */
 export type Pick = { letter: string; login: string; date: string };
@@ -116,6 +117,8 @@ export type FixPageView = {
   /** The issue and the fix PR, when GitHub gave them: `Issue #548`, `PR #562`, each open or ✓. */
   links: { label: string; href: string; done: boolean }[];
   timeline: Moment[];
+  /** A product bug's Fixes rows (PRD 2011, s8): the Timeline tab draws them in place of the moments. */
+  bugRows?: BugRowsView | undefined;
 };
 
 export function fixPageView(kind: FixKind, fix: FixSummary | null, pick: PickRead): FixPageView {

@@ -1,6 +1,6 @@
 # `kit/templates/playbook/conventions.md`
 
-Sources, all @ `vertuo-ai-domain@db67fd9da`: `docs/agents/briefing.md` (formatting),
+Sources, all @ `nimbus-brain@db67fd9da`: `docs/agents/briefing.md` (formatting),
 `docs/agents/definition-of-done.md` › Commit Shape (commits), and
 `docs/adr/0058-identifiers-are-english-interface-copy-is-french.md` (naming). The kit default of
 the conventions form: slots `naming`, `formatting`, `commits`, in the spec's order, all optional.
@@ -17,7 +17,7 @@ Nothing: formatter, languages and scopes are the repository's own.
 - **From ADR 0058, the languages:** "Identifiers are English, interface copy is French", French as
   the canonical interface language, ADR 0037, ADR 0040, ADR 0055, ADR 0057, register 3 (model-facing
   text, the `<dossier>` element), and the whole Dossier → Folder rename: `dossierId`, `dossiers`,
-  `FolderSummary`, `folderId`, `/folders`, `folders.*` keys, `@vertuo-ai/vertuo-domain-folder`,
+  `FolderSummary`, `folderId`, `/folders`, `folders.*` keys, `@nimbus-ai/nimbus-domain-folder`,
   `system-api-contract`, `folder-briefing.composer.ts`, `composeFolderBlock`, the 97 catalog keys,
   `pnpm i18n:catalogs`, `Devis`, `Ouvrage`, `Chantier`, `check:leftovers`, the changesets, the
   migration keys, `P-PRODUCT-11`, `docs/glossary.md` and

@@ -11,7 +11,7 @@
 // already settled, 422 an answer of their own that says neither yes nor what to change, 503 no database
 // here, 500 the database failed.
 import { z } from 'zod';
-import { OutboxItemIdSchema, ProductPrdIdSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { OutboxItemIdSchema, ProductPrdIdSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** Where the tab sends an answer. */
 export const ANSWER_ROUTE = '/api/outbox/answer';

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import '@omni/design/fonts.css';
 import '../../src/ask/ask.css';
+import '../../src/dossier/page/dossier.css';
 import { TOKENS } from '../../src/ask/theme-tokens';
 import { AppShell } from '../../src/nav/AppShell';
 import { viewerLive } from '../../src/nav/viewer';

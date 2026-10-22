@@ -4,7 +4,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { orThrow, parseRows } from '../data/parse-rows';
-import { PrNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** The columns of a pull request the profile reads. */
 export const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed';

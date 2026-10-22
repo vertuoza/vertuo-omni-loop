@@ -48,6 +48,18 @@ function attempt<T>(fn: () => T): T | null {
 
 const count = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.trunc(value) : 0);
 
+/** The token counts of these `message.usage` objects added up: the one sum ask rounds and runners (PRD 2102) share. */
+export function usageSum(usages: Iterable<object>): TokenCounts {
+  const tokens: TokenCounts = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  for (const u of usages) {
+    tokens.input += count(field(u, 'input_tokens'));
+    tokens.output += count(field(u, 'output_tokens'));
+    tokens.cacheRead += count(field(u, 'cache_read_input_tokens'));
+    tokens.cacheWrite += count(field(u, 'cache_creation_input_tokens'));
+  }
+  return tokens;
+}
+
 /** The text of a user entry's content: a string, or the text blocks of a list. */
 function textOf(content: unknown): string {
   if (typeof content === 'string') return content;
@@ -88,15 +100,7 @@ export function readTranscript(text: unknown): TranscriptFacts {
       }
     }
   }
-  if (usage.size === 0) return { skill, model, tokens: null };
-  const tokens: TokenCounts = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  for (const u of usage.values()) {
-    tokens.input += count(field(u, 'input_tokens'));
-    tokens.output += count(field(u, 'output_tokens'));
-    tokens.cacheRead += count(field(u, 'cache_read_input_tokens'));
-    tokens.cacheWrite += count(field(u, 'cache_creation_input_tokens'));
-  }
-  return { skill, model, tokens };
+  return { skill, model, tokens: usage.size === 0 ? null : usageSum(usage.values()) };
 }
 
 /** A branch template (`feat/{topic}--{slice}`) as an anchored pattern whose first group is the topic. */

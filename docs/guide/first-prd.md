@@ -57,6 +57,11 @@ What you see:
   plain words. For a bigger idea it proposes two or three approaches and recommends one.
 - **The design, for your approval.** Nothing is written until you say yes. For an architectural
   idea it shows the design section by section, then asks you to review the written spec too.
+- **Names that follow your conventions.** Before it names a table, a column or a field, the agent
+  reads the pages where your repository writes its conventions (`omni conventions` lists them:
+  `CLAUDE.md`, `AGENTS.md`, the readme of your `docs` folder and the pages they link to). The spec
+  lists every name it chose in a `## Conventions` table, each with the page it comes from
+  ([which pages are read](/docs/several-repositories#names-follow-each-repositorys-conventions)).
 
 A spike ends here, with an answer and no pull request. Anything else carries on by itself, and
 the agent opens, in your repository:
@@ -81,7 +86,10 @@ that it is answered: it writes the plan and opens the phase-0 pull request.
 ## 2. Review and merge the phase-0 pull request
 
 Open the phase-0 pull request from the link under **What is next?**. It holds only documents, no
-code: this is the cheapest moment to change your mind.
+code: this is the cheapest moment to change your mind. Its body opens with the PRD's page on the
+Omni app when the repository has one (a link of the shape `<ask.url>/prd/<dossier id>`), where the
+spec, the plan and the before/after sit side by side, every version kept; a repository with no page
+opens with the `Refs #<n>` line alone.
 
 - Read `spec.md`: is this what you asked for?
 - Look at `before-after.html`: is the after the one you want? GitHub shows its source, so open it

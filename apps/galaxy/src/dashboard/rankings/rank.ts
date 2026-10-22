@@ -1,7 +1,7 @@
 import type { Fleet, GalaxyView, Hero } from '@omni/galaxy';
 import type { Player } from '../../arcade/types';
 import type { FleetTag } from '../../people/types';
-import { at } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { at } from 'omni-loop/kit/lib/narrow.ts';
 
 // The rankings' pure functions (PRD 328): both tables, this season, as the galaxy ranks them
 // (buildGalaxy: by points, then by name). Every fleet the season knows, yours marked; and the

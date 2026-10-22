@@ -14,7 +14,7 @@ import { RoundForm } from './RoundForm';
 import { rowOf, startPage } from './tabs';
 import { contextParts, type HistoryEntry } from './view';
 import { item } from '../test/test-item';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 type Asked = ReturnType<typeof readQuestions>[number];
 
@@ -340,10 +340,10 @@ describe("the person's page, rendered", () => {
 describe('a long question, rendered (PRD 752)', () => {
   const ERP =
     "The two customer-facing screens are painted by the ERP out of the package this work publishes, and that package now expects the ERP to install AG Grid itself and point Tailwind at the package's dist. " +
-    'Nobody in this repository can make that change — it belongs to vertuo-apps. ' +
+    'Nobody in this repository can make that change — it belongs to nimbus-apps. ' +
     'Until it lands, those two screens render unstyled and nothing errors to say so. ' +
-    'Steps: (1) open a change in vertuo-apps declaring ag-grid-community and ag-grid-react at the version the guide names; ' +
-    "(2) in the same change add the @source line pointing Tailwind at this package's dist, plus the two stylesheet imports — `libs/vertuo-workflow-ui/README.md` gives all three word for word; " +
+    'Steps: (1) open a change in nimbus-apps declaring ag-grid-community and ag-grid-react at the version the guide names; ' +
+    "(2) in the same change add the @source line pointing Tailwind at this package's dist, plus the two stylesheet imports — `libs/nimbus-workflow-ui/README.md` gives all three word for word; " +
     "(3) merge it before or with the ERP's next update of this package, and tell whoever cuts the release here. " +
     'Has that been done?';
   const words = ERP.split(/\s+/).length;
@@ -353,7 +353,7 @@ describe('a long question, rendered (PRD 752)', () => {
       header: 'ERP change',
       multiSelect: false,
       options: [
-        { label: "Yes, it's merged", description: 'The change is in `vertuo-apps` <b>x</b>.' },
+        { label: "Yes, it's merged", description: 'The change is in `nimbus-apps` <b>x</b>.' },
         { label: 'Not yet', description: 'Nobody made it.' },
       ],
     },
@@ -372,13 +372,13 @@ describe('a long question, rendered (PRD 752)', () => {
     expect(html).toContain(`<details class="ask-fold"><summary>Read the full question · 3 steps · ${words} words</summary>`);
     expect(html).not.toMatch(/<details class="ask-fold" open/);
     const fold = html.slice(html.indexOf('<details class="ask-fold">'));
-    expect(fold).toMatch(/<ol>\n<li>open a change in vertuo-apps[^<]*<\/li>\n<li>in the same change[^]*<\/li>\n<li>merge it before[^<]*<\/li>\n<\/ol>/);
+    expect(fold).toMatch(/<ol>\n<li>open a change in nimbus-apps[^<]*<\/li>\n<li>in the same change[^]*<\/li>\n<li>merge it before[^<]*<\/li>\n<\/ol>/);
     expect(fold).toContain('<p>Nobody in this repository can make that change');
   });
 
   it('shows a backticked path as code, and raw HTML in a question or a description as text', () => {
-    expect(html).toContain('<code>libs/vertuo-workflow-ui/README.md</code>');
-    expect(html).toContain('<span class="ask-opt-desc">The change is in <code>vertuo-apps</code> &lt;b&gt;x&lt;/b&gt;.</span>');
+    expect(html).toContain('<code>libs/nimbus-workflow-ui/README.md</code>');
+    expect(html).toContain('<span class="ask-opt-desc">The change is in <code>nimbus-apps</code> &lt;b&gt;x&lt;/b&gt;.</span>');
     const [raw] = readQuestions([{ question: `${'<b>x</b> '.repeat(40)}Fine?`, header: 'Raw', multiSelect: false, options: [{ label: 'Yes' }, { label: 'No' }] }]) as [Asked];
     const shown = renderToStaticMarkup(createElement(RoundForm, {
       roundId: 'r2', questions: [raw], draft: emptyDraft([raw]), onDraft: () => {}, canSend: false, sending: false, onSend: () => {}, minutesLeft: 8,

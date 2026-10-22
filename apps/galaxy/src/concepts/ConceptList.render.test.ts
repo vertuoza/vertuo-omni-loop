@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { parseIssue } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import { nestedLinks } from '../people/nested-links';
 import { ConceptList, ConceptListLoading, ConceptListScreen } from './ConceptList';
 import { conceptCards, type ConceptCard, type ConceptListState } from './list';
@@ -15,19 +15,21 @@ const render = (cards: ConceptCard[]) => renderToStaticMarkup(createElement(Conc
 const C1269 = conceptCards([conceptRow('c-1269', parseIssue(1269), '2026-10-06T09:00:00Z')], new Map([['c-1269', CONCEPT_1269]]));
 
 describe('the Concepts list', () => {
-  it('shows concept #1269: its title, kind and scale, "0 of 6 areas have a PRD" and the date it was recorded, linking to its page', () => {
+  it('shows concept #1269: its title, kind and scale, "0 of 6 have a PRD", "0 of 6 shipped" and the date it was recorded, linking to its page', () => {
     const html = render(C1269);
     expect(text(html)).toBe(
-      'Concepts #1269 Products replace plan repositories, with phase 0 approved on the server platform · vast state unknown 0 of 6 areas have a PRD recorded 6 Oct 2026',
+      'Concepts #1269 Products replace plan repositories, with phase 0 approved on the server platform · vast state unknown 0 of 6 have a PRD 0 of 6 shipped recorded 6 Oct 2026',
     );
     expect(html).toContain('href="/concepts/c-1269"');
     expect(html).toContain('<time class="ask-hint" dateTime="2026-10-06T09:00:00Z">recorded 6 Oct 2026</time>');
     expect(nestedLinks(html)).toBe(0);
   });
 
-  it('says "1 of 1 area has a PRD" for a lite concept whose area has one', () => {
+  it('splits the facts into short pieces, the shipped count among them (PRD 2213)', () => {
     const [card] = C1269;
-    expect(text(render([{ ...(card as ConceptCard), scale: 'lite', areas: { withPrd: 1, total: 1 } }]))).toContain('1 of 1 area has a PRD');
+    const html = render([{ ...(card as ConceptCard), state: 'shipped', areas: { withPrd: 6, shipped: 6, total: 6 } }]);
+    expect(html).toContain('<span class="ask-hint">6 of 6 have a PRD</span><span class="ask-hint">6 of 6 shipped</span>');
+    expect(html).toContain('<span class="fix-state fix-state-shipped">shipped</span>');
   });
 
   it('keeps a card whose concept.md could not be read, saying so', () => {
@@ -37,10 +39,11 @@ describe('the Concepts list', () => {
 
   it('shows each concept\'s state chip: in review, in the inbox, state unknown (PRD 1272, s4)', () => {
     const [card] = C1269;
-    const chips = (['in-review', 'in-inbox', 'unknown'] as const).map((state) => render([{ ...(card as ConceptCard), state }]));
+    const chips = (['in-review', 'in-inbox', 'shipped', 'unknown'] as const).map((state) => render([{ ...(card as ConceptCard), state }]));
     expect(chips[0]).toContain('<span class="fix-state fix-state-in-review">in review</span>');
     expect(chips[1]).toContain('<span class="fix-state fix-state-merged">in the inbox</span>');
-    expect(chips[2]).toContain('<span class="fix-state fix-state-unknown">state unknown</span>');
+    expect(chips[2]).toContain('<span class="fix-state fix-state-shipped">shipped</span>');
+    expect(chips[3]).toContain('<span class="fix-state fix-state-unknown">state unknown</span>');
   });
 
   it('lists the cards in the order given, newest first', () => {
@@ -64,7 +67,7 @@ describe('/concepts in each state', () => {
   const screen = (state: ConceptListState) => text(renderToStaticMarkup(createElement(ConceptListScreen, { state })));
 
   it('lists the cards once read', () => {
-    expect(screen({ kind: 'listed', cards: C1269 })).toContain('0 of 6 areas have a PRD');
+    expect(screen({ kind: 'listed', cards: C1269 })).toContain('0 of 6 have a PRD');
   });
 
   it('says a deployment with no database keeps no concept', () => {

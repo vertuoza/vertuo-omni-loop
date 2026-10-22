@@ -79,13 +79,13 @@ describe('the knowledge page', () => {
   });
 
   it('shows an account in no workspace the crew-only notice, and never reads the knowledge', async () => {
-    Object.assign(given, { user: { id: 'u1', email: 'eve@vertuoza.com' }, member: false });
+    Object.assign(given, { user: { id: 'u1', email: 'eve@example.com' }, member: false });
     expect(await viewOf()).toEqual({ kind: 'crew-only' });
     expect(loadKnowledge).not.toHaveBeenCalled();
   });
 
   it('says the knowledge is out of reach when the workspace cannot be read, turning nobody away', async () => {
-    Object.assign(given, { user: { id: 'u1', email: 'ada@vertuoza.com' }, down: true });
+    Object.assign(given, { user: { id: 'u1', email: 'ada@example.com' }, down: true });
     expect(await viewOf()).toEqual({ kind: 'out-of-reach', menu: null });
     expect(loadKnowledge).not.toHaveBeenCalled();
   });

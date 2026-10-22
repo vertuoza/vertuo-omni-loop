@@ -1,7 +1,7 @@
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { ENTRIES, SKILL_GROUPS } from 'vertuo-omni-plan/kit/lib/help/entries.ts';
+import { ENTRIES, SKILL_GROUPS } from 'omni-loop/kit/lib/help/entries.ts';
 import { fillGeneric, skillNames, skillPage, skillsOverview, type SkillEntry } from './skills';
 import { sure } from '../arcade/test/sure';
 
@@ -25,7 +25,7 @@ describe('the overview', () => {
       'Start a change', 'Build it', 'Set up a repository', 'Several repositories', 'Every day', 'Run by other skills',
     ]);
     expect(groups.find((g) => g.id === 'start')?.skills.map((s) => s.name)).toEqual(['think-big', 'brainstorm', 'roadmap', 'visual-fix', 'bug-fix']);
-    expect(groups.find((g) => g.id === 'build')?.skills.map((s) => s.name)).toEqual(['yolo', 'yolo-fix', 'plan', 'wave', 'do-work', 'pr', 'pr-care', 'drive']);
+    expect(groups.find((g) => g.id === 'build')?.skills.map((s) => s.name)).toEqual(['yolo', 'yolo-fix', 'yolo-runner', 'plan', 'wave', 'do-work', 'pr', 'pr-care', 'drive']);
     expect(groups.find((g) => g.id === 'multi-repo')?.skills.map((s) => s.name)).toContain('mega-drive'); // PRD 1162
     expect(groups.find((g) => g.id === 'multi-repo')?.skills.map((s) => s.name).join(' ')).toContain('mega-brainstorm mega-roadmap'); // PRD 1162 s9
     expect(sure(groups[1], 'groups[1]').skills[0]).toEqual({

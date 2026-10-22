@@ -1,6 +1,6 @@
 # `kit/lib/outbox/outbox.mjs`
 
-Source: `scripts/outbox.mjs` @ `vertuo-ai-domain@c4a210122`.
+Source: `scripts/outbox.mjs` @ `nimbus-brain@c4a210122`.
 
 ## Mapping applied
 
@@ -101,7 +101,7 @@ Source: `scripts/outbox.mjs` @ `vertuo-ai-domain@c4a210122`.
       reads — required for the new signature to see the fixture at all.
   - **Deleted** (Port Protocol rule 6 — a test case that reads the real upstream repository):
     - `it('resolves a real invariant id against the real registers', …)` — called
-      `resolveBearsOn('N2')` with no root, i.e. against `vertuo-ai-domain`'s own real
+      `resolveBearsOn('N2')` with no root, i.e. against `nimbus-brain`'s own real
       `docs/knowledge/` checkout.
     - `it('resolves a real business rule id against the real registers', …)` — same, for
       `BR-QUOTE-1`.

@@ -107,11 +107,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 59 commands and the 33 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(59);
-    expect(skillFolders()).toHaveLength(33);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(59);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(33);
+  it('holds the 63 commands and the 36 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(63);
+    expect(skillFolders()).toHaveLength(36);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(63);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(36);
   });
 
   it('lists /omni:enforce for you under Every day, after /omni:prove, with when and an example (PRD 1342)', () => {
@@ -125,6 +125,14 @@ describe('the help table in this repository', () => {
     for (const words of [/\blaw issue\b/, /pending #<n>/, /\bred\b/, /\bgreen\b/, /\{defaultBranch\}/, /never merges/]) {
       expect(enforce.detail, String(words)).toMatch(words);
     }
+  });
+
+  it('lists the add and edit sub-commands of omni constituents (PRD 2268)', () => {
+    const command = ENTRIES.find((e) => e.kind === 'command' && e.name === 'constituents');
+    assertDefined(command, 'constituents');
+    expect(command.usage.join('\n')).toMatch(/omni constituents add --statement .* --never /);
+    expect(command.usage.join('\n')).toMatch(/omni constituents edit statement\|never#<n> --text /);
+    for (const words of [/\badd and edit\b/, /workspace owner/, /--json/]) expect(command.detail, String(words)).toMatch(words);
   });
 
   it('names omni roadmap prereqs and omni roadmap tick, with what each does (PRD 1218)', () => {
@@ -296,8 +304,28 @@ describe('the help table in this repository', () => {
   it('lists omni bug for skills, with its usage (PRD 556)', () => {
     const bug = ENTRIES.find((e) => e.name === 'bug' && e.kind === 'command');
     assertDefined(bug, 'bug');
-    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]'] });
+    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>] [--body-file <file>]', 'omni bug film <n> --before <file> --after <file> [--out <dir>]'] });
     expect(bug.detail).toMatch(/\/omni:bug-fix\b/);
+  });
+
+  it('says what PRD 2100 changed: the body check, the GIF drawn with no ffmpeg, the clip links and the runner\'s plugin', () => {
+    const detail = (name: string) => {
+      const entry = ENTRIES.find((e) => e.name === name && e.kind === 'command');
+      assertDefined(entry, name);
+      return entry.detail;
+    };
+    const bug = detail('bug');
+    for (const words of [/--body-file/, /open pull request of the current branch/, /GIF not produced - <reason>/, /not a draft/, /## Fixes\s+section is not checked/, /with no ffmpeg/, /640×360/, /same bytes every run/, /could not write <path>/]) {
+      expect(bug, String(words)).toMatch(words);
+    }
+    expect(detail('proof')).toMatch(/one stable link per clip, before first/);
+    for (const words of [/keeps the Omni plugin current/, /older than the omni the job's repository\s+pins/, /not installed fails it/, /At start and once an hour/]) {
+      expect(detail('runner'), String(words)).toMatch(words);
+    }
+    const bugFix = ENTRIES.find((e) => e.name === 'bug-fix' && e.kind === 'skill');
+    assertDefined(bugFix, 'bugFix');
+    expect(bugFix.detail).toMatch(/omni bug <n> --body-file/);
+    expect(bugFix.detail).toMatch(/merged PR that\s+fixed the bug/);
   });
 
   it('lists /omni:bug-fix for you, after /omni:visual-fix, with its usage and when to use it (PRD 556)', () => {
@@ -372,10 +400,10 @@ describe('the help table in this repository', () => {
     const byGroup = Object.fromEntries(GROUP_IDS.map((id) => [id, ENTRIES.filter((e) => e.kind === 'skill' && e.group === id).map((e) => e.name).sort()]));
     expect(byGroup).toEqual({
       start: ['brainstorm', 'bug-fix', 'roadmap', 'think-big', 'visual-fix'],
-      build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix'],
+      build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'wave', 'yolo', 'yolo-fix', 'yolo-runner'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'enforce', 'help', 'pitch', 'pixel-perfect', 'prove', 'status', 'validate-e2e'],
+      everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'status', 'validate-e2e'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
   });
@@ -569,6 +597,16 @@ describe('the e2e field', () => {
     expect(detail('skill', 'yolo')).toContain('e2e: validate');
     expect(detail('skill', 'yolo')).not.toContain('/omni:validate-e2e');
     expect(detail('skill', 'validate-e2e')).toContain('e2e: validate');
+  });
+});
+
+describe('omni help kb lists the knowledge writes (PRD 2268, s2)', () => {
+  it('names legal and glossary add and edit, and the exit codes', () => {
+    const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'kb');
+    assertDefined(entry, 'kb');
+    for (const sub of ['legal add', 'legal edit', 'glossary add', 'glossary edit']) expect(entry.usage.join('\n')).toContain(`omni kb ${sub}`);
+    expect(entry.detail).toContain('proposed');
+    expect(entry.detail).toContain('exits 1');
   });
 });
 

@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { brusselsDay } from './weeks';
 import { countsOf, dayOf, isoDateOf, prdOf, RELEASES, weekOf } from './words';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 describe('the page\'s words', () => {
   it('are the spec\'s', () => {

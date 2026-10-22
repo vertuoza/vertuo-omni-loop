@@ -1,6 +1,6 @@
 # ADR-0104 — The approval wait keeps one git-ignored state file per PRD for the HUD band, left with its last state when it ends
 
-**Status:** adopted · **Date:** 2026-10-09 · **PRD:** #1322 · **Decided:** nobody — adopted when raised (medium), 2026-10-09 · **Merged:** @pierrederval, 2026-10-09, PR #1324
+**Status:** adopted · **Date:** 2026-10-09 · **PRD:** #1322 · **Decided:** nobody — adopted when raised (medium), 2026-10-09 · **Merged:** @pierrederval, 2026-10-09, PR #1324 · **Layers:** cli · **Domain:** approvals
 
 ## Context
 

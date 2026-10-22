@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PREREQUISITE_CATEGORIES, PREREQUISITE_WHO, parseRoadmap, roadmapWaves } from './parse.ts';
+import { PREREQUISITE_CATEGORIES, PREREQUISITE_WHO, parseProductRoadmap, parseRoadmap, roadmapWaves } from './parse.ts';
 
 function roadmapMd({
   front = ['roadmap: 1200', 'title: Crew — from skeleton to earned autonomy', 'milestone: A company grants its first mandate.'],
@@ -189,7 +189,7 @@ const PREREQUISITES = [
   '| id | category | need | check | fix | blocks | who |',
   '|---|---|---|---|---|---|---|',
   '| p1 | local | Docker is running, for the database tests | `base:docker` | | P3.4 | check |',
-  '| p2 | access | the `@vertuoza/ui` package installs | `npm view @vertuoza/ui version` | – | all | check |',
+  '| p2 | access | the `@demo-org/ui` package installs | `npm view @demo-org/ui version` | – | all | check |',
   '| p3 | permissions | the Vercel preview has `DATABASE_URL` | | | P1.1, P3.4 | person |',
   '| p4 | access | the dependencies install | `base:install` | `base:install` | all | agent |',
   '',
@@ -239,7 +239,7 @@ describe('parseRoadmap — prerequisites', () => {
           whoCanDoIt: 'Anyone with this laptop.',
         },
       },
-      { id: 'p2', category: 'access', need: 'the `@vertuoza/ui` package installs', check: 'npm view @vertuoza/ui version', fix: null, blocks: 'all', who: 'check', repos: null, card: null },
+      { id: 'p2', category: 'access', need: 'the `@demo-org/ui` package installs', check: 'npm view @demo-org/ui version', fix: null, blocks: 'all', who: 'check', repos: null, card: null },
       {
         id: 'p3',
         category: 'permissions',
@@ -301,5 +301,39 @@ describe('parseRoadmap — prerequisites', () => {
       'Prerequisites: p5 blocks "P1 1", which is no id.',
       'Prerequisites: the card "### p9" is for no row of the table.',
     ]);
+  });
+});
+
+describe('parseProductRoadmap — a roadmap born on the server (PRD 2011)', () => {
+  const rows = [
+    '| id | PRD | title | blocked by | why | wave |',
+    '|---|---|---|---|---|---|',
+    '| P1 | mobile-12 | Sign-in | – | – | 1 |',
+    '| P2 | #912 | Receipts | P1 | needs the session | 2 |',
+  ];
+
+  it('reads a product PRD and a repository PRD in the same table, with no issue number', () => {
+    const parsed = parseProductRoadmap(roadmapMd({ front: ['title: Mobile', 'milestone: Ships.'], prds: rows }));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.roadmap.productId).toBeNull();
+    expect(parsed.roadmap.prds.map((row) => row.prd)).toEqual(['mobile-12', 912]);
+  });
+
+  it('reads the id the server numbered it, and refuses another shape of it', () => {
+    const named = parseProductRoadmap(roadmapMd({ front: ['roadmap: mobile-R3', 'title: Mobile', 'milestone: Ships.'], prds: rows }));
+    expect(named.ok && named.roadmap.productId).toBe('mobile-R3');
+    const bad = parseProductRoadmap(roadmapMd({ front: ['roadmap: 1200', 'title: Mobile', 'milestone: Ships.'], prds: rows }));
+    expect(bad).toEqual({ ok: false, errors: [expect.stringContaining('front matter: roadmap is "1200"')] });
+  });
+
+  it('refuses a PRD cell that is neither, naming the cell', () => {
+    const parsed = parseProductRoadmap(roadmapMd({ front: ['title: T', 'milestone: M'], prds: [...rows, '| P3 | 12 | Odd | – | – | 1 |'] }));
+    expect(parsed).toEqual({ ok: false, errors: ['PRDs: P3 has the PRD cell "12", not #<number> or a product PRD id such as mobile-12.'] });
+  });
+
+  it('a git-born roadmap still reads only #<number>', () => {
+    const parsed = parseRoadmap(roadmapMd({ prds: rows }));
+    expect(parsed).toEqual({ ok: false, errors: ['PRDs: P1 has the PRD cell "mobile-12", not #<number>.'] });
   });
 });

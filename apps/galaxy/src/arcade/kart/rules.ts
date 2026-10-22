@@ -21,8 +21,28 @@ export const RULES = Object.freeze({
   climb: 1.2,
   /** The surfaces (PRD 1923): powder caps the top speed at this share of it; on ice the direction of travel turns towards the heading at `iceGrip` radians a second and never lags it by more than `iceSlip` radians. */
   powder: 0.55,
-  iceGrip: 1.2,
-  iceSlip: 0.6,
+  iceGrip: 0.4,
+  iceSlip: 1.0,
+  /** PRD 1963: on ice the gas adds `iceAccel` of what it adds on road, the brake takes off `iceBrake` of it and letting go takes off `iceCoast` of it; off the ice a carried direction of travel turns back to the heading at `grip` radians a second. */
+  iceAccel: 0.6,
+  iceBrake: 0.4,
+  iceCoast: 0.3,
+  grip: 6,
+  /** PRD 1963, the hop and the drift: the hop is drawn `hopHeight` pixels up over `hopTime` seconds; a drift starts at `driftMin` of the top speed, turns at `driftTight`, `driftMid` or `driftWide` radians a second (the drift's arrow, neither, the other), its travel turns towards the heading at `driftGrip` and lags it by `driftSlip` at most; its charge is blue from `chargeBlue` seconds and orange from `chargeOrange`, and releasing gives a BOOST of `miniBlue` or `miniOrange` seconds. */
+  hopHeight: 4,
+  hopTime: 0.25,
+  driftMin: 0.5,
+  driftTight: 2.2,
+  driftMid: 1.5,
+  driftWide: 0.9,
+  driftGrip: 0.8,
+  driftSlip: 0.45,
+  /** PRD 1963: a kart leaves skid marks once its travel is `skidGap` radian off its heading (or a drift runs). */
+  skidGap: 0.15,
+  chargeBlue: 0.8,
+  chargeOrange: 1.8,
+  miniBlue: 0.5,
+  miniOrange: 1,
   /** The turn rate at best grip, the speed it is reached at, and the part of it that is left at the top speed. */
   steer: 2.6,
   gripSpeed: 25,
@@ -50,6 +70,8 @@ export const RULES = Object.freeze({
   rivalHorizon: 40,
   rivalHorizonTime: 0.3,
   rivalBrake: 1.1,
+  /** PRD 1963: a HARD rival hops into a bend tighter than this many tiles and drifts through it. */
+  rivalDriftRadius: 8,
   /** How far before a ramp (game pixels) no rival throws a BLOB or an ORB, at or at a kart on the way to it: a spin there is a fall into the gap beyond. */
   rampCalm: 160,
   /** How far past a gate's line (game pixels) a kart still counts as through it, when it was pushed over the line between two steps. */
@@ -84,6 +106,9 @@ export const RULES = Object.freeze({
   tipPull: 8,
   /** How long both wheels of one side stay over the void, in a row, before the kart tips over (PRD 1775). */
   tipGrace: 0.5,
+  /** A tunnel's wall (bug 2144): the share of its speed a kart scraping it loses a second, and how fast it turns the kart's nose along it, in radians a second. */
+  scrape: 3,
+  wallTurn: 3,
   /** The jump (PRD 1775): the vertical speed a kart leaves a ramp with (a share of its speed), gravity in units a second squared, and the share of its turn rate a kart in the air keeps. */
   launch: 0.9,
   gravity: 400,
@@ -97,15 +122,24 @@ export const RULES = Object.freeze({
   orbLine: 0.18,
   /** The rivals' difficulty (PRD 1762): per level, the range of a rival's own pace (a share of the player's top speed, never above 1), how far off the line it drives, the rubber band, and how long a rival holds an item before it uses it (seconds). NORMAL is the numbers above, unchanged. */
   levels: {
-    easy: { skillMin: 0.8, skillMax: 0.88, lineOffset: 14, rubber: 0.1, hold: 2.5 },
-    normal: { skillMin: 0.92, skillMax: 1, lineOffset: 14, rubber: 0.05, hold: 0 },
-    hard: { skillMin: 0.97, skillMax: 1, lineOffset: 7, rubber: 0.05, hold: 0 },
+    easy: { skillMin: 0.8, skillMax: 0.88, lineOffset: 14, rubber: 0.1, hold: 2.5, rocket: 0.2 },
+    normal: { skillMin: 0.92, skillMax: 1, lineOffset: 14, rubber: 0.05, hold: 0, rocket: 0.4 },
+    hard: { skillMin: 0.97, skillMax: 1, lineOffset: 7, rubber: 0.05, hold: 0, rocket: 0.7 },
   },
   /** The tunnel's vault (PRD 1829): how far the ceiling falls from its height over the centre line (mode7.ts `ROOF`) to where it meets the walls; the eye stands 28 up, so the ceiling stays above it. */
   vault: 10,
   /** How long FINAL LAP shows once the third lap starts. */
   finalBanner: 2.5,
   countdown: 3,
+  /** PRD 1963, the rocket start: GAS last pressed during the 2 and held at GO gives a BOOST of `rocketTime` seconds; pressed during the 3 (or held since the countdown began) the engine stalls for `stallTime` seconds. */
+  rocketTime: 0.8,
+  stallTime: 0.5,
+  /** PRD 1963, the slipstream: a kart at `draftMin` of the top speed or more, within `draftRange` pixels behind another at `draftMin` or more and `draftLine` radians of the line straight back from its heading, gets a BOOST of `draftBoost` seconds after `draftTime` seconds of it in a row. */
+  draftMin: 0.6,
+  draftRange: 48,
+  draftLine: 0.3,
+  draftTime: 1.2,
+  draftBoost: 0.6,
   goBanner: 0.75,
   /** MULTI (PRD 1572): how many players of a workspace hold a place on the grid, and the Realtime messages a second a race may cost (sent and delivered both count). */
   places: 4,

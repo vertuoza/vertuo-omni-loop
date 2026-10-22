@@ -3,14 +3,15 @@ import { useReducer, useRef } from 'react';
 import { approversReducer, initialApproversForm, type ApproversAction, type ApproversForm, type ApproverState } from '../products/approvers';
 import { ApproversSection, type ApproversHandlers } from '../products/approvers-section';
 import { LinksSection, type LinksHandlers } from './LinksSection';
+import { Ladder, PlanRepositorySection, type PlanHandlers } from './PlanRepositorySection';
 import { repositoriesTabClient, type Changed, type RepositoriesTabPort } from './repositories-tab.client';
 import type { LinkWrite, RepositoriesTab } from './repositories-tab.contract';
-import { demoTabPort, initialLinksForm, linksReducer } from './repositories-tab-model';
+import { demoTabPort, initialLinksForm, initialPlanForm, linksReducer, planReducer } from './repositories-tab-model';
 
-// The Repositories & approvers tab in the browser (PRD 1364 s11): keeps the links' state
-// (repositories-tab-model.ts) and the Approvers list's (src/products/approvers.ts), and changes them
-// through the tab's own routes as the signed-in person (repositories-tab.client.ts), one call at a time;
-// each section draws each step. In the demo, the same rules run in memory.
+// The Repositories & approvers tab in the browser (PRD 1364 s11): keeps the links' state and the plan
+// repository's (repositories-tab-model.ts) and the Approvers list's (src/products/approvers.ts), and
+// changes them through the tab's own routes as the signed-in person (repositories-tab.client.ts), one
+// call at a time; each section draws each step. In the demo, the same rules run in memory.
 
 export type TabSource = { kind: 'demo' } | { kind: 'live' };
 
@@ -26,9 +27,10 @@ const listReducer = (form: ApproversForm | null, action: ApproversAction): Appro
 
 export function RepositoriesTabPage({ source, tab, add = null }: RepositoriesTabPageProps) {
   const [links, dispatchLinks] = useReducer(linksReducer, tab, initialLinksForm);
+  const [plan, dispatchPlan] = useReducer(planReducer, tab.plan, initialPlanForm);
   const [approvers, dispatchApprovers] = useReducer(listReducer, tab.approvers, (a) => (a ? initialApproversForm(a) : null));
   const port = useRef<RepositoriesTabPort | null>(null);
-  const getPort = () => (port.current ??= source.kind === 'demo' ? demoTabPort(tab.links) : repositoriesTabClient(tab.product.id));
+  const getPort = () => (port.current ??= source.kind === 'demo' ? demoTabPort(tab.links, tab.repositories) : repositoriesTabClient(tab.product.id));
 
   const changeLinks = async <T,>(call: () => Promise<Changed<T>>, done: (answer: T) => void) => {
     dispatchLinks({ type: 'busy' });
@@ -42,6 +44,18 @@ export function RepositoriesTabPage({ source, tab, add = null }: RepositoriesTab
     },
     remove: (repo: string) => {
       if (!links.busy) void changeLinks(() => getPort().removeLink(repo), () => { dispatchLinks({ type: 'removed', repo }); });
+    },
+  };
+
+  const changePlan = async (repo: string | null) => {
+    dispatchPlan({ type: 'busy' });
+    const answer = await getPort().setPlan(repo);
+    if (answer.ok) dispatchPlan({ type: 'saved', plan: answer.plan });
+    else dispatchPlan({ type: 'refused', message: answer.message });
+  };
+  const onPlan: PlanHandlers = {
+    save: (repo: string | null) => {
+      if (!plan.busy) void changePlan(repo);
     },
   };
 
@@ -62,6 +76,8 @@ export function RepositoriesTabPage({ source, tab, add = null }: RepositoriesTab
 
   return (
     <>
+      <Ladder links={links.links} />
+      <PlanRepositorySection form={plan} owner={tab.owner} repositories={tab.repositories} on={onPlan} />
       <LinksSection form={links} owner={tab.owner} add={add} on={onLinks} />
       <ApproversSection form={approvers} on={onApprovers} />
     </>

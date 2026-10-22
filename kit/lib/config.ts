@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { isOneOf, messageOf } from './narrow.ts';
 import { parseSelector } from './design/words/selector.ts';
 import { FlowSchema, hooksByMode, regexSource } from './flow/schema.ts';
+import { CANONICAL_LAYERS, layerList, layerOf } from './layers/layers.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
 
 export const CONFIG_FILE = '.omni-loop/config.yml';
@@ -65,6 +66,31 @@ const wordSelector = text.refine((value) => parseSelector(value) !== null, 'a se
 const lawOwner = z
   .string()
   .regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, 'a GitHub login or <org>/<team>, without @');
+// PRD 1794: one person's GitHub login, without `@`: never a team, since a team never clears a law.
+const personLogin = z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, 'a GitHub login, without @, never a team');
+// PRD 1794: an owner and the one person asked in their place once they have not answered. A key the
+// entry leaves out reads as empty, so the refusal names that key: a union reports an option's issues
+// only when none of them aborts, and a missing key would abort.
+const ownerWithDelegate = z.preprocess(
+  (value) => (isRecord(value) ? { login: '', delegate: '', ...value } : value),
+  z
+    .object({ login: personLogin, delegate: personLogin })
+    .strict()
+    .refine((entry) => entry.login.toLowerCase() !== entry.delegate.toLowerCase(), {
+      message: 'a delegate other than its own owner',
+      path: ['delegate'],
+    }),
+);
+// An entry of `laws.owners`: a plain owner (PRD 1726), or an owner with a delegate (PRD 1794).
+const lawOwnerEntry = z.union([lawOwner, ownerWithDelegate]);
+
+/** An entry of `laws.owners`, as written: a login or `<org>/<team>`, or `{ login, delegate }`. */
+export type LawOwner = z.infer<typeof lawOwnerEntry>;
+
+/** An entry of `laws.owners` as its owner and its delegate; a plain entry has no delegate. */
+export function lawOwnerParts(entry: LawOwner): { owner: string; delegate: string | null } {
+  return typeof entry === 'string' ? { owner: entry, delegate: null } : { owner: entry.login, delegate: entry.delegate };
+}
 
 /**
  * The kinds of contract a slice may declare (PRD 1870) when a repository's `contracts.kinds` names
@@ -79,6 +105,21 @@ const lawOwner = z
  */
 export const DEFAULT_CONTRACT_KINDS: readonly string[] = Object.freeze(['api', 'db']);
 
+/**
+ * PRD 2175: how many minutes a draft still on `labels.inProgress` may go with no commit and no update
+ * before the board reads its claim as stale, when `limits.claimDeadMinutes` is not set. Long enough
+ * that an agent thinking without pushing is not taken over: the longest slice job seen ran 81 minutes.
+ */
+export const DEFAULT_CLAIM_DEAD_MINUTES = 240;
+
+/** PRD 2175: the label a runner puts on a claim whose job ended, when `labels.released` is not set. */
+export const DEFAULT_RELEASED_LABEL = 'omni:released';
+
+/** The label a released claim carries: `labels.released`, or `DEFAULT_RELEASED_LABEL` when it is not set. */
+export function releasedLabel(labels: { released?: string | undefined }): string {
+  return labels.released ?? DEFAULT_RELEASED_LABEL;
+}
+
 // PRD 1870: a kind is one lowercase word, never `none`, which a plan's `contract` cell keeps for a
 // slice that changes nothing for its callers.
 const contractKind = z
@@ -86,13 +127,26 @@ const contractKind = z
   .regex(/^[a-z][a-z0-9-]*$/, 'one lowercase word, such as api or db')
   .refine((kind) => kind !== 'none', 'none is what a slice declares when it changes nothing — it is no kind');
 
+// PRD 2346: a kind is read through `LAYER_ALIASES` (`rest` is `api`); any other word is kept, and
+// `omni check config` flags it, so a repository's plans are never refused on what already exists.
 const contractKinds = z
   .array(contractKind)
   .min(1, 'at least one kind, such as api')
+  .transform((kinds) => kinds.map(layerOf))
   .superRefine((kinds, issues) => {
     const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
     if (twice !== undefined) issues.addIssue({ code: 'custom', message: `"${twice}" is listed twice` });
   });
+
+// PRD 2346: `layers.<layer>` is a list of path patterns; a key outside the canonical list is refused
+// by name, with the list.
+const layersSection = z.record(z.string(), z.array(regexSource).min(1, 'at least one path pattern')).superRefine((layers, issues) => {
+  for (const key of Object.keys(layers)) {
+    if (!Object.hasOwn(CANONICAL_LAYERS, key)) {
+      issues.addIssue({ code: 'custom', path: [key], message: `${key} is not a layer (${layerList()})` });
+    }
+  }
+});
 
 // PRD 522: what a plan repository knows of each target repository's knowledge base.
 export const TARGET_KNOWLEDGE = Object.freeze(['own', 'imported', 'none']);
@@ -316,6 +370,11 @@ export const ConfigSchema = z
       approved: labelName.default('omni:approved'),
       // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
       law: labelName.default('omni:law'),
+      // PRD 2175: the label a runner swaps in for `inProgress` on a claim whose job ended while it held
+      // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`). Left
+      // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
+      // exactly as before (so `omni init` does not create it: a person does).
+      released: labelName.optional(),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({
@@ -352,6 +411,9 @@ export const ConfigSchema = z
       mutation: nullableText.default(null),
       // PRD 1369: a design linter `/omni:pixel-perfect review` runs when it is set; it only reports.
       design: nullableText.default(null),
+      // PRD 2275: it builds what the repository ships to production, then runs checks against the
+      // built output; only the bug-fix skills run it, when a passing reproduction cannot see the bug.
+      smoke: nullableText.default(null),
     }),
     acceptance: z
       .object({
@@ -380,7 +442,11 @@ export const ConfigSchema = z
       max: z.number().int().positive().default(20),
       // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
       // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
-      owners: z.array(lawOwner).default([]),
+      // PRD 1794: an entry may be `{ login, delegate }` instead; the delegate is a CODEOWNER too.
+      owners: z.array(lawOwnerEntry).default([]),
+      // PRD 1794: product leadership, GitHub logins asked last about what still waits on a person.
+      // Never written into CODEOWNERS, so its approval never clears a law.
+      leadership: z.array(personLogin).default([]),
     }),
     risk: section({
       storedShape: z.array(regexSource).default([]),
@@ -390,6 +456,10 @@ export const ConfigSchema = z
     // repository's migrations directories, say). Regex sources over repository paths, compiled once
     // by `omni plan check`; empty, no plan is refused for what it puts together.
     landings: section({ alone: z.array(regexSource).default([]) }),
+    // PRD 2346: the repository's map from canonical layers to the paths that hold them: regular
+    // expressions over repository paths, as a flow area's `paths`. A file may be in several layers.
+    // Optional: a config without it parses with no `layers` key, and no entry is narrowed by layer.
+    layers: layersSection.optional(),
     // PRD 1870: whether every slice that lands in this repository must declare, in its plan's
     // `contract` column, what it changes for the repository's callers — one or more of `kinds`, or
     // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
@@ -409,6 +479,10 @@ export const ConfigSchema = z
       stallDays: z.number().int().positive().default(5),
       attempts: z.number().int().positive().default(3),
       claimStaleMinutes: z.number().int().positive().default(60),
+      // PRD 2175: how long a draft still on `labels.inProgress` may go with no commit and no update
+      // before the board reads its claim as stale: the fallback for a claim no runner saw die. Left
+      // out, `DEFAULT_CLAIM_DEAD_MINUTES` applies, and a config that does not set it parses exactly as before.
+      claimDeadMinutes: z.number().int().positive().optional(),
       beforeAfterMaxBytes: z.number().int().positive().default(512000),
       // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
       // was before, one step at a time.
@@ -416,6 +490,9 @@ export const ConfigSchema = z
       // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
       // and a config that does not set it parses exactly as before.
       hookMaxBytes: z.number().int().positive().optional(),
+      // PRD 1794: how many working days (Monday to Friday, UTC) a thing waits on a person before the
+      // next people are asked. Its own setting: `stallDays` is unchanged.
+      escalationWorkingDays: z.number().int().min(1).max(10).default(2),
     }),
     // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
     // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
@@ -433,6 +510,10 @@ export const ConfigSchema = z
     // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
     // opts out. The pull request takes replies either way.
     answers: section({ enabled: z.boolean().default(true) }),
+    // PRD 2338: whether `/omni:retro-apply` writes the guard test a kept lesson is worth, proved red
+    // then green, beside the rule it appends. Off by default: the retro PR stays documents only, and a
+    // lesson worth a guard names it for a person to take up. A repository opts in.
+    retro: section({ guards: z.boolean().default(false) }),
     // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
     // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
     // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.

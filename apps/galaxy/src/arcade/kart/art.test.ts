@@ -206,6 +206,13 @@ describe('the player\'s kart', () => {
     expect(sure(kart, 'the kart').y + 18 * scale).toBeGreaterThan(grid.h - 12);
   });
 
+  it('is drawn 4 pixels up through a hop, and back on the ground once it has landed (PRD 1963)', () => {
+    const seen = (seconds: number, ...b: Action[]) => { sprites.length = 0; raced(seconds, ...b).draw(recorder().ctx, frame(WIDE)); return playerSprite().y; };
+    const ground = seen(0);
+    expect(ground - seen(0.1, 'up')).toBe(4);
+    expect(seen(0.4, 'up')).toBe(ground);
+  });
+
   it('is tinted with the hero\'s suit, the look the arcade draws the hero with', () => {
     createKart().draw(recorder().ctx, frame(WIDE));
     const kart = playerSprite();
@@ -703,6 +710,20 @@ describe('the relief on the screen (PRD 1698)', () => {
     expect(Array.from(cut ?? [])).toEqual([10, 10, 6, 6, 6, 10, 10, 10]);
     expect(coverOf(depth, w, h, { left: 0, right: 8, top: 0, bottom: 10 }, 30)).toBeNull(); // nearer than the road: nothing hides it
     expect(coverOf(depth, w, h, { left: 5, right: 8, top: 0, bottom: 10 }, 100)).toBeNull();
+  });
+
+  it('cuts what stands under a nearer roof down to the last row the roof covers, and leaves what the roof does not reach (bug 2146)', () => {
+    const w = 6, h = 10;
+    const depth = new Float32Array(w * h).fill(Infinity);
+    // A tunnel's roof 40 away covers the rows down to 2 in every column, its wall the whole of column 5; the road 40 away covers the rows from 8 down in column 1.
+    for (let row = 0; row < 3; row++) for (let col = 0; col < w; col++) depth[row * w + col] = 40;
+    for (let row = 0; row < h; row++) depth[row * w + 5] = 40;
+    for (let row = 8; row < h; row++) depth[row * w + 1] = 40;
+    const box = { left: 0, right: 6, top: 0, bottom: 10 };
+    expect(Array.from(coverOf(depth, w, h, box, 100, 'above') ?? [])).toEqual([3, 3, 3, 3, 3, 10]);
+    // From below, the roof over a thing hides none of it: only the road in front of its foot and the wall do.
+    expect(Array.from(coverOf(depth, w, h, box, 100) ?? [])).toEqual([10, 8, 10, 10, 10, 0]);
+    expect(coverOf(depth, w, h, { left: 0, right: 5, top: 3, bottom: 8 }, 100, 'above')).toBeNull();
   });
 
   it('clips the things behind a hill\'s crest and none on a flat circuit, the arch always on top', () => {

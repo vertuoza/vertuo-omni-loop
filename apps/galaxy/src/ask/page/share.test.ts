@@ -9,8 +9,8 @@ describe('the Share button', () => {
 
   it('offers every member of the workspace but the owner, by name', () => {
     const members = [
-      { user_id: 'ada', email: 'ada@vertuoza.com', name: null },
-      { user_id: 'bob', email: 'bob@vertuoza.com', name: 'BOB' },
+      { user_id: 'ada', email: 'ada@example.com', name: null },
+      { user_id: 'bob', email: 'bob@example.com', name: 'BOB' },
     ];
     expect(shareCandidates(members, 'ada')).toEqual([{ id: 'bob', label: 'BOB', face: { kind: 'initial', letter: 'B' } }]);
   });
@@ -18,8 +18,8 @@ describe('the Share button', () => {
   it('carries each member\'s face, as the directory decided it (PRD 652)', () => {
     const photo = { kind: 'photo' as const, url: 'https://github.com/bob.png?size=48' };
     const members = [
-      { user_id: 'ada', email: 'ada@vertuoza.com', name: null },
-      { user_id: 'bob', email: 'bob@vertuoza.com', name: 'BOB', face: photo },
+      { user_id: 'ada', email: 'ada@example.com', name: null },
+      { user_id: 'bob', email: 'bob@example.com', name: 'BOB', face: photo },
     ];
     expect(shareCandidates(members, 'ada')).toEqual([{ id: 'bob', label: 'BOB', face: photo }]);
   });

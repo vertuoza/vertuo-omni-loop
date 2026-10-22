@@ -146,8 +146,10 @@ export const HARVEST_PROPOSER = 'harvest';
 /** The longest slug a record's file name takes, cut at a word. */
 const SLUG_MAX = 64;
 
-const PREFIX: Record<EntryKind, string> = { principle: 'P', rule: 'BR', invariant: 'N' };
-const LAYER: Record<EntryKind, string> = { principle: 'principles.md', rule: 'rules.md', invariant: 'invariants.md' };
+/** The kinds the harvest writes: never a contract (PRD 1796), which a person writes beside its schema. */
+type WrittenKind = Exclude<EntryKind, 'contract'>;
+const PREFIX: Record<WrittenKind, string> = { principle: 'P', rule: 'BR', invariant: 'N' };
+const LAYER: Record<WrittenKind, string> = { principle: 'principles.md', rule: 'rules.md', invariant: 'invariants.md' };
 const NONE_YET = /^None yet\./;
 
 const day = (value: unknown): string => plainText(value).slice(0, 10);
@@ -240,7 +242,7 @@ function proofOf({
 
 /** Numbers the ids of one run: past the tree, past `taken`, past what the run handed out. */
 function makeNumbering({ ctx, taken }: { ctx: WriteCtx; taken: Taken }): {
-  entry: (kind: EntryKind, code: string) => string;
+  entry: (kind: WrittenKind, code: string) => string;
   record: () => string;
 } {
   const highest = new Map<string, number>();
@@ -252,7 +254,7 @@ function makeNumbering({ ctx, taken }: { ctx: WriteCtx; taken: Taken }): {
   let record = Number(readDecisions({ ctx }).next) - 1;
   for (const number of taken.records ?? []) record = Math.max(record, Number(String(number).replace(/^ADR-/, '')));
   return {
-    entry(kind: EntryKind, code: string): string {
+    entry(kind: WrittenKind, code: string): string {
       const key = `${PREFIX[kind]}-${code}`;
       const n = (highest.get(key) ?? 0) + 1;
       highest.set(key, n);

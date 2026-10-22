@@ -166,14 +166,23 @@ It opens an issue labelled `omni:bug` (or give it an issue that already reports 
 writes a test that shows the bug and runs it before any fix: it must fail. Then it fixes the bug,
 adds the cheap check that would have caught it, and opens one pull request into your default branch
 that closes the issue, with a **Bug** section saying what failed before the fix. The pull request
-also shows the bug before and after: a short GIF of the failing run, then the passing one (or of the
-component's story, before and after), under a **Proof** heading, with the failing and passing lines
-beside it. When the GIF cannot be made, the pull request opens as a draft that says why. There is no
-spec, no plan and no phase-0 pull request.
+shows the bug before and after, under a **Proof** heading, with the failing and passing lines beside
+it. A bug that shows in one component of a front end with Storybook is filmed: its story before and
+after, as a short GIF, with a link to each full clip. Any other bug gets two cards drawn from the
+test's own output, the failing run in red, then the passing run in green, with the failing and passing
+lines highlighted. Nothing but Omni draws them, so any machine can. Before the pull request opens,
+`omni bug` checks that its body carries that proof, so no pull request goes out without it. When the
+GIF cannot be made, the pull request opens as a draft that says why. There is no spec, no plan and no
+phase-0 pull request.
 
 A flaky check is not a bug: it says so on the issue and stops. When the fix needs a product
 decision, a change to stored data or a shared interface, or a new screen, route or API, it stops,
 says so on the issue, and gives you the `/omni:brainstorm` line to run instead.
+
+When the new test already passes before any fix, the bug may be gone. It looks for the merged pull
+request that fixed it. If the test fails just before that pull request and passes with it, the issue
+gets a line `Fixed by #<number>` naming it; if not, the issue lists the pull requests it considered as
+`Maybe:` lines and a person decides. It never closes the issue.
 
 **Then:** review the pull request, and merge it if it is right. It never merges itself.
 

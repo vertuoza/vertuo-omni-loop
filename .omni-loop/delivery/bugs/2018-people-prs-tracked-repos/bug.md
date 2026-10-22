@@ -14,7 +14,7 @@
 ## Fix
 
 `game:contributions` read only the repositories the workspace's sectors name, so a merge into a
-tracked repository no sector names (`vertuoza/VertuoBuild`, where Kevin works) never became a
+tracked repository no sector names (`demo-org/VertuoBuild`, where Kevin works) never became a
 `pr-merged` row, and the People table counted 0 PRs. It now also reads every tracked repository,
 each once, under its own owner, as `game:project` has done since PRD 728.
 

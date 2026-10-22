@@ -6,8 +6,12 @@
 // (closed, signed out, in no workspace) before any of this. Its human work (PRD 1217): each card the open
 // count of each kind that has one; the roadmap's page a chip per kind with its open count, the open
 // entries grouped by kind, and the done ones with when they were settled.
-import type { IssueNumber, PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { prdPagePath } from '../../dossier/page/history-at';
+import {
+  roadmapApprovalView, roadmapStatus, shownVersion, versionsView, PART_LABELS, type PartView, type RoadmapApprovalView, type RoadmapRecordRead,
+  type RoadmapStatus, type VersionPick,
+} from '../../dossier/page/RoadmapRecord';
 import { ganttOf, type Gantt } from '../gantt';
 import type { HumanWorkKind, RoadmapHumanWorkRow, RoadmapPrdRow, RoadmapPrerequisiteRow, RoadmapQuestion, RoadmapRow } from '../store';
 import { prerequisitesOf, roadmapTabsOf, type PrerequisitesView, type RoadmapTab, type RoadmapTabLink, type TickAsk } from './prerequisites';
@@ -26,6 +30,8 @@ const SHOWN_BLOCKS = 3;
 export interface ProductRef {
   id: string;
   name: string;
+  /** Its key (`mobile`), which names its roadmaps `mobile-R3`; null or missing when it has none. */
+  key?: string | null;
 }
 
 /** One choice of the list's filter: every roadmap, or one product's. */
@@ -44,8 +50,11 @@ export interface RoadmapSummary {
   milestone: string;
   /** Its product's name, or null when it has none. */
   product: string | null;
-  repo: string;
-  number: IssueNumber;
+  /** A roadmap born on the server (PRD 2011) by its product id, `mobile-R3`; null for one born in git. */
+  ref: string | null;
+  /** The repository holding roadmap.md and its issue's number; null for a roadmap born on the server. */
+  repo: string | null;
+  number: IssueNumber | null;
   /** The date a person gave, or null. */
   target: string | null;
   merged: number;
@@ -113,13 +122,13 @@ type Work = Pick<RoadmapHumanWorkRow, 'key' | 'prd' | 'repo' | 'text' | 'act' | 
 const countsOf = (work: readonly Work[]): HumanWorkCount[] =>
   KINDS.map((kind) => ({ kind, label: HUMAN_WORK_LABELS[kind], open: work.filter((w) => w.state === 'open' && w.kind === kind).length }));
 
-const entryOf = (w: Work, repo: string): HumanWorkEntry => ({
-  key: w.key, kind: w.kind, label: HUMAN_WORK_LABELS[w.kind], prd: w.prd, prdHref: w.prd === null ? null : prdPagePath(repo, w.prd),
+const entryOf = (w: Work, repo: string | null): HumanWorkEntry => ({
+  key: w.key, kind: w.kind, label: HUMAN_WORK_LABELS[w.kind], prd: w.prd, prdHref: w.prd === null || repo === null ? null : prdPagePath(repo, w.prd),
   repo: w.repo, text: w.text, act: w.act, url: w.url, settled: w.state === 'done' && w.done_at !== null ? w.done_at.slice(0, 10) : null,
 });
 
 /** The Human work item of a roadmap whose repository is `repo` (each PRD's page is under it). */
-function humanWorkOf(work: readonly Work[], repo: string): HumanWorkView {
+function humanWorkOf(work: readonly Work[], repo: string | null): HumanWorkView {
   const open = work.filter((w) => w.state === 'open');
   return {
     counts: countsOf(work),
@@ -143,8 +152,8 @@ export interface QuestionView {
 
 /** One roadmap opened. */
 export interface RoadmapDetail extends RoadmapSummary {
-  /** The roadmap's issue, where an answer is written. */
-  issueUrl: string;
+  /** The roadmap's issue, where an answer is written; null for a roadmap born on the server, which has none. */
+  issueUrl: string | null;
   source: string | null;
   gantt: Gantt;
   humanWork: HumanWorkView;
@@ -153,6 +162,19 @@ export interface RoadmapDetail extends RoadmapSummary {
   tab: RoadmapTab;
   tabs: RoadmapTabLink[];
   prerequisites: PrerequisitesView;
+  /** A roadmap born on the server (PRD 2011): its versions and approval; null for one born in git. */
+  record: RoadmapRecordView | null;
+}
+
+/** A product roadmap's record on its page: its status word, its approval (null when it could not be read),
+ * its versions by part and the one shown. */
+export interface RoadmapRecordView {
+  status: RoadmapStatus;
+  approval: RoadmapApprovalView;
+  /** The versions by part, each part newest first; null when they could not be read. */
+  parts: PartView[] | null;
+  count: number;
+  shown: { label: string; number: number; text: string | null } | null;
 }
 
 /** What one roadmap opened adds to its read: its prerequisites, and the tab asked for. */
@@ -161,6 +183,9 @@ export interface DetailAsk {
   tab: RoadmapTab;
   /** Mark as done (s7): offered to a member where it is open; none on the demo. */
   tick?: TickAsk;
+  /** A roadmap born on the server (PRD 2011): what its dossier reads (null: they could not be read), the
+   * version asked for and the viewer; left out for a roadmap born in git. */
+  record?: { read: RoadmapRecordRead | null; pick: VersionPick; me: string | null };
 }
 
 /** Where the page's data came from: the workspace's, or the demo, in development or for a person signed out. */
@@ -183,16 +208,24 @@ function blocksOf(questions: readonly RoadmapQuestion[], prds: readonly Prd[]): 
   return [...new Set([...asked, ...waits])];
 }
 
-const issueUrlOf = (row: Pick<RoadmapRow, 'repo' | 'number'>) => `https://github.com/${row.repo}/issues/${row.number}`;
+const issueUrlOf = (row: Pick<RoadmapRow, 'repo' | 'number'>) => (row.repo === null || row.number === null ? null : `https://github.com/${row.repo}/issues/${row.number}`);
 
 /** One roadmap as the pages read it: its row, its PRDs and its human work. */
 export interface RoadmapRead {
   row: RoadmapRow;
+  /** Its number on its product (3 in `mobile-R3`), for a roadmap born on the server. */
+  seq?: number | null;
   prds: readonly RoadmapPrdRow[];
   humanWork: readonly Work[];
 }
 
-function summaryOf({ row, prds, humanWork }: RoadmapRead, products: readonly ProductRef[]): RoadmapSummary {
+/** A product roadmap's id, `mobile-R3`; null for one born in git, or when its product has no key. */
+function refOf(row: RoadmapRow, seq: number | null | undefined, products: readonly ProductRef[]): string | null {
+  const key = row.dossier_id ? products.find((p) => p.id === row.product_id)?.key : null;
+  return key && typeof seq === 'number' ? `${key}-R${seq}` : null;
+}
+
+function summaryOf({ row, seq, prds, humanWork }: RoadmapRead, products: readonly ProductRef[]): RoadmapSummary {
   const blocks = blocksOf(row.questions, prds);
   return {
     id: row.id,
@@ -200,6 +233,7 @@ function summaryOf({ row, prds, humanWork }: RoadmapRead, products: readonly Pro
     title: row.title,
     milestone: row.milestone,
     product: products.find((p) => p.id === row.product_id)?.name ?? null,
+    ref: refOf(row, seq, products),
     repo: row.repo,
     number: row.number,
     target: row.target_date,
@@ -216,6 +250,7 @@ export function detailOf(read: RoadmapRead, products: readonly ProductRef[], now
   const { row, prds } = read;
   const summary = summaryOf(read, products);
   const prerequisites = prerequisitesOf(ask.prerequisites, row.prerequisites_machine ?? null, row.prerequisites_checked_at ?? null, ask.tick);
+  const record = ask.record ? recordOf(ask.record, summary, prds) : null;
   return {
     ...summary,
     blocks: blocksOf(row.questions, prds),
@@ -224,10 +259,30 @@ export function detailOf(read: RoadmapRead, products: readonly ProductRef[], now
     source: row.source,
     gantt: ganttOf(prds, now, row.repo),
     humanWork: humanWorkOf(read.humanWork, row.repo),
-    questions: row.questions.map((q) => ({ ...q, answerable: q.kind === 'person' && q.answer === null })),
+    questions: row.questions.map((q) => ({ ...q, answerable: q.kind === 'person' && q.answer === null && row.number !== null })),
     tab: ask.tab,
-    tabs: roadmapTabsOf(summary.href, ask.tab, prerequisites.waiting),
+    tabs: roadmapTabsOf(summary.href, ask.tab, prerequisites.waiting, record === null ? null : record.count),
     prerequisites,
+    record,
+  };
+}
+
+/** A product roadmap's record: its approval and status, and its versions by part with the one shown. */
+function recordOf(ask: NonNullable<DetailAsk['record']>, summary: RoadmapSummary, prds: readonly Prd[]): RoadmapRecordView {
+  const { read, pick, me } = ask;
+  const unread = (dossier: string): RoadmapRecordRead => ({ dossier, versions: [], approval: 'unread', voids: null, asked: 'unread', text: null });
+  const record = read ?? unread('');
+  const approval = roadmapApprovalView(record, me, summary.ref);
+  const href = (part: VersionPick['part'], version: number | null) =>
+    `${summary.href}?tab=versions${part === 'roadmap' ? '' : `&part=${part}`}${version === null ? '' : `&v=${version}`}`;
+  const shown = read === null ? null : shownVersion(read.versions, pick);
+  return {
+    status: roadmapStatus(approval.state, prds.map((p) => p.state)),
+    approval,
+    parts: read === null ? null : versionsView(read.versions, pick, href),
+    count: record.versions.length,
+    shown: shown === null || read === null ? null
+      : { label: PART_LABELS[shown.kind], number: read.versions.filter((v) => v.kind === shown.kind).indexOf(shown) + 1, text: read.text },
   };
 }
 

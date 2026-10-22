@@ -11,10 +11,13 @@
 
 begin;
 
+-- The checks' own workspace, Initech, with its fleets, sectors and repositories (PRD 2305).
+\ir fixtures/initech.sql
+
 -- ── The cast ──
--- A second workspace, Acme. Ada belongs to Vertuoza, Carl to Acme, Fay to both, Eve to none.
+-- A second workspace, Acme. Ada belongs to Initech, Carl to Acme, Fay to both, Eve to none.
 insert into auth.users (id, email) values
-  ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com'),
   ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000f1', 'fay@example.com'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
@@ -22,9 +25,9 @@ insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', '
 insert into public.workspace_members (workspace_id, user_id)
 select w.id, m.user_id
   from (values
-         ('vertuoza', '00000000-0000-4000-8000-0000000000a1'::uuid),
+         ('initech', '00000000-0000-4000-8000-0000000000a1'::uuid),
          ('acme',     '00000000-0000-4000-8000-0000000000c1'::uuid),
-         ('vertuoza', '00000000-0000-4000-8000-0000000000f1'::uuid),
+         ('initech', '00000000-0000-4000-8000-0000000000f1'::uuid),
          ('acme',     '00000000-0000-4000-8000-0000000000f1'::uuid)
        ) as m (slug, user_id)
   join public.workspaces w on w.slug = m.slug;
@@ -66,18 +69,18 @@ end $$;
 set local role service_role;
 do $$
 declare
-  v constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  v constant uuid := (select id from public.workspaces where slug = 'initech');
   acme constant uuid := (select id from public.workspaces where slug = 'acme');
   run int;
 begin
   for run in 1..2 loop
     begin
       insert into public.contributions as c (workspace_id, kind, repo, number, login, at) values
-        (v,    'pr-merged',  'vertuo-core',      41,  'ada-gh',  '2026-09-27 22:30:00+00'),
-        (v,    'prd-opened', 'vertuo-omni-loop', 328, 'ada-gh',  '2026-09-28 07:00:00+00'),
-        (v,    'prd-opened', 'vertuo-core',      41,  'fay-gh',  '2026-09-20 09:00:00+00'),  -- the kind is in the key
-        (v,    'prd-started', 'vertuo-omni-loop', 328, 'ada-gh', '2026-09-28 12:00:00+00'),  -- a PRD's phase-0 merged
-        (v,    'prd-shipped', 'vertuo-omni-loop', 328, 'ada-gh', '2026-09-29 16:00:00+00'),  -- its feature PR merged
+        (v,    'pr-merged',  'nimbus-core',      41,  'ada-gh',  '2026-09-27 22:30:00+00'),
+        (v,    'prd-opened', 'nimbus-plan', 328, 'ada-gh',  '2026-09-28 07:00:00+00'),
+        (v,    'prd-opened', 'nimbus-core',      41,  'fay-gh',  '2026-09-20 09:00:00+00'),  -- the kind is in the key
+        (v,    'prd-started', 'nimbus-plan', 328, 'ada-gh', '2026-09-28 12:00:00+00'),  -- a PRD's phase-0 merged
+        (v,    'prd-shipped', 'nimbus-plan', 328, 'ada-gh', '2026-09-29 16:00:00+00'),  -- its feature PR merged
         (acme, 'pr-merged',  'acme-api',         7,   'carl-gh', '2026-09-20 10:00:00+00')
       on conflict (workspace_id, kind, repo, number) do update
         set workspace_id = excluded.workspace_id, kind = excluded.kind, repo = excluded.repo,
@@ -94,15 +97,15 @@ begin
   end if;
 
   begin
-    insert into public.contributions (workspace_id, kind, repo, number, login, at) values (v, 'pr-opened', 'vertuo-core', 42, 'ada-gh', now());
+    insert into public.contributions (workspace_id, kind, repo, number, login, at) values (v, 'pr-opened', 'nimbus-core', 42, 'ada-gh', now());
     raise exception 'FAIL: public.contributions stored a kind other than pr-merged, prd-opened, prd-started or prd-shipped';
   exception when check_violation then null; end;
   begin
-    insert into public.contributions (workspace_id, kind, repo, number, login, at) values (v, 'pr-merged', 'vertuo-core', 41, 'mallory', now());
+    insert into public.contributions (workspace_id, kind, repo, number, login, at) values (v, 'pr-merged', 'nimbus-core', 41, 'mallory', now());
     raise exception 'FAIL: public.contributions stored a second row for one pull request';
   exception when unique_violation then null; end;
   begin
-    insert into public.contributions (workspace_id, kind, repo, number, login, at) values ('00000000-0000-4000-8000-00000000ffff', 'pr-merged', 'vertuo-core', 1, 'ada-gh', now());
+    insert into public.contributions (workspace_id, kind, repo, number, login, at) values ('00000000-0000-4000-8000-00000000ffff', 'pr-merged', 'nimbus-core', 1, 'ada-gh', now());
     raise exception 'FAIL: public.contributions stored a row of no workspace';
   exception when foreign_key_violation then null; end;
 end $$;
@@ -123,7 +126,7 @@ begin
   exception when insufficient_privilege then null; end;
   begin
     insert into public.contributions (workspace_id, kind, repo, number, login, at)
-    values ('00000000-0000-4000-8000-00000000ffff', 'pr-merged', 'vertuo-core', 99, 'anon', now());
+    values ('00000000-0000-4000-8000-00000000ffff', 'pr-merged', 'nimbus-core', 99, 'anon', now());
     raise exception 'FAIL: anon wrote public.contributions';
   exception when insufficient_privilege then null; end;
 end $$;
@@ -137,9 +140,9 @@ declare
   n int;
 begin
   for me in select * from (values
-      ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com', array['vertuoza']),
+      ('00000000-0000-4000-8000-0000000000a1', 'ada@example.com', array['initech']),
       ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test',   array['acme']),
-      ('00000000-0000-4000-8000-0000000000f1', 'fay@example.com',  array['vertuoza', 'acme']),
+      ('00000000-0000-4000-8000-0000000000f1', 'fay@example.com',  array['initech', 'acme']),
       ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com',  array[]::text[])
     ) as m (uid, email, slugs) loop
     perform pg_temp.sign_in(me.uid, me.email);
@@ -159,7 +162,7 @@ begin
 
     begin
       insert into public.contributions (workspace_id, kind, repo, number, login, at)
-      select id, 'pr-merged', 'vertuo-core', 99, 'planted', now() from public.workspaces where slug = 'vertuoza';
+      select id, 'pr-merged', 'nimbus-core', 99, 'planted', now() from public.workspaces where slug = 'initech';
       raise exception 'FAIL: % inserted a contribution', me.email;
     exception when insufficient_privilege then null; end;
     begin

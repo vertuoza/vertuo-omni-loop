@@ -1,5 +1,5 @@
 import 'server-only';
-import { propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { githubClient, type GithubClient } from '@omni/github';
 import type { Database } from '../../../../supabase/database.types.ts';
@@ -8,7 +8,7 @@ import { githubStore } from '../dossier/github/server';
 import { installationSettingsUrl, reachedRepositories } from '../signup/github-app';
 import type { Installation } from '../signup/installation';
 import { repositoryRowOf, type RepositoryProduct, type RepositoryRow } from './model';
-import { repositoriesRepository, type GithubOf, type StoredProductLink } from './repositories.repository';
+import { repositoriesRepository, type GithubOf, type StoredProduct, type StoredProductLink } from './repositories.repository';
 import type { Access } from './RepositoriesView';
 
 // Settings → Repositories's read (PRD 612 s1). As the signed-in person, so row-level security decides
@@ -24,7 +24,9 @@ import type { Access } from './RepositoriesView';
 // the repositories the installation reaches are read with its token through the shared, budget-aware
 // client, `interactive` (the person waits on the page), on the budget the whole server shares; a paused
 // budget reads as a listing that cannot be read. PRD 1246 s4 reads whether each repository's ideas
-// board is public. PRD 1299 s1 reads where each repository's phase 0 is approved.
+// board is public. PRD 1299 s1 reads where each repository's phase 0 is approved. PRD 2188 s1 reads when
+// each repository was removed (the page lists only the others) and the products that plan in each, which
+// the confirm before a remove names; they come with the chips, and go with them when unreadable.
 
 /** What the page asks GitHub as the Omni App, with its JWT (src/signup/github-app.ts). */
 export interface RepositoriesApp {
@@ -67,19 +69,36 @@ function productsByRepository(products: readonly RepositoryProduct[], links: rea
   return byRepository;
 }
 
+/** The products that plan in each repository, by `owner/name`, first first (PRD 2188 s1). */
+function plansByRepository(products: readonly StoredProduct[]): Map<string, RepositoryProduct[]> {
+  const byRepository = new Map<string, RepositoryProduct[]>();
+  for (const { id, name, plan_repository } of products) {
+    if (!plan_repository) continue;
+    const repository = plan_repository.toLowerCase();
+    byRepository.set(repository, [...(byRepository.get(repository) ?? []), { id, name }]);
+  }
+  return byRepository;
+}
+
+interface ProductsOf {
+  linked: Map<string, RepositoryProduct[]>;
+  planning: Map<string, RepositoryProduct[]>;
+}
+
 /** Products or links that cannot be read: the page then shows no chip, never no list. */
-async function productsOf(store: ReturnType<typeof repositoriesRepository>, workspace: string): Promise<Map<string, RepositoryProduct[]>> {
+async function productsOf(store: ReturnType<typeof repositoriesRepository>, workspace: string): Promise<ProductsOf> {
   try {
     const [products, links] = await Promise.all([store.products(workspace), store.links(workspace)]);
-    return productsByRepository(products, links);
+    const chips = products.map(({ id, name }) => ({ id, name }));
+    return { linked: productsByRepository(chips, links), planning: plansByRepository(products) };
   } catch (err) {
     console.error(`repositories: the products could not be read (${why(err)})`);
-    return new Map();
+    return { linked: new Map(), planning: new Map() };
   }
 }
 
 /** The workspace's installation: its stored id's, else its org's or the person's own. */
-async function installationOf(github: GithubOf, stored: number | null, app: RepositoriesApp): Promise<Installation | null> {
+export async function installationOf(github: GithubOf, stored: number | null, app: RepositoriesApp): Promise<Installation | null> {
   if (stored) return app.installation(stored);
   if (!github.github_org) return null;
   return (await app.orgInstallation(github.github_org)) ?? (await app.userInstallation(github.github_org));
@@ -130,7 +149,10 @@ export async function loadRepositoriesPage(
     const [rows, isOwner, githubRow, products] = await Promise.all([
       store.rows(workspace.id), store.owner(workspace.id).catch(asMember), store.github(workspace.id), productsOf(store, workspace.id),
     ]);
-    repositories = rows.map((r) => repositoryRowOf(r, products.get(r.full_name.toLowerCase()) ?? []));
+    repositories = rows.map((r) => {
+      const name = r.full_name.toLowerCase();
+      return repositoryRowOf(r, products.linked.get(name) ?? [], products.planning.get(name) ?? []);
+    });
     owner = isOwner;
     github = githubRow;
   } catch (err) {

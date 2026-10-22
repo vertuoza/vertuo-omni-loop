@@ -3,7 +3,7 @@ import { pitchGif, registerPitch, requestPitchUploads, type PitchDeps } from './
 import { FakePitchWorld } from './store.fake';
 import { z } from 'zod';
 import { sure } from '../arcade/test/sure';
-import { parsePrd } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 vi.mock('server-only', () => ({}));
 

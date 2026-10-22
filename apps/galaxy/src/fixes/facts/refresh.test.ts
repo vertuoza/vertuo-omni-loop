@@ -4,7 +4,7 @@ import type { ConceptReader, FixReader, FixRef } from '../../dossier/github/read
 import { UNREAD } from '../../dossier/github/summary';
 import { isConceptFinal, mergeFacts, refreshConceptFacts, refreshFixFacts } from './refresh';
 import { fakeConceptFactsStore, fakeFixFactsStore } from './store.fake';
-import { parseIssue, parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parseIssue, parsePr } from 'omni-loop/kit/lib/ids.ts';
 
 // PRD 691, s1: what GitHub says of each fix, read through the reader and stored in fix_facts, so /bugs and
 // /visual render without GitHub. A part GitHub could not read keeps what was stored; a fix whose whole
@@ -127,14 +127,27 @@ describe('refreshConceptFacts (PRD 1272, s4)', () => {
     return { reader, reads };
   }
 
-  it('reads a concept until its pull request has merged, and not after', async () => {
+  it('reads a concept every run, a merged one too, and stores the issue it reads', async () => {
     const store = fakeConceptFactsStore();
     const { reader, reads } = conceptReader({ c1: { issue: issue(1269), pull: open }, c2: { issue: issue(746), pull: merged } });
     expect(await refreshConceptFacts(W, [ref('c1', 1269), ref('c2', 746)], { reader, store, now: () => NOW, ...quiet }))
       .toEqual({ read: 2, stored: 2, final: 0, failed: 0 });
     expect(await refreshConceptFacts(W, [ref('c1', 1269), ref('c2', 746)], { reader, store, now: () => NOW, ...quiet }))
-      .toEqual({ read: 1, stored: 1, final: 1, failed: 0 });
-    expect(reads).toEqual(['c1', 'c2', 'c1']);
+      .toEqual({ read: 2, stored: 2, final: 0, failed: 0 });
+    expect(reads).toEqual(['c1', 'c2', 'c1', 'c2']);
+  });
+
+  it('stores a merged concept\'s close and its reopen, its stored pull request kept', async () => {
+    const store = fakeConceptFactsStore();
+    const closed = { ...issue(746), state: 'closed' as const };
+    await store.writeFacts([{ dossier_id: 'c2', workspace_id: W, facts: { issue: issue(746), pull: merged } }]);
+    const answers: Record<string, ConceptFacts | null> = { c2: { issue: closed, pull: null } };
+    const { reader } = conceptReader(answers);
+    await refreshConceptFacts(W, [ref('c2', 746)], { reader, store, now: () => NOW, ...quiet });
+    expect(store.rows.map((r) => r.facts)).toEqual([{ issue: closed, pull: merged }]);
+    answers['c2'] = { issue: issue(746), pull: UNREAD };
+    await refreshConceptFacts(W, [ref('c2', 746)], { reader, store, now: () => NOW, ...quiet });
+    expect(store.rows.map((r) => r.facts)).toEqual([{ issue: issue(746), pull: merged }]);
   });
 
   it('keeps a stored part GitHub could not read, and a concept whose whole read failed', async () => {

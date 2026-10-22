@@ -23,7 +23,7 @@
 // `refused` (401, 400, 405) or `failed` (500, or a thrown error, rethrown unchanged).
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import { log, type Logger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
+import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from '../env.ts';
 import { inngest } from '../inngest-client.ts';
 import { loggedHandler, noteTo } from '../run-log/run-log.ts';

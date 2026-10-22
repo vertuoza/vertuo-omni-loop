@@ -1,6 +1,6 @@
 # `kit/plugin/skills/brainstorm/SKILL.md` (`/omni:brainstorm`)
 
-Source: `.claude/skills/vertuo-brainstorming/SKILL.md` @ `vertuo-ai-domain@c4a210122`. Its step 1
+Source: `.claude/skills/nimbus-brainstorming/SKILL.md` @ `nimbus-brain@c4a210122`. Its step 1
 ("invoke `superpowers:brainstorming` and follow it to the letter") is replaced by that skill's steps
 written in (spec §2: no `superpowers:` dependency), taken from `superpowers` 6.4.1
 `skills/brainstorming/SKILL.md`. Its executable policy, `phase-0-policy.mjs`, was ported earlier as
@@ -23,12 +23,12 @@ written in (spec §2: no `superpowers:` dependency), taken from `superpowers` 6.
 | `--label pr:phase-0` ("create it if missing"), `Refs #<prd>` | `labels.phase0` under **Labels**, `prLinks.phase0` |
 | `pnpm check:inbox` | `omni check inbox` |
 | `pnpm check:phase-0 <prd>` (`scripts/check-phase-0.mjs`) | `omni phase0 <n>`, run after the phase-0 commit (it grades `<base>...HEAD`) |
-| `vertuo-plan`, `vertuo-pull-request` | `/omni:plan`, `/omni:pr` |
-| `/vertuo-deliver #<n>` or `/vertuo-yolo #<n>` | `/omni:yolo <n>` only |
+| `nimbus-plan`, `nimbus-pull-request` | `/omni:plan`, `/omni:pr` |
+| `/nimbus-deliver #<n>` or `/nimbus-yolo #<n>` | `/omni:yolo <n>` only |
 
 ## Dropped
 
-- **`/vertuo-deliver` as a hand-off:** out of scope (spec §4); the last line is `/omni:yolo <n>`.
+- **`/nimbus-deliver` as a hand-off:** out of scope (spec §4); the last line is `/omni:yolo <n>`.
 - **The `plan:` front-matter field** and upstream's step 6.1 (fill `plan:` and commit): the kit's
   inbox guard refuses a `plan` field by name; the plan is always the sibling `plan.md`.
 - **The `## Delivery` spec section:** the plan beside the spec and the Handoff carry it; PRD 7's own
@@ -297,3 +297,47 @@ Step 0 gains one sentence after the briefing: a sync status other than 🟢 in t
 block is said to the person in one line, with its fix, and the run carries on. The sentence names
 no new `omni` command or guard, so `kit/test/skill-steps.snapshot.json` is unchanged. The same
 sentence is in `/omni:yolo`'s step 0, `/omni:mega-brainstorm`'s step 3 and `/omni:ultra-yolo`'s step 3.
+
+## PRD 2049, slice s2 — the conventions at step 1 and the spec's `## Conventions`
+
+Step 1 gains a paragraph before the shared understanding: `omni conventions` prints the index of the
+files where the repository writes its conventions, and the pages the design bears on are read before
+the design is shown. Step 4's spec gains a `## Conventions` section after `## Solution`: a table
+`| repo | layer | name | source |` with a source per name, `no written convention: follows <file>`,
+`No name chosen.`, and a question to the person when two conventions coexist. The new command is one
+verb, so `kit/test/skill-steps.snapshot.json` gains `conventions` for this skill; no step is lost.
+The rules are read by `kit/test/conventions-skills.test.ts`.
+
+## Standalone — the contract blocks at step 5
+
+Step 5's kinds gain **The contract blocks**: where the repository asks every slice to declare its
+contract, the Functional part carries one block per kind the spec commits the repository to, today
+beside after, headed `Contract: <kind> — <repository>` and marked `data-contract="<kind>"`, beside the
+screens and never below them. The kinds come from the spec (**Solution** in one repository, the
+`Contract:` line of each `## Repositories` paragraph in a plan repository), since the plan is written
+after the page; `/omni:plan` step 4 adds a block the plan declares and the page lacks, or stops with
+`needs clarification`, and `omni plan check` refuses a declared kind with no block, naming the slice
+and the kind (`kit/lib/inbox/plan-grade.ts`). The bullet names `omni plan check`, which the skill
+already named, so `kit/test/skill-steps.snapshot.json` is unchanged.
+
+## Standalone — the phase-0 PR body opens with the PRD's page
+
+Step 9's body opens with the PRD's page, the link `omni dossier link <n>` prints when it prints one
+(exit 0), on a line of its own before `prLinks.phase0`; any other answer leaves the line out, as step
+10's hand-off already does for its bracketed line. `/omni:mega-brainstorm` step 9 and `/omni:pr`'s
+body shapes say the same, and a body rewrite keeps the line. The kit builds no phase-0 body and
+`omni phase0` reads none, so no kit code changes; `kit/test/plugin.test.ts` pins the order. The step
+names `omni dossier link`, which the skill already named, so the snapshot is unchanged.
+
+## PRD 2251, slice s4 — the runner line in What is next?
+
+Not a re-port. Step 10 gains, above the command in each of its two **What is next?** blocks, the line
+"To build it on a runner instead: `/omni:yolo-runner <n>`."; the command stays the last line,
+`/omni:yolo <n>`. Tested in `kit/test/plugin.test.ts`, `/omni:yolo-runner and the hand-offs that name it`.
+
+## PRD 2299, slice s3 — the product's glossary and legal entries
+
+Not a re-port: kit-local prose. The words of step 4 and step 6 (**Words first**) read `omni kb
+glossary`, the page winning over `paths.glossary` on a shared term. **Risks** names each Legal entry
+the design touches, from `omni kb legal`, as it names locked laws. Tested in
+`kit/test/plugin.test.ts`, "the skills read the product knowledge (PRD 2299)".

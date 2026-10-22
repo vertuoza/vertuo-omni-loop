@@ -17,7 +17,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { StoredStage } from '../stage';
 import type { StageStore } from '../store';
-import { type PrdNumber, PrdNumberSchema } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { type PrdNumber, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 /** The header omni-app signs with: `sha256=<hex>`. */
 export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';

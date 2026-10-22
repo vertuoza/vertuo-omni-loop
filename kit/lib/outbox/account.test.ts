@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { flatCtx } from '../../test/flat-layout.ts';
-import { ACCOUNTS_DIR, compare, parseAccount, readAccounts } from './account.ts';
+import { ACCOUNTS_DIR, LAW_RULES, compare, parseAccount, readAccounts } from './account.ts';
 import type { Account, AccountEntry, ParsedAccount } from './account.ts';
 import { settleItem } from './settle.ts';
 import { parsePrd, parseWorkSliceId } from '../ids.ts';
@@ -28,7 +28,7 @@ function accountText({ frontMatter = {}, body }: { frontMatter?: Record<string, 
   const defaultBody = [
     '## Risky changes',
     '',
-    '- `libs/vertuo-ai-credit/src/server/migrations.ts`',
+    '- `libs/nimbus-ai-credit/src/server/migrations.ts`',
     '  stored-shape',
     '  item s3-01-credit-ledger-shape',
     '',
@@ -96,7 +96,7 @@ describe('parseAccount — the happy path', () => {
       graded: '2026-09-23',
       entries: [
         {
-          path: 'libs/vertuo-ai-credit/src/server/migrations.ts',
+          path: 'libs/nimbus-ai-credit/src/server/migrations.ts',
           rule: 'stored-shape',
           account: { kind: 'item', id: 's3-01-credit-ledger-shape' },
         },
@@ -284,7 +284,7 @@ describe('readAccounts', () => {
 
     expect(view(s2Result).account.entries).toEqual([
       {
-        path: 'libs/vertuo-ai-credit/src/server/migrations.ts',
+        path: 'libs/nimbus-ai-credit/src/server/migrations.ts',
         rule: 'stored-shape',
         account: { kind: 'item', id: 's3-01-credit-ledger-shape', rank: 'high' },
       },
@@ -313,7 +313,7 @@ describe('readAccounts', () => {
 
 describe('compare', () => {
   const risky = [
-    { path: 'libs/vertuo-ai-credit/src/server/migrations.ts', status: 'M', rule: 'stored-shape' },
+    { path: 'libs/nimbus-ai-credit/src/server/migrations.ts', status: 'M', rule: 'stored-shape' },
   ];
 
   function account(entries: AccountEntry[], overrides: Partial<Account> = {}) {
@@ -324,7 +324,7 @@ describe('compare', () => {
     const accounts = [
       account([
         {
-          path: 'libs/vertuo-ai-credit/src/server/migrations.ts',
+          path: 'libs/nimbus-ai-credit/src/server/migrations.ts',
           rule: 'stored-shape',
           account: { kind: 'item', id: 's3-01-credit-ledger-shape' },
         },
@@ -445,6 +445,27 @@ describe('compare — a law change is accounted only by an item ranked high (PRD
   it('still accepts a medium item for a rule that is not a law rule', () => {
     const risky = [{ path: PATH, status: 'M', rule: 'stored-shape' }];
     expect(compare(risky, oneEntry('stored-shape', { kind: 'item', id: 's2-01-a', rank: 'medium' })).accounted).toEqual(risky);
+  });
+
+  it('refuses spec <where> and a medium item for briefing-text, naming the briefing (PRD 1793)', () => {
+    const risky = [{ path: PATH, status: 'M', rule: 'briefing-text' }];
+    expect(compare(risky, oneEntry('briefing-text', { kind: 'spec', where: 'Solution' })).unaccounted).toEqual([
+      { ...risky[0], refused: 'its account "spec Solution" is refused: a change to the briefing is accounted only by an item ranked high' },
+    ]);
+    expect(compare(risky, oneEntry('briefing-text', { kind: 'item', id: 's2-03', rank: 'medium' })).unaccounted).toEqual([
+      { ...risky[0], refused: 'its account names item s2-03, ranked medium: a change to the briefing needs an item ranked high' },
+    ]);
+  });
+
+  it.each(['high', 'human-action'])('accepts an item ranked %s for briefing-text (PRD 1793)', (rank) => {
+    const risky = [{ path: PATH, status: 'M', rule: 'briefing-text' }];
+    const result = compare(risky, oneEntry('briefing-text', { kind: 'item', id: 's2-03', rank }));
+    expect(result.accounted).toEqual(risky);
+    expect(result.unaccounted).toEqual([]);
+  });
+
+  it('holds briefing-text among the rules only a person answers (PRD 1793)', () => {
+    expect(LAW_RULES).toEqual(['law-proof', 'law-text', 'test-removed', 'law-demoted', 'briefing-text']);
   });
 
   it('an accepted entry beside a refused one accounts for the change', () => {

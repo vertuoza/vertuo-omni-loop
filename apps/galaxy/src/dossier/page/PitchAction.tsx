@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { SendToTerminal } from '../../runners/send/SendToTerminal';
 import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 // Pitch (PRD 859): a shipped or retro PRD's one button. It opens a small panel with two choices,
 // Customers (selected first) and Inside, the command for the one chosen, `/omni:pitch <n> --for

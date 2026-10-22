@@ -1,0 +1,173 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-19",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A dark animated sky dropped into my Light theme looks like the arcade leaking into the app, and I don't want hundreds of moving nodes on my laptop.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Lines from what our plans actually changed together, and a card per line listing the PRDs: that tells me what breaks when I touch my API.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Every repository of Vertuoza readable at once, with the pairs we keep changing together glowing: that's the map I wanted from the tour.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "If the lines only count shipped work, the map shows last quarter's coupling, not what my teams are touching this week.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "No more wall of chips above the map; I see my mobile star and what waits on me.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Lead Engineer",
+        "text": "If the lines only count shipped work, the map shows last quarter's coupling, not what my teams are touching this week.",
+        "citations": [
+          "persona:Lead Engineer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✗ · persona:Lead Engineer ✗ · offering#316 ✓"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-19",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Motion capped at 60 twinkling stars, CSS only, none under reduced motion, and a layout test that fails on any overlap: I can live with the dark sky.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The line card lists every PRD that changed both repositories, and targets are stored once instead of parsing plans on each visit.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Tested on a product shaped like ours, with the after drawn by the real layout: this one won't come back broken.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "In-flight lines bright over the dim history is exactly the view I'd check each morning.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The tab comes back once it works, and nothing on it asks me to set anything up.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ✓ · offering#316 ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-19",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The sky is built with CSS motion only, paused when the tab is hidden and off under reduced motion, so it stays light on my laptop.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Each line's card lists the PRDs that changed both repositories, read from stored targets rather than plan text.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The map of our repositories is readable at once, and the pairs we keep changing together stand out.",
+          "citations": [
+            "persona:Paul - Product Manager",
+            "offering#316"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Lines of work in flight stand out from the history, which is the view I would check each morning.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The tab is back and asks me to set nothing up.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Lead Engineer ✓ · offering#316 ✓"
+    }
+  ]
+}

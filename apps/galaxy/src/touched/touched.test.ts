@@ -1,12 +1,13 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import type { Priority } from '@omni/github';
-import type { GithubSummary } from '../dossier/github/summary';
+import { UNREAD, type GithubSummary } from '../dossier/github/summary';
 import type { DossierRef } from '../dossier/github/reader';
 import { fakeSnapshotStore, type FakeSnapshotStore } from '../dossier/snapshot/store.fake';
 import type { SnapshotDeps } from '../dossier/snapshot/snapshot';
 import { STAGE_SIGNATURE_HEADER } from '../stages/event/event';
-import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import type { FixRef } from '../dossier/github/reader';
+import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { parseTouch, receiveTouch, refreshAfterTouch, topicOfBranch, type TouchedDeps } from './touched';
 
 vi.mock('server-only', () => ({}));
@@ -36,7 +37,11 @@ function clock(start = Date.parse('2026-10-05T09:30:00Z')) {
 
 type Reads = { priority: Priority; ref: DossierRef }[];
 
-function setup({ topics = new Map<string, PrdNumber>(), workspaces = [WS] } = {}) {
+function setup({ topics = new Map<string, PrdNumber>(), workspaces = [WS], read }: {
+  topics?: Map<string, PrdNumber>; workspaces?: string[];
+  /** What GitHub answers for a PRD; PRD 902's summary with as many merged slices as reads so far by default. */
+  read?: (prd: PrdNumber) => GithubSummary | null;
+} = {}) {
   const store = fakeSnapshotStore();
   const reads: Reads = [];
   const later: (() => Promise<void>)[] = [];
@@ -49,7 +54,7 @@ function setup({ topics = new Map<string, PrdNumber>(), workspaces = [WS] } = {}
       summary: async (ref, { priority }) => {
         reads.push({ ref, priority });
         if (gate) await gate;
-        return summary(ref.prd, { mergedSlices: reads.length });
+        return read ? read(ref.prd) : summary(ref.prd, { mergedSlices: reads.length });
       },
       forget: () => {},
     },
@@ -275,5 +280,144 @@ describe('touches during a refresh (acceptance 7)', () => {
     keep('d1', summary(parsePrd(902)));
     await refreshAfterTouch({ id: 'd1', workspace_id: WS, home_repo: REPO, prd: parsePrd(902) }, deps.snapshot);
     expect(reads).toEqual([]);
+  });
+});
+
+// PRD 2270 (s1): once a touch's read ends, the page decides whether the PRD continues: every asked item
+// answered, it asks the runners to queue its fix, which they do at most once.
+describe('a touch whose read finds every asked item answered (PRD 2270)', () => {
+  const item = (id: string) => ({ id, rank: 'high' as const, question: 'Q?', decision: 'D.', options: [], personSteps: null });
+  const reply = (number: number, id: string, more: { counted?: boolean; held?: boolean } = {}) =>
+    ({ number, id, text: 'B because it is cheaper', by: 'paula', at: null, url: null, counted: true, door: 'github' as const, ...more });
+  /** PRD 902's summary with two asked items, `answered` of them with a counted reply. */
+  const asked = (prd: PrdNumber, pending: ReturnType<typeof reply>[]) => summary(prd, {
+    feature: pull(903), mergedSlices: 2, outbox: { open: [item('a'), item('b')], settled: [] },
+    replies: { numbering: [{ number: 1, id: 'a' }, { number: 2, id: 'b' }], pending },
+  });
+  const ANSWERED = [reply(1, 'a'), reply(2, 'b')];
+
+  function continuing(read: (prd: PrdNumber) => GithubSummary | null) {
+    const t = setup({ read });
+    const asks: { workspace: string; repository: string; prd: PrdNumber; answered: number }[] = [];
+    t.deps.continueAnswered = ({ workspace, repository, prd, stand }) => {
+      asks.push({ workspace, repository, prd, answered: stand.answered });
+      return Promise.resolve(asks.length === 1 ? 'fix-job' : null);
+    };
+    return { ...t, asks };
+  }
+
+  it('asks once, after the read, to continue the PRD, and notes the fix queued', async () => {
+    const { post, keep, asks, note, runLater } = continuing((prd) => asked(prd, ANSWERED));
+    keep('d1', summary(parsePrd(902)));
+    await post({ repository: REPO, pr: 903, issue: 902 });
+    expect(asks).toEqual([]);
+    await runLater();
+    expect(asks).toEqual([{ workspace: WS, repository: REPO, prd: 902, answered: 2 }]);
+    expect(JSON.stringify(note.mock.calls)).toContain('/omni:yolo-fix 902 queued as job fix-job');
+  });
+
+  it('asks nothing while an asked item waits for a counted reply: none, held, or from someone GitHub does not list', async () => {
+    for (const pending of [[], [reply(1, 'a')], [reply(1, 'a'), reply(2, 'b', { held: true })], [reply(1, 'a'), reply(2, 'b', { counted: false })]]) {
+      const { post, keep, asks, runLater } = continuing((prd) => asked(prd, pending));
+      keep('d1', summary(parsePrd(902)));
+      await post({ repository: REPO, issue: 902 });
+      await runLater();
+      expect(asks).toEqual([]);
+    }
+  });
+
+  it('asks nothing when the read failed, or left the outbox or the replies unread', async () => {
+    for (const read of [() => null, (prd: PrdNumber) => ({ ...asked(prd, ANSWERED), replies: UNREAD }), (prd: PrdNumber) => ({ ...asked(prd, ANSWERED), outbox: UNREAD })]) {
+      const { post, keep, asks, runLater } = continuing(read);
+      keep('d1', summary(parsePrd(902)));
+      await post({ repository: REPO, issue: 902 });
+      await runLater();
+      expect(asks).toEqual([]);
+    }
+  });
+
+  it('decides once for a burst of touches: only the refresh that read decides', async () => {
+    const { post, keep, asks, reads, runLater } = continuing((prd) => asked(prd, ANSWERED));
+    keep('d1', summary(parsePrd(902)));
+    for (let i = 0; i < 5; i += 1) await post({ repository: REPO, issue: 902 });
+    await runLater();
+    expect(reads).toHaveLength(1);
+    expect(asks).toHaveLength(1);
+  });
+
+  it('decides nothing when the dossier was touched again while it read: the follow-up\'s touch decides', async () => {
+    const t = continuing((prd) => asked(prd, ANSWERED));
+    t.keep('d1', summary(parsePrd(902)));
+    await t.post({ repository: REPO, issue: 902 });
+    const first = t.later.splice(0);
+    const open = t.hold();
+    const running = first[0]?.();
+    await vi.waitFor(() => { expect(t.reads).toHaveLength(1); });
+    await t.post({ repository: REPO, issue: 902 });
+    open();
+    await running;
+    // The follow-up read ran, and the snapshot is current: one decision, after it.
+    expect(t.reads).toHaveLength(2);
+    expect(t.asks).toHaveLength(1);
+  });
+
+  it('logs a continuation that fails, and nothing more', async () => {
+    const { post, keep, deps, log, runLater } = continuing((prd) => asked(prd, ANSWERED));
+    deps.continueAnswered = () => Promise.reject(new Error('the database said no'));
+    keep('d1', summary(parsePrd(902)));
+    await post({ repository: REPO, issue: 902 });
+    await runLater();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('the database said no'));
+  });
+
+  it('decides nothing without the runners: a deployment with no continuation', async () => {
+    const { post, keep, deps, reads, runLater } = continuing((prd) => asked(prd, ANSWERED));
+    delete deps.continueAnswered;
+    keep('d1', summary(parsePrd(902)));
+    await post({ repository: REPO, issue: 902 });
+    await runLater();
+    expect(reads).toHaveLength(1);
+  });
+});
+
+describe('an issues touch for a concept (PRD 2213, s2)', () => {
+  const concept: FixRef = { id: 'c1', home_repo: REPO, prd: parseIssue(1269) };
+  const withConcepts = () => {
+    const t = setup();
+    const refreshed: string[] = [];
+    t.deps.conceptOf = (_workspace, _repository, issue) => Promise.resolve(issue === 1269 ? concept : null);
+    t.deps.refreshConcept = (workspace, c) => { refreshed.push(`${workspace}:${c.id}`); return Promise.resolve(); };
+    return { ...t, refreshed };
+  };
+  const body = (issue: number) => ({ repository: REPO, issue });
+
+  it('refreshes that concept\'s facts after the response, and answers 200', async () => {
+    const { post, refreshed, runLater } = withConcepts();
+    expect(await post(body(1269))).toEqual({ status: 200, body: { ok: true, stale: 0 } });
+    expect(refreshed).toEqual([]);
+    await runLater();
+    expect(refreshed).toEqual([`${WS}:c1`]);
+  });
+
+  it('does what it did for any other issue: no concept refreshed', async () => {
+    const { post, refreshed, runLater } = withConcepts();
+    expect((await post(body(77))).status).toBe(202);
+    await runLater();
+    expect(refreshed).toEqual([]);
+  });
+
+  it('logs a refresh that fails, and nothing more', async () => {
+    const { post, deps, log, runLater } = withConcepts();
+    deps.refreshConcept = () => Promise.reject(new Error('GitHub said no'));
+    await post(body(1269));
+    await runLater();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('GitHub said no'));
+  });
+
+  it('refreshes nothing for a touch with no issue', async () => {
+    const { post, refreshed, runLater } = withConcepts();
+    await post({ repository: REPO, branch: 'feat/x' });
+    await runLater();
+    expect(refreshed).toEqual([]);
   });
 });

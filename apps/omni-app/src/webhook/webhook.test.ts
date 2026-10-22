@@ -1,13 +1,14 @@
-import { parsePr } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { parsePr } from 'omni-loop/kit/lib/ids.ts';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { assertDefined } from 'vertuo-omni-plan/kit/test/assert.ts';
+import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { type AppEvent, APPROVED_CHECK_EVENT, APPROVED_EXTERNAL_ID, BUDGETS_CHECK_EVENT, BUDGETS_EXTERNAL_ID, HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.ts';
 import { CANON_ACTION, CANON_ACTION_EVENT } from '../inbox-check/canon-actions.ts';
 import {
   APPROVED_LABEL_ACTIONS,
   CANON_ACTIONS,
   CHECK_ACTIONS,
+  FIX_STAMP_ACTIONS,
   HANDLED,
   RETRO_ACTIONS,
   receiveWebhook,
@@ -15,11 +16,13 @@ import {
   toCanonActionRequests,
   toCheckRequests,
   toEvents,
+  toFixStampRequests,
   toHarvestRequests,
   toRetroRequests,
 } from './webhook.ts';
 import { APPROVED_LABEL_EVENT } from '../inngest-client.ts';
 import type { StageEvent } from '../stage-forward/stage-forward.ts';
+import { FIX_STAMP_EVENT, type FixStampRequest } from '../fix-rows/fix-stamp.ts';
 import type { Touch } from '../stage-forward/touch.ts';
 import { appFunctions } from '../functions.ts';
 import { readEnv } from '../env.ts';
@@ -330,7 +333,8 @@ describe('webhook — the retro route (PRD 72)', () => {
   it('turns a merged pull request into one retro event and one harvest event (PRD 82), and no outbox event', async () => {
     const { response, send } = await deliver({ payload: mergedPayload() });
     expect(response.status).toBe(200);
-    expect(response.body).toBe('sent 2');
+    // The retro, the harvest, and the fix stamp beside them (PRD 2011 s7), which `send` never gets.
+    expect(response.body).toBe('sent 3');
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0]?.[0]).toEqual([
       {
@@ -633,5 +637,76 @@ describe('webhook — the approved label (PRD 1612)', () => {
     expect(response).toEqual({ status: 200, body: 'sent 1' });
     expect(send).not.toHaveBeenCalled();
     expect(sendApproved).toHaveBeenCalledWith(toApprovedLabelRequests('issues', payload));
+  });
+});
+
+describe('webhook — the fix stamp (PRD 2011 s7)', () => {
+  const FIXES = 'The upload retries offline.\n\nFixes mobile-B74 · https://omni.example/bugs/mobile-B74';
+  const closedPayload = (over = {}) =>
+    pullRequestPayload('closed', {
+      pull_request: { number: 28, merged: false, merged_at: null, closed_at: '2026-09-25T15:00:00Z', updated_at: '2026-09-25T15:00:00Z', head: { sha: 'abc123' }, base: { ref: 'main' }, ...over },
+    });
+  const stampOf = (kind: string, at: string, bug: string | null = null) => ({
+    name: FIX_STAMP_EVENT,
+    id: `fix-stamp:vertuoza/vertuo-omni-loop#28:${kind}:${at}`,
+    data: { installationId: 4242, repository: 'vertuoza/vertuo-omni-loop', prNumber: 28, kind, at, bug },
+  });
+
+  it('turns a merged pull request into the default branch into one fix stamp, at its merge, naming the record its body names', () => {
+    expect(toFixStampRequests('pull_request', mergedPayload())).toEqual([stampOf('merged', MERGED_AT)]);
+    expect(toFixStampRequests('pull_request', mergedPayload({ body: FIXES }))).toEqual([stampOf('merged', MERGED_AT, 'mobile-B74')]);
+  });
+
+  it('turns a pull request closed unmerged into a close at its close, and one reopened into a reopen at its last update', () => {
+    expect(toFixStampRequests('pull_request', closedPayload())).toEqual([stampOf('closed', '2026-09-25T15:00:00Z')]);
+    const reopened = { ...closedPayload({ closed_at: null, updated_at: '2026-09-25T16:00:00Z' }), action: 'reopened' };
+    expect(toFixStampRequests('pull_request', reopened)).toEqual([stampOf('reopened', '2026-09-25T16:00:00Z')]);
+  });
+
+  it('turns a pull request into another branch into none, unless its body names a record (#1409)', () => {
+    expect(toFixStampRequests('pull_request', mergedPayload({ base: { ref: 'feat/retro' } }))).toEqual([]);
+    expect(toFixStampRequests('pull_request', closedPayload({ base: { ref: 'feat/retro' } }))).toEqual([]);
+    expect(toFixStampRequests('pull_request', mergedPayload({ base: { ref: 'develop' }, body: FIXES }))).toEqual([stampOf('merged', MERGED_AT, 'mobile-B74')]);
+    const noDefault = { ...mergedPayload({ base: { ref: 'feat/retro' } }), repository: { name: 'vertuo-omni-loop', full_name: 'vertuoza/vertuo-omni-loop', owner: { login: 'vertuoza' } } };
+    expect(toFixStampRequests('pull_request', noDefault)).toEqual([stampOf('merged', MERGED_AT)]);
+  });
+
+  it('turns no other action, no other event, and no delivery missing its installation, number or time into one', () => {
+    for (const action of CHECK_ACTIONS.pull_request.filter((one) => one !== 'reopened')) {
+      expect(toFixStampRequests('pull_request', { ...mergedPayload(), action }), action).toEqual([]);
+    }
+    expect(toFixStampRequests('pull_request_review', { ...mergedPayload(), action: 'submitted' })).toEqual([]);
+    expect(toFixStampRequests('pull_request', { ...mergedPayload(), installation: null })).toEqual([]);
+    expect(toFixStampRequests('pull_request', { ...mergedPayload({ number: null }), number: null })).toEqual([]);
+    expect(toFixStampRequests('pull_request', mergedPayload({ merged_at: null }))).toEqual([]);
+    expect(toFixStampRequests('pull_request', closedPayload({ closed_at: null }))).toEqual([]);
+    expect(toFixStampRequests('pull_request', { ...closedPayload({ updated_at: null }), action: 'reopened' })).toEqual([]);
+    expect(toFixStampRequests('pull_request', 'not a delivery')).toEqual([]);
+    expect(FIX_STAMP_ACTIONS).toEqual({ pull_request: ['closed', 'reopened'] });
+    expect(HANDLED.pull_request).toEqual(expect.arrayContaining([...FIX_STAMP_ACTIONS.pull_request]));
+  });
+
+  it('a signed delivery hands its fix stamp to sendStamps, beside the events `send` gets, and answers 502 when it cannot be sent', async () => {
+    const payload = mergedPayload({ body: FIXES });
+    const body = JSON.stringify(payload);
+    const send = sending();
+    const sendStamps = vi.fn((events: FixStampRequest[]) => Promise.resolve(events.length));
+    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, send, sendStamps, forward: forwarding() });
+    expect(response).toEqual({ status: 200, body: 'sent 3' });
+    expect(send.mock.calls[0]?.[0].map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
+    expect(sendStamps).toHaveBeenCalledWith([stampOf('merged', MERGED_AT, 'mobile-B74')]);
+
+    const closed = JSON.stringify(closedPayload());
+    const failing = vi.fn(() => Promise.reject(new Error('inngest is down')));
+    const refused = await receiveWebhook({ body: closed, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(closed) }, secret: SECRET, send: sending(), sendStamps: failing, forward: forwarding() });
+    expect(refused).toEqual({ status: 502, body: 'could not send the event: inngest is down' });
+  });
+
+  it('a delivery with a bad signature hands sendStamps nothing', async () => {
+    const body = JSON.stringify(mergedPayload());
+    const sendStamps = vi.fn(() => Promise.resolve());
+    const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body, 'another') }, secret: SECRET, send: sending(), sendStamps, forward: forwarding() });
+    expect(response.status).toBe(401);
+    expect(sendStamps).not.toHaveBeenCalled();
   });
 });

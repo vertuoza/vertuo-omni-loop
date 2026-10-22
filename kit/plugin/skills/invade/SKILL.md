@@ -109,7 +109,9 @@ TODO(human): <a question a person can answer in one line>
 The registers live under `paths.knowledge`: `product/`, one `domains/<domain>/` folder per domain
 (its **code** is the folder name uppercased, hyphens removed: `agent-session` is `AGENTSESSION`), and
 `cross-domain/<a>--<b>.md`. Each product and domain folder holds `principles.md`, `rules.md` and
-`invariants.md`; a domain folder also a `README.md` with a `Glossary term:` line. An entry is a
+`invariants.md`, and may hold `contracts.md`, which is optional: its domain contracts (`DC-<CODE>-<n>`)
+are written by a person, and this skill writes no contract. A domain folder also holds a `README.md`
+with a `Glossary term:` line. An entry is a
 `## <id>` heading, a one-line statement, then its field lines. Read one with
 `node .omni-loop/bin/omni.mjs knowledge <id>`; never parse the files yourself.
 
@@ -450,7 +452,7 @@ A page that already answers a question is pointed at, never copied, so it keeps 
   the config), whose hash would be stale on merge.
 
   ```bash
-  printf '  - %s@%s\n' "<path>" "$(git hash-object -- "<path>" | cut -c1-7)"
+  git hash-object -- "<path>"     # the line is `  - <path>@<its first 7 hex>`
   ```
 
 - **Commands.** Every command a section names runs once, from the worktree's root, before it is
@@ -652,6 +654,28 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
 `node .omni-loop/bin/omni.mjs flow show --path <a file of that folder>` must print area
 `migrations`. Its line in the body's **Config** section names the folder that shows it.
 
+## The knowledge map
+
+Proposed with step 7's config diff and step 3's registers, from evidence only, never applied: the
+vocabulary is the kit's (ten layers and nine roles, defined on the guide's knowledge-map page), every part is optional.
+The map also runs on `--refresh`, for what changed only.
+
+- **`layers:`** in `.omni-loop/config.yml`: one canonical layer per key, with anchored paths the tree
+  proves (a migrations folder is `db`, a `bin/` with a command parser is `cli`). Never a key outside the
+  canonical layers.
+- **Knowledge areas:** a `flow.areas.<name>` with `knowledge: <domain>` for each business area the
+  domains facet can name, its `paths` the folders it owns. When the config has a `flow`, add areas
+  only, keeping every key a person wrote.
+- **Domain folders:** a register folder of more than 50 entries is split into `domains/<domain>/`
+  folders. Each moved entry keeps its id through a `Kept id:` line and its text byte for byte: moving an
+  entry whole is no rewrite, and a law moved this way is not demoted. Rerun `omni kb owners` when a
+  locked law moved.
+- **Layers on entries:** a `Layers: db, auth` line on each rule or invariant, and `**Layers:**` (and
+  `**Domain:**` when about one area) on the status line of each ADR it can place.
+- **Proposed, and checked:** every entry carries `Proposed: invade <today>`; what it cannot place stays
+  global, with a `TODO(human)` line. Run `node .omni-loop/bin/omni.mjs check config` and
+  `node .omni-loop/bin/omni.mjs check knowledge`: both exit `0`, a pattern matching no tracked file is left out.
+
 ## 8. One docs-only pull request
 
 1. **Docs-only.** `git diff --name-only <remote>/<repo.defaultBranch>...HEAD` names only files
@@ -781,6 +805,8 @@ slice may hold is the team's to say). When the config already has a `flow`, add 
   rewritten. Its `evidence:` is rewritten: the files its sections were written from, hashed again. A
   file that is gone leaves the list (`omni check kb` fails on it), and what it proved is proved again
   or asked.
+- **The knowledge map:** only for a domain, a layer or an ADR the re-run facets found that the config and
+  the registers do not already say; a confirmed entry is never moved or tagged.
 - Step 7 proposes only what the re-run facets and the redone forms changed. Step 8 is unchanged: the
   same branch, one pull request.
 - No facet to re-run, nothing stale and nothing blank: say so, and open nothing.

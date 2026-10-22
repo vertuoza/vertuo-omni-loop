@@ -15,6 +15,15 @@ import {
   parsePrd,
   parsePrdId,
   parseProductPrdId,
+  parseProductBugId,
+  parseProductRoadmapId,
+  productBugId,
+  productBugParts,
+  type ProductBugId,
+  ProductBugIdSchema,
+  productRoadmapId,
+  productRoadmapParts,
+  ProductRoadmapIdSchema,
   isProductPrdId,
   productPrdParts,
   type ProductPrdId,
@@ -214,5 +223,77 @@ describe('parsePrdId — a PRD of a repository (12) or of a product (mobile-12),
     const forty = `a${'b'.repeat(39)}`;
     expect(parsePrdId(`${forty}-1`)).toBe(`${forty}-1`);
     expect(() => parsePrdId(`${forty}b-1`)).toThrow('PRD ');
+  });
+});
+
+describe('a product roadmap id — <key>-R<n>, PRD 2011', () => {
+  it('reads the key and the number', () => {
+    expect(productRoadmapParts(parseProductRoadmapId('mobile-R3'))).toEqual({ key: 'mobile', seq: 3 });
+    expect(productRoadmapParts(parseProductRoadmapId('field-app-R12'))).toEqual({ key: 'field-app', seq: 12 });
+    expect(productRoadmapId('mobile', 4)).toBe('mobile-R4');
+  });
+
+  it('is told from a product PRD, a plain number and a malformed id', () => {
+    expect(ProductRoadmapIdSchema.safeParse('mobile-12').success).toBe(false);
+    expect(ProductRoadmapIdSchema.safeParse('mobile-r3').success).toBe(false);
+    expect(ProductRoadmapIdSchema.safeParse('mobile-R0').success).toBe(false);
+    expect(ProductRoadmapIdSchema.safeParse('R3').success).toBe(false);
+    expect(ProductRoadmapIdSchema.safeParse('12').success).toBe(false);
+    expect(ProductPrdIdSchema.safeParse('mobile-R3').success).toBe(false);
+    expect(ProductRoadmapIdSchema.safeParse(`a-R${2 ** 31}`).success).toBe(false);
+    expect(() => parseProductRoadmapId('mobile-12')).toThrow('product roadmap "mobile-12"');
+  });
+});
+
+// The limits the nightly mutation run found untested (the ids floor fell to 91.37 on 2026-10-16,
+// after #2012 and #2014): a key of exactly 40 characters, the largest number the database holds,
+// and a bug id at all.
+const FORTY = `a${'b'.repeat(39)}`;
+const SEQ_MAX = 2 ** 31 - 1;
+
+describe('a product roadmap id — its limits', () => {
+  it('takes a key of 40 characters and no more', () => {
+    expect(parseProductRoadmapId(`${FORTY}-R1`)).toBe(`${FORTY}-R1`);
+    expect(() => parseProductRoadmapId(`${FORTY}b-R1`)).toThrow('product roadmap ');
+  });
+
+  it('takes the largest number the database holds and no more', () => {
+    expect(productRoadmapParts(parseProductRoadmapId(`a-R${SEQ_MAX}`))).toEqual({ key: 'a', seq: SEQ_MAX });
+    expect(() => parseProductRoadmapId(`a-R${SEQ_MAX + 1}`)).toThrow('product roadmap ');
+  });
+});
+
+describe('a product bug id — <key>-B<n>, PRD 2011', () => {
+  it('reads the key and the number, a key with hyphens included', () => {
+    expect(productBugParts(parseProductBugId('mobile-B74'))).toEqual({ key: 'mobile', seq: 74 });
+    expect(productBugParts(parseProductBugId('field-app-B12'))).toEqual({ key: 'field-app', seq: 12 });
+    expect(productBugId('mobile', 4)).toBe('mobile-B4');
+    expectTypeOf(parseProductBugId('mobile-B74')).toEqualTypeOf<ProductBugId>();
+  });
+
+  it('is told from a product PRD, a roadmap, a plain number and a malformed id', () => {
+    for (const value of ['mobile-12', 'mobile-R3', 'mobile-b3', 'mobile-B0', 'mobile-B012', 'B3', '12', 'Mobile-B3']) {
+      expect(ProductBugIdSchema.safeParse(value).success, value).toBe(false);
+    }
+    expect(ProductPrdIdSchema.safeParse('mobile-B3').success).toBe(false);
+    expect(ProductRoadmapIdSchema.safeParse('mobile-B3').success).toBe(false);
+    expect(() => parseProductBugId('mobile-12')).toThrow('product bug "mobile-12"');
+  });
+
+  it('takes a key of 40 characters and no more', () => {
+    expect(parseProductBugId(`${FORTY}-B1`)).toBe(`${FORTY}-B1`);
+    expect(() => parseProductBugId(`${FORTY}b-B1`)).toThrow('product bug ');
+  });
+
+  it('takes the largest number the database holds and no more', () => {
+    expect(productBugParts(parseProductBugId(`a-B${SEQ_MAX}`))).toEqual({ key: 'a', seq: SEQ_MAX });
+    expect(() => parseProductBugId(`a-B${SEQ_MAX + 1}`)).toThrow('product bug ');
+  });
+});
+
+describe('a number given as text — digits only, never another way of writing one', () => {
+  it.each(['12e3', '0x10', '12.0', '1_000'])('refuses %j, which Number() would read', (value) => {
+    expect(() => parsePrd(value)).toThrow('PRD number ');
+    expect(() => parsePr(value)).toThrow('pull request number ');
   });
 });

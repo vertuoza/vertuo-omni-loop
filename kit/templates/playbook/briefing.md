@@ -7,7 +7,7 @@ evidence: []
 invaded: null
 ---
 
-<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md — changes in kit/porting/templates--briefing.md -->
+<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md — changes in kit/porting/templates--briefing.md -->
 
 # Briefing
 
@@ -40,18 +40,18 @@ PRD has no page yet and give its GitHub issue instead.
 
 ## Any agent
 <!-- slot: agents · optional -->
-- **Skills.** `/omni:<name>` is a kit skill: run it as your agent runs one (in Claude: type it).
+- **Skills.** `/omni:<name>` is a kit skill: run it as your agent does.
 - **Asking.** With a tool for asking, use it (in Claude: `AskUserQuestion`). Else write the
-  questions to a file, run `omni ask question --file <file>`: exit 0 prints the answers; exit 4
-  prints `round <id>`, resume with `omni ask wait <id>`; exit 3: ask in your chat, then run
-  `omni ask answer <round> --file <file>` when a round is named.
-- **Parallel agents.** No agents? Build the slices or steps one after another, in board order,
-  each in its own worktree and sub-PR, under the same guards.
+  questions to a file and run `omni ask question --file <file>`: exit 0 prints the answers; exit 4
+  prints `round <id>`: resume with `omni ask wait <id>`; exit 3: ask in your chat, then run
+  `omni ask answer <round> --file <file>` when a round is named. Under `OMNI_UNATTENDED`, ask
+  nothing: a decision is a high outbox item.
+- **Parallel agents.** None? Build slices or steps one after another, in board order, each in its
+  own worktree and sub-PR.
 - **Models.** No model per subagent? Every slice runs on your terminal's model.
-- **Background.** No background? Run it in the foreground within your shell's limit, again until
-  it ends.
+- **Background.** No background? Run in the foreground within your shell's limit, again until done.
 - **Fresh session.** Clear your context (in Claude: `/clear`) or open a new terminal: the
-  repository and GitHub hold it all.
+  repository holds it all.
 
 ## Where to read next
 <!-- slot: next · optional -->

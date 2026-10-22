@@ -116,13 +116,13 @@ plan repository, no phase-0 PR and no plan PR for a product PRD.
 ## User stories
 
 - As a PM, I run `/omni:mega-brainstorm --product mobile "offline photo upload"` from my checkout of
-  `vertuo-mobile`, and get PRD `mobile-12` on its page, waiting for approval, with no issue and no
+  `nimbus-app`, and get PRD `mobile-12` on its page, waiting for approval, with no issue and no
   PR opened anywhere.
 - As an approver of Mobile, I approve `mobile-12` on its page, and each target feature PR shows
   `✓ omni/approved — building · 5 of 5 pinned`.
 - As a PM, I answer the outbox questions of every repository on Mobile › Questions, and the outbox
   check on each target PR turns green when the last one is settled.
-- As a developer reviewing `vertuo-api#446`, I open the `omni/approved` Details and see who approved
+- As a developer reviewing `nimbus-api#446`, I open the `omni/approved` Details and see who approved
   what, and whether today's files still match.
 - As the agent running `/omni:ultra-yolo mobile-12`, I take each target's plan from the server,
   relay my items there, and park on `held` rather than build on a copy I cannot verify.

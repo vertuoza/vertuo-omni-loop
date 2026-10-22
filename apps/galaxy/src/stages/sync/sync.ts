@@ -12,7 +12,8 @@
 //
 // PRD 657 (s5): once a repository's stages are recorded, the open outbox questions of each of its PRDs
 // seen (every folder, and every issue read) are recounted into prd_outbox (../outbox/recount.ts), so /prd
-// and the waiting outbox never read GitHub. A recount that fails is logged; the stages still land.
+// and the waiting outbox never read GitHub. A recount that fails is logged; the stages still land. PRD 1794
+// (s5): the recount reads each open feature PR's escalation record too, when `escalation` is given.
 //
 // PRD 691 (s2): after its repositories, each workspace's fix dossiers (visual and bug) that have no stored
 // release are read through the fix reader and stored in fix_facts (../../fixes/facts/refresh.ts), so
@@ -42,9 +43,9 @@ import type { ConceptFactsStore, FixFactsStore } from '../../fixes/facts/store';
 import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
 import { changedPrds, stagesOfRepo, type RepoSnapshot, type ServerBorn } from './core';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
-import type { Logger } from 'vertuo-omni-plan/kit/lib/log/log.ts';
-import { firstPart, group } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { Logger } from 'omni-loop/kit/lib/log/log.ts';
+import { firstPart, group } from 'omni-loop/kit/lib/narrow.ts';
 
 /** A workspace, and where its repositories are found on GitHub. */
 export type SyncWorkspace = { id: string; slug: string; github_org: string | null; github_installation_id: number | null };
@@ -61,7 +62,7 @@ export type SyncDeps = {
   approvals?(workspace: SyncWorkspace, repository: string): Promise<ServerBorn[]>;
   store: StageStore;
   /** The GitHub summaries and the outbox store the open questions are recounted with; none, no recount. */
-  outbox?: Pick<RecountDeps, 'summary' | 'store'>;
+  outbox?: Pick<RecountDeps, 'summary' | 'store' | 'escalation'>;
   /** The workspace's fix dossiers, the reader their facts are read with and where they are stored; none, no refresh. */
   fixes?: FixSyncDeps;
   /** The workspace's concept dossiers, the reader their facts are read with and where they are stored; none, no refresh. */
@@ -221,7 +222,7 @@ async function refreshFixes(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: 
   }
 }
 
-/** Reads and stores the facts of the workspace's concepts whose concept PR has not merged; logs, never throws. */
+/** Reads and stores the facts of the workspace's concepts, merged ones too (their issue can close); logs, never throws. */
 async function refreshConcepts(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: string): Promise<void> {
   if (!deps.concepts) return;
   const concepts = deps.concepts;

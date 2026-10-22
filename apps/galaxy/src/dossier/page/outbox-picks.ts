@@ -11,7 +11,7 @@
 // a convenience only: what comes back is read defensively, and a pick on a question the tab no longer
 // shows is dropped.
 
-import { defined, propertyOf } from 'vertuo-omni-plan/kit/lib/narrow.ts';
+import { defined, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
 
 export type Pick = { pick: string; reason: string };
 /** By question number. */

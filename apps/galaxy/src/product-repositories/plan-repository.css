@@ -1,0 +1,12 @@
+/* The rollout ladder, the plan repository and what still lives in it (PRD 2011 s17, screen product-repositories). */
+.plan-ladder, .plan-holds { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.plan-ladder-row { display: grid; grid-template-columns: minmax(6em, 12em) auto auto; gap: 8px 12px; align-items: center; }
+.plan-ladder-name { font-family: var(--ask-mono); font-size: 14px; overflow-wrap: anywhere; }
+.plan-ladder-steps { display: inline-grid; grid-template-columns: repeat(5, 2.2em); gap: 4px; }
+.plan-ladder-cell { display: block; height: 14px; border-radius: 3px; background: var(--ask-sunk); border: 1px solid var(--ask-line); }
+.plan-ladder-cell.on { background: var(--ask-green); border-color: var(--ask-green); }
+.plan-hold { padding: 10px 12px; border: 1px solid var(--ask-red); border-radius: 10px; font-size: 14px; overflow-wrap: anywhere; }
+.plan-hold b { color: var(--ask-red); }
+.plan-named { margin: 0; font-family: var(--ask-mono); font-size: 14px; overflow-wrap: anywhere; }
+.plan-still { display: grid; gap: 8px; }
+.plan-still h3 { margin: 0; font-size: 16px; }

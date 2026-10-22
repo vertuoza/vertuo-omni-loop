@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
+import { RULEBOOK } from 'omni-loop/game/rulebook.ts';
 import type { DockView } from './dock';
 
 // Which of the game's modules a render has evaluated: the dock's page must pull in none of them
@@ -87,7 +87,7 @@ describe('the arcade\'s overlay in the dock', () => {
   });
 });
 
-describe('SUPER OMNI WORLD in the dock', () => {
+describe('STARHOP in the dock', () => {
   it('pauses at once on a question, and nothing but START resumes it, once the question is gone', async () => {
     const { askPf, newDockPf, pfPaused, pressPf } = await import('./platformer');
     const ready = { ...newDockPf(), status: 'ready' as const };
@@ -133,8 +133,8 @@ describe('the picker on the device', () => {
     const { DockPicker } = await import('./DockPicker');
     const html = renderToStaticMarkup(createElement(DockPicker, { games: ['invaders', 'platformer'], sel: 1, onPick: () => {} }));
     expect(text(html)).toContain('ENTROPY INVADERS');
-    expect(text(html)).toContain('SUPER OMNI WORLD');
-    expect(html).toMatch(/aria-current="true"[^>]*>[^<]*SUPER OMNI WORLD/);
+    expect(text(html)).toContain('STARHOP');
+    expect(html).toMatch(/aria-current="true"[^>]*>[^<]*STARHOP/);
     expect(text(html)).toMatch(/A\s+PLAY/);
     expect(text(html)).toMatch(/B\s+FOLD/);
   });

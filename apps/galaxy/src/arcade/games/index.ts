@@ -26,9 +26,10 @@ export interface Board {
 
 export const GAMES: readonly Game[] = [
   { id: 'invaders', title: 'ENTROPY INVADERS', scene: 'invaders', measure: 'points' },
-  { id: 'platformer', title: 'SUPER OMNI WORLD', scene: 'platformer', measure: 'points' },
+  { id: 'platformer', title: 'STARHOP', scene: 'platformer', measure: 'points' },
   { id: 'kart', title: 'OMNI KART', scene: 'kart', measure: 'time', boards: [{ id: 'kart', title: 'COMET RING' }, { id: 'kart-frost-eight', title: 'FROST EIGHT' }] },
   { id: 'duet', title: 'OMNI DUET', scene: 'duet', measure: 'points' },
+  { id: 'pong', title: 'PULSAR VOLLEY', scene: 'pong', measure: 'points' },
 ];
 
 /** The ids of a game's boards: the ones it names, else its own id. */

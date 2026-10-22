@@ -1,7 +1,7 @@
 // The arcade's health (PRD 1723, s3): GET /api/health answers 200 when its environment parses and
 // Supabase answers within 3 seconds, 503 otherwise, never with a value or an error's text.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { EnvError } from 'vertuo-omni-plan/kit/lib/env/group.ts';
+import { EnvError } from 'omni-loop/kit/lib/env/group.ts';
 import { healthResponse, type HealthDeps } from './health.service';
 
 vi.mock('server-only', () => ({}));

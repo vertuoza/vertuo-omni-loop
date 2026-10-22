@@ -18,7 +18,7 @@
  * separate inputs, so `compare` only ever sees the `riskyChanges` output a caller already computed,
  * never the rules themselves.
  */
-// Ported from vertuo-ai-domain@c4a210122:scripts/outbox-account.mjs — changes in kit/porting/outbox--account.md.
+// Ported from nimbus-brain@c4a210122:scripts/outbox-account.mjs — changes in kit/porting/outbox--account.md.
 import { existsSync, readdirSync } from 'node:fs';
 import { basename } from 'node:path';
 import { readRepoFile } from '../check-report.ts';
@@ -27,6 +27,7 @@ import { AccountFrontMatterSchema } from '../schema/front-matter.ts';
 import { SETTLED_FILE, outboxItemFiles, parseHeadingSections, parseOutboxItem, readFrontMatterBlock } from './outbox.ts';
 import type { OutboxContext } from './outbox.ts';
 import { parseSettledEntries } from './settle.ts';
+import { BRIEFING_TEXT } from './decision-coverage.ts';
 import type { PrdNumber, WorkSliceId } from '../ids.ts';
 
 /**
@@ -269,10 +270,16 @@ export function readAccounts(prd: PrdNumber, { ctx }: { ctx: OutboxContext }): P
 }
 
 /**
- * The four rules a change to a law fires (PRD 1342): its proof, its text, a test removed, and the
- * law demoted. A person answers each: only an `item <id>` ranked {@link LAW_RANKS} accounts for one.
+ * The rules only a person answers: the four a change to a law fires (PRD 1342: its proof, its text,
+ * a test removed, and the law demoted), and a change to the briefing (PRD 1793). Only an
+ * `item <id>` ranked {@link LAW_RANKS} accounts for one.
  */
-export const LAW_RULES: readonly string[] = ['law-proof', 'law-text', 'test-removed', 'law-demoted'];
+export const LAW_RULES: readonly string[] = ['law-proof', 'law-text', 'test-removed', 'law-demoted', BRIEFING_TEXT];
+
+/** What a change a law rule fired on changes, in plain words: the briefing, or a law. */
+export function lawRuleSubject(rule: string): string {
+  return rule === BRIEFING_TEXT ? 'the briefing' : 'a law';
+}
 
 /** The ranks of an item a person must answer, the only ones that account for a law change. */
 const LAW_RANKS: readonly (string | null | undefined)[] = ['high', 'human-action'];
@@ -281,11 +288,12 @@ const LAW_RANKS: readonly (string | null | undefined)[] = ['high', 'human-action
 function refusal(entry: AccountEntry): string | null {
   if (!LAW_RULES.includes(entry.rule)) return null;
   const { account } = entry;
+  const subject = lawRuleSubject(entry.rule);
   if (account.kind === 'spec') {
-    return `its account "spec ${account.where}" is refused: a change to a law is accounted only by an item ranked high`;
+    return `its account "spec ${account.where}" is refused: a change to ${subject} is accounted only by an item ranked high`;
   }
   if (LAW_RANKS.includes(account.rank)) return null;
-  return `its account names item ${account.id}, ranked ${account.rank ?? 'unknown'}: a change to a law needs an item ranked high`;
+  return `its account names item ${account.id}, ranked ${account.rank ?? 'unknown'}: a change to ${subject} needs an item ranked high`;
 }
 
 /** `path` and `rule` together identify one risky change (a path may fire more than one rule). */

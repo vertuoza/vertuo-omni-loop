@@ -227,6 +227,16 @@ plan:
     expect(err).toMatch(message);
   });
 
+  // demo-org/nimbus-plan#280 planned eight slices of an `own` back-end that asks for a
+  // contract column, with none: the target had no copy, and the planner read the old message
+  // ("/omni:mega-invade copies an imported target's flow there") as "this target asks nothing".
+  it('says a target with no copy has unknown contracts, whatever its knowledge, and how to copy it', async () => {
+    const { err } = await inPlan(['flow', 'show', '--repo', 'web']);
+    expect(err).toMatch(/its flow and its contracts are unknown, not the kit's defaults/);
+    expect(err).toMatch(/\/omni:mega-invade --sync copies every target's planning config there, `own` included/);
+    expect(err).not.toMatch(/imported target's flow/);
+  });
+
   it("prints the target's copy's contracts line, not the plan repository's (PRD 1870, criterion 9)", async () => {
     const declared = { [`${COPY}/config.yml`]: `contracts:\n  declare: true\n  kinds: [api, event]\n${SPEC_FLOW}`, ...copied };
     expect((await inPlan(['flow', 'show', '--repo', 'back'], declared)).out).toMatch(/^contracts: declare api, event$/m);

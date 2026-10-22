@@ -5,6 +5,8 @@ import { serviceDb } from '../../data/sign-in-live';
 import type { FixSummary } from '../github/fix';
 import { mergeFacts } from '../../fixes/facts/refresh';
 import { fixFactsStore } from '../../fixes/facts/store';
+import { bugRecordPage } from '../../fixes/bug-rows';
+import { readBugRows } from '../../fixes/bug-rows.repository';
 import { fixFacts } from './fix-facts';
 import { Notice } from '../../ask/page/Notice';
 import { serverEnv } from '../../env';
@@ -25,7 +27,7 @@ import { isDossierId, readContent, readDossier, readPlanSlices, type Db } from '
 import { dossierView, readPick, type DossierRead } from './view';
 import type { VoiceCast, VoiceView } from './voice';
 import { readShownVoice, readVoiceCast } from './voice-source';
-import { kindOf, misrouted } from './work';
+import { kindOf, misrouted, rowKind } from './work';
 import { readDockPlayer } from './dock-player';
 import { questionsHref } from './working';
 import type { WorkKind } from '../store';
@@ -34,10 +36,14 @@ import { proofStore } from '../../proof/store';
 import { readProofs } from './proof-read';
 import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
+import { readProductOutbox } from './outbox-product.repository';
+import { productOutboxView } from './outbox-product';
 import { approvalView, readApproval, readApproveScreen, readAskedApprovers, readVoids, type ApprovalFacts, type ApprovalRead } from './approval';
 import { attestationOf } from './Attestation.service';
 import { liveSendSetup } from '../../runners/send/send.live';
-import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
+import { continuationsRepository, runnersRepository } from '../../runners/runners.repository';
+import { fixingOf, type Fixing } from './stage';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
 // person, so row-level security decides: signed out, a sign-in card that comes back here through
@@ -92,6 +98,8 @@ import type { PrdNumber } from 'vertuo-omni-plan/kit/lib/ids.ts';
 // PRD 1830 s4: a numbered PRD's page reads, beside its approval, the workspace's runners the viewer may
 // send to that hold its repository (../../runners/send/send.live.ts), for Send to terminal beside each
 // button that copies a line a runner runs. None, or a read that fails, leaves the button out, never the page.
+// PRD 2270 s4: it also reads the PRD's /omni:yolo-fix job while queued or running, for the status line's
+// `fixing on <runner>`; a read that fails leaves the line as it was, never hides the page.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -124,6 +132,23 @@ async function approvalOf(db: Db, read: DossierRead, me: string): Promise<Pick<D
   return { approval, approvalFacts: { ...facts, screen } };
 }
 
+/** The runner the PRD's fix job is queued or running on (PRD 2270); null when none is, or the jobs could not be read. */
+async function fixingRead(dossier: DossierRead['dossier'], prd: PrdNumber): Promise<Fixing | null> {
+  try {
+    const db = serviceDb();
+    const jobs = await continuationsRepository(db).prdJobs(dossier.workspace_id, dossier.home_repo, prd);
+    const names = new Map<string, string>();
+    for (const id of new Set(jobs.flatMap((job) => (job.runner_id === null ? [] : [job.runner_id])))) {
+      const runner = await runnersRepository(db).runner(id);
+      if (runner) names.set(id, runner.name);
+    }
+    return fixingOf(prd, jobs.map((job) => ({ ...job, runner: job.runner_id === null ? null : names.get(job.runner_id) ?? null })));
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
 /** The GitHub summary, the plan's slice count and the stored stages of a numbered PRD dossier the member
  * reads, each started now and awaited by the page's own blocks (PRD 657 s4); the summary reads null when
  * GitHub could not be read, the stages null when they could not be read. */
@@ -148,7 +173,12 @@ function prdReads(db: Db, read: DossierRead, prd: PrdNumber): DossierReads {
 async function fixOf(db: Db, read: DossierRead): Promise<{ fix?: FixPageView }> {
   const { dossier } = read;
   const kind = kindOf(dossier);
-  if (kind === 'prd' || dossier.prd === null) return {};
+  if (kind === 'prd') return {};
+  // A product bug (PRD 2011, s8) has no issue: its page reads its Fixes rows.
+  if (dossier.prd === null) {
+    const rows = kind === 'bug' ? await readBugRows(db, dossier.id) : null;
+    return rows ? { fix: bugRecordPage(rows) } : {};
+  }
   const reader = dossierGithub();
   const ref = { id: dossier.id, home_repo: dossier.home_repo, prd: dossier.prd };
   const pages = read.versions.filter((v) => v.kind === 'before-after');
@@ -228,6 +258,13 @@ function DraftDeleted() {
   );
 }
 
+/** A product PRD's outbox on its Outbox tab, from the server's rows (PRD 2011 s15); null off that tab, for any other dossier, or when the rows cannot be read. */
+async function productOutboxOf(db: Db, dossier: DossierRead['dossier'], tab: string) {
+  if (tab !== 'outbox' || dossier.prd !== null || kindOf(dossier) !== 'prd') return null;
+  const rows = await readProductOutbox(db, dossier.id, dossier.title);
+  return rows === null ? null : productOutboxView(rows);
+}
+
 /** The page of dossier `id` on `route`'s route: /prd/<id>, /visual/<id> or /bugs/<id>. */
 export async function dossierRoute(route: WorkKind, { params, searchParams }: DossierRouteProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
@@ -251,6 +288,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   }
   if (!read && one(query.deleted) === '1') return <DraftDeleted />;
   if (!read) notFound();
+  // A product roadmap's dossier (PRD 2011) has its page under /roadmaps, which finds it by its dossier's id too.
+  if (rowKind(read.dossier) === null && String(read.dossier.kind) === 'roadmap') redirect(`/roadmaps/${encodeURIComponent(id)}`);
   const elsewhere = misrouted(kindOf(read.dossier), route, id, query);
   if (elsewhere) redirect(elsewhere);
 
@@ -271,7 +310,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   if (prd !== null && kindOf(read.dossier) === 'prd') {
     const approval = approvalOf(db, read, user.id);
     const send = liveSendSetup(user.id, dossier.workspace_id, dossier.home_repo);
-    read = { ...read, proofs: await proofs, pitches: await pitches, ...(await approval) };
+    const fixing = fixingRead(dossier, prd);
+    read = { ...read, proofs: await proofs, pitches: await pitches, ...(await approval), fixing: await fixing };
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
     const first = dossierView(read, user.id, pick);
     const markdown = shownMarkdown(first, (shownId) => readContent(db, shownId));
@@ -280,6 +320,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);
-  const [markdown, attestation] = await Promise.all([shownMarkdown(view, (shownId) => readContent(db, shownId)), attestationOf(db, read.dossier)]);
-  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} attestation={attestation} />;
+  const [markdown, attestation, productOutbox] = await Promise.all([
+    shownMarkdown(view, (shownId) => readContent(db, shownId)), attestationOf(db, read.dossier), productOutboxOf(db, read.dossier, view.tab),
+  ]);
+  return <DossierPage view={view} markdown={markdown} supabase={env} live={await live(withFix)} attestation={attestation} productOutbox={productOutbox} />;
 }

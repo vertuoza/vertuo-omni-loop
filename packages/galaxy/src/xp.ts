@@ -1,10 +1,10 @@
 // XP for the arcade: the rules and the functions of game/experience.ts, re-exported so the arcade
 // applies them from the same place as `pnpm game:xp`, and the demo guest's borrowed XP.
-import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.ts';
-import { playerXp, type PlayerXp, type XpRules } from 'vertuo-omni-plan/game/experience.ts';
-import type { GameEvent } from 'vertuo-omni-plan/game/events.ts';
+import { RULEBOOK } from 'omni-loop/game/rulebook.ts';
+import { playerXp, type PlayerXp, type XpRules } from 'omni-loop/game/experience.ts';
+import type { GameEvent } from 'omni-loop/game/events.ts';
 
-export { experience, levelFor, playerXp, unlockedFor, xpForLevel } from 'vertuo-omni-plan/game/experience.ts';
+export { experience, levelFor, playerXp, unlockedFor, xpForLevel } from 'omni-loop/game/experience.ts';
 
 /** The rulebook's `xp` block: the weights, the curve, the cap and the level each game unlocks at. */
 export const XP_RULES: XpRules = RULEBOOK.xp;

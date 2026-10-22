@@ -5,7 +5,7 @@
 // read back is parsed with the schema of what the step returns today: a saved value of another shape
 // fails, naming the step and the field, and Inngest retries the run, then fails it.
 import type { z } from 'zod';
-import { parseOrThrow } from 'vertuo-omni-plan/kit/lib/schema/parse-or-throw.ts';
+import { parseOrThrow } from 'omni-loop/kit/lib/schema/parse-or-throw.ts';
 
 /**
  * The part of Inngest's step tools a function runs a unit with: memoised, retried, its output saved

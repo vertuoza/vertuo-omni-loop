@@ -5,7 +5,9 @@
 // `state` to each claim: `confirmed`, or `contradicted` while evidence disputes it and nobody answered;
 // `receipt` is then the newest receipt as `<where> — "<quote>"`. PRD 799 added `personas`: the
 // repository's product's personas, oldest first, `[]` when there are none; they never decide `state`,
-// which comes from claims only. A database from before PRD 799 sends none: they read as `[]`. PRD 822
+// which comes from claims only. A database from before PRD 799 sends none: they read as `[]`. PRD 1795 adds `legal` (the product's
+// active Legal entries) and `glossary` (its live terms), each `[]` when there are none or from a database
+// from before it. PRD 822
 // stores a claim a person answered, through claim_answer(). PRD 839 adds a product's Never lines: claims
 // of kind `never`, read like any other, and never an answer's kind.
 import { z } from 'zod';
@@ -41,15 +43,40 @@ const businessPersonaSchema = z.object({
   usage: z.string(),
 }).strict();
 
+/** One active Legal entry of the repository's product (PRD 1795): `L-<CODE>-<n>`, what the law
+ * requires, its source and its owner's GitHub login. */
+const businessLegalSchema = z.object({
+  id: z.string().regex(/^L-[A-Z0-9]+-[1-9]\d*$/),
+  statement: z.string().min(1),
+  source: z.string(),
+  owner: z.string().min(1),
+}).strict();
+
+/** One live glossary term of the repository's product (PRD 1795), with the words to avoid in its place. */
+const businessTermSchema = z.object({
+  term: z.string().min(1),
+  meaning: z.string(),
+  avoid: z.array(z.string()),
+}).strict();
+
+/** The database's words for an archived product (PRD 2232), as its P0002 refusals say them. */
+export const archivedMessage = (name: string) => `Product ${name} is archived: an owner restores it on its page.`;
+/** The sentence the kit and the MCP link answer for an archived product (PRD 2232). */
+export const archivedLine = (name: string) => `product ${name} is archived: an owner restores it on its page`;
+
 /** The body of a read. `ok` only with at least one claim; `none` with none (no business, or no
- * confirmed claim for the repository). */
+ * confirmed claim for the repository); `archived` (PRD 2232) when the repository's only product was
+ * archived, with that product's name and no claim. */
 const businessReadSchema = z.object({
-  state: z.enum(['ok', 'none']),
+  state: z.enum(['ok', 'none', 'archived']),
   business: named.nullable(),
   product: named.nullable(),
   claims: z.array(businessClaimSchema),
   personas: z.array(businessPersonaSchema).default([]),
-}).strict().refine((read) => (read.state === 'ok') === (read.claims.length > 0), 'state is ok exactly when there are claims');
+  legal: z.array(businessLegalSchema).default([]),
+  glossary: z.array(businessTermSchema).default([]),
+}).strict().refine((read) => (read.state === 'ok') === (read.claims.length > 0), 'state is ok exactly when there are claims')
+  .refine((read) => read.state !== 'archived' || read.product !== null, 'an archived read names its product');
 
 type BusinessRead = z.infer<typeof businessReadSchema>;
 

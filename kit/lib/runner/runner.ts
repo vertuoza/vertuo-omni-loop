@@ -4,8 +4,26 @@
 // tail every few seconds until it ends, is cancelled or runs past the timeout. Then the worktree goes,
 // the branch too unless it was pushed, and `git worktree prune` runs in the checkout (PRD 1911).
 //
+// Once registered, it samples its machine every 15 s and sends the sample to the app (PRD 2102,
+// `health.ts`). A report the app refuses or never answers within 5 s prints one line, and nothing else
+// changes: the runner keeps taking and running jobs.
+//
+// Tokens (PRD 2102, `tokens.ts`): each health report carries the machine's tokens of the last 5 h and
+// of today, and each job's report the tokens of its worktree and every folder below it, counted from
+// Claude's transcripts. A job report carries them only once the health route has answered 2xx (an
+// older app's strict job contract would refuse them), and a job report the app refuses for them is
+// sent again without, and the runner stops sending them. A count that cannot be read is left out.
+//
+// A sample under pressure (memory, disk or load past the runner's limits) pauses the runner: it prints
+// `paused: <reason>` and its free slots open no new `next`. A slot already waiting on `next` keeps its
+// hold and runs the job it gets, and a running job is never touched. Two quiet samples in a row resume
+// it: it prints `resumed` and the free slots open their `next` again. Each report carries the reason
+// (`paused`, `null` when running) and the limits. The pause is decided here, whatever the app answers.
+//
 // A sweep (`sweep.ts`) runs once the runner has registered, then every hour while it runs: it removes
-// the worktrees, unpushed branches and old logs (`--keep-logs` days) of jobs no slot holds.
+// the worktrees, unpushed branches and old logs (`--keep-logs` days) of jobs no slot holds. It also
+// updates the Omni plugin, and before each job the runner brings the plugin up to the omni the job's
+// repository pins, or fails the job with the reason before Claude starts (`plugin.ts`, PRD 2100).
 //
 // Each report also carries the log's lines after the job's cursor (PRD 1904, "Only the new lines are
 // sent"): the cursor is the last line the app accepted, and moves only when it answers, so a report
@@ -15,15 +33,42 @@
 // The app unreachable: every call is tried again after 5 s, doubling up to 60 s, and the running jobs
 // keep going. The sign-in refused: the runner stops taking jobs and ends on one line. Stopped
 // (Ctrl-C): it stops taking jobs and waits for the running ones.
+//
+// Each job's session gets `OMNI_JOB`, `OMNI_RUNNER` and `OMNI_UNATTENDED` (PRD 2175), so a claim it
+// makes names its job. Once a job ends, done, failed, timed out or cancelled, the runner releases the
+// claims it still holds (`release.ts`), and the job's last report carries `released` and
+// `releaseError`. A job no slot holds whose worktree the sweep finds was marked lost by the app: its
+// claims are released too, reason `runner lost`, and a report carrying only what was released follows
+// when there is something to say. An app that refuses those two fields gets the report again without
+// them.
+//
+// A repository's own skill (PRD 2313): a job carries the skills its repository's owner allowed, read when
+// it was claimed, and its line is checked against them before anything is made. Once its worktree is cut
+// from `origin/<default branch>`, the skill's `.claude/skills/<name>/SKILL.md` must be there, or the job
+// fails `refused: /<name> is not on <default branch>` before Claude starts. Such a job has no outcome: it
+// ends done or failed from its exit code alone.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
+import { parsePrd } from '../ids.ts';
+import type { PrdNumber } from '../ids.ts';
+import { runnerJobVariables } from '../env/read.ts';
+import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
-import type { JobUpdate, RunnerApi, RunnerJob } from './api.ts';
-import { checkLine } from './line.ts';
-import { lastPullRequest, linesAfter, logTail, reportBatch } from './log.ts';
-import { dropJobBranch, pruneWorktrees, sweep, sweptLine } from './sweep.ts';
+import type { HealthLimits, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
+import { DEFAULT_LIMITS, machineReads, nextPause, pressure, sample } from './health.ts';
+import type { CpuTimes, MachineReads, PauseState } from './health.ts';
+import type { MergedCount } from './follow.ts';
+import { checkRunnerLine } from './line.ts';
+import { tokenSource } from './tokens.ts';
+import type { TokenSource } from './tokens.ts';
+import { lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
+import type { RunOutcome } from './log.ts';
+import { pluginKeeper } from './plugin.ts';
+import type { PluginKeeper } from './plugin.ts';
+import type { Released, Releaser } from './release.ts';
+import { dropJobBranch, pruneWorktrees, strandedJobs, sweep, sweptLine } from './sweep.ts';
 import type { Terminal } from './terminal.ts';
 
 /** Where the runner prints: `process.stdout`, or a test's buffer. */
@@ -35,6 +80,8 @@ const TICK_MS = 5000;
 const BACKOFF = { firstMs: 5000, maxMs: 60_000 };
 /** How many times a job's last status is sent before the runner gives up on it. */
 const FINAL_TRIES = 8;
+/** How long the runner waits between two health samples (PRD 2102). */
+const HEALTH_EVERY_MS = 15_000;
 /** How long the runner waits between two sweeps. */
 const SWEEP_MS = 60 * 60 * 1000;
 /** How many days a stopped job's logs are kept, unless `--keep-logs` says otherwise. */
@@ -78,6 +125,16 @@ export type RunnerOptions = {
   backoff?: { firstMs: number; maxMs: number } | undefined;
   /** How many days a stopped job's logs are kept: `KEEP_LOGS_DAYS` unless given. */
   keepLogsDays?: number | undefined;
+  /** The machine's reads the health samples are taken from: the real machine unless given. */
+  machine?: MachineReads | undefined;
+  /** The limits the runner pauses at: `DEFAULT_LIMITS` unless given. */
+  limits?: HealthLimits | undefined;
+  /** Where the token counts are read from: Claude's transcripts under the home, unless given. */
+  tokens?: TokenSource | undefined;
+  /** Releases the claims of a job that ended (PRD 2175): none are released unless given. */
+  release?: Releaser | undefined;
+  /** The PRD's slices merged of all, read in the job's worktree when a job ended `stopped` (PRD 2375): never read unless given. */
+  slices?: ((prd: PrdNumber, cwd: string) => Promise<MergedCount>) | undefined;
 };
 
 /** One runner's state while it runs: its options with their defaults, and whether it was refused. */
@@ -94,6 +151,19 @@ type Loop = RunnerOptions & {
   running: number;
   /** The ids of the jobs a slot holds: the sweep leaves everything of theirs alone. */
   jobs: Set<string>;
+  /** The Omni plugin's care: the check before each job, and the update of the sweep. */
+  plugin: PluginKeeper;
+  limits: HealthLimits;
+  /** Whether the machine is under pressure, and why: free slots open no `next` while it is. */
+  pause: PauseState;
+  /** The free slots waiting for the pause to end, woken on resume or once the runner halts. */
+  waiting: Set<() => void>;
+  /** The token counts' source. */
+  counts: TokenSource;
+  /** Whether job reports may carry tokens: once the health route answered 2xx, until an app refuses them. */
+  tokensOk: boolean;
+  /** Whether an app refused a report for its tokens: none is sent after. */
+  tokensOff: boolean;
 };
 
 /** A job's live lines: its log, and how many of its lines the app has accepted. */
@@ -104,8 +174,8 @@ function withLines(update: JobUpdate, live: Live, lines: readonly string[]): Job
   return lines.length === 0 ? update : { ...update, from: live.cursor + 1, lines: [...lines] };
 }
 
-/** Where a job runs and what it writes. */
-type Place = { checkout: string; worktree: string; session: string; line: string; log: string; exit: string };
+/** Where a job runs and what it writes, and the repository's own skill it runs (`null` for a fixed skill). */
+type Place = { checkout: string; worktree: string; session: string; line: string; log: string; exit: string; skill: string | null };
 
 const QUIET: ExecFileSyncOptionsWithStringEncoding = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
 
@@ -136,7 +206,30 @@ function loopOf(options: RunnerOptions): Loop {
     refused: () => refused,
     running: 0,
     jobs: new Set(),
+    plugin: pluginKeeper({ exec: options.exec, running: { version: options.version }, bundle: runningBundle(), print: (line) => { options.print(line); } }),
+    limits: options.limits ?? DEFAULT_LIMITS,
+    pause: { reason: null, quiet: 0 },
+    waiting: new Set(),
+    counts: options.tokens ?? tokenSource({ projects: join(options.home, '.claude', 'projects'), now: options.now ?? Date.now }),
+    tokensOk: false,
+    tokensOff: false,
   };
+}
+
+/** Wakes every free slot waiting for the pause to end. */
+function wake(loop: Loop): void {
+  for (const resume of loop.waiting) resume();
+  loop.waiting.clear();
+}
+
+/** Waits while the runner is paused: whether a free slot may open its `next`, `false` once the runner halts. */
+async function unpaused(loop: Loop): Promise<boolean> {
+  if (loop.pause.reason !== null && !loop.halt.aborted) {
+    await new Promise<void>((resolve) => {
+      loop.waiting.add(resolve);
+    });
+  }
+  return !loop.halt.aborted;
 }
 
 /** Waits before the next try, after the app did not answer: answers the wait after this one. */
@@ -163,13 +256,54 @@ async function register(loop: Loop): Promise<string | null> {
 }
 
 /**
+ * Sends a job's report. One that carries tokens and is refused is sent again without them, and no later
+ * report carries any: an app older than PRD 2102 refuses a field it does not know. A refusal that
+ * carries none, or a second one, is the app's answer as it stands.
+ */
+async function sendCounted(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
+  const { tokens, ...plain } = update;
+  if (tokens === undefined) return loop.api.update(job, update);
+  if (!loop.tokensOk) return loop.api.update(job, plain);
+  try {
+    return await loop.api.update(job, update);
+  } catch (error) {
+    if (!(error instanceof RunnerRefused)) throw error;
+    loop.tokensOk = false;
+    loop.tokensOff = true;
+    return loop.api.update(job, plain);
+  }
+}
+
+/**
+ * Sends a job's report. One that carries what was released, or an outcome, and is refused is sent again
+ * without them: an app older than PRD 2175, 2223 or 2375 refuses a field it does not know, and the job's status must still reach it.
+ */
+async function sendUpdate(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
+  const { released, releaseError, outcome, slicesMerged, slicesTotal, ...rest } = update;
+  if (released === undefined && releaseError === undefined && outcome === undefined && slicesMerged === undefined && slicesTotal === undefined) return sendCounted(loop, job, update);
+  try {
+    return await sendCounted(loop, job, update);
+  } catch (error) {
+    if (!(error instanceof RunnerRefused)) throw error;
+    return sendCounted(loop, job, rest);
+  }
+}
+
+/** `update` with the tokens of the worktree and every folder below it, when reports may carry them and they can be read. */
+function withTokens(loop: Loop, update: JobUpdate, worktree: string): JobUpdate {
+  if (!loop.tokensOk) return update;
+  const tokens = loop.counts.job(worktree);
+  return tokens === null ? update : { ...update, tokens };
+}
+
+/**
  * Sends a running job's status, with the lines after the cursor: a cancel waiting comes back true.
  * The cursor moves only once the app answers. The app not answering is no cancel.
  */
 async function tick(loop: Loop, job: string, update: JobUpdate, live?: Live, log = ''): Promise<boolean> {
   const lines = live ? reportBatch(linesAfter(log, live.cursor, { ended: false })) : [];
   try {
-    const { cancel } = await loop.api.update(job, live ? withLines(update, live, lines) : update);
+    const { cancel } = await sendUpdate(loop, job, live ? withLines(update, live, lines) : update);
     if (live) live.cursor += lines.length;
     return cancel;
   } catch (error) {
@@ -184,7 +318,7 @@ async function sendLast(loop: Loop, job: string, update: JobUpdate): Promise<boo
   let wait = loop.firstMs;
   for (let tries = 1; tries <= FINAL_TRIES; tries += 1) {
     try {
-      await loop.api.update(job, update);
+      await sendUpdate(loop, job, update);
       return true;
     } catch (error) {
       if (error instanceof RunnerRefused) {
@@ -234,35 +368,48 @@ function defaultBranch(exec: ExecText, checkout: string): string {
   }
 }
 
-/** Where `job` runs, or the status it ends on before it runs: a line refused, a repository not held. */
+/** The worktree a job runs in: `~/wt/<repo>-job-<id>`. */
+function worktreeOf(loop: Loop, job: RunnerJob): string {
+  return join(loop.home, 'wt', `${job.repo.split('/').at(-1) ?? job.repo}-job-${job.id}`);
+}
+
+/** Where `job` runs, or the status it ends on before it runs: a line refused (a repository's own skill
+ * the job does not carry included, PRD 2313), a repository not held. */
 function placeOf(loop: Loop, job: RunnerJob): Place | JobUpdate {
-  const line = checkLine(job.line);
+  const line = checkRunnerLine(job.line, job.allowedSkills);
   if (!line.ok) return { status: 'failed', reason: `refused: ${line.reason}` };
   const checkout = loop.checkouts.get(job.repo);
   if (checkout === undefined) return { status: 'failed', reason: `${job.repo} is not held by this runner` };
-  const repoName = job.repo.split('/').at(-1) ?? job.repo;
   const logs = join(loop.home, 'logs');
   return {
     checkout,
-    worktree: join(loop.home, 'wt', `${repoName}-job-${job.id}`),
+    worktree: worktreeOf(loop, job),
     session: `job-${job.id}`,
     line: join(logs, `job-${job.id}.line`),
     log: join(logs, `job-${job.id}.log`),
     exit: join(logs, `job-${job.id}.exit`),
+    skill: line.kind === 'repository' ? line.skill : null,
   };
 }
 
-/** Fetches, then adds the job's worktree on its own branch from the default branch: whether it worked. */
-function makeWorktree(loop: Loop, job: RunnerJob, place: Place): boolean {
+/** Fetches, then adds the job's worktree on its own branch from the default branch: the branch, or `null` when it failed. */
+function makeWorktree(loop: Loop, job: RunnerJob, place: Place): string | null {
   try {
     loop.exec('git', ['-C', place.checkout, 'fetch', 'origin'], QUIET);
     const base = defaultBranch(loop.exec, place.checkout);
     mkdirSync(join(loop.home, 'wt'), { recursive: true });
     loop.exec('git', ['-C', place.checkout, 'worktree', 'add', '--no-track', '-b', `agent/job-${job.id}`, place.worktree, `origin/${base}`], QUIET);
-    return true;
+    return base;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** The status a job of a repository's own skill ends on when the worktree, cut from `base`, lacks the
+ * skill's `SKILL.md` (PRD 2313): a skill only on a branch never runs. `null` when it may run. */
+function skillMissing(place: Place, base: string): JobUpdate | null {
+  if (place.skill === null || existsSync(join(place.worktree, '.claude', 'skills', place.skill, 'SKILL.md'))) return null;
+  return { status: 'failed', reason: `refused: /${place.skill} is not on ${base}` };
 }
 
 /** Removes the job's worktree, the records left stale, then its branch unless it was pushed. */
@@ -280,18 +427,18 @@ function cleanUp(loop: Loop, job: RunnerJob, place: Place): void {
  * 0 makes it wait for them to end (bug 1912). */
 const WAIT_FOR_AGENTS: Readonly<Record<string, string>> = { CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: '0' };
 
-/** Writes the job's line and empty log, then starts its session: whether it started. */
-function startSession(loop: Loop, job: RunnerJob, place: Place): boolean {
+/** Writes the job's line and its log, empty or starting on `note`, then starts its session: whether it started. */
+function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | null): boolean {
   mkdirSync(join(loop.home, 'logs'), { recursive: true });
   writeFileSync(place.line, `${job.line}\n`);
-  writeFileSync(place.log, '');
+  writeFileSync(place.log, note === null ? '' : `${note}\n`);
   rmSync(place.exit, { force: true });
   const sender: Record<string, string> = job.sentBy ? { OMNI_SENT_BY: job.sentBy, OMNI_RUNNER: loop.name } : {};
   try {
     loop.terminal.start({
       name: place.session,
       cwd: place.worktree,
-      env: { ...loop.env, ...sender, ...WAIT_FOR_AGENTS },
+      env: { ...loop.env, ...runnerJobVariables(job.id, loop.name), ...sender, ...WAIT_FOR_AGENTS },
       argv: [...loop.wrapper, '--line', place.line, '--log', place.log, '--exit', place.exit],
     });
     return true;
@@ -300,12 +447,46 @@ function startSession(loop: Loop, job: RunnerJob, place: Place): boolean {
   }
 }
 
+/** What a `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223), `stopped` with none (PRD 2375); `null` for any other job. */
+function outcomeOf(log: string, line: string): RunOutcome | null {
+  const checked = checkRunnerLine(line);
+  const args = checked.ok ? checked.args.trim() : '';
+  return checked.ok && (checked.skill === 'yolo' || checked.skill === 'yolo-fix') && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args), checked.skill) : null;
+}
+
+/** `update` with the PRD's slice count when the job stopped mid-way (PRD 2375); as it is when the count cannot be read, which stops nothing. */
+async function withSlices(loop: Loop, job: RunnerJob, place: Place, update: JobUpdate): Promise<JobUpdate> {
+  if (update.outcome !== 'stopped' || loop.slices === undefined) return update;
+  const checked = checkRunnerLine(job.line);
+  if (!checked.ok) return update;
+  try {
+    const count = await loop.slices(parsePrd(checked.args.trim()), place.worktree);
+    return count === null ? update : { ...update, slicesMerged: count.merged, slicesTotal: count.total };
+  } catch {
+    return update;
+  }
+}
+
 /** The status a run that ended with `exitText` reports: done with its pull request, or failed with its code. */
-function ended(log: string, exitText: string, repo: string): JobUpdate {
+function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
   const code = Number.parseInt(exitText, 10);
   const exitCode = Number.isNaN(code) ? 1 : code;
-  if (exitCode === 0) return { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, repo), exitCode: 0 };
+  if (exitCode === 0) {
+    const done: JobUpdate = { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: 0 };
+    const outcome = outcomeOf(log, job.line);
+    return outcome === null ? done : { ...done, outcome };
+  }
   return { status: 'failed', logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` };
+}
+
+/** The status a run whose session ended before it wrote its exit code reports: done on its hand-off's
+ * outcome when it printed one (#2388), since what it waits for is a person, else failed, never
+ * `stopped`, which is for a run that exited 0 (PRD 2375). */
+function vanished(log: string, job: RunnerJob): JobUpdate {
+  const reason = 'the job stopped before it wrote its exit code';
+  const outcome = outcomeOf(log, job.line);
+  if (outcome === null || outcome === 'stopped') return { status: 'failed', logTail: logTail(log), reason };
+  return { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: null, reason, outcome };
 }
 
 /** Stops the job's session and answers `update`. */
@@ -321,10 +502,10 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
   for (;;) {
     await loop.sleep(loop.tickMs);
     const log = readText(place.log);
-    if (existsSync(place.exit)) return ended(log, readText(place.exit), job.repo);
-    if (!loop.terminal.alive(place.session)) return { status: 'failed', logTail: logTail(log), reason: 'the job stopped before it wrote its exit code' };
+    if (existsSync(place.exit)) return withSlices(loop, job, place, ended(log, readText(place.exit), job));
+    if (!loop.terminal.alive(place.session)) return vanished(readText(place.log), job);
     if (loop.now() - started > loop.timeoutMs) return killed(loop, place, { status: 'failed', reason: 'timeout' });
-    if (await tick(loop, job.id, { status: 'running', logTail: logTail(log) }, live, log)) return killed(loop, place, { status: 'cancelled' });
+    if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, place, { status: 'cancelled' });
   }
 }
 
@@ -332,9 +513,14 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
 async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; live: Live | null }> {
   const place = placeOf(loop, job);
   if ('status' in place) return { last: place, live: null };
-  if (!makeWorktree(loop, job, place)) return { last: { status: 'failed', reason: 'the worktree could not be made' }, live: null };
+  const base = makeWorktree(loop, job, place);
+  if (base === null) return { last: { status: 'failed', reason: 'the worktree could not be made' }, live: null };
   try {
-    if (!startSession(loop, job, place)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
+    const missing = skillMissing(place, base);
+    if (missing !== null) return { last: missing, live: null };
+    const plugin = await loop.plugin.forJob(place.worktree, job.repo);
+    if ('failed' in plugin) return { last: { status: 'failed', reason: plugin.failed }, live: null };
+    if (!startSession(loop, job, place, plugin.note)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
     const live: Live = { log: place.log, cursor: 0 };
     return { last: await watch(loop, job, place, live), live };
   } finally {
@@ -346,6 +532,44 @@ async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; li
 function endLine(job: RunnerJob, last: JobUpdate): string {
   const detail = last.status === 'done' ? last.prUrl : last.reason;
   return `job ${job.id} ${last.status}${detail ? ` · ${detail}` : ''}`;
+}
+
+/** Why a job ended, as its released claims' alarm says it: a failure's reason, else its status. */
+function endReason(last: JobUpdate): string {
+  return last.status === 'failed' ? last.reason ?? 'failed' : last.status;
+}
+
+/** The lines a release prints: the claims released, and what failed; none when it did nothing. */
+function releaseLines(job: string, { released, releaseError }: Released): string[] {
+  return [
+    ...(released.length === 0 ? [] : [`job ${job} released ${released.map((n) => `#${String(n)}`).join(', ')}`]),
+    ...(releaseError === null ? [] : [`job ${job} could not release its claims: ${releaseError}`]),
+  ];
+}
+
+/** Releases the claims of `job`, which ended on `last`: `last` with what was released, or as it is when the runner releases nothing. */
+function releasing(loop: Loop, job: RunnerJob, last: JobUpdate): JobUpdate {
+  if (loop.release === undefined) return last;
+  const done = loop.release({ id: job.id, runner: loop.name, repo: job.repo, reason: endReason(last) });
+  for (const line of releaseLines(job.id, done)) loop.print(line);
+  return { ...last, released: done.released, releaseError: done.releaseError };
+}
+
+/**
+ * Releases the claims of a job the app marked lost, `runner lost`, and reports what it released when
+ * there is something to say. The job has ended on the app: a report it refuses, or never answers,
+ * prints one line and stops nothing.
+ */
+async function releaseLost(loop: Loop, lost: { job: string; repo: string }): Promise<void> {
+  if (loop.release === undefined) return;
+  const done = loop.release({ id: lost.job, runner: loop.name, repo: lost.repo, reason: 'runner lost' });
+  for (const line of releaseLines(lost.job, done)) loop.print(line);
+  if (done.released.length === 0 && done.releaseError === null) return;
+  try {
+    await loop.api.update(lost.job, { status: 'failed', released: done.released, releaseError: done.releaseError });
+  } catch (error) {
+    loop.print(`job ${lost.job}: its release was not reported (${error instanceof Error ? error.message : String(error)})`);
+  }
 }
 
 /** Waits for the next job: the job, `null` for none yet, or `stop` once the runner stops. */
@@ -370,6 +594,7 @@ async function nextJob(loop: Loop, runner: string, wait: { ms: number }): Promis
 async function slot(loop: Loop, runner: string): Promise<void> {
   const wait = { ms: loop.firstMs };
   while (!loop.halt.aborted) {
+    if (!(await unpaused(loop))) return;
     const job = await nextJob(loop, runner, wait);
     if (job === 'stop') return;
     if (job === null) continue;
@@ -378,7 +603,9 @@ async function slot(loop: Loop, runner: string): Promise<void> {
     loop.print(`job ${job.id} claimed: ${job.line} (${job.repo})`);
     try {
       const { last, live } = await runJob(loop, job);
-      await finish(loop, job.id, last, live);
+      // A job whose session never started made no claim: it has nothing to release.
+      const report = live === null ? last : releasing(loop, job, last);
+      await finish(loop, job.id, withTokens(loop, report, worktreeOf(loop, job)), live);
       loop.print(endLine(job, last));
     } finally {
       loop.jobs.delete(job.id);
@@ -387,12 +614,58 @@ async function slot(loop: Loop, runner: string): Promise<void> {
   }
 }
 
-/** Sweeps now, then every hour, until the runner stops or is refused. */
+/** Pauses or resumes the runner on `reason`, printing the change once and waking the free slots on resume. */
+function decide(loop: Loop, reason: string | null): void {
+  const { state, change } = nextPause(loop.pause, reason);
+  loop.pause = state;
+  if (change === 'paused') loop.print(`paused: ${String(state.reason)}`);
+  if (change === 'resumed') {
+    loop.print('resumed');
+    wake(loop);
+  }
+}
+
+/**
+ * Samples the machine, pauses or resumes on it, and sends its health, now and then every 15 s, until
+ * the runner stops or is refused. A report the app refuses or does not answer prints one line; the
+ * runner carries on. The first sample is decided before the first `await`, and so before any slot
+ * opens its `next`: a machine already under pressure takes no job.
+ */
+async function reporter(loop: Loop, runner: string): Promise<void> {
+  const reads = loop.machine ?? machineReads(loop.home);
+  let times: CpuTimes | null = null;
+  const halted = (): void => {
+    wake(loop);
+  };
+  loop.halt.addEventListener('abort', halted, { once: true });
+  while (!loop.halt.aborted) {
+    const started = loop.now();
+    const taken = sample(reads, times);
+    times = taken.times;
+    decide(loop, pressure(taken.sample, loop.limits));
+    try {
+      const tokens = loop.counts.machine();
+      await loop.api.health(runner, { ...taken.sample, paused: loop.pause.reason, limits: loop.limits, ...(tokens === null ? {} : { tokens }) });
+      loop.tokensOk = !loop.tokensOff;
+    } catch (error) {
+      loop.print(`health not sent: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    await loop.sleep(Math.max(0, HEALTH_EVERY_MS - (loop.now() - started)), loop.halt);
+  }
+}
+
+/**
+ * Sweeps now and updates the Omni plugin, then every hour, until the runner stops or is refused. The
+ * jobs whose worktree it removes, which no slot holds, were lost: their claims are released.
+ */
 async function sweeper(loop: Loop): Promise<void> {
   const keepLogsDays = loop.keepLogsDays ?? KEEP_LOGS_DAYS;
   while (!loop.halt.aborted) {
+    const lost = strandedJobs({ home: loop.home, checkouts: loop.checkouts, running: loop.jobs });
     const line = sweptLine(sweep({ home: loop.home, checkouts: loop.checkouts, exec: loop.exec, running: loop.jobs, keepLogsDays, now: loop.now() }));
     if (line !== null) loop.print(line);
+    for (const job of lost) await releaseLost(loop, job);
+    await loop.plugin.sweep();
     await loop.sleep(SWEEP_MS, loop.halt);
   }
 }
@@ -408,7 +681,8 @@ export async function runRunner(options: RunnerOptions): Promise<number> {
       if (loop.running > 0) loop.print(`stopping: waiting for ${String(loop.running)} running job${loop.running === 1 ? '' : 's'}`);
     };
     options.stop.addEventListener('abort', onStop, { once: true });
-    await Promise.all([sweeper(loop), ...Array.from({ length: loop.slots }, () => slot(loop, runner))]).finally(() => {
+    // The reporter starts before the slots, so its first sample pauses the runner before any `next`.
+    await Promise.all([sweeper(loop), reporter(loop, runner), ...Array.from({ length: loop.slots }, () => slot(loop, runner))]).finally(() => {
       options.stop.removeEventListener('abort', onStop);
     });
   }

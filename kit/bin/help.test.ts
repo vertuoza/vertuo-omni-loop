@@ -84,6 +84,15 @@ describe('omni help', () => {
     expect(sentences.join(' ')).toMatch(/slices.*wave/);
   });
 
+  it('prints omni before-after: both verbs, run by the skills (PRD 2239)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { code, out } = await run(['help', 'before-after'], root);
+    expect(code).toBe(0);
+    expect(out).toContain('omni before-after new <n> --services <name>,<name>… [--force]');
+    expect(out).toContain('omni before-after render <n>');
+    expect(out.replace(/\s+/g, ' ')).toMatch(/new writes before-after\.html .* render replaces each <pre class="mermaid">/);
+  });
+
   it('prints omni next: its usage, for you, and its four verdicts (PRD 1139)', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const { code, out } = await run(['help', 'next'], root);
@@ -179,6 +188,13 @@ describe('omni help', () => {
     expect(code).toBe(0);
     expect(out).toMatch(/^omni kb show <form> \[--json\] \[--all\] +for you\n/);
     expect(out.replace(/\s+/g, ' ')).toContain('show decisions lists the latest 20 decision records, and --all every one');
+  });
+
+  it('names the two product knowledge verbs of omni kb (PRD 1795)', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { out } = await run(['help', 'kb'], root);
+    expect(out).toContain('omni kb legal');
+    expect(out).toContain('omni kb glossary');
   });
 
   it('takes a skill by its name or its slash command alike', async () => {
