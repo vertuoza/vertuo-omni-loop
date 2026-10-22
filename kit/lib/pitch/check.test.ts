@@ -4,6 +4,8 @@
 // its reading time. A step's own media is checked as a scene's, a `wipeAt` that leaves the wipe no time
 // is an error, and a step's body is held to 12 words (PRD 2030 s4). A stats scene's figure without its
 // source is refused, and its labels are held to four words and read in its reading time (PRD 2030 s5).
+// The music's sync names its scene by id, an unknown one refused; an index still reads, with a warning
+// (PRD 2038 s2).
 import { describe, expect, it } from 'vitest';
 import { checkStoryboard } from './check.ts';
 import { FIXTURE_MEDIA, REMOVED, changedStoryboard, changedStoryboardAt, fixtureStoryboard } from './storyboard.fixture.ts';
@@ -96,7 +98,41 @@ describe('checkStoryboard', () => {
 
   it('names a sync point past the last scene, or past its scene’s end', () => {
     expect(lines(check(changedStoryboard('meta.music.sync.scene', 7)).errors)).toEqual(['meta.music.sync.scene: no scene 8: the storyboard has 7']);
-    expect(lines(check(changedStoryboard('meta.music.sync.at', 7)).errors)).toEqual(['meta.music.sync.at: 7 s is past the end of scene 3, 6 s long']);
+    expect(lines(check(changedStoryboard('meta.music.sync.at', 7)).errors)).toEqual(['meta.music.sync.at: 7 s is past the end of scene 3 (send), 6 s long']);
+    const byIndex = changedStoryboardAt(changedStoryboard('scenes.2.id', REMOVED), 'meta.music.sync', { scene: 2, at: 7 });
+    expect(lines(check(byIndex).errors)).toEqual(['meta.music.sync.at: 7 s is past the end of scene 3, 6 s long']);
+  });
+
+  it('refuses a sync naming an id no scene has, naming the ids there are', () => {
+    const report = check(changedStoryboard('meta.music.sync.scene', 'wipe'));
+    expect(lines(report.errors)).toEqual(['meta.music.sync.scene: no scene has the id wipe; the ids are send']);
+    expect(report.warnings).toEqual([]);
+  });
+
+  it('refuses a sync naming an id when no scene has one, saying how to give it', () => {
+    const storyboard = changedStoryboardAt(changedStoryboard('scenes.2.id', REMOVED), 'meta.music.sync.scene', 'wipe');
+    expect(lines(check(storyboard).errors)).toEqual(['meta.music.sync.scene: no scene has the id wipe; give that scene "id": "wipe"']);
+  });
+
+  it('finds the sync’s scene by its id, wherever it moved', () => {
+    const value = changedStoryboardAt(changedStoryboardAt(changedStoryboard('scenes.2.id', REMOVED), 'scenes.4.id', 'wipe'), 'meta.music.sync', { scene: 'wipe', at: 1, cue: 14 });
+    expect(check(value)).toMatchObject({ errors: [], warnings: [] });
+    expect(lines(check(changedStoryboardAt(value, 'meta.music.sync.at', 5)).errors)).toEqual(['meta.music.sync.at: 5 s is past the end of scene 5 (wipe), 4 s long']);
+  });
+
+  it('warns on a sync naming its scene by index, without an error', () => {
+    const report = check(changedStoryboard('meta.music.sync.scene', 2));
+    expect(report.errors).toEqual([]);
+    expect(lines(report.warnings)).toEqual(['meta.music.sync.scene: scene 3 is named by its place: name the scene by its id, so a scene added before it does not move the music']);
+  });
+
+  it('warns on an index past the last scene too, beside its error', () => {
+    const report = check(changedStoryboard('meta.music.sync.scene', 7));
+    expect(lines(report.warnings)).toEqual(['meta.music.sync.scene: scene 8 is named by its place: name the scene by its id, so a scene added before it does not move the music']);
+  });
+
+  it('passes music with a track and no sync', () => {
+    expect(check(changedStoryboard('meta.music', { track: 'Funshine' }))).toMatchObject({ errors: [], warnings: [] });
   });
 
   it('reports every error together: a missing media file and a missing outro', () => {

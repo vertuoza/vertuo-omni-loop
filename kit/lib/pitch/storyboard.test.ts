@@ -3,9 +3,10 @@
 // statement, feature, steps and before/after, a body on the outro. The team that built it, on the outro
 // (PRD 2030 s6). A step's own body and media, the steps scene's media then optional, and the
 // before/after's `wipeAt` (PRD 2030 s4). The stats scene, its 1 to 3 items each with a `source`, and the
-// optional `meta.locale` its figures are written for (PRD 2030 s5).
+// optional `meta.locale` its figures are written for (PRD 2030 s5). A scene's `id`, unique; the music's
+// `track`, and a sync naming its scene by id or index, with an optional `cue` (PRD 2038 s2).
 import { describe, expect, it } from 'vitest';
-import { SCENE_TYPES, mediaOf, parseStoryboard } from './storyboard.ts';
+import { SCENE_TYPES, mediaOf, parseStoryboard, sceneIndexOf } from './storyboard.ts';
 import { REMOVED, changedStoryboard, changedStoryboardAt, fixtureStoryboard } from './storyboard.fixture.ts';
 
 /** The fixture with the fields `fields` added to its scene `index`. */
@@ -80,8 +81,47 @@ describe('parseStoryboard', () => {
     ['items on a feature', 'scenes.2.items', [{ value: 1, label: 'One', source: 'spec' }], 'scenes.2'],
     ['a locale that is no language tag', 'meta.locale', 'not a locale', 'meta.locale'],
     ['an empty locale', 'meta.locale', '', 'meta.locale'],
+    ['a scene id in capitals', 'scenes.2.id', 'Wipe', 'scenes.2.id'],
+    ['a scene id with a space', 'scenes.2.id', 'the wipe', 'scenes.2.id'],
+    ['an empty scene id', 'scenes.2.id', '', 'scenes.2.id'],
+    ['a scene id over 32 characters', 'scenes.2.id', 'a'.repeat(33), 'scenes.2.id'],
+    ['a scene id that is a number', 'scenes.2.id', 2, 'scenes.2.id'],
+    ['a sync scene that is no id', 'meta.music.sync.scene', 'The Wipe', 'meta.music.sync.scene'],
+    ['a sync scene of half a scene', 'meta.music.sync.scene', 1.5, 'meta.music.sync.scene'],
+    ['a cue before the track starts', 'meta.music.sync.cue', -1, 'meta.music.sync.cue'],
+    ['an empty track', 'meta.music.track', ' ', 'meta.music.track'],
+    ['a field the music does not name', 'meta.music.mood', 'upbeat', 'meta.music'],
+    ['a field the sync does not name', 'meta.music.sync.offset', 2, 'meta.music.sync'],
   ])('refuses %s, at its path', (_name, field, value, path) => {
     expect(refusedAt(changedStoryboard(field, value))).toContain(path);
+  });
+
+  it('reads today’s storyboard unchanged: a sync naming its scene by index, with no cue and no track', () => {
+    const value = changedStoryboard('meta.music', { sync: { scene: 2, at: 1.5 } });
+    expect(parseStoryboard(value)).toEqual({ storyboard: value });
+  });
+
+  it('reads a scene id of lower-case letters, digits and hyphens, up to 32 characters, on every scene type', () => {
+    const ids = ['intro', 'say-it', 'send-2', 'steps', 'wipe', 'figures', 'a'.repeat(32)];
+    const storyboard = fixtureStoryboard();
+    const scenes: unknown[] = storyboard.scenes.map((scene, n) => ({ ...scene, id: ids[n] }));
+    expect(parseStoryboard({ ...storyboard, scenes }).storyboard?.scenes.map((scene) => scene.id)).toEqual(ids);
+  });
+
+  it('reads a sync naming its scene by id, with a cue into the track, and the track’s title', () => {
+    const music = { track: 'Funshine', sync: { scene: 'wipe', at: 1, cue: 14 } };
+    const value = changedStoryboardAt(changedStoryboard('scenes.4.id', 'wipe'), 'meta.music', music);
+    expect(parseStoryboard(value).storyboard?.meta.music).toEqual(music);
+  });
+
+  it('reads music with a track and no sync, or a cue of 0', () => {
+    expect(parseStoryboard(changedStoryboard('meta.music', { track: 'Funshine' })).storyboard?.meta.music).toEqual({ track: 'Funshine' });
+    expect(parseStoryboard(changedStoryboard('meta.music.sync.cue', 0)).storyboard?.meta.music?.sync).toMatchObject({ at: 1.5, cue: 0 });
+  });
+
+  it('refuses two scenes with one id, naming both paths', () => {
+    const value = changedStoryboardAt(changedStoryboard('scenes.2.id', 'wipe'), 'scenes.4.id', 'wipe');
+    expect(parseStoryboard(value).problems).toEqual([{ path: 'scenes.4.id', message: 'scenes.2.id and scenes.4.id are both wipe: each scene has an id of its own' }]);
   });
 
   it.each([
@@ -163,6 +203,21 @@ describe('parseStoryboard', () => {
 
   it('refuses what is not an object, at the root', () => {
     expect(refusedAt('a storyboard')).toEqual(['']);
+  });
+});
+
+describe('sceneIndexOf', () => {
+  const scenes = fixtureStoryboard().scenes.map((scene, n) => (n === 4 ? { ...scene, id: 'wipe' } : scene));
+
+  it('finds a scene by its id, or by its index', () => {
+    expect(sceneIndexOf(scenes, 'wipe')).toBe(4);
+    expect(sceneIndexOf(scenes, 2)).toBe(2);
+    expect(sceneIndexOf(scenes, 0)).toBe(0);
+  });
+
+  it('finds none for an id no scene has, or an index past the last scene', () => {
+    expect(sceneIndexOf(scenes, 'reveal')).toBeNull();
+    expect(sceneIndexOf(scenes, 7)).toBeNull();
   });
 });
 

@@ -11,11 +11,15 @@
 // counted, and its steps' bodies; a stats scene's figure labels, held to four words, PRD 2030 s5), and a
 // whole outside 15 to 60 seconds. A figure without its source is refused by the schema. Each finding names its path in
 // the storyboard.
+//
+// The music's sync (PRD 2038 s2) names its scene by id: an id no scene has is an error, naming the ids
+// there are; an index still reads, its error past the last scene kept, and warns to name the scene by
+// its id. Two scenes with one id are refused by the schema.
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, normalize } from 'node:path';
 import { messageOf, propertyOf } from '../narrow.ts';
-import { STORYBOARD_FILE, WIPE_SECONDS, mediaOf, parseStoryboard } from './storyboard.ts';
-import type { Media, Scene, Storyboard } from './storyboard.ts';
+import { STORYBOARD_FILE, WIPE_SECONDS, mediaOf, parseStoryboard, sceneIndexOf } from './storyboard.ts';
+import type { Media, Scene, SceneRef, Storyboard } from './storyboard.ts';
 
 /** One finding: where in the storyboard (`scenes.2.media.file`) and what. */
 export type Finding = { path: string; message: string };
@@ -76,7 +80,7 @@ export function checkStoryboard(value: unknown, { hasFile }: { hasFile: (file: s
   const seconds = lengthOf(storyboard);
   return {
     errors: [...mediaErrors(storyboard, hasFile), ...orderErrors(storyboard.scenes), ...syncErrors(storyboard), ...storyboard.scenes.flatMap(wipeErrors), ...storyboard.scenes.flatMap(accentErrors)],
-    warnings: [...storyboard.scenes.flatMap(sceneWarnings), ...storyboard.scenes.flatMap(accentWarnings), ...lengthWarnings(seconds)],
+    warnings: [...storyboard.scenes.flatMap(sceneWarnings), ...storyboard.scenes.flatMap(accentWarnings), ...lengthWarnings(seconds), ...syncWarnings(storyboard)],
     scenes: storyboard.scenes.length,
     seconds,
   };
@@ -120,13 +124,30 @@ const misplaced = (type: 'intro' | 'outro', index: number, where: string): Findi
   message: `an ${type} at scene ${index + 1}: the ${type} is ${where} scene, and the only one`,
 });
 
+/** The music's sync naming no scene, or a point past its scene's end. */
 function syncErrors({ meta, scenes }: Storyboard): Finding[] {
   const sync = meta.music?.sync;
   if (!sync) return [];
-  const scene = scenes[sync.scene];
-  if (!scene) return [{ path: 'meta.music.sync.scene', message: `no scene ${sync.scene + 1}: the storyboard has ${scenes.length}` }];
+  const index = sceneIndexOf(scenes, sync.scene);
+  const scene = index === null ? undefined : scenes[index];
+  if (index === null || !scene) return [{ path: 'meta.music.sync.scene', message: noScene(sync.scene, scenes) }];
   if (sync.at <= scene.duration) return [];
-  return [{ path: 'meta.music.sync.at', message: `${sync.at} s is past the end of scene ${sync.scene + 1}, ${scene.duration} s long` }];
+  const name = scene.id === undefined ? '' : ` (${scene.id})`;
+  return [{ path: 'meta.music.sync.at', message: `${sync.at} s is past the end of scene ${index + 1}${name}, ${scene.duration} s long` }];
+}
+
+/** Why the sync's `ref` names no scene: an index past the last, or an id no scene has. */
+function noScene(ref: SceneRef, scenes: Scene[]): string {
+  if (typeof ref === 'number') return `no scene ${ref + 1}: the storyboard has ${scenes.length}`;
+  const ids = scenes.flatMap((scene) => (scene.id === undefined ? [] : [scene.id]));
+  return `no scene has the id ${ref}; ${ids.length === 0 ? `give that scene "id": "${ref}"` : `the ids are ${ids.join(', ')}`}`;
+}
+
+/** The music's sync naming its scene by index, which a scene added before it would move. */
+function syncWarnings({ meta }: Storyboard): Finding[] {
+  const ref = meta.music?.sync?.scene;
+  if (typeof ref !== 'number') return [];
+  return [{ path: 'meta.music.sync.scene', message: `scene ${ref + 1} is named by its place: name the scene by its id, so a scene added before it does not move the music` }];
 }
 
 /** Under this much short of the wipe's length, a scene's end still counts as leaving it its time. */
