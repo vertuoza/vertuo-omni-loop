@@ -16,7 +16,7 @@ const ERROR_ANSWERS = {
   403: 'A repository outside the workspace or outside the key’s list of repositories, to start a job in, to read the job of or to act on the job of.',
   404: 'A job that does not exist, that a person sent, that no key of this workspace queued, or, for its questions, that asked none.',
   409: 'The job’s questions were already answered or dismissed, by a key or by a person on the Runners page (the first close wins), or the job is not waiting for an answer; the message names who closed them.',
-  422: 'A query or body the contract refuses, a cursor that does not decode, a description the runners refuse, a repository that is not a plan repository, or answers that are not one to each question the job asked; the message names the field.',
+  422: 'A query or body the contract refuses, a cursor that does not decode, a description the runners refuse, a repository that is not a plan repository, answers that are not one to each question the job asked, or a `notify_url` whose host is not public or does not resolve; the message names the field.',
   500: 'The API could not answer; the message never carries a stack or a database error.',
 } as const;
 
@@ -29,6 +29,9 @@ const errorsSaying = (says: Partial<Record<ErrorStatus, string>>, ...statuses: E
 ]));
 
 const errors = (...statuses: ErrorStatus[]) => errorsSaying({}, ...statuses);
+
+/** What both start routes say of the two optional fields their body takes after the runner (PRD 2425 s8). */
+const START_FIELDS = '\n\n`acting_for` says whom the key acts for, if anyone. `notify_url` is an https link the server pings, `{"job_id", "event", "at"}`, when the job’s status, outcome or questions change: it says that something changed, never what, so read the job with `GET /api/v1/jobs/{id}`. The link is checked before the job is queued, and a host that is not public is a 422.';
 
 /** The path parameter of every route under /api/v1/jobs/{id}. */
 const JobParams = z.object({
@@ -77,7 +80,7 @@ function openApiRegistry(): OpenAPIRegistry {
     path: '/api/v1/bug-fixes',
     tags: ['Bug fixes'],
     summary: 'Start a bug fix',
-    description: 'Queues `/omni:bug-fix <description>` on the workspace’s runners, as the key: the job names the key as its sender, and the pull request it opens says so. Follow the job with `GET /api/v1/jobs/{id}`. The job ends in a pull request a person merges.',
+    description: 'Queues `/omni:bug-fix <description>` on the workspace’s runners, as the key: the job names the key as its sender, and the pull request it opens says so. Follow the job with `GET /api/v1/jobs/{id}`. The job ends in a pull request a person merges.' + START_FIELDS,
     security: [{ bearerAuth: [] }],
     request: { body: { required: true, content: { 'application/json': { schema: StartBugFixSchema } } } },
     responses: {
@@ -91,7 +94,7 @@ function openApiRegistry(): OpenAPIRegistry {
     path: '/api/v1/mega-bug-fixes',
     tags: ['Bug fixes'],
     summary: 'Start a bug fix across repositories',
-    description: 'Queues `/omni:mega-bug-fix <description>` in a plan repository of the workspace, as the key, for a bug that shows in one of its targets while its cause may sit in another: the skill finds where the cause is among the plan’s targets, opens one fix pull request per target that changes, in merge order, then a record pull request in the plan repository that closes the issue. The job’s `pr_url` is that record pull request; its body lists the target pull requests with `Merge after` lines. A person merges every one, the record last. The repository must be one a product of the workspace names as its plan repository, held by a runner. This route never answers 404: a deployment that answers 404 here is older than it.',
+    description: 'Queues `/omni:mega-bug-fix <description>` in a plan repository of the workspace, as the key, for a bug that shows in one of its targets while its cause may sit in another: the skill finds where the cause is among the plan’s targets, opens one fix pull request per target that changes, in merge order, then a record pull request in the plan repository that closes the issue. The job’s `pr_url` is that record pull request; its body lists the target pull requests with `Merge after` lines. A person merges every one, the record last. The repository must be one a product of the workspace names as its plan repository, held by a runner. This route never answers 404: a deployment that answers 404 here is older than it.' + START_FIELDS,
     security: [{ bearerAuth: [] }],
     request: { body: { required: true, content: { 'application/json': { schema: StartMegaBugFixSchema } } } },
     responses: {

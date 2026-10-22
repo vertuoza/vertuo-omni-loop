@@ -247,6 +247,41 @@ describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
   });
 });
 
+// A key's start and the jobs that carry it on (PRD 2425 s8): the job stores whom the key acts for and the link as given, and only
+// when they are given; a continuation that stays a key's job writes the link with its insert.
+describe('a key starting a job that pings a link (PRD 2425 s8)', () => {
+  const start = { workspaceId: 'w1', line: '/omni:bug-fix x', repo: 'demo-org/app', toRunner: null, toFleet: null, sentBy: 'u1', sentByKey: 'k1' };
+  const fix = { workspaceId: 'w1', line: '/omni:yolo-fix 1', repo: 'demo-org/app', toRunner: null, toFleet: null, sentBy: 'u1', sentByKey: 'k1', continues: 'j1' };
+  const LINK = 'https://hooks.example.com/omni';
+
+  it('writes whom the key acts for and the link with the job, as given', async () => {
+    const job = jobRow({ sent_by_key: 'k1' });
+    const { db, lines } = fakeDb([{ data: job, error: null }]);
+    expect(await runnersRepository(db).insertJob({ ...start, actingFor: 'Jane D.', notifyUrl: LINK })).toEqual(job);
+    expect(lines[0]).toContain(`"sent_by_key":"k1","acting_for":"Jane D.","notify_url":"${LINK}"`);
+  });
+
+  it('writes one without the other, and neither when the start gives neither', async () => {
+    const { db, lines } = fakeDb([{ data: jobRow(), error: null }, { data: jobRow(), error: null }, { data: jobRow(), error: null }]);
+    const repository = runnersRepository(db);
+    await repository.insertJob({ ...start, notifyUrl: LINK });
+    await repository.insertJob({ ...start, actingFor: 'Jane D.' });
+    await repository.insertJob({ ...start, actingFor: undefined, notifyUrl: undefined });
+    expect(lines[0]).toContain(`"sent_by_key":"k1","notify_url":"${LINK}"})`);
+    expect(lines[0]).not.toContain('"acting_for":');
+    expect(lines[1]).toContain('"sent_by_key":"k1","acting_for":"Jane D."})');
+    expect(lines[1]).not.toContain('"notify_url":');
+    expect(lines[2]).toContain('.insert({"workspace_id":"w1","line":"/omni:bug-fix x","repo":"demo-org/app","to_runner":null,"to_fleet":null,"sent_by":"u1","sent_by_key":"k1"})');
+  });
+
+  it('writes the link of a continuation that stays a key\'s job with its insert, and nothing else new', async () => {
+    const { db, lines } = fakeDb([{ data: jobRow({ continues: 'j1' }), error: null }]);
+    await continuationsRepository(db).insertContinuation({ ...fix, notifyUrl: LINK });
+    expect(lines[0]).toContain(`"sent_by_key":"k1","continues":"j1","notify_url":"${LINK}"})`);
+    expect(lines[0]).not.toContain('"acting_for":');
+  });
+});
+
 describe('a repository\'s allowed skills (PRD 2313)', () => {
   it('are read by repository_runner_skills_of(), for the workspace and the repository', async () => {
     const { db, lines } = fakeDb([{ data: ['audit', 'validate-prd'], error: null }, { data: [], error: null }]);

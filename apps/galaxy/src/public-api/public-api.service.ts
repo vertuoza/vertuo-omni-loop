@@ -40,6 +40,8 @@ export type RunnersPort = {
   dismissByKey: (key: KeyCloser, jobId: string) => Promise<Result<KeyJob>>;
   cancelByKey: (key: KeyCloser, jobId: string) => Promise<Result<KeyJob>>;
   relaunchByKey: (key: KeyCloser, jobId: string) => Promise<Result<KeyJob>>;
+  /** Whether a link may be pinged (PRD 2425 s8): null when it may, why not otherwise, in words. */
+  notifyCheck: (url: string) => Promise<string | null>;
 };
 type Result<T> = { ok: true; value: T } | { ok: false; kind: RunnerRefusal; error: string };
 
@@ -167,11 +169,16 @@ async function stagesOf(repository: Port, workspace: string, rows: readonly Doss
 
 export function publicApiService(repository: Port, runners: RunnersPort) {
   /** Queues `line` in `repo` for the key, through the runners' own rules (their line check included): the
-   * job is sent by the key's maker and marked as the key's. */
-  async function queueAs(key: ApiKeyCaller, repo: string, line: string, where: Pick<StartBugFix, 'runner' | 'fleet'>): Promise<Answered<ApiJob>> {
+   * job is sent by the key's maker and marked as the key's. A start that names a link to ping (PRD 2425 s8) has it checked first: a
+   * link that may not be pinged (not https, carrying a login, a host that is not public) is a 422 and nothing is queued. */
+  async function queueAs(
+    key: ApiKeyCaller, repo: string, line: string, where: Pick<StartBugFix, 'runner' | 'fleet' | 'acting_for' | 'notify_url'>,
+  ): Promise<Answered<ApiJob>> {
+    const unpingable = where.notify_url === undefined ? null : await runners.notifyCheck(where.notify_url);
+    if (unpingable !== null) return { ok: false, code: 'invalid_request', message: `notify_url: ${unpingable}` };
     const sent = await runners.sendByKey(
       { id: key.id, name: key.name, workspace: key.workspace, maker: key.maker },
-      { repo, line, runner: where.runner, fleet: where.fleet },
+      { repo, line, runner: where.runner, fleet: where.fleet, actingFor: where.acting_for, notifyUrl: where.notify_url },
     );
     return sent.ok ? { ok: true, value: jobOf(sent.value) } : startRefusal(sent.kind, sent.error);
   }

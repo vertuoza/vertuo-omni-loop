@@ -1138,3 +1138,77 @@ describe('POST /api/v1/jobs/{id}/cancel and /relaunch (PRD 2425 s7)', () => {
     });
   });
 });
+
+// PRD 2425 s8: both starts take whom the job is for and a link to ping. A body that does not fit is a 422 naming the field; a link
+// whose host is not public is a 422 on notify_url too, and nothing is queued; the answer says whom it is for and never the link.
+describe('POST /api/v1/bug-fixes and /api/v1/mega-bug-fixes: whom it is for and where to ping (PRD 2425 s8)', () => {
+  const LINK = 'https://hooks.example.com/omni/jobs';
+  const routes = [
+    ['bug-fixes', startBugFix, { repo: 'demo-org/app', description: 'Issue 548 totals' }],
+    ['mega-bug-fixes', startMegaBugFix, { repo: 'demo-org/plan', description: 'https://github.com/demo-org/plan/issues/612' }],
+  ] as const;
+  /** A link that carries a login, built here so none stands in the source. */
+  const carrying = (login: string[]) => ['https://', login.join(':'), '@hooks.example.com/omni'].join('');
+
+  describe.each(routes)('POST /api/v1/%s', (path, route, fix) => {
+    const send = (api: FakePublicApi, extra: Record<string, unknown>) => {
+      api.planRepository(WORKSPACE, 'demo-org/plan');
+      return route(post(`/api/v1/${path}`, { ...fix, ...extra }), deps(api));
+    };
+
+    it('takes whom it is for and the link, answers 202 with whom it is for and never the link, and queues the job with both', async () => {
+      const api = fakePublicApi();
+      const response = await send(api, { acting_for: 'Jane D.', notify_url: LINK });
+      expect(response.status).toBe(202);
+      const text = await response.text();
+      expect(JobSchema.parse(JSON.parse(text))).toMatchObject({ status: 'queued', acting_for: 'Jane D.' });
+      expect(text).not.toContain('hooks.example.com');
+      expect(api.runnersState.jobs).toHaveLength(1);
+      expect(api.runnersState.jobs[0]).toMatchObject({ acting_for: 'Jane D.', notify_url: LINK, sent_by_key: API_KEY });
+    });
+
+    it('takes a link of 500 characters, the longest the database holds', async () => {
+      const api = fakePublicApi();
+      const link = `https://hooks.example.com/${'a'.repeat(500 - 'https://hooks.example.com/'.length)}`;
+      expect(link).toHaveLength(500);
+      expect((await send(api, { notify_url: link })).status).toBe(202);
+      expect(api.runnersState.jobs[0]?.notify_url).toBe(link);
+    });
+
+    it.each([
+      ['an empty acting_for', { acting_for: '' }, 'acting_for'],
+      ['an 81-character acting_for', { acting_for: 'a'.repeat(81) }, 'acting_for'],
+      ['an acting_for with a tag', { acting_for: '<b>Jane</b>' }, 'acting_for'],
+      ['an empty notify_url', { notify_url: '' }, 'notify_url'],
+      ['a notify_url that is no link', { notify_url: 'not a link' }, 'notify_url'],
+      ['a notify_url that is a number', { notify_url: 12 }, 'notify_url'],
+      ['an http link', { notify_url: 'http://hooks.example.com/omni' }, 'notify_url'],
+      ['a link whose scheme is in capitals', { notify_url: 'HTTPS://hooks.example.com/omni' }, 'notify_url'],
+      ['a link with a user name and a password', { notify_url: carrying(['user', 'pw']) }, 'notify_url'],
+      ['a link with a user name', { notify_url: carrying(['user']) }, 'notify_url'],
+      ['a link of 501 characters', { notify_url: `https://hooks.example.com/${'a'.repeat(501 - 'https://hooks.example.com/'.length)}` }, 'notify_url'],
+    ])('answers 422 to %s, naming the field first, and queues nothing', async (_what, extra, field) => {
+      const api = fakePublicApi();
+      const response = await send(api, extra);
+      expect(response.status).toBe(422);
+      const error = await errorOf(response);
+      expect(error.code).toBe('invalid_request');
+      expect(error.message).toMatch(new RegExp(`^${field}: `));
+      expect(api.runnersState.jobs).toEqual([]);
+    });
+
+    it.each([
+      ['a host of the private network', 'https://intranet.example.com/omni', 'intranet.example.com resolves to a private address, which is not public'],
+      ['a host that resolves to loopback', 'https://loopback.example.com/omni', 'loopback.example.com resolves to a loopback address, which is not public'],
+      ['the address of a cloud metadata service', 'https://169.254.169.254/latest/meta-data/', 'is a link-local address, not a public one'],
+      ['the loopback address of IPv6', 'https://[::1]/omni', 'is a loopback address, not a public one'],
+      ['a host that does not resolve', 'https://nowhere.example.com/omni', 'nowhere.example.com does not resolve'],
+    ])('answers 422 on notify_url, with the reason, to %s, and queues nothing', async (_what, notify_url, reason) => {
+      const api = fakePublicApi();
+      const response = await send(api, { notify_url });
+      expect(response.status).toBe(422);
+      expect(await errorOf(response)).toEqual({ code: 'invalid_request', message: `notify_url: ${reason}` });
+      expect(api.runnersState.jobs).toEqual([]);
+    });
+  });
+});

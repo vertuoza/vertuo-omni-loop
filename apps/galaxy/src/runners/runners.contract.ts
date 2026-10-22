@@ -369,11 +369,28 @@ export type KeyJob = {
   logTail: string | null;
 };
 
-/** What a key asks to send: a bug-fix line, for a repository, to a runner by name or a fleet, or to any. */
-export type KeySend = { repo: string; line: string; runner?: string | undefined; fleet?: string | undefined };
+/** What a key asks to send: a bug-fix line, for a repository, to a runner by name or a fleet, or to any; whom it acts for and the
+ * https link its job's changes are pinged to, when it says (PRD 2425 s8). */
+export type KeySend = {
+  repo: string; line: string; runner?: string | undefined; fleet?: string | undefined; actingFor?: string | undefined; notifyUrl?: string | undefined;
+};
 
 /** The API key that answers or dismisses a job's questions (PRD 2425 s6): its id and workspace, and whom it says it acts for. */
 export type KeyCloser = { id: string; workspace: string; actingFor: string | null };
+
+/** What a ping says changed on a job (PRD 2425 s8): its status (claimed, running or ended), its outcome, or its questions (a round opened or closed). */
+export type PingEvent = 'status' | 'outcome' | 'questions';
+
+/** A ping to send once a change is stored (PRD 2425 s8): the job's `notify_url`, its id, what changed and when. What is posted is
+ * `{job_id, event, at}` and nothing else, so a forged ping can only make the app read the job. */
+export type Ping = { url: string; jobId: string; event: PingEvent; at: string };
+
+/** Who tells a job's `notify_url` (PRD 2425 s8, ./../public-api/notify.ts): `check` answers why a link may not be pinged (null when it may), `ping`
+ * sends one after the change is stored, never waits for it and never throws: a ping that fails is logged. */
+export type Notifier = {
+  check: (url: string) => Promise<string | null>;
+  ping: (ping: Ping) => void;
+};
 
 export const JobReplySchema = z.object({ job: JobSchema });
 

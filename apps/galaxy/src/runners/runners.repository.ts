@@ -159,6 +159,9 @@ export type NewRunner = { workspaceId: string; owner: string; name: string; slot
 /** A new job's columns. */
 export type NewJob = { workspaceId: string; line: string; repo: string; toRunner: string | null; toFleet: string | null; sentBy: string; sentByKey: string | null };
 
+/** What a key's start adds to a new job (PRD 2425 s8): whom it said it acts for and the link its changes are pinged to, each written only when given. */
+export type KeyStart = { actingFor?: string | undefined; notifyUrl?: string | undefined };
+
 /** A relaunch's columns (PRD 2425 s7): a new job's, the job it continues, whom the key said it acted for and the link its changes are pinged to. */
 export type NewRelaunch = NewJob & { continues: string; actingFor: string | null; notifyUrl: string | null };
 
@@ -301,10 +304,12 @@ export function runnersRepository(db: RunnersDb) {
     continuedBy: async (jobId: string): Promise<string | null> =>
       (await parsed(db.from('runner_jobs').select('id').eq('continues', jobId).order('queued_at', { ascending: false }).limit(1).maybeSingle(), z.object({ id: z.string() }).nullable(), 'runner_jobs'))?.id ?? null,
 
-    insertJob: async (job: NewJob): Promise<JobRow> =>
+    insertJob: async (job: NewJob & KeyStart): Promise<JobRow> =>
       parsed(db.from('runner_jobs').insert({
         workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy,
         sent_by_key: job.sentByKey,
+        ...(job.actingFor === undefined ? {} : { acting_for: job.actingFor }),
+        ...(job.notifyUrl === undefined ? {} : { notify_url: job.notifyUrl }),
       }).select(JOB_COLUMNS).single(), JobRow, 'runner_jobs'),
 
     /** Queues the job a key relaunches (PRD 2425 s7): a new job that carries the first on, with whom the key said it acted for and the
@@ -395,8 +400,8 @@ export type RunnersRepository = ReturnType<typeof runnersRepository>;
  * one that waited and any queued or running beside it. */
 const PRD_JOBS_READ = 50;
 
-/** A continuation's columns (PRD 2270): a new job's, and the job it continues. */
-type NewContinuation = NewJob & { continues: string };
+/** A continuation's columns (PRD 2270): a new job's, the job it continues and, when it stays a key's, the link its changes are pinged to (PRD 2425 s8). */
+type NewContinuation = NewJob & { continues: string; notifyUrl?: string | undefined };
 
 const SwitchRow = z.object({ fix_when_answered: z.boolean() }).nullable();
 
@@ -416,7 +421,7 @@ export function continuationsRepository(db: RunnersDb) {
         .order('queued_at', { ascending: false }).limit(PRD_JOBS_READ), z.array(JobRow), 'runner_jobs'),
 
     /** Queues the continuation; null when the job was continued already (23505, runner_jobs_continues_key). */
-    insertContinuation: (job: NewContinuation): Promise<JobRow | null> => insertContinuing(db, job),
+    insertContinuation: (job: NewContinuation): Promise<JobRow | null> => insertContinuing(db, job, job.notifyUrl === undefined ? {} : { notify_url: job.notifyUrl }),
   };
 }
 

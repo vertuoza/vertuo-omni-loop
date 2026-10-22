@@ -240,6 +240,32 @@ describe('the OpenAPI reference', () => {
     });
   });
 
+  describe.each([['/api/v1/bug-fixes'], ['/api/v1/mega-bug-fixes']])('starting a job with %s says whom it is for and where to ping (PRD 2425 s8)', (path) => {
+    const post = () => document.paths?.[path]?.post;
+
+    it('takes an acting_for and a notify_url in its body, the link of at most 500 characters', () => {
+      const body = JSON.stringify(post()?.requestBody);
+      for (const part of ['"acting_for"', '"notify_url"', '"maxLength":500']) expect(body, part).toContain(part);
+    });
+
+    it('describes the ping: what it carries, that it says a change and never what, and that the link is checked first', () => {
+      const description = post()?.description;
+      expect(description).toContain('notify_url');
+      expect(description).toContain('"job_id", "event", "at"');
+      expect(description).toMatch(/never what/);
+      expect(description).toMatch(/checked before the job is queued/);
+    });
+
+    it('says in the field’s own words which events ping, the tries, and that a redirect is never followed', () => {
+      const body = JSON.stringify(post()?.requestBody);
+      for (const part of ['`status`, `outcome` or `questions`', 'three tries', 'a redirect is never followed', 'public addresses only']) expect(body, part).toContain(part);
+    });
+
+    it('names the host that is not public among the 422s', () => {
+      expect(JSON.stringify(post()?.responses?.['422'])).toMatch(/notify_url.*not public/);
+    });
+  });
+
   it('describes starting a mega bug fix, with a strict body and no 404', () => {
     const post = document.paths?.['/api/v1/mega-bug-fixes']?.post;
     expect(post?.requestBody).toBeDefined();

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { reply } from '../business-api/reply';
 import {
   ACTING_FOR_MAX, AnswerJobSchema, BugFixListSchema, CancelJobSchema, DESCRIPTION_MAX, DismissJobSchema, JobLineListSchema, JobSchema, ListQuerySchema, LIMIT_MAX,
-  MEGA_DESCRIPTION_MAX, PrdListSchema, PUBLIC_API_ERRORS, QuestionsSchema, RelaunchJobSchema, StartBugFixSchema, StartMegaBugFixSchema, type ListQuery, type PublicApiErrorCode,
+  MEGA_DESCRIPTION_MAX, NOTIFY_URL_MAX, PrdListSchema, PUBLIC_API_ERRORS, QuestionsSchema, RelaunchJobSchema, StartBugFixSchema, StartMegaBugFixSchema, type ListQuery, type PublicApiErrorCode,
 } from './public-api.contract';
 import type { ApiKeyCaller, PublicApiService, Answered } from './public-api.service';
 
@@ -45,9 +45,10 @@ const QUERY_RULES: Readonly<Record<keyof ListQuery, string>> = {
   cursor: 'cursor: the `next_cursor` the last page answered, unchanged.',
 };
 
-const BAD_BODY = `The body must be {"repo": "owner/name", "description": "<1 to ${String(DESCRIPTION_MAX)} characters>", "runner"?: "<name>", "fleet"?: "<fleet>"}.`;
-const BAD_MEGA_BODY = `The body must be {"repo": "<a plan repository, owner/name>", "description": "<its issue's URL, or the bug, 1 to ${String(MEGA_DESCRIPTION_MAX)} characters, no --flag>", "runner"?: "<name>", "fleet"?: "<fleet>"}, and nothing else.`;
 const ACTING_FOR_RULE = `"acting_for"?: "<whom the key acts for, 1 to ${String(ACTING_FOR_MAX)} characters: letters of any alphabet, digits, spaces and . _ ' @ - · only>"`;
+const NOTIFY_URL_RULE = `"notify_url"?: "<an https link on a public host to ping when the job changes, ${String(NOTIFY_URL_MAX)} characters at most, with no user name or password>"`;
+const BAD_BODY = `The body must be {"repo": "owner/name", "description": "<1 to ${String(DESCRIPTION_MAX)} characters>", "runner"?: "<name>", "fleet"?: "<fleet>", ${ACTING_FOR_RULE}, ${NOTIFY_URL_RULE}}.`;
+const BAD_MEGA_BODY = `The body must be {"repo": "<a plan repository, owner/name>", "description": "<its issue's URL, or the bug, 1 to ${String(MEGA_DESCRIPTION_MAX)} characters, no --flag>", "runner"?: "<name>", "fleet"?: "<fleet>", ${ACTING_FOR_RULE}, ${NOTIFY_URL_RULE}}, and nothing else.`;
 const BAD_ANSWER_BODY = `The body must be {"answers": {"<question>": "<answer, 1 to 2000 characters>"}, ${ACTING_FOR_RULE}}: one answer to each question, one to four in all, and nothing else.`;
 const BAD_ACTING_BODY = `The body must be empty, or {${ACTING_FOR_RULE}}, and nothing else.`;
 const NO_SUCH_JOB = 'No such job.';

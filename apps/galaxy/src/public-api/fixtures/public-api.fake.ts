@@ -2,6 +2,7 @@ import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { runnersService } from '../../runners/runners.service';
 import { API_KEY, fakeStore, OLGA, OTHER_KEY, T0, WORKSPACE } from '../../runners/fixtures/store.fake';
 import { hashApiKey } from '../keys/secret';
+import { notifier } from '../notify';
 import type { PRD_STAGES } from '../public-api.contract';
 import type { DossierPage, DossierRow, KeyRow, ListedKind, ProductRow, PublicApiRepository, StageRow } from '../public-api.repository';
 
@@ -101,7 +102,39 @@ export function fakePublicApi() {
   // The runners' own rules over their own fake store: what a key starts and follows a job with, and the live
   // lines (PRD 1904) the lines route reads.
   const { store, state: runnersState } = fakeStore();
-  const runners = runnersService(store, { now: () => T0, sleep: () => Promise.resolve() });
+
+  // The link a job pings (PRD 2425 s8): the real notifier over a fake network. A name resolves through `hosts` (an unknown one does
+  // not resolve), a post is recorded in `posts` and answers `answer.status`, and the hand-over to "after the response" waits for
+  // `flushPings()`, as Next's after() does. Nothing here reaches the network.
+  const hosts = new Map<string, string[]>([
+    ['hooks.example.com', ['93.184.216.34']],
+    ['intranet.example.com', ['10.1.2.3']],
+    ['loopback.example.com', ['127.0.0.1']],
+  ]);
+  const posts: { url: string; address: string; body: string }[] = [];
+  const pingLogs: string[] = [];
+  const answer = { status: 200 };
+  const pending: (() => Promise<void>)[] = [];
+  const pinger = notifier({
+    net: {
+      resolve: (host) => {
+        const found = hosts.get(host);
+        return found === undefined ? Promise.reject(new Error('ENOTFOUND')) : Promise.resolve(found);
+      },
+      fetch: ({ url, address, body }) => {
+        posts.push({ url, address, body });
+        return Promise.resolve(answer.status);
+      },
+    },
+    sleep: () => Promise.resolve(),
+    timer: () => () => undefined,
+    log: (line) => { pingLogs.push(line); },
+    later: (task) => { pending.push(task); },
+  });
+  const flushPings = async (): Promise<void> => {
+    for (let task = pending.shift(); task !== undefined; task = pending.shift()) await task();
+  };
+  const runners = runnersService(store, { now: () => T0, sleep: () => Promise.resolve() }, pinger);
 
   const repository: PublicApiRepository = {
     async keyOf(hash) {
@@ -151,6 +184,13 @@ export function fakePublicApi() {
     runnersState,
     dossiers,
     calls,
+    /** The names the fake resolver knows (each to its addresses), the posts the notifier made, what it logged, and the status the link answers. */
+    hosts,
+    posts,
+    pingLogs,
+    answer,
+    /** Runs the pings handed over since the last flush, as the response having gone. */
+    flushPings,
     add,
     /** A repository PRD, numbered `n`. */
     prd: (workspace: string, repo: string, n: number, more: Partial<FakeDossier> = {}) =>

@@ -67,11 +67,11 @@ import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
   type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
-  type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type PrdJob, type RunnerState, type SendRequest, type Target,
+  type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
 import { shouldContinue, unansweredWhy } from './continue';
-import type { ContinuationsRepository, JobPatch, JobRow, JobRowStatus, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
+import type { ContinuationsRepository, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
 
 /** The time, and a pause: real in production, fixed in tests. */
 export type Clock = { now: () => Date; sleep: (ms: number) => Promise<void> };
@@ -354,6 +354,16 @@ const CARRIED_ON = 'This job was carried on already.';
 const relaunchable = (job: Pick<JobRow, 'status' | 'outcome'>): boolean =>
   job.status === 'failed' || job.status === 'cancelled' || (job.status === 'done' && job.outcome === 'stopped');
 
+/** The notifier of a service built without one (PRD 2425 s8): it refuses every link, so none is ever taken that no ping could reach, and pings nothing. */
+const NO_NOTIFIER: Notifier = { check: () => Promise.resolve('cannot be pinged by this server'), ping: () => undefined };
+
+/** What a change of a job's stored state tells its link, if anything (PRD 2425 s8): one ping for a change, `outcome` when the job ended
+ * with one (a bug fix's end, Need human included) and `status` for every other move; a change of neither is no ping. */
+function eventOf(before: Pick<JobRow, 'status' | 'outcome'>, after: Pick<JobRow, 'status' | 'outcome'>): PingEvent | null {
+  if (before.status !== after.status) return (after.outcome ?? null) === null ? 'status' : 'outcome';
+  return (before.outcome ?? null) === (after.outcome ?? null) ? null : 'outcome';
+}
+
 const NOT_WAITING = 'This job is not waiting for an answer.';
 const NO_QUESTION = 'This job asked no question.';
 const EACH_ANSWERED = 'Answer each question once, and only the ones asked.';
@@ -364,9 +374,20 @@ const answersEach = (row: Pick<QuestionsRow, 'questions'>, answers: Record<strin
   return Object.keys(answers).length === asked.length && asked.every((text) => Object.hasOwn(answers, text));
 };
 
-export function runnersService(store: RunnersRepository, clock: Clock) {
+export function runnersService(store: RunnersRepository, clock: Clock, notifier: Notifier = NO_NOTIFIER) {
   const iso = () => clock.now().toISOString();
   const markLost = () => store.markLost(new Date(clock.now().getTime() - LOST_AFTER_MS).toISOString());
+
+  /** Tells the job's link that its status, outcome or questions changed (PRD 2425 s8), once the change is stored; a job with no link tells
+   * none. The notifier answers after the response and never throws, so a ping never changes what a request answers. */
+  const tell = (job: Pick<JobRow, 'id' | 'notify_url'>, event: PingEvent): void => {
+    if (job.notify_url) notifier.ping({ url: job.notify_url, jobId: job.id, event, at: iso() });
+  };
+  /** Tells the link of a job the change that took it from `before` to `after`, when it is one. */
+  const tellChange = (before: JobRow, after: JobRow): void => {
+    const event = eventOf(before, after);
+    if (event !== null) tell(after, event);
+  };
 
   /** The runner the caller owns, or why not. */
   async function ownRunner(caller: string, runnerId: string): Promise<Served<RunnerRow>> {
@@ -406,8 +427,11 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
 
   /** Queues the job as `caller`, a member of the workspace the repository belongs to; for a key, that must be the key's.
    * The line's shape is checked first; a repository's own skill, once the repository is placed, against what its owner allowed.
-   * A relaunch (PRD 2425 s7) names the `thread` it carries on: the job it continues, which no other job may continue. */
-  async function queue(caller: string, request: SendRequest, key: Pick<KeySender, 'id' | 'workspace'> | null, thread: Thread | null = null): Promise<Served<JobRow>> {
+   * A relaunch (PRD 2425 s7) names the `thread` it carries on: the job it continues, which no other job may continue. A key's start
+   * (PRD 2425 s8) says whom it acts for and the link to ping, which the job stores as given. */
+  async function queue(
+    caller: string, request: SendRequest, key: Pick<KeySender, 'id' | 'workspace'> | null, thread: Thread | null = null, start: KeyStart = {},
+  ): Promise<Served<JobRow>> {
     const line = checkLineShape(request.line);
     if (!line.ok) return no('malformed', line.reason);
     const repo = request.repo.toLowerCase();
@@ -418,11 +442,11 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     if (!allowed.ok) return allowed;
     const target = await mayTarget(store, workspaceId, sender, request.target);
     if (!target.ok) return target;
-    return insert({ workspaceId, line: request.line, repo, ...target.value, sentBy: caller, sentByKey: key?.id ?? null }, thread);
+    return insert({ workspaceId, line: request.line, repo, ...target.value, sentBy: caller, sentByKey: key?.id ?? null, ...start }, thread);
   }
 
   /** Stores a queued job: a new one, or, with a `thread`, one that carries a job on, which another job may already (runner_jobs.continues is unique). */
-  async function insert(job: NewJob, thread: Thread | null): Promise<Served<JobRow>> {
+  async function insert(job: NewJob & KeyStart, thread: Thread | null): Promise<Served<JobRow>> {
     if (thread === null) return ok(await store.insertJob(job));
     const relaunched = await store.insertRelaunch({ ...job, ...thread });
     return relaunched ? ok(relaunched) : no('conflict', CARRIED_ON);
@@ -473,10 +497,15 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
   }
 
   /** Ends the claimed and running jobs of a runner registering again as `runner lost`: a runner that
-   * registers has just started, so it holds none of them (#2170). */
+   * registers has just started, so it holds none of them (#2170). Each one that ends here tells its link (PRD 2425 s8); the ones the
+   * database ends alone, a silent runner's (markLost), tell none: nothing in this process makes that change. */
   async function loseJobsOf(runner: RunnerRow): Promise<void> {
     const held = (await store.activeJobs(runner.workspace_id)).filter((job) => job.runner_id === runner.id && ACTIVE.includes(job.status));
-    for (const job of held) await store.updateJob(job.id, ACTIVE, { status: 'failed', reason: 'runner lost', ended_at: iso() });
+    for (const job of held) {
+      const lost = await store.updateJob(job.id, ACTIVE, { status: 'failed', reason: 'runner lost', ended_at: iso() });
+      // A claimed or running job always moves to failed here, with no outcome: a status ping.
+      if (lost) tell(lost, 'status');
+    }
   }
 
   /** Nothing, when the caller sent the job or owns its workspace; why not otherwise. */
@@ -587,6 +616,8 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     const updated = await store.updateJob(job.id, [job.status], patch);
     if (!updated) return no('conflict', 'This job changed meanwhile. Try again.');
     await retainLines(updated);
+    // A job asked to stop is still running: only one that ends here (queued or claimed) tells its link.
+    tellChange(job, updated);
     return ok(updated);
   }
 
@@ -635,6 +666,8 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
         await store.updateRunner(runnerId, { last_seen_at: iso() });
         const job = await store.claim(runnerId);
         if (job) {
+          // The claim is stored: a job with a link tells it that it is Starting (PRD 2425 s8).
+          tell(job, 'status');
           const logins = await store.logins(job.workspace_id, sendersOf([job]));
           const keyName = job.sent_by_key === null ? null : (await store.keyNames(job.workspace_id, [job.sent_by_key])).get(job.sent_by_key) ?? null;
           // Read at claim (PRD 2313): a skill turned off while its job waited is absent, and the runner refuses it.
@@ -665,6 +698,8 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const updated = await store.updateJob(jobId, [job.status], await endingPatch(job, report));
       if (!updated) return no('conflict', 'This job changed meanwhile. Report again.');
       await retainLines(updated);
+      // A report that moves the job, or ends it with an outcome, tells its link; a log tail, lines or tokens alone tell none (PRD 2425 s8).
+      tellChange(job, updated);
       return ok({ cancel: !ENDED.includes(updated.status) && updated.cancel_requested });
     },
 
@@ -684,6 +719,10 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       await store.trimSamples(runnerId, new Date(now.getTime() - SAMPLES_KEPT_MS).toISOString());
       return ok({ at });
     },
+
+    /** Whether a link may be pinged (PRD 2425 s8), in words: null when it may, why not otherwise. The notifier's own check, which a start
+     * asks before it queues anything; the send itself repeats none, and every ping checks the link again before it is made. */
+    notifyCheck: (url: string): Promise<string | null> => notifier.check(url),
 
     /** Queues a job: a listed line, for a repository of the workspace, to a target the sender may use. */
     async send(caller: string, request: SendRequest): Promise<Served<Job>> {
@@ -705,7 +744,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
         if (!named) return no('missing', `No runner named ${request.runner} in this workspace.`);
         target = { kind: 'runner', runner: named.id };
       }
-      const queued = await queue(key.maker, { line: request.line, repo: request.repo, target }, key);
+      const queued = await queue(key.maker, { line: request.line, repo: request.repo, target }, key, null, { actingFor: request.actingFor, notifyUrl: request.notifyUrl });
       // A job just queued asked nothing, carries nothing on and was cancelled by nobody: nothing else to read.
       return queued.ok ? ok(keyJobOf(queued.value, { runner: await runnerNameOf(queued.value), questions: null, continuedBy: null, keys: new Map() })) : queued;
     },
@@ -817,6 +856,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       if (job.status !== 'running') return no('conflict', `This job is ${job.status}: only a running job asks.`);
       const stored = await store.insertQuestions({ jobId, workspaceId: job.workspace_id, issue: request.issue, lead: request.lead, questions: request.questions });
       if (!stored) return no('conflict', 'This job asked its questions already.');
+      tell(job, 'questions');
       return ok(questionsView(stored, new Map()));
     },
 
@@ -852,6 +892,8 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       if (!target.ok) return target;
       const answered = await store.answer(jobId, request.answers, caller);
       if (!answered.ok) return refused(answered.refusal, jobId);
+      // The questions of the job that asked are closed: its link is told, whoever closed them (PRD 2425 s8).
+      tell(job, 'questions');
       // The resume of a key's job stays the key's and its maker's, whoever answered (PRD 2425): the reply names them.
       const resume = answered.value;
       return ok(jobOf(resume, await store.logins(resume.workspace_id, sendersOf([resume])), await keysOf(resume.workspace_id, [resume])));
@@ -872,8 +914,9 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       if (!allowed.ok) return allowed;
       const answered = await store.answerByKey(jobId, answers, key.id, key.actingFor);
       if (!answered.ok) return refused(answered.refusal, jobId);
+      tell(job, 'questions');
       // A job just queued asked nothing, is carried on by none and was cancelled by nobody: nothing else to read.
-      return ok(keyJobOf(answered.value, { runner: null, questions: null, continuedBy: null, keys: new Map() }));
+      return ok(keyJobOf(answered.value,{ runner: null, questions: null, continuedBy: null, keys: new Map() }));
     },
 
     /** A key closes the questions of a job a key of its workspace sent with no answer and no job queued (PRD 2425 s6), as the
@@ -882,7 +925,9 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const waiting = await stillWaitingOnKey(key.workspace, jobId);
       if (!waiting.ok) return waiting;
       const dismissed = await store.dismissByKey(jobId, key.id, key.actingFor);
-      return dismissed.ok ? readKeyJob(key.workspace, jobId) : refused(dismissed.refusal, jobId);
+      if (!dismissed.ok) return refused(dismissed.refusal, jobId);
+      tell(waiting.value.job, 'questions');
+      return readKeyJob(key.workspace, jobId);
     },
 
     /** Any member closes a job's questions with no answers and no job queued: they leave the badge. */
@@ -891,6 +936,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       if (!waiting.ok) return waiting;
       const dismissed = await store.dismiss(jobId, caller);
       if (!dismissed.ok) return refused(dismissed.refusal, jobId);
+      tell(waiting.value.job, 'questions');
       return ok(questionsView(dismissed.value, await store.logins(dismissed.value.workspace_id, [caller])));
     },
 
@@ -951,6 +997,10 @@ async function memberOf(store: RunnersRepository, workspaceId: string, person: s
 /** The API key a continuation is sent by: the job's own, unless a person pressed Fix with answers. */
 const keyOf = (job: Pick<JobRow, 'sent_by_key'>, by: string | undefined): string | null => (by === undefined ? job.sent_by_key : null);
 
+/** The link a continuation pings (PRD 2425 s8): its job's, and only while the fix stays a key's job: a person pressing Fix sends none of a key's, so its changes ping none. */
+const linkOf = (job: Pick<JobRow, 'notify_url'>, sentByKey: string | null): { notifyUrl?: string } =>
+  sentByKey !== null && job.notify_url ? { notifyUrl: job.notify_url } : {};
+
 /** The continuation's rules (PRD 2270 s1): once every asked item of a PRD has a counted reply, its newest
  * runner job, which waited on answers, is continued by `/omni:yolo-fix <n>`, queued to the same runner or
  * fleet in its sender's name (the API key that sent it, too), and linked to it. The decision is
@@ -975,8 +1025,9 @@ export function continuationsService(store: RunnersRepository, continuations: Co
       const { person: sentBy, sender } = placed;
       const target = await mayTarget(store, workspaceId, sender, targetOf(job));
       if (!target.ok) return none(target.error);
+      const sentByKey = keyOf(job, by);
       const row = await continuations.insertContinuation({
-        workspaceId, line: `/omni:yolo-fix ${String(prd)}`, repo: job.repo, ...target.value, sentBy, sentByKey: keyOf(job, by), continues: job.id,
+        workspaceId, line: `/omni:yolo-fix ${String(prd)}`, repo: job.repo, ...target.value, sentBy, sentByKey, continues: job.id, ...linkOf(job, sentByKey),
       });
       if (!row) return none(`job ${job.id} was continued already`);
       const keys = row.sent_by_key === null ? new Map<string, string>() : await store.keyNames(workspaceId, [row.sent_by_key]);

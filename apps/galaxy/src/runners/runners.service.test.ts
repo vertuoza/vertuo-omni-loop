@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { OutboxStand } from '../dossier/page/stage';
 import { canResume, canSendAgain } from './page/model';
-import { ENDED_JOBS_SHOWN, STORED_OUTCOMES } from './runners.contract';
+import { ENDED_JOBS_SHOWN, STORED_OUTCOMES, type Notifier, type Ping } from './runners.contract';
 import type { ContinuationsRepository, JobLineRow, JobRow, QuestionsRow, RunnerRow, SampleRow } from './runners.repository';
 import { continuationsService, cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
@@ -17,9 +17,9 @@ import {
 const at = (seconds: number) => new Date(T0.getTime() + seconds * 1000);
 
 /** The service on the fake store, with a clock that a held `next` moves forward as it sleeps. */
-function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], questions = [], skills = [], start = T0, onSleep }: {
+function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], questions = [], skills = [], start = T0, onSleep, notifier }: {
   jobs?: JobRow[]; runners?: RunnerRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; skills?: AllowedSkillRow[]; start?: Date;
-  onSleep?: (jobs: JobRow[]) => void;
+  onSleep?: (jobs: JobRow[]) => void; notifier?: Notifier;
 } = {}) {
   let now = start;
   const slept: number[] = [];
@@ -32,7 +32,7 @@ function world({ jobs = [], runners = RUNNERS, lines = [], samples = [], questio
       onSleep?.(state.jobs);
       return Promise.resolve();
     },
-  });
+  }, notifier);
   return { service, state, slept, setNow: (next: Date) => { now = next; } };
 }
 
@@ -920,7 +920,7 @@ describe('a continuation', () => {
         if (state.jobs.some((j) => j.continues === job.continues)) return Promise.resolve(null);
         const row = jobRow({
           workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy,
-          sent_by_key: job.sentByKey, continues: job.continues, queued_at: at(900).toISOString(),
+          sent_by_key: job.sentByKey, continues: job.continues, queued_at: at(900).toISOString(), notify_url: job.notifyUrl ?? null,
         });
         state.jobs.push(row);
         return Promise.resolve({ ...row });
@@ -956,6 +956,26 @@ describe('a continuation', () => {
     const done = await service.continueAnswered(ask());
     expect(done).toMatchObject({ queued: { sentBy: OLGA, sentByKey: 'QA dashboard', continues: job.id } });
     expect(state.jobs.find((j) => j.continues === job.id)).toMatchObject({ sent_by: OLGA, sent_by_key: API_KEY, continues: job.id });
+  });
+
+  it('keeps the link a key\'s job is pinged at, so the thread\'s next job pings it too (PRD 2425 s8)', async () => {
+    const job = waited({ sent_by: OLGA, sent_by_key: API_KEY, notify_url: 'https://hooks.example.com/omni' });
+    const { service, state } = continuing([job]);
+    expect(await service.continueAnswered(ask())).toMatchObject({ queued: { continues: job.id } });
+    expect(state.jobs.find((j) => j.continues === job.id)).toMatchObject({ sent_by_key: API_KEY, notify_url: 'https://hooks.example.com/omni' });
+  });
+
+  it('keeps no link for a fix a person presses, which is no longer the key\'s job, and none for a job that had none', async () => {
+    const link = waited({ sent_by: OLGA, sent_by_key: API_KEY, notify_url: 'https://hooks.example.com/omni' });
+    const pressed = continuing([link], { 'demo-org/app': false });
+    expect(await pressed.service.continueAnswered({ ...ask(), by: MO })).toMatchObject({ queued: { sentByKey: null } });
+    expect(pressed.state.jobs.find((j) => j.continues === link.id)).toMatchObject({ sent_by_key: null, notify_url: null });
+    const plain = continuing([waited({ sent_by: OLGA, sent_by_key: API_KEY })]);
+    await plain.service.continueAnswered(ask());
+    expect(plain.state.jobs[1]).toMatchObject({ sent_by_key: API_KEY, notify_url: null });
+    const person = continuing([waited({ sent_by: MO })]);
+    await person.service.continueAnswered(ask());
+    expect(person.state.jobs[1]).toMatchObject({ sent_by_key: null, notify_url: null });
   });
 
   it('queues once: a second continuation of the same job is refused by the unique column, and two touches at once queue one fix', async () => {
@@ -2188,6 +2208,275 @@ describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
       expect(off.state.jobs).toHaveLength(1);
       const on = world({ jobs: [job], skills: [allowed] });
       expect(value(await on.service.relaunchByKey(KEY, job.id))).toMatchObject({ line: '/validate-prd 347', continues: job.id });
+    });
+  });
+});
+
+// PRD 2425 s8: a job sent with a notify_url pings it, `{job_id, event, at}`, when its status, outcome or questions change, once
+// the change is stored; the jobs that carry it on inherit the link; a change the database makes alone pings nothing.
+describe('a job that pings its link (PRD 2425 s8)', () => {
+  const NOTIFY = 'https://hooks.example.com/omni';
+  const key = { id: API_KEY, name: 'QA dashboard', workspace: WORKSPACE, maker: OLGA };
+  /** The key that acts: not the one that sent the job. */
+  const KEY = { id: OTHER_KEY, workspace: WORKSPACE, actingFor: 'Jane D.' };
+  const ASK = { issue: parseIssue(314), lead: 'The planning query fails for 31 tenants.', questions: [QUESTION] };
+  const ANSWERS = { 'Which fix?': 'Guard the input' };
+  const times = { claimed_at: T0.toISOString(), running_at: T0.toISOString() };
+  /** A bug fix the first key sent, through its maker Olga, to the fleet cia, with a link to ping. */
+  const sent = (more: Partial<JobRow> = {}) => jobRow({ line: '/omni:bug-fix #314', sent_by: OLGA, sent_by_key: API_KEY, to_fleet: 'cia', notify_url: NOTIFY, ...more });
+  const claimed = (more: Partial<JobRow> = {}) => sent({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString(), ...more });
+  const running = (more: Partial<JobRow> = {}) => sent({ status: 'running', runner_id: SHARED, ...times, ...more });
+  /** The same job, ended `done` with its questions open: Need human. */
+  const waiting = (more: Partial<JobRow> = {}) => running({ status: 'done', outcome: 'human', exit_code: 0, ended_at: T0.toISOString(), ...more });
+  const failed = (more: Partial<JobRow> = {}) => running({ status: 'failed', exit_code: 1, reason: 'exit 1', ended_at: T0.toISOString(), ...more });
+
+  /** The service with a notifier that records each ping, with the status the store held for its job when the ping was made. */
+  function pinging(options: Parameters<typeof world>[0] = {}) {
+    const pings: (Ping & { stored: string | undefined })[] = [];
+    const checked: string[] = [];
+    const held: { jobs: JobRow[] } = { jobs: [] };
+    const notifier: Notifier = {
+      check: (url) => { checked.push(url); return Promise.resolve(url.includes('/refused') ? 'is refused here' : null); },
+      ping: (ping) => { pings.push({ ...ping, stored: held.jobs.find((job) => job.id === ping.jobId)?.status }); },
+    };
+    const w = world({ ...options, notifier });
+    held.jobs = w.state.jobs;
+    return { ...w, pings, checked };
+  }
+  const ping = (job: Pick<JobRow, 'id'>, event: Ping['event'], stored: string, when: Date = T0) => ({ url: NOTIFY, jobId: job.id, event, at: when.toISOString(), stored });
+
+  describe('sending', () => {
+    it('stores the link and whom the key acts for, as given, queues the job and pings nothing yet', async () => {
+      const w = pinging();
+      const queued = value(await w.service.sendByKey(key, { repo: 'demo-org/app', line: '/omni:bug-fix Issue 548 totals', actingFor: ' Jane D. ', notifyUrl: NOTIFY }));
+      expect(queued).toMatchObject({ status: 'queued', actingFor: ' Jane D. ' });
+      expect(w.state.jobs[0]).toMatchObject({ acting_for: ' Jane D. ', notify_url: NOTIFY, sent_by_key: API_KEY, status: 'queued' });
+      expect(w.pings).toEqual([]);
+    });
+
+    it('stores neither when the key sends neither, as a start has always been', async () => {
+      const w = pinging();
+      value(await w.service.sendByKey(key, { repo: 'demo-org/app', line: '/omni:bug-fix Issue 548 totals' }));
+      expect(w.state.jobs[0]).toMatchObject({ acting_for: null, notify_url: null });
+    });
+
+    it('stores one without the other', async () => {
+      const w = pinging();
+      value(await w.service.sendByKey(key, { repo: 'demo-org/app', line: '/omni:bug-fix a', notifyUrl: NOTIFY }));
+      value(await w.service.sendByKey(key, { repo: 'demo-org/app', line: '/omni:bug-fix b', actingFor: 'Jane D.' }));
+      expect(w.state.jobs.map((job) => [job.acting_for, job.notify_url])).toEqual([[null, NOTIFY], ['Jane D.', null]]);
+    });
+
+    it('answers whether a link may be pinged with the notifier\'s own check, which no send repeats', async () => {
+      const w = pinging();
+      expect(await w.service.notifyCheck(NOTIFY)).toBeNull();
+      expect(await w.service.notifyCheck('https://hooks.example.com/refused')).toBe('is refused here');
+      expect(w.checked).toEqual([NOTIFY, 'https://hooks.example.com/refused']);
+      value(await w.service.sendByKey(key, { repo: 'demo-org/app', line: '/omni:bug-fix a', notifyUrl: 'https://hooks.example.com/refused' }));
+      expect(w.checked).toHaveLength(2);
+    });
+
+    it('has a notifier that refuses every link and pings nothing when none is given, so a link is never taken that no ping could reach', async () => {
+      const { store } = fakeStore({ jobs: [sent()] });
+      const service = runnersService(store, { now: () => T0, sleep: () => Promise.resolve() });
+      expect(await service.notifyCheck(NOTIFY)).toEqual(expect.stringContaining('ping'));
+      expect(value(await service.next(OLGA, CIA_BOX))?.id).toBeTruthy();
+    });
+  });
+
+  describe('a runner claiming and reporting', () => {
+    it('pings status when the job is claimed, after it is stored, with the time of the change', async () => {
+      const job = sent();
+      const w = pinging({ jobs: [job], start: at(30) });
+      expect(value(await w.service.next(OLGA, CIA_BOX))?.id).toBe(job.id);
+      expect(w.pings).toEqual([ping(job, 'status', 'claimed', at(30))]);
+    });
+
+    it('pings nothing for a job with no link, whatever it does', async () => {
+      const job = sent({ notify_url: null, sent_by_key: null });
+      const w = pinging({ jobs: [job] });
+      value(await w.service.next(OLGA, CIA_BOX));
+      value(await w.service.update(OLGA, job.id, { status: 'running' }));
+      value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, outcome: 'pr-opened' }));
+      expect(w.pings).toEqual([]);
+    });
+
+    it('pings status when it starts running, and nothing for a report that changes neither its status nor its outcome', async () => {
+      const job = claimed();
+      const w = pinging({ jobs: [job] });
+      value(await w.service.update(OLGA, job.id, { status: 'running' }));
+      value(await w.service.update(OLGA, job.id, { status: 'running', logTail: 'step 2' }));
+      value(await w.service.update(OLGA, job.id, { status: 'running', from: 1, lines: ['one', 'two'] }));
+      expect(w.pings).toEqual([ping(job, 'status', 'running')]);
+    });
+
+    it('pings outcome when it ends with one, a done bug fix with how it ended, and not status as well', async () => {
+      const job = running();
+      const w = pinging({ jobs: [job] });
+      value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, outcome: 'pr-opened' }));
+      expect(w.pings).toEqual([ping(job, 'outcome', 'done')]);
+    });
+
+    it('pings outcome when a bug fix ends with its questions open, whether or not the runner said need-human', async () => {
+      const [said, silent] = [running(), running()];
+      const w = pinging({ jobs: [said, silent], questions: [questionsRow({ job_id: said.id }), questionsRow({ job_id: silent.id })] });
+      value(await w.service.update(OLGA, said.id, { status: 'done', exitCode: 0, outcome: 'need-human' }));
+      value(await w.service.update(OLGA, silent.id, { status: 'done', exitCode: 0 }));
+      expect(w.pings).toEqual([ping(said, 'outcome', 'done'), ping(silent, 'outcome', 'done')]);
+      expect(w.state.jobs.map((job) => job.outcome)).toEqual(['human', 'human']);
+    });
+
+    it('pings status when it ends with no outcome: done with none, failed, or cancelled by its runner', async () => {
+      const [done, bad, stopped] = [running(), running(), running({ cancel_requested: true })];
+      const w = pinging({ jobs: [done, bad, stopped] });
+      value(await w.service.update(OLGA, done.id, { status: 'done', exitCode: 0 }));
+      value(await w.service.update(OLGA, bad.id, { status: 'failed', exitCode: 1, reason: 'exit 1' }));
+      value(await w.service.update(OLGA, stopped.id, { status: 'cancelled' }));
+      expect(w.pings).toEqual([ping(done, 'status', 'done'), ping(bad, 'status', 'failed'), ping(stopped, 'status', 'cancelled')]);
+    });
+
+    it('pings nothing for a report that was refused, or that only says what the runner released for a job that ended', async () => {
+      const ended = failed();
+      const w = pinging({ jobs: [ended] });
+      expect(await w.service.update(OLGA, ended.id, { status: 'running' })).toMatchObject({ ok: false, kind: 'conflict' });
+      value(await w.service.update(OLGA, ended.id, { status: 'failed', released: [1908], releaseError: null }));
+      expect(await w.service.update(MO, ended.id, { status: 'failed' })).toMatchObject({ ok: false, kind: 'forbidden' });
+      expect(w.pings).toEqual([]);
+    });
+  });
+
+  describe('cancelling', () => {
+    it('pings status when a queued or a claimed job ends at once, by its sender\'s page or by a key', async () => {
+      const [queued, held, byKey] = [sent({ sent_by: OLGA, sent_by_key: null }), claimed(), sent()];
+      const w = pinging({ jobs: [queued, held, byKey] });
+      value(await w.service.cancel(OLGA, queued.id));
+      value(await w.service.cancel(OLGA, held.id));
+      value(await w.service.cancelByKey(KEY, byKey.id));
+      expect(w.pings).toEqual([ping(queued, 'status', 'cancelled'), ping(held, 'status', 'cancelled'), ping(byKey, 'status', 'cancelled')]);
+    });
+
+    it('pings nothing when a running job is only asked to stop, then status when its runner reports it stopped', async () => {
+      const job = running();
+      const w = pinging({ jobs: [job] });
+      value(await w.service.cancelByKey(KEY, job.id));
+      value(await w.service.cancelByKey(KEY, job.id));
+      expect(w.pings).toEqual([]);
+      expect(value(await w.service.update(OLGA, job.id, { status: 'cancelled' }))).toEqual({ cancel: false });
+      expect(w.pings).toEqual([ping(job, 'status', 'cancelled')]);
+    });
+
+    it('pings nothing for a cancel that is refused: an ended job, or one that is none of the key\'s', async () => {
+      const [ended, person] = [failed(), sent({ sent_by_key: null, sent_by: MO, notify_url: NOTIFY })];
+      const w = pinging({ jobs: [ended, person] });
+      expect(await w.service.cancelByKey(KEY, ended.id)).toMatchObject({ ok: false, kind: 'conflict' });
+      expect(await w.service.cancelByKey(KEY, person.id)).toMatchObject({ ok: false, kind: 'missing' });
+      expect(await w.service.cancel(OLGA, ended.id)).toMatchObject({ ok: false, kind: 'conflict' });
+      expect(w.pings).toEqual([]);
+    });
+  });
+
+  describe('a runner lost', () => {
+    it('pings status for each job a runner that registers again held, and none for a job without a link', async () => {
+      const [starting, going, plain] = [claimed(), running(), running({ notify_url: null })];
+      const w = pinging({ jobs: [starting, going, plain] });
+      value(await w.service.register(OLGA, { name: 'shared', slots: 2, repos: ['demo-org/app'], version: '0.0.388' }));
+      expect(w.state.jobs.map((job) => job.reason)).toEqual(['runner lost', 'runner lost', 'runner lost']);
+      expect(w.pings).toEqual([ping(starting, 'status', 'failed'), ping(going, 'status', 'failed')]);
+    });
+
+    it('pings nothing for the jobs the database ends alone, a silent runner\'s, however it comes to know', async () => {
+      const [silent, other] = [running({ runner_id: CIA_BOX }), running({ runner_id: CIA_BOX })];
+      const w = pinging({ jobs: [silent, other], start: at(91) });
+      value(await w.service.board(MO, WORKSPACE));
+      expect(w.state.jobs.map((job) => [job.status, job.reason])).toEqual([['failed', 'runner lost'], ['failed', 'runner lost']]);
+      expect(value(await w.service.next(OLGA, SHARED))).toBeNull();
+      expect(w.pings).toEqual([]);
+    });
+  });
+
+  describe('its questions', () => {
+    const open = (job: JobRow) => ({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+
+    it('pings questions when the job asks them, once', async () => {
+      const job = running();
+      const w = pinging({ jobs: [job] });
+      value(await w.service.ask(OLGA, job.id, ASK));
+      expect(await w.service.ask(OLGA, job.id, ASK)).toMatchObject({ ok: false, kind: 'conflict' });
+      expect(w.pings).toEqual([ping(job, 'questions', 'running')]);
+    });
+
+    it('pings nothing when asking is refused: a job that is not running, or one asked by another runner\'s owner', async () => {
+      const [ended, job] = [failed(), running()];
+      const w = pinging({ jobs: [ended, job] });
+      expect(await w.service.ask(OLGA, ended.id, ASK)).toMatchObject({ ok: false, kind: 'conflict' });
+      expect(await w.service.ask(MO, job.id, ASK)).toMatchObject({ ok: false, kind: 'forbidden' });
+      expect(w.pings).toEqual([]);
+    });
+
+    it('pings questions on the job that asked when a key answers, and the resume it queues keeps the link', async () => {
+      const job = waiting();
+      const w = pinging(open(job));
+      const resume = value(await w.service.answerByKey(KEY, job.id, ANSWERS));
+      expect(w.pings).toEqual([ping(job, 'questions', 'done')]);
+      expect(w.state.jobs.find((j) => j.id === resume.id)).toMatchObject({ notify_url: NOTIFY, sent_by_key: API_KEY, continues: job.id });
+    });
+
+    it('pings questions on the job that asked when the page answers, the answerer being a person', async () => {
+      const job = waiting();
+      const w = pinging(open(job));
+      const resume = value(await w.service.answer(MO, job.id, { answers: ANSWERS }));
+      expect(w.pings).toEqual([ping(job, 'questions', 'done')]);
+      expect(w.state.jobs.find((j) => j.id === resume.id)).toMatchObject({ notify_url: NOTIFY });
+    });
+
+    it('pings questions when a key or a person dismisses them', async () => {
+      const [byKey, byPerson] = [waiting(), waiting()];
+      const w = pinging({ jobs: [byKey, byPerson], questions: [questionsRow({ job_id: byKey.id }), questionsRow({ job_id: byPerson.id })] });
+      value(await w.service.dismissByKey(KEY, byKey.id));
+      value(await w.service.dismiss(OLGA, byPerson.id));
+      expect(w.pings).toEqual([ping(byKey, 'questions', 'done'), ping(byPerson, 'questions', 'done')]);
+    });
+
+    it('pings once for a round that two close, the second being refused, and nothing for an answer or a dismissal that is refused', async () => {
+      const job = waiting();
+      const w = pinging(open(job));
+      value(await w.service.answerByKey(KEY, job.id, ANSWERS));
+      expect(await w.service.answer(MO, job.id, { answers: ANSWERS })).toMatchObject({ ok: false, kind: 'conflict' });
+      expect(await w.service.answerByKey(KEY, job.id, ANSWERS)).toMatchObject({ ok: false, kind: 'conflict' });
+      expect(await w.service.dismissByKey(KEY, job.id)).toMatchObject({ ok: false, kind: 'conflict' });
+      expect(await w.service.dismiss(OLGA, job.id)).toMatchObject({ ok: false, kind: 'conflict' });
+      const mismatch = waiting();
+      const m = pinging(open(mismatch));
+      expect(await m.service.answerByKey(KEY, mismatch.id, { 'Another?': 'x' })).toMatchObject({ ok: false, kind: 'malformed' });
+      expect(await m.service.dismissByKey(KEY, '00000000-0000-4000-8000-0000024259f9')).toMatchObject({ ok: false, kind: 'missing' });
+      expect(w.pings).toHaveLength(1);
+      expect(m.pings).toEqual([]);
+    });
+
+    it('pings nothing for a person\'s job with no link, whoever closes its round', async () => {
+      const job = waiting({ notify_url: null, sent_by_key: null, sent_by: MO });
+      const w = pinging(open(job));
+      value(await w.service.answer(OLGA, job.id, { answers: ANSWERS }));
+      expect(w.pings).toEqual([]);
+    });
+  });
+
+  describe('the jobs that carry it on', () => {
+    it('pings the resume of an answered job when a runner claims it, at its own id, as the thread continues', async () => {
+      const job = waiting();
+      const w = pinging({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      const resume = value(await w.service.answerByKey(KEY, job.id, ANSWERS));
+      value(await w.service.next(OLGA, CIA_BOX));
+      expect(w.pings).toEqual([ping(job, 'questions', 'done'), ping(resume, 'status', 'claimed')]);
+    });
+
+    it('pings the relaunch of a failed job when a runner claims it, and the job it replaces never again', async () => {
+      const job = failed({ to_fleet: 'cia' });
+      const w = pinging({ jobs: [job] });
+      const relaunched = value(await w.service.relaunchByKey(KEY, job.id));
+      expect(w.pings).toEqual([]);
+      value(await w.service.next(OLGA, CIA_BOX));
+      expect(w.pings).toEqual([ping(relaunched, 'status', 'claimed')]);
     });
   });
 });

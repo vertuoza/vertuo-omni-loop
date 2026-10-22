@@ -102,6 +102,71 @@ describe('a mega bug fix’s body', () => {
   });
 });
 
+// PRD 2425 s8: whom a job is sent for, and where its changes are pinged.
+describe('what a start says of whom it is for and where to ping (PRD 2425 s8)', () => {
+  const REPO = { repo: 'acme/backend', description: 'Issue 548 totals' };
+  const MEGA = { repo: 'acme/plan', description: '612' };
+  const LINK = 'https://hooks.example.com/omni/jobs?room=7';
+  /** A link that carries credentials, built here so no `user:password@host` stands in the source. */
+  const withCredentials = (user: string, password: string) => `https://${user}${password === '' ? '' : `:${password}`}@hooks.example.com/ping`;
+  const both = [['a bug fix', StartBugFixSchema, REPO], ['a mega bug fix', StartMegaBugFixSchema, MEGA]] as const;
+
+  it.each(both)('takes acting_for and notify_url on %s, and keeps them exactly as given', (_, schema, body) => {
+    const sent = { ...body, acting_for: ' Jane D. ', notify_url: LINK };
+    expect(schema.parse(sent)).toEqual(sent);
+    expect(schema.parse(body)).toEqual(body);
+    expect(schema.parse({ ...body, notify_url: LINK })).toEqual({ ...body, notify_url: LINK });
+    expect(schema.parse({ ...body, acting_for: 'Jane D.' })).toEqual({ ...body, acting_for: 'Jane D.' });
+  });
+
+  it.each(both)('takes acting_for of 1 to 80 characters of letters of any alphabet, digits, spaces and . _ \' @ - · on %s', (_, schema, body) => {
+    for (const acting_for of ['J', 'a'.repeat(ACTING_FOR_MAX), 'Jane D.', 'José Ñandú', '山田 太郎', 'Zoë-Ann O\'Neil_2 @ acme·co']) {
+      expect(schema.safeParse({ ...body, acting_for }).success, acting_for).toBe(true);
+    }
+  });
+
+  it.each(both)('refuses acting_for that is empty, over 80 characters or outside the set on %s, naming acting_for', (_, schema, body) => {
+    for (const acting_for of ['', 'a'.repeat(ACTING_FOR_MAX + 1), '<b>Jane</b>', 'Jane\nD.', 'jane;drop', 'Jane/D']) {
+      expect(schema.safeParse({ ...body, acting_for }).error?.issues[0]?.path, acting_for).toEqual(['acting_for']);
+    }
+  });
+
+  it.each(both)('takes a notify_url that is https, 500 characters at most, on %s', (_, schema, body) => {
+    const long = `https://hooks.example.com/${'a'.repeat(500 - 'https://hooks.example.com/'.length)}`;
+    expect(long).toHaveLength(500);
+    for (const notify_url of [LINK, 'https://hooks.example.com', 'https://hooks.example.com:8443/ping#part', 'https://93.184.216.34/ping', long]) {
+      expect(schema.safeParse({ ...body, notify_url }).success, notify_url).toBe(true);
+    }
+  });
+
+  it.each(both)('refuses a notify_url that is not an https link, is over 500 characters or carries a user name or a password on %s, naming notify_url', (_, schema, body) => {
+    const tooLong = `https://hooks.example.com/${'a'.repeat(501 - 'https://hooks.example.com/'.length)}`;
+    expect(tooLong).toHaveLength(501);
+    for (const notify_url of [
+      'http://hooks.example.com/ping', 'ftp://hooks.example.com/ping', 'hooks.example.com/ping', 'not a link', '', ' ', tooLong,
+      // The database holds https in lower case only: the link is refused here, not at the insert.
+      'HTTPS://hooks.example.com/ping', 'Https://hooks.example.com/ping',
+      withCredentials('user', 'pw'), withCredentials('user', ''), withCredentials('', 'pw'),
+    ]) {
+      const read = schema.safeParse({ ...body, notify_url });
+      expect(read.success, notify_url).toBe(false);
+      expect(read.error?.issues[0]?.path, notify_url).toEqual(['notify_url']);
+    }
+  });
+
+  it('keeps a mega bug fix strict: a field it does not know is still refused beside the two new ones', () => {
+    const unknown = StartMegaBugFixSchema.safeParse({ ...MEGA, acting_for: 'Jane D.', notify_url: LINK, ping: true });
+    expect(unknown.error?.issues[0]).toMatchObject({ code: 'unrecognized_keys', keys: ['ping'] });
+  });
+
+  it('says what the ping is in the documentation of the field', () => {
+    const description = StartBugFixSchema.shape.notify_url.meta()?.description ?? '';
+    for (const word of ['job_id', 'event', 'at', 'status', 'outcome', 'questions', 'public', '422', 'redirect']) expect(description, word).toContain(word);
+    expect(StartMegaBugFixSchema.shape.notify_url.meta()?.description).toBe(description);
+    expect(StartBugFixSchema.shape.acting_for.meta()?.description).toBe(StartMegaBugFixSchema.shape.acting_for.meta()?.description);
+  });
+});
+
 // PRD 2425 s3: what a bug fix did, read with its job.
 describe('a job a key follows, with what it did (PRD 2425 s3)', () => {
   const JOB = {
