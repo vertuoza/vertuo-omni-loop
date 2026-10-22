@@ -1808,11 +1808,11 @@ describe('omni kb laws — applies here, then global, on a knowledge map (PRD 23
   it('the five made-up changes of the spec each find their rule under Applies here, and none prints a locked law of another area', async () => {
     const { root } = makeRepo({ git: true, files: MAP });
     const changes = [
-      { change: 'let a person edit an answer', file: 'apps/galaxy/src/ask/ask.service.ts', finds: ['BR-PRODUCT-12'] },
-      { change: 'log the workspace AI key in clear', file: 'apps/galaxy/src/jev/jev-key.service.ts', finds: ['BR-PRODUCT-59'] },
+      { change: 'let a person edit an answer', file: 'apps/web/src/ask/ask.service.ts', finds: ['BR-PRODUCT-12'] },
+      { change: 'log the workspace AI key in clear', file: 'apps/web/src/jev/jev-key.service.ts', finds: ['BR-PRODUCT-59'] },
       { change: 'an agent applies the override label', file: 'kit/plugin/skills/pr/SKILL.md', finds: ['BR-PRODUCT-3', 'BR-PRODUCT-5'] },
       { change: 'the ask hook answers for the person', file: 'kit/lib/ask/hook.ts', finds: ['N-PRODUCT-7', 'N-PRODUCT-8'] },
-      { change: 'a notification tap opens another site', file: 'apps/galaxy/src/push/sw.ts', finds: ['N-PRODUCT-18'] },
+      { change: 'a notification tap opens another site', file: 'apps/web/src/push/sw.ts', finds: ['N-PRODUCT-18'] },
     ];
     for (const { change, file, finds } of changes) {
       const { applies, global, hidden } = await found(root, [file]);
@@ -1826,7 +1826,7 @@ describe('omni kb laws — applies here, then global, on a knowledge map (PRD 23
 
   it('prints BR-PRODUCT-12 under Applies here marked domain ask, then the global entries and every Legal entry, then counts what it hides', async () => {
     const { root } = makeRepo({ git: true, files: MAP });
-    const { code, out } = await omni(root, ['kb', 'laws', '--paths', 'apps/galaxy/src/ask/ask.service.ts']);
+    const { code, out } = await omni(root, ['kb', 'laws', '--paths', 'apps/web/src/ask/ask.service.ts']);
     expect(code).toBe(0);
     expect(lines(out)).toEqual([
       'Applies here',
@@ -1859,7 +1859,7 @@ describe('omni kb laws — applies here, then global, on a knowledge map (PRD 23
   });
 
   it('--slice looks its territory up the same way', async () => {
-    const plan = '# Plan\n\n| id | slice | territory | blocked by | wave |\n| --- | --- | --- | --- | --- |\n| s1 | one | `apps/galaxy/src/push/` | — | 1 |\n';
+    const plan = '# Plan\n\n| id | slice | territory | blocked by | wave |\n| --- | --- | --- | --- | --- |\n| s1 | one | `apps/web/src/push/` | — | 1 |\n';
     const { root } = makeRepo({ git: true, files: { ...MAP, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan } });
     expect(appliesOf((await omni(root, ['kb', 'laws', '--slice', '7', 's1'])).out)).toEqual([
       'invariant N-PRODUCT-18 — A notification tap only ever opens a page of the site. (domain push)',
@@ -1868,7 +1868,7 @@ describe('omni kb laws — applies here, then global, on a knowledge map (PRD 23
 
   it('--json carries applies, global and hidden, and keeps every locked law under laws', async () => {
     const { root } = makeRepo({ git: true, files: MAP });
-    const parsed = await found(root, ['apps/galaxy/src/jev/jev-key.service.ts']);
+    const parsed = await found(root, ['apps/web/src/jev/jev-key.service.ts']);
     expect(parsed.applies).toEqual([
       { kind: 'law', id: 'BR-PRODUCT-59', file: '.omni-loop/knowledge/domains/jev/rules.md', text: "Only the owner can see the workspace's stored AI key.", why: ['domain jev'], proposed: false },
     ]);
@@ -1881,11 +1881,21 @@ describe('omni kb laws — applies here, then global, on a knowledge map (PRD 23
       git: true,
       files: { ...MAP, '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\ncommands:\n  test: make check\nlaws:\n  owners: [law-keeper]\n' },
     });
-    const { applies, global, hidden } = await found(root, ['apps/galaxy/src/ask/ask.service.ts']);
+    const { applies, global, hidden } = await found(root, ['apps/web/src/ask/ask.service.ts']);
     expect(applies).toEqual([]);
     expect(global.filter(({ kind }) => kind === 'law').map(({ id }) => id)).toEqual(LAWS);
     expect(global.filter(({ kind }) => kind === 'legal').map(({ id }) => id)).toEqual(['L-GDPR-2', 'L-GDPR-5']);
     expect(hidden.laws).toBe(0);
     expect(lines((await omni(root, ['kb', 'laws'])).out)).toHaveLength(LAWS.length);
+  });
+
+  it('the skills that quote its output describe its two groups and the count of what it leaves out', () => {
+    for (const skill of ['brainstorm', 'plan', 'do-work', 'bug-fix']) {
+      const text = readFileSync(join(import.meta.dirname, `../plugin/skills/${skill}/SKILL.md`), 'utf8').replace(/\s+/g, ' ');
+      const at = text.indexOf('omni.mjs kb laws --');
+      expect(at, skill).toBeGreaterThan(-1);
+      const passage = text.slice(at, at + 900);
+      for (const words of ['**Applies here**', '**Global**', 'Legal entries', 'locked laws of other areas']) expect(passage, `${skill}: ${words}`).toContain(words);
+    }
   });
 });

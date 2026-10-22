@@ -6,7 +6,7 @@ An answer never changes after it is given. A round moves only forward.
 
 Serves: P-PRODUCT-1
 Source: PRD #71
-Enforced by: apps/galaxy/src/ask/rounds-sql.test.ts
+Enforced by: apps/web/src/ask/rounds-sql.test.ts
 Stated: 2026-10-01
 Locked: @law-keeper, 2026-10-14
 Kept id: moved from product, PRD 2346

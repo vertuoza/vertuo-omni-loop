@@ -12,13 +12,13 @@ layers:
 flow:
   areas:
     ask:
-      paths: ['^kit/lib/ask/', '^apps/galaxy/src/ask/']
+      paths: ['^kit/lib/ask/', '^apps/web/src/ask/']
       knowledge: ask
     jev:
-      paths: ['^apps/galaxy/src/jev/']
+      paths: ['^apps/web/src/jev/']
       knowledge: jev
     push:
-      paths: ['^apps/galaxy/src/push/']
+      paths: ['^apps/web/src/push/']
       knowledge: push
     quote:
       paths: ['^apps/quote/']
