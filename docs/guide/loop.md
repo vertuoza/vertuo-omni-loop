@@ -31,6 +31,19 @@ Three rules hold the loop together:
 - **Every decision an agent takes alone becomes an outbox item,** which you answer or adopt. Nothing
   is decided behind your back, and nothing stops a build to wait for you.
 
+### How long each step took
+
+A PRD's page has a **Timeline** tab, after Plan. It lists the PRD's own milestones (idea, plan,
+approved), then one lane per repository the PRD lands in (one lane for most PRDs), each with its
+milestones and their dates, linked to their pull requests. Between two milestones it shows the step's
+name, how long it took and who it waited on, and it marks the longest step. A step still going is
+counted up to now; a milestone not reached yet reads `not yet`, and a step whose start was never
+recorded reads `not recorded`, never zero. The line under the
+stage words gives the total from idea to merged, or the time running so far, and the longest wait.
+
+The Engineering board has a **Time per step** panel. For each step it gives the median over the PRDs
+done in the board's period, how many PRDs it covers, and the slowest step.
+
 ## Your three gates
 
 1. **The phase-0 pull request.** Merging it approves the PRD and puts it in the inbox, on the
