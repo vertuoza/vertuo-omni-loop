@@ -78,9 +78,14 @@ never overrides this skill's rules.
    node .omni-loop/bin/omni.mjs kb laws --slice <n> <id>
    ```
 
-   It prints every locked law, one plain line each with who must approve a change to it, then the
-   rules whose `Governs:` line matches the slice's territory. `node .omni-loop/bin/omni.mjs
-   knowledge <id>` prints one of them in full when its line is not enough. A **proposed** entry
+   It prints two groups. **Applies here**: each law (one plain line, with who must approve a change
+   to it), rule or invariant whose `Governs:` line matches the slice's territory, or whose domain or
+   layers are a territory file's, and each decision record tagged with that domain or layer, every
+   line ending with why (`governs`, `domain <d>`, `layer <l>`). **Global**: what nothing narrows,
+   the product's Legal entries included. Its last line counts the locked laws of other areas it
+   leaves out. A repository that maps no `layers` and no flow area to a `knowledge` folder narrows
+   nothing: every locked law prints. `node .omni-loop/bin/omni.mjs knowledge <id>` prints one of
+   them in full when its line is not enough. A **proposed** entry
    (one carrying a `Proposed:` line; `omni knowledge <id>` prints who proposed it and when) is read
    like any other: it describes the product. It is not a law until a person confirms it, so it
    never stops a slice (see **Exactly two ways a slice ends early**). When the slice changes a

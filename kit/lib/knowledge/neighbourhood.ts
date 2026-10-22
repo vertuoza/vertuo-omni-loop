@@ -26,13 +26,19 @@
  *   holds a path its `Governs:` matches;
  * - `uses-term` (s2): an entry → a `term:<word>` node per glossary term of the cached product
  *   knowledge its statement uses as a whole word, in any case. A `Serves: L-…` line reaches a `legal`
- *   node of that cache (or the label {@link LEGAL_MISSING}). Both read the cache only: never the network.
+ *   node of that cache (or the label {@link LEGAL_MISSING}). Both read the cache only: never the network;
+ * - `domain` and `layer` (PRD 2346): a rule or an invariant → each decision record tagged with its
+ *   domain (`**Domain:**`) or with one of its layers (`**Layers:**`), the records an agent changing
+ *   that area must read. Under `--paths`, an entry the files reach also links the records tagged with
+ *   the files' own domain or layers, as the lookup (`disclose-lookup.ts`) resolves them.
  *
  * Only entry nodes are walked further; a test, a path, a schema and a decision record are leaves. A
  * node reached twice is kept once, at the first hop that reaches it. The product line says whether
  * the product's cached knowledge (its Legal entries and Glossary) is in the walk.
  */
+import { layerOf } from '../layers/layers.ts';
 import { governsPath, headline } from './disclose.ts';
+import { lookup, placeOf, type FilePlace, type KnowledgeMap } from './disclose-lookup.ts';
 import { prdOf } from './graph.ts';
 import { idsCitedIn, isLaw, LEGAL_ID_SHAPE, type KnowledgeEntry } from './registers.ts';
 import type { DecisionRecord } from '../playbook/decisions.ts';
@@ -45,8 +51,8 @@ export const NEIGHBOURHOOD_SHAPE = 'neighbourhood';
 /** The kinds of node: the entries, which are walked, and the leaves, which are not. */
 export type NodeKind = 'principle' | 'rule' | 'invariant' | 'legal' | 'contract' | 'test' | 'path' | 'schema' | 'screen' | 'adr' | 'term';
 
-/** The edge vocabulary: nine edges, each stored in its natural direction. */
-export type EdgeKind = 'serves' | 'enforced-by' | 'governs' | 'points-to' | 'cites' | 'sibling' | 'screen' | 'same-prd' | 'uses-term';
+/** The edge vocabulary: eleven edges, each stored in its natural direction. */
+export type EdgeKind = 'serves' | 'enforced-by' | 'governs' | 'points-to' | 'cites' | 'sibling' | 'screen' | 'same-prd' | 'uses-term' | 'domain' | 'layer';
 
 /** A rule's or an invariant's standing; `null` on every other node. */
 export type NodeStatus = 'law' | 'rule' | 'proposed';
@@ -98,6 +104,8 @@ export type NeighbourhoodSources = {
   screensDir?: string | null;
   legal?: readonly LegalEntry[];
   glossary?: readonly GlossaryTerm[];
+  /** Where the files a `--paths` walk starts from sit on the knowledge map: their records are linked from the start. */
+  places?: readonly FilePlace[];
 };
 
 /** An entry whose kind could be read: the only entries a walk reaches. */
@@ -120,6 +128,9 @@ type Index = {
   cached: boolean;
   legal: ReadonlyMap<string, LegalEntry>;
   glossary: readonly GlossaryTerm[];
+  places: readonly FilePlace[];
+  /** The entries a `--paths` walk starts from: the only ones that link the records of the files' own area. */
+  anchor: ReadonlySet<string>;
 };
 
 const legalNode = (id: string, legal: LegalEntry | undefined): Link['node'] => ({
@@ -233,13 +244,42 @@ function siblingLinks(entry: Walked, { walked, byId }: Index): Link[] {
   return siblings.map((other) => link(entry.id, other.id, 'sibling', entryNode(other)));
 }
 
+/** A decision record as a leaf: `ADR-<number>`, its file and its title. */
+const recordNode = ({ number, file, title }: DecisionRecord): Link['node'] => leaf(`ADR-${number}`, 'adr', file, recordLabel(title));
+
 /** `same-prd`, to every decision record whose header names the PRD of `entry`'s `Source:`. */
 function samePrdLinks(entry: Walked, { records }: Index): Link[] {
   const prd = prdOf(entry.source);
   if (prd === null) return [];
   return records
     .filter((record) => record.prd === prd)
-    .map(({ number, file, title }) => link(entry.id, `ADR-${number}`, 'same-prd', leaf(`ADR-${number}`, 'adr', file, recordLabel(title))));
+    .map((record) => link(entry.id, `ADR-${record.number}`, 'same-prd', recordNode(record)));
+}
+
+/** A rule's or an invariant's domains: its folder, or both of a cross-domain file's (`a--b`). */
+const domainsOf = (entry: Walked): string[] => (entry.scope === 'cross-domain' ? entry.domain.split('--') : [entry.domain]);
+
+/** A list of layer words read as layers: an old word (`database`) as its layer. */
+const layersOf = (words: readonly string[] | null | undefined): string[] => (words ?? []).map(layerOf);
+
+/**
+ * `domain` and `layer`, to every decision record tagged with the domain or a layer of `entry`, and,
+ * for an entry the walk starts from, with the domain or a layer of the files looked up.
+ */
+function tagLinks(entry: Walked, { records, places, anchor }: Index): Link[] {
+  if (entry.kind !== 'rule' && entry.kind !== 'invariant') return [];
+  const here = anchor.has(entry.id);
+  const domains = new Set([...domainsOf(entry), ...(here ? places.flatMap(({ domain }) => (domain === null ? [] : [domain])) : [])]);
+  const layers = new Set([...layersOf(entry.layers), ...(here ? places.flatMap((place) => place.layers) : [])]);
+  return records.flatMap((record) => {
+    const node = recordNode(record);
+    const byDomain = record.domain != null && domains.has(record.domain);
+    const byLayer = layersOf(record.layers).some((layer) => layers.has(layer));
+    return [
+      ...(byDomain ? [link(entry.id, node.id, 'domain', node)] : []),
+      ...(byLayer ? [link(entry.id, node.id, 'layer', node)] : []),
+    ];
+  });
 }
 
 /** Every step out of `entry`, in the order the text prints them: up, then down, then side. */
@@ -251,6 +291,7 @@ function linksOf(entry: Subject, index: Index): Link[] {
     ...citeLinks(entry, index),
     ...siblingLinks(entry, index),
     ...samePrdLinks(entry, index),
+    ...tagLinks(entry, index),
     ...screenLinks(entry, index),
     ...termLinks(entry, index),
   ];
@@ -308,6 +349,8 @@ export function buildNeighbourhood(sources: NeighbourhoodSources, { start, depth
     cached,
     legal: new Map(cached ? (sources.legal ?? []).map((legal) => [legal.id, legal]) : []),
     glossary: cached ? (sources.glossary ?? []) : [],
+    places: sources.places ?? [],
+    anchor: new Set(start),
   };
   const walk: Walk = { index, nodes: new Map(), edges: [], seen: new Set() };
 
@@ -315,6 +358,7 @@ export function buildNeighbourhood(sources: NeighbourhoodSources, { start, depth
     const subject = subjectOf(index, id);
     return subject === undefined ? [] : [subject];
   });
+  for (const record of sources.records) if (start.includes(`ADR-${record.number}`)) walk.nodes.set(`ADR-${record.number}`, { ...recordNode(record), hop: 0 });
   for (const subject of frontier) walk.nodes.set(subject.id, { ...(subject.kind === 'legal' ? legalNode(subject.id, index.legal.get(subject.id)) : entryNode(subject)), hop: 0 });
   for (let hop = 1; hop <= depth; hop += 1) frontier = frontier.flatMap((entry) => step(walk, entry, hop));
   const { nodes, edges } = walk;
@@ -486,6 +530,8 @@ export function buildRepositoryGraph(sources: Pick<NeighbourhoodSources, 'entrie
     cached: true,
     legal: new Map((sources.legal ?? []).map((legal) => [legal.id, legal])),
     glossary: sources.glossary ?? [],
+    places: [],
+    anchor: new Set(),
   };
   const nodes = new Map<string, RepositoryGraphNode>();
   const edges = new Map<string, NeighbourhoodEdge>();
@@ -500,4 +546,20 @@ export function buildRepositoryGraph(sources: Pick<NeighbourhoodSources, 'entrie
     }
   }
   return { version: NEIGHBOURHOOD_VERSION, shape: 'repository', nodes: [...nodes.values()], edges: [...edges.values()] };
+}
+
+/** The files a `--paths` walk starts from: where they sit, the entries that apply to them, and the records that do. */
+export type FilesStart = { ids: string[]; records: string[]; start: string[]; places: FilePlace[] };
+
+/**
+ * The start of `omni kb graph --paths <file>…` (PRD 2346): the rules, invariants and laws that apply to
+ * the files, as the lookup (`omni kb laws --paths`) resolves them (a `Governs:` match, the files' domain
+ * or layers), laws first, and the decision records that apply. The records start the walk only when no
+ * entry does: otherwise a `domain` or `layer` edge reaches them.
+ */
+export function startFromFiles(sources: Pick<NeighbourhoodSources, 'entries' | 'records'>, map: KnowledgeMap, files: readonly string[]): FilesStart {
+  const { applies } = lookup({ ...sources, legal: [], thesis: null }, map, files);
+  const ids = applies.filter(({ kind }) => kind !== 'adr' && kind !== 'legal').map(({ id }) => id);
+  const records = applies.filter(({ kind }) => kind === 'adr').map(({ id }) => id);
+  return { ids, records, start: ids.length > 0 ? ids : records, places: files.map((file) => placeOf(map, file)) };
 }

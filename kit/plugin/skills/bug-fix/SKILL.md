@@ -336,8 +336,11 @@ merged pull request fixed it since it was first seen. Look before commenting.
 
 Before changing a line, when `laws.source` is `knowledge`, read the knowledge the fix touches, never
 the whole folder: run `node .omni-loop/bin/omni.mjs kb laws --paths <file>…` on the files the fix
-will change. It prints every locked law, one plain line each with who must approve a change to it,
-then the rules whose `Governs:` line matches those files: the fix keeps each of them true. A fix
+will change. Under **Applies here** it prints each law (one plain line, with who must approve a
+change to it), rule and decision record that reaches those files, by its `Governs:` line, its
+domain or its layers, each line saying why; under **Global**, what nothing narrows, the Legal
+entries included; then it counts the locked laws of other areas. The fix keeps each entry it
+prints true. A fix
 that would change a locked law follows **A change to a law**, and its PR waits for that person.
 
 Test-first, the smallest change that turns the reproduction green, in the repository's own patterns

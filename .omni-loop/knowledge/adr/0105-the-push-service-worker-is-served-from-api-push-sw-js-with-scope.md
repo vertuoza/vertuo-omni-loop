@@ -1,6 +1,6 @@
 # ADR-0105 — The push service worker is served from /api/push/sw.js with scope '/', not as a static /sw.js
 
-**Status:** adopted · **Date:** 2026-10-09 · **PRD:** #1322 · **Decided:** nobody — adopted when raised (medium), 2026-10-09 · **Merged:** @pierrederval, 2026-10-09, PR #1324
+**Status:** adopted · **Date:** 2026-10-09 · **PRD:** #1322 · **Decided:** nobody — adopted when raised (medium), 2026-10-09 · **Merged:** @pierrederval, 2026-10-09, PR #1324 · **Layers:** api · **Domain:** push
 
 ## Context
 

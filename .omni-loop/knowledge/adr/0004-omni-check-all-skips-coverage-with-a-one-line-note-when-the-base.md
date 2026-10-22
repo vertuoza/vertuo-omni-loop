@@ -1,6 +1,6 @@
 # ADR-0004 — omni check all skips coverage, with a one-line note, when the base branch is missing
 
-**Status:** accepted · **Date:** 2026-09-25 · **PRD:** #3 · **Decided:** @claude-code-session (delegated by pierre-derval) via PRD issue #3, 2026-09-25 · **Merged:** @pierrederval, 2026-09-25, PR #4
+**Status:** accepted · **Date:** 2026-09-25 · **PRD:** #3 · **Decided:** @claude-code-session (delegated by pierre-derval) via PRD issue #3, 2026-09-25 · **Merged:** @pierrederval, 2026-09-25, PR #4 · **Layers:** cli · **Domain:** gate
 
 ## Context
 

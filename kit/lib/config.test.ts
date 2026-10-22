@@ -8,6 +8,24 @@ import { CONFIG_FILE, ConfigError, DEFAULT_CONTRACT_KINDS, MIGRATIONS, dossierSw
 import { messageOf } from './narrow.ts';
 import { assertDefined } from '../test/assert.ts';
 
+describe('layers (PRD 2346)', () => {
+  it('parses no layers key as no key, and reads a map of canonical layers to patterns', () => {
+    expect(Object.hasOwn(parseConfig('kit: 1\n'), 'layers')).toBe(false);
+    expect(parseConfig('kit: 1\nlayers:\n  db: [^supabase/]\n  cli: [^kit/bin/, ^bin/]\n').layers).toEqual({ db: ['^supabase/'], cli: ['^kit/bin/', '^bin/'] });
+  });
+
+  it('refuses a key that is not a layer, naming it and the ten layers', () => {
+    expect(() => parseConfig('kit: 1\nlayers:\n  database: [^supabase/]\n', 'c.yml')).toThrow(
+      /c\.yml.*layers\.database: database is not a layer \(ui, api, schema, db, auth, event, cli, job, infra, ci\)/,
+    );
+  });
+
+  it('refuses an empty list and a pattern that does not compile', () => {
+    expect(() => parseConfig('kit: 1\nlayers:\n  db: []\n')).toThrow(/layers\.db/);
+    expect(() => parseConfig("kit: 1\nlayers:\n  db: ['(']\n")).toThrow(/layers\.db\.0/);
+  });
+});
+
 describe('parseConfig', () => {
   it('fills every section from defaults when only the version is given', () => {
     const config = parseConfig('kit: 1\n');
@@ -326,7 +344,9 @@ describe('parseConfig', () => {
   it('reads contracts.declare and the repository\'s own kinds when the file says so (PRD 1870)', () => {
     expect(parseConfig('kit: 1\ncontracts:\n  declare: true\n').contracts).toEqual({ declare: true, kinds: ['api', 'db'] });
     expect(parseConfig('kit: 1\ncontracts:\n  declare: true\n  kinds: [api, event]\n').contracts).toEqual({ declare: true, kinds: ['api', 'event'] });
-    expect(parseConfig('kit: 1\ncontracts:\n  kinds: [schema, rest, db]\n').contracts).toEqual({ declare: false, kinds: ['schema', 'rest', 'db'] });
+    expect(parseConfig('kit: 1\ncontracts:\n  kinds: [schema, rest, db]\n').contracts).toEqual({ declare: false, kinds: ['schema', 'api', 'db'] });
+    expect(parseConfig('kit: 1\ncontracts:\n  kinds: [rest]\n').contracts.kinds).toEqual(['api']);
+    expect(parseConfig('kit: 1\ncontracts:\n  kinds: [eventz]\n').contracts.kinds).toEqual(['eventz']);
     expect(parseConfig('kit: 1\ncontracts: {}\n').contracts).toEqual({ declare: false, kinds: ['api', 'db'] });
   });
 

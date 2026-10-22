@@ -1,6 +1,6 @@
 # ADR-0041 — Scene imports in the galaxy app name their file extension, with allowImportingTsExtensions on
 
-**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #94 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #95
+**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #94 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #95 · **Layers:** ui
 
 ## Context
 

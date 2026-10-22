@@ -1,6 +1,6 @@
 # ADR-0062 — The quarter-hourly stages sync recounts the outbox of every PRD at building or outbox from GitHub
 
-**Status:** adopted · **Date:** 2026-09-29 · **PRD:** #657 · **Decided:** nobody — adopted when raised (medium), 2026-09-29 · **Merged:** @pierrederval, 2026-09-29, PR #664
+**Status:** adopted · **Date:** 2026-09-29 · **PRD:** #657 · **Decided:** nobody — adopted when raised (medium), 2026-09-29 · **Merged:** @pierrederval, 2026-09-29, PR #664 · **Layers:** job
 
 ## Context
 

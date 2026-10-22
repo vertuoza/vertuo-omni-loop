@@ -1,6 +1,6 @@
 # ADR-0044 — Joining the company workspace at sign-in is best-effort and never fails the sign-in
 
-**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #100 · **Decided:** nobody — adopted when raised (medium), 2026-09-26 · **Merged:** @pierrederval, 2026-09-26, PR #101
+**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #100 · **Decided:** nobody — adopted when raised (medium), 2026-09-26 · **Merged:** @pierrederval, 2026-09-26, PR #101 · **Layers:** auth
 
 ## Context
 

@@ -17,7 +17,8 @@ Use this page when recording a decision about how this repository is built, or l
 
 ## Where they live
 <!-- slot: where · required · by: invade -->
-Here, in `.omni-loop/knowledge/adr/`; the product registers are in `.omni-loop/knowledge/product/`.
+Here, in `.omni-loop/knowledge/adr/`; the product registers are in `.omni-loop/knowledge/product/`,
+and each domain's in `.omni-loop/knowledge/domains/<domain>/`.
 
 ## Format
 <!-- slot: format · required · by: invade -->
@@ -30,6 +31,9 @@ One file per record, `NNNN-<slug>.md`:
   @<merger>, <YYYY-MM-DD>, PR #<n>`. `Decided:` is `@<answerer> via <channel>, <date>` (a person
   answered: `accepted`), `nobody — adopted when raised (medium), <date>` or
   `@<merger> — merged over a red outbox, <date>` (both `adopted`).
+- A record that applies to some files only ends its status line with `· **Layers:** <layer>, …`
+  (canonical layers, `docs/guide/knowledge-map.md`) and, when it is about one area,
+  `· **Domain:** <a folder of knowledge/domains/>`: `omni kb laws --paths` lists it for those files.
 - Then `## Context`, `## Decision`, `## What it supersedes in <that spec>` (if so, naming each
   section it changes), `## Consequences`; a harvested record ends with `## Source` (ledger file,
   entry).

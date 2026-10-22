@@ -514,6 +514,15 @@ describe('riskyChanges — law-demoted (PRD 1342)', () => {
     expect(riskyChanges([], { ctx, base })).toEqual([{ path: DOMAIN, status: 'M', rule: 'law-demoted' }]);
   });
 
+  it('does not fire for a law moved to another domain folder with a Kept id: line (PRD 2346)', () => {
+    const MOVED = 'docs/knowledge/domains/ask/invariants.md';
+    const kept = ['## N1', '', 'Invariant N1.', '', 'Kept id: N1', `Enforced by: ${PROOF}`, ''].join('\n');
+    seed(INVARIANTS, '');
+    seed(MOVED, kept);
+    const base = baseWith([['N1', PROOF]]);
+    expect(riskyChanges([change(INVARIANTS, 'M'), change(MOVED, 'A')], { ctx, base }).map((entry) => entry.rule)).not.toContain('law-demoted');
+  });
+
   it('never fires without a base to compare with', () => {
     seed(INVARIANTS, '');
     expect(demotedOver(null).map((entry) => entry.rule)).toEqual(['law-text']);

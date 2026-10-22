@@ -51,7 +51,7 @@ describe('parseFlowConfig', () => {
     expect(asks).toEqual({ ...NO_FLOW, contracts: { declare: true, kinds: ['api', 'db'] } });
     expect(hasFlow(asks)).toBe(true);
     const own = parseFlowConfig('contracts:\n  declare: true\n  kinds: [schema, rest, db]\n', 'x');
-    expect(own.contracts).toEqual({ declare: true, kinds: ['schema', 'rest', 'db'] });
+    expect(own.contracts).toEqual({ declare: true, kinds: ['schema', 'api', 'db'] });
     expect(hasFlow(parseFlowConfig('contracts:\n  declare: false\n  kinds: [event]\n', 'x'))).toBe(false);
     expect(() => parseFlowConfig('contracts:\n  declare: yes\n', 'repos/back/flow/config.yml')).toThrow(/repos\/back\/flow\/config\.yml.*contracts\.declare/);
   });

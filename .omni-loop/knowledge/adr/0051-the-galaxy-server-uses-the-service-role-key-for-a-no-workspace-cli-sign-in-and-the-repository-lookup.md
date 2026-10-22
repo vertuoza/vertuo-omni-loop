@@ -1,6 +1,6 @@
 # ADR-0051 — The galaxy server uses the service-role key to issue a terminal sign-in for someone in no workspace, and to look up where a repository goes
 
-**Status:** accepted · **Date:** 2026-09-28 · **PRD:** #459 · **Supersedes:** part of ADR-0032 · **Decided:** @pierrederval via feature pull request #460, 2026-09-28 · **Merged:** pending, PR #460
+**Status:** accepted · **Date:** 2026-09-28 · **PRD:** #459 · **Supersedes:** part of ADR-0032 · **Decided:** @pierrederval via feature pull request #460, 2026-09-28 · **Merged:** pending, PR #460 · **Layers:** auth, db
 
 ## Context
 

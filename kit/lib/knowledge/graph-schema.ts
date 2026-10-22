@@ -23,7 +23,7 @@ import { NEIGHBOURHOOD_VERSION, type EdgeKind, type NodeKind, type NodeStatus } 
 export const GRAPH_SHAPE = 'repository';
 
 const NODE_KINDS = ['principle', 'rule', 'invariant', 'legal', 'contract', 'test', 'path', 'schema', 'screen', 'adr', 'term'] as const satisfies readonly NodeKind[];
-const EDGE_KINDS = ['serves', 'enforced-by', 'governs', 'points-to', 'cites', 'sibling', 'screen', 'same-prd', 'uses-term'] as const satisfies readonly EdgeKind[];
+const EDGE_KINDS = ['serves', 'enforced-by', 'governs', 'points-to', 'cites', 'sibling', 'screen', 'same-prd', 'uses-term', 'domain', 'layer'] as const satisfies readonly EdgeKind[];
 const STATUSES = ['law', 'rule', 'proposed'] as const satisfies readonly NodeStatus[];
 
 /** A node's id: a register id, or a leaf's `<kind>:<what>`. */

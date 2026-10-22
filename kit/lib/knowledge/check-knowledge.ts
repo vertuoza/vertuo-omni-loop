@@ -26,12 +26,16 @@
  *   it names its test, or its law issue. A proposed entry is no law yet, and an imported copy's own
  *   config is its target's, so neither is asked;
  * - **laws** (PRD 1726) — a `Locked:` entry is a rule or an invariant, never a principle, names its
- *   test and a `Governs:` line, and carries no `Proposed:` line; the folder holds no more locks than
+ *   test, and carries no `Proposed:` line (a `Governs:` line is optional, PRD 2346: a law with none is
+ *   reached through its domain or its `Layers:`, or is global); the folder holds no more locks than
  *   `laws.max`, and none while `laws.owners` is empty (an imported copy is asked neither); every
  *   `Governs:` pattern is a regular expression, as a flow area's `paths` are; and `product/thesis.md`
  *   lists every locked law in its laws section, and nothing else (`thesis.ts`); and the CODEOWNERS
  *   block `omni kb owners` writes is what it would write now (`codeowners-laws.ts`), present once a
  *   law is locked;
+ * - **layers and domains** (PRD 2346) — every word of an entry's `Layers:` line, and of an ADR's
+ *   `**Layers:**`, is one of the ten canonical layers (an old word names its replacement); an ADR's
+ *   `**Domain:**` names a domain folder that exists;
  * - **honesty** — a path-shaped `Enforced by:` or `Source:` that does not exist is refused: a wrong
  *   claim is worse than an honest `unenforced`; every id cited inside an entry file resolves.
  *
@@ -65,6 +69,8 @@ import {
   type KnowledgeCtx,
   type KnowledgeEntry,
 } from './registers.ts';
+import { isLayer, LAYER_ALIASES, layerList } from '../layers/layers.ts';
+import { readDecisions } from '../playbook/decisions.ts';
 import { invalidGoverns } from './disclose.ts';
 import { readThesis, thesisPath, thesisProblems } from './thesis.ts';
 import { ownersBlockProblems } from '../codeowners-laws.ts';
@@ -75,6 +81,7 @@ import type { LawOwner } from '../config.ts';
  * path, the playbook's (its briefing is in the CODEOWNERS block, PRD 1793), and — in an imported copy's context — the target it copies.
  */
 export type CheckCtx = KnowledgeCtx & {
+  layout: { adrDir?: string };
   config: {
     paths: { glossary: string | null; playbook: string };
     laws?: { requireProof: boolean; max?: number; owners?: readonly LawOwner[] };
@@ -548,8 +555,7 @@ function proofViolations(ctx: CheckCtx, entry: KnowledgeEntry, requireProof: boo
 
 /**
  * A locked entry's own lines (PRD 1726): a principle is never locked; a law names its test on
- * `Enforced by:` (a path — never `unenforced` or `pending #<n>`) and the paths it rules over on
- * `Governs:`; and a person locked it, so no `Proposed:` line stays beside the lock.
+ * `Enforced by:` (a path — never `unenforced` or `pending #<n>`); and a person locked it, so no `Proposed:` line stays beside the lock.
  */
 function lockViolations(entry: KnowledgeEntry): Violation[] {
   if (entry.locked === null) return [];
@@ -562,9 +568,6 @@ function lockViolations(entry: KnowledgeEntry): Violation[] {
   const violations: Violation[] = [];
   if (!entry.enforced) {
     violations.push(violation(entry.file, entry.id, 'is locked, but "Enforced by:" names no test — a law is proven: name its test\'s path.'));
-  }
-  if (entry.governs === null) {
-    violations.push(violation(entry.file, entry.id, 'is locked, but carries no "Governs:" line — a law names the paths it rules over.'));
   }
   if (entry.proposed !== null) {
     violations.push(violation(entry.file, entry.id, 'is locked and proposed at once — a person locked it: remove its "Proposed:" line.'));
@@ -609,6 +612,36 @@ function findGovernsViolations(entries: readonly KnowledgeEntry[]): Violation[] 
       violation(entry.file, entry.id, `"Governs:" lists "${source}", which is not a regular expression over paths — write it as a flow area's paths are written, such as ^kit/lib/outbox/.`),
     ),
   );
+}
+
+/** Why `word` is no layer: the canonical list, and the layer an old word is read as. */
+function notALayer(word: string): string {
+  const alias = Object.hasOwn(LAYER_ALIASES, word) ? ` ("${word}" is an old word for "${LAYER_ALIASES[word]}")` : '';
+  return `"${word}", which is not a layer${alias} — the layers are ${layerList()}.`;
+}
+
+/** Every `Layers:` word of an entry that is not one of the canonical layers (PRD 2346). */
+function findLayerViolations(entries: readonly KnowledgeEntry[]): Violation[] {
+  return entries.flatMap((entry) =>
+    (entry.layers ?? []).filter((word) => !isLayer(word)).map((word) => violation(entry.file, entry.id, `"Layers:" lists ${notALayer(word)}`)),
+  );
+}
+
+/**
+ * Every ADR tag that names nothing (PRD 2346): a `**Layers:**` word outside the canonical list, and a
+ * `**Domain:**` with no folder under the knowledge folder. Only when the context says where the ADRs
+ * live; an imported copy's ADRs are its target's, so none is read.
+ */
+function findDecisionTagViolations(ctx: CheckCtx, knowledge: Knowledge): Violation[] {
+  const adrDir = ctx.layout.adrDir;
+  if (ctx.copyOf || adrDir === undefined) return [];
+  const folders = new Set(['product', ...knowledge.domains.map((domain) => domain.name)]);
+  return readDecisions({ ctx: { root: ctx.root, layout: { adrDir } } }).records.flatMap((record) => [
+    ...(record.layers ?? []).filter((word) => !isLayer(word)).map((word) => violation(record.file, `ADR-${record.number}`, `"**Layers:**" lists ${notALayer(word)}`)),
+    ...(record.domain != null && !folders.has(record.domain)
+      ? [violation(record.file, `ADR-${record.number}`, `"**Domain:**" names "${record.domain}", which is no domain folder — the folders are ${[...folders].join(', ')}.`)]
+      : []),
+  ]);
 }
 
 /**
@@ -690,6 +723,8 @@ export function gradeKnowledge({
     ...findEntryViolations(ctx, knowledge.entries),
     ...findLockCountViolations(ctx, knowledge.entries),
     ...findGovernsViolations(knowledge.entries),
+    ...findLayerViolations(knowledge.entries),
+    ...findDecisionTagViolations(ctx, knowledge),
     ...findThesisViolations(ctx, knowledge.entries),
     ...findOwnersBlockViolations(ctx, knowledge),
     ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve)),

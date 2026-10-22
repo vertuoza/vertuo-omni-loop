@@ -471,6 +471,17 @@ describe('a law is a locked entry (PRD 1726)', () => {
     expect(both.proposedLaw).toBe('it breaks, and people get hurt.');
   });
 
+  it('reads a Layers: line as its layer words, and refuses an empty one (PRD 2346)', () => {
+    const [rule] = entriesOf('r.md', ruleWith('Layers: db, `auth`'), DOMAIN_RULES);
+    expect(rule.layers).toEqual(['db', 'auth']);
+    expect(rule.problems).toEqual([]);
+    const [plain] = entriesOf('r.md', ruleWith(), DOMAIN_RULES);
+    expect(plain.layers).toBeNull();
+    const [empty] = entriesOf('r.md', ruleWith('Layers: , ``'), DOMAIN_RULES);
+    expect(empty.layers).toEqual([]);
+    expect(empty.problems).toEqual(['r.md: BR-ADVISOR-1 — "Layers:" names no layer — list them comma-separated, such as "Layers: db, auth".']);
+  });
+
   it('reads a continued Governs: line as one list', () => {
     const [rule] = entriesOf('r.md', ruleWith('Governs: kit/lib/a/**,', '  kit/lib/b.ts'), DOMAIN_RULES);
     expect(rule.governs).toEqual(['kit/lib/a/**', 'kit/lib/b.ts']);

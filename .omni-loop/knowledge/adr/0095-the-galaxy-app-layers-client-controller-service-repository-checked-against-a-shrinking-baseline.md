@@ -1,6 +1,6 @@
 # ADR-0095 — The galaxy app layers client → controller → service → repository, checked against a shrinking baseline
 
-**Status:** accepted · **Date:** 2026-10-09 · **PRD:** #1318
+**Status:** accepted · **Date:** 2026-10-09 · **PRD:** #1318 · **Layers:** ui, api
 
 ## Context
 
