@@ -5,7 +5,7 @@ kind: shared
 mock: notifications.html
 implements: [apps/galaxy/src/nav/Bell.tsx, apps/galaxy/src/nav/bell.ts, apps/galaxy/src/nav/bell.css, apps/galaxy/src/waiting/alerts.ts]
 reads: [apps/galaxy/src/waiting/, apps/galaxy/src/people/PersonChip.tsx, apps/galaxy/src/nav/AppBar.tsx]
-routes: [/app, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual]
+routes: [/app, /app/waiting, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual]
 supersedes: null
 ---
 
@@ -13,7 +13,7 @@ supersedes: null
 
 The bell in the app shell's top bar, signed in, and the panel it opens: what waits for you, on every
 app page (`apps/galaxy/src/nav/Bell.tsx`, `nav/bell.ts`). The badge counts what waits on you
-(questions, approvals, outbox items); the panel lists them, each line opening where it is answered.
+(questions, approvals, reviews, outbox items); the panel lists them, each line opening where it is answered.
 It has no route of its own: it appears on each page the app shell wraps.
 
 ## Regions
@@ -25,6 +25,9 @@ It has no route of its own: it appears on each page the app shell wraps.
   - **Questions:** the round's title, the question, how long it has waited (`3 min`, `2 h`), and who
     shared it as a person chip.
   - **Approvals:** `PRD <n> · <title>`, `Waits for your approval`, how long.
+  - **Reviews** (PRD 2377): `PRD <n>` (or `Bug fix #<n>`, `Visual update #<n>`), what waits on you
+    (`Review`, `Merge`, `Law <id>`), how long; it opens the pull request on GitHub, the PRD's title as
+    its tooltip. Counted. Approvals and outbox items are never repeated here.
   - **Outbox:** `PRD <n> · <title>`, the item's question, its rank.
   - **New documents:** `PRD <n> · <title>`, `New spec, plan, before/after`, how long. Never counted.
   - **Business:** `Business · <n> to check`, `Proposed, disputed or fading claims`. Never counted.
@@ -44,7 +47,7 @@ It has no route of its own: it appears on each page the app shell wraps.
 
 ## Words
 
-Waiting for you · Nothing waiting for you. · Questions · Approvals · Outbox · New documents ·
+Waiting for you · Nothing waiting for you. · Questions · Approvals · Reviews · Review · Merge · Law · Outbox · New documents ·
 Business · Waits for your approval · New spec, plan, before/after · to check · Proposed, disputed or
 fading claims · couldn't be read — retrying. · shared by · Desktop alerts · Chime · Blocked by the
 browser.
@@ -69,3 +72,4 @@ browser.
 - apps/galaxy/src/nav/bell.css
 - apps/galaxy/src/waiting/alerts.ts
 - PRD 1584 s4, 2026-10-11 (drawn by `/omni:pixel-perfect mock`, from the source)
+- /omni:brainstorm, PRD 2377: .omni-loop/delivery/shipped/2377-waiting-board/before-after.html (the Reviews group)

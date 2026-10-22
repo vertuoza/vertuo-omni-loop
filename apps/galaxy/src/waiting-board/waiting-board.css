@@ -1,0 +1,26 @@
+/* The Waiting board (PRD 2377 s3), on the ask pages' reading surface, drawn with the other boards'
+   pieces (../dashboard/board/board.css) and these few of its own: the tabs, the stale line, a row's
+   turn as faces, and the age, red once a wait is late. Every colour is a token of src/ask/theme-tokens.ts.
+   Nothing is wider than the window: at 393 px the table scrolls inside its own box. */
+
+.wait-tabs { display: flex; flex-wrap: wrap; gap: 4px 16px; border-bottom: 1px solid var(--ask-line); }
+.ask .wait-tab { padding: 6px 2px; color: var(--ask-muted); text-decoration: none; border-bottom: 2px solid transparent; }
+.ask .wait-tab:hover { color: var(--ask-ink); }
+.ask .wait-tab[aria-current='page'] { color: var(--ask-ink); font-weight: 700; border-bottom-color: var(--ask-plasma); }
+
+.wait-stale { margin: 0; color: var(--ask-yellow); overflow-wrap: anywhere; }
+
+.ask .wait-table .board-name a { color: inherit; overflow-wrap: anywhere; }
+.wait-table td { overflow-wrap: anywhere; }
+.wait-sub { display: block; color: var(--ask-muted); font-size: 13px; font-weight: 400; }
+.wait-what { white-space: nowrap; }
+.wait-turn { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.wait-anyone, .wait-team { color: var(--ask-muted); }
+.wait-age { white-space: nowrap; }
+.wait-table tr.is-overdue .wait-age { color: var(--ask-red); font-weight: 700; }
+.wait-late { font-weight: 400; }
+
+@media (forced-colors: active) {
+  .wait-table tr.is-overdue .wait-age { color: Highlight; }
+  .ask .wait-tab[aria-current='page'] { border-bottom-color: Highlight; }
+}

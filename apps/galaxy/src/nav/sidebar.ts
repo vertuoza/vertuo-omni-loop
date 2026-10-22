@@ -5,7 +5,7 @@
 // Engineering's, at /app/engineering), Work (the workspace's
 // work: since PRD 1364 Products first, the workspace's products, at /app/products, then since PRD 1162 Roadmaps, the milestones its PRDs deliver, since PRD 1246 Ideas, the workspace's
 // ideas board (its public page, /ideas/<owner>/<repo>, read from the viewer; Settings › Repositories while
-// the workspace lists none), since PRD 1272 Concepts, the vast ideas /omni:think-big recorded, then PRDs, then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), and at
+// the workspace lists none), since PRD 1272 Concepts, the vast ideas /omni:think-big recorded, then PRDs, then, since PRD 2377, Waiting (what waits on a person, at /app/waiting), then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), and at
 // the foot one Settings entry, at /app/settings, which lands on Fleets (SETTINGS_LANDING), then Omni's
 // own pages, Docs and Release notes, which leave the app for the public ones. Since issue 653 each
 // Dashboard and Work section names its sprite, and since PRD 733 Settings too. A new section is one
@@ -15,12 +15,13 @@
 // Fleet, not Home, and /app/settings/fleets is Settings), and the top bar's trail (issue 704): the
 // group (the foot has none), the entry, then the page, with the entry's sprite. The query and the hash
 // never count. An entry that counts what waits for the person (PRD 499) carries its count as a badge,
-// none at 0: Questions, PRDs and, since PRD 2255, Runners (the workspace's jobs waiting for an answer).
+// none at 0: Questions, PRDs, since PRD 2255 Runners (the workspace's jobs waiting for an answer) and, since PRD 2377,
+// Waiting (the reviews, merges and laws whose turn is the person's).
 import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
+export type SidebarId = 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'waiting' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases';
 
 /** A page under an entry, shown as a tab on its pages, never as a menu line (PRD 733). */
 export interface SidebarPage {
@@ -78,6 +79,7 @@ export const SIDEBAR: readonly SidebarGroup[] = [
       { id: 'ideas', label: 'Ideas', path: IDEAS_PATH, sprite: 'tile-block' },
       { id: 'concepts', label: 'Concepts', path: '/concepts', sprite: 'menu-concepts' },
       { id: 'prds', label: 'PRDs', path: '/prd', sprite: 'menu-prds' },
+      { id: 'waiting', label: 'Waiting', path: '/app/waiting', sprite: 'menu-waiting' },
       { id: 'bugs', label: 'Bug Fixes', path: '/bugs', sprite: 'menu-bugs' },
       { id: 'visual', label: 'Visual Updates', path: '/visual', sprite: 'menu-visual' },
       {
@@ -185,9 +187,10 @@ export function pageTrail(pathname: string | null | undefined): Trail | null {
 }
 
 /** The badge an entry carries: Questions the Questions part, the shared ones included, PRDs the Outbox
- * part, Runners the workspace's jobs waiting for an answer (PRD 2255); null at 0, and for an entry that
+ * part, Runners the workspace's jobs waiting for an answer (PRD 2255), Waiting the reviews, merges and laws
+ * waiting on the person (PRD 2377 s5); null at 0, and for an entry that
  * counts nothing. */
 export function badgeOf(id: SidebarId, counts: WaitingCounts): number | null {
-  const count = id === 'questions' ? counts.questions : id === 'prds' ? counts.outbox : id === 'runners' ? counts.runners : 0;
+  const count = id === 'questions' ? counts.questions : id === 'prds' ? counts.outbox : id === 'runners' ? counts.runners : id === 'waiting' ? counts.reviews : 0;
   return count > 0 ? count : null;
 }

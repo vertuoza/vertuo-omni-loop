@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { DocumentGroup } from '../waiting/documents';
-import { EMPTY_WAITING, type WaitingApproval, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
+import { EMPTY_WAITING, type WaitingApproval, type WaitingOutbox, type WaitingQuestion, type WaitingReview } from '../waiting/waiting';
 import { bell, bellName, bellPanel, CLOSED_BELL, waitedFor } from './bell';
 import { item } from '../ask/test/test-item';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The top bar's bell (PRD 499), as pure functions: its accessible name, how long a question has
 // waited, the panel's groups and lines, and the panel's open and close.
@@ -132,6 +132,31 @@ describe('the Approvals group (PRD 1322)', () => {
   it('says when the part could not be read', () => {
     expect(bellPanel(EMPTY_WAITING, { approvals: true }, NOW)).toEqual({
       groups: [{ label: 'Approvals', problem: 'Approvals couldn\'t be read — retrying.', lines: [] }], empty: false,
+    });
+  });
+});
+
+describe('the Reviews group (PRD 2377 s5)', () => {
+  const DAY = 24 * 60 * MIN;
+  // NOW is a Monday: 2026-09-28.
+  const r = (id: string, kind: 'review' | 'merge' | 'law', since: number, prd: number | null = 7): WaitingReview =>
+    ({ kind, id, prd: prd === null ? null : parsePrd(prd), pr: parsePr(70), repo: 'acme/widgets', since });
+
+  it('lists each wait after Approvals, oldest first, opening the pull request, with its age in working days', () => {
+    const panel = bellPanel({ questions: [], outbox: [o('i1', 459)] }, {}, NOW, [], 0, [{ kind: 'approval', id: 'r1', prd: parsePrd(1322), dossierId: 'd-1322', title: 'T', repo: 'acme/mobile', askedAt: NOW - MIN }], [
+      r('b', 'merge', NOW - 1 * MIN, null), r('a', 'review', NOW - 4 * DAY), r('c', 'law', NOW - 3 * MIN),
+    ]);
+    expect(panel.groups.map((g) => g.label)).toEqual(['Approvals', 'Reviews', 'Outbox']);
+    expect(panel.groups[1]?.lines).toEqual([
+      { id: 'a', href: 'https://github.com/acme/widgets/pull/70', head: 'PRD 7', text: 'Review', meta: '2 days' },
+      { id: 'c', href: 'https://github.com/acme/widgets/pull/70', head: 'PRD 7', text: 'Law', meta: 'today' },
+      { id: 'b', href: 'https://github.com/acme/widgets/pull/70', head: 'Pull request #70', text: 'Merge', meta: 'today' },
+    ]);
+  });
+
+  it('says when the part could not be read', () => {
+    expect(bellPanel(EMPTY_WAITING, { reviews: true }, NOW)).toEqual({
+      groups: [{ label: 'Reviews', problem: 'Reviews couldn\'t be read — retrying.', lines: [] }], empty: false,
     });
   });
 });

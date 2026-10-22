@@ -4,7 +4,8 @@ import { tabsOf, type TabRow } from '../ask/page/tabs';
 import type { SessionRow } from '../ask/page/view';
 import { faceOf, type Face } from '../people/face';
 import type { People } from '../people/load';
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { turnIsLogin } from '../waiting-board/board';
+import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 
 // The waiting list (PRD 499): what waits for the person looking, on every app-shell page, as pure
 // functions. Two parts: Questions, the open rounds of their own sessions and the ones shared with
@@ -61,15 +62,41 @@ export type WaitingApproval = {
   askedAt: number;
 };
 
+/** One review, merge or law wait whose turn names the person (PRD 2377 s5), read from the stored waits: a
+ * pull request, with its PRD when it has one (a bug fix or a visual update has none). */
+export type WaitingReview = {
+  kind: 'review' | 'merge' | 'law';
+  /** The wait's id. */
+  id: string;
+  prd: PrdNumber | null;
+  pr: PrNumber;
+  /** The pull request's repository, as owner/name. */
+  repo: string;
+  /** When the wait began, in ms. */
+  since: number;
+};
+
+/** A stored review, merge or law wait, as the Reviews part reads it. */
+export type ReviewWait = { id: string; repo: string; prd: PrdNumber | null; pr: PrNumber; kind: WaitingReview['kind']; turn: readonly string[]; since: string };
+
+/** The waits whose turn names `login` (a team never does, case ignored), oldest first: the Reviews part. */
+export function reviewsOf(waits: readonly ReviewWait[], login: string | null): WaitingReview[] {
+  return waits
+    .filter((wait) => turnIsLogin(wait.turn, login))
+    .map((wait): WaitingReview => ({ kind: wait.kind, id: wait.id, prd: wait.prd, pr: wait.pr, repo: wait.repo, since: Date.parse(wait.since) }))
+    .sort((a, b) => a.since - b.since || a.id.localeCompare(b.id));
+}
+
 export type WaitingItem = WaitingQuestion | WaitingOutbox | WaitingApproval;
 
 export type WaitingList = { questions: WaitingQuestion[]; outbox: WaitingOutbox[] };
 
 export const EMPTY_WAITING: WaitingList = { questions: [], outbox: [] };
 
-/** The counts the shell shows. `runners` (PRD 2255) is the Runners entry's badge alone: the jobs waiting for an
+/** The counts the shell shows. `reviews` (PRD 2377 s5) is the open review, merge and law waits whose turn names the
+ * person: they add to `total` and are the Waiting entry's badge. `runners` (PRD 2255) is the Runners entry's badge alone: the jobs waiting for an
  * answer are not part of `total`, so the bell, the tab's `(N)` and the favicon dot do not move for them. */
-export type WaitingCounts = { questions: number; shared: number; outbox: number; approvals: number; runners: number; total: number };
+export type WaitingCounts = { questions: number; shared: number; outbox: number; approvals: number; runners: number; reviews: number; total: number };
 
 /** A session's text, trimmed; none when it has none (its row is read unparsed, so a title may be missing). */
 const trimmedOf = (text: string | null | undefined): string => text?.trim() ?? '';
@@ -123,11 +150,12 @@ export function mergeQuestions(own: readonly WaitingQuestion[], shared: readonly
 
 /** The list's counts: the Questions part, the shared ones among them, the Outbox part, the approval
  * requests waiting on the person (PRD 1322, read beside the list), and all three; and, apart from the
- * total, the workspace's runner jobs waiting for an answer (PRD 2255, read beside the list). */
-export function waitingCounts(list: WaitingList, approvals = 0, runners = 0): WaitingCounts {
+ * total, the workspace's runner jobs waiting for an answer (PRD 2255, read beside the list); and the reviews,
+ * merges and laws waiting on the person (PRD 2377 s5), which are counted in the total. */
+export function waitingCounts(list: WaitingList, approvals = 0, runners = 0, reviews = 0): WaitingCounts {
   const questions = list.questions.length;
   const outbox = list.outbox.length;
-  return { questions, shared: list.questions.filter((q) => q.sharedBy !== null).length, outbox, approvals, runners, total: questions + outbox + approvals };
+  return { questions, shared: list.questions.filter((q) => q.sharedBy !== null).length, outbox, approvals, runners, reviews, total: questions + outbox + approvals + reviews };
 }
 
 const PREFIX = /^\(\d+\) /;

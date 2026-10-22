@@ -8,6 +8,7 @@ import { fakeConceptFactsStore, fakeFixFactsStore } from '../../fixes/facts/stor
 import { fakePrdOutboxStore } from '../outbox/store.fake';
 import { settled } from '../settled';
 import { fakeStageStore } from '../store.fake';
+import { fakeWaitStore } from './waits.fake';
 import { syncConfig, type RepoSnapshot } from './core';
 import { syncStages, type SnapshotSyncDeps, type SyncDeps, type SyncWorkspace } from './sync';
 import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
@@ -24,6 +25,9 @@ const CONFIG = syncConfig('kit: 1\nrepo:\n  slug: acme/widgets\n', 'acme/widgets
 
 const ACME: SyncWorkspace = { id: 'w-acme', slug: 'acme', github_org: 'acme', github_installation_id: 11 };
 const GLOBEX: SyncWorkspace = { id: 'w-globex', slug: 'globex', github_org: 'globex', github_installation_id: 22 };
+
+/** A pull request's wait facts, unread (PRD 2377, s1). */
+const UNREAD_WAITS = { labels: [], body: null, requested: [], requested_at: null, reviews: null, lawLocked: null, checksRed: null };
 
 const snap = (repository: string, more: Partial<RepoSnapshot> = {}): RepoSnapshot => ({
   repository, config: CONFIG, inbox: [], shipped: [], issues: [], pulls: [], ...more,
@@ -180,7 +184,7 @@ describe('the stages sync route', () => {
       now: () => '2026-09-20T00:00:00.000Z',
       snapshot: (_w, repo) => Promise.resolve(snap(repo, {
         shipped: ['0042-dark-mode'], issues: [{ number: parsePrd(42), created_at: '2026-09-18T00:00:00Z' }],
-        pulls: [{ number: parsePr(9), head: 'feat/dark-mode', base: 'main', state: 'closed', draft: false, merged_at: '2026-09-19T00:00:00Z', created_at: '2026-09-18T00:00:00Z', ready_at: null }],
+        pulls: [{ number: parsePr(9), head: 'feat/dark-mode', base: 'main', state: 'closed', draft: false, merged_at: '2026-09-19T00:00:00Z', created_at: '2026-09-18T00:00:00Z', ready_at: null, ...UNREAD_WAITS }],
       })),
     });
     await syncStages(post(`Bearer ${SECRET}`), { ...d, snapshot: (_w, repo) => Promise.resolve(snap(repo, { shipped: ['0042-dark-mode'] })) });
@@ -298,7 +302,7 @@ describe('the PRDs born on the server (PRD 1299, s6)', () => {
 });
 
 describe('the open outbox questions (PRD 657, s5)', () => {
-  const building = { number: parsePr(5), head: 'feat/teeth--s1', base: 'feat/teeth', state: 'closed' as const, draft: false, merged_at: '2026-09-20T00:00:00Z', created_at: '2026-09-19T00:00:00Z', ready_at: null };
+  const building = { number: parsePr(5), head: 'feat/teeth--s1', base: 'feat/teeth', state: 'closed' as const, draft: false, merged_at: '2026-09-20T00:00:00Z', created_at: '2026-09-19T00:00:00Z', ready_at: null, ...UNREAD_WAITS };
   const outboxOf = (open: number): GithubSummary => ({
     repo: 'acme/gears', prd: parsePrd(7), folder: '0007-teeth', topic: 'teeth', issue: null, phase0: null, retro: null, mergedSlices: 1,
     feature: { number: parsePr(6), url: 'https://github.com/acme/gears/pull/6', state: 'open', draft: true },
@@ -498,7 +502,7 @@ describe('the sync is the safety net (PRD 902, s4)', () => {
 
   it('marks stale and refreshes the dossier whose issue or pull request changed, and only it', async () => {
     const { d, refreshed, events } = withSnapshots();
-    const teeth = { number: parsePr(5), head: 'feat/teeth--s1', base: 'feat/teeth', state: 'closed' as const, draft: false, merged_at: '2026-09-29T11:59:30Z', created_at: '2026-09-29T11:59:00Z', ready_at: null };
+    const teeth = { number: parsePr(5), head: 'feat/teeth--s1', base: 'feat/teeth', state: 'closed' as const, draft: false, merged_at: '2026-09-29T11:59:30Z', created_at: '2026-09-29T11:59:00Z', ready_at: null, ...UNREAD_WAITS };
     d.snapshot = (_w, repo) => Promise.resolve(repo === 'acme/gears'
       ? snap(repo, { inbox: ['0007-teeth'], pulls: [teeth] })
       : repo === 'globex/core' ? snap(repo, { issues: [{ number: parsePrd(3), created_at: '2026-09-27T00:00:00Z' }] }) : snap(repo, { shipped: ['0042-dark-mode'] }));
@@ -552,5 +556,78 @@ describe('the sync is the safety net (PRD 902, s4)', () => {
     expect(store.stages.map((s) => `${s.repository}#${s.prd} ${s.stage}`).sort()).toEqual(['acme/gears#7 inbox', 'acme/widgets#42 shipped', 'globex/core#3 prd']);
     expect(refreshed).toEqual([]);
     for (const what of ['old', 'changed', 'etags', 'stale', 'refresh']) expect(lines.some((l) => l.includes(`Supabase refused: ${what}`))).toBe(true);
+  });
+});
+
+describe('the waits (PRD 2377, s1)', () => {
+  const ready = {
+    number: parsePr(9), head: 'feat/dark-mode', base: 'main', state: 'open' as const, draft: false, merged_at: null, created_at: '2026-09-25T00:00:00Z',
+    ...UNREAD_WAITS, ready_at: '2026-09-26T00:00:00Z', requested: ['rita'], reviews: [], lawLocked: [], checksRed: false,
+  };
+
+  it('records the review and merge waits of each repository read, in its workspace', async () => {
+    const { d, snapshots } = deps();
+    snapshots['acme/widgets'] = snap('acme/widgets', { inbox: ['0042-dark-mode'], pulls: [ready] });
+    const waits = fakeWaitStore();
+    d.waits = waits;
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(waits.rows).toEqual([expect.objectContaining({
+      workspace_id: 'w-acme', repo: 'acme/widgets', prd: 42, pr: 9, kind: 'review', turn: ['rita'], since: '2026-09-26T00:00:00Z', seen_at: NOW, ended_at: null,
+    })]);
+  });
+
+  it('keeps a skipped repository\'s open waits as they are', async () => {
+    const { d, snapshots, lines } = deps();
+    snapshots['acme/widgets'] = snap('acme/widgets', { inbox: ['0042-dark-mode'], pulls: [ready] });
+    const waits = fakeWaitStore();
+    d.waits = waits;
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    snapshots['acme/widgets'] = new Error('GitHub answered 502 to /pulls');
+    d.now = () => '2026-09-29T12:15:00.000Z';
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(waits.rows.map((r) => [r.pr, r.seen_at, r.ended_at])).toEqual([[9, NOW, null]]);
+    expect(lines.some((l) => l.includes('acme/widgets of acme is skipped'))).toBe(true);
+  });
+
+  it('records the approval wait of a ◆ PRD not approved, and keeps it when the approvals cannot be read', async () => {
+    const waits = fakeWaitStore({}, { approvers: ['rita'] });
+    const { d } = deps({ approvals: () => Promise.resolve([{ prd: parsePrd(7), approved_at: null }]) });
+    d.waits = waits;
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(waits.rows.filter((r) => r.repo === 'acme/gears').map((r) => [r.kind, r.prd, r.pr, r.turn, r.since])).toEqual([['approval', 7, null, ['rita'], NOW]]);
+    d.approvals = () => Promise.reject(new Error('Supabase is down'));
+    d.now = () => '2026-09-29T12:15:00.000Z';
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(waits.rows.filter((r) => r.repo === 'acme/gears').map((r) => [r.kind, r.ended_at])).toEqual([['approval', null]]);
+  });
+
+  it('reads the escalation record of a law-locked pull request through the outbox deps', async () => {
+    const { d, snapshots } = deps();
+    snapshots['acme/widgets'] = snap('acme/widgets', { inbox: ['0042-dark-mode'], pulls: [{ ...ready, lawLocked: ['BR-PRODUCT-5'], reviews: [] }] });
+    const waits = fakeWaitStore();
+    d.waits = waits;
+    const asked: unknown[] = [];
+    d.outbox = {
+      ...d.outbox, summary: () => Promise.resolve(null), store: fakePrdOutboxStore(),
+      escalation: (ref) => {
+        asked.push(ref);
+        return Promise.resolve([{ kind: 'law', thing: 'BR-PRODUCT-5', firstHeld: '2026-09-20T00:00:00Z', step: 0, asked: [], nextDue: null }]);
+      },
+    };
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(asked).toEqual([{ repository: 'acme/widgets', prd: 42, pr: 9 }]);
+    expect(waits.rows.filter((r) => r.kind === 'law').map((r) => r.since)).toEqual(['2026-09-20T00:00:00Z']);
+  });
+
+  it('logs waits it cannot record, and still records the stages', async () => {
+    const { d, store, lines } = deps();
+    const waits = fakeWaitStore();
+    waits.fail = 'Supabase refused to read the open waits';
+    d.waits = waits;
+    const res = await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(res.status).toBe(200);
+    expect((await answerOf(res)).skipped).toEqual([]);
+    expect(store.stages).toHaveLength(4);
+    expect(lines.filter((l) => l.includes('were not recorded — Supabase refused to read the open waits'))).toHaveLength(3);
   });
 });

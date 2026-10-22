@@ -3,11 +3,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WaitingView } from '../waiting/view';
-import type { WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
+import type { WaitingOutbox, WaitingQuestion, WaitingReview } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 import { item } from '../ask/test/test-item';
 import { z } from 'zod';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The app's sidebar as the server renders it (PRD 438): the crest, the workspace's name, the
 // Dashboard and Work groups (PRD 572), then the foot's Settings entry and Omni's row (PRD 733), the current
@@ -44,9 +44,9 @@ const waiting = (questions: WaitingQuestion[]): WaitingView => ({ questions, unr
 
 const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', ideasBoard: 'acme/widgets', waiting: waiting(FIVE) };
 
-const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = [], runners = 0) => {
+const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = [], runners = 0, reviews: WaitingReview[] = []) => {
   at.path = path;
-  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, runners, children: createElement(Sidebar, { viewer }) }));
+  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, runners, reviews, children: createElement(Sidebar, { viewer }) }));
 };
 const gate = (id: string): WaitingOutbox => ({ kind: 'outbox', id, prd: parsePrd(459), dossierId: 'd459', title: 'Gate', rank: 'high', question: 'Why?' });
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -72,9 +72,9 @@ describe('the sidebar', () => {
 
   it('lists Dashboard and Work, then Settings, Docs and Release notes at the foot, in order (PRD 733)', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Dashboard Home Fleet Loop Runners Workspace Engineering Work Products Roadmaps Ideas Concepts PRDs Bug Fixes Visual Updates Questions 5 Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
+    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Dashboard Home Fleet Loop Runners Workspace Engineering Work Products Roadmaps Ideas Concepts PRDs Waiting Bug Fixes Visual Updates Questions 5 Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
-      '/app', '/app/fleet', '/app/loop', '/app/runners', '/app/workspace', '/app/engineering', '/app/products', '/roadmaps', '/ideas/acme/widgets', '/concepts', '/prd', '/bugs', '/visual', '/ask', '/knowledge', '/app/settings', '/docs', '/releases',
+      '/app', '/app/fleet', '/app/loop', '/app/runners', '/app/workspace', '/app/engineering', '/app/products', '/roadmaps', '/ideas/acme/widgets', '/concepts', '/prd', '/app/waiting', '/bugs', '/visual', '/ask', '/knowledge', '/app/settings', '/docs', '/releases',
     ]);
   });
 
@@ -87,7 +87,7 @@ describe('the sidebar', () => {
 
   it('draws each section\'s sprite before its name, hidden from screen readers, at its native size (issue 653)', () => {
     const html = render();
-    for (const [path, label] of [['/app', 'Home'], ['/app/fleet', 'Fleet'], ['/app/loop', 'Loop'], ['/app/runners', 'Runners'], ['/app/products', 'Products'], ['/roadmaps', 'Roadmaps'], ['/prd', 'PRDs'], ['/bugs', 'Bug Fixes'], ['/visual', 'Visual Updates'], ['/knowledge', 'Knowledge'], ['/app/settings', 'Settings']]) {
+    for (const [path, label] of [['/app', 'Home'], ['/app/fleet', 'Fleet'], ['/app/loop', 'Loop'], ['/app/runners', 'Runners'], ['/app/products', 'Products'], ['/roadmaps', 'Roadmaps'], ['/prd', 'PRDs'], ['/app/waiting', 'Waiting'], ['/bugs', 'Bug Fixes'], ['/visual', 'Visual Updates'], ['/knowledge', 'Knowledge'], ['/app/settings', 'Settings']]) {
       expect(html).toMatch(new RegExp(`<a class="app-sidebar-item" href="${path}" title="${label}"[^>]*><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*width="16" height="16"[^>]*>.*?</svg></span><span class="app-sidebar-text">${label}</span>`));
     }
   });
@@ -123,6 +123,12 @@ describe('the sidebar', () => {
   it('shows the Runners part\'s count on Runners, spoken as how many wait, and none at 0 (PRD 2255)', () => {
     expect(render(ADA, '/app', [], 2)).toMatch(/<a class="app-sidebar-item" href="\/app\/runners" title="Runners" aria-label="Runners: 2 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Runners<\/span><span class="app-sidebar-badge" aria-hidden="true">2<\/span><\/a>/);
     expect(render()).toMatch(/<a class="app-sidebar-item" href="\/app\/runners" title="Runners">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Runners<\/span><\/a>/);
+  });
+
+  it('shows the reviews waiting on the person as the Waiting entry\'s badge, spoken "yours", none at 0 (PRD 2377 s5)', () => {
+    const review = (id: string): WaitingReview => ({ kind: 'review', id, prd: parsePrd(7), pr: parsePr(70), repo: 'acme/widgets', since: 0 });
+    expect(render(ADA, '/app', [], 0, [review('a'), review('b')])).toMatch(/<a class="app-sidebar-item" href="\/app\/waiting" title="Waiting" aria-label="Waiting: 2 yours">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Waiting<\/span><span class="app-sidebar-badge" aria-hidden="true">2<\/span><\/a>/);
+    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/app\/waiting" title="Waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Waiting<\/span><\/a>/);
   });
 
   it('shows the Runners badge beside the others, each on its own entry', () => {
@@ -223,7 +229,7 @@ describe('« and the rail (PRD 733)', () => {
   it('names every sprite entry by its title and its spoken name, so the rail still says each one', () => {
     const html = render(ADA, '/app', [gate('a')]);
     const entries = links(html).filter((l) => l.attrs.includes('class="app-sidebar-item"') && !l.attrs.includes('target="_blank"'));
-    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Home', 'Fleet', 'Loop', 'Runners', 'Workspace', 'Engineering', 'Products', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Questions', 'Knowledge', 'Settings']);
+    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Home', 'Fleet', 'Loop', 'Runners', 'Workspace', 'Engineering', 'Products', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Waiting', 'Bug Fixes', 'Visual Updates', 'Questions', 'Knowledge', 'Settings']);
     for (const entry of entries) {
       const title = /title="([^"]+)"/.exec(entry.attrs)?.[1];
       const spoken = /aria-label="([^"]+)"/.exec(entry.attrs)?.[1] ?? entry.text;

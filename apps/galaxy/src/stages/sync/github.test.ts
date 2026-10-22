@@ -19,7 +19,10 @@ const pull = (number: number, head: string, more: Record<string, unknown> = {}) 
   number, state: 'open', draft: false, merged_at: null, created_at: '2026-09-20T00:00:00Z', head: { ref: head }, base: { ref: 'trunk' }, ...more,
 });
 
-type FakeRepo = { config?: string | null; inbox?: string[]; shipped?: string[]; issues?: unknown[]; pulls?: unknown[]; events?: Record<number, unknown[]>; fail?: RegExp };
+type FakeRepo = {
+  config?: string | null; inbox?: string[]; shipped?: string[]; issues?: unknown[]; pulls?: unknown[]; events?: Record<number, unknown[]>; fail?: RegExp;
+  reviews?: Record<number, unknown[]>; checks?: Record<string, unknown[]>;
+};
 /** One route of the fake GitHub: its answer, or null when the URL is not its own. */
 type Route = (url: URL, repo: FakeRepo, init: RequestInit) => Response | null;
 
@@ -60,7 +63,17 @@ const eventsRoute: Route = (url, repo) => {
   return events ? json(repo.events?.[Number(events)] ?? []) : null;
 };
 
-const ROUTES: readonly Route[] = [tokenRoute, configRoute, folderRoute, issuesRoute, pullsRoute, eventsRoute];
+const reviewsRoute: Route = (url, repo) => {
+  const pr = /^\/repos\/acme\/widgets\/pulls\/(\d+)\/reviews$/.exec(url.pathname)?.[1];
+  return pr ? json(repo.reviews?.[Number(pr)] ?? []) : null;
+};
+
+const checksRoute: Route = (url, repo) => {
+  const sha = /^\/repos\/acme\/widgets\/commits\/(\w+)\/check-runs$/.exec(url.pathname)?.[1];
+  return sha ? json({ total_count: 0, check_runs: repo.checks?.[sha] ?? [] }) : null;
+};
+
+const ROUTES: readonly Route[] = [tokenRoute, configRoute, folderRoute, issuesRoute, pullsRoute, eventsRoute, reviewsRoute, checksRoute];
 
 function fakeGithub(repo: FakeRepo) {
   const calls: string[] = [];
@@ -144,6 +157,71 @@ describe('the stages sync reader', () => {
   it('throws when GitHub fails, naming what it read', async () => {
     const reader = stagesReader(CREDS, fakeGithub({ fail: /\/pulls/ }).fetchImpl, () => NOW);
     await expect(reader.snapshot(11, 'acme/widgets')).rejects.toThrow(/502 to \/pulls/);
+  });
+});
+
+describe('the stages sync reader and the waits (PRD 2377, s1)', () => {
+  const waiting = (number: number, head: string, more: Record<string, unknown> = {}) =>
+    pull(number, head, { head: { ref: head, sha: `sha${String(number)}` }, ...more });
+  const reads = (calls: string[]) => calls.filter((c) => /\/(reviews|check-runs|events)/.test(c)).sort();
+
+  it('reads the reviewers asked and the labels from the list, and the reviews and checks only of a counted, open, ready pull request into the default branch', async () => {
+    const gh = fakeGithub({
+      inbox: ['0042-dark-mode'],
+      pulls: [
+        waiting(9, 'feat/dark-mode', { requested_reviewers: [{ login: 'rita' }], requested_teams: [{ slug: 'core' }] }),
+        waiting(5, 'fix/crash', { labels: [{ name: 'omni:bug' }] }),
+        waiting(10, 'feat/dark-mode--s1', { base: { ref: 'feat/dark-mode' } }),
+        waiting(11, 'feat/dark-mode', { draft: true }),
+        waiting(12, 'feat/dark-mode', { state: 'closed', merged_at: '2026-09-25T00:00:00Z' }),
+        waiting(13, 'chore/bump'),
+      ],
+      events: { 5: [{ event: 'review_requested', created_at: '2026-09-24T00:00:00Z' }, { event: 'review_requested', created_at: '2026-09-26T00:00:00Z' }] },
+      reviews: { 9: [{ user: { login: 'rita' }, state: 'APPROVED', submitted_at: '2026-09-27T00:00:00Z' }] },
+      checks: {
+        sha9: [
+          { name: 'outbox', status: 'completed', conclusion: 'failure', output: { title: 'Locked law changed without its CODEOWNER\'s approval — BR-PRODUCT-5, N-PRODUCT-15; 1 open item' } },
+          { name: 'test', status: 'completed', conclusion: 'success', output: { title: null } },
+        ],
+        sha5: [{ name: 'test', status: 'in_progress', conclusion: null }],
+      },
+    });
+    const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
+    expect(reads(gh.calls)).toEqual([
+      '/repos/acme/widgets/commits/sha5/check-runs?per_page=100',
+      '/repos/acme/widgets/commits/sha9/check-runs?per_page=100',
+      '/repos/acme/widgets/issues/5/events?per_page=100',
+      '/repos/acme/widgets/issues/9/events?per_page=100',
+      '/repos/acme/widgets/pulls/5/reviews?per_page=100',
+      '/repos/acme/widgets/pulls/9/reviews?per_page=100',
+    ]);
+    const byNumber = new Map(snap.pulls.map((p) => [Number(p.number), p]));
+    expect(byNumber.get(9)).toMatchObject({
+      requested: ['rita', 'acme/core'], labels: [],
+      reviews: [{ login: 'rita', state: 'APPROVED', submitted_at: '2026-09-27T00:00:00Z' }],
+      lawLocked: ['BR-PRODUCT-5', 'N-PRODUCT-15'], checksRed: true,
+    });
+    expect(byNumber.get(5)).toMatchObject({ labels: ['omni:bug'], requested_at: '2026-09-26T00:00:00Z', reviews: [], lawLocked: [], checksRed: false });
+    for (const n of [10, 11, 12, 13]) expect(byNumber.get(n)).toMatchObject({ reviews: null, lawLocked: null, checksRed: null });
+  });
+
+  it('reads nothing more for a pull request the run did not list: after a sync, only the ones that changed', async () => {
+    const since = '2026-09-29T11:00:00Z';
+    const gh = fakeGithub({
+      inbox: ['0042-dark-mode'],
+      pulls: [waiting(9, 'feat/dark-mode', { updated_at: '2026-09-29T11:30:00Z' }), waiting(8, 'feat/dark-mode', { updated_at: '2026-09-28T00:00:00Z' })],
+    });
+    await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets', since);
+    expect(reads(gh.calls).filter((c) => !c.includes('/events'))).toEqual([
+      '/repos/acme/widgets/commits/sha9/check-runs?per_page=100',
+      '/repos/acme/widgets/pulls/9/reviews?per_page=100',
+    ]);
+  });
+
+  it('leaves a pull request\'s reviews and checks unread when GitHub refuses them, and still gives the snapshot', async () => {
+    const gh = fakeGithub({ inbox: ['0042-dark-mode'], pulls: [waiting(9, 'feat/dark-mode')], fail: /\/reviews/ });
+    const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
+    expect(snap.pulls[0]).toMatchObject({ reviews: null, lawLocked: null, checksRed: null });
   });
 });
 
