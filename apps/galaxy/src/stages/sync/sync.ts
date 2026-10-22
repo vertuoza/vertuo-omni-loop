@@ -35,6 +35,11 @@
 // the workspaces cannot be read (500) or the run throws, which is rethrown unchanged; each with its status
 // and how long it took. The per-repository sentences above are still written through `log`, and a run
 // logger that throws changes no answer.
+//
+// PRD 2377 (s1): once a repository's stages are recorded, the `review` and `merge` waits its pull requests
+// show are recorded in public.waits (./waits.ts), when `waits` is given. A repository that cannot be read
+// is skipped before it, so its open waits stay as they are; waits that cannot be recorded are logged, and
+// the stages still land.
 import 'server-only';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { ConceptReader, DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
@@ -43,6 +48,7 @@ import type { ConceptFactsStore, FixFactsStore } from '../../fixes/facts/store';
 import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
 import { changedPrds, stagesOfRepo, type RepoSnapshot, type ServerBorn } from './core';
+import { recordWaits, type WaitStore } from './waits';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Logger } from 'omni-loop/kit/lib/log/log.ts';
 import { firstPart, group } from 'omni-loop/kit/lib/narrow.ts';
@@ -69,6 +75,8 @@ export type SyncDeps = {
   concepts?: ConceptSyncDeps;
   /** The PRD dossiers' GitHub snapshots and the client's ETags; none, the sync leaves them alone. */
   snapshots?: SnapshotSyncDeps;
+  /** Where the waits are kept (PRD 2377); none, the sync records none. */
+  waits?: WaitStore;
   now(): string;
   log(line: string): void;
   /** Where the run's one `stages-sync` line goes (PRD 1723): kit/lib/log's stdout logger, live. */
@@ -194,6 +202,13 @@ async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: st
     }
   }
   await refreshSnapshots(deps, workspace, repository, changedPrds(snapshot), syncedAt);
+  if (deps.waits) {
+    try {
+      await recordWaits(deps.waits, workspace.id, snapshot, syncedAt);
+    } catch (error) {
+      deps.log(`stages sync: the waits of ${repository} were not recorded — ${why(error)}`);
+    }
+  }
   if (deps.outbox) {
     const prds = [...new Set([...stages, ...topics].map((s) => s.prd))].sort((a, b) => a - b).map((prd) => ({ repository, prd }));
     try {

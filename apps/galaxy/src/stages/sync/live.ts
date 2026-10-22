@@ -12,6 +12,8 @@ import { outboxDeps } from '../outbox/live';
 import { stageStore, type StageStore } from '../store';
 import { serverBornStore } from './approvals';
 import { stagesReader, type StagesReader } from './github';
+import type { WaitStore } from './waits';
+import { waitsRepository } from './waits.repository';
 import { syncSnapshotStore } from './snapshots';
 import type { ConceptSyncDeps, FixSyncDeps, SnapshotSyncDeps, SyncDeps, SyncWorkspace } from './sync';
 import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
@@ -36,6 +38,7 @@ import { log as runLog } from 'omni-loop/kit/lib/log/log.ts';
 // PRD 1299 (s6): each repository's PRDs born on the server are read with their first approval, as the
 // service role (./approvals.ts), so their inbox is dated at it.
 // PRD 1723 (s7): each run's one `stages-sync` line goes to stdout as JSON, through kit/lib/log.
+// PRD 2377 (s1): each repository's waits are kept in public.waits, as the service role (./waits.repository.ts).
 
 let knowledge: KnowledgeReader | undefined;
 let reader: StagesReader | undefined;
@@ -60,6 +63,15 @@ function lazyStore(): StageStore {
     stageCounts: (workspace, prds) => get().stageCounts(workspace, prds),
     prdByTopic: (workspace, repository, topic) => get().prdByTopic(workspace, repository, topic),
     lastSynced: (workspace, repository) => get().lastSynced(workspace, repository),
+  };
+}
+
+/** The waits on the service role's client, made at each call. */
+function waitDeps(): WaitStore {
+  return {
+    openWaits: (workspace, repository) => waitsRepository(serviceDb()).openWaits(workspace, repository),
+    applyWaits: (workspace, repository, changes, at) => waitsRepository(serviceDb()).applyWaits(workspace, repository, changes, at),
+    owners: (workspace, repository, prds) => waitsRepository(serviceDb()).owners(workspace, repository, prds),
   };
 }
 
@@ -140,6 +152,7 @@ export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv())
     fixes: fixDeps(),
     concepts: conceptDeps(),
     snapshots: snapshotDeps(),
+    waits: waitDeps(),
     now: () => new Date().toISOString(),
     log: (line) => { console.error(line); },
     runLog,

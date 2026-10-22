@@ -21,16 +21,30 @@ import type { Config } from 'omni-loop/kit/lib/types.ts';
 
 const CONFIG_PATH = '.omni-loop/config.yml';
 
-/** What the sync needs of a repository's config. */
+/** What the sync needs of a repository's config. PRD 2377 (s1): the labels of a bug fix and a visual
+ * update, the link lines a feature and a phase-0 PR's body carry, and the outbox check's name, for the
+ * waits (./waits.ts). */
 export type SyncConfig = {
   defaultBranch: string;
   delivery: string;
   prdLabel: string;
   branches: Pick<Config['branches'], 'phase0' | 'slice' | 'feature' | 'retro'>;
+  labels: Pick<Config['labels'], 'bug' | 'visual'>;
+  prLinks: Pick<Config['prLinks'], 'feature' | 'phase0'>;
+  outboxCheck: string;
 };
 
+/** A review of a pull request: who gave it, what it said and when. */
+export type SnapshotReview = { login: string | null; state: string; submitted_at: string | null };
+
 /** A pull request as the sync reads it. `ready_at` is when it was last marked ready for review; null
- * when it never was (opened ready, or still a draft). */
+ * when it never was (opened ready, or still a draft).
+ *
+ * PRD 2377 (s1), for the waits: its labels and body, the reviewers asked (logins and `org/team`s) and
+ * when a review was last asked; then, read only for an open, ready pull request into the default branch
+ * that the waits count and that changed since the last sync, its reviews, the locked laws its outbox
+ * check holds it on, and whether a check run failed. Those three are null when they were not read:
+ * not such a pull request, or a read that failed. */
 export type SnapshotPull = {
   number: PrNumber;
   head: string;
@@ -40,6 +54,13 @@ export type SnapshotPull = {
   merged_at: string | null;
   created_at: string;
   ready_at: string | null;
+  labels: string[];
+  body: string | null;
+  requested: string[];
+  requested_at: string | null;
+  reviews: SnapshotReview[] | null;
+  lawLocked: string[] | null;
+  checksRed: boolean | null;
 };
 
 /** A `labels.prd` issue: its number and when it was opened. */
@@ -70,6 +91,9 @@ export function syncConfig(text: string, repository: string): SyncConfig {
     delivery: config.paths.delivery.replace(/^\.\/+/, '').replace(/\/+$/, ''),
     prdLabel: config.labels.prd,
     branches: { phase0: config.branches.phase0, slice: config.branches.slice, feature: config.branches.feature, retro: config.branches.retro },
+    labels: { bug: config.labels.bug, visual: config.labels.visual },
+    prLinks: { feature: config.prLinks.feature, phase0: config.prLinks.phase0 },
+    outboxCheck: config.ci.outboxContext,
   };
 }
 
@@ -89,10 +113,10 @@ const earliest = (dates: readonly (string | null)[]): string | null =>
 
 const counted = (pull: SnapshotPull) => pull.state === 'open' || pull.merged_at !== null;
 
-type Folder = { prd: PrdNumber; topic: string; place: 'inbox' | 'shipped' };
+export type Folder = { prd: PrdNumber; topic: string; place: 'inbox' | 'shipped' };
 
 /** Each PRD's folder, the first one found (inbox before shipped), in PRD order. */
-function foldersOf(snapshot: RepoSnapshot): Folder[] {
+export function foldersOf(snapshot: RepoSnapshot): Folder[] {
   const folders = new Map<PrdNumber, Folder>();
   for (const [place, names] of [['inbox', snapshot.inbox], ['shipped', snapshot.shipped]] as const) {
     for (const name of names) {
