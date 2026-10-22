@@ -1,6 +1,7 @@
 // The waits (PRD 2377, s1): what in a repository waits on a person to ship, whose turn it is and since
 // when, as the stages sync records it in public.waits (supabase/migrations/20261224090000_waits.sql).
-// This slice computes the two kinds a pull request shows, `review` and `merge` (spec §1):
+// s1 computes the two kinds a pull request shows, `review` and `merge`; s2 the other three, `approval`,
+// `outbox` and `law` (below). Spec §1:
 //
 // - The pull requests counted are open, ready (not draft) and into the default branch: a feature PR or a
 //   phase-0 PR whose PRD is known (its folder's topic, else the link line its body carries), or a bug fix
@@ -18,10 +19,13 @@
 // `seen_at`; one no longer seen is ended, never deleted; one seen again after it ended is a new row. Only
 // what the run read is ever ended: a pull request the run did not list (unchanged since the last sync),
 // or whose reviews could not be read, keeps its open rows as they are.
-import { foldersOf, type RepoSnapshot, type SnapshotPull, type SnapshotReview, type SyncConfig } from './core';
+import { foldersOf, type RepoSnapshot, type ServerBorn, type SnapshotPull, type SnapshotReview, type SyncConfig } from './core';
+import { lawQuestion } from '../outbox/escalation';
+import type { WaitingQuestion } from '../outbox/store';
+import type { RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
 import { parsePrd, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 
-/** The five kinds of wait (spec §1); this slice computes `review` and `merge`. */
+/** The five kinds of wait (spec §1). */
 export const WAIT_KINDS = ['approval', 'outbox', 'law', 'review', 'merge'] as const;
 export type WaitKind = (typeof WAIT_KINDS)[number];
 
@@ -41,10 +45,17 @@ export type WaitStore = {
   applyWaits(workspaceId: string, repository: string, changes: WaitChanges, at: string): Promise<void>;
   /** The GitHub login of the owner (who opened its dossier) of each PRD given that has one. */
   owners(workspaceId: string, repository: string, prds: readonly PrdNumber[]): Promise<Map<PrdNumber, string>>;
+  /** The GitHub logins of the members the repository's product asks to approve its ◆ PRDs. */
+  approvers(workspaceId: string, repository: string): Promise<string[]>;
+  /** The open items that wait on a person (human-action or high), stored for each PRD given that has any. */
+  outboxes(workspaceId: string, repository: string, prds: readonly PrdNumber[]): Promise<Map<PrdNumber, WaitingQuestion[]>>;
+  /** When each PRD given reached stage `prd`; a PRD with none is left out. */
+  reached(workspaceId: string, repository: string, prds: readonly PrdNumber[]): Promise<Map<PrdNumber, string>>;
 };
 
-/** The kinds a pull request's waits are computed from in this slice. */
+/** The kinds `review` and `merge` read a pull request's reviews for. */
 const PULL_KINDS: ReadonlySet<WaitKind> = new Set(['review', 'merge']);
+const LAW_KINDS: ReadonlySet<WaitKind> = new Set(['law']);
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -76,12 +87,21 @@ export function waitedPull(
 ): Counted | null {
   if (pull.state !== 'open' || pull.draft || pull.base !== config.defaultBranch) return null;
   if (pull.labels.includes(config.labels.bug) || pull.labels.includes(config.labels.visual)) return { prd: null };
+  const prd = branchPrd(config, folders, pull, true);
+  return prd === null ? null : { prd };
+}
+
+/** The PRD a feature PR (and, with `phase0`, a phase-0 PR) of `pull`'s branch belongs to: its folder's topic, else its link line. */
+function branchPrd(
+  config: SyncConfig, folders: Pick<RepoSnapshot, 'inbox' | 'shipped'>, pull: Pick<SnapshotPull, 'head' | 'body'>, phase0: boolean,
+): PrdNumber | null {
   const topics = new Map(foldersOf({ repository: '', config, issues: [], pulls: [], ...folders }).map((f) => [f.topic, f.prd]));
-  for (const [shape, link] of [[config.branches.feature, config.prLinks.feature], [config.branches.phase0, config.prLinks.phase0]] as const) {
+  const shapes = [[config.branches.feature, config.prLinks.feature], ...(phase0 ? [[config.branches.phase0, config.prLinks.phase0]] : [])] as const;
+  for (const [shape, link] of shapes) {
     const topic = topicOf(shape, pull.head);
     if (topic === null) continue;
     const prd = topics.get(topic) ?? linkedPrd(link, pull.body);
-    if (prd !== null) return { prd };
+    if (prd !== null) return prd;
   }
   return null;
 }
@@ -132,24 +152,31 @@ function pullWait(pull: SnapshotPull, reviews: readonly SnapshotReview[], prd: P
 /** A repository's pull-request waits, and which stored waits the run read well enough to end. */
 export type PullWaits = { waits: SeenWait[]; covers: (wait: Pick<SeenWait, 'pr' | 'kind'>) => boolean };
 
-/** The `review` and `merge` waits `snapshot`'s pull requests show, `owners` giving each PRD's owner's login. */
-export function waitsOfPulls(snapshot: RepoSnapshot, owners: ReadonlyMap<PrdNumber, string>): PullWaits {
+/** What a kind makes of a counted pull request: its wait, none, or `unread` when a read it needs failed (its rows stay as they are). */
+type Decided = SeenWait | null | 'unread';
+
+/** Walks the pull requests for `kinds`: one not counted (closed, merged, a draft, a sub-PR…) was read and has
+ * no wait; a counted one is `decide`d, and covered unless it came back `unread`. */
+function walkPulls(
+  snapshot: RepoSnapshot, kinds: ReadonlySet<WaitKind>, decide: (pull: SnapshotPull, prd: PrdNumber | null, config: SyncConfig) => Decided,
+): PullWaits {
   const { config } = snapshot;
   if (!config) return { waits: [], covers: () => false };
   const waits: SeenWait[] = [];
   const read = new Set<PrNumber>();
   for (const pull of snapshot.pulls) {
     const counted = waitedPull(config, snapshot, pull);
-    if (counted === null) {
-      read.add(pull.number);
-      continue;
-    }
-    if (pull.reviews === null) continue;
+    const wait = counted === null ? null : decide(pull, counted.prd, config);
+    if (wait === 'unread') continue;
     read.add(pull.number);
-    const wait = pullWait(pull, pull.reviews, counted.prd, owners);
     if (wait) waits.push(wait);
   }
-  return { waits, covers: ({ pr, kind }) => pr !== null && PULL_KINDS.has(kind) && read.has(pr) };
+  return { waits, covers: ({ pr, kind }) => pr !== null && kinds.has(kind) && read.has(pr) };
+}
+
+/** The `review` and `merge` waits `snapshot`'s pull requests show, `owners` giving each PRD's owner's login. */
+export function waitsOfPulls(snapshot: RepoSnapshot, owners: ReadonlyMap<PrdNumber, string>): PullWaits {
+  return walkPulls(snapshot, PULL_KINDS, (pull, prd) => (pull.reviews === null ? 'unread' : pullWait(pull, pull.reviews, prd, owners)));
 }
 
 /** A wait's identity: its PRD, its pull request and its kind. */
@@ -175,17 +202,145 @@ export function reconcileWaits(
   return changes;
 }
 
-/** Computes and records the pull-request waits of one repository's snapshot: reads the owners of the PRDs
- * a merge waits on (none read when none does), then writes what changed. Throws what the store throws. */
-export async function recordWaits(store: WaitStore, workspaceId: string, snapshot: RepoSnapshot, syncedAt: string): Promise<void> {
+/** The logins of `logins` once each, compared in lower case, in order. */
+const unique = (logins: readonly string[]) => {
+  const seen = new Set<string>();
+  return logins.filter((login) => !seen.has(login.toLowerCase()) && seen.add(login.toLowerCase()));
+};
+
+/** The PRD of an open draft feature PR into the default branch; null for any other pull request. */
+function draftFeature(snapshot: RepoSnapshot, pull: SnapshotPull): PrdNumber | null {
+  const { config } = snapshot;
+  if (!config || pull.state !== 'open' || !pull.draft || pull.base !== config.defaultBranch) return null;
+  return branchPrd(config, snapshot, pull, false);
+}
+
+/** An open item that waits on a person: a held law is its own kind, not an outbox item. */
+const isItem = (item: WaitingQuestion) => item.question !== lawQuestion(item.id);
+
+/**
+ * The `outbox` waits (spec §1): a draft feature PR into the default branch whose PRD has open `high` or
+ * `human-action` items. Its turn is the PRD's owner and whoever the escalation record asks about those
+ * items; since, the sync that first saw it. Every pull request listed is covered, so a feature PR now
+ * ready, closed or with no item left ends its wait.
+ */
+export function outboxWaits(
+  snapshot: RepoSnapshot, outboxes: ReadonlyMap<PrdNumber, readonly WaitingQuestion[]>, owners: ReadonlyMap<PrdNumber, string>, syncedAt: string,
+): PullWaits {
+  if (!snapshot.config) return { waits: [], covers: () => false };
+  const waits: SeenWait[] = [];
+  const listed = new Set<PrNumber>();
+  for (const pull of snapshot.pulls) {
+    listed.add(pull.number);
+    const prd = draftFeature(snapshot, pull);
+    const items = prd === null ? [] : (outboxes.get(prd) ?? []).filter(isItem);
+    if (prd === null || items.length === 0) continue;
+    const owner = owners.get(prd);
+    waits.push({ prd, pr: pull.number, kind: 'outbox', turn: unique([...(owner === undefined ? [] : [owner]), ...items.flatMap((item) => item.asked ?? [])]), since: syncedAt });
+  }
+  return { waits, covers: ({ pr, kind }) => pr !== null && kind === 'outbox' && listed.has(pr) };
+}
+
+/** When the escalation record first held each law-locked pull request's laws; `null` when it could not be read; absent when it holds none. */
+export type HeldSince = ReadonlyMap<PrNumber, string | null>;
+
+/**
+ * The `law` waits (spec §1): an open, ready pull request into the default branch whose `law-locked` check
+ * is red. Its turn is every owner and delegate `laws.owners` names; since, the escalation record's
+ * first-held time (`heldSince`), else the sync that first saw it. A pull request whose record could not
+ * be read (`null`) or whose check was not read is left as it is.
+ */
+export function lawWaits(snapshot: RepoSnapshot, heldSince: HeldSince, syncedAt: string): PullWaits {
+  return walkPulls(snapshot, LAW_KINDS, (pull, prd, config) => {
+    if (pull.lawLocked === null) return 'unread';
+    const held = heldSince.get(pull.number);
+    if (pull.lawLocked.length === 0) return null;
+    if (held === null) return 'unread';
+    return { prd, pr: pull.number, kind: 'law', turn: unique(config.lawOwners), since: held ?? syncedAt };
+  });
+}
+
+/**
+ * The `approval` waits (spec §1): each ◆ PRD not yet approved, asked of the product's approvers (its author
+ * left out; the author alone when nobody else is asked), since it reached stage `prd`, else the sync that
+ * first saw it. `serverBorn` null (not read) covers nothing.
+ */
+export function approvalWaits(
+  serverBorn: readonly ServerBorn[] | null, approvers: readonly string[], owners: ReadonlyMap<PrdNumber, string>,
+  reached: ReadonlyMap<PrdNumber, string>, syncedAt: string,
+): PullWaits {
+  if (serverBorn === null) return { waits: [], covers: () => false };
+  const waits = serverBorn.filter((born) => born.approved_at === null).map(({ prd }): SeenWait => {
+    const author = owners.get(prd);
+    const asked = unique(approvers.filter((login) => login.toLowerCase() !== author?.toLowerCase()));
+    return { prd, pr: null, kind: 'approval', turn: asked.length > 0 || author === undefined ? asked : [author], since: reached.get(prd) ?? syncedAt };
+  });
+  return { waits, covers: ({ kind }) => kind === 'approval' };
+}
+
+/** What a run may add to the pull-request waits. */
+export type WaitSources = {
+  /** The repository's ◆ PRDs with their first approval; null (the default) when they could not be read. */
+  serverBorn?: readonly ServerBorn[] | null;
+  /** The escalation record on a PRD's feature PR; null when it carries none. Throws when it cannot be read. */
+  record?: (ref: { pr: PrNumber; prd: PrdNumber }) => Promise<RecordLine[] | null>;
+};
+
+/** The first time the record held any of `laws`; undefined for none. */
+function firstHeld(record: readonly RecordLine[] | null, laws: readonly string[]): string | undefined {
+  const times = (record ?? []).filter((line) => line.kind === 'law' && laws.includes(line.thing)).map((line) => line.firstHeld);
+  return times.sort((a, b) => at(a) - at(b))[0];
+}
+
+/** For each law-locked pull request with a PRD, since when its record holds its laws. */
+async function heldSinceOf(snapshot: RepoSnapshot, record: WaitSources['record']): Promise<HeldSince> {
+  const held = new Map<PrNumber, string | null>();
+  if (!record) return held;
+  for (const { pr, prd, laws } of lawLockedPulls(snapshot)) {
+    const since = await record({ pr, prd }).then((lines) => firstHeld(lines, laws), () => null);
+    if (since !== undefined) held.set(pr, since);
+  }
+  return held;
+}
+
+/** The counted pull requests of a PRD whose `law-locked` check holds laws, with those laws. */
+function lawLockedPulls({ config, ...snapshot }: RepoSnapshot): { pr: PrNumber; prd: PrdNumber; laws: string[] }[] {
+  if (!config) return [];
+  return snapshot.pulls.flatMap((pull) => {
+    const prd = waitedPull(config, snapshot, pull)?.prd ?? null;
+    return prd === null || !pull.lawLocked?.length ? [] : [{ pr: pull.number, prd, laws: pull.lawLocked }];
+  });
+}
+
+const sorted = (prds: Iterable<PrdNumber>) => [...new Set(prds)].sort((a, b) => a - b);
+
+/** Computes and records the waits of one repository's snapshot, the five kinds, reading from the store
+ * only what a kind needs (owners, approvers, stored items, stages), then writes what changed. Throws what
+ * the store throws. */
+export async function recordWaits(
+  store: WaitStore, workspaceId: string, snapshot: RepoSnapshot, syncedAt: string, sources: WaitSources = {},
+): Promise<void> {
   const repository = snapshot.repository.toLowerCase();
-  const merging = [...new Set(waitsOfPulls(snapshot, new Map()).waits
-    .filter((w) => w.kind === 'merge' && w.prd !== null).map((w) => w.prd))]
-    .filter((prd): prd is PrdNumber => prd !== null).sort((a, b) => a - b);
-  const owners = merging.length === 0 ? new Map<PrdNumber, string>() : await store.owners(workspaceId, repository, merging);
-  const { waits, covers } = waitsOfPulls(snapshot, owners);
+  const serverBorn = sources.serverBorn ?? null;
+  const unapproved = (serverBorn ?? []).filter((born) => born.approved_at === null).map((born) => born.prd);
+  const drafts = sorted(snapshot.pulls.flatMap((pull) => draftFeature(snapshot, pull) ?? []));
+  const outboxes = drafts.length === 0 ? new Map<PrdNumber, WaitingQuestion[]>() : await store.outboxes(workspaceId, repository, drafts);
+  const merging = waitsOfPulls(snapshot, new Map()).waits.flatMap((w) => (w.kind === 'merge' && w.prd !== null ? [w.prd] : []));
+  const asking = [...outboxes].filter(([, items]) => items.some(isItem)).map(([prd]) => prd);
+  const needed = sorted([...merging, ...asking, ...unapproved]);
+  const owners = needed.length === 0 ? new Map<PrdNumber, string>() : await store.owners(workspaceId, repository, needed);
+  const approvers = unapproved.length === 0 ? [] : await store.approvers(workspaceId, repository);
+  const reached = unapproved.length === 0 ? new Map<PrdNumber, string>() : await store.reached(workspaceId, repository, sorted(unapproved));
+  const heldSince = await heldSinceOf(snapshot, sources.record);
+
+  const parts = [
+    waitsOfPulls(snapshot, owners),
+    outboxWaits(snapshot, outboxes, owners, syncedAt),
+    lawWaits(snapshot, heldSince, syncedAt),
+    approvalWaits(serverBorn, approvers, owners, reached, syncedAt),
+  ];
   const open = await store.openWaits(workspaceId, repository);
-  const changes = reconcileWaits(open, waits, covers, syncedAt);
+  const changes = reconcileWaits(open, parts.flatMap((part) => part.waits), (wait) => parts.some((part) => part.covers(wait)), syncedAt);
   if (changes.opened.length + changes.refreshed.length + changes.ended.length === 0) return;
   await store.applyWaits(workspaceId, repository, changes, syncedAt);
 }

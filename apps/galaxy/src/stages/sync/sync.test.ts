@@ -589,6 +589,36 @@ describe('the waits (PRD 2377, s1)', () => {
     expect(lines.some((l) => l.includes('acme/widgets of acme is skipped'))).toBe(true);
   });
 
+  it('records the approval wait of a ◆ PRD not approved, and keeps it when the approvals cannot be read', async () => {
+    const waits = fakeWaitStore({}, { approvers: ['rita'] });
+    const { d } = deps({ approvals: () => Promise.resolve([{ prd: parsePrd(7), approved_at: null }]) });
+    d.waits = waits;
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(waits.rows.filter((r) => r.repo === 'acme/gears').map((r) => [r.kind, r.prd, r.pr, r.turn, r.since])).toEqual([['approval', 7, null, ['rita'], NOW]]);
+    d.approvals = () => Promise.reject(new Error('Supabase is down'));
+    d.now = () => '2026-09-29T12:15:00.000Z';
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(waits.rows.filter((r) => r.repo === 'acme/gears').map((r) => [r.kind, r.ended_at])).toEqual([['approval', null]]);
+  });
+
+  it('reads the escalation record of a law-locked pull request through the outbox deps', async () => {
+    const { d, snapshots } = deps();
+    snapshots['acme/widgets'] = snap('acme/widgets', { inbox: ['0042-dark-mode'], pulls: [{ ...ready, lawLocked: ['BR-PRODUCT-5'], reviews: [] }] });
+    const waits = fakeWaitStore();
+    d.waits = waits;
+    const asked: unknown[] = [];
+    d.outbox = {
+      ...d.outbox, summary: () => Promise.resolve(null), store: fakePrdOutboxStore(),
+      escalation: (ref) => {
+        asked.push(ref);
+        return Promise.resolve([{ kind: 'law', thing: 'BR-PRODUCT-5', firstHeld: '2026-09-20T00:00:00Z', step: 0, asked: [], nextDue: null }]);
+      },
+    };
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(asked).toEqual([{ repository: 'acme/widgets', prd: 42, pr: 9 }]);
+    expect(waits.rows.filter((r) => r.kind === 'law').map((r) => r.since)).toEqual(['2026-09-20T00:00:00Z']);
+  });
+
   it('logs waits it cannot record, and still records the stages', async () => {
     const { d, store, lines } = deps();
     const waits = fakeWaitStore();

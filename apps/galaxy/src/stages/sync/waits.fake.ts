@@ -5,6 +5,7 @@
 // proved by supabase/checks/waits.sql, not here.
 import { settled } from '../settled';
 import type { SeenWait, StoredWait, WaitChanges, WaitStore } from './waits';
+import type { WaitingQuestion } from '../outbox/store';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** A row of public.waits. */
@@ -19,8 +20,12 @@ export type FakeWaitStore = WaitStore & {
 
 const same = (a: Pick<SeenWait, 'prd' | 'pr' | 'kind'>, b: Pick<SeenWait, 'prd' | 'pr' | 'kind'>) => a.prd === b.prd && a.pr === b.pr && a.kind === b.kind;
 
+/** What the fake knows beside the owners (a PRD's number to its owner's GitHub login): the product's approvers,
+ * each PRD's open items and when each reached stage `prd`. */
+export type FakeWaitFacts = { approvers?: string[]; outboxes?: Record<number, WaitingQuestion[]>; reached?: Record<number, string> };
+
 /** A fake store; `owners` maps a PRD's number to its owner's GitHub login. */
-export function fakeWaitStore(owners: Record<number, string> = {}): FakeWaitStore {
+export function fakeWaitStore(owners: Record<number, string> = {}, facts: FakeWaitFacts = {}): FakeWaitStore {
   let next = 0;
   const check = () => {
     if (fake.fail !== null) throw new Error(fake.fail);
@@ -63,6 +68,27 @@ export function fakeWaitStore(owners: Record<number, string> = {}): FakeWaitStor
         check();
         fake.ownerReads.push([...prds]);
         return new Map(prds.flatMap((prd) => (owners[prd] === undefined ? [] : [[prd, owners[prd]] as const])));
+      });
+    },
+
+    approvers() {
+      return settled(() => {
+        check();
+        return [...(facts.approvers ?? [])];
+      });
+    },
+
+    outboxes(_workspaceId, _repository, prds) {
+      return settled(() => {
+        check();
+        return new Map(prds.flatMap((prd) => (facts.outboxes?.[prd] === undefined ? [] : [[prd, facts.outboxes[prd]] as const])));
+      });
+    },
+
+    reached(_workspaceId, _repository, prds) {
+      return settled(() => {
+        check();
+        return new Map(prds.flatMap((prd) => (facts.reached?.[prd] === undefined ? [] : [[prd, facts.reached[prd]] as const])));
       });
     },
   };
