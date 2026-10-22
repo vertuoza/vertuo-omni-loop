@@ -3,9 +3,10 @@
 // server marked lost, the runner releases every claim the job still holds, with `gh`, which the box is
 // signed in to for its jobs:
 //
-// 1. it lists the repository's open draft pull requests that carry `labels.inProgress`, and keeps those
-//    whose status comment (the `<markers.prefix>-status` marker) has the line `job: <this id>`, which
-//    `/omni:pr`'s Claim mode writes when `OMNI_JOB` is set;
+// 1. it lists the repository's open pull requests that carry `labels.inProgress`, draft or ready (a
+//    sub-PR marked ready still waits on the job to merge it, #2366), and keeps those whose status
+//    comment (the `<markers.prefix>-status` marker) has the line `job: <this id>`, which `/omni:pr`'s
+//    Claim mode writes when `OMNI_JOB` is set;
 // 2. it swaps the label on each: `labels.inProgress` off, `labels.released` on. A released label the
 //    repository lacks still lets `labels.inProgress` come off, and says so;
 // 3. it posts one comment on each, naming the job, its runner and why it ended.
@@ -37,10 +38,9 @@ export type Released = { released: number[]; releaseError: string | null };
 export const MAX_RELEASED = 50;
 export const MAX_RELEASE_ERROR = 200;
 
-/** A pull request as `gh pr list --json number,isDraft,labels` gives it. */
+/** A pull request as `gh pr list --json number,labels` gives it. */
 const ListedSchema = z.array(z.object({
   number: z.number().int().positive(),
-  isDraft: z.boolean(),
   labels: z.array(z.object({ name: z.string() })),
 }));
 
@@ -69,16 +69,16 @@ function why(error: unknown): string {
 /** A string cut to `max` characters, its last one an ellipsis when cut. */
 const cut = (text: string, max: number): string => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
 
-/** The open drafts that carry `labels.inProgress`: their numbers. Throws what `gh` throws, or an unreadable answer. */
+/** The open pull requests, draft or ready, that carry `labels.inProgress`: their numbers. Throws what `gh` throws, or an unreadable answer. */
 function candidates(repo: ClaimsRepo, gh: Gh): number[] {
-  const out = gh(['pr', 'list', '--repo', repo.slug, '--state', 'open', '--draft', '--label', repo.inProgress, '--limit', '100', '--json', 'number,isDraft,labels']);
+  const out = gh(['pr', 'list', '--repo', repo.slug, '--state', 'open', '--label', repo.inProgress, '--limit', '100', '--json', 'number,labels']);
   let listed;
   try {
     listed = ListedSchema.parse(JSON.parse(out));
   } catch {
     throw new Error('gh pr list answered something unreadable');
   }
-  return listed.filter((pr) => pr.isDraft && pr.labels.some((label) => label.name === repo.inProgress)).map((pr) => pr.number);
+  return listed.filter((pr) => pr.labels.some((label) => label.name === repo.inProgress)).map((pr) => pr.number);
 }
 
 /** Whether the status comment of `number` names `job`: every page of its comments read. */

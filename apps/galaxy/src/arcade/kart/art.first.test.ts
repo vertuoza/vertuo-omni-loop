@@ -3,6 +3,7 @@ import { DEFAULT_THEME } from '../theme';
 import { markFor } from '../mark';
 import { WIDE, type FrameState } from '../scenes/common.ts';
 import { loadKart, type KartGame } from '../scenes/kart.ts';
+import { cpuMs, median } from '../test/cost';
 import { sure } from '../test/sure';
 import { createKart } from './art';
 import { CIRCUITS } from './circuits';
@@ -19,7 +20,9 @@ import { COMET_RING, parseTrack, type TrackSource } from './track';
 // and more on a laptop, the screen frozen and the music stuttering. Timed against the race's own later
 // frames, on the same machine, so a slower one has the same room. One first frame is one sample, so
 // each race has its own room: before the fix a first race's first frame took 47 to 68 times a later
-// one and a second race's 9.5 to 11; since, under a loaded machine, up to 5.2 and 2.2.
+// one and a second race's 9.5 to 11; since, under a loaded machine, up to 5.2 and 2.2. Each frame is
+// timed in the CPU time it took (../test/cost.ts): on the wall clock, the one first frame counted as
+// its own the time a busy machine left it waiting (96 ms against 17 ms, beside a full test run).
 vi.mock('@omni/design', async (original) => {
   const m = await original<typeof import('@omni/design')>();
   return { ...m, drawPlanet: () => {}, drawStarfield: () => {}, makeNebula: () => ({}), spriteImage: () => ({ width: 32, height: 48 }), drawSprite: () => {} };
@@ -49,14 +52,6 @@ const frame = (t: number): FrameState => ({
   view: null, layout: [], sel: 0, fleetSel: 0, t, sceneT: t, reduced: false, mark: markFor('Vertuoza', DEFAULT_THEME), theme: DEFAULT_THEME,
 });
 
-const timed = (draw: () => void): number => {
-  const start = performance.now();
-  draw();
-  return performance.now() - start;
-};
-
-const median = (values: readonly number[]): number => sure([...values].sort((a, b) => a - b)[Math.floor(values.length / 2)], 'a median');
-
 /** The race on `track` as the arcade loads it, the player's options otherwise the defaults. */
 const loaded = async (track: string): Promise<KartGame> => sure(await loadKart(() => import('./index'), 7, [], { ...defaultOptions(), track }), 'the race');
 
@@ -64,9 +59,9 @@ describe('a race\'s first frame (bug 2152)', () => {
   it.each(CIRCUITS.map((c) => [c.name, c.id] as const))('draws %s\'s first frame in at most 15 times a frame after it on its first race, and 5 times on a second one', async (_name, track) => {
     for (const [race, room] of [['first race', 15], ['second race', 5]] as const) {
       const game = await loaded(track);
-      const first = timed(() => { game.draw(ctx, frame(3)); });
-      const later = median([4, 5, 6, 7, 8].map((t) => timed(() => { game.draw(ctx, frame(t)); })));
-      expect(first / later, `${race}: the first frame in ${first.toFixed(0)} ms, the frames after it in ${later.toFixed(0)} ms`).toBeLessThanOrEqual(room);
+      const first = cpuMs(() => { game.draw(ctx, frame(3)); });
+      const later = median([4, 5, 6, 7, 8].map((t) => cpuMs(() => { game.draw(ctx, frame(t)); })));
+      expect(first / later, `${race}: the first frame in ${first.toFixed(0)} ms of CPU, the frames after it in ${later.toFixed(0)} ms`).toBeLessThanOrEqual(room);
     }
   });
 });

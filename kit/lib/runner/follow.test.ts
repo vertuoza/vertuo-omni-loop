@@ -64,6 +64,7 @@ describe('milestones', () => {
     [{ status: 'done', outcome: 'held' }, 'Held'],
     [{ status: 'done', outcome: 'ready' }, 'Ready'],
     [{ status: 'done', outcome: null }, 'Done'],
+    [{ status: 'done', outcome: 'stopped' }, 'Stopped mid-way'],
     [{ status: 'failed', reason: 'timeout' }, 'Failed: timeout'],
     [{ status: 'failed', reason: null, exitCode: 2 }, 'Failed: exit code 2'],
     [{ status: 'failed', reason: null }, 'Failed: no reason given'],
@@ -74,6 +75,15 @@ describe('milestones', () => {
     const done = step(seen, over);
     expect(done.lines).toEqual([`${words} · ${PAGE}`]);
     expect(step(done.seen, over).lines).toEqual([]);
+  });
+
+  it('ends a stopped job on its slice count and the line to send again (PRD 2375)', () => {
+    const stopped = job({ status: 'done', runner: 'r', outcome: 'stopped', line: '/omni:yolo 2338' });
+    const last = milestones(null, stopped, [], { merged: 0, total: 5 }, PAGE);
+    expect(last.lines).toEqual(['queued', 'claimed by r', `Stopped mid-way · 0 / 5 slices merged · ${PAGE}`, "send it again: omni runner send '/omni:yolo 2338'"]);
+    expect(milestones(last.seen, stopped, [], { merged: 0, total: 5 }, PAGE).lines).toEqual([]);
+    expect(milestones(null, stopped, [], null, null).lines.at(-2)).toBe('Stopped mid-way');
+    expect(milestones(null, stopped, [], { merged: 0, total: 0 }, null).lines.at(-2)).toBe('Stopped mid-way');
   });
 
   it('ends without a link when the PRD has no page', () => {
@@ -90,6 +100,8 @@ describe('milestones', () => {
     expect(['queued', 'claimed', 'running'].some((status) => isEnded({ status: status as FollowJob['status'] }))).toBe(false);
     expect(isEnded({ status: 'done' })).toBe(true);
     expect(exitCodeOf({ status: 'done' })).toBe(0);
+    expect(exitCodeOf({ status: 'done', outcome: 'held' })).toBe(0);
+    expect(exitCodeOf({ status: 'done', outcome: 'stopped' })).toBe(1);
     for (const status of ['failed', 'cancelled'] as const) expect(exitCodeOf({ status })).toBe(1);
   });
 });

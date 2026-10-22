@@ -374,6 +374,11 @@ jobs:
         # omni-app is accepted, members of the workspace read an app-sent job, another workspace reads
         # nothing, and nobody signed in writes one (PRD 2338).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_job_sender.sql
+      - name: What a runner job's ending may say
+        # A job's outcome is one of answers, held, ready, human or stopped and nothing else; its slice
+        # count is both numbers or neither, with 0 <= merged <= total; members read the columns, nobody
+        # signed in writes them (PRD 2375).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_job_outcome.sql
       - name: A runner's health and its samples
         # Members read their workspace's samples and runners' last health, nobody else does, only the
         # service role writes; a sample is one per runner and instant, a figure out of range is refused,

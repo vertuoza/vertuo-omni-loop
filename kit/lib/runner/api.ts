@@ -89,6 +89,9 @@ export type JobUpdate = {
   releaseError?: string | null;
   /** What a done `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223); never sent for any other job. */
   outcome?: RunOutcome | null;
+  /** The PRD's slices merged and its slices in all, read from its board when a job ended `stopped` (PRD 2375); left out when the board cannot be read. */
+  slicesMerged?: number;
+  slicesTotal?: number;
 };
 
 /** The limits a runner pauses at (PRD 2102): memory used above, in percent; disk free below, in GB; load above, times its cores. */
@@ -130,7 +133,7 @@ const PrdJobSchema = z.object({
   prUrl: z.string().nullable(),
   exitCode: z.number().nullable(),
   reason: z.string().nullable(),
-  outcome: z.enum(['answers', 'held', 'ready', 'human']).nullable().optional().transform((value) => value ?? null),
+  outcome: z.enum(['answers', 'held', 'ready', 'human', 'stopped']).nullable().optional().transform((value) => value ?? null),
   queuedAt: z.string(),
 });
 export type PrdJob = z.output<typeof PrdJobSchema>;

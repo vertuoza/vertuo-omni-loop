@@ -398,7 +398,7 @@ describe('the kit\'s answers', () => {
 // report never says it, so a job cannot read Need human with nothing to answer.
 describe('the outcome human (PRD 2255)', () => {
   it('is one of the outcomes a job reads', () => {
-    expect([...JOB_OUTCOMES]).toEqual(['answers', 'held', 'ready', 'human']);
+    expect([...JOB_OUTCOMES]).toEqual(['answers', 'held', 'ready', 'human', 'stopped']);
     const job = { id: '00000000-0000-4000-8000-000001830201', line: '/omni:bug-fix 314', repo: 'acme/widgets', toRunner: null, toFleet: null, sentBy: '00000000-0000-4000-8000-0000018300b1', sentByLogin: 'mo', sentByKey: null, status: 'done', runner: null, cancelRequested: false, logTail: '', prUrl: null, exitCode: 0, reason: null, outcome: 'human', queuedAt: 't', claimedAt: null, runningAt: null, endedAt: 't' };
     expect(JobReplySchema.parse({ job }).job.outcome).toBe('human');
   });
@@ -481,5 +481,29 @@ describe('the answers (PRD 2255)', () => {
     ['no answers field', {}],
   ])('refuses %s', (_, body) => {
     expect(AnswerRequestSchema.safeParse(body).success).toBe(false);
+  });
+});
+
+// The outcome stopped and its slice count (PRD 2375 s3): a done yolo job's report may say it stopped mid-way.
+describe('the outcome stopped and its slice count (PRD 2375)', () => {
+  it('takes stopped with its count, and stopped without one', () => {
+    const report = { status: 'done', exitCode: 0, outcome: 'stopped', slicesMerged: 0, slicesTotal: 5 };
+    expect(JobUpdateSchema.parse(report)).toEqual(report);
+    expect(JobUpdateSchema.safeParse({ status: 'done', exitCode: 0, outcome: 'stopped' }).success).toBe(true);
+  });
+
+  it.each([
+    ['merged without total', { slicesMerged: 1 }],
+    ['total without merged', { slicesTotal: 1 }],
+    ['merged above total', { slicesMerged: 6, slicesTotal: 5 }],
+    ['a negative count', { slicesMerged: -1, slicesTotal: 5 }],
+    ['a fraction', { slicesMerged: 1.5, slicesTotal: 5 }],
+  ])('refuses %s', (_, count) => {
+    expect(JobUpdateSchema.safeParse({ status: 'done', outcome: 'stopped', ...count }).success).toBe(false);
+  });
+
+  it('reads stopped on a job, and still refuses human in a report', () => {
+    expect(JobUpdateSchema.safeParse({ status: 'done', outcome: 'human' }).success).toBe(false);
+    expect(PrdJobsSchema.safeParse({ jobs: [{ ...{ id: '00000000-0000-4000-8000-000001830201', line: '/omni:yolo 7', repo: 'acme/widgets', status: 'done', runner: null, prUrl: null, exitCode: 0, reason: null, queuedAt: 't', claimedAt: null, runningAt: null, endedAt: 't' }, outcome: 'stopped' }] }).success).toBe(true);
   });
 });

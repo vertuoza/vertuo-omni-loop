@@ -48,7 +48,8 @@ function fixture({ pin }: { pin?: string } = {}) {
   const home = join(root, 'home');
   mkdirSync(home);
   // The fake claude: prints the line it read on its standard input, sleeps when the line says so,
-  // then prints a pull request of another repository and one of the job's.
+  // then prints a pull request of another repository, and ends on a hand-off naming one of the job's
+  // (bug 2365: the job's pull request is one its hand-off or a `gh pr create` names).
   const bin = join(root, 'bin');
   mkdirSync(bin);
   writeFileSync(
@@ -60,7 +61,7 @@ function fixture({ pin }: { pin?: string } = {}) {
       'case "$line" in *sleep-*) sleep "${line##*sleep-}" ;; esac',
       'case "$line" in *lines-*) seq -f "line %g" 1 "${line##*lines-}" ;; esac',
       'echo "see https://github.com/acme/other/pull/9"',
-      'echo "opened https://github.com/acme/widgets/pull/42"',
+      `echo '${JSON.stringify({ type: 'result', subtype: 'success', num_turns: 1, total_cost_usd: 0, duration_ms: 1000, result: 'opened https://github.com/acme/widgets/pull/42' })}'`,
       'case "$line" in *push*) git push -q -u origin HEAD 2>/dev/null ;; esac',
       'case "$line" in *fail*) exit 3 ;; esac',
       '',
@@ -808,7 +809,7 @@ describe('omni runner: a dead job\'s claims (PRD 2175, s2)', () => {
     run.stop.abort();
     await run.done;
     expect(app.updates().at(-1)).toMatchObject({ status: 'failed', exitCode: 3, released: [1908], releaseError: null });
-    expect(gh.calls).toContain('pr list --repo acme/widgets --state open --draft --label omni:in-progress --limit 100 --json number,isDraft,labels');
+    expect(gh.calls).toContain('pr list --repo acme/widgets --state open --label omni:in-progress --limit 100 --json number,labels');
     expect(gh.calls).toContain('pr edit 1908 --repo acme/widgets --remove-label omni:in-progress --add-label omni:released');
     expect(gh.calls.filter((call) => call.startsWith('pr edit'))).toHaveLength(1);
     expect(gh.calls.find((call) => call.startsWith('pr comment 1908'))).toContain('Released: runner job `22` on `box-1` ended (`exit code 3`)');
@@ -1454,6 +1455,15 @@ describe('omni runner follow', () => {
       expect(run.code).toBe(0);
       expect(run.stdout).toContain(`${words} · `);
     }
+  });
+
+  it('ends a stopped job on its slice count and the line to send again, and exits 1 (PRD 2375)', async () => {
+    const page = fakePage({ jobs: [[running({ status: 'done', outcome: 'stopped', line: '/omni:yolo 2338' })]] });
+    const run = await terminal(fixture(), page, ['follow', '2251'], { mergedOf: () => Promise.resolve({ merged: 0, total: 5 }) });
+    expect(run.code).toBe(1);
+    expect(run.stdout).toContain(`Stopped mid-way · 0 / 5 slices merged · ${ASK}/prd/2251\nsend it again: omni runner send '/omni:yolo 2338'\n`);
+    const alone = await terminal(fixture(), fakePage({ jobs: [[running({ status: 'done', outcome: 'stopped' })]] }), ['follow', '2251'], { mergedOf: () => Promise.resolve(null) });
+    expect(alone.stdout).toContain(`Stopped mid-way · ${ASK}/prd/2251\n`);
   });
 
   it('keeps waiting while the PRD has no job, then follows the one that appears', async () => {

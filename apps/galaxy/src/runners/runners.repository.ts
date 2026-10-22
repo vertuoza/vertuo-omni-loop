@@ -58,6 +58,9 @@ const JobRow = z.object({
   release_error: z.string().nullable().catch(null).optional(),
   /** What it ended on (PRD 2223, 2255); a value out of shape reads as none. */
   outcome: z.enum(JOB_OUTCOMES).nullable().catch(null).optional(),
+  /** The PRD's slices merged out of all when it ended `stopped` (PRD 2375); one out of shape reads as none. */
+  slices_merged: z.number().int().nullable().catch(null).optional(),
+  slices_total: z.number().int().nullable().catch(null).optional(),
   /** The job this one continues, once its answers were in (PRD 2270); one out of shape reads as none. */
   continues: z.string().nullable().catch(null).optional(),
   queued_at: z.string(),
@@ -69,7 +72,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, continues, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */
@@ -136,7 +139,7 @@ export type NewRunner = { workspaceId: string; owner: string; name: string; slot
 export type NewJob = { workspaceId: string; line: string; repo: string; toRunner: string | null; toFleet: string | null; sentBy: string; sentByKey: string | null };
 
 /** What a job's update may change. */
-export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'released' | 'release_error' | 'outcome' | 'running_at' | 'ended_at'>>;
+export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'released' | 'release_error' | 'outcome' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
 
 type Raw = { data: unknown; error: { code?: string; message?: string } | null };
 

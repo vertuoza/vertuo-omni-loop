@@ -179,10 +179,14 @@ async function filmWalk(dir: string, walk: Walk, { launch, now }: { launch: Film
   }
 }
 
-/** The ffmpeg arguments that make the browser's WebM one the page seeks well: VP8, a keyframe every half second, no sound. */
+/**
+ * The ffmpeg arguments that make the browser's WebM one the page seeks well: VP8, a keyframe every half second, no
+ * sound. One encoder thread: libvpx's VP8 threads wait on each other spinning, so on a busy computer they burn the
+ * CPU the others need, and re-encoding a six-second walk, a second on an idle laptop, took over two minutes on one whose cores were all busy.
+ */
 export const remuxArgs = (filmed: string, clip: string): string[] => [
   '-hide_banner', '-loglevel', 'error', '-y', '-i', filmed,
-  '-c:v', 'libvpx', '-deadline', 'realtime', '-cpu-used', '8', '-b:v', '6M', '-crf', '10', '-r', '30',
+  '-c:v', 'libvpx', '-threads', '1', '-deadline', 'realtime', '-cpu-used', '8', '-b:v', '6M', '-crf', '10', '-r', '30',
   '-g', String(KEYFRAMES), '-keyint_min', String(KEYFRAMES), '-auto-alt-ref', '0',
   '-an', clip,
 ];
