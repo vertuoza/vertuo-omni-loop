@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Waiting board mockup</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; padding: 16px; background: #07061c; }
+.mock-note { max-width: 960px; margin: 0 auto 12px; font: 13px/1.5 system-ui, sans-serif; color: #8a90d6; }
+.stage { max-width: 960px; margin: 0 auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; vertical-align: top; }
+/* The mockups: Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+.mock {
+  --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+  --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-red: #ff6b86;
+  --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+  background: var(--ask-ground); color: var(--ask-ink); font: 15px/1.5 var(--ask-body);
+  border-radius: 8px; padding: 12px; overflow: hidden;
+}
+.mock a { color: var(--ask-ink); }
+.mock .sprite { display: inline-block; width: 16px; height: 16px; background: var(--ask-line-strong); vertical-align: -3px; image-rendering: pixelated; }
+/* Sidebar (nav/sidebar.css, in short). */
+.side { width: 220px; display: grid; gap: 2px; }
+.side-group { margin: 8px 0 2px; font: 700 11px/1.3 var(--ask-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ask-muted); }
+.side-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; text-decoration: none; }
+.side-item[aria-current="page"] { background: var(--ask-sunk); outline: 1px solid var(--ask-line-strong); }
+.side-badge { margin-left: auto; min-width: 18px; padding: 2px 6px; border-radius: 999px; font: 700 11px/1 var(--ask-body); text-align: center; color: var(--ask-ground); background: var(--ask-red); }
+.side-new { outline: 2px dashed var(--ask-plasma); outline-offset: 1px; }
+/* The board. */
+.wb-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 8px; }
+.wb-title { font: 700 20px/1.2 var(--ask-body); margin: 0; }
+.wb-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ask-line-strong); margin: 0 0 6px; padding: 0; list-style: none; }
+.wb-tabs a { display: inline-block; padding: 6px 12px; text-decoration: none; color: var(--ask-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.wb-tabs a[aria-current="page"] { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); font-weight: 700; }
+.wb-count { color: var(--ask-muted); font-size: 13px; }
+.wb-stale { margin: 4px 0 8px; font-size: 13px; color: var(--ask-muted); }
+.mock table { margin: 0; }
+.mock th, .mock td { border-bottom: 1px solid var(--ask-line); padding: 7px 8px; }
+.mock th { color: var(--ask-muted); font: 700 11px/1.3 var(--ask-body); letter-spacing: .06em; }
+.wb-what { white-space: nowrap; }
+.wb-turn { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.face { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px 1px 1px; border: 1px solid var(--ask-line); border-radius: 999px; font-size: 13px; }
+.face i { display: inline-block; width: 16px; height: 16px; border-radius: 50%; }
+.team { padding: 1px 6px; border: 1px dashed var(--ask-line-strong); border-radius: 999px; font-size: 13px; color: var(--ask-muted); }
+.age { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.age.late { color: var(--ask-red); font-weight: 700; }
+.wb-sub { color: var(--ask-muted); font-size: 13px; }
+.empty { padding: 24px 8px; color: var(--ask-muted); }
+</style>
+</head>
+<body>
+<p class="mock-note">The Waiting page (/app/waiting), Workspace tab, signed in, theme Omni. Drawn by /omni:brainstorm for PRD 2377, not from a running app. The rows are example data: the repositories and logins are fictional.</p>
+<div class="stage">
+<div class="mock" data-screen="waiting-board">
+<div class="wb-head"><h2 class="wb-title">Waiting</h2><span class="wb-count">7 wait on a person</span></div>
+<ul class="wb-tabs">
+<li><a href="?tab=workspace" aria-current="page">Workspace</a></li>
+<li><a href="?tab=mine">My PRDs</a></li>
+<li><a href="?tab=reviews" data-primary>My reviews · 3</a></li>
+</ul>
+<p class="wb-stale">acme/widgets last synced 42 min ago.</p>
+<table>
+<thead><tr><th>PRD</th><th>Waits on</th><th>Whose turn</th><th>For</th></tr></thead>
+<tbody>
+<tr><td><a href="#">PRD 2213 · Runner answers</a><br><span class="wb-sub">feature #2214</span></td><td class="wb-what">outbox · 2 questions</td><td><span class="wb-turn"><span class="face"><i style="background:#a45cff"></i>ada</span></span></td><td class="age late">4 days</td></tr>
+<tr><td><a href="#">PRD 1364 · Product home</a><br><span class="wb-sub">feature #1402</span></td><td class="wb-what">law BR-PRODUCT-5</td><td><span class="wb-turn"><span class="face"><i style="background:#a45cff"></i>ada</span><span class="face"><i style="background:#3ec7ff"></i>kai</span></span></td><td class="age late">3 days</td></tr>
+<tr><td><a href="#">Bug fix #2361</a><br><span class="wb-sub">fix/stale-claim</span></td><td class="wb-what">review</td><td><span class="wb-turn"><span class="team">acme/platform</span></span></td><td class="age">2 days</td></tr>
+<tr><td><a href="#">PRD 2338 · Retro apply</a><br><span class="wb-sub">feature #2339</span></td><td class="wb-what">merge</td><td><span class="wb-turn"><span class="face"><i style="background:#a45cff"></i>ada</span></span></td><td class="age">1 day</td></tr>
+<tr><td><a href="#">PRD 2377 · Waiting board</a></td><td class="wb-what">approval</td><td><span class="wb-turn"><span class="face"><i style="background:#a45cff"></i>ada</span></span></td><td class="age">today</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</body>
+</html>
