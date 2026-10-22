@@ -264,15 +264,15 @@ describe('every panel in the shared card (PRD 962)', () => {
     board: engineeringOf({ tracked: ['Acme/Gears'], pullRequests: ROWS, reviews: [] }, WEEK, 'merged', NOW),
   };
 
-  it('on the board: Omni Loop, Loop health, merged per day, Repositories and each top-5 list', () => {
+  it('on the board: Omni Loop, Loop health, merged per day, Time per step, Repositories and each top-5 list', () => {
     const panels = sections(render(board()));
-    expect(panels.map((p) => p.id)).toEqual(['eng-omni', 'eng-health', 'eng-per-day', 'eng-repos', 'eng-top-opened', 'eng-top-merged', 'eng-top-reviews']);
+    expect(panels.map((p) => p.id)).toEqual(['eng-omni', 'eng-health', 'eng-per-day', 'eng-steps', 'eng-repos', 'eng-top-opened', 'eng-top-merged', 'eng-top-reviews']);
     for (const p of panels) expect(p.classes, p.id).toContain('board-card');
   });
 
   it('on a repository\'s page: the same panels, with no table', () => {
     const panels = sections(render(gears));
-    expect(panels.map((p) => p.id)).toEqual(['eng-omni', 'eng-health', 'eng-per-day', 'eng-top-opened', 'eng-top-merged', 'eng-top-reviews']);
+    expect(panels.map((p) => p.id)).toEqual(['eng-omni', 'eng-health', 'eng-per-day', 'eng-steps', 'eng-top-opened', 'eng-top-merged', 'eng-top-reviews']);
     for (const p of panels) expect(p.classes, p.id).toContain('board-card');
   });
 
@@ -303,6 +303,13 @@ describe('the Engineering board, empty', () => {
   });
 });
 
+describe('Time per step (PRD 2370 s6)', () => {
+  it('with no PRD done in the period: says so in a sentence, with no table', () => {
+    expect(text(render(board()))).toContain('Time per step No PRD was done in this period');
+    expect(render(board())).not.toContain('eng-steps-row');
+  });
+});
+
 describe('the other situations', () => {
   it('closed, signed out with no database and no workspace each say so', () => {
     expect(text(render({ kind: 'closed' }))).toContain('The Engineering board is not open here');
@@ -330,6 +337,12 @@ describe('the demo', () => {
     expect(t).toMatch(/Loop health Right now .*Stuck acme\/\w+#\d+ opened/);
     expect(t).toMatch(/Held acme\/\w+#\d+ opened/);
     expect(t).toMatch(/Stale claim acme\/\w+#\d+ opened/);
+  });
+
+  it('shows Time per step with the slowest step named (PRD 2370 s6)', () => {
+    const t = text(render(demoEngineeringBoard('30d', 'merged', NOW)));
+    expect(t).toMatch(/Time per step \d+ PRDs? done in this period Slowest step: [\w ]+, median [\d.]+ (min|h|d)/);
+    expect(t).toMatch(/Writing it waits on PM \+ brainstorm [\d.–]+ (min|h|d)? ?\d+ values?/);
   });
 
   it('shows both kinds of face: a hero and a GitHub photo', () => {

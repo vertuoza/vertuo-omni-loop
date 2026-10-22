@@ -8,6 +8,8 @@ import { allPages } from '../data/all-pages';
 import { memberWorkspace, type Workspace } from '../data/workspace';
 import { loadPeople, peopleOf, type People } from '../people/load';
 import { readTracked } from '../profile/stored';
+import { milestoneStore } from '../timeline/store.repository';
+import type { WorkspaceMilestone } from '../timeline/store';
 import { loginsShown, withPeople } from './faced';
 import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewRow, type SortKey } from './tally';
 
@@ -17,7 +19,7 @@ import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewR
 // parallel, the pull requests that can count in the period (opened or merged since its first instant,
 // or open now) and the reviews first given within it, of those repositories only. Any read that fails
 // leaves the whole board saying it could not load, its error logged. Loop health (PRD 714 s2) reads the
-// open ones at the request's `now`, and its period rate (s4) the sub-PRs merged in the window. Last, the faces (PRD 652 s3):
+// open ones at the request's `now`, and its period rate (s4) the sub-PRs merged in the window, and Time per step (PRD 2370 s6) the workspace's PRD milestones. Last, the faces (PRD 652 s3):
 // the workspace's people directory, read only when the three lists show someone, resolves each login.
 // That read fails soft: its error logged, every face falls back to the GitHub photo and the board
 // still renders. A
@@ -31,6 +33,8 @@ export interface EngineeringReads {
   pullRequests(from: Date, repos: string[]): Promise<PullRequestRow[]>;
   /** Their reviews first given within [from, to). */
   reviews(from: Date, to: Date, repos: string[]): Promise<ReviewRow[]>;
+  /** The workspace's PRD milestones (PRD 2370 s6), for the Time per step panel. */
+  milestones(): Promise<WorkspaceMilestone[]>;
   /** The workspace's people directory (PRD 652), to resolve each login shown to a face. */
   people(): Promise<People>;
 }
@@ -59,12 +63,13 @@ export async function loadEngineeringRepository(reads: EngineeringReads, repo: s
 async function boardOf(reads: EngineeringReads, tracked: string[], { period, sort, now }: EngineeringRequest): Promise<Read<EngineeringValue>> {
   const window = periodWindow(period, now);
   if (tracked.length === 0) return engineeringOf({ tracked, pullRequests: [], reviews: [] }, window, sort, now);
-  const [pullRequests, reviews] = await Promise.all([
+  const [pullRequests, reviews, milestones] = await Promise.all([
     settle('the pull requests', () => reads.pullRequests(window.from, tracked)),
     settle('the reviews', () => reads.reviews(window.from, window.to, tracked)),
+    settle('the PRD milestones', () => reads.milestones()),
   ]);
-  if (pullRequests === UNREADABLE || reviews === UNREADABLE) return UNREADABLE;
-  const board = engineeringOf({ tracked, pullRequests, reviews }, window, sort, now);
+  if (pullRequests === UNREADABLE || reviews === UNREADABLE || milestones === UNREADABLE) return UNREADABLE;
+  const board = engineeringOf({ tracked, pullRequests, reviews, milestones }, window, sort, now);
   if (loginsShown(board).length === 0) return board;
   return withPeople(board, await peopleFor(reads));
 }
@@ -158,6 +163,9 @@ export function supabaseEngineeringReads(db: SupabaseClient<Database>, workspace
         .order('reviewer', { ascending: true })
         .range(start, end));
       return rows.map((r) => ({ repo: r.repo, number: r.number, reviewer: r.reviewer, firstAt: r.first_at }));
+    },
+    milestones() {
+      return milestoneStore(db).workspaceMilestones(workspace);
     },
     people() {
       return loadPeople(db, workspace);
