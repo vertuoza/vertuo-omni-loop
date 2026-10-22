@@ -35,7 +35,7 @@ export type KnowledgeMap = {
 };
 
 /** Where a file sits on the map: its domain (`null` with none) and its layers. */
-export type Place = { domain: string | null; layers: string[] };
+export type FilePlace = { domain: string | null; layers: string[] };
 
 /** What an entry of the lookup is. */
 export type LookupKind = 'law' | 'rule' | 'invariant' | 'adr' | 'legal';
@@ -68,7 +68,7 @@ export function knowledgeMap(config: MapConfig): KnowledgeMap {
 }
 
 /** `path`'s domain and layers on `map`. */
-export function placeOf(map: KnowledgeMap, path: string): Place {
+export function placeOf(map: KnowledgeMap, path: string): FilePlace {
   return {
     domain: areaOf(map.flow, path).knowledge,
     layers: map.layers.filter(({ patterns }) => patterns.some((pattern) => pattern.test(path))).map(({ layer }) => layer),
@@ -82,7 +82,7 @@ const domainsOf = (entry: KnowledgeEntry): string[] => (entry.scope === 'cross-d
 const asLayers = (words: readonly string[] | null | undefined): string[] => [...new Set((words ?? []).map(layerOf))];
 
 /** Why something tagged `domains` and `layers` (and governing `governs`) applies to the files at `places`; empty when it does not. */
-function reasons(places: readonly Place[], files: readonly string[], tags: { governs: readonly string[] | null; domains: readonly string[]; layers: readonly string[] }): string[] {
+function reasons(places: readonly FilePlace[], files: readonly string[], tags: { governs: readonly string[] | null; domains: readonly string[]; layers: readonly string[] }): string[] {
   const why: string[] = [];
   if (tags.governs !== null && files.some((file) => governsPath(tags.governs ?? [], file))) why.push('governs');
   for (const domain of tags.domains) if (places.some((place) => place.domain === domain)) why.push(`domain ${domain}`);
@@ -106,7 +106,7 @@ const recordText = (record: DecisionRecord): string => (record.title ?? record.f
 type Placed = { group: 'applies' | 'global' | 'hidden'; line: LookupEntry };
 
 /** A rule, an invariant or a law, placed for the files at `places`. */
-function placeEntry(entry: KnowledgeEntry, thesis: Thesis | null, map: KnowledgeMap, places: readonly Place[], files: readonly string[]): Placed {
+function placeEntry(entry: KnowledgeEntry, thesis: Thesis | null, map: KnowledgeMap, places: readonly FilePlace[], files: readonly string[]): Placed {
   const law = isLaw(entry);
   const tags = { governs: entry.governs, domains: domainsOf(entry), layers: asLayers(entry.layers) };
   const line: LookupEntry = {
@@ -124,7 +124,7 @@ function placeEntry(entry: KnowledgeEntry, thesis: Thesis | null, map: Knowledge
 }
 
 /** A tagged decision record, placed for the files at `places`; `null` for an untagged one, never listed. */
-function placeRecord(record: DecisionRecord, places: readonly Place[], files: readonly string[]): Placed | null {
+function placeRecord(record: DecisionRecord, places: readonly FilePlace[], files: readonly string[]): Placed | null {
   const tags = { governs: null, domains: record.domain == null ? [] : [record.domain], layers: asLayers(record.layers) };
   if (tags.domains.length === 0 && tags.layers.length === 0) return null;
   const why = reasons(places, files, tags);
