@@ -1,12 +1,13 @@
 // The layout every scene shares (PRD 1108 s4): columns of words on one left edge, regions a media card
 // is centred in, and the card's pose — it arrives from its side, turned, then settles slowly toward flat
-// over its scene.
+// over its scene. A scene's words (PRD 2030 s3): an eyebrow, its title, then a body once the title's last
+// word has arrived.
 import type { CSSProperties, ReactNode } from 'react';
 import { EASINGS, SPRINGS, clamp, interpolate, mix, spring } from './animation.ts';
 import { useEngine, useEntryFrame, useExit, useFrame, useScene } from './core.tsx';
 import { MediaCard, useFitted } from './media.tsx';
 import { revealEnd } from './text.ts';
-import { Title } from './words.tsx';
+import { Eyebrow, Line, Title } from './words.tsx';
 import type { Media } from '../lib/pitch/storyboard.ts';
 
 export type Region = Readonly<{ x: number; y: number; width: number; height: number }>;
@@ -20,13 +21,35 @@ export function Column({ left, width, gap = 32, children }: { left: number; widt
   return <div style={{ position: 'absolute', left, width, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap }}>{children}</div>;
 }
 
-/** A title when the scene has one. */
-export function MaybeTitle({ text, size, width }: { text: string | undefined; size: number; width: number }): ReactNode {
-  return text === undefined ? null : <Title text={text} size={size} delay={0.1} maxWidth={width} />;
+/** A scene's words: the small line above its title, its title, and the sentence under it, each optional. */
+export type SceneLines = Readonly<{ eyebrow?: string | undefined; title?: string | undefined; body?: string | undefined }>;
+
+/** When a scene's eyebrow arrives, and its title: at once, or once the eyebrow has slid in. */
+const EYEBROW_AT = 0.2;
+const TITLE_AT = Object.freeze({ alone: 0.1, underEyebrow: 0.35 });
+/** When what follows a scene with no title arrives. */
+const NO_TITLE_AT = 0.3;
+/** The beat after a body arrives before what follows it does. */
+export const AFTER_BODY = 0.3;
+
+/** The seconds into a scene's entrances its eyebrow, title and body arrive, then what follows them. */
+export function linesTimes({ eyebrow, title, body }: SceneLines): { eyebrow: number; title: number; body: number; after: number } {
+  const titleAt = eyebrow === undefined ? TITLE_AT.alone : TITLE_AT.underEyebrow;
+  const bodyAt = title === undefined ? Math.max(NO_TITLE_AT, eyebrow === undefined ? 0 : titleAt) : revealEnd(title, titleAt);
+  return { eyebrow: EYEBROW_AT, title: titleAt, body: bodyAt, after: body === undefined ? bodyAt : bodyAt + AFTER_BODY };
 }
 
-/** When what follows an optional title arrives. */
-export const afterTitle = (title: string | undefined): number => (title === undefined ? 0.3 : revealEnd(title, 0.1));
+/** A scene's words, each one it has: the eyebrow, the title at `size`, then the body, muted. */
+export function Lines({ lines, size, width }: { lines: SceneLines; size: number; width: number }): ReactNode {
+  const at = linesTimes(lines);
+  return (
+    <>
+      {lines.eyebrow === undefined ? null : <Eyebrow text={lines.eyebrow} delay={at.eyebrow} />}
+      {lines.title === undefined ? null : <Title text={lines.title} size={size} delay={at.title} maxWidth={width} />}
+      {lines.body === undefined ? null : <Line text={lines.body} delay={at.body} maxWidth={width} />}
+    </>
+  );
+}
 
 export type Side = 'left' | 'right' | 'center';
 

@@ -1,10 +1,11 @@
 // The words of a scene (PRD 1108 s4): a title built word by word in the Heading font, and the eyebrow,
-// lines, pills and bullets in the Text font, each arriving on a spring and leaving with its scene.
+// lines, pills and bullets in the Text font, each arriving on a spring and leaving with its scene. A
+// title's accented words and its final stop are drawn in the accent, with no marker (PRD 2030 s1).
 import type { CSSProperties, ReactNode } from 'react';
 import { EASINGS, SPRINGS, interpolate, spring } from './animation.ts';
 import { useEngine, useEnter, useEntryFrame, useExit } from './core.tsx';
 import { alpha } from './palette.ts';
-import { titleWords, wordState } from './text.ts';
+import { parseTitle, wordState } from './text.ts';
 
 /** How everything leaves with its scene: it softens, lifts and fades. */
 export function useExitStyle(): CSSProperties {
@@ -15,11 +16,15 @@ export function useExitStyle(): CSSProperties {
 
 type Align = 'left' | 'center';
 
-/** A title, built word by word: each word rises from blurred to sharp, a stagger after the one before. */
+/**
+ * A title, built word by word: each word rises from blurred to sharp, a stagger after the one before.
+ * Its accented words, and its final stop, which rises with the last word, are in the accent.
+ */
 export function Title({ text, size, delay, align = 'left', maxWidth }: { text: string; size: number; delay: number; align?: Align; maxWidth: number }): ReactNode {
   const { palette, fonts, timeline } = useEngine();
   const frame = useEntryFrame();
   const exit = useExitStyle();
+  const { words, stop } = parseTitle(text);
   return (
     <h1
       style={{
@@ -36,19 +41,24 @@ export function Title({ text, size, delay, align = 'left', maxWidth }: { text: s
         ...exit,
       }}
     >
-      {titleWords(text).map((word, index, all) => {
+      {words.map((word, index, all) => {
         const state = wordState(frame, index, timeline.fps, { delay });
+        const last = index === all.length - 1;
         const style: CSSProperties = {
           display: 'inline-block',
           whiteSpace: 'nowrap',
           opacity: state.opacity,
           transform: `translateY(${state.rise}em)`,
           filter: state.blur > 0 ? `blur(${state.blur}px)` : 'none',
+          ...(word.accent ? { color: palette.accent } : {}),
         };
         return (
           <span key={index}>
-            <span style={style}>{word}</span>
-            {index < all.length - 1 ? ' ' : ''}
+            <span data-word="" style={style}>
+              {word.text}
+              {last && stop ? <span style={{ color: palette.accent }}>.</span> : null}
+            </span>
+            {last ? '' : ' '}
           </span>
         );
       })}
