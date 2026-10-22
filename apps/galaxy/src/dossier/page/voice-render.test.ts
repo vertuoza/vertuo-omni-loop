@@ -53,7 +53,7 @@ function html(voiceText: string | null, versions = [version('v1', 'voice')], mor
 describe('the User voice tab', () => {
   it('sits beside Spec, Plan and Before/after on a PRD, and on no fix', () => {
     const tabs = dossierView(read([]), PIERRE.user_id, { tab: null, version: null }).tabs.map((t) => t.label);
-    expect(tabs.slice(0, 5)).toEqual(['Questions', 'Before/after', 'Spec', 'Plan', 'User voice']);
+    expect(tabs.slice(0, 5)).toEqual(['Questions', 'Before/after', 'Spec', 'Plan', 'Timeline']);
     const bug = dossierView(read([], { kind: 'bug' }), PIERRE.user_id, { tab: null, version: null });
     expect(bug.tabs.map((t) => t.kind)).not.toContain('voice');
   });
