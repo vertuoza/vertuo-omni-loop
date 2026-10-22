@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { reply } from '../business-api/reply';
 import {
-  ACTING_FOR_MAX, AnswerJobSchema, BugFixListSchema, DESCRIPTION_MAX, DismissJobSchema, JobLineListSchema, JobSchema, ListQuerySchema, LIMIT_MAX, MEGA_DESCRIPTION_MAX,
-  PrdListSchema, PUBLIC_API_ERRORS, QuestionsSchema, StartBugFixSchema, StartMegaBugFixSchema, type ListQuery, type PublicApiErrorCode,
+  ACTING_FOR_MAX, AnswerJobSchema, BugFixListSchema, CancelJobSchema, DESCRIPTION_MAX, DismissJobSchema, JobLineListSchema, JobSchema, ListQuerySchema, LIMIT_MAX,
+  MEGA_DESCRIPTION_MAX, PrdListSchema, PUBLIC_API_ERRORS, QuestionsSchema, RelaunchJobSchema, StartBugFixSchema, StartMegaBugFixSchema, type ListQuery, type PublicApiErrorCode,
 } from './public-api.contract';
 import type { ApiKeyCaller, PublicApiService, Answered } from './public-api.service';
 
@@ -19,11 +19,14 @@ import type { ApiKeyCaller, PublicApiService, Answered } from './public-api.serv
 //   GET /api/v1/jobs/{id}/questions        200 questions: what the job asked, where it stands, who closed it (PRD 2425 s6)
 //   POST /api/v1/jobs/{id}/answers         202 job: the resume of the job, queued as the key that sent it (PRD 2425 s6)
 //   POST /api/v1/jobs/{id}/dismiss         200 job: the questions closed with no answer and nothing queued (PRD 2425 s6)
+//   POST /api/v1/jobs/{id}/cancel          200 job: cancelled at once, or asked to stop when running (PRD 2425 s7)
+//   POST /api/v1/jobs/{id}/relaunch        202 job: the job sent again or resumed, as the key that sent the first (PRD 2425 s7)
 //
 // The key is checked first: no `Authorization: Bearer oma_…`, or a key api_key_of() does not answer live
 // (unknown, revoked, its maker gone), is 401, and nothing else runs. The query (or, for a POST, the body)
 // is read next: a bad `limit` or `cursor`, or a body that is not the route's, is 422 naming it. A second
-// answer or dismissal is 409 `conflict` (BR-PRODUCT-12: the first close wins). Each answer is checked against the contract before it leaves, never
+// answer or dismissal is 409 `conflict` (BR-PRODUCT-12: the first close wins), and so is a cancel of an ended job and a relaunch of a job
+// the page offers neither Send again nor Resume for, or that was carried on already. Each answer is checked against the contract before it leaves, never
 // cached; each refusal is `{error: {code, message}}` (./public-api.contract.ts). A failure is 500, logged,
 // its message never carrying a stack or the database's words.
 
@@ -46,7 +49,7 @@ const BAD_BODY = `The body must be {"repo": "owner/name", "description": "<1 to 
 const BAD_MEGA_BODY = `The body must be {"repo": "<a plan repository, owner/name>", "description": "<its issue's URL, or the bug, 1 to ${String(MEGA_DESCRIPTION_MAX)} characters, no --flag>", "runner"?: "<name>", "fleet"?: "<fleet>"}, and nothing else.`;
 const ACTING_FOR_RULE = `"acting_for"?: "<whom the key acts for, 1 to ${String(ACTING_FOR_MAX)} characters: letters of any alphabet, digits, spaces and . _ ' @ - · only>"`;
 const BAD_ANSWER_BODY = `The body must be {"answers": {"<question>": "<answer, 1 to 2000 characters>"}, ${ACTING_FOR_RULE}}: one answer to each question, one to four in all, and nothing else.`;
-const BAD_DISMISS_BODY = `The body must be empty, or {${ACTING_FOR_RULE}}, and nothing else.`;
+const BAD_ACTING_BODY = `The body must be empty, or {${ACTING_FOR_RULE}}, and nothing else.`;
 const NO_SUCH_JOB = 'No such job.';
 const MAX_BODY_CHARS = 4 * 1024;
 
@@ -57,8 +60,10 @@ type PostRules = { status: 200 | 202; max: number; emptyIsObject: boolean };
 const STARTING: PostRules = { status: 202, max: MAX_BODY_CHARS, emptyIsObject: false };
 /** An answer: 202 with the resume job; up to four answers of 2,000 characters under questions of 1,000 fit in 16 KiB. */
 const ANSWERING: PostRules = { status: 202, max: 16 * 1024, emptyIsObject: false };
-/** A dismissal: 200 with the job; it needs nothing, so no body is as good as `{}`. */
-const DISMISSING: PostRules = { status: 200, max: MAX_BODY_CHARS, emptyIsObject: true };
+/** A dismissal or a cancel: 200 with the job; it needs nothing, so no body is as good as `{}`. */
+const ACTING: PostRules = { status: 200, max: MAX_BODY_CHARS, emptyIsObject: true };
+/** A relaunch: 202 with the new job; it needs nothing either. */
+const RELAUNCHING: PostRules = { status: 202, max: MAX_BODY_CHARS, emptyIsObject: true };
 
 const BEARER = /^Bearer[ \t]+(\S+)[ \t]*$/i;
 
@@ -202,5 +207,17 @@ export function answerJob(request: Request, id: string, deps: PublicApiDeps): Pr
 /** POST /api/v1/jobs/{id}/dismiss: closes the questions of a job a key of the key's workspace queued with no answer, queueing nothing,
  * and answers 200 with the job (PRD 2425 s6). */
 export function dismissJob(request: Request, id: string, deps: PublicApiDeps): Promise<Response> {
-  return post(request, deps, DISMISSING, DismissJobSchema, BAD_DISMISS_BODY, (service, key, body) => ofJob(id, (job) => service.dismissJob(key, job, body)));
+  return post(request, deps, ACTING, DismissJobSchema, BAD_ACTING_BODY, (service, key, body) => ofJob(id, (job) => service.dismissJob(key, job, body)));
+}
+
+/** POST /api/v1/jobs/{id}/cancel: cancels a job a key of the key's workspace queued, as the Runners page's Cancel does, and answers 200 with the
+ * job (PRD 2425 s7): ended at once when it had not started, asked to stop when it runs; an ended job is 409. */
+export function cancelJob(request: Request, id: string, deps: PublicApiDeps): Promise<Response> {
+  return post(request, deps, ACTING, CancelJobSchema, BAD_ACTING_BODY, (service, key, body) => ofJob(id, (job) => service.cancelJob(key, job, body)));
+}
+
+/** POST /api/v1/jobs/{id}/relaunch: sends a job a key of the key's workspace queued again or resumes it, as the Runners page offers, and answers
+ * 202 with the new job (PRD 2425 s7); a job the page offers neither for, and one carried on already, is 409. */
+export function relaunchJob(request: Request, id: string, deps: PublicApiDeps): Promise<Response> {
+  return post(request, deps, RELAUNCHING, RelaunchJobSchema, BAD_ACTING_BODY, (service, key, body) => ofJob(id, (job) => service.relaunchJob(key, job, body)));
 }

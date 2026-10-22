@@ -3,7 +3,7 @@ import { API_KEY, jobRow, lineRows, OLGA, OTHER_KEY, questionsRow, SHARED, T0, W
 import { encodeCursor } from './cursor';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
 import {
-  answerJob, DEAD_KEY, dismissJob, FAILED, getJob, getJobLines, getJobQuestions, listBugFixes, listPrds, startBugFix, startMegaBugFix, NO_DATABASE, NO_KEY, type PublicApiDeps,
+  answerJob, cancelJob, DEAD_KEY, dismissJob, FAILED, getJob, getJobLines, getJobQuestions, listBugFixes, listPrds, relaunchJob, startBugFix, startMegaBugFix, NO_DATABASE, NO_KEY, type PublicApiDeps,
 } from './public-api.controller';
 import { JobLineListSchema, JobSchema, PublicApiErrorSchema, QuestionsSchema } from './public-api.contract';
 import { publicApiService } from './public-api.service';
@@ -27,6 +27,13 @@ function get(path: string, authorization: string | null = `Bearer ${SECRETS.all}
 async function errorOf(response: Response) {
   return PublicApiErrorSchema.parse(await response.json()).error;
 }
+
+const authorized = (secret: string | null) => (secret === null ? {} : { authorization: `Bearer ${secret}` });
+
+/** A POST with a body that is sent as it is when a string, as JSON otherwise, and not at all when undefined. */
+const post = (path: string, body: unknown, secret: string | null = SECRETS.runners) => new Request(`${ORIGIN}${path}`, {
+  method: 'POST', headers: authorized(secret), body: body === undefined ? null : typeof body === 'string' ? body : JSON.stringify(body),
+});
 
 describe('the key', () => {
   for (const [what, authorization] of [
@@ -613,11 +620,7 @@ describe('a job’s questions, its answers and its dismissal (PRD 2425 s6)', () 
     if (open) api.runnersState.questions.push(questionsRow({ job_id: job.id }));
     return job;
   }
-  const authorized = (secret: string | null) => (secret === null ? {} : { authorization: `Bearer ${secret}` });
-  const post = (path: string, body: unknown, secret: string | null = SECRETS.runners) => new Request(`${ORIGIN}${path}`, {
-    method: 'POST', headers: authorized(secret), body: body === undefined ? null : typeof body === 'string' ? body : JSON.stringify(body),
-  });
-  const read = (api: FakePublicApi, id: string, secret: string | null = SECRETS.runners) =>
+  const read =(api: FakePublicApi, id: string, secret: string | null = SECRETS.runners) =>
     getJobQuestions(get(`/api/v1/jobs/${id}/questions`, secret === null ? null : `Bearer ${secret}`), id, deps(api));
   const answer = (api: FakePublicApi, id: string, body: unknown, secret: string | null = SECRETS.runners) =>
     answerJob(post(`/api/v1/jobs/${id}/answers`, body, secret), id, deps(api));
@@ -927,6 +930,211 @@ describe('a job’s questions, its answers and its dismissal (PRD 2425 s6)', () 
         expect(await errorOf(response)).toEqual({ code: 'internal', message: FAILED });
       }
       expect(logs).toHaveLength(3);
+    });
+  });
+});
+
+describe('POST /api/v1/jobs/{id}/cancel and /relaunch (PRD 2425 s7)', () => {
+  const ACTED = '00000000-0000-4000-8000-00000000dead';
+  const NOTIFY = 'https://hooks.example.com/omni';
+
+  /** A bug fix the first key of the workspace sent through Olga to the fleet cia, in demo-org/app: queued, unless told otherwise. */
+  function sent(api: FakePublicApi, more: Partial<ReturnType<typeof jobRow>> = {}) {
+    const job = jobRow({ line: '/omni:bug-fix #314', sent_by: OLGA, sent_by_key: API_KEY, to_fleet: 'cia', notify_url: NOTIFY, ...more });
+    api.runnersState.jobs.push(job);
+    return job;
+  }
+  /** The same job, ended `failed`: the page offers Send again for it. */
+  const failed = (api: FakePublicApi, more: Partial<ReturnType<typeof jobRow>> = {}) => sent(api, {
+    status: 'failed', exit_code: 1, reason: 'exit 1', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+  });
+  const cancel = (api: FakePublicApi, id: string, body?: unknown, secret: string | null = SECRETS.runners) =>
+    cancelJob(post(`/api/v1/jobs/${id}/cancel`, body, secret), id, deps(api));
+  const relaunch = (api: FakePublicApi, id: string, body?: unknown, secret: string | null = SECRETS.runners) =>
+    relaunchJob(post(`/api/v1/jobs/${id}/relaunch`, body, secret), id, deps(api));
+  /** Whether no job was queued after the `jobs` seeded ones and none was cancelled. */
+  const untouched = (api: FakePublicApi, jobs: number) =>
+    api.runnersState.jobs.length === jobs && api.runnersState.jobs.every((j) => !j.cancel_requested && (j.cancelled_by_key ?? null) === null);
+  const BAD_BODIES = [
+    ['a body that is not JSON', 'nope', ''],
+    ['a field the route does not know', { reason: 'late' }, 'reason'],
+    ['an empty acting_for', { acting_for: '' }, 'acting_for'],
+    ['an 81-character acting_for', { acting_for: 'a'.repeat(81) }, 'acting_for'],
+    ['an acting_for with a semicolon', { acting_for: 'x; rm' }, 'acting_for'],
+    ['a body over 4 KiB', { acting_for: 'Jane', pad: 'x'.repeat(4 * 1024) }, ''],
+  ] as const;
+  const EMPTY_BODIES = [['no body', undefined], ['an empty body', ''], ['a blank body', '  \n'], ['an empty object', {}]] as const;
+
+  describe('POST /api/v1/jobs/{id}/cancel', () => {
+    it('ends a queued job at once as the key that cancels and answers 200 with the job, uncached', async () => {
+      const api = fakePublicApi();
+      const job = sent(api);
+      const response = await cancel(api, job.id, { acting_for: 'Jane D.' }, SECRETS.runnersOther);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(JobSchema.parse(await response.json())).toMatchObject({ id: job.id, status: 'cancelled', cancelled_by: { key: 'Support bot', acting_for: 'Jane D.' } });
+      expect(api.runnersState.jobs[0]).toMatchObject({ status: 'cancelled', cancelled_by_key: OTHER_KEY, cancelled_for: 'Jane D.' });
+    });
+
+    it('asks a running job to stop and answers 200 with the job still running, the key that asked on it', async () => {
+      const api = fakePublicApi();
+      const job = sent(api, { status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+      const response = await cancel(api, job.id);
+      expect(response.status).toBe(200);
+      expect(JobSchema.parse(await response.json())).toMatchObject({ status: 'running', ended_at: null, cancelled_by: { key: 'QA dashboard', acting_for: null } });
+      expect(api.runnersState.jobs[0]).toMatchObject({ status: 'running', cancel_requested: true });
+    });
+
+    for (const [what, body] of EMPTY_BODIES) {
+      it(`takes ${what} as acting for no one`, async () => {
+        const api = fakePublicApi();
+        const job = sent(api);
+        expect((await cancel(api, job.id, body)).status).toBe(200);
+        expect(api.runnersState.jobs[0]).toMatchObject({ status: 'cancelled', cancelled_by_key: API_KEY, cancelled_for: null });
+      });
+    }
+
+    for (const [what, body, field] of BAD_BODIES) {
+      it(`answers 422 to ${what}, naming the field, and cancels nothing`, async () => {
+        const api = fakePublicApi();
+        const response = await cancel(api, sent(api).id, body);
+        expect(response.status).toBe(422);
+        const error = await errorOf(response);
+        expect(error.code).toBe('invalid_request');
+        expect(error.message).toContain(field);
+        expect(untouched(api, 1)).toBe(true);
+      });
+    }
+
+    it('answers 409 conflict to an ended job, a second cancel included, in the page’s words', async () => {
+      const api = fakePublicApi();
+      const [ended, job] = [failed(api), sent(api)];
+      const refused = await cancel(api, ended.id);
+      expect([refused.status, await errorOf(refused)]).toEqual([409, { code: 'conflict', message: 'This job has ended: failed.' }]);
+      expect((await cancel(api, job.id)).status).toBe(200);
+      const again = await cancel(api, job.id, undefined, SECRETS.runnersOther);
+      expect([again.status, await errorOf(again)]).toEqual([409, { code: 'conflict', message: 'This job has ended: cancelled.' }]);
+      expect(api.runnersState.jobs[1]).toMatchObject({ cancelled_by_key: API_KEY });
+    });
+
+    for (const [what, secret] of [['no header', null], ['an unknown key', SECRETS.unknown], ['a revoked key', SECRETS.revoked]] as const) {
+      it(`answers 401 to ${what}, cancelling nothing`, async () => {
+        const api = fakePublicApi();
+        const response = await cancel(api, sent(api).id, undefined, secret);
+        expect(response.status).toBe(401);
+        expect(untouched(api, 1)).toBe(true);
+      });
+    }
+
+    it('answers 404 to the jobs a key learns nothing of, and 403 off its list, cancelling nothing', async () => {
+      const api = fakePublicApi();
+      const [person, mine] = [sent(api, { sent_by_key: null }), sent(api)];
+      const statusOf = async (id: string, secret = SECRETS.runners) => (await cancel(api, id, undefined, secret)).status;
+      expect([await statusOf(person.id), await statusOf(mine.id, SECRETS.south), await statusOf('not-an-id'), await statusOf(ACTED)]).toEqual([404, 404, 404, 404]);
+      expect(await statusOf(mine.id, SECRETS.runnersLimited)).toBe(403);
+      expect(untouched(api, 2)).toBe(true);
+    });
+  });
+
+  describe('POST /api/v1/jobs/{id}/relaunch', () => {
+    it('sends a failed job again and answers 202 with the new job, queued, continuing the first, the first key’s and uncached', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      const response = await relaunch(api, job.id, { acting_for: 'Jane D.' }, SECRETS.runnersOther);
+      expect(response.status).toBe(202);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      const relaunched = JobSchema.parse(await response.json());
+      expect(relaunched).toMatchObject({ status: 'queued', line: '/omni:bug-fix #314', repo: 'demo-org/app', continues: job.id, continued_by: null, acting_for: 'Jane D.' });
+      expect(api.runnersState.jobs.find((j) => j.id === relaunched.id)).toMatchObject({ sent_by: OLGA, sent_by_key: API_KEY, continues: job.id, notify_url: NOTIFY });
+    });
+
+    it('resumes a job stopped mid-way and sends a cancelled one again', async () => {
+      const api = fakePublicApi();
+      const stopped = failed(api, { status: 'done', exit_code: 0, reason: null, outcome: 'stopped', line: '/omni:yolo 2338' });
+      const cancelled = failed(api, { status: 'cancelled', cancel_requested: true, reason: null });
+      const [resumed, again] = [await relaunch(api, stopped.id), await relaunch(api, cancelled.id)];
+      expect([resumed.status, again.status]).toEqual([202, 202]);
+      expect(JobSchema.parse(await resumed.json())).toMatchObject({ line: '/omni:yolo 2338', continues: stopped.id });
+      expect(JobSchema.parse(await again.json())).toMatchObject({ continues: cancelled.id });
+    });
+
+    for (const [what, body] of EMPTY_BODIES) {
+      it(`takes ${what} as acting for no one`, async () => {
+        const api = fakePublicApi();
+        const response = await relaunch(api, failed(api).id, body);
+        expect(response.status).toBe(202);
+        expect(JobSchema.parse(await response.json()).acting_for).toBeNull();
+      });
+    }
+
+    it('reads the first job as carried on by the new one', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      const relaunched = JobSchema.parse(await (await relaunch(api, job.id)).json());
+      const read = await getJob(get(`/api/v1/jobs/${job.id}`, `Bearer ${SECRETS.runners}`), job.id, deps(api));
+      expect(JobSchema.parse(await read.json())).toMatchObject({ continued_by: relaunched.id });
+    });
+
+    for (const [what, body, field] of BAD_BODIES) {
+      it(`answers 422 to ${what}, naming the field, and queues nothing`, async () => {
+        const api = fakePublicApi();
+        const response = await relaunch(api, failed(api).id, body);
+        expect(response.status).toBe(422);
+        const error = await errorOf(response);
+        expect(error.code).toBe('invalid_request');
+        expect(error.message).toContain(field);
+        expect(api.runnersState.jobs).toHaveLength(1);
+      });
+    }
+
+    it('answers 409 conflict to a job the page offers neither Send again nor Resume for, and to one already carried on', async () => {
+      const api = fakePublicApi();
+      const [live, done, job] = [sent(api), failed(api, { status: 'done', exit_code: 0, outcome: 'pr-opened' }), failed(api)];
+      for (const id of [live.id, done.id]) expect((await relaunch(api, id)).status).toBe(409);
+      expect((await relaunch(api, job.id)).status).toBe(202);
+      const again = await relaunch(api, job.id, undefined, SECRETS.runnersOther);
+      expect([again.status, await errorOf(again)]).toEqual([409, { code: 'conflict', message: 'This job was carried on already.' }]);
+      expect(api.runnersState.jobs).toHaveLength(4);
+    });
+
+    for (const [what, secret] of [['no header', null], ['an unknown key', SECRETS.unknown], ['a revoked key', SECRETS.revoked]] as const) {
+      it(`answers 401 to ${what}, queueing nothing`, async () => {
+        const api = fakePublicApi();
+        const response = await relaunch(api, failed(api).id, undefined, secret);
+        expect(response.status).toBe(401);
+        expect(api.runnersState.jobs).toHaveLength(1);
+      });
+    }
+
+    it('answers 404 to the jobs a key learns nothing of, and 403 off its list, queueing nothing', async () => {
+      const api = fakePublicApi();
+      const [person, mine] = [failed(api, { sent_by_key: null }), failed(api)];
+      const statusOf = async (id: string, secret = SECRETS.runners) => (await relaunch(api, id, undefined, secret)).status;
+      expect([await statusOf(person.id), await statusOf(mine.id, SECRETS.south), await statusOf('not-an-id'), await statusOf(ACTED)]).toEqual([404, 404, 404, 404]);
+      expect(await statusOf(mine.id, SECRETS.runnersLimited)).toBe(403);
+      expect(api.runnersState.jobs).toHaveLength(2);
+    });
+  });
+
+  describe('a failure', () => {
+    it('answers 500 that never carries the database’s words, for a cancel and a relaunch', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      const logs: string[] = [];
+      const gone = () => Promise.reject(new Error('relation "runner_jobs" is gone'));
+      const broken: PublicApiDeps = {
+        ...deps(api, logs),
+        service: publicApiService(api.repository, { ...api.runners, cancelByKey: gone, relaunchByKey: gone }),
+      };
+      const responses = [
+        await cancelJob(post(`/api/v1/jobs/${job.id}/cancel`, undefined), job.id, broken),
+        await relaunchJob(post(`/api/v1/jobs/${job.id}/relaunch`, undefined), job.id, broken),
+      ];
+      for (const response of responses) {
+        expect(response.status).toBe(500);
+        expect(await errorOf(response)).toEqual({ code: 'internal', message: FAILED });
+      }
+      expect(logs).toHaveLength(2);
     });
   });
 });

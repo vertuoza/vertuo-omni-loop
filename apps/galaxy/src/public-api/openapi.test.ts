@@ -25,6 +25,9 @@ function routePaths(dir = V1): string[] {
 describe('the OpenAPI reference', () => {
   const document = openApiDocument();
   const schemasText = () => JSON.stringify(document.paths?.['/api/v1/jobs/{id}']);
+  /** The path item of a route under /api/v1/jobs/{id}, and the statuses an operation answers. */
+  const route = (name: string) => document.paths?.[`/api/v1/jobs/{id}/${name}`];
+  const statuses = (operation: { responses?: object } | undefined) => Object.keys(operation?.responses ?? {}).sort();
 
   it('is an OpenAPI 3.1 document with a title and a version', () => {
     expect(document.openapi).toBe('3.1.0');
@@ -118,11 +121,9 @@ describe('the OpenAPI reference', () => {
   });
 
   describe('a job’s questions, answers and dismissal (PRD 2425 s6)', () => {
-    const route = (name: string) => document.paths?.[`/api/v1/jobs/{id}/${name}`];
     const questions = () => route('questions')?.get;
     const answers = () => route('answers')?.post;
     const dismissal = () => route('dismiss')?.post;
-    const statuses = (operation: { responses?: object } | undefined) => Object.keys(operation?.responses ?? {}).sort();
 
     it('lists the three routes in the Bug fixes group, read with a key, by the job’s id', () => {
       for (const operation of [questions(), answers(), dismissal()]) {
@@ -178,7 +179,64 @@ describe('the OpenAPI reference', () => {
 
     it('is named from the job’s own read, which says where its questions are read and closed', () => {
       const description = document.paths?.['/api/v1/jobs/{id}']?.get?.description;
-      for (const route of ['GET /api/v1/jobs/{id}/questions', 'POST /api/v1/jobs/{id}/answers', 'POST /api/v1/jobs/{id}/dismiss']) expect(description).toContain(route);
+      for (const named of ['GET /api/v1/jobs/{id}/questions', 'POST /api/v1/jobs/{id}/answers', 'POST /api/v1/jobs/{id}/dismiss']) expect(description).toContain(named);
+    });
+  });
+
+  describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
+    const cancellation = () => route('cancel')?.post;
+    const relaunch = () => route('relaunch')?.post;
+
+    it('lists both routes in the Bug fixes group, POST only, read with a key, by the job’s id', () => {
+      for (const operation of [cancellation(), relaunch()]) {
+        expect(operation?.tags).toEqual(['Bug fixes']);
+        expect(operation?.security).toEqual([{ bearerAuth: [] }]);
+        expect(operation?.parameters?.map((p) => ('name' in p ? p.name : ''))).toEqual(['id']);
+        expect(operation?.summary).toBeTruthy();
+      }
+      expect(route('cancel')).not.toHaveProperty('get');
+      expect(route('relaunch')).not.toHaveProperty('get');
+    });
+
+    it('answers a cancel with 200 and a relaunch with 202, each also 401, 403, 404, 409, 422 and 500', () => {
+      expect(statuses(cancellation())).toEqual(['200', '401', '403', '404', '409', '422', '500']);
+      expect(statuses(relaunch())).toEqual(['202', '401', '403', '404', '409', '422', '500']);
+    });
+
+    it('takes no body at all, or an acting_for of 1 to 80 characters of a set, and nothing else', () => {
+      for (const operation of [cancellation(), relaunch()]) {
+        const body = JSON.stringify(operation?.requestBody);
+        expect(operation?.requestBody).not.toMatchObject({ required: true });
+        for (const part of ['"acting_for"', '"minLength":1', '"maxLength":80', '"pattern"', '"additionalProperties":false']) expect(body, part).toContain(part);
+      }
+    });
+
+    it('says a cancel does what the page’s does: a queued or claimed job ends at once, a running one is asked to stop, and the key is recorded', () => {
+      expect(cancellation()?.description).toMatch(/queued or claimed/);
+      expect(cancellation()?.description).toMatch(/asked to stop/);
+      expect(cancellation()?.description).toMatch(/cancelled_by/);
+    });
+
+    it('says a relaunch is Send again or Resume, which jobs it takes, and that the new job continues the first as the key that sent it', () => {
+      const description = relaunch()?.description;
+      expect(description).toMatch(/Send again/);
+      expect(description).toMatch(/Resume/);
+      expect(description).toMatch(/failed, cancelled or stopped/);
+      expect(description).toMatch(/continues/);
+      expect(description).toMatch(/key that sent/);
+      expect(description).toMatch(/notify_url/);
+    });
+
+    it('says what the 409 is for each: an ended job, a job the page offers neither for, a job carried on already', () => {
+      expect(JSON.stringify(cancellation()?.responses?.['409'])).toMatch(/has ended/);
+      const conflict = JSON.stringify(relaunch()?.responses?.['409']);
+      expect(conflict).toMatch(/neither Send again nor Resume/);
+      expect(conflict).toMatch(/carried on already/);
+    });
+
+    it('is named from the job’s own read, which says where a key cancels and relaunches it', () => {
+      const description = document.paths?.['/api/v1/jobs/{id}']?.get?.description;
+      for (const named of ['POST /api/v1/jobs/{id}/cancel', 'POST /api/v1/jobs/{id}/relaunch']) expect(description).toContain(named);
     });
   });
 
