@@ -19,6 +19,7 @@ import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
 import { peopleOf } from '../../people/load';
 import type { StageRow } from '../../stages/stage';
+import type { MilestoneRow } from '../../timeline/store';
 import type { GithubSummary } from '../github/summary';
 import { DOSSIER_KINDS, latestVersions, type DossierListRow, type DossierRoundRow, type DossierVersionRow } from '../store';
 import type { DossierRead } from './view';
@@ -275,6 +276,17 @@ export const DEMO_GITHUB: GithubSummary = {
 /** The demo dossier's repositories: its home, then its planet's regions. */
 const DEMO_REPOS = [DEMO_REPO, 'demo-org/nimbus-core', 'demo-org/nimbus-web'];
 
+/** The demo PRD's milestones (PRD 2370, s5): written, approved, its feature PR open and its first slice merged. */
+function demoMilestones(opened: number): MilestoneRow[] {
+  return [
+    { lane: DEMO_REPO, milestone: 'idea', pr: null, reached_at: iso(opened) },
+    { lane: DEMO_REPO, milestone: 'plan', pr: null, reached_at: iso(opened + 90 * MIN) },
+    { lane: DEMO_REPO, milestone: 'approved', pr: null, reached_at: iso(opened + 24 * 60 * MIN) },
+    { lane: DEMO_REPO, milestone: 'opened', pr: parsePr(76), reached_at: iso(opened + 25 * 60 * MIN) },
+    { lane: DEMO_REPO, milestone: 'first-slice', pr: parsePr(77), reached_at: iso(opened + 2 * 24 * 60 * MIN) },
+  ];
+}
+
 /** The demo PRD's stored stages: opened, its phase-0 merged, its first slice merged; synced 5 minutes ago. */
 function demoStages(opened: number): StageRow[] {
   const synced = iso(opened + 3 * 24 * 60 * MIN - 5 * MIN);
@@ -320,6 +332,7 @@ export function demoDossier(now: number): DossierRead {
     github: DEMO_GITHUB,
     slices: 5,
     stages: demoStages(opened),
+    milestones: demoMilestones(opened),
     demo: true,
     people: DEMO_PEOPLE,
   };

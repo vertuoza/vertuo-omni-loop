@@ -113,8 +113,7 @@ describe('a PRD', () => {
     }
   });
 
-  it('knows no Variations, Bug record or Timeline tab', () => {
-    expect(view(fix('prd', 216), [], { tab: 'timeline' }).tab).toBe('before-after');
+  it('knows no Variations or Bug record tab', () => {
     expect(view(fix('prd', 216), [], { tab: 'variations' }).tab).toBe('before-after');
     expect(view(fix('prd', 216), [], { tab: 'bug-record' }).tab).toBe('before-after');
   });
