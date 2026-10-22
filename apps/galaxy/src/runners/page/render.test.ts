@@ -24,6 +24,9 @@ function demo(): Extract<RunnersPageView, { kind: 'board' }> {
 }
 const withBoard = (change: (board: Board) => Board): RunnersPageView => { const view = demo(); return { ...view, board: change(view.board) }; };
 
+/** The buttons of a job row, but its Terminal. */
+const actionsOf = (row: string): (string | undefined)[] => [...row.matchAll(/<button[^>]*>([^<]+)<\/button>/g)].map((m) => m[1]).filter((a) => a !== 'Terminal');
+
 /** The markup of the job row whose line is `line`, up to the next one. */
 function jobRow(html: string, line: string): string {
   const start = html.indexOf(`>${line}<`);
@@ -40,6 +43,46 @@ describe('the board', () => {
     expect(text(jobRow(html, '/omni:bug-fix Issue 548 totals'))).toContain('API key QA dashboard made by @ada');
     expect(text(jobRow(html, '/omni:pr-care 1801'))).toContain('@ada');
     expect(text(jobRow(html, '/omni:pr-care 1801'))).not.toContain('made by');
+  });
+
+  it('reads ` · for <acting_for>` after made by, under the key, when the app said whom it acted for (PRD 2425)', () => {
+    const row = jobRow(html, '/omni:bug-fix 314');
+    expect(text(row)).toContain('API key cleaner made by @ada · for Jane D.');
+    expect(row).toContain('<small class="runners-muted runners-made-by"> made by @ada · for Jane D.</small>');
+    expect(text(jobRow(html, '/omni:bug-fix 322'))).toContain('API key cleaner made by @ada · for Jane D.');
+  });
+
+  it('reads a key\'s job as before when the app named no one, and a person\'s job with no for part (PRD 2425)', () => {
+    expect(text(jobRow(html, '/omni:bug-fix Issue 548 totals'))).toContain('API key QA dashboard made by @ada Any runner');
+    expect(text(jobRow(html, '/omni:bug-fix Issue 548 totals'))).not.toContain(' · for ');
+    expect(text(jobRow(html, '/omni:pr-care 1801'))).not.toContain(' · for ');
+    expect(text(jobRow(html, '/omni:yolo 1717'))).not.toContain(' · for ');
+  });
+
+  it('reads Cancelled with `by API key <name>` under it for a job a key cancelled, and a person\'s cancel as before (PRD 2425)', () => {
+    const row = jobRow(html, '/omni:bug-fix 318');
+    expect(text(row)).toContain('Cancelled by API key cleaner');
+    expect(row).toContain('<span class="runners-by" data-content="true">by API key cleaner</span>');
+    expect(row).toContain('runners-status is-off');
+    expect(text(row)).toContain('API key cleaner made by @ada · for Jane D.');
+    expect(actionsOf(row)).toEqual(['Send again']);
+    const person = jobRow(html, '/omni:plan 1699');
+    expect(text(person)).toContain('Cancelled');
+    expect(person).not.toContain('runners-by');
+    expect(text(person)).not.toContain('by API key');
+  });
+
+  it('shows a key\'s cancel on no job that is not cancelled', () => {
+    const page = render(withBoard((board) => ({ ...board, jobs: board.jobs.map((job): Job => ({ ...job, status: 'done', cancelledByKey: 'cleaner' })) })));
+    expect(page).not.toContain('runners-by');
+  });
+
+  it('reads a key\'s done bug fix as Done, whatever the bug fix ended on (PRD 2425)', () => {
+    const row = jobRow(html, '/omni:bug-fix 322');
+    expect(text(row)).toContain('Done');
+    expect(row).toContain('runners-status is-done');
+    expect(row).not.toContain('data-answer');
+    expect(row).not.toContain('PRD page');
   });
 
   it('names the Omni app as the sender of a retro job, with retro of PRD <n> under it, linked to the retro PR (PRD 2338)', () => {
@@ -214,6 +257,7 @@ describe('the page opened with ?terminal=<job id>', () => {
 const idOf = (line: string): string => demo().board.jobs.find((job) => job.line === line)?.id ?? '';
 const ASKING = idOf('/omni:bug-fix 314');
 const ANSWERED = idOf('/omni:bug-fix 301');
+const KEY_ANSWERED = idOf('/omni:bug-fix 322');
 /** The demo as a page read from the database is: its questions are not on the page, the drawer reads them. */
 const live = (): RunnersPageView => { const view = demo(); return { kind: 'board', name: view.name, board: view.board, fleets: view.fleets, prds: view.prds, now: view.now, answered: view.answered }; };
 
@@ -320,6 +364,33 @@ describe('the page opened with ?answer=<job id> (PRD 2255 s3)', () => {
     const dismissed = render({ ...view, demoQuestions: (view.demoQuestions ?? []).map((row) => (row.job === ANSWERED ? { ...row, state: 'dismissed' as const, answers: null, byLogin: 'olga' } : row)) }, null, ANSWERED);
     expect(text(dismissed)).toContain('Dismissed by @olga');
     expect(dismissed).not.toContain('need-foot');
+  });
+
+  it('reads `Already answered by API key <name>`, then ` · for <acting_for>`, for a round a key answered, with neither button (PRD 2425)', () => {
+    const closed = render(demo(), null, KEY_ANSWERED);
+    expect(text(closed)).toContain('Need human · widgets · #322');
+    expect(text(closed)).toContain('Already answered by API key cleaner · for Jane D.');
+    expect(closed).not.toContain('Already answered by @');
+    expect(closed).not.toContain('need-foot');
+    expect(text(closed)).not.toContain('Send answers');
+    expect(closed).not.toContain('>Dismiss<');
+  });
+
+  it('reads `Dismissed by API key <name>`, then ` · for <acting_for>`, for a round a key dismissed (PRD 2425)', () => {
+    const view = demo();
+    const dismissed = render({ ...view, demoQuestions: (view.demoQuestions ?? []).map((row) => (row.job === KEY_ANSWERED ? { ...row, state: 'dismissed' as const, answers: null } : row)) }, null, KEY_ANSWERED);
+    expect(text(dismissed)).toContain('Dismissed by API key cleaner · for Jane D.');
+    expect(dismissed).not.toContain('need-foot');
+  });
+
+  it('reads the key alone when the app named no one, and a person\'s close as before (PRD 2425)', () => {
+    const view = demo();
+    const unnamed = render({ ...view, demoQuestions: (view.demoQuestions ?? []).map((row) => (row.job === KEY_ANSWERED ? { ...row, actingFor: null } : row)) }, null, KEY_ANSWERED);
+    const inDrawer = (page: string) => text(page.slice(page.indexOf('data-screen="runner-need-human"')));
+    expect(inDrawer(unnamed)).toContain('Already answered by API key cleaner');
+    expect(inDrawer(unnamed)).not.toContain(' · for ');
+    expect(inDrawer(render(demo(), null, ANSWERED))).toContain('Already answered by @ada');
+    expect(inDrawer(render(demo(), null, ANSWERED))).not.toContain('API key');
   });
 
   it('says the questions are being read, and offers no button yet, on a page read from the database', () => {

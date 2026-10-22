@@ -4,7 +4,7 @@ import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, FixWithAnswersButton, FleetPicker, Refresh, ResumeButton, SendAgainButton } from './actions';
 import {
-  afterAnswersWords, answeredOf, canAnswer, canCancel, canResume, canSendAgain, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  afterAnswersWords, answeredOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Answered, type Fleet, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
 } from './model';
 import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
@@ -32,7 +32,9 @@ import './runners.css';
 // answered or dismissed it reads Done and carries no button. A job that waited on answers reads Answered ·
 // fixing and Answered · fixed once they are in, linking the fix job, which reads `after answers · job <id>`
 // linking back; with every asked item answered and no fix queued it reads Answered with Fix with answers,
-// the row's one primary action (PRD 2270 s2).
+// the row's one primary action (PRD 2270 s2). A job an API key sent names the key as its sender, with `made by
+// @<login>` under it and ` · for <acting_for>` when the app said whom it acted for; a job a key cancelled reads
+// Cancelled with `by API key <name>` under it (PRD 2425 s5). A bug fix's own end reads Done, as it did.
 
 type Supabase = { url: string; key: string };
 
@@ -143,6 +145,12 @@ function StatusWords({ job, now, answered }: { job: Job; now: Date; answered: An
   return <span className={`runners-status is-${answered?.tone ?? statusTone(job.status, job.outcome)}${canAnswer(job) ? ' is-human' : ''}`}>{words}</span>;
 }
 
+/** Under Cancelled, which API key cancelled the job (PRD 2425); nothing for any other job. */
+function CancelledBy({ job }: { job: Job }) {
+  const words = cancelledByWords(job);
+  return words === null ? null : <span className="runners-by" data-content>{words}</span>;
+}
+
 function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }: { job: Job; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; primary: boolean; answeredIds: readonly string[] }) {
   const waiting = waitingWords(job, board.runners);
   const tokens = jobTokensWords(job);
@@ -161,6 +169,7 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
       <span data-content>{whereWords(job, board.runners, fleets)}</span>
       <span>
         <StatusWords job={job} now={now} answered={answered} />
+        <CancelledBy job={job} />
         {after !== null && job.continues && <span className="runners-why"><a href={`#job-${job.continues}`} data-content>{after}</a></span>}
         {slicesWords(job) !== null && <span className="runners-why" data-content>{slicesWords(job)}</span>}
         {tokens !== null && <span className="runners-tokens" title={tokens.title}>{tokens.text}</span>}
