@@ -28,6 +28,8 @@ import { dossierView, readPick, type DossierRead } from './view';
 import type { VoiceCast, VoiceView } from './voice';
 import { readShownVoice, readVoiceCast } from './voice-source';
 import { kindOf, misrouted, rowKind } from './work';
+import { createTimings } from './timing';
+import { ServerTimingMark } from './timing-mark';
 import { readDockPlayer } from './dock-player';
 import { questionsHref } from './working';
 import type { WorkKind } from '../store';
@@ -271,10 +273,11 @@ async function productOutboxOf(db: Db, dossier: DossierRead['dossier'], tab: str
 export async function dossierRoute(route: WorkKind, { params, searchParams }: DossierRouteProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const pick = readPick(query);
+  const timings = createTimings(); // PRD 2401 s1: the page's reads, each by name
   const mode = serverEnv().mode;
 
   if (mode === 'demo') return demoPage(route, id, query, pick);
-  const session = await dossierSession(mode);
+  const session = await timings.time('viewer', dossierSession(mode));
   if (!session) return <DossiersClosed />;
   const { env, db, user } = session;
   if (!user) return <DossierSignIn supabase={env} returnPath={dossierCallbackPath(id)} error={one(query.signin_error)} />;
@@ -283,7 +286,7 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   const proofs = isDossierId(id) ? readProofs(proofStore(db), id, { sign: pick.tab === 'proof', version: pick.version }) : Promise.resolve(null);
   const pitches = isDossierId(id) ? readPitches(pitchStore(db), id, { sign: pick.tab === 'pitch', pitch: pick.pitch ?? null }) : Promise.resolve(null);
   try {
-    read = await readDossier(db, id, user.id);
+    read = await readDossier(db, id, user.id, timings);
   } catch (error) {
     console.error(error);
     return <DossierDatabaseDown />;
@@ -310,15 +313,15 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   };
   const { prd } = read.dossier;
   if (prd !== null && kindOf(read.dossier) === 'prd') {
-    const approval = approvalOf(db, read, user.id);
-    const send = liveSendSetup(user.id, dossier.workspace_id, dossier.home_repo);
-    const fixing = fixingRead(dossier, prd);
-    read = { ...read, proofs: await proofs, pitches: await pitches, ...(await approval), fixing: await fixing };
+    const approval = timings.time('approval', approvalOf(db, read, user.id));
+    const send = timings.time('send', liveSendSetup(user.id, dossier.workspace_id, dossier.home_repo));
+    const fixing = timings.time('fixing', fixingRead(dossier, prd));
+    read = { ...read, proofs: await timings.time('proofs', proofs), pitches: await timings.time('pitches', pitches), ...(await approval), fixing: await fixing };
     // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
     const first = dossierView(read, user.id, pick);
     const markdown = shownMarkdown(first, (shownId) => readContent(db, shownId));
     const voice = shownVoice(first, (shownId) => readContent(db, shownId), () => readVoiceCast(db, dossier.workspace_id));
-    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read, prd)} markdown={markdown} voice={voice} supabase={env} live={live} send={await send} />;
+    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read, prd)} markdown={markdown} voice={voice} supabase={env} live={live} send={await send} timing={<ServerTimingMark timings={timings} />} />;
   }
   const withFix = { ...read, ...(await fixOf(db, read)) };
   const view = dossierView(withFix, user.id, pick);

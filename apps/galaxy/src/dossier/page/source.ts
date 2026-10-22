@@ -21,6 +21,7 @@ import {
 } from '../store';
 import { parsePlanSlices } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { isOneOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
+import { createTimings, type Timings } from './timing';
 import type { DossierRead } from './view';
 
 export type Db = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -71,17 +72,18 @@ async function readAnswerable(db: Db, rounds: DossierRoundRow[] | null, me: stri
 /** The dossier, its versions (without their content), its workspace's members, its rounds, its
  * repositories, the open rounds `me` may answer, and the workspace's people directory for the faces
  * (PRD 652; a failed read falls back to GitHub photos and initials, never an error); null when the viewer may not read it, or it does
- * not exist. */
-export async function readDossier(db: Db, id: string, me: string | null = null): Promise<DossierRead | null> {
+ * not exist. Each read is timed under its name in `timings` (PRD 2401 s1). */
+export async function readDossier(db: Db, id: string, me: string | null = null, timings: Timings = createTimings()): Promise<DossierRead | null> {
   if (!isDossierId(id)) return null;
   const reader = dossierReader(db);
-  const dossier = await reader.dossier(id);
+  const dossier = await timings.time('dossier', reader.dossier(id));
   if (!dossier) return null;
   const [versions, members, rounds, repos, people] = await Promise.all([
-    reader.versions(id), readMembers(db, dossier.workspace_id), readRounds(db, id), readRepos(db, id),
-    loadPeople(db, dossier.workspace_id),
+    timings.time('versions', reader.versions(id)), timings.time('members', readMembers(db, dossier.workspace_id)),
+    timings.time('rounds', readRounds(db, id)), timings.time('repos', readRepos(db, id)),
+    timings.time('people', loadPeople(db, dossier.workspace_id)),
   ]);
-  return { dossier, versions, members, rounds, repos, answerable: await readAnswerable(db, rounds, me), people };
+  return { dossier, versions, members, rounds, repos, answerable: await timings.time('answerable', readAnswerable(db, rounds, me)), people };
 }
 
 /** What one click on a quick round did: answered it, or found it taken — answered first by someone
