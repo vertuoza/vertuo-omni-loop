@@ -5,7 +5,7 @@ import { ENDED_JOBS_SHOWN } from './runners.contract';
 import type { ContinuationsRepository, JobLineRow, JobRow, QuestionsRow, RunnerRow, SampleRow } from './runners.repository';
 import { continuationsService, cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
-  API_KEY, CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, PIA, QUESTION, questionsRow, runnerRow, RUNNERS, SAM, SHARED, T0, WORKSPACE,
+  API_KEY, CIA_BOX, EVE, fakeStore, jobRow, lineRows, MO, OLGA, OTHER, OTHER_KEY, PIA, QUESTION, questionsRow, runnerRow, RUNNERS, SAM, SHARED, T0, WORKSPACE,
   type AllowedSkillRow,
 } from './fixtures/store.fake';
 
@@ -1132,7 +1132,7 @@ describe('a job\'s questions (PRD 2255)', () => {
       const asked = value(await w.service.ask(OLGA, job.id, ASK));
       expect(w.state.questions).toEqual([questionsRow({ job_id: job.id, issue: ASK.issue, lead: ASK.lead, questions: ASK.questions })]);
       expect(asked).toEqual({
-        job: job.id, issue: 314, lead: ASK.lead, questions: [QUESTION], state: 'open', answers: null, by: null, byLogin: null, at: null, resume: null,
+        job: job.id, issue: 314, lead: ASK.lead, questions: [QUESTION], state: 'open', answers: null, by: null, byLogin: null, byKey: null, actingFor: null, at: null, resume: null,
       });
     });
 
@@ -1497,5 +1497,207 @@ describe('a job stopped mid-way (PRD 2375)', () => {
     const w2 = world({ jobs: [other] });
     value(await w2.service.update(OLGA, other.id, { status: 'failed', exitCode: 1, slicesMerged: 1, slicesTotal: 2 }));
     expect(w2.state.jobs[0]).not.toHaveProperty('slices_merged');
+  });
+});
+
+// PRD 2425 s3: a bug fix's ending report carries its outcome, the pull request it proved had fixed the bug and every
+// pull request it opened; the server stores them, the page and the terminal still read the new words as Done, and a
+// key reads them back with the job, in the words the bug fix's log gave them.
+describe('what a bug fix reports and what a key reads of its job (PRD 2425 s3)', () => {
+  const PR = 'https://github.com/demo-org/app/pull/549';
+  const SECOND = 'https://github.com/demo-org/other/pull/12';
+  const PROVED = 'https://github.com/demo-org/app/pull/512';
+  const STORED = ['pr-opened', 'already-fixed', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'] as const;
+  /** A bug fix a key sent, running on the shared runner. */
+  const running = (more: Partial<JobRow> = {}) => jobRow({
+    status: 'running', runner_id: SHARED, line: '/omni:bug-fix 548 totals', sent_by: OLGA, sent_by_key: API_KEY, claimed_at: T0.toISOString(), running_at: T0.toISOString(), ...more,
+  });
+  /** The same job, ended `done`. */
+  const ended = (more: Partial<JobRow> = {}) => running({ status: 'done', exit_code: 0, ended_at: T0.toISOString(), ...more });
+  const keyJobOf = async (job: JobRow) => value(await world({ jobs: [job] }).service.keyJob(WORKSPACE, job.id));
+
+  describe('the report', () => {
+    it.each(STORED)('stores the word %s of a done report as it is', async (outcome) => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, outcome }));
+      expect(w.state.jobs[0]).toMatchObject({ status: 'done', outcome });
+    });
+
+    it('stores need-human as human, the outcome the server already sets for questions left open', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, outcome: 'need-human' }));
+      expect(w.state.jobs[0]).toMatchObject({ status: 'done', outcome: 'human' });
+    });
+
+    it('stores the pull request a done bug fix proved, and every pull request it opened, in order', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, outcome: 'already-fixed', fixedBy: PROVED, prs: [PR, SECOND] }));
+      expect(w.state.jobs[0]).toMatchObject({ outcome: 'already-fixed', fixed_by: PROVED, prs: [PR, SECOND] });
+    });
+
+    it('stores the pull requests of a failed report and no outcome, nor a proved pull request', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      value(await w.service.update(OLGA, job.id, { status: 'failed', exitCode: 1, outcome: 'stuck', fixedBy: PROVED, prs: [PR] }));
+      expect(w.state.jobs[0]).toMatchObject({ status: 'failed', prs: [PR] });
+      expect(w.state.jobs[0]).not.toHaveProperty('outcome');
+      expect(w.state.jobs[0]).not.toHaveProperty('fixed_by');
+    });
+
+    it('stores none of them for a report that carries none, as before this PRD', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0 }));
+      for (const column of ['outcome', 'fixed_by', 'prs']) expect(w.state.jobs[0], column).not.toHaveProperty(column);
+    });
+
+    it('still reads Need human for a bug fix that ended with its questions open, whatever word it reported', async () => {
+      const job = running();
+      const w = world({ jobs: [job], questions: [questionsRow({ job_id: job.id })] });
+      value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, outcome: 'stuck', prs: [PR] }));
+      expect(w.state.jobs[0]).toMatchObject({ outcome: 'human', prs: [PR] });
+    });
+  });
+
+  describe('the page and the terminal', () => {
+    it('read the new words as none, as a bug fix\'s end reads Done today, and Need human only while its questions are open', async () => {
+      const done = STORED.map((outcome) => ended({ outcome }));
+      const asked = ended({ outcome: 'human' });
+      const w = world({ jobs: [...done, asked], questions: [questionsRow({ job_id: asked.id })] });
+      const outcomes = new Map(value(await w.service.board(PIA, WORKSPACE)).jobs.map((job) => [job.id, job.outcome]));
+      expect(done.map((job) => outcomes.get(job.id))).toEqual(STORED.map(() => null));
+      expect(outcomes.get(asked.id)).toBe('human');
+      const terminal = value(await w.service.prdJobs(MO, 'demo-org/app', parsePrd(548)));
+      expect(terminal.filter((job) => job.outcome === null)).toHaveLength(STORED.length);
+      expect(terminal.filter((job) => job.outcome === 'human')).toHaveLength(1);
+    });
+
+    it('do not carry what only a key reads: the proved pull request and the pull requests stay out of the page\'s job', async () => {
+      const job = ended({ outcome: 'already-fixed', fixed_by: PROVED, prs: [PR], acting_for: 'Jane D.' });
+      const board = value(await world({ jobs: [job] }).service.board(PIA, WORKSPACE));
+      for (const field of ['fixedBy', 'prs']) expect(Object.keys(board.jobs[0] ?? {}), field).not.toContain(field);
+    });
+
+    it('carry whom a key said it acted for, and the key that cancelled a job by its name, for the page to show', async () => {
+      const acted = ended({ acting_for: 'Jane D.' });
+      const cancelled = ended({ status: 'cancelled', exit_code: null, cancel_requested: true, cancelled_by_key: OTHER_KEY, cancelled_for: 'Jane D.' });
+      const plain = ended();
+      const board = value(await world({ jobs: [acted, cancelled, plain] }).service.board(PIA, WORKSPACE));
+      const read = new Map(board.jobs.map((job) => [job.id, { actingFor: job.actingFor, cancelledByKey: job.cancelledByKey }]));
+      expect(read.get(acted.id)).toEqual({ actingFor: 'Jane D.', cancelledByKey: null });
+      expect(read.get(cancelled.id)).toEqual({ actingFor: null, cancelledByKey: 'Support bot' });
+      expect(read.get(plain.id)).toEqual({ actingFor: null, cancelledByKey: null });
+    });
+
+    it('carry the cancelling key\'s name in the job a cancel answers, too', async () => {
+      const queued = jobRow({ sent_by: OLGA, sent_by_key: API_KEY, acting_for: 'Jane D.' });
+      const w = world({ jobs: [queued] });
+      expect(value(await w.service.cancel(OLGA, queued.id))).toMatchObject({ status: 'cancelled', actingFor: 'Jane D.', cancelledByKey: null });
+    });
+
+    it('read a round a key closed: the key by its name, and whom it acted for, with no person', async () => {
+      const job = ended({ outcome: 'human' });
+      const closed = questionsRow({ job_id: job.id, closed_by_key: OTHER_KEY, closed_for: 'Jane D.', closed_at: T0.toISOString(), answers: { 'Which fix?': 'Guard the input' } });
+      const w = world({ jobs: [job], questions: [closed] });
+      expect(value(await w.service.questions(MO, job.id))).toMatchObject({ state: 'answered', by: null, byLogin: null, byKey: 'Support bot', actingFor: 'Jane D.' });
+    });
+
+    it('read a round a key dismissed the same way, and one a person closed or one still open with no key', async () => {
+      const dismissed = ended({ outcome: 'human' });
+      const byPerson = ended({ outcome: 'human' });
+      const open = ended({ outcome: 'human' });
+      const w = world({
+        jobs: [dismissed, byPerson, open],
+        questions: [
+          questionsRow({ job_id: dismissed.id, closed_by_key: API_KEY, closed_at: T0.toISOString() }),
+          questionsRow({ job_id: byPerson.id, closed_by: MO, closed_at: T0.toISOString(), answers: { 'Which fix?': 'Guard the input' } }),
+          questionsRow({ job_id: open.id }),
+        ],
+      });
+      expect(value(await w.service.questions(MO, dismissed.id))).toMatchObject({ state: 'dismissed', byKey: 'QA dashboard', actingFor: null });
+      expect(value(await w.service.questions(MO, byPerson.id))).toMatchObject({ state: 'answered', by: MO, byKey: null, actingFor: null });
+      expect(value(await w.service.questions(MO, open.id))).toMatchObject({ state: 'open', byKey: null, actingFor: null });
+    });
+  });
+
+  describe('a key reading its job', () => {
+    it('reads a done bug fix\'s outcome in the words of its log: need-human for the stored human', async () => {
+      const words = [...STORED, 'human'] as const;
+      const reads = await Promise.all(words.map(async (outcome) => (await keyJobOf(ended({ outcome }))).outcome));
+      expect(reads).toEqual(['pr-opened', 'already-fixed', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked', 'need-human']);
+    });
+
+    it('reads no outcome while the job runs, when it failed, when its runner reported none and for a yolo hand-off\'s word', async () => {
+      for (const job of [running(), ended({ status: 'failed', exit_code: 1, outcome: 'stuck' }), ended(), ended({ outcome: 'answers' }), ended({ outcome: 'stopped' })]) {
+        expect((await keyJobOf(job)).outcome, `${job.status} ${job.outcome ?? 'none'}`).toBeNull();
+      }
+    });
+
+    it('reads the proved pull request with already-fixed only', async () => {
+      expect(await keyJobOf(ended({ outcome: 'already-fixed', fixed_by: PROVED }))).toMatchObject({ outcome: 'already-fixed', fixedBy: PROVED });
+      expect((await keyJobOf(ended({ outcome: 'pr-opened', fixed_by: PROVED }))).fixedBy).toBeNull();
+      expect((await keyJobOf(ended({ outcome: 'already-fixed' }))).fixedBy).toBeNull();
+      expect((await keyJobOf(ended({ status: 'failed', exit_code: 1, fixed_by: PROVED }))).fixedBy).toBeNull();
+    });
+
+    it('reads every pull request the job opened, in order, and none for a job that opened none', async () => {
+      expect((await keyJobOf(ended({ outcome: 'pr-opened', prs: [PR, SECOND], pr_url: PR }))).prs).toEqual([PR, SECOND]);
+      expect((await keyJobOf(ended({ status: 'failed', exit_code: 1, prs: [PR] }))).prs).toEqual([PR]);
+      expect((await keyJobOf(ended())).prs).toEqual([]);
+      expect(await keyJobOf(ended({ pr_url: PR }))).toMatchObject({ prUrl: PR, prs: [] });
+    });
+
+    it('reads the state of its questions: none, open, answered or dismissed', async () => {
+      const [none, open, answered, dismissed] = [ended(), ended({ outcome: 'human' }), ended({ outcome: 'human' }), ended({ outcome: 'human' })];
+      const questions = [
+        questionsRow({ job_id: open.id }),
+        questionsRow({ job_id: answered.id, answers: { 'Which fix?': 'Guard the input' }, closed_by: MO, closed_at: T0.toISOString() }),
+        questionsRow({ job_id: dismissed.id, closed_by: MO, closed_at: T0.toISOString() }),
+      ];
+      const w = world({ jobs: [none, open, answered, dismissed], questions });
+      const states = await Promise.all([none, open, answered, dismissed].map(async (job) => value(await w.service.keyJob(WORKSPACE, job.id)).questions));
+      expect(states).toEqual([null, 'open', 'answered', 'dismissed']);
+    });
+
+    it('reads the job it carries on and the newest job that carries it on', async () => {
+      const first = ended({ outcome: 'human', queued_at: at(-300).toISOString() });
+      const resume = running({ continues: first.id, line: `/omni:bug-fix #314 --answers ${first.id}`, queued_at: at(-100).toISOString() });
+      const w = world({ jobs: [first, resume] });
+      expect(value(await w.service.keyJob(WORKSPACE, first.id))).toMatchObject({ continues: null, continuedBy: resume.id });
+      expect(value(await w.service.keyJob(WORKSPACE, resume.id))).toMatchObject({ continues: first.id, continuedBy: null });
+    });
+
+    it('reads whom the app acted for, and the key that cancelled it with whom that key acted for', async () => {
+      expect(await keyJobOf(ended())).toMatchObject({ actingFor: null, cancelledBy: null });
+      expect(await keyJobOf(running({ acting_for: 'Jane D.' }))).toMatchObject({ actingFor: 'Jane D.', cancelledBy: null });
+      const cancelled = await keyJobOf(ended({ status: 'cancelled', exit_code: null, cancelled_by_key: OTHER_KEY, cancelled_for: 'Sam' }));
+      expect(cancelled).toMatchObject({ status: 'cancelled', cancelledBy: { key: 'Support bot', actingFor: 'Sam' } });
+      expect((await keyJobOf(ended({ status: 'cancelled', cancelled_by_key: API_KEY }))).cancelledBy).toEqual({ key: 'QA dashboard', actingFor: null });
+      // A key the workspace no longer names is still a key that cancelled it.
+      expect((await keyJobOf(ended({ status: 'cancelled', cancelled_by_key: '00000000-0000-4000-8000-0000018302ff' }))).cancelledBy).toEqual({ key: 'unknown key', actingFor: null });
+    });
+
+    it('reads the log tail the Runners page keeps, or none while the job has none', async () => {
+      expect((await keyJobOf(running({ log_tail: '12:04:31 Bash: pnpm test\nDone: PR 549' }))).logTail).toBe('12:04:31 Bash: pnpm test\nDone: PR 549');
+      expect((await keyJobOf(running())).logTail).toBeNull();
+    });
+
+    it('reads a job just queued with nothing of the above', async () => {
+      const queued = value(await world().service.sendByKey({ id: API_KEY, name: 'QA dashboard', workspace: WORKSPACE, maker: OLGA }, { repo: 'demo-org/app', line: '/omni:bug-fix 548 totals' }));
+      expect(queued).toMatchObject({
+        outcome: null, fixedBy: null, prs: [], questions: null, continues: null, continuedBy: null, actingFor: null, cancelledBy: null, logTail: null,
+      });
+    });
+
+    it('still reads no job of a person, of another workspace or an unknown one', async () => {
+      const person = jobRow({ sent_by_key: null });
+      const keys = ended();
+      const w = world({ jobs: [person, keys] });
+      expect(await w.service.keyJob(WORKSPACE, person.id)).toMatchObject({ ok: false, kind: 'missing' });
+      expect(await w.service.keyJob('00000000-0000-4000-8000-000001830002', keys.id)).toMatchObject({ ok: false, kind: 'missing' });
+    });
   });
 });

@@ -334,6 +334,47 @@ describe('the outcome a report carries', () => {
   });
 });
 
+// What a bug fix's report carries (PRD 2425 s3): the seven words its hand-off ends on, the pull request it proved had
+// fixed the bug, and every pull request it opened; the server alone sets `human`, whose report word is `need-human`.
+describe('the outcome, fixedBy and prs a bug fix report carries (PRD 2425)', () => {
+  const PR = 'https://github.com/acme/widgets/pull/12';
+
+  it.each(['pr-opened', 'already-fixed', 'need-human', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'])('takes the word %s', (outcome) => {
+    expect(JobUpdateSchema.parse({ status: 'done', exitCode: 0, outcome })).toEqual({ status: 'done', exitCode: 0, outcome });
+  });
+
+  it('takes the pull request a bug fix proved had fixed it, and every pull request it opened', () => {
+    const report = { status: 'done', exitCode: 0, outcome: 'already-fixed', fixedBy: PR, prs: [] };
+    expect(JobUpdateSchema.parse(report)).toEqual(report);
+    const opened = { status: 'failed', exitCode: 1, prs: [PR, 'https://github.com/acme/other/pull/3'] };
+    expect(JobUpdateSchema.parse(opened)).toEqual(opened);
+  });
+
+  it('takes a report without them, as a runner from before this PRD sends', () => {
+    expect(JobUpdateSchema.parse({ status: 'done', exitCode: 0 })).toEqual({ status: 'done', exitCode: 0 });
+  });
+
+  it('refuses the stored word human, the yolo words spelled the key\'s way and an unknown word', () => {
+    for (const outcome of ['human', 'need_human', 'pr_opened', 'PR-OPENED', 'fixed']) {
+      expect(JobUpdateSchema.safeParse({ status: 'done', outcome }).success, outcome).toBe(false);
+    }
+  });
+
+  it('refuses a fixedBy that is no pull request link, and one that is null', () => {
+    for (const fixedBy of ['https://evil.test/acme/widgets/pull/12', 'https://github.com/acme/widgets/issues/12', 12, null]) {
+      expect(JobUpdateSchema.safeParse({ status: 'done', outcome: 'already-fixed', fixedBy }).success, String(fixedBy)).toBe(false);
+    }
+  });
+
+  it('keeps at most 50 pull requests, each a pull request link', () => {
+    const links = (count: number) => Array.from({ length: count }, (_, index) => `https://github.com/acme/widgets/pull/${String(index + 1)}`);
+    expect(JobUpdateSchema.safeParse({ status: 'done', prs: links(50) }).success).toBe(true);
+    expect(JobUpdateSchema.safeParse({ status: 'done', prs: links(51) }).success).toBe(false);
+    expect(JobUpdateSchema.safeParse({ status: 'done', prs: [PR, 'https://github.com/acme/widgets/issues/1'] }).success).toBe(false);
+    expect(JobUpdateSchema.safeParse({ status: 'done', prs: null }).success).toBe(false);
+  });
+});
+
 // The kit's reads (PRD 2251 s1): a job names a PRD by its line's first argument; the runners and a
 // PRD's jobs are read by the repository the terminal is in.
 describe('the PRD a line names', () => {
@@ -462,6 +503,18 @@ describe('the questions a job asks (PRD 2255)', () => {
     const answered = { ...read, state: 'answered', answers: { 'Which fix for Planning?': 'Make project nullable' }, by: '00000000-0000-4000-8000-0000018300b1', byLogin: 'mo', at: 't', resume: '00000000-0000-4000-8000-000001830202' };
     expect(JobQuestionsSchema.parse(answered).state).toBe('answered');
     expect(JobQuestionsSchema.safeParse({ ...read, state: 'closed' }).success).toBe(false);
+  });
+
+  it('reads the key that closed a round by its name and whom it acted for (PRD 2425), and a read without them as before', () => {
+    const read = {
+      job: '00000000-0000-4000-8000-000001830201', issue: 314, lead: ask.lead, questions: ask.questions, state: 'answered',
+      answers: { 'Which fix for Planning?': 'Make project nullable' }, by: null, byLogin: null, at: 't', resume: '00000000-0000-4000-8000-000001830202',
+    };
+    expect(JobQuestionsSchema.parse(read)).toEqual(read);
+    const byKey = { ...read, byKey: 'Support bot', actingFor: 'Jane D.' };
+    expect(JobQuestionsSchema.parse(byKey)).toEqual(byKey);
+    expect(JobQuestionsSchema.parse({ ...read, byKey: null, actingFor: null })).toMatchObject({ byKey: null, actingFor: null });
+    expect(JobQuestionsSchema.safeParse({ ...read, byKey: 7 }).success).toBe(false);
   });
 });
 

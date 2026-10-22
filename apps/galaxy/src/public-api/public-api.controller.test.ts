@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { API_KEY, OLGA, WORKSPACE } from '../runners/fixtures/store.fake';
+import { API_KEY, jobRow, OLGA, OTHER_KEY, questionsRow, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
 import { DEAD_KEY, FAILED, getJob, listBugFixes, listPrds, startBugFix, startMegaBugFix, NO_DATABASE, NO_KEY, type PublicApiDeps } from './public-api.controller';
 import { JobSchema, PublicApiErrorSchema } from './public-api.contract';
@@ -254,6 +254,76 @@ describe('POST /api/v1/bug-fixes and GET /api/v1/jobs/{id} (PRD 2022 s4)', () =>
       expect(response.status, id).toBe(404);
       expect((await errorOf(response)).code).toBe('not_found');
     }
+  });
+
+  it('answers 202 with every field of a job that has done nothing yet: no outcome, no pull request, no thread (PRD 2425)', async () => {
+    const api = fakePublicApi();
+    const body: unknown = await (await startBugFix(post(FIX), deps(api))).json();
+    expect(body).toMatchObject({
+      outcome: null, fixed_by: null, prs: [], questions: null, continues: null, continued_by: null, acting_for: null, cancelled_by: null, log_tail: null,
+    });
+    expect(JobSchema.parse(body)).toEqual(body);
+  });
+
+  describe('what a bug fix did (PRD 2425 s3)', () => {
+    const PROVED = 'https://github.com/demo-org/app/pull/512';
+    /** A bug fix the first key sent, ended `done` as the report says. */
+    function ended(api: FakePublicApi, more: Partial<ReturnType<typeof jobRow>> = {}) {
+      const job = jobRow({
+        status: 'done', runner_id: SHARED, line: '/omni:bug-fix 548 totals', sent_by: OLGA, sent_by_key: API_KEY, exit_code: 0,
+        claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+      });
+      api.runnersState.jobs.push(job);
+      return job;
+    }
+    const asked = (api: FakePublicApi, id: string, secret: string = SECRETS.runners) => getJob(get(`/api/v1/jobs/${id}`, `Bearer ${secret}`), id, deps(api));
+
+    it('answers 200 with an already_fixed job: its outcome, and the pull request it proved, in snake_case', async () => {
+      const api = fakePublicApi();
+      const job = ended(api, { outcome: 'already-fixed', fixed_by: PROVED });
+      const response = await asked(api, job.id);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      const body: unknown = await response.json();
+      expect(body).toMatchObject({ id: job.id, status: 'done', outcome: 'already_fixed', fixed_by: PROVED, prs: [] });
+      expect(JobSchema.parse(body)).toEqual(body);
+    });
+
+    it('answers 200 with a pull request as its link, its repository and its number', async () => {
+      const api = fakePublicApi();
+      const job = ended(api, { outcome: 'pr-opened', pr_url: 'https://github.com/demo-org/app/pull/549', prs: ['https://github.com/demo-org/app/pull/549'] });
+      const body: unknown = await (await asked(api, job.id)).json();
+      expect(body).toMatchObject({ outcome: 'pr_opened', prs: [{ url: 'https://github.com/demo-org/app/pull/549', repo: 'demo-org/app', number: 549 }] });
+    });
+
+    it('answers 200 with need_human and its questions open', async () => {
+      const api = fakePublicApi();
+      const job = ended(api, { outcome: 'human' });
+      api.runnersState.questions.push(questionsRow({ job_id: job.id }));
+      expect(await (await asked(api, job.id)).json()).toMatchObject({ outcome: 'need_human', questions: { state: 'open' } });
+    });
+
+    it('answers 200 to a second key of the workspace for the first key’s job', async () => {
+      const api = fakePublicApi();
+      const job = ended(api, { outcome: 'blocked', cancelled_by_key: OTHER_KEY });
+      const response = await asked(api, job.id, SECRETS.runnersOther);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ outcome: 'blocked', cancelled_by: { key: 'Support bot', acting_for: null } });
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, in the one error shape', async () => {
+      const api = fakePublicApi();
+      const job = ended(api);
+      const response = await asked(api, job.id, SECRETS.runnersLimited);
+      expect(response.status).toBe(403);
+      expect(await errorOf(response)).toEqual({ code: 'forbidden', message: 'demo-org/app is not on this API key’s list of repositories.' });
+    });
+
+    it('answers 404, not 403, to a limited key for a job a person sent', async () => {
+      const api = fakePublicApi();
+      const job = ended(api, { sent_by_key: null });
+      expect((await asked(api, job.id, SECRETS.runnersLimited)).status).toBe(404);
+    });
   });
 
   it('answers 401 to a job asked without a live key', async () => {

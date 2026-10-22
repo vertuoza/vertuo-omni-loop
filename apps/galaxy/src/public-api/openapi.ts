@@ -12,8 +12,8 @@ import {
 
 const ERROR_ANSWERS = {
   401: 'No key, an unknown key, a revoked key, or a key whose maker left the workspace.',
-  403: 'A repository outside the workspace or outside the key’s list of repositories.',
-  404: 'A job that does not exist, or that no key of this workspace queued.',
+  403: 'A repository outside the workspace or outside the key’s list of repositories, to start a job in or to read the job of.',
+  404: 'A job that does not exist, that a person sent, or that no key of this workspace queued.',
   422: 'A query or body the contract refuses, a cursor that does not decode, a description the runners refuse, or a repository that is not a plan repository; the message names the field.',
   500: 'The API could not answer; the message never carries a stack or a database error.',
 } as const;
@@ -93,12 +93,12 @@ function openApiRegistry(): OpenAPIRegistry {
     path: '/api/v1/jobs/{id}',
     tags: ['Bug fixes'],
     summary: 'Follow a job',
-    description: 'A job a key of this workspace queued: its status, the runner, the pull request’s link, the exit code, the reason and the times.',
+    description: 'A job a key of this workspace queued, whichever key it was: its status, the runner, the `pr_url` (the pull request a mega bug fix’s record is), the exit code, the reason and the times. A key whose list of repositories leaves the job’s repository out is refused.\n\nFor a bug fix or a mega bug fix it also says what the job did:\n\n- `outcome`: `pr_opened`, `already_fixed`, `need_human`, `needs_brainstorm`, `not_a_bug`, `stuck` or `blocked`; null while it runs, when it failed, or when its runner reported none.\n- `fixed_by`: the pull request that already fixed the bug, with `already_fixed` only.\n- `prs`: every pull request it opened, in order, a mega bug fix’s record last.\n- `questions`: the state of the questions it asked.\n- `continues`, `continued_by`: the job it carries on and the one that carries it on.\n- `acting_for`, `cancelled_by`: whom the key acted for, and the key that cancelled the job.\n- `log_tail`: the last lines of its log.',
     security: [{ bearerAuth: [] }],
     request: { params: z.object({ id: z.uuid().meta({ description: 'The job’s id, as `POST /api/v1/bug-fixes` or `POST /api/v1/mega-bug-fixes` answered it.', example: '0b4c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3' }) }) },
     responses: {
       200: { description: 'The job.', content: { 'application/json': { schema: JobSchema } } },
-      ...errors(401, 404, 500),
+      ...errors(401, 403, 404, 500),
     },
   });
 

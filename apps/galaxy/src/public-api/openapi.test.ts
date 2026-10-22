@@ -24,6 +24,7 @@ function routePaths(dir = V1): string[] {
 
 describe('the OpenAPI reference', () => {
   const document = openApiDocument();
+  const schemasText = () => JSON.stringify(document.paths?.['/api/v1/jobs/{id}']);
 
   it('is an OpenAPI 3.1 document with a title and a version', () => {
     expect(document.openapi).toBe('3.1.0');
@@ -66,6 +67,24 @@ describe('the OpenAPI reference', () => {
     const job = document.paths?.['/api/v1/jobs/{id}']?.get;
     expect(job?.parameters?.map((p) => ('name' in p ? p.name : ''))).toEqual(['id']);
     expect(Object.keys(job?.responses ?? {})).toEqual(expect.arrayContaining(['200', '401', '404', '500']));
+  });
+
+  it('describes reading a job, and refusing one off the key’s list with 403 (PRD 2425 s3)', () => {
+    const job = document.paths?.['/api/v1/jobs/{id}']?.get;
+    expect(Object.keys(job?.responses ?? {}).sort()).toEqual(['200', '401', '403', '404', '500']);
+    expect(job?.description).toMatch(/outcome.*fixed_by.*prs.*questions.*continues.*continued_by.*acting_for.*cancelled_by.*log_tail/s);
+  });
+
+  it.each(['outcome', 'fixed_by', 'prs', 'questions', 'continues', 'continued_by', 'acting_for', 'cancelled_by', 'log_tail'])(
+    'documents the job’s field %s (PRD 2425 s3)', (field) => { expect(schemasText()).toContain(`"${field}"`); },
+  );
+
+  it.each(['pr_opened', 'already_fixed', 'need_human', 'needs_brainstorm', 'not_a_bug', 'stuck', 'blocked'])(
+    'documents the outcome %s (PRD 2425 s3)', (word) => { expect(schemasText()).toContain(`"${word}"`); },
+  );
+
+  it('names a pull request’s link, repository and number in the job’s prs', () => {
+    for (const part of ['"url"', '"repo"', '"number"']) expect(schemasText()).toContain(part);
   });
 
   it('describes starting a mega bug fix, with a strict body and no 404', () => {

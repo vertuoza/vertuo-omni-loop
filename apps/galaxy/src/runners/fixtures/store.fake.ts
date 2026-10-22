@@ -41,7 +41,9 @@ const MEMBERS: Member[] = [
 
 /** Olga's API key, which sends in WORKSPACE. */
 export const API_KEY = '00000000-0000-4000-8000-0000018302a1';
-const KEYS = [{ id: API_KEY, workspaceId: WORKSPACE, name: 'QA dashboard' }];
+/** A second API key of WORKSPACE, Olga's too (PRD 2425): one that reads, cancels or answers a job the first sent. */
+export const OTHER_KEY = '00000000-0000-4000-8000-0000018302a2';
+const KEYS = [{ id: API_KEY, workspaceId: WORKSPACE, name: 'QA dashboard' }, { id: OTHER_KEY, workspaceId: WORKSPACE, name: 'Support bot' }];
 
 const FLEETS = [{ workspaceId: WORKSPACE, name: 'cia' }, { workspaceId: WORKSPACE, name: 'pirates' }];
 
@@ -200,6 +202,10 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       const found = state.jobs.find((j) => j.id === id);
       return Promise.resolve(found ? { ...found } : null);
     },
+    // As `select id … where continues = <job> order by queued_at desc limit 1`: the newest job that carries it on.
+    continuedBy: (jobId) => Promise.resolve(state.jobs
+      .filter((j) => j.continues === jobId)
+      .sort((a, b) => b.queued_at.localeCompare(a.queued_at))[0]?.id ?? null),
     insertJob: (job: NewJob) => {
       const row = jobRow({ workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy, sent_by_key: job.sentByKey, queued_at: stamp() });
       state.jobs.push(row);

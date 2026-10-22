@@ -1,4 +1,4 @@
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { PrNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { workPath } from '../dossier/page/work';
 import { currentStage } from '../stages/stage';
 import { decodeCursor, encodeCursor, type CursorList } from './cursor';
@@ -47,9 +47,31 @@ function startRefusal(kind: RunnerRefusal, error: string): Answered<never> {
   throw new Error(`runners: ${kind} ${error}`);
 }
 
+/** A bug fix's words in its log, as the API says them (PRD 2425): an underscore for each hyphen. */
+const OUTCOME_WORDS: Record<NonNullable<KeyJob['outcome']>, NonNullable<ApiJob['outcome']>> = {
+  'pr-opened': 'pr_opened', 'already-fixed': 'already_fixed', 'need-human': 'need_human', 'needs-brainstorm': 'needs_brainstorm',
+  'not-a-bug': 'not_a_bug', stuck: 'stuck', blocked: 'blocked',
+};
+
+/** What the runners stored for a pull request: `https://github.com/<owner>/<name>/pull/<number>`, as the report's check let it in. */
+const PULL_REQUEST = /^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)$/;
+
+/** A pull request a job opened, as the API names it: its link, its repository in lower case (as an allow-list names one) and its
+ * number. A link that is not one, which no report stores, is left out rather than failing the whole read. */
+function pullRequestOf(url: string): ApiJob['prs'] {
+  const [, repo = '', digits = ''] = PULL_REQUEST.exec(url) ?? [];
+  const number = PrNumberSchema.safeParse(Number(digits));
+  return number.success ? [{ url, repo: repo.toLowerCase(), number: number.data }] : [];
+}
+
 const jobOf = (job: KeyJob): ApiJob => ({
   id: job.id, line: job.line, repo: job.repo, status: job.status, runner: job.runner, pr_url: job.prUrl, exit_code: job.exitCode,
   reason: job.reason, queued_at: job.queuedAt, claimed_at: job.claimedAt, running_at: job.runningAt, ended_at: job.endedAt,
+  outcome: job.outcome === null ? null : OUTCOME_WORDS[job.outcome], fixed_by: job.fixedBy, prs: job.prs.flatMap(pullRequestOf),
+  questions: job.questions === null ? null : { state: job.questions },
+  continues: job.continues, continued_by: job.continuedBy, acting_for: job.actingFor,
+  cancelled_by: job.cancelledBy === null ? null : { key: job.cancelledBy.key, acting_for: job.cancelledBy.actingFor },
+  log_tail: job.logTail,
 });
 
 /** The line a bug fix runs: the description is the skill's argument, which the runners' line check reads. */
@@ -172,10 +194,13 @@ export function publicApiService(repository: Port, runners: RunnersPort) {
       return queueAs(key, repo, megaBugFixLine(body.description), body);
     },
 
-    /** A job a key of the key's workspace queued; any other is not found. */
+    /** A job a key of the key's workspace queued, whichever key it was, with what it did, on a repository of this key's
+     * allow-list (PRD 2425); a person's job, another workspace's and a job that does not exist are not found, whatever
+     * the list, so a key learns nothing of them, and one off its list is refused only once the job is known to be its
+     * workspace's. */
     async job(key: ApiKeyCaller, id: string): Promise<Answered<ApiJob>> {
       const found = await runners.keyJob(key.workspace, id);
-      if (found.ok) return { ok: true, value: jobOf(found.value) };
+      if (found.ok) return offList(key, found.value.repo) ?? { ok: true, value: jobOf(found.value) };
       if (found.kind === 'missing') return { ok: false, code: 'not_found', message: NO_JOB };
       throw new Error(`runners: ${found.kind} ${found.error}`);
     },

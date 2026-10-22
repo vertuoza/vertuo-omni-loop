@@ -10,7 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { JOB_OUTCOMES, QuestionSchema, RunnerHealthSchema, type Question } from './runners.contract';
+import { QuestionSchema, RunnerHealthSchema, STORED_OUTCOMES, type Question } from './runners.contract';
 
 /** What the reads and writes need: the tables, and the database's functions. */
 export type RunnersDb = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -56,8 +56,17 @@ const JobRow = z.object({
   released: z.array(z.number()).nullable().catch(null).optional(),
   /** Why its runner could not release them (PRD 2175). */
   release_error: z.string().nullable().catch(null).optional(),
-  /** What it ended on (PRD 2223, 2255); a value out of shape reads as none. */
-  outcome: z.enum(JOB_OUTCOMES).nullable().catch(null).optional(),
+  /** What it ended on (PRD 2223, 2255, 2425); a value out of shape reads as none. */
+  outcome: z.enum(STORED_OUTCOMES).nullable().catch(null).optional(),
+  /** The pull request a bug fix proved had already fixed the bug (PRD 2425); one out of shape reads as none. */
+  fixed_by: z.string().nullable().catch(null).optional(),
+  /** Every pull request a bug fix opened, as links in order (PRD 2425); a list out of shape reads as none. */
+  prs: z.array(z.string()).catch([]).optional(),
+  /** Whom the app said it acted for when it queued the job (PRD 2425). */
+  acting_for: z.string().nullable().catch(null).optional(),
+  /** The API key that cancelled it, and whom that key acted for (PRD 2425). */
+  cancelled_by_key: z.string().nullable().catch(null).optional(),
+  cancelled_for: z.string().nullable().catch(null).optional(),
   /** The PRD's slices merged out of all when it ended `stopped` (PRD 2375); one out of shape reads as none. */
   slices_merged: z.number().int().nullable().catch(null).optional(),
   slices_total: z.number().int().nullable().catch(null).optional(),
@@ -72,7 +81,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, fixed_by, prs, acting_for, cancelled_by_key, cancelled_for, slices_merged, slices_total, continues, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */
@@ -84,13 +93,16 @@ const QuestionsRow = z.object({
   questions: z.array(QuestionSchema),
   answers: z.record(z.string(), z.string()).nullable(),
   closed_by: z.string().nullable(),
+  // The key that closed the round and whom it said it acted for (PRD 2425): read for the page, never failing a read.
+  closed_by_key: z.string().nullable().catch(null).optional(),
+  closed_for: z.string().nullable().catch(null).optional(),
   closed_at: z.string().nullable(),
   resume_job: z.string().nullable(),
   asked_at: z.string(),
 });
 export type QuestionsRow = z.infer<typeof QuestionsRow>;
 
-const QUESTIONS_COLUMNS = 'job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_at, resume_job, asked_at';
+const QUESTIONS_COLUMNS = 'job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_by_key, closed_for, closed_at, resume_job, asked_at';
 
 /** A new row of questions: the job that asks, its workspace, its issue, its lead and its questions. */
 type NewQuestions = { jobId: string; workspaceId: string; issue: IssueNumber; lead: string; questions: Question[] };
@@ -139,7 +151,7 @@ export type NewRunner = { workspaceId: string; owner: string; name: string; slot
 export type NewJob = { workspaceId: string; line: string; repo: string; toRunner: string | null; toFleet: string | null; sentBy: string; sentByKey: string | null };
 
 /** What a job's update may change. */
-export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'released' | 'release_error' | 'outcome' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
+export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'released' | 'release_error' | 'outcome' | 'fixed_by' | 'prs' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
 
 type Raw = { data: unknown; error: { code?: string; message?: string } | null };
 
@@ -261,6 +273,10 @@ export function runnersRepository(db: RunnersDb) {
 
     job: async (id: string): Promise<JobRow | null> =>
       parsed(db.from('runner_jobs').select(JOB_COLUMNS).eq('id', id).maybeSingle(), JobRow.nullable(), 'runner_jobs'),
+
+    /** The id of the newest job that carries this one on (`continues` names it), or null when none does (PRD 2425). */
+    continuedBy: async (jobId: string): Promise<string | null> =>
+      (await parsed(db.from('runner_jobs').select('id').eq('continues', jobId).order('queued_at', { ascending: false }).limit(1).maybeSingle(), z.object({ id: z.string() }).nullable(), 'runner_jobs'))?.id ?? null,
 
     insertJob: async (job: NewJob): Promise<JobRow> =>
       parsed(db.from('runner_jobs').insert({

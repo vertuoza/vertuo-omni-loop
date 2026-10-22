@@ -82,6 +82,35 @@ describe('the rows', () => {
     expect(await repository.job('j2')).toMatchObject({ outcome: null });
   });
 
+  it('read what a bug fix reported and what a key did with the row, selecting the columns, and a value out of shape as none (PRD 2425)', async () => {
+    const proved = 'https://github.com/demo-org/app/pull/512';
+    const job = jobRow({ status: 'done', outcome: 'already-fixed', fixed_by: proved, prs: ['https://github.com/demo-org/app/pull/549'], acting_for: 'Jane D.', cancelled_by_key: 'k1', cancelled_for: 'Sam' });
+    const crooked = { ...jobRow({ status: 'done' }), outcome: 'pr-opened', fixed_by: 12, prs: 'nope', acting_for: 3, cancelled_by_key: {}, cancelled_for: [] };
+    const { db, lines } = fakeDb([{ data: job, error: null }, { data: crooked, error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.job('j1')).toMatchObject({ outcome: 'already-fixed', fixed_by: proved, prs: ['https://github.com/demo-org/app/pull/549'], acting_for: 'Jane D.', cancelled_by_key: 'k1', cancelled_for: 'Sam' });
+    for (const column of ['fixed_by', 'prs', 'acting_for', 'cancelled_by_key', 'cancelled_for']) expect(lines[0], column).toContain(column);
+    expect(await repository.job('j2')).toMatchObject({ outcome: 'pr-opened', fixed_by: null, prs: [], acting_for: null, cancelled_by_key: null, cancelled_for: null });
+  });
+
+  it('read every outcome the database keeps, and an unknown word as none (PRD 2425)', async () => {
+    const words = ['answers', 'held', 'ready', 'human', 'stopped', 'pr-opened', 'already-fixed', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'];
+    const { db } = fakeDb([...words, 'need-human', 'pr_opened'].map((outcome) => ({ data: { ...jobRow({ status: 'done' }), outcome }, error: null })));
+    const repository = runnersRepository(db);
+    const read: unknown[] = [];
+    for (let at = 0; at < words.length + 2; at += 1) read.push((await repository.job(`j${String(at)}`))?.outcome);
+    expect(read).toEqual([...words, null, null]);
+  });
+
+  it('read the id of the newest job that carries a job on, and none when none does (PRD 2425)', async () => {
+    const { db, lines } = fakeDb([{ data: { id: 'j2' }, error: null }, { data: null, error: null }, { data: null, error: { code: '42501', message: 'permission denied for table runner_jobs' } }]);
+    const repository = runnersRepository(db);
+    expect(await repository.continuedBy('j1')).toBe('j2');
+    expect(lines[0]).toBe('from("runner_jobs").select("id").eq("continues","j1").order("queued_at",{"ascending":false}).limit(1).maybeSingle()');
+    expect(await repository.continuedBy('j3')).toBeNull();
+    await expect(repository.continuedBy('j4')).rejects.toThrow('runner_jobs: permission denied for table runner_jobs');
+  });
+
   it('read a person\'s place in a workspace: owner or member, and their fleet', async () => {
     const { db, lines } = fakeDb([{ data: { role: 'owner' }, error: null }, { data: { team: 'cia', github_login: 'olga' }, error: null }]);
     expect(await runnersRepository(db).member('w1', 'u1')).toEqual({ owner: true, fleet: 'cia' });
@@ -275,7 +304,7 @@ describe('a job\'s questions (PRD 2255)', () => {
     const { db, lines } = fakeDb([{ data: row, error: null }]);
     const stored = await runnersRepository(db).insertQuestions({ jobId: JOB, workspaceId: WORKSPACE, issue: row.issue, lead: row.lead, questions: row.questions });
     expect(stored).toEqual(row);
-    expect(lines).toEqual([`from("runner_job_questions").insert(${JSON.stringify({ job_id: JOB, workspace_id: WORKSPACE, issue: 314, lead: row.lead, questions: row.questions })}).select("job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_at, resume_job, asked_at").single()`]);
+    expect(lines).toEqual([`from("runner_job_questions").insert(${JSON.stringify({ job_id: JOB, workspace_id: WORKSPACE, issue: 314, lead: row.lead, questions: row.questions })}).select("job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_by_key, closed_for, closed_at, resume_job, asked_at").single()`]);
   });
 
   it('answers none when the job asked already (one row per job: the primary key refuses a second)', async () => {
@@ -294,13 +323,20 @@ describe('a job\'s questions (PRD 2255)', () => {
     const repository = runnersRepository(db);
     expect(await repository.questionsOf(JOB)).toEqual(row);
     expect(await repository.questionsOf('00000000-0000-4000-8000-0000022552b1')).toBeNull();
-    expect(lines[0]).toBe(`from("runner_job_questions").select("job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_at, resume_job, asked_at").eq("job_id","${JOB}").maybeSingle()`);
+    expect(lines[0]).toBe(`from("runner_job_questions").select("job_id, workspace_id, issue, lead, questions, answers, closed_by, closed_by_key, closed_for, closed_at, resume_job, asked_at").eq("job_id","${JOB}").maybeSingle()`);
   });
 
   it('reads a closed row with its answers, who closed it and the resume job', async () => {
     const closed = questionsRow({ job_id: JOB, answers, closed_by: MO, closed_at: '2026-10-13T12:05:00.000Z', resume_job: '00000000-0000-4000-8000-0000022552c1' });
     const { db } = fakeDb([{ data: closed, error: null }]);
     expect(await runnersRepository(db).questionsOf(JOB)).toEqual(closed);
+  });
+
+  it('reads the key that closed a round and whom it acted for (PRD 2425), and never fails on a value out of shape there', async () => {
+    const byKey = questionsRow({ job_id: JOB, answers, closed_by_key: '00000000-0000-4000-8000-0000018302a2', closed_for: 'Jane D.', closed_at: '2026-10-13T12:05:00.000Z' });
+    expect(await runnersRepository(fakeDb([{ data: byKey, error: null }]).db).questionsOf(JOB)).toMatchObject({ closed_by_key: byKey.closed_by_key, closed_for: 'Jane D.' });
+    const odd = await runnersRepository(fakeDb([{ data: { ...byKey, closed_by_key: 7, closed_for: ['x'] }, error: null }]).db).questionsOf(JOB);
+    expect(odd).toMatchObject({ closed_by_key: null, closed_for: null });
   });
 
   it('throws on a row whose questions are out of shape', async () => {
