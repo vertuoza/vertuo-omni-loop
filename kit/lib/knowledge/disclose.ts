@@ -53,7 +53,7 @@ export function headline(statement: string): string {
 const isRuleLike = (entry: KnowledgeEntry): boolean => entry.kind === 'rule' || entry.kind === 'invariant';
 
 /** A law's plain sentence: its thesis line, else its `Proposed law:` sentence, else its statement's headline. */
-function lawSentence(entry: KnowledgeEntry, thesis: Thesis | null): string {
+export function lawSentence(entry: KnowledgeEntry, thesis: Thesis | null): string {
   return thesis?.laws.find(({ id }) => id === entry.id)?.sentence ?? entry.proposedLaw ?? headline(entry.statement);
 }
 

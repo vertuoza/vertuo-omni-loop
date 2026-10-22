@@ -12,8 +12,10 @@
 // (PRD #149): its summary, or with `--json` the whole document; `graph <id>` (PRD 1797) prints only
 // that entry's neighbourhood, or with `--json` the versioned neighbourhood document; `graph push` (PRD 1798)
 // sends the whole repository's graph to the Omni page. `laws` (PRD 1726) discloses only what
-// a change touches: every locked law, one plain line each, then with `--paths`, `--slice` or `--area`
-// the rules that govern those files, that slice's territory or that domain folder; `show briefing`
+// a change touches: every locked law, one plain line each, then with `--area` that domain folder's
+// rules; with `--paths` or `--slice` (PRD 2346) what applies to those files or that slice's territory,
+// by `Governs:`, domain or layer, then what is global, the Legal entries included, then the count of the
+// locked laws of other areas (`../../lib/knowledge/disclose-lookup.ts`); `show briefing`
 // ends with the thesis's laws section, and `status` counts the rules with no `Governs:` line. `owners`
 // (PRD 1726) writes the CODEOWNERS block that makes `laws.owners` the owners of the thesis, the
 // registers and each locked law's test, and changes no line outside its markers. None of them
@@ -34,6 +36,7 @@ import { pushKnowledgeGraph } from '../../lib/knowledge/graph-push.ts';
 import { readProductGraph } from '../../lib/knowledge/product-graph-text.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
 import { disclose, governsPath, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
+import { knowledgeMap, lookup, lookupLine, type Lookup } from '../../lib/knowledge/disclose-lookup.ts';
 import { packGet } from '../../lib/knowledge/packs/get.ts';
 import type { PackOrder } from '../../lib/knowledge/packs/get.ts';
 import { ID_SHAPE, isLaw, readKnowledge, type KnowledgeEntry } from '../../lib/knowledge/registers.ts';
@@ -335,17 +338,31 @@ function lawsFor(io: CommandIo, flags: LawsFlags, positional: readonly string[],
   return { area: flags.area };
 }
 
-/** The disclosure as text: one plain line per law, then one headline per rule asked for. */
-function lawsText(disclosure: Disclosure, what: DiscloseFor, owners: readonly LawOwner[]): string {
+/** The disclosure as text, with no files asked for: one plain line per law, then a domain folder's rules for `--area`. */
+function lawsText(disclosure: Disclosure, what: { area: string } | null, owners: readonly LawOwner[]): string {
   const lines = disclosure.laws.map((law) => lawLine(law, owners));
   if (lines.length === 0) lines.push('No law is locked yet.');
   if (what === null) return lines.join('\n');
   lines.push(...disclosure.rules.map(ruleLine));
-  if (disclosure.rules.length === 0) {
-    lines.push('area' in what ? `No rule in ${what.area} yet.` : 'No rule says it governs these files.');
+  if (disclosure.rules.length === 0) lines.push(`No rule in ${what.area} yet.`);
+  return lines.join('\n');
+}
+
+/**
+ * The lookup as text (PRD 2346): what applies to the files, each line saying why, then what is global,
+ * the Legal entries last; then the locked laws of other areas, counted. A repository that maps nothing
+ * hides no law, and says how many rules name no files, as before its map.
+ */
+function lookupText(found: Lookup, ungoverned: number, owners: readonly LawOwner[]): string {
+  const lines = ['Applies here', ...found.applies.map((entry) => lookupLine(entry, owners))];
+  if (found.applies.length === 0) lines.push('Nothing applies to these files in particular.');
+  lines.push('Global', ...found.global.map((entry) => lookupLine(entry, owners)));
+  if (found.global.length === 0) lines.push('Nothing is global.');
+  if (found.hidden.laws > 0) {
+    lines.push(`${found.hidden.laws} locked ${found.hidden.laws === 1 ? 'law' : 'laws'} of other areas: not shown (omni kb laws prints them all).`);
   }
-  if (!('area' in what) && disclosure.ungoverned > 0) {
-    lines.push(`${disclosure.ungoverned} rule(s) say no "Governs:", so none of them is shown here (omni kb status counts them).`);
+  if (!found.mapped && ungoverned > 0) {
+    lines.push(`${ungoverned} rule(s) say no "Governs:", so none of them is shown here (omni kb status counts them).`);
   }
   return lines.join('\n');
 }
@@ -357,8 +374,17 @@ function laws(args: string[], io: CommandIo): number {
   if (chosen > 1) throw usageError(`omni kb laws: give one of --paths, --slice and --area. ${LAWS_USAGE}`);
   const knowledge = readKnowledge({ ctx });
   const what = lawsFor(io, flags, positional, ['product', ...knowledge.domains.map(({ name }) => name)]);
-  const disclosure = disclose(knowledge.entries, readThesis(ctx), what);
-  println(stdout, flags.json ? JSON.stringify(disclosure, null, 2) : lawsText(disclosure, what, ctx.config.laws.owners));
+  const thesis = readThesis(ctx);
+  const disclosure = disclose(knowledge.entries, thesis, what);
+  const owners = ctx.config.laws.owners;
+  if (what === null || 'area' in what) {
+    println(stdout, flags.json ? JSON.stringify(disclosure, null, 2) : lawsText(disclosure, what, owners));
+    return 0;
+  }
+  const cache = readCachedKnowledge(ctx.root);
+  const sources = { entries: knowledge.entries, records: readDecisions({ ctx }).records, legal: cache.state === 'cached' ? cache.legal : [], thesis };
+  const found = lookup(sources, knowledgeMap(ctx.config), what.paths);
+  println(stdout, flags.json ? JSON.stringify({ ...disclosure, ...found }, null, 2) : lookupText(found, disclosure.ungoverned, owners));
   return 0;
 }
 
