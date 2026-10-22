@@ -347,6 +347,8 @@ describe('the GitHub App a job runs as (PRD 2433)', () => {
     // A key's job names the key, never the person who made it: the login its sender carries stays off its session.
     expect(runnerSenderVariables({ sentBy: 'API key deploy bot (@ada)', sentByKey: 'deploy bot' }, 'box-1')).toEqual({ OMNI_SENT_BY_KEY: 'deploy bot', OMNI_RUNNER: 'box-1' });
     expect(runnerSenderVariables({ sentBy: null, sentByKey: null }, 'box-1')).toEqual({});
+    // A person's name that is empty names no one: the job carries no sender at all.
+    expect(runnerSenderVariables({ sentBy: '', sentByKey: null }, 'box-1')).toEqual({});
   });
 
   it("lists the new variables as the platform's, never one a README names", () => {
