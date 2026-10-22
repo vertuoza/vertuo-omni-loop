@@ -1,6 +1,6 @@
 # ADR-0114 — A new terminal token reaches the profile page through a five-minute, read-once hand-back kept for that browser where no script can read it
 
-**Status:** adopted · **Date:** 2026-10-12 · **PRD:** #1628 · **Decided:** nobody — adopted when raised (medium), 2026-10-11 · **Merged:** @pierrederval, 2026-10-12, PR #1629
+**Status:** adopted · **Date:** 2026-10-12 · **PRD:** #1628 · **Decided:** nobody — adopted when raised (medium), 2026-10-11 · **Merged:** @pierrederval, 2026-10-12, PR #1629 · **Layers:** auth · **Domain:** access
 
 ## Context
 

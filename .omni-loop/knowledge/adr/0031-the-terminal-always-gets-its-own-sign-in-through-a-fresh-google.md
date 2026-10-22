@@ -1,6 +1,6 @@
 # ADR-0031 — The terminal always gets its own sign-in through a fresh Google sign-in, never sharing the browser's session
 
-**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #71 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #73
+**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #71 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #73 · **Layers:** auth, cli
 
 ## Context
 

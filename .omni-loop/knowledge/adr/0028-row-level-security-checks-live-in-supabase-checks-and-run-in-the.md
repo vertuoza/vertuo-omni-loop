@@ -1,6 +1,6 @@
 # ADR-0028 — Row-level security checks live in supabase/checks and run in the supabase workflow on every database change
 
-**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #71 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #73
+**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #71 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #73 · **Layers:** db, ci
 
 ## Context
 

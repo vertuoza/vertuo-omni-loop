@@ -1,6 +1,6 @@
 # ADR-0033 — omni signout forgets the sign-in on this computer only and does not end it on the server
 
-**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #71 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #73
+**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #71 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #73 · **Layers:** auth, cli
 
 ## Context
 

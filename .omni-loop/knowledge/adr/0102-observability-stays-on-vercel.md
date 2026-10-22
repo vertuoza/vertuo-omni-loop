@@ -1,6 +1,6 @@
 # ADR-0102 — Observability stays on Vercel: Observability Plus behind a spend limit, JSON lines through kit/lib/log
 
-**Status:** accepted · **Date:** 2026-10-12 · **PRD:** #1723
+**Status:** accepted · **Date:** 2026-10-12 · **PRD:** #1723 · **Layers:** infra
 
 ## Context
 

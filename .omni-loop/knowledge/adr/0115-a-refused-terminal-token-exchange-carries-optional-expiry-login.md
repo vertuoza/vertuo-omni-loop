@@ -1,6 +1,6 @@
 # ADR-0115 — A refused terminal token exchange carries optional expiry, login and workspace details that the terminal reads leniently
 
-**Status:** adopted · **Date:** 2026-10-12 · **PRD:** #1628 · **Decided:** nobody — adopted when raised (medium), 2026-10-11 · **Merged:** @pierrederval, 2026-10-12, PR #1629
+**Status:** adopted · **Date:** 2026-10-12 · **PRD:** #1628 · **Decided:** nobody — adopted when raised (medium), 2026-10-11 · **Merged:** @pierrederval, 2026-10-12, PR #1629 · **Layers:** auth, cli · **Domain:** access
 
 ## Context
 

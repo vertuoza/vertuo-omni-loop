@@ -1,6 +1,6 @@
 # ADR-0007 — /omni:pr allows one re-run per pull request for plainly unrelated failures, without a triage page
 
-**Status:** adopted · **Date:** 2026-09-25 · **PRD:** #7 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-25, PR #9
+**Status:** adopted · **Date:** 2026-09-25 · **PRD:** #7 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-25, PR #9 · **Layers:** ci
 
 ## Context
 

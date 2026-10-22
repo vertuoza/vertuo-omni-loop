@@ -44,6 +44,7 @@ const SPEC_FLOW = `flow:
           - landing: alone
 `;
 const HOOK = 'omni-hook: do-work.test\n\nRun the tests.\n\nomni-hook do-work.test: pass\n';
+const AREA_FILES = { 'src/kernel/a.php': '', 'database/migrations/1.php': '' };
 const HOOK_FILES = {
   '.omni-loop/flow/contract-tests.md': HOOK,
   '.omni-loop/flow/open-pr.md': HOOK,
@@ -66,7 +67,7 @@ describe('omni check config', () => {
   });
 
   it("is green on the spec's example, its hook files present", async () => {
-    const { code, out } = await checkConfig(HEAD + SPEC_FLOW, HOOK_FILES);
+    const { code, out } = await checkConfig(HEAD + SPEC_FLOW, { ...HOOK_FILES, ...AREA_FILES });
     expect(code).toBe(0);
     expect(out).toMatch(/check config — \.omni-loop\/config\.yml is valid; flow: 2 area\(s\), every hook file present/);
   });
@@ -85,6 +86,33 @@ describe('omni check config', () => {
     expect(code).toBe(1);
     expect(out).toContain('check config — the config does not hold what it claims:');
     expect(out).toContain(`${key}:`);
+  });
+
+  it('flags an unknown contract kind and reads rest as api (PRD 2346)', async () => {
+    const ok = await checkConfig(`${HEAD}contracts:\n  kinds: [rest, db]\n`);
+    expect(ok.code).toBe(0);
+    const bad = await checkConfig(`${HEAD}contracts:\n  kinds: [api, eventz]\n`);
+    expect(bad.code).toBe(1);
+    expect(bad.out).toContain('contracts.kinds: eventz is not a layer (ui, api, schema, db, auth, event, cli, job, infra, ci)');
+  });
+
+  it('flags a plan target role that is no role (PRD 2346)', async () => {
+    const plan = (role: string) => `${HEAD}plan:\n  targets:\n    - repo: acme/back\n      role: ${role}\n      knowledge: none\n`;
+    expect((await checkConfig(plan('back-end'))).code).toBe(0);
+    const bad = await checkConfig(plan('legacy'));
+    expect(bad.code).toBe(1);
+    expect(bad.out).toContain('acme/back has the role legacy, which is not a role (api, web, mobile');
+  });
+
+  it('flags a layers or flow-area pattern that matches no tracked file, naming it (PRD 2346)', async () => {
+    const config = `${HEAD}layers:\n  db: ['^supabase/', '^db/']\nflow:\n  areas:\n    ask:\n      paths: ['^kit/lib/ask/']\n      knowledge: ask\n`;
+    const green = await checkConfig(config, { 'supabase/m.sql': '', 'db/x.sql': '', 'kit/lib/ask/a.ts': '' });
+    expect(green.code).toBe(0);
+    const red = await checkConfig(config, { 'supabase/m.sql': '' });
+    expect(red.code).toBe(1);
+    expect(red.out).toContain('layers.db: ^db/ matches no tracked file');
+    expect(red.out).toContain('flow.areas.ask.paths: ^kit/lib/ask/ matches no tracked file');
+    expect(red.out).not.toContain('^supabase/ matches');
   });
 
   it('exits 1 on a hook file that does not exist, naming the key and the path', async () => {

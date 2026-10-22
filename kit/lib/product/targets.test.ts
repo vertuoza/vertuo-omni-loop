@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AskCallError } from '../ask/client.ts';
-import { lastReadLine, PRODUCT_TARGETS_FILE, productTargets, targetsOfProduct } from './targets.ts';
+import { lastReadLine, PRODUCT_TARGETS_FILE, productTargets, roleFlag, targetsOfProduct } from './targets.ts';
 
 const SHA = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
 const REPLY = {
@@ -122,6 +122,18 @@ describe('productTargets', () => {
   it('lets any other failure through as it is', async () => {
     const boom = () => Promise.reject(new TypeError('boom'));
     expect(await failMessage(productTargets({ product: 'Mobile', root: root(), now: () => NOW, fetchTargets: boom }))).toBe('boom');
+  });
+});
+
+describe('roleFlag (PRD 2346)', () => {
+  it('says nothing of a canonical role', () => {
+    expect(roleFlag('api')).toBeNull();
+    expect(roleFlag('monorepo')).toBeNull();
+  });
+
+  it('names a role outside the nine and the nine, an alias included', () => {
+    expect(roleFlag('back-end')).toBe('role back-end is not a role: pick one of api, web, mobile, ui, library, infra, plan, doc, monorepo');
+    expect(roleFlag('widget')).toContain('role widget is not a role');
   });
 });
 

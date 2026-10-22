@@ -1,6 +1,6 @@
 # ADR-0029 — The ask API answers each refusal with a standard HTTP code and a status field, and treats a repeated close or abandon as success
 
-**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #71 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #73
+**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #71 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #73 · **Layers:** api · **Domain:** ask
 
 ## Context
 
