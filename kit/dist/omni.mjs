@@ -30131,7 +30131,7 @@ var ID_SHAPE = new RegExp(`^(?:${ID_SOURCE})$`);
 var ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, "g");
 var ENTRY_HEADING = new RegExp(`^##\\s+(${ENTRY_ID_SOURCE})\\s*$`);
 var ANY_H2 = /^##\s/;
-var FIELD_LINE = /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Points to|Kind|Kept id|Glossary term):\s*(.*)$/;
+var FIELD_LINE = /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Layers|Points to|Kind|Kept id|Glossary term):\s*(.*)$/;
 var FIELD_KEY = {
   Why: "why",
   Decided: "decided",
@@ -30144,6 +30144,7 @@ var FIELD_KEY = {
   "Proposed law": "proposedLaw",
   Locked: "lockedLine",
   Governs: "governsLine",
+  Layers: "layersLine",
   "Points to": "pointsToLine",
   Kind: "kindLine",
   "Kept id": "keptId",
@@ -30225,6 +30226,12 @@ function readGoverns(file2, id, value) {
     problems: [`${file2}: ${id} \u2014 "Governs:" names no path \u2014 list the paths it rules over, comma-separated.`]
   };
 }
+function readLayers(file2, id, value) {
+  if (value === void 0) return { layers: null, problems: [] };
+  const layers = value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
+  if (layers.length > 0) return { layers, problems: [] };
+  return { layers, problems: [`${file2}: ${id} \u2014 "Layers:" names no layer \u2014 list them comma-separated, such as "Layers: db, auth".`] };
+}
 function readPointsTo(value) {
   if (value === void 0) return null;
   return value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
@@ -30285,6 +30292,7 @@ function parseEntryFile(file2, text15, place) {
     const { pending, problems: pendingProblems } = readPending(file2, id, enforcedBy2);
     const { locked, problems: lockedProblems } = readLocked(file2, id, fields.lockedLine);
     const { governs, problems: governsProblems } = readGoverns(file2, id, fields.governsLine);
+    const { layers, problems: layersProblems } = readLayers(file2, id, fields.layersLine);
     const { proposedLaw, problems: proposedLawProblems } = readProposedLaw(file2, id, fields.proposedLaw);
     return {
       id,
@@ -30306,12 +30314,13 @@ function parseEntryFile(file2, text15, place) {
       proposed,
       locked,
       governs,
+      layers,
       proposedLaw,
       pointsTo: readPointsTo(fields.pointsToLine),
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts2,
-      problems: [...proposedProblems, ...pendingProblems, ...lockedProblems, ...governsProblems, ...proposedLawProblems]
+      problems: [...proposedProblems, ...pendingProblems, ...lockedProblems, ...governsProblems, ...layersProblems, ...proposedLawProblems]
     };
   });
 }
@@ -38609,13 +38618,7 @@ async function withProductTargets(ctx, io, note) {
   const targets2 = await productTargetList({ ctx, product: plan2.product, repo: ctx.config.repo.slug }, io, note);
   return typeof targets2 === "string" ? targets2 : createContext(ctx.root, { ...ctx.config, plan: { ...plan2, targets: targets2 } });
 }
-function flagRoles(rows2) {
-  return rows2.map((row) => {
-    if (isRole(row.role)) return row;
-    const flag = `role ${row.role} is not a role: pick one of ${roleList()}`;
-    return { ...row, state: row.state === "ok" ? "drifted" : row.state, detail: row.detail === null ? flag : `${row.detail}; ${flag}` };
-  });
-}
+var roleFlag = (role) => isRole(role) ? null : `role ${role} is not a role: pick one of ${roleList()}`;
 
 // kit/lib/loop-reads/omni.ts
 init_define_OMNI_BUNDLE();
@@ -39484,10 +39487,25 @@ import { join as join46 } from "node:path";
 var RECORD2 = /^(\d{4})-.+\.md$/;
 var TITLE2 = /^#\s+(.+?)\s*$/m;
 var PRD_HEADER = /\*\*PRD:\*\*\s*#(\d+)\b/;
+var LAYERS_HEADER = /\*\*Layers:\*\*[ \t]*([^·\n]*)/;
+var DOMAIN_HEADER = /\*\*Domain:\*\*[ \t]*([^·\s]*)/;
+var headerOf = (text15) => text15.split(/^##\s/m)[0] ?? "";
+function headerLayers(text15) {
+  const value = LAYERS_HEADER.exec(headerOf(text15))?.[1] ?? "";
+  return value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
+}
+function headerDomain(text15) {
+  const value = (DOMAIN_HEADER.exec(headerOf(text15))?.[1] ?? "").replace(/`/g, "");
+  return value === "" ? null : value;
+}
 function headerPrd(text15) {
-  const [header2 = ""] = text15.split(/^##\s/m);
-  const prd2 = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(header2)?.[1]));
+  const prd2 = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(headerOf(text15))?.[1]));
   return prd2.success ? prd2.data : null;
+}
+function tagsOf(text15) {
+  const layers = headerLayers(text15);
+  const domain2 = headerDomain(text15);
+  return { ...layers.length > 0 ? { layers } : {}, ...domain2 === null ? {} : { domain: domain2 } };
 }
 function readDecisions({ ctx }) {
   const dir = ctx.layout.adrDir.replace(/\/+$/, "");
@@ -39496,7 +39514,13 @@ function readDecisions({ ctx }) {
   const records = names.map((name3) => {
     const file2 = `${dir}/${name3}`;
     const text15 = readFileSync38(join46(ctx.root, file2), "utf8");
-    return { number: name3.match(RECORD2)?.[1] ?? "", file: file2, title: text15.match(TITLE2)?.[1] ?? null, prd: headerPrd(text15) };
+    return {
+      number: name3.match(RECORD2)?.[1] ?? "",
+      file: file2,
+      title: text15.match(TITLE2)?.[1] ?? null,
+      prd: headerPrd(text15),
+      ...tagsOf(text15)
+    };
   });
   const byNumber2 = /* @__PURE__ */ new Map();
   for (const record2 of records) byNumber2.set(record2.number, [...byNumber2.get(record2.number) ?? [], record2.file]);
@@ -43307,9 +43331,6 @@ function lockViolations(entry3) {
   if (!entry3.enforced) {
     violations.push(violation(entry3.file, entry3.id, `is locked, but "Enforced by:" names no test \u2014 a law is proven: name its test's path.`));
   }
-  if (entry3.governs === null) {
-    violations.push(violation(entry3.file, entry3.id, 'is locked, but carries no "Governs:" line \u2014 a law names the paths it rules over.'));
-  }
   if (entry3.proposed !== null) {
     violations.push(violation(entry3.file, entry3.id, 'is locked and proposed at once \u2014 a person locked it: remove its "Proposed:" line.'));
   }
@@ -43342,6 +43363,24 @@ function findGovernsViolations(entries4) {
       (source2) => violation(entry3.file, entry3.id, `"Governs:" lists "${source2}", which is not a regular expression over paths \u2014 write it as a flow area's paths are written, such as ^kit/lib/outbox/.`)
     )
   );
+}
+function notALayer(word2) {
+  const alias = Object.hasOwn(LAYER_ALIASES, word2) ? ` ("${word2}" is an old word for "${LAYER_ALIASES[word2]}")` : "";
+  return `"${word2}", which is not a layer${alias} \u2014 the layers are ${layerList()}.`;
+}
+function findLayerViolations(entries4) {
+  return entries4.flatMap(
+    (entry3) => (entry3.layers ?? []).filter((word2) => !isLayer(word2)).map((word2) => violation(entry3.file, entry3.id, `"Layers:" lists ${notALayer(word2)}`))
+  );
+}
+function findDecisionTagViolations(ctx, knowledge2) {
+  const adrDir = ctx.layout.adrDir;
+  if (ctx.copyOf || adrDir === void 0) return [];
+  const folders = /* @__PURE__ */ new Set(["product", ...knowledge2.domains.map((domain2) => domain2.name)]);
+  return readDecisions({ ctx: { root: ctx.root, layout: { adrDir } } }).records.flatMap((record2) => [
+    ...(record2.layers ?? []).filter((word2) => !isLayer(word2)).map((word2) => violation(record2.file, `ADR-${record2.number}`, `"**Layers:**" lists ${notALayer(word2)}`)),
+    ...record2.domain != null && !folders.has(record2.domain) ? [violation(record2.file, `ADR-${record2.number}`, `"**Domain:**" names "${record2.domain}", which is no domain folder \u2014 the folders are ${[...folders].join(", ")}.`)] : []
+  ]);
 }
 function findThesisViolations(ctx, entries4) {
   if (ctx.copyOf) return [];
@@ -43384,6 +43423,8 @@ function gradeKnowledge({
     ...findEntryViolations(ctx, knowledge2.entries),
     ...findLockCountViolations(ctx, knowledge2.entries),
     ...findGovernsViolations(knowledge2.entries),
+    ...findLayerViolations(knowledge2.entries),
+    ...findDecisionTagViolations(ctx, knowledge2),
     ...findThesisViolations(ctx, knowledge2.entries),
     ...findOwnersBlockViolations(ctx, knowledge2),
     ...files.flatMap((file2) => findUnresolvedCitations(file2, readRepoFile(ctx, file2), resolve17))
@@ -63836,6 +63877,13 @@ async function targetList(ctx, product2, io, note) {
   const repo = ctx.config.repo.slug;
   if (!repo) throw usageError("omni targets: no repository slug \u2014 set repo.slug in the config.");
   return productTargetList({ ctx, product: product2, repo }, io, note);
+}
+function flagRoles(rows2) {
+  return rows2.map((row) => {
+    const flag = roleFlag(row.role);
+    if (flag === null) return row;
+    return { ...row, state: row.state === "ok" ? "drifted" : row.state, detail: row.detail === null ? flag : `${row.detail}; ${flag}` };
+  });
 }
 var targets = {
   withoutContext: true,

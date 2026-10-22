@@ -1310,6 +1310,7 @@ var ROLE_ALIASES = Object.freeze({
   docs: "doc"
 });
 var has = (table, word) => Object.hasOwn(table, word);
+var isLayer = (word) => has(CANONICAL_LAYERS, word);
 function layerOf(word) {
   return has(LAYER_ALIASES, word) ? LAYER_ALIASES[word] ?? word : word;
 }
@@ -2659,7 +2660,7 @@ var ID_SHAPE = new RegExp(`^(?:${ID_SOURCE})$`);
 var ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, "g");
 var ENTRY_HEADING = new RegExp(`^##\\s+(${ENTRY_ID_SOURCE})\\s*$`);
 var ANY_H2 = /^##\s/;
-var FIELD_LINE = /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Points to|Kind|Kept id|Glossary term):\s*(.*)$/;
+var FIELD_LINE = /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Layers|Points to|Kind|Kept id|Glossary term):\s*(.*)$/;
 var FIELD_KEY = {
   Why: "why",
   Decided: "decided",
@@ -2672,6 +2673,7 @@ var FIELD_KEY = {
   "Proposed law": "proposedLaw",
   Locked: "lockedLine",
   Governs: "governsLine",
+  Layers: "layersLine",
   "Points to": "pointsToLine",
   Kind: "kindLine",
   "Kept id": "keptId",
@@ -2753,6 +2755,12 @@ function readGoverns(file, id, value) {
     problems: [`${file}: ${id} \u2014 "Governs:" names no path \u2014 list the paths it rules over, comma-separated.`]
   };
 }
+function readLayers(file, id, value) {
+  if (value === void 0) return { layers: null, problems: [] };
+  const layers = value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
+  if (layers.length > 0) return { layers, problems: [] };
+  return { layers, problems: [`${file}: ${id} \u2014 "Layers:" names no layer \u2014 list them comma-separated, such as "Layers: db, auth".`] };
+}
 function readPointsTo(value) {
   if (value === void 0) return null;
   return value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
@@ -2813,6 +2821,7 @@ function parseEntryFile(file, text15, place) {
     const { pending, problems: pendingProblems } = readPending(file, id, enforcedBy2);
     const { locked, problems: lockedProblems } = readLocked(file, id, fields.lockedLine);
     const { governs, problems: governsProblems } = readGoverns(file, id, fields.governsLine);
+    const { layers, problems: layersProblems } = readLayers(file, id, fields.layersLine);
     const { proposedLaw, problems: proposedLawProblems } = readProposedLaw(file, id, fields.proposedLaw);
     return {
       id,
@@ -2834,12 +2843,13 @@ function parseEntryFile(file, text15, place) {
       proposed,
       locked,
       governs,
+      layers,
       proposedLaw,
       pointsTo: readPointsTo(fields.pointsToLine),
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts,
-      problems: [...proposedProblems, ...pendingProblems, ...lockedProblems, ...governsProblems, ...proposedLawProblems]
+      problems: [...proposedProblems, ...pendingProblems, ...lockedProblems, ...governsProblems, ...layersProblems, ...proposedLawProblems]
     };
   });
 }
@@ -8308,10 +8318,25 @@ import { join as join35 } from "node:path";
 var RECORD = /^(\d{4})-.+\.md$/;
 var TITLE2 = /^#\s+(.+?)\s*$/m;
 var PRD_HEADER = /\*\*PRD:\*\*\s*#(\d+)\b/;
+var LAYERS_HEADER = /\*\*Layers:\*\*[ \t]*([^·\n]*)/;
+var DOMAIN_HEADER = /\*\*Domain:\*\*[ \t]*([^·\s]*)/;
+var headerOf = (text15) => text15.split(/^##\s/m)[0] ?? "";
+function headerLayers(text15) {
+  const value = LAYERS_HEADER.exec(headerOf(text15))?.[1] ?? "";
+  return value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
+}
+function headerDomain(text15) {
+  const value = (DOMAIN_HEADER.exec(headerOf(text15))?.[1] ?? "").replace(/`/g, "");
+  return value === "" ? null : value;
+}
 function headerPrd(text15) {
-  const [header = ""] = text15.split(/^##\s/m);
-  const prd = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(header)?.[1]));
+  const prd = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(headerOf(text15))?.[1]));
   return prd.success ? prd.data : null;
+}
+function tagsOf(text15) {
+  const layers = headerLayers(text15);
+  const domain = headerDomain(text15);
+  return { ...layers.length > 0 ? { layers } : {}, ...domain === null ? {} : { domain } };
 }
 function readDecisions({ ctx }) {
   const dir = ctx.layout.adrDir.replace(/\/+$/, "");
@@ -8320,7 +8345,13 @@ function readDecisions({ ctx }) {
   const records = names.map((name) => {
     const file = `${dir}/${name}`;
     const text15 = readFileSync24(join35(ctx.root, file), "utf8");
-    return { number: name.match(RECORD)?.[1] ?? "", file, title: text15.match(TITLE2)?.[1] ?? null, prd: headerPrd(text15) };
+    return {
+      number: name.match(RECORD)?.[1] ?? "",
+      file,
+      title: text15.match(TITLE2)?.[1] ?? null,
+      prd: headerPrd(text15),
+      ...tagsOf(text15)
+    };
   });
   const byNumber = /* @__PURE__ */ new Map();
   for (const record of records) byNumber.set(record.number, [...byNumber.get(record.number) ?? [], record.file]);
@@ -12165,9 +12196,6 @@ function lockViolations(entry) {
   if (!entry.enforced) {
     violations.push(violation(entry.file, entry.id, `is locked, but "Enforced by:" names no test \u2014 a law is proven: name its test's path.`));
   }
-  if (entry.governs === null) {
-    violations.push(violation(entry.file, entry.id, 'is locked, but carries no "Governs:" line \u2014 a law names the paths it rules over.'));
-  }
   if (entry.proposed !== null) {
     violations.push(violation(entry.file, entry.id, 'is locked and proposed at once \u2014 a person locked it: remove its "Proposed:" line.'));
   }
@@ -12200,6 +12228,24 @@ function findGovernsViolations(entries) {
       (source) => violation(entry.file, entry.id, `"Governs:" lists "${source}", which is not a regular expression over paths \u2014 write it as a flow area's paths are written, such as ^kit/lib/outbox/.`)
     )
   );
+}
+function notALayer(word) {
+  const alias = Object.hasOwn(LAYER_ALIASES, word) ? ` ("${word}" is an old word for "${LAYER_ALIASES[word]}")` : "";
+  return `"${word}", which is not a layer${alias} \u2014 the layers are ${layerList()}.`;
+}
+function findLayerViolations(entries) {
+  return entries.flatMap(
+    (entry) => (entry.layers ?? []).filter((word) => !isLayer(word)).map((word) => violation(entry.file, entry.id, `"Layers:" lists ${notALayer(word)}`))
+  );
+}
+function findDecisionTagViolations(ctx, knowledge) {
+  const adrDir = ctx.layout.adrDir;
+  if (ctx.copyOf || adrDir === void 0) return [];
+  const folders = /* @__PURE__ */ new Set(["product", ...knowledge.domains.map((domain) => domain.name)]);
+  return readDecisions({ ctx: { root: ctx.root, layout: { adrDir } } }).records.flatMap((record) => [
+    ...(record.layers ?? []).filter((word) => !isLayer(word)).map((word) => violation(record.file, `ADR-${record.number}`, `"**Layers:**" lists ${notALayer(word)}`)),
+    ...record.domain != null && !folders.has(record.domain) ? [violation(record.file, `ADR-${record.number}`, `"**Domain:**" names "${record.domain}", which is no domain folder \u2014 the folders are ${[...folders].join(", ")}.`)] : []
+  ]);
 }
 function findThesisViolations(ctx, entries) {
   if (ctx.copyOf) return [];
@@ -12242,6 +12288,8 @@ function gradeKnowledge({
     ...findEntryViolations(ctx, knowledge.entries),
     ...findLockCountViolations(ctx, knowledge.entries),
     ...findGovernsViolations(knowledge.entries),
+    ...findLayerViolations(knowledge.entries),
+    ...findDecisionTagViolations(ctx, knowledge),
     ...findThesisViolations(ctx, knowledge.entries),
     ...findOwnersBlockViolations(ctx, knowledge),
     ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve3))
