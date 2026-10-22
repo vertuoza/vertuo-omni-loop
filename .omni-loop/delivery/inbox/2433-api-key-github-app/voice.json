@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-10-23",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The app's pull request still waits for a person to merge it, and CODEOWNERS still asks its owners, so nothing lands unread.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The app's key is sealed and never comes back; a runner gets a one-hour token for the repositories the key allows, and a revoke deletes the key.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "Fixes come back under the app's own name, and a send to a repository the app isn't installed on is refused before anything waits.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The bot is the author and the sender line names the key, so I can still tell who sent a fix.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I attach the app once in Settings, and the guide walks me through making it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓"
     }
   ]
 }
