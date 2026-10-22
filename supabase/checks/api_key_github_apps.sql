@@ -148,6 +148,7 @@ begin
     format('select public.api_key_github_app_remove(%L)', pg_temp.kid('Weekly digest')),
     format('select public.api_key_github_apps_list(%L)', pg_temp.ws('northwind-apps')),
     format('select public.api_key_github_app_of_job(%L)', gen_random_uuid()),
+    format('select public.api_key_github_app_of_key(%L)', pg_temp.kid('Weekly digest')),
     format('select public.api_key_github_app_minted(%L)', pg_temp.kid('Weekly digest')),
     'select 1 from public.api_key_github_apps',
     'select 1 from public.runner_job_needs_app'
@@ -274,6 +275,7 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000024a1');
 do $$
 begin
   perform pg_temp.refused(format('select public.api_key_github_app_of_job(%L)', pg_temp.jid('digest first')), '42501');
+  perform pg_temp.refused(format('select public.api_key_github_app_of_key(%L)', pg_temp.kid('Weekly digest')), '42501');
   perform pg_temp.refused(format('select public.api_key_github_app_minted(%L)', pg_temp.kid('Weekly digest')), '42501');
 end $$;
 reset role;
@@ -297,6 +299,18 @@ begin
   if public.api_key_github_app_of_job(pg_temp.jid('person first')) is not null or public.api_key_github_app_of_job(gen_random_uuid()) is not null
      or public.api_key_github_app_of_job(null) is not null then
     raise exception 'FAIL: a job no key queued answered an App';
+  end if;
+
+  -- The App a key holds, read by the key before any job exists: the sealed key, never the bot id.
+  got := public.api_key_github_app_of_key(pg_temp.kid('Weekly digest'));
+  if got is null or (got->'app'->>'app_id')::bigint <> 4001 or got->'app'->>'slug' <> 'northwind-bot'
+     or got->'app'->>'ciphertext' <> 'sealed-for-northwind-bot' or got->'app'->>'iv' <> 'iv-for-northwind-bot'
+     or got->'app' ? 'bot_id' then
+    raise exception 'FAIL: a key with an App answered %', got;
+  end if;
+  if public.api_key_github_app_of_key(pg_temp.kid('QA dashboard')) is not null or public.api_key_github_app_of_key(gen_random_uuid()) is not null
+     or public.api_key_github_app_of_key(null) is not null then
+    raise exception 'FAIL: a key with no App answered an App';
   end if;
 
   -- The mint is recorded, for the key it names alone.
@@ -425,6 +439,9 @@ begin
   got := public.api_key_github_app_of_job(pg_temp.jid('digest after remove'));
   if (got->>'needs_app')::boolean is not false then
     raise exception 'FAIL: a job queued once the key held no App needs one: %', got;
+  end if;
+  if public.api_key_github_app_of_key(pg_temp.kid('Weekly digest')) is not null then
+    raise exception 'FAIL: a key whose App was removed still answers it';
   end if;
 end $$;
 reset role;

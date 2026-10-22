@@ -192,4 +192,36 @@ describe('the public API’s repository', () => {
     expect(await repository.isPlanRepository(NORTHWIND, 'southwind/plan')).toBe(false);
     expect(calls[0]).toEqual(['products', ['select', 'id'], ['eq', 'workspace_id', NORTHWIND], ['eq', 'plan_repository', 'northwind/plan'], ['limit', 1]]);
   });
+
+  describe('a key’s GitHub App (PRD 2433 s6)', () => {
+    const OPENED = { app_id: 123456, slug: 'acme-bot', bot_id: 777, ciphertext: 'c2VhbGVk', iv: 'aXY=' };
+
+    it('asks which keys hold an App by key_id alone, then opens the one that does', async () => {
+      const held = evaluating({ api_key_github_apps: [{ key_id: 'k-1', ciphertext: 'never-selected' }] }, { api_key_github_app_of_key: { working: true, app: OPENED } });
+      expect(await publicApiRepository(held.db).githubAppOf('k-1')).toEqual({ appId: 123456, slug: 'acme-bot', ciphertext: 'c2VhbGVk', iv: 'aXY=' });
+      expect(held.calls).toEqual([
+        ['api_key_github_apps', ['select', 'key_id'], ['eq', 'key_id', 'k-1'], ['limit', 1]],
+        ['rpc', 'api_key_github_app_of_key', { p_key: 'k-1' }],
+      ]);
+    });
+
+    it('opens nothing for a key that holds no App, so a key with none never reaches the function that opens one', async () => {
+      const other = evaluating({ api_key_github_apps: [{ key_id: 'k-2' }] }, { api_key_github_app_of_key: { working: true, app: OPENED } });
+      expect(await publicApiRepository(other.db).githubAppOf('k-1')).toBeNull();
+      expect(other.calls).toHaveLength(1);
+    });
+
+    it('reads no App when the key lost it between the two reads', async () => {
+      const gone = evaluating({ api_key_github_apps: [{ key_id: 'k-1' }] }, { api_key_github_app_of_key: { working: true, app: null } });
+      expect(await publicApiRepository(gone.db).githubAppOf('k-1')).toBeNull();
+    });
+
+    it('throws, naming the call, when the function that opens the key is refused, missing or out of shape', async () => {
+      const { db: tables } = evaluating({ api_key_github_apps: [{ key_id: 'k-1' }] });
+      const refused = { from: tables.from, rpc: () => Promise.resolve({ data: null, error: { message: 'Could not find the function public.api_key_github_app_of_key' } }) } as unknown as PublicApiDb;
+      await expect(publicApiRepository(refused).githubAppOf('k-1')).rejects.toThrow('api_key_github_app_of_key: Could not find the function');
+      const odd = evaluating({ api_key_github_apps: [{ key_id: 'k-1' }] }, { api_key_github_app_of_key: { app: { ...OPENED, ciphertext: '' } } });
+      await expect(publicApiRepository(odd.db).githubAppOf('k-1')).rejects.toThrow();
+    });
+  });
 });

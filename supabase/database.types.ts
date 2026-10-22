@@ -4381,6 +4381,7 @@ export type Database = {
       }
       api_key_github_app_minted: { Args: { p_key: string }; Returns: undefined }
       api_key_github_app_of_job: { Args: { p_job: string }; Returns: Json }
+      api_key_github_app_of_key: { Args: { p_key: string }; Returns: Json }
       api_key_github_app_remove: { Args: { p_key: string }; Returns: boolean }
       api_key_github_apps_list: { Args: { p_workspace: string }; Returns: Json }
       api_key_listed: {

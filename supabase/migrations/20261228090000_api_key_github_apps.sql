@@ -30,6 +30,10 @@
 --                                            the key's (not revoked, its maker still a member, as
 --                                            api_key_of()); `needs_app` is true while the key holds an app
 --                                            or the job was queued while it did
+--   api_key_github_app_of_key(key)           service role only: `{app}` for a key that holds an app, null for
+--                                            any other. `app` is `{app_id, slug, ciphertext, iv}`: what the
+--                                            public API opens to check the app is installed on a repository
+--                                            before it queues a job
 --   api_key_github_app_minted(key)           service role only: sets `last_token_at`
 --   runner_claim(runner)                     changed: a runner whose `github_app` is false never takes a job
 --                                            that needs an app (the key holds one, or the job is marked).
@@ -70,7 +74,7 @@ create table public.api_key_github_apps (
 create index api_key_github_apps_workspace on public.api_key_github_apps (workspace_id);
 
 comment on table public.api_key_github_apps is
-  'The GitHub App an API key''s jobs run as (PRD 2433): its id, slug and bot id in the clear, its private key sealed by Galaxy''s server with SECRETS_MASTER_KEY before it is stored. Written only by api_key_github_app_attach() and _remove() and the revoke of its key; opened only by the service role, through api_key_github_app_of_job().';
+  'The GitHub App an API key''s jobs run as (PRD 2433): its id, slug and bot id in the clear, its private key sealed by Galaxy''s server with SECRETS_MASTER_KEY before it is stored. Written only by api_key_github_app_attach() and _remove() and the revoke of its key; opened only by the service role, through api_key_github_app_of_job() and api_key_github_app_of_key().';
 comment on column public.api_key_github_apps.key_id is 'The API key (agent_tokens, scope api) the app belongs to: at most one app a key.';
 comment on column public.api_key_github_apps.app_id is 'The GitHub App''s id.';
 comment on column public.api_key_github_apps.slug is 'The App''s slug as GitHub reads it: its bot is `<slug>[bot]`.';
@@ -228,6 +232,18 @@ begin
 end;
 $$;
 
+-- The App a key holds, for the service role: `{app: {app_id, slug, ciphertext, iv}}`, null for a key that holds
+-- none. The public API opens it to check the App is installed on a repository before it queues a job, when no
+-- job exists yet for api_key_github_app_of_job() to read.
+create function public.api_key_github_app_of_key(p_key uuid) returns jsonb
+language sql stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object('app', jsonb_build_object('app_id', g.app_id, 'slug', g.slug, 'ciphertext', g.ciphertext, 'iv', g.iv))
+    from public.api_key_github_apps g where g.key_id = p_key
+$$;
+
 -- Records that the key's App minted a token now: what an owner reads as `last token`.
 create function public.api_key_github_app_minted(p_key uuid) returns void
 language sql
@@ -335,6 +351,8 @@ grant execute on function public.api_key_github_apps_list(uuid) to authenticated
 -- The sealed key and the mint are the server's alone.
 revoke execute on function public.api_key_github_app_of_job(uuid) from public, anon, authenticated;
 grant execute on function public.api_key_github_app_of_job(uuid) to service_role;
+revoke execute on function public.api_key_github_app_of_key(uuid) from public, anon, authenticated;
+grant execute on function public.api_key_github_app_of_key(uuid) to service_role;
 revoke execute on function public.api_key_github_app_minted(uuid) from public, anon, authenticated;
 grant execute on function public.api_key_github_app_minted(uuid) to service_role;
 
