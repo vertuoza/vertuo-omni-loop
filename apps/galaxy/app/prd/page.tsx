@@ -36,7 +36,8 @@ import { ServerTimingMark } from '../../src/dossier/page/timing-mark';
 // PRD 587: the numbered rows' current stages are read from the stored stages, as the signed-in person,
 // for the stage bar, `?stage=` and each row's pill; stages that cannot be read show none. The demo has no
 // stored stage, so only its answered drafts read idea.
-// PRD 627: only PRDs' dossiers; the fixes have their own lists, /visual and /bugs.
+// PRD 627: only PRDs' dossiers; the fixes have their own lists, /visual and /bugs. PRD 2401 s3: the
+// database leaves the fixes out (dossier_list(p_kind => 'prd')), so the list never reads them.
 // PRD 657 s4: a signed-in person's list streams in its own block, under the list's skeleton (the
 // heading, the filters' place and the rows'), so the frame is sent before the dossiers are read. The
 // filters stream with the rows: their repositories and the empty list's words come from the same read.
@@ -88,7 +89,8 @@ export default async function HistoryRoute({ searchParams }: Props) {
   async function history(userId: string): Promise<ReactNode> {
     let listed: DossierListRow[];
     try {
-      listed = ofWork(await timings.time('dossier_list', readHistory(db)), 'prd');
+      // PRD 2401 s3: the database lists the PRDs alone, the fixes never read.
+      listed = await timings.time('dossier_list', readHistory(db, 'prd'));
     } catch (error) {
       console.error(error);
       return <DossierDatabaseDown />;
