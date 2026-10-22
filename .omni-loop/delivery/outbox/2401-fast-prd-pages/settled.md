@@ -542,3 +542,237 @@ A: the rule lives twice, in the kit and in the database; a change to the kit's s
 ```
 
 <!-- /omni-outbox-settled: s3-03-s3-slice-count-in-database -->
+
+<!-- omni-outbox-settled: s4-01-after-table-not-measured -->
+
+## s4-01-after-table-not-measured — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-after-table-not-measured
+prd: 2401
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 3
+---
+
+## The question, in plain words
+
+The table of how fast the two pages are now, to set beside the one from before, could not be taken here, because it needs a signed-in session cookie for production that this run does not hold. Who takes it, and when?
+
+## The decision, in plain words
+
+The measuring script is ready, but nobody has run it against production after the changes, so the sub-PR carries no after table and the 50% target is not shown to be met.
+
+## The intro, for fun
+
+The stopwatch is back in the drawer and the cookie jar is locked.
+
+## The punchline, for fun
+
+Without the cookie, the race has no finish line.
+
+## The options, in plain words
+
+A. A. A person runs the script against the deployed feature and posts the after table on the feature PR before it merges.
+B. B. Judge the result by the Server-Timing reads of the deployed pages alone, and drop the after table.
+
+## What I had to decide
+
+A person runs the measuring script against production once the feature is deployed to a preview or to production, with a session cookie of their own, and pastes the after table beside the before table on the feature PR.
+Decided by: Jev (hardToRevert 0.56) · agent said false
+
+## What I did meanwhile
+
+The slice's code is built and tested; the Server-Timing reads name each step, so a slow read can be found as soon as the pages are measured.
+
+## What it costs to change later
+
+Measuring later changes nothing in the code; the only risk is deploying before anyone has looked at the numbers.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The after table is not in this sub-PR's body (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-01-after-table-not-measured -->
+
+<!-- omni-outbox-settled: s4-02-shell-one-boundary-no-part-skeletons -->
+
+## s4-02-shell-one-boundary-no-part-skeletons — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-shell-one-boundary-no-part-skeletons
+prd: 2401
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 3
+---
+
+## The question, in plain words
+
+A PRD's page now shows its frame before its approval, its send-to-terminal buttons and the runner that is fixing it are known, but the frame has no placeholder for those three parts, and they come in together rather than one by one. Should each part get its own placeholder and its own wait?
+
+## The decision, in plain words
+
+The page is sent first without the approval block, the send buttons and the fixing line, and the whole page is sent again with all three once they are read; an approval block is left out of the first frame instead of saying it could not be read.
+
+## The intro, for fun
+
+The stage is set and the actors are still in make-up.
+
+## The punchline, for fun
+
+A part that arrives late should at least leave a chair.
+
+## The options, in plain words
+
+A. A. One waiting place for the three late parts, the frame drawn without them (as built).
+B. B. One waiting place and one placeholder for each of the three parts, in a follow-up slice that owns the page's files.
+
+## What I had to decide
+
+One waiting place for the three parts together, around the same page drawn without them, because the page's own file (DossierPage) and the stream's file are outside this slice's ground. A page change that draws a placeholder for each part, and one waiting place each, belongs to a slice that owns those files.
+Decided by: Jev (hardToRevert 0.46) · agent said false
+
+## What I did meanwhile
+
+The frame, the tabs and the shown version reach the person as soon as the database has answered; the three parts follow in one piece.
+
+## What it costs to change later
+
+Moving to one waiting place per part changes the page's files and its render tests, not the reads: a day of work, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Each part with its own skeleton is not drawn: the files that draw the page are outside the slice's territory (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-02-shell-one-boundary-no-part-skeletons -->
+
+<!-- omni-outbox-settled: s4-03-outside-territory-runners-fake -->
+
+## s4-03-outside-territory-runners-fake — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-outside-territory-runners-fake
+prd: 2401
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 3
+---
+
+## The question, in plain words
+
+Reading several runners in one query added a method to the runners' storage, and the page's route now answers in a new shape, so the test double of the storage and the two files the page's tests read it through had to follow, files outside this slice's ground. May those small changes stand?
+
+## The decision, in plain words
+
+One line was added to the runners' test double so the code still compiles; the page's existing test helper and its page test were taught the route's new shape (a few lines each), and nothing else outside the slice's ground changed. The new tests sit in the one test file of the slice's ground.
+
+## The intro, for fun
+
+A new tool in the shop means a new hook on the pegboard.
+
+## The punchline, for fun
+
+One line, one hook, no tools were harmed.
+
+## The options, in plain words
+
+A. A. Keep the one line in the runners' test double (as built).
+B. B. Move the line and the page's tests to a slice that owns those files.
+
+## What I had to decide
+
+Add the new method to the runners' test double (apps/galaxy/src/runners/fixtures/store.fake.ts), one line returning the runners whose id is asked for, teach the test helper dossier/page/stream/settled.ts to read a page whose late parts are awaited, and point one assertion of dossier/page/page.test.ts at the route's new root.
+Decided by: Jev (hardToRevert 0.82) · agent said false
+
+## What I did meanwhile
+
+The slice's tests and the type check are green with it.
+
+## What it costs to change later
+
+Dropping the line is one deletion, but the type check fails until the storage's method is removed too.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the owner of the runners' test double wants the line made in a slice of its own is not written down (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-03-outside-territory-runners-fake -->
