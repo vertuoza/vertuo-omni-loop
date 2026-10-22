@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.520" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.521" };
   }
 });
 
@@ -61796,10 +61796,10 @@ var DONE_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Done: (?:ok|error) · /;
 var PR_LINE = /^(?:\d{2}:\d{2}:\d{2} )?PR: (\S+)$/;
 function lastPullRequest(log, repo) {
   const link3 = new RegExp(`https://github\\.com/${escape4(repo)}/pull/\\d+(?!\\d)`, "i");
-  const lines2 = log.split("\n");
-  const done = lines2.findLastIndex((line2) => DONE_LINE.test(line2));
-  const handedOff = done < 0 ? void 0 : lines2.slice(done + 1).flatMap((line2) => link3.exec(line2)?.[0] ?? [])[0];
-  const opened = lines2.flatMap((line2) => {
+  const lines3 = log.split("\n");
+  const done = lines3.findLastIndex((line2) => DONE_LINE.test(line2));
+  const handedOff = done < 0 ? void 0 : lines3.slice(done + 1).flatMap((line2) => link3.exec(line2)?.[0] ?? [])[0];
+  const opened = lines3.flatMap((line2) => {
     const found2 = PR_LINE.exec(line2)?.[1];
     return found2 === void 0 ? [] : link3.exec(found2)?.[0] ?? [];
   });
