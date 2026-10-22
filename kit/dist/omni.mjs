@@ -61721,8 +61721,9 @@ function lastPullRequest(log, repo) {
 }
 var OUTCOMES = { "yolo-fix": "answers", yolo: "held", "pr-care": "ready" };
 var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
+var HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
 function runOutcome(log, prd2) {
-  const last = log.split("\n").map((line2) => line2.trim()).filter((line2) => line2 !== "").at(-1) ?? "";
+  const last = log.split("\n").map((line2) => line2.trim()).filter((line2) => line2 !== "" && !HOOK_FAILED.test(line2)).at(-1) ?? "";
   const match = /^\/omni:([a-z-]+) (\d+)$/.exec(last.replace(STAMP2, ""));
   const outcome = match?.[1] !== void 0 && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : void 0;
   return outcome !== void 0 && match?.[2] === String(prd2) ? outcome : null;
@@ -62491,6 +62492,12 @@ function ended(log, exitText, job2) {
   }
   return { status: "failed", logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` };
 }
+function vanished(log, job2) {
+  const reason2 = "the job stopped before it wrote its exit code";
+  const outcome = outcomeOf2(log, job2.line);
+  if (outcome === null) return { status: "failed", logTail: logTail(log), reason: reason2 };
+  return { status: "done", logTail: logTail(log), prUrl: lastPullRequest(log, job2.repo), exitCode: null, reason: reason2, outcome };
+}
 function killed(loop2, place, update2) {
   loop2.terminal.stop(place.session);
   return { ...update2, logTail: logTail(readText4(place.log)) };
@@ -62502,7 +62509,7 @@ async function watch2(loop2, job2, place, live) {
     await loop2.sleep(loop2.tickMs);
     const log = readText4(place.log);
     if (existsSync91(place.exit)) return ended(log, readText4(place.exit), job2);
-    if (!loop2.terminal.alive(place.session)) return { status: "failed", logTail: logTail(log), reason: "the job stopped before it wrote its exit code" };
+    if (!loop2.terminal.alive(place.session)) return vanished(readText4(place.log), job2);
     if (loop2.now() - started > loop2.timeoutMs) return killed(loop2, place, { status: "failed", reason: "timeout" });
     if (await tick2(loop2, job2.id, withTokens(loop2, { status: "running", logTail: logTail(log) }, place.worktree), live, log)) return killed(loop2, place, { status: "cancelled" });
   }
