@@ -95,6 +95,11 @@ describe('runnerApi() terminal reads (PRD 2251)', () => {
     expect(lines.calls[0]?.url).toBe('https://omni.test/api/runners/jobs/j%201/lines?after=3');
   });
 
+  it("reads a stopped job's outcome (PRD 2375)", async () => {
+    const job = { id: 'j1', line: '/omni:yolo 7', status: 'done', runner: 'box-1', prUrl: null, exitCode: 0, reason: null, outcome: 'stopped', queuedAt: 't' };
+    expect(await api(body({ jobs: [job] })).client.prdJobs('acme/widgets', parsePrd(7))).toEqual([job]);
+  });
+
   it('names a repository outside the workspace, an answer it cannot read and an unreachable app', async () => {
     await expect(api(status(403)).client.runners('a/b')).rejects.toThrow(new RunnerRefused('refused (403: this repository is not in your workspace)'));
     await expect(api(body({ nope: 1 })).client.prdJobs('a/b', parsePrd(1))).rejects.toThrow(RunnerRefused);

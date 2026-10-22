@@ -69,7 +69,7 @@ import { missingTool, tmuxTerminal } from '../../lib/runner/terminal.ts';
 import type { Terminal } from '../../lib/runner/terminal.ts';
 import { issueArg, parseArgs, positiveInt, println, usageError } from '../args.ts';
 import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
-import { followCommand, interrupts, send } from './runner-follow.ts';
+import { boardCount, followCommand, interrupts, send } from './runner-follow.ts';
 import type { FollowOptions } from './runner-follow.ts';
 
 const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job>";
@@ -209,6 +209,7 @@ async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise
       wrapper: [process.execPath, script, 'runner', 'job'],
       env: jobEnv(io),
       release: releaser({ exec, checkouts }),
+      slices: (prd, dir) => (io.mergedOf ?? ((n) => boardCount(n, { ...io, cwd: dir })))(prd),
       print: (line) => {
         println(stdout, line);
       },

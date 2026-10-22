@@ -72,8 +72,15 @@ export function lastPullRequest(log: string, repo: string): string | null {
   return found?.at(-1) ?? null;
 }
 
-/** What a yolo job's hand-off ended on (PRD 2223): `answers` for `/omni:yolo-fix <prd>`, `held` for `/omni:yolo <prd>`, `ready` for `/omni:pr-care <prd>`. */
-export type RunOutcome = 'answers' | 'held' | 'ready';
+/**
+ * What a yolo job's hand-off ended on (PRD 2223): `answers` for `/omni:yolo-fix <prd>`, `held` for
+ * `/omni:yolo <prd>`, `ready` for `/omni:pr-care <prd>`. `stopped` (PRD 2375) is a yolo job that exited
+ * 0 with no hand-off line for its PRD: it stopped mid-way.
+ */
+export type RunOutcome = 'answers' | 'held' | 'ready' | 'stopped';
+
+/** The skills whose job has a hand-off line to miss (PRD 2375). */
+export type HandOffSkill = 'yolo' | 'yolo-fix';
 
 const OUTCOMES: Readonly<Record<string, RunOutcome>> = { 'yolo-fix': 'answers', yolo: 'held', 'pr-care': 'ready' };
 const STAMP = /^\d{2}:\d{2}:\d{2} /;
@@ -81,13 +88,15 @@ const STAMP = /^\d{2}:\d{2}:\d{2} /;
 /**
  * The outcome the run's last non-empty line names for PRD `prd` (the yolo skill's hand-off always ends
  * on its next command), or `null` for any other line, a line naming another PRD, or an empty log. The
- * runner's `hh:mm:ss ` stamp, when the line has one, is ignored.
+ * runner's `hh:mm:ss ` stamp, when the line has one, is ignored. For a job of `skill` (`yolo` or
+ * `yolo-fix`, PRD 2375) a last line that is no hand-off for `prd` is `stopped` instead of `null`.
  */
-export function runOutcome(log: string, prd: PrdNumber): RunOutcome | null {
+export function runOutcome(log: string, prd: PrdNumber, skill?: HandOffSkill): RunOutcome | null {
   const last = log.split('\n').map((line) => line.trim()).filter((line) => line !== '').at(-1) ?? '';
   const match = /^\/omni:([a-z-]+) (\d+)$/.exec(last.replace(STAMP, ''));
   const outcome = match?.[1] !== undefined && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : undefined;
-  return outcome !== undefined && match?.[2] === String(prd) ? outcome : null;
+  if (outcome !== undefined && match?.[2] === String(prd)) return outcome;
+  return skill === undefined ? null : 'stopped';
 }
 
 const UNITS: Readonly<Record<string, number>> = { s: 1000, m: 60_000, h: 3_600_000 };

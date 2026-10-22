@@ -117,6 +117,24 @@ describe('runOutcome (PRD 2223)', () => {
   });
 });
 
+describe('runOutcome of a yolo job (PRD 2375)', () => {
+  const prd = parsePrd(2375);
+
+  it.each(['yolo', 'yolo-fix'] as const)('is stopped for a %s job whose last line is no hand-off for its PRD', (skill) => {
+    expect(runOutcome('built two sub-PRs\nDone\n', prd, skill)).toBe('stopped');
+    expect(runOutcome('/omni:yolo-fix 2374\n', prd, skill)).toBe('stopped');
+    expect(runOutcome('/omni:plan 2375\n', prd, skill)).toBe('stopped');
+    expect(runOutcome('', prd, skill)).toBe('stopped');
+  });
+
+  it('keeps the hand-off of a yolo job, and stays null for any other job', () => {
+    expect(runOutcome('/omni:yolo-fix 2375\n', prd, 'yolo')).toBe('answers');
+    expect(runOutcome('/omni:yolo 2375\n', prd, 'yolo-fix')).toBe('held');
+    expect(runOutcome('/omni:pr-care 2375\n', prd, 'yolo')).toBe('ready');
+    expect(runOutcome('Done\n', prd)).toBeNull();
+  });
+});
+
 describe('the yolo hand-off\'s last lines (PRD 2223)', () => {
   it('are the three lines runOutcome reads, so a change in the skill fails here', () => {
     const skill = readFileSync(new URL('../../plugin/skills/yolo/SKILL.md', import.meta.url), 'utf8');
