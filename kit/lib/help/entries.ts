@@ -836,6 +836,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'OPENROUTER_API_KEY. Exit 1 when the PR is not merged into {defaultBranch}.',
   },
   {
+    name: 'retro',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni retro outcome <prd> <finding>', "  (--became <playbook/<form>#<slot>> | --stays-here '<why>')"],
+    summary: "record what became of a retro's kept lesson",
+    detail:
+      "Records a kept lesson's outcome: --became names the playbook slot the rule was appended to, " +
+      '--stays-here gives the reason it stays here. It writes the outcome in the PRD\'s retro.json, ' +
+      'under the run that kept the lesson, and its line under the finding in retro.md. It refuses, ' +
+      'writing nothing and exiting 1, an id that does not resolve to a filled slot, an empty reason, a ' +
+      'finding the retro did not keep, and a lesson that already has an outcome: an outcome is never ' +
+      'rewritten.',
+  },
+  {
     name: 'item',
     kind: 'command',
     who: 'skills',
