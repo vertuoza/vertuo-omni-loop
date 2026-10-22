@@ -1,6 +1,6 @@
 import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import type { Question } from '../runners.contract';
-import type { Acted, JobLineRow, JobPatch, JobRow, JobRowStatus, NewJob, NewRunner, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from '../runners.repository';
+import type { Acted, JobLineRow, JobPatch, JobRow, JobRowStatus, NewJob, NewRelaunch, NewRunner, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from '../runners.repository';
 
 // The runners' storage in memory (PRD 1830 s1), for the service's and the controller's tests: the same
 // rows the two tables hold, the claim's rules as runner_claim() applies them, and runners_mark_lost(),
@@ -277,6 +277,16 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       .sort((a, b) => b.queued_at.localeCompare(a.queued_at))[0]?.id ?? null),
     insertJob: (job: NewJob) => {
       const row = jobRow({ workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy, sent_by_key: job.sentByKey, queued_at: stamp() });
+      state.jobs.push(row);
+      return Promise.resolve({ ...row });
+    },
+    // As the insert of a job that carries another on: the unique runner_jobs.continues refuses a second, which reads none.
+    insertRelaunch: (job: NewRelaunch) => {
+      if (state.jobs.some((j) => j.continues === job.continues)) return Promise.resolve(null);
+      const row = jobRow({
+        workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy, sent_by_key: job.sentByKey,
+        continues: job.continues, acting_for: job.actingFor, notify_url: job.notifyUrl, queued_at: stamp(),
+      });
       state.jobs.push(row);
       return Promise.resolve({ ...row });
     },

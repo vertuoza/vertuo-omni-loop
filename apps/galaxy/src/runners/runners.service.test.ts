@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { OutboxStand } from '../dossier/page/stage';
-import { ENDED_JOBS_SHOWN } from './runners.contract';
+import { canResume, canSendAgain } from './page/model';
+import { ENDED_JOBS_SHOWN, STORED_OUTCOMES } from './runners.contract';
 import type { ContinuationsRepository, JobLineRow, JobRow, QuestionsRow, RunnerRow, SampleRow } from './runners.repository';
 import { continuationsService, cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
@@ -1944,6 +1945,249 @@ describe('a key answering and dismissing its job\'s questions (PRD 2425 s6)', ()
       expect(resume).toMatchObject({ sentBy: MO, sentByLogin: 'mo', sentByKey: null });
       expect(w.state.jobs.find((j) => j.id === resume.id)).toMatchObject({ sent_by: MO, sent_by_key: null });
       expect(w.state.jobs.find((j) => j.id === resume.id)).not.toHaveProperty('continues');
+    });
+  });
+});
+
+// PRD 2425 s7: a key cancels a job a key of its workspace sent, as the Runners page's Cancel does (a queued or claimed job
+// ends at once, a running one is asked to stop), and relaunches one as the page offers (Send again for a failed or
+// cancelled job, Resume for one stopped mid-way): the new job stays the first one's key's and maker's, `continues` it
+// and keeps its notify_url.
+describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
+  const NOTIFY = 'https://hooks.example.com/omni';
+  const UNKNOWN_JOB = '00000000-0000-4000-8000-0000024259f8';
+  /** The key that acts: not the one that sent the job. */
+  const KEY = { id: OTHER_KEY, workspace: WORKSPACE, actingFor: 'Jane D.' };
+  const NOT_OFFERED = 'This job is neither failed, cancelled nor stopped mid-way: the Runners page offers neither Send again nor Resume for it.';
+  /** A bug fix the first key sent, through its maker Olga, to the fleet cia, with a link to ping. */
+  const sent = (more: Partial<JobRow> = {}) => jobRow({ line: '/omni:bug-fix #314', sent_by: OLGA, sent_by_key: API_KEY, to_fleet: 'cia', notify_url: NOTIFY, ...more });
+  const running = (more: Partial<JobRow> = {}) => sent({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString(), ...more });
+  const ended = (more: Partial<JobRow> = {}) => sent({
+    status: 'failed', exit_code: 1, reason: 'exit 1', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+  });
+
+  describe('cancelling', () => {
+    it('ends a queued job at once, as the key and whom it acted for, and answers it as a key reads a job', async () => {
+      const job = sent();
+      const w = world({ jobs: [job] });
+      const read = value(await w.service.cancelByKey(KEY, job.id));
+      expect(read).toMatchObject({ id: job.id, status: 'cancelled', endedAt: T0.toISOString(), cancelledBy: { key: 'Support bot', actingFor: 'Jane D.' } });
+      expect(w.state.jobs[0]).toMatchObject({ status: 'cancelled', cancel_requested: true, ended_at: T0.toISOString(), cancelled_by_key: OTHER_KEY, cancelled_for: 'Jane D.' });
+    });
+
+    it('ends a claimed job at once, though its runner may never report on it', async () => {
+      const job = sent({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+      const w = world({ jobs: [job] });
+      expect(value(await w.service.cancelByKey(KEY, job.id))).toMatchObject({ status: 'cancelled', runner: 'shared', endedAt: T0.toISOString() });
+      expect(await w.service.update(OLGA, job.id, { status: 'running' })).toMatchObject({ ok: false, kind: 'conflict' });
+    });
+
+    it('asks the runner to stop a running job, which the runner reads at its next report, and names the key that asked', async () => {
+      const job = running();
+      const w = world({ jobs: [job] });
+      expect(value(await w.service.cancelByKey(KEY, job.id))).toMatchObject({ status: 'running', endedAt: null, cancelledBy: { key: 'Support bot', actingFor: 'Jane D.' } });
+      expect(w.state.jobs[0]).toMatchObject({ status: 'running', cancel_requested: true, ended_at: null, cancelled_by_key: OTHER_KEY, cancelled_for: 'Jane D.' });
+      expect(value(await w.service.update(OLGA, job.id, { status: 'running' }))).toEqual({ cancel: true });
+    });
+
+    it('records whom the key acted for only when it said so', async () => {
+      const job = sent();
+      const w = world({ jobs: [job] });
+      expect(value(await w.service.cancelByKey({ ...KEY, actingFor: null }, job.id))).toMatchObject({ cancelledBy: { key: 'Support bot', actingFor: null } });
+      expect(w.state.jobs[0]).toMatchObject({ cancelled_by_key: OTHER_KEY, cancelled_for: null });
+    });
+
+    it('cancels a job the very key that sent it, as well as another key of the workspace', async () => {
+      const job = sent();
+      const w = world({ jobs: [job] });
+      expect(value(await w.service.cancelByKey({ ...KEY, id: API_KEY }, job.id))).toMatchObject({ status: 'cancelled', cancelledBy: { key: 'QA dashboard' } });
+    });
+
+    it('leaves a running job already asked to stop with the key that asked first, and answers it all the same', async () => {
+      const job = running({ cancel_requested: true, cancelled_by_key: API_KEY, cancelled_for: 'Ann P.' });
+      const w = world({ jobs: [job] });
+      expect(value(await w.service.cancelByKey(KEY, job.id))).toMatchObject({ status: 'running', cancelledBy: { key: 'QA dashboard', actingFor: 'Ann P.' } });
+      expect(w.state.jobs[0]).toMatchObject({ cancel_requested: true, cancelled_by_key: API_KEY, cancelled_for: 'Ann P.' });
+    });
+
+    it('refuses an ended job as a conflict, in the words of the page, and changes nothing', async () => {
+      const jobs = [ended({ status: 'done', exit_code: 0 }), ended({ status: 'failed' }), ended({ status: 'cancelled', cancel_requested: true })];
+      const w = world({ jobs });
+      for (const job of jobs) expect(await w.service.cancelByKey(KEY, job.id)).toEqual({ ok: false, kind: 'conflict', error: `This job has ended: ${job.status}.` });
+      expect(w.state.jobs.map((job) => job.cancelled_by_key ?? null)).toEqual([null, null, null]);
+    });
+
+    it('reads a job whose silent runner is lost as ended, and refuses it', async () => {
+      const job = running({ runner_id: CIA_BOX });
+      const w = world({ jobs: [job], start: at(91) });
+      expect(await w.service.cancelByKey(KEY, job.id)).toEqual({ ok: false, kind: 'conflict', error: 'This job has ended: failed.' });
+    });
+
+    it('finds none for a job a person sent, another workspace\'s key\'s and one that does not exist, and changes nothing', async () => {
+      const person = sent({ sent_by_key: null, sent_by: MO });
+      const mine = sent();
+      const w = world({ jobs: [person, mine] });
+      const missing = { ok: false, kind: 'missing', error: 'No such job.' };
+      expect(await w.service.cancelByKey(KEY, person.id)).toEqual(missing);
+      expect(await w.service.cancelByKey({ ...KEY, workspace: ELSEWHERE }, mine.id)).toEqual(missing);
+      expect(await w.service.cancelByKey(KEY, UNKNOWN_JOB)).toEqual(missing);
+      expect(w.state.jobs.map((job) => [job.status, job.cancelled_by_key ?? null])).toEqual([['queued', null], ['queued', null]]);
+    });
+
+    it('answers a job that moved on meanwhile as a conflict', async () => {
+      const job = sent();
+      const { store } = fakeStore({ jobs: [job], now: () => T0 });
+      const racing = { ...store, updateJob: () => Promise.resolve(null) };
+      const service = runnersService(racing, { now: () => T0, sleep: () => Promise.resolve() });
+      expect(await service.cancelByKey(KEY, job.id)).toEqual({ ok: false, kind: 'conflict', error: 'This job changed meanwhile. Try again.' });
+    });
+
+    it('shows on the Runners page, beside the page\'s own cancel, which records no key', async () => {
+      const [byKey, byPage] = [sent(), sent({ sent_by_key: null, sent_by: MO })];
+      const w = world({ jobs: [byKey, byPage] });
+      value(await w.service.cancelByKey(KEY, byKey.id));
+      value(await w.service.cancel(MO, byPage.id));
+      const board = value(await w.service.board(OLGA, WORKSPACE));
+      expect(board.jobs.find((job) => job.id === byKey.id)).toMatchObject({ status: 'cancelled', cancelledByKey: 'Support bot' });
+      expect(w.state.jobs.find((job) => job.id === byPage.id)).toMatchObject({ status: 'cancelled' });
+      expect(w.state.jobs.find((job) => job.id === byPage.id)?.cancelled_by_key ?? null).toBeNull();
+    });
+  });
+
+  describe('relaunching', () => {
+    it('sends a failed job again, as the first job\'s key and maker, to the same fleet, and answers the new job as a key reads a job', async () => {
+      const job = ended();
+      const w = world({ jobs: [job] });
+      const relaunched = value(await w.service.relaunchByKey(KEY, job.id));
+      expect(relaunched).toMatchObject({ line: '/omni:bug-fix #314', repo: 'demo-org/app', status: 'queued', runner: null, continues: job.id, continuedBy: null, actingFor: 'Jane D.', questions: null, outcome: null });
+      expect(relaunched.id).not.toBe(job.id);
+      expect(w.state.jobs.find((j) => j.id === relaunched.id)).toMatchObject({
+        status: 'queued', sent_by: OLGA, sent_by_key: API_KEY, continues: job.id, to_fleet: 'cia', to_runner: null, acting_for: 'Jane D.', notify_url: NOTIFY,
+      });
+    });
+
+    it('sends a cancelled job again, as the page does', async () => {
+      const job = ended({ status: 'cancelled', cancel_requested: true, cancelled_by_key: API_KEY, exit_code: null, reason: null });
+      const w = world({ jobs: [job] });
+      const relaunched = value(await w.service.relaunchByKey(KEY, job.id));
+      expect(relaunched).toMatchObject({ line: job.line, status: 'queued', continues: job.id });
+      expect(w.state.jobs.find((j) => j.id === relaunched.id)).toMatchObject({ cancel_requested: false, sent_by_key: API_KEY });
+    });
+
+    it('resumes a job stopped mid-way with the line it ran, as the page\'s Resume does', async () => {
+      const job = ended({ status: 'done', exit_code: 0, reason: null, outcome: 'stopped', line: '/omni:yolo 2338', slices_merged: 3, slices_total: 5 });
+      const w = world({ jobs: [job] });
+      const relaunched = value(await w.service.relaunchByKey(KEY, job.id));
+      expect(relaunched).toMatchObject({ line: '/omni:yolo 2338', status: 'queued', continues: job.id });
+      expect(w.state.jobs.find((j) => j.id === relaunched.id)).toMatchObject({ sent_by: OLGA, sent_by_key: API_KEY });
+    });
+
+    it('goes to the runner the first job named, and to any runner when it named none', async () => {
+      const [named, any] = [ended({ to_fleet: null, to_runner: CIA_BOX }), ended({ to_fleet: null })];
+      const w = world({ jobs: [named, any] });
+      const [first, second] = [value(await w.service.relaunchByKey(KEY, named.id)), value(await w.service.relaunchByKey(KEY, any.id))];
+      expect(w.state.jobs.find((j) => j.id === first.id)).toMatchObject({ to_runner: CIA_BOX, to_fleet: null });
+      expect(w.state.jobs.find((j) => j.id === second.id)).toMatchObject({ to_runner: null, to_fleet: null });
+    });
+
+    it('keeps the notify_url it had, and none when it had none; whom the key acted for is only what it said now', async () => {
+      const [pinged, quiet] = [ended(), ended({ notify_url: null })];
+      const w = world({ jobs: [pinged, quiet] });
+      const [first, second] = [value(await w.service.relaunchByKey({ ...KEY, actingFor: null }, pinged.id)), value(await w.service.relaunchByKey(KEY, quiet.id))];
+      expect(w.state.jobs.find((j) => j.id === first.id)).toMatchObject({ notify_url: NOTIFY, acting_for: null });
+      expect(w.state.jobs.find((j) => j.id === second.id)).toMatchObject({ notify_url: null, acting_for: 'Jane D.' });
+    });
+
+    it('reads the first job as carried on by the new one', async () => {
+      const job = ended();
+      const w = world({ jobs: [job] });
+      const relaunched = value(await w.service.relaunchByKey(KEY, job.id));
+      expect(value(await w.service.keyJob(WORKSPACE, job.id))).toMatchObject({ continuedBy: relaunched.id, continues: null });
+      expect(value(await w.service.keyJob(WORKSPACE, relaunched.id))).toMatchObject({ continues: job.id, continuedBy: null });
+    });
+
+    it('queues the job as the runners queue any: the claim hands the runner the key and its maker', async () => {
+      const job = ended({ to_fleet: null });
+      const w = world({ jobs: [job] });
+      const relaunched = value(await w.service.relaunchByKey(KEY, job.id));
+      expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: relaunched.id, line: job.line, repo: 'demo-org/app', sentBy: 'API key QA dashboard (@olga)', allowedSkills: [] });
+    });
+
+    it('offers it for exactly the jobs the Runners page offers Send again or Resume for', async () => {
+      const mismatches: string[] = [];
+      for (const status of ['queued', 'claimed', 'running', 'done', 'failed', 'cancelled'] as const) {
+        for (const outcome of [null, ...STORED_OUTCOMES]) {
+          const job = sent({ status, outcome });
+          const served = await world({ jobs: [job] }).service.relaunchByKey(KEY, job.id);
+          if (served.ok !== (canSendAgain({ status }) || canResume({ status, outcome }))) mismatches.push(`${status}/${String(outcome)}`);
+          if (!served.ok) expect(served).toEqual({ ok: false, kind: 'conflict', error: NOT_OFFERED });
+        }
+      }
+      expect(mismatches).toEqual([]);
+    });
+
+    it('refuses a job that is not offered it, and queues nothing', async () => {
+      const [live, handedOff, asked] = [sent(), ended({ status: 'done', exit_code: 0, outcome: 'pr-opened' }), ended({ status: 'done', exit_code: 0, outcome: 'human' })];
+      const w = world({ jobs: [live, handedOff, asked] });
+      for (const job of [live, handedOff, asked]) expect(await w.service.relaunchByKey(KEY, job.id)).toEqual({ ok: false, kind: 'conflict', error: NOT_OFFERED });
+      expect(w.state.jobs).toHaveLength(3);
+    });
+
+    it('refuses a job already carried on, however it was: one relaunch each, and a second answers as a conflict', async () => {
+      const job = ended();
+      const w = world({ jobs: [job] });
+      value(await w.service.relaunchByKey(KEY, job.id));
+      expect(await w.service.relaunchByKey(KEY, job.id)).toEqual({ ok: false, kind: 'conflict', error: 'This job was carried on already.' });
+      expect(await w.service.relaunchByKey({ ...KEY, id: API_KEY }, job.id)).toMatchObject({ ok: false, kind: 'conflict' });
+      expect(w.state.jobs).toHaveLength(2);
+    });
+
+    it('refuses the one that lost a race for the job, as the database\'s unique `continues` answers it', async () => {
+      const job = ended();
+      const { store, state } = fakeStore({ jobs: [job], now: () => T0 });
+      const racing = { ...store, insertRelaunch: () => Promise.resolve(null) };
+      const service = runnersService(racing, { now: () => T0, sleep: () => Promise.resolve() });
+      expect(await service.relaunchByKey(KEY, job.id)).toEqual({ ok: false, kind: 'conflict', error: 'This job was carried on already.' });
+      expect(state.jobs).toHaveLength(1);
+    });
+
+    it('finds none for a job a person sent, another workspace\'s key\'s and one that does not exist', async () => {
+      const person = ended({ sent_by_key: null, sent_by: MO });
+      const mine = ended();
+      const w = world({ jobs: [person, mine] });
+      const missing = { ok: false, kind: 'missing', error: 'No such job.' };
+      expect(await w.service.relaunchByKey(KEY, person.id)).toEqual(missing);
+      expect(await w.service.relaunchByKey({ ...KEY, workspace: ELSEWHERE }, mine.id)).toEqual(missing);
+      expect(await w.service.relaunchByKey(KEY, UNKNOWN_JOB)).toEqual(missing);
+      expect(w.state.jobs).toHaveLength(2);
+    });
+
+    it('queues as the first job\'s sender: one who left the workspace, or no longer plays in the fleet, is refused', async () => {
+      const left = ended({ sent_by: EVE });
+      const moved = ended({ sent_by: PIA });
+      const w = world({ jobs: [left, moved] });
+      expect(await w.service.relaunchByKey(KEY, left.id)).toMatchObject({ ok: false, kind: 'forbidden', error: expect.stringContaining('no longer a member') as string });
+      expect(await w.service.relaunchByKey(KEY, moved.id)).toMatchObject({ ok: false, kind: 'forbidden', error: expect.stringContaining('cia') as string });
+      expect(w.state.jobs).toHaveLength(2);
+    });
+
+    it('refuses a runner the first job named that is gone, in the runners\' words', async () => {
+      const job = ended({ to_fleet: null, to_runner: '00000000-0000-4000-8000-0000018301ff' });
+      const w = world({ jobs: [job] });
+      expect(await w.service.relaunchByKey(KEY, job.id)).toEqual({ ok: false, kind: 'missing', error: 'No such runner in this workspace.' });
+      expect(w.state.jobs).toHaveLength(1);
+    });
+
+    it('checks the line as Send checks it: a repository\'s own skill its owner no longer allows is refused', async () => {
+      const job = ended({ line: '/validate-prd 347' });
+      const allowed: AllowedSkillRow = { workspace_id: WORKSPACE, full_name: 'demo-org/app', skill: 'validate-prd' };
+      const off = world({ jobs: [job] });
+      expect(await off.service.relaunchByKey(KEY, job.id)).toEqual({
+        ok: false, kind: 'malformed', error: '/validate-prd is not allowed on a runner for demo-org/app: an owner allows it in Settings › Repositories.',
+      });
+      expect(off.state.jobs).toHaveLength(1);
+      const on = world({ jobs: [job], skills: [allowed] });
+      expect(value(await on.service.relaunchByKey(KEY, job.id))).toMatchObject({ line: '/validate-prd 347', continues: job.id });
     });
   });
 });

@@ -195,6 +195,58 @@ describe('a job an API key sent (PRD 2022 s4)', () => {
   });
 });
 
+// A key cancelling and relaunching its job (PRD 2425 s7): the cancel's key and whom it acted for written with the update, the
+// relaunch inserted with the job it continues, whom the key acted for and the notify_url it keeps, and none for a job carried on already.
+describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
+  const relaunch = { workspaceId: 'w1', line: '/omni:bug-fix x', repo: 'demo-org/app', toRunner: null, toFleet: 'cia', sentBy: 'u1', sentByKey: 'k1', continues: 'j1', actingFor: 'Jane D.', notifyUrl: 'https://hooks.example.com/omni' };
+  const TOO_LATE = { code: '23505', message: 'duplicate key value violates unique constraint "runner_jobs_continues_key"' };
+
+  it('writes the key that cancelled the job and whom it acted for with the update', async () => {
+    const job = jobRow({ status: 'cancelled', cancel_requested: true, cancelled_by_key: 'k2', cancelled_for: 'Jane D.' });
+    const { db, lines } = fakeDb([{ data: job, error: null }]);
+    expect(await runnersRepository(db).updateJob(job.id, ['queued'], { status: 'cancelled', cancel_requested: true, cancelled_by_key: 'k2', cancelled_for: 'Jane D.' })).toEqual(job);
+    expect(lines[0]).toContain('.update({"status":"cancelled","cancel_requested":true,"cancelled_by_key":"k2","cancelled_for":"Jane D."})');
+    expect(lines[0]).toMatch(/\.select\("[^"]*cancelled_by_key, cancelled_for[^"]*"\)/);
+  });
+
+  it('reads the job\'s notify_url, and none for one out of shape', async () => {
+    const { db, lines } = fakeDb([{ data: { ...jobRow(), notify_url: 'https://hooks.example.com/omni' }, error: null }, { data: { ...jobRow(), notify_url: 42 }, error: null }]);
+    const repository = runnersRepository(db);
+    expect((await repository.job('j1'))?.notify_url).toBe('https://hooks.example.com/omni');
+    expect((await repository.job('j1'))?.notify_url).toBeNull();
+    expect(lines[0]).toMatch(/\.select\("[^"]*acting_for, notify_url, cancelled_by_key[^"]*"\)/);
+  });
+
+  it('inserts the relaunch as the key and its maker, with the job it continues, whom the key acted for and the notify_url', async () => {
+    const queued = jobRow({ line: '/omni:bug-fix x', continues: 'j1', sent_by_key: 'k1' });
+    const { db, lines } = fakeDb([{ data: queued, error: null }]);
+    expect(await runnersRepository(db).insertRelaunch(relaunch)).toEqual(queued);
+    expect(lines[0]).toMatch(/^from\("runner_jobs"\)\.insert\(\{.*\}\)\.select\(".*"\)\.single\(\)$/);
+    for (const written of ['"sent_by":"u1"', '"sent_by_key":"k1"', '"continues":"j1"', '"to_fleet":"cia"', '"acting_for":"Jane D."', '"notify_url":"https://hooks.example.com/omni"']) {
+      expect(lines[0]).toContain(written);
+    }
+  });
+
+  it('writes none for whom the key acted for and the notify_url when there is none', async () => {
+    const { db, lines } = fakeDb([{ data: jobRow({ continues: 'j1' }), error: null }]);
+    await runnersRepository(db).insertRelaunch({ ...relaunch, actingFor: null, notifyUrl: null });
+    expect(lines[0]).toContain('"acting_for":null,"notify_url":null');
+  });
+
+  it('answers none when the job was carried on already, and throws on any other refusal, naming the table', async () => {
+    const lost = fakeDb([{ data: null, error: TOO_LATE }]);
+    expect(await runnersRepository(lost.db).insertRelaunch(relaunch)).toBeNull();
+    const refused = fakeDb([{ data: null, error: { code: '42501', message: 'permission denied for table runner_jobs' } }]);
+    await expect(runnersRepository(refused.db).insertRelaunch(relaunch)).rejects.toThrow('runner_jobs: permission denied for table runner_jobs');
+  });
+
+  it('leaves the continuation\'s insert as it was, with no acting_for and no notify_url', async () => {
+    const { db, lines } = fakeDb([{ data: jobRow({ continues: 'j1' }), error: null }]);
+    await continuationsRepository(db).insertContinuation({ workspaceId: 'w1', line: '/omni:yolo-fix 1', repo: 'demo-org/app', toRunner: null, toFleet: null, sentBy: 'u1', sentByKey: null, continues: 'j1' });
+    expect(lines[0]).toContain('.insert({"workspace_id":"w1","line":"/omni:yolo-fix 1","repo":"demo-org/app","to_runner":null,"to_fleet":null,"sent_by":"u1","sent_by_key":null,"continues":"j1"})');
+  });
+});
+
 describe('a repository\'s allowed skills (PRD 2313)', () => {
   it('are read by repository_runner_skills_of(), for the workspace and the repository', async () => {
     const { db, lines } = fakeDb([{ data: ['audit', 'validate-prd'], error: null }, { data: [], error: null }]);

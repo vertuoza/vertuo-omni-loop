@@ -56,6 +56,13 @@
 //   job that ended `human` is answered or dismissed. The Runners page keeps a job waiting for an answer
 //   whatever its age, and reads one whose questions are closed as Done (outcome null): the stored
 //   outcome stays `human`.
+// - A key's control of its job (PRD 2425 s6, s7): any key of the workspace reads and acts on any key's job,
+//   never a person's or another workspace's (both read as no such job). It closes a job's questions as the
+//   page does, and cancels it as the page's Cancel does (a queued or claimed job ends at once, a running one
+//   is asked to stop), recording the key and whom it acted for. It relaunches a job as the page offers for
+//   it: Send again for a failed or cancelled one, Resume for one stopped mid-way. The new job is the
+//   first one's key's and maker's, sent to its target, `continues` it, and keeps its notify_url; the job
+//   was carried on already when another job continues it, runner_jobs.continues being unique.
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
@@ -64,7 +71,7 @@ import {
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
 import { shouldContinue, unansweredWhy } from './continue';
-import type { ContinuationsRepository, JobPatch, JobRow, JobRowStatus, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
+import type { ContinuationsRepository, JobPatch, JobRow, JobRowStatus, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
 
 /** The time, and a pause: real in production, fixed in tests. */
 export type Clock = { now: () => Date; sleep: (ms: number) => Promise<void> };
@@ -109,6 +116,12 @@ export function runnerState(runner: Pick<RunnerRow, 'last_seen_at' | 'slots'>, u
 
 /** The API key that sends: its id and name, its workspace, and the member who made it (the sender of record). */
 type KeySender = { id: string; name: string; workspace: string; maker: string };
+
+/** A job a key sent, whichever key (PRD 2425): its row, with the key that sent it. */
+type KeyedJob = JobRow & { sent_by_key: string };
+
+/** What a relaunch carries on (PRD 2425 s7): the job it continues, whom the key acted for and the link to ping. */
+type Thread = Pick<NewRelaunch, 'continues' | 'actingFor' | 'notifyUrl'>;
 
 /** Who a runner's job reads as sent by: `@login`, `API key <name> (@login)` for a key's (PRD 2022), or `Omni app`
  * for a job the app sent (PRD 2338). */
@@ -334,6 +347,13 @@ function resumeOf(firstLine: string, issue: IssueNumber, jobId: string): Served<
   return line.ok ? ok(null) : no('malformed', line.reason);
 }
 
+const NOT_OFFERED = 'This job is neither failed, cancelled nor stopped mid-way: the Runners page offers neither Send again nor Resume for it.';
+const CARRIED_ON = 'This job was carried on already.';
+
+/** Whether the Runners page offers Send again (a failed or cancelled job) or Resume (one stopped mid-way) for a job: what a key relaunches (PRD 2425 s7). */
+const relaunchable = (job: Pick<JobRow, 'status' | 'outcome'>): boolean =>
+  job.status === 'failed' || job.status === 'cancelled' || (job.status === 'done' && job.outcome === 'stopped');
+
 const NOT_WAITING = 'This job is not waiting for an answer.';
 const NO_QUESTION = 'This job asked no question.';
 const EACH_ANSWERED = 'Answer each question once, and only the ones asked.';
@@ -385,8 +405,9 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
   }
 
   /** Queues the job as `caller`, a member of the workspace the repository belongs to; for a key, that must be the key's.
-   * The line's shape is checked first; a repository's own skill, once the repository is placed, against what its owner allowed. */
-  async function queue(caller: string, request: SendRequest, key: KeySender | null): Promise<Served<JobRow>> {
+   * The line's shape is checked first; a repository's own skill, once the repository is placed, against what its owner allowed.
+   * A relaunch (PRD 2425 s7) names the `thread` it carries on: the job it continues, which no other job may continue. */
+  async function queue(caller: string, request: SendRequest, key: Pick<KeySender, 'id' | 'workspace'> | null, thread: Thread | null = null): Promise<Served<JobRow>> {
     const line = checkLineShape(request.line);
     if (!line.ok) return no('malformed', line.reason);
     const repo = request.repo.toLowerCase();
@@ -397,7 +418,14 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     if (!allowed.ok) return allowed;
     const target = await mayTarget(store, workspaceId, sender, request.target);
     if (!target.ok) return target;
-    return ok(await store.insertJob({ workspaceId, line: request.line, repo, ...target.value, sentBy: caller, sentByKey: key?.id ?? null }));
+    return insert({ workspaceId, line: request.line, repo, ...target.value, sentBy: caller, sentByKey: key?.id ?? null }, thread);
+  }
+
+  /** Stores a queued job: a new one, or, with a `thread`, one that carries a job on, which another job may already (runner_jobs.continues is unique). */
+  async function insert(job: NewJob, thread: Thread | null): Promise<Served<JobRow>> {
+    if (thread === null) return ok(await store.insertJob(job));
+    const relaunched = await store.insertRelaunch({ ...job, ...thread });
+    return relaunched ? ok(relaunched) : no('conflict', CARRIED_ON);
   }
 
   /** The workspace the repository belongs to for the person, which must be `only` when that is given, and their place in it. */
@@ -500,13 +528,19 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     return found.job.outcome === 'human' ? ok(found) : no('conflict', NOT_WAITING);
   }
 
-  /** The questions of a job a key of the workspace sent (PRD 2425 s6): the job and its row. A job nobody sees reads the same
-   * for a person's, another workspace's and one that does not exist, so a key learns nothing of them; one that asked none says so. */
-  async function questionsOfKeyJob(workspaceId: string, jobId: string): Promise<Served<{ job: JobRow; row: QuestionsRow }>> {
+  /** A job a key of the workspace sent, whichever key (PRD 2425): its row. A job nobody sees reads the same for a person's,
+   * another workspace's and one that does not exist, so a key learns nothing of them. */
+  async function keyJobRow(workspaceId: string, jobId: string): Promise<Served<KeyedJob>> {
     const job = await store.job(jobId);
-    if (job?.workspace_id !== workspaceId || job.sent_by_key === null) return no('missing', 'No such job.');
+    return job?.workspace_id === workspaceId && job.sent_by_key !== null ? ok({ ...job, sent_by_key: job.sent_by_key }) : no('missing', 'No such job.');
+  }
+
+  /** The questions of a job a key of the workspace sent (PRD 2425 s6): the job and its row; one that asked none says so. */
+  async function questionsOfKeyJob(workspaceId: string, jobId: string): Promise<Served<{ job: JobRow; row: QuestionsRow }>> {
+    const found = await keyJobRow(workspaceId, jobId);
+    if (!found.ok) return found;
     const row = await store.questionsOf(jobId);
-    return row ? ok({ job, row }) : no('missing', NO_QUESTION);
+    return row ? ok({ job: found.value, row }) : no('missing', NO_QUESTION);
   }
 
   /** The questions of a job a key sent when they are still open and the job ended with them open: what a key may close. */
@@ -515,26 +549,45 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     return found.ok ? stillWaiting(found.value) : found;
   }
 
-  /** The resume of a key's job is queued as that job's sender, the key's maker, as Send checks them (PRD 2425 s6): nothing
-   * when they are still a member and may still send to the job's target; why not otherwise. */
-  async function mayResume(job: JobRow): Promise<Served<null>> {
+  /** The resume or relaunch of a key's job is queued as that job's sender, the key's maker, as Send checks them (PRD 2425 s6, s7):
+   * the maker when they are still a member and may still send to the job's target; why not otherwise. */
+  async function mayResume(job: JobRow): Promise<Served<string>> {
     const placed = await memberOf(store, job.workspace_id, job.sent_by);
     if (!placed) return no('forbidden', 'The person who made the API key that sent this job is no longer a member of this workspace.');
     const target = await mayTarget(store, job.workspace_id, placed.sender, targetOf(job));
-    return target.ok ? ok(null) : target;
+    return target.ok ? ok(placed.person) : target;
+  }
+
+  /** Runs `act` on a job a key of the workspace sent as it stands now, a lost runner's jobs ended first (PRD 2425); none, as no
+   * such job, for a person's, another workspace's and one that does not exist. */
+  async function onKeyJob<T>(workspaceId: string, jobId: string, act: (job: KeyedJob) => Promise<Served<T>>): Promise<Served<T>> {
+    await markLost();
+    const found = await keyJobRow(workspaceId, jobId);
+    return found.ok ? act(found.value) : found;
   }
 
   /** A job a key sent, as a key reads it (PRD 2425): its runner, the questions it asked, the job that carries it on and the key
    * that cancelled it. */
-  async function readKeyJob(workspaceId: string, jobId: string): Promise<Served<KeyJob>> {
-    await markLost();
-    const job = await store.job(jobId);
-    if (job?.workspace_id !== workspaceId || job.sent_by_key === null) return no('missing', 'No such job.');
+  const readKeyJob = (workspaceId: string, jobId: string): Promise<Served<KeyJob>> => onKeyJob(workspaceId, jobId, async (job) => {
     const [runner, questions, continuedBy, keys] = await Promise.all([
       runnerNameOf(job), store.questionsOf(job.id), store.continuedBy(job.id),
       store.keyNames(workspaceId, job.cancelled_by_key ? [job.cancelled_by_key] : []),
     ]);
     return ok(keyJobOf(job, { runner, questions, continuedBy, keys }));
+  });
+
+  /** Cancels a job that has not ended, as the page's Cancel does and a key's does with it (PRD 2425 s7): a queued or claimed one
+   * ends at once, a running one at its runner's next report. `by` is the key that cancels and whom it acted for, a person's Cancel none.
+   * Why not, in words: an ended job, or one that moved on meanwhile. */
+  async function stop(job: JobRow, by: Pick<JobPatch, 'cancelled_by_key' | 'cancelled_for'> = {}): Promise<Served<JobRow>> {
+    if (ENDED.includes(job.status)) return no('conflict', `This job has ended: ${job.status}.`);
+    // A job not running yet ends at once: a Starting one's runner may never report on it (#2168). A
+    // running one waits for its runner to kill it.
+    const patch: JobPatch = { ...by, ...(job.status === 'running' ? { cancel_requested: true } : { status: 'cancelled', cancel_requested: true, ended_at: iso() }) };
+    const updated = await store.updateJob(job.id, [job.status], patch);
+    if (!updated) return no('conflict', 'This job changed meanwhile. Try again.');
+    await retainLines(updated);
+    return ok(updated);
   }
 
   /** The patch that ends a job from its runner's report: a job that ends with its questions still open reads
@@ -668,15 +721,35 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       await markLost();
       const job = await store.job(jobId);
       if (!job) return no('missing', 'No such job.');
-      if (ENDED.includes(job.status)) return no('conflict', `This job has ended: ${job.status}.`);
-      // A job not running yet ends at once: a Starting one's runner may never report on it (#2168). A
-      // running one waits for its runner to kill it.
-      const patch: JobPatch = job.status === 'running' ? { cancel_requested: true } : { status: 'cancelled', cancel_requested: true, ended_at: iso() };
-      const updated = await store.updateJob(jobId, [job.status], patch);
-      if (!updated) return no('conflict', 'This job changed meanwhile. Try again.');
-      await retainLines(updated);
+      const stopped = await stop(job);
+      if (!stopped.ok) return stopped;
+      const updated = stopped.value;
       return ok(jobOf(updated, await store.logins(updated.workspace_id, sendersOf([updated])), await keysOf(updated.workspace_id, [updated])));
     },
+
+    /** A key cancels a job a key of its workspace sent (PRD 2425 s7), as the page's Cancel does: a queued or claimed job ends at once,
+     * a running one is asked to stop, and the job records the key and whom it said it acted for. Answers the job as a key reads it. A
+     * running job already asked to stop stays the first key's. An ended job is a conflict. */
+    cancelByKey: (key: KeyCloser, jobId: string): Promise<Served<KeyJob>> => onKeyJob(key.workspace, jobId, async (job) => {
+      const stopped = job.status === 'running' && job.cancel_requested ? ok(job) : await stop(job, { cancelled_by_key: key.id, cancelled_for: key.actingFor });
+      return stopped.ok ? readKeyJob(key.workspace, jobId) : stopped;
+    }),
+
+    /** A key relaunches a job a key of its workspace sent (PRD 2425 s7), as the page offers for it: Send again for a failed or
+     * cancelled job, Resume for one stopped mid-way, which both send the job's line again, to its target, as Send checks it. The new
+     * job is the first one's key's and maker's, `continues` it, keeps its notify_url and acts for whom the key says now; the first job
+     * reads as carried on by it. Answers the new job as a key reads a job. A job already carried on is a conflict, as is one the page
+     * offers neither for. */
+    relaunchByKey: (key: KeyCloser, jobId: string): Promise<Served<KeyJob>> => onKeyJob(key.workspace, jobId, async (job) => {
+      if (!relaunchable(job)) return no('conflict', NOT_OFFERED);
+      if ((await store.continuedBy(job.id)) !== null) return no('conflict', CARRIED_ON);
+      const maker = await mayResume(job);
+      if (!maker.ok) return maker;
+      const thread = { continues: job.id, actingFor: key.actingFor, notifyUrl: job.notify_url ?? null };
+      const queued = await queue(maker.value, { line: job.line, repo: job.repo, target: targetOf(job) }, { id: job.sent_by_key, workspace: key.workspace }, thread);
+      // A job just queued asked nothing, is carried on by none and was cancelled by nobody: nothing else to read.
+      return queued.ok ? ok(keyJobOf(queued.value, { runner: null, questions: null, continuedBy: null, keys: new Map() })) : queued;
+    }),
 
     /** Gives the runner to a fleet, or makes it shared: a workspace owner only. */
     async setFleet(caller: string, runnerId: string, fleet: string | null): Promise<Served<Runner>> {

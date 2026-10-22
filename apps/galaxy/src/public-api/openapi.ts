@@ -1,8 +1,8 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import {
-  AnswerJobSchema, BugFixListSchema, DismissJobSchema, JobLineListSchema, JobSchema, ListQuerySchema, PrdListSchema, PublicApiErrorSchema, QuestionsSchema,
-  StartBugFixSchema, StartMegaBugFixSchema,
+  AnswerJobSchema, BugFixListSchema, CancelJobSchema, DismissJobSchema, JobLineListSchema, JobSchema, ListQuerySchema, PrdListSchema, PublicApiErrorSchema, QuestionsSchema,
+  RelaunchJobSchema, StartBugFixSchema, StartMegaBugFixSchema,
 } from './public-api.contract';
 
 // The public API's reference (PRD 2022 s3, spec "The reference"): every /api/v1 route registered with
@@ -13,17 +13,22 @@ import {
 
 const ERROR_ANSWERS = {
   401: 'No key, an unknown key, a revoked key, or a key whose maker left the workspace.',
-  403: 'A repository outside the workspace or outside the key’s list of repositories, to start a job in or to read the job of.',
+  403: 'A repository outside the workspace or outside the key’s list of repositories, to start a job in, to read the job of or to act on the job of.',
   404: 'A job that does not exist, that a person sent, that no key of this workspace queued, or, for its questions, that asked none.',
   409: 'The job’s questions were already answered or dismissed, by a key or by a person on the Runners page (the first close wins), or the job is not waiting for an answer; the message names who closed them.',
   422: 'A query or body the contract refuses, a cursor that does not decode, a description the runners refuse, a repository that is not a plan repository, or answers that are not one to each question the job asked; the message names the field.',
   500: 'The API could not answer; the message never carries a stack or a database error.',
 } as const;
 
-const errors = (...statuses: (keyof typeof ERROR_ANSWERS)[]) => Object.fromEntries(statuses.map((status) => [
+type ErrorStatus = keyof typeof ERROR_ANSWERS;
+
+/** The error answers of `statuses`, each saying what `says` gives it for this route, else what it says everywhere. */
+const errorsSaying = (says: Partial<Record<ErrorStatus, string>>, ...statuses: ErrorStatus[]) => Object.fromEntries(statuses.map((status) => [
   status,
-  { description: ERROR_ANSWERS[status], content: { 'application/json': { schema: PublicApiErrorSchema } } },
+  { description: says[status] ?? ERROR_ANSWERS[status], content: { 'application/json': { schema: PublicApiErrorSchema } } },
 ]));
+
+const errors = (...statuses: ErrorStatus[]) => errorsSaying({}, ...statuses);
 
 /** The path parameter of every route under /api/v1/jobs/{id}. */
 const JobParams = z.object({
@@ -100,7 +105,7 @@ function openApiRegistry(): OpenAPIRegistry {
     path: '/api/v1/jobs/{id}',
     tags: ['Bug fixes'],
     summary: 'Follow a job',
-    description: 'A job a key of this workspace queued, whichever key it was: its status, the runner, the `pr_url` (the pull request a mega bug fix’s record is), the exit code, the reason and the times. A key whose list of repositories leaves the job’s repository out is refused.\n\nFor a bug fix or a mega bug fix it also says what the job did:\n\n- `outcome`: `pr_opened`, `already_fixed`, `need_human`, `needs_brainstorm`, `not_a_bug`, `stuck` or `blocked`; null while it runs, when it failed, or when its runner reported none.\n- `fixed_by`: the pull request that already fixed the bug, with `already_fixed` only.\n- `prs`: every pull request it opened, in order, a mega bug fix’s record last.\n- `questions`: the state of the questions it asked; `GET /api/v1/jobs/{id}/questions` reads them, and `POST /api/v1/jobs/{id}/answers` and `POST /api/v1/jobs/{id}/dismiss` close them.\n- `continues`, `continued_by`: the job it carries on and the one that carries it on.\n- `acting_for`, `cancelled_by`: whom the key acted for, and the key that cancelled the job.\n- `log_tail`: the last lines of its log; `GET /api/v1/jobs/{id}/lines` reads the whole of it, a page at a time.',
+    description: 'A job a key of this workspace queued, whichever key it was: its status, the runner, the `pr_url` (the pull request a mega bug fix’s record is), the exit code, the reason and the times. A key whose list of repositories leaves the job’s repository out is refused.\n\nFor a bug fix or a mega bug fix it also says what the job did:\n\n- `outcome`: `pr_opened`, `already_fixed`, `need_human`, `needs_brainstorm`, `not_a_bug`, `stuck` or `blocked`; null while it runs, when it failed, or when its runner reported none.\n- `fixed_by`: the pull request that already fixed the bug, with `already_fixed` only.\n- `prs`: every pull request it opened, in order, a mega bug fix’s record last.\n- `questions`: the state of the questions it asked; `GET /api/v1/jobs/{id}/questions` reads them, and `POST /api/v1/jobs/{id}/answers` and `POST /api/v1/jobs/{id}/dismiss` close them.\n- `continues`, `continued_by`: the job it carries on and the one that carries it on.\n- `acting_for`, `cancelled_by`: whom the key acted for, and the key that cancelled the job; `POST /api/v1/jobs/{id}/cancel` cancels a job and `POST /api/v1/jobs/{id}/relaunch` sends it again or resumes it.\n- `log_tail`: the last lines of its log; `GET /api/v1/jobs/{id}/lines` reads the whole of it, a page at a time.',
     security: [{ bearerAuth: [] }],
     request: { params: JobParams },
     responses: {
@@ -162,6 +167,34 @@ function openApiRegistry(): OpenAPIRegistry {
     responses: {
       200: { description: 'The job, its questions dismissed.', content: { 'application/json': { schema: JobSchema } } },
       ...errors(401, 403, 404, 409, 422, 500),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/api/v1/jobs/{id}/cancel',
+    tags: ['Bug fixes'],
+    summary: 'Cancel a job',
+    description: 'Cancels a job a key of this workspace queued, whichever key it was, as the Runners page’s Cancel does: a queued or claimed job ends at once as `cancelled`, and a running one is asked to stop and ends as `cancelled` when its runner stops it. Answers 200 with the job, whose `cancelled_by` names this key and whom it acted for; a running job that was asked to stop already answers the same, and keeps the key that asked first. The body is optional: send none, `{}`, or `{"acting_for": "…"}` to say whom the key acts for (1 to 80 characters, as for an answer).',
+    security: [{ bearerAuth: [] }],
+    request: { params: JobParams, body: { required: false, content: { 'application/json': { schema: CancelJobSchema } } } },
+    responses: {
+      200: { description: 'The job, cancelled or asked to stop.', content: { 'application/json': { schema: JobSchema } } },
+      ...errorsSaying({ 409: 'The job has ended: done, failed or cancelled already, so there is nothing to cancel.' }, 401, 403, 404, 409, 422, 500),
+    },
+  });
+
+  registry.registerPath({
+    method: 'post',
+    path: '/api/v1/jobs/{id}/relaunch',
+    tags: ['Bug fixes'],
+    summary: 'Send a job again or resume it',
+    description: 'Does what the Runners page offers for a job a key of this workspace queued, whichever key it was: Send again for a job that failed or was cancelled, Resume for one that stopped mid-way (its `outcome` is `stopped`). The job must be failed, cancelled or stopped mid-way. This queues a new job with the same line, on the same runner target, as the key that sent the first and its maker, whoever relaunches it, and answers 202 with it. Its `continues` is the first job’s id, it keeps the first job’s `notify_url`, and the first job’s `continued_by` is the new one, which the key that sent the job reads with `GET /api/v1/jobs/{id}`.\n\nThe body is optional: send none, `{}`, or `{"acting_for": "…"}` to say whom the key acts for (1 to 80 characters, as for an answer). A job is carried on once: a job already carried on, by a relaunch, an answer or an automatic continuation, is 409. A line the runners no longer take, a repository’s own skill its owner no longer allows, is 422.',
+    security: [{ bearerAuth: [] }],
+    request: { params: JobParams, body: { required: false, content: { 'application/json': { schema: RelaunchJobSchema } } } },
+    responses: {
+      202: { description: 'The new job, queued, continuing the first.', content: { 'application/json': { schema: JobSchema } } },
+      ...errorsSaying({ 409: 'The Runners page offers neither Send again nor Resume for the job (it is not failed, cancelled or stopped mid-way), or it was carried on already.' }, 401, 403, 404, 409, 422, 500),
     },
   });
 

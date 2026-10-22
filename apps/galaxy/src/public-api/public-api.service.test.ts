@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { checkRunnerLine, LINE_MAX } from 'omni-loop/kit/lib/runner/line.ts';
-import { API_KEY, jobRow, lineRows, OLGA, OTHER_KEY, questionsRow, SAM, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
+import { API_KEY, EVE, jobRow, lineRows, OLGA, OTHER_KEY, questionsRow, SAM, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
 import { encodeCursor, encodeLinesCursor } from './cursor';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
 import { BugFixListSchema, DESCRIPTION_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, type ListQuery } from './public-api.contract';
@@ -968,6 +968,192 @@ describe('a key answering and dismissing its job’s questions (PRD 2425 s6)', (
       expect(await service(api).dismissJob(await caller(api, SECRETS.runnersLimited), job.id, {})).toMatchObject({ ok: false, code: 'forbidden' });
       expect(await service(api).dismissJob(await caller(api, SECRETS.runners), failed.id, {})).toEqual({ ok: false, code: 'conflict', message: 'This job is not waiting for an answer.' });
       expect(api.runnersState.questions.filter((q) => q.closed_at !== null)).toEqual([]);
+    });
+  });
+});
+
+// PRD 2425 s7: a key cancels a job a key of its workspace sent, as the Runners page's Cancel does, and relaunches one as the page
+// offers (Send again, Resume): the new job stays the first one's key's, continues it and keeps its notify_url. Any key of the
+// workspace acts on any key's job within its allow-list; a person's job and another workspace's read as no such job.
+describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
+  const UNKNOWN_JOB = '00000000-0000-4000-8000-00000000dead';
+  const NOTIFY = 'https://hooks.example.com/omni';
+  const MISSING = { ok: false, code: 'not_found', message: 'No such job.' };
+
+  /** A bug fix the first key of the workspace sent through Olga to the fleet cia, in demo-org/app: queued, unless told otherwise. */
+  function seed(api: FakePublicApi, more: Partial<ReturnType<typeof jobRow>> = {}) {
+    const job = jobRow({ line: '/omni:bug-fix #314', sent_by: OLGA, sent_by_key: API_KEY, to_fleet: 'cia', notify_url: NOTIFY, ...more });
+    api.runnersState.jobs.push(job);
+    return job;
+  }
+  /** A job that ended `failed`, which the page offers Send again for. */
+  const failed = (api: FakePublicApi, more: Partial<ReturnType<typeof jobRow>> = {}) => seed(api, {
+    status: 'failed', exit_code: 1, reason: 'exit 1', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+  });
+  const service = (api: FakePublicApi) => publicApiService(api.repository, api.runners);
+  const valueOf = <T>(answered: { ok: true; value: T } | { ok: false; message: string }): T => {
+    if (!answered.ok) throw new Error(answered.message);
+    return answered.value;
+  };
+
+  describe('cancelling', () => {
+    it('ends a queued job at once as the key that cancels, whichever key sent it, and answers it as a job', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const cancelled = valueOf(await service(api).cancelJob(await caller(api, SECRETS.runnersOther), job.id, { acting_for: 'Jane D.' }));
+      expect(cancelled).toMatchObject({ id: job.id, status: 'cancelled', ended_at: expect.any(String) as string, cancelled_by: { key: 'Support bot', acting_for: 'Jane D.' } });
+      expect(api.runnersState.jobs[0]).toMatchObject({ status: 'cancelled', cancel_requested: true, cancelled_by_key: OTHER_KEY, cancelled_for: 'Jane D.' });
+    });
+
+    it('asks a running job to stop, and says so with the key that asked', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, { status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+      const asked = valueOf(await service(api).cancelJob(await caller(api, SECRETS.runners), job.id, {}));
+      expect(asked).toMatchObject({ status: 'running', ended_at: null, cancelled_by: { key: 'QA dashboard', acting_for: null } });
+      expect(api.runnersState.jobs[0]).toMatchObject({ status: 'running', cancel_requested: true, cancelled_for: null });
+    });
+
+    it('reads back with the key by name, beside the job the key reads', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      valueOf(await service(api).cancelJob(await caller(api, SECRETS.runnersOther), job.id, { acting_for: 'Ann P.' }));
+      expect(valueOf(await service(api).job(await caller(api, SECRETS.runners), job.id))).toMatchObject({ status: 'cancelled', cancelled_by: { key: 'Support bot', acting_for: 'Ann P.' } });
+    });
+
+    it('answers 409 conflict to an ended job, in the page’s words, and changes nothing', async () => {
+      const api = fakePublicApi();
+      const [done, ended] = [failed(api, { status: 'done', exit_code: 0 }), failed(api)];
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).cancelJob(key, done.id, {})).toEqual({ ok: false, code: 'conflict', message: 'This job has ended: done.' });
+      expect(await service(api).cancelJob(key, ended.id, {})).toEqual({ ok: false, code: 'conflict', message: 'This job has ended: failed.' });
+      expect(api.runnersState.jobs.map((j) => j.cancelled_by_key ?? null)).toEqual([null, null]);
+    });
+
+    it('answers 404 for what a key learns nothing of: a person’s job, another workspace’s, none at all, and changes nothing', async () => {
+      const api = fakePublicApi();
+      const person = seed(api, { sent_by_key: null, sent_by: OLGA });
+      const mine = seed(api);
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).cancelJob(key, person.id, {})).toEqual(MISSING);
+      expect(await service(api).cancelJob(key, UNKNOWN_JOB, {})).toEqual(MISSING);
+      expect(await service(api).cancelJob(await caller(api, SECRETS.south), mine.id, {})).toEqual(MISSING);
+      expect(api.runnersState.jobs.map((j) => j.status)).toEqual(['queued', 'queued']);
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, and changes nothing', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      expect(await service(api).cancelJob(await caller(api, SECRETS.runnersLimited), job.id, {})).toEqual({
+        ok: false, code: 'forbidden', message: 'demo-org/app is not on this API key’s list of repositories.',
+      });
+      expect(api.runnersState.jobs[0]).toMatchObject({ status: 'queued', cancel_requested: false });
+    });
+
+    it('fails, rather than answering a refusal of its own, when the runners fail: the controller answers 500', async () => {
+      const api = fakePublicApi();
+      const job = seed(api);
+      const broken = { ...api.runners, cancelByKey: () => Promise.resolve({ ok: false as const, kind: 'unavailable' as const, error: 'runner_jobs: permission denied' }) };
+      await expect(publicApiService(api.repository, broken).cancelJob(await caller(api, SECRETS.runners), job.id, {})).rejects.toThrow('runners: unavailable runner_jobs: permission denied');
+    });
+  });
+
+  describe('relaunching', () => {
+    it('sends a failed job again as the job’s key, continuing it, and answers it as a job: queued, continues, acting_for, no questions', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      const relaunched = valueOf(await service(api).relaunchJob(await caller(api, SECRETS.runnersOther), job.id, { acting_for: 'Jane D.' }));
+      expect(relaunched).toMatchObject({
+        line: '/omni:bug-fix #314', repo: 'demo-org/app', status: 'queued', continues: job.id, continued_by: null, acting_for: 'Jane D.', questions: null, outcome: null, prs: [],
+      });
+      // The key that relaunched is not the key that sent the job: the new job stays the sender’s, with its notify_url.
+      expect(api.runnersState.jobs.find((j) => j.id === relaunched.id)).toMatchObject({ sent_by: OLGA, sent_by_key: API_KEY, continues: job.id, to_fleet: 'cia', notify_url: NOTIFY, acting_for: 'Jane D.' });
+    });
+
+    it('resumes a job stopped mid-way and sends a cancelled one again, with the line each ran', async () => {
+      const api = fakePublicApi();
+      const stopped = failed(api, { status: 'done', exit_code: 0, reason: null, outcome: 'stopped', line: '/omni:yolo 2338' });
+      const cancelled = failed(api, { status: 'cancelled', cancel_requested: true, reason: null });
+      const key = await caller(api, SECRETS.runners);
+      expect(valueOf(await service(api).relaunchJob(key, stopped.id, {}))).toMatchObject({ line: '/omni:yolo 2338', continues: stopped.id, acting_for: null });
+      expect(valueOf(await service(api).relaunchJob(key, cancelled.id, {}))).toMatchObject({ line: '/omni:bug-fix #314', continues: cancelled.id });
+    });
+
+    it('reads the first job as carried on by the new one, and the new one by the key that sent the first', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      const relaunched = valueOf(await service(api).relaunchJob(await caller(api, SECRETS.runnersOther), job.id, {}));
+      const sender = await caller(api, SECRETS.runners);
+      expect(valueOf(await service(api).job(sender, job.id))).toMatchObject({ continued_by: relaunched.id });
+      expect(valueOf(await service(api).job(sender, relaunched.id))).toMatchObject({ id: relaunched.id, continues: job.id });
+    });
+
+    it('answers 409 conflict to a job the page offers neither Send again nor Resume for, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const [live, handedOff, asked] = [seed(api), failed(api, { status: 'done', exit_code: 0, outcome: 'pr-opened' }), failed(api, { status: 'done', exit_code: 0, outcome: 'human' })];
+      const key = await caller(api, SECRETS.runners);
+      const refused = { ok: false, code: 'conflict', message: 'This job is neither failed, cancelled nor stopped mid-way: the Runners page offers neither Send again nor Resume for it.' };
+      for (const job of [live, handedOff, asked]) expect(await service(api).relaunchJob(key, job.id, {})).toEqual(refused);
+      expect(api.runnersState.jobs).toHaveLength(3);
+    });
+
+    it('answers 409 conflict to a job already carried on, whoever relaunches it again: one new job each', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      valueOf(await service(api).relaunchJob(await caller(api, SECRETS.runnersOther), job.id, {}));
+      const carried = { ok: false, code: 'conflict', message: 'This job was carried on already.' };
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runners), job.id, {})).toEqual(carried);
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runnersOther), job.id, {})).toEqual(carried);
+      expect(api.runnersState.jobs.filter((j) => j.continues === job.id)).toHaveLength(1);
+    });
+
+    it('answers 404 for what a key learns nothing of: a person’s job, another workspace’s, none at all, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const person = failed(api, { sent_by_key: null, sent_by: OLGA });
+      const mine = failed(api);
+      const key = await caller(api, SECRETS.runners);
+      expect(await service(api).relaunchJob(key, person.id, {})).toEqual(MISSING);
+      expect(await service(api).relaunchJob(key, UNKNOWN_JOB, {})).toEqual(MISSING);
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.south), mine.id, {})).toEqual(MISSING);
+      expect(api.runnersState.jobs).toHaveLength(2);
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runnersLimited), job.id, {})).toEqual({
+        ok: false, code: 'forbidden', message: 'demo-org/app is not on this API key’s list of repositories.',
+      });
+      expect(api.runnersState.jobs).toHaveLength(1);
+    });
+
+    it('answers 403 when the person who made the job’s key left the workspace, as the new job would be queued as them', async () => {
+      const api = fakePublicApi();
+      const job = failed(api, { sent_by: EVE });
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runners), job.id, {})).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(api.runnersState.jobs).toHaveLength(1);
+    });
+
+    it('answers 409 conflict, not 404, when the runner the job named is gone: the job itself is there', async () => {
+      const api = fakePublicApi();
+      const job = failed(api, { to_fleet: null, to_runner: '00000000-0000-4000-8000-0000018301ff' });
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runners), job.id, {})).toEqual({ ok: false, code: 'conflict', message: 'No such runner in this workspace.' });
+      expect(api.runnersState.jobs).toHaveLength(1);
+    });
+
+    it('answers 422 to a line the runners no longer take, in their words with no field named, and queues nothing', async () => {
+      const api = fakePublicApi();
+      const job = failed(api, { line: '/validate-prd 347' });
+      expect(await service(api).relaunchJob(await caller(api, SECRETS.runners), job.id, {})).toEqual({
+        ok: false, code: 'invalid_request', message: '/validate-prd is not allowed on a runner for demo-org/app: an owner allows it in Settings › Repositories.',
+      });
+      expect(api.runnersState.jobs).toHaveLength(1);
+    });
+
+    it('fails, rather than answering a refusal of its own, when the runners fail: the controller answers 500', async () => {
+      const api = fakePublicApi();
+      const job = failed(api);
+      const broken = { ...api.runners, relaunchByKey: () => Promise.resolve({ ok: false as const, kind: 'unavailable' as const, error: 'runner_jobs: permission denied' }) };
+      await expect(publicApiService(api.repository, broken).relaunchJob(await caller(api, SECRETS.runners), job.id, {})).rejects.toThrow('runners: unavailable runner_jobs: permission denied');
     });
   });
 });

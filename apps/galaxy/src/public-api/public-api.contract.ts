@@ -193,7 +193,7 @@ export const ACTING_FOR_MAX = 80;
 /** Letters of any alphabet (with their marks, which a name in most of them needs), digits, spaces and `. _ ' @ - ·`. */
 const ACTING_FOR_CHARS = /^[\p{L}\p{M}\p{Nd} ._'@·-]+$/u;
 
-/** Whom a key says it acts for when it answers or dismisses: stored as given, shown beside the key's name. */
+/** Whom a key says it acts for when it answers, dismisses, cancels or relaunches: stored as given, shown beside the key’s name. */
 const ActingForSchema = z.string().min(1).max(ACTING_FOR_MAX).regex(ACTING_FOR_CHARS, 'letters of any alphabet, digits, spaces and . _ \' @ - · only');
 
 const ACTING_FOR_META = {
@@ -214,6 +214,14 @@ export type AnswerJob = z.infer<typeof AnswerJobSchema>;
 /** What a key dismisses a job's questions with: nothing, or whom it acts for. Strict, as the answers are. */
 export const DismissJobSchema = z.strictObject({ acting_for: ActingForSchema.optional().meta(ACTING_FOR_META) });
 export type DismissJob = z.infer<typeof DismissJobSchema>;
+
+/** What a key cancels a job with (PRD 2425 s7): nothing, or whom it acts for. Strict, as the dismissal is. */
+export const CancelJobSchema = z.strictObject({ acting_for: ActingForSchema.optional().meta(ACTING_FOR_META) });
+export type CancelJob = z.infer<typeof CancelJobSchema>;
+
+/** What a key relaunches a job with (PRD 2425 s7): nothing, or whom it acts for, which the new job carries. Strict, as the dismissal is. */
+export const RelaunchJobSchema = z.strictObject({ acting_for: ActingForSchema.optional().meta(ACTING_FOR_META) });
+export type RelaunchJob = z.infer<typeof RelaunchJobSchema>;
 
 /** One option of a question the job asked. */
 const QuestionOptionSchema = z.object({

@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { STORED_STAGES } from '../stages/stage';
 import { decodeCursor } from './cursor';
 import {
-  ACTING_FOR_MAX, AnswerJobSchema, API_OUTCOMES, BugFixSchema, DismissJobSchema, JobLineListSchema, JobSchema, ListQuerySchema, MEGA_DESCRIPTION_MAX, PRD_STAGES, PrdSchema,
-  PUBLIC_API_ERRORS, PublicApiErrorSchema, QuestionsSchema, StartBugFixSchema, StartMegaBugFixSchema,
+  ACTING_FOR_MAX, AnswerJobSchema, API_OUTCOMES, BugFixSchema, CancelJobSchema, DismissJobSchema, JobLineListSchema, JobSchema, ListQuerySchema, MEGA_DESCRIPTION_MAX, PRD_STAGES, PrdSchema,
+  PUBLIC_API_ERRORS, PublicApiErrorSchema, QuestionsSchema, RelaunchJobSchema, StartBugFixSchema, StartMegaBugFixSchema,
 } from './public-api.contract';
 
 // The public API's contract (PRD 2022 s2): a list's query, valid and refused; the shapes the spec names;
@@ -211,34 +211,36 @@ describe('a job’s lines (PRD 2425 s4)', () => {
   });
 });
 
-// PRD 2425 s6: a key answers or dismisses the questions of its job, saying whom it acts for.
-describe('whom a key acts for (PRD 2425 s6)', () => {
+// PRD 2425 s6, s7: a key answers, dismisses, cancels or relaunches its job, saying whom it acts for.
+describe('whom a key acts for (PRD 2425 s6, s7)', () => {
   const ANSWERS = { 'Which fix?': 'Guard the input' };
+  /** The bodies that carry nothing but whom the key acts for. */
+  const ACTIONS = { dismiss: DismissJobSchema, cancel: CancelJobSchema, relaunch: RelaunchJobSchema };
   const accepted = ['Jane D.', 'José', 'Zoë O\'Neil', '田中 太郎', 'Анна', 'jane@acme.test', 'bot_7-b', 'a·b', '  spaced  ', 'ñ', 'नमस्ते', 'Zoë', '٣٤', 'Team 42', 'x'.repeat(ACTING_FOR_MAX)];
   const refused = ['', 'x'.repeat(ACTING_FOR_MAX + 1), 'Jane <b>', 'a/b', 'line\nbreak', 'tab\t', 'emoji 😀', '“quoted”', 'a;b', 'a,b', 'a:b', 'a(b)', '50%', 'zero​width', 'a\\b', 'a"b'];
 
   it('takes 1 to 80 characters of letters of any alphabet, digits, spaces and . _ \' @ - · only', () => {
     for (const actingFor of accepted) {
       expect(AnswerJobSchema.safeParse({ answers: ANSWERS, acting_for: actingFor }).success, actingFor).toBe(true);
-      expect(DismissJobSchema.safeParse({ acting_for: actingFor }).success, actingFor).toBe(true);
+      for (const schema of Object.values(ACTIONS)) expect(schema.safeParse({ acting_for: actingFor }).success, actingFor).toBe(true);
     }
     for (const actingFor of refused) {
       expect(AnswerJobSchema.safeParse({ answers: ANSWERS, acting_for: actingFor }).error?.issues[0]?.path, actingFor).toEqual(['acting_for']);
-      expect(DismissJobSchema.safeParse({ acting_for: actingFor }).error?.issues[0]?.path, actingFor).toEqual(['acting_for']);
+      for (const schema of Object.values(ACTIONS)) expect(schema.safeParse({ acting_for: actingFor }).error?.issues[0]?.path, actingFor).toEqual(['acting_for']);
     }
   });
 
   it('is stored as given: never trimmed, folded or normalised', () => {
     expect(AnswerJobSchema.parse({ answers: ANSWERS, acting_for: '  Jane  D.  ' }).acting_for).toBe('  Jane  D.  ');
-    expect(DismissJobSchema.parse({ acting_for: 'ñ' }).acting_for).toBe('ñ');
+    for (const schema of Object.values(ACTIONS)) expect(schema.parse({ acting_for: 'ñ' }).acting_for).toBe('ñ');
   });
 
   it('is optional, and never null or anything but a string', () => {
     expect(AnswerJobSchema.parse({ answers: ANSWERS })).toEqual({ answers: ANSWERS });
-    expect(DismissJobSchema.parse({})).toEqual({});
+    for (const schema of Object.values(ACTIONS)) expect(schema.parse({})).toEqual({});
     for (const actingFor of [null, 3, true, ['Jane'], {}]) {
       expect(AnswerJobSchema.safeParse({ answers: ANSWERS, acting_for: actingFor }).error?.issues[0]?.path, JSON.stringify(actingFor)).toEqual(['acting_for']);
-      expect(DismissJobSchema.safeParse({ acting_for: actingFor }).success, JSON.stringify(actingFor)).toBe(false);
+      for (const schema of Object.values(ACTIONS)) expect(schema.safeParse({ acting_for: actingFor }).success, JSON.stringify(actingFor)).toBe(false);
     }
   });
 });
@@ -282,6 +284,21 @@ describe('the dismissal a key sends (PRD 2425 s6)', () => {
 
   it('describes its field for the reference', () => {
     expect(DismissJobSchema.shape.acting_for.meta()?.description).toEqual(expect.any(String));
+  });
+});
+
+describe('the cancel and the relaunch a key sends (PRD 2425 s7)', () => {
+  it.each([['cancel', CancelJobSchema], ['relaunch', RelaunchJobSchema]] as const)('takes nothing to %s, or whom the key acts for, and no other field', (_, schema) => {
+    expect(schema.parse({})).toEqual({});
+    expect(schema.parse({ acting_for: 'Jane D.' })).toEqual({ acting_for: 'Jane D.' });
+    expect(schema.safeParse({ notify_url: 'https://hooks.example.com/omni' }).error?.issues[0]).toMatchObject({ code: 'unrecognized_keys', keys: ['notify_url'] });
+    expect(schema.safeParse({ acting_for: 'Jane D.', runner: 'cia-box' }).error?.issues[0]).toMatchObject({ code: 'unrecognized_keys', keys: ['runner'] });
+    expect(schema.safeParse(null).success).toBe(false);
+    expect(schema.safeParse([]).success).toBe(false);
+  });
+
+  it.each([['cancel', CancelJobSchema], ['relaunch', RelaunchJobSchema]] as const)('describes the field of the %s for the reference', (_, schema) => {
+    expect(schema.shape.acting_for.meta()?.description).toEqual(expect.any(String));
   });
 });
 
