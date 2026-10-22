@@ -9,12 +9,20 @@
 // until a minute before it expires, and never leaves this module. Every call goes through the shared,
 // budget-aware client (packages/github, PRD 902, s1) at `background` priority: nobody waits on the sync,
 // so it steps back first when the installation's budget runs low, and stops while GitHub has paused it.
+//
+// PRD 2377 (s1): for the waits (./waits.ts), the list gives each pull request's labels, body and the
+// reviewers asked. Then, only for a pull request the waits count (open, ready, into the default branch)
+// that the run listed, so changed since the last sync, three reads: its events (when a review was last
+// asked, and when it was last marked ready), its reviews, and its head commit's check runs (whether one
+// failed, and the locked laws its outbox check holds it on). Each such pull request's reads either all
+// land or leave its reviews and checks null: a refusal, or the budget stepping back, closes no wait.
 import { githubClient, type GithubStore } from '@omni/github';
 import { z } from 'zod';
 import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import { githubApp, REPO, type AppCredentials } from '../../signup/github-app';
 import { keptInstallationTokens } from '../../signup/installation-tokens';
-import { syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
+import { syncConfig, type RepoSnapshot, type SnapshotPull, type SnapshotReview } from './core';
+import { waitedPull } from './waits';
 import { PrdNumberSchema, PrNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { RecordLine } from 'omni-loop/kit/lib/escalation/comments.ts';
 import { recordIn } from '../outbox/escalation';
@@ -40,12 +48,53 @@ const Pulls = z.array(z.object({
   merged_at: z.string().nullable().optional().default(null),
   created_at: z.string(),
   updated_at: z.string().optional(),
-  head: z.object({ ref: z.string() }),
+  head: z.object({ ref: z.string(), sha: z.string().optional() }),
   base: z.object({ ref: z.string() }),
+  body: z.string().nullable().optional().default(null),
+  labels: z.array(z.object({ name: z.string() })).optional().default([]),
+  requested_reviewers: z.array(z.object({ login: z.string() })).optional().default([]),
+  requested_teams: z.array(z.object({ slug: z.string() })).optional().default([]),
 }));
+type ListedPull = z.infer<typeof Pulls>[number];
 const Events = z.array(z.object({ event: z.string(), created_at: z.string() }));
+const Reviews = z.array(z.object({
+  user: z.object({ login: z.string() }).nullable().optional(),
+  state: z.string(),
+  submitted_at: z.string().nullable().optional(),
+}));
+const CheckRuns = z.object({
+  check_runs: z.array(z.object({
+    name: z.string(),
+    conclusion: z.string().nullable().optional(),
+    output: z.object({ title: z.string().nullable().optional() }).optional(),
+  })),
+});
+
+/** The conclusions of a check run that failed. */
+const RED: ReadonlySet<string> = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure']);
+/** The outbox check's title while a locked law holds it (apps/omni-app/src/outbox-check/law-locked.ts), the laws after the dash. */
+const LAW_LOCKED = /^Locked law changed without its CODEOWNER's approval — ([^;]+)/;
+
+/** The latest time of an event among `events`; null for none. */
+const lastOf = (events: z.infer<typeof Events>, event: string) =>
+  events.filter((e) => e.event === event).map((e) => e.created_at).sort().pop() ?? null;
+
+/** Whether a check run failed, and the locked laws the outbox check (`check`) holds the pull request on. */
+function checksOf(runs: z.infer<typeof CheckRuns>['check_runs'], check: string): { lawLocked: string[]; checksRed: boolean } {
+  const held = runs.filter((run) => run.name === check && run.conclusion === 'failure')
+    .flatMap((run) => (LAW_LOCKED.exec(run.output?.title ?? '')?.[1] ?? '').split(',').map((law) => law.trim()).filter(Boolean));
+  return { lawLocked: [...new Set(held)], checksRed: runs.some((run) => RED.has(run.conclusion ?? '')) };
+}
+
+/** A listed pull request's reviewers asked: logins, then `org/team`s (the repository's owner is the team's org). */
+const requestedOf = (p: ListedPull, repository: string) =>
+  [...p.requested_reviewers.map((r) => r.login), ...p.requested_teams.map((t) => `${repository.split('/')[0] ?? ''}/${t.slug}`)];
 
 const path = (p: string) => p.split('/').map(encodeURIComponent).join('/');
+
+/** What the waits read of a counted pull request beyond the list; null each when not read. */
+type WaitFacts = Pick<SnapshotPull, 'ready_at' | 'requested_at' | 'reviews' | 'lawLocked' | 'checksRed'>;
+const UNREAD: WaitFacts = { ready_at: null, requested_at: null, reviews: null, lawLocked: null, checksRed: null };
 
 export type StagesReader = {
   /** The repository as installation `installation` sees it; given `since`, only the issues and pull
@@ -118,15 +167,35 @@ export function stagesReader(
         .map((name) => parseFolderName(name)?.topic)
         .filter((t): t is string => Boolean(t))
         .map((topic) => config.branches.feature.replace('{topic}', topic)));
-      const pulls: SnapshotPull[] = await Promise.all(listed.map(async (p) => {
-        let ready_at: string | null = null;
-        if (p.state === 'open' && !p.draft && features.has(p.head.ref)) {
-          const events = Events.parse((await get(`/issues/${p.number}/events?per_page=100`)) ?? []);
-          ready_at = events.filter((e) => e.event === 'ready_for_review').map((e) => e.created_at).sort().pop() ?? null;
+      const events = async (p: ListedPull) => Events.parse((await get(`/issues/${p.number}/events?per_page=100`)) ?? []);
+      /** The waits' reads of a counted pull request; all null when one of them fails. */
+      async function waitFacts(p: ListedPull, read: z.infer<typeof Events> | null): Promise<WaitFacts> {
+        const unread = { ...UNREAD, ready_at: read ? lastOf(read, 'ready_for_review') : null };
+        try {
+          if (p.head.sha === undefined) return unread;
+          const [found, reviews, runs] = await Promise.all([
+            read ?? events(p),
+            get(`/pulls/${p.number}/reviews?per_page=100`).then((data) => Reviews.parse(data ?? [])),
+            get(`/commits/${encodeURIComponent(p.head.sha)}/check-runs?per_page=100`).then((data) => CheckRuns.parse(data ?? { check_runs: [] })),
+          ]);
+          return {
+            ready_at: lastOf(found, 'ready_for_review'),
+            requested_at: lastOf(found, 'review_requested'),
+            reviews: reviews.map((r): SnapshotReview => ({ login: r.user?.login ?? null, state: r.state, submitted_at: r.submitted_at ?? null })),
+            ...checksOf(runs.check_runs, config.outboxCheck),
+          };
+        } catch {
+          return unread;
         }
+      }
+      const pulls: SnapshotPull[] = await Promise.all(listed.map(async (p) => {
+        const read = p.state === 'open' && !p.draft && features.has(p.head.ref) ? await events(p) : null;
+        const labels = p.labels.map((l) => l.name);
+        const counted = waitedPull(config, { inbox, shipped }, { ...p, head: p.head.ref, base: p.base.ref, labels }) !== null;
+        const facts = counted ? await waitFacts(p, read) : { ...UNREAD, ready_at: read ? lastOf(read, 'ready_for_review') : null };
         return {
           number: p.number, head: p.head.ref, base: p.base.ref, state: p.state, draft: p.draft,
-          merged_at: p.merged_at, created_at: p.created_at, ready_at,
+          merged_at: p.merged_at, created_at: p.created_at, labels, body: p.body, requested: requestedOf(p, repository), ...facts,
         };
       }));
 
