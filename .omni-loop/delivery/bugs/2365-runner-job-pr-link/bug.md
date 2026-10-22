@@ -28,4 +28,4 @@ and checks its `PR:` lines and its `prUrl` name only the PR it opened or handed 
 
 ## Mutation
 
-Not run yet — see the pull request.
+mutation: no changed core file against origin/main (7fa27e28): nothing to mutate

@@ -48,7 +48,8 @@ function fixture({ pin }: { pin?: string } = {}) {
   const home = join(root, 'home');
   mkdirSync(home);
   // The fake claude: prints the line it read on its standard input, sleeps when the line says so,
-  // then prints a pull request of another repository and one of the job's.
+  // then prints a pull request of another repository, and ends on a hand-off naming one of the job's
+  // (bug 2365: the job's pull request is one its hand-off or a `gh pr create` names).
   const bin = join(root, 'bin');
   mkdirSync(bin);
   writeFileSync(
@@ -60,7 +61,7 @@ function fixture({ pin }: { pin?: string } = {}) {
       'case "$line" in *sleep-*) sleep "${line##*sleep-}" ;; esac',
       'case "$line" in *lines-*) seq -f "line %g" 1 "${line##*lines-}" ;; esac',
       'echo "see https://github.com/acme/other/pull/9"',
-      'echo "opened https://github.com/acme/widgets/pull/42"',
+      `echo '${JSON.stringify({ type: 'result', subtype: 'success', num_turns: 1, total_cost_usd: 0, duration_ms: 1000, result: 'opened https://github.com/acme/widgets/pull/42' })}'`,
       'case "$line" in *push*) git push -q -u origin HEAD 2>/dev/null ;; esac',
       'case "$line" in *fail*) exit 3 ;; esac',
       '',
