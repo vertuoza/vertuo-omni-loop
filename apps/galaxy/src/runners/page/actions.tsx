@@ -70,6 +70,10 @@ function CallButton({ label, primary, call }: { label: string; primary: boolean;
 export const SendAgainButton = ({ line, repo, target, primary }: { line: string; repo: string; target: Target; primary: boolean }) =>
   <CallButton label="Send again" primary={primary} call={() => sendToRunner(line, repo, target)} />;
 
+/** Resume (PRD 2375): the line of a job that stopped mid-way, sent again exactly as Send again does, by the person who presses it. */
+export const ResumeButton = ({ line, repo, target, primary }: { line: string; repo: string; target: Target; primary: boolean }) =>
+  <CallButton label="Resume" primary={primary} call={() => sendToRunner(line, repo, target)} />;
+
 /** Fix with answers (PRD 2270): `/omni:yolo-fix <n>` as the continuation of this job, to where it went. */
 export const FixWithAnswersButton = ({ job, primary }: { job: string; primary: boolean }) =>
   <CallButton label="Fix with answers" primary={primary} call={() => postFixWithAnswers(job)} />;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { afterAnswersWords, answeredOf, canAnswer, canCancel, fixLineOf, canSendAgain, madeByWords, prdLineOf, prdPageLink, prWords, retroLineOf, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
+import { afterAnswersWords, answeredOf, canAnswer, canCancel, canResume, fixLineOf, canSendAgain, madeByWords, prdLineOf, prdPageLink, prWords, retroLineOf, senderWords, slicesWords, stateWords, statusTone, statusWords, targetOf } from './model';
 
 // The Runners page's words and rules (PRD 1830 s3), pure: how long ago, where a job is sent again, and
 // which jobs take Cancel or Send again.
@@ -211,5 +211,34 @@ describe('canAnswer (PRD 2255 s3)', () => {
 
   it('shows none on a job that asked and then failed, was cancelled, or still runs', () => {
     for (const status of ['failed', 'cancelled', 'running', 'queued', 'claimed'] as const) expect(canAnswer({ status, outcome: 'human' })).toBe(false);
+  });
+});
+
+describe('a job stopped mid-way (PRD 2375)', () => {
+  const job = { reason: null, exitCode: 0, runningAt: null, claimedAt: null };
+
+  it('reads Stopped mid-way in the red of Failed, never Done', () => {
+    expect(statusWords({ ...job, status: 'done', outcome: 'stopped' }, NOW)).toBe('Stopped mid-way');
+    expect(statusTone('done', 'stopped')).toBe('fail');
+  });
+
+  it('says what it left when its count is known, and nothing when it is not', () => {
+    expect(slicesWords({ status: 'done', outcome: 'stopped', slicesMerged: 2, slicesTotal: 5 })).toBe('2 / 5 slices merged');
+    expect(slicesWords({ status: 'done', outcome: 'stopped', slicesMerged: 0, slicesTotal: 5 })).toBe('0 / 5 slices merged');
+    expect(slicesWords({ status: 'done', outcome: 'stopped', slicesMerged: null, slicesTotal: null })).toBeNull();
+    expect(slicesWords({ status: 'done', outcome: 'ready', slicesMerged: 2, slicesTotal: 5 })).toBeNull();
+  });
+
+  it('resumes a stopped job only: not a done job with another outcome, nor a failed or cancelled one', () => {
+    expect(canResume({ status: 'done', outcome: 'stopped' })).toBe(true);
+    for (const outcome of ['answers', 'held', 'ready', 'human', null] as const) expect(canResume({ status: 'done', outcome })).toBe(false);
+    for (const status of ['failed', 'cancelled', 'running', 'queued', 'claimed'] as const) expect(canResume({ status, outcome: 'stopped' })).toBe(false);
+  });
+
+  it('keeps the other outcomes and statuses as they were', () => {
+    expect(statusTone('done', 'ready')).toBe('done');
+    expect(statusTone('done', 'held')).toBe('wait');
+    expect(statusTone('failed', 'stopped')).toBe('fail');
+    expect(canSendAgain({ status: 'done' })).toBe(false);
   });
 });

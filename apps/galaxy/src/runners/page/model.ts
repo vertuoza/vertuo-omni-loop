@@ -51,7 +51,7 @@ export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'> & { heal
 }
 
 /** A done job's outcome in words (PRD 2223; `human`, PRD 2255: it ended with questions for a person). */
-const OUTCOME_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human' } as const;
+const OUTCOME_WORDS = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human', stopped: 'Stopped mid-way' } as const;
 
 /** What a job that waited on answers reads once they are in (PRD 2270): Answered · fixing while its
  * continuation is queued, starting or running, Answered · fixed once that ended, linking it; Answered with a
@@ -100,6 +100,7 @@ export function statusWords(job: Pick<Job, 'status' | 'reason' | 'exitCode' | 'r
 
 /** The tone a status is drawn in. */
 export function statusTone(status: Job['status'], outcome?: Job['outcome']): 'queue' | 'run' | 'done' | 'fail' | 'off' | 'wait' {
+  if (status === 'done' && outcome === 'stopped') return 'fail';
   if (status === 'done' && (outcome === 'answers' || outcome === 'held' || outcome === 'human')) return 'wait';
   if (status === 'queued') return 'queue';
   if (status === 'claimed' || status === 'running') return 'run';
@@ -114,6 +115,16 @@ export const canCancel = (job: Pick<Job, 'status' | 'cancelRequested'>): boolean
 
 /** Whether a job may be sent again: it failed or was cancelled. Nothing runs again by itself. */
 export const canSendAgain = (job: Pick<Job, 'status'>): boolean => job.status === 'failed' || job.status === 'cancelled';
+
+/** Whether a job may be resumed (PRD 2375): it ended done but stopped mid-way, before its hand-off. Resume sends
+ * its line again, as Send again does, and only a person's press does it. */
+export const canResume = (job: Pick<Job, 'status'> & { outcome?: Job['outcome'] }): boolean => job.status === 'done' && job.outcome === 'stopped';
+
+/** What a stopped job left (PRD 2375): `<k> / <n> slices merged`, or null when its runner could not read the board. */
+export function slicesWords(job: Pick<Job, 'status'> & { outcome?: Job['outcome']; slicesMerged?: Job['slicesMerged']; slicesTotal?: Job['slicesTotal'] }): string | null {
+  if (!canResume(job) || job.slicesMerged == null || job.slicesTotal == null) return null;
+  return `${String(job.slicesMerged)} / ${String(job.slicesTotal)} slices merged`;
+}
 
 /** Whether a job shows the Need human button (PRD 2255): it ended done with its questions still open, which the
  * board reads as outcome `human`. Answered or dismissed, the board sends no outcome and it reads Done; a job

@@ -1475,3 +1475,27 @@ describe('a job\'s questions (PRD 2255)', () => {
     });
   });
 });
+
+// PRD 2375 s3: a done job's last report may say it stopped mid-way, with the slices merged out of all.
+describe('a job stopped mid-way (PRD 2375)', () => {
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+
+  it('stores the outcome stopped and its count with a done report', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, outcome: 'stopped', slicesMerged: 0, slicesTotal: 5 }));
+    expect(w.state.jobs[0]).toMatchObject({ status: 'done', outcome: 'stopped', slices_merged: 0, slices_total: 5 });
+  });
+
+  it('stores no count for a report that carries none, and none on a failed report', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'done', exitCode: 0, outcome: 'stopped' }));
+    expect(w.state.jobs[0]).toMatchObject({ outcome: 'stopped' });
+    expect(w.state.jobs[0]).not.toHaveProperty('slices_merged');
+    const other = running();
+    const w2 = world({ jobs: [other] });
+    value(await w2.service.update(OLGA, other.id, { status: 'failed', exitCode: 1, slicesMerged: 1, slicesTotal: 2 }));
+    expect(w2.state.jobs[0]).not.toHaveProperty('slices_merged');
+  });
+});
