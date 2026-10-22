@@ -88,4 +88,4 @@ Dark · Game mode · My profile · Sign out · Sign in with GitHub · Runners: <
 - /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html (the Runners entry)
 - /omni:brainstorm, PRD 2255: .omni-loop/delivery/shipped/2255-need-human/before-after.html (the Runners badge)
 - /omni:visual-fix #1996, pick B by @pierrederval on 2026-10-15: .omni-loop/delivery/visual/1996-ideas-keeps-menu/before-after.html
-- /omni:brainstorm, PRD 2377: .omni-loop/delivery/inbox/2377-waiting-board/before-after.html (the Waiting entry and its badge)
+- /omni:brainstorm, PRD 2377: .omni-loop/delivery/shipped/2377-waiting-board/before-after.html (the Waiting entry and its badge)

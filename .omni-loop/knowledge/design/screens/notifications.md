@@ -72,4 +72,4 @@ browser.
 - apps/galaxy/src/nav/bell.css
 - apps/galaxy/src/waiting/alerts.ts
 - PRD 1584 s4, 2026-10-11 (drawn by `/omni:pixel-perfect mock`, from the source)
-- /omni:brainstorm, PRD 2377: .omni-loop/delivery/inbox/2377-waiting-board/before-after.html (the Reviews group)
+- /omni:brainstorm, PRD 2377: .omni-loop/delivery/shipped/2377-waiting-board/before-after.html (the Reviews group)

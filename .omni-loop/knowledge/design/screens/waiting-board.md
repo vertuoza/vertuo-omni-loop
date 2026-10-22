@@ -62,4 +62,4 @@ PRDs waits on anyone. · Nothing waits on you.
 
 ## Source
 
-- /omni:brainstorm, PRD 2377: .omni-loop/delivery/inbox/2377-waiting-board/before-after.html
+- /omni:brainstorm, PRD 2377: .omni-loop/delivery/shipped/2377-waiting-board/before-after.html
