@@ -90,12 +90,12 @@ create function pg_temp.attach(key_name text, app_id bigint, slug text, bot_id b
   select public.api_key_github_app_attach(pg_temp.kid(attach.key_name), attach.app_id, attach.slug, attach.bot_id,
                                           'sealed-for-' || attach.slug, 'iv-for-' || attach.slug);
 $$;
--- Queues a job of a kept key (null: a person's) as the superuser, `minutes` ago.
-create function pg_temp.queue(job text, key_name text, minutes integer) returns uuid language plpgsql as $$
+-- Queues a job of a kept key (null: a person's) as the superuser, `minutes` ago, on `repo`.
+create function pg_temp.queue(job text, key_name text, minutes integer, repo text default 'northwind-apps/web') returns uuid language plpgsql as $$
 declare made uuid;
 begin
   insert into public.runner_jobs (workspace_id, line, repo, sent_by, sent_by_key, queued_at)
-  values (pg_temp.ws('northwind-apps'), '/omni:bug-fix ''' || queue.job || '''', 'northwind-apps/web',
+  values (pg_temp.ws('northwind-apps'), '/omni:bug-fix ''' || queue.job || '''', queue.repo,
           '00000000-0000-4000-8000-0000000024a1', pg_temp.kid(queue.key_name), now() - make_interval(mins => queue.minutes))
   returning id into made;
   insert into job_ids values (queue.job, made);
@@ -124,7 +124,51 @@ begin
   end if;
 end $$;
 
--- The keys: Ada makes five for Northwind and an agent link, Dan one for Southwind.
+-- The repositories and products a job's token may be widened over (PRD 2433 s7), as the superuser. Northwind tracks
+-- web, api, ios, admin, solo and old (its owner removed old, yet a link to it is left to prove the read leaves it out).
+-- Shop names web, api, ios and old; Mobile names web and ios again; Legacy, archived, names web and admin; solo is in no
+-- product. Southwind tracks a repository of the same name as Northwind's web and links it to one of its own, which
+-- Northwind's jobs never see.
+insert into public.repositories (workspace_id, full_name, tracked, removed_at)
+select pg_temp.ws(r.slug), r.full_name, r.removed_at is null, r.removed_at
+  from (values
+         ('northwind-apps', 'northwind-apps/web',   null::timestamptz),
+         ('northwind-apps', 'northwind-apps/api',   null),
+         ('northwind-apps', 'northwind-apps/ios',   null),
+         ('northwind-apps', 'northwind-apps/admin', null),
+         ('northwind-apps', 'northwind-apps/solo',  null),
+         ('northwind-apps', 'northwind-apps/old',   now()),
+         ('southwind-apps', 'northwind-apps/web',   null),
+         ('southwind-apps', 'southwind-apps/vault', null)
+       ) as r (slug, full_name, removed_at);
+insert into public.businesses (workspace_id, name)
+select pg_temp.ws(b.slug), b.name from (values ('northwind-apps', 'Northwind'), ('southwind-apps', 'Southwind')) as b (slug, name);
+insert into public.products (workspace_id, business_id, name, archived_at)
+select pg_temp.ws(p.slug), b.id, p.name, p.archived_at
+  from (values
+         ('northwind-apps', 'Shop',   null::timestamptz),
+         ('northwind-apps', 'Mobile', null),
+         ('northwind-apps', 'Legacy', now()),
+         ('southwind-apps', 'Vault',  null)
+       ) as p (slug, name, archived_at)
+  join public.businesses b on b.workspace_id = pg_temp.ws(p.slug);
+insert into public.product_repositories (product_id, workspace_id, repository, added_by)
+select p.id, p.workspace_id, l.repository, 'person'
+  from (values
+         ('northwind-apps', 'Shop',   'northwind-apps/web'),
+         ('northwind-apps', 'Shop',   'northwind-apps/api'),
+         ('northwind-apps', 'Shop',   'northwind-apps/ios'),
+         ('northwind-apps', 'Shop',   'northwind-apps/old'),
+         ('northwind-apps', 'Mobile', 'northwind-apps/web'),
+         ('northwind-apps', 'Mobile', 'northwind-apps/ios'),
+         ('northwind-apps', 'Legacy', 'northwind-apps/web'),
+         ('northwind-apps', 'Legacy', 'northwind-apps/admin'),
+         ('southwind-apps', 'Vault',  'northwind-apps/web'),
+         ('southwind-apps', 'Vault',  'southwind-apps/vault')
+       ) as l (slug, product, repository)
+  join public.products p on p.workspace_id = pg_temp.ws(l.slug) and p.name = l.product;
+
+-- The keys: Ada makes five for Northwind, one limited to web and api, and an agent link, Dan one for Southwind.
 set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000024a1');
 select pg_temp.make('Weekly digest', 'northwind-apps'),
@@ -132,6 +176,8 @@ select pg_temp.make('Weekly digest', 'northwind-apps'),
        pg_temp.make('Third key', 'northwind-apps'),
        pg_temp.make('Fourth key', 'northwind-apps'),
        pg_temp.make('Fifth key', 'northwind-apps');
+insert into keys select 'Narrow key', public.api_key_make(pg_temp.ws('northwind-apps'), 'Narrow key', array['northwind-apps/web', 'northwind-apps/api'],
+                                                          encode(sha256(convert_to('Narrow key', 'UTF8')), 'hex'), 'abcd');
 insert into keys select 'Editor', (public.agent_token_make(pg_temp.ws('northwind-apps'), 'Editor', repeat('e', 64), 'itor')->>'id')::uuid;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000024c1');
 select pg_temp.make('Southwind tool', 'southwind-apps');
@@ -263,6 +309,11 @@ reset role;
 select pg_temp.queue('digest first', 'Weekly digest', 50);
 select pg_temp.queue('person first', null, 40);
 select pg_temp.queue('qa first', 'QA dashboard', 30);
+-- Jobs for what the read says of a key's allow-list and of the products that name the job's repository (PRD 2433 s7).
+-- No runner serves solo or admin, so none of them is claimed; the job on web is deleted once it is read.
+select pg_temp.queue('narrow first', 'Narrow key', 29);
+select pg_temp.queue('narrow solo', 'Narrow key', 28, 'northwind-apps/solo');
+select pg_temp.queue('digest admin', 'Weekly digest', 27, 'northwind-apps/admin');
 do $$
 begin
   if not pg_temp.marked('digest first') or pg_temp.marked('person first') or pg_temp.marked('qa first') then
@@ -301,6 +352,31 @@ begin
     raise exception 'FAIL: a job no key queued answered an App';
   end if;
 
+  -- The key's allow-list, and the repositories of the live products that name the job's repository (PRD 2433 s7, BR-PRODUCT-63):
+  -- no list for a key with none; ordered, once each, lower case; a removed repository, an archived product and another
+  -- workspace's link left out; none for a repository in no product or only in an archived one.
+  got := public.api_key_github_app_of_job(pg_temp.jid('digest first'));
+  if got->'repos' <> '[]'::jsonb or got->'product_repos' <> '["northwind-apps/api", "northwind-apps/ios", "northwind-apps/web"]'::jsonb then
+    raise exception 'FAIL: a job of a key with no list answered repos % and product repos %', got->'repos', got->'product_repos';
+  end if;
+  got := public.api_key_github_app_of_job(pg_temp.jid('qa first'));
+  if got->'repos' <> '[]'::jsonb or got->'product_repos' <> '["northwind-apps/api", "northwind-apps/ios", "northwind-apps/web"]'::jsonb then
+    raise exception 'FAIL: a job of a key with no App answered repos % and product repos %', got->'repos', got->'product_repos';
+  end if;
+  got := public.api_key_github_app_of_job(pg_temp.jid('narrow first'));
+  if got->'repos' <> '["northwind-apps/api", "northwind-apps/web"]'::jsonb
+     or got->'product_repos' <> '["northwind-apps/api", "northwind-apps/ios", "northwind-apps/web"]'::jsonb then
+    raise exception 'FAIL: a job of a key limited to two repositories answered repos % and product repos % (the products name what the key may not reach, the server limits them)', got->'repos', got->'product_repos';
+  end if;
+  got := public.api_key_github_app_of_job(pg_temp.jid('narrow solo'));
+  if got->'repos' <> '["northwind-apps/api", "northwind-apps/web"]'::jsonb or got->'product_repos' <> '[]'::jsonb then
+    raise exception 'FAIL: a job on a repository in no product answered repos % and product repos %', got->'repos', got->'product_repos';
+  end if;
+  got := public.api_key_github_app_of_job(pg_temp.jid('digest admin'));
+  if got->'product_repos' <> '[]'::jsonb then
+    raise exception 'FAIL: a job on a repository only an archived product names answered product repos %', got->'product_repos';
+  end if;
+
   -- The App a key holds, read by the key before any job exists: the sealed key, never the bot id.
   got := public.api_key_github_app_of_key(pg_temp.kid('Weekly digest'));
   if got is null or (got->'app'->>'app_id')::bigint <> 4001 or got->'app'->>'slug' <> 'northwind-bot'
@@ -318,6 +394,8 @@ begin
   perform public.api_key_github_app_minted(gen_random_uuid());
 end $$;
 reset role;
+-- The job on web that a runner would claim goes, so the claims below see the jobs they did before.
+delete from public.runner_jobs where id = pg_temp.jid('narrow first');
 do $$
 begin
   if (select last_token_at from public.api_key_github_apps where key_id = pg_temp.kid('Weekly digest')) is null then

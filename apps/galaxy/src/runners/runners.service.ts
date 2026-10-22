@@ -51,11 +51,13 @@
 //   outcome stays `human`.
 // - A key's job runs as the key's GitHub App (PRD 2433 s7): a runner registers `githubApp`, or never takes
 //   a job that needs an App. `next` opens the key's sealed private key, finds the App's installation on the
-//   job's repository, mints a token for that repository alone and answers the job with it and the App's
-//   bot (`github`); every claimed job carries `sentByKey`, the key's name or null. A mint that fails, or a
-//   key that no longer works, ends the job `failed`, `github app: <why>`: the job is never answered without
-//   `github`, and never runs as a person. `githubToken` mints a fresh token for the job's own runner while
-//   the job is claimed or running and for 10 minutes after it ends.
+//   job's repository, mints a token and answers the job with it and the App's bot (`github`); every claimed
+//   job carries `sentByKey`, the key's name or null. The token is for the job's repository and, for a mega
+//   bug fix, the other repositories of its plan repository's product that the installation holds, never one
+//   outside the key's allow-list (BR-PRODUCT-63). A mint that fails, or a key that no longer works, ends the
+//   job `failed`, `github app: <why>`: the job is never answered without `github`, and never runs as a person.
+//   `githubToken` mints a fresh token, for the same repositories, for the job's own runner while the job is
+//   claimed or running and for 10 minutes after it ends.
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   checkLine, checkLineShape, ENDED_JOBS_SHOWN, GITHUB_TOKEN_AFTER_END_MS, JOB_LINES_KEPT, JOB_LINES_PAGE, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
@@ -98,9 +100,11 @@ type FailedMint = Extract<Minted, { kind: 'failed' }>;
 const MAX_WHY = 150;
 const KEY_STOPPED = 'the API key no longer works: it was revoked, or its maker left the workspace';
 const APP_REMOVED = 'the GitHub App was removed from the API key';
+const outsideKey = (repo: string) => `the API key may not reach ${repo}`;
 const NO_MASTER = 'this Omni server has no key to open the App\'s private key';
 const CANNOT_OPEN = 'the App\'s private key could not be opened';
 const NO_APP = 'This job does not run as a GitHub App.';
+const MEGA_BUG_FIX = 'mega-bug-fix';
 const TOO_LATE = 'This job ended over 10 minutes ago: it takes no new GitHub token.';
 
 const failedMint = (why: string, unreachable = false): FailedMint => ({ kind: 'failed', why: why.length <= MAX_WHY ? why : `${why.slice(0, MAX_WHY - 1)}…`, unreachable });
@@ -120,17 +124,41 @@ function openApp(github: GithubDeps, app: KeyApp): AppCredentials | FailedMint {
   }
 }
 
-/** A token on the App's installation for the repository alone; the why when GitHub gave none (`unreachable` when it threw). */
-async function mintOn(github: GithubDeps, credentials: AppCredentials, repo: string): Promise<MintedToken | FailedMint> {
+/** The repositories of `wanted` that the App's installation holds: GitHub names the installation of each, and one the App is not installed on,
+ * or whose installation is another one (another organisation's), is left out. One GitHub cannot answer for throws. */
+async function heldBy(github: GithubDeps, credentials: AppCredentials, installation: AppInstallation, wanted: readonly string[]): Promise<string[]> {
+  const answers = await Promise.all(wanted.map(async (repo) => ((await github.installation(credentials, repo))?.id === installation.id ? [repo] : [])));
+  return answers.flat();
+}
+
+/** A token on the App's installation for the job's repository and the `also` repositories it holds; the why when GitHub gave none
+ * (`unreachable` when it threw). The job's repository is the one the job needs: the App missing on it, or lacking a permission there, fails the mint. */
+async function mintOn(github: GithubDeps, credentials: AppCredentials, repo: string, also: readonly string[]): Promise<MintedToken | FailedMint> {
   try {
     const installation = await github.installation(credentials, repo);
     if (installation === null) return failedMint(`the App is not installed on ${repo}`);
     const lacks = github.lacks(installation);
     if (lacks !== null) return failedMint(`the App's installation lacks write access to ${lacks}`);
-    return await github.mint(credentials, installation, [repo]);
+    return await github.mint(credentials, installation, [repo, ...await heldBy(github, credentials, installation, also)]);
   } catch (error) {
     return failedMint(error instanceof Error && error.message !== '' ? error.message.split('\n')[0] ?? '' : 'GitHub gave no reason', true);
   }
+}
+
+/** Whether a runner's line is a mega bug fix's, which also works on the other repositories of its plan repository's product. */
+function isMegaBugFix(line: string): boolean {
+  const check = checkLineShape(line);
+  return check.ok && check.kind === 'omni' && check.skill === MEGA_BUG_FIX;
+}
+
+/** Whether the key's allow-list lets it reach `repo`: an empty list is every repository of its workspace. */
+const allows = (allowed: readonly string[], repo: string): boolean => allowed.length === 0 || allowed.includes(repo);
+
+/** The repositories besides the job's own that its token should reach: for a mega bug fix, the other repositories of its product
+ * that the key's allow-list names (or all of them, with no list). Which of them the installation holds is for GitHub to say. */
+function alsoFor(job: Pick<JobRow, 'line' | 'repo'>, read: Pick<AppOfJob, 'repos' | 'product_repos'>): string[] {
+  if (!isMegaBugFix(job.line)) return [];
+  return [...new Set(read.product_repos)].filter((repo) => repo !== job.repo && allows(read.repos, repo));
 }
 
 /** What a minted token reaches a runner as: the token beside the App's bot, who the job's commits read as. */
@@ -452,18 +480,20 @@ export function runnersService(store: RunnersRepository, clock: Clock, github: G
    * The GitHub App the job runs as, with a token minted for it now (PRD 2433): a job no key sent, or a key that holds no
    * App and never did, runs as none. A job queued while its key held an App runs as that App or not at all, so a key
    * revoked or whose maker left, an App removed, an uninstalled one, a deployment with no master key, or a GitHub that
-   * refuses each fail it, never run it as anyone else. The token is for the job's repository only: the repositories its
-   * key may reach beyond it are not readable here (outbox, PRD 2433 s7). A mint is recorded for the key's `last token`.
+   * refuses each fail it, never run it as anyone else. The token is for the job's repository and, for a mega bug fix, the other
+   * repositories of its product that the installation holds, each within the key's allow-list: a job whose own repository the
+   * key may not reach fails, and the others are never even asked of GitHub (BR-PRODUCT-63). A mint is recorded for the key's `last token`.
    */
-  async function mintFor(job: Pick<JobRow, 'id' | 'repo'>): Promise<Minted> {
+  async function mintFor(job: Pick<JobRow, 'id' | 'repo' | 'line'>): Promise<Minted> {
     const read = await store.appOfJob(job.id);
     if (read === null || !read.needs_app) return { kind: 'none' };
     if (!read.working) return failedMint(KEY_STOPPED);
     if (read.app === null) return failedMint(APP_REMOVED);
+    if (!allows(read.repos, job.repo)) return failedMint(outsideKey(job.repo));
     if (github === null) return failedMint(NO_MASTER);
     const credentials = openApp(github, read.app);
     if ('kind' in credentials) return credentials;
-    const minted = await mintOn(github, credentials, job.repo);
+    const minted = await mintOn(github, credentials, job.repo, alsoFor(job, read));
     if ('kind' in minted) return minted;
     await recordMint(read.key_id);
     return { kind: 'grant', grant: grantOf(read.app, minted) };

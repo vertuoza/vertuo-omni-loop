@@ -122,6 +122,7 @@ describe('a key\'s GitHub App (PRD 2433)', () => {
   const OF_JOB = {
     key_id: 'k1', workspace_id: 'w1', working: true, needs_app: true,
     app: { app_id: 123456, slug: 'acme-bugs', bot_id: 777, ciphertext: 'sealed', iv: 'iv' },
+    repos: ['demo-org/plan', 'demo-org/api'], product_repos: ['demo-org/api', 'demo-org/plan', 'demo-org/web'],
   };
 
   it('reads the App a job runs as with api_key_github_app_of_job()', async () => {
@@ -140,6 +141,21 @@ describe('a key\'s GitHub App (PRD 2433)', () => {
   it('refuses an answer out of shape, and says which call', async () => {
     const { db } = fakeDb([{ data: { ...OF_JOB, working: 'yes' }, error: null }]);
     await expect(runnersRepository(db).appOfJob('j1')).rejects.toThrow('api_key_github_app_of_job() answered out of shape');
+  });
+
+  it('reads the key\'s allow-list and its job\'s product repositories as the database answers them, an empty list included', async () => {
+    const { db } = fakeDb([{ data: { ...OF_JOB, repos: [], product_repos: [] }, error: null }]);
+    expect(await runnersRepository(db).appOfJob('j1')).toMatchObject({ repos: [], product_repos: [] });
+  });
+
+  it('refuses an answer with no allow-list, which must never read as every repository', async () => {
+    const without = { ...OF_JOB, repos: undefined };
+    const missing = { ...OF_JOB, product_repos: undefined };
+    const { db } = fakeDb([{ data: without, error: null }, { data: missing, error: null }, { data: { ...OF_JOB, repos: null }, error: null }]);
+    const repository = runnersRepository(db);
+    await expect(repository.appOfJob('j1')).rejects.toThrow('api_key_github_app_of_job() answered out of shape');
+    await expect(repository.appOfJob('j2')).rejects.toThrow('api_key_github_app_of_job() answered out of shape');
+    await expect(repository.appOfJob('j3')).rejects.toThrow('api_key_github_app_of_job() answered out of shape');
   });
 
   it('records a mint with api_key_github_app_minted()', async () => {

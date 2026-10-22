@@ -25,11 +25,16 @@
 --                                            newest key first, and `lastTokenAt` for an owner only. Never
 --                                            the ciphertext nor the iv
 --   api_key_github_app_of_job(job)           service role only: `{key_id, workspace_id, working, needs_app,
---                                            app}` for a job a key queued, null for any other job. `app` is
---                                            `{app_id, slug, bot_id, ciphertext, iv}` or null; `working` is
---                                            the key's (not revoked, its maker still a member, as
---                                            api_key_of()); `needs_app` is true while the key holds an app
---                                            or the job was queued while it did
+--                                            app, repos, product_repos}` for a job a key queued, null for
+--                                            any other job. `app` is `{app_id, slug, bot_id, ciphertext,
+--                                            iv}` or null; `working` is the key's (not revoked, its maker
+--                                            still a member, as api_key_of()); `needs_app` is true while the
+--                                            key holds an app or the job was queued while it did. `repos` is
+--                                            the key's allow-list (`agent_tokens.repos`, which the service
+--                                            role cannot select; empty means every repository of the
+--                                            workspace) and `product_repos` the repositories of the live
+--                                            products that name the job's repository: what a mega bug fix's
+--                                            token is widened to, within `repos`, by the server
 --   api_key_github_app_of_key(key)           service role only: `{app}` for a key that holds an app, null for
 --                                            any other. `app` is `{app_id, slug, ciphertext, iv}`: what the
 --                                            public API opens to check the app is installed on a repository
@@ -202,11 +207,20 @@ $$;
 
 -- ── What Galaxy's server reads to mint (service role only) ───────────────────────
 
--- The App a job runs as, for the service role: `{key_id, workspace_id, working, needs_app, app}` for a job an
--- API key queued, null for a person's job and for no job. `working` is true while the key is not revoked and
--- its maker is still a member of its workspace (as api_key_of()); `app` is null once the key holds none;
--- `needs_app` stays true for a job queued while the key held one, so a removed App or a revoked key fails the
--- job and never lets it run as a person. The sealed key is for the server to open, and no one else.
+-- The App a job runs as, for the service role: `{key_id, workspace_id, working, needs_app, app, repos,
+-- product_repos}` for a job an API key queued, null for a person's job and for no job. `working` is true while
+-- the key is not revoked and its maker is still a member of its workspace (as api_key_of()); `app` is null once
+-- the key holds none; `needs_app` stays true for a job queued while the key held one, so a removed App or a
+-- revoked key fails the job and never lets it run as a person. The sealed key is for the server to open, and no
+-- one else.
+--
+-- `repos` is the key's allow-list as agent_tokens holds it (owner/name, lower case, empty for every repository
+-- of the workspace): the server mints a job's token only for repositories within it (BR-PRODUCT-63), and reads
+-- it here because the service role cannot select agent_tokens. `product_repos` is, in the job's own workspace
+-- (BR-PRODUCT-63), every repository, in lower case and in order, of each live product (not archived) that names
+-- the job's repository, a repository the owner removed left out: a mega bug fix's token is widened to those
+-- the installation holds, within `repos`. A repository in no product has none, and the key's own limits are
+-- applied by the server, not here: the list says what the products name, never what the key may reach.
 create function public.api_key_github_app_of_job(p_job uuid) returns jsonb
 language plpgsql stable
 security definer
@@ -222,7 +236,16 @@ begin
                       and exists (select 1 from public.workspace_members m where m.workspace_id = t.workspace_id and m.user_id = t.made_by),
            'needs_app', g.key_id is not null or exists (select 1 from public.runner_job_needs_app n where n.job_id = j.id),
            'app', case when g.key_id is null then null
-                       else jsonb_build_object('app_id', g.app_id, 'slug', g.slug, 'bot_id', g.bot_id, 'ciphertext', g.ciphertext, 'iv', g.iv) end)
+                       else jsonb_build_object('app_id', g.app_id, 'slug', g.slug, 'bot_id', g.bot_id, 'ciphertext', g.ciphertext, 'iv', g.iv) end,
+           -- No key row reads as no list; `working` is then false, and the server fails the job before it reads the list.
+           'repos', coalesce(to_jsonb(t.repos), '[]'::jsonb),
+           'product_repos', coalesce((select jsonb_agg(distinct l2.repository order by l2.repository)
+                                        from public.product_repositories l1
+                                        join public.products p on p.id = l1.product_id and p.workspace_id = l1.workspace_id and p.archived_at is null
+                                        join public.product_repositories l2 on l2.product_id = l1.product_id and l2.workspace_id = l1.workspace_id
+                                        join public.repositories r on r.workspace_id = l2.workspace_id and r.full_name = l2.repository and r.removed_at is null
+                                       where l1.workspace_id = j.workspace_id and l1.repository = lower(j.repo)),
+                                     '[]'::jsonb))
     into got
     from public.runner_jobs j
     left join public.agent_tokens t on t.id = j.sent_by_key and t.scope = 'api'

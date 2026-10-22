@@ -52,8 +52,12 @@ export type KeyApp = NonNullable<AppOfJob['app']>;
 /** A key's App as the tests build one: id 123456, slug `acme-bugs`, bot 777, a sealed key. */
 export const KEY_APP: KeyApp = { app_id: 123456, slug: 'acme-bugs', bot_id: 777, ciphertext: 'sealed-private-key', iv: 'its-iv' };
 
-/** What the tests set up of the keys: the App a key holds, and whether it still works (not revoked, its maker a member). */
-export type KeyState = { id: string; app: KeyApp | null; working: boolean };
+/** What the tests set up of the keys: the App a key holds, whether it still works (not revoked, its maker a member), and its
+ * allow-list as agent_tokens.repos holds it (`owner/name`, lower case; none means every repository of the workspace). */
+export type KeyState = { id: string; app: KeyApp | null; working: boolean; repos?: string[] };
+
+/** A product of the workspace and the repositories it names (product_repositories); an archived one is ignored, as the database ignores it. */
+export type ProductState = { id: string; repositories: string[]; archived?: boolean };
 
 const FLEETS = [{ workspaceId: WORKSPACE, name: 'cia' }, { workspaceId: WORKSPACE, name: 'pirates' }];
 
@@ -113,10 +117,12 @@ const ENDED_STATUSES: readonly JobRowStatus[] = ['done', 'failed', 'cancelled'];
 export type AllowedSkillRow = { workspace_id: string; full_name: string; skill: string };
 
 /** The fake's tables, and the clock it stamps writes with. */
-export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], questions = [], skills = [], keys = [], needsApp = [], now = () => T0 }: {
+export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], questions = [], skills = [], keys = [], products = [], needsApp = [], now = () => T0 }: {
   runners?: RunnerRow[]; jobs?: JobRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; skills?: AllowedSkillRow[];
   /** The keys that hold an App, or no longer work; a key not listed holds none and works. */
   keys?: KeyState[];
+  /** The workspace's products and the repositories each names; a repository in none has no product repositories. */
+  products?: ProductState[];
   /** Jobs that need an App though their key holds none now (queued while it did: runner_job_needs_app). */
   needsApp?: string[];
   now?: () => Date;
@@ -130,6 +136,10 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
   };
   const stamp = () => now().toISOString();
   const keyOf = (id: string | null): KeyState | undefined => state.keys.find((k) => k.id === id);
+  // As api_key_github_app_of_job() reads them: every repository of the live products that name the job's repository.
+  const productRepos = (repo: string): string[] => [...new Set(products
+    .filter((product) => product.archived !== true && product.repositories.includes(repo))
+    .flatMap((product) => product.repositories))].sort();
   // As runner_job_needs_app_mark() marks a job queued while its key held an App, and api_key_github_app_of_job() reads it.
   const holdsApp = (job: Pick<JobRow, 'sent_by_key'>) => (keyOf(job.sent_by_key)?.app ?? null) !== null;
   const needsAppJob = (job: JobRow) => state.needsApp.has(job.id) || holdsApp(job);
@@ -170,7 +180,10 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       const job = state.jobs.find((j) => j.id === jobId);
       if (!job || job.sent_by_key === null) return Promise.resolve(null);
       const key = keyOf(job.sent_by_key);
-      return Promise.resolve({ key_id: job.sent_by_key, workspace_id: job.workspace_id, working: key?.working ?? true, needs_app: needsAppJob(job), app: key?.app ?? null });
+      return Promise.resolve({
+        key_id: job.sent_by_key, workspace_id: job.workspace_id, working: key?.working ?? true, needs_app: needsAppJob(job), app: key?.app ?? null,
+        repos: [...(key?.repos ?? [])], product_repos: productRepos(job.repo),
+      });
     },
     appMinted: (keyId) => {
       state.calls.push(`minted ${keyId}`);
