@@ -67,7 +67,7 @@ export function jobRow(more: Partial<JobRow> = {}): JobRow {
   jobSeq += 1;
   return {
     id: `00000000-0000-4000-8000-${String(1830020000 + jobSeq).padStart(12, '0')}`, workspace_id: WORKSPACE, line: '/omni:yolo 1717',
-    repo: 'demo-org/app', to_runner: null, to_fleet: null, sent_by: MO, sent_by_key: null, status: 'queued', runner_id: null, cancel_requested: false,
+    repo: 'demo-org/app', to_runner: null, to_fleet: null, sent_by: MO, sent_by_app: null, sent_by_key: null, status: 'queued', runner_id: null, cancel_requested: false,
     log_tail: '', pr_url: null, exit_code: null, reason: null, queued_at: T0.toISOString(), claimed_at: null, running_at: null,
     ended_at: null, ...more,
   };

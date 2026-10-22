@@ -1680,6 +1680,10 @@ var ConfigSchema = z8.object({
   // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
   // opts out. The pull request takes replies either way.
   answers: section({ enabled: z8.boolean().default(true) }),
+  // PRD 2338: whether `/omni:retro-apply` writes the guard test a kept lesson is worth, proved red
+  // then green, beside the rule it appends. Off by default: the retro PR stays documents only, and a
+  // lesson worth a guard names it for a person to take up. A repository opts in.
+  retro: section({ guards: z8.boolean().default(false) }),
   // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
   // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
   // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
@@ -14911,7 +14915,7 @@ function createPrStats({ client, octokitFor, supabase, storeFor = supabaseStore,
 
 // apps/omni-app/src/retro/retro.ts
 import { internalEvents } from "inngest";
-import { z as z61 } from "zod";
+import { z as z62 } from "zod";
 
 // apps/omni-app/src/retro/rules.ts
 var RULES_VERSION = 1;
@@ -17459,22 +17463,31 @@ function playbookLines({ ctx }) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-import { z as z58 } from "zod";
+import { z as z59 } from "zod";
+
+// kit/lib/retro/outcome.ts
+import { z as z57 } from "zod";
+var LessonOutcomeSchema = z57.union([z57.object({ became: z57.string() }).strict(), z57.object({ staysHere: z57.string() }).strict()]);
+var LessonOutcomesSchema = z57.record(z57.string(), LessonOutcomeSchema);
+function outcomeLine(outcome2) {
+  if ("became" in outcome2) return `- **Became:** \`${outcome2.became}\``;
+  return `- **Stays here:** ${outcome2.staysHere.trim().split(/\s+/).join(" ")}`;
+}
 
 // apps/omni-app/src/retro/narrate.ts
-import { z as z57 } from "zod";
-var ReplyFindingSchema = z57.object({
-  title: z57.string().exactOptional(),
-  whyItMatters: z57.string().exactOptional(),
-  lesson: z57.string().exactOptional(),
-  keep: z57.boolean().exactOptional(),
-  why: z57.string().exactOptional()
+import { z as z58 } from "zod";
+var ReplyFindingSchema = z58.object({
+  title: z58.string().exactOptional(),
+  whyItMatters: z58.string().exactOptional(),
+  lesson: z58.string().exactOptional(),
+  keep: z58.boolean().exactOptional(),
+  why: z58.string().exactOptional()
 });
-var ModelReplySchema = z57.object({
-  summary: z57.string(),
-  findings: z57.record(z57.string(), ReplyFindingSchema),
-  lessons: z57.array(z57.object({ text: z57.string(), findings: z57.array(z57.string()) })),
-  verdict: z57.object({ worthIt: z57.boolean(), reason: z57.string() }).nullable()
+var ModelReplySchema = z58.object({
+  summary: z58.string(),
+  findings: z58.record(z58.string(), ReplyFindingSchema),
+  lessons: z58.array(z58.object({ text: z58.string(), findings: z58.array(z58.string()) })),
+  verdict: z58.object({ worthIt: z58.boolean(), reason: z58.string() }).nullable()
 });
 var NO_MODEL_KEY = "no model key";
 var REPLY_INVALID = "model reply invalid";
@@ -17675,158 +17688,161 @@ function isObject(value) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-var text13 = z58.string();
-var maybeText2 = z58.string().nullable();
-var RunSchema = z58.enum(["merge", "day-14"]);
+var text13 = z59.string();
+var maybeText2 = z59.string().nullable();
+var RunSchema = z59.enum(["merge", "day-14"]);
 var pullFields = {
   number: PrNumberSchema,
   title: text13,
   url: maybeText2,
-  merged: z58.boolean(),
+  merged: z59.boolean(),
   baseRef: text13,
   headRef: text13,
   headSha: text13,
   openedAt: maybeText2,
   mergedAt: maybeText2,
   mergeSha: maybeText2,
-  labels: z58.array(text13)
+  labels: z59.array(text13)
 };
-var PullSchema3 = z58.object(pullFields);
-var FeaturePullSchema = z58.object({ ...pullFields, mergeSha: text13 });
-var PullIntoSchema = z58.object({
+var PullSchema3 = z59.object(pullFields);
+var FeaturePullSchema = z59.object({ ...pullFields, mergeSha: text13 });
+var PullIntoSchema = z59.object({
   number: PrNumberSchema,
   title: text13,
   url: maybeText2,
   state: text13,
-  draft: z58.boolean(),
+  draft: z59.boolean(),
   headRef: text13,
   headSha: text13,
   openedAt: text13,
   closedAt: maybeText2,
   mergedAt: maybeText2,
-  labels: z58.array(text13)
+  labels: z59.array(text13)
 });
-var PrdFactsSchema = z58.object({
+var PrdFactsSchema = z59.object({
   number: PrdNumberSchema,
   topic: text13,
   title: text13,
   problem: text13,
-  state: z58.enum(["shipped", "inbox"]),
+  state: z59.enum(["shipped", "inbox"]),
   folder: text13,
   plan: maybeText2,
   settled: maybeText2
 });
-var QualifiedSchema3 = z58.union([
-  z58.object({ skip: z58.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
-  z58.object({ skip: text13, pr: PullSchema3.exactOptional() })
+var QualifiedSchema3 = z59.union([
+  z59.object({ skip: z59.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
+  z59.object({ skip: text13, pr: PullSchema3.exactOptional() })
 ]);
-var PullsIntoSchema = z58.array(PullIntoSchema);
-var EvidenceSchema = z58.object({ label: text13, url: maybeText2, excerpt: text13.exactOptional() });
-var FindingSchema2 = z58.object({ id: text13, kind: text13, title: text13, happened: text13, evidence: z58.array(EvidenceSchema) });
-var SheetFindingSchema = z58.object({ ...FindingSchema2.shape, source: text13, ref: text13, repo: text13.exactOptional() });
-var TargetReadSchema = z58.discriminatedUnion("read", [
-  z58.object({
+var PullsIntoSchema = z59.array(PullIntoSchema);
+var EvidenceSchema = z59.object({ label: text13, url: maybeText2, excerpt: text13.exactOptional() });
+var FindingSchema2 = z59.object({ id: text13, kind: text13, title: text13, happened: text13, evidence: z59.array(EvidenceSchema) });
+var SheetFindingSchema = z59.object({ ...FindingSchema2.shape, source: text13, ref: text13, repo: text13.exactOptional() });
+var TargetReadSchema = z59.discriminatedUnion("read", [
+  z59.object({
     name: text13,
     repo: text13,
-    read: z58.literal(true),
-    installationId: z58.number(),
-    featurePrs: z58.array(FeaturePullSchema).min(1),
-    pulls: z58.array(PullIntoSchema)
+    read: z59.literal(true),
+    installationId: z59.number(),
+    featurePrs: z59.array(FeaturePullSchema).min(1),
+    pulls: z59.array(PullIntoSchema)
   }),
-  z58.object({ name: text13, repo: text13, read: z58.literal(false), reason: text13 })
+  z59.object({ name: text13, repo: text13, read: z59.literal(false), reason: text13 })
 ]);
-var RepositoryFactsSchema = z58.object({
+var RepositoryFactsSchema = z59.object({
   repo: text13,
   name: text13,
-  plan: z58.boolean(),
-  read: z58.boolean(),
+  plan: z59.boolean(),
+  read: z59.boolean(),
   reason: text13.exactOptional(),
-  featurePrs: z58.array(z58.object({ number: PrNumberSchema, url: maybeText2 })),
-  kinds: z58.record(z58.string(), z58.unknown()).exactOptional()
+  featurePrs: z59.array(z59.object({ number: PrNumberSchema, url: maybeText2 })),
+  kinds: z59.record(z59.string(), z59.unknown()).exactOptional()
 });
-var RulesSheetSchema = z58.object({
-  version: z58.number(),
-  findingOrder: z58.array(z58.array(text13)),
-  issuesPerRun: z58.number(),
-  thresholds: z58.object({
-    slowSliceFactor: z58.number(),
-    repeatedRedCommits: z58.number(),
-    repeatedRedSlices: z58.number(),
-    failingTestRuns: z58.number(),
-    churnRangeCommits: z58.number(),
-    churnFilePercent: z58.number(),
-    churnFileLines: z58.number(),
-    afterMergeDays: z58.number()
+var RulesSheetSchema = z59.object({
+  version: z59.number(),
+  findingOrder: z59.array(z59.array(text13)),
+  issuesPerRun: z59.number(),
+  thresholds: z59.object({
+    slowSliceFactor: z59.number(),
+    repeatedRedCommits: z59.number(),
+    repeatedRedSlices: z59.number(),
+    failingTestRuns: z59.number(),
+    churnRangeCommits: z59.number(),
+    churnFilePercent: z59.number(),
+    churnFileLines: z59.number(),
+    afterMergeDays: z59.number()
   }),
-  limits: z58.object({ logTailLines: z58.number(), modelInputTokens: z58.number() }),
-  fieldCaps: z58.object({
-    summary: z58.number(),
-    title: z58.number(),
-    whyItMatters: z58.number(),
-    lesson: z58.number(),
-    reason: z58.number(),
-    why: z58.number()
+  limits: z59.object({ logTailLines: z59.number(), modelInputTokens: z59.number() }),
+  fieldCaps: z59.object({
+    summary: z59.number(),
+    title: z59.number(),
+    whyItMatters: z59.number(),
+    lesson: z59.number(),
+    reason: z59.number(),
+    why: z59.number()
   })
 });
 var factSheetFields = {
   run: RunSchema,
   rules: RulesSheetSchema,
-  prd: z58.object({ number: PrdNumberSchema, title: text13, topic: text13, state: text13, folder: text13 }),
-  featurePr: z58.object({ number: PrNumberSchema, title: text13, url: maybeText2, openedAt: maybeText2, mergedAt: maybeText2, mergeSha: text13 }),
+  prd: z59.object({ number: PrdNumberSchema, title: text13, topic: text13, state: text13, folder: text13 }),
+  featurePr: z59.object({ number: PrNumberSchema, title: text13, url: maybeText2, openedAt: maybeText2, mergedAt: maybeText2, mergeSha: text13 }),
   /** Each kind's facts, by its id; a reader parses the facts it reads with that kind's schema. */
-  kinds: z58.record(z58.string(), z58.unknown()),
-  findings: z58.array(SheetFindingSchema),
+  kinds: z59.record(z59.string(), z59.unknown()),
+  findings: z59.array(SheetFindingSchema),
   /** Every repository of a multi-repository PRD (PRD 1130); absent for a PRD of one repository. */
-  repositories: z58.array(RepositoryFactsSchema).exactOptional()
+  repositories: z59.array(RepositoryFactsSchema).exactOptional()
 };
-var FactSheetSchema = z58.object(factSheetFields);
-var DroppedSchema = z58.object({ dropped: text13 });
-var ProseFieldSchema = z58.union([text13, DroppedSchema]);
-var ProseFindingSchema = z58.object({
+var FactSheetSchema = z59.object(factSheetFields);
+var DroppedSchema = z59.object({ dropped: text13 });
+var ProseFieldSchema = z59.union([text13, DroppedSchema]);
+var ProseFindingSchema = z59.object({
   title: ProseFieldSchema.exactOptional(),
   whyItMatters: ProseFieldSchema.exactOptional(),
   lesson: ProseFieldSchema.exactOptional(),
-  keep: z58.boolean().exactOptional(),
+  keep: z59.boolean().exactOptional(),
   why: text13.exactOptional()
 });
-var LessonSchema = z58.object({ text: text13, findings: z58.array(text13) });
-var VerdictSchema3 = z58.union([z58.object({ worthIt: z58.boolean(), reason: text13 }), DroppedSchema]);
-var ProseSchema = z58.object({
+var LessonSchema = z59.object({ text: text13, findings: z59.array(text13) });
+var VerdictSchema3 = z59.union([z59.object({ worthIt: z59.boolean(), reason: text13 }), DroppedSchema]);
+var ProseSchema = z59.object({
   summary: ProseFieldSchema.exactOptional(),
-  findings: z58.record(z58.string(), ProseFindingSchema),
-  lessons: z58.array(LessonSchema),
+  findings: z59.record(z59.string(), ProseFindingSchema),
+  lessons: z59.array(LessonSchema),
   verdict: VerdictSchema3.optional()
 });
-var DroppedFieldSchema = z58.object({ field: text13, reason: text13 });
-var GuardedSchema = z58.object({ prose: ProseSchema.nullable(), dropped: z58.array(DroppedFieldSchema) });
-var NarratedSchema = z58.object({ model: maybeText2, reply: ModelReplySchema.nullable(), reason: maybeText2 });
-var NarrationSchema = z58.object({ model: maybeText2, reason: maybeText2, dropped: z58.array(DroppedFieldSchema) });
-var IssueLinkSchema = z58.object({ number: IssueNumberSchema, url: text13, state: z58.enum(["open", "closed"]) });
-var IssueLinksSchema = z58.record(z58.string(), IssueLinkSchema);
-var RunRecordSchema = z58.object({
+var DroppedFieldSchema = z59.object({ field: text13, reason: text13 });
+var GuardedSchema = z59.object({ prose: ProseSchema.nullable(), dropped: z59.array(DroppedFieldSchema) });
+var NarratedSchema = z59.object({ model: maybeText2, reply: ModelReplySchema.nullable(), reason: maybeText2 });
+var NarrationSchema = z59.object({ model: maybeText2, reason: maybeText2, dropped: z59.array(DroppedFieldSchema) });
+var IssueLinkSchema = z59.object({ number: IssueNumberSchema, url: text13, state: z59.enum(["open", "closed"]) });
+var IssueLinksSchema = z59.record(z59.string(), IssueLinkSchema);
+var RunRecordSchema = z59.object({
   ...factSheetFields,
   narration: NarrationSchema.exactOptional(),
   verdict: VerdictSchema3.nullable().exactOptional(),
-  lessons: z58.array(LessonSchema).exactOptional(),
-  issues: IssueLinksSchema.exactOptional()
+  lessons: z59.array(LessonSchema).exactOptional(),
+  issues: IssueLinksSchema.exactOptional(),
+  outcomes: LessonOutcomesSchema.exactOptional()
 });
-var KnownSchema = z58.object({
-  knowledge: z58.object({
-    principles: z58.array(z58.unknown()),
-    laws: z58.array(z58.unknown()),
-    decisions: z58.array(z58.unknown()),
-    playbook: z58.array(z58.object({ id: text13, line: text13 })).exactOptional()
+var KnownSchema = z59.object({
+  knowledge: z59.object({
+    principles: z59.array(z59.unknown()),
+    laws: z59.array(z59.unknown()),
+    decisions: z59.array(z59.unknown()),
+    playbook: z59.array(z59.object({ id: text13, line: text13 })).exactOptional()
   }),
-  lessons: z58.array(text13)
+  lessons: z59.array(text13)
 });
-var PublishedSchema2 = z58.object({
+var PublishedSchema2 = z59.object({
   branch: text13,
-  committed: z58.boolean(),
+  committed: z59.boolean(),
   commit: text13,
-  pr: z58.object({ number: PrNumberSchema, url: text13, created: z58.boolean() }).nullable()
+  pr: z59.object({ number: PrNumberSchema, url: text13, created: z59.boolean() }).nullable(),
+  apply: text13.nullable().exactOptional()
 });
-var CommentedSchema2 = z58.object({ commentId: CommentIdSchema, created: z58.boolean() });
-var ClockSchema = z58.number();
+var QueuedSchema = z59.object({ job: text13.nullable(), created: z59.boolean(), reason: maybeText2 });
+var CommentedSchema2 = z59.object({ commentId: CommentIdSchema, created: z59.boolean() });
+var ClockSchema = z59.number();
 
 // apps/omni-app/src/retro/guard.ts
 var DROPPED = Object.freeze({
@@ -18118,13 +18134,29 @@ async function findRetroPull(octokit, { owner, repo, branch }) {
   return pull ? { number: pull.number, url: pull.html_url } : null;
 }
 
+// apps/omni-app/src/retro/apply.ts
+var APPLY_SKILL = "retro-apply";
+function applyLine(retroPr) {
+  return `/omni:${APPLY_SKILL} --retro ${String(retroPr)}`;
+}
+function outcomesOf(runs) {
+  const outcomes = {};
+  for (const run of runs) Object.assign(outcomes, run.outcomes);
+  return outcomes;
+}
+function unsettledLessons(runs) {
+  const settled = outcomesOf(runs);
+  const kept3 = new Set(runs.flatMap((run) => Object.keys(run.issues ?? {})));
+  return [...kept3].filter((finding) => !(finding in settled));
+}
+
 // apps/omni-app/src/retro/render.ts
-import { z as z59 } from "zod";
+import { z as z60 } from "zod";
 var keptFacts = (run, id) => run.kinds?.[id];
-var TimelineFactsSchema = z59.object({
-  featurePr: z59.object({ minutes: z59.number().nullish() }).nullish(),
-  sliceCount: z59.number().exactOptional(),
-  waves: z59.object({ merged: z59.number(), planned: z59.number().nullable() })
+var TimelineFactsSchema = z60.object({
+  featurePr: z60.object({ minutes: z60.number().nullish() }).nullish(),
+  sliceCount: z60.number().exactOptional(),
+  waves: z60.object({ merged: z60.number(), planned: z60.number().nullable() })
 }).nullable();
 function mergeRuns(existing, record) {
   let doc = null;
@@ -18133,11 +18165,15 @@ function mergeRuns(existing, record) {
   } catch {
     doc = null;
   }
-  const runs = parseOrThrow(z59.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
+  const runs = parseOrThrow(z60.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
   const same = (run) => run.featurePr.number === record.featurePr.number && run.run === record.run;
   const index = runs.findIndex(same);
-  const next = index === -1 ? [...runs, record] : runs.map((run, i) => i === index ? record : run);
+  const next = index === -1 ? [...runs, record] : runs.map((run, i) => i === index ? withOutcomes(record, run) : run);
   return { prd: record.prd.number, runs: next };
+}
+function withOutcomes(record, replaced) {
+  if (!replaced.outcomes && !record.outcomes) return record;
+  return { ...record, outcomes: { ...replaced.outcomes, ...record.outcomes } };
 }
 function retroTitle(prd) {
   return `docs(retro): PRD ${prd.number} \u2014 ${prd.title}`;
@@ -18146,7 +18182,8 @@ function render({
   doc,
   featurePr,
   prose = null,
-  kinds = KINDS
+  kinds = KINDS,
+  apply = null
 }) {
   const runs = doc.runs.filter((run) => run.featurePr.number === featurePr);
   const latest = runs.at(-1);
@@ -18154,7 +18191,8 @@ function render({
   const findings = uniqueFindings(runs);
   const issues = Object.fromEntries(runs.flatMap((run) => Object.entries(run.issues ?? {})));
   const repositories = [...runs].reverse().find((run) => run.repositories)?.repositories ?? null;
-  const shown = { runs, findings, prose, issues, repositories };
+  const outcomes = outcomesOf(runs);
+  const shown = { runs, findings, prose, issues, repositories, outcomes };
   const lines = [
     "---",
     `prd: ${latest.prd.number}`,
@@ -18191,7 +18229,7 @@ function render({
     json: `${JSON.stringify(doc, null, 2)}
 `,
     title: retroTitle(latest.prd),
-    prBody: prBody(latest, findings, prose, issues)
+    prBody: prBody(latest, shown, apply)
   };
 }
 function uniqueFindings(runs) {
@@ -18216,7 +18254,7 @@ function issueLink(issue) {
   if (!issue) return null;
   return `[#${issue.number}](${issue.url})${issue.state === "closed" ? " (closed)" : ""}`;
 }
-function findingBlock(finding, prose, issues, level = "###") {
+function findingBlock(finding, { prose, issues, outcomes }, level = "###") {
   const words = prose?.findings[finding.id] ?? {};
   const issue = issueLink(issues[finding.id]);
   const droppedTitle = typeof words.title === "object" ? field3(words.title) : null;
@@ -18229,6 +18267,8 @@ function findingBlock(finding, prose, issues, level = "###") {
   const lesson = field3(words.lesson);
   if (lesson) lines.push(`- **Proposed lesson:** ${lesson}`);
   if (words.keep === true) lines.push(`- **Kept:** ${typeof words.why === "string" && words.why ? words.why : "yes"}`);
+  const outcome2 = outcomes[finding.id];
+  if (outcome2) lines.push(outcomeLine(outcome2));
   const kept3 = finding;
   const evidence = (kept3.evidence ?? []).map((item) => `[${item.label}](${item.url})`);
   lines.push(`- **Evidence:** ${evidence.length > 0 ? evidence.join(", ") : "none recorded"}`, "");
@@ -18265,12 +18305,13 @@ function repositoriesSection(repositories) {
 function repoOf(finding, repositories) {
   return finding.repo ?? repositories.find((one) => one.plan)?.repo;
 }
-function findingsSection({ findings, prose, issues, repositories }) {
+function findingsSection(shown) {
+  const { findings, repositories } = shown;
   if (findings.length === 0) return ["None: nothing crossed a threshold of the rules.", ""];
-  if (!repositories) return findings.flatMap((finding) => findingBlock(finding, prose, issues));
+  if (!repositories) return findings.flatMap((finding) => findingBlock(finding, shown));
   return repositories.flatMap((one) => {
     const own = findings.filter((finding) => repoOf(finding, repositories) === one.repo);
-    return own.length === 0 ? [] : [`### ${one.repo}`, "", ...own.flatMap((finding) => findingBlock(finding, prose, issues, "####"))];
+    return own.length === 0 ? [] : [`### ${one.repo}`, "", ...own.flatMap((finding) => findingBlock(finding, shown, "####"))];
   });
 }
 function repositoryFacts(kind, runs, one) {
@@ -18312,7 +18353,16 @@ function rulesSection2(rules) {
     ""
   ];
 }
-function prBody(latest, findings, prose, issues) {
+function prBody(latest, { findings, prose, issues, outcomes }, apply) {
+  const settled = Object.keys(outcomes).flatMap((finding) => {
+    const issue = issues[finding];
+    return issue ? [issue.number] : [];
+  });
+  const findingLines = (finding) => {
+    const outcome2 = outcomes[finding.id];
+    const line = `- ${[`${finding.ref} \xB7 ${titleOf3(finding, prose)} \u2014 \`${finding.id}\``, issueLink(issues[finding.id])].filter(Boolean).join(" \xB7 ")}`;
+    return outcome2 ? [line, `  ${outcomeLine(outcome2)}`] : [line];
+  };
   const lines = [
     `Refs #${latest.prd.number}`,
     "",
@@ -18320,14 +18370,29 @@ function prBody(latest, findings, prose, issues) {
     "",
     "## Findings",
     "",
-    ...findings.length === 0 ? ["None: nothing crossed a threshold of the rules."] : findings.map(
-      (finding) => `- ${[`${finding.ref} \xB7 ${titleOf3(finding, prose)} \u2014 \`${finding.id}\``, issueLink(issues[finding.id])].filter(Boolean).join(" \xB7 ")}`
-    ),
+    ...findings.length === 0 ? ["None: nothing crossed a threshold of the rules."] : findings.flatMap(findingLines),
     "",
-    "Merging keeps this retro as history and changes nothing else."
+    ...apply ? applySection(apply) : [],
+    ...settled.length === 0 ? ["Merging keeps this retro as history and changes nothing else."] : [
+      "Merging keeps this retro as history, applies each lesson\u2019s outcome above and closes the issue of each lesson settled.",
+      "",
+      ...settled.map((issue) => `Closes #${String(issue)}`)
+    ]
   ];
   return `${lines.join("\n")}
 `;
+}
+function applySection(apply) {
+  return [
+    "## Lessons to settle",
+    "",
+    "A kept lesson above has no outcome yet: each one becomes a playbook rule, or stays here with the reason why. This line settles them, on a runner or, when no runner takes it, in a terminal:",
+    "",
+    "```text",
+    apply,
+    "```",
+    ""
+  ];
 }
 function verdictComment({
   judged: judged4,
@@ -18381,7 +18446,8 @@ async function publishRetro(octokit, { owner, repo, config, prd, pr, record, pro
     json: await readContent2(octokit, { owner, repo, ref: branch, path: paths.json }),
     markdown: await readContent2(octokit, { owner, repo, ref: branch, path: paths.markdown })
   };
-  const out = render({ doc: withRuns(onBranch.json, [...earlier, record]), featurePr: pr.number, prose });
+  const doc = withRuns(onBranch.json, [...earlier, record]);
+  const out = render({ doc, featurePr: pr.number, prose });
   const unchanged = onBranch.markdown === out.markdown && onBranch.json === out.json;
   let commit = head;
   if (!unchanged) {
@@ -18401,6 +18467,7 @@ The ${record.run} run of #${pr.number}.`,
     });
   }
   const found = commit === from ? null : await upsertPull(octokit, { owner, repo, branch, base, head: commit, title: out.title, body: out.prBody });
+  let apply = null;
   if (found?.open) {
     await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/labels", {
       owner,
@@ -18408,9 +18475,21 @@ The ${record.run} run of #${pr.number}.`,
       issue_number: found.number,
       labels: [config.labels.retro]
     });
+    apply = await withApplyLine(octokit, { owner, repo, pull: found.number, doc, featurePr: pr.number, prose });
   }
   const retroPr = found ? { number: found.number, url: found.url, created: found.created } : null;
-  return { branch, committed: !unchanged, commit, pr: retroPr };
+  return { branch, committed: !unchanged, commit, pr: retroPr, apply };
+}
+async function withApplyLine(octokit, { owner, repo, pull, doc, featurePr, prose }) {
+  if (unsettledLessons(doc.runs.filter((run) => run.featurePr.number === featurePr)).length === 0) return null;
+  const apply = applyLine(pull);
+  await octokit.request("PATCH /repos/{owner}/{repo}/pulls/{pull_number}", {
+    owner,
+    repo,
+    pull_number: pull,
+    body: render({ doc, featurePr, prose, apply }).prBody
+  });
+  return apply;
 }
 async function branchFor(octokit, { owner, repo, base, first, run, mergeSha }) {
   if (run !== FOLLOW_UP_RUN) return { branch: first, from: mergeSha };
@@ -18524,11 +18603,11 @@ function ranked(findings) {
 }
 
 // apps/omni-app/src/retro/target-comment.ts
-import { z as z60 } from "zod";
+import { z as z61 } from "zod";
 var targetMarker = (prefix) => `<!-- ${prefix}-retro-target -->`;
-var TargetCommentedSchema = z60.union([
-  z60.object({ comments: z60.array(z60.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z60.boolean() })) }),
-  z60.object({ refused: z60.number() })
+var TargetCommentedSchema = z61.union([
+  z61.object({ comments: z61.array(z61.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z61.boolean() })) }),
+  z61.object({ refused: z61.number() })
 ]);
 function targetComment({
   prd,
@@ -18606,22 +18685,22 @@ var verdictMarker2 = (prefix) => `<!-- ${prefix}-retro-verdict -->`;
 var VERDICT_MARKER2 = verdictMarker2(MARKER_PREFIX2);
 var NO_NEW_LESSON = "no new lesson";
 var NOT_JUDGED = "not judged";
-var RetroEventSchema = z61.object({
-  installationId: z61.number(),
-  owner: z61.string(),
-  repo: z61.string(),
+var RetroEventSchema = z62.object({
+  installationId: z62.number(),
+  owner: z62.string(),
+  repo: z62.string(),
   prNumber: PrNumberSchema,
-  mergeSha: z61.string(),
-  mergedAt: z61.string().nullish()
+  mergeSha: z62.string(),
+  mergedAt: z62.string().nullish()
 });
-var FailedEventSchema = z61.object({
-  installationId: z61.number().optional().catch(void 0),
-  owner: z61.string().optional().catch(void 0),
-  repo: z61.string().optional().catch(void 0),
+var FailedEventSchema = z62.object({
+  installationId: z62.number().optional().catch(void 0),
+  owner: z62.string().optional().catch(void 0),
+  repo: z62.string().optional().catch(void 0),
   prNumber: PrNumberSchema.optional().catch(void 0)
 }).catch({});
-var TickSchema = z61.looseObject({ ts: z61.number().exactOptional() }).nullable();
-function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch: fetch2, kinds = KINDS, followUp = false }) {
+var TickSchema = z62.looseObject({ ts: z62.number().exactOptional() }).nullable();
+function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch: fetch2, kinds = KINDS, followUp = false, queue = null }) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
@@ -18644,7 +18723,7 @@ function createRetro({ client, octokitFor, appOctokit = null, openrouter, fetch:
       const pulls = await savedStep(step, "gather-pulls", PullsIntoSchema, async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
       const targets = await readTargets({ step, appOctokit, octokitFor, planSlug: `${owner}/${repo}`, scope: { config, prd } });
       const scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls, ...targets.length > 0 ? { targets } : {} };
-      const context = { step, github, octokitFor, openrouter, fetch: fetch2, owner, repo, pr, prd, config, pulls };
+      const context = { step, github, octokitFor, openrouter, fetch: fetch2, queue, installationId, owner, repo, pr, prd, config, pulls };
       const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsIn(MERGE_RUN, kinds), scope });
       const result = { prd: prd.number, ...outcome(first) };
       const laterKinds = kindsIn(FOLLOW_UP_RUN2, kinds);
@@ -18748,9 +18827,9 @@ async function commentRun({ step, github, owner, repo, pr, config, earlier }, id
       text: verdictComment({ judged: verdict.judged, reason: verdict.reason, runs, prose })
     })
   );
-  return { sheet, prose, known, record: { ...base, issues: {} }, published: null, comment, verdict };
+  return { sheet, prose, known, record: { ...base, issues: {} }, published: null, comment, verdict, queued: null };
 }
-async function publishRun({ step, github, owner, repo, pr, prd, config, earlier }, id, folder, sheet, { whole, prose, known, verdict, base }) {
+async function publishRun({ step, github, queue, installationId, owner, repo, pr, prd, config, earlier }, id, folder, sheet, { whole, prose, known, verdict, base }) {
   const retroPath = `${folder}/retro.md`;
   const issueSheet = earlier && !earlier.published ? whole : sheet;
   const issues = await savedStep(
@@ -18766,7 +18845,9 @@ async function publishRun({ step, github, owner, repo, pr, prd, config, earlier 
     PublishedSchema2,
     async () => publishRetro(await github(), { owner, repo, config, prd: { ...prd, folder }, pr, record, prose, earlier: earlier ? [earlier.record] : [] })
   );
-  return { sheet, prose, known, record, published, comment: null, verdict };
+  const line = published.apply ?? null;
+  const queued = queue && line ? await savedStep(step, id("queue-apply"), QueuedSchema, () => queue({ installationId, repository: `${owner}/${repo}`, line })) : null;
+  return { sheet, prose, known, record, published, comment: null, verdict, queued };
 }
 function verdictOf2(prose, narrationReason) {
   const verdict = prose?.verdict;
@@ -18841,9 +18922,9 @@ function numberedAfter(sheet, count2) {
   if (count2 === 0) return sheet;
   return { ...sheet, findings: sheet.findings.map((finding, index) => ({ ...finding, ref: `F${count2 + index + 1}` })) };
 }
-function outcome({ sheet, record, published, comment, verdict }) {
+function outcome({ sheet, record, published, comment, verdict, queued }) {
   const counts = { findings: sheet.findings.length, issues: Object.keys(record.issues).length };
-  if (published) return { ...counts, ...published };
+  if (published) return { ...counts, ...published, ...queued ? { queued } : {} };
   return { ...counts, verdict: verdict.judged ? NO_NEW_LESSON : NOT_JUDGED, comment };
 }
 function createRetroFailureHandler({ octokitFor }) {
@@ -18878,19 +18959,40 @@ The retro could not run: ${reason2}
   };
 }
 
+// apps/omni-app/src/retro/runner-queue.ts
+import { z as z63 } from "zod";
+var APP_SENDER = "omni-app";
+var IdRowSchema = z63.object({ id: z63.string().min(1) });
+function runnerQueue(connection) {
+  const db = serviceDb(connection);
+  return async ({ installationId, repository, line }) => {
+    const repo = repository.toLowerCase();
+    const [workspace] = rowsOf(IdRowSchema, await db.from("workspaces").select("id").eq("github_installation_id", installationId).limit(1));
+    if (!workspace) return { job: null, created: false, reason: `no workspace holds the installation ${String(installationId)}` };
+    const [found] = rowsOf(
+      IdRowSchema,
+      await db.from("runner_jobs").select("id").eq("workspace_id", workspace.id).eq("repo", repo).eq("line", line).order("queued_at").limit(1)
+    );
+    if (found) return { job: found.id, created: false, reason: null };
+    const [made] = rowsOf(IdRowSchema, await db.from("runner_jobs").insert({ workspace_id: workspace.id, repo, line, sent_by_app: APP_SENDER }).select("id"));
+    if (!made) throw new Error("the database queued no job and gave no reason");
+    return { job: made.id, created: true, reason: null };
+  };
+}
+
 // apps/omni-app/src/server-event/recheck.ts
 import { RetryAfterError as RetryAfterError4 } from "inngest";
 
 // apps/omni-app/src/server-event/server-event.ts
 import { createHmac as createHmac3, timingSafeEqual } from "node:crypto";
-import { z as z62 } from "zod";
+import { z as z64 } from "zod";
 var SERVER_EVENT = "omni-loop/server.event.received";
 var SERVER_EVENT_KINDS = ["approved", "voided", "item-opened", "item-settled"];
 var UUID2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var ServerEventSchema = z62.object({
-  event: z62.enum(SERVER_EVENT_KINDS),
-  dossier: z62.string().regex(UUID2),
-  at: z62.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
+var ServerEventSchema = z64.object({
+  event: z64.enum(SERVER_EVENT_KINDS),
+  dossier: z64.string().regex(UUID2),
+  at: z64.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
 });
 
 // apps/omni-app/src/server-event/recheck.ts
@@ -18953,13 +19055,13 @@ function createServerEventRecheck({
 }
 
 // apps/omni-app/src/server-event/targets.ts
-import { z as z63 } from "zod";
-var text14 = z63.string().min(1);
-var DossierRowSchema4 = z63.object({ workspace_id: text14, product_id: text14.nullable(), product_seq: z63.number().int().positive().nullable() });
-var ProductRowSchema = z63.object({ key: text14.nullable() });
-var WorkspaceRowSchema = z63.object({ github_installation_id: z63.number().int().positive().nullable() });
-var LinkRowSchema = z63.object({ repository: text14 });
-var PullRowSchema = z63.object({ repo: text14, number: z63.number().int().positive() });
+import { z as z65 } from "zod";
+var text14 = z65.string().min(1);
+var DossierRowSchema4 = z65.object({ workspace_id: text14, product_id: text14.nullable(), product_seq: z65.number().int().positive().nullable() });
+var ProductRowSchema = z65.object({ key: text14.nullable() });
+var WorkspaceRowSchema = z65.object({ github_installation_id: z65.number().int().positive().nullable() });
+var LinkRowSchema = z65.object({ repository: text14 });
+var PullRowSchema = z65.object({ repo: text14, number: z65.number().int().positive() });
 function targetsReader(connection) {
   const db = serviceDb(connection);
   return async (dossier) => {
@@ -18997,7 +19099,14 @@ function appFunctions(env, {
     }),
     approvedRerun: createApprovedRerun({ client: inngest2, octokitFor }),
     budgetsCheck: createBudgetsCheck({ client: inngest2, octokitFor, readOutboxRows: env.supabase ? outboxRowsReader(env.supabase) : null }),
-    retro: createRetro({ client: inngest2, octokitFor, appOctokit: appOctokitFor(env.githubApp), openrouter: env.openrouter, followUp: true }),
+    retro: createRetro({
+      client: inngest2,
+      octokitFor,
+      appOctokit: appOctokitFor(env.githubApp),
+      openrouter: env.openrouter,
+      followUp: true,
+      queue: env.supabase ? runnerQueue(env.supabase) : null
+    }),
     knowledgeHarvest: createKnowledgeHarvest({
       client: inngest2,
       octokitFor,

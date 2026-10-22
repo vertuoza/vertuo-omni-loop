@@ -19,7 +19,7 @@ export type RunnersPageView =
   | { kind: 'unreadable' }
   // `demoQuestions` is the demo's alone (PRD 2255): the questions its Need human drawer reads and answers in the
   // browser, with no route to call. A page read from the database never carries it.
-  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; now: string; answered: readonly string[]; demoQuestions?: readonly JobQuestions[] };
+  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros?: RetroPrds; now: string; answered: readonly string[]; demoQuestions?: readonly JobQuestions[] };
 
 /** The command that starts a runner, as the empty page shows it. */
 export const START_COMMAND = 'omni runner --name <name> --repos <dir>';
@@ -140,9 +140,25 @@ export function whereWords(job: Pick<Job, 'toRunner' | 'toFleet' | 'runner'>, ru
   return job.runner !== null && job.runner !== job.toRunner ? `${target} · ${runnerName(job.runner, runners)}` : target;
 }
 
-/** Who sent a job: `API key <name>` for a key's (PRD 2022), else their GitHub login, or a member. */
-export const senderWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'>): string =>
-  job.sentByKey !== null ? `API key ${job.sentByKey}` : job.sentByLogin ? `@${job.sentByLogin}` : 'A member';
+/** Who sent a job: `Omni app` for one the app sent (PRD 2338), `API key <name>` for a key's (PRD 2022), else
+ * their GitHub login, or a member. */
+export const senderWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'> & { sentByApp?: Job['sentByApp'] }): string =>
+  job.sentByApp === 'omni-app' ? 'Omni app' : job.sentByKey !== null ? `API key ${job.sentByKey}` : job.sentByLogin ? `@${job.sentByLogin}` : 'A member';
+
+/** The PRD each retro pull request retells, by `<owner/repo in lower case>#<retro PR>`. */
+export type RetroPrds = Readonly<Record<string, number>>;
+
+/** The key of a retro pull request in `RetroPrds`. */
+const retroKey = (repo: string, digits: string): string => `${repo.toLowerCase()}#${digits}`;
+
+/** Under `Omni app`, what the app sent the job for (PRD 2338): `retro of PRD <n>` linked to the retro pull
+ * request, or `retro PR #<pr>` when the page does not know the PRD; null for any other job. */
+export function retroLineOf(job: Pick<Job, 'line' | 'repo'> & { sentByApp?: Job['sentByApp'] }, retros: RetroPrds): { words: string; href: string } | null {
+  const pr = /^\/omni:retro-apply --retro (\d+)$/.exec(job.line)?.[1];
+  if (job.sentByApp !== 'omni-app' || pr === undefined) return null;
+  const prd = retros[retroKey(job.repo, pr)];
+  return { words: prd === undefined ? `retro PR #${pr}` : `retro of PRD ${String(prd)}`, href: `https://github.com/${job.repo}/pull/${pr}` };
+}
 
 /** Under a key's name, who made the key: `made by @<login>`; nothing for a person's job. */
 export const madeByWords = (job: Pick<Job, 'sentByLogin' | 'sentByKey'>): string | null =>
