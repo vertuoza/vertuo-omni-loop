@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { CANONICAL_ROLES, ROLE_ALIASES } from 'omni-loop/kit/lib/layers/layers.ts';
 import { describe, expect, it } from 'vitest';
 
-const FILE = fileURLToPath(new URL('../../../../supabase/migrations/20261223090000_canonical_roles.sql', import.meta.url));
+const FILE = fileURLToPath(new URL('../../../../supabase/migrations/20261224090000_canonical_roles.sql', import.meta.url));
 const sql = readFileSync(FILE, 'utf8').replace(/\s+/g, ' ');
 
 describe('the canonical roles migration', () => {
