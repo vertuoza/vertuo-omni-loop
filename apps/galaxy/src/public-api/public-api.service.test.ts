@@ -1183,6 +1183,10 @@ describe('a key starting a job that pings a link (PRD 2425 s8)', () => {
   /** A link that carries a login, built here so none stands in the source. */
   const carrying = (login: string[]) => ['https://', login.join(':'), '@hooks.example.com/omni'].join('');
   const bodies = (api: FakePublicApi) => api.posts.map((post) => JSON.parse(post.body) as Record<string, string>);
+  const valueOf = <T>(answered: { ok: true; value: T } | { ok: false; message: string }): T => {
+    if (!answered.ok) throw new Error(answered.message);
+    return answered.value;
+  };
 
   describe.each(both)('%s', (_name, start) => {
     it('stores whom it is for and the link as given, answers whom it is for and never the link, and pings nothing yet', async () => {
@@ -1194,6 +1198,19 @@ describe('a key starting a job that pings a link (PRD 2425 s8)', () => {
       expect(api.runnersState.jobs[0]).toMatchObject({ acting_for: 'Jane D.', notify_url: LINK, sent_by_key: API_KEY });
       await api.flushPings();
       expect(api.posts).toEqual([]);
+    });
+
+    it('never shows the link again: not to the key that sent it, nor to another key of the workspace that reads the job', async () => {
+      const api = fakePublicApi();
+      const service = publicApiService(api.repository, api.runners);
+      const sender = await caller(api, SECRETS.runners);
+      const started = valueOf(await start(api, sender, { acting_for: 'Jane D.', notify_url: LINK }));
+      for (const reader of [sender, await caller(api, SECRETS.runnersOther)]) {
+        const read = valueOf(await service.job(reader, started.id));
+        expect(read).toMatchObject({ id: started.id, acting_for: 'Jane D.' });
+        expect(JSON.stringify(read)).not.toContain(LINK);
+        expect(read).not.toHaveProperty('notify_url');
+      }
     });
 
     it('stores neither when the start says neither, and checks no link', async () => {
