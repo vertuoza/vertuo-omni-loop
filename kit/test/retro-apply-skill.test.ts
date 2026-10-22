@@ -5,9 +5,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
-import { COMMAND_TABLE } from '../../../bin/commands/index.ts';
+import { COMMAND_TABLE } from '../bin/commands/index.ts';
 
-const TEXT = readFileSync(fileURLToPath(new URL('./SKILL.md', import.meta.url)), 'utf8');
+const TEXT = readFileSync(fileURLToPath(new URL('../plugin/skills/retro-apply/SKILL.md', import.meta.url)), 'utf8');
 const FLAT = TEXT.replace(/\s+/g, ' ');
 
 describe('the retro-apply skill', () => {
