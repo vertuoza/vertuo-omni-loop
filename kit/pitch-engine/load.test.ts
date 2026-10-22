@@ -26,7 +26,7 @@ describe('engineOf', () => {
   it('builds the timeline, the palette and the fonts, and reads the logo and the media against the input', () => {
     const base = new URL('http://127.0.0.1:4173/run/input.json');
     const engine = engineOf({ storyboard: fixtureStoryboard(), look: presetLook('keynote'), fonts: { heading: '"Inter", serif' }, logo: 'assets/logo.svg', credits: ['Music: none'], clips: {} }, base);
-    expect(engine.timeline.frames).toBe(705);
+    expect(engine.timeline.frames).toBe(840);
     expect(engine.palette.paper).toBe('#FBFBFD');
     expect(engine.fonts.heading.stack).toBe('"Inter", serif');
     expect(engine.logo).toBe('http://127.0.0.1:4173/run/assets/logo.svg');

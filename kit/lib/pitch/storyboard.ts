@@ -6,17 +6,27 @@
 // - Scenes: `intro` (eyebrow, title, tag), `statement` (one sentence), `feature` (media, at most four
 //   bullets, a layout), `steps` (two to four steps driving the media), `beforeAfter` (a wipe between two
 //   media) and `outro` (call to action, closing line, credits). Each lasts 1 to 20 seconds.
+// - Supporting lines (PRD 2030): the statement, feature, steps and before/after take an `eyebrow` above
+//   their title and a `body` under it, one plain sentence; the outro a `body` under its closing line,
+//   and the `team` that built the feature, the words after "Built by" as the person gave them.
+// - Steps with their own media (PRD 2030 s4): a step takes a `body` under its label and a `media` of its
+//   own, whose times count from the step's `at`; the scene's `media` is then optional when every step
+//   brings one. The before/after takes `wipeAt`, the second into the scene its wipe starts.
+// - Figures (PRD 2030 s5): a `stats` scene holds an eyebrow, title and body, each optional, and 1 to 3
+//   `items`, each a value with its prefix, suffix and decimals (0 to 2), its label, and its `source`:
+//   where the figure came from, `spec`, `release` (the release note) or `asked` (the person gave it).
+//   An item without a source is refused. `meta.locale`, a BCP 47 tag, says how figures are written.
 // - Media: a clip or a screenshot, by its path in the run's folder, with `start`, `end`, `rate`, `crop`, a
 //   `device` frame, and keyframed `camera` (zoom 1 to 4 on a focus point), `callouts` (a ring or a
 //   spotlight, a label of at most four words) and `cursor` (moves and clicks). Coordinates are 0..1 of
 //   the media; times are seconds into the scene.
-// - Meta: 30 fps, 1920×1080, the transition's length, the music and its sync point (`{ scene, at }`), and
-//   the sources the words came from.
+// - Meta: 30 fps, 1920×1080, the transition's length, the music and its sync point (`{ scene, at }`), the
+//   sources the words came from, and the locale figures are written for (`en` when absent).
 import { z } from 'zod';
 
 export const STORYBOARD_FILE = 'storyboard.json';
 const STORYBOARD_VERSION = 1;
-export const SCENE_TYPES = Object.freeze(['intro', 'statement', 'feature', 'steps', 'beforeAfter', 'outro'] as const);
+export const SCENE_TYPES = Object.freeze(['intro', 'statement', 'feature', 'steps', 'beforeAfter', 'stats', 'outro'] as const);
 type SceneType = (typeof SCENE_TYPES)[number];
 
 const text = z.string().trim().min(1);
@@ -50,28 +60,66 @@ const MediaSchema = z.strictObject({
 });
 export type Media = z.infer<typeof MediaSchema>;
 
+/** How long the before/after's wipe takes, in seconds. */
+export const WIPE_SECONDS = 1.4;
+
 const duration = z.number().min(1).max(20);
 const scene = <T extends SceneType, Shape extends z.ZodRawShape>(type: T, shape: Shape) =>
   z.strictObject({ type: z.literal(type), duration, ...shape });
 
+/** Where a figure came from: the spec, the release note, or the person, asked. */
+const FIGURE_SOURCES =Object.freeze(['spec', 'release', 'asked'] as const);
+
+/** A figure of a stats scene: its prefix and suffix kept as written, spaces included. */
+const FigureSchema = z.strictObject({
+  value: z.number(),
+  prefix: z.string().min(1).optional(),
+  suffix: z.string().min(1).optional(),
+  decimals: z.number().int().min(0).max(2).optional(),
+  label: text,
+  source: z.enum(FIGURE_SOURCES, { error: 'where the figure came from: spec, release or asked' }),
+});
+
+/** A scene's supporting lines: the small line above its title, and the sentence under it. */
+const lines = { eyebrow: text.optional(), body: text.optional() };
+
 const SceneSchema = z.discriminatedUnion('type', [
   scene('intro', { eyebrow: text.optional(), title: text, tag: text.optional() }),
-  scene('statement', { text }),
+  scene('statement', { text, ...lines }),
   scene('feature', {
     title: text.optional(),
+    ...lines,
     media: MediaSchema,
     bullets: z.array(text).max(4).optional(),
     layout: z.enum(['left', 'right', 'full']).optional(),
   }),
   scene('steps', {
     title: text.optional(),
-    media: MediaSchema,
-    steps: z.array(z.strictObject({ label: text, at: seconds })).min(2).max(4),
+    ...lines,
+    media: MediaSchema.optional(),
+    steps: z.array(z.strictObject({ label: text, at: seconds, body: text.optional(), media: MediaSchema.optional() })).min(2).max(4),
+  }).refine((steps) => steps.media !== undefined || steps.steps.every((step) => step.media !== undefined), 'a steps scene shows a media: give the scene one, or every step its own'),
+  scene('beforeAfter', {
+    title: text.optional(),
+    ...lines,
+    before: MediaSchema,
+    after: MediaSchema,
+    labels: z.strictObject({ before: text, after: text }).optional(),
+    wipeAt: seconds.optional(),
   }),
-  scene('beforeAfter', { title: text.optional(), before: MediaSchema, after: MediaSchema, labels: z.strictObject({ before: text, after: text }).optional() }),
-  scene('outro', { cta: text, closing: text.optional(), credits: z.boolean().optional() }),
+  scene('stats', { title: text.optional(), ...lines, items: z.array(FigureSchema).min(1).max(3) }),
+  scene('outro', { cta: text, closing: text.optional(), body: text.optional(), team: text.optional(), credits: z.boolean().optional() }),
 ]);
 export type Scene = z.infer<typeof SceneSchema>;
+
+/** Whether `tag` is a BCP 47 language tag. */
+function isLanguageTag(tag: string): boolean {
+  try {
+    return Intl.getCanonicalLocales(tag).length === 1;
+  } catch {
+    return false;
+  }
+}
 
 const MetaSchema = z.strictObject({
   fps: z.literal(30),
@@ -80,6 +128,7 @@ const MetaSchema = z.strictObject({
   transition: z.number().min(0).max(2),
   music: z.strictObject({ sync: z.strictObject({ scene: z.number().int().min(0), at: seconds }) }).optional(),
   sources: z.array(text).min(1),
+  locale: z.string().refine(isLanguageTag, 'a BCP 47 language tag, such as en or fr-BE').optional(),
 });
 
 const StoryboardSchema = z.strictObject({
@@ -99,10 +148,14 @@ export function parseStoryboard(value: unknown): { storyboard: Storyboard; probl
   return { problems: parsed.error.issues.map((issue) => ({ path: issue.path.map(String).join('.'), message: issue.message })) };
 }
 
-/** Every media a scene shows, with the path of its object in the storyboard. */
+/** Every media a scene shows, with the path of its object in the storyboard: a steps scene's own, then each step's. */
 export function mediaOf(scene: Scene, index: number): { path: string; media: Media }[] {
   const at = (key: string, media: Media) => ({ path: `scenes.${index}.${key}`, media });
-  if (scene.type === 'feature' || scene.type === 'steps') return [at('media', scene.media)];
+  if (scene.type === 'feature') return [at('media', scene.media)];
+  if (scene.type === 'steps') {
+    const own = scene.media === undefined ? [] : [at('media', scene.media)];
+    return [...own, ...scene.steps.flatMap((step, n) => (step.media === undefined ? [] : [at(`steps.${n}.media`, step.media)]))];
+  }
   if (scene.type === 'beforeAfter') return [at('before', scene.before), at('after', scene.after)];
   return [];
 }

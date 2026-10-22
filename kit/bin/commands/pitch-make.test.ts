@@ -193,7 +193,7 @@ describe('omni pitch check (PRD 1108, acceptance 4)', () => {
   it('passes a sound storyboard: exit 0, its length, and no warning written to pitch.json', async () => {
     const root = checkout();
     const dir = storyboardFolder(root, fixtureStoryboard());
-    expect(await omni(['check', RUN], { root })).toEqual({ code: 0, out: 'storyboard: 6 scenes, 23.5 s, 0 warnings\n', err: '' });
+    expect(await omni(['check', RUN], { root })).toEqual({ code: 0, out: 'storyboard: 7 scenes, 28 s, 0 warnings\n', err: '' });
     expect(pitchJsonOf(dir)).toMatchObject({ prd: 7, look: 'arcade', warnings: [] });
   });
 
@@ -217,7 +217,7 @@ describe('omni pitch check (PRD 1108, acceptance 4)', () => {
     storyboard.scenes[0] = { type: 'intro', duration: 6, title: 'Quotes that send themselves the moment the last line is priced' };
     const dir = storyboardFolder(root, storyboard);
     const { code, out, err } = await omni(['check', RUN], { root });
-    expect({ code, out }).toEqual({ code: 0, out: 'storyboard: 6 scenes, 26.5 s, 1 warning\n' });
+    expect({ code, out }).toEqual({ code: 0, out: 'storyboard: 7 scenes, 31 s, 1 warning\n' });
     expect(err).toBe('warning: scenes.0.title: 11 words; a title holds at most 9\n');
     expect(pitchJsonOf(dir)).toMatchObject({ prd: 7, warnings: ['scenes.0.title: 11 words; a title holds at most 9'] });
   });
