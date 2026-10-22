@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { API_KEY, jobRow, OLGA, OTHER_KEY, questionsRow, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
+import { API_KEY, jobRow, lineRows, OLGA, OTHER_KEY, questionsRow, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
+import { encodeCursor } from './cursor';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
-import { DEAD_KEY, FAILED, getJob, listBugFixes, listPrds, startBugFix, startMegaBugFix, NO_DATABASE, NO_KEY, type PublicApiDeps } from './public-api.controller';
-import { JobSchema, PublicApiErrorSchema } from './public-api.contract';
+import { DEAD_KEY, FAILED, getJob, getJobLines, listBugFixes, listPrds, startBugFix, startMegaBugFix, NO_DATABASE, NO_KEY, type PublicApiDeps } from './public-api.controller';
+import { JobLineListSchema, JobSchema, PublicApiErrorSchema } from './public-api.contract';
 import { publicApiService } from './public-api.service';
 import type { PublicApiRepository } from './public-api.repository';
 
@@ -426,5 +427,172 @@ describe('POST /api/v1/mega-bug-fixes', () => {
     const none = await startMegaBugFix(post(FIX), deps(null));
     expect(none.status).toBe(500);
     expect(await errorOf(none)).toEqual({ code: 'internal', message: NO_DATABASE });
+  });
+});
+
+describe('GET /api/v1/jobs/{id}/lines (PRD 2425 s4)', () => {
+  type Page = { data: { seq: number; text: string }[]; next_cursor: string | null };
+
+  /** A bug fix the first key of the workspace sent, ended `done` in demo-org/app, holding `count` lines. */
+  function seeded(api: FakePublicApi, count: number, more: Partial<ReturnType<typeof jobRow>> = {}) {
+    const job = jobRow({
+      status: 'done', runner_id: SHARED, line: '/omni:bug-fix 548 totals', sent_by: OLGA, sent_by_key: API_KEY, exit_code: 0,
+      claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+    });
+    api.runnersState.jobs.push(job);
+    api.runnersState.lines.push(...lineRows(job, 1, count));
+    return job;
+  }
+  const asked = (api: FakePublicApi, id: string, query = '', secret: string | null = SECRETS.runners) =>
+    getJobLines(get(`/api/v1/jobs/${id}/lines${query}`, secret === null ? null : `Bearer ${secret}`), id, deps(api));
+  const pageOf = async (response: Response) => (await response.json()) as Page;
+
+  it('answers 200 with the job’s lines, oldest first, in the contract’s shape, uncached', async () => {
+    const api = fakePublicApi();
+    const job = seeded(api, 3);
+    const response = await asked(api, job.id);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    const body: unknown = await response.json();
+    expect(body).toEqual({ data: [{ seq: 1, text: 'line 1' }, { seq: 2, text: 'line 2' }, { seq: 3, text: 'line 3' }], next_cursor: null });
+    expect(JobLineListSchema.parse(body)).toEqual(body);
+  });
+
+  it('pages 120 lines by 50 through next_cursor, each exactly once', async () => {
+    const api = fakePublicApi();
+    const job = seeded(api, 120);
+    const seen: number[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const page = await pageOf(await asked(api, job.id, cursor === null ? '?limit=50' : `?limit=50&cursor=${cursor}`));
+      expect(page.data.length).toBeLessThanOrEqual(50);
+      seen.push(...page.data.map((line) => line.seq));
+      cursor = page.next_cursor;
+      pages += 1;
+    } while (cursor !== null && pages < 10);
+    expect(seen).toEqual([...Array(120).keys()].map((i) => i + 1));
+    expect(pages).toBe(3);
+  });
+
+  it('pages 50 by default and 100 at most', async () => {
+    const api = fakePublicApi();
+    const job = seeded(api, 120);
+    const count = async (query: string) => (await pageOf(await asked(api, job.id, query))).data.length;
+    expect(await count('')).toBe(50);
+    expect(await count('?limit=100')).toBe(100);
+    expect(await count('?limit=7')).toBe(7);
+  });
+
+  it('answers an empty page with no cursor for a job that holds no line', async () => {
+    const api = fakePublicApi();
+    const job = seeded(api, 0);
+    expect(await pageOf(await asked(api, job.id))).toEqual({ data: [], next_cursor: null });
+  });
+
+  for (const limit of ['0', '101', 'abc', '', '1.5', '-1']) {
+    it(`answers 422 naming limit to limit=${limit}`, async () => {
+      const api = fakePublicApi();
+      const job = seeded(api, 3);
+      const response = await asked(api, job.id, `?limit=${limit}`);
+      expect(response.status).toBe(422);
+      expect(await errorOf(response)).toEqual({ code: 'invalid_request', message: 'limit: a whole number from 1 to 100.' });
+    });
+  }
+
+  it('answers 422 naming cursor to a tampered cursor, to the PRD list’s cursor and to another job’s', async () => {
+    const api = fakePublicApi();
+    const job = seeded(api, 3);
+    const other = seeded(api, 3);
+    const first = await pageOf(await asked(api, other.id, '?limit=1'));
+    const prdsCursor = encodeCursor({ list: 'prds', createdAt: '2026-10-01T09:00:00Z', id: other.id });
+    const readsBefore = api.calls.length;
+    for (const cursor of ['WyJwcmRzIiwi', 'not-a-cursor', prdsCursor, first.next_cursor ?? '']) {
+      const response = await asked(api, job.id, `?cursor=${cursor}`);
+      expect(response.status, cursor).toBe(422);
+      const error = await errorOf(response);
+      expect(error.code).toBe('invalid_request');
+      expect(error.message).toMatch(/^cursor: /);
+    }
+    expect(api.calls.slice(readsBefore)).not.toContain('jobLines');
+  });
+
+  describe('the key', () => {
+    for (const [what, secret] of [['no header', null], ['an unknown key', SECRETS.unknown], ['a revoked key', SECRETS.revoked], ['a key whose maker left', SECRETS.orphaned]] as const) {
+      it(`answers 401 to ${what}, reading no line`, async () => {
+        const api = fakePublicApi();
+        const job = seeded(api, 3);
+        const response = await asked(api, job.id, '', secret);
+        expect(response.status).toBe(401);
+        expect((await errorOf(response)).code).toBe('unauthorized');
+        expect(api.calls).not.toContain('jobLines');
+      });
+    }
+
+    it('checks the key before the query and before the job', async () => {
+      const api = fakePublicApi();
+      expect((await asked(api, 'not-an-id', '?limit=0', null)).status).toBe(401);
+    });
+
+    it('answers 200 to a second key of the workspace for the first key’s lines', async () => {
+      const api = fakePublicApi();
+      const job = seeded(api, 2);
+      const response = await asked(api, job.id, '', SECRETS.runnersOther);
+      expect(response.status).toBe(200);
+      expect((await pageOf(response)).data).toHaveLength(2);
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, in the one error shape, and 200 for a job on its list', async () => {
+      const api = fakePublicApi();
+      const off = seeded(api, 2);
+      const on = seeded(api, 2, { repo: 'demo-org/other' });
+      const refused = await asked(api, off.id, '', SECRETS.runnersLimited);
+      expect(refused.status).toBe(403);
+      expect(await errorOf(refused)).toEqual({ code: 'forbidden', message: 'demo-org/app is not on this API key’s list of repositories.' });
+      expect(api.calls).not.toContain('jobLines');
+      expect((await asked(api, on.id, '', SECRETS.runnersLimited)).status).toBe(200);
+    });
+
+    it('answers 404, not 403, to a limited key for a job a person sent', async () => {
+      const api = fakePublicApi();
+      const job = seeded(api, 2, { sent_by_key: null });
+      expect((await asked(api, job.id, '', SECRETS.runnersLimited)).status).toBe(404);
+    });
+  });
+
+  it('answers 404 to a job of another workspace, a person’s job, an unknown job and an id that is none, reading no line', async () => {
+    const api = fakePublicApi();
+    const mine = seeded(api, 2);
+    const person = seeded(api, 2, { sent_by_key: null });
+    for (const [id, secret] of [
+      [mine.id, SECRETS.all],
+      [person.id, SECRETS.runners],
+      ['00000000-0000-4000-8000-00000000dead', SECRETS.runners],
+      ['not-an-id', SECRETS.runners],
+    ] as const) {
+      const response = await asked(api, id, '', secret);
+      expect(response.status, id).toBe(404);
+      expect(await errorOf(response)).toEqual({ code: 'not_found', message: 'No such job.' });
+    }
+    expect(api.calls).not.toContain('jobLines');
+  });
+
+  it('answers 500 without the database’s words when the lines fail, and logs them', async () => {
+    const api = fakePublicApi();
+    const job = seeded(api, 2);
+    const logs: string[] = [];
+    const broken: PublicApiRepository = { ...api.repository, jobLines: () => Promise.reject(new Error('runner_job_lines: permission denied for table runner_job_lines')) };
+    const response = await getJobLines(
+      get(`/api/v1/jobs/${job.id}/lines`, `Bearer ${SECRETS.runners}`), job.id, { service: publicApiService(broken, api.runners), log: (line) => logs.push(line) },
+    );
+    expect(response.status).toBe(500);
+    expect(await errorOf(response)).toEqual({ code: 'internal', message: FAILED });
+    expect(logs).toEqual(['public-api: runner_job_lines: permission denied for table runner_job_lines']);
+  });
+
+  it('answers 500 when this deployment has no database', async () => {
+    const response = await getJobLines(get('/api/v1/jobs/0b4c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3/lines', `Bearer ${SECRETS.runners}`), '0b4c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3', deps(null));
+    expect(response.status).toBe(500);
+    expect(await errorOf(response)).toEqual({ code: 'internal', message: NO_DATABASE });
   });
 });

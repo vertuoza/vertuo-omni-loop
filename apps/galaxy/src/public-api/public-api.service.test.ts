@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { checkRunnerLine, LINE_MAX } from 'omni-loop/kit/lib/runner/line.ts';
-import { API_KEY, jobRow, OLGA, OTHER_KEY, questionsRow, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
-import { encodeCursor } from './cursor';
+import { API_KEY, jobRow, lineRows, OLGA, OTHER_KEY, questionsRow, SHARED, T0, WORKSPACE } from '../runners/fixtures/store.fake';
+import { encodeCursor, encodeLinesCursor } from './cursor';
 import { fakePublicApi, NORTHWIND, SECRETS, SOUTHWIND, type FakePublicApi } from './fixtures/public-api.fake';
 import { BugFixListSchema, DESCRIPTION_MAX, MEGA_DESCRIPTION_MAX, PrdListSchema, type ListQuery } from './public-api.contract';
 import { BAD_CURSOR, publicApiService, type ApiKeyCaller } from './public-api.service';
@@ -549,5 +549,199 @@ describe('following a job and what it did (PRD 2425 s3)', () => {
       const started = await publicApiService(api.repository, api.runners).startMegaBugFix(await caller(api, SECRETS.runners), { repo: 'demo-org/plan', description: 'https://github.com/demo-org/plan/issues/612' });
       expect(valueOf(started)).toMatchObject({ outcome: null, prs: [], questions: null, cancelled_by: null });
     });
+  });
+});
+
+describe('reading a job’s lines (PRD 2425 s4)', () => {
+  const MISSING = '00000000-0000-4000-8000-00000000dead';
+
+  /** A bug fix the first key of the workspace sent, ended `done` on the shared runner, in demo-org/app, holding `count` lines. */
+  function seed(api: FakePublicApi, count: number, more: Partial<ReturnType<typeof jobRow>> = {}) {
+    const job = jobRow({
+      status: 'done', runner_id: SHARED, line: '/omni:bug-fix 548 totals', sent_by: OLGA, sent_by_key: API_KEY, exit_code: 0,
+      claimed_at: T0.toISOString(), running_at: T0.toISOString(), ended_at: T0.toISOString(), ...more,
+    });
+    api.runnersState.jobs.push(job);
+    api.runnersState.lines.push(...lineRows(job, 1, count));
+    return job;
+  }
+  async function read(api: FakePublicApi, secret: string, id: string, query: ListQuery = FIRST) {
+    return publicApiService(api.repository, api.runners).jobLines(await caller(api, secret), id, query);
+  }
+  const valueOf = <T>(answered: { ok: true; value: T } | { ok: false; message: string }): T => {
+    if (!answered.ok) throw new Error(answered.message);
+    return answered.value;
+  };
+  /** Every line of a job, following next_cursor until it is null, with `between` run before each next page. */
+  async function everyLine(api: FakePublicApi, secret: string, id: string, limit: number, between: () => void = () => {}) {
+    const seen: number[] = [];
+    let cursor: string | undefined;
+    for (let pages = 0; pages < 20; pages += 1) {
+      const page = valueOf(await read(api, secret, id, cursor === undefined ? { limit } : { limit, cursor }));
+      expect(page.data.length).toBeLessThanOrEqual(limit);
+      seen.push(...page.data.map((line) => line.seq));
+      if (page.next_cursor === null) return { seen, pages: pages + 1 };
+      cursor = page.next_cursor;
+      between();
+    }
+    throw new Error('the cursor never ended');
+  }
+
+  describe('the lines', () => {
+    it('answers each line as its sequence number and its text, oldest first, and no cursor after the last', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 3);
+      api.runnersState.lines.reverse();
+      expect(valueOf(await read(api, SECRETS.runners, job.id))).toEqual({
+        data: [{ seq: 1, text: 'line 1' }, { seq: 2, text: 'line 2' }, { seq: 3, text: 'line 3' }], next_cursor: null,
+      });
+    });
+
+    it('pages 120 lines by 50, each exactly once, oldest first', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 120);
+      const { seen, pages } = await everyLine(api, SECRETS.runners, job.id, 50);
+      expect(seen).toEqual([...Array(120).keys()].map((i) => i + 1));
+      expect(pages).toBe(3);
+    });
+
+    it('pages by the limit it was asked, 1 line at a time too', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 4);
+      expect((await everyLine(api, SECRETS.runners, job.id, 1)).seen).toEqual([1, 2, 3, 4]);
+      expect(valueOf(await read(api, SECRETS.runners, job.id, { limit: 100 })).data).toHaveLength(4);
+    });
+
+    it('answers no cursor on the last page, and on an exactly full one', async () => {
+      const api = fakePublicApi();
+      const exact = seed(api, 50);
+      const more = seed(api, 51);
+      expect(valueOf(await read(api, SECRETS.runners, exact.id)).next_cursor).toBeNull();
+      const first = valueOf(await read(api, SECRETS.runners, more.id));
+      expect(first.data).toHaveLength(50);
+      expect(first.next_cursor).toEqual(expect.any(String));
+      expect(valueOf(await read(api, SECRETS.runners, more.id, { limit: 50, cursor: first.next_cursor ?? '' }))).toEqual({
+        data: [{ seq: 51, text: 'line 51' }], next_cursor: null,
+      });
+    });
+
+    it('reads on from lines that arrive between two pages without repeating or skipping one', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 120, { status: 'running', ended_at: null, exit_code: null });
+      let next = 121;
+      const { seen } = await everyLine(api, SECRETS.runners, job.id, 50, () => {
+        api.runnersState.lines.push(...lineRows(job, next, 10));
+        next += 10;
+      });
+      expect(seen).toEqual([...Array(seen.length).keys()].map((i) => i + 1));
+      expect(seen.length).toBeGreaterThan(120);
+    });
+
+    it('starts at the first line a job still holds when its first ones were trimmed', async () => {
+      const api = fakePublicApi();
+      const job = jobRow({ status: 'running', runner_id: SHARED, sent_by: OLGA, sent_by_key: API_KEY });
+      api.runnersState.jobs.push(job);
+      api.runnersState.lines.push(...lineRows(job, 9_001, 3));
+      expect(valueOf(await read(api, SECRETS.runners, job.id)).data.map((line) => line.seq)).toEqual([9_001, 9_002, 9_003]);
+    });
+
+    it('answers only the job’s own lines when the workspace holds others', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 2);
+      seed(api, 5);
+      expect((await everyLine(api, SECRETS.runners, job.id, 50)).seen).toEqual([1, 2]);
+    });
+
+    it('answers an empty page for a job that holds none: queued, or past the retention of the workspace’s 50 newest ended jobs, which keeps its log tail', async () => {
+      const api = fakePublicApi();
+      const queued = seed(api, 0, { status: 'queued', runner_id: null, ended_at: null, exit_code: null, claimed_at: null, running_at: null });
+      const old = seed(api, 0, { log_tail: '13:49:58 PR: https://github.com/demo-org/app/pull/549' });
+      for (const job of [queued, old]) expect(valueOf(await read(api, SECRETS.runners, job.id))).toEqual({ data: [], next_cursor: null });
+      const service = publicApiService(api.repository, api.runners);
+      expect(valueOf(await service.job(await caller(api, SECRETS.runners), old.id)).log_tail).toBe('13:49:58 PR: https://github.com/demo-org/app/pull/549');
+    });
+  });
+
+  describe('which jobs a key reads the lines of', () => {
+    it('lets a second key of the workspace read the first key’s lines', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 2);
+      expect(valueOf(await read(api, SECRETS.runnersOther, job.id)).data).toHaveLength(2);
+    });
+
+    it('answers 403 to a key whose list leaves the job’s repository out, reading no line, and reads a job of one on it', async () => {
+      const api = fakePublicApi();
+      const off = seed(api, 2);
+      const on = seed(api, 2, { repo: 'demo-org/other' });
+      const refused = await read(api, SECRETS.runnersLimited, off.id);
+      expect(refused).toMatchObject({ ok: false, code: 'forbidden' });
+      expect(!refused.ok && refused.message).toBe('demo-org/app is not on this API key’s list of repositories.');
+      expect(api.calls).not.toContain('jobLines');
+      expect(valueOf(await read(api, SECRETS.runnersLimited, on.id)).data).toHaveLength(2);
+    });
+
+    it('answers 404 for a job a person sent, whatever the key’s list, reading no line', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 2, { sent_by_key: null });
+      for (const secret of [SECRETS.runners, SECRETS.runnersOther, SECRETS.runnersLimited]) {
+        expect(await read(api, secret, job.id), secret).toMatchObject({ ok: false, code: 'not_found', message: 'No such job.' });
+      }
+      expect(api.calls).not.toContain('jobLines');
+    });
+
+    it('answers 404 for another workspace’s job, a limited key included, and never 403, reading no line', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 2);
+      for (const secret of [SECRETS.all, SECRETS.backend, SECRETS.south]) {
+        expect(await read(api, secret, job.id), secret).toMatchObject({ ok: false, code: 'not_found' });
+      }
+      expect(api.calls).not.toContain('jobLines');
+    });
+
+    it('answers 404 for a job that does not exist', async () => {
+      const api = fakePublicApi();
+      expect(await read(api, SECRETS.runners, MISSING)).toMatchObject({ ok: false, code: 'not_found' });
+      expect(api.calls).not.toContain('jobLines');
+    });
+  });
+
+  describe('the cursor', () => {
+    it('refuses a cursor that is not this job’s lines, as 422 naming the cursor, reading no line', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 5);
+      const other = seed(api, 5);
+      const refusals = [
+        'not a cursor',
+        encodeCursor({ list: 'prds', createdAt: '2026-10-15T13:41:50.481234+00:00', id: job.id }),
+        encodeLinesCursor({ job: other.id, seq: 2 }),
+      ];
+      for (const cursor of refusals) {
+        const refused = await read(api, SECRETS.runners, job.id, { limit: 50, cursor });
+        expect(refused, cursor).toEqual({ ok: false, code: 'invalid_request', message: BAD_CURSOR });
+      }
+      expect(api.calls).not.toContain('jobLines');
+    });
+
+    it('checks the job before the cursor: a job of another workspace is 404 whatever the cursor', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 5);
+      expect(await read(api, SECRETS.south, job.id, { limit: 50, cursor: 'not a cursor' })).toMatchObject({ ok: false, code: 'not_found' });
+    });
+
+    it('answers lines after the cursor’s sequence number', async () => {
+      const api = fakePublicApi();
+      const job = seed(api, 5);
+      const page = valueOf(await read(api, SECRETS.runners, job.id, { limit: 2, cursor: encodeLinesCursor({ job: job.id, seq: 2 }) }));
+      expect(page.data.map((line) => line.seq)).toEqual([3, 4]);
+      expect(page.next_cursor).toEqual(expect.any(String));
+    });
+  });
+
+  it('fails, rather than answering 404, when the runners fail: the controller answers 500', async () => {
+    const api = fakePublicApi();
+    const job = seed(api, 2);
+    const broken = { ...api.runners, keyJob: () => Promise.resolve({ ok: false as const, kind: 'unavailable' as const, error: 'runner_jobs: permission denied' }) };
+    const service = publicApiService(api.repository, broken);
+    await expect(service.jobLines(await caller(api, SECRETS.runners), job.id, FIRST)).rejects.toThrow('runner_jobs: permission denied');
   });
 });

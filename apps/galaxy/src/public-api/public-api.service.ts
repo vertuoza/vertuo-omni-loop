@@ -1,10 +1,10 @@
 import { PrNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { workPath } from '../dossier/page/work';
 import { currentStage } from '../stages/stage';
-import { decodeCursor, encodeCursor, type CursorList } from './cursor';
+import { decodeCursor, decodeLinesCursor, encodeCursor, encodeLinesCursor, type CursorList } from './cursor';
 import { hashApiKey, isApiKeyShaped } from './keys/secret';
 import type { RunnerRefusal, KeyJob, KeySend } from '../runners/runners.contract';
-import { BUG_FIX, MEGA_BUG_FIX, type ApiJob, type BugFix, type BugFixList, type ListQuery, type Prd, type PrdList, type PublicApiErrorCode, type StartBugFix, type StartMegaBugFix } from './public-api.contract';
+import { BUG_FIX, MEGA_BUG_FIX, type ApiJob, type BugFix, type BugFixList, type JobLineList, type ListQuery, type Prd, type PrdList, type PublicApiErrorCode, type StartBugFix, type StartMegaBugFix } from './public-api.contract';
 import type { DossierRow, ListedKind, PublicApiRepository, StageRow } from './public-api.repository';
 
 // The public API's rules (PRD 2022 s2, spec "The routes"; ADR-0095), over the repository as the service
@@ -89,7 +89,7 @@ const offList = (key: ApiKeyCaller, repo: string): Answered<never> | null =>
 const notPlan = (repo: string) =>
   `repo: ${repo} is not a plan repository of this workspace: no product names it as its plan repository. A bug of one repository starts with POST /api/v1/bug-fixes.`;
 
-type Port = Pick<PublicApiRepository, 'keyOf' | 'dossiers' | 'products' | 'stages' | 'isPlanRepository'>;
+type Port = Pick<PublicApiRepository, 'keyOf' | 'dossiers' | 'products' | 'stages' | 'isPlanRepository' | 'jobLines'>;
 
 const issueLink = (repo: string, number: number) => `https://github.com/${repo}/issues/${number}`;
 
@@ -130,6 +130,14 @@ export function publicApiService(repository: Port, runners: RunnersPort) {
       { repo, line, runner: where.runner, fleet: where.fleet },
     );
     return sent.ok ? { ok: true, value: jobOf(sent.value) } : startRefusal(sent.kind, sent.error);
+  }
+
+  /** The job `id` as `key` reads it: a job of a key of its workspace, on a repository of its allow-list. */
+  async function readJob(key: ApiKeyCaller, id: string): Promise<Answered<ApiJob>> {
+    const found = await runners.keyJob(key.workspace, id);
+    if (found.ok) return offList(key, found.value.repo) ?? { ok: true, value: jobOf(found.value) };
+    if (found.kind === 'missing') return { ok: false, code: 'not_found', message: NO_JOB };
+    throw new Error(`runners: ${found.kind} ${found.error}`);
   }
 
   return {
@@ -198,11 +206,22 @@ export function publicApiService(repository: Port, runners: RunnersPort) {
      * allow-list (PRD 2425); a person's job, another workspace's and a job that does not exist are not found, whatever
      * the list, so a key learns nothing of them, and one off its list is refused only once the job is known to be its
      * workspace's. */
-    async job(key: ApiKeyCaller, id: string): Promise<Answered<ApiJob>> {
-      const found = await runners.keyJob(key.workspace, id);
-      if (found.ok) return offList(key, found.value.repo) ?? { ok: true, value: jobOf(found.value) };
-      if (found.kind === 'missing') return { ok: false, code: 'not_found', message: NO_JOB };
-      throw new Error(`runners: ${found.kind} ${found.error}`);
+    job: readJob,
+
+    /** A page of the lines of a job a key may read, as `job` finds it (a person's job, another workspace's and a
+     * job that does not exist are not found, one off the key's list is refused, and neither reads a line), oldest
+     * first, by the job's own sequence numbers (PRD 2425 s4). A cursor that is not this job's lines is refused only
+     * once the job is known to be the key's to read, so it tells a key nothing of a job it may not. A job past the
+     * workspace's retention of its 50 newest ended jobs holds no line: an empty page, its `log_tail` still on the job. */
+    async jobLines(key: ApiKeyCaller, id: string, query: ListQuery): Promise<Answered<JobLineList>> {
+      const found = await readJob(key, id);
+      if (!found.ok) return found;
+      const after = query.cursor === undefined ? 0 : decodeLinesCursor(query.cursor, id)?.seq;
+      if (after === undefined) return { ok: false, code: 'invalid_request', message: BAD_CURSOR };
+      const read = await repository.jobLines({ workspace: key.workspace, job: id, after, take: query.limit + 1 });
+      const data = read.slice(0, query.limit);
+      const last = data.at(-1);
+      return { ok: true, value: { data, next_cursor: read.length > query.limit && last ? encodeLinesCursor({ job: id, seq: last.seq }) : null } };
     },
   };
 }

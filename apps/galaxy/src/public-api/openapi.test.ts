@@ -87,6 +87,36 @@ describe('the OpenAPI reference', () => {
     for (const part of ['"url"', '"repo"', '"number"']) expect(schemasText()).toContain(part);
   });
 
+  describe('a job’s lines (PRD 2425 s4)', () => {
+    const lines = () => document.paths?.['/api/v1/jobs/{id}/lines']?.get;
+
+    it('is a route of the Bug fixes group, read with a key, by the job’s id and a limit and a cursor', () => {
+      expect(lines()?.tags).toEqual(['Bug fixes']);
+      expect(lines()?.security).toEqual([{ bearerAuth: [] }]);
+      expect(lines()?.parameters?.map((p) => ('name' in p ? p.name : '')).sort()).toEqual(['cursor', 'id', 'limit']);
+    });
+
+    it('answers 200 and every refusal of the job’s own read, plus 422 for a query or a cursor it refuses', () => {
+      expect(Object.keys(lines()?.responses ?? {}).sort()).toEqual(['200', '401', '403', '404', '422', '500']);
+    });
+
+    it('describes a page of lines: each a sequence number and a text, then next_cursor', () => {
+      const text = JSON.stringify(lines()?.responses?.['200']);
+      for (const part of ['"data"', '"seq"', '"text"', '"next_cursor"']) expect(text).toContain(part);
+    });
+
+    it('says the order, the paging and the retention, and where the log tail stays', () => {
+      expect(lines()?.summary).toBeTruthy();
+      expect(lines()?.description).toMatch(/oldest first/);
+      expect(lines()?.description).toMatch(/next_cursor/);
+      expect(lines()?.description).toMatch(/50 newest ended jobs.*empty.*log_tail/s);
+    });
+
+    it('is named from the job’s own read, which says where every line is read', () => {
+      expect(document.paths?.['/api/v1/jobs/{id}']?.get?.description).toContain('GET /api/v1/jobs/{id}/lines');
+    });
+  });
+
   it('describes starting a mega bug fix, with a strict body and no 404', () => {
     const post = document.paths?.['/api/v1/mega-bug-fixes']?.post;
     expect(post?.requestBody).toBeDefined();

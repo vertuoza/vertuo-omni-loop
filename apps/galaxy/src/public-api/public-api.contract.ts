@@ -11,6 +11,7 @@ import { z } from 'zod';
 //   POST /api/v1/bug-fixes                 202 Job: queues `/omni:bug-fix <description>` on the runners (s4)
 //   POST /api/v1/mega-bug-fixes            202 Job: queues `/omni:mega-bug-fix <description>` in a plan repository
 //   GET /api/v1/jobs/{id}                  200 Job: a job a key of this workspace queued (s4), with what it did (PRD 2425 s3)
+//   GET /api/v1/jobs/{id}/lines?limit=&cursor=  200 {data: {seq, text}[], next_cursor}: that job's lines, oldest first (PRD 2425 s4)
 //
 // Every refusal answers one shape, `{error: {code, message}}`, with the status PUBLIC_API_ERRORS names.
 
@@ -168,6 +169,17 @@ export const JobSchema = z.object({
   log_tail: z.string().nullable().meta({ description: 'The last lines of the job’s log, or null while it holds none.', example: '13:49:58 PR: https://github.com/acme/backend/pull/549' }),
 }).meta({ description: 'A runner job a key queued.' });
 export type ApiJob = z.infer<typeof JobSchema>;
+
+/** One line of a job's log. */
+const JobLineSchema = z.object({
+  seq: z.number().int().positive().meta({ description: 'Its number in the job’s log, from 1, in the order the job wrote it.', example: 12 }),
+  text: z.string().meta({ description: 'The line, as the job wrote it.', example: '13:49:58 PR: https://github.com/acme/backend/pull/549' }),
+});
+
+/** A page of a job's lines, oldest first (PRD 2425 s4). */
+export const JobLineListSchema = z.object({ data: z.array(JobLineSchema), next_cursor: NextCursorSchema })
+  .meta({ description: 'A page of a job’s lines, oldest first.' });
+export type JobLineList = z.infer<typeof JobLineListSchema>;
 
 /** Each error's status. */
 export const PUBLIC_API_ERRORS = {
