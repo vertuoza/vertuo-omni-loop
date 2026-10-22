@@ -627,3 +627,559 @@ Switching to B is one line in `kit/lib/runner/runner.ts`, but every runner start
 ```
 
 <!-- /omni-outbox-settled: s2-05-register-app-only-when-able -->
+
+<!-- omni-outbox-settled: s3-01-the-session-finds-the-page-in-the-token-file -->
+
+## s3-01-the-session-finds-the-page-in-the-token-file — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-the-session-finds-the-page-in-the-token-file
+prd: 2433
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+When a job running as the GitHub App needs a fresh token, how does the job's own session know where to ask for one?
+
+## The decision, in plain words
+
+The runner writes the address of the Omni page into the small private file that already holds the job's token, when the job starts, so the session can ask the app by itself and needs no new setting.
+
+## The intro, for fun
+
+A token about to run out needs to know whom to call.
+
+## The punchline, for fun
+
+So the runner tucks the phone number into the same drawer.
+
+## The options, in plain words
+
+A. A. Keep the page address in the job's private token file, written when the job starts, so the session needs nothing else.
+B. B. Hand the page address to the session as one more setting of its environment, which every tool in the session could read and print.
+C. C. Read the address from the checkout's own configuration, which ties the job to a checkout the kit may not have set up.
+
+## What I had to decide
+
+Whoever owns the runner. The address is saved next to the token by the function that saves a job's token (github-token.ts), and read back by omni runner github-token; moving it to another place is a change in those two spots and in runner.ts where the job starts.
+
+Decided by: Jev (hardToRevert 0.46) · agent said false
+
+## What I did meanwhile
+
+Added an optional page field to the job's token file (job-<id>.github, mode 0600). The runner fills it from the page it already talks to, at the moment it saves the first token. omni runner github-token reads it to post to the refresh route; a job whose file has no page field says so and fails the refresh instead of guessing. The kit never prints the field.
+
+## What it costs to change later
+
+Small. A different home for the address (an environment variable, or the checkout's configuration) is a constant and two reads; no migration, and old token files simply have no page field.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The PRD names the refresh route but not how the session learns the page address; the registers and the glossary do not settle it.
+- (author) A job started before this change has a token file with no page field: its session cannot ask for a fresh token itself, while the runner still refreshes it on its own tick. Whether that is enough is not settled.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-the-session-finds-the-page-in-the-token-file -->
+
+<!-- omni-outbox-settled: s3-02-an-app-job-with-no-token-left-is-released-as-nothing -->
+
+## s3-02-an-app-job-with-no-token-left-is-released-as-nothing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-an-app-job-with-no-token-left-is-released-as-nothing
+prd: 2433
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+When a job that ran as the GitHub App has ended and no valid token is left, may its claims be released with the machine's own GitHub login instead?
+
+## The decision, in plain words
+
+No. The claims are left as they are and the job's result says why, in the words github app followed by the reason, because a job that ran as the App is never closed out as a person.
+
+## The intro, for fun
+
+A badge that ran out is no reason to borrow someone else's.
+
+## The punchline, for fun
+
+So the claims stay put, and the page says why.
+
+## The options, in plain words
+
+A. A. Leave the claims as they are and say why in the job's release line, so no claim is ever cleared by a person's account on behalf of the App.
+B. B. Release them with the machine's own GitHub login, so nothing stays claimed, though the action would be taken by a person's account.
+C. C. Keep asking for a fresh token for a longer time before giving up, and only then leave the claims as they are.
+
+## What I had to decide
+
+Whoever owns the runner fleet. Releasing as the machine is one branch in releasedAs (runner.ts) and would cost the guarantee in the spec that an App job never runs as a person; leaving the claims is the reversible side.
+
+## What I did meanwhile
+
+releasedAs in runner.ts keeps the job's token current with keepGithubToken. When none is left, it skips the release, sets the release error to github app: followed by the reason, and prints that line with every token masked. A job whose token file is gone is treated the same, with the reason that the job has no token kept on this machine.
+
+## What it costs to change later
+
+Small. Letting the machine release instead is one branch; a claim left in place is cleared by a later release or by a person, and nothing is lost.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Who clears a claim left in place, and when, is not settled by the PRD.
+- (author) Whether the sweep should retry the release of such a job later, once the app answers again, is not settled.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-an-app-job-with-no-token-left-is-released-as-nothing -->
+
+<!-- omni-outbox-settled: s3-03-release-asks-a-fresh-token-when-it-is-late -->
+
+## s3-03-release-asks-a-fresh-token-when-it-is-late — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-release-asks-a-fresh-token-when-it-is-late
+prd: 2433
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+When a job has ended and its claims are about to be released as the GitHub App, should the runner ask the app for a fresh token if the one it holds is nearly out?
+
+## The decision, in plain words
+
+Yes. If the token has less than five minutes left, the runner asks the app for a fresh one before it releases, as it does during the job; if the app says no, the claims are left as they are.
+
+## The intro, for fun
+
+Cleaning up after a job can take longer than the badge lasts.
+
+## The punchline, for fun
+
+So the runner asks for a new badge before it tidies up.
+
+## The options, in plain words
+
+A. A. Ask the app for a fresh token at release when less than five minutes are left, as during the job.
+B. B. Never ask at release: use the token the job ended with, and leave the claims when it has run out.
+C. C. Always ask for a fresh token at release, even when the one held is new.
+
+## What I had to decide
+
+Whoever builds the app's refresh route (slice s7 of this PRD). The runner assumes that route answers for a job that ended a few minutes ago; if it does not, the release leaves the claims as in the earlier item and the cost is a claim left in place.
+
+Decided by: Jev (hardToRevert 0.52) · agent said false
+
+## What I did meanwhile
+
+The release asks keepGithubToken for the job's token: it reuses the one it holds when more than five minutes are left, and asks for a fresh one otherwise, with the same lock, the same one-minute retry and the same wait as during the job. A release never waits for the app longer than the token has left.
+
+## What it costs to change later
+
+Small. Dropping the ask at release is one call removed; the release then uses what the job ended with, and claims are left in place when it has run out.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The refresh route is not built yet (slice s7), so whether it answers for a job that has already ended is not known.
+- (author) Whether the five-minute margin should be longer at release than during the job is not settled.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-release-asks-a-fresh-token-when-it-is-late -->
+
+<!-- omni-outbox-settled: s3-04-stranded-app-jobs-are-recognized-before-the-cleanup -->
+
+## s3-04-stranded-app-jobs-are-recognized-before-the-cleanup — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-04-stranded-app-jobs-are-recognized-before-the-cleanup
+prd: 2433
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+When a runner finds a job from an earlier run that never ended cleanly, how does it know the job ran as the GitHub App, given that its own cleanup deletes old files?
+
+## The decision, in plain words
+
+It looks for the job's private token file before the cleanup deletes old files, so a job that ran as the App is released as the App, or not at all, and never as the machine.
+
+## The intro, for fun
+
+The runner checks the guest list before it sweeps the floor.
+
+## The punchline, for fun
+
+Otherwise it would forget who the guest was and let a stranger lock up.
+
+## The options, in plain words
+
+A. A. Read whether the job ran as the App from its token file before the cleanup runs.
+B. B. Keep the token files of stranded jobs out of the cleanup, so they can be read afterwards.
+C. C. Write a line into the job's log when it starts as the App, and read that line later.
+
+## What I had to decide
+
+Whoever owns the runner. The order is fixed in the sweeper of runner.ts: ranAsApp is read for every stranded job before sweep runs. Another way to remember that a job ran as the App (for example a line in the job's log) is a change in ranAsApp alone.
+
+## What I did meanwhile
+
+The sweeper lists the stranded jobs and marks each with whether it ran as the App, by looking for its token file, then runs the cleanup, then releases each job as the App with whatever token is left, or as nothing. The token file of a released job is forgotten after its release.
+
+## What it costs to change later
+
+Small. Recording the mark somewhere else is a change in one function and its tests; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) A job whose token file vanished by other means, such as a person deleting it, cannot be recognized as an App job and would be released with the machine's own login; the PRD does not say how to tell.
+- (author) Whether the claim's own record, rather than the token file, should say that a job ran as the App is not settled.
+
+```
+
+<!-- /omni-outbox-settled: s3-04-stranded-app-jobs-are-recognized-before-the-cleanup -->
+
+<!-- omni-outbox-settled: s4-01-pair-checked-before-owner -->
+
+## s4-01-pair-checked-before-owner — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-pair-checked-before-owner
+prd: 2433
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+When someone sends an App ID and a private key to attach to an API key, should the server ask GitHub whether the pair is valid before the database says whether that person may attach it at all?
+
+## The decision, in plain words
+
+Yes: the server checks the pair with GitHub first, then the database decides who may attach it. Nothing the server can read tells it which workspace a key belongs to before that, so an owner check cannot come first without a new read or a new field.
+
+## The intro, for fun
+
+Knocking on GitHub's door before asking who owns the house.
+
+## The punchline, for fun
+
+The database still decides who may stay, and GitHub only vouches for the key.
+
+## The options, in plain words
+
+A. A. Check the pair with GitHub first, then let the database refuse anyone who may not attach it, so the request stays exactly as the spec words it.
+B. B. Add a small database read that says whether the caller owns a key's workspace, and ask it before GitHub is called, which adds a migration to this slice's sibling.
+C. C. Ask the sender to name the workspace as well as the key, check ownership first with the read the page already uses, then ask GitHub, which changes the request the spec words.
+
+## What I had to decide
+
+The spec sends only the App ID and the private key, with the key's id in the path, and the database function that attaches (api_key_github_app_attach) needs the App's slug and its bot's id, which only GitHub can give, and it is the function that refuses a member or another workspace's owner. No read maps a key's id to its workspace for the caller, so I put the GitHub check first and the database's refusal second.
+
+## What I did meanwhile
+
+attachGithubApp in keys/api-keys.service.ts checks the pair (two read-only GitHub calls), seals the private key under the master key and calls the database function; a member or a stranger gets 403, a revoked key 404, a pair GitHub refuses 422, GitHub down 502 and a deployment with no master key 503, and nothing is stored in any of them. A pair a non-owner sends is used for those two calls and nowhere else: never stored, logged or answered.
+
+## What it costs to change later
+
+Small. Naming the workspace in the request, or adding a database read of a key's workspace, moves the owner check ahead of GitHub in a few lines of the service and the controller; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a member's pair reaching GitHub for two read-only calls is acceptable, or the owner check must always come first (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-pair-checked-before-owner -->
+
+<!-- omni-outbox-settled: s4-02-token-needs-named-repositories -->
+
+## s4-02-token-needs-named-repositories — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-token-needs-named-repositories
+prd: 2433
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+When the server asks GitHub for a token on a key's App, may it ask without naming repositories, or for a repository that belongs to someone other than the owner of the installation?
+
+## The decision, in plain words
+
+No. It refuses to ask for a token without at least one repository, and refuses a repository whose owner is not the installation's, so a job's token never reaches further than the repositories it was asked for.
+
+## The intro, for fun
+
+A token with a blank list would open every door in the street.
+
+## The punchline, for fun
+
+So the list is never blank, and never from another street.
+
+## The options, in plain words
+
+A. A. Refuse an empty list and a repository of another owner before asking GitHub, so a token can only ever cover named repositories of the installation.
+B. B. Pass the list on as given and let GitHub scope an empty one to every repository of the installation, which gives a job more reach than the repositories it was sent for.
+C. C. Refuse only an empty list and leave the owner check to GitHub, which then looks a namesake up in the installation's own account.
+
+## What I had to decide
+
+GitHub reads an empty list of repositories as every repository the installation covers, and it takes repository names only, looking each one up in the account that holds the installation, so a namesake owner's repository would be looked up in the wrong account. The spec says a token for the given repositories with exactly three write permissions and metadata read, so I made the module that mints refuse both cases before it asks GitHub.
+
+## What I did meanwhile
+
+mintToken in keys/github-app.ts throws before any call when the list is empty or when a repository's owner differs from the installation's account, in any letter case, and sends each name once. keys/github-app.test.ts names both refusals.
+
+## What it costs to change later
+
+Small. Dropping either guard is a few lines of one function and its test; nothing stored depends on them, and the later slices that mint only import the function.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- How a key with no allow-list, which means every repository of its workspace, gets a token for the one repository a job targets: the slices that mint decide it (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-02-token-needs-named-repositories -->
+
+<!-- omni-outbox-settled: s4-03-list-new-github-caller -->
+
+## s4-03-list-new-github-caller — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-list-new-github-caller
+prd: 2433
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 2
+---
+
+## The question, in plain words
+
+The module that checks a key's GitHub App and mints its tokens calls GitHub with the App's own signed requests, and a test outside this slice's folders lists every file that calls GitHub: may this slice add one line there?
+
+## The decision, in plain words
+
+Yes: the new file is listed in that test as one of the App's own signed callers, which is the only change outside the slice's folders. Without the line the whole test run stays red.
+
+## The intro, for fun
+
+A new caller signs the guest book at the door of GitHub.
+
+## The punchline, for fun
+
+One line outside the folders, and the book stays honest.
+
+## The options, in plain words
+
+A. A. Add one line to the call-sites test for the new file, as a signed caller of the App, and report the breach of the slice's folders.
+B. B. Keep the GitHub address out of the new file by importing it from the sign-up module, which leaves the test untouched but ties two features to one file.
+C. C. Move the new module into the sign-up folder where the first signed caller already lives, which changes the path the later slices were told to import.
+
+## What I had to decide
+
+A test that lives beside the arcade's sources fails whenever a source file names GitHub's address and is not on its list, so a new caller must be added there, whatever folder it sits in. The plan's territory for this slice does not name that test, and the full test run is the check a slice must pass before its pull request is marked ready.
+
+Decided by: Jev (hardToRevert 0.76) · agent said false
+
+## What I did meanwhile
+
+Added the one line for keys/github-app.ts, kind jwt (the App's own signed calls, like the sign-up module's), to apps/galaxy/src/github-call-sites.test.ts. Nothing else outside the slice's folders and the outbox changed.
+
+## What it costs to change later
+
+Small. Removing the line puts the test back to red; a later slice that moves or renames the module changes the same one line.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the later slices that import this module must be listed as callers too: they only import it and name no GitHub address, so I believe not (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-03-list-new-github-caller -->
