@@ -14,6 +14,10 @@ describe('the line check', () => {
     expect(checkLine(`/omni:${skill} 1830 s1 --in-wave`)).toEqual({ ok: true, kind: 'omni', skill, args: '1830 s1 --in-wave' });
   });
 
+  it('lets the retro app\'s line /omni:retro-apply --retro <retro PR> through (PRD 2338)', () => {
+    expect(checkLine('/omni:retro-apply --retro 2360')).toEqual({ ok: true, kind: 'omni', skill: 'retro-apply', args: '--retro 2360' });
+  });
+
   it('lists exactly the skills `omni runner` runs, so the app never queues a line a runner refuses', () => {
     expect([...RUNNER_SKILLS]).toEqual([...RUNNABLE_SKILLS]);
   });

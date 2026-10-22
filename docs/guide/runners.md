@@ -27,8 +27,8 @@ server, and connecting it to your workspace.
 4. The button reads `Queued for <target>`, with a link to the job on the Runners page.
 
 A runner takes only these lines: `/omni:yolo`, `/omni:yolo-fix`, `/omni:pr-care`, `/omni:do-work`,
-`/omni:wave`, `/omni:bug-fix`, `/omni:mega-bug-fix`, `/omni:visual-fix`, `/omni:plan`, `/omni:pitch`
-and `/omni:prove`.
+`/omni:wave`, `/omni:bug-fix`, `/omni:mega-bug-fix`, `/omni:visual-fix`, `/omni:plan`, `/omni:pitch`,
+`/omni:prove` and `/omni:retro-apply`.
 Lines that need a person to talk to, such as `/omni:brainstorm`, stay in your own terminal.
 
 ### Follow it on the Runners page
