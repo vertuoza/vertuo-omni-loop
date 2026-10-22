@@ -62,4 +62,4 @@ way (PRD 2011). The plan repository is the one `POST /api/v1/mega-bug-fixes` acc
 /omni:brainstorm, PRD 2011: .omni-loop/delivery/shipped/2011-product-records/before-after.html (reworked
 2026-10-16: no archive, the plan repository is kept). The plan repository's picker: 2026-10-20, so an
 owner names it from the app, not only through product_plan_repository_set().
-The Role select: /omni:brainstorm, PRD 2346: .omni-loop/delivery/inbox/2346-knowledge-by-domain-and-layer/before-after.html.
+The Role select: /omni:brainstorm, PRD 2346: .omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/before-after.html.

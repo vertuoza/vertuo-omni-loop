@@ -24,5 +24,5 @@ the area it protects. Moving it keeps its id, its text byte for byte and its loc
 
 ## Source
 
-`.omni-loop/delivery/outbox/2346-knowledge-by-domain-and-layer/settled.md`, entry
+`.omni-loop/delivery/shipped/2346-knowledge-by-domain-and-layer/outbox/settled.md`, entry
 `s7-01-laws-move-into-domain-folders`.
