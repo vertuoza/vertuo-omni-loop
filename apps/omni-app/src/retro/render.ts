@@ -18,7 +18,9 @@
 import type { PrNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { z } from 'zod';
 import { at } from 'omni-loop/kit/lib/narrow.ts';
+import { outcomeLine, type LessonOutcome } from 'omni-loop/kit/lib/retro/outcome.ts';
 import { parseOrThrow } from 'omni-loop/kit/lib/schema/parse-or-throw.ts';
+import { outcomesOf } from './apply.ts';
 import { RetroDocSchema } from './github.schema.ts';
 import { RunRecordSchema } from './retro.schema.ts';
 import { KINDS, type Kind } from './kinds/index.ts';
@@ -63,8 +65,17 @@ export function mergeRuns(existing: string | null, record: RunRecord): RetroDoc 
   const runs = parseOrThrow(z.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, 'The retro.json on the retro branch keeps a run of an unexpected shape');
   const same = (run: RunRecord) => run.featurePr.number === record.featurePr.number && run.run === record.run;
   const index = runs.findIndex(same);
-  const next = index === -1 ? [...runs, record] : runs.map((run, i) => (i === index ? record : run));
+  const next = index === -1 ? [...runs, record] : runs.map((run, i) => (i === index ? withOutcomes(record, run) : run));
   return { prd: record.prd.number, runs: next };
+}
+
+/**
+ * `record`, keeping the outcomes of the run it replaces (PRD 2338): the retro never writes one, so a
+ * replay, or the day-14 run writing the merge run again, keeps every outcome the branch holds.
+ */
+function withOutcomes(record: RunRecord, replaced: RunRecord): RunRecord {
+  if (!replaced.outcomes && !record.outcomes) return record;
+  return { ...record, outcomes: { ...replaced.outcomes, ...record.outcomes } };
 }
 
 /** The retro PR's title: `docs(retro): PRD <n> — <PRD title>`. */
@@ -72,16 +83,23 @@ export function retroTitle(prd: { number: PrdNumber; title: string }): string {
   return `docs(retro): PRD ${prd.number} — ${prd.title}`;
 }
 
+/**
+ * `apply` is the line that settles the kept lessons (PRD 2338, `apply.ts`), which the PR body then
+ * carries for a person to run; `null` when every kept lesson has its outcome, or the retro PR's
+ * number is not known yet.
+ */
 export function render({
   doc,
   featurePr,
   prose = null,
   kinds = KINDS,
+  apply = null,
 }: {
   doc: RetroDoc;
   featurePr: number;
   prose?: Prose | null;
   kinds?: readonly Kind[];
+  apply?: string | null;
 }): { markdown: string; json: string; title: string; prBody: string } {
   const runs = doc.runs.filter((run) => run.featurePr.number === featurePr);
   const latest = runs.at(-1);
@@ -89,7 +107,8 @@ export function render({
   const findings = uniqueFindings(runs);
   const issues: IssueLinks = Object.fromEntries(runs.flatMap((run) => Object.entries(run.issues ?? {})));
   const repositories = [...runs].reverse().find((run) => run.repositories)?.repositories ?? null;
-  const shown: Shown = { runs, findings, prose, issues, repositories };
+  const outcomes = outcomesOf(runs);
+  const shown: Shown = { runs, findings, prose, issues, repositories, outcomes };
 
   const lines = [
     '---',
@@ -127,7 +146,7 @@ export function render({
     markdown: `${lines.join('\n').replace(/\n+$/, '')}\n`,
     json: `${JSON.stringify(doc, null, 2)}\n`,
     title: retroTitle(latest.prd),
-    prBody: prBody(latest, findings, prose, issues),
+    prBody: prBody(latest, shown, apply),
   };
 }
 
@@ -161,7 +180,7 @@ function issueLink(issue: IssueLink | undefined): string | null {
   return `[#${issue.number}](${issue.url})${issue.state === 'closed' ? ' (closed)' : ''}`;
 }
 
-function findingBlock(finding: SheetFinding, prose: Prose | null, issues: IssueLinks, level = '###'): string[] {
+function findingBlock(finding: SheetFinding, { prose, issues, outcomes }: Pick<Shown, 'prose' | 'issues' | 'outcomes'>, level = '###'): string[] {
   const words: ProseFinding = prose?.findings[finding.id] ?? {};
   const issue = issueLink(issues[finding.id]);
   const droppedTitle = typeof words.title === 'object' ? field(words.title) : null;
@@ -174,6 +193,8 @@ function findingBlock(finding: SheetFinding, prose: Prose | null, issues: IssueL
   const lesson = field(words.lesson);
   if (lesson) lines.push(`- **Proposed lesson:** ${lesson}`);
   if (words.keep === true) lines.push(`- **Kept:** ${typeof words.why === 'string' && words.why ? words.why : 'yes'}`);
+  const outcome = outcomes[finding.id];
+  if (outcome) lines.push(outcomeLine(outcome));
   const kept: KeptFinding = finding;
   const evidence = (kept.evidence ?? []).map((item) => `[${item.label}](${item.url})`);
   lines.push(`- **Evidence:** ${evidence.length > 0 ? evidence.join(', ') : 'none recorded'}`, '');
@@ -203,7 +224,15 @@ function kindSection(kind: Kind, runs: readonly RunRecord[], findings: readonly 
 }
 
 /** What a retro.md of several repositories reads beside its runs (PRD 1130); `repositories` is `null` for one repository. */
-type Shown = { runs: readonly RunRecord[]; findings: readonly SheetFinding[]; prose: Prose | null; issues: IssueLinks; repositories: readonly RepositoryFacts[] | null };
+type Shown = {
+  runs: readonly RunRecord[];
+  findings: readonly SheetFinding[];
+  prose: Prose | null;
+  issues: IssueLinks;
+  repositories: readonly RepositoryFacts[] | null;
+  /** The kept lessons' outcomes, by finding (PRD 2338). */
+  outcomes: Record<string, LessonOutcome>;
+};
 
 /** The repositories a multi-repository PRD's retro read, the plan repository first: each one's feature PRs, or why it was not read. */
 function repositoriesSection(repositories: readonly RepositoryFacts[] | null): string[] {
@@ -222,12 +251,13 @@ function repoOf(finding: SheetFinding, repositories: readonly RepositoryFacts[])
 }
 
 /** The Findings section: every finding, or, for several repositories, one subsection per repository with findings. */
-function findingsSection({ findings, prose, issues, repositories }: Shown): string[] {
+function findingsSection(shown: Shown): string[] {
+  const { findings, repositories } = shown;
   if (findings.length === 0) return ['None: nothing crossed a threshold of the rules.', ''];
-  if (!repositories) return findings.flatMap((finding) => findingBlock(finding, prose, issues));
+  if (!repositories) return findings.flatMap((finding) => findingBlock(finding, shown));
   return repositories.flatMap((one) => {
     const own = findings.filter((finding) => repoOf(finding, repositories) === one.repo);
-    return own.length === 0 ? [] : [`### ${one.repo}`, '', ...own.flatMap((finding) => findingBlock(finding, prose, issues, '####'))];
+    return own.length === 0 ? [] : [`### ${one.repo}`, '', ...own.flatMap((finding) => findingBlock(finding, shown, '####'))];
   });
 }
 
@@ -277,7 +307,22 @@ function rulesSection(rules: RulesSheet): string[] {
   ];
 }
 
-function prBody(latest: RunRecord, findings: readonly SheetFinding[], prose: Prose | null, issues: IssueLinks): string {
+/**
+ * The retro PR's body: its findings, each kept lesson's outcome under its finding (PRD 2338), the line
+ * that settles the kept lessons still without one when `apply` gives it, and what merging does: with
+ * no outcome, it keeps the retro as history; with outcomes, it also applies them and closes the
+ * issue of each lesson settled.
+ */
+function prBody(latest: RunRecord, { findings, prose, issues, outcomes }: Shown, apply: string | null): string {
+  const settled = Object.keys(outcomes).flatMap((finding) => {
+    const issue = issues[finding];
+    return issue ? [issue.number] : [];
+  });
+  const findingLines = (finding: SheetFinding) => {
+    const outcome = outcomes[finding.id];
+    const line = `- ${[`${finding.ref} · ${titleOf(finding, prose)} — \`${finding.id}\``, issueLink(issues[finding.id])].filter(Boolean).join(' · ')}`;
+    return outcome ? [line, `  ${outcomeLine(outcome)}`] : [line];
+  };
   const lines = [
     `Refs #${latest.prd.number}`,
     '',
@@ -285,16 +330,32 @@ function prBody(latest: RunRecord, findings: readonly SheetFinding[], prose: Pro
     '',
     '## Findings',
     '',
-    ...(findings.length === 0
-      ? ['None: nothing crossed a threshold of the rules.']
-      : findings.map(
-          (finding) =>
-            `- ${[`${finding.ref} · ${titleOf(finding, prose)} — \`${finding.id}\``, issueLink(issues[finding.id])].filter(Boolean).join(' · ')}`,
-        )),
+    ...(findings.length === 0 ? ['None: nothing crossed a threshold of the rules.'] : findings.flatMap(findingLines)),
     '',
-    'Merging keeps this retro as history and changes nothing else.',
+    ...(apply ? applySection(apply) : []),
+    ...(settled.length === 0
+      ? ['Merging keeps this retro as history and changes nothing else.']
+      : [
+          'Merging keeps this retro as history, applies each lesson’s outcome above and closes the issue of each lesson settled.',
+          '',
+          ...settled.map((issue) => `Closes #${String(issue)}`),
+        ]),
   ];
   return `${lines.join('\n')}\n`;
+}
+
+/** The PR body's section that names the line settling the kept lessons, for a person to run when no runner takes it. */
+function applySection(apply: string): string[] {
+  return [
+    '## Lessons to settle',
+    '',
+    'A kept lesson above has no outcome yet: each one becomes a playbook rule, or stays here with the reason why. This line settles them, on a runner or, when no runner takes it, in a terminal:',
+    '',
+    '```text',
+    apply,
+    '```',
+    '',
+  ];
 }
 
 /**

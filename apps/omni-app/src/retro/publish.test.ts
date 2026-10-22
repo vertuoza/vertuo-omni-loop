@@ -1,4 +1,4 @@
-import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
@@ -45,7 +45,7 @@ function parsedJson(text: string): unknown {
 }
 
 /** What `retro.json` on `branch` holds, as far as the tests read it. */
-const RetroJsonSchema = z.object({ runs: z.array(z.looseObject({ run: z.string() })) });
+const RetroJsonSchema = z.object({ runs: z.array(z.looseObject({ run: z.string(), outcomes: z.unknown().optional() })) });
 const retroJsonAt = (github: Stub, branch: string) => RetroJsonSchema.parse(parsedJson(fileAt(github, branch, JSON_PATH)));
 
 /** The sha `branch` points at: the test fails when it does not exist. */
@@ -170,6 +170,81 @@ describe('publish — a replay', () => {
     expect(writes(github)).toEqual([]);
     expect(out).toMatchObject({ committed: false, pr: { number: first.number, created: false } });
     expect(pullsFrom(github, BRANCH)).toHaveLength(1);
+  });
+});
+
+/** A kept lesson's retro issue. */
+const KEPT = { 'slow-slice:s3': { number: parseIssue(30), url: 'https://github.com/acme/widgets/issues/30', state: 'open' as const } };
+const BECAME = { 'slow-slice:s3': { became: 'playbook/testing#never' } };
+
+/** The merge run's record keeping one lesson: settled when `outcomes` gives its outcome, as the skill writes it on the branch. */
+const keeping = (outcomes?: RunRecord['outcomes']): RunRecord => ({
+  ...record(),
+  findings: [{ ref: 'F1', id: 'slow-slice:s3', kind: 'slow-slice', source: 'timeline', title: 'Slice s3 took far longer than the others', happened: 'It took long.', evidence: [] }],
+  issues: KEPT,
+  ...(outcomes ? { outcomes } : {}),
+});
+
+function publishRecord(github: Stub, one: RunRecord, earlier: RunRecord[] = []) {
+  return publishRetro(github.octokit, { owner: OWNER, repo: REPO, config, prd, pr, record: one, prose: null, earlier });
+}
+
+describe('publish — the kept lessons’ outcomes (PRD 2338)', () => {
+  it('writes the line that settles a kept lesson with no outcome in the PR body, with the PR’s own number, and gives it back', async () => {
+    const { github } = scenarioOf();
+    const out = await publishRecord(github, keeping());
+    const retroPr = pullFrom(github, BRANCH);
+    const line = `/omni:retro-apply --retro ${String(retroPr.number)}`;
+    expect(out.apply).toBe(line);
+    expect(retroPr.body).toContain(`\n${line}\n`);
+  });
+
+  it('writes no line, and gives none, when the retro keeps no lesson', async () => {
+    const { github } = scenarioOf();
+    const out = await publishOnce(github);
+    expect(out.apply).toBeNull();
+    expect(pullFrom(github, BRANCH).body).not.toContain('retro-apply');
+  });
+
+  it('on a replay, keeps the outcomes the branch holds, drops the line once every kept lesson has one, and closes their issues', async () => {
+    const { github } = scenarioOf();
+    await publishRecord(github, keeping(BECAME));
+    const out = await publishRecord(github, keeping());
+    expect(out.apply).toBeNull();
+    expect(retroJsonAt(github, BRANCH).runs[0]?.outcomes).toEqual(BECAME);
+    expect(fileAt(github, BRANCH, MD)).toContain('\n- **Became:** `playbook/testing#never`\n');
+    const body = pullFrom(github, BRANCH).body;
+    expect(body).not.toContain('retro-apply');
+    expect(body).toContain('\nCloses #30\n');
+  });
+
+  it('gives no line for a retro PR already merged', async () => {
+    const { github } = scenarioOf();
+    await publishRecord(github, keeping());
+    mergeRetroPr(github, BRANCH);
+    const out = await publishRecord(github, keeping());
+    expect(out).toMatchObject({ pr: { created: false }, apply: null });
+  });
+
+  it('the day-14 run keeps every outcome on the open retro PR’s branch', async () => {
+    const { github } = scenarioOf();
+    await publishRecord(github, keeping(BECAME));
+    await publishRecord(github, dayRecord(), [keeping()]);
+    const doc = retroJsonAt(github, BRANCH);
+    expect(doc.runs.map((run) => [run.run, run.outcomes])).toEqual([
+      ['merge', BECAME],
+      ['day-14', undefined],
+    ]);
+    expect(fileAt(github, BRANCH, MD)).toContain('\n- **Became:** `playbook/testing#never`\n');
+  });
+
+  it('the day-14 run keeps every outcome a merged retro PR brought to the default branch', async () => {
+    const { github } = scenarioOf();
+    await publishRecord(github, keeping(BECAME));
+    mergeRetroPr(github, BRANCH);
+    const out = await publishRecord(github, dayRecord(), [keeping()]);
+    expect(out.branch).toBe(DAY_BRANCH);
+    expect(retroJsonAt(github, DAY_BRANCH).runs[0]?.outcomes).toEqual(BECAME);
   });
 });
 
