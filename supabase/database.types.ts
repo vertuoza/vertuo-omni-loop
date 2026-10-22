@@ -235,6 +235,60 @@ export type Database = {
         }
         Relationships: []
       }
+      api_key_github_apps: {
+        Row: {
+          app_id: number
+          attached_at: string
+          attached_by: string | null
+          bot_id: number
+          ciphertext: string
+          iv: string
+          key_id: string
+          last_token_at: string | null
+          slug: string
+          workspace_id: string
+        }
+        Insert: {
+          app_id: number
+          attached_at?: string
+          attached_by?: string | null
+          bot_id: number
+          ciphertext: string
+          iv: string
+          key_id: string
+          last_token_at?: string | null
+          slug: string
+          workspace_id: string
+        }
+        Update: {
+          app_id?: number
+          attached_at?: string
+          attached_by?: string | null
+          bot_id?: number
+          ciphertext?: string
+          iv?: string
+          key_id?: string
+          last_token_at?: string | null
+          slug?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_key_github_apps_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: true
+            referencedRelation: "agent_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_key_github_apps_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approval_requests: {
         Row: {
           asked: string[]
@@ -3543,6 +3597,29 @@ export type Database = {
           },
         ]
       }
+      runner_job_needs_app: {
+        Row: {
+          job_id: string
+          marked_at: string
+        }
+        Insert: {
+          job_id: string
+          marked_at?: string
+        }
+        Update: {
+          job_id?: string
+          marked_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runner_job_needs_app_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "runner_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       runner_job_questions: {
         Row: {
           answers: Json | null
@@ -3789,6 +3866,7 @@ export type Database = {
         Row: {
           created_at: string
           fleet: string | null
+          github_app: boolean
           health: Json | null
           id: string
           last_seen_at: string
@@ -3802,6 +3880,7 @@ export type Database = {
         Insert: {
           created_at?: string
           fleet?: string | null
+          github_app?: boolean
           health?: Json | null
           id?: string
           last_seen_at?: string
@@ -3815,6 +3894,7 @@ export type Database = {
         Update: {
           created_at?: string
           fleet?: string | null
+          github_app?: boolean
           health?: Json | null
           id?: string
           last_seen_at?: string
@@ -4288,6 +4368,21 @@ export type Database = {
           user_id: string
         }[]
       }
+      api_key_github_app_attach: {
+        Args: {
+          p_app_id: number
+          p_bot_id: number
+          p_ciphertext: string
+          p_iv: string
+          p_key: string
+          p_slug: string
+        }
+        Returns: Json
+      }
+      api_key_github_app_minted: { Args: { p_key: string }; Returns: undefined }
+      api_key_github_app_of_job: { Args: { p_job: string }; Returns: Json }
+      api_key_github_app_remove: { Args: { p_key: string }; Returns: boolean }
+      api_key_github_apps_list: { Args: { p_workspace: string }; Returns: Json }
       api_key_listed: {
         Args: { t: Database["public"]["Tables"]["agent_tokens"]["Row"] }
         Returns: Json
