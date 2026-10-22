@@ -74,4 +74,4 @@ Attach a GitHub App to <key> · App ID · Private key file · Choose file · Att
 ## Source
 
 /omni:brainstorm, PRD 2022: .omni-loop/delivery/shipped/2022-api-keys-v1/before-after.html
-/omni:brainstorm, PRD 2433: .omni-loop/delivery/inbox/2433-api-key-github-app/before-after.html
+/omni:brainstorm, PRD 2433: .omni-loop/delivery/shipped/2433-api-key-github-app/before-after.html

@@ -97,7 +97,7 @@ Kept id: moved from product, PRD 2346
 When a job an API key sends runs as the key's GitHub App, its token reaches only repositories the key may reach: the job's repository and, for a mega bug fix, its plan repository and the other repositories its product names, each only when it is in the key's allowed repositories and the App's installation holds it.
 
 Serves: P-PRODUCT-58
-Source: .omni-loop/delivery/outbox/2433-api-key-github-app/settled.md, entry s7-01-token-covers-the-jobs-own-repository-only, PRD #2433
+Source: .omni-loop/delivery/shipped/2433-api-key-github-app/outbox/settled.md, entry s7-01-token-covers-the-jobs-own-repository-only, PRD #2433
 Enforced by: apps/galaxy/src/runners/runners.github-repositories.test.ts, supabase/checks/api_key_github_apps.sql
 Stated: 2026-10-23
 Decided: @nicojustdev, 2026-10-22, on PR #2434 (option B)
