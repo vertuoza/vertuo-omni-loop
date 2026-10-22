@@ -1,3 +1,7 @@
+# The domain folders of the knowledge base (PRD 2346): a law moved into one keeps its owners while
+# its pull request is judged, since the outbox check reads this file from the base branch.
+/.omni-loop/knowledge/domains/ @pierrederval @dervalp
+
 # BEGIN omni kb owners
 # Written by `omni kb owners` from laws.owners and the locked laws (PRD 1726): run it again, never edit these lines.
 # The thesis and the registers: what the product promises, and its laws.
