@@ -837,11 +837,11 @@ reset role;
 -- ── dossier_list() runs as its caller, and only the signed-in may call it ──
 do $$
 begin
-  if (select p.prosecdef from pg_proc p where p.oid = 'public.dossier_list(uuid, uuid)'::regprocedure) then
+  if (select p.prosecdef from pg_proc p where p.oid = 'public.dossier_list(uuid, uuid, text)'::regprocedure) then
     raise exception 'FAIL: dossier_list() is security definer: row-level security would not decide what it lists';
   end if;
-  if has_function_privilege('anon', 'public.dossier_list(uuid, uuid)', 'execute')
-     or not has_function_privilege('authenticated', 'public.dossier_list(uuid, uuid)', 'execute') then
+  if has_function_privilege('anon', 'public.dossier_list(uuid, uuid, text)', 'execute')
+     or not has_function_privilege('authenticated', 'public.dossier_list(uuid, uuid, text)', 'execute') then
     raise exception 'FAIL: dossier_list() is callable by anon, or not by the signed-in';
   end if;
 end $$;
