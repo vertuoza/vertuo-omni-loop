@@ -84,7 +84,7 @@ left to resume.
 A job that builds a PRD claims each slice with a draft sub-PR labelled `omni:in-progress`, whose
 status comment names the job (`- job: <id> · runner <name>`). When the job ends, whatever the
 reason (done, failed, timeout, cancelled, or its runner lost), the runner releases the claims it
-still holds:
+still holds, a sub-PR already marked ready but not merged yet among them:
 
 - each of those sub-PRs loses `omni:in-progress` and gains `omni:released`;
 - each gets a comment naming the job, its runner and why it ended;

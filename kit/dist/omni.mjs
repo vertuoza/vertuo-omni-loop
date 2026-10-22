@@ -61777,7 +61777,6 @@ var MAX_RELEASED = 50;
 var MAX_RELEASE_ERROR = 200;
 var ListedSchema = external_exports.array(external_exports.object({
   number: external_exports.number().int().positive(),
-  isDraft: external_exports.boolean(),
   labels: external_exports.array(external_exports.object({ name: external_exports.string() }))
 }));
 var BodiesSchema = external_exports.array(external_exports.string());
@@ -61795,14 +61794,14 @@ function why2(error62) {
 }
 var cut5 = (text15, max) => text15.length <= max ? text15 : `${text15.slice(0, max - 1)}\u2026`;
 function candidates(repo, gh) {
-  const out = gh(["pr", "list", "--repo", repo.slug, "--state", "open", "--draft", "--label", repo.inProgress, "--limit", "100", "--json", "number,isDraft,labels"]);
+  const out = gh(["pr", "list", "--repo", repo.slug, "--state", "open", "--label", repo.inProgress, "--limit", "100", "--json", "number,labels"]);
   let listed2;
   try {
     listed2 = ListedSchema.parse(JSON.parse(out));
   } catch {
     throw new Error("gh pr list answered something unreadable");
   }
-  return listed2.filter((pr) => pr.isDraft && pr.labels.some((label2) => label2.name === repo.inProgress)).map((pr) => pr.number);
+  return listed2.filter((pr) => pr.labels.some((label2) => label2.name === repo.inProgress)).map((pr) => pr.number);
 }
 function heldBy(repo, number5, job2, gh) {
   const out = gh(["api", `repos/${repo.slug}/issues/${String(number5)}/comments`, "--paginate", "--jq", "[.[].body]"]);

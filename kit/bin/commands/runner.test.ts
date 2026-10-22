@@ -808,7 +808,7 @@ describe('omni runner: a dead job\'s claims (PRD 2175, s2)', () => {
     run.stop.abort();
     await run.done;
     expect(app.updates().at(-1)).toMatchObject({ status: 'failed', exitCode: 3, released: [1908], releaseError: null });
-    expect(gh.calls).toContain('pr list --repo acme/widgets --state open --draft --label omni:in-progress --limit 100 --json number,isDraft,labels');
+    expect(gh.calls).toContain('pr list --repo acme/widgets --state open --label omni:in-progress --limit 100 --json number,labels');
     expect(gh.calls).toContain('pr edit 1908 --repo acme/widgets --remove-label omni:in-progress --add-label omni:released');
     expect(gh.calls.filter((call) => call.startsWith('pr edit'))).toHaveLength(1);
     expect(gh.calls.find((call) => call.startsWith('pr comment 1908'))).toContain('Released: runner job `22` on `box-1` ended (`exit code 3`)');
