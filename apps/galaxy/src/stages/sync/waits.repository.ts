@@ -1,4 +1,4 @@
-// The one way into the stored waits (PRD 2377, s1; supabase/migrations/20261225090000_waits.sql), as the
+// The one way into the stored waits (PRD 2377, s1; supabase/migrations/20261226090000_waits.sql), as the
 // service role, for the stages sync: a repository's open waits, what a run changes in them, and the GitHub
 // login of each PRD's owner (who opened its dossier, as their player row in the workspace names them).
 // No rule lives here: which waits are open and how they are kept is ./waits.ts's. The database keeps a

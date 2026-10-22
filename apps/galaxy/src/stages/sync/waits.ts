@@ -1,5 +1,5 @@
 // The waits (PRD 2377, s1): what in a repository waits on a person to ship, whose turn it is and since
-// when, as the stages sync records it in public.waits (supabase/migrations/20261225090000_waits.sql).
+// when, as the stages sync records it in public.waits (supabase/migrations/20261226090000_waits.sql).
 // s1 computes the two kinds a pull request shows, `review` and `merge`; s2 the other three, `approval`,
 // `outbox` and `law` (below). Spec §1:
 //
