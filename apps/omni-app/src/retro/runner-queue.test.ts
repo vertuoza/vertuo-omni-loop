@@ -10,7 +10,7 @@ function recordingFetch(answers: unknown[] = []) {
   const fetch: typeof globalThis.fetch = (input, init = {}) =>
     new Promise((resolve) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
-      const body: unknown = init.body ? JSON.parse(String(init.body)) : null;
+      const body: unknown = typeof init.body === 'string' ? JSON.parse(init.body) : null;
       requests.push({ method: init.method ?? 'GET', path: url.pathname, query: url.searchParams, body, headers: new Headers(init.headers) });
       const answer: unknown = answers.shift() ?? [];
       resolve(answer instanceof Response ? answer : new Response(JSON.stringify(answer), { status: 200, headers: { 'content-type': 'application/json' } }));
