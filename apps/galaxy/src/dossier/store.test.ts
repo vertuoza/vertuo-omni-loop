@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import {
-  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRounds, dossierStore, DossierStoreError, KIND_ARTIFACTS, LIST_FIELDS,
-  PUSH_KINDS, PUSHED_ARTIFACT_KINDS, ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS, WORK_KINDS,
+  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRepos, dossierRounds, dossierStore, DossierStoreError, KIND_ARTIFACTS,
+  LIST_FIELDS, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, REPOS_FIELDS, ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS, WORK_KINDS,
 } from './store';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
@@ -24,6 +24,8 @@ const CONCEPT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supaba
 const APPROVALS_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261123090000_approvals.sql', import.meta.url)), 'utf8');
 // PRD 1364 s2: a PRD's product, dossier_push() taking it by name, and dossiers.product_id granted.
 const PRODUCT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261129100000_prd_product.sql', import.meta.url)), 'utf8');
+// PRD 2401 s3: dossier_list() taking p_kind, dossier_repos(), and a plan version's slice count, granted.
+const LIGHT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261229090000_dossier_light_reads.sql', import.meta.url)), 'utf8');
 
 /** The parameter names `create function public.<name>(…)` declares, in order. */
 function parameters(name: string, migration = MIGRATION): string[] {
@@ -135,7 +137,7 @@ describe('the dossier store', () => {
 /** The columns `grant select (…) on public.<table> to authenticated` names. */
 function granted(table: string): string[] {
   const pattern = new RegExp(`grant select \\(([^)]*)\\)\\s+on public\\.${table} to authenticated`, 'g');
-  const columns = [MIGRATION, FIX_MIGRATION, APPROVALS_MIGRATION].flatMap((migration) => [...migration.matchAll(pattern)].flatMap((m) => {
+  const columns = [MIGRATION, FIX_MIGRATION, APPROVALS_MIGRATION, LIGHT_MIGRATION].flatMap((migration) => [...migration.matchAll(pattern)].flatMap((m) => {
     const list = m[1];
     assertDefined(list, `the columns granted on ${table}`);
     return list.split(',').map((c) => c.trim());
@@ -180,6 +182,11 @@ describe('reading a dossier as its members do (the page to share)', () => {
       ['order', 'created_at', { ascending: true }], ['order', 'id', { ascending: true }],
     ]);
     expect(VERSION_COLUMNS).not.toContain('content');
+  });
+
+  it('reads a plan version\'s stored slice count with the versions, so a count reads no body (PRD 2401 s3)', () => {
+    expect(VERSION_COLUMNS.split(', ')).toContain('slices');
+    expect(LIGHT_MIGRATION).toContain('new.slices := case when new.kind = \'plan\' then public.plan_slice_count(new.content) end;');
   });
 
   it('reads one version\'s content on its own', async () => {
@@ -278,29 +285,42 @@ describe('reading a dossier\'s rounds', () => {
 
 // ── The history (PRD 216, step 4) ───────────────────────────────────────────────
 
-// dossier_list() as PRD 627 last wrote it: with each dossier's kind.
+// dossier_list() as PRD 627 wrote it: with each dossier's kind, counting dossier_rounds()' rounds.
 const LIST_MIGRATION = FIX_MIGRATION;
 
+/** The parameter names `create function public.<name>(…)` of `migration` declares, in order. */
+const declaredBy = (migration: string, name: string) =>
+  new RegExp(`create function public\\.${name}\\(([^)]*)\\)`).exec(migration)?.[1]?.split(',').map((p) => p.trim().split(/\s+/)[0]) ?? [];
+
+/** The columns `create function public.<name>(…) returns table (…)` of `migration` returns, in order. */
+const returnedBy = (migration: string, name: string) =>
+  (new RegExp(`create function public\\.${name}\\([^)]*\\)\\s*returns table \\(([\\s\\S]*?)\\)\\s*language`).exec(migration)?.[1] ?? '')
+    .split(',').map((line) => line.trim().split(/\s+/)[0]).filter(Boolean);
+
 describe('reading the history', () => {
-  it('calls dossier_list() with the migration\'s parameter: every dossier, or one', async () => {
+  it('calls dossier_list() with the migration\'s parameters: every dossier, one, or only one kind (PRD 2401 s3)', async () => {
     const row = { id: 'd1', repos: ['acme/widgets'] };
     const { calls, db } = recording({ data: [row], error: null });
     expect(await dossierList(db)).toEqual([row]);
     expect(await dossierList(db, 'd1')).toEqual([row]);
+    expect(await dossierList(db, null, 'prd')).toEqual([row]);
     expect(calls).toEqual([
       { name: 'dossier_list', args: { p_dossier: null } },
       { name: 'dossier_list', args: { p_dossier: 'd1' } },
+      { name: 'dossier_list', args: { p_dossier: null, p_kind: 'prd' } },
     ]);
-    const declared = /create function public\.dossier_list\(([^)]*)\)/.exec(LIST_MIGRATION)?.[1]?.split(',').map((p) => p.trim().split(/\s+/)[0]);
-    expect(Object.keys(firstArgs(calls))).toEqual(declared);
+    const declared = declaredBy(LIGHT_MIGRATION, 'dossier_list');
+    expect(declared).toEqual(['p_dossier', 'p_workspace', 'p_kind']);
+    for (const call of calls) for (const name of Object.keys(call.args)) expect(declared).toContain(name);
   });
 
-  it('expects exactly the columns the function returns, and it runs as its caller on dossier_rounds()', () => {
-    const table = /returns table \(([\s\S]*?)\)\s*language/.exec(LIST_MIGRATION)?.[1] ?? '';
-    const returned = table.split(',').map((line) => line.trim().split(/\s+/)[0]).filter(Boolean);
-    expect([...LIST_FIELDS]).toEqual(returned);
+  it('expects exactly the columns the function returns, and it runs as its caller', () => {
+    expect([...LIST_FIELDS]).toEqual(returnedBy(LIST_MIGRATION, 'dossier_list'));
+    expect([...LIST_FIELDS]).toEqual(returnedBy(LIGHT_MIGRATION, 'dossier_list'));
     expect(LIST_MIGRATION).toContain('security invoker');
     expect(LIST_MIGRATION).toContain('public.dossier_rounds(d.id)');
+    expect(LIGHT_MIGRATION).not.toContain('security definer');
+    expect(LIGHT_MIGRATION).toContain('and (p_kind is null or d.kind = p_kind)');
   });
 
   it('reads no rows as none, and turns a failure into a DossierStoreError', async () => {
@@ -313,21 +333,47 @@ describe('reading the history', () => {
 
 // ── The change check (PRD 384, part 5) ──────────────────────────────────────────
 
+// ── One dossier's repositories and pulse (PRD 2401 s3) ──────────────────────────
+
+describe('reading one dossier\'s repositories', () => {
+  it('calls dossier_repos() with the migration\'s parameter, and hands back its row', async () => {
+    const row = { id: 'd1', repos: ['acme/widgets', 'acme/core'], latest: { spec: 2 }, asked: 1, answered: 0 };
+    const { calls, db } = recording({ data: [row], error: null });
+    expect(await dossierRepos(db, 'd1')).toEqual(row);
+    expect(calls).toEqual([{ name: 'dossier_repos', args: { p_dossier: 'd1' } }]);
+    expect(Object.keys(firstArgs(calls))).toEqual(declaredBy(LIGHT_MIGRATION, 'dossier_repos'));
+  });
+
+  it('expects exactly the columns the function returns, and it runs as its caller', () => {
+    expect([...REPOS_FIELDS]).toEqual(returnedBy(LIGHT_MIGRATION, 'dossier_repos'));
+    expect(LIGHT_MIGRATION).toContain('grant execute on function public.dossier_repos(uuid) to authenticated');
+  });
+
+  it('reads a dossier the caller may not read as null, and turns a failure into a DossierStoreError', async () => {
+    expect(await dossierRepos(recording({ data: [], error: null }).db, 'd1')).toBeNull();
+    expect(await dossierRepos(recording({ data: null, error: null }).db, 'd1')).toBeNull();
+    const error = await dossierRepos(recording({ data: null, error: { code: '57014', message: 'timeout' } }).db, 'd1').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(DossierStoreError);
+    expect(error).toMatchObject({ code: '57014' });
+  });
+});
+
 describe('reading the change check', () => {
-  it('reads one dossier\'s counts and latest version numbers in one dossier_list() call', async () => {
-    const row = {
-      id: 'd1', repos: ['acme/widgets'], asked: 3, answered: 2,
-      latest: { spec: { id: 'v1', version: 2, source: 'kit', created_at: 'x' }, 'before-after': { id: 'v2', version: 1, source: 'kit', created_at: 'x' } },
-    };
+  it('reads one dossier\'s counts and latest version numbers in one dossier_repos() call (PRD 2401 s3)', async () => {
+    const row = { id: 'd1', repos: ['acme/widgets'], asked: 3, answered: 2, latest: { spec: 2, 'before-after': 1 } };
     const { calls, db } = recording({ data: [row], error: null });
     expect(await dossierPulse(db, 'd1')).toEqual({ asked: 3, answered: 2, latest: { spec: 2, 'before-after': 1 } });
-    expect(calls).toEqual([{ name: 'dossier_list', args: { p_dossier: 'd1' } }]);
+    expect(calls).toEqual([{ name: 'dossier_repos', args: { p_dossier: 'd1' } }]);
   });
 
   it('reads the User voice\'s latest version too, and no fix\'s rounds (PRD 822)', async () => {
-    const at = (version: number) => ({ id: `v${version}`, version, source: 'kit', created_at: 'x' });
-    const row = { id: 'd1', repos: ['acme/widgets'], asked: 0, answered: 0, latest: { spec: at(1), voice: at(3), variations: at(2) } };
+    const row = { id: 'd1', repos: ['acme/widgets'], asked: 0, answered: 0, latest: { spec: 1, voice: 3, variations: 2 } };
     expect(await dossierPulse(recording({ data: [row], error: null }).db, 'd1')).toEqual({ asked: 0, answered: 0, latest: { spec: 1, voice: 3 } });
+  });
+
+  it('reads no version count that is not a number', async () => {
+    const row = { id: 'd1', repos: ['acme/widgets'], asked: 0, answered: 0, latest: { spec: '2', plan: null } };
+    expect(await dossierPulse(recording({ data: [row], error: null }).db, 'd1')).toEqual({ asked: 0, answered: 0, latest: {} });
   });
 
   it('reads a dossier the caller may not read as null, and turns a failure into a DossierStoreError', async () => {

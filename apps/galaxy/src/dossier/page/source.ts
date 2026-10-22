@@ -5,9 +5,10 @@
 // The workspace's members (ask_members(), PRD 144) name who opened it and who pushed each version.
 // Its rounds (dossier_rounds(), PRD 216 step 3) are the questions that shaped it, read as the viewer
 // too; when they cannot be read, the page still shows the dossier and its Questions tab says so.
-// Its repositories (dossier_list(), step 4: its home, its questions' and its planet's regions) are its
-// header's chips; when they cannot be read, the chip is its home repository alone. /prd, the history,
-// reads dossier_list() whole, as the viewer: every dossier of their workspaces.
+// Its repositories (step 4: its home, its questions' and its planet's regions) are its header's chips,
+// read with dossier_repos() since PRD 2401 s3, which gives the one dossier's alone; when they cannot be
+// read, the chip is its home repository alone. /prd, the history, reads dossier_list() as the viewer:
+// every PRD of their workspaces, the database leaving the fixes out (PRD 2401 s3).
 // Which of its rounds the viewer may answer on the list (PRD 384) is decided here, on the server, from
 // the rounds' sessions and the shares the viewer reads (PRD 144's rule: the session's owner, or a
 // member the round is shared with); the database's own rule still refuses anyone else.
@@ -16,8 +17,8 @@ import { readMembers, sendAnswers } from '../../ask/page/source';
 import { askShares } from '../../ask/store';
 import { loadPeople } from '../../people/load';
 import {
-  dossierList, dossierPulse, dossierReader, dossierRounds, type DossierListRow, type DossierPulse, type DossierRoundRow,
-  type DossierVersionRow,
+  dossierList, dossierPulse, dossierReader, dossierRepos, dossierRounds, type DossierListRow, type DossierPulse, type DossierRoundRow,
+  type DossierVersionRow, type WorkKind,
 } from '../store';
 import { parsePlanSlices } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { isOneOf, propertyOf } from 'omni-loop/kit/lib/narrow.ts';
@@ -44,7 +45,7 @@ async function readRounds(db: Pick<Db, 'rpc'>, id: string): Promise<DossierRound
 /** The dossier's repositories, as the history lists them; null when they cannot be read. */
 async function readRepos(db: Pick<Db, 'rpc'>, id: string): Promise<string[] | null> {
   try {
-    return (await dossierList(db, id))[0]?.repos ?? null;
+    return (await dossierRepos(db, id))?.repos ?? null;
   } catch (error) {
     console.error(error);
     return null;
@@ -111,15 +112,19 @@ export async function readPulse(db: Pick<Db, 'rpc'>, id: string): Promise<Dossie
   return isDossierId(id) ? dossierPulse(db, id) : null;
 }
 
-/** Every dossier of the viewer's workspaces, as the history lists them. */
-export const readHistory = (db: Pick<Db, 'rpc'>): Promise<DossierListRow[]> => dossierList(db);
+/** Every dossier of the viewer's workspaces, as the history lists them; only those of `kind` when given,
+ * the database leaving the others out (PRD 2401 s3: /prd reads its PRDs alone). */
+export const readHistory = (db: Pick<Db, 'rpc'>, kind: WorkKind | null = null): Promise<DossierListRow[]> => dossierList(db, null, kind);
 
 /** The slices of the dossier's latest plan version (PRD 426: the stage's "m/t slices"); null when
- * there is no plan version, or it cannot be read or holds no slice table. */
+ * there is no plan version, or it cannot be read or holds no slice table. The count stored on the
+ * version is read when it has one (PRD 2401 s3: 0 is no slice); only a version added before it was
+ * stored has its body read. */
 export async function readPlanSlices(db: Pick<Db, 'from'>, versions: readonly DossierVersionRow[]): Promise<number | null> {
   const plans = versions.filter((v) => v.kind === 'plan');
   const latest = plans[plans.length - 1];
   if (!latest) return null;
+  if (typeof latest.slices === 'number') return latest.slices > 0 ? latest.slices : null;
   try {
     const content = await dossierReader(db).content(latest.id);
     return content === null ? null : parsePlanSlices(content).length;

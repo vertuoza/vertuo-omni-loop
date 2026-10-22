@@ -288,6 +288,20 @@ describe('reading the history', () => {
     expect(rows[2]).toMatchObject({ prd: null, repos: ['acme/plans'], last_activity: at('08:00') });
   });
 
+  it('lists only the kind asked for, the database filtering them, and every kind otherwise (PRD 2401 s3)', async () => {
+    const { fake, draft, reminders, widgets } = await history();
+    await fake.client('bob').rpc('dossier_push', {
+      p_repo: 'acme/widgets', p_prd: 8, p_kind: 'bug', p_title: 'Widgets crack', p_draft: null, p_artifacts: [{ kind: 'bug-record', content: 'the record' }],
+    });
+    const client = fake.client('bob');
+    const calls: Array<[string, Record<string, unknown>]> = [];
+    const recorded = { from: client.from, rpc: (name: string, args: Record<string, unknown>) => { calls.push([name, args]); return client.rpc(name, args); } };
+    expect((await readHistory(recorded as never, 'prd')).map((r) => r.id)).toEqual([reminders, widgets, draft]);
+    expect(calls).toEqual([['dossier_list', { p_dossier: null, p_kind: 'prd' }]]);
+    expect(await readHistory(recorded as never)).toHaveLength(4);
+    expect(calls.at(-1)).toEqual(['dossier_list', { p_dossier: null }]);
+  });
+
   it('gives a member of another workspace its own dossiers alone, and someone signed out nothing', async () => {
     const { as, elsewhere } = await history();
     expect((await readHistory(as('carl'))).map((r) => [r.id, r.repos])).toEqual([[elsewhere, ['other/stuff', 'other/secret']]]);
@@ -305,9 +319,26 @@ describe('reading the history', () => {
         name === 'dossier_list' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args),
     };
     const read = await readDossier(failing as never, reminders);
-    expect(read?.repos).toBeNull();
-    expect(read?.rounds).toHaveLength(2);
+    expect(read?.repos).toEqual(['acme/plans', 'acme/core', 'acme/gadgets', 'acme/widgets']);
+    const down = {
+      from: client.from,
+      rpc: (name: string, args: Record<string, unknown>) =>
+        name === 'dossier_repos' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args),
+    };
+    const unread = await readDossier(down as never, reminders);
+    expect(unread?.repos).toBeNull();
+    expect(unread?.rounds).toHaveLength(2);
     quiet.mockRestore();
+  });
+
+  it('chips them from dossier_repos(), the one dossier\'s own read, never the history\'s (PRD 2401 s3)', async () => {
+    const { fake, reminders } = await history();
+    const client = fake.client('bob');
+    const names: string[] = [];
+    const recorded = { from: client.from, rpc: (name: string, args: Record<string, unknown>) => { names.push(name); return client.rpc(name, args); } };
+    await readDossier(recorded as never, reminders);
+    expect(names).toContain('dossier_repos');
+    expect(names).not.toContain('dossier_list');
   });
 });
 
@@ -346,6 +377,15 @@ describe('reading the change check (PRD 384)', () => {
     const read = await readDossier(as('bob'), numbered);
     assertDefined(read, 'the dossier, read');
     expect(signature(pulseOf(read))).toBe(signature(await readPulse(as('bob'), numbered)));
+  });
+
+  it('reads the pulse through dossier_repos(), never the history\'s dossier_list() (PRD 2401 s3)', async () => {
+    const { fake, numbered } = await world();
+    const client = fake.client('bob');
+    const names: string[] = [];
+    const recorded = { rpc: (name: string, args: Record<string, unknown>) => { names.push(name); return client.rpc(name, args); } };
+    expect(await readPulse(recorded as never, numbered)).toEqual({ asked: 0, answered: 0, latest: { spec: 1, 'before-after': 2 } });
+    expect(names).toEqual(['dossier_repos']);
   });
 
   it('reads nothing for someone who cannot read the dossier, or an id that is not a dossier\'s', async () => {
@@ -480,6 +520,53 @@ describe('the plan\'s slice count, for the stage (PRD 426)', () => {
     const read = await readDossier(as('bob'), numbered);
     assertDefined(read, 'the dossier, read');
     expect(await readPlanSlices(as('bob'), read.versions)).toBe(3);
+  });
+
+  /** A client of `token` that records the columns each read of dossier_versions selects. */
+  const recordingVersions = (fake: Awaited<ReturnType<typeof world>>['fake'], token: string) => {
+    const client = fake.client(token);
+    const selected: string[] = [];
+    const from = (table: 'dossiers' | 'dossier_versions') => {
+      const query = client.from(table);
+      if (table !== 'dossier_versions') return query;
+      const select = query.select.bind(query);
+      return Object.assign(query, { select: (columns?: string) => { selected.push(columns ?? '*'); return select(columns); } });
+    };
+    return { db: { from, rpc: client.rpc } as never, selected };
+  };
+
+  it('reads the stored count of the latest plan version, and never its body (PRD 2401 s3)', async () => {
+    const { fake, as, numbered } = await world();
+    await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: PLAN([row('s1'), row('s2')]) }] });
+    const read = await readDossier(as('bob'), numbered);
+    assertDefined(read, 'the dossier, read');
+    expect(read.versions.find((v) => v.kind === 'plan')?.slices).toBe(2);
+    const { db, selected } = recordingVersions(fake, 'bob');
+    expect(await readPlanSlices(db, read.versions)).toBe(2);
+    expect(selected).toEqual([]);
+  });
+
+  it('reads a stored count of none as no slice, without the body (PRD 2401 s3)', async () => {
+    const { fake, as, numbered } = await world();
+    await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: '# Plan\n\nNo table.\n' }] });
+    const read = await readDossier(as('bob'), numbered);
+    assertDefined(read, 'the dossier, read');
+    expect(read.versions.find((v) => v.kind === 'plan')?.slices).toBe(0);
+    const { db, selected } = recordingVersions(fake, 'bob');
+    expect(await readPlanSlices(db, read.versions)).toBeNull();
+    expect(selected).toEqual([]);
+  });
+
+  it('counts from the body of a plan version added before the count was stored (PRD 2401 s3)', async () => {
+    const { fake, as, numbered } = await world();
+    await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: PLAN([row('s1'), row('s2'), row('s3')]) }] });
+    for (const version of fake.tables.dossier_versions) version.slices = null;
+    const read = await readDossier(as('bob'), numbered);
+    assertDefined(read, 'the dossier, read');
+    const { db, selected } = recordingVersions(fake, 'bob');
+    expect(await readPlanSlices(db, read.versions)).toBe(3);
+    expect(selected).toEqual(['content']);
+    expect(await readPlanSlices(db, read.versions.map((version) => ({ ...version, slices: undefined })))).toBe(3);
   });
 
   it('is null with no plan version, or one with no slice table', async () => {
