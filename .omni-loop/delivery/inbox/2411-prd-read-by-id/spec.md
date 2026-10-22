@@ -41,8 +41,8 @@ row-level security, as the token's owner: nothing new is granted.
 The 200 answer is the same whichever way the PRD was named:
 
 ```json
-{ "id": "<uuid>", "prdId": "vertuoza/omni#42", "url": "https://…/prd/<uuid>", "title": "…",
-  "repo": "vertuoza/omni", "prd": 42, "kind": "spec", "version": 3, "sha256": "…",
+{ "id": "<uuid>", "prdId": "demo-org/shop#42", "url": "https://…/prd/<uuid>", "title": "…",
+  "repo": "demo-org/shop", "prd": 42, "kind": "spec", "version": 3, "sha256": "…",
   "content": "…", "createdAt": "…" }
 ```
 
