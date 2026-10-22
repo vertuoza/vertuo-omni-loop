@@ -63,7 +63,7 @@ import type { MergedCount } from './follow.ts';
 import { checkRunnerLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
-import { bugFixReading, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
+import { bugFixReading, fixIssueOf, fixOutcome, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
 import type { BugFixReading, RunOutcome } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
 import type { PluginKeeper } from './plugin.ts';
@@ -449,18 +449,27 @@ function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | n
   }
 }
 
-/** What a `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223), `stopped` with none (PRD 2375); `null` for any other job. */
+/**
+ * What a `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223), `stopped` with none (PRD 2375);
+ * `stopped` for a `/omni:mega-bug-fix` job of an issue whose hand-off ends on the line that resumes it; `null`
+ * for any other job.
+ */
 function outcomeOf(log: string, line: string): RunOutcome | null {
   const checked = checkRunnerLine(line);
-  const args = checked.ok ? checked.args.trim() : '';
-  return checked.ok && (checked.skill === 'yolo' || checked.skill === 'yolo-fix') && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args), checked.skill) : null;
+  if (!checked.ok) return null;
+  const args = checked.args.trim();
+  if (checked.skill === 'mega-bug-fix') {
+    const issue = fixIssueOf(args);
+    return issue === null ? null : fixOutcome(log, issue);
+  }
+  return (checked.skill === 'yolo' || checked.skill === 'yolo-fix') && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args), checked.skill) : null;
 }
 
-/** `update` with the PRD's slice count when the job stopped mid-way (PRD 2375); as it is when the count cannot be read, which stops nothing. */
+/** `update` with the PRD's slice count when a yolo job stopped mid-way (PRD 2375); as it is when the count cannot be read, which stops nothing. */
 async function withSlices(loop: Loop, job: RunnerJob, place: Place, update: JobUpdate): Promise<JobUpdate> {
   if (update.outcome !== 'stopped' || loop.slices === undefined) return update;
   const checked = checkRunnerLine(job.line);
-  if (!checked.ok) return update;
+  if (!checked.ok || (checked.skill !== 'yolo' && checked.skill !== 'yolo-fix')) return update;
   try {
     const count = await loop.slices(parsePrd(checked.args.trim()), place.worktree);
     return count === null ? update : { ...update, slicesMerged: count.merged, slicesTotal: count.total };
@@ -496,9 +505,9 @@ function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
   if (exitCode === 0) {
     const done: JobUpdate = { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: 0 };
     const bugFix = bugFixOf(log, job.line);
-    if (bugFix !== null) return { ...done, ...bugFixFields(bugFix) };
     const outcome = outcomeOf(log, job.line);
-    return outcome === null ? done : { ...done, outcome };
+    // A mega bug fix whose hand-off ends on the line that resumes it reads `stopped` (#2449), whatever its Outcome word.
+    return { ...done, ...(bugFix === null ? {} : bugFixFields(bugFix)), ...(outcome === null ? {} : { outcome }) };
   }
   return failedWithPrs({ status: 'failed', logTail: logTail(log), exitCode, reason: `exit code ${String(exitCode)}` }, log, job.line);
 }
