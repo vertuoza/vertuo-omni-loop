@@ -38,7 +38,7 @@ The knowledge tree (decided by @pierrederval, 2026-10-22, roadmap "Repository kn
 
 ## Scope
 
-In: the kit's resolver, the level tags, the product-side contradiction check, the plan-repository level from imported copies. Out: writing the Omni-settings level (PRD #2417), the page (PRD #2419), product decisions set from the page (PRD #2418).
+In: the kit's resolver, the level tags, the product-side contradiction check, the plan-repository level from imported copies. Out: writing the Omni-settings level (PRD #2417), the page (PRD #2419), product decisions set at a higher level (a later PRD, taken out of this roadmap on 2026-10-22).
 
 ## Test seams
 

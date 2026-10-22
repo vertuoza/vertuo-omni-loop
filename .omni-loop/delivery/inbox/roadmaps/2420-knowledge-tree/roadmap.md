@@ -10,7 +10,6 @@ milestone: Each kind of knowledge sits at the right level of one tree (Omni sett
 |---|---|---|---|---|---|
 | P1 | #2416 | One resolution order for the knowledge tree | – | – | 1 |
 | P2 | #2417 | Tech defaults at the Omni-settings level | P1 | the defaults are the top level of the tech side, read through P1's order | 2 |
-| P4 | #2418 | Product decisions top-down | P1 | it uses P1's top-down order and contradiction check | 2 |
 | P3 | #2419 | The knowledge tree on the Omni page | P1, P2 | it draws the levels P1 resolves and the defaults P2 adds | 3 |
 
 ## Open questions
