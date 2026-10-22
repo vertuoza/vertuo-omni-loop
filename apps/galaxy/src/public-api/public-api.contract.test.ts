@@ -214,7 +214,7 @@ describe('a job’s lines (PRD 2425 s4)', () => {
 // PRD 2425 s6: a key answers or dismisses the questions of its job, saying whom it acts for.
 describe('whom a key acts for (PRD 2425 s6)', () => {
   const ANSWERS = { 'Which fix?': 'Guard the input' };
-  const accepted = ['Jane D.', 'José', 'Zoë O\'Neil', '田中 太郎', 'Анна', 'jane@acme.test', 'bot_7-b', 'a·b', '  spaced  ', 'ñ', 'नमस्ते', 'Team 42', 'x'.repeat(ACTING_FOR_MAX)];
+  const accepted = ['Jane D.', 'José', 'Zoë O\'Neil', '田中 太郎', 'Анна', 'jane@acme.test', 'bot_7-b', 'a·b', '  spaced  ', 'ñ', 'नमस्ते', 'Zoë', '٣٤', 'Team 42', 'x'.repeat(ACTING_FOR_MAX)];
   const refused = ['', 'x'.repeat(ACTING_FOR_MAX + 1), 'Jane <b>', 'a/b', 'line\nbreak', 'tab\t', 'emoji 😀', '“quoted”', 'a;b', 'a,b', 'a:b', 'a(b)', '50%', 'zero​width', 'a\\b', 'a"b'];
 
   it('takes 1 to 80 characters of letters of any alphabet, digits, spaces and . _ \' @ - · only', () => {
