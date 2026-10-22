@@ -13,6 +13,13 @@ describe('fileMusic.pick', () => {
     expect(new Uint8Array(readFileSync(track.file))).toEqual(MP3);
   });
 
+  it('ignores a named track and lists nothing: the uploaded file is the only choice (PRD 2038 s4)', async () => {
+    const dir = scratch('music-file');
+    const track = await fileMusic.pick({ mood: 'upbeat', seconds: 30, asset: 'asset:theme.mp3', track: 'Funshine' }, { dir, fetch: fakeFetch([]).fetch, asset: fakeAssets({ 'theme.mp3': MP3 }) });
+    expect(track).toEqual({ file: join(dir, 'music.mp3'), licence: "the product's own file", credit: null });
+    expect(fileMusic.list).toBeUndefined();
+  });
+
   it('fails when the setting names no file, or the file is not there', async () => {
     const context = { dir: scratch('music-file'), fetch: fakeFetch([]).fetch, asset: fakeAssets({}) };
     await expect(fileMusic.pick({ mood: 'upbeat', seconds: 30 }, context)).rejects.toThrow('the music settings name no file');

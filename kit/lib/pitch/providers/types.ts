@@ -16,12 +16,23 @@ export type AssetResolver = (ref: string) => Promise<string>;
 /** How a provider runs a tool: `execFileSync`, or a test's fake. */
 export type Exec = (file: string, args: readonly string[], options: ExecFileSyncOptions) => string | Buffer;
 
-/** A music request: the settings' mood (and file, for an uploaded track) and the video's length. */
-export type MusicRequest = { mood: string; seconds: number; asset?: string };
+/** A music request: the settings' mood (and file, for an uploaded track) and the video's length; `track`
+ * names a title the provider lists (PRD 2038), ignored by a provider that offers no choice. */
+export type MusicRequest = { mood: string; seconds: number; asset?: string; track?: string };
 /** A track written in the run's folder, its licence and its credit (null when none is owed). */
 export type Track = { file: string; licence: string | null; credit: string | null };
 export type MusicContext = { dir: string; fetch: ProviderFetch; asset: AssetResolver };
-export type MusicProvider = { kind: 'music'; id: string; pick(request: MusicRequest, context: MusicContext): Promise<Track> };
+/** What a person may listen to before picking: a track's title, its length and an address that plays it. */
+export type MusicCandidate = { title: string; seconds: number; url: string };
+/** The candidates for a mood and a video's length. */
+export type MusicListRequest = { mood: string; seconds: number };
+/** A music provider; one that offers a choice also `list`s it, from what it holds, with no network. */
+export type MusicProvider = {
+  kind: 'music';
+  id: string;
+  pick(request: MusicRequest, context: MusicContext): Promise<Track>;
+  list?: (request: MusicListRequest) => MusicCandidate[];
+};
 
 /** A font request: a family and a weight, and the uploaded file for a product's own font. */
 export type FontRequest = { family: string; weight: number; asset?: string };

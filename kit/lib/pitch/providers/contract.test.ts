@@ -31,6 +31,31 @@ describe.each(named(REGISTRY.music))('the music provider %s', (_, provider) => {
     expect(track.licence === null || track.licence.length > 0).toBe(true);
     expect(track.credit === null || track.credit.length > 0).toBe(true);
   });
+
+  // PRD 2038 s4: `list` is optional; a provider that lists offers candidates `pick` takes by title.
+  it('lists candidates for a mood and a length, if it lists, each one a track its pick takes by title', async () => {
+    if (provider.list === undefined) return;
+    const candidates = provider.list({ mood: 'upbeat', seconds: 30 });
+    expect(candidates.length).toBeGreaterThan(0);
+    for (const candidate of candidates) {
+      expect(candidate.title.length, candidate.title).toBeGreaterThan(0);
+      expect(candidate.seconds, candidate.title).toBeGreaterThan(0);
+      expect(candidate.url, candidate.title).toMatch(/^https:\/\//);
+    }
+    const [first] = candidates;
+    if (first === undefined) return;
+    const dir = scratch('music');
+    const track = await provider.pick({ mood: 'upbeat', seconds: 30, track: first.title }, { dir, fetch: contractNetwork().fetch, asset: assets() });
+    expect(dirname(track.file)).toBe(dir);
+    expect(track.credit ?? '').toContain(first.title);
+  });
+
+  it('writes a track when a title is named, ignoring it if it does not list', async () => {
+    const dir = scratch('music');
+    const title = provider.list?.({ mood: 'upbeat', seconds: 30 })[0]?.title ?? 'Any title';
+    const track = await provider.pick({ mood: 'upbeat', seconds: 30, asset: 'asset:theme.mp3', track: title }, { dir, fetch: contractNetwork().fetch, asset: assets() });
+    expect(readFileSync(track.file).length).toBeGreaterThan(0);
+  });
 });
 
 describe.each(named(REGISTRY.fonts))('the fonts provider %s', (_, provider) => {
