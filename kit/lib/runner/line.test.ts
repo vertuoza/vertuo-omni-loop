@@ -11,6 +11,7 @@ describe('checkRunnerLine', () => {
       expect(checkRunnerLine(`/omni:${skill}`)).toEqual({ ok: true, kind: 'omni', skill, args: '' });
     }
     expect(checkRunnerLine('/omni:do-work 1830 s2 --in-wave')).toEqual({ ok: true, kind: 'omni', skill: 'do-work', args: '1830 s2 --in-wave' });
+    expect(checkRunnerLine('/omni:retro-apply --retro 2360')).toEqual({ ok: true, kind: 'omni', skill: 'retro-apply', args: '--retro 2360' });
     expect(checkRunnerLine('/omni:bug-fix #12 fix/a.b:c')).toMatchObject({ ok: true });
     expect(checkRunnerLine('/omni:mega-bug-fix https://github.com/acme/plan/issues/612'))
       .toEqual({ ok: true, kind: 'omni', skill: 'mega-bug-fix', args: 'https://github.com/acme/plan/issues/612' });
