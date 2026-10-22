@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 2375
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s2-01-stopped-follow-exits-1 -->
+
+## s2-01-stopped-follow-exits-1 — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s2
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s2-01-stopped-follow-exits-1
 prd: 2375
@@ -47,3 +77,7 @@ A script that waits on the follow and expects 0 for every done job now sees 1 fo
 (author) The PRD, the registers and the glossary do not settle this:
 
 - The spec names the words and the count but not the exit code (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-stopped-follow-exits-1 -->
