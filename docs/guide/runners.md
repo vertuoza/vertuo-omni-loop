@@ -79,6 +79,16 @@ nothing is stored: fix the cause, or answer again.
 A job that asked and then failed or was cancelled shows no **Need human** button: there is nothing
 left to resume.
 
+### When a bug fix stops mid-way
+
+A `/omni:mega-bug-fix` job on an issue can stop before its fix is done: a target still red after
+`limits.attempts` full preflights, its PR left a draft labelled `omni:needs-fix`, or a target it
+could not reach. Its hand-off then ends on the line that resumes it, `/omni:mega-bug-fix #<n>`, and
+the job reads **Stopped mid-way**, in red, with **Resume**. Resume sends the job's line again. The new
+run never starts over: it keeps the triage and the fix plan, picks each stuck target up on its pushed
+branch with a fresh `limits.attempts`, marks its PR ready once green, then opens the record PR.
+A fix that ended, or stopped for a person to decide, reads **Done** as before.
+
 ### When a job dies holding claims
 
 A job that builds a PRD claims each slice with a draft sub-PR labelled `omni:in-progress`, whose

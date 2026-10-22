@@ -380,6 +380,28 @@ describe('the outcome (PRD 2223)', () => {
     }
   });
 
+  it.each(['/omni:mega-bug-fix 381', '/omni:mega-bug-fix #381', '/omni:mega-bug-fix https://github.com/acme/plan/issues/381'])(
+    'ends %s stopped, with no slice count, when its hand-off ends on the line that resumes the issue', async (line) => {
+      const asked: number[] = [];
+      const slices = (): Promise<MergedCount> => {
+        asked.push(1);
+        return Promise.resolve({ merged: 0, total: 1 });
+      };
+      const last = (await ending(line, 'The fix stopped short.\n/omni:mega-bug-fix #381\n', '0\n', slices)).at(-1);
+      expect(last).toMatchObject({ status: 'done', outcome: 'stopped' });
+      expect(last).not.toHaveProperty('slicesMerged');
+      expect(asked).toEqual([]);
+    });
+
+  it('sends no outcome for a mega bug fix that ended, one of a description, or one that failed', async () => {
+    const ended = '> Review the PRs and merge them in this order, the record PR last.\n';
+    expect((await ending('/omni:mega-bug-fix #381', ended, '0\n')).at(-1)).not.toHaveProperty('outcome');
+    expect((await ending('/omni:mega-bug-fix the total is wrong', '/omni:mega-bug-fix #381\n', '0\n')).at(-1)).not.toHaveProperty('outcome');
+    const failed = (await ending('/omni:mega-bug-fix #381', '/omni:mega-bug-fix #381\n', '1\n')).at(-1);
+    expect(failed).toMatchObject({ status: 'failed' });
+    expect(failed).not.toHaveProperty('outcome');
+  });
+
   it('keeps the hand-off outcome, reads no count for it, and reads none for another skill', async () => {
     const asked: number[] = [];
     const slices = (): Promise<MergedCount> => {
