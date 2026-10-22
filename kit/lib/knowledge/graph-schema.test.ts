@@ -99,3 +99,20 @@ describe('the pushed graph (PRD 1798 s1)', () => {
     expect(problemOf(null)).toMatch(/^The graph is malformed: /);
   });
 });
+
+describe('the domain and layer edges (PRD 2346 s4)', () => {
+  const adr = (id: string): GraphNode => ({ id, kind: 'adr', label: 'Migrations only add.', status: null, file: '.omni-loop/knowledge/adr/0001-migrations-only-add.md', origin: 'repository' });
+
+  it('accepts a rule linked to a decision record by its domain and by its layer', () => {
+    const graph: RepositoryGraph = {
+      ...GRAPH,
+      nodes: [...GRAPH.nodes, adr('ADR-0001')],
+      edges: [...GRAPH.edges, { from: 'BR-PRODUCT-3', to: 'ADR-0001', kind: 'domain' }, { from: 'BR-PRODUCT-3', to: 'ADR-0001', kind: 'layer' }],
+    };
+    expect(parsed(graph)).toEqual({ success: true, data: graph });
+  });
+
+  it('still refuses an edge kind it does not know', () => {
+    expect(parsed({ ...GRAPH, edges: [{ from: 'BR-PRODUCT-3', to: 'P-PRODUCT-1', kind: 'area' }] }).success).toBe(false);
+  });
+});
