@@ -35,9 +35,9 @@ export type RefreshOptions = {
   /** The job's id, as the app knows it. */
   job: string;
   /** Asks the app for a fresh token of `job`: throws with the app's own words when it cannot. */
-  fetchToken(job: string): Promise<GithubToken>;
-  now(): number;
-  sleep(ms: number): Promise<void>;
+  fetchToken: (job: string) => Promise<GithubToken>;
+  now: () => number;
+  sleep: (ms: number) => Promise<void>;
 };
 
 /**
