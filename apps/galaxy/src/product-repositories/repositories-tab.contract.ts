@@ -24,7 +24,6 @@ export const KNOWLEDGE = ['own', 'imported', 'none'] as const;
 
 /** The nine roles a repository can have in a product (PRD 2346): the kit's list, kit/lib/layers/layers.ts. */
 export const ROLES = ['api', 'web', 'mobile', 'ui', 'library', 'infra', 'plan', 'doc', 'monorepo'] as const;
-export const isRole = (word: string): boolean => ROLES.some((role) => role === word);
 const KnowledgeSchema = z.enum(KNOWLEDGE);
 export type Knowledge = z.infer<typeof KnowledgeSchema>;
 

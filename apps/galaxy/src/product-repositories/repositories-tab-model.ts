@@ -1,6 +1,7 @@
 import type { ApproverState } from '../products/approvers';
 import type { Changed, RepositoriesTabPort } from './repositories-tab.client';
-import { isRole, ROLES, type Hold, type Knowledge, type Link, type LinkWrite, type PlanRepository } from './repositories-tab.contract';
+import { isRole } from 'omni-loop/kit/lib/layers/layers.ts';
+import { ROLES, type Hold, type Knowledge, type Link, type LinkWrite, type PlanRepository } from './repositories-tab.contract';
 
 // The Repositories & approvers tab's links as pure data (PRD 1364 s11): the list's state through its
 // actions, a link's fields as its editor holds them (a draft), the write a draft sends, the plan
