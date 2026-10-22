@@ -58578,6 +58578,8 @@ var remuxArgs = (filmed, clip) => [
   filmed,
   "-c:v",
   "libvpx",
+  "-threads",
+  "1",
   "-deadline",
   "realtime",
   "-cpu-used",
