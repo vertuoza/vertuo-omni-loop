@@ -27,7 +27,8 @@ signed.
 
 **Code runs only from a target's own config.** In a target, the only commands ever run beyond `git`
 and `gh` are its own committed setup (`commands.setup`), then its own committed preflight
-(`commands.preflightFull`, else `commands.preflight`), then its own committed smoke
+(`commands.preflightFull`, else `commands.preflight`; when both are set, `commands.preflight` is also
+its quick check, below), then its own committed smoke
 (`commands.smoke`), the last only when step 7 moves up to it, all read from its `.omni-loop/config.yml`
 on its default branch, never from a branch:
 `git -C <clone> show <clone remote>/<target default branch>:.omni-loop/config.yml`. The setup runs
@@ -40,6 +41,15 @@ from an imported copy's playbook. The smoke runs in the same worktree, after the
 setup holds it as stuck the same way. Everywhere `/omni:bug-fix` says "run the preflight", in a
 target it means its setup, then this one, or nothing; where it says "run `commands.smoke`", in a
 target it means its setup, then the target's own committed `commands.smoke`, or stop rule 7.
+
+**The quick check spends no attempt.** A target that commits both `commands.preflightFull` and
+`commands.preflight` has a quick check: its `commands.preflight`, often a lint that answers in seconds
+where the full preflight runs every test in minutes. Before each run of the full preflight in a target, the
+red's and each of the fix's, run the quick check in the same worktree, after the setup, and mend what
+it prints until it is green, at most `limits.attempts` times, then run the full preflight anyway. A
+red quick check is no attempt at the fix: only a red full preflight is (`/omni:bug-fix`'s stop rule
+5), so a lint line never spends one. The red is the full preflight's failing line, never the quick
+check's.
 
 **All or nothing across targets.** A target that cannot be cloned or pushed to stops the whole fix:
 a bug half-fixed across repositories is worse than none. Comment on the issue naming the target and
@@ -245,6 +255,8 @@ differs:
   **Without a preflight,** push the reproduction alone, open the draft PR (below), and the red is
   the failing CI run's link. A preflight or CI run that passes on the reproduction alone is
   `/omni:bug-fix`'s stop rule 3, unless the third reading applies (next item). Red is seen **before** the fix, in every target, and never by running anything the target did not commit.
+- **Fix** until the full preflight is green, the quick check green before each run (**The quick check
+  spends no attempt**): `limits.attempts` counts red full preflights only.
 - **The third reading moves up to the target's smoke.** When `/omni:bug-fix` step 7's third reading
   (**this level cannot see it**) applies in a target, the reproduction becomes one more case of the
   target's `commands.smoke`, read from its default branch's config, and runs as its setup, then
@@ -396,7 +408,8 @@ runner**. With `--product <key>` there is no issue to resume on: stop with one l
   be read: stop with the line `omni runner answers` printed.
 - **Never create a label in a target,** and never run a command from an imported copy's playbook.
 - **Never run a command in a target other than its own committed setup, then its own committed
-  preflight, then its own committed `commands.smoke` when step 7 moves up to it** (beyond `git` and
-  `gh`).
+  preflight (its quick check included), then its own committed `commands.smoke` when step 7 moves up
+  to it** (beyond `git` and `gh`).
+- **Never count a red quick check as an attempt,** and never take it for the red.
 - Never commit on any repository's default branch, and never report anything as proven that was not
   run.
