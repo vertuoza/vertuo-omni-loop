@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { KNOWLEDGE, type Link, type LinkWrite } from './repositories-tab.contract';
-import { draftOf, KNOWLEDGE_LABELS, newLinkWrite, writeOf, type LinkDraft, type LinksForm } from './repositories-tab-model';
+import { KNOWLEDGE, ROLES, type Link, type LinkWrite } from './repositories-tab.contract';
+import { draftOf, KNOWLEDGE_LABELS, newLinkWrite, roleFlag, writeOf, type LinkDraft, type LinksForm } from './repositories-tab-model';
 
 // The Repositories & approvers tab's links, drawn (PRD 1364 s11, acceptance 11): each repository of the
 // product with its role, knowledge base (its own, imported at a commit, or none), whether the product
@@ -55,9 +55,14 @@ function OwnedRow({ link, others, busy, on }: { link: Link; others: string[]; bu
         <span className="ask-muted links-added">{ADDED_BY[link.addedBy]}</span>
         <label className="links-field" htmlFor={id('role')}>
           <span>Role</span>
-          <input id={id('role')} className="links-input" value={draft.role} placeholder="api" disabled={busy} maxLength={40}
-            onChange={(e) => { edit({ role: e.currentTarget.value }); }} />
+          <select id={id('role')} className="products-look-select" value={draft.role} disabled={busy}
+            onChange={(e) => { edit({ role: e.currentTarget.value }); }}>
+            {link.role !== null && roleFlag(link.role) !== null && <option value={link.role}>{link.role} (not a role)</option>}
+            {link.role === null && <option value="">No role yet</option>}
+            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
         </label>
+        {roleFlag(link.role) !== null && <p className="products-refusal links-role-flag" role="note">{roleFlag(link.role)}</p>}
         <label className="links-field" htmlFor={id('knowledge')}>
           <span>Knowledge</span>
           <select id={id('knowledge')} className="products-look-select" value={draft.knowledge} disabled={busy}

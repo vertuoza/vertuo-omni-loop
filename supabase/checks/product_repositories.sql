@@ -191,13 +191,13 @@ begin
   if l.repository <> 'initech/nimbus-backend-php' then
     raise exception 'FAIL: a link''s repository is not owner/name in lower case: %', l.repository;
   end if;
-  l := public.product_repository_link(pg_temp.made('estimates'), 'initech/nimbus-backend-php', 'backend', 'none', null, true);
+  l := public.product_repository_link(pg_temp.made('estimates'), 'initech/nimbus-backend-php', 'library', 'none', null, true);
 
   if (select string_agg(p.name || ':' || x.role || ':' || x.knowledge || ':' || coalesce(x.read_at, '-') || ':' || x.read_only
                         || ':' || array_to_string(x.consumes, ','), ' ' order by p.name)
         from public.product_repositories x join public.products p on p.id = x.product_id
        where x.repository = 'initech/nimbus-backend-php' and p.id in (pg_temp.made('mobile'), pg_temp.made('estimates')))
-     is distinct from 'Estimates:backend:none:-:true: Mobile:api:imported:' || sha || ':false:initech/nimbus-apps' then
+     is distinct from 'Estimates:library:none:-:true: Mobile:api:imported:' || sha || ':false:initech/nimbus-apps' then
     raise exception 'FAIL: initech/nimbus-backend-php is not in Mobile and Estimates, each link its own';
   end if;
 
@@ -224,6 +224,8 @@ begin
                           '22023', 'a read-at that is not a commit');
   perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''Web App'')', pg_temp.made('mobile')),
                           '22023', 'a role that is not one kebab-case word');
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''back-end'')', pg_temp.made('mobile')),
+                          '22023', 'a new role that is not one of the nine (PRD 2346)');
   perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-apps'', ''web'', ''some'')', pg_temp.made('mobile')),
                           '22023', 'a knowledge that is not own, imported or none');
   perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/missing'', ''web'')', pg_temp.made('mobile')),
@@ -278,7 +280,7 @@ begin
     raise exception 'FAIL: moving a repository in Mobile moved it in Estimates';
   end if;
   -- Editing the link keeps its step; a step down is a step too.
-  l := public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-backend-php', 'backend', 'imported',
+  l := public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-backend-php', 'api', 'imported',
                                       '0123456789abcdef0123456789abcdef01234567');
   if l.ladder_step <> 5 then
     raise exception 'FAIL: editing a link reset its step: %', l;
@@ -306,6 +308,25 @@ begin
   if exists (select 1 from public.product_repositories l where l.repository = 'initech/brand-new') then
     raise exception 'FAIL: a new repository is in a product: %', r;
   end if;
+end $$;
+reset role;
+
+-- ── Canonical roles (PRD 2346): null stays accepted, a row's own old role stays editable ──
+update public.product_repositories set role = 'legacy-role'
+ where product_id = pg_temp.made('mobile') and repository = 'initech/nimbus-backend-php';
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000001364a1');
+do $$
+declare l public.product_repositories;
+begin
+  l := public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-apps', null);
+  if l.role is not null then raise exception 'FAIL: a link with no role was given one: %', l; end if;
+  l := public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-backend-php', 'legacy-role', 'own');
+  if l.role <> 'legacy-role' then raise exception 'FAIL: a link kept its own old role refused: %', l; end if;
+  perform pg_temp.refused(format('select public.product_repository_link(%L, ''initech/nimbus-backend-php'', ''other-legacy'')', pg_temp.made('mobile')),
+                          '22023', 'a different old role');
+  l := public.product_repository_link(pg_temp.made('mobile'), 'initech/nimbus-backend-php', 'monorepo', 'own');
+  if l.role <> 'monorepo' then raise exception 'FAIL: a flagged link could not be given a canonical role: %', l; end if;
 end $$;
 reset role;
 

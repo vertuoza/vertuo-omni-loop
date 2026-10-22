@@ -38609,6 +38609,13 @@ async function withProductTargets(ctx, io, note) {
   const targets2 = await productTargetList({ ctx, product: plan2.product, repo: ctx.config.repo.slug }, io, note);
   return typeof targets2 === "string" ? targets2 : createContext(ctx.root, { ...ctx.config, plan: { ...plan2, targets: targets2 } });
 }
+function flagRoles(rows2) {
+  return rows2.map((row) => {
+    if (isRole(row.role)) return row;
+    const flag = `role ${row.role} is not a role: pick one of ${roleList()}`;
+    return { ...row, state: row.state === "ok" ? "drifted" : row.state, detail: row.detail === null ? flag : `${row.detail}; ${flag}` };
+  });
+}
 
 // kit/lib/loop-reads/omni.ts
 init_define_OMNI_BUNDLE();
@@ -63847,7 +63854,7 @@ var targets = {
       println(stdout, list5);
       return 1;
     }
-    const rows2 = readTargets(list5, { ctx, exec, env: githubEnv(ctx, { exec, env }) });
+    const rows2 = flagRoles(readTargets(list5, { ctx, exec, env: githubEnv(ctx, { exec, env }) }));
     if (flags.json) println(stdout, JSON.stringify(rows2, null, 2));
     else for (const line2 of targetsTable(rows2)) println(stdout, line2);
     return rows2.every((row) => row.state === "ok") ? 0 : 1;
