@@ -35,11 +35,11 @@ import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
 import { pushKnowledgeGraph } from '../../lib/knowledge/graph-push.ts';
 import { readProductGraph } from '../../lib/knowledge/product-graph-text.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
-import { disclose, governsPath, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
+import { disclose, lawLine, ruleLine, type DiscloseFor, type Disclosure } from '../../lib/knowledge/disclose.ts';
 import { knowledgeMap, lookup, lookupLine, type Lookup } from '../../lib/knowledge/disclose-lookup.ts';
 import { packGet } from '../../lib/knowledge/packs/get.ts';
 import type { PackOrder } from '../../lib/knowledge/packs/get.ts';
-import { ID_SHAPE, isLaw, readKnowledge, type KnowledgeEntry } from '../../lib/knowledge/registers.ts';
+import { ID_SHAPE, readKnowledge } from '../../lib/knowledge/registers.ts';
 import { readThesis } from '../../lib/knowledge/thesis.ts';
 import { mainCheckout } from '../../lib/dossier/local.ts';
 import { messageOf } from '../../lib/narrow.ts';
@@ -50,7 +50,7 @@ import { ghReader } from '../../lib/plan-repo/targets.ts';
 import { productTargetList } from '../../lib/product/targets.ts';
 import { githubEnv } from '../github.ts';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.ts';
-import { buildNeighbourhood, neighbourhoodBody, productFromCache, productLine } from '../../lib/knowledge/neighbourhood.ts';
+import { buildNeighbourhood, neighbourhoodBody, productFromCache, productLine, startFromFiles } from '../../lib/knowledge/neighbourhood.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.ts';
 import { readDecisions } from '../../lib/playbook/decisions.ts';
 import { resolveForm } from '../../lib/playbook/resolve.ts';
@@ -248,12 +248,6 @@ function pathsStart(flags: GraphFlags, positional: readonly string[]): string[] 
   return files;
 }
 
-/** The entries whose `Governs:` meets one of `files`: the laws first, then the rules, each in register order. */
-function governing(entries: readonly KnowledgeEntry[], files: readonly string[]): string[] {
-  const hit = entries.filter(({ kind, governs }) => (kind === 'rule' || kind === 'invariant') && governs !== null && files.some((file) => governsPath(governs, file)));
-  return [...hit.filter(isLaw), ...hit.filter((entry) => !isLaw(entry))].map(({ id }) => id);
-}
-
 /**
  * `omni kb graph <id>` and `omni kb graph --paths <file>…` (PRD 1797): the neighbourhood of one entry,
  * or of every entry governing the files, as text or with `--json` the versioned document. Read from
@@ -274,8 +268,9 @@ function neighbourhoodOf(from: { ids: string[] } | { files: string[] }, depth: n
     legal: cache.state === 'cached' ? cache.legal : [],
     glossary: cache.state === 'cached' ? cache.glossary : [],
   };
-  const ids = 'ids' in from ? from.ids : governing(entries, from.files);
-  const built = buildNeighbourhood(sources, { start: ids, depth });
+  const { start: ids, places } = 'files' in from ? startFromFiles(sources, knowledgeMap(ctx.config), from.files) : { start: from.ids, places: [] };
+  const walked = { ...sources, places };
+  const built = buildNeighbourhood(walked, { start: ids, depth });
   if ('ids' in from && built.start.length === 0) {
     println(stderr, `kb graph: no entry "${from.ids.join(' ')}" in the knowledge folder.`);
     return 1;
@@ -288,7 +283,7 @@ function neighbourhoodOf(from: { ids: string[] } | { files: string[] }, depth: n
     println(stdout, ['kb graph — no entry governs those files.', productLine(product, unreadable)].join('\n'));
     return 0;
   }
-  const blocks = built.start.flatMap((id) => neighbourhoodBody(buildNeighbourhood(sources, { start: [id], depth }), entries));
+  const blocks = built.start.flatMap((id) => neighbourhoodBody(buildNeighbourhood(walked, { start: [id], depth }), entries));
   println(stdout, [...blocks, productLine(product, unreadable)].join('\n'));
   return 0;
 }

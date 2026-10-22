@@ -35,7 +35,7 @@ export type ProductNodeKind = NodeKind | 'never';
 type ProductGraphState = ProductState | 'server';
 
 const NODE_KINDS = ['principle', 'rule', 'invariant', 'legal', 'contract', 'test', 'path', 'schema', 'screen', 'adr', 'term', 'never'] as const satisfies readonly ProductNodeKind[];
-const EDGE_KINDS = ['serves', 'enforced-by', 'governs', 'points-to', 'cites', 'sibling', 'screen', 'same-prd', 'uses-term'] as const satisfies readonly EdgeKind[];
+const EDGE_KINDS = ['serves', 'enforced-by', 'governs', 'points-to', 'cites', 'sibling', 'screen', 'same-prd', 'uses-term', 'domain', 'layer'] as const satisfies readonly EdgeKind[];
 const STATUSES = ['law', 'rule', 'proposed'] as const satisfies readonly NodeStatus[];
 const ORIGINS = ['repository', 'product'] as const satisfies readonly NodeOrigin[];
 const STATES = ['cached', 'offline', 'none', 'server'] as const satisfies readonly ProductGraphState[];
