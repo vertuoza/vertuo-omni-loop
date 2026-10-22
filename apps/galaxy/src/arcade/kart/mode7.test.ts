@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { cpuMs, median } from '../test/cost';
 import { sure } from '../test/sure';
 import {
   chaseCamera, depthAt, floorAt, horizonOf, NEAR, project, renderFloor, renderTerrain, roofedOf, ROOF, skyShift, spritesInView, TUNNEL, viewOf, type Deck, type Texture, type View,
@@ -558,17 +559,17 @@ describe('the tunnel (PRD 1775)', () => {
       expect(karts.length).toBeGreaterThan(3);
       expect(kartsInside.every(roofedUnder)).toBe(true);
       const open = karts.map(viewAt), inside = kartsInside.map(viewAt);
-      const time = (v: View) => {
-        const t = performance.now();
-        renderTerrain(v, tex, hs, range, edge, out, depth, mask);
-        return performance.now() - t;
-      };
-      const median = (ms: number[]) => sure([...ms].sort((a, b) => a - b)[Math.floor(ms.length / 2)], 'a time');
+      // The CPU time of each frame, not the wall clock (../test/cost.ts), the two sides taken in turn so
+      // whatever slows the machine down meanwhile slows both alike.
+      const time = (v: View) => cpuMs(() => { renderTerrain(v, tex, hs, range, edge, out, depth, mask); });
       [...open, ...inside].forEach(time); // warm up
       const onRoad: number[] = [], underRoof: number[] = [];
       for (let round = 0; round < 3; round++) {
-        open.forEach((v) => onRoad.push(time(v)));
-        inside.forEach((v) => underRoof.push(time(v)));
+        for (let i = 0; i < Math.max(open.length, inside.length); i++) {
+          const o = open[i], u = inside[i];
+          if (o) onRoad.push(time(o));
+          if (u) underRoof.push(time(u));
+        }
       }
       expect(median(underRoof) / median(onRoad)).toBeLessThanOrEqual(5);
     });
