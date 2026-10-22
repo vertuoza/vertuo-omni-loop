@@ -11,9 +11,10 @@
 // Every time is GitHub's or the approval's own: a milestone nothing dates is left out, never dated at the
 // sync's time. A PRD's folder names its topic, so its feature branch; a ◆ PRD's folder stays on its
 // feature branch until it ships, so its feature PR is the one whose body carries the config's feature link
-// (`Closes #<n>`) on a branch of the feature shape. idea and plan come from the dossier, not from here.
+// (`Closes #<n>`) on a branch of the feature shape. idea and plan come from the dossier (dossierMilestones, below), not from the snapshot.
 import { PRD_MILESTONES, type MilestoneId, type MilestoneRecord } from '../../timeline/store';
 import { anyTopic, branchPattern, foldersOf, linkPattern, type RepoSnapshot, type ServerBorn, type SnapshotPull } from './core';
+import type { DossierTimes } from './dossier-times.repository';
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** A milestone seen, without its workspace: the route adds it. */
@@ -84,4 +85,13 @@ export function milestonesOfRepo(snapshot: RepoSnapshot, serverBorn: readonly Se
     add(prd, [['approved', null, approved], ...(lead ? laneOf(pulls, lead.head, lead) : [])]);
   }
   return seen;
+}
+
+/** The `idea` and `plan` milestones of the repository's PRDs, from their dossiers' times (PRD 2370, s3): the PRD's own lane, no pull request, nothing for a plan not yet written. */
+export function dossierMilestones(repository: string, dossiers: readonly DossierTimes[]): SeenMilestone[] {
+  const repo = repository.toLowerCase();
+  return dossiers.flatMap(({ prd, opened_at, plan_at }): SeenMilestone[] => [
+    { repository: repo, prd, lane: repo, milestone: 'idea', pr: null, reached_at: opened_at },
+    ...(plan_at === null ? [] : [{ repository: repo, prd, lane: repo, milestone: 'plan' as const, pr: null, reached_at: plan_at }]),
+  ]);
 }

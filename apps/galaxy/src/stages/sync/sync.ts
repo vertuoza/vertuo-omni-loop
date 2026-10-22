@@ -41,6 +41,10 @@
 // milestones were never recorded is read in full once, so the first sync fills the timelines of every PRD
 // it can read, the shipped ones included. Milestones that cannot be recorded are logged; the stages still
 // land.
+//
+// PRD 2370 (s3): each PRD's `idea` (its dossier opened) and `plan` (its first plan version) milestones are
+// recorded with them, read from the dossiers (./dossier-times.ts). A PRD with no dossier gets neither; a
+// read that fails is logged and the snapshot's milestones still land.
 import 'server-only';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { ConceptReader, DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
@@ -50,7 +54,8 @@ import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
 import type { MilestoneStore } from '../../timeline/store';
 import { changedPrds, stagesOfRepo, type RepoSnapshot, type ServerBorn } from './core';
-import { milestonesOfRepo } from './milestones';
+import type { DossierTimes } from './dossier-times.repository';
+import { dossierMilestones, milestonesOfRepo, type SeenMilestone } from './milestones';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Logger } from 'omni-loop/kit/lib/log/log.ts';
 import { firstPart, group } from 'omni-loop/kit/lib/narrow.ts';
@@ -71,6 +76,8 @@ export type SyncDeps = {
   store: StageStore;
   /** Where each PRD's milestones are recorded (PRD 2370); none, the sync records none. */
   milestones?: MilestoneStore;
+  /** The repository's PRD dossiers with when each was opened and its plan first written (PRD 2370, s3); none, no idea or plan milestone. */
+  dossierTimes?(workspace: SyncWorkspace, repository: string): Promise<DossierTimes[]>;
   /** The GitHub summaries and the outbox store the open questions are recounted with; none, no recount. */
   outbox?: Pick<RecountDeps, 'summary' | 'store' | 'escalation'>;
   /** The workspace's fix dossiers, the reader their facts are read with and where they are stored; none, no refresh. */
@@ -184,11 +191,22 @@ async function sinceOf(deps: SyncDeps, workspace: SyncWorkspace, repository: str
   return new Date(Math.min(Date.parse(last), Date.parse(milestones)) - OVERLAP_MS).toISOString();
 }
 
+/** The `idea` and `plan` milestones of the repository's PRD dossiers; none, logged, when they cannot be read (PRD 2370, s3). */
+async function dossierMilestonesOf(deps: SyncDeps, workspace: SyncWorkspace, repository: string): Promise<SeenMilestone[]> {
+  if (!deps.dossierTimes) return [];
+  try {
+    return dossierMilestones(repository, await deps.dossierTimes(workspace, repository));
+  } catch (error) {
+    deps.log(`stages sync: the dossier times of ${repository} cannot be read — ${why(error)}`);
+    return [];
+  }
+}
+
 /** Records the milestones the snapshot shows; logs, never throws (PRD 2370). */
 async function recordMilestones(deps: SyncDeps, workspace: SyncWorkspace, snapshot: RepoSnapshot, born: readonly ServerBorn[], syncedAt: string): Promise<void> {
   if (!deps.milestones) return;
   try {
-    const seen = milestonesOfRepo(snapshot, born);
+    const seen = [...milestonesOfRepo(snapshot, born), ...(await dossierMilestonesOf(deps, workspace, snapshot.repository))];
     await deps.milestones.recordMilestones(seen.map((m) => ({ ...m, workspace_id: workspace.id })), syncedAt);
   } catch (error) {
     deps.log(`stages sync: the milestones of ${snapshot.repository} were not recorded — ${why(error)}`);
