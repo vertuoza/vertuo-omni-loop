@@ -927,3 +927,10 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .send-pick > .stage-action { justify-self: start; }
 /* With the picker open, Send is the one primary action: the copy button beside it reads as a secondary one. */
 .stage-copy:has(.send-pick) > .stage-action { color: var(--ask-ink); background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); }
+
+/* A PRD's time line and Timeline tab (PRD 2370, s5): the line under the stage words, the gaps between milestones, the longest marked. */
+.prd-timeline-line { margin: 4px 0 0; }
+.prd-timeline { display: grid; gap: 20px; }
+.prd-timeline-title { font-size: 14px; margin: 0 0 6px; }
+.prd-gap { padding-left: 16px; }
+.prd-gap-longest .prd-gap-mark { color: var(--ask-ink); }

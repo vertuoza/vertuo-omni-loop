@@ -16,7 +16,8 @@
 import { lawOwnerParts, parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import type { StoredStage } from '../stage';
-import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parsePrd, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
 import type { Config } from 'omni-loop/kit/lib/types.ts';
 
 const CONFIG_PATH = '.omni-loop/config.yml';
@@ -63,6 +64,9 @@ export type SnapshotPull = {
   reviews: SnapshotReview[] | null;
   lawLocked: string[] | null;
   checksRed: boolean | null;
+  /** When it was first marked ready for review (PRD 2370): null when its events were read and it never
+   * was (opened ready); absent when they were not read. */
+  first_ready_at?: string | null;
 };
 
 /** A `labels.prd` issue: its number and when it was opened. */
@@ -76,6 +80,8 @@ export type RepoSnapshot = {
   shipped: string[];
   issues: SnapshotIssue[];
   pulls: SnapshotPull[];
+  /** The config's `prLinks.feature` (`Closes #{prd}`), read with the config (PRD 2370); absent without one. */
+  featureLink?: string;
 };
 
 /** A stage seen, without its workspace: the route adds it. */
@@ -84,6 +90,11 @@ export type SeenTopic = { repository: string; prd: PrdNumber; topic: string };
 
 /** A PRD of the repository born on the server (◆), and when it was first approved; null while it waits. */
 export type ServerBorn = { prd: PrdNumber; approved_at: string | null };
+
+/** The config's feature PR link, `Closes #{prd}` by default (PRD 2370). Throws as syncConfig() does. */
+export function featureLinkOf(text: string, repository: string): string {
+  return parseConfig(text, `${repository}:${CONFIG_PATH}`).prLinks.feature;
+}
 
 /** The sync's reading of a repository's config. Throws, naming the repository, when it is not valid. */
 export function syncConfig(text: string, repository: string): SyncConfig {
@@ -102,13 +113,44 @@ export function syncConfig(text: string, repository: string): SyncConfig {
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** A branch shape as a pattern: `{topic}` is the topic given, any other placeholder one path segment. */
-function branchPattern(shape: string, topic: string): RegExp {
+/** A branch shape as a pattern: `{topic}` is `topic`, a pattern, any other placeholder one path segment. */
+function shapePattern(shape: string, topic: string): RegExp {
   const parts = shape.split(/(\{\w+\})/).map((part) => {
-    if (part === '{topic}') return escape(topic);
+    if (part === '{topic}') return topic;
     return /^\{\w+\}$/.test(part) ? '[^/]+' : escape(part);
   });
   return new RegExp(`^${parts.join('')}$`);
+}
+
+/** A branch shape as a pattern: `{topic}` is the topic given, any other placeholder one path segment. */
+export const branchPattern = (shape: string, topic: string): RegExp => shapePattern(shape, escape(topic));
+
+/** A branch shape as a pattern for any topic, one or more characters (PRD 2370). */
+export const anyTopic = (shape: string): RegExp => shapePattern(shape, '.+');
+
+/** The config's feature PR link (`Closes #{prd}`) as the pattern a body carries for PRD `prd`, or for any
+ * PRD when none is given, never matching a longer number; null when the link names no PRD (PRD 2370). */
+export function linkPattern(link: string, prd?: PrdNumber): RegExp | null {
+  const placeholder = escape('{prd}');
+  const text = escape(link);
+  if (!text.includes(placeholder)) return null;
+  return new RegExp(`(?:^|\\W)${text.replace(placeholder, prd === undefined ? '\\d+' : String(prd))}(?!\\d)`);
+}
+
+/** A plan repository's PRD, as a target feature PR names it: `owner/name`, lowercased, and its number. */
+export type PlanPrd = { repository: string; prd: PrdNumber };
+
+const PART_OF = /^Part of ([\w.-]+\/[\w.-]+)#([1-9]\d{0,9})(?!\w)/;
+
+/** The plan repository's PRD a target feature PR's body starts with, `Part of <owner/repo>#<n>`, the rule
+ * the approved check reads (PRD 2370, s4); null for any other body, a product PRD's (`Part of mobile-12`)
+ * and one naming `repository` itself (a sub-PR's shape). */
+export function planPrdOf(body: string | null | undefined, repository: string): PlanPrd | null {
+  const match = PART_OF.exec((body ?? '').trimStart());
+  if (!match) return null;
+  const named = group(match, 1).toLowerCase();
+  if (named === repository.toLowerCase()) return null;
+  return { repository: named, prd: parsePrd(group(match, 2)) };
 }
 
 const earliest = (dates: readonly (string | null)[]): string | null =>

@@ -69,3 +69,9 @@
 .eng-health-rate { margin: 0; color: var(--ask-muted); overflow-wrap: anywhere; }
 .eng-health-rate b { color: var(--ask-ink); }
 .eng-health-rate code { font-size: 0.9em; }
+.eng-steps-done, .eng-steps-slowest { margin: 0 0 0.5rem; color: var(--ask-muted); }
+.eng-steps-done b, .eng-steps-slowest { color: var(--ask-ink); }
+.eng-steps-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.eng-steps-row { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: baseline; }
+.eng-steps-name { font-weight: 600; }
+.eng-steps-waits, .eng-steps-covers { color: var(--ask-muted); }

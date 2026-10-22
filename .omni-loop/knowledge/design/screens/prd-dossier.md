@@ -27,7 +27,8 @@ its spec, its plan) is content, marked `data-content` in the mockup.
   a runner may run, Send to terminal, which opens a picker of the runners the viewer may send to and
   says `Queued for <target>` once sent, shown only when the workspace has one; Copy link, Delete
   draft for a draft's opener); the
-  facts strip (Stage, Approval for a PRD born on the server, Main for a shipped PRD (PRD 2410: Watching · n days left,
+  facts strip (Stage, with its time line under the stage words: `Idea → merged: <total> · Longest: <step>, <duration>`,
+  or `Running for <total> · Now: <step>, <duration>` (PRD 2370); Approval for a PRD born on the server, Main for a shipped PRD (PRD 2410: Watching · n days left,
   Clean, Broke main or Could not check), Repo or Repos, On GitHub with when
   GitHub was last read, Opened, with the opener's face); then the tabs. From 900 × 700 px the box
   is pinned while the page scrolls (`PinnedHead.tsx`).
@@ -35,7 +36,9 @@ its spec, its plan) is content, marked `data-content` in the mockup.
   drifted: each changed file's diff, the spec's Problem and Solution, then Approve.
 - **The pane** of the tab shown (`?tab=`, its version by `?v=`): the before/after page framed on its
   sandboxed route; the spec and the plan rendered from Markdown with raw HTML off; Questions with the
-  rounds that shaped it and an `N to answer` badge; Outbox (`OutboxPane.tsx`), PR care
+  rounds that shaped it and an `N to answer` badge; Timeline (PRD 2370), the PRD's milestones, then one
+  lane per repository it lands in, each step between two with its duration and who it waits on, the
+  longest marked; Outbox (`OutboxPane.tsx`), PR care
   (`CarePane.tsx`), Proof, Launch (its own screen, `launch`), Main (PRD 2410: on a shipped PRD, what broke main, each with
   its link, then the rewind's findings, each a card with its check, where it started, its fix, and
   Approve or Reject), Retro; each artifact tab with a version picker.
@@ -59,7 +62,7 @@ its spec, its plan) is content, marked `data-content` in the mockup.
 
 ## Words
 
-Tabs, in order: Questions, Before/after, Spec, Plan, User voice, Outbox, PR care, Proof, Launch,
+Tabs, in order: Questions, Before/after, Spec, Plan, Timeline, User voice, Outbox, PR care, Proof, Launch,
 Main, Retro (`dossier/page/view.ts`; Main from PRD 2410). Actions: Copy link, Delete draft, Approve, Send to terminal (its picker: Any runner, each fleet,
 each runner, Send; then `Queued for <target>` and View job). Facts: Stage, Approval, Main,
 Repo, Repos, On GitHub, Opened. Main's words (PRD 2410): Watching · n days left, Clean, Broke main,
@@ -102,4 +105,5 @@ Could not check; on a finding: Approve, Reject.
 - /omni:brainstorm, PRD 1915: .omni-loop/delivery/shipped/1915-agent-words-website/before-after.html
 - /omni:think-big, concept #2024, crowned L on 2026-10-15: .omni-loop/delivery/inbox/concepts/2024-launch/vision.html (Launch replaces Pitch)
 - /omni:brainstorm, PRD 2223: .omni-loop/delivery/shipped/2223-outbox-waiting/before-after.html
+- /omni:brainstorm, PRD 2370: .omni-loop/delivery/shipped/2370-prd-timeline/before-after.html (the time line and the Timeline tab)
 - /omni:brainstorm, PRD 2410: .omni-loop/delivery/inbox/2410-broke-main/before-after.html
