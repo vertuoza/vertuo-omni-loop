@@ -14,4 +14,11 @@ describe('noneMusic.pick', () => {
     expect(wav.readUInt32LE(40)).toBe(20 * 44100 * 4);
     expect(wav.subarray(44).every((byte) => byte === 0)).toBe(true);
   });
+
+  it('lists nothing and ignores a named track (PRD 2038 s4)', async () => {
+    const dir = scratch('none');
+    const track = await noneMusic.pick({ mood: 'upbeat', seconds: 5, track: 'Funshine' }, { dir, fetch: fakeFetch([]).fetch, asset: fakeAssets({}) });
+    expect(track).toEqual({ file: join(dir, 'silence.wav'), licence: null, credit: null });
+    expect(noneMusic.list).toBeUndefined();
+  });
 });

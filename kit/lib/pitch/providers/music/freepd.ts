@@ -4,7 +4,8 @@
 // FreePD.com closed in 2025; its catalogue, all CC0, is kept whole by the Internet Archive at
 // archive.org/details/freepd, in the site's own mood folders, which is where every track below is
 // fetched from. Each track is the shortest the list holds that still covers the video, so the pick is
-// the same every time for a mood and a length.
+// the same every time for a mood and a length. A person may instead hear the mood's tracks that cover the
+// video (`list`, PRD 2038) and name one: `pick` then takes that title, from whichever mood holds it.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ProviderFetch, MusicProvider } from '../types.ts';
@@ -49,12 +50,35 @@ export const FREEPD_TRACKS: Readonly<Record<string, readonly PinnedTrack[]>> = O
 /** A pinned track's address in the archive. */
 export const trackUrl = ({ folder, title }: PinnedTrack): string => `${ARCHIVE}/${folder}/${encodeURIComponent(`${title}.mp3`)}`;
 
-/** The mood's shortest track that covers `seconds`, else its longest. */
-export function pickTrack(mood: string, seconds: number): PinnedTrack {
+/** The mood's pinned tracks; a mood the list does not hold is refused, naming the moods it does. */
+function moodTracks(mood: string): readonly PinnedTrack[] {
   const tracks = FREEPD_TRACKS[mood];
   if (tracks === undefined) throw new Error(`no FreePD tracks for the mood "${mood}" (${Object.keys(FREEPD_TRACKS).join(', ')})`);
-  const longest = tracks.reduce((best, track) => (track.seconds > best.seconds ? track : best));
-  return tracks.find((track) => track.seconds >= seconds) ?? longest;
+  return tracks;
+}
+
+/** The mood's tracks that cover `seconds`, shortest first, else its longest alone. */
+function coveringTracks(mood: string, seconds: number): PinnedTrack[] {
+  const tracks = [...moodTracks(mood)].sort((a, b) => a.seconds - b.seconds);
+  const covering = tracks.filter((track) => track.seconds >= seconds);
+  const longest = tracks.at(-1);
+  return covering.length > 0 || longest === undefined ? covering : [longest];
+}
+
+/** The mood's shortest track that covers `seconds`, else its longest. */
+export function pickTrack(mood: string, seconds: number): PinnedTrack {
+  const [first] = coveringTracks(mood, seconds);
+  if (first === undefined) throw new Error(`no FreePD tracks for the mood "${mood}"`);
+  return first;
+}
+
+/** The pinned track titled `title` (exactly), from any mood; else refused, naming the mood's titles. */
+function titledTrack(mood: string, title: string): PinnedTrack {
+  const found = Object.values(FREEPD_TRACKS)
+    .flat()
+    .find((track) => track.title === title);
+  if (found !== undefined) return found;
+  throw new Error(`no FreePD track "${title}": the ${mood} tracks are ${moodTracks(mood).map((track) => track.title).join(', ')}`);
 }
 
 /** Whether `bytes` open like an MP3: an ID3 tag or an MPEG frame's sync bits. */
@@ -104,8 +128,9 @@ async function download(track: PinnedTrack, fetch: ProviderFetch): Promise<Uint8
 export const freepdMusic: MusicProvider = Object.freeze({
   kind: 'music',
   id: 'freepd',
-  pick: async ({ mood, seconds }, { dir, fetch }) => {
-    const track = pickTrack(mood, seconds);
+  list: ({ mood, seconds }) => coveringTracks(mood, seconds).map((track) => ({ title: track.title, seconds: track.seconds, url: trackUrl(track) })),
+  pick: async ({ mood, seconds, track: title }, { dir, fetch }) => {
+    const track = title === undefined ? pickTrack(mood, seconds) : titledTrack(mood, title);
     const file = join(dir, 'music.mp3');
     const credit = `"${track.title}" from FreePD.com (public domain), archived at archive.org/details/freepd`;
     writeFileSync(file, await download(track, fetch));

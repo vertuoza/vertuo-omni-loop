@@ -35,6 +35,72 @@ describe('the pinned list', () => {
   });
 });
 
+describe('freepdMusic.list (PRD 2038 s4)', () => {
+  const list = (mood: string, seconds: number) => {
+    if (freepdMusic.list === undefined) throw new Error('freepd lists no tracks');
+    return freepdMusic.list({ mood, seconds });
+  };
+
+  it("lists the mood's tracks that cover the video, shortest first, each with its length and archive address", () => {
+    expect(list('upbeat', 30)).toEqual([
+      { title: 'Advertime', seconds: 134, url: 'https://archive.org/download/freepd/upbeat/Advertime.mp3' },
+      { title: 'Inspiration', seconds: 138, url: 'https://archive.org/download/freepd/upbeat/Inspiration.mp3' },
+      { title: 'Funshine', seconds: 165, url: 'https://archive.org/download/freepd/upbeat/Funshine.mp3' },
+      { title: 'City Sunshine', seconds: 185, url: 'https://archive.org/download/freepd/upbeat/City%20Sunshine.mp3' },
+    ]);
+    expect(list('upbeat', 150).map((track) => track.title)).toEqual(['Funshine', 'City Sunshine']);
+    expect(list('calm', 140).map((track) => track.url)).toEqual([
+      'https://archive.org/download/freepd/romantic/Shining%20Stars.mp3',
+      'https://archive.org/download/freepd/romantic/Pond.mp3',
+    ]);
+  });
+
+  it("lists the mood's longest track alone when no track covers the video", () => {
+    expect(list('epic', 400)).toEqual([{ title: 'Epic Blockbuster 2', seconds: 159, url: 'https://archive.org/download/freepd/epic/Epic%20Blockbuster%202.mp3' }]);
+  });
+
+  it('refuses a mood it has no tracks for, naming the moods it has', () => {
+    expect(() => list('sombre', 30)).toThrow('no FreePD tracks for the mood "sombre" (upbeat, calm, epic, playful, electronic)');
+  });
+
+  it('calls no network: listing reads the pinned list only', () => {
+    const network = fakeFetch([]);
+    list('playful', 30);
+    expect(network.calls).toEqual([]);
+  });
+});
+
+describe('freepdMusic.pick by title (PRD 2038 s4)', () => {
+  const pickTitle = (fetch: ReturnType<typeof fakeFetch>['fetch'], track: string, mood = 'upbeat', seconds = 30) => {
+    const dir = scratch('freepd-title');
+    return freepdMusic.pick({ mood, seconds, track }, { dir, fetch, asset: fakeAssets({}) });
+  };
+
+  it('downloads the named title, its credit naming it, whatever the length of the video', async () => {
+    const network = fakeFetch([[ARCHIVE, MP3]]);
+    await expect(pickTitle(network.fetch, 'Funshine', 'upbeat', 400)).resolves.toMatchObject({
+      credit: '"Funshine" from FreePD.com (public domain), archived at archive.org/details/freepd',
+    });
+    expect(network.calls.map((call) => call.url)).toEqual(['https://archive.org/download/freepd/upbeat/Funshine.mp3']);
+  });
+
+  it("takes the title from another mood's tracks than the settings' mood", async () => {
+    const network = fakeFetch([[ARCHIVE, MP3]]);
+    await expect(pickTitle(network.fetch, 'New Hero in Town', 'calm')).resolves.toMatchObject({ licence: 'CC0 1.0 Universal (public domain)' });
+    expect(network.calls.map((call) => call.url)).toEqual(['https://archive.org/download/freepd/epic/New%20Hero%20in%20Town.mp3']);
+  });
+
+  it("refuses a title the pinned list does not hold, naming the mood's titles, and downloads nothing", async () => {
+    const network = fakeFetch([[ARCHIVE, MP3]]);
+    await expect(pickTitle(network.fetch, 'Funky Sunshine')).rejects.toThrow(
+      'no FreePD track "Funky Sunshine": the upbeat tracks are Advertime, Inspiration, Funshine, City Sunshine',
+    );
+    await expect(pickTitle(network.fetch, 'funshine')).rejects.toThrow('no FreePD track "funshine"');
+    await expect(pickTitle(network.fetch, 'Nothing', 'sombre')).rejects.toThrow('no FreePD tracks for the mood "sombre"');
+    expect(network.calls).toEqual([]);
+  });
+});
+
 describe('freepdMusic.pick', () => {
   it('downloads the picked track into the run folder and returns its CC0 licence and credit', async () => {
     const network = fakeFetch([[ARCHIVE, MP3]]);
