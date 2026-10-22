@@ -1,6 +1,6 @@
 # ADR-0045 — The Game Boy's body colours are workspace theme tokens on arcade.css's :root, and valid_theme() accepts the same names
 
-**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #100 · **Decided:** nobody — adopted when raised (medium), 2026-09-26 · **Merged:** @pierrederval, 2026-09-26, PR #101
+**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #100 · **Decided:** nobody — adopted when raised (medium), 2026-09-26 · **Merged:** @pierrederval, 2026-09-26, PR #101 · **Layers:** ui, db · **Domain:** game
 
 ## Context
 

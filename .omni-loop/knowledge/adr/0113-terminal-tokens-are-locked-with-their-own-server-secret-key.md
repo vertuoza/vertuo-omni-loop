@@ -1,6 +1,6 @@
 # ADR-0113 — Terminal tokens are locked with their own server secret key, never the key that locks the workspaces' Jev keys
 
-**Status:** adopted · **Date:** 2026-10-12 · **PRD:** #1628 · **Decided:** nobody — adopted when raised (medium), 2026-10-11 · **Merged:** @pierrederval, 2026-10-12, PR #1629
+**Status:** adopted · **Date:** 2026-10-12 · **PRD:** #1628 · **Decided:** nobody — adopted when raised (medium), 2026-10-11 · **Merged:** @pierrederval, 2026-10-12, PR #1629 · **Layers:** auth · **Domain:** access
 
 ## Context
 

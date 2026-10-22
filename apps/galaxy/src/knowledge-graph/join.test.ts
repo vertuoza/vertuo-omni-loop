@@ -116,6 +116,19 @@ describe('joinProductGraph', () => {
     expect(twins.nodes.filter((n) => n.id.endsWith('/BR-INVOICE-2')).map((n) => n.id)).toEqual(['acme/web/BR-INVOICE-2', 'other/web/BR-INVOICE-2']);
   });
 
+  it('carries a repository’s domain and layer edges to a decision record, under the repository’s prefix (PRD 2346)', () => {
+    const adr = { id: 'ADR-0001', kind: 'adr' as const, label: 'Migrations only add.', status: null, file: '.omni-loop/knowledge/adr/0001-x.md', origin: 'repository' as const };
+    const tagged: RepositoryGraph = {
+      ...BACK,
+      nodes: [...BACK.nodes, adr],
+      edges: [...BACK.edges, { from: 'BR-INVOICE-2', to: 'ADR-0001', kind: 'layer' }, { from: 'BR-INVOICE-2', to: 'ADR-0001', kind: 'domain' }],
+    };
+    const result = joinProductGraph({ ...SOURCES, links: [{ repository: 'demo-org/back-end', knowledge: 'own', pushed: { commit: SHA, pushedAt: AT, pushedBy: null, graph: tagged } }] });
+    expect(result.edges).toContainEqual({ from: 'back-end/BR-INVOICE-2', to: 'back-end/ADR-0001', kind: 'layer' });
+    expect(result.edges).toContainEqual({ from: 'back-end/BR-INVOICE-2', to: 'back-end/ADR-0001', kind: 'domain' });
+    expect(result.nodes.find((n) => n.id === 'back-end/ADR-0001')?.kind).toBe('adr');
+  });
+
   it('is an empty graph for a product with no repository and no knowledge', () => {
     expect(joinProductGraph({ links: [], legal: [], glossary: [], never: [] })).toEqual({ nodes: [], edges: [], unresolved: [], repositories: [] });
   });

@@ -1,6 +1,6 @@
 # ADR-0112 — Revoking a terminal token wipes its kept sign-in in the database and does not end it at the sign-in service
 
-**Status:** adopted · **Date:** 2026-10-12 · **PRD:** #1628 · **Decided:** nobody — adopted when raised (medium), 2026-10-11 · **Merged:** @pierrederval, 2026-10-12, PR #1629
+**Status:** adopted · **Date:** 2026-10-12 · **PRD:** #1628 · **Decided:** nobody — adopted when raised (medium), 2026-10-11 · **Merged:** @pierrederval, 2026-10-12, PR #1629 · **Layers:** auth, db · **Domain:** access
 
 ## Context
 

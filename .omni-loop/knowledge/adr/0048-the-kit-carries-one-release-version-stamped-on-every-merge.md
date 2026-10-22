@@ -1,7 +1,7 @@
 # ADR-0048 — The kit carries one release version, stamped on every merge to `main`
 
 **Status:** accepted · **Date:** 2026-09-28 · **PRD:** #347 · **Decided:** @pierrederval via PRD #347's
-design, 2026-09-28
+design, 2026-09-28 · **Layers:** ci
 
 ## Context
 

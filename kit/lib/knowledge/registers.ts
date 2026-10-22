@@ -94,6 +94,8 @@ export type KnowledgeEntry = {
   locked: Lock | null;
   /** The paths and globs a `Governs:` line lists (PRD 1726), backticks stripped. `null`: no line. */
   governs: string[] | null;
+  /** The layers a `Layers: db, auth` line lists (PRD 2346), as written, backticks stripped. `null`: no line. */
+  layers: string[] | null;
   /** The plain sentence of a `Proposed law:` line (PRD 1726), what an agent writes instead of a lock. `null`: no line. */
   proposedLaw: string | null;
   /** The paths a contract's `Points to:` line names (PRD 1796), backticks stripped. `null`: no line. */
@@ -160,7 +162,7 @@ export const ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, 'g');
 const ENTRY_HEADING = new RegExp(`^##\\s+(${ENTRY_ID_SOURCE})\\s*$`);
 const ANY_H2 = /^##\s/;
 const FIELD_LINE =
-  /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Points to|Kind|Kept id|Glossary term):\s*(.*)$/;
+  /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed law|Proposed|Locked|Governs|Layers|Points to|Kind|Kept id|Glossary term):\s*(.*)$/;
 
 /** The field names as they appear on a parsed entry. */
 const FIELD_KEY = {
@@ -175,6 +177,7 @@ const FIELD_KEY = {
   'Proposed law': 'proposedLaw',
   Locked: 'lockedLine',
   Governs: 'governsLine',
+  Layers: 'layersLine',
   'Points to': 'pointsToLine',
   Kind: 'kindLine',
   'Kept id': 'keptId',
@@ -302,6 +305,17 @@ function readGoverns(file: string, id: string, value: string | undefined): { gov
   };
 }
 
+/** An entry's `Layers:` line read (PRD 2346): its comma-separated layer words, backticks stripped; none listed is a problem. */
+function readLayers(file: string, id: string, value: string | undefined): { layers: string[] | null; problems: string[] } {
+  if (value === undefined) return { layers: null, problems: [] };
+  const layers = value
+    .split(',')
+    .map((part) => part.replace(/`/g, '').trim())
+    .filter(Boolean);
+  if (layers.length > 0) return { layers, problems: [] };
+  return { layers, problems: [`${file}: ${id} — "Layers:" names no layer — list them comma-separated, such as "Layers: db, auth".`] };
+}
+
 /** An entry's `Points to:` line read (PRD 1796): its comma-separated paths, backticks stripped; an empty line names none. */
 function readPointsTo(value: string | undefined): string[] | null {
   if (value === undefined) return null;
@@ -403,6 +417,7 @@ export function parseEntryFile(file: string, text: string, place: Place): Knowle
     const { pending, problems: pendingProblems } = readPending(file, id, enforcedBy);
     const { locked, problems: lockedProblems } = readLocked(file, id, fields.lockedLine);
     const { governs, problems: governsProblems } = readGoverns(file, id, fields.governsLine);
+    const { layers, problems: layersProblems } = readLayers(file, id, fields.layersLine);
     const { proposedLaw, problems: proposedLawProblems } = readProposedLaw(file, id, fields.proposedLaw);
     return {
       id,
@@ -424,12 +439,13 @@ export function parseEntryFile(file: string, text: string, place: Place): Knowle
       proposed,
       locked,
       governs,
+      layers,
       proposedLaw,
       pointsTo: readPointsTo(fields.pointsToLine),
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts,
-      problems: [...proposedProblems, ...pendingProblems, ...lockedProblems, ...governsProblems, ...proposedLawProblems],
+      problems: [...proposedProblems, ...pendingProblems, ...lockedProblems, ...governsProblems, ...layersProblems, ...proposedLawProblems],
     };
   });
 }

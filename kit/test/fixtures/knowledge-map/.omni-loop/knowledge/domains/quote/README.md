@@ -1,0 +1,3 @@
+# Quote
+
+Glossary term: Quote

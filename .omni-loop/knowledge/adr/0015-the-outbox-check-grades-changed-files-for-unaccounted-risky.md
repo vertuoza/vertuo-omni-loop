@@ -1,6 +1,6 @@
 # ADR-0015 — The outbox check grades changed files for unaccounted risky changes only when the list is handed in
 
-**Status:** adopted · **Date:** 2026-09-25 · **PRD:** #28 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-25, PR #29
+**Status:** adopted · **Date:** 2026-09-25 · **PRD:** #28 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-25, PR #29 · **Domain:** gate
 
 ## Context
 

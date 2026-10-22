@@ -1,6 +1,6 @@
 # ADR-0058 — Each zone imports only what the rule table allows, checked by the import guard
 
-**Status:** accepted · **Date:** 2026-10-04 · **PRD:** #1066 · **Amended:** 2026-10-06, PRD #1108 (the `kit/pitch-engine` zone)
+**Status:** accepted · **Date:** 2026-10-04 · **PRD:** #1066 · **Amended:** 2026-10-06, PRD #1108 (the `kit/pitch-engine` zone) · **Layers:** ci
 
 ## Context
 

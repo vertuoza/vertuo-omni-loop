@@ -43,4 +43,19 @@ describe('readDecisions', () => {
       ['0004', null],
     ]);
   });
+
+  it('reads the layers and the domain a record tags itself with on its header line (PRD 2346)', () => {
+    const { ctx } = makeRepo({
+      files: {
+        '.omni-loop/knowledge/adr/0001-a.md': '# ADR-0001 — A\n\n**Status:** accepted · **Date:** 2026-10-21 · **PRD:** #7 · **Layers:** db, `auth` · **Domain:** ask\n\n## Context\n\nx\n',
+        '.omni-loop/knowledge/adr/0002-b.md': '# ADR-0002 — B\n\n**Status:** accepted · **Layers:** api\n\n## Context\n\n**Layers:** db and **Domain:** ask in the body are no tags.\n',
+        '.omni-loop/knowledge/adr/0003-c.md': '# ADR-0003 — C\n\n**Status:** accepted · **Date:** 2026-10-21\n',
+      },
+    });
+    expect(readDecisions({ ctx }).records.map(({ number, layers, domain }) => [number, layers, domain])).toEqual([
+      ['0001', ['db', 'auth'], 'ask'],
+      ['0002', ['api'], undefined],
+      ['0003', undefined, undefined],
+    ]);
+  });
 });
