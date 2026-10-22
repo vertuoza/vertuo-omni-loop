@@ -1168,7 +1168,7 @@ describe('omni runner: a job that runs as a GitHub App (PRD 2433, s2)', () => {
     expect(kept !== null && existsSync(kept)).toBe(false);
     expect(JSON.stringify(app.calls)).not.toContain(TOKEN);
     expect(run.stdout.text() + run.stderr.text()).not.toContain(TOKEN);
-  }, 30_000);
+  });
 
   it('hands a job that carries no app today’s environment: no identity, no helper, no gh of its own', async () => {
     const f = fixture();
