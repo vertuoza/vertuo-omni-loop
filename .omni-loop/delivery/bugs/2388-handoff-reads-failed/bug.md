@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `kit/bin/commands/runner.test.ts`, `kit/lib/runner/log.test.ts` (the cases named #2388)
+- **File:** `kit/bin/commands/runner.test.ts`
 - **Level:** unit
 - **Red:** AssertionError: expected { status: 'failed', …(6) } to match object { status: 'done', …(3) }
 
