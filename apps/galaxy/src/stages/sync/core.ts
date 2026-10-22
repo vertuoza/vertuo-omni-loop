@@ -16,7 +16,8 @@
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import type { StoredStage } from '../stage';
-import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parsePrd, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { group } from 'omni-loop/kit/lib/narrow.ts';
 import type { Config } from 'omni-loop/kit/lib/types.ts';
 
 const CONFIG_PATH = '.omni-loop/config.yml';
@@ -109,6 +110,22 @@ export function linkPattern(link: string, prd?: PrdNumber): RegExp | null {
   const text = escape(link);
   if (!text.includes(placeholder)) return null;
   return new RegExp(`(?:^|\\W)${text.replace(placeholder, prd === undefined ? '\\d+' : String(prd))}(?!\\d)`);
+}
+
+/** A plan repository's PRD, as a target feature PR names it: `owner/name`, lowercased, and its number. */
+export type PlanPrd = { repository: string; prd: PrdNumber };
+
+const PART_OF = /^Part of ([\w.-]+\/[\w.-]+)#([1-9]\d{0,9})(?!\w)/;
+
+/** The plan repository's PRD a target feature PR's body starts with, `Part of <owner/repo>#<n>`, the rule
+ * the approved check reads (PRD 2370, s4); null for any other body, a product PRD's (`Part of mobile-12`)
+ * and one naming `repository` itself (a sub-PR's shape). */
+export function planPrdOf(body: string | null | undefined, repository: string): PlanPrd | null {
+  const match = PART_OF.exec((body ?? '').trimStart());
+  if (!match) return null;
+  const named = group(match, 1).toLowerCase();
+  if (named === repository.toLowerCase()) return null;
+  return { repository: named, prd: parsePrd(group(match, 2)) };
 }
 
 const earliest = (dates: readonly (string | null)[]): string | null =>

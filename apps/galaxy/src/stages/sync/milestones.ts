@@ -12,8 +12,13 @@
 // sync's time. A PRD's folder names its topic, so its feature branch; a ◆ PRD's folder stays on its
 // feature branch until it ships, so its feature PR is the one whose body carries the config's feature link
 // (`Closes #<n>`) on a branch of the feature shape. idea and plan come from the dossier (dossierMilestones, below), not from the snapshot.
+//
+// PRD 2370 (s4): a repository is also a target of other repositories' PRDs, a plan repository's: each of its
+// feature PRs into the default branch whose body starts `Part of <owner/repo>#<n>` is a lane of that PRD,
+// named after this repository, its sub-PRs the ones merged into the PR's head branch (targetMilestones,
+// below). Whether the plan repository holds that PRD is the route's to check, across the workspace.
 import { PRD_MILESTONES, type MilestoneId, type MilestoneRecord } from '../../timeline/store';
-import { anyTopic, branchPattern, foldersOf, linkPattern, type RepoSnapshot, type ServerBorn, type SnapshotPull } from './core';
+import { anyTopic, branchPattern, foldersOf, linkPattern, planPrdOf, type RepoSnapshot, type ServerBorn, type SnapshotPull } from './core';
 import type { DossierTimes } from './dossier-times.repository';
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 
@@ -85,6 +90,30 @@ export function milestonesOfRepo(snapshot: RepoSnapshot, serverBorn: readonly Se
     add(prd, [['approved', null, approved], ...(lead ? laneOf(pulls, lead.head, lead) : [])]);
   }
   return seen;
+}
+
+/** The lanes the repository is for other repositories' PRDs (PRD 2370, s4): one per plan PRD its feature
+ * PRs into the default branch name (`Part of <owner/repo>#<n>`), the merged one, else the earliest still
+ * open; nothing without a config. */
+export function targetMilestones(snapshot: RepoSnapshot): SeenMilestone[] {
+  const { config, pulls } = snapshot;
+  if (!config) return [];
+  const lane = snapshot.repository.toLowerCase();
+  const claims = new Map<string, { repository: string; prd: PrdNumber; pulls: SnapshotPull[] }>();
+  for (const pull of pulls) {
+    const named = pull.base === config.defaultBranch ? planPrdOf(pull.body, lane) : null;
+    if (named === null) continue;
+    const key = `${named.repository}#${String(named.prd)}`;
+    const claim = claims.get(key) ?? { ...named, pulls: [] };
+    claim.pulls.push(pull);
+    claims.set(key, claim);
+  }
+  return [...claims.values()].flatMap(({ repository, prd, pulls: candidates }) => {
+    const lead = leadOf(candidates);
+    if (lead === null) return [];
+    return laneOf(pulls, lead.head, lead).flatMap(([milestone, pr, at]) =>
+      at === null ? [] : [{ repository, prd, lane, milestone, pr, reached_at: at }]);
+  });
 }
 
 /** The `idea` and `plan` milestones of the repository's PRDs, from their dossiers' times (PRD 2370, s3): the PRD's own lane, no pull request, nothing for a plan not yet written. */
