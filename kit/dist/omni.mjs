@@ -61218,7 +61218,16 @@ function checkOwn(skill, args, allowed) {
 init_define_OMNI_BUNDLE();
 var LINE_CUT = 500;
 var STEP_OUTPUT_LINES = 20;
+var OPENS = /* @__PURE__ */ new WeakMap();
+function opensOf(seen) {
+  const known2 = OPENS.get(seen);
+  if (known2 !== void 0) return known2;
+  const opens = /* @__PURE__ */ new Set();
+  OPENS.set(seen, opens);
+  return opens;
+}
 var PULL_REQUEST = /https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+/g;
+var OPENS_PR = /\bgh\s+pr\s+create\b/;
 var isObject2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var text14 = (value) => typeof value === "string" ? value : "";
 var number4 = (value) => typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -61274,30 +61283,36 @@ function links(value, seen) {
   }
   return found2;
 }
-function blocks(content, seen) {
+function use(block, opens) {
+  const input2 = isObject2(block.input) ? block.input : {};
+  if (block.name === "Bash" && OPENS_PR.test(text14(input2.command))) opens.add(text14(block.id));
+  return toolCall(text14(block.name), input2);
+}
+function blocks(content, run2) {
   if (!Array.isArray(content)) return [];
   return content.filter(isObject2).flatMap((block) => {
-    if (block.type === "tool_use") return [toolCall(text14(block.name), isObject2(block.input) ? block.input : {})];
+    if (block.type === "tool_use") return [use(block, run2.opens)];
     if (block.type === "text") {
       const line2 = firstLine6(text14(block.text));
-      return [...line2 ? [`\u203A ${line2}`] : [], ...links(text14(block.text), seen)];
+      return line2 ? [`\u203A ${line2}`] : [];
     }
     if (block.type === "tool_result") {
       const output2 = resultText(block.content);
-      return [...block.is_error === true ? failure5(output2) : [], ...links(output2, seen)];
+      const opened = run2.opens.has(text14(block.tool_use_id)) ? links(output2, run2.seen) : [];
+      return [...block.is_error === true ? failure5(output2) : [], ...opened];
     }
     return [];
   });
 }
-function result(event) {
+function result(event, seen) {
   const ok = event.is_error !== true && event.subtype === "success";
   const done = `Done: ${ok ? "ok" : "error"} \xB7 ${String(number4(event.num_turns))} turns \xB7 $${number4(event.total_cost_usd).toFixed(2)} \xB7 ${duration4(number4(event.duration_ms))}`;
   const body = text14(event.result);
-  return [done, ...body === "" ? [] : body.split("\n")];
+  return [done, ...body === "" ? [] : body.split("\n"), ...links(body, seen)];
 }
-function eventLines(event, seen) {
-  if (event.type === "result") return result(event);
-  if (event.type === "assistant" || event.type === "user") return blocks(isObject2(event.message) ? event.message.content : void 0, seen);
+function eventLines(event, run2) {
+  if (event.type === "result") return result(event, run2.seen);
+  if (event.type === "assistant" || event.type === "user") return blocks(isObject2(event.message) ? event.message.content : void 0, run2);
   return [];
 }
 function stepLine(line2, { now: now2 = /* @__PURE__ */ new Date(), seen = /* @__PURE__ */ new Set() } = {}) {
@@ -61310,7 +61325,7 @@ function stepLine(line2, { now: now2 = /* @__PURE__ */ new Date(), seen = /* @__
   }
   if (!isObject2(event)) return [];
   const stamp2 = `${clock2(now2)} `;
-  return eventLines(event, seen).map((each) => cut4(stamp2 + each));
+  return eventLines(event, { seen, opens: opensOf(seen) }).map((each) => cut4(stamp2 + each));
 }
 
 // kit/lib/runner/job.ts
@@ -61442,10 +61457,18 @@ function reportBatch(lines2) {
   return lines2.slice(0, count5);
 }
 var escape4 = (text15) => text15.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var DONE_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Done: (?:ok|error) · /;
+var PR_LINE = /^(?:\d{2}:\d{2}:\d{2} )?PR: (\S+)$/;
 function lastPullRequest(log, repo) {
-  const pattern = new RegExp(`https://github\\.com/${escape4(repo)}/pull/\\d+(?!\\d)`, "gi");
-  const found2 = log.match(pattern);
-  return found2?.at(-1) ?? null;
+  const link3 = new RegExp(`https://github\\.com/${escape4(repo)}/pull/\\d+(?!\\d)`, "i");
+  const lines2 = log.split("\n");
+  const done = lines2.findLastIndex((line2) => DONE_LINE.test(line2));
+  const handedOff = done < 0 ? void 0 : lines2.slice(done + 1).flatMap((line2) => link3.exec(line2)?.[0] ?? [])[0];
+  const opened = lines2.flatMap((line2) => {
+    const found2 = PR_LINE.exec(line2)?.[1];
+    return found2 === void 0 ? [] : link3.exec(found2)?.[0] ?? [];
+  });
+  return handedOff ?? opened.at(-1) ?? null;
 }
 var OUTCOMES = { "yolo-fix": "answers", yolo: "held", "pr-care": "ready" };
 var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
@@ -62441,7 +62464,7 @@ import { setTimeout as delay } from "node:timers/promises";
 init_define_OMNI_BUNDLE();
 var NOTHING_SEEN = Object.freeze({ queued: false, claimedBy: null, waiting: false, prs: [], merged: 0, ended: false });
 var STAMP3 = /^\d{2}:\d{2}:\d{2} /;
-var PR_LINE = /^PR: (\S+)/;
+var PR_LINE2 = /^PR: (\S+)/;
 var WAITING = /^◌ PRD \d+ · waiting for /;
 var APPROVED = /^✓ PRD \d+ approved /;
 var DONE_WORDS = { answers: "Waiting on answers", held: "Held", ready: "Ready", human: "Need human" };
@@ -62465,7 +62488,7 @@ function readLines(lines2, seen) {
     } else if (APPROVED.test(line2)) {
       waiting = false;
     }
-    const pr = PR_LINE.exec(line2)?.[1];
+    const pr = PR_LINE2.exec(line2)?.[1];
     if (pr !== void 0 && !prs.includes(pr)) {
       prs.push(pr);
       fresh.push(pr);
