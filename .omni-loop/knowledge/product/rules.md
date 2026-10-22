@@ -634,3 +634,27 @@ Enforced by: apps/galaxy/src/concepts/done.test.ts
 Governs: ^apps/galaxy/src/concepts/done
 Stated: 2026-10-20
 Decided: @pierrederval, 2026-10-20
+
+## BR-PRODUCT-123
+
+A PRD's approval is dated by its phase-0 merge or first approval, never the sync's own time; ready by the feature PR's first ready moment; first and last slice by any PR merged into the feature branch before the feature PR merged. A recorded time never changes.
+
+Serves: P-PRODUCT-101
+Source: .omni-loop/delivery/shipped/2370-prd-timeline/outbox/settled.md, entry s1-03-what-dates-a-lane, PRD #2370
+Enforced by: apps/galaxy/src/stages/sync/milestones.test.ts, apps/galaxy/src/stages/sync/dossier-times.test.ts, apps/galaxy/src/stages/sync/sync.test.ts
+Stated: 2026-10-22
+Decided: nobody — adopted when raised (medium), 2026-10-22
+Merged: @pierrederval, 2026-10-22, PR #2371
+Proposed: harvest 2026-10-22
+
+## BR-PRODUCT-124
+
+In a PRD's timeline, the plan repository's own feature pull request is always one of its lanes, even when it carries no slices of its own. The PRD counts as done only when its last lane merges, the plan's included.
+
+Serves: P-PRODUCT-102
+Source: .omni-loop/delivery/shipped/2370-prd-timeline/outbox/settled.md, entry s4-02-plan-repository-own-lane, PRD #2370
+Enforced by: apps/galaxy/src/stages/sync/milestones.test.ts, apps/galaxy/src/timeline/timeline.test.ts
+Stated: 2026-10-22
+Decided: nobody — adopted when raised (medium), 2026-10-22
+Merged: @pierrederval, 2026-10-22, PR #2371
+Proposed: harvest 2026-10-22
