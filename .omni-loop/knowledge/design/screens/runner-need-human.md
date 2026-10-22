@@ -37,7 +37,8 @@ Need human button, or from the issue's link with `?answer=<job id>`.
 - **Refused:** the resume line or the target was refused; the drawer stays open with the service's
   words above the foot, and nothing is stored.
 - **Closed by someone else:** `Already answered by <name>` or `Dismissed by <name>`, with neither
-  button.
+  button. Closed by an API key: `Already answered by API key <name>` or `Dismissed by API key
+  <name>`, followed by ` · for <acting_for>` when the app said whom it acted for (PRD 2425).
 - **Unknown job:** `?answer=` names a job that is not in the workspace or has no question; the
   drawer does not open.
 - **Focus:** it moves inside the drawer on open, Tab stays inside it, and it returns to the button
@@ -46,14 +47,15 @@ Need human button, or from the issue's link with `?answer=<job id>`.
 ## Words
 
 Need human · Design it first · Stop here and brainstorm the behaviour · Or your own answer ·
-Dismiss · Send answers · Already answered by · Dismissed by · Close.
+Dismiss · Send answers · Already answered by · Dismissed by · API key · for · Close.
 
 ## Refusals
 
 - Nobody is notified: the drawer opens only when a person comes to it.
 - No answer changes after it is sent (BR-PRODUCT-12): the first answer or dismissal wins.
 - A runner's sign-in or a terminal token never answers or dismisses (BR-PRODUCT-94): only a
-  person's session.
+  person's session, or an API key of the workspace on a job a key sent, marked as the key's and
+  never as a person's (PRD 2425; the sentence it proposes for the law awaits its owner).
 - No resume of the stopped session: the answer always starts a new job.
 
 ## Open questions
@@ -64,3 +66,4 @@ Dismiss · Send answers · Already answered by · Dismissed by · Close.
 ## Source
 
 /omni:brainstorm, PRD 2255: .omni-loop/delivery/shipped/2255-need-human/before-after.html
+/omni:brainstorm, PRD 2425: .omni-loop/delivery/inbox/2425-api-key-job-control/before-after.html
