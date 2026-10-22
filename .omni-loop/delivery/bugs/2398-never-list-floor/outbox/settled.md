@@ -1,3 +1,36 @@
+# Settled outbox items — bug 2398
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-never-rule-names-the-mutation-floor -->
+
+## s1-01-never-rule-names-the-mutation-floor — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-10-22T12:32:48Z
+- Channel: fix pull request #2399
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2399#issuecomment-6340828583
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: playbook/briefing#never
+- Raised: 2026-10-22
+- Slice: s1
+- Wave: 1
+- Stays here: the answer keeps what the fix built; the briefing's never slot now names the mutation floor.
+
+### The answer, as it was given
+
+```text
+1:A
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-never-rule-names-the-mutation-floor
 prd: 2398
@@ -44,3 +77,6 @@ One line of the briefing and a few lines of AGENTS.md, reverted with this pull r
 ## What I could not know
 
 - Whether a coverage floor was once meant to be added; nothing in the repository sets one. (author)
+```
+
+<!-- /omni-outbox-settled: s1-01-never-rule-names-the-mutation-floor -->
