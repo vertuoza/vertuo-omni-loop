@@ -636,3 +636,50 @@ describe('the milestones (PRD 2370, s1)', () => {
     ]);
   });
 });
+
+describe('the dossier milestones (PRD 2370, s3)', () => {
+  const PHASE0: Partial<RepoSnapshot> = {
+    shipped: ['0042-dark-mode'],
+    pulls: [
+      { number: parsePr(5), head: 'docs/phase-0-dark-mode', base: 'main', state: 'closed', draft: false, merged_at: '2026-09-19T09:00:00Z', created_at: '2026-09-18T10:00:00Z', ready_at: null },
+    ],
+  };
+  const lines = (store: FakeMilestoneStore) => store.milestones.map((m) => `${m.repository}#${m.prd} ${m.lane} ${m.milestone} ${m.pr ?? '-'} ${m.reached_at}`).sort();
+
+  function world() {
+    const made = deps({}, { acme: ['acme/widgets'] });
+    made.snapshots['acme/widgets'] = snap('acme/widgets', PHASE0);
+    const milestones = fakeMilestoneStore(() => NOW);
+    made.d.milestones = milestones;
+    return { ...made, milestones };
+  }
+
+  it('records idea at the dossier\'s opening and plan at its first plan version, on the PRD\'s own repository', async () => {
+    const { d, milestones } = world();
+    d.dossierTimes = (_w, repo) => Promise.resolve(repo === 'acme/widgets' ? [{ prd: parsePrd(42), opened_at: '2026-09-10T08:00:00.000Z', plan_at: '2026-09-12T08:00:00.000Z' }] : []);
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(lines(milestones)).toEqual([
+      'acme/widgets#42 acme/widgets approved - 2026-09-19T09:00:00Z',
+      'acme/widgets#42 acme/widgets idea - 2026-09-10T08:00:00.000Z',
+      'acme/widgets#42 acme/widgets plan - 2026-09-12T08:00:00.000Z',
+    ]);
+  });
+
+  it('gives a PRD with no dossier neither, and a dossier with no plan only its idea', async () => {
+    const { d, milestones } = world();
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(lines(milestones)).toEqual(['acme/widgets#42 acme/widgets approved - 2026-09-19T09:00:00Z']);
+    d.dossierTimes = () => Promise.resolve([{ prd: parsePrd(42), opened_at: '2026-09-10T08:00:00.000Z', plan_at: null }]);
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(lines(milestones)).toContain('acme/widgets#42 acme/widgets idea - 2026-09-10T08:00:00.000Z');
+    expect(lines(milestones).some((l) => l.includes(' plan '))).toBe(false);
+  });
+
+  it('logs dossier times it cannot read, and still records the snapshot\'s milestones', async () => {
+    const { d, milestones, lines: logged } = world();
+    d.dossierTimes = () => Promise.reject(new Error('Supabase is down'));
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(lines(milestones)).toEqual(['acme/widgets#42 acme/widgets approved - 2026-09-19T09:00:00Z']);
+    expect(logged).toEqual(['stages sync: the dossier times of acme/widgets cannot be read — Supabase is down']);
+  });
+});
