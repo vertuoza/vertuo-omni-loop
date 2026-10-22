@@ -1,6 +1,6 @@
 # ADR-0046 — Canvas scenes read every colour equal to a theme token from FrameState.theme; translucent shades and the uncrewed fleet colour stay literal
 
-**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #100 · **Decided:** nobody — adopted when raised (medium), 2026-09-26 · **Merged:** @pierrederval, 2026-09-26, PR #101
+**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #100 · **Decided:** nobody — adopted when raised (medium), 2026-09-26 · **Merged:** @pierrederval, 2026-09-26, PR #101 · **Layers:** ui · **Domain:** game
 
 ## Context
 

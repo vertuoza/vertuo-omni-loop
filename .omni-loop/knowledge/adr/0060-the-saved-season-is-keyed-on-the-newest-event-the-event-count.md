@@ -1,6 +1,6 @@
 # ADR-0060 — The saved season is keyed on the newest event, the event count, the sectors and fleets, and the UTC day
 
-**Status:** adopted · **Date:** 2026-09-29 · **PRD:** #657 · **Decided:** nobody — adopted when raised (medium), 2026-09-29 · **Merged:** @pierrederval, 2026-09-29, PR #664
+**Status:** adopted · **Date:** 2026-09-29 · **PRD:** #657 · **Decided:** nobody — adopted when raised (medium), 2026-09-29 · **Merged:** @pierrederval, 2026-09-29, PR #664 · **Domain:** game
 
 ## Context
 

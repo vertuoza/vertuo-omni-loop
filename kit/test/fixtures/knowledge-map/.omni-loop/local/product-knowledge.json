@@ -1,0 +1,9 @@
+{
+  "product": "Widgets",
+  "readAt": "2026-10-21T08:00:00.000Z",
+  "legal": [
+    { "id": "L-GDPR-2", "statement": "Credentials are never stored or logged in clear. A key is kept encrypted.", "source": "GDPR art. 32", "owner": "privacy-lead" },
+    { "id": "L-GDPR-5", "statement": "A person's data is deleted on request.", "source": "GDPR art. 17", "owner": "privacy-lead" }
+  ],
+  "glossary": []
+}

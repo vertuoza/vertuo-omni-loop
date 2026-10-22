@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { APPROVERS_READ_ONLY } from '../products/approvers-section';
 import { ALL_LINKED, LINKS_READ_ONLY, NO_LINKS } from './LinksSection';
 import { NO_PLAN, NO_PLAN_CHOICE, NOTHING_LEFT, PLAN_READ_ONLY, PlanRepositorySection } from './PlanRepositorySection';
-import type { RepositoriesTab } from './repositories-tab.contract';
+import { CANONICAL_ROLES } from 'omni-loop/kit/lib/layers/layers.ts';
+import { ROLES, type RepositoriesTab } from './repositories-tab.contract';
 import { demoRepositoriesTab, RepositoriesTabScreen, TAB_LABEL, type RepositoriesTabView } from './RepositoriesTab';
 
 // The Repositories & approvers tab as the server renders it (PRD 1364 s11, acceptance 11): an owner's
@@ -45,6 +46,23 @@ describe('an owner\'s tab', () => {
     expect(text(widgets)).toContain('added by a PRD');
     expect(buttons(widgets)).toEqual(['Save', 'Remove']);
     expect(rowOf(html, 'acme/api')).toMatch(/<input type="checkbox" checked=""[^>]*\/?>\s*<span>Read only<\/span>/);
+  });
+
+  it('offers the nine roles in a select, the saved one picked (PRD 2346)', () => {
+    const roles = (markup: string) => [...markup.matchAll(/<option value="([^"]*)"( selected="")?>/g)].map((m) => (m[2] ? `${m[1]} *` : m[1]));
+    const widgets = rowOf(html, 'acme/widgets');
+    const select = /<select id="link-acme-widgets-role"[^>]*>(.*?)<\/select>/.exec(widgets)?.[1] ?? '';
+    expect(roles(select)).toEqual(['api', 'web *', 'mobile', 'ui', 'library', 'infra', 'plan', 'doc', 'monorepo']);
+    expect(widgets).not.toContain('is not a role');
+    expect([...ROLES]).toEqual(Object.keys(CANONICAL_ROLES));
+  });
+
+  it('shows a saved role that is not one of the nine as the first option, flagged under the row', () => {
+    const old = render(live({ ...TAB, links: [{ ...(TAB.links[0] as RepositoriesTab['links'][number]), repo: 'acme/old', role: 'back-end' }] }));
+    const row = rowOf(old, 'acme/old');
+    const select = /<select id="link-acme-old-role"[^>]*>(.*?)<\/select>/.exec(row)?.[1] ?? '';
+    expect(select.startsWith('<option value="back-end" selected="">back-end (not a role)</option><option value="api">')).toBe(true);
+    expect(text(row)).toContain('back-end is not a role: pick one');
   });
 
   it('offers the workspace\'s other repositories under Add a repository, starting on ?add=', () => {

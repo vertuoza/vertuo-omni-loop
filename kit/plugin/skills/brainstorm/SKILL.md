@@ -368,8 +368,10 @@ spec: file
   with its copy, or with the one line it prints.
 - **The locked laws it touches**, in **Risks**, when `laws.source` is `knowledge`. List the files
   the design will change or add (best guess, from the design as approved), then run
-  `node .omni-loop/bin/omni.mjs kb laws --paths <file>…` on them. Each locked law it prints gets
-  one plain line in **Risks**: its id, then what breaks, and who gets hurt, if it is broken, and the
+  `node .omni-loop/bin/omni.mjs kb laws --paths <file>…` on them. It prints what applies to those
+  files under **Applies here** (each line saying why: `governs`, `domain <d>` or `layer <l>`), then
+  what is global, the Legal entries included, under **Global**, and counts the locked laws of other
+  areas it leaves out. Each locked law it prints, in either group, gets one plain line in **Risks**: its id, then what breaks, and who gets hurt, if it is broken, and the
   CODEOWNERS the law line names, as `<id>: <what breaks, for whom>. Changing it needs @<login> to
   approve the pull request on GitHub.` That person learns of it now, before anything is built, not
   as a red check at the end. No locked law printed: the one line `The locked laws: none touched.`

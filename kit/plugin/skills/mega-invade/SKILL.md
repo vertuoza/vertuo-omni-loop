@@ -170,14 +170,14 @@ Commit each copy as its own commit, so a person can drop one alone:
 **Every target's planning config.** For **every** target, whatever its `knowledge` answer (`own`,
 `imported` or `none`), the plan repository keeps a copy of the config that shapes its plans, so
 `omni plan check` grades a slice landing there by the target's own rules. Only when the target's
-`.omni-loop/config.yml` has a `flow` key, a non-empty `landings.alone`, a `pr.openWith` or
+`.omni-loop/config.yml` has a `flow` key, a `layers` key, a non-empty `landings.alone`, a `pr.openWith` or
 `contracts.declare: true`:
 
 - **Read it** from the import's clone, or, for an `own` or `none` target, from a shallow read-only
   clone made as in item 1 above and deleted once the copy is written. Nothing runs in it.
 - **Write `<paths.knowledge>/repos/<name>/flow/`, and nothing else** for an `own` or `none` target:
   its knowledge base is still never copied. `flow/config.yml` holds those keys, copied as the
-  target commits them and nothing else (`contracts` whole, its `kinds` included), and every hook
+  target commits them and nothing else (`contracts` whole, its `kinds` included; the `layers` key beside its `flow`, as written), and every hook
   file that flow names is copied byte for byte at its own repository path under `flow/` (the
   target's `.omni-loop/flow/kernel/tests.md` is `flow/.omni-loop/flow/kernel/tests.md`). A
   `pr.openWith` naming a skill copies no file.
