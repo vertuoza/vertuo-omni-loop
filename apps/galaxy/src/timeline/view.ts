@@ -2,6 +2,7 @@
 // tab's pane, both pure functions of the PRD's stored milestones and `now`. The gaps come from
 // ./timeline.ts, never computed here; the words for a moment not reached are the fix pages' (`not yet`,
 // `not recorded`, ../fixes/timeline.ts).
+import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { durationWords } from '../engineering/tally';
 import { timeline, type Gap, type GapId, type Milestone, type MilestoneId, type Timeline } from './timeline';
 import type { MilestoneRow } from './store';
@@ -90,7 +91,7 @@ const GAP_AFTER: Readonly<Partial<Record<MilestoneId, GapId>>> = {
   idea: 'writing', plan: 'approval', opened: 'starting', 'first-slice': 'building', 'last-slice': 'finishing', ready: 'review',
 };
 
-const href = (lane: string, pr: number | null) => (pr === null ? null : `https://github.com/${lane}/pull/${pr}`);
+const href = (lane: string, pr: PrNumber | null) => (pr === null ? null : `https://github.com/${lane}/pull/${pr}`);
 
 function gapLine(gap: Gap, longest: Gap | null): GapLine {
   const words = gap.state === 'not-recorded' ? MOMENT_WORDS['not-recorded']
