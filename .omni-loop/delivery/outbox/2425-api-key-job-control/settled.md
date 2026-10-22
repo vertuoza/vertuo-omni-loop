@@ -1016,3 +1016,235 @@ Changing it later is one rule in the runner's ending report (which word wins) an
 ```
 
 <!-- /omni-outbox-settled: s2-03-stopped-mega-bug-fix-relaunch -->
+
+<!-- omni-outbox-settled: s7-01-cancel-twice-keeps-the-first-key -->
+
+## s7-01-cancel-twice-keeps-the-first-key — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-cancel-twice-keeps-the-first-key
+prd: 2425
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 4
+---
+
+## The question, in plain words
+
+When a key cancels a job that is still running and was already asked to stop, should the second cancel change anything: refuse it, record the second key, or leave the first one?
+
+## The decision, in plain words
+
+A second cancel of a job already asked to stop answers as a success and changes nothing: the job keeps the key that asked first, and nobody is told the job has ended when it has not.
+
+## The intro, for fun
+
+Two programs press the same stop button, a second apart.
+
+## The punchline, for fun
+
+The first press gets the credit; the second gets a calm yes.
+
+## The options, in plain words
+
+A. A second cancel of a running job already asked to stop answers as a success and changes nothing: the first key stays on the job.
+B. A second cancel answers as a conflict, as a second answer does, and the job keeps the first key.
+C. A second cancel replaces the key on the job: the last key to ask to stop is the one shown.
+
+## What I had to decide
+
+The spec says a running job is asked to stop and that only an ended job answers 409. A job asked to stop is still running, so cancelByKey reads it back as it stands, with cancelled_by unchanged, and answers 200; the page's own Cancel (the shared stop rule) is untouched. ADR-0029 treats a repeated close as success in the ask API, which guided this, while a second answer of a question is a conflict (BR-PRODUCT-12): the two read differently on purpose, since an answer closes a round once and a stop request can be repeated until the runner stops the job.
+
+## What I did meanwhile
+
+Built cancelByKey so a running job already asked to stop answers as it stands, the first key and whom it acted for kept, and held it with a test that cancels twice from two keys.
+
+## What it costs to change later
+
+Changing it later means changing one condition in the runners' service and the tests that hold it; no stored data depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a repeated cancel should read as a conflict, like a second answer does: the spec names only the ended job as a conflict.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-cancel-twice-keeps-the-first-key -->
+
+<!-- omni-outbox-settled: s7-02-relaunch-stays-the-first-keys -->
+
+## s7-02-relaunch-stays-the-first-keys — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-relaunch-stays-the-first-keys
+prd: 2425
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 4
+---
+
+## The question, in plain words
+
+When a key relaunches a job that another key sent, whose job is the new one, and whom does it say the key acts for: whom the relaunching call named, or whom the first job was for?
+
+## The decision, in plain words
+
+The new job is sent by the first job's key and by the person who made that key, whichever key relaunched it; whom it acts for is what the relaunching call says, and nothing is carried over from the first job.
+
+## The intro, for fun
+
+A second program presses Send again on the first one's job.
+
+## The punchline, for fun
+
+The job stays with its first owner; the second one is only named.
+
+## The options, in plain words
+
+A. The new job is the first key's, and whom it acts for is what the relaunching call says, null when it says nothing.
+B. The new job is the first key's and copies whom the first job acted for, ignoring what the relaunching call says.
+
+## What I had to decide
+
+The spec says the new job continues the first, is sent by the same key and keeps its notify_url; it does not say whom the new job acts for. Following s1-02 (a resume keeps sent_by and sent_by_key), relaunchByKey queues the new job as the first job's maker with the first job's key. acting_for belongs to one call, as cancelled_for and closed_for do, so the new job stores what the relaunching call names, null when it names none, and does not copy the first job's. The new job is queued as the maker, as the page's Resume does: a maker who left the workspace or no longer plays in the fleet is refused with 403.
+
+## What I did meanwhile
+
+Built relaunchByKey on the same queue rules as the page's Send again and Resume, with the first job's key and maker, its notify_url and the relaunching call's acting_for, and held it with tests for another key relaunching, a maker who left and a maker who moved fleet.
+
+## What it costs to change later
+
+Changing it later means changing the few fields relaunchByKey passes to the queue; the relaunched jobs already stored keep the acting_for they were given.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the first job's acting_for should carry over when the relaunching call names none: the spec says only that the new job's key and notify_url stay.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-relaunch-stays-the-first-keys -->
+
+<!-- omni-outbox-settled: s7-03-relaunch-refusals-in-the-runners-words -->
+
+## s7-03-relaunch-refusals-in-the-runners-words — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s7
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-03-relaunch-refusals-in-the-runners-words
+prd: 2425
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 4
+---
+
+## The question, in plain words
+
+When a key relaunches a job whose runner is gone, or whose line the runners no longer take, which refusal does it get, and in whose words?
+
+## The decision, in plain words
+
+A job whose runner is gone answers as a conflict and one whose line the runners no longer take answers as an invalid request, each in the runners' own words, the same words the page shows for them.
+
+## The intro, for fun
+
+A key presses Send again on a job whose runner has left.
+
+## The punchline, for fun
+
+The job is still there, so the answer says conflict, not missing.
+
+## The options, in plain words
+
+A. A gone runner answers as a conflict and a refused line as an invalid request, both in the runners' words.
+B. A gone runner answers as not found and a refused line as a conflict, both in the runners' words.
+
+## What I had to decide
+
+The spec names 409 for a job the page offers neither Send again nor Resume for and for a job already carried on; it names no answer for a runner that is gone or a line the runners no longer take. Once the job is read, a missing runner is no 'no such job', so the runners' missing answer becomes 409 for a relaunch (404 stays for jobs a key may not see), and their malformed answer becomes 422 in their words with no field named, since a relaunch sends none (an answer's malformed message names answers). The 409 words are the page's own: This job has ended, and the runners' neither Send again nor Resume sentence.
+
+## What I did meanwhile
+
+Mapped the runners' refusals for a relaunch in one small function beside the close refusals, and held each with a service test and a route test.
+
+## What it costs to change later
+
+Changing it later means changing one mapping function and the tests that name the codes; no stored data depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a gone runner should read as not found instead, as a key reading the job would not then learn that the job's runner left.
+
+```
+
+<!-- /omni-outbox-settled: s7-03-relaunch-refusals-in-the-runners-words -->
