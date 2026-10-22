@@ -28,10 +28,10 @@ describe('the Waiting board\'s storage', () => {
   });
 
   it('reads the dossiers of the PRDs named, and none when it names none', async () => {
-    const { calls, repo } = stub({ dossiers: { data: [{ id: 'd-7', home_repo: 'acme/widgets', prd: 7, title: 'Seven' }] } });
+    const { calls, repo } = stub({ dossiers: { data: [{ id: 'd-7', home_repo: 'acme/widgets', prd: 7, title: 'Seven', opened_by: 'u-ada' }] } });
     expect(await repo.dossiers('ws-1', [])).toEqual([]);
     expect(calls).toEqual([]);
-    expect(await repo.dossiers('ws-1', [7])).toEqual([{ id: 'd-7', home_repo: 'acme/widgets', prd: 7, title: 'Seven' }]);
+    expect(await repo.dossiers('ws-1', [7])).toEqual([{ id: 'd-7', home_repo: 'acme/widgets', prd: 7, title: 'Seven', opened_by: 'u-ada' }]);
     expect(calls.at(-1)).toEqual(['dossiers', 'in', 'prd', [7]]);
   });
 

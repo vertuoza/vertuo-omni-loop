@@ -1,6 +1,6 @@
 import type { People } from '../people/load';
 import { productFilterReads, scopeDossiers, type ProductFilterReads, type ProductFilterView } from '../product-filter/product-filter.service';
-import { boardOf, prdKey, type BoardValue, type PrdPage, type StoredWait } from './board';
+import { boardOf, firstOf, prdKey, tabOf, type BoardValue, type PrdPage, type StoredWait } from './board';
 import { waitingBoardRepository, type WaitingBoardDb, type WaitingBoardRepository } from './waiting-board.repository';
 
 // /app/waiting's rules around its reads (PRD 2377 s3; ADR-0095): the workspace's open waits, the pages
@@ -20,7 +20,7 @@ export type BoardReads = Pick<WaitingBoardRepository, 'tracked' | 'openWaits' | 
 
 type FilterReads = Pick<ProductFilterReads, 'products' | 'dossierProducts' | 'dossierNumbers'>;
 
-/** The Workspace tab with its product filter. */
+/** The tab asked for, with its product filter. */
 export interface WaitingBoardData {
   board: BoardValue;
   filter: ProductFilterView | null;
@@ -29,6 +29,8 @@ export interface WaitingBoardData {
 
 export interface WaitingBoardRequest {
   workspace: string;
+  /** The signed-in person's account id: whose PRDs and reviews the personal tabs show. */
+  viewerId: string;
   people: People;
   query: Query;
   now: Date;
@@ -46,7 +48,7 @@ async function narrowed(filterReads: FilterReads, waits: readonly StoredWait[], 
 
 /** The board of the workspace, narrowed by the query's product. */
 export async function loadWaitingBoard(reads: BoardReads, filterReads: FilterReads, request: WaitingBoardRequest): Promise<WaitingBoardData> {
-  const { workspace, people, now } = request;
+  const { workspace, people, now, viewerId, query } = request;
   const [tracked, stored] = await Promise.all([reads.tracked(workspace), reads.openWaits(workspace)]);
   const waits: StoredWait[] = stored.map((w) => ({ ...w, repo: w.repo.toLowerCase() }));
   const prds = [...new Set(waits.flatMap((w) => (w.prd === null ? [] : [w.prd])))];
@@ -56,11 +58,14 @@ export async function loadWaitingBoard(reads: BoardReads, filterReads: FilterRea
     reads.openQuestions(workspace, outboxPrds),
     Promise.all(tracked.map(async (repo): Promise<[string, string | null]> => [repo, await reads.lastSynced(workspace, repo)])),
   ]);
-  const dossiers = new Map(dossierRows.map((d): [string, PrdPage] => [prdKey(d.home_repo, d.prd), { id: d.id, title: d.title }]));
+  const dossiers = new Map(dossierRows.map((d): [string, PrdPage] => [prdKey(d.home_repo, d.prd), { id: d.id, title: d.title, owner: d.opened_by }]));
   const questions = new Map(questionRows.map((q): [string, number] => [prdKey(q.repository, q.prd), q.open_questions]));
   const kept = await narrowed(filterReads, waits, dossiers, request);
   return {
-    board: boardOf({ waits: kept.waits, dossiers, questions, synced: new Map(synced), now }, people),
+    board: boardOf({
+      waits: kept.waits, dossiers, questions, synced: new Map(synced), now, tab: tabOf(firstOf(query.tab)),
+      viewer: { id: viewerId, login: people.byId(viewerId, '').login ?? null },
+    }, people),
     filter: kept.filter,
     productsUnreadable: kept.productsUnreadable,
   };

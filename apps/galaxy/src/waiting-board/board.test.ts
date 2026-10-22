@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { peopleOf } from '../people/load';
 import {
-  ageWords, boardOf, prdKey, staleLine, staleRepositories, tabOf, whatWords, workingDays, workingMs, type BoardInput, type PrdPage, type StoredWait,
+  ageWords, boardOf, EMPTY_BY_TAB, prdKey, staleLine, staleRepositories, tabOf, TABS, turnIsLogin, whatWords, workingDays, workingMs, type BoardInput, type PrdPage, type StoredWait,
 } from './board';
 
 // The Waiting board's model (PRD 2377 s3), pure: working days, the order, the words, whose turn, the
@@ -23,7 +23,8 @@ const wait = (n: number, over: Partial<StoredWait> = {}): StoredWait => ({
 });
 
 const input = (waits: StoredWait[], over: Partial<BoardInput> = {}): BoardInput => ({
-  waits, dossiers: new Map<string, PrdPage>([[prdKey('acme/widgets', parsePrd(7)), { id: 'd-7', title: 'Seven' }]]), questions: new Map(), synced: new Map(), now: MON, ...over,
+  waits, dossiers: new Map<string, PrdPage>([[prdKey('acme/widgets', parsePrd(7)), { id: 'd-7', title: 'Seven', owner: 'u-ada' }]]), questions: new Map(), synced: new Map(), now: MON,
+  viewer: { id: 'u-ada', login: 'ada' }, tab: 'workspace', ...over,
 });
 
 describe('working days', () => {
@@ -138,7 +139,63 @@ describe('the stale line', () => {
 });
 
 describe('the tab', () => {
-  it('is Workspace whatever the query says', () => {
-    expect([null, 'workspace', 'mine', 'nonsense'].map(tabOf)).toEqual(['workspace', 'workspace', 'workspace', 'workspace']);
+  it('is Workspace unless the query names another tab', () => {
+    expect([null, 'workspace', 'mine', 'reviews', 'nonsense'].map(tabOf)).toEqual(['workspace', 'workspace', 'mine', 'reviews', 'workspace']);
+    expect(TABS.map((t) => t.label)).toEqual(['Workspace', 'My PRDs', 'My reviews']);
+  });
+});
+
+describe('the My PRDs tab', () => {
+  const dossiers = new Map<string, PrdPage>([
+    [prdKey('acme/widgets', parsePrd(7)), { id: 'd-7', title: 'Seven', owner: 'u-ada' }],
+    [prdKey('acme/widgets', parsePrd(8)), { id: 'd-8', title: 'Eight', owner: 'u-bob' }],
+    [prdKey('acme/widgets', parsePrd(9)), { id: 'd-9', title: 'Nine', owner: null }],
+  ]);
+  const mine = (waits: StoredWait[], over: Partial<BoardInput> = {}) => boardOf(input(waits, { dossiers, tab: 'mine', ...over }), PEOPLE).rows.map((r) => r.id);
+
+  it('lists the waits of the PRDs whose dossier the viewer opened, and no one else\'s', () => {
+    expect(mine([wait(1), wait(2, { prd: parsePrd(8) }), wait(3, { prd: parsePrd(9) }), wait(4, { prd: parsePrd(10) })])).toEqual(['w-1']);
+  });
+
+  it('never lists a bug fix or a visual update, which has no PRD', () => {
+    expect(mine([wait(1, { prd: null })])).toEqual([]);
+  });
+
+  it('puts the waits whose turn is the viewer\'s first, each group oldest first', () => {
+    expect(mine([
+      wait(1, { turn: ['bob'], since: '2026-10-12T09:00:00Z' }), wait(2, { turn: ['ada'], since: '2026-10-15T09:00:00Z' }),
+      wait(3, { turn: ['acme/team', 'ada'], since: '2026-10-16T09:00:00Z' }), wait(4, { turn: ['bob'], since: '2026-10-13T09:00:00Z' }),
+    ])).toEqual(['w-2', 'w-3', 'w-1', 'w-4']);
+  });
+
+  it('lists nothing for a viewer who owns no PRD', () => {
+    expect(mine([wait(1)], { viewer: { id: 'u-zed', login: null } })).toEqual([]);
+  });
+});
+
+describe('the My reviews tab', () => {
+  const reviews = (waits: StoredWait[], over: Partial<BoardInput> = {}) => boardOf(input(waits, { tab: 'reviews', ...over }), PEOPLE);
+
+  it('lists the waits whose turn names the viewer\'s login, ignoring case, oldest first', () => {
+    const { rows } = reviews([
+      wait(1, { turn: ['bob'] }), wait(2, { turn: ['Ada'], since: '2026-10-19T09:00:00Z' }),
+      wait(3, { turn: ['bob', 'ada'], prd: null, since: '2026-10-14T09:00:00Z' }),
+    ]);
+    expect(rows.map((r) => r.id)).toEqual(['w-3', 'w-2']);
+  });
+
+  it('never counts a team, nor "any approver", nor a viewer with no login', () => {
+    expect(reviews([wait(1, { turn: ['ada/team'] }), wait(2, { turn: [] })]).rows).toEqual([]);
+    expect(reviews([wait(1)], { viewer: { id: 'u-ada', login: null } }).rows).toEqual([]);
+    expect(turnIsLogin(['acme/ada'], 'ada')).toBe(false);
+  });
+
+  it('counts the viewer\'s waits on every tab', () => {
+    const waits = [wait(1), wait(2, { turn: ['bob'] }), wait(3, { prd: null })];
+    expect((['workspace', 'mine', 'reviews'] as const).map((tab) => boardOf(input(waits, { tab }), PEOPLE).reviews)).toEqual([2, 2, 2]);
+  });
+
+  it('says what each tab says when empty', () => {
+    expect(EMPTY_BY_TAB).toEqual({ workspace: 'Nothing waits on a person.', mine: 'None of your PRDs waits on anyone.', reviews: 'Nothing waits on you.' });
   });
 });
