@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-10-22",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A pull request from an app that requests no reviewer worries me, but only a person merges it and CODEOWNERS still asks its owners, so nothing lands unread.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "You want Omni to keep another app's private key that can write to our repositories: one leak of Omni's database and anyone pushes as that app. I'd rather the key never leave the app.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "The app ships fixes in every repository under its own name, and nobody has to lend their GitHub account to it.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "A bot as author is clearer than a colleague who never touched the code, as long as I can still tell which key sent it.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Once an owner attaches the app, customer fixes come back as the app's pull requests and I touch nothing in the harness.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "You want Omni to keep another app's private key that can write to our repositories: one leak of Omni's database and anyone pushes as that app. I'd rather the key never leave the app.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ~ · persona:F-E Developer ~ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-10-22",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The job requests no review, yet drafts, the override label and the merge stay untouched and tested: a person still reads every change.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The key stays sealed, tokens last an hour with three permissions, an owner sees the last mint and the token is masked in every line: that I can defend.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "excited",
+          "score": 5,
+          "reaction": "One attach per key and every fix the app sends is its own, in every repository the app is installed on.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The pull request names the API key that sent it and keeps the agent's trailer, so I can trace it from GitHub back to the key's row.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "An old runner simply never takes these jobs instead of pushing as someone: nothing surprising lands in front of a customer.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:B-E DEv ✓ · persona:Lead Engineer ✓ · persona:Irisa ✓ · persona:F-E Developer ✓"
+    }
+  ]
+}
