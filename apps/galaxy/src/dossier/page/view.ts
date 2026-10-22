@@ -94,11 +94,13 @@ import { proofView, runsBadge, type ProofRead, type ProofView } from './proof';
 import { pitchesBadge, pitchView, type PitchRead, type PitchView } from './pitch';
 import { approvalView, type ApprovalFacts, type ApprovalRead, type ApprovalView } from './approval';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { MainWatchRead } from '../../main-watch/store';
+import { mainWatchView, type MainWatchView } from '../../main-watch/status';
 
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
 
 /** The page's tabs: an artifact's, the questions that shaped it, or the decisions taken while it was built. */
-export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'care' | 'retro' | 'timeline' | 'proof' | 'pitch';
+export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'care' | 'retro' | 'timeline' | 'proof' | 'pitch' | 'main';
 
 /** The tabs the dossier itself keeps, in the order a PRD is made (PRD 384): the questions first, then
  * the before/after, the spec and the plan. The history lists these. */
@@ -118,7 +120,7 @@ export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
 export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
   'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox', care: 'PR care', retro: 'Retro',
   variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline', voice: 'User voice', proof: 'Proof',
-  pitch: 'Pitch',
+  pitch: 'Pitch', main: 'Main',
 };
 
 /** A PRD's tabs once it holds a proof run (PRD 798): Proof after Outbox, before Retro. */
@@ -127,14 +129,18 @@ const withProof = (tabs: readonly DossierTab[]): DossierTab[] => tabs.flatMap((t
 /** A PRD's tabs once it holds a pitch (PRD 859): Pitch after Proof, before Retro. */
 const withPitch = (tabs: readonly DossierTab[]): DossierTab[] => tabs.flatMap((t) => (t === 'retro' ? ['pitch', t] : [t]));
 
-/** A PRD's tabs, with Proof and Pitch once it holds a proof run and a pitch. */
+/** A PRD's tabs once the Omni App watches its main (PRD 2410, s3): Main after Retro. */
+const withMain = (tabs: readonly DossierTab[]): DossierTab[] => [...tabs, 'main'];
+
+/** A PRD's tabs, with Proof and Pitch once it holds a proof run and a pitch, and Main once it is watched. */
 function prdTabs(read: DossierRead): readonly DossierTab[] {
   const proofed = read.proofs?.runs.length ? withProof(KIND_TABS.prd) : KIND_TABS.prd;
-  return read.pitches?.runs.length ? withPitch(proofed) : proofed;
+  const pitched = read.pitches?.runs.length ? withPitch(proofed) : proofed;
+  return read.mainWatch?.watches.length ? withMain(pitched) : pitched;
 }
 
 /** The tabs that hold no artifact of the dossier's own. */
-const NOT_ARTIFACTS: readonly DossierTab[] = ['questions', 'outbox', 'care', 'retro', 'timeline', 'proof', 'pitch'];
+const NOT_ARTIFACTS: readonly DossierTab[] = ['questions', 'outbox', 'care', 'retro', 'timeline', 'proof', 'pitch', 'main'];
 
 /** Whether a tab shows versions of an artifact the dossier keeps. */
 export const isArtifactTab = (tab: DossierTab): tab is ArtifactKind => !NOT_ARTIFACTS.includes(tab);
@@ -222,6 +228,8 @@ export type DossierRead = {
   fixing?: Fixing | null | undefined;
   /** The PRD's stored milestones (PRD 2370, s5): null when they could not be read, left out when not asked for. */
   milestones?: readonly MilestoneRow[] | null | undefined;
+  /** The PRD's watch on main (PRD 2410, s3): null when it could not be read, left out when not asked for. */
+  mainWatch?: MainWatchRead | null | undefined;
   /** The demo dossier (PRD 251, s9): its outbox cannot send. */
   demo?: boolean;
   /** A fix's state, links and Timeline (PRD 627, s5); left out for a PRD. */
@@ -337,6 +345,8 @@ export type DossierView = {
   fix: FixPageView | null;
   /** A PRD's Timeline tab (PRD 2370, s5); null for a fix and a draft. */
   timeline: TimelineView | null;
+  /** A PRD's status on main (PRD 2410, s3): null with no watch, for a fix and a draft. */
+  mainWatch: MainWatchView | null;
   /** The line under the stage words (PRD 2370, s5); null with no milestone, for a fix and a draft. */
   timelineLine: string | null;
   /** What the User voice tab's Rework with this feedback copies (PRD 822); null for a draft or a fix. */
@@ -756,6 +766,11 @@ function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: 
 /** A PRD's stored milestones (PRD 2370); undefined for a fix and a draft, which have no timeline. */
 const ownMilestones = (page: Page, read: DossierRead) => (page.work === 'prd' && read.dossier.prd !== null ? read.milestones : undefined);
 
+/** A PRD's status on main (PRD 2410, s3); null for a fix, a draft and a PRD nobody watches. */
+function ownMainWatch(page: Page, read: DossierRead, now: number): MainWatchView | null {
+  return page.work === 'prd' && read.dossier.prd !== null ? mainWatchView(read.mainWatch, read.dossier.prd, now) : null;
+}
+
 export function dossierView(read: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now()): DossierView {
   const page = pageOf(read, me, pick);
   const questions = questionsView(read.rounds, read.members, read.dossier.id, read.answerable ?? [], now, page.people);
@@ -781,6 +796,7 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     retro,
     care,
     fix: page.work === 'prd' ? null : read.fix ?? null,
+    mainWatch: ownMainWatch(page, read, now),
     timeline: own.view,
     timelineLine: own.line,
     rework: page.work === 'prd' && read.dossier.prd !== null ? reworkCommand(read.dossier.prd) : null,

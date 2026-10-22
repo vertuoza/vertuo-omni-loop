@@ -32,6 +32,7 @@ import { readDockPlayer } from './dock-player';
 import { questionsHref } from './working';
 import type { WorkKind } from '../store';
 import { stageStore } from '../../stages/store';
+import { mainWatchStore } from '../../main-watch/store.repository';
 import { milestoneStore } from '../../timeline/store.repository';
 import { proofStore } from '../../proof/store';
 import { readProofs } from './proof-read';
@@ -167,6 +168,7 @@ function prdReads(db: Db, read: DossierRead, prd: PrdNumber): DossierReads {
     slices: readPlanSlices(db, read.versions),
     stages: stageStore(db).stagesOf({ workspace_id: dossier.workspace_id, repository: dossier.home_repo, prd }).catch(logged),
     milestones: milestoneStore(db).milestonesOf({ workspace_id: dossier.workspace_id, repository: dossier.home_repo, prd }).catch(logged),
+    mainWatch: mainWatchStore(db).mainWatchOf({ workspace_id: dossier.workspace_id, repository: dossier.home_repo, prd }).catch(logged),
   };
 }
 
