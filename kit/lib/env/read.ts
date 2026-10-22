@@ -133,14 +133,27 @@ const SESSION = envGroup({
 });
 
 /**
- * Who sent the job a runner runs (PRD 1830): `omni runner` sets both on each job's session, and
- * `omni runner sender` reads them for `/omni:pr`'s body. Each may be missing: a half-set pair writes
- * no line, and stops no command.
+ * Who sent the job a runner runs (PRD 1830): `omni runner` sets them on each job's session, and
+ * `omni runner sender` reads them for `/omni:pr`'s body: the person's login (`OMNI_SENT_BY`), or, for
+ * a job an API key sent (PRD 2433), the key's name (`OMNI_SENT_BY_KEY`), never both. Each may be
+ * missing: a runner with no sender writes no line, and stops no command.
  */
 const RUNNER_SENDER = envGroup({
   label: "the runner job's sender",
-  schema: z.object({ sentBy: z.string().optional(), runner: z.string().optional() }),
-  variables: { sentBy: 'OMNI_SENT_BY', runner: 'OMNI_RUNNER' },
+  schema: z.object({ sentBy: z.string().optional(), sentByKey: z.string().optional(), runner: z.string().optional() }),
+  variables: { sentBy: 'OMNI_SENT_BY', sentByKey: 'OMNI_SENT_BY_KEY', runner: 'OMNI_RUNNER' },
+});
+
+/**
+ * The GitHub App a job runs as (PRD 2433): `omni runner` sets `OMNI_GITHUB_APP` to the app's bot login
+ * (`<slug>[bot]`) on the session of a job an API key with an app sent. While it is set, everything the
+ * job writes on GitHub is that bot's, and the kit's own GitHub calls use the job's token, never a
+ * person's login.
+ */
+const GITHUB_APP = envGroup({
+  label: 'the GitHub App a job runs as',
+  schema: z.object({ login: z.string() }),
+  variables: { login: 'OMNI_GITHUB_APP' },
 });
 
 /**
@@ -244,7 +257,7 @@ export const GAME_VARIABLES: readonly string[] = variablesOf([WORKSPACE, SUPABAS
  * a sign-in reads, the test runner, the sender `omni runner` sets on each job, and the Claude token
  * it hands them.
  */
-export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, CLAUDE_TOKEN, UNATTENDED, RUNNER_JOB]);
+export const PLATFORM_VARIABLES: readonly string[] = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, GITHUB_APP, CLAUDE_TOKEN, UNATTENDED, RUNNER_JOB]);
 
 const DEFAULT_COLUMNS = 80;
 
@@ -269,9 +282,20 @@ function sessionOf(group: z.output<typeof SESSION.schema> | null): Session {
   return { remote, display };
 }
 
-/** Who sent a runner's job, when both its variables are set. */
-function senderOf(group: z.output<typeof RUNNER_SENDER.schema> | null): { sentBy: string; runner: string } | null {
-  return group?.sentBy && group.runner ? { sentBy: group.sentBy, runner: group.runner } : null;
+/** Who sent a runner's job (PRD 2433): the person's login, or the API key's name, and the runner it runs on. */
+type RunnerSender = { sentBy: string | null; sentByKey: string | null; runner: string };
+
+/** Who sent a runner's job, when its runner and its person or its key are set; a blank variable is unset. */
+function senderOf(group: z.output<typeof RUNNER_SENDER.schema> | null): RunnerSender | null {
+  const sentBy = group?.sentBy || null;
+  const sentByKey = group?.sentByKey || null;
+  return group?.runner && (sentBy !== null || sentByKey !== null) ? { sentBy, sentByKey, runner: group.runner } : null;
+}
+
+/** The app's bot login, trimmed, or `null` when `OMNI_GITHUB_APP` is unset or blank. */
+function githubAppOfGroup(group: z.output<typeof GITHUB_APP.schema> | null): string | null {
+  const login = group?.login.trim() ?? '';
+  return login === '' ? null : login;
 }
 
 /** Every group of the kit, the game and the scripts, read from `source`; throws one `EnvError` naming every problem. */
@@ -289,6 +313,7 @@ export function readEnv(source: EnvSource) {
     omniToken: reader.group(OMNI_TOKEN),
     session: sessionOf(reader.group(SESSION)),
     runnerSender: senderOf(reader.group(RUNNER_SENDER)),
+    githubApp: githubAppOfGroup(reader.group(GITHUB_APP)),
     claudeToken: claudeTokenOf(reader.group(CLAUDE_TOKEN)),
     heartbeat: heartbeatOf(reader.group(HEARTBEAT), reader.group(TEST_RUNNER)),
     ask: (reader.group(ASK)?.switch ?? null) satisfies AskSwitch,
@@ -326,6 +351,55 @@ export function runnerJobOf(source: EnvSource): RunnerJobEnv | null {
  */
 export function runnerJobVariables(job: string, runner: string): Record<string, string> {
   return { [setName(RUNNER_JOB.variables.job)]: job, [setName(RUNNER_SENDER.variables.runner)]: runner, [setName(UNATTENDED.variables.flag)]: '1' };
+}
+
+/**
+ * The sender variables `omni runner` sets on a job's session: a key's job (PRD 2433) names the key
+ * (`OMNI_SENT_BY_KEY`) and never the person who made it, whose login its `sentBy` may carry; any other
+ * job names its sender's login (`OMNI_SENT_BY`); a job with neither sets none. The runner's name goes
+ * with either.
+ */
+export function runnerSenderVariables(job: { sentBy: string | null; sentByKey: string | null }, runner: string): Record<string, string> {
+  const runnerName = setName(RUNNER_SENDER.variables.runner);
+  if (job.sentByKey !== null) return { [setName(RUNNER_SENDER.variables.sentByKey)]: job.sentByKey, [runnerName]: runner };
+  if (job.sentBy !== null && job.sentBy !== '') return { [setName(RUNNER_SENDER.variables.sentBy)]: job.sentBy, [runnerName]: runner };
+  return {};
+}
+
+/** The app's bot login `source` names, read alone: `OMNI_GITHUB_APP` trimmed, or `null` when it is unset or blank. */
+export function githubAppOf(source: EnvSource): string | null {
+  const reader = envReader(source);
+  const login = githubAppOfGroup(reader.group(GITHUB_APP));
+  reader.done();
+  return login;
+}
+
+/**
+ * The variables a job running as a GitHub App gets (PRD 2433): `OMNI_GITHUB_APP`, and the bot as the
+ * author and the committer of every commit the job makes.
+ */
+export function githubAppVariables(bot: { login: string; email: string }): Record<string, string> {
+  return {
+    [setName(GITHUB_APP.variables.login)]: bot.login,
+    GIT_AUTHOR_NAME: bot.login,
+    GIT_AUTHOR_EMAIL: bot.email,
+    GIT_COMMITTER_NAME: bot.login,
+    GIT_COMMITTER_EMAIL: bot.email,
+  };
+}
+
+/**
+ * Git's configuration given through the environment, entry by entry in the order given (`GIT_CONFIG_COUNT`,
+ * `GIT_CONFIG_KEY_<n>`, `GIT_CONFIG_VALUE_<n>`): it outranks every file, and an entry with an empty value
+ * for a `credential.<url>.helper` key first drops the helpers the files name for that url.
+ */
+export function gitConfigVariables(entries: readonly (readonly [key: string, value: string])[]): Record<string, string> {
+  const variables: Record<string, string> = { GIT_CONFIG_COUNT: String(entries.length) };
+  entries.forEach(([key, value], n) => {
+    variables[`GIT_CONFIG_KEY_${String(n)}`] = key;
+    variables[`GIT_CONFIG_VALUE_${String(n)}`] = value;
+  });
+  return variables;
 }
 
 /** The variable a member is set under: its first name, the one the kit writes. */

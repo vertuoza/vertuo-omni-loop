@@ -4,6 +4,7 @@
 //   omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14]
 //               [--max-memory 85] [--min-disk 10] [--max-load 1.5]
 //   omni runner sender
+//   omni runner github-token [--git get]
 //   omni runner send '<line>' [--to <runner|fleet>]
 //   omni runner follow <n>
 //   omni runner job --line <file> --log <file> --exit <file>
@@ -27,8 +28,17 @@
 // sets one.
 //
 // `sender` prints the line `/omni:pr` writes in a pull request a job opens, `Sent from the Omni app by
-// @<login> on runner <name>`, read from `OMNI_SENT_BY` and `OMNI_RUNNER`; either unset, it prints
-// nothing. `job` is what runs inside a job's tmux session (`../../lib/runner/job.ts`): no person runs it.
+// @<login> on runner <name>`, read from `OMNI_SENT_BY` and `OMNI_RUNNER`; a job an API key sent names the
+// key instead, `Sent through the Omni API by API key <name> on runner <name>`, read from `OMNI_SENT_BY_KEY`
+// (PRD 2433); either unset, it prints nothing. `job` is what runs inside a job's tmux session
+// (`../../lib/runner/job.ts`): no person runs it.
+//
+// `github-token` prints the current token of the GitHub App a job runs as (PRD 2433), read from the file its
+// runner keeps for the job (`../../lib/runner/github-token.ts`), and refuses with one line on stderr, exit 1,
+// outside a runner job, in a job of another runner or in a job with no app. With `--git get` it answers git's
+// credential helper call instead (`username=x-access-token`, `password=<token>`) and does nothing for `store`
+// or `erase`. The runner starts such a job with this command as its credential helper and as the token the
+// `gh` on the job's `PATH` reads; a runner that has it registers as able to run an app's job.
 //
 // `send` queues a line for this repository's workspace and `follow` prints a PRD's job milestones
 // until it ends (PRD 2251, `./runner-follow.ts`); both use the terminal's own sign-in.
@@ -56,6 +66,7 @@ import { runningKit } from '../../lib/init/bundle.ts';
 import { jobQuestionsApi, RunnerRefused, RunnerUnreachable, runnerApi } from '../../lib/runner/api.ts';
 import type { HealthLimits, JobQuestionsApi } from '../../lib/runner/api.ts';
 import { listCheckouts } from '../../lib/runner/checkouts.ts';
+import { jobGithubToken } from '../../lib/runner/github-token.ts';
 import { DEFAULT_LIMITS } from '../../lib/runner/health.ts';
 import type { MachineReads } from '../../lib/runner/health.ts';
 import { runJobProcess } from '../../lib/runner/job.ts';
@@ -72,9 +83,10 @@ import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { boardCount, followCommand, interrupts, send } from './runner-follow.ts';
 import type { FollowOptions } from './runner-follow.ts';
 
-const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job>";
+const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 3h] [--keep-logs 14] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner github-token [--git get] | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job>";
 const ASK_USAGE = 'usage: omni runner ask --file <file> --issue <n> --lead <file>';
 const ANSWERS_USAGE = 'usage: omni runner answers <job>';
+const GITHUB_TOKEN_USAGE = 'usage: omni runner github-token [--git get]';
 const DEFAULT_SLOTS = 4;
 const MAX_SLOTS = 8;
 const DEFAULT_TIMEOUT = '3h';
@@ -207,6 +219,7 @@ async function start(args: string[], io: FreeIo & RunnerCommandOptions): Promise
       exec,
       home,
       wrapper: [process.execPath, script, 'runner', 'job'],
+      githubToken: [process.execPath, script, 'runner', 'github-token'],
       env: jobEnv(io),
       release: releaser({ exec, checkouts }),
       slices: (prd, dir) => (io.mergedOf ?? ((n) => boardCount(n, { ...io, cwd: dir })))(prd),
@@ -308,6 +321,21 @@ async function askOnJob(args: string[], io: FreeIo & RunnerCommandOptions): Prom
   return 0;
 }
 
+/**
+ * `github-token [--git get]`: the current token of the GitHub App this job runs as, or git's credential helper call (PRD 2433).
+ * Git calls a helper with `get`, `store` or `erase` and reads nothing but what `get` prints.
+ */
+function githubTokenOfJob(args: string[], io: FreeIo & RunnerCommandOptions): number {
+  const { positional, flags } = parseArgs('runner', args, { booleans: ['git'] });
+  const [action, ...extra] = positional;
+  if (extra.length || (flags.git !== true && action !== undefined)) throw usageError(GITHUB_TOKEN_USAGE);
+  if (flags.git === true && action !== 'get') return 0;
+  const read = jobGithubToken(runnerJobOf(io.env), io.home ?? homedir());
+  if ('refusal' in read) return refused(io.stderr, read.refusal);
+  println(io.stdout, flags.git === true ? `username=x-access-token\npassword=${read.token}` : read.token);
+  return 0;
+}
+
 /** `answers <job>`: the job's questions and answers, as one line of JSON, for the run that resumes it (PRD 2255). */
 async function answersOfJob(args: string[], io: FreeIo & RunnerCommandOptions): Promise<number> {
   const { stdout, stderr } = io;
@@ -322,21 +350,30 @@ async function answersOfJob(args: string[], io: FreeIo & RunnerCommandOptions): 
   return 0;
 }
 
+/** `sender`: the line `/omni:pr` writes in a pull request this job opens: a person's, or the API key's (PRD 2433). */
+function senderOfJob(args: string[], io: FreeIo & RunnerCommandOptions): number {
+  if (args.length) throw usageError('usage: omni runner sender');
+  const line = senderLine(io.vars.runnerSender);
+  if (line) println(io.stdout, line);
+  return 0;
+}
+
+/** What each word after `omni runner` runs; any other first word, or none, starts the runner. */
+const SUBCOMMANDS = new Map<string, (args: string[], io: FreeIo & RunnerCommandOptions) => number | Promise<number>>([
+  ['sender', senderOfJob],
+  ['github-token', githubTokenOfJob],
+  ['job', job],
+  ['send', send],
+  ['follow', followCommand],
+  ['ask', askOnJob],
+  ['answers', answersOfJob],
+]);
+
 export const runner = {
   withoutContext: true,
   async run(args: string[], io: FreeIo & RunnerCommandOptions) {
     const [first, ...rest] = args;
-    if (first === 'sender') {
-      if (rest.length) throw usageError('usage: omni runner sender');
-      const line = senderLine(io.vars.runnerSender);
-      if (line) println(io.stdout, line);
-      return 0;
-    }
-    if (first === 'job') return job(rest, io);
-    if (first === 'send') return send(rest, io);
-    if (first === 'follow') return followCommand(rest, io);
-    if (first === 'ask') return askOnJob(rest, io);
-    if (first === 'answers') return answersOfJob(rest, io);
-    return start(args, io);
+    const subcommand = first === undefined ? undefined : SUBCOMMANDS.get(first);
+    return subcommand === undefined ? start(args, io) : subcommand(rest, io);
   },
 } satisfies FreeCommand;

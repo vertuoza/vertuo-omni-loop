@@ -58,19 +58,57 @@ describe('runnerApi().next()', () => {
 
   it('reads the job with the repository skills it carries', async () => {
     const { client, calls } = api(job({ id: 7, line: '/validate-prd 347', repo: 'acme/widgets', sentBy: 'ada', allowedSkills: ['audit', 'validate-prd'] }));
-    expect(await client.next('r 1')).toEqual({ id: '7', line: '/validate-prd 347', repo: 'acme/widgets', sentBy: 'ada', allowedSkills: ['audit', 'validate-prd'] });
+    expect(await client.next('r 1')).toEqual({ id: '7', line: '/validate-prd 347', repo: 'acme/widgets', sentBy: 'ada', allowedSkills: ['audit', 'validate-prd'], github: null, sentByKey: null });
     expect(calls[0]?.url).toBe('https://omni.test/api/runners/next?runner=r+1');
   });
 
   it('reads a job with no allowed skills, or with none listed, as allowing none', async () => {
     expect(await api(job({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null })).client.next('r1'))
-      .toEqual({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, allowedSkills: [] });
+      .toEqual({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, allowedSkills: [], github: null, sentByKey: null });
     expect(await api(job({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', allowedSkills: null })).client.next('r1'))
       .toMatchObject({ allowedSkills: [] });
   });
 
   it('answers none when the hold ended with no job', async () => {
     expect(await api(status(204)).client.next('r1')).toBeNull();
+  });
+});
+
+// A key's GitHub App (PRD 2433, s2): the claim carries the app's token and its bot, and the key's name. An
+// older app sends neither, and the job reads as a person's: no app, no key.
+describe("runnerApi().next(): a key's job and its GitHub App (PRD 2433)", () => {
+  const job = (value: unknown) => () => Promise.resolve(new Response(JSON.stringify(value), { status: 200 }));
+  const BASE = { id: 7, line: '/omni:bug-fix https://github.com/acme/widgets/issues/9', repo: 'acme/widgets', sentBy: null, allowedSkills: [] };
+  const GITHUB = { token: 'ghs_fake-installation-token', expiresAt: '2026-10-22T17:33:17Z', login: 'acme-fixer[bot]', email: '4242+acme-fixer[bot]@users.noreply.github.com' };
+
+  it("reads the app's token, its expiry, its bot login and its email, and the key's name", async () => {
+    const claimed = await api(job({ ...BASE, github: GITHUB, sentByKey: 'deploy bot' })).client.next('r1');
+    expect(claimed).toEqual({ ...BASE, id: '7', github: GITHUB, sentByKey: 'deploy bot' });
+  });
+
+  it('reads a payload without github and sentByKey, or with both null, as a job with neither', async () => {
+    expect(await api(job(BASE)).client.next('r1')).toMatchObject({ github: null, sentByKey: null });
+    expect(await api(job({ ...BASE, github: null, sentByKey: null })).client.next('r1')).toMatchObject({ github: null, sentByKey: null });
+  });
+
+  it('reads a key with no app: its name, and no github', async () => {
+    expect(await api(job({ ...BASE, github: null, sentByKey: 'deploy bot' })).client.next('r1')).toMatchObject({ github: null, sentByKey: 'deploy bot' });
+  });
+
+  it('never reads a github that does not hold all four fields as none: the job is not handed over, so no machine account runs it', async () => {
+    for (const github of [{ ...GITHUB, token: '' }, { ...GITHUB, token: undefined }, { ...GITHUB, login: undefined }, { ...GITHUB, email: '' }, { ...GITHUB, expiresAt: 'later' }, { ...GITHUB, expiresAt: undefined }, 'ghs_fake', []]) {
+      expect(await api(job({ ...BASE, github, sentByKey: 'deploy bot' })).client.next('r1'), JSON.stringify(github)).toBeNull();
+    }
+  });
+});
+
+describe('runnerApi().register()', () => {
+  it("sends what the runner says about itself, whether it can run a job as a key's GitHub App too (PRD 2433)", async () => {
+    const { client, calls } = api(() => Promise.resolve(new Response(JSON.stringify({ id: 'r1' }), { status: 200 })));
+    expect(await client.register({ name: 'box-1', slots: 2, repos: ['acme/widgets'], version: '0.0.527', githubApp: true })).toEqual({ id: 'r1' });
+    expect(calls[0]?.url).toBe('https://omni.test/api/runners/register');
+    const body = calls[0]?.init.body;
+    expect(typeof body === 'string' ? JSON.parse(body) : null).toEqual({ name: 'box-1', slots: 2, repos: ['acme/widgets'], version: '0.0.527', githubApp: true });
   });
 });
 
