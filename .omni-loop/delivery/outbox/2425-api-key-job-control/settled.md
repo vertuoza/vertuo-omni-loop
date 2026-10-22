@@ -703,3 +703,316 @@ One style rule for the folded table, and every row of the jobs table moves with 
 ```
 
 <!-- /omni-outbox-settled: s5-02-sender-line-wraps-on-a-phone -->
+
+<!-- omni-outbox-settled: s6-02-answer-refused-when-maker-left -->
+
+## s6-02-answer-refused-when-maker-left — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-answer-refused-when-maker-left
+prd: 2425
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 4
+---
+
+## The question, in plain words
+
+A key answers the questions of a job, but the person who made the key that sent the job has left the workspace. Should the answer go ahead?
+
+## The decision, in plain words
+
+No: the answer is refused as not allowed and nothing is closed, so the questions stay open for a person to answer on the page, because the job that resumes would be sent in the name of someone who is no longer a member.
+
+## The intro, for fun
+
+The key still works, but the hand that made it has left the room.
+
+## The punchline, for fun
+
+A person on the page can still pick up the question.
+
+## The options, in plain words
+
+A. A. The answer is refused as not allowed, nothing is closed, and the questions stay open for the page.
+B. B. The answer goes ahead and the job that resumes is sent in the name of the maker who left.
+
+## What I had to decide
+
+The spec says the job that resumes is sent by the same key and the person who made it, whoever answers; it does not say what happens when that person left the workspace. The page's own automatic continuation of a key's job already refuses in that case, through the same member check, so the key's answer does too, before anything is closed or queued. The key reads 403 with words that name the reason.
+
+Decided by: Jev (hardToRevert 0.58) · agent said false
+
+## What I did meanwhile
+
+Added the check to the key's answer in the runners' rules and proved it: nothing is closed, nothing is queued, and the key reads 403 while the questions stay open for the page.
+
+## What it costs to change later
+
+Changing it later means removing one check in the runners' rules; no stored row depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the owner of a key whose maker left should be able to hand the job to someone else to answer.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-answer-refused-when-maker-left -->
+
+<!-- omni-outbox-settled: s6-03-acting-for-allows-letter-marks -->
+
+## s6-03-acting-for-allows-letter-marks — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-acting-for-allows-letter-marks
+prd: 2425
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 4
+---
+
+## The question, in plain words
+
+The name a key says it acts for takes letters of any alphabet. Should it also take the small marks that many names are made of, such as an accent typed as a separate mark?
+
+## The decision, in plain words
+
+Yes: marks are allowed beside letters, and digits of any alphabet too, while other symbols, new lines and emoji are still refused.
+
+## The intro, for fun
+
+Some names are a letter and a little mark on top.
+
+## The punchline, for fun
+
+Let the marks in, and keep the symbols out.
+
+## The options, in plain words
+
+A. A. Letters with their combining marks, decimal digits of any alphabet, spaces and the five symbols are allowed.
+B. B. Only letters, digits, spaces and the five symbols as written, so a name typed with a separate mark is refused.
+
+## What I had to decide
+
+The spec's set is letters of any alphabet, digits, spaces and `. _ ' @ - ·`. A name typed in many alphabets, and accents typed as separate marks, is a letter followed by a combining mark, and a check on letters alone would refuse it as not a letter. The contract allows Unicode letters (L), combining marks (M) and decimal digits (Nd) with the spaces and the five symbols; the value is stored exactly as given.
+
+## What I did meanwhile
+
+Built the check on those three categories and proved it on names in Latin, Cyrillic, Han and Devanagari, an accent typed as a separate mark, digits of another alphabet, an address and a name with padding spaces, and on the refusals: a tag, an emoji, a new line, a number and 81 characters.
+
+## What it costs to change later
+
+Changing it later means changing one pattern in the contract; the values already stored stay as they were given.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a key's owner would rather see only a short list of known names than free text.
+
+```
+
+<!-- /omni-outbox-settled: s6-03-acting-for-allows-letter-marks -->
+
+<!-- omni-outbox-settled: s6-04-dismiss-needs-no-body -->
+
+## s6-04-dismiss-needs-no-body — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-04-dismiss-needs-no-body
+prd: 2425
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 4
+---
+
+## The question, in plain words
+
+A key dismisses the questions of a job with nothing to add. Should it have to send a body at all?
+
+## The decision, in plain words
+
+No: a dismissal with no body, or an empty one, is accepted and acts for no one, and a body that holds anything but the optional name of whom the key acts for is refused, naming the field.
+
+## The intro, for fun
+
+Saying no thanks should not need a form.
+
+## The punchline, for fun
+
+A bare request closes the round just as well.
+
+## The options, in plain words
+
+A. A. A dismissal needs no body: none, an empty one or an empty object all work.
+B. B. A dismissal needs a body, an empty object at least, as the answer does.
+
+## What I had to decide
+
+The spec says the dismissal takes the optional name of whom the key acts for, and nothing more. It does not say whether a call with no body at all is allowed. A body made only of optional fields is optional in most clients, and a call with no body is the shortest way to dismiss, so an empty body, or one of spaces, is read as an empty object. The answer route keeps its body required, since an answer needs its answers.
+
+Decided by: Jev (hardToRevert 0.48) · agent said false
+
+## What I did meanwhile
+
+Read an empty body as an empty object on the dismissal only, and proved no body, an empty body, a blank body and an empty object all dismiss, while a body that is not JSON, one with a field it does not know and one over 4 KiB are refused with 422.
+
+## What it costs to change later
+
+Changing it later means one flag in the controller; no stored row depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the apps that call the API send a body on every POST and would never notice.
+
+```
+
+<!-- /omni-outbox-settled: s6-04-dismiss-needs-no-body -->
+
+<!-- omni-outbox-settled: s2-03-stopped-mega-bug-fix-relaunch -->
+
+## s2-03-stopped-mega-bug-fix-relaunch — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-10-22
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-10-22
+- Slice: s2
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-03-stopped-mega-bug-fix-relaunch
+prd: 2425
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-10-22
+wave: 4
+---
+
+## The question, in plain words
+
+A mega bug fix that stopped on the line that resumes it now reads Stopped mid-way, with Resume, since the fix that lets a stopped mega bug fix resume on its branches. Should a key be able to relaunch it through the API, as the page offers, or should the bug fix's own word win, so that the relaunch refuses it?
+
+## The decision, in plain words
+
+The stopped reading wins: such a job reports the outcome stopped, the page offers Resume, and the key's relaunch follows the page and resumes it. The job still reports who fixed it and every pull request it opened.
+
+## The intro, for fun
+
+Two fixes met in one file, and each had a word for how the job ended.
+
+## The punchline, for fun
+
+Stopped mid-way beats stuck: the page and the key both offer to carry on.
+
+## The options, in plain words
+
+A. A. The stopped reading wins: the job reports stopped, the page offers Resume, and a key's relaunch resumes it.
+B. B. The bug fix's own word wins: the job reads ended, the page offers nothing, and a key's relaunch answers that it cannot.
+
+## What I had to decide
+
+Merging main into the feature branch brought the fix that lets a stopped mega bug fix resume on its branches (#2449): a mega bug fix whose hand-off ends on its resume line reports the outcome `stopped`, and the page offers Resume. This PRD's s2 made the runner report a bug fix's own word (`fixed`, `stuck`, `blocked`…), `fixedBy` and every `PR:` line. The merge keeps both: the ending report carries the bug-fix fields and the outcome, and `stopped` overrides the bug fix's word for that case. With the spec's relaunch rule (does what the page offers for that job), s7 will let a key resume such a job; an app that calls the API may have read a finished bug fix as ended, where a relaunch answers 409.
+
+## What I did meanwhile
+
+Resolved the merge as the union of both sides in the runner and its log tests, kept the mega bug fix's resume tests from main green beside s2's, and carried on with wave 4.
+
+## What it costs to change later
+
+Changing it later is one rule in the runner's ending report (which word wins) and one line in the relaunch's rule; no stored shape changes, and jobs already ended keep the outcome they reported.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether an app that already calls the API relaunches a bug fix through this route: one that queues a new bug fix instead, and never calls relaunch, sees no change from A.
+- (author) Whether a person reading a key's thread expects Resume on a bug fix that said it was stuck.
+
+```
+
+<!-- /omni-outbox-settled: s2-03-stopped-mega-bug-fix-relaunch -->
