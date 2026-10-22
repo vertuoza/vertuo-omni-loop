@@ -8,6 +8,12 @@
 //
 // `omni runner github-token` answers from that file, inside a job of the runner that wrote it: the
 // credential helper, the `gh` on the job's `PATH` and `githubEnv` all read the token through it.
+//
+// The runner and the session both refresh the token (s3, `github-refresh.ts`), so the file is written by
+// more than one process: every write after the session starts holds the file's lock (`github-refresh.ts`),
+// or a token one of them wrote could be lost from the file and stop being masked (L-GDPR-2). The file also
+// keeps what a refresh needs to be shared: the Omni page to ask, and when a failed refresh may be tried
+// again.
 import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
@@ -23,11 +29,22 @@ const JOB_ID = /^[A-Za-z0-9_-]+$/;
 const MIN_START = 6;
 
 const StoredTokenSchema = z.object({ token: z.string().min(1), expiresAt: z.string() });
-const TokenFileSchema = z.object({ runner: z.string().min(1), tokens: z.array(StoredTokenSchema).min(1) });
+const RetrySchema = z.object({ at: z.number(), why: z.string() });
+const TokenFileSchema = z.object({
+  runner: z.string().min(1),
+  tokens: z.array(StoredTokenSchema).min(1),
+  page: z.string().min(1).optional(),
+  retry: RetrySchema.optional(),
+});
 
 /** One token and when it expires. */
 export type GithubToken = z.output<typeof StoredTokenSchema>;
-/** What a job's token file holds: its runner, and every token the job had, the current one last. */
+/** When a refresh that failed may be tried again (epoch milliseconds), and why it failed. */
+export type RefreshRetry = z.output<typeof RetrySchema>;
+/**
+ * What a job's token file holds: its runner, and every token the job had, the current one last. `page` is the
+ * Omni page the session asks for a fresh token, and `retry` the failed refresh that waits for its minute.
+ */
 export type StoredGithubTokens = z.output<typeof TokenFileSchema>;
 
 /** The file a job's tokens are kept in, `<home>/logs/job-<id>.github`, or `null` for an id no file is named after. */
@@ -45,20 +62,37 @@ export function readGithubToken(file: string): StoredGithubTokens | null {
   }
 }
 
-/**
- * Adds `grant` to the tokens of `file`, which only `runner` reads, keeping the ones it already held: a file
- * of another runner starts again. The file is replaced whole, so a reader never sees half of it.
- */
-export function saveGithubToken(file: string, runner: string, grant: GithubToken): void {
-  const held = readGithubToken(file);
-  const past = held !== null && held.runner === runner ? held.tokens.filter((entry) => entry.token !== grant.token) : [];
-  const text = JSON.stringify({ runner, tokens: [...past, { token: grant.token, expiresAt: grant.expiresAt }] });
+/** Replaces `file` whole with `content`, readable by its owner alone, so a reader never sees half of it. */
+function writeTokenFile(file: string, content: StoredGithubTokens): void {
   mkdirSync(dirname(file), { recursive: true });
   // Named like the file's own kind (`job-<id>.<ext>`), so the sweep takes it too if a crash leaves it.
   const next = `${file}tmp`;
-  writeFileSync(next, text, { mode: 0o600 });
+  writeFileSync(next, JSON.stringify(content), { mode: 0o600 });
   chmodSync(next, 0o600);
   renameSync(next, file);
+}
+
+/**
+ * Adds `grant` to the tokens of `file`, which only `runner` reads, keeping the ones it already held: a file
+ * of another runner starts again. A fresh token ends the wait of a failed refresh. `page`, the Omni page a
+ * session asks for a fresh token, is kept as the file held it unless given. It reads then writes: once a
+ * session runs, only a holder of the file's lock calls it (`github-refresh.ts`).
+ */
+export function saveGithubToken(file: string, runner: string, grant: GithubToken, page?: string): void {
+  const held = readGithubToken(file);
+  const same = held !== null && held.runner === runner;
+  const past = same ? held.tokens.filter((entry) => entry.token !== grant.token) : [];
+  const asked = page ?? (same ? held.page : undefined);
+  writeTokenFile(file, { runner, tokens: [...past, { token: grant.token, expiresAt: grant.expiresAt }], ...(asked === undefined ? {} : { page: asked }) });
+}
+
+/**
+ * Notes that a refresh failed, `retry.at` being when it may be tried again: every process that looks at the
+ * file waits for it. Nothing changes in a file that is missing or another runner's. Called under the file's lock.
+ */
+export function noteFailedRefresh(file: string, runner: string, retry: RefreshRetry): void {
+  const held = readGithubToken(file);
+  if (held !== null && held.runner === runner) writeTokenFile(file, { ...held, retry });
 }
 
 /** Removes `file`, when it is there. It never throws: a file it cannot remove is left to the sweep, and a job's end goes on. */
@@ -70,22 +104,34 @@ export function forgetGithubToken(file: string): void {
   }
 }
 
-/** The job's current token, or the one line saying why there is none. */
-export type JobGithubToken = GithubToken | { refusal: string };
+/** The token file of the job a session runs, whose runner it is, and what it holds. */
+export type OwnJobToken = { file: string; runner: string; job: string; held: StoredGithubTokens; current: GithubToken };
 
 /**
- * The current token of the job a session runs: the token only inside a runner job whose file holds a token
- * of its own runner. Never another runner's, and never one for an id that names no file.
+ * The token file of the job a session runs: only inside a runner job whose file holds a token of its own
+ * runner. Never another runner's, and never one for an id that names no file. Else the one line saying why.
  */
-export function jobGithubToken(job: RunnerJobEnv | null, home: string): JobGithubToken {
+export function ownJobToken(job: RunnerJobEnv | null, home: string): OwnJobToken | { refusal: string } {
   if (job === null) return { refusal: 'this session is not a runner job.' };
   if (job.runner === null) return { refusal: 'this runner job names no runner.' };
   const file = githubTokenFile(home, job.job);
   const held = file === null ? null : readGithubToken(file);
   const current = held?.tokens.at(-1);
-  if (held === null || current === undefined) return { refusal: `job ${job.job} does not run as a GitHub App.` };
+  if (file === null || held === null || current === undefined) return { refusal: `job ${job.job} does not run as a GitHub App.` };
   if (held.runner !== job.runner) return { refusal: `the token of job ${job.job} is another runner's.` };
-  return current;
+  return { file, runner: job.runner, job: job.job, held, current };
+}
+
+/** The job's current token, or the one line saying why there is none. */
+export type JobGithubToken = GithubToken | { refusal: string };
+
+/**
+ * The current token of the job a session runs: the token only inside a runner job whose file holds a token
+ * of its own runner (`ownJobToken`), as it stands in the file: it is not refreshed here.
+ */
+export function jobGithubToken(job: RunnerJobEnv | null, home: string): JobGithubToken {
+  const own = ownJobToken(job, home);
+  return 'refusal' in own ? own : own.current;
 }
 
 /** How many characters at the end of `text` start one of `tokens`, none shorter than `MIN_START`: 0 for none. */
