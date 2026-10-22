@@ -4,7 +4,7 @@ import { supabaseEnv } from '../data/supabase-server';
 import { MemberGate } from '../dashboard/MemberGate';
 import { PersonChip } from '../people/PersonChip';
 import { ProductFilter } from '../product-filter/ProductFilter';
-import { EMPTY_BY_TAB, staleLine, TABS, UNREADABLE_BOARD, type BoardRow, type TabId, type Turn } from './board';
+import { EMPTY_BY_TAB, STALE_TITLE, staleSummary, TABS, UNREADABLE_BOARD, type BoardRow, type TabId, type Turn } from './board';
 import type { WaitingView } from './waiting-board.controller';
 import '../dashboard/board/board.css';
 import '../product-filter/product-filter.css';
@@ -107,13 +107,18 @@ export function WaitingScreen({ view, tab, signinError }: WaitingScreenProps) {
       </div>
     );
   }
-  const stale = staleLine(view.board.stale);
+  const stale = staleSummary(view.board.stale);
   return (
     <div className="dash" data-screen="waiting">
       <h1 className="dash-name">Waiting</h1>
       <Tabs tab={tab} reviews={view.board.reviews} />
       <ProductFilter filter={view.filter} unreadable={view.productsUnreadable} />
-      {stale ? <p className="wait-stale" role="status">{stale}</p> : null}
+      {stale ? (
+        <details className="wait-stale" role="status">
+          <summary title={STALE_TITLE}>{stale}</summary>
+          <ul className="wait-stale-list">{view.board.stale.map((repo) => <li key={repo}>{repo}</li>)}</ul>
+        </details>
+      ) : null}
       <section className="board-card" aria-label={SECTION_LABEL[tab]}>
         <Rows rows={view.board.rows} tab={tab} />
       </section>

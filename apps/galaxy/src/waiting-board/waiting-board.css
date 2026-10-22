@@ -8,7 +8,11 @@
 .ask .wait-tab:hover { color: var(--ask-ink); }
 .ask .wait-tab[aria-current='page'] { color: var(--ask-ink); font-weight: 700; border-bottom-color: var(--ask-plasma); }
 
-.wait-stale { margin: 0; color: var(--ask-yellow); overflow-wrap: anywhere; }
+.wait-stale { margin: 0; color: var(--ask-muted); font-size: 14px; }
+.wait-stale > summary { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px; border: 1px solid var(--ask-line-strong); border-radius: 999px; cursor: pointer; }
+.wait-stale > summary::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--ask-plasma); }
+.wait-stale-list { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.wait-stale-list li { padding: 2px 10px; border: 1px solid var(--ask-line); border-radius: 999px; font-size: 13px; overflow-wrap: anywhere; }
 
 .ask .wait-table .board-name a { color: inherit; overflow-wrap: anywhere; }
 .wait-table td { overflow-wrap: anywhere; }
@@ -23,4 +27,5 @@
 @media (forced-colors: active) {
   .wait-table tr.is-overdue .wait-age { color: Highlight; }
   .ask .wait-tab[aria-current='page'] { border-bottom-color: Highlight; }
+  .wait-stale > summary::before { background: Highlight; }
 }

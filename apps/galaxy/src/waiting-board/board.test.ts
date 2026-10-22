@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { peopleOf } from '../people/load';
 import {
-  ageWords, boardOf, EMPTY_BY_TAB, prdKey, staleLine, staleRepositories, tabOf, TABS, turnIsLogin, whatWords, workingDays, workingMs, type BoardInput, type PrdPage, type StoredWait,
+  ageWords, boardOf, EMPTY_BY_TAB, prdKey, staleRepositories, staleSummary, tabOf, TABS, turnIsLogin, whatWords, workingDays, workingMs, type BoardInput, type PrdPage, type StoredWait,
 } from './board';
 
 // The Waiting board's model (PRD 2377 s3), pure: working days, the order, the words, whose turn, the
@@ -125,16 +125,16 @@ describe('the stale line', () => {
 
   it('names none when every repository was read in time', () => {
     expect(staleRepositories(new Map([['acme/widgets', '2026-10-19T11:59:00Z']]), MON)).toEqual([]);
-    expect(staleLine([])).toBeNull();
+    expect(staleSummary([])).toBeNull();
   });
 
   it('is on the board', () => {
     expect(boardOf(input([], { synced }), PEOPLE).stale).toEqual(['acme/gears', 'acme/never']);
   });
 
-  it('says one repository, then several', () => {
-    expect(staleLine(['acme/gears'])).toBe('acme/gears was last synced more than 30 minutes ago, so its waits may be out of date.');
-    expect(staleLine(['a/x', 'b/y', 'c/z'])).toBe('a/x, b/y and c/z were last synced more than 30 minutes ago, so their waits may be out of date.');
+  it('counts them in a short pill, whatever their number (visual #2408)', () => {
+    expect(staleSummary(['acme/gears'])).toBe('1 out of date');
+    expect(staleSummary(['a/x', 'b/y', 'c/z'])).toBe('3 out of date');
   });
 });
 

@@ -20,8 +20,9 @@ waits on them.
 
 - **The head:** `Waiting`, and how many wait on a person (`7 wait on a person`).
 - **The tabs** (`SectionTabs`, `?tab=`): Workspace (the default), My PRDs, My reviews with its count.
-- **The stale line,** only when a tracked repository was last synced more than 30 minutes ago:
-  `<owner>/<repo> last synced <n> min ago.`
+- **The stale pill** (visual #2408), only when a tracked repository was last synced more than 30
+  minutes ago: a small muted pill with a yellow dot, `<n> out of date`, its title saying why; it
+  opens the repositories' names as small outlined chips.
 - **The table,** oldest first, four columns:
   - **PRD:** `PRD <n> · <title>` linking to its page, or `Bug fix #<n>` / `Visual update #<n>`; under
     it, the pull request (`feature #<n>`) linking to GitHub.
@@ -43,7 +44,7 @@ waits on them.
 
 ## Words
 
-Waiting · wait on a person · Workspace · My PRDs · My reviews · last synced · min ago · PRD · Waits on
+Waiting · wait on a person · Workspace · My PRDs · My reviews · out of date · PRD · Waits on
 · Whose turn · For · review · merge · approval · outbox · questions · law · any approver · anyone who
 can merge · today · day · days · Bug fix · Visual update · Nothing waits on a person. · None of your
 PRDs waits on anyone. · Nothing waits on you.
@@ -63,3 +64,4 @@ PRDs waits on anyone. · Nothing waits on you.
 ## Source
 
 - /omni:brainstorm, PRD 2377: .omni-loop/delivery/shipped/2377-waiting-board/before-after.html
+- /omni:visual-fix #2408, pick B by @pierrederval on 2026-10-22: .omni-loop/delivery/visual/2408-stale-pill/before-after.html

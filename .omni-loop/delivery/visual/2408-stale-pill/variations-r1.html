@@ -1,0 +1,92 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Visual 2408: round 1</title><style>
+:root{--ask-ground:#07061c;--ask-surface:#120f3a;--ask-sunk:#0e0d33;--ask-line:#1a2170;--ask-line-strong:#5a60c4;--ask-ink:#f2f4ff;--ask-muted:#8a90d6;--ask-plasma:#ffd84a;--ask-yellow:#ff3ea5;--ask-cyan:#6ff0ff;--ask-red:#ff6b86;--ask-body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;padding:24px 16px 64px;background:#ffffff;color:#1b1f24;font:15px/1.5 system-ui,sans-serif}
+@media (prefers-color-scheme:dark){body{background:#0f1216;color:#e6e9ed}}
+h1{max-width:1000px;margin:0 auto 6px;font-size:20px}
+.lead{max-width:1000px;margin:0 auto 20px;color:#6a737d}
+.opt{max-width:1000px;margin:0 auto 28px}
+.opt h2{font-size:15px;margin:0 0 6px}
+.opt .why{font-size:13px;color:#6a737d;margin:0 0 8px}
+.dash{background:var(--ask-ground);color:var(--ask-ink);font:17px/1.6 var(--ask-body);border-radius:10px;padding:24px;display:grid;gap:18px}
+.dash-name{margin:0;font:700 30px/1.2 var(--ask-body)}
+.wait-tabs{display:flex;flex-wrap:wrap;gap:4px 24px;border-bottom:1px solid var(--ask-line);margin:0;padding:0;list-style:none}
+.wait-tab{padding:6px 2px;color:var(--ask-muted);text-decoration:none;border-bottom:2px solid transparent;display:inline-block}
+.wait-tab[aria-current=page]{color:var(--ask-ink);font-weight:700;border-bottom-color:var(--ask-plasma)}
+.filter{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:15px}
+.filter b{color:var(--ask-muted);font-size:14px}
+.chip{padding:4px 14px;border:1.5px solid var(--ask-line-strong);border-radius:999px;font-weight:700}
+.chip.on{background:var(--ask-plasma);color:var(--ask-ground);border-color:var(--ask-plasma)}
+.board-card{border:1px solid var(--ask-line-strong);border-radius:10px;background:var(--ask-surface);padding:20px;color:var(--ask-muted)}
+a{color:inherit}
+summary{cursor:pointer}
+/* today */
+.t-stale{margin:0;color:var(--ask-yellow);overflow-wrap:anywhere}
+/* A */
+.a-stale{margin:0;font-size:14px;color:var(--ask-muted)}
+.a-stale summary{list-style:none;display:inline}
+.a-stale summary::-webkit-details-marker{display:none}
+.a-stale .more{text-decoration:underline;text-underline-offset:3px;color:var(--ask-ink)}
+.a-stale ul{margin:8px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px}
+/* B */
+.b-stale summary{display:inline-flex;align-items:center;gap:8px;padding:3px 12px;border:1px solid var(--ask-line-strong);border-radius:999px;font-size:14px;color:var(--ask-muted)}
+.b-stale summary::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ask-plasma)}
+.b-stale ul{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px}
+.b-stale li{padding:2px 10px;border:1px solid var(--ask-line);border-radius:999px;font-size:13px;color:var(--ask-muted)}
+/* C */
+.c-foot{margin:0;font-size:13px;color:var(--ask-muted)}
+.c-foot ul{margin:6px 0 0;padding-left:18px;columns:3;font-size:13px}
+/* D */
+.d-note{border-left:3px solid var(--ask-line-strong);padding:6px 12px;font-size:14px;color:var(--ask-muted);background:var(--ask-sunk);border-radius:0 6px 6px 0}
+.d-note summary{color:var(--ask-ink)}
+.d-note ul{margin:8px 0 2px;padding-left:18px;columns:3}
+/* E */
+.e-card{display:grid;gap:12px}
+.e-head{display:flex;justify-content:flex-end}
+.e-stale{font-size:13px;color:var(--ask-muted);text-align:right}
+.e-stale ul{margin:6px 0 0;padding:0;list-style:none;text-align:left;columns:3;font-size:13px}
+</style></head><body>
+<h1>Visual #2408 · the Waiting page's stale line · round 1</h1>
+<p class="lead">Theme Omni. Repository names are examples. Each "out of date" region opens on a click. Today: the word pass flags the line as 43 words at rest (explains-at-rest).</p>
+<div class="opt"><h2>Today</h2><p class="why">The line as it ships: every repository, named in the Omni theme's magenta.</p><div class="dash" data-screen="today">
+<h3 class="dash-name">Waiting</h3>
+<ul class="wait-tabs"><li><a class="wait-tab" href="#">Workspace</a></li><li><a class="wait-tab" aria-current="page" href="#" data-primary>My PRDs</a></li><li><a class="wait-tab" href="#">My reviews (1)</a></li></ul>
+<div class="filter"><b>Product</b><span class="chip on">All</span><span class="chip">Acme</span><span class="chip">Acme Ops</span><span class="chip">No product</span></div>
+<p class="t-stale" role="status">acme/atlas, acme/billing, acme/booking, acme/catalog, acme/checkout, acme/crew, acme/dashboard, acme/design-system, acme/docs, acme/gears, acme/inbox, acme/ledger, acme/mobile, acme/notifier, acme/onboarding, acme/payments, acme/planning, acme/qa, acme/reports, acme/search, acme/settings, acme/support, acme/timesheet, acme/widgets, acme/workflow and acme/vnext were last synced more than 30 minutes ago, so their waits may be out of date.</p>
+<section class="board-card">None of your PRDs waits on anyone.</section>
+
+</div></div><div class="opt"><h2>A · One muted sentence, list on demand</h2><p class="why">A count and a reason in the muted reading colour; Show opens the names as a quiet wrap.</p><div class="dash" data-screen="A">
+<h3 class="dash-name">Waiting</h3>
+<ul class="wait-tabs"><li><a class="wait-tab" href="#">Workspace</a></li><li><a class="wait-tab" aria-current="page" href="#" data-primary>My PRDs</a></li><li><a class="wait-tab" href="#">My reviews (1)</a></li></ul>
+<div class="filter"><b>Product</b><span class="chip on">All</span><span class="chip">Acme</span><span class="chip">Acme Ops</span><span class="chip">No product</span></div>
+<details class="a-stale" role="status"><summary>26 repositories out of date · <span class="more">Show</span></summary><ul><li>acme/atlas</li><li>acme/billing</li><li>acme/booking</li><li>acme/catalog</li><li>acme/checkout</li><li>acme/crew</li><li>acme/dashboard</li><li>acme/design-system</li><li>acme/docs</li><li>acme/gears</li><li>acme/inbox</li><li>acme/ledger</li><li>acme/mobile</li><li>acme/notifier</li><li>acme/onboarding</li><li>acme/payments</li><li>acme/planning</li><li>acme/qa</li><li>acme/reports</li><li>acme/search</li><li>acme/settings</li><li>acme/support</li><li>acme/timesheet</li><li>acme/widgets</li><li>acme/workflow</li><li>acme/vnext</li></ul></details>
+<section class="board-card">None of your PRDs waits on anyone.</section>
+
+</div></div><div class="opt"><h2>B · A small status pill</h2><p class="why">A pill with a yellow dot and the count; it opens the names as small outlined chips.</p><div class="dash" data-screen="B">
+<h3 class="dash-name">Waiting</h3>
+<ul class="wait-tabs"><li><a class="wait-tab" href="#">Workspace</a></li><li><a class="wait-tab" aria-current="page" href="#" data-primary>My PRDs</a></li><li><a class="wait-tab" href="#">My reviews (1)</a></li></ul>
+<div class="filter"><b>Product</b><span class="chip on">All</span><span class="chip">Acme</span><span class="chip">Acme Ops</span><span class="chip">No product</span></div>
+<details class="b-stale" role="status"><summary>26 out of date</summary><ul><li>acme/atlas</li><li>acme/billing</li><li>acme/booking</li><li>acme/catalog</li><li>acme/checkout</li><li>acme/crew</li><li>acme/dashboard</li><li>acme/design-system</li><li>acme/docs</li><li>acme/gears</li><li>acme/inbox</li><li>acme/ledger</li><li>acme/mobile</li><li>acme/notifier</li><li>acme/onboarding</li><li>acme/payments</li><li>acme/planning</li><li>acme/qa</li><li>acme/reports</li><li>acme/search</li><li>acme/settings</li><li>acme/support</li><li>acme/timesheet</li><li>acme/widgets</li><li>acme/workflow</li><li>acme/vnext</li></ul></details>
+<section class="board-card">None of your PRDs waits on anyone.</section>
+
+</div></div><div class="opt"><h2>C · A footnote under the board</h2><p class="why">Moved below the waits, small and muted; the names open in three columns.</p><div class="dash" data-screen="C">
+<h3 class="dash-name">Waiting</h3>
+<ul class="wait-tabs"><li><a class="wait-tab" href="#">Workspace</a></li><li><a class="wait-tab" aria-current="page" href="#" data-primary>My PRDs</a></li><li><a class="wait-tab" href="#">My reviews (1)</a></li></ul>
+<div class="filter"><b>Product</b><span class="chip on">All</span><span class="chip">Acme</span><span class="chip">Acme Ops</span><span class="chip">No product</span></div>
+
+<section class="board-card">None of your PRDs waits on anyone.</section>
+<details class="c-foot" role="status"><summary>26 repositories not synced for 30 min</summary><ul><li>acme/atlas</li><li>acme/billing</li><li>acme/booking</li><li>acme/catalog</li><li>acme/checkout</li><li>acme/crew</li><li>acme/dashboard</li><li>acme/design-system</li><li>acme/docs</li><li>acme/gears</li><li>acme/inbox</li><li>acme/ledger</li><li>acme/mobile</li><li>acme/notifier</li><li>acme/onboarding</li><li>acme/payments</li><li>acme/planning</li><li>acme/qa</li><li>acme/reports</li><li>acme/search</li><li>acme/settings</li><li>acme/support</li><li>acme/timesheet</li><li>acme/widgets</li><li>acme/workflow</li><li>acme/vnext</li></ul></details>
+</div></div><div class="opt"><h2>D · A quiet side note</h2><p class="why">A sunk note with a left rule, above the board; the names open in three columns.</p><div class="dash" data-screen="D">
+<h3 class="dash-name">Waiting</h3>
+<ul class="wait-tabs"><li><a class="wait-tab" href="#">Workspace</a></li><li><a class="wait-tab" aria-current="page" href="#" data-primary>My PRDs</a></li><li><a class="wait-tab" href="#">My reviews (1)</a></li></ul>
+<div class="filter"><b>Product</b><span class="chip on">All</span><span class="chip">Acme</span><span class="chip">Acme Ops</span><span class="chip">No product</span></div>
+<details class="d-note" role="status"><summary>26 repositories may be out of date</summary><ul><li>acme/atlas</li><li>acme/billing</li><li>acme/booking</li><li>acme/catalog</li><li>acme/checkout</li><li>acme/crew</li><li>acme/dashboard</li><li>acme/design-system</li><li>acme/docs</li><li>acme/gears</li><li>acme/inbox</li><li>acme/ledger</li><li>acme/mobile</li><li>acme/notifier</li><li>acme/onboarding</li><li>acme/payments</li><li>acme/planning</li><li>acme/qa</li><li>acme/reports</li><li>acme/search</li><li>acme/settings</li><li>acme/support</li><li>acme/timesheet</li><li>acme/widgets</li><li>acme/workflow</li><li>acme/vnext</li></ul></details>
+<section class="board-card">None of your PRDs waits on anyone.</section>
+
+</div></div><div class="opt"><h2>E · In the board's corner</h2><p class="why">A short muted label at the board's top right; the names open below it.</p><div class="dash" data-screen="E">
+<h3 class="dash-name">Waiting</h3>
+<ul class="wait-tabs"><li><a class="wait-tab" href="#">Workspace</a></li><li><a class="wait-tab" aria-current="page" href="#" data-primary>My PRDs</a></li><li><a class="wait-tab" href="#">My reviews (1)</a></li></ul>
+<div class="filter"><b>Product</b><span class="chip on">All</span><span class="chip">Acme</span><span class="chip">Acme Ops</span><span class="chip">No product</span></div>
+<div class="e-card"><div class="e-head"><details class="e-stale" role="status"><summary>26 repositories behind</summary><ul><li>acme/atlas</li><li>acme/billing</li><li>acme/booking</li><li>acme/catalog</li><li>acme/checkout</li><li>acme/crew</li><li>acme/dashboard</li><li>acme/design-system</li><li>acme/docs</li><li>acme/gears</li><li>acme/inbox</li><li>acme/ledger</li><li>acme/mobile</li><li>acme/notifier</li><li>acme/onboarding</li><li>acme/payments</li><li>acme/planning</li><li>acme/qa</li><li>acme/reports</li><li>acme/search</li><li>acme/settings</li><li>acme/support</li><li>acme/timesheet</li><li>acme/widgets</li><li>acme/workflow</li><li>acme/vnext</li></ul></details></div>
+<section class="board-card">None of your PRDs waits on anyone.</section></div>
+</div></div></body></html>
