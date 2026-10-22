@@ -3,6 +3,7 @@ import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import type { MemberSession } from '../data/member-session';
 import { memberWorkspace } from '../data/workspace';
 import { loadPeople } from '../people/load';
+import { firstOf, tabOf } from './board';
 import { demoWaitingBoard } from './demo';
 import { loadWaitingBoard, waitingBoardReads, type WaitingBoardData } from './waiting-board.service';
 
@@ -31,12 +32,12 @@ const LIVE_WAITING: WaitingDeps = {
   workspace: (session) => memberWorkspace(session.db, session.user.id),
   async load(session, workspace, query, now) {
     const { reads, filterReads } = waitingBoardReads(session.db);
-    return loadWaitingBoard(reads, filterReads, { workspace, people: await loadPeople(session.db, workspace), query, now });
+    return loadWaitingBoard(reads, filterReads, { workspace, viewerId: session.user.id, people: await loadPeople(session.db, workspace), query, now });
   },
 };
 
 export async function waitingViewOf(session: MemberSession, query: Query, now: Date, deps: WaitingDeps = LIVE_WAITING): Promise<WaitingView> {
-  if (session.kind === 'demo') return { kind: 'board', ...demoWaitingBoard(now) };
+  if (session.kind === 'demo') return { kind: 'board', ...demoWaitingBoard(now, tabOf(firstOf(query.tab))) };
   if (session.kind !== 'signed-in') return session;
   try {
     const workspace = await deps.workspace(session);

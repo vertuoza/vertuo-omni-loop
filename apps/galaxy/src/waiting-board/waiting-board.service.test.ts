@@ -6,7 +6,7 @@ import { loadWaitingBoard, type BoardReads } from './waiting-board.service';
 // The Waiting board's rules around its reads (PRD 2377 s3), on fakes: no test calls Supabase.
 
 const NOW = new Date('2026-10-19T12:00:00Z');
-const PEOPLE = peopleOf([], []);
+const PEOPLE = peopleOf([{ user_id: 'u-ada', name: 'Ada', github_login: 'ada', avatar_url: null, fleet: null, hero: null }], []);
 const wait = (id: string, over: Record<string, unknown> = {}) => ({ id, repo: 'Acme/Widgets', prd: 7, pr: 100, kind: 'review' as const, turn: ['ada'], since: '2026-10-19T08:00:00Z', ...over });
 
 function reads(over: Partial<BoardReads> = {}): BoardReads {
@@ -24,14 +24,14 @@ const noProducts = (): Pick<ProductFilterReads, 'products' | 'dossierProducts' |
   products: () => Promise.resolve([]), dossierProducts: () => Promise.resolve(new Map()), dossierNumbers: () => Promise.resolve(new Map()),
 });
 
-const request = (query: Record<string, string> = {}) => ({ workspace: 'ws-1', people: PEOPLE, query, now: NOW });
+const request = (query: Record<string, string> = {}) => ({ workspace: 'ws-1', viewerId: 'u-ada', people: PEOPLE, query, now: NOW });
 
 describe('the Waiting board\'s service', () => {
   it('joins each wait with its PRD page, its open questions and the repositories\' last sync', async () => {
     const lastSynced = vi.fn(() => Promise.resolve('2026-10-19T09:00:00Z'));
     const data = await loadWaitingBoard(reads({
       openWaits: () => Promise.resolve([wait('w-1'), wait('w-2', { kind: 'outbox', pr: 101 })] as never),
-      dossiers: () => Promise.resolve([{ id: 'd-7', home_repo: 'acme/widgets', prd: 7, title: 'Seven' }] as never),
+      dossiers: () => Promise.resolve([{ id: 'd-7', home_repo: 'acme/widgets', prd: 7, title: 'Seven', opened_by: 'u-ada' }] as never),
       openQuestions: () => Promise.resolve([{ repository: 'acme/widgets', prd: 7, open_questions: 2 }] as never),
       lastSynced,
     }), noProducts(), request());
@@ -56,7 +56,7 @@ describe('the Waiting board\'s service', () => {
       dossierNumbers: () => Promise.resolve(new Map()),
     };
     const waits = [wait('w-1'), wait('w-2', { prd: 8, pr: 101 }), wait('w-3', { prd: null, pr: 102 })] as never;
-    const dossiers = [{ id: 'd-7', home_repo: 'acme/widgets', prd: 7, title: 'Seven' }, { id: 'd-8', home_repo: 'acme/widgets', prd: 8, title: 'Eight' }] as never;
+    const dossiers = [{ id: 'd-7', home_repo: 'acme/widgets', prd: 7, title: 'Seven', opened_by: null }, { id: 'd-8', home_repo: 'acme/widgets', prd: 8, title: 'Eight', opened_by: null }] as never;
     const ids = async (query: Record<string, string>) => (await loadWaitingBoard(
       reads({ openWaits: () => Promise.resolve(waits), dossiers: () => Promise.resolve(dossiers) }), filterReads, request(query),
     )).board.rows.map((r) => r.id);
@@ -65,6 +65,20 @@ describe('the Waiting board\'s service', () => {
     expect(await ids({ product: 'none' })).toEqual(['w-2', 'w-3']);
     const mobile = await loadWaitingBoard(reads({ openWaits: () => Promise.resolve(waits), dossiers: () => Promise.resolve(dossiers) }), filterReads, request({ product: 'p-1' }));
     expect(mobile.filter?.options.map((o) => o.label)).toEqual(['All', 'Mobile', 'No product']);
+  });
+
+  it('draws the tab the query asks for as the viewer: their PRDs on My PRDs, their login on My reviews', async () => {
+    const data = (query: Record<string, string>) => loadWaitingBoard(reads({
+      openWaits: () => Promise.resolve([wait('w-1', { turn: ['bob'] }), wait('w-2', { prd: 8, pr: 101 }), wait('w-3', { prd: null, pr: 102, turn: ['ADA'] })] as never),
+      dossiers: () => Promise.resolve([
+        { id: 'd-7', home_repo: 'acme/widgets', prd: 7, title: 'Seven', opened_by: 'u-ada' },
+        { id: 'd-8', home_repo: 'acme/widgets', prd: 8, title: 'Eight', opened_by: 'u-bob' },
+      ] as never),
+    }), noProducts(), request(query));
+    expect((await data({ tab: 'mine' })).board.rows.map((r) => r.id)).toEqual(['w-1']);
+    const reviews = await data({ tab: 'reviews' });
+    expect(reviews.board.rows.map((r) => r.id)).toEqual(['w-2', 'w-3']);
+    expect(reviews.board.reviews).toBe(2);
   });
 
   it('keeps the list whole and says so when the products cannot be read', async () => {

@@ -11,7 +11,7 @@ import type { WaitingBoardData } from './waiting-board.service';
 
 const SIGNED_IN = { kind: 'signed-in', db: {}, user: { id: 'u-1' }, env: { url: 'u', key: 'k' } } as unknown as MemberSession;
 const NOW = new Date('2026-10-19T12:00:00Z');
-const DATA: WaitingBoardData = { board: { rows: [], stale: [] }, filter: null, productsUnreadable: false };
+const DATA: WaitingBoardData = { board: { rows: [], stale: [], reviews: 0 }, filter: null, productsUnreadable: false };
 
 function deps(over: Partial<WaitingDeps> = {}) {
   const reads: string[] = [];
@@ -45,6 +45,15 @@ describe('the Waiting board\'s controller', () => {
     const { reads, d } = deps();
     expect(await waitingViewOf(SIGNED_IN, { product: 'none' }, NOW, d)).toEqual({ kind: 'board', ...DATA });
     expect(reads).toEqual(['workspace', 'load ws-1 {"product":"none"}']);
+  });
+
+  it('draws the demo\'s tab the query asks for', async () => {
+    const { d } = deps();
+    const rows = async (tab: string) => {
+      const view = await waitingViewOf({ kind: 'demo' }, { tab }, NOW, d);
+      return view.kind === 'board' ? view.board.rows.length : -1;
+    };
+    expect([await rows('workspace'), await rows('mine'), await rows('reviews')]).toEqual([6, 2, 2]);
   });
 
   it('says so for an account in no workspace', async () => {

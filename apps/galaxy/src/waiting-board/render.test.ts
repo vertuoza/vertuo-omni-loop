@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 vi.mock('../data/supabase-server', () => ({ supabaseEnv: () => null }));
 
+import type { TabId } from './board';
 import { demoWaitingBoard } from './demo';
 import { WaitingScreen } from './WaitingScreen';
 import type { WaitingView } from './waiting-board.controller';
@@ -14,8 +15,8 @@ import type { WaitingView } from './waiting-board.controller';
 
 const NOW = new Date('2026-10-19T12:00:00Z');
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const render = (view: WaitingView) => renderToStaticMarkup(createElement(WaitingScreen, { view, tab: 'workspace', signinError: null }));
-const demo = (): WaitingView => ({ kind: 'board', ...demoWaitingBoard(NOW) });
+const render = (view: WaitingView, tab: TabId = 'workspace') => renderToStaticMarkup(createElement(WaitingScreen, { view, tab, signinError: null }));
+const demo = (tab: TabId = 'workspace'): WaitingView => ({ kind: 'board', ...demoWaitingBoard(NOW, tab) });
 
 describe('the Waiting board, with waits', () => {
   const html = render(demo());
@@ -61,18 +62,49 @@ describe('the Waiting board, with waits', () => {
   });
 });
 
+describe('the My PRDs and My reviews tabs', () => {
+  it('draws all three tabs, the current one marked, My reviews with its count', () => {
+    const html = render(demo('reviews'), 'reviews');
+    expect(html).toMatch(/<a class="wait-tab" aria-current="page" href="\/app\/waiting\?tab=reviews">My reviews \(2\)<\/a>/);
+    expect(html).toContain('href="/app/waiting?tab=mine">My PRDs</a>');
+    expect(html).toContain('href="/app/waiting?tab=workspace">Workspace</a>');
+  });
+
+  it('lists only the viewer\'s PRDs on My PRDs, their own turn first', () => {
+    const html = render(demo('mine'), 'mine');
+    expect([...html.matchAll(/<tr[ >]/g)].length - 1).toBe(2);
+    expect(text(html)).toContain('Reusable widget themes');
+    expect(text(html)).not.toContain('Faster gear ratios');
+    expect(text(html)).not.toContain('Nothing waits on you.');
+  });
+
+  it('lists only what waits on the viewer on My reviews, never by a team', () => {
+    const html = render(demo('reviews'), 'reviews');
+    expect([...html.matchAll(/<tr[ >]/g)].length - 1).toBe(2);
+    expect(text(html)).not.toContain('acme/maintainers');
+  });
+
+  it('says what each tab says when it is empty', () => {
+    const empty: WaitingView = { kind: 'board', board: { rows: [], stale: [], reviews: 0 }, filter: null, productsUnreadable: false };
+    expect(text(render(empty, 'mine'))).toContain('None of your PRDs waits on anyone.');
+    expect(text(render(empty, 'reviews'))).toContain('Nothing waits on you.');
+    expect(text(render(empty, 'workspace'))).toContain('Nothing waits on a person.');
+    expect(text(render(empty, 'reviews'))).not.toContain('(0)');
+  });
+});
+
 describe('the Waiting board, in its other states', () => {
   it('says nothing waits on a person, and names no stale repository when all are fresh', () => {
-    const html = render({ kind: 'board', board: { rows: [], stale: [] }, filter: null, productsUnreadable: false });
+    const html = render({ kind: 'board', board: { rows: [], stale: [], reviews: 0 }, filter: null, productsUnreadable: false });
     expect(text(html)).toContain('Nothing waits on a person.');
     expect(html).not.toContain('wait-stale');
   });
 
   it('draws the product filter above the rows, and says when the products cannot be read', () => {
     const filter = { options: [{ label: 'All', href: '/app/waiting', current: true }, { label: 'Mobile', href: '/app/waiting?product=p', current: false }] };
-    const html = render({ kind: 'board', board: { rows: [], stale: [] }, filter, productsUnreadable: false });
+    const html = render({ kind: 'board', board: { rows: [], stale: [], reviews: 0 }, filter, productsUnreadable: false });
     expect(html).toContain('class="product-filter"');
-    expect(text(render({ kind: 'board', board: { rows: [], stale: [] }, filter: null, productsUnreadable: true }))).toContain('could not be read');
+    expect(text(render({ kind: 'board', board: { rows: [], stale: [], reviews: 0 }, filter: null, productsUnreadable: true }))).toContain('could not be read');
   });
 
   it('says the page could not load when the read failed', () => {

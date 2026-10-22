@@ -29,9 +29,9 @@ export const StoredWaitRow = z.strictObject({
   since: z.string(),
 });
 
-const DOSSIER_COLUMNS = 'id, home_repo, prd, title';
+const DOSSIER_COLUMNS = 'id, home_repo, prd, title, opened_by';
 /** A PRD's dossier, as DOSSIER_COLUMNS reads it. */
-export const StoredDossierRow = z.strictObject({ id: z.string(), home_repo: z.string(), prd: PrdNumberSchema, title: z.string() });
+export const StoredDossierRow = z.strictObject({ id: z.string(), home_repo: z.string(), prd: PrdNumberSchema, title: z.string(), opened_by: z.string().nullable() });
 
 const OUTBOX_COLUMNS = 'repository, prd, open_questions';
 /** A PRD's stored outbox count, as OUTBOX_COLUMNS reads it. */

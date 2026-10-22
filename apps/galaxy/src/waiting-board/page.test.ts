@@ -30,8 +30,10 @@ describe('/app/waiting', () => {
     expect(props.view).toEqual({ kind: 'sign-in' });
   });
 
-  it('shows the Workspace tab, whatever the query asks, and carries the sign-in refusal', async () => {
+  it('shows the tab the query names, Workspace for anything else, and carries the sign-in refusal', async () => {
     expect((await propsOf({ tab: 'nonsense' })).tab).toBe('workspace');
+    expect((await propsOf({ tab: 'mine' })).tab).toBe('mine');
+    expect((await propsOf({ tab: 'reviews' })).tab).toBe('reviews');
     expect((await propsOf({ signin_error: 'nope' })).signinError).toBe('nope');
     expect((await propsOf()).signinError).toBeNull();
   });

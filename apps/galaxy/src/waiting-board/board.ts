@@ -2,8 +2,8 @@ import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { People } from '../people/load';
 import type { Person } from '../people/types';
 
-// The Waiting board's model (PRD 2377 s3), pure: the stored waits of a workspace, as /app/waiting's
-// Workspace tab draws them. Every open wait, oldest first, each with the PRD (or the pull request of a
+// The Waiting board's model (PRD 2377 s3, s4), pure: the stored waits of a workspace, as /app/waiting's
+// three tabs draw them (s4: My PRDs and My reviews beside Workspace). Every open wait, oldest first, each with the PRD (or the pull request of a
 // bug fix or a visual update) and its pull request linked, what it waits on in words, whose turn as
 // faces (a team by its name), and how long in working days (Monday to Friday, UTC): `today` under one,
 // red past the escalation limit. Under the tabs, one line names any tracked repository the stages sync
@@ -28,6 +28,14 @@ export interface StoredWait {
 export interface PrdPage {
   id: string;
   title: string;
+  /** The account that opened the dossier, the PRD's owner; null when none is recorded. */
+  owner: string | null;
+}
+
+/** The person reading the board: their account id and their GitHub login, in lower case, when they have one. */
+export interface Viewer {
+  id: string;
+  login: string | null;
 }
 
 /** What the board is drawn from. A map is keyed by `prdKey` (the repository in lower case, then `#`, the number). */
@@ -39,6 +47,9 @@ export interface BoardInput {
   /** The workspace's tracked repositories, each with when the sync last read it (null: never). */
   synced: ReadonlyMap<string, string | null>;
   now: Date;
+  /** Whose board it is: My PRDs and My reviews are theirs. */
+  viewer: Viewer;
+  tab: TabId;
 }
 
 /** The key of a PRD in a workspace. */
@@ -102,14 +113,21 @@ export interface BoardRow {
 export interface BoardValue {
   rows: BoardRow[];
   stale: string[];
+  /** How many open waits name the viewer by login (never by a team): the My reviews tab's count. */
+  reviews: number;
 }
 
-/** The tabs: s3 draws the Workspace one; the others come after it (s4). */
+/** The tabs, in order. */
 export type TabId = 'workspace' | 'mine' | 'reviews';
-export const TABS: readonly { id: TabId; label: string }[] = [{ id: 'workspace', label: 'Workspace' }];
+export const TABS: readonly { id: TabId; label: string }[] = [
+  { id: 'workspace', label: 'Workspace' }, { id: 'mine', label: 'My PRDs' }, { id: 'reviews', label: 'My reviews' },
+];
 
 /** The tab a query asks for: Workspace, whatever it says. */
 export const tabOf = (value: string | null | undefined): TabId => TABS.find((t) => t.id === value)?.id ?? 'workspace';
+
+/** A query parameter's first value, or null. */
+export const firstOf = (value: string | string[] | undefined): string | null => (Array.isArray(value) ? value[0] : value) ?? null;
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -167,10 +185,30 @@ function rowOf(wait: StoredWait, input: BoardInput, people: People): [number, Bo
   return [since.getTime(), row];
 }
 
-/** The Workspace tab: every open wait, oldest first. */
+/** Whether a wait's turn names this login: a team (`org/team`) never does, case ignored. */
+export const turnIsLogin = (turn: readonly string[], login: string | null): boolean =>
+  login !== null && turn.some((name) => !isTeam(name) && name.toLowerCase() === login.toLowerCase());
+
+/** The waits a tab shows. Workspace: all. My PRDs: those of the PRDs whose dossier the viewer opened,
+ * never a bug fix or a visual update (no PRD). My reviews: those whose turn names the viewer's login. */
+function tabWaits(input: BoardInput): StoredWait[] {
+  const { waits, dossiers, viewer, tab } = input;
+  if (tab === 'workspace') return [...waits];
+  if (tab === 'reviews') return waits.filter((w) => turnIsLogin(w.turn, viewer.login));
+  return waits.filter((w) => w.prd !== null && dossiers.get(prdKey(w.repo, w.prd))?.owner === viewer.id);
+}
+
+/** The tab's board: its waits, oldest first (on My PRDs, those whose turn is the viewer's first). */
 export function boardOf(input: BoardInput, people: People): BoardValue {
-  const rows = input.waits.map((wait) => rowOf(wait, input, people)).sort(byAge);
-  return { rows: rows.map(([, row]) => row), stale: staleRepositories(input.synced, input.now) };
+  const mineFirst = (wait: StoredWait) => (input.tab === 'mine' && turnIsLogin(wait.turn, input.viewer.login) ? 0 : 1);
+  const rows = tabWaits(input)
+    .map((wait): [number, [number, BoardRow]] => [mineFirst(wait), rowOf(wait, input, people)])
+    .sort(([a, rowA], [b, rowB]) => a - b || byAge(rowA, rowB));
+  return {
+    rows: rows.map(([, [, row]]) => row),
+    stale: staleRepositories(input.synced, input.now),
+    reviews: input.waits.filter((w) => turnIsLogin(w.turn, input.viewer.login)).length,
+  };
 }
 
 /** The tracked repositories the sync last read more than STALE_AFTER_MS ago, or never, by name. */
@@ -190,5 +228,10 @@ export function staleLine(stale: readonly string[]): string | null {
   return `${[first, ...rest.slice(0, -1)].join(', ')} and ${last} were last synced more than 30 minutes ago, so their waits may be out of date.`;
 }
 
-export const EMPTY_WORKSPACE = 'Nothing waits on a person.';
+const EMPTY_WORKSPACE = 'Nothing waits on a person.';
+const EMPTY_MINE = 'None of your PRDs waits on anyone.';
+const EMPTY_REVIEWS = 'Nothing waits on you.';
+
+/** What a tab says when it has no row. */
+export const EMPTY_BY_TAB: Readonly<Record<TabId, string>> = { workspace: EMPTY_WORKSPACE, mine: EMPTY_MINE, reviews: EMPTY_REVIEWS };
 export const UNREADABLE_BOARD = 'The waiting board could not load. Reload in a moment.';
