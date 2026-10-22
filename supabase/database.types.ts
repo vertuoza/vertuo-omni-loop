@@ -2282,6 +2282,47 @@ export type Database = {
           },
         ]
       }
+      prd_milestones: {
+        Row: {
+          lane: string
+          milestone: string
+          pr: number | null
+          prd: number
+          reached_at: string
+          repository: string
+          synced_at: string
+          workspace_id: string
+        }
+        Insert: {
+          lane: string
+          milestone: string
+          pr?: number | null
+          prd: number
+          reached_at: string
+          repository: string
+          synced_at?: string
+          workspace_id: string
+        }
+        Update: {
+          lane?: string
+          milestone?: string
+          pr?: number | null
+          prd?: number
+          reached_at?: string
+          repository?: string
+          synced_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prd_milestones_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prd_outbox: {
         Row: {
           open_questions: number

@@ -181,3 +181,58 @@ describe('the stages sync reader and the budget (PRD 902, s1)', () => {
     expect(await store.budget(11, 'core')).toMatchObject({ limit: 5000, remaining: 4200, resetAt: RESET });
   });
 });
+
+describe('the stages sync reader and the timeline (PRD 2370, s1)', () => {
+  const READY = [{ event: 'ready_for_review', created_at: '2026-09-23T00:00:00Z' }, { event: 'convert_to_draft', created_at: '2026-09-24T00:00:00Z' }, { event: 'ready_for_review', created_at: '2026-09-25T00:00:00Z' }];
+  const eventCalls = (calls: string[]) => calls.filter((c) => c.includes('/events'));
+
+  it('keeps each pull request\'s body and the config\'s feature link, adding no call', async () => {
+    const gh = fakeGithub({ pulls: [pull(9, 'other', { body: 'Closes #42' }), pull(10, 'more')] });
+    const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
+    expect(snap.featureLink).toBe('Closes #{prd}');
+    expect(snap.pulls.map((p) => p.body)).toEqual(['Closes #42', null]);
+    expect(eventCalls(gh.calls)).toEqual([]);
+  });
+
+  it('reads when a feature PR was first marked ready, while it is open and ready and once it merged, never for a draft or a closed one', async () => {
+    const gh = fakeGithub({
+      inbox: ['0042-dark-mode', '0043-light-mode', '0044-sky'],
+      shipped: ['0041-sea'],
+      pulls: [
+        pull(9, 'feat/dark-mode'),
+        pull(10, 'feat/sea', { state: 'closed', merged_at: '2026-09-28T00:00:00Z' }),
+        pull(11, 'feat/light-mode', { draft: true }),
+        pull(12, 'feat/sky', { state: 'closed' }),
+        pull(13, 'feat/dark-mode--s1', { state: 'closed', merged_at: '2026-09-21T00:00:00Z', base: { ref: 'feat/dark-mode' } }),
+      ],
+      events: { 9: READY, 10: [] },
+    });
+    const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
+    expect(snap.pulls.map((p) => [p.number, p.ready_at, p.first_ready_at])).toEqual([
+      [9, '2026-09-25T00:00:00Z', '2026-09-23T00:00:00Z'],
+      [10, null, null],
+      [11, null, undefined],
+      [12, null, undefined],
+      [13, null, undefined],
+    ]);
+    expect(eventCalls(gh.calls)).toEqual(['/repos/acme/widgets/issues/9/events?per_page=100', '/repos/acme/widgets/issues/10/events?per_page=100']);
+  });
+
+  it('reads the events of a feature PR whose folder is not on the default branch when its body carries the feature link', async () => {
+    const gh = fakeGithub({
+      pulls: [
+        pull(20, 'feat/night-mode', { body: 'Closes #12\n\nThe night mode.' }),
+        pull(21, 'feat/night-mode--s1', { body: 'Part of #12', base: { ref: 'feat/night-mode' } }),
+        pull(22, 'fix/night-glare', { body: 'Closes #12' }),
+      ],
+      events: { 20: READY },
+    });
+    const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
+    expect(snap.pulls.map((p) => [p.number, p.ready_at, p.first_ready_at])).toEqual([
+      [20, null, '2026-09-23T00:00:00Z'],
+      [21, null, undefined],
+      [22, null, undefined],
+    ]);
+    expect(eventCalls(gh.calls)).toEqual(['/repos/acme/widgets/issues/20/events?per_page=100']);
+  });
+});
