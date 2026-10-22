@@ -404,3 +404,41 @@ describe('a job that waited, once its answers are in (PRD 2270 s2)', () => {
     expect(text(row)).not.toContain('Fix with answers');
   });
 });
+
+describe('a job stopped mid-way (PRD 2375 s3)', () => {
+  const stopped = (change: Partial<Job> = {}) => withBoard((board) => ({
+    ...board,
+    jobs: [...board.jobs, { ...board.jobs[0] as Job, id: '77777777-aaaa-4000-8000-000000000077', line: '/omni:yolo 2338', status: 'done', outcome: 'stopped', slicesMerged: 0, slicesTotal: 5, released: [1908], exitCode: 0, endedAt: NOW.toISOString(), ...change }],
+  }));
+  const actions = (html: string, line: string) => [...jobRow(html, line).matchAll(/<button[^>]*>([^<]+)<\/button>/g)].map((m) => m[1]).filter((a) => a !== 'Terminal');
+
+  it('reads Stopped mid-way in red, with its slice count and released claims, and one Resume', () => {
+    const html = render(stopped());
+    const row = jobRow(html, '/omni:yolo 2338');
+    expect(row).toContain('runners-status is-fail');
+    expect(text(row)).toContain('Stopped mid-way');
+    expect(text(row)).not.toContain('Done');
+    expect(text(row)).toContain('0 / 5 slices merged');
+    expect(text(row)).toContain('Released #1908');
+    expect(actions(html, '/omni:yolo 2338')).toEqual(['Resume']);
+  });
+
+  it('leaves the count out when the runner could not read the board', () => {
+    const row = jobRow(render(stopped({ slicesMerged: null, slicesTotal: null })), '/omni:yolo 2338');
+    expect(text(row)).toContain('Stopped mid-way');
+    expect(text(row)).not.toContain('slices merged');
+  });
+
+  it('makes Resume the page\'s one primary, ahead of the first Send again', () => {
+    const html = render(stopped());
+    expect(html.match(/data-primary/g)).toHaveLength(1);
+    expect(jobRow(html, '/omni:yolo 2338')).toContain('data-primary');
+    expect(jobRow(html, '/omni:yolo 1702')).not.toContain('data-primary');
+  });
+
+  it('leaves a done job with a hand-off outcome with no Resume, and the other jobs as before', () => {
+    const html = render(demo());
+    expect(html).not.toContain('Resume');
+    expect(actions(html, '/omni:yolo 1702')).toEqual(['Send again']);
+  });
+});

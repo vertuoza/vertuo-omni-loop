@@ -1456,6 +1456,15 @@ describe('omni runner follow', () => {
     }
   });
 
+  it('ends a stopped job on its slice count and the line to send again, and exits 1 (PRD 2375)', async () => {
+    const page = fakePage({ jobs: [[running({ status: 'done', outcome: 'stopped', line: '/omni:yolo 2338' })]] });
+    const run = await terminal(fixture(), page, ['follow', '2251'], { mergedOf: () => Promise.resolve({ merged: 0, total: 5 }) });
+    expect(run.code).toBe(1);
+    expect(run.stdout).toContain(`Stopped mid-way · 0 / 5 slices merged · ${ASK}/prd/2251\nsend it again: omni runner send '/omni:yolo 2338'\n`);
+    const alone = await terminal(fixture(), fakePage({ jobs: [[running({ status: 'done', outcome: 'stopped' })]] }), ['follow', '2251'], { mergedOf: () => Promise.resolve(null) });
+    expect(alone.stdout).toContain(`Stopped mid-way · ${ASK}/prd/2251\n`);
+  });
+
   it('keeps waiting while the PRD has no job, then follows the one that appears', async () => {
     const page = fakePage({ jobs: [[], [], [running({ status: 'done' })]] });
     const run = await terminal(fixture(), page, ['follow', '2251']);
