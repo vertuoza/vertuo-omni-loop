@@ -1,6 +1,6 @@
 # ADR-0030 — Ask sessions expire through an hourly pg_cron job, and idle sessions are read as closed, never rewritten
 
-**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #71 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #73
+**Status:** adopted · **Date:** 2026-09-26 · **PRD:** #71 · **Decided:** nobody — adopted when raised (medium), 2026-09-25 · **Merged:** @pierrederval, 2026-09-26, PR #73 · **Layers:** db, job · **Domain:** ask
 
 ## Context
 

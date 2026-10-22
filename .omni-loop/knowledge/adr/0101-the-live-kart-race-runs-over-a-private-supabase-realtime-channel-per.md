@@ -1,6 +1,6 @@
 # ADR-0101 — The live OMNI KART race runs over a private Supabase Realtime channel per workspace, each browser owning its own kart
 
-**Status:** accepted · **Date:** 2026-10-11 · **PRD:** #1572
+**Status:** accepted · **Date:** 2026-10-11 · **PRD:** #1572 · **Layers:** event · **Domain:** game
 
 ## Context
 

@@ -25,14 +25,14 @@ plan:
   guide: docs/git-repositories/README.md
   targets:
     - repo: acme/front
-      role: front-end
+      role: web
       knowledge: own
     - repo: acme/legacy
-      role: legacy
+      role: doc
       knowledge: none
 `;
 const WITH_TYPO = `${PLAN}    - repo: acme/typo
-      role: front-end
+      role: web
       knowledge: own
 `;
 
@@ -76,33 +76,42 @@ describe('omni targets', () => {
     const { code, out, err } = await targets([], { config: PLAN, world: ALL_OK });
     expect(err).toBe('');
     expect(out).toBe([
-      'repo         role       knowledge  loop           state',
-      'acme/front   front-end  own        v0.0.40        ok',
-      'acme/legacy  legacy     none       not installed  ok',
+      'repo         role  knowledge  loop           state',
+      'acme/front   web   own        v0.0.40        ok',
+      'acme/legacy  doc   none       not installed  ok',
       '',
     ].join('\n'));
     expect(code).toBe(0);
   });
 
+  it('flags a target whose role is not one of the nine, naming it, and exits 1 (PRD 2346)', async () => {
+    const config = PLAN.replace('role: doc', 'role: back-end');
+    const { code, out, err } = await targets([], { config, world: ALL_OK });
+    expect(err).toBe('');
+    expect(out.split('\n')[2]).toBe('acme/legacy  back-end  none       not installed  drifted (role back-end is not a role: pick one of api, web, mobile, ui, library, infra, plan, doc, monorepo)');
+    expect(out.split('\n')[1]).toMatch(/^acme\/front\s+web\s+own\s+v0\.0\.40\s+ok$/);
+    expect(code).toBe(1);
+  });
+
   it('keeps a row gh cannot read, and exits 1 when a row is not ok', async () => {
     const { code, out } = await targets([], { config: WITH_TYPO, world: ALL_OK });
-    expect(out.split('\n')[3]).toMatch(/^acme\/typo\s+front-end\s+own\s+—\s+unreachable \(gh: Not Found \(HTTP 404\)\)$/);
+    expect(out.split('\n')[3]).toMatch(/^acme\/typo\s+web\s+own\s+—\s+unreachable \(gh: Not Found \(HTTP 404\)\)$/);
     expect(code).toBe(1);
   });
 
   it('prints the same rows as JSON with --json', async () => {
     const { code, out } = await targets(['--json'], { config: WITH_TYPO, world: ALL_OK });
     expect(JSON.parse(out)).toEqual([
-      { repo: 'acme/front', role: 'front-end', knowledge: 'own', loop: 'v0.0.40', state: 'ok', detail: null },
-      { repo: 'acme/legacy', role: 'legacy', knowledge: 'none', loop: 'not installed', state: 'ok', detail: null },
-      { repo: 'acme/typo', role: 'front-end', knowledge: 'own', loop: '—', state: 'unreachable', detail: 'gh: Not Found (HTTP 404)' },
+      { repo: 'acme/front', role: 'web', knowledge: 'own', loop: 'v0.0.40', state: 'ok', detail: null },
+      { repo: 'acme/legacy', role: 'doc', knowledge: 'none', loop: 'not installed', state: 'ok', detail: null },
+      { repo: 'acme/typo', role: 'web', knowledge: 'own', loop: '—', state: 'unreachable', detail: 'gh: Not Found (HTTP 404)' },
     ]);
     expect(code).toBe(1);
   });
 
   it('reads an imported target stale when its head changed an evidence file of its copy', async () => {
     const config = `${PLAN}    - repo: acme/back
-      role: back-end
+      role: api
       knowledge: imported
       readAt: ${SHA}
 `;
@@ -126,14 +135,14 @@ describe('omni targets', () => {
     const out: string[] = [];
     const code = await main(['targets', '--json'], { cwd: root, exec: faked, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
     expect(dig(JSON.parse(out.join('')), 2)).toEqual({
-      repo: 'acme/back', role: 'back-end', knowledge: 'imported', loop: 'not installed', state: 'stale', detail: '3 commits, 1 evidence file changed',
+      repo: 'acme/back', role: 'api', knowledge: 'imported', loop: 'not installed', state: 'stale', detail: '3 commits, 1 evidence file changed',
     });
     expect(code).toBe(1);
   });
 
   it("reads an imported target stale, naming the flow, when its committed flow is not its copy's (PRD 1089, s6)", async () => {
     const config = `${PLAN}    - repo: acme/back
-      role: back-end
+      role: api
       knowledge: imported
       readAt: ${SHA}
 `;
@@ -149,7 +158,7 @@ describe('omni targets', () => {
     const out: string[] = [];
     const code = await main(['targets'], { cwd: root, exec: faked, env: {}, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } });
     expect(out.join('').split('\n')[3]).toMatch(
-      new RegExp(`^acme/back\\s+back-end\\s+imported\\s+installed\\s+stale \\(flow moved since read at ${SHA.slice(0, 7)}: its flow section differs from the copy\\)$`),
+      new RegExp(`^acme/back\\s+api\\s+imported\\s+installed\\s+stale \\(flow moved since read at ${SHA.slice(0, 7)}: its flow section differs from the copy\\)$`),
     );
     expect(code).toBe(1);
   });
@@ -183,14 +192,14 @@ describe('omni targets with plan.product (PRD 1364, s4)', () => {
   const LINKS = {
     product: { name: 'Mobile' },
     targets: [
-      { repo: 'acme/front', role: 'front-end', knowledge: 'own', readAt: null, readOnly: false, consumes: ['acme/legacy'] },
-      { repo: 'acme/legacy', role: 'legacy', knowledge: 'none', readAt: null, readOnly: true, consumes: [] },
+      { repo: 'acme/front', role: 'web', knowledge: 'own', readAt: null, readOnly: false, consumes: ['acme/legacy'] },
+      { repo: 'acme/legacy', role: 'doc', knowledge: 'none', readAt: null, readOnly: true, consumes: [] },
     ],
   };
   const TABLE = [
-    'repo         role       knowledge  loop           state',
-    'acme/front   front-end  own        v0.0.40        ok',
-    'acme/legacy  legacy     none       not installed  ok',
+    'repo         role  knowledge  loop           state',
+    'acme/front   web   own        v0.0.40        ok',
+    'acme/legacy  doc   none       not installed  ok',
   ];
   type Tokens = { access_token: string; refresh_token: string };
   const signedIn = () => ({ read: (host: string): Tokens | null => (host === HOST ? { access_token: 'a', refresh_token: 'r' } : null), write: () => {} });

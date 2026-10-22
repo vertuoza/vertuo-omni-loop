@@ -239,8 +239,10 @@ A slice no glob meets is not marked. With the flag off, or `design.paths` empty,
 never changes a slice's territory, blockers or wave, and `omni plan check` does not read it.
 
 **Law slices.** Only when `laws.source` is `knowledge`. Once the table is written, run
-`node .omni-loop/bin/omni.mjs kb laws --slice <n> <id>` for each slice. A slice that will change a
-locked law it prints (the law's text in its register, or the test its `Enforced by:` names, sits
+`node .omni-loop/bin/omni.mjs kb laws --slice <n> <id>` for each slice: it prints what applies to
+the slice's territory under **Applies here**, each line saying why, then what is global under
+**Global**, the Legal entries included, and counts the locked laws of other areas. A slice that will change a locked law it
+prints, in either group (the law's text in its register, or the test its `Enforced by:` names, sits
 in the territory) is marked on its done-when heading, after its id, with the law's id and the
 person the law line names:
 

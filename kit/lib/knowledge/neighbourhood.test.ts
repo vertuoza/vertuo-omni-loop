@@ -5,8 +5,13 @@ import { describe, expect, it } from 'vitest';
 import type { Screen } from '../design/screens.ts';
 import type { DecisionRecord } from '../playbook/decisions.ts';
 import { PrdNumberSchema } from '../ids.ts';
+import { ConfigSchema } from '../config.ts';
+import { RepositoryGraphSchema } from './graph-schema.ts';
+import { knowledgeMap } from './disclose-lookup.ts';
 import {
   buildNeighbourhood,
+  buildRepositoryGraph,
+  startFromFiles,
   neighbourhoodText,
   NEIGHBOURHOOD_SHAPE,
   NEIGHBOURHOOD_VERSION,
@@ -477,5 +482,67 @@ describe('the depth of the walk (PRD 1797, s3)', () => {
     expect(lines.filter((line) => /^\s+\S+\s+\S+\s+BR-PRODUCT-3 /.test(line))).toHaveLength(1);
     expect(lines.find((line) => line.includes('test:kit/two.test.ts'))).toMatch(/^ {4}down/);
     expect(lines.find((line) => /^\s+\S+\s+\S+\s+BR-PRODUCT-5 /.test(line))).toMatch(/^ {6}side/);
+  });
+});
+
+describe('the domain and layer edges (PRD 2346 s4)', () => {
+  const tagged = (id: string, fields: Record<string, string> = {}) =>
+    `# Rules\n\n${entry(id, `${id} holds.`, { Source: 'README.md', 'Enforced by': 'unenforced', ...fields })}`;
+  const TAGGED = entriesOf({
+    [`${K}/domains/ask/rules.md`]: tagged('BR-ASK-1', { Layers: 'db' }),
+    [`${K}/domains/quote/rules.md`]: tagged('BR-QUOTE-1'),
+    [`${K}/product/rules.md`]: tagged('BR-PRODUCT-9', { Layers: 'database, cli' }),
+  });
+  const record = (number: string, fields: Partial<DecisionRecord> = {}): DecisionRecord => ({ number, file: `${K}/adr/${number}-x.md`, title: `ADR-${number} — Record ${number}`, prd: null, ...fields });
+  const TAGS = [record('0001', { layers: ['db'] }), record('0002', { domain: 'ask' }), record('0003', { layers: ['cli'], domain: 'quote' }), record('0004')];
+  const edgesOf = (id: string, kind: string, records = TAGS) =>
+    buildNeighbourhood({ entries: TAGGED, records, repo: null, product: NONE }, { start: [id] }).edges.filter((edge) => edge.kind === kind).map(({ to }) => to);
+
+  it('links a rule to the records tagged with its layers, an old layer word read as its layer', () => {
+    expect(edgesOf('BR-ASK-1', 'layer')).toEqual(['ADR-0001']);
+    expect(edgesOf('BR-PRODUCT-9', 'layer')).toEqual(['ADR-0001', 'ADR-0003']);
+  });
+
+  it('links a rule to the records tagged with its domain folder, and to nothing it shares no tag with', () => {
+    expect(edgesOf('BR-ASK-1', 'domain')).toEqual(['ADR-0002']);
+    expect(edgesOf('BR-QUOTE-1', 'domain')).toEqual(['ADR-0003']);
+    expect(edgesOf('BR-QUOTE-1', 'layer')).toEqual([]);
+    expect(edgesOf('BR-ASK-1', 'domain', [record('0004')])).toEqual([]);
+  });
+
+  it('keeps the same-prd edges beside them', () => {
+    const entries = entriesOf({ [`${K}/product/rules.md`]: `# Rules\n\n${entry('BR-PRODUCT-1', 'Held.', { Source: 'PRD #3', 'Enforced by': 'unenforced', Layers: 'db' })}` });
+    const built = buildNeighbourhood({ entries, records: [record('0001', { prd: prd(3), layers: ['db'] })], repo: null, product: NONE }, { start: ['BR-PRODUCT-1'] });
+    expect(built.edges.map(({ kind }) => kind).sort()).toEqual(['layer', 'same-prd']);
+    expect(built.nodes.filter(({ kind }) => kind === 'adr')).toHaveLength(1);
+  });
+
+  it('links the entries a file lookup starts from to the records of the files own domain and layers', () => {
+    const places = [{ domain: null, layers: ['db'] }];
+    const built = buildNeighbourhood({ entries: TAGGED, records: TAGS, repo: null, product: NONE, places }, { start: ['BR-QUOTE-1'] });
+    expect(built.edges.filter(({ kind }) => kind === 'layer').map(({ from, to }) => `${from} ${to}`)).toEqual(['BR-QUOTE-1 ADR-0001']);
+    const other = buildNeighbourhood({ entries: TAGGED, records: TAGS, repo: null, product: NONE, places: [{ domain: 'ask', layers: [] }] }, { start: ['BR-QUOTE-1'] });
+    expect(other.edges.filter(({ kind }) => kind === 'domain').map(({ to }) => to)).toEqual(['ADR-0002', 'ADR-0003']);
+  });
+
+  it('puts the records in the whole repository graph, which validates', () => {
+    const graph = buildRepositoryGraph({ entries: TAGGED, records: TAGS });
+    expect(graph.edges.filter(({ kind }) => kind === 'layer' || kind === 'domain').map(({ from, to, kind }) => `${kind} ${from} ${to}`).sort()).toEqual([
+      'domain BR-ASK-1 ADR-0002',
+      'domain BR-QUOTE-1 ADR-0003',
+      'layer BR-ASK-1 ADR-0001',
+      'layer BR-PRODUCT-9 ADR-0001',
+      'layer BR-PRODUCT-9 ADR-0003',
+    ]);
+    expect(RepositoryGraphSchema.safeParse(graph).success).toBe(true);
+  });
+
+  it('starts a files walk from the entries the lookup applies, and from the records alone when none applies', () => {
+    const map = knowledgeMap(ConfigSchema.parse({ kit: 1, layers: { db: ['^supabase/'] }, flow: { areas: { ask: { paths: ['^ask/'], knowledge: 'ask' } } } }));
+    const found = startFromFiles({ entries: TAGGED, records: TAGS }, map, ['supabase/m.sql']);
+    expect(found).toEqual({ ids: ['BR-PRODUCT-9', 'BR-ASK-1'], records: ['ADR-0001'], start: ['BR-PRODUCT-9', 'BR-ASK-1'], places: [{ domain: null, layers: ['db'] }] });
+    expect(startFromFiles({ entries: [], records: TAGS }, map, ['supabase/m.sql'])).toMatchObject({ ids: [], records: ['ADR-0001'], start: ['ADR-0001'] });
+    const only = buildNeighbourhood({ entries: [], records: TAGS, repo: null, product: NONE }, { start: ['ADR-0001'] });
+    expect(only.start).toEqual(['ADR-0001']);
   });
 });

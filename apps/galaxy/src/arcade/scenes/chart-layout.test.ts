@@ -214,9 +214,16 @@ function sunsOutside(layout: ChartLayout, grid: Grid): string[] {
   return layout.suns.filter((s) => s.x - s.r < band.x || s.x + s.r > band.x + band.w || s.y - s.r < band.y || s.y + s.r > band.y + band.h).map((s) => s.name);
 }
 
+/** This repository's product domain alone: one domain, whatever domain folders the repository grows (PRD 2346). */
+const PRODUCT_ONLY: KnowledgeGraph = {
+  ...REPO,
+  domains: REPO.domains.filter((d) => d.name === 'product'),
+  entries: REPO.entries.filter((e) => e.domain === 'product'),
+};
+
 describe('the chart: a sun per domain', () => {
-  it.each(GRIDS)('puts this repository\'s one domain in the middle of the %s grid, at the largest size', (_, grid) => {
-    const layout = layoutChart(REPO, grid);
+  it.each(GRIDS)('puts this repository\'s product domain, alone, in the middle of the %s grid, at the largest size', (_, grid) => {
+    const layout = layoutChart(PRODUCT_ONLY, grid);
     const { band, label, sun } = CHART_LINES[grid.name];
     expect(layout.suns).toHaveLength(1);
     expect(sure(layout.suns[0], 'layout.suns[0]').name).toBe('product');
