@@ -107,4 +107,4 @@ health · Released · Could not release this job's claims · Need human · Stopp
 /omni:brainstorm, PRD 2255: .omni-loop/delivery/shipped/2255-need-human/before-after.html
 /omni:brainstorm, PRD 2270: .omni-loop/delivery/shipped/2270-fix-when-answered/before-after.html
 /omni:brainstorm, PRD 2338: .omni-loop/delivery/shipped/2338-retro-apply/before-after.html
-/omni:brainstorm, PRD 2375: .omni-loop/delivery/inbox/2375-job-stopped-mid-way/before-after.html
+/omni:brainstorm, PRD 2375: .omni-loop/delivery/shipped/2375-job-stopped-mid-way/before-after.html
