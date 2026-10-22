@@ -35,7 +35,11 @@ th, td { text-align: left; vertical-align: top; }
 .wb-tabs a { display: inline-block; padding: 6px 12px; text-decoration: none; color: var(--ask-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .wb-tabs a[aria-current="page"] { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); font-weight: 700; }
 .wb-count { color: var(--ask-muted); font-size: 13px; }
-.wb-stale { margin: 4px 0 8px; font-size: 13px; color: var(--ask-muted); }
+.wb-stale { margin: 4px 0 8px; font-size: 14px; color: var(--ask-muted); }
+.wb-stale > summary { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px; border: 1px solid var(--ask-line-strong); border-radius: 999px; cursor: pointer; }
+.wb-stale > summary::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--ask-plasma); }
+.wb-stale ul { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.wb-stale li { padding: 2px 10px; border: 1px solid var(--ask-line); border-radius: 999px; font-size: 13px; }
 .mock table { margin: 0; }
 .mock th, .mock td { border-bottom: 1px solid var(--ask-line); padding: 7px 8px; }
 .mock th { color: var(--ask-muted); font: 700 11px/1.3 var(--ask-body); letter-spacing: .06em; }
@@ -60,7 +64,7 @@ th, td { text-align: left; vertical-align: top; }
 <li><a href="?tab=mine">My PRDs</a></li>
 <li><a href="?tab=reviews" data-primary>My reviews · 3</a></li>
 </ul>
-<p class="wb-stale">acme/widgets last synced 42 min ago.</p>
+<details class="wb-stale"><summary title="Repositories last synced more than 30 minutes ago: their waits may be out of date">1 out of date</summary><ul><li>acme/widgets</li></ul></details>
 <table>
 <thead><tr><th>PRD</th><th>Waits on</th><th>Whose turn</th><th>For</th></tr></thead>
 <tbody>
