@@ -395,6 +395,52 @@ describe('a job\'s questions (PRD 2255)', () => {
     expect(await repository.dismiss(JOB, MO)).toEqual({ ok: false, refusal });
   });
 
+  describe('closed by an API key (PRD 2425 s6)', () => {
+    const KEY = '00000000-0000-4000-8000-0000018302a1';
+
+    it('answers through runner_job_answer() with the key and whom it acted for, and no person', async () => {
+      const resume = jobRow({ line: `/omni:bug-fix #314 --answers ${JOB}`, sent_by: MO, sent_by_key: KEY, continues: JOB, acting_for: 'Jane D.' });
+      const { db, lines } = fakeDb([{ data: resume, error: null }, { data: [resume], error: null }]);
+      const repository = runnersRepository(db);
+      expect(await repository.answerByKey(JOB, answers, KEY, 'Jane D.')).toEqual({ ok: true, value: resume });
+      expect(await repository.answerByKey(JOB, answers, KEY, null)).toEqual({ ok: true, value: resume });
+      expect(lines[0]).toBe(`rpc("runner_job_answer",${JSON.stringify({ p_job: JOB, p_answers: answers, p_key: KEY, p_acting_for: 'Jane D.' })})`);
+      expect(lines[1]).toBe(`rpc("runner_job_answer",${JSON.stringify({ p_job: JOB, p_answers: answers, p_key: KEY, p_acting_for: null })})`);
+    });
+
+    it('dismisses through runner_job_dismiss() with the key and whom it acted for, and no person', async () => {
+      const closed = questionsRow({ job_id: JOB, closed_by_key: KEY, closed_for: 'Jane D.', closed_at: '2026-10-13T12:05:00.000Z' });
+      const { db, lines } = fakeDb([{ data: closed, error: null }]);
+      expect(await runnersRepository(db).dismissByKey(JOB, KEY, 'Jane D.')).toEqual({ ok: true, value: closed });
+      expect(lines).toEqual([`rpc("runner_job_dismiss",${JSON.stringify({ p_job: JOB, p_key: KEY, p_acting_for: 'Jane D.' })})`]);
+    });
+
+    it.each([
+      ['42501', 'an API key closes only the questions of a job an API key sent'],
+      ['42501', 'this API key does not act on this job'],
+    ] as const)('reads the database\'s refusal %s (%s) as the key being refused, for an answer and for a dismissal', async (code, message) => {
+      const { db } = fakeDb([{ data: null, error: { code, message } }, { data: null, error: { code, message } }]);
+      const repository = runnersRepository(db);
+      expect(await repository.answerByKey(JOB, answers, KEY, null)).toEqual({ ok: false, refusal: 'key' });
+      expect(await repository.dismissByKey(JOB, KEY, null)).toEqual({ ok: false, refusal: 'key' });
+    });
+
+    it('reads the same refusals of a closed round, or none, as a person meets them', async () => {
+      const { db } = fakeDb([
+        { data: null, error: { code: '55000', message: 'these questions are already closed' } },
+        { data: null, error: { code: 'P0002', message: 'no questions on this job' } },
+      ]);
+      const repository = runnersRepository(db);
+      expect(await repository.answerByKey(JOB, answers, KEY, null)).toEqual({ ok: false, refusal: 'closed' });
+      expect(await repository.dismissByKey(JOB, KEY, null)).toEqual({ ok: false, refusal: 'none' });
+    });
+
+    it('throws on any other failure, naming the function', async () => {
+      const { db } = fakeDb([{ data: null, error: { code: '42501', message: 'permission denied for function runner_job_answer' } }]);
+      await expect(runnersRepository(db).answerByKey(JOB, answers, KEY, null)).rejects.toThrow('runner_job_answer(): permission denied for function runner_job_answer');
+    });
+  });
+
   it('throws on any other failure, naming the function: a permission denied is not a stranger', async () => {
     const { db } = fakeDb([
       { data: null, error: { code: '42501', message: 'permission denied for function runner_job_answer' } },

@@ -60,7 +60,7 @@ import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS,
   type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
-  type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyJob, type KeySend, type KitRunner, type PrdJob, type RunnerState, type SendRequest, type Target,
+  type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
 import { shouldContinue, unansweredWhy } from './continue';
@@ -338,6 +338,12 @@ const NOT_WAITING = 'This job is not waiting for an answer.';
 const NO_QUESTION = 'This job asked no question.';
 const EACH_ANSWERED = 'Answer each question once, and only the ones asked.';
 
+/** Whether the answers are one to each question asked, and nothing else. */
+const answersEach = (row: Pick<QuestionsRow, 'questions'>, answers: Record<string, string>): boolean => {
+  const asked = row.questions.map((question) => question.question);
+  return Object.keys(answers).length === asked.length && asked.every((text) => Object.hasOwn(answers, text));
+};
+
 export function runnersService(store: RunnersRepository, clock: Clock) {
   const iso = () => clock.now().toISOString();
   const markLost = () => store.markLost(new Date(clock.now().getTime() - LOST_AFTER_MS).toISOString());
@@ -453,10 +459,22 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     return found.sent_by === caller || member.owner ? ok(null) : no('forbidden', 'Only its sender or a workspace owner cancels a job.');
   }
 
-  /** Why closed questions refuse another answer, in words: who answered, or dismissed, them. */
+  /** Why closed questions refuse another answer, in words: who answered, or dismissed, them: a person by their login, an API
+   * key by its name (PRD 2425), the words the Runners page's drawer reads. */
   async function closedWords(row: QuestionsRow): Promise<string> {
+    const verb = row.answers === null ? 'Dismissed' : 'Already answered';
+    if (row.closed_by_key) return `${verb} by API key ${(await store.keyNames(row.workspace_id, [row.closed_by_key])).get(row.closed_by_key) ?? 'unknown key'}`;
     const login = row.closed_by === null ? undefined : (await store.logins(row.workspace_id, [row.closed_by])).get(row.closed_by);
-    return `${row.answers === null ? 'Dismissed' : 'Already answered'} by ${login === undefined ? 'someone' : `@${login}`}`;
+    return `${verb} by ${login === undefined ? 'someone' : `@${login}`}`;
+  }
+
+  /** What the page and the routes read of a round: who closed it by login or key name, and whom a key acted for. */
+  async function viewOf(row: QuestionsRow): Promise<JobQuestions> {
+    const [logins, keys] = await Promise.all([
+      store.logins(row.workspace_id, row.closed_by === null ? [] : [row.closed_by]),
+      store.keyNames(row.workspace_id, row.closed_by_key ? [row.closed_by_key] : []),
+    ]);
+    return questionsView(row, logins, keys);
   }
 
   /** A job's questions as a member of its workspace sees them: the job, its row and the member. Why not,
@@ -473,9 +491,50 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
    * the job ended with them open. Why not otherwise, in words. */
   async function waitingFor(caller: string, jobId: string): Promise<Served<{ job: JobRow; row: QuestionsRow; member: Sender }>> {
     const found = await questionsFor(caller, jobId);
-    if (!found.ok) return found;
-    if (found.value.row.closed_at !== null) return no('conflict', await closedWords(found.value.row));
-    return found.value.job.outcome === 'human' ? found : no('conflict', NOT_WAITING);
+    return found.ok ? stillWaiting(found.value) : found;
+  }
+
+  /** The questions as they are, when they are still open and the job ended with them open; why not otherwise, in words. */
+  async function stillWaiting<T extends { job: JobRow; row: QuestionsRow }>(found: T): Promise<Served<T>> {
+    if (found.row.closed_at !== null) return no('conflict', await closedWords(found.row));
+    return found.job.outcome === 'human' ? ok(found) : no('conflict', NOT_WAITING);
+  }
+
+  /** The questions of a job a key of the workspace sent (PRD 2425 s6): the job and its row. A job nobody sees reads the same
+   * for a person's, another workspace's and one that does not exist, so a key learns nothing of them; one that asked none says so. */
+  async function questionsOfKeyJob(workspaceId: string, jobId: string): Promise<Served<{ job: JobRow; row: QuestionsRow }>> {
+    const job = await store.job(jobId);
+    if (job?.workspace_id !== workspaceId || job.sent_by_key === null) return no('missing', 'No such job.');
+    const row = await store.questionsOf(jobId);
+    return row ? ok({ job, row }) : no('missing', NO_QUESTION);
+  }
+
+  /** The questions of a job a key sent when they are still open and the job ended with them open: what a key may close. */
+  async function stillWaitingOnKey(workspaceId: string, jobId: string): Promise<Served<{ job: JobRow; row: QuestionsRow }>> {
+    const found = await questionsOfKeyJob(workspaceId, jobId);
+    return found.ok ? stillWaiting(found.value) : found;
+  }
+
+  /** The resume of a key's job is queued as that job's sender, the key's maker, as Send checks them (PRD 2425 s6): nothing
+   * when they are still a member and may still send to the job's target; why not otherwise. */
+  async function mayResume(job: JobRow): Promise<Served<null>> {
+    const placed = await memberOf(store, job.workspace_id, job.sent_by);
+    if (!placed) return no('forbidden', 'The person who made the API key that sent this job is no longer a member of this workspace.');
+    const target = await mayTarget(store, job.workspace_id, placed.sender, targetOf(job));
+    return target.ok ? ok(null) : target;
+  }
+
+  /** A job a key sent, as a key reads it (PRD 2425): its runner, the questions it asked, the job that carries it on and the key
+   * that cancelled it. */
+  async function readKeyJob(workspaceId: string, jobId: string): Promise<Served<KeyJob>> {
+    await markLost();
+    const job = await store.job(jobId);
+    if (job?.workspace_id !== workspaceId || job.sent_by_key === null) return no('missing', 'No such job.');
+    const [runner, questions, continuedBy, keys] = await Promise.all([
+      runnerNameOf(job), store.questionsOf(job.id), store.continuedBy(job.id),
+      store.keyNames(workspaceId, job.cancelled_by_key ? [job.cancelled_by_key] : []),
+    ]);
+    return ok(keyJobOf(job, { runner, questions, continuedBy, keys }));
   }
 
   /** The patch that ends a job from its runner's report: a job that ends with its questions still open reads
@@ -490,6 +549,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
   async function refused(refusal: QuestionsRefusal, jobId: string): Promise<Served<never>> {
     if (refusal === 'none') return no('missing', NO_QUESTION);
     if (refusal === 'stranger') return no('forbidden', 'You are not a member of this workspace.');
+    if (refusal === 'key') return no('forbidden', 'This API key does not act on this job.');
     if (refusal === 'mismatch') return no('malformed', EACH_ANSWERED);
     const row = await store.questionsOf(jobId);
     return no('conflict', row?.closed_at ? await closedWords(row) : NOT_WAITING);
@@ -599,16 +659,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
 
     /** A job a key of this workspace queued, as a key reads it, with what it did (PRD 2425): none for another
      * workspace's, or a person's. */
-    async keyJob(workspaceId: string, jobId: string): Promise<Served<KeyJob>> {
-      await markLost();
-      const job = await store.job(jobId);
-      if (job?.workspace_id !== workspaceId || job.sent_by_key === null) return no('missing', 'No such job.');
-      const [runner, questions, continuedBy, keys] = await Promise.all([
-        runnerNameOf(job), store.questionsOf(job.id), store.continuedBy(job.id),
-        store.keyNames(workspaceId, job.cancelled_by_key ? [job.cancelled_by_key] : []),
-      ]);
-      return ok(keyJobOf(job, { runner, questions, continuedBy, keys }));
-    },
+    keyJob: readKeyJob,
 
     /** Cancels a job: a queued or claimed one at once, a running one at its runner's next report. */
     async cancel(caller: string, jobId: string): Promise<Served<Job>> {
@@ -701,12 +752,15 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
     async questions(caller: string, jobId: string): Promise<Served<JobQuestions>> {
       const found = await questionsFor(caller, jobId);
       if (!found.ok) return found;
-      const { row } = found.value;
-      const [logins, keys] = await Promise.all([
-        store.logins(row.workspace_id, row.closed_by === null ? [] : [row.closed_by]),
-        store.keyNames(row.workspace_id, row.closed_by_key ? [row.closed_by_key] : []),
-      ]);
-      return ok(questionsView(row, logins, keys));
+      return ok(await viewOf(found.value.row));
+    },
+
+    /** The questions of a job a key of this workspace sent, as that key reads them (PRD 2425 s6): the lead and the questions,
+     * the state, the answers once given, and who closed them, a person by login or a key by name with whom it acted for. A
+     * person's job, another workspace's and one that asked none are none. */
+    async questionsByKey(workspaceId: string, jobId: string): Promise<Served<JobQuestions>> {
+      const found = await questionsOfKeyJob(workspaceId, jobId);
+      return found.ok ? ok(await viewOf(found.value.row)) : found;
     },
 
     /** The first member to answer a job's questions queues the run that resumes it, as themselves: one answer
@@ -716,8 +770,7 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       const waiting = await waitingFor(caller, jobId);
       if (!waiting.ok) return waiting;
       const { job, row, member } = waiting.value;
-      const asked = row.questions.map((question) => question.question);
-      if (Object.keys(request.answers).length !== asked.length || !asked.every((text) => Object.hasOwn(request.answers, text))) return no('malformed', EACH_ANSWERED);
+      if (!answersEach(row, request.answers)) return no('malformed', EACH_ANSWERED);
       const resumed = resumeOf(job.line, row.issue, jobId);
       if (!resumed.ok) return resumed;
       const placed = await placement(caller, job.repo, job.workspace_id);
@@ -726,7 +779,37 @@ export function runnersService(store: RunnersRepository, clock: Clock) {
       if (!target.ok) return target;
       const answered = await store.answer(jobId, request.answers, caller);
       if (!answered.ok) return refused(answered.refusal, jobId);
-      return ok(jobOf(answered.value, await store.logins(answered.value.workspace_id, [caller])));
+      // The resume of a key's job stays the key's and its maker's, whoever answered (PRD 2425): the reply names them.
+      const resume = answered.value;
+      return ok(jobOf(resume, await store.logins(resume.workspace_id, sendersOf([resume])), await keysOf(resume.workspace_id, [resume])));
+    },
+
+    /** A key answers the questions of a job a key of its workspace sent (PRD 2425 s6): one answer to each question and the line
+     * checked as for a person; the resume is queued as the job's key and maker, to its target, `continues` the job, and the
+     * round closes as the key, with whom it said it acted for, in one transaction (runner_job_answer()). Answers the resume job,
+     * as a key reads a job. The first close, a key's or a person's, wins. */
+    async answerByKey(key: KeyCloser, jobId: string, answers: Record<string, string>): Promise<Served<KeyJob>> {
+      const waiting = await stillWaitingOnKey(key.workspace, jobId);
+      if (!waiting.ok) return waiting;
+      const { job, row } = waiting.value;
+      if (!answersEach(row, answers)) return no('malformed', EACH_ANSWERED);
+      const resumed = resumeOf(job.line, row.issue, jobId);
+      if (!resumed.ok) return resumed;
+      const allowed = await mayResume(job);
+      if (!allowed.ok) return allowed;
+      const answered = await store.answerByKey(jobId, answers, key.id, key.actingFor);
+      if (!answered.ok) return refused(answered.refusal, jobId);
+      // A job just queued asked nothing, is carried on by none and was cancelled by nobody: nothing else to read.
+      return ok(keyJobOf(answered.value, { runner: null, questions: null, continuedBy: null, keys: new Map() }));
+    },
+
+    /** A key closes the questions of a job a key of its workspace sent with no answer and no job queued (PRD 2425 s6), as the
+     * key, with whom it said it acted for. Answers the job as a key reads it, its questions dismissed. */
+    async dismissByKey(key: KeyCloser, jobId: string): Promise<Served<KeyJob>> {
+      const waiting = await stillWaitingOnKey(key.workspace, jobId);
+      if (!waiting.ok) return waiting;
+      const dismissed = await store.dismissByKey(jobId, key.id, key.actingFor);
+      return dismissed.ok ? readKeyJob(key.workspace, jobId) : refused(dismissed.refusal, jobId);
     },
 
     /** Any member closes a job's questions with no answers and no job queued: they leave the badge. */
