@@ -90,3 +90,88 @@ tiers:
     deep: { model: opus, effort: high }
     build: { model: sonnet, effort: medium }
     light: { model: haiku, effort: low }
+# The knowledge map (PRD 2346): `omni kb laws --paths` lists what applies to a file first, then what is
+# global. `layers` maps each canonical layer (docs/guide/knowledge-map.md) to the paths that hold it; a
+# file may sit in several. Each flow area names the domain folder (`.omni-loop/knowledge/domains/`) whose
+# entries apply to its files; a file belongs to the first area that matches it. The areas carry no rule
+# and no hook, so planning and merging are unchanged. A pattern matching no tracked file turns
+# `omni check config` red.
+layers:
+  ui: ['^apps/galaxy/app/(?!api/)', '^apps/galaxy/src/.*\.tsx$', '^packages/design/', '^packages/galaxy/']
+  api: ['^apps/galaxy/app/api/', '^apps/galaxy/src/public-api/']
+  schema: ['^supabase/database\.types\.ts$']
+  db: ['^supabase/migrations/', '^supabase/checks/', '^supabase/seed\.sql$', '-sql\.test\.ts$']
+  auth: ['^apps/galaxy/app/auth/', '^apps/galaxy/src/ask/(auth|kit-token)', '^apps/galaxy/src/profile/terminal-tokens\.', '^apps/galaxy/src/agent-connect/tokens/', '^kit/bin/commands/signin\.ts$']
+  event: ['^apps/omni-app/src/webhook/', '^apps/(galaxy|omni-app)/src/server-event/']
+  cli: ['^kit/bin/', '^game/cli/']
+  job: ['^apps/omni-app/src/(functions|inngest-client)\.ts$', '^apps/galaxy/src/releases/sync']
+  infra: ['^apps/[^/]+/vercel\.json$', '^supabase/config\.toml$']
+  ci: ['^\.github/workflows/', '^\.githooks/', '^scripts/']
+flow:
+  areas:
+    access:
+      paths:
+        - '^apps/galaxy/src/agent-connect/'
+        - '^apps/galaxy/app/api/(agent-tokens|mcp)/'
+        - '^apps/galaxy/src/profile/terminal-tokens\.'
+        - '^apps/galaxy/src/ask/kit-token'
+        - '^apps/galaxy/src/data/link-github'
+        - '^apps/galaxy/app/auth/'
+        - '^apps/galaxy/src/env(\.client)?\.ts$'
+        - '^apps/galaxy/\.env\.example$'
+        - '^scripts/(public-env|env)-guard\.test\.ts$'
+      knowledge: access
+    push:
+      paths: ['^apps/galaxy/src/push/', '^apps/galaxy/app/api/push/']
+      knowledge: push
+    jev:
+      paths: ['^apps/galaxy/src/jev/', '^apps/galaxy/app/api/(jev|decide)/']
+      knowledge: jev
+    approvals:
+      paths:
+        - '^apps/galaxy/src/approvals?/'
+        - '^apps/galaxy/src/waiting/approvals\.'
+        - '^apps/galaxy/src/dossier/page/approval\.'
+        - '^apps/galaxy/app/api/approvals/'
+        - '^kit/lib/approval/'
+        - '^kit/lib/now/wait\.'
+        - '^kit/bin/commands/approval(-wait)?\.'
+        - '^supabase/checks/approval_'
+      knowledge: approvals
+    ask:
+      paths:
+        - '^apps/galaxy/src/ask/'
+        - '^apps/galaxy/app/ask/'
+        - '^apps/galaxy/app/api/ask/'
+        - '^kit/lib/ask/'
+        - '^kit/bin/commands/ask\.ts$'
+        - '^kit/bin/ask(-hook)?\.test\.ts$'
+        - '^kit/plugin/hooks/'
+      knowledge: ask
+    product-knowledge:
+      paths:
+        - '^apps/galaxy/src/product-knowledge/'
+        - '^apps/galaxy/src/knowledge-graph/'
+        - '^supabase/checks/(product_knowledge|knowledge_graphs)\.sql$'
+      knowledge: product-knowledge
+    game:
+      paths:
+        - '^game/'
+        - '^apps/galaxy/src/arcade(-api)?/'
+        - '^apps/galaxy/app/api/arcade/'
+        - '^apps/galaxy/app/play/'
+        - '^apps/galaxy/src/fleets/'
+        - '^apps/galaxy/src/play-dock/'
+        - '^supabase/checks/game_'
+      knowledge: game
+    gate:
+      paths:
+        - '^kit/lib/outbox/'
+        - '^apps/omni-app/src/outbox-check/'
+        - '^kit/lib/flow/merge-gate\.'
+        - '^kit/bin/commands/item\.ts$'
+        - '^kit/bin/(item|law-demoted)\.test\.ts$'
+      knowledge: gate
+    install:
+      paths: ['^kit/lib/(init|agents|update)/', '^kit/bin/commands/(init|update)\.ts$', '^kit/bin/(init|update)\.test\.ts$']
+      knowledge: install
