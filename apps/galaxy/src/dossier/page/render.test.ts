@@ -405,8 +405,8 @@ describe('Delete', () => {
 });
 
 describe('the tabs', () => {
-  const tabsOf = (html: string) => [...html.matchAll(/<a class="dossier-tab( dossier-tab-empty)?" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>([^<]+)<\/small>)?(?:<span class="dossier-left">([^<]+)<\/span>)?<\/a>/g)]
-    .map((m) => [m[4], m[6] ? `${m[5]} · ${m[6]}` : m[5] ?? null, m[2]?.replaceAll('&amp;', '&'), Boolean(m[3]), ...(m[1] ? ['dimmed'] : [])]);
+  const tabsOf = (html: string) => [...html.matchAll(/<a class="dossier-tab( dossier-tab-empty)?"( aria-current="page")? href="([^"]+)">([^<]+)(?:<small>([^<]+)<\/small>)?(?:<span class="dossier-left">([^<]+)<\/span>)?<\/a>/g)]
+    .map((m) => [m[4], m[6] ? `${m[5]} · ${m[6]}` : m[5] ?? null, m[3]?.replaceAll('&amp;', '&'), Boolean(m[2]), ...(m[1] ? ['dimmed'] : [])]);
 
   it('reads Questions with answered out of asked, then Before/after, Spec and Plan with their latest versions, opening on Questions', () => {
     expect(tabsOf(page())).toEqual([
@@ -488,7 +488,7 @@ describe('the Outbox tab (PRD 426)', () => {
 
   it('is dimmed and says why while empty, and says when GitHub did not answer', () => {
     const empty = outbox(outboxSummary(null));
-    expect(empty).toContain('<a class="dossier-tab dossier-tab-empty" href="/prd/00000000-0000-4000-8000-0000000000d1?tab=outbox" aria-current="page">Outbox</a>');
+    expect(empty).toContain('<a class="dossier-tab dossier-tab-empty" aria-current="page" href="/prd/00000000-0000-4000-8000-0000000000d1?tab=outbox">Outbox</a>');
     expect(empty).toContain('<p class="dossier-empty">No decision yet: the outbox fills while the PRD is built.</p>');
     for (const html of [outbox(null), outbox(outboxSummary(UNREAD))]) {
       expect(html).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
@@ -514,7 +514,7 @@ describe('the Retro tab (PRD 426, s3)', () => {
     expect(html).toContain(`<a class="ask-button" href="${RETRO_URL}" target="_blank" rel="noopener noreferrer">Open the retro PR</a>`);
     expect(html).toContain('<article class="dossier-md"><h1>How PRD 216 went</h1>');
     expect(html).not.toContain('<script>');
-    expect(html).toContain(`<a class="dossier-tab" href="/prd/${ID}?tab=retro" aria-current="page">Retro<small>open PR</small></a>`);
+    expect(html).toContain(`<a class="dossier-tab" aria-current="page" href="/prd/${ID}?tab=retro">Retro<small>open PR</small></a>`);
     expect(html.indexOf('>Outbox')).toBeLessThan(html.indexOf('>Retro<'));
   });
 
@@ -524,7 +524,7 @@ describe('the Retro tab (PRD 426, s3)', () => {
 
   it('is dimmed and says why while there is no retro, and says when GitHub did not answer', () => {
     const empty = retro(retroSummary(null, null));
-    expect(empty).toContain(`<a class="dossier-tab dossier-tab-empty" href="/prd/${ID}?tab=retro" aria-current="page">Retro</a>`);
+    expect(empty).toContain(`<a class="dossier-tab dossier-tab-empty" aria-current="page" href="/prd/${ID}?tab=retro">Retro</a>`);
     expect(empty).toContain('<p class="dossier-empty">The retro is written when the feature PR merges.</p>');
     expect(empty).not.toContain('Open the retro PR');
     for (const html of [retro(null), retro(retroSummary(pr('open'), UNREAD))]) {
