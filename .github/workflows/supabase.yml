@@ -38,7 +38,7 @@ jobs:
       - run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }  # runs the scripts' TypeScript natively (Node >= 22.18)
+        with: { node-version: 24, cache: pnpm }  # runs the scripts' TypeScript natively (Node >= 22.18)
       - name: Every new migration is dated after the newest on main
         # `supabase db push` refuses a migration dated before the newest one production applied (PRD
         # 1364, 2026-10-11): re-date it after the one this names. main is read as it is now, not as the
@@ -364,6 +364,11 @@ jobs:
         # workspace, answers that do not match the questions and a job not waiting are refused and change
         # nothing; a refused queue stores nothing; a dismissal queues no job (PRD 2255).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_job_questions.sql
+      - name: Who sent a runner job
+        # A job has exactly one sender, a person or the Omni app: both and neither are refused, no app but
+        # omni-app is accepted, members of the workspace read an app-sent job, another workspace reads
+        # nothing, and nobody signed in writes one (PRD 2338).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_job_sender.sql
       - name: A runner's health and its samples
         # Members read their workspace's samples and runners' last health, nobody else does, only the
         # service role writes; a sample is one per runner and instant, a figure out of range is refused,

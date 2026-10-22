@@ -4,8 +4,8 @@ import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, FixWithAnswersButton, FleetPicker, Refresh, SendAgainButton } from './actions';
 import {
-  afterAnswersWords, answeredOf, canAnswer, canCancel, canSendAgain, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
-  type Answered, type Fleet, type PrdTitles, type ReleaseNote, type RunnersPageView,
+  afterAnswersWords, answeredOf, canAnswer, canCancel, canSendAgain, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  type Answered, type Fleet, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
 } from './model';
 import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
 import { listedAnswer } from './need-human';
@@ -142,10 +142,11 @@ function StatusWords({ job, now, answered }: { job: Job; now: Date; answered: An
   return <span className={`runners-status is-${answered?.tone ?? statusTone(job.status, job.outcome)}${canAnswer(job) ? ' is-human' : ''}`}>{words}</span>;
 }
 
-function JobRow({ job, board, fleets, prds, now, primary, answeredIds }: { job: Job; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; now: Date; primary: boolean; answeredIds: readonly string[] }) {
+function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }: { job: Job; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; primary: boolean; answeredIds: readonly string[] }) {
   const waiting = waitingWords(job, board.runners);
   const tokens = jobTokensWords(job);
   const prd = prdLineOf(job, prds);
+  const retro = retroLineOf(job, retros);
   const answered = answeredOf(job, board.jobs, answeredIds);
   const after = afterAnswersWords(job);
   return (
@@ -155,7 +156,7 @@ function JobRow({ job, board, fleets, prds, now, primary, answeredIds }: { job: 
         {prd !== null && <span className="runners-prd"><a href={prd.href}>PRD {prd.number}</a><span className="runners-muted" data-content> · {prd.title}</span></span>}
       </span>
       <span className="runners-muted" data-content title={job.repo}>{repoName(job.repo)}</span>
-      <span data-content>{senderWords(job)}{madeByWords(job) !== null && <small className="runners-muted runners-made-by"> {madeByWords(job)}</small>}</span>
+      <span data-content>{senderWords(job)}{madeByWords(job) !== null && <small className="runners-muted runners-made-by"> {madeByWords(job)}</small>}{retro !== null && <small className="runners-muted runners-made-by"> <a href={retro.href}>{retro.words}</a></small>}</span>
       <span data-content>{whereWords(job, board.runners, fleets)}</span>
       <span>
         <StatusWords job={job} now={now} answered={answered} />
@@ -169,13 +170,13 @@ function JobRow({ job, board, fleets, prds, now, primary, answeredIds }: { job: 
   );
 }
 
-function Jobs({ board, fleets, prds, now, answered }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; now: Date; answered: readonly string[] }) {
+function Jobs({ board, fleets, prds, retros, now, answered }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[] }) {
   if (board.jobs.length === 0) return <p className="runners-muted">No job yet.</p>;
   const primary = board.jobs.find(canSendAgain)?.id ?? answered[0] ?? null;
   return (
     <div className="runners-table runners-jobs">
       <div className="runners-row runners-head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span /></div>
-      {board.jobs.map((job) => <JobRow key={job.id} job={job} board={board} fleets={fleets} prds={prds} now={now} primary={job.id === primary} answeredIds={answered} />)}
+      {board.jobs.map((job) => <JobRow key={job.id} job={job} board={board} fleets={fleets} prds={prds} retros={retros} now={now} primary={job.id === primary} answeredIds={answered} />)}
     </div>
   );
 }
@@ -190,7 +191,7 @@ function Start() {
   );
 }
 
-function Board({ board, fleets, prds, now, answered }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; now: Date; answered: readonly string[] }) {
+function Board({ board, fleets, prds, retros, now, answered }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[] }) {
   return (
     <div className="dash runners" data-screen="runners">
       <h1 className="dash-name">Runners</h1>
@@ -205,7 +206,7 @@ function Board({ board, fleets, prds, now, answered }: { board: Board; fleets: r
           </section>
           <section className="runners-section">
             <h2>Jobs</h2>
-            <Jobs board={board} fleets={fleets} prds={prds} now={now} answered={answered} />
+            <Jobs board={board} fleets={fleets} prds={prds} retros={retros} now={now} answered={answered} />
           </section>
         </>
       )}
@@ -229,7 +230,7 @@ export function RunnersPage({ view, supabase, signinError, terminal = null, answ
   return (
     <TerminalProvider initial={terminalOf(asked === null ? terminal : null)} jobs={jobs}>
       <NeedHumanProvider initial={asked} jobs={needJobs} demo={view.demoQuestions ?? null}>
-        <Board board={view.board} fleets={view.fleets} prds={view.prds} now={new Date(view.now)} answered={view.answered} />
+        <Board board={view.board} fleets={view.fleets} prds={view.prds} retros={view.retros ?? {}} now={new Date(view.now)} answered={view.answered} />
       </NeedHumanProvider>
     </TerminalProvider>
   );

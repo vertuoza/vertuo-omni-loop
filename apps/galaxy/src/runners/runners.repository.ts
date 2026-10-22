@@ -39,7 +39,9 @@ const JobRow = z.object({
   repo: z.string(),
   to_runner: z.string().nullable(),
   to_fleet: z.string().nullable(),
-  sent_by: z.string(),
+  /** Null for a job the Omni app sent (PRD 2338): then sent_by_app names the app. */
+  sent_by: z.string().nullable(),
+  sent_by_app: z.enum(['omni-app']).nullable(),
   sent_by_key: z.string().nullable(),
   status: z.enum(['queued', 'claimed', 'running', 'done', 'failed', 'cancelled']),
   runner_id: z.string().nullable(),
@@ -67,7 +69,7 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health';
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, continues, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, released, release_error, outcome, continues, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */

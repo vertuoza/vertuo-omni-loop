@@ -55,6 +55,8 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
     <runner> paused (<reason>)`, or `Waiting: every runner paused (<reason>)` (PRD 2102).
   - A job an API key sent shows `API key <name>` as its sender, with `made by @<login>` under it
     (PRD 2022).
+  - A job the Omni app sent, which no person asked for, shows `Omni app` as its sender, with
+    `retro of PRD <n>` under it, linked to the retro pull request (PRD 2338).
 
 ## States
 
@@ -76,7 +78,7 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 Runners · Runner · State · Online · Busy ·
 Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Repository · Sent by · Where ·
 Any runner · Status · Queued · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
-Cancel · Send again · Terminal · No job yet · API key · made by · Paused · CPU · load · Memory ·
+Cancel · Send again · Terminal · No job yet · API key · made by · Omni app · retro of PRD · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
 health · Released · Could not release this job's claims · Need human.
 
@@ -103,3 +105,4 @@ health · Released · Could not release this job's claims · Need human.
 /omni:brainstorm, PRD 2251: .omni-loop/delivery/shipped/2251-runner-follow/before-after.html
 /omni:brainstorm, PRD 2255: .omni-loop/delivery/shipped/2255-need-human/before-after.html
 /omni:brainstorm, PRD 2270: .omni-loop/delivery/shipped/2270-fix-when-answered/before-after.html
+/omni:brainstorm, PRD 2338: .omni-loop/delivery/shipped/2338-retro-apply/before-after.html

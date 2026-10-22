@@ -27,7 +27,7 @@ import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
-export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove'] as const;
+export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply'] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
 /** The longest line a runner runs, skill included: the kit's own `LINE_MAX`, which `omni runner` checks
@@ -289,8 +289,11 @@ const JobSchema = z.object({
   repo: RepoSchema,
   toRunner: IdSchema.nullable(),
   toFleet: FleetSchema.nullable(),
-  sentBy: IdSchema,
+  /** The person who sent it (or made the key that did); null for a job the Omni app sent (PRD 2338). */
+  sentBy: IdSchema.nullable(),
   sentByLogin: z.string().nullable(),
+  /** The app that sent it when no person did (PRD 2338): only `omni-app`; null for a person's or a key's job. */
+  sentByApp: z.enum(['omni-app']).nullable().optional(),
   /** The name of the API key that sent it (PRD 2022), or null for a person's; sentBy is then the key's maker. */
   sentByKey: z.string().nullable(),
   status: z.enum(JOB_STATUSES),

@@ -726,6 +726,7 @@ In the arcade games, an endless mode never becomes impossible; every wave a play
 
 Why: A run that grows unbeatable ends unfairly, and a ceiling is the only way a check can prove every wave stays passable.
 Source: .omni-loop/delivery/shipped/1633-omni-duet/outbox/settled.md, entry s4-02-endless-waves-from-chapter-four-rows, PRD #1633
+Decided: @pierrederval, 2026-10-21
 Merged: @martl-vertuoza, 2026-10-11, PR #1636
 
 ## P-PRODUCT-87
@@ -734,6 +735,7 @@ An approval request keeps waiting on the person asked until the PRD is actually 
 
 Why: A request that vanished on a timer would silently drop work someone is still waiting on, and a missing opener should never block asking.
 Source: .omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md, entry s2-03-who-the-author-is-and-when-a-request-stops-waiting, PRD #1322
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-09, PR #1324
 
 ## P-PRODUCT-88
@@ -742,6 +744,7 @@ When a person turns phone alerts off, the choice holds for the person, never for
 
 Why: Someone who silences alerts expects silence, not alerts arriving on another device they forgot was subscribed.
 Source: .omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md, entry s9-02-phone-alerts-off-is-per-person, PRD #1322
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-09, PR #1324
 
 ## P-PRODUCT-89
@@ -750,6 +753,7 @@ A waiting terminal never hears a cancelled approval as if it still held, and a r
 
 Why: The kit ends a wait on the first approval it hears, so a voided approval replayed would end a wait wrongly.
 Source: .omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md, entry s3-01-what-the-stream-replays-and-its-event-ids, PRD #1322
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-09, PR #1324
 
 ## P-PRODUCT-90
@@ -758,6 +762,7 @@ An approver is told once about each push that voids their approval, and that one
 
 Why: So the approver knows exactly what changed without being flooded with repeated alerts about a single push.
 Source: .omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md, entry s6-01-one-void-per-changed-file-one-alert-per-push, PRD #1322
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-09, PR #1324
 
 ## P-PRODUCT-91
@@ -766,6 +771,7 @@ An unreadable approver list never takes the approval action away from a member; 
 
 Why: A failed read should not block the people who are asked, and the server's check keeps anyone else from approving.
 Source: .omni-loop/delivery/shipped/1322-approval-handshake/outbox/settled.md, entry s7-01-approvers-unread-shows-approve, PRD #1322
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-09, PR #1324
 
 ## P-PRODUCT-92
@@ -774,6 +780,7 @@ A terminal token always acts in exactly one workspace, chosen the same predictab
 
 Why: A person in several workspaces must be able to tell where their terminal acts, so its work never lands in an unexpected workspace.
 Source: .omni-loop/delivery/shipped/1628-cloud-sign-in/outbox/settled.md, entry s1-02-token-workspace, PRD #1628
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-12, PR #1629
 
 ## P-PRODUCT-93
@@ -782,6 +789,7 @@ A person's terminal sign-in is seen only by them and by those who may revoke it,
 
 Why: Terminal tokens are personal credentials, unlike shared business links, so showing them to every member would expose access that is not theirs.
 Source: .omni-loop/delivery/shipped/1628-cloud-sign-in/outbox/settled.md, entry s1-03-who-sees-tokens, PRD #1628
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-12, PR #1629
 
 ## P-PRODUCT-94
@@ -790,6 +798,7 @@ A legal entry may cite its source the way the law is actually cited, by link or 
 
 Why: Many laws are cited by name and article and have no single stable link, so requiring a link would refuse real, correct citations.
 Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-01-legal-source-free-text, PRD #1795
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-16, PR #2032
 
 ## P-PRODUCT-95
@@ -798,6 +807,7 @@ Every Legal entry always has a person who answers for it, and nobody becomes its
 
 Why: An entry no one answers for goes stale, and making someone answer for work they never touched shifts responsibility without their say.
 Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-02-legal-entry-owner-default, PRD #1795
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-16, PR #2032
 
 ## P-PRODUCT-96
@@ -806,6 +816,7 @@ Someone who has left a team keeps no say over its work, and a departure never le
 
 Why: Leaving a former member in charge would either hand them lasting power or freeze decisions until someone noticed.
 Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-03-named-owner-who-left, PRD #1795
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-16, PR #2032
 
 ## P-PRODUCT-97
@@ -814,6 +825,7 @@ The knowledge history records every change to who answers for a product's knowle
 
 Why: People rely on the history to see who was responsible when, and a silent change of owner would hide accountability.
 Source: .omni-loop/delivery/shipped/1795-product-knowledge-page/outbox/settled.md, entry s1-04-naming-an-owner-is-logged, PRD #1795
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-16, PR #2032
 
 ## P-PRODUCT-100
@@ -822,4 +834,5 @@ Making one choice on a view never silently undoes another choice the person alre
 
 Why: A person should be able to combine their choices, such as a PRD and a repository, without having to redo the first one.
 Source: .omni-loop/delivery/shipped/2129-constellation-tab/outbox/settled.md, entry s2-01-filter-and-star-together, PRD #2129
+Decided: @pierrederval, 2026-10-21
 Merged: @pierrederval, 2026-10-17, PR #2130

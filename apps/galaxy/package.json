@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "OMNI LOOP arcade: the galaxy map of the game layer, deployed on Vercel, read from Supabase.",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { afterAnswersWords, answeredOf, canAnswer, canCancel, fixLineOf, canSendAgain, madeByWords, prdLineOf, prdPageLink, prWords, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
+import { afterAnswersWords, answeredOf, canAnswer, canCancel, fixLineOf, canSendAgain, madeByWords, prdLineOf, prdPageLink, prWords, retroLineOf, senderWords, stateWords, statusTone, statusWords, targetOf } from './model';
 
 // The Runners page's words and rules (PRD 1830 s3), pure: how long ago, where a job is sent again, and
 // which jobs take Cancel or Send again.
@@ -69,6 +69,27 @@ describe('senderWords and madeByWords', () => {
     expect(madeByWords({ sentByLogin: 'ada', sentByKey: null })).toBeNull();
     expect(senderWords({ sentByLogin: null, sentByKey: null })).toBe('A member');
     expect(madeByWords({ sentByLogin: null, sentByKey: 'QA dashboard' })).toBeNull();
+  });
+});
+
+describe('a job the Omni app sent (PRD 2338)', () => {
+  const app = { sentByLogin: null, sentByKey: null, sentByApp: 'omni-app' as const };
+  const retro = { ...app, line: '/omni:retro-apply --retro 2340', repo: 'Acme/Widgets' };
+
+  it('reads Omni app as its sender, with no maker under it', () => {
+    expect(senderWords(app)).toBe('Omni app');
+    expect(madeByWords(app)).toBeNull();
+    expect(senderWords({ sentByLogin: 'ada', sentByKey: null, sentByApp: null })).toBe('@ada');
+  });
+
+  it('says what a retro job is for, linked to its retro pull request', () => {
+    expect(retroLineOf(retro, { 'acme/widgets#2340': 2270 })).toEqual({ words: 'retro of PRD 2270', href: 'https://github.com/Acme/Widgets/pull/2340' });
+  });
+
+  it('names the retro pull request when the PRD is not known, and says nothing for another job', () => {
+    expect(retroLineOf(retro, {})?.words).toBe('retro PR #2340');
+    expect(retroLineOf({ ...retro, sentByApp: null }, { 'acme/widgets#2340': 2270 })).toBeNull();
+    expect(retroLineOf({ ...retro, line: '/omni:yolo 2340' }, {})).toBeNull();
   });
 });
 

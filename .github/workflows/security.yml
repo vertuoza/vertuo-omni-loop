@@ -69,7 +69,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+        with: { node-version: 24 }
       - name: Read the settings and the open alerts
         id: report
         env:
@@ -129,7 +129,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+        with: { node-version: 24 }
       - run: node scripts/open-source.ts
 
   # gitleaks over the pull request's commits (PRD 2305): the binary at a pinned version, refused unless
