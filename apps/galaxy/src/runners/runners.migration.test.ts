@@ -160,7 +160,7 @@ describe('the runner outcome migration (PRD 2223)', () => {
   });
 
   it('is named in the database\'s types', () => {
-    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*log_tail: string\n\s+outcome: string \| null\n\s+pr_url: string \| null\n/);
+    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{[^}]*log_tail: string\n\s+notify_url: string \| null\n\s+outcome: string \| null\n\s+pr_url: string \| null\n/);
   });
 });
 
@@ -185,7 +185,7 @@ describe('the fix-when-answered migration (PRD 2270)', () => {
   });
 
   it('is named in the database\'s types: both columns and the switch\'s function', () => {
-    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{\n\s+cancel_requested: boolean\n\s+claimed_at: string \| null\n\s+continues: string \| null\n/);
+    expect(TYPES).toMatch(/runner_jobs: \{\n\s+Row: \{\n\s+acting_for: string \| null\n\s+cancel_requested: boolean\n\s+cancelled_by_key: string \| null\n\s+cancelled_for: string \| null\n\s+claimed_at: string \| null\n\s+continues: string \| null\n/);
     expect(TYPES).toContain('foreignKeyName: "runner_jobs_continues_fkey"');
     expect(TYPES).toMatch(/repositories: \{\n\s+Row: \{[^}]*collected_until: string \| null\n\s+fix_when_answered: boolean\n/);
     expect(TYPES).toContain('set_repository_fix_when_answered: {\n        Args: { p_full_name: string; p_on: boolean; p_workspace: string }');
