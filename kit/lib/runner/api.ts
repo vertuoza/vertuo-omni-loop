@@ -53,18 +53,34 @@ export class RunnerRefused extends Error {
 /** What `register` answers: the runner's id. */
 const RegisteredSchema = z.object({ id: z.union([z.string().min(1), z.number()]).transform(String) });
 
+/**
+ * The GitHub App a key's job runs as (PRD 2433): an installation token, when it expires, and the app's
+ * bot, its login (`<slug>[bot]`) and its email. A `github` that holds less than all four never reads as
+ * none: the job is not handed over, so no machine account runs it.
+ */
+const GithubGrantSchema = z.object({
+  token: z.string().min(1),
+  expiresAt: z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'a date'),
+  login: z.string().min(1),
+  email: z.string().min(1),
+});
+
 /** A job `next` hands over. `allowedSkills` are the skills of its repository's own an owner allowed,
- * read when it was claimed (PRD 2313): an older app sends none, and the job allows none, as before. */
+ * read when it was claimed (PRD 2313): an older app sends none, and the job allows none, as before.
+ * `github` is the app a key's job runs as and `sentByKey` the key's name (PRD 2433): an older app sends
+ * neither, and the job reads as a person's. */
 const JobSchema = z.object({
   id: z.union([z.string().min(1), z.number()]).transform(String),
   line: z.string(),
   repo: z.string(),
   sentBy: z.string().nullish().transform((value) => value ?? null),
   allowedSkills: z.array(z.string()).nullish().transform((value) => value ?? []),
+  github: GithubGrantSchema.nullish().transform((value) => value ?? null),
+  sentByKey: z.string().nullish().transform((value) => value ?? null),
 });
 
-/** A job as the runner reads it: its id, its line, its repository (`owner/name`), who sent it, and the
- * repository's own skills it may run. */
+/** A job as the runner reads it: its id, its line, its repository (`owner/name`), who sent it, the
+ * repository's own skills it may run, the GitHub App it runs as and the API key that sent it. */
 export type RunnerJob = z.output<typeof JobSchema>;
 
 /** What a job update answers: whether a cancel waits. */
@@ -100,8 +116,11 @@ export type HealthLimits = { maxMemory: number; minDiskGb: number; maxLoad: numb
 /** A health report: the machine's sample, why it is paused and at which limits, and its tokens of the last 5 h and today. Numbers only. */
 export type HealthReport = Sample & { paused?: string | null; limits?: HealthLimits; tokens?: MachineTokens };
 
-/** What the runner says about itself when it registers. */
-export type Registration = { name: string; slots: number; repos: string[]; version: string };
+/**
+ * What the runner says about itself when it registers. `githubApp` says it can run a job as an API key's
+ * GitHub App (PRD 2433): the app hands a job of a key with an app only to a runner that said so.
+ */
+export type Registration = { name: string; slots: number; repos: string[]; version: string; githubApp: boolean };
 
 export type RunnerApi = {
   register(registration: Registration): Promise<{ id: string }>;

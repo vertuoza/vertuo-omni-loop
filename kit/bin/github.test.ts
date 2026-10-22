@@ -1,7 +1,11 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ghClient, githubClientFor } from './github.ts';
+import { ghClient, githubClientFor, githubEnv } from './github.ts';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { parseCommentId, parsePr } from '../lib/ids.ts';
+import { githubTokenFile, saveGithubToken } from '../lib/runner/github-token.ts';
 
 // Upstream had no test for `ghClient` (it was exercised only through its callers' fake clients);
 // these are new, against a fake `exec` that records every call.
@@ -75,5 +79,48 @@ describe('githubClientFor', () => {
     const { exec, calls } = fakeExec({ 'api': '[]' });
     githubClientFor(ctx(null), { repo: 'other/thing', issue: parsePr(1), exec }).listComments();
     expect(calls[0]?.args[1]).toBe('repos/other/thing/issues/1/comments');
+  });
+});
+
+// PRD 2433, s2: under `OMNI_GITHUB_APP` every `gh` call a kit command makes runs as the job's app, with the job's
+// token, and `gh auth token` (the person's own login) is never asked.
+describe('githubEnv under a GitHub App', () => {
+  const ctx = (user: string | null) => ({ config: { repo: { slug: 'acme/widgets' }, github: { user } } });
+  const TOKEN = ['ghs', 'fakeTokenOfTheJobRunningAsTheApp0123456789'].join('_');
+  const APP = { OMNI_GITHUB_APP: 'omni-acme[bot]', PATH: '/bin' };
+
+  it('uses the job’s token as GH_TOKEN, and never runs gh auth token, whatever github.user says', () => {
+    for (const user of [null, 'ada']) {
+      const { exec, calls } = fakeExec();
+      expect(githubEnv(ctx(user), { exec, env: APP, githubToken: () => TOKEN })).toEqual({ ...APP, GH_TOKEN: TOKEN });
+      expect(calls).toEqual([]);
+    }
+  });
+
+  it('reads the token the runner keeps for the job when none is handed in, inside a job of that runner', () => {
+    const home = mkdtempSync(join(tmpdir(), 'omni-github-env-'));
+    const file = githubTokenFile(home, '7');
+    if (file === null) throw new Error('no file');
+    saveGithubToken(file, 'box-1', { token: TOKEN, expiresAt: '2026-10-22T13:00:00Z' });
+    const { exec, calls } = fakeExec();
+    const env = { ...APP, OMNI_JOB: '7', OMNI_RUNNER: 'box-1' };
+    expect(githubEnv(ctx('ada'), { exec, env, home })).toEqual({ ...env, GH_TOKEN: TOKEN });
+    expect(calls).toEqual([]);
+  });
+
+  it('refuses, in words that hold no token, when the job’s token cannot be read: it never falls back to another login', () => {
+    const home = mkdtempSync(join(tmpdir(), 'omni-github-env-'));
+    const { exec, calls } = fakeExec({ 'auth token': 'the-persons-own-token\n' });
+    const run = () => githubEnv(ctx('ada'), { exec, env: { ...APP, OMNI_JOB: '7', OMNI_RUNNER: 'box-1' }, home });
+    expect(run).toThrow(/runs as the GitHub App omni-acme\[bot\].*job 7 does not run as a GitHub App/);
+    expect(githubEnv.bind(null, ctx(null), { exec, env: APP, githubToken: () => null })).toThrow(/omni-acme\[bot\]/);
+    expect(calls).toEqual([]);
+  });
+
+  it('is what it always was outside an app: the ambient login, or the configured user’s own token', () => {
+    const { exec, calls } = fakeExec({ 'auth token --user ada': 'sekret\n' });
+    expect(githubEnv(ctx(null), { exec, env: { PATH: '/bin' }, githubToken: () => TOKEN })).toBeUndefined();
+    expect(githubEnv(ctx('ada'), { exec, env: { PATH: '/bin', OMNI_GITHUB_APP: '  ' }, githubToken: () => TOKEN })).toEqual({ PATH: '/bin', OMNI_GITHUB_APP: '  ', GH_TOKEN: 'sekret' });
+    expect(calls).toHaveLength(1);
   });
 });

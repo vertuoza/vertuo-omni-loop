@@ -47,19 +47,29 @@
 // from `origin/<default branch>`, the skill's `.claude/skills/<name>/SKILL.md` must be there, or the job
 // fails `refused: /<name> is not on <default branch>` before Claude starts. Such a job has no outcome: it
 // ends done or failed from its exit code alone.
+//
+// A job as a GitHub App (PRD 2433): a runner given `githubToken`, the command that prints a job's token,
+// registers with `githubApp: true`. A job whose claim carries `github` starts as that app (`github-app.ts`):
+// its identity, git over HTTPS and a `gh` first on its `PATH`, with the token in `~/logs/job-<id>.github`
+// (`github-token.ts`) and in no variable. Every line, log tail and report the runner sends reads `***` for
+// every token the job had, and the file goes once the job is reported. A job whose app cannot be set up ends
+// `failed`, `github app: <why>`, before its session starts: it never runs as a person. A job with no `github`
+// starts exactly as it always did.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
 import { parsePrd } from '../ids.ts';
 import type { PrdNumber } from '../ids.ts';
-import { runnerJobVariables } from '../env/read.ts';
+import { runnerJobVariables, runnerSenderVariables } from '../env/read.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { HealthLimits, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
 import { DEFAULT_LIMITS, machineReads, nextPause, pressure, sample } from './health.ts';
 import type { CpuTimes, MachineReads, PauseState } from './health.ts';
 import type { MergedCount } from './follow.ts';
+import { githubJobEnv, installGhShim } from './github-app.ts';
+import { forgetGithubToken, githubTokenFile, jobTokens, maskTokens, saveGithubToken } from './github-token.ts';
 import { checkRunnerLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
@@ -133,6 +143,11 @@ export type RunnerOptions = {
   tokens?: TokenSource | undefined;
   /** Releases the claims of a job that ended (PRD 2175): none are released unless given. */
   release?: Releaser | undefined;
+  /**
+   * The command that prints a job's GitHub App token (`omni runner github-token`), before its own flags (PRD 2433).
+   * A runner given one registers as able to run a job as an app; without one a job that carries an app fails.
+   */
+  githubToken?: readonly string[] | undefined;
   /** The PRD's slices merged of all, read in the job's worktree when a job ended `stopped` (PRD 2375): never read unless given. */
   slices?: ((prd: PrdNumber, cwd: string) => Promise<MergedCount>) | undefined;
 };
@@ -186,6 +201,9 @@ const readText = (path: string): string => {
     return '';
   }
 };
+
+/** A job's log as the runner sends it (PRD 2433): every GitHub token the job had, past ones too, reads `***`, before any line is cut or counted. */
+const readLog = (loop: Loop, job: string, path: string): string => maskTokens(readText(path), jobTokens(loop.home, job));
 
 function loopOf(options: RunnerOptions): Loop {
   const refusal = new AbortController();
@@ -245,7 +263,7 @@ async function register(loop: Loop): Promise<string | null> {
   const repos = [...loop.checkouts.keys()];
   while (!loop.halt.aborted) {
     try {
-      return (await loop.api.register({ name: loop.name, slots: loop.slots, repos, version: loop.version ?? 'unknown' })).id;
+      return (await loop.api.register({ name: loop.name, slots: loop.slots, repos, version: loop.version ?? 'unknown', githubApp: loop.githubToken !== undefined })).id;
     } catch (error) {
       if (error instanceof RunnerRefused) loop.refuse(error);
       else if (error instanceof RunnerUnreachable) delay = await backOff(loop, delay, error, loop.halt);
@@ -274,11 +292,26 @@ async function sendCounted(loop: Loop, job: string, update: JobUpdate): Promise<
   }
 }
 
+/** `update` with every GitHub token the job had, past ones too, replaced by `***` in each text it carries (PRD 2433, L-GDPR-2). */
+function hideTokens(loop: Loop, job: string, update: JobUpdate): JobUpdate {
+  const tokens = jobTokens(loop.home, job);
+  if (tokens.length === 0) return update;
+  const hide = (text: string): string => maskTokens(text, tokens);
+  const hidden: JobUpdate = { ...update };
+  for (const key of ['logTail', 'prUrl', 'reason', 'releaseError'] as const) {
+    const text = update[key];
+    if (typeof text === 'string') hidden[key] = hide(text);
+  }
+  if (update.lines !== undefined) hidden.lines = update.lines.map(hide);
+  return hidden;
+}
+
 /**
  * Sends a job's report. One that carries what was released, or an outcome, and is refused is sent again
  * without them: an app older than PRD 2175, 2223 or 2375 refuses a field it does not know, and the job's status must still reach it.
  */
-async function sendUpdate(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
+async function sendUpdate(loop: Loop, job: string, raw: JobUpdate): Promise<{ cancel: boolean }> {
+  const update = hideTokens(loop, job, raw);
   const { released, releaseError, outcome, slicesMerged, slicesTotal, ...rest } = update;
   if (released === undefined && releaseError === undefined && outcome === undefined && slicesMerged === undefined && slicesTotal === undefined) return sendCounted(loop, job, update);
   try {
@@ -341,7 +374,7 @@ async function finish(loop: Loop, job: string, update: JobUpdate, live: Live | n
     await sendLast(loop, job, update);
     return;
   }
-  const log = readText(live.log);
+  const log = readLog(loop, job, live.log);
   const left = linesAfter(log, live.cursor, { ended: true });
   for (;;) {
     const lines = reportBatch(left);
@@ -427,18 +460,37 @@ function cleanUp(loop: Loop, job: RunnerJob, place: Place): void {
  * 0 makes it wait for them to end (bug 1912). */
 const WAIT_FOR_AGENTS: Readonly<Record<string, string>> = { CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: '0' };
 
-/** Writes the job's line and its log, empty or starting on `note`, then starts its session: whether it started. */
-function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | null): boolean {
+/**
+ * What a job runs as (PRD 2433): the variables of its app, its token kept for the session to read, or why it
+ * cannot run as the app, in the words its report carries. A job with no app runs as the runner always ran it:
+ * no variable more, and no token kept. The token goes in a file and nowhere else.
+ */
+function asApp(loop: Loop, job: RunnerJob): { env: Record<string, string> } | { failed: string } {
+  if (job.github === null) return { env: {} };
+  const file = githubTokenFile(loop.home, job.id);
+  if (loop.githubToken === undefined || file === null) return { failed: 'github app: this runner cannot give the job its token' };
+  try {
+    saveGithubToken(file, loop.name, job.github);
+    const shimDir = installGhShim({ home: loop.home, tokenCommand: loop.githubToken, path: loop.env.PATH });
+    return { env: githubJobEnv({ bot: job.github, tokenCommand: loop.githubToken, shimDir, path: loop.env.PATH }) };
+  } catch (error) {
+    // The detail names a folder of this machine: it stays here, and the report carries the reason alone.
+    loop.print(`job ${job.id}: its GitHub App token could not be kept (${error instanceof Error ? error.message : String(error)})`);
+    return { failed: 'github app: the token could not be kept on this machine' };
+  }
+}
+
+/** Writes the job's line and its log, empty or starting on `note`, then starts its session as `app`: whether it started. */
+function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | null, app: Record<string, string>): boolean {
   mkdirSync(join(loop.home, 'logs'), { recursive: true });
   writeFileSync(place.line, `${job.line}\n`);
   writeFileSync(place.log, note === null ? '' : `${note}\n`);
   rmSync(place.exit, { force: true });
-  const sender: Record<string, string> = job.sentBy ? { OMNI_SENT_BY: job.sentBy, OMNI_RUNNER: loop.name } : {};
   try {
     loop.terminal.start({
       name: place.session,
       cwd: place.worktree,
-      env: { ...loop.env, ...runnerJobVariables(job.id, loop.name), ...sender, ...WAIT_FOR_AGENTS },
+      env: { ...loop.env, ...runnerJobVariables(job.id, loop.name), ...runnerSenderVariables(job, loop.name), ...WAIT_FOR_AGENTS, ...app },
       argv: [...loop.wrapper, '--line', place.line, '--log', place.log, '--exit', place.exit],
     });
     return true;
@@ -490,22 +542,22 @@ function vanished(log: string, job: RunnerJob): JobUpdate {
 }
 
 /** Stops the job's session and answers `update`. */
-function killed(loop: Loop, place: Place, update: JobUpdate): JobUpdate {
+function killed(loop: Loop, job: string, place: Place, update: JobUpdate): JobUpdate {
   loop.terminal.stop(place.session);
-  return { ...update, logTail: logTail(readText(place.log)) };
+  return { ...update, logTail: logTail(readLog(loop, job, place.log)) };
 }
 
 /** Looks at the running job every tick, until it ends, is cancelled or runs past the timeout. */
 async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Promise<JobUpdate> {
   const started = loop.now();
-  if (await tick(loop, job.id, { status: 'running', logTail: '' })) return killed(loop, place, { status: 'cancelled' });
+  if (await tick(loop, job.id, { status: 'running', logTail: '' })) return killed(loop, job.id, place, { status: 'cancelled' });
   for (;;) {
     await loop.sleep(loop.tickMs);
-    const log = readText(place.log);
+    const log = readLog(loop, job.id, place.log);
     if (existsSync(place.exit)) return withSlices(loop, job, place, ended(log, readText(place.exit), job));
-    if (!loop.terminal.alive(place.session)) return vanished(readText(place.log), job);
-    if (loop.now() - started > loop.timeoutMs) return killed(loop, place, { status: 'failed', reason: 'timeout' });
-    if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, place, { status: 'cancelled' });
+    if (!loop.terminal.alive(place.session)) return vanished(readLog(loop, job.id, place.log), job);
+    if (loop.now() - started > loop.timeoutMs) return killed(loop, job.id, place, { status: 'failed', reason: 'timeout' });
+    if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, job.id, place, { status: 'cancelled' });
   }
 }
 
@@ -520,12 +572,20 @@ async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; li
     if (missing !== null) return { last: missing, live: null };
     const plugin = await loop.plugin.forJob(place.worktree, job.repo);
     if ('failed' in plugin) return { last: { status: 'failed', reason: plugin.failed }, live: null };
-    if (!startSession(loop, job, place, plugin.note)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
+    const app = asApp(loop, job);
+    if ('failed' in app) return { last: { status: 'failed', reason: app.failed }, live: null };
+    if (!startSession(loop, job, place, plugin.note, app.env)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
     const live: Live = { log: place.log, cursor: 0 };
     return { last: await watch(loop, job, place, live), live };
   } finally {
     cleanUp(loop, job, place);
   }
+}
+
+/** Removes the file a job's GitHub App token was kept in, when it has one. */
+function forgetJobToken(loop: Loop, job: string): void {
+  const file = githubTokenFile(loop.home, job);
+  if (file !== null) forgetGithubToken(file);
 }
 
 /** The line a job's end prints. */
@@ -566,7 +626,7 @@ async function releaseLost(loop: Loop, lost: { job: string; repo: string }): Pro
   for (const line of releaseLines(lost.job, done)) loop.print(line);
   if (done.released.length === 0 && done.releaseError === null) return;
   try {
-    await loop.api.update(lost.job, { status: 'failed', released: done.released, releaseError: done.releaseError });
+    await loop.api.update(lost.job, hideTokens(loop, lost.job, { status: 'failed', released: done.released, releaseError: done.releaseError }));
   } catch (error) {
     loop.print(`job ${lost.job}: its release was not reported (${error instanceof Error ? error.message : String(error)})`);
   }
@@ -608,6 +668,8 @@ async function slot(loop: Loop, runner: string): Promise<void> {
       await finish(loop, job.id, withTokens(loop, report, worktreeOf(loop, job)), live);
       loop.print(endLine(job, last));
     } finally {
+      // Once its last report is sent: the log is masked with the file until then.
+      forgetJobToken(loop, job.id);
       loop.jobs.delete(job.id);
       loop.running -= 1;
     }

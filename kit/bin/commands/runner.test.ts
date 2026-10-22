@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import { repoOfRemote } from '../../lib/runner/checkouts.ts';
 import type { MachineReads } from '../../lib/runner/health.ts';
+import { githubTokenFile, saveGithubToken } from '../../lib/runner/github-token.ts';
 import { senderLine } from '../../lib/runner/sender.ts';
 import { tmuxArgs, tmuxTerminal } from '../../lib/runner/terminal.ts';
 import type { JobSession, Terminal } from '../../lib/runner/terminal.ts';
@@ -302,7 +303,7 @@ describe('omni runner', () => {
     run.stop.abort();
     expect(await run.done).toBe(0);
 
-    expect(app.calls[0]).toMatchObject({ method: 'POST', path: '/api/runners/register', body: { name: 'box-1', slots: 1, repos: ['acme/widgets'] } });
+    expect(app.calls[0]).toMatchObject({ method: 'POST', path: '/api/runners/register', body: { name: 'box-1', slots: 1, repos: ['acme/widgets'], githubApp: true } });
     expect(app.calls.find((call) => call.path === '/api/runners/next')).toBeDefined();
     const [session] = run.terminal.sessions;
     const worktree = join(f.home, 'wt', 'widgets-job-7');
@@ -1056,6 +1057,129 @@ describe('omni runner sender', () => {
   it('reads a login given with its @ once', () => {
     expect(senderLine({ sentBy: '@ada', runner: 'box-1' })).toBe('Sent from the Omni app by @ada on runner box-1');
     expect(senderLine({ sentBy: ' ', runner: 'box-1' })).toBeNull();
+  });
+
+  it("names the API key of a key's job, never the login that may come with it (PRD 2433)", async () => {
+    const line = 'Sent through the Omni API by API key deploy bot on runner box-1\n';
+    expect(await sender({ OMNI_SENT_BY_KEY: 'deploy bot', OMNI_RUNNER: 'box-1' })).toEqual({ code: 0, text: line });
+    expect(await sender({ OMNI_SENT_BY: 'ada', OMNI_SENT_BY_KEY: 'deploy bot', OMNI_RUNNER: 'box-1' })).toEqual({ code: 0, text: line });
+    expect(await sender({ OMNI_SENT_BY_KEY: 'deploy bot' })).toEqual({ code: 0, text: '' });
+  });
+});
+
+/**
+ * `omni runner github-token` (PRD 2433, s2): what the credential helper and the `gh` of a job running as a GitHub App
+ * read the job's token through. The token is a fake one, in a token file of a temporary home.
+ */
+describe('omni runner github-token (PRD 2433, s2)', () => {
+  const TOKEN = ['ghs', 'fakeTokenOfTheJobInTheCommandTests0123456789'].join('_');
+  const JOB = { OMNI_JOB: '7', OMNI_RUNNER: 'box-1' };
+
+  function homeWithToken(runner = 'box-1'): string {
+    const home = mkdtempSync(join(tmpdir(), 'omni-github-token-'));
+    const file = githubTokenFile(home, '7');
+    if (file === null) throw new Error('no file');
+    saveGithubToken(file, runner, { token: TOKEN, expiresAt: '2026-10-22T13:00:00Z' });
+    return home;
+  }
+
+  const token = async (args: string[], env: Record<string, string>, home: string) => {
+    const stdout = out();
+    const stderr = out();
+    const code = await main(['runner', 'github-token', ...args], { stdout: stdout.stream, stderr: stderr.stream, env, home });
+    return { code, stdout: stdout.text(), stderr: stderr.text() };
+  };
+
+  it('prints the current token of the job the session runs, and nothing else', async () => {
+    expect(await token([], JOB, homeWithToken())).toEqual({ code: 0, stdout: `${TOKEN}\n`, stderr: '' });
+  });
+
+  it('answers git’s credential helper call: the app’s token as the password, nothing on store or erase', async () => {
+    const home = homeWithToken();
+    expect(await token(['--git', 'get'], JOB, home)).toEqual({ code: 0, stdout: `username=x-access-token\npassword=${TOKEN}\n`, stderr: '' });
+    for (const action of [['--git', 'store'], ['--git', 'erase'], ['--git']]) expect(await token(action, JOB, home)).toEqual({ code: 0, stdout: '', stderr: '' });
+  });
+
+  it('refuses in one line, with no token and exit 1: outside a runner job, with no runner, another runner’s, a job with no app', async () => {
+    const home = homeWithToken('box-2');
+    const refusals = [
+      await token([], {}, home),
+      await token([], { OMNI_JOB: '7' }, home),
+      await token([], JOB, home),
+      await token([], { OMNI_JOB: '8', OMNI_RUNNER: 'box-2' }, home),
+      await token(['--git', 'get'], JOB, home),
+    ];
+    expect(refusals.map((refusal) => [refusal.code, refusal.stdout])).toEqual(Array(5).fill([1, '']));
+    expect(refusals.map((refusal) => refusal.stderr)).toEqual([
+      'omni runner: this session is not a runner job.\n',
+      'omni runner: this runner job names no runner.\n',
+      "omni runner: the token of job 7 is another runner's.\n",
+      'omni runner: job 8 does not run as a GitHub App.\n',
+      "omni runner: the token of job 7 is another runner's.\n",
+    ]);
+    expect(JSON.stringify(refusals)).not.toContain(TOKEN);
+  });
+
+  it('is a usage error, exit 2, with a stray argument', async () => {
+    const result = await token(['stray'], JOB, homeWithToken());
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain('usage: omni runner github-token');
+    expect(result.stdout).toBe('');
+  });
+});
+
+/**
+ * A job the app hands over with a GitHub App grant (PRD 2433, s2), end to end on fakes: the real `omni runner job`,
+ * a fake `gh`, the real `git` and a fake token. Run from the session's own environment, git's credential helper,
+ * the `gh` first on its PATH and its identity all answer as the app, through `omni runner github-token`.
+ */
+describe('omni runner: a job that runs as a GitHub App (PRD 2433, s2)', () => {
+  const TOKEN = ['ghs', 'fakeTokenOfTheJobRunningAsTheApp0123456789'].join('_');
+  const GRANT = { token: TOKEN, expiresAt: '2026-10-22T13:00:00Z', login: 'omni-acme[bot]', email: '42+omni-acme[bot]@users.noreply.github.com' };
+
+  it('answers as the app from inside the session: git credentials, gh, the commit identity, the HTTPS remotes', async () => {
+    const f = fixture();
+    writeFileSync(join(f.bin, 'gh'), '#!/bin/sh\necho "real gh | GH_TOKEN=$GH_TOKEN | $*"\n');
+    chmodSync(join(f.bin, 'gh'), 0o755);
+    const app = fakeApp({ jobs: [{ id: 31, line: '/omni:yolo sleep-4', repo: 'acme/widgets', sentBy: null, sentByKey: 'deploy bot', github: GRANT }] });
+    const run = startRunner(f, app);
+    await until(() => run.terminal.sessions.length > 0, 'the session to start');
+    const session = run.terminal.sessions[0];
+    // The session's own variables, on a home with no git configuration of its own, and no prompt to fall back on.
+    const env = { ...process.env, ...session?.env, HOME: f.home, GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1' };
+    const sh = (file: string, args: string[], input?: string): string => execFileSync(file, args, { env, encoding: 'utf8', ...(input === undefined ? {} : { input }) });
+    expect(sh('gh', ['issue', 'list'])).toBe(`real gh | GH_TOKEN=${TOKEN} | issue list\n`);
+    expect(sh('gh', ['auth', 'token'])).toBe(`${TOKEN}\n`);
+    const credential = sh('git', ['credential', 'fill'], 'protocol=https\nhost=github.com\n\n');
+    expect(credential).toContain('username=x-access-token\n');
+    expect(credential).toContain(`password=${TOKEN}\n`);
+    expect(sh('git', ['var', 'GIT_AUTHOR_IDENT'])).toMatch(/^omni-acme\[bot\] <42\+omni-acme\[bot\]@users\.noreply\.github\.com> /);
+    expect(sh('git', ['var', 'GIT_COMMITTER_IDENT'])).toMatch(/^omni-acme\[bot\] <42\+omni-acme\[bot\]@users\.noreply\.github\.com> /);
+    expect(sh('git', ['config', '--get-all', 'url.https://github.com/.insteadOf']).split('\n').filter(Boolean)).toEqual(['git@github.com:', 'ssh://git@github.com/']);
+    // The job names its key, and only its key.
+    expect(session?.env).toMatchObject({ OMNI_SENT_BY_KEY: 'deploy bot', OMNI_GITHUB_APP: 'omni-acme[bot]' });
+    expect(session?.env).not.toHaveProperty('OMNI_SENT_BY');
+    expect(JSON.stringify(session)).not.toContain(TOKEN);
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    // Once the job is reported, its token is forgotten, and nothing the runner said or sent held it.
+    const kept = githubTokenFile(f.home, '31');
+    expect(kept !== null && existsSync(kept)).toBe(false);
+    expect(JSON.stringify(app.calls)).not.toContain(TOKEN);
+    expect(run.stdout.text() + run.stderr.text()).not.toContain(TOKEN);
+  });
+
+  it('hands a job that carries no app today’s environment: no identity, no helper, no gh of its own', async () => {
+    const f = fixture();
+    const app = fakeApp({ jobs: [{ id: 32, line: '/omni:yolo 1717', repo: 'acme/widgets', sentBy: 'ada' }] });
+    const run = startRunner(f, app);
+    await until(ended(app), 'the job to end');
+    run.stop.abort();
+    expect(await run.done).toBe(0);
+    const keys = Object.keys(run.terminal.sessions[0]?.env ?? {});
+    expect([...keys].sort()).toEqual(['CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS', 'OMNI_JOB', 'OMNI_RUNNER', 'OMNI_SENT_BY', 'OMNI_UNATTENDED', 'PATH']);
+    expect(run.terminal.sessions[0]?.env.PATH).toBe(`${f.bin}:${String(process.env.PATH)}`);
   });
 });
 
