@@ -3937,6 +3937,53 @@ export type Database = {
           },
         ]
       }
+      waits: {
+        Row: {
+          ended_at: string | null
+          id: string
+          kind: string
+          pr: number | null
+          prd: number | null
+          repo: string
+          seen_at: string
+          since: string
+          turn: string[]
+          workspace_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          kind: string
+          pr?: number | null
+          prd?: number | null
+          repo: string
+          seen_at: string
+          since: string
+          turn?: string[]
+          workspace_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          kind?: string
+          pr?: number | null
+          prd?: number | null
+          repo?: string
+          seen_at?: string
+          since?: string
+          turn?: string[]
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waits_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       working_pings: {
         Row: {
           claude_session_id: string

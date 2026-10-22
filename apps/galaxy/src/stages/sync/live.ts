@@ -15,6 +15,8 @@ import { milestoneStore } from '../../timeline/store.repository';
 import { serverBornStore } from './approvals';
 import { dossierTimesStore } from './dossier-times.repository';
 import { stagesReader, type StagesReader } from './github';
+import type { WaitStore } from './waits';
+import { waitsRepository } from './waits.repository';
 import { syncSnapshotStore } from './snapshots';
 import type { ConceptSyncDeps, FixSyncDeps, SnapshotSyncDeps, SyncDeps, SyncWorkspace } from './sync';
 import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
@@ -41,6 +43,7 @@ import { log as runLog } from 'omni-loop/kit/lib/log/log.ts';
 // PRD 1723 (s7): each run's one `stages-sync` line goes to stdout as JSON, through kit/lib/log.
 // PRD 2370 (s1): each PRD's milestones are recorded in prd_milestones, as the service role.
 // PRD 2370 (s3): each PRD's idea and plan times are read from its dossier (./dossier-times.ts).
+// PRD 2377 (s1, s2): each repository's waits are kept in public.waits, as the service role (./waits.repository.ts).
 
 let knowledge: KnowledgeReader | undefined;
 let reader: StagesReader | undefined;
@@ -77,6 +80,18 @@ function lazyMilestones(): MilestoneStore {
     milestonesOf: (key) => get().milestonesOf(key),
     workspaceMilestones: (workspace) => get().workspaceMilestones(workspace),
     lastSynced: (workspace, repository) => get().lastSynced(workspace, repository),
+  };
+}
+
+/** The waits on the service role's client, made at each call. */
+function waitDeps(): WaitStore {
+  return {
+    openWaits: (workspace, repository) => waitsRepository(serviceDb()).openWaits(workspace, repository),
+    applyWaits: (workspace, repository, changes, at) => waitsRepository(serviceDb()).applyWaits(workspace, repository, changes, at),
+    owners: (workspace, repository, prds) => waitsRepository(serviceDb()).owners(workspace, repository, prds),
+    approvers: (workspace, repository) => waitsRepository(serviceDb()).approvers(workspace, repository),
+    outboxes: (workspace, repository, prds) => waitsRepository(serviceDb()).outboxes(workspace, repository, prds),
+    reached: (workspace, repository, prds) => waitsRepository(serviceDb()).reached(workspace, repository, prds),
   };
 }
 
@@ -159,6 +174,7 @@ export function syncDeps(env: Pick<ArcadeEnv, 'stagesSyncSecret'> = serverEnv())
     fixes: fixDeps(),
     concepts: conceptDeps(),
     snapshots: snapshotDeps(),
+    waits: waitDeps(),
     now: () => new Date().toISOString(),
     log: (line) => { console.error(line); },
     runLog,

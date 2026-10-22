@@ -9,7 +9,8 @@ import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 const CONFIG = syncConfig('kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch: trunk\nbranches:\n  feature: feature/{topic}\npaths:\n  delivery: loop/delivery\nlabels:\n  prd: product\n', 'acme/widgets');
 
 const pull = (number: number, head: string, more: Partial<SnapshotPull> = {}): SnapshotPull => ({
-  number: parsePr(number), head, base: 'trunk', state: 'open', draft: false, merged_at: null, created_at: '2026-09-20T00:00:00Z', ready_at: null, ...more,
+  number: parsePr(number), head, base: 'trunk', state: 'open', draft: false, merged_at: null, created_at: '2026-09-20T00:00:00Z', ready_at: null,
+  labels: [], body: null, requested: [], requested_at: null, reviews: null, lawLocked: null, checksRed: null, ...more,
 });
 const merged = (number: number, head: string, at: string, more: Partial<SnapshotPull> = {}) => pull(number, head, { state: 'closed', merged_at: at, ...more });
 const slice = (number: number, at: string, base = 'feature/dark-mode') => merged(number, `feat/dark-mode--s${number}`, at, { base });

@@ -18,7 +18,7 @@ import type { ForMeRow, Member } from '../ask/page/question';
 import type { TabRow } from '../ask/page/tabs';
 import { loadPeople, type People } from '../people/load';
 import { DOCUMENT_KINDS, DOCS_DAYS, type DocumentRow } from './documents';
-import { mergeQuestions, ownQuestions, sharedQuestions, type WaitingQuestion } from './waiting';
+import { mergeQuestions, ownQuestions, reviewsOf, sharedQuestions, type WaitingQuestion, type WaitingReview } from './waiting';
 import { waitingRepository, type DocumentReadRow, type WaitingDb, type WaitingRepository } from './waiting.repository';
 import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
 
@@ -43,7 +43,7 @@ function documentOf(r: DocumentReadRow): DocumentRow[] {
     : [];
 }
 
-function waitingService(ask: WaitingAskReads, store: Pick<WaitingRepository, 'roundQuestions' | 'documents' | 'openQuestionJobs' | 'jobStates'>) {
+function waitingService(ask: WaitingAskReads, store: Pick<WaitingRepository, 'roundQuestions' | 'documents' | 'openQuestionJobs' | 'jobStates' | 'openReviewWaits'>) {
   return {
     /** A reader of the Questions part for `me`, keeping what it read before. */
     questionsReader(me: string): (now: number) => Promise<WaitingQuestion[]> {
@@ -75,6 +75,15 @@ function waitingService(ask: WaitingAskReads, store: Pick<WaitingRepository, 'ro
      * the kinds the part shows. */
     async documents(me: string, now: number): Promise<DocumentRow[]> {
       return (await store.documents(me, new Date(now - WINDOW).toISOString())).flatMap(documentOf);
+    },
+
+    /** The open review, merge and law waits of the workspace whose turn names `me` by GitHub login, oldest first
+     * (PRD 2377 s5). A team never names a person, and a person with no login has none. Approval and outbox
+     * waits are the bell's other parts: they are not read here. */
+    async reviews(me: string, workspace: string): Promise<WaitingReview[]> {
+      const [people, rows] = await Promise.all([ask.people(workspace), store.openReviewWaits(workspace)]);
+      const login = people.byId(me, '').login ?? null;
+      return reviewsOf(rows, login);
     },
 
     /** How many of the workspace's runner jobs wait for an answer (PRD 2255): the job ended `done` with

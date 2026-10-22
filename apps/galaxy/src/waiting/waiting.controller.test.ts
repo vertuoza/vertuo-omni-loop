@@ -5,7 +5,7 @@ import { DocumentsSchema, QuestionsSchema, RunnersWaitingSchema, WaitingErrorSch
 vi.mock('server-only', () => ({}));
 vi.mock('../data/viewer', () => ({ viewer: () => Promise.resolve({ kind: 'sign-in' }) }));
 
-const { getDocuments, getQuestions, getRunners, waitingReadHandlers } = await import('./waiting.controller');
+const { getDocuments, getQuestions, getReviews, getRunners, waitingReadHandlers } = await import('./waiting.controller');
 
 // The bell's read routes (PRD 1318, s4), on a fake service: signed out → 401 `signed-out` and the
 // service never called (a tab whose sign-in expired stops asking the database, bug #1316); a failed
@@ -18,6 +18,7 @@ const WORKSPACE = { id: '00000000-0000-4000-8000-0000000000c1' };
 const NOW = Date.parse('2026-10-09T09:00:00Z');
 
 const question = { kind: 'question', id: 'r1', sessionTitle: 'vertuo-omni-loop · feat/x', question: 'Which?', askedAt: NOW - 1000, sharedBy: 'Ada', sharedByFace: { kind: 'initial', letter: 'A' } } as const;
+const review = { kind: 'review', id: 'w1', prd: 7, pr: 70, repo: 'acme/widgets', since: NOW - 5000 } as const;
 const document = { id: 'v1', kind: 'spec', created_at: '2026-10-09T08:00:00Z', dossier: { id: 'd1', prd: 7, title: 'Widgets' } } as const;
 
 /** A fake service that records each call, answering, or throwing when `fails`. */
@@ -31,6 +32,7 @@ function fakeReads(fails = false, waiting = 3) {
     questionsReader: (me: string) => (now: number) => give(`questions ${me} ${now}`, [question]),
     documents: (me: string, now: number) => give(`documents ${me} ${now}`, [document]),
     runnersWaiting: (workspace: string) => give(`runners ${workspace}`, waiting),
+    reviews: (me: string, workspace: string) => give(`reviews ${me} ${workspace}`, [review]),
   } as unknown as WaitingReads;
   return { calls, reads };
 }
@@ -48,13 +50,15 @@ describe('signed out', () => {
     expect(refused).toEqual({ status: 401, json: { error: 'signed-out' }, cache: 'no-store' });
     expect(WaitingErrorSchema.parse(refused.json)).toEqual({ error: 'signed-out' });
     expect(await body(await handlers.runners())).toEqual({ status: 401, json: { error: 'signed-out' }, cache: 'no-store' });
-    expect(signedIn).toHaveBeenCalledTimes(3);
+    expect(await body(await handlers.reviews())).toEqual({ status: 401, json: { error: 'signed-out' }, cache: 'no-store' });
+    expect(signedIn).toHaveBeenCalledTimes(4);
   });
 
   it('is what the live routes answer when the viewer is not signed in: a kit or runner token is no session', async () => {
     expect((await getQuestions()).status).toBe(401);
     expect((await getDocuments()).status).toBe(401);
     expect((await getRunners()).status).toBe(401);
+    expect((await getReviews()).status).toBe(401);
   });
 });
 
@@ -83,6 +87,18 @@ describe('signed in', () => {
     expect(calls).toEqual([`runners ${WORKSPACE.id}`]);
   });
 
+  it('answers the Reviews part read for me in the workspace they joined first (PRD 2377 s5)', async () => {
+    const { calls, reads } = fakeReads();
+    expect(await body(await signedIn(reads).reviews())).toEqual({ status: 200, json: { items: [review] }, cache: 'no-store' });
+    expect(calls).toEqual([`reviews ${ME} ${WORKSPACE.id}`]);
+  });
+
+  it('answers no reviews for a person in no workspace, and reads nothing', async () => {
+    const { calls, reads } = fakeReads();
+    expect(await body(await signedIn(reads, () => Promise.resolve(null)).reviews())).toEqual({ status: 200, json: { items: [] }, cache: 'no-store' });
+    expect(calls).toEqual([]);
+  });
+
   it('answers a count of 0 for a person in no workspace, and reads nothing', async () => {
     const { calls, reads } = fakeReads();
     expect(await body(await signedIn(reads, () => Promise.resolve(null)).runners())).toEqual({ status: 200, json: { count: 0 }, cache: 'no-store' });
@@ -95,7 +111,8 @@ describe('signed in', () => {
     expect(await body(await signedIn(reads).questions())).toEqual({ status: 500, json: { error: 'database' }, cache: 'no-store' });
     expect(await body(await signedIn(reads).documents())).toEqual({ status: 500, json: { error: 'database' }, cache: 'no-store' });
     expect(await body(await signedIn(reads).runners())).toEqual({ status: 500, json: { error: 'database' }, cache: 'no-store' });
-    expect(error).toHaveBeenCalledTimes(3);
+    expect(await body(await signedIn(reads).reviews())).toEqual({ status: 500, json: { error: 'database' }, cache: 'no-store' });
+    expect(error).toHaveBeenCalledTimes(4);
     error.mockRestore();
   });
 

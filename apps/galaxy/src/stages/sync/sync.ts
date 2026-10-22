@@ -52,6 +52,12 @@
 // server); a claim naming a PRD nobody read, a repository the workspace does not sync, or a product PRD is
 // dropped. A plan repository that could not be read records none of its lanes that run. Lanes that cannot
 // be recorded are logged; the stages still land.
+//
+// PRD 2377 (s1, s2): once a repository's stages and outboxes are recorded, its waits (`review`, `merge`,
+// `approval`, `outbox` and `law`) are recorded in public.waits (./waits.ts), when `waits` is given. A
+// repository that cannot be read is skipped before it, so its open waits stay as they are; so do the
+// approvals when the ◆ PRDs cannot be read; waits that cannot be recorded are logged, and the stages
+// still land.
 import 'server-only';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { ConceptReader, DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
@@ -63,7 +69,8 @@ import type { MilestoneStore } from '../../timeline/store';
 import { changedPrds, foldersOf, stagesOfRepo, type RepoSnapshot, type ServerBorn } from './core';
 import type { DossierTimes } from './dossier-times.repository';
 import { dossierMilestones, milestonesOfRepo, targetMilestones, type SeenMilestone } from './milestones';
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { recordWaits, type WaitStore } from './waits';
+import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Logger } from 'omni-loop/kit/lib/log/log.ts';
 import { firstPart, group } from 'omni-loop/kit/lib/narrow.ts';
 
@@ -93,6 +100,8 @@ export type SyncDeps = {
   concepts?: ConceptSyncDeps;
   /** The PRD dossiers' GitHub snapshots and the client's ETags; none, the sync leaves them alone. */
   snapshots?: SnapshotSyncDeps;
+  /** Where the waits are kept (PRD 2377); none, the sync records none. */
+  waits?: WaitStore;
   now(): string;
   log(line: string): void;
   /** Where the run's one `stages-sync` line goes (PRD 1723): kit/lib/log's stdout logger, live. */
@@ -253,14 +262,31 @@ function bearerMatches(request: Request, secret: string | undefined): boolean {
   return timingSafeEqual(digest(group(match, 1)), digest(secret));
 }
 
-/** The repository's ◆ PRDs and their first approval; none, logged, when they cannot be read. */
-async function serverBornOf(deps: SyncDeps, workspace: SyncWorkspace, repository: string): Promise<ServerBorn[]> {
+/** The repository's ◆ PRDs and their first approval; null, logged, when they cannot be read (none given: none to read). */
+async function serverBornOf(deps: SyncDeps, workspace: SyncWorkspace, repository: string): Promise<ServerBorn[] | null> {
   if (!deps.approvals) return [];
   try {
     return await deps.approvals(workspace, repository);
   } catch (error) {
     deps.log(`stages sync: the approvals of ${repository} cannot be read — ${why(error)}`);
-    return [];
+    return null;
+  }
+}
+
+/** Records the waits of one repository's snapshot, once its outboxes are recounted; logs, never throws. */
+async function recordRepoWaits(
+  deps: SyncDeps, workspace: SyncWorkspace, snapshot: RepoSnapshot, serverBorn: ServerBorn[] | null, syncedAt: string,
+): Promise<void> {
+  if (!deps.waits) return;
+  const escalation = deps.outbox?.escalation;
+  const { repository } = snapshot;
+  try {
+    await recordWaits(deps.waits, workspace.id, snapshot, syncedAt, {
+      serverBorn,
+      ...(escalation ? { record: ({ pr, prd }: { pr: PrNumber; prd: PrdNumber }) => escalation({ repository, prd, pr }) } : {}),
+    });
+  } catch (error) {
+    deps.log(`stages sync: the waits of ${repository} were not recorded — ${why(error)}`);
   }
 }
 
@@ -268,7 +294,8 @@ async function serverBornOf(deps: SyncDeps, workspace: SyncWorkspace, repository
 async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: string, syncedAt: string, lanes: TargetLanes): Promise<SyncedRepo> {
   const since = await sinceOf(deps, workspace, repository);
   const snapshot = await deps.snapshot(workspace, repository, since);
-  const born = await serverBornOf(deps, workspace, repository);
+  const serverBorn = await serverBornOf(deps, workspace, repository);
+  const born = serverBorn ?? [];
   const { stages, topics } = stagesOfRepo(snapshot, syncedAt, born);
   await deps.store.recordStages(stages.map((s) => ({ ...s, workspace_id: workspace.id })), syncedAt);
   await recordMilestones(deps, workspace, snapshot, born, syncedAt);
@@ -291,6 +318,7 @@ async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: st
       deps.log(`stages sync: the outboxes of ${repository} were not recounted — ${why(error)}`);
     }
   }
+  await recordRepoWaits(deps, workspace, snapshot, serverBorn, syncedAt);
   return { workspace: workspace.slug, repository: repository.toLowerCase(), stages: stages.length, topics: learnt };
 }
 

@@ -1,5 +1,5 @@
 // A PRD's milestones (PRD 2370, s1): the moments of its timeline, idea to merged, as the stages sync
-// records them in public.prd_milestones (supabase/migrations/20261226090000_prd_milestones.sql). This is
+// records them in public.prd_milestones (supabase/migrations/20261227090000_prd_milestones.sql). This is
 // the store's port: the milestones, their rows and the rule a second write follows. The Supabase store is
 // ./store.repository.ts, its fake ./store.fake.ts.
 //
