@@ -1,4 +1,4 @@
-// The one way into a PRD's stored milestones (supabase/migrations/20261225090000_prd_milestones.sql):
+// The one way into a PRD's stored milestones (supabase/migrations/20261226090000_prd_milestones.sql):
 // public.prd_milestones, through the port of ./store.ts. The stages sync writes, as the service role; the
 // pages read, as the signed-in member, so row-level security keeps each workspace's rows to its members.
 //

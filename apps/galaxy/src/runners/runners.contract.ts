@@ -3,7 +3,7 @@
 //
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
-//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?} → {cancel}
+//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, slicesMerged?, slicesTotal?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
 //   GET   /api/runners/jobs/<id>/lines?after=<seq>  browser or terminal (PRD 2251)        → JobLines
 //   GET   /api/runners?repo=<owner/name>   terminal (PRD 2251)                              → {runners: [KitRunner]}
@@ -182,11 +182,12 @@ const TokenCountsSchema = z.object({
 export type TokenCounts = z.infer<typeof TokenCountsSchema>;
 
 /** What a done job ended on: a yolo hand-off (PRD 2223), the run ended on `/omni:yolo-fix` (answers), `/omni:yolo` (held)
- * or `/omni:pr-care` (ready); or `human` (PRD 2255), the run ended with the questions it asked a person still open. */
-export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human'] as const;
+ * or `/omni:pr-care` (ready); `human` (PRD 2255), the run ended with the questions it asked a person still open; or `stopped` (PRD 2375), a
+ * `/omni:yolo` or `/omni:yolo-fix` run that exited with no hand-off line, so it is not done. */
+export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human', 'stopped'] as const;
 
 /** What a runner's report may say: the server alone sets `human`, from the questions a job stored. */
-const REPORTED_OUTCOMES = ['answers', 'held', 'ready'] as const;
+const REPORTED_OUTCOMES = ['answers', 'held', 'ready', 'stopped'] as const;
 
 /** The most claims a job's report says its runner released, and the longest reason a release failed (PRD 2175). */
 const RELEASED_MAX = 50;
@@ -211,7 +212,13 @@ export const JobUpdateSchema = z.object({
   releaseError: z.string().max(RELEASE_ERROR_CHARS).nullable().optional(),
   /** What a done yolo job's hand-off ended on (PRD 2223), stored in `runner_jobs.outcome`; an unknown value, and `human`, are refused. */
   outcome: z.enum(REPORTED_OUTCOMES).nullable().optional(),
-}).strict().refine((report) => (report.from === undefined) === (report.lines === undefined), { message: 'from and lines come together' });
+  /** The PRD's slices merged and its slices in all, read when a job ended `stopped` (PRD 2375), stored in `runner_jobs.slices_merged` and `slices_total`. */
+  slicesMerged: z.number().int().nonnegative().optional(),
+  slicesTotal: z.number().int().nonnegative().optional(),
+}).strict()
+  .refine((report) => (report.from === undefined) === (report.lines === undefined), { message: 'from and lines come together' })
+  .refine((report) => (report.slicesMerged === undefined) === (report.slicesTotal === undefined), { message: 'slicesMerged and slicesTotal come together' })
+  .refine((report) => report.slicesMerged === undefined || report.slicesTotal === undefined || report.slicesMerged <= report.slicesTotal, { message: 'slicesMerged is at most slicesTotal' });
 export type JobUpdate = z.infer<typeof JobUpdateSchema>;
 
 /** What a report answers: whether a cancel waits, and the runner kills the job. */
@@ -311,6 +318,9 @@ const JobSchema = z.object({
   releaseError: z.string().nullable().optional(),
   /** What it ended on (PRD 2223, 2255); null for a job without one, and for one whose questions were answered or dismissed. */
   outcome: z.enum(JOB_OUTCOMES).nullable().optional(),
+  /** The PRD's slices merged out of all when it ended `stopped` (PRD 2375); null when its runner could not read the board. */
+  slicesMerged: z.number().int().nullable().optional(),
+  slicesTotal: z.number().int().nullable().optional(),
   /** The job it continues (PRD 2270): a `/omni:yolo-fix` queued once that job's answers were in; null for any other. */
   continues: IdSchema.nullable().optional(),
   queuedAt: z.string(),

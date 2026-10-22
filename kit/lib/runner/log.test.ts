@@ -29,15 +29,31 @@ describe('logTail', () => {
 });
 
 describe('lastPullRequest', () => {
-  it("reads the last pull request of the job's repository, and no other repository's", () => {
+  it("reads the last PR line of the job's repository, and no other repository's", () => {
     const log = [
-      'opened https://github.com/acme/widgets/pull/12',
-      'see https://github.com/acme/other/pull/99',
-      'then https://github.com/acme/widgets/pull/14.',
-      'https://github.com/acme/widgets-two/pull/7',
+      '10:00:00 PR: https://github.com/acme/widgets/pull/12',
+      '10:00:01 › see https://github.com/acme/widgets/pull/99',
+      'PR: https://github.com/acme/widgets/pull/14',
+      '10:00:03 PR: https://github.com/acme/other/pull/15',
+      '10:00:04 PR: https://github.com/acme/widgets-two/pull/7',
     ].join('\n');
     expect(lastPullRequest(log, 'acme/widgets')).toBe('https://github.com/acme/widgets/pull/14');
+    expect(lastPullRequest('opened https://github.com/acme/widgets/pull/12', 'acme/widgets')).toBeNull();
     expect(lastPullRequest('nothing here', 'acme/widgets')).toBeNull();
+  });
+
+  it('reads the first pull request of the hand-off, the lines after the last Done line, before any PR line', () => {
+    const log = [
+      '10:00:00 PR: https://github.com/acme/widgets/pull/12',
+      '10:00:01 PR: https://github.com/acme/widgets/pull/14',
+      '10:00:02 Done: ok · 3 turns · $0.10 · 4s',
+      '10:00:02 See https://github.com/acme/other/pull/3',
+      '10:00:02 1. Review the change: https://github.com/acme/widgets/pull/12#issuecomment-9',
+      '10:00:02 2. Then https://github.com/acme/widgets/pull/14',
+    ].join('\n');
+    expect(lastPullRequest(log, 'acme/widgets')).toBe('https://github.com/acme/widgets/pull/12');
+    const plain = ['10:00:00 PR: https://github.com/acme/widgets/pull/12', 'Done: error · 1 turns · $0.00 · 1s', 'nothing to review'].join('\n');
+    expect(lastPullRequest(plain, 'acme/widgets')).toBe('https://github.com/acme/widgets/pull/12');
   });
 });
 
@@ -120,6 +136,24 @@ describe('runOutcome (PRD 2223)', () => {
     expect(runOutcome('/omni:yolo-fix 2223\nDone\n', prd)).toBeNull();
     expect(runOutcome('', prd)).toBeNull();
     expect(runOutcome('\n\n', prd)).toBeNull();
+  });
+});
+
+describe('runOutcome of a yolo job (PRD 2375)', () => {
+  const prd = parsePrd(2375);
+
+  it.each(['yolo', 'yolo-fix'] as const)('is stopped for a %s job whose last line is no hand-off for its PRD', (skill) => {
+    expect(runOutcome('built two sub-PRs\nDone\n', prd, skill)).toBe('stopped');
+    expect(runOutcome('/omni:yolo-fix 2374\n', prd, skill)).toBe('stopped');
+    expect(runOutcome('/omni:plan 2375\n', prd, skill)).toBe('stopped');
+    expect(runOutcome('', prd, skill)).toBe('stopped');
+  });
+
+  it('keeps the hand-off of a yolo job, and stays null for any other job', () => {
+    expect(runOutcome('/omni:yolo-fix 2375\n', prd, 'yolo')).toBe('answers');
+    expect(runOutcome('/omni:yolo 2375\n', prd, 'yolo-fix')).toBe('held');
+    expect(runOutcome('/omni:pr-care 2375\n', prd, 'yolo')).toBe('ready');
+    expect(runOutcome('Done\n', prd)).toBeNull();
   });
 });
 

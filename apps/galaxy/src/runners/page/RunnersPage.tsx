@@ -2,9 +2,9 @@ import { Notice } from '../../ask/page/Notice';
 import { MemberGate } from '../../dashboard/MemberGate';
 import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
-import { CancelButton, FixWithAnswersButton, FleetPicker, Refresh, SendAgainButton } from './actions';
+import { CancelButton, FixWithAnswersButton, FleetPicker, Refresh, ResumeButton, SendAgainButton } from './actions';
 import {
-  afterAnswersWords, answeredOf, canAnswer, canCancel, canSendAgain, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  afterAnswersWords, answeredOf, canAnswer, canCancel, canResume, canSendAgain, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Answered, type Fleet, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
 } from './model';
 import { asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
@@ -117,6 +117,7 @@ function Action({ job, primary, answered }: { job: Job; primary: boolean; answer
   return (
     <>
       <AnswersButton job={job} primary={primary} answered={answered} />
+      {canResume(job) && <ResumeButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />}
       {job.status === 'done' && job.prUrl && <a href={job.prUrl}>{prWords(job.prUrl)}</a>}
       {page !== null && <a href={page}>PRD page</a>}
     </>
@@ -161,6 +162,7 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
       <span>
         <StatusWords job={job} now={now} answered={answered} />
         {after !== null && job.continues && <span className="runners-why"><a href={`#job-${job.continues}`} data-content>{after}</a></span>}
+        {slicesWords(job) !== null && <span className="runners-why" data-content>{slicesWords(job)}</span>}
         {tokens !== null && <span className="runners-tokens" title={tokens.title}>{tokens.text}</span>}
         {waiting !== null && <span className="runners-why">{waiting}</span>}
         {releaseNotes(job).map((note) => <ReleaseLine key={note.kind} note={note} />)}
@@ -172,7 +174,7 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
 
 function Jobs({ board, fleets, prds, retros, now, answered }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[] }) {
   if (board.jobs.length === 0) return <p className="runners-muted">No job yet.</p>;
-  const primary = board.jobs.find(canSendAgain)?.id ?? answered[0] ?? null;
+  const primary = (board.jobs.find(canResume) ?? board.jobs.find(canSendAgain))?.id ?? answered[0] ?? null;
   return (
     <div className="runners-table runners-jobs">
       <div className="runners-row runners-head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span /></div>

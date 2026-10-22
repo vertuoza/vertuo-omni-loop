@@ -71,9 +71,9 @@ function pixelAt(clip: string, seconds: number, x: number, y: number): number[] 
 }
 
 describe('remuxArgs', () => {
-  it('encodes a VP8 WebM, which the Chromium the render draws in plays, with a keyframe every 15 frames and no sound', () => {
+  it('encodes a VP8 WebM, which the Chromium the render draws in plays, with a keyframe every 15 frames, no sound and one encoder thread, which a busy computer does not stall', () => {
     const args = remuxArgs('film/raw.webm', 'walk.webm');
-    expect(args.join(' ')).toContain('-i film/raw.webm -c:v libvpx');
+    expect(args.join(' ')).toContain('-i film/raw.webm -c:v libvpx -threads 1');
     expect(args.join(' ')).toContain('-g 15 -keyint_min 15');
     expect(args).toContain('-an');
     expect(args.at(-1)).toBe('walk.webm');

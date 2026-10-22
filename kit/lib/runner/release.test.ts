@@ -20,7 +20,8 @@ type Pr = { number: number; isDraft?: boolean; labels?: string[]; comments?: str
 const ghError = (stderr: string) => Object.assign(new Error('Command failed: gh'), { stderr });
 
 /**
- * A fake `gh`: `pr list` answers `prs` (drafts carrying `omni:in-progress` unless they say otherwise),
+ * A fake `gh`: `pr list` answers `prs` (drafts carrying `omni:in-progress` unless they say otherwise;
+ * only the drafts when asked for `--draft`, as `gh` does),
  * `api …/comments` their comments, one page per two, and `pr edit` and `pr comment` succeed unless
  * `fail` names the call. Every call is kept.
  */
@@ -32,7 +33,8 @@ function fakeGh(prs: Pr[], fail: (call: string) => string | null = () => null) {
     const refused = fail(call);
     if (refused !== null) throw ghError(refused);
     if (args[0] === 'pr' && args[1] === 'list') {
-      return JSON.stringify(prs.map((pr) => ({ number: pr.number, isDraft: pr.isDraft ?? true, labels: (pr.labels ?? ['omni:in-progress']).map((name) => ({ name })) })));
+      const listed = prs.map((pr) => ({ number: pr.number, isDraft: pr.isDraft ?? true, labels: (pr.labels ?? ['omni:in-progress']).map((name) => ({ name })) }));
+      return JSON.stringify(args.includes('--draft') ? listed.filter((pr) => pr.isDraft) : listed);
     }
     const comments = /^api repos\/acme\/widgets\/issues\/(\d+)\/comments/.exec(call);
     if (comments) {
@@ -50,10 +52,10 @@ const edits = (calls: string[]) => calls.filter((call) => call.startsWith('pr ed
 const posted = (calls: string[]) => calls.filter((call) => call.startsWith('pr comment'));
 
 describe('release()', () => {
-  it('lists the open drafts that carry inProgress, in the repository the job ran in', () => {
+  it('lists the open pull requests that carry inProgress, draft or ready, in the repository the job ran in', () => {
     const { gh, calls } = fakeGh([]);
     expect(release(JOB, REPO, 'exit code 3', gh)).toEqual({ released: [], releaseError: null });
-    expect(calls[0]).toBe('pr list --repo acme/widgets --state open --draft --label omni:in-progress --limit 100 --json number,isDraft,labels');
+    expect(calls[0]).toBe('pr list --repo acme/widgets --state open --label omni:in-progress --limit 100 --json number,labels');
     expect(calls).toHaveLength(1);
   });
 
@@ -91,14 +93,26 @@ describe('release()', () => {
     expect(posted(calls)).toEqual([]);
   });
 
-  it('leaves a ready pull request, or one without inProgress, alone, whatever gh lists', () => {
+  it('leaves a pull request without inProgress alone, draft or ready, whatever gh lists', () => {
     const { gh, calls } = fakeGh([
-      { number: 1, isDraft: false, comments: [status('a8a6bf82')] },
+      { number: 1, isDraft: false, labels: ['omni:sub'], comments: [status('a8a6bf82')] },
       { number: 2, labels: ['omni:sub'], comments: [status('a8a6bf82')] },
     ]);
     expect(release(JOB, REPO, 'done', gh)).toEqual({ released: [], releaseError: null });
     expect(calls.filter((call) => call.startsWith('api'))).toEqual([]);
     expect(edits(calls)).toEqual([]);
+  });
+
+  it('releases a ready pull request still on inProgress whose status comment names this job (#2366)', () => {
+    // Job 93914438 (`/omni:yolo 2338`) ended with sub-PR #2345 ready, on `omni:in-progress`, its status
+    // comment naming the job: the release took the drafts #2344 and #2339 only, and #2345 kept its claim.
+    const { gh, calls } = fakeGh([
+      { number: 2339, comments: [status('a8a6bf82')] },
+      { number: 2344, comments: [status('a8a6bf82')] },
+      { number: 2345, isDraft: false, comments: [status('a8a6bf82')] },
+    ]);
+    expect(release(JOB, REPO, 'done', gh)).toEqual({ released: [2339, 2344, 2345], releaseError: null });
+    expect(edits(calls)).toContain('pr edit 2345 --repo acme/widgets --remove-label omni:in-progress --add-label omni:released');
   });
 
   it('still removes inProgress when the released label is missing, and reports it', () => {

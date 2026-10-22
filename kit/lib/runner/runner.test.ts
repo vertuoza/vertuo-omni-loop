@@ -9,6 +9,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ExecText } from '../context.ts';
+import type { PrdNumber } from '../ids.ts';
+import type { MergedCount } from './follow.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { HealthReport, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
 import { DEFAULT_LIMITS } from './health.ts';
@@ -325,7 +327,7 @@ describe('the tokens (PRD 2102, s4)', () => {
 
 describe('the outcome (PRD 2223)', () => {
   /** Runs one job on `line` that ends with `exit`, its log being `log`: every report the app got. */
-  async function ending(line: string, log: string, exit: string): Promise<JobUpdate[]> {
+  async function ending(line: string, log: string, exit: string, slices?: (prd: PrdNumber, cwd: string) => Promise<MergedCount>): Promise<JobUpdate[]> {
     const home = mkdtempSync(join(tmpdir(), 'omni-runner-outcome-'));
     const base = holdingApp(7, (n) => {
       if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null, allowedSkills: [] });
@@ -336,6 +338,7 @@ describe('the outcome (PRD 2223)', () => {
     await run({ ...base, api }, {
       slots: 1, timeoutMs: 24 * 60 * 60 * 1000, home, checkouts: new Map([['acme/widgets', join(home, 'widgets')]]),
       terminal: { start: () => { writeFileSync(join(home, 'logs', 'job-7.log'), log); }, stop: () => undefined, alive: () => true },
+      ...(slices ? { slices } : {}),
     });
     return sent;
   }
@@ -349,12 +352,44 @@ describe('the outcome (PRD 2223)', () => {
     expect(last).toMatchObject({ status: 'done', outcome });
   });
 
-  it('sends none for another PRD, another skill, or a failed job', async () => {
-    expect((await ending('/omni:yolo 7', '/omni:yolo 8\n', '0\n')).at(-1)).not.toHaveProperty('outcome');
+  it('sends none for another skill, or a failed job', async () => {
     expect((await ending('/omni:pr-care 7', '/omni:pr-care 7\n', '0\n')).at(-1)).not.toHaveProperty('outcome');
     const failed = (await ending('/omni:yolo 7', '/omni:yolo-fix 7\n', '1\n')).at(-1);
     expect(failed).toMatchObject({ status: 'failed' });
     expect(failed).not.toHaveProperty('outcome');
+  });
+
+  it.each(['/omni:yolo 7', '/omni:yolo-fix 7'])('ends %s stopped, with its slice count read in the job\'s worktree, when its log has no hand-off for the PRD (PRD 2375)', async (line) => {
+    const asked: [number, string][] = [];
+    const last = (await ending(line, 'built two sub-PRs\n/omni:yolo 8\n', '0\n', (prd, cwd) => {
+      asked.push([Number(prd), cwd]);
+      return Promise.resolve({ merged: 0, total: 5 });
+    })).at(-1);
+    expect(last).toMatchObject({ status: 'done', outcome: 'stopped', slicesMerged: 0, slicesTotal: 5 });
+    expect(asked).toHaveLength(1);
+    expect(asked[0]?.[0]).toBe(7);
+    expect(asked[0]?.[1]).toContain('widgets-job-7');
+  });
+
+  it('ends stopped with no count when the board cannot be read, and the job still ends', async () => {
+    for (const slices of [() => Promise.resolve(null), () => Promise.reject(new Error('board failed'))]) {
+      const last = (await ending('/omni:yolo 7', 'Done\n', '0\n', slices)).at(-1);
+      expect(last).toMatchObject({ status: 'done', outcome: 'stopped' });
+      expect(last).not.toHaveProperty('slicesMerged');
+      expect(last).not.toHaveProperty('slicesTotal');
+    }
+  });
+
+  it('keeps the hand-off outcome, reads no count for it, and reads none for another skill', async () => {
+    const asked: number[] = [];
+    const slices = (): Promise<MergedCount> => {
+      asked.push(1);
+      return Promise.resolve({ merged: 1, total: 2 });
+    };
+    expect((await ending('/omni:yolo 7', '/omni:yolo 7\n', '0\n', slices)).at(-1)).toMatchObject({ outcome: 'held' });
+    expect((await ending('/omni:pr-care 7', 'Done\n', '0\n', slices)).at(-1)).not.toHaveProperty('outcome');
+    expect((await ending('/omni:yolo 7', 'Done\n', '1\n', slices)).at(-1)).not.toHaveProperty('outcome');
+    expect(asked).toEqual([]);
   });
 
   it('sends a final report the app refused for its outcome again without it', async () => {

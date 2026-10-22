@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.518" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.520" };
   }
 });
 
@@ -57465,7 +57465,7 @@ var PrdJobSchema = external_exports.object({
   prUrl: external_exports.string().nullable(),
   exitCode: external_exports.number().nullable(),
   reason: external_exports.string().nullable(),
-  outcome: external_exports.enum(["answers", "held", "ready", "human"]).nullable().optional().transform((value) => value ?? null),
+  outcome: external_exports.enum(["answers", "held", "ready", "human", "stopped"]).nullable().optional().transform((value) => value ?? null),
   queuedAt: external_exports.string()
 });
 var JobLinesSchema = external_exports.object({
@@ -58850,6 +58850,8 @@ var remuxArgs = (filmed, clip) => [
   filmed,
   "-c:v",
   "libvpx",
+  "-threads",
+  "1",
   "-deadline",
   "realtime",
   "-cpu-used",
@@ -61490,7 +61492,16 @@ function checkOwn(skill, args, allowed) {
 init_define_OMNI_BUNDLE();
 var LINE_CUT = 500;
 var STEP_OUTPUT_LINES = 20;
+var OPENS = /* @__PURE__ */ new WeakMap();
+function opensOf(seen) {
+  const known2 = OPENS.get(seen);
+  if (known2 !== void 0) return known2;
+  const opens = /* @__PURE__ */ new Set();
+  OPENS.set(seen, opens);
+  return opens;
+}
 var PULL_REQUEST = /https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+/g;
+var OPENS_PR = /\bgh\s+pr\s+create\b/;
 var isObject2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var text14 = (value) => typeof value === "string" ? value : "";
 var number4 = (value) => typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -61546,30 +61557,36 @@ function links(value, seen) {
   }
   return found2;
 }
-function blocks(content, seen) {
+function use(block, opens) {
+  const input2 = isObject2(block.input) ? block.input : {};
+  if (block.name === "Bash" && OPENS_PR.test(text14(input2.command))) opens.add(text14(block.id));
+  return toolCall(text14(block.name), input2);
+}
+function blocks(content, run2) {
   if (!Array.isArray(content)) return [];
   return content.filter(isObject2).flatMap((block) => {
-    if (block.type === "tool_use") return [toolCall(text14(block.name), isObject2(block.input) ? block.input : {})];
+    if (block.type === "tool_use") return [use(block, run2.opens)];
     if (block.type === "text") {
       const line2 = firstLine6(text14(block.text));
-      return [...line2 ? [`\u203A ${line2}`] : [], ...links(text14(block.text), seen)];
+      return line2 ? [`\u203A ${line2}`] : [];
     }
     if (block.type === "tool_result") {
       const output2 = resultText(block.content);
-      return [...block.is_error === true ? failure5(output2) : [], ...links(output2, seen)];
+      const opened = run2.opens.has(text14(block.tool_use_id)) ? links(output2, run2.seen) : [];
+      return [...block.is_error === true ? failure5(output2) : [], ...opened];
     }
     return [];
   });
 }
-function result(event) {
+function result(event, seen) {
   const ok = event.is_error !== true && event.subtype === "success";
   const done = `Done: ${ok ? "ok" : "error"} \xB7 ${String(number4(event.num_turns))} turns \xB7 $${number4(event.total_cost_usd).toFixed(2)} \xB7 ${duration4(number4(event.duration_ms))}`;
   const body = text14(event.result);
-  return [done, ...body === "" ? [] : body.split("\n")];
+  return [done, ...body === "" ? [] : body.split("\n"), ...links(body, seen)];
 }
-function eventLines(event, seen) {
-  if (event.type === "result") return result(event);
-  if (event.type === "assistant" || event.type === "user") return blocks(isObject2(event.message) ? event.message.content : void 0, seen);
+function eventLines(event, run2) {
+  if (event.type === "result") return result(event, run2.seen);
+  if (event.type === "assistant" || event.type === "user") return blocks(isObject2(event.message) ? event.message.content : void 0, run2);
   return [];
 }
 function stepLine(line2, { now: now2 = /* @__PURE__ */ new Date(), seen = /* @__PURE__ */ new Set() } = {}) {
@@ -61582,7 +61599,7 @@ function stepLine(line2, { now: now2 = /* @__PURE__ */ new Date(), seen = /* @__
   }
   if (!isObject2(event)) return [];
   const stamp2 = `${clock2(now2)} `;
-  return eventLines(event, seen).map((each) => cut4(stamp2 + each));
+  return eventLines(event, { seen, opens: opensOf(seen) }).map((each) => cut4(stamp2 + each));
 }
 
 // kit/lib/runner/job.ts
@@ -61714,19 +61731,28 @@ function reportBatch(lines2) {
   return lines2.slice(0, count5);
 }
 var escape4 = (text15) => text15.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var DONE_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Done: (?:ok|error) · /;
+var PR_LINE = /^(?:\d{2}:\d{2}:\d{2} )?PR: (\S+)$/;
 function lastPullRequest(log, repo) {
-  const pattern = new RegExp(`https://github\\.com/${escape4(repo)}/pull/\\d+(?!\\d)`, "gi");
-  const found2 = log.match(pattern);
-  return found2?.at(-1) ?? null;
+  const link3 = new RegExp(`https://github\\.com/${escape4(repo)}/pull/\\d+(?!\\d)`, "i");
+  const lines2 = log.split("\n");
+  const done = lines2.findLastIndex((line2) => DONE_LINE.test(line2));
+  const handedOff = done < 0 ? void 0 : lines2.slice(done + 1).flatMap((line2) => link3.exec(line2)?.[0] ?? [])[0];
+  const opened = lines2.flatMap((line2) => {
+    const found2 = PR_LINE.exec(line2)?.[1];
+    return found2 === void 0 ? [] : link3.exec(found2)?.[0] ?? [];
+  });
+  return handedOff ?? opened.at(-1) ?? null;
 }
 var OUTCOMES = { "yolo-fix": "answers", yolo: "held", "pr-care": "ready" };
 var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
 var HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
-function runOutcome(log, prd2) {
+function runOutcome(log, prd2, skill) {
   const last = log.split("\n").map((line2) => line2.trim()).filter((line2) => line2 !== "" && !HOOK_FAILED.test(line2)).at(-1) ?? "";
   const match = /^\/omni:([a-z-]+) (\d+)$/.exec(last.replace(STAMP2, ""));
   const outcome = match?.[1] !== void 0 && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : void 0;
-  return outcome !== void 0 && match?.[2] === String(prd2) ? outcome : null;
+  if (outcome !== void 0 && match?.[2] === String(prd2)) return outcome;
+  return skill === void 0 ? null : "stopped";
 }
 var UNITS = { s: 1e3, m: 6e4, h: 36e5 };
 function parseDuration(text15) {
@@ -61776,7 +61802,6 @@ var MAX_RELEASED = 50;
 var MAX_RELEASE_ERROR = 200;
 var ListedSchema = external_exports.array(external_exports.object({
   number: external_exports.number().int().positive(),
-  isDraft: external_exports.boolean(),
   labels: external_exports.array(external_exports.object({ name: external_exports.string() }))
 }));
 var BodiesSchema = external_exports.array(external_exports.string());
@@ -61794,14 +61819,14 @@ function why2(error62) {
 }
 var cut5 = (text15, max) => text15.length <= max ? text15 : `${text15.slice(0, max - 1)}\u2026`;
 function candidates(repo, gh) {
-  const out = gh(["pr", "list", "--repo", repo.slug, "--state", "open", "--draft", "--label", repo.inProgress, "--limit", "100", "--json", "number,isDraft,labels"]);
+  const out = gh(["pr", "list", "--repo", repo.slug, "--state", "open", "--label", repo.inProgress, "--limit", "100", "--json", "number,labels"]);
   let listed2;
   try {
     listed2 = ListedSchema.parse(JSON.parse(out));
   } catch {
     throw new Error("gh pr list answered something unreadable");
   }
-  return listed2.filter((pr) => pr.isDraft && pr.labels.some((label2) => label2.name === repo.inProgress)).map((pr) => pr.number);
+  return listed2.filter((pr) => pr.labels.some((label2) => label2.name === repo.inProgress)).map((pr) => pr.number);
 }
 function heldBy(repo, number5, job2, gh) {
   const out = gh(["api", `repos/${repo.slug}/issues/${String(number5)}/comments`, "--paginate", "--jq", "[.[].body]"]);
@@ -62342,8 +62367,8 @@ async function sendCounted(loop2, job2, update2) {
   }
 }
 async function sendUpdate(loop2, job2, update2) {
-  const { released, releaseError, outcome, ...rest } = update2;
-  if (released === void 0 && releaseError === void 0 && outcome === void 0) return sendCounted(loop2, job2, update2);
+  const { released, releaseError, outcome, slicesMerged, slicesTotal, ...rest } = update2;
+  if (released === void 0 && releaseError === void 0 && outcome === void 0 && slicesMerged === void 0 && slicesTotal === void 0) return sendCounted(loop2, job2, update2);
   try {
     return await sendCounted(loop2, job2, update2);
   } catch (error62) {
@@ -62480,7 +62505,18 @@ function startSession(loop2, job2, place, note) {
 function outcomeOf2(log, line2) {
   const checked5 = checkRunnerLine(line2);
   const args = checked5.ok ? checked5.args.trim() : "";
-  return checked5.ok && (checked5.skill === "yolo" || checked5.skill === "yolo-fix") && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args)) : null;
+  return checked5.ok && (checked5.skill === "yolo" || checked5.skill === "yolo-fix") && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args), checked5.skill) : null;
+}
+async function withSlices(loop2, job2, place, update2) {
+  if (update2.outcome !== "stopped" || loop2.slices === void 0) return update2;
+  const checked5 = checkRunnerLine(job2.line);
+  if (!checked5.ok) return update2;
+  try {
+    const count5 = await loop2.slices(parsePrd(checked5.args.trim()), place.worktree);
+    return count5 === null ? update2 : { ...update2, slicesMerged: count5.merged, slicesTotal: count5.total };
+  } catch {
+    return update2;
+  }
 }
 function ended(log, exitText, job2) {
   const code = Number.parseInt(exitText, 10);
@@ -62495,7 +62531,7 @@ function ended(log, exitText, job2) {
 function vanished(log, job2) {
   const reason2 = "the job stopped before it wrote its exit code";
   const outcome = outcomeOf2(log, job2.line);
-  if (outcome === null) return { status: "failed", logTail: logTail(log), reason: reason2 };
+  if (outcome === null || outcome === "stopped") return { status: "failed", logTail: logTail(log), reason: reason2 };
   return { status: "done", logTail: logTail(log), prUrl: lastPullRequest(log, job2.repo), exitCode: null, reason: reason2, outcome };
 }
 function killed(loop2, place, update2) {
@@ -62508,7 +62544,7 @@ async function watch2(loop2, job2, place, live) {
   for (; ; ) {
     await loop2.sleep(loop2.tickMs);
     const log = readText4(place.log);
-    if (existsSync91(place.exit)) return ended(log, readText4(place.exit), job2);
+    if (existsSync91(place.exit)) return withSlices(loop2, job2, place, ended(log, readText4(place.exit), job2));
     if (!loop2.terminal.alive(place.session)) return vanished(readText4(place.log), job2);
     if (loop2.now() - started > loop2.timeoutMs) return killed(loop2, place, { status: "failed", reason: "timeout" });
     if (await tick2(loop2, job2.id, withTokens(loop2, { status: "running", logTail: logTail(log) }, place.worktree), live, log)) return killed(loop2, place, { status: "cancelled" });
@@ -62720,15 +62756,16 @@ import { setTimeout as delay } from "node:timers/promises";
 init_define_OMNI_BUNDLE();
 var NOTHING_SEEN = Object.freeze({ queued: false, claimedBy: null, waiting: false, prs: [], merged: 0, ended: false });
 var STAMP3 = /^\d{2}:\d{2}:\d{2} /;
-var PR_LINE = /^PR: (\S+)/;
+var PR_LINE2 = /^PR: (\S+)/;
 var WAITING = /^◌ PRD \d+ · waiting for /;
 var APPROVED = /^✓ PRD \d+ approved /;
-var DONE_WORDS = { answers: "Waiting on answers", held: "Held", ready: "Ready", human: "Need human" };
+var DONE_WORDS = { answers: "Waiting on answers", held: "Held", ready: "Ready", human: "Need human", stopped: "Stopped mid-way" };
 var failure6 = ({ reason: reason2, exitCode }) => reason2 ?? (exitCode === null ? "no reason given" : `exit code ${String(exitCode)}`);
-function ending(job2) {
+function ending(job2, merged) {
   if (job2.status === "cancelled") return "Cancelled";
   if (job2.status === "failed") return job2.reason === "runner lost" ? "Runner lost" : `Failed: ${failure6(job2)}`;
   if (job2.status !== "done") return null;
+  if (job2.outcome === "stopped") return merged === null || merged.total === 0 ? DONE_WORDS.stopped : `${DONE_WORDS.stopped} \xB7 ${String(merged.merged)} / ${String(merged.total)} slices merged`;
   return job2.outcome === null ? "Done" : DONE_WORDS[job2.outcome];
 }
 function readLines(lines2, seen) {
@@ -62744,7 +62781,7 @@ function readLines(lines2, seen) {
     } else if (APPROVED.test(line2)) {
       waiting = false;
     }
-    const pr = PR_LINE.exec(line2)?.[1];
+    const pr = PR_LINE2.exec(line2)?.[1];
     if (pr !== void 0 && !prs.includes(pr)) {
       prs.push(pr);
       fresh.push(pr);
@@ -62770,10 +62807,11 @@ function milestones(previous, job2, lines2, merged, page2) {
     out.push(`${String(merged.merged)}/${String(merged.total)} slices merged`);
   }
   let ended2 = seen.ended;
-  const last = ended2 ? null : ending(job2);
+  const last = ended2 ? null : ending(job2, merged);
   if (last !== null) {
     ended2 = true;
     out.push(page2 === null ? last : `${last} \xB7 ${page2}`);
+    if (job2.outcome === "stopped" && job2.status === "done" && job2.line !== void 0) out.push(`send it again: omni runner send '${job2.line}'`);
   }
   return { lines: out, seen: { queued: true, claimedBy, waiting: read3.waiting, prs: read3.prs, merged: count5, ended: ended2 } };
 }
@@ -62781,7 +62819,7 @@ function isEnded(job2) {
   return job2.status === "done" || job2.status === "failed" || job2.status === "cancelled";
 }
 function exitCodeOf(job2) {
-  return job2.status === "done" ? 0 : 1;
+  return job2.status === "done" && job2.outcome !== "stopped" ? 0 : 1;
 }
 
 // kit/bin/commands/runner-follow.ts
@@ -63075,6 +63113,7 @@ async function start2(args, io) {
       wrapper: [process.execPath, script2, "runner", "job"],
       env: jobEnv(io),
       release: releaser({ exec, checkouts }),
+      slices: (prd2, dir) => (io.mergedOf ?? ((n) => boardCount(n, { ...io, cwd: dir })))(prd2),
       print: (line2) => {
         println(stdout, line2);
       },

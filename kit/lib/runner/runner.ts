@@ -52,12 +52,14 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import type { ExecText } from '../context.ts';
 import { parsePrd } from '../ids.ts';
+import type { PrdNumber } from '../ids.ts';
 import { runnerJobVariables } from '../env/read.ts';
 import { runningBundle } from '../init/bundle.ts';
 import { RunnerRefused, RunnerUnreachable } from './api.ts';
 import type { HealthLimits, JobUpdate, RunnerApi, RunnerJob } from './api.ts';
 import { DEFAULT_LIMITS, machineReads, nextPause, pressure, sample } from './health.ts';
 import type { CpuTimes, MachineReads, PauseState } from './health.ts';
+import type { MergedCount } from './follow.ts';
 import { checkRunnerLine } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
@@ -131,6 +133,8 @@ export type RunnerOptions = {
   tokens?: TokenSource | undefined;
   /** Releases the claims of a job that ended (PRD 2175): none are released unless given. */
   release?: Releaser | undefined;
+  /** The PRD's slices merged of all, read in the job's worktree when a job ended `stopped` (PRD 2375): never read unless given. */
+  slices?: ((prd: PrdNumber, cwd: string) => Promise<MergedCount>) | undefined;
 };
 
 /** One runner's state while it runs: its options with their defaults, and whether it was refused. */
@@ -272,11 +276,11 @@ async function sendCounted(loop: Loop, job: string, update: JobUpdate): Promise<
 
 /**
  * Sends a job's report. One that carries what was released, or an outcome, and is refused is sent again
- * without them: an app older than PRD 2175 or 2223 refuses a field it does not know, and the job's status must still reach it.
+ * without them: an app older than PRD 2175, 2223 or 2375 refuses a field it does not know, and the job's status must still reach it.
  */
 async function sendUpdate(loop: Loop, job: string, update: JobUpdate): Promise<{ cancel: boolean }> {
-  const { released, releaseError, outcome, ...rest } = update;
-  if (released === undefined && releaseError === undefined && outcome === undefined) return sendCounted(loop, job, update);
+  const { released, releaseError, outcome, slicesMerged, slicesTotal, ...rest } = update;
+  if (released === undefined && releaseError === undefined && outcome === undefined && slicesMerged === undefined && slicesTotal === undefined) return sendCounted(loop, job, update);
   try {
     return await sendCounted(loop, job, update);
   } catch (error) {
@@ -443,11 +447,24 @@ function startSession(loop: Loop, job: RunnerJob, place: Place, note: string | n
   }
 }
 
-/** What a `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223); `null` for any other job. */
+/** What a `/omni:yolo` or `/omni:yolo-fix` job's hand-off ended on (PRD 2223), `stopped` with none (PRD 2375); `null` for any other job. */
 function outcomeOf(log: string, line: string): RunOutcome | null {
   const checked = checkRunnerLine(line);
   const args = checked.ok ? checked.args.trim() : '';
-  return checked.ok && (checked.skill === 'yolo' || checked.skill === 'yolo-fix') && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args)) : null;
+  return checked.ok && (checked.skill === 'yolo' || checked.skill === 'yolo-fix') && /^[1-9]\d*$/.test(args) ? runOutcome(log, parsePrd(args), checked.skill) : null;
+}
+
+/** `update` with the PRD's slice count when the job stopped mid-way (PRD 2375); as it is when the count cannot be read, which stops nothing. */
+async function withSlices(loop: Loop, job: RunnerJob, place: Place, update: JobUpdate): Promise<JobUpdate> {
+  if (update.outcome !== 'stopped' || loop.slices === undefined) return update;
+  const checked = checkRunnerLine(job.line);
+  if (!checked.ok) return update;
+  try {
+    const count = await loop.slices(parsePrd(checked.args.trim()), place.worktree);
+    return count === null ? update : { ...update, slicesMerged: count.merged, slicesTotal: count.total };
+  } catch {
+    return update;
+  }
 }
 
 /** The status a run that ended with `exitText` reports: done with its pull request, or failed with its code. */
@@ -463,11 +480,12 @@ function ended(log: string, exitText: string, job: RunnerJob): JobUpdate {
 }
 
 /** The status a run whose session ended before it wrote its exit code reports: done on its hand-off's
- * outcome when it printed one (#2388), since what it waits for is a person, else failed. */
+ * outcome when it printed one (#2388), since what it waits for is a person, else failed, never
+ * `stopped`, which is for a run that exited 0 (PRD 2375). */
 function vanished(log: string, job: RunnerJob): JobUpdate {
   const reason = 'the job stopped before it wrote its exit code';
   const outcome = outcomeOf(log, job.line);
-  if (outcome === null) return { status: 'failed', logTail: logTail(log), reason };
+  if (outcome === null || outcome === 'stopped') return { status: 'failed', logTail: logTail(log), reason };
   return { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: null, reason, outcome };
 }
 
@@ -484,7 +502,7 @@ async function watch(loop: Loop, job: RunnerJob, place: Place, live: Live): Prom
   for (;;) {
     await loop.sleep(loop.tickMs);
     const log = readText(place.log);
-    if (existsSync(place.exit)) return ended(log, readText(place.exit), job);
+    if (existsSync(place.exit)) return withSlices(loop, job, place, ended(log, readText(place.exit), job));
     if (!loop.terminal.alive(place.session)) return vanished(readText(place.log), job);
     if (loop.now() - started > loop.timeoutMs) return killed(loop, place, { status: 'failed', reason: 'timeout' });
     if (await tick(loop, job.id, withTokens(loop, { status: 'running', logTail: logTail(log) }, place.worktree), live, log)) return killed(loop, place, { status: 'cancelled' });

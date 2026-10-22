@@ -34,7 +34,7 @@
 //   already ended takes one more report carrying only those two, with the status it ended on: its
 //   runner releases a lost job's claims after the job ended. Nothing else of the job changes.
 // - A job's outcome (PRD 2223): a done job's last report may say what its yolo hand-off ended on
-//   (answers, held, ready), stored in `runner_jobs.outcome`; a report on another status stores none.
+//   (answers, held, ready, or stopped with its slice count, PRD 2375), stored in `runner_jobs.outcome`; a report on another status stores none.
 // - The terminal's reads (PRD 2251): a member of the workspace a repository belongs to reads its
 //   runners, and the jobs of that repository whose line names a PRD (its first argument), among the ones
 //   the Runners page lists, newest first; anyone else is refused, and another workspace is never read.
@@ -124,7 +124,7 @@ function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, strin
     id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, ...senderFields(row, logins, keys),
     status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
     logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null,
-    released: row.released ?? null, releaseError: row.release_error ?? null, outcome: row.outcome ?? null, continues: row.continues ?? null, queuedAt: row.queued_at,
+    released: row.released ?? null, releaseError: row.release_error ?? null, outcome: row.outcome ?? null, slicesMerged: row.slices_merged ?? null, slicesTotal: row.slices_total ?? null, continues: row.continues ?? null, queuedAt: row.queued_at,
     claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
 }
@@ -189,6 +189,9 @@ function reportPatch(job: JobRow, report: JobUpdate, now: string): JobPatch {
     released: report.released, release_error: report.releaseError,
     // Only a done job has an outcome (PRD 2223): a failed or cancelled report's is never stored.
     outcome: report.status === 'done' ? report.outcome : undefined,
+    // The slice count of a stopped job (PRD 2375): stored with its outcome, on a done report only.
+    slices_merged: report.status === 'done' ? report.slicesMerged : undefined,
+    slices_total: report.status === 'done' ? report.slicesTotal : undefined,
   };
   const given: JobPatch = Object.fromEntries(Object.entries(carried).filter(([, column]) => column !== undefined));
   const starts = report.status === 'running' && job.running_at === null;

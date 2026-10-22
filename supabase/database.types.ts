@@ -3626,6 +3626,8 @@ export type Database = {
           sent_by: string | null
           sent_by_app: string | null
           sent_by_key: string | null
+          slices_merged: number | null
+          slices_total: number | null
           status: string
           to_fleet: string | null
           to_runner: string | null
@@ -3653,6 +3655,8 @@ export type Database = {
           sent_by?: string | null
           sent_by_app?: string | null
           sent_by_key?: string | null
+          slices_merged?: number | null
+          slices_total?: number | null
           status?: string
           to_fleet?: string | null
           to_runner?: string | null
@@ -3680,6 +3684,8 @@ export type Database = {
           sent_by?: string | null
           sent_by_app?: string | null
           sent_by_key?: string | null
+          slices_merged?: number | null
+          slices_total?: number | null
           status?: string
           to_fleet?: string | null
           to_runner?: string | null
@@ -6351,6 +6357,8 @@ export type Database = {
           sent_by: string | null
           sent_by_app: string | null
           sent_by_key: string | null
+          slices_merged: number | null
+          slices_total: number | null
           status: string
           to_fleet: string | null
           to_runner: string | null
@@ -6387,6 +6395,8 @@ export type Database = {
           sent_by: string | null
           sent_by_app: string | null
           sent_by_key: string | null
+          slices_merged: number | null
+          slices_total: number | null
           status: string
           to_fleet: string | null
           to_runner: string | null

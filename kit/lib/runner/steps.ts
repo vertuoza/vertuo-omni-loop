@@ -2,7 +2,7 @@
 // `claude -p --output-format stream-json --verbose`, which prints one JSON event per line as it works.
 // `stepLine` turns one of those lines into what a person reads: a tool call as its name and its
 // target, assistant text as its first line, a failed tool result with its output, each pull request
-// link once, and the run's end. Each line is prefixed with the runner's local time and cut to 500
+// the job opened or handed off on once, and the run's end. Each line is prefixed with the runner's local time and cut to 500
 // characters. A line that is not JSON is passed through; anything else gives nothing.
 
 /** The most characters a readable line holds, its time included. */
@@ -13,9 +13,25 @@ export const STEP_OUTPUT_LINES = 20;
 /** What a run's lines share: the time they are stamped with, and the pull request links already named. */
 export type StepContext = { now?: Date; seen?: Set<string> };
 
+/** What one event's lines are read with: the run's links named, and the ids of its calls that open a pull request. */
+type Run = { seen: Set<string>; opens: Set<string> };
+
+/** The ids of the calls that open a pull request, per run, keyed by the run's `seen` (bug 2365). */
+const OPENS = new WeakMap<Set<string>, Set<string>>();
+
+function opensOf(seen: Set<string>): Set<string> {
+  const known = OPENS.get(seen);
+  if (known !== undefined) return known;
+  const opens = new Set<string>();
+  OPENS.set(seen, opens);
+  return opens;
+}
+
 type Json = Record<string, unknown>;
 
 const PULL_REQUEST = /https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+/g;
+/** A shell command that opens a pull request: its output is the one tool result whose link is the job's. */
+const OPENS_PR = /\bgh\s+pr\s+create\b/;
 
 const isObject = (value: unknown): value is Json => typeof value === 'object' && value !== null && !Array.isArray(value);
 const text = (value: unknown): string => (typeof value === 'string' ? value : '');
@@ -90,35 +106,47 @@ function links(value: string, seen: Set<string>): string[] {
   return found;
 }
 
-/** The lines of a message's content blocks: tool calls, assistant text, failed tool results, links. */
-function blocks(content: unknown, seen: Set<string>): string[] {
+/** The line of a tool call, noting its id when it opens a pull request. */
+function use(block: Json, opens: Set<string>): string {
+  const input = isObject(block.input) ? block.input : {};
+  if (block.name === 'Bash' && OPENS_PR.test(text(input.command))) opens.add(text(block.id));
+  return toolCall(text(block.name), input);
+}
+
+/**
+ * The lines of a message's content blocks: tool calls, assistant text, failed tool results, and the
+ * link of a pull request a call opened. A link the job only read (a file, a search, test output) or
+ * wrote in passing is no `PR:` line (bug 2365).
+ */
+function blocks(content: unknown, run: Run): string[] {
   if (!Array.isArray(content)) return [];
   return content.filter(isObject).flatMap((block): string[] => {
-    if (block.type === 'tool_use') return [toolCall(text(block.name), isObject(block.input) ? block.input : {})];
+    if (block.type === 'tool_use') return [use(block, run.opens)];
     if (block.type === 'text') {
       const line = firstLine(text(block.text));
-      return [...(line ? [`› ${line}`] : []), ...links(text(block.text), seen)];
+      return line ? [`› ${line}`] : [];
     }
     if (block.type === 'tool_result') {
       const output = resultText(block.content);
-      return [...(block.is_error === true ? failure(output) : []), ...links(output, seen)];
+      const opened = run.opens.has(text(block.tool_use_id)) ? links(output, run.seen) : [];
+      return [...(block.is_error === true ? failure(output) : []), ...opened];
     }
     return [];
   });
 }
 
-/** The lines of the run's `result` event: `Done: …`, then every line of its text. */
-function result(event: Json): string[] {
+/** The lines of the run's `result` event: `Done: …`, every line of its text (the hand-off), then a `PR:` line per link it names first. */
+function result(event: Json, seen: Set<string>): string[] {
   const ok = event.is_error !== true && event.subtype === 'success';
   const done = `Done: ${ok ? 'ok' : 'error'} · ${String(number(event.num_turns))} turns · $${number(event.total_cost_usd).toFixed(2)} · ${duration(number(event.duration_ms))}`;
   const body = text(event.result);
-  return [done, ...(body === '' ? [] : body.split('\n'))];
+  return [done, ...(body === '' ? [] : body.split('\n')), ...links(body, seen)];
 }
 
 /** The lines of one parsed event, unstamped. */
-function eventLines(event: Json, seen: Set<string>): string[] {
-  if (event.type === 'result') return result(event);
-  if (event.type === 'assistant' || event.type === 'user') return blocks(isObject(event.message) ? event.message.content : undefined, seen);
+function eventLines(event: Json, run: Run): string[] {
+  if (event.type === 'result') return result(event, run.seen);
+  if (event.type === 'assistant' || event.type === 'user') return blocks(isObject(event.message) ? event.message.content : undefined, run);
   return [];
 }
 
@@ -126,7 +154,8 @@ function eventLines(event: Json, seen: Set<string>): string[] {
  * The readable lines of one line of claude's stream-json output, each `hh:mm:ss `-prefixed and cut to
  * {@link LINE_CUT} characters. A line that is not JSON comes back as it is (cut); an event that
  * shows nothing (system, thinking, a tool result that succeeded, an unknown type) gives none. Pass
- * the same `seen` for a whole run, so each pull request link is named once.
+ * the same `seen` for a whole run, so each pull request link is named once, and the output of a call
+ * that opened a pull request is known as such.
  */
 export function stepLine(line: string, { now = new Date(), seen = new Set<string>() }: StepContext = {}): string[] {
   if (line.trim() === '') return [];
@@ -138,5 +167,5 @@ export function stepLine(line: string, { now = new Date(), seen = new Set<string
   }
   if (!isObject(event)) return [];
   const stamp = `${clock(now)} `;
-  return eventLines(event, seen).map((each) => cut(stamp + each));
+  return eventLines(event, { seen, opens: opensOf(seen) }).map((each) => cut(stamp + each));
 }

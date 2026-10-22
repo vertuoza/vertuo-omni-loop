@@ -65,15 +65,37 @@ export function reportBatch(lines: readonly string[]): string[] {
 
 const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** The last `https://github.com/<repo>/pull/<n>` in `log`, or `null`: another repository's never counts. */
+/** The readable log's `Done: …` line, which the run's hand-off follows, and a `PR: <link>` line. */
+const DONE_LINE = /^(?:\d{2}:\d{2}:\d{2} )?Done: (?:ok|error) · /;
+const PR_LINE = /^(?:\d{2}:\d{2}:\d{2} )?PR: (\S+)$/;
+
+/**
+ * The job's pull request in its readable log (bug 2365), or `null`: the first
+ * `https://github.com/<repo>/pull/<n>` its hand-off (the lines after `Done: …`) names, else the last
+ * `PR: <link>` line, which only a pull request the job opened writes. A link the job only read never
+ * counts, nor another repository's.
+ */
 export function lastPullRequest(log: string, repo: string): string | null {
-  const pattern = new RegExp(`https://github\\.com/${escape(repo)}/pull/\\d+(?!\\d)`, 'gi');
-  const found = log.match(pattern);
-  return found?.at(-1) ?? null;
+  const link = new RegExp(`https://github\\.com/${escape(repo)}/pull/\\d+(?!\\d)`, 'i');
+  const lines = log.split('\n');
+  const done = lines.findLastIndex((line) => DONE_LINE.test(line));
+  const handedOff = done < 0 ? undefined : lines.slice(done + 1).flatMap((line) => link.exec(line)?.[0] ?? [])[0];
+  const opened = lines.flatMap((line) => {
+    const found = PR_LINE.exec(line)?.[1];
+    return found === undefined ? [] : (link.exec(found)?.[0] ?? []);
+  });
+  return handedOff ?? opened.at(-1) ?? null;
 }
 
-/** What a yolo job's hand-off ended on (PRD 2223): `answers` for `/omni:yolo-fix <prd>`, `held` for `/omni:yolo <prd>`, `ready` for `/omni:pr-care <prd>`. */
-export type RunOutcome = 'answers' | 'held' | 'ready';
+/**
+ * What a yolo job's hand-off ended on (PRD 2223): `answers` for `/omni:yolo-fix <prd>`, `held` for
+ * `/omni:yolo <prd>`, `ready` for `/omni:pr-care <prd>`. `stopped` (PRD 2375) is a yolo job that exited
+ * 0 with no hand-off line for its PRD: it stopped mid-way.
+ */
+export type RunOutcome = 'answers' | 'held' | 'ready' | 'stopped';
+
+/** The skills whose job has a hand-off line to miss (PRD 2375). */
+export type HandOffSkill = 'yolo' | 'yolo-fix';
 
 const OUTCOMES: Readonly<Record<string, RunOutcome>> = { 'yolo-fix': 'answers', yolo: 'held', 'pr-care': 'ready' };
 const STAMP = /^\d{2}:\d{2}:\d{2} /;
@@ -84,12 +106,15 @@ const HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
  * The outcome the run's last non-empty line names for PRD `prd` (the yolo skill's hand-off always ends
  * on its next command), or `null` for any other line, a line naming another PRD, or an empty log. The
  * runner's `hh:mm:ss ` stamp, when the line has one, is ignored, and so is a failed hook's line after it.
+ * For a job of `skill` (`yolo` or `yolo-fix`, PRD 2375) a last line that is no hand-off for `prd` is
+ * `stopped` instead of `null`.
  */
-export function runOutcome(log: string, prd: PrdNumber): RunOutcome | null {
+export function runOutcome(log: string, prd: PrdNumber, skill?: HandOffSkill): RunOutcome | null {
   const last = log.split('\n').map((line) => line.trim()).filter((line) => line !== '' && !HOOK_FAILED.test(line)).at(-1) ?? '';
   const match = /^\/omni:([a-z-]+) (\d+)$/.exec(last.replace(STAMP, ''));
   const outcome = match?.[1] !== undefined && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : undefined;
-  return outcome !== undefined && match?.[2] === String(prd) ? outcome : null;
+  if (outcome !== undefined && match?.[2] === String(prd)) return outcome;
+  return skill === undefined ? null : 'stopped';
 }
 
 const UNITS: Readonly<Record<string, number>> = { s: 1000, m: 60_000, h: 3_600_000 };
