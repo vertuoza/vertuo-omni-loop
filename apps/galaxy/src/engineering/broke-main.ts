@@ -4,11 +4,13 @@
 // included, keeps the PRD in "still watched", counted apart. Of the PRDs whose watch ended, `broke` is
 // those that broke main. With none ended the line is left out (`null`). A PRD names no person.
 
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+
 /** One lane of a PRD's watch, with the signals that broke it, as the board reads it. */
 export interface MainWatchRow {
   /** The PRD's own repository, `owner/name`, lower case, as the watch keeps it. */
   repository: string;
-  prd: number;
+  prd: PrdNumber;
   status: 'watching' | 'clean' | 'broke';
   mergedAt: string;
   /** What broke this lane: each signal's title, in the order it happened. */
@@ -17,7 +19,7 @@ export interface MainWatchRow {
   dossier: string | null;
 }
 
-export interface BrokePrd { repository: string; prd: number; dossier: string | null; what: string }
+export interface BrokePrd { repository: string; prd: PrdNumber; dossier: string | null; what: string }
 
 export interface BrokeMain {
   /** PRDs whose watch ended in the period. */

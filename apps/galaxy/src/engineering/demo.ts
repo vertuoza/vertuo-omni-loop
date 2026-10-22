@@ -145,7 +145,7 @@ function mainWatchOf(now: Date): MainWatchRow[] {
     const mergedAt = new Date(now.getTime() - (i * 2 + 1) * 24 * HOUR).toISOString();
     const broke = i % 5 === 2;
     return {
-      repository: tracked(i).toLowerCase(), prd: 1000 + i, mergedAt, dossier: null,
+      repository: tracked(i).toLowerCase(), prd: parsePrd(1000 + i), mergedAt, dossier: null,
       status: broke ? 'broke' : i < 3 ? 'watching' : 'clean', breaks: broke ? ['CI red: build and test on main'] : [],
     };
   });

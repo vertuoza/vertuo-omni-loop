@@ -4,7 +4,9 @@ import { messageOf } from 'omni-loop/kit/lib/narrow.ts';
 import { settle, UNREADABLE, type Read } from '../dashboard/part';
 import { periodWindow, type Period } from '../dashboard/board/period';
 import type { Database } from '../../../../supabase/database.types.ts';
-import { allPages } from '../data/all-pages';
+import { z } from 'zod';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { allPages, parsedPages } from '../data/all-pages';
 import { memberWorkspace, type Workspace } from '../data/workspace';
 import { loadPeople, peopleOf, type People } from '../people/load';
 import { readTracked } from '../profile/stored';
@@ -131,9 +133,9 @@ type StoredPullRequest = {
 };
 type StoredReview = { repo: string; number: number; reviewer: string; first_at: string };
 
-type StoredWatch = { repository: string; prd: number; lane: string; status: string; merged_at: string };
-type StoredBreak = { repository: string; prd: number; lane: string; title: string };
-type StoredDossier = { id: string; home_repo: string | null; prd: number | null };
+const StoredWatch = z.object({ repository: z.string(), prd: PrdNumberSchema, lane: z.string(), status: z.string(), merged_at: z.string() });
+const StoredBreak = z.object({ repository: z.string(), prd: PrdNumberSchema, lane: z.string(), title: z.string() });
+const StoredDossier = z.object({ id: z.string(), home_repo: z.string().nullable(), prd: PrdNumberSchema.nullable() });
 const DAY = 86_400_000;
 /** The table refuses any other status; an unknown one reads as still watching, never clean. */
 const statusOf = (status: string): MainWatchRow['status'] => (status === 'clean' || status === 'broke' ? status : 'watching');
@@ -178,7 +180,7 @@ export function supabaseEngineeringReads(db: SupabaseClient<Database>, workspace
     async mainWatch(from, repos) {
       // A PRD's lanes merge close together: read from two weeks before the window so none of its lanes is missed.
       const since = new Date(from.getTime() - 14 * DAY).toISOString();
-      const watch = await allPages<StoredWatch>('the main watch', (start, end) => db
+      const watch = await parsedPages('the main watch', StoredWatch, 'engineering: prd_main_watch', (start, end) => db
         .from('prd_main_watch')
         .select('repository, prd, lane, status, merged_at')
         .eq('workspace_id', workspace)
@@ -190,7 +192,7 @@ export function supabaseEngineeringReads(db: SupabaseClient<Database>, workspace
         .range(start, end));
       if (watch.length === 0) return [];
       const prds = [...new Set(watch.map((w) => w.prd))];
-      const breaks = await allPages<StoredBreak>('the main breaks', (start, end) => db
+      const breaks = await parsedPages('the main breaks', StoredBreak, 'engineering: prd_main_breaks', (start, end) => db
         .from('prd_main_breaks')
         .select('repository, prd, lane, title, at')
         .eq('workspace_id', workspace)
@@ -198,7 +200,7 @@ export function supabaseEngineeringReads(db: SupabaseClient<Database>, workspace
         .order('at', { ascending: true })
         .order('source', { ascending: true })
         .range(start, end));
-      const dossiers = await allPages<StoredDossier>('the PRD pages', (start, end) => db
+      const dossiers = await parsedPages('the PRD pages', StoredDossier, 'engineering: dossiers', (start, end) => db
         .from('dossiers')
         .select('id, home_repo, prd')
         .eq('workspace_id', workspace)
