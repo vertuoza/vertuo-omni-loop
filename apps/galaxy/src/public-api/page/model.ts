@@ -120,6 +120,20 @@ const withApp = (keys: readonly ApiKey[], id: string, githubApp: ApiKey['githubA
 const withAttach = (state: ApiKeysState, field: Partial<AttachForm>): ApiKeysState =>
   (state.attach ? { ...state, attach: { ...state.attach, ...field } } : state);
 
+/** Every action of a key's GitHub App, keyed so the compiler names the one a new action forgets. */
+const GITHUB_APP_ACTIONS: Record<GithubAppAction['type'], true> = {
+  'attach-open': true,
+  'attach-close': true,
+  'attach-id': true,
+  'attach-file': true,
+  attached: true,
+  'remove-confirm': true,
+  'remove-cancel': true,
+  removed: true,
+};
+
+const isGithubAppAction = (action: ApiKeysAction): action is GithubAppAction => Object.hasOwn(GITHUB_APP_ACTIONS, action.type);
+
 /** How a key's GitHub App changes the panel: the attach form opens, fills, closes or lands, and Remove is asked twice. */
 function githubAppReducer(state: ApiKeysState, action: GithubAppAction): ApiKeysState {
   switch (action.type) {
@@ -150,6 +164,7 @@ function githubAppReducer(state: ApiKeysState, action: GithubAppAction): ApiKeys
 }
 
 export function apiKeysReducer(state: ApiKeysState, action: ApiKeysAction): ApiKeysState {
+  if (isGithubAppAction(action)) return githubAppReducer(state, action);
   switch (action.type) {
     case 'open':
       return { ...state, form: { ...CLOSED_FORM, open: true }, attach: null, refusal: null };
@@ -191,8 +206,6 @@ export function apiKeysReducer(state: ApiKeysState, action: ApiKeysAction): ApiK
       return { ...state, busy: false, refusal: action.message };
     case 'copied':
       return { ...state, copied: true };
-    default:
-      return githubAppReducer(state, action);
   }
 }
 

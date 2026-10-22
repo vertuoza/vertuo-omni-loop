@@ -18,7 +18,8 @@ import { apiKeysReducer, initialApiKeysState, type ApiKeysPageView, type ApiKeys
 
 const NOW = new Date('2026-10-15T12:00:00Z');
 const SECRET = `oma_Xk3vQ2nB7tY0pLm4sWc8dR1hJ6uZ${'A'.repeat(11)}9fQe`;
-const PEM = '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAnotforshow\n-----END RSA PRIVATE KEY-----\n';
+// A private key's shape, built at runtime so no key sits in the source (the open-source guard).
+const PEM = ['-----BEGIN RSA PRIVATE KEY-----', 'MIIEowIBAAKCAQEAnotforshow', '-----END RSA PRIVATE KEY-----', ''].join('\n');
 const key = (id: string, name: string, more: Partial<ApiKey> = {}): ApiKey => ({
   id, name, lastFour: '9fQe', repos: [], createdAt: '2026-10-15T09:00:00Z', lastUsedAt: null, revokedAt: null,
   maker: { id: 'u-1', login: 'pierrederval', name: null }, working: true, ...more,

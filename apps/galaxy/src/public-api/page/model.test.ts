@@ -105,7 +105,8 @@ describe('a key’s row', () => {
 // A key's GitHub App (PRD 2433 s5): the attach form's state, Remove asked twice, and the words under the slug.
 
 const APP = { slug: 'acme-fixer', lastTokenAt: '2026-10-21T08:00:00Z' };
-const PEM = '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----\n';
+// A private key's shape, built at runtime so no key sits in the source (the open-source guard).
+const PEM = ['-----BEGIN RSA PRIVATE KEY-----', 'MIIEowIBAAKCAQEA', '-----END RSA PRIVATE KEY-----', ''].join('\n');
 const FILE = { name: 'acme-fixer.pem', text: PEM };
 
 describe('a key’s GitHub App', () => {

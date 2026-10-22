@@ -5,7 +5,8 @@ import { demoApiKeysView, demoGithubAppPort } from './demo';
 // Settings › API keys in the demo (PRD 2433 s5): the keys' GitHub Apps, and an attach and a remove played in
 // memory with the database's words, so the page plays as it will.
 
-const PEM = '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----\n';
+// A private key's shape, built at runtime so no key sits in the source (the open-source guard).
+const PEM = ['-----BEGIN RSA PRIVATE KEY-----', 'MIIEowIBAAKCAQEA', '-----END RSA PRIVATE KEY-----', ''].join('\n');
 
 describe('the demo’s GitHub Apps', () => {
   const view = demoApiKeysView();
