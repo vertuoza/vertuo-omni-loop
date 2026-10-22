@@ -59,6 +59,6 @@ export function brokeMainOf(rows: readonly MainWatchRow[], tracked: ReadonlySet<
   broke.sort((a, b) => b.at - a.at || a.repository.localeCompare(b.repository) || a.prd - b.prd);
   return {
     ended, broke: broke.length, share: Math.round((broke.length / ended) * 100), watching,
-    list: broke.map(({ at: _at, ...p }) => p),
+    list: broke.map((p) => ({ repository: p.repository, prd: p.prd, dossier: p.dossier, what: p.what })),
   };
 }
