@@ -6,6 +6,7 @@ import type { Face } from '../people/face';
 import type { WorkspaceMilestone } from '../timeline/store';
 import { median } from './median';
 import { timePerStepOf, type TimePerStep } from './steps';
+import { brokeMainOf, type BrokeMain, type MainWatchRow } from './broke-main';
 
 export { median };
 
@@ -167,6 +168,8 @@ export interface EngineeringRead {
   reviews: ReviewRow[];
   /** The workspace's PRD milestones (PRD 2370 s6), for the Time per step panel; none when not read. */
   milestones?: WorkspaceMilestone[];
+  /** The PRDs' main watch lanes (PRD 2410 s4), for Loop health's broke-main line; none when not read. */
+  mainWatch?: MainWatchRow[];
 }
 
 export interface EngineeringTiles {
@@ -222,6 +225,8 @@ export type EngineeringValue =
     omni: OmniPanel;
     health: LoopHealth;
     needsFixRate: NeedsFixRate;
+    /** PRDs that broke main out of those whose watch ended in the period (PRD 2410 s4); null when none ended. */
+    brokeMain: BrokeMain | null;
     perDay: MergedDay[];
     steps: TimePerStep;
   };
@@ -358,5 +363,5 @@ export function engineeringOf(read: EngineeringRead, window: PeriodWindow, sort:
     else day.rest++;
   }
 
-  return { kind: 'board', window, sort, tiles, repositories, people, omni, health: loopHealthOf(all, now), needsFixRate: needsFixRateOf(subPrsMerged), perDay, steps: timePerStepOf(read.milestones ?? [], tracked, from, to, now) };
+  return { kind: 'board', window, sort, tiles, repositories, people, omni, health: loopHealthOf(all, now), needsFixRate: needsFixRateOf(subPrsMerged), brokeMain: brokeMainOf(read.mainWatch ?? [], tracked, from, to), perDay, steps: timePerStepOf(read.milestones ?? [], tracked, from, to, now) };
 }
