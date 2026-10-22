@@ -76,7 +76,9 @@ describe('checking an App ID and private key', () => {
   it('says GitHub could not answer, not that it refused, on a server error, an odd shape or a lost network', async () => {
     const odd = (answers: Record<string, () => Response>) => checkApp(CREDS, github(answers).fetchImpl, clock);
     expect(await odd({ 'GET /app': json(500, {}) })).toEqual({ ok: false, reason: 'unavailable', detail: 'GitHub answered 500 to GET /app' });
-    expect(await odd({ 'GET /app': json(200, { id: 1 }) })).toMatchObject({ ok: false, reason: 'unavailable', detail: expect.stringMatching(/GET \/app is not the shape/) });
+    const shapeless = await odd({ 'GET /app': json(200, { id: 1 }) });
+    expect(shapeless).toMatchObject({ ok: false, reason: 'unavailable' });
+    expect(shapeless.ok ? '' : shapeless.detail).toMatch(/GET \/app is not the shape/);
     expect(await odd({ 'GET /app': json(200, { slug: '../evil' }) })).toMatchObject({ ok: false, reason: 'unavailable' });
     expect(await odd({ 'GET /app': happy['GET /app'], 'GET /users/acme-bugs[bot]': json(404, {}) }))
       .toEqual({ ok: false, reason: 'unavailable', detail: 'GitHub answered 404 to GET /users/acme-bugs[bot]' });
