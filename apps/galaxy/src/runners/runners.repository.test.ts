@@ -107,11 +107,57 @@ describe('the rows', () => {
     const job = jobRow();
     const { db, lines } = fakeDb([{ data: runner, error: null }, { data: job, error: null }, { data: [{ user_id: 'u1', github_login: 'mo' }, { user_id: 'u2', github_login: null }], error: null }]);
     const repository = runnersRepository(db);
-    expect(await repository.insertRunner({ workspaceId: 'w1', owner: 'u1', name: 'shared', slots: 1, repos: ['demo-org/app'], version: '1', seenAt: 't' })).toEqual(runner);
+    expect(await repository.insertRunner({ workspaceId: 'w1', owner: 'u1', name: 'shared', slots: 1, repos: ['demo-org/app'], version: '1', seenAt: 't', githubApp: true })).toEqual(runner);
     expect(await repository.insertJob({ workspaceId: 'w1', line: '/omni:yolo 1', repo: 'demo-org/app', toRunner: null, toFleet: 'cia', sentBy: 'u1', sentByKey: null })).toEqual(job);
     expect(await repository.logins('w1', ['u1', 'u2'])).toEqual(new Map([['u1', 'mo']]));
+    expect(lines[0]).toContain('"github_app":true');
     expect(lines[1]).toContain('"to_fleet":"cia"');
     expect(await repository.logins('w1', [])).toEqual(new Map());
+  });
+});
+
+// A key's GitHub App (PRD 2433 s7): the two service-role functions of
+// supabase/migrations/20261228090000_api_key_github_apps.sql, and the runner's `github_app` column.
+describe('a key\'s GitHub App (PRD 2433)', () => {
+  const OF_JOB = {
+    key_id: 'k1', workspace_id: 'w1', working: true, needs_app: true,
+    app: { app_id: 123456, slug: 'acme-bugs', bot_id: 777, ciphertext: 'sealed', iv: 'iv' },
+  };
+
+  it('reads the App a job runs as with api_key_github_app_of_job()', async () => {
+    const { db, lines } = fakeDb([{ data: OF_JOB, error: null }]);
+    expect(await runnersRepository(db).appOfJob('j1')).toEqual(OF_JOB);
+    expect(lines).toEqual(['rpc("api_key_github_app_of_job",{"p_job":"j1"})']);
+  });
+
+  it('reads a key that holds no App, or has none left, as the database answers it', async () => {
+    const { db } = fakeDb([{ data: { ...OF_JOB, app: null, needs_app: false }, error: null }, { data: null, error: null }]);
+    const repository = runnersRepository(db);
+    expect(await repository.appOfJob('j1')).toEqual({ ...OF_JOB, app: null, needs_app: false });
+    expect(await repository.appOfJob('j2')).toBeNull();
+  });
+
+  it('refuses an answer out of shape, and says which call', async () => {
+    const { db } = fakeDb([{ data: { ...OF_JOB, working: 'yes' }, error: null }]);
+    await expect(runnersRepository(db).appOfJob('j1')).rejects.toThrow('api_key_github_app_of_job() answered out of shape');
+  });
+
+  it('records a mint with api_key_github_app_minted()', async () => {
+    const { db, lines } = fakeDb([{ data: null, error: null }]);
+    await runnersRepository(db).appMinted('k1');
+    expect(lines).toEqual(['rpc("api_key_github_app_minted",{"p_key":"k1"})']);
+  });
+
+  it('throws what the database refuses', async () => {
+    const { db } = fakeDb([{ data: null, error: { message: 'permission denied' } }]);
+    await expect(runnersRepository(db).appMinted('k1')).rejects.toThrow('api_key_github_app_minted(): permission denied');
+  });
+
+  it('updates a runner\'s github_app when it registers again', async () => {
+    const runner = runnerRow({ id: SHARED, name: 'shared', github_app: false });
+    const { db, lines } = fakeDb([{ data: runner, error: null }]);
+    await runnersRepository(db).updateRunner(SHARED, { github_app: false });
+    expect(lines).toEqual([`from("runners").update({"github_app":false}).eq("id","${SHARED}").select("id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app").single()`]);
   });
 });
 

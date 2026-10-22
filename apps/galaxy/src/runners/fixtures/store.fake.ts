@@ -1,6 +1,6 @@
 import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import type { Question } from '../runners.contract';
-import type { Acted, JobLineRow, JobPatch, JobRow, JobRowStatus, NewJob, NewRunner, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from '../runners.repository';
+import type { Acted, AppOfJob, JobLineRow, JobPatch, JobRow, JobRowStatus, NewJob, NewRunner, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from '../runners.repository';
 
 // The runners' storage in memory (PRD 1830 s1), for the service's and the controller's tests: the same
 // rows the two tables hold, the claim's rules as runner_claim() applies them, and runners_mark_lost(),
@@ -10,7 +10,10 @@ import type { Acted, JobLineRow, JobPatch, JobRow, JobRowStatus, NewJob, NewRunn
 // runner's samples (PRD 2102), one per runner and instant, as runner_samples holds them; and a job's
 // questions (PRD 2255), with runner_job_answer() and runner_job_dismiss() as
 // supabase/migrations/20261218100000_runner_job_questions.sql writes them and
-// supabase/checks/runner_job_questions.sql proves them. A realistic workspace: Olga owns it and plays in
+// supabase/checks/runner_job_questions.sql proves them; and an API key's GitHub App (PRD 2433), with
+// runner_claim() keeping a job that needs an App from a runner that did not register `githubApp`, and
+// api_key_github_app_of_job() and api_key_github_app_minted() as supabase/migrations/20261228090000_api_key_github_apps.sql
+// writes them. A realistic workspace: Olga owns it and plays in
 // the fleet cia, Mo plays in cia, Pia in pirates, Sam in no fleet; Eve belongs to another workspace.
 
 export const WORKSPACE = '00000000-0000-4000-8000-000001830001';
@@ -43,6 +46,15 @@ const MEMBERS: Member[] = [
 export const API_KEY = '00000000-0000-4000-8000-0000018302a1';
 const KEYS = [{ id: API_KEY, workspaceId: WORKSPACE, name: 'QA dashboard' }];
 
+/** A key's GitHub App as api_key_github_apps holds it, its private key sealed (the fake never opens one). */
+export type KeyApp = NonNullable<AppOfJob['app']>;
+
+/** A key's App as the tests build one: id 123456, slug `acme-bugs`, bot 777, a sealed key. */
+export const KEY_APP: KeyApp = { app_id: 123456, slug: 'acme-bugs', bot_id: 777, ciphertext: 'sealed-private-key', iv: 'its-iv' };
+
+/** What the tests set up of the keys: the App a key holds, and whether it still works (not revoked, its maker a member). */
+export type KeyState = { id: string; app: KeyApp | null; working: boolean };
+
 const FLEETS = [{ workspaceId: WORKSPACE, name: 'cia' }, { workspaceId: WORKSPACE, name: 'pirates' }];
 
 /** Which workspace owns a repository's GitHub organisation. */
@@ -50,7 +62,7 @@ const ORGS: Record<string, string> = { 'demo-org': WORKSPACE, elsewhere: ELSEWHE
 
 /** A runner row, seen at `T0` unless told otherwise. */
 export function runnerRow(more: Partial<RunnerRow> & Pick<RunnerRow, 'id' | 'name'>): RunnerRow {
-  return { workspace_id: WORKSPACE, owner: OLGA, fleet: null, slots: 4, repos: ['demo-org/app'], version: '0.0.387', last_seen_at: T0.toISOString(), health: null, ...more };
+  return { workspace_id: WORKSPACE, owner: OLGA, fleet: null, slots: 4, repos: ['demo-org/app'], version: '0.0.387', last_seen_at: T0.toISOString(), health: null, github_app: false, ...more };
 }
 
 /** Olga's three runners: a shared one with one slot, one of the fleet cia, one that holds another repository. */
@@ -101,21 +113,33 @@ const ENDED_STATUSES: readonly JobRowStatus[] = ['done', 'failed', 'cancelled'];
 export type AllowedSkillRow = { workspace_id: string; full_name: string; skill: string };
 
 /** The fake's tables, and the clock it stamps writes with. */
-export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], questions = [], skills = [], now = () => T0 }: {
-  runners?: RunnerRow[]; jobs?: JobRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; skills?: AllowedSkillRow[]; now?: () => Date;
+export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], questions = [], skills = [], keys = [], needsApp = [], now = () => T0 }: {
+  runners?: RunnerRow[]; jobs?: JobRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; skills?: AllowedSkillRow[];
+  /** The keys that hold an App, or no longer work; a key not listed holds none and works. */
+  keys?: KeyState[];
+  /** Jobs that need an App though their key holds none now (queued while it did: runner_job_needs_app). */
+  needsApp?: string[];
+  now?: () => Date;
 } = {}) {
   const calls: string[] = [];
   const state = {
     runners: runners.map((row) => ({ ...row })), jobs: jobs.map((row) => ({ ...row })), lines: lines.map((row) => ({ ...row })),
     samples: samples.map((row) => ({ ...row })), questions: questions.map((row) => ({ ...row })), skills: skills.map((row) => ({ ...row })), calls,
+    keys: keys.map((row) => ({ ...row })), needsApp: new Set(needsApp), minted: [] as string[],
   };
   const stamp = () => now().toISOString();
+  const keyOf = (id: string | null): KeyState | undefined => state.keys.find((k) => k.id === id);
+  // As runner_job_needs_app_mark() marks a job queued while its key held an App, and api_key_github_app_of_job() reads it.
+  const holdsApp = (job: Pick<JobRow, 'sent_by_key'>) => (keyOf(job.sent_by_key)?.app ?? null) !== null;
+  const needsAppJob = (job: JobRow) => state.needsApp.has(job.id) || holdsApp(job);
+  for (const job of state.jobs) if (holdsApp(job)) state.needsApp.add(job.id);
   // As runner_claim() reads them: a queued job of its workspace, for a repository it holds…
   const takeable = (runner: RunnerRow, job: JobRow) =>
     job.workspace_id === runner.workspace_id && job.status === 'queued' && !job.cancel_requested && runner.repos.includes(job.repo);
   // …sent to it, to its fleet, or, for a runner with no fleet only, to any runner.
   const addressed = (runner: RunnerRow, job: JobRow) => (job.to_runner === null ? job.to_fleet === runner.fleet : job.to_runner === runner.id);
-  const may = (runner: RunnerRow, job: JobRow) => takeable(runner, job) && addressed(runner, job);
+  // …and a job that needs an App goes only to a runner that registered `githubApp`.
+  const may = (runner: RunnerRow, job: JobRow) => takeable(runner, job) && addressed(runner, job) && (runner.github_app || !needsAppJob(job));
   // Why runner_job_answer() and runner_job_dismiss() refuse before they change anything: no row, a closed row or a
   // job that is not waiting, an account outside the workspace.
   const refusal = (jobId: string, by: string): 'none' | 'closed' | 'stranger' | null => {
@@ -140,6 +164,18 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       m.workspaceId === workspaceId && userIds.includes(m.userId) && m.login ? [[m.userId, m.login] as const] : []
     )))),
     keyNames: (workspaceId, keyIds) => Promise.resolve(new Map(KEYS.filter((k) => k.workspaceId === workspaceId && keyIds.includes(k.id)).map((k) => [k.id, k.name] as const))),
+    appOfJob: (jobId) => {
+      state.calls.push(`app of job ${jobId}`);
+      const job = state.jobs.find((j) => j.id === jobId);
+      if (!job || job.sent_by_key === null) return Promise.resolve(null);
+      const key = keyOf(job.sent_by_key);
+      return Promise.resolve({ key_id: job.sent_by_key, workspace_id: job.workspace_id, working: key?.working ?? true, needs_app: needsAppJob(job), app: key?.app ?? null });
+    },
+    appMinted: (keyId) => {
+      state.calls.push(`minted ${keyId}`);
+      state.minted.push(keyId);
+      return Promise.resolve();
+    },
     // As repository_runner_skills_of() reads them: the repository's names, in order.
     allowedSkills: (workspaceId, repo) => Promise.resolve(state.skills
       .filter((row) => row.workspace_id === workspaceId && row.full_name === repo.toLowerCase()).map((row) => row.skill).sort()),
@@ -150,6 +186,7 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       const row = runnerRow({
         id: `00000000-0000-4000-8000-${String(1830010000 + state.runners.length).padStart(12, '0')}`, workspace_id: runner.workspaceId,
         owner: runner.owner, name: runner.name, slots: runner.slots, repos: runner.repos, version: runner.version, last_seen_at: runner.seenAt,
+        github_app: runner.githubApp,
       });
       state.runners.push(row);
       state.calls.push(`insert runner ${runner.name}`);
@@ -203,6 +240,7 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
     insertJob: (job: NewJob) => {
       const row = jobRow({ workspace_id: job.workspaceId, line: job.line, repo: job.repo, to_runner: job.toRunner, to_fleet: job.toFleet, sent_by: job.sentBy, sent_by_key: job.sentByKey, queued_at: stamp() });
       state.jobs.push(row);
+      if (holdsApp(row)) state.needsApp.add(row.id);
       return Promise.resolve({ ...row });
     },
     updateJob: (id, from: readonly JobRowStatus[], patch: JobPatch) => {
