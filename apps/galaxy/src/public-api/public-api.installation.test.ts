@@ -77,13 +77,14 @@ describe('asking GitHub about a key’s App on a repository', () => {
     const error = await installationChecker(() => randomBytes(32), fetchImpl, () => NOW)(APP, 'acme/backend').then(() => null, (e: unknown) => e);
     expect(error).toBeInstanceOf(Error);
     expect(calls).toEqual([]);
-    expect(String((error as Error).message)).not.toContain(sealed.ciphertext);
-    expect(String((error as Error).message)).not.toContain('PRIVATE KEY');
+    const message = error instanceof Error ? error.message : '';
+    expect(message).not.toContain(sealed.ciphertext);
+    expect(message).not.toContain('PRIVATE KEY');
   });
 
   it('throws, naming GitHub’s status and the path and never the key, when GitHub fails', async () => {
     const { fetchImpl } = github(() => new Response('{"message":"Bad credentials"}', { status: 500 }));
     const error = await installationChecker(() => MASTER, fetchImpl, () => NOW)(APP, 'acme/backend').then(() => null, (e: unknown) => e);
-    expect((error as Error).message).toBe(`GitHub answered 500 to GET ${PATH}`);
+    expect(error instanceof Error ? error.message : null).toBe(`GitHub answered 500 to GET ${PATH}`);
   });
 });
